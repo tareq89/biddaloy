@@ -348,6 +348,28 @@ describe('FeeGenerationBatchService (integration)', () => {
     });
   });
 
+  async function payBill(studentId: string, billId: string, amount: number) {
+    const payment = await paymentRepo.save(
+      paymentRepo.create({
+        tenant_id: TENANT_ID,
+        student_id: studentId,
+        total_amount: amount,
+        payment_method: PaymentMethod.CASH,
+        received_by_user_id: ACTOR_USER_ID,
+        payment_date: new Date(),
+      }),
+    );
+    await paymentAllocationRepo.save(
+      paymentAllocationRepo.create({
+        payment_id: payment.id,
+        student_fee_id: billId,
+        allocated_amount: amount,
+        allocation_type: PaymentAllocationType.CURRENT,
+      }),
+    );
+    return payment;
+  }
+
   describe('deleteBatch', () => {
     it('soft-deletes an uncollected batch and all its bills with no approval', async () => {
       const batch = await createBatch();
@@ -440,6 +462,105 @@ describe('FeeGenerationBatchService (integration)', () => {
       expect(reversal!.kind).toBe(WalletTransactionKind.REVERSAL);
     });
 
+    it('MON-03: credits checkout money of a removed bill to the wallet, once, and audits it', async () => {
+      const batch = await createBatch();
+      const student = await studentRepo.save(makeStudent());
+      const bill = await addBill(batch.id, student.id, {
+        paid_amount: 1000,
+        status: FeeStatus.PAID,
+      });
+      const payment = await payBill(student.id, bill.id, 1000);
+
+      const token = await issueApprovalToken(`jti-mon03-${Date.now()}`);
+      await service.deleteBatch(batch.id, TENANT_ID, ACTOR_USER_ID, requestWithToken(token));
+
+      const wallet = await walletRepo.findOneOrFail({ where: { student_id: student.id } });
+      expect(Number(wallet.balance)).toBe(1000);
+      const credits = await walletTxRepo.find({
+        where: { wallet_id: wallet.id, kind: WalletTransactionKind.CREDIT_BILL_REMOVED },
+      });
+      expect(credits).toHaveLength(1);
+      expect(Number(credits[0].amount)).toBe(1000);
+      expect(credits[0].payment_id).toBe(payment.id);
+      expect(credits[0].student_fee_id).toBe(bill.id);
+
+      const auditRow = await auditLogRepo.findOne({
+        where: { entity_type: 'FeeGeneration', entity_id: batch.id },
+        order: { created_at: 'DESC' },
+      });
+      expect((auditRow!.new_values as any).wallet_credited).toEqual([
+        { student_fee_id: bill.id, payment_id: payment.id, amount: 1000 },
+      ]);
+    });
+
+    it('MON-03: two concurrent deletes of the same batch credit once', async () => {
+      const batch = await createBatch();
+      const student = await studentRepo.save(makeStudent());
+      const bill = await addBill(batch.id, student.id, {
+        paid_amount: 1500,
+        status: FeeStatus.PAID,
+      });
+      await payBill(student.id, bill.id, 1500);
+
+      const t1 = await issueApprovalToken(`jti-conc-a-${Date.now()}`);
+      const t2 = await issueApprovalToken(`jti-conc-b-${Date.now()}`);
+      await Promise.allSettled([
+        service.deleteBatch(batch.id, TENANT_ID, ACTOR_USER_ID, requestWithToken(t1)),
+        service.deleteBatch(batch.id, TENANT_ID, ACTOR_USER_ID, requestWithToken(t2)),
+      ]);
+
+      const wallet = await walletRepo.findOneOrFail({ where: { student_id: student.id } });
+      expect(Number(wallet.balance)).toBe(1500);
+      expect(
+        await walletTxRepo.count({
+          where: { wallet_id: wallet.id, kind: WalletTransactionKind.CREDIT_BILL_REMOVED },
+        }),
+      ).toBe(1);
+    });
+
+    it('MON-13: deleteBatch waits for a lock held by a concurrent checkout, then demands approval', async () => {
+      const batch = await createBatch();
+      const student = await studentRepo.save(makeStudent());
+      const bill = await addBill(batch.id, student.id);
+
+      const runner = dataSource.createQueryRunner();
+      await runner.connect();
+      await runner.startTransaction();
+      try {
+        await runner.manager
+          .createQueryBuilder(StudentFee, 'sf')
+          .where('sf.id = :id', { id: bill.id })
+          .setLock('pessimistic_write')
+          .getOne();
+
+        let settled = false;
+        const deletion = service
+          .deleteBatch(batch.id, TENANT_ID, ACTOR_USER_ID, requestWithToken())
+          .then(
+            () => 'ok',
+            (e) => e,
+          )
+          .finally(() => {
+            settled = true;
+          });
+        await new Promise((r) => setTimeout(r, 500));
+        expect(settled).toBe(false); // blocked on the bill lock
+
+        // the "checkout" commits money onto the bill, then releases the lock
+        await runner.manager.query(
+          `UPDATE student_fees SET paid_amount = 1000, status = 'PAID' WHERE id = $1`,
+          [bill.id],
+        );
+        await runner.commitTransaction();
+
+        const outcome = await deletion;
+        expect(outcome).toBeInstanceOf(ApprovalRequiredException);
+      } finally {
+        if (runner.isTransactionActive) await runner.rollbackTransaction();
+        await runner.release();
+      }
+    });
+
     it('is tenant-isolated: a batch from another tenant 404s', async () => {
       await expect(
         service.deleteBatch(
@@ -469,6 +590,32 @@ describe('FeeGenerationBatchService (integration)', () => {
 
       const batchAfter = await generationRepo.findOne({ where: { id: batch.id } });
       expect(batchAfter!.removed_count).toBe(1);
+    });
+
+    it('MON-03: credits checkout money of the removed student bill to the wallet', async () => {
+      const batch = await createBatch();
+      const student = await studentRepo.save(makeStudent());
+      const bill = await addBill(batch.id, student.id, {
+        paid_amount: 1000,
+        status: FeeStatus.PAID,
+      });
+      const payment = await payBill(student.id, bill.id, 1000);
+
+      const token = await issueApprovalToken(`jti-rs-${Date.now()}`);
+      await service.removeStudent(
+        batch.id,
+        student.id,
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(token),
+      );
+
+      const wallet = await walletRepo.findOneOrFail({ where: { student_id: student.id } });
+      expect(Number(wallet.balance)).toBe(1000);
+      const credit = await walletTxRepo.findOneOrFail({
+        where: { wallet_id: wallet.id, kind: WalletTransactionKind.CREDIT_BILL_REMOVED },
+      });
+      expect(credit.payment_id).toBe(payment.id);
     });
   });
 

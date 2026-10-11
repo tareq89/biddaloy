@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
+import { returnMoneyOfRemovedBills } from './removed-bill-money';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -40,7 +41,14 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { FeeStatus, FeeType, PaymentMethod, InvoiceStatus, InvoiceKind } from '@biddaloy/shared';
+import {
+  FeeStatus,
+  FeeType,
+  PaymentMethod,
+  PaymentAllocationType,
+  InvoiceStatus,
+  InvoiceKind,
+} from '@biddaloy/shared';
 
 /**
  * Integration tests for `PaymentReversalService` (16.6.1) — reverses a
@@ -408,6 +416,117 @@ describe('PaymentReversalService (integration)', () => {
     await expect(
       service.reverse(overpayment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'too late'),
     ).rejects.toThrow(ReverseLaterPaymentsFirstException);
+  });
+
+  async function payThenRemoveBill(studentId: string, key: string, billOverrides = {}) {
+    const bill = await studentFeeRepo.save(
+      makeBill(studentId, { total_amount: 1000, ...billOverrides }),
+    );
+    const { payment } = await checkoutService.checkout(
+      {
+        idempotency_key: key,
+        lines: [{ student_fee_id: bill.id, amount: 1000, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    // Staff deletes the paid bill: it is soft-deleted and the money goes to the wallet.
+    await dataSource.transaction(async (manager) => {
+      await manager.getRepository(StudentFee).softDelete({ id: bill.id });
+      const removed = await manager
+        .getRepository(StudentFee)
+        .find({ where: { id: bill.id }, withDeleted: true });
+      await returnMoneyOfRemovedBills(manager, walletService, removed, TENANT_ID, ACTOR_USER_ID);
+    });
+    return { bill, payment };
+  }
+
+  it('MON-03: reversing a payment whose bill was removed takes the wallet credit back out', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const { payment } = await payThenRemoveBill(student.id, '11111111-1111-4111-8111-111111111201');
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(1000);
+
+    await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'wrong bill');
+
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
+  });
+
+  it('MON-03: refuses (409 naming the later payment) when the removed-bill credit was already spent', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const { payment } = await payThenRemoveBill(student.id, '11111111-1111-4111-8111-111111111202');
+    const billLater = await studentFeeRepo.save(
+      makeBill(student.id, { total_amount: 1000, occurrence: 2 }),
+    );
+    const { payment: later } = await checkoutService.checkout(
+      {
+        idempotency_key: '11111111-1111-4111-8111-111111111203',
+        lines: [{ student_fee_id: billLater.id, amount: 1000, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+        wallet_use: 1000,
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+
+    const err = await service
+      .reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'too late')
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ReverseLaterPaymentsFirstException);
+    expect(JSON.stringify(err.getResponse())).toContain(later.id);
+  });
+
+  it('MON-03: multi-student payment: reversal debits the credit from the wallet of the student whose bill was removed', async () => {
+    const studentA = await studentRepo.save(makeStudent());
+    const studentB = await studentRepo.save(makeStudent());
+    const billA = await studentFeeRepo.save(
+      makeBill(studentA.id, { total_amount: 1000, paid_amount: 1000, status: FeeStatus.PAID }),
+    );
+    const billB = await studentFeeRepo.save(
+      makeBill(studentB.id, { total_amount: 1000, paid_amount: 1000, status: FeeStatus.PAID }),
+    );
+    // One payment (A is the payer) covering both students' bills.
+    const payment = await paymentRepo.save(
+      paymentRepo.create({
+        tenant_id: TENANT_ID,
+        student_id: studentA.id,
+        total_amount: 2000,
+        payment_method: PaymentMethod.CASH,
+        received_by_user_id: ACTOR_USER_ID,
+        payment_date: new Date(),
+      }),
+    );
+    await allocationRepo.save([
+      allocationRepo.create({
+        payment_id: payment.id,
+        student_fee_id: billA.id,
+        allocated_amount: 1000,
+        allocation_type: PaymentAllocationType.CURRENT,
+      }),
+      allocationRepo.create({
+        payment_id: payment.id,
+        student_fee_id: billB.id,
+        allocated_amount: 1000,
+        allocation_type: PaymentAllocationType.CURRENT,
+      }),
+    ]);
+    // B's bill is removed: the credit lands in B's wallet, not A's.
+    await dataSource.transaction(async (manager) => {
+      await manager.getRepository(StudentFee).softDelete({ id: billB.id });
+      const removed = await manager
+        .getRepository(StudentFee)
+        .find({ where: { id: billB.id }, withDeleted: true });
+      await returnMoneyOfRemovedBills(manager, walletService, removed, TENANT_ID, ACTOR_USER_ID);
+    });
+    expect(await walletService.balance(studentB.id, TENANT_ID)).toBe(1000);
+    expect(await walletService.balance(studentA.id, TENANT_ID)).toBe(0);
+
+    await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'wrong');
+
+    expect(await walletService.balance(studentB.id, TENANT_ID)).toBe(0);
+    expect(await walletService.balance(studentA.id, TENANT_ID)).toBe(0);
   });
 
   it('unwinds wallet credit used at checkout back into the wallet balance', async () => {

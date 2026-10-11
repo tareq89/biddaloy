@@ -20,7 +20,7 @@ export interface DriftGroup {
 export const DRIFT_BASELINE: DriftGroup[] = [
   {
     reason:
-      'REAL DRIFT. The entity enum has values the DB enum type lacks: wallet_transactions.kind (CREDIT_BILL_REMOVED, DEBIT_PAYOUT), discount_rules.fee_types (FINE). Writing one of those values fails with "invalid input value for enum". Needs an ALTER TYPE ... ADD VALUE migration.',
+      'REAL DRIFT. The entity enum has values the DB enum type lacks: wallet_transactions.kind (DEBIT_PAYOUT; CREDIT_BILL_REMOVED was added by migration 1791700000200), discount_rules.fee_types (FINE). Writing one of those values fails with "invalid input value for enum". The remaining values need an ALTER TYPE ... ADD VALUE migration.',
     owner: 'unowned, see #2343',
     statements: [
       'ALTER TABLE "discount_rules" ALTER COLUMN "fee_types" TYPE "public"."discount_rules_fee_types_enum"[] USING "fee_types"::"text"::"public"."discount_rules_fee_types_enum"[]',
