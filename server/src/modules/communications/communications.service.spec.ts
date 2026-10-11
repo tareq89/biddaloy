@@ -37,7 +37,11 @@ describe('CommunicationsService', () => {
     queue = { add: vi.fn() };
     studentService = { findOne: vi.fn() };
     guardianService = { findOne: vi.fn() };
-    smsCreditService = { settlePart: vi.fn(async () => undefined) };
+    smsCreditService = {
+      settlePart: vi.fn(async () => undefined),
+      // [#2216] Unmetered unless a test says otherwise.
+      reserveIfMetered: vi.fn(async () => 'UNMETERED'),
+    };
 
     service = new CommunicationsService(
       repo as any,
@@ -110,6 +114,40 @@ describe('CommunicationsService', () => {
       expect(repo.save).toHaveBeenLastCalledWith(
         expect.objectContaining({ status: CommunicationStatus.FAILED }),
       );
+    });
+  });
+
+  describe('enqueue reserves for an unreserved SMS [#2216]', () => {
+    const dto = {
+      medium: CommunicationMedium.SMS,
+      recipient_address: '01712345678',
+      recipient_name: 'Guardian',
+      message_body: 'Hello',
+    };
+
+    it('metered + credit: reserves and the job carries batchId and segments', async () => {
+      smsCreditService.reserveIfMetered.mockResolvedValue('RESERVED');
+      await service.enqueue(dto as any, TENANT_ID, USER_ID);
+      expect(queue.add).toHaveBeenCalledWith('send', {
+        logId: 'log-1',
+        batchId: expect.any(String),
+        segments: 1,
+      });
+    });
+
+    it('metered + 0 credit: 409 INSUFFICIENT_SMS_CREDIT, nothing saved or queued', async () => {
+      smsCreditService.reserveIfMetered.mockResolvedValue({ insufficient: true, available: 0 });
+      await expect(service.enqueue(dto as any, TENANT_ID, USER_ID)).rejects.toMatchObject({
+        status: 409,
+        response: { details: { code: 'INSUFFICIENT_SMS_CREDIT', required: 1, available: 0 } },
+      });
+      expect(repo.save).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('a caller-supplied reservation is not reserved again', async () => {
+      await service.enqueue(dto as any, TENANT_ID, USER_ID, { batchId: 'b', segments: 1 });
+      expect(smsCreditService.reserveIfMetered).not.toHaveBeenCalled();
     });
   });
 

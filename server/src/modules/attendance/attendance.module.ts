@@ -19,6 +19,7 @@ import { CalendarModule } from '../calendar/calendar.module';
 import { RoutinesModule } from '../routines/routines.module';
 import { PeriodSlot } from '../routines/entities/period-slot.entity';
 import { StudentModule } from '../students/students.module';
+import { CreditsModule } from '../communications/credits/credits.module';
 import { AttendanceController } from './attendance.controller';
 import { AttendanceService } from './attendance.service';
 import { AttendanceAccessService } from './attendance-access.service';
@@ -78,6 +79,7 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     SchoolsModule,
     CalendarModule,
     StudentModule,
+    CreditsModule,
     RoutinesModule,
     // Registered here (not exported from CommunicationsModule) so
     // AbsenceNoticeService can enqueue onto the exact same Redis-backed

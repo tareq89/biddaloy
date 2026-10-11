@@ -67,12 +67,18 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
     creditService?: SmsCreditService;
     sectionGonePlan?: boolean;
   }) {
+    // [#2216] CommunicationsService now reserves for an unreserved SMS itself,
+    // so an "unmetered" scenario must be unmetered for it too.
+    const effectiveCredits = (opts.creditService ??
+      (opts.metered === false
+        ? { isMetered: async () => false, reserveIfMetered: async () => 'UNMETERED' }
+        : credits)) as never;
     const communications = new CommunicationsService(
       logRepo as never,
       { add: async (name: string, data: any) => void jobs.push({ name, data }) } as any,
       { findOne: async () => ({}) } as any,
       { findOne: async () => ({}) } as any,
-      credits,
+      effectiveCredits,
     );
     const guardian = (id: string, phone: string | null) => ({
       id: `g-${id}`,
@@ -131,8 +137,7 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
       {} as never,
       { sendToUser: async (u: string) => void pushes.push(u) } as never,
       communications,
-      (opts.creditService ??
-        (opts.metered === false ? { isMetered: async () => false } : credits)) as never,
+      effectiveCredits,
     );
   }
 

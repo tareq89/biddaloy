@@ -337,6 +337,20 @@ export class CommunicationsProcessor extends WorkerHost {
       return;
     }
 
+    // [#2216] Backstop: a metered tenant's SMS must carry a reservation. Any
+    // producer (current or future) that forgot to reserve is failed here, not
+    // sent on the platform's gateway account. No throw, so no retry.
+    if (
+      log.medium === CommunicationMedium.SMS &&
+      !this.isSettleableSmsBatchJob(job, log) &&
+      (await this.smsCredits.isMetered(log.tenant_id))
+    ) {
+      log.status = CommunicationStatus.FAILED;
+      log.metadata = { ...log.metadata, reason: 'UNRESERVED_SMS' };
+      await this.settle(log, 'failure');
+      return;
+    }
+
     // `tryPushFirst` returning false leaves `log.medium` exactly as it was
     // read from the DB — a real `CommunicationMedium`, never `'PUSH'` (that
     // literal is only ever assigned inside `tryPushFirst`'s success branch,

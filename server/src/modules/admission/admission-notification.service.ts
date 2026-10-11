@@ -6,6 +6,8 @@ import { Repository } from 'typeorm';
 import { AdmissionApplicantStatus, CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
+import { SmsCreditService } from '../communications/credits/sms-credit.service';
+import { INSUFFICIENT_SMS_CREDIT } from '../communications/credits/insufficient-sms-credit.constants';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 
 const TEMPLATE_BY_STATUS: Partial<Record<AdmissionApplicantStatus, (applicantName: string, intakeTitle: string) => string>> = {
@@ -39,6 +41,7 @@ export class AdmissionNotificationService {
     private readonly logRepo: Repository<CommunicationLog>,
     @InjectQueue(COMMUNICATIONS_QUEUE)
     private readonly queue: Queue,
+    private readonly smsCreditService: SmsCreditService,
   ) {}
 
   async notifyStatusChange(
@@ -62,9 +65,21 @@ export class AdmissionNotificationService {
       }),
     );
 
+    // [#2216] Metered SMS must hold credit before it is queued.
+    const credit = await this.smsCreditService.reserveForLog(applicant.tenant_id, log);
+    if (credit === 'INSUFFICIENT') {
+      log.status = CommunicationStatus.FAILED;
+      log.metadata = { ...log.metadata, reason: INSUFFICIENT_SMS_CREDIT };
+      await this.logRepo.save(log);
+      return;
+    }
+
     try {
-      await this.queue.add('send', { logId: log.id });
+      await this.queue.add('send', { logId: log.id, ...credit });
     } catch (error) {
+      if (credit.segments !== undefined) {
+        await this.smsCreditService.releaseForLog(applicant.tenant_id, log.id, credit.segments);
+      }
       this.logger.warn(
         `Failed to enqueue admission status-change notification ${log.id} for applicant ${applicant.id}: ${String(error)}`,
       );

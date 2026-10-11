@@ -12,6 +12,7 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
 import { StudentModule } from '../students/students.module';
+import { CreditsModule } from '../communications/credits/credits.module';
 import { StorageModule } from '../storage/storage.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
@@ -70,7 +71,8 @@ import { HomeworkAnalyticsService } from './homework-analytics.service';
       StudyPlan,
     ]),
     StudentModule,
-    StorageModule,
+    CreditsModule,
+StorageModule,
     SchoolsModule,
     BulkImportModule,
     AuditModule,
