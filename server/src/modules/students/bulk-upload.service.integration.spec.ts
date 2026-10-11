@@ -396,6 +396,30 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(student?.guardians.map((g) => g.id)).toEqual([existing.id]);
   });
 
+  it('warns once per phone when guardian2_phone repeats guardian1_phone, labelled per column [LIFE-09]', async () => {
+    await guardianRepo.save(
+      guardianRepo.create({
+        full_name: 'Shared Phone Family',
+        relationship: 'OTHER',
+        phone: '+8801744444444',
+        tenant_id: TENANT_ID,
+      }),
+    );
+    const file = await buildXlsxFile([
+      rowValues(headers, {
+        guardian1_phone: '+8801744444444',
+        guardian2_name: 'Second Guardian',
+        guardian2_phone: '+8801744444444',
+      }),
+    ]);
+
+    const validated = await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    expect(validated.errors.filter((e) => e.severity === 'warning')).toEqual([
+      expect.objectContaining({ column: 'guardian1_phone', value: '+8801744444444' }),
+    ]);
+  });
+
   it('reports a specific error for a duplicate roll number within the same file, and blocks the whole batch', async () => {
     const file = await buildXlsxFile([
       rowValues(headers, { student_name: 'First', roll: '5' }),

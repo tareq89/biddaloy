@@ -21,6 +21,7 @@ import {
   useBulkUploadStudentPhotos,
   useUpdateStudentPreferredCommunication,
   type PreferredCommunication,
+  STUDENT_PHOTO_CHUNK_BYTES,
 } from './students';
 import { switchActiveTenant } from './tenant';
 
@@ -608,6 +609,11 @@ describe('useBulkUploadStudentPhotos (D57)', () => {
     expect(merged?.matched).toHaveLength(60);
     expect(merged?.unmatched).toEqual(['unmatched-1', 'unmatched-2', 'unmatched-3']);
     expect(progress).toEqual([42, 83, 100]);
+  });
+
+  it('chunk byte budget matches the nginx body-limit guard (server/src/nginx-body-limit.spec.ts)', () => {
+    // Change both together: that spec hard-codes 40 MB because server cannot import ui.
+    expect(STUDENT_PHOTO_CHUNK_BYTES).toBe(40 * 1024 * 1024);
   });
 
   describe('byte budget per request', () => {

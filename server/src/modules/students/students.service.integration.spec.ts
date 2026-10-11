@@ -1205,6 +1205,21 @@ describe('StudentService (integration)', () => {
       });
     });
 
+    it('create with an explicit, taken roll throws ROLL_NUMBER_TAKEN and leaves no student row', async () => {
+      await mk('Holder', SEED_SECTION_1_ID, 77);
+      await expect(mk('Clasher', SEED_SECTION_1_ID, 77)).rejects.toMatchObject({
+        status: 409,
+        response: { details: { code: 'ROLL_NUMBER_TAKEN' } },
+      });
+      // The create transaction rolled back: no student, no enrollment.
+      const rows = await dataSource.query(
+        `SELECT s.id, (SELECT count(*) FROM enrollments e WHERE e.student_id = s.id) AS n
+         FROM students s WHERE s.tenant_id = $1 AND s.full_name = 'Clasher'`,
+        [TENANT_ID],
+      );
+      expect(rows).toHaveLength(0);
+    });
+
     it('a move inside the same section with no roll change keeps the roll', async () => {
       const s = await mk('Stays', SEED_SECTION_1_ID, 5);
       const updated = await service.update(
