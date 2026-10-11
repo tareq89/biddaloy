@@ -222,7 +222,10 @@ describe('AttendanceComponentService (integration)', () => {
     }
   });
 
-  it('a student who left (INACTIVE enrollment) is not in the roster', async () => {
+  // Review r1 #1: the results cohort (loadExamCohort) keeps a non-ACTIVE
+  // enrollment that has marks, so the attendance part must keep it too, or a
+  // recompute after they leave/graduate turns their attendance into EXEMPT.
+  it('a student who left (INACTIVE enrollment) after the exam keeps their attendance value', async () => {
     await ds
       .getRepository(Enrollment)
       .update(
@@ -230,8 +233,19 @@ describe('AttendanceComponentService (integration)', () => {
         { enrollment_status: EnrollmentStatus.INACTIVE },
       );
     const r = await compute();
-    expect(r.valuesByStudent.has(studentB.id)).toBe(false);
-    expect(r.valuesByStudent.has(studentA.id)).toBe(true);
+    expect(r.valuesByStudent.get(studentB.id)).toBe('6.00');
+    expect(r.valuesByStudent.get(studentA.id)).toBe('10.00');
+  });
+
+  it('a student who graduated after the exam keeps their attendance value', async () => {
+    await ds
+      .getRepository(Enrollment)
+      .update(
+        { student_id: studentB.id, section_id: s1.id },
+        { enrollment_status: EnrollmentStatus.GRADUATED },
+      );
+    const r = await compute();
+    expect(r.valuesByStudent.get(studentB.id)).toBe('6.00');
   });
 
   it('roster is tenant-scoped and skips soft-deleted students', async () => {
@@ -257,7 +271,7 @@ describe('AttendanceComponentService (integration)', () => {
     });
     await ds.getRepository(Student).softDelete({ id: studentB.id });
 
-    const ids = await sectionRosterStudentIds(ds.manager, TENANT_ID, s1.id, { activeOnly: true });
+    const ids = await sectionRosterStudentIds(ds.manager, TENANT_ID, s1.id);
     expect(ids).toEqual([studentA.id]);
   });
 });
