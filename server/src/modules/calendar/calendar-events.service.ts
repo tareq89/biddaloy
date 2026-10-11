@@ -19,8 +19,8 @@ import { FamilyAccessService } from '../students/family-access.service';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../attendance/attendance-policy.util';
 import {
-  AttendanceSessionState,
   AuditAction,
+  CalendarEventType,
   Permission,
   UserRole,
   isGuardianRole,
@@ -256,18 +256,44 @@ export class CalendarEventsService {
       });
     }
 
-    await this.assertNotPast(tenantId, dto.end_date);
+    const isMakeup = dto.type === CalendarEventType.MAKEUP_DAY;
+    if (isMakeup) {
+      this.assertMakeupCounts(dto.counts_as_working_day);
+    }
+
+    // A past event is locked, with one exception (TIME-06): a closure
+    // (`counts_as_working_day` false) may be recorded after the fact, with a
+    // reason, as long as no register has marks in the range (checked below).
+    const today = await this.getToday(tenantId);
+    const isPastClosure = dto.end_date < today;
+    const reason = dto.reason?.trim() ?? '';
+    if (isPastClosure) {
+      if (isMakeup || dto.counts_as_working_day !== false) {
+        throw this.lockedError();
+      }
+      if (reason.length < 3) {
+        throw new UnprocessableEntityException({
+          message: 'A reason is required to add a closure for a day that has passed',
+          details: { code: 'CALENDAR_REASON_REQUIRED' },
+        });
+      }
+    }
 
     const academicYear = expectedAcademicYearId
       ? await this.assertInsideYear(tenantId, expectedAcademicYearId, dto.start_date, dto.end_date)
       : await this.resolveAcademicYear(tenantId, dto.start_date, dto.end_date);
     const classIds = await this.assertClassesInTenant(tenantId, dto.class_ids, academicYear.id);
 
-    if (dto.counts_as_working_day === false || dto.counts_as_working_day === undefined) {
-      await this.assertNoAttendanceInRange(tenantId, dto.start_date, dto.end_date);
+    // A make-up day adds a school day, it never removes one, so no register
+    // can contradict it.
+    const countsAsWorkingDay = isMakeup ? true : (dto.counts_as_working_day ?? false);
+    if (!countsAsWorkingDay) {
+      await this.assertNoAttendanceInRange(tenantId, dto.start_date, dto.end_date, classIds);
     }
 
-    const publish = dto.publish ?? true;
+    // A past closure is always live at once and never announced (no SMS
+    // about a day that is over).
+    const publish = isPastClosure ? true : (dto.publish ?? true);
     const event = this.eventRepo.create({
       tenant_id: tenantId,
       academic_year_id: academicYear.id,
@@ -278,7 +304,7 @@ export class CalendarEventsService {
       end_date: dto.end_date,
       start_time: dto.start_time ?? null,
       end_time: dto.end_time ?? null,
-      counts_as_working_day: dto.counts_as_working_day ?? false,
+      counts_as_working_day: countsAsWorkingDay,
       audience: dto.audience,
       published_at: publish ? new Date() : null,
       created_by_user_id: userId,
@@ -299,13 +325,17 @@ export class CalendarEventsService {
       tenant_id: tenantId,
       performed_by_user_id: userId,
       old_values: null,
-      new_values: { ...saved, class_ids: classIds },
+      new_values: {
+        ...saved,
+        class_ids: classIds,
+        ...(isPastClosure ? { reason } : {}),
+      },
     });
 
     const [withClassIds] = await this.withClassIds([saved], tenantId);
     // D9: a draft (`publish: false`) is never notified — `publish()` sends
     // the notify instead, once the event actually goes live.
-    if (publish) {
+    if (publish && !isPastClosure) {
       await this.notifyService.eventCreated(saved, {
         notify: dto.notify,
         notifySms: dto.notify_sms,
@@ -343,9 +373,18 @@ export class CalendarEventsService {
       ? await this.assertInsideYear(tenantId, expectedAcademicYearId, nextStart, nextEnd)
       : await this.resolveAcademicYear(tenantId, nextStart, nextEnd);
 
-    const nextCountsAsWorkingDay = dto.counts_as_working_day ?? event.counts_as_working_day;
+    const nextType = dto.type ?? event.type;
+    if (nextType === CalendarEventType.MAKEUP_DAY) {
+      this.assertMakeupCounts(dto.counts_as_working_day);
+    }
+    const nextCountsAsWorkingDay =
+      nextType === CalendarEventType.MAKEUP_DAY
+        ? true
+        : (dto.counts_as_working_day ?? event.counts_as_working_day);
     if (!nextCountsAsWorkingDay) {
-      await this.assertNoAttendanceInRange(tenantId, nextStart, nextEnd);
+      const guardClassIds =
+        dto.class_ids !== undefined ? dto.class_ids : await this.classIdsOf(event.id);
+      await this.assertNoAttendanceInRange(tenantId, nextStart, nextEnd, guardClassIds);
     }
 
     let classIds: string[] | undefined;
@@ -368,7 +407,7 @@ export class CalendarEventsService {
     }
 
     Object.assign(event, {
-      type: dto.type ?? event.type,
+      type: nextType,
       name: dto.name ?? event.name,
       // `null` is an explicit "clear this field"; only an absent
       // (`undefined`) key falls back to the existing value.
@@ -442,7 +481,12 @@ export class CalendarEventsService {
       // must not be allowed to go live unchecked.
       await this.assertNotPast(tenantId, event.end_date);
       if (!event.counts_as_working_day) {
-        await this.assertNoAttendanceInRange(tenantId, event.start_date, event.end_date);
+        await this.assertNoAttendanceInRange(
+          tenantId,
+          event.start_date,
+          event.end_date,
+          await this.classIdsOf(event.id),
+        );
       }
       event.published_at = new Date();
       event.updated_by_user_id = userId;
@@ -484,11 +528,30 @@ export class CalendarEventsService {
   private async assertNotPast(tenantId: string, endDate: string): Promise<void> {
     const today = await this.getToday(tenantId);
     if (endDate < today) {
+      throw this.lockedError();
+    }
+  }
+
+  private lockedError(): UnprocessableEntityException {
+    return new UnprocessableEntityException({
+      message: 'This calendar event is in the past and can no longer be changed',
+      details: { code: 'CALENDAR_EVENT_LOCKED' },
+    });
+  }
+
+  /** A make-up day exists to ADD a school day; "does not count" is a contradiction. */
+  private assertMakeupCounts(countsAsWorkingDay: boolean | undefined): void {
+    if (countsAsWorkingDay === false) {
       throw new UnprocessableEntityException({
-        message: 'This calendar event is in the past and can no longer be changed',
-        details: { code: 'CALENDAR_EVENT_LOCKED' },
+        message: 'A make-up school day always counts as a working day',
+        details: { code: 'CALENDAR_MAKEUP_MUST_COUNT' },
       });
     }
+  }
+
+  private async classIdsOf(eventId: string): Promise<string[]> {
+    const links = await this.eventClassRepo.find({ where: { event_id: eventId } });
+    return links.map((link) => link.class_id);
   }
 
   /**
@@ -592,25 +655,46 @@ export class CalendarEventsService {
   /**
    * A day that would stop counting as a working day (a holiday, or any
    * non-working event) cannot be created over a date that already has a
-   * finalized attendance register — that register already assumed the day
-   * was a school day when it was marked.
+   * register with marks in it — that register already assumed the day was a
+   * school day. Any state counts (a DRAFT register with marks is real
+   * data), a session with no records does not. A class-scoped event is only
+   * blocked by registers of its own classes; a school-wide one is also
+   * blocked by staff attendance.
    */
   private async assertNoAttendanceInRange(
     tenantId: string,
     startDate: string,
     endDate: string,
+    classIds: string[],
   ): Promise<void> {
-    const count = await this.attendanceSessionRepo
-      .createQueryBuilder('session')
-      .where('session.tenant_id = :tenantId', { tenantId })
-      .andWhere('session.date >= :startDate', { startDate })
-      .andWhere('session.date <= :endDate', { endDate })
-      .andWhere('session.state = :state', { state: AttendanceSessionState.FINALIZED })
-      .getCount();
-    if (count > 0) {
+    const scoped = classIds.length > 0;
+    const studentRows: Array<{ n: number }> = await this.attendanceSessionRepo.manager.query(
+      `SELECT COUNT(*)::int AS n FROM attendance_sessions s
+       WHERE s.tenant_id = $1 AND s.date >= $2 AND s.date <= $3
+         AND EXISTS (SELECT 1 FROM attendance_records r
+                     WHERE r.session_id = s.id AND r.tenant_id = $1)
+         ${
+           scoped
+             ? `AND s.section_id IN (SELECT cs.id FROM class_sections cs
+                                     WHERE cs.tenant_id = $1 AND cs.class_id = ANY($4::uuid[]))`
+             : ''
+         }`,
+      scoped ? [tenantId, startDate, endDate, classIds] : [tenantId, startDate, endDate],
+    );
+    let found = studentRows[0].n;
+    if (found === 0 && !scoped) {
+      const staffRows: Array<{ n: number }> = await this.attendanceSessionRepo.manager.query(
+        `SELECT COUNT(*)::int AS n FROM staff_attendance_sessions s
+         WHERE s.tenant_id = $1 AND s.date >= $2 AND s.date <= $3
+           AND EXISTS (SELECT 1 FROM staff_attendance_records r
+                       WHERE r.session_id = s.id AND r.tenant_id = $1)`,
+        [tenantId, startDate, endDate],
+      );
+      found = staffRows[0].n;
+    }
+    if (found > 0) {
       throw new UnprocessableEntityException({
-        message:
-          'This date range already has finalized attendance and cannot be marked non-working',
+        message: 'This date range already has attendance and cannot be marked non-working',
         details: { code: 'CALENDAR_DAY_HAS_ATTENDANCE' },
       });
     }

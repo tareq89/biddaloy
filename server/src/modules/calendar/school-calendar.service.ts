@@ -1,12 +1,11 @@
-import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CalendarEvent } from './entities/calendar-event.entity';
-import { CreateHolidayDto, QueryHolidayDto, UpdateHolidayDto } from './dto/working-days.dto';
+import { QueryHolidayDto } from './dto/working-days.dto';
 import { SchoolsService } from '../schools/schools.service';
 import { isWeeklyOff, resolveAttendancePolicy } from '../attendance/attendance-policy.util';
-import { AuditService } from '../audit/audit.service';
-import { AuditAction } from '@biddaloy/shared';
+import { CalendarEventType } from '@biddaloy/shared';
 
 /** Refuse to compute `getWorkingDays` for a range wider than this many days.
  * An unbounded range is how this endpoint becomes a way to make the server
@@ -76,7 +75,6 @@ export class SchoolCalendarService {
     @InjectRepository(CalendarEvent)
     private readonly holidayRepo: Repository<CalendarEvent>,
     private readonly schoolsService: SchoolsService,
-    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -105,47 +103,67 @@ export class SchoolCalendarService {
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const policy = resolveAttendancePolicy(settings);
 
-    const candidates: string[] = [];
+    const candidateSet = new Set<string>();
     for (let day = fromDay; day <= toDay; day++) {
       const dateIso = epochDayToIso(day);
       if (!isWeeklyOff(dateIso, policy)) {
-        candidates.push(dateIso);
+        candidateSet.add(dateIso);
       }
     }
 
+    const scoped = (extra = '') =>
+      `EXISTS (SELECT 1 FROM calendar_event_classes ec WHERE ec.event_id = h.id AND ec.tenant_id = :tenantId${extra})`;
+    // Published events of one kind that overlap [from, to], within the
+    // tenant, year and class scope (D25) — shared by the add-back and the
+    // subtraction below so the two can never disagree about scope.
+    const publishedEvents = (condition: string, params: Record<string, string>) => {
+      const qb = this.holidayRepo
+        .createQueryBuilder('h')
+        .where('h.tenant_id = :tenantId', { tenantId })
+        .andWhere('h.deleted_at IS NULL')
+        // [17.1.2] D9: a draft (published_at IS NULL) never affects
+        // working-day math — only a published one does.
+        .andWhere('h.published_at IS NOT NULL')
+        .andWhere(condition, params)
+        .andWhere('h.start_date <= :to AND h.end_date >= :from', { to, from });
+      if (academicYearId) {
+        qb.andWhere('h.academic_year_id = :academicYearId', { academicYearId });
+      }
+      if (classId) {
+        qb.andWhere(`(NOT ${scoped()} OR ${scoped(' AND ec.class_id = :classId')})`, { classId });
+      } else {
+        qb.andWhere(`NOT ${scoped()}`);
+      }
+      return qb.getMany();
+    };
+    const datesOf = (events: CalendarEvent[]): string[] => {
+      const out: string[] = [];
+      for (const event of events) {
+        const start = Math.max(toEpochDay(event.start_date), fromDay);
+        const end = Math.min(toEpochDay(event.end_date), toDay);
+        for (let day = start; day <= end; day++) {
+          out.push(epochDayToIso(day));
+        }
+      }
+      return out;
+    };
+
+    // [68.3.15.01] TIME-05: a published MAKEUP_DAY turns a weekly off-day
+    // into a school day. Added before the holiday subtraction, so a
+    // holiday on the same date still wins.
+    const makeups = await publishedEvents('h.type = :makeup', {
+      makeup: CalendarEventType.MAKEUP_DAY,
+    });
+    for (const dateIso of datesOf(makeups)) {
+      candidateSet.add(dateIso);
+    }
+    const candidates = [...candidateSet].sort();
     if (candidates.length === 0) {
       return { dates: [], count: 0 };
     }
 
-    const qb = this.holidayRepo
-      .createQueryBuilder('h')
-      .where('h.tenant_id = :tenantId', { tenantId })
-      .andWhere('h.deleted_at IS NULL')
-      // [17.1.2] D9: a draft holiday (published_at IS NULL) never affects
-      // working-day math — only a published one does.
-      .andWhere('h.published_at IS NOT NULL')
-      .andWhere('h.counts_as_working_day = false')
-      .andWhere('h.start_date <= :to AND h.end_date >= :from', { to, from });
-    if (academicYearId) {
-      qb.andWhere('h.academic_year_id = :academicYearId', { academicYearId });
-    }
-    const scoped = (extra = '') =>
-      `EXISTS (SELECT 1 FROM calendar_event_classes ec WHERE ec.event_id = h.id AND ec.tenant_id = :tenantId${extra})`;
-    if (classId) {
-      qb.andWhere(`(NOT ${scoped()} OR ${scoped(' AND ec.class_id = :classId')})`, { classId });
-    } else {
-      qb.andWhere(`NOT ${scoped()}`);
-    }
-    const holidays = await qb.getMany();
-
-    const removedDays = new Set<string>();
-    for (const holiday of holidays) {
-      const start = Math.max(toEpochDay(holiday.start_date), fromDay);
-      const end = Math.min(toEpochDay(holiday.end_date), toDay);
-      for (let day = start; day <= end; day++) {
-        removedDays.add(epochDayToIso(day));
-      }
-    }
+    const holidays = await publishedEvents('h.counts_as_working_day = false', {});
+    const removedDays = new Set(datesOf(holidays));
 
     const dates = candidates.filter((dateIso) => !removedDays.has(dateIso));
     return { dates, count: dates.length };
@@ -202,99 +220,5 @@ export class SchoolCalendarService {
       .getManyAndCount();
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) || 0 };
-  }
-
-  async createHoliday(
-    dto: CreateHolidayDto,
-    tenantId: string,
-    userId: string,
-  ): Promise<CalendarEvent> {
-    if (dto.end_date < dto.start_date) {
-      throw new UnprocessableEntityException({
-        message: '"end_date" must not be earlier than "start_date"',
-        details: { code: 'SCHOOL_CALENDAR_INVALID_RANGE' },
-      });
-    }
-    const holiday = this.holidayRepo.create({
-      tenant_id: tenantId,
-      academic_year_id: dto.academic_year_id,
-      start_date: dto.start_date,
-      end_date: dto.end_date,
-      name: dto.name,
-      counts_as_working_day: dto.counts_as_working_day ?? false,
-      // This legacy CRUD surface predates the draft/publish workflow the
-      // wider calendar module owns (17.2.x) — a holiday created here is
-      // published immediately so it behaves exactly as it did before
-      // [17.1.2]'s rename, rather than becoming an invisible draft.
-      published_at: new Date(),
-    });
-    const saved = await this.holidayRepo.save(holiday);
-    await this.auditService.record({
-      action: AuditAction.CREATE,
-      entity_type: 'CalendarEvent',
-      entity_id: saved.id,
-      tenant_id: tenantId,
-      performed_by_user_id: userId,
-      old_values: null,
-      new_values: { ...saved },
-    });
-    return saved;
-  }
-
-  private async findOneOrThrow(id: string, tenantId: string): Promise<CalendarEvent> {
-    const holiday = await this.holidayRepo.findOne({
-      where: { id, tenant_id: tenantId, deleted_at: IsNull() },
-    });
-    if (!holiday) {
-      throw new NotFoundException('Holiday not found');
-    }
-    return holiday;
-  }
-
-  async updateHoliday(
-    id: string,
-    dto: UpdateHolidayDto,
-    tenantId: string,
-    userId: string,
-  ): Promise<CalendarEvent> {
-    const holiday = await this.findOneOrThrow(id, tenantId);
-    const oldValues = { ...holiday };
-
-    const nextStart = dto.start_date ?? holiday.start_date;
-    const nextEnd = dto.end_date ?? holiday.end_date;
-    if (nextEnd < nextStart) {
-      throw new UnprocessableEntityException({
-        message: '"end_date" must not be earlier than "start_date"',
-        details: { code: 'SCHOOL_CALENDAR_INVALID_RANGE' },
-      });
-    }
-
-    Object.assign(holiday, dto);
-    const saved = await this.holidayRepo.save(holiday);
-    await this.auditService.record({
-      action: AuditAction.UPDATE,
-      entity_type: 'CalendarEvent',
-      entity_id: saved.id,
-      tenant_id: tenantId,
-      performed_by_user_id: userId,
-      old_values: oldValues,
-      new_values: { ...saved },
-    });
-    return saved;
-  }
-
-  async removeHoliday(id: string, tenantId: string, userId: string): Promise<CalendarEvent> {
-    const holiday = await this.findOneOrThrow(id, tenantId);
-    await this.holidayRepo.softDelete({ id, tenant_id: tenantId });
-    await this.auditService.record({
-      action: AuditAction.DELETE,
-      entity_type: 'CalendarEvent',
-      entity_id: holiday.id,
-      tenant_id: tenantId,
-      performed_by_user_id: userId,
-      old_values: { ...holiday },
-      new_values: null,
-    });
-    return holiday;
   }
 }

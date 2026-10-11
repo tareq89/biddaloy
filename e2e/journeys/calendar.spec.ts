@@ -153,4 +153,86 @@ test.describe.serial('calendar: create -> grid, past-lock, teacher read-only, fe
       }
     });
   });
+
+  // [68.3.15.01] TIME-06 / TIME-05
+  test.describe('5. past closure with a reason, and a make-up day', () => {
+    test.use(loggedIn('admin'));
+
+    const schoolDay = (offsetDays: number) =>
+      new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TIMEZONE }).format(
+        new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000),
+      );
+
+    async function pickDate(page: import('@playwright/test').Page, label: string, iso: string) {
+      await page.getByLabel(label).click();
+      await expect(page.getByRole('grid', { name: t('common.date.calendar') })).toBeVisible();
+      const cell = page.locator(`[role="grid"] [data-date="${iso}"]`);
+      // the date can sit in the previous or next month of the open grid
+      for (const step of ['previousMonth', 'nextMonth', 'nextMonth']) {
+        if (await cell.isVisible()) break;
+        await page.getByRole('button', { name: t(`common.date.${step}`) }).click();
+      }
+      await cell.click();
+      await expect(cell).toBeHidden();
+    }
+
+    test('admin adds yesterday as a closure with a reason, it shows on the grid', async ({
+      page,
+    }) => {
+      const yesterday = schoolDay(-1);
+      const name = `E2E Hartal ${Date.now()}`;
+      await page.goto(`/calendar?month=${yesterday.slice(0, 7)}`);
+      await page.getByRole('button', { name: t('calendar.page.addEvent') }).click();
+
+      await page.locator('#event-form-name').fill(name);
+      await page.getByRole('combobox', { name: t('calendar.eventForm.type') }).click();
+      await page.getByRole('option', { name: t('calendar.types.HOLIDAY') }).click();
+      await pickDate(page, t('calendar.eventForm.startDate'), yesterday);
+      await pickDate(page, t('calendar.eventForm.endDate'), yesterday);
+      await page
+        .getByRole('checkbox', { name: t('calendar.eventForm.countsAsWorkingDay') })
+        .uncheck();
+
+      // A day that has passed asks for a reason.
+      await page.getByLabel(t('calendar.eventForm.lateReason')).fill('Hartal, school shut');
+      await page.getByRole('button', { name: t('calendar.eventForm.save') }).click();
+
+      await expect(page.getByTestId(`day-cell-${yesterday}`).getByText(name)).toBeVisible();
+    });
+
+    test('admin adds a make-up day on a weekly off-day, and it becomes a working day', async ({
+      page,
+      request,
+    }) => {
+      // Next Friday (the default weekly off-day) in school-local time.
+      let offset = 1;
+      while (new Date(`${schoolDay(offset)}T00:00:00Z`).getUTCDay() !== 5) offset++;
+      const friday = schoolDay(offset);
+      const name = `E2E Make-up ${Date.now()}`;
+      await page.goto(`/calendar?month=${friday.slice(0, 7)}`);
+      await page.getByRole('button', { name: t('calendar.page.addEvent') }).click();
+
+      await page.locator('#event-form-name').fill(name);
+      await page.getByRole('combobox', { name: t('calendar.eventForm.type') }).click();
+      await page.getByRole('option', { name: t('calendar.types.MAKEUP_DAY') }).click();
+      await pickDate(page, t('calendar.eventForm.startDate'), friday);
+      await pickDate(page, t('calendar.eventForm.endDate'), friday);
+      // The make-up day always counts: the checkbox is locked on.
+      await expect(
+        page.getByRole('checkbox', { name: t('calendar.eventForm.countsAsWorkingDay') }),
+      ).toBeDisabled();
+      await page.getByRole('button', { name: t('calendar.eventForm.save') }).click();
+      await expect(page.getByTestId(`day-cell-${friday}`).getByText(name)).toBeVisible();
+
+      // The server now treats that off-day as a school day, so a register
+      // for it is no longer refused as ATTENDANCE_NON_WORKING_DAY.
+      const admin = await adminApiSession(request);
+      const days = await get<{ dates: string[] }>(
+        request,
+        admin,
+        `/school-calendar/working-days?from=${friday}&to=${friday}`,
+      );
+      expect(days.dates).toEqual([friday]);
+    });
+  });
 });
