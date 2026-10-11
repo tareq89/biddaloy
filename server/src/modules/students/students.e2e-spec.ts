@@ -14,8 +14,11 @@ import {
   SEED_SECTION_1_ID,
   SEED_SECTION_2_ID,
   SEED_CLASS_1_ID,
+  SEED_ACADEMIC_YEAR_ID,
   SEED_ADMIN_PASSWORD,
 } from '@test/constants';
+import { NotFoundException } from '@nestjs/common';
+import { StudentService } from './students.service';
 
 /**
  * E2E tests for Student endpoints.
@@ -491,6 +494,65 @@ describe('Students E2E', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(404);
+    });
+
+    it('returns 409 STUDENT_HAS_OPEN_MONEY when the student owes fees, and keeps the student', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ full_name: 'Owes Money', class_section_id: SEED_SECTION_1_ID })
+        .expect(201);
+      const [{ id: structureId }] = await dataSource.query(
+        `INSERT INTO fee_structures (fee_type, name, amount, class_id, academic_year_id, tenant_id)
+         VALUES ('MONTHLY_TUITION', 'E2E Tuition ${Date.now()}', 1000, '${SEED_CLASS_1_ID}',
+                 '${SEED_ACADEMIC_YEAR_ID}', '${TENANT_ID}') RETURNING id`,
+      );
+      await dataSource.query(
+        `INSERT INTO student_fees (student_id, academic_year_id, fee_structure_id, period_start,
+           period_type, total_amount, paid_amount, discount_amount, status)
+         VALUES ('${createRes.body.id}', '${SEED_ACADEMIC_YEAR_ID}', '${structureId}', '2026-02-01',
+           'MONTH', 1000, 0, 0, 'PENDING')`,
+      );
+
+      const res = await supertest(app.getHttpServer())
+        .delete(`/api/v1/students/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(409);
+      expect(res.body.details.code).toBe('STUDENT_HAS_OPEN_MONEY');
+
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/students/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+    });
+
+    it('another tenant cannot delete the student: not found, student untouched', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ full_name: 'Tenant A Keep', class_section_id: SEED_SECTION_1_ID })
+        .expect(201);
+
+      // The HTTP layer rejects a non-member tenant (see Tenant isolation below),
+      // so the cross-tenant scoping is asserted on the service the route calls.
+      await expect(
+        app
+          .get(StudentService)
+          .remove(createRes.body.id, '00000000-0000-4000-8000-000000000099', null, {
+            ip: null,
+            userAgent: null,
+          }),
+      ).rejects.toThrow(NotFoundException);
+
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/students/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
     });
 
     it('should return 403 when a non-ADMIN tries to delete', async () => {

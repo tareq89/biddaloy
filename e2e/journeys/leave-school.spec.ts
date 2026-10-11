@@ -1,11 +1,12 @@
 import type { BrowserContext } from '@playwright/test';
 
-import { createTeacher, loginAsFreshUser } from '../api';
+import { adminApiSession, createStudentWithDues, createTeacher, loginAsFreshUser } from '../api';
 import { shells } from '../config';
 import { newSchool } from '../fixtures/new-school';
-import { expect, test } from '../fixtures/test';
+import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { ListShellPage } from '../pages';
+import { DetailShellPage } from '../pages/detail-shell';
 
 /**
  * [13.7.1] A teacher leaves the school from `/security`; the admin finds them
@@ -88,5 +89,35 @@ test.describe('leave a school', () => {
       await school.context.close();
       await school.api.dispose();
     }
+  });
+});
+
+/**
+ * [68 / #2226] An admin cannot delete a student who still owes fees: the
+ * dialog shows why, and the student stays listed.
+ */
+test.describe('delete a student who owes fees', () => {
+  test.use(loggedIn('admin'));
+
+  test('the blocked reason shows and the student stays', async ({ page, request }) => {
+    const name = `Owes ${Date.now()}`;
+    const { studentId } = await createStudentWithDues(
+      request,
+      await adminApiSession(request),
+      name,
+    );
+
+    await page.goto(`/students/${studentId}`);
+    await new DetailShellPage(page).clickAction('students.detail.actions.delete');
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: t('students.detail.deleteDialog.confirm') })
+      .click();
+
+    await expect(page.getByText(t('students.detail.deleteDialog.blockedOpenMoney'))).toBeVisible();
+
+    // Still there: the detail page loads again.
+    await page.goto(`/students/${studentId}`);
+    await new DetailShellPage(page).expectLoaded(name);
   });
 });
