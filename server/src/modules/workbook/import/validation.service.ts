@@ -200,10 +200,14 @@ export class ValidationService {
       // D13: money and marks tabs are insert-only. Match like DiffService
       // (id first, then natural key) and refuse any changed existing row.
       const insertOnly = INSERT_ONLY_TABS.has(tab.name);
+      // Rows this restore would delete by absence, checked like an app delete.
+      const checkRemove =
+        !insertOnly && tab.deleteByAbsence && meta.kind !== 'TEMPLATE' ? tab.checkRemove : undefined;
+      const trackMatches = insertOnly || checkRemove !== undefined;
       const byId = new Map<string, unknown>();
       const byKey = new Map<string, unknown>();
       const matchedExisting = new Set<unknown>();
-      if (insertOnly) {
+      if (trackMatches) {
         for (const e of existingEntities) {
           const id = (e as { id?: unknown }).id;
           if (typeof id === 'string') byId.set(id, e);
@@ -309,11 +313,11 @@ export class ValidationService {
           firstBySecondary.set(secondary, { rowNo, row: result.row });
         }
 
-        if (insertOnly) {
+        if (trackMatches) {
           const rid = (result.row as { id?: unknown }).id;
           const matched = (typeof rid === 'string' ? byId.get(rid) : undefined) ?? byKey.get(key);
-          if (matched) {
-            matchedExisting.add(matched);
+          if (matched) matchedExisting.add(matched);
+          if (matched && insertOnly) {
             const changed = tab.diffFields(result.row as never, matched as never);
             if (changed.length > 0) {
               recordError(tabErrors, {
@@ -346,6 +350,14 @@ export class ValidationService {
           message: `Sheet "${tab.name}" references "${key}" in "${refTab}", but more than one ${refTab} row has that key — rename them so each is unique, or set the id column.`,
           value: key,
         });
+      }
+
+      if (checkRemove) {
+        const absent = existingEntities.filter((e) => !matchedExisting.has(e));
+        const refusals = absent.length > 0 ? await checkRemove(absent, tenantId, manager) : [];
+        for (const message of refusals) {
+          recordError(tabErrors, { tab: tab.name, row: 0, column: null, severity: 'error', message });
+        }
       }
 
       if (insertOnly) {
