@@ -208,6 +208,49 @@ test.describe.serial('backup and restore', () => {
     expect(restoredStudent.full_name).toBe(studentName);
   });
 
+  test('Leg E: a save refused with 423 TENANT_RESTORING shows the toast and the shell bar, then clears', async ({
+    browser,
+  }) => {
+    // [68.1.2219] Own context with the service worker blocked: a SW fetch
+    // handler runs outside the page network stack `page.route()` patches
+    // (precedent: e2e/focus-management.spec.ts).
+    const context = await browser.newContext({
+      storageState: await adminContext.storageState(),
+      serviceWorkers: 'block',
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto(`/students/${studentId}/edit`);
+      const fullName = page.getByLabel(t('students.form.fields.fullName'));
+      await expect(fullName).toBeVisible();
+      const save = page.getByRole('button', { name: t('students.edit.submitAction') });
+
+      const refuse = (route: import('@playwright/test').Route) =>
+        route.fulfill({
+          status: 423,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            statusCode: 423,
+            message: 'This school is being restored.',
+            details: { code: 'TENANT_RESTORING' },
+          }),
+        });
+      await page.route(`**/api/v1/students/${studentId}`, refuse);
+      await fullName.fill(`${studentName} Edited`);
+      await save.click();
+
+      const bar = page.getByText(t('common.restoreBar.message'));
+      await expect(bar).toBeVisible();
+      await expect(page.getByText(t('common.errors.schoolRestoring'))).toBeVisible();
+
+      await page.unroute(`**/api/v1/students/${studentId}`, refuse);
+      await save.click();
+      await expect(bar).toBeHidden();
+    } finally {
+      await context.close();
+    }
+  });
+
   test.describe('Leg D: a TEACHER reaches neither the API nor the UI', () => {
     test.use(loggedIn('teacher'));
 
