@@ -187,6 +187,17 @@ describe('[48.2.10] TranscriptService (integration)', () => {
        VALUES ($1, $2, $3, false, false, $4, NOW(), NOW())`,
       [SEED_CLASS_1_ID, f.subjectId, SEED_ACADEMIC_YEAR_ID, TENANT_ID],
     );
+    // The mark the published 90 / A+ came from — "who sat it" needs a Mark.
+    const [component] = await ds.query(
+      `INSERT INTO exam_components (tenant_id, exam_id, subject_id, name, kind, source, full_marks, sequence, created_at, updated_at)
+       VALUES ($1, $2, $3, 'Written', 'WRITTEN', 'MANUAL', 100, 1, NOW(), NOW()) RETURNING id`,
+      [TENANT_ID, examId, f.subjectId],
+    );
+    await ds.query(
+      `INSERT INTO marks (tenant_id, exam_id, student_id, subject_id, component_id, value, status, updated_at)
+       VALUES ($1, $2, $3, $4, $5, 90, 'PRESENT', NOW())`,
+      [TENANT_ID, examId, f.studentId, f.subjectId, component.id],
+    );
     await ds.query(
       `UPDATE enrollments SET enrollment_status = 'TRANSFERRED' WHERE student_id = $1`,
       [f.studentId],
@@ -198,6 +209,8 @@ describe('[48.2.10] TranscriptService (integration)', () => {
 
     const t = await service.getTranscript(TENANT_ID, f.studentId, SEED_ACADEMIC_YEAR_ID, true);
     expect(names(t)).toEqual(['Published']);
+    // Same totals as before the reprocess, recomputed from the real mark.
+    expect(t.exams[0].result).toMatchObject({ total_marks: 90, grade: 'A+', position: 1 });
   });
 
   it('leaves out an exam of another class in the same year', async () => {

@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 // here it just hands back whatever the test put in `enrollmentRepo.find`.
 vi.mock('./exam-cohort', () => ({
   loadExamCohort: async (manager: { find: () => Promise<unknown[]> }) => ({
-    enrollments: await manager.find(),
+    members: await manager.find(),
     studentsWithResult: new Set<string>(),
   }),
 }));
@@ -487,28 +487,46 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
     expect(resultRepo.save).not.toHaveBeenCalled();
   });
 
-  it('only replaces the rows of the students it recomputed — others are kept as history', async () => {
+  it('removes a live row of a student outside the recomputed cohort, so no stale position is republished (pr-fix #945, #2215)', async () => {
     const { service, resultRepo } = await buildService({
       exam: { status: ExamStatus.PROCESSED },
-      existingResults: [{ id: 'result-stu-1', student_id: 'stu-1' }],
+      existingResults: [
+        { id: 'result-stu-1', student_id: 'stu-1' },
+        // Not in the cohort (e.g. a late joiner auto-failed before #2215).
+        { id: 'result-other', student_id: 'stu-other' },
+      ],
     });
 
     await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
 
-    // The lookup is limited to the recomputed cohort (stu-1, stu-2), so a
-    // student outside it (left, graduated) never has their row deleted.
+    // Looked up by exam, not by the recomputed students — the out-of-cohort
+    // row is removed too, instead of surviving with its old position.
     expect(resultRepo.find).toHaveBeenCalledWith({
-      where: {
-        exam_id: EXAM_ID,
-        tenant_id: TENANT_ID,
-        deleted_at: expect.anything(),
-        student_id: expect.objectContaining({ value: ['stu-1', 'stu-2'] }),
-      },
+      where: { exam_id: EXAM_ID, tenant_id: TENANT_ID, deleted_at: expect.anything() },
     });
     expect(resultRepo.softDelete).toHaveBeenCalledWith({
-      id: expect.objectContaining({ value: ['result-stu-1'] }),
+      id: expect.objectContaining({ value: ['result-stu-1', 'result-other'] }),
       tenant_id: TENANT_ID,
     });
+    const saved = resultRepo.save.mock.calls.map((c: any[]) => c[0].student_id);
+    expect(saved).toEqual(['stu-1', 'stu-2']);
+  });
+
+  it('a cohort member who has since left (non-ACTIVE enrollment) gets a fresh row, not a dropped one', async () => {
+    const { service, resultRepo } = await buildService({
+      exam: { status: ExamStatus.PROCESSED },
+      // The cohort keeps stu-1 although their enrollment is TRANSFERRED.
+      enrollments: [
+        { student_id: 'stu-1', section_id: SECTION_ID, enrollment_status: 'TRANSFERRED' },
+        { student_id: 'stu-2', section_id: SECTION_ID },
+      ],
+      existingResults: [{ id: 'result-stu-1', student_id: 'stu-1' }],
+    });
+
+    await service.recomputeIfProcessed(EXAM_ID, ['stu-2'], TENANT_ID, 'user-1');
+
+    const saved = resultRepo.save.mock.calls.map((c: any[]) => c[0].student_id);
+    expect(saved).toContain('stu-1');
   });
 
   it('re-checks status under the exam lock — a publish that landed first makes it a no-op (pr-fix #945)', async () => {
