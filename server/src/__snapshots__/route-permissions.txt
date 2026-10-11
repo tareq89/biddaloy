@@ -1,0 +1,608 @@
+DELETE /academic-years/:id | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
+DELETE /applications/:id/attachments/:attachmentId | ApplicationAttachmentsController | perm: APPLICATION_SUBMIT
+DELETE /attendance/devices/:id | DevicesController | perm: ATTENDANCE_DEVICE_MANAGE
+DELETE /attention/manual/:id | ManualAlertsController | perm: ALERT_SEND
+DELETE /auth/sessions/:id | AuthController | allowlist: AuthGuard('jwt'), SameOriginGuard
+DELETE /auth/social/identities/:provider | SocialAuthController | allowlist: AuthGuard('jwt')
+DELETE /calendar/events/:id | CalendarEventsController | perm: CALENDAR_MANAGE
+DELETE /calendar/terms/:id | AcademicTermsController | perm: CALENDAR_MANAGE
+DELETE /classes/:classId/sections/:sectionId | ClassController | perm: CLASS_MANAGE
+DELETE /classes/:classId/sections/:sectionId/teachers/:assignmentId | ClassController | perm: CLASS_MANAGE
+DELETE /classes/:classId/subjects/:subjectId | ClassSubjectController | perm: CLASS_MANAGE
+DELETE /classes/:id | ClassController | perm: CLASS_MANAGE
+DELETE /designations/:id | DesignationController | perm: STAFF_HR_MANAGE
+DELETE /discount-rules/:id | DiscountRulesController | perm: DISCOUNT_RULE_MANAGE | approval: discount_rules.manage
+DELETE /exam-templates/:id | ExamTemplatesController | perm: EXAM_MANAGE
+DELETE /exams/:examId/components/:id | ExamComponentsController | perm: EXAM_MANAGE
+DELETE /exams/:examId/schedule/:id | ExamSchedulesController | perm: EXAM_MANAGE
+DELETE /exams/:id | ExamsController | perm: EXAM_MANAGE
+DELETE /fee-structures/:id | FeeController | perm: FEE_STRUCTURE_DELETE
+DELETE /fees/fine-rules/:id | FineRulesController | perm: FEE_STRUCTURE_DELETE
+DELETE /fees/generations/:id | FeeGenerationsController | perm: FEE_GENERATE
+DELETE /fees/generations/:id/students/:studentId | FeeGenerationsController | perm: FEE_GENERATE
+DELETE /fees/schedules/:id | RecurringSchedulesController | perm: SCHEDULE_MANAGE
+DELETE /fees/schedules/:id/exclusions/:studentId | RecurringSchedulesController | perm: SCHEDULE_MANAGE
+DELETE /grading/scales/:id | GradingController | perm: GRADING_SCALE_MANAGE
+DELETE /guardians/:id | StudentController | perm: GUARDIAN_DELETE
+DELETE /invoices/:id/share/:tokenId | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
+DELETE /me/push/subscriptions | PushSubscriptionsController | identity
+DELETE /me/push/subscriptions/:id | PushSubscriptionsController | identity
+DELETE /milestone-achievements/:id | MilestoneAchievementsController | perm: PROGRAM_RECORD
+DELETE /programs/:id | ProgramsController | perm: PROGRAM_MANAGE
+DELETE /programs/:id/milestones/:milestoneId | ProgramsController | perm: PROGRAM_MANAGE
+DELETE /promotions/:id | PromotionsController | perm: PROMOTION_MANAGE
+DELETE /routines/rooms/:id | RoomsController | perm: ROUTINE_MANAGE
+DELETE /routines/shifts/:id | ShiftsController | perm: ROUTINE_MANAGE
+DELETE /routines/slots/:slotId | RoutineSlotsController | perm: ROUTINE_MANAGE
+DELETE /school-calendar/holidays/:id | SchoolCalendarController | perm: ACADEMIC_YEAR_MANAGE
+DELETE /schools/:id/admins/:userId/invitation | SchoolAdminsController | identity
+DELETE /schools/me/logo | SchoolLogoController | identity
+DELETE /students/:id | StudentController | perm: STUDENT_DELETE
+DELETE /students/:id/notes/:noteId | StudentNotesController | perm: STUDENT_NOTES_WRITE
+DELETE /students/:id/public-exams/:examId | StudentPublicExamsController | perm: STUDENT_RECORDS_WRITE
+DELETE /study-plan-templates/:id | StudyPlanTemplatesController | perm: STUDY_PLAN_TEMPLATE_MANAGE
+DELETE /study-plans/:id | StudyPlansController | perm: SYLLABUS_MANAGE
+DELETE /subjects/:id | SubjectController | perm: CLASS_MANAGE
+DELETE /syllabus-topics/:id | SyllabusController | perm: SYLLABUS_MANAGE
+DELETE /users/:id | UserController | perm: MEMBER_REMOVE
+DELETE /users/:id/invitation | UserController | perm: USER_CREATE
+GET /academic-years | AcademicYearController | perm: ACADEMIC_STRUCTURE_READ
+GET /academic-years/:id | AcademicYearController | perm: ACADEMIC_STRUCTURE_READ
+GET /academic-years/:id/stats | AcademicYearController | perm: ACADEMIC_STRUCTURE_READ
+GET /acr/assessments | AcrAssessmentsController | perm: ACR_READ
+GET /acr/assessments/:id | AcrAssessmentsController | perm: ACR_READ
+GET /acr/criteria | AcrCriteriaController | perm: ACR_READ
+GET /acr/staff/:userId | AcrAssessmentsController | perm: ACR_READ
+GET /admission-intakes | IntakeController | perm: ADMISSION_REVIEW
+GET /admission-intakes/:id | IntakeController | perm: ADMISSION_REVIEW
+GET /admission/applicants | ApplicantReviewController | perm: ADMISSION_REVIEW
+GET /admission/applicants/:id | ApplicantReviewController | perm: ADMISSION_REVIEW
+GET /admission/reports/lifecycle | AdmissionReportsController | perm: STUDENT_LIFECYCLE_MANAGE
+GET /applications | ApplicationsController | perm: APPLICATION_SUBMIT
+GET /applications/:id | ApplicationsController | perm: APPLICATION_SUBMIT
+GET /applications/:id/attachments/:attachmentId | ApplicationAttachmentsController | perm: APPLICATION_SUBMIT
+GET /applications/addressees | ApplicationsController | perm: APPLICATION_SUBMIT
+GET /applications/pending-count | ApplicationReportsController | perm: APPLICATION_SUBMIT
+GET /applications/reports | ApplicationReportsController | perm: APPLICATION_MANAGE
+GET /applications/tag-options | ApplicationsController | perm: APPLICATION_SUBMIT | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,SUPER_ADMIN,TEACHER
+GET /attendance/devices | DevicesController | perm: ATTENDANCE_DEVICE_MANAGE
+GET /attendance/devices/me/roster | DeviceIngestController | allowlist: DeviceAuthGuard
+GET /attendance/flags/low | AttendanceSummaryController | perm: ATTENDANCE_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF
+GET /attendance/my-sections | AttendanceController | perm: ATTENDANCE_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /attendance/records/:recordId/history | AttendanceController | perm: ATTENDANCE_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /attendance/sections/:sectionId/periods | AttendanceController | perm: ATTENDANCE_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /attendance/sections/:sectionId/register | AttendanceController | perm: ATTENDANCE_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /attendance/sections/:sectionId/register-matrix | AttendanceSummaryController | perm: ATTENDANCE_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /attendance/sections/:sectionId/streaks | AttendanceSummaryController | perm: ATTENDANCE_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /attendance/sections/:sectionId/subject-summary | AttendanceSummaryController | perm: ATTENDANCE_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /attendance/sections/:sectionId/summary | AttendanceSummaryController | perm: ATTENDANCE_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /attendance/students/:studentId/days | AttendanceSummaryController | perm: ATTENDANCE_READ
+GET /attendance/students/:studentId/summary | AttendanceSummaryController | perm: ATTENDANCE_READ
+GET /attention/items | AttentionController | identity
+GET /attention/manual | ManualAlertsController | perm: ALERT_SEND
+GET /attention/report | AlertsReportController | perm: ALERT_REPORT_READ
+GET /attention/students/:studentId | AttentionController | perm: STUDENT_READ
+GET /attention/summary | AttentionController | identity
+GET /audit-logs | AuditController | perm: AUDIT_LOG_READ
+GET /audit-logs/entity/:entityType/:entityId | AuditController | perm: AUDIT_ENTITY_HISTORY_READ
+GET /auth/sessions | AuthController | allowlist: AuthGuard('jwt')
+GET /auth/social/:provider/callback | SocialAuthController | allowlist: none
+GET /auth/social/:provider/start | SocialAuthController | allowlist: none
+GET /auth/social/facebook/data-deletion/status | SocialAuthController | allowlist: none
+GET /auth/social/identities | SocialAuthController | allowlist: AuthGuard('jwt')
+GET /auth/social/providers | SocialAuthController | allowlist: none
+GET /backup/jobs | WorkbookController | perm: BACKUP_MANAGE
+GET /backup/jobs/:id | WorkbookController | perm: BACKUP_MANAGE
+GET /backup/jobs/:id/download | WorkbookController | perm: BACKUP_MANAGE
+GET /backup/template | TemplateController | perm: BACKUP_MANAGE
+GET /backup/validate/:stagingId/errors.csv | ImportController | perm: BACKUP_MANAGE
+GET /calendar-import/template | CalendarImportController | perm: CALENDAR_MANAGE
+GET /calendar-settings | CalendarSettingsController | perm: CALENDAR_READ
+GET /calendar/events | CalendarEventsController | perm: CALENDAR_READ
+GET /calendar/events/:id | CalendarEventsController | perm: CALENDAR_READ
+GET /calendar/export | CalendarExportController | perm: CALENDAR_READ
+GET /calendar/feed | CalendarFeedController | perm: CALENDAR_READ
+GET /calendar/feed/:token.ics | CalendarFeedPublicController | allowlist: none
+GET /calendar/public-holidays | PublicHolidaysController | perm: CALENDAR_READ
+GET /calendar/terms | AcademicTermsController | perm: CALENDAR_READ
+GET /certificates/assets | CertificatesController | perm: CERTIFICATE_ISSUE
+GET /certificates/assets/:id/file | CertificatesController | perm: CERTIFICATE_ISSUE
+GET /certificates/photo | CertificatesController | perm: CERTIFICATE_ISSUE
+GET /certificates/printers | CertificatesController | perm: CERTIFICATE_ISSUE
+GET /certificates/templates | CertificatesController | perm: CERTIFICATE_ISSUE
+GET /classes | ClassController | perm: ACADEMIC_STRUCTURE_READ
+GET /classes/:classId/sections | ClassController | perm: ACADEMIC_STRUCTURE_READ
+GET /classes/:classId/sections/:sectionId/teachers | ClassController | perm: ACADEMIC_STRUCTURE_READ
+GET /classes/:classId/subjects | ClassSubjectController | perm: ACADEMIC_STRUCTURE_READ
+GET /classes/:id | ClassController | perm: ACADEMIC_STRUCTURE_READ
+GET /classes/vocabulary | ClassController | perm: ACADEMIC_STRUCTURE_READ
+GET /communications/:id | CommunicationsController | perm: COMMUNICATION_LOG_READ
+GET /communications/guardian/:guardianId | CommunicationsController | perm: COMMUNICATION_LOG_READ
+GET /communications/last-reminders | CommunicationsController | perm: COMMUNICATION_LOG_READ
+GET /communications/reminder/bulk | CommunicationsController | perm: COMMUNICATION_BULK_SEND
+GET /communications/reminder/bulk/:id | CommunicationsController | perm: COMMUNICATION_BULK_SEND
+GET /communications/reminder/bulk/:id/logs | CommunicationsController | perm: COMMUNICATION_BULK_SEND
+GET /communications/sms-credits | CreditsController | perm: COMMUNICATION_CREDIT_READ
+GET /communications/student/:studentId | CommunicationsController | perm: COMMUNICATION_LOG_READ
+GET /designations | DesignationController | perm: STAFF_HR_READ
+GET /designations/:id | DesignationController | perm: STAFF_HR_READ
+GET /enrollments/:studentId/current | EnrollmentController | perm: STUDENT_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /enrollments/student/:studentId | EnrollmentController | perm: STUDENT_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /exam-templates | ExamTemplatesController | perm: EXAM_MANAGE
+GET /exam-templates/:id | ExamTemplatesController | perm: EXAM_MANAGE
+GET /exams | ExamsController | perm: MARK_VIEW
+GET /exams/:examId/analysis/defaulted | AnalysisController | perm: MARK_VIEW
+GET /exams/:examId/analysis/defaulted.csv | AnalysisController | perm: MARK_VIEW
+GET /exams/:examId/analysis/merit | AnalysisController | perm: MARK_VIEW
+GET /exams/:examId/analysis/merit.csv | AnalysisController | perm: MARK_VIEW
+GET /exams/:examId/analysis/pass-fail | AnalysisController | perm: MARK_VIEW
+GET /exams/:examId/analysis/pass-fail.csv | AnalysisController | perm: MARK_VIEW
+GET /exams/:examId/analysis/pass-fail/components | AnalysisController | perm: MARK_VIEW
+GET /exams/:examId/components | ExamComponentsController | perm: EXAM_MANAGE
+GET /exams/:examId/components/:id | ExamComponentsController | perm: EXAM_MANAGE
+GET /exams/:examId/documents/admit-cards | ExamDocumentsController | perm: DOCUMENT_PRINT
+GET /exams/:examId/documents/merit-candidates | ExamDocumentsController | perm: DOCUMENT_PRINT
+GET /exams/:examId/documents/tabulation | ExamDocumentsController | perm: DOCUMENT_PRINT
+GET /exams/:examId/marks | MarksController | perm: MARK_VIEW
+GET /exams/:examId/marks/progress | MarksController | perm: MARK_VIEW
+GET /exams/:examId/results | ResultsController | perm: RESULT_READ | roles: ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /exams/:examId/results/:studentId | ResultsController | perm: RESULT_READ | roles: ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /exams/:examId/schedule | ExamSchedulesController | perm: EXAM_MANAGE
+GET /exams/:id | ExamsController | perm: EXAM_MANAGE
+GET /fee-structures | FeeController | perm: FEE_READ
+GET /fee-structures/:id | FeeController | perm: FEE_READ
+GET /fees/dues | FeeController | perm: FEE_READ
+GET /fees/dues/flagged | FeeController | perm: FEE_READ | roles: ACCOUNTANT,ADMIN,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /fees/fine-rules | FineRulesController | perm: FEE_STRUCTURE_READ
+GET /fees/fines | FinesController | perm: FEE_READ
+GET /fees/generations | FeeGenerationsController | perm: FEE_READ | roles: ACCOUNTANT,ADMIN,EXECUTIVE
+GET /fees/generations/:id | FeeGenerationsController | perm: FEE_READ | roles: ACCOUNTANT,ADMIN,EXECUTIVE
+GET /fees/generations/:id/bills | FeeGenerationsController | perm: FEE_READ | roles: ACCOUNTANT,ADMIN,EXECUTIVE
+GET /fees/schedules | RecurringSchedulesController | perm: FEE_READ | roles: ACCOUNTANT,ADMIN,EXECUTIVE
+GET /fees/schedules/:id | RecurringSchedulesController | perm: FEE_READ | roles: ACCOUNTANT,ADMIN,EXECUTIVE
+GET /fees/schedules/:id/preview | RecurringSchedulesController | perm: FEE_READ | roles: ACCOUNTANT,ADMIN,EXECUTIVE
+GET /grading/scales | GradingController | perm: GRADING_SCALE_MANAGE
+GET /grading/scales/:id | GradingController | perm: GRADING_SCALE_MANAGE
+GET /guardians | StudentController | perm: GUARDIAN_READ
+GET /guardians/:id | StudentController | perm: GUARDIAN_READ
+GET /guardians/mine | StudentController | identity
+GET /health | AppController | allowlist: none
+GET /health/ready | HealthController | allowlist: none
+GET /homework | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
+GET /homework-assignments/:id/submissions | HomeworkSubmissionController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
+GET /homework/:id | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
+GET /homework/analytics/class/:classId | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
+GET /homework/analytics/section/:sectionId | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
+GET /homework/analytics/student/:studentId | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
+GET /incidents | IncidentsController | perm: ACR_READ
+GET /incidents/:id | IncidentsController | perm: ACR_READ
+GET /invoices | InvoicesController | perm: INVOICE_READ
+GET /invoices/:id | InvoicesController | perm: INVOICE_READ
+GET /invoices/:id/print | InvoicesController | perm: INVOICE_READ
+GET /invoices/:id/share | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
+GET /leave/balance | LeaveController | identity
+GET /leave/policies | LeaveController | identity
+GET /lesson-deliveries | LessonDeliveriesController | perm: SYLLABUS_READ
+GET /me/push/public-key | PushSubscriptionsController | identity
+GET /me/push/subscriptions | PushSubscriptionsController | identity
+GET /my-class/sections | MyClassController | perm: MY_CLASS_VIEW
+GET /onboarding/status | OnboardingController | identity
+GET /payments | FeeController | perm: PAYMENT_READ
+GET /payments/:id | FeeController | perm: PAYMENT_READ
+GET /payments/cart | CheckoutController | perm: FEE_READ
+GET /payments/guardian/:guardianId | FeeController | perm: FEE_READ | roles: ACCOUNTANT,ADMIN,EXECUTIVE,TEACHER
+GET /payments/invoices/student/:studentId | FeeController | perm: FEE_READ
+GET /payments/student/:studentId | FeeController | perm: FEE_READ
+GET /performance/classes/:classId | PerformanceController | perm: MARK_VIEW
+GET /performance/staff/:userId | StaffPerformanceController | perm: ACR_READ
+GET /performance/students/:studentId | PerformanceController | perm: MARK_VIEW
+GET /platform/attention/health | PlatformAttentionHealthController | identity
+GET /platform/backups/health | PlatformBackupHealthController | identity
+GET /platform/holiday-sets | PublicHolidaysController | identity
+GET /platform/holiday-sets/:id | PublicHolidaysController | identity
+GET /presets | PresetsController | perm: CURRICULUM_PRESET_APPLY
+GET /presets/:id | PresetsController | perm: CURRICULUM_PRESET_APPLY
+GET /presets/status | PresetsController | perm: CURRICULUM_PRESET_APPLY
+GET /print-assets | PrintAssetsController | perm: DOCUMENT_PRINT
+GET /print-assets/:id/file | PrintAssetsController | perm: DOCUMENT_PRINT
+GET /print-history | PrintHistoryController | perm: PRINT_HISTORY_READ
+GET /print-history/items/:id | PrintHistoryController | perm: PRINT_HISTORY_READ
+GET /print-history/queue | PrintHistoryController | perm: DOCUMENT_PRINT
+GET /print-history/queue/id-cards | PrintHistoryController | perm: DOCUMENT_PRINT
+GET /print-history/register | PrintHistoryController | perm: PRINT_HISTORY_READ
+GET /print-history/register.csv | PrintHistoryController | perm: PRINT_HISTORY_READ
+GET /print-jobs/photo | PrintJobsController | perm: DOCUMENT_PRINT
+GET /print-jobs/subject-history | PrintJobActionsController | perm: DOCUMENT_PRINT
+GET /print-templates | PrintTemplatesController | perm: DOCUMENT_PRINT
+GET /print-templates/:id | PrintTemplatesController | perm: DOCUMENT_PRINT
+GET /print-templates/:id/versions | PrintTemplatesController | perm: DOCUMENT_PRINT
+GET /print-templates/suggestions | PrintTemplatesController | perm: DOCUMENT_PRINT
+GET /print-templates/suggestions/:key/artwork/:side | PrintTemplatesController | perm: DOCUMENT_PRINT
+GET /print-templates/versions/:versionId | PrintTemplatesController | perm: DOCUMENT_PRINT
+GET /printers | PrintersController | perm: DOCUMENT_PRINT
+GET /programs | ProgramsController | perm: PROGRAM_READ
+GET /programs/:id | ProgramsController | perm: PROGRAM_READ
+GET /programs/:id/enrollments | ProgramEnrollmentsController | perm: PROGRAM_READ | roles: ADMIN,EXECUTIVE,TEACHER
+GET /promotions | PromotionsController | perm: PROMOTION_MANAGE
+GET /promotions/:id | PromotionsController | perm: PROMOTION_MANAGE
+GET /promotions/suggest-target | PromotionsController | perm: PROMOTION_MANAGE
+GET /public/admission/:slug | PublicAdmissionController | allowlist: none
+GET /public/invoices/:token | PublicInvoiceController | allowlist: none
+GET /public/verify/:token | PublicVerifyController | allowlist: none
+GET /reports/collections | ReportsController | perm: REPORT_COLLECTIONS_READ
+GET /reports/collections.csv | ReportsController | perm: REPORT_COLLECTIONS_READ
+GET /routines | RoutineSlotsController | perm: ROUTINE_READ
+GET /routines/:id | RoutineSlotsController | perm: ROUTINE_READ
+GET /routines/:id/change-requests | ChangeRequestsController | perm: ROUTINE_MANAGE
+GET /routines/:id/greedy-fill | RoutineSlotsController | perm: ROUTINE_MANAGE
+GET /routines/:id/slots | RoutineSlotsController | perm: ROUTINE_READ
+GET /routines/:id/workload | RoutineSlotsController | perm: ROUTINE_MANAGE
+GET /routines/resolve | ResolveRoutineController | perm: ROUTINE_READ
+GET /routines/rooms | RoomsController | perm: ROUTINE_READ
+GET /routines/rooms/:id | RoomsController | perm: ROUTINE_READ
+GET /routines/shifts | ShiftsController | perm: ROUTINE_READ
+GET /routines/shifts/:id | ShiftsController | perm: ROUTINE_READ
+GET /routines/shifts/:id/period-slots | ShiftsController | perm: ROUTINE_READ
+GET /routines/shifts/:id/period-slots/changeover-suggestion | ShiftsController | perm: ROUTINE_READ
+GET /routines/substitutions | SubstitutionsController | perm: ROUTINE_MANAGE
+GET /school-calendar/holidays | SchoolCalendarController | perm: ACADEMIC_STRUCTURE_READ
+GET /school-calendar/working-days | SchoolCalendarController | perm: CALENDAR_READ
+GET /schools | SchoolsController | identity
+GET /schools/:id/admins | SchoolAdminsController | identity
+GET /schools/:id/logo | SchoolLogoController | identity
+GET /schools/:id/settings | SchoolsController | perm: SETTINGS_MANAGE
+GET /schools/:id/sms-credits | SchoolSmsCreditsController | identity
+GET /schools/:id/stats | SchoolsController | identity
+GET /schools/me/profile | SchoolProfileController | identity
+GET /search | SearchController | perm: STUDENT_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /seat-plans | SeatPlansController | perm: SEAT_PLAN_MANAGE
+GET /seat-plans/:id | SeatPlansController | perm: SEAT_PLAN_MANAGE
+GET /staff-attendance/summary | StaffAttendanceController | perm: STAFF_ATTENDANCE_READ
+GET /staff-documents/:staffUserId | StaffDocumentController | perm: STAFF_HR_READ
+GET /staff-documents/download/:id | StaffDocumentController | perm: STAFF_HR_READ
+GET /staff-hr-records | StaffHrController | perm: STAFF_HR_READ
+GET /staff-hr-records/:id | StaffHrController | perm: STAFF_HR_READ
+GET /staff-hr-records/:userId/current-designation | StaffHrController | perm: STAFF_HR_READ
+GET /staff-hr-records/:userId/designation-history | StaffHrController | perm: STAFF_HR_READ
+GET /staff/:userId/achievement | AchievementController | perm: STAFF_HR_READ
+GET /staff/:userId/address | AddressController | perm: STAFF_HR_READ
+GET /staff/:userId/education | EducationController | perm: STAFF_HR_READ
+GET /staff/:userId/experience | ExperienceController | perm: STAFF_HR_READ
+GET /staff/:userId/family | FamilyController | perm: STAFF_HR_READ
+GET /staff/:userId/language | LanguageController | perm: STAFF_HR_READ
+GET /staff/:userId/training | TrainingController | perm: STAFF_HR_READ
+GET /students | StudentController | perm: STUDENT_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /students/:id | StudentController | perm: STUDENT_READ
+GET /students/:id/discount-rules | DiscountRulesController | perm: FEE_READ
+GET /students/:id/lifecycle-events | StudentLifecycleController | perm: STUDENT_RECORDS_READ
+GET /students/:id/notes | StudentNotesController | perm: STUDENT_NOTES_READ
+GET /students/:id/photo | StudentPhotoController | perm: STUDENT_READ
+GET /students/:id/public-exams | StudentPublicExamsController | perm: STUDENT_RECORDS_READ
+GET /students/:id/schedules | RecurringSchedulesController | perm: FEE_READ | roles: ACCOUNTANT,ADMIN,EXECUTIVE,PARENT,STUDENT
+GET /students/:id/wallet | WalletController | perm: FEE_READ
+GET /students/:studentId/exam-schedule | StudentExamScheduleController | perm: RESULT_READ
+GET /students/:studentId/exams/:examId/admit-card/assets/:assetId/file | FamilyAdmitCardController | perm: RESULT_READ
+GET /students/:studentId/lessons | FamilyStudyPlansController | perm: SYLLABUS_READ
+GET /students/:studentId/programs | StudentProgramsController | perm: PROGRAM_READ
+GET /students/:studentId/promotion-overrides | PromotionsController | perm: STUDENT_READ
+GET /students/:studentId/results | StudentResultsController | perm: RESULT_READ
+GET /students/:studentId/results/:examId | StudentResultsController | perm: RESULT_READ
+GET /students/:studentId/study-plans | FamilyStudyPlansController | perm: SYLLABUS_READ
+GET /students/:studentId/subject-choices | SubjectChoicesController | perm: STUDENT_UPDATE
+GET /students/:studentId/transcript | TranscriptController | perm: RESULT_READ
+GET /students/ids | StudentController | perm: STUDENT_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
+GET /students/mine | StudentController | perm: STUDENT_READ | roles: PARENT,STUDENT
+GET /study-plan-templates | StudyPlanTemplatesController | perm: SYLLABUS_READ
+GET /study-plan-templates/:id | StudyPlanTemplatesController | perm: SYLLABUS_READ
+GET /study-plans | StudyPlansController | perm: SYLLABUS_READ
+GET /study-plans/:id | StudyPlansController | perm: SYLLABUS_READ
+GET /study-plans/:id/carry-over | StudyPlansController | perm: SYLLABUS_READ
+GET /study-plans/:id/lessons.csv | StudyPlansController | perm: SYLLABUS_READ
+GET /study-plans/:id/schedule | StudyPlansController | perm: SYLLABUS_READ
+GET /study-plans/capacity | StudyPlansController | perm: SYLLABUS_READ
+GET /study-plans/progress.csv | StudyPlansController | perm: SYLLABUS_READ
+GET /subjects | SubjectController | perm: ACADEMIC_STRUCTURE_READ
+GET /subjects/:id | SubjectController | perm: ACADEMIC_STRUCTURE_READ
+GET /surveys | SurveysController | perm: ACR_READ
+GET /surveys/:id | SurveysController | perm: ACR_READ
+GET /surveys/:id/results | SurveyResultsController | identity
+GET /surveys/mine | SurveyRespondController | identity
+GET /syllabus-topics | SyllabusController | perm: SYLLABUS_READ
+GET /teachers | UserController | perm: ACADEMIC_STRUCTURE_READ
+GET /teachers/:teacherId/assignments | UserController | perm: ACADEMIC_STRUCTURE_READ
+GET /users | UserController | perm: USER_READ
+GET /users/:id | UserController | perm: USER_READ
+GET /users/invitations/batch/:batchId | UserController | perm: USER_CREATE
+GET /users/me | UserController | identity
+GET /users/me/preferences/notifications | UserController | identity
+PATCH /academic-years/:id | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
+PATCH /acr/assessments/:id | AcrAssessmentsController | perm: ACR_WRITE
+PATCH /admission-intakes/:id | IntakeController | perm: ADMISSION_REVIEW
+PATCH /admission-intakes/:id/close | IntakeController | perm: ADMISSION_REVIEW
+PATCH /attendance/records/:recordId | AttendanceController | perm: ATTENDANCE_MARK
+PATCH /backup/jobs/:id/pin | WorkbookController | perm: BACKUP_MANAGE
+PATCH /calendar/events/:id | CalendarEventsController | perm: CALENDAR_MANAGE
+PATCH /calendar/terms/:id | AcademicTermsController | perm: CALENDAR_MANAGE
+PATCH /certificates/jobs/:id/confirm | CertificatesController | perm: CERTIFICATE_ISSUE
+PATCH /classes/:classId/sections/:sectionId | ClassController | perm: CLASS_MANAGE
+PATCH /classes/:classId/subjects/:subjectId | ClassSubjectController | perm: CLASS_MANAGE
+PATCH /classes/:id | ClassController | perm: CLASS_MANAGE
+PATCH /designations/:id | DesignationController | perm: STAFF_HR_MANAGE
+PATCH /discount-rules/:id | DiscountRulesController | perm: DISCOUNT_RULE_MANAGE | approval: discount_rules.manage
+PATCH /enrollments/:id | EnrollmentController | perm: STUDENT_UPDATE
+PATCH /exam-templates/:id | ExamTemplatesController | perm: EXAM_MANAGE
+PATCH /exams/:examId/components/:id | ExamComponentsController | perm: EXAM_MANAGE
+PATCH /exams/:examId/marks | MarksController | perm: MARK_ENTER
+PATCH /exams/:examId/schedule/:id | ExamSchedulesController | perm: EXAM_MANAGE
+PATCH /exams/:id | ExamsController | perm: EXAM_MANAGE
+PATCH /fee-structures/:id | FeeController | perm: FEE_STRUCTURE_UPDATE
+PATCH /fees/fine-rules/:id | FineRulesController | perm: FEE_STRUCTURE_UPDATE
+PATCH /fees/generations/:id | FeeGenerationsController | perm: FEE_GENERATE
+PATCH /fees/schedules/:id | RecurringSchedulesController | perm: SCHEDULE_MANAGE
+PATCH /grading/scales/:id | GradingController | perm: GRADING_SCALE_MANAGE
+PATCH /guardians/:id | StudentController | perm: GUARDIAN_UPDATE
+PATCH /guardians/mine | StudentController | identity
+PATCH /homework-assignments/:id | HomeworkController | perm: HOMEWORK_ASSIGN
+PATCH /homework-submissions/:id | HomeworkSubmissionController | perm: HOMEWORK_GRADE
+PATCH /onboarding | OnboardingController | identity
+PATCH /print-jobs/:id/confirm | PrintJobActionsController | perm: DOCUMENT_PRINT
+PATCH /print-templates/:id | PrintTemplatesController | perm: PRINT_TEMPLATE_MANAGE
+PATCH /printers/:id | PrintersController | perm: PRINT_TEMPLATE_MANAGE
+PATCH /program-enrollments/:id | ProgramEnrollmentStatusController | perm: PROGRAM_MANAGE
+PATCH /programs/:id | ProgramsController | perm: PROGRAM_MANAGE
+PATCH /programs/:id/milestones/:milestoneId | ProgramsController | perm: PROGRAM_MANAGE
+PATCH /promotions/:id/entries | PromotionsController | perm: PROMOTION_MANAGE
+PATCH /routines/change-requests/:id | ChangeRequestsController | perm: ROUTINE_MANAGE
+PATCH /routines/rooms/:id | RoomsController | perm: ROUTINE_MANAGE
+PATCH /routines/shifts/:id | ShiftsController | perm: ROUTINE_MANAGE
+PATCH /routines/slots/:slotId | RoutineSlotsController | perm: ROUTINE_MANAGE
+PATCH /school-calendar/holidays/:id | SchoolCalendarController | perm: ACADEMIC_YEAR_MANAGE
+PATCH /schools/:id/settings | SchoolsController | perm: SETTINGS_MANAGE
+PATCH /schools/:id/status | SchoolsController | identity
+PATCH /schools/:id/trial | SchoolsController | identity
+PATCH /schools/me/profile | SchoolProfileController | identity
+PATCH /seat-plans/:id/allocations/:allocationId | SeatPlansController | perm: SEAT_PLAN_MANAGE
+PATCH /seat-plans/:id/rooms/:roomId/invigilator | SeatPlansController | perm: SEAT_PLAN_MANAGE
+PATCH /staff-hr-records/:id | StaffHrController | perm: STAFF_HR_MANAGE
+PATCH /students/:id | StudentController | perm: STUDENT_UPDATE
+PATCH /students/:id/public-exams/:examId | StudentPublicExamsController | perm: STUDENT_RECORDS_WRITE
+PATCH /students/:id/records | StudentController | perm: STUDENT_RECORDS_WRITE
+PATCH /study-plan-templates/:id | StudyPlanTemplatesController | perm: STUDY_PLAN_TEMPLATE_MANAGE
+PATCH /study-plans/:id | StudyPlansController | perm: SYLLABUS_MANAGE
+PATCH /subjects/:id | SubjectController | perm: CLASS_MANAGE
+PATCH /surveys/:id | SurveysController | perm: ACR_WRITE
+PATCH /syllabus-topics/:id | SyllabusController | perm: SYLLABUS_MANAGE
+PATCH /syllabus-topics/reorder | SyllabusController | perm: SYLLABUS_MANAGE
+PATCH /teachers/:id | UserController | perm: USER_UPDATE
+PATCH /users/:id | UserController | perm: USER_UPDATE
+PATCH /users/me | UserController | identity
+PATCH /users/me/preferences/notifications | UserController | identity
+POST /academic-years | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
+POST /academic-years/:id/set-current | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
+POST /account/first-password | FirstPasswordController | allowlist: AuthGuard('jwt')
+POST /acr/assessments | AcrAssessmentsController | perm: ACR_WRITE
+POST /acr/assessments/:id/complete | AcrAssessmentsController | perm: ACR_WRITE
+POST /acr/assessments/:id/reopen | AcrAssessmentsController | perm: ACR_WRITE
+POST /admission-intakes | IntakeController | perm: ADMISSION_REVIEW
+POST /admission/applicants/:id/admit | ApplicantReviewController | perm: ADMISSION_REVIEW
+POST /admission/applicants/:id/evaluate | ApplicantReviewController | perm: ADMISSION_REVIEW
+POST /admission/applicants/:id/reject | ApplicantReviewController | perm: ADMISSION_REVIEW
+POST /applications | ApplicationsController | perm: APPLICATION_SUBMIT
+POST /applications/:id/approve | ApplicationDecisionsController | perm: APPLICATION_SUBMIT
+POST /applications/:id/attachments | ApplicationAttachmentsController | perm: APPLICATION_SUBMIT
+POST /applications/:id/cancel | ApplicationDecisionsController | perm: APPLICATION_SUBMIT
+POST /applications/:id/comments | ApplicationsController | perm: APPLICATION_SUBMIT
+POST /applications/:id/consider | ApplicationDecisionsController | perm: APPLICATION_SUBMIT
+POST /applications/:id/reject | ApplicationDecisionsController | perm: APPLICATION_SUBMIT
+POST /applications/:id/tags | ApplicationsController | perm: APPLICATION_SUBMIT | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,SUPER_ADMIN,TEACHER
+POST /applications/:id/withdraw | ApplicationsController | perm: APPLICATION_SUBMIT
+POST /applications/bulk-approve | ApplicationDecisionsController | perm: APPLICATION_SUBMIT
+POST /applications/letter-preview | ApplicationsController | perm: APPLICATION_SUBMIT
+POST /attendance/device-events | DeviceIngestController | allowlist: DeviceAuthGuard
+POST /attendance/devices | DevicesController | perm: ATTENDANCE_DEVICE_MANAGE
+POST /attendance/devices/:id/rotate | DevicesController | perm: ATTENDANCE_DEVICE_MANAGE
+POST /attendance/devices/me/heartbeat | DeviceIngestController | allowlist: DeviceAuthGuard
+POST /attendance/sections/:sectionId/absence-notice/preview | AbsenceNoticeController | perm: COMMUNICATION_BULK_SEND | roles: ADMIN
+POST /attendance/sections/:sectionId/absence-notice/send | AbsenceNoticeController | perm: COMMUNICATION_BULK_SEND | roles: ADMIN
+POST /attendance/sections/:sectionId/register/finalize | AttendanceController | perm: ATTENDANCE_MARK
+POST /attention/items/:recipientId/hide | AttentionController | identity
+POST /attention/items/:recipientId/snooze | AttentionController | identity
+POST /attention/items/seen | AttentionController | identity
+POST /attention/manual | ManualAlertsController | perm: ALERT_SEND
+POST /attention/manual/preview | ManualAlertsController | perm: ALERT_SEND
+POST /auth/activate | AccountAccessController | allowlist: none
+POST /auth/activate/resend | AccountAccessController | allowlist: none
+POST /auth/activate/verify | AccountAccessController | allowlist: none
+POST /auth/change-password | AuthController | allowlist: AuthGuard('jwt')
+POST /auth/forgot-password | AccountAccessController | allowlist: none
+POST /auth/login | AuthController | allowlist: none
+POST /auth/logout | AuthController | allowlist: SameOriginGuard
+POST /auth/logout-all | AuthController | allowlist: AuthGuard('jwt')
+POST /auth/otp/request | AccountAccessController | allowlist: none
+POST /auth/otp/verify | AccountAccessController | allowlist: none
+POST /auth/refresh | AuthController | allowlist: SameOriginGuard
+POST /auth/register/resend | RegistrationController | allowlist: none
+POST /auth/register/start | RegistrationController | allowlist: none
+POST /auth/register/verify | RegistrationController | allowlist: none
+POST /auth/reset-password | AccountAccessController | allowlist: none
+POST /auth/social/:provider/link-start | SocialAuthController | allowlist: AuthGuard('jwt')
+POST /auth/social/facebook/data-deletion | SocialAuthController | allowlist: none
+POST /auth/step-up | StepUpController | allowlist: AuthGuard('jwt'), ContextGuard
+POST /auth/step-up/otp/request | StepUpController | allowlist: AuthGuard('jwt'), ContextGuard
+POST /auth/verify-email | AccountAccessController | allowlist: none
+POST /backup/export | WorkbookController | perm: BACKUP_MANAGE
+POST /backup/restore | RestoreController | perm: BACKUP_MANAGE
+POST /backup/validate | ImportController | perm: BACKUP_MANAGE
+POST /calendar-import/commit | CalendarImportController | perm: CALENDAR_MANAGE
+POST /calendar-import/validate | CalendarImportController | perm: CALENDAR_MANAGE
+POST /calendar/clone | CalendarExportController | perm: CALENDAR_MANAGE
+POST /calendar/events | CalendarEventsController | perm: CALENDAR_MANAGE
+POST /calendar/events/:id/publish | CalendarEventsController | perm: CALENDAR_MANAGE
+POST /calendar/feed/regenerate | CalendarFeedController | perm: CALENDAR_READ
+POST /calendar/public-holidays/add | PublicHolidaysController | perm: CALENDAR_MANAGE
+POST /calendar/terms | AcademicTermsController | perm: CALENDAR_MANAGE
+POST /calendar/terms/reorder | AcademicTermsController | perm: CALENDAR_MANAGE
+POST /certificates | CertificatesController | perm: CERTIFICATE_ISSUE
+POST /certificates/jobs/:id/reprint | CertificatesController | perm: CERTIFICATE_ISSUE
+POST /certificates/preview | CertificatesController | perm: CERTIFICATE_ISSUE
+POST /classes | ClassController | perm: CLASS_MANAGE
+POST /classes/:classId/sections | ClassController | perm: CLASS_MANAGE
+POST /classes/:classId/sections/:sectionId/teachers | ClassController | perm: CLASS_MANAGE
+POST /classes/:classId/subjects | ClassSubjectController | perm: CLASS_MANAGE
+POST /communications/reminder/bulk | CommunicationsController | perm: COMMUNICATION_BULK_SEND
+POST /communications/reminder/bulk/preview | CommunicationsController | perm: COMMUNICATION_BULK_SEND
+POST /communications/reminder/single/:studentId | CommunicationsController | perm: COMMUNICATION_SEND | roles: ACCOUNTANT,ADMIN,OFFICE_STAFF
+POST /communications/reminder/single/:studentId/preview | CommunicationsController | perm: COMMUNICATION_SEND | roles: ACCOUNTANT,ADMIN,OFFICE_STAFF
+POST /communications/send | CommunicationsController | perm: COMMUNICATION_SEND
+POST /designations | DesignationController | perm: STAFF_HR_MANAGE
+POST /discount-rules | DiscountRulesController | perm: DISCOUNT_RULE_MANAGE | approval: discount_rules.manage
+POST /enrollments | EnrollmentController | perm: STUDENT_UPDATE
+POST /exam-templates | ExamTemplatesController | perm: EXAM_MANAGE
+POST /exams | ExamsController | perm: EXAM_MANAGE
+POST /exams/:examId/components | ExamComponentsController | perm: EXAM_MANAGE
+POST /exams/:examId/components/copy | ExamComponentsController | perm: EXAM_MANAGE
+POST /exams/:examId/marks/reopen | MarksController | perm: MARK_ENTER | roles: ADMIN
+POST /exams/:examId/marks/submit | MarksController | perm: MARK_ENTER
+POST /exams/:examId/results/process | ResultsController | perm: RESULT_PROCESS
+POST /exams/:examId/results/publish | ResultsController | perm: RESULT_PUBLISH
+POST /exams/:examId/results/reopen | ResultsController | perm: RESULT_PUBLISH | approval: results.reopen
+POST /exams/:examId/results/sms | ResultsController | perm: RESULT_PUBLISH
+POST /exams/:examId/schedule | ExamSchedulesController | perm: EXAM_MANAGE
+POST /fee-structures | FeeController | perm: FEE_STRUCTURE_CREATE
+POST /fees/fine-rules | FineRulesController | perm: FEE_STRUCTURE_CREATE
+POST /fees/fine-rules/copy | FineRulesController | perm: FEE_STRUCTURE_CREATE
+POST /fees/fines | FinesController | perm: FEE_GENERATE
+POST /fees/fines/:id/waive | FinesController | perm: FEE_APPROVE
+POST /fees/fines/generate | FineSweepController | perm: FEE_GENERATE
+POST /fees/fines/generate/preview | FineSweepController | perm: FEE_GENERATE
+POST /fees/generate | FeeController | perm: FEE_GENERATE
+POST /fees/generate/preview | FeeController | perm: FEE_GENERATE
+POST /fees/generations/:id/remove-uncollected | FeeGenerationsController | perm: FEE_GENERATE
+POST /fees/schedules | RecurringSchedulesController | perm: SCHEDULE_MANAGE
+POST /fees/schedules/:id/clone | RecurringSchedulesController | perm: SCHEDULE_MANAGE
+POST /fees/schedules/:id/exclusions | RecurringSchedulesController | perm: SCHEDULE_MANAGE
+POST /fees/schedules/run-now | FeeController | perm: SCHEDULE_MANAGE | roles: ADMIN,SUPER_ADMIN
+POST /grading/scales | GradingController | perm: GRADING_SCALE_MANAGE
+POST /grading/scales/:id/bands/confirm | GradingController | perm: GRADING_SCALE_MANAGE | approval: grading_scale.manage
+POST /grading/scales/:id/bands/preview | GradingController | perm: GRADING_SCALE_MANAGE
+POST /grading/scales/:id/copy | GradingController | perm: GRADING_SCALE_MANAGE
+POST /guardians | StudentController | perm: GUARDIAN_CREATE
+POST /homework | HomeworkController | perm: HOMEWORK_ASSIGN
+POST /homework-assignments/:id/reassign | HomeworkController | perm: HOMEWORK_ASSIGN
+POST /homework-assignments/:id/submissions | HomeworkSubmissionController | perm: HOMEWORK_READ | roles: PARENT,STUDENT
+POST /homework/:id/assign | HomeworkController | perm: HOMEWORK_ASSIGN
+POST /homework/bulk/commit | HomeworkBulkUploadController | perm: HOMEWORK_IMPORT
+POST /homework/bulk/validate | HomeworkBulkUploadController | perm: HOMEWORK_IMPORT
+POST /incidents | IncidentsController | perm: ACR_WRITE
+POST /invoices | InvoicesController | perm: INVOICE_CREATE
+POST /invoices/:id/send | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
+POST /invoices/:id/share | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
+POST /lesson-deliveries/extra | LessonDeliveriesController | perm: SYLLABUS_MANAGE
+POST /lesson-deliveries/today-all-taught | LessonDeliveriesController | perm: SYLLABUS_MANAGE
+POST /me/push/subscriptions | PushSubscriptionsController | identity
+POST /payments/:id/reverse | CheckoutController | perm: PAYMENT_REVERSE | approval: payments.reverse
+POST /payments/checkout | CheckoutController | perm: PAYMENT_RECORD
+POST /platform/holiday-sets/:id/publish | PublicHolidaysController | identity
+POST /platform/holiday-sets/:id/unpublish | PublicHolidaysController | identity
+POST /platform/holiday-sets/fetch | PublicHolidaysController | identity
+POST /platform/schools/:id/preset/reset | PlatformPresetsController | identity
+POST /presets/apply | PresetApplyController | perm: CURRICULUM_PRESET_APPLY
+POST /print-assets | PrintAssetsController | perm: PRINT_TEMPLATE_MANAGE
+POST /print-assets/:id/archive | PrintAssetsController | perm: PRINT_TEMPLATE_MANAGE
+POST /print-history/items/:id/revoke | PrintHistoryController | perm: DOCUMENT_REVOKE
+POST /print-jobs | PrintJobsController | perm: DOCUMENT_PRINT
+POST /print-jobs/:id/reprint | PrintJobActionsController | perm: DOCUMENT_PRINT
+POST /print-jobs/preview | PrintJobsController | perm: DOCUMENT_PRINT
+POST /print-templates | PrintTemplatesController | perm: PRINT_TEMPLATE_MANAGE
+POST /print-templates/:id/archive | PrintTemplatesController | perm: PRINT_TEMPLATE_MANAGE
+POST /print-templates/:id/default | PrintTemplatesController | perm: PRINT_TEMPLATE_MANAGE
+POST /print-templates/:id/publish | PrintTemplatesController | perm: PRINT_TEMPLATE_MANAGE
+POST /printers | PrintersController | perm: PRINT_TEMPLATE_MANAGE
+POST /printers/:id/archive | PrintersController | perm: PRINT_TEMPLATE_MANAGE
+POST /programs | ProgramsController | perm: PROGRAM_MANAGE
+POST /programs/:id/achievements | ProgramEnrollmentsController | perm: PROGRAM_RECORD
+POST /programs/:id/enrollments | ProgramEnrollmentsController | perm: PROGRAM_MANAGE
+POST /programs/:id/milestones | ProgramsController | perm: PROGRAM_MANAGE
+POST /promotions | PromotionsController | perm: PROMOTION_MANAGE
+POST /promotions/:id/commit | PromotionsController | perm: PROMOTION_MANAGE
+POST /promotions/:id/refresh | PromotionsController | perm: PROMOTION_MANAGE
+POST /public/admission/:slug/applicants | PublicAdmissionController | allowlist: none
+POST /public/admission/:slug/status | PublicAdmissionController | allowlist: none
+POST /routines | RoutineSlotsController | perm: ROUTINE_MANAGE
+POST /routines/:id/copy-year | RoutineSlotsController | perm: ROUTINE_MANAGE
+POST /routines/:id/publish | RoutineSlotsController | perm: ROUTINE_MANAGE
+POST /routines/:id/slots | RoutineSlotsController | perm: ROUTINE_MANAGE
+POST /routines/:id/submit-for-review | RoutineSlotsController | perm: ROUTINE_MANAGE
+POST /routines/:id/withdraw | RoutineSlotsController | perm: ROUTINE_MANAGE
+POST /routines/rooms | RoomsController | perm: ROUTINE_MANAGE
+POST /routines/shifts | ShiftsController | perm: ROUTINE_MANAGE
+POST /routines/slots/:slotId/change-requests | ChangeRequestsController | perm: ROUTINE_READ | roles: TEACHER
+POST /routines/substitutions | SubstitutionsController | perm: ROUTINE_MANAGE
+POST /school-calendar/holidays | SchoolCalendarController | perm: ACADEMIC_YEAR_MANAGE
+POST /schools | ProvisioningController | identity
+POST /schools/:id/admins | SchoolAdminsController | identity
+POST /schools/:id/admins/:userId/resend-invitation | SchoolAdminsController | identity
+POST /schools/:id/settings/test | ProviderConnectionTestController | perm: SETTINGS_MANAGE
+POST /schools/:id/sms-credits | SchoolSmsCreditsController | identity
+POST /schools/me/logo | SchoolLogoController | identity
+POST /seat-plans/:id/publish | SeatPlansController | perm: SEAT_PLAN_MANAGE
+POST /seat-plans/:id/rooms/:roomId/reshuffle | SeatPlansController | perm: SEAT_PLAN_MANAGE
+POST /seat-plans/generate | SeatPlansController | perm: SEAT_PLAN_MANAGE
+POST /staff-documents/:staffUserId/:documentType | StaffDocumentController | perm: STAFF_HR_MANAGE
+POST /staff-hr-records | StaffHrController | perm: STAFF_HR_MANAGE
+POST /staff-hr-records/:userId/promote | StaffHrController | perm: STAFF_HR_MANAGE
+POST /students | StudentController | perm: STUDENT_CREATE
+POST /students/:id/leave | StudentLifecycleController | perm: STUDENT_LIFECYCLE_MANAGE
+POST /students/:id/notes | StudentNotesController | perm: STUDENT_NOTES_WRITE
+POST /students/:id/photo | StudentPhotoController | perm: STUDENT_UPDATE
+POST /students/:id/public-exams | StudentPublicExamsController | perm: STUDENT_RECORDS_WRITE
+POST /students/:id/readmit | StudentLifecycleController | perm: STUDENT_LIFECYCLE_MANAGE
+POST /students/:studentId/document-prints | TranscriptController | perm: RESULT_READ
+POST /students/:studentId/exams/:examId/admit-card | FamilyAdmitCardController | perm: RESULT_READ
+POST /students/bulk-upload/commit | StudentController | perm: STUDENT_BULK_UPLOAD
+POST /students/bulk-upload/validate | StudentController | perm: STUDENT_BULK_UPLOAD
+POST /students/photos/bulk | StudentPhotoController | perm: STUDENT_UPDATE
+POST /study-plan-templates | StudyPlanTemplatesController | perm: STUDY_PLAN_TEMPLATE_MANAGE
+POST /study-plan-templates/:id/copy | StudyPlanTemplatesController | perm: SYLLABUS_MANAGE
+POST /study-plan-templates/from-plan/:planId | StudyPlanTemplatesController | perm: STUDY_PLAN_TEMPLATE_MANAGE
+POST /study-plans | StudyPlansController | perm: SYLLABUS_MANAGE
+POST /study-plans/:id/copy-to-section | StudyPlansController | perm: SYLLABUS_MANAGE
+POST /study-plans/import/commit | StudyPlansController | perm: SYLLABUS_READ
+POST /study-plans/import/validate | StudyPlansController | perm: SYLLABUS_READ
+POST /subjects | SubjectController | perm: CLASS_MANAGE
+POST /surveys | SurveysController | perm: ACR_WRITE
+POST /surveys/:id/close | SurveysController | perm: ACR_WRITE
+POST /surveys/:id/publish | SurveysController | perm: ACR_WRITE
+POST /surveys/:id/respond | SurveyRespondController | identity
+POST /syllabus-topics | SyllabusController | perm: SYLLABUS_MANAGE
+POST /teachers | UserController | perm: USER_CREATE
+POST /users | UserController | perm: USER_CREATE
+POST /users/:id/invitation/resend | UserController | perm: USER_CREATE
+POST /users/:id/reset-password | UserController | perm: USER_UPDATE
+POST /users/:id/restore | UserController | perm: MEMBER_REMOVE
+POST /users/bulk-upload/commit | StaffBulkUploadController | perm: USER_CREATE
+POST /users/bulk-upload/validate | StaffBulkUploadController | perm: USER_CREATE
+POST /users/invitations/batch | UserController | perm: USER_CREATE
+POST /users/invitations/preview | UserController | perm: USER_CREATE
+POST /users/me/contact-change | UserController | identity
+POST /users/me/contact-change/confirm-phone | UserController | identity
+POST /users/me/leave | UserController | identity
+PUT /acr/criteria | AcrCriteriaController | perm: ACR_WRITE
+PUT /attendance/sections/:sectionId/register | AttendanceController | perm: ATTENDANCE_MARK
+PUT /attendance/sections/:sectionId/register-matrix | AttendanceController | perm: ATTENDANCE_MARK
+PUT /leave/policies/:type | LeaveController | perm: LEAVE_APPROVE
+PUT /lesson-deliveries | LessonDeliveriesController | perm: SYLLABUS_MANAGE
+PUT /platform/holiday-sets/:id/entries | PublicHolidaysController | identity
+PUT /programs/:id/milestones/order | ProgramsController | perm: PROGRAM_MANAGE
+PUT /routines/shifts/:id/period-slots | ShiftsController | perm: ROUTINE_MANAGE
+PUT /staff-attendance/register | StaffAttendanceController | perm: STAFF_ATTENDANCE_MARK
+PUT /staff/:userId/achievement | AchievementController | perm: STAFF_HR_MANAGE
+PUT /staff/:userId/address | AddressController | perm: STAFF_HR_MANAGE
+PUT /staff/:userId/education | EducationController | perm: STAFF_HR_MANAGE
+PUT /staff/:userId/experience | ExperienceController | perm: STAFF_HR_MANAGE
+PUT /staff/:userId/family | FamilyController | perm: STAFF_HR_MANAGE
+PUT /staff/:userId/language | LanguageController | perm: STAFF_HR_MANAGE
+PUT /staff/:userId/training | TrainingController | perm: STAFF_HR_MANAGE
+PUT /students/:studentId/subject-choices | SubjectChoicesController | perm: STUDENT_UPDATE
+PUT /study-plans/:id/exam-markers | StudyPlansController | perm: SYLLABUS_MANAGE
+PUT /study-plans/:id/lessons | StudyPlansController | perm: SYLLABUS_MANAGE

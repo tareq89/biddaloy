@@ -14,7 +14,13 @@ import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
 import { RolesGuard } from './modules/auth/guards/context.guard';
 import { ROLES_KEY } from './modules/auth/decorators/roles.decorator';
 import { PERMISSIONS_KEY } from './modules/auth/decorators/require-permissions.decorator';
-import { buildFullPath, RequestMethodName } from './route-guard-coverage.e2e-spec';
+import { REQUIRE_APPROVAL_KEY } from './modules/auth/decorators/require-approval.decorator';
+import {
+  ALLOWLIST,
+  buildFullPath,
+  describeGuards,
+  RequestMethodName,
+} from './route-guard-coverage.e2e-spec';
 
 /**
  * Regression coverage for [10.3]/[10.4]'s route -> permission mapping (the
@@ -890,10 +896,16 @@ describe('Permission matrix (regression)', () => {
       roles: UserRole[];
       permissions: Permission[];
       hasPermissionsGuard: boolean;
+      guards: unknown[];
+      approvalScope: string | undefined;
     }) => void,
     // Default: PermissionsGuard routes only. `includeRolesGuardOnly` also visits routes guarded
     // by RolesGuard without PermissionsGuard, so a mirrored @Roles there cannot hide (#1357).
-    { includeRolesGuardOnly = false }: { includeRolesGuardOnly?: boolean } = {},
+    // `includeEveryRoute` skips the guard filter entirely (route → permission snapshot).
+    {
+      includeRolesGuardOnly = false,
+      includeEveryRoute = false,
+    }: { includeRolesGuardOnly?: boolean; includeEveryRoute?: boolean } = {},
   ) {
     const controllers = discoveryService.getControllers();
 
@@ -917,7 +929,11 @@ describe('Permission matrix (regression)', () => {
         const methodGuards: unknown[] = Reflect.getMetadata(GUARDS_METADATA, handler) ?? [];
         const allGuards = [...classGuards, ...methodGuards];
         const hasPermissionsGuard = allGuards.includes(PermissionsGuard);
-        if (!hasPermissionsGuard && !(includeRolesGuardOnly && allGuards.includes(RolesGuard))) {
+        if (
+          !includeEveryRoute &&
+          !hasPermissionsGuard &&
+          !(includeRolesGuardOnly && allGuards.includes(RolesGuard))
+        ) {
           continue;
         }
 
@@ -941,10 +957,51 @@ describe('Permission matrix (regression)', () => {
           roles,
           permissions,
           hasPermissionsGuard,
+          guards: allGuards,
+          approvalScope:
+            Reflect.getMetadata(REQUIRE_APPROVAL_KEY, handler) ??
+            Reflect.getMetadata(REQUIRE_APPROVAL_KEY, metatype),
         });
       }
     }
   }
+
+  // The committed file lists every HTTP route and what protects it. A diff in it is a permission
+  // change: review it like one. After adding or changing a route, regenerate it with
+  // `yarn test:file src/permission-matrix.e2e-spec.ts -u` and commit the result.
+  it('[68] matches the committed route → permission snapshot', async () => {
+    const lines: string[] = [];
+    const violations: string[] = [];
+
+    walkRoutes(
+      ({ controllerName, methodLabel, fullPath, roles, permissions, guards, approvalScope }) => {
+        let protection: string;
+        if (permissions.length > 0) {
+          protection = `perm: ${[...permissions].sort().join(',')}`;
+          if (roles.length > 0) protection += ` | roles: ${[...roles].sort().join(',')}`;
+          if (approvalScope) protection += ` | approval: ${approvalScope}`;
+        } else if (findIdentityScopedEntry(controllerName, methodLabel, fullPath)) {
+          protection = 'identity';
+        } else if (
+          ALLOWLIST.some(
+            (e) =>
+              e.controller === controllerName && e.method === methodLabel && e.path === fullPath,
+          )
+        ) {
+          protection = `allowlist: ${describeGuards(guards)}`;
+        } else {
+          protection = `UNCLASSIFIED: ${describeGuards(guards)}`;
+          violations.push(`${methodLabel} ${fullPath} (${controllerName}) — ${protection}`);
+        }
+        lines.push(`${methodLabel} ${fullPath} | ${controllerName} | ${protection}`);
+      },
+      { includeEveryRoute: true },
+    );
+
+    expect(violations).toEqual([]);
+    const text = lines.sort((a, b) => a.localeCompare(b)).join('\n') + '\n';
+    await expect(text).toMatchFileSnapshot('./__snapshots__/route-permissions.txt');
+  });
 
   it('never tightens: every role in @Roles (excluding SUPER_ADMIN) holds every @RequirePermissions permission', () => {
     const violations: string[] = [];
