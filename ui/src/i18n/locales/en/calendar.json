@@ -26,7 +26,8 @@
     "EXAM": "Exam",
     "EVENT": "Event",
     "MEETING": "Meeting",
-    "DEADLINE": "Deadline"
+    "DEADLINE": "Deadline",
+    "MAKEUP_DAY": "Make-up school day"
   },
   "eventForm": {
     "createTitle": "Add event",

@@ -25,4 +25,8 @@ describe('amountInWords', () => {
     const seen = new Set(Array.from({ length: 100 }, (_, i) => amountInWords(i, 'bn')));
     expect(seen.size).toBe(100);
   });
+
+  it.each([NaN, Infinity, -Infinity, 1e15])('throws RangeError for %s', (n) => {
+    expect(() => amountInWords(n, 'en')).toThrow(RangeError);
+  });
 });
