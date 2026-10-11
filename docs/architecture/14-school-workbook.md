@@ -245,12 +245,12 @@ So while the restore lock is held, the school is read-only:
   overwritten by the restored email, #2351.)
 - **Background jobs that skip or wait:**
 
-  | Job                                  | While the school is restoring                                                                                                                                                                                     |
-  | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | fees-daily (bills, late fees, fines) | Re-queues the school for the **same day** every 15 min until the lock clears. `isDue` matches only the exact firing day, so a plain skip would lose that period's bills. `last_run_period` keeps it exactly-once. |
-  | study-plan auto deliveries           | Skips; the next 15-minute tick that day writes the rows.                                                                                                                                                          |
-  | scheduled backup                     | Skips that tick (the restore took its own snapshot), so a half-restored school is never saved as a normal backup and retention never prunes a good one for it.                                                    |
-  | guardian invitation batch            | Parks the job for 1 min (`DelayedError`) and checks again.                                                                                                                                                        |
+  | Job                                  | While the school is restoring                                                                                                                                                                                                                                                           |
+  | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | fees-daily (bills, late fees, fines) | Re-queues the school for the **same day** every 15 min until the lock clears. The nightly run only catches up a missed fire day while still inside that period, so a plain skip could lose the bills of a period that ends during the restore. `last_run_period` keeps it exactly-once. |
+  | study-plan auto deliveries           | Skips; the next 15-minute tick that day writes the rows.                                                                                                                                                                                                                                |
+  | scheduled backup                     | Skips that tick (the restore took its own snapshot), so a half-restored school is never saved as a normal backup and retention never prunes a good one for it.                                                                                                                          |
+  | guardian invitation batch            | Parks the job for 1 min (`DelayedError`) and checks again.                                                                                                                                                                                                                              |
 
   Other scheduled senders (attention alerts, absence notices, homework
   defaulters, study-plan flags) do not check yet (#2350).
