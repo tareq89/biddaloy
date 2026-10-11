@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
+import { ResultsService } from './results.service';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { ExamKind, ExamStatus, UserRole } from '@biddaloy/shared';
@@ -15,6 +16,7 @@ import {
   SEED_SECTION_1_ID,
   SEED_CLASS_1_ID,
   SEED_ACADEMIC_YEAR_ID,
+  SEED_ADMIN_USER_ID,
 } from '@test/constants';
 
 /**
@@ -238,6 +240,40 @@ describe('[19.9.1] Student results (portal + staff)', () => {
         .expect(200);
 
       expect(res.body.exam_name).toBe('Unpublished Monthly Test');
+    });
+  });
+
+  describe('[68.1.07] a student who left keeps the result after reopen + reprocess + re-publish', () => {
+    it('the PARENT still reads the published report card', async () => {
+      await seedResultFixture();
+      // The student left (TRANSFERRED) after the exam was published.
+      await dataSource.query(
+        `INSERT INTO enrollments
+           (student_id, class_id, section_id, academic_year_id, enrollment_status, tenant_id, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'TRANSFERRED', $5, NOW(), NOW())`,
+        [studentId, SEED_CLASS_1_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID, TENANT_ID],
+      );
+      const [{ subject_id }] = await dataSource.query(
+        `SELECT subject_id FROM result_subjects WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [TENANT_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO class_subjects (class_id, subject_id, academic_year_id, is_optional, is_graded_only, tenant_id, created_at, updated_at)
+         VALUES ($1, $2, $3, false, false, $4, NOW(), NOW())`,
+        [SEED_CLASS_1_ID, subject_id, SEED_ACADEMIC_YEAR_ID, TENANT_ID],
+      );
+
+      const results = app.get(ResultsService);
+      await results.reopen(publishedExamId, TENANT_ID, SEED_ADMIN_USER_ID);
+      await results.process(publishedExamId, TENANT_ID, SEED_ADMIN_USER_ID, true);
+      await results.publish(publishedExamId, TENANT_ID, SEED_ADMIN_USER_ID);
+
+      const res = await http()
+        .get(`${API}/students/${studentId}/results/${publishedExamId}`)
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+      expect(res.body.exam_name).toBe('Published Term Exam');
     });
   });
 });

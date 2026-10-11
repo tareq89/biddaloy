@@ -7,6 +7,7 @@ import { Exam } from './entities/exam.entity';
 import { ExamComponent } from './entities/exam-component.entity';
 import { Mark } from './entities/mark.entity';
 import { Result } from './entities/result.entity';
+import { ExamSchedule } from './entities/exam-schedule.entity';
 import { ResultSubject } from './entities/result-subject.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -446,5 +447,178 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
     );
 
     expect(grid.students.map((s) => s.id)).toEqual([student.id]);
+  });
+
+  // ---- [68.1.07] LIFE-01 / ACAD-03 / ACAD-06: the cohort is "who sat it" ----
+
+  /** Builds a processed exam for students A, B (+ optional extras), then
+   * returns handles. Marks: A=85, B=40. */
+  async function processedExamWithAB() {
+    const a = await buildStudent({ roll_number: 1 });
+    const b = await buildStudent({ roll_number: 2 });
+    await enrollmentRepo.save(
+      [a, b].map((st) =>
+        enrollmentRepo.create({
+          student_id: st.id,
+          class_id: CLASS_1_ID,
+          section_id: SECTION_1_ID,
+          academic_year_id: YEAR_1_ID,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+          tenant_id: TENANT_ID,
+        }),
+      ),
+    );
+    const exam = await examRepo.save(
+      examRepo.create({
+        tenant_id: TENANT_ID,
+        academic_year_id: YEAR_1_ID,
+        class_id: CLASS_1_ID,
+        name: 'Cohort Exam',
+        kind: ExamKind.TERM,
+        status: ExamStatus.DRAFT,
+      }),
+    );
+    const component = await componentRepo.save(
+      componentRepo.create({
+        tenant_id: TENANT_ID,
+        exam_id: exam.id,
+        subject_id: SUBJECT_ID,
+        name: 'Written',
+        kind: ExamComponentKind.WRITTEN,
+        source: ExamComponentSource.MANUAL,
+        full_marks: '100',
+        sequence: 1,
+      }),
+    );
+    const addMark = (studentId: string, value: string) =>
+      markRepo.save(
+        markRepo.create({
+          tenant_id: TENANT_ID,
+          exam_id: exam.id,
+          student_id: studentId,
+          subject_id: SUBJECT_ID,
+          component_id: component.id,
+          value,
+          status: MarkStatus.PRESENT,
+        }),
+      );
+    await addMark(a.id, '85.00');
+    await addMark(b.id, '40.00');
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+    return { a, b, exam, component, addMark };
+  }
+
+  const liveResults = (examId: string) =>
+    resultRepo.find({ where: { exam_id: examId, tenant_id: TENANT_ID } });
+
+  it.each([EnrollmentStatus.TRANSFERRED, EnrollmentStatus.GRADUATED, EnrollmentStatus.INACTIVE])(
+    'LIFE-01: a student who became %s keeps their result when the exam is reprocessed',
+    async (status) => {
+      const { a, b, exam } = await processedExamWithAB();
+      await enrollmentRepo.update({ student_id: a.id }, { enrollment_status: status });
+
+      const out = await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+      // A is no longer ACTIVE but sat the exam: still recomputed.
+      expect(out.processed).toBe(2);
+
+      const rows = await liveResults(exam.id);
+      const byStudent = new Map(rows.map((r) => [r.student_id, r]));
+      expect(rows).toHaveLength(2);
+      expect(byStudent.get(a.id)?.total_marks).toBe('85.00');
+      // Ranked together: no duplicate positions.
+      expect(byStudent.get(a.id)?.position).toBe(1);
+      expect(byStudent.get(b.id)?.position).toBe(2);
+    },
+  );
+
+  it('ACAD-06: a student admitted after the last sitting with no marks gets no result', async () => {
+    const { exam, a } = await processedExamWithAB();
+    const subjectId = SUBJECT_ID;
+    await dataSource.getRepository(ExamSchedule).save({
+      tenant_id: TENANT_ID,
+      exam_id: exam.id,
+      subject_id: subjectId,
+      date: '2025-03-01',
+      starts_at: '10:00',
+      ends_at: '12:00',
+    });
+    const late = await buildStudent({ roll_number: 3 });
+    await enrollmentRepo.save(
+      enrollmentRepo.create({
+        student_id: late.id,
+        class_id: CLASS_1_ID,
+        section_id: SECTION_1_ID,
+        academic_year_id: YEAR_1_ID,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+        enrolled_at: new Date('2025-06-01T00:00:00Z'),
+        tenant_id: TENANT_ID,
+      }),
+    );
+
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+    const rows = await liveResults(exam.id);
+    expect(rows.map((r) => r.student_id)).not.toContain(late.id);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.student_id === a.id)?.position).toBe(1);
+  });
+
+  it('ACAD-06: the same late student WITH a mark does get a result', async () => {
+    const { exam, addMark } = await processedExamWithAB();
+    await dataSource.getRepository(ExamSchedule).save({
+      tenant_id: TENANT_ID,
+      exam_id: exam.id,
+      subject_id: SUBJECT_ID,
+      date: '2025-03-01',
+      starts_at: '10:00',
+      ends_at: '12:00',
+    });
+    const late = await buildStudent({ roll_number: 3 });
+    await enrollmentRepo.save(
+      enrollmentRepo.create({
+        student_id: late.id,
+        class_id: CLASS_1_ID,
+        section_id: SECTION_1_ID,
+        academic_year_id: YEAR_1_ID,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+        enrolled_at: new Date('2025-06-01T00:00:00Z'),
+        tenant_id: TENANT_ID,
+      }),
+    );
+    await addMark(late.id, '70.00');
+
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+    const rows = await liveResults(exam.id);
+    expect(rows.map((r) => r.student_id)).toContain(late.id);
+  });
+
+  it('a soft-deleted student who had a result keeps it; one with none gets none', async () => {
+    const { a, exam } = await processedExamWithAB();
+    await studentRepo.softDelete(a.id);
+    // A deleted duplicate that never had a result or marks.
+    const ghost = await buildStudent({ roll_number: 9 });
+    await enrollmentRepo.save(
+      enrollmentRepo.create({
+        student_id: ghost.id,
+        class_id: CLASS_1_ID,
+        section_id: SECTION_1_ID,
+        academic_year_id: YEAR_1_ID,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+        tenant_id: TENANT_ID,
+      }),
+    );
+    await studentRepo.softDelete(ghost.id);
+
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+    const ids = (await liveResults(exam.id)).map((r) => r.student_id);
+    expect(ids).toContain(a.id);
+    expect(ids).not.toContain(ghost.id);
+  });
+
+  it('tenant isolation: another tenant never sees this exam cohort rows', async () => {
+    const { exam } = await processedExamWithAB();
+    const other = await resultRepo.find({
+      where: { exam_id: exam.id, tenant_id: '00000000-0000-4000-8000-00000000beef' },
+    });
+    expect(other).toHaveLength(0);
   });
 });
