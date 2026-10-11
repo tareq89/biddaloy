@@ -86,6 +86,8 @@ export class HomeworkDefaulterScheduler extends WorkerHost implements OnModuleIn
 
   private async sweepTenant(tenantId: string): Promise<void> {
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    // [TIME-11] Switched off: no per-assignment queries at all.
+    if (settings.homework?.notifyDefaulters !== true) return;
     const timezone = settings.region?.timezone ?? 'UTC';
     const dueDate = localYesterday(timezone);
 

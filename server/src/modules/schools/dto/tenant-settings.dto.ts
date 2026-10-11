@@ -681,6 +681,21 @@ export class ApplicationsSettingsDto {
   smsOnDecision?: boolean;
 }
 
+/** [TIME-11] `settings.homework`. Both guardian SMS notices default off. */
+export class HomeworkSettingsDto {
+  /** Text guardians when homework is assigned. */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  notifyOnAssign?: boolean;
+
+  /** Text guardians the day after the due date if not submitted. */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  notifyDefaulters?: boolean;
+}
+
 /** [67.1.06] quiet hours window. */
 export class AttentionQuietHoursDto {
   @ApiProperty({ example: '21:00' })
@@ -891,6 +906,10 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => ApplicationsSettingsDto)
   applications?: ApplicationsSettingsDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => HomeworkSettingsDto)
+  homework?: HomeworkSettingsDto;
 
   @OptionalSetting()
   @NestedSettings(() => DocumentsSettingsDto)

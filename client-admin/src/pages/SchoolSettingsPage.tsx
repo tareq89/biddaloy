@@ -37,6 +37,7 @@ import { DocumentsSection } from './settings/DocumentsSection';
 import { EmailSection } from './settings/EmailSection';
 import { EvaluationsSection } from './settings/EvaluationsSection';
 import { FeesSection } from './settings/FeesSection';
+import { HomeworkSection } from './settings/HomeworkSection';
 import { MessengerSection } from './settings/MessengerSection';
 import { OrganisationSection } from './settings/OrganisationSection';
 import { PresetLinkCard } from './settings/PresetLinkCard';
@@ -175,6 +176,12 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
                   key={loaded.schoolId}
                   schoolId={loaded.schoolId}
                   studyPlans={loaded.data.studyPlans}
+                  smsConfigured={isSmsReady(loaded.data.communications?.sms)}
+                />
+                <HomeworkSection
+                  key={loaded.schoolId}
+                  schoolId={loaded.schoolId}
+                  homework={loaded.data.homework}
                   smsConfigured={isSmsReady(loaded.data.communications?.sms)}
                 />
                 <ApplicationsSection
