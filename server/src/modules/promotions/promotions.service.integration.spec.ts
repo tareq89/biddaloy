@@ -384,6 +384,35 @@ describe('PromotionsService (integration)', () => {
   });
 
   describe('commit', () => {
+    // LIFE-02: a soft-deleted student whose enrollment is still ACTIVE (old data)
+    // must not become a run entry, or the commit fails with "Student not found".
+    it('ignores a soft-deleted student with an ACTIVE enrollment and still commits', async () => {
+      const live = await buildStudent();
+      await enrollActive(live.id);
+      await addResult(live.id, { isFail: false, gpa: 4.0, total: 400 });
+      const gone = await buildStudent({ roll_number: 2 });
+      await enrollActive(gone.id);
+      await addResult(gone.id, { isFail: false, gpa: 4.0, total: 400 });
+      await studentRepo.softDelete({ id: gone.id, tenant_id: TENANT_ID });
+
+      const run = await service.create(
+        {
+          source_class_id: SOURCE_CLASS_ID,
+          target_academic_year_id: TARGET_YEAR_ID,
+          exam_ids: [examId],
+          algorithm: PlacementAlgorithm.BLOCK,
+        },
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+      const entries = await entryRepo.find({ where: { run_id: run.id } });
+      expect(entries.map((e) => e.student_id)).toEqual([live.id]);
+
+      await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
+      const committed = await runRepo.findOne({ where: { id: run.id } });
+      expect(committed?.status).toBe(PromotionRunStatus.COMMITTED);
+    });
+
     it('creates enrollments with no overrides, and findCurrentByStudent returns the target year', async () => {
       const student = await buildStudent();
       await enrollActive(student.id);

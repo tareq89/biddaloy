@@ -8,6 +8,8 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
+import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import {
@@ -31,7 +33,7 @@ describe('LateFeeService (integration)', () => {
   let service: LateFeeService;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [LateFeeService]);
+    const module = await createTestModule(ALL_ENTITIES, [LateFeeService, AuditService]);
     ds = module.get(DataSource);
     service = module.get(LateFeeService);
 
@@ -157,6 +159,40 @@ describe('LateFeeService (integration)', () => {
     const lateFee = lateFeeBills.find((b) => b.fee_structure.fee_type === FeeType.LATE_FEE);
     expect(lateFee).toBeDefined();
     expect(Number(lateFee?.total_amount)).toBe(100);
+  });
+
+  // MON-12: a deleted student's overdue bill is not charged.
+  it('skips an overdue bill whose student is soft-deleted', async () => {
+    await setSettings({
+      MONTHLY_TUITION: { enabled: true, grace_days: 5, kind: DiscountKind.FLAT, value: 100 },
+    });
+    await seedBill('2026-03-01');
+    await ds.getRepository(Student).softDelete({ id: STUDENT_ID });
+
+    await service.applyDue(SEED_TENANT_ID, TODAY);
+
+    const bills = await ds.getRepository(StudentFee).find({ where: { student_id: STUDENT_ID } });
+    expect(bills).toHaveLength(1);
+    expect(await ds.getRepository(AuditLog).count({ where: { entity_type: 'StudentFee' } })).toBe(
+      0,
+    );
+  });
+
+  it('writes exactly one audit row listing the late fees a sweep created', async () => {
+    await setSettings({
+      MONTHLY_TUITION: { enabled: true, grace_days: 5, kind: DiscountKind.FLAT, value: 100 },
+    });
+    await seedBill('2026-03-01');
+
+    await service.applyDue(SEED_TENANT_ID, TODAY);
+    await service.applyDue(SEED_TENANT_ID, TODAY); // second sweep creates nothing, no audit
+
+    const logs = await ds.getRepository(AuditLog).find({ where: { entity_type: 'StudentFee' } });
+    expect(logs).toHaveLength(1);
+    const values = logs[0]?.new_values as { source: string; created_ids: string[] };
+    expect(values.source).toBe('LATE_FEE_SWEEP');
+    expect(values.created_ids).toHaveLength(1);
+    expect(logs[0]?.performed_by_user_id).toBeNull();
   });
 
   it('disabled setting produces nothing', async () => {

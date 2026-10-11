@@ -7,7 +7,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, IsNull, EntityManager } from 'typeorm';
+import { Repository, In, IsNull, Not, EntityManager } from 'typeorm';
 import {
   PromotionOutcome,
   PromotionRunStatus,
@@ -228,6 +228,8 @@ export class PromotionsService {
         academic_year_id: sourceAcademicYearId,
         enrollment_status: EnrollmentStatus.ACTIVE,
         tenant_id: tenantId,
+        // Soft-deleted students: TypeORM's LEFT JOIN drops a deleted row, so test the id.
+        student: { id: Not(IsNull()) },
       },
     });
     if (enrollments.length === 0) return [];
