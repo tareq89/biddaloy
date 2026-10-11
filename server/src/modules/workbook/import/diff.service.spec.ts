@@ -170,4 +170,13 @@ describe('DiffService', () => {
 
     expect(report.isEmptyTenant).toBe(false);
   });
+
+  it('never previews deletes for an insert-only tab (D13)', async () => {
+    const tab = makeTab('payment_allocations', {
+      existing: [{ id: '1', key: 'k1', value: 'old' }],
+    });
+    const validated = validatedFor({ payment_allocations: { present: true, rows: [] } });
+    const report = await service.diff(validated, 'tenant-1', manager, [tab]);
+    expect(report.tabs[0].deletes).toBe(0);
+  });
 });

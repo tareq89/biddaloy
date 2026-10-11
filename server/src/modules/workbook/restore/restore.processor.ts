@@ -10,6 +10,7 @@ import { StorageService } from '../../storage/storage.service';
 import { ImportStagingService } from '../../bulk-import/import-staging.service';
 import { InvitationService } from '../../account-access/invitation.service';
 import { ALL_TABS } from '../codec/registry';
+import { INSERT_ONLY_TABS } from '../codec/insert-only-tabs';
 import { joinRequestedUsers } from '../tabs/people/users.tab';
 import type { User } from '../../users/entities/user.entity';
 import { KeyIndex } from '../codec/key-index';
@@ -145,6 +146,7 @@ export class RestoreProcessor extends WorkerHost {
     const tenantId = row.tenant_id;
     let currentTab: string | null = null;
     const rowCounts: WorkbookRowCounts = {};
+    const deletedCounts: Record<string, number> = {};
     const createdUserIds: string[] = [];
 
     // Everything from here on lives inside the try: the per-tenant restore
@@ -264,7 +266,9 @@ export class RestoreProcessor extends WorkerHost {
           }
           const matchedIds = new Set<string>();
 
+          const insertOnly = INSERT_ONLY_TABS.has(tab.name);
           let applied = 0;
+          let deleted = 0;
           for (const rawRow of tabResult.rows) {
             // Replace any `pending:<tab>:<key>` placeholder left by
             // ValidationService with the real id, now that earlier tabs'
@@ -276,7 +280,11 @@ export class RestoreProcessor extends WorkerHost {
               (typeof rowId === 'string' ? existingById.get(rowId) : undefined) ??
               existingByKey.get(key) ??
               null;
-            const entity = await tab.upsert(typedRow, existing, tenantId, m);
+            // D13: insert-only tabs never update an existing row.
+            const entity =
+              insertOnly && existing !== null
+                ? existing
+                : await tab.upsert(typedRow, existing, tenantId, m);
             applied += 1;
             // Not a member here yet (a join request was filed): never index it,
             // never invite it. A later tab's ref to it then fails as unresolved.
@@ -298,16 +306,18 @@ export class RestoreProcessor extends WorkerHost {
 
           // Same guard as `DiffService`: a TEMPLATE workbook must never be
           // able to delete rows, no matter what the preview said.
-          if (tab.deleteByAbsence && validated.meta.kind !== 'TEMPLATE') {
+          if (tab.deleteByAbsence && !insertOnly && validated.meta.kind !== 'TEMPLATE') {
             for (const entity of existingEntities) {
               const id = (entity as { id: string }).id;
               if (!matchedIds.has(id)) {
                 await tab.remove(entity, m);
+                deleted += 1;
               }
             }
           }
 
           rowCounts[tab.name] = applied;
+          if (deleted > 0) deletedCounts[tab.name] = deleted;
         });
 
         await this.writeProgress(row.id, {
@@ -348,6 +358,7 @@ export class RestoreProcessor extends WorkerHost {
               workbook_job_id: row.id,
               snapshot_job_id: row.snapshot_job_id,
               row_counts: rowCounts,
+              deleted_counts: deletedCounts,
             },
           },
           m,

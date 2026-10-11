@@ -17,11 +17,13 @@ describe('RestoreService', () => {
   const USER = 'user-1';
   const STAGING_ID = 'staging-1';
   const SCHOOL_NAME = 'Greenwood High School';
+  const SLUG = 'greenwood';
 
   const validStage = () => ({
     hardErrorCount: 0,
     totals: { creates: 1, updates: 2, unchanged: 3, deletes: 0 },
     isEmptyTenant: false,
+    meta: { kind: 'BACKUP', source_school_slug: SLUG },
   });
 
   beforeEach(() => {
@@ -31,7 +33,7 @@ describe('RestoreService', () => {
       update: vi.fn().mockResolvedValue(undefined),
     };
     schools = {
-      findOneOrFail: vi.fn(async () => ({ id: TENANT, name: SCHOOL_NAME })),
+      findOneOrFail: vi.fn(async () => ({ id: TENANT, name: SCHOOL_NAME, slug: SLUG })),
     };
     queue = { add: vi.fn().mockResolvedValue(undefined) };
     staging = { peek: vi.fn(async () => validStage()) };
@@ -65,12 +67,50 @@ describe('RestoreService', () => {
     service = new RestoreService(jobs, schools, queue, staging, exportService, audit, redis);
   });
 
-  const request = (overrides: Partial<{ confirmation: string; invite_users: boolean }> = {}) =>
+  const request = (
+    overrides: Partial<{
+      confirmation: string;
+      invite_users: boolean;
+      isPlatformSuperAdmin: boolean;
+    }> = {},
+  ) =>
     service.request(TENANT, USER, {
       staging_id: STAGING_ID,
       confirmation: overrides.confirmation ?? SCHOOL_NAME,
       invite_users: overrides.invite_users,
+      isPlatformSuperAdmin: overrides.isPlatformSuperAdmin,
     });
+
+  describe('cross-school (D13)', () => {
+    const other = () => ({
+      ...validStage(),
+      meta: { kind: 'BACKUP', source_school_slug: 'other-school' },
+    });
+
+    it('403 RESTORE_OTHER_SCHOOL_PLATFORM_ONLY for a tenant admin; no lock, no job', async () => {
+      staging.peek.mockResolvedValue(other());
+      await expect(request()).rejects.toMatchObject({
+        status: 403,
+        response: expect.objectContaining({ code: 'RESTORE_OTHER_SCHOOL_PLATFORM_ONLY' }),
+      });
+      expect(redis.set).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('accepts another school for a platform SUPER_ADMIN, a template, and the same slug', async () => {
+      staging.peek.mockResolvedValue(other());
+      await expect(request({ isPlatformSuperAdmin: true })).resolves.toBeDefined();
+      redis.store.clear();
+      staging.peek.mockResolvedValue({
+        ...other(),
+        meta: { kind: 'TEMPLATE', source_school_slug: 'other-school' },
+      });
+      await expect(request()).resolves.toBeDefined();
+      redis.store.clear();
+      staging.peek.mockResolvedValue(validStage());
+      await expect(request()).resolves.toBeDefined();
+    });
+  });
 
   describe('refusals', () => {
     it('404s when the stage is unknown/expired (peek returns null); creates nothing', async () => {
