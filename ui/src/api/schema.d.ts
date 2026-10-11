@@ -10261,6 +10261,7 @@ export interface components {
         };
         AttendancePolicyDto: {
             weeklyOffDays: number[];
+            weeklyOffHistory?: string[];
             lateAfter: string;
             absentAfter: string;
             correctionWindowDays: number;
