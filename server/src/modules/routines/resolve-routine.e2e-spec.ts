@@ -19,6 +19,10 @@ import {
 } from '@test/constants';
 import { seedPeriodRoutine } from '../attendance/attendance-periods.fixture';
 import { RoutineSlot } from './entities/routine-slot.entity';
+import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
+import { User } from '../users/entities/user.entity';
+import { randomUUID } from 'crypto';
 import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
 
@@ -183,6 +187,66 @@ describe('Routine resolver honours class-scoped holidays (e2e)', () => {
       const res = await actAs(UserRole.ADMIN, OTHER_TENANT);
       expect(res.status).toBe(200);
       expect(res.body).toEqual([]);
+    });
+  });
+
+  describe('POST /routines/substitutions availability [TEN-07]', () => {
+    const newTeacher = async (tenantId: string) => {
+      const user = await ds
+        .getRepository(User)
+        .save({ full_name: 'Cover', email: `cover-${randomUUID()}@t.local` });
+      return ds
+        .getRepository(Teacher)
+        .save({ tenant_id: tenantId, user_id: user.id, employee_id: `C-${randomUUID()}` });
+    };
+    const post = (body: object) =>
+      asAdmin(supertest(app.getHttpServer()).post(`${API}/routines/substitutions`)).send(body);
+
+    it('a busy substitute -> 409 details.code TEACHER_BUSY', async () => {
+      await seed();
+      const own = await newTeacher(SEED_TENANT_ID);
+      const busy = await newTeacher(SEED_TENANT_ID);
+      const slots = await ds
+        .getRepository(RoutineSlot)
+        .find({ where: { tenant_id: SEED_TENANT_ID } });
+      // Section 1's slot is the one we cover; the same period in section 2 is where `busy` teaches.
+      const target = slots.find((x) => x.section_id === SEED_SECTION_1_ID)!;
+      const other = slots.find((x) => x.section_id === SEED_SECTION_2_ID)!;
+      const link = ds.getRepository(RoutineSlotTeacher);
+      await link.save({
+        tenant_id: SEED_TENANT_ID,
+        routine_slot_id: target.id,
+        teacher_id: own.id,
+      });
+      await link.save({
+        tenant_id: SEED_TENANT_ID,
+        routine_slot_id: other.id,
+        teacher_id: busy.id,
+      });
+      const res = await post({
+        routine_slot_id: target.id,
+        date: DAY,
+        substitute_teacher_id: busy.id,
+      }).expect(409);
+      expect(res.body.details?.code ?? res.body.message?.details?.code).toBe('TEACHER_BUSY');
+    });
+
+    it('a teacher id from another tenant -> 404 (unchanged)', async () => {
+      await seed();
+      const slot = (
+        await ds.getRepository(RoutineSlot).find({ where: { tenant_id: SEED_TENANT_ID } })
+      )[0];
+      await ds.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ($1, 'E2E Other', 'e2e-other-66b', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        ['00000000-0000-4000-8000-0000000066e3'],
+      );
+      const foreign = await newTeacher('00000000-0000-4000-8000-0000000066e3');
+      await post({
+        routine_slot_id: slot.id,
+        date: DAY,
+        substitute_teacher_id: foreign.id,
+      }).expect(404);
     });
   });
 });

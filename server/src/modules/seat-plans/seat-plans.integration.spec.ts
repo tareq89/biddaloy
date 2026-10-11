@@ -7,8 +7,13 @@ import {
   ExamStatus,
   SeatOrderMode,
   SeatPlanStatus,
+  UserRole,
 } from '@biddaloy/shared';
 import { SeatPlansService } from './seat-plans.service';
+import { TeacherBusyService } from '../routines/teacher-busy.service';
+import { ResolveRoutineService } from '../routines/resolve-routine.service';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { User } from '../users/entities/user.entity';
 import { SeatPlan } from './entities/seat-plan.entity';
 import { SeatPlanSchedule } from './entities/seat-plan-schedule.entity';
 import { SeatAllocation } from './entities/seat-allocation.entity';
@@ -64,10 +69,16 @@ describe('SeatPlansService (integration)', () => {
   const ROOM_2_ID = '00000000-0000-4000-8000-000000000131';
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [SeatPlansService], [], {
-      synchronize: true,
-      dropSchema: true,
-    });
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [
+        SeatPlansService,
+        TeacherBusyService,
+        { provide: ResolveRoutineService, useValue: { resolveTenantDay: async () => [] } },
+      ],
+      [],
+      { synchronize: true, dropSchema: true },
+    );
 
     service = module.get<SeatPlansService>(SeatPlansService);
     dataSource = module.get(DataSource);
@@ -508,6 +519,40 @@ describe('SeatPlansService (integration)', () => {
       await service.publish(SEED_TENANT_ID, b.plan.id);
 
       await expect(service.publish(SEED_TENANT_ID, a.plan.id)).rejects.toMatchObject(roomConflict);
+    });
+  });
+
+  describe('invigilator clashes (TEN-07)', () => {
+    it('same invigilator on two rooms with overlapping exam times -> 409; re-saving the same room -> ok', async () => {
+      const { plan } = await service.generate(SEED_TENANT_ID, {
+        name: 'Clash plan',
+        exam_schedule_ids: [SCHEDULE_1_ID, SCHEDULE_2_ID],
+        room_ids: [ROOM_1_ID, ROOM_2_ID],
+        seat_order_mode: SeatOrderMode.SEQUENTIAL,
+      });
+      const user = await dataSource
+        .getRepository(User)
+        .save({ full_name: 'Inv', email: 'inv-clash@test.local' });
+      await dataSource
+        .getRepository(UserTenant)
+        .save({ user_id: user.id, tenant_id: SEED_TENANT_ID, role: UserRole.TEACHER });
+
+      // Both sittings land in one room; move the second into the other room.
+      const used = await allocationRepo.find({ where: { seat_plan_id: plan.id } });
+      const roomA = used[0].room_id;
+      const roomB = roomA === ROOM_1_ID ? ROOM_2_ID : ROOM_1_ID;
+      await service.updateAllocation(SEED_TENANT_ID, plan.id, used[1].id, {
+        room_id: roomB,
+        seat_number: '9',
+      });
+
+      const dto = { invigilator_user_id: user.id };
+      await service.updateInvigilator(SEED_TENANT_ID, plan.id, roomA, dto, user.id);
+      await expect(
+        service.updateInvigilator(SEED_TENANT_ID, plan.id, roomB, dto, user.id),
+      ).rejects.toMatchObject({ response: { details: { code: 'TEACHER_BUSY' } } });
+      // Same room again: its own booking is excluded.
+      await service.updateInvigilator(SEED_TENANT_ID, plan.id, roomA, dto, user.id);
     });
   });
 });
