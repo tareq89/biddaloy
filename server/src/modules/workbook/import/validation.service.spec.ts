@@ -467,6 +467,27 @@ describe('ValidationService', () => {
       ]);
     });
 
+    // Review r1 #3: a BACKUP restore deletes rows the file leaves out; the
+    // tab's checkRemove gets exactly those rows and each refusal is an error.
+    it('passes only the absent rows to checkRemove and records its refusals', async () => {
+      const tab = makeTab('students', {
+        existing: [
+          { id: 'kept', key: 'k' },
+          { id: 'gone', key: 'g' },
+        ],
+      });
+      tab.checkRemove = vi.fn().mockResolvedValue(['Student g still owes money.']);
+      const r = await run(
+        tab,
+        new Map([
+          ['students', sheet(['id', 'key'], [{ rowNo: 2, cells: { id: 'kept', key: 'k' } }])],
+        ]),
+      );
+      expect(tab.checkRemove).toHaveBeenCalledWith([{ id: 'gone', key: 'g' }], 't', manager);
+      expect(r.hardErrorCount).toBe(1);
+      expect(r.errors[0].message).toBe('Student g still owes money.');
+    });
+
     it('still lets a non-insert-only tab change', async () => {
       const tab = makeTab('academic_years', { existing: [{ id: 'e1', key: 'k' }], changed: true });
       const r = await run(

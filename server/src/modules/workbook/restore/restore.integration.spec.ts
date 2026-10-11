@@ -812,7 +812,7 @@ describe('RestoreProcessor (integration)', () => {
           status: 'PRESENT' as never,
         }),
       );
-      return { tenantId, fee1, a1, a2, mark, payment, component, band };
+      return { tenantId, student, fee1, a1, a2, mark, payment, component, band };
     }
 
     /** Runs a real export of the tenant and returns the workbook bytes. */
@@ -923,6 +923,20 @@ describe('RestoreProcessor (integration)', () => {
       expect((await em().findOneByOrFail(ExamComponent, { id: d.component.id })).pass_marks).toBe(
         '33.00',
       );
+    });
+
+    // Review r1 #3: leaving a student out of the file would soft-delete them,
+    // skipping StudentService.remove's STUDENT_HAS_OPEN_MONEY refusal.
+    it('a student with an open bill who is missing from the file is refused; student kept', async () => {
+      const d = await seed();
+      const buffer = await edit(await exportTenant(d.tenantId), (sheet) => {
+        const st = sheet('students');
+        st.ws.spliceRows(st.rows[0].number, 1);
+      });
+      const job = await restore(d.tenantId, buffer);
+      expect(job.status).toBe(WorkbookJobStatus.FAILED);
+      const student = await em().findOne(Student, { where: { id: d.student.id }, withDeleted: true });
+      expect(student?.deleted_at).toBeNull();
     });
 
     it('a new payment with its allocation in the file is inserted', async () => {
