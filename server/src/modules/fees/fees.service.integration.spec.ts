@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { FeeStructureService, PaymentService } from './fees.service';
@@ -665,9 +665,8 @@ describe('FeeStructureService (integration)', () => {
       expect(Number(updated.amount)).toBe(2000);
     });
 
-    // D7: only amount edits are audited — everything else on a fee
-    // structure is a label, not money the family owes.
-    it('writes a UPDATE audit record with only old/new amount when amount changes', async () => {
+    // X-03 supersedes D7: every changed field is audited (before/after).
+    it('writes a UPDATE audit record with old/new of every changed field', async () => {
       const created = await service.create(
         {
           fee_type: 'MONTHLY_TUITION' as any,
@@ -692,11 +691,11 @@ describe('FeeStructureService (integration)', () => {
       expect(logs).toHaveLength(1);
       expect(logs[0].tenant_id).toBe(TENANT_ID);
       expect(logs[0].performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
-      expect(logs[0].old_values).toEqual({ amount: '1000.00' });
-      expect(logs[0].new_values).toEqual({ amount: 2000 });
+      expect(logs[0].old_values).toEqual({ name: 'Original', amount: '1000.00' });
+      expect(logs[0].new_values).toEqual({ name: 'Updated', amount: 2000 });
     });
 
-    it('does not write an audit record when only a non-amount field changes', async () => {
+    it('writes an audit record when a non-amount field (name) changes', async () => {
       const created = await service.create(
         {
           fee_type: 'MONTHLY_TUITION' as any,
@@ -713,7 +712,116 @@ describe('FeeStructureService (integration)', () => {
       const logs = await auditLogRepo.find({
         where: { entity_id: created.id, entity_type: 'FeeStructure', action: AuditAction.UPDATE },
       });
-      expect(logs).toHaveLength(0);
+      expect(logs).toHaveLength(1);
+      expect(logs[0].old_values).toEqual({ name: 'Original' });
+      expect(logs[0].new_values).toEqual({ name: 'Renamed' });
+    });
+
+    describe('X-03 fee_type lock + full audit', () => {
+      const mk = () =>
+        service.create(
+          {
+            fee_type: 'MONTHLY_TUITION' as any,
+            name: 'Locked',
+            amount: 1000,
+            class_id: SEED_CLASS_1_ID,
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          },
+          TENANT_ID,
+        );
+      const bill = async (feeStructureId: string, softDelete = false) => {
+        const student = await studentRepo.save(
+          studentRepo.create({
+            full_name: 'Lock Student',
+            registration_number: 'REG-LOCK-1',
+            roll_number: 1,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+            preferred_communication: 'SMS',
+          }),
+        );
+        const sf = await studentFeeRepo.save(
+          studentFeeRepo.create({
+            student_id: student.id,
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            fee_structure_id: feeStructureId,
+            period_start: new Date(Date.UTC(2026, 0, 1)),
+            total_amount: 1000,
+            paid_amount: 0,
+            discount_amount: 0,
+            status: 'PENDING' as any,
+          }),
+        );
+        if (softDelete) await studentFeeRepo.softDelete(sf.id);
+      };
+      const audits = (id: string) =>
+        auditLogRepo.find({
+          where: { entity_id: id, entity_type: 'FeeStructure', action: AuditAction.UPDATE },
+        });
+
+      it('409 FEE_TYPE_LOCKED when a live bill exists; type unchanged', async () => {
+        const fs = await mk();
+        await bill(fs.id);
+        const err: any = await service
+          .update(fs.id, { fee_type: 'FINE' as any }, TENANT_ID, SEED_ADMIN_USER_ID)
+          .catch((e) => e);
+        expect(err).toBeInstanceOf(ConflictException);
+        expect(err.getResponse()).toMatchObject({
+          details: { code: 'FEE_TYPE_LOCKED', bill_count: 1 },
+        });
+        expect((await feeRepo.findOneByOrFail({ id: fs.id })).fee_type).toBe('MONTHLY_TUITION');
+        expect(await audits(fs.id)).toHaveLength(0);
+      });
+
+      it('409 when only a soft-deleted bill exists', async () => {
+        const fs = await mk();
+        await bill(fs.id, true);
+        await expect(
+          service.update(fs.id, { fee_type: 'FINE' as any }, TENANT_ID, SEED_ADMIN_USER_ID),
+        ).rejects.toThrow(ConflictException);
+      });
+
+      it('resubmitting the same fee_type on a billed structure is allowed', async () => {
+        const fs = await mk();
+        await bill(fs.id);
+        await service.update(
+          fs.id,
+          { fee_type: 'MONTHLY_TUITION' as any },
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        );
+        expect(await audits(fs.id)).toHaveLength(0);
+      });
+
+      it('unbilled fee_type change succeeds and audits old/new fee_type', async () => {
+        const fs = await mk();
+        await service.update(fs.id, { fee_type: 'FINE' as any }, TENANT_ID, SEED_ADMIN_USER_ID);
+        const logs = await audits(fs.id);
+        expect(logs).toHaveLength(1);
+        expect(logs[0].old_values).toEqual({ fee_type: 'MONTHLY_TUITION' });
+        expect(logs[0].new_values).toEqual({ fee_type: 'FINE' });
+      });
+
+      it('class_id change writes an audit row', async () => {
+        const fs = await mk();
+        await service.update(fs.id, { class_id: null as any }, TENANT_ID, SEED_ADMIN_USER_ID);
+        const logs = await audits(fs.id);
+        expect(logs).toHaveLength(1);
+        expect(logs[0].old_values).toEqual({ class_id: SEED_CLASS_1_ID });
+        expect(logs[0].new_values).toEqual({ class_id: null });
+      });
+
+      it('identical resubmit writes no audit row', async () => {
+        const fs = await mk();
+        await service.update(
+          fs.id,
+          { name: 'Locked', amount: 1000, fee_type: 'MONTHLY_TUITION' as any },
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        );
+        expect(await audits(fs.id)).toHaveLength(0);
+      });
     });
 
     it('should throw NotFoundException when fee structure does not exist', async () => {

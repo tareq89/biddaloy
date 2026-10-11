@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
 import { FeeStructure } from './entities/fee-structure.entity';
@@ -283,14 +283,36 @@ export class FeeStructureService {
         }
       }
 
+      // X-03: once any bill (even a removed one) points at this structure its
+      // type is history. The row lock above also blocks a concurrent bill
+      // insert (its FK takes a KEY SHARE lock on this row) until we commit.
+      if (changedKeys.includes('fee_type') && dto.fee_type !== existing.fee_type) {
+        const billCount = await manager
+          .getRepository(StudentFee)
+          .createQueryBuilder('sf')
+          .withDeleted()
+          .where('sf.fee_structure_id = :id', { id })
+          .getCount();
+        if (billCount > 0) {
+          throw new ConflictException({
+            message: 'This fee already has bills. Create a new fee structure for the new type.',
+            details: { code: 'FEE_TYPE_LOCKED', bill_count: billCount },
+          });
+        }
+      }
+
       await feeRepo.update({ id, tenant_id: tenantId }, updateData);
 
-      // Amount edits are the only fee-structure change worth an audit trail
-      // (D7): they change what a family owes, everything else is a label.
-      // Guard on an actual change, not mere presence in the payload, so a
-      // no-op PATCH (amount resubmitted unchanged) doesn't write a false
-      // old===new audit row.
-      if (changedKeys.includes('amount') && Number(existing.amount) !== Number(updateData.amount)) {
+      // Audit every field that actually changed. Compare against the stored
+      // value (numbers via Number(), like before) so a no-op PATCH that
+      // resubmits identical values writes no false old===new row.
+      const same = (a: unknown, b: unknown) =>
+        a === b || (a != null && b != null && typeof b === 'number' && Number(a) === b);
+      const diffKeys = changedKeys.filter(
+        (k) => !same((existing as any)[k] ?? null, updateData[k] ?? null),
+      );
+      if (diffKeys.length > 0) {
+        const pick = (src: any) => Object.fromEntries(diffKeys.map((k) => [k, src[k] ?? null]));
         await this.auditService.record(
           {
             action: AuditAction.UPDATE,
@@ -300,8 +322,8 @@ export class FeeStructureService {
             performed_by_user_id: userId,
             ip_address: context.ip,
             user_agent: context.userAgent,
-            old_values: { amount: existing.amount },
-            new_values: { amount: updateData.amount },
+            old_values: pick(existing),
+            new_values: pick(updateData),
           },
           manager,
         );
