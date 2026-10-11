@@ -8,6 +8,7 @@ import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { AuditLog } from '../src/modules/audit/entities/audit-log.entity';
 import { RecomputeService, RESULT_RECOMPUTER } from '../src/modules/grading/recompute.service';
+import { GradingService } from '../src/modules/grading/grading.service';
 import { ExamResultRecomputer } from '../src/modules/exams/result-recomputer.service';
 import { ResultsService } from '../src/modules/exams/results.service';
 import { MarkGridService } from '../src/modules/exams/mark-grid.service';
@@ -56,6 +57,7 @@ describe('RecomputeService (integration)', () => {
   let dataSource: DataSource;
   let recomputeService: RecomputeService;
   let resultsService: ResultsService;
+  let gradingService: GradingService;
   let scaleId: string;
 
   const bandsA = [
@@ -76,6 +78,7 @@ describe('RecomputeService (integration)', () => {
       ALL_ENTITIES,
       [
         RecomputeService,
+        GradingService,
         AuditService,
         ResultsService,
         MarkGridService,
@@ -94,6 +97,7 @@ describe('RecomputeService (integration)', () => {
     );
     recomputeService = module.get<RecomputeService>(RecomputeService);
     resultsService = module.get(ResultsService);
+    gradingService = module.get(GradingService);
     dataSource = module.get<DataSource>(getDataSourceToken());
 
     const schoolRepo = dataSource.getRepository(School);
@@ -343,5 +347,25 @@ describe('RecomputeService (integration)', () => {
     const other = await resultOf(theirs.exam.id, OTHER_TENANT);
     expect(other.grade).toBe('A');
     expect(other.grading_scale_revision).toBe(1);
+  });
+
+  it('[68.2.12] deleting a scale referenced by a result row is refused and the scale stays live', async () => {
+    const { scaleId: usedScale } = await buildProcessedExam(TENANT_ID);
+
+    await expect(gradingService.remove(usedScale, TENANT_ID, ADMIN_USER_ID)).rejects.toMatchObject({
+      response: { details: { code: 'GRADING_SCALE_IN_USE' } },
+    });
+
+    const scale = await dataSource.getRepository(GradingScale).findOneByOrFail({ id: usedScale });
+    expect(scale.deleted_at).toBeNull();
+    expect(
+      await dataSource.getRepository(GradingBand).count({ where: { scale_id: usedScale } }),
+    ).toBe(2);
+  });
+
+  it('[68.2.12] an unreferenced scale can still be deleted', async () => {
+    await gradingService.remove(scaleId, TENANT_ID, ADMIN_USER_ID);
+
+    expect(await dataSource.getRepository(GradingScale).countBy({ id: scaleId })).toBe(0);
   });
 });

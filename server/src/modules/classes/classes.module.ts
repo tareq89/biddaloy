@@ -6,6 +6,7 @@ import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { AuditModule } from '../audit/audit.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { ClassService, SectionService } from './classes.service';
@@ -24,7 +25,15 @@ import { MyClassController } from './my-class.controller';
   // through `class_section`), since `POST /students` never writes an
   // `Enrollment` row (see `classes.service.ts`'s comments).
   imports: [
-    TypeOrmModule.forFeature([Class, ClassSection, Teacher, TeacherClassSection, Subject, Student]),
+    TypeOrmModule.forFeature([
+      Class,
+      ClassSection,
+      Teacher,
+      TeacherClassSection,
+      Subject,
+      Student,
+      Enrollment,
+    ]),
     AuditModule,
     // Only `SchoolSettingsReader` is used ([33.2.1] vocabulary lookup) —
     // same reasoning as its other consumers (16.2.2's step-up flow).

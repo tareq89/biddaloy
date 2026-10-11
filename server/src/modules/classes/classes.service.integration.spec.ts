@@ -326,26 +326,23 @@ describe('ClassService / SectionService (integration)', () => {
       await expect(classService.remove(klass.id, TENANT_ID)).rejects.toThrow(/1 student/);
     });
 
-    it('ignores a non-ACTIVE enrollment when deciding whether to refuse', async () => {
+    it('[68.2.12] cannot delete a class whose only students are GRADUATED', async () => {
       const year = await createYear();
       const klass = await classRepo.save({
-        name: 'Class With Transferred Student',
+        name: 'Class With Graduate',
         academic_year_id: year.id,
         tenant_id: TENANT_ID,
       });
-      const sectionRepo = dataSource.getRepository(ClassSection);
-      const section = await sectionRepo.save({
+      const section = await dataSource.getRepository(ClassSection).save({
         class_id: klass.id,
         section_name: 'A',
         tenant_id: TENANT_ID,
       });
-      await createStudentEnrolledIn(klass, section, { status: EnrollmentStatus.TRANSFERRED });
-      // No active enrollments and no sections left after removing the
-      // section below, so delete should succeed.
-      await sectionService.remove(klass.id, section.id, TENANT_ID);
+      await createStudentEnrolledIn(klass, section, { status: EnrollmentStatus.GRADUATED });
 
-      await classService.remove(klass.id, TENANT_ID);
-      await expect(classService.findOne(klass.id, TENANT_ID)).rejects.toThrow(NotFoundException);
+      await expect(classService.remove(klass.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'CLASS_IN_USE' } },
+      });
     });
 
     it('refuses to delete a class with remaining sections once no students are enrolled', async () => {
@@ -474,24 +471,61 @@ describe('ClassService / SectionService (integration)', () => {
   });
 
   describe('SectionService.remove (delete section)', () => {
-    it('refuses to delete a section with active students, naming the count', async () => {
+    async function makeSection(name: string) {
       const year = await createYear();
       const klass = await classRepo.save({
-        name: 'Class A',
+        name,
         academic_year_id: year.id,
         tenant_id: TENANT_ID,
       });
-      const sectionRepo = dataSource.getRepository(ClassSection);
-      const section = await sectionRepo.save({
+      const section = await dataSource.getRepository(ClassSection).save({
         class_id: klass.id,
         section_name: 'A',
         tenant_id: TENANT_ID,
       });
+      return { klass, section };
+    }
+
+    it('refuses to delete a section with active students, naming the count', async () => {
+      const { klass, section } = await makeSection('Class A');
       await createStudentEnrolledIn(klass, section);
 
       await expect(sectionService.remove(klass.id, section.id, TENANT_ID)).rejects.toThrow(
         ConflictException,
       );
+    });
+
+    it('[68.2.12] cannot delete a section that holds a INACTIVE (left) student', async () => {
+      const { klass, section } = await makeSection('Class W');
+      await createStudentEnrolledIn(klass, section, { status: EnrollmentStatus.INACTIVE });
+
+      await expect(sectionService.remove(klass.id, section.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'SECTION_IN_USE' } },
+      });
+      expect(
+        await dataSource.getRepository(ClassSection).count({ where: { id: section.id } }),
+      ).toBe(1);
+    });
+
+    it('[68.2.12] cannot delete a section that only an enrollment row points at', async () => {
+      const { klass, section } = await makeSection('Class E');
+      const student = await createStudentEnrolledIn(klass, section);
+      // the student row is gone; only the history row still names this section
+      await dataSource.query('UPDATE students SET deleted_at = now() WHERE id = $1', [student.id]);
+
+      await expect(sectionService.remove(klass.id, section.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'SECTION_IN_USE' } },
+      });
+    });
+
+    it('[68.2.12] can delete an empty section', async () => {
+      const { klass, section } = await makeSection('Class Empty');
+
+      await sectionService.remove(klass.id, section.id, TENANT_ID);
+
+      expect(
+        await dataSource.getRepository(ClassSection).count({ where: { id: section.id } }),
+      ).toBe(0);
     });
   });
 

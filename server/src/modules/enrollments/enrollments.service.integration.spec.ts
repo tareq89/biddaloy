@@ -720,6 +720,46 @@ describe('EnrollmentService (integration)', () => {
   //  createInTransaction()
   // ────────────────────────
   describe('createInTransaction', () => {
+    it("[68.2.12] readmit into another year works when the student's old section is soft-deleted", async () => {
+      const student = await buildStudent({
+        class_section_id: SEED_CLASS_2_SECTION_ID,
+        roll_number: 1,
+      });
+      await dataSource.query('UPDATE class_sections SET deleted_at = now() WHERE id = $1', [
+        SEED_CLASS_2_SECTION_ID,
+      ]);
+
+      const result = await dataSource.manager.transaction((manager) =>
+        service.createInTransaction(
+          manager,
+          {
+            student_id: student.id,
+            class_id: SEED_CLASS_1_ID,
+            section_id: SEED_SECTION_1_ID,
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          },
+          TENANT_ID,
+        ),
+      );
+
+      expect(result.student_id).toBe(student.id);
+      await expect(service.findByStudent(student.id, TENANT_ID)).resolves.toHaveLength(1);
+      // restore for later tests sharing the seeded reference data
+      await dataSource.query('UPDATE class_sections SET deleted_at = NULL WHERE id = $1', [
+        SEED_CLASS_2_SECTION_ID,
+      ]);
+    });
+
+    it("[68.2.12] findByStudent / findCurrentByStudent with another tenant's id still 404", async () => {
+      const student = await buildStudent();
+      const other = '00000000-0000-4000-8000-000000000099';
+
+      await expect(service.findByStudent(student.id, other)).rejects.toThrow(NotFoundException);
+      await expect(service.findCurrentByStudent(student.id, other)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
     it('places the student at the given rollNumber instead of appending', async () => {
       // Seed an occupant at roll 5 so a plain append (nextRollNumber) would
       // land on 6 — proves the explicit rollNumber below is actually used,

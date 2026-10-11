@@ -298,6 +298,28 @@ describe('Academic Years E2E', () => {
         .expect(404);
     });
 
+    it('[68.2.12] returns 409 ACADEMIC_YEAR_CURRENT when deleting the current year', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/academic-years')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Current Keep', start_date: '2031-01-01', end_date: '2031-12-31' })
+        .expect(201);
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/academic-years/${createRes.body.id}/set-current`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(201);
+
+      const res = await supertest(app.getHttpServer())
+        .delete(`/api/v1/academic-years/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(409);
+
+      expect(res.body.details?.code).toBe('ACADEMIC_YEAR_CURRENT');
+    });
+
     it('should return 401 for STUDENT role on delete (token does not hold STUDENT)', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/academic-years')

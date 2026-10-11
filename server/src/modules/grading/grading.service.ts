@@ -11,6 +11,7 @@ import { GradingScale } from './entities/grading-scale.entity';
 import { GradingBand } from './entities/grading-band.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
+import { Result } from '../exams/entities/result.entity';
 import { AuditService } from '../audit/audit.service';
 import { CreateGradingScaleDto, UpdateGradingScaleDto } from './dto/grading.dto';
 import { RequestContext } from '../../common/request-context.util';
@@ -32,6 +33,8 @@ export class GradingService {
     private readonly academicYearRepo: Repository<AcademicYear>,
     @InjectRepository(Class)
     private readonly classRepo: Repository<Class>,
+    @InjectRepository(Result)
+    private readonly resultRepo: Repository<Result>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly auditService: AuditService,
@@ -178,6 +181,18 @@ export class GradingService {
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<void> {
     const existing = await this.findOne(id, tenantId);
+
+    // [68.2.12] A scale a live result points at cannot go: report cards lose
+    // their legend and a reprocess would silently grade with another scale.
+    const count = await this.resultRepo.count({
+      where: { grading_scale_id: id, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (count > 0) {
+      throw new ConflictException({
+        message: 'Published or processed results use this grading scale. It cannot be deleted.',
+        details: { code: 'GRADING_SCALE_IN_USE', count },
+      });
+    }
 
     await this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(GradingScale);

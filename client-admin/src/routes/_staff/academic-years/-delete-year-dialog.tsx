@@ -1,3 +1,4 @@
+import { ApiError } from '@biddaloy/ui/api';
 import { ConfirmDialog } from '@biddaloy/ui/components';
 import { useDeleteAcademicYear } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -26,6 +27,11 @@ export function DeleteYearDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
 
+  // [68.2.12] A 409 for the current year or a year still in use gets its own
+  // plain reason instead of the generic failure line.
+  const code = deleteYear.error instanceof ApiError ? deleteYear.error.details?.code : undefined;
+  const inUse = code === 'ACADEMIC_YEAR_CURRENT' || code === 'ACADEMIC_YEAR_IN_USE';
+
   return (
     <ConfirmDialog
       open={open}
@@ -36,7 +42,7 @@ export function DeleteYearDialog({
       title={t('deleteDialog.title')}
       description={
         deleteYear.isError
-          ? `${t('deleteDialog.description', { name: academicYearName })} ${t('deleteDialog.errorMessage')}`
+          ? `${t('deleteDialog.description', { name: academicYearName })} ${inUse ? t('deleteDialog.inUse') : t('deleteDialog.errorMessage')}`
           : t('deleteDialog.description', { name: academicYearName })
       }
       confirmLabel={t('deleteDialog.confirm')}
