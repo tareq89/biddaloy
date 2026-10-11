@@ -29,6 +29,7 @@ describe('CommunicationsController', () => {
   beforeEach(() => {
     service = {
       enqueue: vi.fn(),
+      sendToGuardian: vi.fn(),
       findOne: vi.fn(),
       findByStudent: vi.fn(),
       findByGuardian: vi.fn(),
@@ -50,19 +51,14 @@ describe('CommunicationsController', () => {
   });
 
   describe('send', () => {
-    it('should call service.enqueue with dto, tenant id, and user id', async () => {
-      const dto = {
-        medium: CommunicationMedium.SMS,
-        recipient_address: '01712345678',
-        recipient_name: 'Guardian',
-        message_body: 'Hello',
-      };
-      const expected = { id: 'log-1', ...dto };
-      service.enqueue.mockResolvedValue(expected);
+    it('should call service.sendToGuardian with dto, tenant id, and user id', async () => {
+      const dto = { medium: CommunicationMedium.SMS, message_body: 'Hello', guardian_id: 'g-1' };
+      const expected = { id: 'log-1' };
+      service.sendToGuardian.mockResolvedValue(expected);
 
       const result = await controller.send(dto as any, TENANT, USER);
 
-      expect(service.enqueue).toHaveBeenCalledWith(dto, TENANT.id, USER.sub);
+      expect(service.sendToGuardian).toHaveBeenCalledWith(dto, TENANT.id, USER.sub);
       expect(result).toEqual(expected);
     });
   });
@@ -80,9 +76,11 @@ describe('CommunicationsController', () => {
   });
 
   describe('error propagation', () => {
-    it('should propagate NotFoundException from service.enqueue', async () => {
+    it('should propagate NotFoundException from service.sendToGuardian', async () => {
       const { NotFoundException } = await import('@nestjs/common');
-      service.enqueue.mockRejectedValue(new NotFoundException('Student with ID "bad" not found'));
+      service.sendToGuardian.mockRejectedValue(
+        new NotFoundException('Student with ID "bad" not found'),
+      );
 
       await expect(
         controller.send(

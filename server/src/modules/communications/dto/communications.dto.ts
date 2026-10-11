@@ -64,6 +64,45 @@ export class SendCommunicationDto {
   template_params?: string[];
 }
 
+/**
+ * [#2259] Body of `POST /communications/send`. The address and name are not
+ * accepted: the server reads them from the guardian's own record.
+ */
+export class SendGuardianMessageDto {
+  @IsEnum(CommunicationMedium)
+  medium: CommunicationMedium;
+
+  @IsUUID()
+  guardian_id: string;
+
+  @IsOptional()
+  @IsUUID()
+  student_id?: string;
+
+  // Staff-authored content, not sanitized — see SendCommunicationDto.
+  @IsString()
+  @IsNotEmpty()
+  message_body: string;
+
+  @IsOptional()
+  @IsString()
+  @SanitizeText()
+  subject?: string;
+
+  @IsOptional()
+  @IsString()
+  template_name?: string;
+
+  @IsOptional()
+  @IsString()
+  template_language?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  template_params?: string[];
+}
+
 export class CommunicationResponseDto {
   id: string;
   // A plain `medium: CommunicationLogMedium` (a `CommunicationMedium |

@@ -47,6 +47,7 @@ describe('Cross-tenant access (regression)', () => {
   // Tracked so afterAll can remove exactly what this file created, in FK
   // dependency order — invoices reference students, so they go first.
   let createdStudentId: string | undefined;
+  let createdGuardianId: string | undefined;
   let createdFeeStructureId: string | undefined;
   let createdInvoiceId: string | undefined;
   let createdCommunicationId: string | undefined;
@@ -149,7 +150,13 @@ describe('Cross-tenant access (regression)', () => {
       await dataSource.query(`DELETE FROM fee_structures WHERE id = '${createdFeeStructureId}'`);
     }
     if (createdStudentId) {
+      await dataSource.query(`DELETE FROM student_guardians WHERE student_id = $1`, [
+        createdStudentId,
+      ]);
       await dataSource.query(`DELETE FROM students WHERE id = '${createdStudentId}'`);
+    }
+    if (createdGuardianId) {
+      await dataSource.query(`DELETE FROM guardians WHERE id = $1`, [createdGuardianId]);
     }
     await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
       originalTenantASettings,
@@ -173,6 +180,18 @@ describe('Cross-tenant access (regression)', () => {
       .expect(201);
     const studentId = studentRes.body.id;
     createdStudentId = studentId;
+
+    // /communications/send takes a guardian of the school, not a raw address.
+    const [{ id: guardianId }] = await dataSource.query(
+      `INSERT INTO guardians (full_name, relationship, phone, tenant_id)
+       VALUES ('Cross Tenant Guardian', 'FATHER', '01712345678', $1) RETURNING id`,
+      [TENANT_A],
+    );
+    createdGuardianId = guardianId;
+    await dataSource.query(
+      `INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)`,
+      [studentId, guardianId],
+    );
 
     const feeStructureRes = await supertest(app.getHttpServer())
       .post('/api/v1/fee-structures')
@@ -233,8 +252,7 @@ describe('Cross-tenant access (regression)', () => {
       .set('X-Tenant-ID', TENANT_A)
       .send({
         medium: CommunicationMedium.SMS,
-        recipient_address: '01712345678',
-        recipient_name: 'Cross Tenant Guardian',
+        guardian_id: guardianId,
         message_body: 'Cross tenant test message',
         student_id: studentId,
       })

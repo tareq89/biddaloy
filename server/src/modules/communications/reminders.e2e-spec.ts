@@ -39,12 +39,16 @@ describe('Bulk Reminder Read/Preview E2E', () => {
   // @Roles(ADMIN, ACCOUNTANT, EXECUTIVE) — so RolesGuard, not "no token",
   // is what rejects them.
   let teacherToken: string;
+  // OFFICE_STAFF holds COMMUNICATION_SEND (#2259).
+  let officeToken: string;
   // A real ADMIN of the *other* school, for the cross-tenant case.
   let otherTenantAdminToken: string;
 
   const TENANT_ID = SEED_TENANT_ID;
   const TEACHER_USER_ID = '00000000-0000-4000-8000-00000000b0b1';
   const TEACHER_EMAIL = 'teacher@bulk-reminder-e2e.example';
+  const OFFICE_USER_ID = '00000000-0000-4000-8000-00000000b0b3';
+  const OFFICE_EMAIL = 'office@bulk-reminder-e2e.example';
   const OTHER_ADMIN_USER_ID = '00000000-0000-4000-8000-00000000b0b2';
   const OTHER_ADMIN_EMAIL = 'admin@bulk-reminder-e2e-other.example';
   const OTHER_TENANT_ID = '00000000-0000-4000-8000-00000000b0b0';
@@ -193,6 +197,19 @@ describe('Bulk Reminder Read/Preview E2E', () => {
       [TEACHER_USER_ID, TENANT_ID, UserRole.TEACHER],
     );
 
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'Reminder E2E Office', 'ACTIVE', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [OFFICE_USER_ID, OFFICE_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [OFFICE_USER_ID, TENANT_ID, UserRole.OFFICE_STAFF],
+    );
+
     // An ADMIN who belongs only to the other school — the right role, the
     // wrong tenant.
     await dataSource.query(
@@ -219,6 +236,12 @@ describe('Bulk Reminder Read/Preview E2E', () => {
       .send({ email: TEACHER_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     teacherToken = teacherLoginRes.body.access_token;
+
+    const officeLoginRes = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: OFFICE_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    officeToken = officeLoginRes.body.access_token;
 
     const otherAdminLoginRes = await supertest(app.getHttpServer())
       .post('/api/v1/auth/login')
@@ -518,6 +541,94 @@ describe('Bulk Reminder Read/Preview E2E', () => {
     }
   });
 
+  // [#2259] Freeform send goes only to a guardian of this school; the
+  // address is read from the guardian's record.
+  describe('POST /communications/send', () => {
+    const post = (t: string, body: object) =>
+      supertest(app.getHttpServer())
+        .post('/api/v1/communications/send')
+        .set('Authorization', `Bearer ${t}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send(body);
+
+    it('TEACHER -> 403', async () => {
+      const guardianId = await createGuardian(await createStudent());
+      await post(teacherToken, {
+        medium: 'SMS',
+        guardian_id: guardianId,
+        message_body: 'Hi',
+      }).expect(403);
+    });
+
+    it('OFFICE_STAFF + guardian of this school -> 201, logged address is the guardian phone', async () => {
+      const guardianId = await createGuardian(await createStudent(), { phone: '01755500001' });
+      const res = await post(officeToken, {
+        medium: 'SMS',
+        guardian_id: guardianId,
+        message_body: 'Hi',
+      }).expect(201);
+      const [log] = await dataSource.query(
+        `SELECT recipient_address, guardian_id FROM communication_logs WHERE id = $1`,
+        [res.body.id],
+      );
+      expect(log.recipient_address).toBe('01755500001');
+      expect(log.guardian_id).toBe(guardianId);
+    });
+
+    it('no guardian_id -> 400', async () => {
+      await post(officeToken, { medium: 'SMS', message_body: 'Hi' }).expect(400);
+    });
+
+    it('extra recipient_address is rejected by the whitelist -> 400', async () => {
+      const guardianId = await createGuardian(await createStudent());
+      await post(officeToken, {
+        medium: 'SMS',
+        guardian_id: guardianId,
+        message_body: 'Hi',
+        recipient_address: '01999999999',
+      }).expect(400);
+    });
+
+    it('guardian of tenant B -> 404 and no log written', async () => {
+      const [{ id: foreignGuardianId }] = await dataSource.query(
+        `INSERT INTO guardians (full_name, relationship, phone, tenant_id)
+         VALUES ('Foreign Guardian', 'FATHER', '01766600001', $1) RETURNING id`,
+        [OTHER_TENANT_ID],
+      );
+      await post(officeToken, {
+        medium: 'SMS',
+        guardian_id: foreignGuardianId,
+        message_body: 'Hi',
+      }).expect(404);
+      const [{ count }] = await dataSource.query(
+        `SELECT count(*)::int AS count FROM communication_logs WHERE guardian_id = $1`,
+        [foreignGuardianId],
+      );
+      expect(count).toBe(0);
+    });
+
+    it('student_id not linked to the guardian -> 400 GUARDIAN_NOT_LINKED', async () => {
+      const guardianId = await createGuardian(await createStudent());
+      const res = await post(officeToken, {
+        medium: 'SMS',
+        guardian_id: guardianId,
+        student_id: await createStudent(),
+        message_body: 'Hi',
+      }).expect(400);
+      expect(res.body.details.code).toBe('GUARDIAN_NOT_LINKED');
+    });
+
+    it('guardian without an email, EMAIL channel -> 400 GUARDIAN_NO_ADDRESS', async () => {
+      const guardianId = await createGuardian(await createStudent());
+      const res = await post(officeToken, {
+        medium: 'EMAIL',
+        guardian_id: guardianId,
+        message_body: 'Hi',
+      }).expect(400);
+      expect(res.body.details.code).toBe('GUARDIAN_NO_ADDRESS');
+    });
+  });
+
   // [#2216] A PLATFORM-metered school with 0 credit must not text anyone.
   // Settings are restored after each case so other describes stay unmetered.
   describe('metered tenant SMS credit (#2216)', () => {
@@ -539,17 +650,13 @@ describe('Bulk Reminder Read/Preview E2E', () => {
     });
 
     it('POST /communications/send with 0 credit -> 409 INSUFFICIENT_SMS_CREDIT', async () => {
+      const guardianId = await createGuardian(await createStudent(), { name: 'Metered Parent' });
       await setMetering(true);
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/communications/send')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
-        .send({
-          medium: 'SMS',
-          recipient_address: '01712345678',
-          recipient_name: 'Metered Parent',
-          message_body: 'Hello',
-        })
+        .send({ medium: 'SMS', guardian_id: guardianId, message_body: 'Hello' })
         .expect(409);
       expect(res.body.details.code).toBe('INSUFFICIENT_SMS_CREDIT');
       expect(res.body.details.required).toBe(1);
@@ -585,16 +692,12 @@ describe('Bulk Reminder Read/Preview E2E', () => {
     });
 
     it('an unmetered tenant still sends (201)', async () => {
+      const guardianId = await createGuardian(await createStudent(), { name: 'Unmetered Parent' });
       await supertest(app.getHttpServer())
         .post('/api/v1/communications/send')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
-        .send({
-          medium: 'SMS',
-          recipient_address: '01712345678',
-          recipient_name: 'Unmetered Parent',
-          message_body: 'Hello',
-        })
+        .send({ medium: 'SMS', guardian_id: guardianId, message_body: 'Hello' })
         .expect(201);
     });
   });
