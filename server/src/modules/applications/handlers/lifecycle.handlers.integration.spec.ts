@@ -37,10 +37,11 @@ describe('lifecycle handlers (integration)', () => {
   let transfer: TransferCertificateHandler;
   let n = 0;
 
-  const ctxFor = (tenantId: string) =>
+  const ctxFor = (tenantId: string, role = 'ADMIN') =>
     ({
       tenantId,
       actorUserId: SEED_ADMIN_USER_ID,
+      role,
       req: { ip: '127.0.0.1', headers: { 'user-agent': 'vitest' } },
     }) as unknown as ApplicationEffectContext;
   const ctxA = ctxFor(SEED_TENANT_ID);
@@ -73,7 +74,9 @@ describe('lifecycle handlers (integration)', () => {
   const studentRow = async (id: string) =>
     (await q(`SELECT enrollment_status, class_section_id FROM students WHERE id = $1`, [id]))[0];
   const enrollmentRow = async (id: string) =>
-    (await q(`SELECT enrollment_status, section_id FROM enrollments WHERE id = $1`, [id]))[0];
+    (
+      await q(`SELECT enrollment_status, class_id, section_id FROM enrollments WHERE id = $1`, [id])
+    )[0];
   const auditCount = async (ids: string[]) =>
     (await q(`SELECT id FROM audit_logs WHERE entity_id = ANY($1::uuid[])`, [ids])).length;
 
@@ -203,6 +206,40 @@ describe('lifecycle handlers (integration)', () => {
       });
       expect((await enrollmentRow(enrollmentId)).section_id).toBe(SEED_SECTION_2_ID);
       expect((await studentRow(studentId)).class_section_id).toBe(SEED_SECTION_2_ID);
+    });
+
+    // SEED_SECTION_2 belongs to seed class 2, so these moves change class.
+    it('#2255: an approver without PROMOTION_MANAGE cannot move the student to another class (403)', async () => {
+      const { studentId, enrollmentId } = await seedStudent();
+      await expect(
+        ds.transaction((m) =>
+          sectionChange.apply(
+            m,
+            appFor(studentId, { to_section_id: SEED_SECTION_2_ID, reason: 'Clash' }),
+            ctxFor(SEED_TENANT_ID, 'EXECUTIVE'),
+          ),
+        ),
+      ).rejects.toMatchObject({
+        status: 403,
+        response: { details: { code: 'ENROLLMENT_CLASS_CHANGE_NEEDS_PROMOTION' } },
+      });
+      const row = await enrollmentRow(enrollmentId);
+      expect(row.class_id).toBe(SEED_CLASS_1_ID);
+      expect(row.section_id).toBe(SEED_SECTION_1_ID);
+    });
+
+    it('#2255: no role on the context fails closed (403), never a trusted system move', async () => {
+      const { studentId, enrollmentId } = await seedStudent();
+      await expect(
+        ds.transaction((m) =>
+          sectionChange.apply(
+            m,
+            appFor(studentId, { to_section_id: SEED_SECTION_2_ID, reason: 'Clash' }),
+            { ...ctxA, role: undefined },
+          ),
+        ),
+      ).rejects.toMatchObject({ status: 403 });
+      expect((await enrollmentRow(enrollmentId)).section_id).toBe(SEED_SECTION_1_ID);
     });
 
     it('same section -> 409 SECTION_UNCHANGED', async () => {

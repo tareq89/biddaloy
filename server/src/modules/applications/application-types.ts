@@ -24,6 +24,8 @@ import { GeneralPayloadDto } from './dto/payloads/general.dto';
 export interface ApplicationEffectContext {
   tenantId: string;
   actorUserId: string;
+  /** The deciding user's role: effects that need a further right check it (#2255). */
+  role?: string;
   granted?: Record<string, unknown>; // D39
   /** Express request: handlers call requestContext(req); FEE_WAIVER reads X-Approval-Token from it. */
   req: Request;
