@@ -14,6 +14,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
+import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { GradingBand } from '../grading/entities/grading-band.entity';
 import { School } from '../schools/entities/school.entity';
@@ -453,7 +454,15 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
 
   /** Builds a processed exam for students A, B (+ optional extras), then
    * returns handles. Marks: A=85, B=40. */
-  async function processedExamWithAB() {
+  async function processedExamWithAB(
+    beforeProcess?: (ctx: {
+      a: Student;
+      b: Student;
+      exam: Exam;
+      addMark: (studentId: string, value: string) => Promise<Mark>;
+      enroll: (studentId: string) => Promise<Enrollment>;
+    }) => Promise<void>,
+  ) {
     const a = await buildStudent({ roll_number: 1 });
     const b = await buildStudent({ roll_number: 2 });
     await enrollmentRepo.save(
@@ -504,8 +513,28 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
       );
     await addMark(a.id, '85.00');
     await addMark(b.id, '40.00');
+    const enroll = (studentId: string) =>
+      enrollmentRepo.save(
+        enrollmentRepo.create({
+          student_id: studentId,
+          class_id: CLASS_1_ID,
+          section_id: SECTION_1_ID,
+          academic_year_id: YEAR_1_ID,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+          tenant_id: TENANT_ID,
+        }),
+      );
+    const ctx = { a, b, exam, component, addMark, enroll };
+    // Runs before the first process, e.g. to add a third student.
+    await beforeProcess?.(ctx);
     await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
-    return { a, b, exam, component, addMark };
+    return ctx;
+  }
+
+  /** Class positions of the live rows must be 1..n with no gaps or repeats. */
+  function expectContiguousPositions(rows: Result[]) {
+    const positions = rows.map((r) => r.position).sort((x, y) => Number(x) - Number(y));
+    expect(positions).toEqual(rows.map((_, i) => i + 1));
   }
 
   const liveResults = (examId: string) =>
@@ -614,11 +643,281 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
     expect(ids).not.toContain(ghost.id);
   });
 
-  it('tenant isolation: another tenant never sees this exam cohort rows', async () => {
-    const { exam } = await processedExamWithAB();
-    const other = await resultRepo.find({
-      where: { exam_id: exam.id, tenant_id: '00000000-0000-4000-8000-00000000beef' },
+  // ---- [#2215 review round 1] existing exams converge to the real cohort ----
+
+  /** A results row as an older process would have written it. */
+  async function oldResultRow(
+    examId: string,
+    studentId: string,
+    position: number,
+    tenantId = TENANT_ID,
+  ): Promise<Result> {
+    const scale = await scaleRepo.findOneByOrFail({ tenant_id: TENANT_ID });
+    return resultRepo.save(
+      resultRepo.create({
+        exam_id: examId,
+        student_id: studentId,
+        total_marks: '0.00',
+        gpa: '0.00',
+        grade: 'FAIL',
+        position,
+        section_id: SECTION_1_ID,
+        is_fail: true,
+        grading_scale_id: scale.id,
+        grading_scale_revision: 1,
+        rule_version: 'nctb-v1',
+        computed_at: new Date(),
+        tenant_id: tenantId,
+      }),
+    );
+  }
+
+  it('M1: an existing late-joiner FAIL row (written before #2215) is removed on reprocess', async () => {
+    const { exam, a, b } = await processedExamWithAB();
+    await dataSource.getRepository(ExamSchedule).save({
+      tenant_id: TENANT_ID,
+      exam_id: exam.id,
+      subject_id: SUBJECT_ID,
+      date: '2025-03-01',
+      starts_at: '10:00',
+      ends_at: '12:00',
     });
-    expect(other).toHaveLength(0);
+    const late = await buildStudent({ roll_number: 3 });
+    await enrollmentRepo.save(
+      enrollmentRepo.create({
+        student_id: late.id,
+        class_id: CLASS_1_ID,
+        section_id: SECTION_1_ID,
+        academic_year_id: YEAR_1_ID,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+        enrolled_at: new Date('2025-06-01T00:00:00Z'),
+        tenant_id: TENANT_ID,
+      }),
+    );
+    // Old data: the late joiner was auto-failed — here even holding position 1.
+    await oldResultRow(exam.id, late.id, 1);
+
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+
+    const rows = await liveResults(exam.id);
+    expect(rows.map((r) => r.student_id).sort()).toEqual([a.id, b.id].sort());
+    expectContiguousPositions(rows);
+  });
+
+  it('M1: a student moved to another class in place is recomputed in their old section, with no duplicate position', async () => {
+    let movedId = '';
+    const { exam, b } = await processedExamWithAB(async ({ addMark, enroll }) => {
+      const moved = await buildStudent({ roll_number: 3, full_name: 'Moved Student' });
+      movedId = moved.id;
+      await enroll(moved.id);
+      await addMark(moved.id, '60.00');
+    });
+    // A=85, moved=60, B=40.
+    expect((await liveResults(exam.id)).find((r) => r.student_id === movedId)?.position).toBe(2);
+
+    // enrollments.service moves a student by updating class_id in place, so
+    // no enrollment for this exam's class/year is left.
+    await enrollmentRepo.update(
+      { student_id: movedId },
+      { class_id: CLASS_2_ID, section_id: SECTION_2_ID },
+    );
+
+    // The real trigger: a mark edit on a PROCESSED exam.
+    await resultsService.recomputeIfProcessed(exam.id, [b.id], TENANT_ID, 'user-1');
+
+    const rows = await liveResults(exam.id);
+    expect(rows).toHaveLength(3);
+    const moved = rows.find((r) => r.student_id === movedId)!;
+    expect(moved.total_marks).toBe('60.00');
+    // The section comes from their existing result, not their new class.
+    expect(moved.section_id).toBe(SECTION_1_ID);
+    expect(moved.position).toBe(2);
+    expectContiguousPositions(rows);
+  });
+
+  it('M1: a student who left but has marks is kept on a mark-edit recompute, positions contiguous', async () => {
+    const { exam, a, b } = await processedExamWithAB();
+    await enrollmentRepo.update(
+      { student_id: a.id },
+      { enrollment_status: EnrollmentStatus.TRANSFERRED },
+    );
+
+    await resultsService.recomputeIfProcessed(exam.id, [b.id], TENANT_ID, 'user-1');
+
+    const rows = await liveResults(exam.id);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.student_id === a.id)?.total_marks).toBe('85.00');
+    expectContiguousPositions(rows);
+  });
+
+  it('m1: wrongly enrolled, auto-failed, then INACTIVE with no marks is dropped; INACTIVE with marks is kept', async () => {
+    let wrongId = '';
+    const { exam, a, b } = await processedExamWithAB(async ({ enroll }) => {
+      const wrong = await buildStudent({ roll_number: 4 });
+      wrongId = wrong.id;
+      await enroll(wrong.id);
+    });
+    // The first process auto-failed the wrongly enrolled student (no marks).
+    expect((await liveResults(exam.id)).map((r) => r.student_id)).toContain(wrongId);
+
+    await enrollmentRepo.update(
+      { student_id: wrongId },
+      { enrollment_status: EnrollmentStatus.INACTIVE },
+    );
+    await enrollmentRepo.update(
+      { student_id: a.id },
+      { enrollment_status: EnrollmentStatus.INACTIVE },
+    );
+
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+
+    const rows = await liveResults(exam.id);
+    // A Result alone is not proof of sitting: no marks, no result.
+    expect(rows.map((r) => r.student_id).sort()).toEqual([a.id, b.id].sort());
+    expect(rows.find((r) => r.student_id === a.id)?.total_marks).toBe('85.00');
+    expectContiguousPositions(rows);
+  });
+
+  it('m7: no schedule and no term — a student enrolled after the first mark entry needs marks of their own', async () => {
+    const { exam, addMark, enroll } = await processedExamWithAB();
+    // Marks were entered a month ago, so the sitting was on or before that day.
+    await dataSource.query(
+      `UPDATE marks SET updated_at = now() - interval '30 days' WHERE exam_id = $1`,
+      [exam.id],
+    );
+    const lateNoMarks = await buildStudent({ roll_number: 5 });
+    const lateWithMarks = await buildStudent({ roll_number: 6 });
+    await enroll(lateNoMarks.id);
+    await enroll(lateWithMarks.id);
+    await addMark(lateWithMarks.id, '50.00');
+
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+
+    const ids = (await liveResults(exam.id)).map((r) => r.student_id);
+    expect(ids).not.toContain(lateNoMarks.id);
+    expect(ids).toContain(lateWithMarks.id);
+  });
+
+  it('m2: a student who left with a choice-group pick does not trigger CHOICE_GROUP_UNPICKED on reprocess', async () => {
+    const ELECTIVE_ID = '00000000-0000-4000-8000-0000000d0033';
+    await subjectRepo.save(
+      subjectRepo.create({
+        id: ELECTIVE_ID,
+        name_en: 'Agriculture',
+        code: 'AGRI',
+        tenant_id: TENANT_ID,
+      }),
+    );
+    const elective = await classSubjectRepo.save(
+      classSubjectRepo.create({
+        class_id: CLASS_1_ID,
+        subject_id: ELECTIVE_ID,
+        academic_year_id: YEAR_1_ID,
+        is_optional: false,
+        is_graded_only: false,
+        choice_group: 'ELECTIVE',
+        tenant_id: TENANT_ID,
+      }),
+    );
+    const choiceRepo = dataSource.getRepository(StudentSubjectChoice);
+    const { exam, a } = await processedExamWithAB(async (ctx) => {
+      const comp = await componentRepo.save(
+        componentRepo.create({
+          tenant_id: TENANT_ID,
+          exam_id: ctx.exam.id,
+          subject_id: ELECTIVE_ID,
+          name: 'Written',
+          kind: ExamComponentKind.WRITTEN,
+          source: ExamComponentSource.MANUAL,
+          full_marks: '100',
+          sequence: 2,
+        }),
+      );
+      for (const st of [ctx.a, ctx.b]) {
+        await choiceRepo.save(
+          choiceRepo.create({
+            student_id: st.id,
+            class_subject_id: elective.id,
+            academic_year_id: YEAR_1_ID,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        await markRepo.save(
+          markRepo.create({
+            tenant_id: TENANT_ID,
+            exam_id: ctx.exam.id,
+            student_id: st.id,
+            subject_id: ELECTIVE_ID,
+            component_id: comp.id,
+            value: '70.00',
+            status: MarkStatus.PRESENT,
+          }),
+        );
+      }
+    });
+    await enrollmentRepo.update(
+      { student_id: a.id },
+      { enrollment_status: EnrollmentStatus.TRANSFERRED },
+    );
+
+    // D44 is not bypassable by force: this would 409 if A had lost their pick.
+    await expect(resultsService.process(exam.id, TENANT_ID, 'user-1', true)).resolves.toEqual({
+      processed: 2,
+    });
+    const rows = await liveResults(exam.id);
+    // Math 85 + Agriculture 70.
+    expect(rows.find((r) => r.student_id === a.id)?.total_marks).toBe('155.00');
+  });
+
+  it('m3: tenant isolation — processing tenant A never reads or touches tenant B rows of the same shape', async () => {
+    const OTHER_TENANT_ID = '00000000-0000-4000-8000-0000000d00be';
+    await dataSource.getRepository(School).save({
+      id: OTHER_TENANT_ID,
+      name: 'Other School',
+      slug: 'other-school-d17',
+      tenant_id: OTHER_TENANT_ID,
+    });
+    const { exam, a, b, component } = await processedExamWithAB();
+
+    // Tenant B rows sharing every id a missing tenant filter would match on:
+    // the same exam id, component, year, class and section.
+    const other = await buildStudent({ roll_number: 7, tenant_id: OTHER_TENANT_ID });
+    await enrollmentRepo.save(
+      enrollmentRepo.create({
+        student_id: other.id,
+        class_id: CLASS_1_ID,
+        section_id: SECTION_1_ID,
+        academic_year_id: YEAR_1_ID,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+        tenant_id: OTHER_TENANT_ID,
+      }),
+    );
+    await markRepo.save(
+      markRepo.create({
+        tenant_id: OTHER_TENANT_ID,
+        exam_id: exam.id,
+        student_id: other.id,
+        subject_id: SUBJECT_ID,
+        component_id: component.id,
+        value: '99.00',
+        status: MarkStatus.PRESENT,
+      }),
+    );
+    const otherRow = await oldResultRow(exam.id, other.id, 1, OTHER_TENANT_ID);
+
+    const out = await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+    expect(out.processed).toBe(2);
+
+    // Tenant A: exactly its own two students, ranked 1..2.
+    const tenantA = await resultRepo.find({ where: { exam_id: exam.id, tenant_id: TENANT_ID } });
+    expect(tenantA.map((r) => r.student_id).sort()).toEqual([a.id, b.id].sort());
+    expectContiguousPositions(tenantA);
+
+    // Tenant B: its one row is untouched — still live, same values.
+    const tenantB = await resultRepo.find({
+      where: { exam_id: exam.id, tenant_id: OTHER_TENANT_ID },
+    });
+    expect(tenantB).toHaveLength(1);
+    expect(tenantB[0]).toMatchObject({ id: otherRow.id, total_marks: '0.00', position: 1 });
   });
 });

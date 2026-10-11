@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository, IsNull, In, Not, Brackets } from 'typeorm';
 import {
   AuditAction,
-  EnrollmentStatus,
   ExamComponentSource,
   ExamStatus,
   MarkStatus,
@@ -276,7 +275,7 @@ export class ResultsService {
     const bands = bandRows.map((b) => this.toRuleBand(b));
 
     // Cohort = the students who sat the exam (see `loadExamCohort`).
-    const { enrollments, studentsWithResult } = await loadExamCohort(
+    const { members: enrollments, studentsWithResult } = await loadExamCohort(
       this.enrollmentRepo.manager,
       exam,
       tenantId,
@@ -499,9 +498,11 @@ export class ResultsService {
     return { rows, missingPicks, unassignedStreams };
   }
 
-  /** Soft-deletes the active results of the students in `computed`, then
-   * inserts `computed`. Rows of students outside the recomputed cohort are
-   * kept as history, never deleted by a status change. */
+  /** Soft-deletes every live result of the exam, then inserts `computed`.
+   * `computed` is the whole cohort (`loadExamCohort`): a student who left
+   * but sat the exam is in it and gets a fresh row. A row of anyone left
+   * out on purpose (late joiner, no marks) is removed, so no stale
+   * position survives to be republished. */
   private async replaceResults(
     manager: EntityManager,
     exam: Exam,
@@ -513,17 +514,9 @@ export class ResultsService {
     const resultRepo = manager.getRepository(Result);
     const resultSubjectRepo = manager.getRepository(ResultSubject);
 
-    const existing =
-      computed.length === 0
-        ? []
-        : await resultRepo.find({
-            where: {
-              exam_id: exam.id,
-              tenant_id: tenantId,
-              deleted_at: IsNull(),
-              student_id: In(computed.map((c) => c.student_id)),
-            },
-          });
+    const existing = await resultRepo.find({
+      where: { exam_id: exam.id, tenant_id: tenantId, deleted_at: IsNull() },
+    });
     if (existing.length > 0) {
       await resultSubjectRepo.softDelete({
         result_id: In(existing.map((r) => r.id)),

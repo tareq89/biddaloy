@@ -263,6 +263,18 @@ describe('[19.9.1] Student results (portal + staff)', () => {
         [SEED_CLASS_1_ID, subject_id, SEED_ACADEMIC_YEAR_ID, TENANT_ID],
       );
 
+      // The mark the published 90 / A+ came from — "who sat it" needs a Mark.
+      const [component] = await dataSource.query(
+        `INSERT INTO exam_components (tenant_id, exam_id, subject_id, name, kind, source, full_marks, sequence, created_at, updated_at)
+         VALUES ($1, $2, $3, 'Written', 'WRITTEN', 'MANUAL', 100, 1, NOW(), NOW()) RETURNING id`,
+        [TENANT_ID, publishedExamId, subject_id],
+      );
+      await dataSource.query(
+        `INSERT INTO marks (tenant_id, exam_id, student_id, subject_id, component_id, value, status, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 90, 'PRESENT', NOW())`,
+        [TENANT_ID, publishedExamId, studentId, subject_id, component.id],
+      );
+
       const results = app.get(ResultsService);
       await results.reopen(publishedExamId, TENANT_ID, SEED_ADMIN_USER_ID);
       await results.process(publishedExamId, TENANT_ID, SEED_ADMIN_USER_ID, true);
@@ -274,6 +286,46 @@ describe('[19.9.1] Student results (portal + staff)', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .expect(200);
       expect(res.body.exam_name).toBe('Published Term Exam');
+      // Same totals as before the reprocess, recomputed from the real mark.
+      expect(res.body.result).toMatchObject({ total_marks: 90, grade: 'A+', position: 1 });
+    });
+  });
+
+  describe('tenant isolation', () => {
+    const OTHER_TENANT_ID = '00000000-0000-4000-8000-0000005c0099';
+    const OTHER_ADMIN_ID = '00000000-0000-4000-8000-0000005c0002';
+    const OTHER_ADMIN_EMAIL = 'student-results-other-admin@e2e.example';
+
+    it('a tenant B admin reading a tenant A student’s result gets 404', async () => {
+      await seedResultFixture();
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ($1, 'Results Other School', 'results-other-school', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+        [OTHER_TENANT_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+         VALUES ($1, $2, $3, 'Other Admin', 'ACTIVE', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [OTHER_ADMIN_ID, OTHER_ADMIN_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+      );
+      // ADMIN in tenant B only — no membership in tenant A.
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [OTHER_ADMIN_ID, OTHER_TENANT_ID, UserRole.ADMIN],
+      );
+      const login = await http()
+        .post(`${API}/auth/login`)
+        .send({ email: OTHER_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+
+      await http()
+        .get(`${API}/students/${studentId}/results/${publishedExamId}`)
+        .set('Authorization', `Bearer ${login.body.access_token}`)
+        .set('X-Tenant-ID', OTHER_TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(404);
     });
   });
 });
