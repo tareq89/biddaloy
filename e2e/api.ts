@@ -891,25 +891,39 @@ export async function findSchoolIdBySlug(
 }
 
 /** `POST /schools/:id/admins` (#531) — adds an existing (or new) user as
- * ADMIN of `schoolId`, matched by email. #536 uses this to give the
- * freshly-provisioned admin a *second* tenant membership on top of the
- * one `POST /schools` already gave them, the same "prove suspension is
- * scoped to one tenant" shape `seed.ts`'s own `ensureSecondSchoolMembership`
- * documents for the seeded `admin` account. */
+ * ADMIN of `schoolId`, matched by email. [68.1.14] A *verified* user who is
+ * not yet a member is not enrolled: they get a JOIN_SCHOOL request
+ * (`invitation.status === 'PENDING'`, `invitation.id` = the request) that
+ * they accept themselves — see `acceptSchoolInvite`. An unverified contact
+ * held by someone else is a 409 CONTACT_IN_USE. */
 export async function addSchoolAdmin(
   request: APIRequestContext,
   session: ApiSession,
   schoolId: string,
   fullName: string,
   email: string,
-): Promise<{ userId: string }> {
-  const created = await post<{ admin: { user_id: string; existed: boolean } }>(
-    request,
-    session,
-    `/schools/${schoolId}/admins`,
-    { name: fullName, email },
-  );
-  return { userId: created.admin.user_id };
+): Promise<{ userId: string; invitation: { id: string; status: string } }> {
+  const created = await post<{
+    admin: { user_id: string; existed: boolean };
+    invitation: { id: string; status: string };
+  }>(request, session, `/schools/${schoolId}/admins`, { name: fullName, email });
+  return { userId: created.admin.user_id, invitation: created.invitation };
+}
+
+/** `POST /account/school-invites/:id/accept` — the signed-in user accepts a
+ * JOIN_SCHOOL request (e.g. the one `addSchoolAdmin` files for an existing
+ * person) and becomes a member. 204, so not through `post` (no JSON body). */
+export async function acceptSchoolInvite(
+  request: APIRequestContext,
+  session: ApiSession,
+  inviteId: string,
+): Promise<void> {
+  const response = await request.post(`/api/v1/account/school-invites/${inviteId}/accept`, {
+    headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-ID': session.tenantId },
+  });
+  if (!response.ok()) {
+    throw new Error(`accept invite failed: ${response.status()} ${await response.text()}`);
+  }
 }
 
 /** `POST /schools/:id/admins/:userId/resend-invitation` — #536's own

@@ -32,7 +32,7 @@ import { RequestContext } from '../../common/request-context.util';
 import { SocialIdentityService } from '../auth/social/social-identity.service';
 import { SocialTicketService } from '../auth/social/social-ticket.service';
 import { UserIdentity } from '../auth/entities/user-identity.entity';
-import { ProvisioningService } from '../schools/provisioning/provisioning.service';
+import { ProvisioningService, contactInUse } from '../schools/provisioning/provisioning.service';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { TrialService } from '../schools/trial/trial.service';
 import { User } from '../users/entities/user.entity';
@@ -66,12 +66,6 @@ export interface RegisterVerifyOutcome {
   auth: AuthResult;
   body: RegisterVerifyResult;
 }
-
-const contactInUse = () =>
-  new ConflictException({
-    message: 'This phone or email already belongs to another account',
-    details: { code: 'CONTACT_IN_USE' },
-  });
 
 function slugFor(name: string): string {
   const base = name
@@ -357,7 +351,9 @@ export class RegistrationService {
         err instanceof QueryFailedError &&
         (err as unknown as { code?: string }).code === '23505'
       ) {
-        // A contact is already held by another user row (e.g. a soft-deleted one).
+        // Provisioning maps its own user-insert clash to CONTACT_IN_USE already; what still
+        // reaches here raw is a unique clash inside `inTransaction`, e.g. `socialIdentity.link`
+        // rethrowing a concurrent Google link (it has a manager, so it cannot swallow it).
         throw contactInUse();
       } else {
         throw err;
