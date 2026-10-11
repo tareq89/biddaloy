@@ -7,7 +7,10 @@ import { AdmissionApplicantStatus, CommunicationMedium, CommunicationStatus, Com
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
-import { INSUFFICIENT_SMS_CREDIT } from '../communications/credits/insufficient-sms-credit.constants';
+import {
+  CREDIT_RESERVE_FAILED,
+  INSUFFICIENT_SMS_CREDIT,
+} from '../communications/credits/insufficient-sms-credit.constants';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 
 const TEMPLATE_BY_STATUS: Partial<Record<AdmissionApplicantStatus, (applicantName: string, intakeTitle: string) => string>> = {
@@ -65,11 +68,22 @@ export class AdmissionNotificationService {
       }),
     );
 
-    // [#2216] Metered SMS must hold credit before it is queued.
-    const credit = await this.smsCreditService.reserveForLog(applicant.tenant_id, log);
-    if (credit === 'INSUFFICIENT') {
+    // [#2216] Metered SMS must hold credit before it is queued. A reserve
+    // that throws fails the log rather than leaving it QUEUED with no job.
+    const credit = await this.smsCreditService
+      .reserveForLog(applicant.tenant_id, log)
+      .catch((error: unknown) => {
+        this.logger.warn(
+          `Failed to reserve SMS credit for admission log ${log.id}: ${String(error)}`,
+        );
+        return CREDIT_RESERVE_FAILED;
+      });
+    if (typeof credit === 'string') {
       log.status = CommunicationStatus.FAILED;
-      log.metadata = { ...log.metadata, reason: INSUFFICIENT_SMS_CREDIT };
+      log.metadata = {
+        ...log.metadata,
+        reason: credit === 'INSUFFICIENT' ? INSUFFICIENT_SMS_CREDIT : credit,
+      };
       await this.logRepo.save(log);
       return;
     }

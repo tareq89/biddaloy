@@ -19,7 +19,10 @@ describe('AdmissionNotificationService', () => {
   let logRepo: { create: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn> };
   let queue: { add: ReturnType<typeof vi.fn> };
   // Unmetered by default: reserveForLog returns no extra job data.
-  const smsCredit = { reserveForLog: vi.fn(async (): Promise<any> => ({})), releaseForLog: vi.fn() };
+  const smsCredit = {
+    reserveForLog: vi.fn(async (): Promise<any> => ({})),
+    releaseForLog: vi.fn(),
+  };
 
   const applicant = {
     id: 'applicant-1',
@@ -59,7 +62,11 @@ describe('AdmissionNotificationService', () => {
       'Class 1 Admission',
     );
 
-    expect(queue.add).toHaveBeenCalledWith('send', { logId: 'log-1', batchId: 'log-1', segments: 1 });
+    expect(queue.add).toHaveBeenCalledWith('send', {
+      logId: 'log-1',
+      batchId: 'log-1',
+      segments: 1,
+    });
   });
 
   it('metered + 0 credit: no job, log saved FAILED INSUFFICIENT_SMS_CREDIT', async () => {
@@ -75,6 +82,24 @@ describe('AdmissionNotificationService', () => {
       expect.objectContaining({
         status: CommunicationStatus.FAILED,
         metadata: expect.objectContaining({ reason: 'INSUFFICIENT_SMS_CREDIT' }),
+      }),
+    );
+  });
+
+  it('a reserve that throws saves the log FAILED CREDIT_RESERVE_FAILED, queues nothing, and does not reject', async () => {
+    smsCredit.reserveForLog.mockRejectedValue(new Error('db down'));
+
+    await service.notifyStatusChange(
+      { ...applicant, status: AdmissionApplicantStatus.ADMITTED },
+      'Class 1 Admission',
+    );
+
+    // Never left QUEUED with no job behind it.
+    expect(queue.add).not.toHaveBeenCalled();
+    expect(logRepo.save).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        status: CommunicationStatus.FAILED,
+        metadata: expect.objectContaining({ reason: 'CREDIT_RESERVE_FAILED' }),
       }),
     );
   });
