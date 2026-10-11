@@ -86,13 +86,16 @@ export class TeacherScopeService {
     return rows.map((r) => r.section_id);
   }
 
-  /** `null` = no extra filter (tenant-scope and guardian roles); array = ASSIGNED_SECTIONS. */
+  /** `null` = no extra filter (tenant-scope and guardian roles); array = ASSIGNED_SECTIONS.
+   * An unknown role sees nothing (`[]`), per `roleScope`'s contract. */
   async sectionScope(input: {
     role: string;
     userId: string;
     tenantId: string;
   }): Promise<string[] | null> {
-    if (roleScope(input.role) !== RoleScope.ASSIGNED_SECTIONS) return null;
+    const scope = roleScope(input.role);
+    if (scope === null) return [];
+    if (scope !== RoleScope.ASSIGNED_SECTIONS) return null;
     return this.sectionIds(input);
   }
 
