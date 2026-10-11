@@ -453,6 +453,39 @@ describe('PaymentReversalService (integration)', () => {
     expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
   });
 
+  // Review r1 #3: unwinding money must work for a student who has left.
+  it('reverses a plain cash payment of a student who has left, and creates no wallet', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+    const { payment } = await checkoutService.checkout(
+      {
+        idempotency_key: '11111111-1111-4111-8111-111111111301',
+        lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    await studentRepo.softDelete({ id: student.id });
+
+    await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'left');
+
+    const original = await paymentRepo.findOneByOrFail({ id: payment.id });
+    expect(original.reversed_by_payment_id).not.toBeNull();
+    expect(await dataSource.getRepository(StudentWallet).count()).toBe(0);
+  });
+
+  it('MON-03: takes a removed-bill credit back even when its owner has left', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const { payment } = await payThenRemoveBill(student.id, '11111111-1111-4111-8111-111111111302');
+    await studentRepo.softDelete({ id: student.id });
+
+    await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'left');
+
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
+  });
+
   it('MON-03: refuses (409 naming the later payment) when the removed-bill credit was already spent', async () => {
     const student = await studentRepo.save(makeStudent());
     const { payment } = await payThenRemoveBill(student.id, '11111111-1111-4111-8111-111111111202');

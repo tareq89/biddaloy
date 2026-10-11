@@ -23,7 +23,8 @@ export interface WalletMoveInput {
   reversalOfId?: string | null;
   createdByUserId?: string | null;
   note?: string | null;
-  /** Only `payout` sets this: a student who has left can still be paid out. */
+  /** `payout` and payment reversal set this: money of a student who has left
+   * can still be paid out or unwound. */
   allowDeletedStudent?: boolean;
 }
 
@@ -95,8 +96,9 @@ export class WalletService {
     // remove's order and deadlock (review r2 #1).
     const existing = await lockWallet();
 
-    // `allowDeleted` is only for `payout`: money owed to a student who has
-    // left must still be payable. Everyone else keeps refusing a deleted one.
+    // `allowDeleted` is only for `payout` and payment reversal: money of a
+    // student who has left must still be payable or unwindable. Everyone else
+    // keeps refusing a deleted one.
     // No wallet yet: an INSERT takes only KEY SHARE on the student, which
     // never waits for remove. FOR SHARE does: a delete waits for this new
     // wallet, or, if it went first, the row re-reads as deleted (review r1 #5).
@@ -140,7 +142,12 @@ export class WalletService {
       throw new BadRequestException('Credit amount must be positive');
     }
 
-    const wallet = await this.getOrCreate(input.studentId, input.tenantId, manager);
+    const wallet = await this.getOrCreate(
+      input.studentId,
+      input.tenantId,
+      manager,
+      input.allowDeletedStudent,
+    );
     const newBalance = round2(Number(wallet.balance) + input.amount);
 
     await manager.getRepository(StudentWallet).update({ id: wallet.id }, { balance: newBalance });

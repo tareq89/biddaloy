@@ -227,6 +227,7 @@ export class PaymentReversalService {
             reversalOfId: payment.id,
             createdByUserId: actorUserId,
             note: `Reversal of payment ${payment.id}`,
+            allowDeletedStudent: true,
           },
           manager,
         );
@@ -243,6 +244,7 @@ export class PaymentReversalService {
             reversalOfId: credit.id,
             createdByUserId: actorUserId,
             note: `Reversal of payment ${payment.id}`,
+            allowDeletedStudent: true,
           },
           manager,
         );
@@ -258,6 +260,7 @@ export class PaymentReversalService {
             reversalOfId: payment.id,
             createdByUserId: actorUserId,
             note: `Reversal of payment ${payment.id}`,
+            allowDeletedStudent: true,
           },
           manager,
         );
@@ -530,26 +533,22 @@ export class PaymentReversalService {
     tenantId?: string,
   ): Promise<void> {
     const ownerOf = owners ?? (await this.walletOwners(this.paymentRepo.manager, credits));
-    const added = new Map<string, number>([
-      [payment.student_id, Number(payment.wallet_credit_added)],
-    ]);
+    // Only wallets this payment put money into: a plain cash payment locks
+    // (or creates) no wallet at all.
+    const added = new Map<string, number>();
+    if (Number(payment.wallet_credit_added) > 0) {
+      added.set(payment.student_id, Number(payment.wallet_credit_added));
+    }
     for (const c of credits) {
       const sid = ownerOf.get(c.wallet_id)!;
       added.set(sid, round2((added.get(sid) ?? 0) + Number(c.amount)));
     }
-    const balances = new Map<string, number>();
     for (const sid of [...added.keys()].sort()) {
-      balances.set(
-        sid,
-        manager
-          ? Number((await this.walletService.getOrCreate(sid, tenantId!, manager)).balance)
-          : await this.walletService.balance(sid, payment.tenant_id),
-      );
-    }
-    for (const [sid, creditAdded] of added) {
-      if (creditAdded > 0) {
-        await this.assertReverseInOrder(payment, sid, creditAdded, balances.get(sid)!, manager);
-      }
+      // allowDeleted: unwinding money must work for a student who has left.
+      const balance = manager
+        ? Number((await this.walletService.getOrCreate(sid, tenantId!, manager, true)).balance)
+        : await this.walletService.balance(sid, payment.tenant_id);
+      await this.assertReverseInOrder(payment, sid, added.get(sid)!, balance, manager);
     }
   }
 
