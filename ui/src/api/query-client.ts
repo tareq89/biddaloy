@@ -4,7 +4,7 @@ import { toast } from '../components/toast';
 import { shouldRetryQuery } from '../hooks/retry';
 import { i18n, COMMON_NAMESPACE } from '../i18n';
 
-import { ApiError, isTenantSuspendedError } from './errors';
+import { ApiError, isTenantRestoringError, isTenantSuspendedError } from './errors';
 
 /**
  * Shows a permission-denied toast for any mutation that fails with a 403,
@@ -30,6 +30,11 @@ function handleMutationError(
   _onMutateResult: unknown,
   mutation: Mutation<unknown, unknown, unknown>,
 ): void {
+  // [68.1.2219] A restore freeze (423) is not a permission problem; say so.
+  if (isTenantRestoringError(error)) {
+    toast.error(i18n.t('errors.schoolRestoring', { ns: COMMON_NAMESPACE }));
+    return;
+  }
   if (mutation.meta?.handlesForbidden === true) return;
   if (error instanceof ApiError && error.statusCode === 403 && !isTenantSuspendedError(error)) {
     toast.error(i18n.t('errors.permissionDenied', { ns: COMMON_NAMESPACE }));

@@ -34,6 +34,7 @@ import {
 import * as React from 'react';
 
 import { CommandPaletteLauncher } from '../components/command-palette-launcher';
+import { RestoreInProgressBar } from '../components/restore-in-progress-bar';
 import { StaffUserMenu } from '../components/staff-user-menu';
 import { useAttentionCenter } from '../features/attention/attention-center';
 import { TrialDetailsLanding } from '../features/onboarding/trial-details-landing';
@@ -382,6 +383,7 @@ function StaffLayout() {
             navLabel={t('navLabel')}
             skipLinkLabel={t('skipToContent')}
           >
+            <RestoreInProgressBar />
             {attention.bar}
             {attention.modal}
             <TrialDetailsLanding />
