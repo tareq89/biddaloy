@@ -1,7 +1,13 @@
 import type { UserRole } from '@biddaloy/shared';
 import { decodeAccessTokenMemberships, getAccessToken, postAuthLogout } from '@biddaloy/ui/api';
-import { AuthLayout, Button, EmptyState, SchoolPicker } from '@biddaloy/ui/components';
-import { logout, switchActiveTenant } from '@biddaloy/ui/hooks';
+import {
+  AuthLayout,
+  Button,
+  EmptyState,
+  SchoolInvitesCard,
+  SchoolPicker,
+} from '@biddaloy/ui/components';
+import { logout, switchActiveTenant, useSchoolInvitesCardProps } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { isSafeSupportUrl } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
@@ -36,6 +42,7 @@ function SelectSchoolPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const invites = useSchoolInvitesCardProps();
 
   const token = getAccessToken();
   const memberships = token ? decodeAccessTokenMemberships(token) : [];
@@ -98,6 +105,7 @@ function SelectSchoolPage() {
 
   return (
     <AuthLayout>
+      <SchoolInvitesCard {...invites.cardProps} />
       <SchoolPicker schools={memberships} onSelect={handleSelect} />
       <Button variant="ghost" className="mt-2 w-full text-primary" onClick={handleSignOut}>
         {t('schoolPicker.signOut')}

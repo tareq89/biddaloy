@@ -8,6 +8,7 @@ import {
   Breadcrumbs,
   LocaleSwitcher,
   NotificationBell,
+  SchoolInvitesCard,
   SyncStatusIndicator,
   TenantBar,
   ThemeToggle,
@@ -19,6 +20,7 @@ import {
   useApplicationPendingCount,
   useActiveRole,
   useEntityLabel,
+  useSchoolInvitesCardProps,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { RequirePermission, RequireRole } from '@biddaloy/ui/routes';
@@ -120,6 +122,7 @@ function StaffLayout() {
   // `navGroups` below when it matches — same reactive role source
   // `RequireRole`/`_platform/route.tsx`'s own guard reads.
   const activeRole = useActiveRole();
+  const schoolInvites = useSchoolInvitesCardProps();
   // `auditLogs` is loaded alongside `nav` here, not lazily on demand like
   // every other feature namespace, because this component reads a key
   // from it below (the audit-logs refusal explanation, via an explicit
@@ -394,6 +397,7 @@ function StaffLayout() {
                 className="mb-4"
               />
             )}
+            <SchoolInvitesCard {...schoolInvites.cardProps} />
             {permissionGate}
           </AppShell>
         )}
