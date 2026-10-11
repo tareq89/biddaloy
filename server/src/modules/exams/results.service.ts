@@ -249,7 +249,7 @@ export class ResultsService {
    * Computes every enrolled student's result for one exam. Pure data
    * assembly + `result-rules.ts` — the only side effect here is the
    * `AttendanceComponentService` calls for `DERIVED` components, which
-   * are themselves read-only. Callers (`process`, `recomputeIfProcessed`)
+   * are themselves read-only. Callers (`process`, `recomputeProcessedExam`)
    * decide what to do with the output.
    */
   private async computeAll(
@@ -630,7 +630,7 @@ export class ResultsService {
         tenantId,
       );
       // D44: not bypassable by `force` — a missing pick means an unknowable
-      // result, not a draft-grid shortcut. recomputeIfProcessed ignores it.
+      // result, not a draft-grid shortcut. recomputeProcessedExam ignores it.
       // Payload under `details`: the global error filter forwards only
       // `message` + `details` to the client (error-response.ts).
       if (missingPicks.length > 0) {
@@ -679,30 +679,10 @@ export class ResultsService {
   }
 
   /** Issue step 6: a mark change while the exam is PROCESSED (not yet
-   * PUBLISHED) invalidates and recomputes the class's results. Called by
-   * `MarksService` after a batch write commits. A no-op once PUBLISHED —
-   * marks are frozen there; a change requires `reopen()`. */
-  /** [pr-fix #945] Takes the whole batch's distinct student IDs, not one —
-   * `computeAll` ranks the *entire class* internally regardless of how
-   * many students changed, so calling this once per student in a batch
-   * (as `MarksService.upsertBatch` used to) ran the full-class computation
-   * N times on the request thread and, worse, only ever persisted one
-   * student's row per call — every other student whose rank shifted as a
-   * side effect kept a stale `position`. One call, one `computeAll`, one
-   * transaction rewriting every affected row. */
-  async recomputeIfProcessed(
-    examId: string,
-    studentIds: string[],
-    tenantId: string,
-    userId: string,
-    context: RequestContext = { ip: null, userAgent: null },
-  ): Promise<void> {
-    if (studentIds.length === 0) return;
-    await this.examRepo.manager.transaction(async (manager) => {
-      await this.recomputeProcessedExam(manager, examId, tenantId, userId, context);
-    });
-  }
-
+   * PUBLISHED) invalidates and recomputes the class's results; a no-op once
+   * PUBLISHED (marks are frozen, a change requires `reopen()`). [pr-fix #945]
+   * Always the whole class, since one student's change can shift another's
+   * `position`. */
   /**
    * Rewrites every result of a PROCESSED exam inside the caller's
    * transaction (`manager`) — so a mark write or a scale edit and its

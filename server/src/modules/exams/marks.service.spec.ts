@@ -125,7 +125,6 @@ async function buildService(
   };
   const authz = { assertCanWrite: vi.fn(async () => undefined) };
   const resultsService = {
-    recomputeIfProcessed: vi.fn(async () => undefined),
     recomputeProcessedExam: vi.fn(async () => 0),
   };
   const auditService = { record: vi.fn(async () => undefined) };
@@ -424,7 +423,6 @@ describe('MarksService.upsertBatch', () => {
       { ip: null, userAgent: null },
     );
     // The old post-commit call is gone.
-    expect(resultsService.recomputeIfProcessed).not.toHaveBeenCalled();
   });
 
   it('does not recompute for a DRAFT exam', async () => {
@@ -444,7 +442,6 @@ describe('MarksService.upsertBatch', () => {
     );
 
     expect(resultsService.recomputeProcessedExam).not.toHaveBeenCalled();
-    expect(resultsService.recomputeIfProcessed).not.toHaveBeenCalled();
   });
 
   it('a recompute failure (e.g. NO_GRADING_SCALE) propagates so the mark write rolls back', async () => {
