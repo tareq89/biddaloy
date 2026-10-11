@@ -1549,6 +1549,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/students/{id}/wallet/payout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay wallet money out to the family as a cash refund (MON-09). Staff only; needs a fresh payments.reverse approval token. Works for a student who has left. 409 WALLET_PAYOUT_EXCEEDS_BALANCE if more than the balance. */
+        post: operations["WalletController_payout_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students/{id}/discount-rules": {
         parameters: {
             query?: never;
@@ -1713,7 +1730,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Waive a fine bill. Kept for existing clients; same as `POST /fees/bills/:id/waive`. Needs a fees.discount approval token. */
         post: operations["FinesController_waiveFine_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/bills/{id}/waive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Write off an open bill of any fee type, in full or in part (MON-08). Needs a fees.discount approval token (X-Approval-Token); the service consumes it after every check passes. */
+        post: operations["FinesController_waiveBill_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5595,7 +5630,8 @@ export interface paths {
         get: operations["SeatPlansController_findOne_v1"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete a DRAFT plan, freeing its sittings for a new plan. */
+        delete: operations["SeatPlansController_remove_v1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5663,6 +5699,23 @@ export interface paths {
         put?: never;
         /** Publish a DRAFT plan: re-checks room conflicts, then locks its schedules and allocations. */
         post: operations["SeatPlansController_publish_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seat-plans/{id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unpublish a plan back to DRAFT, before its first sitting. */
+        post: operations["SeatPlansController_unpublish_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9786,6 +9839,12 @@ export interface components {
         FamilyStudentWalletResponseDto: {
             balance: number;
             transactions: components["schemas"]["FamilyWalletTransactionDto"][];
+        };
+        WalletPayoutDto: {
+            /** @description Taka to pay out; at most the wallet balance. */
+            amount: number;
+            /** @description Why the money is paid out (kept in the ledger and audit log). */
+            reason: string;
         };
         FamilyDiscountRuleDto: {
             id: string;
@@ -18376,6 +18435,54 @@ export interface operations {
             };
         };
     };
+    WalletController_payout_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+                /** @description Single-use JWT proving a fresh admin approval for scope "payments.reverse" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WalletPayoutDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentWalletResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     DiscountRulesController_listForStudent_v1: {
         parameters: {
             query?: never;
@@ -18880,6 +18987,43 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaiveFineResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FinesController_waiveBill_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WaiveFineDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -29313,6 +29457,37 @@ export interface operations {
             };
         };
     };
+    SeatPlansController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     SeatPlansController_updateAllocation_v1: {
         parameters: {
             query?: never;
@@ -29438,6 +29613,37 @@ export interface operations {
                 "application/json": components["schemas"]["PublishSeatPlanDto"];
             };
         };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SeatPlansController_unpublish_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             201: {
                 headers: {
