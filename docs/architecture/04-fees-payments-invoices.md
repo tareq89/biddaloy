@@ -321,8 +321,32 @@ Late fees are off by default, configured per fee type (`grace_days`, FLAT
 or PERCENT of the outstanding balance, applied once, never compounding —
 D11). A late fee is its own `StudentFee` row linked back to the bill it's
 late on via `late_fee_for_student_fee_id`, not a field mutated on the
-original bill. Waiving a late fee is just a one-off discount on that row,
-not a special "waive" action.
+original bill. Waiving a late fee works like waiving any bill; see
+[Write-offs and wallet payouts](#write-offs-and-wallet-payouts).
+
+### Write-offs and wallet payouts
+
+Three ways a bill or the wallet is settled without a normal payment.
+Each one is audited. The first two need a step-up approval token.
+
+```mermaid
+flowchart TD
+    A[Open bill, any fee type] -->|"POST /fees/bills/:id/waive<br/>fees.discount approval"| B[One-off discount on the bill<br/>WAIVED if nothing was paid]
+    C[Bill that already holds money is removed] -->|automatic| D[Money goes to the student wallet<br/>CREDIT_BILL_REMOVED]
+    D --> E[Wallet balance]
+    E -->|"POST /students/:id/wallet/payout<br/>payments.reverse approval"| F[Cash refund<br/>DEBIT_PAYOUT, never below 0]
+```
+
+- **Waive any bill.** Late fee, tuition, fine: all can be written off, in
+  full or in part. No fake 0.01 payment needed. Old route
+  `POST /fees/fines/:id/waive` still works and does the same thing.
+- **Removed paid bill.** If a bill that already holds checkout money is
+  removed, that money is credited to the student wallet. It is not lost.
+- **Wallet payout.** Staff pay wallet money back as cash. Example: pay out
+  300 from 1,800, the balance becomes 1,500. More than the balance is
+  refused with `409 WALLET_PAYOUT_EXCEEDS_BALANCE`. It works for a student
+  who has left. Two payouts at the same time cannot overdraw the wallet:
+  the second waits for the first.
 
 Notification on a schedule-generated bill defaults **on**; a manually-run
 batch defaults **off** — staff have to opt in explicitly for a one-time

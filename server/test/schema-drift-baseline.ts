@@ -20,17 +20,13 @@ export interface DriftGroup {
 export const DRIFT_BASELINE: DriftGroup[] = [
   {
     reason:
-      'REAL DRIFT. The entity enum has values the DB enum type lacks: wallet_transactions.kind (DEBIT_PAYOUT; CREDIT_BILL_REMOVED was added by migration 1791700000200), discount_rules.fee_types (FINE). Writing one of those values fails with "invalid input value for enum". The remaining values need an ALTER TYPE ... ADD VALUE migration.',
+      'REAL DRIFT. The entity enum has values the DB enum type lacks: discount_rules.fee_types (FINE). Writing one of those values fails with "invalid input value for enum". The remaining values need an ALTER TYPE ... ADD VALUE migration.',
     owner: 'unowned, see #2343',
     statements: [
       'ALTER TABLE "discount_rules" ALTER COLUMN "fee_types" TYPE "public"."discount_rules_fee_types_enum"[] USING "fee_types"::"text"::"public"."discount_rules_fee_types_enum"[]',
-      'ALTER TABLE "wallet_transactions" ALTER COLUMN "kind" TYPE "public"."wallet_transactions_kind_enum" USING "kind"::"text"::"public"."wallet_transactions_kind_enum"',
       'ALTER TYPE "public"."discount_rules_fee_types_enum" RENAME TO "discount_rules_fee_types_enum_old"',
-      'ALTER TYPE "public"."wallet_transactions_kind_enum" RENAME TO "wallet_transactions_kind_enum_old"',
       "CREATE TYPE \"public\".\"discount_rules_fee_types_enum\" AS ENUM('MONTHLY_TUITION', 'EXAM_FEE', 'LIBRARY_FEE', 'LAB_FEE', 'SPORTS_FEE', 'COMPUTER_FEE', 'TRANSPORT_FEE', 'ANNUAL_FEE', 'ADMISSION_FEE', 'LATE_FEE', 'FINE', 'OTHER')",
-      "CREATE TYPE \"public\".\"wallet_transactions_kind_enum\" AS ENUM('CREDIT_OVERPAYMENT', 'CREDIT_CHANGE', 'DEBIT_CHECKOUT', 'DEBIT_GENERATION', 'CREDIT_BILL_REMOVED', 'DEBIT_PAYOUT', 'REVERSAL')",
       'DROP TYPE "public"."discount_rules_fee_types_enum_old"',
-      'DROP TYPE "public"."wallet_transactions_kind_enum_old"',
     ],
   },
   {

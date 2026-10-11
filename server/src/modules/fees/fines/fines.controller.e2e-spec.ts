@@ -327,6 +327,80 @@ describe('Fines E2E (38.2.5)', () => {
     });
   });
 
+  describe('POST /fees/bills/:id/waive — any bill (MON-08)', () => {
+    const TENANT_B = '00000000-0000-4000-8000-0000007a00b1';
+
+    async function createBill(tenantId: string, feeType: string, total: number): Promise<string> {
+      structureSeq += 1;
+      const structure = await dataSource.query(
+        `INSERT INTO fee_structures (id, tenant_id, academic_year_id, name, fee_type, amount, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id`,
+        [tenantId, SEED_ACADEMIC_YEAR_ID, `Waive Any ${structureSeq}`, feeType, total],
+      );
+      const studentId = await createStudent();
+      const bill = await dataSource.query(
+        `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, occurrence,
+           total_amount, paid_amount, discount_amount, standing_discount_amount, one_off_discount_amount, status, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, $3, '2026-09-01', 1, $4, 0, 0, 0, 0, 'PENDING', NOW(), NOW()) RETURNING id`,
+        [studentId, SEED_ACADEMIC_YEAR_ID, structure[0].id, total],
+      );
+      return bill[0].id;
+    }
+
+    it('without X-Approval-Token is refused with 403', async () => {
+      const billId = await createBill(SEED_TENANT_ID, 'MONTHLY_TUITION', 1000);
+      await supertest(app.getHttpServer())
+        .post(`${API}/fees/bills/${billId}/waive`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({ reason: 'No token' })
+        .expect(403);
+    });
+
+    it('with a fees.discount token writes off a tuition bill and returns 200', async () => {
+      const billId = await createBill(SEED_TENANT_ID, 'MONTHLY_TUITION', 1000);
+      const approvalToken = await issueApprovalToken('fees.discount', APPROVER_IDENTITIES[0][1]);
+      const res = await supertest(app.getHttpServer())
+        .post(`${API}/fees/bills/${billId}/waive`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .set('X-Approval-Token', approvalToken)
+        .send({ reason: 'Hardship month' })
+        .expect(200);
+      expect(res.body).toMatchObject({ id: billId, amount: 1000, status: 'WAIVED' });
+    });
+
+    it('an ACCOUNTANT (no FEE_APPROVE) is refused with 403', async () => {
+      const billId = await createBill(SEED_TENANT_ID, 'LATE_FEE', 50);
+      const res = await supertest(app.getHttpServer())
+        .post(`${API}/fees/bills/${billId}/waive`)
+        .set('Authorization', `Bearer ${accountantToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({ reason: 'Not allowed' })
+        .expect(403);
+      // The role is what refuses, not the missing approval token.
+      expect(res.body.details?.code).not.toBe('APPROVAL_REQUIRED');
+    });
+
+    it("another tenant's bill is 404", async () => {
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ($1, 'Waive Any Tenant B', 'waive-any-tenant-b', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [TENANT_B],
+      );
+      const billId = await createBill(TENANT_B, 'MONTHLY_TUITION', 500);
+      const approvalToken = await issueApprovalToken('fees.discount', APPROVER_IDENTITIES[0][1]);
+      const res = await supertest(app.getHttpServer())
+        .post(`${API}/fees/bills/${billId}/waive`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .set('X-Approval-Token', approvalToken)
+        .send({ reason: 'Wrong tenant' })
+        .expect(404);
+      expect(res.body.message).toBe(`Bill "${billId}" not found`);
+    });
+  });
+
   describe('GET /fees/fines — PARENT read access', () => {
     it('a PARENT with no linked students gets an empty page, not a 403', async () => {
       const res = await supertest(app.getHttpServer())
