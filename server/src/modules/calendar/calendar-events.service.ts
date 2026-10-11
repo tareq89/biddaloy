@@ -264,13 +264,16 @@ export class CalendarEventsService {
     // A past event is locked, with one exception (TIME-06): a closure
     // (`counts_as_working_day` false) may be recorded after the fact, with a
     // reason, as long as no register has marks in the range (checked below).
+    // A closure is "past" once any of its days has passed (its start), so a
+    // range from yesterday to tomorrow also needs the reason and is silent.
     const today = await this.getToday(tenantId);
-    const isPastClosure = dto.end_date < today;
+    const isClosure = !isMakeup && dto.counts_as_working_day === false;
+    if (dto.end_date < today && !isClosure) {
+      throw this.lockedError();
+    }
+    const isPastClosure = isClosure && dto.start_date < today;
     const reason = dto.reason?.trim() ?? '';
     if (isPastClosure) {
-      if (isMakeup || dto.counts_as_working_day !== false) {
-        throw this.lockedError();
-      }
       if (reason.length < 3) {
         throw new UnprocessableEntityException({
           message: 'A reason is required to add a closure for a day that has passed',
@@ -374,13 +377,24 @@ export class CalendarEventsService {
       : await this.resolveAcademicYear(tenantId, nextStart, nextEnd);
 
     const nextType = dto.type ?? event.type;
+    const wasMakeup = event.type === CalendarEventType.MAKEUP_DAY;
     if (nextType === CalendarEventType.MAKEUP_DAY) {
       this.assertMakeupCounts(dto.counts_as_working_day);
     }
+    // A make-up day turned into another type falls back to that type's
+    // default (not a working day), like create; its forced `true` must not stick.
     const nextCountsAsWorkingDay =
       nextType === CalendarEventType.MAKEUP_DAY
         ? true
-        : (dto.counts_as_working_day ?? event.counts_as_working_day);
+        : (dto.counts_as_working_day ?? (wasMakeup ? false : event.counts_as_working_day));
+    if (
+      wasMakeup &&
+      (nextType !== CalendarEventType.MAKEUP_DAY ||
+        nextStart !== event.start_date ||
+        nextEnd !== event.end_date)
+    ) {
+      await this.assertMakeupDaysUnmarked(event);
+    }
     if (!nextCountsAsWorkingDay) {
       const guardClassIds =
         dto.class_ids !== undefined ? dto.class_ids : await this.classIdsOf(event.id);
@@ -459,6 +473,9 @@ export class CalendarEventsService {
   async remove(id: string, tenantId: string, userId: string): Promise<void> {
     const event = await this.findEntityOrThrow(id, tenantId);
     await this.assertNotPast(tenantId, event.end_date);
+    if (event.type === CalendarEventType.MAKEUP_DAY) {
+      await this.assertMakeupDaysUnmarked(event);
+    }
 
     await this.eventRepo.softDelete({ id, tenant_id: tenantId });
 
@@ -530,6 +547,21 @@ export class CalendarEventsService {
     if (endDate < today) {
       throw this.lockedError();
     }
+  }
+
+  /**
+   * A make-up day whose dates are going away (delete, move, retype) must not
+   * have registers with marks: they would land on a day that no longer
+   * counts. ponytail: checks the whole old range, even a make-up day that sat
+   * on a normal school day; narrow to weekly off-days if that ever bites.
+   */
+  private async assertMakeupDaysUnmarked(event: CalendarEvent): Promise<void> {
+    await this.assertNoAttendanceInRange(
+      event.tenant_id,
+      event.start_date,
+      event.end_date,
+      await this.classIdsOf(event.id),
+    );
   }
 
   private lockedError(): UnprocessableEntityException {
