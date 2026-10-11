@@ -135,6 +135,10 @@ export class QueryRegisterDto {
   @IsOptional()
   @IsUUID()
   subject_id?: string;
+  @ApiPropertyOptional({ description: 'Only copies printed for this exam' })
+  @IsOptional()
+  @IsUUID()
+  context_id?: string;
   @ApiPropertyOptional({ enum: ['VALID', 'REVOKED'] })
   @IsOptional()
   @IsIn(['VALID', 'REVOKED'])

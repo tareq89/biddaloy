@@ -210,6 +210,10 @@ export class PrintHistoryService {
     if (q.document_kind) add((n) => `i.document_kind = ${n}`, q.document_kind);
     if (q.year) add((n) => `i.serial_year = ${n}`, q.year);
     if (q.subject_id) add((n) => `i.subject_id = ${n}`, q.subject_id);
+    if (q.context_id) {
+      clauses.push(`i.context_type = 'EXAM'`);
+      add((n) => `i.context_id = ${n}`, q.context_id);
+    }
     if (q.status === 'VALID') clauses.push('i.revoked_at IS NULL');
     if (q.status === 'REVOKED') clauses.push('i.revoked_at IS NOT NULL');
     if (q.q) {

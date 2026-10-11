@@ -6,7 +6,9 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
+import { randomUUID } from 'crypto';
 import { UserRole } from '@biddaloy/shared';
+import { hashSecret } from '../auth/token-hash.util';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -110,6 +112,46 @@ describe('Student lifecycle (e2e journey)', () => {
       transferred_out: 0,
       graduated: 0,
     });
+  });
+
+  it("readmit revokes the student's Transfer Certificate; public verify says REVOKED (X-09)", async () => {
+    const ds = app.get(DataSource);
+    const one = async (sql: string, p: unknown[]) => (await ds.query(sql, p))[0].id as string;
+    const tpl = await one(
+      `INSERT INTO print_templates (tenant_id, document_kind, name, batch_size, draft)
+       VALUES ($1, 'TRANSFER_CERTIFICATE', 'TC E2E', 1, '{}'::jsonb) RETURNING id`,
+      [SEED_TENANT_ID],
+    );
+    const ver = await one(
+      `INSERT INTO print_template_versions (tenant_id, template_id, version, definition)
+       VALUES ($1, $2, 1, '{}'::jsonb) RETURNING id`,
+      [SEED_TENANT_ID, tpl],
+    );
+    const job = await one(
+      `INSERT INTO print_jobs (tenant_id, template_version_id, document_kind, item_count)
+       VALUES ($1, $2, 'TRANSFER_CERTIFICATE', 1) RETURNING id`,
+      [SEED_TENANT_ID, ver],
+    );
+    const token = `tc-verify-${randomUUID()}`;
+    await ds.query(
+      `INSERT INTO print_job_items
+         (tenant_id, job_id, document_kind, subject_type, subject_id, subject_label, copy_number,
+          serial_no, serial_year, data_snapshot, verify_token_hash)
+       VALUES ($1, $2, 'TRANSFER_CERTIFICATE', 'STUDENT', $3, 'Lifecycle Journey', 1, 1, 2026,
+               '{}'::jsonb, $4)`,
+      [SEED_TENANT_ID, job, studentId, hashSecret(token)],
+    );
+    await as(http().post(`/api/v1/students/${studentId}/leave`), UserRole.ADMIN)
+      .send({ type: 'TRANSFERRED_OUT', occurred_on: '2026-03-01', reason: 'moved away' })
+      .expect(201);
+    const before = await http().get(`/api/v1/public/verify/${token}`).expect(200);
+    expect(before.body.status).toBe('VALID');
+
+    await as(http().post(`/api/v1/students/${studentId}/readmit`), UserRole.ADMIN)
+      .send({ occurred_on: '2026-03-02', class_section_id: SEED_SECTION_1_ID })
+      .expect(201);
+    const after = await http().get(`/api/v1/public/verify/${token}`).expect(200);
+    expect(after.body.status).toBe('REVOKED');
   });
 
   it('unauthorised role cannot record leave (TEACHER -> 403)', async () => {

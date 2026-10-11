@@ -14,8 +14,10 @@
  * flow. The approval modal only appears after that click, layered on top
  * by `ApprovalModalHostProvider` — never the other way around.
  */
+import { Permission } from '@biddaloy/shared';
 import {
   Button,
+  Checkbox,
   Dialog,
   DialogClose,
   DialogContent,
@@ -24,10 +26,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@biddaloy/ui/components';
-import { usePublishResults, useReopenResults } from '@biddaloy/ui/hooks';
+import {
+  useCertificateRegister,
+  useHasPermission,
+  usePublishResults,
+  useReopenResults,
+  useRevokePrintItem,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatNumber } from '@biddaloy/ui/utils';
+import { formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { CircleAlertIcon } from 'lucide-react';
+import { useState } from 'react';
 
 export interface PublishDialogProps {
   open: boolean;
@@ -106,7 +115,52 @@ export function ReopenPreviewDialog({
   const { t } = useTranslation('exams');
   const { t: tg } = useTranslation('grading');
   const config = useRegionConfig();
+  const { t: tp } = useTranslation('printHistory');
   const reopenResults = useReopenResults(examId);
+  const revokeItem = useRevokePrintItem();
+  const canRevoke = useHasPermission(Permission.DOCUMENT_REVOKE);
+
+  // ACAD-12: result / merit certificates freeze the old GPA, so list the live ones here.
+  const register = useCertificateRegister(
+    { context_id: examId, status: 'VALID', limit: 100 },
+    { enabled: open },
+  );
+  const certificates = (register.data?.data ?? []).filter(
+    (r) => r.document_kind === 'RESULT_CERTIFICATE' || r.document_kind === 'MERIT_CERTIFICATE',
+  );
+  // All ticked by default: track only the ones the admin un-ticks.
+  const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
+  const toRevoke = canRevoke ? certificates.filter((r) => !unchecked.has(r.item_id)) : [];
+  // Set once the reopen has succeeded but some revokes failed: a retry must not reopen again.
+  const [reopened, setReopened] = useState(false);
+  const [failedSerials, setFailedSerials] = useState<string[]>([]);
+
+  async function revokeChecked() {
+    const results = await Promise.allSettled(
+      toRevoke.map((r) =>
+        revokeItem.mutateAsync({ itemId: r.item_id, reason: tp('reopenRevokeReason') }),
+      ),
+    );
+    const failed = toRevoke.filter((_, i) => results[i]?.status === 'rejected');
+    if (failed.length === 0) {
+      onOpenChange(false);
+      return;
+    }
+    setFailedSerials(failed.map((r) => r.serial));
+  }
+
+  function handleConfirm() {
+    if (reopened) {
+      void revokeChecked();
+      return;
+    }
+    reopenResults.mutate(undefined, {
+      onSuccess: () => {
+        setReopened(true);
+        void revokeChecked();
+      },
+    });
+  }
 
   // Once Confirm is clicked the approval modal may open over this one —
   // same "pin `open` during `isPending`" reasoning as
@@ -114,7 +168,12 @@ export function ReopenPreviewDialog({
   // mid-flight can't strand the mutation's `onSuccess` unheard.
   function handleOpenChange(next: boolean) {
     if (!next && reopenResults.isPending) return;
-    if (!next) reopenResults.reset();
+    if (!next) {
+      reopenResults.reset();
+      setReopened(false);
+      setFailedSerials([]);
+      setUnchecked(new Set());
+    }
     onOpenChange(next);
   }
 
@@ -135,6 +194,52 @@ export function ReopenPreviewDialog({
           </p>
         )}
 
+        {certificates.length > 0 && (
+          <section aria-labelledby="reopen-certs" className="flex flex-col gap-2">
+            <h3 id="reopen-certs" className="text-body font-medium">
+              {tp('reopenRevokeTitle')}
+            </h3>
+            <p className="text-caption text-muted-foreground">
+              {canRevoke ? tp('reopenRevokeHint') : tp('reopenRevokeReadOnly')}
+            </p>
+            <ul className="flex flex-col gap-1">
+              {certificates.map((r) => (
+                <li key={r.item_id}>
+                  <label className="flex min-h-11 items-center gap-3 md:min-h-8">
+                    {canRevoke && (
+                      <Checkbox
+                        checked={!unchecked.has(r.item_id)}
+                        onCheckedChange={(v) =>
+                          setUnchecked((prev) => {
+                            const next = new Set(prev);
+                            if (v === true) next.delete(r.item_id);
+                            else next.add(r.item_id);
+                            return next;
+                          })
+                        }
+                      />
+                    )}
+                    <span className="flex flex-col text-caption">
+                      <span className="font-medium">{r.serial}</span>
+                      <span className="text-muted-foreground">
+                        {r.subject_label} · {tp(`kind.${r.document_kind}`)} ·{' '}
+                        {formatDate(r.issued_at, config)}
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {failedSerials.length > 0 && (
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon aria-hidden="true" className="size-3.5" />
+            {tp('reopenRevokeFailed', { serials: failedSerials.join(', ') })}
+          </p>
+        )}
+
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline">
@@ -144,12 +249,12 @@ export function ReopenPreviewDialog({
           <Button
             type="button"
             variant="destructive"
-            loading={reopenResults.isPending}
-            onClick={() =>
-              reopenResults.mutate(undefined, { onSuccess: () => onOpenChange(false) })
-            }
+            loading={reopenResults.isPending || revokeItem.isPending}
+            onClick={handleConfirm}
           >
-            {t('reopenDialog.confirm')}
+            {toRevoke.length > 0
+              ? tp('reopenRevokeConfirm', { n: formatNumber(toRevoke.length, config) })
+              : t('reopenDialog.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

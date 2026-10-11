@@ -67,6 +67,8 @@ describe('StudentLifecycleService', () => {
     const manager = {
       getRepository: (e: unknown) => stubs.get(e),
       query: vi.fn().mockResolvedValue([{ seat_limit: null }]),
+      // readmit looks for the student's live Transfer Certificates; none here.
+      find: vi.fn().mockResolvedValue([]),
     };
     enrollmentService = { createInTransaction: vi.fn(async () => ({ id: 'enr-new' })) };
     audit = { record: vi.fn(async () => undefined) };
