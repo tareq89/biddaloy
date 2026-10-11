@@ -423,4 +423,91 @@ describe('SeatPlansService (integration)', () => {
     ]);
     expect(await service.findAll(SEED_TENANT_ID, { examId: EXAM_1_ID })).toEqual([]);
   });
+
+  describe('unpublish / delete [68.3.12]', () => {
+    const FUTURE = '2099-06-01';
+    const generate = (ids = [SCHEDULE_1_ID], rooms = [ROOM_1_ID]) =>
+      service.generate(SEED_TENANT_ID, {
+        name: 'Plan',
+        exam_schedule_ids: ids,
+        room_ids: rooms,
+        seat_order_mode: SeatOrderMode.SEQUENTIAL,
+      });
+    const setDate = (id: string, date: string) =>
+      dataSource.getRepository(ExamSchedule).update({ id }, { date });
+    const roomConflict = {
+      response: expect.objectContaining({
+        details: expect.objectContaining({ code: 'ROOM_CONFLICT' }),
+      }),
+    };
+
+    it('unpublishes before the first sitting: DRAFT, published_at null, allocations editable', async () => {
+      await setDate(SCHEDULE_1_ID, FUTURE);
+      const { plan } = await generate();
+      await service.publish(SEED_TENANT_ID, plan.id);
+
+      const detail = await service.unpublish(SEED_TENANT_ID, plan.id);
+      expect(detail.status).toBe(SeatPlanStatus.DRAFT);
+      const row = await dataSource.getRepository(SeatPlan).findOneByOrFail({ id: plan.id });
+      expect(row.published_at).toBeNull();
+
+      const alloc = await allocationRepo.findOneByOrFail({ seat_plan_id: plan.id });
+      const edited = await service.updateAllocation(SEED_TENANT_ID, plan.id, alloc.id, {
+        room_id: ROOM_1_ID,
+        seat_number: '7',
+      });
+      expect(edited.seat_number).toBe('7');
+    });
+
+    it('refuses to unpublish on or after the first sitting date', async () => {
+      await setDate(SCHEDULE_1_ID, FUTURE);
+      const { plan } = await generate();
+      await service.publish(SEED_TENANT_ID, plan.id);
+      await setDate(SCHEDULE_1_ID, '2000-01-01'); // the sitting has started
+
+      await expect(service.unpublish(SEED_TENANT_ID, plan.id)).rejects.toMatchObject({
+        response: expect.objectContaining({ details: { code: 'SEAT_PLAN_SITTING_STARTED' } }),
+      });
+    });
+
+    it('refuses to unpublish a DRAFT plan', async () => {
+      const { plan } = await generate();
+      await expect(service.unpublish(SEED_TENANT_ID, plan.id)).rejects.toMatchObject({
+        response: expect.objectContaining({ details: { code: 'SEAT_PLAN_NOT_PUBLISHED' } }),
+      });
+    });
+
+    it('deletes a DRAFT plan (soft) and frees its sittings for a new plan', async () => {
+      const { plan } = await generate();
+      await service.remove(SEED_TENANT_ID, plan.id);
+
+      const row = await dataSource
+        .getRepository(SeatPlan)
+        .findOne({ where: { id: plan.id }, withDeleted: true });
+      expect(row?.deleted_at).not.toBeNull();
+      await expect(service.findOne(SEED_TENANT_ID, plan.id)).rejects.toThrow();
+
+      const again = await generate();
+      expect(again.plan.status).toBe(SeatPlanStatus.DRAFT);
+    });
+
+    it('refuses to delete a PUBLISHED plan', async () => {
+      const { plan } = await generate();
+      await service.publish(SEED_TENANT_ID, plan.id);
+      await expect(service.remove(SEED_TENANT_ID, plan.id)).rejects.toThrow(/no longer a draft/);
+    });
+
+    it('re-publishing an unpublished plan re-checks room clashes (ROOM_CONFLICT)', async () => {
+      await setDate(SCHEDULE_1_ID, FUTURE);
+      await setDate(SCHEDULE_2_ID, FUTURE);
+      const a = await generate([SCHEDULE_1_ID], [ROOM_1_ID]);
+      await service.publish(SEED_TENANT_ID, a.plan.id);
+      await service.unpublish(SEED_TENANT_ID, a.plan.id);
+      // B takes the same room and time while A is a draft.
+      const b = await generate([SCHEDULE_2_ID], [ROOM_1_ID]);
+      await service.publish(SEED_TENANT_ID, b.plan.id);
+
+      await expect(service.publish(SEED_TENANT_ID, a.plan.id)).rejects.toMatchObject(roomConflict);
+    });
+  });
 });
