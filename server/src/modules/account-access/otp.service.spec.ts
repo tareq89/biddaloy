@@ -178,29 +178,43 @@ describe('OtpService', () => {
     }
   });
 
-  describe('daily cap per destination (GAP-05)', () => {
+  // GAP-05 cap, reshaped after the #2398 review (#2260): one bucket per
+  // purpose, 5 codes per hour. A stranger who spends a phone's LOGIN codes
+  // cannot also block its password reset, and any block ends within the hour.
+  describe('hourly cap per destination and purpose (GAP-05)', () => {
     const clearCooldowns = () => {
       for (const k of [...redis.store.keys()])
         if (k.startsWith('otp-cooldown:')) redis.store.delete(k);
     };
-    const req = async (p: Parameters<OtpService['request']>[0], id: string) => {
+    const req = async (
+      p: Parameters<OtpService['request']>[0],
+      id: string,
+      opts?: Parameters<OtpService['request']>[3],
+    ) => {
       clearCooldowns();
-      return service.request(p, id);
+      return service.request(p, id, '', opts);
     };
 
-    it('refuses the 11th code and writes no new code', async () => {
-      for (let i = 0; i < 10; i++) await req('LOGIN', 'user@test.com');
+    it('refuses the 6th code and writes no new code', async () => {
+      for (let i = 0; i < 5; i++) await req('LOGIN', 'user@test.com');
       const before = redis.store.get('otp:LOGIN:user@test.com');
       await expect(req('LOGIN', 'user@test.com')).rejects.toBeInstanceOf(TooManyRequestsException);
       expect(redis.store.get('otp:LOGIN:user@test.com')).toBe(before);
     });
 
-    it('shares the count across purposes', async () => {
+    it('counts each purpose on its own: spent LOGIN codes do not block PASSWORD_RESET', async () => {
       for (let i = 0; i < 5; i++) await req('LOGIN', 'user@test.com');
-      for (let i = 0; i < 5; i++) await req('PASSWORD_RESET', 'user@test.com');
-      await expect(req('REGISTER', 'user@test.com')).rejects.toBeInstanceOf(
-        TooManyRequestsException,
-      );
+      await expect(req('LOGIN', 'user@test.com')).rejects.toBeInstanceOf(TooManyRequestsException);
+      await expect(req('PASSWORD_RESET', 'user@test.com')).resolves.toBeDefined();
+    });
+
+    it('passes a one-hour window to Redis', async () => {
+      await req('LOGIN', 'user@test.com');
+      const args = redis.eval.mock.calls[0];
+      // eval(script, 3, otpKey, cooldownKey, capKey, record, codeTtl, cooldown, cap, window)
+      expect(args[4]).toBe('otp-cap:LOGIN:user@test.com');
+      expect(args[8]).toBe(5);
+      expect(args[9]).toBe(60 * 60_000);
     });
 
     it('counts every spelling of one phone number together', async () => {
@@ -211,44 +225,52 @@ describe('OtpService', () => {
         '+8801712345678',
         '00880 1712 345678',
       ];
-      for (let i = 0; i < 10; i++) await req('REGISTER', forms[i % 5]);
-      expect(redis.store.get('otp-daily:8801712345678')).toBe('10');
+      for (const form of forms) await req('REGISTER', form);
+      expect(redis.store.get('otp-cap:REGISTER:8801712345678')).toBe('5');
       await expect(req('REGISTER', '+880-1712-345678')).rejects.toBeInstanceOf(
         TooManyRequestsException,
       );
     });
 
     it('counts email casing and spaces together', async () => {
-      for (let i = 0; i < 5; i++) await req('LOGIN', ' Foo@Test.com');
-      for (let i = 0; i < 5; i++) await req('LOGIN', 'foo@test.com');
+      for (let i = 0; i < 3; i++) await req('LOGIN', ' Foo@Test.com');
+      for (let i = 0; i < 2; i++) await req('LOGIN', 'foo@test.com');
       await expect(req('LOGIN', 'foo@test.com')).rejects.toBeInstanceOf(TooManyRequestsException);
     });
 
     it('leaves other destinations alone', async () => {
-      for (let i = 0; i < 10; i++) await req('LOGIN', 'a@test.com');
+      for (let i = 0; i < 5; i++) await req('LOGIN', 'a@test.com');
       await expect(req('LOGIN', 'b@test.com')).resolves.toBeDefined();
     });
 
-    it('allows requests again once the daily key expires', async () => {
-      for (let i = 0; i < 10; i++) await req('LOGIN', 'user@test.com');
-      redis.store.delete('otp-daily:user@test.com');
+    it('allows requests again once the window key expires', async () => {
+      for (let i = 0; i < 5; i++) await req('LOGIN', 'user@test.com');
+      redis.store.delete('otp-cap:LOGIN:user@test.com');
       await expect(req('LOGIN', 'user@test.com')).resolves.toBeDefined();
     });
 
     it('does not count STEP_UP', async () => {
-      for (let i = 0; i < 12; i++) await req('STEP_UP', 'tenant-1:user@test.com');
-      expect([...redis.store.keys()].some((k) => k.startsWith('otp-daily:'))).toBe(false);
+      for (let i = 0; i < 7; i++) await req('STEP_UP', 'tenant-1:user@test.com');
+      expect([...redis.store.keys()].some((k) => k.startsWith('otp-cap:'))).toBe(false);
+    });
+
+    it('an uncapped request (admin reset) is neither refused nor counted', async () => {
+      for (let i = 0; i < 5; i++) await req('PASSWORD_RESET', 'user@test.com');
+      await expect(
+        req('PASSWORD_RESET', 'user@test.com', { uncapped: true }),
+      ).resolves.toBeDefined();
+      expect(redis.store.get('otp-cap:PASSWORD_RESET:user@test.com')).toBe('5');
     });
 
     it('a correct verify does not reset the count', async () => {
       let last = { code: '' };
-      for (let i = 0; i < 10; i++) last = await req('LOGIN', 'user@test.com');
+      for (let i = 0; i < 5; i++) last = await req('LOGIN', 'user@test.com');
       expect(await service.verify('LOGIN', 'user@test.com', last.code)).toBe('ok');
       await expect(req('LOGIN', 'user@test.com')).rejects.toBeInstanceOf(TooManyRequestsException);
     });
 
     it('checks the cap before the cooldown', async () => {
-      for (let i = 0; i < 10; i++) await req('LOGIN', 'user@test.com');
+      for (let i = 0; i < 5; i++) await req('LOGIN', 'user@test.com');
       clearCooldowns();
       await expect(service.request('LOGIN', 'user@test.com')).rejects.toBeInstanceOf(
         TooManyRequestsException,

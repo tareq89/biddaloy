@@ -287,13 +287,13 @@ describe('AccountAccessController (e2e)', () => {
         .expect(200);
     });
 
-    // PHONE_NUMBER in its canonical daily-cap form (country code, no "+").
-    const DAILY_KEY = 'otp-daily:8801799990000';
+    // PHONE_NUMBER's LOGIN bucket in its canonical cap form (country code, no "+").
+    const CAP_KEY = 'otp-cap:LOGIN:8801799990000';
     const LOGIN_COOLDOWN = `otp-cooldown:LOGIN:${PHONE_NUMBER}`;
 
-    it("counts each sent code against the phone's daily budget, on real Redis", async () => {
+    it("counts each sent code against the phone's hourly LOGIN budget, on real Redis", async () => {
       const redis = app.get(OTP_REDIS, { strict: false });
-      const before = Number((await redis.get(DAILY_KEY)) ?? 0);
+      const before = Number((await redis.get(CAP_KEY)) ?? 0);
       await redis.del(LOGIN_COOLDOWN);
 
       const res = await supertest(app.getHttpServer())
@@ -302,13 +302,13 @@ describe('AccountAccessController (e2e)', () => {
         .expect(202);
       expect(res.body.debug?.otp).toMatch(/^\d{6}$/);
 
-      expect(await redis.get(DAILY_KEY)).toBe(String(before + 1));
-      const ttl = await redis.pttl(DAILY_KEY);
+      expect(await redis.get(CAP_KEY)).toBe(String(before + 1));
+      const ttl = await redis.pttl(CAP_KEY);
       expect(ttl).toBeGreaterThan(0);
-      expect(ttl).toBeLessThanOrEqual(86_400_000);
+      expect(ttl).toBeLessThanOrEqual(3_600_000);
     });
 
-    it('after 10 codes in a day, sends nothing and answers like the cooldown', async () => {
+    it('after 5 codes in an hour, sends nothing and answers like the cooldown', async () => {
       const redis = app.get(OTP_REDIS, { strict: false });
       const sent = async () =>
         (
@@ -318,7 +318,7 @@ describe('AccountAccessController (e2e)', () => {
           )
         )[0].n as number;
       try {
-        await redis.set(DAILY_KEY, '10', 'PX', 86_400_000);
+        await redis.set(CAP_KEY, '5', 'PX', 3_600_000);
         await redis.del(LOGIN_COOLDOWN);
         const before = await sent();
 
@@ -331,7 +331,7 @@ describe('AccountAccessController (e2e)', () => {
         expect(await sent()).toBe(before);
         expect(await redis.exists(LOGIN_COOLDOWN)).toBe(0);
       } finally {
-        await redis.del(DAILY_KEY);
+        await redis.del(CAP_KEY);
       }
     });
   });

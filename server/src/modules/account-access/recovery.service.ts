@@ -280,17 +280,25 @@ export class RecoveryService {
       );
     }
 
+    // Issue the code first: a refusal (cooldown, 429) must not sign the user
+    // out with no code on the way. Uncapped: strangers spending this phone's
+    // reset codes must not block a signed-in admin (#2260).
+    const code =
+      channel.medium === CommunicationMedium.SMS
+        ? (
+            await this.otpService.request(OTP_PURPOSE, normalizeLoginIdentifier(channel.to), '', {
+              uncapped: true,
+            })
+          ).code
+        : null;
+
     // The target's sessions die immediately — an admin resetting a password
     // must not leave a stolen/compromised session alive while the OTP/link
     // is in flight.
     await this.refreshTokens.revokeAllForUser(user.id);
 
     let expires_at: Date;
-    if (channel.medium === CommunicationMedium.SMS) {
-      const { code } = await this.otpService.request(
-        OTP_PURPOSE,
-        normalizeLoginIdentifier(channel.to),
-      );
+    if (code !== null) {
       await this.delivery.deliver({
         tenantId,
         medium: CommunicationMedium.SMS,
