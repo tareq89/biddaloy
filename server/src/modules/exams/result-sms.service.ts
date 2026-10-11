@@ -108,7 +108,8 @@ export class ResultSmsService {
     const locale = resolveFeeNotificationLocale(
       resolveTenantSettings(school?.settings ?? null).region?.locale,
     );
-    const publishedAt = exam.published_at!.getTime();
+    // Nullable on older rows; 0 still gives them one stable publication key.
+    const publishedAt = exam.published_at?.getTime() ?? 0;
 
     for (const result of results) {
       const student = studentById.get(result.student_id);
@@ -116,9 +117,11 @@ export class ResultSmsService {
         skipped.push({ student_id: result.student_id, reason: 'student_not_found' });
         continue;
       }
-      const guardians = resolveReminderAudience(student.guardians ?? []).guardians.filter(
-        (g) => g.phone,
-      );
+      // Reachable first, then the primary pick, so a primary with no phone
+      // falls back to a secondary who has one.
+      const guardians = resolveReminderAudience(
+        (student.guardians ?? []).filter((g) => g.phone),
+      ).guardians;
       if (guardians.length === 0) {
         skipped.push({ student_id: student.id, reason: 'no_reachable_guardian' });
         continue;

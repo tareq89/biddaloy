@@ -233,6 +233,31 @@ describe('ResultSmsService.sendForExam', () => {
     expect(logRepo.save.mock.calls.map((c: any) => c[0].guardian_id)).toEqual(['g1']);
   });
 
+  // Review r1 #8: a primary with no phone must not hide a secondary who has one.
+  it('falls back to a secondary guardian when the primary has no phone', async () => {
+    const { service, logRepo } = await buildService({
+      students: [
+        {
+          id: 'stu-1',
+          full_name: 'Student One',
+          guardians: [
+            { id: 'g1', phone: null, full_name: 'P', is_primary_contact: true, notifications_enabled: true },
+            { id: 'g2', phone: '017', full_name: 'S', is_primary_contact: false, notifications_enabled: true },
+          ],
+        },
+      ],
+    });
+    const outcome = await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
+    expect(outcome.queued).toBe(1);
+    expect(logRepo.save.mock.calls.map((c: any) => c[0].guardian_id)).toEqual(['g2']);
+  });
+
+  // Review r1 #9: `published_at` is nullable on older rows.
+  it('a PUBLISHED exam with no published_at still sends', async () => {
+    const { service } = await buildService({ publishedAt: null as unknown as Date });
+    expect((await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1')).queued).toBe(1);
+  });
+
   it('en locale keeps the English body', async () => {
     const { service, logRepo } = await buildService({ locale: 'en' });
     await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
