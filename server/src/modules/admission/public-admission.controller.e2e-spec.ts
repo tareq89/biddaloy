@@ -307,6 +307,8 @@ describe('Public Admission Submission E2E', () => {
       const reviewed = await post().expect(409);
 
       expect(reviewed.text).toBe(pending.text);
+      // The public form has no reference-number field: point the guardian to the school instead.
+      expect(pending.body.message).toContain('contact the school with your reference number');
     });
 
     it('409s a duplicate whose date_of_birth is an ISO timestamp, with the same text', async () => {

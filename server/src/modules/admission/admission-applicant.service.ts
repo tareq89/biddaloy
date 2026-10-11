@@ -49,7 +49,7 @@ export interface PublicIntakeDto {
 
 /** One message for every duplicate, so status isn't leaked (PUB-09). */
 const DUPLICATE_MESSAGE =
-  'We could not accept this application. If you already applied for this child, enter your reference number to update it.';
+  'We could not accept this application. If you already applied for this child, contact the school with your reference number.';
 
 const EXT_BY_MIME: Record<string, string> = {
   'image/png': 'png',
