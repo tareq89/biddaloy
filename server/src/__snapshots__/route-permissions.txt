@@ -472,6 +472,7 @@ POST /exams/:examId/results/reopen | ResultsController | perm: RESULT_PUBLISH | 
 POST /exams/:examId/results/sms | ResultsController | perm: RESULT_PUBLISH
 POST /exams/:examId/schedule | ExamSchedulesController | perm: EXAM_MANAGE
 POST /fee-structures | FeeController | perm: FEE_STRUCTURE_CREATE
+POST /fees/bills/:id/waive | FinesController | perm: FEE_APPROVE
 POST /fees/fine-rules | FineRulesController | perm: FEE_STRUCTURE_CREATE
 POST /fees/fine-rules/copy | FineRulesController | perm: FEE_STRUCTURE_CREATE
 POST /fees/fines | FinesController | perm: FEE_GENERATE
@@ -560,6 +561,7 @@ POST /students/:id/notes | StudentNotesController | perm: STUDENT_NOTES_WRITE
 POST /students/:id/photo | StudentPhotoController | perm: STUDENT_UPDATE
 POST /students/:id/public-exams | StudentPublicExamsController | perm: STUDENT_RECORDS_WRITE
 POST /students/:id/readmit | StudentLifecycleController | perm: STUDENT_LIFECYCLE_MANAGE
+POST /students/:id/wallet/payout | WalletController | perm: PAYMENT_REVERSE | approval: payments.reverse
 POST /students/:studentId/document-prints | TranscriptController | perm: RESULT_READ
 POST /students/:studentId/exams/:examId/admit-card | FamilyAdmitCardController | perm: RESULT_READ
 POST /students/bulk-upload/commit | StudentController | perm: STUDENT_BULK_UPLOAD

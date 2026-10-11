@@ -84,6 +84,8 @@ export const AUDIT_ENTITY_TYPES = [
   // [Epic 38.2.3] `FinesService.waiveFine` audits the bill it waived.
   'StudentFee',
   'StudentSubjectChoice',
+  // [MON-09] `WalletService.payout` audits the wallet it paid out from.
+  'StudentWallet',
   'StudyPlan',
   'StudyPlanTemplate',
   'SyllabusTopic',
