@@ -77,7 +77,10 @@ export class CollectionsByMethod {
   @ApiProperty()
   count: number;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'Cash actually received (tendered minus change handed back): total_amount - wallet_used + wallet_added. Sum over by_method = totals.collected - totals.wallet_used + totals.wallet_added.',
+  })
   collected: number;
 
   @ApiProperty()
@@ -97,7 +100,10 @@ export class CollectionsByCollector {
   @ApiProperty()
   count: number;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'Cash actually received (tendered minus change handed back): total_amount - wallet_used + wallet_added. Sum over by_collector = totals.collected - totals.wallet_used + totals.wallet_added.',
+  })
   collected: number;
 
   @ApiProperty()
