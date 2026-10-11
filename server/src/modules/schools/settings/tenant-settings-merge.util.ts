@@ -170,6 +170,14 @@ export function mergeTenantSettings(
     merged.applications = patch.applications;
   }
 
+  // [TIME-11] Shallow per switch: a PATCH of one flag keeps the other.
+  if (patch.homework !== undefined) {
+    merged.homework = {
+      ...(isPlainObject(merged.homework) ? merged.homework : {}),
+      ...(patch.homework as Record<string, unknown>),
+    };
+  }
+
   // [48.1.03] Shallow-merged like `attendance`: both fields are optional, so a
   // partial PATCH must not reset `withholdAdmitCardForDues`. `serialPrefix: null` clears it.
   if (patch.documents !== undefined) {

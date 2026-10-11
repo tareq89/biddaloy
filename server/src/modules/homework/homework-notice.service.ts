@@ -19,6 +19,8 @@ import {
   DISPATCHABLE_MEDIA,
   resolveReminderAudience,
 } from '../communications/reminder-recipients.util';
+import { resolveFeeNotificationLocale } from '../communications/fee-notification-template.util';
+import { SchoolsService } from '../schools/schools.service';
 
 /**
  * [22.3.3] Guardian notices for homework assignment + non-submission,
@@ -40,13 +42,22 @@ export class HomeworkNoticeService {
     @InjectQueue(COMMUNICATIONS_QUEUE)
     private readonly queue: Queue,
     private readonly smsCreditService: SmsCreditService,
+    private readonly schoolsService: SchoolsService,
   ) {}
 
   /** Called synchronously right after `HomeworkService.assign()` saves the
    * new assignment — one notice per guardian of every targeted student. */
   async notifyAssignment(assignment: HomeworkAssignment, homework: Homework): Promise<void> {
+    // [TIME-11] Off unless the school turned it on.
+    const settings = await this.schoolsService.getResolvedSettings(assignment.tenant_id);
+    if (settings.homework?.notifyOnAssign !== true) return;
     const students = await this.loadTargetStudents(assignment);
-    const message = `Dear Guardian, new homework "${homework.title}" has been assigned, due ${assignment.due_date}.`;
+    const due = assignment.due_date;
+    // [JOBS-09] The title stays as the teacher typed it.
+    const message =
+      resolveFeeNotificationLocale(settings.region?.locale) === 'bn'
+        ? `প্রিয় অভিভাবক, নতুন বাড়ির কাজ "${homework.title}" দেওয়া হয়েছে, জমার শেষ তারিখ ${due}।`
+        : `Dear Guardian, new homework "${homework.title}" has been assigned, due ${due}.`;
     await this.sendToGuardians(assignment.tenant_id, students, message);
   }
 
@@ -57,7 +68,13 @@ export class HomeworkNoticeService {
     homework: Homework,
     defaulters: Student[],
   ): Promise<void> {
-    const message = `Dear Guardian, homework "${homework.title}" (due ${assignment.due_date}) has not been submitted yet.`;
+    const settings = await this.schoolsService.getResolvedSettings(assignment.tenant_id);
+    if (settings.homework?.notifyDefaulters !== true) return;
+    const due = assignment.due_date;
+    const message =
+      resolveFeeNotificationLocale(settings.region?.locale) === 'bn'
+        ? `প্রিয় অভিভাবক, বাড়ির কাজ "${homework.title}" (শেষ তারিখ ${due}) এখনও জমা হয়নি।`
+        : `Dear Guardian, homework "${homework.title}" (due ${due}) has not been submitted yet.`;
     await this.sendToGuardians(assignment.tenant_id, defaulters, message);
   }
 

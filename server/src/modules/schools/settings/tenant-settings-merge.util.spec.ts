@@ -301,6 +301,7 @@ describe('mergeTenantSettings', () => {
     fees: { marker: 'fees' },
     evaluations: { marker: 'evaluations' },
     applications: { marker: 'applications' },
+    homework: { marker: 'homework' },
     documents: { marker: 'documents' },
     studyPlans: { marker: 'studyPlans' },
     attention: { marker: 'attention' },

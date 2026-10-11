@@ -4,6 +4,7 @@ import type {
   AttentionSettings,
   DocumentsSettings,
   EvaluationsSettings,
+  HomeworkSettings,
   InvitationStatus,
   StudyPlansSettings,
 } from '@biddaloy/shared';
@@ -26,6 +27,8 @@ import { shouldRetryQuery } from './retry';
 export type TenantSettingsInput = components['schemas']['TenantSettingsDto'] & {
   backup?: BackupSettings;
   fees?: FeesSettingsInput;
+  /** [TIME-11] Until `schema.d.ts` is regenerated against `HomeworkSettingsDto`. */
+  homework?: HomeworkSettings;
 };
 export type TestConnectionInput = components['schemas']['TestConnectionDto'];
 export type TestableMedium = TestConnectionInput['medium'];
@@ -184,6 +187,8 @@ export interface MaskedTenantSettings {
   documents?: DocumentsSettings;
   /** [52.5.7] Not secret data. */
   applications?: ApplicationsSettings;
+  /** [TIME-11] Not secret data. */
+  homework?: HomeworkSettings;
   organisation?: OrganisationSettings;
   /** [21.7.1] Not secret data, same reasoning as `attendance` above. */
   routine?: RoutineSettingsInput;
