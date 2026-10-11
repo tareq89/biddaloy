@@ -8,6 +8,7 @@ import { TENANT_STATUS_REDIS } from '../../../schools/tenant-status.service';
 import { SchoolCalendarService } from '../../../calendar/school-calendar.service';
 import { ResolveRoutineService } from '../../../routines/resolve-routine.service';
 import { SubstitutionsService } from '../../../routines/substitutions.service';
+import { TeacherBusyService } from '../../../routines/teacher-busy.service';
 import { AlertWriterService } from '../../engine/alert-writer.service';
 import type { RuleContext } from '../rule.types';
 import { ClassStartingRule } from './class-starting.rule';
@@ -161,6 +162,8 @@ describe('Period rules (integration)', () => {
         { provide: TENANT_STATUS_REDIS, useValue: redis },
         ResolveRoutineService,
         SubstitutionsService,
+        // These specs test attention rules, not clash detection: nobody is busy.
+        { provide: TeacherBusyService, useValue: { busyAt: async () => null } },
         // Only the school calendar is stubbed (every day is a working day).
         {
           provide: SchoolCalendarService,
