@@ -672,7 +672,10 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
     );
   }
 
-  it('M1: an existing late-joiner FAIL row (written before #2215) is removed on reprocess', async () => {
+  // [68.1.fix F1] enrolled_at is not a reliable join date (the 1789800015000
+  // backfill and every mid-year import stamp now()), so a row that already
+  // exists is never removed on its say-so: that would drop real absentees.
+  it('M1: an existing late-joiner FAIL row (written before #2215) is kept on reprocess', async () => {
     const { exam, a, b } = await processedExamWithAB();
     await dataSource.getRepository(ExamSchedule).save({
       tenant_id: TENANT_ID,
@@ -700,8 +703,43 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
     await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
 
     const rows = await liveResults(exam.id);
-    expect(rows.map((r) => r.student_id).sort()).toEqual([a.id, b.id].sort());
-    expectContiguousPositions(rows);
+    expect(rows.map((r) => r.student_id).sort()).toEqual([a.id, b.id, late.id].sort());
+    // A failed result takes no position, so the ranked students stay 1..n.
+    expect(rows.find((r) => r.student_id === late.id)?.position).toBeNull();
+    expectContiguousPositions(rows.filter((r) => r.student_id !== late.id));
+  });
+
+  it('F1: an absentee whose enrolled_at was backfilled after the exam keeps their result on reprocess', async () => {
+    let absentId = '';
+    const { exam } = await processedExamWithAB(async ({ enroll }) => {
+      // Sat nothing: no Mark rows, so the first process writes ABS/FAIL.
+      const absent = await buildStudent({ roll_number: 3 });
+      absentId = absent.id;
+      await enroll(absent.id);
+    });
+    const before = (await liveResults(exam.id)).find((r) => r.student_id === absentId);
+    expect(before?.is_fail).toBe(true);
+
+    // The sitting date becomes known (March) and the enrollment looks like a
+    // June join, as BackfillMissingEnrollments left it (enrolled_at = now()).
+    await dataSource.getRepository(ExamSchedule).save({
+      tenant_id: TENANT_ID,
+      exam_id: exam.id,
+      subject_id: SUBJECT_ID,
+      date: '2025-03-01',
+      starts_at: '10:00',
+      ends_at: '12:00',
+    });
+    await enrollmentRepo.update({ student_id: absentId }, { enrolled_at: new Date() });
+
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+
+    const rows = await liveResults(exam.id);
+    expect(rows).toHaveLength(3);
+    const after = rows.find((r) => r.student_id === absentId);
+    expect(after?.is_fail).toBe(true);
+    expect(after?.grade).toBe(before?.grade);
+    expect(after?.position).toBe(before?.position);
   });
 
   it('M1: a student moved to another class in place is recomputed in their old section, with no duplicate position', async () => {

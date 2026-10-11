@@ -52,7 +52,9 @@ export type CohortMember = Pick<Enrollment, 'student_id' | 'section_id' | 'secti
  * `Student.class_section_id`.
  *
  * - ACTIVE enrollment: in, unless they joined after the last sitting and
- *   have no Mark row.
+ *   have no Mark row and no live Result. `enrolled_at` is not a reliable
+ *   join date (the 1789800015000 backfill and any mid-year import stamp
+ *   now()), so it can keep a row from being written but never removes one.
  * - Any other status (left, graduated, inactive): in only with a Mark row.
  *   A Result alone is not proof they sat it — results used to be written
  *   ABSENT/FAIL for every ACTIVE student, marks or not.
@@ -109,7 +111,9 @@ export async function loadExamCohort(
   // sitting whose cells were left blank (no Mark row) gets no result, not ABS/FAIL.
   const kept = all.filter((e) =>
     e.enrollment_status === EnrollmentStatus.ACTIVE
-      ? !joinedAfterExam(e.enrolled_at, lastSitting) || studentsWithMark.has(e.student_id)
+      ? !joinedAfterExam(e.enrolled_at, lastSitting) ||
+        studentsWithMark.has(e.student_id) ||
+        studentsWithResult.has(e.student_id)
       : studentsWithMark.has(e.student_id),
   );
 
