@@ -72,7 +72,7 @@ import { HomeworkAnalyticsService } from './homework-analytics.service';
     ]),
     StudentModule,
     CreditsModule,
-StorageModule,
+    StorageModule,
     SchoolsModule,
     BulkImportModule,
     AuditModule,

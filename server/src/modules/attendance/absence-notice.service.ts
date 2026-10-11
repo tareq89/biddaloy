@@ -34,7 +34,10 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { SchoolsService } from '../schools/schools.service';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
-import { INSUFFICIENT_SMS_CREDIT } from '../communications/credits/insufficient-sms-credit.constants';
+import {
+  CREDIT_RESERVE_FAILED,
+  INSUFFICIENT_SMS_CREDIT,
+} from '../communications/credits/insufficient-sms-credit.constants';
 import {
   AbsenceNoticePreviewResponseDto,
   AbsenceNoticeSendResponseDto,
@@ -508,11 +511,23 @@ export class AbsenceNoticeService {
         continue;
       }
 
-      // [#2216] Metered SMS must hold credit before it is queued.
-      const credit = await this.smsCreditService.reserveForLog(tenantId, log);
-      if (credit === 'INSUFFICIENT') {
+      // [#2216] Metered SMS must hold credit before it is queued. A reserve
+      // that throws fails this log only — never strand it QUEUED or abort
+      // the remaining recipients.
+      const credit = await this.smsCreditService
+        .reserveForLog(tenantId, log)
+        .catch((error: unknown) => {
+          this.logger.warn(
+            `Failed to reserve SMS credit for absence-notice log ${log.id}: ${String(error)}`,
+          );
+          return CREDIT_RESERVE_FAILED;
+        });
+      if (typeof credit === 'string') {
         log.status = CommunicationStatus.FAILED;
-        log.metadata = { ...log.metadata, reason: INSUFFICIENT_SMS_CREDIT };
+        log.metadata = {
+          ...log.metadata,
+          reason: credit === 'INSUFFICIENT' ? INSUFFICIENT_SMS_CREDIT : credit,
+        };
         await this.logRepo.manager.transaction(async (manager) => {
           await manager.save(log);
           await recordBatchOutcome(manager, batch.id, 'failure');

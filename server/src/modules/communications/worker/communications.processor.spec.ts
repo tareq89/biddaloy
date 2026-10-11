@@ -646,6 +646,33 @@ describe('CommunicationsProcessor', () => {
           metadata: expect.objectContaining({ reason: 'UNRESERVED_SMS' }),
         }),
       );
+      // A producer bug must be visible to ops, not a silent FAILED row.
+      expect(sentrySetTags).toHaveBeenCalledWith(
+        expect.objectContaining({ communication_log_id: 'log-1', reason: 'UNRESERVED_SMS' }),
+      );
+      expect(sentryCaptureException).toHaveBeenCalledTimes(1);
+    });
+
+    it('sends a metered tenant SMS job that carries a reservation and DEBITs it', async () => {
+      smsCredits.isMetered.mockResolvedValue(true);
+      provider.send.mockResolvedValue({
+        success: true,
+        providerMessageId: 'p-1',
+        outcome: 'ACCEPTED',
+        segments: 1,
+      });
+
+      await processor.process(job({ batchId: 'batch-1', segments: 1 }));
+
+      expect(provider.send).toHaveBeenCalledTimes(1);
+      expect(smsCredits.settlePart).toHaveBeenCalledWith(
+        'tenant-1',
+        'batch:batch-1',
+        'log:log-1',
+        1,
+        'DEBIT',
+      );
+      expect(sentryCaptureException).not.toHaveBeenCalled();
     });
 
     it('still sends an unmetered tenant SMS job with no batchId', async () => {

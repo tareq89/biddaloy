@@ -348,6 +348,18 @@ export class CommunicationsProcessor extends WorkerHost {
       log.status = CommunicationStatus.FAILED;
       log.metadata = { ...log.metadata, reason: 'UNRESERVED_SMS' };
       await this.settle(log, 'failure');
+      // Reaching here means a producer forgot to reserve — make it loud.
+      this.reportFailure(
+        {
+          queue: COMMUNICATIONS_QUEUE,
+          job_name: job.name,
+          communication_log_id: log.id,
+          tenant_id: log.tenant_id,
+          medium: log.medium,
+          reason: 'UNRESERVED_SMS',
+        },
+        new Error(`Unreserved SMS for metered tenant (communication ${log.id})`),
+      );
       return;
     }
 
