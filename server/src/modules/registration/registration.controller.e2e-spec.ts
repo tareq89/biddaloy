@@ -138,6 +138,17 @@ describe('RegistrationController (e2e)', () => {
         [school.id],
       );
       expect(audit[0].new_values).toMatchObject({ country_code: 'BD' });
+      // [68.1.2221] PUB-01: the unproven email is never stored on the new account.
+      const [stored] = await ds.query(`SELECT email, phone FROM users WHERE id = $1`, [
+        admins[0].id,
+      ]);
+      expect(stored.email).toBeNull();
+      expect(stored.phone).toBe(d.phone);
+      // ...and the session returned still works.
+      await supertest(app.getHttpServer())
+        .get('/api/v1/auth/sessions')
+        .set('Authorization', `Bearer ${res.body.access_token}`)
+        .expect(200);
       // No invitation is created: the code already proved the contact.
       const invites = await ds.query(`SELECT 1 FROM auth_tokens WHERE tenant_id = $1`, [school.id]);
       expect(invites).toHaveLength(0);
@@ -222,23 +233,27 @@ describe('RegistrationController (e2e)', () => {
       expect(res.body.details.code).toBe('TRIAL_ALREADY_OPEN');
     });
 
-    it("refuses to sign in as someone else's account through the unproven contact", async () => {
-      // The attacker proves a fresh phone but types the victim's email. Without this guard the
-      // victim's user would be reused and the attacker would get a session for it.
+    it("never touches someone else's account through the unproven contact", async () => {
+      // The attacker proves a fresh phone but types the victim's email. The email is no longer
+      // stored at all, so the victim's user is neither reused nor blocking the sign-up.
       const victimEmail = `victim-${Date.now()}@example.com`;
-      await ds.query(
-        `INSERT INTO users (email, full_name, status) VALUES ($1, 'Victim', 'ACTIVE')`,
+      const [{ id: victimId }] = await ds.query(
+        `INSERT INTO users (email, full_name, status) VALUES ($1, 'Victim', 'ACTIVE') RETURNING id`,
         [victimEmail],
       );
       const d = details({ email: victimEmail });
       const s = await start(d).expect(202);
-      const res = await verify({
-        registration_id: s.body.registration_id,
-        otp: s.body.debug.otp,
-      }).expect(409);
-      expect(res.body.details.code).toBe('CONTACT_IN_USE');
-      const schools = await ds.query(`SELECT 1 FROM schools WHERE name = $1`, [d.school_name]);
-      expect(schools).toHaveLength(0);
+      await verify({ registration_id: s.body.registration_id, otp: s.body.debug.otp }).expect(200);
+      const [school] = await ds.query(`SELECT id FROM schools WHERE name = $1`, [d.school_name]);
+      const admins = await ds.query(
+        `SELECT user_id FROM user_tenants WHERE tenant_id = $1 AND role = 'ADMIN'`,
+        [school.id],
+      );
+      expect(admins).toHaveLength(1);
+      expect(admins[0].user_id).not.toBe(victimId);
+      expect(
+        await ds.query(`SELECT 1 FROM user_tenants WHERE user_id = $1`, [victimId]),
+      ).toHaveLength(0);
     });
 
     it('links the Google account from the ticket cookie and then needs no password', async () => {
@@ -267,15 +282,14 @@ describe('RegistrationController (e2e)', () => {
 
   describe('contact race', () => {
     it('refuses to reuse a user that appears after the pre-check (no session, no school)', async () => {
-      // Shape of the race: the pre-check saw no user for the typed email, but by the time
+      // Shape of the race: the pre-check saw no user for the proven phone, but by the time
       // provisioning looks it up inside the transaction the victim's row exists. We reproduce it
       // by making the pre-check blind while the row is already there.
-      const victimEmail = `race-${Date.now()}@example.com`;
+      const d = details();
       await ds.query(
-        `INSERT INTO users (email, full_name, status) VALUES ($1, 'Victim', 'ACTIVE')`,
-        [victimEmail],
+        `INSERT INTO users (phone, full_name, status) VALUES ($1, 'Victim', 'ACTIVE')`,
+        [d.phone],
       );
-      const d = details({ email: victimEmail });
       const s = await start(d).expect(202);
       const repo = app.get(RegistrationService)['users'];
       const spy = vi.spyOn(repo, 'findOne').mockResolvedValue(null);
@@ -292,10 +306,10 @@ describe('RegistrationController (e2e)', () => {
     });
 
     it('keeps the Google ticket when the registration is refused inside the transaction', async () => {
-      const victimEmail = `race-ticket-${Date.now()}@example.com`;
+      const d = details();
       await ds.query(
-        `INSERT INTO users (email, full_name, status) VALUES ($1, 'Victim', 'ACTIVE')`,
-        [victimEmail],
+        `INSERT INTO users (phone, full_name, status) VALUES ($1, 'Victim', 'ACTIVE')`,
+        [d.phone],
       );
       const tickets = app.get(SocialTicketService);
       const ticketId = await tickets.issue({
@@ -304,7 +318,7 @@ describe('RegistrationController (e2e)', () => {
         email: 'g@example.com',
         name: 'G',
       });
-      const s = await start(details({ email: victimEmail })).expect(202);
+      const s = await start(d).expect(202);
       const repo = app.get(RegistrationService)['users'];
       const spy = vi.spyOn(repo, 'findOne').mockResolvedValue(null);
       try {

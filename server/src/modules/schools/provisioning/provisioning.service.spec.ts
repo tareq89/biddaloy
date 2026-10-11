@@ -5,9 +5,13 @@ import { QueryFailedError } from 'typeorm';
 import { SchoolStatus, UserRole } from '@biddaloy/shared';
 import { ProvisioningService } from './provisioning.service';
 import { reviveMembership } from '../../users/users.service';
+import { insertJoinRequest } from '../../account-access/school-invite.service';
 import { ProvisioningController } from './provisioning.controller';
 import { RolesGuard } from '../../auth/guards/context.guard';
 
+vi.mock('../../account-access/school-invite.service', () => ({
+  insertJoinRequest: vi.fn(async () => ({ id: 'join-1' })),
+}));
 vi.mock('../../users/users.service', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../users/users.service')>()),
   reviveMembership: vi.fn(async () => 1),
@@ -16,10 +20,23 @@ vi.mock('../../users/users.service', async (importOriginal) => ({
 /** A minimal fluent stub matching the `createQueryBuilder` subset this
  * service chains — same shape as `GuardianProvisioningService`'s spec. */
 function fakeQueryBuilder(one: unknown | null) {
+  const conds: string[] = [];
   const qb: any = {
     where: vi.fn().mockReturnThis(),
-    andWhere: vi.fn().mockReturnThis(),
-    getOne: vi.fn().mockResolvedValue(one),
+    andWhere: vi.fn((c: string) => {
+      conds.push(c);
+      return qb;
+    }),
+    // Honours the verified-contact filter the way Postgres would: a row whose contact is not
+    // verified is invisible once `..._verified_at IS NOT NULL` is in the query.
+    getOne: vi.fn(async () => {
+      const row = one as Record<string, unknown> | null;
+      if (!row) return null;
+      const f = conds.find((c) => c.includes('_verified_at IS NOT NULL'));
+      if (!f) return row;
+      const col = f.includes('email') ? 'email_verified_at' : 'phone_verified_at';
+      return row[col] ? row : null;
+    }),
   };
   return qb;
 }
@@ -52,6 +69,7 @@ describe('ProvisioningService', () => {
   }
 
   beforeEach(() => {
+    vi.mocked(insertJoinRequest).mockClear();
     let userQueryResult: unknown | null = null;
 
     schoolRepo = {
@@ -255,7 +273,13 @@ describe('ProvisioningService', () => {
   });
 
   it('rejects a second ADMIN membership for the same user on the same school with 409 instead of a raw unique-violation', async () => {
-    userRepo.__setFound({ id: 'existing-user', email: dto.admin.email, full_name: 'Admin One' });
+    userRepo.__setFound({
+      id: 'existing-user',
+      email: dto.admin.email,
+      full_name: 'Admin One',
+      email_verified_at: new Date(),
+      phone_verified_at: new Date(),
+    });
     userTenantRepo.findOne.mockResolvedValue({
       user_id: 'existing-user',
       tenant_id: 'school-1',
@@ -275,7 +299,13 @@ describe('ProvisioningService', () => {
   });
 
   it('[13.2.1] restores a former (soft-deleted) ADMIN membership instead of inserting a duplicate', async () => {
-    userRepo.__setFound({ id: 'existing-user', email: dto.admin.email, full_name: 'Admin One' });
+    userRepo.__setFound({
+      id: 'existing-user',
+      email: dto.admin.email,
+      full_name: 'Admin One',
+      email_verified_at: new Date(),
+      phone_verified_at: new Date(),
+    });
     userTenantRepo.findOne.mockResolvedValue({
       id: 'old-membership',
       user_id: 'existing-user',
@@ -314,7 +344,13 @@ describe('ProvisioningService', () => {
   });
 
   it('finds an existing user by email instead of creating a duplicate', async () => {
-    userRepo.__setFound({ id: 'existing-user', email: dto.admin.email, full_name: 'Admin One' });
+    userRepo.__setFound({
+      id: 'existing-user',
+      email: dto.admin.email,
+      full_name: 'Admin One',
+      email_verified_at: new Date(),
+      phone_verified_at: new Date(),
+    });
 
     const { result } = await service.provision(dto, ACTOR);
 
@@ -326,8 +362,22 @@ describe('ProvisioningService', () => {
     // Resolved separately (email query first, then phone) — an `email OR
     // phone` lookup would have silently picked one of the two.
     userRepo.createQueryBuilder
-      .mockReturnValueOnce(fakeQueryBuilder({ id: 'user-by-email', email: 'a@example.com' }))
-      .mockReturnValueOnce(fakeQueryBuilder({ id: 'user-by-phone', phone: '01712345678' }));
+      .mockReturnValueOnce(
+        fakeQueryBuilder({
+          id: 'user-by-email',
+          email: 'a@example.com',
+          email_verified_at: new Date(),
+          phone_verified_at: new Date(),
+        }),
+      )
+      .mockReturnValueOnce(
+        fakeQueryBuilder({
+          id: 'user-by-phone',
+          phone: '01712345678',
+          email_verified_at: new Date(),
+          phone_verified_at: new Date(),
+        }),
+      );
 
     await expect(
       service.provision(
@@ -342,7 +392,13 @@ describe('ProvisioningService', () => {
   });
 
   it('accepts an admin whose email and phone resolve to the same existing user', async () => {
-    const same = { id: 'existing-user', email: 'a@example.com', phone: '01712345678' };
+    const same = {
+      id: 'existing-user',
+      email: 'a@example.com',
+      phone: '01712345678',
+      email_verified_at: new Date(),
+      phone_verified_at: new Date(),
+    };
     userRepo.createQueryBuilder
       .mockReturnValueOnce(fakeQueryBuilder(same))
       .mockReturnValueOnce(fakeQueryBuilder(same));
@@ -354,6 +410,85 @@ describe('ProvisioningService', () => {
 
     expect(result.admin).toEqual({ user_id: 'existing-user', existed: true });
     expect(userRepo.save).not.toHaveBeenCalled();
+  });
+
+  describe('[68.1.2221] verified-contact matching', () => {
+    const unverified = { id: 'stranger', email: dto.admin.email, email_verified_at: null };
+    const verified = {
+      id: 'verified-user',
+      email: dto.admin.email,
+      email_verified_at: new Date(),
+      password_hash: 'hash',
+    };
+
+    it('PUB-01: a user matched only by an unverified email gets no ADMIN membership', async () => {
+      userRepo.__setFound(unverified);
+      userRepo.save.mockRejectedValueOnce(
+        Object.assign(new QueryFailedError('q', [], new Error('dup')), { code: '23505' }),
+      );
+
+      await expect(service.provision(dto, ACTOR)).rejects.toMatchObject({
+        response: { details: { code: 'CONTACT_IN_USE' } },
+      });
+      expect(userTenantRepo.save).not.toHaveBeenCalled();
+      expect(insertJoinRequest).not.toHaveBeenCalled();
+    });
+
+    it('a verified-email existing user who is not a member gets a join request and no membership', async () => {
+      userRepo.__setFound(verified);
+
+      const { result } = await service.provision(dto, ACTOR);
+
+      expect(insertJoinRequest).toHaveBeenCalledWith(
+        manager,
+        expect.objectContaining({
+          userId: 'verified-user',
+          tenantId: 'school-1',
+          role: UserRole.ADMIN,
+          provisioned: true,
+        }),
+      );
+      expect(result.invitation).toEqual({ id: 'join-1', status: 'PENDING' });
+      expect(userTenantRepo.save).not.toHaveBeenCalled();
+      expect(authTokenRepo.save).not.toHaveBeenCalled();
+      expect(delivery.deliver).not.toHaveBeenCalled();
+    });
+
+    it('an existing member who holds a password gets the ADMIN role and no INVITE', async () => {
+      userRepo.__setFound(verified);
+      userTenantRepo.findOne
+        .mockResolvedValueOnce({ id: 'm', role: UserRole.TEACHER }) // any live membership
+        .mockResolvedValueOnce(null); // no ADMIN row yet
+
+      const { result } = await service.provisionAdminForSchool(
+        'school-1',
+        dto.admin,
+        ACTOR,
+        manager,
+      );
+
+      expect(userTenantRepo.save).toHaveBeenCalledTimes(1);
+      expect(authTokenRepo.save).not.toHaveBeenCalled();
+      expect(insertJoinRequest).not.toHaveBeenCalled();
+      expect(result.invitation).toEqual({ id: '', status: 'NOT_SENT' });
+    });
+
+    it('registration (sendInvitation = false) still reuses the owner found by an unverified contact', async () => {
+      userRepo.__setFound(unverified);
+
+      const { result } = await service.provisionAdminForSchool(
+        'school-1',
+        dto.admin,
+        null,
+        manager,
+        true,
+        false,
+      );
+
+      expect(result.admin).toEqual({ user_id: 'stranger', existed: true });
+      expect(insertJoinRequest).not.toHaveBeenCalled();
+      expect(userTenantRepo.save).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('denies a non-SUPER_ADMIN caller with 403 at the RolesGuard', () => {
