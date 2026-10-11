@@ -2,8 +2,8 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ExamStatus } from '@biddaloy/shared';
-import { ResultRecomputer } from '../grading/recompute.service';
-import { ResultsService } from './results.service';
+import { RecomputeActor, ResultRecomputer } from '../grading/recompute.service';
+import { lockExam, ResultsService } from './results.service';
 
 interface ExamUsingScale {
   id: string;
@@ -67,8 +67,21 @@ export class ExamResultRecomputer implements ResultRecomputer {
       .map(({ id, name }) => ({ id, name }));
   }
 
-  async recompute(tenantId: string, scaleId: string, manager: EntityManager): Promise<number> {
-    const exams = await this.examsUsingScale(manager, tenantId, scaleId);
+  async recompute(
+    tenantId: string,
+    scaleId: string,
+    manager: EntityManager,
+    actor: RecomputeActor = { userId: null, context: { ip: null, userAgent: null } },
+  ): Promise<number> {
+    // Lock every exam first (id order, so two edits can't deadlock), then
+    // read status under the lock: a publish committing after an unlocked
+    // read would otherwise slip a band change under frozen results (D16).
+    const found = await this.examsUsingScale(manager, tenantId, scaleId);
+    const exams: ExamUsingScale[] = [];
+    for (const { id } of [...found].sort((a, b) => a.id.localeCompare(b.id))) {
+      const locked = await lockExam(manager, id, tenantId);
+      exams.push({ id, name: locked.name, status: locked.status });
+    }
     const published = exams.filter((e) => e.status === ExamStatus.PUBLISHED);
     if (published.length > 0) {
       // D16: a scale edit is refused while published results use it. The
@@ -83,10 +96,13 @@ export class ExamResultRecomputer implements ResultRecomputer {
     }
     let total = 0;
     for (const exam of exams.filter((e) => e.status === ExamStatus.PROCESSED)) {
-      total += await this.resultsService.recomputeProcessedExam(manager, exam.id, tenantId, null, {
-        ip: null,
-        userAgent: null,
-      });
+      total += await this.resultsService.recomputeProcessedExam(
+        manager,
+        exam.id,
+        tenantId,
+        actor.userId,
+        actor.context,
+      );
     }
     return total;
   }

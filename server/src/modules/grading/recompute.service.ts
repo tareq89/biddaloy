@@ -21,7 +21,12 @@ export interface ResultRecomputer {
   /** Actually recompute every result graded against `scaleId`, inside the
    * caller's transaction (`manager`) so a failure here rolls back the
    * band change too. */
-  recompute(tenantId: string, scaleId: string, manager: EntityManager): Promise<number>;
+  recompute(
+    tenantId: string,
+    scaleId: string,
+    manager: EntityManager,
+    actor?: RecomputeActor,
+  ): Promise<number>;
   /** Exams whose PUBLISHED results were graded against `scaleId` — a
    * scale edit is refused while any exist (D16). */
   findPublishedExams(
@@ -29,6 +34,12 @@ export interface ResultRecomputer {
     scaleId: string,
     manager?: EntityManager,
   ): Promise<Array<{ id: string; name: string }>>;
+}
+
+/** Who made the band edit, for the per-exam Result audit rows. */
+export interface RecomputeActor {
+  userId: string | null;
+  context: RequestContext;
 }
 
 export const RESULT_RECOMPUTER = Symbol('RESULT_RECOMPUTER');
@@ -175,7 +186,15 @@ export class RecomputeService {
       // Runs inside this same transaction (manager passed through) — a
       // throw here rolls back both the band replacement above and the
       // revision bump, per D6.
-      const affectedResultCount = await this.resultRecomputer.recompute(tenantId, scaleId, manager);
+      const affectedResultCount = await this.resultRecomputer.recompute(
+        tenantId,
+        scaleId,
+        manager,
+        {
+          userId,
+          context,
+        },
+      );
 
       await this.auditService.recordApproved(
         {
