@@ -52,10 +52,11 @@ interface RecurringScheduleRow {
   fee_structure_ids: string[];
 }
 
-/** Normal due date, unless it is already past: a caught-up bill is due tomorrow, so the
- * late-fee sweep that runs right after (it counts due_date + grace <= today) skips it. */
+/** Normal due date, unless it is today or past: then the bill is due tomorrow, so the
+ * late-fee sweep that runs right after (it counts due_date + grace <= today) skips it
+ * even with 0 grace days. */
 function catchUpDueDate(normal: string, today: string): string {
-  return normal >= today ? normal : addDays(today, 1);
+  return normal > today ? normal : addDays(today, 1);
 }
 
 function addDays(dateIso: string, days: number): string {

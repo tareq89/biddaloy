@@ -648,6 +648,34 @@ describe('FeesDailyScheduler (integration)', () => {
       expect(bills[0].due).toBe('2026-03-16'); // tomorrow, not the long-gone 03-06
     });
 
+    // Review r1 #10: a due date of today with 0 grace days is late the same night.
+    it('a caught-up bill whose normal due date is today is due tomorrow (no same-night late fee)', async () => {
+      await studentRepo.save(makeStudent());
+      const schedule = await scheduleWith({ kind: 'MONTHLY', day_of_month: 1 });
+      await dataSource.query(
+        `UPDATE recurring_schedules SET due_days_after_period_start = 14 WHERE id = $1`,
+        [schedule.id],
+      );
+      await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+        JSON.stringify({
+          fees: {
+            lateFees: {
+              MONTHLY_TUITION: { enabled: true, grace_days: 0, kind: 'FLAT', value: 50 },
+            },
+          },
+        }),
+        TENANT_ID,
+      ]);
+
+      await runOn('2026-03-15', 'fees-daily', true); // 03-01 + 14 days = today
+
+      const bills = await dataSource.query(
+        `SELECT due_date::text AS due FROM student_fees WHERE deleted_at IS NULL`,
+      );
+      expect(bills).toHaveLength(1); // no LATE_FEE
+      expect(bills[0].due).toBe('2026-03-16');
+    });
+
     it('multi-weekday WEEKLY: the first fire on/after a mid-week starts_on bills (Thu, not skipped)', async () => {
       await studentRepo.save(makeStudent());
       // Mon+Thu rule; starts_on Wed 03-18, so Thu 03-19 is the first fire in the window.
