@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { returnMoneyOfRemovedBills } from './removed-bill-money';
@@ -521,6 +521,38 @@ describe('PaymentReversalService (integration)', () => {
 
     expect(credits).toEqual([]);
     expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
+  });
+
+  // Review r1 #7: an invoice minted between the reversal's first read and its
+  // row lock must still be cancelled.
+  it('MON-05: cancels an invoice that was minted after the reversal first read the payment', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
+    const { payment } = await checkoutService.checkout(
+      {
+        idempotency_key: '11111111-1111-4111-8111-111111111303',
+        lines: [{ student_fee_id: bill.id, amount: 1000, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    // The first read sees no invoice yet (stale), the DB has a live one.
+    const realFindOne = paymentRepo.findOne.bind(paymentRepo);
+    const spy = vi.spyOn(paymentRepo, 'findOne').mockImplementationOnce(async (opts) => {
+      const p = await realFindOne(opts);
+      return p ? Object.assign(p, { invoice_id: null }) : p;
+    });
+
+    await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'race');
+    spy.mockRestore();
+
+    const invoice = await invoiceRepo.findOneByOrFail({
+      payment_id: payment.id,
+      kind: InvoiceKind.INVOICE,
+    });
+    expect(invoice.status).toBe(InvoiceStatus.CANCELLED);
   });
 
   it('MON-03: refuses (409 naming the later payment) when the removed-bill credit was already spent', async () => {

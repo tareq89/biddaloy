@@ -318,8 +318,10 @@ export class PaymentReversalService {
       // "nothing to cancel" cases here, not errors that should abort the
       // whole reversal transaction — `payment.invoice_id` alone can't
       // distinguish a live invoice from a soft-deleted one, so the
-      // NotFoundException is the actual signal.
-      if (payment.invoice_id) {
+      // NotFoundException is the actual signal. `locked`, not `payment`: an
+      // invoice minted after the first read is visible only under the row lock
+      // (InvoicesService.create locks this same row).
+      if (locked.invoice_id) {
         try {
           await this.invoicesService.createCreditNote(payment.id, reason, manager);
         } catch (error) {
