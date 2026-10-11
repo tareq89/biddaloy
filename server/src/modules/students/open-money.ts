@@ -33,6 +33,8 @@ export async function studentsWithOpenMoney(
        LEFT JOIN (
          SELECT sf.student_id, SUM(sf.total_amount - sf.paid_amount - sf.discount_amount) AS open_dues
            FROM student_fees sf
+           -- student_fees has no tenant_id: scope it through its student.
+           JOIN students fs ON fs.id = sf.student_id AND fs.tenant_id = $1
           WHERE sf.student_id = ANY($2) AND sf.deleted_at IS NULL AND sf.status::text = ANY($3)
           GROUP BY sf.student_id
        ) d ON d.student_id = st.id

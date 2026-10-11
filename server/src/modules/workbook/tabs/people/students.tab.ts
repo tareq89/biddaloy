@@ -713,10 +713,17 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       tenantId,
       absent.map((s) => s.id),
     );
-    return owing.map(
-      (s) =>
-        `Student "${s.full_name}" (${s.registration_number}) is not in this file, so the restore would delete them, but they still have open dues of ${s.open_dues} or wallet money of ${s.wallet_balance}. Add the student back to the file, or clear the money in the app first.`,
-    );
+    const taka = (n: number) =>
+      `৳${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return owing.map((s) => {
+      const money = [
+        s.open_dues > 0 ? `open dues of ${taka(s.open_dues)}` : null,
+        s.wallet_balance !== 0 ? `wallet money of ${taka(s.wallet_balance)}` : null,
+      ]
+        .filter(Boolean)
+        .join(' and ');
+      return `Student "${s.full_name}" (${s.registration_number}) is not in this file, so the restore would delete them, but they still have ${money}. Add the student back to the file, or clear the money in the app first.`;
+    });
   },
 };
 

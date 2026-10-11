@@ -862,6 +862,22 @@ describe('RestoreProcessor (integration)', () => {
       return dataSource.getRepository(WorkbookJob).findOneByOrFail({ id: job.id });
     }
 
+    /** Restores and also returns the re-validation's error messages, so a
+     * test can assert WHY the job failed, not just that it did. */
+    async function restoreWithErrors(
+      tenantId: string,
+      buffer: Buffer,
+    ): Promise<{ job: WorkbookJob; errors: string[] }> {
+      const spy = vi.spyOn(validationService, 'validate');
+      try {
+        const job = await restore(tenantId, buffer);
+        const validated = await spy.mock.results[0].value;
+        return { job, errors: validated.errors.map((e: { message: string }) => e.message) };
+      } finally {
+        spy.mockRestore();
+      }
+    }
+
     it('round trip: restoring an untouched export of the same tenant has 0 errors and changes nothing', async () => {
       const d = await seed();
       const job = await restore(d.tenantId, await exportTenant(d.tenantId));
@@ -910,8 +926,10 @@ describe('RestoreProcessor (integration)', () => {
         const b = sheet('grading_bands');
         b.rows[0].getCell(col(b.header, 'grade')).value = 'A';
       });
-      const job = await restore(d.tenantId, buffer);
+      const { job, errors } = await restoreWithErrors(d.tenantId, buffer);
       expect(job.status).toBe(WorkbookJobStatus.FAILED);
+      // Failed because the band's grade changed, not for some other reason.
+      expect(errors).toEqual([expect.stringMatching(/"grading_bands" changes grade of an existing/)]);
       expect((await em().findOneByOrFail(GradingBand, { id: d.band.id })).grade).toBe('A+');
     });
 
@@ -921,8 +939,11 @@ describe('RestoreProcessor (integration)', () => {
         const c = sheet('exam_components');
         c.rows[0].getCell(col(c.header, 'pass_marks')).value = '50';
       });
-      const job = await restore(d.tenantId, buffer);
+      const { job, errors } = await restoreWithErrors(d.tenantId, buffer);
       expect(job.status).toBe(WorkbookJobStatus.FAILED);
+      expect(errors).toEqual([
+        expect.stringMatching(/"exam_components" changes pass_marks of an existing/),
+      ]);
       expect((await em().findOneByOrFail(ExamComponent, { id: d.component.id })).pass_marks).toBe(
         '33.00',
       );
@@ -936,8 +957,10 @@ describe('RestoreProcessor (integration)', () => {
         const st = sheet('students');
         st.ws.spliceRows(st.rows[0].number, 1);
       });
-      const job = await restore(d.tenantId, buffer);
+      const { job, errors } = await restoreWithErrors(d.tenantId, buffer);
       expect(job.status).toBe(WorkbookJobStatus.FAILED);
+      // The money refusal, naming only the non-zero amount, formatted as money.
+      expect(errors).toContainEqual(expect.stringMatching(/still have open dues of ৳[\d,]+\.\d\d\./));
       const student = await em().findOne(Student, { where: { id: d.student.id }, withDeleted: true });
       expect(student?.deleted_at).toBeNull();
     });
