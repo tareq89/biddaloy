@@ -10,9 +10,11 @@ import { usersTab } from './users.tab';
 
 /**
  * [28.1.3] Epic 28.0's survey tabs, defined in restore order
- * (surveys -> questions -> targets -> responses -> answers). Responses keep
- * `respondent` even on anonymous surveys: a backup is admin-only and the
- * DB unique key (survey, respondent, teacher, subject) must restore intact.
+ * (surveys -> questions -> targets -> responses -> answers). Responses and
+ * answers of an anonymous survey are never exported: `respondent` and
+ * `created_at` would de-anonymise them (survey-response.entity.ts:14-15).
+ * Never loaded also means never deleted by a same-school restore; moving a
+ * school to a new tenant loses them.
  */
 export const surveysTab = createRefChildTab<Survey>({
   name: 'surveys',
@@ -99,6 +101,11 @@ export const surveyTargetsTab = createRefChildTab<SurveyTarget>({
 
 export const surveyResponsesTab = createRefChildTab<SurveyResponse>({
   name: 'survey_responses',
+  filterRows: async (rows, tenant_id, m) => {
+    const anon = await m.find(Survey, { select: ['id'], where: { tenant_id, anonymous: true } });
+    const ids = new Set(anon.map((x) => x.id));
+    return rows.filter((r) => !ids.has(r.survey_id));
+  },
   entityClass: SurveyResponse,
   refs: [
     survey,
@@ -124,6 +131,16 @@ export const surveyResponsesTab = createRefChildTab<SurveyResponse>({
 
 export const surveyAnswersTab = createRefChildTab<SurveyAnswer>({
   name: 'survey_answers',
+  filterRows: async (rows, tenant_id, m) => {
+    const anon = await m
+      .createQueryBuilder(SurveyResponse, 'r')
+      .innerJoin(Survey, 's', 's.id = r.survey_id')
+      .select('r.id', 'id')
+      .where('r.tenant_id = :tenant_id AND s.anonymous = true', { tenant_id })
+      .getRawMany<{ id: string }>();
+    const ids = new Set(anon.map((x) => x.id));
+    return rows.filter((r) => !ids.has(r.response_id));
+  },
   entityClass: SurveyAnswer,
   refs: [
     {

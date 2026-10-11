@@ -43,6 +43,8 @@ export interface RefChildTabOptions<E> {
   naturalKey: readonly string[];
   /** Default true. False for an append-only table: a restore must never delete its rows. */
   deleteByAbsence?: boolean;
+  /** Drops rows from the export. Runs before refs are stamped, so a dropped row's parent is never needed. */
+  filterRows?: (rows: E[], tenantId: string, m: EntityManager) => Promise<E[]>;
 }
 
 type Rec = Record<string, unknown>;
@@ -66,7 +68,7 @@ function sortKeys(x: unknown): unknown {
 export function createRefChildTab<E extends { id: string }>(
   opts: RefChildTabOptions<E>,
 ): TabSpec<E, Rec> {
-  const { name, entityClass, refs, fields, naturalKey, deleteByAbsence = true } = opts;
+  const { name, entityClass, refs, fields, naturalKey, deleteByAbsence = true, filterRows } = opts;
   const typeOf = new Map(fields.map((f) => [f.key, f.type as string]));
 
   const columns: readonly ColumnSpec[] = [
@@ -91,7 +93,8 @@ export function createRefChildTab<E extends { id: string }>(
     deleteByAbsence,
 
     async load(tenantId: string, m: EntityManager): Promise<E[]> {
-      const rows = await m.find(entityClass, { where: { tenant_id: tenantId } as never });
+      let rows = await m.find(entityClass, { where: { tenant_id: tenantId } as never });
+      if (filterRows) rows = await filterRows(rows, tenantId, m);
       for (const r of refs) {
         const parents: any[] = await r.tab.load(tenantId, m);
         const keyById = new Map(parents.map((p) => [p.id as string, r.tab.keyOf(p)]));
