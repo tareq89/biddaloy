@@ -598,7 +598,7 @@ export class PromotionsService {
   //  Refresh (step 5, D24)
   // ────────────────────────
 
-  async refresh(runId: string, tenantId: string): Promise<PromotionRun> {
+  async refresh(runId: string, tenantId: string, userId?: string): Promise<PromotionRun> {
     return this.runRepo.manager
       .transaction(async (manager) => {
         const runRepo = manager.getRepository(PromotionRun);
@@ -636,7 +636,33 @@ export class PromotionsService {
         // source enrollments, so anyone missing from it has left.
         const liveIds = new Set(stats.map((s) => s.student_id));
         const leavers = entries.filter((e) => !liveIds.has(e.student_id));
-        if (leavers.length > 0) await entryRepo.remove(leavers);
+        if (leavers.length > 0) {
+          // [#2268] Leaver rows (staff overrides included) are hard-deleted;
+          // keep "whose decision vanished, and who refreshed" answerable.
+          await this.auditService.record(
+            {
+              action: AuditAction.UPDATE,
+              entity_type: 'PromotionRun',
+              entity_id: run.id,
+              tenant_id: tenantId,
+              performed_by_user_id: userId ?? null,
+              new_values: {
+                event: 'PROMOTION_REFRESHED',
+                removed_student_ids: leavers.map((e) => e.student_id),
+                removed_overrides: leavers
+                  .filter((e) => e.is_override)
+                  .map((e) => ({
+                    student_id: e.student_id,
+                    final_outcome: e.final_outcome,
+                    override_note: e.override_note,
+                    overridden_by_user_id: e.overridden_by_user_id,
+                  })),
+              },
+            },
+            manager,
+          );
+          await entryRepo.remove(leavers);
+        }
         const kept = entries.filter((e) => liveIds.has(e.student_id));
         const joiners = stats.filter((s) => !entryByStudent.has(s.student_id));
         const sectionGroupById = joiners.length
@@ -825,6 +851,21 @@ export class PromotionsService {
         if (!allStillActive) {
           throw new ConflictException({ details: { code: 'COHORT_CHANGED' } });
         }
+      }
+      // A student who joined the source class after the last refresh has no
+      // entry: committing would leave them neither promoted nor retained.
+      const joinedSinceRefresh = await enrollmentRepo.count({
+        where: {
+          class_id: run.source_class_id,
+          academic_year_id: run.source_academic_year_id,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+          tenant_id: tenantId,
+          student: { id: Not(IsNull()) },
+          ...(cohortStudentIds.length ? { student_id: Not(In(cohortStudentIds)) } : {}),
+        },
+      });
+      if (joinedSinceRefresh > 0) {
+        throw new ConflictException({ details: { code: 'COHORT_CHANGED' } });
       }
 
       const overrideCount = entries.filter((e) => e.is_override).length;

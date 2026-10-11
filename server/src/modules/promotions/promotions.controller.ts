@@ -99,8 +99,9 @@ export class PromotionsController {
   refresh(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.service.refresh(id, tenant.id);
+    return this.service.refresh(id, tenant.id, user.sub);
   }
 
   @Delete('promotions/:id')
