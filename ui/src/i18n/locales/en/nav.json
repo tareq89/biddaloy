@@ -249,7 +249,15 @@
     "loadingName": "Loading…",
     "profile": "Profile",
     "profileComingSoon": "Profile page coming soon",
-    "security": "Security"
+    "security": "Security",
+    "schoolInvites": "School invitations"
+  },
+  "schoolInvites": {
+    "title": "School invitations",
+    "accept": "Accept",
+    "decline": "Decline",
+    "expires": "Expires {{date}}",
+    "error": "Something went wrong. Please try again."
   },
   "installPrompt": {
     "menuItem": "Install app",
