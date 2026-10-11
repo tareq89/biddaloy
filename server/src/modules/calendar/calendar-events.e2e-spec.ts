@@ -331,4 +331,133 @@ describe('Calendar Events E2E', () => {
       .set('X-Tenant-ID', TENANT_ID)
       .expect(404);
   });
+
+  // [68.3.15.01] past closure, attendance guard, make-up day, legacy routes
+  describe('past closure and make-up days', () => {
+    const post = (body: Record<string, unknown>) =>
+      supertest(app.getHttpServer())
+        .post('/api/v1/calendar/events')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send(body);
+    const closure = (date: string, extra: Record<string, unknown> = {}) => ({
+      type: CalendarEventType.HOLIDAY,
+      name: 'Hartal',
+      start_date: date,
+      end_date: date,
+      audience: CalendarAudience.ALL,
+      counts_as_working_day: false,
+      ...extra,
+    });
+
+    beforeAll(async () => {
+      // A year wholly in the past, so no other spec's year overlaps it.
+      await dataSource.query(
+        `INSERT INTO academic_years (id, name, start_date, end_date, tenant_id, created_at, updated_at)
+         VALUES (gen_random_uuid(), 'Calendar E2E Past Year', '2019-01-01', '2019-12-31', '${TENANT_ID}', NOW(), NOW())`,
+      );
+    });
+
+    it('ADMIN can add a past closure with a reason (201) and it is published', async () => {
+      const res = await post(closure('2019-05-05', { reason: 'Hartal, school shut' })).expect(201);
+      expect(res.body.published).toBe(true);
+    });
+
+    it('a past closure without a reason is 422 CALENDAR_REASON_REQUIRED', async () => {
+      const res = await post(closure('2019-05-06')).expect(422);
+      expect(res.body.details.code).toBe('CALENDAR_REASON_REQUIRED');
+    });
+
+    it('a past closure over a register that has marks is 422 CALENDAR_DAY_HAS_ATTENDANCE', async () => {
+      const [{ id: classId }] = await dataSource.query(
+        `INSERT INTO classes (id, name, academic_year_id, tenant_id, created_at, updated_at)
+         SELECT gen_random_uuid(), 'E2E Guard Class', id, tenant_id, NOW(), NOW()
+         FROM academic_years WHERE name = 'Calendar E2E Past Year' AND tenant_id = '${TENANT_ID}' LIMIT 1
+         RETURNING id`,
+      );
+      const [{ id: sectionId }] = await dataSource.query(
+        `INSERT INTO class_sections (id, class_id, tenant_id, section_name, created_at, updated_at)
+         VALUES (gen_random_uuid(), '${classId}', '${TENANT_ID}', 'A', NOW(), NOW()) RETURNING id`,
+      );
+      const [{ id: studentId }] = await dataSource.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, created_at, updated_at)
+         VALUES (gen_random_uuid(), 'E2E Guard Student', 'E2E-GUARD-1', 1, '${sectionId}', '${TENANT_ID}', NOW(), NOW()) RETURNING id`,
+      );
+      const [{ id: sessionId }] = await dataSource.query(
+        `INSERT INTO attendance_sessions (id, tenant_id, section_id, date, created_at, updated_at)
+         VALUES (gen_random_uuid(), '${TENANT_ID}', '${sectionId}', '2019-05-07', NOW(), NOW()) RETURNING id`,
+      );
+      await dataSource.query(
+        `INSERT INTO attendance_records (id, tenant_id, session_id, student_id, date, status)
+         VALUES (gen_random_uuid(), '${TENANT_ID}', '${sessionId}', '${studentId}', '2019-05-07', 'PRESENT')`,
+      );
+      const res = await post(closure('2019-05-07', { reason: 'Flood' })).expect(422);
+      expect(res.body.details.code).toBe('CALENDAR_DAY_HAS_ATTENDANCE');
+    });
+
+    it('STUDENT cannot create a past closure (403, guard unchanged)', async () => {
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ('${SEED_ADMIN_USER_ID}', '${SEED_TENANT_ID}', '${UserRole.STUDENT}', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      const loginRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      await supertest(app.getHttpServer())
+        .post('/api/v1/calendar/events')
+        .set('Authorization', `Bearer ${loginRes.body.access_token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.STUDENT)
+        .send(closure('2019-05-08', { reason: 'nope' }))
+        .expect(403);
+    });
+
+    it('the legacy POST/PATCH/DELETE /school-calendar/holidays routes are gone (404)', async () => {
+      const id = '00000000-0000-4000-8000-0000000000aa';
+      const base = () => supertest(app.getHttpServer());
+      await base()
+        .post('/api/v1/school-calendar/holidays')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({})
+        .expect(404);
+      await base()
+        .patch(`/api/v1/school-calendar/holidays/${id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({})
+        .expect(404);
+      await base()
+        .delete(`/api/v1/school-calendar/holidays/${id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(404);
+    });
+
+    it('GET /school-calendar/holidays and /working-days still work, and a MAKEUP_DAY counts', async () => {
+      const get = (url: string) =>
+        supertest(app.getHttpServer())
+          .get(url)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID);
+      await get('/api/v1/school-calendar/holidays').expect(200);
+
+      // 2031-03-07 is a Friday; make Friday the weekly off-day.
+      await dataSource.query(
+        `UPDATE schools SET settings = '{"version":1,"attendance":{"weeklyOffDays":[5]}}'::jsonb WHERE id = '${TENANT_ID}'`,
+      );
+      const url = '/api/v1/school-calendar/working-days?from=2031-03-07&to=2031-03-07';
+      expect((await get(url).expect(200)).body.count).toBe(0);
+      await post({
+        type: CalendarEventType.MAKEUP_DAY,
+        name: 'Make-up Friday',
+        start_date: '2031-03-07',
+        end_date: '2031-03-07',
+        audience: CalendarAudience.ALL,
+      }).expect(201);
+      expect((await get(url).expect(200)).body.dates).toEqual(['2031-03-07']);
+    });
+  });
 });

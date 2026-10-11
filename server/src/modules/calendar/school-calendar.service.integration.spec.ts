@@ -15,6 +15,7 @@ import { CalendarEvent } from './entities/calendar-event.entity';
 import { CalendarEventClass } from './entities/calendar-event-class.entity';
 import { Class } from '../academics/entities/class.entity';
 import { SchoolsService } from '../schools/schools.service';
+import { CalendarEventType } from '@biddaloy/shared';
 import { TenantSettingsDto } from '../schools/dto/tenant-settings.dto';
 
 /**
@@ -309,54 +310,104 @@ describe('SchoolCalendarService (integration)', () => {
     });
   });
 
-  describe('holiday CRUD', () => {
-    it('creates, lists, updates, and soft-deletes a holiday scoped to the tenant', async () => {
-      const created = await service.createHoliday(
-        {
+  // [68.3.15.01] TIME-05: a published MAKEUP_DAY adds a school day on a
+  // weekly off-day.
+  describe('MAKEUP_DAY', () => {
+    // 2026-09-05 is a Saturday.
+    const SATURDAY = '2026-09-05';
+    let class9: string;
+    let class11: string;
+
+    beforeAll(async () => {
+      const repo = dataSource.getRepository(Class);
+      class9 = (
+        await repo.save({
+          name: 'Makeup 9',
           academic_year_id: academicYearAId,
-          start_date: '2026-10-01',
-          end_date: '2026-10-01',
-          name: 'Founders Day',
-        },
-        TENANT_A,
-        SEED_ADMIN_USER_ID,
-      );
-      expect(created.counts_as_working_day).toBe(false);
-
-      const listed = await service.listHolidays({ page: 1, limit: 10 } as any, TENANT_A);
-      expect(listed.data.some((h) => h.id === created.id)).toBe(true);
-
-      const updated = await service.updateHoliday(
-        created.id,
-        { name: 'Founders Day (renamed)' },
-        TENANT_A,
-        SEED_ADMIN_USER_ID,
-      );
-      expect(updated.name).toBe('Founders Day (renamed)');
-
-      await service.removeHoliday(created.id, TENANT_A, SEED_ADMIN_USER_ID);
-      const afterDelete = await service.listHolidays({ page: 1, limit: 10 } as any, TENANT_A);
-      expect(afterDelete.data.some((h) => h.id === created.id)).toBe(false);
+          tenant_id: TENANT_A,
+        })
+      ).id;
+      class11 = (
+        await repo.save({
+          name: 'Makeup 11',
+          academic_year_id: academicYearAId,
+          tenant_id: TENANT_A,
+        })
+      ).id;
     });
 
-    it("does not let tenant B read or mutate tenant A's holiday", async () => {
-      const created = await service.createHoliday(
-        {
-          academic_year_id: academicYearAId,
-          start_date: '2026-10-02',
-          end_date: '2026-10-02',
-          name: 'Tenant A Only',
-        },
-        TENANT_A,
-        SEED_ADMIN_USER_ID,
-      );
+    async function makeup(
+      opts: {
+        tenantId?: string;
+        yearId?: string;
+        scopedTo?: string[];
+        published?: boolean;
+        date?: string;
+      } = {},
+    ): Promise<void> {
+      const tenantId = opts.tenantId ?? TENANT_A;
+      const event = await dataSource.getRepository(CalendarEvent).save({
+        tenant_id: tenantId,
+        academic_year_id: opts.yearId ?? academicYearAId,
+        type: CalendarEventType.MAKEUP_DAY,
+        start_date: opts.date ?? SATURDAY,
+        end_date: opts.date ?? SATURDAY,
+        name: 'Make-up Saturday',
+        counts_as_working_day: true,
+        published_at: opts.published === false ? null : new Date(),
+      });
+      for (const classId of opts.scopedTo ?? []) {
+        await dataSource
+          .getRepository(CalendarEventClass)
+          .save({ event_id: event.id, class_id: classId, tenant_id: tenantId });
+      }
+    }
+    const dates = (classId?: string) =>
+      service
+        .getWorkingDays({ tenantId: TENANT_A, from: '2026-09-04', to: '2026-09-06', classId })
+        .then((r) => r.dates);
 
-      const listedByB = await service.listHolidays({ page: 1, limit: 10 } as any, TENANT_B);
-      expect(listedByB.data.some((h) => h.id === created.id)).toBe(false);
+    beforeEach(async () => {
+      // Friday + Saturday off.
+      await setWeeklyOffDays(TENANT_A, [5, 6]);
+    });
 
-      await expect(
-        service.updateHoliday(created.id, { name: 'Hijacked' }, TENANT_B, SEED_ADMIN_USER_ID),
-      ).rejects.toThrow();
+    it('a published MAKEUP_DAY on a weekly off-day is a working day', async () => {
+      expect(await dates()).toEqual(['2026-09-06']);
+      await makeup();
+      expect(await dates()).toEqual([SATURDAY, '2026-09-06']);
+      expect(await service.isNonWorkingDay({ tenantId: TENANT_A, date: SATURDAY })).toBe(false);
+    });
+
+    it('a class-scoped MAKEUP_DAY counts for its class only', async () => {
+      await makeup({ scopedTo: [class9] });
+      expect(await dates(class9)).toContain(SATURDAY);
+      expect(await dates(class11)).not.toContain(SATURDAY);
+      expect(await dates()).not.toContain(SATURDAY);
+    });
+
+    it('a draft MAKEUP_DAY never counts', async () => {
+      await makeup({ published: false });
+      expect(await dates()).not.toContain(SATURDAY);
+    });
+
+    it('a holiday on the same date still removes it', async () => {
+      await makeup();
+      await dataSource.getRepository(CalendarEvent).save({
+        tenant_id: TENANT_A,
+        academic_year_id: academicYearAId,
+        start_date: SATURDAY,
+        end_date: SATURDAY,
+        name: 'Hartal',
+        counts_as_working_day: false,
+        published_at: new Date(),
+      });
+      expect(await dates()).not.toContain(SATURDAY);
+    });
+
+    it("tenant B's MAKEUP_DAY does not add a day for tenant A", async () => {
+      await makeup({ tenantId: TENANT_B, yearId: academicYearBId });
+      expect(await dates()).not.toContain(SATURDAY);
     });
   });
 });

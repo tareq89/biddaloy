@@ -46,15 +46,19 @@
     "errors": {
       "CALENDAR_EVENT_LOCKED": "This event is in the past and can no longer be changed.",
       "CALENDAR_OUTSIDE_ACADEMIC_YEAR": "These dates fall outside the current academic year.",
-      "CALENDAR_DAY_HAS_ATTENDANCE": "Attendance has already been recorded for one of these days.",
+      "CALENDAR_DAY_HAS_ATTENDANCE": "Attendance has already been taken on one of these days.",
       "CALENDAR_INVALID_CLASS": "One of the selected classes is not valid.",
       "CALENDAR_INVALID_RANGE": "The end date must be on or after the start date.",
       "nameRequired": "Name is required.",
-      "generic": "Couldn't save this event. Try again."
+      "generic": "Couldn't save this event. Try again.",
+      "CALENDAR_REASON_REQUIRED": "Give a reason of at least 3 characters.",
+      "CALENDAR_MAKEUP_MUST_COUNT": "A make-up school day always counts as a working day."
     },
     "sectionDetails": "Event details",
     "sectionOptions": "Publishing and notifications",
-    "typePlaceholder": "Select"
+    "typePlaceholder": "Select",
+    "lateReason": "Why is this being added late?",
+    "lateReasonHint": "This day has already passed. It can only be added if no attendance was taken."
   },
   "eventDetails": {
     "edit": "Edit",
