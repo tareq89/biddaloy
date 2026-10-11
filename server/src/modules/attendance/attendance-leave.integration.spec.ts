@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { enrollPlacedStudents } from '@test/helpers/enrollment.helper';
 import { NotFoundException } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource, IsNull } from 'typeorm';
@@ -235,6 +236,7 @@ describe('AttendanceService leave range (integration)', () => {
         tenant_id: OTHER_TENANT,
       })
     ).id;
+    await enrollPlacedStudents(dataSource);
   });
 
   describe('markLeaveRange', () => {

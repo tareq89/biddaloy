@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
+import { enrollStudent } from '@test/helpers/enrollment.helper';
 import {
   BadRequestException,
   ConflictException,
@@ -184,6 +185,8 @@ describe('AttendanceService (integration)', () => {
       class_section_id: sectionId,
       tenant_id: TENANT_ID,
     });
+    await enrollStudent(dataSource, s1);
+    await enrollStudent(dataSource, s2);
     studentId1 = s1.id;
     studentId2 = s2.id;
 
@@ -234,6 +237,85 @@ describe('AttendanceService (integration)', () => {
       ...overrides,
     };
   }
+
+  /** Seed a promoted student: enrolled in this file's section (Y1), now placed in a new Y2 section. */
+  async function seedPromotedStudent() {
+    const year2 = await dataSource.getRepository(AcademicYear).save({
+      name: `Promo Y2 ${randomUUID().slice(0, 8)}`,
+      start_date: '2027-01-01',
+      end_date: '2027-12-31',
+      tenant_id: TENANT_ID,
+    });
+    const class2 = await dataSource.getRepository(Class).save({
+      name: 'Promo Class 2',
+      academic_year_id: year2.id,
+      tenant_id: TENANT_ID,
+    });
+    const section2 = await dataSource.getRepository(ClassSection).save({
+      section_name: 'Promo S2',
+      class_id: class2.id,
+      tenant_id: TENANT_ID,
+    });
+    const p = await dataSource.getRepository(Student).save({
+      full_name: 'Promoted Student',
+      registration_number: `ATT-PROMO-${randomUUID().slice(0, 8)}`,
+      roll_number: 9,
+      class_section_id: sectionId,
+      tenant_id: TENANT_ID,
+    });
+    await enrollStudent(dataSource, p); // Y1 enrollment in S1
+    await dataSource.getRepository(Student).update({ id: p.id }, { class_section_id: section2.id });
+    await enrollStudent(dataSource, { ...p, class_section_id: section2.id }); // Y2 in S2
+    return { p, section2 };
+  }
+
+  describe('roster comes from enrollments, not placement (LIFE-08)', () => {
+    it('accepts a register write for a student promoted out of the section', async () => {
+      const { p } = await seedPromotedStudent();
+      const result = await service.putRegister(
+        putParams({
+          dto: basePutDto({
+            entries: [{ student_id: p.id, status: AttendanceStatus.PRESENT }],
+          }),
+        }),
+      );
+      expect(result.students.find((s) => s.student_id === p.id)?.status).toBe(
+        AttendanceStatus.PRESENT,
+      );
+    });
+
+    it("lists the promoted student on the old section's register", async () => {
+      const { p } = await seedPromotedStudent();
+      const register = await service.getRegister({
+        sectionId,
+        tenantId: TENANT_ID,
+        date: TODAY(),
+        periodNo: null,
+        role: UserRole.ADMIN,
+        userId: ADMIN_USER_ID,
+      });
+      expect(register.students.map((s) => s.student_id)).toContain(p.id);
+    });
+
+    it('does not list a student placed in the section who has no enrollment there', async () => {
+      const stranger = await dataSource.getRepository(Student).save({
+        full_name: 'Placed Only',
+        registration_number: `ATT-STR-${randomUUID().slice(0, 8)}`,
+        roll_number: 8,
+        class_section_id: sectionId,
+        tenant_id: TENANT_ID,
+      });
+      const register = await service.getRegister({
+        sectionId,
+        tenantId: TENANT_ID,
+        date: TODAY(),
+        periodNo: null,
+        role: UserRole.ADMIN,
+        userId: ADMIN_USER_ID,
+      });
+      expect(register.students.map((s) => s.student_id)).not.toContain(stranger.id);
+    });
+  });
 
   describe('putRegister', () => {
     it('creates a session and records on the first submission', async () => {
@@ -896,6 +978,7 @@ describe('AttendanceService (integration)', () => {
       const stu = await dataSource
         .getRepository(Student)
         .findOneByOrFail({ registration_number: 'ATT-REG-OTH' });
+      await enrollStudent(dataSource, stu);
       await expect(
         service.putRegister(
           putParams({

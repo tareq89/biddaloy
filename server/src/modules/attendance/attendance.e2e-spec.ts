@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
+import { enrollPlacedStudents } from '@test/helpers/enrollment.helper';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -130,6 +131,7 @@ describe('Attendance E2E', () => {
       [randomUUID(), MAPPED_SECTION_ID, TENANT_ID],
     );
     studentId = studentRes[0].id;
+    await enrollPlacedStudents(dataSource, TENANT_ID);
   });
 
   function todayIso(): string {
@@ -281,6 +283,7 @@ describe('Attendance E2E', () => {
          FROM generate_series(1, 59) AS n`,
         [MAPPED_SECTION_ID, TENANT_ID],
       );
+      await enrollPlacedStudents(dataSource, TENANT_ID);
       const rows: Array<{ id: string }> = await dataSource.query(
         `SELECT id FROM students WHERE class_section_id = $1 AND tenant_id = $2`,
         [MAPPED_SECTION_ID, TENANT_ID],
@@ -433,6 +436,49 @@ describe('Attendance E2E', () => {
         .expect(200);
 
       expect(res.body.session.version).toBe(1);
+    });
+
+    // LIFE-08: the roster is the section's enrollments, so a student promoted
+    // out of it (placement moved) can still be marked on its register.
+    it('accepts a student promoted out of the section; refuses a student with no enrollment there (422)', async () => {
+      await dataSource.query(`UPDATE students SET class_section_id = $1 WHERE id = $2`, [
+        UNMAPPED_SECTION_ID,
+        studentId,
+      ]);
+      const put = (id: string, base_version = 0) =>
+        supertest(app.getHttpServer())
+          .put(`/api/v1/attendance/sections/${MAPPED_SECTION_ID}/register`)
+          .set('Authorization', `Bearer ${teacherToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', UserRole.TEACHER)
+          .send({
+            date: todayIso(),
+            base_version,
+            client_request_id: randomUUID(),
+            entries: [{ student_id: id, status: 'PRESENT' }],
+          });
+      await put(studentId).expect(200);
+      // A real student of ANOTHER school is not in this section's enrollments.
+      const tenantB = '00000000-0000-4000-8000-0000000022b3';
+      const bStudent = randomUUID();
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug) VALUES ($1, 'B2 School', 'e2e-b-2269')`,
+        [tenantB],
+      );
+      try {
+        await dataSource.query(
+          `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status, created_at, updated_at)
+           VALUES ($1, 'B Student', 'E2E-B-2269', 1, $2, $3, 'ACTIVE', NOW(), NOW())`,
+          [bStudent, MAPPED_SECTION_ID, tenantB],
+        );
+        const res = await put(bStudent, 1).expect(422);
+        expect(res.body.details?.code ?? res.body.message?.details?.code).toBe(
+          'ATTENDANCE_UNKNOWN_STUDENTS',
+        );
+      } finally {
+        await dataSource.query(`DELETE FROM students WHERE tenant_id = $1`, [tenantB]);
+        await dataSource.query(`DELETE FROM schools WHERE id = $1`, [tenantB]);
+      }
     });
 
     it('returns 403 for a TEACHER not mapped to the section', async () => {
@@ -630,6 +676,7 @@ describe('Attendance E2E', () => {
          VALUES ($1, 'Other Student', 'E2E-REG-2', 2, $2, $3, 'ACTIVE', NOW(), NOW())`,
         [otherStudentId, MAPPED_SECTION_ID, TENANT_ID],
       );
+      await enrollPlacedStudents(dataSource, TENANT_ID);
       await dataSource.query(
         `INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2), ($3, $4)`,
         [studentId, guardianId, otherStudentId, otherGuardianId],
