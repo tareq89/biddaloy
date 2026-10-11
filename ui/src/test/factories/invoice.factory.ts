@@ -60,6 +60,9 @@ export function invoiceFactory(overrides: Partial<Invoice> = {}, script?: Script
   return {
     id: faker.string.uuid(),
     invoice_number: `INV-${faker.string.numeric(8)}`,
+    // [68.1.2214] invoices are per-school; the invoice lives in its student's school.
+    tenant: student.tenant,
+    tenant_id: student.tenant_id,
     kind: InvoiceKind.INVOICE,
     snapshot: defaultSnapshot(student, totalAmount),
     student,
