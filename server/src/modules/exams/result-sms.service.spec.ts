@@ -23,6 +23,9 @@ async function buildService(
     students?: any[];
     metered?: boolean;
     reserveOk?: boolean;
+    locale?: string;
+    existingKeys?: string[];
+    publishedAt?: Date;
   } = {},
 ) {
   const {
@@ -44,6 +47,9 @@ async function buildService(
     ],
     metered = false,
     reserveOk = true,
+    locale = 'en-BD',
+    existingKeys = [],
+    publishedAt = new Date('2026-10-01T00:00:00Z'),
   } = opts;
 
   const examRepo: any = {
@@ -52,11 +58,16 @@ async function buildService(
       tenant_id: TENANT_ID,
       name: 'Term 1',
       status: examStatus,
+      published_at: publishedAt,
     })),
+    manager: {
+      findOne: vi.fn(async () => ({ id: TENANT_ID, settings: { region: { locale } } })),
+    },
   };
   const resultRepo: any = { find: vi.fn(async () => results) };
   const studentRepo: any = { find: vi.fn(async () => students) };
   const logRepo: any = {
+    find: vi.fn(async () => existingKeys.map((reference_key) => ({ reference_key }))),
     create: vi.fn((v: any) => v),
     save: vi.fn(async (v: any) => ({ id: `log-${Math.random()}`, ...v })),
   };
@@ -150,6 +161,110 @@ describe('ResultSmsService.sendForExam', () => {
 
     await expect(service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1')).rejects.toThrow(
       ConflictException,
+    );
+  });
+
+  const keyFor = (g: string, at = new Date('2026-10-01T00:00:00Z')) =>
+    `exam-result:${EXAM_ID}:${at.getTime()}:stu-1:${g}`;
+
+  it('sets a per-publication reference_key on each log', async () => {
+    const { service, logRepo } = await buildService();
+    await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
+    expect(logRepo.save.mock.calls[0][0].reference_key).toBe(keyFor('g1'));
+  });
+
+  it('second call for the same publication queues 0, reserves nothing, lists already_sent', async () => {
+    const { service, smsCreditService, queue } = await buildService({
+      metered: true,
+      existingKeys: [keyFor('g1')],
+    });
+    const outcome = await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
+    expect(outcome).toEqual({
+      queued: 0,
+      skipped: [{ student_id: 'stu-1', reason: 'already_sent' }],
+    });
+    expect(smsCreditService.reserve).not.toHaveBeenCalled();
+    expect(queue.add).not.toHaveBeenCalled();
+  });
+
+  it('a new published_at allows a fresh send', async () => {
+    const { service } = await buildService({
+      existingKeys: [keyFor('g1')],
+      publishedAt: new Date('2026-10-05T00:00:00Z'),
+    });
+    expect((await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1')).queued).toBe(1);
+  });
+
+  it('a unique-violation on save counts as already_sent and releases the share', async () => {
+    const { service, logRepo, smsCreditService } = await buildService({ metered: true });
+    (smsCreditService as any).settlePart = vi.fn(async () => undefined);
+    logRepo.save.mockRejectedValueOnce(Object.assign(new Error('dup'), { code: '23505' }));
+    const outcome = await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
+    expect(outcome.queued).toBe(0);
+    expect(outcome.skipped).toEqual([{ student_id: 'stu-1', reason: 'already_sent' }]);
+    expect((smsCreditService as any).settlePart).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.stringMatching(/^batch:/),
+      expect.any(String),
+      1,
+      'RELEASE',
+    );
+  });
+
+  it('sends to the primary contact only, and skips an opted-out guardian', async () => {
+    const mk = (id: string, primary: boolean, on = true) => ({
+      id,
+      phone: `017${id}`,
+      full_name: id,
+      is_primary_contact: primary,
+      notifications_enabled: on,
+    });
+    const { service, logRepo } = await buildService({
+      students: [
+        {
+          id: 'stu-1',
+          full_name: 'Student One',
+          guardians: [mk('g1', true), mk('g2', false), mk('g3', true, false)],
+        },
+      ],
+    });
+    const outcome = await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
+    expect(outcome.queued).toBe(1);
+    expect(logRepo.save.mock.calls.map((c: any) => c[0].guardian_id)).toEqual(['g1']);
+  });
+
+  it('en locale keeps the English body', async () => {
+    const { service, logRepo } = await buildService({ locale: 'en' });
+    await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
+    expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+      `Student One's result for "Term 1": GPA 4.00, Grade A.`,
+    );
+  });
+
+  it('bn locale sends a Bangla body with the Bangla name', async () => {
+    const { service, logRepo } = await buildService({
+      locale: 'bn-BD',
+      results: [{ student_id: 'stu-1', gpa: '1.00', grade: 'F', is_fail: true }],
+      students: [
+        {
+          id: 'stu-1',
+          full_name: 'Student One',
+          full_name_bn: 'শিক্ষার্থী এক',
+          guardians: [
+            {
+              id: 'g1',
+              phone: '017',
+              full_name: 'P',
+              is_primary_contact: true,
+              notifications_enabled: true,
+            },
+          ],
+        },
+      ],
+    });
+    await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
+    expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+      'শিক্ষার্থী এক-এর "Term 1" ফলাফল: জিপিএ 1.00, গ্রেড F (অকৃতকার্য)।',
     );
   });
 });
