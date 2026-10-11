@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto';
+import { Queue } from 'bullmq';
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { DataSource, Repository } from 'typeorm';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
@@ -15,6 +17,7 @@ import {
   makeProcessor,
   runJob,
 } from '@test/helpers/sms-credit-ledger.helper';
+import { COMMUNICATIONS_QUEUE_JOB_OPTIONS } from '../communications/communications.constants';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
 import { Guardian } from '../students/entities/guardian.entity';
@@ -140,6 +143,25 @@ describe('ResultSmsService metered SMS credit (integration, #1317)', () => {
 
   const send = () => service.sendForExam(EXAM_ID, TENANT_ID, SEED_ADMIN_USER_ID);
   const totalUnits = () => bodies.reduce((sum, b) => sum + countSmsSegments(b).segments, 0);
+
+  // #2258: this producer used to get BullMQ's default of 1 attempt. Same
+  // queue options exams.module.ts registers; read the real job back.
+  it('the job sendForExam queues keeps 3 attempts', async () => {
+    const queue = new Queue(`result-sms-opts-${randomUUID()}`, {
+      connection: { url: process.env.REDIS_URL ?? 'redis://127.0.0.1:6379' },
+      defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+    });
+    try {
+      (service as unknown as { queue: Queue }).queue = queue;
+      await send();
+      const [waiting] = await queue.getJobs(['waiting']);
+      const job = await queue.getJob(waiting.id!);
+      expect(job?.opts.attempts).toBe(3);
+    } finally {
+      await queue.obliterate({ force: true });
+      await queue.close();
+    }
+  });
 
   it('uses multi-segment bodies so segments differ from recipients', () => {
     expect(bodies.every((b) => countSmsSegments(b).segments === 2)).toBe(true);
