@@ -198,8 +198,9 @@ function MarksEntryPage() {
   const canReopen = submitted && role === UserRole.ADMIN;
 
   const blankCount = grid.students.reduce((count, student) => {
-    // A late joiner did not sit the exam: their empty row never blocks submit.
-    if (student.joined_after_exam) return count;
+    // A late joiner, or a student who does not take this subject, owes no
+    // marks: their empty row never blocks submit (same rule as the server).
+    if (student.joined_after_exam || student.not_taking) return count;
     const missing = grid.components
       .filter((c) => c.source !== 'DERIVED')
       .some((component) => {

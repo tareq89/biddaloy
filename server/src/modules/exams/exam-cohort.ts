@@ -7,6 +7,8 @@ import { Result } from './entities/result.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { AcademicTerm } from '../calendar/entities/academic-term.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { ClassSubject } from '../academics/entities/class-subject.entity';
+import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -155,4 +157,65 @@ export async function loadExamCohort(
     });
   }
   return { members: [...members.values()], studentsWithResult };
+}
+
+/**
+ * Does this student sit this class subject? The one rule `computeAll` and
+ * the mark grid's blank-cell check share, so the two never drift:
+ * - a stream subject (`group_name`) only for sections of that stream;
+ * - an optional or choice-group subject only for students who picked it.
+ */
+export function sitsSubject(
+  classSubject: Pick<ClassSubject, 'group_name' | 'is_optional' | 'choice_group'>,
+  sectionGroup: string | null,
+  picked: boolean,
+): boolean {
+  if (classSubject.group_name && classSubject.group_name !== sectionGroup) return false;
+  if ((classSubject.is_optional || Boolean(classSubject.choice_group)) && !picked) return false;
+  return true;
+}
+
+/**
+ * Per subject, the students of `members` who sit it (see `sitsSubject`).
+ * A subject with no class-subject row in the exam's class/year is left out
+ * of the map: callers treat it as "everyone sits it".
+ */
+export async function subjectSitters(
+  manager: EntityManager,
+  exam: Exam,
+  tenantId: string,
+  members: CohortMember[],
+  subjectIds: string[],
+): Promise<Map<string, Set<string>>> {
+  const out = new Map<string, Set<string>>();
+  if (members.length === 0 || subjectIds.length === 0) return out;
+  const [classSubjects, choices] = await Promise.all([
+    manager.getRepository(ClassSubject).find({
+      where: {
+        class_id: exam.class_id,
+        academic_year_id: exam.academic_year_id,
+        subject_id: In(subjectIds),
+        tenant_id: tenantId,
+        deleted_at: IsNull(),
+      },
+    }),
+    manager.getRepository(StudentSubjectChoice).find({
+      where: {
+        student_id: In(members.map((m) => m.student_id)),
+        academic_year_id: exam.academic_year_id,
+        tenant_id: tenantId,
+      },
+    }),
+  ]);
+  const picked = new Set(choices.map((c) => `${c.student_id}:${c.class_subject_id}`));
+  for (const cs of classSubjects) {
+    const sitters = out.get(cs.subject_id) ?? new Set<string>();
+    out.set(cs.subject_id, sitters);
+    for (const m of members) {
+      if (sitsSubject(cs, m.section?.group_name ?? null, picked.has(`${m.student_id}:${cs.id}`))) {
+        sitters.add(m.student_id);
+      }
+    }
+  }
+  return out;
 }
