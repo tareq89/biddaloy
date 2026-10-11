@@ -4,6 +4,7 @@ import type { components } from '../../api/schema';
 
 import { FACTORY_REFERENCE_DATE, faker } from './faker';
 import { moneyAmount } from './money';
+import { schoolFactory } from './school.factory';
 import type { Script } from './script';
 import { studentFactory } from './student.factory';
 
@@ -57,9 +58,12 @@ export function invoiceFactory(overrides: Partial<Invoice> = {}, script?: Script
   const student = overrides.student ?? studentFactory({}, script);
   const issuedDate = faker.date.recent({ refDate: FACTORY_REFERENCE_DATE });
   const totalAmount = overrides.total_amount ?? moneyAmount(4);
+  const tenant = overrides.tenant ?? student.tenant ?? schoolFactory();
   return {
     id: faker.string.uuid(),
     invoice_number: `INV-${faker.string.numeric(8)}`,
+    tenant,
+    tenant_id: tenant.id,
     kind: InvoiceKind.INVOICE,
     snapshot: defaultSnapshot(student, totalAmount),
     student,
