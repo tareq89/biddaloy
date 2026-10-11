@@ -135,7 +135,10 @@ test.describe('apply a curriculum preset', () => {
       });
 
       await test.step('focus the NCTB card, Enter previews, Esc closes', async () => {
-        await tabUntilFocused(page, NCTB_NAME_BN, 200);
+        // `exact`: `useRouteFocus` can land late on `<main>` (heading swapped
+        // by the skeleton) in the middle of this walk, and `<main>`'s text
+        // *contains* the card name — a substring match stops there.
+        await tabUntilFocused(page, NCTB_NAME_BN, 200, { exact: true });
         const card = page.getByRole('group', { name: NCTB_NAME_BN });
         await expect(card).toBeFocused();
         await page.keyboard.press('Enter');
