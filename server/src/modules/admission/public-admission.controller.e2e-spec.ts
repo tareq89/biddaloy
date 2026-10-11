@@ -255,6 +255,107 @@ describe('Public Admission Submission E2E', () => {
       expect(rows[0].guardian_phone).toBe('8801700000001');
     });
 
+    it('two children, same guardian phone, different name/DOB -> two reference numbers', async () => {
+      const intakeId = await createIntake();
+      const post = (o: Record<string, string>) =>
+        supertest(app.getHttpServer())
+          .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+          .field(applicantPayload(intakeId, o));
+
+      const a = await post({}).expect(201);
+      const b = await post({ applicant_name: 'Karima Uddin', date_of_birth: '2018-05-02' }).expect(
+        201,
+      );
+
+      expect(b.body.reference_number).not.toBe(a.body.reference_number);
+      const rows = await dataSource.query(
+        `SELECT applicant_name FROM admission_applicants WHERE tenant_id = $1 AND intake_id = $2 ORDER BY applicant_name`,
+        [SEED_TENANT_ID, intakeId],
+      );
+      expect(rows.map((r: { applicant_name: string }) => r.applicant_name)).toEqual([
+        'Karima Uddin',
+        'Rahim Uddin',
+      ]);
+    });
+
+    it('409s the same child (name differs only in case/spaces) without a reference number', async () => {
+      const intakeId = await createIntake();
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(applicantPayload(intakeId))
+        .expect(201);
+
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(applicantPayload(intakeId, { applicant_name: '  rahim   UDDIN ' }))
+        .expect(409);
+    });
+
+    it('PENDING duplicate and REVIEWED duplicate return byte-identical 409 bodies (PUB-09)', async () => {
+      const intakeId = await createIntake();
+      const post = () =>
+        supertest(app.getHttpServer())
+          .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+          .field(applicantPayload(intakeId));
+      await post().expect(201);
+
+      const pending = await post().expect(409);
+      await dataSource.query(
+        `UPDATE admission_applicants SET status = 'REJECTED' WHERE tenant_id = $1 AND intake_id = $2`,
+        [SEED_TENANT_ID, intakeId],
+      );
+      const reviewed = await post().expect(409);
+
+      expect(reviewed.text).toBe(pending.text);
+    });
+
+    it('409s a duplicate whose date_of_birth is an ISO timestamp, with the same text', async () => {
+      const intakeId = await createIntake();
+      const post = (o: Record<string, string>) =>
+        supertest(app.getHttpServer())
+          .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+          .field(applicantPayload(intakeId, o));
+      await post({}).expect(201);
+
+      const plain = await post({}).expect(409);
+      const iso = await post({ date_of_birth: '2018-05-01T00:00:00.000Z' }).expect(409);
+      expect(iso.text).toBe(plain.text);
+    });
+
+    it('409s renaming a PENDING row (by reference) into a sibling with the exact same name', async () => {
+      const intakeId = await createIntake();
+      const post = (o: Record<string, string>) =>
+        supertest(app.getHttpServer())
+          .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+          .field(applicantPayload(intakeId, o));
+      await post({}).expect(201);
+      const b = await post({ applicant_name: 'Karima Uddin' }).expect(201);
+
+      await post({
+        applicant_name: 'Rahim Uddin',
+        reference_number: b.body.reference_number,
+      }).expect(409);
+    });
+
+    it('409s renaming a PENDING row into a REVIEWED sibling (case/space-variant name)', async () => {
+      const intakeId = await createIntake();
+      const post = (o: Record<string, string>) =>
+        supertest(app.getHttpServer())
+          .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+          .field(applicantPayload(intakeId, o));
+      const a = await post({}).expect(201);
+      const b = await post({ applicant_name: 'Karima Uddin' }).expect(201);
+      await dataSource.query(
+        `UPDATE admission_applicants SET status = 'REJECTED' WHERE reference_number = $1`,
+        [a.body.reference_number],
+      );
+
+      await post({
+        applicant_name: ' rahim  UDDIN',
+        reference_number: b.body.reference_number,
+      }).expect(409);
+    });
+
     it('resubmitting with the reference_number updates the PENDING row in place', async () => {
       const intakeId = await createIntake();
 
@@ -293,7 +394,7 @@ describe('Public Admission Submission E2E', () => {
 
       await supertest(app.getHttpServer())
         .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
-        .field(applicantPayload(intakeId, { applicant_name: 'Someone else entirely' }))
+        .field(applicantPayload(intakeId, { applicant_name: 'RAHIM  uddin' }))
         .expect(409);
     });
 
@@ -321,7 +422,7 @@ describe('Public Admission Submission E2E', () => {
 
       await supertest(app.getHttpServer())
         .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
-        .field(applicantPayload(intakeId))
+        .field(applicantPayload(intakeId, { date_of_birth: '2018-01-01' }))
         .expect(409);
     });
 
@@ -459,7 +560,7 @@ describe('Public Admission Submission E2E', () => {
 
       await supertest(app.getHttpServer())
         .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
-        .field(applicantPayload(intakeId))
+        .field(applicantPayload(intakeId, { date_of_birth: '2018-01-01' }))
         .attach('photo', VALID_JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' })
         .expect(409); // duplicate SHORTLISTED phone — the transaction throws after the upload
 
