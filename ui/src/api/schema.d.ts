@@ -2251,30 +2251,11 @@ export interface paths {
         /** List holidays for the current tenant, paginated. */
         get: operations["SchoolCalendarController_listHolidays_v1"];
         put?: never;
-        /** Create a holiday (or exam-day/event calendar entry). */
-        post: operations["SchoolCalendarController_createHoliday_v1"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/v1/school-calendar/holidays/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Soft-delete a holiday. */
-        delete: operations["SchoolCalendarController_removeHoliday_v1"];
-        options?: never;
-        head?: never;
-        /** Update a holiday. */
-        patch: operations["SchoolCalendarController_updateHoliday_v1"];
         trace?: never;
     };
     "/api/v1/school-calendar/working-days": {
@@ -8568,17 +8549,15 @@ export interface components {
             limit: number;
             totalPages: number;
         };
-        SendCommunicationDto: {
+        SendGuardianMessageDto: {
             /** @enum {string} */
             medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
-            recipient_address: string;
-            recipient_name: string;
-            message_body: string;
-            subject?: string;
+            /** Format: uuid */
+            guardian_id: string;
             /** Format: uuid */
             student_id?: string;
-            /** Format: uuid */
-            guardian_id?: string;
+            message_body: string;
+            subject?: string;
             template_name?: string;
             template_language?: string;
             template_params?: string[];
@@ -10632,62 +10611,6 @@ export interface components {
             group_name?: string | null;
             choice_group?: string | null;
         };
-        CreateHolidayDto: {
-            /** Format: uuid */
-            academic_year_id: string;
-            start_date: string;
-            end_date: string;
-            name: string;
-            counts_as_working_day?: boolean;
-        };
-        CalendarEvent: {
-            id: string;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            academic_year: components["schemas"]["AcademicYear"];
-            academic_year_id: string;
-            /** @enum {string} */
-            type: "HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE" | "MAKEUP_DAY";
-            start_date: string;
-            end_date: string;
-            start_time: string | null;
-            end_time: string | null;
-            name: string;
-            description: string | null;
-            counts_as_working_day: boolean;
-            /** @enum {string} */
-            audience: "ALL" | "STAFF";
-            /** Format: date-time */
-            published_at: string | null;
-            external_refs: {
-                [key: string]: unknown;
-            };
-            created_by_user_id: string | null;
-            updated_by_user_id: string | null;
-            classes: components["schemas"]["CalendarEventClass"][];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        CalendarEventClass: {
-            event: components["schemas"]["CalendarEvent"];
-            event_id: string;
-            class: components["schemas"]["Class"];
-            class_id: string;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-        };
-        UpdateHolidayDto: {
-            /** Format: uuid */
-            academic_year_id?: string;
-            start_date?: string;
-            end_date?: string;
-            name?: string;
-            counts_as_working_day?: boolean;
-        };
         CalendarEventResponseDto: {
             id: string;
             academic_year_id: string;
@@ -10730,6 +10653,7 @@ export interface components {
             publish: boolean;
             notify?: boolean;
             notify_sms?: boolean;
+            reason?: string;
         };
         UpdateCalendarEventDto: {
             /** @enum {string} */
@@ -15792,7 +15716,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SendCommunicationDto"];
+                "application/json": components["schemas"]["SendGuardianMessageDto"];
             };
         };
         responses: {
@@ -20633,111 +20557,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolCalendarController_createHoliday_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateHolidayDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CalendarEvent"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolCalendarController_removeHoliday_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CalendarEvent"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolCalendarController_updateHoliday_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateHolidayDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CalendarEvent"];
-                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
