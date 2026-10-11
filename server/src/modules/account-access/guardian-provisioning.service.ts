@@ -169,20 +169,17 @@ export class GuardianProvisioningService {
       }
       // A live invite, or a live PARENT join request the owner has not answered
       // yet (a pending request for another role does not cover family access).
-      for (const purpose of [AuthTokenPurpose.INVITE, AuthTokenPurpose.JOIN_SCHOOL]) {
-        const latest = await this.authTokens.latest(user.id, purpose, tenantId);
-        const forParent =
-          purpose !== AuthTokenPurpose.JOIN_SCHOOL ||
-          (latest?.metadata as { role?: string } | null)?.role === UserRole.PARENT;
-        if (
-          latest &&
-          forParent &&
-          !latest.consumed_at &&
-          !latest.revoked_at &&
-          latest.expires_at > new Date()
-        ) {
-          return { kind: 'skip', reason: 'already_pending' };
-        }
+      const pending = [
+        await this.authTokens.latest(user.id, AuthTokenPurpose.INVITE, tenantId),
+        await this.authTokens.latest(
+          user.id,
+          AuthTokenPurpose.JOIN_SCHOOL,
+          tenantId,
+          UserRole.PARENT,
+        ),
+      ];
+      if (pending.some((t) => t && !t.consumed_at && !t.revoked_at && t.expires_at > new Date())) {
+        return { kind: 'skip', reason: 'already_pending' };
       }
     }
 
