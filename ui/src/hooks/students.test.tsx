@@ -609,4 +609,53 @@ describe('useBulkUploadStudentPhotos (D57)', () => {
     expect(merged?.unmatched).toEqual(['unmatched-1', 'unmatched-2', 'unmatched-3']);
     expect(progress).toEqual([42, 83, 100]);
   });
+
+  describe('byte budget per request', () => {
+    // Runs the hook over files of the given sizes (MB) and returns the file count and MB per request.
+    async function send(sizesMb: number[]) {
+      const appended: number[] = [];
+      vi.spyOn(FormData.prototype, 'append').mockImplementation(function (
+        this: FormData,
+        name: string,
+        value: unknown,
+      ) {
+        if (name === 'files') appended.push((value as File).size);
+      });
+      const requests: number[][] = [];
+      server.use(
+        http.post('/api/v1/students/photos/bulk', () => {
+          requests.push(appended.splice(0));
+          return HttpResponse.json({ matched: [], unmatched: [], invalid: [] });
+        }),
+      );
+      const files = sizesMb.map((mb, i) => {
+        const file = new File(['x'], `R-${i}.jpg`, { type: 'image/jpeg' });
+        Object.defineProperty(file, 'size', { value: mb * 1024 * 1024 });
+        return file;
+      });
+      const { result } = renderHookWithProviders(() => useBulkUploadStudentPhotos(), {
+        tenantId: 'tenant-1',
+      });
+      await act(async () => {
+        await result.current.mutateAsync({ files });
+      });
+      return requests.map((r) => ({ count: r.length, mb: r.reduce((a, b) => a + b, 0) / 1048576 }));
+    }
+
+    it('30 small files make 2 requests (25 + 5)', async () => {
+      const reqs = await send(Array(30).fill(0.001));
+      expect(reqs.map((r) => r.count)).toEqual([25, 5]);
+    });
+
+    it('6 files of 9 MB make 2 requests (4 + 2), each within 40 MB', async () => {
+      const reqs = await send(Array(6).fill(9));
+      expect(reqs.map((r) => r.count)).toEqual([4, 2]);
+      expect(reqs.every((r) => r.mb <= 40)).toBe(true);
+    });
+
+    it('one 15 MB file makes 1 request', async () => {
+      const reqs = await send([15]);
+      expect(reqs.map((r) => r.count)).toEqual([1]);
+    });
+  });
 });

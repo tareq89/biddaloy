@@ -39,7 +39,7 @@ import { ValidationService } from './validation.service';
 import { DiffService } from './diff.service';
 import type { ValidateResponseDto } from './dto/validate-response.dto';
 
-const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB
+export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB
 
 /** Category for the original upload, kept only long enough for a restore
  * to consume it — separate from `export`'s `'backups'` category so the two

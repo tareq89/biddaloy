@@ -12,6 +12,8 @@ declare module 'axios' {
   }
 }
 
+import { i18n } from '../i18n/i18n';
+
 import {
   currentSessionGeneration,
   getAccessToken,
@@ -567,6 +569,10 @@ export function toApiError(error: unknown): Error {
       typeof body.requestId === 'string'
     ) {
       return new ApiError(body as ApiErrorBody);
+    }
+    // nginx's own 413 has no app error body.
+    if (error.response?.status === 413) {
+      return new Error(i18n.t('errors.uploadTooLarge', { ns: 'common' }));
     }
   }
   return error instanceof Error ? error : new Error(String(error));

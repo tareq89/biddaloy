@@ -104,6 +104,7 @@
     "REVERSAL": "Reversal"
   },
   "errors": {
+    "uploadTooLarge": "This upload is too large. Send fewer or smaller files at a time.",
     "permissionDenied": "You don't have permission to do that.",
     "schoolRestoring": "This school is being restored from a backup. Your change was not saved. Try again in a few minutes."
   },
