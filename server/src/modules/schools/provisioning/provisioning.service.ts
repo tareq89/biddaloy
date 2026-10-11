@@ -341,11 +341,14 @@ export class ProvisioningService {
     const contactProven = !sendInvitation;
     const { user, existed } = await this.findOrCreateAdminUser(userRepo, admin, contactProven);
 
-    // An existing person who is not yet a member is asked, not enrolled: they accept a
-    // JOIN_SCHOOL request themselves. No membership, no INVITE.
+    // An existing person who has never been a member is asked, not enrolled: they accept a
+    // JOIN_SCHOOL request themselves. No membership, no INVITE. A former member (a
+    // soft-deleted row) was vetted here once and is revived below, the same rule as
+    // `users.tab.ts` and `invitation-batch.processor.ts`: soft-delete is undoable (13.2.1).
     if (existed && !contactProven) {
       const anyMembership = await userTenantRepo.findOne({
         where: { user_id: user.id, tenant_id: schoolId },
+        withDeleted: true,
       });
       if (!anyMembership) {
         const join = await insertJoinRequest(manager, {

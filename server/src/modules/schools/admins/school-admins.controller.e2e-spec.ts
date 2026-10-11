@@ -157,4 +157,27 @@ describe('POST /schools/:id/admins (e2e) [68.1.14]', () => {
     ]);
     expect(password_hash).toBe(SEED_ADMIN_PASSWORD_HASH);
   });
+
+  // [68.1.fix F4] One rule on every path (users.tab, guardian batch, here): a former
+  // member was vetted once, so re-adding them revives the row instead of asking again.
+  it('re-adding a former (soft-deleted) admin revives that row: no join request, no INVITE', async () => {
+    const email = `former-${run}@school-admins-e2e.example`;
+    const userId = await insertUser(email, { verified: true, password: true });
+    const [{ id: oldId }] = await ds.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, deleted_at)
+       VALUES ($1, $2, $3, NOW()) RETURNING id`,
+      [userId, schoolId, UserRole.ADMIN],
+    );
+
+    const res = await addAdmin({ name: 'Existing Person', email }).expect(201);
+
+    expect(res.body.invitation).toEqual({ id: '', status: 'NOT_SENT' });
+    const live = await ds.query(
+      `SELECT id FROM user_tenants WHERE user_id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+      [userId, schoolId],
+    );
+    expect(live).toEqual([{ id: oldId }]);
+    expect(await tokens(userId, 'JOIN_SCHOOL')).toHaveLength(0);
+    expect(await tokens(userId, 'INVITE')).toHaveLength(0);
+  });
 });
