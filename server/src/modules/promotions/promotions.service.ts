@@ -370,13 +370,7 @@ export class PromotionsService {
     );
 
     // group_name defaults to the student's current section's group_name.
-    const sectionIds = [
-      ...new Set(stats.map((s) => s.section_id).filter((id): id is string => !!id)),
-    ];
-    const sourceSections = sectionIds.length
-      ? await this.sectionRepo.find({ where: { id: In(sectionIds) } })
-      : [];
-    const sectionGroupById = new Map(sourceSections.map((s) => [s.id, s.group_name]));
+    const sectionGroupById = await this.sectionGroups(stats, this.sectionRepo);
 
     const isGraduationRun = suggestion.target_class === null;
     const ranked = meritOrder(
@@ -421,32 +415,66 @@ export class PromotionsService {
         }),
       );
 
-      const entries = stats.map((s) => {
-        const groupName = sectionGroupById.get(s.section_id ?? '') ?? null;
-        const finalOutcome = this.composeOutcome(s.passed_all, isGraduationRun);
-        return entryRepo.create({
-          tenant_id: tenantId,
-          run_id: run.id,
-          student_id: s.student_id,
-          source_enrollment_id: s.enrollment_id,
-          source_section_id: s.section_id,
-          merit_rank: rankByStudent.get(s.student_id) ?? null,
-          mean_gpa: s.mean_gpa.toFixed(2),
-          total_marks_sum: s.total_marks_sum.toFixed(2),
-          passed_all: s.passed_all,
-          suggested_outcome: finalOutcome,
-          final_outcome: finalOutcome,
-          is_override: false,
-          override_note: null,
-          overridden_by_user_id: null,
-          group_name: groupName,
-        });
-      });
+      const entries = stats.map((s) =>
+        this.newEntry(
+          entryRepo,
+          tenantId,
+          run.id,
+          s,
+          sectionGroupById.get(s.section_id ?? '') ?? null,
+          rankByStudent.get(s.student_id) ?? null,
+          isGraduationRun,
+        ),
+      );
 
       this.placePromoteEntries(entries, targetSections, dto.algorithm);
       await entryRepo.save(entries);
 
       return run;
+    });
+  }
+
+  /** Source-section group_name per section id, for the given cohort. */
+  private async sectionGroups(
+    stats: Pick<CohortStudentStat, 'section_id'>[],
+    sectionRepo: Repository<ClassSection>,
+  ): Promise<Map<string, string | null>> {
+    const sectionIds = [
+      ...new Set(stats.map((s) => s.section_id).filter((id): id is string => !!id)),
+    ];
+    const sections = sectionIds.length
+      ? await sectionRepo.find({ where: { id: In(sectionIds) } })
+      : [];
+    return new Map(sections.map((s) => [s.id, s.group_name]));
+  }
+
+  /** One fresh (non-overridden) entry from a cohort stat; shared by create() and refresh(). */
+  private newEntry(
+    entryRepo: Repository<PromotionEntry>,
+    tenantId: string,
+    runId: string,
+    s: CohortStudentStat,
+    groupName: string | null,
+    rank: number | null,
+    isGraduationRun: boolean,
+  ): PromotionEntry {
+    const finalOutcome = this.composeOutcome(s.passed_all, isGraduationRun);
+    return entryRepo.create({
+      tenant_id: tenantId,
+      run_id: runId,
+      student_id: s.student_id,
+      source_enrollment_id: s.enrollment_id,
+      source_section_id: s.section_id,
+      merit_rank: rank,
+      mean_gpa: s.mean_gpa.toFixed(2),
+      total_marks_sum: s.total_marks_sum.toFixed(2),
+      passed_all: s.passed_all,
+      suggested_outcome: finalOutcome,
+      final_outcome: finalOutcome,
+      is_override: false,
+      override_note: null,
+      overridden_by_user_id: null,
+      group_name: groupName,
     });
   }
 
@@ -604,10 +632,37 @@ export class PromotionsService {
         );
         const rankByStudent = new Map(ranked.map((r) => [r.student_id, r.merit_rank]));
 
+        // Re-member the cohort (LIFE-06): computeCohortStats returns only ACTIVE
+        // source enrollments, so anyone missing from it has left.
+        const liveIds = new Set(stats.map((s) => s.student_id));
+        const leavers = entries.filter((e) => !liveIds.has(e.student_id));
+        if (leavers.length > 0) await entryRepo.remove(leavers);
+        const kept = entries.filter((e) => liveIds.has(e.student_id));
+        const joiners = stats.filter((s) => !entryByStudent.has(s.student_id));
+        const sectionGroupById = joiners.length
+          ? await this.sectionGroups(joiners, manager.getRepository(ClassSection))
+          : new Map<string, string | null>();
+        for (const stat of joiners) {
+          kept.push(
+            this.newEntry(
+              entryRepo,
+              tenantId,
+              run.id,
+              stat,
+              sectionGroupById.get(stat.section_id ?? '') ?? null,
+              rankByStudent.get(stat.student_id) ?? null,
+              isGraduationRun,
+            ),
+          );
+        }
+
         for (const stat of stats) {
           const entry = entryByStudent.get(stat.student_id);
-          if (!entry) continue; // cohort membership changed since create — out of scope, left as-is
+          if (!entry) continue; // joiner: already built fresh above
           const suggested = this.composeOutcome(stat.passed_all, isGraduationRun);
+          // A student who left and was re-enrolled has a new ACTIVE enrollment.
+          entry.source_enrollment_id = stat.enrollment_id;
+          entry.source_section_id = stat.section_id;
           entry.passed_all = stat.passed_all;
           entry.mean_gpa = stat.mean_gpa.toFixed(2);
           entry.total_marks_sum = stat.total_marks_sum.toFixed(2);
@@ -625,9 +680,10 @@ export class PromotionsService {
         }
 
         const targetSections = await this.loadTargetSections(run, manager, tenantId);
-        this.placePromoteEntries(entries, targetSections, run.algorithm);
-        await entryRepo.save(entries);
+        this.placePromoteEntries(kept, targetSections, run.algorithm);
+        await entryRepo.save(kept);
 
+        run.override_count = kept.filter((e) => e.is_override).length;
         run.refreshed_at = new Date();
         await runRepo.save(run);
 
@@ -754,16 +810,10 @@ export class PromotionsService {
         throw new ConflictException({ details: { code: 'STALE_RESULTS' } });
       }
 
-      // `refresh()` only re-derives suggestions and re-places — it never
-      // drops an entry whose student left the cohort after `create()` (see
-      // its own "cohort membership changed — out of scope" comment). Commit
-      // must not silently act on a stale entry: PROMOTE/RETAIN would create
-      // a spurious new ACTIVE target-year enrollment for a student who was
-      // transferred or made inactive in the meantime, and GRADUATE would
-      // overwrite a TRANSFERRED/INACTIVE status with GRADUATED (and audit a
-      // wrong old_values: 'ACTIVE'). A distinct code from STALE_RESULTS —
-      // refresh() can't fix this by re-running, since it never removes the
-      // stale entry; the caller has to delete the run and start over.
+      // Commit must not silently act on a stale entry: PROMOTE/RETAIN would
+      // create a spurious ACTIVE target-year enrollment for a student who
+      // left meanwhile, and GRADUATE would overwrite TRANSFERRED/INACTIVE with
+      // GRADUATED. Refresh re-members the cohort; the caller refreshes and retries.
       const sourceEnrollmentIds = entries.map((e) => e.source_enrollment_id);
       if (sourceEnrollmentIds.length > 0) {
         const sourceEnrollments = await enrollmentRepo.find({
