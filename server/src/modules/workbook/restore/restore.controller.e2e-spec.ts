@@ -17,6 +17,20 @@ import { SCHEMA_VERSION } from '../codec/meta';
 import { schoolTab } from '../tabs/school/school.tab';
 import { usersTab } from '../tabs/people/users.tab';
 import { teachersTab } from '../tabs/people/teachers.tab';
+import ExcelJS from 'exceljs';
+import { ExportProcessor } from '../export/export.processor';
+import {
+  WorkbookJob,
+  WorkbookJobKind,
+  WorkbookJobSource,
+  WorkbookJobStatus,
+} from '../jobs/workbook-job.entity';
+import { AcademicYear } from '../../academics/entities/academic-year.entity';
+import { Class } from '../../academics/entities/class.entity';
+import { ClassSection } from '../../academics/entities/class-section.entity';
+import { Student } from '../../students/entities/student.entity';
+import { FeeStructure } from '../../fees/entities/fee-structure.entity';
+import { StudentFee } from '../../fees/entities/student-fee.entity';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -41,6 +55,12 @@ const JOIN_SCHOOL_NAME = 'Restore E2E Join School';
 const JOIN_ADMIN_USER_ID = '00000000-0000-4000-8000-000000060905';
 const JOIN_ADMIN_EMAIL = 'admin@restore-e2e-join.example';
 
+// A school with one PENDING bill, used only by the D13 money e2e case.
+const MONEY_TENANT_ID = '00000000-0000-4000-8000-000000060906';
+const MONEY_SCHOOL_NAME = 'Restore E2E Money School';
+const MONEY_ADMIN_USER_ID = '00000000-0000-4000-8000-000000060907';
+const MONEY_ADMIN_EMAIL = 'admin@restore-e2e-money.example';
+
 /** In-memory stand-in for `StorageService` — no S3 is guaranteed
  * reachable in this e2e environment (same reasoning as
  * `workbook.controller.e2e-spec.ts`), and the restore round trip actually
@@ -51,6 +71,10 @@ class FakeStorageService {
 
   async put(key: string, body: Buffer): Promise<void> {
     this.objects.set(key, body);
+  }
+
+  bytes(key: string): Buffer | undefined {
+    return this.objects.get(key);
   }
 
   async get(key: string): Promise<{ body: Readable; contentType: string }> {
@@ -78,6 +102,7 @@ describe('POST /backup/restore E2E', () => {
   let teacherToken: string;
   let freshAdminToken: string;
   let schoolName: string;
+  const storage = new FakeStorageService();
 
   const TENANT_ID = SEED_TENANT_ID;
 
@@ -142,7 +167,7 @@ describe('POST /backup/restore E2E', () => {
       imports: [AppModule],
     })
       .overrideProvider(StorageService)
-      .useValue(new FakeStorageService())
+      .useValue(storage)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -342,6 +367,185 @@ describe('POST /backup/restore E2E', () => {
     },
     90_000,
   );
+
+  async function loginAs(email: string): Promise<string> {
+    const res = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    return res.body.access_token as string;
+  }
+
+  // #2225: the cross-school rule wired end to end (ContextGuard sets
+  // isPlatformSuperAdmin; a tenant ADMIN never has it).
+  it('403 RESTORE_OTHER_SCHOOL_PLATFORM_ONLY for a tenant ADMIN restoring another school; no job row', async () => {
+    const token = await loginAs(JOIN_ADMIN_EMAIL);
+    const workbook = await writeWorkbook({
+      tabs: [schoolTab],
+      meta: {
+        schema_version: SCHEMA_VERSION,
+        kind: 'BACKUP',
+        exported_at: new Date().toISOString(),
+        app_version: 'test',
+        source_school_name: FRESH_SCHOOL_NAME,
+        // Another school's slug: the backup came from there.
+        source_school_slug: 'restore-e2e-fresh-school',
+      },
+      rowsFor: async function* (tab) {
+        if (tab.name === 'school') {
+          yield {
+            id: JOIN_TENANT_ID,
+            name: JOIN_SCHOOL_NAME,
+            name_bn: null,
+            address: null,
+            phone: null,
+            email: null,
+            registration_id: null,
+            settings: null,
+          };
+        }
+      },
+    });
+    const stagingId = await validateWorkbook(JOIN_TENANT_ID, token, workbook);
+
+    await supertest(app.getHttpServer())
+      .post('/api/v1/backup/restore')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', JOIN_TENANT_ID)
+      .send({ staging_id: stagingId, confirmation: JOIN_SCHOOL_NAME })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.details?.code).toBe('RESTORE_OTHER_SCHOOL_PLATFORM_ONLY');
+      });
+
+    const rows = await dataSource.query(
+      `SELECT id FROM workbook_jobs WHERE tenant_id = $1 AND kind = 'RESTORE' AND staging_id = $2`,
+      [JOIN_TENANT_ID, stagingId],
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  // #2225 D13: export a school with a PENDING bill, raise its paid_amount in
+  // Excel, and try to restore it.
+  it('409 RESTORE_HAS_ERRORS for a stage that edits student_fees.paid_amount; no job row', async () => {
+    const em = dataSource.manager;
+    const t = { tenant_id: MONEY_TENANT_ID };
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, $2, 'restore-e2e-money-school', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [MONEY_TENANT_ID, MONEY_SCHOOL_NAME],
+    );
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'Restore E2E Money Admin', 'ACTIVE', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [MONEY_ADMIN_USER_ID, MONEY_ADMIN_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [MONEY_ADMIN_USER_ID, MONEY_TENANT_ID, UserRole.ADMIN],
+    );
+    const year = await em.save(
+      em.create(AcademicYear, {
+        ...t,
+        name: '2026',
+        start_date: '2026-01-01' as never,
+        end_date: '2026-12-31' as never,
+        is_current: true,
+      }),
+    );
+    const cls = await em.save(
+      em.create(Class, { ...t, name: 'Class 5', academic_year_id: year.id }),
+    );
+    const section = await em.save(
+      em.create(ClassSection, { ...t, class_id: cls.id, section_name: 'A', capacity: 40 }),
+    );
+    const student = await em.save(
+      em.create(Student, {
+        ...t,
+        full_name: 'Money Student',
+        registration_number: 'M-1',
+        roll_number: 1,
+        class_section_id: section.id,
+      }),
+    );
+    const structure = await em.save(
+      em.create(FeeStructure, {
+        ...t,
+        fee_type: 'MONTHLY_TUITION' as never,
+        name: 'Tuition',
+        amount: '1000.00' as never,
+        class_id: cls.id,
+        academic_year_id: year.id,
+      }),
+    );
+    const fee = await em.save(
+      em.create(StudentFee, {
+        student_id: student.id,
+        academic_year_id: year.id,
+        fee_structure_id: structure.id,
+        period_start: '2026-01-01' as never,
+        total_amount: 1000 as never,
+        paid_amount: 0 as never,
+        status: 'PENDING' as never,
+      }),
+    );
+
+    // A real export of the school, through the same processor the app uses.
+    const exportJob = await dataSource.getRepository(WorkbookJob).save(
+      dataSource.getRepository(WorkbookJob).create({
+        ...t,
+        kind: WorkbookJobKind.EXPORT,
+        source: WorkbookJobSource.MANUAL,
+        status: WorkbookJobStatus.QUEUED,
+        requested_by_user_id: null,
+      }),
+    );
+    await app.get(ExportProcessor).process({
+      data: { jobId: exportJob.id, tenantId: MONEY_TENANT_ID },
+      opts: { attempts: 2 },
+      attemptsMade: 0,
+    } as never);
+    const done = await dataSource.getRepository(WorkbookJob).findOneByOrFail({ id: exportJob.id });
+    expect(done.status).toBe(WorkbookJobStatus.DONE);
+
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(storage.bytes(done.storage_key as string) as never);
+    const ws = wb.getWorksheet('student_fees')!;
+    const header = (ws.getRow(1).values as unknown[]).slice(1).map(String);
+    ws.getRow(2).getCell(header.indexOf('paid_amount') + 1).value = '1000';
+    const edited = Buffer.from(await wb.xlsx.writeBuffer());
+
+    const token = await loginAs(MONEY_ADMIN_EMAIL);
+    const validated = await supertest(app.getHttpServer())
+      .post('/api/v1/backup/validate')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', MONEY_TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .attach('file', edited, 'workbook.xlsx')
+      .expect(201);
+    // Exactly the one D13 refusal, so the 409 below is for this edit.
+    expect(validated.body.hard_error_count).toBe(1);
+    expect(validated.body.errors[0].message).toContain('paid_amount');
+
+    await supertest(app.getHttpServer())
+      .post('/api/v1/backup/restore')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', MONEY_TENANT_ID)
+      .send({ staging_id: validated.body.staging_id, confirmation: MONEY_SCHOOL_NAME })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.details?.code).toBe('RESTORE_HAS_ERRORS');
+      });
+
+    const rows = await dataSource.query(
+      `SELECT id FROM workbook_jobs WHERE tenant_id = $1 AND kind = 'RESTORE'`,
+      [MONEY_TENANT_ID],
+    );
+    expect(rows).toHaveLength(0);
+    const after = await dataSource.getRepository(StudentFee).findOneByOrFail({ id: fee.id });
+    expect(Number(after.paid_amount)).toBe(0);
+  }, 60_000);
 
   /** Restores a `school` + `users` (+ optional `teachers`) workbook into the
    * join school as its admin, naming TEACHER_EMAIL (a member of another

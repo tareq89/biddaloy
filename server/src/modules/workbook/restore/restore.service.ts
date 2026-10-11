@@ -74,6 +74,7 @@ export class RestoreService {
     if (staged === null) {
       throw new NotFoundException({
         code: 'RESTORE_STAGE_NOT_FOUND',
+        details: { code: 'RESTORE_STAGE_NOT_FOUND' },
         message: 'Staged import not found or expired.',
       });
     }
@@ -81,6 +82,7 @@ export class RestoreService {
     if (staged.hardErrorCount > 0) {
       throw new ConflictException({
         code: 'RESTORE_HAS_ERRORS',
+        details: { code: 'RESTORE_HAS_ERRORS' },
         message: 'Staged workbook has validation errors and cannot be restored.',
       });
     }
@@ -93,6 +95,7 @@ export class RestoreService {
     ) {
       throw new ForbiddenException({
         code: 'RESTORE_OTHER_SCHOOL_PLATFORM_ONLY',
+        details: { code: 'RESTORE_OTHER_SCHOOL_PLATFORM_ONLY' },
         message: 'This backup is from another school. Only platform support can restore it here.',
       });
     }
@@ -100,6 +103,7 @@ export class RestoreService {
       // Message never echoes the expected school name.
       throw new BadRequestException({
         code: 'CONFIRMATION_MISMATCH',
+        details: { code: 'CONFIRMATION_MISMATCH' },
         message: 'Confirmation text does not match.',
       });
     }
@@ -112,6 +116,7 @@ export class RestoreService {
     if (!acquired) {
       throw new ConflictException({
         code: 'RESTORE_IN_PROGRESS',
+        details: { code: 'RESTORE_IN_PROGRESS' },
         message: 'A restore is already in progress for this school.',
       });
     }
