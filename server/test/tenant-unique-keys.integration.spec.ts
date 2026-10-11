@@ -9,7 +9,8 @@ import { ALL_ENTITIES } from '@test/all-entities';
  * school blocks, or steals, another school's value.
  *
  * A unique key is tenant-safe when (a) its columns include `tenant_id`
- * (for an expression index, its definition mentions `tenant_id`), or (b) one
+ * (for an expression index, its key expression mentions `tenant_id`; a
+ * `WHERE tenant_id IS NOT NULL` tail does not count), or (b) one
  * of its columns is a single-column FK to a table that itself has `tenant_id`
  * (e.g. `marks.exam_id`: an exam belongs to one school). A FK to `users` does
  * not count: `users` has no `tenant_id`. A composite FK that includes this
@@ -58,6 +59,22 @@ const ALLOW_LIST: Record<string, { reason: string; removedBy: string }> = {
     removedBy: 'permanent',
   },
 };
+
+/**
+ * The key part of an index definition: the balanced `( ... )` right after
+ * `USING <method>`. Drops `INCLUDE (...)` and `WHERE ...`, so a partial index
+ * `UNIQUE (registration_number) WHERE tenant_id IS NOT NULL` does not count
+ * `tenant_id` as a key column.
+ */
+function keyPart(indexdef: string): string {
+  const start = indexdef.indexOf('(', indexdef.search(/\bUSING\s+\w+\s*\(/));
+  let depth = 0;
+  for (let i = start; i < indexdef.length; i++) {
+    if (indexdef[i] === '(') depth++;
+    else if (indexdef[i] === ')' && --depth === 0) return indexdef.slice(start + 1, i);
+  }
+  throw new Error(`cannot parse index definition: ${indexdef}`);
+}
 
 interface UniqueKey {
   table: string;
@@ -108,14 +125,20 @@ describe('tenant unique keys (integration)', () => {
       columns: string[];
       has_tenant_fk: boolean;
     }[] = await dataSource.query(KEYS_SQL);
-    keys = rows.map((r) => ({
-      table: r.table,
-      index: r.index,
-      columns: r.columns,
-      tenantSafe:
-        r.columns.includes('tenant_id') || /\btenant_id\b/.test(r.indexdef) || r.has_tenant_fk,
-      key: `${r.table}(${r.columns.join(',')})`,
-    }));
+    keys = rows.map((r) => {
+      const part = keyPart(r.indexdef);
+      // Expression index: the key text itself names it, so two expression
+      // indexes on one table do not collapse to one allow-list key.
+      const isExpression = part.includes('(');
+      return {
+        table: r.table,
+        index: r.index,
+        columns: r.columns,
+        tenantSafe:
+          r.columns.includes('tenant_id') || /\btenant_id\b/.test(part) || r.has_tenant_fk,
+        key: `${r.table}(${isExpression ? part : r.columns.join(',')})`,
+      };
+    });
   });
 
   afterAll(async () => {
