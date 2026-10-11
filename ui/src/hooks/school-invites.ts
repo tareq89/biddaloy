@@ -30,7 +30,9 @@ export function useAcceptSchoolInvite() {
       await apiClient.post(`/account/school-invites/${id}/accept`);
       return adoptSession(queryClient, await postAuthRefresh());
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: schoolInvitesKey }),
+    // Settled, not success: if accept worked but the refresh failed, the
+    // list must still drop the invite instead of offering Accept again.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: schoolInvitesKey }),
   });
 }
 

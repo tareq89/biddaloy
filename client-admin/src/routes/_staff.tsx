@@ -349,7 +349,7 @@ function StaffLayout() {
                       {notificationBell}
                       <LocaleSwitcher />
                       <ThemeToggle />
-                      <StaffUserMenu />
+                      <StaffUserMenu invites={schoolInvites} />
                     </>
                   }
                 />
@@ -360,7 +360,7 @@ function StaffLayout() {
               <>
                 <CommandPaletteLauncher />
                 {notificationBell}
-                <StaffUserMenu />
+                <StaffUserMenu invites={schoolInvites} />
               </>
             }
             bottomNav={
