@@ -179,6 +179,32 @@ describe('InvitationBatchProcessor (integration)', () => {
     expect(roles).toEqual([UserRole.PARENT, UserRole.TEACHER]);
   });
 
+  // [68.1.fix F5] The preview lists this teacher under "will invite". No INVITE can go to a
+  // password holder, so the processor asks instead of linking them silently.
+  it('a TEACHER here who holds a password gets a PARENT join request, not a silent link', async () => {
+    const teacher = await makeUser({
+      email: 'pw-teacher@example.com',
+      email_verified_at: new Date(),
+      password_hash: 'hash',
+    });
+    await ds
+      .getRepository(UserTenant)
+      .save({ user_id: teacher.id, tenant_id: SEED_TENANT_ID, role: UserRole.TEACHER });
+    const g = await makeGuardian({ email: 'pw-teacher@example.com' });
+
+    await run(g.id);
+
+    const after = await ds.getRepository(Guardian).findOneOrFail({ where: { id: g.id } });
+    expect(after.user_id).toBeNull();
+    expect((await membership(teacher.id)).map((r) => r.role)).toEqual([UserRole.TEACHER]);
+    const tokens = await ds.getRepository(AuthToken).find({
+      where: { user_id: teacher.id, purpose: AuthTokenPurpose.JOIN_SCHOOL },
+    });
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].metadata).toMatchObject({ role: UserRole.PARENT, guardian_id: g.id });
+    expect(issueAndSend).not.toHaveBeenCalled();
+  });
+
   it('an unverified holder of the guardian phone blocks creation without crashing', async () => {
     const holder = await makeUser({ phone: '+8801700000002', phone_verified_at: null });
     const g = await makeGuardian({ phone: '+8801700000002' });

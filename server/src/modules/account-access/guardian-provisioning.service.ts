@@ -157,7 +157,8 @@ export class GuardianProvisioningService {
       }
       // Active only with a LIVE PARENT row here: that is what family access needs. A
       // link alone, a former row or another role here is still invitable; the
-      // processor revives the row, adds it, or files a join request.
+      // processor revives or adds the row for a passwordless account (the INVITE
+      // tells them), and files a join request for everyone else.
       if (
         user.password_hash &&
         (await m.exists(UserTenant, {

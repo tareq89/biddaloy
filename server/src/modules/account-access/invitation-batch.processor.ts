@@ -107,7 +107,8 @@ export class InvitationBatchProcessor extends WorkerHost {
    *  - an account that never had a row here only gets a join request (the
    *    owner accepts it; we never attach an account on their behalf). That
    *    includes a `guardian.user_id` this school never vetted, e.g. one a
-   *    restored workbook set;
+   *    restored workbook set. A password holder with no live PARENT row here
+   *    is asked the same way, since no INVITE can tell them;
    *  - the account is linked to another guardian (`guardianLinkedElsewhere`);
    *  - an unverified holder already owns the guardian's email/phone.
    * An unverified `users.email`/`phone` is never trusted as proof of identity.
@@ -146,7 +147,15 @@ export class InvitationBatchProcessor extends WorkerHost {
           where: { user_id: user.id, tenant_id: tenantId },
           withDeleted: true,
         });
-        if (!anyRow) {
+        // A password holder never gets an INVITE, so linking them here would give
+        // family access with no notice at all. They are asked instead, which is
+        // also what the preview's "will invite" promises.
+        const wouldLinkSilently =
+          !!user.password_hash &&
+          !(await userTenantRepo.findOne({
+            where: { user_id: user.id, tenant_id: tenantId, role: UserRole.PARENT },
+          }));
+        if (!anyRow || wouldLinkSilently) {
           await insertJoinRequest(manager, {
             userId: user.id,
             tenantId,
