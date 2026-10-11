@@ -18,6 +18,7 @@ import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { SeatPlansService } from './seat-plans.service';
 import { GenerateSeatPlanDto } from './dto/generate-seat-plan.dto';
@@ -87,8 +88,9 @@ export class SeatPlansController {
     @Param('roomId', ParseUUIDPipe) roomId: string,
     @Body() dto: UpdateInvigilatorDto,
     @CurrentTenant() tenant: { id: string },
+    @CurrentUser() user: { sub: string },
   ) {
-    return this.seatPlans.updateInvigilator(tenant.id, id, roomId, dto);
+    return this.seatPlans.updateInvigilator(tenant.id, id, roomId, dto, user.sub);
   }
 
   @Post(':id/publish')

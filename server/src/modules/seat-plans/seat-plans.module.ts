@@ -8,6 +8,7 @@ import { Room } from '../routines/entities/room.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { RoutinesModule } from '../routines/routines.module';
 import { SeatPlansService } from './seat-plans.service';
 import { SeatPlansController } from './seat-plans.controller';
 
@@ -17,6 +18,8 @@ import { SeatPlansController } from './seat-plans.controller';
  */
 @Module({
   imports: [
+    // TEN-07: `TeacherBusyService` for the invigilator clash check.
+    RoutinesModule,
     TypeOrmModule.forFeature([
       SeatPlan,
       SeatPlanSchedule,
