@@ -337,6 +337,31 @@ describe('ExamComponentsService (integration, ACAD-05 — recompute in the same 
     expect((await componentRepo.findOneByOrFail({ id: component.id })).full_marks).toBe('100.00');
   });
 
+  it('#2246: adding a MANUAL part to a PROCESSED exam sends it back to DRAFT, so it cannot be published', async () => {
+    const { exam } = await processedExam();
+    const before = await liveResult(exam.id);
+
+    await componentsService.create(
+      exam.id,
+      {
+        subject_id: SUBJECT_ID,
+        name: 'Practical',
+        kind: ExamComponentKind.PRACTICAL,
+        full_marks: '25',
+        sequence: 2,
+      } as never,
+      TENANT_ID,
+      'user-1',
+    );
+
+    expect((await examRepo.findOneByOrFail({ id: exam.id })).status).toBe(ExamStatus.DRAFT);
+    // No recompute: the empty part was never folded in as ABSENT.
+    expect((await liveResult(exam.id)).computed_at.getTime()).toBe(before.computed_at.getTime());
+    await expect(resultsService.publish(exam.id, TENANT_ID, 'user-1')).rejects.toThrow(
+      /must be PROCESSED/,
+    );
+  });
+
   it('full_marks below an entered mark is refused and changes nothing', async () => {
     const { exam, component } = await processedExam();
     await expect(

@@ -10,7 +10,7 @@ import { AuditAction, ExamComponentKind, ExamComponentSource, ExamStatus } from 
 import { Exam } from './entities/exam.entity';
 import { Mark } from './entities/mark.entity';
 import { Result } from './entities/result.entity';
-import { ResultsService, lockExam } from './results.service';
+import { ResultsService, examPublished, lockExam } from './results.service';
 import { ExamComponent } from './entities/exam-component.entity';
 import { ExamTemplate } from './entities/exam-template.entity';
 import { ExamTemplatesService } from './exam-templates.service';
@@ -28,13 +28,6 @@ const PG_UNIQUE_VIOLATION = '23505';
 
 function isUniqueViolation(err: unknown): boolean {
   return err instanceof QueryFailedError && (err as any).code === PG_UNIQUE_VIOLATION;
-}
-
-function examPublished(): ConflictException {
-  return new ConflictException({
-    message: "This exam's results are published. Reopen the results first.",
-    details: { code: 'EXAM_PUBLISHED' },
-  });
 }
 
 @Injectable()
@@ -320,6 +313,8 @@ export class ExamsService {
     // [ACAD-05] Once published, only a rename is allowed; anything that
     // changes how the results read goes through "reopen" (approval-gated).
     const changesReadings = (e: Exam) =>
+      (dto.class_id !== undefined && dto.class_id !== e.class_id) ||
+      (dto.academic_year_id !== undefined && dto.academic_year_id !== e.academic_year_id) ||
       (dto.kind !== undefined && dto.kind !== e.kind) ||
       (dto.academic_term_id !== undefined && dto.academic_term_id !== e.academic_term_id);
     if (existing.status === ExamStatus.PUBLISHED && changesReadings(existing)) {

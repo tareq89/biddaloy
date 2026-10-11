@@ -408,6 +408,18 @@ describe('ExamsService published guard (ACAD-05)', () => {
     expect(examRepo.update).not.toHaveBeenCalled();
   });
 
+  it('a PUBLISHED exam with no Mark rows still cannot move class or year (409 EXAM_PUBLISHED)', async () => {
+    const { service, examRepo } = await buildService();
+    examRepo.findOne = vi.fn(async () => exam(ExamStatus.PUBLISHED));
+    await expect(service.update('e1', { class_id: 'c2' } as any, TENANT_ID)).rejects.toMatchObject({
+      response: { details: { code: 'EXAM_PUBLISHED' } },
+    });
+    await expect(
+      service.update('e1', { academic_year_id: 'y2' } as any, TENANT_ID),
+    ).rejects.toMatchObject({ response: { details: { code: 'EXAM_PUBLISHED' } } });
+    expect(examRepo.update).not.toHaveBeenCalled();
+  });
+
   it('a PROCESSED exam term change recomputes in the transaction', async () => {
     const { service, examRepo, resultsService } = await buildService();
     examRepo.findOne = vi.fn(async () => exam(ExamStatus.PROCESSED));
