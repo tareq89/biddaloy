@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
+import { Teacher } from '../academics/entities/teacher.entity';
 import { ResultsService } from './results.service';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
@@ -14,6 +15,7 @@ import {
   SEED_ADMIN_PASSWORD,
   SEED_ADMIN_PASSWORD_HASH,
   SEED_SECTION_1_ID,
+  SEED_SECTION_2_ID,
   SEED_CLASS_1_ID,
   SEED_ACADEMIC_YEAR_ID,
   SEED_ADMIN_USER_ID,
@@ -326,6 +328,131 @@ describe('[19.9.1] Student results (portal + staff)', () => {
         .set('X-Tenant-ID', OTHER_TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
         .expect(404);
+    });
+  });
+
+  describe('[68.3.01] TEACHER section scope', () => {
+    // The seed admin user doubles as the teacher (TEACHER membership + a `teachers` row), selected
+    // with X-Role. `teachers`/`teacher_class_sections`/`subjects` are truncated per test, so the
+    // fixture is re-created in beforeEach.
+    let scopeToken: string;
+    beforeEach(async () => {
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [SEED_ADMIN_USER_ID, TENANT_ID, UserRole.TEACHER],
+      );
+      const teacher = await dataSource.getRepository(Teacher).save({
+        user_id: SEED_ADMIN_USER_ID,
+        employee_id: `EMP-SCOPE-${Math.random().toString(36).slice(2, 8)}`,
+        tenant_id: TENANT_ID,
+        designations: [],
+      });
+      const [subject] = await dataSource.query(
+        `INSERT INTO subjects (name_en, code, tenant_id, created_at, updated_at)
+         VALUES ('Scope Maths', $1, $2, NOW(), NOW()) RETURNING id`,
+        [`SC-${Math.random().toString(36).slice(2, 8)}`, TENANT_ID],
+      );
+      // Teaches SEED_SECTION_1 only; SEED_SECTION_2 plays the "other class".
+      await dataSource.query(
+        `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id, subject_id, assignment_type)
+         VALUES ($1, $2, $3, $4, 'SUBJECT_TEACHER')`,
+        [teacher.id, SEED_SECTION_1_ID, TENANT_ID, subject.id],
+      );
+      // The JWT embeds the user's memberships, so log in AFTER adding TEACHER.
+      const login = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      scopeToken = login.body.access_token;
+    });
+
+    const asTeacher = (r: supertest.Test) =>
+      r
+        .set('Authorization', `Bearer ${scopeToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER);
+    const asAdmin = (r: supertest.Test) =>
+      r
+        .set('Authorization', `Bearer ${scopeToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN);
+    const get = (path: string) => http().get(`${API}${path}`);
+    const insertStudent = async (name: string, sectionId: string) => {
+      const [row] = await dataSource.query(
+        `INSERT INTO students
+           (full_name, registration_number, roll_number, class_section_id, tenant_id,
+            enrollment_status, preferred_communication, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'ACTIVE', 'SMS', NOW(), NOW()) RETURNING id`,
+        [
+          name,
+          `SC-${Math.random().toString(36).slice(2, 12)}`,
+          Math.floor(Math.random() * 1000000),
+          sectionId,
+          TENANT_ID,
+        ],
+      );
+      return row.id as string;
+    };
+
+    // The fixture student sits in section 1 (taught); a second student sits in section 2.
+    const addOtherStudentResult = async () => {
+      const otherStudent = await insertStudent('Scope Other', SEED_SECTION_2_ID);
+      await dataSource.query(
+        `INSERT INTO results
+           (exam_id, student_id, total_marks, gpa, grade, position, is_fail,
+            grading_scale_id, grading_scale_revision, rule_version, computed_at,
+            section_id, tenant_id, created_at, updated_at)
+         VALUES ($1, $2, 70.00, 4.00, 'A', 2, false, $3, 1, 'nctb-v1', NOW(), $4, $5, NOW(), NOW())`,
+        [unpublishedExamId, otherStudent, scaleId, SEED_SECTION_2_ID, TENANT_ID],
+      );
+      return otherStudent;
+    };
+
+    it('TEACHER GET /exams/:id/results returns only own-section rows', async () => {
+      await seedResultFixture();
+      await dataSource.query(`UPDATE results SET section_id = $1 WHERE student_id = $2`, [
+        SEED_SECTION_1_ID,
+        studentId,
+      ]);
+      const otherStudent = await addOtherStudentResult();
+
+      const teacher = await asTeacher(get(`/exams/${unpublishedExamId}/results`)).expect(200);
+      expect(teacher.body.map((r: { student_id: string }) => r.student_id)).toEqual([studentId]);
+
+      const admin = await asAdmin(get(`/exams/${unpublishedExamId}/results`)).expect(200);
+      expect(admin.body.map((r: { student_id: string }) => r.student_id)).toEqual(
+        expect.arrayContaining([studentId, otherStudent]),
+      );
+    });
+
+    it('TEACHER gets 403 on /exams/:id/results/:studentId for another section, 200 for own', async () => {
+      await seedResultFixture();
+      const otherStudent = await addOtherStudentResult();
+      await asTeacher(get(`/exams/${unpublishedExamId}/results/${otherStudent}`)).expect(403);
+      await asTeacher(get(`/exams/${unpublishedExamId}/results/${studentId}`)).expect(200);
+    });
+
+    it('TEACHER gets 403 on /students/:id/results and /results/:examId for another section', async () => {
+      await seedResultFixture();
+      const otherStudent = await addOtherStudentResult();
+      await asTeacher(get(`/students/${otherStudent}/results`)).expect(403);
+      await asTeacher(get(`/students/${otherStudent}/results/${unpublishedExamId}`)).expect(403);
+      await asTeacher(get(`/students/${studentId}/results`)).expect(200);
+      await asTeacher(get(`/students/${studentId}/results/${unpublishedExamId}`)).expect(200);
+    });
+
+    it('PARENT: linked child still 200, unlinked still rejected (401, as before)', async () => {
+      await seedResultFixture();
+      const unlinked = await insertStudent('Scope Unlinked', SEED_SECTION_1_ID);
+      await get(`/students/${studentId}/results`)
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+      await get(`/students/${unlinked}/results`)
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(401);
     });
   });
 });
