@@ -124,6 +124,18 @@ describe('RestoreService', () => {
       expect(redis.store.get('workbook:restore-lock:tenant-1')).toBe('some-other-job');
     });
 
+    // [68.1.fix] The e2e now sees ContextGuard's 423 first; this 409 is only reachable when two
+    // requests both pass the guard before either takes the lock. Two calls in a row model that race.
+    it('two back-to-back requests: the first takes the lock, the second gets 409 RESTORE_IN_PROGRESS', async () => {
+      const first = await request();
+      await expect(request()).rejects.toMatchObject({
+        status: 409,
+        response: expect.objectContaining({ code: 'RESTORE_IN_PROGRESS' }),
+      });
+      expect(redis.store.get('workbook:restore-lock:tenant-1')).toBe(first.job.id);
+      expect(jobs.save).toHaveBeenCalledTimes(1);
+    });
+
     it('checks refusals in order: stage -> errors -> confirmation -> lock', async () => {
       // Stage missing wins even with a bad confirmation and a held lock.
       staging.peek.mockResolvedValue(null);

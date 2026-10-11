@@ -1,9 +1,13 @@
 import type { EntityManager } from 'typeorm';
-import { In, Not } from 'typeorm';
+import { In } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { User } from '../../../users/entities/user.entity';
 import { UserTenant } from '../../../auth/entities/user-tenant.entity';
-import { ROLE_SWAP_ENDED, reviveMembership } from '../../../users/users.service';
+import {
+  ROLE_SWAP_ENDED,
+  countOtherMemberships,
+  reviveMembership,
+} from '../../../users/users.service';
 import { fromCell } from '../../codec/cell-format';
 import type {
   ColumnSpec,
@@ -287,10 +291,8 @@ export const usersTab: TabSpec<User, UserRow> = {
     user = user ?? (row.phone ? await m.findOne(User, { where: { phone: row.phone } }) : null);
 
     if (user) {
-      const sharedElsewhere =
-        (await m.count(UserTenant, {
-          where: { user_id: user.id, tenant_id: Not(tenantId) },
-        })) > 0;
+      // Same rule as the admin edit path (`UsersService.update`), so the two cannot drift.
+      const sharedElsewhere = (await countOtherMemberships(m, user.id, tenantId)) > 0;
 
       // Never edit identity fields of a user who belongs to another tenant
       // too: this is the safe half of "shared users keep their identity

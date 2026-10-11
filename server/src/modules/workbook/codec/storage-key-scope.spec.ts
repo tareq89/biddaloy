@@ -113,6 +113,16 @@ describe('ownKeysIn (DATA-02)', () => {
       ),
     ).toMatchObject({ error: { column: 'documents' } });
   });
+
+  // [68.1.fix] A json cell can hold an object or a number: one row error, not a TypeError.
+  it('returns a row error, not a throw, for a cell that is not a JSON list', () => {
+    expect(ownKeysIn({ key: 'tenants/b/h/f.pdf' }, 'b', 'homework', 2, attachments)).toMatchObject({
+      error: { column: 'attachments', severity: 'error', row: 2 },
+    });
+    expect(ownKeysIn(5, 'b', 'homework', 2, attachments)).toMatchObject({
+      error: { column: 'attachments' },
+    });
+  });
 });
 
 describe('rehomeStorageKey', () => {

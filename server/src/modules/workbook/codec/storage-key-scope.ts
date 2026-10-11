@@ -79,17 +79,31 @@ export function ownStorageKey(
 
 /**
  * Runs `ownStorageKey` over the `field` of every element of a JSON array cell
- * (homework `attachments[].key`, admission `documents[].storage_key`). Any element
+ * (homework `attachments[].key`, admission `documents[].storage_key`). A cell that is
+ * not an array, or any element
  * without a string key, or with an out-of-scope one, rejects the row. Warnings are
  * returned, not emitted, so the caller reports them only if the row is accepted.
  */
 export function ownKeysIn(
-  items: unknown[],
+  items: unknown,
   tenantId: string,
   tab: string,
   rowNo: number,
   opts: { column: string; field: string; area?: string },
 ): { items: unknown[]; warnings: RowError[] } | { error: RowError } {
+  // A `json` cell can hold any JSON (`{"key":"..."}`, `5`): one row error, not a TypeError.
+  if (!Array.isArray(items)) {
+    return {
+      error: {
+        tab,
+        row: rowNo,
+        column: opts.column,
+        message: `Column "${opts.column}": must be a JSON list.`,
+        severity: 'error',
+        value: JSON.stringify(items),
+      },
+    };
+  }
   const out: unknown[] = [];
   const warnings: RowError[] = [];
   for (const item of items) {

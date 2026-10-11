@@ -20,9 +20,9 @@ import { ALL_ENTITIES } from '@test/all-entities';
  * Limits:
  * - `users.email` / `users.phone` are global on purpose (one login per
  *   person, D12). `users` has no `tenant_id`, so this guard never sees it.
- * - A school table without its own `tenant_id` column is not checked. E.g.
- *   `invoices(invoice_number)` today; #2214 adds `tenant_id` and a
- *   `(tenant_id, invoice_number)` unique, after which this guard covers it.
+ * - A school table without its own `tenant_id` column is not checked.
+ *   (`invoices` was one until #2214 gave it `tenant_id` and a
+ *   `(tenant_id, invoice_number)` unique; the guard covers it now.)
  *
  * Runs against the already-migrated worker DB (no `synchronize`/`dropSchema`).
  */
