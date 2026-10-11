@@ -1,7 +1,14 @@
-import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ConflictException,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
-import { WalletTransactionKind } from '@biddaloy/shared';
+import { ApprovalScope, AuditAction, WalletTransactionKind } from '@biddaloy/shared';
+import { AuditService } from '../audit/audit.service';
 import { StudentWallet } from './entities/student-wallet.entity';
 import { WalletTransaction } from './entities/wallet-transaction.entity';
 import { Student } from '../students/entities/student.entity';
@@ -16,6 +23,8 @@ export interface WalletMoveInput {
   reversalOfId?: string | null;
   createdByUserId?: string | null;
   note?: string | null;
+  /** Only `payout` sets this: a student who has left can still be paid out. */
+  allowDeletedStudent?: boolean;
 }
 
 export interface WalletHistoryPage {
@@ -50,6 +59,7 @@ export class WalletService {
     private readonly walletRepo: Repository<StudentWallet>,
     @InjectRepository(WalletTransaction)
     private readonly transactionRepo: Repository<WalletTransaction>,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -67,6 +77,7 @@ export class WalletService {
     studentId: string,
     tenantId: string,
     manager: EntityManager,
+    allowDeleted = false,
   ): Promise<StudentWallet> {
     const lockWallet = () =>
       manager
@@ -84,6 +95,8 @@ export class WalletService {
     // remove's order and deadlock (review r2 #1).
     const existing = await lockWallet();
 
+    // `allowDeleted` is only for `payout`: money owed to a student who has
+    // left must still be payable. Everyone else keeps refusing a deleted one.
     // No wallet yet: an INSERT takes only KEY SHARE on the student, which
     // never waits for remove. FOR SHARE does: a delete waits for this new
     // wallet, or, if it went first, the row re-reads as deleted (review r1 #5).
@@ -93,6 +106,7 @@ export class WalletService {
     const student = await manager.getRepository(Student).findOne({
       where: { id: studentId, tenant_id: tenantId },
       ...(existing ? {} : { lock: { mode: 'pessimistic_read' as const } }),
+      withDeleted: allowDeleted,
     });
     if (!student) {
       throw new BadRequestException('Student not found for this tenant');
@@ -162,7 +176,12 @@ export class WalletService {
       throw new BadRequestException('Debit amount must be positive');
     }
 
-    const wallet = await this.getOrCreate(input.studentId, input.tenantId, manager);
+    const wallet = await this.getOrCreate(
+      input.studentId,
+      input.tenantId,
+      manager,
+      input.allowDeletedStudent,
+    );
     const currentBalance = Number(wallet.balance);
     if (currentBalance < input.amount) {
       throw new BadRequestException('INSUFFICIENT_WALLET_BALANCE');
@@ -186,6 +205,74 @@ export class WalletService {
     );
 
     return { ...wallet, balance: newBalance };
+  }
+
+  /**
+   * Pays wallet money out to the family as a cash refund (MON-09). The
+   * caller has already consumed a `payments.reverse` approval. Works for a
+   * student who has left (soft-deleted); 404 if the student is not in this
+   * tenant. Refuses more than the balance with 409 and writes nothing.
+   *
+   * The balance is checked here, after the wallet row lock, so two
+   * concurrent payouts serialize: the second sees the reduced balance.
+   */
+  async payout(
+    input: {
+      studentId: string;
+      tenantId: string;
+      amount: number;
+      reason: string;
+      actorUserId: string;
+      approverUserId: string;
+    },
+    manager: EntityManager,
+  ): Promise<StudentWallet> {
+    const known = await manager.getRepository(Student).exists({
+      where: { id: input.studentId, tenant_id: input.tenantId },
+      withDeleted: true,
+    });
+    if (!known) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const wallet = await this.getOrCreate(input.studentId, input.tenantId, manager, true);
+    const balance = Number(wallet.balance);
+    if (!(input.amount > 0) || input.amount > balance) {
+      throw new ConflictException({
+        code: 'WALLET_PAYOUT_EXCEEDS_BALANCE',
+        message: 'Payout must be more than 0 and no more than the wallet balance',
+        details: { balance },
+      });
+    }
+
+    const updated = await this.debit(
+      {
+        studentId: input.studentId,
+        tenantId: input.tenantId,
+        amount: input.amount,
+        kind: WalletTransactionKind.DEBIT_PAYOUT,
+        createdByUserId: input.actorUserId,
+        note: input.reason,
+        allowDeletedStudent: true,
+      },
+      manager,
+    );
+
+    await this.auditService.recordApproved(
+      {
+        action: AuditAction.UPDATE,
+        entity_type: 'StudentWallet',
+        entity_id: wallet.id,
+        tenant_id: input.tenantId,
+        performed_by_user_id: input.actorUserId,
+        approved_by_user_id: input.approverUserId,
+        approval_scope: ApprovalScope.PAYMENTS_REVERSE,
+        old_values: { balance },
+        new_values: { balance: updated.balance, payout: input.amount, reason: input.reason },
+      },
+      manager,
+    );
+    return updated;
   }
 
   /** The student's current balance, or 0 if the wallet doesn't exist yet. */

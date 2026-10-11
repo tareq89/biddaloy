@@ -14,6 +14,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { createTestModule } from '@test/helpers/module.helper';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
 import { CheckoutCartService } from './checkout-cart.service';
+import { AuditService } from '../audit/audit.service';
 import { WalletService } from './wallet.service';
 import { StudentFee } from './entities/student-fee.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
@@ -49,7 +50,11 @@ describe('CheckoutCartService (integration)', () => {
   let feeStructureRepo: Repository<FeeStructure>;
 
   beforeAll(async () => {
-    moduleRef = await createTestModule(ALL_ENTITIES, [CheckoutCartService, WalletService]);
+    moduleRef = await createTestModule(ALL_ENTITIES, [
+      CheckoutCartService,
+      WalletService,
+      AuditService,
+    ]);
     service = moduleRef.get(CheckoutCartService);
     walletService = moduleRef.get(WalletService);
     dataSource = moduleRef.get(DataSource);

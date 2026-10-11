@@ -58,7 +58,10 @@ export class LogFineResultDto {
   bill_ids: string[];
 }
 
-/** `POST /fees/fines/:id/waive` — waive all or part of one FINE bill. */
+/**
+ * `POST /fees/bills/:id/waive` (and the older `POST /fees/fines/:id/waive`) —
+ * waive all or part of one open bill of any fee type.
+ */
 export class WaiveFineDto {
   /** Defaults to the bill's current outstanding balance when omitted. */
   @IsOptional()
@@ -73,6 +76,7 @@ export class WaiveFineDto {
   reason: string;
 }
 
+/** Result of a waive; serves any bill, not only fines. */
 export class WaiveFineResultDto {
   id: string;
   amount: number;
