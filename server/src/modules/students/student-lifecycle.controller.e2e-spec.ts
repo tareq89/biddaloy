@@ -13,6 +13,8 @@ import {
   SEED_ADMIN_USER_ID,
   SEED_ADMIN_PASSWORD,
   SEED_SECTION_1_ID,
+  SEED_CLASS_1_ID,
+  SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
 
 /**
@@ -25,6 +27,8 @@ describe('StudentLifecycleController (guards)', () => {
   let token: string;
   // Global beforeEach wipes students, so each test creates its own.
   let studentId: string;
+  let ds: DataSource;
+  const TENANT_B = '00000000-0000-4000-8000-0000000002b0';
 
   const http = () => supertest(app.getHttpServer());
   const as = (req: supertest.Test, role: UserRole) =>
@@ -52,7 +56,15 @@ describe('StudentLifecycleController (guards)', () => {
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
 
-    const ds = app.get(DataSource);
+    ds = app.get(DataSource);
+    await ds.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ('${TENANT_B}', 'Lifecycle B', 'lifecycle-b', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+    );
+    await ds.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_B}', 'ADMIN', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+    );
     for (const role of [UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.ACCOUNTANT]) {
       await ds.query(
         `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
@@ -68,6 +80,8 @@ describe('StudentLifecycleController (guards)', () => {
   }, 60000);
 
   afterAll(async () => {
+    await ds.query(`DELETE FROM user_tenants WHERE tenant_id = $1`, [TENANT_B]);
+    await ds.query(`DELETE FROM schools WHERE id = $1`, [TENANT_B]);
     await app.close();
   });
 
@@ -76,6 +90,57 @@ describe('StudentLifecycleController (guards)', () => {
       .send(body)
       .expect(201);
     expect(res.body.event_type).toBe('WITHDRAWN');
+  });
+
+  async function seedBill(due: string) {
+    const [fs] = await ds.query(
+      `INSERT INTO fee_structures (fee_type, name, amount, class_id, academic_year_id, tenant_id, created_at, updated_at)
+       VALUES ('MONTHLY_TUITION', 'Tuition', 1000, $1, $2, $3, NOW(), NOW()) RETURNING id`,
+      [SEED_CLASS_1_ID, SEED_ACADEMIC_YEAR_ID, SEED_TENANT_ID],
+    );
+    const [bill] = await ds.query(
+      `INSERT INTO student_fees (student_id, academic_year_id, fee_structure_id, period_start, total_amount,
+         paid_amount, discount_amount, status, due_date, created_at, updated_at)
+       VALUES ($1, $2, $3, $4::date, 1000, 0, 0, 'PENDING', $4::date, NOW(), NOW()) RETURNING id`,
+      [studentId, SEED_ACADEMIC_YEAR_ID, fs.id, due],
+    );
+    return bill.id as string;
+  }
+  const dayOffset = (n: number) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  it('backdated leave lists the later unpaid bill and changes nothing', async () => {
+    await seedBill(dayOffset(-40));
+    const later = await seedBill(dayOffset(-5));
+    const res = await as(http().post(`/api/v1/students/${studentId}/leave`), UserRole.ADMIN)
+      .send({ ...body, occurred_on: dayOffset(-20) })
+      .expect(201);
+    expect(res.body.bills_due_after_leave).toEqual([
+      expect.objectContaining({
+        id: later,
+        fee_structure_name: 'Tuition',
+        outstanding: '1000.00',
+        period_start: dayOffset(-5),
+        due_date: dayOffset(-5),
+      }),
+    ]);
+    const [row] = await ds.query(`SELECT status FROM student_fees WHERE id = $1`, [later]);
+    expect(row.status).toBe('PENDING');
+  });
+
+  it('tenant B admin with tenant A student gets 404 and no list', async () => {
+    await seedBill(dayOffset(-5));
+    const res = await http()
+      .post(`/api/v1/students/${studentId}/leave`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', TENANT_B)
+      .set('X-Role', UserRole.ADMIN)
+      .send({ ...body, occurred_on: dayOffset(-20) })
+      .expect(404);
+    expect(res.body.bills_due_after_leave).toBeUndefined();
   });
 
   it('EXECUTIVE readmit returns 201', async () => {
