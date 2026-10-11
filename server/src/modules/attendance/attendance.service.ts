@@ -1240,13 +1240,28 @@ export class AttendanceService {
       const settings = await this.schoolsService.getResolvedSettings(tenantId);
       const policy = resolveAttendancePolicy(settings);
       const timezone = settings.region?.timezone ?? 'UTC';
-      const age = daysBetween(session.date, localToday(timezone));
+      const today = localToday(timezone);
+      const age = daysBetween(session.date, today);
       const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
 
       if (age > policy.correctionWindowDays && !hasCorrect) {
         throw new ForbiddenException({
           message: 'This record is outside the correction window',
           details: { code: 'ATTENDANCE_WINDOW_CLOSED' },
+        });
+      }
+      // Same rules as writeRegisterDay: finalizing locks the register for
+      // anyone who cannot correct, and a future day only ever holds LEAVE.
+      if (session.state === AttendanceSessionState.FINALIZED && !hasCorrect) {
+        throw new ForbiddenException({
+          message: 'This register has been finalized',
+          details: { code: 'ATTENDANCE_FINALIZED' },
+        });
+      }
+      if (session.date > today && dto.status !== AttendanceStatus.LEAVE) {
+        throw new UnprocessableEntityException({
+          message: 'Only LEAVE may be marked for a future date',
+          details: { code: 'ATTENDANCE_FUTURE_NOT_LEAVE' },
         });
       }
 
