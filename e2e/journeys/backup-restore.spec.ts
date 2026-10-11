@@ -258,7 +258,7 @@ test.describe.serial('backup and restore', () => {
       // there (it has the toast and its own inline error). Back on a shell
       // page, the bar tells the user why their save did not stick.
       // No "leave without saving?" question: the form counts the refused
-      // submit as submitted, so Cancel goes straight back.
+      // submit as submitted, so Cancel goes straight back (bug #2347).
       await page.getByRole('button', { name: t('students.form.cancelAction') }).click();
       await detail.expectLoaded(studentName);
       const bar = page.getByText(t('common.restoreBar.message'));
