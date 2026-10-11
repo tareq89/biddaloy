@@ -1,4 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
+
+// The cohort query has its own integration coverage (results.service.integration.spec.ts);
+// here it just hands back whatever the test put in `enrollmentRepo.find`.
+vi.mock('./exam-cohort', () => ({
+  loadExamCohort: async (manager: { find: () => Promise<unknown[]> }) => ({
+    enrollments: await manager.find(),
+    studentsWithResult: new Set<string>(),
+  }),
+}));
 import { ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -140,6 +149,7 @@ function makeRepos(overrides: Record<string, any> = {}) {
         ],
     ),
   };
+  enrollmentRepo.manager = { find: enrollmentRepo.find };
   const classSubjectRepo: any = {
     find: vi.fn(
       async () =>
@@ -477,25 +487,26 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
     expect(resultRepo.save).not.toHaveBeenCalled();
   });
 
-  it('removes a stale result for a student no longer computed (e.g. made INACTIVE) — pr-fix #945', async () => {
+  it('only replaces the rows of the students it recomputed — others are kept as history', async () => {
     const { service, resultRepo } = await buildService({
       exam: { status: ExamStatus.PROCESSED },
-      existingResults: [
-        { id: 'result-stu-1', student_id: 'stu-1' },
-        { id: 'result-gone', student_id: 'stu-gone' },
-      ],
+      existingResults: [{ id: 'result-stu-1', student_id: 'stu-1' }],
     });
 
     await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
 
-    // Looked up by exam, not by the recomputed students' IDs — so the
-    // student who dropped out of computeAll has their old row removed too,
-    // instead of it surviving to be published and texted.
+    // The lookup is limited to the recomputed cohort (stu-1, stu-2), so a
+    // student outside it (left, graduated) never has their row deleted.
     expect(resultRepo.find).toHaveBeenCalledWith({
-      where: { exam_id: EXAM_ID, tenant_id: TENANT_ID, deleted_at: expect.anything() },
+      where: {
+        exam_id: EXAM_ID,
+        tenant_id: TENANT_ID,
+        deleted_at: expect.anything(),
+        student_id: expect.objectContaining({ value: ['stu-1', 'stu-2'] }),
+      },
     });
     expect(resultRepo.softDelete).toHaveBeenCalledWith({
-      id: expect.objectContaining({ value: ['result-stu-1', 'result-gone'] }),
+      id: expect.objectContaining({ value: ['result-stu-1'] }),
       tenant_id: TENANT_ID,
     });
   });
