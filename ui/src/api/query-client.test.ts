@@ -117,6 +117,34 @@ describe('createAppQueryClient', () => {
     expect(toastErrorSpy).toHaveBeenCalledExactlyOnceWith("You don't have permission to do that.");
   });
 
+  it('shows the restoring toast, not the permission toast, for a 423 TENANT_RESTORING mutation', async () => {
+    await i18n.changeLanguage('en');
+    const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    const queryClient = createAppQueryClient();
+
+    await expect(
+      queryClient
+        .getMutationCache()
+        .build(queryClient, {
+          mutationFn: () => {
+            throw new ApiError({
+              statusCode: 423,
+              message: 'restoring',
+              timestamp: new Date().toISOString(),
+              path: '/x',
+              requestId: 'r1',
+              details: { code: 'TENANT_RESTORING' },
+            });
+          },
+        })
+        .execute(undefined),
+    ).rejects.toThrow();
+
+    expect(toastErrorSpy).toHaveBeenCalledExactlyOnceWith(
+      'This school is being restored from a backup. Your change was not saved. Try again in a few minutes.',
+    );
+  });
+
   it('does not toast a 403 for a mutation that handles it itself (meta.handlesForbidden)', async () => {
     const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
     const queryClient = createAppQueryClient();

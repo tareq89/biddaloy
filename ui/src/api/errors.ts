@@ -78,6 +78,17 @@ export function isTenantSuspendedError(error: unknown): boolean {
   );
 }
 
+/** [68.1.2219] A save refused while a backup restore runs: the server
+ * answers `{ statusCode: 423, details: { code: 'TENANT_RESTORING' } }`.
+ * Duck-typed like `isTenantSuspendedError`. */
+export function isTenantRestoringError(error: unknown): boolean {
+  const candidate = error as Partial<ApiError> | null | undefined;
+  return (
+    candidate?.statusCode === 423 &&
+    (candidate.details as { code?: unknown } | undefined)?.code === 'TENANT_RESTORING'
+  );
+}
+
 /** Thrown synchronously, before a request is sent, when no tenant is active.
  * Distinct from ApiError: this never reaches the network, so it has no
  * server-shaped body to wrap. */
