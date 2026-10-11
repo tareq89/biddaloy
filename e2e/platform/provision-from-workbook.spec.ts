@@ -2,7 +2,16 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import { createStudent, get, post, provisionSchool, superAdminApiSession } from '../api';
+import {
+  activateInvite,
+  createStudent,
+  E2E_PASSWORD,
+  get,
+  post,
+  provisionSchool,
+  resendSchoolAdminInvitation,
+  superAdminApiSession,
+} from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { DetailShellPage } from '../pages/detail-shell';
@@ -60,6 +69,18 @@ test.describe.serial('provision a school from a workbook', () => {
         'Source Admin',
         `workbook-source-admin-${suffix}@e2e.example.com`,
       );
+      // [68.1.22] Activate the source admin, as a real school's admin would
+      // have, so their email is verified. The exported users sheet names
+      // them, and since #2218 a restore into another school files a join
+      // request only for a VERIFIED holder; an unverified holder is refused
+      // (and currently stops the whole restore, see #2344 / #2345 N4).
+      const inviteToken = await resendSchoolAdminInvitation(
+        setupRequest,
+        superAdmin,
+        source.schoolId,
+        source.adminUserId,
+      );
+      await activateInvite(setupRequest, inviteToken, E2E_PASSWORD);
       const sourceSession = { token: superAdmin.token, tenantId: source.schoolId };
       await createStudent(setupRequest, sourceSession, studentName);
 
