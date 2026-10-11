@@ -13,6 +13,10 @@ import {
   SEED_ADMIN_USER_ID,
   SEED_ADMIN_PASSWORD,
   SEED_SECTION_1_ID,
+  SEED_SECTION_2_ID,
+  SEED_CLASS_2_ID,
+  SEED_ACADEMIC_YEAR_ID,
+  SEED_CLASS_1_ID,
 } from '@test/constants';
 
 /**
@@ -79,6 +83,7 @@ describe('Enrollments E2E — GET /enrollments/:studentId/current', () => {
       UserRole.EXECUTIVE,
       UserRole.TEACHER,
       UserRole.STUDENT,
+      UserRole.OFFICE_STAFF,
     ]) {
       await dataSource.query(
         `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
@@ -104,7 +109,13 @@ describe('Enrollments E2E — GET /enrollments/:studentId/current', () => {
       [
         SEED_ADMIN_USER_ID,
         TENANT_ID,
-        [UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.STUDENT],
+        [
+          UserRole.ACCOUNTANT,
+          UserRole.EXECUTIVE,
+          UserRole.TEACHER,
+          UserRole.STUDENT,
+          UserRole.OFFICE_STAFF,
+        ],
       ],
     );
     await app.close();
@@ -160,5 +171,72 @@ describe('Enrollments E2E — GET /enrollments/:studentId/current', () => {
       .expect(401);
 
     expect(res.body.message).toContain('is not a member of tenant');
+  });
+  // [68.3.17.1] LIFE-07 — class change / second enrollment needs PROMOTION_MANAGE.
+  describe('class-change gate', () => {
+    const api = (method: 'post' | 'patch', url: string, role: UserRole) =>
+      supertest(app.getHttpServer())
+        [method](`/api/v1/enrollments${url}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', role);
+
+    async function enroll(): Promise<string> {
+      const res = await api('post', '', UserRole.ADMIN)
+        .send({
+          student_id: studentId,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        })
+        .expect(201);
+      return res.body.id;
+    }
+
+    it.each([UserRole.ACCOUNTANT, UserRole.OFFICE_STAFF])(
+      '%s POST /enrollments for an already-enrolled student -> 403',
+      async (role) => {
+        await enroll();
+        const res = await api('post', '', role)
+          .send({
+            student_id: studentId,
+            class_id: SEED_CLASS_2_ID,
+            section_id: SEED_SECTION_2_ID,
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          })
+          .expect(403);
+        expect(res.body.details.code).toBe('ENROLLMENT_CLASS_CHANGE_NEEDS_PROMOTION');
+      },
+    );
+
+    it.each([UserRole.ACCOUNTANT, UserRole.OFFICE_STAFF])(
+      '%s PATCH with a new class_id -> 403',
+      async (role) => {
+        const id = await enroll();
+        await api('patch', `/${id}`, role)
+          .send({ class_id: SEED_CLASS_2_ID, section_id: SEED_SECTION_2_ID })
+          .expect(403);
+      },
+    );
+
+    it('ACCOUNTANT section-only PATCH -> 200', async () => {
+      const id = await enroll();
+      await api('patch', `/${id}`, UserRole.ACCOUNTANT)
+        .send({ section_id: SEED_SECTION_1_ID })
+        .expect(200);
+    });
+
+    it('ADMIN class change -> 200', async () => {
+      const id = await enroll();
+      await api('patch', `/${id}`, UserRole.ADMIN)
+        .send({ class_id: SEED_CLASS_2_ID, section_id: SEED_SECTION_2_ID })
+        .expect(200);
+    });
+
+    it('an enrollment id from another tenant -> 404', async () => {
+      await api('patch', '/00000000-0000-4000-8000-0000000000aa', UserRole.ADMIN)
+        .send({ section_id: SEED_SECTION_1_ID })
+        .expect(404);
+    });
   });
 });
