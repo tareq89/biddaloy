@@ -645,22 +645,6 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
       ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold STUDENT_READ) joined; COMMITTEE excluded (no student PII).',
   },
   {
-    controller: 'CommunicationsController',
-    method: 'POST',
-    path: '/communications/reminder/single/:studentId/preview',
-    reason:
-      'fee-reminder sending is a front-office action; TEACHER lacks COMMUNICATION_SEND, so it cannot send reminders' +
-      ' #1364 OFFICE_STAFF joined (holds COMMUNICATION_SEND; front-office action); EXAM_CONTROLLER/COMMITTEE lack it.',
-  },
-  {
-    controller: 'CommunicationsController',
-    method: 'POST',
-    path: '/communications/reminder/single/:studentId',
-    reason:
-      'fee-reminder sending is a front-office action; TEACHER lacks COMMUNICATION_SEND, so it cannot send reminders' +
-      ' #1364 OFFICE_STAFF joined (holds COMMUNICATION_SEND; front-office action); EXAM_CONTROLLER/COMMITTEE lack it.',
-  },
-  {
     controller: 'AttendanceController',
     method: 'GET',
     path: '/attendance/my-sections',

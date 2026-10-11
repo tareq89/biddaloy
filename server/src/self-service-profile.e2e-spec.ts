@@ -163,6 +163,7 @@ describe('[5.4a] Self-service profile', () => {
       `UPDATE users SET email = $2, phone = NULL, full_name = 'Profile Parent' WHERE id = $1`,
       [PARENT_USER_ID, PARENT_EMAIL],
     );
+    await dataSource.query(`UPDATE users SET phone = NULL WHERE id = $1`, [LONELY_USER_ID]);
   });
 
   afterAll(async () => {
@@ -286,10 +287,12 @@ describe('[5.4a] Self-service profile', () => {
     });
 
     // The admin route is untouched by this contract change — only the
-    // caller's own `/users/me` lost email/phone.
+    // caller's own `/users/me` lost email/phone. These use LONELY (one school):
+    // PARENT also belongs to tenant B, and an admin may not retarget a login
+    // shared with another school (409 SHARED_IDENTITY, #2209).
     it('still round-trips a valid BD phone through the admin PATCH /users/:id', async () => {
       const res = await http()
-        .patch(`${API}/users/${PARENT_USER_ID}`)
+        .patch(`${API}/users/${LONELY_USER_ID}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ phone: '01812345678' })
@@ -297,7 +300,7 @@ describe('[5.4a] Self-service profile', () => {
 
       expect(res.body.phone).toBe('01812345678');
       const rows = await dataSource.query(`SELECT phone FROM users WHERE id = $1`, [
-        PARENT_USER_ID,
+        LONELY_USER_ID,
       ]);
       expect(rows[0].phone).toBe('01812345678');
     });
@@ -319,7 +322,7 @@ describe('[5.4a] Self-service profile', () => {
     it('does not accept current_password on the ADMIN route (different trust model)', async () => {
       // forbidNonWhitelisted: the admin DTO has no such field.
       await http()
-        .patch(`${API}/users/${PARENT_USER_ID}`)
+        .patch(`${API}/users/${LONELY_USER_ID}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ phone: '+8801817777777', current_password: SEED_ADMIN_PASSWORD })
@@ -328,7 +331,7 @@ describe('[5.4a] Self-service profile', () => {
       // ...and an admin still changes someone else's identifier with no
       // password at all.
       await http()
-        .patch(`${API}/users/${PARENT_USER_ID}`)
+        .patch(`${API}/users/${LONELY_USER_ID}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ phone: '+8801817777777' })
