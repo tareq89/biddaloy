@@ -15,7 +15,12 @@ import {
 } from './fee-generation.service';
 import { Student } from '../students/entities/student.entity';
 import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
-import { FEES_DAILY_CRON, FEES_DAILY_JOB_ID, FEES_DAILY_QUEUE } from './fees.constants';
+import {
+  FEES_DAILY_CRON,
+  FEES_DAILY_JOB_ID,
+  FEES_DAILY_QUEUE,
+  FEES_DAILY_RESTORE_RETRY_MS,
+} from './fees.constants';
 import { LateFeeService } from './late-fee.service';
 import { FineSweepService } from './fines/fine-sweep.service';
 import { applyProgramAudience } from './program-audience';
@@ -176,9 +181,11 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
    * (`onModuleInit`, no `job.data`) sweeps every active tenant; a manual
    * `run-now` job (`runNow` above, `job.data.tenantId` set) sweeps only
    * the caller's own tenant — same per-tenant `runTenant` either way.
+   * A `restore-catch-up` job also carries `today`: the day the school was
+   * skipped on, so that day's schedules still fire (see `runTenant`).
    */
-  async process(job?: Job<{ tenantId?: string } | undefined>): Promise<void> {
-    const today = todayInSchoolTz();
+  async process(job?: Job<{ tenantId?: string; today?: string } | undefined>): Promise<void> {
+    const today = job?.data?.today ?? todayInSchoolTz();
     const requestedTenantId = job?.data?.tenantId;
 
     if (requestedTenantId) {
@@ -203,9 +210,19 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
   }
 
   private async runTenant(tenantId: string, today: string): Promise<void> {
-    // A restore is rewriting this school's data; the next daily run picks it up.
+    // A restore is rewriting this school's data, so skip it for now. The next
+    // nightly run would NOT pick this day up (`isDue` matches only the exact
+    // firing day), so re-queue the school for this same `today` and keep
+    // retrying until the lock clears (its 1 h TTL bounds the loop).
+    // `last_run_period` keeps the catch-up exactly-once; the late-fee and fine
+    // sweeps below are idempotent for a past `today` too.
     if (await this.tenantStatus.isRestoring(tenantId)) {
-      this.logger.log(`fees-daily: skipped tenant ${tenantId}, restore running`);
+      await this.queue.add(
+        'restore-catch-up',
+        { tenantId, today },
+        { delay: FEES_DAILY_RESTORE_RETRY_MS, removeOnComplete: true, removeOnFail: 100 },
+      );
+      this.logger.log(`fees-daily: tenant ${tenantId} restoring, catch-up for ${today} re-queued`);
       return;
     }
     const schedules = await this.findDueSchedules(tenantId, today);

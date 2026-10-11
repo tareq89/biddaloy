@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { Repository, DataSource } from 'typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -281,6 +281,58 @@ describe('FeesDailyScheduler (integration)', () => {
 
     await build(false).process({ data: { tenantId: TENANT_ID } } as any);
     expect(await studentFeeRepo.find()).toHaveLength(1);
+  });
+
+  /**
+   * [68.1.fix] Review finding 2: `isDue` matches only the exact firing day, so a
+   * school skipped on its due day must be re-queued for THAT day, or the whole
+   * month's bills are lost. The catch-up bills it the next day, exactly once.
+   */
+  it('a restore on the due day re-queues the school, and the catch-up bills it afterwards exactly once', async () => {
+    const structure = await structureRepo.save(makeStructure());
+    await studentRepo.save(makeStudent());
+    await createDueSchedule({ fee_structure_ids: [structure.id] });
+    const dueDay = todayInSchoolTz();
+    const added: { name: string; data: any; opts: any }[] = [];
+    const queue = {
+      upsertJobScheduler: async () => undefined,
+      add: async (name: string, data: any, opts: any) => {
+        added.push({ name, data, opts });
+      },
+    } as any;
+    const schoolsService = { findAll: async () => [{ id: TENANT_ID, status: 'ACTIVE' }] } as any;
+    const build = (restoring: boolean) =>
+      new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService, {
+        isRestoring: async () => restoring,
+      } as any);
+
+    // 00:30 on the due day, restore running: nothing billed, catch-up queued for the due day.
+    await build(true).process({ data: undefined } as any);
+    expect(await studentFeeRepo.find()).toHaveLength(0);
+    expect(added).toHaveLength(1);
+    expect(added[0].name).toBe('restore-catch-up');
+    expect(added[0].data).toEqual({ tenantId: TENANT_ID, today: dueDay });
+    expect(added[0].opts.delay).toBeGreaterThan(0);
+
+    // The catch-up fires while the restore is still going: re-queued again, still for the due day.
+    await build(true).process({ data: added[0].data } as any);
+    expect(added).toHaveLength(2);
+    expect(added[1].data).toEqual({ tenantId: TENANT_ID, today: dueDay });
+
+    // Restore over, and it is already the next day: the catch-up still bills the due day.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(Date.now() + 24 * 60 * 60 * 1000);
+      await build(false).process({ data: added[1].data } as any);
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+
+      // Exactly once: a duplicate catch-up does not bill again.
+      await build(false).process({ data: added[1].data } as any);
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(added).toHaveLength(2);
   });
 
   it('runs a due schedule and writes a FeeGeneration row with source SCHEDULE, notify_families threaded, last_run_period set', async () => {

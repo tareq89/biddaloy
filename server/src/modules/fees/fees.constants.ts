@@ -5,5 +5,8 @@ export const FEES_DAILY_QUEUE = 'fees-daily';
  * restart dedupes instead of piling up duplicate repeatable jobs. */
 export const FEES_DAILY_JOB_ID = 'fees-daily-run-schedules';
 
+/** [68.1.fix] How long a school skipped for a running restore waits before its catch-up run. */
+export const FEES_DAILY_RESTORE_RETRY_MS = 15 * 60 * 1000;
+
 /** 00:30 in `SCHOOL_TZ` (`server/src/common/time.ts`), daily. */
 export const FEES_DAILY_CRON = '30 0 * * *';
