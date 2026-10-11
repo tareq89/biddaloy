@@ -79,10 +79,13 @@ const SENDABLE_MEDIUMS = ['SMS', 'WHATSAPP', 'EMAIL'] as const;
 type SendableMedium = (typeof SENDABLE_MEDIUMS)[number];
 
 /** Address a guardian is reachable at for the chosen channel — email for
- * EMAIL, phone otherwise. `null` means "no address on file", which the
+ * EMAIL, phone (else alternate phone) otherwise, the server's
+ * `addressForMedium` rule. `null` means "no address on file", which the
  * picker shows rather than silently prefilling nothing. */
 function guardianAddressFor(guardian: Guardian, medium: SendableMedium): string | null {
-  return medium === 'EMAIL' ? guardian.email : guardian.phone;
+  return medium === 'EMAIL'
+    ? guardian.email || null
+    : guardian.phone || guardian.alternate_phone || null;
 }
 
 function SendMessageForm() {
