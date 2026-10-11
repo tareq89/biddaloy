@@ -27,6 +27,8 @@ import { StudentPublicExamsService } from './student-public-exams.service';
 import { StudentPublicExamsController } from './student-public-exams.controller';
 import { StudentPhotoController } from './student-photo.controller';
 import { StudentPhotoService } from './student-photo.service';
+import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { StorageModule } from '../storage/storage.module';
 
 @Module({
@@ -41,6 +43,8 @@ import { StorageModule } from '../storage/storage.module';
       StudentLifecycleEvent,
       StudentNote,
       StudentPublicExam,
+      // [68.3.01] for TeacherScopeService below.
+      TeacherClassSection,
     ]),
     AuditModule,
     StorageModule,
@@ -54,6 +58,9 @@ import { StorageModule } from '../storage/storage.module';
     GuardianService,
     StudentBulkUploadService,
     FamilyAccessService,
+    // Provided here, not via ClassModule: ClassModule -> SchoolsModule -> ... -> StudentModule is a
+    // load-order cycle. The service is stateless (two repositories), so a second instance is harmless.
+    TeacherScopeService,
     StudentLifecycleService,
     StudentNotesService,
     StudentPublicExamsService,

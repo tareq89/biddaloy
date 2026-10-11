@@ -28,6 +28,7 @@ import { ResultSmsService } from './result-sms.service';
 import { ProcessExamDto } from './dto/results.dto';
 import { ApprovalScope, Permission, UserRole, JwtPayload, isGuardianRole } from '@biddaloy/shared';
 import { FamilyAccessService } from '../students/family-access.service';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 
 @ApiTags('results')
 @ApiTenantAuth()
@@ -37,6 +38,7 @@ export class ResultsController {
   constructor(
     private readonly resultsService: ResultsService,
     private readonly resultSmsService: ResultSmsService,
+    private readonly teacherScope: TeacherScopeService,
   ) {}
 
   private requireApproval(request: Request): ApprovalContext {
@@ -59,11 +61,18 @@ export class ResultsController {
   )
   @RequirePermissions(Permission.RESULT_READ)
   @ApiOperation({ summary: "This exam's per-student results, for the results panel." })
-  list(
+  async list(
     @Param('examId', ParseUUIDPipe) examId: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.resultsService.list(examId, tenant.id);
+    const rows = await this.resultsService.list(examId, tenant.id);
+    const scope = await this.teacherScope.sectionScope({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    return scope ? rows.filter((r) => r.section_id && scope.includes(r.section_id)) : rows;
   }
 
   @Get(':studentId')
@@ -82,7 +91,14 @@ export class ResultsController {
     @Param('examId', ParseUUIDPipe) examId: string,
     @Param('studentId', ParseUUIDPipe) studentId: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
+    await this.teacherScope.assertCanSeeStudent({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+      studentId,
+    });
     const detail = await this.resultsService.getStudentResult(examId, studentId, tenant.id);
     if (!detail) {
       throw new NotFoundException(`No result for student "${studentId}" on exam "${examId}"`);
@@ -186,6 +202,7 @@ export class StudentResultsController {
   constructor(
     private readonly resultsService: ResultsService,
     private readonly familyAccess: FamilyAccessService,
+    private readonly teacherScope: TeacherScopeService,
   ) {}
 
   @Get()
@@ -200,6 +217,12 @@ export class StudentResultsController {
     @CurrentUser() user: JwtPayload,
   ) {
     await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
+    await this.teacherScope.assertCanSeeStudent({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+      studentId,
+    });
     return this.resultsService.listForStudent(studentId, tenant.id, isGuardianRole(tenant.role));
   }
 
@@ -216,6 +239,12 @@ export class StudentResultsController {
     @CurrentUser() user: JwtPayload,
   ) {
     await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
+    await this.teacherScope.assertCanSeeStudent({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+      studentId,
+    });
     const card = await this.resultsService.getStudentResultCard(
       examId,
       studentId,
