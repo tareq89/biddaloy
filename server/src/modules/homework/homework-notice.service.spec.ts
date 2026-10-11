@@ -207,7 +207,7 @@ describe('HomeworkNoticeService', () => {
       expect(logRepo.save).toHaveBeenCalledTimes(1);
       const saved = logRepo.save.mock.calls[0][0];
       expect(saved.student_id).toBe('s-1');
-      expect(saved.message_body).toContain('assigned to Rahim Uddin, Karima Uddin');
+      expect(saved.message_body).toContain('assigned to Rahim Uddin and Karima Uddin');
     });
 
     it("a WITHDRAWN student's guardian gets no assignment notice (ACTIVE filter)", async () => {
@@ -287,17 +287,28 @@ describe('HomeworkNoticeService', () => {
       });
     });
 
-    it('assignment notice is in Bangla for bn-BD', async () => {
+    // #2399 H1: Bangla name, Bangla date and the Bangla "ও" join, like AbsenceNoticeService.
+    it('assignment notice is in Bangla for bn-BD: Bangla names joined with ও, Bangla date', async () => {
+      const shared = guardian();
+      studentRepo.find.mockResolvedValue([
+        student({ id: 's-1', full_name_bn: 'রহিম উদ্দিন', guardians: [shared] }),
+        student({
+          id: 's-2',
+          full_name: 'Karima Uddin',
+          full_name_bn: 'করিমা উদ্দিন',
+          guardians: [shared],
+        }),
+      ]);
       await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
       expect(logRepo.save.mock.calls[0][0].message_body).toBe(
-        'প্রিয় অভিভাবক, Rahim Uddin-এর জন্য নতুন বাড়ির কাজ "Chapter 3 exercises" দেওয়া হয়েছে, জমার শেষ তারিখ 2026-01-08।',
+        'প্রিয় অভিভাবক, রহিম উদ্দিন ও করিমা উদ্দিন-এর জন্য নতুন বাড়ির কাজ "Chapter 3 exercises" দেওয়া হয়েছে, জমার শেষ তারিখ ৮ জানুয়ারি।',
       );
     });
 
-    it('defaulter notice is in Bangla for bn-BD', async () => {
+    it('defaulter notice is in Bangla for bn-BD, falling back to the English name when there is no Bangla one', async () => {
       await service.notifyDefaulters(ASSIGNMENT as never, HOMEWORK as never, [student()] as never);
       expect(logRepo.save.mock.calls[0][0].message_body).toBe(
-        'প্রিয় অভিভাবক, Rahim Uddin-এর বাড়ির কাজ "Chapter 3 exercises" (শেষ তারিখ 2026-01-08) এখনও জমা হয়নি।',
+        'প্রিয় অভিভাবক, Rahim Uddin-এর বাড়ির কাজ "Chapter 3 exercises" (শেষ তারিখ ৮ জানুয়ারি) এখনও জমা হয়নি।',
       );
     });
   });
