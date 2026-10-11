@@ -231,14 +231,14 @@ describe('ApplicantReviewService', () => {
   });
 
   describe('admit', () => {
-    it('creates exactly one student and reuses an existing guardian by phone', async () => {
+    it('LINK_EXISTING creates exactly one student and links the matched guardian', async () => {
       applicantRepo.findOne
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.SHORTLISTED }))
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.SHORTLISTED }))
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
       guardianService.findByPhone.mockResolvedValueOnce({ id: 'guardian-existing' });
 
-      await service.admit('applicant-1', {}, TENANT_A, REVIEWER);
+      await service.admit('applicant-1', { guardian_choice: 'LINK_EXISTING' }, TENANT_A, REVIEWER);
 
       expect(guardianService.findByPhone).toHaveBeenCalledWith(
         '01700000000',
@@ -264,6 +264,52 @@ describe('ApplicantReviewService', () => {
         'Class 1 Admission',
       );
       expect(setLockMock).toHaveBeenCalledWith('pessimistic_write');
+    });
+
+    it('admit with a matching guardian and no choice throws GUARDIAN_MATCH_NEEDS_CHOICE', async () => {
+      applicantRepo.findOne
+        .mockResolvedValueOnce(makeApplicant())
+        .mockResolvedValueOnce(makeApplicant());
+      guardianService.findByPhone.mockResolvedValueOnce({ id: 'guardian-existing' });
+
+      const err = await service.admit('applicant-1', {}, TENANT_A, REVIEWER).catch((e) => e);
+
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('GUARDIAN_MATCH_NEEDS_CHOICE');
+      expect(studentService.create).not.toHaveBeenCalled();
+    });
+
+    it('CREATE_NEW creates a new guardian even when one matches', async () => {
+      applicantRepo.findOne
+        .mockResolvedValueOnce(makeApplicant())
+        .mockResolvedValueOnce(makeApplicant())
+        .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
+      guardianService.findByPhone.mockResolvedValueOnce({ id: 'guardian-existing' });
+      guardianService.create.mockResolvedValueOnce({ id: 'guardian-new' });
+
+      await service.admit('applicant-1', { guardian_choice: 'CREATE_NEW' }, TENANT_A, REVIEWER);
+
+      expect(guardianService.create).toHaveBeenCalledTimes(1);
+      expect(studentService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ guardian_ids: ['guardian-new'] }),
+        TENANT_A,
+        expect.anything(),
+      );
+    });
+
+    it('LINK_EXISTING with no match throws GUARDIAN_MATCH_CHANGED', async () => {
+      applicantRepo.findOne
+        .mockResolvedValueOnce(makeApplicant())
+        .mockResolvedValueOnce(makeApplicant());
+      guardianService.findByPhone.mockResolvedValueOnce(null);
+
+      const err = await service
+        .admit('applicant-1', { guardian_choice: 'LINK_EXISTING' }, TENANT_A, REVIEWER)
+        .catch((e) => e);
+
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('GUARDIAN_MATCH_CHANGED');
+      expect(studentService.create).not.toHaveBeenCalled();
     });
 
     it('creates a new guardian when the phone does not match an existing one', async () => {

@@ -143,6 +143,22 @@ export class StudentBulkUploadService {
       try {
         const row = await this.validateRow(parsed, classSections, rollsSeenThisRequest);
         staged.push(row);
+        // [LIFE-09] Joining an existing family is allowed but visible: committing after
+        // seeing this warning is the staff confirmation.
+        for (const phone of [row.guardian1_phone, row.guardian2_phone]) {
+          if (!phone) continue;
+          const match = await this.guardianService.findByPhone(phone, tenantId);
+          if (match) {
+            errors.push({
+              row: row.rowNumber,
+              tab: undefined,
+              column: phone === row.guardian1_phone ? 'guardian1_phone' : 'guardian2_phone',
+              value: phone,
+              severity: 'warning',
+              message: `Will be linked to existing guardian "${match.full_name}"`,
+            });
+          }
+        }
         preview.push({
           row: row.rowNumber,
           student_name: row.student_name,
@@ -179,10 +195,11 @@ export class StudentBulkUploadService {
       });
     }
 
+    const hardErrorCount = errors.filter((e) => e.severity === 'error').length;
     const stagedPayload: StagedBulkUpload = {
       filename: file.originalname,
       rows: staged,
-      hardErrorCount: errors.length,
+      hardErrorCount,
     };
     const { stagingId, expiresAt } = await this.staging.stage(
       tenantId,
@@ -198,7 +215,7 @@ export class StudentBulkUploadService {
       // payload — the admin is confirming a shape, not proofreading.
       preview: preview.slice(0, 20),
       errors,
-      hard_error_count: errors.length,
+      hard_error_count: hardErrorCount,
       seats: { ...seatUsage, new_rows: staged.length },
     };
   }

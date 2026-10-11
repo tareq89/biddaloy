@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, EntityManager, Not, In } from 'typeorm';
-import { AdmissionApplicantStatus, AdmissionEvaluationDecision } from '@biddaloy/shared';
+import {
+  AdmissionApplicantStatus,
+  AdmissionEvaluationDecision,
+  type AdmissionGuardianMatchDto,
+} from '@biddaloy/shared';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
 import { AdmissionIntake } from './entities/admission-intake.entity';
@@ -37,6 +41,24 @@ export class ApplicantReviewService {
     private readonly guardianService: GuardianService,
     private readonly notificationService: AdmissionNotificationService,
   ) {}
+
+  /** [LIFE-09] The guardian (if any) this applicant's phone would attach to on admit. */
+  async guardianMatch(id: string, tenantId: string): Promise<AdmissionGuardianMatchDto> {
+    const applicant = await this.findOne(id, tenantId);
+    const found = await this.guardianService.findByPhoneWithStudents(
+      applicant.guardian_phone,
+      tenantId,
+    );
+    if (!found) return { guardian: null };
+    return {
+      guardian: {
+        id: found.id,
+        full_name: found.full_name,
+        phone: found.phone ?? applicant.guardian_phone,
+        student_names: (found.students ?? []).filter((s) => !s.deleted_at).map((s) => s.full_name),
+      },
+    };
+  }
 
   private async findOne(id: string, tenantId: string): Promise<AdmissionApplicant> {
     const applicant = await this.applicants.findOne({
@@ -214,20 +236,35 @@ export class ApplicantReviewService {
         tenantId,
         manager,
       );
-      const guardianId =
-        existingGuardian?.id ??
-        (
-          await this.guardianService.create(
-            {
-              full_name: applicant.guardian_name,
-              phone: applicant.guardian_phone,
-              email: applicant.guardian_email ?? undefined,
-            },
-            tenantId,
-            manager,
-            reviewerUserId,
-          )
-        ).id;
+      // [LIFE-09] A phone match is never linked silently: staff pick link or create-new.
+      if (existingGuardian && !dto.guardian_choice) {
+        throw new ConflictException({
+          message:
+            'This phone number belongs to an existing guardian. Choose whether to link this child to that family or create a new guardian.',
+          details: { code: 'GUARDIAN_MATCH_NEEDS_CHOICE', guardian_id: existingGuardian.id },
+        });
+      }
+      if (dto.guardian_choice === 'LINK_EXISTING' && !existingGuardian) {
+        throw new ConflictException({
+          message: 'The matching guardian changed. Reload and choose again.',
+          details: { code: 'GUARDIAN_MATCH_CHANGED' },
+        });
+      }
+      const linked = !!existingGuardian && dto.guardian_choice === 'LINK_EXISTING';
+      const guardianId = linked
+        ? existingGuardian.id
+        : (
+            await this.guardianService.create(
+              {
+                full_name: applicant.guardian_name,
+                phone: applicant.guardian_phone,
+                email: applicant.guardian_email ?? undefined,
+              },
+              tenantId,
+              manager,
+              reviewerUserId,
+            )
+          ).id;
 
       await this.studentService.create(
         {
@@ -247,7 +284,7 @@ export class ApplicantReviewService {
           tenant_id: tenantId,
           applicant_id: id,
           reviewer_user_id: reviewerUserId,
-          notes: dto.notes ?? 'Admitted',
+          notes: dto.notes ?? (linked ? 'Admitted (linked to existing guardian)' : 'Admitted'),
           decision: 'ADMIT',
         }),
       );
