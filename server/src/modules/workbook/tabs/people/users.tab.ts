@@ -1,6 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { In } from 'typeorm';
-import { UserRole } from '@biddaloy/shared';
+import { AuthTokenPurpose, UserRole } from '@biddaloy/shared';
+import { AuthToken } from '../../../account-access/entities/auth-token.entity';
 import { User } from '../../../users/entities/user.entity';
 import { UserTenant } from '../../../auth/entities/user-tenant.entity';
 import {
@@ -317,6 +318,23 @@ export const usersTab: TabSpec<User, UserRow> = {
             `User "${row.email ?? row.phone}": email/phone already used by another account.`,
           );
         }
+        // The workbook is the authority on role (one row per person), so a corrected restore
+        // revokes this person's earlier restore-filed request for another role. Requests
+        // with an actor, a guardian or the provisioned tag were filed elsewhere: left alone.
+        await m
+          .createQueryBuilder()
+          .update(AuthToken)
+          .set({ revoked_at: new Date() })
+          .where('user_id = :userId AND tenant_id = :tenantId AND purpose = :purpose', {
+            userId: user.id,
+            tenantId,
+            purpose: AuthTokenPurpose.JOIN_SCHOOL,
+          })
+          .andWhere('consumed_at IS NULL AND revoked_at IS NULL AND created_by_user_id IS NULL')
+          .andWhere(`metadata->>'guardian_id' IS NULL`)
+          .andWhere(`COALESCE(metadata->>'provisioned', 'false') <> 'true'`)
+          .andWhere(`metadata->>'role' <> :role`, { role: row.role })
+          .execute();
         await insertJoinRequest(m, {
           userId: user.id,
           tenantId,
