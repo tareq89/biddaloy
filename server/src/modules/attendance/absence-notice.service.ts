@@ -12,6 +12,7 @@ import {
   CommunicationTrigger,
   ReminderBatchStatus,
 } from '@biddaloy/shared';
+import { resolveAttendancePolicy } from './attendance-policy.util';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -31,6 +32,7 @@ import {
   renderReminderTemplate,
   ReminderTemplateVars,
 } from '../communications/reminder-template.util';
+import { resolveFeeNotificationLocale } from '../communications/fee-notification-template.util';
 import { AuditService } from '../audit/audit.service';
 import { SchoolsService } from '../schools/schools.service';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
@@ -83,6 +85,8 @@ interface AbsenceRecipientResolution {
   schoolName: string;
   recipients: AbsenceResolvedRecipient[];
   skipped: AbsenceSkippedRecipient[];
+  /** The absence template chosen for the school's locale. */
+  template: string;
 }
 
 /** Kept short and placeholder-only — SMS segments cost money, per the
@@ -94,6 +98,16 @@ interface AbsenceRecipientResolution {
 export const DEFAULT_ABSENCE_NOTICE_TEMPLATE =
   'Dear Guardian, {{student_names}} was marked absent today ({{date}}) in ' +
   '{{section_name}} at {{school_name}}. If this is a mistake, please contact the school.';
+
+/** [D15] Bangla-locale schools get the Bangla text. */
+export const ABSENCE_NOTICE_TEMPLATE_BN =
+  'প্রিয় অভিভাবক, {{student_names}} আজ ({{date}}) {{school_name}}-এর {{section_name}}-এ অনুপস্থিত ছিল। ভুল হলে স্কুলে যোগাযোগ করুন।';
+
+/** [D16] Sent when a teacher corrects a child to not-absent after the notice went out. */
+const ABSENCE_CORRECTION_TEMPLATE_EN =
+  'Correction: {{student_names}} was marked present today ({{date}}). Sorry for the earlier message.';
+const ABSENCE_CORRECTION_TEMPLATE_BN =
+  'সংশোধন: {{student_names}} আজ ({{date}}) উপস্থিত ছিল। আগের বার্তার জন্য দুঃখিত।';
 
 /**
  * Builds and sends the guardian-facing "your child was marked absent today"
@@ -152,17 +166,25 @@ export class AbsenceNoticeService {
       where: { tenant_id: tenantId, section_id: sectionId, date, period_no: IsNull() },
     });
     if (!session || session.state !== AttendanceSessionState.FINALIZED) {
-      return { session, className, sectionName, schoolName, recipients: [], skipped: [] };
+      return {
+        session,
+        className,
+        sectionName,
+        schoolName,
+        recipients: [],
+        skipped: [],
+        template: await this.absenceTemplate(tenantId),
+      };
     }
 
-    const { recipients, skipped } = await this.resolveAbsentees(
+    const { recipients, skipped, template } = await this.resolveAbsentees(
       this.dataSource.manager,
       tenantId,
       session,
       sectionName,
       schoolName,
     );
-    return { session, className, sectionName, schoolName, recipients, skipped };
+    return { session, className, sectionName, schoolName, recipients, skipped, template };
   }
 
   /**
@@ -184,15 +206,28 @@ export class AbsenceNoticeService {
     session: AttendanceSession,
     sectionName: string,
     schoolName: string,
-  ): Promise<{ recipients: AbsenceResolvedRecipient[]; skipped: AbsenceSkippedRecipient[] }> {
+    /** One student, in whatever status they have now — used by corrections. */
+    only?: { studentId: string; status: AttendanceStatus },
+  ): Promise<{
+    recipients: AbsenceResolvedRecipient[];
+    skipped: AbsenceSkippedRecipient[];
+    template: string;
+  }> {
     const recordRepo = manager.getRepository(AttendanceRecord);
     const studentRepo = manager.getRepository(Student);
+    const locale = await this.noticeLocale(tenantId);
+    const template = locale === 'bn' ? ABSENCE_NOTICE_TEMPLATE_BN : DEFAULT_ABSENCE_NOTICE_TEMPLATE;
 
     const absentRecords = await recordRepo.find({
-      where: { session_id: session.id, tenant_id: tenantId, status: AttendanceStatus.ABSENT },
+      where: {
+        session_id: session.id,
+        tenant_id: tenantId,
+        status: only?.status ?? AttendanceStatus.ABSENT,
+        ...(only ? { student_id: only.studentId } : {}),
+      },
     });
     if (absentRecords.length === 0) {
-      return { recipients: [], skipped: [] };
+      return { recipients: [], skipped: [], template };
     }
 
     const studentIds = absentRecords.map((r) => r.student_id);
@@ -267,8 +302,10 @@ export class AbsenceNoticeService {
       students: entry.students,
       vars: {
         student_names: joinStudentNames(
-          entry.students.map((s) => s.full_name),
-          'en-US',
+          entry.students.map((s) =>
+            locale === 'bn' ? (s.full_name_bn ?? s.full_name) : s.full_name,
+          ),
+          locale === 'bn' ? 'bn-BD' : 'en-US',
         ),
         date: session.date,
         section_name: sectionName,
@@ -276,7 +313,18 @@ export class AbsenceNoticeService {
       },
     }));
 
-    return { recipients, skipped };
+    return { recipients, skipped, template };
+  }
+
+  private async noticeLocale(tenantId: string) {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    return resolveFeeNotificationLocale(settings.region?.locale);
+  }
+
+  private async absenceTemplate(tenantId: string): Promise<string> {
+    return (await this.noticeLocale(tenantId)) === 'bn'
+      ? ABSENCE_NOTICE_TEMPLATE_BN
+      : DEFAULT_ABSENCE_NOTICE_TEMPLATE;
   }
 
   private async loadSectionContext(
@@ -316,7 +364,7 @@ export class AbsenceNoticeService {
     userAgent: string | null;
   }): Promise<AbsenceNoticePreviewResponseDto> {
     const { tenantId, sectionId, date, userId, ip, userAgent } = params;
-    const { session, recipients, skipped } = await this.buildRecipients({
+    const { session, recipients, skipped, template } = await this.buildRecipients({
       tenantId,
       sectionId,
       date,
@@ -349,10 +397,10 @@ export class AbsenceNoticeService {
         address: r.address,
         student_ids: r.students.map((s) => s.id),
         student_names: r.students.map((s) => s.full_name),
-        message_body: renderReminderTemplate(DEFAULT_ABSENCE_NOTICE_TEMPLATE, r.vars),
+        message_body: renderReminderTemplate(template, r.vars),
       })),
       skipped,
-      message_preview: DEFAULT_ABSENCE_NOTICE_TEMPLATE,
+      message_preview: template,
     };
   }
 
@@ -390,16 +438,26 @@ export class AbsenceNoticeService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!session) {
-        return { batch: null, recipients: [], skipped_reason: 'no_session' as const };
+        return { batch: null, recipients: [], template: '', skipped_reason: 'no_session' as const };
       }
       if (session.state !== AttendanceSessionState.FINALIZED) {
-        return { batch: null, recipients: [], skipped_reason: 'not_finalized' as const };
+        return {
+          batch: null,
+          recipients: [],
+          template: '',
+          skipped_reason: 'not_finalized' as const,
+        };
       }
       if (session.notified_at) {
-        return { batch: null, recipients: [], skipped_reason: 'already_notified' as const };
+        return {
+          batch: null,
+          recipients: [],
+          template: '',
+          skipped_reason: 'already_notified' as const,
+        };
       }
 
-      const { recipients, skipped } = await this.resolveAbsentees(
+      const { recipients, skipped, template } = await this.resolveAbsentees(
         manager,
         tenantId,
         session,
@@ -417,7 +475,7 @@ export class AbsenceNoticeService {
               ? ReminderBatchStatus.COMPLETED
               : ReminderBatchStatus.PROCESSING,
           total_recipients: recipients.length,
-          message_template: DEFAULT_ABSENCE_NOTICE_TEMPLATE,
+          message_template: template,
           initiated_by_user_id: initiatedByUserId,
           filters_applied: { purpose: 'ABSENCE_NOTICE', section_id: sectionId, date, skipped },
         }),
@@ -426,7 +484,7 @@ export class AbsenceNoticeService {
       session.notified_at = new Date();
       await sessionRepo.save(session);
 
-      return { batch, recipients, skipped_reason: null };
+      return { batch, recipients, template, skipped_reason: null };
     });
 
     if (outcome.batch) {
@@ -450,7 +508,13 @@ export class AbsenceNoticeService {
       // `notified_at` stamp; the batch stays visible in Reminder History
       // recording that a send was attempted, which is recoverable, unlike
       // silently losing the fact a batch happened at all.
-      await this.queueRecipients(outcome.batch, outcome.recipients, tenantId, initiatedByUserId);
+      await this.queueRecipients(
+        outcome.batch,
+        outcome.recipients,
+        tenantId,
+        initiatedByUserId,
+        outcome.template,
+      );
     }
 
     return {
@@ -459,6 +523,94 @@ export class AbsenceNoticeService {
       total_recipients: outcome.recipients.length,
       skipped_reason: outcome.skipped_reason,
     };
+  }
+
+  /**
+   * [D16] A teacher corrected one record after the register was notified.
+   * ABSENT -> not absent: if that child was in the notice, say sorry once.
+   * not absent -> ABSENT: if the child was never noticed, send the normal
+   * absence notice for that child alone. Guardians of other children get
+   * nothing. Callers wrap it in try/catch because the correction itself
+   * has already committed.
+   */
+  async notifyCorrection(params: {
+    tenantId: string;
+    sessionId: string;
+    studentId: string;
+    oldStatus: AttendanceStatus;
+    newStatus: AttendanceStatus;
+    userId: string;
+  }): Promise<void> {
+    const { tenantId, sessionId, studentId, oldStatus, newStatus, userId } = params;
+    const wasAbsent = oldStatus === AttendanceStatus.ABSENT;
+    const isAbsent = newStatus === AttendanceStatus.ABSENT;
+    if (wasAbsent === isAbsent) return;
+
+    const session = await this.sessionRepo.findOne({
+      where: { id: sessionId, tenant_id: tenantId },
+    });
+    if (!session || session.period_no !== null || !session.notified_at) return;
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    if (!resolveAttendancePolicy(settings).autoAbsentNotification.enabled) return;
+
+    const [{ notified }] = (await this.dataSource.query(
+      `SELECT EXISTS (
+         SELECT 1 FROM communication_logs l
+         JOIN reminder_batches b ON b.id = l.reminder_batch_id AND b.tenant_id = $1
+         WHERE l.tenant_id = $1 AND l.metadata->'student_ids' @> to_jsonb($4::text)
+           AND b.filters_applied->>'purpose' = 'ABSENCE_NOTICE'
+           AND b.filters_applied->>'section_id' = $2 AND b.filters_applied->>'date' = $3
+       ) AS notified`,
+      [tenantId, session.section_id, session.date, studentId],
+    )) as { notified: boolean }[];
+    // Only a notified child gets a "sorry"; only an un-notified one gets a first notice.
+    if (wasAbsent !== notified) return;
+
+    const keyPrefix = `absence-correction:${sessionId}:${studentId}:${newStatus}`;
+    const [{ sent }] = (await this.dataSource.query(
+      `SELECT EXISTS (SELECT 1 FROM communication_logs
+         WHERE tenant_id = $1 AND reference_key LIKE $2) AS sent`,
+      [tenantId, `${keyPrefix}:%`],
+    )) as { sent: boolean }[];
+    if (sent) return;
+
+    const { sectionName, schoolName } = await this.loadSectionContext(tenantId, session.section_id);
+    const { recipients, template } = await this.resolveAbsentees(
+      this.dataSource.manager,
+      tenantId,
+      session,
+      sectionName,
+      schoolName,
+      { studentId, status: newStatus },
+    );
+    if (recipients.length === 0) return;
+    const body = isAbsent
+      ? template
+      : template === ABSENCE_NOTICE_TEMPLATE_BN
+        ? ABSENCE_CORRECTION_TEMPLATE_BN
+        : ABSENCE_CORRECTION_TEMPLATE_EN;
+
+    const batch = await this.batchRepo.save(
+      this.batchRepo.create({
+        tenant_id: tenantId,
+        batch_name:
+          `Absence ${isAbsent ? 'notice' : 'correction'} — ${sectionName} — ${session.date}`.slice(
+            0,
+            200,
+          ),
+        status: ReminderBatchStatus.PROCESSING,
+        total_recipients: recipients.length,
+        message_template: body,
+        initiated_by_user_id: userId,
+        filters_applied: {
+          purpose: isAbsent ? 'ABSENCE_NOTICE' : 'ABSENCE_CORRECTION',
+          section_id: session.section_id,
+          date: session.date,
+          student_id: studentId,
+        },
+      }),
+    );
+    await this.queueRecipients(batch, recipients, tenantId, userId, body, keyPrefix);
   }
 
   /** Mirrors `BulkReminderService.queueRecipients` — one `CommunicationLog`
@@ -472,6 +624,9 @@ export class AbsenceNoticeService {
     recipients: AbsenceResolvedRecipient[],
     tenantId: string,
     userId: string,
+    template: string,
+    /** Per-guardian idempotency key prefix (corrections only). */
+    referenceKeyPrefix?: string,
   ): Promise<void> {
     for (const recipient of recipients) {
       let log: CommunicationLog;
@@ -483,7 +638,10 @@ export class AbsenceNoticeService {
             medium: recipient.medium,
             recipient_address: recipient.address,
             recipient_name: recipient.guardian.full_name,
-            message_body: renderReminderTemplate(DEFAULT_ABSENCE_NOTICE_TEMPLATE, recipient.vars),
+            message_body: renderReminderTemplate(template, recipient.vars),
+            reference_key: referenceKeyPrefix
+              ? `${referenceKeyPrefix}:${recipient.guardian.id}`
+              : null,
             // Stored for every medium, not only EMAIL: `tryPushFirst`
             // (`communications.processor.ts`) reads `log.subject` as the
             // push notification's title, and this is the only place that

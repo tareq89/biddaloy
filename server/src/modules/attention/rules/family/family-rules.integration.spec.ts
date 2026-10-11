@@ -13,6 +13,7 @@ import { attentionEvents } from '../../attention.constants';
 import { ATTENTION_RECHECK, AttentionRecheckPayload } from '../../engine/attention-events';
 import { AlertWriterService } from '../../engine/alert-writer.service';
 import type { AttentionRule, RuleContext } from '../rule.types';
+import { SchoolsService } from '../../../schools/schools.service';
 import { ChildAbsentTodayRule } from './child-absent-today.rule';
 import { ExamsTomorrowRule } from './exams-tomorrow.rule';
 import { FeesDueSoonRule } from './fees-due-soon.rule';
@@ -34,6 +35,7 @@ describe('Family rules (integration)', () => {
   let writer: AlertWriterService;
   let substitutions: SubstitutionsService;
   let absent: ChildAbsentTodayRule;
+  let absenceNoticesOn = true;
   let dueSoon: FeesDueSoonRule;
   let overdue: FeesOverdueFamilyRule;
   let examsTomorrow: ExamsTomorrowRule;
@@ -277,6 +279,17 @@ describe('Family rules (integration)', () => {
           provide: SchoolCalendarService,
           useValue: { getWorkingDays: async () => ({ dates: [DAY] }) },
         },
+        // Absence notices are on unless a test flips `absenceNoticesOn`.
+        {
+          provide: SchoolsService,
+          useValue: {
+            getResolvedSettings: async () => ({
+              attendance: {
+                autoAbsentNotification: { enabled: absenceNoticesOn, cutoffTime: '14:00' },
+              },
+            }),
+          },
+        },
         ChildAbsentTodayRule,
         FeesDueSoonRule,
         FeesOverdueFamilyRule,
@@ -305,6 +318,7 @@ describe('Family rules (integration)', () => {
   });
 
   beforeEach(async () => {
+    absenceNoticesOn = true;
     A = await mkTenant();
     B = await mkTenant();
   });
@@ -331,6 +345,17 @@ describe('Family rules (integration)', () => {
     expect(byChild.get(A.c2)!.recipients).toEqual([]);
     // Tenant B has the same shape but no absences, and none of A's children leak in.
     expect(await absent.evaluate(ctx(B))).toEqual([]);
+  });
+
+  it('child.absent_today: absence notices switched off -> no finding, so no alert row', async () => {
+    await mkAbsence(A, 'FINALIZED', [A.c1, A.c2]);
+    absenceNoticesOn = false;
+    expect(await absent.evaluate(ctx(A))).toEqual([]);
+    await run(absent, A);
+    expect(await alertStatus(A, 'child.absent_today')).toEqual([]);
+    absenceNoticesOn = true;
+    await run(absent, A);
+    expect(await alertStatus(A, 'child.absent_today')).not.toEqual([]);
   });
 
   it('fees: due-soon and overdue per child; PAID is silent; B never changes A', async () => {

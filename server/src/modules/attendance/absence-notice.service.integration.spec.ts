@@ -348,6 +348,122 @@ describe('AbsenceNoticeService (integration)', () => {
     expect(preview.recipients[0].guardian_id).toBe(guardianId);
   });
 
+  describe('correction after the notice (D16)', () => {
+    let guardianId2: string;
+    const OFF = {
+      weeklyOffDays: [],
+      correctionWindowDays: 2,
+      allowFutureDates: false,
+      autoAbsentNotification: { enabled: false, cutoffTime: '00:00' },
+    };
+
+    beforeEach(async () => {
+      // Karim (student 2) gets his own guardian so "that child's guardians only" is observable.
+      const g2 = await dataSource.getRepository(Guardian).save({
+        full_name: 'Guardian Two',
+        relationship: 'Mother',
+        phone: '01722222222',
+        is_primary_contact: true,
+        notifications_enabled: true,
+        preferred_communication: CommunicationMedium.SMS,
+        tenant_id: TENANT_ID,
+      });
+      guardianId2 = g2.id;
+      await dataSource.getRepository(Student).save({ id: studentId2, guardians: [{ id: g2.id }] });
+      // Rahim (student 1) ABSENT, Karim (student 2) PRESENT; finalized -> one notice to guardian 1.
+      await attendanceService.putRegister(putParams({ dto: basePutDto() }));
+    });
+
+    const allLogs = () =>
+      dataSource
+        .getRepository(CommunicationLog)
+        .find({ where: { tenant_id: TENANT_ID }, order: { created_at: 'ASC' } });
+
+    const correct = async (studentId: string, status: AttendanceStatus) => {
+      const rec = await dataSource
+        .getRepository(AttendanceRecord)
+        .findOneByOrFail({ student_id: studentId, tenant_id: TENANT_ID });
+      await attendanceService.correctRecord({
+        recordId: rec.id,
+        tenantId: TENANT_ID,
+        role: UserRole.ADMIN,
+        userId: ADMIN_USER_ID,
+        dto: { status, reason: 'Marked by mistake' } as any,
+        ip: null,
+        userAgent: null,
+      });
+    };
+
+    it("ABSENT -> PRESENT sends one correction, to that child's guardian only; repeating adds nothing", async () => {
+      expect(await allLogs()).toHaveLength(1);
+
+      await correct(studentId1, AttendanceStatus.PRESENT);
+
+      const logs = await allLogs();
+      expect(logs).toHaveLength(2);
+      expect(logs[1].guardian_id).toBe(guardianId);
+      // The seeded school resolves to the Bangla default locale.
+      expect(logs[1].message_body).toContain('সংশোধন:');
+      expect(logs[1].message_body).toContain('Student One');
+
+      // Same correction replayed (e.g. a retried request): the reference key stops a second send.
+      await absenceNoticeService.notifyCorrection({
+        tenantId: TENANT_ID,
+        sessionId: (
+          await dataSource.getRepository(AttendanceRecord).findOneByOrFail({
+            student_id: studentId1,
+            tenant_id: TENANT_ID,
+          })
+        ).session_id,
+        studentId: studentId1,
+        oldStatus: AttendanceStatus.ABSENT,
+        newStatus: AttendanceStatus.PRESENT,
+        userId: ADMIN_USER_ID,
+      });
+      expect(await allLogs()).toHaveLength(2);
+    });
+
+    it("PRESENT -> ABSENT after the notice sends that child's absence notice once, to his guardian only", async () => {
+      await correct(studentId2, AttendanceStatus.ABSENT);
+
+      const logs = await allLogs();
+      expect(logs).toHaveLength(2);
+      expect(logs[1].guardian_id).toBe(guardianId2);
+      expect(logs[1].message_body).toContain('অনুপস্থিত ছিল');
+      expect(logs[1].message_body).toContain('Student Two');
+      expect(logs.filter((l) => l.guardian_id === guardianId)).toHaveLength(1);
+    });
+
+    it('English-locale school gets the English correction text', async () => {
+      await dataSource.getRepository(School).update(
+        { id: TENANT_ID },
+        {
+          settings: {
+            version: 1,
+            attendance: {
+              weeklyOffDays: [],
+              correctionWindowDays: 2,
+              allowFutureDates: false,
+              autoAbsentNotification: { enabled: true, cutoffTime: '00:00' },
+            },
+            region: { timezone: 'Asia/Dhaka', locale: 'en-US' },
+          } as any,
+        },
+      );
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      const logs = await allLogs();
+      expect(logs[1].message_body).toBe(
+        `Correction: Student One was marked present today (${TODAY()}). Sorry for the earlier message.`,
+      );
+    });
+
+    it('switch off: a correction sends nothing', async () => {
+      await setTenantSettings(TENANT_ID, OFF);
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      expect(await allLogs()).toHaveLength(1);
+    });
+  });
+
   it('does nothing for a DRAFT (not finalized) session', async () => {
     await attendanceService.putRegister(putParams({ dto: basePutDto({ finalize: false }) }));
 

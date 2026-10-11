@@ -1220,7 +1220,8 @@ export class AttendanceService {
       });
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const corrected: { sessionId: string; studentId: string; oldStatus: AttendanceStatus }[] = [];
+    const result = await this.dataSource.transaction(async (manager) => {
       const recordRepo = manager.getRepository(AttendanceRecord);
       const sessionRepo = manager.getRepository(AttendanceSession);
 
@@ -1262,6 +1263,11 @@ export class AttendanceService {
         minutes_late: record.minutes_late,
         remarks: record.remarks,
       };
+      corrected.push({
+        sessionId: session.id,
+        studentId: record.student_id,
+        oldStatus: record.status,
+      });
       record.status = dto.status;
       record.minutes_late =
         dto.status === AttendanceStatus.LATE ? (dto.minutes_late ?? null) : null;
@@ -1304,6 +1310,22 @@ export class AttendanceService {
         role,
       });
     });
+
+    // After commit: a failed send must never undo the correction.
+    const [c] = corrected;
+    if (c && c.oldStatus !== dto.status) {
+      try {
+        await this.absenceNoticeService.notifyCorrection({
+          tenantId,
+          userId,
+          newStatus: dto.status,
+          ...c,
+        });
+      } catch (err) {
+        this.logger.warn(`Absence correction notice failed for record ${recordId}: ${String(err)}`);
+      }
+    }
+    return result;
   }
 
   // ---------------------------------------------------------------------

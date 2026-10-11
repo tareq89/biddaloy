@@ -20,6 +20,14 @@ const ctx = (extra: Partial<RuleContext> = {}): RuleContext => ({
   ...extra,
 });
 
+/** SchoolsService stub: only `attendance.autoAbsentNotification.enabled` matters to the absent rule. */
+const schools = (enabled: boolean) =>
+  ({
+    getResolvedSettings: async () => ({
+      attendance: { autoAbsentNotification: { enabled, cutoffTime: '14:00' } },
+    }),
+  }) as never;
+
 const LABEL = { id: 's1', full_name: 'Rafi', section_id: 'sec1', section_label: 'Six-A' };
 type Family = { studentId: string; userId: string; role: UserRole.PARENT | UserRole.STUDENT };
 const PARENT: Family = { studentId: 's1', userId: 'p1', role: UserRole.PARENT };
@@ -50,7 +58,7 @@ const placeholders = (s: string) =>
 describe('family rules: shared contract', () => {
   const s = setup([]);
   const rules = [
-    ['child.absent_today', new ChildAbsentTodayRule(s.ds, s.family)],
+    ['child.absent_today', new ChildAbsentTodayRule(s.ds, s.family, schools(true))],
     ['fees.due_soon', new FeesDueSoonRule(s.ds, s.family)],
     ['fees.overdue_family', new FeesOverdueFamilyRule(s.ds, s.family)],
     ['exams.tomorrow', new ExamsTomorrowRule(s.ds, s.family)],
@@ -86,7 +94,7 @@ describe('family rules: shared contract', () => {
   it('every rule produces a finding whose params cover its messages', async () => {
     const make = {
       'child.absent_today': (x: ReturnType<typeof setup>) =>
-        new ChildAbsentTodayRule(x.ds, x.family),
+        new ChildAbsentTodayRule(x.ds, x.family, schools(true)),
       'fees.due_soon': (x: ReturnType<typeof setup>) => new FeesDueSoonRule(x.ds, x.family),
       'fees.overdue_family': (x: ReturnType<typeof setup>) =>
         new FeesOverdueFamilyRule(x.ds, x.family),
@@ -120,28 +128,37 @@ describe('family rules: shared contract', () => {
 describe('ChildAbsentTodayRule', () => {
   it('absent child with no family login still yields a finding with no recipients (D29)', async () => {
     const x = setup([{ student_id: 's1' }], []);
-    const [f] = await new ChildAbsentTodayRule(x.ds, x.family).evaluate(ctx());
+    const [f] = await new ChildAbsentTodayRule(x.ds, x.family, schools(true)).evaluate(ctx());
     expect(f.recipients).toEqual([]);
     expect(f.dedupeKey).toBe('student:s1:2026-10-10');
   });
 
   it('STUDENT-only login: the PARENT-only rule drops the row but keeps the finding', async () => {
     const x = setup([{ student_id: 's1' }], [STUDENT]);
-    const [f] = await new ChildAbsentTodayRule(x.ds, x.family).evaluate(ctx());
+    const [f] = await new ChildAbsentTodayRule(x.ds, x.family, schools(true)).evaluate(ctx());
     expect(f.recipients).toEqual([]);
   });
 
   it('PARENT login: one PARENT recipient carrying the studentId', async () => {
     const x = setup([{ student_id: 's1' }]);
-    const [f] = await new ChildAbsentTodayRule(x.ds, x.family).evaluate(ctx());
+    const [f] = await new ChildAbsentTodayRule(x.ds, x.family, schools(true)).evaluate(ctx());
     expect(f.recipients).toEqual([{ userId: 'p1', role: UserRole.PARENT, studentId: 's1' }]);
     // One family lookup for the whole run, not one per child.
     expect(x.fam.familyUsersForStudents).toHaveBeenCalledTimes(1);
   });
 
+  it('absence notices switched off: no findings at all (one switch for card, push and SMS)', async () => {
+    const x = setup([{ student_id: 's1' }]);
+    const off = new ChildAbsentTodayRule(x.ds, x.family, schools(false));
+    expect(await off.evaluate(ctx())).toEqual([]);
+    expect(x.query).not.toHaveBeenCalled();
+    const [f] = await new ChildAbsentTodayRule(x.ds, x.family, schools(true)).evaluate(ctx());
+    expect(f.dedupeKey).toBe('student:s1:2026-10-10');
+  });
+
   it('expires at the end of the Dhaka day; non-working day is silent', async () => {
     const x = setup([{ student_id: 's1' }]);
-    const rule = new ChildAbsentTodayRule(x.ds, x.family);
+    const rule = new ChildAbsentTodayRule(x.ds, x.family, schools(true));
     const [f] = await rule.evaluate(
       ctx({ now: new Date('2026-10-09T18:00:00Z'), localDate: '2026-10-10' }),
     );

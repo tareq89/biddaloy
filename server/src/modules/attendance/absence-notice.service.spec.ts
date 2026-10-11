@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   AbsenceNoticeService,
   AbsenceNoticeSkipReason,
+  ABSENCE_NOTICE_TEMPLATE_BN,
   DEFAULT_ABSENCE_NOTICE_TEMPLATE,
 } from './absence-notice.service';
 import { AttendanceRecord } from './entities/attendance-record.entity';
@@ -100,7 +101,12 @@ describe('AbsenceNoticeService', () => {
       },
     };
     auditService = { record: vi.fn(async () => undefined) };
-    schoolsService = {};
+    schoolsService = {
+      getResolvedSettings: vi.fn(async () => ({
+        region: { locale: 'en-US' },
+        attendance: { autoAbsentNotification: { enabled: true, cutoffTime: '14:00' } },
+      })),
+    };
     // Unmetered by default: reserveForLog returns no extra job data.
     smsCreditService = { reserveForLog: vi.fn(async () => ({})), releaseForLog: vi.fn() };
 
@@ -336,7 +342,13 @@ describe('AbsenceNoticeService', () => {
       .mockRejectedValueOnce(new Error('db down'))
       .mockResolvedValueOnce({});
 
-    await (service as any).queueRecipients({ id: 'batch-1' }, recipients, TENANT, 'user-1');
+    await (service as any).queueRecipients(
+      { id: 'batch-1' },
+      recipients,
+      TENANT,
+      'user-1',
+      DEFAULT_ABSENCE_NOTICE_TEMPLATE,
+    );
 
     // First guardian: log failed (not left QUEUED) and the batch counter moved.
     expect(txManager.save).toHaveBeenCalledWith(
@@ -350,6 +362,71 @@ describe('AbsenceNoticeService', () => {
     // Second guardian: still queued.
     expect(queue.add).toHaveBeenCalledTimes(1);
     expect(queue.add).toHaveBeenCalledWith('send', { logId: 'log-2' });
+  });
+
+  it('bn-BD school: Bangla template and Bangla name joining (full_name_bn, English fallback)', async () => {
+    schoolsService.getResolvedSettings = vi.fn(async () => ({ region: { locale: 'bn-BD' } }));
+    const g = guardian();
+    recordRepo.find = vi.fn(async () => [
+      record({ id: 'r1', student_id: 's-1' }),
+      record({ id: 'r2', student_id: 's-2' }),
+    ]);
+    studentRepo.find = vi.fn(async () => [
+      student({ id: 's-1', full_name: 'Rahim', full_name_bn: 'রহিম', guardians: [g] }),
+      student({ id: 's-2', full_name: 'Karim', full_name_bn: null, guardians: [g] }),
+    ]);
+
+    const { recipients, template } = await service.buildRecipients({
+      tenantId: TENANT,
+      sectionId: SECTION,
+      date: DATE,
+    });
+
+    expect(template).toBe(ABSENCE_NOTICE_TEMPLATE_BN);
+    expect(recipients[0].vars.student_names).toBe('রহিম ও Karim');
+  });
+
+  it('en school is unchanged: English template', async () => {
+    const { template } = await service.buildRecipients({
+      tenantId: TENANT,
+      sectionId: SECTION,
+      date: DATE,
+    });
+    expect(template).toBe(DEFAULT_ABSENCE_NOTICE_TEMPLATE);
+  });
+
+  describe('notifyCorrection does nothing when there was no notice to correct', () => {
+    const args = {
+      tenantId: TENANT,
+      sessionId: 'session-1',
+      studentId: 's-1',
+      oldStatus: AttendanceStatus.ABSENT,
+      newStatus: AttendanceStatus.PRESENT,
+      userId: 'u-1',
+    };
+    beforeEach(() => {
+      dataSource.query = vi.fn();
+      batchRepo.save = vi.fn();
+    });
+
+    it.each([
+      ['un-notified session', { notified_at: null }],
+      ['period register', { notified_at: new Date(), period_no: 2 }],
+    ])('%s', async (_name, patch) => {
+      sessionRepo.findOne = vi.fn(async () => ({ ...finalizedSession, ...patch }));
+      await service.notifyCorrection(args);
+      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(batchRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('switch off', async () => {
+      sessionRepo.findOne = vi.fn(async () => ({ ...finalizedSession, notified_at: new Date() }));
+      schoolsService.getResolvedSettings = vi.fn(async () => ({
+        attendance: { autoAbsentNotification: { enabled: false, cutoffTime: '14:00' } },
+      }));
+      await service.notifyCorrection(args);
+      expect(batchRepo.save).not.toHaveBeenCalled();
+    });
   });
 
   it('renders the default template with the resolved vars', () => {
