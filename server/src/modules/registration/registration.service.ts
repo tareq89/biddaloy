@@ -240,20 +240,11 @@ export class RegistrationService {
     socialTicketId: string | undefined,
   ): Promise<RegisterVerifyOutcome> {
     const verifiedField = staged.channel === 'sms' ? 'phone' : 'email';
-    const otherField = verifiedField === 'phone' ? 'email' : 'phone';
 
-    // Whoever holds the contact the code went to owns this registration. The OTHER contact was
-    // never proven, so it may not drag in somebody else's account (that would hand out a session
-    // for a user who never took part).
+    // Whoever holds the contact the code went to owns this registration.
     const owner = await this.users.findOne({
       where: { [verifiedField]: staged[verifiedField], deleted_at: IsNull() },
     });
-    const other = await this.users.findOne({
-      where: { [otherField]: staged[otherField], deleted_at: IsNull() },
-    });
-    if (other && other.id !== owner?.id) {
-      throw contactInUse();
-    }
     if (owner) {
       if (owner.status !== UserStatus.ACTIVE) {
         throw new ConflictException({
@@ -292,9 +283,9 @@ export class RegistrationService {
       }
     }
 
-    const adminContacts = owner
-      ? { [verifiedField]: staged[verifiedField] }
-      : { email: staged.email, phone: staged.phone };
+    // Only the contact the code went to is stored; the other one is added later through
+    // the verified contact-change flow.
+    const adminContacts = { [verifiedField]: staged[verifiedField] };
 
     const provisionOnce = () =>
       this.provisioning.provision(

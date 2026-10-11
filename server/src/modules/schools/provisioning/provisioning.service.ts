@@ -16,6 +16,7 @@ import {
   pickChannel,
 } from '../../account-access/account-access-delivery.service';
 import { resolveAppBaseUrl } from '../../account-access/app-base-url.util';
+import { insertJoinRequest } from '../../account-access/school-invite.service';
 import { generateSecret, hashSecret } from '../../auth/token-hash.util';
 import { AuditService } from '../../audit/audit.service';
 import { TENANT_STATUS_REDIS } from '../tenant-status.service';
@@ -324,7 +325,34 @@ export class ProvisioningService {
     const userTenantRepo = manager.getRepository(UserTenant);
     const authTokenRepo = manager.getRepository(AuthToken);
 
-    const { user, existed } = await this.findOrCreateAdminUser(userRepo, admin);
+    // Registration (`sendInvitation = false`) just proved the contact by OTP; every other caller
+    // only typed it, so it may match a verified holder only.
+    const contactProven = !sendInvitation;
+    const { user, existed } = await this.findOrCreateAdminUser(userRepo, admin, contactProven);
+
+    // An existing person who is not yet a member is asked, not enrolled: they accept a
+    // JOIN_SCHOOL request themselves. No membership, no INVITE.
+    if (existed && !contactProven) {
+      const anyMembership = await userTenantRepo.findOne({
+        where: { user_id: user.id, tenant_id: schoolId },
+      });
+      if (!anyMembership) {
+        const join = await insertJoinRequest(manager, {
+          userId: user.id,
+          tenantId: schoolId,
+          role: UserRole.ADMIN,
+          createdByUserId: actorUserId,
+          provisioned: isInitialSchoolAdmin,
+        });
+        return {
+          result: {
+            admin: { user_id: user.id, existed: true },
+            invitation: { id: join.id, status: 'PENDING' },
+          },
+          deliverAfterCommit: null,
+        };
+      }
+    }
 
     // `(user_id, tenant_id, role)` is unique on user_tenants — saving a
     // second ADMIN membership for the same user would surface as a raw
@@ -374,7 +402,8 @@ export class ProvisioningService {
       throw err;
     }
 
-    if (!sendInvitation) {
+    // An INVITE sets a password, so it only ever goes to a passwordless account.
+    if (!sendInvitation || user.password_hash !== null) {
       return {
         result: {
           admin: { user_id: user.id, existed },
@@ -434,6 +463,7 @@ export class ProvisioningService {
   private async findOrCreateAdminUser(
     userRepo: Repository<User>,
     admin: AdminInput,
+    contactProven: boolean,
   ): Promise<{ user: User; existed: boolean }> {
     // Each contact resolved on its own, not one `email OR phone` query: with
     // both supplied, an OR could match two *different* users and silently
@@ -444,6 +474,7 @@ export class ProvisioningService {
           .createQueryBuilder('u')
           .where('u.deleted_at IS NULL')
           .andWhere('u.email = :email', { email: admin.email })
+          .andWhere(contactProven ? '1=1' : 'u.email_verified_at IS NOT NULL')
           .getOne()
       : null;
     const byPhone = admin.phone
@@ -451,6 +482,7 @@ export class ProvisioningService {
           .createQueryBuilder('u')
           .where('u.deleted_at IS NULL')
           .andWhere('u.phone = :phone', { phone: admin.phone })
+          .andWhere(contactProven ? '1=1' : 'u.phone_verified_at IS NOT NULL')
           .getOne()
       : null;
     if (byEmail && byPhone && byEmail.id !== byPhone.id) {
@@ -463,14 +495,28 @@ export class ProvisioningService {
       return { user: found, existed: true };
     }
 
-    const created = await userRepo.save(
-      userRepo.create({
-        email: admin.email ?? null,
-        phone: admin.phone ?? null,
-        password_hash: null,
-        full_name: admin.name,
-      }),
-    );
-    return { user: created, existed: false };
+    try {
+      const created = await userRepo.save(
+        userRepo.create({
+          email: admin.email ?? null,
+          phone: admin.phone ?? null,
+          password_hash: null,
+          full_name: admin.name,
+        }),
+      );
+      return { user: created, existed: false };
+    } catch (err) {
+      // An unverified account owns that contact (the lookups above skip those).
+      if (
+        err instanceof QueryFailedError &&
+        (err as unknown as { code?: string }).code === '23505'
+      ) {
+        throw new ConflictException({
+          message: 'That email or phone is held by another, unverified account',
+          details: { code: 'CONTACT_IN_USE' },
+        });
+      }
+      throw err;
+    }
   }
 }

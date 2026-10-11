@@ -168,6 +168,9 @@ describe('AccountAccessController (e2e)', () => {
   });
 
   it('a used token cannot activate a second time', async () => {
+    // The previous test left USER_ID with a password; an INVITE can no longer overwrite one
+    // [68.1.2221], so start this case from a passwordless invitee again.
+    await dataSource.query(`UPDATE users SET password_hash = NULL WHERE id = $1`, [USER_ID]);
     const { raw } = await authTokens.issue({
       userId: USER_ID,
       tenantId: SEED_TENANT_ID,
