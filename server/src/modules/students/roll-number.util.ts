@@ -1,4 +1,4 @@
-import { EntityManager, IsNull } from 'typeorm';
+import { EntityManager } from 'typeorm';
 import { Student } from './entities/student.entity';
 
 /**
@@ -36,10 +36,11 @@ export async function nextRollNumber(
     ROLL_NUMBER_LOCK_NAMESPACE,
   ]);
 
-  // `deleted_at: IsNull()` — a soft-deleted student's roll number is free
-  // to reuse, matching the original inline logic this util replaces.
+  // `withDeleted: true` — a soft-deleted student still holds its roll number,
+  // because the unique index on (class_section_id, roll_number) is not partial.
   const lastRoll = await manager.getRepository(Student).findOne({
-    where: { class_section_id: classSectionId, tenant_id: tenantId, deleted_at: IsNull() },
+    where: { class_section_id: classSectionId, tenant_id: tenantId },
+    withDeleted: true,
     order: { roll_number: 'DESC' },
   });
 

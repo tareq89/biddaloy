@@ -40,15 +40,22 @@ import { PAYABLE_FEE_STATUSES } from './open-money';
 const MAX_STUDENT_IDS_RESULT = 5000;
 
 const BIRTH_REG_NO_INDEX = 'IDX_students_tenant_birth_reg_no';
+/** Unique (class_section_id, roll_number); counts soft-deleted rows too. */
+const ROLL_NUMBER_INDEX = 'IDX_ca01941430b7d99b013e6c6948';
 
 /** [39.2.1] Turns the partial-unique violation on (tenant, birth_reg_no) into a 409. */
 function rethrowBirthRegNoConflict(err: unknown): never {
-  if (
-    err instanceof QueryFailedError &&
-    (err as unknown as { code?: string; constraint?: string }).code === '23505' &&
-    (err as unknown as { constraint?: string }).constraint === BIRTH_REG_NO_INDEX
-  ) {
-    throw new ConflictException('A student with this birth registration number already exists');
+  if (err instanceof QueryFailedError) {
+    const { code, constraint } = err as unknown as { code?: string; constraint?: string };
+    if (code === '23505' && constraint === BIRTH_REG_NO_INDEX) {
+      throw new ConflictException('A student with this birth registration number already exists');
+    }
+    if (code === '23505' && constraint === ROLL_NUMBER_INDEX) {
+      throw new ConflictException({
+        message: 'This roll number is already taken in that section.',
+        details: { code: 'ROLL_NUMBER_TAKEN' },
+      });
+    }
   }
   throw err;
 }
@@ -201,7 +208,12 @@ export class StudentService {
         tenant_id: tenantId,
       });
 
-      const savedStudent = await txStudentRepo.save(student);
+      let savedStudent: Student;
+      try {
+        savedStudent = await txStudentRepo.save(student);
+      } catch (err) {
+        rethrowBirthRegNoConflict(err);
+      }
 
       // [8.11.3] Every new student gets a day-one enrollment history row —
       // `EnrollmentService.create` isn't reused here (it re-validates the
@@ -565,6 +577,15 @@ export class StudentService {
       // The validated DTO instance carries every declared property, `undefined` when the caller
       // did not send it. Only what was actually supplied counts: for the empty-body guard below
       // and for the audit diff (otherwise every unsent field looked like a change).
+      // [68.3.40] A section move that keeps (or re-sends) the old roll gets the next free roll
+      // in the target section; a different roll the user picked is kept (409 if taken).
+      if (
+        sectionChanged &&
+        (dto.roll_number == null || dto.roll_number === existingStudent.roll_number)
+      ) {
+        updateData.roll_number = await nextRollNumber(manager, dto.class_section_id!, tenantId);
+      }
+
       const supplied = Object.keys(updateData).filter((k) => updateData[k] !== undefined);
 
       // An empty body (`{}`) would make TypeORM throw UpdateValuesMissingError, a 500.
