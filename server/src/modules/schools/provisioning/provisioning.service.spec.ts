@@ -457,8 +457,8 @@ describe('ProvisioningService', () => {
     it('an existing member who holds a password gets the ADMIN role and no INVITE', async () => {
       userRepo.__setFound(verified);
       userTenantRepo.findOne
-        .mockResolvedValueOnce({ id: 'm', role: UserRole.TEACHER }) // any live membership
-        .mockResolvedValueOnce(null); // no ADMIN row yet
+        .mockResolvedValueOnce(null) // no ADMIN row, live or former
+        .mockResolvedValueOnce({ id: 'm', role: UserRole.TEACHER }); // a live membership
 
       const { result } = await service.provisionAdminForSchool(
         'school-1',

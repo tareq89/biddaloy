@@ -341,16 +341,22 @@ export class ProvisioningService {
     const contactProven = !sendInvitation;
     const { user, existed } = await this.findOrCreateAdminUser(userRepo, admin, contactProven);
 
-    // An existing person who has never been a member is asked, not enrolled: they accept a
-    // JOIN_SCHOOL request themselves. No membership, no INVITE. A former member (a
-    // soft-deleted row) was vetted here once and is revived below, the same rule as
-    // `users.tab.ts` and `invitation-batch.processor.ts`: soft-delete is undoable (13.2.1).
-    if (existed && !contactProven) {
-      const anyMembership = await userTenantRepo.findOne({
+    // This ADMIN row, live or former. `(user_id, tenant_id, role)` is unique on user_tenants,
+    // so it also drives the 409 / revive below.
+    const existingMembership = await userTenantRepo.findOne({
+      where: { user_id: user.id, tenant_id: schoolId, role: UserRole.ADMIN },
+      withDeleted: true,
+    });
+
+    // An existing person is asked, not enrolled, unless they are a live member here (any
+    // role) or a former ADMIN (revived below: soft-delete is undoable, 13.2.1). A former
+    // PARENT/TEACHER never held ADMIN here, so ADMIN is a new grant: they accept a JOIN_SCHOOL
+    // request themselves (`accept()` revives per role). No membership, no INVITE.
+    if (existed && !contactProven && !existingMembership) {
+      const liveMember = await userTenantRepo.findOne({
         where: { user_id: user.id, tenant_id: schoolId },
-        withDeleted: true,
       });
-      if (!anyMembership) {
+      if (!liveMember) {
         const join = await insertJoinRequest(manager, {
           userId: user.id,
           tenantId: schoolId,
@@ -368,14 +374,9 @@ export class ProvisioningService {
       }
     }
 
-    // `(user_id, tenant_id, role)` is unique on user_tenants — saving a
-    // second ADMIN membership for the same user would surface as a raw
-    // QueryFailedError (500). Check inside the caller's transaction and
-    // answer with a defined 409 instead, without issuing another invitation.
-    const existingMembership = await userTenantRepo.findOne({
-      where: { user_id: user.id, tenant_id: schoolId, role: UserRole.ADMIN },
-      withDeleted: true,
-    });
+    // Saving a second ADMIN membership for the same user would surface as a raw
+    // QueryFailedError (500). Checked inside the caller's transaction: a defined 409
+    // instead, without issuing another invitation.
     if (existingMembership && !existingMembership.deleted_at) {
       throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
     }

@@ -180,4 +180,31 @@ describe('POST /schools/:id/admins (e2e) [68.1.14]', () => {
     expect(await tokens(userId, 'JOIN_SCHOOL')).toHaveLength(0);
     expect(await tokens(userId, 'INVITE')).toHaveLength(0);
   });
+
+  // [68.1.fix R1] Only a former ADMIN row is a revival. A former PARENT was never vetted as
+  // an admin here, so ADMIN is a new grant: they are asked, not enrolled.
+  it('asks a former PARENT before making them ADMIN: PENDING join request, no membership', async () => {
+    const email = `former-parent-${run}@school-admins-e2e.example`;
+    const userId = await insertUser(email, { verified: true, password: true });
+    await ds.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, deleted_at) VALUES ($1, $2, $3, NOW())`,
+      [userId, schoolId, UserRole.PARENT],
+    );
+
+    const res = await addAdmin({ name: 'Existing Person', email }).expect(201);
+
+    expect(res.body.invitation.status).toBe('PENDING');
+    const joins = await ds.query(
+      `SELECT metadata->>'role' AS role FROM auth_tokens
+       WHERE user_id = $1 AND tenant_id = $2 AND purpose = 'JOIN_SCHOOL'`,
+      [userId, schoolId],
+    );
+    expect(joins).toEqual([{ role: UserRole.ADMIN }]);
+    const live = await ds.query(
+      `SELECT id FROM user_tenants WHERE user_id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+      [userId, schoolId],
+    );
+    expect(live).toHaveLength(0);
+    expect(await tokens(userId, 'INVITE')).toHaveLength(0);
+  });
 });
