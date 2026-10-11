@@ -25,9 +25,9 @@ const shared = require('@biddaloy/shared') as typeof import('@biddaloy/shared');
  * [27.1] A candidate applying against one `AdmissionIntake`.
  *
  * `reference_number` is unique per tenant (the number an applicant/guardian
- * quotes to check status). `(tenant_id, intake_id, guardian_phone)` is
- * unique too, across every status — one application per guardian phone per
- * intake, for the life of that intake. `AdmissionApplicantService.submit`'s
+ * quotes to check status). `(tenant_id, intake_id, guardian_phone,
+ * date_of_birth, applicant_name)` is unique too, across every status — one
+ * application per child per intake, for the life of that intake. `AdmissionApplicantService.submit`'s
  * duplicate lookup matches this: it compares phones through
  * `normalizeBdPhoneNumber` (so "01712345678" and "+8801712345678" collide
  * on the same row rather than bypassing this index), and requires the
@@ -36,8 +36,9 @@ const shared = require('@biddaloy/shared') as typeof import('@biddaloy/shared');
  * so matching on those two alone would let anyone overwrite someone else's
  * pending application. Any other status (SHORTLISTED/ADMITTED/REJECTED)
  * rejects a resubmission with a 409 rather than letting the insert hit
- * this index. A guardian with more than one child applying to the same
- * intake needs a distinct phone number per child.
+ * this index. Siblings and twins may share one guardian phone. Known gap: the index
+ * compares the name exactly; case/space variants are caught by the service
+ * under the intake row lock, not by an expression index.
  *
  * Relations:
  * - @ManyToOne → School: tenant the applicant belongs to
@@ -47,10 +48,11 @@ const shared = require('@biddaloy/shared') as typeof import('@biddaloy/shared');
 @Entity('admission_applicants')
 @Index(['tenant_id', 'intake_id'])
 @Index(['tenant_id', 'reference_number'], { unique: true })
-@Index(['tenant_id', 'intake_id', 'guardian_phone'], {
-  unique: true,
-  where: '"deleted_at" IS NULL',
-})
+@Index(
+  'IDX_admission_applicants_intake_child',
+  ['tenant_id', 'intake_id', 'guardian_phone', 'date_of_birth', 'applicant_name'],
+  { unique: true, where: '"deleted_at" IS NULL' },
+)
 export class AdmissionApplicant {
   @PrimaryGeneratedColumn('uuid')
   id: string;
