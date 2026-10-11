@@ -8,6 +8,8 @@ import { CreatePushSubscriptionDto } from './dto/push-subscription.dto';
  * Self-service Web Push subscription management. Every method takes both
  * `userId` and `tenantId` explicitly and every query filters on both —
  * there is no automatic tenant/user scoping, per the multi-tenancy rule.
+ * The one intentional exception is `removeAllForUser` ("log out
+ * everywhere"), which filters on `userId` only and so spans every tenant.
  */
 @Injectable()
 export class PushSubscriptionsService {
@@ -61,5 +63,14 @@ export class PushSubscriptionsService {
   /** Explicit opt-out — deletes every subscription the caller owns in this tenant. */
   async removeAll(userId: string, tenantId: string): Promise<void> {
     await this.repo.delete({ user_id: userId, tenant_id: tenantId });
+  }
+
+  /**
+   * [JOBS-12] "Log out everywhere" — deletes every subscription the user
+   * owns across ALL tenants (a session spans every membership, so no
+   * tenant filter on purpose).
+   */
+  async removeAllForUser(userId: string): Promise<void> {
+    await this.repo.delete({ user_id: userId });
   }
 }

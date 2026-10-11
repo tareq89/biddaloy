@@ -382,6 +382,110 @@ describe('Auth E2E', () => {
       );
       expect(rows).toHaveLength(1);
     });
+
+    // [JOBS-12] Dedicated users so the seed admin's rows stay untouched.
+    describe('push subscriptions', () => {
+      const TENANT_B = '00000000-0000-4000-8000-0000000003b1';
+      const LOGOUT_USER_ID = '00000000-0000-4000-8000-0000000003b2';
+      const BYSTANDER_ID = '00000000-0000-4000-8000-0000000003b3';
+      const LOGOUT_EMAIL = 'push-logout@testschool.com';
+      const BYSTANDER_EMAIL = 'push-bystander@testschool.com';
+
+      async function subscriptionsOf(userEmail: string, tenantId: string): Promise<unknown[]> {
+        const login = await supertest(app.getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({ email: userEmail, password: SEED_ADMIN_PASSWORD })
+          .expect(200);
+        const res = await supertest(app.getHttpServer())
+          .get('/api/v1/me/push/subscriptions')
+          .set('Authorization', `Bearer ${login.body.access_token}`)
+          .set('X-Tenant-ID', tenantId)
+          .expect(200);
+        return res.body;
+      }
+
+      beforeAll(async () => {
+        await dataSource.query(
+          `INSERT INTO schools (id, name, slug, created_at, updated_at)
+           VALUES ($1, 'Push Logout School', 'push-logout-school', NOW(), NOW())
+           ON CONFLICT (id) DO NOTHING`,
+          [TENANT_B],
+        );
+        for (const [id, email] of [
+          [LOGOUT_USER_ID, LOGOUT_EMAIL],
+          [BYSTANDER_ID, BYSTANDER_EMAIL],
+        ]) {
+          await dataSource.query(
+            `INSERT INTO users (id, email, password_hash, full_name, status)
+             VALUES ($1, $2, $3, 'Push Test', 'ACTIVE')
+             ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash, status = 'ACTIVE'`,
+            [id, email, SEED_ADMIN_PASSWORD_HASH],
+          );
+          for (const tenantId of [SEED_TENANT_ID, TENANT_B]) {
+            await dataSource.query(
+              `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'ADMIN')
+               ON CONFLICT DO NOTHING`,
+              [id, tenantId],
+            );
+          }
+        }
+      });
+
+      beforeEach(async () => {
+        await dataSource.query(`DELETE FROM push_subscriptions WHERE user_id = ANY($1)`, [
+          [LOGOUT_USER_ID, BYSTANDER_ID],
+        ]);
+        let n = 0;
+        for (const userId of [LOGOUT_USER_ID, BYSTANDER_ID]) {
+          for (const tenantId of [SEED_TENANT_ID, TENANT_B]) {
+            n += 1;
+            await dataSource.query(
+              `INSERT INTO push_subscriptions (user_id, tenant_id, endpoint, p256dh, auth)
+               VALUES ($1, $2, $3, 'p', 'a')`,
+              [userId, tenantId, `https://push.example/jobs12-${n}`],
+            );
+          }
+        }
+      });
+
+      afterAll(async () => {
+        await dataSource.query(`DELETE FROM push_subscriptions WHERE user_id = ANY($1)`, [
+          [LOGOUT_USER_ID, BYSTANDER_ID],
+        ]);
+        await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = ANY($1)`, [
+          [LOGOUT_USER_ID, BYSTANDER_ID],
+        ]);
+        // users / schools stay: append-only audit_logs rows reference them.
+      });
+
+      it('logout-all removes the user subscriptions in every tenant', async () => {
+        const login = await supertest(app.getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({ email: LOGOUT_EMAIL, password: SEED_ADMIN_PASSWORD })
+          .expect(200);
+        await supertest(app.getHttpServer())
+          .post('/api/v1/auth/logout-all')
+          .set('Authorization', `Bearer ${login.body.access_token}`)
+          .expect(204);
+
+        expect(await subscriptionsOf(LOGOUT_EMAIL, SEED_TENANT_ID)).toEqual([]);
+        expect(await subscriptionsOf(LOGOUT_EMAIL, TENANT_B)).toEqual([]);
+      });
+
+      it("another user's subscriptions are untouched", async () => {
+        const login = await supertest(app.getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({ email: LOGOUT_EMAIL, password: SEED_ADMIN_PASSWORD })
+          .expect(200);
+        await supertest(app.getHttpServer())
+          .post('/api/v1/auth/logout-all')
+          .set('Authorization', `Bearer ${login.body.access_token}`)
+          .expect(204);
+
+        expect(await subscriptionsOf(BYSTANDER_EMAIL, SEED_TENANT_ID)).toHaveLength(1);
+        expect(await subscriptionsOf(BYSTANDER_EMAIL, TENANT_B)).toHaveLength(1);
+      });
+    });
   });
   // A dedicated user, never the seed admin: this suite changes the password
   // for real, and every other e2e file (and the specs above) logs in as the
