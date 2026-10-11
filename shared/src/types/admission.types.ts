@@ -40,6 +40,11 @@ export interface AdmissionApplicantDto {
   updated_at: string;
 }
 
+/** Existing guardian matched by phone at admission time (LIFE-09). */
+export interface AdmissionGuardianMatchDto {
+  guardian: { id: string; full_name: string; phone: string; student_names: string[] } | null;
+}
+
 /** Request/response shape for an `AdmissionEvaluation` row. */
 export interface AdmissionEvaluationDto {
   id: string;

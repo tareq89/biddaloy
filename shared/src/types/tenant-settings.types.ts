@@ -89,6 +89,8 @@ export interface RegionSettings {
 export interface AttendancePolicySettings {
   /** 0 = Sunday … 6 = Saturday. Bangladesh default: Friday only. */
   weeklyOffDays: number[];
+  /** Server-maintained. Before `until` (exclusive, YYYY-MM-DD) these were the weekly off days. Sorted by `until`. Never sent by clients. */
+  weeklyOffHistory?: Array<{ until: string; days: number[] }>;
   /** Local 'HH:mm'. A check-in after this is LATE. */
   lateAfter: string;
   /** Local 'HH:mm'. A check-in after this is ABSENT, not LATE. */
@@ -112,6 +114,16 @@ export interface AttendancePolicySettings {
   /** Per-shift override of `lateAfter`/`absentAfter` (local 'HH:mm'). A
    * class whose shift has no entry uses the tenant pair above. */
   shiftTimes?: Array<{ shiftId: string; lateAfter: string; absentAfter: string }>;
+  /** Date-ranged timings (Ramadan, winter). `from`/`to` inclusive 'YYYY-MM-DD'; `shiftId: null` = every shift and staff; times 'HH:mm'; `periods` overrides start/end by period sequence. Same-shift ranges never overlap (server-validated). */
+  specialTimings?: Array<{
+    name: string;
+    from: string;
+    to: string;
+    shiftId: string | null;
+    lateAfter: string;
+    absentAfter: string;
+    periods: Array<{ sequence: number; startsAt: string; endsAt: string }>;
+  }>;
   /** Period-by-period attendance on top of the daily register. */
   periodAttendance?: { enabled: boolean };
 }
@@ -263,6 +275,12 @@ export interface ApplicationsSettings {
   smsOnDecision?: boolean;
 }
 
+/** `homework.*` (TIME-11). Both default off. */
+export interface HomeworkSettings {
+  notifyOnAssign?: boolean;
+  notifyDefaulters?: boolean;
+}
+
 /** `documents.*` (48.1.01) — student document options. */
 export interface DocumentsSettings {
   /** Refuse an admit card while the student has dues (D9). Default off. */
@@ -302,6 +320,7 @@ export interface TenantSettings {
   fees?: FeesSettings;
   evaluations?: EvaluationsSettings;
   applications?: ApplicationsSettings;
+  homework?: HomeworkSettings;
   documents?: DocumentsSettings;
   studyPlans?: StudyPlansSettings;
   attention?: AttentionSettings;

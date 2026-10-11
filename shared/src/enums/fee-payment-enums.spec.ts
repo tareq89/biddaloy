@@ -59,13 +59,15 @@ describe('16.1.1 fee/payment enums [#638]', () => {
     expect(Object.values(DiscountKind).sort()).toEqual(['FLAT', 'PERCENT'].sort());
   });
 
-  it('WalletTransactionKind has the 5 wallet movement reasons', () => {
+  it('WalletTransactionKind has the 7 wallet movement reasons', () => {
     expect(Object.values(WalletTransactionKind).sort()).toEqual(
       [
         'CREDIT_OVERPAYMENT',
         'CREDIT_CHANGE',
         'DEBIT_CHECKOUT',
         'DEBIT_GENERATION',
+        'CREDIT_BILL_REMOVED',
+        'DEBIT_PAYOUT',
         'REVERSAL',
       ].sort(),
     );
@@ -75,13 +77,14 @@ describe('16.1.1 fee/payment enums [#638]', () => {
     expect(Object.values(InvoiceKind).sort()).toEqual(['INVOICE', 'CREDIT_NOTE'].sort());
   });
 
-  it('ApprovalScope has the 8 gated-action scope strings', () => {
+  it('ApprovalScope has the 9 gated-action scope strings', () => {
     expect(Object.values(ApprovalScope).sort()).toEqual(
       [
         'fees.duplicate_override',
         'fees.edit_paid',
         'fees.discount',
         'payments.reverse',
+        'payments.backdate',
         'discount_rules.manage',
         'grading_scale.manage',
         'results.reopen',

@@ -82,6 +82,16 @@ describe('alert rule catalogue', () => {
     );
   });
 
+  it('child.absent_today is not pushable or disableable; 3 fee rules also run ON_CHANGE (Epic 68)', () => {
+    expect(meta('child.absent_today')).toMatchObject({
+      pushable: false,
+      canDisable: false,
+      guardianSmsFallback: true,
+    });
+    for (const k of ['fees.unassigned_students', 'fees.due_soon', 'fees.overdue_family'])
+      expect(meta(k).cadence).toContain(AlertCadence.ON_CHANGE);
+  });
+
   it('lookup returns the catalogue object; unknown key throws', () => {
     expect(alertRuleMeta('class.starting')).toBe(meta('class.starting'));
     expect(() => alertRuleMeta('nope' as AlertRuleKey)).toThrow();
