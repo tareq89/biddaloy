@@ -655,10 +655,13 @@ describe('EventFormPage', () => {
       ),
     ).toBeTruthy();
     // No SMS or announcement about a day that is over.
-    expect(screen.getByRole('checkbox', { name: 'Publish immediately' }).disabled).toBe(true);
-    expect(screen.getByRole('checkbox', { name: 'Notify affected families/staff' }).disabled).toBe(
-      true,
-    );
+    expect(
+      screen.getByRole<HTMLButtonElement>('checkbox', { name: 'Publish immediately' }).disabled,
+    ).toBe(true);
+    expect(
+      screen.getByRole<HTMLButtonElement>('checkbox', { name: 'Notify affected families/staff' })
+        .disabled,
+    ).toBe(true);
 
     // Too short: blocked client-side.
     await user.type(reason, 'a');
@@ -686,7 +689,7 @@ describe('EventFormPage', () => {
       { locale: 'en' },
     );
 
-    const working = await screen.findByRole('checkbox', {
+    const working = await screen.findByRole<HTMLButtonElement>('checkbox', {
       name: 'Counts as a working day',
     });
     expect(working.disabled).toBe(false);
