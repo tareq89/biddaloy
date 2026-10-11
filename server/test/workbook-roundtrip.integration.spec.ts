@@ -2398,6 +2398,13 @@ describe('workbook round trip (integration)', () => {
     console.log(`workbook round trip took ${Date.now() - start}ms`);
   }, 90_000);
 
+  // [68.1.fix F6] The spine test above deletes A's users first, because the
+  // clone-a-school / disaster-recovery shape (A's user rows still exist) does
+  // not work yet. Pinned here so the fix lands with a test waiting.
+  it.todo(
+    "#2344: restoring into B while A's users still exist completes: verified users get join requests, rows that reference them are skipped (not failed), and B keeps its own admin",
+  );
+
   // ---- [47.x] teacher_assignments Role column: restore semantics ----------
   //
   // A small one-tenant fixture, restored back into the SAME tenant, so the

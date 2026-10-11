@@ -257,9 +257,18 @@ test.describe.serial('backup and restore', () => {
       // The editor is a chromeless full-screen page: no shell, so no bar
       // there (it has the toast and its own inline error). Back on a shell
       // page, the bar tells the user why their save did not stick.
-      // No "leave without saving?" question: the form counts the refused
-      // submit as submitted, so Cancel goes straight back (bug #2347).
+      // Today there is no "leave without saving?" question: the form counts
+      // the refused submit as submitted, so Cancel goes straight back (bug
+      // #2347). Once #2347 is fixed the question appears; leave through it,
+      // so that fix does not have to touch this spec.
       await page.getByRole('button', { name: t('students.form.cancelAction') }).click();
+      const leave = page.getByRole('button', {
+        name: t('students.form.unsavedChangesDialog.leaveAction'),
+      });
+      await expect
+        .poll(async () => (await leave.isVisible()) || !page.url().endsWith('/edit'))
+        .toBe(true);
+      if (await leave.isVisible()) await leave.click();
       await detail.expectLoaded(studentName);
       const bar = page.getByText(t('common.restoreBar.message'));
       await expect(bar).toBeVisible();
