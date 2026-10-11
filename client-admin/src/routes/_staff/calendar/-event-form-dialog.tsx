@@ -28,7 +28,7 @@ import {
 import type { CalendarEvent } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
-import { toIsoDate } from '@biddaloy/ui/utils';
+import { tenantTodayIso, toIsoDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 export interface EventFormPayload {
@@ -139,9 +139,10 @@ export function EventFormPage({
   // A make-up day exists to add a school day, so it always counts.
   const isMakeup = type === CalendarEventType.MAKEUP_DAY;
   const working = isMakeup || countsAsWorkingDay;
-  // A closure for a day that has already passed is recorded after the fact:
-  // it needs a reason, and is published at once with no announcement.
-  const isPast = !!endDate && toIsoDate(endDate) < toIsoDate(new Date());
+  // A closure with a day that has already passed (on the school's clock, like
+  // the server) is recorded after the fact: it needs a reason, and is
+  // published at once with no announcement.
+  const isPast = !!startDate && toIsoDate(startDate) < tenantTodayIso(regionConfig);
   const lateClosure = mode === 'create' && isPast && !working;
 
   const isDirty =
@@ -231,7 +232,16 @@ export function EventFormPage({
               <label htmlFor="event-form-type" className={LABEL}>
                 {t('eventForm.type')}
               </label>
-              <Select value={type} onValueChange={(value) => setType(value as CalendarEventType)}>
+              <Select
+                value={type}
+                onValueChange={(value) => {
+                  // Leaving MAKEUP_DAY: its forced "counts" must not stick.
+                  if (isMakeup && value !== CalendarEventType.MAKEUP_DAY) {
+                    setCountsAsWorkingDay(false);
+                  }
+                  setType(value as CalendarEventType);
+                }}
+              >
                 <SelectTrigger id="event-form-type">
                   <SelectValue placeholder={t('eventForm.typePlaceholder')} />
                 </SelectTrigger>
