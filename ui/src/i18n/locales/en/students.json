@@ -255,6 +255,7 @@
       "title": "Move class",
       "description": "Move {{name}} to a different class or section.",
       "classLabel": "Class",
+      "classLockedHint": "Only an admin can move a student to another class; use promotion.",
       "classPlaceholder": "Select",
       "sectionLabel": "Section",
       "sectionPlaceholder": "Select",

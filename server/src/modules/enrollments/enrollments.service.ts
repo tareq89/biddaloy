@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Not, EntityManager } from 'typeorm';
@@ -12,10 +13,16 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { CreateEnrollmentDto, EnrollmentUpdate } from './dto/enrollments.dto';
-import { EnrollmentStatus, AuditAction } from '@biddaloy/shared';
+import { EnrollmentStatus, AuditAction, Permission, roleHasPermission } from '@biddaloy/shared';
 import { nextRollNumber } from '../students/roll-number.util';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+
+const needsPromotion = () =>
+  new ForbiddenException({
+    message: 'Moving a student to another class or year is done through promotion',
+    details: { code: 'ENROLLMENT_CLASS_CHANGE_NEEDS_PROMOTION' },
+  });
 
 @Injectable()
 export class EnrollmentService {
@@ -38,6 +45,7 @@ export class EnrollmentService {
     tenantId: string,
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
+    role?: string,
   ): Promise<Enrollment> {
     return this.repo.manager.transaction(async (manager) => {
       // [39.2.1] POST /enrollments must not bring a student who has left back into an ACTIVE
@@ -51,6 +59,14 @@ export class EnrollmentService {
         throw new ConflictException(
           'This student is not currently enrolled. Use "Readmit" to bring them back; a new enrollment cannot reactivate them.',
         );
+      }
+      // [68.3.17.1] A second enrollment is a class/year move: promotion territory. System
+      // callers pass no role and are not gated.
+      if (role && !roleHasPermission(role, Permission.PROMOTION_MANAGE)) {
+        const existing = await manager.getRepository(Enrollment).count({
+          where: { student_id: dto.student_id, tenant_id: tenantId },
+        });
+        if (existing > 0) throw needsPromotion();
       }
       return this.createInTransaction(manager, dto, tenantId, userId, context);
     });
@@ -232,6 +248,7 @@ export class EnrollmentService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
     manager?: EntityManager,
+    role?: string,
   ): Promise<Enrollment> {
     const repo = manager ? manager.getRepository(Enrollment) : this.repo;
     const classRepo = manager ? manager.getRepository(Class) : this.classRepo;
@@ -250,6 +267,9 @@ export class EnrollmentService {
     }
 
     const classChanging = dto.class_id !== undefined && dto.class_id !== enrollment.class_id;
+    if (classChanging && role && !roleHasPermission(role, Permission.PROMOTION_MANAGE)) {
+      throw needsPromotion();
+    }
 
     // Validate the new class if the caller is moving it — [8.11.3]. Also
     // enforced: the new class must belong to the *same* academic year as

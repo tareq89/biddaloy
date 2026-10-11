@@ -255,6 +255,7 @@
       "title": "শ্রেণি পরিবর্তন",
       "description": "{{name}}-কে ভিন্ন শ্রেণি বা শাখায় স্থানান্তর করুন।",
       "classLabel": "শ্রেণি",
+      "classLockedHint": "অন্য শ্রেণিতে নিতে শুধু অ্যাডমিন পারেন; প্রমোশন ব্যবহার করুন।",
       "classPlaceholder": "বাছুন",
       "sectionLabel": "শাখা",
       "sectionPlaceholder": "বাছুন",

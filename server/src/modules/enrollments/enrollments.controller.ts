@@ -33,7 +33,7 @@ export class EnrollmentController {
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    return this.service.create(dto, tenant.id, user.sub, requestContext(request));
+    return this.service.create(dto, tenant.id, user.sub, requestContext(request), tenant.role);
   }
 
   @Get('student/:studentId')
@@ -98,6 +98,14 @@ export class EnrollmentController {
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    return this.service.update(id, dto, tenant.id, user.sub, requestContext(request));
+    return this.service.update(
+      id,
+      dto,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+      undefined,
+      tenant.role,
+    );
   }
 }

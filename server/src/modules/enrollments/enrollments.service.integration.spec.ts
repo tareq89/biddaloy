@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { EnrollmentService } from './enrollments.service';
@@ -21,7 +21,7 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
-import { EnrollmentStatus, AuditAction } from '@biddaloy/shared';
+import { EnrollmentStatus, AuditAction, UserRole } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 
@@ -1460,5 +1460,127 @@ describe('EnrollmentService (integration)', () => {
       );
       expect(audits).toHaveLength(0);
     });
+  });
+});
+
+describe('EnrollmentService class-change gate [68.3.17.1] (integration)', () => {
+  let service: EnrollmentService;
+  let studentRepo: Repository<Student>;
+  let dataSource: DataSource;
+  const TENANT_ID = SEED_TENANT_ID;
+
+  beforeAll(async () => {
+    const module = await createTestModule(ALL_ENTITIES, [EnrollmentService, AuditService], [], {
+      synchronize: true,
+      dropSchema: true,
+    });
+    service = module.get(EnrollmentService);
+    studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
+    dataSource = module.get(DataSource);
+    await seedReferenceData(dataSource);
+  }, 60000);
+
+  afterAll(async () => {
+    if (dataSource) await dataSource.destroy();
+  });
+
+  beforeEach(async () => {
+    await dataSource.query('DELETE FROM enrollments');
+    await dataSource.query('DELETE FROM student_guardians');
+    await dataSource.query('DELETE FROM students');
+  });
+
+  async function enrolled() {
+    const student = await studentRepo.save(
+      studentRepo.create({
+        full_name: 'Gate Student',
+        registration_number: 'REG-GATE-1',
+        roll_number: 1,
+        class_section_id: SEED_SECTION_1_ID,
+        tenant_id: TENANT_ID,
+        date_of_birth: new Date('2010-01-01'),
+        gender: 'MALE',
+        enrollment_status: EnrollmentStatus.ACTIVE,
+        preferred_communication: 'SMS',
+      }),
+    );
+    const dto = {
+      student_id: student.id,
+      class_id: SEED_CLASS_1_ID,
+      section_id: SEED_SECTION_1_ID,
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+    };
+    const enrollment = await service.create(dto, TENANT_ID);
+    return { student, dto, enrollment };
+  }
+
+  const move = { class_id: SEED_CLASS_2_ID, section_id: SEED_CLASS_2_SECTION_ID };
+
+  it('update with a new class_id and role ACCOUNTANT -> 403', async () => {
+    const { enrollment } = await enrolled();
+    await expect(
+      service.update(
+        enrollment.id,
+        move,
+        TENANT_ID,
+        null,
+        undefined,
+        undefined,
+        UserRole.ACCOUNTANT,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('same call with role ADMIN is saved', async () => {
+    const { enrollment } = await enrolled();
+    const saved = await service.update(
+      enrollment.id,
+      move,
+      TENANT_ID,
+      null,
+      undefined,
+      undefined,
+      UserRole.ADMIN,
+    );
+    expect(saved.class_id).toBe(SEED_CLASS_2_ID);
+  });
+
+  it('section-only move with ACCOUNTANT is saved', async () => {
+    const { enrollment } = await enrolled();
+    const saved = await service.update(
+      enrollment.id,
+      { section_id: SEED_SECTION_1_ID },
+      TENANT_ID,
+      null,
+      undefined,
+      undefined,
+      UserRole.ACCOUNTANT,
+    );
+    expect(saved.section_id).toBe(SEED_SECTION_1_ID);
+  });
+
+  it('create for a student with an existing enrollment and role ACCOUNTANT -> 403', async () => {
+    const { dto } = await enrolled();
+    await expect(
+      service.create(dto, TENANT_ID, null, undefined, UserRole.ACCOUNTANT),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('create for a student with none is saved for ACCOUNTANT', async () => {
+    const { dto } = await enrolled();
+    await dataSource.query('DELETE FROM enrollments');
+    const saved = await service.create(dto, TENANT_ID, null, undefined, UserRole.ACCOUNTANT);
+    expect(saved.student_id).toBe(dto.student_id);
+  });
+
+  it('createInTransaction (promotion path) is not affected', async () => {
+    const { dto } = await enrolled();
+    await dataSource.query('DELETE FROM enrollments');
+    await service.create(dto, TENANT_ID);
+    await dataSource.query("UPDATE enrollments SET enrollment_status = 'INACTIVE'");
+    const saved = await dataSource.manager.transaction((m) =>
+      service.createInTransaction(m, dto, TENANT_ID),
+    );
+    expect(saved.student_id).toBe(dto.student_id);
   });
 });
