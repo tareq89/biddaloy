@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -71,6 +72,12 @@ export class CancelApplicationDto {
   @MaxLength(1000)
   @SanitizeText()
   reason: string;
+
+  /** STAFF_LEAVE only: the leave was approved by mistake, so give back days already taken too. */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  revoke_taken_days?: boolean;
 }
 
 /** `POST /applications/bulk-approve` (D33, D35) */

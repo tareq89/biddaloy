@@ -218,6 +218,64 @@ test.describe.serial('staff leave: file -> approve -> balance moves', () => {
   });
 });
 
+test.describe('staff leave approved by mistake: revoke days already taken', () => {
+  test.use(loggedIn('executive'));
+
+  const daysAgo = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return isoDate(d);
+  };
+
+  test('executive cancels an ended approved leave with the mistake box ticked; the balance shows the days back', async ({
+    page,
+    request,
+  }) => {
+    const admin = await adminApiSession(request);
+    const me = await get<{ staff_profile_id: string | null }>(request, admin, '/users/me');
+    if (!me.staff_profile_id) throw new Error('seed admin has no staff profile');
+    const balanceOf = async () =>
+      (
+        await get<{ leave_type: string; balance: number }[]>(
+          request,
+          admin,
+          `/leave/balance?staff_profile_id=${me.staff_profile_id}`,
+        )
+      ).find((b) => b.leave_type === 'CASUAL')?.balance;
+    const before = await balanceOf();
+
+    // A leave that has already ended, approved by the executive (nobody cancels their own).
+    const filed = await post<{ id: string }>(request, admin, '/applications', {
+      type: 'STAFF_LEAVE',
+      payload: {
+        leave_type: 'CASUAL',
+        start_date: daysAgo(10),
+        end_date: daysAgo(8),
+        reason: 'E2E mistake',
+      },
+    });
+    const executive = await roleSession(request, 'executive');
+    await post(request, executive, `/applications/${filed.id}/approve`, {});
+    expect(await balanceOf()).toBeLessThan(before!);
+
+    await page.goto(`/applications/${filed.id}`);
+    await page.getByRole('button', { name: t('common.actions.moreActions') }).click();
+    await page.getByRole('menuitem', { name: t('applicationsDetail.actions.cancel') }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog
+      .getByLabel(t('applicationsDetail.dialogs.cancel.reasonLabel'))
+      .fill('Approved the wrong person');
+    await dialog
+      .getByRole('checkbox', { name: t('applicationsDetail.dialogs.cancel.revokeTakenDays') })
+      .click();
+    await dialog
+      .getByRole('button', { name: t('applicationsDetail.dialogs.cancel.submit') })
+      .click();
+    await expect(page.getByText(t('applications.statuses.CANCELLED')).first()).toBeVisible();
+    expect(await balanceOf()).toBe(before);
+  });
+});
+
 test.describe('bulk approve (teacher)', () => {
   test.use(loggedIn('teacher'));
 

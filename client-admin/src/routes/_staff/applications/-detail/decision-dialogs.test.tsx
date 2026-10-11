@@ -84,6 +84,48 @@ describe('decision dialogs', () => {
     await waitFor(() => expect(body).toEqual({ reason: 'Plans changed' }));
   });
 
+  it('the cancel dialog for STAFF_LEAVE shows the mistake checkbox and sends revoke_taken_days when ticked', async () => {
+    let body: unknown;
+    server.use(
+      http.post('/api/v1/applications/:id/cancel', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(applicationDto({ status: 'CANCELLED' }));
+      }),
+    );
+    open(
+      applicationDto({
+        type: 'STAFF_LEAVE',
+        status: 'APPROVED',
+        payload: { leave_type: 'CASUAL' },
+        can: { decide: false, consider: false, withdraw: false, cancel: true, comment: false },
+      }),
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /more actions/i }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Cancel leave' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Reason for cancelling'), 'Wrong person');
+    await user.click(within(dialog).getByRole('checkbox', { name: /approved by mistake/i }));
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel leave' }));
+    await waitFor(() => expect(body).toEqual({ reason: 'Wrong person', revoke_taken_days: true }));
+  });
+
+  it('the cancel dialog for STUDENT_LEAVE has no mistake checkbox', async () => {
+    open(
+      applicationDto({
+        type: 'STUDENT_LEAVE',
+        status: 'APPROVED',
+        payload: { reason_kind: 'SICK' },
+        can: { decide: false, consider: false, withdraw: false, cancel: true, comment: false },
+      }),
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /more actions/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /cancel/i }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('checkbox')).toBeNull();
+  });
+
   it('a final FEE_WAIVER approval sends the granted amount, never the reason', async () => {
     let body: Record<string, unknown> | undefined;
     server.use(

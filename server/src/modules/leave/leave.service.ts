@@ -323,9 +323,16 @@ export class LeaveService {
    */
   async cancelApprovedLeave(
     manager: EntityManager,
-    params: { tenantId: string; applicationId: string; actorUserId: string; reason: string | null },
+    params: {
+      tenantId: string;
+      applicationId: string;
+      actorUserId: string;
+      reason: string | null;
+      /** Leave approved by mistake: CANCEL the whole record and delete past marks too. */
+      revokeTakenDays?: boolean;
+    },
   ): Promise<{ leave_record_id: string; reverted_dates: string[] }> {
-    const { tenantId, applicationId, actorUserId, reason } = params;
+    const { tenantId, applicationId, actorUserId, reason, revokeTakenDays } = params;
     const recordRepo = manager.getRepository(LeaveRecord);
     const record = await recordRepo.findOne({
       where: { tenant_id: tenantId, application_id: applicationId, status: LeaveStatus.APPROVED },
@@ -345,13 +352,14 @@ export class LeaveService {
       to: record.end_date,
       actorUserId,
       applicationId,
+      includePast: revokeTakenDays === true,
     });
 
     // Fully taken (ends today or earlier): nothing comes back, so refuse rather
     // than report a cancellation that changed nothing. `revertLeaveRange`
     // deleted nothing here (its range starts tomorrow), and the throw rolls
     // back the caller's transaction, so the application stays APPROVED.
-    if (record.end_date <= today) {
+    if (!revokeTakenDays && record.end_date <= today) {
       throw new ConflictException({
         message: 'This leave has already been taken in full',
         details: { code: 'LEAVE_ALREADY_ENDED' },
@@ -359,12 +367,16 @@ export class LeaveService {
     }
 
     const old = { status: record.status, end_date: record.end_date, days: record.days };
-    if (record.start_date <= today) {
+    if (revokeTakenDays) {
+      // Whole record voided; end_date and days stay so the audit shows what was revoked.
+      record.status = LeaveStatus.CANCELLED;
+    } else if (record.start_date <= today) {
       // Under way: the days up to today were taken and keep their LEAVE marks.
       record.end_date = today;
       record.days = await this.countWorkingDays(tenantId, record.start_date, today);
     }
-    if (record.start_date > today || record.days === 0) record.status = LeaveStatus.CANCELLED;
+    if (!revokeTakenDays && (record.start_date > today || record.days === 0))
+      record.status = LeaveStatus.CANCELLED;
     await recordRepo.save(record);
     await this.auditService.record(
       {
@@ -379,6 +391,7 @@ export class LeaveService {
           end_date: record.end_date,
           days: record.days,
           reason,
+          ...(revokeTakenDays ? { revoked_taken_days: true, reverted_dates: dates } : {}),
         },
       },
       manager,
