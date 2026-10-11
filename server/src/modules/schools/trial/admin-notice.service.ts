@@ -73,7 +73,11 @@ export class AdminNoticeService {
     try {
       const provider = this.registry.resolve(medium);
       if (provider) {
-        const result = await provider.send({ to, body, subject }, tenantId);
+        // Platform notice to the school's own admins: may use the platform SMS keys (#2233, #2340).
+        const result = await provider.send(
+          { to, body, subject, allowPlatformSms: true },
+          tenantId,
+        );
         if (result.success) {
           status = CommunicationStatus.SENT;
           providerMessageId = result.providerMessageId;
