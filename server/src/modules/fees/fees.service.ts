@@ -223,7 +223,12 @@ export class FeeStructureService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<FeeStructure> {
-    const updateData: any = { ...dto };
+    // Over HTTP the ValidationPipe builds the DTO with `new`, so every declared
+    // key is present and the unsent ones are `undefined`. Keep only what the
+    // client sent (an explicit `null` for class_id/section_id stays).
+    const updateData: any = Object.fromEntries(
+      Object.entries(dto).filter(([, v]) => v !== undefined),
+    );
     const changedKeys = Object.keys(updateData);
 
     // One transaction for the locked read, the update, and the audit write:
@@ -286,7 +291,7 @@ export class FeeStructureService {
       // X-03: once any bill (even a removed one) points at this structure its
       // type is history. The row lock above also blocks a concurrent bill
       // insert (its FK takes a KEY SHARE lock on this row) until we commit.
-      if (changedKeys.includes('fee_type') && dto.fee_type !== existing.fee_type) {
+      if (changedKeys.includes('fee_type') && updateData.fee_type !== existing.fee_type) {
         const billCount = await manager
           .getRepository(StudentFee)
           .createQueryBuilder('sf')
