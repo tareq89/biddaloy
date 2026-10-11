@@ -20,19 +20,15 @@ export interface DriftGroup {
 export const DRIFT_BASELINE: DriftGroup[] = [
   {
     reason:
-      'REAL DRIFT. The entity enum has values the DB enum type lacks: wallet_transactions.kind (CREDIT_BILL_REMOVED, DEBIT_PAYOUT), discount_rules.fee_types (FINE), auth_tokens.purpose (JOIN_SCHOOL). Writing one of those values fails with "invalid input value for enum". Needs an ALTER TYPE ... ADD VALUE migration.',
-    owner: 'unowned, see #2342',
+      'REAL DRIFT. The entity enum has values the DB enum type lacks: wallet_transactions.kind (CREDIT_BILL_REMOVED, DEBIT_PAYOUT), discount_rules.fee_types (FINE). Writing one of those values fails with "invalid input value for enum". Needs an ALTER TYPE ... ADD VALUE migration.',
+    owner: 'unowned, see #2343',
     statements: [
-      'ALTER TABLE "auth_tokens" ALTER COLUMN "purpose" TYPE "public"."auth_tokens_purpose_enum" USING "purpose"::"text"::"public"."auth_tokens_purpose_enum"',
       'ALTER TABLE "discount_rules" ALTER COLUMN "fee_types" TYPE "public"."discount_rules_fee_types_enum"[] USING "fee_types"::"text"::"public"."discount_rules_fee_types_enum"[]',
       'ALTER TABLE "wallet_transactions" ALTER COLUMN "kind" TYPE "public"."wallet_transactions_kind_enum" USING "kind"::"text"::"public"."wallet_transactions_kind_enum"',
-      'ALTER TYPE "public"."auth_tokens_purpose_enum" RENAME TO "auth_tokens_purpose_enum_old"',
       'ALTER TYPE "public"."discount_rules_fee_types_enum" RENAME TO "discount_rules_fee_types_enum_old"',
       'ALTER TYPE "public"."wallet_transactions_kind_enum" RENAME TO "wallet_transactions_kind_enum_old"',
-      "CREATE TYPE \"public\".\"auth_tokens_purpose_enum\" AS ENUM('INVITE', 'PASSWORD_RESET', 'EMAIL_VERIFY', 'JOIN_SCHOOL')",
       "CREATE TYPE \"public\".\"discount_rules_fee_types_enum\" AS ENUM('MONTHLY_TUITION', 'EXAM_FEE', 'LIBRARY_FEE', 'LAB_FEE', 'SPORTS_FEE', 'COMPUTER_FEE', 'TRANSPORT_FEE', 'ANNUAL_FEE', 'ADMISSION_FEE', 'LATE_FEE', 'FINE', 'OTHER')",
       "CREATE TYPE \"public\".\"wallet_transactions_kind_enum\" AS ENUM('CREDIT_OVERPAYMENT', 'CREDIT_CHANGE', 'DEBIT_CHECKOUT', 'DEBIT_GENERATION', 'CREDIT_BILL_REMOVED', 'DEBIT_PAYOUT', 'REVERSAL')",
-      'DROP TYPE "public"."auth_tokens_purpose_enum_old"',
       'DROP TYPE "public"."discount_rules_fee_types_enum_old"',
       'DROP TYPE "public"."wallet_transactions_kind_enum_old"',
     ],
@@ -40,7 +36,7 @@ export const DRIFT_BASELINE: DriftGroup[] = [
   {
     reason:
       'The DB enum payment_allocations_allocation_type_enum has ADVANCE; the entity enum does not. DB is wider than the entity, so writes are safe.',
-    owner: 'unowned, see #2342',
+    owner: 'unowned, see #2343',
     statements: [
       'ALTER TABLE "payment_allocations" ALTER COLUMN "allocation_type" TYPE "public"."payment_allocations_allocation_type_enum" USING "allocation_type"::"text"::"public"."payment_allocations_allocation_type_enum"',
       'ALTER TYPE "public"."payment_allocations_allocation_type_enum" RENAME TO "payment_allocations_allocation_type_enum_old"',
@@ -806,7 +802,7 @@ export const DRIFT_BASELINE: DriftGroup[] = [
   {
     reason:
       'Same FK columns and target, different action: the entity says ON DELETE NO ACTION, the DB says SET NULL (fee_generations x2, recurring_schedules, recurring_schedule_exclusions, sms_credit_ledger) or RESTRICT (invoice_share_tokens). Deleting a user follows the DB.',
-    owner: 'unowned, see #2342',
+    owner: 'unowned, see #2343',
     statements: [
       'ALTER TABLE "fee_generations" ADD CONSTRAINT "FK_57630ad4432b93d99baa5ff570f" FOREIGN KEY ("approved_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION',
       'ALTER TABLE "fee_generations" ADD CONSTRAINT "FK_b7f027dff29355a97691a7a7bbc" FOREIGN KEY ("generated_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION',
@@ -1276,7 +1272,7 @@ export const DRIFT_BASELINE: DriftGroup[] = [
   {
     reason:
       'class_sections has an unconditional UNIQUE (class_id, section_name) the entity does not declare, next to the soft-delete-aware partial one it does. DB is stricter: a soft-deleted section name cannot be reused.',
-    owner: 'unowned, see #2342',
+    owner: 'unowned, see #2343',
     statements: ['DROP INDEX "public"."IDX_63d2faa7e6351f234ede380634"'],
   },
   {
@@ -1314,7 +1310,7 @@ export const DRIFT_BASELINE: DriftGroup[] = [
   {
     reason:
       'The entity declares a tenant_id index the DB does not have; a composite index leading with tenant_id covers it (guardians, fee_structures, payments).',
-    owner: 'unowned, see #2342',
+    owner: 'unowned, see #2343',
     statements: [
       'CREATE INDEX "IDX_24430fa0e9c48d2ba41cf6312f" ON "guardians" ("tenant_id") ',
       'CREATE INDEX "IDX_9109b53fca5cef7720aca72974" ON "payments" ("tenant_id") ',
@@ -1324,7 +1320,7 @@ export const DRIFT_BASELINE: DriftGroup[] = [
   {
     reason:
       'The entity declares an index the DB does not have and no index leads with its columns (classes.tenant_id, class_sections tenant_id and (class_id, tenant_id), teachers.tenant_id). Performance only.',
-    owner: 'unowned, see #2342',
+    owner: 'unowned, see #2343',
     statements: [
       'CREATE INDEX "IDX_59eaaec324d70a1e337f31db40" ON "class_sections" ("class_id", "tenant_id") ',
       'CREATE INDEX "IDX_5d6fa6a7e8bca2439a922182f0" ON "class_sections" ("tenant_id") ',
