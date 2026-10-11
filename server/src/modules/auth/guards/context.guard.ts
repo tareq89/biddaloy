@@ -4,6 +4,8 @@ import {
   ExecutionContext,
   UnauthorizedException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Inject,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -256,6 +258,20 @@ export class ContextGuard implements CanActivate {
             ...(reason === TRIAL_EXPIRED_REASON ? { reason } : {}),
           },
         });
+      }
+      // A restore is replacing this school's data: refuse writes (not reads) so nothing saved
+      // mid-restore is wiped by it or missed by its snapshot (#2210).
+      if (
+        !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
+        (await this.tenantStatus.isRestoring(tenantId))
+      ) {
+        throw new HttpException(
+          {
+            message: 'This school is being restored from a backup. Try again when it finishes.',
+            details: { code: 'TENANT_RESTORING' },
+          },
+          HttpStatus.LOCKED,
+        );
       }
     }
 

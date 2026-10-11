@@ -4,6 +4,7 @@ import { QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
 import { SchoolStatus } from '@biddaloy/shared';
 import { School } from './entities/school.entity';
+import { isLocked } from '../workbook/restore/restore-lock';
 
 const POSTGRES_INVALID_TEXT_REPRESENTATION = '22P02';
 
@@ -143,6 +144,18 @@ export class TenantStatusService {
       );
     }
     return school.status_reason;
+  }
+
+  /** True while a backup restore holds this tenant's lock. Fail-open on Redis errors like `getStatus`. */
+  async isRestoring(tenantId: string): Promise<boolean> {
+    try {
+      return await isLocked(this.redis, tenantId);
+    } catch (error) {
+      this.logger.warn(
+        `Restore-lock read failed for ${tenantId}, treating as not restoring: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
   }
 
   async invalidate(tenantId: string): Promise<void> {

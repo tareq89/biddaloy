@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm';
 import * as Sentry from '@sentry/node';
 import { DuplicateStrategy, FeeGenerationSource, PeriodType } from '@biddaloy/shared';
 import { SchoolsService } from '../schools/schools.service';
+import { TenantStatusService } from '../schools/tenant-status.service';
 import {
   FeeGenerationService,
   feesEvents,
@@ -133,6 +134,10 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     @Optional()
     @Inject(FineSweepService)
     private readonly fineSweepService?: FineSweepService,
+    // [68.1.2210] `@Global()` module; optional so older positional constructions still compile.
+    @Optional()
+    @Inject(TenantStatusService)
+    private readonly tenantStatus?: TenantStatusService,
   ) {
     super();
   }
@@ -198,6 +203,11 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
   }
 
   private async runTenant(tenantId: string, today: string): Promise<void> {
+    // A restore is rewriting this school's data; the next daily run picks it up.
+    if (await this.tenantStatus?.isRestoring(tenantId)) {
+      this.logger.log(`fees-daily: skipped tenant ${tenantId}, restore running`);
+      return;
+    }
     const schedules = await this.findDueSchedules(tenantId, today);
     for (const schedule of schedules) {
       try {

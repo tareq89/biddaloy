@@ -248,11 +248,19 @@ describe('POST /backup/restore E2E', () => {
   });
 
   it(
-    'happy path: 202 with job_id + snapshot_job_id, rejects a concurrent restore with 409, ' +
+    'happy path: 202 with job_id + snapshot_job_id, rejects a concurrent restore with 423, ' +
       'then reaches DONE with progress/failed_tab/snapshot_job_id exposed',
     async () => {
       const workbook = await buildSchoolOnlyWorkbook(FRESH_TENANT_ID, FRESH_SCHOOL_NAME);
       const stagingId = await validateWorkbook(FRESH_TENANT_ID, freshAdminToken, workbook);
+
+      // Staged up front: once the first restore holds the lock, every write to this school
+      // (including /backup/validate) is refused with 423 (#2210).
+      const secondStagingId = await validateWorkbook(
+        FRESH_TENANT_ID,
+        freshAdminToken,
+        await buildSchoolOnlyWorkbook(FRESH_TENANT_ID, FRESH_SCHOOL_NAME),
+      );
 
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/backup/restore')
@@ -267,19 +275,15 @@ describe('POST /backup/restore E2E', () => {
 
       // A second restore for the same tenant, while the first still holds
       // the per-tenant lock, must be refused — even with a fresh staging_id.
-      const secondStagingId = await validateWorkbook(
-        FRESH_TENANT_ID,
-        freshAdminToken,
-        await buildSchoolOnlyWorkbook(FRESH_TENANT_ID, FRESH_SCHOOL_NAME),
-      );
       await supertest(app.getHttpServer())
         .post('/api/v1/backup/restore')
         .set('Authorization', `Bearer ${freshAdminToken}`)
         .set('X-Tenant-ID', FRESH_TENANT_ID)
         .send({ staging_id: secondStagingId, confirmation: FRESH_SCHOOL_NAME })
-        .expect(409)
+        .expect(423)
         .expect(({ body }) => {
-          expect(body.message).toBe('A restore is already in progress for this school.');
+          // The freeze guard (#2210) now refuses it before RestoreService's own 409 lock check.
+          expect(body.details.code).toBe('TENANT_RESTORING');
         });
 
       // Poll GET /backup/jobs/:id until the restore reaches a terminal

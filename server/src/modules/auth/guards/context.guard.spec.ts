@@ -18,6 +18,7 @@ describe('ContextGuard', () => {
     isActive: ReturnType<typeof vi.fn>;
     getStatus: ReturnType<typeof vi.fn>;
     getStatusReason: ReturnType<typeof vi.fn>;
+    isRestoring: ReturnType<typeof vi.fn>;
     findSchoolIdBySlug: ReturnType<typeof vi.fn>;
   };
   let configService: { get: ReturnType<typeof vi.fn> };
@@ -30,6 +31,7 @@ describe('ContextGuard', () => {
       isActive: vi.fn().mockResolvedValue(true),
       getStatus: vi.fn().mockResolvedValue(SchoolStatus.ACTIVE),
       getStatusReason: vi.fn().mockResolvedValue(null),
+      isRestoring: vi.fn().mockResolvedValue(false),
       // Not found by default — most tests below rely on an explicitly
       // configured PLATFORM_TENANT_ID and never need dynamic resolution;
       // the ones that do (see "dynamic platform tenant resolution" below)
@@ -253,6 +255,57 @@ describe('ContextGuard', () => {
       const context = createMockContext(req);
 
       await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('Restore freeze (#2210)', () => {
+    const restoreReq = (method: string, memberships: any[], tenantId = 'tenant-1') => ({
+      method,
+      user: { sub: 'user-1', email: 'a@b.c', phone: null, memberships },
+      headers: { 'x-tenant-id': tenantId },
+    });
+    const adminOf = [{ tenantId: 'tenant-1', role: UserRole.ADMIN }];
+
+    it('refuses a POST with 423 TENANT_RESTORING while a restore runs', async () => {
+      tenantStatus.isRestoring.mockResolvedValue(true);
+      const context = createMockContext(restoreReq('POST', adminOf));
+
+      const error: any = await guard.canActivate(context).catch((e) => e);
+
+      expect(error.getStatus()).toBe(423);
+      expect(error.getResponse().details).toEqual({ code: 'TENANT_RESTORING' });
+    });
+
+    it.each(['PUT', 'PATCH', 'DELETE'])('refuses a %s while a restore runs', async (method) => {
+      tenantStatus.isRestoring.mockResolvedValue(true);
+      await expect(
+        guard.canActivate(createMockContext(restoreReq(method, adminOf))),
+      ).rejects.toMatchObject({ status: 423 });
+    });
+
+    it('still allows a GET while a restore runs (read-only, not closed)', async () => {
+      tenantStatus.isRestoring.mockResolvedValue(true);
+      await expect(guard.canActivate(createMockContext(restoreReq('GET', adminOf)))).resolves.toBe(
+        true,
+      );
+    });
+
+    it('allows a POST when no restore runs', async () => {
+      await expect(guard.canActivate(createMockContext(restoreReq('POST', adminOf)))).resolves.toBe(
+        true,
+      );
+    });
+
+    it('does not check the platform SUPER_ADMIN on their own platform tenant', async () => {
+      tenantStatus.isRestoring.mockResolvedValue(true);
+      const req = restoreReq(
+        'POST',
+        [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }],
+        PLATFORM_TENANT_ID,
+      );
+
+      await expect(guard.canActivate(createMockContext(req))).resolves.toBe(true);
+      expect(tenantStatus.isRestoring).not.toHaveBeenCalled();
     });
   });
 
