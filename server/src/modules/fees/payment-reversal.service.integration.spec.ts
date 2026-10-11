@@ -48,6 +48,7 @@ import {
   PaymentAllocationType,
   InvoiceStatus,
   InvoiceKind,
+  PaymentStatus,
 } from '@biddaloy/shared';
 
 /**
@@ -483,6 +484,42 @@ describe('PaymentReversalService (integration)', () => {
 
     await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'left');
 
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
+  });
+
+  // Review r1 #4: a FAILED payment never collected money, so a removed bill
+  // must not turn its allocation into wallet credit.
+  it('MON-03: a removed bill credits nothing for an allocation of a FAILED payment', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
+    const failed = await paymentRepo.save(
+      paymentRepo.create({
+        student_id: student.id,
+        total_amount: 1000,
+        payment_method: PaymentMethod.BKASH,
+        payment_status: PaymentStatus.FAILED,
+        payment_date: new Date(),
+        tenant_id: TENANT_ID,
+      }),
+    );
+    await allocationRepo.save(
+      allocationRepo.create({
+        payment_id: failed.id,
+        student_fee_id: bill.id,
+        allocated_amount: 1000,
+        allocation_type: PaymentAllocationType.DUE,
+      }),
+    );
+
+    const credits = await dataSource.transaction(async (manager) => {
+      await manager.getRepository(StudentFee).softDelete({ id: bill.id });
+      const removed = await manager
+        .getRepository(StudentFee)
+        .find({ where: { id: bill.id }, withDeleted: true });
+      return returnMoneyOfRemovedBills(manager, walletService, removed, TENANT_ID, ACTOR_USER_ID);
+    });
+
+    expect(credits).toEqual([]);
     expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
   });
 
