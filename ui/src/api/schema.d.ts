@@ -379,6 +379,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/account/school-invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lists the caller's pending requests to join a school. */
+        get: operations["SchoolInvitesController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/account/school-invites/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accepts a request: the caller becomes a member of that school. */
+        post: operations["SchoolInvitesController_accept_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/account/school-invites/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Declines a request; no membership is created. */
+        post: operations["SchoolInvitesController_decline_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/reminder/single/{studentId}/preview": {
         parameters: {
             query?: never;
@@ -8268,6 +8319,18 @@ export interface components {
             /** @description The first password to set. */
             password: string;
         };
+        /** @enum {string} */
+        UserRole: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
+        SchoolInviteDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            school_id: string;
+            school_name: string;
+            role: components["schemas"]["UserRole"];
+            /** Format: date-time */
+            expires_at: string;
+        };
         SendSingleReminderDto: {
             message_template: string;
             guardian_ids?: string[];
@@ -10786,7 +10849,7 @@ export interface components {
             guardian_id: string;
             full_name: string;
             /** @enum {string} */
-            reason: "no_contact" | "already_active" | "already_pending" | "notifications_disabled";
+            reason: "no_contact" | "already_active" | "already_pending" | "notifications_disabled" | "contact_in_use";
         };
         InvitePreviewResponseDto: {
             total: number;
@@ -13701,8 +13764,6 @@ export interface components {
         /** @enum {string} */
         ApplicationSource: "APP" | "PAPER";
         /** @enum {string} */
-        UserRole: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
-        /** @enum {string} */
         ApplicationSubjectKind: "STUDENT" | "STAFF";
         /** @enum {string} */
         ApplicationAddressee: "CLASS_TEACHER" | "HEADMASTER" | "OFFICE" | "STAFF_USER";
@@ -15095,6 +15156,63 @@ export interface operations {
                 "application/json": components["schemas"]["FirstPasswordDto"];
             };
         };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolInvitesController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolInviteDto"][];
+                };
+            };
+        };
+    };
+    SchoolInvitesController_accept_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolInvitesController_decline_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             204: {
                 headers: {
