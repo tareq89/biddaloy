@@ -187,6 +187,40 @@ describe('/communications/send', () => {
     expect(send.disabled).toBe(true);
   });
 
+  // Same rule as the server's addressForMedium: phone, else alternate phone.
+  it('uses the alternate phone when the guardian has no main phone', async () => {
+    const altOnly = guardianFactory({
+      id: 'guardian-3',
+      full_name: 'Salma Khatun',
+      relationship: 'Aunt',
+      phone: null,
+      alternate_phone: '+8801700000009',
+      email: null,
+    });
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({
+          data: [{ ...STUDENT, guardians: [altOnly] }],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    render();
+    await screen.findByRole('heading', { name: 'Send Message' });
+    await pickGuardian(user, 'Salma Khatun (Aunt)');
+
+    expect(screen.getByText('Mobile number').closest('dl')?.textContent).toContain(
+      formatPhone('+8801700000009', REGION_BD_EN),
+    );
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Review and send' }).disabled,
+    ).toBe(false);
+  });
+
   it('shows the subject field for EMAIL and template fields for WHATSAPP only', async () => {
     const user = userEvent.setup();
     render();
