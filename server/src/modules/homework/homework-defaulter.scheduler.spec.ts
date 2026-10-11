@@ -34,7 +34,10 @@ describe('HomeworkDefaulterScheduler', () => {
     studentRepo = { find: vi.fn(async () => [{ id: 's-1' }]) };
     schoolsService = {
       findAll: vi.fn(async () => [{ id: TENANT, name: 'Green Valley School' }]),
-      getResolvedSettings: vi.fn(async () => ({ region: { timezone: 'Asia/Dhaka' } })),
+      getResolvedSettings: vi.fn(async () => ({
+        region: { timezone: 'Asia/Dhaka' },
+        homework: { notifyDefaulters: true },
+      })),
     };
     homeworkNoticeService = { notifyDefaulters: vi.fn(async () => undefined) };
 
@@ -114,6 +117,15 @@ describe('HomeworkDefaulterScheduler', () => {
     expect(homeworkNoticeService.notifyDefaulters).not.toHaveBeenCalled();
   });
 
+  it('[TIME-11] skips a tenant whose defaulter switch is off before loading assignments', async () => {
+    schoolsService.getResolvedSettings.mockResolvedValue({ region: { timezone: 'Asia/Dhaka' } });
+
+    await scheduler.process();
+
+    expect(assignmentRepo.find).not.toHaveBeenCalled();
+    expect(homeworkNoticeService.notifyDefaulters).not.toHaveBeenCalled();
+  });
+
   it('does nothing for a tenant with no assignments due yesterday', async () => {
     assignmentRepo.find = vi.fn(async () => []);
 
@@ -130,7 +142,7 @@ describe('HomeworkDefaulterScheduler', () => {
     ]);
     schoolsService.getResolvedSettings = vi.fn(async (id: string) => {
       if (id === 'tenant-broken') throw new Error('boom');
-      return { region: { timezone: 'Asia/Dhaka' } };
+      return { region: { timezone: 'Asia/Dhaka' }, homework: { notifyDefaulters: true } };
     });
 
     await expect(scheduler.process()).resolves.not.toThrow();

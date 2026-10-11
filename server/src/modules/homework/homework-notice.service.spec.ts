@@ -42,6 +42,7 @@ describe('HomeworkNoticeService', () => {
   let logRepo: any;
   let queue: any;
   let smsCredit: any;
+  let schoolsService: any;
   let service: HomeworkNoticeService;
 
   beforeEach(() => {
@@ -57,7 +58,13 @@ describe('HomeworkNoticeService', () => {
     queue = { add: vi.fn(async () => undefined) };
     // Unmetered by default: reserveForLog returns no extra job data.
     smsCredit = { reserveForLog: vi.fn(async () => ({})), releaseForLog: vi.fn() };
-    service = new HomeworkNoticeService(studentRepo, logRepo, queue, smsCredit);
+    // Both switches on by default so the existing delivery tests keep their meaning.
+    schoolsService = {
+      getResolvedSettings: vi.fn(async () => ({
+        homework: { notifyOnAssign: true, notifyDefaulters: true },
+      })),
+    };
+    service = new HomeworkNoticeService(studentRepo, logRepo, queue, smsCredit, schoolsService);
   });
 
   // [#2216]
@@ -190,6 +197,52 @@ describe('HomeworkNoticeService', () => {
     it('sends nothing for an empty defaulter list', async () => {
       await service.notifyDefaulters(ASSIGNMENT as never, HOMEWORK as never, []);
       expect(logRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  // [TIME-11] Both notices are off unless the school turns them on.
+  describe('school switches', () => {
+    it('switches absent: neither notice writes a log', async () => {
+      schoolsService.getResolvedSettings.mockResolvedValue({});
+
+      await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
+      await service.notifyDefaulters(ASSIGNMENT as never, HOMEWORK as never, [student()] as never);
+
+      expect(logRepo.save).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('each switch is independent', async () => {
+      schoolsService.getResolvedSettings.mockResolvedValue({ homework: { notifyOnAssign: true } });
+      await service.notifyDefaulters(ASSIGNMENT as never, HOMEWORK as never, [student()] as never);
+      expect(logRepo.save).not.toHaveBeenCalled();
+
+      await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
+      expect(logRepo.save).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // [JOBS-09] Bangla school, Bangla text. The title stays as the teacher typed it.
+  describe('locale', () => {
+    beforeEach(() => {
+      schoolsService.getResolvedSettings.mockResolvedValue({
+        region: { locale: 'bn-BD' },
+        homework: { notifyOnAssign: true, notifyDefaulters: true },
+      });
+    });
+
+    it('assignment notice is in Bangla for bn-BD', async () => {
+      await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
+      expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+        'প্রিয় অভিভাবক, নতুন বাড়ির কাজ "Chapter 3 exercises" দেওয়া হয়েছে, জমার শেষ তারিখ 2026-01-08।',
+      );
+    });
+
+    it('defaulter notice is in Bangla for bn-BD', async () => {
+      await service.notifyDefaulters(ASSIGNMENT as never, HOMEWORK as never, [student()] as never);
+      expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+        'প্রিয় অভিভাবক, বাড়ির কাজ "Chapter 3 exercises" (শেষ তারিখ 2026-01-08) এখনও জমা হয়নি।',
+      );
     });
   });
 });
