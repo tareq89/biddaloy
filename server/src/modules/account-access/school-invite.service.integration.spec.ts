@@ -59,12 +59,16 @@ describe('SchoolInviteService (integration)', () => {
     );
   });
 
-  const request = (tenantId = SEED_TENANT_ID, extra: { guardianId?: string } = {}) =>
+  const request = (
+    tenantId = SEED_TENANT_ID,
+    extra: { guardianId?: string } = {},
+    role = UserRole.PARENT,
+  ) =>
     ds.transaction((m) =>
       insertJoinRequest(m, {
         userId: user.id,
         tenantId,
-        role: UserRole.PARENT,
+        role,
         createdByUserId: null,
         ...extra,
       }),
@@ -158,6 +162,21 @@ describe('SchoolInviteService (integration)', () => {
     const token = await ds.getRepository(AuthToken).findOneOrFail({ where: { id: a.id } });
     expect(token.purpose).toBe(AuthTokenPurpose.JOIN_SCHOOL);
     expect(token.revoked_at).toBeNull();
+  });
+
+  // [68.1.fix F3] Provisioning (ADMIN), guardian batch (PARENT) and restore
+  // (any role) all file requests. One must not cancel another's.
+  it('an ADMIN request for the same user and school leaves the PARENT request (and its guardian) live', async () => {
+    const g = await makeGuardian();
+    const parent = await request(SEED_TENANT_ID, { guardianId: g.id });
+    const admin = await request(SEED_TENANT_ID, {}, UserRole.ADMIN);
+
+    const live = await service.listMine(user.id);
+    expect(live.map((r) => r.id).sort()).toEqual([parent.id, admin.id].sort());
+
+    await service.accept(user.id, parent.id, CTX);
+    const linked = await ds.getRepository(Guardian).findOneOrFail({ where: { id: g.id } });
+    expect(linked.user_id).toBe(user.id);
   });
 
   const makeGuardian = (tenantId = SEED_TENANT_ID, over: Partial<Guardian> = {}) =>
