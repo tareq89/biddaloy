@@ -15,6 +15,13 @@ import { MarksAuthorizationService } from './marks-authorization.util';
 import { AuditService } from '../audit/audit.service';
 import { ExamStatus, MarkGridState, UserRole } from '@biddaloy/shared';
 
+// lastSittingDate runs raw SQL; the rule itself (joinedAfterExam) stays real.
+const sitting = vi.hoisted(() => ({ date: null as string | null }));
+vi.mock('./exam-cohort', async (orig) => ({
+  ...(await orig<typeof import('./exam-cohort')>()),
+  lastSittingDate: vi.fn(async () => sitting.date),
+}));
+
 const TENANT_ID = 'tenant-1';
 const EXAM_ID = 'exam-1';
 const SECTION_ID = 'section-1';
@@ -25,6 +32,7 @@ async function buildService(
     exam?: any;
     section?: any;
     students?: any[];
+    enrollments?: any[];
     components?: any[];
     marks?: any[];
     grid?: any;
@@ -40,6 +48,7 @@ async function buildService(
     },
     section = { id: SECTION_ID, tenant_id: TENANT_ID, section_name: 'A' },
     students = [],
+    enrollments,
     components = [],
     marks = [],
     grid = null,
@@ -67,9 +76,18 @@ async function buildService(
     execute: vi.fn(async () => undefined),
   };
   gridRepo.manager = {
-    transaction: vi.fn(async (cb: any) =>
-      cb({ getRepository: () => gridRepo, createQueryBuilder: () => insertQb }),
-    ),
+    transaction: vi.fn(async (cb: any) => cb(gridRepo.manager)),
+    getRepository: (entity: unknown) =>
+      entity === Enrollment
+        ? enrollmentRepo
+        : entity === Student
+          ? studentRepo
+          : entity === ExamComponent
+            ? componentRepo
+            : entity === Mark
+              ? markRepo
+              : gridRepo,
+    createQueryBuilder: () => insertQb,
   };
   const sectionRepo: any = {
     findOne: vi.fn(async () => section),
@@ -80,7 +98,9 @@ async function buildService(
   // section_id = sectionId), not studentRepo.find directly.
   const enrollmentRepo: any = {
     find: vi.fn(async () =>
-      students.map((s: any) => ({ student_id: s.id, section_id: SECTION_ID })),
+      (enrollments ?? students.map((s: any) => ({ student_id: s.id, section_id: SECTION_ID }))).map(
+        (e: any) => ({ enrolled_at: new Date('2020-01-01'), ...e }),
+      ),
     ),
   };
   const attendanceComponentService = {
@@ -151,7 +171,9 @@ describe('MarkGridService.getGrid', () => {
     );
 
     expect(grid.state).toBe(MarkGridState.DRAFT);
-    expect(grid.students).toEqual([{ id: 'stu-1', roll_number: 1, full_name: 'A' }]);
+    expect(grid.students).toEqual([
+      { id: 'stu-1', roll_number: 1, full_name: 'A', joined_after_exam: false },
+    ]);
     expect(grid.components).toHaveLength(1);
     expect(grid.cells).toEqual([
       { student_id: 'stu-1', component_id: 'comp-1', value: '80.00', status: 'PRESENT' },
@@ -222,6 +244,64 @@ describe('MarkGridService.getGrid', () => {
     expect(grid.cells).toEqual([
       { student_id: 'stu-1', component_id: 'comp-1', value: '80.00', status: 'PRESENT' },
     ]);
+  });
+});
+
+const MANUAL = (id: string) => ({ id, source: 'MANUAL', subject_id: SUBJECT_ID });
+const STUDENT = (id: string) => ({ id, roll_number: 1, full_name: id });
+
+describe('MarkGridService.submit blank cells (ACAD-04)', () => {
+  const submit = (service: MarkGridService) =>
+    service.submit(
+      EXAM_ID,
+      { section_id: SECTION_ID, subject_id: SUBJECT_ID } as any,
+      TENANT_ID,
+      UserRole.TEACHER,
+      'user-1',
+    );
+
+  it('refuses with GRID_INCOMPLETE when a cell was never entered', async () => {
+    const { service, auditService } = await buildService({
+      students: [STUDENT('s1')],
+      components: [MANUAL('c1')],
+    });
+    await expect(submit(service)).rejects.toMatchObject({
+      response: { details: { code: 'GRID_INCOMPLETE', blank_count: 1 } },
+    });
+    expect(auditService.record).not.toHaveBeenCalled();
+  });
+
+  it('refuses a PRESENT cell with a null value', async () => {
+    const { service } = await buildService({
+      students: [STUDENT('s1')],
+      components: [MANUAL('c1')],
+      marks: [{ student_id: 's1', component_id: 'c1', value: null, status: 'PRESENT' }],
+    });
+    await expect(submit(service)).rejects.toThrow(ConflictException);
+  });
+
+  it('accepts ABSENT, EXEMPT and PRESENT+value cells', async () => {
+    const { service } = await buildService({
+      students: [STUDENT('s1'), STUDENT('s2'), STUDENT('s3')],
+      components: [MANUAL('c1')],
+      marks: [
+        { student_id: 's1', component_id: 'c1', value: null, status: 'ABSENT' },
+        { student_id: 's2', component_id: 'c1', value: null, status: 'EXEMPT' },
+        { student_id: 's3', component_id: 'c1', value: '5.00', status: 'PRESENT' },
+      ],
+    });
+    await expect(submit(service)).resolves.toMatchObject({ state: MarkGridState.SUBMITTED });
+  });
+
+  it('ignores late joiners', async () => {
+    sitting.date = '2024-03-01';
+    const { service } = await buildService({
+      students: [STUDENT('s1')],
+      enrollments: [{ student_id: 's1', enrolled_at: new Date('2024-06-01') }],
+      components: [MANUAL('c1')],
+    });
+    await expect(submit(service)).resolves.toMatchObject({ state: MarkGridState.SUBMITTED });
+    sitting.date = null;
   });
 });
 
@@ -422,6 +502,38 @@ describe('MarkGridService.progress', () => {
     const result = await service.progress(EXAM_ID, TENANT_ID);
 
     expect(result.counts[MarkGridState.SUBMITTED]).toBe(1);
+    expect(result.outstanding).toEqual([]);
+  });
+});
+
+describe('MarkGridService.progress with blank cells (X-06)', () => {
+  const base = {
+    section: { id: SECTION_ID, tenant_id: TENANT_ID, section_name: 'A' },
+    grid: { section_id: SECTION_ID, subject_id: SUBJECT_ID, state: MarkGridState.SUBMITTED },
+  };
+
+  it('lists a SUBMITTED grid with a blank MANUAL cell as outstanding, state SUBMITTED', async () => {
+    const { service } = await buildService({
+      ...base,
+      students: [STUDENT('s1')],
+      components: [{ ...MANUAL('c1'), subject: { tenant_id: TENANT_ID } }],
+    });
+    const result = await service.progress(EXAM_ID, TENANT_ID);
+    expect(result.outstanding).toHaveLength(1);
+    expect(result.outstanding[0].state).toBe(MarkGridState.SUBMITTED);
+    expect(result.counts[MarkGridState.SUBMITTED]).toBe(1);
+  });
+
+  it('does not list a SUBMITTED grid whose only blanks belong to a late joiner', async () => {
+    sitting.date = '2024-03-01';
+    const { service } = await buildService({
+      ...base,
+      students: [STUDENT('s1')],
+      enrollments: [{ student_id: 's1', enrolled_at: new Date('2024-06-01') }],
+      components: [{ ...MANUAL('c1'), subject: { tenant_id: TENANT_ID } }],
+    });
+    const result = await service.progress(EXAM_ID, TENANT_ID);
+    sitting.date = null;
     expect(result.outstanding).toEqual([]);
   });
 });

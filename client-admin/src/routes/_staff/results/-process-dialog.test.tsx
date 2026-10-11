@@ -115,7 +115,7 @@ describe('ProcessDialog', () => {
     await waitFor(() => expect(capturedBody).toEqual({ force: false }));
   });
 
-  it('ignores grids that are already submitted and offers a plain Process', async () => {
+  it('lists a SUBMITTED grid with blank cells and says why', async () => {
     server.use(
       http.get('/api/v1/exams/exam-1/marks/progress', () =>
         HttpResponse.json({
@@ -134,9 +134,9 @@ describe('ProcessDialog', () => {
 
     await renderDialog();
 
-    expect(await screen.findByRole('button', { name: 'Process' })).toBeTruthy();
-    expect(screen.queryByText('Section B')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Process anyway' })).toBeNull();
+    expect(await screen.findByText(/Submitted, but has blank cells/)).toBeTruthy();
+    expect(screen.getByText(/Section B/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Process anyway' })).toBeTruthy();
   });
 
   it('shows an error when processing fails, and Cancel clears it', async () => {
