@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { RoutineState, SlotRecurrence } from '@biddaloy/shared';
 import { SubstitutionsService } from './substitutions.service';
 
@@ -34,15 +34,35 @@ function buildService() {
   const slotRepo: any = { findOne: vi.fn(async () => SLOT) };
   const routineRepo: any = { findOne: vi.fn(async () => ROUTINE) };
   const yearRepo: any = { findOne: vi.fn(async () => YEAR) };
-  const teacherRepo: any = { findOne: vi.fn(async () => ({ id: 't-2', tenant_id: TENANT_ID })) };
+  const teacherRepo: any = {
+    findOne: vi.fn(async () => ({ id: 't-2', tenant_id: TENANT_ID, user_id: 'u-2' })),
+  };
+  const slotTeacherRepo: any = { find: vi.fn(async () => [{ teacher_id: 't-1' }]) };
+  const periodSlotRepo: any = {
+    findOne: vi.fn(async () => ({ starts_at: '08:00:00', ends_at: '08:40:00' })),
+  };
+  const busy: any = { busyAt: vi.fn(async () => null) };
   const service = new SubstitutionsService(
     substitutionRepo,
     slotRepo,
     routineRepo,
     yearRepo,
     teacherRepo,
+    slotTeacherRepo,
+    periodSlotRepo,
+    busy,
   );
-  return { service, substitutionRepo, slotRepo, routineRepo, yearRepo, teacherRepo, qb };
+  return {
+    service,
+    slotTeacherRepo,
+    busy,
+    substitutionRepo,
+    slotRepo,
+    routineRepo,
+    yearRepo,
+    teacherRepo,
+    qb,
+  };
 }
 
 describe('SubstitutionsService [21.5.1]', () => {
@@ -98,5 +118,53 @@ describe('SubstitutionsService [21.5.1]', () => {
   it('list scopes the query to the caller tenant', async () => {
     await ctx.service.list({}, TENANT_ID);
     expect(ctx.qb.where).toHaveBeenCalledWith('sub.tenant_id = :tenantId', { tenantId: TENANT_ID });
+  });
+
+  describe('availability [TEN-07]', () => {
+    const dto = { routine_slot_id: 'slot-1', date: '2026-01-05', substitute_teacher_id: 't-2' };
+
+    it("substitute equal to the slot's own teacher -> 409 SUBSTITUTE_IS_SLOT_TEACHER", async () => {
+      ctx.slotTeacherRepo.find = vi.fn(async () => [{ teacher_id: 't-2' }]);
+      const err: any = await ctx.service.record(dto as any, TENANT_ID, 'user-1').catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('SUBSTITUTE_IS_SLOT_TEACHER');
+      expect(ctx.substitutionRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('busyAt returns a clash -> 409 TEACHER_BUSY and nothing is saved', async () => {
+      ctx.busy.busyAt = vi.fn(async () => ({
+        kind: 'TEACHING',
+        tenantId: 't',
+        tenantName: 'High School',
+        from: '08:00',
+        to: '08:40',
+      }));
+      const err: any = await ctx.service.record(dto as any, TENANT_ID, 'user-1').catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details).toEqual({
+        code: 'TEACHER_BUSY',
+        kind: 'TEACHING',
+        tenantName: 'High School',
+        from: '08:00',
+        to: '08:40',
+      });
+      expect(ctx.busy.busyAt).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          userId: 'u-2',
+          date: '2026-01-05',
+          from: '08:00',
+          to: '08:40',
+          actorUserId: 'user-1',
+          exclude: { routineSlotId: 'slot-1' },
+        }),
+      );
+      expect(ctx.substitutionRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('is_cancelled: true never calls busyAt', async () => {
+      await ctx.service.record({ ...dto, is_cancelled: true } as any, TENANT_ID, 'user-1');
+      expect(ctx.busy.busyAt).not.toHaveBeenCalled();
+    });
   });
 });

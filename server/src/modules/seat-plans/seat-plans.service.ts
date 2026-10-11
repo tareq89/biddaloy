@@ -5,8 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, QueryFailedError, Repository } from 'typeorm';
-import { EnrollmentStatus, SeatOrderMode, SeatPlanStatus } from '@biddaloy/shared';
+import { DataSource, EntityManager, In, IsNull, QueryFailedError, Repository } from 'typeorm';
+import { EMPLOYEE_ROLES, EnrollmentStatus, SeatOrderMode, SeatPlanStatus } from '@biddaloy/shared';
+import { TeacherBusyService } from '../routines/teacher-busy.service';
 import { todayInSchoolTz } from '../../common/time';
 import { SeatPlan } from './entities/seat-plan.entity';
 import { SeatPlanSchedule } from './entities/seat-plan-schedule.entity';
@@ -59,6 +60,7 @@ export class SeatPlansService {
     @InjectRepository(Enrollment) private readonly enrollmentRepo: Repository<Enrollment>,
     @InjectRepository(UserTenant) private readonly userTenantRepo: Repository<UserTenant>,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly teacherBusy: TeacherBusyService,
   ) {}
 
   /** Exam schedules already claimed by a PUBLISHED plan (D6). */
@@ -645,14 +647,53 @@ export class SeatPlansService {
     planId: string,
     roomId: string,
     dto: UpdateInvigilatorDto,
+    actorUserId: string,
   ) {
     await this.getDraftPlanOrThrow(tenantId, planId);
 
     if (dto.invigilator_user_id) {
+      // D16: invigilators are staff only.
       const membership = await this.userTenantRepo.findOne({
-        where: { tenant_id: tenantId, user_id: dto.invigilator_user_id },
+        where: {
+          tenant_id: tenantId,
+          user_id: dto.invigilator_user_id,
+          role: In([...EMPLOYEE_ROLES]),
+          deleted_at: IsNull(),
+        },
       });
       if (!membership) throw new NotFoundException('Invigilator not found');
+
+      // TEN-07: not already busy at any sitting this room covers.
+      const rows = await this.allocationRepo.find({
+        where: { tenant_id: tenantId, seat_plan_id: planId, room_id: roomId },
+        select: { exam_schedule_id: true },
+      });
+      const sittings = await this.examScheduleRepo.find({
+        where: { tenant_id: tenantId, id: In([...new Set(rows.map((r) => r.exam_schedule_id))]) },
+      });
+      for (const e of sittings) {
+        const clash = await this.teacherBusy.busyAt({
+          tenantId,
+          userId: dto.invigilator_user_id,
+          date: e.date,
+          from: e.starts_at,
+          to: e.ends_at,
+          actorUserId,
+          exclude: { seatPlanId: planId, roomId },
+        });
+        if (clash) {
+          throw new ConflictException({
+            message: 'This person is not free at that time',
+            details: {
+              code: 'TEACHER_BUSY',
+              kind: clash.kind,
+              tenantName: clash.tenantName,
+              from: clash.from,
+              to: clash.to,
+            },
+          });
+        }
+      }
     }
 
     const result = await this.allocationRepo.update(

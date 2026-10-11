@@ -72,6 +72,7 @@ describe('SeatPlansService', () => {
   let enrollmentRepo: any;
   let userTenantRepo: any;
   let dataSource: any;
+  let busy: any;
   let service: SeatPlansService;
 
   beforeEach(() => {
@@ -106,6 +107,7 @@ describe('SeatPlansService', () => {
     userTenantRepo = {
       findOne: vi.fn(async () => ({ tenant_id: TENANT, user_id: 'invigilator-1' })),
     };
+    busy = { busyAt: vi.fn(async () => null) };
     dataSource = {
       transaction: vi.fn(async (cb: any) => cb(fakeManager())),
     };
@@ -120,6 +122,7 @@ describe('SeatPlansService', () => {
       enrollmentRepo,
       userTenantRepo,
       dataSource,
+      busy,
     );
   });
 
@@ -879,7 +882,13 @@ describe('SeatPlansService', () => {
       });
 
       await expect(
-        service.updateInvigilator(TENANT, 'plan-1', ROOM_1, { invigilator_user_id: 'user-1' }),
+        service.updateInvigilator(
+          TENANT,
+          'plan-1',
+          ROOM_1,
+          { invigilator_user_id: 'user-1' },
+          'actor',
+        ),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
@@ -892,7 +901,13 @@ describe('SeatPlansService', () => {
       userTenantRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.updateInvigilator(TENANT, 'plan-1', ROOM_1, { invigilator_user_id: 'user-1' }),
+        service.updateInvigilator(
+          TENANT,
+          'plan-1',
+          ROOM_1,
+          { invigilator_user_id: 'user-1' },
+          'actor',
+        ),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
@@ -905,9 +920,15 @@ describe('SeatPlansService', () => {
       allocationRepo.update = vi.fn(async () => ({ affected: 0 }));
 
       await expect(
-        service.updateInvigilator(TENANT, 'plan-1', 'room-does-not-exist', {
-          invigilator_user_id: 'user-1',
-        }),
+        service.updateInvigilator(
+          TENANT,
+          'plan-1',
+          'room-does-not-exist',
+          {
+            invigilator_user_id: 'user-1',
+          },
+          'actor',
+        ),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
@@ -919,7 +940,13 @@ describe('SeatPlansService', () => {
       });
       allocationRepo.update = vi.fn(async () => ({ affected: 2 }));
 
-      await service.updateInvigilator(TENANT, 'plan-1', ROOM_1, { invigilator_user_id: 'user-1' });
+      await service.updateInvigilator(
+        TENANT,
+        'plan-1',
+        ROOM_1,
+        { invigilator_user_id: 'user-1' },
+        'actor',
+      );
 
       expect(allocationRepo.update).toHaveBeenCalledWith(
         { tenant_id: TENANT, seat_plan_id: 'plan-1', room_id: ROOM_1 },
@@ -999,9 +1026,15 @@ describe('SeatPlansService', () => {
       );
 
       await expect(
-        service.updateInvigilator(OTHER_TENANT, 'plan-1', ROOM_1, {
-          invigilator_user_id: 'user-1',
-        }),
+        service.updateInvigilator(
+          OTHER_TENANT,
+          'plan-1',
+          ROOM_1,
+          {
+            invigilator_user_id: 'user-1',
+          },
+          'actor',
+        ),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
@@ -1034,6 +1067,55 @@ describe('SeatPlansService', () => {
       const reflector = new Reflector();
       const required = reflector.get(PERMISSIONS_KEY, SeatPlansController);
       expect(required).toEqual([Permission.SEAT_PLAN_MANAGE]);
+    });
+  });
+
+  describe('updateInvigilator [TEN-07]', () => {
+    beforeEach(() => {
+      seatPlanRepo.findOne.mockResolvedValue({ id: 'plan-1', status: SeatPlanStatus.DRAFT });
+      allocationRepo.update = vi.fn(async () => ({ affected: 1 }));
+      allocationRepo.find = vi.fn(async () => [{ exam_schedule_id: 'sch-1' }]);
+      examScheduleRepo.find = vi.fn(async () => [
+        { id: 'sch-1', date: '2026-06-01', starts_at: '09:00:00', ends_at: '11:00:00' },
+      ]);
+    });
+
+    it('an invigilator whose only membership is GUARDIAN -> 404 (staff roles only)', async () => {
+      userTenantRepo.findOne = vi.fn(async () => null);
+      await expect(
+        service.updateInvigilator(
+          TENANT,
+          'plan-1',
+          'room-1',
+          { invigilator_user_id: 'u-9' },
+          'actor',
+        ),
+      ).rejects.toThrow(NotFoundException);
+      const where = userTenantRepo.findOne.mock.calls[0][0].where;
+      expect(where.role).toBeDefined();
+      expect(where.deleted_at).toBeDefined();
+    });
+
+    it('busyAt clash -> 409, allocations unchanged', async () => {
+      busy.busyAt = vi.fn(async () => ({
+        kind: 'INVIGILATING',
+        tenantId: TENANT,
+        tenantName: 'School',
+        from: '09:00',
+        to: '11:00',
+      }));
+      const err: any = await service
+        .updateInvigilator(
+          TENANT,
+          'plan-1',
+          'room-1',
+          { invigilator_user_id: 'invigilator-1' },
+          'actor',
+        )
+        .catch((e: any) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('TEACHER_BUSY');
+      expect(allocationRepo.update).not.toHaveBeenCalled();
     });
   });
 });
