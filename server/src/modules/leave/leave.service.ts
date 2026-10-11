@@ -315,11 +315,13 @@ export class LeaveService {
 
   /**
    * Cancels the APPROVED record created for an application. The balance sums
-   * only APPROVED rows, so the days come back by themselves (D31). Only days
-   * after today come back, matching the register: a leave already under way is
-   * cut to end today and stays APPROVED for the days taken; a leave that has
-   * already ended is refused (409 LEAVE_ALREADY_ENDED). Runs only on the
-   * caller's `manager`.
+   * only APPROVED rows, so the days come back by themselves (D31). By default
+   * only days after today come back, matching the register: a leave already
+   * under way is cut to end today and stays APPROVED for the days taken; a
+   * leave that has already ended is refused (409 LEAVE_ALREADY_ENDED). With
+   * `revokeTakenDays` (approved by mistake) the whole record is CANCELLED,
+   * every day comes back and past LEAVE marks are deleted too, ended or not.
+   * Runs only on the caller's `manager`.
    */
   async cancelApprovedLeave(
     manager: EntityManager,
@@ -355,7 +357,7 @@ export class LeaveService {
       includePast: revokeTakenDays === true,
     });
 
-    // Fully taken (ends today or earlier): nothing comes back, so refuse rather
+    // Without revokeTakenDays, fully taken (ends today or earlier): nothing comes back, so refuse rather
     // than report a cancellation that changed nothing. `revertLeaveRange`
     // deleted nothing here (its range starts tomorrow), and the throw rolls
     // back the caller's transaction, so the application stays APPROVED.
