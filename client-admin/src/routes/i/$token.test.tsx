@@ -47,6 +47,8 @@ describe('/i/$token public receipt page', () => {
 
     await waitFor(() => expect(screen.getByText('INV-2026-000123')).toBeTruthy());
     expect(screen.getByText('Rahim Ahmed')).toBeTruthy();
+    // Paid 4500 -> the words line sits under the Paid row.
+    expect(screen.getByText('In words: Taka Four Thousand Five Hundred only')).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1, name: 'Invoice receipt' })).toBeTruthy();
     // The payment method is a translated label, never the raw `CASH` value.
     expect(screen.getByText('Cash')).toBeTruthy();

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { REGION_BD_EN } from '../../i18n/region-config';
+import { REGION_BD_BN, REGION_BD_EN } from '../../i18n/region-config';
 
 import { InvoiceReceipt, type InvoiceReceiptData } from './invoice-receipt';
 
@@ -22,6 +22,7 @@ const LABELS = {
   change: 'Change',
   paymentMethod: 'Payment method',
   paymentDate: 'Payment date',
+  inWords: 'In words',
 };
 
 const RECEIPT: InvoiceReceiptData = {
@@ -133,5 +134,25 @@ export const LongNames: Story = {
     width: 'pos58',
     config: REGION_BD_EN,
     labels: LABELS,
+  },
+};
+
+/** Lakh-range amount with paisa: the words line must match the figure. */
+export const InWordsLakhPaisa: Story = {
+  args: {
+    receipt: { ...RECEIPT, totals: { billed: 1234567.5, discount: 0, paid: 1234567.5, change: 0 } },
+    width: 'a4',
+    config: REGION_BD_EN,
+    labels: LABELS,
+  },
+};
+
+/** Bangla region: the words line is written in Bangla. */
+export const InWordsBangla: Story = {
+  args: {
+    receipt: { ...RECEIPT, totals: { billed: 2500, discount: 0, paid: 2500, change: 0 } },
+    width: 'pos80',
+    config: REGION_BD_BN,
+    labels: { ...LABELS, inWords: 'কথায়' },
   },
 };
