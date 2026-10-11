@@ -470,7 +470,14 @@ describe('ResultsService.process', () => {
   });
 });
 
-describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
+describe('ResultsService.recomputeProcessedExam (D18 step 6)', () => {
+  // Production callers (marks, band edits) recompute inside their own write
+  // transaction; the mocked examRepo.manager.transaction stands in for it.
+  const recomputeInTx = (service: ResultsService) =>
+    (service as any).examRepo.manager.transaction((m: any) =>
+      service.recomputeProcessedExam(m, EXAM_ID, TENANT_ID, 'user-1'),
+    );
+
   it('recomputes when the exam is PROCESSED', async () => {
     const { service, resultRepo } = await buildService({
       exam: { status: ExamStatus.PROCESSED },
@@ -484,7 +491,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
       ],
     });
 
-    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
+    await recomputeInTx(service);
 
     expect(resultRepo.save).toHaveBeenCalled();
   });
@@ -492,7 +499,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
   it('is a no-op once PUBLISHED — marks are frozen', async () => {
     const { service, resultRepo } = await buildService({ exam: { status: ExamStatus.PUBLISHED } });
 
-    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
+    await recomputeInTx(service);
 
     expect(resultRepo.save).not.toHaveBeenCalled();
   });
@@ -507,7 +514,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
       ],
     });
 
-    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
+    await recomputeInTx(service);
 
     // Looked up by exam, not by the recomputed students — the out-of-cohort
     // row is removed too, instead of surviving with its old position.
@@ -533,7 +540,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
       existingResults: [{ id: 'result-stu-1', student_id: 'stu-1' }],
     });
 
-    await service.recomputeIfProcessed(EXAM_ID, ['stu-2'], TENANT_ID, 'user-1');
+    await recomputeInTx(service);
 
     const saved = resultRepo.save.mock.calls.map((c: any[]) => c[0].student_id);
     expect(saved).toContain('stu-1');
@@ -553,7 +560,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
       status: ExamStatus.PUBLISHED,
     }));
 
-    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
+    await recomputeInTx(service);
 
     expect(examRepo.findOne).toHaveBeenCalledWith(
       expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
@@ -565,7 +572,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
   it('is a no-op while still DRAFT — nothing computed yet', async () => {
     const { service, resultRepo } = await buildService({ exam: { status: ExamStatus.DRAFT } });
 
-    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
+    await recomputeInTx(service);
 
     expect(resultRepo.save).not.toHaveBeenCalled();
   });

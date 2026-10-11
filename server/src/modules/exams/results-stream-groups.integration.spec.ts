@@ -477,8 +477,10 @@ describe('ResultsService (integration, stream subjects)', () => {
         { value: '65' },
       );
       await expect(
-        resultsService.recomputeIfProcessed(examId, [sciStudent.id], TENANT_ID, 'u1'),
-      ).resolves.toBeUndefined();
+        dataSource.transaction((m) =>
+          resultsService.recomputeProcessedExam(m, examId, TENANT_ID, 'u1'),
+        ),
+      ).resolves.toEqual(expect.any(Number));
     } finally {
       await dataSource
         .getRepository(ClassSection)

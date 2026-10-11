@@ -434,8 +434,10 @@ describe('ResultsService (integration, choice groups)', () => {
       { value: '65' },
     );
     await expect(
-      resultsService.recomputeIfProcessed(examId, [studentB.id], TENANT_ID, 'u1'),
-    ).resolves.toBeUndefined();
+      dataSource.transaction((m) =>
+        resultsService.recomputeProcessedExam(m, examId, TENANT_ID, 'u1'),
+      ),
+    ).resolves.toEqual(expect.any(Number));
     expect((await subjectsOf(studentB.id)).ids).toEqual([BAN]);
   });
 });

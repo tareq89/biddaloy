@@ -765,7 +765,9 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
     );
 
     // The real trigger: a mark edit on a PROCESSED exam.
-    await resultsService.recomputeIfProcessed(exam.id, [b.id], TENANT_ID, 'user-1');
+    await dataSource.transaction((m) =>
+      resultsService.recomputeProcessedExam(m, exam.id, TENANT_ID, 'user-1'),
+    );
 
     const rows = await liveResults(exam.id);
     expect(rows).toHaveLength(3);
@@ -805,7 +807,9 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
       { enrollment_status: EnrollmentStatus.TRANSFERRED },
     );
 
-    await resultsService.recomputeIfProcessed(exam.id, [b.id], TENANT_ID, 'user-1');
+    await dataSource.transaction((m) =>
+      resultsService.recomputeProcessedExam(m, exam.id, TENANT_ID, 'user-1'),
+    );
 
     const rows = await liveResults(exam.id);
     expect(rows).toHaveLength(2);
