@@ -143,6 +143,7 @@
       "no_contact": "No phone or email on file",
       "already_active": "Already has an active account",
       "already_pending": "Already has a pending invitation",
+      "contact_in_use": "Phone or email belongs to another account that is not verified",
       "notifications_disabled": "Opted out of notifications"
     },
     "done": {

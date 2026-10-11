@@ -1,6 +1,12 @@
-import { cleanupTestState, renderWithRouter, server, userResponseFactory } from '@biddaloy/ui/test';
+import {
+  authHandlers,
+  cleanupTestState,
+  renderWithRouter,
+  server,
+  userResponseFactory,
+} from '@biddaloy/ui/test';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -77,6 +83,30 @@ describe('StaffUserMenu', () => {
     expect(await screen.findByText('Rahim Uddin')).toBeTruthy();
     expect(screen.getByText('Admin')).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: /Profile/ })).toBeNull();
+  });
+
+  it('hides the school invitations item with 0 invites', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(buildRouteTree(), { tenantId: 'tenant-1', role: 'ADMIN', locale: 'en' });
+
+    await user.click(await screen.findByRole('button', { name: /Account menu/ }));
+    await screen.findByRole('menuitem', { name: 'Security' });
+
+    expect(screen.queryByRole('menuitem', { name: /School invitations/ })).toBeNull();
+  });
+
+  it('shows the invite count and opens the dialog', async () => {
+    server.use(authHandlers.schoolInvites);
+
+    const user = userEvent.setup();
+    renderWithRouter(buildRouteTree(), { tenantId: 'tenant-1', role: 'ADMIN', locale: 'en' });
+
+    await user.click(await screen.findByRole('button', { name: /Account menu/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'School invitations (1)' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Rose Valley School')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Accept' })).toBeTruthy();
   });
 
   it('navigates to securityTo when given', async () => {
