@@ -12,7 +12,10 @@ import { TeacherClassSection } from '../academics/entities/teacher-class-section
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { ReminderBatch } from '../communications/entities/reminder-batch.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
-import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
+import {
+  COMMUNICATIONS_QUEUE,
+  COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+} from '../communications/communications.constants';
 import { AuditModule } from '../audit/audit.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { CalendarModule } from '../calendar/calendar.module';
@@ -87,10 +90,7 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     // separate producer registration, standard BullMQ multi-module usage.
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
-      defaultJobOptions: {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
-      },
+      defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
     }),
     BullModule.registerQueue({ name: ABSENCE_NOTICE_SWEEP_QUEUE }),
   ],

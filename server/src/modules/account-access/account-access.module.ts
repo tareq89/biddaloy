@@ -56,7 +56,10 @@ import { SchoolInvitesController } from './school-invites.controller';
     forwardRef(() => SchoolsModule),
     AuditModule,
     ConfigModule,
-    BullModule.registerQueue({ name: INVITATION_BATCH_QUEUE }),
+    BullModule.registerQueue({
+      name: INVITATION_BATCH_QUEUE,
+      defaultJobOptions: { removeOnComplete: true, removeOnFail: 1000 },
+    }),
   ],
   controllers: [AccountAccessController, FirstPasswordController, SchoolInvitesController],
   providers: [
