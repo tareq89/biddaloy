@@ -9,6 +9,7 @@ import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { reviveMembership } from '../users/users.service';
 import { AuthTokenService } from './auth-token.service';
+import { insertJoinRequest } from './school-invite.service';
 import { InvitationService } from './invitation.service';
 import { INVITATION_BATCH_QUEUE } from './invitation-batch.constants';
 import type { InvitationBatchJobData } from './guardian-provisioning.service';
@@ -55,7 +56,10 @@ export class InvitationBatchProcessor extends WorkerHost {
       return;
     }
 
-    const user = await this.ensureUser(guardian, tenantId);
+    const user = await this.ensureUser(guardian, tenantId, actorUserId);
+    // A join request was filed (the owner of an existing account decides) or
+    // the contact belongs to an unverified holder: nothing to send.
+    if (!user) return;
 
     if (user.password_hash) {
       // Activated between preview and processing — nothing to send.
@@ -84,57 +88,87 @@ export class InvitationBatchProcessor extends WorkerHost {
   }
 
   /**
-   * Loads the guardian's linked user, or finds one by phone/email, or
-   * creates a new passwordless PARENT user + tenant membership — all inside
-   * one transaction. A `23505` (unique violation) race with a concurrent
-   * creator is treated as "found" and retried once.
+   * Loads the guardian's linked user, or finds one by a VERIFIED email/phone,
+   * or creates a new passwordless PARENT user + tenant membership — all
+   * inside one transaction. Returns `null` when nothing should be sent:
+   *  - a verified account with no membership here only gets a join request
+   *    (the owner accepts it; we never attach an account on their behalf);
+   *  - an unverified holder already owns the guardian's email/phone.
+   * An unverified `users.email`/`phone` is never trusted as proof of identity.
    */
-  private async ensureUser(guardian: Guardian, tenantId: string): Promise<User> {
+  private async ensureUser(
+    guardian: Guardian,
+    tenantId: string,
+    actorUserId: string | null,
+  ): Promise<User | null> {
     return this.dataSource.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);
       const userTenantRepo = manager.getRepository(UserTenant);
       const guardianRepo = manager.getRepository(Guardian);
 
-      const attempt = async (): Promise<User> => {
-        if (guardian.user_id) {
-          const existing = await userRepo.findOne({ where: { id: guardian.user_id } });
-          if (existing) return existing;
-        }
+      let user: User | null = null;
+      if (guardian.user_id) {
+        user = await userRepo.findOne({ where: { id: guardian.user_id } });
+      }
 
-        const found = await userRepo
+      if (!user) {
+        user = await userRepo
           .createQueryBuilder('u')
           .where('u.deleted_at IS NULL')
-          .andWhere('(u.email = :email OR u.phone = :phone)', {
-            email: guardian.email ?? '__none__',
-            phone: guardian.phone ?? '__none__',
-          })
+          .andWhere(
+            '((u.email = :email AND u.email_verified_at IS NOT NULL) OR (u.phone = :phone AND u.phone_verified_at IS NOT NULL))',
+            { email: guardian.email ?? '__none__', phone: guardian.phone ?? '__none__' },
+          )
           .getOne();
-        if (found) return found;
 
-        const created = userRepo.create({
-          email: guardian.email ?? null,
-          phone: guardian.phone ?? null,
-          password_hash: null,
-          full_name: guardian.full_name,
-        });
-        return userRepo.save(created);
-      };
+        if (user) {
+          const anyRow = await userTenantRepo.findOne({
+            where: { user_id: user.id, tenant_id: tenantId },
+            withDeleted: true,
+          });
+          if (!anyRow) {
+            await insertJoinRequest(manager, {
+              userId: user.id,
+              tenantId,
+              role: UserRole.PARENT,
+              guardianId: guardian.id,
+              createdByUserId: actorUserId,
+            });
+            return null;
+          }
+        }
+      }
 
-      let user: User;
-      try {
-        user = await attempt();
-      } catch (err) {
-        if (
-          err instanceof QueryFailedError &&
-          (err as unknown as { code?: string }).code === '23505'
-        ) {
-          user = await attempt();
-        } else {
+      if (!user) {
+        try {
+          // Nested transaction = savepoint, so a 23505 does not poison the outer one.
+          user = await manager.transaction((sp) => {
+            const repo = sp.getRepository(User);
+            return repo.save(
+              repo.create({
+                email: guardian.email ?? null,
+                phone: guardian.phone ?? null,
+                password_hash: null,
+                full_name: guardian.full_name,
+              }),
+            );
+          });
+        } catch (err) {
+          if (
+            err instanceof QueryFailedError &&
+            (err as unknown as { code?: string }).code === '23505'
+          ) {
+            // An unverified holder owns this contact. Never fall back to matching them.
+            this.logger.warn(
+              `Guardian ${guardian.id}: email/phone already held by an unverified account, not linked`,
+            );
+            return null;
+          }
           throw err;
         }
       }
 
-      if (!guardian.user_id || guardian.user_id !== user.id) {
+      if (guardian.user_id !== user.id) {
         await guardianRepo.update({ id: guardian.id }, { user_id: user.id });
       }
 

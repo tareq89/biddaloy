@@ -181,7 +181,7 @@ describe('usersTab (integration)', () => {
     // Named cross-tenant test from the issue: a shared user's identity is
     // never rewritten by an import into a tenant that isn't the only one
     // they belong to.
-    it('adds a membership for tenant A but leaves tenant B untouched and identity unchanged', async () => {
+    it('files a join request for tenant A but adds no membership, and leaves tenant B and identity untouched', async () => {
       const shared = await makeUser({
         email: 'shared@both.test',
         full_name: 'Original Name',
@@ -199,11 +199,19 @@ describe('usersTab (integration)', () => {
       const updatedUser = await userRepo.findOneByOrFail({ id: shared.id });
       expect(updatedUser.full_name).toBe('Original Name');
 
+      // AUTH-02: the account owner has not agreed, so there is no membership yet...
       const membershipsA = await userTenantRepo.find({
         where: { user_id: shared.id, tenant_id: TENANT_A },
+        withDeleted: true,
       });
-      expect(membershipsA).toHaveLength(1);
-      expect(membershipsA[0].role).toBe(UserRole.TEACHER);
+      expect(membershipsA).toHaveLength(0);
+      // ...only a pending request they can accept or decline.
+      const requests = await dataSource.query(
+        `SELECT metadata FROM auth_tokens WHERE user_id = $1 AND tenant_id = $2 AND purpose = 'JOIN_SCHOOL'`,
+        [shared.id, TENANT_A],
+      );
+      expect(requests).toHaveLength(1);
+      expect(requests[0].metadata.role).toBe(UserRole.TEACHER);
 
       const stillB = await userTenantRepo.findOneByOrFail({ id: membershipB.id });
       expect(stillB.role).toBe(UserRole.ADMIN);
@@ -255,6 +263,13 @@ describe('usersTab (integration)', () => {
       const result = await usersTab.upsert(row, null, TENANT_A, dataSource.manager);
 
       expect(result.id).toBe(user.id);
+      // Matched by phone, never a member here: a join request, not a membership.
+      expect(await userTenantRepo.count({ where: { user_id: user.id } })).toBe(0);
+      const requests = await dataSource.query(
+        `SELECT 1 FROM auth_tokens WHERE user_id = $1 AND tenant_id = $2 AND purpose = 'JOIN_SCHOOL'`,
+        [user.id, TENANT_A],
+      );
+      expect(requests).toHaveLength(1);
     });
 
     it('is idempotent when run twice with the same row', async () => {
@@ -354,6 +369,9 @@ describe('usersTab (integration)', () => {
           metadata: null,
         }),
       );
+      // Already a member of A (an unaccepted workbook row cannot add one any more, #2218),
+      // under another role, so the restore below changes the role.
+      await makeMembership(shared.id, TENANT_A, UserRole.OFFICE_STAFF);
 
       const row: UserRow = {
         email: 'shared-across-tenants@users-tab.test',
