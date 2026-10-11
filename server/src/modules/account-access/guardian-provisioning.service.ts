@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { Repository } from 'typeorm';
 import { AuditAction, AuthTokenPurpose, CommunicationStatus } from '@biddaloy/shared';
 import { Guardian } from '../students/entities/guardian.entity';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { User } from '../users/entities/user.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
@@ -123,19 +124,40 @@ export class GuardianProvisioningService {
     let user: User | null = null;
     if (guardian.user_id) {
       user = await this.userRepo.findOne({ where: { id: guardian.user_id } });
-    } else {
+    }
+    if (!user) {
+      // Verified contacts only: an unverified email/phone proves nothing (PUB-01).
       user = await this.userRepo
         .createQueryBuilder('u')
         .where('u.deleted_at IS NULL')
-        .andWhere('(u.email = :email OR u.phone = :phone)', {
-          email: guardian.email ?? '__none__',
-          phone: guardian.phone ?? '__none__',
-        })
+        .andWhere(
+          '((u.email = :email AND u.email_verified_at IS NOT NULL) OR (u.phone = :phone AND u.phone_verified_at IS NOT NULL))',
+          { email: guardian.email ?? '__none__', phone: guardian.phone ?? '__none__' },
+        )
         .getOne();
+      if (!user) {
+        const holder = await this.userRepo
+          .createQueryBuilder('u')
+          .where('u.deleted_at IS NULL')
+          .andWhere('(u.email = :email OR u.phone = :phone)', {
+            email: guardian.email ?? '__none__',
+            phone: guardian.phone ?? '__none__',
+          })
+          .getOne();
+        if (holder) return { kind: 'skip', reason: 'contact_in_use' };
+      }
     }
 
     if (user?.password_hash) {
-      return { kind: 'skip', reason: 'already_active' };
+      // Matched by contact (not already linked) and not yet a member here:
+      // the processor files a join request, so this is not "already active".
+      const isMember =
+        !!guardian.user_id ||
+        (await this.userRepo.manager
+          .getRepository(UserTenant)
+          .exist({ where: { user_id: user.id, tenant_id: tenantId }, withDeleted: true }));
+      if (isMember) return { kind: 'skip', reason: 'already_active' };
+      return { kind: 'invite', user, channel: channel.medium };
     }
 
     if (user) {
