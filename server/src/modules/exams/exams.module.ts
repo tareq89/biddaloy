@@ -31,7 +31,10 @@ import { AuditModule } from '../audit/audit.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { ClassModule } from '../classes/classes.module';
 import { CreditsModule } from '../communications/credits/credits.module';
-import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
+import {
+  COMMUNICATIONS_QUEUE,
+  COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+} from '../communications/communications.constants';
 import { ExamsService } from './exams.service';
 import { ExamsController } from './exams.controller';
 import { ExamComponentsService } from './exam-components.service';
@@ -109,7 +112,10 @@ import {
     // an accepted pattern in this codebase (health.module.ts does the
     // same) rather than importing the whole CommunicationsModule for one
     // queue handle.
-    BullModule.registerQueue({ name: COMMUNICATIONS_QUEUE }),
+    BullModule.registerQueue({
+      name: COMMUNICATIONS_QUEUE,
+      defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+    }),
   ],
   controllers: [
     ExamsController,

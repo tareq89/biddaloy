@@ -18,7 +18,10 @@ import { User } from '../users/entities/user.entity';
 import { School } from '../schools/entities/school.entity';
 import { ReminderBatch } from '../communications/entities/reminder-batch.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
-import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
+import {
+  COMMUNICATIONS_QUEUE,
+  COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+} from '../communications/communications.constants';
 import { CreditsModule } from '../communications/credits/credits.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { AuditModule } from '../audit/audit.module';
@@ -84,10 +87,7 @@ import { CalendarFeedController, CalendarFeedPublicController } from './calendar
     // importing the whole CommunicationsModule provider graph.
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
-      defaultJobOptions: {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
-      },
+      defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
     }),
     // [#713] Real `SmsCreditService.reserve`/`settle` (via `CreditsModule`)
     // instead of a raw `sms_credit_balance` UPDATE — now that both bare

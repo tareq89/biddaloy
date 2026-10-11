@@ -19,7 +19,7 @@ import { CommunicationLog } from '../communications/entities/communication-log.e
 import { StudentLifecycleEvent } from '../students/entities/student-lifecycle-event.entity';
 import { AdmissionReportsService } from './admission-reports.service';
 import { AdmissionReportsController } from './admission-reports.controller';
-import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
+import { COMMUNICATIONS_QUEUE, COMMUNICATIONS_QUEUE_JOB_OPTIONS } from '../communications/communications.constants';
 
 /**
  * [27.1] Registers the three admission entities with TypeORM.
@@ -37,7 +37,7 @@ import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants
 @Module({
   imports: [
     TypeOrmModule.forFeature([AdmissionIntake, AdmissionApplicant, AdmissionEvaluation, CommunicationLog, StudentLifecycleEvent]),
-    BullModule.registerQueue({ name: COMMUNICATIONS_QUEUE }),
+    BullModule.registerQueue({ name: COMMUNICATIONS_QUEUE, defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS }),
     StudentModule,
     CreditsModule,
     SchoolsModule,
