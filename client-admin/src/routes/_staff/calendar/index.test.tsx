@@ -676,6 +676,56 @@ describe('EventFormPage', () => {
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ reason: 'abc hartal' }));
   });
 
+  // #2253 review: a closure is "past" once its first day has passed, even if it ends later.
+  it('a closure that started in the past but ends later still asks for a reason', async () => {
+    renderWithProviders(
+      <EventFormPage
+        mode="create"
+        initialValues={baseEvent({
+          type: CalendarEventType.HOLIDAY,
+          name: 'Flood',
+          start_date: '2020-03-10',
+          end_date: '2099-03-10',
+          counts_as_working_day: false,
+        })}
+        isPending={false}
+        error={null}
+        onClose={() => {}}
+        onSubmit={() => {}}
+      />,
+      { locale: 'en' },
+    );
+    expect(await screen.findByLabelText('Why is this being added late?')).toBeTruthy();
+  });
+
+  // #2253 review: a make-up day's forced "counts" must not stick after a type change.
+  it('leaving Make-up school day unchecks "counts as working day"', async () => {
+    const { user } = renderWithProviders(
+      <EventFormPage
+        mode="edit"
+        initialValues={baseEvent({
+          type: CalendarEventType.MAKEUP_DAY,
+          counts_as_working_day: true,
+        })}
+        isPending={false}
+        error={null}
+        onClose={() => {}}
+        onSubmit={() => {}}
+      />,
+      { locale: 'en' },
+    );
+    const working = await screen.findByRole<HTMLButtonElement>('checkbox', {
+      name: 'Counts as a working day',
+    });
+    expect(working.getAttribute('aria-checked')).toBe('true');
+
+    await user.click(screen.getByRole('combobox', { name: 'Type' }));
+    await user.click(await screen.findByRole('option', { name: 'Holiday' }));
+
+    expect(working.disabled).toBe(false);
+    expect(working.getAttribute('aria-checked')).toBe('false');
+  });
+
   it('choosing Make-up school day checks and disables "counts as working day"', async () => {
     const { user } = renderWithProviders(
       <EventFormPage
