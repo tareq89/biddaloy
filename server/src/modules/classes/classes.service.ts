@@ -46,6 +46,29 @@ export type ClassSectionWithCount = ClassSection & { enrolled_count: number };
  * above. */
 export type ClassWithCounts = Class & { section_count: number; student_count: number };
 
+/**
+ * Enrollment rows of live students for a class or section. A deleted
+ * student's rows are kept (StudentService.remove only sets them INACTIVE),
+ * so counting them would block the delete forever (review r1 #8).
+ */
+function countLiveEnrollments(
+  repo: Repository<Enrollment>,
+  column: 'class_id' | 'section_id',
+  id: string,
+  tenantId: string,
+): Promise<number> {
+  return repo
+    .createQueryBuilder('e')
+    .innerJoin(
+      'students',
+      'st',
+      'st.id = e.student_id AND st.tenant_id = e.tenant_id AND st.deleted_at IS NULL',
+    )
+    .where(`e.${column} = :id`, { id })
+    .andWhere('e.tenant_id = :tenantId', { tenantId })
+    .getCount();
+}
+
 @Injectable()
 export class ClassService {
   constructor(
@@ -288,9 +311,12 @@ export class ClassService {
       .andWhere('student.tenant_id = :tenantId', { tenantId })
       .andWhere('student.deleted_at IS NULL')
       .getCount();
-    const enrollmentCount = await this.enrollmentRepo.count({
-      where: { class_id: id, tenant_id: tenantId },
-    });
+    const enrollmentCount = await countLiveEnrollments(
+      this.enrollmentRepo,
+      'class_id',
+      id,
+      tenantId,
+    );
     const inUse = studentCount + enrollmentCount;
     if (inUse > 0) {
       throw new ConflictException({
@@ -542,9 +568,12 @@ export class SectionService {
     const studentCount = await this.studentRepo.count({
       where: { class_section_id: sectionId, tenant_id: tenantId, deleted_at: IsNull() },
     });
-    const enrollmentCount = await this.enrollmentRepo.count({
-      where: { section_id: sectionId, tenant_id: tenantId },
-    });
+    const enrollmentCount = await countLiveEnrollments(
+      this.enrollmentRepo,
+      'section_id',
+      sectionId,
+      tenantId,
+    );
     const inUse = studentCount + enrollmentCount;
     if (inUse > 0) {
       throw new ConflictException({

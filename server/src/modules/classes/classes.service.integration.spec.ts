@@ -345,6 +345,28 @@ describe('ClassService / SectionService (integration)', () => {
       });
     });
 
+    // Review r1 #8: a deleted student's kept enrollment row must not block.
+    it('a deleted student no longer blocks the class delete with CLASS_IN_USE', async () => {
+      const year = await createYear();
+      const klass = await classRepo.save({
+        name: 'Class With Deleted Student',
+        academic_year_id: year.id,
+        tenant_id: TENANT_ID,
+      });
+      const section = await dataSource.getRepository(ClassSection).save({
+        class_id: klass.id,
+        section_name: 'A',
+        tenant_id: TENANT_ID,
+      });
+      const student = await createStudentEnrolledIn(klass, section);
+      await dataSource.query('UPDATE students SET deleted_at = now() WHERE id = $1', [student.id]);
+      await dataSource.getRepository(ClassSection).softDelete({ id: section.id });
+
+      await classService.remove(klass.id, TENANT_ID);
+
+      await expect(classService.findOne(klass.id, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+
     it('refuses to delete a class with remaining sections once no students are enrolled', async () => {
       const year = await createYear();
       const klass = await classRepo.save({
@@ -510,12 +532,34 @@ describe('ClassService / SectionService (integration)', () => {
     it('[68.2.12] cannot delete a section that only an enrollment row points at', async () => {
       const { klass, section } = await makeSection('Class E');
       const student = await createStudentEnrolledIn(klass, section);
-      // the student row is gone; only the history row still names this section
-      await dataSource.query('UPDATE students SET deleted_at = now() WHERE id = $1', [student.id]);
+      // The student now sits elsewhere; only the history row still names this section.
+      const other = await dataSource.getRepository(ClassSection).save({
+        class_id: klass.id,
+        section_name: 'B',
+        tenant_id: TENANT_ID,
+      });
+      await dataSource.query('UPDATE students SET class_section_id = $1 WHERE id = $2', [
+        other.id,
+        student.id,
+      ]);
 
       await expect(sectionService.remove(klass.id, section.id, TENANT_ID)).rejects.toMatchObject({
         response: { details: { code: 'SECTION_IN_USE' } },
       });
+    });
+
+    // Review r1 #8: StudentService.remove keeps the enrollment rows (INACTIVE),
+    // so counting them would block the section forever.
+    it('can delete a section whose only student was deleted', async () => {
+      const { klass, section } = await makeSection('Class D');
+      const student = await createStudentEnrolledIn(klass, section);
+      await dataSource.query('UPDATE students SET deleted_at = now() WHERE id = $1', [student.id]);
+
+      await sectionService.remove(klass.id, section.id, TENANT_ID);
+
+      expect(
+        await dataSource.getRepository(ClassSection).count({ where: { id: section.id } }),
+      ).toBe(0);
     });
 
     it('[68.2.12] can delete an empty section', async () => {
