@@ -867,6 +867,9 @@ describe('RestoreProcessor (integration)', () => {
       const job = await restore(d.tenantId, await exportTenant(d.tenantId));
       expect(job.error).toBeNull();
       expect(job.status).toBe(WorkbookJobStatus.DONE);
+      // Review r1 #13: matched insert-only rows are kept, not written, so they
+      // are not counted as applied.
+      expect(job.row_counts).toMatchObject({ marks: 0, payments: 0, student_fees: 0 });
       expect((await em().findOneByOrFail(Mark, { id: d.mark.id })).value).toBe('38.00');
     });
 
