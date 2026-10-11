@@ -168,12 +168,23 @@ describe('TeacherBusyService (integration)', () => {
     expect(await ask()).toBeNull();
   });
 
-  async function seedExamDuty(planId: string, roomId: string, start: string, end: string) {
+  async function seedExamDuty(
+    planId: string,
+    roomId: string,
+    start: string,
+    end: string,
+    planDeleted = false,
+  ) {
     // Throwaway rows for the FK columns: FK checks off for this connection only.
     const qr = ds.createQueryRunner();
     await qr.connect();
     try {
       await qr.query('SET session_replication_role = replica');
+      await qr.query(
+        `INSERT INTO seat_plans (id, tenant_id, name, status, seat_order_mode, deleted_at)
+         VALUES ($1, $2, 'Plan', 'DRAFT', 'SEQUENTIAL', $3)`,
+        [planId, A, planDeleted ? new Date() : null],
+      );
       const sched = randomUUID();
       await qr.query(
         `INSERT INTO exam_schedules (id, tenant_id, exam_id, subject_id, date, starts_at, ends_at)
@@ -197,6 +208,13 @@ describe('TeacherBusyService (integration)', () => {
     await seedExamDuty(plan, room, '08:30:00', '10:00:00');
     expect(await ask()).toMatchObject({ kind: 'INVIGILATING', from: '08:30', to: '10:00' });
     expect(await ask({ exclude: { seatPlanId: plan, roomId: room } })).toBeNull();
+  });
+
+  // Review r1 #5: deleting a draft plan keeps its allocation rows; they must
+  // not keep the invigilator busy.
+  it('invigilating in a deleted seat plan -> null', async () => {
+    await seedExamDuty(randomUUID(), randomUUID(), '08:30:00', '10:00:00', true);
+    expect(await ask()).toBeNull();
   });
 
   it('cross-branch: busy in tenant A, actor ADMIN in A and B -> hit with the branch name', async () => {

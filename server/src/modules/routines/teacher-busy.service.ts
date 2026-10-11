@@ -109,6 +109,10 @@ export class TeacherBusyService {
     const [row] = await this.ds.query(
       `SELECT e.starts_at, e.ends_at
        FROM seat_allocations a
+       -- A deleted plan keeps its allocation rows; they book nobody. Drafts
+       -- still count (two drafts could both be published later).
+       JOIN seat_plans sp ON sp.id = a.seat_plan_id AND sp.tenant_id = a.tenant_id
+                         AND sp.deleted_at IS NULL
        JOIN exam_schedules e ON e.id = a.exam_schedule_id AND e.tenant_id = a.tenant_id
        WHERE a.tenant_id = $1 AND a.invigilator_user_id = $2 AND e.date = $3
          AND e.deleted_at IS NULL
