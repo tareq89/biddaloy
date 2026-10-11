@@ -43,7 +43,7 @@ export function workerDbName(baseDbName: string, worker: number | string): strin
   return `${baseDbName}_w${worker}`;
 }
 
-function withDbName(url: string, dbName: string): string {
+export function withDbName(url: string, dbName: string): string {
   const parsed = new URL(url);
   parsed.pathname = `/${dbName}`;
   return parsed.toString();
@@ -54,7 +54,7 @@ function withDbName(url: string, dbName: string): string {
  * look like a dedicated test database, so a misconfigured DATABASE_URL can
  * never wipe real dev/prod data.
  */
-function assertTestDatabaseUrl(url: string): void {
+export function assertTestDatabaseUrl(url: string): void {
   const dbName = url.split('/').pop()?.split('?')[0] ?? '';
   if (!/test/i.test(dbName)) {
     throw new Error(
