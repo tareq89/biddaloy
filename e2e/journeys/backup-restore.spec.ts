@@ -226,15 +226,17 @@ test.describe.serial('backup and restore', () => {
       const save = page.getByRole('button', { name: t('students.edit.submitAction') });
 
       const refuse = (route: import('@playwright/test').Route) =>
-        route.fulfill({
-          status: 423,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            statusCode: 423,
-            message: 'This school is being restored.',
-            details: { code: 'TENANT_RESTORING' },
-          }),
-        });
+        route.request().method() !== 'PATCH'
+          ? route.fallback()
+          : route.fulfill({
+              status: 423,
+              contentType: 'application/json',
+              body: JSON.stringify({
+                statusCode: 423,
+                message: 'This school is being restored.',
+                details: { code: 'TENANT_RESTORING' },
+              }),
+            });
       await page.route(`**/api/v1/students/${studentId}`, refuse);
       await fullName.fill(`${studentName} Edited`);
       await save.click();
