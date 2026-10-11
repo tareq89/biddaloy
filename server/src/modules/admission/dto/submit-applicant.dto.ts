@@ -57,7 +57,8 @@ export class SubmitApplicantDto {
   middle_name_confirm?: string;
 
   /** Proof of ownership when resubmitting against an existing PENDING
-   * application for the same (intake, guardian_phone) — knowing the phone
+   * application for the same child (intake, guardian_phone,
+   * date_of_birth, applicant_name) — knowing the phone
    * number alone must not let a caller overwrite someone else's pending
    * application (a phone number isn't secret, and `intake_id` is public
    * via `GET /public/admission/:slug`). Omit on a first submission. */
