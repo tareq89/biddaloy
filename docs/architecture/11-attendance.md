@@ -321,6 +321,35 @@ Every correction that touches an existing mark writes an `audit_logs` row
 exists on either attendance table; there is nothing to delete, only marks to
 correct.
 
+### Who is on a register (#2269)
+
+The roster comes from `enrollments` for that section, not from the
+student's current placement. Only students who are still there count:
+
+| Enrollment status here | On the register, summaries and absence SMS? | Why                                 |
+| ---------------------- | ------------------------------------------- | ----------------------------------- |
+| `ACTIVE`               | Yes                                         | In the class (also after promotion) |
+| `GRADUATED`            | Yes                                         | Finished that year in this section  |
+| `INACTIVE`             | No                                          | Withdrawn or moved section          |
+| `TRANSFERRED`          | No                                          | Left the school                     |
+
+The exam cohort is different: it keeps every status (`excludeLeft` is off).
+
+### Guardian SMS after a correction (#2262)
+
+Once a register's absence notice went out, a corrected mark re-tells the
+guardian only when the absent / not-absent answer changes from what they
+were **last told** (the newest notice or correction that did not fail).
+
+```mermaid
+flowchart LR
+  A["Told: absent"] -- "PRESENT, LATE or LEAVE" --> B["Send: 'Correction: Rahim was not absent on 2026-10-05. Sorry...'"]
+  B -- "ABSENT again" --> C["Send the absence notice again"]
+  B -- "LATE (still not absent)" --> D[Send nothing]
+```
+
+A notice that failed (no credit, no provider) counts as never told.
+
 ## 4a. Period attendance
 
 Off by default. A school turns it on with `settings.attendance.periodAttendance.enabled`
