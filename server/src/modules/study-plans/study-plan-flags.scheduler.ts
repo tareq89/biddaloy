@@ -415,11 +415,15 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
         sectionLabel.get(s.class_section_id) ?? '',
         behind,
       );
+      // Reachable (active account) first, then the primary pick, so a primary
+      // with no account falls back to a secondary who has one.
       const audience = resolveReminderAudience(
-        s.guardians.filter((g) => g.tenant_id === tenantId),
+        s.guardians.filter(
+          (g) => g.tenant_id === tenantId && g.user_id != null && active.has(g.user_id),
+        ),
       ).guardians;
       for (const g of audience) {
-        if (!g.user_id || !active.has(g.user_id)) continue;
+        if (!g.user_id) continue; // narrowing only; filtered above
         const m = grouped.get(g.id) ?? {
           userId: g.user_id,
           phone: g.phone,

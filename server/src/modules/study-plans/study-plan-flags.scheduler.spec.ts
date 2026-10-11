@@ -373,5 +373,16 @@ describe('StudyPlanFlagsScheduler [66.2.05]', () => {
       expect(d.push.sendToUser).toHaveBeenCalledTimes(1);
       expect((d.push.sendToUser.mock.calls[0] as any[])[0]).toBe('u-a');
     });
+
+    // Review r1 #8: a primary with no portal account must not hide a secondary who has one.
+    it('falls back to a secondary guardian when the primary has no account', async () => {
+      const d = digest(
+        [kid('k1', [g('a', { user_id: null }), g('b', { is_primary_contact: false })])],
+        0,
+      );
+      await d.run();
+      expect(d.push.sendToUser).toHaveBeenCalledTimes(1);
+      expect((d.push.sendToUser.mock.calls[0] as any[])[0]).toBe('u-b');
+    });
   });
 });
