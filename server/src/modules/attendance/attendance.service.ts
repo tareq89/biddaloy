@@ -30,6 +30,7 @@ import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { sectionRosterStudentIds } from '../enrollments/section-roster';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { AttendanceAccessService } from './attendance-access.service';
@@ -614,7 +615,6 @@ export class AttendanceService {
     const studentIds = dto.entries.map((e) => e.student_id);
     const sessionRepo = manager.getRepository(AttendanceSession);
     const recordRepo = manager.getRepository(AttendanceRecord);
-    const studentRepo = manager.getRepository(Student);
 
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const policy = resolveAttendancePolicy(settings);
@@ -766,17 +766,9 @@ export class AttendanceService {
 
     // 8. Roster membership.
     const uniqueStudentIds = [...new Set(studentIds)];
-    const roster =
-      uniqueStudentIds.length > 0
-        ? await studentRepo.find({
-            where: {
-              id: In(uniqueStudentIds),
-              class_section_id: sectionId,
-              tenant_id: tenantId,
-            },
-          })
-        : [];
-    const rosterIds = new Set(roster.map((s) => s.id));
+    // Enrollment roster, not `Student.class_section_id`: a promoted student
+    // still belongs to the old section's past registers (LIFE-08).
+    const rosterIds = new Set(await sectionRosterStudentIds(manager, tenantId, sectionId));
     const unknownStudentIds = uniqueStudentIds.filter((id) => !rosterIds.has(id));
     if (unknownStudentIds.length > 0) {
       throw new UnprocessableEntityException({
@@ -1546,10 +1538,14 @@ export class AttendanceService {
 
     // roll_number is an int column, so this ORDER BY is already
     // numeric — no varchar-sort trap (1, 10, 2, ...) to work around.
-    const students = await manager.getRepository(Student).find({
-      where: { class_section_id: sectionId, tenant_id: tenantId },
-      order: { roll_number: 'ASC' },
-    });
+    const rosterIds = await sectionRosterStudentIds(manager, tenantId, sectionId);
+    const students =
+      rosterIds.length === 0
+        ? []
+        : await manager.getRepository(Student).find({
+            where: { id: In(rosterIds), tenant_id: tenantId },
+            order: { roll_number: 'ASC' },
+          });
 
     const records = session
       ? await manager

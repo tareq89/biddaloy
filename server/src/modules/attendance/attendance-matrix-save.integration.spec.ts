@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { enrollPlacedStudents } from '@test/helpers/enrollment.helper';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource } from 'typeorm';
@@ -154,6 +155,7 @@ describe('AttendanceService.putRegisterMatrix (integration)', () => {
         tenant_id: TENANT_ID,
       })
     ).id;
+    await enrollPlacedStudents(dataSource, TENANT_ID);
 
     const user = await dataSource.getRepository(User).save({
       email: `mx-teacher-${randomUUID()}@test.com`,

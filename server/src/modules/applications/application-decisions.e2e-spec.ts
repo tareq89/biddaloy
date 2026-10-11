@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { enrollPlacedStudents } from '@test/helpers/enrollment.helper';
 import supertest = require('supertest');
 import { randomUUID } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -217,6 +218,7 @@ describe('Application decisions E2E', () => {
       [`DEC-${randomUUID().slice(0, 10)}`, SEED_SECTION_1_ID, SEED_TENANT_ID, ids.studentUser],
     );
     childId = student.id;
+    await enrollPlacedStudents(dataSource, SEED_TENANT_ID);
     const [guardian] = await dataSource.query(
       `INSERT INTO guardians (full_name, relationship, phone, email, tenant_id, user_id,
                               preferred_communication, is_primary_contact, created_at, updated_at)

@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
+import { enrollPlacedStudents } from '@test/helpers/enrollment.helper';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule, getQueueToken } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -175,6 +176,7 @@ describe('AbsenceNoticeService (integration)', () => {
     });
     studentId1 = s1.id;
     studentId2 = s2.id;
+    await enrollPlacedStudents(dataSource, TENANT_ID);
   });
 
   function basePutDto(overrides: Record<string, unknown> = {}) {
@@ -518,6 +520,7 @@ describe('AbsenceNoticeService (integration)', () => {
       tenant_id: OTHER_TENANT,
       guardians: [otherGuardian],
     });
+    await enrollPlacedStudents(dataSource, OTHER_TENANT);
 
     // Tenant A's send only ever resolves tenant A's own section/students —
     // there is no shared code path that could cross tenant_id boundaries,
