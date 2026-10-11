@@ -351,6 +351,7 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
           <div className="mt-1.5 grid grid-cols-2 gap-x-4 md:flex md:flex-wrap md:gap-x-6">
             {WEEKDAYS.map((day) => weekdayField(day))}
           </div>
+          <p className="mt-1.5 text-caption text-text-secondary">{t('attendance.weeklyOffHint')}</p>
         </fieldset>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
