@@ -6,11 +6,17 @@ import {
   Breadcrumbs,
   LocaleSwitcher,
   NotificationBell,
+  SchoolInvitesCard,
   SyncStatusIndicator,
   TenantBar,
   ThemeToggle,
 } from '@biddaloy/ui/components';
-import { hasPermission, useActiveRole, useDensity } from '@biddaloy/ui/hooks';
+import {
+  hasPermission,
+  useActiveRole,
+  useDensity,
+  useSchoolInvitesCardProps,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet, useRouterState } from '@tanstack/react-router';
@@ -72,6 +78,7 @@ const BOTTOM_NAV_CELLS: Record<string, string> = {
 function PortalLayout() {
   const { t } = useTranslation('nav');
   const activeRole = useActiveRole();
+  const schoolInvites = useSchoolInvitesCardProps();
 
   // [8.13.8] Comfortable density (contract section 6): one attribute lifts
   // every control under the guardian shell to the 44 px WCAG SC 2.5.5 target,
@@ -276,6 +283,7 @@ function PortalLayout() {
             className="mb-4"
           />
         )}
+        <SchoolInvitesCard {...schoolInvites.cardProps} />
         <Outlet />
       </AppShell>
     </RequireRole>
