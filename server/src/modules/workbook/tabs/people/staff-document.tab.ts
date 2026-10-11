@@ -131,18 +131,21 @@ export const staffDocumentTab: TabSpec<StaffDocument, StaffDocumentRow> = {
       });
     }
 
-    // The download/replace routes act on the stored key, so it must stay in this school's prefix.
+    // The download/replace routes act on the stored key, so it must stay in this
+    // school's `staff-documents/` folder (where staff-document.service.ts uploads).
+    // `storage_key` is a required column, so it is always set here.
     const owned = ownStorageKey(
       values.storage_key as string,
       ctx.tenantId,
       'staff_documents',
       rowNo,
       'storage_key',
+      'staff-documents',
     );
     if ('error' in owned) errors.push(owned.error);
-    else if (owned.warning) ctx.warn(owned.warning);
 
     if (errors.length > 0 || 'error' in owned) return { errors };
+    if (owned.warning) ctx.warn(owned.warning);
 
     return {
       row: {

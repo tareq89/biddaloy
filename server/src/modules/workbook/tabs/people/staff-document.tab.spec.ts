@@ -40,6 +40,30 @@ describe('staffDocumentTab storage_key (DATA-02)', () => {
     expect(c.warn).toHaveBeenCalled();
   });
 
+  it("rejects this school's own key when it is outside the staff-documents/ folder", () => {
+    const key = `tenants/${TENANT_ID}/workbook-backups/full.xlsx`;
+    const result = staffDocumentTab.fromRow(cells(key), 2, ctx());
+    expect('errors' in result).toBe(true);
+    if ('errors' in result) expect(result.errors[0]).toMatchObject({ column: 'storage_key' });
+  });
+
+  it('reports an empty storage_key cell once (required), not twice', () => {
+    const result = staffDocumentTab.fromRow(cells(''), 2, ctx());
+    if (!('errors' in result)) throw new Error('expected errors');
+    expect(result.errors.filter((e) => e.column === 'storage_key')).toHaveLength(1);
+  });
+
+  it('does not warn about a foreign key when the row is rejected for another reason', () => {
+    const c = ctx();
+    const result = staffDocumentTab.fromRow(
+      { ...cells('tenants/other-id/staff-documents/a.pdf'), staff: 'nobody@school.test' },
+      2,
+      c,
+    );
+    expect('errors' in result).toBe(true);
+    expect(c.warn).not.toHaveBeenCalled();
+  });
+
   it('keeps an own key without a warning', () => {
     const c = ctx();
     const key = `tenants/${TENANT_ID}/staff-documents/a.pdf`;

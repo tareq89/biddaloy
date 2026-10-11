@@ -172,6 +172,18 @@ key into the cell, and restore resolves it back to a real id.
 - **A `TEMPLATE`-kind workbook can never delete.** `deleteByAbsence` is
   skipped entirely if the uploaded workbook is a blank template rather than
   a real export/restore round trip.
+- **File keys stay inside the school (DATA-02).** A cell that names an
+  uploaded file (`staff_documents.storage_key`, `students.photo_key`,
+  `homework*.attachments[].key`, `admission_applicants.documents[].storage_key`,
+  `print_assets`, `application_attachments`) must sit under
+  `tenants/<this school>/<that column's folder>/` (teacher `homework`
+  attachments have no fixed folder until #1012). A key outside `tenants/`
+  (for example `backups/db/20261009T020000Z.dump.age`) or in the wrong folder
+  is a row error. Foreign keys are rewritten to this school's prefix with a
+  warning, never stored: `tenants/<other school>/staff-documents/a.pdf`
+  becomes `tenants/<this school>/staff-documents/a.pdf`, which 404s until the
+  file is uploaded again. Helper:
+  `server/src/modules/workbook/codec/storage-key-scope.ts`.
 
 ## The school is read-only while a restore runs (#2210)
 

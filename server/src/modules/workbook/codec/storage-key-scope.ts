@@ -36,6 +36,11 @@ export function rehomeStorageKey(storageKey: string, tenantId: string): RehomedK
  * outside `tenants/` (e.g. `backups/db/...`) or containing `..` is a row error;
  * another school's key is rewritten to this school's prefix, with a warning that
  * the file was not copied. A foreign key is therefore never stored.
+ *
+ * `area` is the folder the column's upload code writes to (the `category` passed
+ * to `tenantObjectKey`, e.g. `staff-documents`). When given, a key in any other
+ * folder of the school is also a row error, so a restored row can't point a
+ * download/replace route at, say, the school's own workbook backup.
  */
 export function ownStorageKey(
   raw: string,
@@ -43,9 +48,10 @@ export function ownStorageKey(
   tab: string,
   rowNo: number,
   column: string,
+  area?: string,
 ): { key: string; warning?: RowError } | { error: RowError } {
   const rehomed = rehomeStorageKey(raw, tenantId);
-  if (!rehomed) {
+  if (!rehomed || (area !== undefined && !rehomed.tail.startsWith(`${area}/`))) {
     return {
       error: {
         tab,
@@ -72,31 +78,35 @@ export function ownStorageKey(
 }
 
 /**
- * Runs `ownStorageKey` over every `key` in a homework `attachments` JSON array.
- * Any element without a string `key`, or with an out-of-scope one, rejects the row.
+ * Runs `ownStorageKey` over the `field` of every element of a JSON array cell
+ * (homework `attachments[].key`, admission `documents[].storage_key`). Any element
+ * without a string key, or with an out-of-scope one, rejects the row. Warnings are
+ * returned, not emitted, so the caller reports them only if the row is accepted.
  */
-export function ownAttachments(
-  attachments: unknown[],
+export function ownKeysIn(
+  items: unknown[],
   tenantId: string,
   tab: string,
   rowNo: number,
-  warn: (e: RowError) => void,
-): { attachments: unknown[] } | { error: RowError } {
+  opts: { column: string; field: string; area?: string },
+): { items: unknown[]; warnings: RowError[] } | { error: RowError } {
   const out: unknown[] = [];
-  for (const item of attachments) {
-    const raw = (item as { key?: unknown } | null)?.key;
+  const warnings: RowError[] = [];
+  for (const item of items) {
+    const raw = (item as Record<string, unknown> | null)?.[opts.field];
     const result = ownStorageKey(
       typeof raw === 'string' ? raw : '',
       tenantId,
       tab,
       rowNo,
-      'attachments',
+      opts.column,
+      opts.area,
     );
     if ('error' in result) return result;
-    if (result.warning) warn(result.warning);
-    out.push({ ...(item as object), key: result.key });
+    if (result.warning) warnings.push(result.warning);
+    out.push({ ...(item as object), [opts.field]: result.key });
   }
-  return { attachments: out };
+  return { items: out, warnings };
 }
 
 /** `tenants/<id>/print-assets/x.png` -> `print-assets/x.png`; anything else is returned as-is. */

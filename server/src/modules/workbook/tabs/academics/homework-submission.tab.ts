@@ -9,7 +9,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
-import { ownAttachments } from '../../codec/storage-key-scope';
+import { ownKeysIn } from '../../codec/storage-key-scope';
 import { homeworkAssignmentTab } from './homework-assignment.tab';
 import { studentsTab } from '../people/students.tab';
 
@@ -145,17 +145,19 @@ export const homeworkSubmissionTab: TabSpec<HomeworkSubmission, HomeworkSubmissi
       });
     }
 
-    // Attachment keys must stay inside this school's storage prefix (DATA-02).
-    const owned = ownAttachments(
+    // Attachment keys must stay inside this school's `homework-submissions/` folder,
+    // the one homework-submission.service.ts uploads to (DATA-02).
+    const owned = ownKeysIn(
       (values.attachments as unknown[] | null) ?? [],
       ctx.tenantId,
       'homework_submissions',
       rowNo,
-      ctx.warn,
+      { column: 'attachments', field: 'key', area: 'homework-submissions' },
     );
     if ('error' in owned) errors.push(owned.error);
 
-    if (errors.length > 0) return { errors };
+    if (errors.length > 0 || 'error' in owned) return { errors };
+    for (const warning of owned.warnings) ctx.warn(warning);
 
     return {
       row: {
@@ -164,7 +166,7 @@ export const homeworkSubmissionTab: TabSpec<HomeworkSubmission, HomeworkSubmissi
         student_id: studentId as string,
         status: values.status as HomeworkSubmissionStatus,
         marks: (values.marks as number | null) ?? null,
-        attachments: 'attachments' in owned ? owned.attachments : [],
+        attachments: owned.items,
         assignment_key: assignmentKey,
         student_key: studentKey,
       },

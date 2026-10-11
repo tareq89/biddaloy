@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ownAttachments,
-  ownStorageKey,
-  rehomeStorageKey,
-  storageKeyTail,
-} from './storage-key-scope';
+import { ownKeysIn, ownStorageKey, rehomeStorageKey, storageKeyTail } from './storage-key-scope';
 
 describe('ownStorageKey (DATA-02)', () => {
   it('keeps an own key without a warning', () => {
@@ -28,27 +23,95 @@ describe('ownStorageKey (DATA-02)', () => {
   );
 });
 
-describe('ownAttachments (DATA-02)', () => {
-  const warn = () => undefined;
+describe('ownStorageKey with an area', () => {
+  it('keeps an own key inside the area', () => {
+    expect(
+      ownStorageKey(
+        'tenants/b/staff-documents/a.pdf',
+        'b',
+        'staff_documents',
+        2,
+        'storage_key',
+        'staff-documents',
+      ),
+    ).toEqual({ key: 'tenants/b/staff-documents/a.pdf' });
+  });
 
-  it('rewrites a foreign key and keeps the other fields', () => {
-    const r = ownAttachments(
+  it("rejects the school's own key in another folder (e.g. its workbook backup)", () => {
+    expect(
+      ownStorageKey(
+        'tenants/b/workbook-backups/x.xlsx',
+        'b',
+        'staff_documents',
+        2,
+        'storage_key',
+        'staff-documents',
+      ),
+    ).toHaveProperty('error');
+  });
+
+  it('does not treat a folder that only starts with the area name as the area', () => {
+    expect(
+      ownStorageKey(
+        'tenants/b/staff-documents-x/a.pdf',
+        'b',
+        'staff_documents',
+        2,
+        'storage_key',
+        'staff-documents',
+      ),
+    ).toHaveProperty('error');
+  });
+});
+
+describe('ownKeysIn (DATA-02)', () => {
+  const attachments = { column: 'attachments', field: 'key' };
+
+  it('rewrites a foreign key, keeps the other fields and returns the warning', () => {
+    const r = ownKeysIn(
       [{ key: 'tenants/a/h/f.pdf', filename: 'f.pdf' }],
       'b',
       'homework',
       2,
-      warn,
+      attachments,
     );
-    expect(r).toEqual({ attachments: [{ key: 'tenants/b/h/f.pdf', filename: 'f.pdf' }] });
+    expect(r).toMatchObject({
+      items: [{ key: 'tenants/b/h/f.pdf', filename: 'f.pdf' }],
+      warnings: [{ severity: 'warning', column: 'attachments' }],
+    });
   });
 
   it('rejects the row if any element key is outside tenants/ or missing', () => {
-    expect(ownAttachments([{ key: 'backups/db/x' }], 'b', 'homework', 2, warn)).toHaveProperty(
+    expect(ownKeysIn([{ key: 'backups/db/x' }], 'b', 'homework', 2, attachments)).toHaveProperty(
       'error',
     );
-    expect(ownAttachments([{ filename: 'no-key' }], 'b', 'homework', 2, warn)).toHaveProperty(
+    expect(ownKeysIn([{ filename: 'no-key' }], 'b', 'homework', 2, attachments)).toHaveProperty(
       'error',
     );
+  });
+
+  it('scopes a named field such as documents[].storage_key, area-checked', () => {
+    const docs = { column: 'documents', field: 'storage_key', area: 'admission-documents' };
+    expect(
+      ownKeysIn(
+        [{ type: 'PHOTO', storage_key: 'tenants/a/admission-documents/p.jpg' }],
+        'b',
+        'admission_applicants',
+        2,
+        docs,
+      ),
+    ).toMatchObject({
+      items: [{ type: 'PHOTO', storage_key: 'tenants/b/admission-documents/p.jpg' }],
+    });
+    expect(
+      ownKeysIn(
+        [{ type: 'PHOTO', storage_key: 'backups/db/x.dump.age' }],
+        'b',
+        'admission_applicants',
+        2,
+        docs,
+      ),
+    ).toMatchObject({ error: { column: 'documents' } });
   });
 });
 
