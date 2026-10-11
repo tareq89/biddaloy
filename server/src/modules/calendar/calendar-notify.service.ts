@@ -24,6 +24,12 @@ import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
 import { recordBatchOutcome } from '../communications/reminder-batch-counters';
 import { resolveReminderAudience } from '../communications/reminder-recipients.util';
+import { School } from '../schools/entities/school.entity';
+import { resolveTenantSettings } from '../schools/settings/tenant-settings-resolver';
+import {
+  formatFeeNotificationDueDate,
+  resolveFeeNotificationLocale,
+} from '../communications/fee-notification-template.util';
 import { PushService } from '../push/push.service';
 
 export interface CalendarNotifyOpts {
@@ -295,7 +301,18 @@ export class CalendarNotifyService {
       return;
     }
 
-    const message = `${event.name} on ${event.start_date}. Please check the school calendar for details.`;
+    // [#2265] Bangla-locale schools get a Bangla body; credit is priced on it.
+    const school = await this.logRepo.manager.findOne(School, {
+      where: { id: tenantId },
+      select: { id: true, settings: true },
+    });
+    const locale = resolveFeeNotificationLocale(
+      resolveTenantSettings(school?.settings ?? null).region?.locale,
+    );
+    const message =
+      locale === 'bn'
+        ? `${event.name} — ${formatFeeNotificationDueDate('bn', event.start_date)}। বিস্তারিত স্কুলের ক্যালেন্ডারে দেখুন।`
+        : `${event.name} on ${event.start_date}. Please check the school calendar for details.`;
     const segmentsPerRecipient = countSmsSegments(message).segments;
     const totalSegments = segmentsPerRecipient * guardians.length;
 
