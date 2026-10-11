@@ -69,6 +69,7 @@ describe('SingleReminderService', () => {
     smsCreditService = {
       reserveIfMetered: vi.fn(async () => 'UNMETERED'),
       releaseForLog: vi.fn(async () => undefined),
+      settlePart: vi.fn(async () => undefined),
     };
 
     service = new SingleReminderService(
@@ -462,9 +463,10 @@ describe('SingleReminderService', () => {
     it('0 credit: throws 409 INSUFFICIENT_SMS_CREDIT and saves/queues nothing', async () => {
       smsCreditService.reserveIfMetered.mockResolvedValue({ insufficient: true, available: 0 });
 
-      await expect(service.sendSingle(STUDENT_ID, dto as any, TENANT, USER)).rejects.toMatchObject(
-        { status: 409, response: { details: { code: 'INSUFFICIENT_SMS_CREDIT' } } },
-      );
+      await expect(service.sendSingle(STUDENT_ID, dto as any, TENANT, USER)).rejects.toMatchObject({
+        status: 409,
+        response: { details: { code: 'INSUFFICIENT_SMS_CREDIT' } },
+      });
       expect(logRepo.save).not.toHaveBeenCalled();
       expect(queue.add).not.toHaveBeenCalled();
     });
@@ -481,6 +483,45 @@ describe('SingleReminderService', () => {
         1,
         expect.any(String),
       );
+    });
+
+    it('releases the unused remainder when a later log save throws', async () => {
+      studentService.findOne.mockResolvedValue(
+        student({
+          guardians: [
+            guardian({ id: 'g-1', is_primary_contact: true }),
+            guardian({ id: 'g-2', phone: '01799999999', is_primary_contact: true }),
+          ],
+        }),
+      );
+      smsCreditService.reserveIfMetered.mockResolvedValue('RESERVED');
+      logRepo.save
+        .mockImplementationOnce(async (v: any) => ({ id: 'log-1', ...v }))
+        .mockRejectedValueOnce(new Error('connection lost'));
+
+      await expect(service.sendSingle(STUDENT_ID, dto as any, TENANT, USER)).rejects.toThrow(
+        'connection lost',
+      );
+
+      // 2 segments were reserved up front; log-1's job owns 1, so the other
+      // 1 must go back — otherwise the school loses it until a manual fix.
+      const [, , batchId] = smsCreditService.reserveIfMetered.mock.calls[0];
+      expect(smsCreditService.reserveIfMetered).toHaveBeenCalledWith(TENANT, 2, batchId);
+      expect(smsCreditService.settlePart).toHaveBeenCalledWith(
+        TENANT,
+        `batch:${batchId}`,
+        `unused:${batchId}`,
+        1,
+        'RELEASE',
+      );
+    });
+
+    it('releases nothing extra when every share was queued', async () => {
+      smsCreditService.reserveIfMetered.mockResolvedValue('RESERVED');
+
+      await service.sendSingle(STUDENT_ID, dto as any, TENANT, USER);
+
+      expect(smsCreditService.settlePart).not.toHaveBeenCalled();
     });
   });
 

@@ -239,19 +239,19 @@ flowchart LR
     R -.same key.- W
 ```
 
-| Producer              | Bare `batchId` (job) / reserve key = `batch:` + it |
-| --------------------- | -------------------------------------------------- |
-| Bulk reminders        | `<batch.id>`                                       |
-| Calendar notify       | `<batch.id>`                                       |
-| Incident SMS          | `incident:<incidentId>`                            |
-| Fee notification      | `fee-notify:<feeGenerationId>:sms`                 |
-| Payment receipt       | `payment-notify:<paymentId>:<guardianId>`          |
-| Invoice send (manual) | `invoice-send:<invoiceId>:<guardianId>:<sendId>`   |
-| Exam result SMS       | `exam-result-sms:<examId>:<sendId>`                |
-| Absence notice        | `<logId>` (one reservation per SMS log)            |
-| Homework notice       | `<logId>`                                          |
-| Admission status SMS  | `<logId>`                                          |
-| Single reminder       | `<uuid>` (one per send, shared by its SMS logs)    |
+| Producer                              | Bare `batchId` (job) / reserve key = `batch:` + it         |
+| ------------------------------------- | ---------------------------------------------------------- |
+| Bulk reminders                        | `<batch.id>`                                               |
+| Calendar notify                       | `<batch.id>`                                               |
+| Incident SMS                          | `incident:<incidentId>`                                    |
+| Fee notification                      | `fee-notify:<feeGenerationId>:sms`                         |
+| Payment receipt                       | `payment-notify:<paymentId>:<guardianId>`                  |
+| Invoice send (manual)                 | `invoice-send:<invoiceId>:<guardianId>:<sendId>`           |
+| Exam result SMS                       | `exam-result-sms:<examId>:<sendId>`                        |
+| Absence notice                        | `<logId>` (one reservation per SMS log)                    |
+| Homework notice                       | `<logId>`                                                  |
+| Admission status SMS                  | `<logId>`                                                  |
+| Single reminder                       | `<uuid>` (one per send, shared by its SMS logs)            |
 | Free-form `POST /communications/send` | `<uuid>` (reserved inside `CommunicationsService.enqueue`) |
 
 Rules:
@@ -264,6 +264,24 @@ Rules:
   short do not queue the SMS: the log is saved `FAILED` with
   `metadata.reason = 'INSUFFICIENT_SMS_CREDIT'`. Staff-initiated sends
   (single reminder, free-form) answer 409 `INSUFFICIENT_SMS_CREDIT` instead.
+- If the reserve call itself throws (a DB error, say), the automated
+  producer saves that log `FAILED` with
+  `metadata.reason = 'CREDIT_RESERVE_FAILED'` and moves on to the next
+  recipient. A log is never left `QUEUED` with no job behind it.
+- Single reminder reserves for the whole send up front. If its loop throws
+  half-way (e.g. a log save fails), it gives back the unused part under the
+  `unused:<uuid>` part key. Example: 3 segments reserved, 1 queued, then a
+  save fails → 2 segments are released.
+- **Exempt: two paths skip the queue and credit on purpose.** They call the
+  SMS provider directly, so neither reserves and the backstop never sees them:
+  - `account-access-delivery.service.ts` — invitations, login OTPs,
+    password-reset links and backup/restore notices. A school at 0 credit
+    must still be able to sign in and recover an account.
+  - `schools/trial/admin-notice.service.ts` — trial warning, trial-ended and
+    welcome notices to a school's admins. The platform sends these, not the
+    school.
+
+  Any other new SMS sender must go through the queue and reserve.
 
 - A manual re-send gets its own `sendId` (and its own `reference_id`), so
   each send reserves and is capped on its own.

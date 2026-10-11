@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { countSmsSegments } from '@biddaloy/shared';
 import { SmsCreditService } from './credits/sms-credit.service';
@@ -69,6 +69,8 @@ interface ResolvedContext {
  */
 @Injectable()
 export class SingleReminderService {
+  private readonly logger = new Logger(SingleReminderService.name);
+
   constructor(
     @InjectRepository(CommunicationLog)
     private readonly logRepo: Repository<CommunicationLog>,
@@ -145,47 +147,75 @@ export class SingleReminderService {
     }
 
     const sent: SingleReminderResponseDto['sent'] = [];
-    for (const [i, recipient] of recipients.entries()) {
-      const log = await this.logRepo.save(
-        this.logRepo.create({
-          tenant_id: tenantId,
-          medium: recipient.medium,
-          recipient_address: recipient.address,
-          recipient_name: recipient.guardian.full_name,
-          message_body: bodies[i],
-          subject: recipient.medium === CommunicationMedium.EMAIL ? DEFAULT_EMAIL_SUBJECT : null,
-          student_id: studentId,
-          guardian_id: recipient.guardian.id,
-          sent_by_user_id: userId,
-          status: CommunicationStatus.QUEUED,
-          trigger: CommunicationTrigger.SINGLE_REMINDER,
-          metadata: this.whatsAppMetadata(dto, recipient),
-        }),
-      );
+    // [#2216] Units of the up-front reservation now owned by a queued job or
+    // already released per log. If anything in the loop throws (e.g. a log
+    // save), `finally` gives the rest back so no credit is left stranded.
+    let accounted = 0;
+    try {
+      for (const [i, recipient] of recipients.entries()) {
+        const log = await this.logRepo.save(
+          this.logRepo.create({
+            tenant_id: tenantId,
+            medium: recipient.medium,
+            recipient_address: recipient.address,
+            recipient_name: recipient.guardian.full_name,
+            message_body: bodies[i],
+            subject: recipient.medium === CommunicationMedium.EMAIL ? DEFAULT_EMAIL_SUBJECT : null,
+            student_id: studentId,
+            guardian_id: recipient.guardian.id,
+            sent_by_user_id: userId,
+            status: CommunicationStatus.QUEUED,
+            trigger: CommunicationTrigger.SINGLE_REMINDER,
+            metadata: this.whatsAppMetadata(dto, recipient),
+          }),
+        );
 
-      try {
-        await this.queue.add('send', {
-          logId: log.id,
-          ...(reserved && segmentsOf[i] > 0 ? { batchId, segments: segmentsOf[i] } : {}),
-        });
-      } catch {
-        if (reserved && segmentsOf[i] > 0) {
-          await this.smsCreditService.releaseForLog(tenantId, log.id, segmentsOf[i], batchId);
+        try {
+          await this.queue.add('send', {
+            logId: log.id,
+            ...(reserved && segmentsOf[i] > 0 ? { batchId, segments: segmentsOf[i] } : {}),
+          });
+          accounted += segmentsOf[i];
+        } catch {
+          if (reserved && segmentsOf[i] > 0) {
+            await this.smsCreditService.releaseForLog(tenantId, log.id, segmentsOf[i], batchId);
+          }
+          accounted += segmentsOf[i];
+          // One guardian failing to enqueue shouldn't abort the others in the
+          // same request; the row must not be left QUEUED with no job behind it.
+          log.status = CommunicationStatus.FAILED;
+          log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
+          await this.logRepo.save(log);
         }
-        // One guardian failing to enqueue shouldn't abort the others in the
-        // same request; the row must not be left QUEUED with no job behind it.
-        log.status = CommunicationStatus.FAILED;
-        log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
-        await this.logRepo.save(log);
-      }
 
-      sent.push({
-        communication_log_id: log.id,
-        guardian_id: recipient.guardian.id,
-        guardian_name: recipient.guardian.full_name,
-        medium: recipient.medium,
-        status: log.status,
-      });
+        sent.push({
+          communication_log_id: log.id,
+          guardian_id: recipient.guardian.id,
+          guardian_name: recipient.guardian.full_name,
+          medium: recipient.medium,
+          status: log.status,
+        });
+      }
+    } finally {
+      if (reserved && accounted < totalSegments) {
+        await this.smsCreditService
+          .settlePart(
+            tenantId,
+            `batch:${batchId}`,
+            `unused:${batchId}`,
+            totalSegments - accounted,
+            'RELEASE',
+          )
+          .catch((err: unknown) =>
+            this.logger.error({
+              msg: 'sms credit release of unused single-reminder reservation failed — reservation left stranded',
+              batch_id: batchId,
+              tenant_id: tenantId,
+              units: totalSegments - accounted,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+      }
     }
 
     // One record per send action, not per guardian recipient — same
