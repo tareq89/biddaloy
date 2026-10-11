@@ -107,7 +107,12 @@ export class StudentService {
    * atomic unit), all reads/writes run on it instead of starting a new
    * transaction — so a failure here rolls back sibling writes too.
    */
-  async create(dto: CreateStudentDto, tenantId: string, manager?: EntityManager): Promise<Student> {
+  async create(
+    dto: CreateStudentDto,
+    tenantId: string,
+    manager?: EntityManager,
+    actor?: { userId: string; context?: RequestContext },
+  ): Promise<Student> {
     const sectionRepo = manager ? manager.getRepository(ClassSection) : this.sectionRepo;
     const guardianRepo = manager ? manager.getRepository(Guardian) : this.guardianRepo;
     const studentRepo = manager ? manager.getRepository(Student) : this.repo;
@@ -215,6 +220,26 @@ export class StudentService {
           academic_year_id: section.class.academic_year_id,
           tenant_id: tenantId,
         }),
+      );
+
+      // [LIFE-11] One CREATE audit row per student, in the same transaction.
+      await this.auditService.record(
+        {
+          action: AuditAction.CREATE,
+          entity_type: 'Student',
+          entity_id: savedStudent.id,
+          tenant_id: tenantId,
+          performed_by_user_id: actor?.userId ?? null,
+          ip_address: actor?.context?.ip ?? null,
+          user_agent: actor?.context?.userAgent ?? null,
+          new_values: {
+            full_name: savedStudent.full_name,
+            registration_number: savedStudent.registration_number,
+            class_section_id: dto.class_section_id,
+            roll_number: savedStudent.roll_number,
+          },
+        },
+        txManager,
       );
 
       return savedStudent;

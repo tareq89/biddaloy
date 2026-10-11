@@ -432,6 +432,7 @@ export class StudentBulkUploadService {
           },
           tenantId,
           manager,
+          userId ? { userId } : undefined,
         );
         return student.id;
       });

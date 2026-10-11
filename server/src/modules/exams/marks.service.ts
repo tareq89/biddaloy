@@ -16,6 +16,13 @@ import {
 } from '@biddaloy/shared';
 import { Exam } from './entities/exam.entity';
 import { Mark } from './entities/mark.entity';
+
+interface MarkAuditCell {
+  student_id: string;
+  component_id: string;
+  value: string | number | null;
+  status: Mark['status'];
+}
 import { ExamComponent } from './entities/exam-component.entity';
 import { Student } from '../students/entities/student.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
@@ -241,6 +248,10 @@ export class MarksService {
       }
 
       const repo = manager.getRepository(Mark);
+      // [ACAD-07] Per-cell diff for the audit row: old value only for cells
+      // that really changed; unchanged cells are skipped.
+      const oldCells: MarkAuditCell[] = [];
+      const newCells: MarkAuditCell[] = [];
       for (const cell of dto.cells) {
         const existing = await repo.findOne({
           where: {
@@ -250,12 +261,37 @@ export class MarksService {
             tenant_id: tenantId,
           },
         });
+        const newValue = cell.value ?? null;
         if (existing) {
+          if (
+            (existing.value === null ? null : Number(existing.value)) !==
+              (newValue === null ? null : Number(newValue)) ||
+            existing.status !== cell.status
+          ) {
+            oldCells.push({
+              student_id: cell.student_id,
+              component_id: cell.component_id,
+              value: existing.value,
+              status: existing.status,
+            });
+            newCells.push({
+              student_id: cell.student_id,
+              component_id: cell.component_id,
+              value: newValue,
+              status: cell.status,
+            });
+          }
           await repo.update(
             { id: existing.id },
             { value: cell.value ?? null, status: cell.status, entered_by: userId },
           );
         } else {
+          newCells.push({
+            student_id: cell.student_id,
+            component_id: cell.component_id,
+            value: newValue,
+            status: cell.status,
+          });
           await repo.save(
             repo.create({
               exam_id: examId,
@@ -280,11 +316,12 @@ export class MarksService {
           performed_by_user_id: userId,
           ip_address: context.ip,
           user_agent: context.userAgent,
-          old_values: null,
+          old_values: oldCells.length ? { cells: oldCells } : null,
           new_values: {
             section_id: dto.section_id,
             subject_id: dto.subject_id,
             cell_count: dto.cells.length,
+            cells: newCells,
           },
         },
         manager,
