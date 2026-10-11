@@ -24,6 +24,7 @@ import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { PushService } from '../push/push.service';
 import { CommunicationsService } from '../communications/communications.service';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
+import { resolveReminderAudience } from '../communications/reminder-recipients.util';
 import {
   addDays,
   isWeeklyOff,
@@ -259,11 +260,12 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
     userId: string,
     tenantId: string,
     payload: { type: string; title: string; body: string; url: string },
-  ): Promise<void> {
+  ): Promise<number> {
     try {
-      await this.push.sendToUser(userId, tenantId, payload);
+      return (await this.push.sendToUser(userId, tenantId, payload)).accepted;
     } catch (error) {
       this.logger.warn(`study-plan push failed for ${userId}: ${String(error)}`);
+      return 0;
     }
   }
 
@@ -399,33 +401,43 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
         : [],
     );
 
-    const messages: {
-      userId: string;
-      phone: string | null;
-      name: string;
-      studentId: string;
-      body: string;
-    }[] = [];
+    // One combined message per guardian (siblings grouped); opted-out and
+    // non-primary guardians are dropped by the shared reminder-audience rule.
+    const grouped = new Map<
+      string,
+      { userId: string; phone: string | null; name: string; studentIds: string[]; lines: string[] }
+    >();
     for (const s of students) {
       const behind = bySection.get(s.class_section_id)?.behind;
       if (!behind) continue; // child with nothing behind: no message
-      const body = guardianBody(
+      const line = guardianBody(
         s.full_name_bn ?? s.full_name,
         sectionLabel.get(s.class_section_id) ?? '',
         behind,
       );
-      for (const g of s.guardians) {
-        if (g.tenant_id !== tenantId || !g.user_id || !active.has(g.user_id)) continue;
-        messages.push({
+      const audience = resolveReminderAudience(
+        s.guardians.filter((g) => g.tenant_id === tenantId),
+      ).guardians;
+      for (const g of audience) {
+        if (!g.user_id || !active.has(g.user_id)) continue;
+        const m = grouped.get(g.id) ?? {
           userId: g.user_id,
           phone: g.phone,
           name: g.full_name,
-          studentId: s.id,
-          body,
-        });
+          studentIds: [],
+          lines: [],
+        };
+        m.studentIds.push(s.id);
+        m.lines.push(line);
+        grouped.set(g.id, m);
       }
     }
-    if (!messages.length) return;
+    if (!grouped.size) return;
+    const messages = [...grouped].map(([guardianId, m]) => ({
+      guardianId,
+      ...m,
+      body: m.lines.join('\n'),
+    }));
 
     // Resolve the sender first: with none, skip SMS without reserving credits.
     const initiator = (
@@ -440,13 +452,14 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
       : { on: false as const, batchId: undefined };
 
     for (const m of messages) {
-      await this.safePush(m.userId, tenantId, {
+      const accepted = await this.safePush(m.userId, tenantId, {
         type: 'study-plan.digest',
         title: FLAG_TITLES.guardian,
         body: m.body,
-        url: FLAG_URLS.guardian(m.studentId),
+        url: FLAG_URLS.guardian(m.studentIds[0]),
       });
-      if (sms.on && initiator && m.phone) {
+      // #555: the paid SMS is only a fallback for a push that reached no device.
+      if (accepted === 0 && sms.on && initiator && m.phone) {
         await this.communications
           .enqueue(
             {
@@ -462,6 +475,17 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
               : undefined,
           )
           .catch((e) => this.logger.warn(`study-plan digest sms failed: ${String(e)}`));
+      } else if (sms.on && sms.batchId && m.phone) {
+        // Reserved up front but never sent: give the units back.
+        await this.smsCredit
+          .settlePart(
+            tenantId,
+            `batch:${sms.batchId}`,
+            `digest-skip:${sms.batchId}:${m.guardianId}`,
+            countSmsSegments(m.body).segments,
+            'RELEASE',
+          )
+          .catch((e) => this.logger.warn(`study-plan digest sms release failed: ${String(e)}`));
       }
     }
   }
