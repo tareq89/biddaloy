@@ -328,11 +328,15 @@ function TrialExportAction() {
     <>
       {failed && (
         <p role="alert" className="text-sm text-destructive">
-          {t('ended.exportFailed')}
+          {t('ended.exportFailed', { ns: 'trial' })}
         </p>
       )}
       <Button onClick={failed ? retry : () => request.mutate()} disabled={busy}>
-        {busy ? t('ended.exportPreparing') : failed ? t('ended.exportRetry') : t('ended.export')}
+        {busy
+          ? t('ended.exportPreparing', { ns: 'trial' })
+          : failed
+            ? t('ended.exportRetry', { ns: 'trial' })
+            : t('ended.export', { ns: 'trial' })}
       </Button>
     </>
   );
