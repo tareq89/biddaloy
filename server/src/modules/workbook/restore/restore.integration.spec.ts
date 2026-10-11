@@ -29,6 +29,8 @@ import { Payment } from '../../fees/entities/payment.entity';
 import { PaymentAllocation } from '../../fees/entities/payment-allocation.entity';
 import { ExamComponent } from '../../exams/entities/exam-component.entity';
 import { Mark } from '../../exams/entities/mark.entity';
+import { GradingScale } from '../../grading/entities/grading-scale.entity';
+import { GradingBand } from '../../grading/entities/grading-band.entity';
 import { schoolTab } from '../tabs/school/school.tab';
 import { academicYearsTab } from '../tabs/academics/academic-years.tab';
 import {
@@ -780,6 +782,22 @@ describe('RestoreProcessor (integration)', () => {
           name: 'Written',
           kind: 'WRITTEN' as never,
           full_marks: '100' as never,
+          pass_marks: '33' as never,
+          sequence: 1,
+        }),
+      );
+      const scale = await em().save(
+        em().create(GradingScale, { ...t, academic_year_id: year.id, name: 'Scale' }),
+      );
+      const band = await em().save(
+        em().create(GradingBand, {
+          ...t,
+          scale_id: scale.id,
+          percent_from: 80,
+          percent_to: 100,
+          grade: 'A+',
+          gpa: '5.00',
+          is_fail: false,
           sequence: 1,
         }),
       );
@@ -794,7 +812,7 @@ describe('RestoreProcessor (integration)', () => {
           status: 'PRESENT' as never,
         }),
       );
-      return { tenantId, fee1, a1, a2, mark, payment };
+      return { tenantId, fee1, a1, a2, mark, payment, component, band };
     }
 
     /** Runs a real export of the tenant and returns the workbook bytes. */
@@ -877,6 +895,33 @@ describe('RestoreProcessor (integration)', () => {
       expect((await em().findOneByOrFail(Mark, { id: d.mark.id })).value).toBe('38.00');
       expect(Number((await em().findOneByOrFail(StudentFee, { id: d.fee1.id })).paid_amount)).toBe(
         0,
+      );
+    });
+
+    // Review r1 #2: what grades a mark is as frozen as the mark. Changing a
+    // band or a component's pass mark by restore would skip the D16 refusal,
+    // the approval and the recompute the app runs for the same edit.
+    it('changing a grading band grade (A+ to A) is refused; band unchanged', async () => {
+      const d = await seed();
+      const buffer = await edit(await exportTenant(d.tenantId), (sheet) => {
+        const b = sheet('grading_bands');
+        b.rows[0].getCell(col(b.header, 'grade')).value = 'A';
+      });
+      const job = await restore(d.tenantId, buffer);
+      expect(job.status).toBe(WorkbookJobStatus.FAILED);
+      expect((await em().findOneByOrFail(GradingBand, { id: d.band.id })).grade).toBe('A+');
+    });
+
+    it('changing an exam component pass mark (33 to 50) is refused; component unchanged', async () => {
+      const d = await seed();
+      const buffer = await edit(await exportTenant(d.tenantId), (sheet) => {
+        const c = sheet('exam_components');
+        c.rows[0].getCell(col(c.header, 'pass_marks')).value = '50';
+      });
+      const job = await restore(d.tenantId, buffer);
+      expect(job.status).toBe(WorkbookJobStatus.FAILED);
+      expect((await em().findOneByOrFail(ExamComponent, { id: d.component.id })).pass_marks).toBe(
+        '33.00',
       );
     });
 
