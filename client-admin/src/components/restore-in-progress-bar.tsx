@@ -35,6 +35,11 @@ export function RestoreInProgressBar() {
     }
     return latest?.restoring ?? false;
   };
-  const restoring = React.useSyncExternalStore((cb) => mutationCache.subscribe(cb), read, read);
+  // Stable, so React does not resubscribe the cache listener on every render.
+  const subscribe = React.useCallback(
+    (cb: () => void) => mutationCache.subscribe(cb),
+    [mutationCache],
+  );
+  const restoring = React.useSyncExternalStore(subscribe, read, read);
   return restoring ? <RestoreInProgressNotice /> : null;
 }
