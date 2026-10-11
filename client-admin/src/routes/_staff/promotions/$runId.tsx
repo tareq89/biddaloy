@@ -437,8 +437,8 @@ function PromotionRunPage() {
           setCommitOpen(false);
           setStaleBanner(true);
         } else if (code === 'COHORT_CHANGED') {
-          // Refresh can't fix this: it never drops a departed student's
-          // entry. The way out is deleting the draft and starting over.
+          // Refresh re-members the cohort (drops leavers, adds joiners), so
+          // the banner points to Refresh; then the user commits again.
           setCommitOpen(false);
           setCohortChangedBanner(true);
         } else if (error instanceof ApiError && error.statusCode !== 403) {
