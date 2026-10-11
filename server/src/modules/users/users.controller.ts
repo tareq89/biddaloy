@@ -415,8 +415,9 @@ export class UserController {
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
   ) {
-    const user = await this.userService.update(id, dto, tenant.id);
+    const user = await this.userService.update(id, dto, tenant.id, jwt.sub);
     const responseDto = UserResponseDto.fromEntity(user, tenant.id);
     responseDto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
     return responseDto;

@@ -161,3 +161,132 @@ describe('POST /users/me/leave (e2e)', () => {
       .expect(404);
   });
 });
+
+/** [68.1.#2209] One login, many schools: a school may not retarget a shared person's login. */
+describe('shared identity (68.1.#2209) (e2e)', () => {
+  let app: INestApplication;
+  let dataSource: DataSource;
+
+  const OTHER_TENANT = '00000000-0000-4000-8000-000000002091';
+  const SHARED_ID = '00000000-0000-4000-8000-000000002092';
+  const SOLO_ID = '00000000-0000-4000-8000-000000002093';
+  const ELSEWHERE_ID = '00000000-0000-4000-8000-000000002094';
+  const SHARED_EMAIL = 'shared-2209@example.com';
+  const ids = [SHARED_ID, SOLO_ID, ELSEWHERE_ID];
+
+  const request = () => supertest(app.getHttpServer());
+  const adminToken = async () =>
+    (
+      await request()
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200)
+    ).body.access_token as string;
+  const count = async (sql: string, params: unknown[]) =>
+    Number((await dataSource.query(sql, params))[0].n);
+
+  beforeAll(async () => {
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
+    process.env.NODE_ENV = 'test';
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    app = moduleFixture.createNestApplication();
+    configureApiVersioning(app);
+    app.use(cookieParser());
+    app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
+    await app.init();
+    dataSource = app.get(DataSource);
+
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Shared Identity Other School', 'shared-identity-2209', NOW(), NOW())
+       ON CONFLICT (id) DO NOTHING`,
+      [OTHER_TENANT],
+    );
+    for (const [id, email] of [
+      [SHARED_ID, SHARED_EMAIL],
+      [SOLO_ID, 'solo-2209@example.com'],
+      [ELSEWHERE_ID, 'elsewhere-2209@example.com'],
+    ]) {
+      await dataSource.query(
+        `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+         VALUES ($1, $2, $3, 'Identity Person', 'ACTIVE', NOW(), NOW()) ON CONFLICT (id) DO NOTHING`,
+        [id, email, SEED_ADMIN_PASSWORD_HASH],
+      );
+    }
+    for (const [id, tenant, role] of [
+      [SHARED_ID, SEED_TENANT_ID, UserRole.TEACHER],
+      [SHARED_ID, OTHER_TENANT, UserRole.ADMIN],
+      [SOLO_ID, SEED_TENANT_ID, UserRole.TEACHER],
+      [ELSEWHERE_ID, OTHER_TENANT, UserRole.TEACHER],
+    ]) {
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [id, tenant, role],
+      );
+    }
+  }, 60000);
+
+  afterAll(async () => {
+    await dataSource.query('DELETE FROM user_tenants WHERE user_id = ANY($1)', [ids]);
+    await dataSource.query('DELETE FROM refresh_tokens WHERE user_id = ANY($1)', [ids]);
+    await app.close();
+  });
+
+  it('B admin gets 409 SHARED_IDENTITY on PATCH email of a user also in another school; DB unchanged', async () => {
+    const res = await request()
+      .patch(`/api/v1/users/${SHARED_ID}`)
+      .set('Authorization', `Bearer ${await adminToken()}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .send({ email: 'attacker@evil.test' })
+      .expect(409);
+    expect(JSON.stringify(res.body)).toContain('SHARED_IDENTITY');
+    const [row] = await dataSource.query('SELECT email FROM users WHERE id = $1', [SHARED_ID]);
+    expect(row.email).toBe(SHARED_EMAIL);
+  });
+
+  it('B admin gets 409 on reset-password of a shared user: no token, no log, no session revoked', async () => {
+    await dataSource.query(
+      `INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at, created_at)
+       VALUES ($1, gen_random_uuid(), 'hash-2209', NOW() + interval '1 day', NOW())`,
+      [SHARED_ID],
+    );
+    const tokens = 'SELECT count(*) n FROM auth_tokens WHERE user_id = $1';
+    const logs = 'SELECT count(*) n FROM communication_logs WHERE recipient_address = $1';
+    const tokensBefore = await count(tokens, [SHARED_ID]);
+    const logsBefore = await count(logs, [SHARED_EMAIL]);
+    await request()
+      .post(`/api/v1/users/${SHARED_ID}/reset-password`)
+      .set('Authorization', `Bearer ${await adminToken()}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(409);
+    expect(await count(tokens, [SHARED_ID])).toBe(tokensBefore);
+    expect(await count(logs, [SHARED_EMAIL])).toBe(logsBefore);
+    expect(
+      await count(
+        'SELECT count(*) n FROM refresh_tokens WHERE user_id = $1 AND revoked_at IS NOT NULL',
+        [SHARED_ID],
+      ),
+    ).toBe(0);
+  });
+
+  it('B admin can still PATCH the email of a user who belongs only to B (200)', async () => {
+    await request()
+      .patch(`/api/v1/users/${SOLO_ID}`)
+      .set('Authorization', `Bearer ${await adminToken()}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .send({ email: 'solo-2209-new@example.com' })
+      .expect(200);
+  });
+
+  it('B admin gets 404 on PATCH of a user with no membership in B', async () => {
+    await request()
+      .patch(`/api/v1/users/${ELSEWHERE_ID}`)
+      .set('Authorization', `Bearer ${await adminToken()}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .send({ email: 'x-2209@example.com' })
+      .expect(404);
+  });
+});

@@ -1261,6 +1261,84 @@ describe('UserService (integration)', () => {
 
       expect(updated.full_name).toBe('Renamed Upper');
     });
+
+    // [68.1.#2209] One login, many schools.
+    describe('shared identity', () => {
+      async function createSolo(email: string) {
+        const { user } = await service.create(
+          { full_name: 'Solo Person', email, phone: '+8801900000001', role: UserRole.TEACHER },
+          TENANT_ID,
+        );
+        return user;
+      }
+      const joinOther = (userId: string) =>
+        userTenantRepo.save(
+          userTenantRepo.create({
+            user_id: userId,
+            tenant_id: OTHER_TENANT,
+            role: UserRole.TEACHER,
+          }),
+        );
+
+      it('update() writes an audit row with old/new email when an admin changes a single-school user', async () => {
+        const user = await createSolo('audit-me@example.com');
+
+        await service.update(
+          user.id,
+          { email: 'audited-new@example.com' },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        );
+
+        const rows = await dataSource.query(
+          `SELECT * FROM audit_logs WHERE entity_type = 'User' AND entity_id = $1 AND action = 'UPDATE'`,
+          [user.id],
+        );
+        expect(rows).toHaveLength(1);
+        expect(rows[0].performed_by_user_id).toBe(REQUESTING_ADMIN_ID);
+        expect(rows[0].tenant_id).toBe(TENANT_ID);
+        expect(rows[0].old_values).toEqual({ email: 'audit-me@example.com' });
+        expect(rows[0].new_values).toEqual({ email: 'audited-new@example.com' });
+      });
+
+      it('update() throws SHARED_IDENTITY for a phone change on a user with a live membership elsewhere', async () => {
+        const user = await createSolo('shared-phone@example.com');
+        await joinOther(user.id);
+
+        await expect(
+          service.update(user.id, { phone: '+8801900000002' }, TENANT_ID, REQUESTING_ADMIN_ID),
+        ).rejects.toMatchObject({ response: { details: { code: 'SHARED_IDENTITY' } } });
+        const after = await userRepo.findOneByOrFail({ id: user.id });
+        expect(after.phone).toBe('+8801900000001');
+      });
+
+      it('update() still changes full_name of a shared user', async () => {
+        const user = await createSolo('shared-name@example.com');
+        await joinOther(user.id);
+
+        const updated = await service.update(
+          user.id,
+          { full_name: 'New Name' },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        );
+        expect(updated.full_name).toBe('New Name');
+      });
+
+      it('a soft-deleted membership elsewhere does not count as shared', async () => {
+        const user = await createSolo('former-elsewhere@example.com');
+        const other = await joinOther(user.id);
+        await userTenantRepo.softDelete({ id: other.id });
+
+        const updated = await service.update(
+          user.id,
+          { email: 'now-free@example.com' },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        );
+        expect(updated.email).toBe('now-free@example.com');
+      });
+    });
   });
 
   // ────────────────────────
