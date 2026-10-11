@@ -14,6 +14,21 @@ import { ValidationService } from '../import/validation.service';
 import { RestoreProcessor } from './restore.processor';
 import { writeWorkbook } from '../codec/workbook-codec';
 import { SCHEMA_VERSION } from '../codec/meta';
+import { Class } from '../../academics/entities/class.entity';
+import { Exam } from '../../exams/entities/exam.entity';
+import { classesTab } from '../tabs/academics/classes.tab';
+import { examsTab } from '../tabs/exams/exams.tab';
+import ExcelJS from 'exceljs';
+import { ExportProcessor } from '../export/export.processor';
+import { ClassSection } from '../../academics/entities/class-section.entity';
+import { Student } from '../../students/entities/student.entity';
+import { Subject } from '../../academics/entities/subject.entity';
+import { FeeStructure } from '../../fees/entities/fee-structure.entity';
+import { StudentFee } from '../../fees/entities/student-fee.entity';
+import { Payment } from '../../fees/entities/payment.entity';
+import { PaymentAllocation } from '../../fees/entities/payment-allocation.entity';
+import { ExamComponent } from '../../exams/entities/exam-component.entity';
+import { Mark } from '../../exams/entities/mark.entity';
 import { schoolTab } from '../tabs/school/school.tab';
 import { academicYearsTab } from '../tabs/academics/academic-years.tab';
 import {
@@ -496,5 +511,393 @@ describe('RestoreProcessor (integration)', () => {
     expect(year.name).toBe('Seam Year');
 
     validateSpy.mockRestore();
+  });
+
+  // D13: exams stand in for every insert-only tab (payments, allocations,
+  // bills, marks, ...) — they all share the processor/validation path.
+  describe('insert-only tabs (D13)', () => {
+    const YEAR = 'D13 Year';
+    const CLASS = 'D13 Class';
+
+    async function seedTenant() {
+      const tenantId = randomUUID();
+      await dataSource.getRepository(School).save(
+        dataSource.getRepository(School).create({
+          id: tenantId,
+          name: `D13 School ${tenantId.slice(0, 6)}`,
+          slug: `d13-${tenantId.slice(0, 8)}`,
+        }),
+      );
+      const year = await dataSource.getRepository(AcademicYear).save(
+        dataSource.getRepository(AcademicYear).create({
+          tenant_id: tenantId,
+          name: YEAR,
+          start_date: new Date(2024, 0, 1),
+          end_date: new Date(2024, 11, 31),
+          is_current: false,
+        }),
+      );
+      const cls = await dataSource.getRepository(Class).save(
+        dataSource.getRepository(Class).create({
+          tenant_id: tenantId,
+          name: CLASS,
+          academic_year_id: year.id,
+        }),
+      );
+      const exam = (name: string, status: string) =>
+        dataSource.getRepository(Exam).save(
+          dataSource.getRepository(Exam).create({
+            tenant_id: tenantId,
+            academic_year_id: year.id,
+            class_id: cls.id,
+            name,
+            kind: 'TERM' as never,
+            status: status as never,
+          }),
+        );
+      return { tenantId, year, cls, exam };
+    }
+
+    async function examWorkbook(
+      tenantId: string,
+      year: AcademicYear,
+      cls: Class,
+      exams: Array<{ id: string; name: string; status: string }>,
+    ): Promise<Buffer> {
+      return writeWorkbook({
+        tabs: [academicYearsTab, classesTab, examsTab],
+        meta: {
+          schema_version: SCHEMA_VERSION,
+          kind: 'BACKUP',
+          exported_at: new Date().toISOString(),
+          app_version: 'test',
+          source_school_name: 'x',
+          source_school_slug: 'x',
+        },
+        rowsFor: async function* (tab) {
+          if (tab.name === 'academic_years') {
+            yield {
+              id: year.id,
+              name: YEAR,
+              start_date: '2024-01-01',
+              end_date: '2024-12-31',
+              is_current: false,
+            };
+          } else if (tab.name === 'classes') {
+            yield { id: cls.id, name: CLASS, academic_year: YEAR, shift: null, version: null };
+          } else if (tab.name === 'exams') {
+            for (const e of exams) {
+              yield {
+                id: e.id,
+                name: e.name,
+                academic_year: YEAR,
+                class: `${CLASS}|${YEAR}||`,
+                kind: 'TERM',
+                status: e.status,
+                published_at: null,
+              };
+            }
+          }
+        },
+      });
+    }
+
+    it('refuses a workbook that changes an existing exam; nothing is written', async () => {
+      const t = await seedTenant();
+      const exam = await t.exam('Mid', 'PUBLISHED');
+      const buffer = await examWorkbook(t.tenantId, t.year, t.cls, [
+        { id: exam.id, name: 'Mid', status: 'DRAFT' },
+      ]);
+      const job = await setupRestoreJob(t.tenantId, buffer);
+      await processor.process(fakeJob(job.id));
+
+      const finished = await dataSource
+        .getRepository(WorkbookJob)
+        .findOneOrFail({ where: { id: job.id } });
+      expect(finished.status).toBe(WorkbookJobStatus.FAILED);
+      expect(finished.error).toContain('Re-validation found 1 error');
+      const after = await dataSource.getRepository(Exam).findOneByOrFail({ id: exam.id });
+      expect(after.status).toBe('PUBLISHED');
+    });
+
+    it('keeps an existing exam missing from the file, inserts a new one, and audits deletes of other tabs', async () => {
+      const t = await seedTenant();
+      await t.exam('Absent', 'PUBLISHED');
+      const droppedYear = await dataSource.getRepository(AcademicYear).save(
+        dataSource.getRepository(AcademicYear).create({
+          tenant_id: t.tenantId,
+          name: 'Dropped D13 Year',
+          start_date: new Date(2020, 0, 1),
+          end_date: new Date(2020, 11, 31),
+          is_current: false,
+        }),
+      );
+      const buffer = await examWorkbook(t.tenantId, t.year, t.cls, [
+        { id: randomUUID(), name: 'Brand new', status: 'DRAFT' },
+      ]);
+      const job = await setupRestoreJob(t.tenantId, buffer);
+      await processor.process(fakeJob(job.id));
+
+      const finished = await dataSource
+        .getRepository(WorkbookJob)
+        .findOneOrFail({ where: { id: job.id } });
+      expect(finished.status).toBe(WorkbookJobStatus.DONE);
+      const names = (
+        await dataSource.getRepository(Exam).find({ where: { tenant_id: t.tenantId } })
+      )
+        .map((e) => e.name)
+        .sort();
+      expect(names).toEqual(['Absent', 'Brand new']);
+      expect(
+        await dataSource.getRepository(AcademicYear).findOneBy({ id: droppedYear.id }),
+      ).toBeNull();
+
+      const [audit] = await dataSource.query(
+        `SELECT new_values FROM audit_logs WHERE tenant_id = $1 AND new_values->>'workbook_job_id' = $2`,
+        [t.tenantId, job.id],
+      );
+      expect(audit.new_values.deleted_counts).toEqual({ academic_years: 1 });
+    });
+  });
+
+  // D13 on the real money/marks tabs: export a seeded tenant, edit the
+  // workbook like an admin would in Excel, and restore it back.
+  describe('money and marks are insert-only (D13, real tabs)', () => {
+    let exporter: ExportProcessor;
+    const em = () => dataSource.manager;
+
+    beforeAll(() => {
+      exporter = new ExportProcessor(
+        dataSource.getRepository(WorkbookJob),
+        dataSource,
+        storage as any,
+        auditService,
+        { emitFinished: vi.fn() } as any,
+        { enforce: vi.fn().mockResolvedValue(undefined) } as any,
+        { isRestoring: vi.fn().mockResolvedValue(false) } as any,
+      );
+    });
+
+    async function seed() {
+      const tenantId = randomUUID();
+      const t = { tenant_id: tenantId };
+      await em().save(
+        em().create(School, {
+          id: tenantId,
+          name: `D13R ${tenantId.slice(0, 6)}`,
+          slug: `d13r-${tenantId.slice(0, 8)}`,
+        }),
+      );
+      const year = await em().save(
+        em().create(AcademicYear, {
+          ...t,
+          name: '2026-2027',
+          start_date: '2026-01-01' as never,
+          end_date: '2026-12-31' as never,
+          is_current: true,
+        }),
+      );
+      const cls = await em().save(
+        em().create(Class, { ...t, name: 'Class 5', academic_year_id: year.id }),
+      );
+      const section = await em().save(
+        em().create(ClassSection, { ...t, class_id: cls.id, section_name: 'A', capacity: 40 }),
+      );
+      const student = await em().save(
+        em().create(Student, {
+          ...t,
+          full_name: 'S One',
+          registration_number: 'R-1',
+          roll_number: 1,
+          class_section_id: section.id,
+        }),
+      );
+      const structure = await em().save(
+        em().create(FeeStructure, {
+          ...t,
+          fee_type: 'MONTHLY_TUITION' as never,
+          name: 'Tuition',
+          amount: '1500.00' as never,
+          class_id: cls.id,
+          academic_year_id: year.id,
+        }),
+      );
+      const fee = async (periodStart: string) =>
+        em().save(
+          em().create(StudentFee, {
+            ...t,
+            student_id: student.id,
+            academic_year_id: year.id,
+            fee_structure_id: structure.id,
+            period_start: periodStart as never,
+            total_amount: 1000 as never,
+            paid_amount: 0 as never,
+            status: 'PENDING' as never,
+          }),
+        );
+      const fee1 = await fee('2026-01-01');
+      const fee2 = await fee('2026-02-01');
+      const payment = await em().save(
+        em().create(Payment, {
+          ...t,
+          student_id: student.id,
+          total_amount: 600 as never,
+          payment_method: 'CASH' as never,
+          payment_status: 'SUCCESS' as never,
+          transaction_reference: 'TXN-1',
+          payment_date: new Date('2026-01-06T10:00:00Z'),
+        }),
+      );
+      const alloc = (feeId: string) =>
+        em().save(
+          em().create(PaymentAllocation, {
+            payment_id: payment.id,
+            student_fee_id: feeId,
+            allocated_amount: 300 as never,
+            allocation_type: 'CURRENT' as never,
+          } as never),
+        );
+      const a1 = await alloc(fee1.id);
+      const a2 = await alloc(fee2.id);
+      const exam = await em().save(
+        em().create(Exam, {
+          ...t,
+          academic_year_id: year.id,
+          class_id: cls.id,
+          name: 'Mid',
+          kind: 'TERM' as never,
+          status: 'PUBLISHED' as never,
+        }),
+      );
+      const subject = await em().save(
+        em().create(Subject, { ...t, name_en: 'Math', code: 'MATH' }),
+      );
+      const component = await em().save(
+        em().create(ExamComponent, {
+          ...t,
+          exam_id: exam.id,
+          subject_id: subject.id,
+          name: 'Written',
+          kind: 'WRITTEN' as never,
+          full_marks: '100' as never,
+          sequence: 1,
+        }),
+      );
+      const mark = await em().save(
+        em().create(Mark, {
+          ...t,
+          exam_id: exam.id,
+          student_id: student.id,
+          subject_id: subject.id,
+          component_id: component.id,
+          value: '38' as never,
+          status: 'PRESENT' as never,
+        }),
+      );
+      return { tenantId, fee1, a1, a2, mark, payment };
+    }
+
+    /** Runs a real export of the tenant and returns the workbook bytes. */
+    async function exportTenant(tenantId: string): Promise<Buffer> {
+      const job = await dataSource.getRepository(WorkbookJob).save(
+        dataSource.getRepository(WorkbookJob).create({
+          tenant_id: tenantId,
+          kind: WorkbookJobKind.EXPORT,
+          source: WorkbookJobSource.MANUAL,
+          status: WorkbookJobStatus.QUEUED,
+          requested_by_user_id: null,
+        }),
+      );
+      await exporter.process({
+        data: { jobId: job.id, tenantId },
+        opts: { attempts: 2 },
+        attemptsMade: 0,
+      } as never);
+      const done = await dataSource.getRepository(WorkbookJob).findOneByOrFail({ id: job.id });
+      expect(done.status).toBe(WorkbookJobStatus.DONE);
+      return storage.objects.get(done.storage_key as string) as Buffer;
+    }
+
+    /** Edit a workbook the way a person would: set cells / drop rows. */
+    async function edit(
+      buffer: Buffer,
+      fn: (
+        sheet: (name: string) => { header: string[]; rows: ExcelJS.Row[]; ws: ExcelJS.Worksheet },
+      ) => void,
+    ): Promise<Buffer> {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer as never);
+      fn((name) => {
+        const ws = wb.getWorksheet(name)!;
+        const header = (ws.getRow(1).values as unknown[]).slice(1).map(String);
+        const rows: ExcelJS.Row[] = [];
+        ws.eachRow((r, n) => n > 1 && rows.push(r));
+        return { header, rows, ws };
+      });
+      return Buffer.from(await wb.xlsx.writeBuffer());
+    }
+    const col = (h: string[], k: string) => h.indexOf(k) + 1;
+
+    async function restore(tenantId: string, buffer: Buffer): Promise<WorkbookJob> {
+      const job = await setupRestoreJob(tenantId, buffer);
+      await processor.process(fakeJob(job.id));
+      return dataSource.getRepository(WorkbookJob).findOneByOrFail({ id: job.id });
+    }
+
+    it('round trip: restoring an untouched export of the same tenant has 0 errors and changes nothing', async () => {
+      const d = await seed();
+      const job = await restore(d.tenantId, await exportTenant(d.tenantId));
+      expect(job.error).toBeNull();
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      expect((await em().findOneByOrFail(Mark, { id: d.mark.id })).value).toBe('38.00');
+    });
+
+    it('GAP-01: an allocation missing from the file is kept', async () => {
+      const d = await seed();
+      const buffer = await edit(await exportTenant(d.tenantId), (sheet) => {
+        const { header, rows, ws } = sheet('payment_allocations');
+        const row = rows.find((r) => r.getCell(col(header, 'id')).value === d.a2.id)!;
+        ws.spliceRows(row.number, 1);
+      });
+      const job = await restore(d.tenantId, buffer);
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      expect(await em().findOneBy(PaymentAllocation, { id: d.a2.id })).not.toBeNull();
+    });
+
+    it('DATA-03: changing a mark (38 to 78) and a bill paid_amount (0 to 2500) is refused; values unchanged', async () => {
+      const d = await seed();
+      const buffer = await edit(await exportTenant(d.tenantId), (sheet) => {
+        const m = sheet('marks');
+        m.rows[0].getCell(col(m.header, 'value')).value = '78';
+        const f = sheet('student_fees');
+        f.rows[0].getCell(col(f.header, 'paid_amount')).value = '2500';
+      });
+      const job = await restore(d.tenantId, buffer);
+      expect(job.status).toBe(WorkbookJobStatus.FAILED);
+      expect((await em().findOneByOrFail(Mark, { id: d.mark.id })).value).toBe('38.00');
+      expect(Number((await em().findOneByOrFail(StudentFee, { id: d.fee1.id })).paid_amount)).toBe(
+        0,
+      );
+    });
+
+    it('a new payment with its allocation in the file is inserted', async () => {
+      const d = await seed();
+      const buffer = await edit(await exportTenant(d.tenantId), (sheet) => {
+        const p = sheet('payments');
+        const cells = (p.rows[0].values as unknown[]).slice(1);
+        cells[p.header.indexOf('id')] = randomUUID();
+        cells[p.header.indexOf('transaction_reference')] = 'TXN-NEW';
+        p.ws.addRow(cells);
+        const a = sheet('payment_allocations');
+        const ac = (a.rows[0].values as unknown[]).slice(1);
+        ac[a.header.indexOf('id')] = randomUUID();
+        ac[a.header.indexOf('payment')] = 'TXN-NEW';
+        a.ws.addRow(ac);
+      });
+      const job = await restore(d.tenantId, buffer);
+      expect(job.error).toBeNull();
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      expect(await em().countBy(Payment, { tenant_id: d.tenantId })).toBe(2);
+    });
   });
 });
