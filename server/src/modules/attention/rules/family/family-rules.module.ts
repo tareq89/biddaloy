@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { RoutinesModule } from '../../../routines/routines.module';
+import { SchoolsModule } from '../../../schools/schools.module';
 import { StudentModule } from '../../../students/students.module';
 import { ChildAbsentTodayRule } from './child-absent-today.rule';
 import { ExamsTomorrowRule } from './exams-tomorrow.rule';
@@ -11,7 +12,7 @@ import { RoutineChangedTodayRule } from './routine-changed-today.rule';
 
 /** Rules of category FAMILY (parents and students). */
 @Module({
-  imports: [StudentModule, RoutinesModule],
+  imports: [StudentModule, RoutinesModule, SchoolsModule],
   providers: [
     ChildAbsentTodayRule,
     FeesDueSoonRule,

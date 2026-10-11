@@ -157,8 +157,9 @@ describe('Attention W4 E2E: family rules', () => {
       [SCHOOL_B, 'attn-w4-b'],
     ]) {
       await q(
-        `INSERT INTO schools (id, name, slug, created_at, updated_at)
-         VALUES ($1, $2, $2, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        // Absence notices on: `child.absent_today` only fires for schools that send them.
+        `INSERT INTO schools (id, name, slug, settings, created_at, updated_at)
+         VALUES ($1, $2, $2, '{"version":1,"attendance":{"autoAbsentNotification":{"enabled":true,"cutoffTime":"14:00"}}}'::jsonb, NOW(), NOW()) ON CONFLICT DO NOTHING`,
         [sid, slug],
       );
     }
