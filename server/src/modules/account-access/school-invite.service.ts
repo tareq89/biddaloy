@@ -1,11 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { DataSource, EntityManager } from 'typeorm';
-import { AuditAction, AuthTokenPurpose, UserRole } from '@biddaloy/shared';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { DataSource, EntityManager, Not } from 'typeorm';
+import { AuditAction, AuthTokenPurpose, SchoolStatus, UserRole } from '@biddaloy/shared';
 import { generateSecret, hashSecret } from '../auth/token-hash.util';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { reviveMembership } from '../users/users.service';
+import { Guardian } from '../students/entities/guardian.entity';
+import { School } from '../schools/entities/school.entity';
 import type { RequestContext } from '../../common/request-context.util';
 import { AuthToken } from './entities/auth-token.entity';
 import { AuthTokenService, INVITE_TTL_MS } from './auth-token.service';
@@ -16,6 +18,21 @@ interface JoinRequestMetadata {
   role: UserRole;
   guardian_id?: string | null;
   provisioned?: boolean;
+}
+
+/**
+ * `guardians.user_id` is UNIQUE across all schools and ignores `deleted_at`, so
+ * an account linked to any other guardian row can never be linked to this one.
+ */
+export function guardianLinkedElsewhere(
+  m: EntityManager,
+  userId: string,
+  guardianId: string,
+): Promise<boolean> {
+  return m.exists(Guardian, {
+    where: { user_id: userId, id: Not(guardianId) },
+    withDeleted: true,
+  });
 }
 
 export interface JoinRequestInput {
@@ -80,10 +97,10 @@ export async function insertJoinRequest(
     audit.create({
       action: AuditAction.CREATE,
       entity_type: 'Membership', // ponytail: no 'SchoolInvite' in the shared audit union; add one if audit filtering needs it
-      entity_id: row.id,
+      entity_id: input.userId,
       tenant_id: input.tenantId,
       performed_by_user_id: input.createdByUserId,
-      new_values: { via: 'join_request', requested: true, user_id: input.userId, role: input.role },
+      new_values: { via: 'join_request', requested: true, request_id: row.id, role: input.role },
     }),
   );
   return row;
@@ -108,7 +125,14 @@ export class SchoolInviteService {
     }[] = await this.dataSource
       .getRepository(AuthToken)
       .createQueryBuilder('t')
-      .innerJoin('schools', 's', 's.id = t.tenant_id')
+      .innerJoin(
+        'schools',
+        's',
+        's.id = t.tenant_id AND s.deleted_at IS NULL AND s.status = :active',
+        {
+          active: SchoolStatus.ACTIVE,
+        },
+      )
       .select([
         't.id AS id',
         't.tenant_id AS school_id',
@@ -144,14 +168,67 @@ export class SchoolInviteService {
     return row;
   }
 
+  /**
+   * Accepting makes the caller a member with the requested role. A request
+   * that carries a guardian must also link that guardian; if it no longer can
+   * (the guardian was removed, linked to someone else, or the caller is linked
+   * to another guardian, see `guardianLinkedElsewhere`), a PARENT membership
+   * would show no children, so the request is retired and the caller gets a 409.
+   */
   async accept(userId: string, id: string, context: RequestContext): Promise<void> {
-    await this.dataSource.transaction(async (m) => {
+    const outcome = await this.dataSource.transaction(async (m) => {
       const row = await this.lockLive(m, userId, id);
       const meta = row.metadata as unknown as JoinRequestMetadata;
       const tenantId = row.tenant_id as string;
-      const ut = m.getRepository(UserTenant);
 
-      const live = await ut.findOne({ where: { user_id: userId, tenant_id: tenantId } });
+      // A deleted or suspended school is answered like a missing request.
+      if (!(await m.exists(School, { where: { id: tenantId, status: SchoolStatus.ACTIVE } }))) {
+        throw new NotFoundException('School invite not found');
+      }
+
+      if (meta.guardian_id) {
+        const linked =
+          !(await guardianLinkedElsewhere(m, userId, meta.guardian_id)) &&
+          ((
+            await m
+              .createQueryBuilder()
+              .update(Guardian)
+              .set({ user_id: userId })
+              .where('id = :guardianId AND tenant_id = :tenantId AND deleted_at IS NULL', {
+                guardianId: meta.guardian_id,
+                tenantId,
+              })
+              .andWhere('(user_id IS NULL OR user_id = :userId)', { userId })
+              .execute()
+          ).affected ?? 0) > 0;
+        if (!linked) {
+          await m.getRepository(AuthToken).update({ id: row.id }, { revoked_at: new Date() });
+          await this.audit.record(
+            {
+              action: AuditAction.INVITATION_REVOKED,
+              entity_type: 'Membership',
+              entity_id: userId,
+              tenant_id: tenantId,
+              performed_by_user_id: userId,
+              ip_address: context.ip,
+              user_agent: context.userAgent,
+              new_values: {
+                via: 'join_request',
+                request_id: row.id,
+                reason: 'guardian_unlinkable',
+              },
+            },
+            m,
+          );
+          return 'unlinkable' as const;
+        }
+      }
+
+      // Per role: someone who is already, say, a TEACHER here still needs the PARENT row.
+      const ut = m.getRepository(UserTenant);
+      const live = await ut.exists({
+        where: { user_id: userId, tenant_id: tenantId, role: meta.role },
+      });
       if (!live) {
         const former = await ut.findOne({
           where: { user_id: userId, tenant_id: tenantId, role: meta.role },
@@ -171,14 +248,6 @@ export class SchoolInviteService {
         }
       }
 
-      if (meta.guardian_id) {
-        // Only a guardian that is still unlinked, in the inviting school.
-        await m.query(
-          `UPDATE guardians SET user_id = $1 WHERE id = $2 AND tenant_id = $3 AND user_id IS NULL`,
-          [userId, meta.guardian_id, tenantId],
-        );
-      }
-
       await this.authTokens.consume(row.id, m);
       await this.audit.record(
         {
@@ -189,11 +258,15 @@ export class SchoolInviteService {
           performed_by_user_id: userId,
           ip_address: context.ip,
           user_agent: context.userAgent,
-          new_values: { via: 'join_request', role: meta.role },
+          new_values: { via: 'join_request', request_id: row.id, role: meta.role },
         },
         m,
       );
+      return 'joined' as const;
     });
+    if (outcome === 'unlinkable') {
+      throw new ConflictException('This invite can no longer be accepted');
+    }
   }
 
   async decline(userId: string, id: string, context: RequestContext): Promise<void> {
@@ -202,14 +275,14 @@ export class SchoolInviteService {
       await m.getRepository(AuthToken).update({ id: row.id }, { revoked_at: new Date() });
       await this.audit.record(
         {
-          action: AuditAction.DELETE,
+          action: AuditAction.INVITATION_REVOKED,
           entity_type: 'Membership',
           entity_id: userId,
           tenant_id: row.tenant_id,
           performed_by_user_id: userId,
           ip_address: context.ip,
           user_agent: context.userAgent,
-          new_values: { via: 'join_request', declined: true },
+          new_values: { via: 'join_request', request_id: row.id, declined: true },
         },
         m,
       );

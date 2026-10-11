@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
 import { CommunicationStatus } from '@biddaloy/shared';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { Guardian } from '../students/entities/guardian.entity';
 import { GuardianProvisioningService } from './guardian-provisioning.service';
 
 /** A minimal fluent stub matching the subset of TypeORM's QueryBuilder this
@@ -49,7 +51,12 @@ describe('GuardianProvisioningService', () => {
 
   beforeEach(() => {
     guardianRepo = { createQueryBuilder: vi.fn() };
-    userRepo = { findOne: vi.fn(), createQueryBuilder: vi.fn() };
+    // `manager.exists` answers both membership (UserTenant) and link (Guardian) checks.
+    userRepo = {
+      findOne: vi.fn(),
+      createQueryBuilder: vi.fn(),
+      manager: { exists: vi.fn().mockResolvedValue(false) },
+    };
     logRepo = { createQueryBuilder: vi.fn() };
     auditLogRepo = { createQueryBuilder: vi.fn() };
     authTokens = { latest: vi.fn().mockResolvedValue(null) };
@@ -115,16 +122,101 @@ describe('GuardianProvisioningService', () => {
       ]);
     });
 
-    it('skips a guardian whose linked user already has a password (already_active)', async () => {
+    it('skips a guardian whose linked user has a password and a live PARENT row here (already_active)', async () => {
       const guardian = makeGuardian({ user_id: 'u1' });
       guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
       userRepo.findOne.mockResolvedValue({ id: 'u1', password_hash: 'hash' });
+      userRepo.manager.exists.mockImplementation(async (entity: unknown) => entity === UserTenant);
 
       const result = await service.preview(TENANT, { all: true });
 
       expect(result.skipped).toEqual([
         { guardian_id: 'g1', full_name: 'Guardian One', reason: 'already_active' },
       ]);
+    });
+
+    // m1: a link alone is not membership. Without a live PARENT row here the person
+    // has no family access, so they must stay invitable (the processor revives or asks).
+    it('invites a linked password holder who has no live PARENT row here', async () => {
+      const guardian = makeGuardian({ user_id: 'u1' });
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.findOne.mockResolvedValue({ id: 'u1', password_hash: 'hash' });
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.to_invite).toEqual([
+        { guardian_id: 'g1', full_name: 'Guardian One', channel: 'SMS', user_exists: true },
+      ]);
+      // Live rows only: a soft-deleted (former) membership does not count.
+      expect(userRepo.manager.exists).toHaveBeenCalledWith(UserTenant, {
+        where: { user_id: 'u1', tenant_id: TENANT, role: 'PARENT' },
+      });
+    });
+
+    it('invites a verified password holder matched by contact who is not a member here', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
+      );
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.to_invite).toEqual([
+        { guardian_id: 'g1', full_name: 'Guardian One', channel: 'SMS', user_exists: true },
+      ]);
+    });
+
+    it('skips with contact_in_use when only an unverified account holds the contact', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.createQueryBuilder
+        .mockReturnValueOnce(fakeQueryBuilder({ one: null })) // no verified match
+        .mockReturnValueOnce(fakeQueryBuilder({ one: { id: 'u-holder' } })); // an unverified holder
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.skipped).toEqual([
+        { guardian_id: 'g1', full_name: 'Guardian One', reason: 'contact_in_use' },
+      ]);
+    });
+
+    // M2: guardians.user_id is globally UNIQUE, so an account linked to another
+    // guardian (any school, even soft-deleted) can never be linked to this one.
+    it('skips with contact_in_use when the matched account is linked to another guardian', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ one: { id: 'u-elsewhere', password_hash: 'hash' } }),
+      );
+      userRepo.manager.exists.mockImplementation(async (entity: unknown) => entity === Guardian);
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.skipped).toEqual([
+        { guardian_id: 'g1', full_name: 'Guardian One', reason: 'contact_in_use' },
+      ]);
+    });
+
+    // m4: a pending join request is pending too; re-filing it would only reset its expiry.
+    it('skips a verified non-member with a live JOIN_SCHOOL request (already_pending)', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
+      );
+      authTokens.latest.mockImplementation(async (_u: string, purpose: string) =>
+        purpose === 'JOIN_SCHOOL'
+          ? { consumed_at: null, revoked_at: null, expires_at: new Date(Date.now() + 60_000) }
+          : null,
+      );
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.skipped).toEqual([
+        { guardian_id: 'g1', full_name: 'Guardian One', reason: 'already_pending' },
+      ]);
+      expect(authTokens.latest).toHaveBeenCalledWith('u-verified', 'JOIN_SCHOOL', TENANT);
     });
 
     it('skips a guardian with a live pending invitation (already_pending)', async () => {

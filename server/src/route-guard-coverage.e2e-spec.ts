@@ -264,6 +264,27 @@ export const ALLOWLIST: AllowlistEntry[] = [
       "[13.2.2] Bearer-authenticated but tenant-agnostic — sets only the caller's own first password, identified solely by user.sub (AuthGuard(jwt) only, same rationale as /auth/change-password).",
   },
   {
+    controller: 'SchoolInvitesController',
+    method: 'GET',
+    path: '/account/school-invites',
+    reason:
+      "[68.1.10] Bearer-authenticated, tenant-agnostic: lists only the caller's own live JOIN_SCHOOL requests, filtered by user.sub. The caller is not yet a member of the inviting school, so ContextGuard would always reject it.",
+  },
+  {
+    controller: 'SchoolInvitesController',
+    method: 'POST',
+    path: '/account/school-invites/:id/accept',
+    reason:
+      "[68.1.10] Bearer-authenticated, tenant-agnostic: acts only on the caller's own JOIN_SCHOOL row (every id paired with user.sub, tenant taken from the row, never the request). Throttled via STRICT_RATE_LIMIT.",
+  },
+  {
+    controller: 'SchoolInvitesController',
+    method: 'POST',
+    path: '/account/school-invites/:id/decline',
+    reason:
+      "[68.1.10] Bearer-authenticated, tenant-agnostic: acts only on the caller's own JOIN_SCHOOL row (every id paired with user.sub). Throttled via STRICT_RATE_LIMIT.",
+  },
+  {
     controller: 'SocialAuthController',
     method: 'GET',
     path: '/auth/social/providers',

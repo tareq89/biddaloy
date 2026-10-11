@@ -8,7 +8,7 @@ import { User } from '../../../users/entities/user.entity';
 import { UserTenant } from '../../../auth/entities/user-tenant.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { usersTab, type UserRow } from './users.tab';
+import { joinRequestedUsers, usersTab, type UserRow } from './users.tab';
 
 /**
  * Integration tests for the `users` tab against a real Postgres database.
@@ -184,6 +184,7 @@ describe('usersTab (integration)', () => {
     it('files a join request for tenant A but adds no membership, and leaves tenant B and identity untouched', async () => {
       const shared = await makeUser({
         email: 'shared@both.test',
+        email_verified_at: new Date(), // only a verified contact can receive a join request (M4)
         full_name: 'Original Name',
       });
       const membershipB = await makeMembership(shared.id, TENANT_B, UserRole.ADMIN);
@@ -256,13 +257,20 @@ describe('usersTab (integration)', () => {
     });
 
     it('matches by phone when the row email is empty', async () => {
-      const user = await makeUser({ email: null, phone: '01799999999', full_name: 'Phone User' });
+      const user = await makeUser({
+        email: null,
+        phone: '01799999999',
+        phone_verified_at: new Date(), // only a verified contact can receive a join request (M4)
+        full_name: 'Phone User',
+      });
 
       const row = rowFor({ email: null, phone: '01799999999', role: UserRole.TEACHER });
 
       const result = await usersTab.upsert(row, null, TENANT_A, dataSource.manager);
 
       expect(result.id).toBe(user.id);
+      // Not a member here, so a later tab must not resolve a ref to it (M3).
+      expect(joinRequestedUsers.has(result)).toBe(true);
       // Matched by phone, never a member here: a join request, not a membership.
       expect(await userTenantRepo.count({ where: { user_id: user.id } })).toBe(0);
       const requests = await dataSource.query(
@@ -270,6 +278,42 @@ describe('usersTab (integration)', () => {
         [user.id, TENANT_A],
       );
       expect(requests).toHaveLength(1);
+    });
+
+    // M4: an unverified email/phone proves nothing. Whoever holds it unverified must
+    // not receive a request for this school's account (the role can be ADMIN).
+    it('an unverified holder of the email gets no join request: the row fails instead', async () => {
+      const holder = await makeUser({ email: 'squatter@both.test', email_verified_at: null });
+      await makeMembership(holder.id, TENANT_B, UserRole.ADMIN);
+
+      const row = rowFor({ email: 'squatter@both.test', role: UserRole.ADMIN });
+
+      await expect(usersTab.upsert(row, null, TENANT_A, dataSource.manager)).rejects.toThrow(
+        /already used by another account/,
+      );
+      const requests = await dataSource.query(
+        `SELECT 1 FROM auth_tokens WHERE user_id = $1 AND purpose = 'JOIN_SCHOOL'`,
+        [holder.id],
+      );
+      expect(requests).toHaveLength(0);
+      expect(
+        await userTenantRepo.count({ where: { user_id: holder.id, tenant_id: TENANT_A } }),
+      ).toBe(0);
+    });
+
+    it('an unverified phone holder gets no join request either', async () => {
+      const holder = await makeUser({ phone: '01700000001', phone_verified_at: null });
+
+      const row = rowFor({ email: null, phone: '01700000001', role: UserRole.TEACHER });
+
+      await expect(usersTab.upsert(row, null, TENANT_A, dataSource.manager)).rejects.toThrow(
+        /already used by another account/,
+      );
+      const requests = await dataSource.query(
+        `SELECT 1 FROM auth_tokens WHERE user_id = $1 AND purpose = 'JOIN_SCHOOL'`,
+        [holder.id],
+      );
+      expect(requests).toHaveLength(0);
     });
 
     it('is idempotent when run twice with the same row', async () => {

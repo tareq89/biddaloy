@@ -11,7 +11,10 @@ vi.mock('../users/users.service', async (importOriginal) => ({
   reviveMembership: vi.fn(async () => 1),
 }));
 
-vi.mock('./school-invite.service', () => ({ insertJoinRequest: vi.fn(async () => ({})) }));
+vi.mock('./school-invite.service', () => ({
+  insertJoinRequest: vi.fn(async () => ({})),
+  guardianLinkedElsewhere: vi.fn(async () => false),
+}));
 
 function fakeManagerQueryBuilder(result: { one?: unknown | null }) {
   const qb: any = {
@@ -166,8 +169,13 @@ describe('InvitationBatchProcessor', () => {
     guardianRepo.findOne.mockResolvedValue({ id: 'g1', tenant_id: TENANT, user_id: 'u1' });
     const passwordlessUser = { id: 'u1', password_hash: null };
     const membershipRepo = {
-      // No active membership, but a soft-deleted PARENT row exists.
-      findOne: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'ut-old' }),
+      // Has belonged here (any row, withDeleted), has no live PARENT row, but a
+      // soft-deleted PARENT row exists.
+      findOne: vi
+        .fn()
+        .mockResolvedValueOnce({ id: 'ut-old' })
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'ut-old' }),
       save: vi.fn(),
       create: vi.fn((v: unknown) => v),
     };

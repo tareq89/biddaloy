@@ -127,6 +127,58 @@ describe('InvitationBatchProcessor (integration)', () => {
     expect(issueAndSend).not.toHaveBeenCalled();
   });
 
+  // M2: guardians.user_id is globally UNIQUE. A parent linked to a guardian at another
+  // school can never be linked to this one, so no request is filed (it could only fail).
+  it('a verified parent already linked to a guardian at another school gets no request and no crash', async () => {
+    const owner = await makeUser({ email: 'linked@example.com', email_verified_at: new Date() });
+    await ds
+      .getRepository(UserTenant)
+      .save({ user_id: owner.id, tenant_id: OTHER_TENANT, role: UserRole.PARENT });
+    await makeGuardian({ tenant_id: OTHER_TENANT, user_id: owner.id });
+    const g = await makeGuardian({ email: 'linked@example.com' });
+
+    await expect(run(g.id)).resolves.toBeUndefined();
+
+    const tokens = await ds.getRepository(AuthToken).find({
+      where: { user_id: owner.id, purpose: AuthTokenPurpose.JOIN_SCHOOL },
+    });
+    expect(tokens).toHaveLength(0);
+    expect(await membership(owner.id)).toHaveLength(0);
+    expect(issueAndSend).not.toHaveBeenCalled();
+  });
+
+  // M3: a guardian.user_id this school never vetted (e.g. set by a restored workbook)
+  // must not make that account a member here; only its owner can say yes.
+  it('a guardian linked to an account with no row in this school files a join request, never a membership', async () => {
+    const stranger = await makeUser({ email: 'stranger@example.com', password_hash: null });
+    await ds
+      .getRepository(UserTenant)
+      .save({ user_id: stranger.id, tenant_id: OTHER_TENANT, role: UserRole.TEACHER });
+    const g = await makeGuardian({ email: 'guardian@example.com', user_id: stranger.id });
+
+    await run(g.id);
+
+    expect(await membership(stranger.id)).toHaveLength(0);
+    const tokens = await ds.getRepository(AuthToken).find({
+      where: { user_id: stranger.id, purpose: AuthTokenPurpose.JOIN_SCHOOL },
+    });
+    expect(tokens).toHaveLength(1);
+    expect(issueAndSend).not.toHaveBeenCalled();
+  });
+
+  it('a TEACHER here who is linked as a guardian gets a PARENT membership too', async () => {
+    const teacher = await makeUser({ email: 'teacher@example.com', password_hash: null });
+    await ds
+      .getRepository(UserTenant)
+      .save({ user_id: teacher.id, tenant_id: SEED_TENANT_ID, role: UserRole.TEACHER });
+    const g = await makeGuardian({ email: 'teacher@example.com', user_id: teacher.id });
+
+    await run(g.id);
+
+    const roles = (await membership(teacher.id)).map((r) => r.role).sort();
+    expect(roles).toEqual([UserRole.PARENT, UserRole.TEACHER]);
+  });
+
   it('an unverified holder of the guardian phone blocks creation without crashing', async () => {
     const holder = await makeUser({ phone: '+8801700000002', phone_verified_at: null });
     const g = await makeGuardian({ phone: '+8801700000002' });
