@@ -57,6 +57,7 @@ describe('Routines routing (routes/:id must not shadow literal routes)', () => {
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   const daysFromNow = (n: number) => iso(new Date(Date.now() + n * 86400000));
 
+  /** A DRAFT routine with its references; tests publish it with `publish()` once slots exist. */
   async function seedPublished() {
     const ds = app.get(DataSource);
     const q = (sql: string, params: unknown[]) => ds.query(sql, params);
@@ -94,9 +95,9 @@ describe('Routines routing (routes/:id must not shadow literal routes)', () => {
       [SEED_TENANT_ID, `Guard ${sfx}`, `G-${sfx}`],
     );
     const [routine] = await q(
-      `INSERT INTO routines (tenant_id, academic_year_id, name, state, published_at)
-       VALUES ($1, $2, $3, $4, now()) RETURNING id`,
-      [SEED_TENANT_ID, year.id, `guard-${sfx}`, RoutineState.PUBLISHED],
+      `INSERT INTO routines (tenant_id, academic_year_id, name, state)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [SEED_TENANT_ID, year.id, `guard-${sfx}`, RoutineState.DRAFT],
     );
     const user = await ds
       .getRepository(User)
@@ -130,6 +131,15 @@ describe('Routines routing (routes/:id must not shadow literal routes)', () => {
     };
   }
 
+  /** Slots are written while DRAFT (a published routine refuses back-dated new slots), then published. */
+  const publish = (routineId: string) =>
+    app
+      .get(DataSource)
+      .query(`UPDATE routines SET state = $1, published_at = now() WHERE id = $2`, [
+        RoutineState.PUBLISHED,
+        routineId,
+      ]);
+
   const auth = (r: supertest.Test) =>
     r.set('Authorization', `Bearer ${adminToken}`).set('X-Tenant-ID', SEED_TENANT_ID);
 
@@ -146,6 +156,7 @@ describe('Routines routing (routes/:id must not shadow literal routes)', () => {
       .send(slotBody(p, past))
       .expect(201);
     const slotId = created.body.slot.id;
+    await publish(p.routineId);
 
     await auth(supertest(app.getHttpServer()).delete(`${API}/routines/slots/${slotId}`)).expect(
       200,
@@ -168,8 +179,21 @@ describe('Routines routing (routes/:id must not shadow literal routes)', () => {
     )
       .send(slotBody(p, daysFromNow(-60)))
       .expect(201);
+    await publish(p.routineId);
     const res = await auth(
       supertest(app.getHttpServer()).patch(`${API}/routines/slots/${created.body.slot.id}`),
+    ).send(slotBody(p, daysFromNow(-7)));
+    expect(res.status).toBe(422);
+    expect(res.body.details?.code ?? res.body.message?.details?.code).toBe(
+      'ROUTINE_SLOT_BACKDATED',
+    );
+  });
+
+  it('POST a slot with a past valid_from on a published routine -> 422', async () => {
+    const p = await seedPublished();
+    await publish(p.routineId);
+    const res = await auth(
+      supertest(app.getHttpServer()).post(`${API}/routines/${p.routineId}/slots`),
     ).send(slotBody(p, daysFromNow(-7)));
     expect(res.status).toBe(422);
     expect(res.body.details?.code ?? res.body.message?.details?.code).toBe(
