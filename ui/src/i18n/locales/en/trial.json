@@ -12,8 +12,12 @@
   },
   "ended": {
     "title": "Your trial has ended",
-    "body": "Your data is safe. Contact us to continue.",
-    "contact": "Contact us"
+    "body": "Your data is safe. You can download a copy, or contact us to continue.",
+    "contact": "Contact us",
+    "export": "Download your data",
+    "exportPreparing": "Preparing your file…",
+    "exportFailed": "We could not prepare the file. Try again.",
+    "exportRetry": "Try again"
   },
   "seatLimit": {
     "title": "Student limit reached",

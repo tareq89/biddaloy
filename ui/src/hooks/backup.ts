@@ -190,9 +190,13 @@ export function useBackupJobs(filters: WorkbookJobListFilters = {}) {
  * ambient active one. Every other caller omits it and gets the old ambient-tenant
  * behavior unchanged. The query key folds `tenantId` in so this never
  * collides with (or is invalidated by) the ambient-tenant job list. */
-export function useBackupJob(id: string | undefined, options: { tenantId?: string } = {}) {
-  const { tenantId } = options;
+export function useBackupJob(
+  id: string | undefined,
+  options: { tenantId?: string; throwOnError?: boolean } = {},
+) {
+  const { tenantId, throwOnError } = options;
   return useQuery({
+    ...(throwOnError !== undefined ? { throwOnError } : {}),
     queryKey: backupKeys.detail(tenantId ? `${tenantId}:${id ?? ''}` : (id ?? '')),
     queryFn: async () => {
       const res = await apiClient.get<WorkbookJob>(`/backup/jobs/${id}`, {

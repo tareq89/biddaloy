@@ -16,6 +16,7 @@ import {
   TRIAL_EXPIRED_REASON,
 } from '@biddaloy/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { ALLOW_WHEN_TRIAL_EXPIRED_KEY } from '../decorators/allow-when-trial-expired.decorator';
 import { TenantStatusService, tenantRestoringException } from '../../schools/tenant-status.service';
 
 /**
@@ -249,13 +250,22 @@ export class ContextGuard implements CanActivate {
       }
       if (status !== SchoolStatus.ACTIVE) {
         const reason = await this.tenantStatus.getStatusReason(tenantId);
-        throw new ForbiddenException({
-          message: 'This school has been suspended',
-          details: {
-            code: 'TENANT_SUSPENDED',
-            ...(reason === TRIAL_EXPIRED_REASON ? { reason } : {}),
-          },
-        });
+        // D16: an ended trial may still export. Only a route marked
+        // @AllowWhenTrialExpired, only SUSPENDED + TRIAL_EXPIRED; PermissionsGuard
+        // still checks the permission.
+        const trialExportAllowed =
+          status === SchoolStatus.SUSPENDED &&
+          reason === TRIAL_EXPIRED_REASON &&
+          this.reflector.get<boolean>(ALLOW_WHEN_TRIAL_EXPIRED_KEY, context.getHandler()) === true;
+        if (!trialExportAllowed) {
+          throw new ForbiddenException({
+            message: 'This school has been suspended',
+            details: {
+              code: 'TENANT_SUSPENDED',
+              ...(reason === TRIAL_EXPIRED_REASON ? { reason } : {}),
+            },
+          });
+        }
       }
       // A restore is replacing this school's data: refuse writes (not reads) so nothing saved
       // mid-restore is wiped by it or missed by its snapshot (#2210).
