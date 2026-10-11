@@ -150,7 +150,11 @@ export class RecomputeService {
     return this.dataSource.transaction(async (manager) => {
       const scale = await manager.getRepository(GradingScale).findOne({
         where: { id: scaleId, tenant_id: tenantId, deleted_at: IsNull() },
-        lock: { mode: 'pessimistic_write' },
+        // NO KEY UPDATE still serializes two band edits, but not the FK
+        // KEY SHARE a mark save takes when it inserts results for this
+        // scale while holding the exam lock we take next (review r2 #2).
+        // Only `revision`, a non-key column, is written below.
+        lock: { mode: 'for_no_key_update' },
       });
       if (!scale) throw new NotFoundException(`Grading scale "${scaleId}" not found`);
 
