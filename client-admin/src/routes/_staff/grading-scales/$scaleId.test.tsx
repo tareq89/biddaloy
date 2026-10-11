@@ -136,6 +136,32 @@ describe('/grading-scales/$scaleId', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('a scale used by published results shows the translated refusal and no dialog', async () => {
+    const user = userEvent.setup();
+    mockLookups();
+    server.use(
+      http.get('/api/v1/grading/scales/:id', () => HttpResponse.json(SCALE)),
+      previewWith([
+        {
+          type: 'SCALE_IN_PUBLISHED_RESULTS',
+          message: 'Published results use this grading scale: Final. Reopen them first.',
+        },
+      ]),
+    );
+    renderScale();
+
+    await makeEdit(user);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(
+      await screen.findByText(
+        'Published results already use this scale. Reopen them before you change the grades.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Published results use this grading scale/)).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('a failed preview shows our own line, and editing clears stale problems', async () => {
     const user = userEvent.setup();
     mockLookups();

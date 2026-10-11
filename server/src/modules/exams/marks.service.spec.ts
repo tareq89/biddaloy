@@ -124,7 +124,10 @@ async function buildService(
     ),
   };
   const authz = { assertCanWrite: vi.fn(async () => undefined) };
-  const resultsService = { recomputeIfProcessed: vi.fn(async () => undefined) };
+  const resultsService = {
+    recomputeIfProcessed: vi.fn(async () => undefined),
+    recomputeProcessedExam: vi.fn(async () => 0),
+  };
   const auditService = { record: vi.fn(async () => undefined) };
 
   const moduleRef = await Test.createTestingModule({
@@ -394,11 +397,10 @@ describe('MarksService.upsertBatch', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-  it('calls ResultsService.recomputeIfProcessed once with every distinct student ID in the batch (19.5.1 D18, pr-fix #945)', async () => {
+  it('recomputes inside the write transaction when the exam is PROCESSED (ACAD-08)', async () => {
     const { service, resultsService } = await buildService({
-      existingMarks: [
-        { student_id: 'stu-1', component_id: 'comp-1', value: '75.00', status: MarkStatus.PRESENT },
-      ],
+      examStatus: ExamStatus.PROCESSED,
+      existingMarks: [{ student_id: 'stu-1', component_id: 'comp-1', value: '75.00' }],
     });
 
     await service.upsertBatch(
@@ -411,17 +413,55 @@ describe('MarksService.upsertBatch', () => {
       'user-1',
     );
 
-    // One call for the whole batch, not once per student — computeAll
-    // ranks the whole class regardless, so a per-student loop repeated
-    // that full-class computation on the request thread for nothing.
-    expect(resultsService.recomputeIfProcessed).toHaveBeenCalledTimes(1);
-    expect(resultsService.recomputeIfProcessed).toHaveBeenCalledWith(
+    // One call for the whole batch, with the transaction's own manager, so
+    // the mark write and the recompute commit (or roll back) together.
+    expect(resultsService.recomputeProcessedExam).toHaveBeenCalledTimes(1);
+    expect(resultsService.recomputeProcessedExam).toHaveBeenCalledWith(
+      expect.objectContaining({ getRepository: expect.any(Function) }),
       EXAM_ID,
-      ['stu-1'],
       TENANT_ID,
       'user-1',
       { ip: null, userAgent: null },
     );
+    // The old post-commit call is gone.
+    expect(resultsService.recomputeIfProcessed).not.toHaveBeenCalled();
+  });
+
+  it('does not recompute for a DRAFT exam', async () => {
+    const { service, resultsService } = await buildService({
+      examStatus: ExamStatus.DRAFT,
+      existingMarks: [{ student_id: 'stu-1', component_id: 'comp-1', value: '75.00' }],
+    });
+
+    await service.upsertBatch(
+      EXAM_ID,
+      batchDto([
+        { student_id: 'stu-1', component_id: 'comp-1', value: '75', status: MarkStatus.PRESENT },
+      ]),
+      TENANT_ID,
+      UserRole.TEACHER,
+      'user-1',
+    );
+
+    expect(resultsService.recomputeProcessedExam).not.toHaveBeenCalled();
+    expect(resultsService.recomputeIfProcessed).not.toHaveBeenCalled();
+  });
+
+  it('a recompute failure (e.g. NO_GRADING_SCALE) propagates so the mark write rolls back', async () => {
+    const { service, resultsService } = await buildService({ examStatus: ExamStatus.PROCESSED });
+    resultsService.recomputeProcessedExam.mockRejectedValueOnce(new ConflictException('no scale'));
+
+    await expect(
+      service.upsertBatch(
+        EXAM_ID,
+        batchDto([
+          { student_id: 'stu-1', component_id: 'comp-1', value: '75', status: MarkStatus.PRESENT },
+        ]),
+        TENANT_ID,
+        UserRole.TEACHER,
+        'user-1',
+      ),
+    ).rejects.toThrow(ConflictException);
   });
 
   it('refuses a write when the exam is already PUBLISHED', async () => {

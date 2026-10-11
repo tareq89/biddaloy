@@ -3,6 +3,7 @@ import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ResultsService } from './results.service';
 import { MarkGridService } from './mark-grid.service';
+import { MarksService } from './marks.service';
 import { Exam } from './entities/exam.entity';
 import { ExamComponent } from './entities/exam-component.entity';
 import { Mark } from './entities/mark.entity';
@@ -25,7 +26,7 @@ import { AuditService } from '../audit/audit.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { SEED_TENANT_ID } from '@test/constants';
+import { SEED_ADMIN_USER_ID, SEED_TENANT_ID } from '@test/constants';
 import {
   EnrollmentStatus,
   ExamComponentKind,
@@ -142,6 +143,7 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
 describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () => {
   let resultsService: ResultsService;
   let markGridService: MarkGridService;
+  let marksService: MarksService;
   let dataSource: DataSource;
   let studentRepo: Repository<Student>;
   let enrollmentRepo: Repository<Enrollment>;
@@ -173,6 +175,7 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
       [
         ResultsService,
         MarkGridService,
+        MarksService,
         { provide: AttendanceComponentService, useValue: stubAttendance },
         { provide: AuditService, useValue: stubAudit },
         { provide: MarksAuthorizationService, useValue: stubAuthz },
@@ -183,6 +186,7 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
 
     resultsService = module.get(ResultsService);
     markGridService = module.get(MarkGridService);
+    marksService = module.get(MarksService);
     dataSource = module.get(DataSource);
     studentRepo = module.get(getRepositoryToken(Student));
     enrollmentRepo = module.get(getRepositoryToken(Enrollment));
@@ -999,5 +1003,158 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
     });
     expect(tenantB).toHaveLength(1);
     expect(tenantB[0]).toMatchObject({ id: otherRow.id, total_marks: '0.00', position: 1 });
+  });
+
+  // ACAD-01 / ACAD-04 (part): a component below its own pass mark fails the
+  // subject even when the 100-mark total clears the pass band.
+  async function buildPhysicsExam(scores: Array<string | null>) {
+    const student = await buildStudent({ roll_number: 41 });
+    await enrollmentRepo.save(
+      enrollmentRepo.create({
+        student_id: student.id,
+        class_id: CLASS_1_ID,
+        section_id: SECTION_1_ID,
+        academic_year_id: YEAR_1_ID,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+        tenant_id: TENANT_ID,
+      }),
+    );
+    const exam = await examRepo.save(
+      examRepo.create({
+        tenant_id: TENANT_ID,
+        academic_year_id: YEAR_1_ID,
+        class_id: CLASS_1_ID,
+        name: 'Physics Term',
+        kind: ExamKind.TERM,
+        status: ExamStatus.DRAFT,
+      }),
+    );
+    const defs: Array<[string, ExamComponentKind, string, string]> = [
+      ['MCQ', ExamComponentKind.MCQ, '25', '8'],
+      ['Written', ExamComponentKind.WRITTEN, '50', '17'],
+      ['Practical', ExamComponentKind.PRACTICAL, '25', '8'],
+    ];
+    const components: ExamComponent[] = [];
+    for (const [i, [name, kind, full, pass]] of defs.entries()) {
+      components.push(
+        await componentRepo.save(
+          componentRepo.create({
+            tenant_id: TENANT_ID,
+            exam_id: exam.id,
+            subject_id: SUBJECT_ID,
+            name,
+            kind,
+            source: ExamComponentSource.MANUAL,
+            full_marks: full,
+            pass_marks: pass,
+            sequence: i + 1,
+          }),
+        ),
+      );
+    }
+    for (const [i, c] of components.entries()) {
+      const value = scores[i];
+      await markRepo.save(
+        markRepo.create({
+          tenant_id: TENANT_ID,
+          exam_id: exam.id,
+          student_id: student.id,
+          subject_id: SUBJECT_ID,
+          component_id: c.id,
+          value,
+          status: MarkStatus.PRESENT,
+        }),
+      );
+    }
+    return { exam, student };
+  }
+
+  it('ACAD-01: MCQ 3/25 (pass 8) fails the subject and the result although the total is 68/100', async () => {
+    const { exam, student } = await buildPhysicsExam(['3.00', '45.00', '20.00']);
+
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+
+    const result = await resultRepo.findOneByOrFail({ exam_id: exam.id, student_id: student.id });
+    expect(result.is_fail).toBe(true);
+    expect(result.total_marks).toBe('68.00');
+    expect(result.rule_version).toBe('nctb-v3');
+    const subjects = await dataSource
+      .getRepository(ResultSubject)
+      .find({ where: { result_id: result.id } });
+    expect(subjects).toHaveLength(1);
+    expect(subjects[0].is_fail).toBe(true);
+    // The fixture scale has a FAIL band at 0-32; component-fail uses it.
+    expect(subjects[0].grade).toBe('FAIL');
+  });
+
+  it('ACAD-01: a student exactly at every pass mark passes', async () => {
+    const { exam, student } = await buildPhysicsExam(['8.00', '17.00', '8.00']);
+
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+
+    const result = await resultRepo.findOneByOrFail({ exam_id: exam.id, student_id: student.id });
+    expect(result.is_fail).toBe(false);
+  });
+
+  it('ACAD-04: a cleared cell (PRESENT, no value) is graded ABS, never a silent 0', async () => {
+    const { exam, student } = await buildPhysicsExam(['20.00', '45.00', null]);
+
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+
+    const result = await resultRepo.findOneByOrFail({ exam_id: exam.id, student_id: student.id });
+    const subjects = await dataSource
+      .getRepository(ResultSubject)
+      .find({ where: { result_id: result.id } });
+    expect(subjects[0].grade).toBe('ABS');
+    expect(result.is_fail).toBe(true);
+  });
+
+  // [ACAD-08] A mark save on a PROCESSED exam and its recompute are ONE transaction.
+  async function saveMcq(examId: string, studentId: string, value: string) {
+    const mcq = await componentRepo.findOneByOrFail({ exam_id: examId, name: 'MCQ' });
+    return marksService.upsertBatch(
+      examId,
+      {
+        section_id: SECTION_1_ID,
+        subject_id: SUBJECT_ID,
+        cells: [{ student_id: studentId, component_id: mcq.id, value, status: MarkStatus.PRESENT }],
+      } as any,
+      TENANT_ID,
+      UserRole.ADMIN,
+      SEED_ADMIN_USER_ID,
+    );
+  }
+
+  it('ACAD-08: a mark save on a PROCESSED exam rewrites the result in the same commit', async () => {
+    const { exam, student } = await buildPhysicsExam(['3.00', '45.00', '20.00']);
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+    expect(
+      (await resultRepo.findOneByOrFail({ exam_id: exam.id, student_id: student.id })).is_fail,
+    ).toBe(true);
+
+    // Raise MCQ above its pass mark: the result must flip to pass at once.
+    const saved = await saveMcq(exam.id, student.id, '10.00');
+
+    const result = await resultRepo.findOneByOrFail({ exam_id: exam.id, student_id: student.id });
+    expect(result.is_fail).toBe(false);
+    expect(result.total_marks).toBe('75.00');
+    // Same commit: the result was computed no earlier than the mark's last write.
+    expect(result.computed_at.getTime()).toBeGreaterThanOrEqual(saved.cells[0].saved_at.getTime());
+  });
+
+  it('ACAD-08: PROCESSED exam whose scale is gone -> 409 NO_GRADING_SCALE and the mark is NOT saved', async () => {
+    const { exam, student } = await buildPhysicsExam(['3.00', '45.00', '20.00']);
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+    await scaleRepo.softDelete({ tenant_id: TENANT_ID });
+
+    await expect(saveMcq(exam.id, student.id, '10.00')).rejects.toMatchObject({
+      status: 409,
+      response: { details: { code: 'NO_GRADING_SCALE' } },
+    });
+
+    // Rolled back: MCQ still holds the old value, so no stale/fresh mismatch.
+    const mcq = await componentRepo.findOneByOrFail({ exam_id: exam.id, name: 'MCQ' });
+    const mark = await markRepo.findOneByOrFail({ component_id: mcq.id, student_id: student.id });
+    expect(mark.value).toBe('3.00');
   });
 });

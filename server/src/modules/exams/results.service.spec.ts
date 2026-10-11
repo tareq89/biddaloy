@@ -78,10 +78,20 @@ function makeRepos(overrides: Record<string, any> = {}) {
     manager: {
       transaction: vi.fn(async (cb: any) =>
         cb({
+          // computeAll now reads through this manager ([68.2.06]), so the
+          // read repos are served here too; `find` feeds loadExamCohort's mock.
+          find: (...args: any[]) => enrollmentRepo.find(...args),
           getRepository: (entity: any) => {
             if (entity === Exam) return examRepo;
             if (entity === Result) return resultRepo;
             if (entity === ResultSubject) return resultSubjectRepo;
+            if (entity === Mark) return markRepo;
+            if (entity === ExamComponent) return componentRepo;
+            if (entity === ClassSubject) return classSubjectRepo;
+            if (entity === Student) return studentRepo;
+            if (entity === StudentSubjectChoice) return choiceRepo;
+            if (entity === GradingScale) return scaleRepo;
+            if (entity === GradingBand) return bandRepo;
             return { update: vi.fn(async () => undefined) };
           },
         }),

@@ -51,7 +51,7 @@ import type { ApprovalContext } from '../auth/guards/approval.guard';
  * old computation without touching the row's other fields. Bump this
  * whenever `computeSubjectTotal`/`combineSubjects`'s actual arithmetic
  * changes, not for a comment or a refactor. */
-export const RULE_VERSION = 'nctb-v2';
+export const RULE_VERSION = 'nctb-v3';
 
 /**
  * [pr-fix #945] The exam-level lock every result-changing path shares.
@@ -253,6 +253,7 @@ export class ResultsService {
    * decide what to do with the output.
    */
   private async computeAll(
+    manager: EntityManager,
     exam: Exam,
     tenantId: string,
   ): Promise<{
@@ -260,7 +261,7 @@ export class ResultsService {
     missingPicks: MissingChoicePick[];
     unassignedStreams: UnassignedStudent[];
   }> {
-    const scales = await this.scaleRepo.find({
+    const scales = await manager.getRepository(GradingScale).find({
       where: { tenant_id: tenantId, deleted_at: IsNull() },
     });
     const scale = resolveScale(scales, exam.academic_year_id, exam.class_id);
@@ -269,21 +270,21 @@ export class ResultsService {
         `No grading scale found for academic year "${exam.academic_year_id}" (or class "${exam.class_id}").`,
       );
     }
-    const bandRows = await this.bandRepo.find({
+    const bandRows = await manager.getRepository(GradingBand).find({
       where: { scale_id: scale.id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     const bands = bandRows.map((b) => this.toRuleBand(b));
 
     // Cohort = the students who sat the exam (see `loadExamCohort`).
     const { members: enrollments, studentsWithResult } = await loadExamCohort(
-      this.enrollmentRepo.manager,
+      manager,
       exam,
       tenantId,
     );
     const studentRows =
       enrollments.length === 0
         ? []
-        : await this.studentRepo.find({
+        : await manager.getRepository(Student).find({
             where: { id: In(enrollments.map((e) => e.student_id)), tenant_id: tenantId },
             withDeleted: true,
           });
@@ -294,7 +295,7 @@ export class ResultsService {
       enrollments.map((e) => [e.student_id, e.section?.group_name ?? null]),
     );
 
-    const classSubjects = await this.classSubjectRepo.find({
+    const classSubjects = await manager.getRepository(ClassSubject).find({
       where: {
         class_id: exam.class_id,
         academic_year_id: exam.academic_year_id,
@@ -306,7 +307,7 @@ export class ResultsService {
     const choices =
       students.length === 0
         ? []
-        : await this.choiceRepo.find({
+        : await manager.getRepository(StudentSubjectChoice).find({
             where: {
               student_id: In(students.map((s) => s.id)),
               academic_year_id: exam.academic_year_id,
@@ -317,7 +318,7 @@ export class ResultsService {
       choices.map((c) => [`${c.student_id}:${c.class_subject_id}`, c]),
     );
 
-    const components = await this.componentRepo.find({
+    const components = await manager.getRepository(ExamComponent).find({
       where: { exam_id: exam.id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     const componentsBySubject = new Map<string, ExamComponent[]>();
@@ -325,7 +326,9 @@ export class ResultsService {
       componentsBySubject.set(c.subject_id, [...(componentsBySubject.get(c.subject_id) ?? []), c]);
     }
 
-    const marks = await this.markRepo.find({ where: { exam_id: exam.id, tenant_id: tenantId } });
+    const marks = await manager
+      .getRepository(Mark)
+      .find({ where: { exam_id: exam.id, tenant_id: tenantId } });
     const markByKey = new Map(marks.map((m) => [`${m.student_id}:${m.component_id}`, m]));
 
     // DERIVED components are computed once per (section, component) —
@@ -405,6 +408,7 @@ export class ResultsService {
               full_marks: Number(component.full_marks),
               value: value === null ? null : Number(value),
               status: value === null ? MarkStatus.EXEMPT : MarkStatus.PRESENT,
+              pass_marks: component.pass_marks === null ? null : Number(component.pass_marks),
             });
             continue;
           }
@@ -413,10 +417,14 @@ export class ResultsService {
           // treated as ABSENT, not silently dropped — `process()`
           // refuses to run while any grid is still DRAFT (issue step 4),
           // so this should only ever fire when forced past that guard.
+          // A PRESENT row with no value (a cleared cell) is ABSENT too —
+          // a blank is never a silent 0 (ACAD-04).
+          const blank = !mark || (mark.status === MarkStatus.PRESENT && mark.value === null);
           inputs.push({
             full_marks: Number(component.full_marks),
-            value: mark && mark.value !== null ? Number(mark.value) : null,
-            status: mark?.status ?? MarkStatus.ABSENT,
+            value: blank || mark.value === null ? null : Number(mark.value),
+            status: blank ? MarkStatus.ABSENT : mark.status,
+            pass_marks: component.pass_marks === null ? null : Number(component.pass_marks),
           });
         }
 
@@ -616,7 +624,11 @@ export class ResultsService {
       }
       // Computed after the lock: mark writes hold it FOR SHARE, so none
       // can commit between this read and the write below.
-      const { rows, missingPicks, unassignedStreams } = await this.computeAll(locked, tenantId);
+      const { rows, missingPicks, unassignedStreams } = await this.computeAll(
+        manager,
+        locked,
+        tenantId,
+      );
       // D44: not bypassable by `force` — a missing pick means an unknowable
       // result, not a draft-grid shortcut. recomputeIfProcessed ignores it.
       // Payload under `details`: the global error filter forwards only
@@ -686,42 +698,64 @@ export class ResultsService {
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<void> {
     if (studentIds.length === 0) return;
-
     await this.examRepo.manager.transaction(async (manager) => {
-      // Status re-checked under the exam lock, not before it — otherwise a
-      // publish committing in between would have its published rows
-      // replaced by unpublished ones. Concurrent recomputes queue here too
-      // instead of racing on the active (exam_id, student_id) index.
-      const exam = await lockExam(manager, examId, tenantId);
-      if (exam.status !== ExamStatus.PROCESSED) return;
-
-      const scales = await this.scaleRepo.find({
-        where: { tenant_id: tenantId, deleted_at: IsNull() },
-      });
-      const scale = resolveScale(scales, exam.academic_year_id, exam.class_id);
-      if (!scale) return;
-
-      // Rewrite every student's row, not just the batch's — a mark change
-      // for one student can shift another's `position` (D18) even though
-      // that other student's own marks never changed.
-      const { rows: computed } = await this.computeAll(exam, tenantId);
-      await this.replaceResults(manager, exam, computed, scale.id, scale.revision, tenantId);
-
-      await this.auditService.record(
-        {
-          action: AuditAction.UPDATE,
-          entity_type: 'Result',
-          entity_id: exam.id,
-          tenant_id: tenantId,
-          performed_by_user_id: userId,
-          ip_address: context.ip,
-          user_agent: context.userAgent,
-          old_values: null,
-          new_values: { recomputed_students: computed.map((c) => c.student_id) },
-        },
-        manager,
-      );
+      await this.recomputeProcessedExam(manager, examId, tenantId, userId, context);
     });
+  }
+
+  /**
+   * Rewrites every result of a PROCESSED exam inside the caller's
+   * transaction (`manager`) — so a mark write or a scale edit and its
+   * recompute commit together or not at all (ACAD-08, ACAD-02). Returns
+   * the number of result rows written; 0 when the exam is not PROCESSED.
+   * A missing grading scale throws 409 `NO_GRADING_SCALE`, never a skip.
+   */
+  async recomputeProcessedExam(
+    manager: EntityManager,
+    examId: string,
+    tenantId: string,
+    userId: string | null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<number> {
+    // Status re-checked under the exam lock, not before it — otherwise a
+    // publish committing in between would have its published rows
+    // replaced by unpublished ones. Concurrent recomputes queue here too
+    // instead of racing on the active (exam_id, student_id) index.
+    const exam = await lockExam(manager, examId, tenantId);
+    if (exam.status !== ExamStatus.PROCESSED) return 0;
+
+    const scales = await manager.getRepository(GradingScale).find({
+      where: { tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    const scale = resolveScale(scales, exam.academic_year_id, exam.class_id);
+    if (!scale) {
+      throw new ConflictException({
+        message: `No grading scale found for academic year "${exam.academic_year_id}" (or class "${exam.class_id}").`,
+        details: { code: 'NO_GRADING_SCALE' },
+      });
+    }
+
+    // Rewrite every student's row, not just the batch's — a mark change
+    // for one student can shift another's `position` (D18) even though
+    // that other student's own marks never changed.
+    const { rows: computed } = await this.computeAll(manager, exam, tenantId);
+    await this.replaceResults(manager, exam, computed, scale.id, scale.revision, tenantId);
+
+    await this.auditService.record(
+      {
+        action: AuditAction.UPDATE,
+        entity_type: 'Result',
+        entity_id: exam.id,
+        tenant_id: tenantId,
+        performed_by_user_id: userId,
+        ip_address: context.ip,
+        user_agent: context.userAgent,
+        old_values: null,
+        new_values: { recomputed_students: computed.map((c) => c.student_id) },
+      },
+      manager,
+    );
+    return computed.length;
   }
 
   /** Issue step 7: PROCESSED -> PUBLISHED, stamping `published_at` on
