@@ -559,9 +559,17 @@ usually in an error log written under debugging pressure. Request bodies
 (the login path carries a plaintext password) are never logged at all.
 nginx uses the `redacted` access-log format (`nginx/templates/default.conf.template`):
 it logs the path without the query string, masks the calendar-feed,
-public-verify and public-invoice path tokens, and omits the Referer, because
+public-verify and public-invoice path tokens and the SPA share pages
+(`/i/<token>`, `/v/<token>`), and omits the Referer, because
 reset/invite/verify links are bearer secrets and must not sit in log files.
-The app's pino request serializer masks the same three path tokens.
+`redactPii` masks the same three API path tokens, so the pino request
+serializer, the exception filter and Sentry all hide them.
+
+Example: `GET /api/v1/calendar/feed/abc123.ics` is logged as
+`GET /api/v1/calendar/feed/[REDACTED]`.
+
+Known gap: nginx's **error** log (502/504, client aborts) still writes the
+full request line, token included. Only the access log is masked.
 
 ## Accepted dependency risks (Epic 51.0)
 
