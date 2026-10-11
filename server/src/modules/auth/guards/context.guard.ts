@@ -252,11 +252,14 @@ export class ContextGuard implements CanActivate {
         const reason = await this.tenantStatus.getStatusReason(tenantId);
         // D16: an ended trial may still export. Only a route marked
         // @AllowWhenTrialExpired, only SUSPENDED + TRIAL_EXPIRED; PermissionsGuard
-        // still checks the permission.
+        // still checks the permission. The final yes comes from an uncached DB read
+        // (`isTrialExpired`), so a stale cached reason cannot keep export open (#2399).
         const trialExportAllowed =
           status === SchoolStatus.SUSPENDED &&
           reason === TRIAL_EXPIRED_REASON &&
-          this.reflector.get<boolean>(ALLOW_WHEN_TRIAL_EXPIRED_KEY, context.getHandler()) === true;
+          this.reflector.get<boolean>(ALLOW_WHEN_TRIAL_EXPIRED_KEY, context.getHandler()) ===
+            true &&
+          (await this.tenantStatus.isTrialExpired(tenantId));
         if (!trialExportAllowed) {
           throw new ForbiddenException({
             message: 'This school has been suspended',
