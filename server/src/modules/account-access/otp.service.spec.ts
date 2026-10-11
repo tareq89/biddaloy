@@ -11,7 +11,7 @@ import { OtpService, TooManyRequestsException } from './otp.service';
  * Map — OtpService now does its atomic request/verify sequences as a
  * single `EVAL` rather than separate get/set/del calls, so a fake that
  * only stubbed those individually could no longer exercise the real
- * request()/verify() code path. Dispatches on `numkeys` (2 = the request
+ * request()/verify() code path. Dispatches on `numkeys` (3 = the request
  * script, 4 = the verify script) since both are passed as raw strings.
  */
 function fakeRedis() {
@@ -33,13 +33,15 @@ function fakeRedis() {
       const keys = rest.slice(0, numkeys) as string[];
       const args = rest.slice(numkeys);
 
-      if (numkeys === 2) {
-        const [otpKey, cooldownKey] = keys;
-        const [record, codeTtl] = args;
+      if (numkeys === 3) {
+        const [otpKey, cooldownKey, dailyKey] = keys;
+        const [record, , , cap] = args;
+        const capped = Number(cap) > 0;
+        if (capped && Number(store.get(dailyKey) ?? 0) >= Number(cap)) return 2;
         if (store.has(cooldownKey)) return 0;
         store.set(cooldownKey, '1');
         store.set(otpKey, record as string);
-        void codeTtl;
+        if (capped) store.set(dailyKey, String(Number(store.get(dailyKey) ?? 0) + 1));
         return 1;
       }
 
@@ -174,5 +176,84 @@ describe('OtpService', () => {
         expect(JSON.stringify(call)).not.toContain(code);
       }
     }
+  });
+
+  describe('daily cap per destination (GAP-05)', () => {
+    const clearCooldowns = () => {
+      for (const k of [...redis.store.keys()])
+        if (k.startsWith('otp-cooldown:')) redis.store.delete(k);
+    };
+    const req = async (p: Parameters<OtpService['request']>[0], id: string) => {
+      clearCooldowns();
+      return service.request(p, id);
+    };
+
+    it('refuses the 11th code and writes no new code', async () => {
+      for (let i = 0; i < 10; i++) await req('LOGIN', 'user@test.com');
+      const before = redis.store.get('otp:LOGIN:user@test.com');
+      await expect(req('LOGIN', 'user@test.com')).rejects.toBeInstanceOf(TooManyRequestsException);
+      expect(redis.store.get('otp:LOGIN:user@test.com')).toBe(before);
+    });
+
+    it('shares the count across purposes', async () => {
+      for (let i = 0; i < 5; i++) await req('LOGIN', 'user@test.com');
+      for (let i = 0; i < 5; i++) await req('PASSWORD_RESET', 'user@test.com');
+      await expect(req('REGISTER', 'user@test.com')).rejects.toBeInstanceOf(
+        TooManyRequestsException,
+      );
+    });
+
+    it('counts every spelling of one phone number together', async () => {
+      const forms = [
+        '01712345678',
+        '+880 1712-345678',
+        '8801712345678',
+        '+8801712345678',
+        '00880 1712 345678',
+      ];
+      for (let i = 0; i < 10; i++) await req('REGISTER', forms[i % 5]);
+      expect(redis.store.get('otp-daily:8801712345678')).toBe('10');
+      await expect(req('REGISTER', '+880-1712-345678')).rejects.toBeInstanceOf(
+        TooManyRequestsException,
+      );
+    });
+
+    it('counts email casing and spaces together', async () => {
+      for (let i = 0; i < 5; i++) await req('LOGIN', ' Foo@Test.com');
+      for (let i = 0; i < 5; i++) await req('LOGIN', 'foo@test.com');
+      await expect(req('LOGIN', 'foo@test.com')).rejects.toBeInstanceOf(TooManyRequestsException);
+    });
+
+    it('leaves other destinations alone', async () => {
+      for (let i = 0; i < 10; i++) await req('LOGIN', 'a@test.com');
+      await expect(req('LOGIN', 'b@test.com')).resolves.toBeDefined();
+    });
+
+    it('allows requests again once the daily key expires', async () => {
+      for (let i = 0; i < 10; i++) await req('LOGIN', 'user@test.com');
+      redis.store.delete('otp-daily:user@test.com');
+      await expect(req('LOGIN', 'user@test.com')).resolves.toBeDefined();
+    });
+
+    it('does not count STEP_UP', async () => {
+      for (let i = 0; i < 12; i++) await req('STEP_UP', 'tenant-1:user@test.com');
+      expect([...redis.store.keys()].some((k) => k.startsWith('otp-daily:'))).toBe(false);
+    });
+
+    it('a correct verify does not reset the count', async () => {
+      let last = { code: '' };
+      for (let i = 0; i < 10; i++) last = await req('LOGIN', 'user@test.com');
+      expect(await service.verify('LOGIN', 'user@test.com', last.code)).toBe('ok');
+      await expect(req('LOGIN', 'user@test.com')).rejects.toBeInstanceOf(TooManyRequestsException);
+    });
+
+    it('checks the cap before the cooldown', async () => {
+      for (let i = 0; i < 10; i++) await req('LOGIN', 'user@test.com');
+      clearCooldowns();
+      await expect(service.request('LOGIN', 'user@test.com')).rejects.toBeInstanceOf(
+        TooManyRequestsException,
+      );
+      expect(redis.store.has('otp-cooldown:LOGIN:user@test.com')).toBe(false);
+    });
   });
 });
