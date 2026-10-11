@@ -149,8 +149,8 @@
     "stay": "Stay",
     "saveError_one": "{{n}} change not saved — retrying",
     "saveError_other": "{{n}} changes not saved — retrying",
-    "blankCount_one": "{{n}} blank cell will be submitted as-is.",
-    "blankCount_other": "{{n}} blank cells will be submitted as-is.",
+    "blankBlocksSubmit_one": "{{n}} blank cell must be filled first. Enter a mark, A (absent) or E (exempt).",
+    "blankBlocksSubmit_other": "{{n}} blank cells must be filled first. Enter a mark, A (absent) or E (exempt).",
     "submitError": "Couldn't submit this marks list. Please try again.",
     "reopenError": "Couldn't reopen this marks list. Please try again."
   },
@@ -163,6 +163,7 @@
     },
     "gpaValue": "{{gpa}} · {{grade}}",
     "outstandingCount": "{{n}} marks list(s) are still not submitted:",
+    "outstandingHasBlanks": "Submitted, but has blank cells — reopen this sheet",
     "publishDescription": "{{n}} student result(s) become visible to guardians.",
     "reopenImpact": "{{n}} published result(s) will be unpublished and marks become editable again. This needs extra approval.",
     "smsDescription": "Up to {{n}} guardian(s) will be sent their child's result by SMS. Each message uses one SMS credit.",

@@ -135,3 +135,63 @@ test('keyboard-only: type marks, mark one absent, watch autosave settle, submit'
     expect(cellTwo?.value).toBeNull();
   });
 });
+
+// [68.0 ACAD-04] A blank cell blocks submit; typing A (absent) unblocks it.
+test('a blank cell blocks submit until it gets a mark or A', async ({ page, request }) => {
+  const session = await adminApiSession(request);
+  const chain = await createClassSection(request, session);
+  const subject = await post<{ id: string }>(request, session, '/subjects', {
+    code: `E2E-${Date.now().toString(36).toUpperCase()}`,
+    name_en: 'E2E Blank Subject',
+    name_bn: 'ই২ই ফাঁকা বিষয়',
+  });
+  const exam = await post<{ id: string }>(request, session, '/exams', {
+    name: `E2E Blank Exam ${Date.now()}`,
+    kind: ExamKind.TERM,
+    academic_year_id: chain.academicYearId,
+    class_id: chain.classId,
+  });
+  await post(request, session, `/exams/${exam.id}/components`, {
+    subject_id: subject.id,
+    name: 'Written',
+    kind: ExamComponentKind.WRITTEN,
+    source: ExamComponentSource.MANUAL,
+    full_marks: '100.00',
+    pass_marks: '33.00',
+    sequence: 1,
+  });
+  const student = await post<{ id: string; full_name: string }>(request, session, '/students', {
+    full_name: 'Marks Blank Student',
+    class_section_id: chain.sectionId,
+  });
+
+  await page.goto(`/marks/${exam.id}/${chain.sectionId}/${subject.id}`);
+  const cell = page.getByLabel(
+    t('exams.marksGrid.cellLabel', { name: student.full_name, component: 'Written' }),
+  );
+  await expect(cell).toBeVisible();
+
+  await test.step('submit is blocked while the cell is blank', async () => {
+    await page.keyboard.press('Control+Enter');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('alert')).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: t('exams.submitDialog.confirm') }),
+    ).toBeDisabled();
+    await dialog.getByRole('button', { name: t('exams.submitDialog.cancel') }).click();
+  });
+
+  await test.step('A makes it absent and submit goes through', async () => {
+    await cell.focus();
+    await page.keyboard.press('a');
+    await expect(page.getByTestId('save-state-line')).toContainText(
+      t('exams.saveState.saved').split('·')[0].trim(),
+      { timeout: 15_000 },
+    );
+    await page.keyboard.press('Control+Enter');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('alert')).toHaveCount(0);
+    await dialog.getByRole('button', { name: t('exams.submitDialog.confirm') }).click();
+    await expect(cell).toBeDisabled();
+  });
+});

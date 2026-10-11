@@ -35,9 +35,8 @@ export function ProcessDialog({ open, onOpenChange, examId }: ProcessDialogProps
   const progressQuery = useExamProgress(examId);
   const processResults = useProcessResults(examId);
 
-  const outstanding = (progressQuery.data?.outstanding ?? []).filter(
-    (row) => row.state === 'DRAFT',
-  );
+  // DRAFT sheets, and SUBMITTED sheets the server flagged for blank cells (X-06).
+  const outstanding = progressQuery.data?.outstanding ?? [];
 
   function handleOpenChange(next: boolean) {
     if (!next && processResults.isPending) return;
@@ -72,6 +71,11 @@ export function ProcessDialog({ open, onOpenChange, examId }: ProcessDialogProps
                   <li key={`${row.section_id}:${row.subject_id}`} className="px-3 py-2">
                     {tg('marksEntry.sectionValue', { name: row.section_name })}
                     {subject ? ` · ${subject}` : ''}
+                    {row.state === 'SUBMITTED' && (
+                      <span className="block text-caption text-text-secondary">
+                        {tg('resultsPage.outstandingHasBlanks')}
+                      </span>
+                    )}
                   </li>
                 );
               })}

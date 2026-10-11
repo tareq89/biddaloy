@@ -338,6 +338,8 @@ export interface MarkGridStudent {
   id: string;
   roll_number: number;
   full_name: string;
+  /** Enrolled after the last sitting with no marks: never counts as blank. */
+  joined_after_exam?: boolean;
 }
 
 export interface MarkGridComponent {
