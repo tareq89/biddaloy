@@ -60,6 +60,7 @@ describe('AccountAccessDeliveryService', () => {
     // The real, secret-bearing body only ever reaches the provider.
     const [sendParams] = provider.send.mock.calls[0];
     expect(sendParams.body).toContain('super-secret-raw-token');
+    expect(sendParams.allowPlatformSms).toBe(true);
   });
 
   it('marks the log SENT on a successful provider call', async () => {
@@ -86,12 +87,10 @@ describe('AccountAccessDeliveryService', () => {
     // secret-bearing link/OTP — back in its error text, so the stored
     // reason must be a fixed string, never `result.error` verbatim.
     const provider = {
-      send: vi
-        .fn()
-        .mockResolvedValue({
-          success: false,
-          error: 'boom: link was https://x/activate?token=SECRET',
-        }),
+      send: vi.fn().mockResolvedValue({
+        success: false,
+        error: 'boom: link was https://x/activate?token=SECRET',
+      }),
     };
     registry.resolve.mockReturnValue(provider);
 
