@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
-import { AuthTokenPurpose, UserRole, UserStatus } from '@biddaloy/shared';
+import { AuditAction, AuthTokenPurpose, UserRole, UserStatus } from '@biddaloy/shared';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { SEED_TENANT_ID } from '@test/constants';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -157,6 +158,93 @@ describe('SchoolInviteService (integration)', () => {
     const token = await ds.getRepository(AuthToken).findOneOrFail({ where: { id: a.id } });
     expect(token.purpose).toBe(AuthTokenPurpose.JOIN_SCHOOL);
     expect(token.revoked_at).toBeNull();
+  });
+
+  const makeGuardian = (tenantId = SEED_TENANT_ID, over: Partial<Guardian> = {}) =>
+    ds
+      .getRepository(Guardian)
+      .save(
+        ds
+          .getRepository(Guardian)
+          .create({ full_name: 'G', relationship: 'Mother', tenant_id: tenantId, ...over }),
+      );
+
+  // M2: guardians.user_id is globally UNIQUE, so a parent already linked at school B
+  // can never be linked to school A's guardian. Accept must say so, not 500.
+  it('a parent already linked to a guardian at another school gets a 409, no membership, and the request is retired', async () => {
+    await makeGuardian(TENANT_B, { user_id: user.id });
+    const gA = await makeGuardian();
+    const row = await request(SEED_TENANT_ID, { guardianId: gA.id });
+
+    await expect(service.accept(user.id, row.id, CTX)).rejects.toBeInstanceOf(ConflictException);
+
+    expect(await memberships()).toHaveLength(0);
+    const after = await ds.getRepository(Guardian).findOneOrFail({ where: { id: gA.id } });
+    expect(after.user_id).toBeNull();
+    // Not stuck: the request is gone from the list, so the person is not asked again.
+    expect(await service.listMine(user.id)).toHaveLength(0);
+  });
+
+  it('a link held by a soft-deleted guardian elsewhere also blocks (the unique index ignores deleted_at)', async () => {
+    const old = await makeGuardian(TENANT_B, { user_id: user.id });
+    await ds.getRepository(Guardian).softDelete({ id: old.id });
+    const gA = await makeGuardian();
+    const row = await request(SEED_TENANT_ID, { guardianId: gA.id });
+
+    await expect(service.accept(user.id, row.id, CTX)).rejects.toBeInstanceOf(ConflictException);
+    expect(await memberships()).toHaveLength(0);
+  });
+
+  it('a guardian deleted since the request was filed gives a 409 and no membership', async () => {
+    const g = await makeGuardian();
+    const row = await request(SEED_TENANT_ID, { guardianId: g.id });
+    await ds.getRepository(Guardian).softDelete({ id: g.id });
+
+    await expect(service.accept(user.id, row.id, CTX)).rejects.toBeInstanceOf(ConflictException);
+    expect(await memberships()).toHaveLength(0);
+  });
+
+  it('a guardian linked to someone else since the request was filed gives a 409', async () => {
+    const users = ds.getRepository(User);
+    const other = await users.save(users.create({ full_name: 'Y', email: 'y@example.com' }));
+    const g = await makeGuardian(SEED_TENANT_ID, { user_id: other.id });
+    const row = await request(SEED_TENANT_ID, { guardianId: g.id });
+
+    await expect(service.accept(user.id, row.id, CTX)).rejects.toBeInstanceOf(ConflictException);
+    expect(await memberships()).toHaveLength(0);
+  });
+
+  it('a person who is already a TEACHER here still gets the PARENT membership on accept', async () => {
+    const utRepo = ds.getRepository(UserTenant);
+    await utRepo.save(
+      utRepo.create({ user_id: user.id, tenant_id: SEED_TENANT_ID, role: UserRole.TEACHER }),
+    );
+    const row = await request();
+
+    await service.accept(user.id, row.id, CTX);
+
+    const roles = (await memberships()).map((r) => r.role).sort();
+    expect(roles).toEqual([UserRole.PARENT, UserRole.TEACHER]);
+  });
+
+  it('a request from a deleted school is not listed and cannot be accepted', async () => {
+    const row = await request(TENANT_B);
+    await ds.getRepository(School).softDelete({ id: TENANT_B });
+
+    expect(await service.listMine(user.id)).toHaveLength(0);
+    await expect(service.accept(user.id, row.id, CTX)).rejects.toBeInstanceOf(NotFoundException);
+    expect(await memberships(TENANT_B)).toHaveLength(0);
+  });
+
+  it('every audit row of one request names the user and carries the request id', async () => {
+    const row = await request();
+    await service.decline(user.id, row.id, CTX);
+
+    const audits = await ds.getRepository(AuditLog).find({ order: { created_at: 'ASC' } });
+    expect(audits.map((a) => a.entity_id)).toEqual([user.id, user.id]);
+    expect(audits.map((a) => a.new_values?.request_id)).toEqual([row.id, row.id]);
+    // A decline retires a request; no membership ever existed to delete.
+    expect(audits[1].action).toBe(AuditAction.INVITATION_REVOKED);
   });
 
   it('decline revokes the request and creates no membership', async () => {
