@@ -170,15 +170,17 @@ export class StaffAttendanceService {
       to: string;
       actorUserId: string;
       applicationId: string;
+      /** Also delete past and today's marks (a leave approved by mistake). */
+      includePast?: boolean;
     },
   ): Promise<{ dates: string[]; today: string }> {
-    const { tenantId, staffProfileId, from, to, actorUserId, applicationId } = params;
+    const { tenantId, staffProfileId, from, to, actorUserId, applicationId, includePast } = params;
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const today = localToday(settings.region?.timezone ?? 'UTC');
     const tomorrow = new Date(Date.parse(`${today}T00:00:00Z`) + 86_400_000)
       .toISOString()
       .slice(0, 10);
-    const start = from > tomorrow ? from : tomorrow;
+    const start = includePast || from > tomorrow ? from : tomorrow;
     if (start > to) return { dates: [], today };
 
     const recordRepo = manager.getRepository(StaffAttendanceRecord);

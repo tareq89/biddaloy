@@ -328,8 +328,22 @@ export function useCancelApplication() {
   const onDecided = useDecisionCache();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, reason }: { id: string; reason: string }) =>
-      (await apiClient.post<ApplicationDto>(`/applications/${id}/cancel`, { reason })).data,
+    mutationFn: async ({
+      id,
+      reason,
+      revokeTakenDays,
+    }: {
+      id: string;
+      reason: string;
+      /** STAFF_LEAVE only: the leave was approved by mistake; give back days already taken too. */
+      revokeTakenDays?: boolean;
+    }) =>
+      (
+        await apiClient.post<ApplicationDto>(`/applications/${id}/cancel`, {
+          reason,
+          ...(revokeTakenDays ? { revoke_taken_days: true } : {}),
+        })
+      ).data,
     onSuccess: (dto) => {
       onDecided(dto);
       // Cancelling an approved STAFF_LEAVE reverses its ledger rows: the balance is stale too.
