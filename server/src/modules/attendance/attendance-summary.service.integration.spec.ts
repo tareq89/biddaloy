@@ -19,7 +19,8 @@ import { Student } from '../students/entities/student.entity';
 import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
 import { Subject } from '../academics/entities/subject.entity';
-import { AttendanceSessionState, AttendanceStatus } from '@biddaloy/shared';
+import { AttendanceSessionState, AttendanceStatus, EnrollmentStatus } from '@biddaloy/shared';
+import { Enrollment } from '../students/entities/enrollment.entity';
 
 /**
  * Integration tests for `AttendanceSummaryService` — the single source of
@@ -264,6 +265,44 @@ describe('AttendanceSummaryService (integration)', () => {
         to: '2026-09-01',
       });
       expect(matrix.rows.map((r) => r.student_id)).toContain(studentId);
+    });
+  });
+
+  // #2269: a student who left the section (transferred out, withdrawn) is no
+  // longer counted in its summaries or matrix.
+  describe('a student who left the section is not counted', () => {
+    async function leftStudent(): Promise<string> {
+      const studentId = await makeStudent(700);
+      await markDay(studentId, '2026-09-01', AttendanceStatus.ABSENT);
+      await dataSource
+        .getRepository(Enrollment)
+        .update(
+          { student_id: studentId, tenant_id: TENANT_ID },
+          { enrollment_status: EnrollmentStatus.TRANSFERRED },
+        );
+      return studentId;
+    }
+
+    it('getSectionSummary leaves out a TRANSFERRED student', async () => {
+      const studentId = await leftStudent();
+      const result = await service.getSectionSummary({
+        tenantId: TENANT_ID,
+        sectionId,
+        from: '2026-09-01',
+        to: '2026-09-01',
+      });
+      expect(result.students.map((s) => s.student_id)).not.toContain(studentId);
+    });
+
+    it('getSectionRegisterMatrix leaves out a TRANSFERRED student', async () => {
+      const studentId = await leftStudent();
+      const matrix = await service.getSectionRegisterMatrix({
+        tenantId: TENANT_ID,
+        sectionId,
+        from: '2026-09-01',
+        to: '2026-09-01',
+      });
+      expect(matrix.rows.map((r) => r.student_id)).not.toContain(studentId);
     });
   });
 

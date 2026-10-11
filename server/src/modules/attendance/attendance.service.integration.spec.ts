@@ -23,6 +23,7 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { User } from '../users/entities/user.entity';
@@ -37,6 +38,7 @@ import { Routine } from '../routines/entities/routine.entity';
 import {
   AttendanceSessionState,
   AttendanceStatus,
+  EnrollmentStatus,
   RoutineState,
   TeacherAssignmentType,
   UserRole,
@@ -314,6 +316,75 @@ describe('AttendanceService (integration)', () => {
         userId: ADMIN_USER_ID,
       });
       expect(register.students.map((s) => s.student_id)).not.toContain(stranger.id);
+    });
+
+    let nextRoll = 20;
+    /** A student enrolled here whose enrollment then ended with `status`. */
+    async function seedEndedEnrollment(status: EnrollmentStatus) {
+      const s = await dataSource.getRepository(Student).save({
+        full_name: `Left ${status}`,
+        registration_number: `ATT-LEFT-${randomUUID().slice(0, 8)}`,
+        roll_number: nextRoll++,
+        class_section_id: sectionId,
+        tenant_id: TENANT_ID,
+      });
+      const e = await enrollStudent(dataSource, s);
+      await dataSource
+        .getRepository(Enrollment)
+        .update({ id: e.id }, { enrollment_status: status });
+      return s;
+    }
+
+    const registerIds = async () =>
+      (
+        await service.getRegister({
+          sectionId,
+          tenantId: TENANT_ID,
+          date: TODAY(),
+          periodNo: null,
+          role: UserRole.ADMIN,
+          userId: ADMIN_USER_ID,
+        })
+      ).students.map((s) => s.student_id);
+
+    // #2269: a student who left (transferred out, withdrawn) is not on the
+    // live register, so they cannot be marked absent and texted about it.
+    it('does not list a student whose enrollment here was TRANSFERRED or INACTIVE', async () => {
+      const transferred = await seedEndedEnrollment(EnrollmentStatus.TRANSFERRED);
+      const withdrawn = await seedEndedEnrollment(EnrollmentStatus.INACTIVE);
+      const ids = await registerIds();
+      expect(ids).not.toContain(transferred.id);
+      expect(ids).not.toContain(withdrawn.id);
+    });
+
+    it('refuses to mark a student who left the section', async () => {
+      const left = await seedEndedEnrollment(EnrollmentStatus.TRANSFERRED);
+      await expect(
+        service.putRegister(
+          putParams({
+            dto: basePutDto({ entries: [{ student_id: left.id, status: AttendanceStatus.ABSENT }] }),
+          }),
+        ),
+      ).rejects.toMatchObject({
+        response: { details: { code: 'ATTENDANCE_UNKNOWN_STUDENTS' } },
+      });
+    });
+
+    it('a same-year move to another section takes the student off this register', async () => {
+      const moved = await seedEndedEnrollment(EnrollmentStatus.INACTIVE);
+      const sectionB = await dataSource.getRepository(ClassSection).save({
+        section_name: 'Move B',
+        class_id: (await dataSource.getRepository(ClassSection).findOneByOrFail({ id: sectionId }))
+          .class_id,
+        tenant_id: TENANT_ID,
+      });
+      await enrollStudent(dataSource, moved, sectionB.id);
+      expect(await registerIds()).not.toContain(moved.id);
+    });
+
+    it('keeps a graduated student on the register of the year they finished', async () => {
+      const graduated = await seedEndedEnrollment(EnrollmentStatus.GRADUATED);
+      expect(await registerIds()).toContain(graduated.id);
     });
   });
 
