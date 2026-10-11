@@ -207,7 +207,15 @@
     "loadingName": "লোড হচ্ছে…",
     "profile": "প্রোফাইল",
     "profileComingSoon": "প্রোফাইল পৃষ্ঠা শীঘ্রই আসছে",
-    "security": "নিরাপত্তা"
+    "security": "নিরাপত্তা",
+    "schoolInvites": "স্কুলের আমন্ত্রণ"
+  },
+  "schoolInvites": {
+    "title": "স্কুলের আমন্ত্রণ",
+    "accept": "গ্রহণ করুন",
+    "decline": "বাতিল করুন",
+    "expires": "মেয়াদ শেষ: {{date}}",
+    "error": "কিছু ভুল হয়েছে। আবার চেষ্টা করুন।"
   },
   "installPrompt": {
     "menuItem": "অ্যাপ ইনস্টল করুন",

@@ -429,3 +429,4 @@ export {
   type ExamMarkerRowProps,
   type ExamMarkerLineProps,
 } from './exam-marker-row';
+export { SchoolInvitesCard, type SchoolInvitesCardProps } from './school-invites-card';
