@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Inject,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -36,6 +37,8 @@ import {
 @Controller('students')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StudentLifecycleController {
+  private readonly logger = new Logger(StudentLifecycleController.name);
+
   constructor(
     @Inject(StudentLifecycleService) private readonly lifecycle: StudentLifecycleService,
   ) {}
@@ -52,10 +55,15 @@ export class StudentLifecycleController {
     @Req() request: Request,
   ) {
     const event = await this.lifecycle.leave(id, dto, tenant.id, user.sub, requestContext(request));
-    return {
-      ...event,
-      bills_due_after_leave: await this.lifecycle.billsDueAfter(id, dto.occurred_on, tenant.id),
-    };
+    // The leave is committed: a failed read of the bill list must not turn
+    // it into a 500 (a retry would then get 409 "already left").
+    const bills = await this.lifecycle
+      .billsDueAfter(id, dto.occurred_on, tenant.id)
+      .catch((err: unknown) => {
+        this.logger.error(`billsDueAfter failed for student ${id}`, err as Error);
+        return [];
+      });
+    return { ...event, bills_due_after_leave: bills };
   }
 
   @Post(':id/readmit')
