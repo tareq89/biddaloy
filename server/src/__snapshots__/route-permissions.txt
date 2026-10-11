@@ -49,6 +49,7 @@ DELETE /users/:id/invitation | UserController | perm: USER_CREATE
 GET /academic-years | AcademicYearController | perm: ACADEMIC_STRUCTURE_READ
 GET /academic-years/:id | AcademicYearController | perm: ACADEMIC_STRUCTURE_READ
 GET /academic-years/:id/stats | AcademicYearController | perm: ACADEMIC_STRUCTURE_READ
+GET /account/school-invites | SchoolInvitesController | allowlist: AuthGuard('jwt')
 GET /acr/assessments | AcrAssessmentsController | perm: ACR_READ
 GET /acr/assessments/:id | AcrAssessmentsController | perm: ACR_READ
 GET /acr/criteria | AcrCriteriaController | perm: ACR_READ
@@ -380,6 +381,8 @@ PATCH /users/me/preferences/notifications | UserController | identity | roles: A
 POST /academic-years | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 POST /academic-years/:id/set-current | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 POST /account/first-password | FirstPasswordController | allowlist: AuthGuard('jwt')
+POST /account/school-invites/:id/accept | SchoolInvitesController | allowlist: AuthGuard('jwt')
+POST /account/school-invites/:id/decline | SchoolInvitesController | allowlist: AuthGuard('jwt')
 POST /acr/assessments | AcrAssessmentsController | perm: ACR_WRITE
 POST /acr/assessments/:id/complete | AcrAssessmentsController | perm: ACR_WRITE
 POST /acr/assessments/:id/reopen | AcrAssessmentsController | perm: ACR_WRITE
