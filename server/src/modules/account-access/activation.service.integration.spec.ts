@@ -142,6 +142,18 @@ describe('ActivationService (integration)', () => {
     it('returns unknown for a garbage token', async () => {
       expect(await service.verify('not-a-real-token')).toEqual({ status: 'unknown' });
     });
+
+    // [68.1.14] GAP-03: a live INVITE for a password holder must not show the set-password form;
+    // activate() would refuse it, so verify() gives the same `consumed`.
+    it('returns consumed for a live invite whose user already has a password', async () => {
+      const user = await createInvitee({
+        password_hash: 'existing-hash',
+        status: UserStatus.ACTIVE,
+      });
+      const { raw } = await issueInvite(user.id);
+
+      expect(await service.verify(raw)).toEqual({ status: 'consumed' });
+    });
   });
 
   describe('activate', () => {
@@ -335,6 +347,29 @@ describe('ActivationService (integration)', () => {
         .getRepository(RefreshToken)
         .findOneOrFail({ where: { id: tokenId } });
       expect(tok.revoked_at).toBeNull();
+    });
+
+    // [68.1.14] The password check runs before the transaction; the write itself must be
+    // conditional, so of two racing activations exactly one sets the password.
+    it('two concurrent activations of one invite: one wins, the other gets 400 consumed', async () => {
+      const user = await createInvitee();
+      const { raw } = await issueInvite(user.id);
+
+      const results = await Promise.allSettled([
+        service.activate(raw, 'First-password1', context),
+        service.activate(raw, 'Second-password1', context),
+      ]);
+
+      const won = results.filter((r) => r.status === 'fulfilled');
+      const lost = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      expect(won).toHaveLength(1);
+      expect(lost).toHaveLength(1);
+      expect(lost[0].reason).toMatchObject({ response: { message: 'consumed' }, status: 400 });
+
+      // The stored hash is the winner's password, never overwritten by the loser.
+      const winner = results[0].status === 'fulfilled' ? 'First-password1' : 'Second-password1';
+      const after = await dataSource.getRepository(User).findOneOrFail({ where: { id: user.id } });
+      await expect(bcrypt.compare(winner, after.password_hash!)).resolves.toBe(true);
     });
 
     it('activating a passwordless invitee revokes its existing refresh tokens', async () => {

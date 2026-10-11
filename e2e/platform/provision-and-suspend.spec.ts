@@ -1,4 +1,5 @@
 import {
+  acceptSchoolInvite,
   addSchoolAdmin,
   E2E_PASSWORD,
   findSchoolIdBySlug,
@@ -10,6 +11,7 @@ import { t } from '../i18n';
 import { ActivatePage } from '../pages/activate-page';
 import { AppShellPage } from '../pages/app-shell';
 import { DetailShellPage } from '../pages/detail-shell';
+import { LoginPage } from '../pages/login-page';
 import { SchoolPickerPage } from '../pages/school-picker';
 
 /**
@@ -60,6 +62,8 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
 
   let schoolId = '';
   let adminUserId = '';
+  // `browser.newContext()` would inherit this test's super_admin session.
+  const signedOut = { cookies: [], origins: [] };
 
   await test.step('SUPER_ADMIN provisions a new school and its first admin via the wizard', async () => {
     await page.goto('/schools/new');
@@ -89,26 +93,53 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
 
   const superAdmin = await superAdminApiSession(request);
 
-  await test.step('the same admin also gets a second, unrelated seeded tenant', async () => {
-    // Rose Valley School already exists — `seed.util.ts`'s
-    // `ensureSecondSchoolMembership` seeds it for the shared `admin`
-    // fixture. Adding *this* freshly-provisioned admin (matched by
-    // email) as its ADMIN too proves the later suspension check is
-    // scoped to one tenant, not the user.
-    const roseValleyId = await findSchoolIdBySlug(request, superAdmin, 'rose-valley-school');
-    await addSchoolAdmin(request, superAdmin, roseValleyId, adminName, adminEmail);
-  });
-
-  const adminContext = await browser.newContext();
-  const adminPage = await adminContext.newPage();
-
   await test.step('the invited admin activates, sets a password, and lands in the new school', async () => {
     const token = await resendSchoolAdminInvitation(request, superAdmin, schoolId, adminUserId);
 
-    const activate = new ActivatePage(adminPage);
+    // Its own signed-out context: activation signs it in with one membership.
+    const activationContext = await browser.newContext({ storageState: signedOut });
+    const activationPage = await activationContext.newPage();
+    const activate = new ActivatePage(activationPage);
     await activate.goto(token);
     await activate.expectWelcome(adminName);
     await activate.setPassword(E2E_PASSWORD);
+    // One membership — auto-continues, no picker.
+    await expect(activationPage).toHaveURL(/\/dashboard/);
+    await activationContext.close();
+  });
+
+  await test.step('the same admin is asked to join a second, unrelated seeded tenant and accepts', async () => {
+    // Rose Valley School already exists — `seed.util.ts`'s
+    // `ensureSecondSchoolMembership` seeds it for the shared `admin`
+    // fixture. Adding *this* admin (matched by email) as its ADMIN too
+    // proves the later suspension check is scoped to one tenant, not the
+    // user. [68.1.14] Activation above verified the email, so this is an
+    // existing verified person: they get a join request (PENDING), not a
+    // membership, until they accept it themselves.
+    const roseValleyId = await findSchoolIdBySlug(request, superAdmin, 'rose-valley-school');
+    const added = await addSchoolAdmin(request, superAdmin, roseValleyId, adminName, adminEmail);
+    expect(added.userId).toBe(adminUserId);
+    expect(added.invitation.status).toBe('PENDING');
+
+    const login = await request.post('/api/v1/auth/login', {
+      data: { email: adminEmail, password: E2E_PASSWORD },
+    });
+    expect(login.ok()).toBe(true);
+    const body = (await login.json()) as { access_token: string };
+    await acceptSchoolInvite(
+      request,
+      { token: body.access_token, tenantId: schoolId },
+      added.invitation.id,
+    );
+  });
+
+  const adminContext = await browser.newContext({ storageState: signedOut });
+  const adminPage = await adminContext.newPage();
+
+  await test.step('the admin signs in, picks the new school, and lands on its dashboard', async () => {
+    const login = new LoginPage(adminPage);
+    await login.goto();
+    await login.login(adminEmail, E2E_PASSWORD);
 
     // Two tenant memberships now (the new school + Rose Valley) — lands
     // on the picker rather than auto-continuing, same branch
