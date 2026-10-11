@@ -8,6 +8,7 @@ import { User } from '../../../users/entities/user.entity';
 import { UserTenant } from '../../../auth/entities/user-tenant.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
+import { insertJoinRequest } from '../../../account-access/school-invite.service';
 import { joinRequestedUsers, usersTab, type UserRow } from './users.tab';
 
 /**
@@ -217,6 +218,42 @@ describe('usersTab (integration)', () => {
       const stillB = await userTenantRepo.findOneByOrFail({ id: membershipB.id });
       expect(stillB.role).toBe(UserRole.ADMIN);
       expect(stillB.tenant_id).toBe(TENANT_B);
+    });
+
+    // [68.1.fix R2] The workbook is the authority on role: a corrected restore (ADMIN by
+    // mistake, then TEACHER) must not leave the stale ADMIN request live. A request someone
+    // else filed (here: a platform operator's ADMIN request) is not the restore's to cancel.
+    it('a re-restore with a corrected role revokes its own stale request, not anyone else’s', async () => {
+      const person = await makeUser({
+        email: 'corrected@tenant-a.test',
+        email_verified_at: new Date(),
+      });
+      const liveRequests = () =>
+        dataSource.query(
+          `SELECT id, metadata->>'role' AS role FROM auth_tokens
+           WHERE user_id = $1 AND tenant_id = $2 AND purpose = 'JOIN_SCHOOL' AND revoked_at IS NULL
+           ORDER BY role`,
+          [person.id, TENANT_A],
+        );
+      const row = rowFor({ email: 'corrected@tenant-a.test', role: UserRole.ADMIN });
+      const teacherRow = { ...row, role: UserRole.TEACHER };
+
+      await usersTab.upsert(row, null, TENANT_A, dataSource.manager);
+      await usersTab.upsert(teacherRow, null, TENANT_A, dataSource.manager);
+      expect(await liveRequests()).toEqual([{ id: expect.any(String), role: UserRole.TEACHER }]);
+
+      const operator = await makeUser({ email: 'operator@tenant-b.test' });
+      const operatorRequest = await insertJoinRequest(dataSource.manager, {
+        userId: person.id,
+        tenantId: TENANT_A,
+        role: UserRole.ADMIN,
+        createdByUserId: operator.id,
+      });
+      await usersTab.upsert(teacherRow, null, TENANT_A, dataSource.manager);
+      expect(await liveRequests()).toEqual([
+        { id: operatorRequest.id, role: UserRole.ADMIN },
+        { id: expect.any(String), role: UserRole.TEACHER },
+      ]);
     });
 
     // Companion to the `remove()` provisioned-exemption test below: the
