@@ -33,6 +33,7 @@ import { BN_COLLATION } from '../../common/constants/collation';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { assertSeatsAvailable } from '../schools/trial/seat-limit.service';
+import { PAYABLE_FEE_STATUSES } from './open-money';
 
 // [16.3.3] Caps the audience picker's "select all matching" id list — bounds
 // both the query cost and the response size for a single selection.
@@ -639,27 +640,29 @@ export class StudentService {
     userId: string | null,
     context: RequestContext,
   ): Promise<void> {
-    await this.findOne(id, tenantId);
-
     await this.repo.manager.transaction(async (manager) => {
       // Lock the student row, then its bills and wallet below, so a concurrent
-      // payment/wallet change on them waits for this delete to finish.
+      // payment/wallet change on them waits for this delete to finish. Bill
+      // generation and the first wallet credit take FOR SHARE on the student,
+      // which conflicts with this lock, so neither can slip a new row past
+      // the money check below.
       const locked = (await manager.query(
         `SELECT enrollment_status FROM students WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL FOR NO KEY UPDATE`,
         [id, tenantId],
       )) as { enrollment_status: string }[];
       if (locked.length === 0) throw new NotFoundException('Student not found');
 
-      // Same open statuses as `OPEN_STATUSES` in fee-dues.service.ts.
+      // Bills the student can still pay, same set checkout accepts (OVERDUE too).
       // FOR UPDATE can't combine with SUM, so lock the rows, then add them up.
       const bills = (await manager.query(
-        `SELECT total_amount, paid_amount, discount_amount
-           FROM student_fees
-          WHERE student_id = $1 AND deleted_at IS NULL
-            AND status IN ('PENDING', 'PARTIALLY_PAID')
-          ORDER BY id
-          FOR UPDATE`,
-        [id],
+        `SELECT sf.total_amount, sf.paid_amount, sf.discount_amount
+           FROM student_fees sf
+           JOIN students st ON st.id = sf.student_id AND st.tenant_id = $2
+          WHERE sf.student_id = $1 AND sf.deleted_at IS NULL
+            AND sf.status::text = ANY($3)
+          ORDER BY sf.id
+          FOR UPDATE OF sf`,
+        [id, tenantId, PAYABLE_FEE_STATUSES],
       )) as { total_amount: string; paid_amount: string; discount_amount: string }[];
       // Integer cents so decimal strings never drift (0.1 + 0.2).
       const cents = (v: string) => Math.round(Number(v) * 100);
@@ -673,30 +676,27 @@ export class StudentService {
         lock: { mode: 'pessimistic_write' },
       });
       const walletBalance = Number(wallet?.balance ?? 0);
-      if (Number(open_dues) > 0 || walletBalance !== 0) {
+      if (open_dues > 0 || walletBalance !== 0) {
         throw new ConflictException({
           message:
             'This student still has open dues or wallet money. Record leaving, or clear the money first.',
           // The error filter only forwards `details`, so the code lives here.
           details: {
             code: 'STUDENT_HAS_OPEN_MONEY',
-            open_dues: Number(open_dues),
+            open_dues,
             wallet_balance: walletBalance,
           },
         });
       }
 
-      const enrollmentRepo = manager.getRepository(Enrollment);
-      const active = await enrollmentRepo.find({
-        where: { student_id: id, tenant_id: tenantId, enrollment_status: EnrollmentStatus.ACTIVE },
-        select: { id: true },
-      });
-      if (active.length > 0) {
-        await enrollmentRepo.update(
-          { student_id: id, tenant_id: tenantId, enrollment_status: EnrollmentStatus.ACTIVE },
-          { enrollment_status: EnrollmentStatus.INACTIVE },
-        );
-      }
+      const closed = await manager
+        .createQueryBuilder()
+        .update(Enrollment)
+        .set({ enrollment_status: EnrollmentStatus.INACTIVE })
+        .where({ student_id: id, tenant_id: tenantId, enrollment_status: EnrollmentStatus.ACTIVE })
+        .returning(['id'])
+        .execute();
+      const active = closed.raw as { id: string }[];
       await manager
         .getRepository(Student)
         .update({ id, tenant_id: tenantId }, { enrollment_status: EnrollmentStatus.INACTIVE });

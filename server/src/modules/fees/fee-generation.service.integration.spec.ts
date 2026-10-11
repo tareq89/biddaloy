@@ -307,6 +307,42 @@ describe('FeeGenerationService (integration)', () => {
     expect(batch.student_count).toBe(3);
   });
 
+  // Review r1 #5: a delete that commits while a generation is running must
+  // not end with a new bill on the deleted student.
+  it('a generation racing a student delete waits for it and writes no bill for that student', async () => {
+    const [student] = await studentRepo.save([makeStudent()]);
+    const [structure] = await structureRepo.save([makeStructure()]);
+    // Stand-in for StudentService.remove holding its lock mid-transaction.
+    const qr = dataSource.createQueryRunner();
+    await qr.startTransaction();
+    let outcome: Promise<unknown> | undefined;
+    try {
+      await qr.query(`SELECT 1 FROM students WHERE id = $1 FOR NO KEY UPDATE`, [student.id]);
+      await qr.query(`UPDATE students SET deleted_at = NOW() WHERE id = $1`, [student.id]);
+      outcome = service
+        .generate(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-03-01',
+            period_type: PeriodType.MONTH,
+            student_ids: [student.id],
+            fee_structure_ids: [structure.id],
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        )
+        .catch((e) => e);
+      await new Promise((r) => setTimeout(r, 300));
+      await qr.commitTransaction();
+    } finally {
+      if (qr.isTransactionActive) await qr.rollbackTransaction();
+      await qr.release();
+    }
+    expect(await outcome).toBeInstanceOf(NotFoundException);
+    expect(await studentFeeRepo.count({ where: { student_id: student.id } })).toBe(0);
+  });
+
   describe('period normalisation', () => {
     it('rejects a MONTH period_start that is not the 1st of a month', async () => {
       const student = await studentRepo.save(makeStudent());

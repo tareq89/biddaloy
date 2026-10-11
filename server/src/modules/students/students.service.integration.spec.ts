@@ -34,6 +34,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { FeeStructure } from '../fees/entities/fee-structure.entity';
 import { StudentFee } from '../fees/entities/student-fee.entity';
+import { WalletService } from '../fees/wallet.service';
 
 /**
  * Integration tests for StudentService and GuardianService.
@@ -164,6 +165,7 @@ describe('StudentService (integration)', () => {
   let studentRepo: Repository<Student>;
   let guardianRepo: Repository<Guardian>;
   let enrollmentRepo: Repository<Enrollment>;
+  let walletService: WalletService;
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
@@ -172,7 +174,7 @@ describe('StudentService (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(
       ALL_ENTITIES,
-      [StudentService, GuardianService, AuditService],
+      [StudentService, GuardianService, AuditService, WalletService],
       [],
       {
         synchronize: true,
@@ -185,6 +187,7 @@ describe('StudentService (integration)', () => {
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
     guardianRepo = module.get<Repository<Guardian>>(getRepositoryToken(Guardian));
     enrollmentRepo = module.get<Repository<Enrollment>>(getRepositoryToken(Enrollment));
+    walletService = module.get(WalletService);
     dataSource = module.get(DataSource);
 
     await seedReferenceData(dataSource);
@@ -1361,6 +1364,65 @@ describe('StudentService (integration)', () => {
         expect(body.details.open_dues).toBe(0);
         expect(body.details.wallet_balance).toBe(300);
         expect(await auditRows(id)).toHaveLength(0);
+      });
+
+      // Review r1 #4: checkout and payment allocation treat OVERDUE as payable.
+      it('refuses a student whose only debt is an OVERDUE bill', async () => {
+        const id = await newStudent();
+        await addBill(id, FeeStatus.OVERDUE);
+
+        const err = await service.remove(id, TENANT_ID, actorId, NO_CTX).catch((e) => e);
+        expect(err).toBeInstanceOf(ConflictException);
+        expect(((err as ConflictException).getResponse() as any).details.open_dues).toBe(1000);
+        expect((await studentRepo.findOne({ where: { id } }))?.deleted_at).toBeNull();
+      });
+
+      // Review r1 #5: a first wallet row racing a delete. The FK insert alone
+      // takes only KEY SHARE on the student, which never waits for the delete.
+      it('a wallet created while a delete is in flight is refused once the delete commits', async () => {
+        const id = await newStudent();
+        // Stand-in for StudentService.remove holding its lock mid-transaction.
+        const qr = dataSource.createQueryRunner();
+        await qr.startTransaction();
+        try {
+          await qr.query(`SELECT 1 FROM students WHERE id = $1 FOR NO KEY UPDATE`, [id]);
+          await qr.query(`UPDATE students SET deleted_at = NOW() WHERE id = $1`, [id]);
+          const create = dataSource.transaction((m) => walletService.getOrCreate(id, TENANT_ID, m));
+          const settled = create.then(
+            () => 'created',
+            () => 'refused',
+          );
+          await new Promise((r) => setTimeout(r, 300));
+          await qr.commitTransaction();
+          expect(await settled).toBe('refused');
+        } finally {
+          if (qr.isTransactionActive) await qr.rollbackTransaction();
+          await qr.release();
+        }
+        const wallets = await dataSource.query(
+          `SELECT 1 FROM student_wallets WHERE student_id = $1`,
+          [id],
+        );
+        expect(wallets).toHaveLength(0);
+      });
+
+      it('a delete waits for an in-flight first wallet credit, then refuses', async () => {
+        const id = await newStudent();
+        const qr = dataSource.createQueryRunner();
+        await qr.startTransaction();
+        let removal: Promise<unknown> | undefined;
+        try {
+          const wallet = await walletService.getOrCreate(id, TENANT_ID, qr.manager);
+          await qr.query(`UPDATE student_wallets SET balance = 300 WHERE id = $1`, [wallet.id]);
+          removal = service.remove(id, TENANT_ID, actorId, NO_CTX).catch((e) => e);
+          await new Promise((r) => setTimeout(r, 300));
+          await qr.commitTransaction();
+        } finally {
+          if (qr.isTransactionActive) await qr.rollbackTransaction();
+          await qr.release();
+        }
+        expect(await removal).toBeInstanceOf(ConflictException);
+        expect((await studentRepo.findOne({ where: { id } }))?.deleted_at).toBeNull();
       });
 
       it('does not block on a soft-deleted open bill', async () => {

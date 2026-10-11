@@ -68,9 +68,13 @@ export class WalletService {
     tenantId: string,
     manager: EntityManager,
   ): Promise<StudentWallet> {
-    const student = await manager
-      .getRepository(Student)
-      .findOne({ where: { id: studentId, tenant_id: tenantId } });
+    // FOR SHARE until commit: conflicts with StudentService.remove's student
+    // lock, so a delete either waits for this wallet or, if it went first,
+    // this re-reads the row as deleted and refuses (review r1 #5).
+    const student = await manager.getRepository(Student).findOne({
+      where: { id: studentId, tenant_id: tenantId },
+      lock: { mode: 'pessimistic_read' },
+    });
     if (!student) {
       throw new BadRequestException('Student not found for this tenant');
     }
