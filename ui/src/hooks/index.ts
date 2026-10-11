@@ -582,6 +582,7 @@ export {
   useCertificatePreview,
   useCertificatePrinters,
   useCertificateRegister,
+  useExamCertificates,
   useCertificateTemplates,
   useConfirmCertificateJob,
   useIdCardQueue,

@@ -45,13 +45,31 @@ function certRow(n: number, kind = 'RESULT_CERTIFICATE') {
   };
 }
 
-/** The reopen dialog reads the exam's live certificates; most tests have none. */
-function mockRegister(rows: unknown[] = []) {
+/** The reopen dialog reads the exam's live certificates; most tests have none.
+ * Honours `document_kind` and `page` (100 per page) like the real register. */
+function mockRegister(rows: Array<{ document_kind: string }> = []) {
   server.use(
-    http.get('/api/v1/print-history/register', () =>
-      HttpResponse.json({ data: rows, total: rows.length, page: 1, limit: 100 }),
-    ),
+    http.get('/api/v1/print-history/register', ({ request }) => {
+      const url = new URL(request.url);
+      const kind = url.searchParams.get('document_kind');
+      const page = Number(url.searchParams.get('page') ?? '1');
+      const matching = rows.filter((r) => !kind || r.document_kind === kind);
+      return HttpResponse.json({
+        data: matching.slice((page - 1) * 100, page * 100),
+        total: matching.length,
+        page,
+        limit: 100,
+        totalPages: Math.max(1, Math.ceil(matching.length / 100)),
+      });
+    }),
   );
+}
+
+/** Confirm stays disabled until the certificate list has loaded. */
+async function enabledButton(name: string | RegExp) {
+  const button = await screen.findByRole('button', { name });
+  await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+  return button;
 }
 
 async function renderWithProviders(children: React.ReactNode, role = 'ADMIN') {
@@ -239,7 +257,7 @@ describe('ReopenPreviewDialog', () => {
     );
     expect(screen.queryByLabelText('Email or phone')).toBeNull();
 
-    await user.click(screen.getByRole('button', { name: 'Reopen' }));
+    await user.click(await enabledButton('Reopen'));
 
     // Only now does the approval modal appear.
     await screen.findByLabelText('Email or phone');
@@ -267,7 +285,7 @@ describe('ReopenPreviewDialog', () => {
       <ReopenPreviewDialog open onOpenChange={onOpenChange} examId="exam-1" resultCount={3} />,
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Reopen' }));
+    await user.click(await enabledButton('Reopen'));
 
     expect(await screen.findByText("Couldn't reopen this exam.")).toBeTruthy();
     // A plain 409 never opens the approval modal.
@@ -297,7 +315,7 @@ describe('ReopenPreviewDialog', () => {
       <ReopenPreviewDialog open onOpenChange={onOpenChange} examId="exam-1" resultCount={3} />,
     );
 
-    const reopenButton = await screen.findByRole('button', { name: 'Reopen' });
+    const reopenButton = await enabledButton('Reopen');
     await user.click(reopenButton);
     await waitFor(() => expect(reopenButton.getAttribute('aria-busy')).toBe('true'));
 
@@ -381,7 +399,7 @@ describe('ReopenPreviewDialog certificates (ACAD-12)', () => {
     expect(
       screen.getByText('Ask an admin to revoke these from the certificate register'),
     ).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Reopen' }));
+    await user.click(await enabledButton('Reopen'));
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     expect(reopenCount()).toBe(1);
     expect(revoked).toHaveLength(0);
@@ -395,6 +413,85 @@ describe('ReopenPreviewDialog certificates (ACAD-12)', () => {
     await screen.findByRole('button', { name: 'Reopen' });
     expect(screen.queryByText('Certificates already issued for this exam')).toBeNull();
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+  });
+
+  it('lists and revokes every certificate, past the first page of 100', async () => {
+    mockRegister([
+      ...Array.from({ length: 101 }, (_, i) => certRow(i + 1)),
+      certRow(500, 'MERIT_CERTIFICATE'),
+    ]);
+    const { revoked } = mockReopenAndRevoke();
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    await renderWithProviders(
+      <ReopenPreviewDialog open onOpenChange={onOpenChange} examId="exam-1" resultCount={102} />,
+    );
+
+    await user.click(await enabledButton(/Reopen and revoke/));
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    expect(revoked).toHaveLength(102);
+  });
+
+  it('Confirm is disabled until the certificate list has loaded', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get('/api/v1/print-history/register', async () => {
+        await gate;
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 });
+      }),
+    );
+    const { reopenCount } = mockReopenAndRevoke();
+    const user = userEvent.setup();
+    await renderWithProviders(
+      <ReopenPreviewDialog open onOpenChange={vi.fn()} examId="exam-1" resultCount={1} />,
+    );
+
+    const button = await screen.findByRole('button', { name: 'Reopen' });
+    expect(button.hasAttribute('disabled')).toBe(true);
+    await user.click(button);
+    expect(reopenCount()).toBe(0);
+    release();
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+  });
+
+  it('a register that fails to load shows a warning and still lets the reopen go ahead', async () => {
+    server.use(
+      http.get('/api/v1/print-history/register', () =>
+        HttpResponse.json(apiErrorBody(403, 'Forbidden', '/print-history/register'), {
+          status: 403,
+        }),
+      ),
+    );
+    await renderWithProviders(
+      <ReopenPreviewDialog open onOpenChange={vi.fn()} examId="exam-1" resultCount={1} />,
+    );
+    expect(
+      await screen.findByText(
+        "Couldn't load the certificates issued for this exam. Check the certificate register after reopening.",
+      ),
+    ).toBeTruthy();
+    await enabledButton('Reopen');
+  });
+
+  it('a second Reopen after a full success reopens again (no stale state)', async () => {
+    mockRegister([certRow(1)]);
+    const { reopenCount } = mockReopenAndRevoke();
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    // The parent keeps the dialog mounted between the two reopens.
+    await renderWithProviders(
+      <ReopenPreviewDialog open onOpenChange={onOpenChange} examId="exam-1" resultCount={1} />,
+    );
+
+    await user.click(await enabledButton(/Reopen and revoke/));
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    expect(reopenCount()).toBe(1);
+
+    await user.click(await enabledButton(/Reopen and revoke/));
+    await waitFor(() => expect(reopenCount()).toBe(2));
   });
 
   it('a failed revoke keeps the dialog open and names the serial; reopen already succeeded', async () => {
