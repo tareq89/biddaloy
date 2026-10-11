@@ -5560,7 +5560,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Submit an admission application. Multipart form: applicant fields plus one file field per required document type (photo/birth_certificate/transcript). Updating an existing PENDING application for the same intake and guardian_phone requires its reference_number as proof of ownership — a phone number and intake_id are both public, so matching on those two alone isn't enough. */
+        /** Submit an admission application. Multipart form: applicant fields plus one file field per required document type (photo/birth_certificate/transcript). Updating an existing PENDING application for the same child (intake, guardian_phone, date of birth, name) requires its reference_number as proof of ownership — a phone number and intake_id are both public, so matching on those two alone isn't enough. */
         post: operations["PublicAdmissionController_submit_v1"];
         delete?: never;
         options?: never;
@@ -8970,6 +8970,60 @@ export interface components {
             destination?: string;
             remark?: string;
         };
+        BillAfterLeaveDto: {
+            /** Format: uuid */
+            id: string;
+            fee_structure_name: string;
+            /**
+             * Format: date
+             * @example 2026-09-01
+             */
+            period_start: string;
+            /**
+             * Format: date
+             * @example 2026-09-10
+             */
+            due_date: string | null;
+            /** @example 700.00 */
+            outstanding: string;
+        };
+        LeaveStudentResultDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenant_id: string;
+            /** Format: uuid */
+            student_id: string;
+            /** Format: uuid */
+            enrollment_id: string;
+            /** Format: uuid */
+            academic_year_id: string;
+            /** @enum {string} */
+            event_type: "WITHDRAWN" | "TRANSFERRED_OUT" | "GRADUATED" | "READMITTED";
+            /** @example 2026-09-30 */
+            occurred_on: string;
+            reason: string;
+            destination: string | null;
+            remark: string | null;
+            /** Format: uuid */
+            recorded_by_user_id: string | null;
+            /** Format: date-time */
+            created_at: string;
+            bills_due_after_leave: components["schemas"]["BillAfterLeaveDto"][];
+        };
+        ReadmitStudentDto: {
+            /**
+             * @description Date only (YYYY-MM-DD), not in the future
+             * @example 2026-09-30
+             */
+            occurred_on: string;
+            /** Format: uuid */
+            class_section_id: string;
+            /** Format: uuid */
+            academic_year_id?: string;
+            reason?: string;
+            remark?: string;
+        };
         StudentLifecycleEventDto: {
             /** Format: uuid */
             id: string;
@@ -8992,19 +9046,6 @@ export interface components {
             recorded_by_user_id: string | null;
             /** Format: date-time */
             created_at: string;
-        };
-        ReadmitStudentDto: {
-            /**
-             * @description Date only (YYYY-MM-DD), not in the future
-             * @example 2026-09-30
-             */
-            occurred_on: string;
-            /** Format: uuid */
-            class_section_id: string;
-            /** Format: uuid */
-            academic_year_id?: string;
-            reason?: string;
-            remark?: string;
         };
         StudentNoteResponseDto: {
             id: string;
@@ -11574,7 +11615,7 @@ export interface components {
             requested_by: string;
             note: string;
             /** @enum {string} */
-            state: "ACCEPTED" | "REJECTED" | "OPEN";
+            state: "OPEN" | "ACCEPTED" | "REJECTED";
             resolved_by_user: components["schemas"]["User"] | null;
             resolved_by: string | null;
             /** Format: date-time */
@@ -12830,7 +12871,7 @@ export interface components {
             home_address: string | null;
             documents: Record<string, never>[];
             /** @enum {string} */
-            status: "REJECTED" | "PENDING" | "SHORTLISTED" | "ADMITTED";
+            status: "PENDING" | "REJECTED" | "SHORTLISTED" | "ADMITTED";
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -13020,7 +13061,7 @@ export interface components {
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** @enum {string} */
-            asset_kind: "ARTWORK" | "IMAGE" | "FONT";
+            asset_kind: "IMAGE" | "ARTWORK" | "FONT";
             storage_key: string;
             content_type: string;
             byte_size: number;
@@ -13946,6 +13987,7 @@ export interface components {
         };
         CancelApplicationDto: {
             reason: string;
+            revoke_taken_days?: boolean;
         };
         ApplicationTagInput: {
             /** Format: uuid */
@@ -16559,7 +16601,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StudentLifecycleEventDto"];
+                    "application/json": components["schemas"]["LeaveStudentResultDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -22146,7 +22188,7 @@ export interface operations {
                 search?: string;
                 status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
                 membership?: "current" | "former";
-                invitation_status?: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
+                invitation_status?: "PENDING" | "NONE" | "EXPIRED" | "REVOKED" | "ACTIVATED";
                 designation_id?: string;
                 joined_from?: string;
                 joined_to?: string;
@@ -31045,6 +31087,8 @@ export interface operations {
                 year?: number;
                 /** @description Only copies issued to this student */
                 subject_id?: string;
+                /** @description Only copies printed for this exam */
+                context_id?: string;
                 status?: "VALID" | "REVOKED";
                 /** @description Matches the holder name or the serial (case-insensitive contains) */
                 q?: string;
@@ -31086,6 +31130,8 @@ export interface operations {
                 year?: number;
                 /** @description Only copies issued to this student */
                 subject_id?: string;
+                /** @description Only copies printed for this exam */
+                context_id?: string;
                 status?: "VALID" | "REVOKED";
                 /** @description Matches the holder name or the serial (case-insensitive contains) */
                 q?: string;
