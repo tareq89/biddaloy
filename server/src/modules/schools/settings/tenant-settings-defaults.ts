@@ -67,6 +67,7 @@ export const DEFAULT_REGION_SETTINGS: RegionSettings = {
  */
 export const DEFAULT_ATTENDANCE_SETTINGS: AttendancePolicySettings = {
   weeklyOffDays: [5],
+  weeklyOffHistory: [],
   lateAfter: '08:15',
   absentAfter: '10:00',
   correctionWindowDays: 2,

@@ -153,6 +153,7 @@
   "attendance": {
     "legend": "Attendance policy",
     "weeklyOffLegend": "Weekly off days",
+    "weeklyOffHint": "Changes apply from today. Past days keep the off days that were in force then.",
     "weekday": {
       "0": "Sun",
       "1": "Mon",
