@@ -34,7 +34,7 @@ Tests must be readable by a junior developer. No dynamic test generation. Use ex
 - **Soft Deletes:** Always test that `deletedAt` is set and excluded from standard queries.
 - **Role Guards:** Always test both allowed and denied scenarios for every `@Roles()` **and `@RequirePermissions()`** endpoint.
 - **Context Header:** Always test missing and invalid `X-Tenant-ID` scenarios.
-- **Permissions:** New tenant routes must declare `@RequirePermissions()` or carry a reviewed entry in `IDENTITY_SCOPED`; `permission-matrix.e2e-spec.ts` fails otherwise. Every route's permission is also recorded in `src/__snapshots__/route-permissions.txt`. After adding or changing a route, run `yarn test:file src/permission-matrix.e2e-spec.ts -u` and commit the diff; reviewers read it like a permission change.
+- **Permissions:** New tenant routes must declare `@RequirePermissions()` or carry a reviewed entry in `IDENTITY_SCOPED`; `permission-matrix.e2e-spec.ts` fails otherwise. Every route's permission is also recorded in `src/__snapshots__/route-permissions.txt`. After adding or changing a route, run `yarn test:file src/permission-matrix.e2e-spec.ts -u` and commit the diff; reviewers read it like a permission change. The snapshot covers controller routes only: Swagger docs, static files and the SPA fallback in `main.ts` are not in it.
 
 ## Minting an approval token in a spec
 

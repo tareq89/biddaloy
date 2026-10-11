@@ -25,8 +25,8 @@ DELETE /fees/schedules/:id/exclusions/:studentId | RecurringSchedulesController 
 DELETE /grading/scales/:id | GradingController | perm: GRADING_SCALE_MANAGE
 DELETE /guardians/:id | StudentController | perm: GUARDIAN_DELETE
 DELETE /invoices/:id/share/:tokenId | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
-DELETE /me/push/subscriptions | PushSubscriptionsController | identity
-DELETE /me/push/subscriptions/:id | PushSubscriptionsController | identity
+DELETE /me/push/subscriptions | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
+DELETE /me/push/subscriptions/:id | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 DELETE /milestone-achievements/:id | MilestoneAchievementsController | perm: PROGRAM_RECORD
 DELETE /programs/:id | ProgramsController | perm: PROGRAM_MANAGE
 DELETE /programs/:id/milestones/:milestoneId | ProgramsController | perm: PROGRAM_MANAGE
@@ -35,8 +35,8 @@ DELETE /routines/rooms/:id | RoomsController | perm: ROUTINE_MANAGE
 DELETE /routines/shifts/:id | ShiftsController | perm: ROUTINE_MANAGE
 DELETE /routines/slots/:slotId | RoutineSlotsController | perm: ROUTINE_MANAGE
 DELETE /school-calendar/holidays/:id | SchoolCalendarController | perm: ACADEMIC_YEAR_MANAGE
-DELETE /schools/:id/admins/:userId/invitation | SchoolAdminsController | identity
-DELETE /schools/me/logo | SchoolLogoController | identity
+DELETE /schools/:id/admins/:userId/invitation | SchoolAdminsController | identity | roles: SUPER_ADMIN
+DELETE /schools/me/logo | SchoolLogoController | identity | roles: ADMIN,SUPER_ADMIN
 DELETE /students/:id | StudentController | perm: STUDENT_DELETE
 DELETE /students/:id/notes/:noteId | StudentNotesController | perm: STUDENT_NOTES_WRITE
 DELETE /students/:id/public-exams/:examId | StudentPublicExamsController | perm: STUDENT_RECORDS_WRITE
@@ -165,7 +165,7 @@ GET /grading/scales | GradingController | perm: GRADING_SCALE_MANAGE
 GET /grading/scales/:id | GradingController | perm: GRADING_SCALE_MANAGE
 GET /guardians | StudentController | perm: GUARDIAN_READ
 GET /guardians/:id | StudentController | perm: GUARDIAN_READ
-GET /guardians/mine | StudentController | identity
+GET /guardians/mine | StudentController | identity | roles: PARENT
 GET /health | AppController | allowlist: none
 GET /health/ready | HealthController | allowlist: none
 GET /homework | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
@@ -180,13 +180,13 @@ GET /invoices | InvoicesController | perm: INVOICE_READ
 GET /invoices/:id | InvoicesController | perm: INVOICE_READ
 GET /invoices/:id/print | InvoicesController | perm: INVOICE_READ
 GET /invoices/:id/share | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
-GET /leave/balance | LeaveController | identity
-GET /leave/policies | LeaveController | identity
+GET /leave/balance | LeaveController | identity | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,SUPER_ADMIN,TEACHER
+GET /leave/policies | LeaveController | identity | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,SUPER_ADMIN,TEACHER
 GET /lesson-deliveries | LessonDeliveriesController | perm: SYLLABUS_READ
-GET /me/push/public-key | PushSubscriptionsController | identity
-GET /me/push/subscriptions | PushSubscriptionsController | identity
+GET /me/push/public-key | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
+GET /me/push/subscriptions | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 GET /my-class/sections | MyClassController | perm: MY_CLASS_VIEW
-GET /onboarding/status | OnboardingController | identity
+GET /onboarding/status | OnboardingController | identity | roles: ADMIN,SUPER_ADMIN
 GET /payments | FeeController | perm: PAYMENT_READ
 GET /payments/:id | FeeController | perm: PAYMENT_READ
 GET /payments/cart | CheckoutController | perm: FEE_READ
@@ -196,10 +196,10 @@ GET /payments/student/:studentId | FeeController | perm: FEE_READ
 GET /performance/classes/:classId | PerformanceController | perm: MARK_VIEW
 GET /performance/staff/:userId | StaffPerformanceController | perm: ACR_READ
 GET /performance/students/:studentId | PerformanceController | perm: MARK_VIEW
-GET /platform/attention/health | PlatformAttentionHealthController | identity
-GET /platform/backups/health | PlatformBackupHealthController | identity
-GET /platform/holiday-sets | PublicHolidaysController | identity
-GET /platform/holiday-sets/:id | PublicHolidaysController | identity
+GET /platform/attention/health | PlatformAttentionHealthController | identity | roles: SUPER_ADMIN
+GET /platform/backups/health | PlatformBackupHealthController | identity | roles: SUPER_ADMIN
+GET /platform/holiday-sets | PublicHolidaysController | identity | roles: SUPER_ADMIN
+GET /platform/holiday-sets/:id | PublicHolidaysController | identity | roles: SUPER_ADMIN
 GET /presets | PresetsController | perm: CURRICULUM_PRESET_APPLY
 GET /presets/:id | PresetsController | perm: CURRICULUM_PRESET_APPLY
 GET /presets/status | PresetsController | perm: CURRICULUM_PRESET_APPLY
@@ -247,12 +247,12 @@ GET /routines/shifts/:id/period-slots/changeover-suggestion | ShiftsController |
 GET /routines/substitutions | SubstitutionsController | perm: ROUTINE_MANAGE
 GET /school-calendar/holidays | SchoolCalendarController | perm: ACADEMIC_STRUCTURE_READ
 GET /school-calendar/working-days | SchoolCalendarController | perm: CALENDAR_READ
-GET /schools | SchoolsController | identity
-GET /schools/:id/admins | SchoolAdminsController | identity
+GET /schools | SchoolsController | identity | roles: SUPER_ADMIN
+GET /schools/:id/admins | SchoolAdminsController | identity | roles: SUPER_ADMIN
 GET /schools/:id/logo | SchoolLogoController | identity
 GET /schools/:id/settings | SchoolsController | perm: SETTINGS_MANAGE
-GET /schools/:id/sms-credits | SchoolSmsCreditsController | identity
-GET /schools/:id/stats | SchoolsController | identity
+GET /schools/:id/sms-credits | SchoolSmsCreditsController | identity | roles: SUPER_ADMIN
+GET /schools/:id/stats | SchoolsController | identity | roles: SUPER_ADMIN
 GET /schools/me/profile | SchoolProfileController | identity
 GET /search | SearchController | perm: STUDENT_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
 GET /seat-plans | SeatPlansController | perm: SEAT_PLAN_MANAGE
@@ -305,16 +305,16 @@ GET /subjects | SubjectController | perm: ACADEMIC_STRUCTURE_READ
 GET /subjects/:id | SubjectController | perm: ACADEMIC_STRUCTURE_READ
 GET /surveys | SurveysController | perm: ACR_READ
 GET /surveys/:id | SurveysController | perm: ACR_READ
-GET /surveys/:id/results | SurveyResultsController | identity
-GET /surveys/mine | SurveyRespondController | identity
+GET /surveys/:id/results | SurveyResultsController | identity | roles: ADMIN,TEACHER
+GET /surveys/mine | SurveyRespondController | identity | roles: PARENT,STUDENT
 GET /syllabus-topics | SyllabusController | perm: SYLLABUS_READ
 GET /teachers | UserController | perm: ACADEMIC_STRUCTURE_READ
 GET /teachers/:teacherId/assignments | UserController | perm: ACADEMIC_STRUCTURE_READ
 GET /users | UserController | perm: USER_READ
 GET /users/:id | UserController | perm: USER_READ
 GET /users/invitations/batch/:batchId | UserController | perm: USER_CREATE
-GET /users/me | UserController | identity
-GET /users/me/preferences/notifications | UserController | identity
+GET /users/me | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
+GET /users/me/preferences/notifications | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 PATCH /academic-years/:id | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 PATCH /acr/assessments/:id | AcrAssessmentsController | perm: ACR_WRITE
 PATCH /admission-intakes/:id | IntakeController | perm: ADMISSION_REVIEW
@@ -341,10 +341,10 @@ PATCH /fees/generations/:id | FeeGenerationsController | perm: FEE_GENERATE
 PATCH /fees/schedules/:id | RecurringSchedulesController | perm: SCHEDULE_MANAGE
 PATCH /grading/scales/:id | GradingController | perm: GRADING_SCALE_MANAGE
 PATCH /guardians/:id | StudentController | perm: GUARDIAN_UPDATE
-PATCH /guardians/mine | StudentController | identity
+PATCH /guardians/mine | StudentController | identity | roles: PARENT
 PATCH /homework-assignments/:id | HomeworkController | perm: HOMEWORK_ASSIGN
 PATCH /homework-submissions/:id | HomeworkSubmissionController | perm: HOMEWORK_GRADE
-PATCH /onboarding | OnboardingController | identity
+PATCH /onboarding | OnboardingController | identity | roles: ADMIN,SUPER_ADMIN
 PATCH /print-jobs/:id/confirm | PrintJobActionsController | perm: DOCUMENT_PRINT
 PATCH /print-templates/:id | PrintTemplatesController | perm: PRINT_TEMPLATE_MANAGE
 PATCH /printers/:id | PrintersController | perm: PRINT_TEMPLATE_MANAGE
@@ -358,9 +358,9 @@ PATCH /routines/shifts/:id | ShiftsController | perm: ROUTINE_MANAGE
 PATCH /routines/slots/:slotId | RoutineSlotsController | perm: ROUTINE_MANAGE
 PATCH /school-calendar/holidays/:id | SchoolCalendarController | perm: ACADEMIC_YEAR_MANAGE
 PATCH /schools/:id/settings | SchoolsController | perm: SETTINGS_MANAGE
-PATCH /schools/:id/status | SchoolsController | identity
-PATCH /schools/:id/trial | SchoolsController | identity
-PATCH /schools/me/profile | SchoolProfileController | identity
+PATCH /schools/:id/status | SchoolsController | identity | roles: SUPER_ADMIN
+PATCH /schools/:id/trial | SchoolsController | identity | roles: SUPER_ADMIN
+PATCH /schools/me/profile | SchoolProfileController | identity | roles: ADMIN,SUPER_ADMIN
 PATCH /seat-plans/:id/allocations/:allocationId | SeatPlansController | perm: SEAT_PLAN_MANAGE
 PATCH /seat-plans/:id/rooms/:roomId/invigilator | SeatPlansController | perm: SEAT_PLAN_MANAGE
 PATCH /staff-hr-records/:id | StaffHrController | perm: STAFF_HR_MANAGE
@@ -375,8 +375,8 @@ PATCH /syllabus-topics/:id | SyllabusController | perm: SYLLABUS_MANAGE
 PATCH /syllabus-topics/reorder | SyllabusController | perm: SYLLABUS_MANAGE
 PATCH /teachers/:id | UserController | perm: USER_UPDATE
 PATCH /users/:id | UserController | perm: USER_UPDATE
-PATCH /users/me | UserController | identity
-PATCH /users/me/preferences/notifications | UserController | identity
+PATCH /users/me | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
+PATCH /users/me/preferences/notifications | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 POST /academic-years | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 POST /academic-years/:id/set-current | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 POST /account/first-password | FirstPasswordController | allowlist: AuthGuard('jwt')
@@ -499,13 +499,13 @@ POST /invoices/:id/send | InvoicesController | perm: INVOICE_READ | roles: ACCOU
 POST /invoices/:id/share | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
 POST /lesson-deliveries/extra | LessonDeliveriesController | perm: SYLLABUS_MANAGE
 POST /lesson-deliveries/today-all-taught | LessonDeliveriesController | perm: SYLLABUS_MANAGE
-POST /me/push/subscriptions | PushSubscriptionsController | identity
+POST /me/push/subscriptions | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 POST /payments/:id/reverse | CheckoutController | perm: PAYMENT_REVERSE | approval: payments.reverse
 POST /payments/checkout | CheckoutController | perm: PAYMENT_RECORD
-POST /platform/holiday-sets/:id/publish | PublicHolidaysController | identity
-POST /platform/holiday-sets/:id/unpublish | PublicHolidaysController | identity
-POST /platform/holiday-sets/fetch | PublicHolidaysController | identity
-POST /platform/schools/:id/preset/reset | PlatformPresetsController | identity
+POST /platform/holiday-sets/:id/publish | PublicHolidaysController | identity | roles: SUPER_ADMIN
+POST /platform/holiday-sets/:id/unpublish | PublicHolidaysController | identity | roles: SUPER_ADMIN
+POST /platform/holiday-sets/fetch | PublicHolidaysController | identity | roles: SUPER_ADMIN
+POST /platform/schools/:id/preset/reset | PlatformPresetsController | identity | roles: SUPER_ADMIN
 POST /presets/apply | PresetApplyController | perm: CURRICULUM_PRESET_APPLY
 POST /print-assets | PrintAssetsController | perm: PRINT_TEMPLATE_MANAGE
 POST /print-assets/:id/archive | PrintAssetsController | perm: PRINT_TEMPLATE_MANAGE
@@ -539,12 +539,12 @@ POST /routines/shifts | ShiftsController | perm: ROUTINE_MANAGE
 POST /routines/slots/:slotId/change-requests | ChangeRequestsController | perm: ROUTINE_READ | roles: TEACHER
 POST /routines/substitutions | SubstitutionsController | perm: ROUTINE_MANAGE
 POST /school-calendar/holidays | SchoolCalendarController | perm: ACADEMIC_YEAR_MANAGE
-POST /schools | ProvisioningController | identity
-POST /schools/:id/admins | SchoolAdminsController | identity
-POST /schools/:id/admins/:userId/resend-invitation | SchoolAdminsController | identity
+POST /schools | ProvisioningController | identity | roles: SUPER_ADMIN
+POST /schools/:id/admins | SchoolAdminsController | identity | roles: SUPER_ADMIN
+POST /schools/:id/admins/:userId/resend-invitation | SchoolAdminsController | identity | roles: SUPER_ADMIN
 POST /schools/:id/settings/test | ProviderConnectionTestController | perm: SETTINGS_MANAGE
-POST /schools/:id/sms-credits | SchoolSmsCreditsController | identity
-POST /schools/me/logo | SchoolLogoController | identity
+POST /schools/:id/sms-credits | SchoolSmsCreditsController | identity | roles: SUPER_ADMIN
+POST /schools/me/logo | SchoolLogoController | identity | roles: ADMIN,SUPER_ADMIN
 POST /seat-plans/:id/publish | SeatPlansController | perm: SEAT_PLAN_MANAGE
 POST /seat-plans/:id/rooms/:roomId/reshuffle | SeatPlansController | perm: SEAT_PLAN_MANAGE
 POST /seat-plans/generate | SeatPlansController | perm: SEAT_PLAN_MANAGE
@@ -573,7 +573,7 @@ POST /subjects | SubjectController | perm: CLASS_MANAGE
 POST /surveys | SurveysController | perm: ACR_WRITE
 POST /surveys/:id/close | SurveysController | perm: ACR_WRITE
 POST /surveys/:id/publish | SurveysController | perm: ACR_WRITE
-POST /surveys/:id/respond | SurveyRespondController | identity
+POST /surveys/:id/respond | SurveyRespondController | identity | roles: PARENT,STUDENT
 POST /syllabus-topics | SyllabusController | perm: SYLLABUS_MANAGE
 POST /teachers | UserController | perm: USER_CREATE
 POST /users | UserController | perm: USER_CREATE
@@ -584,15 +584,15 @@ POST /users/bulk-upload/commit | StaffBulkUploadController | perm: USER_CREATE
 POST /users/bulk-upload/validate | StaffBulkUploadController | perm: USER_CREATE
 POST /users/invitations/batch | UserController | perm: USER_CREATE
 POST /users/invitations/preview | UserController | perm: USER_CREATE
-POST /users/me/contact-change | UserController | identity
-POST /users/me/contact-change/confirm-phone | UserController | identity
-POST /users/me/leave | UserController | identity
+POST /users/me/contact-change | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
+POST /users/me/contact-change/confirm-phone | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
+POST /users/me/leave | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 PUT /acr/criteria | AcrCriteriaController | perm: ACR_WRITE
 PUT /attendance/sections/:sectionId/register | AttendanceController | perm: ATTENDANCE_MARK
 PUT /attendance/sections/:sectionId/register-matrix | AttendanceController | perm: ATTENDANCE_MARK
 PUT /leave/policies/:type | LeaveController | perm: LEAVE_APPROVE
 PUT /lesson-deliveries | LessonDeliveriesController | perm: SYLLABUS_MANAGE
-PUT /platform/holiday-sets/:id/entries | PublicHolidaysController | identity
+PUT /platform/holiday-sets/:id/entries | PublicHolidaysController | identity | roles: SUPER_ADMIN
 PUT /programs/:id/milestones/order | ProgramsController | perm: PROGRAM_MANAGE
 PUT /routines/shifts/:id/period-slots | ShiftsController | perm: ROUTINE_MANAGE
 PUT /staff-attendance/register | StaffAttendanceController | perm: STAFF_ATTENDANCE_MARK
