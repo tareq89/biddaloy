@@ -816,6 +816,12 @@ describe('Attendance E2E', () => {
       await patch(bRecord, 'PRESENT').expect(404);
       expect(await logCount()).toBe(0);
 
+      // The notice must have reached the guardian: there is no SMS gateway
+      // here, so the worker marks it FAILED, and a failed notice is never
+      // "corrected" (#2262). Simulate delivery.
+      await dataSource.query(`UPDATE communication_logs SET status = 'SENT' WHERE tenant_id = $1`, [
+        TENANT_ID,
+      ]);
       await patch(recordId, 'PRESENT').expect(200);
       expect(await logCount()).toBe(1);
       expect(await logCount(guardianId)).toBe(1);

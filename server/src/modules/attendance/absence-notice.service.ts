@@ -578,7 +578,7 @@ export class AbsenceNoticeService {
     // One key per message in this child's thread (FAILED ones included, so a
     // retry after a failure gets a fresh key): two racing corrections that
     // both decided to send share a key, and the unique index lets one through.
-    const keyPrefix = `absence-told:${sessionId}:${studentId}:${batches + 1}`;
+    const keyPrefix = `absence-correction:${sessionId}:${studentId}:${batches + 1}`;
 
     const { sectionName, schoolName } = await this.loadSectionContext(tenantId, session.section_id);
     const { recipients, template } = await this.resolveAbsentees(
