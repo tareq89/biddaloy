@@ -23,6 +23,7 @@ import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { School } from '../schools/entities/school.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { UserIdentity } from '../auth/entities/user-identity.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import { RefreshTokenService } from '../auth/refresh-token.service';
@@ -339,6 +340,59 @@ describe('RecoveryService (integration)', () => {
       expect(logs[0].medium).toBe(CommunicationMedium.EMAIL);
       expect(logs[0].recipient_address).toBe('verified@example.com');
       void user;
+    });
+  });
+
+  describe('[GAP-04] reset removes linked social identities', () => {
+    const idAudits = () =>
+      dataSource.getRepository(AuditLog).find({ where: { entity_type: 'UserIdentity' } });
+    const link = (user_id: string, subject: string) =>
+      dataSource.getRepository(UserIdentity).save({ user_id, provider: 'google', subject } as any);
+
+    it('link reset deletes identities and audits one DELETE row each', async () => {
+      const user = await createMember({ email: 'gap04@example.com', phone: null });
+      const other = await createMember({ email: 'other04@example.com', phone: null });
+      await link(user.id, 'g-1');
+      await link(other.id, 'g-2');
+      const { debug } = await service.forgot('gap04@example.com', context);
+      await service.reset(
+        { new_password: 'A-new-strong-password1', token: debug!.token! },
+        context,
+      );
+
+      expect(
+        await dataSource.getRepository(UserIdentity).count({ where: { user_id: user.id } }),
+      ).toBe(0);
+      expect(
+        await dataSource.getRepository(UserIdentity).count({ where: { user_id: other.id } }),
+      ).toBe(1);
+      const rows = await idAudits();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].action).toBe(AuditAction.DELETE);
+      expect(rows[0].old_values).toMatchObject({ provider: 'google', reason: 'password_reset' });
+    });
+
+    it('OTP reset also removes identities', async () => {
+      const user = await createMember({ email: null, phone: '01733333333' });
+      await link(user.id, 'g-3');
+      const { debug } = await service.forgot('01733333333', context);
+      await service.reset(
+        { new_password: 'A-new-strong-password1', phone: user.phone!, otp: debug!.otp! },
+        context,
+      );
+      expect(
+        await dataSource.getRepository(UserIdentity).count({ where: { user_id: user.id } }),
+      ).toBe(0);
+    });
+
+    it('no identities -> no UserIdentity audit row', async () => {
+      await createMember({ email: 'none04@example.com', phone: null });
+      const { debug } = await service.forgot('none04@example.com', context);
+      await service.reset(
+        { new_password: 'A-new-strong-password1', token: debug!.token! },
+        context,
+      );
+      expect(await idAudits()).toHaveLength(0);
     });
   });
 

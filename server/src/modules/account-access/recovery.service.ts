@@ -14,6 +14,7 @@ import { AuditAction, AuthTokenPurpose, CommunicationMedium, UserStatus } from '
 import { User } from '../users/entities/user.entity';
 import { countOtherMemberships } from '../users/users.service';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { UserIdentity } from '../auth/entities/user-identity.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService, AuthResult } from '../auth/auth.service';
 import { RefreshTokenService, RequestContext } from '../auth/refresh-token.service';
@@ -54,6 +55,8 @@ export class RecoveryService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserTenant)
     private readonly userTenantRepo: Repository<UserTenant>,
+    @InjectRepository(UserIdentity)
+    private readonly identityRepo: Repository<UserIdentity>,
     private readonly otpService: OtpService,
     private readonly authTokens: AuthTokenService,
     private readonly delivery: AccountAccessDeliveryService,
@@ -440,6 +443,27 @@ export class RecoveryService {
 
     await this.refreshTokens.revokeAllForUser(user.id);
     await this.authService.resetLoginLockouts(user);
+
+    // GAP-04: a linked Google/Facebook sign-in outlives a reset otherwise.
+    const { raw } = await this.identityRepo
+      .createQueryBuilder()
+      .delete()
+      .where({ user_id: user.id })
+      .returning(['id', 'provider'])
+      .execute();
+    const tenantId = await this.authService.primaryTenantId(user.id);
+    for (const row of raw as Array<{ id: string; provider: string }>) {
+      await this.auditService.record({
+        action: AuditAction.DELETE,
+        entity_type: 'UserIdentity',
+        entity_id: row.id,
+        tenant_id: tenantId,
+        performed_by_user_id: audit.performedByUserId,
+        ip_address: context.ip,
+        user_agent: context.userAgent,
+        old_values: { provider: row.provider, reason: 'password_reset' },
+      });
+    }
 
     await this.auditService.record({
       action: audit.action,
