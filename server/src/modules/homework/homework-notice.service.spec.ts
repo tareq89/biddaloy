@@ -96,6 +96,27 @@ describe('HomeworkNoticeService', () => {
 
       expect(smsCredit.releaseForLog).toHaveBeenCalledWith(TENANT, 'log-1', 1);
     });
+
+    it('a reserve that throws fails that log CREDIT_RESERVE_FAILED and still notifies the next guardian', async () => {
+      studentRepo.find.mockResolvedValue([
+        student({ id: 's-1', guardians: [guardian({ id: 'g-1' })] }),
+        student({ id: 's-2', guardians: [guardian({ id: 'g-2', phone: '01799999999' })] }),
+      ]);
+      smsCredit.reserveForLog.mockRejectedValueOnce(new Error('db down')).mockResolvedValueOnce({});
+
+      await service.notifyAssignment(ASSIGNMENT as any, HOMEWORK as any);
+
+      // Never left QUEUED with no job behind it.
+      expect(logRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          guardian_id: 'g-1',
+          status: CommunicationStatus.FAILED,
+          metadata: expect.objectContaining({ reason: 'CREDIT_RESERVE_FAILED' }),
+        }),
+      );
+      // The loop went on to the second guardian.
+      expect(queue.add).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('notifyAssignment', () => {

@@ -9,3 +9,7 @@
  * exception's `details` key verbatim in the response body.
  */
 export const INSUFFICIENT_SMS_CREDIT = 'INSUFFICIENT_SMS_CREDIT';
+
+/** [#2216] `metadata.reason` on a log whose credit reservation threw (DB
+ * error, settings lookup) — the log is failed rather than left QUEUED. */
+export const CREDIT_RESERVE_FAILED = 'CREDIT_RESERVE_FAILED';

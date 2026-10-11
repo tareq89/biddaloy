@@ -7,7 +7,12 @@ import {
 } from './absence-notice.service';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { Student } from '../students/entities/student.entity';
-import { AttendanceSessionState, AttendanceStatus, CommunicationMedium } from '@biddaloy/shared';
+import {
+  AttendanceSessionState,
+  AttendanceStatus,
+  CommunicationMedium,
+  CommunicationStatus,
+} from '@biddaloy/shared';
 
 const TENANT = 'tenant-1';
 const SECTION = 'section-1';
@@ -57,6 +62,7 @@ describe('AbsenceNoticeService', () => {
   let dataSource: any;
   let auditService: any;
   let schoolsService: any;
+  let smsCreditService: any;
   let service: AbsenceNoticeService;
 
   const finalizedSession = {
@@ -95,6 +101,8 @@ describe('AbsenceNoticeService', () => {
     };
     auditService = { record: vi.fn(async () => undefined) };
     schoolsService = {};
+    // Unmetered by default: reserveForLog returns no extra job data.
+    smsCreditService = { reserveForLog: vi.fn(async () => ({})), releaseForLog: vi.fn() };
 
     service = new AbsenceNoticeService(
       sessionRepo,
@@ -107,6 +115,7 @@ describe('AbsenceNoticeService', () => {
       dataSource,
       auditService,
       schoolsService,
+      smsCreditService,
     );
   });
 
@@ -299,6 +308,48 @@ describe('AbsenceNoticeService', () => {
 
       expect(skipped).toHaveLength(1);
     });
+  });
+
+  // [#2216] A throwing reserve must not strand a QUEUED log or abort the batch.
+  it('a reserve that throws fails that log CREDIT_RESERVE_FAILED, counts a batch failure, and still queues the next guardian', async () => {
+    recordRepo.find = vi.fn(async () => [
+      record({ id: 'r1', student_id: 's-1' }),
+      record({ id: 'r2', student_id: 's-2' }),
+    ]);
+    studentRepo.find = vi.fn(async () => [
+      student({ id: 's-1', guardians: [guardian({ id: 'g-1' })] }),
+      student({ id: 's-2', guardians: [guardian({ id: 'g-2', phone: '01799999999' })] }),
+    ]);
+    const { recipients } = await service.buildRecipients({
+      tenantId: TENANT,
+      sectionId: SECTION,
+      date: DATE,
+    });
+    expect(recipients).toHaveLength(2);
+
+    let n = 0;
+    const txManager = { save: vi.fn(async (v: any) => v), query: vi.fn(async () => undefined) };
+    logRepo.create = vi.fn((v: any) => v);
+    logRepo.save = vi.fn(async (v: any) => ({ ...v, id: `log-${++n}` }));
+    logRepo.manager = { transaction: vi.fn(async (fn: any) => fn(txManager)) };
+    smsCreditService.reserveForLog
+      .mockRejectedValueOnce(new Error('db down'))
+      .mockResolvedValueOnce({});
+
+    await (service as any).queueRecipients({ id: 'batch-1' }, recipients, TENANT, 'user-1');
+
+    // First guardian: log failed (not left QUEUED) and the batch counter moved.
+    expect(txManager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'log-1',
+        status: CommunicationStatus.FAILED,
+        metadata: expect.objectContaining({ reason: 'CREDIT_RESERVE_FAILED' }),
+      }),
+    );
+    expect(txManager.query).toHaveBeenCalledWith(expect.any(String), ['batch-1', 0, 1]);
+    // Second guardian: still queued.
+    expect(queue.add).toHaveBeenCalledTimes(1);
+    expect(queue.add).toHaveBeenCalledWith('send', { logId: 'log-2' });
   });
 
   it('renders the default template with the resolved vars', () => {
