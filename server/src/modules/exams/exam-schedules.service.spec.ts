@@ -42,6 +42,7 @@ async function buildService(
     existingSchedules?: ExamSchedule[];
     componentSubjectIds?: string[];
     scheduledSubjectIds?: string[];
+    inPublishedSeatPlan?: boolean;
   } = {},
 ) {
   const examRepo: any = {
@@ -73,7 +74,13 @@ async function buildService(
     }),
   };
   scheduleRepo.manager = {
-    transaction: vi.fn(async (cb: any) => cb({ getRepository: () => scheduleRepo })),
+    transaction: vi.fn(async (cb: any) =>
+      cb({
+        getRepository: () => scheduleRepo,
+        // the published-seat-plan guard's raw SELECT
+        query: vi.fn(async () => (opts.inPublishedSeatPlan ? [{ '?column?': 1 }] : [])),
+      }),
+    ),
   };
 
   const componentRepo: any = {
@@ -246,5 +253,48 @@ describe('ExamSchedulesService visibility rule (issue rule #5)', () => {
 
     const rows = await service.listForFamily(EXAM_ID, TENANT_ID);
     expect(rows).toEqual([]);
+  });
+});
+
+describe('ExamSchedulesService published seat-plan guard [68.3.12]', () => {
+  const existing = [scheduleRow()];
+
+  it('refuses to move a sitting that is in a PUBLISHED seat plan', async () => {
+    const { service, scheduleRepo } = await buildService({
+      existingSchedules: existing,
+      inPublishedSeatPlan: true,
+    });
+    await expect(
+      service.update(EXAM_ID, 'sched-1', { date: '2026-02-06' } as any, TENANT_ID),
+    ).rejects.toMatchObject({
+      response: { details: { code: 'SITTING_IN_PUBLISHED_SEAT_PLAN' } },
+    });
+    expect(scheduleRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('still allows a venue-only edit on a sitting in a PUBLISHED plan', async () => {
+    const { service, scheduleRepo } = await buildService({
+      existingSchedules: existing,
+      inPublishedSeatPlan: true,
+    });
+    await service.update(EXAM_ID, 'sched-1', { venue: 'Hall B' } as any, TENANT_ID);
+    expect(scheduleRepo.update).toHaveBeenCalled();
+  });
+
+  it('lets a sitting in a DRAFT plan (or no plan) move', async () => {
+    const { service, scheduleRepo } = await buildService({ existingSchedules: existing });
+    await service.update(EXAM_ID, 'sched-1', { date: '2026-02-06' } as any, TENANT_ID);
+    expect(scheduleRepo.update).toHaveBeenCalled();
+  });
+
+  it('refuses to delete a sitting that is in a PUBLISHED seat plan', async () => {
+    const { service, scheduleRepo } = await buildService({
+      existingSchedules: existing,
+      inPublishedSeatPlan: true,
+    });
+    await expect(service.remove(EXAM_ID, 'sched-1', TENANT_ID)).rejects.toMatchObject({
+      response: { details: { code: 'SITTING_IN_PUBLISHED_SEAT_PLAN' } },
+    });
+    expect(scheduleRepo.softDelete).not.toHaveBeenCalled();
   });
 });

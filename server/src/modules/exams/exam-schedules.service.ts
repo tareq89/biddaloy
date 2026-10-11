@@ -6,7 +6,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, QueryFailedError, Not } from 'typeorm';
+import { EntityManager, Repository, IsNull, QueryFailedError, Not } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
 import { ExamSchedule } from './entities/exam-schedule.entity';
 import { Exam } from './entities/exam.entity';
@@ -223,6 +223,9 @@ export class ExamSchedulesService {
       try {
         await this.repo.manager.transaction(async (manager) => {
           const repo = manager.getRepository(ExamSchedule);
+          if (['date', 'starts_at', 'ends_at', 'room_id'].some((k) => k in dto)) {
+            await this.assertNotInPublishedSeatPlan(manager, id, tenantId);
+          }
           const oldValues = Object.fromEntries(
             changedKeys.map((key) => [key, (existing as any)[key]]),
           );
@@ -267,6 +270,7 @@ export class ExamSchedulesService {
 
     await this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(ExamSchedule);
+      await this.assertNotInPublishedSeatPlan(manager, id, tenantId);
       await repo.softDelete({ id, tenant_id: tenantId });
 
       await this.auditService.record(
@@ -284,6 +288,28 @@ export class ExamSchedulesService {
         manager,
       );
     });
+  }
+
+  /** [68.3.12] A sitting covered by a PUBLISHED seat plan is frozen until the plan is unpublished. */
+  private async assertNotInPublishedSeatPlan(
+    manager: EntityManager,
+    scheduleId: string,
+    tenantId: string,
+  ): Promise<void> {
+    // Raw SQL keeps ExamsModule free of seat-plan imports.
+    const rows = await manager.query(
+      `SELECT 1 FROM seat_plan_schedules sps
+         JOIN seat_plans sp ON sp.id = sps.seat_plan_id AND sp.tenant_id = $2 AND sp.deleted_at IS NULL
+        WHERE sps.tenant_id = $2 AND sps.exam_schedule_id = $1 AND sps.deleted_at IS NULL
+          AND sp.status = 'PUBLISHED' LIMIT 1`,
+      [scheduleId, tenantId],
+    );
+    if (rows.length > 0) {
+      throw new ConflictException({
+        message: 'This sitting is in a published seat plan. Unpublish the plan first.',
+        details: { code: 'SITTING_IN_PUBLISHED_SEAT_PLAN' },
+      });
+    }
   }
 
   private async findOneOrThrow(

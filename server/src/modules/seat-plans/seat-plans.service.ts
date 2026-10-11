@@ -7,6 +7,7 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, QueryFailedError, Repository } from 'typeorm';
 import { EnrollmentStatus, SeatOrderMode, SeatPlanStatus } from '@biddaloy/shared';
+import { todayInSchoolTz } from '../../common/time';
 import { SeatPlan } from './entities/seat-plan.entity';
 import { SeatPlanSchedule } from './entities/seat-plan-schedule.entity';
 import { SeatAllocation } from './entities/seat-allocation.entity';
@@ -172,7 +173,7 @@ export class SeatPlansService {
         'sp.id AS seat_plan_id',
         'a.room_id AS room_id',
         'a.exam_schedule_id AS exam_schedule_id',
-        'es.date AS date',
+        'es.date::text AS date',
         'es.starts_at AS starts_at',
         'es.ends_at AS ends_at',
       ])
@@ -707,7 +708,7 @@ export class SeatPlansService {
           'sp.id AS seat_plan_id',
           'a.room_id AS room_id',
           'a.exam_schedule_id AS exam_schedule_id',
-          'es.date AS date',
+          'es.date::text AS date',
           'es.starts_at AS starts_at',
           'es.ends_at AS ends_at',
         ])
@@ -756,6 +757,64 @@ export class SeatPlansService {
         order: { room_id: 'ASC', seat_number: 'ASC' },
       });
       return this.mapPlanDetail(publishedPlan, detailAllocations);
+    });
+  }
+
+  /** [68.3.12] PUBLISHED -> DRAFT, only before the plan's first sitting. */
+  async unpublish(tenantId: string, planId: string) {
+    return this.dataSource.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [
+        tenantId,
+        PUBLISH_LOCK_NAMESPACE,
+      ]);
+
+      const plan = await manager.findOne(SeatPlan, { where: { tenant_id: tenantId, id: planId } });
+      if (!plan) throw new NotFoundException('Seat plan not found');
+      if (plan.status !== SeatPlanStatus.PUBLISHED) {
+        throw new ConflictException({
+          message: 'Seat plan is not published',
+          details: { code: 'SEAT_PLAN_NOT_PUBLISHED' },
+        });
+      }
+
+      const planSchedules = await manager.find(SeatPlanSchedule, {
+        where: { tenant_id: tenantId, seat_plan_id: planId },
+      });
+      const schedules = await manager.find(ExamSchedule, {
+        where: { tenant_id: tenantId, id: In(planSchedules.map((s) => s.exam_schedule_id)) },
+      });
+      const firstDate = schedules.map((s) => String(s.date).slice(0, 10)).sort()[0];
+      if (firstDate && todayInSchoolTz() >= firstDate) {
+        throw new ConflictException({
+          message: 'The first sitting of this plan has started. It can no longer be changed.',
+          details: { code: 'SEAT_PLAN_SITTING_STARTED' },
+        });
+      }
+
+      plan.status = SeatPlanStatus.DRAFT;
+      plan.published_at = null;
+      const saved = await manager.save(SeatPlan, plan);
+
+      const detailAllocations = await manager.getRepository(SeatAllocation).find({
+        where: { tenant_id: tenantId, seat_plan_id: planId },
+        relations: {
+          student: { class_section: true },
+          room: true,
+          exam_schedule: { subject: true },
+          invigilator: true,
+        },
+        order: { room_id: 'ASC', seat_number: 'ASC' },
+      });
+      return this.mapPlanDetail(saved, detailAllocations);
+    });
+  }
+
+  /** [68.3.12] Soft-delete a DRAFT plan and its sitting links, freeing the sittings (D6). */
+  async remove(tenantId: string, planId: string): Promise<void> {
+    await this.getDraftPlanOrThrow(tenantId, planId);
+    await this.dataSource.transaction(async (manager) => {
+      await manager.softDelete(SeatPlanSchedule, { tenant_id: tenantId, seat_plan_id: planId });
+      await manager.softDelete(SeatPlan, { tenant_id: tenantId, id: planId });
     });
   }
 }

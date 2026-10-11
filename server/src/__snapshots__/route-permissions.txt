@@ -37,6 +37,7 @@ DELETE /routines/slots/:slotId | RoutineSlotsController | perm: ROUTINE_MANAGE
 DELETE /school-calendar/holidays/:id | SchoolCalendarController | perm: ACADEMIC_YEAR_MANAGE
 DELETE /schools/:id/admins/:userId/invitation | SchoolAdminsController | identity | roles: SUPER_ADMIN
 DELETE /schools/me/logo | SchoolLogoController | identity | roles: ADMIN,SUPER_ADMIN
+DELETE /seat-plans/:id | SeatPlansController | perm: SEAT_PLAN_MANAGE
 DELETE /students/:id | StudentController | perm: STUDENT_DELETE
 DELETE /students/:id/notes/:noteId | StudentNotesController | perm: STUDENT_NOTES_WRITE
 DELETE /students/:id/public-exams/:examId | StudentPublicExamsController | perm: STUDENT_RECORDS_WRITE
@@ -552,6 +553,7 @@ POST /schools/:id/sms-credits | SchoolSmsCreditsController | identity | roles: S
 POST /schools/me/logo | SchoolLogoController | identity | roles: ADMIN,SUPER_ADMIN
 POST /seat-plans/:id/publish | SeatPlansController | perm: SEAT_PLAN_MANAGE
 POST /seat-plans/:id/rooms/:roomId/reshuffle | SeatPlansController | perm: SEAT_PLAN_MANAGE
+POST /seat-plans/:id/unpublish | SeatPlansController | perm: SEAT_PLAN_MANAGE
 POST /seat-plans/generate | SeatPlansController | perm: SEAT_PLAN_MANAGE
 POST /staff-documents/:staffUserId/:documentType | StaffDocumentController | perm: STAFF_HR_MANAGE
 POST /staff-hr-records | StaffHrController | perm: STAFF_HR_MANAGE
