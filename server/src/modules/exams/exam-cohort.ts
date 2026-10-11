@@ -89,7 +89,8 @@ export async function loadExamCohort(
   // No schedule and no term: the sitting date is unknown. Marks are only
   // ever written after the sitting, so the first mark write is a safe
   // stand-in — anyone enrolled after that day joined late and needs marks
-  // of their own. created_at, not updated_at: a grid re-save must not move it. No marks at all: nobody can be told apart, so nobody is late.
+  // of their own. created_at, not updated_at: a grid re-save must not move it.
+  // No marks at all: nobody can be told apart, so nobody is late.
   const firstMarkAt = marks.reduce<number | null>((min, m) => {
     const t = new Date(m.first_mark_at).getTime();
     return min === null || t < min ? t : min;
