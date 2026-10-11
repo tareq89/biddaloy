@@ -8,6 +8,7 @@ import {
   countOtherMemberships,
   reviveMembership,
 } from '../../../users/users.service';
+import { insertJoinRequest } from '../../../account-access/school-invite.service';
 import { fromCell } from '../../codec/cell-format';
 import type {
   ColumnSpec,
@@ -289,6 +290,25 @@ export const usersTab: TabSpec<User, UserRow> = {
     let user =
       existing ?? (row.email ? await m.findOne(User, { where: { email: row.email } }) : null);
     user = user ?? (row.phone ? await m.findOne(User, { where: { phone: row.phone } }) : null);
+
+    if (user && !existing) {
+      // Found by email/phone, not through this school's own rows. If it has
+      // never belonged here, a workbook cannot make it a member (AUTH-02): file
+      // a join request the account owner can accept, and leave the account alone.
+      const everHere = await m.exists(UserTenant, {
+        where: { user_id: user.id, tenant_id: tenantId },
+        withDeleted: true,
+      });
+      if (!everHere) {
+        await insertJoinRequest(m, {
+          userId: user.id,
+          tenantId,
+          role: row.role,
+          createdByUserId: null,
+        });
+        return user;
+      }
+    }
 
     if (user) {
       // Same rule as the admin edit path (`UsersService.update`), so the two cannot drift.

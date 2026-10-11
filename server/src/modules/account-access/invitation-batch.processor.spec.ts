@@ -3,12 +3,15 @@ import { DelayedError, type Job } from 'bullmq';
 import { InvitationBatchProcessor } from './invitation-batch.processor';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { reviveMembership } from '../users/users.service';
+import { insertJoinRequest } from './school-invite.service';
 import type { InvitationBatchJobData } from './guardian-provisioning.service';
 
 vi.mock('../users/users.service', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../users/users.service')>()),
   reviveMembership: vi.fn(async () => 1),
 }));
+
+vi.mock('./school-invite.service', () => ({ insertJoinRequest: vi.fn(async () => ({})) }));
 
 function fakeManagerQueryBuilder(result: { one?: unknown | null }) {
   const qb: any = {
@@ -209,5 +212,44 @@ describe('InvitationBatchProcessor', () => {
     // The unique index ignores soft-deletion, so an insert would fail with 23505.
     expect(reviveMembership).toHaveBeenCalledWith(txManager, 'ut-old');
     expect(membershipRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('[68.1.2218] a verified user with no membership here gets a join request, no INVITE', async () => {
+    guardianRepo.findOne.mockResolvedValue({
+      id: 'g1',
+      tenant_id: TENANT,
+      user_id: null,
+      email: 'owner@example.com',
+    });
+    const verifiedUser = { id: 'u9', password_hash: 'hash' };
+    const userTenantStub = { findOne: vi.fn().mockResolvedValue(null), save: vi.fn() };
+    let txManager: unknown;
+    dataSource.transaction = vi.fn(async (cb: (manager: any) => Promise<unknown>) => {
+      const manager = {
+        getRepository: (entity: unknown) =>
+          entity === UserTenant
+            ? userTenantStub
+            : {
+                findOne: vi.fn(),
+                createQueryBuilder: () => fakeManagerQueryBuilder({ one: verifiedUser }),
+                update: vi.fn(),
+                save: vi.fn(),
+              },
+      };
+      txManager = manager;
+      return cb(manager);
+    });
+
+    await processor.process(job());
+
+    expect(insertJoinRequest).toHaveBeenCalledWith(txManager, {
+      userId: 'u9',
+      tenantId: TENANT,
+      role: 'PARENT',
+      guardianId: 'g1',
+      createdByUserId: 'admin-1',
+    });
+    expect(userTenantStub.save).not.toHaveBeenCalled();
+    expect(invitationService.issueAndSend).not.toHaveBeenCalled();
   });
 });
