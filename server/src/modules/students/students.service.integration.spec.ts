@@ -29,6 +29,7 @@ import {
   Permission,
   UserRole,
   roleHasPermission,
+  WalletTransactionKind,
 } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
@@ -1423,6 +1424,51 @@ describe('StudentService (integration)', () => {
         }
         expect(await removal).toBeInstanceOf(ConflictException);
         expect((await studentRepo.findOne({ where: { id } }))?.deleted_at).toBeNull();
+      });
+
+      // Review r2 #1: checkout and payment reversal lock the bills, then move
+      // wallet money. remove locks the student, then the bills. If moving money
+      // on an existing wallet also locked the student, the two would deadlock
+      // (40P01) and one side would fail with a 500.
+      it('a delete racing a checkout that holds the bills and credits an existing wallet does not deadlock', async () => {
+        const id = await newStudent();
+        await addBill(id, FeeStatus.PENDING);
+        await dataSource.query(
+          `INSERT INTO student_wallets (tenant_id, student_id, balance) VALUES ($1, $2, 0)`,
+          [TENANT_ID, id],
+        );
+        const qr = dataSource.createQueryRunner();
+        await qr.startTransaction();
+        let removal: Promise<unknown> | undefined;
+        let credited: unknown;
+        try {
+          // Stand-in for CheckoutService: the bills are locked first.
+          await qr.query(`SELECT 1 FROM student_fees WHERE student_id = $1 FOR UPDATE`, [id]);
+          removal = service.remove(id, TENANT_ID, actorId, NO_CTX).catch((e) => e);
+          // remove now holds the student lock and waits on the bill.
+          await new Promise((r) => setTimeout(r, 300));
+          credited = await walletService
+            .credit(
+              {
+                studentId: id,
+                tenantId: TENANT_ID,
+                amount: 50,
+                kind: WalletTransactionKind.CREDIT_CHANGE,
+              },
+              qr.manager,
+            )
+            .then(
+              () => 'ok',
+              (e) => e,
+            );
+          if (credited === 'ok') await qr.commitTransaction();
+        } finally {
+          if (qr.isTransactionActive) await qr.rollbackTransaction();
+          await qr.release();
+        }
+        expect(credited).toBe('ok');
+        // The bill is still open, so the delete refuses once checkout commits.
+        expect(await removal).toBeInstanceOf(ConflictException);
       });
 
       it('does not block on a soft-deleted open bill', async () => {

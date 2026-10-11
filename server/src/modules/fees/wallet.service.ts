@@ -68,16 +68,36 @@ export class WalletService {
     tenantId: string,
     manager: EntityManager,
   ): Promise<StudentWallet> {
-    // FOR SHARE until commit: conflicts with StudentService.remove's student
-    // lock, so a delete either waits for this wallet or, if it went first,
-    // this re-reads the row as deleted and refuses (review r1 #5).
+    const lockWallet = () =>
+      manager
+        .getRepository(StudentWallet)
+        .createQueryBuilder('wallet')
+        .where('wallet.student_id = :studentId', { studentId })
+        .andWhere('wallet.tenant_id = :tenantId', { tenantId })
+        .setLock('pessimistic_write')
+        .getOne();
+
+    // Wallet row first. StudentService.remove locks the student, then bills,
+    // then this row FOR UPDATE, so holding it already keeps a delete out, and
+    // a plain read below sees a delete that committed first. Callers lock
+    // bills before moving money; locking the student here too would invert
+    // remove's order and deadlock (review r2 #1).
+    const existing = await lockWallet();
+
+    // No wallet yet: an INSERT takes only KEY SHARE on the student, which
+    // never waits for remove. FOR SHARE does: a delete waits for this new
+    // wallet, or, if it went first, the row re-reads as deleted (review r1 #5).
+    // ponytail: a checkout that credits change to a student's first-ever
+    // wallet still locks bills then student, so it can deadlock a concurrent
+    // delete of that student (40P01, rolled back). Rare; retry-on-40P01 if seen.
     const student = await manager.getRepository(Student).findOne({
       where: { id: studentId, tenant_id: tenantId },
-      lock: { mode: 'pessimistic_read' },
+      ...(existing ? {} : { lock: { mode: 'pessimistic_read' as const } }),
     });
     if (!student) {
       throw new BadRequestException('Student not found for this tenant');
     }
+    if (existing) return existing;
 
     await manager.query(
       `INSERT INTO "student_wallets" ("student_id", "tenant_id") VALUES ($1, $2)
@@ -85,13 +105,7 @@ export class WalletService {
       [studentId, tenantId],
     );
 
-    const wallet = await manager
-      .getRepository(StudentWallet)
-      .createQueryBuilder('wallet')
-      .where('wallet.student_id = :studentId', { studentId })
-      .andWhere('wallet.tenant_id = :tenantId', { tenantId })
-      .setLock('pessimistic_write')
-      .getOne();
+    const wallet = await lockWallet();
 
     if (!wallet) {
       // Unreachable in practice: the insert above guarantees a row exists
