@@ -137,4 +137,10 @@ describe('ApplicantReviewController guardian match (e2e)', () => {
       .expect(409);
     expect(res.body.details.code).toBe('GUARDIAN_MATCH_NEEDS_CHOICE');
   });
+
+  it('[#2250] LINK_EXISTING without the shown guardian_id is a 400', async () => {
+    await as(http().post(`/api/v1/admission/applicants/${applicantId}/admit`), UserRole.ADMIN)
+      .send({ guardian_choice: 'LINK_EXISTING' })
+      .expect(400);
+  });
 });

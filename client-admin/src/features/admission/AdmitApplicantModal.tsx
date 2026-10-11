@@ -37,6 +37,8 @@ export function AdmitApplicantModal({
   const match = useGuardianMatch(applicant.id, open);
   const matched = match.data?.guardian ?? null;
   const needsChoice = matched !== null && choice === '';
+  // A different guardian after a refetch (409 MATCH_CHANGED): staff choose again.
+  React.useEffect(() => setChoice(''), [matched?.id]);
 
   function handleClose(next: boolean) {
     onOpenChange(next);
@@ -48,9 +50,14 @@ export function AdmitApplicantModal({
   }
 
   function handleConfirm() {
-    admit.mutate(matched && choice ? { guardian_choice: choice } : {}, {
-      onSuccess: () => setAdmitted(true),
-    });
+    admit.mutate(
+      matched && choice
+        ? choice === 'LINK_EXISTING'
+          ? { guardian_choice: choice, guardian_id: matched.id }
+          : { guardian_choice: choice }
+        : {},
+      { onSuccess: () => setAdmitted(true) },
+    );
   }
 
   return (
@@ -77,7 +84,14 @@ export function AdmitApplicantModal({
                 <dd>{formatPhone(applicant.guardian_phone, regionConfig)}</dd>
               </div>
             </dl>
-            {matched ? (
+            {match.isError ? (
+              <div role="alert" className="flex items-center justify-between gap-2 text-destructive">
+                <span>{t('admitModal.matchError')}</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => void match.refetch()}>
+                  {t('actions.retry', { ns: 'common' })}
+                </Button>
+              </div>
+            ) : matched ? (
               <div className="flex flex-col gap-3 rounded-md border border-border-functional p-3">
                 <p>
                   {t('admitModal.existingGuardian', {
@@ -128,6 +142,7 @@ export function AdmitApplicantModal({
                 disabled={
                   applicant.status === AdmissionApplicantStatus.ADMITTED ||
                   match.isPending ||
+                  match.isError ||
                   needsChoice
                 }
                 onClick={handleConfirm}
