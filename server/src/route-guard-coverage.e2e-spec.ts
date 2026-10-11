@@ -48,7 +48,7 @@ interface AllowlistEntry {
  * production access control (Basic Auth, gated by ENABLE_API_DOCS) is
  * covered separately by swagger-gating.e2e-spec.ts, not this test.
  */
-const ALLOWLIST: AllowlistEntry[] = [
+export const ALLOWLIST: AllowlistEntry[] = [
   {
     controller: 'AppController',
     method: 'GET',
@@ -530,7 +530,7 @@ export function RequestMethodName(method: number): string {
   return names[method] ?? `UNKNOWN(${method})`;
 }
 
-function describeGuards(guards: unknown[]): string {
+export function describeGuards(guards: unknown[]): string {
   if (guards.length === 0) return 'none';
   return guards
     .map((g) => {
