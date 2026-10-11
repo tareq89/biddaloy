@@ -394,9 +394,9 @@ describe('/promotions/$runId', () => {
     );
   });
 
-  it('tells the user to start over when commit returns COHORT_CHANGED', async () => {
+  it('tells the user to press Refresh when commit returns COHORT_CHANGED', async () => {
     await commitAndGetConflict('COHORT_CHANGED');
-    await screen.findByText(/Delete this draft and create a new list/);
+    await screen.findByText(/Press Refresh, check the list, then commit again/);
     expect(screen.queryByText('Results changed since this preview — refresh')).toBeNull();
   });
 
