@@ -117,6 +117,7 @@ function ReceiptBody() {
                 change: t('invoiceDetail.publicReceipt.change'),
                 paymentMethod: t('invoiceDetail.publicReceipt.paymentMethod'),
                 paymentDate: t('invoiceDetail.publicReceipt.paymentDate'),
+                inWords: t('invoiceDetail.publicReceipt.inWords'),
               }}
             />
             <Button className="mt-5 w-full print:hidden" onClick={() => window.print()}>

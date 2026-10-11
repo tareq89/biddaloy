@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { REGION_BD_EN } from '../../i18n/region-config';
+import { REGION_BD_BN, REGION_BD_EN } from '../../i18n/region-config';
 
 import { InvoiceReceipt, type InvoiceReceiptData } from './invoice-receipt';
 
@@ -42,6 +42,7 @@ const LABELS = {
   change: 'Change',
   paymentMethod: 'Payment method',
   paymentDate: 'Payment date',
+  inWords: 'In words',
 };
 
 describe('InvoiceReceipt', () => {
@@ -116,5 +117,62 @@ describe('InvoiceReceipt', () => {
       />,
     );
     expect(screen.getByText('Change')).toBeTruthy();
+  });
+
+  it('shows the paid total in words in the region language', () => {
+    const { rerender } = render(
+      <InvoiceReceipt receipt={RECEIPT} width="a4" config={REGION_BD_EN} labels={LABELS} />,
+    );
+    // 4500 paid: English config -> English words, never Bangla.
+    expect(screen.getByText('In words: Taka Four Thousand Five Hundred only')).toBeTruthy();
+
+    rerender(<InvoiceReceipt receipt={RECEIPT} width="a4" config={REGION_BD_BN} labels={LABELS} />);
+    expect(screen.getByText(/^In words: চার হাজার পাঁচশত টাকা মাত্র$/)).toBeTruthy();
+  });
+
+  // Business-critical: the words must describe exactly the paid figure (absolute value).
+  const expectWords = (paid: number, words: string) => {
+    render(
+      <InvoiceReceipt
+        receipt={{ ...RECEIPT, totals: { ...RECEIPT.totals, paid } }}
+        width="a4"
+        config={REGION_BD_EN}
+        labels={LABELS}
+      />,
+    );
+    expect(screen.getByText(`In words: ${words}`)).toBeTruthy();
+  };
+  it('boundary 0', () => {
+    expectWords(0, 'Taka Zero only');
+  });
+  it('boundary 1', () => {
+    expectWords(1, 'Taka One only');
+  });
+  it('boundary 99', () => {
+    expectWords(99, 'Taka Ninety-Nine only');
+  });
+  it('boundary 100', () => {
+    expectWords(100, 'Taka One Hundred only');
+  });
+  it('boundary 1000', () => {
+    expectWords(1000, 'Taka One Thousand only');
+  });
+  it('boundary 100000', () => {
+    expectWords(100000, 'Taka One Lakh only');
+  });
+  it('boundary 0.01', () => {
+    expectWords(0.01, 'Taka Zero and One Paisa only');
+  });
+  it('boundary 0.99', () => {
+    expectWords(0.99, 'Taka Zero and Ninety-Nine Paisa only');
+  });
+  it('boundary 1234567.5', () => {
+    expectWords(
+      1234567.5,
+      'Taka Twelve Lakh Thirty-Four Thousand Five Hundred Sixty-Seven and Fifty Paisa only',
+    );
+  });
+  it('credit note (negative paid) reads as its absolute value', () => {
+    expectWords(-2500, 'Taka Two Thousand Five Hundred only');
   });
 });
