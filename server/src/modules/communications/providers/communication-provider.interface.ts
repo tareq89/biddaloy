@@ -9,6 +9,8 @@ export interface CommunicationSendParams {
   templateName?: string;
   templateLanguage?: string;
   templateParams?: string[];
+  /** SMS, account-access only; lets a school with no gateway still deliver sign-in codes on the platform account (counted by #1759). */
+  allowPlatformSms?: boolean;
 }
 
 export interface CommunicationSendResult {

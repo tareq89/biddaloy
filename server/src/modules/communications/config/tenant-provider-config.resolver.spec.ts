@@ -465,9 +465,9 @@ describe('TenantProviderConfigResolver', () => {
       expect(config).toEqual({ gateway: 'mimsms', apiKey: 'tenant-key', senderId: 'S1' });
     });
 
-    it('falls back to the env-selected gateway and env credentials when the tenant has none', async () => {
+    it('falls back to the env-selected gateway and env credentials for a PLATFORM-metered tenant', async () => {
       const resolver = resolverWith(
-        { version: 1 },
+        { version: 1, communications: { sms: { metering: 'PLATFORM' } } },
         { SMS_PROVIDER: 'mimsms', MIMSMS_API_KEY: 'env-key', MIMSMS_SENDER_ID: 'env-sender' },
       );
 
@@ -477,11 +477,68 @@ describe('TenantProviderConfigResolver', () => {
     });
 
     it('defaults to greenweb when neither tenant nor env names a gateway', async () => {
-      const resolver = resolverWith({ version: 1 }, { GREENWEB_API_KEY: 'env-key' });
+      const resolver = resolverWith(
+        { version: 1, communications: { sms: { metering: 'PLATFORM' } } },
+        { GREENWEB_API_KEY: 'env-key' },
+      );
 
       const config = await resolver.resolveSms('school-1');
 
       expect(config.gateway).toBe('greenweb');
+    });
+
+    it.each([
+      ['no sms section', { version: 1 }],
+      ['metering OFF', { version: 1, communications: { sms: { metering: 'OFF' } } }],
+    ])('JOBS-02: refuses the platform keys for a tenant with %s', async (_n, settings) => {
+      const env = {
+        SMS_PROVIDER: 'mimsms',
+        GREENWEB_API_KEY: 'g',
+        MIMSMS_API_KEY: 'm',
+        MIMSMS_SENDER_ID: 's',
+      };
+      await expect(resolverWith(settings as any, env).resolveSms('school-1')).rejects.toThrow(
+        ProviderNotConfiguredError,
+      );
+      await expect(
+        resolverWith(settings as any, { ...env, SMS_PROVIDER: 'greenweb' }).resolveSms('school-1'),
+      ).rejects.toThrow(ProviderNotConfiguredError);
+    });
+
+    it.each(['greenweb', 'mimsms'])(
+      'allowPlatformKeys lets an OFF tenant use the platform %s keys',
+      async (provider) => {
+        const resolver = resolverWith(
+          { version: 1, communications: { sms: { metering: 'OFF' } } },
+          {
+            SMS_PROVIDER: provider,
+            GREENWEB_API_KEY: 'g',
+            MIMSMS_API_KEY: 'm',
+            MIMSMS_SENDER_ID: 's',
+          },
+        );
+
+        const config = await resolver.resolveSms('school-1', undefined, {
+          allowPlatformKeys: true,
+        });
+
+        expect(config.gateway).toBe(provider);
+        expect(config.apiKey).toBe(provider === 'greenweb' ? 'g' : 'm');
+      },
+    );
+
+    it('a tenant with its own greenweb key keeps it whatever the metering', async () => {
+      const resolver = resolverWith(
+        {
+          version: 1,
+          communications: {
+            sms: { metering: 'OFF', provider: 'greenweb', greenweb: { apiKey: 'own' } },
+          },
+        },
+        { GREENWEB_API_KEY: 'g' },
+      );
+
+      expect((await resolver.resolveSms('school-1')).apiKey).toBe('own');
     });
 
     it('throws when the selected gateway has no credentials from either source', async () => {
@@ -492,7 +549,7 @@ describe('TenantProviderConfigResolver', () => {
 
     it('throws for mimsms when apiKey resolves but senderId does not', async () => {
       const resolver = resolverWith(
-        { version: 1 },
+        { version: 1, communications: { sms: { metering: 'PLATFORM' } } },
         { SMS_PROVIDER: 'mimsms', MIMSMS_API_KEY: 'env-key' },
       );
 
