@@ -437,8 +437,17 @@ export class StudentBulkUploadService {
         return student.id;
       });
     } catch (err) {
-      if (this.isUniqueViolation(err)) {
-        if (row.rollNumber !== undefined && this.violatedColumns(err).includes('roll_number')) {
+      // [68.3.40] StudentService.create now turns the roll unique violation
+      // into a 409 ROLL_NUMBER_TAKEN itself, so the raw 23505 never reaches here.
+      const rollTaken =
+        err instanceof ConflictException &&
+        (err.getResponse() as { details?: { code?: string } }).details?.code ===
+          'ROLL_NUMBER_TAKEN';
+      if (rollTaken || this.isUniqueViolation(err)) {
+        if (
+          row.rollNumber !== undefined &&
+          (rollTaken || this.violatedColumns(err).includes('roll_number'))
+        ) {
           throw new BulkRowError(
             `Duplicate roll number ${row.rollNumber} in class '${row.class}' section '${row.section}'`,
             'roll',
