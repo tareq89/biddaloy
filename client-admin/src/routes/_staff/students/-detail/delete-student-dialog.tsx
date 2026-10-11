@@ -1,3 +1,4 @@
+import { ApiError } from '@biddaloy/ui/api';
 import { ConfirmDialog, toast } from '@biddaloy/ui/components';
 import { useDeleteStudent } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -30,7 +31,15 @@ export function DeleteStudentDialog({
     // A failed delete toasts and keeps the dialog open so the user can retry.
     deleteStudent.mutate(studentId, {
       onSuccess: onDeleted,
-      onError: () => toast.error(t('detail.deleteDialog.errorMessage')),
+      onError: (error) => {
+        const blocked =
+          error instanceof ApiError &&
+          error.statusCode === 409 &&
+          error.details?.code === 'STUDENT_HAS_OPEN_MONEY';
+        toast.error(
+          t(blocked ? 'detail.deleteDialog.blockedOpenMoney' : 'detail.deleteDialog.errorMessage'),
+        );
+      },
     });
   }
 

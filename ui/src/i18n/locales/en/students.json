@@ -248,7 +248,8 @@
       "description": "This removes {{name}} from active lists. This can be undone by support, but not from here.",
       "confirm": "Delete",
       "deleting": "Deleting…",
-      "errorMessage": "Couldn't delete the student. Try again."
+      "errorMessage": "Couldn't delete the student. Try again.",
+      "blockedOpenMoney": "This student still owes fees or has wallet money. Record leaving first, or clear the money."
     },
     "moveClassDialog": {
       "title": "Move class",

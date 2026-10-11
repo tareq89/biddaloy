@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
-import { DiscountKind, FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
+import { AuditAction, DiscountKind, FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
+import { AuditService } from '../audit/audit.service';
 import { School } from '../schools/entities/school.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
 
@@ -50,7 +51,10 @@ interface CandidateBillRow {
 export class LateFeeService {
   private readonly logger = new Logger(LateFeeService.name);
 
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
+  ) {}
 
   async applyDue(tenantId: string, today: string): Promise<void> {
     const school = await this.dataSource.getRepository(School).findOne({ where: { id: tenantId } });
@@ -93,6 +97,7 @@ export class LateFeeService {
                 sf.total_amount, sf.discount_amount, sf.paid_amount
            FROM student_fees sf
            JOIN fee_structures fs ON fs.id = sf.fee_structure_id
+           JOIN students st ON st.id = sf.student_id AND st.deleted_at IS NULL
           WHERE sf.deleted_at IS NULL
             AND fs.fee_type = $1
             AND fs.tenant_id = $2
@@ -116,6 +121,8 @@ export class LateFeeService {
       // attach every late fee in the batch to one year's structure.
       const lateFeeStructureIdByYear = new Map<string, string>();
 
+      const createdIds: string[] = [];
+      const forBillIds: string[] = [];
       for (const bill of candidates) {
         const outstanding =
           Number(bill.total_amount) - Number(bill.discount_amount) - Number(bill.paid_amount);
@@ -171,14 +178,15 @@ export class LateFeeService {
         // late fee, not just this one's. ON CONFLICT DO NOTHING makes the
         // loser's insert a no-op instead — the winner's row already covers
         // this bill.
-        await manager.query(
+        const inserted = (await manager.query(
           `INSERT INTO student_fees
              (student_id, academic_year_id, fee_structure_id, period_start, period_type,
               occurrence, total_amount, paid_amount, discount_amount, status, due_date,
               late_fee_for_student_fee_id)
            VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 0, $8, $9, $10)
            ON CONFLICT (late_fee_for_student_fee_id) WHERE late_fee_for_student_fee_id IS NOT NULL
-           DO NOTHING`,
+           DO NOTHING
+           RETURNING id`,
           [
             bill.student_id,
             bill.academic_year_id,
@@ -193,6 +201,29 @@ export class LateFeeService {
             addDays(today, 7),
             bill.id,
           ],
+        )) as { id: string }[];
+        if (inserted.length > 0) {
+          createdIds.push(inserted[0]!.id);
+          forBillIds.push(bill.id);
+        }
+      }
+
+      // One audit row per sweep (MON-12); same transaction as the inserts.
+      if (createdIds.length > 0) {
+        await this.auditService.record(
+          {
+            action: AuditAction.CREATE,
+            entity_type: 'StudentFee',
+            tenant_id: tenantId,
+            performed_by_user_id: null,
+            new_values: {
+              source: 'LATE_FEE_SWEEP',
+              fee_type: feeType,
+              created_ids: createdIds,
+              for_bill_ids: forBillIds,
+            },
+          },
+          manager,
         );
       }
     });
