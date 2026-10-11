@@ -221,7 +221,7 @@ describe('GuardianProvisioningService', () => {
       expect(result.skipped).toEqual([
         { guardian_id: 'g1', full_name: 'Guardian One', reason: 'already_pending' },
       ]);
-      expect(authTokens.latest).toHaveBeenCalledWith('u-verified', 'JOIN_SCHOOL', TENANT);
+      expect(authTokens.latest).toHaveBeenCalledWith('u-verified', 'JOIN_SCHOOL', TENANT, 'PARENT');
     });
 
     // [68.1.fix F3] Requests are per role now: a pending ADMIN request does not
@@ -232,8 +232,9 @@ describe('GuardianProvisioningService', () => {
       userRepo.createQueryBuilder.mockReturnValue(
         fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
       );
-      authTokens.latest.mockImplementation(async (_u: string, purpose: string) =>
-        purpose === 'JOIN_SCHOOL'
+      // The newest JOIN_SCHOOL row is an ADMIN one; there is no PARENT one.
+      authTokens.latest.mockImplementation(async (_u: string, purpose: string, _t, role?: string) =>
+        purpose === 'JOIN_SCHOOL' && role !== 'PARENT'
           ? {
               consumed_at: null,
               revoked_at: null,
@@ -247,6 +248,31 @@ describe('GuardianProvisioningService', () => {
 
       expect(result.skipped).toEqual([]);
       expect(result.to_invite.map((e) => e.guardian_id)).toEqual(['g1']);
+    });
+
+    // [68.1.fix R3] A newer ADMIN request must not hide an older live PARENT one: the
+    // lookup reads the newest PARENT request, not the newest request of any role.
+    it('counts an older live PARENT request under a newer ADMIN one as already_pending', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
+      );
+      const live = { consumed_at: null, revoked_at: null, expires_at: new Date(Date.now() + 60_000) };
+      authTokens.latest.mockImplementation(async (_u: string, purpose: string, _t, role?: string) =>
+        purpose !== 'JOIN_SCHOOL'
+          ? null
+          : role === 'PARENT'
+            ? { ...live, metadata: { role: 'PARENT' } }
+            : { ...live, metadata: { role: 'ADMIN' } },
+      );
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.skipped).toEqual([
+        { guardian_id: 'g1', full_name: 'Guardian One', reason: 'already_pending' },
+      ]);
+      expect(authTokens.latest).toHaveBeenCalledWith('u-verified', 'JOIN_SCHOOL', TENANT, 'PARENT');
     });
 
     it('skips a guardian with a live pending invitation (already_pending)', async () => {

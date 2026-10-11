@@ -1,7 +1,7 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
-import { AuthTokenPurpose } from '@biddaloy/shared';
+import { DataSource, EntityManager, JsonContains, Repository } from 'typeorm';
+import { AuthTokenPurpose, UserRole } from '@biddaloy/shared';
 import { AuthToken } from './entities/auth-token.entity';
 import { generateSecret, hashSecret } from '../auth/token-hash.util';
 
@@ -165,13 +165,20 @@ export class AuthTokenService {
     await qb.execute();
   }
 
+  /** Newest row for (user, purpose[, tenant][, `metadata.role`]), live or not. */
   async latest(
     userId: string,
     purpose: AuthTokenPurpose,
     tenantId?: string,
+    role?: UserRole,
   ): Promise<AuthToken | null> {
     return this.repo.findOne({
-      where: { user_id: userId, purpose, ...(tenantId ? { tenant_id: tenantId } : {}) },
+      where: {
+        user_id: userId,
+        purpose,
+        ...(tenantId ? { tenant_id: tenantId } : {}),
+        ...(role ? { metadata: JsonContains({ role }) } : {}),
+      },
       order: { created_at: 'DESC' },
     });
   }

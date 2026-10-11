@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
-import { AuthTokenPurpose, UserStatus } from '@biddaloy/shared';
+import { AuthTokenPurpose, UserRole, UserStatus } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { SEED_TENANT_ID } from '@test/constants';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -180,5 +180,27 @@ describe('AuthTokenService (integration)', () => {
 
     const latest = await service.latest(userId, AuthTokenPurpose.INVITE);
     expect(latest?.id).toBe(second.id);
+  });
+
+  // [68.1.fix R3] A newer request for another role must not hide the PARENT one.
+  it('latest with a role skips newer rows for other roles', async () => {
+    const issueJoin = (role: UserRole) =>
+      service.issue({
+        userId,
+        tenantId: SEED_TENANT_ID,
+        purpose: AuthTokenPurpose.JOIN_SCHOOL,
+        ttlMs: 60_000,
+        metadata: { role },
+      });
+    const { row: parent } = await issueJoin(UserRole.PARENT);
+    await issueJoin(UserRole.ADMIN);
+
+    const latest = await service.latest(
+      userId,
+      AuthTokenPurpose.JOIN_SCHOOL,
+      SEED_TENANT_ID,
+      UserRole.PARENT,
+    );
+    expect(latest?.id).toBe(parent.id);
   });
 });
