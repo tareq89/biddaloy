@@ -111,3 +111,16 @@ export class StudentLifecycleEventDto {
   recorded_by_user_id: string | null;
   @ApiProperty({ type: String, format: 'date-time' }) created_at: Date;
 }
+
+export class BillAfterLeaveDto {
+  @ApiProperty({ format: 'uuid' }) id: string;
+  @ApiProperty() fee_structure_name: string;
+  @ApiProperty({ format: 'date', example: '2026-09-01' }) period_start: string;
+  @ApiProperty({ nullable: true, type: String, format: 'date', example: '2026-09-10' }) due_date:
+    string | null;
+  @ApiProperty({ example: '700.00' }) outstanding: string;
+}
+
+export class LeaveStudentResultDto extends StudentLifecycleEventDto {
+  @ApiProperty({ type: [BillAfterLeaveDto] }) bills_due_after_leave: BillAfterLeaveDto[];
+}

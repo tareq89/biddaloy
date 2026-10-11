@@ -23,6 +23,7 @@ import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
 import { StudentLifecycleService } from './student-lifecycle.service';
 import {
   LeaveStudentDto,
+  LeaveStudentResultDto,
   ReadmitStudentDto,
   StudentLifecycleEventDto,
 } from './dto/student-lifecycle.dto';
@@ -42,15 +43,19 @@ export class StudentLifecycleController {
   @Post(':id/leave')
   @RequirePermissions(Permission.STUDENT_LIFECYCLE_MANAGE)
   @ApiOperation({ summary: 'Withdraw, transfer out or graduate a student' })
-  @ApiCreatedResponse({ type: StudentLifecycleEventDto })
-  leave(
+  @ApiCreatedResponse({ type: LeaveStudentResultDto })
+  async leave(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: LeaveStudentDto,
     @CurrentTenant() tenant: { id: string; role: UserRole },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    return this.lifecycle.leave(id, dto, tenant.id, user.sub, requestContext(request));
+    const event = await this.lifecycle.leave(id, dto, tenant.id, user.sub, requestContext(request));
+    return {
+      ...event,
+      bills_due_after_leave: await this.lifecycle.billsDueAfter(id, dto.occurred_on, tenant.id),
+    };
   }
 
   @Post(':id/readmit')
