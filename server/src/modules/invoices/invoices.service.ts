@@ -1,11 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, EntityManager, In } from 'typeorm';
 import { Invoice, InvoiceSnapshot, InvoiceSnapshotStudent } from './entities/invoice.entity';
 import { Student } from '../students/entities/student.entity';
 import { Payment } from '../fees/entities/payment.entity';
 import { School } from '../schools/entities/school.entity';
-import { InvoiceStatus, InvoiceKind } from '@biddaloy/shared';
+import { InvoiceStatus, InvoiceKind, PaymentStatus } from '@biddaloy/shared';
 import { QueryInvoiceDto } from './dto/invoices.dto';
 import { generateInvoiceNumber, generateCreditNoteNumber } from './invoice-numbering.util';
 import { MONTH_NAMES, periodStartFromLabel } from './invoice-period.util';
@@ -155,6 +160,19 @@ export class InvoicesService {
     });
     if (!payment) {
       throw new NotFoundException(`Payment with ID "${paymentId}" not found`);
+    }
+    // [MON-05] A reversal, a reversed original or a non-SUCCESS payment must
+    // never get a "paid" invoice; reversals get credit notes instead.
+    if (
+      payment.payment_status !== PaymentStatus.SUCCESS ||
+      payment.reversal_of_payment_id ||
+      payment.reversed_by_payment_id
+    ) {
+      throw new ConflictException({
+        code: 'INVOICE_PAYMENT_NOT_INVOICEABLE',
+        message:
+          'Only a live, successful payment can get an invoice. A reversal gets a credit note.',
+      });
     }
     if (!payment.allocations || payment.allocations.length === 0) {
       throw new BadRequestException(
