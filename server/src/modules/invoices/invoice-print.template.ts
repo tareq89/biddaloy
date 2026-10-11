@@ -1,4 +1,4 @@
-import { amountInWords } from '@biddaloy/shared';
+import { amountInWordsOrNull } from '@biddaloy/shared';
 import { Invoice } from './entities/invoice.entity';
 import { Payment } from '../fees/entities/payment.entity';
 import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
@@ -202,7 +202,7 @@ export function renderInvoiceHtml(
       <div><span>Discount</span><span>${formatAmount(-Math.abs(snapshot.totals.discount))}</span></div>
       <div class="grand-total"><span>Paid</span><span>${formatAmount(signedAmount(snapshot.totals.paid, invoice))}</span></div>
     </div>
-    <div class="in-words">In words: ${escapeHtml(amountInWords(snapshot.totals.paid, 'en'))}<br>কথায়: ${escapeHtml(amountInWords(snapshot.totals.paid, 'bn'))}</div>
+    ${inWordsBlock(snapshot.totals.paid)}
   </div>
 
   ${
@@ -224,4 +224,12 @@ export function renderInvoiceHtml(
   ${invoice.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(invoice.notes)}</div>` : ''}
 </body>
 </html>`;
+}
+
+/** English + Bangla words, or nothing when the total cannot be spelled (#2399). */
+function inWordsBlock(paid: number): string {
+  const en = amountInWordsOrNull(paid, 'en');
+  const bn = amountInWordsOrNull(paid, 'bn');
+  if (en === null || bn === null) return '';
+  return `<div class="in-words">In words: ${escapeHtml(en)}<br>কথায়: ${escapeHtml(bn)}</div>`;
 }
