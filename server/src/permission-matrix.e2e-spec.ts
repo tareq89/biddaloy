@@ -994,8 +994,6 @@ describe('Permission matrix (regression)', () => {
         let protection: string;
         if (permissions.length > 0) {
           protection = `perm: ${[...permissions].sort().join(',')}`;
-          if (roles.length > 0) protection += ` | roles: ${[...roles].sort().join(',')}`;
-          if (approvalScope) protection += ` | approval: ${approvalScope}`;
         } else if (findIdentityScopedEntry(controllerName, methodLabel, fullPath)) {
           protection = 'identity';
         } else if (
@@ -1009,13 +1007,18 @@ describe('Permission matrix (regression)', () => {
           protection = `UNCLASSIFIED: ${describeGuards(guards)}`;
           violations.push(`${methodLabel} ${fullPath} (${controllerName}) — ${protection}`);
         }
+        // roles/approval are recorded for every route (identity and allowlist too), so a
+        // @Roles or approval change on those is visible in the diff.
+        if (roles.length > 0) protection += ` | roles: ${[...roles].sort().join(',')}`;
+        if (approvalScope) protection += ` | approval: ${approvalScope}`;
         lines.push(`${methodLabel} ${fullPath} | ${controllerName} | ${protection}`);
       },
       { includeEveryRoute: true },
     );
 
     expect(violations).toEqual([]);
-    const text = lines.sort((a, b) => a.localeCompare(b)).join('\n') + '\n';
+    // Default sort = UTF-16 code-unit order: the same on every machine, unlike localeCompare.
+    const text = lines.sort().join('\n') + '\n';
     await expect(text).toMatchFileSnapshot('./__snapshots__/route-permissions.txt');
   });
 
