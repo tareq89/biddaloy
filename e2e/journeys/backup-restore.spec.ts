@@ -284,6 +284,73 @@ test.describe.serial('backup and restore', () => {
     }
   });
 
+  test('Leg F: a trial-ended school shows "Download your data" and gets a file', async ({
+    browser,
+  }) => {
+    // D16 (#2266): own context with the service worker blocked, so page.route() sees every fetch.
+    const context = await browser.newContext({
+      storageState: await adminContext.storageState(),
+      serviceWorkers: 'block',
+    });
+    try {
+      const page = await context.newPage();
+      const envelope = (status: number, details: object, message: string) => ({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          statusCode: status,
+          message,
+          details,
+          timestamp: new Date().toISOString(),
+          path: '/api/v1/x',
+          requestId: 'e2e-trial-ended',
+        }),
+      });
+      await page.route('**/api/v1/students**', (route) =>
+        route.request().method() === 'GET'
+          ? route.fulfill(
+              envelope(
+                403,
+                { code: 'TENANT_SUSPENDED', reason: 'TRIAL_EXPIRED' },
+                'This school has been suspended',
+              ),
+            )
+          : route.fallback(),
+      );
+      await page.route('**/api/v1/backup/export', (route) =>
+        route.fulfill({
+          status: 202,
+          contentType: 'application/json',
+          body: JSON.stringify({ job_id: 'trial-job' }),
+        }),
+      );
+      await page.route('**/api/v1/backup/jobs/trial-job', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: 'trial-job', kind: 'EXPORT', status: 'DONE' }),
+        }),
+      );
+      await page.route('**/api/v1/backup/jobs/trial-job/download', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/octet-stream',
+          headers: { 'content-disposition': 'attachment; filename="trial-data.xlsx"' },
+          body: 'PK-trial-data',
+        }),
+      );
+
+      await page.goto('/students');
+      await expect(page.getByRole('heading', { name: t('trial.ended.title') })).toBeVisible();
+      const downloadPromise = page.waitForEvent('download');
+      await page.getByRole('button', { name: t('trial.ended.export') }).click();
+      const download = await downloadPromise;
+      expect(download.suggestedFilename()).toBe('trial-data.xlsx');
+    } finally {
+      await context.close();
+    }
+  });
+
   test.describe('Leg D: a TEACHER reaches neither the API nor the UI', () => {
     test.use(loggedIn('teacher'));
 
