@@ -43,6 +43,7 @@ export class SectionNoClassTeacherRule implements AttentionRuleShape {
          AND NOT EXISTS (
            SELECT 1 FROM teacher_class_sections tcs
            JOIN teachers t ON t.id = tcs.teacher_id AND t.tenant_id = $1 AND t.deleted_at IS NULL
+           JOIN user_tenants ut ON ut.user_id = t.user_id AND ut.tenant_id = $1 AND ut.deleted_at IS NULL
            WHERE tcs.tenant_id = $1 AND tcs.section_id = cs.id AND tcs.assignment_type = 'CLASS_TEACHER')
        ORDER BY c.numeric_grade NULLS LAST, c.name, cs.section_name`,
       [ctx.tenantId],
