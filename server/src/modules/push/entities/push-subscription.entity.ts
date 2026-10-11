@@ -14,8 +14,9 @@ import { School } from '../../schools/entities/school.entity';
 /**
  * One browser/device's Web Push subscription for a user. A user can hold
  * many rows — one per device they've enabled notifications on — since the
- * browser-issued `endpoint` URL (globally unique) identifies a single
- * device+browser combination.
+ * browser-issued `endpoint` URL identifies a single
+ * device+browser combination. There is one row per endpoint per school
+ * (`endpoint` + `tenant_id` unique), so one device can serve several schools.
  *
  * `p256dh`/`auth` are the subscription's public key and auth secret,
  * handed back verbatim to `web-push` when sending. `failure_count` lets a
@@ -31,7 +32,7 @@ import { School } from '../../schools/entities/school.entity';
  */
 @Entity('push_subscriptions')
 @Index(['user_id'])
-@Unique('UQ_push_subscriptions_endpoint', ['endpoint'])
+@Unique('UQ_push_subscriptions_endpoint_tenant', ['endpoint', 'tenant_id'])
 export class PushSubscription {
   @PrimaryGeneratedColumn('uuid')
   id: string;
