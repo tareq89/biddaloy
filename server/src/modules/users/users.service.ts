@@ -447,8 +447,8 @@ export class UserService {
     id: string,
     dto: UpdateUserDto,
     tenantId: string,
-    // Optional only so legacy spec call sites compile; every route passes it.
-    actorUserId?: string,
+    // Required: identity edits are audited and the audit row names the actor.
+    actorUserId: string,
   ): Promise<User> {
     const current = await this.findOne(id, tenantId);
 
