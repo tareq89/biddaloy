@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -100,5 +102,18 @@ export class SeatPlansController {
     @CurrentTenant() tenant: { id: string },
   ) {
     return this.seatPlans.publish(tenant.id, id);
+  }
+
+  @Post(':id/unpublish')
+  @ApiOperation({ summary: 'Unpublish a plan back to DRAFT, before its first sitting.' })
+  async unpublish(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: { id: string }) {
+    return this.seatPlans.unpublish(tenant.id, id);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Delete a DRAFT plan, freeing its sittings for a new plan.' })
+  async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: { id: string }) {
+    await this.seatPlans.remove(tenant.id, id);
   }
 }

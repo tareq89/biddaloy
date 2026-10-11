@@ -254,4 +254,78 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
     expect(response.ok()).toBe(false);
     expect([400, 409]).toContain(response.status());
   });
+
+  // [68.3.12] A published plan can be unpublished before its first sitting,
+  // reseated, and published again.
+  test('unpublish a plan with a future sitting, reseat a room, publish again', async ({
+    page,
+    request,
+  }) => {
+    const session = await adminApiSession(request);
+    const klass = await findSeededClass6(request, session);
+    const year = await get<{ end_date: string }>(
+      request,
+      session,
+      `/academic-years/${klass.academic_year_id}`,
+    );
+    const lastDay = year.end_date.slice(0, 10);
+    test.skip(lastDay <= new Date().toISOString().slice(0, 10), 'academic year has no future day');
+
+    const suffix = Date.now().toString(36).toUpperCase();
+    const subject = await post<{ id: string }>(request, session, '/subjects', {
+      code: `E2ESP-UNP-${suffix}`,
+      name_en: `E2E Unpublish Subject ${suffix}`,
+    });
+    const exam = await post<{ id: string }>(request, session, '/exams', {
+      name: `E2E Unpublish Exam ${suffix}`,
+      kind: ExamKind.TERM,
+      academic_year_id: klass.academic_year_id,
+      class_id: klass.id,
+    });
+    const schedule = await post<{ id: string }>(request, session, `/exams/${exam.id}/schedule`, {
+      subject_id: subject.id,
+      date: lastDay,
+      starts_at: '09:00',
+      ends_at: '11:00',
+    });
+    const room = await post<{ id: string }>(request, session, '/routines/rooms', {
+      room_no: `E2E Unpublish Room ${suffix}`,
+      capacity: 20,
+    });
+    const { plan } = await post<{ plan: { id: string } }>(request, session, '/seat-plans/generate', {
+      name: `E2E Unpublish Plan ${suffix}`,
+      exam_schedule_ids: [schedule.id],
+      room_ids: [room.id],
+      seat_order_mode: 'SEQUENTIAL',
+    });
+    await post(request, session, `/seat-plans/${plan.id}/publish`, {});
+
+    await page.goto(`/exams/seat-plans/${plan.id}`);
+    await expect(page.getByText(t('seatPlansDetail.detail.publishedBanner'))).toBeVisible();
+
+    await page.getByRole('button', { name: t('seatPlansDetail.unpublish.button') }).click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: t('seatPlansDetail.unpublish.confirm') })
+      .click();
+
+    // Back to a draft: editable again.
+    await expect(page.getByText(t('seatPlansDetail.detail.draftHint'))).toBeVisible();
+    await page
+      .getByRole('button', { name: t('seatPlansDetail.room.reshuffleButton') })
+      .first()
+      .click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: t('seatPlansDetail.reshuffle.confirm') })
+      .click();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+
+    await page.getByRole('button', { name: t('seatPlansDetail.detail.publishButton') }).click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: t('seatPlansDetail.publish.confirm') })
+      .click();
+    await expect(page.getByText(t('seatPlansDetail.detail.publishedBanner'))).toBeVisible();
+  });
 });

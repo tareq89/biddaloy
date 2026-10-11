@@ -670,6 +670,8 @@ export {
   useEditAllocation,
   useGenerateSeatPlan,
   usePublishSeatPlan,
+  useUnpublishSeatPlan,
+  useDeleteSeatPlan,
   useReshuffleRoom,
   useSeatPlanDetail,
   useSeatPlans,
