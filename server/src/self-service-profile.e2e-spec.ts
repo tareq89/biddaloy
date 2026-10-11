@@ -287,9 +287,11 @@ describe('[5.4a] Self-service profile', () => {
 
     // The admin route is untouched by this contract change — only the
     // caller's own `/users/me` lost email/phone.
+    // [68.1.2209] The admin-route tests target LONELY (one school only): PARENT also
+    // belongs to TENANT_B, and a school may no longer change a shared login's phone.
     it('still round-trips a valid BD phone through the admin PATCH /users/:id', async () => {
       const res = await http()
-        .patch(`${API}/users/${PARENT_USER_ID}`)
+        .patch(`${API}/users/${LONELY_USER_ID}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ phone: '01812345678' })
@@ -297,7 +299,7 @@ describe('[5.4a] Self-service profile', () => {
 
       expect(res.body.phone).toBe('01812345678');
       const rows = await dataSource.query(`SELECT phone FROM users WHERE id = $1`, [
-        PARENT_USER_ID,
+        LONELY_USER_ID,
       ]);
       expect(rows[0].phone).toBe('01812345678');
     });
@@ -319,7 +321,7 @@ describe('[5.4a] Self-service profile', () => {
     it('does not accept current_password on the ADMIN route (different trust model)', async () => {
       // forbidNonWhitelisted: the admin DTO has no such field.
       await http()
-        .patch(`${API}/users/${PARENT_USER_ID}`)
+        .patch(`${API}/users/${LONELY_USER_ID}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ phone: '+8801817777777', current_password: SEED_ADMIN_PASSWORD })
@@ -328,7 +330,7 @@ describe('[5.4a] Self-service profile', () => {
       // ...and an admin still changes someone else's identifier with no
       // password at all.
       await http()
-        .patch(`${API}/users/${PARENT_USER_ID}`)
+        .patch(`${API}/users/${LONELY_USER_ID}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ phone: '+8801817777777' })
