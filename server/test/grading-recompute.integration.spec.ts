@@ -331,6 +331,51 @@ describe('RecomputeService (integration)', () => {
     expect((await resultOf(exam.id, TENANT_ID)).grade).toBe('A');
   });
 
+  // Review r1 #6: a publish committing between the "which exams use this
+  // scale" read and the exam lock must still refuse the band edit (D16).
+  it('D16: a publish that commits while confirm waits for the exam lock still refuses the edit', async () => {
+    const { exam, scaleId: usedScale } = await buildProcessedExam(TENANT_ID);
+    // Stand-in for ResultsService.publish holding the exam lock mid-commit.
+    const qr = dataSource.createQueryRunner();
+    await qr.startTransaction();
+    let outcome: Promise<unknown> | undefined;
+    try {
+      await qr.query(`SELECT 1 FROM exams WHERE id = $1 FOR UPDATE`, [exam.id]);
+      await qr.query(`UPDATE exams SET status = 'PUBLISHED' WHERE id = $1`, [exam.id]);
+      outcome = recomputeService
+        .confirm(usedScale, TENANT_ID, ADMIN_USER_ID, ADMIN_USER_ID, newBands as any)
+        .catch((e) => e);
+      await new Promise((r) => setTimeout(r, 300));
+      await qr.commitTransaction();
+    } finally {
+      if (qr.isTransactionActive) await qr.rollbackTransaction();
+      await qr.release();
+    }
+    expect(await outcome).toBeInstanceOf(ConflictException);
+    const scale = await dataSource.getRepository(GradingScale).findOneByOrFail({ id: usedScale });
+    expect(scale.revision).toBe(1);
+  });
+
+  // Review r1 #10: the per-exam Result audit row names who made the edit.
+  it('the Result recompute audit row carries the acting user and request context', async () => {
+    const { exam, scaleId: usedScale } = await buildProcessedExam(TENANT_ID);
+    await recomputeService.confirm(
+      usedScale,
+      TENANT_ID,
+      ADMIN_USER_ID,
+      ADMIN_USER_ID,
+      newBands as any,
+      { ip: '10.0.0.9', userAgent: 'vitest' },
+    );
+    const rows = await dataSource.getRepository(AuditLog).find({
+      where: { entity_type: 'Result', entity_id: exam.id, tenant_id: TENANT_ID },
+      order: { created_at: 'DESC' },
+    });
+    expect(rows[0]?.performed_by_user_id).toBe(ADMIN_USER_ID);
+    expect(rows[0]?.ip_address).toBe('10.0.0.9');
+    expect(rows[0]?.user_agent).toBe('vitest');
+  });
+
   it("another tenant's results (same scale name) are untouched by a confirm", async () => {
     const mine = await buildProcessedExam(TENANT_ID);
     const theirs = await buildProcessedExam(OTHER_TENANT);
