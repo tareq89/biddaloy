@@ -23,7 +23,7 @@ import { CheckApplicantStatusDto } from './dto/check-applicant-status.dto';
 import { SchoolsService } from '../schools/schools.service';
 import { TenantStatusService, tenantRestoringException } from '../schools/tenant-status.service';
 
-const MAX_DOCUMENT_FILE_SIZE = 5 * 1024 * 1024; // 5MB per document, same tier as homework uploads
+export const MAX_DOCUMENT_FILE_SIZE = 5 * 1024 * 1024; // 5MB per document, same tier as homework uploads
 
 /**
  * [27.2] The only admission-facing route reachable with no auth header and
