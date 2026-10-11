@@ -167,6 +167,7 @@ export class ApplicationDecisionsService {
         app.effect_result = await handler.apply(manager, app, {
           tenantId,
           actorUserId: user.userId,
+          role: user.role,
           granted: app.granted ?? undefined,
           req,
         });

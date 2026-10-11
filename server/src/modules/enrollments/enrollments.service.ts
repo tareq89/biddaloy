@@ -62,7 +62,7 @@ export class EnrollmentService {
       }
       // [68.3.17.1] A second enrollment is a class/year move: promotion territory. System
       // callers pass no role and are not gated.
-      if (role && !roleHasPermission(role, Permission.PROMOTION_MANAGE)) {
+      if (role !== undefined && !roleHasPermission(role, Permission.PROMOTION_MANAGE)) {
         const existing = await manager.getRepository(Enrollment).count({
           where: { student_id: dto.student_id, tenant_id: tenantId },
         });
@@ -267,7 +267,13 @@ export class EnrollmentService {
     }
 
     const classChanging = dto.class_id !== undefined && dto.class_id !== enrollment.class_id;
-    if (classChanging && role && !roleHasPermission(role, Permission.PROMOTION_MANAGE)) {
+    // `role` undefined = internal caller with its own gate; any string (even
+    // '') is a person's role and must hold the right.
+    if (
+      classChanging &&
+      role !== undefined &&
+      !roleHasPermission(role, Permission.PROMOTION_MANAGE)
+    ) {
       throw needsPromotion();
     }
 
