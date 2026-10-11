@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
 import * as Sentry from '@sentry/node';
-import { SchoolStatus } from '@biddaloy/shared';
+import { SchoolStatus, TRIAL_EXPIRED_REASON } from '@biddaloy/shared';
 import { School } from './entities/school.entity';
 import { isLocked } from '../workbook/restore/restore-lock';
 
@@ -164,6 +164,22 @@ export class TenantStatusService {
       );
     }
     return school.status_reason;
+  }
+
+  /**
+   * D16 allow decision for `@AllowWhenTrialExpired` routes. Reads the DB, never the cache:
+   * status and reason sit in two cache keys, and a stale cached TRIAL_EXPIRED must not keep the
+   * export open after a platform admin re-suspends the school (#2399). Only suspended schools
+   * calling the three backup routes reach this, so the uncached read is cheap.
+   */
+  async isTrialExpired(tenantId: string): Promise<boolean> {
+    return this.schoolRepo.exists({
+      where: {
+        id: tenantId,
+        status: SchoolStatus.SUSPENDED,
+        status_reason: TRIAL_EXPIRED_REASON,
+      },
+    });
   }
 
   /**

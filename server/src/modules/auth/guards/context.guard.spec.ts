@@ -19,6 +19,7 @@ describe('ContextGuard', () => {
     isActive: ReturnType<typeof vi.fn>;
     getStatus: ReturnType<typeof vi.fn>;
     getStatusReason: ReturnType<typeof vi.fn>;
+    isTrialExpired: ReturnType<typeof vi.fn>;
     isRestoring: ReturnType<typeof vi.fn>;
     findSchoolIdBySlug: ReturnType<typeof vi.fn>;
   };
@@ -32,6 +33,7 @@ describe('ContextGuard', () => {
       isActive: vi.fn().mockResolvedValue(true),
       getStatus: vi.fn().mockResolvedValue(SchoolStatus.ACTIVE),
       getStatusReason: vi.fn().mockResolvedValue(null),
+      isTrialExpired: vi.fn().mockResolvedValue(false),
       isRestoring: vi.fn().mockResolvedValue(false),
       // Not found by default — most tests below rely on an explicitly
       // configured PLATFORM_TENANT_ID and never need dynamic resolution;
@@ -342,6 +344,8 @@ describe('ContextGuard', () => {
     const suspend = (reason: string | null) => {
       tenantStatus.getStatus.mockResolvedValue(SchoolStatus.SUSPENDED);
       tenantStatus.getStatusReason.mockResolvedValue(reason);
+      // The fresh (uncached) DB read agrees with the cache unless a test says otherwise.
+      tenantStatus.isTrialExpired.mockResolvedValue(reason === 'TRIAL_EXPIRED');
     };
 
     it('lets a marked handler through for SUSPENDED + TRIAL_EXPIRED and sets currentTenant', async () => {
@@ -402,6 +406,34 @@ describe('ContextGuard', () => {
       await expect(guard.canActivate(createMockContext(r, marked()))).rejects.toThrow(
         ForbiddenException,
       );
+    });
+
+    // #2399 A2: status and reason sit in two cache keys, so a stale cached TRIAL_EXPIRED can pair
+    // with a fresh SUSPENDED after a manual re-suspension. The allow decision reads the DB.
+    it('refuses a marked handler when the cache still says TRIAL_EXPIRED but the DB no longer does', async () => {
+      suspend('TRIAL_EXPIRED');
+      tenantStatus.isTrialExpired.mockResolvedValue(false);
+      await expect(guard.canActivate(createMockContext(req(), marked()))).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(tenantStatus.isTrialExpired).toHaveBeenCalledWith('tenant-1');
+    });
+
+    it('does not open a marked handler when the status is not SUSPENDED, even with reason TRIAL_EXPIRED', async () => {
+      suspend('TRIAL_EXPIRED');
+      tenantStatus.getStatus.mockResolvedValue('ARCHIVED');
+      await expect(guard.canActivate(createMockContext(req(), marked()))).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('still refuses an allowed export with 423 while a restore runs (restore check comes after)', async () => {
+      suspend('TRIAL_EXPIRED');
+      tenantStatus.isRestoring.mockResolvedValue(true);
+      const r: any = { ...req(), method: 'POST' };
+      const error: any = await guard.canActivate(createMockContext(r, marked())).catch((e) => e);
+      expect(error.getStatus()).toBe(423);
+      expect(error.getResponse().details).toEqual({ code: 'TENANT_RESTORING' });
     });
 
     it('leaves a marked handler on an ACTIVE tenant unaffected', async () => {

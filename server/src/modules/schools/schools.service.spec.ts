@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { randomBytes } from 'crypto';
@@ -1519,6 +1519,57 @@ describe('SchoolsService', () => {
       expect(repo.schoolRepo.update).not.toHaveBeenCalled();
       expect(auditService.record).not.toHaveBeenCalled();
       expect(tenantStatus.invalidate).not.toHaveBeenCalled();
+    });
+
+    // #2399 A1: TRIAL_EXPIRED opens the backup export, so a manual suspension of an already
+    // trial-expired school must replace that reason, not silently no-op.
+    it('re-suspending a trial-expired school replaces the reason, audits SUSPEND and invalidates the cache', async () => {
+      const { service, repo } = buildService({
+        id: 's1',
+        status: 'SUSPENDED',
+        status_reason: 'TRIAL_EXPIRED',
+      });
+
+      const result = await service.updateStatus(
+        's1',
+        { status: 'SUSPENDED', reason: 'Fraud / legal hold' },
+        'admin-1',
+        REQUEST_CONTEXT,
+      );
+
+      expect(result.status_reason).toBe('Fraud / legal hold');
+      expect(repo.schoolRepo.update).toHaveBeenCalledWith(
+        's1',
+        expect.objectContaining({ status: 'SUSPENDED', status_reason: 'Fraud / legal hold' }),
+      );
+      expect(auditService.record.mock.calls[0][0]).toMatchObject({
+        action: AuditAction.SUSPEND,
+        old_values: { status: 'SUSPENDED', reason: 'TRIAL_EXPIRED' },
+        new_values: { status: 'SUSPENDED', reason: 'Fraud / legal hold' },
+      });
+      expect(tenantStatus.invalidate).toHaveBeenCalledWith('s1');
+    });
+
+    it('re-suspending with the same reason is still a no-op', async () => {
+      const { service, repo } = buildService({
+        id: 's1',
+        status: 'SUSPENDED',
+        status_reason: 'Non-payment',
+      });
+
+      await service.updateStatus('s1', { status: 'SUSPENDED', reason: 'Non-payment' }, 'admin-1');
+
+      expect(repo.schoolRepo.update).not.toHaveBeenCalled();
+      expect(auditService.record).not.toHaveBeenCalled();
+    });
+
+    it('refuses the reserved TRIAL_EXPIRED reason: only the trial job may set it', async () => {
+      const { service, repo } = buildService({ id: 's1', status: 'ACTIVE' });
+
+      await expect(
+        service.updateStatus('s1', { status: 'SUSPENDED', reason: 'TRIAL_EXPIRED' }, 'admin-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(repo.schoolRepo.update).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when the school does not exist', async () => {

@@ -688,6 +688,14 @@ export class SchoolsService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<SchoolStatusResponse> {
+    // TRIAL_EXPIRED is a system code that opens the backup export (D16). Only the trial job may
+    // write it, so typing it in here can never open that door (#2399).
+    if (dto.reason.trim().toUpperCase() === TRIAL_EXPIRED_REASON) {
+      throw new BadRequestException({
+        message: `"${TRIAL_EXPIRED_REASON}" is reserved for the trial job; write the reason in words`,
+        details: { code: 'RESERVED_STATUS_REASON' },
+      });
+    }
     const now = new Date();
 
     const { response, changed } = await this.repo.manager.transaction(async (manager) => {
@@ -700,7 +708,10 @@ export class SchoolsService {
         throw new NotFoundException(`School with ID "${schoolId}" not found`);
       }
 
-      if (school.status === dto.status) {
+      // A manual suspension on top of an ended trial must replace TRIAL_EXPIRED, which opens the
+      // backup export (D16); same status with the same reason stays a no-op (#2399).
+      const reasonChanged = dto.status === 'SUSPENDED' && school.status_reason !== dto.reason;
+      if (school.status === dto.status && !reasonChanged) {
         return {
           changed: false,
           response: {
@@ -744,7 +755,7 @@ export class SchoolsService {
           performed_by_user_id: userId,
           ip_address: context.ip,
           user_agent: context.userAgent,
-          old_values: { status: school.status },
+          old_values: { status: school.status, reason: school.status_reason },
           new_values: { status: dto.status, reason: dto.reason },
         },
         manager,
