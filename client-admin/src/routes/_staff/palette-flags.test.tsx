@@ -30,6 +30,7 @@ describe('palette landing flags', () => {
   beforeEach(() => {
     server.use(
       http.get('/api/v1/designations', () => HttpResponse.json([])),
+      http.get('/api/v1/account/school-invites', () => HttpResponse.json([])),
       http.get('/api/v1/*', () =>
         HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
       ),
