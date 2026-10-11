@@ -1,3 +1,15 @@
+# Secret-bearing URLs: log the path without its query string (?token=...),
+# mask path tokens, and never log the Referer (a page opened from a
+# reset/invite link sends that link as Referer on every asset request).
+# `$lg_keep` is nginx-only: the image's envsubst step substitutes only
+# variables defined in the container env (the same reason `$host` survives).
+map $uri $log_uri {
+    default $uri;
+    "~^(?<lg_keep>.*/(public/invoices|public/verify|calendar/feed)/)" "${lg_keep}[REDACTED]";
+}
+log_format redacted '$remote_addr - [$time_local] "$request_method $log_uri" '
+                    '$status $body_bytes_sent "$http_user_agent" $request_time';
+
 upstream app_upstream {
     server app:3000;
 }
@@ -7,6 +19,7 @@ upstream app_upstream {
 # domain ownership over plain HTTP before a certificate exists.
 server {
     listen 80;
+    access_log /var/log/nginx/access.log redacted;
     server_name ${APP_DOMAIN};
 
     location /.well-known/acme-challenge/ {
@@ -20,6 +33,7 @@ server {
 
 server {
     listen 443 ssl;
+    access_log /var/log/nginx/access.log redacted;
     http2 on;
     server_name ${APP_DOMAIN};
 

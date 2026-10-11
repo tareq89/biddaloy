@@ -26,6 +26,26 @@ describe('buildPinoOptions', () => {
     expect(serialized.url).toBe('/api/v1/public/invoices/[REDACTED]');
   });
 
+  it('[PUB-07] masks calendar-feed and public-verify path tokens', () => {
+    const options = buildPinoOptions('production');
+    for (const [url, want] of [
+      ['/api/v1/calendar/feed/abc123.ics', '/api/v1/calendar/feed/[REDACTED]'],
+      ['/api/v1/public/verify/abc123', '/api/v1/public/verify/[REDACTED]'],
+      ['/api/v1/public/invoices/abc123?x=1', '/api/v1/public/invoices/[REDACTED]?x=1'],
+    ]) {
+      const serialized = options?.serializers?.req?.({ method: 'GET', url } as any);
+      expect(serialized.url).not.toContain('abc123');
+      expect(serialized.url).toBe(want);
+    }
+  });
+
+  it('[PUB-07] leaves normal URLs alone and masks ?token= query params', () => {
+    const options = buildPinoOptions('production');
+    const ser = (url: string) => options?.serializers?.req?.({ method: 'GET', url } as any).url;
+    expect(ser('/api/v1/students?page=2')).toBe('/api/v1/students?page=2');
+    expect(ser('/reset-password?token=abc')).not.toContain('abc');
+  });
+
   it('keeps only statusCode on the serialized response', () => {
     const options = buildPinoOptions('production');
     const fakeRes = { statusCode: 200, headers: { 'x-secret': 'nope' } } as any;
