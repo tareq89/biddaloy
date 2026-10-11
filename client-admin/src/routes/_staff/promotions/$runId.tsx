@@ -70,6 +70,7 @@ const OUTCOME_KEY: Record<PromotionOutcome, string> = {
   PROMOTE: 'outcome.promote',
   RETAIN: 'outcome.retain',
   GRADUATE: 'outcome.graduate',
+  CONDITIONAL: 'outcome.promote', // Epic 68: #2296 — own label lands with that ticket
 };
 
 const PLACEMENT_ERROR_KEY: Record<string, string> = {

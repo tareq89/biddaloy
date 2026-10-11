@@ -17,7 +17,7 @@ import { AUDIT_ENTITY_TYPES } from '../audit/entity-types';
 describe('17.1.1 calendar enums + audit catalog [#702]', () => {
   it('CalendarEventType has exactly the 17.x member set', () => {
     expect(Object.values(CalendarEventType).sort()).toEqual(
-      ['HOLIDAY', 'EXAM', 'EVENT', 'MEETING', 'DEADLINE'].sort(),
+      ['HOLIDAY', 'EXAM', 'EVENT', 'MEETING', 'DEADLINE', 'MAKEUP_DAY'].sort(),
     );
   });
 

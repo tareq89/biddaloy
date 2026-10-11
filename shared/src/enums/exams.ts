@@ -72,6 +72,11 @@ export const PromotionOutcome = {
   PROMOTE: 'PROMOTE',
   RETAIN: 'RETAIN',
   GRADUATE: 'GRADUATE',
+  /**
+   * Promoted with a stated condition (override note). Never suggested by the
+   * algorithm; moves the student up like PROMOTE (SENSE-13).
+   */
+  CONDITIONAL: 'CONDITIONAL',
 } as const;
 export type PromotionOutcome = (typeof PromotionOutcome)[keyof typeof PromotionOutcome];
 
