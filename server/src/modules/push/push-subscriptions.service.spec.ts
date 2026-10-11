@@ -20,6 +20,18 @@ function fakeRepo(overrides: Partial<Record<string, any>> = {}) {
  * and the list response never echoes endpoint/keys.
  */
 describe('PushSubscriptionsService', () => {
+  describe('removeAllForUser', () => {
+    it('deletes by user_id only, across every tenant', async () => {
+      const repo = fakeRepo();
+      const service = new PushSubscriptionsService(repo);
+
+      await service.removeAllForUser('user-1');
+
+      // No tenant_id in the filter: a "log out everywhere" spans all memberships.
+      expect(repo.delete).toHaveBeenCalledWith({ user_id: 'user-1' });
+    });
+  });
+
   describe('subscribe', () => {
     it('creates a new row scoped to the caller when the endpoint is new', async () => {
       const repo = fakeRepo();

@@ -151,6 +151,7 @@ import { InvoiceShareToken } from './modules/invoices/entities/invoice-share-tok
 import { CommunicationLog } from './modules/communications/entities/communication-log.entity';
 import { ReminderBatch } from './modules/communications/entities/reminder-batch.entity';
 import { AuditLog } from './modules/audit/entities/audit-log.entity';
+import { PushSubscription } from './modules/push/entities/push-subscription.entity';
 import { Enrollment } from './modules/students/entities/enrollment.entity';
 import { TeacherClassSection } from './modules/academics/entities/teacher-class-section.entity';
 import { Subject } from './modules/academics/entities/subject.entity';
@@ -256,6 +257,10 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             CommunicationLog,
             ReminderBatch,
             AuditLog,
+            // [#2237] Was missing: every /me/push route and PushService hit
+            // "No metadata for PushSubscription". Registering it enables
+            // Web Push app-wide.
+            PushSubscription,
             Enrollment,
             TeacherClassSection,
             Subject,

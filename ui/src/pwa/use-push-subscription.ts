@@ -116,6 +116,24 @@ async function deleteSubscription(id: string): Promise<void> {
   await apiClient.delete(`/me/push/subscriptions/${id}`);
 }
 
+/**
+ * [JOBS-12] Best-effort: drop this browser's push subscription so a shared
+ * phone / office PC stops getting the previous user's pushes after logout.
+ * Once unsubscribed, the push service answers 404/410 and the server prunes
+ * the row (`PushService`). Uses `getRegistration()`, not `.ready`, which
+ * never resolves when no worker is registered and would hang logout.
+ * Never throws.
+ */
+export async function unsubscribeThisBrowser(): Promise<void> {
+  try {
+    const registration = await navigator.serviceWorker?.getRegistration();
+    const subscription = await registration?.pushManager.getSubscription();
+    await subscription?.unsubscribe();
+  } catch {
+    // Logout must never be blocked by push cleanup.
+  }
+}
+
 export function usePushSubscription(): UsePushSubscriptionResult {
   const [permission, setPermission] = React.useState<PushPermissionState>(detectPermission);
   const [isSubscribedOnThisDevice, setIsSubscribedOnThisDevice] = React.useState(false);

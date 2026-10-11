@@ -10,6 +10,6 @@ import { PushService } from './push.service';
   imports: [TypeOrmModule.forFeature([PushSubscription])],
   controllers: [PushSubscriptionsController],
   providers: [PushConfigService, PushSubscriptionsService, PushService],
-  exports: [PushConfigService, PushService],
+  exports: [PushConfigService, PushService, PushSubscriptionsService],
 })
 export class PushModule {}

@@ -20,6 +20,7 @@ import {
 } from '../api/client';
 import { NoMembershipsError } from '../api/errors';
 import { resetSessionBootstrap, scheduleTokenRefresh } from '../api/session';
+import { unsubscribeThisBrowser } from '../pwa/use-push-subscription';
 
 import { switchActiveTenant } from './tenant';
 
@@ -233,11 +234,23 @@ export async function changePassword(input: {
   return result.data;
 }
 
+const UNSUBSCRIBE_TIMEOUT_MS = 2500;
+
 async function endSession(
   queryClient: QueryClient,
   endpoint: '/auth/logout' | '/auth/logout-all',
 ): Promise<void> {
   try {
+    // [JOBS-12] Best-effort and time-boxed so a hung push service can never
+    // stop the logout POST below.
+    try {
+      await Promise.race([
+        unsubscribeThisBrowser(),
+        new Promise<void>((resolve) => setTimeout(resolve, UNSUBSCRIBE_TIMEOUT_MS)),
+      ]);
+    } catch {
+      // Swallowed on purpose.
+    }
     await postAuthLogout(endpoint);
   } catch {
     // Best-effort: see this function's own doc comment above.
