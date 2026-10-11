@@ -30,7 +30,7 @@ export class BatchInviteDto {
 }
 
 export type InviteSkipReason =
-  'no_contact' | 'already_active' | 'already_pending' | 'notifications_disabled';
+  'no_contact' | 'already_active' | 'already_pending' | 'notifications_disabled' | 'contact_in_use';
 
 export class InvitePreviewEntryDto {
   @ApiProperty() guardian_id: string;
@@ -43,7 +43,13 @@ export class InviteSkippedEntryDto {
   @ApiProperty() guardian_id: string;
   @ApiProperty() full_name: string;
   @ApiProperty({
-    enum: ['no_contact', 'already_active', 'already_pending', 'notifications_disabled'],
+    enum: [
+      'no_contact',
+      'already_active',
+      'already_pending',
+      'notifications_disabled',
+      'contact_in_use',
+    ],
   })
   reason: InviteSkipReason;
 }

@@ -15,6 +15,7 @@ import { buildValidationPipeOptions } from '../../../validation-pipe';
 import { writeWorkbook } from '../codec/workbook-codec';
 import { SCHEMA_VERSION } from '../codec/meta';
 import { schoolTab } from '../tabs/school/school.tab';
+import { usersTab } from '../tabs/people/users.tab';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -32,6 +33,12 @@ const FRESH_TENANT_ID = '00000000-0000-4000-8000-000000060902';
 const FRESH_SCHOOL_NAME = 'Restore E2E Fresh School';
 const FRESH_ADMIN_USER_ID = '00000000-0000-4000-8000-000000060903';
 const FRESH_ADMIN_EMAIL = 'admin@restore-e2e-fresh.example';
+
+// A second empty school, used only by the AUTH-02 repro below.
+const JOIN_TENANT_ID = '00000000-0000-4000-8000-000000060904';
+const JOIN_SCHOOL_NAME = 'Restore E2E Join School';
+const JOIN_ADMIN_USER_ID = '00000000-0000-4000-8000-000000060905';
+const JOIN_ADMIN_EMAIL = 'admin@restore-e2e-join.example';
 
 /** In-memory stand-in for `StorageService` — no S3 is guaranteed
  * reachable in this e2e environment (same reasoning as
@@ -186,6 +193,25 @@ describe('POST /backup/restore E2E', () => {
       [FRESH_ADMIN_USER_ID, FRESH_TENANT_ID, UserRole.ADMIN],
     );
 
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, $2, 'restore-e2e-join-school', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [JOIN_TENANT_ID, JOIN_SCHOOL_NAME],
+    );
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'Restore E2E Join Admin', 'ACTIVE', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [JOIN_ADMIN_USER_ID, JOIN_ADMIN_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [JOIN_ADMIN_USER_ID, JOIN_TENANT_ID, UserRole.ADMIN],
+    );
+
     const nameRows = await dataSource.query(`SELECT name FROM schools WHERE id = $1`, [TENANT_ID]);
     schoolName = nameRows[0].name;
 
@@ -311,4 +337,92 @@ describe('POST /backup/restore E2E', () => {
     },
     90_000,
   );
+
+  // AUTH-02: a restore that names another school's user must not make that user a member here.
+  it('does not attach an existing account of another school; it only files a join request', async () => {
+    const joinAdminToken = (
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: JOIN_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200)
+    ).body.access_token as string;
+
+    // TEACHER_EMAIL already belongs to the seeded school (a different tenant).
+    const workbook = await writeWorkbook({
+      tabs: [schoolTab, usersTab],
+      meta: {
+        schema_version: SCHEMA_VERSION,
+        kind: 'BACKUP',
+        exported_at: new Date().toISOString(),
+        app_version: 'test',
+        source_school_name: JOIN_SCHOOL_NAME,
+        source_school_slug: 'restore-e2e-join',
+      },
+      rowsFor: async function* (tab) {
+        if (tab.name === 'school') {
+          yield {
+            id: JOIN_TENANT_ID,
+            name: JOIN_SCHOOL_NAME,
+            name_bn: null,
+            address: null,
+            phone: null,
+            email: null,
+            registration_id: null,
+            settings: null,
+          };
+        }
+        if (tab.name === 'users') {
+          yield {
+            id: randomUUID(),
+            email: TEACHER_EMAIL,
+            phone: null,
+            full_name: 'Restore E2E Teacher',
+            role: UserRole.TEACHER,
+          };
+        }
+      },
+    });
+    const stagingId = await validateWorkbook(JOIN_TENANT_ID, joinAdminToken, workbook);
+    const res = await supertest(app.getHttpServer())
+      .post('/api/v1/backup/restore')
+      .set('Authorization', `Bearer ${joinAdminToken}`)
+      .set('X-Tenant-ID', JOIN_TENANT_ID)
+      .send({ staging_id: stagingId, confirmation: JOIN_SCHOOL_NAME })
+      .expect(202);
+
+    const deadline = Date.now() + 60_000;
+    let status = '';
+    do {
+      const getRes = await supertest(app.getHttpServer())
+        .get(`/api/v1/backup/jobs/${res.body.job_id}`)
+        .set('Authorization', `Bearer ${joinAdminToken}`)
+        .set('X-Tenant-ID', JOIN_TENANT_ID)
+        .expect(200);
+      status = getRes.body.status;
+      if (status === 'DONE' || status === 'FAILED') break;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } while (Date.now() < deadline);
+    expect(status).toBe('DONE');
+
+    const memberships = await dataSource.query(
+      `SELECT 1 FROM user_tenants WHERE user_id = $1 AND tenant_id = $2`,
+      [TEACHER_USER_ID, JOIN_TENANT_ID],
+    );
+    expect(memberships).toHaveLength(0);
+
+    const listed = await supertest(app.getHttpServer())
+      .get('/api/v1/users')
+      .set('Authorization', `Bearer ${joinAdminToken}`)
+      .set('X-Tenant-ID', JOIN_TENANT_ID)
+      .expect(200);
+    const emails = (listed.body.data ?? listed.body).map((u: { email: string }) => u.email);
+    expect(emails).not.toContain(TEACHER_EMAIL);
+
+    // Only after the owner accepts would a membership appear; the request is waiting.
+    const requests = await dataSource.query(
+      `SELECT 1 FROM auth_tokens WHERE user_id = $1 AND tenant_id = $2 AND purpose = 'JOIN_SCHOOL'`,
+      [TEACHER_USER_ID, JOIN_TENANT_ID],
+    );
+    expect(requests).toHaveLength(1);
+  }, 90_000);
 });

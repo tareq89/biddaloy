@@ -1,0 +1,170 @@
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { NotFoundException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { TestingModule } from '@nestjs/testing';
+import { AuthTokenPurpose, UserRole, UserStatus } from '@biddaloy/shared';
+import { createTestModule } from '@test/helpers/module.helper';
+import { SEED_TENANT_ID } from '@test/constants';
+import { ALL_ENTITIES } from '@test/all-entities';
+import { AuditService } from '../audit/audit.service';
+import { AuthTokenService } from './auth-token.service';
+import { insertJoinRequest, SchoolInviteService } from './school-invite.service';
+import { AuthToken } from './entities/auth-token.entity';
+import { User } from '../users/entities/user.entity';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { Guardian } from '../students/entities/guardian.entity';
+import { School } from '../schools/entities/school.entity';
+
+const TENANT_B = '00000000-0000-4000-8000-000000000097';
+const CTX = { ip: null, userAgent: null };
+
+describe('SchoolInviteService (integration)', () => {
+  let module: TestingModule;
+  let ds: DataSource;
+  let service: SchoolInviteService;
+  let user: User;
+
+  beforeAll(async () => {
+    module = await createTestModule(ALL_ENTITIES, [
+      SchoolInviteService,
+      AuthTokenService,
+      AuditService,
+    ]);
+    ds = module.get(DataSource);
+    service = module.get(SchoolInviteService);
+  });
+
+  afterAll(async () => {
+    await module.close();
+  });
+
+  beforeEach(async () => {
+    await ds.query('DELETE FROM audit_logs');
+    await ds.query('DELETE FROM auth_tokens');
+    await ds.query('DELETE FROM guardians');
+    await ds.query('DELETE FROM user_tenants');
+    await ds.query('DELETE FROM users');
+    await ds.query('DELETE FROM schools');
+    const schools = ds.getRepository(School);
+    for (const [id, slug] of [
+      [SEED_TENANT_ID, 'invite-a'],
+      [TENANT_B, 'invite-b'],
+    ]) {
+      await schools.save(schools.create({ id, name: slug, slug, tenant_id: id }));
+    }
+    const users = ds.getRepository(User);
+    user = await users.save(
+      users.create({ full_name: 'Owner', email: 'o@example.com', status: UserStatus.ACTIVE }),
+    );
+  });
+
+  const request = (tenantId = SEED_TENANT_ID, extra: { guardianId?: string } = {}) =>
+    ds.transaction((m) =>
+      insertJoinRequest(m, {
+        userId: user.id,
+        tenantId,
+        role: UserRole.PARENT,
+        createdByUserId: null,
+        ...extra,
+      }),
+    );
+  const memberships = (tenantId = SEED_TENANT_ID) =>
+    ds.getRepository(UserTenant).find({ where: { user_id: user.id, tenant_id: tenantId } });
+
+  it('accept creates the PARENT membership and links guardian.user_id', async () => {
+    const g = await ds.getRepository(Guardian).save(
+      ds.getRepository(Guardian).create({
+        full_name: 'G',
+        relationship: 'Mother',
+        tenant_id: SEED_TENANT_ID,
+      }),
+    );
+    const row = await request(SEED_TENANT_ID, { guardianId: g.id });
+    expect(await memberships()).toHaveLength(0);
+
+    await service.accept(user.id, row.id, CTX);
+
+    const [ut] = await memberships();
+    expect(ut.role).toBe(UserRole.PARENT);
+    const linked = await ds.getRepository(Guardian).findOneOrFail({ where: { id: g.id } });
+    expect(linked.user_id).toBe(user.id);
+    // The request is spent: a second accept finds nothing live.
+    await expect(service.accept(user.id, row.id, CTX)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('accept revives a soft-deleted membership instead of inserting (no 23505)', async () => {
+    const utRepo = ds.getRepository(UserTenant);
+    const old = await utRepo.save(
+      utRepo.create({ user_id: user.id, tenant_id: SEED_TENANT_ID, role: UserRole.PARENT }),
+    );
+    await utRepo.softDelete({ id: old.id });
+    const row = await request();
+
+    await service.accept(user.id, row.id, CTX);
+
+    const rows = await memberships();
+    expect(rows.map((r) => r.id)).toEqual([old.id]);
+  });
+
+  it('accept of an expired, revoked or consumed request is 404', async () => {
+    const tokens = ds.getRepository(AuthToken);
+    const expired = await request();
+    await tokens.update({ id: expired.id }, { expires_at: new Date(Date.now() - 1000) });
+    await expect(service.accept(user.id, expired.id, CTX)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+
+    const revoked = await request();
+    await tokens.update({ id: revoked.id }, { revoked_at: new Date() });
+    await expect(service.accept(user.id, revoked.id, CTX)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+
+    const consumed = await request();
+    await service.accept(user.id, consumed.id, CTX);
+    await expect(service.accept(user.id, consumed.id, CTX)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it("someone else's request is 404 and stays pending", async () => {
+    const row = await request();
+    const users = ds.getRepository(User);
+    const other = await users.save(users.create({ full_name: 'X', email: 'x@example.com' }));
+
+    await expect(service.accept(other.id, row.id, CTX)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.decline(other.id, row.id, CTX)).rejects.toBeInstanceOf(NotFoundException);
+    expect(await service.listMine(user.id)).toHaveLength(1);
+  });
+
+  it('a second request for the same user and school revokes the first', async () => {
+    const first = await request();
+    const second = await request();
+
+    const live = await service.listMine(user.id);
+    expect(live.map((r) => r.id)).toEqual([second.id]);
+    const old = await ds.getRepository(AuthToken).findOneOrFail({ where: { id: first.id } });
+    expect(old.revoked_at).not.toBeNull();
+  });
+
+  it('a request for school A is untouched by a new request for school B', async () => {
+    const a = await request(SEED_TENANT_ID);
+    await request(TENANT_B);
+
+    const live = await service.listMine(user.id);
+    expect(live).toHaveLength(2);
+    expect(live.find((r) => r.id === a.id)?.school_name).toBe('invite-a');
+    const token = await ds.getRepository(AuthToken).findOneOrFail({ where: { id: a.id } });
+    expect(token.purpose).toBe(AuthTokenPurpose.JOIN_SCHOOL);
+    expect(token.revoked_at).toBeNull();
+  });
+
+  it('decline revokes the request and creates no membership', async () => {
+    const row = await request();
+
+    await service.decline(user.id, row.id, CTX);
+
+    expect(await service.listMine(user.id)).toHaveLength(0);
+    expect(await memberships()).toHaveLength(0);
+  });
+});
