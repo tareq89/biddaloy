@@ -211,6 +211,7 @@ describe('SearchService', () => {
     const invoice = await invoiceRepo.save(
       invoiceRepo.create({
         invoice_number: 'INV-SEARCH-0001',
+        tenant_id: SEED_TENANT_ID,
         student_id: student.id,
         total_amount: 1000,
         issued_date: new Date('2026-01-01'),
@@ -231,6 +232,7 @@ describe('SearchService', () => {
     const invoice = await invoiceRepo.save(
       invoiceRepo.create({
         invoice_number: 'INV-SEARCH-0002',
+        tenant_id: SEED_TENANT_ID,
         student_id: student.id,
         total_amount: 1000,
         issued_date: new Date('2026-01-01'),
@@ -418,6 +420,7 @@ describe('SearchService', () => {
       await invoiceRepo.save(
         invoiceRepo.create({
           invoice_number: 'INV-CROSS-TENANT-0001',
+          tenant_id: OTHER_TENANT_ID,
           student_id: otherStudent.id,
           total_amount: 1000,
           issued_date: new Date('2026-01-01'),

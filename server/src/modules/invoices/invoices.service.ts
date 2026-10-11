@@ -171,11 +171,12 @@ export class InvoicesService {
     const snapshot = await this.buildSnapshot(manager, payment, issuerSnapshot);
 
     const invoiceRepo = manager.getRepository(Invoice);
-    const invoiceNumber = await generateInvoiceNumber(invoiceRepo);
+    const invoiceNumber = await generateInvoiceNumber(manager, payment.tenant_id);
 
     const invoice = await invoiceRepo.save(
       invoiceRepo.create({
         invoice_number: invoiceNumber,
+        tenant_id: payment.tenant_id,
         kind: InvoiceKind.INVOICE,
         student_id: payment.student_id,
         payment_id: payment.id,
@@ -275,10 +276,11 @@ export class InvoicesService {
       throw new NotFoundException(`No invoice found for payment "${paymentId}" to reverse`);
     }
 
-    const creditNoteNumber = await generateCreditNoteNumber(invoiceRepo);
+    const creditNoteNumber = await generateCreditNoteNumber(manager, original.tenant_id);
     const creditNote = await invoiceRepo.save(
       invoiceRepo.create({
         invoice_number: creditNoteNumber,
+        tenant_id: original.tenant_id,
         kind: InvoiceKind.CREDIT_NOTE,
         student_id: original.student_id,
         payment_id: original.payment_id,

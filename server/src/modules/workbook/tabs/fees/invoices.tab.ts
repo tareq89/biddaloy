@@ -349,6 +349,7 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
 
     const invoice = existing ?? new Invoice();
     invoice.invoice_number = row.invoice_number;
+    invoice.tenant_id = tenantId;
     invoice.kind = row.kind;
     invoice.student_id = row.student_id;
     invoice.total_amount = row.total_amount as unknown as number;

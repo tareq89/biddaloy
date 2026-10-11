@@ -14,6 +14,7 @@ import {
 import { Type } from 'class-transformer';
 import { InvoiceStatus, InvoiceKind, CommunicationMedium } from '@biddaloy/shared';
 import { Invoice, InvoiceSnapshot } from '../entities/invoice.entity';
+import { School } from '../../schools/entities/school.entity';
 import { Student } from '../../students/entities/student.entity';
 import { UserResponseDto } from '../../users/dto/user-response.dto';
 import { IssuerSnapshot } from '../../schools/profile/issuer-snapshot';
@@ -127,6 +128,8 @@ export class QueryInvoiceDto {
 export class StaffInvoiceDto implements Omit<Invoice, 'issued_by'> {
   id: string;
   invoice_number: string;
+  tenant: School;
+  tenant_id: string;
   kind: InvoiceKind;
   student: Student;
   student_id: string;

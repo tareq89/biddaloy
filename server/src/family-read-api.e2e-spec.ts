@@ -405,10 +405,10 @@ describe('[5.1] Family-facing read API', () => {
       };
       const rows = await dataSource.query(
         `INSERT INTO invoices
-           (invoice_number, student_id, payment_id, total_amount, tax_amount,
+           (invoice_number, tenant_id, student_id, payment_id, total_amount, tax_amount,
             discount_amount, status, kind, issued_date, due_date, snapshot, issued_by_user_id,
             notes, created_at, updated_at)
-         VALUES ($1, $2, NULL, 1000, 0, 0, 'ISSUED', 'INVOICE', '2026-01-01', '2026-01-31', $3, $4,
+         VALUES ($1, (SELECT tenant_id FROM students WHERE id = $2), $2, NULL, 1000, 0, 0, 'ISSUED', 'INVOICE', '2026-01-01', '2026-01-31', $3, $4,
                  'Thank you', NOW(), NOW())
          RETURNING id`,
         [
