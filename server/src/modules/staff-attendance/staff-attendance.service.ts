@@ -242,7 +242,11 @@ export class StaffAttendanceService {
     // EXECUTIVE pair, so it doubles as the "admin-level attendance" check
     // without a new permission, same pattern
     // `leave.service.ts#assertStaffProfileAccessible` uses.
-    if (!roleHasPermission(role, Permission.LEAVE_APPROVE)) {
+    // Non-admins may only create their own mark, for today, on a working
+    // day; anything else (other dates, changing an existing mark) is
+    // admin-only (TIME-01).
+    const isAdmin = roleHasPermission(role, Permission.LEAVE_APPROVE);
+    if (!isAdmin) {
       const ownStaffProfileId = await this.staffProfilesService.findIdByUserId(userId);
       const notOwn = staffProfileIds.some((id) => id !== ownStaffProfileId);
       if (notOwn) {
@@ -263,6 +267,30 @@ export class StaffAttendanceService {
         const policy = resolveAttendancePolicy(settings);
         const timezone = settings.region?.timezone ?? 'UTC';
         const today = localToday(timezone);
+
+        if (!isAdmin && dto.date !== today) {
+          throw new ForbiddenException({
+            message: 'You can only mark your own attendance for today',
+            details: { code: 'STAFF_ATTENDANCE_SELF_TODAY_ONLY' },
+          });
+        }
+        if (dto.date > today && dto.entries.some((e) => e.status !== AttendanceStatus.LEAVE)) {
+          throw new UnprocessableEntityException({
+            message: 'Only LEAVE may be marked for a future date',
+            details: { code: 'STAFF_ATTENDANCE_FUTURE_NOT_LEAVE' },
+          });
+        }
+        // Staff have no class, so the check is tenant-wide.
+        const nonWorking = await this.schoolCalendarService.isNonWorkingDay({
+          tenantId,
+          date: dto.date,
+        });
+        if (nonWorking && !(isAdmin && dto.force_non_working_day === true)) {
+          throw new UnprocessableEntityException({
+            message: 'Cannot mark attendance on a non-working day',
+            details: { code: 'STAFF_ATTENDANCE_NON_WORKING_DAY' },
+          });
+        }
 
         // Pessimistic lock: two concurrent PUTs for the same day must
         // serialize, matching `AttendanceService.putRegister`'s reasoning.
@@ -362,6 +390,14 @@ export class StaffAttendanceService {
               status: existing.status,
             });
             continue;
+          }
+
+          if (!isAdmin) {
+            // Covers an admin's mark and a SYSTEM LEAVE row from `markLeaveRange`.
+            throw new ForbiddenException({
+              message: 'This mark was already recorded; ask an admin to correct it',
+              details: { code: 'STAFF_ATTENDANCE_ALREADY_MARKED' },
+            });
           }
 
           const oldStatus = existing.status;
