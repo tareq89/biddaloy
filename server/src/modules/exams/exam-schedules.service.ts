@@ -218,12 +218,19 @@ export class ExamSchedulesService {
 
     const warnings = await this.findOverlapWarnings(examId, date, startsAt, endsAt, id);
 
-    const changedKeys = Object.keys(dto);
+    // Over HTTP every DTO key is present (unsent ones are `undefined`): look at
+    // values, not keys. Times compare as HH:MM:SS (Postgres returns seconds).
+    const changedKeys = Object.keys(dto).filter((k) => (dto as any)[k] !== undefined);
+    const hms = (t: string) => (t.length === 5 ? `${t}:00` : t);
+    const moves =
+      (dto.date !== undefined && dto.date !== String(existing.date).slice(0, 10)) ||
+      (dto.starts_at !== undefined && hms(dto.starts_at) !== hms(existing.starts_at)) ||
+      (dto.ends_at !== undefined && hms(dto.ends_at) !== hms(existing.ends_at));
     if (changedKeys.length > 0) {
       try {
         await this.repo.manager.transaction(async (manager) => {
           const repo = manager.getRepository(ExamSchedule);
-          if (['date', 'starts_at', 'ends_at', 'room_id'].some((k) => k in dto)) {
+          if (moves) {
             await this.assertNotInPublishedSeatPlan(manager, id, tenantId);
           }
           const oldValues = Object.fromEntries(
