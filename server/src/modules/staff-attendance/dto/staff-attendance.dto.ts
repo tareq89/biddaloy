@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
@@ -45,6 +46,12 @@ export class PutStaffAttendanceRegisterDto {
   @MinLength(3)
   @SanitizeText()
   reason?: string;
+
+  /** Marks a non-working day (holiday or weekly off) as intentional. Only
+   * effective for an admin-level caller (`LEAVE_APPROVE`). */
+  @IsOptional()
+  @IsBoolean()
+  force_non_working_day?: boolean;
 
   @IsArray()
   @ArrayMaxSize(1000)
