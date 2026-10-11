@@ -178,6 +178,28 @@ describe('[48.2.10] TranscriptService (integration)', () => {
     expect(names(t)).toEqual(['Published']);
   });
 
+  it('[68.1.07] a student who left after publish keeps the exam on their transcript after reopen, reprocess and re-publish', async () => {
+    const f = await seedStudent();
+    const examId = await seedExam(f, 'Published', ExamStatus.PUBLISHED, '2026-06-10');
+    // The reprocess needs the class to have the subject, so the result keeps a subject row.
+    await ds.query(
+      `INSERT INTO class_subjects (class_id, subject_id, academic_year_id, is_optional, is_graded_only, tenant_id, created_at, updated_at)
+       VALUES ($1, $2, $3, false, false, $4, NOW(), NOW())`,
+      [SEED_CLASS_1_ID, f.subjectId, SEED_ACADEMIC_YEAR_ID, TENANT_ID],
+    );
+    await ds.query(
+      `UPDATE enrollments SET enrollment_status = 'TRANSFERRED' WHERE student_id = $1`,
+      [f.studentId],
+    );
+
+    await results.reopen(examId, TENANT_ID, SEED_ADMIN_USER_ID);
+    await results.process(examId, TENANT_ID, SEED_ADMIN_USER_ID, true);
+    await results.publish(examId, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    const t = await service.getTranscript(TENANT_ID, f.studentId, SEED_ACADEMIC_YEAR_ID, true);
+    expect(names(t)).toEqual(['Published']);
+  });
+
   it('leaves out an exam of another class in the same year', async () => {
     const f = await seedStudent();
     await seedExam(f, 'Mine', ExamStatus.PUBLISHED, '2026-06-10');
