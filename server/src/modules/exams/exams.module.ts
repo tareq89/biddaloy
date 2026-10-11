@@ -54,6 +54,7 @@ import { AnalysisController } from './analysis.controller';
 import { ResultSmsService } from './result-sms.service';
 import { FamilyAccessService } from '../students/family-access.service';
 import { ExamSchedulesService } from './exam-schedules.service';
+import { ExamResultRecomputer } from './result-recomputer.service';
 import {
   ExamSchedulesController,
   StudentExamScheduleController,
@@ -138,7 +139,11 @@ import {
     ResultSmsService,
     FamilyAccessService,
     ExamSchedulesService,
+    ExamResultRecomputer,
   ],
-  exports: [TypeOrmModule, AnalysisService, ExamTemplatesService],
+  // `ExamResultRecomputer` is bound to the grading module's `RESULT_RECOMPUTER`
+  // token there (a scale edit recomputes PROCESSED exams). No import cycle:
+  // this module does not import `GradingModule`.
+  exports: [TypeOrmModule, AnalysisService, ExamTemplatesService, ExamResultRecomputer],
 })
 export class ExamsModule {}

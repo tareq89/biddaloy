@@ -6,7 +6,9 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { AuditModule } from '../audit/audit.module';
 import { GradingService } from './grading.service';
-import { RecomputeService, RESULT_RECOMPUTER, NoopResultRecomputer } from './recompute.service';
+import { RecomputeService, RESULT_RECOMPUTER } from './recompute.service';
+import { ExamsModule } from '../exams/exams.module';
+import { ExamResultRecomputer } from '../exams/result-recomputer.service';
 import { GradingController } from './grading.controller';
 
 /**
@@ -17,20 +19,20 @@ import { GradingController } from './grading.controller';
  * reasoning as `classes.module.ts`'s own comment on why it does this for
  * `Teacher`/`Student`.
  *
- * `RESULT_RECOMPUTER` is bound to `NoopResultRecomputer` here — Epic 19.0
- * (`#901`) provides the real implementation once it lands (#781 D17: this
- * epic merges first); swapping the binding is the only change that needs
- * to happen in this module when it does.
+ * `RESULT_RECOMPUTER` is bound to the exams module's `ExamResultRecomputer`
+ * [68.2.06]: a band edit recomputes every PROCESSED exam that uses the scale
+ * and is refused while PUBLISHED results use it (D16).
  */
 @Module({
   imports: [
     TypeOrmModule.forFeature([GradingScale, GradingBand, AcademicYear, Class]),
     AuditModule,
+    ExamsModule,
   ],
   providers: [
     GradingService,
     RecomputeService,
-    { provide: RESULT_RECOMPUTER, useClass: NoopResultRecomputer },
+    { provide: RESULT_RECOMPUTER, useExisting: ExamResultRecomputer },
   ],
   controllers: [GradingController],
   exports: [GradingService, RecomputeService],

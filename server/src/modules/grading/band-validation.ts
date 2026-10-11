@@ -31,7 +31,10 @@ export type BandValidationProblemType =
   | 'gap'
   | 'overlap'
   | 'empty'
-  | 'duplicate_sequence';
+  | 'duplicate_sequence'
+  // Not a band-shape problem: the preview adds it when PUBLISHED results
+  // use the scale (D16, recompute.service.ts).
+  | 'SCALE_IN_PUBLISHED_RESULTS';
 
 export interface BandValidationProblem {
   type: BandValidationProblemType;

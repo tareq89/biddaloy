@@ -56,6 +56,7 @@
       "missing_hundred": "The highest row must end at 100.",
       "gap": "Some marks have no grade — see the red part of the bar.",
       "overlap": "Some marks have two grades — see the striped part of the bar.",
+      "SCALE_IN_PUBLISHED_RESULTS": "Published results already use this scale. Reopen them before you change the grades.",
       "unknown": "Something in the rows is not right. Check them and try again."
     },
     "leaveTitle": "Leave without saving?",

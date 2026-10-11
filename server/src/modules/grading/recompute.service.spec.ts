@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
-import { RecomputeService, NoopResultRecomputer } from './recompute.service';
+import { RecomputeService, ResultRecomputer } from './recompute.service';
 
 const VALID_BANDS = [
   { percent_from: 0, percent_to: 59, grade: 'B', sequence: 2 },
@@ -20,7 +20,7 @@ describe('RecomputeService', () => {
   let bandRepo: any;
   let dataSource: any;
   let auditService: any;
-  let resultRecomputer: NoopResultRecomputer;
+  let resultRecomputer: { [K in keyof ResultRecomputer]: ReturnType<typeof vi.fn> };
   let service: RecomputeService;
 
   beforeEach(() => {
@@ -36,9 +36,19 @@ describe('RecomputeService', () => {
     };
     auditService = { record: vi.fn(), recordApproved: vi.fn() };
     dataSource = { transaction: vi.fn(async (cb: any) => cb(fakeManager(scaleRepo, bandRepo))) };
-    resultRecomputer = new NoopResultRecomputer();
+    resultRecomputer = {
+      countAffected: vi.fn(async () => 0),
+      recompute: vi.fn(async () => 0),
+      findPublishedExams: vi.fn(async () => []),
+    };
 
-    service = new RecomputeService(scaleRepo, bandRepo, dataSource, auditService, resultRecomputer);
+    service = new RecomputeService(
+      scaleRepo,
+      bandRepo,
+      dataSource,
+      auditService,
+      resultRecomputer as unknown as ResultRecomputer,
+    );
   });
 
   describe('preview', () => {
@@ -49,8 +59,27 @@ describe('RecomputeService', () => {
       expect(scaleRepo.save).not.toHaveBeenCalled();
     });
 
+    it('reports the real affected count from the recomputer', async () => {
+      resultRecomputer.countAffected.mockResolvedValueOnce(7);
+      const result = await service.preview(SCALE_ID, TENANT, VALID_BANDS as any);
+      expect(result).toMatchObject({ valid: true, bands_changed: true, affected_result_count: 7 });
+    });
+
+    it('is invalid when PUBLISHED results use the scale (D16)', async () => {
+      resultRecomputer.findPublishedExams.mockResolvedValueOnce([{ id: 'e1', name: 'Final 2026' }]);
+      const result = await service.preview(SCALE_ID, TENANT, VALID_BANDS as any);
+      expect(result.valid).toBe(false);
+      expect(result.problems).toEqual([
+        expect.objectContaining({
+          type: 'SCALE_IN_PUBLISHED_RESULTS',
+          message: expect.stringContaining('Final 2026'),
+        }),
+      ]);
+      expect(result.affected_result_count).toBe(0);
+    });
+
     it('reports invalid bands without touching the recomputer', async () => {
-      const spy = vi.spyOn(resultRecomputer, 'countAffected');
+      const spy = resultRecomputer.countAffected;
       const result = await service.preview(SCALE_ID, TENANT, [
         { percent_from: 0, percent_to: 50, grade: 'B', sequence: 1 },
       ] as any);
@@ -104,7 +133,7 @@ describe('RecomputeService', () => {
     });
 
     it('rolls back band changes and the revision bump if recompute fails mid-way', async () => {
-      vi.spyOn(resultRecomputer, 'recompute').mockRejectedValueOnce(new Error('boom'));
+      resultRecomputer.recompute.mockRejectedValueOnce(new Error('boom'));
       // The transaction callback itself throws — a real DataSource would
       // roll back everything the callback did. This fake just re-throws,
       // matching `dataSource.transaction`'s real contract: a caller can
