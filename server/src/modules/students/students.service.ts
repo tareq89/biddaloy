@@ -941,6 +941,14 @@ export class GuardianService {
     return repo.findOne({ where: { phone, tenant_id: tenantId, deleted_at: IsNull() } });
   }
 
+  /** [LIFE-09] Same match as `findByPhone`, with the guardian's linked students loaded. */
+  async findByPhoneWithStudents(phone: string, tenantId: string): Promise<Guardian | null> {
+    return this.repo.findOne({
+      where: { phone, tenant_id: tenantId, deleted_at: IsNull() },
+      relations: ['students'],
+    });
+  }
+
   /**
    * The guardian row linked to this user account, in this tenant.
    * `Guardian.user_id` is a unique one-to-one, so this is exact ownership —

@@ -364,6 +364,38 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(allGuardians[0].id).toBe(existing.id);
   });
 
+  it('warns once for a row whose guardian1_phone matches an existing guardian, without blocking commit [LIFE-09]', async () => {
+    const existing = await guardianRepo.save(
+      guardianRepo.create({
+        full_name: 'Family Already Here',
+        relationship: 'OTHER',
+        phone: '+8801733333333',
+        tenant_id: TENANT_ID,
+      }),
+    );
+    const file = await buildXlsxFile([rowValues(headers, { guardian1_phone: '+8801733333333' })]);
+
+    const validated = await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    // A warning is shown, but it is not a hard error: commit stays allowed.
+    expect(validated.hard_error_count).toBe(0);
+    expect(validated.errors).toHaveLength(1);
+    expect(validated.errors[0]).toMatchObject({
+      severity: 'warning',
+      column: 'guardian1_phone',
+      message: 'Will be linked to existing guardian "Family Already Here"',
+    });
+
+    // Committing after seeing the warning is the staff confirmation: the row joins that family.
+    const committed = await service.commit(validated.staging_id, TENANT_ID, SEED_ADMIN_USER_ID);
+    expect(committed.success_count).toBe(1);
+    const student = await studentRepo.findOne({
+      where: { id: committed.created_student_ids[0] },
+      relations: ['guardians'],
+    });
+    expect(student?.guardians.map((g) => g.id)).toEqual([existing.id]);
+  });
+
   it('reports a specific error for a duplicate roll number within the same file, and blocks the whole batch', async () => {
     const file = await buildXlsxFile([
       rowValues(headers, { student_name: 'First', roll: '5' }),

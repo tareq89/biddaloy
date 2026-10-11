@@ -1,13 +1,8 @@
 /**
- * [27.10] Admit confirmation — shows the guardian phone/name the admit call
- * will resolve against before committing (D7/D8). `POST
- * /admission/applicants/:id/admit` (`ApplicantReviewService.admit`) does the
- * actual existing-vs-new guardian lookup server-side and returns only the
- * updated applicant, with no separate "was this new or existing" flag — see
- * the plan-correction note in the `## Plan — 1045` comment. This modal shows
- * the guardian details the lookup will match on ahead of the call, and a
- * plain success/error result after it, rather than a true pre-commit
- * existing-vs-new preview, since no endpoint answers that today.
+ * [27.10] Admit confirmation. [LIFE-09] Before confirming, staff see whether the
+ * applicant's phone matches an existing guardian (name + children) and must
+ * choose to link this child to that family or create a new guardian. The
+ * server enforces the same rule (409 GUARDIAN_MATCH_NEEDS_CHOICE).
  */
 import { AdmissionApplicantStatus, type AdmissionApplicantDto } from '@biddaloy/shared';
 import {
@@ -17,12 +12,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  RadioRows,
 } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatPhone } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
-import { useAdmitApplicant } from './hooks/useAdmitApplicant';
+import { useAdmitApplicant, useGuardianMatch } from './hooks/useAdmitApplicant';
 
 export function AdmitApplicantModal({
   applicant,
@@ -37,17 +33,24 @@ export function AdmitApplicantModal({
   const regionConfig = useRegionConfig();
   const admit = useAdmitApplicant(applicant.id);
   const [admitted, setAdmitted] = React.useState(false);
+  const [choice, setChoice] = React.useState<'LINK_EXISTING' | 'CREATE_NEW' | ''>('');
+  const match = useGuardianMatch(applicant.id, open);
+  const matched = match.data?.guardian ?? null;
+  const needsChoice = matched !== null && choice === '';
 
   function handleClose(next: boolean) {
     onOpenChange(next);
     if (!next) {
       setAdmitted(false);
+      setChoice('');
       admit.reset();
     }
   }
 
   function handleConfirm() {
-    admit.mutate({}, { onSuccess: () => setAdmitted(true) });
+    admit.mutate(matched && choice ? { guardian_choice: choice } : {}, {
+      onSuccess: () => setAdmitted(true),
+    });
   }
 
   return (
@@ -74,7 +77,32 @@ export function AdmitApplicantModal({
                 <dd>{formatPhone(applicant.guardian_phone, regionConfig)}</dd>
               </div>
             </dl>
-            <p className="text-muted-foreground">{t('admitModal.resolutionNote')}</p>
+            {matched ? (
+              <div className="flex flex-col gap-3 rounded-md border border-border-functional p-3">
+                <p>
+                  {t('admitModal.existingGuardian', {
+                    name: matched.full_name,
+                    phone: formatPhone(matched.phone, regionConfig),
+                  })}
+                </p>
+                <p className="text-muted-foreground">
+                  {matched.student_names.length > 0
+                    ? t('admitModal.children', { names: matched.student_names.join(', ') })
+                    : t('admitModal.noChildren')}
+                </p>
+                <RadioRows
+                  legend={t('admitModal.choiceLegend')}
+                  value={choice}
+                  onValueChange={(v) => setChoice(v as 'LINK_EXISTING' | 'CREATE_NEW')}
+                  options={[
+                    { value: 'LINK_EXISTING', title: t('admitModal.linkExisting') },
+                    { value: 'CREATE_NEW', title: t('admitModal.createNew') },
+                  ]}
+                />
+              </div>
+            ) : (
+              <p className="text-muted-foreground">{t('admitModal.resolutionNote')}</p>
+            )}
           </div>
         )}
 
@@ -97,7 +125,11 @@ export function AdmitApplicantModal({
               <Button
                 type="button"
                 loading={admit.isPending}
-                disabled={applicant.status === AdmissionApplicantStatus.ADMITTED}
+                disabled={
+                  applicant.status === AdmissionApplicantStatus.ADMITTED ||
+                  match.isPending ||
+                  needsChoice
+                }
                 onClick={handleConfirm}
               >
                 {admit.isPending ? t('admitModal.admitting') : t('admitModal.confirm')}

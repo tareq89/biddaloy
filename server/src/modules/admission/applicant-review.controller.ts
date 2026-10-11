@@ -53,6 +53,17 @@ export class ApplicantReviewController {
     return this.review.findWithHistory(id, tenant.id);
   }
 
+  @Get(':id/guardian-match')
+  @ApiOperation({
+    summary: "The existing guardian this applicant's phone matches, with their children (or null).",
+  })
+  guardianMatch(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.review.guardianMatch(id, tenant.id);
+  }
+
   @Post(':id/evaluate')
   @ApiOperation({ summary: 'Record an evaluation note, optionally shortlisting or rejecting.' })
   evaluate(
