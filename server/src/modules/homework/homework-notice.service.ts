@@ -9,6 +9,8 @@ import { Homework } from './entities/homework.entity';
 import { Student } from '../students/entities/student.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
+import { SmsCreditService } from '../communications/credits/sms-credit.service';
+import { INSUFFICIENT_SMS_CREDIT } from '../communications/credits/insufficient-sms-credit.constants';
 import {
   addressForMedium,
   DISPATCHABLE_MEDIA,
@@ -34,6 +36,7 @@ export class HomeworkNoticeService {
     private readonly logRepo: Repository<CommunicationLog>,
     @InjectQueue(COMMUNICATIONS_QUEUE)
     private readonly queue: Queue,
+    private readonly smsCreditService: SmsCreditService,
   ) {}
 
   /** Called synchronously right after `HomeworkService.assign()` saves the
@@ -121,9 +124,21 @@ export class HomeworkNoticeService {
           continue;
         }
 
+        // [#2216] Metered SMS must hold credit before it is queued.
+        const credit = await this.smsCreditService.reserveForLog(tenantId, log);
+        if (credit === 'INSUFFICIENT') {
+          log.status = CommunicationStatus.FAILED;
+          log.metadata = { ...log.metadata, reason: INSUFFICIENT_SMS_CREDIT };
+          await this.logRepo.save(log);
+          continue;
+        }
+
         try {
-          await this.queue.add('send', { logId: log.id });
+          await this.queue.add('send', { logId: log.id, ...credit });
         } catch (error) {
+          if (credit.segments !== undefined) {
+            await this.smsCreditService.releaseForLog(tenantId, log.id, credit.segments);
+          }
           this.logger.warn(`Failed to enqueue homework-notice log ${log.id}: ${String(error)}`);
           log.status = CommunicationStatus.FAILED;
           log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
