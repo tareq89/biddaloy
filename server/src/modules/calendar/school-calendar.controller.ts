@@ -1,39 +1,20 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { SchoolCalendarService } from './school-calendar.service';
-import {
-  CreateHolidayDto,
-  QueryHolidayDto,
-  QueryWorkingDaysDto,
-  UpdateHolidayDto,
-} from './dto/working-days.dto';
+import { QueryHolidayDto, QueryWorkingDaysDto } from './dto/working-days.dto';
 import { Permission } from '@biddaloy/shared';
 
 /**
- * Holiday CRUD and the working-day read that [9.3]'s write path and [9.4]'s
- * `AttendanceSummaryService` both depend on. Moved verbatim from
- * `academics/school-calendar.controller.ts` in [17.1.2]. Reads admit
- * ADMIN/EXECUTIVE/ACCOUNTANT/TEACHER — every staff role that already reads
- * attendance needs to see the calendar behind it. Mutations are ADMIN/
- * EXECUTIVE only, matching `academic-year.controller.ts`'s own mutation
- * gate for this academics-structure surface.
+ * Read-only holiday list and the working-day read that [9.3]'s write path
+ * and [9.4]'s `AttendanceSummaryService` both depend on. Every calendar
+ * write goes through `CalendarEventsService` ([68.3.15.01]); the legacy
+ * holiday POST/PATCH/DELETE routes skipped its guards and are gone.
  */
 @ApiTags('school-calendar')
 @ApiTenantAuth()
@@ -51,43 +32,6 @@ export class SchoolCalendarController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.service.listHolidays(query, tenant.id);
-  }
-
-  @Post('holidays')
-  // [10.4] G1 — E tightened off: lacks ACADEMIC_YEAR_MANAGE.
-  @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
-  @ApiOperation({ summary: 'Create a holiday (or exam-day/event calendar entry).' })
-  createHoliday(
-    @Body() dto: CreateHolidayDto,
-    @CurrentTenant() tenant: { id: string; role: string },
-    @CurrentUser() user: { sub: string },
-  ) {
-    return this.service.createHoliday(dto, tenant.id, user.sub);
-  }
-
-  @Patch('holidays/:id')
-  // [10.4] G1 — E tightened off.
-  @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
-  @ApiOperation({ summary: 'Update a holiday.' })
-  updateHoliday(
-    @Param('id') id: string,
-    @Body() dto: UpdateHolidayDto,
-    @CurrentTenant() tenant: { id: string; role: string },
-    @CurrentUser() user: { sub: string },
-  ) {
-    return this.service.updateHoliday(id, dto, tenant.id, user.sub);
-  }
-
-  @Delete('holidays/:id')
-  // [10.4] G1 — E tightened off.
-  @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
-  @ApiOperation({ summary: 'Soft-delete a holiday.' })
-  removeHoliday(
-    @Param('id') id: string,
-    @CurrentTenant() tenant: { id: string; role: string },
-    @CurrentUser() user: { sub: string },
-  ) {
-    return this.service.removeHoliday(id, tenant.id, user.sub);
   }
 
   @Get('working-days')

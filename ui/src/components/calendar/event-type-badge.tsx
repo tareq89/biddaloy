@@ -22,7 +22,7 @@ const TYPE_TONE_CLASSES: Record<CalendarEventType, string> = {
   [CalendarEventType.DEADLINE]: 'bg-status-due-bg text-status-due-fg',
   [CalendarEventType.EVENT]: 'bg-secondary text-secondary-foreground',
   [CalendarEventType.MEETING]: 'bg-secondary text-secondary-foreground',
-  [CalendarEventType.MAKEUP_DAY]: 'bg-secondary text-secondary-foreground', // Epic 68: #2253 — same as EVENT
+  [CalendarEventType.MAKEUP_DAY]: 'bg-status-paid-bg text-status-paid-fg',
 };
 
 /** Small solid dot per type — phone grid cells and the day / agenda rows. */
@@ -32,7 +32,7 @@ export const EVENT_DOT_CLASSES: Record<CalendarEventType, string> = {
   [CalendarEventType.DEADLINE]: 'bg-status-due-fg',
   [CalendarEventType.EVENT]: 'bg-primary',
   [CalendarEventType.MEETING]: 'bg-primary',
-  [CalendarEventType.MAKEUP_DAY]: 'bg-primary', // Epic 68: #2253 — same as EVENT
+  [CalendarEventType.MAKEUP_DAY]: 'bg-status-paid-fg',
 };
 
 export function EventTypeBadge({ type, label, className }: EventTypeBadgeProps) {

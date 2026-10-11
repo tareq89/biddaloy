@@ -13,8 +13,13 @@ import { Class } from '../academics/entities/class.entity';
 import { School } from '../schools/entities/school.entity';
 import { AttendanceSession } from '../attendance/entities/attendance-session.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { AttendanceRecord } from '../attendance/entities/attendance-record.entity';
+import { Student } from '../students/entities/student.entity';
+import { User } from '../users/entities/user.entity';
+import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import {
   AttendanceSessionState,
+  AttendanceStatus,
   CalendarAudience,
   CalendarEventType,
   UserRole,
@@ -104,6 +109,40 @@ describe('CalendarEventsService (integration)', () => {
     });
     sectionId = section.id;
   }, 60000);
+
+  // A register only blocks a closure once it has marks (a session with no
+  // records is just an opened empty page).
+  async function studentIn(section: string, roll: number): Promise<string> {
+    return (
+      await dataSource.getRepository(Student).save({
+        full_name: `Guard Student ${roll}`,
+        registration_number: `GUARD-${roll}-${Date.now()}`,
+        roll_number: roll,
+        class_section_id: section,
+        tenant_id: TENANT_ID,
+      })
+    ).id;
+  }
+
+  async function register(
+    section: string,
+    date: string,
+    state: AttendanceSessionState,
+    withMarks: boolean,
+  ): Promise<void> {
+    const session = await dataSource
+      .getRepository(AttendanceSession)
+      .save({ tenant_id: TENANT_ID, section_id: section, date, state });
+    if (withMarks) {
+      await dataSource.getRepository(AttendanceRecord).save({
+        tenant_id: TENANT_ID,
+        session_id: session.id,
+        student_id: await studentIn(section, Math.floor(Math.random() * 1e6)),
+        date,
+        status: AttendanceStatus.PRESENT,
+      });
+    }
+  }
 
   afterAll(async () => {
     await dataSource.destroy();
@@ -224,13 +263,7 @@ describe('CalendarEventsService (integration)', () => {
   });
 
   it('refuses to mark a date non-working when a finalized attendance session exists', async () => {
-    const sessionRepo = dataSource.getRepository(AttendanceSession);
-    await sessionRepo.save({
-      tenant_id: TENANT_ID,
-      section_id: sectionId,
-      date: '2030-06-10',
-      state: AttendanceSessionState.FINALIZED,
-    });
+    await register(sectionId, '2030-06-10', AttendanceSessionState.FINALIZED, true);
 
     await expect(
       service.create(
@@ -261,6 +294,190 @@ describe('CalendarEventsService (integration)', () => {
       SEED_ADMIN_USER_ID,
     );
     expect(created.counts_as_working_day).toBe(false);
+  });
+
+  // [68.3.15.01] TIME-12 / TIME-06 / MAKEUP_DAY
+  describe('attendance guard, past closure and make-up days', () => {
+    // Far-past dates inside `pastSpanningYear` (2020..2027): always "past".
+    const holidayDto = (date: string, extra: Record<string, unknown> = {}) =>
+      ({
+        type: CalendarEventType.HOLIDAY,
+        name: 'Closure',
+        start_date: date,
+        end_date: date,
+        audience: CalendarAudience.ALL,
+        counts_as_working_day: false,
+        ...extra,
+      }) as any;
+
+    async function expectCode(p: Promise<unknown>, code: string): Promise<void> {
+      await expect(p).rejects.toMatchObject({ response: { details: { code } } });
+    }
+
+    it('a DRAFT session with records blocks a holiday', async () => {
+      await register(sectionId, '2030-11-01', AttendanceSessionState.DRAFT, true);
+      await expectCode(
+        service.create(holidayDto('2030-11-01'), TENANT_ID, SEED_ADMIN_USER_ID),
+        'CALENDAR_DAY_HAS_ATTENDANCE',
+      );
+    });
+
+    it('a session with no records does not block', async () => {
+      await register(sectionId, '2030-11-02', AttendanceSessionState.DRAFT, false);
+      const created = await service.create(holidayDto('2030-11-02'), TENANT_ID, SEED_ADMIN_USER_ID);
+      expect(created.id).toBeDefined();
+    });
+
+    it("a class-scoped holiday is not blocked by another class's register", async () => {
+      const otherClass = await dataSource
+        .getRepository(Class)
+        .save({ name: 'Guard Other', academic_year_id: yearId, tenant_id: TENANT_ID });
+      const otherSection = await dataSource.getRepository(ClassSection).save({
+        class_id: otherClass.id,
+        tenant_id: TENANT_ID,
+        section_name: 'G',
+      });
+      await register(otherSection.id, '2030-11-03', AttendanceSessionState.FINALIZED, true);
+      const created = await service.create(
+        holidayDto('2030-11-03', { class_ids: [classId] }),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(created.class_ids).toEqual([classId]);
+      // ...but its own class's register blocks it.
+      await register(sectionId, '2030-11-04', AttendanceSessionState.DRAFT, true);
+      await expectCode(
+        service.create(
+          holidayDto('2030-11-04', { class_ids: [classId] }),
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+        'CALENDAR_DAY_HAS_ATTENDANCE',
+      );
+    });
+
+    it('a school-wide holiday is blocked by a staff attendance record', async () => {
+      const user = await dataSource
+        .getRepository(User)
+        .save({ email: `guard-staff-${Date.now()}@test.com`, full_name: 'Guard Staff' });
+      const profile = await dataSource.getRepository(StaffProfile).save({
+        user_id: user.id,
+        tenant_id: TENANT_ID,
+        employee_id: `GUARD-EMP-${Date.now()}`,
+      });
+      const [{ id: sessionRowId }] = await dataSource.query(
+        `INSERT INTO staff_attendance_sessions (id, tenant_id, date, version, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, '2030-11-05', 1, NOW(), NOW()) RETURNING id`,
+        [TENANT_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO staff_attendance_records (id, tenant_id, session_id, staff_profile_id, status, source, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, 'PRESENT', 'TEACHER', NOW(), NOW())`,
+        [TENANT_ID, sessionRowId, profile.id],
+      );
+      await expectCode(
+        service.create(holidayDto('2030-11-05'), TENANT_ID, SEED_ADMIN_USER_ID),
+        'CALENDAR_DAY_HAS_ATTENDANCE',
+      );
+    });
+
+    it('a past closure with a reason and no attendance is created, published, audited and silent', async () => {
+      const notify = vi
+        .spyOn((service as any).notifyService, 'eventCreated')
+        .mockResolvedValue(undefined);
+      const created = await service.create(
+        holidayDto('2026-03-10', { reason: 'Hartal, school shut without notice', publish: false }),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(created.published).toBe(true);
+      expect(notify).not.toHaveBeenCalled();
+      notify.mockRestore();
+      const rows = await dataSource.query(
+        `SELECT new_values FROM audit_logs WHERE entity_type = 'CalendarEvent' AND entity_id = $1`,
+        [created.id],
+      );
+      expect(rows[0].new_values.reason).toBe('Hartal, school shut without notice');
+    });
+
+    it('a past closure without a reason is refused', async () => {
+      await expectCode(
+        service.create(holidayDto('2026-03-11'), TENANT_ID, SEED_ADMIN_USER_ID),
+        'CALENDAR_REASON_REQUIRED',
+      );
+      await expectCode(
+        service.create(holidayDto('2026-03-11', { reason: ' a ' }), TENANT_ID, SEED_ADMIN_USER_ID),
+        'CALENDAR_REASON_REQUIRED',
+      );
+    });
+
+    it('a past closure over a register with marks is refused', async () => {
+      await register(sectionId, '2026-03-12', AttendanceSessionState.FINALIZED, true);
+      await expectCode(
+        service.create(
+          holidayDto('2026-03-12', { reason: 'Flood' }),
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+        'CALENDAR_DAY_HAS_ATTENDANCE',
+      );
+    });
+
+    it('a past working-day event stays locked', async () => {
+      await expectCode(
+        service.create(
+          holidayDto('2026-03-13', {
+            type: CalendarEventType.EVENT,
+            counts_as_working_day: true,
+            reason: 'Because',
+          }),
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+        'CALENDAR_EVENT_LOCKED',
+      );
+    });
+
+    it('a past closure, once written, cannot be updated or removed', async () => {
+      const created = await service.create(
+        holidayDto('2026-03-14', { reason: 'Hartal' }),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await expectCode(
+        service.update(created.id, { name: 'x' } as any, TENANT_ID, SEED_ADMIN_USER_ID),
+        'CALENDAR_EVENT_LOCKED',
+      );
+      await expectCode(
+        service.remove(created.id, TENANT_ID, SEED_ADMIN_USER_ID),
+        'CALENDAR_EVENT_LOCKED',
+      );
+    });
+
+    it('MAKEUP_DAY is saved as a working day and refuses counts_as_working_day=false', async () => {
+      const dto = {
+        type: CalendarEventType.MAKEUP_DAY,
+        name: 'Make-up Saturday',
+        start_date: '2030-11-06',
+        end_date: '2030-11-06',
+        audience: CalendarAudience.ALL,
+      } as any;
+      await expectCode(
+        service.create({ ...dto, counts_as_working_day: false }, TENANT_ID, SEED_ADMIN_USER_ID),
+        'CALENDAR_MAKEUP_MUST_COUNT',
+      );
+      const created = await service.create(dto, TENANT_ID, SEED_ADMIN_USER_ID);
+      expect(created.counts_as_working_day).toBe(true);
+      await expectCode(
+        service.update(
+          created.id,
+          { counts_as_working_day: false } as any,
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+        'CALENDAR_MAKEUP_MUST_COUNT',
+      );
+    });
   });
 
   it('publish sets published_at once and is idempotent', async () => {
@@ -461,13 +678,7 @@ describe('CalendarEventsService (integration)', () => {
   });
 
   it('publish rejects a draft that now conflicts with finalized attendance', async () => {
-    const sessionRepo = dataSource.getRepository(AttendanceSession);
-    await sessionRepo.save({
-      tenant_id: TENANT_ID,
-      section_id: sectionId,
-      date: '2030-09-10',
-      state: AttendanceSessionState.FINALIZED,
-    });
+    await register(sectionId, '2030-09-10', AttendanceSessionState.FINALIZED, true);
 
     const eventRepo = dataSource.getRepository(
       (await import('./entities/calendar-event.entity')).CalendarEvent,
