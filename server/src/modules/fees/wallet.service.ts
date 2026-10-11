@@ -215,8 +215,10 @@ export class WalletService {
   }
 
   /**
-   * Pays wallet money out to the family as a cash refund (MON-09). The
-   * caller has already consumed a `payments.reverse` approval. Works for a
+   * Pays wallet money out to the family as a cash refund (MON-09).
+   * `approve` consumes the `payments.reverse` approval and returns the
+   * approver; it runs last, after every check, so a refused payout does not
+   * burn the token (same order as `FeeFineService.waiveBill`). Works for a
    * student who has left (soft-deleted); 404 if the student is not in this
    * tenant. Refuses more than the balance with 409 and writes nothing.
    *
@@ -230,7 +232,7 @@ export class WalletService {
       amount: number;
       reason: string;
       actorUserId: string;
-      approverUserId: string;
+      approve: () => Promise<string>;
     },
     manager: EntityManager,
   ): Promise<StudentWallet> {
@@ -251,6 +253,7 @@ export class WalletService {
         details: { balance },
       });
     }
+    const approverUserId = await input.approve();
 
     const updated = await this.debit(
       {
@@ -272,7 +275,7 @@ export class WalletService {
         entity_id: wallet.id,
         tenant_id: input.tenantId,
         performed_by_user_id: input.actorUserId,
-        approved_by_user_id: input.approverUserId,
+        approved_by_user_id: approverUserId,
         approval_scope: ApprovalScope.PAYMENTS_REVERSE,
         old_values: { balance },
         new_values: { balance: updated.balance, payout: input.amount, reason: input.reason },

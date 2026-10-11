@@ -317,12 +317,17 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
       );
     });
 
-    it('more than the balance is 409', async () => {
+    it('more than the balance is 409 and leaves the approval token unspent', async () => {
       const approval = await issueApprovalToken('payments.reverse');
       await payout(adminToken, childId)
         .set('X-Approval-Token', approval)
         .send({ amount: 500.01, reason: 'Too much' })
         .expect(409);
+      // Review r1 #12: the approver should not have to approve again after a typo.
+      await payout(adminToken, childId)
+        .set('X-Approval-Token', approval)
+        .send({ amount: 1, reason: 'Corrected amount' })
+        .expect(200);
     });
 
     it('without an approval token is 403', async () => {

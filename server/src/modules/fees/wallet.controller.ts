@@ -4,7 +4,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  InternalServerErrorException,
   Param,
   ParseUUIDPipe,
   Post,
@@ -32,8 +31,7 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { FamilyAccessService } from '../students/family-access.service';
 import { WalletService } from './wallet.service';
 import { StudentWalletResponseDto, WalletPayoutDto } from './dto/wallet.dto';
-import { ApprovalGuard, ApprovalContext } from '../auth/guards/approval.guard';
-import { RequireApproval } from '../auth/decorators/require-approval.decorator';
+import { ApprovalService } from '../auth/guards/approval.guard';
 // [16.8.2] Family-facing shapes live in the one allow-list module.
 import { FamilyStudentWalletResponseDto, toFamilyWalletTransaction } from './dto/family.dto';
 import { ApprovalScope, Permission, isGuardianRole } from '@biddaloy/shared';
@@ -51,12 +49,13 @@ const WALLET_HISTORY_LIMIT = 50;
 @ApiTenantAuth()
 @ApiExtraModels(StudentWalletResponseDto, FamilyStudentWalletResponseDto)
 @Controller()
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard, ApprovalGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class WalletController {
   constructor(
     @Inject(WalletService) private readonly walletService: WalletService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
     @Inject(DataSource) private readonly dataSource: DataSource,
+    @Inject(ApprovalService) private readonly approvalService: ApprovalService,
   ) {}
 
   @Get('students/:id/wallet')
@@ -106,11 +105,10 @@ export class WalletController {
 
   @Post('students/:id/wallet/payout')
   @RequirePermissions(Permission.PAYMENT_REVERSE)
-  @RequireApproval(ApprovalScope.PAYMENTS_REVERSE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Pay wallet money out to the family as a cash refund (MON-09). Staff only; needs a fresh payments.reverse approval token. Works for a student who has left. 409 WALLET_PAYOUT_EXCEEDS_BALANCE if more than the balance.',
+      'Pay wallet money out to the family as a cash refund (MON-09). Staff only; needs a fresh payments.reverse approval token (X-Approval-Token); the service consumes it after every check passes. Works for a student who has left. 409 WALLET_PAYOUT_EXCEEDS_BALANCE if more than the balance.',
   })
   @ApiOkResponse({ type: StudentWalletResponseDto })
   async payout(
@@ -120,13 +118,6 @@ export class WalletController {
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ): Promise<StudentWalletResponseDto> {
-    // Stamped by `ApprovalGuard`; same guard as `CheckoutController.reversePayment`.
-    const approval = (request as unknown as { approval?: ApprovalContext }).approval;
-    if (!approval) {
-      throw new InternalServerErrorException(
-        'ApprovalGuard did not run before payout — @RequireApproval guard misconfigured',
-      );
-    }
     await this.dataSource.transaction((manager) =>
       this.walletService.payout(
         {
@@ -135,7 +126,13 @@ export class WalletController {
           amount: dto.amount,
           reason: dto.reason,
           actorUserId: user.sub,
-          approverUserId: approval.approverId,
+          approve: async () =>
+            (
+              await this.approvalService.consume(
+                request as unknown as Parameters<ApprovalService['consume']>[0],
+                ApprovalScope.PAYMENTS_REVERSE,
+              )
+            ).approverId,
         },
         manager,
       ),

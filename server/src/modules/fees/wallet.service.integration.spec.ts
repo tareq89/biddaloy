@@ -310,7 +310,7 @@ describe('WalletService (integration)', () => {
       amount,
       reason: 'Family leaving, cash refund',
       actorUserId: SEED_ADMIN_USER_ID,
-      approverUserId: SEED_ADMIN_USER_ID,
+      approve: async () => SEED_ADMIN_USER_ID,
     });
 
     it('pays out 300 of 1,800: balance 1,500, one DEBIT_PAYOUT row, one approved audit row', async () => {

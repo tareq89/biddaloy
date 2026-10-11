@@ -564,7 +564,7 @@ POST /students/:id/notes | StudentNotesController | perm: STUDENT_NOTES_WRITE
 POST /students/:id/photo | StudentPhotoController | perm: STUDENT_UPDATE
 POST /students/:id/public-exams | StudentPublicExamsController | perm: STUDENT_RECORDS_WRITE
 POST /students/:id/readmit | StudentLifecycleController | perm: STUDENT_LIFECYCLE_MANAGE
-POST /students/:id/wallet/payout | WalletController | perm: PAYMENT_REVERSE | approval: payments.reverse
+POST /students/:id/wallet/payout | WalletController | perm: PAYMENT_REVERSE
 POST /students/:studentId/document-prints | TranscriptController | perm: RESULT_READ
 POST /students/:studentId/exams/:examId/admit-card | FamilyAdmitCardController | perm: RESULT_READ
 POST /students/bulk-upload/commit | StudentController | perm: STUDENT_BULK_UPLOAD
