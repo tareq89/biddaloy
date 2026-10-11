@@ -260,6 +260,31 @@ describe('FeesDailyScheduler (integration)', () => {
     return new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService);
   }
 
+  /** [68.1.2210] A tenant whose restore lock is held is skipped; one without it is still billed. */
+  it('skips a tenant while its restore runs, and bills it once the restore is over', async () => {
+    const structure = await structureRepo.save(makeStructure());
+    await studentRepo.save(makeStudent());
+    await createDueSchedule({ fee_structure_ids: [structure.id] });
+    const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
+    const schoolsService = { findAll: async () => [] } as any;
+    const build = (restoring: boolean) =>
+      new FeesDailyScheduler(
+        queue,
+        dataSource,
+        schoolsService,
+        feeGenerationService,
+        undefined,
+        undefined,
+        { isRestoring: async () => restoring } as any,
+      );
+
+    await build(true).process({ data: { tenantId: TENANT_ID } } as any);
+    expect(await studentFeeRepo.find()).toHaveLength(0);
+
+    await build(false).process({ data: { tenantId: TENANT_ID } } as any);
+    expect(await studentFeeRepo.find()).toHaveLength(1);
+  });
+
   it('runs a due schedule and writes a FeeGeneration row with source SCHEDULE, notify_families threaded, last_run_period set', async () => {
     const structure = await structureRepo.save(makeStructure());
     await studentRepo.save(makeStudent());
@@ -654,13 +679,11 @@ describe('FeesDailyScheduler (integration)', () => {
         end_date: yearEnd,
         tenant_id: school.id,
       });
-      const klass = await fineSweepDataSource
-        .getRepository(Class)
-        .save({
-          name: 'Fine Sweep Threading Class',
-          academic_year_id: year.id,
-          tenant_id: school.id,
-        });
+      const klass = await fineSweepDataSource.getRepository(Class).save({
+        name: 'Fine Sweep Threading Class',
+        academic_year_id: year.id,
+        tenant_id: school.id,
+      });
       const section = await fineSweepDataSource
         .getRepository(ClassSection)
         .save({ section_name: 'FST Section', class_id: klass.id, tenant_id: school.id });

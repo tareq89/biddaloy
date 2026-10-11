@@ -18,6 +18,7 @@ describe('TenantStatusService', () => {
     get: ReturnType<typeof vi.fn>;
     set: ReturnType<typeof vi.fn>;
     del: ReturnType<typeof vi.fn>;
+    exists: ReturnType<typeof vi.fn>;
   };
   let schoolRepo: { findOne: ReturnType<typeof vi.fn> };
   let service: TenantStatusService;
@@ -27,6 +28,7 @@ describe('TenantStatusService', () => {
       get: vi.fn(),
       set: vi.fn().mockResolvedValue('OK'),
       del: vi.fn().mockResolvedValue(1),
+      exists: vi.fn(),
     };
     schoolRepo = { findOne: vi.fn() };
     service = new TenantStatusService(redis as any, schoolRepo as any);
@@ -179,6 +181,27 @@ describe('TenantStatusService', () => {
       redis.get.mockResolvedValueOnce('');
       expect(await service.getStatusReason('tenant-1')).toBeNull();
       expect(schoolRepo.findOne).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('isRestoring (#2210)', () => {
+    it('is true when the restore lock key exists', async () => {
+      redis.exists.mockResolvedValue(1);
+
+      expect(await service.isRestoring('tenant-1')).toBe(true);
+      expect(redis.exists).toHaveBeenCalledWith('workbook:restore-lock:tenant-1');
+    });
+
+    it('is false when the key is absent', async () => {
+      redis.exists.mockResolvedValue(0);
+
+      expect(await service.isRestoring('tenant-1')).toBe(false);
+    });
+
+    it('is false (does not throw) when Redis rejects', async () => {
+      redis.exists.mockRejectedValue(new Error('connection refused'));
+
+      expect(await service.isRestoring('tenant-1')).toBe(false);
     });
   });
 
