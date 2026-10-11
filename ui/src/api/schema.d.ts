@@ -11673,6 +11673,7 @@ export interface components {
             /** @enum {string} */
             payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
             count: number;
+            /** @description Cash actually received (tendered minus change handed back): total_amount - wallet_used + wallet_added. Sum over by_method = totals.collected - totals.wallet_used + totals.wallet_added. */
             collected: number;
             reversed: number;
             net: number;
@@ -11681,6 +11682,7 @@ export interface components {
             user_id: string | null;
             full_name: string | null;
             count: number;
+            /** @description Cash actually received (tendered minus change handed back): total_amount - wallet_used + wallet_added. Sum over by_collector = totals.collected - totals.wallet_used + totals.wallet_added. */
             collected: number;
             reversed: number;
             net: number;
@@ -13616,6 +13618,7 @@ export interface components {
         PutStaffAttendanceRegisterDto: {
             date: string;
             reason?: string;
+            force_non_working_day?: boolean;
             entries: components["schemas"]["StaffAttendanceEntryDto"][];
         };
         StaffAttendanceRecordDto: {
