@@ -61,6 +61,9 @@ const words = (n: number, l: Locale): string => {
 };
 
 export function amountInWords(amount: number, locale: 'en' | 'bn'): string {
+  if (!Number.isFinite(amount) || Math.abs(amount) >= 1e15) {
+    throw new RangeError(`amountInWords: amount out of range: ${amount}`);
+  }
   const cents = Math.round(Math.abs(amount) * 100);
   const taka = Math.floor(cents / 100);
   const paisa = cents % 100;

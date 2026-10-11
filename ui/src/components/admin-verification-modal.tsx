@@ -88,6 +88,7 @@ const SCOPE_LABEL_KEYS: Record<string, string> = {
   'invoices.void': 'scopes.invoices.void',
   'fees.discount': 'scopes.fees.discount',
   'payments.reverse': 'scopes.payments.reverse',
+  'payments.backdate': 'scopes.payments.backdate',
 };
 
 export function AdminVerificationModal({
