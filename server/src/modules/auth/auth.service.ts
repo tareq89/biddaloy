@@ -5,7 +5,9 @@ import {
   NotFoundException,
   Inject,
   Optional,
+  Logger,
 } from '@nestjs/common';
+import { PushSubscriptionsService } from '../push/push-subscriptions.service';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, FindOptionsOrder, Repository } from 'typeorm';
@@ -73,6 +75,8 @@ function sleep(ms: number): Promise<void> {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -85,6 +89,8 @@ export class AuthService {
     @Inject(AccessTokenDenylistService)
     private readonly accessTokenDenylist: AccessTokenDenylistService,
     @Inject(ACCESS_TOKEN_TTL_MS) private readonly accessTokenTtlMs: number,
+    @Inject(PushSubscriptionsService)
+    private readonly pushSubscriptions: PushSubscriptionsService,
     // Inject JwtStrategy to force eager creation — PassportModule needs it
     // to discover the strategy for AuthGuard('jwt').
     @Optional() @Inject(JwtStrategy) private readonly _jwtStrategy?: JwtStrategy,
@@ -274,6 +280,16 @@ export class AuthService {
    */
   async logoutAll(userId: string, jti: string, context: RequestContext): Promise<void> {
     await this.refreshTokens.revokeAllForUser(userId);
+    // [JOBS-12] No device may keep getting this user's pushes. A push-table
+    // error must never block logout (same stance as the denylist below).
+    try {
+      await this.pushSubscriptions.removeAllForUser(userId);
+    } catch (err) {
+      this.logger.error(
+        'Failed to remove push subscriptions on logout-all',
+        err instanceof Error ? err.stack : String(err),
+      );
+    }
     // AccessTokenDenylistService.revoke() already fails open internally
     // (catches and logs, never rejects — see that file), so a Redis outage
     // here can't prevent the audit write below from running.

@@ -19,6 +19,7 @@ import { UserTenant } from './entities/user-tenant.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { User } from '../users/entities/user.entity';
 import { AuditModule } from '../audit/audit.module';
+import { PushModule } from '../push/push.module';
 import { LoginAttemptService } from './login-attempt.service';
 import { RefreshTokenService, REFRESH_TOKEN_TTL_MS } from './refresh-token.service';
 import {
@@ -56,6 +57,7 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
   imports: [
     TypeOrmModule.forFeature([User, UserTenant, RefreshToken]),
     AuditModule,
+    PushModule,
     // `ContextGuard`'s `TenantStatusService` dependency comes from
     // `TenantStatusModule`'s `@Global()` export, not from an explicit
     // import here — see that module's file comment for why.

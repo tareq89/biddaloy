@@ -11,6 +11,7 @@ import { LoginAttemptService } from './login-attempt.service';
 import { RefreshTokenService, RefreshTokenReuseDetectedException } from './refresh-token.service';
 import { AccessTokenDenylistService } from './access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
+import { PushSubscriptionsService } from '../push/push-subscriptions.service';
 import { AuditAction, UserRole, UserStatus } from '@biddaloy/shared';
 
 // Mock bcrypt as a module-level replacement
@@ -36,6 +37,7 @@ describe('AuthService', () => {
   let mockLoginAttempts: any;
   let mockRefreshTokens: any;
   let mockAccessTokenDenylist: any;
+  let mockPushSubscriptions: any;
 
   const mockIssuedRefreshToken = {
     cookieValue: 'token-id.token-secret',
@@ -128,6 +130,8 @@ describe('AuthService', () => {
       isRevoked: vi.fn().mockResolvedValue(false),
     };
 
+    mockPushSubscriptions = { removeAllForUser: vi.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -138,6 +142,7 @@ describe('AuthService', () => {
         { provide: LoginAttemptService, useValue: mockLoginAttempts },
         { provide: RefreshTokenService, useValue: mockRefreshTokens },
         { provide: AccessTokenDenylistService, useValue: mockAccessTokenDenylist },
+        { provide: PushSubscriptionsService, useValue: mockPushSubscriptions },
         { provide: ACCESS_TOKEN_TTL_MS, useValue: 900_000 },
       ],
     }).compile();
@@ -646,6 +651,25 @@ describe('AuthService', () => {
           entity_id: 'user-1',
           new_values: { scope: 'all_sessions' },
         }),
+      );
+    });
+
+    it('removes every push subscription of the user', async () => {
+      await service.logoutAll('user-1', 'jti-123', { ip: null, userAgent: null });
+
+      expect(mockPushSubscriptions.removeAllForUser).toHaveBeenCalledWith('user-1');
+    });
+
+    it('still denylists and audits when push removal throws', async () => {
+      mockPushSubscriptions.removeAllForUser.mockRejectedValue(new Error('db down'));
+
+      await expect(
+        service.logoutAll('user-1', 'jti-123', { ip: null, userAgent: null }),
+      ).resolves.toBeUndefined();
+
+      expect(mockAccessTokenDenylist.revoke).toHaveBeenCalledWith('jti-123', 900_000);
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ new_values: { scope: 'all_sessions' } }),
       );
     });
   });

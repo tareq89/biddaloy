@@ -5,7 +5,50 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
-import { usePushSubscription } from './use-push-subscription';
+import { unsubscribeThisBrowser, usePushSubscription } from './use-push-subscription';
+
+describe('unsubscribeThisBrowser', () => {
+  afterEach(() => {
+    Object.defineProperty(navigator, 'serviceWorker', { value: undefined, configurable: true });
+  });
+
+  function installRegistration(getRegistration: () => Promise<unknown>) {
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: { getRegistration },
+      configurable: true,
+    });
+  }
+
+  it('calls unsubscribe() on the current subscription', async () => {
+    const unsubscribe = vi.fn().mockResolvedValue(true);
+    installRegistration(() =>
+      Promise.resolve({
+        pushManager: { getSubscription: () => Promise.resolve({ unsubscribe }) },
+      }),
+    );
+
+    await unsubscribeThisBrowser();
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves when no service worker is registered', async () => {
+    installRegistration(() => Promise.resolve(undefined));
+    await expect(unsubscribeThisBrowser()).resolves.toBeUndefined();
+  });
+
+  it('resolves when unsubscribe() throws', async () => {
+    installRegistration(() =>
+      Promise.resolve({
+        pushManager: {
+          getSubscription: () =>
+            Promise.resolve({ unsubscribe: () => Promise.reject(new Error('boom')) }),
+        },
+      }),
+    );
+    await expect(unsubscribeThisBrowser()).resolves.toBeUndefined();
+  });
+});
 
 const PUBLIC_KEY = 'BExampleBase64UrlSafeVapidPublicKey_-1234567890';
 
