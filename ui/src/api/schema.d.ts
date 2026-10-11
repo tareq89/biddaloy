@@ -1558,7 +1558,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Pay wallet money out to the family as a cash refund (MON-09). Staff only; needs a fresh payments.reverse approval token. Works for a student who has left. 409 WALLET_PAYOUT_EXCEEDS_BALANCE if more than the balance. */
+        /** Pay wallet money out to the family as a cash refund (MON-09). Staff only; needs a fresh payments.reverse approval token (X-Approval-Token); the service consumes it after every check passes. Works for a student who has left. 409 WALLET_PAYOUT_EXCEEDS_BALANCE if more than the balance. */
         post: operations["WalletController_payout_v1"];
         delete?: never;
         options?: never;
@@ -18429,8 +18429,6 @@ export interface operations {
                 "X-Tenant-ID": string;
                 /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
                 "X-Role"?: string;
-                /** @description Single-use JWT proving a fresh admin approval for scope "payments.reverse" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
-                "X-Approval-Token": string;
             };
             path: {
                 id: string;
@@ -18457,15 +18455,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
             };
         };
     };
