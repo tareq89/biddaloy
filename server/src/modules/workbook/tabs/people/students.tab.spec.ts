@@ -71,7 +71,7 @@ function makeStudent(overrides: Partial<Student> = {}): Student {
     full_name: 'Karim Uddin Jr.',
     full_name_bn: 'করিম উদ্দিন',
     blood_group: 'O+',
-    photo_key: 'students/karim.jpg',
+    photo_key: `tenants/${TENANT_ID}/student-photo/karim.jpg`,
     roll_number: 1,
     class_section_id: SECTION_ID,
     class_section: {
@@ -222,6 +222,17 @@ describe('photo_key across schools (Epic 32)', () => {
     );
   });
 
+  it('rejects a photo key outside tenants/ (e.g. a platform backup)', () => {
+    const result = studentsTab.fromRow(
+      toCells(makeStudent({ photo_key: 'backups/db/20261009T020000Z.dump.age' })),
+      2,
+      importCtx(),
+    );
+
+    expect('errors' in result).toBe(true);
+    if ('errors' in result) expect(result.errors[0]).toMatchObject({ column: 'photo_key' });
+  });
+
   it('keeps a photo key that already belongs to this school, without a warning', () => {
     const ctx = importCtx();
     const key = `tenants/${TENANT_ID}/student-photo/p.jpg`;
@@ -243,7 +254,7 @@ describe('round-trip', () => {
       full_name: 'Karim Uddin Jr.',
       full_name_bn: 'করিম উদ্দিন',
       blood_group: 'O+',
-      photo_key: 'students/karim.jpg',
+      photo_key: `tenants/${TENANT_ID}/student-photo/karim.jpg`,
       roll_number: 1,
       class_section_id: SECTION_ID,
       date_of_birth: null,

@@ -1012,7 +1012,7 @@ describe('workbook round trip (integration)', () => {
         tenant_id: TENANT_A,
         staff_user_id: staffHrDemoUser.id,
         document_type: StaffDocumentType.NID,
-        storage_key: `demo/staff-documents/${staffHrDemoUser.id}/nid.pdf`,
+        storage_key: `tenants/${TENANT_A}/staff-documents/${staffHrDemoUser.id}/nid.pdf`,
         original_filename: 'nid-card.pdf',
         content_type: 'application/pdf',
       }),
@@ -2253,17 +2253,29 @@ describe('workbook round trip (integration)', () => {
         };
       });
 
+    // [68.1.2211] `staff_documents.storage_key` follows the same rule (DATA-02).
+    const staffDocKeys = (w: typeof normalizedA, tenant: string) =>
+      (w.staff_documents ?? []).map((row) => {
+        expect(row.storage_key).toMatch(new RegExp(`^tenants/${tenant}/staff-documents/`));
+        return {
+          ...row,
+          storage_key: row.storage_key?.replace(`tenants/${tenant}/`, 'tenants/<school>/'),
+        };
+      });
+
     const normalizedANoName = {
       ...normalizedA,
       school: normalizedA.school?.map(({ name: _name, ...rest }) => rest),
       print_assets: printAssetsA,
       application_attachments: attachmentKeys(normalizedA, TENANT_A),
+      staff_documents: staffDocKeys(normalizedA, TENANT_A),
     };
     const normalizedBNoName = {
       ...normalizedB,
       school: normalizedB.school?.map(({ name: _name, ...rest }) => rest),
       print_assets: printAssetsB,
       application_attachments: attachmentKeys(normalizedB, TENANT_B),
+      staff_documents: staffDocKeys(normalizedB, TENANT_B),
     };
 
     const diffLines = diffNormalized(normalizedANoName, normalizedBNoName);

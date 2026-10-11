@@ -190,7 +190,7 @@ export class StudentPhotoService {
     const student = await this.findStudent(studentId, tenantId);
     if (!student.photo_key) throw new NotFoundException('Student has no photo');
     try {
-      const object = await this.storage.get(student.photo_key);
+      const object = await this.storage.getForTenant(student.photo_key, tenantId);
       return { stream: object.body, contentType: object.contentType ?? 'image/jpeg' };
     } catch (error: unknown) {
       if (isMissingObjectError(error)) throw new NotFoundException('Student has no photo');

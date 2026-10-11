@@ -56,7 +56,7 @@ describe('HomeworkSubmissionService', () => {
     assertCanManageStudent: ReturnType<typeof vi.fn>;
   };
   let familyAccess: { assertLinked: ReturnType<typeof vi.fn> };
-  let storage: { put: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> };
+  let storage: { put: ReturnType<typeof vi.fn>; deleteForTenant: ReturnType<typeof vi.fn> };
   let schoolsService: { getResolvedSettings: ReturnType<typeof vi.fn> };
   let service: HomeworkSubmissionService;
 
@@ -81,7 +81,7 @@ describe('HomeworkSubmissionService', () => {
       assertCanManageStudent: vi.fn(async () => undefined),
     };
     familyAccess = { assertLinked: vi.fn(async () => undefined) };
-    storage = { put: vi.fn(async () => undefined), delete: vi.fn(async () => undefined) };
+    storage = { put: vi.fn(async () => undefined), deleteForTenant: vi.fn(async () => undefined) };
     schoolsService = {
       getResolvedSettings: vi.fn(async () => ({ region: { timezone: 'UTC' } })),
     };
@@ -153,7 +153,7 @@ describe('HomeworkSubmissionService', () => {
 
       expect(result.attachments).toEqual([expect.objectContaining({ filename: 'new-answer.pdf' })]);
       // The replaced object is deleted from storage, not left orphaned.
-      expect(storage.delete).toHaveBeenCalledWith('old-key');
+      expect(storage.deleteForTenant).toHaveBeenCalledWith('old-key', TENANT_ID);
     });
 
     it('deletes the newly-uploaded objects if the save fails', async () => {
@@ -161,7 +161,7 @@ describe('HomeworkSubmissionService', () => {
       await expect(service.upload('assign-1', 'student-1', [FILE], studentCtx)).rejects.toThrow(
         'unique violation',
       );
-      expect(storage.delete).toHaveBeenCalledTimes(1);
+      expect(storage.deleteForTenant).toHaveBeenCalledTimes(1);
     });
 
     it('does not overwrite a teacher override status back to SUBMITTED (D9)', async () => {
