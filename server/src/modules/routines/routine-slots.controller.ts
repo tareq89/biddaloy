@@ -105,8 +105,9 @@ export class RoutineSlotsController {
     @Param('slotId', ParseUUIDPipe) slotId: string,
     @Body() dto: UpsertRoutineSlotDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.slotsService.update(slotId, dto, tenant.id);
+    return this.slotsService.update(slotId, dto, tenant.id, user.sub);
   }
 
   @Delete('slots/:slotId')
@@ -115,8 +116,9 @@ export class RoutineSlotsController {
   removeSlot(
     @Param('slotId', ParseUUIDPipe) slotId: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.slotsService.remove(slotId, tenant.id);
+    return this.slotsService.remove(slotId, tenant.id, user.sub);
   }
 
   @Get(':id/greedy-fill')

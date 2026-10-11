@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { PeriodSlotKind, SlotRecurrence } from '@biddaloy/shared';
 import { RoutineSlotsService } from './routine-slots.service';
+import { Routine } from './entities/routine.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
 import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
 import { PeriodSlot } from './entities/period-slot.entity';
@@ -73,6 +74,7 @@ function buildService() {
 
   const reposByEntity = new Map<unknown, any>([
     [RoutineSlot, slotRepo],
+    [Routine, routineRepo],
     [RoutineSlotTeacher, slotTeacherRepo],
     [PeriodSlot, periodSlotRepo],
     [ClassSection, sectionRepo],
@@ -86,7 +88,10 @@ function buildService() {
     find: (entity: unknown, opts: any) => reposByEntity.get(entity).find(opts),
     update: (entity: unknown, where: any, patch: any) =>
       reposByEntity.get(entity).update(where, patch),
+    delete: (entity: unknown, where: any) => reposByEntity.get(entity).delete(where),
   };
+  const schoolsService: any = { getResolvedSettings: vi.fn(async () => ({})) };
+  const auditService: any = { record: vi.fn(async () => undefined) };
   const dataSource: any = { transaction: (cb: any) => cb(manager) };
 
   const service = new RoutineSlotsService(
@@ -97,8 +102,12 @@ function buildService() {
     tcsRepo,
     settingsReader,
     dataSource,
+    schoolsService,
+    auditService,
   );
   return {
+    schoolsService,
+    auditService,
     service,
     routineRepo,
     slotRepo,
@@ -185,6 +194,7 @@ describe('RoutineSlotsService [21.4.1]', () => {
         created.slot.id,
         { ...baseDto, valid_from: '2026-06-01' } as any,
         TENANT_ID,
+        'user-1',
       ),
     ).rejects.toMatchObject({
       response: { details: { violations: expect.any(Array) } },
@@ -192,7 +202,19 @@ describe('RoutineSlotsService [21.4.1]', () => {
   });
 
   it('remove() throws NotFoundException for a slot outside the tenant', async () => {
-    await expect(ctx.service.remove('missing-slot', TENANT_ID)).rejects.toThrow(NotFoundException);
+    await expect(ctx.service.remove('missing-slot', TENANT_ID, 'user-1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('remove() on a DRAFT routine still hard-deletes and audits DELETE', async () => {
+    const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
+    await ctx.service.remove(created.slot.id, TENANT_ID, 'user-1');
+    expect(ctx.slotRepo.delete).toHaveBeenCalledWith({ id: created.slot.id, tenant_id: TENANT_ID });
+    expect(ctx.auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({ entity_type: 'RoutineSlot', action: 'DELETE' }),
+      expect.anything(),
+    );
   });
 
   it('update() closes the old row (D4) rather than mutating it in place', async () => {
@@ -203,6 +225,7 @@ describe('RoutineSlotsService [21.4.1]', () => {
       oldId,
       { ...baseDto, valid_from: '2026-06-01', subject_id: 'subject-2' } as any,
       TENANT_ID,
+      'user-1',
     );
 
     // The old row is closed the day before the new one starts, never
@@ -225,6 +248,7 @@ describe('RoutineSlotsService [21.4.1]', () => {
         created.slot.id,
         { ...baseDto, valid_from: baseDto.valid_from } as any,
         TENANT_ID,
+        'user-1',
       ),
     ).rejects.toThrow(BadRequestException);
   });
@@ -236,6 +260,7 @@ describe('RoutineSlotsService [21.4.1]', () => {
       created.slot.id,
       { ...baseDto, valid_from: '2026-06-01' } as any,
       TENANT_ID,
+      'user-1',
     );
     // Editing the now-superseded original row again, with a valid_from
     // that falls after its valid_to, must be rejected rather than
@@ -245,6 +270,7 @@ describe('RoutineSlotsService [21.4.1]', () => {
         created.slot.id,
         { ...baseDto, valid_from: '2026-09-01' } as any,
         TENANT_ID,
+        'user-1',
       ),
     ).rejects.toThrow(ConflictException);
   });
