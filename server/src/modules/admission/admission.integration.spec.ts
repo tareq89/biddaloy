@@ -381,7 +381,7 @@ describe('Admission flow (integration)', () => {
       const id = await submitApplicant();
       await reviewService.admit(
         id,
-        { guardian_choice: 'LINK_EXISTING' },
+        { guardian_choice: 'LINK_EXISTING', guardian_id: guardianId },
         SEED_TENANT_ID,
         SEED_ADMIN_USER_ID,
       );
@@ -390,6 +390,51 @@ describe('Admission flow (integration)', () => {
         [guardianId],
       );
       expect(gKids).toHaveLength(3);
+    });
+
+    it('[#2250] two guardians share the phone: LINK_EXISTING links exactly the guardian_id sent', async () => {
+      // CREATE_NEW deliberately makes a second guardian on the same phone.
+      const second = await guardianService.create(
+        { full_name: 'Typed Name', phone: PHONE_CANONICAL },
+        SEED_TENANT_ID,
+      );
+      const id = await submitApplicant();
+      // The preview is deterministic: the oldest guardian, every time.
+      expect((await reviewService.guardianMatch(id, SEED_TENANT_ID)).guardian?.id).toBe(guardianId);
+
+      await reviewService.admit(
+        id,
+        { guardian_choice: 'LINK_EXISTING', guardian_id: second.id },
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      const [child] = await dataSource.query(
+        `SELECT s.id FROM students s WHERE s.tenant_id = $1 AND s.full_name = 'Match Child'`,
+        [SEED_TENANT_ID],
+      );
+      const links = await dataSource.query(
+        `SELECT guardian_id FROM student_guardians WHERE student_id = $1`,
+        [child.id],
+      );
+      expect(links).toEqual([{ guardian_id: second.id }]);
+    });
+
+    it('[#2250] LINK_EXISTING with a guardian_id on another phone is refused', async () => {
+      const other = await guardianService.create(
+        { full_name: 'Typed Name', phone: '8801799999990' },
+        SEED_TENANT_ID,
+      );
+      const id = await submitApplicant();
+      const err = await reviewService
+        .admit(
+          id,
+          { guardian_choice: 'LINK_EXISTING', guardian_id: other.id },
+          SEED_TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        )
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('GUARDIAN_MATCH_CHANGED');
     });
 
     it("guardianMatch lists G's live children by name", async () => {

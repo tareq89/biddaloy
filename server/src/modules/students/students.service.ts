@@ -984,7 +984,11 @@ export class GuardianService {
     manager?: EntityManager,
   ): Promise<Guardian | null> {
     const repo = manager ? manager.getRepository(Guardian) : this.repo;
-    return repo.findOne({ where: { phone, tenant_id: tenantId, deleted_at: IsNull() } });
+    // Phones are not unique: always the oldest match, so every caller agrees.
+    return repo.findOne({
+      where: { phone, tenant_id: tenantId, deleted_at: IsNull() },
+      order: { created_at: 'ASC', id: 'ASC' },
+    });
   }
 
   /** [LIFE-09] Same match as `findByPhone`, with the guardian's linked students loaded. */
@@ -992,6 +996,7 @@ export class GuardianService {
     return this.repo.findOne({
       where: { phone, tenant_id: tenantId, deleted_at: IsNull() },
       relations: ['students'],
+      order: { created_at: 'ASC', id: 'ASC' },
     });
   }
 

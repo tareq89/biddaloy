@@ -314,9 +314,7 @@ describe('/admissions/applicants', () => {
     expect(dialog.getByText('01700-000000')).toBeTruthy();
     // Confirm stays disabled while the guardian match loads.
     await waitFor(() =>
-      expect((dialog.getByRole('button', { name: 'Admit' }) as HTMLButtonElement).disabled).toBe(
-        false,
-      ),
+      expect(dialog.getByRole<HTMLButtonElement>('button', { name: 'Admit' }).disabled).toBe(false),
     );
     await user.click(dialog.getByRole('button', { name: 'Admit' }));
 
@@ -364,7 +362,7 @@ describe('/admissions/applicants', () => {
     const dialog = within(await screen.findByRole('dialog'));
     expect(await dialog.findByText(/Existing Parent/)).toBeTruthy();
     expect(dialog.getByText(/Older Sibling/)).toBeTruthy();
-    const confirm = dialog.getByRole('button', { name: 'Admit' }) as HTMLButtonElement;
+    const confirm = dialog.getByRole<HTMLButtonElement>('button', { name: 'Admit' });
     expect(confirm.disabled).toBe(true);
 
     await user.click(dialog.getByRole('radio', { name: 'Create a new guardian for this child' }));
@@ -372,6 +370,69 @@ describe('/admissions/applicants', () => {
     await user.click(confirm);
 
     await waitFor(() => expect(body).toEqual({ guardian_choice: 'CREATE_NEW' }));
+  });
+
+  it('[#2250] linking sends the id of the guardian staff were shown', async () => {
+    mockIntakes();
+    let body: unknown = null;
+    server.use(
+      http.get('/api/v1/admission/applicants/:id', () =>
+        HttpResponse.json({ applicant, evaluations: [] }),
+      ),
+      http.get('/api/v1/admission/applicants/:id/guardian-match', () =>
+        HttpResponse.json({
+          guardian: { id: 'g-1', full_name: 'Existing Parent', phone: '01711111111', student_names: [] },
+        }),
+      ),
+      http.post('/api/v1/admission/applicants/:id/admit', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ ...applicant, status: 'ADMITTED' });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants/applicant-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Jane Doe' });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Admit' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await dialog.findByText(/Existing Parent/);
+    await user.click(dialog.getByRole('radio', { name: 'Link this child to this family' }));
+    await user.click(dialog.getByRole('button', { name: 'Admit' }));
+
+    await waitFor(() =>
+      expect(body).toEqual({ guardian_choice: 'LINK_EXISTING', guardian_id: 'g-1' }),
+    );
+  });
+
+  it('admit stays disabled with a retry when the guardian check fails', async () => {
+    mockIntakes();
+    server.use(
+      http.get('/api/v1/admission/applicants/:id', () =>
+        HttpResponse.json({ applicant, evaluations: [] }),
+      ),
+      http.get('/api/v1/admission/applicants/:id/guardian-match', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants/applicant-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Jane Doe' });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Admit' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(await dialog.findByText(/Could not check for an existing guardian/)).toBeTruthy();
+    expect(dialog.getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(dialog.getByRole<HTMLButtonElement>('button', { name: 'Admit' }).disabled).toBe(true);
   });
 
   it('rejects an applicant with no student created', async () => {

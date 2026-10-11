@@ -15,6 +15,7 @@ import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import { StudentService, GuardianService } from '../students/students.service';
+import { Guardian } from '../students/entities/guardian.entity';
 import { EvaluateApplicantDto } from './dto/evaluate-applicant.dto';
 import { AdmitApplicantDto } from './dto/admit-applicant.dto';
 import { AdmissionNotificationService } from './admission-notification.service';
@@ -244,15 +245,28 @@ export class ApplicantReviewService {
           details: { code: 'GUARDIAN_MATCH_NEEDS_CHOICE', guardian_id: existingGuardian.id },
         });
       }
-      if (dto.guardian_choice === 'LINK_EXISTING' && !existingGuardian) {
+      // Phones are not unique (CREATE_NEW makes a second guardian on the same
+      // phone), so link exactly the guardian staff were shown, never "a" match.
+      const shownGuardian =
+        dto.guardian_choice === 'LINK_EXISTING' && dto.guardian_id
+          ? await manager.getRepository(Guardian).findOne({
+              where: {
+                id: dto.guardian_id,
+                tenant_id: tenantId,
+                phone: applicant.guardian_phone,
+                deleted_at: IsNull(),
+              },
+            })
+          : null;
+      if (dto.guardian_choice === 'LINK_EXISTING' && !shownGuardian) {
         throw new ConflictException({
           message: 'The matching guardian changed. Reload and choose again.',
           details: { code: 'GUARDIAN_MATCH_CHANGED' },
         });
       }
-      const linked = !!existingGuardian && dto.guardian_choice === 'LINK_EXISTING';
-      const guardianId = linked
-        ? existingGuardian.id
+      const linked = !!shownGuardian;
+      const guardianId = shownGuardian
+        ? shownGuardian.id
         : (
             await this.guardianService.create(
               {
