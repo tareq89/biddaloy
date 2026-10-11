@@ -103,7 +103,9 @@ describe('migrations vs entities', { timeout: 300_000 }, () => {
     await ds.initialize();
     await ds.runMigrations({ transaction: 'each' });
     firstDrift = await rawDrift();
-  });
+    // Migrating a fresh DB takes ~5s alone and >10s (the default hook
+    // timeout) under the full integration run's load.
+  }, 300_000);
 
   afterAll(async () => {
     if (ds?.isInitialized) await ds.destroy();
@@ -111,7 +113,7 @@ describe('migrations vs entities', { timeout: 300_000 }, () => {
       await terminateAndDrop(guardDb);
       await admin.destroy();
     }
-  });
+  }, 60_000);
 
   it('migrations produce the schema the entities declare', () => {
     // Any statement here is new drift: write a migration for it.
