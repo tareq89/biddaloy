@@ -1,17 +1,21 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Job } from 'bullmq';
+import { DelayedError, type Job } from 'bullmq';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { AuthTokenPurpose, UserRole } from '@biddaloy/shared';
 import { Guardian } from '../students/entities/guardian.entity';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { reviveMembership } from '../users/users.service';
+import { TenantStatusService } from '../schools/tenant-status.service';
 import { AuthTokenService } from './auth-token.service';
 import { InvitationService } from './invitation.service';
 import { INVITATION_BATCH_QUEUE } from './invitation-batch.constants';
 import type { InvitationBatchJobData } from './guardian-provisioning.service';
+
+/** How long a guardian's invite waits before re-checking a running restore. */
+export const INVITATION_RESTORE_RETRY_MS = 60_000;
 
 /**
  * Fans out `GuardianProvisioningService.dispatch`'s queued jobs — one
@@ -33,12 +37,21 @@ export class InvitationBatchProcessor extends WorkerHost {
     private readonly dataSource: DataSource,
     private readonly authTokens: AuthTokenService,
     private readonly invitationService: InvitationService,
+    private readonly tenantStatus: TenantStatusService,
   ) {
     super();
   }
 
-  async process(job: Job<InvitationBatchJobData>): Promise<void> {
+  async process(job: Job<InvitationBatchJobData>, token?: string): Promise<void> {
     const { tenantId, guardianId, actorUserId, batchId } = job.data;
+
+    // [68.1.fix] A restore is rewriting this school's `users`/`guardians`/`user_tenants` (#2210):
+    // a write now would be lost or mixed into the restored data. Park the job and re-check later;
+    // `DelayedError` tells BullMQ this is not a failure, so no retry attempt is spent.
+    if (await this.tenantStatus.isRestoring(tenantId)) {
+      await job.moveToDelayed(Date.now() + INVITATION_RESTORE_RETRY_MS, token);
+      throw new DelayedError();
+    }
 
     const guardian = await this.guardianRepo.findOne({
       where: { id: guardianId, tenant_id: tenantId },

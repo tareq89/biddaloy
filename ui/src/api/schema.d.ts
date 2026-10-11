@@ -23493,6 +23493,13 @@ export interface operations {
                     "application/json": components["schemas"]["DeviceEventBatchResponseDto"];
                 };
             };
+            /** @description TENANT_RESTORING: the school is being restored from a backup. Retryable: keep the batch and re-send it later. */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     DeviceIngestController_roster_v1: {

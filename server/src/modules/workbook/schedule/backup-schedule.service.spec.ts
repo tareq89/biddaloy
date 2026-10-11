@@ -7,6 +7,7 @@ describe('BackupScheduleService', () => {
   let queue: any;
   let schools: any;
   let exports: any;
+  let tenantStatus: any;
   let service: BackupScheduleService;
 
   const TENANT = 'tenant-1';
@@ -25,7 +26,8 @@ describe('BackupScheduleService', () => {
       }),
     };
     exports = { run: vi.fn().mockResolvedValue({ id: 'job-1' }) };
-    service = new BackupScheduleService(queue, schools, exports);
+    tenantStatus = { isRestoring: vi.fn().mockResolvedValue(false) };
+    service = new BackupScheduleService(queue, schools, exports, tenantStatus);
   });
 
   describe('sync', () => {
@@ -156,6 +158,16 @@ describe('BackupScheduleService', () => {
         source: WorkbookJobSource.SCHEDULED,
         requestedByUserId: null,
       });
+    });
+
+    // [68.1.fix] A half-restored school must not become a normal backup (nor trigger retention).
+    it('does not call ExportService.run while the school is being restored', async () => {
+      tenantStatus.isRestoring.mockResolvedValue(true);
+
+      await service.runNow(TENANT);
+
+      expect(tenantStatus.isRestoring).toHaveBeenCalledWith(TENANT);
+      expect(exports.run).not.toHaveBeenCalled();
     });
 
     it('does not call ExportService.run for a SUSPENDED school, and cleans up the scheduler instead', async () => {
