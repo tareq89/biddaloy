@@ -273,6 +273,45 @@ describe('AcademicYearService (integration)', () => {
     });
   });
 
+  describe('remove guards [68.2.12]', () => {
+    it('cannot delete the current year (409 ACADEMIC_YEAR_CURRENT)', async () => {
+      const created = await service.create(
+        { name: '2026-2027', start_date: '2026-01-01', end_date: '2026-12-31', is_current: true },
+        TENANT_ID,
+      );
+
+      await expect(service.remove(created.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_CURRENT' } },
+      });
+      await expect(service.findOne(created.id, TENANT_ID)).resolves.toBeDefined();
+    });
+
+    it('cannot delete a year that has a class (409 ACADEMIC_YEAR_IN_USE)', async () => {
+      const created = await service.create(
+        { name: '2026-2027', start_date: '2026-01-01', end_date: '2026-12-31' },
+        TENANT_ID,
+      );
+      await dataSource
+        .getRepository(Class)
+        .save({ name: 'Class 1', academic_year_id: created.id, tenant_id: TENANT_ID });
+
+      await expect(service.remove(created.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_IN_USE', classes_count: 1 } },
+      });
+    });
+
+    it('can delete an empty, non-current year', async () => {
+      const created = await service.create(
+        { name: '2030-2031', start_date: '2030-01-01', end_date: '2030-12-31' },
+        TENANT_ID,
+      );
+
+      await service.remove(created.id, TENANT_ID);
+
+      await expect(service.findOne(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('getStats', () => {
     it('should count classes, active-enrolled students, and fee structures for the year', async () => {
       const year = await service.create(

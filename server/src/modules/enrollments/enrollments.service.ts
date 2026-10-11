@@ -79,15 +79,13 @@ export class EnrollmentService {
     const sectionRepo = manager.getRepository(ClassSection);
     const academicYearRepo = manager.getRepository(AcademicYear);
 
-    // Verify student exists and belongs to tenant via class_section -> class chain
+    // Verify student exists and belongs to tenant. [68.2.12] Tenant is read from
+    // the student's own column, not the section chain: a student whose section
+    // was deleted must still resolve.
     const student = await studentRepo.findOne({
-      where: { id: dto.student_id, deleted_at: IsNull() },
-      relations: ['class_section', 'class_section.class'],
+      where: { id: dto.student_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${dto.student_id}" not found`);
-    }
-    if (student.class_section?.class?.tenant_id !== tenantId) {
       throw new NotFoundException(`Student with ID "${dto.student_id}" not found`);
     }
 
@@ -191,13 +189,9 @@ export class EnrollmentService {
   async findByStudent(studentId: string, tenantId: string) {
     // Verify student exists and belongs to tenant
     const student = await this.studentRepo.findOne({
-      where: { id: studentId, deleted_at: IsNull() },
-      relations: ['class_section', 'class_section.class'],
+      where: { id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
-    }
-    if (student.class_section?.class?.tenant_id !== tenantId) {
       throw new NotFoundException(`Student with ID "${studentId}" not found`);
     }
 
@@ -211,13 +205,9 @@ export class EnrollmentService {
   async findCurrentByStudent(studentId: string, tenantId: string): Promise<Enrollment | null> {
     // Verify student exists and belongs to tenant
     const student = await this.studentRepo.findOne({
-      where: { id: studentId, deleted_at: IsNull() },
-      relations: ['class_section', 'class_section.class'],
+      where: { id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
-    }
-    if (student.class_section?.class?.tenant_id !== tenantId) {
       throw new NotFoundException(`Student with ID "${studentId}" not found`);
     }
 

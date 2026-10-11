@@ -13,6 +13,7 @@ describe('GradingService', () => {
   let bandRepo: any;
   let academicYearRepo: any;
   let classRepo: any;
+  let resultRepo: any;
   let dataSource: any;
   let auditService: any;
   let service: GradingService;
@@ -37,6 +38,7 @@ describe('GradingService', () => {
     };
     academicYearRepo = { findOne: vi.fn(async () => ({ id: YEAR, tenant_id: TENANT })) };
     classRepo = { findOne: vi.fn(async () => ({ id: 'class-1', tenant_id: TENANT })) };
+    resultRepo = { count: vi.fn(async () => 0) };
     auditService = { record: vi.fn() };
     dataSource = { transaction: vi.fn(async (cb: any) => cb(fakeManager(scaleRepo, bandRepo))) };
 
@@ -45,6 +47,7 @@ describe('GradingService', () => {
       bandRepo,
       academicYearRepo,
       classRepo,
+      resultRepo,
       dataSource,
       auditService,
     );
@@ -73,6 +76,27 @@ describe('GradingService', () => {
       });
       expect(scale.name).toBe('Default');
       expect(auditService.record).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('remove [68.2.12]', () => {
+    beforeEach(() => {
+      scaleRepo.findOne.mockResolvedValue({ id: 'scale-1', tenant_id: TENANT, name: 'Default' });
+    });
+
+    it('throws GRADING_SCALE_IN_USE when a live result references the scale', async () => {
+      resultRepo.count.mockResolvedValueOnce(3);
+      await expect(service.remove('scale-1', TENANT, 'user-1')).rejects.toMatchObject({
+        response: { details: { code: 'GRADING_SCALE_IN_USE', count: 3 } },
+      });
+      expect(scaleRepo.softDelete).not.toHaveBeenCalled();
+      expect(bandRepo.softDelete).not.toHaveBeenCalled();
+    });
+
+    it('soft-deletes the scale and bands when no result references it', async () => {
+      await service.remove('scale-1', TENANT, 'user-1');
+      expect(scaleRepo.softDelete).toHaveBeenCalledWith({ id: 'scale-1', tenant_id: TENANT });
+      expect(bandRepo.softDelete).toHaveBeenCalledWith({ scale_id: 'scale-1', tenant_id: TENANT });
     });
   });
 
