@@ -10,6 +10,8 @@ import { MarkGrid } from './entities/mark-grid.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
+import { ClassSubject } from '../academics/entities/class-subject.entity';
+import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { AttendanceComponentService } from './attendance-component.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { AuditService } from '../audit/audit.service';
@@ -86,7 +88,9 @@ async function buildService(
             ? componentRepo
             : entity === Mark
               ? markRepo
-              : gridRepo,
+              : entity === ClassSubject || entity === StudentSubjectChoice
+                ? { find: vi.fn(async () => []) }
+                : gridRepo,
     createQueryBuilder: () => insertQb,
   };
   const sectionRepo: any = {
@@ -172,7 +176,7 @@ describe('MarkGridService.getGrid', () => {
 
     expect(grid.state).toBe(MarkGridState.DRAFT);
     expect(grid.students).toEqual([
-      { id: 'stu-1', roll_number: 1, full_name: 'A', joined_after_exam: false },
+      { id: 'stu-1', roll_number: 1, full_name: 'A', joined_after_exam: false, not_taking: false },
     ]);
     expect(grid.components).toHaveLength(1);
     expect(grid.cells).toEqual([
@@ -297,7 +301,9 @@ describe('MarkGridService.submit blank cells (ACAD-04)', () => {
     sitting.date = '2024-03-01';
     const { service } = await buildService({
       students: [STUDENT('s1')],
-      enrollments: [{ student_id: 's1', enrolled_at: new Date('2024-06-01') }],
+      enrollments: [
+        { student_id: 's1', section_id: SECTION_ID, enrolled_at: new Date('2024-06-01') },
+      ],
       components: [MANUAL('c1')],
     });
     await expect(submit(service)).resolves.toMatchObject({ state: MarkGridState.SUBMITTED });
@@ -529,7 +535,9 @@ describe('MarkGridService.progress with blank cells (X-06)', () => {
     const { service } = await buildService({
       ...base,
       students: [STUDENT('s1')],
-      enrollments: [{ student_id: 's1', enrolled_at: new Date('2024-06-01') }],
+      enrollments: [
+        { student_id: 's1', section_id: SECTION_ID, enrolled_at: new Date('2024-06-01') },
+      ],
       components: [{ ...MANUAL('c1'), subject: { tenant_id: TENANT_ID } }],
     });
     const result = await service.progress(EXAM_ID, TENANT_ID);

@@ -27,7 +27,7 @@ import { AttendanceComponentService } from './attendance-component.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
-import { joinedAfterExam, lastSittingDate } from './exam-cohort';
+import { joinedAfterExam, lastSittingDate, subjectSitters } from './exam-cohort';
 
 /**
  * [pr-fix #945] The single serialization point for one grid's marks and
@@ -77,6 +77,8 @@ export interface GridResponse {
     full_name: string;
     /** Enrolled after the last sitting with no marks: not in the exam's cohort, never blocks submit. */
     joined_after_exam: boolean;
+    /** Another stream, or an optional / choice subject not picked: no marks owed, never blocks submit. */
+    not_taking: boolean;
   }>;
   components: Array<{
     id: string;
@@ -162,60 +164,82 @@ export class MarkGridService {
     return new Set(late.filter((e) => !has.has(e.student_id)).map((e) => e.student_id));
   }
 
-  /** ACAD-04 / X-06: every rostered student's MANUAL cell that is neither a
-   * mark nor a deliberate A / E. DERIVED components are never blank. */
+  /** ACAD-04 / X-06: per `section:subject` key, every rostered student's
+   * MANUAL cell that is neither a mark nor a deliberate A / E. DERIVED
+   * components are never blank. A student who does not sit the subject
+   * (another stream, or an optional / choice subject they did not pick) and
+   * a late joiner owe nothing. One set of queries for all `pairs`. */
   private async blankCells(
     manager: EntityManager,
     exam: Exam,
-    sectionId: string,
-    subjectId: string,
     tenantId: string,
-  ): Promise<{ student_id: string; component_id: string }[]> {
+    pairs: { sectionId: string; subjectId: string }[],
+  ): Promise<Map<string, { student_id: string; component_id: string }[]>> {
+    const out = new Map<string, { student_id: string; component_id: string }[]>();
+    if (pairs.length === 0) return out;
+    const sectionIds = [...new Set(pairs.map((p) => p.sectionId))];
+    const subjectIds = [...new Set(pairs.map((p) => p.subjectId))];
     const enrollments = await manager.getRepository(Enrollment).find({
       where: {
         tenant_id: tenantId,
         academic_year_id: exam.academic_year_id,
         class_id: exam.class_id,
-        section_id: sectionId,
+        section_id: In(sectionIds),
         enrollment_status: EnrollmentStatus.ACTIVE,
       },
+      relations: { section: true },
     });
-    if (enrollments.length === 0) return [];
-    const [students, components, marks, late] = await Promise.all([
+    if (enrollments.length === 0) return out;
+    const studentIds = enrollments.map((e) => e.student_id);
+    const [students, components, marks, late, sitters] = await Promise.all([
       manager.getRepository(Student).find({
-        where: {
-          id: In(enrollments.map((e) => e.student_id)),
-          tenant_id: tenantId,
-          deleted_at: IsNull(),
-        },
+        where: { id: In(studentIds), tenant_id: tenantId, deleted_at: IsNull() },
+        select: { id: true },
       }),
       manager.getRepository(ExamComponent).find({
         where: {
           exam_id: exam.id,
-          subject_id: subjectId,
+          subject_id: In(subjectIds),
           tenant_id: tenantId,
           deleted_at: IsNull(),
           source: ExamComponentSource.MANUAL,
         },
       }),
       manager.getRepository(Mark).find({
-        where: { exam_id: exam.id, subject_id: subjectId, tenant_id: tenantId },
+        where: {
+          exam_id: exam.id,
+          subject_id: In(subjectIds),
+          student_id: In(studentIds),
+          tenant_id: tenantId,
+        },
       }),
       this.lateJoiners(manager, exam, tenantId, enrollments),
+      subjectSitters(manager, exam, tenantId, enrollments, subjectIds),
     ]);
+    const live = new Set(students.map((s) => s.id));
     const filled = new Set(
       marks
         .filter((m) => m.status !== MarkStatus.PRESENT || m.value !== null)
         .map((m) => `${m.student_id}:${m.component_id}`),
     );
-    const blank: { student_id: string; component_id: string }[] = [];
-    for (const s of students) {
-      if (late.has(s.id)) continue;
-      for (const c of components) {
-        if (!filled.has(`${s.id}:${c.id}`)) blank.push({ student_id: s.id, component_id: c.id });
+    for (const { sectionId, subjectId } of pairs) {
+      const takers = sitters.get(subjectId);
+      const subjectComponents = components.filter((c) => c.subject_id === subjectId);
+      const blank: { student_id: string; component_id: string }[] = [];
+      for (const e of enrollments) {
+        if (e.section_id !== sectionId || !live.has(e.student_id) || late.has(e.student_id)) {
+          continue;
+        }
+        if (takers && !takers.has(e.student_id)) continue;
+        for (const c of subjectComponents) {
+          if (!filled.has(`${e.student_id}:${c.id}`)) {
+            blank.push({ student_id: e.student_id, component_id: c.id });
+          }
+        }
       }
+      out.set(`${sectionId}:${subjectId}`, blank);
     }
-    return blank;
+    return out;
   }
 
   async getGrid(
@@ -242,6 +266,7 @@ export class MarkGridService {
         section_id: sectionId,
         enrollment_status: EnrollmentStatus.ACTIVE,
       },
+      relations: { section: true },
     });
     const [studentsUnsorted, components, marks, grid] = await Promise.all([
       enrollments.length === 0
@@ -275,7 +300,11 @@ export class MarkGridService {
       }),
     ]);
     const students = [...studentsUnsorted].sort((a, b) => a.roll_number - b.roll_number);
-    const late = await this.lateJoiners(this.gridRepo.manager, exam, tenantId, enrollments);
+    const [late, sitters] = await Promise.all([
+      this.lateJoiners(this.gridRepo.manager, exam, tenantId, enrollments),
+      subjectSitters(this.gridRepo.manager, exam, tenantId, enrollments, [subjectId]),
+    ]);
+    const takers = sitters.get(subjectId);
 
     // Mark has no section column, so the query above pulls every mark
     // ever entered for this exam+subject across ALL sections — filter to
@@ -311,6 +340,7 @@ export class MarkGridService {
         roll_number: s.roll_number,
         full_name: s.full_name,
         joined_after_exam: late.has(s.id),
+        not_taking: takers !== undefined && !takers.has(s.id),
       })),
       components: components.map((c) => ({
         id: c.id,
@@ -367,7 +397,11 @@ export class MarkGridService {
         );
       }
 
-      const blank = await this.blankCells(manager, exam, dto.section_id, dto.subject_id, tenantId);
+      const key = { sectionId: dto.section_id, subjectId: dto.subject_id };
+      const blank =
+        (await this.blankCells(manager, exam, tenantId, [key])).get(
+          `${key.sectionId}:${key.subjectId}`,
+        ) ?? [];
       if (blank.length > 0) {
         throw new ConflictException({
           message: `${blank.length} blank cell(s). Enter a mark, A (absent) or E (exempt) for each before submitting.`,
@@ -528,6 +562,22 @@ export class MarkGridService {
       state: MarkGridState;
     }> = [];
 
+    // One batch for every SUBMITTED grid, not a query set per grid.
+    const sectionIdSet = new Set(sections.map((s) => s.id));
+    const blanks = await this.blankCells(
+      this.gridRepo.manager,
+      exam,
+      tenantId,
+      grids
+        .filter(
+          (g) =>
+            g.state === MarkGridState.SUBMITTED &&
+            sectionIdSet.has(g.section_id) &&
+            subjectIds.includes(g.subject_id),
+        )
+        .map((g) => ({ sectionId: g.section_id, subjectId: g.subject_id })),
+    );
+
     for (const section of sections) {
       for (const subjectId of subjectIds) {
         const grid = gridByKey.get(`${section.id}:${subjectId}`);
@@ -536,8 +586,7 @@ export class MarkGridService {
         if (stateFilter && state !== stateFilter) continue;
         const hasBlanks =
           state === MarkGridState.SUBMITTED &&
-          (await this.blankCells(this.gridRepo.manager, exam, section.id, subjectId, tenantId))
-            .length > 0;
+          (blanks.get(`${section.id}:${subjectId}`)?.length ?? 0) > 0;
         if (state !== MarkGridState.SUBMITTED || hasBlanks) {
           outstanding.push({
             section_id: section.id,

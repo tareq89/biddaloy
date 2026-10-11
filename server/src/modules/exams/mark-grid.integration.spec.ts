@@ -23,6 +23,8 @@ import { Student } from '../students/entities/student.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { Mark } from './entities/mark.entity';
 import { MarkGrid } from './entities/mark-grid.entity';
+import { ClassSubject } from '../academics/entities/class-subject.entity';
+import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { ResultsService } from './results.service';
 import { SEED_ADMIN_USER_ID } from '@test/constants';
 
@@ -280,6 +282,41 @@ describe('MarkGridService blank cells (integration)', () => {
     await mark(await student(secA), MarkStatus.EXEMPT, null);
     await mark(await student(secA), MarkStatus.PRESENT, '70.00');
     await expect(submit(secA)).resolves.toMatchObject({ state: MarkGridState.SUBMITTED });
+  });
+
+  it('#2246: a student who did not pick an optional subject owes no marks for it', async () => {
+    const cs = await dataSource.getRepository(ClassSubject).save({
+      class_id: classId,
+      subject_id: subjectId,
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      is_optional: true,
+      is_graded_only: false,
+      tenant_id: SEED_TENANT_ID,
+    });
+    const picker = await student(secA);
+    const nonPicker = await student(secA);
+    await dataSource.getRepository(StudentSubjectChoice).save({
+      student_id: picker,
+      class_subject_id: cs.id,
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    });
+    await mark(picker, MarkStatus.PRESENT, '70.00');
+
+    const grid = await grids.getGrid(
+      examId,
+      secA,
+      subjectId,
+      SEED_TENANT_ID,
+      UserRole.ADMIN,
+      SEED_ADMIN_USER_ID,
+    );
+    expect(grid.students.find((s) => s.id === nonPicker)?.not_taking).toBe(true);
+    expect(grid.students.find((s) => s.id === picker)?.not_taking).toBe(false);
+    // The non-picker's empty row does not block submit or process.
+    await expect(submit(secA)).resolves.toMatchObject({ state: MarkGridState.SUBMITTED });
+    const { outstanding } = await grids.progress(examId, SEED_TENANT_ID);
+    expect(outstanding.filter((o) => o.section_id === secA)).toEqual([]);
   });
 
   it('X-06: a student moved into a submitted sheet blocks process until forced', async () => {

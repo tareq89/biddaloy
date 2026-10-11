@@ -204,6 +204,37 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     expect(submittedCell.disabled).toBe(true);
   });
 
+  it('a student who does not take this optional subject does not block submit', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get(GRID_URL, () =>
+        HttpResponse.json({
+          ...baseGrid,
+          students: [
+            { id: 's1', roll_number: 1, full_name: 'Rafi Ahmed' },
+            { id: 's2', roll_number: 2, full_name: 'Not Taking', not_taking: true },
+          ],
+          cells: [{ student_id: 's1', component_id: 'c1', value: '80.00', status: 'PRESENT' }],
+        }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await screen.findByLabelText('Rafi Ahmed — Written');
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('alert')).toBeNull();
+    expect(within(dialog).getByRole('button', { name: 'Submit' }).hasAttribute('disabled')).toBe(
+      false,
+    );
+  });
+
   it('a stale page that gets 409 GRID_INCOMPLETE shows the blocking line', async () => {
     const user = userEvent.setup();
     const filled = {
