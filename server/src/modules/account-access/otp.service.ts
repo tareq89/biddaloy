@@ -18,8 +18,15 @@ export type OtpVerifyResult = 'ok' | 'invalid' | 'expired' | 'locked';
 
 const CODE_TTL_MS = 5 * 60_000;
 const COOLDOWN_MS = 60_000;
-const MAX_CODES_PER_DAY = 10;
-const DAY_MS = 24 * 60 * 60_000;
+/**
+ * GAP-05 cap: 5 codes per destination, per purpose, per hour. Per purpose so a
+ * stranger who spends a phone's sign-in codes cannot also block its password
+ * reset; per hour so any such block ends soon (a 24 h shared bucket let anyone
+ * lock a parent out of sign-in and recovery for a day, #2398 review).
+ * ponytail: per-destination only; per-school and global caps are #1759.
+ */
+const MAX_CODES_PER_WINDOW = 5;
+const CAP_WINDOW_MS = 60 * 60_000;
 /** Purposes that never reach a phone or inbox, so they are not counted (step-up sends nothing). */
 const UNCAPPED_PURPOSES: ReadonlySet<OtpPurpose> = new Set(['STEP_UP']);
 const LOCK_TTL_MS = 15 * 60_000;
@@ -35,8 +42,8 @@ interface OtpRecord {
 // concurrent `request()` calls could both pass the check and both send an
 // SMS/email for the same identifier. Returns 1 if this call won the race
 // and issued a code, 0 if a cooldown was already live, 2 if the destination
-// already had its daily cap of codes (KEYS[3], checked first so a capped
-// request writes nothing). ARGV[4] = cap (0 = uncapped), ARGV[5] = window ms.
+// already had its cap of codes for this purpose (KEYS[3], checked first so a
+// capped request writes nothing). ARGV[4] = cap (0 = uncapped), ARGV[5] = window ms.
 const REQUEST_SCRIPT = `
 local cap = tonumber(ARGV[4])
 if cap > 0 and tonumber(redis.call('GET', KEYS[3]) or '0') >= cap then
@@ -95,12 +102,12 @@ function cooldownKey(purpose: OtpPurpose, identifier: string): string {
   return `otp-cooldown:${purpose}:${identifier}`;
 }
 /**
- * One daily bucket per real destination, however it was typed (GAP-05):
- * "+880 1712-345678", "01712345678" and "8801712345678" are one handset.
+ * One cap bucket per purpose and real destination, however it was typed
+ * (GAP-05): "+880 1712-345678", "01712345678" and "8801712345678" are one handset.
  */
-function dailyKey(identifier: string): string {
+function capKey(purpose: OtpPurpose, identifier: string): string {
   const id = normalizeLoginIdentifier(toLatinDigits(identifier));
-  return `otp-daily:${id.includes('@') ? id : toE164ish(id).replace(/^\+/, '')}`;
+  return `otp-cap:${purpose}:${id.includes('@') ? id : toE164ish(id).replace(/^\+/, '')}`;
 }
 function lockKey(purpose: OtpPurpose, identifier: string): string {
   return `otp-lock:${purpose}:${identifier}`;
@@ -118,7 +125,7 @@ function hashCode(code: string, bind: string): string {
 /**
  * Thrown when a request for a new OTP arrives inside the 60s cooldown of
  * the previous one for the same (purpose, identifier), or when the destination
- * (phone or email, any spelling) already had 10 codes in the last 24 h.
+ * (phone or email, any spelling) already had 5 codes for that purpose this hour.
  */
 export class TooManyRequestsException extends HttpException {
   constructor() {
@@ -146,8 +153,15 @@ export class OtpService {
   /**
    * `bind` (optional) is the address the code goes to; `verify` must pass the
    * same value, so a code stops working if that address changes meanwhile.
+   * `uncapped` skips the GAP-05 cap (not the cooldown): only for a code a
+   * signed-in admin asked for, which a stranger's requests must not block.
    */
-  async request(purpose: OtpPurpose, identifier: string, bind = ''): Promise<{ code: string }> {
+  async request(
+    purpose: OtpPurpose,
+    identifier: string,
+    bind = '',
+    opts: { uncapped?: boolean } = {},
+  ): Promise<{ code: string }> {
     try {
       const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
       const record: OtpRecord = { hash: hashCode(code, bind) };
@@ -157,12 +171,12 @@ export class OtpService {
         3,
         otpKey(purpose, identifier),
         cooldownKey(purpose, identifier),
-        dailyKey(identifier),
+        capKey(purpose, identifier),
         JSON.stringify(record),
         CODE_TTL_MS,
         COOLDOWN_MS,
-        UNCAPPED_PURPOSES.has(purpose) ? 0 : MAX_CODES_PER_DAY,
-        DAY_MS,
+        opts.uncapped || UNCAPPED_PURPOSES.has(purpose) ? 0 : MAX_CODES_PER_WINDOW,
+        CAP_WINDOW_MS,
       );
       if (claimed === 0 || claimed === 2) {
         throw new TooManyRequestsException();

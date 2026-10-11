@@ -60,7 +60,12 @@ describe('OtpSignInForm', () => {
 
     await waitFor(() => expect(onRequest).toHaveBeenCalledWith('01712345678'));
     await screen.findByRole('heading', { name: 'Enter the code' });
-    expect(screen.getByText('We sent a 6-digit code to 01712345678.')).toBeTruthy();
+    // Same 202 for every number, so the text also covers a paused (capped) phone (#2260).
+    expect(
+      screen.getByText(
+        'If 01712345678 is on an account, we sent it a 6-digit code. No code after a few tries? Wait an hour, then try again.',
+      ),
+    ).toBeTruthy();
   });
 
   it('accepts an email: lower-cases it, requests a code for it, and verifies with it', async () => {
