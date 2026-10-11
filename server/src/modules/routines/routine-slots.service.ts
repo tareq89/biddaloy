@@ -88,7 +88,8 @@ export class RoutineSlotsService {
     dto: UpsertRoutineSlotDto,
     tenantId: string,
   ): Promise<RoutineSlotWithWarnings> {
-    await this.getRoutine(routineId, tenantId);
+    const routine = await this.getRoutine(routineId, tenantId);
+    await this.assertNotBackdated(routine, dto.valid_from, tenantId);
 
     return this.dataSource.transaction(async (manager) => {
       await this.validateTenantReferences(manager, dto, tenantId);
@@ -134,21 +135,10 @@ export class RoutineSlotsService {
         throw new NotFoundException(`Routine slot with ID "${id}" not found`);
       }
 
-      // TIME-08: a published routine's history is what the school answers
-      // "what was the timetable on 3 March?" from — an edit may only take
-      // effect from today onwards.
       const routine = await manager.findOne(Routine, {
         where: { id: oldSlot.routine_id, tenant_id: tenantId },
       });
-      if (
-        routine?.state === RoutineState.PUBLISHED &&
-        dto.valid_from < (await this.today(tenantId))
-      ) {
-        throw new UnprocessableEntityException({
-          message: 'An edit to a published routine can take effect today at the earliest',
-          details: { code: 'ROUTINE_SLOT_BACKDATED' },
-        });
-      }
+      await this.assertNotBackdated(routine, dto.valid_from, tenantId);
 
       // D4 effective dating only makes sense moving forward from the old
       // row's own `valid_from` — otherwise the new row's `valid_to`
@@ -292,6 +282,22 @@ export class RoutineSlotsService {
   }
 
   // --- internals ---
+
+  /** TIME-08: a published routine's history is what the school answers
+   * "what was the timetable on 3 March?" from, so a new or edited slot may
+   * only take effect from today onwards. */
+  private async assertNotBackdated(
+    routine: Routine | null,
+    validFrom: string,
+    tenantId: string,
+  ): Promise<void> {
+    if (routine?.state === RoutineState.PUBLISHED && validFrom < (await this.today(tenantId))) {
+      throw new UnprocessableEntityException({
+        message: 'A change to a published routine can take effect today at the earliest',
+        details: { code: 'ROUTINE_SLOT_BACKDATED' },
+      });
+    }
+  }
 
   private async getRoutine(routineId: string, tenantId: string): Promise<Routine> {
     const routine = await this.routineRepo.findOne({

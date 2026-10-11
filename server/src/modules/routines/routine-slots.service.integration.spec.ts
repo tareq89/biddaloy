@@ -194,9 +194,7 @@ describe('RoutineSlotsService — tenant isolation (D16)', () => {
 
   async function publishedSlot(tenantId: string, suffix: string, validFrom: string) {
     const t = await seedTenant(tenantId, suffix);
-    await dataSource
-      .getRepository(Routine)
-      .update({ id: t.routine.id }, { state: RoutineState.PUBLISHED, published_at: new Date() });
+    // Slot written while DRAFT, then published: a published routine refuses back-dated new slots.
     const created = await service.create(
       t.routine.id,
       {
@@ -213,6 +211,9 @@ describe('RoutineSlotsService — tenant isolation (D16)', () => {
       } as any,
       tenantId,
     );
+    await dataSource
+      .getRepository(Routine)
+      .update({ id: t.routine.id }, { state: RoutineState.PUBLISHED, published_at: new Date() });
     return { ...t, slot: created.slot };
   }
 
@@ -307,6 +308,30 @@ describe('RoutineSlotsService — tenant isolation (D16)', () => {
       response: { details: { code: 'ROUTINE_SLOT_BACKDATED' } },
       status: 422,
     });
+  });
+
+  it('#2254: create a slot on a published routine with valid_from last week -> 422 ROUTINE_SLOT_BACKDATED', async () => {
+    const tid = await freshTenant();
+    const today = new Date().toISOString().slice(0, 10);
+    const t = await publishedSlot(tid, 'cb', addDays(today, 1));
+    await expect(
+      service.create(
+        t.routine.id,
+        {
+          section_id: t.section.id,
+          period_slot_id: t.periodSlot.id,
+          weekday: 3,
+          subject_id: t.subject.id,
+          room_id: null,
+          recurrence: SlotRecurrence.WEEKLY,
+          recurrence_offset: 0,
+          valid_from: addDays(today, -7),
+          valid_to: null,
+          teacher_ids: [t.teacher.id],
+        } as any,
+        tid,
+      ),
+    ).rejects.toMatchObject({ response: { details: { code: 'ROUTINE_SLOT_BACKDATED' } } });
   });
 
   it('update a draft slot with a past valid_from still works', async () => {
