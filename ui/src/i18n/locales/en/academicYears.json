@@ -41,7 +41,8 @@
     "title": "Delete academic year",
     "description": "Delete \"{{name}}\"? This cannot be undone.",
     "confirm": "Delete",
-    "errorMessage": "Failed to delete academic year"
+    "errorMessage": "Failed to delete academic year",
+    "inUse": "This year is current or still has classes or fee structures, so it can't be deleted."
   },
   "setCurrentDialog": {
     "title": "Set as current academic year",

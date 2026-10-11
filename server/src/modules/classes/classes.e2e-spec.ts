@@ -396,6 +396,74 @@ describe('Classes & Sections E2E', () => {
     });
   });
 
+  describe('DELETE /classes/:classId/sections/:sectionId — in use [68.2.12]', () => {
+    it('returns 409 SECTION_IN_USE for a section holding an INACTIVE (left) student', async () => {
+      const classRes = await supertest(app.getHttpServer())
+        .post('/api/v1/classes')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Section In Use', academic_year_id: SEED_ACADEMIC_YEAR_ID })
+        .expect(201);
+      const sectionRes = await supertest(app.getHttpServer())
+        .post(`/api/v1/classes/${classRes.body.id}/sections`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ section_name: 'L' })
+        .expect(201);
+      const studentRepo = dataSource.getRepository(Student);
+      const student = await studentRepo.save({
+        full_name: 'Left Student',
+        registration_number: `REG-E2E-${Math.random().toString(36).slice(2, 10)}`,
+        roll_number: 902,
+        class_section_id: sectionRes.body.id,
+        tenant_id: TENANT_ID,
+        enrollment_status: EnrollmentStatus.INACTIVE,
+      });
+
+      const res = await supertest(app.getHttpServer())
+        .delete(`/api/v1/classes/${classRes.body.id}/sections/${sectionRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(409);
+
+      expect(res.body.details?.code).toBe('SECTION_IN_USE');
+      await studentRepo.delete({ id: student.id });
+    });
+
+    it("404s when deleting another tenant's section", async () => {
+      const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ('${OTHER_TENANT_ID}', 'Other School', 'other-school', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      const yearId = '00000000-0000-4000-8000-0000000000a1';
+      const classId = '00000000-0000-4000-8000-0000000000a2';
+      const sectionId = '00000000-0000-4000-8000-0000000000a3';
+      await dataSource.query(
+        `INSERT INTO academic_years (id, name, start_date, end_date, tenant_id, created_at, updated_at)
+         VALUES ('${yearId}', 'B Year', '2026-01-01', '2026-12-31', '${OTHER_TENANT_ID}', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      await dataSource.query(
+        `INSERT INTO classes (id, name, academic_year_id, tenant_id, created_at, updated_at)
+         VALUES ('${classId}', 'B Class', '${yearId}', '${OTHER_TENANT_ID}', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      await dataSource.query(
+        `INSERT INTO class_sections (id, class_id, section_name, tenant_id, created_at, updated_at)
+         VALUES ('${sectionId}', '${classId}', 'A', '${OTHER_TENANT_ID}', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/classes/${classId}/sections/${sectionId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(404);
+    });
+  });
+
   describe('GET /classes/:classId/teachers (removed in 47.2.1)', () => {
     it('returns 404', async () => {
       await supertest(app.getHttpServer())

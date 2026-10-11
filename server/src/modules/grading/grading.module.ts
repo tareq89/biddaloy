@@ -10,6 +10,7 @@ import { RecomputeService, RESULT_RECOMPUTER } from './recompute.service';
 import { ExamsModule } from '../exams/exams.module';
 import { ExamResultRecomputer } from '../exams/result-recomputer.service';
 import { GradingController } from './grading.controller';
+import { Result } from '../exams/entities/result.entity';
 
 /**
  * [20.2.1] `GradingScale`/`GradingBand` CRUD, copy, and the approval-gated
@@ -25,7 +26,7 @@ import { GradingController } from './grading.controller';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([GradingScale, GradingBand, AcademicYear, Class]),
+    TypeOrmModule.forFeature([GradingScale, GradingBand, AcademicYear, Class, Result]),
     AuditModule,
     ExamsModule,
   ],
