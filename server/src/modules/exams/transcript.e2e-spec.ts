@@ -13,9 +13,11 @@ import {
   SEED_ADMIN_PASSWORD,
   SEED_ADMIN_PASSWORD_HASH,
   SEED_SECTION_1_ID,
+  SEED_SECTION_2_ID,
   SEED_CLASS_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
+import { Teacher } from '../academics/entities/teacher.entity';
 
 /**
  * [48.2.10] `GET /students/:id/transcript` and `POST /students/:id/document-prints`:
@@ -181,6 +183,18 @@ describe('[48.2.10] Transcript + document prints (HTTP)', () => {
       [SEED_ACADEMIC_YEAR_ID, SEED_CLASS_1_ID, TENANT_ID],
     );
     examId = exam.id;
+    // [AUTH-06] The TEACHER user teaches section 1 (where both students sit).
+    const teacher = await ds.getRepository(Teacher).save({
+      user_id: uid(STAFF_ALLOWED.indexOf(UserRole.TEACHER) + 1),
+      employee_id: `TE-T-${Math.random().toString(36).slice(2, 8)}`,
+      tenant_id: TENANT_ID,
+      designations: [],
+    });
+    await ds.query(
+      `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id, subject_id, assignment_type)
+       VALUES ($1, $2, $3, $4, 'SUBJECT_TEACHER')`,
+      [teacher.id, SEED_SECTION_1_ID, TENANT_ID, subject.id],
+    );
     for (const sid of [studentId, classmateId]) {
       const [result] = await ds.query(
         `INSERT INTO results
@@ -212,6 +226,17 @@ describe('[48.2.10] Transcript + document prints (HTTP)', () => {
         await post(role, reportCard()).expect(204);
       },
     );
+
+    it('[AUTH-06] TEACHER gets 403 for a student outside their sections (read and print log)', async () => {
+      await seed();
+      await ds.query(`UPDATE students SET class_section_id = $1 WHERE id = $2`, [
+        SEED_SECTION_2_ID,
+        studentId,
+      ]);
+      await get(UserRole.TEACHER).expect(403);
+      await post(UserRole.TEACHER, reportCard()).expect(403);
+      await get(UserRole.ADMIN).expect(200);
+    });
 
     it.each(STAFF_DENIED)('%s is denied both routes (403, no RESULT_READ)', async (role) => {
       await seed();

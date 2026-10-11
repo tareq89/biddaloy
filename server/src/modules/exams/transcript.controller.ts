@@ -19,6 +19,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { Permission, JwtPayload, isGuardianRole } from '@biddaloy/shared';
 import { FamilyAccessService } from '../students/family-access.service';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { TranscriptService } from './transcript.service';
 import { DocumentPrintDto, TranscriptQueryDto } from './dto/transcript.dto';
 
@@ -35,7 +36,24 @@ export class TranscriptController {
   constructor(
     private readonly transcriptService: TranscriptService,
     private readonly familyAccess: FamilyAccessService,
+    private readonly teacherScope: TeacherScopeService,
   ) {}
+
+  /** PARENT/STUDENT: linked only. TEACHER: own sections only (AUTH-06), same
+   * rule as `GET /students/:id/results`, which returns the same history. */
+  private async assertCanRead(
+    studentId: string,
+    tenant: { id: string; role: string },
+    user: JwtPayload,
+  ): Promise<void> {
+    await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
+    await this.teacherScope.assertCanSeeStudent({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+      studentId,
+    });
+  }
 
   @Get('transcript')
   @RequirePermissions(Permission.RESULT_READ)
@@ -49,7 +67,7 @@ export class TranscriptController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
+    await this.assertCanRead(studentId, tenant, user);
     return this.transcriptService.getTranscript(
       tenant.id,
       studentId,
@@ -68,7 +86,7 @@ export class TranscriptController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
-    await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
+    await this.assertCanRead(studentId, tenant, user);
     await this.transcriptService.logDocumentPrint(
       tenant.id,
       user.sub,

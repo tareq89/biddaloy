@@ -736,6 +736,16 @@ describe('Guardians E2E', () => {
       await asTeacher(get(`/guardians/${mine}`)).expect(200);
     });
 
+    it('TEACHER GET /guardians/:id hides the guardian’s children in other sections', async () => {
+      const mineStudent = await insertStudent('Scope Mine', SEED_SECTION_1_ID);
+      const otherStudent = await insertStudent('Scope Other', SEED_SECTION_2_ID);
+      const both = await insertGuardian('Scope Guardian Both', [mineStudent, otherStudent]);
+      const res = await asTeacher(get(`/guardians/${both}`)).expect(200);
+      expect(res.body.students.map((s: { id: string }) => s.id)).toEqual([mineStudent]);
+      const admin = await asAdmin(get(`/guardians/${both}`)).expect(200);
+      expect(admin.body.students).toHaveLength(2);
+    });
+
     it('ADMIN still sees guardians of every section', async () => {
       const otherStudent = await insertStudent('Scope Other', SEED_SECTION_2_ID);
       const other = await insertGuardian('Scope Guardian Other', [otherStudent]);

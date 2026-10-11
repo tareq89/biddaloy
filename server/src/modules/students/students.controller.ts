@@ -382,13 +382,14 @@ export class StudentController {
       userId: user.sub,
       tenantId: tenant.id,
     });
-    if (
-      scope &&
-      !(guardian.students ?? []).some(
+    if (scope) {
+      // Only the children the teacher teaches; siblings elsewhere stay hidden.
+      guardian.students = (guardian.students ?? []).filter(
         (s) => s.class_section_id && scope.includes(s.class_section_id),
-      )
-    ) {
-      throw new ForbiddenException("You do not teach this guardian's students.");
+      );
+      if (guardian.students.length === 0) {
+        throw new ForbiddenException("You do not teach this guardian's students.");
+      }
     }
     return redactHealthNotes(guardian, canReadRecords(tenant.role));
   }

@@ -391,6 +391,13 @@ describe('TeacherScopeService (integration)', () => {
       expect(await service.sectionScope({ ...base, role: 'TEACHER' })).toEqual([sec6A]);
     });
 
+    it('sectionScope fails closed: an unknown role sees nothing ([])', async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
+      expect(
+        await service.sectionScope({ userId, tenantId: TENANT_A, role: 'NOT_A_ROLE' }),
+      ).toEqual([]);
+    });
+
     it("tenant isolation: a teacher row in tenant B never widens tenant A's scope", async () => {
       await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
       await assign(TeacherAssignmentType.CLASS_TEACHER, secB, null, { tenant_id: TENANT_B });
