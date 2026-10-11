@@ -356,6 +356,7 @@ describe('PaymentsQueryService (integration)', () => {
       const invoice = await invoiceRepo.save(
         invoiceRepo.create({
           invoice_number: `INV-PQ-${paymentSeq + 1}`,
+          tenant_id: SEED_TENANT_ID,
           student_id: student.id,
           total_amount: 1000,
           status: 'PAID' as any,

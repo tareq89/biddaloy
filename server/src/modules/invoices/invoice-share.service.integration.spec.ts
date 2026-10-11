@@ -127,6 +127,7 @@ describe('InvoiceShareService (integration)', () => {
     const invoice = await invoiceRepo.save(
       invoiceRepo.create({
         invoice_number: 'INV-2026-00001',
+        tenant_id: SEED_TENANT_ID,
         kind: InvoiceKind.INVOICE,
         student_id: student.id,
         total_amount: 1000,

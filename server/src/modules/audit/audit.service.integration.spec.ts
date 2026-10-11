@@ -341,6 +341,7 @@ describe('AuditService (integration)', () => {
       const inv = await invRepo.save(
         invRepo.create({
           invoice_number: (invoiceNumber = `INV-LABEL-${Math.random().toString(36).slice(2, 8)}`),
+          tenant_id: TENANT_ID,
           student_id: studentId,
           total_amount: 100,
           issued_date: new Date('2030-01-01'),
@@ -432,6 +433,7 @@ describe('AuditService (integration)', () => {
       const other = await invRepo.save(
         invRepo.create({
           invoice_number: `INV-OTHER-${Math.random().toString(36).slice(2, 8)}`,
+          tenant_id: OTHER_TENANT_ID,
           student_id: otherTenantStudentId,
           total_amount: 100,
           issued_date: new Date('2030-01-01'),
