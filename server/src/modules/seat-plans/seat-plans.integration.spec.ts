@@ -508,6 +508,32 @@ describe('SeatPlansService (integration)', () => {
       await expect(service.remove(SEED_TENANT_ID, plan.id)).rejects.toThrow(/no longer a draft/);
     });
 
+    // Review r1 #6: a publish that commits while delete is in flight must win.
+    it('delete waits for an in-flight publish and then refuses (the plan stays published)', async () => {
+      const { plan } = await generate();
+      const qr = dataSource.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      // Same lock and write `publish` does, held open.
+      await qr.query('SELECT pg_advisory_xact_lock(hashtext($1), 25014)', [SEED_TENANT_ID]);
+      await qr.query(
+        `UPDATE seat_plans SET status = 'PUBLISHED', published_at = NOW() WHERE id = $1`,
+        [plan.id],
+      );
+      const removing = service.remove(SEED_TENANT_ID, plan.id);
+      removing.catch(() => undefined); // asserted below
+      await new Promise((r) => setTimeout(r, 300));
+      await qr.commitTransaction();
+      await qr.release();
+
+      await expect(removing).rejects.toThrow(/no longer a draft/);
+      const row = await dataSource
+        .getRepository(SeatPlan)
+        .findOne({ where: { id: plan.id }, withDeleted: true });
+      expect(row?.deleted_at).toBeNull();
+      expect(row?.status).toBe(SeatPlanStatus.PUBLISHED);
+    });
+
     it('re-publishing an unpublished plan re-checks room clashes (ROOM_CONFLICT)', async () => {
       await setDate(SCHEDULE_1_ID, FUTURE);
       await setDate(SCHEDULE_2_ID, FUTURE);

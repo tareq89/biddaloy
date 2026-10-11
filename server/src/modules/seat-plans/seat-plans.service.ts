@@ -852,8 +852,18 @@ export class SeatPlansService {
 
   /** [68.3.12] Soft-delete a DRAFT plan and its sitting links, freeing the sittings (D6). */
   async remove(tenantId: string, planId: string): Promise<void> {
-    await this.getDraftPlanOrThrow(tenantId, planId);
     await this.dataSource.transaction(async (manager) => {
+      // Same lock as publish/unpublish, then the DRAFT check: a publish that
+      // commits first makes this refuse instead of deleting a published plan.
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [
+        tenantId,
+        PUBLISH_LOCK_NAMESPACE,
+      ]);
+      const plan = await manager.findOne(SeatPlan, { where: { tenant_id: tenantId, id: planId } });
+      if (!plan) throw new NotFoundException('Seat plan not found');
+      if (plan.status !== SeatPlanStatus.DRAFT) {
+        throw new ConflictException('Seat plan is no longer a draft and cannot be modified');
+      }
       await manager.softDelete(SeatPlanSchedule, { tenant_id: tenantId, seat_plan_id: planId });
       await manager.softDelete(SeatPlan, { tenant_id: tenantId, id: planId });
     });
