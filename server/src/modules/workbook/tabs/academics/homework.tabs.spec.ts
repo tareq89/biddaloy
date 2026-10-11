@@ -41,13 +41,20 @@ const submissionCells = (attachments: unknown[]) => ({
   attachments: JSON.stringify(attachments),
 });
 
+// `folder` is a folder each tab accepts: homework-submission.service.ts uploads to
+// `homework-submissions/`; teacher attachments have no upload code yet (#1012).
 describe.each([
-  ['homework', (a: unknown[], c: ImportContext) => homeworkTab.fromRow(homeworkCells(a), 2, c)],
+  [
+    'homework',
+    'homework',
+    (a: unknown[], c: ImportContext) => homeworkTab.fromRow(homeworkCells(a), 2, c),
+  ],
   [
     'homework_submissions',
+    'homework-submissions',
     (a: unknown[], c: ImportContext) => homeworkSubmissionTab.fromRow(submissionCells(a), 2, c),
   ],
-])('%s attachments (DATA-02)', (_tab, run) => {
+])('%s attachments (DATA-02)', (_tab, folder, run) => {
   it('rejects the row when an attachment key points outside tenants/', () => {
     const result = run([{ key: 'backups/db/x.dump.age', filename: 'x' }], ctx());
     expect('errors' in result).toBe(true);
@@ -56,16 +63,35 @@ describe.each([
 
   it("rewrites another school's attachment key to this school and warns", () => {
     const c = ctx();
-    const result = run([{ key: 'tenants/other/homework/f.pdf', filename: 'f.pdf' }], c);
+    const result = run([{ key: `tenants/other/${folder}/f.pdf`, filename: 'f.pdf' }], c);
     if ('errors' in result) throw new Error(JSON.stringify(result.errors));
     expect(result.row.attachments).toEqual([
-      { key: `tenants/${TENANT}/homework/f.pdf`, filename: 'f.pdf' },
+      { key: `tenants/${TENANT}/${folder}/f.pdf`, filename: 'f.pdf' },
     ]);
     expect(c.warn).toHaveBeenCalled();
+  });
+
+  it('does not warn when a later attachment rejects the row', () => {
+    const c = ctx();
+    const result = run(
+      [{ key: `tenants/other/${folder}/f.pdf` }, { key: 'backups/db/x.dump.age' }],
+      c,
+    );
+    expect('errors' in result).toBe(true);
+    expect(c.warn).not.toHaveBeenCalled();
   });
 
   it('accepts an empty attachments list', () => {
     const result = run([], ctx());
     expect('row' in result).toBe(true);
   });
+});
+
+it("homework_submissions rejects this school's own key outside homework-submissions/", () => {
+  const result = homeworkSubmissionTab.fromRow(
+    submissionCells([{ key: `tenants/${TENANT}/workbook-backups/full.xlsx` }]),
+    2,
+    ctx(),
+  );
+  expect('errors' in result).toBe(true);
 });

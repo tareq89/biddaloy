@@ -424,17 +424,33 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
 
     // A photo key outside this school's prefix must not survive a restore (see
     // storage-key-scope.ts): the student photo route streams by the stored key.
+    // It must also sit in the `student-photo/` folder student-photo.service.ts uploads to.
     let photoKey = (values.photo_key as string | null) ?? null;
+    let photoWarning: RowError | undefined;
     if (photoKey) {
-      const owned = ownStorageKey(photoKey, ctx.tenantId, 'students', rowNo, 'photo_key');
+      const owned = ownStorageKey(
+        photoKey,
+        ctx.tenantId,
+        'students',
+        rowNo,
+        'photo_key',
+        'student-photo',
+      );
       if ('error' in owned) errors.push(owned.error);
       else {
-        if (owned.warning) ctx.warn(owned.warning);
         photoKey = owned.key;
+        if (owned.warning) {
+          photoWarning = {
+            ...owned.warning,
+            message:
+              'This photo came from another school. Its file was not copied; upload it again.',
+          };
+        }
       }
     }
 
     if (errors.length > 0) return { errors };
+    if (photoWarning) ctx.warn(photoWarning);
 
     return {
       row: {
