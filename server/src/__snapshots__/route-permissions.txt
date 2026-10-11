@@ -58,6 +58,7 @@ GET /admission-intakes | IntakeController | perm: ADMISSION_REVIEW
 GET /admission-intakes/:id | IntakeController | perm: ADMISSION_REVIEW
 GET /admission/applicants | ApplicantReviewController | perm: ADMISSION_REVIEW
 GET /admission/applicants/:id | ApplicantReviewController | perm: ADMISSION_REVIEW
+GET /admission/applicants/:id/guardian-match | ApplicantReviewController | perm: ADMISSION_REVIEW
 GET /admission/reports/lifecycle | AdmissionReportsController | perm: STUDENT_LIFECYCLE_MANAGE
 GET /applications | ApplicationsController | perm: APPLICATION_SUBMIT
 GET /applications/:id | ApplicationsController | perm: APPLICATION_SUBMIT

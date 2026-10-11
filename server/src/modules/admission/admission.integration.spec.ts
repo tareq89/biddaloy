@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ADMIN_USER_ID } from '@test/constants';
@@ -28,6 +28,8 @@ describe('Admission flow (integration)', () => {
   let applicantService: AdmissionApplicantService;
   let reviewService: ApplicantReviewService;
   let intakeService: IntakeService;
+  let guardianService: GuardianService;
+  let studentService: StudentService;
 
   async function createIntake(overrides: Partial<Record<string, unknown>> = {}): Promise<string> {
     const res = await dataSource.query(
@@ -60,6 +62,8 @@ describe('Admission flow (integration)', () => {
     applicantService = app.get(AdmissionApplicantService);
     reviewService = app.get(ApplicantReviewService);
     intakeService = app.get(IntakeService);
+    guardianService = app.get(GuardianService);
+    studentService = app.get(StudentService);
   }, 60000);
 
   afterAll(async () => {
@@ -260,5 +264,149 @@ describe('Admission flow (integration)', () => {
       [applicantRow.id],
     );
     expect(stillPending.status).toBe('PENDING');
+  });
+  describe('guardian match [LIFE-09]', () => {
+    const MATCH_PHONE = '01711000555';
+    const PHONE_CANONICAL = '8801711000555';
+    let guardianId: string;
+
+    async function submitApplicant(): Promise<string> {
+      const intakeId = await createIntake({ seat_count: 5 });
+      const submitted = await applicantService.submit(
+        SEED_SLUG,
+        {
+          intake_id: intakeId,
+          applicant_name: 'Match Child',
+          date_of_birth: '2018-05-01',
+          gender: 'MALE',
+          guardian_name: 'Typed Name',
+          guardian_phone: MATCH_PHONE,
+        },
+        [],
+      );
+      const [row] = await dataSource.query(
+        `SELECT id FROM admission_applicants WHERE reference_number = $1`,
+        [submitted.reference_number],
+      );
+      return row.id;
+    }
+
+    beforeEach(async () => {
+      // Another family: guardian G with a live child and a soft-deleted child.
+      const g = await guardianService.create(
+        { full_name: 'Other Family Parent', phone: PHONE_CANONICAL },
+        SEED_TENANT_ID,
+      );
+      guardianId = g.id;
+      await studentService.create(
+        {
+          full_name: 'Live Sibling',
+          class_section_id: SEED_SECTION_1_ID,
+          date_of_birth: '2016-01-01',
+          gender: 'MALE',
+          guardian_ids: [g.id],
+        },
+        SEED_TENANT_ID,
+      );
+      const gone = await studentService.create(
+        {
+          full_name: 'Gone Sibling',
+          // High explicit roll: a soft-deleted row still holds its unique roll slot.
+          roll_number: 9000,
+          class_section_id: SEED_SECTION_1_ID,
+          date_of_birth: '2015-01-01',
+          gender: 'MALE',
+          guardian_ids: [g.id],
+        },
+        SEED_TENANT_ID,
+      );
+      await dataSource.query(`UPDATE students SET deleted_at = NOW() WHERE id = $1`, [gone.id]);
+    });
+
+    afterEach(async () => {
+      await dataSource.query(
+        `DELETE FROM student_guardians WHERE guardian_id IN (SELECT id FROM guardians WHERE tenant_id = $1 AND full_name IN ('Other Family Parent', 'Typed Name'))`,
+        [SEED_TENANT_ID],
+      );
+      await dataSource.query(
+        `DELETE FROM students WHERE tenant_id = $1 AND full_name IN ('Live Sibling', 'Gone Sibling', 'Match Child')`,
+        [SEED_TENANT_ID],
+      );
+      await dataSource.query(
+        `DELETE FROM guardians WHERE tenant_id = $1 AND full_name IN ('Other Family Parent', 'Typed Name')`,
+        [SEED_TENANT_ID],
+      );
+    });
+
+    it('admit with a matching guardian and no choice is refused and creates no student', async () => {
+      const id = await submitApplicant();
+      const err = await reviewService
+        .admit(id, {}, SEED_TENANT_ID, SEED_ADMIN_USER_ID)
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('GUARDIAN_MATCH_NEEDS_CHOICE');
+      const students = await dataSource.query(
+        `SELECT 1 FROM students WHERE tenant_id = $1 AND full_name = 'Match Child'`,
+        [SEED_TENANT_ID],
+      );
+      expect(students).toHaveLength(0);
+    });
+
+    it('CREATE_NEW leaves G with its old children only', async () => {
+      const id = await submitApplicant();
+      await reviewService.admit(
+        id,
+        { guardian_choice: 'CREATE_NEW' },
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      const [child] = await dataSource.query(
+        `SELECT s.id FROM students s WHERE s.tenant_id = $1 AND s.full_name = 'Match Child'`,
+        [SEED_TENANT_ID],
+      );
+      const links = await dataSource.query(
+        `SELECT guardian_id FROM student_guardians WHERE student_id = $1`,
+        [child.id],
+      );
+      expect(links).toHaveLength(1);
+      expect(links[0].guardian_id).not.toBe(guardianId);
+      const gKids = await dataSource.query(
+        `SELECT 1 FROM student_guardians WHERE guardian_id = $1`,
+        [guardianId],
+      );
+      expect(gKids).toHaveLength(2);
+    });
+
+    it('LINK_EXISTING links the child to G', async () => {
+      const id = await submitApplicant();
+      await reviewService.admit(
+        id,
+        { guardian_choice: 'LINK_EXISTING' },
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      const gKids = await dataSource.query(
+        `SELECT 1 FROM student_guardians WHERE guardian_id = $1`,
+        [guardianId],
+      );
+      expect(gKids).toHaveLength(3);
+    });
+
+    it("guardianMatch lists G's live children by name", async () => {
+      const id = await submitApplicant();
+      const match = await reviewService.guardianMatch(id, SEED_TENANT_ID);
+      expect(match.guardian?.id).toBe(guardianId);
+      expect(match.guardian?.full_name).toBe('Other Family Parent');
+      expect(match.guardian?.student_names).toEqual(['Live Sibling']);
+    });
+
+    it('guardianMatch is null when no guardian has that phone', async () => {
+      const id = await submitApplicant();
+      await dataSource.query(`UPDATE guardians SET phone = '8801799999999' WHERE id = $1`, [
+        guardianId,
+      ]);
+      const match = await reviewService.guardianMatch(id, SEED_TENANT_ID);
+      expect(match.guardian).toBeNull();
+    });
   });
 });

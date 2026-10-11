@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsIn } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
@@ -10,4 +10,10 @@ export class AdmitApplicantDto {
   @IsString()
   @SanitizeText()
   notes?: string;
+
+  /** Required (server-enforced) when the applicant's phone matches an existing guardian. */
+  @ApiProperty({ required: false, enum: ['LINK_EXISTING', 'CREATE_NEW'] })
+  @IsOptional()
+  @IsIn(['LINK_EXISTING', 'CREATE_NEW'])
+  guardian_choice?: 'LINK_EXISTING' | 'CREATE_NEW';
 }
