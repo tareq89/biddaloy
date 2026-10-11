@@ -354,6 +354,110 @@ describe('LeaveService (integration)', () => {
       });
     });
 
+    describe('revoking a leave approved by mistake (revokeTakenDays)', () => {
+      async function schoolToday() {
+        const settings = await schoolsService.getResolvedSettings(TENANT_ID);
+        return localToday(settings.region?.timezone ?? 'UTC');
+      }
+      function addDays(iso: string, n: number) {
+        return new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+      }
+      function revoke(applicationId: string, revokeTakenDays: boolean) {
+        return dataSource.transaction((manager) =>
+          service.cancelApprovedLeave(manager, {
+            tenantId: TENANT_ID,
+            applicationId,
+            actorUserId: ADMIN_USER_ID,
+            reason: 'approved by mistake',
+            revokeTakenDays,
+          }),
+        );
+      }
+      function leaveMarks() {
+        return dataSource.query(
+          `SELECT s.date::text AS date, r.source AS source FROM staff_attendance_records r
+           JOIN staff_attendance_sessions s ON s.id = r.session_id
+           WHERE r.tenant_id = $1 AND r.staff_profile_id = $2 AND r.status = 'LEAVE'
+           ORDER BY s.date`,
+          [TENANT_ID, staffProfileId],
+        ) as Promise<{ date: string; source: string }[]>;
+      }
+
+      beforeEach(async () => {
+        await setWeeklyOff([]);
+      });
+
+      it('ended leave: CANCELLED, balance back, past SYSTEM marks deleted, TEACHER mark kept, audited', async () => {
+        const today = await schoolToday();
+        const start = addDays(today, -4);
+        const end = addDays(today, -2);
+        const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        const created = await record(appId, start, end);
+        // A teacher-entered mark inside the range must survive the revoke.
+        const keep = addDays(today, -3);
+        await dataSource.query(
+          `UPDATE staff_attendance_records SET source = 'TEACHER'
+           WHERE tenant_id = $1 AND staff_profile_id = $2 AND session_id IN
+             (SELECT id FROM staff_attendance_sessions WHERE tenant_id = $1 AND date = $3)`,
+          [TENANT_ID, staffProfileId, keep],
+        );
+
+        const result = await revoke(appId, true);
+
+        const row = await dataSource
+          .getRepository(LeaveRecord)
+          .findOneOrFail({ where: { id: created.leave_record_id } });
+        expect(row.status).toBe(LeaveStatus.CANCELLED);
+        // Dates and days stay as approved, so the audit shows what was revoked.
+        expect(row.end_date).toBe(end);
+        expect(row.days).toBe(created.days);
+        const [sum] = await dataSource.query(
+          `SELECT COALESCE(SUM(days), 0)::int AS sum FROM leave_records
+           WHERE tenant_id = $1 AND staff_profile_id = $2 AND status = 'APPROVED'`,
+          [TENANT_ID, staffProfileId],
+        );
+        expect(sum.sum).toBe(0);
+        expect(result.reverted_dates).toEqual(created.attendance_dates.filter((d) => d !== keep));
+        expect(await leaveMarks()).toEqual([{ date: keep, source: 'TEACHER' }]);
+        const audits = await dataSource.query(
+          `SELECT new_values FROM audit_logs WHERE tenant_id = $1 AND entity_type = 'LeaveRecord' AND entity_id = $2 AND action = 'UPDATE'`,
+          [TENANT_ID, created.leave_record_id],
+        );
+        expect(audits).toHaveLength(1);
+        expect(audits[0].new_values).toMatchObject({
+          status: 'CANCELLED',
+          reason: 'approved by mistake',
+          revoked_taken_days: true,
+        });
+      });
+
+      it('running leave: all days come back, not only the future ones', async () => {
+        const today = await schoolToday();
+        const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        const created = await record(appId, addDays(today, -2), addDays(today, 2));
+
+        const result = await revoke(appId, true);
+
+        const row = await dataSource
+          .getRepository(LeaveRecord)
+          .findOneOrFail({ where: { id: created.leave_record_id } });
+        expect(row.status).toBe(LeaveStatus.CANCELLED);
+        expect(result.reverted_dates).toEqual(created.attendance_dates);
+        expect(await leaveMarks()).toEqual([]);
+      });
+
+      it('without the flag an ended leave is still 409 LEAVE_ALREADY_ENDED', async () => {
+        const today = await schoolToday();
+        const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        await record(appId, addDays(today, -3), addDays(today, -2));
+
+        await expect(revoke(appId, false)).rejects.toMatchObject({
+          status: 409,
+          response: { details: { code: 'LEAVE_ALREADY_ENDED' } },
+        });
+      });
+    });
+
     it('does not touch another tenant row carrying the same application id', async () => {
       const schoolRepo = dataSource.getRepository(School);
       const otherSchool = await schoolRepo.save({

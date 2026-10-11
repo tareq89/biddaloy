@@ -29,6 +29,8 @@ export interface ApplicationEffectContext {
   req: Request;
   /** Cancel reason (D41), passed to cancel(). */
   reason?: string;
+  /** STAFF_LEAVE cancel: also revoke days already taken (leave approved by mistake). */
+  revokeTakenDays?: boolean;
 }
 
 /** Structural, not a class hierarchy (D42). */

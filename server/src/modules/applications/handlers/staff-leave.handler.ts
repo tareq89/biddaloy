@@ -106,6 +106,7 @@ export class StaffLeaveHandler {
       applicationId: app.id,
       actorUserId: ctx.actorUserId,
       reason: ctx.reason ?? null,
+      revokeTakenDays: ctx.revokeTakenDays === true,
     });
   }
 }

@@ -116,6 +116,8 @@
       "title": "Cancel this leave?",
       "description": "Leave on the days after today will be removed and those days returned to the balance.",
       "reasonLabel": "Reason for cancelling",
+      "revokeTakenDays": "This leave was approved by mistake — give back the days already taken too",
+      "revokeTakenDaysHint": "The staff register's leave marks for those days are removed.",
       "reasonRequired": "Write a reason.",
       "reasonTooLong": "Keep it within 500 characters.",
       "submit": "Cancel leave"
@@ -144,6 +146,7 @@
     "LEAVE_OVERLAP": "This overlaps with leave that is already approved.",
     "LEAVE_POLICY_MISSING": "No leave policy is set up for this leave type. Ask the office to set it up.",
     "LEAVE_ALREADY_ENDED": "This leave has already ended.",
+    "REVOKE_ONLY_STAFF_LEAVE": "Only a staff leave can have its taken days given back.",
     "DATE_IN_FUTURE": "A future date is not allowed.",
     "NO_ACTIVE_ENROLLMENT": "This student has no active enrolment.",
     "SECTION_UNCHANGED": "The student is already in that section.",

@@ -103,14 +103,14 @@ describe('Application decisions E2E', () => {
       .expect(201);
     return res.body.id;
   }
-  async function fileStaffLeave(): Promise<string> {
+  async function fileStaffLeave(from = 5, to = 7): Promise<string> {
     const res = await call('post', API, tokens[ids.applicantTeacher])
       .send({
         type: 'STAFF_LEAVE',
         payload: {
           leave_type: 'CASUAL',
-          start_date: day(5),
-          end_date: day(7),
+          start_date: day(from),
+          end_date: day(to),
           reason: 'Family event',
         },
       })
@@ -357,6 +357,63 @@ describe('Application decisions E2E', () => {
         .expect(200);
       expect(cancelled.body.status).toBe('CANCELLED');
       expect(await casualBalance()).toBe(10);
+    });
+  });
+
+  describe('STAFF_LEAVE revoke_taken_days (leave approved by mistake)', () => {
+    it('ADMIN revokes an ended leave: 200, balance restored; without the flag it stays 409', async () => {
+      const id = await fileStaffLeave(-5, -3);
+      await approve(id, adminToken).expect(200);
+      const days = (await row(id)).effect_result.days as number;
+      expect(days).toBeGreaterThan(0);
+      expect(await casualBalance()).toBe(10 - days);
+
+      // Plain cancel is still refused once the leave has ended.
+      const plain = await call('post', `${API}/${id}/cancel`, adminToken)
+        .send({ reason: 'Wrong person' })
+        .expect(409);
+      expect(codeOf(plain.body)).toBe('LEAVE_ALREADY_ENDED');
+      expect(await casualBalance()).toBe(10 - days);
+
+      const res = await call('post', `${API}/${id}/cancel`, adminToken)
+        .send({ reason: 'Wrong person', revoke_taken_days: true })
+        .expect(200);
+      expect(res.body.status).toBe('CANCELLED');
+      expect(await casualBalance()).toBe(10);
+    });
+
+    it('the applicant themselves: 403 APPLICANT_CANNOT_CANCEL; a TEACHER without LEAVE_APPROVE: 403', async () => {
+      const id = await fileStaffLeave(-5, -3);
+      await approve(id, adminToken).expect(200);
+      const own = await call('post', `${API}/${id}/cancel`, tokens[ids.applicantTeacher])
+        .send({ reason: 'x', revoke_taken_days: true })
+        .expect(403);
+      expect(codeOf(own.body)).toBe('APPLICANT_CANNOT_CANCEL');
+      // Office staff can see the application but hold no LEAVE_APPROVE; another
+      // TEACHER cannot even see it (404), so office is the 403 case.
+      await call('post', `${API}/${id}/cancel`, tokens[ids.office])
+        .send({ reason: 'x', revoke_taken_days: true })
+        .expect(403);
+      await call('post', `${API}/${id}/cancel`, tokens[ids.otherTeacher])
+        .send({ reason: 'x', revoke_taken_days: true })
+        .expect(404);
+    });
+
+    it('revoke_taken_days on a STUDENT_LEAVE application: 422 REVOKE_ONLY_STAFF_LEAVE', async () => {
+      const id = await fileStudentLeave();
+      await approve(id, tokens[ids.classTeacher]).expect(200);
+      const res = await call('post', `${API}/${id}/cancel`, tokens[ids.classTeacher])
+        .send({ reason: 'x', revoke_taken_days: true })
+        .expect(422);
+      expect(codeOf(res.body)).toBe('REVOKE_ONLY_STAFF_LEAVE');
+    });
+
+    it('an application id from tenant B: 404', async () => {
+      const id = await fileStaffLeave(-5, -3);
+      await approve(id, adminToken).expect(200);
+      await call('post', `${API}/${id}/cancel`, adminToken, TENANT_B)
+        .send({ reason: 'x', revoke_taken_days: true })
+        .expect(404);
     });
   });
 
