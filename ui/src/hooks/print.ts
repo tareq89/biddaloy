@@ -194,6 +194,8 @@ export interface RegisterFilters {
   status?: 'VALID' | 'REVOKED';
   q?: string;
   subject_id?: string;
+  /** Only copies printed for this exam. */
+  context_id?: string;
   page?: number;
   limit?: number;
 }
@@ -672,8 +674,14 @@ export function certificateRegisterQueryOptions(filters: RegisterFilters = {}) {
   });
 }
 
-export function useCertificateRegister(filters: RegisterFilters = {}) {
-  return useQuery(certificateRegisterQueryOptions(filters));
+export function useCertificateRegister(
+  filters: RegisterFilters = {},
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({
+    ...certificateRegisterQueryOptions(filters),
+    enabled: options.enabled ?? true,
+  });
 }
 
 /** Same blob-URL save as `downloadCollectionsReportCsv` (auth is a header, so no plain `<a href>`). */

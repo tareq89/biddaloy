@@ -196,6 +196,33 @@ describe('Certificate register E2E (48.2.06)', () => {
       .expect(401);
   });
 
+  it("context_id lists that exam's copies only; other tenant sees nothing; non-uuid is 400", async () => {
+    const examId = randomUUID();
+    // Two own copies and one other-tenant copy all printed "for" the same exam id.
+    await ds.query(
+      `UPDATE print_job_items SET context_type = 'EXAM', context_id = $1
+        WHERE (tenant_id = $2 AND serial_no IN (1, 2)) OR tenant_id = $3`,
+      [examId, SEED_TENANT_ID, otherTenantId],
+    );
+    const own = await http()
+      .get(`${API}/print-history/register?context_id=${examId}&status=VALID`)
+      .set(as(UserRole.ADMIN))
+      .expect(200);
+    expect(own.body.data.map((r: any) => r.subject_label).sort()).toEqual(
+      ['Reg Rahim', 'রহিম উদ্দিন'].sort(),
+    );
+    // Tenant B asking with tenant A's exam id gets only its own rows for that id: none of A's.
+    const cross = await http()
+      .get(`${API}/print-history/register?context_id=${randomUUID()}`)
+      .set({ Authorization: `Bearer ${otherAdminToken}`, 'X-Tenant-ID': otherTenantId })
+      .expect(200);
+    expect(cross.body.data).toEqual([]);
+    await http()
+      .get(`${API}/print-history/register?context_id=nope`)
+      .set(as(UserRole.ADMIN))
+      .expect(400);
+  });
+
   it('blank revoke reason is 400 and leaves the item valid; a real reason shows in REVOKED', async () => {
     await http()
       .post(`${API}/print-history/items/${revokableItemId}/revoke`)
