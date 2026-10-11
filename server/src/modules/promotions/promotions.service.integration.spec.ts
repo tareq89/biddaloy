@@ -488,9 +488,36 @@ describe('PromotionsService (integration)', () => {
         { enrollment_status: EnrollmentStatus.TRANSFERRED },
       );
 
-      await service.refresh(run.id, TENANT_ID);
+      await service.refresh(run.id, TENANT_ID, ADMIN_USER_ID);
 
       expect((await runRepo.findOneOrFail({ where: { id: run.id } })).override_count).toBe(0);
+      // [#2268] The vanished override stays answerable: one audit row names it and the refresher.
+      const rows = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_type: 'PromotionRun', entity_id: run.id, tenant_id: TENANT_ID } });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].performed_by_user_id).toBe(ADMIN_USER_ID);
+      expect(rows[0].new_values).toMatchObject({
+        event: 'PROMOTION_REFRESHED',
+        removed_student_ids: [a.id],
+        removed_overrides: [
+          { student_id: a.id, final_outcome: PromotionOutcome.RETAIN, override_note: 'hold' },
+        ],
+      });
+    });
+
+    it('commit refuses with COHORT_CHANGED when a student joined after the last refresh', async () => {
+      await passingStudent(1);
+      const run = await createDraft();
+      await passingStudent(2); // joined after create, no refresh yet
+
+      const err = await service
+        .commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} })
+        .catch((e) => e);
+      expect(err.getResponse?.().details?.code).toBe('COHORT_CHANGED');
+
+      await service.refresh(run.id, TENANT_ID);
+      await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
     });
 
     it('a student readmitted into the source class after create gets an entry with a suggested outcome', async () => {
