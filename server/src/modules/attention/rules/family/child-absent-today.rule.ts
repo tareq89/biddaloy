@@ -1,6 +1,8 @@
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
 import { alertRuleMeta } from '@biddaloy/shared';
+import { resolveAttendancePolicy } from '../../../attendance/attendance-policy.util';
+import { SchoolsService } from '../../../schools/schools.service';
 import { FamilyAccessService } from '../../../students/family-access.service';
 import { AttentionRule } from '../attention-rule.decorator';
 import { endOfLocalDay } from '../rule-context.service';
@@ -32,10 +34,14 @@ export class ChildAbsentTodayRule implements AttentionRuleShape {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly family: FamilyAccessService,
+    private readonly schools: SchoolsService,
   ) {}
 
   async evaluate(ctx: RuleContext): Promise<RuleFinding[]> {
     if (!ctx.isWorkingDay) return [];
+    // One absence switch: notices off means no card, push or SMS either.
+    const policy = resolveAttendancePolicy(await this.schools.getResolvedSettings(ctx.tenantId));
+    if (!policy.autoAbsentNotification.enabled) return [];
     const rows: { student_id: string }[] = await this.dataSource.query(
       `SELECT DISTINCT r.student_id FROM attendance_records r
        JOIN attendance_sessions s ON s.id = r.session_id AND s.tenant_id = $1 AND s.date = $2
