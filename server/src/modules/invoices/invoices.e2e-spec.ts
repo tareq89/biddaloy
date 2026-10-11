@@ -167,6 +167,40 @@ describe('Invoices E2E', () => {
       expect(res.body.issued_by).not.toHaveProperty('password_hash');
     });
 
+    it('[MON-05] returns 409 and writes no invoice for a reversal and for the reversed original', async () => {
+      const studentId = await createStudent();
+      const feeId = await createFee(studentId, 700);
+      const originalId = await createPayment(studentId, feeId, 700);
+      // Reversal state as PaymentReversalService leaves it: a REFUNDED row
+      // pointing back at the original, and the original pointing at it.
+      const rev = await dataSource.query(
+        `INSERT INTO payments (id, student_id, total_amount, payment_method, payment_status, received_by_user_id, payment_date, tenant_id, reversal_of_payment_id, created_at, updated_at)
+         VALUES (DEFAULT, $1, 700, 'CASH', 'REFUNDED', $2, NOW(), $3, $4, NOW(), NOW()) RETURNING id`,
+        [studentId, SEED_ADMIN_USER_ID, TENANT_ID, originalId],
+      );
+      const reversalId = rev[0].id;
+      await dataSource.query(`UPDATE payments SET reversed_by_payment_id = $1 WHERE id = $2`, [
+        reversalId,
+        originalId,
+      ]);
+
+      for (const id of [reversalId, originalId]) {
+        const res = await supertest(app.getHttpServer())
+          .post('/api/v1/invoices')
+          .set('Authorization', `Bearer ${token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', UserRole.ACCOUNTANT)
+          .send({ payment_id: id })
+          .expect(409);
+        expect(JSON.stringify(res.body)).toContain('INVOICE_PAYMENT_NOT_INVOICEABLE');
+      }
+      const rows = await dataSource.query(
+        `SELECT id FROM invoices WHERE payment_id = ANY($1::uuid[])`,
+        [[reversalId, originalId]],
+      );
+      expect(rows).toHaveLength(0);
+    });
+
     it('returns 403 for STUDENT role', async () => {
       const studentId = await createStudent();
       const feeId = await createFee(studentId);
@@ -346,7 +380,10 @@ describe('Invoices E2E', () => {
         .expect(201);
       // Runs on the migrated DB, so this exercises the migration's trigger body, not a test copy.
       await expect(
-        dataSource.query(`UPDATE invoices SET tenant_id = $1 WHERE id = $2`, [OTHER_TENANT, res.body.id]),
+        dataSource.query(`UPDATE invoices SET tenant_id = $1 WHERE id = $2`, [
+          OTHER_TENANT,
+          res.body.id,
+        ]),
       ).rejects.toThrow(/immutable/);
     });
 

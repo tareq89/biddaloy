@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { Repository, DataSource, IsNull } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { InvoicesService } from './invoices.service';
@@ -479,6 +479,45 @@ describe('InvoicesService (integration)', () => {
       );
 
       await expect(createInvoice(payment.id)).rejects.toThrow(BadRequestException);
+    });
+
+    describe('[MON-05] only a live SUCCESS payment is invoiceable', () => {
+      async function paidFee() {
+        const student = await studentRepo.save(makeStudent());
+        const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 500 }));
+        return { student, fee };
+      }
+
+      it('rejects a reversal row (reversal_of_payment_id set, REFUNDED)', async () => {
+        const { student, fee } = await paidFee();
+        const original = await makePayment(student.id, [[fee, 500]]);
+        const reversal = await makePayment(student.id, [[fee, 500]], {
+          reversal_of_payment_id: original.id,
+          payment_status: PaymentStatus.REFUNDED,
+        });
+        await expect(createInvoice(reversal.id)).rejects.toThrow(ConflictException);
+        expect(await dataSource.getRepository(Invoice).count()).toBe(0);
+      });
+
+      it('rejects the reversed original (reversed_by_payment_id set)', async () => {
+        const { student, fee } = await paidFee();
+        const reversal = await makePayment(student.id, [[fee, 500]], {
+          payment_status: PaymentStatus.REFUNDED,
+        });
+        const original = await makePayment(student.id, [[fee, 500]], {
+          reversed_by_payment_id: reversal.id,
+        });
+        await expect(createInvoice(original.id)).rejects.toThrow(ConflictException);
+        expect(await dataSource.getRepository(Invoice).count()).toBe(0);
+      });
+
+      it('rejects a PENDING payment', async () => {
+        const { student, fee } = await paidFee();
+        const pending = await makePayment(student.id, [[fee, 500]], {
+          payment_status: PaymentStatus.PENDING,
+        });
+        await expect(createInvoice(pending.id)).rejects.toThrow(ConflictException);
+      });
     });
 
     it('throws NotFoundException for an unknown payment id', async () => {
