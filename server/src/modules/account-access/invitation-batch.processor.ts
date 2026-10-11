@@ -9,7 +9,7 @@ import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { reviveMembership } from '../users/users.service';
 import { AuthTokenService } from './auth-token.service';
-import { insertJoinRequest } from './school-invite.service';
+import { guardianLinkedElsewhere, insertJoinRequest } from './school-invite.service';
 import { InvitationService } from './invitation.service';
 import { INVITATION_BATCH_QUEUE } from './invitation-batch.constants';
 import type { InvitationBatchJobData } from './guardian-provisioning.service';
@@ -91,8 +91,11 @@ export class InvitationBatchProcessor extends WorkerHost {
    * Loads the guardian's linked user, or finds one by a VERIFIED email/phone,
    * or creates a new passwordless PARENT user + tenant membership — all
    * inside one transaction. Returns `null` when nothing should be sent:
-   *  - a verified account with no membership here only gets a join request
-   *    (the owner accepts it; we never attach an account on their behalf);
+   *  - an account that never had a row here only gets a join request (the
+   *    owner accepts it; we never attach an account on their behalf). That
+   *    includes a `guardian.user_id` this school never vetted, e.g. one a
+   *    restored workbook set;
+   *  - the account is linked to another guardian (`guardianLinkedElsewhere`);
    *  - an unverified holder already owns the guardian's email/phone.
    * An unverified `users.email`/`phone` is never trusted as proof of identity.
    */
@@ -106,36 +109,39 @@ export class InvitationBatchProcessor extends WorkerHost {
       const userTenantRepo = manager.getRepository(UserTenant);
       const guardianRepo = manager.getRepository(Guardian);
 
-      let user: User | null = null;
-      if (guardian.user_id) {
-        user = await userRepo.findOne({ where: { id: guardian.user_id } });
-      }
+      let user: User | null = guardian.user_id
+        ? await userRepo.findOne({ where: { id: guardian.user_id } })
+        : null;
 
-      if (!user) {
-        user = await userRepo
-          .createQueryBuilder('u')
-          .where('u.deleted_at IS NULL')
-          .andWhere(
-            '((u.email = :email AND u.email_verified_at IS NOT NULL) OR (u.phone = :phone AND u.phone_verified_at IS NOT NULL))',
-            { email: guardian.email ?? '__none__', phone: guardian.phone ?? '__none__' },
-          )
-          .getOne();
+      user ??= await userRepo
+        .createQueryBuilder('u')
+        .where('u.deleted_at IS NULL')
+        .andWhere(
+          '((u.email = :email AND u.email_verified_at IS NOT NULL) OR (u.phone = :phone AND u.phone_verified_at IS NOT NULL))',
+          { email: guardian.email ?? '__none__', phone: guardian.phone ?? '__none__' },
+        )
+        .getOne();
 
-        if (user) {
-          const anyRow = await userTenantRepo.findOne({
-            where: { user_id: user.id, tenant_id: tenantId },
-            withDeleted: true,
+      if (user) {
+        if (await guardianLinkedElsewhere(manager, user.id, guardian.id)) {
+          this.logger.warn(
+            `Guardian ${guardian.id}: the matched account is linked to another guardian, not linked`,
+          );
+          return null;
+        }
+        const anyRow = await userTenantRepo.findOne({
+          where: { user_id: user.id, tenant_id: tenantId },
+          withDeleted: true,
+        });
+        if (!anyRow) {
+          await insertJoinRequest(manager, {
+            userId: user.id,
+            tenantId,
+            role: UserRole.PARENT,
+            guardianId: guardian.id,
+            createdByUserId: actorUserId,
           });
-          if (!anyRow) {
-            await insertJoinRequest(manager, {
-              userId: user.id,
-              tenantId,
-              role: UserRole.PARENT,
-              guardianId: guardian.id,
-              createdByUserId: actorUserId,
-            });
-            return null;
-          }
+          return null;
         }
       }
 
@@ -172,8 +178,9 @@ export class InvitationBatchProcessor extends WorkerHost {
         await guardianRepo.update({ id: guardian.id }, { user_id: user.id });
       }
 
+      // PARENT specifically: a TEACHER here linked as a guardian still needs it for family access.
       const membership = await userTenantRepo.findOne({
-        where: { user_id: user.id, tenant_id: tenantId },
+        where: { user_id: user.id, tenant_id: tenantId, role: UserRole.PARENT },
       });
       if (!membership) {
         // The unique index ignores soft-deletion, so a guardian who was
