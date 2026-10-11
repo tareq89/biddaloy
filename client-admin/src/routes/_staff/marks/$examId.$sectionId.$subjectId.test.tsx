@@ -138,15 +138,46 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     });
   });
 
-  it('submit dialog shows the blank count and the grid becomes read-only afterwards', async () => {
+  it('a blank cell blocks submit: alert shows and the confirm button is disabled', async () => {
+    const user = userEvent.setup();
+    server.use(http.get(GRID_URL, () => HttpResponse.json(baseGrid)));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await screen.findByLabelText('Rafi Ahmed — Written');
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByRole('alert');
+    expect(within(dialog).getByRole('alert').textContent).toContain(
+      `${formatNumber(1, REGION_BD_BN)} blank cell must be filled first`,
+    );
+    expect(within(dialog).getByRole('button', { name: 'Submit' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+  });
+
+  it('a late joiner with no marks does not block submit, and the grid is read-only afterwards', async () => {
     const user = userEvent.setup();
     let state: 'DRAFT' | 'SUBMITTED' = 'DRAFT';
+    const grid = {
+      ...baseGrid,
+      students: [
+        { id: 's1', roll_number: 1, full_name: 'Rafi Ahmed' },
+        { id: 's2', roll_number: 2, full_name: 'Late Joiner', joined_after_exam: true },
+      ],
+      cells: [{ student_id: 's1', component_id: 'c1', value: '80.00', status: 'PRESENT' }],
+    };
     server.use(
-      http.get(GRID_URL, () => HttpResponse.json({ ...baseGrid, state })),
+      http.get(GRID_URL, () => HttpResponse.json({ ...grid, state })),
       http.post(`${GRID_URL}/submit`, () => {
         state = 'SUBMITTED';
         return HttpResponse.json({
-          ...baseGrid,
+          ...grid,
           state: 'SUBMITTED',
           submitted_by: 'user-1',
           submitted_at: new Date().toISOString(),
@@ -163,13 +194,51 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
 
     await screen.findByLabelText('Rafi Ahmed — Written');
     await user.click(screen.getByRole('button', { name: 'Submit' }));
-    await screen.findByText(`${formatNumber(1, REGION_BD_BN)} blank cell will be submitted as-is.`);
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('alert')).toBeNull();
 
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Submit' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Submit' }));
 
     await screen.findByText(/Only an admin can reopen it/);
     const submittedCell = screen.getByLabelText<HTMLInputElement>('Rafi Ahmed — Written');
     expect(submittedCell.disabled).toBe(true);
+  });
+
+  it('a stale page that gets 409 GRID_INCOMPLETE shows the blocking line', async () => {
+    const user = userEvent.setup();
+    const filled = {
+      ...baseGrid,
+      cells: [{ student_id: 's1', component_id: 'c1', value: '80.00', status: 'PRESENT' }],
+    };
+    server.use(
+      http.get(GRID_URL, () => HttpResponse.json(filled)),
+      http.post(`${GRID_URL}/submit`, () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: '2 blank cell(s).',
+            timestamp: new Date().toISOString(),
+            path: '/x',
+            requestId: 'r1',
+            details: { code: 'GRID_INCOMPLETE', blank_count: 2, blank: [] },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await screen.findByLabelText('Rafi Ahmed — Written');
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Submit' }));
+    await within(dialog).findByText(/blank cells must be filled first/);
   });
 
   // Submit locks the grid, so a mark typed just before it must be saved
@@ -210,7 +279,7 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     // Well inside the 600ms debounce — nothing has been saved yet.
     await user.click(screen.getByRole('button', { name: 'Submit' }));
     await screen.findByRole('heading', { name: 'Submit this marks list?' });
-    expect(screen.queryByText(/blank cells will be submitted/)).toBeNull();
+    expect(screen.queryByText(/must be filled first/)).toBeNull();
 
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Submit' }));
 

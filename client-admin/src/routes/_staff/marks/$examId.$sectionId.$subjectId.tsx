@@ -9,6 +9,7 @@
  * page, unlike a reusable table, always fills the whole content area.
  */
 import { Permission, UserRole } from '@biddaloy/shared';
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   cellKey,
@@ -197,6 +198,8 @@ function MarksEntryPage() {
   const canReopen = submitted && role === UserRole.ADMIN;
 
   const blankCount = grid.students.reduce((count, student) => {
+    // A late joiner did not sit the exam: their empty row never blocks submit.
+    if (student.joined_after_exam) return count;
     const missing = grid.components
       .filter((c) => c.source !== 'DERIVED')
       .some((component) => {
@@ -362,7 +365,17 @@ function MarksEntryPage() {
         onOpenChange={setSubmitOpen}
         blankCount={blankCount}
         confirming={flushing || submitGrid.isPending}
-        error={submitGrid.isError ? tg('marksSheet.submitError') : undefined}
+        error={
+          submitGrid.error instanceof ApiError &&
+          submitGrid.error.details?.code === 'GRID_INCOMPLETE'
+            ? tg('marksSheet.blankBlocksSubmit', {
+                count: Number(submitGrid.error.details.blank_count ?? 1),
+                n: formatNumber(Number(submitGrid.error.details.blank_count ?? 1), config),
+              })
+            : submitGrid.isError
+              ? tg('marksSheet.submitError')
+              : undefined
+        }
         onConfirm={() => void confirmSubmit()}
       />
 

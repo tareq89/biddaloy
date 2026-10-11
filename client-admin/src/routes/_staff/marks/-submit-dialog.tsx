@@ -1,7 +1,6 @@
 /**
  * [19.7.1] Submit confirmation — `Ctrl+Enter` opens it (wired by the
- * caller route), shows the blank-cell count so a teacher isn't surprised
- * by what "submit" locks in.
+ * caller route), blocks submit while any cell is blank (ACAD-04).
  */
 import {
   Button,
@@ -46,8 +45,9 @@ export function SubmitDialog({
           <DialogDescription>{t('submitDialog.description')}</DialogDescription>
         </DialogHeader>
         {blankCount > 0 && (
-          <p className="text-text-secondary">
-            {tg('marksSheet.blankCount', {
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon aria-hidden="true" className="size-3.5" />
+            {tg('marksSheet.blankBlocksSubmit', {
               count: blankCount,
               n: formatNumber(blankCount, config),
             })}
@@ -63,7 +63,7 @@ export function SubmitDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('submitDialog.cancel')}
           </Button>
-          <Button type="button" loading={confirming} onClick={onConfirm}>
+          <Button type="button" loading={confirming} disabled={blankCount > 0} onClick={onConfirm}>
             {t('submitDialog.confirm')}
           </Button>
         </DialogFooter>
