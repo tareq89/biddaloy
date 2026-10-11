@@ -218,11 +218,15 @@ export class HomeworkSubmissionService {
     } catch (err) {
       // The save failed (including the unique-index race described above) —
       // the objects just uploaded in this call are now orphaned too.
-      await Promise.allSettled(attachments.map((a) => this.storage.delete(a.key)));
+      await Promise.allSettled(
+        attachments.map((a) => this.storage.deleteForTenant(a.key, ctx.tenantId)),
+      );
       throw err;
     }
     // Best-effort: a delete failure here must never mask a successful save.
-    await Promise.allSettled(previousKeys.map((key) => this.storage.delete(key)));
+    await Promise.allSettled(
+      previousKeys.map((key) => this.storage.deleteForTenant(key, ctx.tenantId)),
+    );
     // A late (after-school) upload clears the "not submitted" alert at once.
     emitRecheck(attentionEvents, {
       tenantId: ctx.tenantId,

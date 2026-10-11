@@ -2,6 +2,7 @@ import type { EntityManager } from 'typeorm';
 import { StaffDocumentType } from '@biddaloy/shared';
 import { StaffDocument } from '../../../staff-hr/entities/staff-document.entity';
 import { fromCell } from '../../codec/cell-format';
+import { ownStorageKey } from '../../codec/storage-key-scope';
 import type {
   ColumnSpec,
   ExportContext,
@@ -130,14 +131,25 @@ export const staffDocumentTab: TabSpec<StaffDocument, StaffDocumentRow> = {
       });
     }
 
-    if (errors.length > 0) return { errors };
+    // The download/replace routes act on the stored key, so it must stay in this school's prefix.
+    const owned = ownStorageKey(
+      values.storage_key as string,
+      ctx.tenantId,
+      'staff_documents',
+      rowNo,
+      'storage_key',
+    );
+    if ('error' in owned) errors.push(owned.error);
+    else if (owned.warning) ctx.warn(owned.warning);
+
+    if (errors.length > 0 || 'error' in owned) return { errors };
 
     return {
       row: {
         id: values.id as string,
         staff_user_id: staffUserId as string,
         document_type: values.document_type as StaffDocumentType,
-        storage_key: values.storage_key as string,
+        storage_key: owned.key,
         original_filename: values.original_filename as string,
         content_type: values.content_type as string,
         staff_key: staffKey,

@@ -60,6 +60,11 @@ function createStorageStub() {
     put: vi.fn(async () => undefined),
     get: vi.fn(async () => ({ body: Buffer.from('data'), contentType: 'application/pdf' })),
     delete: vi.fn(async () => undefined),
+    getForTenant: vi.fn(async () => ({
+      body: Buffer.from('data'),
+      contentType: 'application/pdf',
+    })),
+    deleteForTenant: vi.fn(async () => undefined),
     exists: vi.fn(async () => true),
   };
 }
@@ -93,7 +98,7 @@ describe('StaffDocumentService', () => {
     expect(doc.staff_user_id).toBe(STAFF_USER);
     expect(doc.document_type).toBe(StaffDocumentType.NID);
     expect(audit.record).toHaveBeenCalledOnce();
-    expect(storage.delete).not.toHaveBeenCalled();
+    expect(storage.deleteForTenant).not.toHaveBeenCalled();
   });
 
   it('replacing a document deletes the old S3 object (no orphan)', async () => {
@@ -113,7 +118,7 @@ describe('StaffDocumentService', () => {
       },
     );
 
-    expect(storage.delete).toHaveBeenCalledWith(oldKey);
+    expect(storage.deleteForTenant).toHaveBeenCalledWith(oldKey, TENANT_A);
     expect(storage.put).toHaveBeenCalledTimes(2);
     expect(audit.record).toHaveBeenLastCalledWith(
       expect.objectContaining({ action: AuditAction.UPDATE }),
@@ -138,7 +143,7 @@ describe('StaffDocumentService', () => {
         tenantId: TENANT_A,
       }),
     ).rejects.toThrow('db down');
-    expect(storage.delete).toHaveBeenCalledOnce();
+    expect(storage.deleteForTenant).toHaveBeenCalledOnce();
   });
 
   it('rejects a disallowed mime type', async () => {
@@ -171,6 +176,6 @@ describe('StaffDocumentService', () => {
 
     const ok = await service.download(doc.id, TENANT_A);
     expect(ok.doc.id).toBe(doc.id);
-    expect(storage.get).toHaveBeenCalledWith(doc.storage_key);
+    expect(storage.getForTenant).toHaveBeenCalledWith(doc.storage_key, TENANT_A);
   });
 });

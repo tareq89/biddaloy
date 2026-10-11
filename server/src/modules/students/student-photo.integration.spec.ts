@@ -39,6 +39,10 @@ class MemoryStorage {
     if (!o) throw Object.assign(new Error('missing'), { name: 'NoSuchKey' });
     return { body: Readable.from([o.body]), contentType: o.contentType };
   }
+  getForTenant(key: string, tenantId: string) {
+    // Real tenant guard over this in-memory store.
+    return StorageService.prototype.getForTenant.call(this, key, tenantId);
+  }
 }
 
 async function readAll(stream: Readable): Promise<Buffer> {

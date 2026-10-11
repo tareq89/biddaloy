@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { Readable } from 'stream';
+import { NotFoundException } from '@nestjs/common';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -95,9 +96,7 @@ describe('StorageService', () => {
 
   it('put() propagates errors from the client', async () => {
     send.mockRejectedValueOnce(new Error('network down'));
-    await expect(service.put('k', Buffer.from('x'), 'text/plain')).rejects.toThrow(
-      'network down',
-    );
+    await expect(service.put('k', Buffer.from('x'), 'text/plain')).rejects.toThrow('network down');
   });
 
   it('get() sends a GetObjectCommand and returns body/contentType', async () => {
@@ -108,7 +107,10 @@ describe('StorageService', () => {
 
     const command = send.mock.calls[0][0];
     expect(command).toBeInstanceOf(GetObjectCommand);
-    expect(command.input).toMatchObject({ Bucket: 'biddaloy-test', Key: 'tenants/t1/avatars/a.png' });
+    expect(command.input).toMatchObject({
+      Bucket: 'biddaloy-test',
+      Key: 'tenants/t1/avatars/a.png',
+    });
     expect(result.body).toBe(body);
     expect(result.contentType).toBe('image/png');
   });
@@ -124,7 +126,32 @@ describe('StorageService', () => {
 
     const command = send.mock.calls[0][0];
     expect(command).toBeInstanceOf(DeleteObjectCommand);
-    expect(command.input).toMatchObject({ Bucket: 'biddaloy-test', Key: 'tenants/t1/avatars/a.png' });
+    expect(command.input).toMatchObject({
+      Bucket: 'biddaloy-test',
+      Key: 'tenants/t1/avatars/a.png',
+    });
+  });
+
+  // DATA-02: tenant-facing get/delete must never reach another prefix in the bucket.
+  it.each([
+    'tenants/other-school/staff-documents/a.pdf',
+    'backups/db/20261009T020000Z.dump.age',
+    'tenants/t1/../backups/db/x',
+    'tenants/t1',
+    '',
+  ])('getForTenant/deleteForTenant reject %j with 404 and never call S3', async (key) => {
+    await expect(service.getForTenant(key, 't1')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.deleteForTenant(key, 't1')).rejects.toBeInstanceOf(NotFoundException);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('getForTenant/deleteForTenant pass an own key through', async () => {
+    send.mockResolvedValue({ Body: Readable.from(['x']) });
+    await service.getForTenant('tenants/t1/staff-documents/a.pdf', 't1');
+    await service.deleteForTenant('tenants/t1/staff-documents/a.pdf', 't1');
+
+    expect(send.mock.calls[0][0]).toBeInstanceOf(GetObjectCommand);
+    expect(send.mock.calls[1][0]).toBeInstanceOf(DeleteObjectCommand);
   });
 
   it('delete() propagates errors from the client', async () => {
