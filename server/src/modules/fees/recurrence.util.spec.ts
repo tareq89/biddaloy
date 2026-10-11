@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isDue, nextRunDates, periodFor } from './recurrence.util';
+import { firstFireInPeriod, isDue, nextRunDates, periodFor } from './recurrence.util';
 import type { RecurringScheduleRule } from './entities/recurring-schedule.entity';
 
 describe('recurrence.util [16.7.1]', () => {
@@ -81,6 +81,54 @@ describe('recurrence.util [16.7.1]', () => {
     it("carries a 'LAST' MONTHLY rule correctly across Feb", () => {
       const rule: RecurringScheduleRule = { kind: 'MONTHLY', day_of_month: 'LAST' };
       expect(nextRunDates(rule, '2026-01-01', 2)).toEqual(['2026-01-31', '2026-02-28']);
+    });
+  });
+  describe('firstFireInPeriod [68.3.10]', () => {
+    const m = (d: number | 'LAST'): RecurringScheduleRule => ({ kind: 'MONTHLY', day_of_month: d });
+    const w = (weekdays: number[]): RecurringScheduleRule => ({ kind: 'WEEKLY', weekdays });
+
+    it('MONTHLY day 1: the 1st whether asked on the 1st, 2nd or 28th', () => {
+      expect(firstFireInPeriod(m(1), '2026-04-01')).toBe('2026-04-01');
+      expect(firstFireInPeriod(m(1), '2026-04-02')).toBe('2026-04-01');
+      expect(firstFireInPeriod(m(1), '2026-04-28')).toBe('2026-04-01');
+    });
+
+    it('MONTHLY day 15: null before, the 15th from the 15th on', () => {
+      expect(firstFireInPeriod(m(15), '2026-04-14')).toBeNull();
+      expect(firstFireInPeriod(m(15), '2026-04-20')).toBe('2026-04-15');
+    });
+
+    it('MONTHLY LAST: only on the last day, leap years included', () => {
+      expect(firstFireInPeriod(m('LAST'), '2026-02-27')).toBeNull();
+      expect(firstFireInPeriod(m('LAST'), '2026-02-28')).toBe('2026-02-28');
+      expect(firstFireInPeriod(m('LAST'), '2028-02-29')).toBe('2028-02-29');
+    });
+
+    it('WEEKLY [3] (Wednesday): null Mon/Tue, Wednesday from Wed to Sun', () => {
+      expect(firstFireInPeriod(w([3]), '2026-03-16')).toBeNull();
+      expect(firstFireInPeriod(w([3]), '2026-03-17')).toBeNull();
+      for (const d of ['18', '19', '20', '21', '22']) {
+        expect(firstFireInPeriod(w([3]), `2026-03-${d}`)).toBe('2026-03-18');
+      }
+    });
+
+    it('WEEKLY [7] (Sunday) fires on Sunday, not Saturday', () => {
+      expect(firstFireInPeriod(w([7]), '2026-03-21')).toBeNull();
+      expect(firstFireInPeriod(w([7]), '2026-03-22')).toBe('2026-03-22');
+    });
+
+    it('WEEKLY [1,4] with a mid-week startsOn: first fire on/after it (Thu), none before', () => {
+      expect(firstFireInPeriod(w([1, 4]), '2026-03-18', '2026-03-18')).toBeNull();
+      expect(firstFireInPeriod(w([1, 4]), '2026-03-19', '2026-03-18')).toBe('2026-03-19');
+      expect(firstFireInPeriod(w([1, 4]), '2026-03-19')).toBe('2026-03-16');
+    });
+
+    it('MONTHLY: startsOn after the fire day means not due that month', () => {
+      expect(firstFireInPeriod(m(1), '2026-03-31', '2026-03-02')).toBeNull();
+    });
+
+    it('a malformed WEEKLY rule (no weekdays) throws', () => {
+      expect(() => firstFireInPeriod({ kind: 'WEEKLY' } as any, '2026-03-18')).toThrow();
     });
   });
 });
