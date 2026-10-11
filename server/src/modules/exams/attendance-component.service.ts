@@ -51,12 +51,12 @@ export class AttendanceComponentService {
     }
 
     // Cohort = who is enrolled in this section for its own year (D17), not
-    // where students sit today; working days use the exam's class.
+    // where students sit today, and whatever their status is now (a leaver who
+    // has marks is still in the results cohort); working days use the exam's class.
     const studentIds = await sectionRosterStudentIds(
       this.examRepo.manager,
       input.tenantId,
       input.sectionId,
-      { activeOnly: true },
     );
     const summaries = await this.attendanceSummaryService.getSummariesForStudents({
       tenantId: input.tenantId,
