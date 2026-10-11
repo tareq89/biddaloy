@@ -33,6 +33,8 @@ import {
 } from '../communications/reminder-template.util';
 import { AuditService } from '../audit/audit.service';
 import { SchoolsService } from '../schools/schools.service';
+import { SmsCreditService } from '../communications/credits/sms-credit.service';
+import { INSUFFICIENT_SMS_CREDIT } from '../communications/credits/insufficient-sms-credit.constants';
 import {
   AbsenceNoticePreviewResponseDto,
   AbsenceNoticeSendResponseDto,
@@ -125,6 +127,7 @@ export class AbsenceNoticeService {
     private readonly dataSource: DataSource,
     private readonly auditService: AuditService,
     private readonly schoolsService: SchoolsService,
+    private readonly smsCreditService: SmsCreditService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -505,9 +508,24 @@ export class AbsenceNoticeService {
         continue;
       }
 
+      // [#2216] Metered SMS must hold credit before it is queued.
+      const credit = await this.smsCreditService.reserveForLog(tenantId, log);
+      if (credit === 'INSUFFICIENT') {
+        log.status = CommunicationStatus.FAILED;
+        log.metadata = { ...log.metadata, reason: INSUFFICIENT_SMS_CREDIT };
+        await this.logRepo.manager.transaction(async (manager) => {
+          await manager.save(log);
+          await recordBatchOutcome(manager, batch.id, 'failure');
+        });
+        continue;
+      }
+
       try {
-        await this.queue.add('send', { logId: log.id });
+        await this.queue.add('send', { logId: log.id, ...credit });
       } catch (error) {
+        if (credit.segments !== undefined) {
+          await this.smsCreditService.releaseForLog(tenantId, log.id, credit.segments);
+        }
         this.logger.warn(
           `Failed to enqueue absence-notice log ${log.id} for batch ${batch.id}: ${String(error)}`,
         );

@@ -49,6 +49,7 @@ describe('SingleReminderService', () => {
   let guardianService: Record<string, ReturnType<typeof vi.fn>>;
   let feeDuesService: Record<string, ReturnType<typeof vi.fn>>;
   let auditService: Record<string, ReturnType<typeof vi.fn>>;
+  let smsCreditService: Record<string, ReturnType<typeof vi.fn>>;
 
   const dto = {
     message_template:
@@ -65,6 +66,10 @@ describe('SingleReminderService', () => {
     guardianService = { findOne: vi.fn() };
     feeDuesService = { getDueSnapshots: vi.fn(async () => new Map([[STUDENT_ID, snapshot()]])) };
     auditService = { record: vi.fn(async () => undefined) };
+    smsCreditService = {
+      reserveIfMetered: vi.fn(async () => 'UNMETERED'),
+      releaseForLog: vi.fn(async () => undefined),
+    };
 
     service = new SingleReminderService(
       logRepo as any,
@@ -73,6 +78,7 @@ describe('SingleReminderService', () => {
       guardianService as any,
       feeDuesService as any,
       auditService as any,
+      smsCreditService as any,
     );
   });
 
@@ -438,6 +444,43 @@ describe('SingleReminderService', () => {
       expect(result.skipped).toEqual([
         { guardian_id: 'g-2', guardian_name: 'Karim Uddin', reason: SkipReason.MISSING_ADDRESS },
       ]);
+    });
+  });
+
+  describe('sendSingle on a metered tenant [#2216]', () => {
+    it('reserved: the job carries batchId and segments', async () => {
+      smsCreditService.reserveIfMetered.mockResolvedValue('RESERVED');
+
+      await service.sendSingle(STUDENT_ID, dto as any, TENANT, USER);
+
+      expect(queue.add).toHaveBeenCalledWith(
+        'send',
+        expect.objectContaining({ logId: 'log-1', batchId: expect.any(String), segments: 1 }),
+      );
+    });
+
+    it('0 credit: throws 409 INSUFFICIENT_SMS_CREDIT and saves/queues nothing', async () => {
+      smsCreditService.reserveIfMetered.mockResolvedValue({ insufficient: true, available: 0 });
+
+      await expect(service.sendSingle(STUDENT_ID, dto as any, TENANT, USER)).rejects.toMatchObject(
+        { status: 409, response: { details: { code: 'INSUFFICIENT_SMS_CREDIT' } } },
+      );
+      expect(logRepo.save).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('releases the share when queue.add fails', async () => {
+      smsCreditService.reserveIfMetered.mockResolvedValue('RESERVED');
+      queue.add.mockRejectedValue(new Error('redis down'));
+
+      await service.sendSingle(STUDENT_ID, dto as any, TENANT, USER);
+
+      expect(smsCreditService.releaseForLog).toHaveBeenCalledWith(
+        TENANT,
+        'log-1',
+        1,
+        expect.any(String),
+      );
     });
   });
 

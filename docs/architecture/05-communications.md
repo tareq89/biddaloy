@@ -248,8 +248,22 @@ flowchart LR
 | Payment receipt       | `payment-notify:<paymentId>:<guardianId>`          |
 | Invoice send (manual) | `invoice-send:<invoiceId>:<guardianId>:<sendId>`   |
 | Exam result SMS       | `exam-result-sms:<examId>:<sendId>`                |
+| Absence notice        | `<logId>` (one reservation per SMS log)            |
+| Homework notice       | `<logId>`                                          |
+| Admission status SMS  | `<logId>`                                          |
+| Single reminder       | `<uuid>` (one per send, shared by its SMS logs)    |
+| Free-form `POST /communications/send` | `<uuid>` (reserved inside `CommunicationsService.enqueue`) |
 
 Rules:
+
+- **Backstop:** the worker fails any SMS job for a metered tenant that
+  carries no reservation (`metadata.reason = 'UNRESERVED_SMS'`, no provider
+  call, no retry). A future producer that forgets to reserve cannot spend
+  platform money.
+- Automated producers (absence, homework, admission) that find the balance
+  short do not queue the SMS: the log is saved `FAILED` with
+  `metadata.reason = 'INSUFFICIENT_SMS_CREDIT'`. Staff-initiated sends
+  (single reminder, free-form) answer 409 `INSUFFICIENT_SMS_CREDIT` instead.
 
 - A manual re-send gets its own `sendId` (and its own `reference_id`), so
   each send reserves and is capped on its own.

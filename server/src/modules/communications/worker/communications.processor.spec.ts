@@ -84,7 +84,11 @@ describe('CommunicationsProcessor', () => {
     // level (#546's integration spec) — this mock just records the calls
     // so the processor's dispatch logic (which outcome maps to which
     // settlePart call, or none) can be asserted here.
-    smsCredits = { settlePart: vi.fn(async () => undefined) };
+    smsCredits = {
+      settlePart: vi.fn(async () => undefined),
+      // [#2216] Unmetered by default; the backstop tests below flip it.
+      isMetered: vi.fn(async () => false),
+    };
     // #555: no guardian found by default (findOne -> null) means
     // tryPushFirst falls through to the preferred-channel path unless a
     // test overrides it — matches "guardian has no linked user" being the
@@ -626,6 +630,35 @@ describe('CommunicationsProcessor', () => {
       await processor.process(job({ segments: 1 }));
 
       expect(smsCredits.settlePart).not.toHaveBeenCalled();
+    });
+
+    // [#2216] Backstop: a metered tenant's SMS with no reservation never
+    // reaches the gateway, whichever producer queued it.
+    it('fails a metered tenant SMS job with no batchId as UNRESERVED_SMS without calling the provider', async () => {
+      smsCredits.isMetered.mockResolvedValue(true);
+
+      await processor.process(job({}));
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: CommunicationStatus.FAILED,
+          metadata: expect.objectContaining({ reason: 'UNRESERVED_SMS' }),
+        }),
+      );
+    });
+
+    it('still sends an unmetered tenant SMS job with no batchId', async () => {
+      provider.send.mockResolvedValue({
+        success: true,
+        providerMessageId: 'p-1',
+        outcome: 'ACCEPTED',
+        segments: 1,
+      });
+
+      await processor.process(job({}));
+
+      expect(provider.send).toHaveBeenCalledTimes(1);
     });
 
     it('does not settle an SMS batch job with no segments count', async () => {

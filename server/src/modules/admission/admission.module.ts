@@ -9,6 +9,7 @@ import { IntakeController } from './intake.controller';
 import { ApplicantReviewService } from './applicant-review.service';
 import { ApplicantReviewController } from './applicant-review.controller';
 import { StudentModule } from '../students/students.module';
+import { CreditsModule } from '../communications/credits/credits.module';
 import { PublicAdmissionController } from './public-admission.controller';
 import { AdmissionApplicantService } from './admission-applicant.service';
 import { AdmissionNotificationService } from './admission-notification.service';
@@ -38,6 +39,7 @@ import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants
     TypeOrmModule.forFeature([AdmissionIntake, AdmissionApplicant, AdmissionEvaluation, CommunicationLog, StudentLifecycleEvent]),
     BullModule.registerQueue({ name: COMMUNICATIONS_QUEUE }),
     StudentModule,
+    CreditsModule,
     SchoolsModule,
     StorageModule,
   ],
