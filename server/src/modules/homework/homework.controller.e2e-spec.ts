@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -7,6 +7,7 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
+import { TENANT_SETTINGS_SCHEMA_VERSION } from '../schools/dto/tenant-settings.dto';
 import { HomeworkGradingMode, UserRole } from '@biddaloy/shared';
 import {
   SEED_TENANT_ID,
@@ -198,6 +199,7 @@ describe('Homework E2E', () => {
   describe('assign notice switch', () => {
     const settingsUrl = `/api/v1/schools/${TENANT_ID}/settings`;
     let studentId: string;
+    let guardianId: string;
 
     const logCount = async (): Promise<number> => {
       const rows = await dataSource.query(
@@ -249,10 +251,21 @@ describe('Homework E2E', () => {
          RETURNING id`,
         [TENANT_ID],
       );
+      guardianId = guardian[0].id;
       await dataSource.query(
         `INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)`,
-        [studentId, guardian[0].id],
+        [studentId, guardianId],
       );
+    });
+
+    // Remove this test's student, guardian and their rows so later specs on the shared
+    // section (roster, defaulters, communication_logs counts) do not see them.
+    afterEach(async () => {
+      await dataSource.query(`DELETE FROM communication_logs WHERE student_id = $1`, [studentId]);
+      await dataSource.query(`DELETE FROM homework_submissions WHERE student_id = $1`, [studentId]);
+      await dataSource.query(`DELETE FROM student_guardians WHERE student_id = $1`, [studentId]);
+      await dataSource.query(`DELETE FROM guardians WHERE id = $1`, [guardianId]);
+      await dataSource.query(`DELETE FROM students WHERE id = $1`, [studentId]);
     });
 
     afterAll(async () => {
@@ -271,7 +284,8 @@ describe('Homework E2E', () => {
         .patch(settingsUrl)
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
-        .send({ version: 1, homework: { notifyOnAssign: true } })
+        .set('X-Role', UserRole.ADMIN)
+        .send({ version: TENANT_SETTINGS_SCHEMA_VERSION, homework: { notifyOnAssign: true } })
         .expect(200);
 
       await assignHomework();
@@ -284,7 +298,7 @@ describe('Homework E2E', () => {
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .send({ version: 1, homework: { notifyOnAssign: true } })
+        .send({ version: TENANT_SETTINGS_SCHEMA_VERSION, homework: { notifyOnAssign: true } })
         .expect(403);
     });
   });

@@ -20,7 +20,11 @@ import {
   DISPATCHABLE_MEDIA,
   resolveReminderAudience,
 } from '../communications/reminder-recipients.util';
-import { resolveFeeNotificationLocale } from '../communications/fee-notification-template.util';
+import {
+  formatFeeNotificationDueDate,
+  resolveFeeNotificationLocale,
+} from '../communications/fee-notification-template.util';
+import { joinStudentNames } from '../communications/reminder-template.util';
 import { SchoolsService } from '../schools/schools.service';
 
 /**
@@ -56,9 +60,9 @@ export class HomeworkNoticeService {
     const due = assignment.due_date;
     // [JOBS-09] The title stays as the teacher typed it.
     const bn = resolveFeeNotificationLocale(settings.region?.locale) === 'bn';
-    await this.sendToGuardians(assignment.tenant_id, students, (names) =>
+    await this.sendToGuardians(assignment.tenant_id, students, bn, (names) =>
       bn
-        ? `প্রিয় অভিভাবক, ${names}-এর জন্য নতুন বাড়ির কাজ "${homework.title}" দেওয়া হয়েছে, জমার শেষ তারিখ ${due}।`
+        ? `প্রিয় অভিভাবক, ${names}-এর জন্য নতুন বাড়ির কাজ "${homework.title}" দেওয়া হয়েছে, জমার শেষ তারিখ ${formatFeeNotificationDueDate('bn', due)}।`
         : `Dear Guardian, new homework "${homework.title}" has been assigned to ${names}, due ${due}.`,
     );
   }
@@ -74,9 +78,9 @@ export class HomeworkNoticeService {
     if (settings.homework?.notifyDefaulters !== true) return;
     const due = assignment.due_date;
     const bn = resolveFeeNotificationLocale(settings.region?.locale) === 'bn';
-    await this.sendToGuardians(assignment.tenant_id, defaulters, (names) =>
+    await this.sendToGuardians(assignment.tenant_id, defaulters, bn, (names) =>
       bn
-        ? `প্রিয় অভিভাবক, ${names}-এর বাড়ির কাজ "${homework.title}" (শেষ তারিখ ${due}) এখনও জমা হয়নি।`
+        ? `প্রিয় অভিভাবক, ${names}-এর বাড়ির কাজ "${homework.title}" (শেষ তারিখ ${formatFeeNotificationDueDate('bn', due)}) এখনও জমা হয়নি।`
         : `Dear Guardian, homework "${homework.title}" (due ${due}) has not been submitted yet by ${names}.`,
     );
   }
@@ -109,6 +113,7 @@ export class HomeworkNoticeService {
   private async sendToGuardians(
     tenantId: string,
     students: Student[],
+    bn: boolean,
     buildMessage: (studentNames: string) => string,
   ): Promise<void> {
     const byGuardian = new Map<string, { guardian: Guardian; students: Student[] }>();
@@ -130,7 +135,13 @@ export class HomeworkNoticeService {
       const student = kids[0];
       const medium = guardian.preferred_communication;
       const address = addressForMedium(guardian, medium) as string;
-      const message = buildMessage(kids.map((k) => k.full_name).join(', '));
+      // Same naming as AbsenceNoticeService: Bangla name when there is one, "A, B ও C" in Bangla.
+      const message = buildMessage(
+        joinStudentNames(
+          kids.map((k) => (bn ? (k.full_name_bn ?? k.full_name) : k.full_name)),
+          bn ? 'bn-BD' : 'en-US',
+        ),
+      );
       let log: CommunicationLog;
       try {
         log = await this.logRepo.save(
