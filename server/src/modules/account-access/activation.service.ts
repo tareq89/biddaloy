@@ -10,7 +10,7 @@ import { assertPasswordAllowedForUser } from '../auth/password-policy';
 import { School } from '../schools/entities/school.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService, AuthResult } from '../auth/auth.service';
-import { RequestContext } from '../auth/refresh-token.service';
+import { RefreshTokenService, RequestContext } from '../auth/refresh-token.service';
 import { normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { AuthTokenService } from './auth-token.service';
 import { InvitationService } from './invitation.service';
@@ -47,6 +47,7 @@ export class ActivationService {
     @Inject(AuthService) private readonly authService: AuthService,
     private readonly auditService: AuditService,
     private readonly invitations: InvitationService,
+    private readonly refreshTokens: RefreshTokenService,
   ) {}
 
   /**
@@ -100,6 +101,10 @@ export class ActivationService {
     }
     if (user.status === UserStatus.SUSPENDED) {
       throw new BadRequestException('suspended');
+    }
+    // An INVITE only ever sets a first password; it can never replace one.
+    if (user.password_hash !== null) {
+      throw new BadRequestException('consumed');
     }
 
     await assertPasswordAllowedForUser(this.userTenantRepo, user.id, password);
@@ -168,6 +173,7 @@ export class ActivationService {
       }
     });
 
+    await this.refreshTokens.revokeAllForUser(user.id);
     await this.authService.resetLoginLockouts(user);
 
     return this.authService.startSession(user, context);
