@@ -2,6 +2,8 @@ import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { i18n } from '../i18n/i18n';
+
 import {
   clearAuthState,
   getAccessToken,
@@ -431,6 +433,32 @@ describe('toApiError', () => {
     });
 
     expect(toApiError(axiosError)).toBe(axiosError);
+  });
+
+  it('maps a bodyless (nginx HTML) 413 to the translated "upload too large" error', () => {
+    const axiosError = Object.assign(new Error('Request failed with status code 413'), {
+      isAxiosError: true,
+      response: { status: 413, data: '<html>413 Request Entity Too Large</html>' },
+    });
+
+    const mapped = toApiError(axiosError);
+
+    expect(mapped).not.toBeInstanceOf(ApiError);
+    expect(mapped.message).toBe(i18n.t('errors.uploadTooLarge', { ns: 'common' }));
+    expect(mapped.message).not.toContain('413');
+    expect(mapped.message).not.toBe('errors.uploadTooLarge');
+  });
+
+  it('keeps the server ApiError for a 413 that carries an ApiErrorBody', () => {
+    const axiosError = Object.assign(new Error('x'), {
+      isAxiosError: true,
+      response: {
+        status: 413,
+        data: { statusCode: 413, message: 'Too many students', requestId: 'r1' },
+      },
+    });
+
+    expect(toApiError(axiosError)).toBeInstanceOf(ApiError);
   });
 
   it('wraps a non-Error thrown value (e.g. a plain string) in a real Error', () => {
