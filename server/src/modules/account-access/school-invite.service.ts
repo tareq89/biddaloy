@@ -48,8 +48,8 @@ export interface JoinRequestInput {
  * Files a pending membership: an `auth_tokens` row (purpose `JOIN_SCHOOL`) in
  * the inviting school. No `user_tenants` row exists until the account owner
  * accepts, so no guard, list or notification can see the person early. A new
- * request for the same (user, school) revokes the older live one; requests
- * for other schools are left alone. The raw secret is never sent: the owner
+ * request for the same (user, school, role) revokes the older live one;
+ * other roles and other schools are left alone. The raw secret is never sent: the owner
  * accepts while signed in.
  */
 export async function insertJoinRequest(
@@ -70,6 +70,9 @@ export async function insertJoinRequest(
       purpose: AuthTokenPurpose.JOIN_SCHOOL,
     })
     .andWhere('consumed_at IS NULL AND revoked_at IS NULL')
+    // Same role only: provisioning (ADMIN), guardian batch (PARENT) and restore
+    // file requests independently, and one must not cancel another's.
+    .andWhere(`metadata->>'role' = :role`, { role: input.role })
     .execute();
 
   const metadata: JoinRequestMetadata = {

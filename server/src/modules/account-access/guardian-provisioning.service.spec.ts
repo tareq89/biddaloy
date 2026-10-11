@@ -207,7 +207,12 @@ describe('GuardianProvisioningService', () => {
       );
       authTokens.latest.mockImplementation(async (_u: string, purpose: string) =>
         purpose === 'JOIN_SCHOOL'
-          ? { consumed_at: null, revoked_at: null, expires_at: new Date(Date.now() + 60_000) }
+          ? {
+              consumed_at: null,
+              revoked_at: null,
+              expires_at: new Date(Date.now() + 60_000),
+              metadata: { role: 'PARENT' },
+            }
           : null,
       );
 
@@ -217,6 +222,31 @@ describe('GuardianProvisioningService', () => {
         { guardian_id: 'g1', full_name: 'Guardian One', reason: 'already_pending' },
       ]);
       expect(authTokens.latest).toHaveBeenCalledWith('u-verified', 'JOIN_SCHOOL', TENANT);
+    });
+
+    // [68.1.fix F3] Requests are per role now: a pending ADMIN request does not
+    // stand in for the PARENT one the batch would file.
+    it('still invites a guardian whose only live join request is for another role', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
+      );
+      authTokens.latest.mockImplementation(async (_u: string, purpose: string) =>
+        purpose === 'JOIN_SCHOOL'
+          ? {
+              consumed_at: null,
+              revoked_at: null,
+              expires_at: new Date(Date.now() + 60_000),
+              metadata: { role: 'ADMIN' },
+            }
+          : null,
+      );
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.skipped).toEqual([]);
+      expect(result.to_invite.map((e) => e.guardian_id)).toEqual(['g1']);
     });
 
     it('skips a guardian with a live pending invitation (already_pending)', async () => {
