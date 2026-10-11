@@ -85,6 +85,14 @@ export interface ProvisionAdminResult {
   invitation: { id: string; status: string };
 }
 
+/** 409 for a contact another user row holds. Neutral on purpose: it never says whether that
+ * holder is unverified, soft-deleted or just created by a racing request. */
+export const contactInUse = () =>
+  new ConflictException({
+    message: 'This phone or email already belongs to another account',
+    details: { code: 'CONTACT_IN_USE' },
+  });
+
 function idempotencyKey(key: string): string {
   return `provision:${key}`;
 }
@@ -327,6 +335,9 @@ export class ProvisioningService {
 
     // Registration (`sendInvitation = false`) just proved the contact by OTP; every other caller
     // only typed it, so it may match a verified holder only.
+    // Coupling: "no invitation" is read as "contact proven". Registration is the only caller
+    // passing `false`; a future caller that skips the invite for another reason must not reuse
+    // this flag, or it would match unverified holders. Split it into its own option then.
     const contactProven = !sendInvitation;
     const { user, existed } = await this.findOrCreateAdminUser(userRepo, admin, contactProven);
 
@@ -506,15 +517,13 @@ export class ProvisioningService {
       );
       return { user: created, existed: false };
     } catch (err) {
-      // An unverified account owns that contact (the lookups above skip those).
+      // Another row owns that contact: an unverified holder (the lookups above skip those), a
+      // soft-deleted one (the UNIQUE index covers them), or a concurrent create.
       if (
         err instanceof QueryFailedError &&
         (err as unknown as { code?: string }).code === '23505'
       ) {
-        throw new ConflictException({
-          message: 'That email or phone is held by another, unverified account',
-          details: { code: 'CONTACT_IN_USE' },
-        });
+        throw contactInUse();
       }
       throw err;
     }

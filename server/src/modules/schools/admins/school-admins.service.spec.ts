@@ -161,8 +161,11 @@ describe('SchoolAdminsService', () => {
         ACTOR,
       );
 
-      expect(result.invitation).toEqual({ id: 'join-1', status: 'PENDING' });
-      expect(userTenantRepo.find).not.toHaveBeenCalled();
+      // Passed through untouched: the caller sees the join request, not a fake membership.
+      expect(result).toEqual({
+        admin: { user_id: 'user-1', existed: true },
+        invitation: { id: 'join-1', status: 'PENDING' },
+      });
     });
 
     it('surfaces a duplicate-membership 409 from provisioning as-is, with no audit row and no delivery', async () => {
