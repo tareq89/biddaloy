@@ -16,7 +16,10 @@ import { CreditsModule } from '../communications/credits/credits.module';
 import { StorageModule } from '../storage/storage.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
-import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
+import {
+  COMMUNICATIONS_QUEUE,
+  COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+} from '../communications/communications.constants';
 // `BulkImportModule` is `@Global()`, so `ImportStagingService` is already
 // injectable without this — imported anyway for visibility (same note as
 // students/students.module.ts).
@@ -84,10 +87,7 @@ import { HomeworkAnalyticsService } from './homework-analytics.service';
     StudyPlansModule,
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
-      defaultJobOptions: {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
-      },
+      defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
     }),
     BullModule.registerQueue({ name: HOMEWORK_DEFAULTER_SWEEP_QUEUE }),
   ],

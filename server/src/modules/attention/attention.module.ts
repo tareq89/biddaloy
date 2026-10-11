@@ -16,7 +16,10 @@ import { PlatformAttentionHealthController } from './health/platform-attention-h
 import { AttentionController } from './api/attention.controller';
 import { AttentionQueryService } from './api/attention-query.service';
 import { CreditsModule } from '../communications/credits/credits.module';
-import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
+import {
+  COMMUNICATIONS_QUEUE,
+  COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+} from '../communications/communications.constants';
 import { GuardianSmsFallbackService } from './delivery/guardian-sms-fallback.service';
 import { AuditModule } from '../audit/audit.module';
 import { AlertsReportController } from './report/alerts-report.controller';
@@ -53,7 +56,10 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
     TypeOrmModule.forFeature([Alert, AlertRecipient, School]),
     BullModule.registerQueue({ name: ATTENTION_QUEUE }),
     BullModule.registerQueue({ name: ATTENTION_DELIVERY_QUEUE }),
-    BullModule.registerQueue({ name: COMMUNICATIONS_QUEUE }),
+    BullModule.registerQueue({
+      name: COMMUNICATIONS_QUEUE,
+      defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+    }),
     ConfigModule,
     PushModule,
     DiscoveryModule,
