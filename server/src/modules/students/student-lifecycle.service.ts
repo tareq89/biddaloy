@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, IsNull, Not, Repository } from 'typeorm';
+import { EntityManager, In, IsNull, Not, Repository } from 'typeorm';
 import {
   AuditAction,
   EnrollmentStatus,
@@ -18,6 +18,7 @@ import { EnrollmentService } from '../enrollments/enrollments.service';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { PrintJobItem } from '../print/entities/print-job-item.entity';
 import { Enrollment } from './entities/enrollment.entity';
 import { Student } from './entities/student.entity';
 import { StudentLifecycleEvent } from './entities/student-lifecycle-event.entity';
@@ -325,6 +326,44 @@ export class StudentLifecycleService {
         },
         manager,
       );
+
+      // X-09: the student is back, so any Transfer Certificate issued for them stops being valid.
+      // Scoped to this tenant + student + TC kind only; revoked rows are left alone.
+      const liveTcs = await manager.find(PrintJobItem, {
+        select: { id: true },
+        where: {
+          tenant_id: tenantId,
+          subject_type: 'STUDENT',
+          subject_id: studentId,
+          document_kind: 'TRANSFER_CERTIFICATE',
+          revoked_at: IsNull(),
+        },
+      });
+      if (liveTcs.length > 0) {
+        const revokedAt = new Date();
+        const ids = liveTcs.map((i) => i.id);
+        await manager.update(
+          PrintJobItem,
+          { id: In(ids), tenant_id: tenantId, revoked_at: IsNull() },
+          { revoked_at: revokedAt, revoked_by: userId, revoke_reason: 'Readmitted' },
+        );
+        for (const id of ids) {
+          await this.auditService.record(
+            {
+              action: AuditAction.UPDATE,
+              entity_type: 'PrintJobItem',
+              entity_id: id,
+              tenant_id: tenantId,
+              performed_by_user_id: userId,
+              ip_address: context.ip,
+              user_agent: context.userAgent,
+              old_values: { revoked_at: null },
+              new_values: { revoked_at: revokedAt.toISOString(), revoke_reason: 'Readmitted' },
+            },
+            manager,
+          );
+        }
+      }
 
       return event;
     });

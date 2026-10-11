@@ -174,5 +174,11 @@
     "classLabel": "Class",
     "allClasses": "All classes",
     "emptyExplanation": "Everything is printed. New work shows up here."
-  }
+  },
+  "reopenRevokeTitle": "Certificates already issued for this exam",
+  "reopenRevokeHint": "These show the old marks. Tick the ones to cancel now.",
+  "reopenRevokeReadOnly": "Ask an admin to revoke these from the certificate register",
+  "reopenRevokeConfirm": "Reopen and revoke {{n}}",
+  "reopenRevokeReason": "Result reopened for correction",
+  "reopenRevokeFailed": "The results are reopened, but these could not be revoked: {{serials}}. Try again or use the certificate register."
 }

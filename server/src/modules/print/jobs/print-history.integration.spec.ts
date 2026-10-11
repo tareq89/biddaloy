@@ -240,6 +240,7 @@ describe('print history (integration)', () => {
       tenant?: string;
       job?: string;
       subject?: string;
+      contextId?: string;
     }) => {
       const no = o.serialNo ?? null;
       const serial =
@@ -247,8 +248,10 @@ describe('print history (integration)', () => {
       await ds.query(
         `INSERT INTO print_job_items
            (tenant_id, job_id, document_kind, subject_type, subject_id, subject_label, copy_number,
-            serial_no, serial_year, data_snapshot, verify_token_hash, revoked_at, revoke_reason)
-         VALUES ($1, $2, $3, 'STUDENT', $4, $5, 1, $6, $7, $8::jsonb, $9, $10, $11)`,
+            serial_no, serial_year, data_snapshot, verify_token_hash, revoked_at, revoke_reason,
+            context_type, context_id)
+         VALUES ($1, $2, $3, 'STUDENT', $4, $5, 1, $6, $7, $8::jsonb, $9, $10, $11,
+                 $12::text, $13::uuid)`,
         [
           o.tenant ?? tenantId,
           o.job ?? jobId,
@@ -261,6 +264,8 @@ describe('print history (integration)', () => {
           randomUUID().replace(/-/g, '').padEnd(64, '0'),
           o.revoke ? new Date() : null,
           o.revoke ?? null,
+          o.contextId ? 'EXAM' : null,
+          o.contextId ?? null,
         ],
       );
     };
@@ -309,6 +314,18 @@ describe('print history (integration)', () => {
       expect((await history.register(admin(), q)).total).toBe(2);
       expect(await history.registerCsvRows(admin(), q)).toHaveLength(2);
       expect((await history.register(admin(), {} as any)).total).toBe(3);
+    });
+
+    it('context_id lists only copies printed for that exam', async () => {
+      const examA = randomUUID();
+      const examB = randomUUID();
+      await item({ kind: 'RESULT_CERTIFICATE', serialNo: 1, serialYear: 2026, contextId: examA });
+      await item({ kind: 'MERIT_CERTIFICATE', serialNo: 1, serialYear: 2026, contextId: examA });
+      await item({ kind: 'RESULT_CERTIFICATE', serialNo: 2, serialYear: 2026, contextId: examB });
+      await item({ kind: 'TESTIMONIAL', serialNo: 1, serialYear: 2026 });
+      const res = await history.register(admin(), { context_id: examA } as any);
+      expect(res.total).toBe(2);
+      expect((await history.register(admin(), { context_id: randomUUID() } as any)).total).toBe(0);
     });
 
     it('status=REVOKED lists only revoked copies with their reason; VALID the rest', async () => {

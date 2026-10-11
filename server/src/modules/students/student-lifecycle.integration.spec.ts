@@ -267,6 +267,77 @@ describe('StudentLifecycleService (integration)', () => {
     });
   });
 
+  describe('readmit revokes Transfer Certificates (X-09)', () => {
+    async function seedTc(
+      studentId: string,
+      tenantId = SEED_TENANT_ID,
+      kind = 'TRANSFER_CERTIFICATE',
+    ) {
+      const [tpl] = await q(
+        `INSERT INTO print_templates (tenant_id, document_kind, name, batch_size, draft)
+         VALUES ($1, $2, $3, 1, '{}'::jsonb) RETURNING id`,
+        [tenantId, kind, `T ${(n += 1)}`],
+      );
+      const [tv] = await q(
+        `INSERT INTO print_template_versions (tenant_id, template_id, version, definition)
+         VALUES ($1, $2, 1, '{}'::jsonb) RETURNING id`,
+        [tenantId, tpl.id],
+      );
+      const [job] = await q(
+        `INSERT INTO print_jobs (tenant_id, template_version_id, document_kind, item_count)
+         VALUES ($1, $2, $3, 1) RETURNING id`,
+        [tenantId, tv.id, kind],
+      );
+      n += 1;
+      const [item] = await q(
+        `INSERT INTO print_job_items
+           (tenant_id, job_id, document_kind, subject_type, subject_id, subject_label, copy_number,
+            serial_no, serial_year, data_snapshot, verify_token_hash)
+         VALUES ($1, $2, $3, 'STUDENT', $4, 'x', 1, $5, 2026, '{}'::jsonb, $6) RETURNING id`,
+        [tenantId, job.id, kind, studentId, n, String(n).padStart(64, '0')],
+      );
+      return item.id as string;
+    }
+    const state = async (id: string) =>
+      (await q(`SELECT revoked_at, revoke_reason FROM print_job_items WHERE id = $1`, [id]))[0];
+
+    it("revokes only that student's live TCs, with one audit row each", async () => {
+      const a = await seedStudent();
+      const b = await seedStudent();
+      const tcA = await seedTc(a.studentId);
+      const tcB = await seedTc(b.studentId);
+      const other = await seedTc(a.studentId, SEED_TENANT_ID, 'TESTIMONIAL');
+      await service.leave(a.studentId, leaveDto(), SEED_TENANT_ID, USER, CTX);
+      await service.readmit(a.studentId, readmitDto(SEED_SECTION_1_ID), SEED_TENANT_ID, USER, CTX);
+
+      expect((await state(tcA)).revoke_reason).toBe('Readmitted');
+      expect((await state(tcA)).revoked_at).toBeTruthy();
+      expect((await state(tcB)).revoked_at).toBeNull(); // another student
+      expect((await state(other)).revoked_at).toBeNull(); // another document kind
+      const audits = await q(
+        `SELECT 1 FROM audit_logs WHERE entity_type = 'PrintJobItem' AND entity_id = $1`,
+        [tcA],
+      );
+      expect(audits).toHaveLength(1);
+    });
+
+    it('a readmit that fails leaves the TC valid', async () => {
+      const a = await seedStudent();
+      const tc = await seedTc(a.studentId);
+      await service.leave(a.studentId, leaveDto(), SEED_TENANT_ID, USER, CTX);
+      await expect(
+        service.readmit(
+          a.studentId,
+          readmitDto('39210000-0000-4000-8000-0000000000ff'),
+          SEED_TENANT_ID,
+          USER,
+          CTX,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect((await state(tc)).revoked_at).toBeNull();
+    });
+  });
+
   it('readmit in the same year into another section moves class, section and roll', async () => {
     // occupy roll 1 in section 2 so the next free roll is 2
     await seedStudent(SEED_SECTION_2_ID, '00000000-0000-4000-8000-000000000031');
