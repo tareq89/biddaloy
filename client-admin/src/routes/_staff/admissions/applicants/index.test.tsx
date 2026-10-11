@@ -381,7 +381,12 @@ describe('/admissions/applicants', () => {
       ),
       http.get('/api/v1/admission/applicants/:id/guardian-match', () =>
         HttpResponse.json({
-          guardian: { id: 'g-1', full_name: 'Existing Parent', phone: '01711111111', student_names: [] },
+          guardian: {
+            id: 'g-1',
+            full_name: 'Existing Parent',
+            phone: '01711111111',
+            student_names: [],
+          },
         }),
       ),
       http.post('/api/v1/admission/applicants/:id/admit', async ({ request }) => {

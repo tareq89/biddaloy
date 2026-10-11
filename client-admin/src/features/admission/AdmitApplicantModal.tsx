@@ -85,9 +85,17 @@ export function AdmitApplicantModal({
               </div>
             </dl>
             {match.isError ? (
-              <div role="alert" className="flex items-center justify-between gap-2 text-destructive">
+              <div
+                role="alert"
+                className="flex items-center justify-between gap-2 text-destructive"
+              >
                 <span>{t('admitModal.matchError')}</span>
-                <Button type="button" variant="outline" size="sm" onClick={() => void match.refetch()}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void match.refetch()}
+                >
                   {t('actions.retry', { ns: 'common' })}
                 </Button>
               </div>

@@ -12788,6 +12788,8 @@ export interface components {
             notes?: string;
             /** @enum {string} */
             guardian_choice?: "LINK_EXISTING" | "CREATE_NEW";
+            /** Format: uuid */
+            guardian_id?: string;
         };
         CheckApplicantStatusDto: {
             reference_number: string;
