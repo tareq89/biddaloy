@@ -349,6 +349,15 @@ export class AttendancePolicyDto {
   @Max(6, { each: true })
   weeklyOffDays: number[];
 
+  /**
+   * Server-maintained (see tenant-settings-merge.util). Accepted so a client
+   * that echoes the full GET payload back is not rejected by whitelist
+   * validation; the merge ignores whatever is sent.
+   */
+  @IsOptional()
+  @IsArray()
+  weeklyOffHistory?: Array<{ until: string; days: number[] }>;
+
   @IsString()
   @Matches(HH_MM_PATTERN)
   lateAfter: string;
