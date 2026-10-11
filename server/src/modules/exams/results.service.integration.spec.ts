@@ -820,7 +820,7 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
     const { exam, addMark, enroll } = await processedExamWithAB();
     // Marks were entered a month ago, so the sitting was on or before that day.
     await dataSource.query(
-      `UPDATE marks SET updated_at = now() - interval '30 days' WHERE exam_id = $1`,
+      `UPDATE marks SET created_at = now() - interval '30 days' WHERE exam_id = $1`,
       [exam.id],
     );
     const lateNoMarks = await buildStudent({ roll_number: 5 });
@@ -834,6 +834,27 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
     const ids = (await liveResults(exam.id)).map((r) => r.student_id);
     expect(ids).not.toContain(lateNoMarks.id);
     expect(ids).toContain(lateWithMarks.id);
+  });
+
+  it('F2: re-saving marks does not move the fallback sitting date later', async () => {
+    const { exam, enroll } = await processedExamWithAB();
+    // First entered 30 days ago, then re-saved today (a grid re-save bumps updated_at only).
+    await dataSource.query(
+      `UPDATE marks SET created_at = now() - interval '30 days', updated_at = now() WHERE exam_id = $1`,
+      [exam.id],
+    );
+    // Joined 10 days ago: after the first mark entry, so after the sitting.
+    const late = await buildStudent({ roll_number: 5 });
+    await enroll(late.id);
+    await enrollmentRepo.update(
+      { student_id: late.id },
+      { enrolled_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) },
+    );
+
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+
+    const ids = (await liveResults(exam.id)).map((r) => r.student_id);
+    expect(ids).not.toContain(late.id);
   });
 
   it('m2: a student who left with a choice-group pick does not trigger CHOICE_GROUP_UNPICKED on reprocess', async () => {

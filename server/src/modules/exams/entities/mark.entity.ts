@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
@@ -91,6 +92,11 @@ export class Mark {
 
   @Column({ type: 'uuid', nullable: true })
   entered_by: string | null;
+
+  /** First write of this cell. Unlike `updated_at`, a re-save never moves it
+   * (`exam-cohort.ts` uses it as the sitting-date fallback). */
+  @CreateDateColumn({ type: 'timestamptz' })
+  created_at: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;

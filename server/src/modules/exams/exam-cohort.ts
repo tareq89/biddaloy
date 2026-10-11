@@ -76,7 +76,7 @@ export async function loadExamCohort(
       .getRepository(Mark)
       .createQueryBuilder('m')
       .select('m.student_id', 'student_id')
-      .addSelect('MIN(m.updated_at)', 'first_mark_at')
+      .addSelect('MIN(m.created_at)', 'first_mark_at')
       .where('m.exam_id = :examId AND m.tenant_id = :tenantId', { examId: exam.id, tenantId })
       .groupBy('m.student_id')
       .getRawMany<{ student_id: string; first_mark_at: Date }>(),
@@ -89,7 +89,7 @@ export async function loadExamCohort(
   // No schedule and no term: the sitting date is unknown. Marks are only
   // ever written after the sitting, so the first mark write is a safe
   // stand-in — anyone enrolled after that day joined late and needs marks
-  // of their own. No marks at all: nobody can be told apart, so nobody is late.
+  // of their own. created_at, not updated_at: a grid re-save must not move it. No marks at all: nobody can be told apart, so nobody is late.
   const firstMarkAt = marks.reduce<number | null>((min, m) => {
     const t = new Date(m.first_mark_at).getTime();
     return min === null || t < min ? t : min;
