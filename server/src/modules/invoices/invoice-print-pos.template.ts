@@ -1,4 +1,4 @@
-import { amountInWords } from '@biddaloy/shared';
+import { amountInWordsOrNull } from '@biddaloy/shared';
 import { Invoice } from './entities/invoice.entity';
 import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
 import {
@@ -92,8 +92,7 @@ export function renderInvoicePosHtml(
       ${lineRow('Paid', formatAmount(signedAmount(totals.paid, invoice)), { emphasis: true })}
       ${totals.change ? lineRow('Change', formatAmount(signedAmount(totals.change, invoice))) : ''}
     </div>
-    <div class="in-words">In words: ${escapeHtml(amountInWords(totals.paid, 'en'))}</div>
-    <div class="in-words">কথায়: ${escapeHtml(amountInWords(totals.paid, 'bn'))}</div>`;
+    ${inWordsLines(totals.paid)}`;
 
   const payment = snapshot.payment;
   const paymentLine = `Paid via ${escapeHtml(payment.method)}${payment.reference ? ` &middot; ${escapeHtml(payment.reference)}` : ''}`;
@@ -187,4 +186,13 @@ export function renderInvoicePosHtml(
   <div class="footer">Thank you</div>
 </body>
 </html>`;
+}
+
+/** Both words lines, or nothing when the total cannot be spelled (#2399). */
+function inWordsLines(paid: number): string {
+  const en = amountInWordsOrNull(paid, 'en');
+  const bn = amountInWordsOrNull(paid, 'bn');
+  if (en === null || bn === null) return '';
+  return `<div class="in-words">In words: ${escapeHtml(en)}</div>
+    <div class="in-words">কথায়: ${escapeHtml(bn)}</div>`;
 }

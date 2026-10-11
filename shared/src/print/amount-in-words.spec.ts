@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { amountInWords } from './amount-in-words';
+import { amountInWords, amountInWordsOrNull } from './amount-in-words';
 
 describe('amountInWords', () => {
   const cases: Array<[number, string, string]> = [
@@ -30,5 +30,13 @@ describe('amountInWords', () => {
 
   it.each([NaN, Infinity, -Infinity, 1e12])('throws RangeError for %s', (n) => {
     expect(() => amountInWords(n, 'en')).toThrow(RangeError);
+  });
+
+  it.each([NaN, Infinity, 1e15])('amountInWordsOrNull returns null for %s', (n) => {
+    expect(amountInWordsOrNull(n, 'en')).toBeNull();
+  });
+
+  it('amountInWordsOrNull spells a normal amount', () => {
+    expect(amountInWordsOrNull(2500, 'en')).toBe(amountInWords(2500, 'en'));
   });
 });

@@ -206,6 +206,13 @@ describe('renderInvoicePosHtml', () => {
       expect(html).toContain('-২,৫০০.০০');
       expect(html).toContain('Taka Two Thousand Five Hundred only');
     });
+    // #2399 M1: a bad snapshot total must not 500 the whole print; it just loses the words lines.
+    it('a non-finite paid total still renders, without the words lines', () => {
+      const html = renderInvoicePosHtml(withPaid(Infinity), issuer, null, 'pos58');
+      expect(html).toContain('Sunrise School');
+      expect(html).not.toContain('In words:');
+      expect(html).not.toContain('কথায়:');
+    });
     it("a guardian's partial view prints its own filtered total", () => {
       const html = renderInvoicePosHtml(makeInvoice(), issuer, null, 'pos58', ['student-2']);
       expect(html).toContain(amountInWords(1000, 'en'));

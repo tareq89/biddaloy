@@ -242,6 +242,12 @@ describe('renderInvoiceHtml (A4)', () => {
       expect(html).toContain('-২,৫০০.০০');
       expect(html).toContain('Taka Two Thousand Five Hundred only');
     });
+    // #2399 M1: a bad snapshot total must not 500 the whole print; it just loses the words line.
+    it('a non-finite paid total still renders, without the words line', () => {
+      const html = renderInvoiceHtml(withPaid(NaN), [makePayment()], issuer, null);
+      expect(html).toContain('Sunrise School');
+      expect(html).not.toContain('In words:');
+    });
     it("a guardian's partial view prints its own filtered total", () => {
       const html = renderInvoiceHtml(makeInvoice(), [makePayment()], issuer, null, ['student-2']);
       expect(html).toContain(amountInWords(1000, 'en'));
