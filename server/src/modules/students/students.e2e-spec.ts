@@ -406,6 +406,44 @@ describe('Students E2E', () => {
   });
 
   describe('PATCH /students/:id', () => {
+    describe('[68.3.40] roll number conflicts', () => {
+      const mk = async (name: string, section: string, roll: number) =>
+        (
+          await supertest(app.getHttpServer())
+            .post('/api/v1/students')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('X-Tenant-ID', TENANT_ID)
+            .send({ full_name: name, class_section_id: section, roll_number: roll })
+            .expect(201)
+        ).body;
+
+      it('returns 409 ROLL_NUMBER_TAKEN (not 500) for a taken roll in the target section', async () => {
+        const roll = 7000 + Math.floor(Math.random() * 1000);
+        await mk('Roll Holder', SEED_SECTION_2_ID, roll);
+        const mover = await mk('Roll Mover', SEED_SECTION_1_ID, roll);
+
+        const res = await supertest(app.getHttpServer())
+          .patch(`/api/v1/students/${mover.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .send({ class_section_id: SEED_SECTION_2_ID, roll_number: roll })
+          .expect(200);
+        // same roll re-sent on a move is replaced by a free one, not an error
+        expect(res.body.roll_number).not.toBe(roll);
+
+        const other = await mk('Roll Other', SEED_SECTION_1_ID, roll + 2000);
+        const conflict = await supertest(app.getHttpServer())
+          .patch(`/api/v1/students/${other.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .send({ class_section_id: SEED_SECTION_2_ID, roll_number: roll })
+          .expect(409);
+        expect(conflict.body.details?.code ?? conflict.body.message?.details?.code).toBe(
+          'ROLL_NUMBER_TAKEN',
+        );
+      });
+    });
+
     it('should update a student', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/students')

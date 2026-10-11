@@ -1152,6 +1152,69 @@ describe('StudentService (integration)', () => {
     });
   });
 
+  describe('roll number conflicts [68.3.40 / LIFE-05]', () => {
+    const mk = (name: string, section: string, roll?: number) =>
+      service.create(
+        { full_name: name, class_section_id: section, ...(roll ? { roll_number: roll } : {}) },
+        TENANT_ID,
+      );
+
+    it('section move that re-sends the old roll, taken in the target, gets a free roll', async () => {
+      await mk('Holder In B', SEED_SECTION_2_ID, 5);
+      const s = await mk('Mover', SEED_SECTION_1_ID, 5);
+
+      const updated = await service.update(
+        s.id,
+        { class_section_id: SEED_SECTION_2_ID, roll_number: 5 },
+        TENANT_ID,
+      );
+
+      expect(updated.class_section_id).toBe(SEED_SECTION_2_ID);
+      expect(updated.roll_number).toBe(6);
+    });
+
+    it('create after soft-deleting the top roll in a section does not collide', async () => {
+      await mk('One', SEED_SECTION_1_ID);
+      const top = await mk('Two', SEED_SECTION_1_ID);
+      await service.remove(top.id, TENANT_ID, null, { ip: null, userAgent: null });
+
+      const next = await mk('Three', SEED_SECTION_1_ID);
+
+      expect(next.roll_number).toBe(top.roll_number + 1);
+    });
+
+    it('section move with an explicit, free roll keeps that roll', async () => {
+      const s = await mk('Mover', SEED_SECTION_1_ID, 5);
+      const updated = await service.update(
+        s.id,
+        { class_section_id: SEED_SECTION_2_ID, roll_number: 42 },
+        TENANT_ID,
+      );
+      expect(updated.roll_number).toBe(42);
+    });
+
+    it('section move with an explicit, taken roll throws ROLL_NUMBER_TAKEN', async () => {
+      await mk('Holder', SEED_SECTION_2_ID, 9);
+      const s = await mk('Mover', SEED_SECTION_1_ID, 5);
+      await expect(
+        service.update(s.id, { class_section_id: SEED_SECTION_2_ID, roll_number: 9 }, TENANT_ID),
+      ).rejects.toMatchObject({
+        status: 409,
+        response: { details: { code: 'ROLL_NUMBER_TAKEN' } },
+      });
+    });
+
+    it('a move inside the same section with no roll change keeps the roll', async () => {
+      const s = await mk('Stays', SEED_SECTION_1_ID, 5);
+      const updated = await service.update(
+        s.id,
+        { class_section_id: SEED_SECTION_1_ID, roll_number: 5 },
+        TENANT_ID,
+      );
+      expect(updated.roll_number).toBe(5);
+    });
+  });
+
   describe('update — Enrollment sync (#1020)', () => {
     it('updates the existing ACTIVE Enrollment class_id/section_id when class_section_id changes', async () => {
       const created = await service.create(
