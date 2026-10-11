@@ -499,7 +499,7 @@ describe('exceljs containment', () => {
 
     const production = matches
       .map((p) => p.slice(root.length))
-      .filter((p) => !p.endsWith('.spec.ts'));
+      .filter((p) => !/[.-]spec\.ts$/.test(p)); // *.spec.ts and *.e2e-spec.ts
 
     expect(production).toEqual(['/codec/workbook-codec.ts']);
   });
