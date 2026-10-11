@@ -445,31 +445,38 @@ export class RecoveryService {
     await this.authService.resetLoginLockouts(user);
 
     // GAP-04: a linked Google/Facebook sign-in outlives a reset otherwise.
-    const { raw } = await this.identityRepo
-      .createQueryBuilder()
-      .delete()
-      .where({ user_id: user.id })
-      .returning(['id', 'provider'])
-      .execute();
+    // One transaction: identities are never gone without their audit rows.
     const tenantId = await this.authService.primaryTenantId(user.id);
-    for (const row of raw as Array<{ id: string; provider: string }>) {
-      await this.auditService.record({
-        action: AuditAction.DELETE,
-        entity_type: 'UserIdentity',
-        entity_id: row.id,
-        tenant_id: tenantId,
-        performed_by_user_id: audit.performedByUserId,
-        ip_address: context.ip,
-        user_agent: context.userAgent,
-        old_values: { provider: row.provider, reason: 'password_reset' },
-      });
-    }
+    await this.identityRepo.manager.transaction(async (manager) => {
+      const { raw } = await manager
+        .createQueryBuilder()
+        .delete()
+        .from(UserIdentity)
+        .where({ user_id: user.id })
+        .returning(['id', 'provider'])
+        .execute();
+      for (const row of raw as Array<{ id: string; provider: string }>) {
+        await this.auditService.record(
+          {
+            action: AuditAction.DELETE,
+            entity_type: 'UserIdentity',
+            entity_id: row.id,
+            tenant_id: tenantId,
+            performed_by_user_id: audit.performedByUserId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: { provider: row.provider, reason: 'password_reset' },
+          },
+          manager,
+        );
+      }
+    });
 
     await this.auditService.record({
       action: audit.action,
       entity_type: 'User',
       entity_id: user.id,
-      tenant_id: await this.authService.primaryTenantId(user.id),
+      tenant_id: tenantId,
       performed_by_user_id: audit.performedByUserId,
       ip_address: context.ip,
       user_agent: context.userAgent,
