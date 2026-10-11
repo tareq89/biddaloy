@@ -478,6 +478,89 @@ describe('CalendarEventsService (integration)', () => {
         'CALENDAR_MAKEUP_MUST_COUNT',
       );
     });
+
+    const makeupDto = (date: string) =>
+      ({
+        type: CalendarEventType.MAKEUP_DAY,
+        name: 'Make-up',
+        start_date: date,
+        end_date: date,
+        audience: CalendarAudience.ALL,
+      }) as any;
+
+    // #2253 review: a MAKEUP_DAY changed to another type falls back to that
+    // type's default (not a working day), so the holiday really removes the day.
+    it('MAKEUP_DAY changed to HOLIDAY stops counting as a working day', async () => {
+      const created = await service.create(makeupDto('2030-11-07'), TENANT_ID, SEED_ADMIN_USER_ID);
+      const updated = await service.update(
+        created.id,
+        { type: CalendarEventType.HOLIDAY } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(updated.counts_as_working_day).toBe(false);
+    });
+
+    // #2253 review: once teachers marked a make-up day, taking it away would
+    // leave those registers on a day that is no longer a school day.
+    it('a marked MAKEUP_DAY cannot be removed, moved, or retyped', async () => {
+      const created = await service.create(makeupDto('2030-11-08'), TENANT_ID, SEED_ADMIN_USER_ID);
+      await register(sectionId, '2030-11-08', AttendanceSessionState.FINALIZED, true);
+      await expectCode(
+        service.remove(created.id, TENANT_ID, SEED_ADMIN_USER_ID),
+        'CALENDAR_DAY_HAS_ATTENDANCE',
+      );
+      await expectCode(
+        service.update(
+          created.id,
+          { start_date: '2030-11-09', end_date: '2030-11-09' } as any,
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+        'CALENDAR_DAY_HAS_ATTENDANCE',
+      );
+      await expectCode(
+        service.update(
+          created.id,
+          { type: CalendarEventType.EVENT, counts_as_working_day: true } as any,
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+        'CALENDAR_DAY_HAS_ATTENDANCE',
+      );
+      // A rename touches no date, so it is still fine.
+      const renamed = await service.update(
+        created.id,
+        { name: 'Make-up (renamed)' } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(renamed.name).toBe('Make-up (renamed)');
+    });
+
+    // #2253 review: a closure is "past" as soon as any of its days has passed.
+    it('a closure from yesterday to tomorrow needs a reason and is published silently', async () => {
+      const today: string = await (service as any).getToday(TENANT_ID);
+      const shift = (days: number) => {
+        const d = new Date(`${today}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + days);
+        return d.toISOString().slice(0, 10);
+      };
+      const dto = holidayDto(shift(-1), { end_date: shift(1), publish: false });
+      await expectCode(service.create(dto, TENANT_ID, SEED_ADMIN_USER_ID), 'CALENDAR_REASON_REQUIRED');
+
+      const notify = vi
+        .spyOn((service as any).notifyService, 'eventCreated')
+        .mockResolvedValue(undefined);
+      const created = await service.create(
+        { ...dto, reason: 'Flood, school shut' },
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(created.published).toBe(true);
+      expect(notify).not.toHaveBeenCalled();
+      notify.mockRestore();
+    });
   });
 
   it('publish sets published_at once and is idempotent', async () => {
