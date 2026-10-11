@@ -451,8 +451,8 @@ POST /classes/:classId/sections/:sectionId/teachers | ClassController | perm: CL
 POST /classes/:classId/subjects | ClassSubjectController | perm: CLASS_MANAGE
 POST /communications/reminder/bulk | CommunicationsController | perm: COMMUNICATION_BULK_SEND
 POST /communications/reminder/bulk/preview | CommunicationsController | perm: COMMUNICATION_BULK_SEND
-POST /communications/reminder/single/:studentId | CommunicationsController | perm: COMMUNICATION_SEND | roles: ACCOUNTANT,ADMIN,OFFICE_STAFF
-POST /communications/reminder/single/:studentId/preview | CommunicationsController | perm: COMMUNICATION_SEND | roles: ACCOUNTANT,ADMIN,OFFICE_STAFF
+POST /communications/reminder/single/:studentId | CommunicationsController | perm: COMMUNICATION_SEND
+POST /communications/reminder/single/:studentId/preview | CommunicationsController | perm: COMMUNICATION_SEND
 POST /communications/send | CommunicationsController | perm: COMMUNICATION_SEND
 POST /designations | DesignationController | perm: STAFF_HR_MANAGE
 POST /discount-rules | DiscountRulesController | perm: DISCOUNT_RULE_MANAGE | approval: discount_rules.manage
