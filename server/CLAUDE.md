@@ -103,6 +103,7 @@ yarn test:file -- src/students/students.service.integration.spec.ts
 Integration and E2E tests require a running PostgreSQL database.
 Create `server/.env.test` with `DATABASE_URL` pointing to your test database.
 The test database must exist before running tests.
+A new migration must pass `test/migration-schema.integration.spec.ts` (no drift from the entity files, and a down/up round-trip), so its `down()` must work on an empty database.
 
 ## Execution
 
