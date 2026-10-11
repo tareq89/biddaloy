@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import { Repository } from 'typeorm';
-import { AuditAction, AuthTokenPurpose, CommunicationStatus } from '@biddaloy/shared';
+import { AuditAction, AuthTokenPurpose, CommunicationStatus, UserRole } from '@biddaloy/shared';
 import { Guardian } from '../students/entities/guardian.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { User } from '../users/entities/user.entity';
@@ -13,6 +13,7 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthTokenService } from './auth-token.service';
 import { pickChannel } from './account-access-delivery.service';
+import { guardianLinkedElsewhere } from './school-invite.service';
 import { INVITATION_BATCH_QUEUE, MAX_BATCH_INVITE_SELECTION } from './invitation-batch.constants';
 import type {
   InviteBatchStatusResponseDto,
@@ -148,22 +149,29 @@ export class GuardianProvisioningService {
       }
     }
 
-    if (user?.password_hash) {
-      // Matched by contact (not already linked) and not yet a member here:
-      // the processor files a join request, so this is not "already active".
-      const isMember =
-        !!guardian.user_id ||
-        (await this.userRepo.manager
-          .getRepository(UserTenant)
-          .exist({ where: { user_id: user.id, tenant_id: tenantId }, withDeleted: true }));
-      if (isMember) return { kind: 'skip', reason: 'already_active' };
-      return { kind: 'invite', user, channel: channel.medium };
-    }
-
     if (user) {
-      const latest = await this.authTokens.latest(user.id, AuthTokenPurpose.INVITE, tenantId);
-      if (latest && !latest.consumed_at && !latest.revoked_at && latest.expires_at > new Date()) {
-        return { kind: 'skip', reason: 'already_pending' };
+      const m = this.userRepo.manager;
+      // Same rule the processor applies: this account can never be linked here.
+      if (await guardianLinkedElsewhere(m, user.id, guardian.id)) {
+        return { kind: 'skip', reason: 'contact_in_use' };
+      }
+      // Active only with a LIVE PARENT row here: that is what family access needs. A
+      // link alone, a former row or another role here is still invitable; the
+      // processor revives the row, adds it, or files a join request.
+      if (
+        user.password_hash &&
+        (await m.exists(UserTenant, {
+          where: { user_id: user.id, tenant_id: tenantId, role: UserRole.PARENT },
+        }))
+      ) {
+        return { kind: 'skip', reason: 'already_active' };
+      }
+      // A live invite, or a live join request the owner has not answered yet.
+      for (const purpose of [AuthTokenPurpose.INVITE, AuthTokenPurpose.JOIN_SCHOOL]) {
+        const latest = await this.authTokens.latest(user.id, purpose, tenantId);
+        if (latest && !latest.consumed_at && !latest.revoked_at && latest.expires_at > new Date()) {
+          return { kind: 'skip', reason: 'already_pending' };
+        }
       }
     }
 

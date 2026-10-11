@@ -130,6 +130,13 @@ async function endSwapped(m: EntityManager, ids: string[]): Promise<void> {
     .execute();
 }
 
+/**
+ * Users `upsert` returned without making them members here: a join request
+ * was filed instead. The restore must not index them, so a later tab's ref to
+ * one fails as "not found" rather than copying a stranger's id into this school.
+ */
+export const joinRequestedUsers = new WeakSet<User>();
+
 export const usersTab: TabSpec<User, UserRow> = {
   name: 'users',
   entity: User,
@@ -300,12 +307,23 @@ export const usersTab: TabSpec<User, UserRow> = {
         withDeleted: true,
       });
       if (!everHere) {
+        // Only a VERIFIED contact proves who owns the account. An unverified
+        // holder could be anyone, so they get nothing, not even a request.
+        const verified =
+          (!!row.email && user.email === row.email && !!user.email_verified_at) ||
+          (!!row.phone && user.phone === row.phone && !!user.phone_verified_at);
+        if (!verified) {
+          throw new Error(
+            `User "${row.email ?? row.phone}": email/phone already used by another account.`,
+          );
+        }
         await insertJoinRequest(m, {
           userId: user.id,
           tenantId,
           role: row.role,
           createdByUserId: null,
         });
+        joinRequestedUsers.add(user);
         return user;
       }
     }

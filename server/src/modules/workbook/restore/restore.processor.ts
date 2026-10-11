@@ -10,6 +10,8 @@ import { StorageService } from '../../storage/storage.service';
 import { ImportStagingService } from '../../bulk-import/import-staging.service';
 import { InvitationService } from '../../account-access/invitation.service';
 import { ALL_TABS } from '../codec/registry';
+import { joinRequestedUsers } from '../tabs/people/users.tab';
+import type { User } from '../../users/entities/user.entity';
 import { KeyIndex } from '../codec/key-index';
 import { ValidationService } from '../import/validation.service';
 import type { StagedValidation } from '../import/import.controller';
@@ -275,6 +277,10 @@ export class RestoreProcessor extends WorkerHost {
               existingByKey.get(key) ??
               null;
             const entity = await tab.upsert(typedRow, existing, tenantId, m);
+            applied += 1;
+            // Not a member here yet (a join request was filed): never index it,
+            // never invite it. A later tab's ref to it then fails as unresolved.
+            if (joinRequestedUsers.has(entity as User)) continue;
             const entityId = (entity as { id: string }).id;
             // Index by the key we already computed from the validated row,
             // not `tab.keyOf(entity)` — several tabs derive their key from
@@ -284,7 +290,6 @@ export class RestoreProcessor extends WorkerHost {
             // across unrelated rows.
             index.add(key, entityId);
             matchedIds.add(entityId);
-            applied += 1;
 
             if (tab.name === 'users' && existing === null) {
               createdUserIds.push(entityId);
