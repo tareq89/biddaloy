@@ -28,8 +28,11 @@ import {
   AttendanceStatus,
   AttendanceSessionState,
   CommunicationMedium,
+  CommunicationStatus,
+  EnrollmentStatus,
   UserRole,
 } from '@biddaloy/shared';
+import { Enrollment } from '../students/entities/enrollment.entity';
 
 /**
  * Integration tests for [9.8]'s `AbsenceNoticeService`, run against a real,
@@ -381,6 +384,18 @@ describe('AbsenceNoticeService (integration)', () => {
         .getRepository(CommunicationLog)
         .find({ where: { tenant_id: TENANT_ID }, order: { created_at: 'ASC' } });
 
+    const setEnglish = () =>
+      dataSource.getRepository(School).update(
+        { id: TENANT_ID },
+        {
+          settings: {
+            version: 1,
+            attendance: { ...OFF, autoAbsentNotification: { enabled: true, cutoffTime: '00:00' } },
+            region: { timezone: 'Asia/Dhaka', locale: 'en-US' },
+          } as any,
+        },
+      );
+
     const correct = async (studentId: string, status: AttendanceStatus) => {
       const rec = await dataSource
         .getRepository(AttendanceRecord)
@@ -455,8 +470,72 @@ describe('AbsenceNoticeService (integration)', () => {
       await correct(studentId1, AttendanceStatus.PRESENT);
       const logs = await allLogs();
       expect(logs[1].message_body).toBe(
-        `Correction: Student One was marked present today (${TODAY()}). Sorry for the earlier message.`,
+        `Correction: Student One was not absent on ${TODAY()}. Sorry for the earlier message.`,
       );
+    });
+
+    // #2262: the guardian's latest message must always match the record.
+    const purposes = async () =>
+      (
+        await dataSource.query(
+          `SELECT b.filters_applied->>'purpose' AS purpose
+             FROM communication_logs l JOIN reminder_batches b ON b.id = l.reminder_batch_id
+            WHERE l.tenant_id = $1 AND l.guardian_id = $2 ORDER BY l.created_at`,
+          [TENANT_ID, guardianId],
+        )
+      ).map((r: { purpose: string }) => r.purpose);
+
+    it('ABSENT -> LEAVE says "not absent", never "present"', async () => {
+      await setEnglish();
+      await correct(studentId1, AttendanceStatus.LEAVE);
+      const logs = await allLogs();
+      expect(logs).toHaveLength(2);
+      expect(logs[1].message_body).toBe(
+        `Correction: Student One was not absent on ${TODAY()}. Sorry for the earlier message.`,
+      );
+    });
+
+    it('ABSENT -> PRESENT -> ABSENT tells the guardian again that the child was absent', async () => {
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      await correct(studentId1, AttendanceStatus.ABSENT);
+      expect(await purposes()).toEqual(['ABSENCE_NOTICE', 'ABSENCE_CORRECTION', 'ABSENCE_NOTICE']);
+    });
+
+    it('ABSENT -> PRESENT -> LATE says sorry once', async () => {
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      await correct(studentId1, AttendanceStatus.LATE);
+      expect(await purposes()).toEqual(['ABSENCE_NOTICE', 'ABSENCE_CORRECTION']);
+    });
+
+    it('ABSENT -> PRESENT -> ABSENT -> LATE never sends two sorries in a row', async () => {
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      await correct(studentId1, AttendanceStatus.ABSENT);
+      await correct(studentId1, AttendanceStatus.LATE);
+      expect(await purposes()).toEqual([
+        'ABSENCE_NOTICE',
+        'ABSENCE_CORRECTION',
+        'ABSENCE_NOTICE',
+        'ABSENCE_CORRECTION',
+      ]);
+    });
+
+    it('a FAILED notice does not count as told: no sorry for a message never received', async () => {
+      await dataSource
+        .getRepository(CommunicationLog)
+        .update({ tenant_id: TENANT_ID }, { status: CommunicationStatus.FAILED });
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      expect(await allLogs()).toHaveLength(1);
+    });
+
+    it('a FAILED notice does not block a first notice when the child is marked absent again', async () => {
+      await dataSource
+        .getRepository(CommunicationLog)
+        .update({ tenant_id: TENANT_ID }, { status: CommunicationStatus.FAILED });
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      await correct(studentId1, AttendanceStatus.ABSENT);
+      const logs = await allLogs();
+      expect(logs).toHaveLength(2);
+      expect(await purposes()).toEqual(['ABSENCE_NOTICE', 'ABSENCE_NOTICE']);
     });
 
     it('switch off: a correction sends nothing', async () => {
@@ -464,6 +543,31 @@ describe('AbsenceNoticeService (integration)', () => {
       await correct(studentId1, AttendanceStatus.PRESENT);
       expect(await allLogs()).toHaveLength(1);
     });
+  });
+
+  it('#2269: a child who left the section after being marked absent gets no notice', async () => {
+    await attendanceService.putRegister(putParams({ dto: basePutDto({ finalize: false }) }));
+    await dataSource
+      .getRepository(Enrollment)
+      .update(
+        { student_id: studentId1, tenant_id: TENANT_ID },
+        { enrollment_status: EnrollmentStatus.TRANSFERRED },
+      );
+    await dataSource
+      .getRepository(AttendanceSession)
+      .update(
+        { section_id: sectionId, tenant_id: TENANT_ID },
+        { state: AttendanceSessionState.FINALIZED },
+      );
+
+    const result = await absenceNoticeService.sendAbsenceNotices({
+      tenantId: TENANT_ID,
+      sectionId,
+      date: TODAY(),
+      initiatedByUserId: ADMIN_USER_ID,
+    });
+
+    expect(result.total_recipients).toBe(0);
   });
 
   it('does nothing for a DRAFT (not finalized) session', async () => {
