@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
@@ -16,6 +17,10 @@ import { Subject } from '../academics/entities/subject.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
+import { SchoolsService } from '../schools/schools.service';
+import { AuditService } from '../audit/audit.service';
+import { localToday } from '../attendance/attendance-policy.util';
+import { AuditAction, RoutineState } from '@biddaloy/shared';
 import { UpsertRoutineSlotDto } from './dto/routine-slots.dto';
 import { checkSlot, SlotLike, Violation, Warning } from './constraint-check';
 
@@ -52,7 +57,14 @@ export class RoutineSlotsService {
     private readonly tcsRepo: Repository<TeacherClassSection>,
     private readonly settingsReader: SchoolSettingsReader,
     private readonly dataSource: DataSource,
+    private readonly schoolsService: SchoolsService,
+    private readonly auditService: AuditService,
   ) {}
+
+  private async today(tenantId: string): Promise<string> {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    return localToday(settings.region?.timezone ?? 'UTC');
+  }
 
   async findForRoutine(routineId: string, tenantId: string): Promise<RoutineSlotWithWarnings[]> {
     await this.getRoutine(routineId, tenantId);
@@ -114,11 +126,28 @@ export class RoutineSlotsService {
     id: string,
     dto: UpsertRoutineSlotDto,
     tenantId: string,
+    userId: string | null,
   ): Promise<RoutineSlotWithWarnings> {
     return this.dataSource.transaction(async (manager) => {
       const oldSlot = await manager.findOne(RoutineSlot, { where: { id, tenant_id: tenantId } });
       if (!oldSlot) {
         throw new NotFoundException(`Routine slot with ID "${id}" not found`);
+      }
+
+      // TIME-08: a published routine's history is what the school answers
+      // "what was the timetable on 3 March?" from — an edit may only take
+      // effect from today onwards.
+      const routine = await manager.findOne(Routine, {
+        where: { id: oldSlot.routine_id, tenant_id: tenantId },
+      });
+      if (
+        routine?.state === RoutineState.PUBLISHED &&
+        dto.valid_from < (await this.today(tenantId))
+      ) {
+        throw new UnprocessableEntityException({
+          message: 'An edit to a published routine can take effect today at the earliest',
+          details: { code: 'ROUTINE_SLOT_BACKDATED' },
+        });
       }
 
       // D4 effective dating only makes sense moving forward from the old
@@ -158,6 +187,18 @@ export class RoutineSlotsService {
       }
 
       const saved = await this.persist(oldSlot.routine_id, tenantId, dto, manager);
+      await this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'RoutineSlot',
+          entity_id: oldSlot.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          old_values: slotAuditValues(oldSlot),
+          new_values: { new_slot_id: saved.id, valid_from: dto.valid_from, valid_to: closeDate },
+        },
+        manager,
+      );
       return { slot: saved, teacher_ids: dto.teacher_ids, warnings };
     });
   }
@@ -190,15 +231,64 @@ export class RoutineSlotsService {
     }
   }
 
-  async remove(id: string, tenantId: string): Promise<void> {
-    const slot = await this.slotRepo.findOne({ where: { id, tenant_id: tenantId } });
-    if (!slot) {
-      throw new NotFoundException(`Routine slot with ID "${id}" not found`);
-    }
-    // Explicit child-row delete (D16) — FK is ON DELETE CASCADE too, this
-    // just makes the intent visible rather than relying on it silently.
-    await this.slotTeacherRepo.delete({ routine_slot_id: id, tenant_id: tenantId });
-    await this.slotRepo.delete({ id, tenant_id: tenantId });
+  /**
+   * TIME-08: on a PUBLISHED routine a slot that has already been in effect
+   * is end-dated (`valid_to = yesterday`), never deleted — a delete would
+   * erase it from every past date and cascade-delete its substitutions
+   * and change requests. Drafts, and slots that never became active,
+   * are hard-deleted as before. Every remove writes an audit row.
+   */
+  async remove(id: string, tenantId: string, userId: string | null): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const slot = await manager.findOne(RoutineSlot, { where: { id, tenant_id: tenantId } });
+      if (!slot) {
+        throw new NotFoundException(`Routine slot with ID "${id}" not found`);
+      }
+      const routine = await this.getRoutine(slot.routine_id, tenantId);
+      const today = await this.today(tenantId);
+      const published = routine.state === RoutineState.PUBLISHED;
+
+      if (published && slot.valid_from < today) {
+        if (slot.valid_to !== null && slot.valid_to < today) {
+          throw new ConflictException({
+            message: 'This slot has already ended',
+            details: { code: 'ROUTINE_SLOT_ALREADY_ENDED' },
+          });
+        }
+        const valid_to = dayBefore(today);
+        await manager.update(RoutineSlot, { id, tenant_id: tenantId }, { valid_to });
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'RoutineSlot',
+            entity_id: id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            old_values: slotAuditValues(slot),
+            new_values: { valid_to },
+          },
+          manager,
+        );
+        return;
+      }
+
+      // Explicit child-row delete (D16) — FK is ON DELETE CASCADE too, this
+      // just makes the intent visible rather than relying on it silently.
+      await manager.delete(RoutineSlotTeacher, { routine_slot_id: id, tenant_id: tenantId });
+      await manager.delete(RoutineSlot, { id, tenant_id: tenantId });
+      await this.auditService.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'RoutineSlot',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          old_values: slotAuditValues(slot),
+          new_values: null,
+        },
+        manager,
+      );
+    });
   }
 
   // --- internals ---
@@ -388,4 +478,14 @@ function dayBefore(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
+}
+
+function slotAuditValues(slot: RoutineSlot): Record<string, unknown> {
+  return {
+    valid_from: slot.valid_from,
+    valid_to: slot.valid_to,
+    section_id: slot.section_id,
+    subject_id: slot.subject_id,
+    period_slot_id: slot.period_slot_id,
+  };
 }
