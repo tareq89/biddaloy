@@ -5,10 +5,12 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
-import { AuditAction, ExamComponentKind, ExamComponentSource } from '@biddaloy/shared';
+import { Repository, IsNull, In, EntityManager } from 'typeorm';
+import { AuditAction, ExamComponentKind, ExamComponentSource, ExamStatus } from '@biddaloy/shared';
 import { Exam } from './entities/exam.entity';
 import { ExamComponent } from './entities/exam-component.entity';
+import { Mark } from './entities/mark.entity';
+import { ResultsService, lockExam } from './results.service';
 import { Subject } from '../academics/entities/subject.entity';
 import {
   CreateExamComponentDto,
@@ -33,6 +35,7 @@ export class ExamComponentsService {
     @InjectRepository(Subject)
     private readonly subjectRepo: Repository<Subject>,
     private readonly auditService: AuditService,
+    private readonly resultsService: ResultsService,
   ) {}
 
   private async findExam(examId: string, tenantId: string): Promise<Exam> {
@@ -43,6 +46,37 @@ export class ExamComponentsService {
       throw new NotFoundException(`Exam with ID "${examId}" not found`);
     }
     return exam;
+  }
+
+  /** [ACAD-05] Locks the exam row and refuses edits once results are
+   * published — reopening (step-up approved, audited) is the only way back. */
+  private async lockEditableExam(
+    manager: EntityManager,
+    examId: string,
+    tenantId: string,
+  ): Promise<Exam> {
+    const exam = await lockExam(manager, examId, tenantId);
+    if (exam.status === ExamStatus.PUBLISHED) {
+      throw new ConflictException({
+        message: "This exam's results are published. Reopen the results first.",
+        details: { code: 'EXAM_PUBLISHED' },
+      });
+    }
+    return exam;
+  }
+
+  /** A PROCESSED exam's stored results go stale on any part change, so they
+   * are rewritten in the same transaction (a failure rolls the edit back). */
+  private async recomputeIfProcessed(
+    manager: EntityManager,
+    exam: Exam,
+    tenantId: string,
+    userId: string | null,
+    context: RequestContext,
+  ): Promise<void> {
+    if (exam.status === ExamStatus.PROCESSED) {
+      await this.resultsService.recomputeProcessedExam(manager, exam.id, tenantId, userId, context);
+    }
   }
 
   /** IDOR guard: a component's `subject_id` must belong to the caller's
@@ -129,16 +163,16 @@ export class ExamComponentsService {
     await this.assertSubjectBelongsToTenant(dto.subject_id, tenantId);
     const source = dto.source ?? ExamComponentSource.MANUAL;
 
-    await this.validate(examId, dto.subject_id, tenantId, {
-      name: dto.name,
-      kind: dto.kind,
-      source,
-      full_marks: dto.full_marks,
-      pass_marks: dto.pass_marks ?? null,
-      sequence: dto.sequence,
-    });
-
     return this.repo.manager.transaction(async (manager) => {
+      const exam = await this.lockEditableExam(manager, examId, tenantId);
+      await this.validate(examId, dto.subject_id, tenantId, {
+        name: dto.name,
+        kind: dto.kind,
+        source,
+        full_marks: dto.full_marks,
+        pass_marks: dto.pass_marks ?? null,
+        sequence: dto.sequence,
+      });
       const repo = manager.getRepository(ExamComponent);
       const entity = repo.create({
         exam_id: examId,
@@ -168,6 +202,7 @@ export class ExamComponentsService {
         manager,
       );
 
+      await this.recomputeIfProcessed(manager, exam, tenantId, userId, context);
       return saved;
     });
   }
@@ -204,47 +239,66 @@ export class ExamComponentsService {
   ): Promise<ExamComponent> {
     const existing = await this.findOne(examId, id, tenantId);
 
-    await this.validate(
-      examId,
-      existing.subject_id,
-      tenantId,
-      {
-        name: dto.name ?? existing.name,
-        kind: dto.kind ?? existing.kind,
-        source: dto.source ?? existing.source,
-        full_marks: dto.full_marks ?? existing.full_marks,
-        pass_marks: dto.pass_marks !== undefined ? dto.pass_marks : existing.pass_marks,
-        sequence: dto.sequence ?? existing.sequence,
-      },
-      id,
-    );
-
     const changedKeys = Object.keys(dto);
-    if (changedKeys.length > 0) {
-      await this.repo.manager.transaction(async (manager) => {
-        const repo = manager.getRepository(ExamComponent);
-        const oldValues = Object.fromEntries(
-          changedKeys.map((key) => [key, (existing as any)[key]]),
-        );
+    await this.repo.manager.transaction(async (manager) => {
+      const exam = await this.lockEditableExam(manager, examId, tenantId);
 
-        await repo.update({ id, exam_id: examId, tenant_id: tenantId }, dto);
+      await this.validate(
+        examId,
+        existing.subject_id,
+        tenantId,
+        {
+          name: dto.name ?? existing.name,
+          kind: dto.kind ?? existing.kind,
+          source: dto.source ?? existing.source,
+          full_marks: dto.full_marks ?? existing.full_marks,
+          pass_marks: dto.pass_marks !== undefined ? dto.pass_marks : existing.pass_marks,
+          sequence: dto.sequence ?? existing.sequence,
+        },
+        id,
+      );
 
-        await this.auditService.record(
-          {
-            action: AuditAction.UPDATE,
-            entity_type: 'ExamComponent',
-            entity_id: id,
-            tenant_id: tenantId,
-            performed_by_user_id: userId,
-            ip_address: context.ip,
-            user_agent: context.userAgent,
-            old_values: oldValues,
-            new_values: { ...dto },
-          },
-          manager,
-        );
-      });
-    }
+      // [ACAD-05] full_marks can never drop below a mark already entered
+      // (report cards would read 24/20). Checked under the exam lock.
+      if (dto.full_marks !== undefined) {
+        const row = await manager
+          .getRepository(Mark)
+          .createQueryBuilder('m')
+          .select('MAX(m.value)', 'max')
+          .where('m.component_id = :id', { id })
+          .andWhere('m.tenant_id = :tenantId', { tenantId })
+          .getRawOne<{ max: string | null }>();
+        if (row?.max != null && Number(row.max) > Number(dto.full_marks)) {
+          throw new BadRequestException({
+            message: `full_marks (${dto.full_marks}) is below a mark already entered (${row.max}).`,
+            details: { code: 'FULL_MARKS_BELOW_ENTERED' },
+          });
+        }
+      }
+
+      if (changedKeys.length === 0) return;
+      const repo = manager.getRepository(ExamComponent);
+      const oldValues = Object.fromEntries(changedKeys.map((key) => [key, (existing as any)[key]]));
+
+      await repo.update({ id, exam_id: examId, tenant_id: tenantId }, dto);
+
+      await this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'ExamComponent',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: oldValues,
+          new_values: { ...dto },
+        },
+        manager,
+      );
+
+      await this.recomputeIfProcessed(manager, exam, tenantId, userId, context);
+    });
 
     return this.findOne(examId, id, tenantId);
   }
@@ -259,6 +313,7 @@ export class ExamComponentsService {
     const existing = await this.findOne(examId, id, tenantId);
 
     await this.repo.manager.transaction(async (manager) => {
+      const exam = await this.lockEditableExam(manager, examId, tenantId);
       const repo = manager.getRepository(ExamComponent);
       await repo.softDelete({ id, exam_id: examId, tenant_id: tenantId });
 
@@ -276,6 +331,8 @@ export class ExamComponentsService {
         },
         manager,
       );
+
+      await this.recomputeIfProcessed(manager, exam, tenantId, userId, context);
     });
   }
 
@@ -314,91 +371,96 @@ export class ExamComponentsService {
       throw new BadRequestException(`Subject(s) not found for this tenant: ${missing.join(', ')}`);
     }
 
-    const sourceComponents = await this.repo.find({
-      where: {
-        exam_id: dto.source_exam_id,
-        subject_id: dto.source_subject_id,
-        tenant_id: tenantId,
-        deleted_at: IsNull(),
-      },
-      order: { sequence: 'ASC' },
-    });
-
     const result: CopyComponentsResult = { copied: [], skipped: [] };
-
-    for (const targetSubjectId of dto.target_subject_ids) {
-      const existingTarget = await this.repo.find({
+    await this.repo.manager.transaction(async (manager) => {
+      const exam = await this.lockEditableExam(manager, examId, tenantId);
+      const repo = manager.getRepository(ExamComponent);
+      const sourceComponents = await repo.find({
         where: {
-          exam_id: examId,
-          subject_id: targetSubjectId,
+          exam_id: dto.source_exam_id,
+          subject_id: dto.source_subject_id,
           tenant_id: tenantId,
           deleted_at: IsNull(),
         },
+        order: { sequence: 'ASC' },
       });
-      const existingNames = new Set(existingTarget.map((c) => c.name));
-      let nextSequence = existingTarget.reduce((max, c) => Math.max(max, c.sequence), 0) + 1;
-      let attendanceAlready = existingTarget.some((c) => c.kind === ExamComponentKind.ATTENDANCE);
 
-      for (const source of sourceComponents) {
-        if (existingNames.has(source.name)) {
-          result.skipped.push({
-            subject_id: targetSubjectId,
-            name: source.name,
-            reason: 'A component with this name already exists for this exam-subject.',
-          });
-          continue;
-        }
-        if (source.kind === ExamComponentKind.ATTENDANCE && attendanceAlready) {
-          result.skipped.push({
-            subject_id: targetSubjectId,
-            name: source.name,
-            reason: 'This exam-subject already has an ATTENDANCE component.',
-          });
-          continue;
-        }
-
-        await this.repo.manager.transaction(async (manager) => {
-          const repo = manager.getRepository(ExamComponent);
-          const entity = repo.create({
+      for (const targetSubjectId of dto.target_subject_ids) {
+        const existingTarget = await repo.find({
+          where: {
             exam_id: examId,
             subject_id: targetSubjectId,
-            name: source.name,
-            kind: source.kind,
-            source: source.source,
-            full_marks: source.full_marks,
-            pass_marks: source.pass_marks,
-            sequence: nextSequence,
             tenant_id: tenantId,
-          });
-          const saved = await repo.save(entity);
-
-          await this.auditService.record(
-            {
-              action: AuditAction.CREATE,
-              entity_type: 'ExamComponent',
-              entity_id: saved.id,
-              tenant_id: tenantId,
-              performed_by_user_id: userId,
-              ip_address: context.ip,
-              user_agent: context.userAgent,
-              old_values: null,
-              new_values: {
-                name: saved.name,
-                kind: saved.kind,
-                subject_id: saved.subject_id,
-                copied_from: source.id,
-              },
-            },
-            manager,
-          );
+            deleted_at: IsNull(),
+          },
         });
+        const existingNames = new Set(existingTarget.map((c) => c.name));
+        let nextSequence = existingTarget.reduce((max, c) => Math.max(max, c.sequence), 0) + 1;
+        let attendanceAlready = existingTarget.some((c) => c.kind === ExamComponentKind.ATTENDANCE);
 
-        existingNames.add(source.name);
-        if (source.kind === ExamComponentKind.ATTENDANCE) attendanceAlready = true;
-        nextSequence += 1;
-        result.copied.push({ subject_id: targetSubjectId, name: source.name });
+        for (const source of sourceComponents) {
+          if (existingNames.has(source.name)) {
+            result.skipped.push({
+              subject_id: targetSubjectId,
+              name: source.name,
+              reason: 'A component with this name already exists for this exam-subject.',
+            });
+            continue;
+          }
+          if (source.kind === ExamComponentKind.ATTENDANCE && attendanceAlready) {
+            result.skipped.push({
+              subject_id: targetSubjectId,
+              name: source.name,
+              reason: 'This exam-subject already has an ATTENDANCE component.',
+            });
+            continue;
+          }
+
+          {
+            const entity = repo.create({
+              exam_id: examId,
+              subject_id: targetSubjectId,
+              name: source.name,
+              kind: source.kind,
+              source: source.source,
+              full_marks: source.full_marks,
+              pass_marks: source.pass_marks,
+              sequence: nextSequence,
+              tenant_id: tenantId,
+            });
+            const saved = await repo.save(entity);
+
+            await this.auditService.record(
+              {
+                action: AuditAction.CREATE,
+                entity_type: 'ExamComponent',
+                entity_id: saved.id,
+                tenant_id: tenantId,
+                performed_by_user_id: userId,
+                ip_address: context.ip,
+                user_agent: context.userAgent,
+                old_values: null,
+                new_values: {
+                  name: saved.name,
+                  kind: saved.kind,
+                  subject_id: saved.subject_id,
+                  copied_from: source.id,
+                },
+              },
+              manager,
+            );
+          }
+
+          existingNames.add(source.name);
+          if (source.kind === ExamComponentKind.ATTENDANCE) attendanceAlready = true;
+          nextSequence += 1;
+          result.copied.push({ subject_id: targetSubjectId, name: source.name });
+        }
       }
-    }
+      if (result.copied.length > 0) {
+        await this.recomputeIfProcessed(manager, exam, tenantId, userId, context);
+      }
+    });
 
     return result;
   }

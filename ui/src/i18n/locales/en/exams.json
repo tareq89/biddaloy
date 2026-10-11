@@ -114,6 +114,7 @@
     "goToSetup": "Go to Marks breakdown"
   },
   "componentsPanel": {
+    "lockedPublished": "Results are published. Reopen the results to change the exam parts.",
     "subjectLabel": "Subject",
     "subjectPlaceholder": "Select a subject",
     "copyComponents": "Copy from elsewhere",

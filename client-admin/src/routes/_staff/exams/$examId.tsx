@@ -131,6 +131,7 @@ function ExamDetailPage() {
                 examId={examId}
                 classId={exam.class_id}
                 academicYearId={exam.academic_year_id}
+                examStatus={exam.status}
               />
             ),
           },

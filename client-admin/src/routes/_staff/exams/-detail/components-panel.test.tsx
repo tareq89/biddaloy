@@ -40,10 +40,13 @@ describe('exams/$examId Marks breakdown tab', () => {
     components?: ReturnType<typeof examComponentFactory>[];
     subjects?: (typeof math)[];
     post?: () => Response | Promise<Response>;
+    status?: string;
   }) {
     const events = { deletes: [] as string[], posts: [] as unknown[] };
     server.use(
-      http.get('/api/v1/exams/:id', () => HttpResponse.json(exam)),
+      http.get('/api/v1/exams/:id', () =>
+        HttpResponse.json(options.status ? { ...exam, status: options.status } : exam),
+      ),
       http.get('/api/v1/exams/:examId/marks/progress', () =>
         HttpResponse.json({ counts: { DRAFT: 0, SUBMITTED: 0 }, outstanding: [] }),
       ),
@@ -79,6 +82,15 @@ describe('exams/$examId Marks breakdown tab', () => {
       locale: 'en',
     });
   }
+
+  it('is read-only with a "reopen first" line when the exam is PUBLISHED', async () => {
+    mockTab({ status: 'PUBLISHED' });
+    renderTab();
+
+    await screen.findByText('Results are published. Reopen the results to change the exam parts.');
+    expect(screen.queryByLabelText('Full marks')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Copy from elsewhere' })).toBeNull();
+  });
 
   it('hides the marks field once ATTENDANCE is chosen as the kind', async () => {
     const user = userEvent.setup();
@@ -143,7 +155,12 @@ describe('exams/$examId Marks breakdown tab', () => {
     const user = userEvent.setup();
     const events = mockTab({
       components: [
-        examComponentFactory({ id: 'comp-1', exam_id: exam.id, subject_id: math.id, name: 'Written' }),
+        examComponentFactory({
+          id: 'comp-1',
+          exam_id: exam.id,
+          subject_id: math.id,
+          name: 'Written',
+        }),
       ],
     });
     renderTab();
@@ -161,7 +178,12 @@ describe('exams/$examId Marks breakdown tab', () => {
     const user = userEvent.setup();
     const events = mockTab({
       components: [
-        examComponentFactory({ id: 'comp-1', exam_id: exam.id, subject_id: math.id, name: 'Written' }),
+        examComponentFactory({
+          id: 'comp-1',
+          exam_id: exam.id,
+          subject_id: math.id,
+          name: 'Written',
+        }),
       ],
     });
     server.use(
