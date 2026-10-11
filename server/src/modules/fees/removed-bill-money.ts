@@ -49,6 +49,8 @@ export async function returnMoneyOfRemovedBills(
        FROM payment_allocations pa
        JOIN payments p ON p.id = pa.payment_id
       WHERE pa.student_fee_id = ANY($1::uuid[])
+        -- Only money that arrived: PENDING/FAILED rows carry allocations too.
+        AND p.payment_status = 'SUCCESS'
         AND p.reversal_of_payment_id IS NULL
         AND p.reversed_by_payment_id IS NULL
         AND p.deleted_at IS NULL
