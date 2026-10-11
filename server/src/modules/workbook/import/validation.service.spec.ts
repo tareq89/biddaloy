@@ -174,6 +174,116 @@ describe('ValidationService', () => {
     expect(result.hardErrorCount).toBe(1);
   });
 
+  it('warns a BACKUP once about what a backup does not contain; a TEMPLATE gets none', async () => {
+    const tabA = makeTab('a');
+    const sheets = () => new Map([['a', sheet(['id', 'key'], [])]]);
+    const service = new ValidationService();
+
+    readWorkbook.mockResolvedValue(fakeReadResult(sheets()));
+    const backup = await service.validate(Buffer.from(''), 'tenant-1', manager, [tabA]);
+    const notes = backup.warnings.filter((w) => w.tab === '*');
+    expect(notes).toHaveLength(1);
+    expect(notes[0].message).toContain('student wallet balances');
+
+    const tpl = fakeReadResult(sheets());
+    tpl.meta.kind = 'TEMPLATE';
+    readWorkbook.mockResolvedValue(tpl);
+    const template = await service.validate(Buffer.from(''), 'tenant-1', manager, [tabA]);
+    expect(template.warnings.filter((w) => w.tab === '*')).toHaveLength(0);
+  });
+
+  describe('anonymous surveys', () => {
+    const svTab = (anonymous: boolean) => {
+      const t = makeTab('surveys', { existing: [{ id: 's1', key: 'S', anonymous } as any] });
+      const base = t.fromRow;
+      t.fromRow = (cells, rowNo, ctx) => {
+        const r = base(cells, rowNo, ctx);
+        return 'row' in r ? { row: { ...r.row, anonymous: cells.anonymous === 'true' } as any } : r;
+      };
+      return t;
+    };
+    const respTab = () => makeTab('survey_responses', { dependsOn: ['surveys'] });
+    const run = async (
+      surveys: Array<Record<string, string>>,
+      responses: Array<Record<string, string>>,
+    ) => {
+      readWorkbook.mockResolvedValue(
+        fakeReadResult(
+          new Map([
+            [
+              'surveys',
+              sheet(
+                ['id', 'key', 'anonymous'],
+                surveys.map((cells, i) => ({ rowNo: i + 2, cells })),
+              ),
+            ],
+            [
+              'survey_responses',
+              sheet(
+                ['id', 'key', 'survey'],
+                responses.map((cells, i) => ({ rowNo: i + 2, cells })),
+              ),
+            ],
+          ]),
+        ),
+      );
+      return new ValidationService().validate(Buffer.from(''), 't', manager, [
+        svTab(true),
+        respTab(),
+      ]);
+    };
+
+    it('skips, with a warning, response rows of an anonymous survey (older file)', async () => {
+      const r = await run(
+        [{ id: 's1', key: 'S', anonymous: 'true' }],
+        [{ id: '', key: 'r1', survey: 'S' }],
+      );
+      expect(r.tabs.survey_responses.rows).toHaveLength(0);
+      expect(r.hardErrorCount).toBe(0);
+      expect(
+        r.warnings.some((w) => w.tab === 'survey_responses' && /anonymous survey/.test(w.message)),
+      ).toBe(true);
+    });
+
+    it('skips answer rows whose response key starts with an anonymous survey key', async () => {
+      readWorkbook.mockResolvedValue(
+        fakeReadResult(
+          new Map([
+            [
+              'surveys',
+              sheet(
+                ['id', 'key', 'anonymous'],
+                [{ rowNo: 2, cells: { id: 's1', key: 'S', anonymous: 'true' } }],
+              ),
+            ],
+            [
+              'survey_answers',
+              sheet(
+                ['id', 'key', 'response'],
+                [{ rowNo: 2, cells: { id: '', key: 'a1', response: 'S|x' } }],
+              ),
+            ],
+          ]),
+        ),
+      );
+      const r = await new ValidationService().validate(Buffer.from(''), 't', manager, [
+        svTab(true),
+        makeTab('survey_answers', { dependsOn: ['surveys'] }),
+      ]);
+      expect(r.tabs.survey_answers.rows).toHaveLength(0);
+      expect(r.hardErrorCount).toBe(0);
+      expect(
+        r.warnings.some((w) => w.tab === 'survey_answers' && /anonymous survey/.test(w.message)),
+      ).toBe(true);
+    });
+
+    it('refuses a restore that changes anonymous on an existing survey', async () => {
+      const r = await run([{ id: 's1', key: 'S', anonymous: 'false' }], []);
+      expect(r.hardErrorCount).toBe(1);
+      expect(r.errors[0].message).toContain('anonymous');
+    });
+  });
+
   it('resolves a reference to a row defined earlier in the same workbook', async () => {
     const tabA = makeTab('a');
     const tabB = makeTab('b', { dependsOn: ['a'], refTab: 'a' });
@@ -455,14 +565,17 @@ describe('ValidationService', () => {
       const tab = makeTab('marks', { existing: [{ id: 'e1', key: 'k' }] });
       const r = await run(tab, rows('k'));
       expect(r.hardErrorCount).toBe(0);
-      expect(r.warnings).toHaveLength(0);
+      // The always-on "does not contain" backup note is not about this row.
+      expect(r.warnings.filter((w) => !/does not contain/.test(w.message))).toHaveLength(0);
     });
 
     it('warns once, without error, when existing rows are absent from the file', async () => {
       const tab = makeTab('payments', { existing: [{ id: 'e9', key: 'z' }] });
       const r = await run(tab, new Map([['payments', sheet(['id', 'key'], [])]]));
       expect(r.hardErrorCount).toBe(0);
-      expect(r.warnings.map((w) => w.message)).toEqual([
+      expect(
+        r.warnings.filter((w) => !/does not contain/.test(w.message)).map((w) => w.message),
+      ).toEqual([
         '1 existing payments rows are not in this file. A restore never removes them; they will be kept.',
       ]);
     });

@@ -3,6 +3,7 @@ import type { EntityManager } from 'typeorm';
 import { readWorkbook } from '../codec/workbook-codec';
 import { KeyIndex } from '../codec/key-index';
 import { ALL_TABS } from '../codec/registry';
+import { NOT_IN_BACKUP } from '../codec/entity-coverage';
 import { INSERT_ONLY_TABS } from '../codec/insert-only-tabs';
 import type { ImportContext, RowError, TabSpec } from '../codec/tab-spec';
 import type { ValidatedTab, ValidatedWorkbook } from './validated-workbook';
@@ -78,8 +79,18 @@ export class ValidationService {
       warnings.push(w);
     };
 
+    // Natural keys of anonymous surveys (in the DB or in this file). A backup
+    // never holds their responses/answers, so any such rows in an older file
+    // are skipped: inserting them would break the one-answer-per-respondent key.
+    const anonSurveyKeys = new Set<string>();
+
     for (const tab of tabSpecs) {
       const existingEntities = await tab.load(tenantId, manager);
+      if (tab.name === 'surveys') {
+        for (const e of existingEntities as Array<{ anonymous?: boolean }>) {
+          if (e.anonymous) anonSurveyKeys.add(tab.keyOf(e as never));
+        }
+      }
       existingIndexes.set(tab.name, KeyIndex.fromEntities(tab, existingEntities));
       pendingIndexes.set(tab.name, new Map<string, string>());
       // Only built for an `allowDuplicateKeys` tab (see its doc comment) —
@@ -202,7 +213,9 @@ export class ValidationService {
       const insertOnly = INSERT_ONLY_TABS.has(tab.name);
       // Rows this restore would delete by absence, checked like an app delete.
       const checkRemove =
-        !insertOnly && tab.deleteByAbsence && meta.kind !== 'TEMPLATE' ? tab.checkRemove : undefined;
+        !insertOnly && tab.deleteByAbsence && meta.kind !== 'TEMPLATE'
+          ? tab.checkRemove
+          : undefined;
       const trackMatches = insertOnly || checkRemove !== undefined;
       const byId = new Map<string, unknown>();
       const byKey = new Map<string, unknown>();
@@ -216,10 +229,49 @@ export class ValidationService {
       }
 
       for (const { rowNo, cells } of sheet.rows) {
+        const parentKey =
+          tab.name === 'survey_responses'
+            ? cells.survey
+            : tab.name === 'survey_answers'
+              ? cells.response
+              : undefined;
+        if (
+          parentKey !== undefined &&
+          [...anonSurveyKeys].some((k) => parentKey === k || parentKey.startsWith(`${k}|`))
+        ) {
+          recordWarning(tabWarnings, {
+            tab: tab.name,
+            row: rowNo,
+            column: null,
+            severity: 'warning',
+            message: `Row ${rowNo} of "${tab.name}" belongs to an anonymous survey. A backup does not restore anonymous answers, so it was skipped.`,
+          });
+          continue;
+        }
         const result = tab.fromRow(cells, rowNo, ctx);
         if ('errors' in result) {
           for (const e of result.errors) recordError(tabErrors, e);
           continue;
+        }
+
+        if (tab.name === 'surveys') {
+          const row = result.row as { id?: unknown; anonymous?: boolean };
+          if (row.anonymous) anonSurveyKeys.add(tab.keyOf(result.row));
+          const rid = typeof row.id === 'string' ? row.id : undefined;
+          const prior = existingEntities.find(
+            (e: any) =>
+              (rid !== undefined && e.id === rid) || tab.keyOf(e) === tab.keyOf(result.row),
+          ) as { anonymous?: boolean } | undefined;
+          if (prior && Boolean(prior.anonymous) !== Boolean(row.anonymous)) {
+            recordError(tabErrors, {
+              tab: tab.name,
+              row: rowNo,
+              column: 'anonymous',
+              severity: 'error',
+              message: `Row ${rowNo} of "surveys" changes whether an existing survey is anonymous. A restore cannot do that; make this change in the app.`,
+            });
+            continue;
+          }
         }
 
         const key = tab.keyOf(result.row);
@@ -356,7 +408,13 @@ export class ValidationService {
         const absent = existingEntities.filter((e) => !matchedExisting.has(e));
         const refusals = absent.length > 0 ? await checkRemove(absent, tenantId, manager) : [];
         for (const message of refusals) {
-          recordError(tabErrors, { tab: tab.name, row: 0, column: null, severity: 'error', message });
+          recordError(tabErrors, {
+            tab: tab.name,
+            row: 0,
+            column: null,
+            severity: 'error',
+            message,
+          });
         }
       }
 
@@ -374,6 +432,16 @@ export class ValidationService {
       }
 
       tabs[tab.name] = { present: true, rows, errors: tabErrors, warnings: tabWarnings };
+    }
+
+    if (meta.kind === 'BACKUP') {
+      warnings.push({
+        tab: '*',
+        row: 0,
+        column: null,
+        severity: 'warning',
+        message: `This backup does not contain: ${NOT_IN_BACKUP.join(', ')}. A restore leaves these as they are in this school. Restoring into a new school loses them.`,
+      });
     }
 
     if (totalWarningCount > storedWarningCount) {

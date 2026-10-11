@@ -26,7 +26,7 @@ import { academicYearsTab } from '../academics/academic-years.tab';
 import { subjectsTab } from '../academics/subjects.tab';
 import { acrTabs } from './acr.tab';
 import { incidentsTabs } from './incidents.tab';
-import { surveysTabs } from './surveys.tab';
+import { surveyResponsesTab, surveysTabs } from './surveys.tab';
 import { teachersTab } from './teachers.tab';
 import { usersTab } from './users.tab';
 
@@ -183,7 +183,7 @@ describe('ACR / incidents / surveys tabs (integration)', () => {
       tenant_id: TENANT,
       title: 'Term 1',
       status: 'OPEN',
-      anonymous: true,
+      anonymous: false,
       respondent: 'BOTH',
       opens_at: null,
       closes_at: new Date('2026-07-01T00:00:00.000Z'),
@@ -219,8 +219,69 @@ describe('ACR / incidents / surveys tabs (integration)', () => {
     return staff;
   }
 
+  /** An anonymous survey with one response and one answer, beside the named one from seed(). */
+  async function seedAnonymous(staff: { id: string }) {
+    const teacher = await ds.getRepository(Teacher).findOneByOrFail({ tenant_id: TENANT });
+    const subject = await ds.getRepository(Subject).findOneByOrFail({ tenant_id: TENANT });
+    const survey = await ds.getRepository(Survey).save({
+      tenant_id: TENANT,
+      title: 'Anon Term 1',
+      status: 'OPEN',
+      anonymous: true,
+      respondent: 'BOTH',
+      opens_at: null,
+      closes_at: new Date('2026-07-01T00:00:00.000Z'),
+      min_responses: 5,
+    });
+    const question = await ds.getRepository(SurveyQuestion).save({
+      tenant_id: TENANT,
+      survey_id: survey.id,
+      sort_order: 1,
+      text: 'Fair?',
+      stars_enabled: true,
+    });
+    await ds.getRepository(SurveyTarget).save({
+      tenant_id: TENANT,
+      survey_id: survey.id,
+      teacher_id: teacher.id,
+      subject_id: subject.id,
+    });
+    const response = await ds.getRepository(SurveyResponse).save({
+      tenant_id: TENANT,
+      survey_id: survey.id,
+      respondent_user_id: staff.id,
+      teacher_id: teacher.id,
+      subject_id: subject.id,
+    });
+    await ds.getRepository(SurveyAnswer).save({
+      tenant_id: TENANT,
+      response_id: response.id,
+      question_id: question.id,
+      text: 'No',
+      stars: 1,
+    });
+    return response.id;
+  }
+
+  it('leaves anonymous surveys responses and answers out of the export, and keeps them in the DB', async () => {
+    const staff = await seed();
+    const anonResponseId = await seedAnonymous(staff);
+    const exported = await exportAll();
+
+    expect(exported.sheets.get('surveys')).toHaveLength(2);
+    expect(exported.sheets.get('survey_responses')).toHaveLength(1);
+    expect(exported.sheets.get('survey_answers')).toHaveLength(1);
+    expect(JSON.stringify(exported.sheets.get('survey_answers'))).not.toContain('Anon Term 1');
+
+    // Same-school diff must not plan to delete what the export never loaded.
+    const loaded = await surveyResponsesTab.load(TENANT, ds.manager);
+    expect(loaded.map((r) => r.id)).not.toContain(anonResponseId);
+    expect(await ds.getRepository(SurveyResponse).countBy({ tenant_id: TENANT })).toBe(2);
+  });
+
   it('exports, restores into emptied tables, and re-exports identical sheets', async () => {
-    await seed();
+    // An anonymous survey sits beside the named one: it must not break the round trip.
+    await seedAnonymous(await seed());
     const first = await exportAll();
 
     expect(first.sheets.get('staff_incidents')).toHaveLength(1);
