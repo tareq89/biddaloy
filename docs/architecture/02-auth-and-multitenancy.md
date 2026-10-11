@@ -330,9 +330,9 @@ Key points:
   persisted or logged. `trigger = ACCOUNT_ACCESS` marks these rows apart
   from ordinary reminders.
 - **One shared `OtpService`** (Redis, 6-digit codes, 5-minute TTL, 5
-  attempts then a 15-minute lock) is reused as-is by password recovery
-  (12.3) and OTP login (12.5) — nothing in this ticket calls it yet, but
-  it lives in the same `account-access` module.
+  attempts then a 15-minute lock) is shared by forgot-password, admin
+  reset, OTP sign-in, contact change, registration and step-up. It lives
+  in the `account-access` module.
 - **Resend revokes prior links.** `POST /users/:id/invitation/resend`
   calls the same `issueAndSend` path, which revokes every still-live
   invite for that user before issuing a new one — a stale link in an old
@@ -340,6 +340,29 @@ Key points:
 - A delivery failure (bad phone number, provider outage) never rolls back
   the user that was just created — user creation and invitation dispatch
   are independent outcomes.
+
+#### How many codes one phone or email can get (GAP-05)
+
+Each purpose has a 60-second cooldown. On top of that, one phone or email
+gets at most 10 codes per 24 hours, counted across all purposes.
+Step-up codes are not counted, because they are not sent anywhere.
+
+```mermaid
+flowchart TD
+  A[Code requested] --> B{"Daily count >= 10?"}
+  B -- yes --> X[429 Too Many Requests]
+  B -- no --> C{Cooldown live?}
+  C -- yes --> X
+  C -- no --> D["Issue code, count + 1<br/>(first one starts the 24 h clock)"]
+```
+
+Example: `01712345678`, `+880 1712-345678` and `8801712345678` are one
+handset, so they all count against the Redis key `otp-daily:8801712345678`.
+`Foo@X.com` counts against `otp-daily:foo@x.com`.
+
+Forgot-password and OTP sign-in still answer 202 when refused (so nobody
+can tell which numbers have accounts). Registration, contact change and
+admin reset show the 429. Per-school and global caps are #1759.
 
 ### Batch invites (12.6) — inviting a whole imported cohort's guardians
 
