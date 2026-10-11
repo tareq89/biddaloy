@@ -149,8 +149,8 @@ export class InvoiceSnapshot {
  * - @ManyToOne → User (issued_by): who generated the document.
  */
 @Entity('invoices')
-@Index(['tenant_id', 'invoice_number'], { unique: true })
-@Index(['tenant_id'])
+@Index('UQ_invoices_tenant_invoice_number', ['tenant_id', 'invoice_number'], { unique: true })
+@Index('IDX_invoices_tenant_id', ['tenant_id'])
 export class Invoice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -159,7 +159,7 @@ export class Invoice {
   invoice_number: string;
 
   @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'tenant_id' })
+  @JoinColumn({ name: 'tenant_id', foreignKeyConstraintName: 'FK_invoices_tenant' })
   tenant: School;
 
   @Column({ type: 'uuid' })

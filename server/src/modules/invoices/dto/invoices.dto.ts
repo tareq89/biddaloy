@@ -14,7 +14,6 @@ import {
 import { Type } from 'class-transformer';
 import { InvoiceStatus, InvoiceKind, CommunicationMedium } from '@biddaloy/shared';
 import { Invoice, InvoiceSnapshot } from '../entities/invoice.entity';
-import { School } from '../../schools/entities/school.entity';
 import { Student } from '../../students/entities/student.entity';
 import { UserResponseDto } from '../../users/dto/user-response.dto';
 import { IssuerSnapshot } from '../../schools/profile/issuer-snapshot';
@@ -125,10 +124,9 @@ export class QueryInvoiceDto {
  * `implements Omit<Invoice, 'issued_by'>` keeps the rest honest — a column
  * added to the entity fails the build here until it is mirrored.
  */
-export class StaffInvoiceDto implements Omit<Invoice, 'issued_by'> {
+export class StaffInvoiceDto implements Omit<Invoice, 'issued_by' | 'tenant'> {
   id: string;
   invoice_number: string;
-  tenant: School;
   tenant_id: string;
   kind: InvoiceKind;
   student: Student;

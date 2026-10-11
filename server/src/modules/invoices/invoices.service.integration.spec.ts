@@ -431,6 +431,13 @@ describe('InvoicesService (integration)', () => {
       expect(a.invoice_number).toBe(`INV-${year}-00008`);
     });
 
+    it('ignores an oversized (19-digit) restored suffix instead of failing the bigint cast', async () => {
+      await seedInvoice(TENANT_ID, `INV-${year}-00003`);
+      await seedInvoice(TENANT_ID, `INV-${year}-9999999999999999999`);
+      const [a] = await createTwo();
+      expect(a.invoice_number).toBe(`INV-${year}-00004`);
+    });
+
     it('gives each school its own invoice and credit-note series', async () => {
       await seedInvoice(OTHER_TENANT_ID, `INV-${year}-00001`);
       await seedInvoice(OTHER_TENANT_ID, `CN-${year}-000001`, InvoiceKind.CREDIT_NOTE);
