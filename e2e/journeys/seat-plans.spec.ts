@@ -87,16 +87,26 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
     const klass = await findSeededClass6(request, session);
 
     const suffix = Date.now().toString(36).toUpperCase();
-    const math = await post<{ id: string; name_en: string; name_bn: string }>(request, session, '/subjects', {
-      code: `E2ESP-MATH-${suffix}`,
-      name_en: `E2E Seat Plan Math ${suffix}`,
-      name_bn: `ই২ই আসন গণিত ${suffix}`,
-    });
-    const english = await post<{ id: string; name_en: string; name_bn: string }>(request, session, '/subjects', {
-      code: `E2ESP-ENG-${suffix}`,
-      name_en: `E2E Seat Plan English ${suffix}`,
-      name_bn: `ই২ই আসন ইংরেজি ${suffix}`,
-    });
+    const math = await post<{ id: string; name_en: string; name_bn: string }>(
+      request,
+      session,
+      '/subjects',
+      {
+        code: `E2ESP-MATH-${suffix}`,
+        name_en: `E2E Seat Plan Math ${suffix}`,
+        name_bn: `ই২ই আসন গণিত ${suffix}`,
+      },
+    );
+    const english = await post<{ id: string; name_en: string; name_bn: string }>(
+      request,
+      session,
+      '/subjects',
+      {
+        code: `E2ESP-ENG-${suffix}`,
+        name_en: `E2E Seat Plan English ${suffix}`,
+        name_bn: `ই২ই আসন ইংরেজি ${suffix}`,
+      },
+    );
 
     planName = `E2E Seat Plan ${suffix}`;
     const exam = await post<{ id: string }>(request, session, '/exams', {
@@ -107,20 +117,20 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
     });
 
     const scheduleDates = await safeScheduleDates(request, session, klass.academic_year_id);
-    const mathSchedule = await post<{ id: string }>(
+    const mathSchedule = await post<{ schedule: { id: string } }>(
       request,
       session,
       `/exams/${exam.id}/schedule`,
       { subject_id: math.id, date: scheduleDates.math, starts_at: '09:00', ends_at: '11:00' },
     );
-    mathScheduleId = mathSchedule.id;
-    const englishSchedule = await post<{ id: string }>(
+    mathScheduleId = mathSchedule.schedule.id;
+    const englishSchedule = await post<{ schedule: { id: string } }>(
       request,
       session,
       `/exams/${exam.id}/schedule`,
       { subject_id: english.id, date: scheduleDates.english, starts_at: '09:00', ends_at: '11:00' },
     );
-    englishScheduleId = englishSchedule.id;
+    englishScheduleId = englishSchedule.schedule.id;
 
     roomAName = `E2E Room A ${suffix}`;
     roomBName = `E2E Room B ${suffix}`;
@@ -282,22 +292,33 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
       academic_year_id: klass.academic_year_id,
       class_id: klass.id,
     });
-    const schedule = await post<{ id: string }>(request, session, `/exams/${exam.id}/schedule`, {
-      subject_id: subject.id,
-      date: lastDay,
-      starts_at: '09:00',
-      ends_at: '11:00',
-    });
+    // POST /exams/:id/schedule answers { schedule, warnings }.
+    const { schedule } = await post<{ schedule: { id: string } }>(
+      request,
+      session,
+      `/exams/${exam.id}/schedule`,
+      {
+        subject_id: subject.id,
+        date: lastDay,
+        starts_at: '09:00',
+        ends_at: '11:00',
+      },
+    );
     const room = await post<{ id: string }>(request, session, '/routines/rooms', {
       room_no: `E2E Unpublish Room ${suffix}`,
       capacity: 20,
     });
-    const { plan } = await post<{ plan: { id: string } }>(request, session, '/seat-plans/generate', {
-      name: `E2E Unpublish Plan ${suffix}`,
-      exam_schedule_ids: [schedule.id],
-      room_ids: [room.id],
-      seat_order_mode: 'SEQUENTIAL',
-    });
+    const { plan } = await post<{ plan: { id: string } }>(
+      request,
+      session,
+      '/seat-plans/generate',
+      {
+        name: `E2E Unpublish Plan ${suffix}`,
+        exam_schedule_ids: [schedule.id],
+        room_ids: [room.id],
+        seat_order_mode: 'SEQUENTIAL',
+      },
+    );
     await post(request, session, `/seat-plans/${plan.id}/publish`, {});
 
     await page.goto(`/exams/seat-plans/${plan.id}`);
