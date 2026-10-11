@@ -1,6 +1,9 @@
 /**
  * D13: a restore may add these rows but never change or remove one.
  * Corrections go through the app, where locks, approvals and per-row audit apply.
+ * Grading scales, bands and exam components are here too: they decide a
+ * result's grade and pass/fail, so changing them by restore would skip the
+ * app's D16 refusal, approval and recompute (review r1 #2).
  */
 export const INSERT_ONLY_TABS: ReadonlySet<string> = new Set([
   'payments',
@@ -12,4 +15,7 @@ export const INSERT_ONLY_TABS: ReadonlySet<string> = new Set([
   'mark_grids',
   'results',
   'result_subjects',
+  'exam_components',
+  'grading_scales',
+  'grading_bands',
 ]);
