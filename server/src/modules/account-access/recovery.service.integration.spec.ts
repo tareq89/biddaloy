@@ -460,6 +460,49 @@ describe('RecoveryService (integration)', () => {
       expect(auditRows[0].new_values).toMatchObject({ admin_initiated: true });
     });
 
+    // [68.1.#2209, GAP-02] The emailed link must carry the email fingerprint, or reset() 401s.
+    it('by email: the sent link completes reset() and stamps email_verified_at', async () => {
+      const admin = await createMember({ email: 'admin@example.com', phone: null });
+      const user = await createMember({ email: 'target@example.com', phone: null });
+
+      const result = await service.adminReset({
+        user,
+        tenantId: SEED_TENANT_ID,
+        actorUserId: admin.id,
+        context,
+      });
+      expect(result.channel).toBe(CommunicationMedium.EMAIL);
+
+      const sent = JSON.stringify(fakeProvider.send.mock.calls);
+      const raw = decodeURIComponent(/reset-password\?token=([^"\\&\s]+)/.exec(sent)![1]);
+      await service.reset({ new_password: 'A-new-strong-password1', token: raw }, context);
+
+      const updated = await dataSource
+        .getRepository(User)
+        .findOneOrFail({ where: { id: user.id } });
+      expect(updated.email_verified_at).not.toBeNull();
+    });
+
+    it('refuses a user shared with another tenant (SHARED_IDENTITY) and revokes no session', async () => {
+      const admin = await createMember({ email: 'admin@example.com', phone: null });
+      const user = await createMember({ email: 'shared@example.com', phone: null });
+      await dataSource
+        .getRepository(UserTenant)
+        .save(
+          dataSource
+            .getRepository(UserTenant)
+            .create({ user_id: user.id, tenant_id: OTHER_TENANT, role: 'ADMIN' as any }),
+        );
+
+      await expect(
+        service.adminReset({ user, tenantId: SEED_TENANT_ID, actorUserId: admin.id, context }),
+      ).rejects.toMatchObject({ response: { details: { code: 'SHARED_IDENTITY' } } });
+      expect(fakeRefreshTokens.revokeAllForUser).not.toHaveBeenCalled();
+      expect(
+        await dataSource.query('SELECT 1 FROM auth_tokens WHERE user_id = $1', [user.id]),
+      ).toHaveLength(0);
+    });
+
     it('rejects a user with no email or phone with 400', async () => {
       const user = await createMember({ email: null, phone: null });
 

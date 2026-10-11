@@ -266,9 +266,9 @@ describe('UserController', () => {
       const expected = { id: 'u1', full_name: 'Updated' };
       userService.update.mockResolvedValue(expected);
 
-      const result = await controller.updateUser('u1', dto as any, TENANT);
+      const result = await controller.updateUser('u1', dto as any, TENANT, JWT as any);
 
-      expect(userService.update).toHaveBeenCalledWith('u1', dto, TENANT.id);
+      expect(userService.update).toHaveBeenCalledWith('u1', dto, TENANT.id, JWT.sub);
       expect(result).toEqual({
         ...expected,
         role: null,
@@ -446,7 +446,7 @@ describe('UserController', () => {
         password_hash: '$2b$10$secret',
       });
 
-      const result = await controller.updateUser('u1', {} as any, TENANT);
+      const result = await controller.updateUser('u1', {} as any, TENANT, JWT as any);
 
       expect(result).not.toHaveProperty('password_hash');
     });
@@ -538,9 +538,9 @@ describe('UserController', () => {
     it('leaves the admin route on plain update()', async () => {
       userService.update.mockResolvedValue({ id: 'u1', full_name: 'Them' });
 
-      await controller.updateUser('u1', { phone: '+8801712345678' } as any, TENANT);
+      await controller.updateUser('u1', { phone: '+8801712345678' } as any, TENANT, JWT as any);
 
-      expect(userService.update).toHaveBeenCalledWith('u1', { phone: '+8801712345678' }, TENANT.id);
+      expect(userService.update).toHaveBeenCalledWith('u1', { phone: '+8801712345678' }, TENANT.id, JWT.sub);
       expect(userService.updateOwnProfile).not.toHaveBeenCalled();
     });
   });
