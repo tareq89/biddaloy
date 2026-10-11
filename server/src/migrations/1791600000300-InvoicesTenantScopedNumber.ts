@@ -51,6 +51,8 @@ export class InvoicesTenantScopedNumber1791600000300 implements MigrationInterfa
     await q.query(fn(true));
   }
 
+  // Only works before two schools hold the same number (e.g. both have INV-2026-00001): after
+  // that, re-adding the global UNIQUE ("invoice_number") fails with 23505. Not a production rollback.
   public async down(q: QueryRunner): Promise<void> {
     await q.query(fn(false));
     await q.query(`DROP INDEX "UQ_invoices_tenant_invoice_number"`);

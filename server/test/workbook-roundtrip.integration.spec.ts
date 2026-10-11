@@ -759,6 +759,7 @@ describe('workbook round trip (integration)', () => {
     const invoice = await dataSource.getRepository(Invoice).save(
       dataSource.getRepository(Invoice).create({
         invoice_number: `INV-2026-${TENANT_A.slice(0, 8)}`,
+        tenant_id: TENANT_A,
         kind: InvoiceKind.INVOICE,
         student_id: student.id,
         payment_id: payment.id,

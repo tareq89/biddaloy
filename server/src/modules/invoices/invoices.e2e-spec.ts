@@ -327,8 +327,30 @@ describe('Invoices E2E', () => {
   });
 
   describe('per-school numbering (TEN-04)', () => {
+    const OTHER_TENANT = '00000000-0000-4000-8000-0000000000a4';
+
+    it('the migrated immutability trigger rejects moving an issued invoice to another school', async () => {
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ($1, 'Other School', 'other-school-ten04', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [OTHER_TENANT],
+      );
+      const studentId = await createStudent();
+      const paymentId = await createPayment(studentId, await createFee(studentId), 1000);
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/invoices')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ACCOUNTANT)
+        .send({ payment_id: paymentId })
+        .expect(201);
+      // Runs on the migrated DB, so this exercises the migration's trigger body, not a test copy.
+      await expect(
+        dataSource.query(`UPDATE invoices SET tenant_id = $1 WHERE id = $2`, [OTHER_TENANT, res.body.id]),
+      ).rejects.toThrow(/immutable/);
+    });
+
     it("another school's INV-<yr>-99999 does not wedge this school's numbering or its list", async () => {
-      const OTHER_TENANT = '00000000-0000-4000-8000-0000000000a4';
       await dataSource.query(
         `INSERT INTO schools (id, name, slug, created_at, updated_at)
          VALUES ($1, 'Other School', 'other-school-ten04', NOW(), NOW()) ON CONFLICT DO NOTHING`,
