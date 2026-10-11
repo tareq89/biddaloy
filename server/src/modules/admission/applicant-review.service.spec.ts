@@ -254,6 +254,7 @@ describe('ApplicantReviewService', () => {
         }),
         TENANT_A,
         expect.anything(),
+        { userId: REVIEWER },
       );
       expect(applicantRepo.update).toHaveBeenCalledWith(
         { id: 'applicant-1', tenant_id: TENANT_A },
@@ -294,6 +295,7 @@ describe('ApplicantReviewService', () => {
         expect.objectContaining({ guardian_ids: ['guardian-new'] }),
         TENANT_A,
         expect.anything(),
+        { userId: REVIEWER },
       );
     });
 
@@ -332,6 +334,7 @@ describe('ApplicantReviewService', () => {
         expect.objectContaining({ guardian_ids: ['guardian-new'] }),
         TENANT_A,
         expect.anything(),
+        { userId: REVIEWER },
       );
     });
 

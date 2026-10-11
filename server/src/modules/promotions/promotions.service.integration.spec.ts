@@ -16,6 +16,7 @@ import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { School } from '../schools/entities/school.entity';
 import { EnrollmentService } from '../enrollments/enrollments.service';
 import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { StudentLifecycleService } from '../students/student-lifecycle.service';
 import { StudentLifecycleEvent } from '../students/entities/student-lifecycle-event.entity';
 import { ApprovalService } from '../auth/guards/approval.guard';
@@ -443,6 +444,33 @@ describe('PromotionsService (integration)', () => {
       await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
       const committed = await runRepo.findOneOrFail({ where: { id: run.id } });
       expect(committed.status).toBe(PromotionRunStatus.COMMITTED);
+    });
+
+    it('LIFE-17: commit writes one PromotionRun audit row with override_count and approver', async () => {
+      const a = await passingStudent(1);
+      await passingStudent(2);
+      const run = await createDraft();
+      await service.patchEntries(
+        run.id,
+        [{ student_id: a.id, final_outcome: PromotionOutcome.RETAIN, override_note: 'hold' }],
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+
+      await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
+
+      const rows = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_type: 'PromotionRun', entity_id: run.id, tenant_id: TENANT_ID } });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].performed_by_user_id).toBe(ADMIN_USER_ID);
+      const committed = await runRepo.findOneOrFail({ where: { id: run.id } });
+      expect(rows[0].new_values).toMatchObject({
+        event: 'PROMOTION_COMMITTED',
+        promoted_count: 1,
+        override_count: 1,
+        approved_by_user_id: committed.approved_by_user_id,
+      });
     });
 
     it('override_count drops when the removed entry was the overridden one', async () => {

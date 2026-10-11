@@ -80,9 +80,14 @@ export class StudentController {
   async createStudent(
     @Body() dto: CreateStudentDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
     assertCanWriteProfileFields(dto, canWriteRecords(tenant.role));
-    const student = await this.studentService.create(dto, tenant.id);
+    const student = await this.studentService.create(dto, tenant.id, undefined, {
+      userId: user.sub,
+      context: requestContext(request),
+    });
     return redactHealthNotes(student, canReadRecords(tenant.role));
   }
 
