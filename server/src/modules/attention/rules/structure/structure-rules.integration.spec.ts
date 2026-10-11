@@ -10,6 +10,7 @@ import { SchoolSettingsReader } from '../../../schools/settings/school-settings-
 import { SectionService } from '../../../classes/classes.service';
 import { RoutineStateService } from '../../../routines/routine-state.service';
 import { SubstitutionsService } from '../../../routines/substitutions.service';
+import { TeacherBusyService } from '../../../routines/teacher-busy.service';
 import { attentionEvents } from '../../attention.constants';
 import { ATTENTION_RECHECK, AttentionRecheckPayload } from '../../engine/attention-events';
 import { AlertWriterService } from '../../engine/alert-writer.service';
@@ -182,6 +183,8 @@ describe('Structure rules (integration)', () => {
         SectionService,
         RoutineStateService,
         SubstitutionsService,
+        // These specs test attention rules, not clash detection: nobody is busy.
+        { provide: TeacherBusyService, useValue: { busyAt: async () => null } },
         { provide: TENANT_STATUS_REDIS, useValue: redis },
         { provide: SchoolSettingsReader, useValue: {} },
       ],
