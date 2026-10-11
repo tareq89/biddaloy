@@ -20,6 +20,8 @@ import {
 } from './admission-applicant.service';
 import { SubmitApplicantDto, SubmitApplicantResponseDto } from './dto/submit-applicant.dto';
 import { CheckApplicantStatusDto } from './dto/check-applicant-status.dto';
+import { SchoolsService } from '../schools/schools.service';
+import { TenantStatusService, tenantRestoringException } from '../schools/tenant-status.service';
 
 const MAX_DOCUMENT_FILE_SIZE = 5 * 1024 * 1024; // 5MB per document, same tier as homework uploads
 
@@ -37,7 +39,11 @@ const MAX_DOCUMENT_FILE_SIZE = 5 * 1024 * 1024; // 5MB per document, same tier a
 @ApiTags('public-admission')
 @Controller('public/admission')
 export class PublicAdmissionController {
-  constructor(private readonly applicantService: AdmissionApplicantService) {}
+  constructor(
+    private readonly applicantService: AdmissionApplicantService,
+    private readonly schoolsService: SchoolsService,
+    private readonly tenantStatus: TenantStatusService,
+  ) {}
 
   @Get(':slug')
   @ApiOperation({
@@ -108,6 +114,12 @@ export class PublicAdmissionController {
     @Body() dto: SubmitApplicantDto,
     @UploadedFiles() files: Express.Multer.File[],
   ): Promise<SubmitApplicantResponseDto> {
+    // No ContextGuard here, so the restore freeze (#2210) is checked by hand: a restore would
+    // delete an applicant saved mid-restore. An unknown slug falls through to the service's 404.
+    const school = await this.schoolsService.findBySlug(slug);
+    if (school && (await this.tenantStatus.isRestoring(school.id))) {
+      throw tenantRestoringException();
+    }
     return this.applicantService.submit(slug, dto, files ?? []);
   }
 }

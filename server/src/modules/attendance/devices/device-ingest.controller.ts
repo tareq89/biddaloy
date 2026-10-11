@@ -14,6 +14,7 @@ import { DeviceAuthGuard } from './device-auth.guard';
 import { CurrentDevice } from './current-device.decorator';
 import { AttendanceDevice } from '../entities/attendance-device.entity';
 import { DeviceEventsService } from './device-events.service';
+import { TenantStatusService, tenantRestoringException } from '../../schools/tenant-status.service';
 import {
   DeviceEventBatchDto,
   DeviceEventBatchResponseDto,
@@ -49,7 +50,10 @@ const DEVICE_INGEST_RATE_LIMIT = { limit: 120, ttl: 60_000 };
 @Controller('attendance')
 @UseGuards(DeviceAuthGuard)
 export class DeviceIngestController {
-  constructor(private readonly deviceEventsService: DeviceEventsService) {}
+  constructor(
+    private readonly deviceEventsService: DeviceEventsService,
+    private readonly tenantStatus: TenantStatusService,
+  ) {}
 
   @Post('device-events')
   @HttpCode(HttpStatus.OK)
@@ -60,6 +64,9 @@ export class DeviceIngestController {
   })
   @ApiOkResponse({ type: DeviceEventBatchResponseDto })
   async ingest(@Body() dto: DeviceEventBatchDto, @CurrentDevice() device: AttendanceDevice) {
+    // No ContextGuard on device routes, so the restore freeze (#2210) is checked here: a restore
+    // would delete attendance saved mid-restore.
+    if (await this.tenantStatus.isRestoring(device.tenant_id)) throw tenantRestoringException();
     return this.deviceEventsService.ingest(device, dto.events);
   }
 

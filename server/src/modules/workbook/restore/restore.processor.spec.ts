@@ -145,6 +145,21 @@ describe('RestoreProcessor', () => {
       expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
     });
 
+    // [68.1.2210] The write freeze ends before DONE is visible, so a client that polls DONE and
+    // writes straight away never meets the 423.
+    it('releases the restore lock before it writes DONE', async () => {
+      validationService.validate.mockResolvedValue(makeValidatedWorkbook({}));
+      let statusAtRelease: string | undefined;
+      restoreService.release.mockImplementation(async () => {
+        statusAtRelease = jobRow.status;
+      });
+
+      await run();
+
+      expect(statusAtRelease).toBe(WorkbookJobStatus.RUNNING);
+      expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
+    });
+
     it('fails the restore with SNAPSHOT_FAILED when the snapshot job is FAILED, without touching any tab', async () => {
       snapshotRow.status = WorkbookJobStatus.FAILED;
       await run();
