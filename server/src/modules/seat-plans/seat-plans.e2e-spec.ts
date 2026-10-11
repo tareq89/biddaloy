@@ -212,6 +212,15 @@ describe('[68.3.12] Seat plan unpublish / delete', () => {
     );
     await http().delete(url).set(auth(adminToken)).expect(409);
 
+    // Review r1 #2: over HTTP every DTO key is present. A venue-only edit, or
+    // resending the same time, does not move the sitting, so it is allowed.
+    await http().patch(url).set(auth(adminToken)).send({ venue: 'Hall 2' }).expect(200);
+    await http()
+      .patch(url)
+      .set(auth(adminToken))
+      .send({ starts_at: '09:00', venue: 'Hall 3' })
+      .expect(200);
+
     await http().post(`${API}/seat-plans/${planId}/unpublish`).set(auth(adminToken)).expect(201);
     await http().patch(url).set(auth(adminToken)).send({ ends_at: '12:00' }).expect(200);
   });
