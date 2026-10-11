@@ -22,7 +22,8 @@ import {
   SEED_ADMIN_PASSWORD,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { ResultsService } from '../exams/results.service';
+import { ResultsService, lockExam } from '../exams/results.service';
+import { RecomputeService } from './recompute.service';
 import { GradingScale } from './entities/grading-scale.entity';
 import { GradingBand } from './entities/grading-band.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
@@ -62,6 +63,7 @@ describe('Grading scale recompute E2E (68.2.06)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let resultsService: ResultsService;
+  let recomputeService: RecomputeService;
   let adminToken: string;
   let teacherToken: string;
   let seq = 0;
@@ -220,6 +222,7 @@ describe('Grading scale recompute E2E (68.2.06)', () => {
     await app.init();
     dataSource = app.get(DataSource);
     resultsService = app.get(ResultsService);
+    recomputeService = app.get(RecomputeService);
 
     for (const [id, email, role] of [
       [TEACHER_USER_ID, TEACHER_EMAIL, UserRole.TEACHER],
@@ -285,6 +288,44 @@ describe('Grading scale recompute E2E (68.2.06)', () => {
       .send({ bands: NEW_BANDS })
       .expect(409);
     expect(res.body.details?.code).toBe('SCALE_IN_PUBLISHED_RESULTS');
+  });
+
+  // Review r2 #2: confirm locks the scale, then every exam using it. A mark
+  // save on a PROCESSED exam locks the exam, then inserts results that point
+  // at the scale (the FK check takes KEY SHARE on it). A scale lock that
+  // conflicts with KEY SHARE closes that cycle: 40P01 and a 500 on one side.
+  it('a band-edit confirm racing a mark save on the same PROCESSED exam does not deadlock', async () => {
+    const scaleId = await buildExam(false);
+    const [{ exam_id: examId }] = (await dataSource.query(
+      `SELECT exam_id FROM results WHERE grading_scale_id = $1 LIMIT 1`,
+      [scaleId],
+    )) as { exam_id: string }[];
+    const qr = dataSource.createQueryRunner();
+    await qr.startTransaction();
+    let confirm: Promise<unknown> | undefined;
+    let saved: unknown;
+    try {
+      // Stand-in for a mark save on a PROCESSED exam: the exam is locked first.
+      await lockExam(qr.manager, examId, SEED_TENANT_ID);
+      confirm = recomputeService
+        .confirm(scaleId, SEED_TENANT_ID, SEED_ADMIN_USER_ID, APPROVER_ID, NEW_BANDS)
+        .catch((e) => e);
+      // confirm now holds the scale lock and waits on the exam.
+      await new Promise((r) => setTimeout(r, 300));
+      saved = await resultsService
+        .recomputeProcessedExam(qr.manager, examId, SEED_TENANT_ID, SEED_ADMIN_USER_ID)
+        .then(
+          () => 'ok',
+          (e) => e,
+        );
+      if (saved === 'ok') await qr.commitTransaction();
+    } finally {
+      if (qr.isTransactionActive) await qr.rollbackTransaction();
+      await qr.release();
+    }
+    expect(saved).toBe('ok');
+    // The band edit goes through once the mark save commits.
+    expect(await confirm).toMatchObject({ affected_result_count: expect.any(Number) });
   });
 
   it('a TEACHER cannot preview (403)', async () => {
