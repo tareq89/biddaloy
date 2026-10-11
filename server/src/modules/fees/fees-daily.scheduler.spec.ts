@@ -278,6 +278,21 @@ describe('FeesDailyScheduler', () => {
     });
   });
 
+  // [68.1.fix] A restore catch-up has no user behind it (no ContextGuard), so it re-checks the
+  // school is still ACTIVE: a school suspended after the skip must not be billed.
+  it('a restore-catch-up for a school that is no longer ACTIVE bills nothing', async () => {
+    schoolsService.findById = vi.fn(async () => ({ id: TENANT, status: 'SUSPENDED' }));
+
+    await scheduler.process({
+      name: 'restore-catch-up',
+      data: { tenantId: TENANT, today: '2026-03-01' },
+    } as any);
+
+    expect(schoolsService.findById).toHaveBeenCalledWith(TENANT);
+    expect(dataSource.query).not.toHaveBeenCalled();
+    expect(feeGenerationService.generate).not.toHaveBeenCalled();
+  });
+
   describe('[CodeRabbit review, PR #801] resilience fixes', () => {
     it('a malformed recurrence rule (isDue throws) is skipped, not left to crash findDueSchedules for the whole tenant', async () => {
       // A second, well-formed schedule must still run even though the

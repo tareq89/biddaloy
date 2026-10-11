@@ -103,8 +103,8 @@ export class BackupScheduleService {
 
     // [68.1.fix] Mid-restore the school is half-replaced: a scheduled backup would save that as a
     // normal backup, and its retention sweep could then delete an older, good one. Skip this tick;
-    // the restore took its own snapshot. (An export queued before the restore runs first: the
-    // export queue is FIFO with concurrency 1 and the restore waits for its snapshot export.)
+    // the restore took its own snapshot. This is only the early exit: `ExportProcessor` re-checks
+    // when the export actually runs (a retry or another worker can run it mid-restore).
     if (await this.tenantStatus.isRestoring(tenantId)) {
       this.logger.log(`Scheduled backup skipped for tenant ${tenantId}: restore running`);
       return;

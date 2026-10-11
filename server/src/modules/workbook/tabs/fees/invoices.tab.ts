@@ -186,7 +186,7 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
   load(tenantId: string, m: EntityManager): Promise<Invoice[]> {
     // `invoices.tenant_id` (#2214, indexed) is the school that numbered the
     // invoice. `InvoicesService` reads still filter on `student.tenant_id`;
-    // the two are equal (backfilled from the student, and `fromRow` sets it to
+    // the two are equal (backfilled from the student, and `upsert` sets it to
     // the restoring school) but nothing in the DB enforces that yet.
     return m.find(Invoice, {
       where: { tenant_id: tenantId },

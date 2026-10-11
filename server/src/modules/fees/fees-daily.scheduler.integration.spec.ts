@@ -300,7 +300,8 @@ describe('FeesDailyScheduler (integration)', () => {
         added.push({ name, data, opts });
       },
     } as any;
-    const schoolsService = { findAll: async () => [{ id: TENANT_ID, status: 'ACTIVE' }] } as any;
+    const school = { id: TENANT_ID, status: 'ACTIVE' };
+    const schoolsService = { findAll: async () => [school], findById: async () => school } as any;
     const build = (restoring: boolean) =>
       new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService, {
         isRestoring: async () => restoring,
@@ -315,7 +316,7 @@ describe('FeesDailyScheduler (integration)', () => {
     expect(added[0].opts.delay).toBeGreaterThan(0);
 
     // The catch-up fires while the restore is still going: re-queued again, still for the due day.
-    await build(true).process({ data: added[0].data } as any);
+    await build(true).process({ name: 'restore-catch-up', data: added[0].data } as any);
     expect(added).toHaveLength(2);
     expect(added[1].data).toEqual({ tenantId: TENANT_ID, today: dueDay });
 
@@ -323,11 +324,11 @@ describe('FeesDailyScheduler (integration)', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     try {
       vi.setSystemTime(Date.now() + 24 * 60 * 60 * 1000);
-      await build(false).process({ data: added[1].data } as any);
+      await build(false).process({ name: 'restore-catch-up', data: added[1].data } as any);
       expect(await studentFeeRepo.find()).toHaveLength(1);
 
       // Exactly once: a duplicate catch-up does not bill again.
-      await build(false).process({ data: added[1].data } as any);
+      await build(false).process({ name: 'restore-catch-up', data: added[1].data } as any);
       expect(await studentFeeRepo.find()).toHaveLength(1);
     } finally {
       vi.useRealTimers();

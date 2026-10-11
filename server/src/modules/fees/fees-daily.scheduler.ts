@@ -189,6 +189,12 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     const requestedTenantId = job?.data?.tenantId;
 
     if (requestedTenantId) {
+      // `run-now` passed ContextGuard's status check; a catch-up has no user, so re-check here.
+      if (
+        job?.name === 'restore-catch-up' &&
+        (await this.schoolsService.findById(requestedTenantId)).status !== 'ACTIVE'
+      )
+        return;
       await this.runTenant(requestedTenantId, today);
       return;
     }
@@ -213,7 +219,8 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     // A restore is rewriting this school's data, so skip it for now. The next
     // nightly run would NOT pick this day up (`isDue` matches only the exact
     // firing day), so re-queue the school for this same `today` and keep
-    // retrying until the lock clears (its 1 h TTL bounds the loop).
+    // retrying until the lock clears (a live restore renews it; a crashed one
+    // expires after the 1 h TTL). One job per 15 min per restoring school.
     // `last_run_period` keeps the catch-up exactly-once; the late-fee and fine
     // sweeps below are idempotent for a past `today` too.
     if (await this.tenantStatus.isRestoring(tenantId)) {
