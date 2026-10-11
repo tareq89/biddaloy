@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from '@biddaloy/ui/components';
 import {
-  useCertificateRegister,
+  useExamCertificates,
   useHasPermission,
   usePublishResults,
   useReopenResults,
@@ -120,14 +120,10 @@ export function ReopenPreviewDialog({
   const revokeItem = useRevokePrintItem();
   const canRevoke = useHasPermission(Permission.DOCUMENT_REVOKE);
 
-  // ACAD-12: result / merit certificates freeze the old GPA, so list the live ones here.
-  const register = useCertificateRegister(
-    { context_id: examId, status: 'VALID', limit: 100 },
-    { enabled: open },
-  );
-  const certificates = (register.data?.data ?? []).filter(
-    (r) => r.document_kind === 'RESULT_CERTIFICATE' || r.document_kind === 'MERIT_CERTIFICATE',
-  );
+  // ACAD-12: result / merit certificates freeze the old GPA, so list the live ones here
+  // (every page). Confirm waits for the list, so nothing is skipped by clicking early.
+  const register = useExamCertificates(examId, { enabled: open });
+  const certificates = register.data ?? [];
   // All ticked by default: track only the ones the admin un-ticks.
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
   const toRevoke = canRevoke ? certificates.filter((r) => !unchecked.has(r.item_id)) : [];
@@ -143,7 +139,9 @@ export function ReopenPreviewDialog({
     );
     const failed = toRevoke.filter((_, i) => results[i]?.status === 'rejected');
     if (failed.length === 0) {
-      onOpenChange(false);
+      // Through handleOpenChange so `reopened` resets: the dialog stays mounted,
+      // and the next Reopen (after a republish) must reopen again, not just revoke.
+      handleOpenChange(false);
       return;
     }
     setFailedSerials(failed.map((r) => r.serial));
@@ -233,6 +231,13 @@ export function ReopenPreviewDialog({
           </section>
         )}
 
+        {register.isError && (
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon aria-hidden="true" className="size-3.5" />
+            {tp('reopenRegisterError')}
+          </p>
+        )}
+
         {failedSerials.length > 0 && (
           <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
             <CircleAlertIcon aria-hidden="true" className="size-3.5" />
@@ -250,6 +255,7 @@ export function ReopenPreviewDialog({
             type="button"
             variant="destructive"
             loading={reopenResults.isPending || revokeItem.isPending}
+            disabled={register.isPending}
             onClick={handleConfirm}
           >
             {toRevoke.length > 0

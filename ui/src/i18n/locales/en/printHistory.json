@@ -180,5 +180,6 @@
   "reopenRevokeReadOnly": "Ask an admin to revoke these from the certificate register",
   "reopenRevokeConfirm": "Reopen and revoke {{n}}",
   "reopenRevokeReason": "Result reopened for correction",
-  "reopenRevokeFailed": "The results are reopened, but these could not be revoked: {{serials}}. Try again or use the certificate register."
+  "reopenRevokeFailed": "The results are reopened, but these could not be revoked: {{serials}}. Try again or use the certificate register.",
+  "reopenRegisterError": "Couldn't load the certificates issued for this exam. Check the certificate register after reopening."
 }
