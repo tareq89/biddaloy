@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CommunicationsService } from './communications.service';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 
@@ -114,6 +118,82 @@ describe('CommunicationsService', () => {
       expect(repo.save).toHaveBeenLastCalledWith(
         expect.objectContaining({ status: CommunicationStatus.FAILED }),
       );
+    });
+  });
+
+  describe('sendToGuardian [#2259]', () => {
+    const guardian = {
+      id: 'g-1',
+      full_name: 'Real Guardian',
+      phone: '01711111111',
+      alternate_phone: null,
+      email: 'g@example.com',
+    };
+    const dto = { medium: CommunicationMedium.SMS, message_body: 'Hello', guardian_id: 'g-1' };
+
+    beforeEach(() => {
+      guardianService.findOne.mockResolvedValue(guardian);
+    });
+
+    it('sends SMS to the guardian stored phone and name, ignoring client-sent address', async () => {
+      await service.sendToGuardian(
+        { ...dto, recipient_address: '01999999999', recipient_name: 'Spoof' } as any,
+        TENANT_ID,
+        USER_ID,
+      );
+      expect(guardianService.findOne).toHaveBeenCalledWith('g-1', TENANT_ID);
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipient_address: '01711111111',
+          recipient_name: 'Real Guardian',
+          guardian_id: 'g-1',
+        }),
+      );
+    });
+
+    it('uses the guardian email for EMAIL', async () => {
+      await service.sendToGuardian(
+        { ...dto, medium: CommunicationMedium.EMAIL } as any,
+        TENANT_ID,
+        USER_ID,
+      );
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ recipient_address: 'g@example.com' }),
+      );
+    });
+
+    it('400 GUARDIAN_NO_ADDRESS when the guardian has no address for the channel', async () => {
+      guardianService.findOne.mockResolvedValue({ ...guardian, email: null });
+      const err = await service
+        .sendToGuardian({ ...dto, medium: CommunicationMedium.EMAIL } as any, TENANT_ID, USER_ID)
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.getResponse().details.code).toBe('GUARDIAN_NO_ADDRESS');
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('400 GUARDIAN_NOT_LINKED when student_id is not linked to the guardian', async () => {
+      studentService.findOne.mockResolvedValue({ id: 's-1', guardians: [{ id: 'other' }] });
+      const err = await service
+        .sendToGuardian({ ...dto, student_id: 's-1' } as any, TENANT_ID, USER_ID)
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.getResponse().details.code).toBe('GUARDIAN_NOT_LINKED');
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('accepts a linked student', async () => {
+      studentService.findOne.mockResolvedValue({ id: 's-1', guardians: [{ id: 'g-1' }] });
+      await service.sendToGuardian({ ...dto, student_id: 's-1' } as any, TENANT_ID, USER_ID);
+      expect(repo.save).toHaveBeenCalled();
+    });
+
+    it('propagates 404 for another tenant guardian', async () => {
+      guardianService.findOne.mockRejectedValue(new NotFoundException('nope'));
+      await expect(service.sendToGuardian(dto as any, TENANT_ID, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(repo.save).not.toHaveBeenCalled();
     });
   });
 

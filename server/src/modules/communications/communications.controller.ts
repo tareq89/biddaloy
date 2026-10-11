@@ -27,7 +27,7 @@ import { CommunicationsService } from './communications.service';
 import { BulkReminderService } from './reminders.service';
 import { SingleReminderService } from './single-reminder.service';
 import {
-  SendCommunicationDto,
+  SendGuardianMessageDto,
   QueryLastRemindersDto,
   LastReminderDto,
 } from './dto/communications.dto';
@@ -182,11 +182,11 @@ export class CommunicationsController {
   @RequirePermissions(Permission.COMMUNICATION_SEND)
   @ApiOperation({ summary: 'Send a freeform (non-reminder) message.' })
   send(
-    @Body() dto: SendCommunicationDto,
+    @Body() dto: SendGuardianMessageDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.communicationsService.enqueue(dto, tenant.id, user.sub);
+    return this.communicationsService.sendToGuardian(dto, tenant.id, user.sub);
   }
 
   // Declared before `@Get(':id')` — same reasoning as `reminder/bulk`
