@@ -9,6 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, MoreThan, MoreThanOrEqual, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
+import { PromotionRunStatus } from '@biddaloy/shared';
 import type { TenantSettings, OrganisationSettings } from '@biddaloy/shared';
 import {
   AuditAction,
@@ -42,6 +43,8 @@ import { emitRecheck } from '../attention/engine/attention-events';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { ClassSubject } from '../academics/entities/class-subject.entity';
+import { PromotionEntry } from '../promotions/entities/promotion-entry.entity';
 
 export interface SchoolStatusResponse {
   id: string;
@@ -372,8 +375,10 @@ export class SchoolsService {
    * For every list (`shifts`/`versions`/`groups`):
    *  - a value present in `oldOrg` but absent from `newOrg`, with no
    *    matching rename, is a removal — rejected if any `classes` (shifts/
-   *    versions) or `class_sections` (groups) row still uses it, message
-   *    naming the value and the count.
+   *    versions) row, or any `class_sections` / `class_subjects` / DRAFT-run
+   *    `promotion_entries` (groups) row still uses it, message naming the
+   *    value and the count. A new column that stores a group name must be
+   *    added to `countVocabularyUsage` and `renameVocabularyUsage`.
    *  - a value covered by an explicit `{ list, from, to }` rename skips
    *    that removal check and instead rewrites every matching row to the
    *    new value, in the same transaction as the settings save.
@@ -476,13 +481,35 @@ export class SchoolsService {
     value: string,
   ): Promise<number> {
     if (list === 'groups') {
-      return manager
+      // Sequential: all three share one transaction connection.
+      const sections = await manager
         .getRepository(ClassSection)
         .createQueryBuilder('cs')
         .where('cs.tenant_id = :tenantId', { tenantId })
         .andWhere('cs.group_name = :value', { value })
         .andWhere('cs.deleted_at IS NULL')
         .getCount();
+      const subjects = await manager
+        .getRepository(ClassSubject)
+        .createQueryBuilder('sub')
+        .where('sub.tenant_id = :tenantId', { tenantId })
+        .andWhere('sub.group_name = :value', { value })
+        .andWhere('sub.deleted_at IS NULL')
+        .getCount();
+      // COMMITTED runs are history and never block.
+      const draftEntries = await manager
+        .getRepository(PromotionEntry)
+        .createQueryBuilder('pe')
+        .innerJoin(
+          'promotion_runs',
+          'r',
+          'r.id = pe.run_id AND r.tenant_id = :tenantId AND r.status = :draft',
+          { draft: PromotionRunStatus.DRAFT },
+        )
+        .where('pe.tenant_id = :tenantId', { tenantId })
+        .andWhere('pe.group_name = :value', { value })
+        .getCount();
+      return sections + subjects + draftEntries;
     }
     const column = list === 'shifts' ? 'shift' : 'version';
     return manager
@@ -510,6 +537,20 @@ export class SchoolsService {
           .where('tenant_id = :tenantId', { tenantId })
           .andWhere('group_name = :from', { from })
           .execute();
+        await manager
+          .createQueryBuilder()
+          .update(ClassSubject)
+          .set({ group_name: to })
+          .where('tenant_id = :tenantId', { tenantId })
+          .andWhere('group_name = :from', { from })
+          .execute();
+        // DRAFT runs only: COMMITTED runs are history and keep the old name.
+        await manager.query(
+          `UPDATE promotion_entries pe SET group_name = $3, updated_at = now() FROM promotion_runs r
+           WHERE r.id = pe.run_id AND r.status = $4 AND pe.tenant_id = $1 AND r.tenant_id = $1
+             AND pe.group_name = $2`,
+          [tenantId, from, to, PromotionRunStatus.DRAFT],
+        );
         return;
       }
       const column = list === 'shifts' ? 'shift' : 'version';
