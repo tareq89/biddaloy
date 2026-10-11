@@ -151,7 +151,9 @@ export class AttendanceSummaryService {
 
   /** Enrollment roster of a section (not `Student.class_section_id`), by roll number. */
   private async loadSectionRoster(tenantId: string, sectionId: string): Promise<Student[]> {
-    const ids = await sectionRosterStudentIds(this.studentRepo.manager, tenantId, sectionId);
+    const ids = await sectionRosterStudentIds(this.studentRepo.manager, tenantId, sectionId, {
+      excludeLeft: true,
+    });
     if (ids.length === 0) return [];
     return this.studentRepo.find({
       where: { id: In(ids), tenant_id: tenantId },

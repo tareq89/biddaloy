@@ -768,7 +768,9 @@ export class AttendanceService {
     const uniqueStudentIds = [...new Set(studentIds)];
     // Enrollment roster, not `Student.class_section_id`: a promoted student
     // still belongs to the old section's past registers (LIFE-08).
-    const rosterIds = new Set(await sectionRosterStudentIds(manager, tenantId, sectionId));
+    const rosterIds = new Set(
+      await sectionRosterStudentIds(manager, tenantId, sectionId, { excludeLeft: true }),
+    );
     const unknownStudentIds = uniqueStudentIds.filter((id) => !rosterIds.has(id));
     if (unknownStudentIds.length > 0) {
       throw new UnprocessableEntityException({
@@ -1553,7 +1555,9 @@ export class AttendanceService {
 
     // roll_number is an int column, so this ORDER BY is already
     // numeric — no varchar-sort trap (1, 10, 2, ...) to work around.
-    const rosterIds = await sectionRosterStudentIds(manager, tenantId, sectionId);
+    const rosterIds = await sectionRosterStudentIds(manager, tenantId, sectionId, {
+      excludeLeft: true,
+    });
     const students =
       rosterIds.length === 0
         ? []
