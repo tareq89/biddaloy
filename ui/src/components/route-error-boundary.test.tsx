@@ -11,8 +11,8 @@ import { http, HttpResponse } from 'msw';
 import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { downloadBackup } from '../hooks/backup';
 import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
+import { downloadBackup } from '../hooks/backup';
 import { i18n } from '../i18n';
 import { cleanupTestState } from '../test';
 import { server } from '../test/msw/server';
