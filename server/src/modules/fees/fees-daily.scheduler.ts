@@ -119,6 +119,10 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly schoolsService: SchoolsService,
     private readonly feeGenerationService: FeeGenerationService,
+    // [68.1.2210] Required, not `@Optional()` (its module is `@Global()`): a missing provider must
+    // fail at boot, not silently turn the restore skip off. Sits before the optional seams below
+    // because TypeScript forbids a required parameter after an optional one.
+    private readonly tenantStatus: TenantStatusService,
     // [16.7.4] #678 registers the real `LateFeeService` provider in
     // `fees.module.ts` — `@Optional()` + explicit `@Inject` (rather than
     // relying on the constructor parameter's own type, which Nest can only
@@ -134,10 +138,6 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     @Optional()
     @Inject(FineSweepService)
     private readonly fineSweepService?: FineSweepService,
-    // [68.1.2210] `@Global()` module; optional so older positional constructions still compile.
-    @Optional()
-    @Inject(TenantStatusService)
-    private readonly tenantStatus?: TenantStatusService,
   ) {
     super();
   }
@@ -204,7 +204,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
 
   private async runTenant(tenantId: string, today: string): Promise<void> {
     // A restore is rewriting this school's data; the next daily run picks it up.
-    if (await this.tenantStatus?.isRestoring(tenantId)) {
+    if (await this.tenantStatus.isRestoring(tenantId)) {
       this.logger.log(`fees-daily: skipped tenant ${tenantId}, restore running`);
       return;
     }

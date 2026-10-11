@@ -3,12 +3,15 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import type Redis from 'ioredis';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID } from '@test/constants';
 import { ADMISSION_STATUS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
 import { StorageService } from '../storage/storage.service';
+import { BULK_IMPORT_REDIS } from '../bulk-import/import-staging.service';
+import { acquire, release } from '../workbook/restore/restore-lock';
 
 // A real JPEG signature — matchesDeclaredType only inspects the header, so
 // this passes without needing an actual decodable image.
@@ -352,6 +355,29 @@ describe('Public Admission Submission E2E', () => {
         [SEED_TENANT_ID, intakeId],
       );
       expect(rows).toHaveLength(0);
+    });
+
+    // [68.1.2210] This route has no ContextGuard, so it checks the restore freeze itself: an
+    // applicant saved mid-restore would be deleted by the restore and be missing from its snapshot.
+    it('423s with TENANT_RESTORING and saves nothing while the school is being restored', async () => {
+      const intakeId = await createIntake();
+      const redis = app.get<Redis>(BULK_IMPORT_REDIS);
+
+      await acquire(redis, SEED_TENANT_ID, 'job-admission-freeze');
+      try {
+        const res = await supertest(app.getHttpServer())
+          .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+          .field(applicantPayload(intakeId))
+          .expect(423);
+        expect(res.body.details.code).toBe('TENANT_RESTORING');
+        const rows = await dataSource.query(
+          `SELECT 1 FROM admission_applicants WHERE tenant_id = $1 AND intake_id = $2`,
+          [SEED_TENANT_ID, intakeId],
+        );
+        expect(rows).toHaveLength(0);
+      } finally {
+        await release(redis, SEED_TENANT_ID, 'job-admission-freeze');
+      }
     });
 
     it("404s for a slug from a different tenant, never leaking another tenant's intake", async () => {

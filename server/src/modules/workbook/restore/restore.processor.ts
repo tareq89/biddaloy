@@ -317,6 +317,11 @@ export class RestoreProcessor extends WorkerHost {
       // would leave a completed restore with no audit trail. Per-tab
       // transactions above stay untouched (D8) — this is a single
       // additional write, not a rollback of anything already applied.
+      //
+      // The lock goes first (#2210): every tab is applied, so writes are safe again, and a client
+      // that polls DONE and writes at once must never get the freeze's 423. If the DONE write then
+      // fails, `terminate` below releases again, which is a no-op.
+      await this.restoreService.release(tenantId, row.id).catch(() => undefined);
       const finishedAt = new Date();
       await this.dataSource.transaction(async (m) => {
         await m.getRepository(WorkbookJob).update(row.id, {
@@ -343,8 +348,6 @@ export class RestoreProcessor extends WorkerHost {
           m,
         );
       });
-
-      await this.restoreService.release(tenantId, row.id).catch(() => undefined);
 
       this.safeEmit({
         jobId: row.id,

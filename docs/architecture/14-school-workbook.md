@@ -173,6 +173,40 @@ key into the cell, and restore resolves it back to a real id.
   skipped entirely if the uploaded workbook is a blank template rather than
   a real export/restore round trip.
 
+## The school is read-only while a restore runs (#2210)
+
+A restore deletes rows the workbook does not have. A save made during the
+restore is in neither the workbook nor the snapshot, so it would be lost.
+So while the restore lock is held, the school is read-only:
+
+- Every `POST`/`PUT`/`PATCH`/`DELETE` for that school gets
+  `423 { "message": "...", "details": { "code": "TENANT_RESTORING" } }`.
+  `ContextGuard` does this for normal routes. The three routes without it
+  check by hand: the public admission form, device ingest, and (as a skip)
+  the study-plan auto-deliveries job. Fees-daily skips the school too.
+- `GET` still works.
+
+```mermaid
+flowchart LR
+    A["POST /backup/restore<br/>takes the lock"] --> B["snapshot, then apply tabs<br/>(writes get 423)"]
+    B --> C["lock released"] --> D["job DONE<br/>(writes work again)"]
+    B -. "worker crash" .-> E["lock stays until its<br/>1 h TTL expires"]
+```
+
+**Runbook: a stuck lock.** The lock is the Redis key
+`workbook:restore-lock:<tenantId>`. It has a 1 hour TTL, renewed every
+5 minutes while the job runs. If the worker crashes, the school stays
+read-only until the TTL runs out. To unfreeze it at once, first check that
+no restore job for that school is still `RUNNING`, then delete the key:
+
+```bash
+redis-cli DEL workbook:restore-lock:00000000-0000-4000-8000-000000000001
+```
+
+**Known gap.** The lock is checked when a request starts. A slow write that
+started just before the lock was taken can still commit while the snapshot
+runs. The window is small and not closed yet.
+
 ## Retention, scheduling, and env vars
 
 From `server/src/modules/workbook/schedule/retention.service.ts`, run once

@@ -57,6 +57,8 @@ import { FeeModule } from './fees.module';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { TenantStatusService } from '../schools/tenant-status.service';
+import { acquire as acquireRestoreLock } from '../workbook/restore/restore-lock';
 
 /**
  * [16.7.2] Real-DB coverage for `FeesDailyScheduler`. #675 ([16.7.1])
@@ -257,7 +259,9 @@ describe('FeesDailyScheduler (integration)', () => {
   function buildScheduler(): FeesDailyScheduler {
     const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
     const schoolsService = { findAll: async () => [] } as any;
-    return new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService);
+    return new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService, {
+      isRestoring: async () => false,
+    } as any);
   }
 
   /** [68.1.2210] A tenant whose restore lock is held is skipped; one without it is still billed. */
@@ -268,15 +272,9 @@ describe('FeesDailyScheduler (integration)', () => {
     const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
     const schoolsService = { findAll: async () => [] } as any;
     const build = (restoring: boolean) =>
-      new FeesDailyScheduler(
-        queue,
-        dataSource,
-        schoolsService,
-        feeGenerationService,
-        undefined,
-        undefined,
-        { isRestoring: async () => restoring } as any,
-      );
+      new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService, {
+        isRestoring: async () => restoring,
+      } as any);
 
     await build(true).process({ data: { tenantId: TENANT_ID } } as any);
     expect(await studentFeeRepo.find()).toHaveLength(0);
@@ -753,6 +751,7 @@ describe('FeesDailyScheduler (integration)', () => {
         // for real generation through the scheduler's other sweeps — only
         // the fine sweep is under test here, so a stub is enough.
         {} as any,
+        { isRestoring: async () => false } as any,
         undefined,
         sweep,
       );
@@ -800,6 +799,41 @@ describe('FeesDailyScheduler (integration)', () => {
         .find({ where: { fee_structure_id: tenantA.structureId } });
       expect(billsA).toHaveLength(0);
 
+      const billsB = await fineSweepDataSource
+        .getRepository(StudentFee)
+        .find({ where: { fee_structure_id: tenantB.structureId } });
+      expect(billsB).toHaveLength(1);
+    });
+
+    /** [68.1.2210] The nightly sweep (no `job.data`), with a REAL restore lock in Redis for A:
+     * A must be skipped, and B must still be billed in the same run. */
+    it('the nightly sweep skips tenant A while its restore lock is held and still bills tenant B', async () => {
+      const tenantA = await setupFineSweepTenant();
+      const tenantB = await setupFineSweepTenant();
+      await acquireRestoreLock(redis, tenantA.tenantId, 'job-restore-a');
+
+      const scheduler = new FeesDailyScheduler(
+        { upsertJobScheduler: async () => undefined, add: async () => undefined } as any,
+        fineSweepDataSource,
+        {
+          findAll: async () => [
+            { id: tenantA.tenantId, status: 'ACTIVE' },
+            { id: tenantB.tenantId, status: 'ACTIVE' },
+          ],
+        } as any,
+        {} as any,
+        // Real service over real Redis: reads the same key `acquire` wrote.
+        new TenantStatusService(redis, {} as any),
+        undefined,
+        fineSweepService,
+      );
+
+      await scheduler.process({ data: undefined } as any);
+
+      const billsA = await fineSweepDataSource
+        .getRepository(StudentFee)
+        .find({ where: { fee_structure_id: tenantA.structureId } });
+      expect(billsA).toHaveLength(0);
       const billsB = await fineSweepDataSource
         .getRepository(StudentFee)
         .find({ where: { fee_structure_id: tenantB.structureId } });

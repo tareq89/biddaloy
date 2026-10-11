@@ -4,8 +4,6 @@ import {
   ExecutionContext,
   UnauthorizedException,
   ForbiddenException,
-  HttpException,
-  HttpStatus,
   Inject,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -18,7 +16,7 @@ import {
   TRIAL_EXPIRED_REASON,
 } from '@biddaloy/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import { TenantStatusService } from '../../schools/tenant-status.service';
+import { TenantStatusService, tenantRestoringException } from '../../schools/tenant-status.service';
 
 /**
  * Priority ordering for role fallback when a user has multiple roles
@@ -265,13 +263,7 @@ export class ContextGuard implements CanActivate {
         !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
         (await this.tenantStatus.isRestoring(tenantId))
       ) {
-        throw new HttpException(
-          {
-            message: 'This school is being restored from a backup. Try again when it finishes.',
-            details: { code: 'TENANT_RESTORING' },
-          },
-          HttpStatus.LOCKED,
-        );
+        throw tenantRestoringException();
       }
     }
 

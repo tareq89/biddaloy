@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryFailedError } from 'typeorm';
 import { SchoolStatus } from '@biddaloy/shared';
+import * as Sentry from '@sentry/node';
 import { TenantStatusService } from './tenant-status.service';
+
+vi.mock('@sentry/node', () => ({
+  withScope: (fn: (scope: any) => void) => fn({ setTags: vi.fn() }),
+  captureException: vi.fn(),
+}));
 
 function invalidUuidError(): QueryFailedError {
   const err = new QueryFailedError(
@@ -202,6 +208,18 @@ describe('TenantStatusService', () => {
       redis.exists.mockRejectedValue(new Error('connection refused'));
 
       expect(await service.isRestoring('tenant-1')).toBe(false);
+    });
+
+    // Fail-open lets writes back in if Redis drops mid-restore, so it must show up in Sentry —
+    // but only once per window, since a Redis outage fails every write request.
+    it('reports a failed lock read to Sentry once, not once per request', async () => {
+      vi.mocked(Sentry.captureException).mockClear();
+      redis.exists.mockRejectedValue(new Error('connection refused'));
+
+      await service.isRestoring('tenant-1');
+      await service.isRestoring('tenant-1');
+
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
     });
   });
 

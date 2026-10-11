@@ -3,9 +3,12 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import type Redis from 'ioredis';
 import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
+import { BULK_IMPORT_REDIS } from '../../bulk-import/import-staging.service';
+import { acquire, release } from '../../workbook/restore/restore-lock';
 import { UserRole, AttendanceDeviceKind } from '@biddaloy/shared';
 import {
   SEED_TENANT_ID,
@@ -303,5 +306,46 @@ describe('Attendance Devices E2E', () => {
       .get(`${API}/attendance/devices/me/roster`)
       .set('X-Device-Key', createRes.body.key)
       .expect(403);
+  });
+
+  // [68.1.2210] Device ingest has no ContextGuard, so it checks the restore freeze itself: a scan
+  // saved mid-restore would be deleted by the restore and be missing from its snapshot.
+  it('refuses a device batch with 423 TENANT_RESTORING while the tenant restore runs, then accepts it', async () => {
+    const createRes = await supertest(app.getHttpServer())
+      .post(`${API}/attendance/devices`)
+      .set(adminHeaders())
+      .send({ name: 'Restore Freeze Device', kind: AttendanceDeviceKind.RFID })
+      .expect(201);
+    const key = createRes.body.key;
+    const deviceId = createRes.body.device.id;
+    const batch = {
+      events: [
+        { device_event_id: 'freeze-check', occurred_at: new Date().toISOString(), direction: 'IN' },
+      ],
+    };
+    const redis = app.get<Redis>(BULK_IMPORT_REDIS);
+
+    await acquire(redis, TENANT_ID, 'job-device-freeze');
+    try {
+      const res = await supertest(app.getHttpServer())
+        .post(`${API}/attendance/device-events`)
+        .set('X-Device-Key', key)
+        .send(batch)
+        .expect(423);
+      expect(res.body.details.code).toBe('TENANT_RESTORING');
+      const rows = await dataSource.query(
+        `SELECT 1 FROM attendance_device_events WHERE device_id = $1`,
+        [deviceId],
+      );
+      expect(rows).toHaveLength(0);
+    } finally {
+      await release(redis, TENANT_ID, 'job-device-freeze');
+    }
+
+    await supertest(app.getHttpServer())
+      .post(`${API}/attendance/device-events`)
+      .set('X-Device-Key', key)
+      .send(batch)
+      .expect(200);
   });
 });

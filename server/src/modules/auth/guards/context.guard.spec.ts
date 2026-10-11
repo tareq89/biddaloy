@@ -276,10 +276,24 @@ describe('ContextGuard', () => {
       expect(error.getResponse().details).toEqual({ code: 'TENANT_RESTORING' });
     });
 
-    it.each(['PUT', 'PATCH', 'DELETE'])('refuses a %s while a restore runs', async (method) => {
+    it('refuses a PUT while a restore runs', async () => {
       tenantStatus.isRestoring.mockResolvedValue(true);
       await expect(
-        guard.canActivate(createMockContext(restoreReq(method, adminOf))),
+        guard.canActivate(createMockContext(restoreReq('PUT', adminOf))),
+      ).rejects.toMatchObject({ status: 423 });
+    });
+
+    it('refuses a PATCH while a restore runs', async () => {
+      tenantStatus.isRestoring.mockResolvedValue(true);
+      await expect(
+        guard.canActivate(createMockContext(restoreReq('PATCH', adminOf))),
+      ).rejects.toMatchObject({ status: 423 });
+    });
+
+    it('refuses a DELETE while a restore runs', async () => {
+      tenantStatus.isRestoring.mockResolvedValue(true);
+      await expect(
+        guard.canActivate(createMockContext(restoreReq('DELETE', adminOf))),
       ).rejects.toMatchObject({ status: 423 });
     });
 

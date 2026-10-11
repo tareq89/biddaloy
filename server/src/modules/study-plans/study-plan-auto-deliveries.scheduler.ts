@@ -16,6 +16,7 @@ import { Teacher } from '../academics/entities/teacher.entity';
 import { RoutineSubstitution } from '../routines/entities/routine-substitution.entity';
 import { ResolveRoutineService } from '../routines/resolve-routine.service';
 import { SchoolsService } from '../schools/schools.service';
+import { TenantStatusService } from '../schools/tenant-status.service';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { BULK_IMPORT_REDIS } from '../bulk-import/import-staging.service';
@@ -60,6 +61,7 @@ export class StudyPlanAutoDeliveriesScheduler extends WorkerHost implements OnMo
     private readonly resolver: ResolveRoutineService,
     private readonly plans: StudyPlansService,
     @Inject(BULK_IMPORT_REDIS) private readonly redis: Redis,
+    private readonly tenantStatus: TenantStatusService,
   ) {
     super();
   }
@@ -87,6 +89,12 @@ export class StudyPlanAutoDeliveriesScheduler extends WorkerHost implements OnMo
 
   /** One tenant: gate (deadline, school day, once-a-day marker), then write. */
   async sweepTenant(tenantId: string): Promise<void> {
+    // A restore is rewriting this school's data (#2210). Skip before the once-a-day marker so the
+    // next 15-minute tick still writes today's rows once the restore ends.
+    if (await this.tenantStatus.isRestoring(tenantId)) {
+      this.logger.log(`study-plan auto deliveries: skipped tenant ${tenantId}, restore running`);
+      return;
+    }
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const timezone = settings.region?.timezone ?? 'UTC';
     const { statusDeadline } = await this.settingsReader.studyPlansSettings(tenantId);

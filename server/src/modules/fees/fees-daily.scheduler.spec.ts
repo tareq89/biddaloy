@@ -111,7 +111,9 @@ describe('FeesDailyScheduler', () => {
       transaction: vi.fn(async (cb: any) => cb(manager)),
     };
 
-    scheduler = new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService);
+    scheduler = new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService, {
+      isRestoring: async () => false,
+    } as any);
   });
 
   it('registers the repeatable job on boot at 00:30 SCHOOL_TZ', async () => {
