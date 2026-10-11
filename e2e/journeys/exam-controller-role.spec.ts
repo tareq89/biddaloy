@@ -174,6 +174,11 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
   await page.getByRole('button', { name: t('exams.publishDialog.confirm') }).click();
   await page.getByRole('button', { name: t('common.actions.moreActions') }).click();
   await expect(page.getByRole('menuitem', { name: t('exams.resultsPanel.reopen') })).toBeVisible();
+
+  // --- 5. published: the parts panel is read-only with the "reopen first" line ----
+  await page.goto(`/exams/${exam.id}?tab=setup`);
+  await expect(page.getByText(t('exams.componentsPanel.lockedPublished'))).toBeVisible();
+  await expect(page.locator('#component-full-marks')).toHaveCount(0);
 });
 
 test('prints documents but cannot manage print templates', async ({ page }) => {

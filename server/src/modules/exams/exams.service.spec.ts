@@ -11,7 +11,9 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AcademicTerm } from '../calendar/entities/academic-term.entity';
 import { AuditService } from '../audit/audit.service';
 import { ExamTemplatesService } from './exam-templates.service';
-import { ExamKind } from '@biddaloy/shared';
+import { ExamKind, ExamStatus } from '@biddaloy/shared';
+import { Result } from './entities/result.entity';
+import { ResultsService } from './results.service';
 
 /**
  * Unit tests for 19.3.1's `ExamsService` — exam CRUD, and the "class/year
@@ -36,8 +38,11 @@ function createRepoStub() {
     transaction: vi.fn(async (cb: any) =>
       cb({ getRepository: (e: any) => (e === Exam ? repo : repo.manager.getRepository(e)) }),
     ),
-    getRepository: vi.fn(() => ({ findOne: vi.fn(async () => null) })),
+    getRepository: vi.fn((e: any) =>
+      e === Result ? repo.resultRepo : { findOne: vi.fn(async () => null) },
+    ),
   };
+  repo.resultRepo = { count: vi.fn(async () => 0) };
   return repo;
 }
 
@@ -62,6 +67,7 @@ async function buildService() {
   };
   const auditService = { record: vi.fn(async () => undefined) };
   const templatesService = { componentsFor: vi.fn(async () => []) };
+  const resultsService = { recomputeProcessedExam: vi.fn(async () => 0) };
 
   const moduleRef = await Test.createTestingModule({
     providers: [
@@ -73,6 +79,7 @@ async function buildService() {
       { provide: getRepositoryToken(AcademicTerm), useValue: termRepo },
       { provide: AuditService, useValue: auditService },
       { provide: ExamTemplatesService, useValue: templatesService },
+      { provide: ResultsService, useValue: resultsService },
     ],
   }).compile();
 
@@ -85,6 +92,7 @@ async function buildService() {
     termRepo,
     auditService,
     templatesService,
+    resultsService,
   };
 }
 
@@ -359,5 +367,51 @@ describe('ExamsService duplicate-name mapping', () => {
         TENANT_ID,
       ),
     ).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('ExamsService published guard (ACAD-05)', () => {
+  const exam = (status: ExamStatus) => ({
+    id: 'e1',
+    tenant_id: TENANT_ID,
+    class_id: 'c1',
+    academic_year_id: 'y1',
+    academic_term_id: 't1',
+    name: 'Term 1',
+    kind: ExamKind.TERM,
+    status,
+  });
+
+  it('remove with live results is a 409 EXAM_HAS_RESULTS and deletes nothing', async () => {
+    const { service, examRepo } = await buildService();
+    examRepo.findOne = vi.fn(async () => exam(ExamStatus.PUBLISHED));
+    examRepo.resultRepo.count = vi.fn(async () => 3);
+    await expect(service.remove('e1', TENANT_ID)).rejects.toMatchObject({
+      response: { details: { code: 'EXAM_HAS_RESULTS' } },
+    });
+    expect(examRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('a PUBLISHED exam can still be renamed', async () => {
+    const { service, examRepo } = await buildService();
+    examRepo.findOne = vi.fn(async () => exam(ExamStatus.PUBLISHED));
+    await service.update('e1', { name: 'Renamed' } as any, TENANT_ID);
+    expect(examRepo.update).toHaveBeenCalled();
+  });
+
+  it('a PUBLISHED exam kind change is a 409 EXAM_PUBLISHED', async () => {
+    const { service, examRepo } = await buildService();
+    examRepo.findOne = vi.fn(async () => exam(ExamStatus.PUBLISHED));
+    await expect(
+      service.update('e1', { kind: ExamKind.MONTHLY } as any, TENANT_ID),
+    ).rejects.toMatchObject({ response: { details: { code: 'EXAM_PUBLISHED' } } });
+    expect(examRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('a PROCESSED exam term change recomputes in the transaction', async () => {
+    const { service, examRepo, resultsService } = await buildService();
+    examRepo.findOne = vi.fn(async () => exam(ExamStatus.PROCESSED));
+    await service.update('e1', { academic_term_id: 't2' } as any, TENANT_ID, 'u1');
+    expect(resultsService.recomputeProcessedExam).toHaveBeenCalledTimes(1);
   });
 });

@@ -48,14 +48,23 @@ export interface ComponentsPanelProps {
   examId: string;
   classId: string;
   academicYearId: string;
+  /** PUBLISHED locks the parts: results must be reopened (approval) first. */
+  examStatus?: string;
 }
 
 type FormError = { field: 'name' | 'fullMarks'; message: string };
 
-export function ComponentsPanel({ examId, classId, academicYearId }: ComponentsPanelProps) {
+export function ComponentsPanel({
+  examId,
+  classId,
+  academicYearId,
+  examStatus,
+}: ComponentsPanelProps) {
   const { t, i18n } = useTranslation('exams');
   const config = useRegionConfig();
-  const canManage = useHasPermission(Permission.EXAM_MANAGE);
+  const locked = examStatus === 'PUBLISHED';
+  const hasManage = useHasPermission(Permission.EXAM_MANAGE);
+  const canManage = hasManage && !locked;
   const classSubjectsQuery = useClassSubjects(classId, academicYearId);
   const navigate = examRoute.useNavigate();
   const copyOpen = examRoute.useSearch({ select: (s) => s.copy === '1' });
@@ -129,6 +138,9 @@ export function ComponentsPanel({ examId, classId, academicYearId }: ComponentsP
 
   return (
     <div className="flex flex-col gap-6">
+      {hasManage && locked && (
+        <p className="text-sm text-text-secondary">{t('componentsPanel.lockedPublished')}</p>
+      )}
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="exam-components-subject">{t('componentsPanel.subjectLabel')}</Label>
@@ -293,7 +305,9 @@ export function ComponentsPanel({ examId, classId, academicYearId }: ComponentsP
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5 md:col-span-2">
-                  <Label htmlFor="component-pass-marks">{t('componentsPanel.columnPassMarks')}</Label>
+                  <Label htmlFor="component-pass-marks">
+                    {t('componentsPanel.columnPassMarks')}
+                  </Label>
                   <Input
                     id="component-pass-marks"
                     value={passMarks}
