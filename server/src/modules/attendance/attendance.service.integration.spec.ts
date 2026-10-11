@@ -362,7 +362,9 @@ describe('AttendanceService (integration)', () => {
       await expect(
         service.putRegister(
           putParams({
-            dto: basePutDto({ entries: [{ student_id: left.id, status: AttendanceStatus.ABSENT }] }),
+            dto: basePutDto({
+              entries: [{ student_id: left.id, status: AttendanceStatus.ABSENT }],
+            }),
           }),
         ),
       ).rejects.toMatchObject({

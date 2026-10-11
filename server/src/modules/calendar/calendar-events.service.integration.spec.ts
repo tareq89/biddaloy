@@ -547,7 +547,10 @@ describe('CalendarEventsService (integration)', () => {
         return d.toISOString().slice(0, 10);
       };
       const dto = holidayDto(shift(-1), { end_date: shift(1), publish: false });
-      await expectCode(service.create(dto, TENANT_ID, SEED_ADMIN_USER_ID), 'CALENDAR_REASON_REQUIRED');
+      await expectCode(
+        service.create(dto, TENANT_ID, SEED_ADMIN_USER_ID),
+        'CALENDAR_REASON_REQUIRED',
+      );
 
       const notify = vi
         .spyOn((service as any).notifyService, 'eventCreated')

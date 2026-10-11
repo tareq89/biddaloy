@@ -235,11 +235,12 @@ export function EventFormPage({
               <Select
                 value={type}
                 onValueChange={(value) => {
+                  const next = value as CalendarEventType;
                   // Leaving MAKEUP_DAY: its forced "counts" must not stick.
-                  if (isMakeup && value !== CalendarEventType.MAKEUP_DAY) {
+                  if (isMakeup && next !== CalendarEventType.MAKEUP_DAY) {
                     setCountsAsWorkingDay(false);
                   }
-                  setType(value as CalendarEventType);
+                  setType(next);
                 }}
               >
                 <SelectTrigger id="event-form-type">
