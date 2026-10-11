@@ -60,6 +60,7 @@ function component(overrides: Partial<ExamComponent> = {}): ExamComponent {
 async function buildService(existing: ExamComponent[] = [], status: ExamStatus = ExamStatus.DRAFT) {
   const examRepo = {
     findOne: vi.fn(async () => ({ id: 'exam-1', tenant_id: TENANT_ID, status })),
+    update: vi.fn(async () => undefined),
   };
   const markRepo = { createQueryBuilder: vi.fn() };
   const maxMark = { value: null as string | null };
@@ -423,6 +424,57 @@ describe('ExamComponentsService published/processed guard (ACAD-05)', () => {
     await service.update('exam-1', 'c1', { full_marks: '80' }, TENANT_ID, 'u1');
     expect(resultsService.recomputeProcessedExam).toHaveBeenCalledTimes(1);
     expect(componentRepo.manager.transaction).toHaveBeenCalled();
+  });
+
+  it('#2246: a new MANUAL part on a PROCESSED exam sends it back to DRAFT, no recompute', async () => {
+    const { service, examRepo, resultsService, auditService } = await buildService(
+      [],
+      ExamStatus.PROCESSED,
+    );
+    await service.create(
+      'exam-1',
+      {
+        subject_id: 'subj-1',
+        name: 'Practical',
+        kind: ExamComponentKind.PRACTICAL,
+        full_marks: '25',
+        sequence: 2,
+      } as any,
+      TENANT_ID,
+      'u1',
+    );
+    // Recomputing would store the empty part as ABSENT for everyone, ready to publish.
+    expect(resultsService.recomputeProcessedExam).not.toHaveBeenCalled();
+    expect(examRepo.update).toHaveBeenCalledWith(
+      { id: 'exam-1', tenant_id: TENANT_ID },
+      { status: ExamStatus.DRAFT },
+    );
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity_type: 'Exam',
+        new_values: { status: ExamStatus.DRAFT, reason: 'COMPONENT_ADDED' },
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('a new DERIVED part on a PROCESSED exam just recomputes (it is never blank)', async () => {
+    const { service, examRepo, resultsService } = await buildService([], ExamStatus.PROCESSED);
+    await service.create(
+      'exam-1',
+      {
+        subject_id: 'subj-1',
+        name: 'Attendance',
+        kind: ExamComponentKind.ATTENDANCE,
+        source: ExamComponentSource.DERIVED,
+        full_marks: '5',
+        sequence: 2,
+      } as any,
+      TENANT_ID,
+      'u1',
+    );
+    expect(resultsService.recomputeProcessedExam).toHaveBeenCalledTimes(1);
+    expect(examRepo.update).not.toHaveBeenCalled();
   });
 
   it('does not recompute on a DRAFT exam', async () => {

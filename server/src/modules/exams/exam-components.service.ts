@@ -10,7 +10,7 @@ import { AuditAction, ExamComponentKind, ExamComponentSource, ExamStatus } from 
 import { Exam } from './entities/exam.entity';
 import { ExamComponent } from './entities/exam-component.entity';
 import { Mark } from './entities/mark.entity';
-import { ResultsService, lockExam } from './results.service';
+import { ResultsService, examPublished, lockExam } from './results.service';
 import { Subject } from '../academics/entities/subject.entity';
 import {
   CreateExamComponentDto,
@@ -56,12 +56,7 @@ export class ExamComponentsService {
     tenantId: string,
   ): Promise<Exam> {
     const exam = await lockExam(manager, examId, tenantId);
-    if (exam.status === ExamStatus.PUBLISHED) {
-      throw new ConflictException({
-        message: "This exam's results are published. Reopen the results first.",
-        details: { code: 'EXAM_PUBLISHED' },
-      });
-    }
+    if (exam.status === ExamStatus.PUBLISHED) throw examPublished();
     return exam;
   }
 
@@ -77,6 +72,41 @@ export class ExamComponentsService {
     if (exam.status === ExamStatus.PROCESSED) {
       await this.resultsService.recomputeProcessedExam(manager, exam.id, tenantId, userId, context);
     }
+  }
+
+  /** A new MANUAL part on a PROCESSED exam has no marks yet. Recomputing
+   * would store it as ABSENT for everyone, ready to publish, so the exam
+   * goes back to DRAFT instead: it must be processed again, and process()
+   * refuses while the new cells are blank (unless forced, audited). */
+  private async afterPartsAdded(
+    manager: EntityManager,
+    exam: Exam,
+    addedManual: boolean,
+    tenantId: string,
+    userId: string | null,
+    context: RequestContext,
+  ): Promise<void> {
+    if (!addedManual || exam.status !== ExamStatus.PROCESSED) {
+      await this.recomputeIfProcessed(manager, exam, tenantId, userId, context);
+      return;
+    }
+    await manager
+      .getRepository(Exam)
+      .update({ id: exam.id, tenant_id: tenantId }, { status: ExamStatus.DRAFT });
+    await this.auditService.record(
+      {
+        action: AuditAction.UPDATE,
+        entity_type: 'Exam',
+        entity_id: exam.id,
+        tenant_id: tenantId,
+        performed_by_user_id: userId,
+        ip_address: context.ip,
+        user_agent: context.userAgent,
+        old_values: { status: ExamStatus.PROCESSED },
+        new_values: { status: ExamStatus.DRAFT, reason: 'COMPONENT_ADDED' },
+      },
+      manager,
+    );
   }
 
   /** IDOR guard: a component's `subject_id` must belong to the caller's
@@ -97,6 +127,7 @@ export class ExamComponentsService {
    * exam-subject. `excludeId` skips the row being updated when checking
    * uniqueness against itself. */
   private async validate(
+    manager: EntityManager,
     examId: string,
     subjectId: string,
     tenantId: string,
@@ -121,7 +152,7 @@ export class ExamComponentsService {
       throw new BadRequestException('An ATTENDANCE component must have source = DERIVED.');
     }
 
-    const existing = await this.repo.find({
+    const existing = await manager.getRepository(ExamComponent).find({
       where: { exam_id: examId, subject_id: subjectId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     const others = existing.filter((c) => c.id !== excludeId);
@@ -165,7 +196,7 @@ export class ExamComponentsService {
 
     return this.repo.manager.transaction(async (manager) => {
       const exam = await this.lockEditableExam(manager, examId, tenantId);
-      await this.validate(examId, dto.subject_id, tenantId, {
+      await this.validate(manager, examId, dto.subject_id, tenantId, {
         name: dto.name,
         kind: dto.kind,
         source,
@@ -202,7 +233,14 @@ export class ExamComponentsService {
         manager,
       );
 
-      await this.recomputeIfProcessed(manager, exam, tenantId, userId, context);
+      await this.afterPartsAdded(
+        manager,
+        exam,
+        source === ExamComponentSource.MANUAL,
+        tenantId,
+        userId,
+        context,
+      );
       return saved;
     });
   }
@@ -237,13 +275,20 @@ export class ExamComponentsService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<ExamComponent> {
-    const existing = await this.findOne(examId, id, tenantId);
+    await this.findOne(examId, id, tenantId);
 
     const changedKeys = Object.keys(dto);
     await this.repo.manager.transaction(async (manager) => {
       const exam = await this.lockEditableExam(manager, examId, tenantId);
+      // Re-read under the exam lock: a concurrent edit that committed since
+      // the 404 check above must be what this one validates and audits against.
+      const existing = await manager.getRepository(ExamComponent).findOne({
+        where: { id, exam_id: examId, tenant_id: tenantId, deleted_at: IsNull() },
+      });
+      if (!existing) throw new NotFoundException(`Exam component with ID "${id}" not found`);
 
       await this.validate(
+        manager,
         examId,
         existing.subject_id,
         tenantId,
@@ -372,6 +417,7 @@ export class ExamComponentsService {
     }
 
     const result: CopyComponentsResult = { copied: [], skipped: [] };
+    let copiedManual = false;
     await this.repo.manager.transaction(async (manager) => {
       const exam = await this.lockEditableExam(manager, examId, tenantId);
       const repo = manager.getRepository(ExamComponent);
@@ -452,13 +498,14 @@ export class ExamComponentsService {
           }
 
           existingNames.add(source.name);
+          if (source.source === ExamComponentSource.MANUAL) copiedManual = true;
           if (source.kind === ExamComponentKind.ATTENDANCE) attendanceAlready = true;
           nextSequence += 1;
           result.copied.push({ subject_id: targetSubjectId, name: source.name });
         }
       }
       if (result.copied.length > 0) {
-        await this.recomputeIfProcessed(manager, exam, tenantId, userId, context);
+        await this.afterPartsAdded(manager, exam, copiedManual, tenantId, userId, context);
       }
     });
 
