@@ -44,7 +44,15 @@ import { useNavigate } from '@tanstack/react-router';
 import { DownloadIcon } from 'lucide-react';
 import * as React from 'react';
 
-export function StaffUserMenu({ securityTo = '/security' }: { securityTo?: string } = {}) {
+export function StaffUserMenu({
+  securityTo = '/security',
+  invites: sharedInvites,
+}: {
+  securityTo?: string;
+  /** Pass the layout's copy when it also shows the invites card, so both
+   * share one busy state (no double accept, or accept + decline at once). */
+  invites?: ReturnType<typeof useSchoolInvitesCardProps>;
+} = {}) {
   // Loaded first — `check-i18n-keys.mjs` resolves a file's bare `t()`
   // calls off its *first* `useTranslation` call, so `nav` (this
   // component's own namespace) must be established before `auth` is
@@ -65,7 +73,8 @@ export function StaffUserMenu({ securityTo = '/security' }: { securityTo?: strin
   const { mode } = installPrompt;
   const [iosSheetOpen, setIosSheetOpen] = React.useState(false);
   const [invitesOpen, setInvitesOpen] = React.useState(false);
-  const invites = useSchoolInvitesCardProps();
+  const ownInvites = useSchoolInvitesCardProps();
+  const invites = sharedInvites ?? ownInvites;
 
   async function handleSignOut(): Promise<void> {
     setSigningOut(true);
