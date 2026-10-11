@@ -90,7 +90,7 @@ export class AccountAccessDeliveryService {
 
     try {
       const result = await provider.send(
-        { to: input.to, body: real.body, subject: real.subject },
+        { to: input.to, body: real.body, subject: real.subject, allowPlatformSms: true },
         input.tenantId,
       );
       if (result.success) {

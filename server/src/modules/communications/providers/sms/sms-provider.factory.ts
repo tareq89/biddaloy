@@ -38,7 +38,9 @@ export class SmsProviderFactory implements CommunicationProvider {
       // A ProviderNotConfiguredError from this call is caught by the same
       // catch block as a gateway-level failure below — this provider's
       // contract is "never throw" regardless of which step failed.
-      const config = await this.configResolver.resolveSms(tenantId);
+      const config = await this.configResolver.resolveSms(tenantId, undefined, {
+        allowPlatformKeys: params.allowPlatformSms === true,
+      });
       if (config.gateway === 'mimsms') {
         return await this.mimSmsGateway.sendSms(params.to, params.body, config);
       }
