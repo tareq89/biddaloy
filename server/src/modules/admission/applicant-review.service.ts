@@ -277,6 +277,7 @@ export class ApplicantReviewService {
         },
         tenantId,
         manager,
+        { userId: reviewerUserId },
       );
 
       await manager.getRepository(AdmissionEvaluation).save(

@@ -614,4 +614,24 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(logs).toHaveLength(1);
     expect(logs[0].performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
   });
+
+  it('LIFE-11: a bulk import writes one Student CREATE audit row per student with the actor', async () => {
+    const file = await buildXlsxFile([
+      rowValues(headers, { student_name: 'Audit Row One', roll: '60' }),
+      rowValues(headers, {
+        student_name: 'Audit Row Two',
+        roll: '61',
+        guardian1_phone: '+8801711100061',
+      }),
+    ]);
+
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    expect(result.success_count).toBe(2);
+
+    const logs = await auditLogRepo.find({
+      where: { action: AuditAction.CREATE, entity_type: 'Student' },
+    });
+    expect(logs.map((l) => l.entity_id).sort()).toEqual([...result.created_student_ids].sort());
+    expect(logs.every((l) => l.performed_by_user_id === SEED_ADMIN_USER_ID)).toBe(true);
+  });
 });

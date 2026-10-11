@@ -1076,15 +1076,29 @@ export class PromotionsService {
       run.override_count = overrideCount;
       await runRepo.save(run);
 
-      // D26 asks for one run-level COMMIT audit entry, but `shared/`'s
-      // `AUDIT_ENTITY_TYPES` catalog (shared/src/audit/entity-types.ts)
-      // has no 'PromotionRun' literal, and this ticket's territory
-      // excludes shared/ (a boundary shared across parallel epic lanes).
-      // Every actual data write is now audited: per-enrollment rows (via
-      // `createInTransaction`), per-renumbered-student rows, and the
-      // GRADUATE Student/Enrollment rows above. Only the run-level summary
-      // row is missing. Flagged for a follow-up that adds 'PromotionRun'
-      // to the shared catalog.
+      // [LIFE-17] D26: one run-level audit row (approver + override count).
+      await this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'PromotionRun',
+          entity_id: run.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          new_values: {
+            event: 'PROMOTION_COMMITTED',
+            source_class_id: run.source_class_id,
+            source_academic_year_id: run.source_academic_year_id,
+            target_academic_year_id: run.target_academic_year_id,
+            promoted_count: entries.filter((e) => e.final_outcome === PromotionOutcome.PROMOTE)
+              .length,
+            override_count: overrideCount,
+            approved_by_user_id: approvedByUserId,
+          },
+        },
+        manager,
+      );
 
       return { id: run.id };
     });

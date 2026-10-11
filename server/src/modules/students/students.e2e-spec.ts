@@ -88,6 +88,26 @@ describe('Students E2E', () => {
       expect(res.body.tenant_id).toBe(TENANT_ID);
     });
 
+    it('LIFE-11: the create is visible in the audit log with the acting admin', async () => {
+      const created = await supertest(app.getHttpServer())
+        .post('/api/v1/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ ...createStudentPayload, full_name: 'Audited Via Api' })
+        .expect(201);
+
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/audit-logs?entity_type=Student&entity_id=${created.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].action).toBe('CREATE');
+      expect(res.body.data[0].new_values.full_name).toBe('Audited Via Api');
+      expect(res.body.data[0].performed_by_user_id).toBeTruthy();
+    });
+
     it('neutralises a script payload in full_name and home_address (issue #33)', async () => {
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/students')

@@ -295,6 +295,36 @@ describe('StudentService (integration)', () => {
   });
 
   describe('create', () => {
+    it('LIFE-11: create writes one Student CREATE audit row with the actor', async () => {
+      const userRepo = dataSource.getRepository('User');
+      const actor = (await userRepo.save(
+        userRepo.create({
+          full_name: 'Create Actor',
+          email: `create-actor-${Date.now()}@example.com`,
+          status: 'ACTIVE',
+        }),
+      )) as { id: string };
+
+      const student = await service.create(
+        { full_name: 'Audited Kid', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+        undefined,
+        { userId: actor.id, context: { ip: '10.0.0.1', userAgent: 'vitest' } },
+      );
+
+      const rows = await dataSource.getRepository(AuditLog).find({
+        where: { entity_type: 'Student', entity_id: student.id, tenant_id: TENANT_ID },
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].action).toBe('CREATE');
+      expect(rows[0].performed_by_user_id).toBe(actor.id);
+      expect(rows[0].new_values).toMatchObject({
+        full_name: 'Audited Kid',
+        registration_number: student.registration_number,
+        class_section_id: SEED_SECTION_1_ID,
+      });
+    });
+
     it('should create a student with auto-generated registration number', async () => {
       const dto = {
         full_name: 'John Doe',
