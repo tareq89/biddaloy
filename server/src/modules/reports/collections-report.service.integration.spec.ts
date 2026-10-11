@@ -16,12 +16,18 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { createTestModule } from '@test/helpers/module.helper';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
 import { CollectionsReportService } from './collections-report.service';
+import { CollectionsReportDto } from './dto/collections-report.dto';
 import { Student } from '../students/entities/student.entity';
 import { StudentFee } from '../fees/entities/student-fee.entity';
 import { FeeStructure } from '../fees/entities/fee-structure.entity';
 import { Payment } from '../fees/entities/payment.entity';
 import { PaymentAllocation } from '../fees/entities/payment-allocation.entity';
 import { User } from '../users/entities/user.entity';
+import { PaymentReversalService } from '../fees/payment-reversal.service';
+import { WalletService } from '../fees/wallet.service';
+import { AuditService } from '../audit/audit.service';
+import { InvoicesService } from '../invoices/invoices.service';
+import { StorageModule } from '../storage/storage.module';
 
 /**
  * Integration tests for `CollectionsReportService` (16.6.2), against a
@@ -40,6 +46,7 @@ let paymentSeq = 0;
 describe('CollectionsReportService', () => {
   let moduleRef: TestingModule;
   let service: CollectionsReportService;
+  let reversalService: PaymentReversalService;
   let dataSource: DataSource;
   let studentRepo: Repository<Student>;
   let studentFeeRepo: Repository<StudentFee>;
@@ -49,7 +56,18 @@ describe('CollectionsReportService', () => {
   let userRepo: Repository<User>;
 
   beforeAll(async () => {
-    moduleRef = await createTestModule(ALL_ENTITIES, [CollectionsReportService]);
+    moduleRef = await createTestModule(
+      ALL_ENTITIES,
+      [
+        CollectionsReportService,
+        PaymentReversalService,
+        WalletService,
+        AuditService,
+        InvoicesService,
+      ],
+      [StorageModule],
+    );
+    reversalService = moduleRef.get(PaymentReversalService);
     service = moduleRef.get(CollectionsReportService);
     dataSource = moduleRef.get(DataSource);
     studentRepo = moduleRef.get(getRepositoryToken(Student));
@@ -205,7 +223,11 @@ describe('CollectionsReportService', () => {
         reversal_of_payment_id: payment.id,
         payment_date: new Date('2026-03-16T05:00:00Z'),
       });
-      await paymentRepo.update(payment.id, { reversed_by_payment_id: reversal.id });
+      // Same as payment-reversal.service.ts: the original goes REFUNDED.
+      await paymentRepo.update(payment.id, {
+        reversed_by_payment_id: reversal.id,
+        payment_status: PaymentStatus.REFUNDED,
+      });
 
       const result = await service.getReport(SEED_TENANT_ID, {
         from: '2026-03-01',
@@ -235,6 +257,120 @@ describe('CollectionsReportService', () => {
       // Dhaka is UTC+6: 2026-03-15T05:00:00Z is 2026-03-15 11:00 Dhaka, and
       // 2026-03-16T05:00:00Z is 2026-03-16 11:00 Dhaka — two distinct days.
       expect(result.by_day.map((d) => d.date)).toEqual(['2026-03-15', '2026-03-16']);
+    });
+
+    it('a reversal made with PaymentReversalService nets to 0 and leaves the original day unchanged', async () => {
+      const student = await makeStudent();
+      const fee = await makeStudentFee(student.id, {
+        total_amount: 1000,
+        paid_amount: 1000,
+        status: FeeStatus.PAID,
+      });
+      const payment = await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 1000,
+        payment_date: new Date('2026-03-15T05:00:00Z'),
+        received_by_user_id: COLLECTOR_USER_ID,
+      });
+      await paymentAllocationRepo.save(
+        paymentAllocationRepo.create({
+          payment_id: payment.id,
+          student_fee_id: fee.id,
+          allocated_amount: 1000,
+          allocation_type: PaymentAllocationType.CURRENT,
+          discount_amount: 0,
+        }),
+      );
+      const reversal = await reversalService.reverse(
+        payment.id,
+        SEED_TENANT_ID,
+        COLLECTOR_USER_ID,
+        COLLECTOR_USER_ID,
+        'repro',
+      );
+      await paymentRepo.update(reversal.id, { payment_date: new Date('2026-03-16T05:00:00Z') });
+
+      const day1 = await service.getReport(SEED_TENANT_ID, {
+        from: '2026-03-15',
+        to: '2026-03-15',
+      });
+      expect(day1.totals.collected).toBe(1000);
+      const day2 = await service.getReport(SEED_TENANT_ID, {
+        from: '2026-03-16',
+        to: '2026-03-16',
+      });
+      expect(day2.totals.reversed).toBe(1000);
+      const all = await service.getReport(SEED_TENANT_ID, { from: '2026-03-01', to: '2026-03-31' });
+      expect(all.totals.net).toBe(0);
+    });
+
+    it('by_method counts cash received: change to wallet in, wallet use out, reversal mirrors original', async () => {
+      const student = await makeStudent();
+      const cashOf = (r: CollectionsReportDto) =>
+        r.by_method.find((m) => m.payment_method === PaymentMethod.CASH);
+      const p1 = await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 1000,
+        wallet_credit_added: 200,
+      });
+      let r = await service.getReport(SEED_TENANT_ID, { from: '2026-03-15', to: '2026-03-15' });
+      expect(cashOf(r)?.collected).toBe(1200);
+
+      await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 500,
+        wallet_credit_used: 200,
+        payment_date: new Date('2026-03-17T05:00:00Z'),
+      });
+      r = await service.getReport(SEED_TENANT_ID, { from: '2026-03-17', to: '2026-03-17' });
+      expect(cashOf(r)?.collected).toBe(300);
+
+      const range = { from: '2026-03-01', to: '2026-03-31' };
+      r = await service.getReport(SEED_TENANT_ID, range);
+      const sum = (rows: { collected: number }[]) => rows.reduce((n, x) => n + x.collected, 0);
+      expect(sum(r.by_method)).toBe(
+        r.totals.collected - r.totals.wallet_used + r.totals.wallet_added,
+      );
+      expect(sum(r.by_collector)).toBe(sum(r.by_method));
+
+      const rev = await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 1000,
+        payment_status: PaymentStatus.REFUNDED,
+        reversal_of_payment_id: p1.id,
+        payment_date: new Date('2026-03-16T05:00:00Z'),
+      });
+      await paymentRepo.update(p1.id, {
+        reversed_by_payment_id: rev.id,
+        payment_status: PaymentStatus.REFUNDED,
+      });
+      r = await service.getReport(SEED_TENANT_ID, range);
+      expect(cashOf(r)?.reversed).toBe(1200);
+    });
+
+    it('removing a paid bill later leaves by_fee_type and discount totals unchanged', async () => {
+      const student = await makeStudent();
+      const fee = await makeStudentFee(student.id, {
+        total_amount: 1000,
+        discount_amount: 150,
+        standing_discount_amount: 100,
+        one_off_discount_amount: 50,
+      });
+      const payment = await makePayment(student.id, SEED_TENANT_ID, { total_amount: 1000 });
+      await paymentAllocationRepo.save(
+        paymentAllocationRepo.create({
+          payment_id: payment.id,
+          student_fee_id: fee.id,
+          allocated_amount: 1000,
+          allocation_type: PaymentAllocationType.CURRENT,
+          discount_amount: 50,
+        }),
+      );
+      const range = { from: '2026-03-01', to: '2026-03-31' };
+      const before = await service.getReport(SEED_TENANT_ID, range);
+      expect(before.totals.standing_discount).toBe(100);
+      expect(before.totals.one_off_discount).toBe(50);
+      await studentFeeRepo.softDelete(fee.id);
+      const after = await service.getReport(SEED_TENANT_ID, range);
+      expect(after.totals.standing_discount).toEqual(before.totals.standing_discount);
+      expect(after.totals.one_off_discount).toEqual(before.totals.one_off_discount);
+      expect(after.by_fee_type).toEqual(before.by_fee_type);
     });
 
     it('applies the Dhaka day boundary at the edges of the range, not UTC midnight', async () => {

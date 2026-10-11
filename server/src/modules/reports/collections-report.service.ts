@@ -43,6 +43,13 @@ function endOfDayInSchoolTimezone(dateStr: string): Date {
   return new Date(startOfDayInSchoolTimezone(nextDayStr).getTime() - 1);
 }
 
+/** Cash actually received for a payment row: tendered minus wallet use plus
+ * change kept in the wallet. A reversal row takes its original's cash
+ * (needs `LEFT JOIN payments o ON o.id = p.reversal_of_payment_id`). */
+const CASH_RECEIVED_SQL = `CASE WHEN p.reversal_of_payment_id IS NULL
+  THEN p.total_amount - p.wallet_credit_used + p.wallet_credit_added
+  ELSE o.total_amount - o.wallet_credit_used + o.wallet_credit_added END`;
+
 interface PaymentTotalsRow {
   collected: string | null;
   reversed: string | null;
@@ -119,7 +126,7 @@ export class CollectionsReportService {
   ): { clause: string; params: unknown[] } {
     const { from, to } = this.buildRange(query);
     const params: unknown[] = [tenantId, from, to];
-    let clause = `${alias}.tenant_id = $1 AND ${alias}.deleted_at IS NULL AND ${alias}.payment_date BETWEEN $2 AND $3 AND (${alias}.payment_status = 'SUCCESS' OR ${alias}.reversal_of_payment_id IS NOT NULL)`;
+    let clause = `${alias}.tenant_id = $1 AND ${alias}.deleted_at IS NULL AND ${alias}.payment_date BETWEEN $2 AND $3 AND (${alias}.payment_status = 'SUCCESS' OR ${alias}.reversal_of_payment_id IS NOT NULL OR ${alias}.reversed_by_payment_id IS NOT NULL)`;
     if (query.received_by_user_id) {
       params.push(query.received_by_user_id);
       clause += ` AND ${alias}.received_by_user_id = $${params.length}`;
@@ -160,7 +167,7 @@ export class CollectionsReportService {
          COALESCE(SUM(pa.discount_amount), 0) AS one_off_discount
        FROM payment_allocations pa
        JOIN payments p ON p.id = pa.payment_id
-       JOIN student_fees sf ON sf.id = pa.student_fee_id AND sf.deleted_at IS NULL
+       JOIN student_fees sf ON sf.id = pa.student_fee_id
        WHERE ${clause} AND p.reversal_of_payment_id IS NULL`,
       params,
     );
@@ -177,10 +184,11 @@ export class CollectionsReportService {
       `SELECT
          p.payment_method,
          COUNT(*) AS count,
-         COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN p.total_amount ELSE 0 END), 0) AS collected,
-         COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NOT NULL THEN p.total_amount ELSE 0 END), 0) AS reversed,
-         COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN p.total_amount ELSE -p.total_amount END), 0) AS net
+         COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN ${CASH_RECEIVED_SQL} ELSE 0 END), 0) AS collected,
+         COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NOT NULL THEN ${CASH_RECEIVED_SQL} ELSE 0 END), 0) AS reversed,
+         COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN ${CASH_RECEIVED_SQL} ELSE -(${CASH_RECEIVED_SQL}) END), 0) AS net
        FROM payments p
+       LEFT JOIN payments o ON o.id = p.reversal_of_payment_id
        WHERE ${clause}
        GROUP BY p.payment_method
        ORDER BY p.payment_method`,
@@ -201,10 +209,11 @@ export class CollectionsReportService {
          p.received_by_user_id AS user_id,
          u.full_name AS full_name,
          COUNT(*) AS count,
-         COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN p.total_amount ELSE 0 END), 0) AS collected,
-         COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NOT NULL THEN p.total_amount ELSE 0 END), 0) AS reversed,
-         COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN p.total_amount ELSE -p.total_amount END), 0) AS net
+         COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN ${CASH_RECEIVED_SQL} ELSE 0 END), 0) AS collected,
+         COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NOT NULL THEN ${CASH_RECEIVED_SQL} ELSE 0 END), 0) AS reversed,
+         COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN ${CASH_RECEIVED_SQL} ELSE -(${CASH_RECEIVED_SQL}) END), 0) AS net
        FROM payments p
+       LEFT JOIN payments o ON o.id = p.reversal_of_payment_id
        LEFT JOIN users u ON u.id = p.received_by_user_id
        WHERE ${clause}
        GROUP BY p.received_by_user_id, u.full_name
@@ -227,7 +236,7 @@ export class CollectionsReportService {
            AS discount
        FROM payment_allocations pa
        JOIN payments p ON p.id = pa.payment_id
-       JOIN student_fees sf ON sf.id = pa.student_fee_id AND sf.deleted_at IS NULL
+       JOIN student_fees sf ON sf.id = pa.student_fee_id
        JOIN fee_structures fs ON fs.id = sf.fee_structure_id
        WHERE ${clause} AND p.reversal_of_payment_id IS NULL
        GROUP BY fs.fee_type

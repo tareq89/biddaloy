@@ -9,6 +9,7 @@ import { buildValidationPipeOptions } from '../../validation-pipe';
 import { UserRole } from '@biddaloy/shared';
 import {
   SEED_TENANT_ID,
+  SEED_SECTION_1_ID,
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD,
   SEED_ADMIN_PASSWORD_HASH,
@@ -92,6 +93,44 @@ describe('GET /reports/collections (16.6.2)', () => {
     expect(res.body).toHaveProperty('by_collector');
     expect(res.body).toHaveProperty('by_fee_type');
     expect(res.body).toHaveProperty('by_day');
+  });
+
+  it('a reversed payment nets to 0 over its two days (rows seeded as the reversal service writes them)', async () => {
+    // The real approval-token reversal flow is covered in checkout.controller.e2e-spec.ts;
+    // here we only need the two rows it leaves behind (original REFUNDED + reversal row).
+    const [{ id: studentId }] = await dataSource.query(
+      `INSERT INTO students (full_name, registration_number, roll_number, class_section_id, date_of_birth, preferred_communication, enrollment_status, tenant_id, created_at, updated_at)
+       VALUES ('Collections E2E Student', 'CR-E2E-1', 1, $1, '2010-01-01', 'SMS', 'ACTIVE', $2, NOW(), NOW()) RETURNING id`,
+      [SEED_SECTION_1_ID, SEED_TENANT_ID],
+    );
+    const [{ id: origId }] = await dataSource.query(
+      `INSERT INTO payments (student_id, total_amount, payment_method, payment_status, payment_date, tenant_id, created_at, updated_at)
+       VALUES ($1, 1000, 'CASH', 'REFUNDED', '2001-03-15T05:00:00Z', $2, NOW(), NOW()) RETURNING id`,
+      [studentId, SEED_TENANT_ID],
+    );
+    const [{ id: revId }] = await dataSource.query(
+      `INSERT INTO payments (student_id, total_amount, payment_method, payment_status, payment_date, tenant_id, reversal_of_payment_id, created_at, updated_at)
+       VALUES ($1, 1000, 'CASH', 'REFUNDED', '2001-03-16T05:00:00Z', $2, $3, NOW(), NOW()) RETURNING id`,
+      [studentId, SEED_TENANT_ID, origId],
+    );
+    await dataSource.query(`UPDATE payments SET reversed_by_payment_id = $1 WHERE id = $2`, [
+      revId,
+      origId,
+    ]);
+    try {
+      const res = await supertest(app.getHttpServer())
+        .get(`${API}/reports/collections?from=2001-03-01&to=2001-03-31`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .expect(200);
+      expect(res.body.totals).toMatchObject({ collected: 1000, reversed: 1000, net: 0 });
+    } finally {
+      await dataSource.query(`UPDATE payments SET reversed_by_payment_id = NULL WHERE id = $1`, [
+        origId,
+      ]);
+      await dataSource.query(`DELETE FROM payments WHERE id IN ($1, $2)`, [revId, origId]);
+      await dataSource.query(`DELETE FROM students WHERE id = $1`, [studentId]);
+    }
   });
 
   it('refuses TEACHER on the CSV export too', async () => {
