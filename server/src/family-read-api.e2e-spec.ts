@@ -19,6 +19,7 @@ import {
 } from '@test/constants';
 import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
 
+import { Teacher } from './modules/academics/entities/teacher.entity';
 /**
  * [5.1] Family-facing read API — the full authorization matrix.
  *
@@ -1270,6 +1271,24 @@ describe('[5.1] Family-facing read API', () => {
       WIDENED_ROUTES().filter((route) => !route.name.startsWith('GET /invoices'));
 
     it('still admits TEACHER everywhere it did before, except the [10.4]-tightened invoice routes', async () => {
+      // [68.3.01] The student/result routes are now section-scoped: this teacher teaches the
+      // section the fixture children sit in. (`teachers` is truncated before every test.)
+      const teacher = await dataSource.getRepository(Teacher).save({
+        user_id: TEACHER_USER_ID,
+        employee_id: `EMP-FAM-${Math.random().toString(36).slice(2, 8)}`,
+        tenant_id: SEED_TENANT_ID,
+        designations: [],
+      });
+      const [subject] = await dataSource.query(
+        `INSERT INTO subjects (name_en, code, tenant_id, created_at, updated_at)
+         VALUES ('Family Maths', $1, $2, NOW(), NOW()) RETURNING id`,
+        [`FM-${Math.random().toString(36).slice(2, 8)}`, SEED_TENANT_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id, subject_id, assignment_type)
+         VALUES ($1, $2, $3, $4, 'SUBJECT_TEACHER')`,
+        [teacher.id, SEED_SECTION_1_ID, SEED_TENANT_ID, subject.id],
+      );
       for (const route of TEACHER_WIDENED_ROUTES()) {
         await http()
           .get(route.path)

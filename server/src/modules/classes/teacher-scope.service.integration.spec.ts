@@ -358,4 +358,44 @@ describe('TeacherScopeService (integration)', () => {
       expect(await ask(classId, liveSubjectId, TENANT_B)).toBe(false);
     });
   });
+
+  describe('sectionIds / sectionScope (68.3.01)', () => {
+    const ids = (tenantId = TENANT_A, user = userId) =>
+      service.sectionIds({ userId: user, tenantId });
+
+    it('returns the homeroom section and the subject sections, with no duplicates', async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, liveSubjectId);
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, otherSubjectId);
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec10A, liveSubjectId);
+      expect((await ids()).sort()).toEqual([sec6A, sec10A].sort());
+    });
+
+    it("a soft-deleted subject's section drops out", async () => {
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec7A, deletedSubjectId);
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6B, liveSubjectId);
+      expect(await ids()).toEqual([sec6B]);
+    });
+
+    it("last year's homeroom does not count", async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, secOld);
+      await assign(TeacherAssignmentType.CLASS_TEACHER, secDeleted);
+      expect(await ids()).toEqual([]);
+    });
+
+    it('sectionScope is null for ADMIN and EXECUTIVE, an array for TEACHER', async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
+      const base = { userId, tenantId: TENANT_A };
+      expect(await service.sectionScope({ ...base, role: 'ADMIN' })).toBeNull();
+      expect(await service.sectionScope({ ...base, role: 'EXECUTIVE' })).toBeNull();
+      expect(await service.sectionScope({ ...base, role: 'TEACHER' })).toEqual([sec6A]);
+    });
+
+    it("tenant isolation: a teacher row in tenant B never widens tenant A's scope", async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
+      await assign(TeacherAssignmentType.CLASS_TEACHER, secB, null, { tenant_id: TENANT_B });
+      expect(await ids()).toEqual([sec6A]);
+      expect(await ids(TENANT_B)).toEqual([]);
+    });
+  });
 });

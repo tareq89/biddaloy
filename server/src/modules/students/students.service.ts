@@ -272,6 +272,7 @@ export class StudentService {
       | 'search'
     >,
     tenantId: string,
+    sectionIds?: string[] | null,
   ) {
     const qb = this.repo
       .createQueryBuilder('student')
@@ -279,6 +280,15 @@ export class StudentService {
       .leftJoin('student.class_section', 'class_section')
       .where('student.tenant_id = :tenantId', { tenantId })
       .andWhere('student.deleted_at IS NULL');
+
+    // [68.3.01] ASSIGNED_SECTIONS callers (TEACHER): only their sections. Never `IN ()`.
+    if (sectionIds) {
+      if (sectionIds.length === 0) qb.andWhere('1 = 0');
+      else
+        qb.andWhere('student.class_section_id IN (:...scopeSectionIds)', {
+          scopeSectionIds: sectionIds,
+        });
+    }
 
     if (query.class_id) {
       qb.andWhere('class_section.class_id = :classId', { classId: query.class_id });
@@ -369,8 +379,12 @@ export class StudentService {
   async findAllIds(
     query: QueryStudentIdsDto,
     tenantId: string,
+    sectionIds?: string[] | null,
   ): Promise<{ ids: string[]; total: number }> {
-    const qb = this.buildStudentIdsQuery(query, tenantId).addOrderBy('student.id', 'ASC');
+    const qb = this.buildStudentIdsQuery(query, tenantId, sectionIds).addOrderBy(
+      'student.id',
+      'ASC',
+    );
     const total = await qb.getCount();
     if (total > MAX_STUDENT_IDS_RESULT) {
       throw new PayloadTooLargeException(
@@ -381,7 +395,7 @@ export class StudentService {
     return { ids: rows.map((row) => row.id), total };
   }
 
-  async findAll(query: QueryStudentDto, tenantId: string) {
+  async findAll(query: QueryStudentDto, tenantId: string, sectionIds?: string[] | null) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -394,7 +408,7 @@ export class StudentService {
     // and corrupting pagination whenever a matched student has more than
     // one guardian. The guardian search branch below uses an `EXISTS`
     // subquery instead, which cannot multiply rows.
-    const buildIdQuery = () => this.buildStudentIdsQuery(query, tenantId);
+    const buildIdQuery = () => this.buildStudentIdsQuery(query, tenantId, sectionIds);
 
     const total = await buildIdQuery().getCount();
 
@@ -815,7 +829,7 @@ export class GuardianService {
     return manager ? run(manager) : this.repo.manager.transaction(run);
   }
 
-  async findAll(query: QueryGuardianDto, tenantId: string) {
+  async findAll(query: QueryGuardianDto, tenantId: string, sectionIds?: string[] | null) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -831,6 +845,19 @@ export class GuardianService {
         .select('guardian.id', 'id')
         .where('guardian.tenant_id = :tenantId', { tenantId })
         .andWhere('guardian.deleted_at IS NULL');
+
+      // [68.3.01] TEACHER: only guardians linked to a live student in their sections.
+      if (sectionIds) {
+        if (sectionIds.length === 0) qb.andWhere('1 = 0');
+        else
+          qb.andWhere(
+            `EXISTS (SELECT 1 FROM student_guardians sg
+               INNER JOIN students st ON st.id = sg.student_id
+                 AND st.tenant_id = :tenantId AND st.deleted_at IS NULL
+               WHERE sg.guardian_id = guardian.id AND st.class_section_id IN (:...scopeSectionIds))`,
+            { scopeSectionIds: sectionIds },
+          );
+      }
 
       const search = normalizeSearchTerm(query.search);
       if (search) {
