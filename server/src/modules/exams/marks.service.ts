@@ -153,7 +153,7 @@ export class MarksService {
     }
 
     try {
-      await this.writeCells(examId, dto, tenantId, userId, context);
+      await this.writeCells(examId, dto, tenantId, userId, context, exam.status);
     } catch (err) {
       // The grid lock serializes every write to a cell, so this only
       // fires in an edge the lock can't see (e.g. the student was moved
@@ -175,17 +175,6 @@ export class MarksService {
       where: { exam_id: examId, subject_id: dto.subject_id, tenant_id: tenantId },
     });
     const savedByKey = new Map(saved.map((m) => [`${m.student_id}:${m.component_id}`, m]));
-
-    // [19.5.1] D18 step 6 — a mark change while the exam is PROCESSED (not
-    // yet PUBLISHED) invalidates and recomputes results. `recomputeIfProcessed`
-    // no-ops for DRAFT (nothing computed yet) and PUBLISHED (frozen — a
-    // change there needs `reopen()` first), so this call is always safe to
-    // make unconditionally. [pr-fix #945] One call for the whole batch, not
-    // one per student — `computeAll` inside it ranks the whole class either
-    // way, so a per-student loop ran that full-class computation N times
-    // and, worse, only rewrote one student's row per call, leaving every
-    // other student's position stale after a rank shift.
-    await this.resultsService.recomputeIfProcessed(examId, studentIds, tenantId, userId, context);
 
     return {
       cells: dto.cells.map((cell) => {
@@ -211,13 +200,29 @@ export class MarksService {
     tenantId: string,
     userId: string,
     context: RequestContext,
+    seenStatus: ExamStatus,
   ): Promise<void> {
     await this.repo.manager.transaction(async (manager) => {
       // Exam first, then grid — the one lock order every path uses. FOR
       // SHARE lets autosaves on different grids run side by side while
       // still blocking a publish/process/recompute (FOR UPDATE) until this
       // commits, so marks can't change after publication.
-      const exam = await lockExam(manager, examId, tenantId, 'pessimistic_read');
+      // [ACAD-08] A PROCESSED exam recomputes its results in this same
+      // transaction, so it takes the exclusive lock (FOR UPDATE) the
+      // recompute needs; every other status keeps the shared one.
+      const wantsRecompute = seenStatus === ExamStatus.PROCESSED;
+      const exam = await lockExam(
+        manager,
+        examId,
+        tenantId,
+        wantsRecompute ? 'pessimistic_write' : 'pessimistic_read',
+      );
+      // A process committed between the unlocked read and this lock: we
+      // hold only a shared lock, so we cannot recompute. The autosave
+      // retries on 409.
+      if (exam.status === ExamStatus.PROCESSED && !wantsRecompute) {
+        throw new ConflictException('Results were just processed — please retry.');
+      }
       if (exam.status === ExamStatus.PUBLISHED) {
         throw new ConflictException(
           'This exam is already published — its marks can no longer be edited.',
@@ -284,6 +289,21 @@ export class MarksService {
         },
         manager,
       );
+
+      // [19.5.1] D18 step 6 / [ACAD-08] — a mark change while PROCESSED
+      // rewrites the results in the SAME transaction: both commit or
+      // neither does, and a missing grading scale is a 409 that rolls the
+      // mark back, never a silent skip. `computeAll` ranks the whole class
+      // either way, so it runs once per batch.
+      if (exam.status === ExamStatus.PROCESSED) {
+        await this.resultsService.recomputeProcessedExam(
+          manager,
+          examId,
+          tenantId,
+          userId,
+          context,
+        );
+      }
     });
   }
 }
