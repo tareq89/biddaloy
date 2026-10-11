@@ -403,6 +403,57 @@ describe('AttendanceSummaryService (integration)', () => {
     });
   });
 
+  describe('getSummariesForStudents', () => {
+    it('with a fixed class uses that class working days for every student', async () => {
+      const yearId = (await dataSource.getRepository(Class).findOneByOrFail({ id: classIdOf }))
+        .academic_year_id;
+      const otherClass = await dataSource
+        .getRepository(Class)
+        .save({ name: 'Fixed Class B', academic_year_id: yearId, tenant_id: TENANT_ID });
+      const otherSection = await dataSource.getRepository(ClassSection).save({
+        section_name: 'Fixed Section B',
+        class_id: otherClass.id,
+        tenant_id: TENANT_ID,
+      });
+      // Student now sits in class B, but we ask for class A's calendar.
+      const student = (
+        await dataSource.getRepository(Student).save({
+          full_name: 'Fixed Student',
+          registration_number: `FIXED-${Date.now()}`,
+          roll_number: 700,
+          class_section_id: otherSection.id,
+          tenant_id: TENANT_ID,
+        })
+      ).id;
+      const event = await dataSource.getRepository(CalendarEvent).save({
+        tenant_id: TENANT_ID,
+        academic_year_id: yearId,
+        start_date: '2026-09-10',
+        end_date: '2026-09-10',
+        name: 'Class A Only Break (fixed)',
+        counts_as_working_day: false,
+        published_at: new Date(),
+      });
+      await dataSource
+        .getRepository(CalendarEventClass)
+        .save({ event_id: event.id, class_id: classIdOf, tenant_id: TENANT_ID });
+      try {
+        const range = {
+          tenantId: TENANT_ID,
+          studentIds: [student],
+          from: '2026-09-08',
+          to: '2026-09-12',
+        };
+        const asA = await service.getSummariesForStudents({ ...range, classId: classIdOf });
+        const asB = await service.getSummariesForStudents({ ...range, classId: otherClass.id });
+        expect(asA.get(student)?.working_days).toBe(4);
+        expect(asB.get(student)?.working_days).toBe(5);
+      } finally {
+        await dataSource.getRepository(CalendarEvent).delete({ id: event.id });
+      }
+    });
+  });
+
   describe('getSectionStreaks', () => {
     async function freshSection(tenantId = TENANT_ID): Promise<string> {
       const year = await dataSource.getRepository(AcademicYear).save({

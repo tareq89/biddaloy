@@ -165,6 +165,7 @@ export class AttendanceSummaryService {
     from: string,
     to: string,
     sectionId?: string,
+    classId?: string,
   ): Promise<{
     summaries: Map<string, AttendanceSummary>;
     workingDays: string[];
@@ -176,7 +177,9 @@ export class AttendanceSummaryService {
     // D25: working days depend on the student's class. One lookup, then one
     // working-day call and two record queries per class, never per student.
     const classByStudent = new Map<string, string | undefined>();
-    if (studentIds.length > 0) {
+    // A fixed `classId` (e.g. an old exam's class) skips the lookup: the
+    // students' CURRENT class may differ after promotion.
+    if (studentIds.length > 0 && !classId) {
       const rows = await this.studentRepo
         .createQueryBuilder('st')
         .innerJoin('st.class_section', 'cs')
@@ -189,7 +192,7 @@ export class AttendanceSummaryService {
     }
     const groups = new Map<string | undefined, string[]>();
     for (const id of studentIds) {
-      const key = classByStudent.get(id);
+      const key = classId ?? classByStudent.get(id);
       const ids = groups.get(key);
       if (ids) ids.push(id);
       else groups.set(key, [id]);
@@ -204,12 +207,12 @@ export class AttendanceSummaryService {
     }
 
     let first: { dates: string[]; count: number } | undefined;
-    for (const [classId, ids] of groups) {
+    for (const [groupClassId, ids] of groups) {
       const workingDays = await this.schoolCalendarService.getWorkingDays({
         tenantId,
         from,
         to,
-        classId,
+        classId: groupClassId,
       });
       first ??= workingDays;
       await this.summariseGroup(summaries, policy, tenantId, ids, from, to, workingDays);
@@ -417,6 +420,23 @@ export class AttendanceSummaryService {
         holiday_name: holidayNameByDate.get(date) ?? null,
       };
     });
+  }
+
+  /**
+   * Summaries for an explicit student list measured against ONE class's
+   * working days — for callers whose roster is not `Student.class_section_id`
+   * (an old exam's enrollment cohort).
+   */
+  async getSummariesForStudents(input: {
+    tenantId: string;
+    studentIds: string[];
+    classId: string;
+    from: string;
+    to: string;
+  }): Promise<Map<string, AttendanceSummary>> {
+    const { tenantId, studentIds, classId, from, to } = input;
+    return (await this.computeSummaries(tenantId, studentIds, from, to, undefined, classId))
+      .summaries;
   }
 
   async getSectionSummary(input: {
