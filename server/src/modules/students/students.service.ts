@@ -43,8 +43,8 @@ const BIRTH_REG_NO_INDEX = 'IDX_students_tenant_birth_reg_no';
 /** Unique (class_section_id, roll_number); counts soft-deleted rows too. */
 const ROLL_NUMBER_INDEX = 'IDX_ca01941430b7d99b013e6c6948';
 
-/** [39.2.1] Turns the partial-unique violation on (tenant, birth_reg_no) into a 409. */
-function rethrowBirthRegNoConflict(err: unknown): never {
+/** [39.2.1] Turns the unique violations on (tenant, birth_reg_no) and (section, roll) into a 409. */
+function rethrowStudentUniqueConflict(err: unknown): never {
   if (err instanceof QueryFailedError) {
     const { code, constraint } = err as unknown as { code?: string; constraint?: string };
     if (code === '23505' && constraint === BIRTH_REG_NO_INDEX) {
@@ -212,7 +212,7 @@ export class StudentService {
       try {
         savedStudent = await txStudentRepo.save(student);
       } catch (err) {
-        rethrowBirthRegNoConflict(err);
+        rethrowStudentUniqueConflict(err);
       }
 
       // [8.11.3] Every new student gets a day-one enrollment history row —
@@ -263,7 +263,7 @@ export class StudentService {
         ? await generateAndSave(manager)
         : await this.repo.manager.transaction(generateAndSave);
     } catch (err) {
-      rethrowBirthRegNoConflict(err);
+      rethrowStudentUniqueConflict(err);
     }
 
     // Link guardians
@@ -593,7 +593,7 @@ export class StudentService {
         try {
           await txStudentRepo.update({ id, tenant_id: tenantId }, updateData);
         } catch (err) {
-          rethrowBirthRegNoConflict(err);
+          rethrowStudentUniqueConflict(err);
         }
       }
 
@@ -989,6 +989,19 @@ export class GuardianService {
       where: { phone, tenant_id: tenantId, deleted_at: IsNull() },
       order: { created_at: 'ASC', id: 'ASC' },
     });
+  }
+
+  /** `findByPhone` for many phones in one query: phone -> its oldest live guardian. */
+  async findOldestByPhones(phones: string[], tenantId: string): Promise<Map<string, Guardian>> {
+    const unique = [...new Set(phones)];
+    if (unique.length === 0) return new Map();
+    const rows = await this.repo.find({
+      where: { phone: In(unique), tenant_id: tenantId, deleted_at: IsNull() },
+      order: { created_at: 'ASC', id: 'ASC' },
+    });
+    const byPhone = new Map<string, Guardian>();
+    for (const g of rows) if (g.phone && !byPhone.has(g.phone)) byPhone.set(g.phone, g);
+    return byPhone;
   }
 
   /** [LIFE-09] Same match as `findByPhone`, with the guardian's linked students loaded. */

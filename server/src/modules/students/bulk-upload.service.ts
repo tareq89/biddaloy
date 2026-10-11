@@ -143,22 +143,6 @@ export class StudentBulkUploadService {
       try {
         const row = await this.validateRow(parsed, classSections, rollsSeenThisRequest);
         staged.push(row);
-        // [LIFE-09] Joining an existing family is allowed but visible: committing after
-        // seeing this warning is the staff confirmation.
-        for (const phone of [row.guardian1_phone, row.guardian2_phone]) {
-          if (!phone) continue;
-          const match = await this.guardianService.findByPhone(phone, tenantId);
-          if (match) {
-            errors.push({
-              row: row.rowNumber,
-              tab: undefined,
-              column: phone === row.guardian1_phone ? 'guardian1_phone' : 'guardian2_phone',
-              value: phone,
-              severity: 'warning',
-              message: `Will be linked to existing guardian "${match.full_name}"`,
-            });
-          }
-        }
         preview.push({
           row: row.rowNumber,
           student_name: row.student_name,
@@ -179,6 +163,35 @@ export class StudentBulkUploadService {
         } else {
           throw err;
         }
+      }
+    }
+
+    // [LIFE-09] Joining an existing family is allowed but visible: committing after
+    // seeing this warning is the staff confirmation. One query for the whole file.
+    const matchByPhone = await this.guardianService.findOldestByPhones(
+      staged.flatMap((r) => [r.guardian1_phone, r.guardian2_phone]).filter((p): p is string => !!p),
+      tenantId,
+    );
+    for (const row of staged) {
+      const phones = [
+        ['guardian1_phone', row.guardian1_phone],
+        // A second guardian on the first guardian's phone is the same match: warn once.
+        [
+          'guardian2_phone',
+          row.guardian2_phone === row.guardian1_phone ? undefined : row.guardian2_phone,
+        ],
+      ] as const;
+      for (const [column, phone] of phones) {
+        const match = phone ? matchByPhone.get(phone) : undefined;
+        if (!match) continue;
+        errors.push({
+          row: row.rowNumber,
+          tab: undefined,
+          column,
+          value: phone,
+          severity: 'warning',
+          message: `Will be linked to existing guardian "${match.full_name}"`,
+        });
       }
     }
 

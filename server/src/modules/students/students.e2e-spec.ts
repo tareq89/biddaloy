@@ -442,6 +442,22 @@ describe('Students E2E', () => {
           'ROLL_NUMBER_TAKEN',
         );
       });
+
+      it('POST /students with a taken roll returns 409 ROLL_NUMBER_TAKEN (create path)', async () => {
+        const roll = 7000 + Math.floor(Math.random() * 1000);
+        await mk('Roll Holder Create', SEED_SECTION_1_ID, roll);
+        const res = await supertest(app.getHttpServer())
+          .post('/api/v1/students')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .send({
+            full_name: 'Roll Clash Create',
+            class_section_id: SEED_SECTION_1_ID,
+            roll_number: roll,
+          })
+          .expect(409);
+        expect(res.body.details?.code ?? res.body.message?.details?.code).toBe('ROLL_NUMBER_TAKEN');
+      });
     });
 
     it('should update a student', async () => {
