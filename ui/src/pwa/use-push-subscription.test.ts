@@ -153,7 +153,10 @@ describe('usePushSubscription', () => {
     const getSubscription = vi.fn().mockResolvedValue(existingSubscription);
     installServiceWorkerAndPushManager(mockPushManager({ getSubscription }).pushManager);
     mockNotification('granted');
-    localStorage.setItem('biddaloy.push.deviceRowIds', JSON.stringify(['other-school-row', 'recovered-id']));
+    localStorage.setItem(
+      'biddaloy.push.deviceRowIds',
+      JSON.stringify(['other-school-row', 'recovered-id']),
+    );
 
     let posted = false;
     server.use(
@@ -184,7 +187,10 @@ describe('usePushSubscription', () => {
     // off). Mount must not POST — that would create a row here.
     const existingSubscription = {
       endpoint: 'https://push.example.com/existing',
-      toJSON: () => ({ endpoint: 'https://push.example.com/existing', keys: { p256dh: 'p', auth: 'a' } }),
+      toJSON: () => ({
+        endpoint: 'https://push.example.com/existing',
+        keys: { p256dh: 'p', auth: 'a' },
+      }),
     };
     installServiceWorkerAndPushManager(
       mockPushManager({ getSubscription: vi.fn().mockResolvedValue(existingSubscription) })
@@ -217,7 +223,10 @@ describe('usePushSubscription', () => {
     const browserUnsubscribe = vi.fn().mockResolvedValue(true);
     const subscription = {
       endpoint: 'https://push.example.com/abc',
-      toJSON: () => ({ endpoint: 'https://push.example.com/abc', keys: { p256dh: 'p', auth: 'a' } }),
+      toJSON: () => ({
+        endpoint: 'https://push.example.com/abc',
+        keys: { p256dh: 'p', auth: 'a' },
+      }),
       unsubscribe: browserUnsubscribe,
     };
     installServiceWorkerAndPushManager(
