@@ -88,13 +88,17 @@ test.describe('admin withdraws an incident', () => {
     await page.goto(`/staff/${staff.userId}?tab=incidents`);
     await expect(page.getByText(description)).toBeVisible();
 
-    await page.getByRole('button', { name: t('incident.withdraw.action'), exact: true }).click();
+    await page
+      .getByRole('button', { name: t('evaluations.incident.withdraw.action'), exact: true })
+      .click();
     // A reason is required: the empty submit is blocked.
-    await page.getByRole('button', { name: t('incident.withdraw.confirm') }).click();
-    await expect(page.getByText(t('incident.withdraw.reasonRequired'))).toBeVisible();
+    await page.getByRole('button', { name: t('evaluations.incident.withdraw.confirm') }).click();
+    await expect(page.getByText(t('evaluations.incident.withdraw.reasonRequired'))).toBeVisible();
 
-    await page.getByLabel(t('incident.withdraw.reasonLabel')).fill('Filed against the wrong staff');
-    await page.getByRole('button', { name: t('incident.withdraw.confirm') }).click();
+    await page
+      .getByLabel(t('evaluations.incident.withdraw.reasonLabel'))
+      .fill('Filed against the wrong staff');
+    await page.getByRole('button', { name: t('evaluations.incident.withdraw.confirm') }).click();
     await expect(page.getByText(description)).toHaveCount(0);
   });
 });
