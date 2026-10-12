@@ -27,6 +27,7 @@ import {
 } from './dto/students.dto';
 import { AuditAction, CommunicationMedium } from '@biddaloy/shared';
 import { assertSeatsAvailable, getSeatUsage } from '../schools/trial/seat-limit.service';
+import { normalizeBdPhoneNumber } from '../communications/providers/shared/phone-number.util';
 
 function isSeatLimitError(err: ConflictException): boolean {
   const body = err.getResponse() as { details?: { code?: string } };
@@ -87,6 +88,19 @@ interface ValidatedBulkUploadRow {
   preferred_communication?: string;
   classSectionId: string;
   rollNumber?: number;
+}
+
+/**
+ * [LIFE-12] Same section + name (case and spacing ignored) + guardian phone (any accepted
+ * format: +880…, 880… and 01… are one number) is the same student.
+ */
+function dedupKey(sectionId: string, name: string, phone: string): string {
+  const normName = name.trim().toLowerCase().replace(/\s+/g, ' ');
+  return `${sectionId}::${normName}::${normalizeBdPhoneNumber(phone)}`;
+}
+
+function rowDedupKey(row: ValidatedBulkUploadRow): string {
+  return dedupKey(row.classSectionId, row.student_name, row.guardian1_phone);
 }
 
 /** What `validate` stages under a `staging_id`, for `commit` to consume exactly once. */
@@ -174,24 +188,12 @@ export class StudentBulkUploadService {
     // section + name + guardian1 phone already belongs to a live student, or to an earlier
     // row of this same file, is a blocking error. One query for the whole file (files run
     // to 2,000 rows).
-    const normName = (n: string) => n.trim().toLowerCase().replace(/\s+/g, ' ');
-    const sectionIds = [...new Set(staged.map((r) => r.classSectionId))];
-    if (sectionIds.length > 0) {
-      const existing = await this.classRepo.manager.find(Student, {
-        where: { tenant_id: tenantId, class_section_id: In(sectionIds), deleted_at: IsNull() },
-        relations: ['guardians'],
-      });
-      const byKey = new Map<string, Student>();
-      for (const st of existing) {
-        for (const g of st.guardians) {
-          if (g.phone)
-            byKey.set(`${st.class_section_id}::${normName(st.full_name)}::${g.phone}`, st);
-        }
-      }
+    if (staged.length > 0) {
+      const byKey = await this.liveStudentsByDedupKey(this.classRepo.manager, tenantId, staged);
       const firstRowByKey = new Map<string, number>();
       const dropped = new Set<number>();
       staged.forEach((row, i) => {
-        const key = `${row.classSectionId}::${normName(row.student_name)}::${row.guardian1_phone}`;
+        const key = rowDedupKey(row);
         const match = byKey.get(key);
         const firstRow = firstRowByKey.get(key);
         if (!match && firstRow === undefined) {
@@ -312,9 +314,19 @@ export class StudentBulkUploadService {
 
     // [13.2.3] Refuse the whole file up front so a full school never gets a partial import. Each
     // row's own create re-checks under the lock, which covers a concurrent create racing this one.
-    await this.classRepo.manager.transaction((m) =>
-      assertSeatsAvailable(m, tenantId, staged.rows.length),
-    );
+    await this.classRepo.manager.transaction(async (m) => {
+      // [LIFE-12] Validate ran before this; another staging of the same file may have committed
+      // since. Refuse the whole file rather than import those students twice.
+      const live = await this.liveStudentsByDedupKey(m, tenantId, staged.rows);
+      const clash = staged.rows.find((r) => live.has(rowDedupKey(r)));
+      if (clash) {
+        throw new ConflictException({
+          message: `Row ${clash.rowNumber} (${clash.student_name}) was imported after this file was validated. Re-validate the file.`,
+          details: { code: 'BULK_UPLOAD_ALREADY_IMPORTED', row: clash.rowNumber },
+        });
+      }
+      await assertSeatsAvailable(m, tenantId, staged.rows.length);
+    });
 
     const errors: BulkUploadErrorDto[] = [];
     const createdStudentIds: string[] = [];
@@ -363,6 +375,27 @@ export class StudentBulkUploadService {
       created_student_ids: createdStudentIds,
       errors,
     };
+  }
+
+  /** [LIFE-12] Live students of the rows' sections, keyed like `rowDedupKey`. One query. */
+  private async liveStudentsByDedupKey(
+    manager: EntityManager,
+    tenantId: string,
+    rows: ValidatedBulkUploadRow[],
+  ): Promise<Map<string, Student>> {
+    const byKey = new Map<string, Student>();
+    const sectionIds = [...new Set(rows.map((r) => r.classSectionId))];
+    if (sectionIds.length === 0) return byKey;
+    const existing = await manager.find(Student, {
+      where: { tenant_id: tenantId, class_section_id: In(sectionIds), deleted_at: IsNull() },
+      relations: ['guardians'],
+    });
+    for (const st of existing) {
+      for (const g of st.guardians) {
+        if (g.phone) byKey.set(dedupKey(st.class_section_id, st.full_name, g.phone), st);
+      }
+    }
+    return byKey;
   }
 
   /**
