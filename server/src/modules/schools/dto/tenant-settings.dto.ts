@@ -358,6 +358,7 @@ const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export class SpecialTimingDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(60)
   name: string;
 
@@ -379,7 +380,8 @@ export class SpecialTimingDto {
 
   @IsArray()
   @ArrayMaxSize(30)
-  @ArrayUnique((p: SpecialPeriodTimeDto) => p.sequence)
+  // `?.`: a null element is the nested validator's 400 to report, not a throw here.
+  @ArrayUnique((p: SpecialPeriodTimeDto | null) => p?.sequence)
   @ValidateNested({ each: true })
   @Type(() => SpecialPeriodTimeDto)
   periods: SpecialPeriodTimeDto[];
@@ -391,10 +393,13 @@ export class SpecialTimingDto {
 export class SpecialTimingsValid implements ValidatorConstraintInterface {
   validate(value: unknown): boolean {
     if (!Array.isArray(value)) return true;
-    const list = value as SpecialTimingDto[];
+    // Skip malformed elements: the nested validators report them as a 400.
+    // Dereferencing them here would throw, and class-validator turns that into a 500.
+    const list = value.filter((t): t is SpecialTimingDto => !!t && typeof t === 'object');
     for (const t of list) {
       if (t.from > t.to) return false;
-      if ((t.periods ?? []).some((p) => p.startsAt >= p.endsAt)) return false;
+      if (Array.isArray(t.periods) && t.periods.some((p) => !!p && p.startsAt >= p.endsAt))
+        return false;
     }
     return list.every((a, i) =>
       list.every((b, j) => j <= i || a.shiftId !== b.shiftId || a.to < b.from || b.to < a.from),
