@@ -118,6 +118,8 @@ export class CheckoutDto {
   @IsIn(['RETURN', 'TO_WALLET'])
   change_handling?: 'RETURN' | 'TO_WALLET' = 'RETURN';
 
+  /** Today or up to 3 days back (school time zone); a past date needs a
+   * `payments.backdate` approval. The rule lives in `CheckoutService`. */
   @IsOptional()
   @IsDateString()
   payment_date?: string;
