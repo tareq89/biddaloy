@@ -340,8 +340,9 @@ export class ShiftTimeDto {
 }
 
 export class SpecialPeriodTimeDto {
+  // A period grid may start at 0, the same as PeriodSlotItemDto.sequence.
   @IsInt()
-  @Min(1)
+  @Min(0)
   @Max(30)
   sequence: number;
 
