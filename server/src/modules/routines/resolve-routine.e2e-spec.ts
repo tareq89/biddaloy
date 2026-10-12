@@ -141,27 +141,29 @@ describe('Routine resolver honours class-scoped holidays (e2e)', () => {
       .expect(401);
   });
 
+  // The seeded admin user also acts as each role through X-Role: GET
+  // /routines/resolve for section 2 on DAY.
+  const actAs = async (role: UserRole, tenantId = SEED_TENANT_ID) => {
+    await ds.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [SEED_ADMIN_USER_ID, tenantId, role],
+    );
+    // Log in again so the token carries the membership just added.
+    const login = await supertest(app.getHttpServer())
+      .post(`${API}/auth/login`)
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    return supertest(app.getHttpServer())
+      .get(`${API}/routines/resolve`)
+      .query({ section_id: SEED_SECTION_2_ID, from: DAY, to: DAY })
+      .set('Authorization', `Bearer ${login.body.access_token}`)
+      .set('X-Tenant-ID', tenantId)
+      .set('X-Role', role);
+  };
+
   describe('roles on /routines/resolve (pinned, unchanged behaviour)', () => {
-    // The seeded admin user also acts as each role through X-Role.
     const OTHER_TENANT = '00000000-0000-4000-8000-0000000066e2';
-    const actAs = async (role: UserRole, tenantId = SEED_TENANT_ID) => {
-      await ds.query(
-        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
-        [SEED_ADMIN_USER_ID, tenantId, role],
-      );
-      // Log in again so the token carries the membership just added.
-      const login = await supertest(app.getHttpServer())
-        .post(`${API}/auth/login`)
-        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-        .expect(200);
-      return supertest(app.getHttpServer())
-        .get(`${API}/routines/resolve`)
-        .query({ section_id: SEED_SECTION_2_ID, from: DAY, to: DAY })
-        .set('Authorization', `Bearer ${login.body.access_token}`)
-        .set('X-Tenant-ID', tenantId)
-        .set('X-Role', role);
-    };
 
     for (const role of [
       UserRole.ADMIN,
@@ -295,22 +297,8 @@ describe('Routine resolver honours class-scoped holidays (e2e)', () => {
     it('a PARENT reading /routines/resolve sees the same special times', async () => {
       await seed();
       await saveSettings([special]).expect(200);
-      await ds.query(
-        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
-        [SEED_ADMIN_USER_ID, SEED_TENANT_ID, UserRole.PARENT],
-      );
-      const login = await supertest(app.getHttpServer())
-        .post(`${API}/auth/login`)
-        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-        .expect(200);
-      const res = await supertest(app.getHttpServer())
-        .get(`${API}/routines/resolve`)
-        .query({ section_id: SEED_SECTION_2_ID, from: DAY, to: DAY })
-        .set('Authorization', `Bearer ${login.body.access_token}`)
-        .set('X-Tenant-ID', SEED_TENANT_ID)
-        .set('X-Role', UserRole.PARENT)
-        .expect(200);
+      const res = await actAs(UserRole.PARENT);
+      expect(res.status).toBe(200);
       expect(res.body[0]).toMatchObject({ starts_at: '08:30:00', ends_at: '09:05:00' });
     });
   });
