@@ -7,6 +7,8 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { TENANT_STATUS_REDIS } from '../../../schools/tenant-status.service';
 import { SchoolCalendarService } from '../../../calendar/school-calendar.service';
 import { ResolveRoutineService } from '../../../routines/resolve-routine.service';
+import { SchoolsService } from '../../../schools/schools.service';
+import { DEFAULT_ATTENDANCE_SETTINGS } from '../../../schools/settings/tenant-settings-defaults';
 import { SubstitutionsService } from '../../../routines/substitutions.service';
 import { TeacherBusyService } from '../../../routines/teacher-busy.service';
 import { AlertWriterService } from '../../engine/alert-writer.service';
@@ -161,6 +163,15 @@ describe('Period rules (integration)', () => {
         AlertWriterService,
         { provide: TENANT_STATUS_REDIS, useValue: redis },
         ResolveRoutineService,
+        {
+          provide: SchoolsService,
+          useValue: {
+            getResolvedSettings: async () => ({
+              region: { timezone: 'Asia/Dhaka' },
+              attendance: DEFAULT_ATTENDANCE_SETTINGS,
+            }),
+          },
+        },
         SubstitutionsService,
         // These specs test attention rules, not clash detection: nobody is busy.
         { provide: TeacherBusyService, useValue: { busyAt: async () => null } },

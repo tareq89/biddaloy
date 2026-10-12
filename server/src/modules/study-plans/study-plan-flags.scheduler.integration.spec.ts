@@ -19,6 +19,7 @@ import { StudyPlansService } from './study-plans.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { AuditService } from '../audit/audit.service';
 import { ResolveRoutineService } from '../routines/resolve-routine.service';
+import { DEFAULT_ATTENDANCE_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { SchoolsService } from '../schools/schools.service';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { CalendarModule } from '../calendar/calendar.module';
@@ -88,7 +89,7 @@ describe('StudyPlanFlagsScheduler (integration)', () => {
           useValue: {
             getResolvedSettings: async () => ({
               region: { timezone: 'Asia/Dhaka' },
-              attendance: { weeklyOffDays: [] },
+              attendance: { ...DEFAULT_ATTENDANCE_SETTINGS, weeklyOffDays: [] },
             }),
           },
         },

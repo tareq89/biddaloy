@@ -16,6 +16,8 @@ import {
 import { StudyPlanAutoDeliveriesScheduler } from './study-plan-auto-deliveries.scheduler';
 import { StudyPlansService } from './study-plans.service';
 import { ResolveRoutineService } from '../routines/resolve-routine.service';
+import { SchoolsService } from '../schools/schools.service';
+import { DEFAULT_ATTENDANCE_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { AuditService } from '../audit/audit.service';
@@ -76,6 +78,15 @@ describe('StudyPlanAutoDeliveriesScheduler (integration)', () => {
       TeacherScopeService,
       AuditService,
       ResolveRoutineService,
+      {
+        provide: SchoolsService,
+        useValue: {
+          getResolvedSettings: async () => ({
+            region: { timezone: 'Asia/Dhaka' },
+            attendance: DEFAULT_ATTENDANCE_SETTINGS,
+          }),
+        },
+      },
       {
         provide: SchoolCalendarService,
         useValue: {
