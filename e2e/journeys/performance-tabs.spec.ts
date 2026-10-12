@@ -1,6 +1,7 @@
 import {
   adminApiSession,
   createClassSection,
+  createIncident,
   get,
   parentApiSession,
   createTeacherForSection,
@@ -9,6 +10,7 @@ import {
 import { expectNoAxeViolations } from '../a11y/assert';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../seed-contract';
 import { expect, loggedIn, test } from '../fixtures/test';
+import { incidentBody } from '../fixtures/evaluations';
 import { t } from '../i18n';
 
 /**
@@ -62,6 +64,38 @@ test.describe('admin', () => {
       await expectFitsPhone(page);
       await expectNoAxeViolations(page, 'main');
     });
+  });
+});
+
+test.describe('admin withdraws an incident', () => {
+  test.use({ ...loggedIn('admin'), viewport: PHONE });
+
+  test('admin withdraws an incident from the staff Incidents tab and it disappears', async ({
+    page,
+    request,
+  }) => {
+    const session = await adminApiSession(request);
+    const chain = await createClassSection(request, session);
+    const staff = await createTeacherForSection(
+      request,
+      session,
+      `Incident Staff ${Date.now()}`,
+      chain.sectionId,
+    );
+    const description = `Wrong person ${Date.now()}`;
+    await createIncident(request, session, incidentBody(staff.userId, { description }));
+
+    await page.goto(`/staff/${staff.userId}?tab=incidents`);
+    await expect(page.getByText(description)).toBeVisible();
+
+    await page.getByRole('button', { name: t('incident.withdraw.action'), exact: true }).click();
+    // A reason is required: the empty submit is blocked.
+    await page.getByRole('button', { name: t('incident.withdraw.confirm') }).click();
+    await expect(page.getByText(t('incident.withdraw.reasonRequired'))).toBeVisible();
+
+    await page.getByLabel(t('incident.withdraw.reasonLabel')).fill('Filed against the wrong staff');
+    await page.getByRole('button', { name: t('incident.withdraw.confirm') }).click();
+    await expect(page.getByText(description)).toHaveCount(0);
   });
 });
 

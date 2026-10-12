@@ -1257,6 +1257,7 @@ export {
   incidentKeys,
   useIncidents,
   useReportIncident,
+  useWithdrawIncident,
   type CreateIncidentInput,
   type Incident,
   type IncidentListFilters,

@@ -46,4 +46,14 @@ export class StaffIncident {
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
+
+  /** GAP-11: set when the incident is withdrawn; the row is kept. */
+  @Column({ type: 'timestamptz', nullable: true })
+  withdrawn_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  withdrawn_by_user_id: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  withdraw_reason: string | null;
 }

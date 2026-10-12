@@ -186,6 +186,16 @@
       "HIGH": "High"
     },
     "staffSearch": "Search staff by name",
+    "withdraw": {
+      "action": "Withdraw",
+      "title": "Withdraw this incident?",
+      "description": "It disappears from lists and the performance view. The record is kept for audit.",
+      "reasonLabel": "Why is it being withdrawn?",
+      "reasonRequired": "Give a reason.",
+      "confirm": "Withdraw incident",
+      "done": "Incident withdrawn",
+      "error": "Couldn't withdraw the incident."
+    },
     "emptyTitle": "No incidents"
   },
   "surveys": {
