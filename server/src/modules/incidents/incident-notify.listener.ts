@@ -48,7 +48,16 @@ export class IncidentNotifyListener extends WorkerHost {
   }
 
   async process(job: Job<IncidentCreatedEvent>): Promise<void> {
-    await this.handleIncidentCreated(job.data);
+    try {
+      await this.handleIncidentCreated(job.data);
+    } catch (error) {
+      // attempts: 1, so this log is the only trace of a lost notice; rethrow so BullMQ marks it failed.
+      this.logger.error(
+        `incident-notify failed for incident ${job.data.incidentId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
   }
 
   async handleIncidentCreated({
