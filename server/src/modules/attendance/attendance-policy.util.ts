@@ -38,7 +38,9 @@ export type SpecialTiming = NonNullable<AttendancePolicySettings['specialTimings
 /**
  * The special timing covering `dateIso` (inclusive range) for `shiftId`: the
  * shift's own entry wins, else the all-shifts (`shiftId: null`) entry, else
- * `null`. Pure.
+ * `null`. The all-shifts entry stands in for the tenant-wide times only, so a
+ * shift with its own `shiftTimes` row ignores it — a day shift at 12:15 must
+ * not inherit a morning-clock Ramadan cut-off. Pure.
  */
 export function specialTimingOn(
   policy: AttendancePolicySettings,
@@ -48,11 +50,10 @@ export function specialTimingOn(
   const covering = (policy.specialTimings ?? []).filter(
     (t) => t.from <= dateIso && dateIso <= t.to,
   );
-  return (
-    (shiftId ? covering.find((t) => t.shiftId === shiftId) : undefined) ??
-    covering.find((t) => t.shiftId === null) ??
-    null
-  );
+  const own = shiftId ? covering.find((t) => t.shiftId === shiftId) : undefined;
+  if (own) return own;
+  if (shiftId && policy.shiftTimes?.some((s) => s.shiftId === shiftId)) return null;
+  return covering.find((t) => t.shiftId === null) ?? null;
 }
 
 /**
