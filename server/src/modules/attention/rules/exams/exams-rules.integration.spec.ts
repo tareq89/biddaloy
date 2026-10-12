@@ -247,6 +247,20 @@ describe('Exams rules (integration)', () => {
     expect((await marksOverdue.evaluate(ctx(B)))[0].params).toMatchObject({ outstanding: 4 });
   });
 
+  it('X-07: a DRAFT exam two years back no longer alerts (same window as the homeroom grant)', async () => {
+    // A's exam year (2043) becomes two years back: 2044, then 2045 (current).
+    await q(`UPDATE academic_years SET is_current = false WHERE id = $1`, [A.yearId]);
+    await q(
+      `INSERT INTO academic_years (name, start_date, end_date, is_current, tenant_id)
+       VALUES ('2044', '2044-01-01', '2044-12-31', false, $1),
+              ('2045', '2045-01-01', '2045-12-31', true, $1)`,
+      [A.id],
+    );
+
+    expect(await marksOverdue.evaluate(ctx(A))).toHaveLength(0);
+    expect(await myMarks.evaluate(ctx(A))).toHaveLength(0);
+  });
+
   it('fires: PROCESSED exam, schedule with a missing subject, sitting tomorrow without a seat plan', async () => {
     const processed = await mkExam(A, 'Final', 'PROCESSED', [A.math]);
     const [u] = await unpublished.evaluate(ctx(A));

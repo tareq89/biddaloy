@@ -5,6 +5,18 @@ import { RoleScope, TeacherAssignmentType, roleScope } from '@biddaloy/shared';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { Student } from '../students/entities/student.entity';
 
+/**
+ * [X-07] SQL scalar: the start_date of the academic year right before the tenant's current one
+ * (latest start before the current year's). The homeroom grant and the marks-overdue alerts both
+ * use it, so they cover the same years: current, or this prior one. `tenant` is the SQL
+ * parameter for the tenant id (`:tenantId` or `$1`).
+ */
+export function priorYearStartSql(tenant: string): string {
+  return `(SELECT max(p.start_date) FROM academic_years p
+    JOIN academic_years cur ON cur.tenant_id = ${tenant} AND cur.is_current = true AND cur.deleted_at IS NULL
+    WHERE p.tenant_id = ${tenant} AND p.deleted_at IS NULL AND p.start_date < cur.start_date)`;
+}
+
 export type HomeroomType =
   TeacherAssignmentType.CLASS_TEACHER | TeacherAssignmentType.ASSISTANT_CLASS_TEACHER;
 
@@ -147,9 +159,9 @@ export class TeacherScopeService {
       // counts while the section is live and in the current academic year, or in
       // the year right before it (latest start_date before the current year's)
       // while that class still has a DRAFT exam [X-07]: marks entry outlives the
-      // year flag. DRAFT only, the same "open" test as the marks-overdue alert,
-      // so the grant ends when the alert clears; older and future years never
-      // qualify. Trade-off: the grant then covers every homeroom-gated read, not
+      // year flag. DRAFT only, and the same two years (`priorYearStartSql`) as the
+      // marks-overdue alert, so the grant ends when the alert clears; older and
+      // future years never qualify for either. Trade-off: the grant then covers every homeroom-gated read, not
       // only marks; narrow it to marks reads if that ever matters.
       // SUBJECT_TEACHER rows keep their existing (year-agnostic) behaviour.
       .leftJoin(
@@ -170,11 +182,7 @@ export class TeacherScopeService {
         `ay.id = c.academic_year_id AND ay.tenant_id = :tenantId AND ay.deleted_at IS NULL AND (
           ay.is_current = true
           OR (
-            ay.start_date = (
-              SELECT max(p.start_date) FROM academic_years p
-              JOIN academic_years cur ON cur.tenant_id = :tenantId AND cur.is_current = true AND cur.deleted_at IS NULL
-              WHERE p.tenant_id = :tenantId AND p.deleted_at IS NULL AND p.start_date < cur.start_date
-            )
+            ay.start_date = ${priorYearStartSql(':tenantId')}
             AND EXISTS (SELECT 1 FROM exams e WHERE e.tenant_id = :tenantId AND e.class_id = c.id AND e.academic_year_id = ay.id AND e.deleted_at IS NULL AND e.status = 'DRAFT')
           )
         )`,
