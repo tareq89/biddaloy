@@ -107,7 +107,6 @@ const columns: readonly ColumnSpec[] = [
   {
     key: 'final_outcome',
     type: 'enum',
-    // Not CONDITIONAL yet: commit would drop that student (see COMMITTABLE_PROMOTION_OUTCOMES).
     enumValues: COMMITTABLE_PROMOTION_OUTCOMES,
     required: true,
     label: { en: 'Final outcome', bn: 'চূড়ান্ত ফলাফল' },

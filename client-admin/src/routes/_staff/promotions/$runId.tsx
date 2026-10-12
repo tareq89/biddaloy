@@ -70,7 +70,7 @@ const OUTCOME_KEY: Record<PromotionOutcome, string> = {
   PROMOTE: 'outcome.promote',
   RETAIN: 'outcome.retain',
   GRADUATE: 'outcome.graduate',
-  CONDITIONAL: 'outcome.promote', // Epic 68: #2296 owns the label and the server behaviour
+  CONDITIONAL: 'outcome.conditional',
 };
 
 const PLACEMENT_ERROR_KEY: Record<string, string> = {
@@ -232,7 +232,7 @@ function PromotionRunPage() {
   const counts = entries.reduce(
     (acc, entry) => {
       const outcome = effective(entry).final_outcome;
-      if (outcome === 'PROMOTE') acc.promoted += 1;
+      if (outcome === 'PROMOTE' || outcome === 'CONDITIONAL') acc.promoted += 1;
       else if (outcome === 'RETAIN') acc.retained += 1;
       else acc.graduated += 1;
       const override = isOverride(entry);
@@ -557,7 +557,7 @@ function PromotionRunPage() {
 
   // Placement result of one row: the section and roll, a danger badge for a problem, or a dash.
   function placement(entry: PromotionEntry, finalOutcome: PromotionOutcome, override: boolean) {
-    if (finalOutcome !== 'PROMOTE') return dash;
+    if (finalOutcome !== 'PROMOTE' && finalOutcome !== 'CONDITIONAL') return dash;
     if (!override && entry.placement_error) {
       return (
         <StatusBadge
@@ -624,6 +624,7 @@ function PromotionRunPage() {
         {isMobile ? (
           <PromotionEntryCard
             entries={entries}
+            isGraduationRun={run.target_class_id === null}
             index={mobileIndex}
             onIndexChange={setMobileIndex}
             groups={groups}
@@ -729,8 +730,10 @@ function PromotionRunPage() {
                                   }}
                                 >
                                   {(Object.keys(OUTCOME_KEY) as PromotionOutcome[])
-                                    // Epic 68: #2296 owns the label and the server behaviour
-                                    .filter((outcome) => outcome !== 'CONDITIONAL')
+                                    .filter(
+                                      (outcome) =>
+                                        outcome !== 'CONDITIONAL' || run.target_class_id !== null,
+                                    )
                                     .map((outcome) => (
                                       <SelectItem key={outcome} value={outcome}>
                                         {t(OUTCOME_KEY[outcome])}

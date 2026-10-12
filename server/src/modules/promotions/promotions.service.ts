@@ -72,6 +72,11 @@ interface CohortStudentStat {
 
 const AUTH_REQUEST_STUB: RequestContext = { ip: null, userAgent: null };
 
+/** PROMOTE and CONDITIONAL both move the student into the target class (SENSE-13). */
+function movesUp(outcome: PromotionOutcome): boolean {
+  return outcome === PromotionOutcome.PROMOTE || outcome === PromotionOutcome.CONDITIONAL;
+}
+
 @Injectable()
 export class PromotionsService {
   constructor(
@@ -281,13 +286,13 @@ export class PromotionsService {
     return suggested;
   }
 
-  /** Runs `place()` for every PROMOTE-suggested entry and writes back its placement. */
+  /** Runs `place()` for every entry that moves up (PROMOTE or CONDITIONAL) and writes back its placement. */
   private placePromoteEntries(
     entries: PromotionEntry[],
     sections: PlacementSection[],
     algorithm: PlacementAlgorithm,
   ): void {
-    const promoteEntries = entries.filter((e) => e.final_outcome === PromotionOutcome.PROMOTE);
+    const promoteEntries = entries.filter((e) => movesUp(e.final_outcome));
     // Preserve merit-rank order (entries are ranked ascending by merit_rank).
     const ranked = [...promoteEntries].sort(
       (a, b) =>
@@ -301,7 +306,7 @@ export class PromotionsService {
     const rolls = assignRolls(placementStudents, assignments);
 
     for (const entry of entries) {
-      if (entry.final_outcome !== PromotionOutcome.PROMOTE) {
+      if (!movesUp(entry.final_outcome)) {
         entry.target_section_id = null;
         entry.new_roll_number = null;
         entry.placement_error = null;
@@ -516,6 +521,12 @@ export class PromotionsService {
           // patch that only changes group_name must not silently clear an
           // existing override on the same entry.
           const finalOutcome = patch.final_outcome ?? entry.final_outcome;
+          if (finalOutcome === PromotionOutcome.CONDITIONAL && run.target_class_id === null) {
+            throw new UnprocessableEntityException({
+              message: 'A graduation run cannot promote on condition.',
+              details: { code: 'CONDITIONAL_NOT_FOR_GRADUATION' },
+            });
+          }
           const isOverride = finalOutcome !== entry.suggested_outcome;
           const overrideNote = patch.override_note ?? (isOverride ? entry.override_note : null);
           if (isOverride && (!overrideNote || overrideNote.trim().length === 0)) {
@@ -814,9 +825,9 @@ export class PromotionsService {
       }
 
       const entries = await entryRepo.find({ where: { run_id: run.id, tenant_id: tenantId } });
-      if (entries.some((e) => e.final_outcome === PromotionOutcome.PROMOTE && e.placement_error)) {
+      if (entries.some((e) => movesUp(e.final_outcome) && e.placement_error)) {
         throw new UnprocessableEntityException(
-          'Cannot commit: one or more PROMOTE entries has a placement error',
+          'Cannot commit: one or more students moving up has a placement error',
         );
       }
 
@@ -884,7 +895,7 @@ export class PromotionsService {
       }
 
       // ── PROMOTE: renumber existing occupants of target sections, two-phase (D19) ──
-      const promoteEntries = entries.filter((e) => e.final_outcome === PromotionOutcome.PROMOTE);
+      const promoteEntries = entries.filter((e) => movesUp(e.final_outcome));
       const targetSectionIds = [
         ...new Set(
           promoteEntries.map((e) => e.target_section_id).filter((id): id is string => !!id),
@@ -1020,7 +1031,7 @@ export class PromotionsService {
       }
 
       // ── Carry choice-group picks forward (D45) ──
-      // A PROMOTE/RETAIN student keeps a pick only where the new class offers
+      // A PROMOTE/CONDITIONAL/RETAIN student keeps a pick only where the new class offers
       // the same subject in a same-named choice group. is_fourth is never
       // copied (picks with a choice_group are never fourth: DB CHECK), and
       // students with no match simply get no pick. `choice_group` on the new
@@ -1031,8 +1042,7 @@ export class PromotionsService {
       const targetEnrollmentIds = entries
         .filter(
           (e) =>
-            (e.final_outcome === PromotionOutcome.PROMOTE ||
-              e.final_outcome === PromotionOutcome.RETAIN) &&
+            (movesUp(e.final_outcome) || e.final_outcome === PromotionOutcome.RETAIN) &&
             e.target_enrollment_id,
         )
         .map((e) => e.target_enrollment_id as string);
@@ -1132,8 +1142,7 @@ export class PromotionsService {
             source_class_id: run.source_class_id,
             source_academic_year_id: run.source_academic_year_id,
             target_academic_year_id: run.target_academic_year_id,
-            promoted_count: entries.filter((e) => e.final_outcome === PromotionOutcome.PROMOTE)
-              .length,
+            promoted_count: entries.filter((e) => movesUp(e.final_outcome)).length,
             override_count: overrideCount,
             approved_by_user_id: approvedByUserId,
           },

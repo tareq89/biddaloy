@@ -541,6 +541,90 @@ describe('/promotions/$runId', () => {
     expect(screen.getByRole('columnheader', { name: 'Final decision' })).toBeTruthy();
   });
 
+  it('offers Promote on condition, counts it as promoted and saves it with its note', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    const record = statefulRun();
+    renderRun();
+
+    const trigger = await screen.findByRole('combobox', { name: 'Final decision' });
+    await user.click(trigger);
+    await user.click(await screen.findByRole('option', { name: 'Promote on condition' }));
+
+    const row = trigger.closest('tr') as HTMLElement;
+    const note = await within(row).findByRole('textbox', { name: 'Why changed' });
+    await user.type(note, 'Re-test by March');
+    await waitFor(
+      () =>
+        expect(record.patches.at(-1)).toEqual([
+          { student_id: 's1', final_outcome: 'CONDITIONAL', override_note: 'Re-test by March' },
+        ]),
+      { timeout: 2000 },
+    );
+    const summary = screen.getByRole('status');
+    expect(within(summary).getByText('Promoted ১')).toBeTruthy();
+    expect(within(summary).getByText('Graduated ০')).toBeTruthy();
+  });
+
+  it('a graduation run does not offer Promote on condition', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    server.use(
+      http.get(RUN_URL, () =>
+        HttpResponse.json(
+          baseRun({
+            target_class_id: null,
+            entries: [
+              entry({
+                suggested_outcome: 'GRADUATE',
+                final_outcome: 'GRADUATE',
+                target_section_id: null,
+                new_roll_number: null,
+              }),
+            ],
+          }),
+        ),
+      ),
+    );
+    renderRun();
+
+    await user.click(await screen.findByRole('combobox', { name: 'Final decision' }));
+    expect(await screen.findByRole('option', { name: 'Graduate' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'Promote on condition' })).toBeNull();
+  });
+
+  it('on a phone a graduation run offers 3 decisions, without Promote on condition', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+      onchange: null,
+    }));
+    try {
+      stubCommon();
+      server.use(
+        http.get(RUN_URL, () =>
+          HttpResponse.json(
+            baseRun({
+              target_class_id: null,
+              entries: [entry({ suggested_outcome: 'GRADUATE', final_outcome: 'GRADUATE' })],
+            }),
+          ),
+        ),
+      );
+      renderRun();
+
+      const group = await screen.findByRole('radiogroup', { name: 'Final decision' });
+      expect(within(group).getAllByRole('radio')).toHaveLength(3);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('on a phone the decision is a radio group and the stepper buttons are named', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({
       matches: true,
@@ -562,7 +646,7 @@ describe('/promotions/$runId', () => {
       renderRun();
 
       const group = await screen.findByRole('radiogroup', { name: 'Final decision' });
-      expect(within(group).getAllByRole('radio')).toHaveLength(3);
+      expect(within(group).getAllByRole('radio')).toHaveLength(4);
       expect(screen.getByRole('button', { name: 'Previous student' })).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Next student' })).toBeTruthy();
     } finally {
