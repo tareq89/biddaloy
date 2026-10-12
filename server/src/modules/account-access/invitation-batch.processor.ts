@@ -48,7 +48,7 @@ export class InvitationBatchProcessor extends WorkerHost {
     // [68.1.fix] A restore is rewriting this school's `users`/`guardians`/`user_tenants` (#2210):
     // a write now would be lost or mixed into the restored data. Park the job and re-check later;
     // `DelayedError` tells BullMQ this is not a failure, so no retry attempt is spent.
-    if (await this.tenantStatus.isRestoring(tenantId)) {
+    if (await this.tenantStatus.isRestoring(tenantId, { failClosed: true })) {
       await job.moveToDelayed(Date.now() + INVITATION_RESTORE_RETRY_MS, token);
       throw new DelayedError();
     }

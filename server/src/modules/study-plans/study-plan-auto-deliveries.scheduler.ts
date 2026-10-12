@@ -91,7 +91,7 @@ export class StudyPlanAutoDeliveriesScheduler extends WorkerHost implements OnMo
   async sweepTenant(tenantId: string): Promise<void> {
     // A restore is rewriting this school's data (#2210). Skip before the once-a-day marker so the
     // next 15-minute tick still writes today's rows once the restore ends.
-    if (await this.tenantStatus.isRestoring(tenantId)) {
+    if (await this.tenantStatus.isRestoring(tenantId, { failClosed: true })) {
       this.logger.log(`study-plan auto deliveries: skipped tenant ${tenantId}, restore running`);
       return;
     }

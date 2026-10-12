@@ -105,7 +105,7 @@ export class BackupScheduleService {
     // normal backup, and its retention sweep could then delete an older, good one. Skip this tick;
     // the restore took its own snapshot. This is only the early exit: `ExportProcessor` re-checks
     // when the export actually runs (a retry or another worker can run it mid-restore).
-    if (await this.tenantStatus.isRestoring(tenantId)) {
+    if (await this.tenantStatus.isRestoring(tenantId, { failClosed: true })) {
       this.logger.log(`Scheduled backup skipped for tenant ${tenantId}: restore running`);
       return;
     }

@@ -96,7 +96,7 @@ export class ExportProcessor extends WorkerHost {
     // Mid-restore it would save a half-restored school and then prune older, good backups.
     if (
       row.source !== WorkbookJobSource.SNAPSHOT &&
-      (await this.tenantStatus.isRestoring(tenantId))
+      (await this.tenantStatus.isRestoring(tenantId, { failClosed: true }))
     ) {
       await this.jobs.update(row.id, {
         status: WorkbookJobStatus.FAILED,

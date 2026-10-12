@@ -166,7 +166,7 @@ describe('BackupScheduleService', () => {
 
       await service.runNow(TENANT);
 
-      expect(tenantStatus.isRestoring).toHaveBeenCalledWith(TENANT);
+      expect(tenantStatus.isRestoring).toHaveBeenCalledWith(TENANT, { failClosed: true });
       expect(exports.run).not.toHaveBeenCalled();
     });
 

@@ -223,7 +223,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     // expires after the 1 h TTL). One job per 15 min per restoring school.
     // `last_run_period` keeps the catch-up exactly-once; the late-fee and fine
     // sweeps below are idempotent for a past `today` too.
-    if (await this.tenantStatus.isRestoring(tenantId)) {
+    if (await this.tenantStatus.isRestoring(tenantId, { failClosed: true })) {
       await this.queue.add(
         'restore-catch-up',
         { tenantId, today },

@@ -75,7 +75,7 @@ describe('InvitationBatchProcessor', () => {
 
     await expect(processor.process(parked, 'lock-token')).rejects.toBeInstanceOf(DelayedError);
 
-    expect(tenantStatus.isRestoring).toHaveBeenCalledWith(TENANT);
+    expect(tenantStatus.isRestoring).toHaveBeenCalledWith(TENANT, { failClosed: true });
     expect(moveToDelayed).toHaveBeenCalledWith(expect.any(Number), 'lock-token');
     expect(moveToDelayed.mock.calls[0][0]).toBeGreaterThan(Date.now());
     expect(guardianRepo.findOne).not.toHaveBeenCalled();

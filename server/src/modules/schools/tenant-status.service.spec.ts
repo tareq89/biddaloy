@@ -210,6 +210,12 @@ describe('TenantStatusService', () => {
       expect(await service.isRestoring('tenant-1')).toBe(false);
     });
 
+    it('is true when Redis rejects and the caller asked to fail closed (schedulers, workers)', async () => {
+      redis.exists.mockRejectedValue(new Error('connection refused'));
+
+      expect(await service.isRestoring('tenant-1', { failClosed: true })).toBe(true);
+    });
+
     // Fail-open lets writes back in if Redis drops mid-restore, so it must show up in Sentry —
     // but only once per window, since a Redis outage fails every write request.
     it('reports a failed lock read to Sentry once, not once per request', async () => {

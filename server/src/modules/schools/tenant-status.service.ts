@@ -168,15 +168,17 @@ export class TenantStatusService {
 
   /**
    * True while a backup restore holds this tenant's lock. Fail-open on Redis errors like
-   * `getStatus` — but a fail-open during a real restore lets writes back in, so the failure also
+   * `getStatus` (request guards must not 5xx every write on an outage) — unless `failClosed`:
+   * schedulers and workers can retry later, so an unreadable lock counts as locked for them.
+   * A fail-open during a real restore lets writes back in, so the failure also
    * goes to Sentry (rate-limited: a Redis outage fails every write request).
    */
-  async isRestoring(tenantId: string): Promise<boolean> {
+  async isRestoring(tenantId: string, opts: { failClosed?: boolean } = {}): Promise<boolean> {
     try {
       return await isLocked(this.redis, tenantId);
     } catch (error) {
       this.logger.warn(
-        `Restore-lock read failed for ${tenantId}, treating as not restoring: ${error instanceof Error ? error.message : String(error)}`,
+        `Restore-lock read failed for ${tenantId}, treating as ${opts.failClosed ? 'restoring' : 'not restoring'}: ${error instanceof Error ? error.message : String(error)}`,
       );
       // ponytail: one process-wide window, not per tenant; a per-tenant map if one noisy tenant hides another.
       if (Date.now() - this.lastRestoreLockReadReport >= RESTORE_LOCK_READ_REPORT_INTERVAL_MS) {
@@ -186,7 +188,7 @@ export class TenantStatusService {
           Sentry.captureException(error);
         });
       }
-      return false;
+      return opts.failClosed === true;
     }
   }
 

@@ -109,7 +109,7 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
     at('2026-10-15T12:01:00Z');
     tenantStatus.isRestoring.mockResolvedValue(true);
     await scheduler.sweepTenant('ta');
-    expect(tenantStatus.isRestoring).toHaveBeenCalledWith('ta');
+    expect(tenantStatus.isRestoring).toHaveBeenCalledWith('ta', { failClosed: true });
     expect(redis.set).not.toHaveBeenCalled();
     expect(write).not.toHaveBeenCalled();
   });

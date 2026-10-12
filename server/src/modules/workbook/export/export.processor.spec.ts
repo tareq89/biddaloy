@@ -136,7 +136,7 @@ describe('ExportProcessor', () => {
 
       await processor.process(fakeJob());
 
-      expect(tenantStatus.isRestoring).toHaveBeenCalledWith(TENANT);
+      expect(tenantStatus.isRestoring).toHaveBeenCalledWith(TENANT, { failClosed: true });
       expect(storage.put).not.toHaveBeenCalled();
       expect(retention.enforce).not.toHaveBeenCalled();
       expect(events.emitFinished).not.toHaveBeenCalled();
