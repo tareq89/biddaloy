@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -23,16 +23,15 @@ import {
   FeeNotificationBillLine,
   resolveFeeNotificationLocale,
 } from './fee-notification-template.util';
-import { feesEvents, FeesGeneratedEventPayload } from '../fees/fee-generation.service';
+import type { FeesGeneratedEventPayload } from '../fees/fee-generation.service';
 
 /** `fees.generated`'s payload (emitted by #650 after a generation batch
  * commits). Thin on purpose — this listener reloads the batch and its
  * bills from the DB by id rather than trusting anything else the payload
- * might carry, so it stays correct even if the emitter's shape grows.
+ * might carry, so it stays correct even if the producer's shape grows.
  *
- * Subscribed via `feesEvents` (a plain Node `EventEmitter` singleton, not
- * `@nestjs/event-emitter` — that package isn't a dependency of this repo;
- * same pattern as [14.7.3]'s `WorkbookJobEventsService`/`WorkbookNotifier`). */
+ * Delivered as a `FEE_NOTIFY_QUEUE` job (`FeeNotifyProcessor`) [68.4.10], not an
+ * in-memory event, so a restart between commit and send loses nothing. */
 export type FeesGeneratedEvent = FeesGeneratedEventPayload;
 
 /** One row of `student_fees` for this batch, joined with what the message
@@ -116,7 +115,7 @@ export function resolveFeeNotificationChannel(
  * replayed event finds its prior logs and creates nothing new.
  */
 @Injectable()
-export class FeeNotificationsListener implements OnModuleInit {
+export class FeeNotificationsListener {
   private readonly logger = new Logger(FeeNotificationsListener.name);
 
   constructor(
@@ -130,17 +129,6 @@ export class FeeNotificationsListener implements OnModuleInit {
     private readonly schoolsService: SchoolsService,
     private readonly smsCreditService: SmsCreditService,
   ) {}
-
-  onModuleInit(): void {
-    feesEvents.on('fees.generated', (event: FeesGeneratedEvent) => {
-      void this.handleFeesGenerated(event).catch((error) => {
-        this.logger.error(
-          `fees.generated handler failed for ${event.feeGenerationId}`,
-          error instanceof Error ? error.stack : String(error),
-        );
-      });
-    });
-  }
 
   async handleFeesGenerated(event: FeesGeneratedEvent): Promise<void> {
     const { tenantId, feeGenerationId } = event;
@@ -340,6 +328,7 @@ export class FeeNotificationsListener implements OnModuleInit {
       smsReserved = true;
     }
 
+    let enqueueFailures = 0;
     for (const item of toSend) {
       if (item.medium === CommunicationMedium.SMS && !smsReserved) {
         toSkip.push({
@@ -393,6 +382,7 @@ export class FeeNotificationsListener implements OnModuleInit {
           error: 'Failed to enqueue for delivery',
         };
         await this.logRepo.save(log);
+        enqueueFailures += 1;
       }
     }
 
@@ -413,6 +403,12 @@ export class FeeNotificationsListener implements OnModuleInit {
           student_ids: studentIdsByGuardian.get(item.guardianId) ?? [],
         },
       });
+    }
+
+    // Rows are saved FAILED/ENQUEUE_FAILED above and a replay re-claims them, so throwing
+    // lets BullMQ retry the whole job instead of dropping those guardians' notices.
+    if (enqueueFailures > 0) {
+      throw new Error(`${enqueueFailures} fee-notification log(s) could not be enqueued`);
     }
   }
 

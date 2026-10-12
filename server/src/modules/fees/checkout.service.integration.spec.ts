@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { attentionEvents } from '../attention/attention.constants';
+import { ATTENTION_RECHECK, AttentionRecheckPayload } from '../attention/engine/attention-events';
+import { getQueueToken } from '@nestjs/bullmq';
+import { FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -56,6 +60,20 @@ function daysFromToday(days: number): Date {
   d.setUTCDate(d.getUTCDate() + days);
   d.setUTCHours(0, 0, 0, 0);
   return d;
+}
+
+const feeNotifyAdd = vi.fn().mockResolvedValue(undefined);
+/** Collects the attention rechecks emitted while `fn` runs. */
+async function captureRechecks(fn: () => Promise<unknown>): Promise<string[]> {
+  const seen: AttentionRecheckPayload[] = [];
+  const on = (p: AttentionRecheckPayload) => seen.push(p);
+  attentionEvents.on(ATTENTION_RECHECK, on);
+  try {
+    await fn();
+  } finally {
+    attentionEvents.off(ATTENTION_RECHECK, on);
+  }
+  return seen.map((r) => `${r.tenantId}:${r.ruleKey}`).sort();
 }
 
 describe('CheckoutService (integration)', () => {
@@ -136,6 +154,7 @@ describe('CheckoutService (integration)', () => {
       ALL_ENTITIES,
       [
         CheckoutService,
+        { provide: getQueueToken(FEE_NOTIFY_QUEUE), useValue: { add: feeNotifyAdd } },
         WalletService,
         AuditService,
         InvoicesService,
@@ -240,6 +259,34 @@ describe('CheckoutService (integration)', () => {
       }),
     );
     feeStructureId = structure.id;
+  });
+
+  it('a committed checkout enqueues one receipt job and rechecks the fee alerts', async () => {
+    feeNotifyAdd.mockClear();
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+    const dto = {
+      idempotency_key: '33333333-3333-4333-8333-333333333333',
+      lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+      change_handling: 'RETURN',
+    } as any;
+
+    let paymentId = '';
+    const rechecks = await captureRechecks(async () => {
+      const r = await service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+      paymentId = r.payment.id;
+    });
+
+    expect(feeNotifyAdd).toHaveBeenCalledTimes(1);
+    expect(feeNotifyAdd).toHaveBeenCalledWith(
+      'payments.recorded',
+      expect.objectContaining({ payment_id: paymentId, tenant_id: TENANT_ID }),
+      { jobId: `payments.recorded-${paymentId}` },
+    );
+    expect(rechecks).toEqual(
+      [`${TENANT_ID}:fees.due_soon`, `${TENANT_ID}:fees.overdue_family`].sort(),
+    );
   });
 
   it('records one payment across two students, three lines, one invoice with grouped lines', async () => {

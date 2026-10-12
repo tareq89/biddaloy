@@ -2,12 +2,17 @@ import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { returnMoneyOfRemovedBills } from './removed-bill-money';
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EventEmitter } from 'node:events';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { emitRecheck } from '../attention/engine/attention-events';
+import { attentionEvents } from '../attention/attention.constants';
+import { enqueueFeeNotify, FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
 import { Repository, IsNull, In, EntityManager } from 'typeorm';
 import { Student } from '../students/entities/student.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
@@ -124,12 +129,7 @@ export class NoopDiscountResolver implements DiscountResolver {
   }
 }
 
-/** Node's `events` module, not `@nestjs/event-emitter` — that package is
- * not a dependency of this repo (same correction as [14.7.3]'s
- * `WorkbookJobEventsService`). A plain exported singleton, not a Nest
- * provider, so this file's rewrite doesn't have to touch `fees.module.ts`
- * (outside this ticket's stated territory) to register it. */
-export const FEES_GENERATED_EVENT = 'fees.generated';
+/** Payload of the `fees.generated` job on `FEE_NOTIFY_QUEUE` [68.4.10]. */
 export interface FeesGeneratedEventPayload {
   tenantId: string;
   feeGenerationId: string;
@@ -137,9 +137,6 @@ export interface FeesGeneratedEventPayload {
   // wave) can react to a FINE bill without re-querying every created row.
   bills?: { fee_type: FeeType; note: string | null }[];
 }
-class FeesEventEmitter extends EventEmitter {}
-export const feesEvents = new FeesEventEmitter();
-feesEvents.setMaxListeners(50);
 
 const DUPLICATE_OVERRIDE_SCOPE = ApprovalScope.FEES_DUPLICATE_OVERRIDE;
 
@@ -172,7 +169,10 @@ interface LoadedContext {
  */
 @Injectable()
 export class FeeGenerationService {
+  private readonly logger = new Logger(FeeGenerationService.name);
+
   constructor(
+    @InjectQueue(FEE_NOTIFY_QUEUE) private readonly feeNotifyQueue: Queue,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
     @InjectRepository(StudentFee)
@@ -762,12 +762,33 @@ export class FeeGenerationService {
       // Fires only after the transaction above has committed — everything
       // that could fail and roll the batch back already has, by this point.
       if (notifyFamilies) {
-        feesEvents.emit(FEES_GENERATED_EVENT, {
-          tenantId,
+        await enqueueFeeNotify(
+          this.feeNotifyQueue,
+          this.logger,
+          'fees.generated',
           feeGenerationId,
-          bills: generatedBills,
-        } satisfies FeesGeneratedEventPayload);
+          {
+            tenantId,
+            feeGenerationId,
+            bills: generatedBills,
+          } satisfies FeesGeneratedEventPayload,
+        );
       }
+      emitRecheck(attentionEvents, {
+        tenantId,
+        ruleKey: 'fees.unassigned_students',
+        actorUserId: userId ?? undefined,
+      });
+      emitRecheck(attentionEvents, {
+        tenantId,
+        ruleKey: 'fees.due_soon',
+        actorUserId: userId ?? undefined,
+      });
+      emitRecheck(attentionEvents, {
+        tenantId,
+        ruleKey: 'fees.overdue_family',
+        actorUserId: userId ?? undefined,
+      });
     }
 
     return {

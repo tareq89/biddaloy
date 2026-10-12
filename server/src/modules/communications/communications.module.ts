@@ -24,7 +24,12 @@ import { MessengerProvider } from './providers/messenger/messenger.provider';
 import { TenantProviderConfigResolver } from './config/tenant-provider-config.resolver';
 import { ConnectionTestService } from './testing/connection-test.service';
 import { ProviderConnectionTestController } from './testing/provider-connection-test.controller';
-import { COMMUNICATIONS_QUEUE, COMMUNICATIONS_QUEUE_JOB_OPTIONS } from './communications.constants';
+import {
+  COMMUNICATIONS_QUEUE,
+  COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+  FEE_NOTIFY_QUEUE,
+} from './communications.constants';
+import { FeeNotifyProcessor } from './fee-notify.processor';
 import { CreditsModule } from './credits/credits.module';
 import { FeeNotificationsListener } from './fee-notifications.listener';
 import { InvoiceNotificationsListener } from './invoice-notifications.listener';
@@ -70,6 +75,10 @@ import { InvoicesModule } from '../invoices/invoices.module';
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
     }),
+    BullModule.registerQueue({
+      name: FEE_NOTIFY_QUEUE,
+      defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+    }),
   ],
   providers: [
     CommunicationsService,
@@ -87,6 +96,7 @@ import { InvoicesModule } from '../invoices/invoices.module';
     ConnectionTestService,
     FeeNotificationsListener,
     InvoiceNotificationsListener,
+    FeeNotifyProcessor,
   ],
   controllers: [CommunicationsController, ProviderConnectionTestController],
   exports: [

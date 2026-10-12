@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { getQueueToken } from '@nestjs/bullmq';
+import { FEE_NOTIFY_QUEUE } from '../../communications/communications.constants';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -125,6 +127,7 @@ describe('FinesService (integration)', () => {
       [
         FinesService,
         FeeGenerationService,
+        { provide: getQueueToken(FEE_NOTIFY_QUEUE), useValue: { add: async () => undefined } },
         FeeGenerationsService,
         WalletService,
         AuditService,

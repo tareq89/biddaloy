@@ -1,5 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { DataSource } from 'typeorm';
+import { getQueueToken } from '@nestjs/bullmq';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { FEE_NOTIFY_QUEUE } from '../../../communications/communications.constants';
+import { CheckoutService } from '../../../fees/checkout.service';
+import { WalletService } from '../../../fees/wallet.service';
+import { AuditService } from '../../../audit/audit.service';
+import { InvoicesService } from '../../../invoices/invoices.service';
+import { ApprovalService } from '../../../auth/guards/approval.guard';
+import { StorageModule } from '../../../storage/storage.module';
+import { PaymentMethod } from '@biddaloy/shared';
 import Redis from 'ioredis';
 import { PeriodSlotKind, SlotRecurrence, UserRole } from '@biddaloy/shared';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -43,6 +54,7 @@ describe('Family rules (integration)', () => {
   let resultsPublished: ResultsPublishedRule;
   let routineChanged: RoutineChangedTodayRule;
   let profile: GuardianProfileIncompleteRule;
+  let checkout: CheckoutService;
 
   interface Tenant {
     id: string;
@@ -293,6 +305,16 @@ describe('Family rules (integration)', () => {
             }),
           },
         },
+        // [68.4.10] Real checkout so the recheck it emits is the one under test.
+        CheckoutService,
+        { provide: getQueueToken(FEE_NOTIFY_QUEUE), useValue: { add: async () => undefined } },
+        WalletService,
+        AuditService,
+        InvoicesService,
+        ApprovalService,
+        JwtService,
+        { provide: 'APPROVAL_REDIS', useValue: redis },
+        { provide: ConfigService, useValue: { get: () => 'family-rules-secret' } },
         ChildAbsentTodayRule,
         FeesDueSoonRule,
         FeesOverdueFamilyRule,
@@ -301,9 +323,10 @@ describe('Family rules (integration)', () => {
         RoutineChangedTodayRule,
         GuardianProfileIncompleteRule,
       ],
-      [],
+      [StorageModule],
     );
     ds = module.get(DataSource);
+    checkout = module.get(CheckoutService);
     writer = module.get(AlertWriterService);
     substitutions = module.get(SubstitutionsService);
     absent = module.get(ChildAbsentTodayRule);
@@ -388,6 +411,39 @@ describe('Family rules (integration)', () => {
     expect(await alertStatus(A, 'fees.overdue_family')).toEqual(['ACTIVE']);
     await ds.query(`UPDATE student_fees SET status = 'PAID' WHERE id = $1`, [late]);
     expect(await overdue.evaluate(ctx(A))).toEqual([]);
+    await run(overdue, A);
+    expect(await alertStatus(A, 'fees.overdue_family')).toEqual(['RESOLVED']);
+  });
+
+  it('fees.overdue_family: a full counter payment emits the recheck and the alert resolves at once', async () => {
+    const late = await mkFee(A, A.c1, '2043-02-15', 600);
+    await run(overdue, A);
+    expect(await alertStatus(A, 'fees.overdue_family')).toEqual(['ACTIVE']);
+
+    const rechecks: AttentionRecheckPayload[] = [];
+    const onRecheck = (p: AttentionRecheckPayload) => rechecks.push(p);
+    attentionEvents.on(ATTENTION_RECHECK, onRecheck);
+    try {
+      await checkout.checkout(
+        {
+          idempotency_key: '22222222-2222-4222-8222-222222222222',
+          lines: [{ student_fee_id: late, amount: 600, one_off_discount: 0 }],
+          payment_method: PaymentMethod.CASH,
+          change_handling: 'RETURN',
+        },
+        A.id,
+        A.parentUser,
+        { headers: {}, currentTenant: { id: A.id }, user: { sub: A.parentUser } } as any,
+      );
+    } finally {
+      attentionEvents.off(ATTENTION_RECHECK, onRecheck);
+    }
+
+    // Both fee rules are asked to re-check, for tenant A only.
+    expect(rechecks.map((r) => `${r.tenantId}:${r.ruleKey}`).sort()).toEqual(
+      [`${A.id}:fees.due_soon`, `${A.id}:fees.overdue_family`].sort(),
+    );
+    // The scheduler would now run the rule; same result, same day.
     await run(overdue, A);
     expect(await alertStatus(A, 'fees.overdue_family')).toEqual(['RESOLVED']);
   });

@@ -32,6 +32,13 @@ function scheduleRow(overrides: Partial<any> = {}) {
   };
 }
 
+const notifyAdds: { name: string; data: any; opts: any }[] = [];
+const notifyQueue = {
+  add: async (name: string, data: any, opts: any) => {
+    notifyAdds.push({ name, data, opts });
+  },
+} as any;
+
 describe('recurrence helpers', () => {
   it('periodFor: MONTHLY returns first-of-month', () => {
     expect(periodFor('2026-03-15', { kind: 'MONTHLY', day_of_month: 1 })).toBe('2026-03-01');
@@ -112,9 +119,16 @@ describe('FeesDailyScheduler', () => {
       transaction: vi.fn(async (cb: any) => cb(manager)),
     };
 
-    scheduler = new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService, {
-      isRestoring: async () => false,
-    } as any);
+    scheduler = new FeesDailyScheduler(
+      queue,
+      dataSource,
+      schoolsService,
+      feeGenerationService,
+      {
+        isRestoring: async () => false,
+      } as any,
+      notifyQueue,
+    );
   });
 
   it('registers the repeatable job on boot at 00:30 SCHOOL_TZ', async () => {

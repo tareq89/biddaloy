@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { attentionEvents } from '../attention/attention.constants';
+import { ATTENTION_RECHECK, AttentionRecheckPayload } from '../attention/engine/attention-events';
+import { getQueueToken } from '@nestjs/bullmq';
+import { FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { returnMoneyOfRemovedBills } from './removed-bill-money';
@@ -75,6 +79,20 @@ function daysFromToday(offset: number): Date {
   return d;
 }
 
+const feeNotifyAdd = vi.fn().mockResolvedValue(undefined);
+/** Collects the attention rechecks emitted while `fn` runs. */
+async function captureRechecks(fn: () => Promise<unknown>): Promise<string[]> {
+  const seen: AttentionRecheckPayload[] = [];
+  const on = (p: AttentionRecheckPayload) => seen.push(p);
+  attentionEvents.on(ATTENTION_RECHECK, on);
+  try {
+    await fn();
+  } finally {
+    attentionEvents.off(ATTENTION_RECHECK, on);
+  }
+  return seen.map((r) => `${r.tenantId}:${r.ruleKey}`).sort();
+}
+
 describe('PaymentReversalService (integration)', () => {
   let service: PaymentReversalService;
   let checkoutService: CheckoutService;
@@ -134,6 +152,7 @@ describe('PaymentReversalService (integration)', () => {
       [
         PaymentReversalService,
         CheckoutService,
+        { provide: getQueueToken(FEE_NOTIFY_QUEUE), useValue: { add: feeNotifyAdd } },
         WalletService,
         AuditService,
         InvoicesService,
@@ -285,6 +304,29 @@ describe('PaymentReversalService (integration)', () => {
     const reversalAllocations = await allocationRepo.find({ where: { payment_id: reversal.id } });
     expect(reversalAllocations).toHaveLength(1);
     expect(Number(reversalAllocations[0].allocated_amount)).toBe(1000);
+  });
+
+  it('a committed reversal rechecks the fee alerts', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 400 }));
+    const { payment } = await checkoutService.checkout(
+      {
+        idempotency_key: '11111111-1111-4111-8111-111111111177',
+        lines: [{ student_fee_id: bill.id, amount: 400, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+
+    const rechecks = await captureRechecks(() =>
+      service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'wrong amount'),
+    );
+
+    expect(rechecks).toEqual(
+      [`${TENANT_ID}:fees.due_soon`, `${TENANT_ID}:fees.overdue_family`].sort(),
+    );
   });
 
   it('rejects reversing an already-reversed payment (409)', async () => {
