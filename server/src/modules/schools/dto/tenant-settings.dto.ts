@@ -354,6 +354,18 @@ export class AttendancePolicyDto {
    * that echoes the full GET payload back is not rejected by whitelist
    * validation; the merge ignores whatever is sent.
    */
+  @ApiPropertyOptional({
+    type: 'array',
+    readOnly: true,
+    items: {
+      type: 'object',
+      required: ['until', 'days'],
+      properties: {
+        until: { type: 'string', format: 'date' },
+        days: { type: 'array', items: { type: 'integer' } },
+      },
+    },
+  })
   @IsOptional()
   @IsArray()
   weeklyOffHistory?: Array<{ until: string; days: number[] }>;

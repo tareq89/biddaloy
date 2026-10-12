@@ -10260,8 +10260,12 @@ export interface components {
             enabled: boolean;
         };
         AttendancePolicyDto: {
+            readonly weeklyOffHistory?: {
+                /** Format: date */
+                until: string;
+                days: number[];
+            }[];
             weeklyOffDays: number[];
-            weeklyOffHistory?: string[];
             lateAfter: string;
             absentAfter: string;
             correctionWindowDays: number;
