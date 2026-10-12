@@ -919,6 +919,75 @@ describe('PaymentReversalService (integration)', () => {
     expect(await walletService.balance(student.id, TENANT_ID)).toBe(100);
   });
 
+  // A bills-first transaction (checkout, generation) locks its bills in one
+  // `ORDER BY id` pass. The reversal must do the same with ALL its bills (the
+  // payment's and the generation-paid ones), or the two can deadlock (40P01).
+  it('MON-14: locks the payment bill and the generation bill in one sorted batch (no deadlock)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    // Fixed ids so the generation bill sorts BEFORE the paid bill.
+    const genId = '00000000-0000-4000-8000-0000000000a1';
+    const paidId = 'ffffffff-ffff-4fff-8fff-0000000000a2';
+    await studentFeeRepo.save(makeBill(student.id, { id: paidId, total_amount: 500 }));
+    const { payment } = await checkoutService.checkout(
+      {
+        idempotency_key: '11111111-1111-4111-8111-111111111140',
+        lines: [{ student_fee_id: paidId, amount: 500, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+        tendered_amount: 600,
+        change_handling: 'TO_WALLET',
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    await studentFeeRepo.save(
+      makeBill(student.id, { id: genId, total_amount: 100, occurrence: 2 }),
+    );
+    await dataSource.transaction(async (m) => {
+      await walletService.debit(
+        {
+          studentId: student.id,
+          tenantId: TENANT_ID,
+          amount: 100,
+          kind: WalletTransactionKind.DEBIT_GENERATION,
+          studentFeeId: genId,
+          createdByUserId: ACTOR_USER_ID,
+        },
+        m,
+      );
+      await m.getRepository(StudentFee).update(genId, { paid_amount: 100, status: FeeStatus.PAID });
+    });
+
+    // Another transaction holds the lower bill, as a bills-first writer would.
+    const other = dataSource.createQueryRunner();
+    await other.connect();
+    await other.startTransaction();
+    try {
+      await other.query('SELECT id FROM student_fees WHERE id = $1 FOR UPDATE', [genId]);
+      const reversal = service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'x');
+      reversal.catch(() => undefined);
+      // Wait until the reversal is blocked on a row lock.
+      for (let i = 0; i < 50; i += 1) {
+        const [{ n }] = await dataSource.query(
+          `SELECT count(*)::int AS n FROM pg_stat_activity
+            WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+        );
+        if (n > 0) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      // Now it takes the higher bill. With two separate lock batches the
+      // reversal would already hold it and Postgres would abort one side.
+      await other.query('SELECT id FROM student_fees WHERE id = $1 FOR UPDATE', [paidId]);
+      await other.commitTransaction();
+      await reversal;
+    } finally {
+      if (other.isTransactionActive) await other.rollbackTransaction();
+      await other.release();
+    }
+    expect((await studentFeeRepo.findOneByOrFail({ id: genId })).status).toBe(FeeStatus.PENDING);
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
+  });
+
   it('MON-14: another tenant cannot reverse it and nothing is undone', async () => {
     const student = await studentRepo.save(makeStudent());
     const a = await payWithChange(student.id, 1, 200, '11111111-1111-4111-8111-111111111134');

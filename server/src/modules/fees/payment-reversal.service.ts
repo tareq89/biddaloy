@@ -117,24 +117,41 @@ export class PaymentReversalService {
       }
       this.assertReversible(locked);
 
-      // Lock every bill this payment allocated against BEFORE the wallet
+      // Lock every bill this payment allocated against, plus (MON-14) the
+      // bills fee generation may have paid from the wallet, BEFORE the wallet
       // lock below — `CheckoutService` locks bills (`ORDER BY sf.id ASC`)
       // then the wallet (`WalletService.getOrCreate`), so taking these in
       // the opposite order here would be a classic ABBA lock inversion: a
       // concurrent checkout and reversal on the same student could each
       // hold one lock and wait on the other, a Postgres 40P01 deadlock.
-      // Same deterministic `sf.id ASC` order as `CheckoutService` to also
-      // avoid deadlocking two reversals racing each other. `withDeleted`
-      // because a bill can have been soft-deleted since this payment was
-      // recorded — its paid_amount still needs unwinding even though it's
-      // gone.
+      // ONE batch in the same deterministic `sf.id ASC` order as checkout:
+      // two separately sorted batches can still interleave with checkout's
+      // single pass and deadlock. `withDeleted` because a bill can have been
+      // soft-deleted since this payment was recorded — its paid_amount still
+      // needs unwinding even though it's gone.
+      // The generation candidates come from an unlocked read (removed-bill
+      // credits from the pre-check above). `undoGenerationDebits` re-selects
+      // under the wallet lock and returns a retryable 409 if it then picks a
+      // bill that is not locked here.
       const feeIds = payment.allocations.map((a) => a.student_fee_id);
+      const candidateOwners = await this.walletOwners(manager, preRemovedCredits);
+      const generationBillIds = await this.generationBillIds(
+        manager,
+        payment,
+        [payment.student_id, ...candidateOwners.values()],
+        tenantId,
+      );
+      const lockIds = [...new Set([...feeIds, ...generationBillIds])];
       const lockedBills =
-        feeIds.length > 0
+        lockIds.length > 0
           ? await studentFeeRepo
               .createQueryBuilder('sf')
               .withDeleted()
-              .where('sf.id IN (:...ids)', { ids: feeIds })
+              .where('sf.id IN (:...ids)', { ids: lockIds })
+              .andWhere(
+                'sf.student_id IN (SELECT s.id FROM students s WHERE s.tenant_id = :tenantId)',
+                { tenantId },
+              )
               .orderBy('sf.id', 'ASC')
               .setLock('pessimistic_write')
               .getMany()
@@ -158,14 +175,6 @@ export class PaymentReversalService {
       // concurrent removal cannot add one unseen.
       const removedCredits = await this.removedBillCredits(manager, payment.id);
       const studentOfWallet = await this.walletOwners(manager, removedCredits);
-      // MON-14: bills fee generation may have paid from the wallet are locked
-      // before any wallet lock below (bills-then-wallet, like checkout).
-      const generationBills = await this.lockGenerationBills(
-        manager,
-        payment,
-        [payment.student_id, ...studentOfWallet.values()],
-        tenantId,
-      );
       const shortfalls = await this.assertAllWalletsInOrder(
         locked,
         removedCredits,
@@ -180,7 +189,7 @@ export class PaymentReversalService {
         manager,
         payment,
         shortfalls,
-        generationBills,
+        new Set(billsById.keys()),
         tenantId,
         actorUserId,
       );
@@ -498,10 +507,13 @@ export class PaymentReversalService {
 
     const shortfall = round2(-balanceAfterRemoval);
     const paymentRepo = manager ? manager.getRepository(Payment) : this.paymentRepo;
-    // "Later" = recorded later (`created_at`, insertion order), NOT `payment_date`:
-    // wallet spending is chronological by insertion, and a back-dated payment
+    // "Later" = later `created_at`, NOT `payment_date`: a back-dated payment
     // (MON-11) can carry an earlier `payment_date` yet still have spent this
-    // payment's wallet change.
+    // payment's wallet change. `created_at` is the inserting transaction's START
+    // time (`now()`), not commit order, and ties sort by random uuid. A payment
+    // that started before this one but committed after it is missed; the
+    // reversal then fails safe with a 409.
+    // ponytail: no monotonic column; add one (or clock_timestamp()) per #2425.
     const ordered = await paymentRepo.find({
       where: {
         tenant_id: payment.tenant_id,
@@ -510,7 +522,8 @@ export class PaymentReversalService {
       order: { created_at: 'ASC', id: 'ASC' },
     });
     // `payment` is in the list only when `studentId` is the payer; otherwise
-    // compare timestamps. Position wins over timestamp so same-ms rows still order.
+    // compare timestamps. Position (the `created_at, id` sort) wins over a
+    // timestamp compare so a same-timestamp row still lands on one side.
     const paymentIndex = ordered.findIndex((p) => p.id === payment.id);
     const laterSpenders =
       paymentIndex !== -1
@@ -539,7 +552,12 @@ export class PaymentReversalService {
     throw new ReverseLaterPaymentsFirstException(blockingIds);
   }
 
-  /** Live (not yet reversed) `DEBIT_GENERATION` rows of these wallets made after `after`, oldest first. */
+  /**
+   * Live (not yet reversed) `DEBIT_GENERATION` rows of these wallets with
+   * `created_at` after `after`, oldest first. `created_at` is the generation
+   * transaction's start time, so a debit from a run that began before the
+   * payment is missed (fails safe as a 409, see #2425).
+   */
   private liveGenerationDebits(
     manager: EntityManager,
     walletIds: string[],
@@ -561,18 +579,16 @@ export class PaymentReversalService {
   }
 
   /**
-   * MON-14 lock order. Checkout and generation take bills before wallets, so the
-   * bills a reversal might re-open are locked BEFORE any wallet lock: read the
-   * candidate debits unlocked, then lock their bills in sorted id order. Returns
-   * the locked bill ids; `undoGenerationDebits` re-selects under the wallet lock
-   * and refuses (retryable 409) if it picks a bill that is not in this set.
+   * MON-14: ids of the bills fee generation may have paid from these students'
+   * wallets, read WITHOUT a lock. `reverse` locks them together with the
+   * payment's own bills in one sorted batch, before any wallet lock.
    */
-  private async lockGenerationBills(
+  private async generationBillIds(
     manager: EntityManager,
     payment: Payment,
     studentIds: string[],
     tenantId: string,
-  ): Promise<Set<string>> {
+  ): Promise<string[]> {
     const wallets = await manager
       .getRepository(StudentWallet)
       .find({ where: { tenant_id: tenantId, student_id: In([...new Set(studentIds)]) } });
@@ -582,20 +598,7 @@ export class PaymentReversalService {
       tenantId,
       payment.created_at,
     );
-    const ids = [...new Set(debits.map((d) => d.student_fee_id).filter((x): x is string => !!x))];
-    if (ids.length === 0) return new Set();
-    const bills = await manager
-      .getRepository(StudentFee)
-      .createQueryBuilder('sf')
-      .withDeleted()
-      .where('sf.id IN (:...ids)', { ids })
-      .andWhere('sf.student_id IN (SELECT s.id FROM students s WHERE s.tenant_id = :tenantId)', {
-        tenantId,
-      })
-      .orderBy('sf.id', 'ASC')
-      .setLock('pessimistic_write')
-      .getMany();
-    return new Set(bills.map((b) => b.id));
+    return debits.map((d) => d.student_fee_id).filter((x): x is string => !!x);
   }
 
   /**
