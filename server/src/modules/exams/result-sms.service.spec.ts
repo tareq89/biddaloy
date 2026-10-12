@@ -241,8 +241,20 @@ describe('ResultSmsService.sendForExam', () => {
           id: 'stu-1',
           full_name: 'Student One',
           guardians: [
-            { id: 'g1', phone: null, full_name: 'P', is_primary_contact: true, notifications_enabled: true },
-            { id: 'g2', phone: '017', full_name: 'S', is_primary_contact: false, notifications_enabled: true },
+            {
+              id: 'g1',
+              phone: null,
+              full_name: 'P',
+              is_primary_contact: true,
+              notifications_enabled: true,
+            },
+            {
+              id: 'g2',
+              phone: '017',
+              full_name: 'S',
+              is_primary_contact: false,
+              notifications_enabled: true,
+            },
           ],
         },
       ],
@@ -260,6 +272,16 @@ describe('ResultSmsService.sendForExam', () => {
 
   it('en locale keeps the English body', async () => {
     const { service, logRepo } = await buildService({ locale: 'en' });
+    await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
+    expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+      `Student One's result for "Term 1": GPA 4.00, Grade A.`,
+    );
+  });
+
+  // [#2403] No stored locale means English, not the bn-BD region default.
+  it('school with no stored locale gets the English body', async () => {
+    const { service, examRepo, logRepo } = await buildService();
+    examRepo.manager.findOne.mockResolvedValue({ id: TENANT_ID, settings: null });
     await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
     expect(logRepo.save.mock.calls[0][0].message_body).toBe(
       `Student One's result for "Term 1": GPA 4.00, Grade A.`,

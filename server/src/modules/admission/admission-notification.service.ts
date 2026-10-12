@@ -3,7 +3,12 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
-import { AdmissionApplicantStatus, CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
+import {
+  AdmissionApplicantStatus,
+  CommunicationMedium,
+  CommunicationStatus,
+  CommunicationTrigger,
+} from '@biddaloy/shared';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
@@ -12,7 +17,6 @@ import {
   INSUFFICIENT_SMS_CREDIT,
 } from '../communications/credits/insufficient-sms-credit.constants';
 import { School } from '../schools/entities/school.entity';
-import { resolveTenantSettings } from '../schools/settings/tenant-settings-resolver';
 import {
   FeeNotificationLocale,
   resolveFeeNotificationLocale,
@@ -70,7 +74,10 @@ export class AdmissionNotificationService {
   ) {}
 
   async notifyStatusChange(
-    applicant: Pick<AdmissionApplicant, 'id' | 'tenant_id' | 'applicant_name' | 'guardian_name' | 'guardian_phone' | 'status'>,
+    applicant: Pick<
+      AdmissionApplicant,
+      'id' | 'tenant_id' | 'applicant_name' | 'guardian_name' | 'guardian_phone' | 'status'
+    >,
     intakeTitle: string,
   ): Promise<void> {
     // PENDING or any other status — nothing to notify about
@@ -81,9 +88,8 @@ export class AdmissionNotificationService {
       where: { id: applicant.tenant_id },
       select: { id: true, settings: true },
     });
-    const locale = resolveFeeNotificationLocale(
-      resolveTenantSettings(school?.settings ?? null).region?.locale,
-    );
+    // [#2403] The stored locale only: no locale means English, not the bn-BD region default.
+    const locale = resolveFeeNotificationLocale(school?.settings?.region?.locale);
     const template = TEMPLATE_BY_STATUS[locale][applicant.status]!;
 
     const log = await this.logRepo.save(

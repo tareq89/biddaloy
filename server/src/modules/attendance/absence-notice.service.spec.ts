@@ -108,9 +108,10 @@ describe('AbsenceNoticeService', () => {
     auditService = { record: vi.fn(async () => undefined) };
     schoolsService = {
       getResolvedSettings: vi.fn(async () => ({
-        region: { locale: 'en-US' },
         attendance: { autoAbsentNotification: { enabled: true, cutoffTime: '14:00' } },
       })),
+      // [#2403] Notice language reads the stored locale; none stored = English.
+      findById: vi.fn(async () => ({ id: TENANT, settings: {} })),
     };
     // Unmetered by default: reserveForLog returns no extra job data.
     smsCreditService = { reserveForLog: vi.fn(async () => ({})), releaseForLog: vi.fn() };
@@ -370,7 +371,10 @@ describe('AbsenceNoticeService', () => {
   });
 
   it('bn-BD school: Bangla template and Bangla name joining (full_name_bn, English fallback)', async () => {
-    schoolsService.getResolvedSettings = vi.fn(async () => ({ region: { locale: 'bn-BD' } }));
+    schoolsService.findById = vi.fn(async () => ({
+      id: TENANT,
+      settings: { region: { locale: 'bn-BD' } },
+    }));
     const g = guardian();
     recordRepo.find = vi.fn(async () => [
       record({ id: 'r1', student_id: 's-1' }),
@@ -391,7 +395,7 @@ describe('AbsenceNoticeService', () => {
     expect(recipients[0].vars.student_names).toBe('রহিম ও Karim');
   });
 
-  it('en school is unchanged: English template', async () => {
+  it('school with no stored locale gets the English template', async () => {
     const { template } = await service.buildRecipients({
       tenantId: TENANT,
       sectionId: SECTION,
