@@ -157,8 +157,8 @@ key into the cell, and restore resolves it back to a real id.
   for that field.
 - **Money and marks are insert-only (D13).** A restore may add rows to
   `payments`, `payment_allocations`, `student_fees`, `invoices`, `exams`,
-  `marks`, `mark_grids`, `results` and `result_subjects`, but never change or
-  remove one. Example: changing a mark from 38 to 78 in Excel fails validation:
+  `marks`, `mark_grids`, `results`, `result_subjects`, `exam_components`,
+  `grading_scales` and `grading_bands`, but never change or remove one. Example: changing a mark from 38 to 78 in Excel fails validation:
 
   ```text
   Row 4 of "marks" changes value of an existing record. A restore can add marks
