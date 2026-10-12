@@ -126,7 +126,12 @@ export class TenantProviderConfigResolver {
     private readonly config: ConfigService,
   ) {}
 
-  private loadSettings(tenantId: string) {
+  // null = platform sender (D28): no school settings, so every resolver
+  // falls through to the platform env keys.
+  private loadSettings(tenantId: string | null) {
+    if (tenantId === null) {
+      return Promise.resolve({} as Awaited<ReturnType<SchoolsService['getDecryptedSettings']>>);
+    }
     return this.settingsCache.getOrLoad(tenantId, () =>
       this.schools.getDecryptedSettings(tenantId),
     );
@@ -169,7 +174,10 @@ export class TenantProviderConfigResolver {
     return { phoneNumberId, accessToken, apiVersion };
   }
 
-  async resolveEmail(tenantId: string, override?: EmailOverride): Promise<ResolvedEmailConfig> {
+  async resolveEmail(
+    tenantId: string | null,
+    override?: EmailOverride,
+  ): Promise<ResolvedEmailConfig> {
     const settings = await this.loadSettings(tenantId);
     const tenant = settings.communications?.email;
 
@@ -266,7 +274,7 @@ export class TenantProviderConfigResolver {
   }
 
   async resolveSms(
-    tenantId: string,
+    tenantId: string | null,
     override?: SmsOverride,
     opts?: { allowPlatformKeys?: boolean },
   ): Promise<ResolvedSmsConfig> {

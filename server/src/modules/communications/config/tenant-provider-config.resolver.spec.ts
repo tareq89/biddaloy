@@ -672,6 +672,49 @@ describe('TenantProviderConfigResolver', () => {
     });
   });
 
+  describe('platform sender (null tenant, D28)', () => {
+    const env = { SMS_PROVIDER: 'greenweb', GREENWEB_API_KEY: 'platform-key' };
+
+    it('resolveSms(null) uses the platform env even when a school has its own keys', async () => {
+      const schools = fakeSchoolsByTenant({
+        'tenant-a': {
+          version: 1,
+          communications: { sms: { provider: 'greenweb', greenweb: { apiKey: 'tenant-a-key' } } },
+        },
+      });
+      const resolver = new TenantProviderConfigResolver(
+        schools as any,
+        fakeCache() as any,
+        fakeConfig(env) as any,
+      );
+
+      const config = await resolver.resolveSms(null, undefined, { allowPlatformKeys: true });
+
+      expect(config).toMatchObject({ apiKey: 'platform-key' });
+      expect(schools.getDecryptedSettings).not.toHaveBeenCalled();
+    });
+
+    it('resolveEmail(null) uses the platform env config', async () => {
+      const schools = fakeSchoolsByTenant({});
+      const resolver = new TenantProviderConfigResolver(
+        schools as any,
+        fakeCache() as any,
+        fakeConfig({
+          SMTP_HOST: 'smtp.platform.example',
+          SMTP_PORT: '587',
+          SMTP_USER: 'u',
+          SMTP_PASSWORD: 'p',
+          SMTP_FROM: 'noreply@platform.example',
+        }) as any,
+      );
+
+      const config = await resolver.resolveEmail(null);
+
+      expect(config.host).toBe('smtp.platform.example');
+      expect(schools.getDecryptedSettings).not.toHaveBeenCalled();
+    });
+  });
+
   describe('caching', () => {
     it('reads settings through the shared cache, keyed by tenant id', async () => {
       const settings: TenantSettings = { version: 1 };

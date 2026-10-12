@@ -76,7 +76,8 @@ export interface CommunicationSendResult {
  * codebase filters on.
  */
 export interface CommunicationProvider {
-  send(params: CommunicationSendParams, tenantId: string): Promise<CommunicationSendResult>;
+  /** `tenantId` null = platform sender (account-access for a shared user, D28). */
+  send(params: CommunicationSendParams, tenantId: string | null): Promise<CommunicationSendResult>;
 }
 
 export const COMMUNICATION_PROVIDER_REGISTRY = 'COMMUNICATION_PROVIDER_REGISTRY';

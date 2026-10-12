@@ -89,7 +89,10 @@ async function withPinnedAddressFallback<T>(
 export class SmtpEmailProvider implements CommunicationProvider {
   constructor(private readonly configResolver: TenantProviderConfigResolver) {}
 
-  async send(params: CommunicationSendParams, tenantId: string): Promise<CommunicationSendResult> {
+  async send(
+    params: CommunicationSendParams,
+    tenantId: string | null,
+  ): Promise<CommunicationSendResult> {
     try {
       const { host, port, user, password, from } = await this.configResolver.resolveEmail(tenantId);
       const destination = await assertSafeSmtpDestination(host, port);
