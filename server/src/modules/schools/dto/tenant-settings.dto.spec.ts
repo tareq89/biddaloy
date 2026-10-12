@@ -452,6 +452,15 @@ describe('TenantSettingsDto', () => {
       it('accepts a valid list', async () => {
         expect(await run([t])).toBeUndefined();
       });
+      // A period grid may start at 0 (PeriodSlotItemDto allows it), so its first period
+      // must be overridable; a negative sequence is still refused.
+      it('accepts sequence 0 and rejects -1', async () => {
+        const at = (sequence: number) => [
+          { ...t, periods: [{ sequence, startsAt: '08:30', endsAt: '09:05' }] },
+        ];
+        expect(await run(at(0))).toBeUndefined();
+        expect(await run(at(-1))).toBeDefined();
+      });
       it('rejects from > to', async () => {
         expect(await run([{ ...t, from: '2027-03-10' }])).toBeDefined();
       });
