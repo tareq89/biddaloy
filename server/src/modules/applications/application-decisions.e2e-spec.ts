@@ -420,11 +420,12 @@ describe('Application decisions E2E', () => {
     });
 
     it('bulk: 3 student leaves approve, the FEE_WAIVER is NOT_BULK_APPROVABLE', async () => {
-      const leaves = [
-        await fileStudentLeave(2, 2),
-        await fileStudentLeave(3, 3),
-        await fileStudentLeave(4, 4),
-      ];
+      // The seed school's weekly off is Friday; a one-day leave on it has no working day.
+      const offsets = [2, 3, 4, 5]
+        .filter((o) => new Date(`${day(o)}T00:00:00Z`).getUTCDay() !== 5)
+        .slice(0, 3);
+      const leaves: string[] = [];
+      for (const o of offsets) leaves.push(await fileStudentLeave(o, o));
       const waiver = await fileFeeWaiver();
       const res = await call('post', `${API}/bulk-approve`, tokens[ids.classTeacher])
         .send({ ids: [...leaves, waiver] })
