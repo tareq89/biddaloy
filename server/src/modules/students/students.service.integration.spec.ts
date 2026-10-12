@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -159,6 +159,41 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
 }
 
 const NO_CTX = { ip: null, userAgent: null };
+
+/** [68.4.#2298 PUB-10] Insert a minimal invoice + a live share token for a student; returns the token id. */
+async function seedShareToken(
+  ds: DataSource,
+  studentId: string,
+  tenantId: string,
+  seq: number,
+): Promise<string> {
+  const userRepo = ds.getRepository('User');
+  const user = (await userRepo.save(
+    userRepo.create({
+      full_name: 'Share Actor',
+      email: `share-${seq}-${Date.now()}@example.com`,
+      status: 'ACTIVE',
+    }),
+  )) as { id: string };
+  const [inv] = await ds.query(
+    `INSERT INTO invoices (invoice_number, tenant_id, student_id, total_amount, issued_date, due_date, snapshot)
+     VALUES ($1, $2, $3, 100, now(), now(), '{}'::jsonb) RETURNING id`,
+    [`INV-SHARE-${seq}-${Date.now()}`, tenantId, studentId],
+  );
+  const [tok] = await ds.query(
+    `INSERT INTO invoice_share_tokens (tenant_id, invoice_id, token_hash, created_by_user_id)
+     VALUES ($1, $2, $3, $4) RETURNING id`,
+    [tenantId, inv.id, `${seq}`.padStart(64, 'a'), user.id],
+  );
+  return tok.id;
+}
+
+async function isRevoked(ds: DataSource, tokenId: string): Promise<boolean> {
+  const [row] = await ds.query('SELECT revoked_at FROM invoice_share_tokens WHERE id = $1', [
+    tokenId,
+  ]);
+  return row.revoked_at !== null;
+}
 
 describe('StudentService (integration)', () => {
   let service: StudentService;
@@ -1371,6 +1406,121 @@ describe('StudentService (integration)', () => {
       });
       expect(newYearEnrollment.section_id).toBe(nextYearSection.id);
       expect(newYearEnrollment.class_id).toBe(nextYearClass.id);
+    });
+  });
+
+  describe('guardian unlink revokes invoice share links [68.4.#2298 PUB-10 / D16]', () => {
+    // The outer beforeEach deletes students; invoices reference them, so clear ours first.
+    afterEach(async () => {
+      await dataSource.query('DELETE FROM invoice_share_tokens');
+      await dataSource.query('DELETE FROM invoices');
+    });
+
+    async function setup() {
+      const g1 = await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'G One',
+          relationship: 'FATHER',
+          phone: '+880****1001',
+          tenant_id: TENANT_ID,
+        }),
+      );
+      const g2 = await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'G Two',
+          relationship: 'MOTHER',
+          phone: '+880****1002',
+          tenant_id: TENANT_ID,
+        }),
+      );
+      const student = await service.create(
+        {
+          full_name: 'Linked Kid',
+          class_section_id: SEED_SECTION_1_ID,
+          guardian_ids: [g1.id, g2.id],
+        },
+        TENANT_ID,
+      );
+      const other = await service.create(
+        { full_name: 'Unrelated Kid', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      const foreign = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Foreign Kid',
+          registration_number: 'REG-FOREIGN-2298',
+          roll_number: 1,
+          class_section_id: '00000000-0000-4000-8000-000000000097',
+          tenant_id: OTHER_TENANT,
+        } as any),
+      );
+      return {
+        g1,
+        g2,
+        student,
+        tok: await seedShareToken(dataSource, student.id, TENANT_ID, 1),
+        otherTok: await seedShareToken(dataSource, other.id, TENANT_ID, 2),
+        foreignTok: await seedShareToken(dataSource, foreign.id, OTHER_TENANT, 3),
+      };
+    }
+
+    it("revokes the student's links when update drops a guardian; other students and tenants stay live", async () => {
+      const c = await setup();
+      await service.update(c.student.id, { guardian_ids: [c.g2.id] } as any, TENANT_ID);
+      expect(await isRevoked(dataSource, c.tok)).toBe(true);
+      expect(await isRevoked(dataSource, c.otherTok)).toBe(false);
+      expect(await isRevoked(dataSource, c.foreignTok)).toBe(false);
+    });
+
+    it('leaves links live when guardians are unchanged, or a guardian is added', async () => {
+      const c = await setup();
+      await service.update(c.student.id, { full_name: 'Renamed' } as any, TENANT_ID);
+      await service.update(c.student.id, { guardian_ids: [c.g1.id, c.g2.id] } as any, TENANT_ID);
+      expect(await isRevoked(dataSource, c.tok)).toBe(false);
+      const g3 = await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'G Three',
+          relationship: 'UNCLE',
+          phone: '+880****1003',
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await service.update(
+        c.student.id,
+        { guardian_ids: [c.g1.id, c.g2.id, g3.id] } as any,
+        TENANT_ID,
+      );
+      expect(await isRevoked(dataSource, c.tok)).toBe(false);
+    });
+
+    it('partial drop via GuardianService.update revokes only the dropped student', async () => {
+      const c = await setup();
+      const other = await studentRepo.findOneOrFail({ where: { full_name: 'Unrelated Kid' } });
+      await guardianService.update(
+        c.g1.id,
+        { student_ids: [c.student.id, other.id] } as any,
+        TENANT_ID,
+      );
+      // g1 now covers both kids; drop the first, keep `other`
+      await guardianService.update(c.g1.id, { student_ids: [other.id] } as any, TENANT_ID);
+      expect(await isRevoked(dataSource, c.tok)).toBe(true);
+      expect(await isRevoked(dataSource, c.otherTok)).toBe(false);
+      expect(await isRevoked(dataSource, c.foreignTok)).toBe(false);
+    });
+
+    it('revokes via GuardianService.update({ student_ids: [] })', async () => {
+      const c = await setup();
+      await guardianService.update(c.g1.id, { student_ids: [] } as any, TENANT_ID);
+      expect(await isRevoked(dataSource, c.tok)).toBe(true);
+      expect(await isRevoked(dataSource, c.otherTok)).toBe(false);
+    });
+
+    it('revokes via GuardianService.remove', async () => {
+      const c = await setup();
+      await guardianService.remove(c.g1.id, TENANT_ID);
+      expect(await isRevoked(dataSource, c.tok)).toBe(true);
+      expect(await isRevoked(dataSource, c.otherTok)).toBe(false);
+      expect(await isRevoked(dataSource, c.foreignTok)).toBe(false);
     });
   });
 
