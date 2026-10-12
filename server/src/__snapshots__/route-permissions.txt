@@ -1,4 +1,5 @@
 DELETE /academic-years/:id | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
+DELETE /admission/applicants/:id/documents | ApplicantReviewController | perm: ADMISSION_REVIEW
 DELETE /applications/:id/attachments/:attachmentId | ApplicationAttachmentsController | perm: APPLICATION_SUBMIT
 DELETE /attendance/devices/:id | DevicesController | perm: ATTENDANCE_DEVICE_MANAGE
 DELETE /attention/manual/:id | ManualAlertsController | perm: ALERT_SEND
@@ -58,6 +59,7 @@ GET /admission-intakes | IntakeController | perm: ADMISSION_REVIEW
 GET /admission-intakes/:id | IntakeController | perm: ADMISSION_REVIEW
 GET /admission/applicants | ApplicantReviewController | perm: ADMISSION_REVIEW
 GET /admission/applicants/:id | ApplicantReviewController | perm: ADMISSION_REVIEW
+GET /admission/applicants/:id/documents/:type | ApplicantReviewController | perm: ADMISSION_REVIEW
 GET /admission/applicants/:id/guardian-match | ApplicantReviewController | perm: ADMISSION_REVIEW
 GET /admission/reports/lifecycle | AdmissionReportsController | perm: STUDENT_LIFECYCLE_MANAGE
 GET /applications | ApplicationsController | perm: APPLICATION_SUBMIT
