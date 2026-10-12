@@ -71,9 +71,11 @@ export class FeeWaiverHandler {
     ctx: ApplicationEffectContext,
   ): Promise<Record<string, unknown> | null> {
     // [X-08] Checked before the token is consumed, so a refusal does not burn the step-up.
+    // Row-locked like StudentLeaveHandler: an in-flight transfer commits first, or waits for us.
     if (app.subject_student_id) {
       const student = await manager.getRepository(Student).findOne({
         where: { id: app.subject_student_id, tenant_id: ctx.tenantId },
+        lock: { mode: 'for_no_key_update' },
       });
       if (!student) throw new NotFoundException('Student not found');
       if (student.enrollment_status !== EnrollmentStatus.ACTIVE) {
