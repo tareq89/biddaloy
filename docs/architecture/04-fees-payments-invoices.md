@@ -289,6 +289,10 @@ Two ways to view an invoice:
   no login required (D15). The content shown there is receipt-only — no
   internal remarks, no staff user IDs.
 
+  A link stops working (same 404 as any dead link) when the school is not
+  ACTIVE, and all of a student's links are revoked when any guardian is
+  unlinked from that student (68.4.21, #2298).
+
   > As of wave 8, family callers (PARENT/STUDENT) cannot mint or list
   > their own share link — only print. A family-visible "get me a link to
   > share" affordance would need a new family-scoped share endpoint; not
