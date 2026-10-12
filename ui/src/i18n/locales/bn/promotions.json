@@ -132,12 +132,14 @@
   "outcome": {
     "promote": "উত্তীর্ণ",
     "retain": "অপরিবর্তিত",
-    "graduate": "গ্র্যাজুয়েট"
+    "graduate": "গ্র্যাজুয়েট",
+    "conditional": "শর্তসাপেক্ষে উত্তীর্ণ"
   },
   "overrideNote": "সিস্টেমের প্রস্তাব নিজে বদলানো হয়েছে — কারণ লেখা আবশ্যক।",
   "badge": {
     "promote": "নিজে বদলে উত্তীর্ণ, {{year}}: {{note}} — {{user}}",
     "retain": "নিজে বদলে অপরিবর্তিত, {{year}}: {{note}} — {{user}}",
-    "graduate": "নিজে বদলে গ্র্যাজুয়েট, {{year}}: {{note}} — {{user}}"
+    "graduate": "নিজে বদলে গ্র্যাজুয়েট, {{year}}: {{note}} — {{user}}",
+    "conditional": "শর্তসাপেক্ষে উত্তীর্ণ, {{year}}: {{note}} — {{user}}"
   }
 }

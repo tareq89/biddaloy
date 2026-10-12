@@ -12,20 +12,19 @@ async function errorsFor(final_outcome: string) {
 }
 
 describe('PatchPromotionEntryDto.final_outcome', () => {
-  it('accepts PROMOTE, RETAIN and GRADUATE', async () => {
+  it('accepts PROMOTE, RETAIN, GRADUATE and CONDITIONAL', async () => {
     expect(await errorsFor(PromotionOutcome.PROMOTE)).toHaveLength(0);
     expect(await errorsFor(PromotionOutcome.RETAIN)).toHaveLength(0);
     expect(await errorsFor(PromotionOutcome.GRADUATE)).toHaveLength(0);
+    expect(await errorsFor(PromotionOutcome.CONDITIONAL)).toHaveLength(0);
   });
 
-  // [68.1.fix] Commit has no CONDITIONAL branch until #2296, so a CONDITIONAL
-  // student would get no next-year enrollment. Refused with a clear message.
-  it('refuses CONDITIONAL with a message naming the allowed outcomes', async () => {
-    const errors = await errorsFor(PromotionOutcome.CONDITIONAL);
+  it('refuses an unknown outcome with a message naming the allowed outcomes', async () => {
+    const errors = await errorsFor('BOGUS' as PromotionOutcome);
     expect(errors).toHaveLength(1);
     expect(errors[0].property).toBe('final_outcome');
     expect(Object.values(errors[0].constraints ?? {})[0]).toBe(
-      'final_outcome must be one of: PROMOTE, RETAIN, GRADUATE',
+      'final_outcome must be one of: PROMOTE, RETAIN, GRADUATE, CONDITIONAL',
     );
   });
 });
