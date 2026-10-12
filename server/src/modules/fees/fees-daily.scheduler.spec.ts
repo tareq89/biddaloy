@@ -78,6 +78,7 @@ describe('FeesDailyScheduler', () => {
     queue = { upsertJobScheduler: vi.fn(async () => undefined), add: vi.fn(async () => undefined) };
     schoolsService = {
       findAll: vi.fn(async () => [{ id: TENANT, name: 'Green Valley School', status: 'ACTIVE' }]),
+      todayFor: vi.fn(async () => todayInSchoolTz()),
     };
     feeGenerationService = {
       generate: vi.fn(async () => ({
@@ -254,6 +255,31 @@ describe('FeesDailyScheduler', () => {
 
     expect(feeGenerationService.generate).toHaveBeenCalledTimes(1);
     expect(feeGenerationService.generate.mock.calls[0][0].period_start).toBe('2026-03-16');
+  });
+
+  it("[68.0 TEN-16] each tenant's sweep uses that school's own today; a catch-up keeps its fixed day", async () => {
+    schoolsService.findAll = vi.fn(async () => [
+      { id: 'tenant-dhaka', status: 'ACTIVE' },
+      { id: 'tenant-utc', status: 'ACTIVE' },
+    ]);
+    schoolsService.todayFor = vi.fn(async (id: string) =>
+      id === 'tenant-dhaka' ? '2026-03-16' : '2026-03-15',
+    );
+    const seen: Record<string, string> = {};
+    dataSource.query = vi.fn(async (_sql: string, params: any[]) => {
+      seen[params[0]] = params[1];
+      return [];
+    });
+
+    await scheduler.process();
+    expect(seen).toEqual({ 'tenant-dhaka': '2026-03-16', 'tenant-utc': '2026-03-15' });
+
+    schoolsService.findById = vi.fn(async () => ({ id: 'tenant-utc', status: 'ACTIVE' }));
+    await scheduler.process({
+      name: 'restore-catch-up',
+      data: { tenantId: 'tenant-utc', today: '2026-03-10' },
+    } as any);
+    expect(seen['tenant-utc']).toBe('2026-03-10');
   });
 
   it('does not let one tenant throwing block the rest of the sweep', async () => {

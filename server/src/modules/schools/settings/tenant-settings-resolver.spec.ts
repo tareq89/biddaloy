@@ -13,6 +13,17 @@ import {
 } from './tenant-settings-defaults';
 
 describe('resolveTenantSettings', () => {
+  it('region.timezone is always set (todayFor relies on it)', () => {
+    expect(resolveTenantSettings(null).region.timezone).toBe('Asia/Dhaka');
+    expect(resolveTenantSettings({}).region.timezone).toBe('Asia/Dhaka');
+    expect(resolveTenantSettings({ region: { timezone: 42 } } as never).region.timezone).toBe(
+      'Asia/Dhaka',
+    );
+    expect(
+      resolveTenantSettings({ region: { timezone: 'Asia/Kolkata' } } as never).region.timezone,
+    ).toBe('Asia/Kolkata');
+  });
+
   it('resolves to full defaults for a null settings blob', () => {
     const resolved = resolveTenantSettings(null);
 

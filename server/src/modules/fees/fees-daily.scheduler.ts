@@ -12,7 +12,7 @@ import { SchoolsService } from '../schools/schools.service';
 import { TenantStatusService } from '../schools/tenant-status.service';
 import { FeeGenerationService, FeesGeneratedEventPayload } from './fee-generation.service';
 import { Student } from '../students/entities/student.entity';
-import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
+import { SCHOOL_TZ } from '../../common/time';
 import {
   FEES_DAILY_CRON,
   FEES_DAILY_JOB_ID,
@@ -149,7 +149,8 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
    * skipped on, so that day's schedules still fire (see `runTenant`).
    */
   async process(job?: Job<{ tenantId?: string; today?: string } | undefined>): Promise<void> {
-    const today = job?.data?.today ?? todayInSchoolTz();
+    // Catch-up replays a fixed day; every other path derives each school's own today.
+    const todayOverride = job?.data?.today;
     const requestedTenantId = job?.data?.tenantId;
 
     if (requestedTenantId) {
@@ -159,7 +160,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
         (await this.schoolsService.findById(requestedTenantId)).status !== 'ACTIVE'
       )
         return;
-      await this.runTenant(requestedTenantId, today);
+      await this.runTenant(requestedTenantId, todayOverride);
       return;
     }
 
@@ -167,7 +168,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     const activeTenants = tenants.filter((tenant) => tenant.status === 'ACTIVE');
     for (const tenant of activeTenants) {
       try {
-        await this.runTenant(tenant.id, today);
+        await this.runTenant(tenant.id, todayOverride);
       } catch (error) {
         this.logger.error(`fees-daily sweep failed for tenant ${tenant.id}: ${String(error)}`);
         Sentry.withScope((scope) => {
@@ -179,7 +180,8 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     }
   }
 
-  private async runTenant(tenantId: string, today: string): Promise<void> {
+  private async runTenant(tenantId: string, todayOverride?: string): Promise<void> {
+    const today = todayOverride ?? (await this.schoolsService.todayFor(tenantId));
     // A restore is rewriting this school's data, so skip it for now. The next
     // nightly run picks the period up only while still inside it (due on or
     // after the fire day), so a restore spanning the period's last day would

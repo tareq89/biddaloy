@@ -45,6 +45,7 @@ import {
   ProgramEnrollmentStatus,
 } from '@biddaloy/shared';
 import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
+import { localToday } from '../attendance/attendance-policy.util';
 import { CalendarModule } from '../calendar/calendar.module';
 import { AuthModule } from '../auth/auth.module';
 import { AttendanceSession } from '../attendance/entities/attendance-session.entity';
@@ -259,7 +260,10 @@ describe('FeesDailyScheduler (integration)', () => {
    */
   function buildScheduler(): FeesDailyScheduler {
     const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
-    const schoolsService = { findAll: async () => [] } as any;
+    const schoolsService = {
+      findAll: async () => [],
+      todayFor: async () => todayInSchoolTz(),
+    } as any;
     return new FeesDailyScheduler(
       queue,
       dataSource,
@@ -278,7 +282,10 @@ describe('FeesDailyScheduler (integration)', () => {
     await studentRepo.save(makeStudent());
     await createDueSchedule({ fee_structure_ids: [structure.id] });
     const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
-    const schoolsService = { findAll: async () => [] } as any;
+    const schoolsService = {
+      findAll: async () => [],
+      todayFor: async () => todayInSchoolTz(),
+    } as any;
     const build = (restoring: boolean) =>
       new FeesDailyScheduler(
         queue,
@@ -315,7 +322,11 @@ describe('FeesDailyScheduler (integration)', () => {
       },
     } as any;
     const school = { id: TENANT_ID, status: 'ACTIVE' };
-    const schoolsService = { findAll: async () => [school], findById: async () => school } as any;
+    const schoolsService = {
+      findAll: async () => [school],
+      findById: async () => school,
+      todayFor: async () => todayInSchoolTz(),
+    } as any;
     const build = (restoring: boolean) =>
       new FeesDailyScheduler(
         queue,
@@ -355,6 +366,50 @@ describe('FeesDailyScheduler (integration)', () => {
       vi.useRealTimers();
     }
     expect(added).toHaveLength(2);
+  });
+
+  /** [68.0 TEN-16] 02:00 Dhaka on the 16th (still the 15th in UTC): the school's own date drives the sweep. */
+  it("bills a schedule due on the 16th at 02:00 Dhaka, using the school's today", async () => {
+    const structure = await structureRepo.save(makeStructure());
+    await studentRepo.save(makeStudent());
+    await recurringSchedulesService.create(
+      {
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        name: `Due on 16th ${Date.now()}`,
+        audience: { section_id: SEED_SECTION_1_ID, enrollment_status: 'ACTIVE' },
+        rule: { kind: 'MONTHLY', day_of_month: 16 },
+        fee_structure_ids: [structure.id],
+        starts_on: '2026-01-01',
+        notify_families: false,
+      } as any,
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+    );
+    const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
+    const school = { id: TENANT_ID, status: 'ACTIVE' };
+    const schoolsService = {
+      findAll: async () => [school],
+      findById: async () => school,
+      todayFor: async () => localToday('Asia/Dhaka'),
+    } as any;
+    const scheduler = new FeesDailyScheduler(
+      queue,
+      dataSource,
+      schoolsService,
+      feeGenerationService,
+      { isRestoring: async () => false } as any,
+      notifyQueue,
+    );
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-03-15T20:00:00Z'));
+      await scheduler.process({ data: undefined } as any);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(await studentFeeRepo.find()).toHaveLength(1);
+    const [gen] = await feeGenerationRepo.find();
+    expect(gen.source).toBe('SCHEDULE');
   });
 
   it('runs a due schedule and writes a FeeGeneration row with source SCHEDULE, notify_families threaded, last_run_period set', async () => {
@@ -565,7 +620,11 @@ describe('FeesDailyScheduler (integration)', () => {
       return new FeesDailyScheduler(
         { upsertJobScheduler: async () => undefined, add: async () => undefined } as any,
         dataSource,
-        { findAll: async () => [school], findById: async () => school } as any,
+        {
+          findAll: async () => [school],
+          findById: async () => school,
+          todayFor: async () => todayInSchoolTz(),
+        } as any,
         feeGenerationService,
         { isRestoring: async () => false } as any,
         notifyQueue,
@@ -1009,7 +1068,10 @@ describe('FeesDailyScheduler (integration)', () => {
         upsertJobScheduler: async () => undefined,
         add: async () => undefined,
       } as any;
-      const schoolsService = { findAll: async () => [] } as any;
+      const schoolsService = {
+        findAll: async () => [],
+        todayFor: async () => todayInSchoolTz(),
+      } as any;
       return new FeesDailyScheduler(
         queue,
         fineSweepDataSource,
@@ -1084,6 +1146,7 @@ describe('FeesDailyScheduler (integration)', () => {
         { upsertJobScheduler: async () => undefined, add: async () => undefined } as any,
         fineSweepDataSource,
         {
+          todayFor: async () => todayInSchoolTz(),
           findAll: async () => [
             { id: tenantA.tenantId, status: 'ACTIVE' },
             { id: tenantB.tenantId, status: 'ACTIVE' },
