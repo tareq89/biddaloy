@@ -42,6 +42,7 @@ describe('RestoreProcessor', () => {
   let audit: any;
   let events: any;
   let restoreService: any;
+  let tenantStatus: any;
   let processor: RestoreProcessor;
   let jobRow: any;
   let snapshotRow: any;
@@ -109,6 +110,7 @@ describe('RestoreProcessor', () => {
 
     validationService = { validate: vi.fn() };
     invitations = { issueAndSend: vi.fn().mockResolvedValue({ status: 'SENT' }) };
+    tenantStatus = { isActive: vi.fn().mockResolvedValue(true) };
     audit = { record: vi.fn().mockResolvedValue(undefined) };
     events = { emitFinished: vi.fn() };
     restoreService = {
@@ -126,6 +128,7 @@ describe('RestoreProcessor', () => {
       audit,
       events,
       restoreService,
+      tenantStatus,
     );
   });
 
@@ -460,6 +463,7 @@ describe('RestoreProcessor', () => {
         audit,
         events,
         restoreService,
+        tenantStatus,
       );
       await processor.process({ data: { jobId: jobRow.id, inviteUsers: true } } as any);
 
@@ -470,6 +474,24 @@ describe('RestoreProcessor', () => {
         tenantId: TENANT,
         actorUserId: USER,
       });
+    });
+
+    it('[GAP-08] a SUSPENDED tenant: restore still completes but no invite is issued', async () => {
+      const tab = ALL_TABS[ALL_TABS.findIndex((t) => t.name === 'users')];
+      vi.spyOn(tab, 'load').mockResolvedValue([] as any);
+      vi.spyOn(tab, 'keyOf').mockImplementation((x: any) => x?.id ?? x?.email);
+      vi.spyOn(tab, 'deleteByAbsence', 'get').mockReturnValue(false);
+      vi.spyOn(tab, 'upsert').mockImplementation(async (row: any) => ({ id: row.id }) as any);
+      validationService.validate.mockResolvedValue(
+        makeValidatedWorkbook({ users: [{ id: 'brand-new-user', email: 'new@x.com' }] }),
+      );
+      tenantStatus.isActive.mockResolvedValue(false);
+
+      await processor.process({ data: { jobId: jobRow.id, inviteUsers: true } } as any);
+
+      expect(jobRow.status).toBe(WorkbookJobStatus.DONE);
+      expect(tenantStatus.isActive).toHaveBeenCalledWith(TENANT);
+      expect(invitations.issueAndSend).not.toHaveBeenCalled();
     });
 
     it('never touches the tenant id embedded in the workbook itself — tenantId only comes from the job row', async () => {

@@ -11,7 +11,10 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
   let redis: { set: ReturnType<typeof vi.fn>; del: ReturnType<typeof vi.fn> };
   let calendar: { isNonWorkingDay: ReturnType<typeof vi.fn> };
   let tenantStatus: { isRestoring: ReturnType<typeof vi.fn> };
-  let schools: { findAll: ReturnType<typeof vi.fn>; getResolvedSettings: ReturnType<typeof vi.fn> };
+  let schools: {
+    findAllActive: ReturnType<typeof vi.fn>;
+    getResolvedSettings: ReturnType<typeof vi.fn>;
+  };
   let scheduler: StudyPlanAutoDeliveriesScheduler;
   let write: ReturnType<typeof vi.spyOn>;
 
@@ -21,7 +24,7 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
     calendar = { isNonWorkingDay: vi.fn().mockResolvedValue(false) };
     tenantStatus = { isRestoring: vi.fn().mockResolvedValue(false) };
     schools = {
-      findAll: vi.fn().mockResolvedValue([{ id: 'ta' }]),
+      findAllActive: vi.fn().mockResolvedValue([{ id: 'ta' }]),
       getResolvedSettings: vi.fn().mockResolvedValue(settings),
     };
     scheduler = new StudyPlanAutoDeliveriesScheduler(
@@ -94,9 +97,17 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
     expect(write).not.toHaveBeenCalled();
   });
 
+  it('[TEN-06] sweeps only the ACTIVE schools findAllActive returns: a suspended school gets no write', async () => {
+    at('2026-10-15T12:01:00Z');
+    schools.findAllActive.mockResolvedValue([{ id: 'tb' }]);
+    await scheduler.process();
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write.mock.calls[0]![0]).toBe('tb');
+  });
+
   it('Redis failure skips that tenant but the sweep continues', async () => {
     at('2026-10-15T12:01:00Z');
-    schools.findAll.mockResolvedValue([{ id: 'ta' }, { id: 'tb' }]);
+    schools.findAllActive.mockResolvedValue([{ id: 'ta' }, { id: 'tb' }]);
     redis.set.mockRejectedValueOnce(new Error('redis down')).mockResolvedValue('OK');
     await scheduler.process();
     expect(write).toHaveBeenCalledTimes(1);
@@ -116,7 +127,7 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
 
   it('a restoring tenant is skipped and the sweep still writes the next tenant', async () => {
     at('2026-10-15T12:01:00Z');
-    schools.findAll.mockResolvedValue([{ id: 'ta' }, { id: 'tb' }]);
+    schools.findAllActive.mockResolvedValue([{ id: 'ta' }, { id: 'tb' }]);
     tenantStatus.isRestoring.mockImplementation(async (id: string) => id === 'ta');
     await scheduler.process();
     expect(write).toHaveBeenCalledTimes(1);
@@ -125,7 +136,7 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
 
   it('a throwing tenant does not stop the next, and its marker is released', async () => {
     at('2026-10-15T12:01:00Z');
-    schools.findAll.mockResolvedValue([{ id: 'ta' }, { id: 'tb' }]);
+    schools.findAllActive.mockResolvedValue([{ id: 'ta' }, { id: 'tb' }]);
     write.mockRejectedValueOnce(new Error('boom')).mockResolvedValue(0);
     await scheduler.process();
     expect(write).toHaveBeenCalledTimes(2);

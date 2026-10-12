@@ -446,6 +446,7 @@ describe('workbook round trip (integration)', () => {
       auditService,
       { emitFinished: vi.fn() } as any,
       restoreServiceStub as any,
+      { isActive: vi.fn().mockResolvedValue(true) } as any,
     );
   }, 60_000);
 

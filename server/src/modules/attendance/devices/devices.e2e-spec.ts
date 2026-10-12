@@ -8,6 +8,7 @@ import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
 import { BULK_IMPORT_REDIS } from '../../bulk-import/import-staging.service';
+import { TenantStatusService } from '../../schools/tenant-status.service';
 import { acquire, release } from '../../workbook/restore/restore-lock';
 import { UserRole, AttendanceDeviceKind } from '@biddaloy/shared';
 import {
@@ -347,5 +348,53 @@ describe('Attendance Devices E2E', () => {
       .set('X-Device-Key', key)
       .send(batch)
       .expect(200);
+  });
+
+  // [68.4.11] AUTH-08: a suspended school's devices stop; ingest and roster 403, no row written.
+  it('403s ingest and roster for a device of a suspended school, writing no attendance row', async () => {
+    const createRes = await supertest(app.getHttpServer())
+      .post(`${API}/attendance/devices`)
+      .set(adminHeaders())
+      .send({
+        name: 'Suspended Device',
+        kind: AttendanceDeviceKind.RFID,
+        section_id: SEED_SECTION_1_ID,
+        roster_access: true,
+      })
+      .expect(201);
+    const key = createRes.body.key;
+    const deviceId = createRes.body.device.id;
+    const status = app.get(TenantStatusService);
+
+    await dataSource.query(`UPDATE schools SET status = 'SUSPENDED' WHERE id = $1`, [TENANT_ID]);
+    await status.invalidate(TENANT_ID);
+    try {
+      const ingest = await supertest(app.getHttpServer())
+        .post(`${API}/attendance/device-events`)
+        .set('X-Device-Key', key)
+        .send({
+          events: [
+            {
+              device_event_id: 'suspended-1',
+              occurred_at: new Date().toISOString(),
+              direction: 'IN',
+            },
+          ],
+        })
+        .expect(403);
+      expect(ingest.body.details.code).toBe('TENANT_SUSPENDED');
+      await supertest(app.getHttpServer())
+        .get(`${API}/attendance/devices/me/roster`)
+        .set('X-Device-Key', key)
+        .expect(403);
+      const rows = await dataSource.query(
+        `SELECT 1 FROM attendance_device_events WHERE device_id = $1`,
+        [deviceId],
+      );
+      expect(rows).toHaveLength(0);
+    } finally {
+      await dataSource.query(`UPDATE schools SET status = 'ACTIVE' WHERE id = $1`, [TENANT_ID]);
+      await status.invalidate(TENANT_ID);
+    }
   });
 });

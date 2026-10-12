@@ -94,6 +94,11 @@ export class SchoolsService {
     return school;
   }
 
+  /** For per-tenant scheduler loops; a SUSPENDED school gets no background work (TEN-06, #1655). */
+  async findAllActive(): Promise<Pick<School, 'id'>[]> {
+    return this.repo.find({ where: { status: 'ACTIVE' }, select: { id: true } });
+  }
+
   /**
    * Every school, for #8.7.13's super-admin school picker *and* #533's
    * SUPER_ADMIN platform schools list. Originally `{ id, name }` only (the

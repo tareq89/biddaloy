@@ -294,6 +294,28 @@ describe('SchoolsService', () => {
     });
   });
 
+  describe('findAllActive', () => {
+    it('asks only for ACTIVE schools, ids only (TEN-06)', async () => {
+      const repo = fakeRepo(null);
+      repo.find.mockResolvedValue([{ id: 's1' }]);
+      const service = new SchoolsService(
+        repo as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+
+      expect(await service.findAllActive()).toEqual([{ id: 's1' }]);
+      expect(repo.find).toHaveBeenCalledWith({ where: { status: 'ACTIVE' }, select: { id: true } });
+    });
+  });
+
   describe('findBySlug', () => {
     it('returns the matching school', async () => {
       const repo = fakeRepo({ id: 's1', settings: null } as any);
