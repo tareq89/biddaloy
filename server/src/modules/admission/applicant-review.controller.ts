@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -22,6 +22,7 @@ import { ApplicantReviewService } from './applicant-review.service';
 import { EvaluateApplicantDto } from './dto/evaluate-applicant.dto';
 import { AdmitApplicantDto } from './dto/admit-applicant.dto';
 import { ListApplicantsDto } from './dto/list-applicants.dto';
+import { GuardianMatchResponseDto } from './dto/guardian-match.dto';
 
 /** [27.5] Staff review/evaluate/admit/reject over `admission_applicants` —
  * same guard stack as `IntakeController` (#27.3). */
@@ -57,6 +58,7 @@ export class ApplicantReviewController {
   @ApiOperation({
     summary: "The existing guardian this applicant's phone matches, with their children (or null).",
   })
+  @ApiOkResponse({ type: GuardianMatchResponseDto })
   guardianMatch(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
