@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import {
   NotFoundException,
   ConflictException,
@@ -1209,6 +1209,34 @@ describe('UserService (integration)', () => {
       );
       expect(row.email).toBe('lockout@example.com');
       expect(row.phone).toBe('+8801799999999');
+    });
+
+    it('should re-check the identifier rule on the locked row, not the stale read', async () => {
+      // Another admin cleared the email after this request read the user. The stale copy still
+      // shows both identifiers, so only the re-check under the row lock can refuse this.
+      const { user } = await service.create(
+        {
+          full_name: 'Race Me',
+          email: 'race@example.com',
+          phone: '+8801766666666',
+          role: UserRole.PARENT,
+        },
+        TENANT_ID,
+      );
+      const stale = await service.findOne(user.id, TENANT_ID);
+      await dataSource.query('UPDATE users SET email = NULL WHERE id = $1', [user.id]);
+      const findOne = vi.spyOn(service, 'findOne').mockResolvedValueOnce(stale);
+
+      await expect(
+        service.update(user.id, { phone: '' }, TENANT_ID, REQUESTING_ADMIN_ID),
+      ).rejects.toThrow(/at least one login identifier/i);
+      findOne.mockRestore();
+
+      const [row] = await dataSource.query<Array<{ phone: string | null }>>(
+        'SELECT phone FROM users WHERE id = $1',
+        [user.id],
+      );
+      expect(row.phone).toBe('+8801766666666');
     });
 
     it("should reject clearing phone with '' when the user has no email", async () => {

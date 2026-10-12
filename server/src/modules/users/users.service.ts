@@ -486,13 +486,18 @@ export class UserService {
     // made any worse by a `full_name` edit, and blocking that would be
     // collateral damage rather than protection.
     const touchesIdentifier = dto.email !== undefined || dto.phone !== undefined;
-    const nextEmail = dto.email !== undefined ? email : current.email;
-    const nextPhone = dto.phone !== undefined ? phone : current.phone;
-    if (touchesIdentifier && !nextEmail && !nextPhone) {
-      throw new BadRequestException(
-        'An account must keep at least one login identifier — set an email address or a phone number before clearing the other',
-      );
-    }
+    // Run twice: here to fail fast, and again on the row-locked copy inside the transaction,
+    // since a concurrent update may have cleared the other identifier since `current` was read.
+    const assertKeepsIdentifier = (row: Pick<User, 'email' | 'phone'>) => {
+      const nextEmail = dto.email !== undefined ? email : row.email;
+      const nextPhone = dto.phone !== undefined ? phone : row.phone;
+      if (touchesIdentifier && !nextEmail && !nextPhone) {
+        throw new BadRequestException(
+          'An account must keep at least one login identifier — set an email address or a phone number before clearing the other',
+        );
+      }
+    };
+    assertKeepsIdentifier(current);
 
     // One login serves every school the person belongs to, so a school may not
     // retarget it: that would let this school's admin reset the password and
@@ -573,6 +578,7 @@ export class UserService {
           const locked = await manager
             .getRepository(User)
             .findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
+          if (locked) assertKeepsIdentifier(locked);
           // Only email/phone/full_name are identity; picture edits are not audited.
           const before: Record<string, unknown> = {};
           const after: Record<string, unknown> = {};
