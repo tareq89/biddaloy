@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } from 'vitest';
 import { Repository, DataSource, In, EntityManager } from 'typeorm';
+import { ConflictException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import ExcelJS from 'exceljs';
 import Redis from 'ioredis';
@@ -732,6 +733,46 @@ describe('StudentBulkUploadService (integration)', () => {
         SEED_ADMIN_USER_ID,
       );
       expect(v.hard_error_count).toBe(1);
+    });
+
+    // BD_PHONE_REGEX accepts +880…, 880… and 01…; a re-export often changes the format.
+    it('matches the guardian phone in any accepted format', async () => {
+      await importOnce(twoRows());
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, { student_name: 'Dup One', guardian1_phone: '01711200001' }),
+          rowValues(headers, { student_name: 'Dup Two', guardian1_phone: '8801711200002' }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(2);
+      expect(v.rows_to_create).toBe(0);
+    });
+
+    // Two tabs validate the same file before either commits: the second commit must not
+    // import every student again.
+    it('refuses the second of two stagings of the same file at commit (409), writing nothing', async () => {
+      const a = await service.validate(
+        await buildXlsxFile(twoRows()),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      const b = await service.validate(
+        await buildXlsxFile(twoRows()),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await service.commit(a.staging_id, TENANT_ID, SEED_ADMIN_USER_ID);
+
+      const err = await service.commit(b.staging_id, TENANT_ID, SEED_ADMIN_USER_ID).catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse()).toMatchObject({
+        details: { code: 'BULK_UPLOAD_ALREADY_IMPORTED' },
+      });
+      expect(
+        await dataSource.getRepository(Student).count({ where: { tenant_id: TENANT_ID } }),
+      ).toBe(2);
     });
 
     it('another school importing the same file sees no duplicates (tenant isolation)', async () => {
