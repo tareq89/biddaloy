@@ -238,13 +238,17 @@ export class UserService {
       // same address both pass it and the loser hits the index. Map that to a
       // 409 rather than a 500, exactly as `update()` does. `phone` has no
       // pre-check at all, so this is its only guard.
-      // Only a clash on `users` is an email/phone clash; a staff_profiles id clash is not.
+      // Only a clash on `users` is an email/phone clash. Any other one (a
+      // double-submitted "Add staff" racing on user_tenants, a staff_profiles id)
+      // is still a 409, not a 500.
       if (
         err instanceof QueryFailedError &&
-        (err as unknown as { code?: string }).code === '23505' &&
-        (err.driverError as { table?: string } | undefined)?.table === 'users'
+        (err as unknown as { code?: string }).code === '23505'
       ) {
-        throw new ConflictException('That email address or phone number is already in use');
+        if ((err.driverError as { table?: string } | undefined)?.table === 'users') {
+          throw new ConflictException('That email address or phone number is already in use');
+        }
+        throw new ConflictException('This member was just added. Refresh and try again.');
       }
       throw err;
     }
