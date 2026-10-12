@@ -272,7 +272,8 @@ describe('UserService (integration)', () => {
         const err = await service
           .create({ full_name: 'B', email: 'ten10b@example.com', role: UserRole.ADMIN }, TENANT_ID)
           .catch((e) => e);
-        expect(err).toBeDefined();
+        // Still a 409 (not a raw 500), just not the email/phone message.
+        expect(err).toBeInstanceOf(ConflictException);
         expect(String(err.message)).not.toMatch(/email address or phone number/);
       } finally {
         spy.mockRestore();
