@@ -26,6 +26,9 @@ import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { CheckoutDto, CheckoutResultDto } from './dto/checkout.dto';
 import { buildIssuerSnapshot, lockSchoolForSnapshot } from '../schools/profile/issuer-snapshot';
+import { SchoolsService } from '../schools/schools.service';
+import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
+import { localDate, localToday } from '../attendance/attendance-policy.util';
 
 const AMOUNT_EPSILON = 0.01;
 
@@ -110,6 +113,7 @@ export class CheckoutService {
     private readonly approvalService: ApprovalService,
     private readonly auditService: AuditService,
     private readonly invoicesService: InvoicesService,
+    private readonly schoolsService: SchoolsService,
   ) {}
 
   async checkout(
@@ -261,13 +265,17 @@ export class CheckoutService {
         // GETDEL — burn the token last, as the final gate before writes,
         // so a request that fails validation never wastes a legitimately
         // granted approval.
-        // MON-11: today, or up to 3 school days back (back-dating needs approval).
+        // MON-11: today, or up to 3 calendar days back (back-dating needs approval).
+        // "Today" is the school's own date (#2295). A bare 'YYYY-MM-DD' is already
+        // that calendar day; an instant is read in the school's time zone.
         let backdatedTo: string | null = null;
         if (dto.payment_date) {
-          const day = new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TIMEZONE }).format(
-            new Date(dto.payment_date),
-          );
-          const todayKey = todayInSchoolTimezone();
+          const settings = await this.schoolsService.getResolvedSettings(tenantId);
+          const tz = settings.region?.timezone ?? DEFAULT_REGION_SETTINGS.timezone;
+          const day = /^\d{4}-\d{2}-\d{2}$/.test(dto.payment_date)
+            ? dto.payment_date
+            : localDate(new Date(dto.payment_date), tz);
+          const todayKey = localToday(tz);
           const earliest = new Date(`${todayKey}T00:00:00Z`);
           earliest.setUTCDate(earliest.getUTCDate() - 3);
           if (day > todayKey) {

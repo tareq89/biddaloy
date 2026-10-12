@@ -13,6 +13,7 @@ import { CheckoutService } from './checkout.service';
 import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
+import { SchoolsService } from '../schools/schools.service';
 import { StorageModule } from '../storage/storage.module';
 import { ApprovalRequiredException } from '../../common/errors/approval-required.exception';
 import { ApprovalService } from '../auth/guards/approval.guard';
@@ -64,6 +65,8 @@ function daysFromToday(days: number): Date {
 }
 
 const feeNotifyAdd = vi.fn().mockResolvedValue(undefined);
+/** The school's `region.timezone`, as `SchoolsService.getResolvedSettings` returns it. */
+let schoolTz = 'Asia/Dhaka';
 /** Collects the attention rechecks emitted while `fn` runs. */
 async function captureRechecks(fn: () => Promise<unknown>): Promise<string[]> {
   const seen: AttentionRecheckPayload[] = [];
@@ -159,6 +162,10 @@ describe('CheckoutService (integration)', () => {
       [
         CheckoutService,
         { provide: getQueueToken(FEE_NOTIFY_QUEUE), useValue: { add: feeNotifyAdd } },
+        {
+          provide: SchoolsService,
+          useValue: { getResolvedSettings: async () => ({ region: { timezone: schoolTz } }) },
+        },
         WalletService,
         AuditService,
         InvoicesService,
@@ -482,6 +489,33 @@ describe('CheckoutService (integration)', () => {
       expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
       // The token was not burned.
       expect(await redis.get('approval:jti-bd-disc')).toBe('1');
+    });
+
+    // [#2295] "Today" is the school's own date, not Dhaka's. At 12:00 UTC it is
+    // already tomorrow in Kiritimati (UTC+14) but still today in Dhaka.
+    it("uses the school's own time zone: Kiritimati's today is accepted without a token", async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-12T12:00:00Z'));
+      schoolTz = 'Pacific/Kiritimati';
+      try {
+        const student = await studentRepo.save(makeStudent());
+        const bill = await studentFeeRepo.save(makeBill(student.id));
+        const r = await service.checkout(
+          {
+            idempotency_key: '55555555-5555-4555-8555-555555555509',
+            lines: [{ student_fee_id: bill.id, amount: 1000 }],
+            payment_method: PaymentMethod.CASH,
+            payment_date: '2026-10-13',
+          } as any,
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        );
+        expect(r.payment.approved_by_user_id).toBeNull();
+      } finally {
+        schoolTz = 'Asia/Dhaka';
+        vi.useRealTimers();
+      }
     });
 
     it('2 days back with a payments.backdate token stores that day and audits it', async () => {
