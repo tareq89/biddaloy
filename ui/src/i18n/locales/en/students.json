@@ -156,7 +156,34 @@
       "cardSubtitle": "Due {{due}} · Balance {{balance}}",
       "emptyExplanation": "Every bill for this student is paid.",
       "historyEmptyExplanation": "Paid bills will show up here.",
-      "walletEmptyExplanation": "Overpayments are kept here as credit."
+      "walletEmptyExplanation": "Overpayments are kept here as credit.",
+      "writeOff": {
+        "actionFor": "Write off {{name}}",
+        "title": "Write off bill",
+        "description": "The amount you write off comes off what this student owes. A step-up approval is needed.",
+        "billLine": "{{name}} · {{period}} · Owes {{balance}}",
+        "fullLabel": "Write off all of it",
+        "partialLabel": "Write off part of it",
+        "amountLabel": "Amount to write off",
+        "reasonLabel": "Reason",
+        "confirm": "Write off",
+        "working": "Writing off…",
+        "errorMessage": "Couldn't write off this bill.",
+        "alreadySettled": "This bill can't be written off any more. Refresh and check."
+      },
+      "payout": {
+        "action": "Pay out",
+        "title": "Pay out credit balance",
+        "description": "Give the family their credit balance back. A step-up approval is needed.",
+        "warning": "This records cash handed back to the family. Hand over the money after you confirm.",
+        "balanceLine": "Credit balance: {{balance}}",
+        "amountLabel": "Amount to pay out",
+        "reasonLabel": "Reason",
+        "confirm": "Pay out",
+        "working": "Paying out…",
+        "errorMessage": "Couldn't pay out the credit balance.",
+        "exceedsBalance": "That is more than the credit balance. The balance is now {{balance}}."
+      }
     },
     "payments": {
       "columnDate": "Date",
@@ -275,7 +302,8 @@
     "overrideBadge": {
       "promote": "Promoted by exception",
       "retain": "Kept back by exception",
-      "graduate": "Graduated by exception"
+      "graduate": "Graduated by exception",
+      "conditional": "Promoted on condition"
     },
     "fines": {
       "errorMessage": "Couldn't load fines."
