@@ -29,16 +29,16 @@ function renderDialog(props: Partial<React.ComponentProps<typeof SpecialTimingDi
           sequence: 1,
           kind: 'CLASS',
           name: null,
-          starts_at: '08:00',
-          ends_at: '08:45',
+          starts_at: '08:00:00',
+          ends_at: '08:45:00',
         },
         {
           id: 'p2',
           sequence: 2,
           kind: 'CLASS',
           name: null,
-          starts_at: '08:45',
-          ends_at: '09:30',
+          starts_at: '08:45:00',
+          ends_at: '09:30:00',
         },
       ]),
     ),
@@ -117,6 +117,34 @@ describe('SpecialTimingDialog', () => {
     expect(onSave.mock.calls[0]![0].periods).toEqual([
       { sequence: 2, startsAt: '08:50', endsAt: '09:30' },
     ]);
+  });
+
+  // F2: slots arrive as Postgres `HH:mm:ss`; the server's DTO only takes `HH:mm`.
+  it('changing only the start saves HH:mm for both ends', async () => {
+    const { user, onSave } = renderDialog({ initial: EXISTING });
+    await screen.findByRole('group', { name: '1' });
+    const start = screen.getByRole('combobox', { name: '1 — Starts' });
+    await user.click(start);
+    await user.clear(start); // the list is filtered by the current label until cleared
+    await user.click((await screen.findAllByRole('option', { name: /^0?8:30\sAM$/ }))[0]!);
+    await user.click(screen.getByRole('button', { name: 'Save timing' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0]![0].periods).toEqual([
+      { sequence: 1, startsAt: '08:30', endsAt: '08:45' },
+    ]);
+  });
+
+  // F3: saving before the slots load would drop the saved period overrides.
+  it('Save stays disabled until the shift period slots have loaded', async () => {
+    renderDialog({
+      initial: { ...EXISTING, periods: [{ sequence: 2, startsAt: '08:50', endsAt: '09:30' }] },
+    });
+    expect(await screen.findByRole('button', { name: 'Save timing' })).toHaveProperty(
+      'disabled',
+      true,
+    );
+    await screen.findByRole('group', { name: '1' });
+    expect(screen.getByRole('button', { name: 'Save timing' })).toHaveProperty('disabled', false);
   });
 
   it('tells the admin an all-shifts entry skips shifts with their own times', async () => {

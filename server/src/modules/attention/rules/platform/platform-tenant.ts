@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import type { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { TenantStatusService } from '../../../schools/tenant-status.service';
-
-const DEFAULT_SCHOOL_SLUG = 'default-school';
 
 /** Active SUPER_ADMIN members of the platform tenant (`isPlatformSuperAdmin`). */
 export async function platformRecipients(
@@ -26,26 +23,14 @@ export const schoolNames = (names: string[]): string =>
 
 /**
  * Which school is "the platform tenant" — platform alerts live there and
- * nowhere else. Copy of ContextGuard's resolver; keep in sync (Epic 67).
- * `PLATFORM_TENANT_ID` wins; production with it unset fails closed
- * (`undefined`); otherwise the seeded `default-school`, cached once found.
+ * nowhere else. Delegates to `TenantStatusService.platformTenantId()`, the one
+ * resolver ContextGuard also uses, so the two can never drift.
  */
 @Injectable()
 export class PlatformTenantResolver {
-  private cachedDevId?: string;
+  constructor(private readonly tenantStatus: TenantStatusService) {}
 
-  constructor(
-    private readonly config: ConfigService,
-    private readonly tenantStatus: TenantStatusService,
-  ) {}
-
-  async resolve(): Promise<string | undefined> {
-    const configured = this.config.get<string>('PLATFORM_TENANT_ID');
-    if (configured) return configured;
-    if (this.config.get<string>('NODE_ENV') === 'production') return undefined;
-    if (this.cachedDevId) return this.cachedDevId;
-    const found = await this.tenantStatus.findSchoolIdBySlug(DEFAULT_SCHOOL_SLUG);
-    if (found) this.cachedDevId = found;
-    return found ?? undefined;
+  resolve(): Promise<string | undefined> {
+    return this.tenantStatus.platformTenantId();
   }
 }

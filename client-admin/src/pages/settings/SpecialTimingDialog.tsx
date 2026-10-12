@@ -59,6 +59,9 @@ export function SpecialTimingDialog(props: SpecialTimingDialogProps) {
   );
 }
 
+// Postgres `time` comes back as `HH:mm:ss`; the server only accepts `HH:mm`.
+const hhmm = (t: string) => t.slice(0, 5);
+
 function DialogBody({
   onOpenChange,
   initial,
@@ -86,6 +89,9 @@ function DialogBody({
 
   const slots = usePeriodSlots(shiftId ?? undefined).data;
   const rows = shiftId ? (slots ?? []) : [];
+  // Saving before the slots load would rebuild `periods` from no rows and
+  // silently drop every saved override.
+  const slotsPending = shiftId !== null && !slots;
 
   const fromIso = from ? toIsoDate(from) : '';
   const toIso = to ? toIsoDate(to) : '';
@@ -114,7 +120,7 @@ function DialogBody({
       // Only rows the admin changed; none without a single shift.
       periods: rows.flatMap((r) => {
         const e = edits[r.sequence];
-        return e && (e.startsAt !== r.starts_at || e.endsAt !== r.ends_at)
+        return e && (e.startsAt !== hhmm(r.starts_at) || e.endsAt !== hhmm(r.ends_at))
           ? [{ sequence: r.sequence, startsAt: e.startsAt, endsAt: e.endsAt }]
           : [];
       }),
@@ -226,7 +232,10 @@ function DialogBody({
               {t('attendance.specialTimings.periodsLegend')}
             </legend>
             {rows.map((slot) => {
-              const e = edits[slot.sequence] ?? { startsAt: slot.starts_at, endsAt: slot.ends_at };
+              const e = edits[slot.sequence] ?? {
+                startsAt: hhmm(slot.starts_at),
+                endsAt: hhmm(slot.ends_at),
+              };
               const label = slot.name ?? String(slot.sequence);
               return (
                 <div key={slot.id} role="group" aria-label={label} className="grid gap-1">
@@ -258,7 +267,7 @@ function DialogBody({
         <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
           {t('attendance.specialTimings.cancel')}
         </Button>
-        <Button type="button" onClick={save}>
+        <Button type="button" onClick={save} disabled={slotsPending}>
           {t('attendance.specialTimings.save')}
         </Button>
       </DialogFooter>

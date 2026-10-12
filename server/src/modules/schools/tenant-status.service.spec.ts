@@ -271,6 +271,13 @@ describe('TenantStatusService', () => {
       expect(schoolRepo.findOne).not.toHaveBeenCalled();
     });
 
+    it('trims the env value; whitespace-only counts as unset', () => {
+      expect(build({ PLATFORM_TENANT_ID: ' env-id \n' }).configuredPlatformTenantId()).toBe(
+        'env-id',
+      );
+      expect(build({ PLATFORM_TENANT_ID: '  ' }).configuredPlatformTenantId()).toBeUndefined();
+    });
+
     it('production with no env is undefined, no DB call (fail closed)', async () => {
       const s = build({ NODE_ENV: 'production' });
       schoolRepo.findOne.mockResolvedValue({ id: 'x' });

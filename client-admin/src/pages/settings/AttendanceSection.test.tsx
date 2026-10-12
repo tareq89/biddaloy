@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AttendanceSection } from './AttendanceSection';
+import type { SpecialTiming } from './SpecialTimingDialog';
 import { WithTestRouter } from './with-test-router';
 
 const SERVER_TEXT = 'SERVER_SECRET_TEXT';
@@ -196,7 +197,7 @@ describe('AttendanceSection', () => {
   });
 
   describe('special timings', () => {
-    const RAMADAN = {
+    const RAMADAN: SpecialTiming = {
       name: 'Ramadan',
       from: '2027-02-08',
       to: '2027-03-09',
@@ -217,7 +218,7 @@ describe('AttendanceSection', () => {
       return patchBody;
     }
 
-    function renderSection() {
+    function renderSection(specialTimings: SpecialTiming[] = [RAMADAN]) {
       server.use(
         http.get('*/routines/shifts', () =>
           HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
@@ -225,10 +226,7 @@ describe('AttendanceSection', () => {
       );
       return renderWithProviders(
         <WithTestRouter>
-          <AttendanceSection
-            schoolId={SCHOOL_ID}
-            attendance={{ ...ATTENDANCE, specialTimings: [RAMADAN] }}
-          />
+          <AttendanceSection schoolId={SCHOOL_ID} attendance={{ ...ATTENDANCE, specialTimings }} />
         </WithTestRouter>,
         { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
       );
@@ -237,7 +235,18 @@ describe('AttendanceSection', () => {
     it('lists saved special timings', async () => {
       renderSection();
       expect(await screen.findByText('Ramadan')).toBeTruthy();
-      expect(screen.getByText(/late after 08:45/)).toBeTruthy();
+      // F11: shown through formatTime, like every other time in the app.
+      expect(screen.getByText(/late after 8:45\sAM/)).toBeTruthy();
+      expect(screen.getByText(/All shifts/)).toBeTruthy();
+    });
+
+    // F4: an entry whose shift is unknown (loading or deleted) must not read
+    // as "All shifts".
+    it('labels an entry with an unknown shift as —, not All shifts', async () => {
+      renderSection([{ ...RAMADAN, shiftId: 'gone' }]);
+      expect(await screen.findByText('Ramadan')).toBeTruthy();
+      expect(screen.queryByText(/All shifts/)).toBeNull();
+      expect(screen.getByText(/ · — · /)).toBeTruthy();
     });
 
     it('Add -> dialog -> Save sends specialTimings in the attendance slice', async () => {

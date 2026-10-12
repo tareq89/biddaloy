@@ -39,7 +39,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
-import { formatDateRange } from '@biddaloy/ui/utils';
+import { formatDateRange, formatTime } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -556,10 +556,13 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
                   {' · '}
                   {formatDateRange(timing.from, timing.to, regionConfig)}
                   {' · '}
-                  {shifts.find((s) => s.id === timing.shiftId)?.name ??
-                    t('attendance.specialTimings.allShifts')}
+                  {timing.shiftId === null
+                    ? t('attendance.specialTimings.allShifts')
+                    : (shifts.find((s) => s.id === timing.shiftId)?.name ?? '—')}
                   {' · '}
-                  {t('attendance.specialTimings.lateAfterShort', { time: timing.lateAfter })}
+                  {t('attendance.specialTimings.lateAfterShort', {
+                    time: formatTime(timing.lateAfter, regionConfig),
+                  })}
                 </span>
                 <Button
                   type="button"

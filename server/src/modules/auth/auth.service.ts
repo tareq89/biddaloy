@@ -539,8 +539,9 @@ export class AuthService {
   }
 
   /**
-   * The school a user-level event belongs to: the user's only live
-   * membership. Null for a user in no school or in more than one (D28:
+   * The school a user-level event belongs to: the user's only live school,
+   * whatever roles they hold there. Null for a user in no school or in more
+   * than one (D28:
    * platform-level, so no school sees another school's logins).
    */
   async primaryTenantId(userId: string, opts?: { throwOnError?: boolean }): Promise<string | null> {
@@ -550,12 +551,15 @@ export class AuthService {
     // last_login_at is already saved, replace logout's response with a 500,
     // or turn TOKEN_REUSE_DETECTED's rethrow into an unrelated error.
     try {
+      // Count SCHOOLS, not rows: the unique key is (user, tenant, role), so a
+      // teacher who is also a guardian in the same school has two rows but
+      // one school. find() already skips soft-deleted memberships.
       const rows = await this.userTenantRepository.find({
         where: { user_id: userId },
         select: { tenant_id: true },
-        take: 2,
       });
-      return rows.length === 1 ? rows[0].tenant_id : null;
+      const schools = new Set(rows.map((r) => r.tenant_id));
+      return schools.size === 1 ? rows[0].tenant_id : null;
     } catch (error) {
       // Message senders pass throwOnError: a failed lookup must not turn a
       // one-school user's message into a platform-sent one (D28).
@@ -566,7 +570,7 @@ export class AuthService {
 
   /** True when the user has at least one live school membership. */
   async hasLiveMembership(userId: string): Promise<boolean> {
-    return (await this.userTenantRepository.count({ where: { user_id: userId }, take: 1 })) > 0;
+    return this.userTenantRepository.exists({ where: { user_id: userId } });
   }
 
   /**

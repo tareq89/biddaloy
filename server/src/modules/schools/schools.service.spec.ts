@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
-import { Not, QueryFailedError } from 'typeorm';
+import { QueryFailedError } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { randomBytes } from 'crypto';
 import { AuditAction } from '@biddaloy/shared';
@@ -319,7 +319,7 @@ describe('SchoolsService', () => {
 
     it('[TEN-19] excludes the platform tenant id', async () => {
       const repo = fakeRepo(null);
-      repo.find.mockResolvedValue([{ id: 's1' }]);
+      repo.find.mockResolvedValue([{ id: 's1' }, { id: 'platform-id' }]);
       const service = new SchoolsService(
         repo as any,
         {} as any,
@@ -334,12 +334,9 @@ describe('SchoolsService', () => {
       );
       tenantStatus.configuredPlatformTenantId.mockReturnValue('platform-id');
 
-      await service.findAllActive();
-
-      expect(repo.find).toHaveBeenCalledWith({
-        where: { status: 'ACTIVE', id: Not('platform-id') },
-        select: { id: true },
-      });
+      expect(await service.findAllActive()).toEqual([{ id: 's1' }]);
+      // The id never reaches SQL: a non-uuid env value must not throw 22P02 for every sweep (F6).
+      expect(repo.find).toHaveBeenCalledWith({ where: { status: 'ACTIVE' }, select: { id: true } });
     });
   });
 

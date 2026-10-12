@@ -81,6 +81,12 @@ export class ContactChangeService {
       throw new ForbiddenException('Current password is incorrect');
     }
 
+    // A user in no school must not get platform-paid SMS/email to an
+    // address they choose (per-school/global OTP caps are #1759). A shared
+    // user still passes: their messages are platform-sent by design (D28).
+    if (!(await this.authService.hasLiveMembership(userId))) {
+      throw new ForbiddenException('no_school');
+    }
     const tenantId = await this.authService.primaryTenantId(userId, { throwOnError: true });
 
     if (dto.phone) {

@@ -412,6 +412,11 @@ describe('AccountAccessController (e2e)', () => {
     const SINGLE_PHONE = '01799991002';
     const NONE_ID = '00000000-0000-4000-8000-0000000004b3';
     const NONE_PHONE = '01799991003';
+    // One school, two roles (TEACHER + PARENT, i.e. guardian): still a one-school user (F1).
+    const MULTI_ID = '00000000-0000-4000-8000-0000000004b4';
+    const MULTI_EMAIL = 'ten09-multi@testschool.com';
+    const MULTI_PHONE = '01799991004';
+    const ALL_IDS = [SHARED_ID, SINGLE_ID, NONE_ID, MULTI_ID];
 
     const commLogCount = async (tenantId: string, to: string): Promise<number> =>
       Number(
@@ -441,6 +446,7 @@ describe('AccountAccessController (e2e)', () => {
         [SHARED_ID, SHARED_EMAIL, SHARED_PHONE],
         [SINGLE_ID, SINGLE_EMAIL, SINGLE_PHONE],
         [NONE_ID, null, NONE_PHONE],
+        [MULTI_ID, MULTI_EMAIL, MULTI_PHONE],
       ]) {
         await dataSource.query(
           `INSERT INTO users (id, email, phone, password_hash, full_name, status)
@@ -449,30 +455,33 @@ describe('AccountAccessController (e2e)', () => {
           [id, email, phone, SEED_ADMIN_PASSWORD_HASH],
         );
       }
-      for (const [uid, tid] of [
-        [SHARED_ID, SEED_TENANT_ID],
-        [SHARED_ID, TENANT_B],
-        [SINGLE_ID, SEED_TENANT_ID],
+      for (const [uid, tid, role] of [
+        [SHARED_ID, SEED_TENANT_ID, 'TEACHER'],
+        [SHARED_ID, TENANT_B, 'TEACHER'],
+        [SINGLE_ID, SEED_TENANT_ID, 'TEACHER'],
+        [MULTI_ID, SEED_TENANT_ID, 'TEACHER'],
+        [MULTI_ID, SEED_TENANT_ID, 'PARENT'],
       ]) {
         await dataSource.query(
-          `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'TEACHER')
+          `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, $3)
            ON CONFLICT DO NOTHING`,
-          [uid, tid],
+          [uid, tid, role],
         );
       }
     }, 30000);
 
     afterAll(async () => {
       // audit_logs is write-only (trigger), so users are reset, not deleted.
-      await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = ANY($1)`, [
-        [SHARED_ID, SINGLE_ID, NONE_ID],
-      ]);
-      await dataSource.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [
-        [SHARED_ID, SINGLE_ID, NONE_ID],
-      ]);
-      await dataSource.query(`UPDATE users SET password_hash = NULL WHERE id = ANY($1)`, [
-        [SHARED_ID, SINGLE_ID, NONE_ID],
-      ]);
+      await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = ANY($1)`, [ALL_IDS]);
+      await dataSource.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [ALL_IDS]);
+      await dataSource.query(`UPDATE users SET password_hash = NULL WHERE id = ANY($1)`, [ALL_IDS]);
+      // Don't leak an extra ACTIVE school into later suites on this DB. If a
+      // row still points at it, park it as SUSPENDED (nightly sweeps skip it).
+      try {
+        await dataSource.query(`DELETE FROM schools WHERE id = $1`, [TENANT_B]);
+      } catch {
+        await dataSource.query(`UPDATE schools SET status = 'SUSPENDED' WHERE id = $1`, [TENANT_B]);
+      }
     });
 
     it('shared user: failed login and login audit rows have tenant_id NULL', async () => {
@@ -535,6 +544,28 @@ describe('AccountAccessController (e2e)', () => {
         .expect(200);
     });
 
+    it('shared user: emailed reset link is platform-sent, with a NULL-tenant token', async () => {
+      // The phone reset above verified the phone; a verified email keeps
+      // recovery on the email (link) branch instead of switching to the phone.
+      await dataSource.query(`UPDATE users SET email_verified_at = NOW() WHERE id = $1`, [
+        SHARED_ID,
+      ]);
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/forgot-password')
+        .send({ identifier: SHARED_EMAIL })
+        .expect(202);
+      expect(res.body.debug?.token).toEqual(expect.any(String));
+
+      expect(await commLogCount(SEED_TENANT_ID, SHARED_EMAIL)).toBe(0);
+      expect(await commLogCount(TENANT_B, SHARED_EMAIL)).toBe(0);
+      const tokens = await dataSource.query(
+        `SELECT tenant_id FROM auth_tokens WHERE user_id = $1 AND purpose = 'PASSWORD_RESET'`,
+        [SHARED_ID],
+      );
+      expect(tokens.length).toBeGreaterThan(0);
+      expect(tokens.every((t: { tenant_id: string | null }) => t.tenant_id === null)).toBe(true);
+    });
+
     it('shared user is not locked out of sign-in by code', async () => {
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/auth/otp/request')
@@ -570,6 +601,26 @@ describe('AccountAccessController (e2e)', () => {
         [SEED_TENANT_ID, SINGLE_PHONE],
       );
       expect(message_body).toContain(name);
+    });
+
+    // Money + isolation (F1): two roles in ONE school is still a one-school
+    // user. Their codes go out on the school's gateway (logged under it) and
+    // their LOGIN row stays visible to that school's admin.
+    it("one school, two roles (TEACHER + PARENT): LOGIN row and comm log are the school's", async () => {
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: MULTI_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      expect(await auditTenants(MULTI_ID, 'LOGIN')).toEqual([SEED_TENANT_ID]);
+
+      const before = await commLogCount(SEED_TENANT_ID, MULTI_PHONE);
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/forgot-password')
+        .send({ identifier: MULTI_PHONE })
+        .expect(202);
+      expect(res.body.debug?.otp).toMatch(/^\d{6}$/);
+      expect(await commLogCount(SEED_TENANT_ID, MULTI_PHONE)).toBe(before + 1);
+      expect(await auditTenants(MULTI_ID, 'PASSWORD_RESET_REQUESTED')).toEqual([SEED_TENANT_ID]);
     });
 
     it('user with no membership: nothing sent, same 202, no code echoed (non-enumerating)', async () => {

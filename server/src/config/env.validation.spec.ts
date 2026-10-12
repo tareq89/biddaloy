@@ -53,7 +53,7 @@ describe('env.validation', () => {
     // No config-time default anymore (#620): no database actually has a
     // predictable hardcoded id to default to (the `MultiTenantAuth`
     // migration creates the real "Default School" row with a random uuid).
-    // `ContextGuard.resolvePlatformTenantId()` discovers it dynamically
+    // `TenantStatusService.platformTenantId()` discovers it dynamically
     // outside production instead — see context.guard.spec.ts.
     it('stays unset outside production when unset — no config-time default', () => {
       const result = validate({ ...validConfig, NODE_ENV: 'development' });

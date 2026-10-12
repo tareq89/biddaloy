@@ -37,7 +37,7 @@ const ROLE_PRIORITY: Record<string, number> = {
 
 /**
  * True only when the JWT holds a SUPER_ADMIN membership on the one
- * designated platform tenant (resolved by `ContextGuard.resolvePlatformTenantId`)
+ * designated platform tenant (resolved by `TenantStatusService.platformTenantId()`)
  * — never "any membership anywhere with role SUPER_ADMIN".
  *
  * That distinction is the whole fix for a real privilege escalation: a
@@ -49,7 +49,7 @@ const ROLE_PRIORITY: Record<string, number> = {
  * tenant via `X-Tenant-ID`.
  *
  * `platformTenantId` unresolved (undefined) means no membership qualifies —
- * fails closed. See `resolvePlatformTenantId` for how that id is obtained:
+ * fails closed. See `TenantStatusService.platformTenantId()` for how that id is obtained:
  * an explicit `PLATFORM_TENANT_ID` always wins; in production, unset means
  * this stays undefined forever; outside production it's discovered from the
  * database instead.

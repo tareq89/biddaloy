@@ -66,7 +66,9 @@ export class TenantStatusService {
     private readonly schoolRepo: Repository<School>,
     configService: ConfigService,
   ) {
-    this.configuredPlatformTenantId_ = configService.get<string>('PLATFORM_TENANT_ID');
+    // Trimmed: stray whitespace in the env file must not silently disable platform authority.
+    this.configuredPlatformTenantId_ =
+      configService.get<string>('PLATFORM_TENANT_ID')?.trim() || undefined;
     this.isProduction = configService.get<string>('NODE_ENV') === 'production';
   }
 
@@ -159,15 +161,13 @@ export class TenantStatusService {
   }
 
   /**
-   * Looks up a school's id by slug. Used by `ContextGuard` to dynamically
-   * resolve the platform tenant outside production when `PLATFORM_TENANT_ID`
-   * isn't set — see that guard's `resolvePlatformTenantId()` for the fix
-   * this exists for (#620): no database actually has the old hardcoded
-   * dev id, since the `MultiTenantAuth` migration inserts the real
-   * "Default School" row with a random uuid. Not Redis-cached like
-   * `getStatus`/`isActive` — a school's slug is effectively immutable, so
-   * `ContextGuard` caches the resolved id itself for the process lifetime
-   * instead of re-querying per request.
+   * Looks up a school's id by slug. Used by `platformTenantId()` to resolve
+   * the platform tenant outside production when `PLATFORM_TENANT_ID` isn't
+   * set (#620): no database actually has the old hardcoded dev id, since the
+   * `MultiTenantAuth` migration inserts the real "Default School" row with a
+   * random uuid. Not Redis-cached like `getStatus`/`isActive` — a school's
+   * slug is effectively immutable, so `platformTenantId()` caches the
+   * resolved id itself for the process lifetime instead of re-querying.
    */
   async findSchoolIdBySlug(slug: string): Promise<string | null> {
     const school = await this.schoolRepo.findOne({ where: { slug } });

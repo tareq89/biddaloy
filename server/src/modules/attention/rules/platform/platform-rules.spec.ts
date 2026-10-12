@@ -4,6 +4,7 @@ import type { RuleContext } from '../rule.types';
 import { PlatformBackupFailingRule } from './platform-backup-failing.rule';
 import { PlatformProviderFailuresRule } from './platform-provider-failures.rule';
 import { PlatformTenantResolver } from './platform-tenant';
+import { TenantStatusService } from '../../../schools/tenant-status.service';
 import { PlatformTrialsEndingRule } from './platform-trials-ending.rule';
 
 const PID = 'platform';
@@ -70,10 +71,19 @@ describe('platform rules: shared contract', () => {
 });
 
 describe('PlatformTenantResolver', () => {
+  // A real TenantStatusService: the resolver must behave exactly like the guard's resolver.
   const make = (env: Record<string, string>, lookup = vi.fn()) => {
     const config = { get: (k: string) => env[k] };
+    const schoolRepo = {
+      findOne: async ({ where }: { where: { slug: string } }) => {
+        const id = await lookup(where.slug);
+        return id ? { id } : null;
+      },
+    };
     return {
-      r: new PlatformTenantResolver(config as never, { findSchoolIdBySlug: lookup } as never),
+      r: new PlatformTenantResolver(
+        new TenantStatusService({} as never, schoolRepo as never, config as never),
+      ),
       lookup,
     };
   };

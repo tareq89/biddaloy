@@ -98,6 +98,7 @@ describe('AuthService', () => {
       find: vi.fn(),
       findOne: vi.fn().mockResolvedValue(mockMemberships[0]),
       count: vi.fn().mockResolvedValue(1),
+      exists: vi.fn().mockResolvedValue(true),
     };
     mockAuditService = {
       record: vi.fn().mockResolvedValue(undefined),
@@ -466,9 +467,9 @@ describe('AuthService', () => {
       (bcrypt.compare as any).mockResolvedValue(true);
       mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
       mockUserRepo.save.mockResolvedValue(mockUser);
-      // Only the audit lookup (`take: 2`) fails; the membership list still loads.
+      // Only the audit lookup (selects tenant_id only) fails; the membership list still loads.
       mockUserTenantRepo.find.mockImplementation(async (opts: any) => {
-        if (opts.take === 2) throw new Error('db unavailable');
+        if (opts.select?.tenant_id) throw new Error('db unavailable');
         return mockMemberships;
       });
 
@@ -557,8 +558,16 @@ describe('AuthService', () => {
       mockUserTenantRepo.find.mockResolvedValue([{ tenant_id: 'tenant-1' }]);
       await expect(service.primaryTenantId('user-1')).resolves.toBe('tenant-1');
       expect(mockUserTenantRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { user_id: 'user-1' }, take: 2 }),
+        expect.objectContaining({ where: { user_id: 'user-1' } }),
       );
+    });
+
+    // Money + isolation (F1): a teacher who is also a guardian in the SAME
+    // school has two membership rows but one school. Their codes must go out
+    // on the school's gateway and their audit rows must stay in that school.
+    it('returns the school for two roles in the same school', async () => {
+      mockUserTenantRepo.find.mockResolvedValue([{ tenant_id: 'a' }, { tenant_id: 'a' }]);
+      await expect(service.primaryTenantId('user-1')).resolves.toBe('a');
     });
 
     it('returns null for two memberships', async () => {
@@ -584,9 +593,9 @@ describe('AuthService', () => {
     });
 
     it('hasLiveMembership is true with a membership, false without', async () => {
-      mockUserTenantRepo.count.mockResolvedValueOnce(2);
+      mockUserTenantRepo.exists.mockResolvedValueOnce(true);
       await expect(service.hasLiveMembership('user-1')).resolves.toBe(true);
-      mockUserTenantRepo.count.mockResolvedValueOnce(0);
+      mockUserTenantRepo.exists.mockResolvedValueOnce(false);
       await expect(service.hasLiveMembership('user-1')).resolves.toBe(false);
     });
   });

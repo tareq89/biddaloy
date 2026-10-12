@@ -7,14 +7,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  EntityManager,
-  MoreThan,
-  MoreThanOrEqual,
-  Not,
-  QueryFailedError,
-  Repository,
-} from 'typeorm';
+import { EntityManager, MoreThan, MoreThanOrEqual, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
 import { PromotionRunStatus } from '@biddaloy/shared';
 import type { TenantSettings, OrganisationSettings } from '@biddaloy/shared';
@@ -111,10 +104,10 @@ export class SchoolsService {
    */
   async findAllActive(): Promise<Pick<School, 'id'>[]> {
     const platformId = this.tenantStatus.configuredPlatformTenantId();
-    return this.repo.find({
-      where: { status: 'ACTIVE', ...(platformId ? { id: Not(platformId) } : {}) },
-      select: { id: true },
-    });
+    // Filtered in memory, not `id <> $1`: a mistyped non-uuid env value would make Postgres throw
+    // 22P02 and stop every nightly sweep for every school.
+    const schools = await this.repo.find({ where: { status: 'ACTIVE' }, select: { id: true } });
+    return platformId ? schools.filter((s) => s.id !== platformId) : schools;
   }
 
   /**
