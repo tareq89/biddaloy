@@ -1457,7 +1457,14 @@ export async function createStudyPlanScene(
   };
 }
 
-/** A weekly routine slot on the published routine, taught by the scene's teacher. */
+/**
+ * A weekly routine slot on the published routine, taught by the scene's teacher,
+ * valid from the year start so past days (a missed lesson, last week's lost period) have it.
+ * A published routine refuses a back-dated slot (#2254), so the slot is created from today
+ * and then back-dated in the database (#2407).
+ * ponytail: raw SQL like `endTrial`; the shared routine can't go back to DRAFT. Upgrade path:
+ * seed the scene's history in the seed script.
+ */
 export async function addRoutineSlot(
   request: APIRequestContext,
   admin: ApiSession,
@@ -1466,6 +1473,7 @@ export async function addRoutineSlot(
 ): Promise<string> {
   const periodSlotId = scene.periodSlotIds[slot.period];
   if (!periodSlotId) throw new Error(`the seeded shift has no period ${slot.period}`);
+  const { today } = await schoolCalendar(request, admin);
   const created = await post<{ slot: { id: string } }>(
     request,
     admin,
@@ -1476,11 +1484,37 @@ export async function addRoutineSlot(
       weekday: slot.weekday,
       subject_id: slot.subjectId ?? scene.subject.id,
       recurrence: 'WEEKLY',
-      valid_from: scene.yearStart,
+      valid_from: today,
       teacher_ids: [scene.teacher.teacherId],
     },
   );
+  await backdateRoutineSlot(created.slot.id, scene.yearStart);
   return created.slot.id;
+}
+
+async function backdateRoutineSlot(slotId: string, validFrom: string): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL is not set — addRoutineSlot needs the e2e database');
+  const { Client } = (await import('pg' as string)) as {
+    Client: new (options: { connectionString: string }) => {
+      connect(): Promise<void>;
+      query(sql: string, params: unknown[]): Promise<{ rowCount: number | null }>;
+      end(): Promise<void>;
+    };
+  };
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  try {
+    const { rowCount } = await client.query(
+      `UPDATE routine_slots SET valid_from = $2 WHERE id = $1`,
+      [slotId, validFrom],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`backdateRoutineSlot: slot ${slotId} not found in ${new URL(url).pathname}`);
+    }
+  } finally {
+    await client.end();
+  }
 }
 
 /** Removes slots a spec added to the shared seeded routine, so the next run finds the period free. */
