@@ -22,6 +22,8 @@ import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { checkoutEvents } from './checkout.service';
+import { emitRecheck } from '../attention/engine/attention-events';
+import { attentionEvents } from '../attention/attention.constants';
 
 const AMOUNT_EPSILON = 0.01;
 
@@ -376,6 +378,8 @@ export class PaymentReversalService {
       tenant_id: tenantId,
       student_id: payment.student_id,
     });
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.overdue_family', actorUserId });
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.due_soon', actorUserId });
 
     return reversalPayment;
   }

@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -27,7 +27,7 @@ import {
   resolveFeeNotificationChannel,
   ResolvedFeeNotificationChannel,
 } from './fee-notifications.listener';
-import { checkoutEvents, PaymentsRecordedEvent } from '../fees/checkout.service';
+import type { PaymentsRecordedEvent } from '../fees/checkout.service';
 
 const PAYMENT_NOTIFICATION_EVENT = 'payment-notify';
 
@@ -50,9 +50,8 @@ const ENQUEUE_FAILED = 'ENQUEUE_FAILED';
  * the same receipt message the manual `POST /invoices/:id/send` route
  * builds (`buildInvoiceReceiptMessage`), push -> WhatsApp -> SMS (D13).
  *
- * Subscribed via `checkoutEvents` (a plain Node `EventEmitter` singleton —
- * see that file's doc comment for why), same pattern as
- * `FeeNotificationsListener`'s `feesEvents`.
+ * Delivered as a `FEE_NOTIFY_QUEUE` job (`FeeNotifyProcessor`) [68.4.10], same as
+ * `FeeNotificationsListener`.
  *
  * Deviation from the published plan: the ticket's step 2 gates this behind
  * `settings.fees.notify_on_payment` (default `true`). Adding that key
@@ -68,7 +67,7 @@ const ENQUEUE_FAILED = 'ENQUEUE_FAILED';
  * replay-safe shape as the fee-notifications listener.
  */
 @Injectable()
-export class InvoiceNotificationsListener implements OnModuleInit {
+export class InvoiceNotificationsListener {
   private readonly logger = new Logger(InvoiceNotificationsListener.name);
 
   constructor(
@@ -83,17 +82,6 @@ export class InvoiceNotificationsListener implements OnModuleInit {
     private readonly shareService: InvoiceShareService,
     private readonly config: ConfigService,
   ) {}
-
-  onModuleInit(): void {
-    checkoutEvents.on('payments.recorded', (event: PaymentsRecordedEvent) => {
-      void this.handlePaymentRecorded(event).catch((error) => {
-        this.logger.error(
-          `payments.recorded handler failed for payment ${event.payment_id}`,
-          error instanceof Error ? error.stack : String(error),
-        );
-      });
-    });
-  }
 
   async handlePaymentRecorded(event: PaymentsRecordedEvent): Promise<void> {
     const { payment_id: paymentId, tenant_id: tenantId, student_ids: studentIds } = event;
@@ -221,6 +209,7 @@ export class InvoiceNotificationsListener implements OnModuleInit {
 
     const baseUrl = resolvePublicAppUrl(this.config);
 
+    let enqueueFailures = 0;
     for (const item of toSend) {
       const { rawToken } = await this.shareService.createToken(invoice.id, tenantId, actorUserId);
       const shareUrl = `${baseUrl}/i/${rawToken}`;
@@ -300,6 +289,7 @@ export class InvoiceNotificationsListener implements OnModuleInit {
           error: 'Failed to enqueue for delivery',
         };
         await this.logRepo.save(log);
+        enqueueFailures += 1;
       }
     }
 
@@ -316,6 +306,12 @@ export class InvoiceNotificationsListener implements OnModuleInit {
         trigger: CommunicationTrigger.AUTOMATED,
         metadata: { payment_id: paymentId, reason: SKIPPED_NO_CHANNEL },
       });
+    }
+
+    // Rows are saved FAILED/ENQUEUE_FAILED above and a replay re-claims them, so throwing
+    // lets BullMQ retry the whole job instead of dropping those guardians' notices.
+    if (enqueueFailures > 0) {
+      throw new Error(`${enqueueFailures} payment-notification log(s) could not be enqueued`);
     }
   }
 

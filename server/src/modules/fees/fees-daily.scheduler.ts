@@ -5,14 +5,12 @@ import { Job, Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import * as Sentry from '@sentry/node';
 import { DuplicateStrategy, FeeGenerationSource, PeriodType } from '@biddaloy/shared';
+import { emitRecheck } from '../attention/engine/attention-events';
+import { attentionEvents } from '../attention/attention.constants';
+import { enqueueFeeNotify, FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
 import { SchoolsService } from '../schools/schools.service';
 import { TenantStatusService } from '../schools/tenant-status.service';
-import {
-  FeeGenerationService,
-  feesEvents,
-  FEES_GENERATED_EVENT,
-  FeesGeneratedEventPayload,
-} from './fee-generation.service';
+import { FeeGenerationService, FeesGeneratedEventPayload } from './fee-generation.service';
 import { Student } from '../students/entities/student.entity';
 import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
 import {
@@ -93,6 +91,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     // fail at boot, not silently turn the restore skip off. Sits before the optional seams below
     // because TypeScript forbids a required parameter after an optional one.
     private readonly tenantStatus: TenantStatusService,
+    @InjectQueue(FEE_NOTIFY_QUEUE) private readonly feeNotifyQueue: Queue,
     // [16.7.4] #678 registers the real `LateFeeService` provider in
     // `fees.module.ts` — `@Optional()` + explicit `@Inject` (rather than
     // relying on the constructor parameter's own type, which Nest can only
@@ -305,6 +304,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     // `FeeGenerationService.generate` itself normally follows for its own
     // non-scheduler callers).
     let notifyPayload: FeesGeneratedEventPayload | null = null;
+    let generatedTenantId: string | null = null;
 
     await this.dataSource.transaction(async (manager) => {
       // [CodeRabbit review, PR #801] Re-read the FULL schedule row under
@@ -427,14 +427,31 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
         [freshPeriod, fresh.id],
       );
 
+      generatedTenantId = fresh.tenant_id;
       if (fresh.notify_families) {
         notifyPayload = { tenantId: fresh.tenant_id, feeGenerationId: result.fee_generation_id };
       }
     });
 
     // Fires only after the transaction above has actually committed.
-    if (notifyPayload) {
-      feesEvents.emit(FEES_GENERATED_EVENT, notifyPayload);
+    const notify = notifyPayload as FeesGeneratedEventPayload | null;
+    if (notify) {
+      await enqueueFeeNotify(
+        this.feeNotifyQueue,
+        this.logger,
+        'fees.generated',
+        notify.feeGenerationId,
+        notify,
+      );
+    }
+    if (generatedTenantId) {
+      for (const ruleKey of [
+        'fees.unassigned_students',
+        'fees.due_soon',
+        'fees.overdue_family',
+      ] as const) {
+        emitRecheck(attentionEvents, { tenantId: generatedTenantId as string, ruleKey });
+      }
     }
   }
 }

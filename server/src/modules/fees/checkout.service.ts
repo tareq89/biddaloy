@@ -1,5 +1,10 @@
 import { EventEmitter } from 'events';
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { emitRecheck } from '../attention/engine/attention-events';
+import { attentionEvents } from '../attention/attention.constants';
+import { enqueueFeeNotify, FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
+import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -45,16 +50,8 @@ function round2(value: number): number {
 }
 
 /**
- * [16.4.2] Emitted after a checkout transaction commits. This is a
- * PLACEHOLDER for real cross-cutting event infra: this codebase has no
- * event-emitter mechanism anywhere (`@nestjs/event-emitter` isn't a
- * dependency, no `EventEmitter2` usage exists), and wiring one up properly
- * means registering it in `server/src/app.module.ts` — outside this
- * ticket's file territory. A plain Node `EventEmitter` scoped to this
- * module is the smallest thing that satisfies step 4 ("emit
- * `payments.recorded`") without touching `app.module.ts`. 16.5.4's
- * consumer (not built yet) can `checkoutEvents.on('payments.recorded', …)`
- * against this same instance until a real event bus replaces it.
+ * In-process emitter, now only for `payments.reversed`. The receipt notice
+ * (`payments.recorded`) is a `FEE_NOTIFY_QUEUE` job so it survives a restart [68.4.10].
  */
 export const checkoutEvents = new EventEmitter();
 
@@ -101,7 +98,10 @@ export interface CheckoutMeta {
  */
 @Injectable()
 export class CheckoutService {
+  private readonly logger = new Logger(CheckoutService.name);
+
   constructor(
+    @InjectQueue(FEE_NOTIFY_QUEUE) private readonly feeNotifyQueue: Queue,
     @InjectRepository(Payment)
     private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(Student)
@@ -421,6 +421,9 @@ export class CheckoutService {
       // second invoice for the same payment.
       if (meta) meta.replayed = true;
       const repaired = await this.ensureInvoiceLinked(winnerId);
+      // The winner may have died before its own after-commit work; the jobId and the
+      // reference_key make repeating it harmless.
+      await this.afterCommit(repaired, tenantId, userId);
       return this.toResult(repaired, tenantId);
     }
 
@@ -434,6 +437,7 @@ export class CheckoutService {
         );
       }
       const repaired = await this.ensureInvoiceLinked(winner.id);
+      await this.afterCommit(repaired, tenantId, userId);
       return this.toResult(repaired, tenantId);
     }
 
@@ -455,11 +459,7 @@ export class CheckoutService {
 
     const walletBalanceAfter = await this.walletService.balance(payment.student_id, tenantId);
 
-    checkoutEvents.emit('payments.recorded', {
-      payment_id: payment.id,
-      tenant_id: tenantId,
-      student_ids: [...new Set(payment.allocations.map((a) => a.student_fee.student_id))],
-    } satisfies PaymentsRecordedEvent);
+    await this.afterCommit(payment, tenantId, userId);
 
     return {
       payment,
@@ -468,6 +468,17 @@ export class CheckoutService {
       change_amount: Number(payment.change_amount),
       wallet_balance_after: walletBalanceAfter,
     };
+  }
+
+  /** Receipt notice job + fee-alert rechecks, after the payment is committed. Safe to repeat. */
+  private async afterCommit(payment: Payment, tenantId: string, userId: string): Promise<void> {
+    await enqueueFeeNotify(this.feeNotifyQueue, this.logger, 'payments.recorded', payment.id, {
+      payment_id: payment.id,
+      tenant_id: tenantId,
+      student_ids: [...new Set(payment.allocations.map((a) => a.student_fee.student_id))],
+    } satisfies PaymentsRecordedEvent);
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.overdue_family', actorUserId: userId });
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.due_soon', actorUserId: userId });
   }
 
   /**

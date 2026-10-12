@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { getQueueToken } from '@nestjs/bullmq';
+import { FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
 import { Repository, DataSource } from 'typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -6,12 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { FeesDailyScheduler } from './fees-daily.scheduler';
-import {
-  FeeGenerationService,
-  NoopDiscountResolver,
-  feesEvents,
-  FEES_GENERATED_EVENT,
-} from './fee-generation.service';
+import { FeeGenerationService, NoopDiscountResolver } from './fee-generation.service';
 import { LateFeeService } from './late-fee.service';
 import { FeeGenerationsService } from './fee-generations.service';
 import { WalletService } from './wallet.service';
@@ -82,6 +79,13 @@ import { acquire as acquireRestoreLock } from '../workbook/restore/restore-lock'
  * documented on `FeesDailyScheduler`'s constructor. That's covered by
  * `late-fee.service.integration.spec.ts` instead.
  */
+const notifyAdds: { name: string; data: any; opts: any }[] = [];
+const notifyQueue = {
+  add: async (name: string, data: any, opts: any) => {
+    notifyAdds.push({ name, data, opts });
+  },
+} as any;
+
 describe('FeesDailyScheduler (integration)', () => {
   let dataSource: DataSource;
   let redis: Redis;
@@ -174,6 +178,7 @@ describe('FeesDailyScheduler (integration)', () => {
       ALL_ENTITIES,
       [
         FeeGenerationService,
+        { provide: getQueueToken(FEE_NOTIFY_QUEUE), useValue: { add: async () => undefined } },
         FeeGenerationsService,
         WalletService,
         AuditService,
@@ -255,9 +260,16 @@ describe('FeesDailyScheduler (integration)', () => {
   function buildScheduler(): FeesDailyScheduler {
     const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
     const schoolsService = { findAll: async () => [] } as any;
-    return new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService, {
-      isRestoring: async () => false,
-    } as any);
+    return new FeesDailyScheduler(
+      queue,
+      dataSource,
+      schoolsService,
+      feeGenerationService,
+      {
+        isRestoring: async () => false,
+      } as any,
+      notifyQueue,
+    );
   }
 
   /** [68.1.2210] A tenant whose restore lock is held is skipped; one without it is still billed. */
@@ -268,9 +280,16 @@ describe('FeesDailyScheduler (integration)', () => {
     const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
     const schoolsService = { findAll: async () => [] } as any;
     const build = (restoring: boolean) =>
-      new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService, {
-        isRestoring: async () => restoring,
-      } as any);
+      new FeesDailyScheduler(
+        queue,
+        dataSource,
+        schoolsService,
+        feeGenerationService,
+        {
+          isRestoring: async () => restoring,
+        } as any,
+        notifyQueue,
+      );
 
     await build(true).process({ data: { tenantId: TENANT_ID } } as any);
     expect(await studentFeeRepo.find()).toHaveLength(0);
@@ -298,9 +317,16 @@ describe('FeesDailyScheduler (integration)', () => {
     const school = { id: TENANT_ID, status: 'ACTIVE' };
     const schoolsService = { findAll: async () => [school], findById: async () => school } as any;
     const build = (restoring: boolean) =>
-      new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService, {
-        isRestoring: async () => restoring,
-      } as any);
+      new FeesDailyScheduler(
+        queue,
+        dataSource,
+        schoolsService,
+        feeGenerationService,
+        {
+          isRestoring: async () => restoring,
+        } as any,
+        notifyQueue,
+      );
 
     // 00:30 on the due day, restore running: nothing billed, catch-up queued for the due day.
     await build(true).process({ data: undefined } as any);
@@ -341,18 +367,11 @@ describe('FeesDailyScheduler (integration)', () => {
       notify_families: true,
     });
 
-    const events: any[] = [];
-    const listener = (payload: any) => events.push(payload);
-    feesEvents.on(FEES_GENERATED_EVENT, listener);
-
+    notifyAdds.length = 0;
     const scheduler = buildScheduler();
     const today = todayInSchoolTz();
 
-    try {
-      await scheduler.process({ data: { tenantId: TENANT_ID } } as any);
-    } finally {
-      feesEvents.off(FEES_GENERATED_EVENT, listener);
-    }
+    await scheduler.process({ data: { tenantId: TENANT_ID } } as any);
 
     const bills = await studentFeeRepo.find();
     expect(bills).toHaveLength(2);
@@ -366,8 +385,10 @@ describe('FeesDailyScheduler (integration)', () => {
     // [CodeRabbit review, PR #801] notify event only fires after the
     // schedule's own transaction (bills + last_run_period update)
     // actually committed.
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({
+    expect(notifyAdds).toHaveLength(1);
+    expect(notifyAdds[0].name).toBe('fees.generated');
+    expect(notifyAdds[0].opts).toEqual({ jobId: `fees.generated-${batches[0].id}` });
+    expect(notifyAdds[0].data).toMatchObject({
       tenantId: TENANT_ID,
       feeGenerationId: batches[0].id,
     });
@@ -422,21 +443,14 @@ describe('FeesDailyScheduler (integration)', () => {
 
     await createDueSchedule({ fee_structure_ids: [structure.id], notify_families: false });
 
-    const events: any[] = [];
-    const listener = (payload: any) => events.push(payload);
-    feesEvents.on(FEES_GENERATED_EVENT, listener);
-
+    notifyAdds.length = 0;
     const scheduler = buildScheduler();
-    try {
-      await scheduler.process({ data: { tenantId: TENANT_ID } } as any);
-    } finally {
-      feesEvents.off(FEES_GENERATED_EVENT, listener);
-    }
+    await scheduler.process({ data: { tenantId: TENANT_ID } } as any);
 
     const batches = await feeGenerationRepo.find();
     expect(batches).toHaveLength(1);
     expect(batches[0].notify_families).toBe(false);
-    expect(events).toHaveLength(0);
+    expect(notifyAdds).toHaveLength(0);
   });
 
   it('skips a student excluded on the schedule', async () => {
@@ -554,6 +568,7 @@ describe('FeesDailyScheduler (integration)', () => {
         { findAll: async () => [school], findById: async () => school } as any,
         feeGenerationService,
         { isRestoring: async () => false } as any,
+        notifyQueue,
         withLateFees ? lateFeeService : undefined,
       ).process({ name, data: { tenantId: TENANT_ID, today } } as any);
     };
@@ -1004,6 +1019,7 @@ describe('FeesDailyScheduler (integration)', () => {
         // the fine sweep is under test here, so a stub is enough.
         {} as any,
         { isRestoring: async () => false } as any,
+        notifyQueue,
         undefined,
         sweep,
       );
@@ -1076,6 +1092,7 @@ describe('FeesDailyScheduler (integration)', () => {
         {} as any,
         // Real service over real Redis: reads the same key `acquire` wrote.
         new TenantStatusService(redis, {} as any),
+        notifyQueue,
         undefined,
         fineSweepService,
       );
