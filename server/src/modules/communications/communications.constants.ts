@@ -20,11 +20,13 @@ export const COMMUNICATIONS_QUEUE_JOB_OPTIONS = {
 export const FEE_NOTIFY_QUEUE = 'fee-notify';
 
 /**
- * Enqueue a fee-notify job after a commit. The `jobId` makes a replay a no-op while the job is
- * waiting, running or done (BullMQ rejects `:` in a two-part id, so `-` joins the name and the
- * key). BullMQ also ignores `add` while a FAILED job keeps that id (`removeOnFail: 1000`), so a
- * notice that used up its retries is dropped first and the replay re-sends it. A Redis outage is
- * logged, never thrown: the money is already committed.
+ * Enqueue a fee-notify job after a commit. The `jobId` makes a replay a no-op only while the job
+ * is waiting or running (BullMQ rejects `:` in a two-part id, so `-` joins the name and the key).
+ * A finished job is removed at once (`removeOnComplete`), so a later replay adds a new job; the
+ * handler's per-guardian `reference_key` check is what makes that repeat send nothing. BullMQ also
+ * ignores `add` while a FAILED job keeps that id (`removeOnFail: 1000`), so a notice that used up
+ * its retries is dropped first and the replay re-sends it. A Redis outage is logged, never
+ * thrown: the money is already committed.
  */
 export async function enqueueFeeNotify(
   queue: {
