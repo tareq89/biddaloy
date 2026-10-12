@@ -629,6 +629,9 @@ export interface ResolvedSlot {
   routine_slot_id: string;
   section_id: string;
   period_slot_id: string;
+  /** The times that apply on `date` (a special timing may differ from the weekly period). */
+  starts_at: string;
+  ends_at: string;
   weekday: number;
   subject_id: string;
   subject_name_en: string | null;

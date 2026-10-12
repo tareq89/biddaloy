@@ -239,6 +239,16 @@ describe('/portal/routine', () => {
     expect(screen.getByText('Period 1')).toBeTruthy();
   });
 
+  it("a slot's own starts_at wins over the period template time", async () => {
+    mockPublished([slot({ starts_at: '08:30:00', ends_at: '09:05:00' })]);
+
+    renderRoutine();
+
+    expect(await screen.findByText('8:30 AM')).toBeTruthy();
+    expect(screen.getByText('until 9:05 AM')).toBeTruthy();
+    expect(screen.queryByText('8:00 AM')).toBeNull();
+  });
+
   it('shows another day when its tab is selected', async () => {
     mockPublished([
       slot(),
