@@ -2059,6 +2059,46 @@ describe('workbook round trip (integration)', () => {
     // Guard first: an empty fixture makes every assertion below vacuous.
     assertFixtureIsMeaty((finishedA.row_counts ?? {}) as Record<string, number>);
 
+    // --- 1a. GAP-10: attribution columns resolve only through this school's
+    // users sheet. OPERATOR_ID is a real user with no membership in A, so
+    // their email is not in A's `users` sheet — it must fail validation.
+    {
+      const operatorEmail = `roundtrip-610-op-${OPERATOR_ID.slice(0, 8)}@test.com`;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(bufferA as any);
+      const headerOf = (sheet: ExcelJS.Worksheet, key: string): number =>
+        (sheet.getRow(1).values as unknown[]).map((v) => String(v ?? '')).indexOf(key);
+      const runs = wb.getWorksheet('promotion_runs')!;
+      const marks = wb.getWorksheet('marks')!;
+      const grids = wb.getWorksheet('mark_grids')!;
+      // The exported attribution cell is the user's key, not a uuid.
+      const approvedCol = headerOf(runs, 'approved_by');
+      expect(String(runs.getRow(2).getCell(approvedCol).value)).toContain('@');
+      // Key absent from the users sheet is required for the failure to hold.
+      const usersSheet = wb.getWorksheet('users')!;
+      const emailCol = headerOf(usersSheet, 'email');
+      for (let r = 2; r <= usersSheet.rowCount; r++) {
+        expect(String(usersSheet.getRow(r).getCell(emailCol).value)).not.toBe(operatorEmail);
+      }
+      runs.getRow(2).getCell(approvedCol).value = operatorEmail;
+      marks.getRow(2).getCell(headerOf(marks, 'entered_by')).value = operatorEmail;
+      grids.getRow(2).getCell(headerOf(grids, 'submitted_by')).value = operatorEmail;
+      const tampered = Buffer.from(await wb.xlsx.writeBuffer());
+      const verdict = await validationService.validate(tampered, TENANT_A, dataSource.manager);
+      const messages = verdict.errors
+        .filter((e) => e.severity === 'error')
+        .map((e) => `${e.tab}.${e.column}: ${e.message}`);
+      expect(messages).toContain(
+        `promotion_runs.approved_by: Column "approved_by": no user "${operatorEmail}" was found.`,
+      );
+      expect(messages).toContain(
+        `marks.entered_by: Column "entered_by": no user "${operatorEmail}" was found.`,
+      );
+      expect(messages).toContain(
+        `mark_grids.submitted_by: Column "submitted_by": no user "${operatorEmail}" was found.`,
+      );
+    }
+
     // --- 1b. Tear tenant A down -----------------------------------------
     // Not optional, and not a convenience: several natural keys the
     // workbook round-trips on carry **global** unique constraints, not

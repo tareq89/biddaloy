@@ -155,6 +155,9 @@ export class ExportProcessor extends WorkerHost {
           }
           return key;
         },
+        // Null (not a throw) when the id isn't in the tab, e.g. a departed
+        // teacher or SUPER_ADMIN missing from `users`. Nullable columns only.
+        tryKeyOf: (tab: string, id: string): string | null => keyMaps.get(tab)?.get(id) ?? null,
       };
 
       stage = 'READ';

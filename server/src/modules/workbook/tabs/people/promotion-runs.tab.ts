@@ -2,6 +2,7 @@ import type { EntityManager } from 'typeorm';
 import { PromotionRunStatus, PlacementAlgorithm } from '@biddaloy/shared';
 import { PromotionRun } from '../../../promotions/entities/promotion-run.entity';
 import { fromCell } from '../../codec/cell-format';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import type {
   ColumnSpec,
   ExportContext,
@@ -113,13 +114,15 @@ const columns: readonly ColumnSpec[] = [
   },
   {
     key: 'committed_by',
-    type: 'uuid',
-    label: { en: 'Committed by (user id)', bn: 'নিশ্চিতকারী (ইউজার আইডি)' },
+    type: 'ref',
+    ref: 'users',
+    label: { en: 'Committed by', bn: 'নিশ্চিতকারী' },
   },
   {
     key: 'approved_by',
-    type: 'uuid',
-    label: { en: 'Approved by (user id)', bn: 'অনুমোদনকারী (ইউজার আইডি)' },
+    type: 'ref',
+    ref: 'users',
+    label: { en: 'Approved by', bn: 'অনুমোদনকারী' },
   },
   {
     key: 'override_count',
@@ -129,9 +132,10 @@ const columns: readonly ColumnSpec[] = [
   },
   {
     key: 'created_by',
-    type: 'uuid',
+    type: 'ref',
+    ref: 'users',
     required: true,
-    label: { en: 'Created by (user id)', bn: 'তৈরিকারী (ইউজার আইডি)' },
+    label: { en: 'Created by', bn: 'তৈরিকারী' },
   },
 ];
 
@@ -146,16 +150,16 @@ const excluded: readonly string[] = [
   'target_academic_year_id', // exported instead as the `target_academic_year` ref column
   'target_class_id', // exported instead as the `target_class` ref column
   'exam_ids', // exported instead as the `exams` ref-list column
-  'committed_by_user_id', // exported instead as the `committed_by` uuid column, not resolved via a `users` ref: a user's own natural key round-trips through the `users` tab already, and this is just bookkeeping about *who*, not a relation another tab keys against
-  'approved_by_user_id', // same as committed_by_user_id
-  'created_by_user_id', // same as committed_by_user_id
+  'committed_by_user_id', // exported instead as the `committed_by` ref column (users)
+  'approved_by_user_id', // exported instead as the `approved_by` ref column (users)
+  'created_by_user_id', // exported instead as the `created_by` ref column (users)
 ];
 
 export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
   name: 'promotion_runs',
   entity: PromotionRun,
   excluded,
-  dependsOn: ['classes', 'academic_years', 'exams'],
+  dependsOn: ['classes', 'academic_years', 'exams', 'users'],
   columns,
   // The natural composite (source_class, target_academic_year) is only
   // DB-unique for status='COMMITTED' (a partial unique index) — two DRAFT
@@ -181,10 +185,16 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
       status: entity.status,
       refreshed_at: entity.refreshed_at,
       committed_at: entity.committed_at,
-      committed_by: entity.committed_by_user_id,
-      approved_by: entity.approved_by_user_id,
+      // Nullable: a departed or SUPER_ADMIN user is not in the users tab -> null.
+      committed_by: entity.committed_by_user_id
+        ? optionalKeyOf(ctx, 'users', entity.committed_by_user_id)
+        : null,
+      approved_by: entity.approved_by_user_id
+        ? optionalKeyOf(ctx, 'users', entity.approved_by_user_id)
+        : null,
       override_count: entity.override_count,
-      created_by: entity.created_by_user_id,
+      // Required, so strict: a run whose creator is not in the users tab fails export.
+      created_by: ctx.keyOf('users', entity.created_by_user_id),
     };
   },
 
@@ -300,6 +310,26 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
       examIds.push(resolved);
     }
 
+    const userId = (column: string): string | null => {
+      const key = (values[column] as string | null) ?? '';
+      if (!key) return null;
+      const resolved = ctx.ref('users', key);
+      if (!resolved) {
+        errors.push({
+          tab: 'promotion_runs',
+          row: rowNo,
+          column,
+          message: `Column "${column}": no user "${key}" was found.`,
+          severity: 'error',
+          value: key,
+        });
+      }
+      return resolved ?? null;
+    };
+    const committedById = userId('committed_by');
+    const approvedById = userId('approved_by');
+    const createdById = userId('created_by');
+
     if (errors.length > 0) return { errors };
 
     return {
@@ -314,10 +344,10 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
         status: values.status as PromotionRunStatus,
         refreshed_at: values.refreshed_at as string,
         committed_at: (values.committed_at as string | null) ?? null,
-        committed_by_user_id: (values.committed_by as string | null) ?? null,
-        approved_by_user_id: (values.approved_by as string | null) ?? null,
+        committed_by_user_id: committedById,
+        approved_by_user_id: approvedById,
         override_count: values.override_count as number,
-        created_by_user_id: values.created_by as string,
+        created_by_user_id: createdById as string,
         source_class_key: sourceClassKey,
         source_academic_year_key: sourceYearKey,
         target_academic_year_key: targetYearKey,
@@ -353,10 +383,17 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
     const rowCommittedAt = row.committed_at;
     const existingCommittedAt = existing.committed_at ? existing.committed_at.toISOString() : null;
     if (rowCommittedAt !== existingCommittedAt) changed.push('committed_at');
-    if ((row.committed_by_user_id ?? null) !== (existing.committed_by_user_id ?? null)) {
+    // null = the export could not name the user (departed / SUPER_ADMIN): keep existing.
+    if (
+      row.committed_by_user_id !== null &&
+      row.committed_by_user_id !== existing.committed_by_user_id
+    ) {
       changed.push('committed_by');
     }
-    if ((row.approved_by_user_id ?? null) !== (existing.approved_by_user_id ?? null)) {
+    if (
+      row.approved_by_user_id !== null &&
+      row.approved_by_user_id !== existing.approved_by_user_id
+    ) {
       changed.push('approved_by');
     }
     if (row.override_count !== existing.override_count) changed.push('override_count');
@@ -405,8 +442,8 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
     run.status = row.status;
     run.refreshed_at = new Date(row.refreshed_at);
     run.committed_at = row.committed_at ? new Date(row.committed_at) : null;
-    run.committed_by_user_id = row.committed_by_user_id;
-    run.approved_by_user_id = row.approved_by_user_id;
+    run.committed_by_user_id = row.committed_by_user_id ?? existing?.committed_by_user_id ?? null;
+    run.approved_by_user_id = row.approved_by_user_id ?? existing?.approved_by_user_id ?? null;
     run.override_count = row.override_count;
     run.created_by_user_id = row.created_by_user_id;
 
