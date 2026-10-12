@@ -1,16 +1,24 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
+  ParseEnumPipe,
   ParseUUIDPipe,
   Post,
   Query,
+  Req,
+  Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission } from '@biddaloy/shared';
+import type { Request, Response } from 'express';
+import { AdmissionDocumentType, Permission } from '@biddaloy/shared';
+import { requestContext } from '../../common/request-context.util';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -97,5 +105,34 @@ export class ApplicantReviewController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.review.reject(id, tenant.id, user.sub, dto.notes);
+  }
+
+  @Get(':id/documents/:type')
+  @ApiOperation({ summary: 'Stream one uploaded document. Tenant-scoped; 404 across tenants.' })
+  async document(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('type', new ParseEnumPipe(AdmissionDocumentType)) type: AdmissionDocumentType,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const object = await this.review.getDocument(id, type, tenant.id);
+    // Documents can be deleted, so never cache; nosniff + sandbox for uploaded content.
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+    res.setHeader('Content-Type', object.contentType ?? 'application/octet-stream');
+    return new StreamableFile(object.body);
+  }
+
+  @Delete(':id/documents')
+  @HttpCode(204)
+  @ApiOperation({ summary: "Delete a REJECTED applicant's uploaded documents (rows + storage)." })
+  async deleteDocuments(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ): Promise<void> {
+    await this.review.deleteDocuments(id, tenant.id, user.sub, requestContext(request));
   }
 }

@@ -484,4 +484,47 @@ describe('/admissions/applicants', () => {
     await waitFor(() => expect(current.status).toBe('REJECTED'));
     expect(admitCalls).toBe(0);
   });
+
+  it('Delete documents is shown only for REJECTED applicants', async () => {
+    mockIntakes();
+    const docs = [{ type: 'BIRTH_CERTIFICATE', storage_key: 'k1' }];
+    let current = { ...applicant, documents: docs, status: 'PENDING' };
+    let deleteCalls = 0;
+    server.use(
+      http.get('/api/v1/admission/applicants/:id', () =>
+        HttpResponse.json({ applicant: current, evaluations: [] }),
+      ),
+      http.delete('/api/v1/admission/applicants/:id/documents', () => {
+        deleteCalls += 1;
+        current = { ...current, documents: [] };
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const view = renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants/applicant-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Jane Doe' });
+    expect(screen.getByRole('button', { name: 'Open' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Delete documents' })).toBeNull();
+    view.unmount();
+
+    current = { ...current, status: 'REJECTED' };
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants/applicant-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Jane Doe' });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Delete documents' }));
+    const dialog = within(await screen.findByRole('alertdialog'));
+    await user.click(dialog.getByRole('button', { name: 'Delete documents' }));
+    await waitFor(() => expect(deleteCalls).toBe(1));
+    expect(await screen.findByText('No documents uploaded')).toBeTruthy();
+  });
 });

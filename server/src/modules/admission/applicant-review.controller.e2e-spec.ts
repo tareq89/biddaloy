@@ -7,6 +7,7 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { UserRole } from '@biddaloy/shared';
+import { StorageService } from '../storage/storage.service';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -142,5 +143,59 @@ describe('ApplicantReviewController guardian match (e2e)', () => {
     await as(http().post(`/api/v1/admission/applicants/${applicantId}/admit`), UserRole.ADMIN)
       .send({ guardian_choice: 'LINK_EXISTING' })
       .expect(400);
+  });
+
+  describe('[#2281] documents', () => {
+    const DOC_BYTES = Buffer.from('birth-certificate-bytes');
+    let key: string;
+
+    beforeEach(async () => {
+      key = `tenants/${SEED_TENANT_ID}/admission-documents/e2e-${Date.now()}`;
+      await app.get(StorageService).put(key, DOC_BYTES, 'image/jpeg');
+      await ds.query(`UPDATE admission_applicants SET documents = $2::jsonb WHERE id = $1`, [
+        applicantId,
+        JSON.stringify([{ type: 'BIRTH_CERTIFICATE', storage_key: key }]),
+      ]);
+    });
+
+    const get = (role: UserRole, tenant = SEED_TENANT_ID, type = 'BIRTH_CERTIFICATE') =>
+      as(http().get(`/api/v1/admission/applicants/${applicantId}/documents/${type}`), role, tenant);
+
+    it('ADMIN opens the uploaded document (same bytes, no-store)', async () => {
+      const res = await get(UserRole.ADMIN).buffer(true).expect(200);
+      expect(Buffer.from(res.body).equals(DOC_BYTES)).toBe(true);
+      expect(res.headers['cache-control']).toBe('private, no-store');
+    });
+
+    it("tenant B's admin gets 404 for tenant A's applicant", async () => {
+      await get(UserRole.ADMIN, OTHER_TENANT_ID).expect(404);
+    });
+
+    it('TEACHER gets 403', async () => {
+      await get(UserRole.TEACHER).expect(403);
+    });
+
+    it('unknown type is 400', async () => {
+      await get(UserRole.ADMIN, SEED_TENANT_ID, 'PASSPORT').expect(400);
+    });
+
+    it('DELETE on a PENDING applicant is 409', async () => {
+      const res = await as(
+        http().delete(`/api/v1/admission/applicants/${applicantId}/documents`),
+        UserRole.ADMIN,
+      ).expect(409);
+      expect(res.body.details.code).toBe('APPLICANT_NOT_REJECTED');
+    });
+
+    it('DELETE on a REJECTED applicant is 204, then the document is 404', async () => {
+      await ds.query(`UPDATE admission_applicants SET status = 'REJECTED' WHERE id = $1`, [
+        applicantId,
+      ]);
+      await as(
+        http().delete(`/api/v1/admission/applicants/${applicantId}/documents`),
+        UserRole.ADMIN,
+      ).expect(204);
+      await get(UserRole.ADMIN).expect(404);
+    });
   });
 });

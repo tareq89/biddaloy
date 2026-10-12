@@ -6,6 +6,7 @@ import { AdmissionApplicantStatus } from '@biddaloy/shared';
 import {
   Button,
   Card,
+  ConfirmDialog,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -30,6 +31,8 @@ import { APPLICANT_STATUS } from './applicantStatus';
 import { EvaluateApplicantForm } from './EvaluateApplicantForm';
 import {
   useApplicant,
+  openApplicantDocument,
+  useDeleteApplicantDocuments,
   useRejectApplicant,
   type EvaluateApplicantInput,
 } from './hooks/useApplicants';
@@ -48,6 +51,9 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
   const regionConfig = useRegionConfig();
   const intakeQuery = useIntake(applicantQuery.data?.applicant.intake_id);
   const rejectApplicant = useRejectApplicant(applicantId);
+  const deleteDocuments = useDeleteApplicantDocuments(applicantId);
+  const [deleteDocsOpen, setDeleteDocsOpen] = React.useState(false);
+  const [openFailed, setOpenFailed] = React.useState(false);
 
   const [admitOpen, setAdmitOpen] = React.useState(false);
   const [evaluateOpen, setEvaluateOpen] = React.useState(false);
@@ -173,12 +179,6 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
               {applicant.documents.length === 0 ? (
                 <p className="mt-2 text-text-secondary">{t('detail.noDocuments')}</p>
               ) : (
-                // ponytail: no storage-serving endpoint exists yet for
-                // admission documents (checked `server/src/modules/admission`
-                // and `homework-submission.controller.ts` for a pattern to
-                // reuse — neither has one), so this lists what was uploaded
-                // without a preview/download link. Add the link once a
-                // signed-URL route for `storage_key` ships.
                 <ul className="mt-2 divide-y divide-border-subtle">
                   {applicant.documents.map((document) => {
                     const Icon = document.type === 'PHOTO' ? ImageIcon : FileTextIcon;
@@ -192,14 +192,62 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
                             defaultValue: t('detail.notProvided'),
                           })}
                         </span>
-                        <span className="text-text-secondary">{t('detail.uploaded')}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setOpenFailed(false);
+                            openApplicantDocument(applicant.id, document.type).catch(() =>
+                              setOpenFailed(true),
+                            );
+                          }}
+                        >
+                          {t('detail.openDocument')}
+                        </Button>
                       </li>
                     );
                   })}
                 </ul>
               )}
+              {openFailed ? (
+                <p role="alert" className="mt-2 text-danger">
+                  {t('detail.openDocumentError')}
+                </p>
+              ) : null}
+              {applicant.status === AdmissionApplicantStatus.REJECTED &&
+              applicant.documents.length > 0 ? (
+                <Button
+                  variant="danger"
+                  className="mt-3"
+                  onClick={() => {
+                    deleteDocuments.reset();
+                    setDeleteDocsOpen(true);
+                  }}
+                >
+                  {t('detail.deleteDocuments')}
+                </Button>
+              ) : null}
             </Card>
           </div>
+
+          <ConfirmDialog
+            open={deleteDocsOpen}
+            onOpenChange={(next) => {
+              if (!deleteDocuments.isPending) setDeleteDocsOpen(next);
+            }}
+            title={t('detail.deleteDocumentsTitle')}
+            description={
+              deleteDocuments.isError
+                ? `${t('detail.deleteDocumentsDescription')} ${t('detail.deleteDocumentsError')}`
+                : t('detail.deleteDocumentsDescription')
+            }
+            confirmLabel={t('detail.deleteDocuments')}
+            tone="danger"
+            busy={deleteDocuments.isPending}
+            onConfirm={() =>
+              deleteDocuments.mutate(undefined, { onSuccess: () => setDeleteDocsOpen(false) })
+            }
+          />
 
           <Card padded>
             <h2 className="text-h2">{t('detail.sectionHistory')}</h2>

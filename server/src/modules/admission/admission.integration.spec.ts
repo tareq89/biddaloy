@@ -482,4 +482,32 @@ describe('Admission flow (integration)', () => {
       expect(match.guardian).toBeNull();
     });
   });
+
+  it('deleteDocuments on a REJECTED applicant empties documents and writes one audit row without storage keys', async () => {
+    const intakeId = await createIntake();
+    const key = `tenants/${SEED_TENANT_ID}/admission-documents/integ-doc`;
+    const [row] = await dataSource.query(
+      `INSERT INTO admission_applicants
+         (id, tenant_id, intake_id, reference_number, applicant_name, date_of_birth, gender, guardian_name, guardian_phone, documents, status, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, 'ADM-2026-DOCDEL', 'Doc Child', '2018-01-01', 'MALE', 'G', '8801700000977', $3::jsonb, 'REJECTED', NOW(), NOW())
+       RETURNING id`,
+      [SEED_TENANT_ID, intakeId, JSON.stringify([{ type: 'PHOTO', storage_key: key }])],
+    );
+    await reviewService.deleteDocuments(row.id, SEED_TENANT_ID, SEED_ADMIN_USER_ID, {
+      ip: null,
+      userAgent: null,
+    });
+    const [after] = await dataSource.query(
+      `SELECT documents FROM admission_applicants WHERE id = $1`,
+      [row.id],
+    );
+    expect(after.documents).toEqual([]);
+    const audits = await dataSource.query(
+      `SELECT old_values FROM audit_logs WHERE entity_type = 'AdmissionApplicantDocuments' AND entity_id = $1`,
+      [row.id],
+    );
+    expect(audits).toHaveLength(1);
+    expect(audits[0].old_values).toEqual({ types: ['PHOTO'] });
+    expect(JSON.stringify(audits[0].old_values)).not.toContain(key);
+  });
 });
