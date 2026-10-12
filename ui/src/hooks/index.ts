@@ -1535,6 +1535,7 @@ export {
   type CreateStudentNoteInput,
   type CreateStudentPublicExamInput,
   type LeaveStudentInput,
+  type LeaveStudentResult,
   type ReadmitStudentInput,
   type SavePublicExamInput,
   type StudentLifecycleEvent,

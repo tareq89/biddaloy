@@ -14,7 +14,12 @@
     "reasonLabel": "Reason",
     "remarkLabel": "Remark (optional)",
     "confirm": "Record leaving",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "result": {
+      "title": "Bills after the leave date",
+      "description": "These bills stay as dues until you write them off.",
+      "openFees": "Open Fees tab"
+    }
   },
   "readmit": {
     "title": "Readmit student",
