@@ -14,6 +14,7 @@ function fakeQueryBuilder(result: { many?: unknown[]; one?: unknown | null; raw?
     innerJoin: vi.fn().mockReturnThis(),
     distinct: vi.fn().mockReturnThis(),
     take: vi.fn().mockReturnThis(),
+    withDeleted: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
     addSelect: vi.fn().mockReturnThis(),
     groupBy: vi.fn().mockReturnThis(),
@@ -94,7 +95,13 @@ describe('GuardianProvisioningService', () => {
 
       expect(result.total).toBe(1);
       expect(result.to_invite).toEqual([
-        { guardian_id: 'g1', full_name: 'Guardian One', channel: 'SMS', user_exists: false },
+        {
+          guardian_id: 'g1',
+          full_name: 'Guardian One',
+          channel: 'SMS',
+          user_exists: false,
+          join_request: false,
+        },
       ]);
       expect(result.skipped).toEqual([]);
     });
@@ -145,7 +152,13 @@ describe('GuardianProvisioningService', () => {
       const result = await service.preview(TENANT, { all: true });
 
       expect(result.to_invite).toEqual([
-        { guardian_id: 'g1', full_name: 'Guardian One', channel: 'SMS', user_exists: true },
+        {
+          guardian_id: 'g1',
+          full_name: 'Guardian One',
+          channel: 'SMS',
+          user_exists: true,
+          join_request: true,
+        },
       ]);
       // Live rows only: a soft-deleted (former) membership does not count.
       expect(userRepo.manager.exists).toHaveBeenCalledWith(UserTenant, {
@@ -163,7 +176,13 @@ describe('GuardianProvisioningService', () => {
       const result = await service.preview(TENANT, { all: true });
 
       expect(result.to_invite).toEqual([
-        { guardian_id: 'g1', full_name: 'Guardian One', channel: 'SMS', user_exists: true },
+        {
+          guardian_id: 'g1',
+          full_name: 'Guardian One',
+          channel: 'SMS',
+          user_exists: true,
+          join_request: true,
+        },
       ]);
     });
 
@@ -233,15 +252,16 @@ describe('GuardianProvisioningService', () => {
         fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
       );
       // The newest JOIN_SCHOOL row is an ADMIN one; there is no PARENT one.
-      authTokens.latest.mockImplementation(async (_u: string, purpose: string, _t, role?: string) =>
-        purpose === 'JOIN_SCHOOL' && role !== 'PARENT'
-          ? {
-              consumed_at: null,
-              revoked_at: null,
-              expires_at: new Date(Date.now() + 60_000),
-              metadata: { role: 'ADMIN' },
-            }
-          : null,
+      authTokens.latest.mockImplementation(
+        async (_u: string, purpose: string, _t, role?: string) =>
+          purpose === 'JOIN_SCHOOL' && role !== 'PARENT'
+            ? {
+                consumed_at: null,
+                revoked_at: null,
+                expires_at: new Date(Date.now() + 60_000),
+                metadata: { role: 'ADMIN' },
+              }
+            : null,
       );
 
       const result = await service.preview(TENANT, { all: true });
@@ -258,13 +278,18 @@ describe('GuardianProvisioningService', () => {
       userRepo.createQueryBuilder.mockReturnValue(
         fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
       );
-      const live = { consumed_at: null, revoked_at: null, expires_at: new Date(Date.now() + 60_000) };
-      authTokens.latest.mockImplementation(async (_u: string, purpose: string, _t, role?: string) =>
-        purpose !== 'JOIN_SCHOOL'
-          ? null
-          : role === 'PARENT'
-            ? { ...live, metadata: { role: 'PARENT' } }
-            : { ...live, metadata: { role: 'ADMIN' } },
+      const live = {
+        consumed_at: null,
+        revoked_at: null,
+        expires_at: new Date(Date.now() + 60_000),
+      };
+      authTokens.latest.mockImplementation(
+        async (_u: string, purpose: string, _t, role?: string) =>
+          purpose !== 'JOIN_SCHOOL'
+            ? null
+            : role === 'PARENT'
+              ? { ...live, metadata: { role: 'PARENT' } }
+              : { ...live, metadata: { role: 'ADMIN' } },
       );
 
       const result = await service.preview(TENANT, { all: true });
@@ -313,7 +338,49 @@ describe('GuardianProvisioningService', () => {
       const result = await service.preview(TENANT, { all: true });
 
       expect(result.to_invite).toEqual([
-        { guardian_id: 'g1', full_name: 'Guardian One', channel: 'SMS', user_exists: true },
+        {
+          guardian_id: 'g1',
+          full_name: 'Guardian One',
+          channel: 'SMS',
+          user_exists: true,
+          join_request: true,
+        },
+      ]);
+    });
+
+    it('is a real invite (not a join request) for a passwordless account with a former row here', async () => {
+      const guardian = makeGuardian({ user_id: 'u1' });
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.findOne.mockResolvedValue({ id: 'u1', password_hash: null });
+      // A (soft-deleted) membership row exists: the processor revives it and sends the INVITE.
+      userRepo.manager.exists.mockImplementation(async (entity: unknown) => entity === UserTenant);
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.to_invite).toEqual([
+        {
+          guardian_id: 'g1',
+          full_name: 'Guardian One',
+          channel: 'SMS',
+          user_exists: true,
+          join_request: false,
+        },
+      ]);
+    });
+
+    it('skips with contact_in_use when a soft-deleted account still owns the contact', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      const verifiedQb = fakeQueryBuilder({ one: null });
+      const holderQb = fakeQueryBuilder({ one: { id: 'u-deleted' } });
+      userRepo.createQueryBuilder.mockReturnValueOnce(verifiedQb).mockReturnValueOnce(holderQb);
+
+      const result = await service.preview(TENANT, { all: true });
+
+      // The email/phone unique index ignores soft-deletion, so the insert would hit 23505.
+      expect(holderQb.withDeleted).toHaveBeenCalled();
+      expect(result.skipped).toEqual([
+        { guardian_id: 'g1', full_name: 'Guardian One', reason: 'contact_in_use' },
       ]);
     });
 
@@ -364,6 +431,30 @@ describe('GuardianProvisioningService', () => {
       );
       expect(result.queued).toBe(2);
       expect(result.skipped).toEqual([]);
+    });
+  });
+
+  describe('dispatch with join requests', () => {
+    it('still enqueues a join-request guardian but does not count it as queued', async () => {
+      const guardian = makeGuardian({ user_id: 'u1' });
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      // Verified account with no membership row here: the processor files a join request
+      // and writes no log row, so batchStatus could never finish counting it.
+      userRepo.findOne.mockResolvedValue({ id: 'u1', password_hash: null });
+
+      const result = await service.dispatch({
+        tenantId: TENANT,
+        actorUserId: 'admin-1',
+        selection: { all: true },
+      });
+
+      expect(queue.add).toHaveBeenCalledTimes(1);
+      expect(result.queued).toBe(0);
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          new_values: expect.objectContaining({ queued: 0, requested: 1 }),
+        }),
+      );
     });
   });
 

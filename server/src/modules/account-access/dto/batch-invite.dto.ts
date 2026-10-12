@@ -37,6 +37,8 @@ export class InvitePreviewEntryDto {
   @ApiProperty() full_name: string;
   @ApiProperty({ enum: ['SMS', 'EMAIL'] }) channel: 'SMS' | 'EMAIL';
   @ApiProperty() user_exists: boolean;
+  /** True when the processor files a join request instead of sending an invite. */
+  @ApiProperty() join_request: boolean;
 }
 
 export class InviteSkippedEntryDto {

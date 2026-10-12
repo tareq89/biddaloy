@@ -10844,6 +10844,7 @@ export interface components {
             /** @enum {string} */
             channel: "SMS" | "EMAIL";
             user_exists: boolean;
+            join_request: boolean;
         };
         InviteSkippedEntryDto: {
             guardian_id: string;
