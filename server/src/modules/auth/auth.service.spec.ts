@@ -247,6 +247,28 @@ describe('AuthService', () => {
       });
     });
 
+    // #2297: login/activation/reset share startSession, which also writes the
+    // refresh token before signing. iat_ms must predate the membership read.
+    it('stamps iat_ms with the time before the membership read', async () => {
+      let now = 1_000_000;
+      const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+      mockUserTenantRepo.find.mockImplementation(async () => {
+        now += 5_000;
+        return mockMemberships;
+      });
+      mockRefreshTokens.issueForUser.mockImplementation(async () => {
+        now += 5_000;
+        return mockIssuedRefreshToken;
+      });
+
+      await service.startSession(mockUser, { ip: null, userAgent: null });
+
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ iat_ms: 1_000_000 }),
+      );
+      nowSpy.mockRestore();
+    });
+
     // #356: `memberships[0]` is treated as "the default tenant" by both
     // `SchoolPicker` (it preselects it) and the Lighthouse student-URL
     // resolver. Unordered, Postgres was free to hand those two different
@@ -543,6 +565,30 @@ describe('AuthService', () => {
         { tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' },
       ]);
       expect(result.refreshToken).toBe(mockIssuedRefreshToken);
+    });
+
+    // #2297: the per-user cut-off refuses tokens with iat_ms <= cut-off. iat_ms
+    // must be the time BEFORE memberships were read, otherwise a refresh that
+    // read a just-removed school, then signed after the cut-off, would survive.
+    it('stamps iat_ms with the time before the membership read', async () => {
+      let now = 1_000_000;
+      const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+      mockRefreshTokens.rotate.mockResolvedValue({
+        userId: 'user-1',
+        refreshToken: mockIssuedRefreshToken,
+      });
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      mockUserTenantRepo.find.mockImplementation(async () => {
+        now += 5_000; // the removal's cut-off lands while this read is in flight
+        return mockMemberships;
+      });
+
+      await service.refresh('token-id.secret', { ip: null, userAgent: null });
+
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ iat_ms: 1_000_000 }),
+      );
+      nowSpy.mockRestore();
     });
 
     it('throws when the rotated token belongs to a user that no longer exists', async () => {
