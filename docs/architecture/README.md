@@ -39,6 +39,7 @@ at hand instead of loading the whole set.
 | [22-onboarding.md](22-onboarding.md) | Working on `/register`, the welcome wizard and setup checklist, the free trial and seat limit, first-password, or Google sign-in |
 | [23-study-plans.md](23-study-plans.md) | Working on `modules/study-plans` — lesson plans per section and subject, marking periods taught, how expected dates are computed, the study-plan template library and CSV, or the late-marking escalation |
 | [24-applications.md](24-applications.md) | Working on `modules/applications` — any application type (leave, fee waiver, certificates, general letters), who decides it, what approval does, the inbox/pending count, or the portal application pages |
+| [25-domain-invariants.md](25-domain-invariants.md) | Planning or reviewing any change to money, enrolment, results, attendance, tenancy or permissions — the rules that must always hold, and the code that enforces each one |
 | [23-attention.md](23-attention.md) | Working on the attention bar/modal, alert rules, the to-do/history page, manual alerts, the alerts report, push mute/quiet hours, or the guardian SMS fallback |
 
 For practical "how do I run/develop/test this" instructions, see the root
