@@ -46,7 +46,20 @@ export const staffIncidentsTab = createRefChildTab<StaffIncident>({
       required: true,
       label: { en: 'Created at', bn: 'তৈরির সময়' },
     },
+    {
+      key: 'withdrawn_at',
+      type: 'datetime',
+      label: { en: 'Withdrawn at', bn: 'প্রত্যাহারের সময়' },
+    },
+    {
+      key: 'withdraw_reason',
+      type: 'string',
+      label: { en: 'Withdraw reason', bn: 'প্রত্যাহারের কারণ' },
+    },
   ],
+  // The withdrawing user is not backed up (the FK is nullable, ON DELETE SET NULL);
+  // when and why a withdrawn incident was withdrawn are.
+  excluded: ['withdrawn_by_user_id'],
   naturalKey: ['staff', 'occurred_on', 'type', 'created_at'],
 });
 
