@@ -89,7 +89,7 @@
       "confirm": "Finalise",
       "cancel": "Cancel"
     },
-    "cohortChangedPrompt": "Some students left or joined this class since the list was last refreshed. Press Refresh, check the list, then commit again.",
+    "cohortChangedPrompt": "Some students left or joined this class since the list was last refreshed. Press Update from results, check the list, then commit again.",
     "commitFailed": "Could not finalise this list. Please try again.",
     "saveFailed": "Could not save this change. Please try again.",
     "refreshFailed": "Could not refresh this list. Please try again.",

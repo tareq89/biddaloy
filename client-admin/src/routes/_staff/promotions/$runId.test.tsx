@@ -394,9 +394,11 @@ describe('/promotions/$runId', () => {
     );
   });
 
-  it('tells the user to press Refresh when commit returns COHORT_CHANGED', async () => {
+  it('tells the user to press Update from results when commit returns COHORT_CHANGED', async () => {
     await commitAndGetConflict('COHORT_CHANGED');
-    await screen.findByText(/Press Refresh, check the list, then commit again/);
+    await screen.findByText(/Press Update from results, check the list, then commit again/);
+    // The toolbar button plus the one the banner now carries.
+    expect(screen.getAllByRole('button', { name: 'Update from results' })).toHaveLength(2);
     expect(screen.queryByText('Results changed since this preview — refresh')).toBeNull();
   });
 

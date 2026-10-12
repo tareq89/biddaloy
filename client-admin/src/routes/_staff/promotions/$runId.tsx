@@ -438,7 +438,7 @@ function PromotionRunPage() {
           setStaleBanner(true);
         } else if (code === 'COHORT_CHANGED') {
           // Refresh re-members the cohort (drops leavers, adds joiners), so
-          // the banner points to Refresh; then the user commits again.
+          // the banner carries the Refresh button; then the user commits again.
           setCommitOpen(false);
           setCohortChangedBanner(true);
         } else if (error instanceof ApiError && error.statusCode !== 403) {
@@ -452,6 +452,7 @@ function PromotionRunPage() {
     try {
       await refreshRun.mutateAsync();
       setStaleBanner(false);
+      setCohortChangedBanner(false);
     } catch (error) {
       if (!(error instanceof ApiError && error.statusCode === 403)) {
         toast.error(t('grid.refreshFailed'));
@@ -619,7 +620,21 @@ function PromotionRunPage() {
           />
         )}
 
-        {cohortChangedBanner && !readOnly && <AlertCard title={t('grid.cohortChangedPrompt')} />}
+        {cohortChangedBanner && !readOnly && (
+          <AlertCard
+            title={t('grid.cohortChangedPrompt')}
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                loading={refreshRun.isPending}
+                onClick={() => void refresh()}
+              >
+                {t('grid.refresh')}
+              </Button>
+            }
+          />
+        )}
 
         {isMobile ? (
           <PromotionEntryCard
