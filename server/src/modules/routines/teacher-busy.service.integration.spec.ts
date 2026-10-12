@@ -81,6 +81,9 @@ describe('TeacherBusyService (integration)', () => {
   const slot = (periodId: string, teacherIds: string[], extra: object = {}) => ({
     routine_slot_id: randomUUID(),
     period_slot_id: periodId,
+    // The resolver's dated times; the seeded period's own unless a test moves them.
+    starts_at: '08:00:00',
+    ends_at: '08:40:00',
     teacher_ids: teacherIds,
     cancelled: false,
     ...extra,
@@ -122,6 +125,20 @@ describe('TeacherBusyService (integration)', () => {
       from: '08:00',
       to: '08:40',
     });
+  });
+
+  // #2290: a special timing moved the period to 09:00-09:40 on this date; the
+  // clash check uses the slot's dated times, not the 08:00-08:40 template.
+  it('a special timing moves the period: clash checked against the dated times', async () => {
+    resolved[A] = [
+      slot(periodSlotId, [teacher.id], { starts_at: '09:00:00', ends_at: '09:40:00' }),
+    ];
+    expect(await ask({ from: '09:10', to: '09:30' })).toMatchObject({
+      kind: 'TEACHING',
+      from: '09:00',
+      to: '09:40',
+    });
+    expect(await ask({ from: '08:00', to: '08:40' })).toBeNull();
   });
 
   it('a non-overlapping period -> null', async () => {

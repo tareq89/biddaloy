@@ -79,14 +79,27 @@ export class RuleContextService {
     };
   }
 
-  /** Inside [first period start - lead, last period end]; falls back to [dailyAt, eveningAt]. */
+  /** Inside [first period start - lead, last period end]; falls back to [dailyAt, eveningAt].
+   * A special timing covering today (#2290) can only widen the window. */
   async isWithinSchoolHours(ctx: RuleContext): Promise<boolean> {
-    const rows: { start: string | null; end: string | null }[] = await this.dataSource.query(
-      `SELECT to_char(min(starts_at),'HH24:MI') AS start, to_char(max(ends_at),'HH24:MI') AS "end"
-         FROM period_slots WHERE tenant_id = $1`,
-      [ctx.tenantId],
-    );
-    const { start, end } = rows[0] ?? { start: null, end: null };
+    const [rows, settings] = await Promise.all([
+      this.dataSource.query(
+        `SELECT to_char(min(starts_at),'HH24:MI') AS start, to_char(max(ends_at),'HH24:MI') AS "end"
+           FROM period_slots WHERE tenant_id = $1`,
+        [ctx.tenantId],
+      ) as Promise<{ start: string | null; end: string | null }[]>,
+      this.schools.getResolvedSettings(ctx.tenantId),
+    ]);
+    let { start, end } = rows[0] ?? { start: null, end: null };
+    if (start && end) {
+      for (const t of settings.attendance?.specialTimings ?? []) {
+        if (t.from > ctx.localDate || ctx.localDate > t.to) continue;
+        for (const p of t.periods) {
+          if (p.startsAt < start) start = p.startsAt;
+          if (p.endsAt > end) end = p.endsAt;
+        }
+      }
+    }
     const [from, to] =
       start && end
         ? [minusMinutes(start, ctx.settings.classStartingLeadMinutes), end]

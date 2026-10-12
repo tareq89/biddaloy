@@ -66,17 +66,25 @@ function fixture(f: Fixture = {}) {
     familyUsersForStudents,
   };
 }
+// The resolver's dated `HH:mm:ss` times for each period of the day.
+const TIMES: Record<string, [string, string]> = {
+  p1: ['09:00:00', '09:40:00'],
+  p2: ['10:00:00', '10:40:00'],
+  p3: ['13:00:00', '13:30:00'],
+};
 const mathSlot = (periodSlotId: string, cancelled = false) => ({
   section_id: SEC,
   subject_id: MATH,
   period_slot_id: periodSlotId,
+  starts_at: TIMES[periodSlotId][0],
+  ends_at: TIMES[periodSlotId][1],
+  kind: 'CLASS',
   cancelled,
 });
-const periods = [
-  { id: 'p1', start: '09:00', end: '09:40' },
-  { id: 'p2', start: '10:00', end: '10:40' },
-  { id: 'p3', start: '13:00', end: '13:30' },
-];
+/** Another section's last period: the school's last bell (13:30). */
+const lastBell = { ...mathSlot('p3'), section_id: 'other-sec', subject_id: 'art' };
+/** The template's last CLASS period end, the fallback on a day with no slots. */
+const periods = [{ end: '13:30' }];
 const TEACHER_ROW = { sectionId: SEC, subjectId: MATH, userId: 'teacher-1' };
 const notSubmitted = (f: ReturnType<typeof fixture>) =>
   new HomeworkNotSubmittedRule(f.ds as never, f.resolve as never, f.family as never);
@@ -109,7 +117,7 @@ describe('HomeworkNotSubmittedRule', () => {
     fixture({
       notSubmitted: [row('s1'), row('s2')],
       periods,
-      slots: [mathSlot('p2')],
+      slots: [mathSlot('p2'), lastBell],
       teachers: [TEACHER_ROW],
       family: [PARENT('s1'), STUDENT('s1'), PARENT('s2')],
       ...over,
@@ -136,9 +144,21 @@ describe('HomeworkNotSubmittedRule', () => {
   });
 
   it('a cancelled Math period does not set the trigger; the section last period end does', async () => {
-    const f = base({ slots: [mathSlot('p1', true), { ...mathSlot('p2'), subject_id: 'art' }] });
+    const f = base({
+      slots: [mathSlot('p1', true), { ...mathSlot('p2'), subject_id: 'art' }, lastBell],
+    });
     expect(await notSubmitted(f).evaluate(ctx({ localTime: '10:39' }))).toEqual([]);
     expect(await notSubmitted(f).evaluate(ctx({ localTime: '10:40' }))).not.toEqual([]);
+  });
+
+  // #2290: a special timing moves period 2 to 10:30; the trigger follows the
+  // slot's dated time, not the 10:00 template time.
+  it('a special timing moves the trigger to the dated period start', async () => {
+    const f = base({
+      slots: [{ ...mathSlot('p2'), starts_at: '10:30:00', ends_at: '11:05:00' }, lastBell],
+    });
+    expect(await notSubmitted(f).evaluate(ctx({ localTime: '10:29' }))).toEqual([]);
+    expect(await notSubmitted(f).evaluate(ctx({ localTime: '10:30' }))).not.toEqual([]);
   });
 
   // FAST sweeps stop at the school's last period end (13:30) and tick every 5 min,
