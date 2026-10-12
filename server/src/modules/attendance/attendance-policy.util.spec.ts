@@ -249,4 +249,31 @@ describe('special timings', () => {
       ends_at: '08:45:00',
     });
   });
+
+  // Business-critical: in a two-shift school an "all shifts" Ramadan entry
+  // (morning clock times) must not mark an on-time day-shift scan ABSENT.
+  it('all-shifts entry does not override a shift that has its own shiftTimes', () => {
+    const twoShift: AttendancePolicySettings = {
+      ...POLICY,
+      shiftTimes: [{ shiftId: SHIFT, lateAfter: '12:15', absentAfter: '14:00' }],
+      specialTimings: [all],
+    };
+    expect(specialTimingOn(twoShift, SHIFT, '2027-02-20')).toBeNull();
+    expect(policyForShift(twoShift, SHIFT, '2027-02-20')).toMatchObject({
+      lateAfter: '12:15',
+      absentAfter: '14:00',
+    });
+    expect(periodTimesOn(twoShift, period, '2027-02-20')).toEqual({
+      starts_at: '08:00:00',
+      ends_at: '08:45:00',
+    });
+    // A day-shift scan at 12:20 local is LATE, not ABSENT.
+    const p = policyForShift(twoShift, SHIFT, '2027-02-20');
+    expect(
+      classifyCheckIn(new Date('2027-02-20T06:20:00Z'), '2027-02-20', p, 'Asia/Dhaka').status,
+    ).toBe(AttendanceStatus.LATE);
+    // Shifts without their own times, and staff (null), still take the entry.
+    expect(specialTimingOn(twoShift, 'other', '2027-02-20')).toBe(all);
+    expect(specialTimingOn(twoShift, null, '2027-02-20')).toBe(all);
+  });
 });
