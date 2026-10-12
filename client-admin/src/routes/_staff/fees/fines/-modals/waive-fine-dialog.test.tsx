@@ -59,6 +59,19 @@ describe('WaiveFineDialog', () => {
     expect(confirmButton.disabled).toBe(true);
   });
 
+  // The server caps the reason at 280 (`WaiveFineDto`); a longer one would 400.
+  it('caps the reason at the server limit of 280 characters', async () => {
+    server.use(
+      http.get('/api/v1/fees/fines', () =>
+        HttpResponse.json({ items: [fineFactory({ id: 'fine-1' })], total: 1, totals: {} }),
+      ),
+    );
+    await renderDialog({ fineId: 'fine-1' });
+
+    const reason = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Reason' });
+    expect(reason.maxLength).toBe(280);
+  });
+
   it('retries after a 403 APPROVAL_REQUIRED with a step-up token', async () => {
     const fine = fineFactory({
       id: 'fine-1',
