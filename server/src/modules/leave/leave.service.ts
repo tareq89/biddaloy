@@ -269,6 +269,8 @@ export class LeaveService {
           startDate > from ? startDate : from,
           endDate < to ? endDate : to,
         );
+        // A year the leave takes no working day from cannot be over-drawn by it.
+        if (requested === 0) continue;
         const used = await this.approvedDaysInRange(
           recordRepo,
           tenantId,
