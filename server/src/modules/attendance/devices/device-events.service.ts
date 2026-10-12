@@ -109,13 +109,19 @@ export class DeviceEventsService {
 
   async heartbeat(device: AttendanceDevice): Promise<DeviceHeartbeatResponseDto> {
     const settings = await this.schoolsService.getResolvedSettings(device.tenant_id);
-    const policy = resolveAttendancePolicy(settings);
     const timezone = settings.region?.timezone ?? 'UTC';
+    const now = new Date();
+    // Today's tenant-wide cut-offs, a covering special timing applied (#2290).
+    const policy = policyForShift(
+      resolveAttendancePolicy(settings),
+      null,
+      localDate(now, timezone),
+    );
 
-    await this.deviceRepo.update(device.id, { last_seen_at: new Date() });
+    await this.deviceRepo.update(device.id, { last_seen_at: now });
 
     return {
-      server_time: new Date().toISOString(),
+      server_time: now.toISOString(),
       tenant_timezone: timezone,
       policy: { late_after: policy.lateAfter, absent_after: policy.absentAfter },
     };

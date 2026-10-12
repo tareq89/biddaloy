@@ -297,6 +297,13 @@ describe('DeviceEventsService (integration)', () => {
       ]);
       expect(r.results[0].status).toBe(AttendanceStatus.LATE);
     });
+
+    // The device must see the same cut-offs the server classifies against.
+    it("heartbeat sends today's special cut-offs", async () => {
+      await withSpecial(TODAY(), TODAY());
+      const hb = await service.heartbeat(await createActiveDevice());
+      expect(hb.policy).toEqual({ late_after: '08:45', absent_after: '09:30' });
+    });
   });
 
   describe('shift-aware lateness [41.0]', () => {
