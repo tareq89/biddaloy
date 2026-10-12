@@ -45,6 +45,22 @@ const BIRTH_REG_NO_INDEX = 'IDX_students_tenant_birth_reg_no';
 /** Unique (class_section_id, roll_number); counts soft-deleted rows too. */
 const ROLL_NUMBER_INDEX = 'IDX_ca01941430b7d99b013e6c6948';
 
+/** PUB-10 / D16: a guardian unlink revokes every live share link for the student's invoices.
+ * The token row has no recipient, so all of the student's links go; staff re-share to the remaining guardian. */
+async function revokeInvoiceShareLinks(
+  manager: EntityManager,
+  tenantId: string,
+  studentIds: string[],
+): Promise<void> {
+  if (!studentIds.length) return;
+  await manager.query(
+    `UPDATE invoice_share_tokens t SET revoked_at = now()
+       FROM invoices i
+      WHERE t.invoice_id = i.id AND t.tenant_id = $1 AND i.student_id = ANY($2::uuid[]) AND t.revoked_at IS NULL`,
+    [tenantId, studentIds],
+  );
+}
+
 /** [39.2.1] Turns the unique violations on (tenant, birth_reg_no) and (section, roll) into a 409. */
 function rethrowStudentUniqueConflict(err: unknown): never {
   if (err instanceof QueryFailedError) {
@@ -659,6 +675,7 @@ export class StudentService {
     // Replace guardian links if provided
     if (dto.guardian_ids !== undefined) {
       const student = await this.findOne(id, tenantId);
+      const removedAny = (student.guardians ?? []).some((g) => !dto.guardian_ids!.includes(g.id));
       if (dto.guardian_ids.length > 0) {
         const guardians = await this.guardianRepo.find({
           where: { id: In(dto.guardian_ids), tenant_id: tenantId, deleted_at: IsNull() },
@@ -670,7 +687,10 @@ export class StudentService {
       } else {
         student.guardians = [];
       }
-      await this.repo.save(student);
+      await this.repo.manager.transaction(async (m) => {
+        await m.save(student);
+        if (removedAny) await revokeInvoiceShareLinks(m, tenantId, [id]);
+      });
     }
 
     return this.findOne(id, tenantId);
@@ -1124,6 +1144,11 @@ export class GuardianService {
           relations: ['students'],
         });
         auditOldValues.student_ids = guardian.students.map((student) => student.id);
+        await revokeInvoiceShareLinks(
+          manager,
+          tenantId,
+          guardian.students.map((s) => s.id).filter((sid) => !dto.student_ids!.includes(sid)),
+        );
         auditNewValues.student_ids = dto.student_ids;
 
         if (dto.student_ids.length > 0) {
@@ -1171,6 +1196,15 @@ export class GuardianService {
 
     await this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(Guardian);
+      const withStudents = await repo.findOneOrFail({
+        where: { id, tenant_id: tenantId },
+        relations: ['students'],
+      });
+      await revokeInvoiceShareLinks(
+        manager,
+        tenantId,
+        withStudents.students.map((s) => s.id),
+      );
       await repo.softDelete({ id, tenant_id: tenantId });
 
       await this.auditService.record(
