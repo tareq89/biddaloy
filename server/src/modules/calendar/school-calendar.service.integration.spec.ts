@@ -14,6 +14,8 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { CalendarEvent } from './entities/calendar-event.entity';
 import { CalendarEventClass } from './entities/calendar-event-class.entity';
 import { Class } from '../academics/entities/class.entity';
+import { SchoolsService } from '../schools/schools.service';
+import { TenantSettingsDto } from '../schools/dto/tenant-settings.dto';
 
 /**
  * Integration tests for `SchoolCalendarService`'s working-day math — the
@@ -33,6 +35,7 @@ import { Class } from '../academics/entities/class.entity';
 describe('SchoolCalendarService (integration)', () => {
   let service: SchoolCalendarService;
   let dataSource: DataSource;
+  let schoolsService: SchoolsService;
 
   const TENANT_A = SEED_TENANT_ID;
   const TENANT_B = '00000000-0000-4000-8000-000000000099';
@@ -47,6 +50,7 @@ describe('SchoolCalendarService (integration)', () => {
     );
     service = module.get<SchoolCalendarService>(SchoolCalendarService);
     dataSource = module.get<DataSource>(getDataSourceToken());
+    schoolsService = module.get(SchoolsService, { strict: false });
 
     const schoolRepo = dataSource.getRepository(School);
     if (!(await schoolRepo.findOne({ where: { id: TENANT_B } }))) {
@@ -100,6 +104,32 @@ describe('SchoolCalendarService (integration)', () => {
       });
       expect(result.dates).not.toContain('2026-09-04');
       expect(result.count).toBe(6);
+    });
+
+    it('[TIME-02] a later weekly-off change does not rewrite past dates', async () => {
+      await setWeeklyOffDays(TENANT_A, [5, 6]);
+      const range = { tenantId: TENANT_A, from: '2025-03-02', to: '2025-03-08' };
+      expect((await service.getWorkingDays(range)).count).toBe(5);
+
+      const current = (await dataSource.getRepository(School).findOneByOrFail({ id: TENANT_A }))
+        .settings as { attendance: Record<string, unknown> };
+      await schoolsService.updateSettings(
+        TENANT_A,
+        {
+          version: 1,
+          attendance: { ...current.attendance, weeklyOffDays: [5] },
+        } as unknown as TenantSettingsDto,
+        SEED_ADMIN_USER_ID,
+      );
+
+      expect((await service.getWorkingDays(range)).count).toBe(5);
+      // a future Saturday is now a working day
+      const future = await service.getWorkingDays({
+        tenantId: TENANT_A,
+        from: '2099-01-03',
+        to: '2099-01-03',
+      });
+      expect(future.dates).toEqual(['2099-01-03']);
     });
 
     it('excludes a multi-day holiday', async () => {

@@ -1,7 +1,12 @@
 import { instanceToPlain } from 'class-transformer';
 import type { OrganisationSettings, PresetSettings, RegionSettings } from '@biddaloy/shared';
 import { TenantSettingsDto } from '../dto/tenant-settings.dto';
-import { DEFAULT_ORGANISATION_SETTINGS } from './tenant-settings-defaults';
+import {
+  DEFAULT_ATTENDANCE_SETTINGS,
+  DEFAULT_ORGANISATION_SETTINGS,
+  DEFAULT_REGION_SETTINGS,
+} from './tenant-settings-defaults';
+import { localDate } from '../../attendance/attendance-policy.util';
 
 /** `instanceToPlain(dto, { exposeUnsetFields: false })` — a class instance
  * whose properties the caller never set stay absent from the result
@@ -80,6 +85,7 @@ function deepMergeOmittingUnset(existing: unknown, patch: unknown): unknown {
 export function mergeTenantSettings(
   existing: Record<string, unknown> | null,
   patch: Record<string, unknown>,
+  now: Date = new Date(),
 ): Record<string, unknown> {
   const current = existing ?? {};
 
@@ -96,10 +102,32 @@ export function mergeTenantSettings(
   if (patch.routine !== undefined) merged.routine = patch.routine;
 
   if (patch.attendance !== undefined) {
-    merged.attendance = {
-      ...(isPlainObject(merged.attendance) ? merged.attendance : {}),
-      ...(patch.attendance as Record<string, unknown>),
-    };
+    const stored = isPlainObject(merged.attendance) ? merged.attendance : {};
+    // [TIME-02] The history is server-owned: never trust a client copy.
+    const { weeklyOffHistory: _ignored, ...attendancePatch } = patch.attendance as Record<
+      string,
+      unknown
+    >;
+    const attendance: Record<string, unknown> = { ...stored, ...attendancePatch };
+    const prev =
+      (stored.weeklyOffDays as number[] | undefined) ?? DEFAULT_ATTENDANCE_SETTINGS.weeklyOffDays;
+    const next = attendancePatch.weeklyOffDays as number[] | undefined;
+    const sameSet = (a: number[], b: number[]) =>
+      new Set(a).size === new Set(b).size && a.every((d) => b.includes(d));
+    if (next && !sameSet(next, prev)) {
+      const tz =
+        (merged.region as { timezone?: string } | undefined)?.timezone ??
+        DEFAULT_REGION_SETTINGS.timezone;
+      const today = localDate(now, tz);
+      const hist =
+        (stored.weeklyOffHistory as Array<{ until: string; days: number[] }> | undefined) ?? [];
+      if (!hist.some((e) => e.until === today)) {
+        attendance.weeklyOffHistory = [...hist, { until: today, days: [...prev].sort() }].sort(
+          (a, b) => a.until.localeCompare(b.until),
+        );
+      }
+    }
+    merged.attendance = attendance;
   }
 
   // [33.1.1] Wholesale replace, like `backup`/`fees` — not

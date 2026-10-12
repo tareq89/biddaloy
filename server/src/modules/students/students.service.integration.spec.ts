@@ -21,14 +21,21 @@ import {
 } from '@test/constants';
 import {
   EnrollmentStatus,
+  FeeStatus,
+  FeeType,
+  PeriodType,
   CommunicationMedium,
   AuditAction,
   Permission,
   UserRole,
   roleHasPermission,
+  WalletTransactionKind,
 } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { FeeStructure } from '../fees/entities/fee-structure.entity';
+import { StudentFee } from '../fees/entities/student-fee.entity';
+import { WalletService } from '../fees/wallet.service';
 
 /**
  * Integration tests for StudentService and GuardianService.
@@ -151,12 +158,15 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   );
 }
 
+const NO_CTX = { ip: null, userAgent: null };
+
 describe('StudentService (integration)', () => {
   let service: StudentService;
   let guardianService: GuardianService;
   let studentRepo: Repository<Student>;
   let guardianRepo: Repository<Guardian>;
   let enrollmentRepo: Repository<Enrollment>;
+  let walletService: WalletService;
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
@@ -165,7 +175,7 @@ describe('StudentService (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(
       ALL_ENTITIES,
-      [StudentService, GuardianService, AuditService],
+      [StudentService, GuardianService, AuditService, WalletService],
       [],
       {
         synchronize: true,
@@ -178,6 +188,7 @@ describe('StudentService (integration)', () => {
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
     guardianRepo = module.get<Repository<Guardian>>(getRepositoryToken(Guardian));
     enrollmentRepo = module.get<Repository<Enrollment>>(getRepositoryToken(Enrollment));
+    walletService = module.get(WalletService);
     dataSource = module.get(DataSource);
 
     await seedReferenceData(dataSource);
@@ -581,7 +592,7 @@ describe('StudentService (integration)', () => {
         { full_name: 'Ahmed Khan', class_section_id: SEED_SECTION_1_ID },
         TENANT_ID,
       );
-      await service.remove(created.id, TENANT_ID);
+      await service.remove(created.id, TENANT_ID, null, NO_CTX);
 
       const byName = await service.findAll({ search: 'Ahmed', page: 1, limit: 10 }, TENANT_ID);
       expect(byName.data).toHaveLength(0);
@@ -1241,7 +1252,7 @@ describe('StudentService (integration)', () => {
         TENANT_ID,
       );
 
-      await service.remove(created.id, TENANT_ID);
+      await service.remove(created.id, TENANT_ID, null, NO_CTX);
 
       // Should not be found via findOne
       await expect(service.findOne(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
@@ -1253,6 +1264,246 @@ describe('StudentService (integration)', () => {
       });
       expect(raw).toBeDefined();
       expect(raw?.deleted_at).not.toBeNull();
+    });
+
+    describe('money guard + enrollment close + audit (MON-04 / LIFE-02)', () => {
+      const STRUCTURE_ID = '00000000-0000-4000-8000-0000000007a1';
+      let actorId: string;
+
+      beforeEach(async () => {
+        await dataSource.query('DELETE FROM student_fees');
+        await dataSource.query('DELETE FROM student_wallets');
+        await dataSource.query('DELETE FROM fee_structures');
+        await dataSource.query('DELETE FROM audit_logs');
+        await dataSource.getRepository(FeeStructure).save(
+          dataSource.getRepository(FeeStructure).create({
+            id: STRUCTURE_ID,
+            fee_type: FeeType.MONTHLY_TUITION,
+            name: 'Tuition',
+            amount: 1000,
+            class_id: SEED_TENANT_ID, // this spec's seeded class reuses the tenant id
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        const userRepo = dataSource.getRepository('User');
+        const email = `del-actor-${Date.now()}@example.com`;
+        const actor = await userRepo.save(
+          userRepo.create({ full_name: 'Delete Actor', email, status: 'ACTIVE' }),
+        );
+        actorId = (actor as { id: string }).id;
+      });
+
+      async function newStudent(): Promise<string> {
+        const created = await service.create(
+          { full_name: 'Money Kid', class_section_id: SEED_SECTION_1_ID },
+          TENANT_ID,
+        );
+        return created.id;
+      }
+
+      async function addBill(
+        studentId: string,
+        status: FeeStatus,
+        paid = 0,
+        period = '2026-02-01',
+      ): Promise<void> {
+        await dataSource.getRepository(StudentFee).save(
+          dataSource.getRepository(StudentFee).create({
+            student_id: studentId,
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            fee_structure_id: STRUCTURE_ID,
+            period_start: new Date(period),
+            period_type: PeriodType.MONTH,
+            total_amount: 1000,
+            paid_amount: paid,
+            discount_amount: 0,
+            status,
+          }),
+        );
+      }
+
+      async function auditRows(studentId: string) {
+        return dataSource.getRepository(AuditLog).find({
+          where: { entity_id: studentId, entity_type: 'Student', action: AuditAction.DELETE },
+        });
+      }
+
+      it('refuses a student with a PENDING bill and changes nothing', async () => {
+        const id = await newStudent();
+        await addBill(id, FeeStatus.PENDING);
+
+        const err = await service.remove(id, TENANT_ID, actorId, NO_CTX).catch((e) => e);
+        expect(err).toBeInstanceOf(ConflictException);
+        const details = (err as ConflictException).getResponse() as {
+          details: { open_dues: number; wallet_balance: number };
+        };
+        expect(details.details.open_dues).toBe(1000);
+        expect(details.details.wallet_balance).toBe(0);
+
+        const row = await studentRepo.findOne({ where: { id } });
+        expect(row?.deleted_at).toBeNull();
+        expect(await auditRows(id)).toHaveLength(0);
+        const active = await enrollmentRepo.count({
+          where: { student_id: id, enrollment_status: EnrollmentStatus.ACTIVE },
+        });
+        expect(active).toBeGreaterThan(0); // rollback: enrollments not closed
+      });
+
+      it('refuses a student with wallet balance 300 and no dues', async () => {
+        const id = await newStudent();
+        await dataSource.query(
+          `INSERT INTO student_wallets (tenant_id, student_id, balance) VALUES ($1, $2, 300)`,
+          [TENANT_ID, id],
+        );
+
+        const err = await service.remove(id, TENANT_ID, actorId, NO_CTX).catch((e) => e);
+        expect(err).toBeInstanceOf(ConflictException);
+        const body = (err as ConflictException).getResponse() as {
+          details: { open_dues: number; wallet_balance: number };
+        };
+        expect(body.details.open_dues).toBe(0);
+        expect(body.details.wallet_balance).toBe(300);
+        expect(await auditRows(id)).toHaveLength(0);
+      });
+
+      // Review r1 #4: checkout and payment allocation treat OVERDUE as payable.
+      it('refuses a student whose only debt is an OVERDUE bill', async () => {
+        const id = await newStudent();
+        await addBill(id, FeeStatus.OVERDUE);
+
+        const err = await service.remove(id, TENANT_ID, actorId, NO_CTX).catch((e) => e);
+        expect(err).toBeInstanceOf(ConflictException);
+        expect(((err as ConflictException).getResponse() as any).details.open_dues).toBe(1000);
+        expect((await studentRepo.findOne({ where: { id } }))?.deleted_at).toBeNull();
+      });
+
+      // Review r1 #5: a first wallet row racing a delete. The FK insert alone
+      // takes only KEY SHARE on the student, which never waits for the delete.
+      it('a wallet created while a delete is in flight is refused once the delete commits', async () => {
+        const id = await newStudent();
+        // Stand-in for StudentService.remove holding its lock mid-transaction.
+        const qr = dataSource.createQueryRunner();
+        await qr.startTransaction();
+        try {
+          await qr.query(`SELECT 1 FROM students WHERE id = $1 FOR NO KEY UPDATE`, [id]);
+          await qr.query(`UPDATE students SET deleted_at = NOW() WHERE id = $1`, [id]);
+          const create = dataSource.transaction((m) => walletService.getOrCreate(id, TENANT_ID, m));
+          const settled = create.then(
+            () => 'created',
+            () => 'refused',
+          );
+          await new Promise((r) => setTimeout(r, 300));
+          await qr.commitTransaction();
+          expect(await settled).toBe('refused');
+        } finally {
+          if (qr.isTransactionActive) await qr.rollbackTransaction();
+          await qr.release();
+        }
+        const wallets = await dataSource.query(
+          `SELECT 1 FROM student_wallets WHERE student_id = $1`,
+          [id],
+        );
+        expect(wallets).toHaveLength(0);
+      });
+
+      it('a delete waits for an in-flight first wallet credit, then refuses', async () => {
+        const id = await newStudent();
+        const qr = dataSource.createQueryRunner();
+        await qr.startTransaction();
+        let removal: Promise<unknown> | undefined;
+        try {
+          const wallet = await walletService.getOrCreate(id, TENANT_ID, qr.manager);
+          await qr.query(`UPDATE student_wallets SET balance = 300 WHERE id = $1`, [wallet.id]);
+          removal = service.remove(id, TENANT_ID, actorId, NO_CTX).catch((e) => e);
+          await new Promise((r) => setTimeout(r, 300));
+          await qr.commitTransaction();
+        } finally {
+          if (qr.isTransactionActive) await qr.rollbackTransaction();
+          await qr.release();
+        }
+        expect(await removal).toBeInstanceOf(ConflictException);
+        expect((await studentRepo.findOne({ where: { id } }))?.deleted_at).toBeNull();
+      });
+
+      // Review r2 #1: checkout and payment reversal lock the bills, then move
+      // wallet money. remove locks the student, then the bills. If moving money
+      // on an existing wallet also locked the student, the two would deadlock
+      // (40P01) and one side would fail with a 500.
+      it('a delete racing a checkout that holds the bills and credits an existing wallet does not deadlock', async () => {
+        const id = await newStudent();
+        await addBill(id, FeeStatus.PENDING);
+        await dataSource.query(
+          `INSERT INTO student_wallets (tenant_id, student_id, balance) VALUES ($1, $2, 0)`,
+          [TENANT_ID, id],
+        );
+        const qr = dataSource.createQueryRunner();
+        await qr.startTransaction();
+        let removal: Promise<unknown> | undefined;
+        let credited: unknown;
+        try {
+          // Stand-in for CheckoutService: the bills are locked first.
+          await qr.query(`SELECT 1 FROM student_fees WHERE student_id = $1 FOR UPDATE`, [id]);
+          removal = service.remove(id, TENANT_ID, actorId, NO_CTX).catch((e) => e);
+          // remove now holds the student lock and waits on the bill.
+          await new Promise((r) => setTimeout(r, 300));
+          credited = await walletService
+            .credit(
+              {
+                studentId: id,
+                tenantId: TENANT_ID,
+                amount: 50,
+                kind: WalletTransactionKind.CREDIT_CHANGE,
+              },
+              qr.manager,
+            )
+            .then(
+              () => 'ok',
+              (e) => e,
+            );
+          if (credited === 'ok') await qr.commitTransaction();
+        } finally {
+          if (qr.isTransactionActive) await qr.rollbackTransaction();
+          await qr.release();
+        }
+        expect(credited).toBe('ok');
+        // The bill is still open, so the delete refuses once checkout commits.
+        expect(await removal).toBeInstanceOf(ConflictException);
+      });
+
+      it('does not block on a soft-deleted open bill', async () => {
+        const id = await newStudent();
+        await addBill(id, FeeStatus.PENDING);
+        await dataSource.query(`UPDATE student_fees SET deleted_at = NOW() WHERE student_id = $1`, [
+          id,
+        ]);
+
+        await expect(service.remove(id, TENANT_ID, actorId, NO_CTX)).resolves.toBeUndefined();
+      });
+
+      it('does not block on a FULLY_PAID or WAIVED bill', async () => {
+        const id = await newStudent();
+        await addBill(id, FeeStatus.PAID, 1000);
+        await addBill(id, FeeStatus.WAIVED, 0, '2026-03-01');
+
+        await expect(service.remove(id, TENANT_ID, actorId, NO_CTX)).resolves.toBeUndefined();
+      });
+
+      it('closes ACTIVE enrollments and writes one DELETE audit row with the actor', async () => {
+        const id = await newStudent();
+
+        await service.remove(id, TENANT_ID, actorId, { ip: '10.0.0.1', userAgent: 'vitest' });
+
+        const enrollments = await enrollmentRepo.find({ where: { student_id: id } });
+        expect(enrollments.length).toBeGreaterThan(0);
+        expect(enrollments.every((e) => e.enrollment_status === EnrollmentStatus.INACTIVE)).toBe(
+          true,
+        );
+        const logs = await auditRows(id);
+        expect(logs).toHaveLength(1);
+        expect(logs[0]?.performed_by_user_id).toBe(actorId);
+        expect(logs[0]?.tenant_id).toBe(TENANT_ID);
+      });
     });
   });
 });

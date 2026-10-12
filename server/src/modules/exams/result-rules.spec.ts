@@ -8,6 +8,7 @@ import {
   rankByMerit,
   roundHalfUp2,
   Band,
+  ComponentInput,
   SubjectResult,
 } from './result-rules';
 
@@ -37,7 +38,7 @@ function gradeForGpa(gpa: number): Band | null {
  * — the whole pipeline `results.service.ts` runs per subject. */
 function gradeSubject(
   subjectId: string,
-  components: { full_marks: number; value: number | null; status: MarkStatus }[],
+  components: ComponentInput[],
   opts: { isFourth?: boolean; isCountable?: boolean } = {},
 ): SubjectResult {
   const total = computeSubjectTotal(components);
@@ -58,7 +59,13 @@ describe('computeSubjectTotal (D10)', () => {
       { full_marks: 70, value: 60, status: MarkStatus.PRESENT },
       { full_marks: 30, value: 25, status: MarkStatus.PRESENT },
     ]);
-    expect(total).toEqual({ obtained: 85, full_marks: 100, percent: 85, is_absent: false });
+    expect(total).toEqual({
+      obtained: 85,
+      full_marks: 100,
+      percent: 85,
+      is_absent: false,
+      component_failed: false,
+    });
   });
 
   it('ABSENT on any component fails the whole subject, not a 0% mark', () => {
@@ -82,12 +89,56 @@ describe('computeSubjectTotal (D10)', () => {
       full_marks: 70,
       percent: (60 / 70) * 100,
       is_absent: false,
+      component_failed: false,
     });
   });
 
   it('every component exempt leaves nothing to grade', () => {
     const total = computeSubjectTotal([{ full_marks: 30, value: null, status: MarkStatus.EXEMPT }]);
-    expect(total).toEqual({ obtained: 0, full_marks: 0, percent: 0, is_absent: false });
+    expect(total).toEqual({
+      obtained: 0,
+      full_marks: 0,
+      percent: 0,
+      is_absent: false,
+      component_failed: false,
+    });
+  });
+});
+
+describe('component pass marks (ACAD-01)', () => {
+  const mcq = (value: number | null, pass_marks: number | null = 8) => ({
+    full_marks: 25,
+    value,
+    status: MarkStatus.PRESENT,
+    pass_marks,
+  });
+  const written = { full_marks: 75, value: 65, status: MarkStatus.PRESENT, pass_marks: 25 };
+
+  it('a PRESENT component below its pass mark fails the subject even when the total clears the band', () => {
+    // 3 + 65 = 68/100 would be A- (3.50), but MCQ 3 < 8.
+    const graded = gradeSubjectTotal(computeSubjectTotal([mcq(3), written]), gradeForPercent);
+    expect(graded).toEqual({ grade: 'F', gpa: 0, is_fail: true });
+  });
+
+  it('exactly at the pass mark passes', () => {
+    const graded = gradeSubjectTotal(computeSubjectTotal([mcq(8), written]), gradeForPercent);
+    expect(graded.is_fail).toBe(false);
+  });
+
+  it('pass_marks null never fails a component', () => {
+    const total = computeSubjectTotal([mcq(0, null), written]);
+    expect(total.component_failed).toBe(false);
+  });
+
+  it('an EXEMPT component with a pass mark is ignored', () => {
+    const total = computeSubjectTotal([{ ...mcq(null), status: MarkStatus.EXEMPT }, written]);
+    expect(total.component_failed).toBe(false);
+  });
+
+  it('ABSENT still wins and grades ABS', () => {
+    const absent = { ...mcq(null), status: MarkStatus.ABSENT };
+    const graded = gradeSubjectTotal(computeSubjectTotal([absent, written]), gradeForPercent);
+    expect(graded.grade).toBe('ABS');
   });
 });
 

@@ -74,25 +74,31 @@ export class FeeStructureService {
       }
     }
 
-    // Validate academic year belongs to tenant
-    const academicYear = await this.academicYearRepo.findOne({
-      where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
-    });
-    if (!academicYear) {
-      throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
-    }
+    // Validate academic year belongs to tenant. Share-locked in the same transaction as the
+    // insert: AcademicYearService.remove() holds FOR UPDATE and counts fee structures, so one
+    // cannot slip in under a year that is being deleted.
+    const saved = await this.repo.manager.transaction(async (manager) => {
+      const academicYear = await manager.getRepository(AcademicYear).findOne({
+        where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_read' },
+      });
+      if (!academicYear) {
+        throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
+      }
 
-    const entity = this.repo.create({
-      fee_type: dto.fee_type,
-      name: dto.name,
-      amount: dto.amount,
-      class_id: dto.class_id ?? null,
-      section_id: dto.section_id ?? null,
-      academic_year_id: dto.academic_year_id,
-      tenant_id: tenantId,
+      const repo = manager.getRepository(FeeStructure);
+      return repo.save(
+        repo.create({
+          fee_type: dto.fee_type,
+          name: dto.name,
+          amount: dto.amount,
+          class_id: dto.class_id ?? null,
+          section_id: dto.section_id ?? null,
+          academic_year_id: dto.academic_year_id,
+          tenant_id: tenantId,
+        }),
+      );
     });
-
-    const saved = await this.repo.save(entity);
 
     return this.repo.findOne({
       where: { id: saved.id },

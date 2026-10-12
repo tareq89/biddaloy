@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Exam } from './entities/exam.entity';
 import { AttendanceSummaryService } from '../attendance/attendance-summary.service';
+import { sectionRosterStudentIds } from '../enrollments/section-roster';
 import { roundHalfUp2 } from './result-rules';
 
 export interface AttendanceComponentResult {
@@ -49,22 +50,31 @@ export class AttendanceComponentService {
       };
     }
 
-    const summary = await this.attendanceSummaryService.getSectionSummary({
+    // Cohort = who is enrolled in this section for its own year (D17), not
+    // where students sit today, and whatever their status is now (a leaver who
+    // has marks is still in the results cohort); working days use the exam's class.
+    const studentIds = await sectionRosterStudentIds(
+      this.examRepo.manager,
+      input.tenantId,
+      input.sectionId,
+    );
+    const summaries = await this.attendanceSummaryService.getSummariesForStudents({
       tenantId: input.tenantId,
-      sectionId: input.sectionId,
+      studentIds,
+      classId: exam.class_id,
       from: exam.academic_term.start_date,
       to: exam.academic_term.end_date,
     });
 
     const fullMarks = Number(input.fullMarks);
     const valuesByStudent = new Map<string, string | null>();
-    for (const student of summary.students) {
-      if (student.attendance_percentage === null) {
-        valuesByStudent.set(student.student_id, null);
+    for (const studentId of studentIds) {
+      const pct = summaries.get(studentId)?.attendance_percentage ?? null;
+      if (pct === null) {
+        valuesByStudent.set(studentId, null);
         continue;
       }
-      const raw = (student.attendance_percentage / 100) * fullMarks;
-      valuesByStudent.set(student.student_id, roundHalfUp2(raw).toFixed(2));
+      valuesByStudent.set(studentId, roundHalfUp2((pct / 100) * fullMarks).toFixed(2));
     }
 
     return { valuesByStudent, reason: null };

@@ -3,7 +3,12 @@ import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { randomBytes, randomUUID } from 'crypto';
-import { AuditAction } from '@biddaloy/shared';
+import {
+  AuditAction,
+  PlacementAlgorithm,
+  PromotionOutcome,
+  PromotionRunStatus,
+} from '@biddaloy/shared';
 import { SchoolsService } from './schools.service';
 import { School } from './entities/school.entity';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
@@ -16,6 +21,10 @@ import { User } from '../users/entities/user.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { ClassSubject } from '../academics/entities/class-subject.entity';
+import { Subject } from '../academics/entities/subject.entity';
+import { PromotionRun } from '../promotions/entities/promotion-run.entity';
+import { PromotionEntry } from '../promotions/entities/promotion-entry.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ADMIN_USER_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD_HASH } from '@test/constants';
@@ -346,6 +355,141 @@ describe('SchoolsService (integration)', () => {
       await expect(
         service.updateSettings(school.id, patch, SEED_ADMIN_USER_ID),
       ).rejects.toMatchObject({ status: 400 });
+    });
+
+    describe('groups (stream) rename/remove covers class subjects and draft promotions', () => {
+      async function seedGroup(name = 'Science') {
+        const school = await createSchool();
+        await schoolRepo.update(school.id, {
+          settings: { version: 1, organisation: { shifts: [], versions: [], groups: [name] } },
+        });
+        const year = await dataSource.getRepository(AcademicYear).save({
+          name: '2026-2027',
+          start_date: '2026-01-01',
+          end_date: '2026-12-31',
+          tenant_id: school.id,
+        });
+        const klass = await dataSource
+          .getRepository(Class)
+          .save({ name: 'Class 9', academic_year_id: year.id, tenant_id: school.id });
+        return { school, year, klass };
+      }
+
+      async function addClassSubject(
+        s: { school: School; year: AcademicYear; klass: Class },
+        group: string,
+      ) {
+        const subject = await dataSource.getRepository(Subject).save({
+          name_en: 'Physics',
+          code: `PHY-${randomUUID().slice(0, 6)}`,
+          tenant_id: s.school.id,
+        });
+        return dataSource.getRepository(ClassSubject).save({
+          class_id: s.klass.id,
+          subject_id: subject.id,
+          academic_year_id: s.year.id,
+          group_name: group,
+          tenant_id: s.school.id,
+        });
+      }
+
+      async function addPromotionEntry(
+        s: { school: School; year: AcademicYear; klass: Class },
+        group: string,
+        status: PromotionRunStatus,
+      ) {
+        const run = await dataSource.getRepository(PromotionRun).save({
+          tenant_id: s.school.id,
+          source_class_id: s.klass.id,
+          source_academic_year_id: s.year.id,
+          target_academic_year_id: s.year.id,
+          exam_ids: [],
+          algorithm: PlacementAlgorithm.BLOCK,
+          status,
+          refreshed_at: new Date(),
+          created_by_user_id: SEED_ADMIN_USER_ID,
+        } as any);
+        return dataSource.getRepository(PromotionEntry).save({
+          tenant_id: s.school.id,
+          run_id: run.id,
+          student_id: randomUUID(),
+          source_enrollment_id: randomUUID(),
+          passed_all: true,
+          suggested_outcome: PromotionOutcome.PROMOTE,
+          final_outcome: PromotionOutcome.PROMOTE,
+          group_name: group,
+        } as any);
+      }
+
+      const renamePatch = () =>
+        plainToInstance(TenantSettingsDto, {
+          version: 1,
+          organisation: { shifts: [], versions: [], groups: ['বিজ্ঞান'] },
+          organisationRenames: [{ list: 'groups', from: 'Science', to: 'বিজ্ঞান' }],
+        });
+      const removePatch = () =>
+        plainToInstance(TenantSettingsDto, {
+          version: 1,
+          organisation: { shifts: [], versions: [], groups: [] },
+        });
+
+      it('rename rewrites class_subjects and DRAFT entries, leaves COMMITTED history alone', async () => {
+        const s = await seedGroup();
+        const cs = await addClassSubject(s, 'Science');
+        const draft = await addPromotionEntry(s, 'Science', PromotionRunStatus.DRAFT);
+        const done = await addPromotionEntry(s, 'Science', PromotionRunStatus.COMMITTED);
+
+        await service.updateSettings(s.school.id, renamePatch(), SEED_ADMIN_USER_ID);
+
+        expect(
+          (await dataSource.getRepository(ClassSubject).findOneByOrFail({ id: cs.id })).group_name,
+        ).toBe('বিজ্ঞান');
+        const entries = dataSource.getRepository(PromotionEntry);
+        expect((await entries.findOneByOrFail({ id: draft.id })).group_name).toBe('বিজ্ঞান');
+        expect((await entries.findOneByOrFail({ id: done.id })).group_name).toBe('Science');
+      });
+
+      it('removing a group used only by a class subject is refused (400, names the count)', async () => {
+        const s = await seedGroup();
+        await addClassSubject(s, 'Science');
+        await expect(
+          service.updateSettings(s.school.id, removePatch(), SEED_ADMIN_USER_ID),
+        ).rejects.toMatchObject({ status: 400, message: expect.stringContaining('1 row(s)') });
+      });
+
+      it('removing a group used only by a DRAFT promotion entry is refused', async () => {
+        const s = await seedGroup();
+        await addPromotionEntry(s, 'Science', PromotionRunStatus.DRAFT);
+        await expect(
+          service.updateSettings(s.school.id, removePatch(), SEED_ADMIN_USER_ID),
+        ).rejects.toMatchObject({ status: 400, message: expect.stringContaining('1 row(s)') });
+      });
+
+      it('a COMMITTED promotion entry does not block removal', async () => {
+        const s = await seedGroup();
+        await addPromotionEntry(s, 'Science', PromotionRunStatus.COMMITTED);
+        await expect(
+          service.updateSettings(s.school.id, removePatch(), SEED_ADMIN_USER_ID),
+        ).resolves.toBeDefined();
+      });
+
+      it("rename in tenant A leaves tenant B's class_subjects with the same name untouched", async () => {
+        const a = await seedGroup();
+        const b = await seedGroup();
+        const csB = await addClassSubject(b, 'Science');
+        const peB = await addPromotionEntry(b, 'Science', PromotionRunStatus.DRAFT);
+
+        await service.updateSettings(a.school.id, renamePatch(), SEED_ADMIN_USER_ID);
+
+        expect(
+          (await dataSource.getRepository(PromotionEntry).findOneByOrFail({ id: peB.id }))
+            .group_name,
+        ).toBe('Science');
+
+        expect(
+          (await dataSource.getRepository(ClassSubject).findOneByOrFail({ id: csB.id })).group_name,
+        ).toBe('Science');
+      });
     });
   });
 });

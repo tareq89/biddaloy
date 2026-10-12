@@ -10,6 +10,7 @@ import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { AuditService } from '../audit/audit.service';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
 
@@ -43,6 +44,8 @@ function createRepoStub() {
 
 async function buildClassService(vocabulary: { shifts: string[]; versions: string[] }) {
   const classRepo = createRepoStub();
+  // `create` share-locks the academic year through the same stubbed repo: the year exists.
+  classRepo.findOne = vi.fn(async () => ({ id: 'y1' }));
   const auditService = { record: vi.fn(async () => undefined) };
   const settingsReader = {
     organisationVocabulary: vi.fn(async () => ({ groups: [], ...vocabulary })),
@@ -54,6 +57,7 @@ async function buildClassService(vocabulary: { shifts: string[]; versions: strin
       { provide: getRepositoryToken(Class), useValue: classRepo },
       { provide: getRepositoryToken(ClassSection), useValue: {} },
       { provide: getRepositoryToken(Student), useValue: {} },
+      { provide: getRepositoryToken(Enrollment), useValue: {} },
       { provide: AuditService, useValue: auditService },
       { provide: SchoolSettingsReader, useValue: settingsReader },
     ],
@@ -77,6 +81,7 @@ async function buildSectionService(vocabulary: { groups: string[] }, existingSec
       { provide: getRepositoryToken(ClassSection), useValue: sectionRepo },
       { provide: getRepositoryToken(Class), useValue: classRepo },
       { provide: getRepositoryToken(Student), useValue: {} },
+      { provide: getRepositoryToken(Enrollment), useValue: {} },
       { provide: getRepositoryToken(Teacher), useValue: {} },
       { provide: getRepositoryToken(TeacherClassSection), useValue: {} },
       { provide: getRepositoryToken(Subject), useValue: {} },
@@ -265,6 +270,7 @@ async function buildTeacherAssignmentService(opts: {
       { provide: getRepositoryToken(ClassSection), useValue: sectionRepo },
       { provide: getRepositoryToken(Class), useValue: classRepo },
       { provide: getRepositoryToken(Student), useValue: {} },
+      { provide: getRepositoryToken(Enrollment), useValue: {} },
       { provide: getRepositoryToken(Teacher), useValue: teacherRepo },
       { provide: getRepositoryToken(TeacherClassSection), useValue: tcsRepo },
       { provide: getRepositoryToken(Subject), useValue: subjectRepo },

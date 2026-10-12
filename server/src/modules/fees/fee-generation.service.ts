@@ -298,7 +298,7 @@ export class FeeGenerationService {
     let studentCount = 0;
 
     const runBody = async (manager: EntityManager): Promise<void> => {
-      const context = await this.loadContext(dto, tenantId, manager);
+      const context = await this.loadContext(dto, tenantId, manager, { lockStudents: true });
       inactiveSkipped = context.inactiveStudents.map(toInactiveDto);
       const targetStudents = dto.include_inactive
         ? [...context.activeStudents, ...context.inactiveStudents]
@@ -816,6 +816,7 @@ export class FeeGenerationService {
     dto: GenerateFeesPreviewDto,
     tenantId: string,
     manager: EntityManager,
+    opts: { lockStudents?: boolean } = {},
   ): Promise<LoadedContext> {
     const academicYear = await manager.getRepository(AcademicYear).findOne({
       where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
@@ -857,8 +858,12 @@ export class FeeGenerationService {
 
     const studentIds = await this.resolveStudentIds(dto, tenantId, manager);
 
+    // generate() holds the students FOR SHARE until commit. That conflicts with
+    // StudentService.remove's lock: a delete waits for these bills, or, if it
+    // went first, the row re-reads as deleted and is "not found" below.
     const students = await manager.getRepository(Student).find({
       where: { id: In(studentIds), tenant_id: tenantId, deleted_at: IsNull() },
+      ...(opts.lockStudents ? { lock: { mode: 'pessimistic_read' as const } } : {}),
     });
     if (students.length !== new Set(studentIds).size) {
       const foundIds = new Set(students.map((s) => s.id));

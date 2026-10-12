@@ -3,6 +3,7 @@ import type { EntityManager } from 'typeorm';
 import { readWorkbook } from '../codec/workbook-codec';
 import { KeyIndex } from '../codec/key-index';
 import { ALL_TABS } from '../codec/registry';
+import { INSERT_ONLY_TABS } from '../codec/insert-only-tabs';
 import type { ImportContext, RowError, TabSpec } from '../codec/tab-spec';
 import type { ValidatedTab, ValidatedWorkbook } from './validated-workbook';
 
@@ -196,6 +197,23 @@ export class ValidationService {
         }
       }
       const duplicateKeys = new Set<string>();
+      // D13: money and marks tabs are insert-only. Match like DiffService
+      // (id first, then natural key) and refuse any changed existing row.
+      const insertOnly = INSERT_ONLY_TABS.has(tab.name);
+      // Rows this restore would delete by absence, checked like an app delete.
+      const checkRemove =
+        !insertOnly && tab.deleteByAbsence && meta.kind !== 'TEMPLATE' ? tab.checkRemove : undefined;
+      const trackMatches = insertOnly || checkRemove !== undefined;
+      const byId = new Map<string, unknown>();
+      const byKey = new Map<string, unknown>();
+      const matchedExisting = new Set<unknown>();
+      if (trackMatches) {
+        for (const e of existingEntities) {
+          const id = (e as { id?: unknown }).id;
+          if (typeof id === 'string') byId.set(id, e);
+          byKey.set(tab.keyOf(e), e);
+        }
+      }
 
       for (const { rowNo, cells } of sheet.rows) {
         const result = tab.fromRow(cells, rowNo, ctx);
@@ -295,6 +313,25 @@ export class ValidationService {
           firstBySecondary.set(secondary, { rowNo, row: result.row });
         }
 
+        if (trackMatches) {
+          const rid = (result.row as { id?: unknown }).id;
+          const matched = (typeof rid === 'string' ? byId.get(rid) : undefined) ?? byKey.get(key);
+          if (matched) matchedExisting.add(matched);
+          if (matched && insertOnly) {
+            const changed = tab.diffFields(result.row as never, matched as never);
+            if (changed.length > 0) {
+              recordError(tabErrors, {
+                tab: tab.name,
+                row: rowNo,
+                column: null,
+                severity: 'error',
+                message: `Row ${rowNo} of "${tab.name}" changes ${changed.join(', ')} of an existing record. A restore can add ${tab.name} rows but never change them; make this change in the app.`,
+              });
+              continue;
+            }
+          }
+        }
+
         firstByKey.set(key, { rowNo, row: result.row });
         rows.push(result.row);
         // Only a key the destination does not already carry needs a
@@ -313,6 +350,27 @@ export class ValidationService {
           message: `Sheet "${tab.name}" references "${key}" in "${refTab}", but more than one ${refTab} row has that key — rename them so each is unique, or set the id column.`,
           value: key,
         });
+      }
+
+      if (checkRemove) {
+        const absent = existingEntities.filter((e) => !matchedExisting.has(e));
+        const refusals = absent.length > 0 ? await checkRemove(absent, tenantId, manager) : [];
+        for (const message of refusals) {
+          recordError(tabErrors, { tab: tab.name, row: 0, column: null, severity: 'error', message });
+        }
+      }
+
+      if (insertOnly) {
+        const kept = existingEntities.length - matchedExisting.size;
+        if (kept > 0) {
+          recordWarning(tabWarnings, {
+            tab: tab.name,
+            row: 0,
+            column: null,
+            severity: 'warning',
+            message: `${kept} existing ${tab.name} rows are not in this file. A restore never removes them; they will be kept.`,
+          });
+        }
       }
 
       tabs[tab.name] = { present: true, rows, errors: tabErrors, warnings: tabWarnings };

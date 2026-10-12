@@ -58,15 +58,20 @@ function toEpochDay(dateIso: string): number {
 /**
  * Whether `dateIso` falls on one of the tenant's configured weekly off days
  * (`0` = Sunday .. `6` = Saturday, matching `AttendancePolicySettings.weeklyOffDays`).
- * Bangladesh's default is Friday (`[5]`).
+ * Bangladesh's default is Friday (`[5]`). Dates before a `weeklyOffHistory`
+ * entry's `until` use that entry's days (history is ascending by `until`).
  */
 export function isWeeklyOff(dateIso: string, policy: AttendancePolicySettings): boolean {
+  // [TIME-02] A date is judged by the off days in force on it: the earliest
+  // history entry whose `until` is after the date, else the current days.
+  const days =
+    (policy.weeklyOffHistory ?? []).find((e) => dateIso < e.until)?.days ?? policy.weeklyOffDays;
   const epochDay = toEpochDay(dateIso);
   // 1970-01-01 (epoch day 0) was a Thursday (weekday 4). Offsetting by 4 and
   // taking mod 7 gives the ISO/JS weekday (0 = Sunday) without constructing a
   // `Date` object per call.
   const weekday = (((epochDay + 4) % 7) + 7) % 7;
-  return policy.weeklyOffDays.includes(weekday);
+  return days.includes(weekday);
 }
 
 /**

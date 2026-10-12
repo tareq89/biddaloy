@@ -102,4 +102,11 @@ export interface TabSpec<E, R> {
   diffFields(row: R, existing: E): string[];
   upsert(row: R, existing: E | null, tenantId: string, m: EntityManager): Promise<E>;
   remove(entity: E, m: EntityManager): Promise<void>;
+  /**
+   * Optional: the refusals the app applies to deleting these rows, for the
+   * rows a BACKUP restore would remove because the file leaves them out
+   * (`deleteByAbsence`). `ValidationService` turns each message into an
+   * error, so the restore stops before anything is written.
+   */
+  checkRemove?(absent: E[], tenantId: string, m: EntityManager): Promise<string[]>;
 }

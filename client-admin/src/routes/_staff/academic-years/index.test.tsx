@@ -201,6 +201,54 @@ describe('/academic-years', () => {
     ).toBeTruthy();
   });
 
+  it('[68.2.12] delete of the current year shows the in-use message', async () => {
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({
+          data: [academicYearFactory({ id: 'year-1', name: 'Keep Me' })],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
+      ),
+      http.delete('/api/v1/academic-years/:id', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'This is the current academic year. Make another year current first.',
+            error: 'Conflict',
+            requestId: 'req-1',
+            path: '/api/v1/academic-years/year-1',
+            timestamp: new Date().toISOString(),
+            details: { code: 'ACADEMIC_YEAR_CURRENT' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academic-years'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = within(await screen.findByRole('alertdialog'));
+    await user.click(dialog.getByRole('button', { name: 'Delete' }));
+
+    expect(
+      await dialog.findByText(
+        "This year is current or still has classes or fee structures, so it can't be deleted.",
+        { exact: false },
+      ),
+    ).toBeTruthy();
+    expect(dialog.queryByText('Failed to delete academic year', { exact: false })).toBeNull();
+  });
+
   // [14.13.2]: an empty list is where a newcomer migrating a whole school
   // is already looking — the migrate-in entry point offers the workbook
   // template right there, gated on BACKUP_MANAGE same as its neighbours.

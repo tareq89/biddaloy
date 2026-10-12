@@ -35,6 +35,8 @@ export interface ComponentInput {
    * own D10 check constraint one grain up. */
   value: number | null;
   status: MarkStatus;
+  /** The component's own pass mark; null = none set. */
+  pass_marks?: number | null;
 }
 
 export interface SubjectTotal {
@@ -46,6 +48,9 @@ export interface SubjectTotal {
   /** True when this subject counts as ABSENT — not "0%", a distinct
    * outcome that always fails the subject regardless of any band. */
   is_absent: boolean;
+  /** True when a PRESENT component scored below its own `pass_marks` — the
+   * subject then fails whatever its total says. */
+  component_failed: boolean;
 }
 
 /**
@@ -55,6 +60,8 @@ export interface SubjectTotal {
  *   still clear a very lenient pass band.
  * - Any component `EXEMPT` drops out of both the numerator and the
  *   denominator entirely, as if it were never part of the subject.
+ * - A PRESENT component below its own `pass_marks` fails the subject
+ *   (`component_failed`), even when the total clears the pass band.
  * - A subject with no countable components left (all EXEMPT, or none at
  *   all) has no percent to compute — callers treat `full_marks === 0` as
  *   "does not contribute", the same way `is_graded_only`/a fourth
@@ -62,19 +69,23 @@ export interface SubjectTotal {
  */
 export function computeSubjectTotal(components: ComponentInput[]): SubjectTotal {
   if (components.some((c) => c.status === MarkStatus.ABSENT)) {
-    return { obtained: 0, full_marks: 0, percent: 0, is_absent: true };
+    return { obtained: 0, full_marks: 0, percent: 0, is_absent: true, component_failed: false };
   }
 
   const counted = components.filter((c) => c.status !== MarkStatus.EXEMPT);
   if (counted.length === 0) {
-    return { obtained: 0, full_marks: 0, percent: 0, is_absent: false };
+    return { obtained: 0, full_marks: 0, percent: 0, is_absent: false, component_failed: false };
   }
 
   const obtained = counted.reduce((sum, c) => sum + (c.value ?? 0), 0);
   const full_marks = counted.reduce((sum, c) => sum + c.full_marks, 0);
   const percent = full_marks > 0 ? (obtained / full_marks) * 100 : 0;
 
-  return { obtained, full_marks, percent, is_absent: false };
+  const component_failed = counted.some(
+    (c) => c.pass_marks != null && (c.value ?? 0) < c.pass_marks,
+  );
+
+  return { obtained, full_marks, percent, is_absent: false, component_failed };
 }
 
 // --- Band-derived grade/GPA/fail for one subject ---
@@ -98,7 +109,8 @@ export interface SubjectGrade {
  * grade/GPA/fail outcome. An `ABSENT` subject fails regardless of any
  * band; a subject with no countable components (`full_marks === 0`,
  * i.e. every component was EXEMPT) is graded `null`/`'-'` and never
- * fails — there was nothing to fail.
+ * fails — there was nothing to fail. A subject with a failed component
+ * (`component_failed`) fails with the scale's fail band.
  */
 export function gradeSubjectTotal(
   total: SubjectTotal,
@@ -109,6 +121,18 @@ export function gradeSubjectTotal(
   }
   if (total.full_marks === 0) {
     return { grade: '-', gpa: null, is_fail: false };
+  }
+  if (total.component_failed) {
+    // Fails with the scale's own fail band when it has one (so the card
+    // shows the board's letter); `obtained` stays the real total.
+    const failBand = gradeFor(0);
+    return failBand?.is_fail
+      ? {
+          grade: failBand.grade,
+          gpa: failBand.gpa === null ? null : Number(failBand.gpa),
+          is_fail: true,
+        }
+      : { grade: 'F', gpa: 0, is_fail: true };
   }
   const band = gradeFor(total.percent);
   if (!band) {

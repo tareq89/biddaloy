@@ -253,8 +253,13 @@ export class StudentController {
 
   @Delete('students/:id')
   @RequirePermissions(Permission.STUDENT_DELETE)
-  removeStudent(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
-    return this.studentService.remove(id, tenant.id);
+  removeStudent(
+    @Param('id') id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.studentService.remove(id, tenant.id, user.sub, requestContext(request));
   }
 
   // --- Guardian endpoints ---

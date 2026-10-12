@@ -17,6 +17,7 @@ import { StaffAttendanceSession } from './entities/staff-attendance-session.enti
 import { StaffAttendanceRecord } from './entities/staff-attendance-record.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AttendanceStatus, AuditAction, UserRole } from '@biddaloy/shared';
+import { localToday } from '../attendance/attendance-policy.util';
 
 /**
  * Integration tests for `StaffAttendanceService`/`StaffAttendanceSummaryService`
@@ -38,11 +39,14 @@ describe('StaffAttendanceService', () => {
   function isoDate(date: Date): string {
     return date.toISOString().slice(0, 10);
   }
+  // The tenant's "today" (Asia/Dhaka by default), not the UTC date: between 18:00 and 24:00 UTC
+  // the two differ and the self-mark rule (SELF_TODAY_ONLY) compares against the local one.
   function addDays(days: number): string {
-    const d = new Date();
+    const d = new Date(`${localToday('Asia/Dhaka')}T00:00:00Z`);
     d.setUTCDate(d.getUTCDate() + days);
     return isoDate(d);
   }
+  const weekday = (iso: string) => new Date(`${iso}T00:00:00Z`).getUTCDay();
   const TODAY = () => addDays(0);
   const OUTSIDE_WINDOW = () => addDays(-10); // default correctionWindowDays is 2
 
@@ -238,6 +242,139 @@ describe('StaffAttendanceService', () => {
       );
 
       expect(result.records[0]?.staff_profile_id).toBe(staffProfileId);
+    });
+
+    // TIME-01: non-admins create their own mark for today on a working day, nothing else.
+    describe('non-admin self-today rules', () => {
+      async function teacherParams(dto: Record<string, unknown>) {
+        const profile = await dataSource
+          .getRepository(StaffProfile)
+          .findOneOrFail({ where: { id: staffProfileId } });
+        return putParams({ role: UserRole.TEACHER, userId: profile.user_id, dto });
+      }
+      const ownEntry = (status = AttendanceStatus.PRESENT) => [
+        { staff_profile_id: staffProfileId, status },
+      ];
+      async function expectCode(p: Promise<unknown>, type: unknown, code: string) {
+        const err: any = await p.then(
+          () => null,
+          (e) => e,
+        );
+        expect(err).toBeInstanceOf(type);
+        expect(err.getResponse().details.code).toBe(code);
+      }
+
+      it('saves own profile, today, no mark yet', async () => {
+        const result = await service.markDay(
+          await teacherParams({ date: TODAY(), entries: ownEntry() }),
+        );
+        expect(result.records[0]?.status).toBe(AttendanceStatus.PRESENT);
+      });
+
+      it('403s own profile for yesterday', async () => {
+        await expectCode(
+          service.markDay(await teacherParams({ date: addDays(-1), entries: ownEntry() })),
+          ForbiddenException,
+          'STAFF_ATTENDANCE_SELF_TODAY_ONLY',
+        );
+      });
+
+      it('422s today when it is a weekly off day', async () => {
+        await setTenantSettings(TENANT_ID, {
+          weeklyOffDays: [weekday(addDays(0))],
+          correctionWindowDays: 2,
+          allowFutureDates: false,
+        });
+        await expectCode(
+          service.markDay(await teacherParams({ date: TODAY(), entries: ownEntry() })),
+          UnprocessableEntityException,
+          'STAFF_ATTENDANCE_NON_WORKING_DAY',
+        );
+      });
+
+      it('403s changing an existing SYSTEM LEAVE row, which stays LEAVE', async () => {
+        await dataSource.query(
+          `INSERT INTO staff_attendance_sessions (id, tenant_id, date, version, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, 1, NOW(), NOW())`,
+          [TENANT_ID, TODAY()],
+        );
+        await dataSource.query(
+          `INSERT INTO staff_attendance_records (id, tenant_id, session_id, staff_profile_id, status, source, created_at, updated_at)
+           SELECT gen_random_uuid(), $1, id, $3, 'LEAVE', 'SYSTEM', NOW(), NOW()
+           FROM staff_attendance_sessions WHERE tenant_id = $1 AND date = $2`,
+          [TENANT_ID, TODAY(), staffProfileId],
+        );
+        await expectCode(
+          service.markDay(await teacherParams({ date: TODAY(), entries: ownEntry() })),
+          ForbiddenException,
+          'STAFF_ATTENDANCE_ALREADY_MARKED',
+        );
+        const rows = await dataSource.query(
+          `SELECT status FROM staff_attendance_records WHERE staff_profile_id = $1`,
+          [staffProfileId],
+        );
+        expect(rows[0].status).toBe(AttendanceStatus.LEAVE);
+      });
+
+      it('re-sending the same status is a 200 with no audit row', async () => {
+        await service.markDay(await teacherParams({ date: TODAY(), entries: ownEntry() }));
+        const before = await dataSource.getRepository(AuditLog).count({
+          where: { tenant_id: TENANT_ID, entity_type: 'StaffAttendanceRecord' },
+        });
+        await service.markDay(await teacherParams({ date: TODAY(), entries: ownEntry() }));
+        const after = await dataSource.getRepository(AuditLog).count({
+          where: { tenant_id: TENANT_ID, entity_type: 'StaffAttendanceRecord' },
+        });
+        expect(after).toBe(before);
+      });
+    });
+
+    describe('admin date rules', () => {
+      it('422s a future PRESENT', async () => {
+        await expect(
+          service.markDay(
+            putParams({
+              dto: {
+                date: addDays(3),
+                entries: [{ staff_profile_id: staffProfileId, status: AttendanceStatus.PRESENT }],
+              },
+            }),
+          ),
+        ).rejects.toMatchObject({
+          response: { details: { code: 'STAFF_ATTENDANCE_FUTURE_NOT_LEAVE' } },
+        });
+      });
+
+      it('saves a future LEAVE', async () => {
+        const result = await service.markDay(
+          putParams({
+            dto: {
+              date: addDays(3),
+              entries: [{ staff_profile_id: staffProfileId, status: AttendanceStatus.LEAVE }],
+            },
+          }),
+        );
+        expect(result.records[0]?.status).toBe(AttendanceStatus.LEAVE);
+      });
+
+      it('saves on a non-working day only with force_non_working_day', async () => {
+        await setTenantSettings(TENANT_ID, {
+          weeklyOffDays: [weekday(addDays(0))],
+          correctionWindowDays: 2,
+          allowFutureDates: false,
+        });
+        const dto = {
+          date: TODAY(),
+          entries: [{ staff_profile_id: staffProfileId, status: AttendanceStatus.PRESENT }],
+        };
+        await expect(service.markDay(putParams({ dto }))).rejects.toMatchObject({
+          response: { details: { code: 'STAFF_ATTENDANCE_NON_WORKING_DAY' } },
+        });
+        const result = await service.markDay(
+          putParams({ dto: { ...dto, force_non_working_day: true } }),
+        );
+        expect(result.records[0]?.status).toBe(AttendanceStatus.PRESENT);
+      });
     });
 
     it('403s a non-admin role marking a colleague (not their own staff profile)', async () => {

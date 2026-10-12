@@ -247,6 +247,30 @@ export class AcademicYearService {
         throw new NotFoundException(`Academic year with ID "${id}" not found`);
       }
 
+      // [68.2.12] Refuse the current year and any year still in use. Counted on
+      // the transaction manager so the check runs inside the row lock.
+      if (existing.is_current) {
+        throw new ConflictException({
+          message: 'This is the current academic year. Make another year current first.',
+          details: { code: 'ACADEMIC_YEAR_CURRENT' },
+        });
+      }
+      const [classes_count, fee_structures_count] = await Promise.all([
+        manager
+          .getRepository(Class)
+          .count({ where: { academic_year_id: id, tenant_id: tenantId } }),
+        manager
+          .getRepository(FeeStructure)
+          .count({ where: { academic_year_id: id, tenant_id: tenantId } }),
+      ]);
+      // Exams and enrollments always hang off a class, so the class count covers them.
+      if (classes_count + fee_structures_count > 0) {
+        throw new ConflictException({
+          message: 'This year still has classes or fee structures. Remove them first.',
+          details: { code: 'ACADEMIC_YEAR_IN_USE', classes_count, fee_structures_count },
+        });
+      }
+
       await repo.softDelete({ id, tenant_id: tenantId });
 
       await this.auditService.record(

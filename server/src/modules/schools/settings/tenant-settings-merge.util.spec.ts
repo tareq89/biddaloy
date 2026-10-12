@@ -474,3 +474,73 @@ describe('mergeApplySettings / clearPresetSettings', () => {
     expect(out.fees).toEqual({ x: 1 });
   });
 });
+
+describe('mergeTenantSettings weeklyOffHistory (TIME-02)', () => {
+  const NOW = new Date('2026-10-10T19:00:00Z'); // 2026-10-11 in Asia/Dhaka
+  const attendance = (weeklyOffDays: number[], extra: Record<string, unknown> = {}) =>
+    ({ version: 1, attendance: { weeklyOffDays, ...extra } }) as Record<string, unknown>;
+
+  it('changing weeklyOffDays appends {until: today, days: old}', () => {
+    const m = mergeTenantSettings(
+      attendance([6, 5]),
+      { version: 1, attendance: { weeklyOffDays: [5] } },
+      NOW,
+    );
+    expect((m.attendance as any).weeklyOffHistory).toEqual([{ until: '2026-10-11', days: [5, 6] }]);
+    expect((m.attendance as any).weeklyOffDays).toEqual([5]);
+  });
+
+  it('same days in a different order appends nothing', () => {
+    const m = mergeTenantSettings(
+      attendance([5, 6]),
+      { version: 1, attendance: { weeklyOffDays: [6, 5] } },
+      NOW,
+    );
+    expect((m.attendance as any).weeklyOffHistory).toBeUndefined();
+  });
+
+  it('a second change on the same day appends nothing more', () => {
+    const first = mergeTenantSettings(
+      attendance([5, 6]),
+      { version: 1, attendance: { weeklyOffDays: [5] } },
+      NOW,
+    );
+    const second = mergeTenantSettings(
+      first,
+      { version: 1, attendance: { weeklyOffDays: [0] } },
+      NOW,
+    );
+    expect((second.attendance as any).weeklyOffHistory).toEqual([
+      { until: '2026-10-11', days: [5, 6] },
+    ]);
+  });
+
+  it('a patch carrying weeklyOffHistory cannot overwrite the stored list', () => {
+    const stored = attendance([5], { weeklyOffHistory: [{ until: '2026-01-01', days: [6] }] });
+    const m = mergeTenantSettings(
+      stored,
+      { version: 1, attendance: { lateAfter: '09:00', weeklyOffHistory: [] } },
+      NOW,
+    );
+    expect((m.attendance as any).weeklyOffHistory).toEqual([{ until: '2026-01-01', days: [6] }]);
+  });
+
+  it('no stored attendance: old days come from the default [5]', () => {
+    const m = mergeTenantSettings(
+      { version: 1 },
+      { version: 1, attendance: { weeklyOffDays: [6] } },
+      NOW,
+    );
+    expect((m.attendance as any).weeklyOffHistory).toEqual([{ until: '2026-10-11', days: [5] }]);
+  });
+
+  it('uses the stored region timezone for today', () => {
+    const stored = {
+      version: 1,
+      region: { timezone: 'Pacific/Honolulu' },
+      attendance: { weeklyOffDays: [5] },
+    };
+    const m = mergeTenantSettings(stored, { version: 1, attendance: { weeklyOffDays: [6] } }, NOW);
+    expect((m.attendance as any).weeklyOffHistory).toEqual([{ until: '2026-10-10', days: [5] }]);
+  });
+});

@@ -155,7 +155,21 @@ key into the cell, and restore resolves it back to a real id.
   all, and every tab after X was never attempted. The job row is marked
   `FAILED` with `failed_tab` set to X's name — check `GET /backup/jobs/:id`
   for that field.
-- **The snapshot is the undo.** Before touching a single row, `POST
+- **Money and marks are insert-only (D13).** A restore may add rows to
+  `payments`, `payment_allocations`, `student_fees`, `invoices`, `exams`,
+  `marks`, `mark_grids`, `results`, `result_subjects`, `exam_components`,
+  `grading_scales` and `grading_bands`, but never change or remove one. Example: changing a mark from 38 to 78 in Excel fails validation:
+
+  ```text
+  Row 4 of "marks" changes value of an existing record. A restore can add marks
+  rows but never change them; make this change in the app.
+  ```
+
+  Rows missing from the file are kept (warning). A backup from another school can only be
+  restored by a platform SUPER_ADMIN.
+
+- **The snapshot is the undo** (except that money/marks rows added by a restore
+  are not removed by restoring the snapshot either). Before touching a single row, `POST
 /backup/restore` queues a `SNAPSHOT`-kind export of the tenant's _current_
   data and waits for it to finish. If the restore then fails partway (or
   the admin doesn't like the result), that snapshot is downloadable and

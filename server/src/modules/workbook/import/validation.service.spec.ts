@@ -47,6 +47,7 @@ function makeTab(
     existing?: FakeRow[];
     refTab?: string;
     allowDuplicateKeys?: boolean;
+    changed?: boolean;
   } = {},
 ): TabSpec<FakeRow, FakeRow> {
   const existing = opts.existing ?? [];
@@ -106,7 +107,7 @@ function makeTab(
       return { row: { id: cells.id || `gen-${rowNo}`, key, ref } };
     },
     keyOf: (x: FakeRow) => x.key,
-    diffFields: () => [],
+    diffFields: () => (opts.changed ? ['value'] : []),
     upsert: async (row: FakeRow) => row as any,
     remove: async () => undefined,
   };
@@ -432,5 +433,70 @@ describe('ValidationService', () => {
     expect(result.errors).toHaveLength(1000);
     expect(result.hardErrorCount).toBe(1001);
     expect(result.warnings.some((w) => /and 1 more/.test(w.message))).toBe(true);
+  });
+
+  describe('insert-only tabs (D13)', () => {
+    const rows = (key: string) =>
+      new Map([['marks', sheet(['id', 'key'], [{ rowNo: 2, cells: { id: 'e1', key } }])]]);
+    const run = (tab: TabSpec<FakeRow, FakeRow>, sheets: Map<string, SheetData>) => {
+      readWorkbook.mockResolvedValue(fakeReadResult(sheets));
+      return new ValidationService().validate(Buffer.from(''), 't', manager, [tab]);
+    };
+
+    it('errors on a changed existing row, naming the fields', async () => {
+      const tab = makeTab('marks', { existing: [{ id: 'e1', key: 'k' }], changed: true });
+      const r = await run(tab, rows('k'));
+      expect(r.hardErrorCount).toBe(1);
+      expect(r.errors[0].message).toContain('changes value of an existing record');
+      expect(r.tabs.marks.rows).toHaveLength(0);
+    });
+
+    it('allows an unchanged matched row, no warning', async () => {
+      const tab = makeTab('marks', { existing: [{ id: 'e1', key: 'k' }] });
+      const r = await run(tab, rows('k'));
+      expect(r.hardErrorCount).toBe(0);
+      expect(r.warnings).toHaveLength(0);
+    });
+
+    it('warns once, without error, when existing rows are absent from the file', async () => {
+      const tab = makeTab('payments', { existing: [{ id: 'e9', key: 'z' }] });
+      const r = await run(tab, new Map([['payments', sheet(['id', 'key'], [])]]));
+      expect(r.hardErrorCount).toBe(0);
+      expect(r.warnings.map((w) => w.message)).toEqual([
+        '1 existing payments rows are not in this file. A restore never removes them; they will be kept.',
+      ]);
+    });
+
+    // Review r1 #3: a BACKUP restore deletes rows the file leaves out; the
+    // tab's checkRemove gets exactly those rows and each refusal is an error.
+    it('passes only the absent rows to checkRemove and records its refusals', async () => {
+      const tab = makeTab('students', {
+        existing: [
+          { id: 'kept', key: 'k' },
+          { id: 'gone', key: 'g' },
+        ],
+      });
+      tab.checkRemove = vi.fn().mockResolvedValue(['Student g still owes money.']);
+      const r = await run(
+        tab,
+        new Map([
+          ['students', sheet(['id', 'key'], [{ rowNo: 2, cells: { id: 'kept', key: 'k' } }])],
+        ]),
+      );
+      expect(tab.checkRemove).toHaveBeenCalledWith([{ id: 'gone', key: 'g' }], 't', manager);
+      expect(r.hardErrorCount).toBe(1);
+      expect(r.errors[0].message).toBe('Student g still owes money.');
+    });
+
+    it('still lets a non-insert-only tab change', async () => {
+      const tab = makeTab('academic_years', { existing: [{ id: 'e1', key: 'k' }], changed: true });
+      const r = await run(
+        tab,
+        new Map([
+          ['academic_years', sheet(['id', 'key'], [{ rowNo: 2, cells: { id: 'e1', key: 'k' } }])],
+        ]),
+      );
+      expect(r.hardErrorCount).toBe(0);
+    });
   });
 });

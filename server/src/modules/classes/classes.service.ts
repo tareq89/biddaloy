@@ -7,12 +7,14 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
 import { EnrollmentStatus, TeacherAssignmentType, AuditAction } from '@biddaloy/shared';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import {
   CreateClassDto,
   UpdateClassDto,
@@ -45,6 +47,29 @@ export type ClassSectionWithCount = ClassSection & { enrolled_count: number };
  * above. */
 export type ClassWithCounts = Class & { section_count: number; student_count: number };
 
+/**
+ * Enrollment rows of live students for a class or section. A deleted
+ * student's rows are kept (StudentService.remove only sets them INACTIVE),
+ * so counting them would block the delete forever (review r1 #8).
+ */
+function countLiveEnrollments(
+  repo: Repository<Enrollment>,
+  column: 'class_id' | 'section_id',
+  id: string,
+  tenantId: string,
+): Promise<number> {
+  return repo
+    .createQueryBuilder('e')
+    .innerJoin(
+      'students',
+      'st',
+      'st.id = e.student_id AND st.tenant_id = e.tenant_id AND st.deleted_at IS NULL',
+    )
+    .where(`e.${column} = :id`, { id })
+    .andWhere('e.tenant_id = :tenantId', { tenantId })
+    .getCount();
+}
+
 @Injectable()
 export class ClassService {
   constructor(
@@ -54,6 +79,8 @@ export class ClassService {
     private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(Enrollment)
+    private readonly enrollmentRepo: Repository<Enrollment>,
     private readonly auditService: AuditService,
     private readonly settingsReader: SchoolSettingsReader,
   ) {}
@@ -81,6 +108,16 @@ export class ClassService {
     assertInVocabulary(dto.version, organisation.versions, 'version');
 
     return this.repo.manager.transaction(async (manager) => {
+      // Share-lock the year: AcademicYearService.remove() holds FOR UPDATE and counts classes, so
+      // a class cannot slip in under a year that is being deleted. Tenant-scoped, so another
+      // school's year id is a 404 too (the FK alone only checks the id exists).
+      const year = await manager.getRepository(AcademicYear).findOne({
+        where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_read' },
+      });
+      if (!year) {
+        throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
+      }
       const repo = manager.getRepository(Class);
       const entity = repo.create({
         name: dto.name,
@@ -273,32 +310,30 @@ export class ClassService {
   ): Promise<void> {
     const existing = await this.findOne(id, tenantId);
 
-    // Check for active students in this class first, before the section
-    // guard below, so the more meaningful "students are still enrolled"
-    // reason wins when both are true — the AC's own "explanation why".
-    //
-    // `Student` (joined through `class_section`), not `Enrollment`, is the
-    // authoritative source here: `POST /students` (`students.service.ts`)
-    // only ever writes a `Student` row with `class_section_id` — it never
-    // creates an `Enrollment` row, so `Enrollment` reads 0 for the normal
-    // student-creation flow and this guard would never fire. `Enrollment`
-    // rows only exist via the separate `POST /enrollments` endpoint.
-    // `academic-year.service.ts`'s `getStats` keeps counting `Enrollment`
-    // — that is pre-existing 8.11.1 behaviour, out of scope to re-base
-    // here, and is flagged in the PR description as a known
-    // inconsistency for a follow-up issue.
-    const activeStudentCount = await this.studentRepo
+    // [68.2.12] Any student or enrollment row of any status blocks the delete:
+    // students who left or graduated still point at the class, and deleting it
+    // strands their history. Students (via their section) and enrollments are
+    // both counted because `POST /students` writes only a Student row while
+    // `POST /enrollments` writes an Enrollment row.
+    const studentCount = await this.studentRepo
       .createQueryBuilder('student')
       .innerJoin('student.class_section', 'class_section')
       .where('class_section.class_id = :classId', { classId: id })
       .andWhere('student.tenant_id = :tenantId', { tenantId })
       .andWhere('student.deleted_at IS NULL')
-      .andWhere('student.enrollment_status = :status', { status: EnrollmentStatus.ACTIVE })
       .getCount();
-    if (activeStudentCount > 0) {
-      throw new ConflictException(
-        `Cannot delete class "${id}": ${activeStudentCount} student(s) are still enrolled in it. Move or unenroll them first.`,
-      );
+    const enrollmentCount = await countLiveEnrollments(
+      this.enrollmentRepo,
+      'class_id',
+      id,
+      tenantId,
+    );
+    const inUse = studentCount + enrollmentCount;
+    if (inUse > 0) {
+      throw new ConflictException({
+        message: `Cannot delete class "${id}": ${studentCount} student(s) and ${enrollmentCount} enrollment record(s) are still enrolled in it, including students who left. It cannot be deleted.`,
+        details: { code: 'CLASS_IN_USE', count: inUse },
+      });
     }
 
     // Check for child sections
@@ -361,6 +396,8 @@ export class SectionService {
     private classRepo: Repository<Class>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(Enrollment)
+    private readonly enrollmentRepo: Repository<Enrollment>,
     @InjectRepository(Teacher)
     private readonly teacherRepo: Repository<Teacher>,
     @InjectRepository(TeacherClassSection)
@@ -537,18 +574,24 @@ export class SectionService {
       throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
     }
 
-    // Check for active students in this section
-    const activeStudentCount = await this.studentRepo.count({
-      where: {
-        class_section_id: sectionId,
-        deleted_at: IsNull(),
-        enrollment_status: 'ACTIVE' as any,
-      },
+    // [68.2.12] Any status counts, not only ACTIVE: students who left still
+    // point at this section, and deleting it strands them.
+    const studentCount = await this.studentRepo.count({
+      where: { class_section_id: sectionId, tenant_id: tenantId, deleted_at: IsNull() },
     });
-    if (activeStudentCount > 0) {
-      throw new ConflictException(
-        `Cannot delete section "${sectionId}": ${activeStudentCount} active student(s) are enrolled in it. Reassign or remove them first.`,
-      );
+    const enrollmentCount = await countLiveEnrollments(
+      this.enrollmentRepo,
+      'section_id',
+      sectionId,
+      tenantId,
+    );
+    const inUse = studentCount + enrollmentCount;
+    if (inUse > 0) {
+      throw new ConflictException({
+        message:
+          'This section still has student records (including students who left). It cannot be deleted.',
+        details: { code: 'SECTION_IN_USE', count: inUse },
+      });
     }
 
     await this.repo.manager.transaction(async (manager) => {

@@ -76,6 +76,16 @@ describe('AttendanceSection', () => {
     expect(isChecked(screen.getByLabelText('Mon'))).toBe(false);
   });
 
+  it('shows the off-day hint', async () => {
+    renderWithProviders(
+      <WithTestRouter>
+        <AttendanceSection schoolId={SCHOOL_ID} attendance={ATTENDANCE} />
+      </WithTestRouter>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+    expect(await screen.findByText(/Changes apply from today/)).toBeTruthy();
+  });
+
   it('sends only the attendance slice in the saved payload', async () => {
     const patchBody = vi.fn();
     server.use(
@@ -98,6 +108,7 @@ describe('AttendanceSection', () => {
     const body = patchBody.mock.calls[0]![0];
     expect(Object.keys(body)).toEqual(['version', 'attendance']);
     expect(body.attendance.weeklyOffDays).toEqual([0, 6]);
+    expect(body.attendance).not.toHaveProperty('weeklyOffHistory');
     expect(body.attendance.autoAbsentNotification).toEqual({ enabled: false, cutoffTime: '10:00' });
   });
 

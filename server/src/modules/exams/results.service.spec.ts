@@ -78,10 +78,20 @@ function makeRepos(overrides: Record<string, any> = {}) {
     manager: {
       transaction: vi.fn(async (cb: any) =>
         cb({
+          // computeAll now reads through this manager ([68.2.06]), so the
+          // read repos are served here too; `find` feeds loadExamCohort's mock.
+          find: (...args: any[]) => enrollmentRepo.find(...args),
           getRepository: (entity: any) => {
             if (entity === Exam) return examRepo;
             if (entity === Result) return resultRepo;
             if (entity === ResultSubject) return resultSubjectRepo;
+            if (entity === Mark) return markRepo;
+            if (entity === ExamComponent) return componentRepo;
+            if (entity === ClassSubject) return classSubjectRepo;
+            if (entity === Student) return studentRepo;
+            if (entity === StudentSubjectChoice) return choiceRepo;
+            if (entity === GradingScale) return scaleRepo;
+            if (entity === GradingBand) return bandRepo;
             return { update: vi.fn(async () => undefined) };
           },
         }),
@@ -460,7 +470,14 @@ describe('ResultsService.process', () => {
   });
 });
 
-describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
+describe('ResultsService.recomputeProcessedExam (D18 step 6)', () => {
+  // Production callers (marks, band edits) recompute inside their own write
+  // transaction; the mocked examRepo.manager.transaction stands in for it.
+  const recomputeInTx = (service: ResultsService) =>
+    (service as any).examRepo.manager.transaction((m: any) =>
+      service.recomputeProcessedExam(m, EXAM_ID, TENANT_ID, 'user-1'),
+    );
+
   it('recomputes when the exam is PROCESSED', async () => {
     const { service, resultRepo } = await buildService({
       exam: { status: ExamStatus.PROCESSED },
@@ -474,7 +491,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
       ],
     });
 
-    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
+    await recomputeInTx(service);
 
     expect(resultRepo.save).toHaveBeenCalled();
   });
@@ -482,7 +499,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
   it('is a no-op once PUBLISHED — marks are frozen', async () => {
     const { service, resultRepo } = await buildService({ exam: { status: ExamStatus.PUBLISHED } });
 
-    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
+    await recomputeInTx(service);
 
     expect(resultRepo.save).not.toHaveBeenCalled();
   });
@@ -497,7 +514,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
       ],
     });
 
-    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
+    await recomputeInTx(service);
 
     // Looked up by exam, not by the recomputed students — the out-of-cohort
     // row is removed too, instead of surviving with its old position.
@@ -523,7 +540,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
       existingResults: [{ id: 'result-stu-1', student_id: 'stu-1' }],
     });
 
-    await service.recomputeIfProcessed(EXAM_ID, ['stu-2'], TENANT_ID, 'user-1');
+    await recomputeInTx(service);
 
     const saved = resultRepo.save.mock.calls.map((c: any[]) => c[0].student_id);
     expect(saved).toContain('stu-1');
@@ -543,7 +560,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
       status: ExamStatus.PUBLISHED,
     }));
 
-    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
+    await recomputeInTx(service);
 
     expect(examRepo.findOne).toHaveBeenCalledWith(
       expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
@@ -555,7 +572,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
   it('is a no-op while still DRAFT — nothing computed yet', async () => {
     const { service, resultRepo } = await buildService({ exam: { status: ExamStatus.DRAFT } });
 
-    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
+    await recomputeInTx(service);
 
     expect(resultRepo.save).not.toHaveBeenCalled();
   });

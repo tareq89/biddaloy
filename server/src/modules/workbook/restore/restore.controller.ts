@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -41,11 +41,13 @@ export class RestoreController {
     @Body() dto: RequestRestoreDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() req: { isPlatformSuperAdmin?: boolean },
   ): Promise<RequestRestoreResponseDto> {
     const { job, snapshotJob } = await this.restore.request(tenant.id, user.sub, {
       staging_id: dto.staging_id,
       confirmation: dto.confirmation,
       invite_users: dto.invite_users,
+      isPlatformSuperAdmin: req.isPlatformSuperAdmin === true,
     });
     return { job_id: job.id, snapshot_job_id: snapshotJob.id };
   }

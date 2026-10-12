@@ -23,9 +23,16 @@ import { AttendanceComponentService } from './attendance-component.service';
 import { AuditService } from '../audit/audit.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { buildErrorResponseBody } from '../../common/filters/error-response';
+import { SchoolsService } from '../schools/schools.service';
+import { TenantSettingsDto } from '../schools/dto/tenant-settings.dto';
+import { EncryptionService } from '../schools/settings/encryption.service';
+import { TenantSettingsCache } from '../schools/settings/tenant-settings-cache.service';
+import { TenantStatusModule } from '../schools/tenant-status.module';
+import { plainToInstance } from 'class-transformer';
+import { randomBytes } from 'crypto';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { SEED_TENANT_ID } from '@test/constants';
+import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import {
   EnrollmentStatus,
   ExamComponentKind,
@@ -142,6 +149,7 @@ const NOGROUP_SECTION_ID = '00000000-0000-4000-8000-0000000d0024';
  */
 describe('ResultsService (integration, stream subjects)', () => {
   let resultsService: ResultsService;
+  let schoolsService: SchoolsService;
   let dataSource: DataSource;
   let studentRepo: Repository<Student>;
   let enrollmentRepo: Repository<Enrollment>;
@@ -180,11 +188,15 @@ describe('ResultsService (integration, stream subjects)', () => {
         { provide: AttendanceComponentService, useValue: stubAttendance },
         { provide: AuditService, useValue: stubAudit },
         { provide: MarksAuthorizationService, useValue: stubAuthz },
+        SchoolsService,
+        { provide: EncryptionService, useFactory: () => new EncryptionService(randomBytes(32)) },
+        { provide: TenantSettingsCache, useFactory: () => new TenantSettingsCache(30_000) },
       ],
-      [],
+      [TenantStatusModule],
       { synchronize: true, dropSchema: true },
     );
     resultsService = module.get(ResultsService);
+    schoolsService = module.get(SchoolsService);
     dataSource = module.get(DataSource);
     studentRepo = module.get(getRepositoryToken(Student));
     enrollmentRepo = module.get(getRepositoryToken(Enrollment));
@@ -378,6 +390,39 @@ describe('ResultsService (integration, stream subjects)', () => {
     expect(s.r.is_fail).toBe(false);
   });
 
+  it('after the stream is renamed in settings, the student still gets the stream subject', async () => {
+    await dataSource.getRepository(School).update(TENANT_ID, {
+      settings: { version: 1, organisation: { shifts: [], versions: [], groups: ['Science'] } },
+    });
+    await addComponent(BAN);
+    await addComponent(PHY);
+    await putMark(sciStudent, BAN, '80');
+    await putMark(sciStudent, PHY, '70');
+
+    try {
+      await schoolsService.updateSettings(
+        TENANT_ID,
+        plainToInstance(TenantSettingsDto, {
+          version: 1,
+          organisation: { shifts: [], versions: [], groups: ['বিজ্ঞান'] },
+          organisationRenames: [{ list: 'groups', from: 'Science', to: 'বিজ্ঞান' }],
+        }),
+        SEED_ADMIN_USER_ID,
+      );
+
+      expect((await resultsService.process(examId, TENANT_ID, 'u1', true)).processed).toBe(1);
+      expect((await subjectsOf(sciStudent.id)).ids).toEqual([BAN, PHY].sort());
+    } finally {
+      // restore: section/school reference data is per-file, not reset per test
+      await dataSource.query(`UPDATE class_sections SET group_name = 'Science' WHERE id = $1`, [
+        SCI_SECTION_ID,
+      ]);
+      await dataSource.getRepository(School).update(TENANT_ID, {
+        settings: { version: 1, organisation: { shifts: [], versions: [], groups: ['Science'] } },
+      });
+    }
+  });
+
   it('a student in a section with no group blocks with 409 + names, even with force, writing nothing', async () => {
     await addComponent(BAN);
     await addComponent(PHY);
@@ -432,8 +477,10 @@ describe('ResultsService (integration, stream subjects)', () => {
         { value: '65' },
       );
       await expect(
-        resultsService.recomputeIfProcessed(examId, [sciStudent.id], TENANT_ID, 'u1'),
-      ).resolves.toBeUndefined();
+        dataSource.transaction((m) =>
+          resultsService.recomputeProcessedExam(m, examId, TENANT_ID, 'u1'),
+        ),
+      ).resolves.toEqual(expect.any(Number));
     } finally {
       await dataSource
         .getRepository(ClassSection)

@@ -5,6 +5,7 @@ import { BLOOD_GROUPS } from '../../../students/dto/students.dto';
 import { Student } from '../../../students/entities/student.entity';
 import { Guardian } from '../../../students/entities/guardian.entity';
 import { Enrollment } from '../../../students/entities/enrollment.entity';
+import { studentsWithOpenMoney } from '../../../students/open-money';
 import { ClassSection } from '../../../academics/entities/class-section.entity';
 import {
   lockSeatUsage,
@@ -703,6 +704,26 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
   async remove(entity: Student, m: EntityManager): Promise<void> {
     // Soft delete: link rows are left intact so a revive restores them.
     await m.softRemove(Student, entity);
+  },
+
+  // Same money refusal as StudentService.remove (STUDENT_HAS_OPEN_MONEY).
+  async checkRemove(absent: Student[], tenantId: string, m: EntityManager): Promise<string[]> {
+    const owing = await studentsWithOpenMoney(
+      m,
+      tenantId,
+      absent.map((s) => s.id),
+    );
+    const taka = (n: number) =>
+      `৳${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return owing.map((s) => {
+      const money = [
+        s.open_dues > 0 ? `open dues of ${taka(s.open_dues)}` : null,
+        s.wallet_balance !== 0 ? `wallet money of ${taka(s.wallet_balance)}` : null,
+      ]
+        .filter(Boolean)
+        .join(' and ');
+      return `Student "${s.full_name}" (${s.registration_number}) is not in this file, so the restore would delete them, but they still have ${money}. Add the student back to the file, or clear the money in the app first.`;
+    });
   },
 };
 

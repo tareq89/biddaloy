@@ -63,6 +63,33 @@ describe('isWeeklyOff', () => {
   });
 });
 
+describe('isWeeklyOff history (TIME-02)', () => {
+  const h = (history: Array<{ until: string; days: number[] }>): AttendancePolicySettings => ({
+    ...POLICY,
+    weeklyOffDays: [5],
+    weeklyOffHistory: history,
+  });
+  const SAT = '2025-03-08';
+  it('uses the history entry for a date before until', () => {
+    expect(isWeeklyOff(SAT, h([{ until: '2026-10-11', days: [5, 6] }]))).toBe(true);
+  });
+  it('uses the current days on and after until', () => {
+    expect(isWeeklyOff('2026-10-17', h([{ until: '2026-10-11', days: [5, 6] }]))).toBe(false);
+    expect(isWeeklyOff('2026-10-11', h([{ until: '2026-10-11', days: [0] }]))).toBe(false);
+  });
+  it('with two entries, picks the earliest one whose until is after the date', () => {
+    const p = h([
+      { until: '2025-01-01', days: [0] },
+      { until: '2026-01-01', days: [6] },
+    ]);
+    expect(isWeeklyOff(SAT, p)).toBe(true);
+    expect(isWeeklyOff('2024-12-29', p)).toBe(true);
+  });
+  it('no history gives current days', () => {
+    expect(isWeeklyOff(SAT, { ...POLICY, weeklyOffDays: [5] })).toBe(false);
+  });
+});
+
 describe('localToday', () => {
   afterEach(() => {
     vi.useRealTimers();
