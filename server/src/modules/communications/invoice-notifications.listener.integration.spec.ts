@@ -191,7 +191,8 @@ describe('InvoiceNotificationsListener metered SMS credit (integration, #1317)',
 
   it('queue.add failure holds the units; a replay re-claims the same log and settles it', async () => {
     failAdd = true;
-    await fire();
+    // Throws so BullMQ retries the job (the FAILED row is kept for the replay).
+    await expect(fire()).rejects.toThrow(/could not be enqueued/);
 
     const failed = (await logRepo.find({ where: { guardian_id: guardianId } }))[0];
     expect(failed.status).toBe(CommunicationStatus.FAILED);

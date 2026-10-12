@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { attentionEvents } from '../attention/attention.constants';
+import { ATTENTION_RECHECK, AttentionRecheckPayload } from '../attention/engine/attention-events';
+import { getQueueToken } from '@nestjs/bullmq';
+import { FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -57,6 +61,20 @@ const OTHER_SECTION_ID = '00000000-0000-4000-8000-000000006504';
 
 let studentSeq = 0;
 let structureSeq = 0;
+
+const feeNotifyAdd = vi.fn().mockResolvedValue(undefined);
+/** Collects the attention rechecks emitted while `fn` runs. */
+async function captureRechecks(fn: () => Promise<unknown>): Promise<string[]> {
+  const seen: AttentionRecheckPayload[] = [];
+  const on = (p: AttentionRecheckPayload) => seen.push(p);
+  attentionEvents.on(ATTENTION_RECHECK, on);
+  try {
+    await fn();
+  } finally {
+    attentionEvents.off(ATTENTION_RECHECK, on);
+  }
+  return seen.map((r) => `${r.tenantId}:${r.ruleKey}`).sort();
+}
 
 describe('FeeGenerationService (integration)', () => {
   let service: FeeGenerationService;
@@ -133,6 +151,7 @@ describe('FeeGenerationService (integration)', () => {
       ALL_ENTITIES,
       [
         FeeGenerationService,
+        { provide: getQueueToken(FEE_NOTIFY_QUEUE), useValue: { add: feeNotifyAdd } },
         FeeGenerationsService,
         WalletService,
         AuditService,
@@ -311,6 +330,44 @@ describe('FeeGenerationService (integration)', () => {
 
   // Review r1 #5: a delete that commits while a generation is running must
   // not end with a new bill on the deleted student.
+  it('a committed generation with notify_families enqueues one job and rechecks the fee alerts', async () => {
+    feeNotifyAdd.mockClear();
+    const students = await studentRepo.save([makeStudent()]);
+    const structures = await structureRepo.save([makeStructure()]);
+
+    let batchId = '';
+    const rechecks = await captureRechecks(async () => {
+      const r = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-04-01',
+          period_type: PeriodType.MONTH,
+          student_ids: students.map((s) => s.id),
+          fee_structure_ids: structures.map((s) => s.id),
+          notify_families: true,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      batchId = r.fee_generation_id;
+    });
+
+    expect(feeNotifyAdd).toHaveBeenCalledTimes(1);
+    expect(feeNotifyAdd).toHaveBeenCalledWith(
+      'fees.generated',
+      expect.objectContaining({ tenantId: TENANT_ID, feeGenerationId: batchId }),
+      { jobId: `fees.generated-${batchId}` },
+    );
+    expect(rechecks).toEqual(
+      [
+        `${TENANT_ID}:fees.due_soon`,
+        `${TENANT_ID}:fees.overdue_family`,
+        `${TENANT_ID}:fees.unassigned_students`,
+      ].sort(),
+    );
+  });
+
   it('a generation racing a student delete waits for it and writes no bill for that student', async () => {
     const [student] = await studentRepo.save([makeStudent()]);
     const [structure] = await structureRepo.save([makeStructure()]);

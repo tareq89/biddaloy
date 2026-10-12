@@ -5,7 +5,6 @@ import {
   FeeNotificationsListener,
   resolveFeeNotificationChannel,
 } from './fee-notifications.listener';
-import { feesEvents } from '../fees/fee-generation.service';
 
 /**
  * Unit coverage for the push -> WhatsApp -> SMS fallback matrix (D13).
@@ -91,40 +90,6 @@ describe('resolveFeeNotificationChannel', () => {
   it('skips (null) a guardian with no contact information at all', () => {
     const result = resolveFeeNotificationChannel(guardian({}), true, true);
     expect(result).toBeNull();
-  });
-});
-
-describe('FeeNotificationsListener.onModuleInit', () => {
-  // Regression: `onModuleInit` used to fire-and-forget
-  // `handleFeesGenerated` (`void this.handleFeesGenerated(event)`),
-  // discarding a rejection as an unhandled promise rejection instead of
-  // logging it.
-  it('logs and does not throw when handleFeesGenerated rejects', async () => {
-    const listener = new FeeNotificationsListener(
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
-    const error = new Error('boom');
-    const handleSpy = vi.spyOn(listener, 'handleFeesGenerated').mockRejectedValue(error);
-    const loggerSpy = vi.spyOn((listener as any).logger, 'error').mockImplementation(() => {});
-
-    const unhandled = vi.fn();
-    process.once('unhandledRejection', unhandled);
-
-    listener.onModuleInit();
-    feesEvents.emit('fees.generated', { tenantId: 't1', feeGenerationId: 'fg1' });
-
-    // Let the rejected promise's .catch() microtask run.
-    await new Promise((resolve) => setImmediate(resolve));
-
-    expect(handleSpy).toHaveBeenCalled();
-    expect(loggerSpy).toHaveBeenCalledWith('fees.generated handler failed for fg1', error.stack);
-    expect(unhandled).not.toHaveBeenCalled();
-    process.removeListener('unhandledRejection', unhandled);
   });
 });
 
