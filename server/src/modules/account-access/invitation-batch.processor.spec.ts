@@ -60,7 +60,10 @@ describe('InvitationBatchProcessor', () => {
     // Each test that reaches `ensureUser` overrides this with a manager
     // stub of its own shape; the "guardian not found" test never calls it.
     dataSource = { transaction: vi.fn() };
-    tenantStatus = { isRestoring: vi.fn().mockResolvedValue(false) };
+    tenantStatus = {
+      isRestoring: vi.fn().mockResolvedValue(false),
+      isActive: vi.fn().mockResolvedValue(true),
+    };
 
     processor = new InvitationBatchProcessor(
       guardianRepo,
@@ -74,6 +77,17 @@ describe('InvitationBatchProcessor', () => {
   });
 
   // [68.1.fix] A restore rewrites users/guardians/user_tenants: writing now would be lost.
+  it('[GAP-08] job for a SUSPENDED tenant issues no token and sends nothing', async () => {
+    tenantStatus.isActive.mockResolvedValue(false);
+
+    await processor.process(job());
+
+    expect(tenantStatus.isActive).toHaveBeenCalledWith(TENANT);
+    expect(guardianRepo.findOne).not.toHaveBeenCalled();
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(invitationService.issueAndSend).not.toHaveBeenCalled();
+  });
+
   it('parks the job (moveToDelayed + DelayedError) while the school is being restored, writing nothing', async () => {
     tenantStatus.isRestoring.mockResolvedValue(true);
     const moveToDelayed = vi.fn().mockResolvedValue(undefined);

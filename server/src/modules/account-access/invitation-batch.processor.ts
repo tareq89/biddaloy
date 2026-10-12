@@ -46,6 +46,14 @@ export class InvitationBatchProcessor extends WorkerHost {
   async process(job: Job<InvitationBatchJobData>, token?: string): Promise<void> {
     const { tenantId, guardianId, actorUserId, batchId } = job.data;
 
+    // A suspended school gets no invitation texts (GAP-08, #2288). Return, not throw: no retry.
+    if (!(await this.tenantStatus.isActive(tenantId))) {
+      this.logger.log(
+        `Tenant ${tenantId} is suspended, dropping invitation job for batch ${batchId}`,
+      );
+      return;
+    }
+
     // [68.1.fix] A restore is rewriting this school's `users`/`guardians`/`user_tenants` (#2210):
     // a write now would be lost or mixed into the restored data. Park the job and re-check later;
     // `DelayedError` tells BullMQ this is not a failure, so no retry attempt is spent.

@@ -8,6 +8,7 @@ import { AuditAction } from '@biddaloy/shared';
 import { AuditService } from '../../audit/audit.service';
 import { StorageService } from '../../storage/storage.service';
 import { ImportStagingService } from '../../bulk-import/import-staging.service';
+import { TenantStatusService } from '../../schools/tenant-status.service';
 import { InvitationService } from '../../account-access/invitation.service';
 import { ALL_TABS } from '../codec/registry';
 import { INSERT_ONLY_TABS } from '../codec/insert-only-tabs';
@@ -125,6 +126,7 @@ export class RestoreProcessor extends WorkerHost {
     private readonly audit: AuditService,
     private readonly events: WorkbookJobEventsService,
     private readonly restoreService: RestoreService,
+    private readonly tenantStatus: TenantStatusService,
   ) {
     super();
   }
@@ -377,7 +379,9 @@ export class RestoreProcessor extends WorkerHost {
         error: null,
       });
 
-      if (inviteUsers) {
+      if (inviteUsers && !(await this.tenantStatus.isActive(tenantId))) {
+        this.logger.log(`RestoreProcessor: tenant ${tenantId} is suspended, skipping invites`);
+      } else if (inviteUsers) {
         for (const userId of createdUserIds) {
           try {
             await this.invitations.issueAndSend({

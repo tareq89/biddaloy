@@ -174,6 +174,7 @@ describe('RestoreProcessor (integration)', () => {
       auditService,
       events as any,
       restoreServiceStub as any,
+      { isActive: vi.fn().mockResolvedValue(true) } as any,
     );
 
     await dataSource.getRepository(School).save([
