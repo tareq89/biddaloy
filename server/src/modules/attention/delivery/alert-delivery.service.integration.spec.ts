@@ -236,6 +236,21 @@ describe('AlertDeliveryService (integration)', () => {
       expect(sendToUser).toHaveBeenCalledTimes(1);
       expect(await pushedAt(idB)).not.toBeNull();
     });
+
+    // A suspended school does nothing in the background (25-domain-invariants).
+    // The sweep already skips it; the all-tenant catch-up must too.
+    it('skips a suspended school', async () => {
+      const idB = await add({ tenantId: tenantB });
+      await aged(idB, 5);
+      await ds.query(`UPDATE schools SET status = 'SUSPENDED' WHERE id = $1`, [tenantB]);
+      try {
+        await svc.catchUp(new Date(DAY));
+      } finally {
+        await ds.query(`UPDATE schools SET status = 'ACTIVE' WHERE id = $1`, [tenantB]);
+      }
+      expect(sendToUser).not.toHaveBeenCalled();
+      expect(await pushedAt(idB)).toBeNull();
+    });
   });
 
   it('ignores a recipient id from another tenant (tenant isolation)', async () => {

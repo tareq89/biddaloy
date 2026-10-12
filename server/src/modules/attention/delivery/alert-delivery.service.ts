@@ -86,13 +86,15 @@ export class AlertDeliveryService extends WorkerHost implements OnModuleInit, On
    * The fast path is an in-memory event, lost if the server restarts after the alert is saved.
    * After each sweep, re-deliver OPEN recipients of the last day that were never pushed (skipping
    * the newest 2 minutes, still on the fast path). `deliver` claims each row atomically, so this
-   * cannot double-push. The sweep event carries no tenant, so this covers all tenants.
+   * cannot double-push. The sweep event carries no tenant, so this covers all ACTIVE tenants.
    */
   async catchUp(now = new Date()): Promise<void> {
     const rows: { id: string; tenant_id: string }[] = await this.dataSource.query(
       `SELECT r.id, r.tenant_id
          FROM alert_recipients r
          JOIN alerts a ON a.id = r.alert_id AND a.tenant_id = r.tenant_id
+         -- Like the sweep: a suspended school does nothing in the background.
+         JOIN schools s ON s.id = r.tenant_id AND s.status = 'ACTIVE'
         WHERE r.state = 'OPEN' AND r.pushed_at IS NULL AND a.status = 'ACTIVE'
           AND a.rule_key = ANY($3::text[])
           AND r.created_at BETWEEN $1::timestamptz - interval '1 day'
