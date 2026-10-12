@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import { DataSource, Repository } from 'typeorm';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -136,6 +136,26 @@ describe('IncidentNotifyListener metered SMS credit (integration, #1317)', () =>
     expect(release.map((r) => r.idempotency_key).sort()).toEqual(
       logs.map((l) => `log:${l.id}:settle`).sort(),
     );
+    expect(await balanceFor(dataSource, TENANT_ID)).toEqual({ available: 100, reserved: 0 });
+  });
+
+  // The job runs with attempts: 1, so a failure is only visible if the worker logs it.
+  it('a failed job is logged with the incident id, then rethrown so BullMQ marks it failed', async () => {
+    const failing = new IncidentNotifyListener(
+      {
+        find: async () => {
+          throw new Error('db down');
+        },
+      } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      credits,
+    );
+    const logError = vi.spyOn((failing as any).logger, 'error').mockImplementation(() => undefined);
+
+    await expect(failing.process({ data: EVENT } as never)).rejects.toThrow('db down');
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining(INCIDENT_ID), expect.any(String));
     expect(await balanceFor(dataSource, TENANT_ID)).toEqual({ available: 100, reserved: 0 });
   });
 });
