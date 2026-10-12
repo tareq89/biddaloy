@@ -233,15 +233,16 @@ describe('GuardianProvisioningService', () => {
         fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
       );
       // The newest JOIN_SCHOOL row is an ADMIN one; there is no PARENT one.
-      authTokens.latest.mockImplementation(async (_u: string, purpose: string, _t, role?: string) =>
-        purpose === 'JOIN_SCHOOL' && role !== 'PARENT'
-          ? {
-              consumed_at: null,
-              revoked_at: null,
-              expires_at: new Date(Date.now() + 60_000),
-              metadata: { role: 'ADMIN' },
-            }
-          : null,
+      authTokens.latest.mockImplementation(
+        async (_u: string, purpose: string, _t, role?: string) =>
+          purpose === 'JOIN_SCHOOL' && role !== 'PARENT'
+            ? {
+                consumed_at: null,
+                revoked_at: null,
+                expires_at: new Date(Date.now() + 60_000),
+                metadata: { role: 'ADMIN' },
+              }
+            : null,
       );
 
       const result = await service.preview(TENANT, { all: true });
@@ -258,13 +259,18 @@ describe('GuardianProvisioningService', () => {
       userRepo.createQueryBuilder.mockReturnValue(
         fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
       );
-      const live = { consumed_at: null, revoked_at: null, expires_at: new Date(Date.now() + 60_000) };
-      authTokens.latest.mockImplementation(async (_u: string, purpose: string, _t, role?: string) =>
-        purpose !== 'JOIN_SCHOOL'
-          ? null
-          : role === 'PARENT'
-            ? { ...live, metadata: { role: 'PARENT' } }
-            : { ...live, metadata: { role: 'ADMIN' } },
+      const live = {
+        consumed_at: null,
+        revoked_at: null,
+        expires_at: new Date(Date.now() + 60_000),
+      };
+      authTokens.latest.mockImplementation(
+        async (_u: string, purpose: string, _t, role?: string) =>
+          purpose !== 'JOIN_SCHOOL'
+            ? null
+            : role === 'PARENT'
+              ? { ...live, metadata: { role: 'PARENT' } }
+              : { ...live, metadata: { role: 'ADMIN' } },
       );
 
       const result = await service.preview(TENANT, { all: true });
