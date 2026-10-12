@@ -382,6 +382,44 @@ describe('Application decisions E2E', () => {
       expect(await casualBalance()).toBe(10);
     });
 
+    it('#2381: revoke unmarks the leave days; a manual ABSENT the leave turned into LEAVE is ABSENT again', async () => {
+      // Admin had marked these days ABSENT before the leave was approved.
+      const absentDays = [day(-5), day(-4), day(-3)];
+      for (const d of absentDays) {
+        await dataSource.query(
+          `INSERT INTO staff_attendance_sessions (id, tenant_id, date, version, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, 1, NOW(), NOW()) ON CONFLICT (tenant_id, date) DO NOTHING`,
+          [SEED_TENANT_ID, d],
+        );
+        await dataSource.query(
+          `INSERT INTO staff_attendance_records (id, tenant_id, session_id, staff_profile_id, status, source, created_at, updated_at)
+           SELECT gen_random_uuid(), $1, id, $3, 'ABSENT', 'TEACHER', NOW(), NOW()
+           FROM staff_attendance_sessions WHERE tenant_id = $1 AND date = $2`,
+          [SEED_TENANT_ID, d, applicantStaffProfileId],
+        );
+      }
+      const marks = async () =>
+        (
+          await dataSource.query(
+            `SELECT r.status FROM staff_attendance_records r
+             JOIN staff_attendance_sessions s ON s.id = r.session_id
+             WHERE r.tenant_id = $1 AND r.staff_profile_id = $2 AND s.date BETWEEN $3 AND $4`,
+            [SEED_TENANT_ID, applicantStaffProfileId, day(-6), day(-2)],
+          )
+        ).map((r: { status: string }) => r.status);
+
+      const id = await fileStaffLeave(-6, -2);
+      await approve(id, adminToken).expect(200);
+      expect(await marks()).toContain('LEAVE');
+
+      await call('post', `${API}/${id}/cancel`, adminToken)
+        .send({ reason: 'Wrong person', revoke_taken_days: true })
+        .expect(200);
+
+      // Days that were blank before are blank again; the manual ABSENTs are back.
+      expect(await marks()).toEqual(['ABSENT', 'ABSENT', 'ABSENT']);
+    });
+
     it('the applicant themselves: 403 APPLICANT_CANNOT_CANCEL; a TEACHER without LEAVE_APPROVE: 403', async () => {
       const id = await fileStaffLeave(-5, -3);
       await approve(id, adminToken).expect(200);
