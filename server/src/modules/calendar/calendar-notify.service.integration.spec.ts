@@ -344,14 +344,14 @@ describe('CalendarNotifyService (integration)', () => {
   });
 
   // [#2265] Bangla-locale school: Bangla body, credit priced on that body.
-  async function setLocale(locale: string): Promise<void> {
+  async function setLocale(locale?: string): Promise<void> {
     await dataSource.getRepository(School).update(
       { id: TENANT_ID },
       {
         settings: {
           version: 1,
           communications: { sms: { metering: 'PLATFORM' } },
-          region: { locale },
+          ...(locale ? { region: { locale } } : {}),
         } as any,
       },
     );
@@ -381,8 +381,9 @@ describe('CalendarNotifyService (integration)', () => {
     await setSmsSettings('OFF');
   });
 
-  it('en tenant: SMS body stays English', async () => {
-    await setLocale('en-US'); // default region locale is bn, so pin English
+  // [#2403] No stored locale means English, not the bn-BD region default.
+  it('tenant with no stored locale: SMS body is English', async () => {
+    await setLocale();
     await grantSmsCredit(100);
     const event = await makeEvent({ audience: CalendarAudience.ALL, name: 'English Event' });
     await notify.eventCreated(event, { notify: true, notifySms: true, userId: adminUserId });

@@ -324,9 +324,11 @@ export class AbsenceNoticeService {
     return { recipients, skipped, template };
   }
 
+  /** [#2403] The stored locale only: a school with none gets English, not
+   * the bn-BD region default `getResolvedSettings` fills in. */
   private async noticeLocale(tenantId: string) {
-    const settings = await this.schoolsService.getResolvedSettings(tenantId);
-    return resolveFeeNotificationLocale(settings.region?.locale);
+    const school = await this.schoolsService.findById(tenantId);
+    return resolveFeeNotificationLocale(school.settings?.region?.locale);
   }
 
   private async absenceTemplate(tenantId: string): Promise<string> {

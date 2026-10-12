@@ -16,7 +16,6 @@ import { Exam } from './entities/exam.entity';
 import { Result } from './entities/result.entity';
 import { Student } from '../students/entities/student.entity';
 import { School } from '../schools/entities/school.entity';
-import { resolveTenantSettings } from '../schools/settings/tenant-settings-resolver';
 import { resolveReminderAudience } from '../communications/reminder-recipients.util';
 import { resolveFeeNotificationLocale } from '../communications/fee-notification-template.util';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
@@ -100,14 +99,12 @@ export class ResultSmsService {
 
     const skipped: ResultSmsOutcome['skipped'] = [];
     let jobs: Array<{ log: CommunicationLog; segments: number }> = [];
-    // Same pure resolver SchoolsService.getResolvedSettings uses; no SchoolsModule import needed.
     const school = await this.examRepo.manager.findOne(School, {
       where: { id: tenantId },
       select: { id: true, settings: true },
     });
-    const locale = resolveFeeNotificationLocale(
-      resolveTenantSettings(school?.settings ?? null).region?.locale,
-    );
+    // [#2403] The stored locale only: no locale means English, not the bn-BD region default.
+    const locale = resolveFeeNotificationLocale(school?.settings?.region?.locale);
     // Nullable on older rows; 0 still gives them one stable publication key.
     const publishedAt = exam.published_at?.getTime() ?? 0;
 

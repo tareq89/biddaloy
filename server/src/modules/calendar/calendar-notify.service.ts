@@ -25,7 +25,6 @@ import { SmsCreditService } from '../communications/credits/sms-credit.service';
 import { recordBatchOutcome } from '../communications/reminder-batch-counters';
 import { resolveReminderAudience } from '../communications/reminder-recipients.util';
 import { School } from '../schools/entities/school.entity';
-import { resolveTenantSettings } from '../schools/settings/tenant-settings-resolver';
 import {
   formatFeeNotificationDueDate,
   resolveFeeNotificationLocale,
@@ -306,9 +305,8 @@ export class CalendarNotifyService {
       where: { id: tenantId },
       select: { id: true, settings: true },
     });
-    const locale = resolveFeeNotificationLocale(
-      resolveTenantSettings(school?.settings ?? null).region?.locale,
-    );
+    // [#2403] The stored locale only: no locale means English, not the bn-BD region default.
+    const locale = resolveFeeNotificationLocale(school?.settings?.region?.locale);
     const message =
       locale === 'bn'
         ? `${event.name} — ${formatFeeNotificationDueDate('bn', event.start_date)}। বিস্তারিত স্কুলের ক্যালেন্ডারে দেখুন।`

@@ -191,5 +191,8 @@ export function buildFeeNotificationMessage(
 export function resolveFeeNotificationLocale(
   regionLocale: string | undefined | null,
 ): FeeNotificationLocale {
-  return regionLocale?.toLowerCase().startsWith('bn') ? 'bn' : 'en';
+  // Raw stored settings are untyped: a non-string locale means English.
+  return typeof regionLocale === 'string' && regionLocale.toLowerCase().startsWith('bn')
+    ? 'bn'
+    : 'en';
 }

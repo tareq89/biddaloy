@@ -419,8 +419,8 @@ describe('AbsenceNoticeService (integration)', () => {
       const logs = await allLogs();
       expect(logs).toHaveLength(2);
       expect(logs[1].guardian_id).toBe(guardianId);
-      // The seeded school resolves to the Bangla default locale.
-      expect(logs[1].message_body).toContain('সংশোধন:');
+      // [#2403] The seeded school stores no locale, so it gets English.
+      expect(logs[1].message_body).toContain('Correction:');
       expect(logs[1].message_body).toContain('Student One');
 
       // Same correction replayed (e.g. a retried request): the reference key stops a second send.
@@ -446,12 +446,12 @@ describe('AbsenceNoticeService (integration)', () => {
       const logs = await allLogs();
       expect(logs).toHaveLength(2);
       expect(logs[1].guardian_id).toBe(guardianId2);
-      expect(logs[1].message_body).toContain('অনুপস্থিত ছিল');
+      expect(logs[1].message_body).toContain('was marked absent today');
       expect(logs[1].message_body).toContain('Student Two');
       expect(logs.filter((l) => l.guardian_id === guardianId)).toHaveLength(1);
     });
 
-    it('English-locale school gets the English correction text', async () => {
+    it('bn-BD school gets the Bangla correction text', async () => {
       await dataSource.getRepository(School).update(
         { id: TENANT_ID },
         {
@@ -463,15 +463,14 @@ describe('AbsenceNoticeService (integration)', () => {
               allowFutureDates: false,
               autoAbsentNotification: { enabled: true, cutoffTime: '00:00' },
             },
-            region: { timezone: 'Asia/Dhaka', locale: 'en-US' },
+            region: { timezone: 'Asia/Dhaka', locale: 'bn-BD' },
           } as any,
         },
       );
       await correct(studentId1, AttendanceStatus.PRESENT);
       const logs = await allLogs();
-      expect(logs[1].message_body).toBe(
-        `Correction: Student One was not absent on ${TODAY()}. Sorry for the earlier message.`,
-      );
+      expect(logs[1].message_body).toContain('সংশোধন:');
+      expect(logs[1].message_body).toContain('Student One');
     });
 
     // #2262: the guardian's latest message must always match the record.
