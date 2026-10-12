@@ -318,13 +318,20 @@ describe('Users & Teachers E2E [8.11.8]', () => {
   });
 
   describe('GET /audit-logs (performed_by_user_id filter)', () => {
+    // The seed admin also belongs to TENANT_B in this suite, so a login is a
+    // platform-level audit row (tenant_id NULL, D28 / #2302) and is invisible
+    // to the tenant-scoped audit screen. Write a tenant-A row directly.
+    const writeTenantAuditRow = () =>
+      dataSource.query(
+        `INSERT INTO audit_logs (tenant_id, action, entity_type, performed_by_user_id)
+         VALUES ($1, 'LOGIN', 'User', $2)`,
+        [TENANT_A, SEED_ADMIN_USER_ID],
+      );
+
     it('returns only rows performed by the given user', async () => {
       // audit_logs is truncated before every test (test/setup.ts), so the
       // beforeAll login's row is gone — write a fresh LOGIN row here.
-      await request()
-        .post('/api/v1/auth/login')
-        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-        .expect(200);
+      await writeTenantAuditRow();
 
       const res = await request()
         .get('/api/v1/audit-logs')
@@ -344,10 +351,7 @@ describe('Users & Teachers E2E [8.11.8]', () => {
     // each row. Asserted against a real database because the failure mode
     // is a SQL/relation-mapping one a mocked query builder cannot catch.
     it('returns the acting user’s name, not just their id', async () => {
-      await request()
-        .post('/api/v1/auth/login')
-        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-        .expect(200);
+      await writeTenantAuditRow();
 
       const res = await request()
         .get('/api/v1/audit-logs')
