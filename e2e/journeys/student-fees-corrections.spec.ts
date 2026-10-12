@@ -57,8 +57,10 @@ test('writing off an open bill through the step-up dialog marks it WAIVED', asyn
 
   await new ApprovalModalPage(page).complete('admin@biddaloy.test');
 
-  // The dialog closes and the open-bills table refreshes without a reload.
-  await expect(page.getByRole('dialog')).toBeHidden();
+  // The dialog closes and the open-bills table refreshes without a reload. `toHaveCount(0)`, not
+  // `toBeHidden()`: the step-up and write-off dialogs are both open for a moment, and a strict
+  // locator matching two elements fails at once instead of waiting.
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByText(t('students.detail.fees.emptyMessage'))).toBeVisible();
 
   const summary = await get<{ fee_breakdown: { id: string; status: string }[] }>(
@@ -99,7 +101,7 @@ test('paying out wallet credit through the step-up dialog empties the balance an
 
   await new ApprovalModalPage(page).complete('admin@biddaloy.test');
 
-  await expect(page.getByRole('dialog')).toBeHidden();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByText(t('common.walletTransactionKind.DEBIT_PAYOUT'))).toBeVisible();
   await expect(
     page.getByRole('button', { name: t('students.detail.fees.payout.action') }),

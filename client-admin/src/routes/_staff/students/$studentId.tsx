@@ -147,6 +147,10 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         'applicationsList',
         'feeStructures',
         'staff',
+        // [68.0 #2279] The Fees tab's write-off and payout dialogs open the step-up modal,
+        // which reads 'approval'. Unloaded, it suspends the whole page mid-mutation: the
+        // dialog's effects re-run, reset the mutation, and the dialog never closes.
+        'approval',
       ),
     ]),
   pendingComponent: StudentDetailPending,
