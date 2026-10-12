@@ -1,6 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { Mark } from '../../../exams/entities/mark.entity';
 import { fromCell } from '../../codec/cell-format';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import type {
   ColumnSpec,
   ExportContext,
@@ -25,8 +26,9 @@ import { studentsTab } from '../people/students.tab';
  * through for every type (see `cell-format.ts`), so no special-casing is
  * needed here beyond not defaulting the value.
  *
- * `entered_by` has no FK relation on the entity (a plain nullable uuid), so
- * it is carried through as a raw `uuid` column rather than a `ref`.
+ * `entered_by` has no FK relation on the entity (a plain nullable uuid), but
+ * it is exported as a `ref` to the `users` tab so a restore can only name a
+ * user of this school (GAP-10).
  */
 
 export interface MarkRow {
@@ -78,7 +80,12 @@ const columns: readonly ColumnSpec[] = [
     required: true,
     label: { en: 'Status', bn: 'অবস্থা' },
   },
-  { key: 'entered_by', type: 'uuid', label: { en: 'Entered by', bn: 'যিনি দিয়েছেন' } },
+  {
+    key: 'entered_by',
+    type: 'ref',
+    ref: 'users',
+    label: { en: 'Entered by', bn: 'যিনি দিয়েছেন' },
+  },
 ];
 
 const excluded: readonly string[] = [
@@ -92,7 +99,7 @@ export const marksTab: TabSpec<Mark, MarkRow> = {
   name: 'marks',
   entity: Mark,
   excluded,
-  dependsOn: ['exams', 'students', 'subjects', 'exam_components'],
+  dependsOn: ['exams', 'students', 'subjects', 'exam_components', 'users'],
   columns,
   naturalKey: ['exam', 'student', 'component'],
   deleteByAbsence: true,
@@ -128,7 +135,8 @@ export const marksTab: TabSpec<Mark, MarkRow> = {
       // a coerced zero (D10).
       value: entity.value,
       status: entity.status,
-      entered_by: entity.entered_by,
+      // Nullable: a departed teacher is not in the users tab -> null.
+      entered_by: entity.entered_by ? optionalKeyOf(ctx, 'users', entity.entered_by) : null,
     };
   },
 
@@ -216,6 +224,22 @@ export const marksTab: TabSpec<Mark, MarkRow> = {
       }
     }
 
+    let entered_byId: string | null = null;
+    const entered_byKey = (values.entered_by as string | null) ?? '';
+    if (entered_byKey) {
+      entered_byId = ctx.ref('users', entered_byKey) ?? null;
+      if (!entered_byId) {
+        errors.push({
+          tab: 'marks',
+          row: rowNo,
+          column: 'entered_by',
+          message: `Column "entered_by": no user "${entered_byKey}" was found.`,
+          severity: 'error',
+          value: entered_byKey,
+        });
+      }
+    }
+
     if (errors.length > 0) return { errors };
 
     // D10 guard: a non-PRESENT status must carry a null value on import too
@@ -252,7 +276,7 @@ export const marksTab: TabSpec<Mark, MarkRow> = {
         component_key: componentKey,
         value,
         status,
-        entered_by: (values.entered_by as string | null) ?? null,
+        entered_by: entered_byId,
       },
     };
   },
@@ -278,7 +302,9 @@ export const marksTab: TabSpec<Mark, MarkRow> = {
     if (row.component_id !== existing.component_id) changed.push('component');
     if (String(row.value ?? '') !== String(existing.value ?? '')) changed.push('value');
     if (row.status !== existing.status) changed.push('status');
-    if ((row.entered_by ?? null) !== (existing.entered_by ?? null)) changed.push('entered_by');
+    // null = the export could not name the user (departed / SUPER_ADMIN): keep existing.
+    if (row.entered_by !== null && row.entered_by !== existing.entered_by)
+      changed.push('entered_by');
     return changed;
   },
 
