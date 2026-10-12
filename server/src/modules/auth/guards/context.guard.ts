@@ -257,14 +257,17 @@ export class ContextGuard implements CanActivate {
           },
         });
       }
-      // A restore is replacing this school's data: refuse writes (not reads) so nothing saved
-      // mid-restore is wiped by it or missed by its snapshot (#2210).
-      if (
-        !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
-        (await this.tenantStatus.isRestoring(tenantId))
-      ) {
-        throw tenantRestoringException();
-      }
+    }
+
+    // A restore is replacing this school's data: refuse writes (not reads) so nothing saved
+    // mid-restore is wiped by it or missed by its snapshot (#2210). Outside the platform-tenant
+    // exemption above: a platform SUPER_ADMIN holds BACKUP_MANAGE and can start a restore of
+    // their own tenant too.
+    if (
+      !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
+      (await this.tenantStatus.isRestoring(tenantId))
+    ) {
+      throw tenantRestoringException();
     }
 
     // Attach active context to request for downstream use

@@ -310,16 +310,22 @@ describe('ContextGuard', () => {
       );
     });
 
-    it('does not check the platform SUPER_ADMIN on their own platform tenant', async () => {
+    it('refuses a platform SUPER_ADMIN write on their own tenant while it restores', async () => {
       tenantStatus.isRestoring.mockResolvedValue(true);
-      const req = restoreReq(
-        'POST',
-        [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }],
-        PLATFORM_TENANT_ID,
-      );
+      const memberships = [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }];
 
-      await expect(guard.canActivate(createMockContext(req))).resolves.toBe(true);
-      expect(tenantStatus.isRestoring).not.toHaveBeenCalled();
+      await expect(
+        guard.canActivate(createMockContext(restoreReq('POST', memberships, PLATFORM_TENANT_ID))),
+      ).rejects.toMatchObject({ status: 423 });
+    });
+
+    it('still lets that platform SUPER_ADMIN read while it restores', async () => {
+      tenantStatus.isRestoring.mockResolvedValue(true);
+      const memberships = [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }];
+
+      await expect(
+        guard.canActivate(createMockContext(restoreReq('GET', memberships, PLATFORM_TENANT_ID))),
+      ).resolves.toBe(true);
     });
   });
 
