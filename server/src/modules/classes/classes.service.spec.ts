@@ -44,6 +44,8 @@ function createRepoStub() {
 
 async function buildClassService(vocabulary: { shifts: string[]; versions: string[] }) {
   const classRepo = createRepoStub();
+  // `create` share-locks the academic year through the same stubbed repo: the year exists.
+  classRepo.findOne = vi.fn(async () => ({ id: 'y1' }));
   const auditService = { record: vi.fn(async () => undefined) };
   const settingsReader = {
     organisationVocabulary: vi.fn(async () => ({ groups: [], ...vocabulary })),

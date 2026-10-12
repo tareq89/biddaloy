@@ -291,6 +291,27 @@ describe('ClassService / SectionService (integration)', () => {
     });
   });
 
+  describe("create (academic year must be live and this tenant's)", () => {
+    it('refuses a soft-deleted academic year', async () => {
+      const year = await createYear();
+      await dataSource.getRepository(AcademicYear).softDelete(year.id);
+
+      await expect(
+        classService.create({ name: 'Ghost', academic_year_id: year.id } as any, TENANT_ID),
+      ).rejects.toThrow(NotFoundException);
+      expect(await classRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+    });
+
+    it("refuses another school's academic year (the FK alone only checks the id exists)", async () => {
+      const otherYear = await createYear(OTHER_TENANT);
+
+      await expect(
+        classService.create({ name: 'Cross', academic_year_id: otherYear.id } as any, TENANT_ID),
+      ).rejects.toThrow(NotFoundException);
+      expect(await classRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+    });
+  });
+
   describe('remove (delete class)', () => {
     it('deletes a class with no sections and no enrollments', async () => {
       const year = await createYear();

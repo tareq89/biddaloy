@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
 import { EnrollmentStatus, TeacherAssignmentType, AuditAction } from '@biddaloy/shared';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
@@ -107,6 +108,16 @@ export class ClassService {
     assertInVocabulary(dto.version, organisation.versions, 'version');
 
     return this.repo.manager.transaction(async (manager) => {
+      // Share-lock the year: AcademicYearService.remove() holds FOR UPDATE and counts classes, so
+      // a class cannot slip in under a year that is being deleted. Tenant-scoped, so another
+      // school's year id is a 404 too (the FK alone only checks the id exists).
+      const year = await manager.getRepository(AcademicYear).findOne({
+        where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_read' },
+      });
+      if (!year) {
+        throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
+      }
       const repo = manager.getRepository(Class);
       const entity = repo.create({
         name: dto.name,
