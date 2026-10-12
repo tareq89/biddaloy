@@ -284,6 +284,11 @@ seen by the client.
 - A tenant/role change (`user_tenants`) takes effect on the _next refresh_,
   not after the old token's full lifetime — `POST /auth/refresh` re-fetches
   memberships rather than copying them from the token being replaced.
+  Removal from a school is faster still (#2297): it also sets a per-user
+  cut-off key (`access-denylist:user:<id>`, holding the removal time in ms),
+  and every access token whose `iat_ms` is at or before it is refused on the
+  very next request. `iat_ms` is taken before the memberships are read, so a
+  token signed during the removal never outlives it.
 
 Expired `refresh_tokens` rows (revoked or not) are deleted by an hourly
 BullMQ job (`refresh-token-cleanup.processor.ts`/`.scheduler.ts`).
