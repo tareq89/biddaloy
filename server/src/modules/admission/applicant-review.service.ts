@@ -20,6 +20,7 @@ import { EvaluateApplicantDto } from './dto/evaluate-applicant.dto';
 import { AdmitApplicantDto } from './dto/admit-applicant.dto';
 import { AdmissionNotificationService } from './admission-notification.service';
 import { ListApplicantsDto } from './dto/list-applicants.dto';
+import { bdPhoneTail } from '../communications/providers/shared/phone-number.util';
 
 const DECISION_TO_STATUS: Record<AdmissionEvaluationDecision, AdmissionApplicantStatus> = {
   SHORTLIST: AdmissionApplicantStatus.SHORTLISTED,
@@ -28,9 +29,8 @@ const DECISION_TO_STATUS: Record<AdmissionEvaluationDecision, AdmissionApplicant
 };
 
 /** [27.5] Staff review of `admission_applicants`: evaluate, admit (converts
- * to a real Student + Guardian, reusing `GuardianService.findByPhone`/
- * `.create` — the same calls `bulk-upload.service.ts`'s `resolveGuardian()`
- * makes, see D7), or reject. */
+ * to a real Student + Guardian via `GuardianService.findByPhoneAnyFormat`/
+ * `.create`, see D7), or reject. */
 @Injectable()
 export class ApplicantReviewService {
   constructor(
@@ -46,7 +46,7 @@ export class ApplicantReviewService {
   /** [LIFE-09] The guardian (if any) this applicant's phone would attach to on admit. */
   async guardianMatch(id: string, tenantId: string): Promise<AdmissionGuardianMatchDto> {
     const applicant = await this.findOne(id, tenantId);
-    const found = await this.guardianService.findByPhoneWithStudents(
+    const found = await this.guardianService.findByPhoneAnyFormat(
       applicant.guardian_phone,
       tenantId,
     );
@@ -175,7 +175,7 @@ export class ApplicantReviewService {
   }
 
   /** Admits from PENDING or SHORTLISTED (D6). Resolves/creates the guardian
-   * by phone (same lookup `resolveGuardian()` does), creates the Student
+   * by phone (same any-format lookup as `guardianMatch()`), creates the Student
    * linked to the intake's class section, records an ADMIT evaluation, and
    * marks the applicant ADMITTED — all inside one transaction. */
   async admit(
@@ -232,7 +232,7 @@ export class ApplicantReviewService {
         throw new ConflictException(`Cannot admit an applicant with status ${current.status}`);
       }
 
-      const existingGuardian = await this.guardianService.findByPhone(
+      const existingGuardian = await this.guardianService.findByPhoneAnyFormat(
         applicant.guardian_phone,
         tenantId,
         manager,
@@ -247,16 +247,15 @@ export class ApplicantReviewService {
       }
       // Phones are not unique (CREATE_NEW makes a second guardian on the same
       // phone), so link exactly the guardian staff were shown, never "a" match.
-      const shownGuardian =
+      const candidate =
         dto.guardian_choice === 'LINK_EXISTING' && dto.guardian_id
           ? await manager.getRepository(Guardian).findOne({
-              where: {
-                id: dto.guardian_id,
-                tenant_id: tenantId,
-                phone: applicant.guardian_phone,
-                deleted_at: IsNull(),
-              },
+              where: { id: dto.guardian_id, tenant_id: tenantId, deleted_at: IsNull() },
             })
+          : null;
+      const shownGuardian =
+        candidate && bdPhoneTail(candidate.phone ?? '') === bdPhoneTail(applicant.guardian_phone)
+          ? candidate
           : null;
       if (dto.guardian_choice === 'LINK_EXISTING' && !shownGuardian) {
         throw new ConflictException({

@@ -23,3 +23,13 @@ export function normalizeBdPhoneNumber(phone: string): string {
 
   return digits;
 }
+
+/**
+ * The last 10 digits: a Bangladeshi mobile's national number, the same for
+ * "01712345678", "+8801712345678", "8801712345678" and "1712345678".
+ * For matching a phone stored as typed against one stored canonical.
+ * ponytail: a format-blind match, not a canonical stored form; #1701 owns that.
+ */
+export function bdPhoneTail(phone: string): string {
+  return phone.replace(/[^\d]/g, '').slice(-10);
+}

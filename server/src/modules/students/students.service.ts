@@ -34,6 +34,7 @@ import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { assertSeatsAvailable } from '../schools/trial/seat-limit.service';
 import { PAYABLE_FEE_STATUSES } from './open-money';
+import { bdPhoneTail } from '../communications/providers/shared/phone-number.util';
 
 // [16.3.3] Caps the audience picker's "select all matching" id list — bounds
 // both the query cost and the response size for a single selection.
@@ -1004,13 +1005,31 @@ export class GuardianService {
     return byPhone;
   }
 
-  /** [LIFE-09] Same match as `findByPhone`, with the guardian's linked students loaded. */
-  async findByPhoneWithStudents(phone: string, tenantId: string): Promise<Guardian | null> {
-    return this.repo.findOne({
-      where: { phone, tenant_id: tenantId, deleted_at: IsNull() },
-      relations: ['students'],
-      order: { created_at: 'ASC', id: 'ASC' },
-    });
+  /**
+   * [LIFE-09] The oldest live guardian on this phone in any format, with
+   * their linked students loaded. Admission stores phones canonical
+   * ("8801…") while staff forms store them as typed ("01…"), so an exact
+   * match would miss the family (#2374).
+   */
+  async findByPhoneAnyFormat(
+    phone: string,
+    tenantId: string,
+    manager?: EntityManager,
+  ): Promise<Guardian | null> {
+    const repo = manager ? manager.getRepository(Guardian) : this.repo;
+    const match = await repo
+      .createQueryBuilder('g')
+      .select('g.id')
+      .where('g.tenant_id = :tenantId AND g.deleted_at IS NULL', { tenantId })
+      .andWhere(`right(regexp_replace(g.phone, '[^0-9]', '', 'g'), 10) = :tail`, {
+        tail: bdPhoneTail(phone),
+      })
+      .orderBy('g.created_at', 'ASC')
+      .addOrderBy('g.id', 'ASC')
+      .getOne();
+    return match
+      ? repo.findOne({ where: { id: match.id, tenant_id: tenantId }, relations: ['students'] })
+      : null;
   }
 
   /**

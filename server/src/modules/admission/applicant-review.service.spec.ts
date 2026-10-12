@@ -57,7 +57,10 @@ describe('ApplicantReviewService', () => {
   let evaluationRepo: Record<string, ReturnType<typeof vi.fn>>;
   let intakeRepo: Record<string, ReturnType<typeof vi.fn>>;
   let studentService: { create: ReturnType<typeof vi.fn> };
-  let guardianService: { findByPhone: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
+  let guardianService: {
+    findByPhoneAnyFormat: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+  };
   let notificationService: { notifyStatusChange: ReturnType<typeof vi.fn> };
   let setLockMock: ReturnType<typeof vi.fn>;
   let getOneMock: ReturnType<typeof vi.fn>;
@@ -109,7 +112,7 @@ describe('ApplicantReviewService', () => {
       })),
     };
     studentService = { create: vi.fn(async () => ({ id: 'student-1' })) };
-    guardianService = { findByPhone: vi.fn(), create: vi.fn() };
+    guardianService = { findByPhoneAnyFormat: vi.fn(), create: vi.fn() };
     guardianRepo = { findOne: vi.fn(async () => null) };
     notificationService = { notifyStatusChange: vi.fn(async () => undefined) };
 
@@ -240,8 +243,8 @@ describe('ApplicantReviewService', () => {
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.SHORTLISTED }))
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.SHORTLISTED }))
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
-      guardianService.findByPhone.mockResolvedValueOnce({ id: 'guardian-existing' });
-      guardianRepo.findOne.mockResolvedValueOnce({ id: 'guardian-existing' });
+      guardianService.findByPhoneAnyFormat.mockResolvedValueOnce({ id: 'guardian-existing' });
+      guardianRepo.findOne.mockResolvedValueOnce({ id: 'guardian-existing', phone: '01700000000' });
 
       await service.admit(
         'applicant-1',
@@ -250,18 +253,14 @@ describe('ApplicantReviewService', () => {
         REVIEWER,
       );
 
-      expect(guardianService.findByPhone).toHaveBeenCalledWith(
+      expect(guardianService.findByPhoneAnyFormat).toHaveBeenCalledWith(
         '01700000000',
         TENANT_A,
         expect.anything(),
       );
-      // The shown guardian is re-checked: same tenant, same phone, still live.
+      // The shown guardian is re-checked: same tenant, still live (phone compared after).
       expect(guardianRepo.findOne).toHaveBeenCalledWith({
-        where: expect.objectContaining({
-          id: 'guardian-existing',
-          tenant_id: TENANT_A,
-          phone: '01700000000',
-        }),
+        where: expect.objectContaining({ id: 'guardian-existing', tenant_id: TENANT_A }),
       });
       expect(guardianService.create).not.toHaveBeenCalled();
       expect(studentService.create).toHaveBeenCalledTimes(1);
@@ -289,7 +288,7 @@ describe('ApplicantReviewService', () => {
       applicantRepo.findOne
         .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant());
-      guardianService.findByPhone.mockResolvedValueOnce({ id: 'guardian-existing' });
+      guardianService.findByPhoneAnyFormat.mockResolvedValueOnce({ id: 'guardian-existing' });
 
       const err = await service.admit('applicant-1', {}, TENANT_A, REVIEWER).catch((e) => e);
 
@@ -303,7 +302,7 @@ describe('ApplicantReviewService', () => {
         .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
-      guardianService.findByPhone.mockResolvedValueOnce({ id: 'guardian-existing' });
+      guardianService.findByPhoneAnyFormat.mockResolvedValueOnce({ id: 'guardian-existing' });
       guardianService.create.mockResolvedValueOnce({ id: 'guardian-new' });
 
       await service.admit('applicant-1', { guardian_choice: 'CREATE_NEW' }, TENANT_A, REVIEWER);
@@ -323,8 +322,8 @@ describe('ApplicantReviewService', () => {
         .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
-      guardianService.findByPhone.mockResolvedValueOnce({ id: 'guardian-oldest' });
-      guardianRepo.findOne.mockResolvedValueOnce({ id: 'guardian-shown' });
+      guardianService.findByPhoneAnyFormat.mockResolvedValueOnce({ id: 'guardian-oldest' });
+      guardianRepo.findOne.mockResolvedValueOnce({ id: 'guardian-shown', phone: '+8801700000000' });
 
       await service.admit(
         'applicant-1',
@@ -345,7 +344,7 @@ describe('ApplicantReviewService', () => {
       applicantRepo.findOne
         .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant());
-      guardianService.findByPhone.mockResolvedValueOnce(null);
+      guardianService.findByPhoneAnyFormat.mockResolvedValueOnce(null);
       guardianRepo.findOne.mockResolvedValueOnce(null);
 
       const err = await service
@@ -367,7 +366,7 @@ describe('ApplicantReviewService', () => {
         .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
-      guardianService.findByPhone.mockResolvedValueOnce(null);
+      guardianService.findByPhoneAnyFormat.mockResolvedValueOnce(null);
       guardianService.create.mockResolvedValueOnce({ id: 'guardian-new' });
 
       await service.admit('applicant-1', {}, TENANT_A, REVIEWER);
@@ -414,7 +413,7 @@ describe('ApplicantReviewService', () => {
         ConflictException,
       );
       expect(studentService.create).not.toHaveBeenCalled();
-      expect(guardianService.findByPhone).not.toHaveBeenCalled();
+      expect(guardianService.findByPhoneAnyFormat).not.toHaveBeenCalled();
     });
   });
 

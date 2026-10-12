@@ -445,6 +445,34 @@ describe('Admission flow (integration)', () => {
       expect(match.guardian?.student_names).toEqual(['Live Sibling']);
     });
 
+    it('[#2374] a guardian saved in local format still matches the canonical applicant phone', async () => {
+      // Staff forms store the phone as typed ("01…"); the public form stores
+      // it canonical ("8801…"). Same number, so the family must still be found.
+      await dataSource.query(`UPDATE guardians SET phone = $2 WHERE id = $1`, [
+        guardianId,
+        MATCH_PHONE,
+      ]);
+      const id = await submitApplicant();
+      expect((await reviewService.guardianMatch(id, SEED_TENANT_ID)).guardian?.id).toBe(guardianId);
+
+      const err = await reviewService
+        .admit(id, {}, SEED_TENANT_ID, SEED_ADMIN_USER_ID)
+        .catch((e) => e);
+      expect(err.getResponse().details.code).toBe('GUARDIAN_MATCH_NEEDS_CHOICE');
+
+      await reviewService.admit(
+        id,
+        { guardian_choice: 'LINK_EXISTING', guardian_id: guardianId },
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      const gKids = await dataSource.query(
+        `SELECT 1 FROM student_guardians WHERE guardian_id = $1`,
+        [guardianId],
+      );
+      expect(gKids).toHaveLength(3);
+    });
+
     it('guardianMatch is null when no guardian has that phone', async () => {
       const id = await submitApplicant();
       await dataSource.query(`UPDATE guardians SET phone = '8801799999999' WHERE id = $1`, [
