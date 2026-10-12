@@ -91,12 +91,8 @@ export class TeacherBusyService {
         s.teacher_ids.includes(teacher.id) &&
         s.routine_slot_id !== i.exclude?.routineSlotId,
     );
-    if (!mine.length) return null;
-    const periods: { starts_at: string; ends_at: string }[] = await this.ds.query(
-      `SELECT starts_at, ends_at FROM period_slots WHERE tenant_id = $1 AND id = ANY($2)`,
-      [t.id, [...new Set(mine.map((s) => s.period_slot_id))]],
-    );
-    const p = periods.find((x) => overlaps(from, to, hhmm(x.starts_at), hhmm(x.ends_at)));
+    // The slot's own times are dated, so a special timing (#2290) moves them.
+    const p = mine.find((s) => overlaps(from, to, hhmm(s.starts_at), hhmm(s.ends_at)));
     return p ? hit('TEACHING', t, p.starts_at, p.ends_at) : null;
   }
 

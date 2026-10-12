@@ -227,33 +227,34 @@ export class HomeworkNotSubmittedRule implements AttentionRuleShape {
    * section's last period end ("school end"); else the school's last period
    * end; else a fixed fallback. Any trigger is clamped to
    * `CLOSING_MARGIN_MINUTES` before the school's last period end, so a FAST
-   * tick still sees it. One `resolveTenantDay` + one period query.
+   * tick still sees it. One `resolveTenantDay` + one period query. Times are
+   * the slots' dated times, so a special timing (#2290) moves them; the
+   * template's last end is only the fallback for a day with no slots.
    */
   private async triggerTimes(ctx: RuleContext) {
-    const [slots, periods] = await Promise.all([
+    const [slots, [template]] = await Promise.all([
       this.resolveRoutine.resolveTenantDay(ctx.tenantId, ctx.localDate),
       this.dataSource.query(
-        `SELECT id, to_char(starts_at,'HH24:MI') AS start, to_char(ends_at,'HH24:MI') AS "end"
+        `SELECT to_char(max(ends_at),'HH24:MI') AS "end"
          FROM period_slots WHERE tenant_id = $1 AND kind = 'CLASS'`,
         [ctx.tenantId],
-      ) as Promise<{ id: string; start: string; end: string }[]>,
+      ) as Promise<{ end: string | null }[]>,
     ]);
-    const period = new Map(periods.map((p) => [p.id, p]));
     const firstStart = new Map<string, string>();
     const lastEnd = new Map<string, string>();
+    let dayEnd: string | undefined;
     for (const s of slots) {
+      const start = s.starts_at.slice(0, 5);
+      const end = s.ends_at.slice(0, 5);
+      // A cancelled period still rings its bell: it counts for the school's last end.
+      if (!dayEnd || end > dayEnd) dayEnd = end;
       if (s.cancelled) continue;
-      const p = period.get(s.period_slot_id);
-      if (!p) continue;
       const key = `${s.section_id}|${s.subject_id}`;
-      if (!firstStart.has(key) || p.start < firstStart.get(key)!) firstStart.set(key, p.start);
-      if (!lastEnd.has(s.section_id) || p.end > lastEnd.get(s.section_id)!)
-        lastEnd.set(s.section_id, p.end);
+      if (!firstStart.has(key) || start < firstStart.get(key)!) firstStart.set(key, start);
+      if (!lastEnd.has(s.section_id) || end > lastEnd.get(s.section_id)!)
+        lastEnd.set(s.section_id, end);
     }
-    const lastPeriodEnd = periods
-      .map((p) => p.end)
-      .sort()
-      .pop();
+    const lastPeriodEnd = dayEnd ?? template?.end ?? undefined;
     const schoolEnd = lastPeriodEnd ?? NO_ROUTINE_FALLBACK;
     const closing = lastPeriodEnd && minusMinutes(lastPeriodEnd, CLOSING_MARGIN_MINUTES);
     return {

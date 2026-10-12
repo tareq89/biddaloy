@@ -24,7 +24,7 @@ function make(opts: { nonWorking?: boolean; rows?: unknown[] } = {}) {
   const calendar = { isNonWorkingDay: vi.fn().mockResolvedValue(opts.nonWorking ?? false) };
   const dataSource = { query: vi.fn().mockResolvedValue(opts.rows ?? []) };
   const svc = new RuleContextService(schools as never, calendar as never, dataSource as never);
-  return { svc, calendar, dataSource };
+  return { svc, schools, calendar, dataSource };
 }
 
 describe('time helpers', () => {
@@ -83,6 +83,37 @@ describe('RuleContextService.isWithinSchoolHours', () => {
     expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining('tenant_id = $1'), [
       't1',
     ]);
+  });
+
+  // #2290: a special timing covering today moves period 1 to 07:30 and the last
+  // end to 14:00; the FAST-sweep window widens to cover them.
+  it('a special timing covering today widens the window', async () => {
+    const { svc, schools } = make({ rows: [{ start: '08:00', end: '13:30' }] });
+    schools.getResolvedSettings.mockResolvedValue({
+      region: { timezone: TZ },
+      attention,
+      attendance: {
+        specialTimings: [
+          {
+            from: '2026-10-10',
+            to: '2026-10-10',
+            periods: [
+              { sequence: 1, startsAt: '07:30', endsAt: '08:10' },
+              { sequence: 6, startsAt: '13:20', endsAt: '14:00' },
+            ],
+          },
+        ],
+      },
+    });
+    const on = (localTime: string) => ({ ...at(localTime), localDate: '2026-10-10' });
+    expect(await svc.isWithinSchoolHours(on('07:19'))).toBe(false);
+    expect(await svc.isWithinSchoolHours(on('07:20'))).toBe(true);
+    expect(await svc.isWithinSchoolHours(on('14:00'))).toBe(true);
+    expect(await svc.isWithinSchoolHours(on('14:01'))).toBe(false);
+    // Another date keeps the template window.
+    const off = (localTime: string) => ({ ...at(localTime), localDate: '2026-10-11' });
+    expect(await svc.isWithinSchoolHours(off('07:20'))).toBe(false);
+    expect(await svc.isWithinSchoolHours(off('14:00'))).toBe(false);
   });
 
   it('falls back to dailyAt..eveningAt without slots', async () => {
