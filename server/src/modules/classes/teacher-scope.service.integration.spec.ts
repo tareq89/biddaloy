@@ -61,11 +61,11 @@ describe('TeacherScopeService (integration)', () => {
     // Only one current year per tenant; make ours the one.
     await yearRepo.update({ tenant_id: TENANT_A }, { is_current: false });
 
-    const makeYear = (tenantId: string, name: string, isCurrent: boolean) =>
+    const makeYear = (tenantId: string, name: string, isCurrent: boolean, year = 2026) =>
       yearRepo.save({
         name,
-        start_date: '2026-01-01',
-        end_date: '2026-12-31',
+        start_date: `${year}-01-01`,
+        end_date: `${year}-12-31`,
         is_current: isCurrent,
         tenant_id: tenantId,
       });
@@ -85,7 +85,10 @@ describe('TeacherScopeService (integration)', () => {
       sectionRepo.save({ section_name: name, class_id: classId, tenant_id: tenantId });
 
     const currentA = await makeYear(TENANT_A, 'Scope Current', true);
-    const pastA = await makeYear(TENANT_A, 'Scope Past', false);
+    const pastA = await makeYear(TENANT_A, 'Scope Past', false, 2025);
+    // [X-07] bounds: only the year right before the current one keeps the grant.
+    await makeYear(TENANT_A, 'Scope Older', false, 2024);
+    await makeYear(TENANT_A, 'Scope Future', false, 2027);
     const class6 = await makeClass(TENANT_A, currentA.id, 'Class 6', 6);
     const class7 = await makeClass(TENANT_A, currentA.id, 'Class 7', 7);
     const class10 = await makeClass(TENANT_A, currentA.id, 'Class 10', 10);
@@ -202,10 +205,10 @@ describe('TeacherScopeService (integration)', () => {
 
     describe('year switch with an unpublished exam [X-07]', () => {
       // A past-year class with its own section and exam, so the other tests keep `secOld` untouched.
-      const mkOldClassWithExam = async (status: string) => {
+      const mkOldClassWithExam = async (status: string, yearName = 'Scope Past') => {
         const old = await dataSource.getRepository(AcademicYear).findOneByOrFail({
           tenant_id: TENANT_A,
-          name: 'Scope Past',
+          name: yearName,
         });
         const cls = await dataSource.getRepository(Class).save({
           name: `Old exam ${Math.random()}`,
@@ -233,6 +236,26 @@ describe('TeacherScopeService (integration)', () => {
         const { sectionId, examId } = await mkOldClassWithExam('DRAFT');
         await assign(TeacherAssignmentType.CLASS_TEACHER, sectionId);
         await dataSource.query(`UPDATE exams SET status = 'PUBLISHED' WHERE id = $1`, [examId]);
+        expect((await ask(sectionId)).homeroom).toBeNull();
+      });
+
+      // Same "open" test as the marks-overdue alert: only DRAFT. A PROCESSED
+      // exam has cleared the alert, so it must not keep the grant either.
+      it('a PROCESSED exam does not extend the grant', async () => {
+        const { sectionId } = await mkOldClassWithExam('PROCESSED');
+        await assign(TeacherAssignmentType.CLASS_TEACHER, sectionId);
+        expect((await ask(sectionId)).homeroom).toBeNull();
+      });
+
+      it('an abandoned DRAFT exam two years back does not extend the grant', async () => {
+        const { sectionId } = await mkOldClassWithExam('DRAFT', 'Scope Older');
+        await assign(TeacherAssignmentType.CLASS_TEACHER, sectionId);
+        expect((await ask(sectionId)).homeroom).toBeNull();
+      });
+
+      it('a DRAFT exam in a future year does not extend the grant', async () => {
+        const { sectionId } = await mkOldClassWithExam('DRAFT', 'Scope Future');
+        await assign(TeacherAssignmentType.CLASS_TEACHER, sectionId);
         expect((await ask(sectionId)).homeroom).toBeNull();
       });
 
