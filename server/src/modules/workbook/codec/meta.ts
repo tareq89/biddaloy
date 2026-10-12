@@ -8,7 +8,7 @@
  *
  * ```
  * | key                | value                    |
- * | schema_version     | 1                        |
+ * | schema_version     | 2                        |
  * | kind               | BACKUP                   |
  * | exported_at        | 2026-03-09T22:00:00.000Z |
  * | app_version        | 1.14.0                   |
@@ -20,8 +20,13 @@
 /**
  * Bumped only when a change would make an older workbook unreadable.
  * `readWorkbook` refuses any other value rather than guessing.
+ *
+ * 2 (GAP-10): user attribution columns (`entered_by`, `submitted_by`,
+ * `overridden_by`, `committed_by`, `approved_by`, `created_by`) hold the
+ * user's email, not a raw uuid. A version-1 file would fail on every such
+ * row, so it is refused up front. Pre-launch, no migration path is kept.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export interface WorkbookMeta {
   schema_version: number;
