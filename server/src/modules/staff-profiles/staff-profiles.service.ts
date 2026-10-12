@@ -78,9 +78,8 @@ export class StaffProfilesService {
       );
     }
 
-    // A generated `employee_id` isn't reserved by the read above — two concurrent `createFor` calls for the same tenant can
-    // both read the same count and then race to insert the same id. That
-    // collision is expected and recoverable (retry with a fresh count),
+    // The advisory lock in `nextTenantSerial` serializes concurrent `createFor` calls for a tenant.
+    // The retry is a safety net: a clash is recoverable (retry takes a fresh max),
     // not a real conflict worth surfacing to the caller as one.
     let lastError: unknown;
     for (let attempt = 0; attempt < MAX_EMPLOYEE_ID_ATTEMPTS; attempt++) {
