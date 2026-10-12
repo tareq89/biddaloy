@@ -34,7 +34,10 @@ describe('AdmissionIntake1789800014000 (integration)', () => {
     expect(intake.required_document_types).toEqual(['PHOTO', 'BIRTH_CERTIFICATE']);
   });
 
-  it('rejects two applicants on the same intake sharing a guardian phone', async () => {
+  // [68.3 LIFE-10] The per-phone index became per-child
+  // (AdmissionApplicantPerChild1791805000200): same phone + DOB + name is
+  // still one child applying twice.
+  it('rejects the same child applying twice on one intake', async () => {
     const [intake] = await dataSource.query(
       `INSERT INTO "admission_intakes" (id, tenant_id, class_section_id, title, seat_count, open_date, close_date)
        VALUES (gen_random_uuid(), $1, $2, 'Dup Phone Intake', 10, '2026-01-01', '2026-02-01')
@@ -49,7 +52,7 @@ describe('AdmissionIntake1789800014000 (integration)', () => {
     await expect(
       dataSource.query(
         `INSERT INTO "admission_applicants" (id, tenant_id, intake_id, reference_number, applicant_name, date_of_birth, gender, guardian_name, guardian_phone)
-         VALUES (gen_random_uuid(), $1, $2, 'REF-2', 'Applicant Two', '2015-01-01', 'MALE', 'Guardian One', '01700000000')`,
+         VALUES (gen_random_uuid(), $1, $2, 'REF-2', 'Applicant One', '2015-01-01', 'MALE', 'Guardian One', '01700000000')`,
         [TENANT_ID, intake.id],
       ),
     ).rejects.toThrow();

@@ -34,10 +34,6 @@ const ALLOW_LIST: Record<string, { reason: string; removedBy: string }> = {
   'students(user_id)': { reason: 'one profile per person', removedBy: '#2153' },
   'guardians(user_id)': { reason: 'one profile per person', removedBy: '#2153' },
   'staff_profiles(user_id)': { reason: 'one profile per person', removedBy: '#2153' },
-  'push_subscriptions(endpoint)': {
-    reason: 'device moves between schools',
-    removedBy: 'G5 ticket for ROOT-04 (TEN-05)',
-  },
   'auth_tokens(token_hash)': {
     reason: 'global on purpose: random secret hash, looked up before the school is known',
     removedBy: 'permanent',
