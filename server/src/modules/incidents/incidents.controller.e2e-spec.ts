@@ -237,14 +237,16 @@ describe('incidents (28.2.x)', () => {
     );
     expect(audits.map((a: { action: string }) => a.action).sort()).toEqual(['CREATE', 'UPDATE']);
 
-    // A second withdraw is a conflict, not a silent overwrite.
-    await as(
+    // A second withdraw is a conflict, not a silent overwrite. The code rides
+    // in `details`, the only part of a 409 body the error filter forwards.
+    const again = await as(
       supertest(app.getHttpServer()).post(`${API}/incidents/${id}/withdraw`),
       adminToken,
       UserRole.ADMIN,
     )
       .send({ reason: 'again' })
       .expect(409);
+    expect(again.body.details).toEqual({ code: 'INCIDENT_ALREADY_WITHDRAWN' });
   });
 
   it('the subject never sees StaffIncident audit rows about themself (list or entity route)', async () => {
