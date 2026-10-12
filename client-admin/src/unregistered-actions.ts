@@ -253,4 +253,16 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
     file: `${R}_staff/students/-detail/recurring-fees-tab.tsx`,
     reason: 'Recurring fees of one student',
   },
+  {
+    file: `${R}_staff/staff/-detail/incidents-tab.tsx`,
+    reason: 'Withdraws one incident from its row on the staff Incidents tab',
+  },
+  {
+    file: `${R}_staff/students/-detail/wallet-payout-dialog.tsx`,
+    reason: 'Pays out one student wallet; opened from the Fees tab',
+  },
+  {
+    file: `${R}_staff/students/-detail/write-off-bill-dialog.tsx`,
+    reason: 'Writes off one bill; opened from the Fees tab',
+  },
 ];
