@@ -243,6 +243,7 @@ describe('AuthService', () => {
         phone: null,
         memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' }],
         jti: expect.any(String),
+        iat_ms: expect.any(Number),
       });
     });
 

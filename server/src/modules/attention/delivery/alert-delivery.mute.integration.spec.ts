@@ -69,6 +69,8 @@ describe('push mute (integration)', () => {
       ds.getRepository(School),
       {} as never,
       {} as never,
+      {} as never,
+      900_000,
     );
     [{ id: userId }] = await ds.query(
       `INSERT INTO users (email, password_hash, full_name, status, created_at, updated_at)
