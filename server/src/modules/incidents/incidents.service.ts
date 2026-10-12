@@ -144,10 +144,12 @@ export class IncidentsService {
     // One transaction: a withdrawal never commits without its audit row (#2286).
     await this.repo.manager.transaction(async (m) => {
       // Conditional update: of two concurrent withdrawals only one wins.
-      const { affected } = await m.getRepository(StaffIncident).update(
-        { id, tenant_id: tenantId, withdrawn_at: IsNull() },
-        { withdrawn_at: withdrawnAt, withdrawn_by_user_id: callerId, withdraw_reason: reason },
-      );
+      const { affected } = await m
+        .getRepository(StaffIncident)
+        .update(
+          { id, tenant_id: tenantId, withdrawn_at: IsNull() },
+          { withdrawn_at: withdrawnAt, withdrawn_by_user_id: callerId, withdraw_reason: reason },
+        );
       if (!affected) throw alreadyWithdrawn();
       await this.auditService.record(
         {
