@@ -10403,6 +10403,21 @@ export interface components {
             lateAfter: string;
             absentAfter: string;
         };
+        SpecialPeriodTimeDto: {
+            sequence: number;
+            startsAt: string;
+            endsAt: string;
+        };
+        SpecialTimingDto: {
+            name: string;
+            from: string;
+            to: string;
+            /** Format: uuid */
+            shiftId: string | null;
+            lateAfter: string;
+            absentAfter: string;
+            periods: components["schemas"]["SpecialPeriodTimeDto"][];
+        };
         PeriodAttendanceDto: {
             enabled: boolean;
         };
@@ -10420,6 +10435,7 @@ export interface components {
             allowFutureDates: boolean;
             autoAbsentNotification: components["schemas"]["AutoAbsentNotificationDto"];
             shiftTimes?: components["schemas"]["ShiftTimeDto"][];
+            specialTimings?: components["schemas"]["SpecialTimingDto"][];
             periodAttendance?: components["schemas"]["PeriodAttendanceDto"];
         };
         RoutineSettingsDto: {
