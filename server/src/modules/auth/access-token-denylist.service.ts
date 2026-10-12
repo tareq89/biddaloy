@@ -1,5 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
+import type { JwtPayload } from '@biddaloy/shared';
 
 export const ACCESS_TOKEN_DENYLIST_REDIS = 'ACCESS_TOKEN_DENYLIST_REDIS';
 
@@ -59,12 +60,7 @@ export class AccessTokenDenylistService {
     }
   }
 
-  async isRevoked(payload: {
-    jti: string;
-    sub: string;
-    iat?: number;
-    iat_ms?: number;
-  }): Promise<boolean> {
+  async isRevoked(payload: Pick<JwtPayload, 'jti' | 'sub' | 'iat' | 'iat_ms'>): Promise<boolean> {
     try {
       const [jtiHit, cutOff] = await this.redis.mget(
         this.key(payload.jti),
