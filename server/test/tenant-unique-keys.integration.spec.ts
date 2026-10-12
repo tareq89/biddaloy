@@ -90,11 +90,12 @@ const KEYS_SQL = `
          COALESCE((SELECT array_agg(a.attname::text ORDER BY k.ord)
                    FROM unnest(ix.indkey::int2[]) WITH ORDINALITY k(attnum, ord)
                    JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
-                   WHERE k.attnum > 0), '{}') AS columns,
+                   WHERE k.attnum > 0 AND k.ord <= ix.indnkeyatts), '{}') AS columns,
          EXISTS (
            SELECT 1 FROM pg_constraint c
            WHERE c.conrelid = t.oid AND c.contype = 'f'
-             AND c.conkey && ix.indkey::int2[]
+             AND c.conkey && ARRAY(SELECT k.attnum FROM unnest(ix.indkey::int2[]) WITH ORDINALITY k(attnum, ord)
+                                   WHERE k.ord <= ix.indnkeyatts)::int2[]
              AND (cardinality(c.conkey) = 1
                   OR EXISTS (SELECT 1 FROM pg_attribute tc WHERE tc.attrelid = t.oid
                              AND tc.attname = 'tenant_id' AND tc.attnum = ANY (c.conkey)))
