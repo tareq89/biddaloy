@@ -773,10 +773,13 @@ describe('CheckoutService (integration)', () => {
       const createSpy = vi
         .spyOn(invoicesService, 'create')
         .mockRejectedValueOnce(new Error('simulated invoice-service outage'));
+      feeNotifyAdd.mockClear();
 
       await expect(
         service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
       ).rejects.toThrow('simulated invoice-service outage');
+      // The first request died before its after-commit work: no receipt yet.
+      expect(feeNotifyAdd).not.toHaveBeenCalled();
 
       // The payment itself is durably committed even though the request
       // as a whole threw — this is the documented trade-off `checkout()`
@@ -802,6 +805,13 @@ describe('CheckoutService (integration)', () => {
       expect(retryMeta.replayed).toBe(true);
       expect(retried.payment.id).toBe(orphaned.id);
       expect(retried.invoice_id).toBeTruthy();
+      // [68.4.10] The sequential retry is what sends the guardian the receipt
+      // the first request never enqueued (the jobId makes a repeat harmless).
+      expect(feeNotifyAdd).toHaveBeenCalledWith(
+        'payments.recorded',
+        expect.objectContaining({ payment_id: orphaned.id, tenant_id: TENANT_ID }),
+        { jobId: `payments.recorded-${orphaned.id}` },
+      );
 
       const repaired = await paymentRepo.findOneOrFail({ where: { id: orphaned.id } });
       expect(repaired.invoice_id).toBeTruthy();

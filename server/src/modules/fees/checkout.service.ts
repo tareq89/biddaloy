@@ -124,6 +124,9 @@ export class CheckoutService {
       this.assertIdempotentReplayMatches(existing, dto);
       if (meta) meta.replayed = true;
       const repaired = await this.ensureInvoiceLinked(existing.id);
+      // The usual retry path: the first request may have died after commit but
+      // before its after-commit work. The jobId makes a repeat harmless.
+      await this.afterCommit(repaired, tenantId, userId);
       return this.toResult(repaired, tenantId);
     }
 
