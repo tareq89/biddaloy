@@ -30,6 +30,8 @@
  * criterion, shared with the retired status dialog's identical
  * reasoning).
  */
+import { Permission } from '@biddaloy/shared';
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Dialog,
@@ -45,7 +47,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@biddaloy/ui/components';
-import { ApiError } from '@biddaloy/ui/api';
 import {
   useClasses,
   useClassSections,
@@ -55,7 +56,6 @@ import {
   useUpdateEnrollment,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { Permission } from '@biddaloy/shared';
 import { AlertTriangle } from 'lucide-react';
 import * as React from 'react';
 
