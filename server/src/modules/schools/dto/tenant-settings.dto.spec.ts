@@ -475,6 +475,23 @@ describe('TenantSettingsDto', () => {
           ]),
         ).toBeUndefined();
       });
+      // The two boundaries a later `<` -> `<=` slip would break.
+      it('accepts adjacent entries (one ends the day before the next starts)', async () => {
+        expect(await run([t, { ...t, from: '2027-03-10', to: '2027-03-20' }])).toBeUndefined();
+      });
+      it('accepts a one-day entry (from == to)', async () => {
+        expect(await run([{ ...t, from: '2027-02-08', to: '2027-02-08' }])).toBeUndefined();
+      });
+      it('rejects an empty name', async () => {
+        expect(await run([{ ...t, name: '' }])).toBeDefined();
+      });
+      // A throw inside a constraint becomes a 500; malformed input must be a 400.
+      it('rejects malformed elements with a validation error, not a throw', async () => {
+        expect(await run([null])).toBeDefined();
+        expect(await run([{ ...t, periods: 'x' }])).toBeDefined();
+        expect(await run([{ ...t, periods: {} }])).toBeDefined();
+        expect(await run([{ ...t, periods: [null] }])).toBeDefined();
+      });
     });
 
     it('rejects a weeklyOffDays entry outside 0-6', async () => {
