@@ -1,17 +1,16 @@
-import { EventEmitter } from 'events';
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Queue } from 'bullmq';
 import { In, IsNull, Not, Repository } from 'typeorm';
 import { AuditAction, EMPLOYEE_ROLES } from '@biddaloy/shared';
 import { StaffIncident } from './entities/staff-incident.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { AuditService } from '../audit/audit.service';
+import { INCIDENT_NOTIFY_QUEUE } from './incident-notify.listener';
 import { CreateIncidentDto, IncidentResponseDto, QueryIncidentsDto } from './dto/incident.dto';
 
-/** Module-local emitter (same pattern as `feesEvents`). The payload carries
- * ids only — never incident text (D2 privacy). */
-export const incidentEvents = new EventEmitter();
-export const INCIDENT_CREATED = 'incident.created';
+/** Queue job payload: ids only — never incident text (D2 privacy). */
 export interface IncidentCreatedEvent {
   incidentId: string;
   tenantId: string;
@@ -21,10 +20,13 @@ export interface IncidentCreatedEvent {
 
 @Injectable()
 export class IncidentsService {
+  private readonly logger = new Logger(IncidentsService.name);
+
   constructor(
     @InjectRepository(StaffIncident) private readonly repo: Repository<StaffIncident>,
     @InjectRepository(UserTenant) private readonly memberships: Repository<UserTenant>,
     private readonly auditService: AuditService,
+    @InjectQueue(INCIDENT_NOTIFY_QUEUE) private readonly notifyQueue: Queue,
   ) {}
 
   async create(
@@ -73,7 +75,15 @@ export class IncidentsService {
       staffUserId: saved.staff_user_id,
       reportedBy: reporterId,
     };
-    incidentEvents.emit(INCIDENT_CREATED, event);
+    try {
+      await this.notifyQueue.add('incident.created', event, { jobId: `incident-${saved.id}` });
+    } catch (e) {
+      // The incident is already saved; a queue outage must not fail the report.
+      this.logger.error(
+        `incident notify enqueue failed for ${saved.id}`,
+        e instanceof Error ? e.stack : String(e),
+      );
+    }
     return this.toResponse(saved);
   }
 
