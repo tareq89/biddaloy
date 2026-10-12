@@ -137,8 +137,8 @@ export class StudentBulkUploadService {
     const rollsSeenThisRequest = new Map<string, Set<number>>();
 
     const errors: BulkImportErrorDto[] = [];
-    const staged: ValidatedBulkUploadRow[] = [];
-    const preview: BulkUploadPreviewRowDto[] = [];
+    let staged: ValidatedBulkUploadRow[] = [];
+    let preview: BulkUploadPreviewRowDto[] = [];
 
     for (const parsed of rows) {
       try {
@@ -168,8 +168,9 @@ export class StudentBulkUploadService {
     }
 
     // [LIFE-12] A re-uploaded file must not import the same students again: a row whose
-    // section + name + guardian1 phone already belongs to a live student is a blocking error.
-    // One query for the whole file (files run to 2,000 rows).
+    // section + name + guardian1 phone already belongs to a live student, or to an earlier
+    // row of this same file, is a blocking error. One query for the whole file (files run
+    // to 2,000 rows).
     const normName = (n: string) => n.trim().toLowerCase().replace(/\s+/g, ' ');
     const sectionIds = [...new Set(staged.map((r) => r.classSectionId))];
     if (sectionIds.length > 0) {
@@ -184,23 +185,30 @@ export class StudentBulkUploadService {
             byKey.set(`${st.class_section_id}::${normName(st.full_name)}::${g.phone}`, st);
         }
       }
-      for (let i = staged.length - 1; i >= 0; i--) {
-        const row = staged[i];
-        const match = byKey.get(
-          `${row.classSectionId}::${normName(row.student_name)}::${row.guardian1_phone}`,
-        );
-        if (!match) continue;
-        staged.splice(i, 1);
-        preview.splice(i, 1);
+      const firstRowByKey = new Map<string, number>();
+      const dropped = new Set<number>();
+      staged.forEach((row, i) => {
+        const key = `${row.classSectionId}::${normName(row.student_name)}::${row.guardian1_phone}`;
+        const match = byKey.get(key);
+        const firstRow = firstRowByKey.get(key);
+        if (!match && firstRow === undefined) {
+          firstRowByKey.set(key, row.rowNumber);
+          return;
+        }
+        dropped.add(i);
         errors.push({
           row: row.rowNumber,
           tab: undefined,
           column: 'student_name',
           value: row.student_name,
           severity: 'error',
-          message: `Already imported: ${match.full_name} (${match.registration_number}) is in this section with the same guardian phone. Remove this row to import the rest.`,
+          message: match
+            ? `Already imported: ${match.full_name} (${match.registration_number}) is in this section with the same guardian phone. Remove this row to import the rest.`
+            : `Duplicate: this student is also in row ${firstRow} of this file, in the same section with the same guardian phone. Remove one of the two rows.`,
         });
-      }
+      });
+      staged = staged.filter((_, i) => !dropped.has(i));
+      preview = preview.filter((_, i) => !dropped.has(i));
     }
 
     // [LIFE-09] Joining an existing family is allowed but visible: committing after
