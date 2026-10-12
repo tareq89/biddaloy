@@ -6,6 +6,11 @@ import { incidentFactory } from '../../factories/acr';
 const listIncidents = http.get('/api/v1/incidents', () =>
   HttpResponse.json([incidentFactory(), incidentFactory({ type: 'COMMENDATION' })]),
 );
+const withdrawIncident = http.post('/api/v1/incidents/:id/withdraw', ({ params }) =>
+  HttpResponse.json(
+    incidentFactory({ id: String(params.id), withdrawnAt: new Date().toISOString() }),
+  ),
+);
 const createIncident = http.post('/api/v1/incidents', async ({ request }) => {
   const body = (await request.json()) as Record<string, unknown>;
   return HttpResponse.json(incidentFactory(body), { status: 201 });
@@ -15,4 +20,4 @@ export const incidentHandlers = {
   listEmpty: http.get('/api/v1/incidents', () => HttpResponse.json([])),
 };
 
-export const incidentDefaultHandlers = [listIncidents, createIncident];
+export const incidentDefaultHandlers = [listIncidents, createIncident, withdrawIncident];

@@ -498,6 +498,7 @@ POST /homework/:id/assign | HomeworkController | perm: HOMEWORK_ASSIGN
 POST /homework/bulk/commit | HomeworkBulkUploadController | perm: HOMEWORK_IMPORT
 POST /homework/bulk/validate | HomeworkBulkUploadController | perm: HOMEWORK_IMPORT
 POST /incidents | IncidentsController | perm: ACR_WRITE
+POST /incidents/:id/withdraw | IncidentsController | perm: ACR_WRITE
 POST /invoices | InvoicesController | perm: INVOICE_CREATE
 POST /invoices/:id/send | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
 POST /invoices/:id/share | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN

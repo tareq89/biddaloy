@@ -39,3 +39,18 @@ export function useReportIncident() {
     },
   });
 }
+
+/** GAP-11: withdraw (hide) an incident with a reason; the server keeps the row. */
+export function useWithdrawIncident() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) =>
+      (await apiClient.post<Incident>(`/incidents/${id}/withdraw`, { reason })).data,
+    // onSettled: a 409 (already withdrawn elsewhere) also means the lists are stale.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: incidentKeys.lists() });
+      // The staff Performance tab shows `incidentCount`.
+      void queryClient.invalidateQueries({ queryKey: ['performance', 'staff'] });
+    },
+  });
+}
