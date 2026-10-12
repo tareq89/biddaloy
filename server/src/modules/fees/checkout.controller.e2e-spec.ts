@@ -11,10 +11,13 @@ import { randomUUID } from 'crypto';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
+  SEED_ADMIN_USER_ID,
   SEED_ADMIN_PASSWORD,
   SEED_ADMIN_PASSWORD_HASH,
   SEED_SECTION_1_ID,
 } from '@test/constants';
+import type Redis from 'ioredis';
+import { STEP_UP_REDIS } from '../auth/step-up.service';
 import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
 
 /**
@@ -491,6 +494,14 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
   }
 
   async function issueApprovalToken(scope: string, identifier: string): Promise<string> {
+    // Step-up budget is 5 per 15 min per actor and is not flushed between
+    // files; start each mint from a clean count (same as step-up.controller.e2e-spec).
+    await app
+      .get<Redis>(STEP_UP_REDIS)
+      .del(
+        `step-up-attempts:actor:${SEED_ADMIN_USER_ID}`,
+        `step-up-attempts:approver:${SEED_TENANT_ID}:${identifier}`,
+      );
     // The approval token `ApprovalGuard` issues is bound to the actor who
     // requested/verified it (the caller here) — it must be `adminToken`,
     // the same user who then spends the token calling `reversePayment`
@@ -620,6 +631,50 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
     // the sign (see `PaymentReversalService`).
     expect(Number(res.body.total_amount)).toBe(500);
     expect(res.body.reversal_of_payment_id).toBe(paymentId);
+  });
+
+  describe('MON-11 payment_date', () => {
+    const dayStr = (offset: number) =>
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(
+        new Date(Date.now() + offset * 86_400_000),
+      );
+    function post(feeId: string, offset: number, token?: string) {
+      const req = supertest(app.getHttpServer())
+        .post(`${API}/payments/checkout`)
+        .send({
+          idempotency_key: randomUUID(),
+          lines: [{ student_fee_id: feeId, amount: 500, one_off_discount: 0 }],
+          payment_method: PaymentMethod.CASH,
+          payment_date: dayStr(offset),
+        })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .set('X-Role', UserRole.ADMIN);
+      return token ? req.set('X-Approval-Token', token) : req;
+    }
+
+    it('future payment_date -> 400', async () => {
+      const fee = await createFee(await createStudent(), 500);
+      await post(fee, 1).expect(400);
+    });
+
+    it('2 days back without a token -> 403', async () => {
+      const fee = await createFee(await createStudent(), 500);
+      await post(fee, -2).expect(403);
+    });
+
+    it('2 days back with a payments.backdate token -> 201', async () => {
+      const fee = await createFee(await createStudent(), 500);
+      const token = await issueApprovalToken('payments.backdate', SEED_ADMIN_EMAIL);
+      const res = await post(fee, -2, token).expect(201);
+      expect(res.body.payment.payment_date.slice(0, 10)).toBe(dayStr(-2));
+    });
+
+    it('a token for another scope -> 403', async () => {
+      const fee = await createFee(await createStudent(), 500);
+      const token = await issueApprovalToken('payments.reverse', SEED_ADMIN_EMAIL);
+      await post(fee, -2, token).expect(403);
+    });
   });
 
   it('rejects reversal without an approval token (403 APPROVAL_REQUIRED)', async () => {
