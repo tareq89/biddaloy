@@ -12,6 +12,7 @@ import { StudyPlansService, StudyPlanCaller } from './study-plans.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { AuditService } from '../audit/audit.service';
 import { ResolveRoutineService } from '../routines/resolve-routine.service';
+import { DEFAULT_ATTENDANCE_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { SchoolsService } from '../schools/schools.service';
 import { CalendarModule } from '../calendar/calendar.module';
 import { AuthModule } from '../auth/auth.module';
@@ -72,6 +73,7 @@ describe('LessonDeliveriesService (integration)', () => {
           useValue: {
             getResolvedSettings: async () => ({
               region: { timezone: 'Asia/Dhaka' },
+              attendance: DEFAULT_ATTENDANCE_SETTINGS,
               studyPlans: { escalateAfterSchoolDays: 2 },
             }),
           },

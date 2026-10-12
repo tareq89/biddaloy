@@ -7,6 +7,8 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { PeriodSlotKind, RoutineState, SlotRecurrence } from '@biddaloy/shared';
 import { ResolveRoutineService } from './resolve-routine.service';
+import { SchoolsService } from '../schools/schools.service';
+import { DEFAULT_ATTENDANCE_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { CalendarModule } from '../calendar/calendar.module';
 import { AuthModule } from '../auth/auth.module';
 import { School } from '../schools/entities/school.entity';
@@ -45,7 +47,18 @@ describe('ResolveRoutineService — class-scoped holidays (integration)', () => 
   beforeAll(async () => {
     const module = await createTestModule(
       ALL_ENTITIES,
-      [ResolveRoutineService],
+      [
+        ResolveRoutineService,
+        {
+          provide: SchoolsService,
+          useValue: {
+            getResolvedSettings: async () => ({
+              region: { timezone: 'Asia/Dhaka' },
+              attendance: DEFAULT_ATTENDANCE_SETTINGS,
+            }),
+          },
+        },
+      ],
       [ConfigModule.forRoot({ isGlobal: true }), CalendarModule, AuthModule],
     );
     ds = module.get<DataSource>(getDataSourceToken());

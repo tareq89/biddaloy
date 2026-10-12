@@ -11,6 +11,8 @@ import {
 } from '@test/constants';
 import { PeriodSlotKind, RoutineState, SlotRecurrence } from '@biddaloy/shared';
 import { ResolveRoutineService } from './resolve-routine.service';
+import { SchoolsService } from '../schools/schools.service';
+import { DEFAULT_ATTENDANCE_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
@@ -43,6 +45,15 @@ describe('ResolveRoutineService — subject names (integration)', () => {
       ALL_ENTITIES,
       [
         ResolveRoutineService,
+        {
+          provide: SchoolsService,
+          useValue: {
+            getResolvedSettings: async () => ({
+              region: { timezone: 'Asia/Dhaka' },
+              attendance: DEFAULT_ATTENDANCE_SETTINGS,
+            }),
+          },
+        },
         {
           provide: SchoolCalendarService,
           useValue: { getWorkingDays: async () => ({ dates: [MONDAY] }) },
@@ -203,6 +214,15 @@ describe('[67.3.03] resolveTenantDay (integration)', () => {
       ALL_ENTITIES,
       [
         ResolveRoutineService,
+        {
+          provide: SchoolsService,
+          useValue: {
+            getResolvedSettings: async () => ({
+              region: { timezone: 'Asia/Dhaka' },
+              attendance: DEFAULT_ATTENDANCE_SETTINGS,
+            }),
+          },
+        },
         {
           provide: SchoolCalendarService,
           useValue: { getWorkingDays: async () => ({ dates: workingDates }) },
