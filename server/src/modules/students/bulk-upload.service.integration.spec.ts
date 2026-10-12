@@ -710,6 +710,23 @@ describe('StudentBulkUploadService (integration)', () => {
       ).rejects.toThrow(/validation errors/);
     });
 
+    // The same student listed twice in ONE file would otherwise create two
+    // students: neither row matches a live student yet. The first row stays.
+    it('flags the second copy of a student within the same file', async () => {
+      const v = await service.validate(
+        await buildXlsxFile([
+          ...twoRows(),
+          rowValues(headers, { student_name: ' dup  one', guardian1_phone: '+8801711200001' }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(1);
+      expect(v.rows_to_create).toBe(2);
+      const [err] = v.errors.filter((e) => e.severity === 'error');
+      expect(err.message).toMatch(/also in row/);
+    });
+
     async function importOnce(rows: string[][]) {
       const v = await service.validate(await buildXlsxFile(rows), TENANT_ID, SEED_ADMIN_USER_ID);
       await service.commit(v.staging_id, TENANT_ID, SEED_ADMIN_USER_ID);
