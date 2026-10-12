@@ -403,6 +403,45 @@ describe('Family study plans E2E (66.2/#2013)', () => {
       expect(JSON.stringify(res.body)).not.toContain(NOTE);
     });
 
+    // A special timing (e.g. Ramadan) moves P1 from 08:00-08:45 to 08:30-09:05 on that day:
+    // both day views show the class's real time, not the template's.
+    it("the teacher's and the family's day views show a special timing's period times", async () => {
+      await createPlan();
+      const date = lastMonday();
+      const [{ settings }] = await dataSource.query('SELECT settings FROM schools WHERE id = $1', [
+        SEED_TENANT_ID,
+      ]);
+      const special = {
+        name: 'Ramadan',
+        from: date,
+        to: date,
+        shiftId: null,
+        lateAfter: '08:45',
+        absentAfter: '10:00',
+        periods: [{ sequence: 1, startsAt: '08:30', endsAt: '09:05' }],
+      };
+      await dataSource.query('UPDATE schools SET settings = $2 WHERE id = $1', [
+        SEED_TENANT_ID,
+        {
+          ...(settings ?? {}),
+          attendance: { ...(settings?.attendance ?? {}), specialTimings: [special] },
+        },
+      ]);
+      try {
+        const teacher = await as(`/lesson-deliveries?teacher=me&date=${date}`, 'T').expect(200);
+        expect(teacher.body.periods[0]).toMatchObject({ starts_at: '08:30', ends_at: '09:05' });
+        const family = await as(`/students/${studentId}/lessons?date=${date}`, 'PARENT').expect(
+          200,
+        );
+        expect(family.body[0].starts_at).toBe('08:30');
+      } finally {
+        await dataSource.query('UPDATE schools SET settings = $2 WHERE id = $1', [
+          SEED_TENANT_ID,
+          settings,
+        ]);
+      }
+    });
+
     it('carries the delivery status once the teacher reported the period', async () => {
       await createPlan();
       const date = lastMonday();
