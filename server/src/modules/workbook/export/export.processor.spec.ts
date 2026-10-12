@@ -146,6 +146,19 @@ describe('ExportProcessor', () => {
       );
     });
 
+    it('skips a MANUAL export too (retried manual exports can land mid-restore)', async () => {
+      jobsRepo.findOne.mockResolvedValue(jobRow({ source: WorkbookJobSource.MANUAL }));
+
+      await processor.process(fakeJob());
+
+      expect(storage.put).not.toHaveBeenCalled();
+      expect(retention.enforce).not.toHaveBeenCalled();
+      expect(jobsRepo.update).toHaveBeenCalledWith(
+        JOB_ID,
+        expect.objectContaining({ status: WorkbookJobStatus.FAILED }),
+      );
+    });
+
     it("still runs the restore's own SNAPSHOT export", async () => {
       jobsRepo.findOne.mockResolvedValue(jobRow({ source: WorkbookJobSource.SNAPSHOT }));
 

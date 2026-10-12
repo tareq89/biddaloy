@@ -91,11 +91,11 @@ export class ExportProcessor extends WorkerHost {
       return;
     }
 
-    // [68.1.fix] Checked here, not only in `BackupScheduleService.runNow`: a SCHEDULED export
+    // [68.1.fix] Checked here, not only in `BackupScheduleService.runNow`: a non-snapshot (SCHEDULED or MANUAL) export
     // queued before a restore can be retried (or picked up by another worker) after it started.
     // Mid-restore it would save a half-restored school and then prune older, good backups.
     if (
-      row.source === WorkbookJobSource.SCHEDULED &&
+      row.source !== WorkbookJobSource.SNAPSHOT &&
       (await this.tenantStatus.isRestoring(tenantId))
     ) {
       await this.jobs.update(row.id, {
