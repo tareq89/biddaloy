@@ -280,6 +280,17 @@ describe('StudentLeaveHandler (integration)', () => {
     expect(res).toEqual({ days: 2, attendance_dates: [day(10), day(12)] });
   });
 
+  it('X-08: a student who left (not ACTIVE) cannot have a leave approved; nothing is written', async () => {
+    await dataSource.query(`UPDATE students SET enrollment_status = 'TRANSFERRED' WHERE id = $1`, [
+      studentId,
+    ]);
+    await expect(apply(await makeApp(day(10), day(12)))).rejects.toMatchObject({
+      status: 409,
+      response: { details: { code: 'NO_ACTIVE_ENROLLMENT' } },
+    });
+    expect(await recordsOf()).toHaveLength(0);
+  });
+
   it('overlap with an approved leave: 409 LEAVE_OVERLAP; adjacent days are fine', async () => {
     await makeApp(day(10), day(12), { status: ApplicationStatus.APPROVED });
     await expect(apply(await makeApp(day(12), day(14)))).rejects.toMatchObject({

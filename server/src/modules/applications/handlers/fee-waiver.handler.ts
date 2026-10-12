@@ -1,11 +1,17 @@
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
-import { ApprovalScope, DiscountKind, FeeType } from '@biddaloy/shared';
+import { ApprovalScope, DiscountKind, EnrollmentStatus, FeeType } from '@biddaloy/shared';
 import type { Application } from '../entities/application.entity';
 import type { ApplicationEffectContext } from '../application-types';
 import { formatApplicationSerial } from '../application-serial';
 import { ApprovalService } from '../../auth/guards/approval.guard';
 import { DiscountRulesService } from '../../fees/discount-rules.service';
+import { Student } from '../../students/entities/student.entity';
 import type { CreateDiscountRuleDto } from '../../fees/dto/discount-rules.dto';
 
 const invalid = (message: string) =>
@@ -64,6 +70,20 @@ export class FeeWaiverHandler {
     app: Application,
     ctx: ApplicationEffectContext,
   ): Promise<Record<string, unknown> | null> {
+    // [X-08] Checked before the token is consumed, so a refusal does not burn the step-up.
+    if (app.subject_student_id) {
+      const student = await manager.getRepository(Student).findOne({
+        where: { id: app.subject_student_id, tenant_id: ctx.tenantId },
+      });
+      if (!student) throw new NotFoundException('Student not found');
+      if (student.enrollment_status !== EnrollmentStatus.ACTIVE) {
+        throw new ConflictException({
+          message: 'Student has no active enrollment',
+          details: { code: 'NO_ACTIVE_ENROLLMENT' },
+        });
+      }
+    }
+
     // Missing/spent/foreign token throws ApprovalRequiredException -> decision rolls back.
     // Known: the token is spent before the terms are validated, so a later 422 burns it
     // (the whole decision transaction rolls back; the approver just steps up again).
