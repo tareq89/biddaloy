@@ -5,7 +5,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
-import { ApplicationStatus, ApplicationType } from '@biddaloy/shared';
+import { ApplicationStatus, ApplicationType, EnrollmentStatus } from '@biddaloy/shared';
 import { Application } from '../entities/application.entity';
 import type { ApplicationEffectContext } from '../application-types';
 import { AttendanceService } from '../../attendance/attendance.service';
@@ -34,6 +34,13 @@ export class StudentLeaveHandler {
     });
     if (!student) {
       throw new NotFoundException('Student not found');
+    }
+    // [X-08] A student who left keeps their open applications; approving one must fail.
+    if (student.enrollment_status !== EnrollmentStatus.ACTIVE) {
+      throw new ConflictException({
+        message: 'Student has no active enrollment',
+        details: { code: 'NO_ACTIVE_ENROLLMENT' },
+      });
     }
 
     const overlap = await manager
