@@ -18,6 +18,14 @@ export interface IncidentCreatedEvent {
   reportedBy: string;
 }
 
+/** `details.code`, like every other 409: the error filter forwards `details` only. */
+function alreadyWithdrawn(): ConflictException {
+  return new ConflictException({
+    message: 'Incident already withdrawn',
+    details: { code: 'INCIDENT_ALREADY_WITHDRAWN' },
+  });
+}
+
 @Injectable()
 export class IncidentsService {
   private readonly logger = new Logger(IncidentsService.name);
@@ -44,31 +52,39 @@ export class IncidentsService {
     });
     if (!member) throw new NotFoundException('Staff member not found');
 
-    const saved = await this.repo.save(
-      this.repo.create({
-        tenant_id: tenantId,
-        staff_user_id: dto.staffId,
-        type: dto.type,
-        severity: dto.severity,
-        body: dto.description,
-        occurred_on: dto.occurredOn,
-        reported_by: reporterId,
-      }),
-    );
-    await this.auditService.record({
-      action: AuditAction.CREATE,
-      entity_type: 'StaffIncident',
-      entity_id: saved.id,
-      tenant_id: tenantId,
-      performed_by_user_id: reporterId,
-      old_values: null,
-      new_values: {
-        staff_user_id: saved.staff_user_id,
-        type: saved.type,
-        severity: saved.severity,
-        occurred_on: saved.occurred_on,
-      },
+    // One transaction: the CREATE audit row commits with the incident (#2286).
+    const saved = await this.repo.manager.transaction(async (m) => {
+      const row = await m.getRepository(StaffIncident).save(
+        this.repo.create({
+          tenant_id: tenantId,
+          staff_user_id: dto.staffId,
+          type: dto.type,
+          severity: dto.severity,
+          body: dto.description,
+          occurred_on: dto.occurredOn,
+          reported_by: reporterId,
+        }),
+      );
+      await this.auditService.record(
+        {
+          action: AuditAction.CREATE,
+          entity_type: 'StaffIncident',
+          entity_id: row.id,
+          tenant_id: tenantId,
+          performed_by_user_id: reporterId,
+          old_values: null,
+          new_values: {
+            staff_user_id: row.staff_user_id,
+            type: row.type,
+            severity: row.severity,
+            occurred_on: row.occurred_on,
+          },
+        },
+        m,
+      );
+      return row;
     });
+    // Enqueued after commit, so a worker never sees an uncommitted incident.
     const event: IncidentCreatedEvent = {
       incidentId: saved.id,
       tenantId,
@@ -123,32 +139,28 @@ export class IncidentsService {
   ): Promise<IncidentResponseDto> {
     const row = await this.repo.findOne({ where: { id, tenant_id: tenantId } });
     if (!row || row.staff_user_id === callerId) throw new NotFoundException('Incident not found');
-    if (row.withdrawn_at) {
-      throw new ConflictException({
-        code: 'INCIDENT_ALREADY_WITHDRAWN',
-        message: 'Incident already withdrawn',
-      });
-    }
-    // Conditional update: of two concurrent withdrawals only one wins.
+    if (row.withdrawn_at) throw alreadyWithdrawn();
     const withdrawnAt = new Date();
-    const { affected } = await this.repo.update(
-      { id, tenant_id: tenantId, withdrawn_at: IsNull() },
-      { withdrawn_at: withdrawnAt, withdrawn_by_user_id: callerId, withdraw_reason: reason },
-    );
-    if (!affected) {
-      throw new ConflictException({
-        code: 'INCIDENT_ALREADY_WITHDRAWN',
-        message: 'Incident already withdrawn',
-      });
-    }
-    await this.auditService.record({
-      action: AuditAction.UPDATE,
-      entity_type: 'StaffIncident',
-      entity_id: id,
-      tenant_id: tenantId,
-      performed_by_user_id: callerId,
-      old_values: { withdrawn_at: null },
-      new_values: { withdrawn_at: withdrawnAt.toISOString(), reason },
+    // One transaction: a withdrawal never commits without its audit row (#2286).
+    await this.repo.manager.transaction(async (m) => {
+      // Conditional update: of two concurrent withdrawals only one wins.
+      const { affected } = await m.getRepository(StaffIncident).update(
+        { id, tenant_id: tenantId, withdrawn_at: IsNull() },
+        { withdrawn_at: withdrawnAt, withdrawn_by_user_id: callerId, withdraw_reason: reason },
+      );
+      if (!affected) throw alreadyWithdrawn();
+      await this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'StaffIncident',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: callerId,
+          old_values: { withdrawn_at: null },
+          new_values: { withdrawn_at: withdrawnAt.toISOString(), reason },
+        },
+        m,
+      );
     });
     return this.toResponse({
       ...row,

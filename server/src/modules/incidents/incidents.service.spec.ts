@@ -35,7 +35,10 @@ function row(over: Record<string, unknown> = {}) {
 }
 
 describe('IncidentsService', () => {
-  let repo: { save: any; create: any; find: any; findOne: any; update: any };
+  let repo: { save: any; create: any; find: any; findOne: any; update: any; manager: any };
+  // What the transaction callback gets: writes must go through it, not `repo`.
+  let txRepo: { save: any; update: any };
+  let tx: { getRepository: any };
   let memberships: { findOne: any };
   let audit: { record: any };
   let queue: { add: any };
@@ -48,7 +51,10 @@ describe('IncidentsService', () => {
       find: vi.fn(async () => []),
       findOne: vi.fn(),
       update: vi.fn(async () => ({ affected: 1 })),
+      manager: { transaction: vi.fn(async (cb: (m: unknown) => unknown) => cb(tx)) },
     };
+    txRepo = { save: repo.save, update: repo.update };
+    tx = { getRepository: vi.fn(() => txRepo) };
     memberships = { findOne: vi.fn(async () => ({ id: 'm' })) };
     audit = { record: vi.fn(async () => ({})) };
     queue = { add: vi.fn(async () => ({})) };
@@ -106,6 +112,23 @@ describe('IncidentsService', () => {
     expect(JSON.stringify(entry)).not.toContain(SECRET);
   });
 
+  // #2286: the audit row commits with the change. Without the manager,
+  // AuditService.record fails open and the row can be silently lost.
+  it('create saves and audits inside one transaction', async () => {
+    await service.create(dto, TENANT, ADMIN);
+    expect(repo.manager.transaction).toHaveBeenCalledTimes(1);
+    expect(tx.getRepository).toHaveBeenCalled();
+    expect(audit.record.mock.calls[0][1]).toBe(tx);
+  });
+
+  it('withdraw updates and audits inside one transaction', async () => {
+    repo.findOne.mockResolvedValue(row());
+    await service.withdraw('inc-1', TENANT, ADMIN, 'Wrong person');
+    expect(repo.manager.transaction).toHaveBeenCalledTimes(1);
+    expect(tx.getRepository).toHaveBeenCalled();
+    expect(audit.record.mock.calls[0][1]).toBe(tx);
+  });
+
   it('withdraw sets the columns and records an audit row', async () => {
     repo.findOne.mockResolvedValue(row());
     const res = await service.withdraw('inc-1', TENANT, ADMIN, 'Wrong person');
@@ -128,16 +151,17 @@ describe('IncidentsService', () => {
     repo.findOne.mockResolvedValue(row({ withdrawn_at: new Date() }));
     const err = await service.withdraw('inc-1', TENANT, ADMIN, 'x').catch((e) => e);
     expect(err).toBeInstanceOf(ConflictException);
-    expect(err.getResponse().code).toBe('INCIDENT_ALREADY_WITHDRAWN');
+    // Same shape as every other 409: the error filter forwards `details` only.
+    expect(err.getResponse().details).toEqual({ code: 'INCIDENT_ALREADY_WITHDRAWN' });
     expect(repo.save).not.toHaveBeenCalled();
   });
 
   it('a concurrent withdrawal that loses the race → 409 and no audit row', async () => {
     repo.findOne.mockResolvedValue(row());
     repo.update.mockResolvedValue({ affected: 0 });
-    await expect(service.withdraw('inc-1', TENANT, ADMIN, 'x')).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    const err = await service.withdraw('inc-1', TENANT, ADMIN, 'x').catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details).toEqual({ code: 'INCIDENT_ALREADY_WITHDRAWN' });
     expect(audit.record).not.toHaveBeenCalled();
   });
 

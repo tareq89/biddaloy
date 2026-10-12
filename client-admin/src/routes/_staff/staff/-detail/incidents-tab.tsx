@@ -40,7 +40,8 @@ export interface IncidentsTabProps {
 /**
  * GAP-11: withdraw an incident. Needs a reason, so this is a small Dialog with
  * a Textarea rather than `ConfirmDialog` (no body slot). The confirm button
- * stays default tone: filled red lives only in `ConfirmDialog`.
+ * is the tinted `destructive` variant: filled red (`danger`) lives only in
+ * `ConfirmDialog` (docs/architecture/21-ui-patterns.md).
  */
 function WithdrawIncidentDialog({
   incidentId,
