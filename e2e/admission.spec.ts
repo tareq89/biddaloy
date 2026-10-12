@@ -255,9 +255,13 @@ test('admit modal shows the matched guardian and requires a choice', async ({ pa
     });
     await expect(confirm).toBeDisabled();
 
+    // RadioRows stretches each label over its row, so the label takes the click.
     await dialog
-      .getByRole('radio', { name: t('admission-staff-applicants.admitModal.createNew') })
+      .getByText(t('admission-staff-applicants.admitModal.createNew'), { exact: true })
       .click();
+    await expect(
+      dialog.getByRole('radio', { name: t('admission-staff-applicants.admitModal.createNew') }),
+    ).toBeChecked();
     await expect(confirm).toBeEnabled();
     await confirm.click();
     await expect(
