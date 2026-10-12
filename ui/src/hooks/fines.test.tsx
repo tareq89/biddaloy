@@ -23,6 +23,7 @@ import {
   useWaiveBill,
   useWaiveFine,
 } from './fines';
+import { paymentKeys } from './payments';
 
 afterEach(async () => {
   await cleanupTestState();
@@ -156,6 +157,29 @@ describe('useWaiveFine', () => {
 
     await screen.findByText('WAIVED', { selector: '[data-testid="result"]' });
     expect(attempt).toBe(2);
+  });
+
+  // A waived fine changes the student's fee summary too, same as useWaiveBill.
+  it('invalidates the fines, fee-dues, student-fees and payments query keys', async () => {
+    server.use(
+      http.post('/api/v1/fees/fines/fine-1/waive', () =>
+        HttpResponse.json({ id: 'fine-1', amount: 100, status: 'WAIVED' }, { status: 201 }),
+      ),
+    );
+
+    const { queryClient } = renderWithProviders(<Harness />, {
+      locale: 'en',
+      tenantId: 'tenant-1',
+    });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'waive' }));
+
+    await screen.findByText('WAIVED', { selector: '[data-testid="result"]' });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: finesKeys.all });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: feeDuesKeys.all });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['student-fees'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: paymentKeys.all });
   });
 });
 

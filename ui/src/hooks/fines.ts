@@ -205,6 +205,8 @@ export function useWaiveFine(): ApprovedMutationResult<WaiveFineInput, WaiveFine
         void queryClient.invalidateQueries({ queryKey: finesKeys.all });
         void queryClient.invalidateQueries({ queryKey: feeDuesKeys.all });
         void queryClient.invalidateQueries({ queryKey: ['student-fees'] });
+        // The student Fees tab reads `paymentKeys.all/fee-summary`.
+        void queryClient.invalidateQueries({ queryKey: paymentKeys.all });
       },
     },
   );

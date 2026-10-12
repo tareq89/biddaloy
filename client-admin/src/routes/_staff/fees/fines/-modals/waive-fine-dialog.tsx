@@ -39,7 +39,8 @@ import {
 import * as React from 'react';
 
 const REASON_MIN_LENGTH = 3;
-const REASON_MAX_LENGTH = 500;
+// Server `WaiveFineDto.reason` is @MaxLength(280).
+const REASON_MAX_LENGTH = 280;
 const OPEN_STATUSES = new Set(['PENDING', 'PARTIALLY_PAID', 'OVERDUE']);
 
 export interface WaiveFineDialogProps {
