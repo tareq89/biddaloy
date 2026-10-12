@@ -73,7 +73,10 @@ async function resubmitPhoto(documents: AdmissionApplicantDocument[]) {
   const intakeRepo = {
     manager: { transaction: (cb: (m: typeof manager) => unknown) => cb(manager) },
   };
-  const schools = { findBySlug: async () => ({ id: TENANT }) } as unknown as SchoolsService;
+  const schools = {
+    findBySlug: async () => ({ id: TENANT }),
+    todayFor: async () => '2026-03-16',
+  } as unknown as SchoolsService;
 
   const service = new AdmissionApplicantService(schools, storage, intakeRepo as never, {} as never);
   const dto = {

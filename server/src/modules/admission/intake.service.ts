@@ -4,6 +4,8 @@ import { Repository, IsNull } from 'typeorm';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import { CreateIntakeDto } from './dto/create-intake.dto';
 import { UpdateIntakeDto } from './dto/update-intake.dto';
+import { SchoolsService } from '../schools/schools.service';
+import { addDays } from '../attendance/attendance-policy.util';
 
 export type IntakeStatus = 'OPEN' | 'CLOSED';
 export type IntakeWithStatus = AdmissionIntake & { status: IntakeStatus };
@@ -18,10 +20,10 @@ function assertDateRange(openDate: string, closeDate: string): void {
   }
 }
 
-/** Derives OPEN/CLOSED from `open_date`/`close_date` vs now — see the
- * `AdmissionIntake` entity docstring for why this isn't a stored column. */
-function withStatus(intake: AdmissionIntake): IntakeWithStatus {
-  const today = new Date().toISOString().slice(0, 10);
+/** Derives OPEN/CLOSED from `open_date`/`close_date` vs `today` (the school's
+ * local date) — see the `AdmissionIntake` entity docstring for why this isn't
+ * a stored column. */
+function withStatus(intake: AdmissionIntake, today: string): IntakeWithStatus {
   const status: IntakeStatus =
     today >= intake.open_date && today <= intake.close_date ? 'OPEN' : 'CLOSED';
   return { ...intake, status };
@@ -32,12 +34,13 @@ function withStatus(intake: AdmissionIntake): IntakeWithStatus {
 export class IntakeService {
   constructor(
     @InjectRepository(AdmissionIntake) private readonly repo: Repository<AdmissionIntake>,
+    private readonly schoolsService: SchoolsService,
   ) {}
 
   async create(dto: CreateIntakeDto, tenantId: string): Promise<IntakeWithStatus> {
     assertDateRange(dto.open_date, dto.close_date);
     const intake = this.repo.create({ ...dto, tenant_id: tenantId });
-    return withStatus(await this.repo.save(intake));
+    return withStatus(await this.repo.save(intake), await this.schoolsService.todayFor(tenantId));
   }
 
   async findAll(tenantId: string): Promise<IntakeListRow[]> {
@@ -54,8 +57,9 @@ export class IntakeService {
       withDeleted: true,
       order: { created_at: 'DESC' },
     });
+    const today = await this.schoolsService.todayFor(tenantId);
     return intakes.map(({ class_section, ...intake }) => ({
-      ...withStatus(intake as AdmissionIntake),
+      ...withStatus(intake as AdmissionIntake, today),
       class_name: class_section?.class?.name ?? null,
       section_name: class_section?.section_name ?? null,
     }));
@@ -66,7 +70,7 @@ export class IntakeService {
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!intake) throw new NotFoundException('Admission intake not found');
-    return withStatus(intake);
+    return withStatus(intake, await this.schoolsService.todayFor(tenantId));
   }
 
   async update(id: string, dto: UpdateIntakeDto, tenantId: string): Promise<IntakeWithStatus> {
@@ -85,8 +89,8 @@ export class IntakeService {
    * it back to the same date too, so the range never inverts. */
   async close(id: string, tenantId: string): Promise<IntakeWithStatus> {
     const current = await this.findOne(id, tenantId);
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const today = await this.schoolsService.todayFor(tenantId);
+    const yesterday = addDays(today, -1);
     const closeDate = yesterday;
     const openDate = current.open_date >= today ? closeDate : current.open_date;
     await this.repo.update(

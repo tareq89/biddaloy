@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ADMIN_USER_ID } from '@test/constants';
@@ -131,6 +131,36 @@ describe('Admission flow (integration)', () => {
       expect(ids).not.toContain(theirs.id);
     } finally {
       await dataSource.query(`DELETE FROM admission_intakes WHERE tenant_id = $1`, [otherTenantId]);
+    }
+  });
+
+  it('[68.0 TEN-08] at 02:00 Dhaka on the 16th an intake that closed on the 15th is not listed and refuses submissions', async () => {
+    const intakeId = await createIntake({ open_date: '2026-03-01', close_date: '2026-03-15' });
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-03-15T20:00:00Z')); // 16 Mar 02:00 in Dhaka
+      const open = await applicantService.listOpenIntakes(SEED_SLUG);
+      expect(open.map((i) => i.id)).not.toContain(intakeId);
+      await expect(
+        applicantService.submit(
+          SEED_SLUG,
+          {
+            intake_id: intakeId,
+            applicant_name: 'Late Applicant',
+            date_of_birth: '2018-05-01',
+            gender: 'MALE',
+            guardian_name: 'Guardian',
+            guardian_phone: '01700000999',
+          },
+          [],
+        ),
+      ).rejects.toThrow(new BadRequestException('This admission intake is closed'));
+      // Control: three hours earlier (23:00 Dhaka on the 15th) it is open.
+      vi.setSystemTime(new Date('2026-03-15T17:00:00Z')); // 15 Mar 23:00 Dhaka
+      const stillOpen = await applicantService.listOpenIntakes(SEED_SLUG);
+      expect(stillOpen.map((i) => i.id)).toContain(intakeId);
+    } finally {
+      vi.useRealTimers();
     }
   });
 

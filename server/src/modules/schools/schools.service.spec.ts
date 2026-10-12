@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
@@ -459,6 +459,36 @@ describe('SchoolsService', () => {
 
       expect(resolved.version).toBe(1);
       expect(resolved.region).toEqual(DEFAULT_REGION_SETTINGS);
+    });
+  });
+
+  describe('todayFor [68.0 TEN-08/16]', () => {
+    function build(settings: unknown) {
+      return new SchoolsService(
+        fakeRepo({ id: 's1', settings }) as any,
+        {} as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {} as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+    }
+    afterEach(() => vi.useRealTimers());
+
+    it('uses Dhaka for a school with no stored region (02:00 on the 16th)', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-03-15T20:00:00Z'));
+      expect(await build(null).todayFor('s1')).toBe('2026-03-16');
+    });
+
+    it("uses the school's own region.timezone (UTC stays on the 15th)", async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-03-15T20:00:00Z'));
+      expect(await build({ region: { timezone: 'UTC' } }).todayFor('s1')).toBe('2026-03-15');
     });
   });
 

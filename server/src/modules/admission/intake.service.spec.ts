@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { SchoolsService } from '../schools/schools.service';
+import { addDays, localToday } from '../attendance/attendance-policy.util';
 import { IntakeService } from './intake.service';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import { AdmissionDocumentType } from '@biddaloy/shared';
@@ -46,10 +48,31 @@ describe('IntakeService', () => {
     };
 
     const moduleRef = await Test.createTestingModule({
-      providers: [IntakeService, { provide: getRepositoryToken(AdmissionIntake), useValue: repo }],
+      providers: [
+        IntakeService,
+        { provide: getRepositoryToken(AdmissionIntake), useValue: repo },
+        // real clock + Dhaka (the default region), so a fake Date drives it
+        { provide: SchoolsService, useValue: { todayFor: async () => localToday('Asia/Dhaka') } },
+      ],
     }).compile();
 
     service = moduleRef.get(IntakeService);
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  it('02:00 Dhaka on the 16th: an intake closing the 15th is CLOSED, and close() writes the school-local yesterday', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-03-15T20:00:00Z'));
+    repo.findOne.mockResolvedValue(
+      makeIntake({ open_date: '2026-03-01', close_date: '2026-03-15' }),
+    );
+    expect((await service.findOne('intake-1', TENANT_A)).status).toBe('CLOSED');
+    await service.close('intake-1', TENANT_A);
+    expect(repo.update).toHaveBeenCalledWith(
+      { id: 'intake-1', tenant_id: TENANT_A },
+      { open_date: '2026-03-01', close_date: '2026-03-15' },
+    );
   });
 
   it('creates an intake scoped to the caller tenant', async () => {
@@ -106,7 +129,7 @@ describe('IntakeService', () => {
   it('closes an intake by pulling close_date back to yesterday, so it reads CLOSED the same day', async () => {
     repo.findOne.mockResolvedValue(makeIntake());
     await service.close('intake-1', TENANT_A);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const yesterday = addDays(localToday('Asia/Dhaka'), -1);
     expect(repo.update).toHaveBeenCalledWith(
       { id: 'intake-1', tenant_id: TENANT_A },
       { open_date: '2020-01-01', close_date: yesterday },
@@ -114,10 +137,10 @@ describe('IntakeService', () => {
   });
 
   it('also pulls open_date back when it would otherwise invert the range', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday('Asia/Dhaka');
     repo.findOne.mockResolvedValue(makeIntake({ open_date: today }));
     await service.close('intake-1', TENANT_A);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const yesterday = addDays(localToday('Asia/Dhaka'), -1);
     expect(repo.update).toHaveBeenCalledWith(
       { id: 'intake-1', tenant_id: TENANT_A },
       { open_date: yesterday, close_date: yesterday },
