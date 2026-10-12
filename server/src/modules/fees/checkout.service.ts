@@ -31,17 +31,6 @@ import { localDate, localToday } from '../attendance/attendance-policy.util';
 
 const AMOUNT_EPSILON = 0.01;
 
-/** [D14] Same reasoning as `checkout-cart.service.ts`'s own copy — every
- * "is this bill overdue" check goes through the tenant's calendar day in
- * Asia/Dhaka, never server-local time. Duplicated rather than imported:
- * `checkout-cart.service.ts` doesn't export it, and this ticket's
- * territory doesn't include changing that file just to share one helper. */
-const SCHOOL_TIMEZONE = 'Asia/Dhaka';
-
-function todayInSchoolTimezone(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TIMEZONE }).format(new Date());
-}
-
 function dateKey(value: Date | string | null): string | null {
   if (value === null) return null;
   return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
@@ -132,6 +121,13 @@ export class CheckoutService {
     if (new Set(lineFeeIds).size !== lineFeeIds.length) {
       throw new BadRequestException('Duplicate student_fee_id in lines');
     }
+
+    // Read before the bill locks: `getResolvedSettings` uses its own pool connection, and a
+    // checkout holding locks while it waits for a connection can starve the pool (#2295).
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    const tz = settings.region?.timezone ?? DEFAULT_REGION_SETTINGS.timezone;
+    // The school's own date: the back-dating window and the DUE/CURRENT split both use it.
+    const todayKey = localToday(tz);
 
     const { paymentId, duplicateKey, winnerId } = await this.paymentRepo.manager.transaction(
       async (manager) => {
@@ -264,12 +260,9 @@ export class CheckoutService {
         // that calendar day; an instant is read in the school's time zone.
         let backdatedTo: string | null = null;
         if (dto.payment_date) {
-          const settings = await this.schoolsService.getResolvedSettings(tenantId);
-          const tz = settings.region?.timezone ?? DEFAULT_REGION_SETTINGS.timezone;
           const day = /^\d{4}-\d{2}-\d{2}$/.test(dto.payment_date)
             ? dto.payment_date
             : localDate(new Date(dto.payment_date), tz);
-          const todayKey = localToday(tz);
           const earliest = new Date(`${todayKey}T00:00:00Z`);
           earliest.setUTCDate(earliest.getUTCDate() - 3);
           if (day > todayKey) {
@@ -307,7 +300,6 @@ export class CheckoutService {
         }
 
         const now = dto.payment_date ? new Date(dto.payment_date) : new Date();
-        const today = todayInSchoolTimezone();
 
         // [15.5.5] Frozen at the moment of record — same reasoning as
         // `PaymentAllocationService.recordWithAllocation` and
@@ -375,7 +367,7 @@ export class CheckoutService {
 
           const dueKey = dateKey(bill.due_date);
           const allocationType =
-            dueKey !== null && dueKey < today
+            dueKey !== null && dueKey < todayKey
               ? PaymentAllocationType.DUE
               : PaymentAllocationType.CURRENT;
           allocationRows.push({
@@ -519,7 +511,14 @@ export class CheckoutService {
     await enqueueFeeNotify(this.feeNotifyQueue, this.logger, 'payments.recorded', payment.id, {
       payment_id: payment.id,
       tenant_id: tenantId,
-      student_ids: [...new Set(payment.allocations.map((a) => a.student_fee.student_id))],
+      // `student_fee` is null for a bill removed after the payment (soft-deleted rows drop out
+      // of the relation join); the payer still gets the receipt for money really received.
+      student_ids: [
+        ...new Set([
+          payment.student_id,
+          ...payment.allocations.flatMap((a) => (a.student_fee ? [a.student_fee.student_id] : [])),
+        ]),
+      ],
     } satisfies PaymentsRecordedEvent);
     emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.overdue_family', actorUserId: userId });
     emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.due_soon', actorUserId: userId });

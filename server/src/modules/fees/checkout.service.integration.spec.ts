@@ -42,7 +42,13 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { FeeStatus, FeeType, PaymentMethod, ApprovalScope } from '@biddaloy/shared';
+import {
+  FeeStatus,
+  FeeType,
+  PaymentMethod,
+  ApprovalScope,
+  PaymentAllocationType,
+} from '@biddaloy/shared';
 
 /**
  * Integration tests for CheckoutService (16.4.2) — `POST /payments/checkout`'s
@@ -632,6 +638,61 @@ describe('CheckoutService (integration)', () => {
     expect(second.payment.id).toBe(first.payment.id);
     const payments = await paymentRepo.find({ where: { idempotency_key: key } });
     expect(payments).toHaveLength(1);
+  });
+
+  // Business-critical: the replay is the client's recovery path. A bill removed
+  // after the first request (MON-03) hides `student_fee` from the relation join;
+  // the replay must still return the stored result and re-enqueue the receipt.
+  it('replays to the stored result even when a paid bill was removed after the first request', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+    const dto = {
+      idempotency_key: '77777777-7777-4777-8777-777777777778',
+      lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+    };
+    const first = await service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+    await studentFeeRepo.softDelete(bill.id);
+    feeNotifyAdd.mockClear();
+
+    const replay = await service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+
+    expect(replay.payment.id).toBe(first.payment.id);
+    expect(feeNotifyAdd).toHaveBeenCalledWith(
+      'payments.recorded',
+      expect.objectContaining({ payment_id: first.payment.id, student_ids: [student.id] }),
+      { jobId: `payments.recorded-${first.payment.id}` },
+    );
+  });
+
+  // [#2295] DUE vs CURRENT uses the school's own date, the same one the
+  // back-dating window uses. At 12:00 UTC it is 13 Oct in Kiritimati but 12 Oct
+  // in Dhaka, so a bill due 12 Oct is already DUE for a Kiritimati school.
+  it("tags a bill due yesterday in the school's time zone as DUE", async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-12T12:00:00Z'));
+    schoolTz = 'Pacific/Kiritimati';
+    try {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(
+        makeBill(student.id, { due_date: new Date('2026-10-12T00:00:00Z') }),
+      );
+      const r = await service.checkout(
+        {
+          idempotency_key: '77777777-7777-4777-8777-777777777779',
+          lines: [{ student_fee_id: bill.id, amount: 1000 }],
+          payment_method: PaymentMethod.CASH,
+        } as any,
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      const [allocation] = await allocationRepo.find({ where: { payment_id: r.payment.id } });
+      expect(allocation.allocation_type).toBe(PaymentAllocationType.DUE);
+    } finally {
+      schoolTz = 'Asia/Dhaka';
+      vi.useRealTimers();
+    }
   });
 
   it('rejects a student_fee_id from another tenant (404)', async () => {
