@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import {
   NotFoundException,
   ConflictException,
@@ -242,6 +242,29 @@ describe('UserService (integration)', () => {
       expect(result.user.phone).toBe('+8801700000000');
       expect(result.user.password_hash).toBeNull();
       expect(result.membership.role).toBe(UserRole.PARENT);
+    });
+
+    it('[TEN-10] a staff-profile id clash is not reported as an email/phone clash', async () => {
+      const profiles = dataSource.getRepository(StaffProfile);
+      const short = TENANT_ID.slice(0, 8);
+      const first = await service.create(
+        { full_name: 'A', email: 'ten10a@example.com', role: UserRole.ADMIN },
+        TENANT_ID,
+      );
+      await profiles.update({ user_id: first.user.id }, { employee_id: `EMP-${short}-1` });
+      // Force the generated id to collide with the existing one.
+      const spy = vi
+        .spyOn(StaffProfilesService.prototype as any, 'nextEmployeeId')
+        .mockResolvedValue(`EMP-${short}-1`);
+      try {
+        const err = await service
+          .create({ full_name: 'B', email: 'ten10b@example.com', role: UserRole.ADMIN }, TENANT_ID)
+          .catch((e) => e);
+        expect(err).toBeDefined();
+        expect(String(err.message)).not.toMatch(/email address or phone number/);
+      } finally {
+        spy.mockRestore();
+      }
     });
 
     it('[36.2.1] should create a staff_profiles row when creating an ADMIN user', async () => {

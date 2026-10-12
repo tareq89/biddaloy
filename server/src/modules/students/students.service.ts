@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   PayloadTooLargeException,
 } from '@nestjs/common';
+import { nextTenantSerial } from '../../common/utils/next-serial.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, Brackets, EntityManager, QueryFailedError } from 'typeorm';
 import { Student } from './entities/student.entity';
@@ -154,34 +155,14 @@ export class StudentService {
       // transaction ends, which is what makes two concurrent creates at limit-1 admit only one.
       await assertSeatsAvailable(txManager, tenantId, 1);
 
-      // Locking the "last matching row" only serializes concurrent creates
-      // when such a row already exists — the very first student of a new
-      // year (or a brand-new class section) has nothing to lock, letting
-      // two concurrent requests both compute the same next number. Advisory
-      // locks serialize on the (tenant, year) / (section) key itself, so
-      // they protect that first-insert case too, and auto-release at
-      // commit/rollback (same pattern as invoice-numbering.util.ts).
-      await txManager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [
+      // Numeric max + 1 per (tenant, year) under an advisory lock, so the very first student of a
+      // year is serialized too. Never a text sort: it breaks past REG-YYYY-9999.
+      const nextSeq = await nextTenantSerial(txManager, {
+        table: 'students',
+        column: 'registration_number',
         tenantId,
-        currentYear,
-      ]);
-
-      const lastStudent = await txStudentRepo
-        .createQueryBuilder('s')
-        .withDeleted()
-        .where('s.tenant_id = :tenantId', { tenantId })
-        .andWhere('s.registration_number LIKE :pattern', { pattern: `REG-${currentYear}-%` })
-        .orderBy('s.registration_number', 'DESC')
-        .getOne();
-
-      let nextSeq = 1;
-      if (lastStudent) {
-        const parts = lastStudent.registration_number.split('-');
-        const lastSeq = parseInt(parts[parts.length - 1], 10);
-        if (!isNaN(lastSeq)) {
-          nextSeq = lastSeq + 1;
-        }
-      }
+        prefix: `REG-${currentYear}-`,
+      });
       const regNumber = `REG-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
 
       // Same reasoning for roll numbers, scoped per class_section — see

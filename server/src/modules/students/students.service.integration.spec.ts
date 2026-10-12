@@ -428,6 +428,27 @@ describe('StudentService (integration)', () => {
       expect(student2.registration_number).not.toBe(student1.registration_number);
     });
 
+    it('[LIFE-13] takes the numeric max, so REG-<yr>-9999 and -10000 are followed by -10001', async () => {
+      const yr = new Date().getFullYear();
+      for (const [i, n] of ['9999', '10000'].entries()) {
+        await studentRepo.save(
+          studentRepo.create({
+            full_name: `Old ${n}`,
+            registration_number: `REG-${yr}-${n}`,
+            roll_number: 100 + i,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+          }),
+        );
+      }
+      const next = await service.create(
+        { full_name: 'New', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      expect(next.registration_number).toBe(`REG-${yr}-10001`);
+    });
+
     it('serializes concurrent creates so no two students in the same section collide on roll_number or registration_number', async () => {
       // Fired concurrently against an empty section — the pessimistic
       // row lock alone can't serialize this (there's no row to lock yet
