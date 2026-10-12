@@ -176,19 +176,24 @@ test.describe.serial('calendar: create -> grid, past-lock, teacher read-only, fe
       await expect(cell).toBeHidden();
     }
 
-    test('admin adds yesterday as a closure with a reason, it shows on the grid', async ({
+    test('admin adds a past day as a closure with a reason, it shows on the grid', async ({
       page,
     }) => {
-      const yesterday = schoolDay(-1);
+      // The last past Friday (the default weekly off-day): the seed takes registers on
+      // recent school days, and a day with a finalized register refuses a closure
+      // (CALENDAR_DAY_HAS_ATTENDANCE). No register is ever taken on an off-day (#2408).
+      let offset = -1;
+      while (new Date(`${schoolDay(offset)}T00:00:00Z`).getUTCDay() !== 5) offset--;
+      const pastDay = schoolDay(offset);
       const name = `E2E Hartal ${Date.now()}`;
-      await page.goto(`/calendar?month=${yesterday.slice(0, 7)}`);
+      await page.goto(`/calendar?month=${pastDay.slice(0, 7)}`);
       await page.getByRole('button', { name: t('calendar.page.addEvent') }).click();
 
       await page.locator('#event-form-name').fill(name);
       await page.getByRole('combobox', { name: t('calendar.eventForm.type') }).click();
       await page.getByRole('option', { name: t('calendar.types.HOLIDAY') }).click();
-      await pickDate(page, t('calendar.eventForm.startDate'), yesterday);
-      await pickDate(page, t('calendar.eventForm.endDate'), yesterday);
+      await pickDate(page, t('calendar.eventForm.startDate'), pastDay);
+      await pickDate(page, t('calendar.eventForm.endDate'), pastDay);
       await page
         .getByRole('checkbox', { name: t('calendar.eventForm.countsAsWorkingDay') })
         .uncheck();
@@ -197,7 +202,7 @@ test.describe.serial('calendar: create -> grid, past-lock, teacher read-only, fe
       await page.getByLabel(t('calendar.eventForm.lateReason')).fill('Hartal, school shut');
       await page.getByRole('button', { name: t('calendar.eventForm.save') }).click();
 
-      await expect(page.getByTestId(`day-cell-${yesterday}`).getByText(name)).toBeVisible();
+      await expect(page.getByTestId(`day-cell-${pastDay}`).getByText(name)).toBeVisible();
     });
 
     test('admin adds a make-up day on a weekly off-day, and it becomes a working day', async ({
