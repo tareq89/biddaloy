@@ -112,7 +112,15 @@ export interface TabSpec<E, R> {
    */
   secondaryKeyOf?(x: R | E): string | null;
   diffFields(row: R, existing: E): string[];
-  upsert(row: R, existing: E | null, tenantId: string, m: EntityManager): Promise<E>;
+  /** `actorUserId`: the user running the restore, for a NOT NULL attribution
+   * column the file left blank on a new row (`promotion_runs.created_by`). */
+  upsert(
+    row: R,
+    existing: E | null,
+    tenantId: string,
+    m: EntityManager,
+    actorUserId?: string | null,
+  ): Promise<E>;
   remove(entity: E, m: EntityManager): Promise<void>;
   /**
    * Optional: the refusals the app applies to deleting these rows, for the

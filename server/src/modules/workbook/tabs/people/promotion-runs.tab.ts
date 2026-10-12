@@ -41,7 +41,8 @@ export interface PromotionRunRow {
   committed_by_user_id: string | null;
   approved_by_user_id: string | null;
   override_count: number;
-  created_by_user_id: string;
+  /** Null when the export could not name the creator (departed / SUPER_ADMIN). */
+  created_by_user_id: string | null;
   // Referenced tabs' own natural-key text, kept beside the resolved ids so
   // `keyOf` builds the same string for a row as for an entity.
   source_class_key: string;
@@ -134,7 +135,7 @@ const columns: readonly ColumnSpec[] = [
     key: 'created_by',
     type: 'ref',
     ref: 'users',
-    required: true,
+    // Not required: a departed / SUPER_ADMIN creator exports blank (see `upsert`).
     label: { en: 'Created by', bn: 'তৈরিকারী' },
   },
 ];
@@ -193,8 +194,8 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
         ? optionalKeyOf(ctx, 'users', entity.approved_by_user_id)
         : null,
       override_count: entity.override_count,
-      // Required, so strict: a run whose creator is not in the users tab fails export.
-      created_by: ctx.keyOf('users', entity.created_by_user_id),
+      // Lenient too: a strict lookup would fail the whole export over one run.
+      created_by: optionalKeyOf(ctx, 'users', entity.created_by_user_id),
     };
   },
 
@@ -347,7 +348,7 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
         committed_by_user_id: committedById,
         approved_by_user_id: approvedById,
         override_count: values.override_count as number,
-        created_by_user_id: createdById as string,
+        created_by_user_id: createdById,
         source_class_key: sourceClassKey,
         source_academic_year_key: sourceYearKey,
         target_academic_year_key: targetYearKey,
@@ -397,7 +398,9 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
       changed.push('approved_by');
     }
     if (row.override_count !== existing.override_count) changed.push('override_count');
-    if (row.created_by_user_id !== existing.created_by_user_id) changed.push('created_by');
+    if (row.created_by_user_id !== null && row.created_by_user_id !== existing.created_by_user_id) {
+      changed.push('created_by');
+    }
     return changed;
   },
 
@@ -406,6 +409,7 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
     existing: PromotionRun | null,
     tenantId: string,
     m: EntityManager,
+    actorUserId?: string | null,
   ): Promise<PromotionRun> {
     const run = existing ?? new PromotionRun();
     // `keyOf` is `id` (see its docstring) — a fresh insert on restore must
@@ -445,7 +449,13 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
     run.committed_by_user_id = row.committed_by_user_id ?? existing?.committed_by_user_id ?? null;
     run.approved_by_user_id = row.approved_by_user_id ?? existing?.approved_by_user_id ?? null;
     run.override_count = row.override_count;
-    run.created_by_user_id = row.created_by_user_id;
+    // NOT NULL column: a new run whose creator the export could not name is
+    // attributed to the admin running the restore.
+    const createdBy = row.created_by_user_id ?? existing?.created_by_user_id ?? actorUserId;
+    if (!createdBy) {
+      throw new Error(`Promotion run "${row.id}" has no "created_by" and no restoring user.`);
+    }
+    run.created_by_user_id = createdBy;
 
     return m.save(PromotionRun, run);
   },

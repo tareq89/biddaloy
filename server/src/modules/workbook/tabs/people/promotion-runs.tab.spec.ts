@@ -191,7 +191,9 @@ describe('user attribution columns (GAP-10)', () => {
     expect(cells.approved_by).toBe('');
   });
 
-  it('created_by stays strict: a user missing from the users tab still throws on export', () => {
+  // A run created by a departed teacher or a SUPER_ADMIN must not fail the
+  // whole export (that would make the school impossible to back up).
+  it('created_by of a user missing from the users tab exports null instead of throwing', () => {
     const ctx = exportCtx();
     const base = ctx.keyOf;
     ctx.keyOf = (tab, id) => {
@@ -199,12 +201,13 @@ describe('user attribution columns (GAP-10)', () => {
       return base(tab, id);
     };
     ctx.tryKeyOf = () => null;
-    expect(() =>
-      promotionRunsTab.toRow(
-        makeRun({ committed_by_user_id: null, approved_by_user_id: null }),
-        ctx,
-      ),
-    ).toThrow('no key');
+    expect(promotionRunsTab.toRow(makeRun(), ctx).created_by).toBeNull();
+  });
+
+  it('a blank created_by imports as null, not a row error', () => {
+    const cells = toCells(makeRun());
+    cells.created_by = '';
+    expect(fromRowOrThrow(cells).created_by_user_id).toBeNull();
   });
 });
 
@@ -339,5 +342,27 @@ describe('null attribution keeps the existing user (export could not name them)'
     const saved = await promotionRunsTab.upsert(row, existing, TENANT_ID, fakeManager as never);
     expect(saved.committed_by_user_id).toBe(USER_ID);
     expect(saved.approved_by_user_id).toBe(USER_ID);
+  });
+
+  it('diffFields and upsert keep the existing created_by when the row value is null', async () => {
+    const existing = makeRun();
+    const row = { ...makeRow(existing), created_by_user_id: null };
+    expect(promotionRunsTab.diffFields(row, existing)).toEqual([]);
+    const fakeManager = { save: async (_e: unknown, v: PromotionRun) => v };
+    const saved = await promotionRunsTab.upsert(row, existing, TENANT_ID, fakeManager as never);
+    expect(saved.created_by_user_id).toBe(USER_ID);
+  });
+
+  // created_by is NOT NULL: a new run whose creator the export could not name
+  // is attributed to the admin running the restore.
+  it('a new run with a null created_by is attributed to the user running the restore', async () => {
+    const ACTOR = '33333333-3333-4333-8333-333333333333';
+    const row = { ...makeRow(makeRun()), created_by_user_id: null };
+    const fakeManager = {
+      findOne: async () => null,
+      save: async (_e: unknown, v: PromotionRun) => v,
+    };
+    const saved = await promotionRunsTab.upsert(row, null, TENANT_ID, fakeManager as never, ACTOR);
+    expect(saved.created_by_user_id).toBe(ACTOR);
   });
 });
