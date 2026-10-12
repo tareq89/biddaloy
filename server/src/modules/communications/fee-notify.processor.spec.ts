@@ -44,6 +44,35 @@ describe('enqueueFeeNotify', () => {
     expect(add).toHaveBeenCalledWith('fees.generated', { x: 1 }, { jobId: 'fees.generated-g1' });
   });
 
+  // BullMQ ignores `add` while a job with that id is stored, failed ones too.
+  // A notice that used up its retries must not block a later replay.
+  it('drops a stored FAILED job with the same id before adding again', async () => {
+    const calls: string[] = [];
+    const stale = {
+      isFailed: vi.fn().mockResolvedValue(true),
+      remove: vi.fn(async () => void calls.push('remove')),
+    };
+    const add = vi.fn(async () => void calls.push('add'));
+    const getJob = vi.fn().mockResolvedValue(stale);
+    await enqueueFeeNotify({ add, getJob }, { error: vi.fn() }, 'payments.recorded', 'p1', {});
+    expect(getJob).toHaveBeenCalledWith('payments.recorded-p1');
+    expect(calls).toEqual(['remove', 'add']);
+  });
+
+  it('leaves a waiting or active job with the same id alone (the replay is a no-op)', async () => {
+    const stale = { isFailed: vi.fn().mockResolvedValue(false), remove: vi.fn() };
+    const add = vi.fn().mockResolvedValue(undefined);
+    await enqueueFeeNotify(
+      { add, getJob: vi.fn().mockResolvedValue(stale) },
+      { error: vi.fn() },
+      'payments.recorded',
+      'p1',
+      {},
+    );
+    expect(stale.remove).not.toHaveBeenCalled();
+    expect(add).toHaveBeenCalledTimes(1);
+  });
+
   it('logs and swallows a Redis failure (committed money must not fail)', async () => {
     const error = vi.fn();
     const add = vi.fn().mockRejectedValue(new Error('redis down'));
