@@ -277,6 +277,34 @@ describe('FeeWaiverHandler (integration)', () => {
     expect(await rulesFor()).toHaveLength(0);
   });
 
+  // Business-critical (money tier): a transfer recorded while the waiver is being decided must
+  // not slip past X-08. The status read takes a row lock, so it waits for the transfer to commit
+  // and then sees TRANSFERRED. Without the lock it reads the old ACTIVE row and goes on.
+  it('X-08: waits for an in-flight transfer of the student and then refuses with 409', async () => {
+    tokenPresent = false;
+    const app = await makeApp();
+    const transfer = dataSource.createQueryRunner();
+    await transfer.connect();
+    await transfer.startTransaction();
+    try {
+      await transfer.query(`UPDATE students SET enrollment_status = 'TRANSFERRED' WHERE id = $1`, [
+        studentId,
+      ]);
+      const decision = run((m) => handler.apply(m, app, ctx())).catch((e) => e);
+      await new Promise((r) => setTimeout(r, 300));
+      await transfer.commitTransaction();
+
+      expect(await decision).toMatchObject({
+        status: 409,
+        response: { details: { code: 'NO_ACTIVE_ENROLLMENT' } },
+      });
+      expect(await rulesFor()).toHaveLength(0);
+    } finally {
+      if (transfer.isTransactionActive) await transfer.rollbackTransaction();
+      await transfer.release();
+    }
+  });
+
   it('an ACTIVE student still gets the waiver rule', async () => {
     const app = await makeApp();
     await run((m) => handler.apply(m, app, ctx()));
