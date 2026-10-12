@@ -17,6 +17,7 @@ import { StaffAttendanceSession } from './entities/staff-attendance-session.enti
 import { StaffAttendanceRecord } from './entities/staff-attendance-record.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AttendanceStatus, AuditAction, UserRole } from '@biddaloy/shared';
+import { localToday } from '../attendance/attendance-policy.util';
 
 /**
  * Integration tests for `StaffAttendanceService`/`StaffAttendanceSummaryService`
@@ -38,11 +39,14 @@ describe('StaffAttendanceService', () => {
   function isoDate(date: Date): string {
     return date.toISOString().slice(0, 10);
   }
+  // The tenant's "today" (Asia/Dhaka by default), not the UTC date: between 18:00 and 24:00 UTC
+  // the two differ and the self-mark rule (SELF_TODAY_ONLY) compares against the local one.
   function addDays(days: number): string {
-    const d = new Date();
+    const d = new Date(`${localToday('Asia/Dhaka')}T00:00:00Z`);
     d.setUTCDate(d.getUTCDate() + days);
     return isoDate(d);
   }
+  const weekday = (iso: string) => new Date(`${iso}T00:00:00Z`).getUTCDay();
   const TODAY = () => addDays(0);
   const OUTSIDE_WINDOW = () => addDays(-10); // default correctionWindowDays is 2
 
@@ -277,7 +281,7 @@ describe('StaffAttendanceService', () => {
 
       it('422s today when it is a weekly off day', async () => {
         await setTenantSettings(TENANT_ID, {
-          weeklyOffDays: [new Date().getUTCDay()],
+          weeklyOffDays: [weekday(addDays(0))],
           correctionWindowDays: 2,
           allowFutureDates: false,
         });
@@ -355,7 +359,7 @@ describe('StaffAttendanceService', () => {
 
       it('saves on a non-working day only with force_non_working_day', async () => {
         await setTenantSettings(TENANT_ID, {
-          weeklyOffDays: [new Date().getUTCDay()],
+          weeklyOffDays: [weekday(addDays(0))],
           correctionWindowDays: 2,
           allowFutureDates: false,
         });

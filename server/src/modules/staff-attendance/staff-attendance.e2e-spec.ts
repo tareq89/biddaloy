@@ -13,6 +13,7 @@ import {
   SEED_ADMIN_PASSWORD,
   SEED_ADMIN_USER_ID,
 } from '@test/constants';
+import { localToday } from '../attendance/attendance-policy.util';
 
 /**
  * E2E tests for the `staff-attendance` routes: mark a day, correct it
@@ -30,11 +31,14 @@ describe('Staff Attendance E2E', () => {
   function isoDate(date: Date): string {
     return date.toISOString().slice(0, 10);
   }
+  // The tenant's "today" (Asia/Dhaka by default), not the UTC date: between 18:00 and 24:00 UTC
+  // the two differ and the self-mark rule (SELF_TODAY_ONLY) compares against the local one.
   function addDays(days: number): string {
-    const d = new Date();
+    const d = new Date(`${localToday('Asia/Dhaka')}T00:00:00Z`);
     d.setUTCDate(d.getUTCDate() + days);
     return isoDate(d);
   }
+  const weekday = (iso: string) => new Date(`${iso}T00:00:00Z`).getUTCDay();
   const OUTSIDE_WINDOW = () => addDays(-10);
 
   beforeAll(async () => {
@@ -223,7 +227,7 @@ describe('Staff Attendance E2E', () => {
 
     it('422s a TEACHER force_non_working_day on a weekly-off day', async () => {
       await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
-        SETTINGS([new Date().getUTCDay()]),
+        SETTINGS([weekday(addDays(0))]),
         TENANT_ID,
       ]);
       try {
