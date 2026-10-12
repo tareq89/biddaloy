@@ -132,12 +132,14 @@
   "outcome": {
     "promote": "Promote",
     "retain": "Retain",
-    "graduate": "Graduate"
+    "graduate": "Graduate",
+    "conditional": "Promote on condition"
   },
   "overrideNote": "Overridden from the algorithm's suggestion — a note is required.",
   "badge": {
     "promote": "Promoted by special decision, {{year}}: {{note}} — by {{user}}",
     "retain": "Kept in the same class by special decision, {{year}}: {{note}} — by {{user}}",
-    "graduate": "Completed by special decision, {{year}}: {{note}} — by {{user}}"
+    "graduate": "Completed by special decision, {{year}}: {{note}} — by {{user}}",
+    "conditional": "Promoted on condition, {{year}}: {{note}} — by {{user}}"
   }
 }

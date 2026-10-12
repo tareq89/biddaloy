@@ -5,6 +5,7 @@
  * caller route renders `CommitDialog` outside this component either way).
  * [31.4.promotions-2] Restyled with kit controls: icon stepper, radio decision, `Input`.
  */
+import type { PromotionOutcome } from '@biddaloy/shared';
 import {
   Button,
   Input,
@@ -26,10 +27,11 @@ import type { ReactNode } from 'react';
 
 const NONE_VALUE = ' (none)';
 
-const OUTCOME_KEY: Record<string, string> = {
+const OUTCOME_KEY: Record<PromotionOutcome, string> = {
   PROMOTE: 'outcome.promote',
   RETAIN: 'outcome.retain',
   GRADUATE: 'outcome.graduate',
+  CONDITIONAL: 'outcome.conditional',
 };
 
 export interface PromotionEntryCardProps {
@@ -38,6 +40,8 @@ export interface PromotionEntryCardProps {
   onIndexChange: (index: number) => void;
   groups: string[];
   readOnly: boolean;
+  /** A graduation run (no target class) cannot promote on condition. */
+  isGraduationRun: boolean;
   effective: (entry: PromotionEntry) => {
     final_outcome: string;
     group_name: string | null;
@@ -48,11 +52,11 @@ export interface PromotionEntryCardProps {
   /** The route's placement rule (section · roll, a problem badge, or a dash). */
   placement: (
     entry: PromotionEntry,
-    finalOutcome: 'PROMOTE' | 'RETAIN' | 'GRADUATE',
+    finalOutcome: PromotionOutcome,
     override: boolean,
   ) => ReactNode;
   config: RegionConfig;
-  onOutcome: (entry: PromotionEntry, outcome: 'PROMOTE' | 'RETAIN' | 'GRADUATE') => void;
+  onOutcome: (entry: PromotionEntry, outcome: PromotionOutcome) => void;
   onGroup: (entry: PromotionEntry, group: string) => void;
   onNote: (studentId: string, note: string) => void;
   onNoteBlur: (entry: PromotionEntry) => void;
@@ -64,6 +68,7 @@ export function PromotionEntryCard({
   onIndexChange,
   groups,
   readOnly,
+  isGraduationRun,
   effective,
   isOverride,
   noteErrors,
@@ -147,12 +152,14 @@ export function PromotionEntryCard({
         </div>
         <div>
           <dt className="text-caption text-text-secondary">{t('grid.columnSuggested')}</dt>
-          <dd className="font-medium">{t(OUTCOME_KEY[entry.suggested_outcome] ?? '')}</dd>
+          <dd className="font-medium">
+            {t(OUTCOME_KEY[entry.suggested_outcome] ?? '')}
+          </dd>
         </div>
         <div className="col-span-2">
           <dt className="text-caption text-text-secondary">{t('grid.columnPlacement')}</dt>
           <dd className="font-medium">
-            {placement(entry, eff.final_outcome as 'PROMOTE' | 'RETAIN' | 'GRADUATE', override)}
+            {placement(entry, eff.final_outcome as PromotionOutcome, override)}
           </dd>
         </div>
       </dl>
@@ -162,16 +169,18 @@ export function PromotionEntryCard({
         <RadioGroup
           aria-label={t('grid.columnFinal')}
           value={eff.final_outcome}
-          onValueChange={(value) => onOutcome(entry, value as 'PROMOTE' | 'RETAIN' | 'GRADUATE')}
+          onValueChange={(value) => onOutcome(entry, value as PromotionOutcome)}
           disabled={readOnly}
           className="divide-y divide-border-subtle"
         >
-          {(['PROMOTE', 'RETAIN', 'GRADUATE'] as const).map((outcome) => (
-            <label key={outcome} className="flex min-h-11 items-center gap-3">
-              <RadioGroupItem value={outcome} />
-              {t(OUTCOME_KEY[outcome] ?? '')}
-            </label>
-          ))}
+          {(Object.keys(OUTCOME_KEY) as PromotionOutcome[])
+            .filter((outcome) => outcome !== 'CONDITIONAL' || !isGraduationRun)
+            .map((outcome) => (
+              <label key={outcome} className="flex min-h-11 items-center gap-3">
+                <RadioGroupItem value={outcome} />
+                {t(OUTCOME_KEY[outcome])}
+              </label>
+            ))}
         </RadioGroup>
       </div>
 

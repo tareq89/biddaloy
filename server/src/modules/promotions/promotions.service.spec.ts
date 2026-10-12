@@ -149,6 +149,95 @@ describe('PromotionsService (unit)', () => {
         ),
       ).rejects.toThrow(ConflictException);
     });
+
+    function patchWith(run: Record<string, unknown>, entry: Record<string, unknown>) {
+      const manager = {
+        getRepository: (e: unknown) =>
+          (e as { name?: string })?.name === 'PromotionEntry'
+            ? { ...entryRepo, find: vi.fn().mockResolvedValue([entry]) }
+            : { ...runRepo, findOne: vi.fn().mockResolvedValue(run) },
+      };
+      runRepo.manager.transaction.mockImplementation(async (cb: (m: unknown) => unknown) =>
+        cb(manager),
+      );
+    }
+
+    it('refuses CONDITIONAL on a graduation run (CONDITIONAL_NOT_FOR_GRADUATION)', async () => {
+      patchWith(
+        {
+          id: 'run-1',
+          status: PromotionRunStatus.DRAFT,
+          tenant_id: TENANT_ID,
+          target_class_id: null,
+        },
+        {
+          student_id: 's1',
+          suggested_outcome: PromotionOutcome.GRADUATE,
+          final_outcome: PromotionOutcome.GRADUATE,
+        },
+      );
+      const err = await service
+        .patchEntries(
+          'run-1',
+          [
+            {
+              student_id: 's1',
+              final_outcome: PromotionOutcome.CONDITIONAL,
+              override_note: 'Re-test',
+            },
+          ],
+          TENANT_ID,
+          'user-1',
+        )
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(UnprocessableEntityException);
+      expect(err.getResponse().details.code).toBe('CONDITIONAL_NOT_FOR_GRADUATION');
+    });
+
+    it('CONDITIONAL without a note -> 422', async () => {
+      patchWith(
+        {
+          id: 'run-1',
+          status: PromotionRunStatus.DRAFT,
+          tenant_id: TENANT_ID,
+          target_class_id: 'class-7',
+        },
+        {
+          student_id: 's1',
+          suggested_outcome: PromotionOutcome.PROMOTE,
+          final_outcome: PromotionOutcome.PROMOTE,
+        },
+      );
+      await expect(
+        service.patchEntries(
+          'run-1',
+          [{ student_id: 's1', final_outcome: PromotionOutcome.CONDITIONAL }],
+          TENANT_ID,
+          'user-1',
+        ),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+  });
+
+  describe('placePromoteEntries', () => {
+    it('places CONDITIONAL entries like PROMOTE', () => {
+      const mk = (id: string, o: PromotionOutcome) =>
+        ({ student_id: id, final_outcome: o, merit_rank: 1, group_name: null }) as any;
+      const entries = [
+        mk('p', PromotionOutcome.PROMOTE),
+        mk('c', PromotionOutcome.CONDITIONAL),
+        mk('r', PromotionOutcome.RETAIN),
+      ];
+      (service as any).placePromoteEntries(
+        entries,
+        [{ id: 'sec-1', section_name: 'A', capacity: 10, group_name: null }],
+        PlacementAlgorithm.BLOCK,
+      );
+      expect(entries[0].target_section_id).toBe('sec-1');
+      expect(entries[1].target_section_id).toBe('sec-1');
+      expect(entries[1].new_roll_number).not.toBeNull();
+      expect(entries[2].target_section_id).toBeNull();
+    });
   });
 
   describe('remove', () => {
