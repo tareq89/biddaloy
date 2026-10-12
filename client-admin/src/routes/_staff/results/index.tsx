@@ -36,7 +36,9 @@ export const Route = createFileRoute('/_staff/results/')({
   loader: ({ context: { queryClient } }) =>
     Promise.all([
       queryClient.ensureQueryData(examsQueryOptions({ limit: 50 })).catch(swallowUnlessOffline),
-      loadRouteNamespaces('exams', 'grading', 'common'),
+      // printHistory: the reopen dialog lists certificates; a late namespace load
+      // re-suspends the page and drops route focus off the h1 (#2410).
+      loadRouteNamespaces('exams', 'grading', 'common', 'printHistory'),
     ]),
   pendingComponent: ResultsListPending,
   component: ResultsListPage,

@@ -43,7 +43,14 @@ export const Route = createFileRoute('/_staff/exams/$examId')({
   loader: ({ context: { queryClient }, params }) =>
     Promise.all([
       queryClient.ensureQueryData(examQueryOptions(params.examId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('exams', 'common', 'examsTemplateField', 'grading', 'examDocuments'),
+      loadRouteNamespaces(
+        'exams',
+        'common',
+        'examsTemplateField',
+        'grading',
+        'examDocuments',
+        'printHistory', // the Results tab's reopen dialog (#2410)
+      ),
     ]),
   pendingComponent: ExamDetailPending,
   component: ExamDetailPage,
