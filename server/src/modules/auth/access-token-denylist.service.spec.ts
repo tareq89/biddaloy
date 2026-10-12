@@ -39,7 +39,9 @@ describe('AccessTokenDenylistService', () => {
   });
 
   describe('revokeUserTokensIssuedBefore', () => {
-    it('stores the cut-off in epoch seconds with the TTL', async () => {
+    // A token signs a few ms after its iat_ms, so it expires a few ms after `at + ttl`: the key
+    // must outlive it by a margin or the token is accepted again for those ms.
+    it('stores the cut-off in epoch ms with the TTL plus a one-minute margin', async () => {
       const redis = fakeRedis();
       const service = new AccessTokenDenylistService(redis as any);
 
@@ -49,7 +51,7 @@ describe('AccessTokenDenylistService', () => {
         'access-denylist:user:u1',
         '1700000000900',
         'PX',
-        900_000,
+        960_000,
       );
     });
   });

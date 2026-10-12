@@ -46,13 +46,14 @@ export class AccessTokenDenylistService {
 
   /**
    * Refuses every access token of `userId` issued at or before `at` (millisecond
-   * precision, compared with the token's `iat_ms`). The key expires with the
-   * longest-lived token it can still apply to.
+   * precision, compared with the token's `iat_ms`). The key outlives the
+   * longest-lived token it can still apply to by one minute: a token is signed
+   * a few ms after its `iat_ms`, so it expires a few ms after `at + ttlMs`.
    */
   async revokeUserTokensIssuedBefore(userId: string, at: Date, ttlMs: number): Promise<void> {
     if (ttlMs <= 0) return;
     try {
-      await this.redis.set(this.userKey(userId), String(at.getTime()), 'PX', ttlMs);
+      await this.redis.set(this.userKey(userId), String(at.getTime()), 'PX', ttlMs + 60_000);
     } catch (error) {
       this.logger.error(
         `Failed to set token cut-off for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
