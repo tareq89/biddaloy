@@ -110,7 +110,7 @@ export class StudyPlanFlagsScheduler extends WorkerHost implements OnModuleInit 
   }
 
   async process(): Promise<void> {
-    const tenants = await this.schools.findAll();
+    const tenants = await this.schools.findAllActive();
     for (const tenant of tenants) {
       try {
         await this.sweepTenant(tenant.id);

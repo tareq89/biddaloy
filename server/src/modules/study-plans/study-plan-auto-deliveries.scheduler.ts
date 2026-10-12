@@ -75,7 +75,7 @@ export class StudyPlanAutoDeliveriesScheduler extends WorkerHost implements OnMo
   }
 
   async process(): Promise<void> {
-    const tenants = await this.schoolsService.findAll();
+    const tenants = await this.schoolsService.findAllActive();
     for (const tenant of tenants) {
       try {
         await this.sweepTenant(tenant.id);
