@@ -250,7 +250,8 @@ export const markGridsTab: TabSpec<MarkGrid, MarkGridRow> = {
     grid.section_id = row.section_id;
     grid.subject_id = row.subject_id;
     grid.state = row.state as MarkGrid['state'];
-    grid.submitted_by = row.submitted_by;
+    // null = the export could not name the user: keep the stored one (as diffFields does).
+    grid.submitted_by = row.submitted_by ?? existing?.submitted_by ?? null;
     grid.submitted_at = row.submitted_at ? new Date(row.submitted_at) : null;
 
     return m.save(MarkGrid, grid);

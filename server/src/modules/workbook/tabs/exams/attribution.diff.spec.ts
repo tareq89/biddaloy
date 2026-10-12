@@ -1,3 +1,4 @@
+import type { EntityManager } from 'typeorm';
 import { describe, expect, it } from 'vitest';
 import { Mark } from '../../../exams/entities/mark.entity';
 import { MarkGrid } from '../../../exams/entities/mark-grid.entity';
@@ -55,5 +56,52 @@ describe('marks / mark_grids diffFields: null attribution keeps existing', () =>
     expect(markGridsTab.diffFields({ ...row, submitted_by: ID }, existing)).toEqual([
       'submitted_by',
     ]);
+  });
+});
+
+// The save step follows the same rule: when another column changes, a null
+// attribution must not overwrite the stored user.
+describe('marks / mark_grids upsert: null attribution keeps existing', () => {
+  const m = { save: async (_e: unknown, x: unknown) => x } as unknown as EntityManager;
+
+  it('marks.entered_by survives a value change', async () => {
+    const existing = Object.assign(new Mark(), { id: ID, value: '5.00', entered_by: USER });
+    const row = {
+      exam_id: ID,
+      student_id: ID,
+      subject_id: ID,
+      component_id: ID,
+      value: '7.00',
+      status: 'PRESENT',
+      entered_by: null,
+    } as unknown as MarkRow;
+    const saved = await marksTab.upsert(row, existing, ID, m);
+    expect(saved.value).toBe('7.00');
+    expect(saved.entered_by).toBe(USER);
+    // A named user still replaces it; a new row with no user stays null.
+    expect((await marksTab.upsert({ ...row, entered_by: ID }, existing, ID, m)).entered_by).toBe(
+      ID,
+    );
+    expect((await marksTab.upsert(row, null, ID, m)).entered_by).toBeNull();
+  });
+
+  it('mark_grids.submitted_by survives a state change', async () => {
+    const existing = Object.assign(new MarkGrid(), {
+      id: ID,
+      state: 'DRAFT',
+      submitted_by: USER,
+    });
+    const row = {
+      exam_id: ID,
+      section_id: ID,
+      subject_id: ID,
+      state: 'SUBMITTED',
+      submitted_by: null,
+      submitted_at: null,
+    } as unknown as MarkGridRow;
+    const saved = await markGridsTab.upsert(row, existing, ID, m);
+    expect(saved.state).toBe('SUBMITTED');
+    expect(saved.submitted_by).toBe(USER);
+    expect((await markGridsTab.upsert(row, null, ID, m)).submitted_by).toBeNull();
   });
 });
