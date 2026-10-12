@@ -134,9 +134,10 @@ export async function loadExamCohort(
 
   // Marks but no enrollment in this class/year (moved class in place):
   // recomputed in the section of their existing result, so they are ranked
-  // with everyone else instead of keeping a stale position.
+  // with everyone else instead of keeping a stale position. With no live
+  // result there is no section to rank them in, so they stay out.
   const enrolled = new Set(all.map((e) => e.student_id));
-  const moved = [...studentsWithMark].filter((id) => !enrolled.has(id));
+  const moved = [...studentsWithMark].filter((id) => !enrolled.has(id) && resultSection.has(id));
   const sectionIds = [
     ...new Set(moved.map((id) => resultSection.get(id)).filter((s): s is string => !!s)),
   ];

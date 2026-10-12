@@ -773,6 +773,27 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
     expectContiguousPositions(rows);
   });
 
+  it('M1: a student moved to another class BEFORE the first process has no section to rank in, so gets no result', async () => {
+    let movedId = '';
+    const { exam, a, b } = await processedExamWithAB(async ({ addMark, enroll }) => {
+      const moved = await buildStudent({ roll_number: 3, full_name: 'Moved Early' });
+      movedId = moved.id;
+      await enroll(moved.id);
+      await addMark(moved.id, '60.00');
+      // Moved in place before anything was processed: no enrollment left in this class/year
+      // and no existing Result to take a section from.
+      await enrollmentRepo.update(
+        { student_id: moved.id },
+        { class_id: CLASS_2_ID, section_id: SECTION_2_ID },
+      );
+    });
+
+    const rows = await liveResults(exam.id);
+    expect(rows.map((r) => r.student_id).sort()).toEqual([a.id, b.id].sort());
+    expectContiguousPositions(rows);
+    expect(rows.some((r) => r.student_id === movedId)).toBe(false);
+  });
+
   it('M1: a student who left but has marks is kept on a mark-edit recompute, positions contiguous', async () => {
     const { exam, a, b } = await processedExamWithAB();
     await enrollmentRepo.update(
