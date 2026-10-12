@@ -1,12 +1,11 @@
 import type { ResolvedSlot } from '../routines/dto/resolve.dto';
 
-/** The bits of a `PeriodSlot` row this module needs. */
+/** The bits of a `PeriodSlot` row this module needs. Times come from the
+ * resolved slot (dated, special timings applied), never the template row. */
 export interface PeriodSlotLike {
   id: string;
   sequence: number;
   name: string | null;
-  starts_at: string;
-  ends_at: string;
 }
 
 /** One schedulable period of a section on one date. `period_no` is the

@@ -3,9 +3,9 @@ import type { ResolvedSlot } from '../routines/dto/resolve.dto';
 import { toPeriods } from './attendance-periods.util';
 
 const periodSlots = [
-  { id: 'ps1', sequence: 1, name: 'First', starts_at: '08:00', ends_at: '08:45' },
-  { id: 'ps2', sequence: 2, name: null, starts_at: '08:45', ends_at: '09:30' },
-  { id: 'ps3', sequence: 3, name: 'Third', starts_at: '09:30', ends_at: '10:15' },
+  { id: 'ps1', sequence: 1, name: 'First' },
+  { id: 'ps2', sequence: 2, name: null },
+  { id: 'ps3', sequence: 3, name: 'Third' },
 ];
 
 function slot(periodSlotId: string, over: Partial<ResolvedSlot> = {}): ResolvedSlot {
