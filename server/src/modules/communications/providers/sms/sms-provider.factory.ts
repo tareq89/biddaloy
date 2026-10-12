@@ -29,7 +29,10 @@ export class SmsProviderFactory implements CommunicationProvider {
     private readonly mimSmsGateway: MimSmsGateway,
   ) {}
 
-  async send(params: CommunicationSendParams, tenantId: string): Promise<CommunicationSendResult> {
+  async send(
+    params: CommunicationSendParams,
+    tenantId: string | null,
+  ): Promise<CommunicationSendResult> {
     // Computed unconditionally so it's still on the result even when
     // resolveSms below fails before ever reaching a gateway — a settled
     // SMS log must always carry its segment count (#549/#570).

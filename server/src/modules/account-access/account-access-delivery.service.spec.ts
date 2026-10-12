@@ -143,6 +143,53 @@ describe('AccountAccessDeliveryService', () => {
   });
 });
 
+describe('AccountAccessDeliveryService platform sender (tenantId null, D28)', () => {
+  it('says SchoolManager, sends on the platform, and writes no communication log', async () => {
+    const logRepo = fakeLogRepo();
+    const provider = { send: vi.fn().mockResolvedValue({ success: true, providerMessageId: 'p' }) };
+    const schools = { getResolvedSettings: vi.fn(), findById: vi.fn() };
+    const service = new AccountAccessDeliveryService(
+      logRepo as any,
+      { resolve: vi.fn().mockReturnValue(provider) } as any,
+      schools as any,
+    );
+
+    const result = await service.deliver({
+      tenantId: null,
+      medium: CommunicationMedium.SMS,
+      to: '+8801700000000',
+      recipientName: 'Jane',
+      kind: 'OTP',
+      vars: { code: '123456' },
+    });
+
+    const [params, tenantArg] = provider.send.mock.calls[0];
+    expect(params.body).toContain('SchoolManager');
+    expect(params.allowPlatformSms).toBe(true);
+    expect(tenantArg).toBeNull();
+    expect(logRepo.save).not.toHaveBeenCalled();
+    expect(schools.findById).not.toHaveBeenCalled();
+    expect(result).toEqual({ logId: null, status: CommunicationStatus.SENT });
+  });
+
+  it('reports FAILED (not throws) when no provider is configured', async () => {
+    const service = new AccountAccessDeliveryService(
+      fakeLogRepo() as any,
+      { resolve: vi.fn().mockReturnValue(undefined) } as any,
+      {} as any,
+    );
+    const result = await service.deliver({
+      tenantId: null,
+      medium: CommunicationMedium.SMS,
+      to: '+8801700000000',
+      recipientName: 'Jane',
+      kind: 'OTP',
+      vars: { code: '123456' },
+    });
+    expect(result).toEqual({ logId: null, status: CommunicationStatus.FAILED });
+  });
+});
+
 describe('pickChannel', () => {
   it('prefers EMAIL when the user has one', () => {
     expect(pickChannel({ email: 'a@b.com', phone: '01700000000' })).toEqual({

@@ -89,8 +89,8 @@ export class OtpLoginService {
     const to = byEmail ? user.email : user.phone;
     if (!to) return {};
 
-    const tenantId = await this.authService.primaryTenantId(user.id);
-    if (!tenantId) return {};
+    const tenantId = await this.authService.primaryTenantId(user.id, { throwOnError: true });
+    if (!(await this.authService.hasLiveMembership(user.id))) return {};
 
     let code: string;
     try {
@@ -251,7 +251,7 @@ export class OtpLoginService {
       this.canSignInByCode(user) &&
       (!!user.email || smsOk) &&
       (await this.allowed(user.id)) &&
-      !!(await this.authService.primaryTenantId(user.id))
+      (await this.authService.hasLiveMembership(user.id))
     );
   }
 

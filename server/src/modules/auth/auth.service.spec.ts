@@ -96,10 +96,8 @@ describe('AuthService', () => {
     };
     mockUserTenantRepo = {
       find: vi.fn(),
-      // Backs primaryTenantId()'s "earliest membership" lookup used to
-      // attribute an audit row's tenant_id — defaults to the one
-      // membership most tests set up via mockUserTenantRepo.find.
       findOne: vi.fn().mockResolvedValue(mockMemberships[0]),
+      count: vi.fn().mockResolvedValue(1),
     };
     mockAuditService = {
       record: vi.fn().mockResolvedValue(undefined),
@@ -287,18 +285,11 @@ describe('AuthService', () => {
       );
     });
 
-    // #356 follow-up: `created_at` alone does not decide anything when a
-    // bulk import or a backfill migration inserts two memberships in one
-    // statement — both rows share a timestamp. The audit tenant
-    // (`primaryTenantId`, a `findOne`) and `memberships[0]` (a `find`) must
-    // therefore break that tie the *same* way, or they can name different
-    // schools for the same login. This pins that they use one identical
-    // ordering, `id` tiebreak included.
-    it('breaks created_at ties identically for memberships[0] and the audit tenant', async () => {
+    // #356: memberships[0] is the earliest membership, `id` breaking
+    // created_at ties. (The audit tenant no longer uses this order: D28.)
+    it('breaks created_at ties by id for memberships[0]', async () => {
       mockUserRepo.findOne.mockResolvedValue(mockUser);
       (bcrypt.compare as any).mockResolvedValue(true);
-      // Two memberships, same created_at: only the `id` tiebreak separates
-      // them, so an ordering that stops at `created_at` is non-deterministic.
       const sameInstant = new Date('2026-01-01T00:00:00.000Z');
       mockUserTenantRepo.find.mockResolvedValue([
         {
@@ -320,12 +311,27 @@ describe('AuthService', () => {
 
       const result = await service.login('admin@test.com', 'password123');
 
-      const listOrder = mockUserTenantRepo.find.mock.calls[0][0].order;
-      const auditOrder = mockUserTenantRepo.findOne.mock.calls[0][0].order;
-      expect(listOrder).toEqual({ created_at: 'ASC', id: 'ASC' });
-      expect(auditOrder).toEqual(listOrder);
-      // And the shared rule really is a total order over the tied rows.
+      expect(mockUserTenantRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ order: { created_at: 'ASC', id: 'ASC' } }),
+      );
       expect(result.memberships[0]?.tenantId).toBe('tenant-1');
+    });
+
+    // D28: a user in two schools has platform-level (tenant_id NULL) audit rows.
+    it('writes a platform-level LOGIN audit row for a user in two schools', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+      mockUserTenantRepo.find.mockResolvedValue([
+        { ...mockMemberships[0], tenant_id: 'tenant-1', tenant: { name: 'A' } },
+        { ...mockMemberships[0], tenant_id: 'tenant-2', tenant: { name: 'B' } },
+      ]);
+
+      await service.login('admin@test.com', 'password123');
+
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: AuditAction.LOGIN, tenant_id: null }),
+      );
     });
 
     // Every login starts a fresh rotation family — see auth.service.ts's
@@ -460,7 +466,11 @@ describe('AuthService', () => {
       (bcrypt.compare as any).mockResolvedValue(true);
       mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
       mockUserRepo.save.mockResolvedValue(mockUser);
-      mockUserTenantRepo.findOne.mockRejectedValue(new Error('db unavailable'));
+      // Only the audit lookup (`take: 2`) fails; the membership list still loads.
+      mockUserTenantRepo.find.mockImplementation(async (opts: any) => {
+        if (opts.take === 2) throw new Error('db unavailable');
+        return mockMemberships;
+      });
 
       const result = await service.login('admin@test.com', 'password123');
 
@@ -539,6 +549,45 @@ describe('AuthService', () => {
       expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({ action: AuditAction.LOGIN_FAILED }),
       );
+    });
+  });
+
+  describe('primaryTenantId / hasLiveMembership', () => {
+    it('returns the id for exactly one membership', async () => {
+      mockUserTenantRepo.find.mockResolvedValue([{ tenant_id: 'tenant-1' }]);
+      await expect(service.primaryTenantId('user-1')).resolves.toBe('tenant-1');
+      expect(mockUserTenantRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { user_id: 'user-1' }, take: 2 }),
+      );
+    });
+
+    it('returns null for two memberships', async () => {
+      mockUserTenantRepo.find.mockResolvedValue([{ tenant_id: 'a' }, { tenant_id: 'b' }]);
+      await expect(service.primaryTenantId('user-1')).resolves.toBeNull();
+    });
+
+    it('returns null for no membership', async () => {
+      mockUserTenantRepo.find.mockResolvedValue([]);
+      await expect(service.primaryTenantId('user-1')).resolves.toBeNull();
+    });
+
+    it('returns null when the lookup throws', async () => {
+      mockUserTenantRepo.find.mockRejectedValue(new Error('db down'));
+      await expect(service.primaryTenantId('user-1')).resolves.toBeNull();
+    });
+
+    it('rethrows a failed lookup when throwOnError is set (never silently platform-sends)', async () => {
+      mockUserTenantRepo.find.mockRejectedValue(new Error('db down'));
+      await expect(service.primaryTenantId('user-1', { throwOnError: true })).rejects.toThrow(
+        'db down',
+      );
+    });
+
+    it('hasLiveMembership is true with a membership, false without', async () => {
+      mockUserTenantRepo.count.mockResolvedValueOnce(2);
+      await expect(service.hasLiveMembership('user-1')).resolves.toBe(true);
+      mockUserTenantRepo.count.mockResolvedValueOnce(0);
+      await expect(service.hasLiveMembership('user-1')).resolves.toBe(false);
     });
   });
 

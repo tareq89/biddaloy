@@ -227,6 +227,9 @@ export function redact(
   });
 }
 
+/** Sender name for messages that belong to no single school (shared users, D28). */
+export const PLATFORM_SENDER_NAME = 'SchoolManager';
+
 /** `settings.region.locale` (e.g. `bn-BD`) -> template locale. Anything not starting with `bn` falls back to English. */
 export function resolveTemplateLocale(regionLocale: string | undefined | null): TemplateLocale {
   return regionLocale?.toLowerCase().startsWith('bn') ? 'bn' : 'en';
