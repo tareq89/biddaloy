@@ -4,6 +4,7 @@ import { In, IsNull, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeor
 import { Routine } from './entities/routine.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
 import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
+import { SchoolsService } from '../schools/schools.service';
 
 export interface TeacherWorkload {
   teacher_id: string;
@@ -32,6 +33,7 @@ export class WorkloadService {
     @InjectRepository(RoutineSlot) private readonly slotRepo: Repository<RoutineSlot>,
     @InjectRepository(RoutineSlotTeacher)
     private readonly slotTeacherRepo: Repository<RoutineSlotTeacher>,
+    private readonly schoolsService: SchoolsService,
   ) {}
 
   async forRoutine(routineId: string, tenantId: string): Promise<TeacherWorkload[]> {
@@ -46,7 +48,7 @@ export class WorkloadService {
     // finite `valid_to` (a D4 close scheduled for the future) and would
     // wrongly include a future replacement row before its `valid_from`.
     // `valid_to` is inclusive of its own day (see `dateRangesOverlap`).
-    const today = new Date().toISOString().slice(0, 10);
+    const today = await this.schoolsService.todayFor(tenantId);
     const activeSlots = await this.slotRepo.find({
       where: [
         {

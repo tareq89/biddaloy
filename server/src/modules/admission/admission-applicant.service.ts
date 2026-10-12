@@ -83,7 +83,7 @@ export class AdmissionApplicantService {
     const school = await this.schoolsService.findBySlug(slug);
     if (!school) throw new NotFoundException('School not found');
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = await this.schoolsService.todayFor(school.id);
     const intakes = await this.intakeRepo
       .createQueryBuilder('intake')
       .where('intake.tenant_id = :tenantId', { tenantId: school.id })
@@ -196,6 +196,7 @@ export class AdmissionApplicantService {
       // (D14 requires it hold) — a pessimistic row lock on the intake for the
       // duration of the transaction serializes submissions per intake so two
       // concurrent requests can't both read "seats left" and both insert.
+      const today = await this.schoolsService.todayFor(school.id);
       const result = await this.intakeRepo.manager.transaction(async (manager) => {
         const intake = await manager
           .getRepository(AdmissionIntake)
@@ -208,7 +209,6 @@ export class AdmissionApplicantService {
           .getOne();
         if (!intake) throw new NotFoundException('Admission intake not found');
 
-        const today = new Date().toISOString().slice(0, 10);
         if (intake.open_date > today) {
           throw new BadRequestException('This admission intake is not open yet');
         }

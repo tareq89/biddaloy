@@ -18,6 +18,8 @@ import {
   UserStatus,
 } from '@biddaloy/shared';
 import { School } from './entities/school.entity';
+import { DEFAULT_REGION_SETTINGS } from './settings/tenant-settings-defaults';
+import { localToday } from '../attendance/attendance-policy.util';
 import { TenantSettingsDto, OrganisationRenameDto } from './dto/tenant-settings.dto';
 import { resolveTenantSettings } from './settings/tenant-settings-resolver';
 import { mergeTenantSettings, toPlainSettingsPatch } from './settings/tenant-settings-merge.util';
@@ -172,6 +174,13 @@ export class SchoolsService {
   async getResolvedSettings(schoolId: string): Promise<TenantSettings> {
     const school = await this.findById(schoolId);
     return resolveTenantSettings(school.settings);
+  }
+
+  /** The school's local calendar date (YYYY-MM-DD) from its `region.timezone`.
+   * `resolveTenantSettings` always fills the timezone (the `??` only satisfies the optional type). */
+  async todayFor(tenantId: string): Promise<string> {
+    const settings = await this.getResolvedSettings(tenantId);
+    return localToday(settings.region?.timezone ?? DEFAULT_REGION_SETTINGS.timezone);
   }
 
   /** Shared `onError` for every `maskSecretFields` call site below — one

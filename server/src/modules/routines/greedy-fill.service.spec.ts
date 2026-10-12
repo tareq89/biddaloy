@@ -59,6 +59,7 @@ function buildService(opts?: { existingSlots?: any[]; tcsRows?: any[]; periodSlo
   const tcsRepo: any = { find: vi.fn(async () => tcsRows) };
   const settingsReader: any = { routineSettings: vi.fn(async () => ({})) };
 
+  const schoolsService: any = { todayFor: vi.fn(async () => '2026-03-16') };
   const service = new GreedyFillService(
     routineRepo,
     slotRepo,
@@ -68,8 +69,9 @@ function buildService(opts?: { existingSlots?: any[]; tcsRows?: any[]; periodSlo
     classRepo,
     tcsRepo,
     settingsReader,
+    schoolsService,
   );
-  return { service };
+  return { service, schoolsService };
 }
 
 describe('GreedyFillService [21.4.1]', () => {
@@ -86,6 +88,30 @@ describe('GreedyFillService [21.4.1]', () => {
       true,
     );
     expect(proposals.some((p) => p.period_slot_id === 'period-1')).toBe(true);
+  });
+
+  it("uses the school's today: a slot still valid on the school's date keeps its cell filled", async () => {
+    const { service, schoolsService } = buildService({
+      existingSlots: [
+        {
+          id: 'ends-yesterday',
+          section_id: SECTION_ID,
+          period_slot_id: 'period-0',
+          weekday: 1,
+          subject_id: 'subject-old',
+          room_id: null,
+          recurrence: 'WEEKLY',
+          recurrence_offset: 0,
+          valid_from: '2026-01-01',
+          valid_to: '2026-03-15',
+        },
+      ],
+    });
+    // school date 03-14 <= valid_to 03-15: live (a 03-16 date would call it closed)
+    schoolsService.todayFor.mockResolvedValue('2026-03-14');
+    const proposals = await service.fill(ROUTINE_ID, {}, TENANT_ID);
+    expect(schoolsService.todayFor).toHaveBeenCalledWith(TENANT_ID);
+    expect(proposals.some((p) => p.period_slot_id === 'period-0' && p.weekday === 1)).toBe(false);
   });
 
   it('proposes for a cell whose only row was closed by a D4 edit (valid_to in the past), not silently skipped', async () => {
