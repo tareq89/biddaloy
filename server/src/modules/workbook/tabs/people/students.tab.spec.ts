@@ -71,7 +71,7 @@ function makeStudent(overrides: Partial<Student> = {}): Student {
     full_name: 'Karim Uddin Jr.',
     full_name_bn: 'করিম উদ্দিন',
     blood_group: 'O+',
-    photo_key: 'students/karim.jpg',
+    photo_key: `tenants/${TENANT_ID}/student-photo/karim.jpg`,
     roll_number: 1,
     class_section_id: SECTION_ID,
     class_section: {
@@ -218,8 +218,44 @@ describe('photo_key across schools (Epic 32)', () => {
 
     expect(row.photo_key).toBe(`tenants/${TENANT_ID}/student-photo/p.jpg`);
     expect(ctx.warn).toHaveBeenCalledWith(
-      expect.objectContaining({ tab: 'students', column: 'photo_key', severity: 'warning' }),
+      expect.objectContaining({
+        tab: 'students',
+        column: 'photo_key',
+        severity: 'warning',
+        message: 'This photo came from another school. Its file was not copied; upload it again.',
+      }),
     );
+  });
+
+  it('does not warn about a foreign photo when the row is rejected for another reason', () => {
+    const ctx = importCtx();
+    const cells = {
+      ...toCells(makeStudent({ photo_key: 'tenants/other-school/student-photo/p.jpg' })),
+      guardian_phones: '01799999999', // no such guardian -> row error
+    };
+
+    expect('errors' in studentsTab.fromRow(cells, 2, ctx)).toBe(true);
+    expect(ctx.warn).not.toHaveBeenCalled();
+  });
+
+  it("rejects this school's own key when it is outside the student-photo/ folder", () => {
+    // e.g. the school's own workbook backup: the photo route must never stream it.
+    const key = `tenants/${TENANT_ID}/workbook-backups/full.xlsx`;
+    const result = studentsTab.fromRow(toCells(makeStudent({ photo_key: key })), 2, importCtx());
+
+    expect('errors' in result).toBe(true);
+    if ('errors' in result) expect(result.errors[0]).toMatchObject({ column: 'photo_key' });
+  });
+
+  it('rejects a photo key outside tenants/ (e.g. a platform backup)', () => {
+    const result = studentsTab.fromRow(
+      toCells(makeStudent({ photo_key: 'backups/db/20261009T020000Z.dump.age' })),
+      2,
+      importCtx(),
+    );
+
+    expect('errors' in result).toBe(true);
+    if ('errors' in result) expect(result.errors[0]).toMatchObject({ column: 'photo_key' });
   });
 
   it('keeps a photo key that already belongs to this school, without a warning', () => {
@@ -243,7 +279,7 @@ describe('round-trip', () => {
       full_name: 'Karim Uddin Jr.',
       full_name_bn: 'করিম উদ্দিন',
       blood_group: 'O+',
-      photo_key: 'students/karim.jpg',
+      photo_key: `tenants/${TENANT_ID}/student-photo/karim.jpg`,
       roll_number: 1,
       class_section_id: SECTION_ID,
       date_of_birth: null,

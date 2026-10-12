@@ -19,7 +19,6 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -38,7 +37,7 @@ import {
   QueryReminderBatchLogsDto,
 } from './dto/reminders.dto';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
-import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
 
 @ApiTags('communications')
@@ -57,8 +56,8 @@ export class CommunicationsController {
   // preview-before-send, matching the issue's "shows preview before sending."
   @Post('reminder/single/:studentId/preview')
   @HttpCode(HttpStatus.OK)
-  // [10.4] G1 — E tightened off: lacks COMMUNICATION_SEND.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.OFFICE_STAFF)
+  // [68.1.fix] No @Roles: once TEACHER lost COMMUNICATION_SEND (JOBS-03) the permission alone
+  // admits exactly ADMIN/ACCOUNTANT/OFFICE_STAFF, so the role list narrowed nothing (#1357).
   @RequirePermissions(Permission.COMMUNICATION_SEND)
   @ApiOperation({
     summary: 'Render a single-student reminder without sending it, for the sender to review first.',
@@ -72,8 +71,7 @@ export class CommunicationsController {
   }
 
   @Post('reminder/single/:studentId')
-  // [10.4] G1 — E tightened off.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.OFFICE_STAFF)
+  // [68.1.fix] No @Roles — see the preview route above.
   @RequirePermissions(Permission.COMMUNICATION_SEND)
   @ApiOperation({ summary: 'Send a fee reminder to one student/guardian.' })
   sendSingleReminder(

@@ -9,11 +9,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiHeader, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { DeviceAuthGuard } from './device-auth.guard';
 import { CurrentDevice } from './current-device.decorator';
 import { AttendanceDevice } from '../entities/attendance-device.entity';
 import { DeviceEventsService } from './device-events.service';
+import { TenantStatusService, tenantRestoringException } from '../../schools/tenant-status.service';
 import {
   DeviceEventBatchDto,
   DeviceEventBatchResponseDto,
@@ -49,7 +50,10 @@ const DEVICE_INGEST_RATE_LIMIT = { limit: 120, ttl: 60_000 };
 @Controller('attendance')
 @UseGuards(DeviceAuthGuard)
 export class DeviceIngestController {
-  constructor(private readonly deviceEventsService: DeviceEventsService) {}
+  constructor(
+    private readonly deviceEventsService: DeviceEventsService,
+    private readonly tenantStatus: TenantStatusService,
+  ) {}
 
   @Post('device-events')
   @HttpCode(HttpStatus.OK)
@@ -59,7 +63,17 @@ export class DeviceIngestController {
       'Batch-ingests raw scans from a device. Not atomic — one bad event never fails the rest.',
   })
   @ApiOkResponse({ type: DeviceEventBatchResponseDto })
+  @ApiResponse({
+    status: HttpStatus.LOCKED,
+    description:
+      'TENANT_RESTORING: the school is being restored from a backup. Retryable: keep the batch and re-send it later.',
+  })
   async ingest(@Body() dto: DeviceEventBatchDto, @CurrentDevice() device: AttendanceDevice) {
+    // No ContextGuard on device routes, so the restore freeze (#2210) is checked here: a restore
+    // would delete attendance saved mid-restore. 423, documented as retryable above. A 503 +
+    // Retry-After would suit device clients better, but the global filter strips 5xx `details`
+    // in production and reports every 5xx to Sentry (#2352).
+    if (await this.tenantStatus.isRestoring(device.tenant_id)) throw tenantRestoringException();
     return this.deviceEventsService.ingest(device, dto.events);
   }
 

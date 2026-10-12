@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { UnauthorizedException } from '@nestjs/common';
+import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -38,6 +38,10 @@ class MemoryStorage {
     const o = this.objects.get(key);
     if (!o) throw Object.assign(new Error('missing'), { name: 'NoSuchKey' });
     return { body: Readable.from([o.body]), contentType: o.contentType };
+  }
+  getForTenant(key: string, tenantId: string) {
+    // Real tenant guard over this in-memory store.
+    return StorageService.prototype.getForTenant.call(this, key, tenantId);
   }
 }
 
@@ -149,6 +153,21 @@ describe('Student photos (integration)', () => {
       `tenants/${SEED_TENANT_ID}/student-photo/`,
     );
   });
+
+  // DATA-02: a restored `photo_key` outside this school's prefix must 404, even when
+  // the object it names really exists (another school's photo, a platform DB backup).
+  it.each([`tenants/${TENANT_B}/student-photo/theirs.jpg`, 'backups/db/20261009T020000Z.dump.age'])(
+    'GET 404s for a stored photo_key outside the school prefix: %s',
+    async (foreignKey) => {
+      const s = await makeStudent(`F-${foreignKey.length}`);
+      await studentRepo.update({ id: s.id }, { photo_key: foreignKey });
+      await storage.put(foreignKey, Buffer.from('secret'), 'image/jpeg');
+
+      await expect(
+        controller.serve(s.id, adminTenant, { sub: ADMIN_USER_ID } as any, res()),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    },
+  );
 
   it('sets Cache-Control private, no-store on GET', () => {
     const meta = Reflect.getMetadata('__headers__', StudentPhotoController.prototype.serve);

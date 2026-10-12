@@ -993,3 +993,9 @@ describe('[67.1.01] alert permissions', () => {
     }
   });
 });
+
+describe('[Epic 68 JOBS-03] teacher messaging', () => {
+  it('TEACHER no longer holds COMMUNICATION_SEND', () => {
+    expect(ROLE_PERMISSIONS[UserRole.TEACHER]).not.toContain(Permission.COMMUNICATION_SEND);
+  });
+});

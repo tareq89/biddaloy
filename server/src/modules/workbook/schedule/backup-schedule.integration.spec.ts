@@ -77,6 +77,7 @@ describe('BackupScheduleService (integration, real Redis + DB)', () => {
       scheduleQueue as any,
       new FakeSchoolsService(schoolRepo) as any,
       exportService,
+      { isRestoring: async () => false } as any,
     );
   });
 

@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryFailedError } from 'typeorm';
 import { SchoolStatus } from '@biddaloy/shared';
+import * as Sentry from '@sentry/node';
 import { TenantStatusService } from './tenant-status.service';
+
+vi.mock('@sentry/node', () => ({
+  withScope: (fn: (scope: any) => void) => fn({ setTags: vi.fn() }),
+  captureException: vi.fn(),
+}));
 
 function invalidUuidError(): QueryFailedError {
   const err = new QueryFailedError(
@@ -18,6 +24,7 @@ describe('TenantStatusService', () => {
     get: ReturnType<typeof vi.fn>;
     set: ReturnType<typeof vi.fn>;
     del: ReturnType<typeof vi.fn>;
+    exists: ReturnType<typeof vi.fn>;
   };
   let schoolRepo: { findOne: ReturnType<typeof vi.fn> };
   let service: TenantStatusService;
@@ -27,6 +34,7 @@ describe('TenantStatusService', () => {
       get: vi.fn(),
       set: vi.fn().mockResolvedValue('OK'),
       del: vi.fn().mockResolvedValue(1),
+      exists: vi.fn(),
     };
     schoolRepo = { findOne: vi.fn() };
     service = new TenantStatusService(redis as any, schoolRepo as any);
@@ -179,6 +187,45 @@ describe('TenantStatusService', () => {
       redis.get.mockResolvedValueOnce('');
       expect(await service.getStatusReason('tenant-1')).toBeNull();
       expect(schoolRepo.findOne).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('isRestoring (#2210)', () => {
+    it('is true when the restore lock key exists', async () => {
+      redis.exists.mockResolvedValue(1);
+
+      expect(await service.isRestoring('tenant-1')).toBe(true);
+      expect(redis.exists).toHaveBeenCalledWith('workbook:restore-lock:tenant-1');
+    });
+
+    it('is false when the key is absent', async () => {
+      redis.exists.mockResolvedValue(0);
+
+      expect(await service.isRestoring('tenant-1')).toBe(false);
+    });
+
+    it('is false (does not throw) when Redis rejects', async () => {
+      redis.exists.mockRejectedValue(new Error('connection refused'));
+
+      expect(await service.isRestoring('tenant-1')).toBe(false);
+    });
+
+    it('is true when Redis rejects and the caller asked to fail closed (schedulers, workers)', async () => {
+      redis.exists.mockRejectedValue(new Error('connection refused'));
+
+      expect(await service.isRestoring('tenant-1', { failClosed: true })).toBe(true);
+    });
+
+    // Fail-open lets writes back in if Redis drops mid-restore, so it must show up in Sentry —
+    // but only once per window, since a Redis outage fails every write request.
+    it('reports a failed lock read to Sentry once, not once per request', async () => {
+      vi.mocked(Sentry.captureException).mockClear();
+      redis.exists.mockRejectedValue(new Error('connection refused'));
+
+      await service.isRestoring('tenant-1');
+      await service.isRestoring('tenant-1');
+
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
     });
   });
 

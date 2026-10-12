@@ -184,10 +184,12 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
   deleteByAbsence: true,
 
   load(tenantId: string, m: EntityManager): Promise<Invoice[]> {
-    // `Invoice` carries no `tenant_id` of its own — tenancy is filtered
-    // through `student`, same as `InvoicesService.findAll`.
+    // `invoices.tenant_id` (#2214, indexed) is the school that numbered the
+    // invoice. `InvoicesService` reads still filter on `student.tenant_id`;
+    // the two are equal (backfilled from the student, and `upsert` sets it to
+    // the restoring school) but nothing in the DB enforces that yet.
     return m.find(Invoice, {
-      where: { student: { tenant_id: tenantId } },
+      where: { tenant_id: tenantId },
       relations: ['student'],
     });
   },
@@ -349,6 +351,7 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
 
     const invoice = existing ?? new Invoice();
     invoice.invoice_number = row.invoice_number;
+    invoice.tenant_id = tenantId;
     invoice.kind = row.kind;
     invoice.student_id = row.student_id;
     invoice.total_amount = row.total_amount as unknown as number;

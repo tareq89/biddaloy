@@ -28,6 +28,9 @@ class FakeStorageService {
   async put(): Promise<void> {
     return undefined;
   }
+  async deleteForTenant(): Promise<void> {
+    return undefined;
+  }
 }
 
 const API = '/api/v1';

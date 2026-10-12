@@ -126,6 +126,7 @@ describe('StudyPlanAutoDeliveriesScheduler (integration)', () => {
       module.get(ResolveRoutineService),
       module.get(StudyPlansService),
       {} as never,
+      {} as never,
     );
   }, 60000);
 

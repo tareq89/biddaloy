@@ -13,7 +13,7 @@ import {
   type SeatUsage,
 } from '../../../schools/trial/seat-limit.service';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
-import { rehomeStorageKey } from '../../codec/storage-key-scope';
+import { ownStorageKey } from '../../codec/storage-key-scope';
 import type {
   ColumnSpec,
   ExportContext,
@@ -422,25 +422,35 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       }
     }
 
-    if (errors.length > 0) return { errors };
-
-    // A photo key from another school must not survive a restore (see storage-key-scope.ts):
-    // the student photo route streams by the stored key. Keys outside `tenants/` are left alone.
+    // A photo key outside this school's prefix must not survive a restore (see
+    // storage-key-scope.ts): the student photo route streams by the stored key.
+    // It must also sit in the `student-photo/` folder student-photo.service.ts uploads to.
     let photoKey = (values.photo_key as string | null) ?? null;
+    let photoWarning: RowError | undefined;
     if (photoKey) {
-      const rehomed = rehomeStorageKey(photoKey, ctx.tenantId);
-      if (rehomed?.moved) {
-        ctx.warn({
-          tab: 'students',
-          row: rowNo,
-          column: 'photo_key',
-          message: 'This photo came from another school. Its file was not copied; upload it again.',
-          severity: 'warning',
-          value: photoKey,
-        });
-        photoKey = rehomed.key;
+      const owned = ownStorageKey(
+        photoKey,
+        ctx.tenantId,
+        'students',
+        rowNo,
+        'photo_key',
+        'student-photo',
+      );
+      if ('error' in owned) errors.push(owned.error);
+      else {
+        photoKey = owned.key;
+        if (owned.warning) {
+          photoWarning = {
+            ...owned.warning,
+            message:
+              'This photo came from another school. Its file was not copied; upload it again.',
+          };
+        }
       }
     }
+
+    if (errors.length > 0) return { errors };
+    if (photoWarning) ctx.warn(photoWarning);
 
     return {
       row: {

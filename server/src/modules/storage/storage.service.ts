@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -15,6 +15,10 @@ export interface StorageConfig {
   accessKeyId: string;
   secretAccessKey: string;
   forcePathStyle: boolean;
+}
+
+function assertOwnKey(key: string, tenantId: string): void {
+  if (!key.startsWith(`tenants/${tenantId}/`) || key.includes('..')) throw new NotFoundException();
 }
 
 export interface StoredObject {
@@ -108,6 +112,21 @@ export class StorageService {
 
   async delete(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+
+  /**
+   * Tenant-facing variants (DATA-02): a stored key can come from a restored workbook,
+   * so refuse anything outside `tenants/<tenantId>/` before touching the bucket.
+   * 404 without saying why. `get`/`delete` stay for platform callers.
+   */
+  async getForTenant(key: string, tenantId: string): Promise<StoredObject> {
+    assertOwnKey(key, tenantId);
+    return this.get(key);
+  }
+
+  async deleteForTenant(key: string, tenantId: string): Promise<void> {
+    assertOwnKey(key, tenantId);
+    return this.delete(key);
   }
 
   async exists(key: string): Promise<boolean> {

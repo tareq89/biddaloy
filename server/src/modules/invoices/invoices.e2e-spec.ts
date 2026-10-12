@@ -325,4 +325,78 @@ describe('Invoices E2E', () => {
       expect(res.body.data[0].student_id).toBe(studentId);
     });
   });
+
+  describe('per-school numbering (TEN-04)', () => {
+    const OTHER_TENANT = '00000000-0000-4000-8000-0000000000a4';
+
+    it('the migrated immutability trigger rejects moving an issued invoice to another school', async () => {
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ($1, 'Other School', 'other-school-ten04', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [OTHER_TENANT],
+      );
+      const studentId = await createStudent();
+      const paymentId = await createPayment(studentId, await createFee(studentId), 1000);
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/invoices')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ACCOUNTANT)
+        .send({ payment_id: paymentId })
+        .expect(201);
+      // Runs on the migrated DB, so this exercises the migration's trigger body, not a test copy.
+      await expect(
+        dataSource.query(`UPDATE invoices SET tenant_id = $1 WHERE id = $2`, [OTHER_TENANT, res.body.id]),
+      ).rejects.toThrow(/immutable/);
+    });
+
+    it("another school's INV-<yr>-99999 does not wedge this school's numbering or its list", async () => {
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ($1, 'Other School', 'other-school-ten04', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [OTHER_TENANT],
+      );
+      const otherStudent = await dataSource.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
+         VALUES (DEFAULT, 'Other Student', 'REG-TEN04-OTHER', 1, $1, $2, '2010-01-01', 'SMS', 'ACTIVE', NOW(), NOW())
+         RETURNING id`,
+        [SEED_SECTION_1_ID, OTHER_TENANT],
+      );
+      const foreignNumber = `INV-${new Date().getFullYear()}-99999`;
+      await dataSource.query(
+        `INSERT INTO invoices (invoice_number, tenant_id, student_id, total_amount, tax_amount, discount_amount, status, kind, issued_date, due_date, snapshot, created_at, updated_at)
+         VALUES ($1, $2, $3, 1, 0, 0, 'ISSUED', 'INVOICE', '2026-01-01', '2026-01-31', '{}', NOW(), NOW())`,
+        [foreignNumber, OTHER_TENANT, otherStudent[0].id],
+      );
+
+      const numbers: string[] = [];
+      for (let i = 0; i < 2; i++) {
+        const studentId = await createStudent();
+        const paymentId = await createPayment(studentId, await createFee(studentId), 1000);
+        const res = await supertest(app.getHttpServer())
+          .post('/api/v1/invoices')
+          .set('Authorization', `Bearer ${token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', UserRole.ACCOUNTANT)
+          .send({ payment_id: paymentId })
+          .expect(201);
+        numbers.push(res.body.invoice_number);
+      }
+      expect(numbers[0]).not.toBe(numbers[1]);
+      expect(numbers).not.toContain(foreignNumber);
+      expect(numbers.every((n) => !n.endsWith('-100000'))).toBe(true);
+
+      const list = await supertest(app.getHttpServer())
+        .get('/api/v1/invoices')
+        .query({ limit: 100 })
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+      // Tenant isolation: the other school's invoice is never listed here.
+      expect(list.body.data.map((i: { invoice_number: string }) => i.invoice_number)).not.toContain(
+        foreignNumber,
+      );
+    });
+  });
 });

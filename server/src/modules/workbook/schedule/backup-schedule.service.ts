@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SchoolsService } from '../../schools/schools.service';
+import { TenantStatusService } from '../../schools/tenant-status.service';
 import { ExportService } from '../export/export.service';
 import { WorkbookJobKind, WorkbookJobSource } from '../jobs/workbook-job.entity';
 import {
@@ -34,6 +35,7 @@ export class BackupScheduleService {
     @InjectQueue(BACKUP_SCHEDULE_QUEUE) private readonly queue: Queue<BackupScheduleJobData>,
     private readonly schools: SchoolsService,
     private readonly exports: ExportService,
+    private readonly tenantStatus: TenantStatusService,
   ) {}
 
   /** Re-derives one tenant's scheduler from its current settings + status. */
@@ -96,6 +98,15 @@ export class BackupScheduleService {
       // Stale scheduler — clean it up rather than leaving it to tick
       // pointlessly forever.
       await this.sync(tenantId);
+      return;
+    }
+
+    // [68.1.fix] Mid-restore the school is half-replaced: a scheduled backup would save that as a
+    // normal backup, and its retention sweep could then delete an older, good one. Skip this tick;
+    // the restore took its own snapshot. This is only the early exit: `ExportProcessor` re-checks
+    // when the export actually runs (a retry or another worker can run it mid-restore).
+    if (await this.tenantStatus.isRestoring(tenantId, { failClosed: true })) {
+      this.logger.log(`Scheduled backup skipped for tenant ${tenantId}: restore running`);
       return;
     }
 

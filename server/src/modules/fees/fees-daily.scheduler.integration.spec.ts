@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { Repository, DataSource } from 'typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -57,6 +57,8 @@ import { FeeModule } from './fees.module';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { TenantStatusService } from '../schools/tenant-status.service';
+import { acquire as acquireRestoreLock } from '../workbook/restore/restore-lock';
 
 /**
  * [16.7.2] Real-DB coverage for `FeesDailyScheduler`. #675 ([16.7.1])
@@ -257,8 +259,82 @@ describe('FeesDailyScheduler (integration)', () => {
   function buildScheduler(): FeesDailyScheduler {
     const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
     const schoolsService = { findAll: async () => [] } as any;
-    return new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService);
+    return new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService, {
+      isRestoring: async () => false,
+    } as any);
   }
+
+  /** [68.1.2210] A tenant whose restore lock is held is skipped; one without it is still billed. */
+  it('skips a tenant while its restore runs, and bills it once the restore is over', async () => {
+    const structure = await structureRepo.save(makeStructure());
+    await studentRepo.save(makeStudent());
+    await createDueSchedule({ fee_structure_ids: [structure.id] });
+    const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
+    const schoolsService = { findAll: async () => [] } as any;
+    const build = (restoring: boolean) =>
+      new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService, {
+        isRestoring: async () => restoring,
+      } as any);
+
+    await build(true).process({ data: { tenantId: TENANT_ID } } as any);
+    expect(await studentFeeRepo.find()).toHaveLength(0);
+
+    await build(false).process({ data: { tenantId: TENANT_ID } } as any);
+    expect(await studentFeeRepo.find()).toHaveLength(1);
+  });
+
+  /**
+   * [68.1.fix] Review finding 2: `isDue` matches only the exact firing day, so a
+   * school skipped on its due day must be re-queued for THAT day, or the whole
+   * month's bills are lost. The catch-up bills it the next day, exactly once.
+   */
+  it('a restore on the due day re-queues the school, and the catch-up bills it afterwards exactly once', async () => {
+    const structure = await structureRepo.save(makeStructure());
+    await studentRepo.save(makeStudent());
+    await createDueSchedule({ fee_structure_ids: [structure.id] });
+    const dueDay = todayInSchoolTz();
+    const added: { name: string; data: any; opts: any }[] = [];
+    const queue = {
+      upsertJobScheduler: async () => undefined,
+      add: async (name: string, data: any, opts: any) => {
+        added.push({ name, data, opts });
+      },
+    } as any;
+    const school = { id: TENANT_ID, status: 'ACTIVE' };
+    const schoolsService = { findAll: async () => [school], findById: async () => school } as any;
+    const build = (restoring: boolean) =>
+      new FeesDailyScheduler(queue, dataSource, schoolsService, feeGenerationService, {
+        isRestoring: async () => restoring,
+      } as any);
+
+    // 00:30 on the due day, restore running: nothing billed, catch-up queued for the due day.
+    await build(true).process({ data: undefined } as any);
+    expect(await studentFeeRepo.find()).toHaveLength(0);
+    expect(added).toHaveLength(1);
+    expect(added[0].name).toBe('restore-catch-up');
+    expect(added[0].data).toEqual({ tenantId: TENANT_ID, today: dueDay });
+    expect(added[0].opts.delay).toBeGreaterThan(0);
+
+    // The catch-up fires while the restore is still going: re-queued again, still for the due day.
+    await build(true).process({ name: 'restore-catch-up', data: added[0].data } as any);
+    expect(added).toHaveLength(2);
+    expect(added[1].data).toEqual({ tenantId: TENANT_ID, today: dueDay });
+
+    // Restore over, and it is already the next day: the catch-up still bills the due day.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(Date.now() + 24 * 60 * 60 * 1000);
+      await build(false).process({ name: 'restore-catch-up', data: added[1].data } as any);
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+
+      // Exactly once: a duplicate catch-up does not bill again.
+      await build(false).process({ name: 'restore-catch-up', data: added[1].data } as any);
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(added).toHaveLength(2);
+  });
 
   it('runs a due schedule and writes a FeeGeneration row with source SCHEDULE, notify_families threaded, last_run_period set', async () => {
     const structure = await structureRepo.save(makeStructure());
@@ -654,13 +730,11 @@ describe('FeesDailyScheduler (integration)', () => {
         end_date: yearEnd,
         tenant_id: school.id,
       });
-      const klass = await fineSweepDataSource
-        .getRepository(Class)
-        .save({
-          name: 'Fine Sweep Threading Class',
-          academic_year_id: year.id,
-          tenant_id: school.id,
-        });
+      const klass = await fineSweepDataSource.getRepository(Class).save({
+        name: 'Fine Sweep Threading Class',
+        academic_year_id: year.id,
+        tenant_id: school.id,
+      });
       const section = await fineSweepDataSource
         .getRepository(ClassSection)
         .save({ section_name: 'FST Section', class_id: klass.id, tenant_id: school.id });
@@ -730,6 +804,7 @@ describe('FeesDailyScheduler (integration)', () => {
         // for real generation through the scheduler's other sweeps — only
         // the fine sweep is under test here, so a stub is enough.
         {} as any,
+        { isRestoring: async () => false } as any,
         undefined,
         sweep,
       );
@@ -777,6 +852,41 @@ describe('FeesDailyScheduler (integration)', () => {
         .find({ where: { fee_structure_id: tenantA.structureId } });
       expect(billsA).toHaveLength(0);
 
+      const billsB = await fineSweepDataSource
+        .getRepository(StudentFee)
+        .find({ where: { fee_structure_id: tenantB.structureId } });
+      expect(billsB).toHaveLength(1);
+    });
+
+    /** [68.1.2210] The nightly sweep (no `job.data`), with a REAL restore lock in Redis for A:
+     * A must be skipped, and B must still be billed in the same run. */
+    it('the nightly sweep skips tenant A while its restore lock is held and still bills tenant B', async () => {
+      const tenantA = await setupFineSweepTenant();
+      const tenantB = await setupFineSweepTenant();
+      await acquireRestoreLock(redis, tenantA.tenantId, 'job-restore-a');
+
+      const scheduler = new FeesDailyScheduler(
+        { upsertJobScheduler: async () => undefined, add: async () => undefined } as any,
+        fineSweepDataSource,
+        {
+          findAll: async () => [
+            { id: tenantA.tenantId, status: 'ACTIVE' },
+            { id: tenantB.tenantId, status: 'ACTIVE' },
+          ],
+        } as any,
+        {} as any,
+        // Real service over real Redis: reads the same key `acquire` wrote.
+        new TenantStatusService(redis, {} as any),
+        undefined,
+        fineSweepService,
+      );
+
+      await scheduler.process({ data: undefined } as any);
+
+      const billsA = await fineSweepDataSource
+        .getRepository(StudentFee)
+        .find({ where: { fee_structure_id: tenantA.structureId } });
+      expect(billsA).toHaveLength(0);
       const billsB = await fineSweepDataSource
         .getRepository(StudentFee)
         .find({ where: { fee_structure_id: tenantB.structureId } });

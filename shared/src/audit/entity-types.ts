@@ -60,6 +60,7 @@ export const AUDIT_ENTITY_TYPES = [
   'Program',
   'ProgramEnrollment',
   'ProgramMilestone',
+  'PromotionRun',
   'PublicHolidaySet',
   'RecurringSchedule',
   'RefreshToken',

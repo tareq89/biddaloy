@@ -121,6 +121,7 @@ describe('InvoiceNotificationsListener metered SMS credit (integration, #1317)',
     });
     const invoice = await dataSource.getRepository(Invoice).save({
       invoice_number: `INV-1317-${Date.now()}-${Math.random()}`,
+      tenant_id: TENANT_ID,
       student_id: studentId,
       payment_id: payment.id,
       total_amount: 1000,

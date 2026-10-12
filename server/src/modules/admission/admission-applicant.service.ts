@@ -320,13 +320,19 @@ export class AdmissionApplicantService {
         return { reference_number: saved.reference_number, status: saved.status };
       });
 
+      // DATA-02: a stored key may come from a restored workbook, and this route
+      // needs no login, so only ever delete inside this school's own prefix.
       if (replacedKeys.length > 0) {
-        await Promise.allSettled(replacedKeys.map((key) => this.storage.delete(key)));
+        await Promise.allSettled(
+          replacedKeys.map((key) => this.storage.deleteForTenant(key, school.id)),
+        );
       }
       return result;
     } catch (err) {
       if (uploadedKeys.length > 0) {
-        await Promise.allSettled(uploadedKeys.map((key) => this.storage.delete(key)));
+        await Promise.allSettled(
+          uploadedKeys.map((key) => this.storage.deleteForTenant(key, school.id)),
+        );
       }
       throw err;
     }

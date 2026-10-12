@@ -160,6 +160,7 @@ export enum AuthTokenPurpose {
   INVITE = 'INVITE',
   PASSWORD_RESET = 'PASSWORD_RESET',
   EMAIL_VERIFY = 'EMAIL_VERIFY',
+  JOIN_SCHOOL = 'JOIN_SCHOOL',
 }
 
 export enum ReminderBatchStatus {
@@ -321,6 +322,8 @@ export enum WalletTransactionKind {
   CREDIT_CHANGE = 'CREDIT_CHANGE',
   DEBIT_CHECKOUT = 'DEBIT_CHECKOUT',
   DEBIT_GENERATION = 'DEBIT_GENERATION',
+  CREDIT_BILL_REMOVED = 'CREDIT_BILL_REMOVED',
+  DEBIT_PAYOUT = 'DEBIT_PAYOUT',
   REVERSAL = 'REVERSAL',
 }
 
@@ -341,6 +344,8 @@ export enum ApprovalScope {
   FEES_EDIT_PAID = 'fees.edit_paid',
   FEES_DISCOUNT = 'fees.discount',
   PAYMENTS_REVERSE = 'payments.reverse',
+  // back-dating a checkout 1–3 days (Epic 68 D16)
+  PAYMENTS_BACKDATE = 'payments.backdate',
   DISCOUNT_RULES_MANAGE = 'discount_rules.manage',
   // [20.2.1] Editing a grading scale's bands after results have been
   // computed against it changes those GPAs — money-tier, same as a
@@ -375,6 +380,7 @@ export enum CalendarEventType {
   EVENT = 'EVENT',
   MEETING = 'MEETING',
   DEADLINE = 'DEADLINE',
+  MAKEUP_DAY = 'MAKEUP_DAY',
 }
 
 /** Who a `CalendarEvent` is visible to (17.x). */

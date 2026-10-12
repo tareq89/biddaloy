@@ -108,13 +108,13 @@ export class StaffDocumentService {
       saved = await this.repo.save(doc);
     } catch (err) {
       // The save failed — the object just uploaded is now orphaned too.
-      await this.storage.delete(key).catch(() => undefined);
+      await this.storage.deleteForTenant(key, ctx.tenantId).catch(() => undefined);
       throw err;
     }
 
     // Best-effort: a delete failure here must never mask a successful save.
     if (previousKey) {
-      await this.storage.delete(previousKey).catch(() => undefined);
+      await this.storage.deleteForTenant(previousKey, ctx.tenantId).catch(() => undefined);
     }
 
     await this.audit.record({
@@ -148,7 +148,7 @@ export class StaffDocumentService {
     if (!doc) {
       throw new NotFoundException('Document not found');
     }
-    const object = await this.storage.get(doc.storage_key);
+    const object = await this.storage.getForTenant(doc.storage_key, tenantId);
     return { doc, object };
   }
 }

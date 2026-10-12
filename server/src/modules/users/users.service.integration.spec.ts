@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import {
   NotFoundException,
   ConflictException,
@@ -866,6 +866,7 @@ describe('UserService (integration)', () => {
         user.id,
         { email: 'new@example.com', phone: '+8802' },
         TENANT_ID,
+        REQUESTING_ADMIN_ID,
       );
 
       expect(updated.email).toBe('new@example.com');
@@ -893,6 +894,7 @@ describe('UserService (integration)', () => {
         user.id,
         { email: 'new-address@example.com' },
         TENANT_ID,
+        REQUESTING_ADMIN_ID,
       );
       expect(updated.email_verified_at).toBeNull();
       // Only the changed field is nulled — phone is untouched.
@@ -914,6 +916,7 @@ describe('UserService (integration)', () => {
         user.id,
         { email: 'verified-person-2@example.com' },
         TENANT_ID,
+        REQUESTING_ADMIN_ID,
       );
       expect(updated.email_verified_at).not.toBeNull();
     });
@@ -929,7 +932,12 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      const updated = await service.update(user.id, { phone: null }, TENANT_ID);
+      const updated = await service.update(
+        user.id,
+        { phone: null },
+        TENANT_ID,
+        REQUESTING_ADMIN_ID,
+      );
 
       expect(updated.phone).toBeNull();
     });
@@ -940,14 +948,24 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      const updated = await service.update(user.id, { full_name: 'Updated Name' }, TENANT_ID);
+      const updated = await service.update(
+        user.id,
+        { full_name: 'Updated Name' },
+        TENANT_ID,
+        REQUESTING_ADMIN_ID,
+      );
 
       expect(updated.full_name).toBe('Updated Name');
     });
 
     it('should throw NotFoundException when user does not exist', async () => {
       await expect(
-        service.update('00000000-0000-4000-8000-000000000000', { full_name: 'Nope' }, TENANT_ID),
+        service.update(
+          '00000000-0000-4000-8000-000000000000',
+          { full_name: 'Nope' },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -965,7 +983,7 @@ describe('UserService (integration)', () => {
       );
 
       await expect(
-        service.update(user.id, { email: 'taken@example.com' }, TENANT_ID),
+        service.update(user.id, { email: 'taken@example.com' }, TENANT_ID, REQUESTING_ADMIN_ID),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -979,9 +997,9 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      await expect(service.update(user.id, { phone: '+8801722222222' }, TENANT_ID)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.update(user.id, { phone: '+8801722222222' }, TENANT_ID, REQUESTING_ADMIN_ID),
+      ).rejects.toThrow(ConflictException);
     });
 
     it("should NOT throw when the email/phone submitted is the user's own", async () => {
@@ -999,6 +1017,7 @@ describe('UserService (integration)', () => {
         user.id,
         { email: 'same@example.com', phone: '+8801744444444', full_name: 'Renamed' },
         TENANT_ID,
+        REQUESTING_ADMIN_ID,
       );
 
       expect(updated.full_name).toBe('Renamed');
@@ -1023,7 +1042,7 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      const updated = await service.update(user.id, { phone: '' }, TENANT_ID);
+      const updated = await service.update(user.id, { phone: '' }, TENANT_ID, REQUESTING_ADMIN_ID);
 
       expect(updated.phone).toBeNull();
       // Read straight from the DB: `''` and NULL both look falsy on the
@@ -1055,9 +1074,19 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      const firstCleared = await service.update(first.id, { phone: '' }, TENANT_ID);
+      const firstCleared = await service.update(
+        first.id,
+        { phone: '' },
+        TENANT_ID,
+        REQUESTING_ADMIN_ID,
+      );
       // Before the fix this second call hit the unique index on `''`.
-      const secondCleared = await service.update(second.id, { phone: '' }, TENANT_ID);
+      const secondCleared = await service.update(
+        second.id,
+        { phone: '' },
+        TENANT_ID,
+        REQUESTING_ADMIN_ID,
+      );
 
       expect(firstCleared.phone).toBeNull();
       expect(secondCleared.phone).toBeNull();
@@ -1079,7 +1108,7 @@ describe('UserService (integration)', () => {
       );
 
       await expect(
-        service.update(user.id, { email: 'ghost@example.com' }, TENANT_ID),
+        service.update(user.id, { email: 'ghost@example.com' }, TENANT_ID, REQUESTING_ADMIN_ID),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -1095,9 +1124,9 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      await expect(service.update(user.id, { phone: '+8801758888888' }, TENANT_ID)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.update(user.id, { phone: '+8801758888888' }, TENANT_ID, REQUESTING_ADMIN_ID),
+      ).rejects.toThrow(ConflictException);
     });
 
     // `email`/`phone` are unique GLOBALLY, across every school. Echoing the
@@ -1114,7 +1143,12 @@ describe('UserService (integration)', () => {
       );
 
       await expect(
-        service.update(user.id, { email: 'secret-owner@example.com' }, TENANT_ID),
+        service.update(
+          user.id,
+          { email: 'secret-owner@example.com' },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        ),
       ).rejects.toThrow(
         expect.objectContaining({
           message: expect.not.stringContaining('secret-owner@example.com') as string,
@@ -1132,7 +1166,9 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      await expect(service.update(user.id, { phone: '+8801751111111' }, TENANT_ID)).rejects.toThrow(
+      await expect(
+        service.update(user.id, { phone: '+8801751111111' }, TENANT_ID, REQUESTING_ADMIN_ID),
+      ).rejects.toThrow(
         expect.objectContaining({
           message: expect.not.stringContaining('+8801751111111') as string,
         }) as Error,
@@ -1158,7 +1194,12 @@ describe('UserService (integration)', () => {
       );
 
       await expect(
-        service.update(user.id, { email: null as unknown as string, phone: null }, TENANT_ID),
+        service.update(
+          user.id,
+          { email: null as unknown as string, phone: null },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        ),
       ).rejects.toThrow(BadRequestException);
 
       // Both identifiers survive the refused write.
@@ -1170,6 +1211,34 @@ describe('UserService (integration)', () => {
       expect(row.phone).toBe('+8801799999999');
     });
 
+    it('should re-check the identifier rule on the locked row, not the stale read', async () => {
+      // Another admin cleared the email after this request read the user. The stale copy still
+      // shows both identifiers, so only the re-check under the row lock can refuse this.
+      const { user } = await service.create(
+        {
+          full_name: 'Race Me',
+          email: 'race@example.com',
+          phone: '+8801766666666',
+          role: UserRole.PARENT,
+        },
+        TENANT_ID,
+      );
+      const stale = await service.findOne(user.id, TENANT_ID);
+      await dataSource.query('UPDATE users SET email = NULL WHERE id = $1', [user.id]);
+      const findOne = vi.spyOn(service, 'findOne').mockResolvedValueOnce(stale);
+
+      await expect(
+        service.update(user.id, { phone: '' }, TENANT_ID, REQUESTING_ADMIN_ID),
+      ).rejects.toThrow(/at least one login identifier/i);
+      findOne.mockRestore();
+
+      const [row] = await dataSource.query<Array<{ phone: string | null }>>(
+        'SELECT phone FROM users WHERE id = $1',
+        [user.id],
+      );
+      expect(row.phone).toBe('+8801766666666');
+    });
+
     it("should reject clearing phone with '' when the user has no email", async () => {
       // `''` is normalized to NULL before the invariant runs, so the
       // browser-form shape of the same lockout has to be caught too.
@@ -1178,9 +1247,9 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      await expect(service.update(user.id, { phone: '' }, TENANT_ID)).rejects.toThrow(
-        /at least one login identifier/i,
-      );
+      await expect(
+        service.update(user.id, { phone: '' }, TENANT_ID, REQUESTING_ADMIN_ID),
+      ).rejects.toThrow(/at least one login identifier/i);
 
       const [row] = await dataSource.query<Array<{ phone: string | null }>>(
         'SELECT phone FROM users WHERE id = $1',
@@ -1196,7 +1265,12 @@ describe('UserService (integration)', () => {
       );
 
       await expect(
-        service.update(user.id, { email: null as unknown as string }, TENANT_ID),
+        service.update(
+          user.id,
+          { email: null as unknown as string },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -1212,6 +1286,7 @@ describe('UserService (integration)', () => {
         user.id,
         { phone: null, email: 'swapped@example.com' },
         TENANT_ID,
+        REQUESTING_ADMIN_ID,
       );
 
       expect(updated.phone).toBeNull();
@@ -1229,7 +1304,12 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      const updated = await service.update(user.id, { phone: null }, TENANT_ID);
+      const updated = await service.update(
+        user.id,
+        { phone: null },
+        TENANT_ID,
+        REQUESTING_ADMIN_ID,
+      );
 
       expect(updated.phone).toBeNull();
       expect(updated.email).toBe('keeps@example.com');
@@ -1257,9 +1337,112 @@ describe('UserService (integration)', () => {
         user.id.toUpperCase(),
         { email: 'uppercase@example.com', phone: '+8801755550000', full_name: 'Renamed Upper' },
         TENANT_ID,
+        REQUESTING_ADMIN_ID,
       );
 
       expect(updated.full_name).toBe('Renamed Upper');
+    });
+
+    // [68.1.#2209] One login, many schools.
+    describe('shared identity', () => {
+      async function createSolo(email: string) {
+        const { user } = await service.create(
+          { full_name: 'Solo Person', email, phone: '+8801900000001', role: UserRole.TEACHER },
+          TENANT_ID,
+        );
+        return user;
+      }
+      const joinOther = (userId: string) =>
+        userTenantRepo.save(
+          userTenantRepo.create({
+            user_id: userId,
+            tenant_id: OTHER_TENANT,
+            role: UserRole.TEACHER,
+          }),
+        );
+
+      it('update() writes an audit row with old/new email when an admin changes a single-school user', async () => {
+        const user = await createSolo('audit-me@example.com');
+
+        await service.update(
+          user.id,
+          { email: 'audited-new@example.com' },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        );
+
+        const rows = await dataSource.query(
+          `SELECT * FROM audit_logs WHERE entity_type = 'User' AND entity_id = $1 AND action = 'UPDATE'`,
+          [user.id],
+        );
+        expect(rows).toHaveLength(1);
+        expect(rows[0].performed_by_user_id).toBe(REQUESTING_ADMIN_ID);
+        expect(rows[0].tenant_id).toBe(TENANT_ID);
+        expect(rows[0].old_values).toEqual({ email: 'audit-me@example.com' });
+        expect(rows[0].new_values).toEqual({ email: 'audited-new@example.com' });
+      });
+
+      it('update() audits phone and full_name changes with their old/new values', async () => {
+        const user = await createSolo('audit-phone-name@example.com');
+
+        await service.update(
+          user.id,
+          { phone: '+8801900000009', full_name: 'Renamed Person' },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        );
+
+        const rows = await dataSource.query(
+          `SELECT * FROM audit_logs WHERE entity_type = 'User' AND entity_id = $1 AND action = 'UPDATE'`,
+          [user.id],
+        );
+        expect(rows).toHaveLength(1);
+        expect(rows[0].performed_by_user_id).toBe(REQUESTING_ADMIN_ID);
+        // Only the fields that actually changed are recorded; email is untouched.
+        expect(rows[0].old_values).toEqual({ phone: '+8801900000001', full_name: 'Solo Person' });
+        expect(rows[0].new_values).toEqual({
+          phone: '+8801900000009',
+          full_name: 'Renamed Person',
+        });
+      });
+
+      it('update() throws SHARED_IDENTITY for a phone change on a user with a live membership elsewhere', async () => {
+        const user = await createSolo('shared-phone@example.com');
+        await joinOther(user.id);
+
+        await expect(
+          service.update(user.id, { phone: '+8801900000002' }, TENANT_ID, REQUESTING_ADMIN_ID),
+        ).rejects.toMatchObject({ response: { details: { code: 'SHARED_IDENTITY' } } });
+        const after = await userRepo.findOneByOrFail({ id: user.id });
+        expect(after.phone).toBe('+8801900000001');
+      });
+
+      it('update() still changes full_name of a shared user', async () => {
+        const user = await createSolo('shared-name@example.com');
+        await joinOther(user.id);
+
+        const updated = await service.update(
+          user.id,
+          { full_name: 'New Name' },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        );
+        expect(updated.full_name).toBe('New Name');
+      });
+
+      it('a soft-deleted membership elsewhere does not count as shared', async () => {
+        const user = await createSolo('former-elsewhere@example.com');
+        const other = await joinOther(user.id);
+        await userTenantRepo.softDelete({ id: other.id });
+
+        const updated = await service.update(
+          user.id,
+          { email: 'now-free@example.com' },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        );
+        expect(updated.email).toBe('now-free@example.com');
+      });
     });
   });
 

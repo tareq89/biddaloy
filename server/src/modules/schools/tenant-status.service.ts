@@ -1,9 +1,11 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
+import * as Sentry from '@sentry/node';
 import { SchoolStatus } from '@biddaloy/shared';
 import { School } from './entities/school.entity';
+import { isLocked } from '../workbook/restore/restore-lock';
 
 const POSTGRES_INVALID_TEXT_REPRESENTATION = '22P02';
 
@@ -18,6 +20,24 @@ export const TENANT_STATUS_REDIS = 'TENANT_STATUS_REDIS';
 
 const TENANT_STATUS_CACHE_TTL_SECONDS = 300;
 
+/** At most one Sentry event per this window for a failing restore-lock read (#2210 F3). */
+const RESTORE_LOCK_READ_REPORT_INTERVAL_MS = 60_000;
+
+/**
+ * The one 423 every write path returns while a tenant's restore runs (#2210): `ContextGuard`,
+ * the public admission submit and device ingest. Same `{message, details.code}` shape as the
+ * `TENANT_SUSPENDED` 403.
+ */
+export function tenantRestoringException(): HttpException {
+  return new HttpException(
+    {
+      message: 'This school is being restored from a backup. Try again when it finishes.',
+      details: { code: 'TENANT_RESTORING' },
+    },
+    HttpStatus.LOCKED,
+  );
+}
+
 /**
  * Caches each tenant's suspension status in Redis so `ContextGuard` can
  * check it on every authenticated request without a DB hit per request
@@ -29,6 +49,7 @@ const TENANT_STATUS_CACHE_TTL_SECONDS = 300;
 @Injectable()
 export class TenantStatusService {
   private readonly logger = new Logger(TenantStatusService.name);
+  private lastRestoreLockReadReport = 0;
 
   constructor(
     @Inject(TENANT_STATUS_REDIS) private readonly redis: Redis,
@@ -143,6 +164,32 @@ export class TenantStatusService {
       );
     }
     return school.status_reason;
+  }
+
+  /**
+   * True while a backup restore holds this tenant's lock. Fail-open on Redis errors like
+   * `getStatus` (request guards must not 5xx every write on an outage) — unless `failClosed`:
+   * schedulers and workers can retry later, so an unreadable lock counts as locked for them.
+   * A fail-open during a real restore lets writes back in, so the failure also
+   * goes to Sentry (rate-limited: a Redis outage fails every write request).
+   */
+  async isRestoring(tenantId: string, opts: { failClosed?: boolean } = {}): Promise<boolean> {
+    try {
+      return await isLocked(this.redis, tenantId);
+    } catch (error) {
+      this.logger.warn(
+        `Restore-lock read failed for ${tenantId}, treating as ${opts.failClosed ? 'restoring' : 'not restoring'}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // ponytail: one process-wide window, not per tenant; a per-tenant map if one noisy tenant hides another.
+      if (Date.now() - this.lastRestoreLockReadReport >= RESTORE_LOCK_READ_REPORT_INTERVAL_MS) {
+        this.lastRestoreLockReadReport = Date.now();
+        Sentry.withScope((scope) => {
+          scope.setTags({ tenant_id: tenantId, check: 'restore-lock-read' });
+          Sentry.captureException(error);
+        });
+      }
+      return opts.failClosed === true;
+    }
   }
 
   async invalidate(tenantId: string): Promise<void> {

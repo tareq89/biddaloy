@@ -59,3 +59,11 @@ end
 export async function release(redis: Redis, tenantId: string, jobId: string): Promise<void> {
   await redis.eval(RELEASE_SCRIPT, 1, lockKey(tenantId), jobId);
 }
+
+/**
+ * Read-only: is a restore currently holding this tenant's lock? Used to
+ * freeze writes for the tenant while it runs (#2210). Never mutates the key.
+ */
+export async function isLocked(redis: Redis, tenantId: string): Promise<boolean> {
+  return (await redis.exists(lockKey(tenantId))) === 1;
+}

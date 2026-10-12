@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -11,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { AuditAction, AuthTokenPurpose, CommunicationMedium, UserStatus } from '@biddaloy/shared';
 import { User } from '../users/entities/user.entity';
+import { countOtherMemberships } from '../users/users.service';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService, AuthResult } from '../auth/auth.service';
@@ -256,6 +258,17 @@ export class RecoveryService {
       throw new NotFoundException(`User with ID "${user.id}" not found`);
     }
 
+    // A shared login belongs to every school the person is in: no one school
+    // may reset it or sign the person out elsewhere. Checked before any
+    // session is revoked. [68.1.#2209, AUTH-04]
+    if ((await countOtherMemberships(this.userTenantRepo.manager, user.id, tenantId)) > 0) {
+      throw new ConflictException({
+        message:
+          'This person also belongs to another school. Ask them to use "Forgot password" on the sign-in page.',
+        details: { code: 'SHARED_IDENTITY' },
+      });
+    }
+
     const channel = pickChannel(user);
     if (!channel) {
       throw new HttpException(
@@ -291,6 +304,8 @@ export class RecoveryService {
         purpose: AuthTokenPurpose.PASSWORD_RESET,
         ttlMs: PASSWORD_RESET_TTL_MS,
         createdByUserId: actorUserId,
+        // reset() checks the token's email against the account's [GAP-02]
+        metadata: { email: normalizeLoginIdentifier(channel.to) },
       });
       const link = this.buildResetLink(raw);
       await this.delivery.deliver({

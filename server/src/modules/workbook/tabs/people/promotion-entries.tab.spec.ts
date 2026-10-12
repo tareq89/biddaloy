@@ -197,6 +197,15 @@ describe('round-trip', () => {
     expect((result as { errors: RowError[] }).errors[0].column).toBe('override_note');
   });
 
+  // [68.1.fix] Commit has no CONDITIONAL branch yet (#2296): restoring one would drop the student.
+  it('final_outcome CONDITIONAL is a RowError on final_outcome', () => {
+    const cells = toCells(makeEntry({ is_override: true, override_note: 'Re-test in March' }));
+    cells.final_outcome = PromotionOutcome.CONDITIONAL;
+    const result = promotionEntriesTab.fromRow(cells, 3, importCtx());
+    expect('errors' in result).toBe(true);
+    expect((result as { errors: RowError[] }).errors[0].column).toBe('final_outcome');
+  });
+
   it('is_override=false with no override_note is not an error', () => {
     const cells = toCells(makeEntry());
     const row = fromRowOrThrow(cells);

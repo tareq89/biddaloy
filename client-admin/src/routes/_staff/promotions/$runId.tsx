@@ -70,6 +70,7 @@ const OUTCOME_KEY: Record<PromotionOutcome, string> = {
   PROMOTE: 'outcome.promote',
   RETAIN: 'outcome.retain',
   GRADUATE: 'outcome.graduate',
+  CONDITIONAL: 'outcome.promote', // Epic 68: #2296 owns the label and the server behaviour
 };
 
 const PLACEMENT_ERROR_KEY: Record<string, string> = {
@@ -727,13 +728,14 @@ function PromotionRunPage() {
                                     }
                                   }}
                                 >
-                                  {(Object.keys(OUTCOME_KEY) as PromotionOutcome[]).map(
-                                    (outcome) => (
+                                  {(Object.keys(OUTCOME_KEY) as PromotionOutcome[])
+                                    // Epic 68: #2296 owns the label and the server behaviour
+                                    .filter((outcome) => outcome !== 'CONDITIONAL')
+                                    .map((outcome) => (
                                       <SelectItem key={outcome} value={outcome}>
                                         {t(OUTCOME_KEY[outcome])}
                                       </SelectItem>
-                                    ),
-                                  )}
+                                    ))}
                                 </SelectContent>
                               </Select>
                               {override && (

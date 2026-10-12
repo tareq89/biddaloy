@@ -124,9 +124,10 @@ export class QueryInvoiceDto {
  * `implements Omit<Invoice, 'issued_by'>` keeps the rest honest — a column
  * added to the entity fails the build here until it is mirrored.
  */
-export class StaffInvoiceDto implements Omit<Invoice, 'issued_by'> {
+export class StaffInvoiceDto implements Omit<Invoice, 'issued_by' | 'tenant'> {
   id: string;
   invoice_number: string;
+  tenant_id: string;
   kind: InvoiceKind;
   student: Student;
   student_id: string;

@@ -286,7 +286,8 @@
       "EXAM": "পরীক্ষা",
       "EVENT": "ইভেন্ট",
       "MEETING": "সভা",
-      "DEADLINE": "সময়সীমা"
+      "DEADLINE": "সময়সীমা",
+      "MAKEUP_DAY": "ক্ষতিপূরক স্কুল দিবস"
     },
     "weekdays": {
       "Sun": "রবি",

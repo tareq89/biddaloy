@@ -62,6 +62,23 @@ export const ROLE_SWAP_ENDED = 'ROLE_SWAP';
 const NOT_SWAPPED_SQL = `(b.metadata->>'ended_by') IS DISTINCT FROM '${ROLE_SWAP_ENDED}'`;
 
 /**
+ * How many live memberships `userId` holds in schools other than `tenantId`.
+ * > 0 means the login (email/phone/password) is shared, so no single school
+ * may change it. [68.1.#2209]
+ */
+export async function countOtherMemberships(
+  m: EntityManager,
+  userId: string,
+  tenantId: string,
+): Promise<number> {
+  return m
+    .getRepository(UserTenant)
+    .createQueryBuilder('ut')
+    .where('ut.user_id = :userId AND ut.tenant_id <> :tenantId', { userId, tenantId })
+    .getCount();
+}
+
+/**
  * Brings a soft-deleted membership back and drops its `ended_by` tag, so a
  * later real removal of it counts as a departure again. Every path that
  * revives a `user_tenants` row goes through here. Returns 0 when the row was
@@ -426,7 +443,13 @@ export class UserService {
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto, tenantId: string): Promise<User> {
+  async update(
+    id: string,
+    dto: UpdateUserDto,
+    tenantId: string,
+    // Required: identity edits are audited and the audit row names the actor.
+    actorUserId: string,
+  ): Promise<User> {
     const current = await this.findOne(id, tenantId);
 
     // `''` means "clear this column" (a browser form submits a cleared input
@@ -463,12 +486,33 @@ export class UserService {
     // made any worse by a `full_name` edit, and blocking that would be
     // collateral damage rather than protection.
     const touchesIdentifier = dto.email !== undefined || dto.phone !== undefined;
-    const nextEmail = dto.email !== undefined ? email : current.email;
-    const nextPhone = dto.phone !== undefined ? phone : current.phone;
-    if (touchesIdentifier && !nextEmail && !nextPhone) {
-      throw new BadRequestException(
-        'An account must keep at least one login identifier — set an email address or a phone number before clearing the other',
-      );
+    // Run twice: here to fail fast, and again on the row-locked copy inside the transaction,
+    // since a concurrent update may have cleared the other identifier since `current` was read.
+    const assertKeepsIdentifier = (row: Pick<User, 'email' | 'phone'>) => {
+      const nextEmail = dto.email !== undefined ? email : row.email;
+      const nextPhone = dto.phone !== undefined ? phone : row.phone;
+      if (touchesIdentifier && !nextEmail && !nextPhone) {
+        throw new BadRequestException(
+          'An account must keep at least one login identifier — set an email address or a phone number before clearing the other',
+        );
+      }
+    };
+    assertKeepsIdentifier(current);
+
+    // One login serves every school the person belongs to, so a school may not
+    // retarget it: that would let this school's admin reset the password and
+    // sign in as the person in the other school. [68.1.#2209, TEN-01]
+    const emailChanges = dto.email !== undefined && (email ?? null) !== (current.email ?? null);
+    const phoneChanges = dto.phone !== undefined && (phone ?? null) !== (current.phone ?? null);
+    if (
+      (emailChanges || phoneChanges) &&
+      (await countOtherMemberships(this.userRepo.manager, id, tenantId)) > 0
+    ) {
+      throw new ConflictException({
+        message:
+          'This person also belongs to another school. Only they can change their email or phone, from their own profile.',
+        details: { code: 'SHARED_IDENTITY' },
+      });
     }
 
     // `email` and `phone` are globally unique (see User entity). Without a
@@ -528,7 +572,38 @@ export class UserService {
       updateData.profile_picture_url = dto.profile_picture_url;
     if (Object.keys(updateData).length > 0) {
       try {
-        await this.userRepo.update({ id }, updateData);
+        await this.userRepo.manager.transaction(async (manager) => {
+          // Lock the row, then diff against it: two admins editing the same field at once must
+          // each audit the value they actually replaced, not the one both read before the lock.
+          const locked = await manager
+            .getRepository(User)
+            .findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
+          if (locked) assertKeepsIdentifier(locked);
+          // Only email/phone/full_name are identity; picture edits are not audited.
+          const before: Record<string, unknown> = {};
+          const after: Record<string, unknown> = {};
+          for (const key of ['email', 'phone', 'full_name'] as const) {
+            if (key in updateData && updateData[key] !== (locked?.[key] ?? null)) {
+              before[key] = locked?.[key] ?? null;
+              after[key] = updateData[key];
+            }
+          }
+          await manager.getRepository(User).update({ id }, updateData);
+          if (Object.keys(after).length > 0) {
+            await this.audit.record(
+              {
+                action: AuditAction.UPDATE,
+                entity_type: 'User',
+                entity_id: id,
+                tenant_id: tenantId,
+                performed_by_user_id: actorUserId,
+                old_values: before,
+                new_values: after,
+              },
+              manager,
+            );
+          }
+        });
       } catch (err) {
         // The pre-check above is not atomic: two concurrent updates claiming
         // the same address both pass it and the loser hits the index. Map
@@ -558,7 +633,7 @@ export class UserService {
    * security-sensitive remains in this DTO.
    */
   async updateOwnProfile(id: string, dto: UpdateOwnProfileDto, tenantId: string): Promise<User> {
-    return this.update(id, dto, tenantId);
+    return this.update(id, dto, tenantId, id);
   }
 
   async remove(id: string, tenantId: string, requestingUserId: string): Promise<void> {

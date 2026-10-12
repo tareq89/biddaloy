@@ -472,7 +472,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // Finance nav group to teachers — a product decision well outside
     // [8.11.5].
     Permission.FEE_READ,
-    Permission.COMMUNICATION_SEND,
     // [10.4] G5 — per-student Communications tab; see ACCOUNTANT comment.
     Permission.COMMUNICATION_LOG_READ,
     Permission.DASHBOARD_VIEW,

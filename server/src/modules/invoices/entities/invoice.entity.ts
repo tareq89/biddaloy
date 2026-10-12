@@ -7,8 +7,10 @@ import {
   DeleteDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
+import { School } from '../../schools/entities/school.entity';
 import { Student } from '../../students/entities/student.entity';
 import { Payment } from '../../fees/entities/payment.entity';
 import { User } from '../../users/entities/user.entity';
@@ -147,12 +149,21 @@ export class InvoiceSnapshot {
  * - @ManyToOne → User (issued_by): who generated the document.
  */
 @Entity('invoices')
+@Index('UQ_invoices_tenant_invoice_number', ['tenant_id', 'invoice_number'], { unique: true })
+@Index('IDX_invoices_tenant_id', ['tenant_id'])
 export class Invoice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 50, unique: true })
+  @Column({ type: 'varchar', length: 50 })
   invoice_number: string;
+
+  @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenant_id', foreignKeyConstraintName: 'FK_invoices_tenant' })
+  tenant: School;
+
+  @Column({ type: 'uuid' })
+  tenant_id: string;
 
   @Column({ type: 'enum', enum: InvoiceKind, default: InvoiceKind.INVOICE })
   kind: InvoiceKind;

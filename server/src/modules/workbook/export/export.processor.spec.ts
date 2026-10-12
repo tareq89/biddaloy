@@ -79,6 +79,8 @@ describe('ExportProcessor', () => {
   let storage: any;
   let audit: any;
   let events: any;
+  let retention: any;
+  let tenantStatus: any;
   let processor: ExportProcessor;
 
   function jobRow(overrides: Record<string, unknown> = {}) {
@@ -111,9 +113,59 @@ describe('ExportProcessor', () => {
     audit = { record: vi.fn().mockResolvedValue(undefined) };
     events = { emitFinished: vi.fn() };
 
-    processor = new ExportProcessor(jobsRepo, dataSource, storage, audit, events, {
-      enforce: vi.fn().mockResolvedValue(undefined),
-    } as any);
+    retention = { enforce: vi.fn().mockResolvedValue(undefined) };
+    tenantStatus = { isRestoring: vi.fn().mockResolvedValue(false) };
+    processor = new ExportProcessor(
+      jobsRepo,
+      dataSource,
+      storage,
+      audit,
+      events,
+      retention,
+      tenantStatus,
+    );
+  });
+
+  // [68.1.fix] A SCHEDULED export retried (or run by another worker) after a restore started would
+  // save the half-restored school as a normal backup and then prune older, good ones.
+  describe('while the school is being restored', () => {
+    beforeEach(() => tenantStatus.isRestoring.mockResolvedValue(true));
+
+    it('skips a SCHEDULED export: no file, no retention sweep, no notification', async () => {
+      jobsRepo.findOne.mockResolvedValue(jobRow({ source: WorkbookJobSource.SCHEDULED }));
+
+      await processor.process(fakeJob());
+
+      expect(tenantStatus.isRestoring).toHaveBeenCalledWith(TENANT, { failClosed: true });
+      expect(storage.put).not.toHaveBeenCalled();
+      expect(retention.enforce).not.toHaveBeenCalled();
+      expect(events.emitFinished).not.toHaveBeenCalled();
+      expect(jobsRepo.update).toHaveBeenCalledWith(
+        JOB_ID,
+        expect.objectContaining({ status: WorkbookJobStatus.FAILED, error: expect.any(String) }),
+      );
+    });
+
+    it('skips a MANUAL export too (retried manual exports can land mid-restore)', async () => {
+      jobsRepo.findOne.mockResolvedValue(jobRow({ source: WorkbookJobSource.MANUAL }));
+
+      await processor.process(fakeJob());
+
+      expect(storage.put).not.toHaveBeenCalled();
+      expect(retention.enforce).not.toHaveBeenCalled();
+      expect(jobsRepo.update).toHaveBeenCalledWith(
+        JOB_ID,
+        expect.objectContaining({ status: WorkbookJobStatus.FAILED }),
+      );
+    });
+
+    it("still runs the restore's own SNAPSHOT export", async () => {
+      jobsRepo.findOne.mockResolvedValue(jobRow({ source: WorkbookJobSource.SNAPSHOT }));
+
+      await processor.process(fakeJob());
+
+      expect(storage.put).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('happy path: RUNNING -> DONE with every terminal field set', async () => {

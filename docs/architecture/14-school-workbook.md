@@ -172,6 +172,75 @@ key into the cell, and restore resolves it back to a real id.
 - **A `TEMPLATE`-kind workbook can never delete.** `deleteByAbsence` is
   skipped entirely if the uploaded workbook is a blank template rather than
   a real export/restore round trip.
+- **File keys stay inside the school (DATA-02).** A cell that names an
+  uploaded file (`staff_documents.storage_key`, `students.photo_key`,
+  `homework*.attachments[].key`, `admission_applicants.documents[].storage_key`)
+  must sit under `tenants/<this school>/<that column's folder>/` (teacher
+  `homework` attachments have no fixed folder until #1012). `print_assets`
+  and `application_attachments` are checked against `tenants/<this school>/`
+  only, with no folder yet (#2355). A key outside `tenants/`
+  (for example `backups/db/20261009T020000Z.dump.age`) or in the wrong folder
+  is a row error. Foreign keys are rewritten to this school's prefix with a
+  warning, never stored: `tenants/<other school>/staff-documents/a.pdf`
+  becomes `tenants/<this school>/staff-documents/a.pdf`, which 404s until the
+  file is uploaded again. Helper:
+  `server/src/modules/workbook/codec/storage-key-scope.ts`.
+
+## The school is read-only while a restore runs (#2210)
+
+A restore deletes rows the workbook does not have. A save made during the
+restore is in neither the workbook nor the snapshot, so it would be lost.
+So while the restore lock is held, the school is read-only:
+
+- **HTTP writes.** A `POST`/`PUT`/`PATCH`/`DELETE` that goes through
+  `ContextGuard` (every school route) gets
+  `423 { "message": "...", "details": { "code": "TENANT_RESTORING" } }`.
+  Two routes without `ContextGuard` check by hand: the public admission form
+  and device ingest (its 423 is documented as retryable; 503 is #2352).
+- **Not covered:** the unauthenticated `/auth/*` account routes (activate,
+  reset password, OTP login, verify email). They write user-level columns
+  (`password_hash`, `status`, `*_verified_at`) that the restore never
+  writes, and a user can belong to several schools, so there is no single
+  school to freeze. (One edge: a `verify-email` mid-restore can be
+  overwritten by the restored email, #2351.)
+- **Background jobs that skip or wait:**
+
+  | Job                                  | While the school is restoring                                                                                                                                                                                     |
+  | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | fees-daily (bills, late fees, fines) | Re-queues the school for the **same day** every 15 min until the lock clears. `isDue` matches only the exact firing day, so a plain skip would lose that period's bills. `last_run_period` keeps it exactly-once. |
+  | study-plan auto deliveries           | Skips; the next 15-minute tick that day writes the rows.                                                                                                                                                          |
+  | scheduled backup                     | Skips that tick (the restore took its own snapshot), so a half-restored school is never saved as a normal backup and retention never prunes a good one for it.                                                    |
+  | guardian invitation batch            | Parks the job for 1 min (`DelayedError`) and checks again.                                                                                                                                                        |
+
+  Other scheduled senders (attention alerts, absence notices, homework
+  defaulters, study-plan flags) do not check yet (#2350).
+
+- `GET` still works.
+
+Example: a MONTHLY schedule with `day_of_month = 1`, restore running at
+00:30 on 1 March. fees-daily queues `{ tenantId, today: "2026-03-01" }`;
+the run after the lock clears bills March, even if that is 2 March.
+
+```mermaid
+flowchart LR
+    A["POST /backup/restore<br/>takes the lock"] --> B["snapshot, then apply tabs<br/>(writes get 423)"]
+    B --> C["lock released"] --> D["job DONE<br/>(writes work again)"]
+    B -. "worker crash" .-> E["lock stays until its<br/>1 h TTL expires"]
+```
+
+**Runbook: a stuck lock.** The lock is the Redis key
+`workbook:restore-lock:<tenantId>`. It has a 1 hour TTL, renewed every
+5 minutes while the job runs. If the worker crashes, the school stays
+read-only until the TTL runs out. To unfreeze it at once, first check that
+no restore job for that school is still `RUNNING`, then delete the key:
+
+```bash
+redis-cli DEL workbook:restore-lock:00000000-0000-4000-8000-000000000001
+```
+
+**Known gap.** The lock is checked when a request starts. A slow write that
+started just before the lock was taken can still commit while the snapshot
+runs. The window is small and not closed yet.
 
 ## Retention, scheduling, and env vars
 

@@ -8199,7 +8199,7 @@ export interface components {
             /** @description The approver's password — required when method is PASSWORD. */
             password?: string;
             /** @enum {string} */
-            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override";
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override";
         };
         ActivateVerifyDto: {
             /** @description The raw invite token from the ?token= query param. */
@@ -9062,6 +9062,8 @@ export interface components {
             issuer_snapshot: components["schemas"]["IssuerSnapshot"] | null;
             id: string;
             invoice_number: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
             /** @enum {string} */
             kind: "INVOICE" | "CREDIT_NOTE";
             student: components["schemas"]["Student"];
@@ -9660,7 +9662,7 @@ export interface components {
             wallet_id: string;
             amount: number;
             /** @enum {string} */
-            kind: "CREDIT_OVERPAYMENT" | "CREDIT_CHANGE" | "DEBIT_CHECKOUT" | "DEBIT_GENERATION" | "REVERSAL";
+            kind: "CREDIT_OVERPAYMENT" | "CREDIT_CHANGE" | "DEBIT_CHECKOUT" | "DEBIT_GENERATION" | "CREDIT_BILL_REMOVED" | "DEBIT_PAYOUT" | "REVERSAL";
             payment_id: string | null;
             student_fee_id: string | null;
             reversal_of_id: string | null;
@@ -9676,7 +9678,7 @@ export interface components {
         FamilyWalletTransactionDto: {
             amount: number;
             /** @enum {string} */
-            kind: "CREDIT_OVERPAYMENT" | "CREDIT_CHANGE" | "DEBIT_CHECKOUT" | "DEBIT_GENERATION" | "REVERSAL";
+            kind: "CREDIT_OVERPAYMENT" | "CREDIT_CHANGE" | "DEBIT_CHECKOUT" | "DEBIT_GENERATION" | "CREDIT_BILL_REMOVED" | "DEBIT_PAYOUT" | "REVERSAL";
             /** Format: date-time */
             created_at: string;
         };
@@ -9891,6 +9893,7 @@ export interface components {
         StaffInvoiceDto: {
             id: string;
             invoice_number: string;
+            tenant_id: string;
             /** @enum {string} */
             kind: "INVOICE" | "CREDIT_NOTE";
             student: components["schemas"]["Student"];
@@ -10459,7 +10462,7 @@ export interface components {
             academic_year: components["schemas"]["AcademicYear"];
             academic_year_id: string;
             /** @enum {string} */
-            type: "HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE";
+            type: "HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE" | "MAKEUP_DAY";
             start_date: string;
             end_date: string;
             start_time: string | null;
@@ -10504,7 +10507,7 @@ export interface components {
             id: string;
             academic_year_id: string;
             /** @enum {string} */
-            type: "HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE";
+            type: "HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE" | "MAKEUP_DAY";
             name: string;
             description?: string | null;
             start_date: string;
@@ -10527,7 +10530,7 @@ export interface components {
         };
         CreateCalendarEventDto: {
             /** @enum {string} */
-            type: "HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE";
+            type: "HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE" | "MAKEUP_DAY";
             name: string;
             description?: string;
             start_date: string;
@@ -10545,7 +10548,7 @@ export interface components {
         };
         UpdateCalendarEventDto: {
             /** @enum {string} */
-            type?: "HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE";
+            type?: "HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE" | "MAKEUP_DAY";
             name?: string;
             description?: string | null;
             start_date?: string;
@@ -20451,7 +20454,7 @@ export interface operations {
             query?: {
                 from?: string;
                 to?: string;
-                types?: ("HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE")[];
+                types?: ("HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE" | "MAKEUP_DAY")[];
                 audience?: "ALL" | "STAFF";
                 class_id?: string;
                 include_drafts?: boolean;
@@ -23489,6 +23492,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DeviceEventBatchResponseDto"];
                 };
+            };
+            /** @description TENANT_RESTORING: the school is being restored from a backup. Retryable: keep the batch and re-send it later. */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

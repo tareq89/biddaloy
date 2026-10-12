@@ -1,3 +1,5 @@
+import type { RowError } from './tab-spec';
+
 /**
  * Storage keys created by `tenantObjectKey` look like
  * `tenants/<school id>/<area>/<uuid>.<ext>`. A workbook restored into a DIFFERENT
@@ -27,6 +29,98 @@ export function rehomeStorageKey(storageKey: string, tenantId: string): RehomedK
   const [, sourceTenant, tail] = match;
   if (sourceTenant === tenantId) return { key: storageKey, tail, moved: false };
   return { key: `tenants/${tenantId}/${tail}`, tail, moved: true };
+}
+
+/**
+ * Restore-side gate for any storage key a workbook cell carries (DATA-02). A key
+ * outside `tenants/` (e.g. `backups/db/...`) or containing `..` is a row error;
+ * another school's key is rewritten to this school's prefix, with a warning that
+ * the file was not copied. A foreign key is therefore never stored.
+ *
+ * `area` is the folder the column's upload code writes to (the `category` passed
+ * to `tenantObjectKey`, e.g. `staff-documents`). When given, a key in any other
+ * folder of the school is also a row error, so a restored row can't point a
+ * download/replace route at, say, the school's own workbook backup.
+ */
+export function ownStorageKey(
+  raw: string,
+  tenantId: string,
+  tab: string,
+  rowNo: number,
+  column: string,
+  area?: string,
+): { key: string; warning?: RowError } | { error: RowError } {
+  const rehomed = rehomeStorageKey(raw, tenantId);
+  if (!rehomed || (area !== undefined && !rehomed.tail.startsWith(`${area}/`))) {
+    return {
+      error: {
+        tab,
+        row: rowNo,
+        column,
+        message: `Column "${column}": "${raw}" is not a valid storage key for this school.`,
+        severity: 'error',
+        value: raw,
+      },
+    };
+  }
+  if (!rehomed.moved) return { key: rehomed.key };
+  return {
+    key: rehomed.key,
+    warning: {
+      tab,
+      row: rowNo,
+      column,
+      message: 'This file came from another school. It was not copied; upload it again.',
+      severity: 'warning',
+      value: raw,
+    },
+  };
+}
+
+/**
+ * Runs `ownStorageKey` over the `field` of every element of a JSON array cell
+ * (homework `attachments[].key`, admission `documents[].storage_key`). A cell that is
+ * not an array, or any element
+ * without a string key, or with an out-of-scope one, rejects the row. Warnings are
+ * returned, not emitted, so the caller reports them only if the row is accepted.
+ */
+export function ownKeysIn(
+  items: unknown,
+  tenantId: string,
+  tab: string,
+  rowNo: number,
+  opts: { column: string; field: string; area?: string },
+): { items: unknown[]; warnings: RowError[] } | { error: RowError } {
+  // A `json` cell can hold any JSON (`{"key":"..."}`, `5`): one row error, not a TypeError.
+  if (!Array.isArray(items)) {
+    return {
+      error: {
+        tab,
+        row: rowNo,
+        column: opts.column,
+        message: `Column "${opts.column}": must be a JSON list.`,
+        severity: 'error',
+        value: JSON.stringify(items),
+      },
+    };
+  }
+  const out: unknown[] = [];
+  const warnings: RowError[] = [];
+  for (const item of items) {
+    const raw = (item as Record<string, unknown> | null)?.[opts.field];
+    const result = ownStorageKey(
+      typeof raw === 'string' ? raw : '',
+      tenantId,
+      tab,
+      rowNo,
+      opts.column,
+      opts.area,
+    );
+    if ('error' in result) return result;
+    if (result.warning) warnings.push(result.warning);
+    out.push({ ...(item as object), [opts.field]: result.key });
+  }
+  return { items: out, warnings };
 }
 
 /** `tenants/<id>/print-assets/x.png` -> `print-assets/x.png`; anything else is returned as-is. */

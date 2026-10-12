@@ -9,6 +9,7 @@ import { AuditService } from '../../audit/audit.service';
 import { StorageService } from '../../storage/storage.service';
 import { tenantObjectKeyNamed } from '../../storage/storage-key';
 import { School } from '../../schools/entities/school.entity';
+import { TenantStatusService } from '../../schools/tenant-status.service';
 import { ALL_TABS, assertRegistryValid, EXPECTED_TABS } from '../codec/registry';
 import { writeWorkbook } from '../codec/workbook-codec';
 import { SCHEMA_VERSION, WorkbookMeta } from '../codec/meta';
@@ -17,6 +18,7 @@ import {
   WorkbookJob,
   WorkbookJobKind,
   WorkbookJobProgress,
+  WorkbookJobSource,
   WorkbookJobStatus,
   WorkbookRowCounts,
 } from '../jobs/workbook-job.entity';
@@ -68,6 +70,7 @@ export class ExportProcessor extends WorkerHost {
     private readonly audit: AuditService,
     private readonly events: WorkbookJobEventsService,
     private readonly retention: RetentionService,
+    private readonly tenantStatus: TenantStatusService,
   ) {
     super();
   }
@@ -85,6 +88,21 @@ export class ExportProcessor extends WorkerHost {
     if (row.status === WorkbookJobStatus.DONE) {
       // Idempotent replay — a stalled-job recovery or a redelivered event
       // must not rebuild and re-upload a finished export.
+      return;
+    }
+
+    // [68.1.fix] Checked here, not only in `BackupScheduleService.runNow`: a non-snapshot (SCHEDULED or MANUAL) export
+    // queued before a restore can be retried (or picked up by another worker) after it started.
+    // Mid-restore it would save a half-restored school and then prune older, good backups.
+    if (
+      row.source !== WorkbookJobSource.SNAPSHOT &&
+      (await this.tenantStatus.isRestoring(tenantId, { failClosed: true }))
+    ) {
+      await this.jobs.update(row.id, {
+        status: WorkbookJobStatus.FAILED,
+        error: 'Skipped: the school was being restored.',
+        finished_at: new Date(),
+      });
       return;
     }
 

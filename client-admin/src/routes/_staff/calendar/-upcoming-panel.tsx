@@ -23,6 +23,7 @@ const DOT: Record<CalendarEventType, string> = {
   DEADLINE: 'bg-status-due-fg',
   EVENT: 'bg-primary',
   MEETING: 'bg-primary',
+  MAKEUP_DAY: 'bg-primary', // Epic 68: #2253 — same as EVENT
 };
 
 const MS_PER_DAY = 86_400_000;

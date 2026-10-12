@@ -251,7 +251,8 @@ describe('InvoicesService (integration)', () => {
           NEW."issued_by_user_id" IS DISTINCT FROM OLD."issued_by_user_id" OR
           NEW."notes" IS DISTINCT FROM OLD."notes" OR
           NEW."issuer_snapshot" IS DISTINCT FROM OLD."issuer_snapshot" OR
-          NEW."created_at" IS DISTINCT FROM OLD."created_at"
+          NEW."created_at" IS DISTINCT FROM OLD."created_at" OR
+          NEW."tenant_id" IS DISTINCT FROM OLD."tenant_id"
         ) THEN
           RAISE EXCEPTION 'invoices is immutable once issued: only status, updated_at, deleted_at may change (id=%)', OLD."id";
         END IF;
@@ -369,6 +370,83 @@ describe('InvoicesService (integration)', () => {
       const seq1 = parseInt(inv1.invoice_number.split('-')[2], 10);
       const seq2 = parseInt(inv2.invoice_number.split('-')[2], 10);
       expect(seq2).toBe(seq1 + 1);
+    });
+
+    /** Saves a bare ISSUED invoice row directly (as a workbook restore would). */
+    async function seedInvoice(
+      tenantId: string,
+      invoiceNumber: string,
+      kind = InvoiceKind.INVOICE,
+    ) {
+      const student = await studentRepo.save(makeStudent({ tenant_id: tenantId }));
+      return invoiceRepo.save(
+        invoiceRepo.create({
+          invoice_number: invoiceNumber,
+          kind,
+          student_id: student.id,
+          total_amount: 1,
+          tax_amount: 0,
+          discount_amount: 0,
+          status: InvoiceStatus.ISSUED,
+          issued_date: new Date(),
+          due_date: new Date(),
+          snapshot: {} as Invoice['snapshot'],
+          tenant_id: tenantId,
+        }),
+      );
+    }
+
+    async function createTwo(): Promise<[Invoice, Invoice]> {
+      const s1 = await studentRepo.save(makeStudent());
+      const s2 = await studentRepo.save(makeStudent());
+      const f1 = await studentFeeRepo.save(makeFee(s1.id));
+      const f2 = await studentFeeRepo.save(makeFee(s2.id));
+      const p1 = await makePayment(s1.id, [[f1, 1000]]);
+      const p2 = await makePayment(s2.id, [[f2, 1000]]);
+      const a = await createInvoice(p1.id);
+      const b = await createInvoice(p2.id);
+      return [a, b];
+    }
+
+    const year = new Date().getFullYear();
+
+    it("another school holding INV-<yr>-99999 does not wedge this school's numbering", async () => {
+      await seedInvoice(OTHER_TENANT_ID, `INV-${year}-99999`);
+      const [a, b] = await createTwo();
+      expect(a.invoice_number).toBe(`INV-${year}-00001`);
+      expect(b.invoice_number).toBe(`INV-${year}-00002`);
+    });
+
+    it('numbers past 99999 within one school numerically, not as text', async () => {
+      await seedInvoice(TENANT_ID, `INV-${year}-99999`);
+      const [a, b] = await createTwo();
+      expect(a.invoice_number).toBe(`INV-${year}-100000`);
+      expect(b.invoice_number).toBe(`INV-${year}-100001`);
+    });
+
+    it('ignores a junk suffix in the same school', async () => {
+      await seedInvoice(TENANT_ID, `INV-${year}-00007`);
+      await seedInvoice(TENANT_ID, `INV-${year}-zzz`);
+      const [a] = await createTwo();
+      expect(a.invoice_number).toBe(`INV-${year}-00008`);
+    });
+
+    it('ignores an oversized (19-digit) restored suffix instead of failing the bigint cast', async () => {
+      await seedInvoice(TENANT_ID, `INV-${year}-00003`);
+      await seedInvoice(TENANT_ID, `INV-${year}-9999999999999999999`);
+      const [a] = await createTwo();
+      expect(a.invoice_number).toBe(`INV-${year}-00004`);
+    });
+
+    it('gives each school its own invoice and credit-note series', async () => {
+      await seedInvoice(OTHER_TENANT_ID, `INV-${year}-00001`);
+      await seedInvoice(OTHER_TENANT_ID, `CN-${year}-000001`, InvoiceKind.CREDIT_NOTE);
+      const [a] = await createTwo();
+      expect(a.invoice_number).toBe(`INV-${year}-00001`);
+      const cn = await dataSource.manager.transaction((m) =>
+        service.createCreditNote(a.payment_id as string, 'test', m),
+      );
+      expect(cn.invoice_number).toBe(`CN-${year}-000001`);
     });
 
     it('assigns distinct invoice numbers under concurrent creates', async () => {
@@ -504,6 +582,19 @@ describe('InvoicesService (integration)', () => {
 
       await expect(
         dataSource.query('UPDATE invoices SET total_amount = $1 WHERE id = $2', [9999, invoice.id]),
+      ).rejects.toThrow(/immutable/i);
+    });
+
+    it('rejects a direct UPDATE of tenant_id once issued', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const invoice = await createInvoice((await makePayment(student.id, [[fee, 1000]])).id);
+
+      await expect(
+        dataSource.query('UPDATE invoices SET tenant_id = $1 WHERE id = $2', [
+          OTHER_TENANT_ID,
+          invoice.id,
+        ]),
       ).rejects.toThrow(/immutable/i);
     });
 

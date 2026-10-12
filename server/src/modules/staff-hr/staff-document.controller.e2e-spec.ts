@@ -35,6 +35,13 @@ class FakeStorageService {
   async exists(key: string): Promise<boolean> {
     return this.objects.has(key);
   }
+  // Run the REAL tenant guard against this in-memory store (DATA-02).
+  getForTenant(key: string, tenantId: string) {
+    return StorageService.prototype.getForTenant.call(this, key, tenantId);
+  }
+  deleteForTenant(key: string, tenantId: string) {
+    return StorageService.prototype.deleteForTenant.call(this, key, tenantId);
+  }
 }
 
 /**
@@ -246,6 +253,41 @@ describe('StaffDocument E2E (23.6)', () => {
       .set('X-Tenant-ID', TENANT_A)
       .set('X-Role', UserRole.ADMIN)
       .expect(200);
+  });
+
+  // DATA-02 API bypass: a row whose stored key points at another school's file (as a
+  // crafted restore used to allow) must 404 on download, and a replace must not delete it.
+  it("a stored key under another school's prefix cannot be downloaded or deleted", async () => {
+    const storage = app.get(StorageService) as unknown as FakeStorageService;
+    const foreignKey = `tenants/${TENANT_B}/staff-documents/secret.pdf`;
+    await storage.put(foreignKey, Buffer.from('secret'), 'application/pdf');
+    const docId = '00000000-0000-4000-8000-0000000004f1';
+    await dataSource.query(
+      `INSERT INTO staff_documents (id, tenant_id, staff_user_id, document_type, storage_key, original_filename, content_type)
+       VALUES ($1, $2, $3, 'NID', $4, 'secret.pdf', 'application/pdf')`,
+      [docId, TENANT_A, STAFF_USER_ID, foreignKey],
+    );
+
+    await supertest(app.getHttpServer())
+      .get(`${API}/staff-documents/download/${docId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .set('X-Role', UserRole.ADMIN)
+      .expect(404);
+
+    // Replacing the NID deletes "the previous object"; the foreign one must survive.
+    await supertest(app.getHttpServer())
+      .post(`${API}/staff-documents/${STAFF_USER_ID}/NID`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .set('X-Role', UserRole.ADMIN)
+      .attach(
+        'file',
+        Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.from(' test')]),
+        { filename: 'nid.png', contentType: 'image/png' },
+      )
+      .expect(201);
+    expect(await storage.exists(foreignKey)).toBe(true);
   });
 
   /**

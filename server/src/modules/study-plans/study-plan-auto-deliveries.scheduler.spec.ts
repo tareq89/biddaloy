@@ -10,6 +10,7 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
   const settings = { region: { timezone: 'Asia/Dhaka' } };
   let redis: { set: ReturnType<typeof vi.fn>; del: ReturnType<typeof vi.fn> };
   let calendar: { isNonWorkingDay: ReturnType<typeof vi.fn> };
+  let tenantStatus: { isRestoring: ReturnType<typeof vi.fn> };
   let schools: { findAll: ReturnType<typeof vi.fn>; getResolvedSettings: ReturnType<typeof vi.fn> };
   let scheduler: StudyPlanAutoDeliveriesScheduler;
   let write: ReturnType<typeof vi.spyOn>;
@@ -18,6 +19,7 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     redis = { set: vi.fn().mockResolvedValue('OK'), del: vi.fn().mockResolvedValue(1) };
     calendar = { isNonWorkingDay: vi.fn().mockResolvedValue(false) };
+    tenantStatus = { isRestoring: vi.fn().mockResolvedValue(false) };
     schools = {
       findAll: vi.fn().mockResolvedValue([{ id: 'ta' }]),
       getResolvedSettings: vi.fn().mockResolvedValue(settings),
@@ -34,6 +36,7 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
       {} as never,
       {} as never,
       redis as never,
+      tenantStatus as never,
     );
     write = vi.spyOn(scheduler, 'writeAutoRows').mockResolvedValue(0);
   });
@@ -95,6 +98,26 @@ describe('StudyPlanAutoDeliveriesScheduler (unit)', () => {
     at('2026-10-15T12:01:00Z');
     schools.findAll.mockResolvedValue([{ id: 'ta' }, { id: 'tb' }]);
     redis.set.mockRejectedValueOnce(new Error('redis down')).mockResolvedValue('OK');
+    await scheduler.process();
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write.mock.calls[0]![0]).toBe('tb');
+  });
+
+  // [68.1.2210] A restore deletes rows it did not snapshot, so no auto row may land mid-restore.
+  // The skip comes before the once-a-day marker, so a later tick still writes today's rows.
+  it('skips a tenant whose restore is running, without taking the daily marker', async () => {
+    at('2026-10-15T12:01:00Z');
+    tenantStatus.isRestoring.mockResolvedValue(true);
+    await scheduler.sweepTenant('ta');
+    expect(tenantStatus.isRestoring).toHaveBeenCalledWith('ta', { failClosed: true });
+    expect(redis.set).not.toHaveBeenCalled();
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it('a restoring tenant is skipped and the sweep still writes the next tenant', async () => {
+    at('2026-10-15T12:01:00Z');
+    schools.findAll.mockResolvedValue([{ id: 'ta' }, { id: 'tb' }]);
+    tenantStatus.isRestoring.mockImplementation(async (id: string) => id === 'ta');
     await scheduler.process();
     expect(write).toHaveBeenCalledTimes(1);
     expect(write.mock.calls[0]![0]).toBe('tb');

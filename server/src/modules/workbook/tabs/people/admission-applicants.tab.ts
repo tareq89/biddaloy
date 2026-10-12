@@ -2,6 +2,7 @@ import type { EntityManager } from 'typeorm';
 import { AdmissionApplicant } from '../../../admission/entities/admission-applicant.entity';
 import { AdmissionApplicantStatus } from '@biddaloy/shared';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
+import { ownKeysIn } from '../../codec/storage-key-scope';
 import type {
   ColumnSpec,
   ExportContext,
@@ -183,6 +184,8 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
       });
     }
 
+    let documents: unknown[] = [];
+    let warnings: RowError[] = [];
     if (
       values.documents !== null &&
       values.documents !== undefined &&
@@ -196,9 +199,23 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
         severity: 'error',
         value: cells.documents ?? '',
       });
+    } else {
+      // DATA-02: the public resubmission route deletes a replaced document by its
+      // stored key, so every key must stay in this school's `admission-documents/`
+      // folder (where admission-applicant.service.ts uploads).
+      const owned = ownKeysIn(
+        (values.documents as unknown[] | null) ?? [],
+        ctx.tenantId,
+        'admission_applicants',
+        rowNo,
+        { column: 'documents', field: 'storage_key', area: 'admission-documents' },
+      );
+      if ('error' in owned) errors.push(owned.error);
+      else ({ items: documents, warnings } = owned);
     }
 
     if (errors.length > 0) return { errors };
+    for (const warning of warnings) ctx.warn(warning);
 
     return {
       row: {
@@ -213,7 +230,7 @@ export const admissionApplicantsTab: TabSpec<AdmissionApplicant, AdmissionApplic
         guardian_phone: values.guardian_phone as string,
         guardian_email: (values.guardian_email as string | null) ?? null,
         home_address: (values.home_address as string | null) ?? null,
-        documents: (values.documents as unknown[] | null) ?? [],
+        documents,
         status: values.status as AdmissionApplicantStatus,
       },
     };

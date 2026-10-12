@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { Job } from 'bullmq';
+import { DelayedError, type Job } from 'bullmq';
 import { InvitationBatchProcessor } from './invitation-batch.processor';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { reviveMembership } from '../users/users.service';
@@ -26,6 +26,7 @@ describe('InvitationBatchProcessor', () => {
   let dataSource: any;
   let authTokens: any;
   let invitationService: any;
+  let tenantStatus: any;
   let processor: InvitationBatchProcessor;
 
   const TENANT = 'tenant-1';
@@ -53,6 +54,7 @@ describe('InvitationBatchProcessor', () => {
     // Each test that reaches `ensureUser` overrides this with a manager
     // stub of its own shape; the "guardian not found" test never calls it.
     dataSource = { transaction: vi.fn() };
+    tenantStatus = { isRestoring: vi.fn().mockResolvedValue(false) };
 
     processor = new InvitationBatchProcessor(
       guardianRepo,
@@ -61,7 +63,24 @@ describe('InvitationBatchProcessor', () => {
       dataSource,
       authTokens,
       invitationService,
+      tenantStatus,
     );
+  });
+
+  // [68.1.fix] A restore rewrites users/guardians/user_tenants: writing now would be lost.
+  it('parks the job (moveToDelayed + DelayedError) while the school is being restored, writing nothing', async () => {
+    tenantStatus.isRestoring.mockResolvedValue(true);
+    const moveToDelayed = vi.fn().mockResolvedValue(undefined);
+    const parked = { ...job(), moveToDelayed } as unknown as Job<InvitationBatchJobData>;
+
+    await expect(processor.process(parked, 'lock-token')).rejects.toBeInstanceOf(DelayedError);
+
+    expect(tenantStatus.isRestoring).toHaveBeenCalledWith(TENANT, { failClosed: true });
+    expect(moveToDelayed).toHaveBeenCalledWith(expect.any(Number), 'lock-token');
+    expect(moveToDelayed.mock.calls[0][0]).toBeGreaterThan(Date.now());
+    expect(guardianRepo.findOne).not.toHaveBeenCalled();
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(invitationService.issueAndSend).not.toHaveBeenCalled();
   });
 
   it('does nothing when the guardian is not found (already deleted)', async () => {
