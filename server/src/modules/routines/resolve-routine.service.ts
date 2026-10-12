@@ -13,6 +13,8 @@ import { Subject } from '../academics/entities/subject.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { SchoolCalendarService, assertWorkingDaysRange } from '../calendar/school-calendar.service';
 import { occursOn } from './recurrence';
+import { SchoolsService } from '../schools/schools.service';
+import { periodTimesOn, resolveAttendancePolicy } from '../attendance/attendance-policy.util';
 import { ResolveRoutineQueryDto, ResolvedSlot } from './dto/resolve.dto';
 import {
   EnrollmentStatus,
@@ -51,6 +53,7 @@ export class ResolveRoutineService {
     @InjectRepository(Teacher) private readonly teacherRepo: Repository<Teacher>,
     @InjectRepository(Subject) private readonly subjectRepo: Repository<Subject>,
     private readonly calendarService: SchoolCalendarService,
+    private readonly schoolsService: SchoolsService,
     @InjectRepository(ClassSection) private readonly sectionRepo: Repository<ClassSection>,
   ) {}
 
@@ -265,6 +268,8 @@ export class ResolveRoutineService {
       }),
     ]);
 
+    const policy = resolveAttendancePolicy(await this.schoolsService.getResolvedSettings(tenantId));
+    const periodById = new Map(periodSlots.map((p) => [p.id, p]));
     const subjectById = new Map(subjects.map((sub) => [sub.id, sub]));
     const kindBySlot = new Map(periodSlots.map((p) => [p.id, p.kind]));
     const substitutionByKey = new Map(
@@ -299,6 +304,9 @@ export class ResolveRoutineService {
           routine_slot_id: slot.id,
           section_id: slot.section_id,
           period_slot_id: slot.period_slot_id,
+          ...(periodById.has(slot.period_slot_id)
+            ? periodTimesOn(policy, periodById.get(slot.period_slot_id)!, date)
+            : { starts_at: '00:00:00', ends_at: '00:00:00' }),
           weekday: slot.weekday,
           subject_id: slot.subject_id,
           subject_name_en: subjectById.get(slot.subject_id)?.name_en ?? null,

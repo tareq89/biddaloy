@@ -13,9 +13,11 @@ import {
   IsNotEmpty,
   IsOptional,
   Matches,
+  MaxLength,
   Min,
   Max,
   Validate,
+  ValidateIf,
   ValidateNested,
   ValidatorConstraint,
   ValidatorConstraintInterface,
@@ -337,6 +339,73 @@ export class ShiftTimeDto {
   absentAfter: string;
 }
 
+export class SpecialPeriodTimeDto {
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  sequence: number;
+
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  startsAt: string;
+
+  @IsString()
+  @Matches(HH_MM_PATTERN)
+  endsAt: string;
+}
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+export class SpecialTimingDto {
+  @IsString()
+  @MaxLength(60)
+  name: string;
+
+  @Matches(ISO_DATE_PATTERN)
+  from: string;
+
+  @Matches(ISO_DATE_PATTERN)
+  to: string;
+
+  @ValidateIf((o: SpecialTimingDto) => o.shiftId !== null)
+  @IsUUID()
+  shiftId: string | null;
+
+  @Matches(HH_MM_PATTERN)
+  lateAfter: string;
+
+  @Matches(HH_MM_PATTERN)
+  absentAfter: string;
+
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ArrayUnique((p: SpecialPeriodTimeDto) => p.sequence)
+  @ValidateNested({ each: true })
+  @Type(() => SpecialPeriodTimeDto)
+  periods: SpecialPeriodTimeDto[];
+}
+
+/** Each entry ends on/after it starts, each period ends after it starts, and
+ * two entries of the same shift (null = its own group) never overlap. */
+@ValidatorConstraint({ name: 'specialTimingsValid' })
+export class SpecialTimingsValid implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    if (!Array.isArray(value)) return true;
+    const list = value as SpecialTimingDto[];
+    for (const t of list) {
+      if (t.from > t.to) return false;
+      if ((t.periods ?? []).some((p) => p.startsAt >= p.endsAt)) return false;
+    }
+    return list.every((a, i) =>
+      list.every((b, j) => j <= i || a.shiftId !== b.shiftId || a.to < b.from || b.to < a.from),
+    );
+  }
+
+  defaultMessage(): string {
+    return 'Special timings for the same shift must not overlap, and each must end on or after it starts.';
+  }
+}
+
 export class PeriodAttendanceDto {
   @IsBoolean()
   enabled: boolean;
@@ -398,6 +467,14 @@ export class AttendancePolicyDto {
   @ValidateNested({ each: true })
   @Type(() => ShiftTimeDto)
   shiftTimes?: ShiftTimeDto[];
+
+  @OptionalSetting()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => SpecialTimingDto)
+  @Validate(SpecialTimingsValid)
+  specialTimings?: SpecialTimingDto[];
 
   @OptionalSetting()
   @NestedSettings(() => PeriodAttendanceDto)

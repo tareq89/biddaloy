@@ -426,6 +426,57 @@ describe('TenantSettingsDto', () => {
       });
     });
 
+    describe('specialTimings', () => {
+      const SHIFT = '6b1f3c1e-5d2a-4c8e-9a47-1f2e3d4c5b6a';
+      const OTHER = '7c2f4d2f-6e3b-4d9f-8b58-2a3f4e5d6c7b';
+      const t = {
+        name: 'Ramadan',
+        from: '2027-02-08',
+        to: '2027-03-09',
+        shiftId: null,
+        lateAfter: '08:45',
+        absentAfter: '09:30',
+        periods: [{ sequence: 1, startsAt: '08:30', endsAt: '09:05' }],
+      };
+      const run = async (specialTimings: unknown[]) => {
+        const errors = await validate(
+          toDto({
+            version: TENANT_SETTINGS_SCHEMA_VERSION,
+            attendance: { ...DEFAULT_ATTENDANCE_SETTINGS, specialTimings },
+          }),
+          VALIDATION_OPTIONS,
+        );
+        return errors.find((e) => e.property === 'attendance');
+      };
+
+      it('accepts a valid list', async () => {
+        expect(await run([t])).toBeUndefined();
+      });
+      it('rejects from > to', async () => {
+        expect(await run([{ ...t, from: '2027-03-10' }])).toBeDefined();
+      });
+      it('rejects startsAt >= endsAt', async () => {
+        expect(
+          await run([{ ...t, periods: [{ sequence: 1, startsAt: '09:05', endsAt: '09:05' }] }]),
+        ).toBeDefined();
+      });
+      it('rejects two overlapping all-shift entries', async () => {
+        expect(await run([t, { ...t, from: '2027-03-09', to: '2027-03-20' }])).toBeDefined();
+      });
+      it('rejects a duplicate sequence', async () => {
+        const p = { sequence: 1, startsAt: '08:30', endsAt: '09:05' };
+        expect(await run([{ ...t, periods: [p, p] }])).toBeDefined();
+      });
+      it('accepts overlapping entries for different shifts', async () => {
+        expect(
+          await run([
+            { ...t, shiftId: SHIFT },
+            { ...t, shiftId: OTHER },
+          ]),
+        ).toBeUndefined();
+      });
+    });
+
     it('rejects a weeklyOffDays entry outside 0-6', async () => {
       const dto = toDto({
         version: TENANT_SETTINGS_SCHEMA_VERSION,

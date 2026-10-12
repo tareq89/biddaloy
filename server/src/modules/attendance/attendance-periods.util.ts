@@ -40,8 +40,8 @@ export function toPeriods(
     byNo.set(ps.sequence, {
       period_no: ps.sequence,
       name: ps.name,
-      starts_at: ps.starts_at,
-      ends_at: ps.ends_at,
+      starts_at: slot.starts_at,
+      ends_at: slot.ends_at,
       subject_id: slot.subject_id,
       teacher_ids: slot.teacher_ids,
       substitute_teacher_id: slot.substitute_teacher_id ?? null,
