@@ -1524,6 +1524,60 @@ describe('StudentService (integration)', () => {
     });
   });
 
+  describe('junction rows to soft-deleted records survive link edits [68.4.#2299 DATA-07]', () => {
+    const links = async (): Promise<string[]> =>
+      (await dataSource.query('SELECT student_id, guardian_id FROM student_guardians')).map(
+        (r: any) => `${r.student_id}|${r.guardian_id}`,
+      );
+
+    const mkGuardian = (name: string, n: number) =>
+      guardianRepo.save(
+        guardianRepo.create({
+          full_name: name,
+          relationship: 'FATHER',
+          phone: `+880****20${n}`,
+          tenant_id: TENANT_ID,
+        }),
+      );
+    const mkStudent = (name: string, guardian_ids: string[]) =>
+      service.create(
+        { full_name: name, class_section_id: SEED_SECTION_1_ID, guardian_ids },
+        TENANT_ID,
+      );
+
+    it('keeps the G-S row when G is edited to [T] after S was soft-deleted', async () => {
+      const g = await mkGuardian('G', 1);
+      const s = await mkStudent('S', [g.id]);
+      const t = await mkStudent('T', [g.id]);
+      await service.remove(s.id, TENANT_ID, null, NO_CTX);
+      await guardianService.update(g.id, { student_ids: [t.id] } as any, TENANT_ID);
+      const rows = await links();
+      expect(rows).toContain(`${s.id}|${g.id}`);
+      expect(rows).toContain(`${t.id}|${g.id}`);
+    });
+
+    it('keeps the X-B row when X is edited to [A] after guardian B was soft-deleted', async () => {
+      const a = await mkGuardian('A', 2);
+      const b = await mkGuardian('B', 3);
+      const x = await mkStudent('X', [a.id, b.id]);
+      await guardianService.remove(b.id, TENANT_ID);
+      await service.update(x.id, { guardian_ids: [a.id] } as any, TENANT_ID);
+      const rows = await links();
+      expect(rows).toContain(`${x.id}|${b.id}`);
+      expect(rows).toContain(`${x.id}|${a.id}`);
+    });
+
+    it('still removes a link to a live student taken out of the list', async () => {
+      const g = await mkGuardian('G', 4);
+      const s = await mkStudent('S', [g.id]);
+      const t = await mkStudent('T', [g.id]);
+      await guardianService.update(g.id, { student_ids: [t.id] } as any, TENANT_ID);
+      const rows = await links();
+      expect(rows).not.toContain(`${s.id}|${g.id}`);
+      expect(rows).toContain(`${t.id}|${g.id}`);
+    });
+  });
+
   describe('remove (soft delete)', () => {
     it('should soft delete a student', async () => {
       const created = await service.create(
