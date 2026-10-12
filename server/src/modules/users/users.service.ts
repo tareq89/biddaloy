@@ -566,17 +566,22 @@ export class UserService {
     if (dto.profile_picture_url !== undefined)
       updateData.profile_picture_url = dto.profile_picture_url;
     if (Object.keys(updateData).length > 0) {
-      // Only email/phone/full_name are identity; picture edits are not audited.
-      const before: Record<string, unknown> = {};
-      const after: Record<string, unknown> = {};
-      for (const key of ['email', 'phone', 'full_name'] as const) {
-        if (key in updateData && updateData[key] !== (current[key] ?? null)) {
-          before[key] = current[key] ?? null;
-          after[key] = updateData[key];
-        }
-      }
       try {
         await this.userRepo.manager.transaction(async (manager) => {
+          // Lock the row, then diff against it: two admins editing the same field at once must
+          // each audit the value they actually replaced, not the one both read before the lock.
+          const locked = await manager
+            .getRepository(User)
+            .findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
+          // Only email/phone/full_name are identity; picture edits are not audited.
+          const before: Record<string, unknown> = {};
+          const after: Record<string, unknown> = {};
+          for (const key of ['email', 'phone', 'full_name'] as const) {
+            if (key in updateData && updateData[key] !== (locked?.[key] ?? null)) {
+              before[key] = locked?.[key] ?? null;
+              after[key] = updateData[key];
+            }
+          }
           await manager.getRepository(User).update({ id }, updateData);
           if (Object.keys(after).length > 0) {
             await this.audit.record(
