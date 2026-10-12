@@ -257,7 +257,8 @@
     "accept": "Accept",
     "decline": "Decline",
     "expires": "Expires {{date}}",
-    "error": "Something went wrong. Please try again."
+    "error": "Something went wrong. Please try again.",
+    "retryRefresh": "You joined the school. Refresh my access"
   },
   "installPrompt": {
     "menuItem": "Install app",

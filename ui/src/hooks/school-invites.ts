@@ -22,17 +22,32 @@ export function useSchoolInvites() {
   });
 }
 
+/** The accept went through but the token refresh did not: the membership exists, the token lacks it. */
+class AcceptRefreshError extends Error {}
+
 /** Accept, then refresh the token so the new membership is in it (no sign-out). */
 export function useAcceptSchoolInvite() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
       await apiClient.post(`/account/school-invites/${id}/accept`);
-      return adoptSession(queryClient, await postAuthRefresh());
+      try {
+        return await adoptSession(queryClient, await postAuthRefresh());
+      } catch {
+        throw new AcceptRefreshError();
+      }
     },
     // Settled, not success: if accept worked but the refresh failed, the
     // list must still drop the invite instead of offering Accept again.
     onSettled: () => queryClient.invalidateQueries({ queryKey: schoolInvitesKey }),
+  });
+}
+
+/** Retry only the token refresh after an accept whose refresh failed (never re-sends the accept). */
+function useRetryAcceptRefresh() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => adoptSession(queryClient, await postAuthRefresh()),
   });
 }
 
@@ -52,15 +67,19 @@ export function useSchoolInvitesCardProps() {
   const { data: invites = [] } = useSchoolInvites();
   const accept = useAcceptSchoolInvite();
   const decline = useDeclineSchoolInvite();
-  const failed = accept.isError || decline.isError;
+  const retryRefresh = useRetryAcceptRefresh();
+  const refreshPending = accept.error instanceof AcceptRefreshError && !retryRefresh.isSuccess;
+  const failed = accept.isError || decline.isError || retryRefresh.isError;
   return {
     count: invites.length,
     cardProps: {
       invites,
       onAccept: (id: string) => accept.mutate(id),
       onDecline: (id: string) => decline.mutate(id),
-      busy: accept.isPending || decline.isPending,
+      busy: accept.isPending || decline.isPending || retryRefresh.isPending,
       ...(failed && { error: t('schoolInvites.error') }),
+      // The invite is already gone from the list, so the card stays up for this alone.
+      ...(refreshPending && { onRetryRefresh: () => retryRefresh.mutate() }),
     },
   };
 }

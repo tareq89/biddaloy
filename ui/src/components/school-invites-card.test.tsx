@@ -33,6 +33,13 @@ async function renderCard(props: Partial<React.ComponentProps<typeof SchoolInvit
 }
 
 describe('SchoolInvitesCard', () => {
+  it('keeps a retry button when only the sign-in refresh is left to do', async () => {
+    const onRetryRefresh = vi.fn();
+    await renderCard({ invites: [], onRetryRefresh });
+    await userEvent.click(await screen.findByRole('button', { name: /refresh my access/i }));
+    expect(onRetryRefresh).toHaveBeenCalledOnce();
+  });
+
   it('renders nothing for an empty list', async () => {
     await renderCard({ invites: [] });
     expect(screen.queryByRole('region')).toBeNull();

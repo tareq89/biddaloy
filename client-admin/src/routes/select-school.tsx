@@ -7,7 +7,12 @@ import {
   SchoolInvitesCard,
   SchoolPicker,
 } from '@biddaloy/ui/components';
-import { logout, switchActiveTenant, useSchoolInvitesCardProps } from '@biddaloy/ui/hooks';
+import {
+  logout,
+  switchActiveTenant,
+  useSchoolInvites,
+  useSchoolInvitesCardProps,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { isSafeSupportUrl } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
@@ -43,6 +48,9 @@ function SelectSchoolPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const invites = useSchoolInvitesCardProps();
+  const { isPending: invitesPending, data: pendingInvites } = useSchoolInvites();
+  // Unsettled counts as "may have invites": the refresh cookie must outlive the list so Accept can refresh.
+  const hasInvitesOrUnknown = invitesPending || (pendingInvites?.length ?? 0) > 0;
 
   const token = getAccessToken();
   const memberships = token ? decodeAccessTokenMemberships(token) : [];
@@ -57,9 +65,10 @@ function SelectSchoolPage() {
   // e.g. a user removed from every school since their token was issued.
   React.useEffect(() => {
     if (memberships.length === 0) {
-      // The empty state below stays up, but the refresh cookie is revoked now: on a
-      // shared office PC people close the tab rather than press "Sign out".
-      void postAuthLogout('/auth/logout').catch(() => {});
+      // Pending invites keep the session alive (Accept needs the refresh cookie). With none,
+      // the empty state stays up but the cookie is revoked now: on a shared office PC people
+      // close the tab rather than press "Sign out".
+      if (!hasInvitesOrUnknown) void postAuthLogout('/auth/logout').catch(() => {});
     } else if (memberships.length === 1) {
       const [only] = memberships;
       if (only) {
@@ -67,11 +76,11 @@ function SelectSchoolPage() {
         void navigate({ to: search.redirect ?? '/' });
       }
     }
-    // Intentionally runs once on mount only — `memberships`/`search` are
-    // derived from module-scoped state read at render time, not reactive
-    // props this effect should re-run against.
+    // `memberships`/`search` are derived from module-scoped state read at render
+    // time, not reactive props; only the invite list settling (or an accepted
+    // invite changing the token's memberships) should re-run this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hasInvitesOrUnknown, memberships.length]);
 
   function handleSelect(tenantId: string, role: UserRole): void {
     switchActiveTenant(queryClient, tenantId, role);
@@ -86,6 +95,7 @@ function SelectSchoolPage() {
     const supportUrl = import.meta.env.VITE_SUPPORT_URL;
     return (
       <AuthLayout>
+        <SchoolInvitesCard {...invites.cardProps} />
         <EmptyState
           headingLevel={1}
           title={t('selectSchool.none.title')}

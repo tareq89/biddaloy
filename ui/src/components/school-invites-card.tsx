@@ -19,6 +19,8 @@ export interface SchoolInvitesCardProps {
   /** Disables every button while a request is in flight. */
   busy?: boolean;
   error?: string;
+  /** Set when an accept succeeded but the sign-in refresh failed: shows a retry that does not re-accept. */
+  onRetryRefresh?: () => void;
 }
 
 export function SchoolInvitesCard({
@@ -27,13 +29,14 @@ export function SchoolInvitesCard({
   onDecline,
   busy = false,
   error,
+  onRetryRefresh,
 }: SchoolInvitesCardProps) {
   // `nav` first: `check-i18n-keys.mjs` resolves bare `t()` off the first call.
   const { t } = useTranslation('nav');
   const { t: tAuth } = useTranslation('auth');
   const config = useRegionConfig();
   const titleId = React.useId();
-  if (invites.length === 0) return null;
+  if (invites.length === 0 && !onRetryRefresh) return null;
 
   return (
     <section
@@ -47,6 +50,11 @@ export function SchoolInvitesCard({
         <p role="alert" className="text-destructive">
           {error}
         </p>
+      )}
+      {onRetryRefresh && (
+        <Button variant="outline" disabled={busy} onClick={onRetryRefresh}>
+          {t('schoolInvites.retryRefresh')}
+        </Button>
       )}
       <ul className="flex flex-col gap-3">
         {invites.map((invite) => (

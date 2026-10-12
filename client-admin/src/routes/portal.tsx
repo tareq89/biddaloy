@@ -239,7 +239,7 @@ function PortalLayout() {
                   <NotificationBell viewAllTo="/portal/notifications" attention={attention.bell} />
                   <LocaleSwitcher />
                   <ThemeToggle />
-                  <StaffUserMenu securityTo="/portal/account" />
+                  <StaffUserMenu securityTo="/portal/account" invites={schoolInvites} />
                 </>
               }
             />
@@ -259,7 +259,7 @@ function PortalLayout() {
           <>
             <CommandPaletteLauncher pages={portalPages} />
             <NotificationBell viewAllTo="/portal/notifications" attention={attention.bell} />
-            <StaffUserMenu securityTo="/portal/account" />
+            <StaffUserMenu securityTo="/portal/account" invites={schoolInvites} />
           </>
         }
         bottomNav={
