@@ -200,6 +200,49 @@ describe('TeacherScopeService (integration)', () => {
       expect(await ask(secOld)).toEqual({ homeroom: null, subjectIds: [] });
     });
 
+    describe('year switch with an unpublished exam [X-07]', () => {
+      // A past-year class with its own section and exam, so the other tests keep `secOld` untouched.
+      const mkOldClassWithExam = async (status: string) => {
+        const old = await dataSource.getRepository(AcademicYear).findOneByOrFail({
+          tenant_id: TENANT_A,
+          name: 'Scope Past',
+        });
+        const cls = await dataSource.getRepository(Class).save({
+          name: `Old exam ${Math.random()}`,
+          academic_year_id: old.id,
+          tenant_id: TENANT_A,
+        });
+        const sec = await dataSource
+          .getRepository(ClassSection)
+          .save({ section_name: 'X', class_id: cls.id, tenant_id: TENANT_A });
+        const [{ id: examId }] = await dataSource.query(
+          `INSERT INTO exams (tenant_id, academic_year_id, class_id, name, kind, status)
+           VALUES ($1, $2, $3, 'Annual', 'TERM', $4) RETURNING id`,
+          [TENANT_A, old.id, cls.id, status],
+        );
+        return { sectionId: sec.id, examId: examId as string };
+      };
+
+      it('keeps homeroom in last year section while the class has an unpublished exam', async () => {
+        const { sectionId } = await mkOldClassWithExam('DRAFT');
+        await assign(TeacherAssignmentType.CLASS_TEACHER, sectionId);
+        expect((await ask(sectionId)).homeroom).toBe(TeacherAssignmentType.CLASS_TEACHER);
+      });
+
+      it('loses it once every exam of that class is PUBLISHED', async () => {
+        const { sectionId, examId } = await mkOldClassWithExam('DRAFT');
+        await assign(TeacherAssignmentType.CLASS_TEACHER, sectionId);
+        await dataSource.query(`UPDATE exams SET status = 'PUBLISHED' WHERE id = $1`, [examId]);
+        expect((await ask(sectionId)).homeroom).toBeNull();
+      });
+
+      it('a class with only PUBLISHED exams does not extend the grant', async () => {
+        const { sectionId } = await mkOldClassWithExam('PUBLISHED');
+        await assign(TeacherAssignmentType.CLASS_TEACHER, sectionId);
+        expect((await ask(sectionId)).homeroom).toBeNull();
+      });
+    });
+
     it('gives no homeroom role in a soft-deleted section or class', async () => {
       await assign(TeacherAssignmentType.ASSISTANT_CLASS_TEACHER, secDeleted);
       await assign(TeacherAssignmentType.CLASS_TEACHER, secClassDeleted);

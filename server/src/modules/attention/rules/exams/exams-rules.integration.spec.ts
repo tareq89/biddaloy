@@ -228,6 +228,25 @@ describe('Exams rules (integration)', () => {
     expect(mine).toHaveLength(2);
   });
 
+  it("X-07: after the admin switches to a new current year, last year's DRAFT exam still alerts", async () => {
+    // Switch tenant A to a new current year; the exam stays in the old (now non-current) year.
+    await q(`UPDATE academic_years SET is_current = false WHERE id = $1`, [A.yearId]);
+    await q(
+      `INSERT INTO academic_years (name, start_date, end_date, is_current, tenant_id)
+       VALUES ('2044', '2044-01-01', '2044-12-31', true, $1)`,
+      [A.id],
+    );
+    // A published exam of the old year is not open work.
+    const published = await mkExam(A, 'Done', 'PUBLISHED', [A.math]);
+    await sit(A.id, published, A.math, day(-10));
+
+    const found = await marksOverdue.evaluate(ctx(A));
+    expect(found).toHaveLength(1);
+    expect(found[0].params).toMatchObject({ outstanding: 4, days: 10 });
+    // Tenant B never switched and is unaffected by A's switch.
+    expect((await marksOverdue.evaluate(ctx(B)))[0].params).toMatchObject({ outstanding: 4 });
+  });
+
   it('fires: PROCESSED exam, schedule with a missing subject, sitting tomorrow without a seat plan', async () => {
     const processed = await mkExam(A, 'Final', 'PROCESSED', [A.math]);
     const [u] = await unpublished.evaluate(ctx(A));
