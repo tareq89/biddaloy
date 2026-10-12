@@ -210,4 +210,21 @@ describe('MarksService audit (integration)', () => {
     expect(Number(newCells[0].value)).toBe(45);
     expect(newCells.some((c) => c.student_id === studentB)).toBe(false);
   });
+  it('rejects a batch that holds the same student and component twice, writing nothing', async () => {
+    await expect(
+      save([
+        { student_id: studentA, value: '10' },
+        { student_id: studentA, value: '20' },
+      ]),
+    ).rejects.toThrow('same student and component twice');
+
+    expect(await markRows()).toHaveLength(0);
+  });
+
+  it('rounds a value to two decimals once, so the stored mark and the audit row agree', async () => {
+    await save([{ student_id: studentA, value: '72.456' }]);
+
+    const [row] = await markRows();
+    expect((row.new_values as AuditCells).cells[0].value).toBe('72.46');
+  });
 });

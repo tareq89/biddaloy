@@ -142,7 +142,15 @@ export class MarksService {
       throw new BadRequestException('One or more students are not enrolled in this section.');
     }
 
+    const seenCells = new Set<string>();
     for (const cell of dto.cells) {
+      // One cell twice in a batch would make the diff and the audit row
+      // describe a state the grid never had; reject before any write.
+      const key = `${cell.student_id}:${cell.component_id}`;
+      if (seenCells.has(key)) {
+        throw new BadRequestException('A batch cannot hold the same student and component twice.');
+      }
+      seenCells.add(key);
       const component = componentById.get(cell.component_id)!;
       if (component.source === ExamComponentSource.DERIVED) {
         throw new BadRequestException(
@@ -152,6 +160,9 @@ export class MarksService {
       if (cell.status !== MarkStatus.PRESENT && cell.value != null) {
         throw new BadRequestException('value must be null unless status = PRESENT (D10).');
       }
+      // The column is numeric(6,2): round once here so the comparison, the
+      // write and the audit row all see the value the database will hold.
+      if (cell.value != null) cell.value = Number(cell.value).toFixed(2);
       if (cell.value != null && Number(cell.value) > Number(component.full_marks)) {
         throw new BadRequestException(
           `value ${cell.value} exceeds full_marks (${component.full_marks}) for component "${component.name}".`,
