@@ -569,6 +569,8 @@ export class AuthService {
       memberships,
       jti: randomUUID(),
     };
-    return this.jwtService.sign(payload);
+    // `iat_ms`: millisecond issue time for the per-user revocation cut-off
+    // (the standard `iat` is whole seconds). Standard `iat`/`exp` stay untouched.
+    return this.jwtService.sign({ ...payload, iat_ms: Date.now() });
   }
 }

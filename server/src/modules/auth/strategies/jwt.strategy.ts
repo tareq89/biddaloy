@@ -49,7 +49,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // Lets logout-all and reuse-detected revocation take effect
     // immediately instead of waiting out the token's own short lifetime —
     // see access-token-denylist.service.ts.
-    if (await this.denylist.isRevoked(payload.jti)) {
+    if (await this.denylist.isRevoked(payload)) {
       throw new UnauthorizedException('Token has been revoked');
     }
 

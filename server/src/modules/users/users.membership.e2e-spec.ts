@@ -28,6 +28,10 @@ describe('POST /users/me/leave (e2e)', () => {
   const STAFF_EMAIL = 'staff-1321@example.com';
   const PARENT_ID = '00000000-0000-4000-8000-000000000394';
   const FORMER_ID = '00000000-0000-4000-8000-000000000395';
+  const REMOVED_ID = '00000000-0000-4000-8000-000000000396';
+  const REMOVED_EMAIL = 'removed-2297@example.com';
+  const REMOVED2_ID = '00000000-0000-4000-8000-000000000397';
+  const REMOVED2_EMAIL = 'removed2-2297@example.com';
   const PARENT_EMAIL = 'parent-1321@example.com';
 
   async function tokenFor(email: string): Promise<string> {
@@ -68,6 +72,8 @@ describe('POST /users/me/leave (e2e)', () => {
     for (const [id, email, role] of [
       [STAFF_ID, STAFF_EMAIL, UserRole.TEACHER],
       [PARENT_ID, PARENT_EMAIL, UserRole.PARENT],
+      [REMOVED_ID, REMOVED_EMAIL, UserRole.ACCOUNTANT],
+      [REMOVED2_ID, REMOVED2_EMAIL, UserRole.ACCOUNTANT],
     ] as const) {
       await dataSource.query(
         `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
@@ -87,11 +93,16 @@ describe('POST /users/me/leave (e2e)', () => {
         [TEACHER_ID, tenant, UserRole.TEACHER],
       );
     }
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [REMOVED2_ID, OTHER_TENANT, UserRole.ACCOUNTANT],
+    );
   }, 60000);
 
   afterAll(async () => {
     // Best-effort: audit_logs is append-only, so the school and user may stay behind.
-    const ids = [TEACHER_ID, STAFF_ID, PARENT_ID, FORMER_ID];
+    const ids = [TEACHER_ID, STAFF_ID, PARENT_ID, FORMER_ID, REMOVED_ID, REMOVED2_ID];
     await dataSource.query('DELETE FROM user_tenants WHERE user_id = ANY($1)', [ids]);
     await dataSource.query('DELETE FROM refresh_tokens WHERE user_id = ANY($1)', [ids]);
     await app.close();
@@ -123,6 +134,84 @@ describe('POST /users/me/leave (e2e)', () => {
     expect(refreshed.body.memberships.map((m: { tenantId: string }) => m.tenantId)).toEqual([
       OTHER_TENANT,
     ]);
+  });
+
+  // [68.4 AUTH-07] Removal is immediate: the removed user's live access token dies at once.
+  it('removing a member makes their existing access token 401; others and a fresh login are fine', async () => {
+    const removedToken = await tokenFor(REMOVED_EMAIL);
+    const bystanderToken = await tokenFor(STAFF_EMAIL);
+    const adminToken = await tokenFor(SEED_ADMIN_EMAIL);
+    await request()
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${removedToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(200);
+
+    await request()
+      .delete(`/api/v1/users/${REMOVED_ID}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(200);
+
+    await request()
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${removedToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(401);
+    // Another user's live token in the same school is untouched.
+    await request()
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${bystanderToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(200);
+    // A fresh login no longer lists the school, and its token is refused there
+    // (401: ContextGuard treats a non-member as unauthenticated, not 403).
+    const fresh = await request()
+      .post('/api/v1/auth/login')
+      .send({ email: REMOVED_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    const tenants = fresh.body.memberships.map((m: { tenantId: string }) => m.tenantId);
+    expect(tenants).not.toContain(SEED_TENANT_ID);
+    await request()
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${fresh.body.access_token}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(401);
+  });
+
+  // The cut-off is per user, so the old token also dies for the user's other school;
+  // the client refreshes on 401 and carries on there.
+  it('a removed user keeps working in their other school after one refresh', async () => {
+    const login = await request()
+      .post('/api/v1/auth/login')
+      .send({ email: REMOVED2_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    const cookie = (login.headers['set-cookie'] as unknown as string[]).find((c) =>
+      c.startsWith('__Host-refresh_token='),
+    )!;
+    const refreshCookie = `__Host-refresh_token=${decodeURIComponent(cookie.split(';')[0].split('=')[1])}`;
+    const adminToken = await tokenFor(SEED_ADMIN_EMAIL);
+
+    await request()
+      .delete(`/api/v1/users/${REMOVED2_ID}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(200);
+
+    await request()
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${login.body.access_token}`)
+      .set('X-Tenant-ID', OTHER_TENANT)
+      .expect(401);
+    const refreshed = await request()
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', refreshCookie)
+      .expect(200);
+    await request()
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${refreshed.body.access_token}`)
+      .set('X-Tenant-ID', OTHER_TENANT)
+      .expect(200);
   });
 
   it('a TEACHER cannot restore a member (403)', async () => {

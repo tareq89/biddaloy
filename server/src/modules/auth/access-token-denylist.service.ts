@@ -28,6 +28,10 @@ export class AccessTokenDenylistService {
     return `access-denylist:${jti}`;
   }
 
+  private userKey(userId: string): string {
+    return `access-denylist:user:${userId}`;
+  }
+
   async revoke(jti: string, ttlMs: number): Promise<void> {
     if (ttlMs <= 0) return;
     try {
@@ -39,12 +43,41 @@ export class AccessTokenDenylistService {
     }
   }
 
-  async isRevoked(jti: string): Promise<boolean> {
+  /**
+   * Refuses every access token of `userId` issued at or before `at` (millisecond
+   * precision, compared with the token's `iat_ms`). The key expires with the
+   * longest-lived token it can still apply to.
+   */
+  async revokeUserTokensIssuedBefore(userId: string, at: Date, ttlMs: number): Promise<void> {
+    if (ttlMs <= 0) return;
     try {
-      return (await this.redis.exists(this.key(jti))) === 1;
+      await this.redis.set(this.userKey(userId), String(at.getTime()), 'PX', ttlMs);
     } catch (error) {
       this.logger.error(
-        `Denylist check failed for ${jti}, failing open: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to set token cut-off for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  async isRevoked(payload: {
+    jti: string;
+    sub: string;
+    iat?: number;
+    iat_ms?: number;
+  }): Promise<boolean> {
+    try {
+      const [jtiHit, cutOff] = await this.redis.mget(
+        this.key(payload.jti),
+        this.userKey(payload.sub),
+      );
+      if (jtiHit !== null) return true;
+      if (cutOff === null) return false;
+      // Legacy tokens carry only whole-second `iat`: assume the end of that second.
+      const issuedMs = payload.iat_ms ?? (payload.iat ?? 0) * 1000 + 999;
+      return issuedMs <= Number(cutOff);
+    } catch (error) {
+      this.logger.error(
+        `Denylist check failed for ${payload.jti}, failing open: ${error instanceof Error ? error.message : String(error)}`,
       );
       return false;
     }
