@@ -18,6 +18,7 @@ import { CheckoutService } from './checkout.service';
 import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
+import { SchoolsService } from '../schools/schools.service';
 import { ApprovalService } from '../auth/guards/approval.guard';
 import { StorageModule } from '../storage/storage.module';
 import { StudentFee } from './entities/student-fee.entity';
@@ -154,6 +155,7 @@ describe('PaymentReversalService (integration)', () => {
         PaymentReversalService,
         CheckoutService,
         { provide: getQueueToken(FEE_NOTIFY_QUEUE), useValue: { add: feeNotifyAdd } },
+        { provide: SchoolsService, useValue: { getResolvedSettings: async () => ({}) } },
         WalletService,
         AuditService,
         InvoicesService,
