@@ -157,9 +157,11 @@ export class StaffAttendanceService {
 
   /**
    * D31: undo `markLeaveRange` for a cancelled leave. Only future (strictly
-   * after today) SYSTEM-sourced LEAVE marks of this staff profile are
-   * deleted; past days and TEACHER-source marks stay. Returns deleted dates
-   * and the school's `today` it used, so the ledger can keep the same cut.
+   * after today, or every day with `includePast`) SYSTEM-sourced LEAVE marks
+   * of this staff profile are deleted, so those days are unmarked (#2381); an
+   * ABSENT this leave turned into LEAVE goes back to ABSENT. Other marks stay.
+   * Returns the changed dates and the school's `today` it used, so the
+   * ledger can keep the same cut.
    */
   async revertLeaveRange(
     manager: EntityManager,
@@ -184,6 +186,59 @@ export class StaffAttendanceService {
     if (start > to) return { dates: [], today };
 
     const recordRepo = manager.getRepository(StaffAttendanceRecord);
+    const sessionRepo = manager.getRepository(StaffAttendanceSession);
+
+    // #2381: an ABSENT that `markLeaveRange` turned into LEAVE keeps its own
+    // (manual) source, so the SYSTEM delete below never sees it. Put back the
+    // ABSENT, but only where this leave's own audit row did the turning and
+    // nobody has edited the mark since.
+    const restored: { id: string; session_id: string; date: string }[] = await manager.query(
+      `SELECT r.id, r.session_id, s.date::text AS date
+       FROM staff_attendance_records r
+       JOIN staff_attendance_sessions s ON s.id = r.session_id AND s.tenant_id = r.tenant_id
+       WHERE r.tenant_id = $1 AND r.staff_profile_id = $2 AND r.status = $3
+         AND s.date BETWEEN $4 AND $5
+         AND EXISTS (
+           SELECT 1 FROM audit_logs a
+           WHERE a.tenant_id = $1 AND a.entity_type = 'StaffAttendanceRecord' AND a.entity_id = r.id
+             AND a.action = 'UPDATE' AND a.old_values->>'status' = $6
+             AND a.new_values->>'application_id' = $7
+             AND NOT EXISTS (
+               SELECT 1 FROM audit_logs later
+               WHERE later.tenant_id = $1 AND later.entity_type = 'StaffAttendanceRecord'
+                 AND later.entity_id = r.id AND later.created_at > a.created_at))
+       ORDER BY s.date
+       FOR UPDATE OF r`,
+      [
+        tenantId,
+        staffProfileId,
+        AttendanceStatus.LEAVE,
+        start,
+        to,
+        AttendanceStatus.ABSENT,
+        applicationId,
+      ],
+    );
+    for (const row of restored) {
+      await recordRepo.update(
+        { id: row.id, tenant_id: tenantId },
+        { status: AttendanceStatus.ABSENT },
+      );
+      await sessionRepo.increment({ id: row.session_id, tenant_id: tenantId }, 'version', 1);
+      await this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'StaffAttendanceRecord',
+          entity_id: row.id,
+          tenant_id: tenantId,
+          performed_by_user_id: actorUserId,
+          old_values: { status: AttendanceStatus.LEAVE },
+          new_values: { status: AttendanceStatus.ABSENT, application_id: applicationId },
+        },
+        manager,
+      );
+    }
+
     const rows = await recordRepo
       .createQueryBuilder('r')
       .innerJoinAndSelect('r.session', 's')
@@ -199,9 +254,7 @@ export class StaffAttendanceService {
 
     for (const row of rows) {
       await recordRepo.delete({ id: row.id, tenant_id: tenantId });
-      await manager
-        .getRepository(StaffAttendanceSession)
-        .increment({ id: row.session_id, tenant_id: tenantId }, 'version', 1);
+      await sessionRepo.increment({ id: row.session_id, tenant_id: tenantId }, 'version', 1);
       await this.auditService.record(
         {
           action: AuditAction.DELETE,
@@ -215,7 +268,8 @@ export class StaffAttendanceService {
         manager,
       );
     }
-    return { dates: rows.map((r) => r.session.date), today };
+    const dates = [...restored.map((r) => r.date), ...rows.map((r) => r.session.date)].sort();
+    return { dates, today };
   }
 
   async markDay(params: {

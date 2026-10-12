@@ -446,6 +446,72 @@ describe('LeaveService (integration)', () => {
         expect(await leaveMarks()).toEqual([]);
       });
 
+      // #2381: a manual ABSENT the leave turned into LEAVE must not stay LEAVE.
+      async function markAbsent(date: string) {
+        await dataSource.query(
+          `INSERT INTO staff_attendance_sessions (id, tenant_id, date, version, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, 1, NOW(), NOW()) ON CONFLICT (tenant_id, date) DO NOTHING`,
+          [TENANT_ID, date],
+        );
+        await dataSource.query(
+          `INSERT INTO staff_attendance_records (id, tenant_id, session_id, staff_profile_id, status, source, created_at, updated_at)
+           SELECT gen_random_uuid(), $1, id, $3, 'ABSENT', 'TEACHER', NOW(), NOW()
+           FROM staff_attendance_sessions WHERE tenant_id = $1 AND date = $2`,
+          [TENANT_ID, date, staffProfileId],
+        );
+      }
+      function allMarks() {
+        return dataSource.query(
+          `SELECT s.date::text AS date, r.status AS status FROM staff_attendance_records r
+           JOIN staff_attendance_sessions s ON s.id = r.session_id
+           WHERE r.tenant_id = $1 AND r.staff_profile_id = $2 ORDER BY s.date`,
+          [TENANT_ID, staffProfileId],
+        ) as Promise<{ date: string; status: string }[]>;
+      }
+
+      it('revoke: a manual ABSENT the leave turned into LEAVE goes back to ABSENT; its own days are unmarked', async () => {
+        const today = await schoolToday();
+        const absentDay = addDays(today, -3);
+        await markAbsent(absentDay);
+        const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        const created = await record(appId, addDays(today, -4), addDays(today, -2));
+        expect(await allMarks()).toContainEqual({ date: absentDay, status: 'LEAVE' });
+
+        const result = await revoke(appId, true);
+
+        // The leave's own SYSTEM days are gone (unmarked); the manual one is ABSENT again.
+        expect(await allMarks()).toEqual([{ date: absentDay, status: 'ABSENT' }]);
+        expect(result.reverted_dates).toEqual(created.attendance_dates);
+      });
+
+      it('plain cancel: a future manual ABSENT the leave turned into LEAVE goes back to ABSENT', async () => {
+        const today = await schoolToday();
+        const absentDay = addDays(today, 2);
+        await markAbsent(absentDay);
+        const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        await record(appId, addDays(today, 1), addDays(today, 3));
+
+        await revoke(appId, false);
+
+        expect(await allMarks()).toEqual([{ date: absentDay, status: 'ABSENT' }]);
+      });
+
+      it('leaves alone a LEAVE that another leave turned from ABSENT', async () => {
+        const today = await schoolToday();
+        const day = addDays(today, -3);
+        await markAbsent(day);
+        const first = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        await record(first, day, day); // turns the ABSENT into LEAVE
+        // The handler refuses overlaps (D11); the service does not, which lets
+        // this test put a second leave over the same day.
+        const second = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        await record(second, addDays(today, -4), addDays(today, -2));
+
+        await revoke(second, true);
+
+        expect(await allMarks()).toEqual([{ date: day, status: 'LEAVE' }]);
+      });
+
       it('without the flag an ended leave is still 409 LEAVE_ALREADY_ENDED', async () => {
         const today = await schoolToday();
         const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
