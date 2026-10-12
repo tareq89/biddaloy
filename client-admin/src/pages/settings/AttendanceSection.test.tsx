@@ -195,6 +195,85 @@ describe('AttendanceSection', () => {
     expect(screen.queryByText(SERVER_TEXT)).toBeNull();
   });
 
+  describe('special timings', () => {
+    const RAMADAN = {
+      name: 'Ramadan',
+      from: '2027-02-08',
+      to: '2027-03-09',
+      shiftId: null,
+      lateAfter: '08:45',
+      absentAfter: '09:15',
+      periods: [],
+    };
+
+    function capturePatch() {
+      const patchBody = vi.fn();
+      server.use(
+        http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+          patchBody(await request.json());
+          return HttpResponse.json({ version: 1 });
+        }),
+      );
+      return patchBody;
+    }
+
+    function renderSection() {
+      server.use(
+        http.get('*/routines/shifts', () =>
+          HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+        ),
+      );
+      return renderWithProviders(
+        <WithTestRouter>
+          <AttendanceSection
+            schoolId={SCHOOL_ID}
+            attendance={{ ...ATTENDANCE, specialTimings: [RAMADAN] }}
+          />
+        </WithTestRouter>,
+        { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+      );
+    }
+
+    it('lists saved special timings', async () => {
+      renderSection();
+      expect(await screen.findByText('Ramadan')).toBeTruthy();
+      expect(screen.getByText(/late after 08:45/)).toBeTruthy();
+    });
+
+    it('Add -> dialog -> Save sends specialTimings in the attendance slice', async () => {
+      const patchBody = capturePatch();
+      const { user } = renderSection();
+      await user.click(await screen.findByRole('button', { name: 'Add special timing' }));
+      const dialog = await screen.findByRole('dialog');
+      await user.type(within(dialog).getByLabelText('Name'), 'Winter');
+      const ym = new Date().toISOString().slice(0, 7);
+      const pick = async (label: string, day: string) => {
+        await user.click(within(dialog).getByRole('button', { name: label }));
+        await screen.findByRole('grid', { name: 'Calendar' });
+        await user.click(document.querySelector<HTMLElement>(`[data-date="${ym}-${day}"]`)!);
+      };
+      await pick('From', '15');
+      await pick('To', '20');
+      await user.click(within(dialog).getByRole('button', { name: 'Save timing' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(patchBody).toHaveBeenCalled());
+      const sent = patchBody.mock.calls[0]![0].attendance.specialTimings;
+      expect(sent).toHaveLength(2);
+      expect(sent[1]).toMatchObject({ name: 'Winter', shiftId: null, periods: [] });
+    });
+
+    it('Remove drops the entry from the payload', async () => {
+      const patchBody = capturePatch();
+      const { user } = renderSection();
+      await user.click(await screen.findByRole('button', { name: 'Remove Ramadan' }));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(patchBody).toHaveBeenCalled());
+      expect(patchBody.mock.calls[0]![0].attendance.specialTimings).toEqual([]);
+    });
+  });
+
   describe('shift times and period switch', () => {
     const SHIFTS = [
       { id: 'sh-1', name: 'Morning' },

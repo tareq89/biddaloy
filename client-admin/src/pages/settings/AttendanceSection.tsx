@@ -37,8 +37,9 @@ import {
   useUpdateSchoolSettings,
   type AttendancePolicySettings,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
+import { formatDateRange } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -47,6 +48,7 @@ import { z } from 'zod';
 import { latinBounded } from './latin-digits';
 import { SettingsSaved, SettingsSection } from './settings-layout';
 import { SettingsMutationError } from './settings-mutation-error';
+import { SpecialTimingDialog, type SpecialTiming } from './SpecialTimingDialog';
 
 const HH_MM_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -89,6 +91,20 @@ const attendanceSchema = z
     shiftTimes: z.record(
       z.string(),
       z.object({ lateAfter: z.string().optional(), absentAfter: z.string().optional() }),
+    ),
+    // Edited through SpecialTimingDialog, which validates; the server re-checks.
+    specialTimings: z.array(
+      z.object({
+        name: z.string(),
+        from: z.string(),
+        to: z.string(),
+        shiftId: z.string().nullable(),
+        lateAfter: z.string(),
+        absentAfter: z.string(),
+        periods: z.array(
+          z.object({ sequence: z.number(), startsAt: z.string(), endsAt: z.string() }),
+        ),
+      }),
     ),
   })
   .superRefine((values, ctx) => {
@@ -142,6 +158,7 @@ const DEFAULT_VALUES: AttendanceFormValues = {
   autoAbsentCutoffTime: '10:00',
   periodEnabled: false,
   shiftTimes: {},
+  specialTimings: [],
 };
 
 function toFormValues(attendance: AttendancePolicySettings | undefined): AttendanceFormValues {
@@ -169,6 +186,7 @@ function toFormValues(attendance: AttendancePolicySettings | undefined): Attenda
         { lateAfter: row.lateAfter, absentAfter: row.absentAfter },
       ]),
     ),
+    specialTimings: attendance.specialTimings ?? [],
   };
 }
 
@@ -180,6 +198,9 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
     ...useFormShellMode(),
   });
   const [confirmingAutoAbsent, setConfirmingAutoAbsent] = React.useState(false);
+  // `index` = entry being edited, -1 = adding, null = closed.
+  const [editingTiming, setEditingTiming] = React.useState<number | null>(null);
+  const regionConfig = useRegionConfig();
 
   // Not `isDirty && !isSubmitSuccessful` (the pattern most sibling
   // settings sections use): `handleSave` below calls `.mutate()` without
@@ -225,6 +246,7 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
         cutoffTime: values.autoAbsentCutoffTime,
       },
       periodAttendance: { enabled: values.periodEnabled },
+      specialTimings: values.specialTimings,
     };
     // Only once the shift list has loaded: sending [] early would wipe the
     // saved array (the server replaces it whole). Complete rows of shifts
@@ -242,6 +264,12 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
       { onSuccess: () => form.reset(values, { keepIsSubmitSuccessful: true }) },
     );
   }
+
+  const specialTimings = form.watch('specialTimings');
+  const setSpecialTimings = (next: SpecialTiming[]) =>
+    form.setValue('specialTimings', next, { shouldDirty: true });
+  const editing =
+    editingTiming !== null && editingTiming >= 0 ? specialTimings[editingTiming] : undefined;
 
   const weekdayField = (day: (typeof WEEKDAYS)[number]) => (
     <FormField
@@ -511,6 +539,77 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
             </div>
           </fieldset>
         )}
+
+        <fieldset className="mt-6 border-t border-border-subtle pt-4">
+          <legend className="text-h3">{t('attendance.specialTimings.legend')}</legend>
+          <p className="mt-1 text-caption text-text-secondary">
+            {t('attendance.specialTimings.help')}
+          </p>
+          <ul className="mt-3 grid gap-2">
+            {specialTimings.map((timing, index) => (
+              <li
+                key={`${timing.name}-${timing.from}-${timing.shiftId ?? 'all'}`}
+                className="flex flex-wrap items-center gap-2 rounded-md border border-border-subtle p-2"
+              >
+                <span className="flex-1 text-body">
+                  <span className="text-label">{timing.name}</span>
+                  {' · '}
+                  {formatDateRange(timing.from, timing.to, regionConfig)}
+                  {' · '}
+                  {shifts.find((s) => s.id === timing.shiftId)?.name ??
+                    t('attendance.specialTimings.allShifts')}
+                  {' · '}
+                  {t('attendance.specialTimings.lateAfterShort', { time: timing.lateAfter })}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`${t('attendance.specialTimings.edit')} ${timing.name}`}
+                  onClick={() => setEditingTiming(index)}
+                >
+                  {t('attendance.specialTimings.edit')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`${t('attendance.specialTimings.remove')} ${timing.name}`}
+                  onClick={() => setSpecialTimings(specialTimings.filter((_, i) => i !== index))}
+                >
+                  {t('attendance.specialTimings.remove')}
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3"
+            onClick={() => setEditingTiming(-1)}
+          >
+            {t('attendance.specialTimings.add')}
+          </Button>
+          <SpecialTimingDialog
+            open={editingTiming !== null}
+            onOpenChange={(open) => !open && setEditingTiming(null)}
+            initial={editing}
+            shifts={shifts}
+            shiftsWithOwnTimes={shifts
+              .filter((s) => form.watch(`shiftTimes.${s.id}.lateAfter`))
+              .map((s) => s.id)}
+            others={specialTimings.filter((_, i) => i !== editingTiming)}
+            schoolLateAfter={form.watch('lateAfter')}
+            schoolAbsentAfter={form.watch('absentAfter')}
+            onSave={(timing) =>
+              setSpecialTimings(
+                editingTiming !== null && editingTiming >= 0
+                  ? specialTimings.map((x, i) => (i === editingTiming ? timing : x))
+                  : [...specialTimings, timing],
+              )
+            }
+          />
+        </fieldset>
 
         <h3 className="mt-6 border-t border-border-subtle pt-4 text-h3">
           {t('attendance.periodLegend')}
