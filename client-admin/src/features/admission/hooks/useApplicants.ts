@@ -119,15 +119,28 @@ export function useDeleteApplicantDocuments(id: string) {
  * so a bare link would 401: fetch the bytes through the API client and open a
  * blob URL. The tab is opened first, synchronously, so the click still counts
  * as a user gesture and the pop-up blocker lets it through.
+ *
+ * The file comes from an unauthenticated applicant, and a blob URL runs on the
+ * staff app's origin without the server's sandbox headers. So the new tab gets
+ * no `opener`, and anything but the allowed upload types is handed over as a
+ * download instead of being rendered.
  */
+const VIEWABLE_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+
 export async function openApplicantDocument(id: string, type: string): Promise<void> {
+  // Not `'noopener'`: then `window.open` returns null and the tab can't be
+  // pointed at the blob once the bytes arrive.
   const tab = window.open('', '_blank');
   if (!tab) throw new Error('Pop-up blocked');
+  tab.opener = null;
   try {
     const res = await apiClient.get<Blob>(`/admission/applicants/${id}/documents/${type}`, {
       responseType: 'blob',
     });
-    const url = URL.createObjectURL(res.data);
+    const blob = VIEWABLE_TYPES.includes(res.data.type)
+      ? res.data
+      : new Blob([res.data], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
     tab.location.href = url;
     // The tab has started loading by now; keep the URL alive briefly, then free it.
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
