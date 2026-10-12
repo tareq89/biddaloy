@@ -89,8 +89,9 @@ export class OtpLoginService {
     const to = byEmail ? user.email : user.phone;
     if (!to) return {};
 
-    const tenantId = await this.authService.primaryTenantId(user.id, { throwOnError: true });
+    // Gate first, like RecoveryService: a no-school user costs one query and never reaches the lookup.
     if (!(await this.authService.hasLiveMembership(user.id))) return {};
+    const tenantId = await this.authService.primaryTenantId(user.id, { throwOnError: true });
 
     let code: string;
     try {

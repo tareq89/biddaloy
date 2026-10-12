@@ -66,9 +66,10 @@ export class TenantStatusService {
     private readonly schoolRepo: Repository<School>,
     configService: ConfigService,
   ) {
-    // Trimmed: stray whitespace in the env file must not silently disable platform authority.
+    // Trimmed and lower-cased: stray whitespace or an upper-case uuid in the env file must not
+    // silently disable platform authority (ids read back from Postgres are always lower-case).
     this.configuredPlatformTenantId_ =
-      configService.get<string>('PLATFORM_TENANT_ID')?.trim() || undefined;
+      configService.get<string>('PLATFORM_TENANT_ID')?.trim().toLowerCase() || undefined;
     this.isProduction = configService.get<string>('NODE_ENV') === 'production';
   }
 

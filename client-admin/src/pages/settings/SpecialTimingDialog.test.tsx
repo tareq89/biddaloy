@@ -19,28 +19,33 @@ const EXISTING: SpecialTiming = {
   periods: [],
 };
 
-function renderDialog(props: Partial<React.ComponentProps<typeof SpecialTimingDialog>> = {}) {
+function renderDialog(
+  props: Partial<React.ComponentProps<typeof SpecialTimingDialog>> = {},
+  slotsFail = false,
+) {
   const onSave = vi.fn();
   server.use(
     http.get('*/routines/shifts/:id/period-slots', () =>
-      HttpResponse.json([
-        {
-          id: 'p1',
-          sequence: 1,
-          kind: 'CLASS',
-          name: null,
-          starts_at: '08:00:00',
-          ends_at: '08:45:00',
-        },
-        {
-          id: 'p2',
-          sequence: 2,
-          kind: 'CLASS',
-          name: null,
-          starts_at: '08:45:00',
-          ends_at: '09:30:00',
-        },
-      ]),
+      slotsFail
+        ? HttpResponse.json({ message: 'Shift not found' }, { status: 404 })
+        : HttpResponse.json([
+            {
+              id: 'p1',
+              sequence: 1,
+              kind: 'CLASS',
+              name: null,
+              starts_at: '08:00:00',
+              ends_at: '08:45:00',
+            },
+            {
+              id: 'p2',
+              sequence: 2,
+              kind: 'CLASS',
+              name: null,
+              starts_at: '08:45:00',
+              ends_at: '09:30:00',
+            },
+          ]),
     ),
   );
   const result = renderWithProviders(
@@ -145,6 +150,22 @@ describe('SpecialTimingDialog', () => {
     );
     await screen.findByRole('group', { name: '1' });
     expect(screen.getByRole('button', { name: 'Save timing' })).toHaveProperty('disabled', false);
+  });
+
+  // R2-2: a failed slots load (e.g. the shift was deleted) must not dead-end Save or drop overrides.
+  it('when the slots fail to load, says so and saves the existing overrides unchanged', async () => {
+    const periods = [{ sequence: 2, startsAt: '08:50', endsAt: '09:30' }];
+    const { user, onSave } = renderDialog({ initial: { ...EXISTING, periods } }, true);
+    expect(
+      await screen.findByText(
+        "Could not load this shift's periods. Saved period times are kept as they are.",
+      ),
+    ).toBeTruthy();
+    const save = screen.getByRole('button', { name: 'Save timing' });
+    expect(save).toHaveProperty('disabled', false);
+    await user.click(save);
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0]![0].periods).toEqual(periods);
   });
 
   it('tells the admin an all-shifts entry skips shifts with their own times', async () => {

@@ -87,11 +87,13 @@ function DialogBody({
   );
   const [submitted, setSubmitted] = React.useState(false);
 
-  const slots = usePeriodSlots(shiftId ?? undefined).data;
-  const rows = shiftId ? (slots ?? []) : [];
+  const slotsQ = usePeriodSlots(shiftId ?? undefined);
+  const rows = shiftId ? (slotsQ.data ?? []) : [];
   // Saving before the slots load would rebuild `periods` from no rows and
   // silently drop every saved override.
-  const slotsPending = shiftId !== null && !slots;
+  const slotsPending = shiftId !== null && slotsQ.isPending;
+  // Load failed (e.g. the shift was deleted): no rows to edit, so keep the saved overrides as-is.
+  const slotsFailed = shiftId !== null && slotsQ.isError;
 
   const fromIso = from ? toIsoDate(from) : '';
   const toIso = to ? toIsoDate(to) : '';
@@ -118,12 +120,16 @@ function DialogBody({
       lateAfter,
       absentAfter,
       // Only rows the admin changed; none without a single shift.
-      periods: rows.flatMap((r) => {
-        const e = edits[r.sequence];
-        return e && (e.startsAt !== hhmm(r.starts_at) || e.endsAt !== hhmm(r.ends_at))
-          ? [{ sequence: r.sequence, startsAt: e.startsAt, endsAt: e.endsAt }]
-          : [];
-      }),
+      periods: slotsFailed
+        ? shiftId === initial?.shiftId
+          ? (initial?.periods ?? [])
+          : []
+        : rows.flatMap((r) => {
+            const e = edits[r.sequence];
+            return e && (e.startsAt !== hhmm(r.starts_at) || e.endsAt !== hhmm(r.ends_at))
+              ? [{ sequence: r.sequence, startsAt: e.startsAt, endsAt: e.endsAt }]
+              : [];
+          }),
     });
     onOpenChange(false);
   }
@@ -205,6 +211,7 @@ function DialogBody({
             </p>
           )}
           {overlaps && err(t('attendance.specialTimings.overlap'))}
+          {slotsFailed && err(t('attendance.specialTimings.periodsLoadFailed'))}
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="grid gap-1.5">

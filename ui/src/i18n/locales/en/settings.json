@@ -216,6 +216,7 @@
       "dateRequired": "Pick a date.",
       "rangeInvalid": "The end date must be on or after the start date.",
       "periodInvalid": "A period must end after it starts.",
+      "periodsLoadFailed": "Could not load this shift's periods. Saved period times are kept as they are.",
       "overlap": "Another entry for the same shift already covers some of these dates."
     }
   },

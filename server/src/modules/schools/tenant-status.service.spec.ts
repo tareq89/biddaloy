@@ -278,6 +278,12 @@ describe('TenantStatusService', () => {
       expect(build({ PLATFORM_TENANT_ID: '  ' }).configuredPlatformTenantId()).toBeUndefined();
     });
 
+    it('lower-cases the env value so it matches the ids Postgres returns', async () => {
+      const s = build({ PLATFORM_TENANT_ID: ' AB12CD34-0000-4000-8000-00000000ABCD ' });
+      expect(s.configuredPlatformTenantId()).toBe('ab12cd34-0000-4000-8000-00000000abcd');
+      expect(await s.platformTenantId()).toBe('ab12cd34-0000-4000-8000-00000000abcd');
+    });
+
     it('production with no env is undefined, no DB call (fail closed)', async () => {
       const s = build({ NODE_ENV: 'production' });
       schoolRepo.findOne.mockResolvedValue({ id: 'x' });
