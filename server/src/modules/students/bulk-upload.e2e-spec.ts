@@ -196,6 +196,28 @@ describe('Bulk Student Upload E2E', () => {
       }
     });
 
+    it('LIFE-12: re-uploading an imported file reports one error per row and commit is refused', async () => {
+      const buffer = await buildXlsxBuffer([
+        rowValues(REQUIRED_HEADERS, {
+          student_name: 'Reupload One',
+          guardian1_phone: '+8801711120001',
+        }),
+        rowValues(REQUIRED_HEADERS, {
+          student_name: 'Reupload Two',
+          guardian1_phone: '+8801711120002',
+        }),
+      ]);
+      const first = await validate(buffer).expect(201);
+      expect(first.body.hard_error_count).toBe(0);
+      await commit(first.body.staging_id).expect(201);
+
+      const second = await validate(buffer).expect(201);
+      const errs = second.body.errors.filter((e: { severity: string }) => e.severity === 'error');
+      expect(errs).toHaveLength(2);
+      expect(errs[0].message).toContain('Already imported');
+      await commit(second.body.staging_id).expect(409);
+    });
+
     it('returns 403 for TEACHER role on validate', async () => {
       const buffer = await buildXlsxBuffer([rowValues(REQUIRED_HEADERS)]);
 

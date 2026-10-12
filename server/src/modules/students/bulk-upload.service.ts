@@ -15,6 +15,7 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AuditService } from '../audit/audit.service';
 import { ImportStagingService } from '../bulk-import/import-staging.service';
 import type { BulkImportErrorDto } from '../bulk-import/dto/bulk-import.dto';
+import { Student } from './entities/student.entity';
 import { StudentService, GuardianService } from './students.service';
 import { parseSpreadsheet, BulkUploadParseError, ParsedRow } from './bulk-upload.parser';
 import {
@@ -166,6 +167,42 @@ export class StudentBulkUploadService {
         } else {
           throw err;
         }
+      }
+    }
+
+    // [LIFE-12] A re-uploaded file must not import the same students again: a row whose
+    // section + name + guardian1 phone already belongs to a live student is a blocking error.
+    // One query for the whole file (files run to 2,000 rows).
+    const normName = (n: string) => n.trim().toLowerCase().replace(/\s+/g, ' ');
+    const sectionIds = [...new Set(staged.map((r) => r.classSectionId))];
+    if (sectionIds.length > 0) {
+      const existing = await this.classRepo.manager.find(Student, {
+        where: { tenant_id: tenantId, class_section_id: In(sectionIds), deleted_at: IsNull() },
+        relations: ['guardians'],
+      });
+      const byKey = new Map<string, Student>();
+      for (const st of existing) {
+        for (const g of st.guardians) {
+          if (g.phone)
+            byKey.set(`${st.class_section_id}::${normName(st.full_name)}::${g.phone}`, st);
+        }
+      }
+      for (let i = staged.length - 1; i >= 0; i--) {
+        const row = staged[i];
+        const match = byKey.get(
+          `${row.classSectionId}::${normName(row.student_name)}::${row.guardian1_phone}`,
+        );
+        if (!match) continue;
+        staged.splice(i, 1);
+        preview.splice(i, 1);
+        errors.push({
+          row: row.rowNumber,
+          tab: undefined,
+          column: 'student_name',
+          value: row.student_name,
+          severity: 'error',
+          message: `Already imported: ${match.full_name} (${match.registration_number}) is in this section with the same guardian phone. Remove this row to import the rest.`,
+        });
       }
     }
 
