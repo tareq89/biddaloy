@@ -28,6 +28,132 @@ Example: Fatima is a `TEACHER` at Greenview School and a `PARENT` at
 Riverside School (her own child studies there) — one `User` row, two
 `UserTenant` rows.
 
+## Same person in several schools
+
+One person has **one login**: one email, one phone, one password, and any
+Google or Facebook sign-ins. That login is shared by every school the person
+belongs to. Each school then has its own membership row and its own profile
+row for that person.
+
+```mermaid
+erDiagram
+    users ||--o{ user_identities : "Google or Facebook sign-ins"
+    users ||--o{ user_tenants : "one row per school and role"
+    schools ||--o{ user_tenants : "members"
+    users ||--o| teachers : "profile"
+    users ||--o| guardians : "profile"
+    users ||--o| staff_profiles : "profile"
+    users ||--o| students : "profile"
+    users {
+        uuid id
+        string email "unique across the platform"
+        string phone "unique across the platform"
+        string password_hash
+    }
+    user_identities {
+        uuid user_id
+        string provider "google or facebook"
+    }
+    user_tenants {
+        uuid user_id
+        uuid tenant_id
+        enum role
+        timestamp deleted_at "set when the person leaves or is removed"
+    }
+    teachers {
+        uuid user_id
+        uuid tenant_id
+    }
+    guardians {
+        uuid user_id
+        uuid tenant_id
+    }
+```
+
+The entities are `server/src/modules/users/entities/user.entity.ts`
+(`users`), `server/src/modules/auth/entities/user-tenant.entity.ts`
+(`user_tenants`) and `server/src/modules/auth/entities/user-identity.entity.ts`
+(`user_identities`). The profile tables (`teachers`, `guardians`,
+`staff_profiles`, `students`) each carry a `tenant_id`.
+
+**One profile per school is planned in #2153, not done.** Today each profile
+table links to `users` with `@OneToOne`, so its `user_id` is unique across
+all schools: one person can have at most one `guardians` row (and one
+`teachers`, `staff_profiles`, `students` row) on the whole platform. Epic 58
+W0 (#2153) changes that to one per school.
+
+Because the login is shared, no single school owns it. These rules come from
+decisions D12 and D16 of Epic 68 (#2150):
+
+| Action on the shared login                              | Who may do it                                                                                                                                                                                                                                                                                                                                                                                                                                | Enforced by                                                                                                              |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Change email or phone                                   | The person, from their own profile: `POST /users/me/contact-change` (needs their current password), then the code (`POST /users/me/contact-change/confirm-phone`) or the emailed link (`POST /auth/verify-email`). A school admin may use `PATCH /users/:id` only while the person belongs to no other school; otherwise `409` with `details.code: "SHARED_IDENTITY"`. D12 also allows platform support, but there is no route for that yet. | `account-access/contact-change.service.ts`; `UserService.update` with `countOtherMemberships` (`users/users.service.ts`) |
+| Admin password reset (`POST /users/:id/reset-password`) | A school admin, only for a person who belongs to that school alone. Otherwise `409` `SHARED_IDENTITY`, and the person uses "Forgot password" on the sign-in page. Checked before any session is revoked.                                                                                                                                                                                                                                     | `RecoveryService.adminReset` (`account-access/recovery.service.ts`)                                                      |
+| Join another school                                     | Only the person, by accepting a pending join request. Nothing is attached silently. Platform provisioning (adding a school admin), the guardian invite batch and workbook restore all file a join request. "Add staff" (`POST /users`) with an email or phone that already has an account answers `409` today; sending a join request instead is planned in #2224.                                                                           | `insertJoinRequest` and `SchoolInviteService.accept` (`account-access/school-invite.service.ts`)                         |
+| Leave, or be removed from, one school                   | `POST /users/me/leave` or `DELETE /users/:id` soft-deletes that school's `user_tenants` row only; the login and other schools stay. Access ends at the next token refresh, at most 15 minutes later. Ending it on the very next request (D16 "staff removal immediate") is planned in #2297.                                                                                                                                                 | `UserService` (`users/users.service.ts`); `POST /auth/refresh` re-reads memberships                                      |
+| Login lockout                                           | Counted per identifier (email or phone), so a lockout applies in every school (D16 "login lockout stays global").                                                                                                                                                                                                                                                                                                                            | `login-attempt.service.ts` (Redis key `login-lockout:<identifier>`)                                                      |
+| Password reset                                          | Setting a new password through a reset removes every connected Google or Facebook sign-in, each with an audit row.                                                                                                                                                                                                                                                                                                                           | `RecoveryService.applyNewPassword`                                                                                       |
+
+A join request is an `auth_tokens` row with purpose `JOIN_SCHOOL` in the
+inviting school. No `user_tenants` row exists until the person says yes, so
+no guard, list or message can see them early.
+
+```mermaid
+sequenceDiagram
+    actor Admin as School B admin
+    participant S as Server
+    participant DB as PostgreSQL
+    actor P as The person
+
+    Admin->>S: adds an existing account, e.g. guardian invite batch
+    S->>DB: INSERT auth_tokens, purpose JOIN_SCHOOL, metadata.role
+    Note over DB: no user_tenants row yet
+    P->>S: GET /account/school-invites
+    S-->>P: School B, role PARENT, expires_at
+    Note over P: account menu and an alert card show Accept and Decline
+    P->>S: POST /account/school-invites/:id/accept
+    S->>DB: lock the request, INSERT user_tenants, consume the token, audit
+    S-->>P: 204
+    P->>S: POST /auth/refresh
+    S-->>P: new access token whose memberships include School B
+    P->>P: switches to School B
+```
+
+Decline is `POST /account/school-invites/:id/decline`; it revokes the request
+and creates nothing. These three routes need a signed-in user but no
+`X-Tenant-ID`: the person is not a member of School B yet, and every id is
+matched to the caller's own user id. The UI is
+`client-admin/src/components/staff-user-menu.tsx` and
+`ui/src/components/school-invites-card.tsx`.
+
+**Worked example.** Fatima is a `TEACHER` at Greenview and a `PARENT` at
+Riverside. Riverside's admin tries to fix her phone number:
+
+```http
+PATCH /api/v1/users/<fatima's user id>
+X-Tenant-ID: <riverside id>
+
+{ "phone": "+8801811111111" }
+```
+
+```json
+{
+  "statusCode": 409,
+  "message": "This person also belongs to another school. Only they can change their email or phone, from their own profile.",
+  "details": { "code": "SHARED_IDENTITY" }
+}
+```
+
+Nothing changes. If Riverside could change it, Riverside could then reset
+the password and sign in as Fatima at Greenview. Instead Fatima opens her
+own profile and sends `POST /api/v1/users/me/contact-change` with
+`{ "phone": "+8801811111111", "current_password": "…" }`. A code goes to the
+new number. She enters it (`POST /api/v1/users/me/contact-change/confirm-phone`),
+and only then does the phone change, for both schools at once.
+
+The full list of rules like these, per domain, is
+[25-domain-invariants.md](25-domain-invariants.md).
+
 ## Login → request flow
 
 ```mermaid
@@ -407,7 +533,7 @@ sequenceDiagram
 
     loop per queued job
         Queue->>Processor: { tenantId, guardianId, batchId }
-        Processor->>Processor: ensureUser (link by phone/email, or create PARENT)
+        Processor->>Processor: ensureUser (create PARENT, or a join request for an existing verified account)
         Processor->>InvitationService: issueAndSend(userId, metadata: {batch_id})
     end
 
@@ -434,8 +560,11 @@ Key points:
   skipped and why" they already know from bulk reminders.
 - **`ensureUser` is idempotent under retry.** A guardian already linked to
   a `User` is loaded, not recreated; a guardian matching an existing
-  `User` by phone/email is linked, not duplicated; a `23505` race between
-  two concurrent batches is retried as "found".
+  `User` by a _verified_ phone or email, and not yet a member of this
+  school (or holding a password but no `PARENT` role here), is not linked
+  silently: that person gets a `JOIN_SCHOOL` request to accept (see
+  [Same person in several schools](#same-person-in-several-schools)); a
+  `23505` race between two concurrent batches is retried as "found".
 
 ## Sign-in methods, first password, leaving (Epic 13.0)
 
@@ -494,3 +623,12 @@ to represent different people-in-context at different schools — a column on
 `UserTenant` join table is what makes that possible, and it's the reason
 almost every entity in [01-domain-model.md](01-domain-model.md) carries an
 explicit tenant reference.
+
+- **D12 (Epic 68): a shared login is owned by the person, not by a school.**
+  School admins used to edit any member's email or phone (`PATCH /users/:id`)
+  and reset their password. For a person in two schools, that let one school
+  take over the login used at the other. Epic 68 replaced it: the person
+  changes their own contact through the verify flow, an admin edit or reset
+  of a shared login answers `409 SHARED_IDENTITY`, and joining a school is a
+  request the person accepts. The alternative, admin edit plus a
+  verification step, was considered and rejected.
