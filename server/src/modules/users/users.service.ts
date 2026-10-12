@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ConflictException,
@@ -32,6 +33,8 @@ import type {
   NotificationPrefsDto,
 } from './dto/notification-prefs.dto';
 import { AuditService } from '../audit/audit.service';
+import { AccessTokenDenylistService } from '../auth/access-token-denylist.service';
+import { ACCESS_TOKEN_TTL_MS } from '../auth/auth-tokens';
 import { assertPasswordAllowed } from '../auth/password-policy';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import {
@@ -109,6 +112,8 @@ export class UserService {
     private readonly schoolRepo: Repository<School>,
     private readonly staffProfilesService: StaffProfilesService,
     private readonly audit: AuditService,
+    private readonly accessTokenDenylist: AccessTokenDenylistService,
+    @Inject(ACCESS_TOKEN_TTL_MS) private readonly accessTokenTtlMs: number,
   ) {}
 
   /** [67.5.03] Own push mute + the school's (read-only) quiet hours. */
@@ -788,6 +793,13 @@ export class UserService {
         manager,
       );
     });
+    // After commit: every token the user already holds is refused, so removal
+    // is immediate (D16). The client's 401 -> refresh drops the school.
+    await this.accessTokenDenylist.revokeUserTokensIssuedBefore(
+      userId,
+      new Date(),
+      this.accessTokenTtlMs,
+    );
   }
 }
 
