@@ -1,5 +1,12 @@
 import { ExamComponentKind, ExamComponentSource, ExamKind } from '@biddaloy/shared';
-import { adminApiSession, createClassSection, ensureGradingScale, patch, post } from '../api';
+import {
+  adminApiSession,
+  createClassSection,
+  ensureGradingScale,
+  patch,
+  post,
+  submitMarkSheet,
+} from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { ApprovalModalPage } from '../pages';
@@ -115,7 +122,7 @@ test('keyboard-only: palette to new run, fill the form, R-override a row, commit
   if (!marksResponse.ok()) {
     throw new Error(`PATCH marks failed: ${marksResponse.status()} ${await marksResponse.text()}`);
   }
-  await post(request, session, `/exams/${exam.id}/marks/submit`, {
+  await submitMarkSheet(request, session, exam.id, {
     section_id: source.sectionId,
     subject_id: subject.id,
   });
