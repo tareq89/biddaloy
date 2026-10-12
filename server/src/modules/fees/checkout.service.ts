@@ -1,4 +1,3 @@
-import { EventEmitter } from 'events';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { emitRecheck } from '../attention/engine/attention-events';
@@ -52,12 +51,7 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/**
- * In-process emitter, now only for `payments.reversed`. The receipt notice
- * (`payments.recorded`) is a `FEE_NOTIFY_QUEUE` job so it survives a restart [68.4.10].
- */
-export const checkoutEvents = new EventEmitter();
-
+/** Payload of the `payments.recorded` receipt job on `FEE_NOTIFY_QUEUE` [68.4.10]. */
 export interface PaymentsRecordedEvent {
   payment_id: string;
   tenant_id: string;
