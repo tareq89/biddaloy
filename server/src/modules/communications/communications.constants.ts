@@ -21,18 +21,29 @@ export const FEE_NOTIFY_QUEUE = 'fee-notify';
 
 /**
  * Enqueue a fee-notify job after a commit. The `jobId` makes a replay a no-op while the job is
- * still stored (BullMQ rejects `:` in a two-part id, so `-` joins the name and the key). A Redis
- * outage is logged, never thrown: the money is already committed.
+ * waiting, running or done (BullMQ rejects `:` in a two-part id, so `-` joins the name and the
+ * key). BullMQ also ignores `add` while a FAILED job keeps that id (`removeOnFail: 1000`), so a
+ * notice that used up its retries is dropped first and the replay re-sends it. A Redis outage is
+ * logged, never thrown: the money is already committed.
  */
 export async function enqueueFeeNotify(
-  queue: { add: (name: string, data: unknown, opts: { jobId: string }) => Promise<unknown> },
+  queue: {
+    add: (name: string, data: unknown, opts: { jobId: string }) => Promise<unknown>;
+    /** Always there on a real Queue; absent in `{ add }` test doubles. */
+    getJob?: (
+      id: string,
+    ) => Promise<{ isFailed(): Promise<boolean>; remove(): Promise<void> } | undefined>;
+  },
   logger: { error: (msg: string, stack?: string) => void },
   name: 'fees.generated' | 'payments.recorded',
   key: string,
   data: unknown,
 ): Promise<void> {
+  const jobId = `${name}-${key}`;
   try {
-    await queue.add(name, data, { jobId: `${name}-${key}` });
+    const stale = await queue.getJob?.(jobId);
+    if (stale && (await stale.isFailed())) await stale.remove();
+    await queue.add(name, data, { jobId });
   } catch (error) {
     logger.error(
       `could not enqueue ${name} for ${key}`,
