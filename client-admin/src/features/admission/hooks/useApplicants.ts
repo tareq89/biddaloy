@@ -102,4 +102,39 @@ export function useRejectApplicant(id: string) {
   });
 }
 
+export function useDeleteApplicantDocuments(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.delete(`/admission/applicants/${id}/documents`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: applicantKeys.detail(id) });
+    },
+  });
+}
+
+/**
+ * Opens one uploaded document in a new tab. The route needs the bearer token,
+ * so a bare link would 401: fetch the bytes through the API client and open a
+ * blob URL. The tab is opened first, synchronously, so the click still counts
+ * as a user gesture and the pop-up blocker lets it through.
+ */
+export async function openApplicantDocument(id: string, type: string): Promise<void> {
+  const tab = window.open('', '_blank');
+  if (!tab) throw new Error('Pop-up blocked');
+  try {
+    const res = await apiClient.get<Blob>(`/admission/applicants/${id}/documents/${type}`, {
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(res.data);
+    tab.location.href = url;
+    // The tab has started loading by now; keep the URL alive briefly, then free it.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (error) {
+    tab.close();
+    throw error;
+  }
+}
+
 export { applicantKeys };

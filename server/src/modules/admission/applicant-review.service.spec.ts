@@ -11,6 +11,8 @@ import { StudentService, GuardianService } from '../students/students.service';
 import { Guardian } from '../students/entities/guardian.entity';
 import { AdmissionApplicantStatus } from '@biddaloy/shared';
 import { AdmissionNotificationService } from './admission-notification.service';
+import { StorageService } from '../storage/storage.service';
+import { AuditService } from '../audit/audit.service';
 
 /**
  * Unit-level coverage. What this spec covers vs a full e2e:
@@ -59,6 +61,8 @@ describe('ApplicantReviewService', () => {
   let studentService: { create: ReturnType<typeof vi.fn> };
   let guardianService: { findByPhone: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
   let notificationService: { notifyStatusChange: ReturnType<typeof vi.fn> };
+  let storage: { getForTenant: ReturnType<typeof vi.fn>; deleteForTenant: ReturnType<typeof vi.fn> };
+  let audit: { record: ReturnType<typeof vi.fn> };
   let setLockMock: ReturnType<typeof vi.fn>;
   let getOneMock: ReturnType<typeof vi.fn>;
   let guardianRepo: { findOne: ReturnType<typeof vi.fn> };
@@ -113,6 +117,9 @@ describe('ApplicantReviewService', () => {
     guardianRepo = { findOne: vi.fn(async () => null) };
     notificationService = { notifyStatusChange: vi.fn(async () => undefined) };
 
+    storage = { getForTenant: vi.fn(async () => ({ body: 'x', contentType: 'image/jpeg' })), deleteForTenant: vi.fn(async () => undefined) };
+    audit = { record: vi.fn(async () => undefined) };
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         ApplicantReviewService,
@@ -121,6 +128,8 @@ describe('ApplicantReviewService', () => {
         { provide: StudentService, useValue: studentService },
         { provide: GuardianService, useValue: guardianService },
         { provide: AdmissionNotificationService, useValue: notificationService },
+        { provide: StorageService, useValue: storage },
+        { provide: AuditService, useValue: audit },
       ],
     }).compile();
 
@@ -532,6 +541,61 @@ describe('ApplicantReviewService', () => {
         NotFoundException,
       );
       expect(evaluationRepo.find).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('documents', () => {
+    const ctx = { ip: '1.1.1.1', userAgent: 'ua' };
+    const docs = [
+      { type: 'PHOTO', storage_key: 'tenants/tenant-a/admission-documents/a' },
+      { type: 'BIRTH_CERTIFICATE', storage_key: 'tenants/tenant-a/admission-documents/b' },
+    ];
+    const rejected = () =>
+      makeApplicant({ status: AdmissionApplicantStatus.REJECTED, documents: docs as never });
+
+    it('getDocument streams the matching document from tenant storage', async () => {
+      applicantRepo.findOne.mockResolvedValueOnce(rejected());
+      await service.getDocument('applicant-1', 'PHOTO' as never, TENANT_A);
+      expect(storage.getForTenant).toHaveBeenCalledWith(docs[0].storage_key, TENANT_A);
+    });
+
+    it('getDocument 404s when the type was not uploaded', async () => {
+      applicantRepo.findOne.mockResolvedValueOnce(makeApplicant());
+      await expect(
+        service.getDocument('applicant-1', 'TRANSCRIPT' as never, TENANT_A),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('deleteDocuments refuses a PENDING applicant (APPLICANT_NOT_REJECTED)', async () => {
+      applicantRepo.findOne.mockResolvedValueOnce(makeApplicant());
+      await expect(
+        service.deleteDocuments('applicant-1', TENANT_A, REVIEWER, ctx),
+      ).rejects.toMatchObject({
+        response: { details: { code: 'APPLICANT_NOT_REJECTED' } },
+      });
+      expect(storage.deleteForTenant).not.toHaveBeenCalled();
+    });
+
+    it('deleteDocuments clears the list and deletes each storage key after commit', async () => {
+      applicantRepo.findOne.mockResolvedValueOnce(rejected());
+      await service.deleteDocuments('applicant-1', TENANT_A, REVIEWER, ctx);
+      expect(applicantRepo.update).toHaveBeenCalledWith(
+        { id: 'applicant-1', tenant_id: TENANT_A },
+        { documents: [] },
+      );
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ old_values: { types: ['PHOTO', 'BIRTH_CERTIFICATE'] } }),
+        expect.anything(),
+      );
+      expect(storage.deleteForTenant).toHaveBeenCalledTimes(2);
+    });
+
+    it('a storage delete failure does not throw', async () => {
+      applicantRepo.findOne.mockResolvedValueOnce(rejected());
+      storage.deleteForTenant.mockRejectedValue(new Error('s3 down'));
+      await expect(
+        service.deleteDocuments('applicant-1', TENANT_A, REVIEWER, ctx),
+      ).resolves.toBeUndefined();
     });
   });
 });

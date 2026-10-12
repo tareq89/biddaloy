@@ -15,6 +15,7 @@ import { AdmissionApplicantService } from './admission-applicant.service';
 import { AdmissionNotificationService } from './admission-notification.service';
 import { SchoolsModule } from '../schools/schools.module';
 import { StorageModule } from '../storage/storage.module';
+import { AuditModule } from '../audit/audit.module';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { StudentLifecycleEvent } from '../students/entities/student-lifecycle-event.entity';
 import { AdmissionReportsService } from './admission-reports.service';
@@ -42,6 +43,7 @@ import { COMMUNICATIONS_QUEUE, COMMUNICATIONS_QUEUE_JOB_OPTIONS } from '../commu
     CreditsModule,
     SchoolsModule,
     StorageModule,
+    AuditModule,
   ],
   controllers: [IntakeController, ApplicantReviewController, PublicAdmissionController, AdmissionReportsController],
   providers: [

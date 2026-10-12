@@ -267,3 +267,94 @@ test('admit modal shows the matched guardian and requires a choice', async ({ pa
     ).toBeVisible();
   });
 });
+
+test('[#2281] staff opens an uploaded document; after Reject the documents can be deleted', async ({
+  page,
+  request,
+}) => {
+  const admin = await adminApiSession(request);
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+  const applicantName = `Docs E2E ${suffix}`;
+  const guardianPhone = `1${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`;
+
+  await test.step('seed an open intake and submit a public application with a photo', async () => {
+    const section = await createClassSection(request, admin);
+    await post(request, admin, '/admission-intakes', {
+      title: `Docs Intake ${suffix}`,
+      class_section_id: section.sectionId,
+      seat_count: 10,
+      open_date: '2020-01-01',
+      close_date: '2099-12-31',
+      required_document_types: ['PHOTO'],
+    });
+    const guestContext = await page.context().browser()!.newContext();
+    const guestPage = await guestContext.newPage();
+    await guestPage.goto('/admission/default-school');
+    await guestPage
+      .getByRole('combobox', { name: t('admission-public.form.fields.intake') })
+      .click();
+    await guestPage.getByRole('option', { name: `Docs Intake ${suffix}` }).click();
+    await guestPage.getByLabel(t('admission-public.form.fields.applicantName')).fill(applicantName);
+    const today = new Date();
+    const firstOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+    await guestPage
+      .getByRole('button', { name: t('admission-public.form.fields.dateOfBirth') })
+      .click();
+    await guestPage.locator(`[data-date="${firstOfMonth}"]`).click();
+    await guestPage
+      .getByRole('combobox', { name: t('admission-public.form.fields.gender') })
+      .click();
+    await guestPage
+      .getByRole('option', { name: t('admission-public.form.fields.genderOptions.MALE') })
+      .click();
+    await guestPage
+      .getByLabel(t('admission-public.form.fields.guardianName'))
+      .fill(`Docs Guardian ${suffix}`);
+    await guestPage.getByLabel(t('admission-public.form.fields.guardianPhone')).fill(guardianPhone);
+    await guestPage
+      .getByLabel(t('admission-public.form.documents.PHOTO'), { exact: true })
+      .setInputFiles({
+        name: 'photo.jpg',
+        mimeType: 'image/jpeg',
+        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+      });
+    await guestPage.getByRole('button', { name: t('admission-public.form.submit') }).click();
+    await guestPage.getByTestId('reference-number').waitFor();
+    await guestContext.close();
+  });
+
+  const detail = new DetailShellPage(page);
+  await test.step('staff opens the document in a new tab', async () => {
+    const list = new ListShellPage(page, {
+      titleKey: 'admission-staff-applicants.list.title',
+      openLabelKey: 'admission-staff-applicants.list.view',
+    });
+    await page.goto('/admissions/applicants');
+    await list.expectLoaded();
+    await list.openRowByText(applicantName);
+    await detail.expectLoaded(applicantName);
+    const popup = page.context().waitForEvent('page');
+    await page
+      .getByRole('button', { name: t('admission-staff-applicants.detail.openDocument') })
+      .click();
+    const tab = await popup;
+    await tab.waitForURL(/^blob:/);
+    await tab.close();
+  });
+
+  await test.step('Reject, then Delete documents, confirm, no documents', async () => {
+    await detail.clickAction('admission-staff-applicants.detail.actionReject');
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: t('admission-staff-applicants.detail.actionReject') })
+      .click();
+    await page
+      .getByRole('button', { name: t('admission-staff-applicants.detail.deleteDocuments') })
+      .click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: t('admission-staff-applicants.detail.deleteDocuments') })
+      .click();
+    await expect(page.getByText(t('admission-staff-applicants.detail.noDocuments'))).toBeVisible();
+  });
+});
