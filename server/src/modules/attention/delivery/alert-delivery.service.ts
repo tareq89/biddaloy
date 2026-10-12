@@ -3,7 +3,7 @@ import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Job, Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
-import { AlertSeverity, alertRuleMeta, isAlertRuleKey } from '@biddaloy/shared';
+import { ALERT_RULE_KEYS, AlertSeverity, alertRuleMeta, isAlertRuleKey } from '@biddaloy/shared';
 import { PushService } from '../../push/push.service';
 import { SchoolsService } from '../../schools/schools.service';
 import { localDate } from '../../attendance/attendance-policy.util';
@@ -11,6 +11,7 @@ import { AttentionQueryService } from '../api/attention-query.service';
 import {
   ATTENTION_DELIVERY_QUEUE,
   ATTENTION_RECIPIENTS_OPENED,
+  ATTENTION_SWEEP_DONE,
   AttentionRecipientsOpenedPayload,
   JOB_DELIVER_PUSH,
   attentionEvents,
@@ -37,6 +38,9 @@ export function quietHoursEnd(now: Date, tz: string, q: Quiet): Date {
   return localDateTimeToUtc(wrapsToTomorrow ? addDaysIso(today, 1) : today, q.end, tz);
 }
 
+const PUSHABLE_RULE_KEYS = ALERT_RULE_KEYS.filter((k) => alertRuleMeta(k).pushable);
+const CATCH_UP_LIMIT = 500;
+
 /** Web push for newly OPEN recipients (D8, D23, D26). Never sends SMS. */
 @Injectable()
 @Processor(ATTENTION_DELIVERY_QUEUE)
@@ -62,12 +66,50 @@ export class AlertDeliveryService extends WorkerHost implements OnModuleInit, On
     );
   };
 
+  private readonly onSweepDone = () => {
+    void this.catchUp().catch((e) =>
+      this.logger.error(`attention push catch-up failed: ${String(e)}`),
+    );
+  };
+
   onModuleInit(): void {
     attentionEvents.on(ATTENTION_RECIPIENTS_OPENED, this.onOpened);
+    attentionEvents.on(ATTENTION_SWEEP_DONE, this.onSweepDone);
   }
 
   onModuleDestroy(): void {
+    attentionEvents.off(ATTENTION_SWEEP_DONE, this.onSweepDone);
     attentionEvents.off(ATTENTION_RECIPIENTS_OPENED, this.onOpened);
+  }
+
+  /**
+   * The fast path is an in-memory event, lost if the server restarts after the alert is saved.
+   * After each sweep, re-deliver OPEN recipients of the last day that were never pushed (skipping
+   * the newest 2 minutes, still on the fast path). `deliver` claims each row atomically, so this
+   * cannot double-push. The sweep event carries no tenant, so this covers all tenants.
+   */
+  async catchUp(now = new Date()): Promise<void> {
+    const rows: { id: string; tenant_id: string }[] = await this.dataSource.query(
+      `SELECT r.id, r.tenant_id
+         FROM alert_recipients r
+         JOIN alerts a ON a.id = r.alert_id AND a.tenant_id = r.tenant_id
+        WHERE r.state = 'OPEN' AND r.pushed_at IS NULL AND a.status = 'ACTIVE'
+          AND a.rule_key = ANY($3::text[])
+          AND r.created_at BETWEEN $1::timestamptz - interval '1 day'
+                               AND $1::timestamptz - interval '2 minutes'
+        ORDER BY r.created_at
+        LIMIT $2`,
+      [now, CATCH_UP_LIMIT, PUSHABLE_RULE_KEYS],
+    );
+    const byTenant = new Map<string, string[]>();
+    for (const r of rows) byTenant.set(r.tenant_id, [...(byTenant.get(r.tenant_id) ?? []), r.id]);
+    for (const [tenantId, ids] of byTenant) {
+      try {
+        await this.deliver(tenantId, ids, now);
+      } catch (e) {
+        this.logger.error(`attention push catch-up failed for ${tenantId}: ${String(e)}`);
+      }
+    }
   }
 
   async process(job: Job<{ tenantId: string; recipientId: string }>): Promise<void> {

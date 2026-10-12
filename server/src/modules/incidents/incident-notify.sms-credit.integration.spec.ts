@@ -90,7 +90,7 @@ describe('IncidentNotifyListener metered SMS credit (integration, #1317)', () =>
   }, 30000);
 
   it('reserves one batch:incident:<id> for all recipients; worker DEBITs each log against it', async () => {
-    await listener.handleIncidentCreated(EVENT);
+    await listener.process({ data: EVENT } as never);
 
     const reserves = (await ledgerFor(dataSource, TENANT_ID)).filter((r) => r.kind === 'RESERVE');
     expect(reserves.map((r) => [r.idempotency_key, r.units])).toEqual([
@@ -118,7 +118,7 @@ describe('IncidentNotifyListener metered SMS credit (integration, #1317)', () =>
   });
 
   it('REJECTED provider outcome releases every share', async () => {
-    await listener.handleIncidentCreated(EVENT);
+    await listener.process({ data: EVENT } as never);
     const processor = makeProcessor(dataSource, credits, 'REJECTED');
     for (const job of queuedJobs) await runJob(processor, job.data);
 
@@ -127,7 +127,7 @@ describe('IncidentNotifyListener metered SMS credit (integration, #1317)', () =>
 
   it('queue.add failure releases each recipient share under log:<id>:settle', async () => {
     failAdd = true;
-    await listener.handleIncidentCreated(EVENT);
+    await listener.process({ data: EVENT } as never);
 
     const logs = await logRepo.find({ where: { tenant_id: TENANT_ID } });
     expect(logs).toHaveLength(2);

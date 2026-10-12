@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { IsNull } from 'typeorm';
-import { IncidentsService, incidentEvents, INCIDENT_CREATED } from './incidents.service';
+import { IncidentsService } from './incidents.service';
 import { IncidentNotifyListener, INCIDENT_NOTIFICATION_TEXT } from './incident-notify.listener';
 
 const TENANT = 'tenant-1';
@@ -38,6 +38,7 @@ describe('IncidentsService', () => {
   let repo: { save: any; create: any; find: any; findOne: any; update: any };
   let memberships: { findOne: any };
   let audit: { record: any };
+  let queue: { add: any };
   let service: IncidentsService;
 
   beforeEach(() => {
@@ -50,10 +51,9 @@ describe('IncidentsService', () => {
     };
     memberships = { findOne: vi.fn(async () => ({ id: 'm' })) };
     audit = { record: vi.fn(async () => ({})) };
-    service = new IncidentsService(repo as any, memberships as any, audit as any);
+    queue = { add: vi.fn(async () => ({})) };
+    service = new IncidentsService(repo as any, memberships as any, audit as any, queue as any);
   });
-
-  afterEach(() => incidentEvents.removeAllListeners());
 
   const dto = {
     staffId: STAFF,
@@ -63,10 +63,7 @@ describe('IncidentsService', () => {
     description: SECRET,
   } as any;
 
-  it('maps shared names to entity columns, scopes by tenant, and emits ids only', async () => {
-    const seen: unknown[] = [];
-    incidentEvents.on(INCIDENT_CREATED, (e) => seen.push(e));
-
+  it('maps shared names to entity columns, scopes by tenant, and enqueues an ids-only notify job', async () => {
     const res = await service.create(dto, TENANT, ADMIN);
 
     expect(repo.create).toHaveBeenCalledWith(
@@ -79,8 +76,20 @@ describe('IncidentsService', () => {
     );
     expect(res.staffId).toBe(STAFF);
     expect(res.description).toBe(SECRET);
-    expect(seen).toEqual([{ ...EVENT, staffUserId: STAFF, reportedBy: ADMIN }]);
-    expect(JSON.stringify(seen)).not.toContain(SECRET);
+    expect(queue.add).toHaveBeenCalledTimes(1);
+    expect(queue.add).toHaveBeenCalledWith(
+      'incident.created',
+      { ...EVENT, staffUserId: STAFF, reportedBy: ADMIN },
+      { jobId: 'incident-inc-1' },
+    );
+    expect(JSON.stringify(queue.add.mock.calls)).not.toContain(SECRET);
+  });
+
+  it('a queue error is logged and create still returns the incident', async () => {
+    queue.add.mockRejectedValue(new Error('redis down'));
+    const res = await service.create(dto, TENANT, ADMIN);
+    expect(res.staffId).toBe(STAFF);
+    expect(audit.record).toHaveBeenCalledTimes(1);
   });
 
   it('create records an audit row without incident text', async () => {
@@ -225,6 +234,12 @@ describe('IncidentNotifyListener', () => {
       smsCredit as any,
     );
   }
+
+  it('process() runs the handler with the job payload', async () => {
+    const listener = build(null);
+    await listener.process({ data: EVENT } as any);
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+  });
 
   it('pushes only the fixed string, never incident text, and no SMS by default', async () => {
     const listener = build(null);
