@@ -570,11 +570,7 @@ export class AuthService {
    * memberships predate the removal commit therefore always predates the
    * cut-off too, however long the read or the refresh-token write took.
    */
-  private signAccessToken(
-    user: User,
-    memberships: JwtMembership[],
-    issuedAtMs: number,
-  ): string {
+  private signAccessToken(user: User, memberships: JwtMembership[], issuedAtMs: number): string {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
