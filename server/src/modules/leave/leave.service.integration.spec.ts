@@ -279,6 +279,44 @@ describe('LeaveService (integration)', () => {
         await expect(record(appId, DEC_START, JAN_END)).resolves.toMatchObject({ days: 9 });
       });
 
+      it('a year the leave uses no working day of is not checked, even when over quota', async () => {
+        await setQuota(10);
+        await record(
+          await newApplication(TENANT_ID, staffProfileId, staffUserId),
+          DEC_START,
+          '2031-12-30',
+        );
+        await setQuota(1); // lowered after approval: 2031 balance is now 1 - 3 = -2
+        const yearRow = await dataSource.getRepository(AcademicYear).save({
+          name: `Leave TIME-13 zero ${Date.now()}`,
+          start_date: '2031-12-01',
+          end_date: '2032-02-28',
+          is_current: false,
+          tenant_id: TENANT_ID,
+        });
+        try {
+          await dataSource.getRepository(CalendarEvent).save({
+            tenant_id: TENANT_ID,
+            academic_year_id: yearRow.id,
+            start_date: '2031-12-31',
+            end_date: '2031-12-31',
+            name: 'Year-end holiday',
+            counts_as_working_day: false,
+            published_at: new Date(),
+          });
+          // Wed 31 Dec 2031 is a holiday, so 2031 gives 0 days; Thu 1 Jan 2032 is the only one.
+          const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+          await expect(record(appId, '2031-12-31', '2032-01-01')).resolves.toMatchObject({
+            days: 1,
+          });
+        } finally {
+          await dataSource.query(`DELETE FROM calendar_events WHERE academic_year_id = $1`, [
+            yearRow.id,
+          ]);
+          await dataSource.query(`DELETE FROM academic_years WHERE id = $1`, [yearRow.id]);
+        }
+      });
+
       it('is refused naming the year that has no room', async () => {
         await setQuota(4); // 2031 fits (4), 2032 needs 5
         const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
