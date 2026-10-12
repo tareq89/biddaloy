@@ -1,6 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { MarkGrid } from '../../../exams/entities/mark-grid.entity';
 import { fromCell } from '../../codec/cell-format';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import type {
   ColumnSpec,
   ExportContext,
@@ -17,8 +18,8 @@ import { sectionsTab } from '../academics/sections.tab';
  * `remove` hard-deletes, same as `payment_allocations.tab.ts`.
  *
  * `submitted_by` has no FK relation on the entity (a plain nullable uuid),
- * so it is carried through as a raw `uuid` column rather than a `ref` —
- * there is no tab to resolve it against.
+ * but it is exported as a `ref` to the `users` tab so a restore can only name
+ * a user of this school (GAP-10).
  */
 
 export interface MarkGridRow {
@@ -58,7 +59,12 @@ const columns: readonly ColumnSpec[] = [
     required: true,
     label: { en: 'State', bn: 'অবস্থা' },
   },
-  { key: 'submitted_by', type: 'uuid', label: { en: 'Submitted by', bn: 'জমা দিয়েছেন' } },
+  {
+    key: 'submitted_by',
+    type: 'ref',
+    ref: 'users',
+    label: { en: 'Submitted by', bn: 'জমা দিয়েছেন' },
+  },
   { key: 'submitted_at', type: 'datetime', label: { en: 'Submitted at', bn: 'জমার সময়' } },
 ];
 
@@ -72,7 +78,7 @@ export const markGridsTab: TabSpec<MarkGrid, MarkGridRow> = {
   name: 'mark_grids',
   entity: MarkGrid,
   excluded,
-  dependsOn: ['exams', 'sections', 'subjects'],
+  dependsOn: ['exams', 'sections', 'subjects', 'users'],
   columns,
   naturalKey: ['exam', 'section', 'subject'],
   deleteByAbsence: true,
@@ -100,7 +106,8 @@ export const markGridsTab: TabSpec<MarkGrid, MarkGridRow> = {
       section: ctx.keyOf('sections', entity.section_id),
       subject: ctx.keyOf('subjects', entity.subject_id),
       state: entity.state,
-      submitted_by: entity.submitted_by,
+      // Nullable: a departed teacher is not in the users tab -> null.
+      submitted_by: entity.submitted_by ? optionalKeyOf(ctx, 'users', entity.submitted_by) : null,
       submitted_at: entity.submitted_at,
     };
   },
@@ -173,6 +180,22 @@ export const markGridsTab: TabSpec<MarkGrid, MarkGridRow> = {
       }
     }
 
+    let submitted_byId: string | null = null;
+    const submitted_byKey = (values.submitted_by as string | null) ?? '';
+    if (submitted_byKey) {
+      submitted_byId = ctx.ref('users', submitted_byKey) ?? null;
+      if (!submitted_byId) {
+        errors.push({
+          tab: 'mark_grids',
+          row: rowNo,
+          column: 'submitted_by',
+          message: `Column "submitted_by": no user "${submitted_byKey}" was found.`,
+          severity: 'error',
+          value: submitted_byKey,
+        });
+      }
+    }
+
     if (errors.length > 0) return { errors };
 
     return {
@@ -185,7 +208,7 @@ export const markGridsTab: TabSpec<MarkGrid, MarkGridRow> = {
         subject_id: subjectId as string,
         subject_key: subjectKey,
         state: values.state as string,
-        submitted_by: (values.submitted_by as string | null) ?? null,
+        submitted_by: submitted_byId,
         submitted_at: (values.submitted_at as string | null) ?? null,
       },
     };
@@ -205,7 +228,8 @@ export const markGridsTab: TabSpec<MarkGrid, MarkGridRow> = {
     if (row.section_id !== existing.section_id) changed.push('section');
     if (row.subject_id !== existing.subject_id) changed.push('subject');
     if (row.state !== existing.state) changed.push('state');
-    if ((row.submitted_by ?? null) !== (existing.submitted_by ?? null)) {
+    // null = the export could not name the user (departed / SUPER_ADMIN): keep existing.
+    if (row.submitted_by !== null && row.submitted_by !== existing.submitted_by) {
       changed.push('submitted_by');
     }
     const rowSubmitted = row.submitted_at ?? null;

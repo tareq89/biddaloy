@@ -52,6 +52,18 @@ export interface RowError {
 /** Resolves a foreign entity id to the natural key written into the cell. */
 export interface ExportContext {
   keyOf(tab: string, id: string): string;
+  /**
+   * Like `keyOf`, but null when the id is not in that tab's export instead of
+   * throwing. For nullable attribution columns whose user may be departed or
+   * a SUPER_ADMIN (neither is in the `users` tab). Absent in simple test
+   * doubles; use `optionalKeyOf`.
+   */
+  tryKeyOf?(tab: string, id: string): string | null;
+}
+
+/** `ctx.tryKeyOf` when the context has one, else strict `keyOf`. */
+export function optionalKeyOf(ctx: ExportContext, tab: string, id: string): string | null {
+  return ctx.tryKeyOf ? ctx.tryKeyOf(tab, id) : ctx.keyOf(tab, id);
 }
 
 /** Resolves a natural key read from a cell back to a local entity id. */

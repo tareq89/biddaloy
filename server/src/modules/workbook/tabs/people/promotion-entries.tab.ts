@@ -5,6 +5,7 @@ import { PromotionEntry } from '../../../promotions/entities/promotion-entry.ent
 import { Student } from '../../../students/entities/student.entity';
 import { COMMITTABLE_PROMOTION_OUTCOMES } from '../../../promotions/dto/promotions.dto';
 import { fromCell } from '../../codec/cell-format';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import type {
   ColumnSpec,
   ExportContext,
@@ -124,8 +125,9 @@ const columns: readonly ColumnSpec[] = [
   },
   {
     key: 'overridden_by',
-    type: 'uuid',
-    label: { en: 'Overridden by (user id)', bn: 'ওভাররাইডকারী (ইউজার আইডি)' },
+    type: 'ref',
+    ref: 'users',
+    label: { en: 'Overridden by', bn: 'ওভাররাইডকারী' },
   },
   { key: 'group_name', type: 'string', label: { en: 'Group', bn: 'গ্রুপ' } },
   {
@@ -167,7 +169,7 @@ const excluded: readonly string[] = [
   'target_class_id', // exported instead as the `target_class` ref column
   'target_section_id', // exported instead as the `target_section` ref column
   'target_enrollment_id', // exported instead as the `target_enrollment` ref column
-  'overridden_by_user_id', // exported instead as the `overridden_by` uuid column — same reasoning as `promotion-runs.tab.ts`'s `committed_by`/`approved_by`/`created_by`
+  'overridden_by_user_id', // exported instead as the `overridden_by` ref column (users)
 ];
 
 const MAX_LENGTHS: Record<string, number> = {
@@ -182,7 +184,7 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
   // `students`/`sections`/`classes`/`enrollments` are needed even though
   // some are optional columns, because those columns still resolve against
   // those tabs (`assertRegistryValid`, `registry.ts`).
-  dependsOn: ['promotion_runs', 'students', 'enrollments', 'sections', 'classes'],
+  dependsOn: ['promotion_runs', 'students', 'enrollments', 'sections', 'classes', 'users'],
   columns,
   naturalKey: ['run', 'student'],
   deleteByAbsence: true,
@@ -228,7 +230,9 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
       final_outcome: entity.final_outcome,
       is_override: entity.is_override,
       override_note: entity.override_note,
-      overridden_by: entity.overridden_by_user_id,
+      overridden_by: entity.overridden_by_user_id
+        ? optionalKeyOf(ctx, 'users', entity.overridden_by_user_id)
+        : null,
       group_name: entity.group_name,
       target_class: entity.target_class_id ? ctx.keyOf('classes', entity.target_class_id) : null,
       target_section: entity.target_section_id
@@ -292,6 +296,7 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
     }
 
     function resolveOptionalRef(column: string, ref: string, key: string | null): string | null {
+      const noun = ref === 'users' ? 'user' : ref.replace('_', ' ');
       if (!key) return null;
       const id = ctx.ref(ref, key);
       if (!id) {
@@ -299,7 +304,7 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
           tab: 'promotion_entries',
           row: rowNo,
           column,
-          message: `Column "${column}": no ${ref.replace('_', ' ')} "${key}" was found.`,
+          message: `Column "${column}": no ${noun} "${key}" was found.`,
           severity: 'error',
           value: key,
         });
@@ -332,6 +337,11 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
       'target_section',
       'sections',
       (values.target_section as string | null) ?? null,
+    );
+    const overriddenById = resolveOptionalRef(
+      'overridden_by',
+      'users',
+      (values.overridden_by as string | null) ?? null,
     );
     const targetEnrollmentId = resolveOptionalRef(
       'target_enrollment',
@@ -375,7 +385,7 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
         final_outcome: values.final_outcome as PromotionOutcome,
         is_override: isOverride,
         override_note: overrideNote,
-        overridden_by_user_id: (values.overridden_by as string | null) ?? null,
+        overridden_by_user_id: overriddenById,
         group_name: (values.group_name as string | null) ?? null,
         target_class_id: targetClassId,
         target_section_id: targetSectionId,
@@ -421,7 +431,11 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
     if (row.is_override !== existing.is_override) changed.push('is_override');
     if ((row.override_note ?? null) !== (existing.override_note ?? null))
       changed.push('override_note');
-    if ((row.overridden_by_user_id ?? null) !== (existing.overridden_by_user_id ?? null)) {
+    // null = the export could not name the user (departed / SUPER_ADMIN): keep existing.
+    if (
+      row.overridden_by_user_id !== null &&
+      row.overridden_by_user_id !== existing.overridden_by_user_id
+    ) {
       changed.push('overridden_by');
     }
     if ((row.group_name ?? null) !== (existing.group_name ?? null)) changed.push('group_name');
@@ -463,7 +477,8 @@ export const promotionEntriesTab: TabSpec<PromotionEntry, PromotionEntryRow> = {
     entry.final_outcome = row.final_outcome;
     entry.is_override = row.is_override;
     entry.override_note = row.override_note;
-    entry.overridden_by_user_id = row.overridden_by_user_id;
+    entry.overridden_by_user_id =
+      row.overridden_by_user_id ?? existing?.overridden_by_user_id ?? null;
     entry.group_name = row.group_name;
     entry.target_class_id = row.target_class_id;
     entry.target_section_id = row.target_section_id;
