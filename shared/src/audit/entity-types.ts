@@ -81,6 +81,8 @@ export const AUDIT_ENTITY_TYPES = [
   'StaffDesignationHistory',
   'StaffDocument',
   'StaffHrRecord',
+  // [68.4 GAP-11] create and withdraw of a staff incident (no incident text in the row).
+  'StaffIncident',
   'Student',
   'StudentDocumentPrint',
   // [Epic 38.2.3] `FinesService.waiveFine` audits the bill it waived.

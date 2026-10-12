@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { StaffIncident } from './entities/staff-incident.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { School } from '../schools/entities/school.entity';
+import { AuditModule } from '../audit/audit.module';
 import { PushModule } from '../push/push.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { CreditsModule } from '../communications/credits/credits.module';
@@ -14,6 +15,7 @@ import { IncidentNotifyListener } from './incident-notify.listener';
 @Module({
   imports: [
     TypeOrmModule.forFeature([StaffIncident, UserTenant, School]),
+    AuditModule,
     PushModule,
     CommunicationsModule,
     CreditsModule,

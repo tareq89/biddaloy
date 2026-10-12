@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
@@ -70,4 +71,16 @@ export class IncidentResponseDto implements IncidentResponse {
   @ApiProperty() occurredOn: string;
   @ApiProperty() description: string;
   @ApiProperty() createdAt: string;
+  @ApiProperty({ type: String, nullable: true }) withdrawnAt: string | null;
+}
+
+/** `POST /incidents/:id/withdraw` */
+export class WithdrawIncidentDto {
+  @ApiProperty({ minLength: 1, maxLength: 500 })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  @SanitizeText()
+  reason: string;
 }

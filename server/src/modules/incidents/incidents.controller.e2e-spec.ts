@@ -177,6 +177,157 @@ describe('incidents (28.2.x)', () => {
     expect(list.body.map((i: { id: string }) => i.id)).not.toContain(id);
   });
 
+  it('ADMIN withdraws an incident; it leaves the list and the performance view; audit rows exist', async () => {
+    const created = await as(
+      supertest(app.getHttpServer()).post(`${API}/incidents`),
+      adminToken,
+      UserRole.ADMIN,
+    )
+      .send(body)
+      .expect(201);
+    const id = created.body.id;
+    expect(created.body.withdrawnAt).toBeNull();
+
+    const [year] = await ds.query(`SELECT id FROM academic_years WHERE tenant_id = $1 LIMIT 1`, [
+      SEED_TENANT_ID,
+    ]);
+    const incidentCount = async () =>
+      (
+        await as(
+          supertest(app.getHttpServer())
+            .get(`${API}/performance/staff/${SUBJECT_ID}`)
+            .query({ academicYearId: year.id }),
+          adminToken,
+          UserRole.ADMIN,
+        ).expect(200)
+      ).body.incidentCount as number;
+    const before = await incidentCount();
+    expect(before).toBeGreaterThan(0);
+
+    const res = await as(
+      supertest(app.getHttpServer()).post(`${API}/incidents/${id}/withdraw`),
+      adminToken,
+      UserRole.ADMIN,
+    )
+      .send({ reason: 'Filed against the wrong staff member' })
+      .expect(200);
+    expect(res.body.withdrawnAt).toEqual(expect.any(String));
+
+    const list = await as(
+      supertest(app.getHttpServer()).get(`${API}/incidents`).query({ staffUserId: SUBJECT_ID }),
+      adminToken,
+      UserRole.ADMIN,
+    ).expect(200);
+    expect(list.body.map((i: { id: string }) => i.id)).not.toContain(id);
+    await as(
+      supertest(app.getHttpServer()).get(`${API}/incidents/${id}`),
+      adminToken,
+      UserRole.ADMIN,
+    ).expect(404);
+
+    // The performance view drops it too.
+    expect(await incidentCount()).toBe(before - 1);
+
+    // The row is kept, with the reason; create and withdraw each wrote an audit row.
+    const [row] = await ds.query(`SELECT withdraw_reason FROM staff_incidents WHERE id = $1`, [id]);
+    expect(row.withdraw_reason).toBe('Filed against the wrong staff member');
+    const audits = await ds.query(
+      `SELECT action FROM audit_logs WHERE entity_type = 'StaffIncident' AND entity_id = $1`,
+      [id],
+    );
+    expect(audits.map((a: { action: string }) => a.action).sort()).toEqual(['CREATE', 'UPDATE']);
+
+    // A second withdraw is a conflict, not a silent overwrite.
+    await as(
+      supertest(app.getHttpServer()).post(`${API}/incidents/${id}/withdraw`),
+      adminToken,
+      UserRole.ADMIN,
+    )
+      .send({ reason: 'again' })
+      .expect(409);
+  });
+
+  it('the subject never sees StaffIncident audit rows about themself (list or entity route)', async () => {
+    const created = await as(
+      supertest(app.getHttpServer()).post(`${API}/incidents`),
+      adminToken,
+      UserRole.ADMIN,
+    )
+      .send(body)
+      .expect(201);
+    const id = created.body.id;
+    await as(
+      supertest(app.getHttpServer()).post(`${API}/incidents/${id}/withdraw`),
+      adminToken,
+      UserRole.ADMIN,
+    )
+      .send({ reason: 'privacy check' })
+      .expect(200);
+
+    // The reporter (ADMIN) sees both audit rows...
+    const seen = await as(
+      supertest(app.getHttpServer()).get(`${API}/audit-logs/entity/StaffIncident/${id}`),
+      adminToken,
+      UserRole.ADMIN,
+    ).expect(200);
+    expect(seen.body.total).toBe(2);
+
+    // ...the subject (also ADMIN) sees none: the row's existence is the leak.
+    const entity = await as(
+      supertest(app.getHttpServer()).get(`${API}/audit-logs/entity/StaffIncident/${id}`),
+      subjectToken,
+      UserRole.ADMIN,
+    ).expect(200);
+    expect(entity.body.total).toBe(0);
+    const list = await as(
+      supertest(app.getHttpServer())
+        .get(`${API}/audit-logs`)
+        .query({ entity_type: 'StaffIncident', limit: 100 }),
+      subjectToken,
+      UserRole.ADMIN,
+    ).expect(200);
+    expect(list.body.data.map((r: { entity_id: string }) => r.entity_id)).not.toContain(id);
+  });
+
+  it('withdraw: empty or blank reason is 400', async () => {
+    const id = await insertIncident(SEED_TENANT_ID, SUBJECT_ID);
+    for (const reason of ['', '   ']) {
+      await as(
+        supertest(app.getHttpServer()).post(`${API}/incidents/${id}/withdraw`),
+        adminToken,
+        UserRole.ADMIN,
+      )
+        .send({ reason })
+        .expect(400);
+    }
+  });
+
+  it('withdraw: TEACHER is 403, the subject is 404, tenant B’s incident is 404', async () => {
+    const id = await insertIncident(SEED_TENANT_ID, SUBJECT_ID);
+    await as(
+      supertest(app.getHttpServer()).post(`${API}/incidents/${id}/withdraw`),
+      teacherToken,
+      UserRole.TEACHER,
+    )
+      .send({ reason: 'x' })
+      .expect(403);
+    await as(
+      supertest(app.getHttpServer()).post(`${API}/incidents/${id}/withdraw`),
+      subjectToken,
+      UserRole.ADMIN,
+    )
+      .send({ reason: 'x' })
+      .expect(404);
+    const other = await insertIncident(TENANT_B, OTHER_TENANT_STAFF);
+    await as(
+      supertest(app.getHttpServer()).post(`${API}/incidents/${other}/withdraw`),
+      adminToken,
+      UserRole.ADMIN,
+    )
+      .send({ reason: 'x' })
+      .expect(404);
+  });
+
   it('TEACHER is denied on every route (PermissionsGuard 403)', async () => {
     const id = await insertIncident(SEED_TENANT_ID, SUBJECT_ID);
     await as(
