@@ -322,7 +322,8 @@ export const marksTab: TabSpec<Mark, MarkRow> = {
     mark.component_id = row.component_id;
     mark.value = row.value;
     mark.status = row.status as Mark['status'];
-    mark.entered_by = row.entered_by;
+    // null = the export could not name the user: keep the stored one (as diffFields does).
+    mark.entered_by = row.entered_by ?? existing?.entered_by ?? null;
 
     return m.save(Mark, mark);
   },
