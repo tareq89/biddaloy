@@ -140,4 +140,36 @@ describe('MarksAuthorizationService with real TeacherScopeService (integration)'
     await expect(authz.assertCanRead(call(sec6A, liveSubjectId))).resolves.toBeUndefined();
     await expect(authz.assertCanWrite(call(sec6A, liveSubjectId))).resolves.toBeUndefined();
   });
+
+  it("X-07: last year's CLASS teacher still reads marks while the class has an unpublished exam, not after publish", async () => {
+    // A past (non-current) year with its own class, section and DRAFT exam.
+    const oldYear = await dataSource.getRepository(AcademicYear).save({
+      name: `Marks Authz Old ${Math.random()}`,
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+      is_current: false,
+      tenant_id: TENANT,
+    });
+    const oldClass = await dataSource
+      .getRepository(Class)
+      .save({ name: 'Class 5', academic_year_id: oldYear.id, tenant_id: TENANT });
+    const oldSection = (
+      await dataSource
+        .getRepository(ClassSection)
+        .save({ section_name: 'A', class_id: oldClass.id, tenant_id: TENANT })
+    ).id;
+    const [{ id: examId }] = await dataSource.query(
+      `INSERT INTO exams (tenant_id, academic_year_id, class_id, name, kind, status)
+       VALUES ($1, $2, $3, 'Annual', 'TERM', 'DRAFT') RETURNING id`,
+      [TENANT, oldYear.id, oldClass.id],
+    );
+    await assign(TeacherAssignmentType.CLASS_TEACHER, oldSection);
+
+    await expect(authz.assertCanRead(call(oldSection, liveSubjectId))).resolves.toBeUndefined();
+
+    await dataSource.query(`UPDATE exams SET status = 'PUBLISHED' WHERE id = $1`, [examId]);
+    await expect(authz.assertCanRead(call(oldSection, liveSubjectId))).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
 });

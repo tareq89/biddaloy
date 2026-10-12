@@ -144,7 +144,10 @@ export class TeacherScopeService {
         { tenantId },
       )
       // Homeroom (CLASS/ASSISTANT) grants a read of EVERY subject, so it only
-      // counts while the section is live and in the current academic year.
+      // counts while the section is live and in the current academic year, or in
+      // last year while that class still has an unpublished exam [X-07] (marks entry
+      // outlives the year flag). Trade-off: the grant then covers every homeroom-gated
+      // read, not only marks; narrow it to marks reads if that ever matters.
       // SUBJECT_TEACHER rows keep their existing (year-agnostic) behaviour.
       .leftJoin(
         'class_sections',
@@ -161,23 +164,23 @@ export class TeacherScopeService {
       .leftJoin(
         'academic_years',
         'ay',
-        'ay.id = c.academic_year_id AND ay.tenant_id = :tenantId AND ay.is_current = true AND ay.deleted_at IS NULL',
+        "ay.id = c.academic_year_id AND ay.tenant_id = :tenantId AND ay.deleted_at IS NULL AND (ay.is_current = true OR EXISTS (SELECT 1 FROM exams e WHERE e.tenant_id = :tenantId AND e.class_id = c.id AND e.academic_year_id = ay.id AND e.deleted_at IS NULL AND e.status <> 'PUBLISHED'))",
         { tenantId },
       )
       .select('tcs.assignment_type', 'assignment_type')
       .addSelect('s.id', 'live_subject_id')
-      .addSelect('ay.id', 'current_year_id')
+      .addSelect('ay.id', 'homeroom_year_id')
       .where('tcs.tenant_id = :tenantId', { tenantId })
       .andWhere('tcs.section_id = :sectionId', { sectionId })
       .andWhere('t.user_id = :userId', { userId })
       .getRawMany<{
         assignment_type: TeacherAssignmentType;
         live_subject_id: string | null;
-        current_year_id: string | null;
+        homeroom_year_id: string | null;
       }>();
 
     const homeroomTypes = rows
-      .filter((r) => r.current_year_id)
+      .filter((r) => r.homeroom_year_id)
       .map((r) => r.assignment_type)
       .filter((type): type is HomeroomType => HOMEROOM_TYPES.includes(type as HomeroomType));
     // CLASS_TEACHER wins if (impossibly, per the unique index) both appear.
