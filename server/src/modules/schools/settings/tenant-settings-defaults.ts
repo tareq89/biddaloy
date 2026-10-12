@@ -78,6 +78,7 @@ export const DEFAULT_ATTENDANCE_SETTINGS: AttendancePolicySettings = {
   allowFutureDates: false,
   autoAbsentNotification: { enabled: false, cutoffTime: '11:00' },
   shiftTimes: [],
+  specialTimings: [],
   periodAttendance: { enabled: false },
 };
 

@@ -142,6 +142,9 @@ function build(f: Fx = {}) {
   const slot = (period: string, extra = {}) => ({
     section_id: 'S1',
     period_slot_id: period,
+    // The resolver now fills the dated times on each slot.
+    starts_at: period === 'p1' ? '08:00' : '09:00',
+    ends_at: period === 'p1' ? '08:40' : '09:40',
     subject_id: 'sub',
     teacher_ids: ['T2'],
     substituted: false,

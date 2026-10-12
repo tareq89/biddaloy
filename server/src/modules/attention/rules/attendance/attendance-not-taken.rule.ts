@@ -245,7 +245,7 @@ export class AttendanceNotTakenRule implements AttentionRuleShape {
       if (holiday.has(sec.class_id)) continue;
       const sectionSlots = slotsOf.get(sec.id) ?? [];
       const periods: ResolvedPeriod[] = periodsOf.get(sec.id) ?? [];
-      const shiftPolicy = policyForShift(policy, sec.shift_id);
+      const shiftPolicy = policyForShift(policy, sec.shift_id, ctx.localDate);
       // ponytail: no routine -> the shift's late-after time stands in for the first bell.
       const firstStart = periods[0]?.starts_at ?? shiftPolicy.lateAfter;
       const base = { sectionId: sec.id, sectionLabel: sec.label };
