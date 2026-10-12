@@ -285,7 +285,9 @@ export class RestoreProcessor extends WorkerHost {
             // D13: insert-only tabs never update an existing row. A kept row
             // is not a write, so only real upserts count as applied.
             const kept = insertOnly && existing !== null;
-            const entity = kept ? existing : await tab.upsert(typedRow, existing, tenantId, m);
+            const entity = kept
+              ? existing
+              : await tab.upsert(typedRow, existing, tenantId, m, row.requested_by_user_id);
             if (!kept) applied += 1;
             // Not a member here yet (a join request was filed): never index it,
             // never invite it. A later tab's ref to it then fails as unresolved.
