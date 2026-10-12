@@ -6,6 +6,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
 import { School } from '../schools/entities/school.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
 
 const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
 const short = (t: string) => t.slice(0, 8);
@@ -33,6 +34,7 @@ describe('StaffProfilesService (integration)', () => {
   afterAll(async () => ds?.destroy());
 
   beforeEach(async () => {
+    await ds.query('DELETE FROM teachers');
     await ds.query('DELETE FROM staff_profiles');
     await ds.query('DELETE FROM users');
   });
@@ -70,5 +72,30 @@ describe('StaffProfilesService (integration)', () => {
     const created = await service.createFor(await user('mine'), SEED_TENANT_ID);
     expect(created.employee_id).toBe(`EMP-${short(SEED_TENANT_ID)}-1`);
     expect(await ds.getRepository(StaffProfile).count()).toBe(2);
+  });
+
+  // #2291: TeacherStaffProfileSubscriber (workbook restore, fixtures) used
+  // `count + 1`. With EMP-1 and EMP-3 left, count = 2 → EMP-3 again → unique
+  // violation that aborts the caller's transaction.
+  it('[TEN-10] a Teacher insert after a middle profile was removed gets the next id', async () => {
+    const p = `EMP-${short(SEED_TENANT_ID)}-`;
+    for (const n of [1, 2, 3]) {
+      await ds.query(
+        `INSERT INTO staff_profiles (user_id, tenant_id, employee_id, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW())`,
+        [await user(`t-seed${n}`), SEED_TENANT_ID, `${p}${n}`],
+      );
+    }
+    await ds.query(`DELETE FROM staff_profiles WHERE employee_id = $1`, [`${p}2`]);
+
+    const teachers = ds.getRepository(Teacher);
+    const userId = await user('t-new');
+    const teacher = await teachers.save(
+      teachers.create({ user_id: userId, tenant_id: SEED_TENANT_ID, employee_id: 'T-NEW' }),
+    );
+    const profile = await ds
+      .getRepository(StaffProfile)
+      .findOneByOrFail({ id: teacher.staff_profile_id });
+    expect(profile.employee_id).toBe(`${p}4`);
   });
 });
