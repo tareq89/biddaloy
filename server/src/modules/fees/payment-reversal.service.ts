@@ -21,7 +21,6 @@ import { StudentWallet } from './entities/student-wallet.entity';
 import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
-import { checkoutEvents } from './checkout.service';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { attentionEvents } from '../attention/attention.constants';
 
@@ -412,12 +411,6 @@ export class PaymentReversalService {
       relations: ['allocations'],
     });
 
-    checkoutEvents.emit('payments.reversed', {
-      payment_id: payment.id,
-      reversal_payment_id: reversalPayment.id,
-      tenant_id: tenantId,
-      student_id: payment.student_id,
-    });
     emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.overdue_family', actorUserId });
     emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.due_soon', actorUserId });
 
