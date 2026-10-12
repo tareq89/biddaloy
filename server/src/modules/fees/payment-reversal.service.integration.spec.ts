@@ -53,6 +53,7 @@ import {
   InvoiceStatus,
   InvoiceKind,
   PaymentStatus,
+  WalletTransactionKind,
 } from '@biddaloy/shared';
 
 /**
@@ -769,6 +770,225 @@ describe('PaymentReversalService (integration)', () => {
 
     const updatedBillUsingCredit = await studentFeeRepo.findOneByOrFail({ id: billUsingCredit.id });
     expect(Number(updatedBillUsingCredit.paid_amount)).toBe(0);
+  });
+
+  it('MON-14: reversing a payment whose wallet change fee generation auto-spent undoes that spend and re-opens the bill', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill1 = await studentFeeRepo.save(
+      makeBill(student.id, { total_amount: 500, occurrence: 1 }),
+    );
+    const nextBill = await studentFeeRepo.save(
+      makeBill(student.id, { total_amount: 200, occurrence: 2 }),
+    );
+    const { payment } = await checkoutService.checkout(
+      {
+        idempotency_key: '11111111-1111-4111-8111-111111111120',
+        lines: [{ student_fee_id: bill1.id, amount: 500, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+        tendered_amount: 700,
+        change_handling: 'TO_WALLET',
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    // What FeeGenerationService does for the next month's bill.
+    await dataSource.transaction(async (m) => {
+      await walletService.debit(
+        {
+          studentId: student.id,
+          tenantId: TENANT_ID,
+          amount: 200,
+          kind: WalletTransactionKind.DEBIT_GENERATION,
+          studentFeeId: nextBill.id,
+          createdByUserId: ACTOR_USER_ID,
+        },
+        m,
+      );
+      await m
+        .getRepository(StudentFee)
+        .update(nextBill.id, { paid_amount: 200, status: FeeStatus.PAID });
+    });
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
+
+    await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'wrong amount');
+
+    const reopened = await studentFeeRepo.findOneByOrFail({ id: nextBill.id });
+    expect(reopened.status).toBe(FeeStatus.PENDING);
+    expect(Number(reopened.paid_amount)).toBe(0);
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
+    const logs = await auditLogRepo.find({
+      where: { entity_type: 'Payment', entity_id: payment.id, tenant_id: TENANT_ID },
+    });
+    const nv = logs.map((l) => l.new_values as any).find((v) => v?.reopened_bill_ids?.length);
+    expect(nv.reopened_bill_ids).toEqual([nextBill.id]);
+    expect(nv.undone_generation_debits).toHaveLength(1);
+
+    // A second reversal of the same payment is refused.
+    await expect(
+      service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'again'),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  /** Overpays `change` into the wallet on a fresh 500 bill; returns the payment. */
+  async function payWithChange(studentId: string, occurrence: number, change: number, key: string) {
+    const bill = await studentFeeRepo.save(makeBill(studentId, { total_amount: 500, occurrence }));
+    const { payment } = await checkoutService.checkout(
+      {
+        idempotency_key: key,
+        lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+        tendered_amount: 500 + change,
+        change_handling: 'TO_WALLET',
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    return payment;
+  }
+
+  /** What FeeGenerationService does: wallet pays `amount` of a new bill. */
+  async function generationSpend(studentId: string, occurrence: number, amount: number) {
+    const bill = await studentFeeRepo.save(
+      makeBill(studentId, { total_amount: amount, occurrence }),
+    );
+    await dataSource.transaction(async (m) => {
+      await walletService.debit(
+        {
+          studentId,
+          tenantId: TENANT_ID,
+          amount,
+          kind: WalletTransactionKind.DEBIT_GENERATION,
+          studentFeeId: bill.id,
+          createdByUserId: ACTOR_USER_ID,
+        },
+        m,
+      );
+      await m
+        .getRepository(StudentFee)
+        .update(bill.id, { paid_amount: amount, status: FeeStatus.PAID });
+    });
+    return bill;
+  }
+
+  it('MON-14: with several generation debits, only the oldest needed ones are undone', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const a = await payWithChange(student.id, 1, 200, '11111111-1111-4111-8111-111111111130');
+    const old1 = await generationSpend(student.id, 2, 100);
+    const old2 = await generationSpend(student.id, 3, 100);
+    // A later overpayment leaves 100 in the wallet, so reversing A is short by 100 only.
+    await payWithChange(student.id, 4, 100, '11111111-1111-4111-8111-111111111131');
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(100);
+
+    await service.reverse(a.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'wrong');
+
+    expect((await studentFeeRepo.findOneByOrFail({ id: old1.id })).status).toBe(FeeStatus.PENDING);
+    // The newer debit is left alone.
+    expect((await studentFeeRepo.findOneByOrFail({ id: old2.id })).status).toBe(FeeStatus.PAID);
+    // 100 (later overpay) + 100 (undone debit) - 200 (A's change withdrawn).
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
+    const logs = await auditLogRepo.find({
+      where: { entity_type: 'Payment', entity_id: a.id, tenant_id: TENANT_ID },
+    });
+    const nv = logs.map((l) => l.new_values as any).find((v) => v?.reopened_bill_ids?.length);
+    expect(nv.undone_generation_debits).toHaveLength(1);
+    expect(nv.undone_generation_debits[0]).toMatchObject({
+      amount: 100,
+      student_fee_id: old1.id,
+      paid_amount_before: 100,
+      paid_amount_after: 0,
+      status_before: FeeStatus.PAID,
+      status_after: FeeStatus.PENDING,
+    });
+  });
+
+  it('MON-14: a debit larger than the shortfall is undone whole (over-undo is deliberate)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const a = await payWithChange(student.id, 1, 100, '11111111-1111-4111-8111-111111111132');
+    await payWithChange(student.id, 2, 100, '11111111-1111-4111-8111-111111111133');
+    const spent = await generationSpend(student.id, 3, 200);
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
+
+    await service.reverse(a.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'wrong');
+
+    // Shortfall was 100, but the whole 200 debit is undone: 200 back, 100 withdrawn.
+    expect((await studentFeeRepo.findOneByOrFail({ id: spent.id })).status).toBe(FeeStatus.PENDING);
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(100);
+  });
+
+  it('MON-14: another tenant cannot reverse it and nothing is undone', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const a = await payWithChange(student.id, 1, 200, '11111111-1111-4111-8111-111111111134');
+    const spent = await generationSpend(student.id, 2, 200);
+
+    await expect(
+      service.reverse(a.id, OTHER_TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'wrong tenant'),
+    ).rejects.toThrow(NotFoundException);
+
+    expect((await studentFeeRepo.findOneByOrFail({ id: spent.id })).status).toBe(FeeStatus.PAID);
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
+  });
+
+  it('a back-dated later payment that spent the wallet change still blocks the reversal', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const a = await payWithChange(student.id, 1, 200, '11111111-1111-4111-8111-111111111135');
+    const billLater = await studentFeeRepo.save(
+      makeBill(student.id, { total_amount: 300, occurrence: 2 }),
+    );
+    const { payment: later } = await checkoutService.checkout(
+      {
+        idempotency_key: '11111111-1111-4111-8111-111111111136',
+        lines: [{ student_fee_id: billLater.id, amount: 300, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+        wallet_use: 200,
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    // As if it had been recorded with an earlier payment_date (MON-11 back-dating).
+    await paymentRepo.update(later.id, { payment_date: daysFromToday(-2) });
+
+    await expect(
+      service.reverse(a.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'blocked'),
+    ).rejects.toThrow(ReverseLaterPaymentsFirstException);
+  });
+
+  it('MON-14: still 409s when the generation debits cannot cover the shortfall', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill1 = await studentFeeRepo.save(
+      makeBill(student.id, { total_amount: 500, occurrence: 1 }),
+    );
+    const { payment } = await checkoutService.checkout(
+      {
+        idempotency_key: '11111111-1111-4111-8111-111111111121',
+        lines: [{ student_fee_id: bill1.id, amount: 500, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+        tendered_amount: 700,
+        change_handling: 'TO_WALLET',
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    // An unrelated non-generation debit empties the wallet.
+    await dataSource.transaction((m) =>
+      walletService.debit(
+        {
+          studentId: student.id,
+          tenantId: TENANT_ID,
+          amount: 200,
+          kind: WalletTransactionKind.REVERSAL,
+          createdByUserId: ACTOR_USER_ID,
+        },
+        m,
+      ),
+    );
+    await expect(
+      service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'x'),
+    ).rejects.toMatchObject({ response: { code: 'REVERSE_BLOCKED_BY_NON_PAYMENT_WALLET_SPEND' } });
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
   });
 
   it('records an approved audit-log entry for the reversal', async () => {

@@ -258,11 +258,47 @@ export class CheckoutService {
         // GETDEL — burn the token last, as the final gate before writes,
         // so a request that fails validation never wastes a legitimately
         // granted approval.
+        // MON-11: today, or up to 3 school days back (back-dating needs approval).
+        let backdatedTo: string | null = null;
+        if (dto.payment_date) {
+          const day = new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TIMEZONE }).format(
+            new Date(dto.payment_date),
+          );
+          const todayKey = todayInSchoolTimezone();
+          const earliest = new Date(`${todayKey}T00:00:00Z`);
+          earliest.setUTCDate(earliest.getUTCDate() - 3);
+          if (day > todayKey) {
+            throw new BadRequestException('payment_date cannot be in the future');
+          }
+          if (day < earliest.toISOString().slice(0, 10)) {
+            throw new BadRequestException('payment_date can be at most 3 days back');
+          }
+          if (day < todayKey) backdatedTo = day;
+        }
+
         const hasDiscount = dto.lines.some((l) => (l.one_off_discount ?? 0) > 0);
+        // One approval token carries one scope, and a back-dated discount would
+        // need two. Refuse up front, before any token is burned.
+        if (backdatedTo && hasDiscount) {
+          throw new BadRequestException('a back-dated checkout cannot carry a one-off discount');
+        }
         let approvedByUserId: string | null = null;
+        const approvalScope = backdatedTo
+          ? ApprovalScope.PAYMENTS_BACKDATE
+          : ApprovalScope.FEES_DISCOUNT;
         if (hasDiscount) {
           const approval = await this.approvalService.consume(request, ApprovalScope.FEES_DISCOUNT);
           approvedByUserId = approval.approverId;
+        }
+
+        let backdateApproverId: string | null = null;
+        if (backdatedTo) {
+          const approval = await this.approvalService.consume(
+            request,
+            ApprovalScope.PAYMENTS_BACKDATE,
+          );
+          backdateApproverId = approval.approverId;
+          approvedByUserId = backdateApproverId;
         }
 
         const now = dto.payment_date ? new Date(dto.payment_date) : new Date();
@@ -395,6 +431,9 @@ export class CheckoutService {
             wallet_use: walletUse,
             change_amount: change,
             change_handling: changeHandling,
+            ...(backdatedTo
+              ? { backdated_to: backdatedTo, backdate_approved_by_user_id: backdateApproverId }
+              : {}),
           },
         };
         if (approvedByUserId) {
@@ -402,7 +441,7 @@ export class CheckoutService {
             {
               ...auditPayload,
               approved_by_user_id: approvedByUserId,
-              approval_scope: ApprovalScope.FEES_DISCOUNT,
+              approval_scope: approvalScope,
             },
             manager,
           );
