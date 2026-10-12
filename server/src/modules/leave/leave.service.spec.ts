@@ -18,12 +18,17 @@ describe('LeaveService (unit)', () => {
   let auditService: any;
   let service: LeaveService;
 
-  function makeQueryBuilder(sum: number) {
+  let calendar: any;
+
+  /** One APPROVED record whose live working-day count (mocked calendar) is `days`. */
+  function makeQueryBuilder(days: number) {
+    calendar.getWorkingDays.mockResolvedValue({ count: days });
     return {
-      select: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
       andWhere: vi.fn().mockReturnThis(),
-      getRawOne: vi.fn().mockResolvedValue({ sum: String(sum) }),
+      getMany: vi
+        .fn()
+        .mockResolvedValue(days > 0 ? [{ start_date: '2026-02-01', end_date: '2026-02-03' }] : []),
     };
   }
 
@@ -48,13 +53,14 @@ describe('LeaveService (unit)', () => {
       }),
     };
     auditService = { record: vi.fn().mockResolvedValue(undefined) };
+    calendar = { getWorkingDays: vi.fn() };
 
     service = new LeaveService(
       leaveRecordRepo,
       leavePolicyRepo,
       staffProfileRepo,
       auditService,
-      { getWorkingDays: vi.fn() } as any,
+      calendar,
       { markLeaveRange: vi.fn(), revertLeaveRange: vi.fn() } as any,
     );
   });
