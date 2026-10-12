@@ -21,9 +21,8 @@ describe('ContextGuard', () => {
     getStatusReason: ReturnType<typeof vi.fn>;
     isTrialExpired: ReturnType<typeof vi.fn>;
     isRestoring: ReturnType<typeof vi.fn>;
-    findSchoolIdBySlug: ReturnType<typeof vi.fn>;
+    platformTenantId: ReturnType<typeof vi.fn>;
   };
-  let configService: { get: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     reflector = new Reflector();
@@ -35,22 +34,10 @@ describe('ContextGuard', () => {
       getStatusReason: vi.fn().mockResolvedValue(null),
       isTrialExpired: vi.fn().mockResolvedValue(false),
       isRestoring: vi.fn().mockResolvedValue(false),
-      // Not found by default — most tests below rely on an explicitly
-      // configured PLATFORM_TENANT_ID and never need dynamic resolution;
-      // the ones that do (see "dynamic platform tenant resolution" below)
-      // override this per-test.
-      findSchoolIdBySlug: vi.fn().mockResolvedValue(null),
+      // Platform designation lives in TenantStatusService (its own spec covers env/prod/slug rules).
+      platformTenantId: vi.fn().mockResolvedValue(PLATFORM_TENANT_ID),
     };
-    // Blanket mock: every ConfigService.get() call (PLATFORM_TENANT_ID,
-    // NODE_ENV, ...) returns this same truthy, non-'production' string —
-    // fine, since an explicitly configured PLATFORM_TENANT_ID always wins
-    // over the NODE_ENV check in `resolvePlatformTenantId`.
-    configService = { get: vi.fn().mockReturnValue(PLATFORM_TENANT_ID) };
-    guard = new ContextGuard(
-      reflector,
-      tenantStatus as unknown as TenantStatusService,
-      configService as any,
-    );
+    guard = new ContextGuard(reflector, tenantStatus as unknown as TenantStatusService);
   });
 
   /**
@@ -668,12 +655,7 @@ describe('ContextGuard', () => {
     });
 
     it('[SECURITY] with PLATFORM_TENANT_ID unset, no membership grants platform authority (fail closed)', async () => {
-      configService.get.mockReturnValue(undefined);
-      guard = new ContextGuard(
-        reflector,
-        tenantStatus as unknown as TenantStatusService,
-        configService as any,
-      );
+      tenantStatus.platformTenantId.mockResolvedValue(undefined);
       const req = {
         user: {
           sub: 'super-1',
@@ -714,144 +696,6 @@ describe('ContextGuard', () => {
   });
 
   /**
-   * #620 fix: outside production, with `PLATFORM_TENANT_ID` unset, the
-   * platform tenant is no longer assumed to be a hardcoded id — no real
-   * database has one, since the `MultiTenantAuth` migration creates the
-   * "Default School" row with a random uuid. `ContextGuard` instead
-   * discovers it dynamically via `TenantStatusService.findSchoolIdBySlug`
-   * and caches the result.
-   */
-  describe('Dynamic platform tenant resolution outside production (#620)', () => {
-    const DISCOVERED_ID = 'discovered-platform-tenant-uuid';
-
-    function buildGuard(nodeEnv: string | undefined) {
-      configService = {
-        get: vi.fn((key: string) => (key === 'NODE_ENV' ? nodeEnv : undefined)),
-      };
-      return new ContextGuard(
-        reflector,
-        tenantStatus as unknown as TenantStatusService,
-        configService as any,
-      );
-    }
-
-    it('discovers the platform tenant by slug and lets a SUPER_ADMIN on it reach another tenant', async () => {
-      tenantStatus.findSchoolIdBySlug.mockResolvedValue(DISCOVERED_ID);
-      guard = buildGuard('development');
-
-      const req = {
-        user: {
-          sub: 'super-1',
-          email: 'super@test.com',
-          phone: null,
-          memberships: [{ tenantId: DISCOVERED_ID, role: UserRole.SUPER_ADMIN }],
-        },
-        headers: { 'x-tenant-id': 'some-other-school' },
-      };
-      const context = createMockContext(req);
-
-      const result = await guard.canActivate(context);
-
-      expect(result).toBe(true);
-      expect(req.currentTenant).toEqual({ id: 'some-other-school', role: UserRole.SUPER_ADMIN });
-      expect(tenantStatus.findSchoolIdBySlug).toHaveBeenCalledWith('default-school');
-    });
-
-    it('caches the discovered id — only queries the DB once across multiple requests', async () => {
-      tenantStatus.findSchoolIdBySlug.mockResolvedValue(DISCOVERED_ID);
-      guard = buildGuard('test');
-
-      const req = {
-        user: {
-          sub: 'super-1',
-          email: 'super@test.com',
-          phone: null,
-          memberships: [{ tenantId: DISCOVERED_ID, role: UserRole.SUPER_ADMIN }],
-        },
-        headers: { 'x-tenant-id': 'some-other-school' },
-      };
-
-      await guard.canActivate(createMockContext(req));
-      await guard.canActivate(createMockContext({ ...req }));
-
-      expect(tenantStatus.findSchoolIdBySlug).toHaveBeenCalledTimes(1);
-    });
-
-    it('[SECURITY] a tenant-local SUPER_ADMIN (not a member of the discovered platform tenant) still cannot reach another tenant', async () => {
-      tenantStatus.findSchoolIdBySlug.mockResolvedValue(DISCOVERED_ID);
-      guard = buildGuard('development');
-
-      const req = {
-        user: {
-          sub: 'rogue-1',
-          email: 'rogue@school-a.test',
-          phone: null,
-          // A SUPER_ADMIN membership on an ordinary school, not on the
-          // dynamically-discovered platform tenant.
-          memberships: [{ tenantId: 'school-a', role: UserRole.SUPER_ADMIN }],
-        },
-        headers: { 'x-tenant-id': 'school-b' },
-      };
-      const context = createMockContext(req);
-
-      await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
-      await expect(guard.canActivate(context)).rejects.toThrow(
-        'User is not a member of tenant school-b',
-      );
-    });
-
-    it('[SECURITY] never resolves dynamically in production — stays fail-closed even with a matching row in the DB', async () => {
-      tenantStatus.findSchoolIdBySlug.mockResolvedValue(DISCOVERED_ID);
-      guard = buildGuard('production');
-
-      const req = {
-        user: {
-          sub: 'super-1',
-          email: 'super@test.com',
-          phone: null,
-          memberships: [{ tenantId: DISCOVERED_ID, role: UserRole.SUPER_ADMIN }],
-        },
-        headers: { 'x-tenant-id': 'some-other-school' },
-      };
-      const context = createMockContext(req);
-
-      await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
-      // Production never even attempts the DB lookup — PLATFORM_TENANT_ID
-      // unset in production must be an explicit ops decision, not something
-      // dynamic discovery quietly papers over.
-      expect(tenantStatus.findSchoolIdBySlug).not.toHaveBeenCalled();
-    });
-
-    it('does not cache a failed lookup — a later request can still discover the tenant once it exists', async () => {
-      guard = buildGuard('development');
-      tenantStatus.findSchoolIdBySlug.mockResolvedValueOnce(null);
-
-      const req = {
-        user: {
-          sub: 'super-1',
-          email: 'super@test.com',
-          phone: null,
-          memberships: [{ tenantId: DISCOVERED_ID, role: UserRole.SUPER_ADMIN }],
-        },
-        headers: { 'x-tenant-id': 'some-other-school' },
-      };
-
-      // First request: school not seeded yet — fails closed, not a crash.
-      await expect(guard.canActivate(createMockContext(req))).rejects.toThrow(
-        UnauthorizedException,
-      );
-
-      // Second request: seeding has completed since — succeeds without a
-      // restart.
-      tenantStatus.findSchoolIdBySlug.mockResolvedValueOnce(DISCOVERED_ID);
-      const result = await guard.canActivate(createMockContext({ ...req }));
-
-      expect(result).toBe(true);
-      expect(tenantStatus.findSchoolIdBySlug).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  /**
    * Regression for a review finding on #620: only a platform SUPER_ADMIN's
    * membership-less cross-tenant path reaches `TenantStatusService.getStatus`
    * with fully unvalidated input (everyone else 401s at the membership check
@@ -873,13 +717,15 @@ describe('ContextGuard', () => {
       );
       (invalidUuidError as unknown as { code: string }).code = '22P02';
       const schoolRepo = { findOne: vi.fn().mockRejectedValue(invalidUuidError) };
-      const realTenantStatus = new TenantStatusService(redis as any, schoolRepo as any);
-
-      const realGuard = new ContextGuard(
-        reflector,
-        realTenantStatus,
-        configService as any, // still returns PLATFORM_TENANT_ID — a platform SUPER_ADMIN
+      const realTenantStatus = new TenantStatusService(
+        redis as any,
+        schoolRepo as any,
+        {
+          get: vi.fn().mockReturnValue(PLATFORM_TENANT_ID), // a platform SUPER_ADMIN
+        } as any,
       );
+
+      const realGuard = new ContextGuard(reflector, realTenantStatus);
 
       const req = {
         user: {

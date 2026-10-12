@@ -7,7 +7,14 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, MoreThan, MoreThanOrEqual, QueryFailedError, Repository } from 'typeorm';
+import {
+  EntityManager,
+  MoreThan,
+  MoreThanOrEqual,
+  Not,
+  QueryFailedError,
+  Repository,
+} from 'typeorm';
 import Redis from 'ioredis';
 import { PromotionRunStatus } from '@biddaloy/shared';
 import type { TenantSettings, OrganisationSettings } from '@biddaloy/shared';
@@ -96,9 +103,18 @@ export class SchoolsService {
     return school;
   }
 
-  /** For per-tenant scheduler loops; a SUSPENDED school gets no background work (TEN-06, #1655). */
+  /**
+   * For per-tenant scheduler loops; a SUSPENDED school gets no background work (TEN-06, #1655),
+   * and never the explicitly configured platform row (TEN-19; env `PLATFORM_TENANT_ID`, which
+   * production requires). Outside production the slug-discovered `default-school` is the main
+   * seeded school, so it is not excluded.
+   */
   async findAllActive(): Promise<Pick<School, 'id'>[]> {
-    return this.repo.find({ where: { status: 'ACTIVE' }, select: { id: true } });
+    const platformId = this.tenantStatus.configuredPlatformTenantId();
+    return this.repo.find({
+      where: { status: 'ACTIVE', ...(platformId ? { id: Not(platformId) } : {}) },
+      select: { id: true },
+    });
   }
 
   /**

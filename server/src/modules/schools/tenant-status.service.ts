@@ -1,4 +1,5 @@
 import { Injectable, Inject, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
@@ -17,6 +18,10 @@ function isInvalidUuidError(error: unknown): boolean {
 }
 
 export const TENANT_STATUS_REDIS = 'TENANT_STATUS_REDIS';
+
+// The well-known slug of the "Default School" row (created by the `MultiTenantAuth` migration and
+// `seed.ts`). Used only to discover the platform tenant outside production; never to guess an id.
+const DEFAULT_SCHOOL_SLUG = 'default-school';
 
 const TENANT_STATUS_CACHE_TTL_SECONDS = 300;
 
@@ -50,12 +55,45 @@ export function tenantRestoringException(): HttpException {
 export class TenantStatusService {
   private readonly logger = new Logger(TenantStatusService.name);
   private lastRestoreLockReadReport = 0;
+  private readonly configuredPlatformTenantId_?: string;
+  private readonly isProduction: boolean;
+  // Cached only on a hit: a miss (booted before seeding) must recover without a restart.
+  private cachedDevPlatformTenantId?: string;
 
   constructor(
     @Inject(TENANT_STATUS_REDIS) private readonly redis: Redis,
     @InjectRepository(School)
     private readonly schoolRepo: Repository<School>,
-  ) {}
+    configService: ConfigService,
+  ) {
+    this.configuredPlatformTenantId_ = configService.get<string>('PLATFORM_TENANT_ID');
+    this.isProduction = configService.get<string>('NODE_ENV') === 'production';
+  }
+
+  /**
+   * The explicitly configured platform id (env `PLATFORM_TENANT_ID`) only: no DB, no slug
+   * discovery. Outside production the discovered `default-school` is also the main seeded school,
+   * so per-school sweeps must only skip an id the operator named as the platform (TEN-19).
+   */
+  configuredPlatformTenantId(): string | undefined {
+    return this.configuredPlatformTenantId_;
+  }
+
+  /**
+   * Id of the one tenant that designates platform authority.
+   * - `PLATFORM_TENANT_ID` set: always wins, no DB call.
+   * - Production, unset: undefined forever (fail closed).
+   * - Otherwise: look up the `default-school` slug; cache only a hit.
+   * "Not found" means undefined: grants nothing.
+   */
+  async platformTenantId(): Promise<string | undefined> {
+    if (this.configuredPlatformTenantId_) return this.configuredPlatformTenantId_;
+    if (this.isProduction) return undefined;
+    if (this.cachedDevPlatformTenantId) return this.cachedDevPlatformTenantId;
+    const discoveredId = await this.findSchoolIdBySlug(DEFAULT_SCHOOL_SLUG);
+    if (discoveredId) this.cachedDevPlatformTenantId = discoveredId;
+    return discoveredId ?? undefined;
+  }
 
   private key(tenantId: string): string {
     return `tenant:${tenantId}:status`;

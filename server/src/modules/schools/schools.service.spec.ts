@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
-import { QueryFailedError } from 'typeorm';
+import { Not, QueryFailedError } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { randomBytes } from 'crypto';
 import { AuditAction } from '@biddaloy/shared';
@@ -47,7 +47,7 @@ function fakeAuditService() {
 }
 
 function fakeTenantStatus() {
-  return { invalidate: vi.fn(), isActive: vi.fn() };
+  return { invalidate: vi.fn(), isActive: vi.fn(), configuredPlatformTenantId: vi.fn() };
 }
 
 /**
@@ -311,8 +311,35 @@ describe('SchoolsService', () => {
         tenantStatus as any,
       );
 
+      tenantStatus.configuredPlatformTenantId.mockReturnValue(undefined);
+
       expect(await service.findAllActive()).toEqual([{ id: 's1' }]);
       expect(repo.find).toHaveBeenCalledWith({ where: { status: 'ACTIVE' }, select: { id: true } });
+    });
+
+    it('[TEN-19] excludes the platform tenant id', async () => {
+      const repo = fakeRepo(null);
+      repo.find.mockResolvedValue([{ id: 's1' }]);
+      const service = new SchoolsService(
+        repo as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+      tenantStatus.configuredPlatformTenantId.mockReturnValue('platform-id');
+
+      await service.findAllActive();
+
+      expect(repo.find).toHaveBeenCalledWith({
+        where: { status: 'ACTIVE', id: Not('platform-id') },
+        select: { id: true },
+      });
     });
   });
 
