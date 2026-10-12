@@ -396,6 +396,28 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(student?.guardians.map((g) => g.id)).toEqual([existing.id]);
   });
 
+  it('refuses a row whose warned guardian lost the phone between validate and commit [LIFE-09]', async () => {
+    const existing = await guardianRepo.save(
+      guardianRepo.create({
+        full_name: 'Moved Family',
+        relationship: 'OTHER',
+        phone: '+8801755555555',
+        tenant_id: TENANT_ID,
+      }),
+    );
+    const file = await buildXlsxFile([rowValues(headers, { guardian1_phone: '+8801755555555' })]);
+    const validated = await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    // Staff saw "Moved Family"; before they commit, that guardian's phone changes.
+    await guardianRepo.update({ id: existing.id }, { phone: '+8801766666666' });
+    const committed = await service.commit(validated.staging_id, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    // The student is not created and no new guardian is made on the stale phone.
+    expect(committed.success_count).toBe(0);
+    expect(committed.errors[0].reason).toContain('changed since validation');
+    expect(await guardianRepo.count({ where: { phone: '+8801755555555' } })).toBe(0);
+  });
+
   it('warns once per phone when guardian2_phone repeats guardian1_phone, labelled per column [LIFE-09]', async () => {
     await guardianRepo.save(
       guardianRepo.create({

@@ -79,6 +79,9 @@ interface ValidatedBulkUploadRow {
   guardian2_name?: string;
   guardian2_phone?: string;
   guardian2_email?: string;
+  /** Guardians the validate warning named; commit refuses a row if that phone now resolves elsewhere. */
+  guardian1_match_id?: string;
+  guardian2_match_id?: string;
   home_address?: string;
   preferred_communication?: string;
   classSectionId: string;
@@ -184,6 +187,8 @@ export class StudentBulkUploadService {
       for (const [column, phone] of phones) {
         const match = phone ? matchByPhone.get(phone) : undefined;
         if (!match) continue;
+        if (column === 'guardian1_phone') row.guardian1_match_id = match.id;
+        else row.guardian2_match_id = match.id;
         errors.push({
           row: row.rowNumber,
           tab: undefined,
@@ -414,6 +419,7 @@ export class StudentBulkUploadService {
           guardianCache,
           manager,
           userId,
+          row.guardian1_match_id,
         );
         guardianResolutions.push({ phone: row.guardian1_phone, id: g1Id });
         guardianIds.push(g1Id);
@@ -429,6 +435,8 @@ export class StudentBulkUploadService {
             guardianCache,
             manager,
             userId,
+            row.guardian2_match_id ??
+              (row.guardian2_phone === row.guardian1_phone ? row.guardian1_match_id : undefined),
           );
           guardianResolutions.push({ phone: row.guardian2_phone as string, id: g2Id });
           guardianIds.push(g2Id);
@@ -524,12 +532,23 @@ export class StudentBulkUploadService {
     cache: Map<string, string>,
     manager: EntityManager,
     userId: string | undefined,
+    expectedId?: string,
   ): Promise<string> {
     const cached = cache.get(info.phone);
-    if (cached) return cached;
-
-    const existing = await this.guardianService.findByPhone(info.phone, tenantId, manager);
-    if (existing) return existing.id;
+    const existing = cached
+      ? undefined
+      : await this.guardianService.findByPhone(info.phone, tenantId, manager);
+    const foundId = cached ?? existing?.id;
+    // Staff confirmed a warning naming this guardian; linking anyone else (or
+    // creating a new one) would be a family they never saw.
+    if (expectedId && foundId !== expectedId) {
+      throw new BulkRowError(
+        'The existing guardian this row was going to join changed since validation — validate the file again',
+        'guardian_phone',
+        info.phone,
+      );
+    }
+    if (foundId) return foundId;
 
     const created = await this.guardianService.create(
       { full_name: info.name, phone: info.phone, email: info.email },
