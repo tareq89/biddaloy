@@ -10,6 +10,8 @@ describe('amountInWords', () => {
     [1500000000, 'Taka One Hundred Fifty Crore only', 'একশত পঞ্চাশ কোটি টাকা মাত্র'],
     [50.25, 'Taka Fifty and Twenty-Five Paisa only', 'পঞ্চাশ টাকা পঁচিশ পয়সা মাত্র'],
     [0, 'Taka Zero only', 'শূন্য টাকা মাত্র'],
+    [0.29, 'Taka Zero and Twenty-Nine Paisa only', 'শূন্য টাকা ঊনত্রিশ পয়সা মাত্র'],
+    [1.15, 'Taka One and Fifteen Paisa only', 'এক টাকা পনেরো পয়সা মাত্র'],
   ];
   it.each(cases)('%s', (n, en, bn) => {
     expect(amountInWords(n, 'en')).toBe(en);
@@ -26,7 +28,7 @@ describe('amountInWords', () => {
     expect(seen.size).toBe(100);
   });
 
-  it.each([NaN, Infinity, -Infinity, 1e15])('throws RangeError for %s', (n) => {
+  it.each([NaN, Infinity, -Infinity, 1e12])('throws RangeError for %s', (n) => {
     expect(() => amountInWords(n, 'en')).toThrow(RangeError);
   });
 });
