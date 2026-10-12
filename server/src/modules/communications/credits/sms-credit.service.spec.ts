@@ -425,4 +425,36 @@ describe('SmsCreditService', () => {
       expect(listLedgerSpy).not.toHaveBeenCalled();
     });
   });
+
+  // [#2216]
+  describe('reserveIfMetered', () => {
+    it("returns 'UNMETERED' without calling reserve", async () => {
+      vi.spyOn(service, 'isMetered').mockResolvedValue(false);
+      const reserveSpy = vi.spyOn(service, 'reserve');
+
+      await expect(service.reserveIfMetered(TENANT_ID, 2, 'b-1')).resolves.toBe('UNMETERED');
+      expect(reserveSpy).not.toHaveBeenCalled();
+    });
+
+    it("returns 'RESERVED' and reserves under batch:<id>", async () => {
+      vi.spyOn(service, 'isMetered').mockResolvedValue(true);
+      const reserveSpy = vi.spyOn(service, 'reserve').mockResolvedValue({ ok: true });
+
+      await expect(service.reserveIfMetered(TENANT_ID, 2, 'b-1')).resolves.toBe('RESERVED');
+      expect(reserveSpy).toHaveBeenCalledWith(TENANT_ID, 2, 'batch:b-1', {
+        type: 'batch',
+        id: 'b-1',
+      });
+    });
+
+    it('maps a short balance to { insufficient, available }', async () => {
+      vi.spyOn(service, 'isMetered').mockResolvedValue(true);
+      vi.spyOn(service, 'reserve').mockResolvedValue({ ok: false, available: 1 });
+
+      await expect(service.reserveIfMetered(TENANT_ID, 2, 'b-1')).resolves.toEqual({
+        insufficient: true,
+        available: 1,
+      });
+    });
+  });
 });

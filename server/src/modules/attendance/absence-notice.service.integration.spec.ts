@@ -1,7 +1,8 @@
 import { randomUUID } from 'crypto';
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { BullModule } from '@nestjs/bullmq';
+import { BullModule, getQueueToken } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { DataSource, IsNull } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -19,6 +20,7 @@ import { Student } from '../students/entities/student.entity';
 import { Guardian } from '../students/entities/guardian.entity';
 import { ReminderBatch } from '../communications/entities/reminder-batch.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import {
@@ -39,6 +41,7 @@ describe('AbsenceNoticeService (integration)', () => {
   let attendanceService: AttendanceService;
   let absenceNoticeService: AbsenceNoticeService;
   let dataSource: DataSource;
+  let queue: Queue;
 
   const TENANT_ID = SEED_TENANT_ID;
   const OTHER_TENANT = '00000000-0000-4000-8000-000000000098';
@@ -95,6 +98,7 @@ describe('AbsenceNoticeService (integration)', () => {
     attendanceService = module.get<AttendanceService>(AttendanceService);
     absenceNoticeService = module.get<AbsenceNoticeService>(AbsenceNoticeService);
     dataSource = module.get<DataSource>(getDataSourceToken());
+    queue = module.get<Queue>(getQueueToken(COMMUNICATIONS_QUEUE));
 
     const schoolRepo = dataSource.getRepository(School);
     if (!(await schoolRepo.findOne({ where: { id: OTHER_TENANT } }))) {
@@ -219,6 +223,81 @@ describe('AbsenceNoticeService (integration)', () => {
       .find({ where: { reminder_batch_id: batch!.id } });
     expect(logs).toHaveLength(1);
     expect(logs[0].guardian_id).toBe(guardianId);
+  });
+
+  async function meterTenant(availableCredit: number | null): Promise<void> {
+    await dataSource.getRepository(School).update(
+      { id: TENANT_ID },
+      {
+        settings: {
+          version: 1,
+          attendance: {
+            weeklyOffDays: [],
+            correctionWindowDays: 2,
+            allowFutureDates: false,
+            autoAbsentNotification: { enabled: true, cutoffTime: '00:00' },
+          },
+          communications: { sms: { metering: 'PLATFORM', provider: 'test' } },
+          region: { timezone: 'Asia/Dhaka' },
+        } as any,
+      },
+    );
+    await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [TENANT_ID]);
+    if (availableCredit !== null) {
+      await dataSource.query(
+        `INSERT INTO sms_credit_balance (tenant_id, available, reserved, updated_at)
+         VALUES ($1, $2, 0, now())`,
+        [TENANT_ID, availableCredit],
+      );
+    }
+  }
+
+  async function latestBatchLogs(): Promise<CommunicationLog[]> {
+    const batch = await dataSource
+      .getRepository(ReminderBatch)
+      .findOne({ where: { tenant_id: TENANT_ID }, order: { created_at: 'DESC' } });
+    return dataSource
+      .getRepository(CommunicationLog)
+      .find({ where: { reminder_batch_id: batch!.id } });
+  }
+
+  it('metered tenant with 0 credit: no SMS queued, log FAILED INSUFFICIENT_SMS_CREDIT (#2216)', async () => {
+    await meterTenant(null);
+    const addSpy = vi.spyOn(queue, 'add');
+
+    try {
+      await attendanceService.putRegister(putParams({ dto: basePutDto() }));
+
+      const logs = await latestBatchLogs();
+      expect(logs).toHaveLength(1);
+      expect(logs[0].status).toBe('FAILED');
+      expect((logs[0].metadata as any).reason).toBe('INSUFFICIENT_SMS_CREDIT');
+      // Nothing was queued for this log — the worker never sees it.
+      expect(addSpy.mock.calls.some(([, data]) => (data as any)?.logId === logs[0].id)).toBe(false);
+    } finally {
+      addSpy.mockRestore();
+    }
+  });
+
+  it('metered tenant with credit: one RESERVE per SMS log and available drops by the segments (#2216)', async () => {
+    await meterTenant(10);
+
+    await attendanceService.putRegister(putParams({ dto: basePutDto() }));
+
+    const logs = await latestBatchLogs();
+    expect(logs).toHaveLength(1);
+    expect(logs[0].status).toBe('QUEUED');
+    const ledger = await dataSource.query(
+      `SELECT kind, units FROM sms_credit_ledger WHERE tenant_id = $1 AND idempotency_key = $2`,
+      [TENANT_ID, `batch:${logs[0].id}`],
+    );
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0].kind).toBe('RESERVE');
+    const [bal] = await dataSource.query(
+      `SELECT available FROM sms_credit_balance WHERE tenant_id = $1`,
+      [TENANT_ID],
+    );
+    expect(Number(bal.available)).toBe(10 - Number(ledger[0].units));
   });
 
   it('finalizing the same session twice sends nothing the second time and creates no second batch', async () => {

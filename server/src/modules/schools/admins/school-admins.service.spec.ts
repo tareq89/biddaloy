@@ -146,6 +146,28 @@ describe('SchoolAdminsService', () => {
       expect(deliver).toHaveBeenCalledTimes(1);
     });
 
+    it('[68.1.2221] adding an existing non-member returns a PENDING join request and no delivery', async () => {
+      provisioning.provisionAdminForSchool.mockResolvedValue({
+        result: {
+          admin: { user_id: 'user-1', existed: true },
+          invitation: { id: 'join-1', status: 'PENDING' },
+        },
+        deliverAfterCommit: null,
+      });
+
+      const result = await service.addAdmin(
+        SCHOOL_ID,
+        { name: 'Admin One', email: 'admin@example.com' },
+        ACTOR,
+      );
+
+      // Passed through untouched: the caller sees the join request, not a fake membership.
+      expect(result).toEqual({
+        admin: { user_id: 'user-1', existed: true },
+        invitation: { id: 'join-1', status: 'PENDING' },
+      });
+    });
+
     it('surfaces a duplicate-membership 409 from provisioning as-is, with no audit row and no delivery', async () => {
       // `provisionAdminForSchool` owns the membership insert and already
       // translates both the pre-check and a racing 23505 into this 409 —

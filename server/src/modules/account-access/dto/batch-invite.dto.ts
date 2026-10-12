@@ -30,20 +30,28 @@ export class BatchInviteDto {
 }
 
 export type InviteSkipReason =
-  'no_contact' | 'already_active' | 'already_pending' | 'notifications_disabled';
+  'no_contact' | 'already_active' | 'already_pending' | 'notifications_disabled' | 'contact_in_use';
 
 export class InvitePreviewEntryDto {
   @ApiProperty() guardian_id: string;
   @ApiProperty() full_name: string;
   @ApiProperty({ enum: ['SMS', 'EMAIL'] }) channel: 'SMS' | 'EMAIL';
   @ApiProperty() user_exists: boolean;
+  /** True when the processor files a join request instead of sending an invite. */
+  @ApiProperty() join_request: boolean;
 }
 
 export class InviteSkippedEntryDto {
   @ApiProperty() guardian_id: string;
   @ApiProperty() full_name: string;
   @ApiProperty({
-    enum: ['no_contact', 'already_active', 'already_pending', 'notifications_disabled'],
+    enum: [
+      'no_contact',
+      'already_active',
+      'already_pending',
+      'notifications_disabled',
+      'contact_in_use',
+    ],
   })
   reason: InviteSkipReason;
 }

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
 import { CommunicationStatus } from '@biddaloy/shared';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { Guardian } from '../students/entities/guardian.entity';
 import { GuardianProvisioningService } from './guardian-provisioning.service';
 
 /** A minimal fluent stub matching the subset of TypeORM's QueryBuilder this
@@ -12,6 +14,7 @@ function fakeQueryBuilder(result: { many?: unknown[]; one?: unknown | null; raw?
     innerJoin: vi.fn().mockReturnThis(),
     distinct: vi.fn().mockReturnThis(),
     take: vi.fn().mockReturnThis(),
+    withDeleted: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
     addSelect: vi.fn().mockReturnThis(),
     groupBy: vi.fn().mockReturnThis(),
@@ -49,7 +52,12 @@ describe('GuardianProvisioningService', () => {
 
   beforeEach(() => {
     guardianRepo = { createQueryBuilder: vi.fn() };
-    userRepo = { findOne: vi.fn(), createQueryBuilder: vi.fn() };
+    // `manager.exists` answers both membership (UserTenant) and link (Guardian) checks.
+    userRepo = {
+      findOne: vi.fn(),
+      createQueryBuilder: vi.fn(),
+      manager: { exists: vi.fn().mockResolvedValue(false) },
+    };
     logRepo = { createQueryBuilder: vi.fn() };
     auditLogRepo = { createQueryBuilder: vi.fn() };
     authTokens = { latest: vi.fn().mockResolvedValue(null) };
@@ -87,7 +95,13 @@ describe('GuardianProvisioningService', () => {
 
       expect(result.total).toBe(1);
       expect(result.to_invite).toEqual([
-        { guardian_id: 'g1', full_name: 'Guardian One', channel: 'SMS', user_exists: false },
+        {
+          guardian_id: 'g1',
+          full_name: 'Guardian One',
+          channel: 'SMS',
+          user_exists: false,
+          join_request: false,
+        },
       ]);
       expect(result.skipped).toEqual([]);
     });
@@ -115,16 +129,175 @@ describe('GuardianProvisioningService', () => {
       ]);
     });
 
-    it('skips a guardian whose linked user already has a password (already_active)', async () => {
+    it('skips a guardian whose linked user has a password and a live PARENT row here (already_active)', async () => {
       const guardian = makeGuardian({ user_id: 'u1' });
       guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
       userRepo.findOne.mockResolvedValue({ id: 'u1', password_hash: 'hash' });
+      userRepo.manager.exists.mockImplementation(async (entity: unknown) => entity === UserTenant);
 
       const result = await service.preview(TENANT, { all: true });
 
       expect(result.skipped).toEqual([
         { guardian_id: 'g1', full_name: 'Guardian One', reason: 'already_active' },
       ]);
+    });
+
+    // m1: a link alone is not membership. Without a live PARENT row here the person
+    // has no family access, so they must stay invitable (the processor revives or asks).
+    it('invites a linked password holder who has no live PARENT row here', async () => {
+      const guardian = makeGuardian({ user_id: 'u1' });
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.findOne.mockResolvedValue({ id: 'u1', password_hash: 'hash' });
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.to_invite).toEqual([
+        {
+          guardian_id: 'g1',
+          full_name: 'Guardian One',
+          channel: 'SMS',
+          user_exists: true,
+          join_request: true,
+        },
+      ]);
+      // Live rows only: a soft-deleted (former) membership does not count.
+      expect(userRepo.manager.exists).toHaveBeenCalledWith(UserTenant, {
+        where: { user_id: 'u1', tenant_id: TENANT, role: 'PARENT' },
+      });
+    });
+
+    it('invites a verified password holder matched by contact who is not a member here', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
+      );
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.to_invite).toEqual([
+        {
+          guardian_id: 'g1',
+          full_name: 'Guardian One',
+          channel: 'SMS',
+          user_exists: true,
+          join_request: true,
+        },
+      ]);
+    });
+
+    it('skips with contact_in_use when only an unverified account holds the contact', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.createQueryBuilder
+        .mockReturnValueOnce(fakeQueryBuilder({ one: null })) // no verified match
+        .mockReturnValueOnce(fakeQueryBuilder({ one: { id: 'u-holder' } })); // an unverified holder
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.skipped).toEqual([
+        { guardian_id: 'g1', full_name: 'Guardian One', reason: 'contact_in_use' },
+      ]);
+    });
+
+    // M2: guardians.user_id is globally UNIQUE, so an account linked to another
+    // guardian (any school, even soft-deleted) can never be linked to this one.
+    it('skips with contact_in_use when the matched account is linked to another guardian', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ one: { id: 'u-elsewhere', password_hash: 'hash' } }),
+      );
+      userRepo.manager.exists.mockImplementation(async (entity: unknown) => entity === Guardian);
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.skipped).toEqual([
+        { guardian_id: 'g1', full_name: 'Guardian One', reason: 'contact_in_use' },
+      ]);
+    });
+
+    // m4: a pending join request is pending too; re-filing it would only reset its expiry.
+    it('skips a verified non-member with a live JOIN_SCHOOL request (already_pending)', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
+      );
+      authTokens.latest.mockImplementation(async (_u: string, purpose: string) =>
+        purpose === 'JOIN_SCHOOL'
+          ? {
+              consumed_at: null,
+              revoked_at: null,
+              expires_at: new Date(Date.now() + 60_000),
+              metadata: { role: 'PARENT' },
+            }
+          : null,
+      );
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.skipped).toEqual([
+        { guardian_id: 'g1', full_name: 'Guardian One', reason: 'already_pending' },
+      ]);
+      expect(authTokens.latest).toHaveBeenCalledWith('u-verified', 'JOIN_SCHOOL', TENANT, 'PARENT');
+    });
+
+    // [68.1.fix F3] Requests are per role now: a pending ADMIN request does not
+    // stand in for the PARENT one the batch would file.
+    it('still invites a guardian whose only live join request is for another role', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
+      );
+      // The newest JOIN_SCHOOL row is an ADMIN one; there is no PARENT one.
+      authTokens.latest.mockImplementation(
+        async (_u: string, purpose: string, _t, role?: string) =>
+          purpose === 'JOIN_SCHOOL' && role !== 'PARENT'
+            ? {
+                consumed_at: null,
+                revoked_at: null,
+                expires_at: new Date(Date.now() + 60_000),
+                metadata: { role: 'ADMIN' },
+              }
+            : null,
+      );
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.skipped).toEqual([]);
+      expect(result.to_invite.map((e) => e.guardian_id)).toEqual(['g1']);
+    });
+
+    // [68.1.fix R3] A newer ADMIN request must not hide an older live PARENT one: the
+    // lookup reads the newest PARENT request, not the newest request of any role.
+    it('counts an older live PARENT request under a newer ADMIN one as already_pending', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ one: { id: 'u-verified', password_hash: 'hash' } }),
+      );
+      const live = {
+        consumed_at: null,
+        revoked_at: null,
+        expires_at: new Date(Date.now() + 60_000),
+      };
+      authTokens.latest.mockImplementation(
+        async (_u: string, purpose: string, _t, role?: string) =>
+          purpose !== 'JOIN_SCHOOL'
+            ? null
+            : role === 'PARENT'
+              ? { ...live, metadata: { role: 'PARENT' } }
+              : { ...live, metadata: { role: 'ADMIN' } },
+      );
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.skipped).toEqual([
+        { guardian_id: 'g1', full_name: 'Guardian One', reason: 'already_pending' },
+      ]);
+      expect(authTokens.latest).toHaveBeenCalledWith('u-verified', 'JOIN_SCHOOL', TENANT, 'PARENT');
     });
 
     it('skips a guardian with a live pending invitation (already_pending)', async () => {
@@ -165,7 +338,49 @@ describe('GuardianProvisioningService', () => {
       const result = await service.preview(TENANT, { all: true });
 
       expect(result.to_invite).toEqual([
-        { guardian_id: 'g1', full_name: 'Guardian One', channel: 'SMS', user_exists: true },
+        {
+          guardian_id: 'g1',
+          full_name: 'Guardian One',
+          channel: 'SMS',
+          user_exists: true,
+          join_request: true,
+        },
+      ]);
+    });
+
+    it('is a real invite (not a join request) for a passwordless account with a former row here', async () => {
+      const guardian = makeGuardian({ user_id: 'u1' });
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      userRepo.findOne.mockResolvedValue({ id: 'u1', password_hash: null });
+      // A (soft-deleted) membership row exists: the processor revives it and sends the INVITE.
+      userRepo.manager.exists.mockImplementation(async (entity: unknown) => entity === UserTenant);
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.to_invite).toEqual([
+        {
+          guardian_id: 'g1',
+          full_name: 'Guardian One',
+          channel: 'SMS',
+          user_exists: true,
+          join_request: false,
+        },
+      ]);
+    });
+
+    it('skips with contact_in_use when a soft-deleted account still owns the contact', async () => {
+      const guardian = makeGuardian();
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      const verifiedQb = fakeQueryBuilder({ one: null });
+      const holderQb = fakeQueryBuilder({ one: { id: 'u-deleted' } });
+      userRepo.createQueryBuilder.mockReturnValueOnce(verifiedQb).mockReturnValueOnce(holderQb);
+
+      const result = await service.preview(TENANT, { all: true });
+
+      // The email/phone unique index ignores soft-deletion, so the insert would hit 23505.
+      expect(holderQb.withDeleted).toHaveBeenCalled();
+      expect(result.skipped).toEqual([
+        { guardian_id: 'g1', full_name: 'Guardian One', reason: 'contact_in_use' },
       ]);
     });
 
@@ -216,6 +431,30 @@ describe('GuardianProvisioningService', () => {
       );
       expect(result.queued).toBe(2);
       expect(result.skipped).toEqual([]);
+    });
+  });
+
+  describe('dispatch with join requests', () => {
+    it('still enqueues a join-request guardian but does not count it as queued', async () => {
+      const guardian = makeGuardian({ user_id: 'u1' });
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [guardian] }));
+      // Verified account with no membership row here: the processor files a join request
+      // and writes no log row, so batchStatus could never finish counting it.
+      userRepo.findOne.mockResolvedValue({ id: 'u1', password_hash: null });
+
+      const result = await service.dispatch({
+        tenantId: TENANT,
+        actorUserId: 'admin-1',
+        selection: { all: true },
+      });
+
+      expect(queue.add).toHaveBeenCalledTimes(1);
+      expect(result.queued).toBe(0);
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          new_values: expect.objectContaining({ queued: 0, requested: 1 }),
+        }),
+      );
     });
   });
 

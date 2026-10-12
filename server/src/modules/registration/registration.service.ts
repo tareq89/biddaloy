@@ -32,7 +32,7 @@ import { RequestContext } from '../../common/request-context.util';
 import { SocialIdentityService } from '../auth/social/social-identity.service';
 import { SocialTicketService } from '../auth/social/social-ticket.service';
 import { UserIdentity } from '../auth/entities/user-identity.entity';
-import { ProvisioningService } from '../schools/provisioning/provisioning.service';
+import { ProvisioningService, contactInUse } from '../schools/provisioning/provisioning.service';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { TrialService } from '../schools/trial/trial.service';
 import { User } from '../users/entities/user.entity';
@@ -66,12 +66,6 @@ export interface RegisterVerifyOutcome {
   auth: AuthResult;
   body: RegisterVerifyResult;
 }
-
-const contactInUse = () =>
-  new ConflictException({
-    message: 'This phone or email already belongs to another account',
-    details: { code: 'CONTACT_IN_USE' },
-  });
 
 function slugFor(name: string): string {
   const base = name
@@ -240,20 +234,11 @@ export class RegistrationService {
     socialTicketId: string | undefined,
   ): Promise<RegisterVerifyOutcome> {
     const verifiedField = staged.channel === 'sms' ? 'phone' : 'email';
-    const otherField = verifiedField === 'phone' ? 'email' : 'phone';
 
-    // Whoever holds the contact the code went to owns this registration. The OTHER contact was
-    // never proven, so it may not drag in somebody else's account (that would hand out a session
-    // for a user who never took part).
+    // Whoever holds the contact the code went to owns this registration.
     const owner = await this.users.findOne({
       where: { [verifiedField]: staged[verifiedField], deleted_at: IsNull() },
     });
-    const other = await this.users.findOne({
-      where: { [otherField]: staged[otherField], deleted_at: IsNull() },
-    });
-    if (other && other.id !== owner?.id) {
-      throw contactInUse();
-    }
     if (owner) {
       if (owner.status !== UserStatus.ACTIVE) {
         throw new ConflictException({
@@ -292,9 +277,9 @@ export class RegistrationService {
       }
     }
 
-    const adminContacts = owner
-      ? { [verifiedField]: staged[verifiedField] }
-      : { email: staged.email, phone: staged.phone };
+    // Only the contact the code went to is stored; the other one is added later through
+    // the verified contact-change flow.
+    const adminContacts = { [verifiedField]: staged[verifiedField] };
 
     const provisionOnce = () =>
       this.provisioning.provision(
@@ -366,7 +351,9 @@ export class RegistrationService {
         err instanceof QueryFailedError &&
         (err as unknown as { code?: string }).code === '23505'
       ) {
-        // A contact is already held by another user row (e.g. a soft-deleted one).
+        // Provisioning maps its own user-insert clash to CONTACT_IN_USE already; what still
+        // reaches here raw is a unique clash inside `inTransaction`, e.g. `socialIdentity.link`
+        // rethrowing a concurrent Google link (it has a manager, so it cannot swallow it).
         throw contactInUse();
       } else {
         throw err;

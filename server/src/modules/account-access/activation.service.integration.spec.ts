@@ -17,6 +17,9 @@ import { School } from '../schools/entities/school.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
+import { RefreshTokenService, REFRESH_TOKEN_TTL_MS } from '../auth/refresh-token.service';
+import { RefreshToken } from '../auth/entities/refresh-token.entity';
+import { randomUUID } from 'crypto';
 import { SchoolsService } from '../schools/schools.service';
 import { CommunicationProviderRegistryService } from '../communications/providers/communication-provider.registry';
 import { AuthToken } from './entities/auth-token.entity';
@@ -41,32 +44,38 @@ describe('ActivationService (integration)', () => {
       resetLoginLockouts: vi.fn().mockResolvedValue(undefined),
     };
 
-    module = await createTestModule(ALL_ENTITIES, [
-      ActivationService,
-      AuthTokenService,
-      InvitationService,
-      AccountAccessDeliveryService,
-      AuditService,
-      { provide: AuthService, useValue: fakeAuthService },
-      {
-        provide: SchoolsService,
-        useFactory: (ds: DataSource) => ({
-          findById: async (id: string) => ds.getRepository(School).findOneOrFail({ where: { id } }),
-          getResolvedSettings: async () => ({ region: { locale: 'en-US' } }),
-        }),
-        inject: [DataSource],
-      },
-      {
-        provide: CommunicationProviderRegistryService,
-        useValue: { resolve: () => ({ send: vi.fn().mockResolvedValue({ success: true }) }) },
-      },
-      {
-        provide: ConfigService,
-        useValue: {
-          get: (key: string) => (key === 'APP_BASE_URL' ? 'http://localhost:5174' : undefined),
+    module = await createTestModule(
+      [...ALL_ENTITIES, RefreshToken],
+      [
+        ActivationService,
+        AuthTokenService,
+        InvitationService,
+        AccountAccessDeliveryService,
+        AuditService,
+        RefreshTokenService,
+        { provide: REFRESH_TOKEN_TTL_MS, useValue: 60_000 },
+        { provide: AuthService, useValue: fakeAuthService },
+        {
+          provide: SchoolsService,
+          useFactory: (ds: DataSource) => ({
+            findById: async (id: string) =>
+              ds.getRepository(School).findOneOrFail({ where: { id } }),
+            getResolvedSettings: async () => ({ region: { locale: 'en-US' } }),
+          }),
+          inject: [DataSource],
         },
-      },
-    ]);
+        {
+          provide: CommunicationProviderRegistryService,
+          useValue: { resolve: () => ({ send: vi.fn().mockResolvedValue({ success: true }) }) },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) => (key === 'APP_BASE_URL' ? 'http://localhost:5174' : undefined),
+          },
+        },
+      ],
+    );
     dataSource = module.get(DataSource);
     service = module.get(ActivationService);
     authTokens = module.get(AuthTokenService);
@@ -132,6 +141,18 @@ describe('ActivationService (integration)', () => {
 
     it('returns unknown for a garbage token', async () => {
       expect(await service.verify('not-a-real-token')).toEqual({ status: 'unknown' });
+    });
+
+    // [68.1.14] GAP-03: a live INVITE for a password holder must not show the set-password form;
+    // activate() would refuse it, so verify() gives the same `consumed`.
+    it('returns consumed for a live invite whose user already has a password', async () => {
+      const user = await createInvitee({
+        password_hash: 'existing-hash',
+        status: UserStatus.ACTIVE,
+      });
+      const { raw } = await issueInvite(user.id);
+
+      expect(await service.verify(raw)).toEqual({ status: 'consumed' });
     });
   });
 
@@ -295,6 +316,82 @@ describe('ActivationService (integration)', () => {
         response: { message: 'consumed' },
         status: 400,
       });
+    });
+
+    // [68.1.2221] GAP-03: an INVITE must never replace an existing password.
+    it('refuses an INVITE for a user who already has a password; password and sessions untouched', async () => {
+      const user = await createInvitee({
+        password_hash: 'existing-hash',
+        status: UserStatus.ACTIVE,
+      });
+      const { raw } = await issueInvite(user.id);
+      const tokenId = randomUUID();
+      await dataSource.getRepository(RefreshToken).save(
+        dataSource.getRepository(RefreshToken).create({
+          id: tokenId,
+          user_id: user.id,
+          family_id: randomUUID(),
+          token_hash: 'h',
+          expires_at: new Date(Date.now() + 60_000),
+        }),
+      );
+
+      await expect(service.activate(raw, 'NewPass#123', context)).rejects.toMatchObject({
+        response: { message: 'consumed' },
+        status: 400,
+      });
+
+      const after = await dataSource.getRepository(User).findOneOrFail({ where: { id: user.id } });
+      expect(after.password_hash).toBe('existing-hash');
+      const tok = await dataSource
+        .getRepository(RefreshToken)
+        .findOneOrFail({ where: { id: tokenId } });
+      expect(tok.revoked_at).toBeNull();
+    });
+
+    // [68.1.14] The password check runs before the transaction; the write itself must be
+    // conditional, so of two racing activations exactly one sets the password.
+    it('two concurrent activations of one invite: one wins, the other gets 400 consumed', async () => {
+      const user = await createInvitee();
+      const { raw } = await issueInvite(user.id);
+
+      const results = await Promise.allSettled([
+        service.activate(raw, 'First-password1', context),
+        service.activate(raw, 'Second-password1', context),
+      ]);
+
+      const won = results.filter((r) => r.status === 'fulfilled');
+      const lost = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      expect(won).toHaveLength(1);
+      expect(lost).toHaveLength(1);
+      expect(lost[0].reason).toMatchObject({ response: { message: 'consumed' }, status: 400 });
+
+      // The stored hash is the winner's password, never overwritten by the loser.
+      const winner = results[0].status === 'fulfilled' ? 'First-password1' : 'Second-password1';
+      const after = await dataSource.getRepository(User).findOneOrFail({ where: { id: user.id } });
+      await expect(bcrypt.compare(winner, after.password_hash!)).resolves.toBe(true);
+    });
+
+    it('activating a passwordless invitee revokes its existing refresh tokens', async () => {
+      const user = await createInvitee();
+      const { raw } = await issueInvite(user.id);
+      const tokenId = randomUUID();
+      await dataSource.getRepository(RefreshToken).save(
+        dataSource.getRepository(RefreshToken).create({
+          id: tokenId,
+          user_id: user.id,
+          family_id: randomUUID(),
+          token_hash: 'h',
+          expires_at: new Date(Date.now() + 60_000),
+        }),
+      );
+
+      await service.activate(raw, 'A-strong-password1', context);
+
+      const tok = await dataSource
+        .getRepository(RefreshToken)
+        .findOneOrFail({ where: { id: tokenId } });
+      expect(tok.revoked_at).not.toBeNull();
     });
 
     it('rejects an expired token with 400 expired', async () => {

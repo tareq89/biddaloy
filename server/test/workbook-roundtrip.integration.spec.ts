@@ -2092,11 +2092,17 @@ describe('workbook round trip (integration)', () => {
       await dataSource.getRepository(ClassSection).delete({ tenant_id: TENANT_A });
       await dataSource.getRepository(Class).delete({ tenant_id: TENANT_A });
       await dataSource.getRepository(AcademicYear).delete({ tenant_id: TENANT_A });
+      const memberIds = (
+        await dataSource.getRepository(UserTenant).find({ where: { tenant_id: TENANT_A } })
+      ).map((ut) => ut.user_id);
       await dataSource.getRepository(UserTenant).delete({ tenant_id: TENANT_A });
       // `users.email` is globally unique too, and the `users` tab recreates
-      // the member in B from the workbook (without the password hash, which
-      // `users.tab.ts` excludes by design).
-      await dataSource.getRepository(User).delete({ id: USER_ID });
+      // each member in B from the workbook (without the password hash, which
+      // `users.tab.ts` excludes by design). Every A member goes, not just
+      // USER_ID: since #2218 a restore never attaches an existing account it
+      // finds by email to a school it never belonged to (an unverified one
+      // fails the restore, a verified one only gets a join request).
+      await dataSource.getRepository(User).delete(memberIds);
     }
 
     // --- 2. Validate + diff against empty B (C3) ------------------------
@@ -2391,6 +2397,13 @@ describe('workbook round trip (integration)', () => {
     // eslint-disable-next-line no-console
     console.log(`workbook round trip took ${Date.now() - start}ms`);
   }, 90_000);
+
+  // [68.1.fix F6] The spine test above deletes A's users first, because the
+  // clone-a-school / disaster-recovery shape (A's user rows still exist) does
+  // not work yet. Pinned here so the fix lands with a test waiting.
+  it.todo(
+    "#2344: restoring into B while A's users still exist completes: verified users get join requests, rows that reference them are skipped (not failed), and B keeps its own admin",
+  );
 
   // ---- [47.x] teacher_assignments Role column: restore semantics ----------
   //

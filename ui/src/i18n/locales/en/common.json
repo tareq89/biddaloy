@@ -104,7 +104,11 @@
     "REVERSAL": "Reversal"
   },
   "errors": {
-    "permissionDenied": "You don't have permission to do that."
+    "permissionDenied": "You don't have permission to do that.",
+    "schoolRestoring": "This school is being restored from a backup. Your change was not saved. Try again in a few minutes."
+  },
+  "restoreBar": {
+    "message": "A backup restore is running. You can look at data, but changes can't be saved until it finishes."
   },
   "accessDenied": {
     "title": "You don't have access to this page.",

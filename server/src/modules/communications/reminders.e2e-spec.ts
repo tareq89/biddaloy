@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -516,5 +516,86 @@ describe('Bulk Reminder Read/Preview E2E', () => {
         await route.call(token, '00000000-0000-4000-8000-000000000fff').expect(401);
       });
     }
+  });
+
+  // [#2216] A PLATFORM-metered school with 0 credit must not text anyone.
+  // Settings are restored after each case so other describes stay unmetered.
+  describe('metered tenant SMS credit (#2216)', () => {
+    async function setMetering(on: boolean) {
+      await dataSource.query(`UPDATE schools SET settings = $2 WHERE id = $1`, [
+        TENANT_ID,
+        on
+          ? JSON.stringify({
+              version: 1,
+              communications: { sms: { metering: 'PLATFORM', provider: 'test' } },
+            })
+          : null,
+      ]);
+      await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [TENANT_ID]);
+    }
+
+    afterEach(async () => {
+      await setMetering(false);
+    });
+
+    it('POST /communications/send with 0 credit -> 409 INSUFFICIENT_SMS_CREDIT', async () => {
+      await setMetering(true);
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/communications/send')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          medium: 'SMS',
+          recipient_address: '01712345678',
+          recipient_name: 'Metered Parent',
+          message_body: 'Hello',
+        })
+        .expect(409);
+      expect(res.body.details.code).toBe('INSUFFICIENT_SMS_CREDIT');
+      expect(res.body.details.required).toBe(1);
+      expect(res.body.details.available).toBe(0);
+      // Refused before the log row is written, so no job can exist either.
+      const [{ count }] = await dataSource.query(
+        `SELECT count(*)::int AS count FROM communication_logs WHERE tenant_id = $1 AND recipient_name = 'Metered Parent'`,
+        [TENANT_ID],
+      );
+      expect(count).toBe(0);
+    });
+
+    it('POST /communications/reminder/single/:studentId with 0 credit -> 409', async () => {
+      const studentId = await createStudent();
+      await createGuardian(studentId);
+      await createFee(studentId); // single reminder 400s without an open due
+      await setMetering(true);
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/communications/reminder/single/${studentId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ message_template: 'Dear {{guardian_name}}, reminder' })
+        .expect(409);
+      expect(res.body.details.code).toBe('INSUFFICIENT_SMS_CREDIT');
+      expect(res.body.details.required).toBeGreaterThan(0);
+      expect(res.body.details.available).toBe(0);
+      // The whole send is refused: no guardian got a log row (or a job).
+      const [{ count }] = await dataSource.query(
+        `SELECT count(*)::int AS count FROM communication_logs WHERE tenant_id = $1 AND student_id = $2`,
+        [TENANT_ID, studentId],
+      );
+      expect(count).toBe(0);
+    });
+
+    it('an unmetered tenant still sends (201)', async () => {
+      await supertest(app.getHttpServer())
+        .post('/api/v1/communications/send')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          medium: 'SMS',
+          recipient_address: '01712345678',
+          recipient_name: 'Unmetered Parent',
+          message_body: 'Hello',
+        })
+        .expect(201);
+    });
   });
 });

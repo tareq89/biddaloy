@@ -1,6 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { In } from 'typeorm';
-import { UserRole } from '@biddaloy/shared';
+import { AuthTokenPurpose, UserRole } from '@biddaloy/shared';
+import { AuthToken } from '../../../account-access/entities/auth-token.entity';
 import { User } from '../../../users/entities/user.entity';
 import { UserTenant } from '../../../auth/entities/user-tenant.entity';
 import {
@@ -8,6 +9,7 @@ import {
   countOtherMemberships,
   reviveMembership,
 } from '../../../users/users.service';
+import { insertJoinRequest } from '../../../account-access/school-invite.service';
 import { fromCell } from '../../codec/cell-format';
 import type {
   ColumnSpec,
@@ -128,6 +130,13 @@ async function endSwapped(m: EntityManager, ids: string[]): Promise<void> {
     .where('id IN (:...ids)', { ids })
     .execute();
 }
+
+/**
+ * Users `upsert` returned without making them members here: a join request
+ * was filed instead. The restore must not index them, so a later tab's ref to
+ * one fails as "not found" rather than copying a stranger's id into this school.
+ */
+export const joinRequestedUsers = new WeakSet<User>();
 
 export const usersTab: TabSpec<User, UserRow> = {
   name: 'users',
@@ -289,6 +298,53 @@ export const usersTab: TabSpec<User, UserRow> = {
     let user =
       existing ?? (row.email ? await m.findOne(User, { where: { email: row.email } }) : null);
     user = user ?? (row.phone ? await m.findOne(User, { where: { phone: row.phone } }) : null);
+
+    if (user && !existing) {
+      // Found by email/phone, not through this school's own rows. If it has
+      // never belonged here, a workbook cannot make it a member (AUTH-02): file
+      // a join request the account owner can accept, and leave the account alone.
+      const everHere = await m.exists(UserTenant, {
+        where: { user_id: user.id, tenant_id: tenantId },
+        withDeleted: true,
+      });
+      if (!everHere) {
+        // Only a VERIFIED contact proves who owns the account. An unverified
+        // holder could be anyone, so they get nothing, not even a request.
+        const verified =
+          (!!row.email && user.email === row.email && !!user.email_verified_at) ||
+          (!!row.phone && user.phone === row.phone && !!user.phone_verified_at);
+        if (!verified) {
+          throw new Error(
+            `User "${row.email ?? row.phone}": email/phone already used by another account.`,
+          );
+        }
+        // The workbook is the authority on role (one row per person), so a corrected restore
+        // revokes this person's earlier restore-filed request for another role. Requests
+        // with an actor, a guardian or the provisioned tag were filed elsewhere: left alone.
+        await m
+          .createQueryBuilder()
+          .update(AuthToken)
+          .set({ revoked_at: new Date() })
+          .where('user_id = :userId AND tenant_id = :tenantId AND purpose = :purpose', {
+            userId: user.id,
+            tenantId,
+            purpose: AuthTokenPurpose.JOIN_SCHOOL,
+          })
+          .andWhere('consumed_at IS NULL AND revoked_at IS NULL AND created_by_user_id IS NULL')
+          .andWhere(`metadata->>'guardian_id' IS NULL`)
+          .andWhere(`COALESCE(metadata->>'provisioned', 'false') <> 'true'`)
+          .andWhere(`metadata->>'role' <> :role`, { role: row.role })
+          .execute();
+        await insertJoinRequest(m, {
+          userId: user.id,
+          tenantId,
+          role: row.role,
+          createdByUserId: null,
+        });
+        joinRequestedUsers.add(user);
+        return user;
+      }
+    }
 
     if (user) {
       // Same rule as the admin edit path (`UsersService.update`), so the two cannot drift.

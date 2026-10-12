@@ -28,6 +28,8 @@ import { INVITATION_BATCH_QUEUE } from './invitation-batch.constants';
 import { AccountAccessController } from './account-access.controller';
 import { FirstPasswordController } from './first-password.controller';
 import { FirstPasswordService } from './first-password.service';
+import { SchoolInviteService } from './school-invite.service';
+import { SchoolInvitesController } from './school-invites.controller';
 
 @Module({
   imports: [
@@ -56,9 +58,10 @@ import { FirstPasswordService } from './first-password.service';
     ConfigModule,
     BullModule.registerQueue({ name: INVITATION_BATCH_QUEUE }),
   ],
-  controllers: [AccountAccessController, FirstPasswordController],
+  controllers: [AccountAccessController, FirstPasswordController, SchoolInvitesController],
   providers: [
     FirstPasswordService,
+    SchoolInviteService,
     AuthTokenService,
     AccountAccessDeliveryService,
     InvitationService,

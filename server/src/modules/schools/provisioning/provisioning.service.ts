@@ -16,6 +16,7 @@ import {
   pickChannel,
 } from '../../account-access/account-access-delivery.service';
 import { resolveAppBaseUrl } from '../../account-access/app-base-url.util';
+import { insertJoinRequest } from '../../account-access/school-invite.service';
 import { generateSecret, hashSecret } from '../../auth/token-hash.util';
 import { AuditService } from '../../audit/audit.service';
 import { TENANT_STATUS_REDIS } from '../tenant-status.service';
@@ -83,6 +84,14 @@ export interface ProvisionAdminResult {
   admin: { user_id: string; existed: boolean };
   invitation: { id: string; status: string };
 }
+
+/** 409 for a contact another user row holds. Neutral on purpose: it never says whether that
+ * holder is unverified, soft-deleted or just created by a racing request. */
+export const contactInUse = () =>
+  new ConflictException({
+    message: 'This phone or email already belongs to another account',
+    details: { code: 'CONTACT_IN_USE' },
+  });
 
 function idempotencyKey(key: string): string {
   return `provision:${key}`;
@@ -324,16 +333,50 @@ export class ProvisioningService {
     const userTenantRepo = manager.getRepository(UserTenant);
     const authTokenRepo = manager.getRepository(AuthToken);
 
-    const { user, existed } = await this.findOrCreateAdminUser(userRepo, admin);
+    // Registration (`sendInvitation = false`) just proved the contact by OTP; every other caller
+    // only typed it, so it may match a verified holder only.
+    // Coupling: "no invitation" is read as "contact proven". Registration is the only caller
+    // passing `false`; a future caller that skips the invite for another reason must not reuse
+    // this flag, or it would match unverified holders. Split it into its own option then.
+    const contactProven = !sendInvitation;
+    const { user, existed } = await this.findOrCreateAdminUser(userRepo, admin, contactProven);
 
-    // `(user_id, tenant_id, role)` is unique on user_tenants — saving a
-    // second ADMIN membership for the same user would surface as a raw
-    // QueryFailedError (500). Check inside the caller's transaction and
-    // answer with a defined 409 instead, without issuing another invitation.
+    // This ADMIN row, live or former. `(user_id, tenant_id, role)` is unique on user_tenants,
+    // so it also drives the 409 / revive below.
     const existingMembership = await userTenantRepo.findOne({
       where: { user_id: user.id, tenant_id: schoolId, role: UserRole.ADMIN },
       withDeleted: true,
     });
+
+    // An existing person is asked, not enrolled, unless they are a live member here (any
+    // role) or a former ADMIN (revived below: soft-delete is undoable, 13.2.1). A former
+    // PARENT/TEACHER never held ADMIN here, so ADMIN is a new grant: they accept a JOIN_SCHOOL
+    // request themselves (`accept()` revives per role). No membership, no INVITE.
+    if (existed && !contactProven && !existingMembership) {
+      const liveMember = await userTenantRepo.findOne({
+        where: { user_id: user.id, tenant_id: schoolId },
+      });
+      if (!liveMember) {
+        const join = await insertJoinRequest(manager, {
+          userId: user.id,
+          tenantId: schoolId,
+          role: UserRole.ADMIN,
+          createdByUserId: actorUserId,
+          provisioned: isInitialSchoolAdmin,
+        });
+        return {
+          result: {
+            admin: { user_id: user.id, existed: true },
+            invitation: { id: join.id, status: 'PENDING' },
+          },
+          deliverAfterCommit: null,
+        };
+      }
+    }
+
+    // Saving a second ADMIN membership for the same user would surface as a raw
+    // QueryFailedError (500). Checked inside the caller's transaction: a defined 409
+    // instead, without issuing another invitation.
     if (existingMembership && !existingMembership.deleted_at) {
       throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
     }
@@ -374,7 +417,8 @@ export class ProvisioningService {
       throw err;
     }
 
-    if (!sendInvitation) {
+    // An INVITE sets a password, so it only ever goes to a passwordless account.
+    if (!sendInvitation || user.password_hash !== null) {
       return {
         result: {
           admin: { user_id: user.id, existed },
@@ -434,6 +478,7 @@ export class ProvisioningService {
   private async findOrCreateAdminUser(
     userRepo: Repository<User>,
     admin: AdminInput,
+    contactProven: boolean,
   ): Promise<{ user: User; existed: boolean }> {
     // Each contact resolved on its own, not one `email OR phone` query: with
     // both supplied, an OR could match two *different* users and silently
@@ -444,6 +489,7 @@ export class ProvisioningService {
           .createQueryBuilder('u')
           .where('u.deleted_at IS NULL')
           .andWhere('u.email = :email', { email: admin.email })
+          .andWhere(contactProven ? '1=1' : 'u.email_verified_at IS NOT NULL')
           .getOne()
       : null;
     const byPhone = admin.phone
@@ -451,6 +497,7 @@ export class ProvisioningService {
           .createQueryBuilder('u')
           .where('u.deleted_at IS NULL')
           .andWhere('u.phone = :phone', { phone: admin.phone })
+          .andWhere(contactProven ? '1=1' : 'u.phone_verified_at IS NOT NULL')
           .getOne()
       : null;
     if (byEmail && byPhone && byEmail.id !== byPhone.id) {
@@ -463,14 +510,26 @@ export class ProvisioningService {
       return { user: found, existed: true };
     }
 
-    const created = await userRepo.save(
-      userRepo.create({
-        email: admin.email ?? null,
-        phone: admin.phone ?? null,
-        password_hash: null,
-        full_name: admin.name,
-      }),
-    );
-    return { user: created, existed: false };
+    try {
+      const created = await userRepo.save(
+        userRepo.create({
+          email: admin.email ?? null,
+          phone: admin.phone ?? null,
+          password_hash: null,
+          full_name: admin.name,
+        }),
+      );
+      return { user: created, existed: false };
+    } catch (err) {
+      // Another row owns that contact: an unverified holder (the lookups above skip those), a
+      // soft-deleted one (the UNIQUE index covers them), or a concurrent create.
+      if (
+        err instanceof QueryFailedError &&
+        (err as unknown as { code?: string }).code === '23505'
+      ) {
+        throw contactInUse();
+      }
+      throw err;
+    }
   }
 }

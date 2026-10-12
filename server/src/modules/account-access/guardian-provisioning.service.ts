@@ -4,14 +4,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import { Repository } from 'typeorm';
-import { AuditAction, AuthTokenPurpose, CommunicationStatus } from '@biddaloy/shared';
+import { AuditAction, AuthTokenPurpose, CommunicationStatus, UserRole } from '@biddaloy/shared';
 import { Guardian } from '../students/entities/guardian.entity';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { User } from '../users/entities/user.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthTokenService } from './auth-token.service';
 import { pickChannel } from './account-access-delivery.service';
+import { guardianLinkedElsewhere } from './school-invite.service';
 import { INVITATION_BATCH_QUEUE, MAX_BATCH_INVITE_SELECTION } from './invitation-batch.constants';
 import type {
   InviteBatchStatusResponseDto,
@@ -109,7 +111,7 @@ export class GuardianProvisioningService {
     tenantId: string,
   ): Promise<
     | { kind: 'skip'; reason: InviteSkipReason }
-    | { kind: 'invite'; user: User | null; channel: 'SMS' | 'EMAIL' }
+    | { kind: 'invite'; user: User | null; channel: 'SMS' | 'EMAIL'; join_request: boolean }
   > {
     if (guardian.notifications_enabled === false) {
       return { kind: 'skip', reason: 'notifications_disabled' };
@@ -123,29 +125,76 @@ export class GuardianProvisioningService {
     let user: User | null = null;
     if (guardian.user_id) {
       user = await this.userRepo.findOne({ where: { id: guardian.user_id } });
-    } else {
+    }
+    if (!user) {
+      // Verified contacts only: an unverified email/phone proves nothing (PUB-01).
       user = await this.userRepo
         .createQueryBuilder('u')
         .where('u.deleted_at IS NULL')
-        .andWhere('(u.email = :email OR u.phone = :phone)', {
-          email: guardian.email ?? '__none__',
-          phone: guardian.phone ?? '__none__',
-        })
+        .andWhere(
+          '((u.email = :email AND u.email_verified_at IS NOT NULL) OR (u.phone = :phone AND u.phone_verified_at IS NOT NULL))',
+          { email: guardian.email ?? '__none__', phone: guardian.phone ?? '__none__' },
+        )
         .getOne();
-    }
-
-    if (user?.password_hash) {
-      return { kind: 'skip', reason: 'already_active' };
-    }
-
-    if (user) {
-      const latest = await this.authTokens.latest(user.id, AuthTokenPurpose.INVITE, tenantId);
-      if (latest && !latest.consumed_at && !latest.revoked_at && latest.expires_at > new Date()) {
-        return { kind: 'skip', reason: 'already_pending' };
+      if (!user) {
+        // `withDeleted`: the unique index on email/phone ignores soft-deletion, so a deleted
+        // account still owns the contact and the processor's insert would hit 23505.
+        const holder = await this.userRepo
+          .createQueryBuilder('u')
+          .withDeleted()
+          .where('(u.email = :email OR u.phone = :phone)', {
+            email: guardian.email ?? '__none__',
+            phone: guardian.phone ?? '__none__',
+          })
+          .getOne();
+        if (holder) return { kind: 'skip', reason: 'contact_in_use' };
       }
     }
 
-    return { kind: 'invite', user, channel: channel.medium };
+    // The processor files a join request (no invite, no log row) for a password holder, and
+    // for an account with no membership row here at all; everyone else gets the INVITE.
+    let joinRequest = false;
+    if (user) {
+      const m = this.userRepo.manager;
+      // Same rule the processor applies: this account can never be linked here.
+      if (await guardianLinkedElsewhere(m, user.id, guardian.id)) {
+        return { kind: 'skip', reason: 'contact_in_use' };
+      }
+      // Active only with a LIVE PARENT row here: that is what family access needs. A
+      // link alone, a former row or another role here is still invitable; the
+      // processor revives or adds the row for a passwordless account (the INVITE
+      // tells them), and files a join request for everyone else.
+      if (
+        user.password_hash &&
+        (await m.exists(UserTenant, {
+          where: { user_id: user.id, tenant_id: tenantId, role: UserRole.PARENT },
+        }))
+      ) {
+        return { kind: 'skip', reason: 'already_active' };
+      }
+      // A live invite, or a live PARENT join request the owner has not answered
+      // yet (a pending request for another role does not cover family access).
+      const pending = [
+        await this.authTokens.latest(user.id, AuthTokenPurpose.INVITE, tenantId),
+        await this.authTokens.latest(
+          user.id,
+          AuthTokenPurpose.JOIN_SCHOOL,
+          tenantId,
+          UserRole.PARENT,
+        ),
+      ];
+      if (pending.some((t) => t && !t.consumed_at && !t.revoked_at && t.expires_at > new Date())) {
+        return { kind: 'skip', reason: 'already_pending' };
+      }
+      joinRequest =
+        !!user.password_hash ||
+        !(await m.exists(UserTenant, {
+          where: { user_id: user.id, tenant_id: tenantId },
+          withDeleted: true,
+        }));
+    }
+
+    return { kind: 'invite', user, channel: channel.medium, join_request: joinRequest };
   }
 
   async preview(
@@ -171,6 +220,7 @@ export class GuardianProvisioningService {
           full_name: guardian.full_name,
           channel: result.channel,
           user_exists: result.user != null,
+          join_request: result.join_request,
         });
       }
     }
@@ -185,6 +235,9 @@ export class GuardianProvisioningService {
   }): Promise<InviteDispatchResponseDto> {
     const { to_invite, skipped } = await this.preview(input.tenantId, input.selection);
     const batchId = randomUUID();
+    // Join requests are filed by the processor too, but write no log row, so batchStatus
+    // could never count them as sent: only real invites are the batch's `queued` total.
+    const invites = to_invite.filter((e) => !e.join_request).length;
 
     for (const entry of to_invite) {
       await this.queue.add(
@@ -208,10 +261,15 @@ export class GuardianProvisioningService {
       entity_id: batchId,
       tenant_id: input.tenantId,
       performed_by_user_id: input.actorUserId,
-      new_values: { batch_id: batchId, queued: to_invite.length, skipped: skipped.length },
+      new_values: {
+        batch_id: batchId,
+        queued: invites,
+        requested: to_invite.length - invites,
+        skipped: skipped.length,
+      },
     });
 
-    return { batch_id: batchId, queued: to_invite.length, skipped };
+    return { batch_id: batchId, queued: invites, skipped };
   }
 
   async batchStatus(tenantId: string, batchId: string): Promise<InviteBatchStatusResponseDto> {

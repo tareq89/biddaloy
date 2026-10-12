@@ -8,7 +8,8 @@ import { User } from '../../../users/entities/user.entity';
 import { UserTenant } from '../../../auth/entities/user-tenant.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { usersTab, type UserRow } from './users.tab';
+import { insertJoinRequest } from '../../../account-access/school-invite.service';
+import { joinRequestedUsers, usersTab, type UserRow } from './users.tab';
 
 /**
  * Integration tests for the `users` tab against a real Postgres database.
@@ -181,9 +182,10 @@ describe('usersTab (integration)', () => {
     // Named cross-tenant test from the issue: a shared user's identity is
     // never rewritten by an import into a tenant that isn't the only one
     // they belong to.
-    it('adds a membership for tenant A but leaves tenant B untouched and identity unchanged', async () => {
+    it('files a join request for tenant A but adds no membership, and leaves tenant B and identity untouched', async () => {
       const shared = await makeUser({
         email: 'shared@both.test',
+        email_verified_at: new Date(), // only a verified contact can receive a join request (M4)
         full_name: 'Original Name',
       });
       const membershipB = await makeMembership(shared.id, TENANT_B, UserRole.ADMIN);
@@ -199,15 +201,59 @@ describe('usersTab (integration)', () => {
       const updatedUser = await userRepo.findOneByOrFail({ id: shared.id });
       expect(updatedUser.full_name).toBe('Original Name');
 
+      // AUTH-02: the account owner has not agreed, so there is no membership yet...
       const membershipsA = await userTenantRepo.find({
         where: { user_id: shared.id, tenant_id: TENANT_A },
+        withDeleted: true,
       });
-      expect(membershipsA).toHaveLength(1);
-      expect(membershipsA[0].role).toBe(UserRole.TEACHER);
+      expect(membershipsA).toHaveLength(0);
+      // ...only a pending request they can accept or decline.
+      const requests = await dataSource.query(
+        `SELECT metadata FROM auth_tokens WHERE user_id = $1 AND tenant_id = $2 AND purpose = 'JOIN_SCHOOL'`,
+        [shared.id, TENANT_A],
+      );
+      expect(requests).toHaveLength(1);
+      expect(requests[0].metadata.role).toBe(UserRole.TEACHER);
 
       const stillB = await userTenantRepo.findOneByOrFail({ id: membershipB.id });
       expect(stillB.role).toBe(UserRole.ADMIN);
       expect(stillB.tenant_id).toBe(TENANT_B);
+    });
+
+    // [68.1.fix R2] The workbook is the authority on role: a corrected restore (ADMIN by
+    // mistake, then TEACHER) must not leave the stale ADMIN request live. A request someone
+    // else filed (here: a platform operator's ADMIN request) is not the restore's to cancel.
+    it('a re-restore with a corrected role revokes its own stale request, not anyone else’s', async () => {
+      const person = await makeUser({
+        email: 'corrected@tenant-a.test',
+        email_verified_at: new Date(),
+      });
+      const liveRequests = () =>
+        dataSource.query(
+          `SELECT id, metadata->>'role' AS role FROM auth_tokens
+           WHERE user_id = $1 AND tenant_id = $2 AND purpose = 'JOIN_SCHOOL' AND revoked_at IS NULL
+           ORDER BY role`,
+          [person.id, TENANT_A],
+        );
+      const row = rowFor({ email: 'corrected@tenant-a.test', role: UserRole.ADMIN });
+      const teacherRow = { ...row, role: UserRole.TEACHER };
+
+      await usersTab.upsert(row, null, TENANT_A, dataSource.manager);
+      await usersTab.upsert(teacherRow, null, TENANT_A, dataSource.manager);
+      expect(await liveRequests()).toEqual([{ id: expect.any(String), role: UserRole.TEACHER }]);
+
+      const operator = await makeUser({ email: 'operator@tenant-b.test' });
+      const operatorRequest = await insertJoinRequest(dataSource.manager, {
+        userId: person.id,
+        tenantId: TENANT_A,
+        role: UserRole.ADMIN,
+        createdByUserId: operator.id,
+      });
+      await usersTab.upsert(teacherRow, null, TENANT_A, dataSource.manager);
+      expect(await liveRequests()).toEqual([
+        { id: operatorRequest.id, role: UserRole.ADMIN },
+        { id: expect.any(String), role: UserRole.TEACHER },
+      ]);
     });
 
     // Companion to the `remove()` provisioned-exemption test below: the
@@ -248,13 +294,63 @@ describe('usersTab (integration)', () => {
     });
 
     it('matches by phone when the row email is empty', async () => {
-      const user = await makeUser({ email: null, phone: '01799999999', full_name: 'Phone User' });
+      const user = await makeUser({
+        email: null,
+        phone: '01799999999',
+        phone_verified_at: new Date(), // only a verified contact can receive a join request (M4)
+        full_name: 'Phone User',
+      });
 
       const row = rowFor({ email: null, phone: '01799999999', role: UserRole.TEACHER });
 
       const result = await usersTab.upsert(row, null, TENANT_A, dataSource.manager);
 
       expect(result.id).toBe(user.id);
+      // Not a member here, so a later tab must not resolve a ref to it (M3).
+      expect(joinRequestedUsers.has(result)).toBe(true);
+      // Matched by phone, never a member here: a join request, not a membership.
+      expect(await userTenantRepo.count({ where: { user_id: user.id } })).toBe(0);
+      const requests = await dataSource.query(
+        `SELECT 1 FROM auth_tokens WHERE user_id = $1 AND tenant_id = $2 AND purpose = 'JOIN_SCHOOL'`,
+        [user.id, TENANT_A],
+      );
+      expect(requests).toHaveLength(1);
+    });
+
+    // M4: an unverified email/phone proves nothing. Whoever holds it unverified must
+    // not receive a request for this school's account (the role can be ADMIN).
+    it('an unverified holder of the email gets no join request: the row fails instead', async () => {
+      const holder = await makeUser({ email: 'squatter@both.test', email_verified_at: null });
+      await makeMembership(holder.id, TENANT_B, UserRole.ADMIN);
+
+      const row = rowFor({ email: 'squatter@both.test', role: UserRole.ADMIN });
+
+      await expect(usersTab.upsert(row, null, TENANT_A, dataSource.manager)).rejects.toThrow(
+        /already used by another account/,
+      );
+      const requests = await dataSource.query(
+        `SELECT 1 FROM auth_tokens WHERE user_id = $1 AND purpose = 'JOIN_SCHOOL'`,
+        [holder.id],
+      );
+      expect(requests).toHaveLength(0);
+      expect(
+        await userTenantRepo.count({ where: { user_id: holder.id, tenant_id: TENANT_A } }),
+      ).toBe(0);
+    });
+
+    it('an unverified phone holder gets no join request either', async () => {
+      const holder = await makeUser({ phone: '01700000001', phone_verified_at: null });
+
+      const row = rowFor({ email: null, phone: '01700000001', role: UserRole.TEACHER });
+
+      await expect(usersTab.upsert(row, null, TENANT_A, dataSource.manager)).rejects.toThrow(
+        /already used by another account/,
+      );
+      const requests = await dataSource.query(
+        `SELECT 1 FROM auth_tokens WHERE user_id = $1 AND purpose = 'JOIN_SCHOOL'`,
+        [holder.id],
+      );
+      expect(requests).toHaveLength(0);
     });
 
     it('is idempotent when run twice with the same row', async () => {
@@ -354,6 +450,9 @@ describe('usersTab (integration)', () => {
           metadata: null,
         }),
       );
+      // Already a member of A (an unaccepted workbook row cannot add one any more, #2218),
+      // under another role, so the restore below changes the role.
+      await makeMembership(shared.id, TENANT_A, UserRole.OFFICE_STAFF);
 
       const row: UserRow = {
         email: 'shared-across-tenants@users-tab.test',

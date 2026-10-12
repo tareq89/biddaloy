@@ -34,7 +34,7 @@ Tests must be readable by a junior developer. No dynamic test generation. Use ex
 - **Soft Deletes:** Always test that `deletedAt` is set and excluded from standard queries.
 - **Role Guards:** Always test both allowed and denied scenarios for every `@Roles()` **and `@RequirePermissions()`** endpoint.
 - **Context Header:** Always test missing and invalid `X-Tenant-ID` scenarios.
-- **Permissions:** New tenant routes must declare `@RequirePermissions()` or carry a reviewed entry in `PENDING_PERMISSION_DECISION`; `permission-matrix.e2e-spec.ts` fails otherwise.
+- **Permissions:** New tenant routes must declare `@RequirePermissions()` or carry a reviewed entry in `IDENTITY_SCOPED`; `permission-matrix.e2e-spec.ts` fails otherwise. Every route's permission is also recorded in `src/__snapshots__/route-permissions.txt`. After adding or changing a route, run `yarn test:file src/permission-matrix.e2e-spec.ts -u` and commit the diff; reviewers read it like a permission change. The snapshot covers controller routes only: Swagger docs, static files and the SPA fallback in `main.ts` are not in it.
 
 ## Minting an approval token in a spec
 
@@ -103,6 +103,7 @@ yarn test:file -- src/students/students.service.integration.spec.ts
 Integration and E2E tests require a running PostgreSQL database.
 Create `server/.env.test` with `DATABASE_URL` pointing to your test database.
 The test database must exist before running tests.
+A new migration must pass `test/migration-schema.integration.spec.ts` (no drift from the entity files beyond the exact statements in `test/schema-drift-baseline.ts`, and a down/up round-trip), so its `down()` must work on an empty database. Fixing a baselined drift means deleting its statement from that file.
 
 ## Execution
 

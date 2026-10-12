@@ -10,7 +10,7 @@ import { assertPasswordAllowedForUser } from '../auth/password-policy';
 import { School } from '../schools/entities/school.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService, AuthResult } from '../auth/auth.service';
-import { RequestContext } from '../auth/refresh-token.service';
+import { RefreshTokenService, RequestContext } from '../auth/refresh-token.service';
 import { normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { AuthTokenService } from './auth-token.service';
 import { InvitationService } from './invitation.service';
@@ -47,6 +47,7 @@ export class ActivationService {
     @Inject(AuthService) private readonly authService: AuthService,
     private readonly auditService: AuditService,
     private readonly invitations: InvitationService,
+    private readonly refreshTokens: RefreshTokenService,
   ) {}
 
   /**
@@ -65,6 +66,10 @@ export class ActivationService {
     const user = await this.userRepo.findOne({ where: { id: result.row.user_id } });
     if (!user) {
       return { status: 'unknown' };
+    }
+    // Same answer `activate()` gives: an INVITE never replaces a password, so don't offer the form.
+    if (user.password_hash !== null) {
+      return { status: 'consumed' };
     }
 
     const school = result.row.tenant_id
@@ -101,6 +106,10 @@ export class ActivationService {
     if (user.status === UserStatus.SUSPENDED) {
       throw new BadRequestException('suspended');
     }
+    // An INVITE only ever sets a first password; it can never replace one.
+    if (user.password_hash !== null) {
+      throw new BadRequestException('consumed');
+    }
 
     await assertPasswordAllowedForUser(this.userTenantRepo, user.id, password);
     const password_hash = await bcrypt.hash(password, BCRYPT_COST);
@@ -129,8 +138,11 @@ export class ActivationService {
     await this.dataSource.transaction(async (manager) => {
       // An INACTIVE invitee becomes ACTIVE on activation; an already-ACTIVE
       // user (re-activating via a still-live invite link) stays ACTIVE.
-      await manager.getRepository(User).update(
-        { id: user.id },
+      // Conditional write (same as `FirstPasswordService`): the check above ran outside this
+      // transaction, so a password set since then (a racing activate, first-password or
+      // recovery) makes this match nothing and the whole activation rolls back.
+      const written = await manager.getRepository(User).update(
+        { id: user.id, password_hash: IsNull() },
         {
           password_hash,
           status: UserStatus.ACTIVE,
@@ -138,6 +150,9 @@ export class ActivationService {
           ...(verifiedField === 'phone' ? { phone_verified_at: new Date() } : {}),
         },
       );
+      if (written.affected !== 1) {
+        throw new BadRequestException('consumed');
+      }
       await this.authTokens.consume(row.id, manager);
       await this.auditService.record(
         {
@@ -168,6 +183,9 @@ export class ActivationService {
       }
     });
 
+    // After commit, like `RecoveryService.applyNewPassword`, and before `startSession` so the
+    // new session survives. If this throws, the password is already set and old sessions live on.
+    await this.refreshTokens.revokeAllForUser(user.id);
     await this.authService.resetLoginLockouts(user);
 
     return this.authService.startSession(user, context);

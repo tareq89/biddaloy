@@ -49,6 +49,7 @@ describe('SingleReminderService', () => {
   let guardianService: Record<string, ReturnType<typeof vi.fn>>;
   let feeDuesService: Record<string, ReturnType<typeof vi.fn>>;
   let auditService: Record<string, ReturnType<typeof vi.fn>>;
+  let smsCreditService: Record<string, ReturnType<typeof vi.fn>>;
 
   const dto = {
     message_template:
@@ -65,6 +66,11 @@ describe('SingleReminderService', () => {
     guardianService = { findOne: vi.fn() };
     feeDuesService = { getDueSnapshots: vi.fn(async () => new Map([[STUDENT_ID, snapshot()]])) };
     auditService = { record: vi.fn(async () => undefined) };
+    smsCreditService = {
+      reserveIfMetered: vi.fn(async () => 'UNMETERED'),
+      releaseForLog: vi.fn(async () => undefined),
+      settlePart: vi.fn(async () => undefined),
+    };
 
     service = new SingleReminderService(
       logRepo as any,
@@ -73,6 +79,7 @@ describe('SingleReminderService', () => {
       guardianService as any,
       feeDuesService as any,
       auditService as any,
+      smsCreditService as any,
     );
   });
 
@@ -438,6 +445,83 @@ describe('SingleReminderService', () => {
       expect(result.skipped).toEqual([
         { guardian_id: 'g-2', guardian_name: 'Karim Uddin', reason: SkipReason.MISSING_ADDRESS },
       ]);
+    });
+  });
+
+  describe('sendSingle on a metered tenant [#2216]', () => {
+    it('reserved: the job carries batchId and segments', async () => {
+      smsCreditService.reserveIfMetered.mockResolvedValue('RESERVED');
+
+      await service.sendSingle(STUDENT_ID, dto as any, TENANT, USER);
+
+      expect(queue.add).toHaveBeenCalledWith(
+        'send',
+        expect.objectContaining({ logId: 'log-1', batchId: expect.any(String), segments: 1 }),
+      );
+    });
+
+    it('0 credit: throws 409 INSUFFICIENT_SMS_CREDIT and saves/queues nothing', async () => {
+      smsCreditService.reserveIfMetered.mockResolvedValue({ insufficient: true, available: 0 });
+
+      await expect(service.sendSingle(STUDENT_ID, dto as any, TENANT, USER)).rejects.toMatchObject({
+        status: 409,
+        response: { details: { code: 'INSUFFICIENT_SMS_CREDIT' } },
+      });
+      expect(logRepo.save).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('releases the share when queue.add fails', async () => {
+      smsCreditService.reserveIfMetered.mockResolvedValue('RESERVED');
+      queue.add.mockRejectedValue(new Error('redis down'));
+
+      await service.sendSingle(STUDENT_ID, dto as any, TENANT, USER);
+
+      expect(smsCreditService.releaseForLog).toHaveBeenCalledWith(
+        TENANT,
+        'log-1',
+        1,
+        expect.any(String),
+      );
+    });
+
+    it('releases the unused remainder when a later log save throws', async () => {
+      studentService.findOne.mockResolvedValue(
+        student({
+          guardians: [
+            guardian({ id: 'g-1', is_primary_contact: true }),
+            guardian({ id: 'g-2', phone: '01799999999', is_primary_contact: true }),
+          ],
+        }),
+      );
+      smsCreditService.reserveIfMetered.mockResolvedValue('RESERVED');
+      logRepo.save
+        .mockImplementationOnce(async (v: any) => ({ id: 'log-1', ...v }))
+        .mockRejectedValueOnce(new Error('connection lost'));
+
+      await expect(service.sendSingle(STUDENT_ID, dto as any, TENANT, USER)).rejects.toThrow(
+        'connection lost',
+      );
+
+      // 2 segments were reserved up front; log-1's job owns 1, so the other
+      // 1 must go back — otherwise the school loses it until a manual fix.
+      const [, , batchId] = smsCreditService.reserveIfMetered.mock.calls[0];
+      expect(smsCreditService.reserveIfMetered).toHaveBeenCalledWith(TENANT, 2, batchId);
+      expect(smsCreditService.settlePart).toHaveBeenCalledWith(
+        TENANT,
+        `batch:${batchId}`,
+        `unused:${batchId}`,
+        1,
+        'RELEASE',
+      );
+    });
+
+    it('releases nothing extra when every share was queued', async () => {
+      smsCreditService.reserveIfMetered.mockResolvedValue('RESERVED');
+
+      await service.sendSingle(STUDENT_ID, dto as any, TENANT, USER);
+
+      expect(smsCreditService.settlePart).not.toHaveBeenCalled();
     });
   });
 

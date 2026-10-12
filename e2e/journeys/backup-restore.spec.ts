@@ -18,6 +18,7 @@ import {
 import { shells } from '../config';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
+import { DetailShellPage } from '../pages/detail-shell';
 
 /**
  * [14.11.4/#614] The epic's end-to-end proof: request a backup, download
@@ -206,6 +207,81 @@ test.describe.serial('backup and restore', () => {
       `/students/${studentId}`,
     );
     expect(restoredStudent.full_name).toBe(studentName);
+  });
+
+  test('Leg E: a save refused with 423 TENANT_RESTORING shows the toast and the shell bar, then clears', async ({
+    browser,
+  }) => {
+    // [68.1.2219] Own context with the service worker blocked: a SW fetch
+    // handler runs outside the page network stack `page.route()` patches
+    // (precedent: e2e/focus-management.spec.ts).
+    const context = await browser.newContext({
+      storageState: await adminContext.storageState(),
+      serviceWorkers: 'block',
+    });
+    try {
+      const page = await context.newPage();
+      // Start on the detail page and move by clicks only: a reload would
+      // empty the mutation cache the bar reads, making "then clears" vacuous.
+      const detail = new DetailShellPage(page);
+      await page.goto(`/students/${studentId}`);
+      await detail.expectLoaded(studentName);
+      await detail.clickAction('students.detail.actions.edit');
+      const fullName = page.getByLabel(t('students.form.fields.fullName'));
+      await expect(fullName).toBeVisible();
+      const save = page.getByRole('button', { name: t('students.edit.submitAction') });
+
+      // The full server error envelope: `toApiError` (ui/src/api/client.ts)
+      // only builds an ApiError when `requestId` is present, so a body
+      // without it never reaches isTenantRestoringError.
+      const refuse = (route: import('@playwright/test').Route) =>
+        route.request().method() !== 'PATCH'
+          ? route.fallback()
+          : route.fulfill({
+              status: 423,
+              contentType: 'application/json',
+              body: JSON.stringify({
+                statusCode: 423,
+                message: 'This school is being restored.',
+                timestamp: new Date().toISOString(),
+                path: `/api/v1/students/${studentId}`,
+                requestId: 'e2e-restore-freeze',
+                details: { code: 'TENANT_RESTORING' },
+              }),
+            });
+      await page.route(`**/api/v1/students/${studentId}`, refuse);
+      await fullName.fill(`${studentName} Edited`);
+      await save.click();
+      await expect(page.getByText(t('common.errors.schoolRestoring'))).toBeVisible();
+
+      // The editor is a chromeless full-screen page: no shell, so no bar
+      // there (it has the toast and its own inline error). Back on a shell
+      // page, the bar tells the user why their save did not stick.
+      // Today there is no "leave without saving?" question: the form counts
+      // the refused submit as submitted, so Cancel goes straight back (bug
+      // #2347). Once #2347 is fixed the question appears; leave through it,
+      // so that fix does not have to touch this spec.
+      await page.getByRole('button', { name: t('students.form.cancelAction') }).click();
+      const leave = page.getByRole('button', {
+        name: t('students.form.unsavedChangesDialog.leaveAction'),
+      });
+      await expect
+        .poll(async () => (await leave.isVisible()) || !page.url().endsWith('/edit'))
+        .toBe(true);
+      if (await leave.isVisible()) await leave.click();
+      await detail.expectLoaded(studentName);
+      const bar = page.getByText(t('common.restoreBar.message'));
+      await expect(bar).toBeVisible();
+
+      await page.unroute(`**/api/v1/students/${studentId}`, refuse);
+      await detail.clickAction('students.detail.actions.edit');
+      await fullName.fill(`${studentName} Edited`);
+      await save.click();
+      await detail.expectLoaded(`${studentName} Edited`);
+      await expect(bar).toBeHidden();
+    } finally {
+      await context.close();
+    }
   });
 
   test.describe('Leg D: a TEACHER reaches neither the API nor the UI', () => {

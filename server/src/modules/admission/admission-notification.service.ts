@@ -6,6 +6,11 @@ import { Repository } from 'typeorm';
 import { AdmissionApplicantStatus, CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
+import { SmsCreditService } from '../communications/credits/sms-credit.service';
+import {
+  CREDIT_RESERVE_FAILED,
+  INSUFFICIENT_SMS_CREDIT,
+} from '../communications/credits/insufficient-sms-credit.constants';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 
 const TEMPLATE_BY_STATUS: Partial<Record<AdmissionApplicantStatus, (applicantName: string, intakeTitle: string) => string>> = {
@@ -39,6 +44,7 @@ export class AdmissionNotificationService {
     private readonly logRepo: Repository<CommunicationLog>,
     @InjectQueue(COMMUNICATIONS_QUEUE)
     private readonly queue: Queue,
+    private readonly smsCreditService: SmsCreditService,
   ) {}
 
   async notifyStatusChange(
@@ -62,9 +68,32 @@ export class AdmissionNotificationService {
       }),
     );
 
+    // [#2216] Metered SMS must hold credit before it is queued. A reserve
+    // that throws fails the log rather than leaving it QUEUED with no job.
+    const credit = await this.smsCreditService
+      .reserveForLog(applicant.tenant_id, log)
+      .catch((error: unknown) => {
+        this.logger.warn(
+          `Failed to reserve SMS credit for admission log ${log.id}: ${String(error)}`,
+        );
+        return CREDIT_RESERVE_FAILED;
+      });
+    if (typeof credit === 'string') {
+      log.status = CommunicationStatus.FAILED;
+      log.metadata = {
+        ...log.metadata,
+        reason: credit === 'INSUFFICIENT' ? INSUFFICIENT_SMS_CREDIT : credit,
+      };
+      await this.logRepo.save(log);
+      return;
+    }
+
     try {
-      await this.queue.add('send', { logId: log.id });
+      await this.queue.add('send', { logId: log.id, ...credit });
     } catch (error) {
+      if (credit.segments !== undefined) {
+        await this.smsCreditService.releaseForLog(applicant.tenant_id, log.id, credit.segments);
+      }
       this.logger.warn(
         `Failed to enqueue admission status-change notification ${log.id} for applicant ${applicant.id}: ${String(error)}`,
       );

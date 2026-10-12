@@ -83,6 +83,8 @@ import { SurveyQuestion } from './modules/surveys/entities/survey-question.entit
 import { SurveyTarget } from './modules/surveys/entities/survey-target.entity';
 import { SurveyResponse } from './modules/surveys/entities/survey-response.entity';
 import { SurveyAnswer } from './modules/surveys/entities/survey-answer.entity';
+import { SmsCreditBalance } from './modules/communications/credits/entities/sms-credit-balance.entity';
+import { SmsCreditLedger } from './modules/communications/credits/entities/sms-credit-ledger.entity';
 import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
@@ -360,6 +362,12 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             SurveyTarget,
             SurveyResponse,
             SurveyAnswer,
+            // [#2216] Missing since 15.6 (#570): every SmsCreditService
+            // ledger/balance read threw EntityMetadataNotFoundError on the
+            // app's real DataSource, so metered sends never worked outside
+            // specs that build their own connection.
+            SmsCreditBalance,
+            SmsCreditLedger,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],

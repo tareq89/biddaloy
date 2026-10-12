@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository, IsNull, In, Not, Brackets } from 'typeorm';
 import {
   AuditAction,
-  EnrollmentStatus,
   ExamComponentSource,
   ExamStatus,
   MarkStatus,
@@ -38,6 +37,7 @@ import {
   ComponentInput,
   SubjectResult,
 } from './result-rules';
+import { loadExamCohort } from './exam-cohort';
 import { AttendanceComponentService } from './attendance-component.service';
 import { MarkGridService } from './mark-grid.service';
 import { attentionEvents } from '../attention/attention.constants';
@@ -274,32 +274,21 @@ export class ResultsService {
     });
     const bands = bandRows.map((b) => this.toRuleBand(b));
 
-    // D17: the exam's cohort is whoever holds an ACTIVE enrollment for its
-    // own (academic_year_id, class_id) — not `Student.class_section_id`,
-    // which is the student's CURRENT placement and drifts away from an old
-    // exam's year/class after promotion. Reprocessing an old exam must keep
-    // finding the same students it was processed for originally.
-    const enrollments = await this.enrollmentRepo.find({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: exam.academic_year_id,
-        class_id: exam.class_id,
-        enrollment_status: EnrollmentStatus.ACTIVE,
-      },
-      // [35.1.14] section join gives the stream (group_name); tenant-safe
-      // through the tenant-filtered enrollment query, no extra round trip.
-      relations: { section: true },
-    });
-    const students =
+    // Cohort = the students who sat the exam (see `loadExamCohort`).
+    const { members: enrollments, studentsWithResult } = await loadExamCohort(
+      this.enrollmentRepo.manager,
+      exam,
+      tenantId,
+    );
+    const studentRows =
       enrollments.length === 0
         ? []
         : await this.studentRepo.find({
-            where: {
-              id: In(enrollments.map((e) => e.student_id)),
-              tenant_id: tenantId,
-              deleted_at: IsNull(),
-            },
+            where: { id: In(enrollments.map((e) => e.student_id)), tenant_id: tenantId },
+            withDeleted: true,
           });
+    // A deleted student keeps a result they already have; never gets a new one.
+    const students = studentRows.filter((s) => !s.deleted_at || studentsWithResult.has(s.id));
     const sectionByStudent = new Map(enrollments.map((e) => [e.student_id, e.section_id]));
     const groupByStudent = new Map<string, string | null>(
       enrollments.map((e) => [e.student_id, e.section?.group_name ?? null]),
@@ -509,9 +498,11 @@ export class ResultsService {
     return { rows, missingPicks, unassignedStreams };
   }
 
-  /** Soft-deletes every active result for the exam — including students
-   * no longer in `computed` (e.g. since made INACTIVE), whose old row would
-   * otherwise survive to be published and texted — then inserts `computed`. */
+  /** Soft-deletes every live result of the exam, then inserts `computed`.
+   * `computed` is the whole cohort (`loadExamCohort`): a student who left
+   * but sat the exam is in it and gets a fresh row. A row of anyone left
+   * out on purpose (late joiner, no marks) is removed, so no stale
+   * position survives to be republished. */
   private async replaceResults(
     manager: EntityManager,
     exam: Exam,

@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -12,7 +13,13 @@ import { Repository } from 'typeorm';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { StudentService, GuardianService } from '../students/students.service';
 import { SendCommunicationDto, CommunicationResponseDto } from './dto/communications.dto';
-import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
+import {
+  CommunicationMedium,
+  CommunicationStatus,
+  CommunicationTrigger,
+  countSmsSegments,
+} from '@biddaloy/shared';
+import { INSUFFICIENT_SMS_CREDIT } from './credits/insufficient-sms-credit.constants';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
 import { SmsCreditService } from './credits/sms-credit.service';
 
@@ -67,6 +74,25 @@ export class CommunicationsService {
     userId: string,
     smsCreditReservation?: { batchId: string; segments: number },
   ): Promise<CommunicationResponseDto> {
+    // [#2216] A metered tenant's SMS must be reserved before it is queued;
+    // callers that already reserved pass their reservation and skip this.
+    if (dto.medium === CommunicationMedium.SMS && !smsCreditReservation) {
+      const segments = countSmsSegments(dto.message_body).segments;
+      const batchId = randomUUID();
+      const outcome = await this.smsCreditService.reserveIfMetered(tenantId, segments, batchId);
+      if (typeof outcome === 'object') {
+        throw new ConflictException({
+          message: 'Insufficient SMS credit to send this message.',
+          details: {
+            code: INSUFFICIENT_SMS_CREDIT,
+            required: segments,
+            available: outcome.available,
+          },
+        });
+      }
+      if (outcome === 'RESERVED') smsCreditReservation = { batchId, segments };
+    }
+
     let log: CommunicationLog;
     try {
       if (dto.student_id) {

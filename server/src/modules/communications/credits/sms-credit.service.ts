@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { CommunicationMedium, countSmsSegments } from '@biddaloy/shared';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, QueryFailedError, Repository } from 'typeorm';
 import { SchoolsService } from '../../schools/schools.service';
@@ -64,6 +65,8 @@ function isCheckViolation(err: unknown): boolean {
  */
 @Injectable()
 export class SmsCreditService {
+  private readonly logger = new Logger(SmsCreditService.name);
+
   constructor(
     @InjectRepository(SmsCreditBalance)
     private readonly balanceRepo: Repository<SmsCreditBalance>,
@@ -230,6 +233,58 @@ export class SmsCreditService {
         );
       }
       throw err;
+    }
+  }
+
+  /** [#2216] Reserve under the shared `batch:<batchId>` key (#1317) only when
+   * the tenant is metered. Producers that queue SMS call this once per
+   * message/batch so no metered SMS reaches a gateway unreserved. */
+  async reserveIfMetered(
+    tenantId: string,
+    units: number,
+    batchId: string,
+  ): Promise<'UNMETERED' | 'RESERVED' | { insufficient: true; available: number }> {
+    if (!(await this.isMetered(tenantId))) return 'UNMETERED';
+    const res = await this.reserve(tenantId, units, `batch:${batchId}`, {
+      type: 'batch',
+      id: batchId,
+    });
+    return res.ok ? 'RESERVED' : { insufficient: true, available: res.available };
+  }
+
+  /** [#2216] For automated one-log-at-a-time producers (absence, homework,
+   * admission): returns the extra job data to queue with (`{}` when the log is
+   * not SMS or the tenant is unmetered) or `'INSUFFICIENT'` when credit is short.
+   * The batch key is the log id, so a retried call is idempotent. */
+  async reserveForLog(
+    tenantId: string,
+    log: { id: string; medium: string; message_body: string },
+  ): Promise<{ batchId?: string; segments?: number } | 'INSUFFICIENT'> {
+    if (log.medium !== CommunicationMedium.SMS) return {};
+    const segments = countSmsSegments(log.message_body).segments;
+    const outcome = await this.reserveIfMetered(tenantId, segments, log.id);
+    if (outcome === 'UNMETERED') return {};
+    if (outcome === 'RESERVED') return { batchId: log.id, segments };
+    return 'INSUFFICIENT';
+  }
+
+  /** [#2216] Give back a `reserveForLog` reservation when its job was never
+   * queued. Never throws: the caller is already handling a failure. */
+  async releaseForLog(
+    tenantId: string,
+    logId: string,
+    segments: number,
+    batchId: string = logId,
+  ): Promise<void> {
+    try {
+      await this.settlePart(tenantId, `batch:${batchId}`, `log:${logId}`, segments, 'RELEASE');
+    } catch (err) {
+      this.logger.error({
+        msg: 'sms credit release on enqueue failure failed — reservation left stranded',
+        communication_log_id: logId,
+        tenant_id: tenantId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

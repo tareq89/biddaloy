@@ -23,6 +23,7 @@ export {
   ApiError,
   NoActiveTenantError,
   NoMembershipsError,
+  isTenantRestoringError,
   RateLimitedError,
   type ApiErrorBody,
 } from './errors';

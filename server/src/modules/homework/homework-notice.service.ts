@@ -9,6 +9,11 @@ import { Homework } from './entities/homework.entity';
 import { Student } from '../students/entities/student.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
+import { SmsCreditService } from '../communications/credits/sms-credit.service';
+import {
+  CREDIT_RESERVE_FAILED,
+  INSUFFICIENT_SMS_CREDIT,
+} from '../communications/credits/insufficient-sms-credit.constants';
 import {
   addressForMedium,
   DISPATCHABLE_MEDIA,
@@ -34,6 +39,7 @@ export class HomeworkNoticeService {
     private readonly logRepo: Repository<CommunicationLog>,
     @InjectQueue(COMMUNICATIONS_QUEUE)
     private readonly queue: Queue,
+    private readonly smsCreditService: SmsCreditService,
   ) {}
 
   /** Called synchronously right after `HomeworkService.assign()` saves the
@@ -121,9 +127,33 @@ export class HomeworkNoticeService {
           continue;
         }
 
+        // [#2216] Metered SMS must hold credit before it is queued. A reserve
+        // that throws fails this log only — never strand it QUEUED or skip
+        // the remaining guardians.
+        const credit = await this.smsCreditService
+          .reserveForLog(tenantId, log)
+          .catch((error: unknown) => {
+            this.logger.warn(
+              `Failed to reserve SMS credit for homework-notice log ${log.id}: ${String(error)}`,
+            );
+            return CREDIT_RESERVE_FAILED;
+          });
+        if (typeof credit === 'string') {
+          log.status = CommunicationStatus.FAILED;
+          log.metadata = {
+            ...log.metadata,
+            reason: credit === 'INSUFFICIENT' ? INSUFFICIENT_SMS_CREDIT : credit,
+          };
+          await this.logRepo.save(log);
+          continue;
+        }
+
         try {
-          await this.queue.add('send', { logId: log.id });
+          await this.queue.add('send', { logId: log.id, ...credit });
         } catch (error) {
+          if (credit.segments !== undefined) {
+            await this.smsCreditService.releaseForLog(tenantId, log.id, credit.segments);
+          }
           this.logger.warn(`Failed to enqueue homework-notice log ${log.id}: ${String(error)}`);
           log.status = CommunicationStatus.FAILED;
           log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
