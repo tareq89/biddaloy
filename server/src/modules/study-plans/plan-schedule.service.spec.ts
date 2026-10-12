@@ -20,6 +20,8 @@ const occ = (date: string, slot = 'P1', over: Partial<ResolvedSlot> = {}): Resol
   ({
     date,
     period_slot_id: slot,
+    starts_at: '08:00:00',
+    ends_at: '08:45:00',
     routine_slot_id: `rs-${slot}`,
     subject_id: SUBJECT,
     cancelled: false,

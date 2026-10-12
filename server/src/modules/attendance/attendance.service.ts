@@ -1642,7 +1642,7 @@ export class AttendanceService {
       reason_required: reasonRequired,
       non_working_day: nonWorkingDay,
       policy: {
-        late_after: policyForShift(policy, section.class?.shift_id).lateAfter,
+        late_after: policyForShift(policy, section.class?.shift_id, date).lateAfter,
         correction_window_days: policy.correctionWindowDays,
         allow_future_dates: policy.allowFutureDates,
       },
