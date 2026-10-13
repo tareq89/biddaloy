@@ -127,6 +127,33 @@ rule budget exceeded`. A rule gets 10 seconds, then is skipped for that
 
 Measured sweep and summary timings: [23-attention.md](23-attention.md#performance).
 
+### 3.5 Cloudflare IP ranges changed
+
+Behind Cloudflare, every request reaches nginx from a Cloudflare edge address.
+`TRUSTED_PROXY_CIDRS` lists those addresses. When the TCP peer is in the list,
+nginx takes the visitor IP from `CF-Connecting-IP`. Anyone else sending that
+header is ignored, so nobody can fake their IP.
+
+```mermaid
+flowchart LR
+  V["Visitor 203.0.113.9"] --> CF["Cloudflare edge 104.16.0.1<br/>adds CF-Connecting-IP: 203.0.113.9"]
+  CF --> N["nginx<br/>peer 104.16.0.1 is in TRUSTED_PROXY_CIDRS<br/>so $remote_addr = 203.0.113.9"]
+  X["Direct caller 198.51.100.7<br/>sends CF-Connecting-IP: 1.2.3.4"] --> N2["nginx<br/>peer not trusted, header ignored<br/>$remote_addr = 198.51.100.7"]
+  N --> A["Nest app, trust proxy = 1<br/>req.ip = 203.0.113.9"]
+```
+
+Cloudflare publishes new ranges now and then. To refresh:
+
+1. Fetch `https://www.cloudflare.com/ips-v4/` and `https://www.cloudflare.com/ips-v6/`.
+2. Put all lines, space separated, in `TRUSTED_PROXY_CIDRS` in `.env`
+   (example list in `.env.example`).
+3. Check: `docker compose run --rm nginx nginx -t`. A bad entry fails with
+   `trusted-proxies.sh: invalid entry '<x>'`.
+4. Apply: `docker compose up -d nginx`.
+
+Rollback: set `TRUSTED_PROXY_CIDRS=` (empty) and `docker compose up -d nginx`.
+Empty means no CDN trust at all, which is how the stack behaved before.
+
 ## 4. Env var reference
 
 | Variable                    | Required in prod? | What it does                                                                 |
@@ -138,6 +165,7 @@ Measured sweep and summary timings: [23-attention.md](23-attention.md#performanc
 | `HEALTH_TOKEN`              | No (recommended)  | Required to call `/health/ready` at all — unset means that route 404s.       |
 | `LOG_LEVEL`                 | No                | Pino's log level; see `.env.example`.                                        |
 | `ATTENTION_SENTRY_CRON_URL` | No (recommended)  | Sentry Cron Monitor check-in URL for attention sweeps; unset = no check-ins. |
+| `TRUSTED_PROXY_CIDRS`       | No (only behind a CDN) | nginx only. CDN ranges whose `CF-Connecting-IP` is trusted; empty = off (§3.5). |
 
 Smoke-check variables (read by `scripts/smoke-post-deploy.mjs`, see §7). They
 are **operator machine only, never in the app's env**:
