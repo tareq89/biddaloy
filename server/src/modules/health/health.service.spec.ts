@@ -48,7 +48,7 @@ describe('HealthService.readiness', () => {
     });
   });
 
-  it('fails only the redis check when redis rejects, and leaks no error text', async () => {
+  it('degrades (not fails) when only redis rejects, and leaks no error text', async () => {
     mockPing.mockRejectedValue(new Error('ECONNREFUSED 10.0.0.5:6379'));
     const service = new HealthService(
       fakeDataSource(() => Promise.resolve([{ '?column?': 1 }])),
@@ -57,7 +57,8 @@ describe('HealthService.readiness', () => {
 
     const result = await service.readiness();
 
-    expect(result.status).toBe('fail');
+    // Redis down alone degrades (200), it must not pull the API out of rotation.
+    expect(result.status).toBe('degraded');
     expect(result.checks).toEqual({ db: 'ok', redis: 'fail', queue: 'ok', attention: 'ok' });
     expect(JSON.stringify(result)).not.toContain('ECONNREFUSED');
     expect(JSON.stringify(result)).not.toContain('10.0.0.5');
@@ -90,7 +91,7 @@ describe('HealthService.readiness', () => {
       const result = await resultPromise;
 
       expect(result.checks.redis).toBe('fail');
-      expect(result.status).toBe('fail');
+      expect(result.status).toBe('degraded');
     } finally {
       vi.useRealTimers();
     }
@@ -113,6 +114,29 @@ describe('HealthService.readiness', () => {
   it('still fails when a dependency is down and the engine is stale', async () => {
     mockPing.mockResolvedValue('PONG');
     mockGet.mockResolvedValue(staleHeartbeat());
+    const service = new HealthService(
+      fakeDataSource(() => Promise.reject(new Error('down'))),
+      fakeQueue(() => Promise.resolve({ active: 0 })),
+    );
+
+    expect((await service.readiness()).status).toBe('fail');
+  });
+
+  it('degrades (not fails) when only the queue is down', async () => {
+    mockPing.mockResolvedValue('PONG');
+    const service = new HealthService(
+      fakeDataSource(() => Promise.resolve([{ '?column?': 1 }])),
+      fakeQueue(() => Promise.reject(new Error('queue down'))),
+    );
+
+    const result = await service.readiness();
+
+    expect(result.status).toBe('degraded');
+    expect(result.checks.queue).toBe('fail');
+  });
+
+  it('fails when the db is down even if everything else is fine', async () => {
+    mockPing.mockResolvedValue('PONG');
     const service = new HealthService(
       fakeDataSource(() => Promise.reject(new Error('down'))),
       fakeQueue(() => Promise.resolve({ active: 0 })),

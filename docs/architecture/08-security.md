@@ -65,6 +65,29 @@ Both lockout and the strict rate-limit tier are disabled under
 `NODE_ENV=test` — the e2e suite logs in repeatedly against the same seeded
 account and would otherwise lock itself out.
 
+### When Redis is down (75.18)
+
+Most of the app keeps working; only the routes where "no rate limit" means "unlimited password guessing" stop.
+
+```mermaid
+flowchart TD
+  R[Request] --> T{"rate-limit store<br/>(Redis) reachable?"}
+  T -- yes --> N[normal limit, 429 when over]
+  T -- no --> A{"under /auth/ and not<br/>refresh / logout / logout-all / sessions?"}
+  A -- yes --> X["503 Sign-in is temporarily unavailable"]
+  A -- no --> O["served; error logged (fails open)"]
+```
+
+| Part                                                                      | Redis down                                                                                                           |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `POST /auth/login`, OTP, reset, register, step-up                         | 503 (`AppThrottlerGuard`)                                                                                            |
+| `POST /auth/refresh`, `logout`, `logout-all`, `GET/DELETE /auth/sessions` | work (refresh tokens are DB rows)                                                                                    |
+| Every other route                                                         | served, no rate limit (fails open)                                                                                   |
+| Login lockout, access-token denylist                                      | fail open                                                                                                            |
+| "Log out everywhere", member removal                                      | still ends every session: they set `users.tokens_valid_after` in Postgres, which `JwtStrategy` reads on each request |
+| Single-session revoke (`DELETE /auth/sessions/:id`)                       | waits out the 15-minute access token                                                                                 |
+| `/health/ready`                                                           | `degraded` (HTTP 200), not `fail`                                                                                    |
+
 ### Password hashing (75.11)
 
 Every password hash comes from one place, `auth/password-hash.ts`: bcrypt, cost **12**.

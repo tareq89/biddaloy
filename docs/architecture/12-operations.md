@@ -26,8 +26,9 @@ flowchart LR
 - **`GET /health`** — liveness. Cheap, no dependency checks. Never fails
   because Postgres or Redis is down.
 - **`GET /health/ready`** — readiness. Checks Postgres, Redis, the
-  communications queue, and the attention engine heartbeat (`stale` makes the
-  status `degraded`, never `fail`). Token-protected, blocked at nginx from outside the
+  communications queue, and the attention engine heartbeat. Only Postgres
+  down is `fail` (503); Redis, the queue or a stale engine is `degraded` (200),
+  so a Redis outage does not take the instance out of the load balancer. Token-protected, blocked at nginx from outside the
   cluster — see [§3.2](#32-readiness-failing).
 
 ## 2. Alert thresholds (configure these in Sentry / your uptime tool)
@@ -36,7 +37,7 @@ flowchart LR
 | ------------------------------------ | ----------------------------------------- | ------------------------------------------------------------ |
 | 5xx rate                             | > 1% of requests over 5 min               | Sentry alert rule on the server project                      |
 | `communications job stalled` message | any occurrence                            | Sentry alert rule (issue alert, not metric)                  |
-| Readiness failing                    | `/health/ready` returns 503 for > 2 min   | Uptime monitor hitting `/health/ready` with `X-Health-Token` |
+| Readiness failing (Postgres down)    | `/health/ready` returns 503 for > 2 min   | Uptime monitor hitting `/health/ready` with `X-Health-Token` |
 | Attention cron check-in missed       | > 15 min                                  | Sentry Cron Monitor (5-min schedule, 15-min margin)          |
 | Engine stale reported by readiness   | `checks.attention = "stale"` for > 15 min | Uptime monitor body match on `/health/ready`                 |
 
@@ -63,9 +64,11 @@ anything that can reach the token-gated route).
 
 1. **`db: fail`** — check the `db` container/instance is up and accepting
    connections; check `DATABASE_URL` hasn't rotated.
-2. **`redis: fail`** — check the `redis` container/instance; check
-   `REDIS_URL`. BullMQ (the communications queue) and the rate limiter both
-   depend on this — expect login/throttling to degrade too.
+2. **`redis: fail`** — status is `degraded` (HTTP 200), not `fail`. Check the
+   `redis` container/instance and `REDIS_URL`. BullMQ (the communications
+   queue) and the rate limiter depend on it; see "When Redis is down" in
+   [`08-security.md`](08-security.md). The uptime monitor will not page for
+   this: the platform alert (75.34) covers a Redis outage.
 3. **`queue: fail`** — Redis is reachable but the queue itself can't be
    read; check for a BullMQ version mismatch or a stuck connection pool.
 

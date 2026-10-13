@@ -14,10 +14,13 @@ export const ACCESS_TOKEN_DENYLIST_REDIS = 'ACCESS_TOKEN_DENYLIST_REDIS';
  * the first place (see auth.module.ts / #42's plan).
  *
  * Fails open on a Redis error, same reasoning as
- * FailOpenThrottlerStorage/LoginAttemptService: an outage here should
- * degrade to "revocation takes up to 15 minutes to take effect" rather
- * than "every request breaks" or "every request hangs waiting on a dead
- * connection".
+ * LoginAttemptService: an outage here should degrade rather than make
+ * "every request break" or "hang waiting on a dead connection".
+ *
+ * A Redis outage no longer delays logout-all or member removal: both also set
+ * `users.tokens_valid_after`, which JwtStrategy reads from the DB on every request.
+ * Only a single-session revoke (`DELETE /auth/sessions/:id`) still waits out the
+ * token's ~15 minute life.
  */
 @Injectable()
 export class AccessTokenDenylistService {
