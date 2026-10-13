@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -16,6 +17,9 @@ describe('platform_alerts (integration)', () => {
   let probe: 'ok' | 'fail';
   const greenweb = { sendSms: vi.fn().mockResolvedValue({ success: true }) };
   let service: PlatformAlertsService;
+  let platformTenantId: string | undefined = SEED_TENANT_ID;
+  const env: Record<string, string | undefined> = { PLATFORM_SMS_API_KEY: 'key' };
+  const otherTenantId = randomUUID();
 
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, []);
@@ -23,9 +27,15 @@ describe('platform_alerts (integration)', () => {
     service = new PlatformAlertsService(
       dataSource,
       { probeRedis: async () => probe } as never,
-      { get: (k: string) => (k === 'PLATFORM_SMS_API_KEY' ? 'key' : undefined) } as never,
+      { get: (k: string) => env[k] } as never,
       greenweb as never,
       { sendSms: vi.fn() } as never,
+      { platformTenantId: async () => platformTenantId } as never,
+    );
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Other School', $2, NOW(), NOW())`,
+      [otherTenantId, `pa-other-${otherTenantId.slice(0, 8)}`],
     );
   }, 60000);
 
@@ -37,6 +47,7 @@ describe('platform_alerts (integration)', () => {
   afterAll(async () => {
     await dataSource.query(`DELETE FROM platform_alerts`);
     await dataSource.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [userIds]);
+    await dataSource.query(`DELETE FROM schools WHERE id = $1`, [otherTenantId]);
     // audit_logs may reference users, so blank rather than delete.
     await dataSource.query(
       `UPDATE users SET phone = NULL, email = NULL, status = 'INACTIVE' WHERE id = ANY($1)`,
@@ -121,7 +132,7 @@ describe('platform_alerts (integration)', () => {
   describe('recipients', () => {
     async function makeUser(
       suffix: string,
-      o: { role: string; verified?: boolean; status?: string; deleted?: boolean },
+      o: { role: string; verified?: boolean; status?: string; deleted?: boolean; tenant?: string },
     ): Promise<string> {
       const phone = `0171${suffix}`;
       const [u] = await dataSource.query(
@@ -137,7 +148,7 @@ describe('platform_alerts (integration)', () => {
       userIds.push(u.id);
       await dataSource.query(
         `INSERT INTO user_tenants (user_id, tenant_id, role, deleted_at) VALUES ($1, $2, $3, $4)`,
-        [u.id, SEED_TENANT_ID, o.role, o.deleted ? new Date() : null],
+        [u.id, o.tenant ?? SEED_TENANT_ID, o.role, o.deleted ? new Date() : null],
       );
       return phone;
     }
@@ -153,6 +164,24 @@ describe('platform_alerts (integration)', () => {
       expect(phones).toContain(good);
       for (const bad of ['9000002', '9000003', '9000004', '9000005']) {
         expect(phones).not.toContain(`0171${bad}`);
+      }
+    });
+
+    // [75.34 review r1, F-2441-2] recipients never span tenants.
+    it('texts only the platform tenant SUPER_ADMINs, and with no platform tenant only the env list', async () => {
+      const platformSa = await makeUser('9000006', { role: 'SUPER_ADMIN' });
+      const schoolSa = await makeUser('9000007', { role: 'SUPER_ADMIN', tenant: otherTenantId });
+      env.PLATFORM_ALERT_PHONES = '01799999999';
+      try {
+        const scoped = await service.recipients();
+        expect(scoped).toContain(platformSa);
+        expect(scoped).not.toContain(schoolSa);
+
+        platformTenantId = undefined;
+        expect(await service.recipients()).toEqual(['01799999999']);
+      } finally {
+        platformTenantId = SEED_TENANT_ID;
+        delete env.PLATFORM_ALERT_PHONES;
       }
     });
   });

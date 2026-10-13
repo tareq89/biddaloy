@@ -5,6 +5,7 @@ import { queueWorkers } from '../../../common/queue-workers';
 import { GreenwebSmsGateway } from '../../communications/providers/sms/greenweb-sms.gateway';
 import { MimSmsGateway } from '../../communications/providers/sms/mim-sms.gateway';
 import { HealthService } from '../health.service';
+import { TenantStatusService } from '../../schools/tenant-status.service';
 import { PlatformAlertsDto } from './dto/platform-alerts.dto';
 
 const PROBE_INTERVAL_MS = 30_000;
@@ -19,7 +20,7 @@ const maskPhone = (p: string) => `***${p.slice(-3)}`;
 
 /**
  * [75.34] Watches Redis from Postgres only (no BullMQ, no Redis): a 30 s timer probes Redis,
- * 3 failures in a row open one `REDIS_DOWN` row and text every SUPER_ADMIN, then hourly
+ * 3 failures in a row open one `REDIS_DOWN` row and text every platform SUPER_ADMIN, then hourly
  * while it stays open; the first good probe closes it and sends one "recovered" text.
  * Every state change is one conditional SQL statement, so several API instances never open two
  * rows or send twice. SMS goes straight to the gateway with the platform's own key (D6).
@@ -37,6 +38,7 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly greenweb: GreenwebSmsGateway,
     private readonly mim: MimSmsGateway,
+    private readonly tenantStatus: TenantStatusService,
   ) {}
 
   onModuleInit(): void {
@@ -114,17 +116,22 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  /** Verified phones of active SUPER_ADMINs; `PLATFORM_ALERT_PHONES` only when there are none (D16). */
+  /**
+   * Verified phones of the platform tenant's active SUPER_ADMINs; `PLATFORM_ALERT_PHONES` only
+   * when there are none (D16). No platform tenant (production without `PLATFORM_TENANT_ID`) →
+   * the env list only: never every school's SUPER_ADMINs.
+   */
   async recipients(): Promise<string[]> {
-    const platformTenant = this.config.get<string>('PLATFORM_TENANT_ID');
-    const params: string[] = platformTenant ? [platformTenant] : [];
-    const rows: { phone: string }[] = await this.dataSource.query(
-      `SELECT DISTINCT u.phone FROM users u JOIN user_tenants ut ON ut.user_id = u.id
-       WHERE ut.role = 'SUPER_ADMIN' AND ut.deleted_at IS NULL AND u.deleted_at IS NULL
-         AND u.status = 'ACTIVE' AND u.phone IS NOT NULL AND u.phone_verified_at IS NOT NULL
-         ${platformTenant ? 'AND ut.tenant_id = $1' : ''}`,
-      params,
-    );
+    const platformTenant = await this.tenantStatus.platformTenantId();
+    const rows: { phone: string }[] = platformTenant
+      ? await this.dataSource.query(
+          `SELECT DISTINCT u.phone FROM users u JOIN user_tenants ut ON ut.user_id = u.id
+           WHERE ut.tenant_id = $1 AND ut.role = 'SUPER_ADMIN' AND ut.deleted_at IS NULL
+             AND u.deleted_at IS NULL AND u.status = 'ACTIVE'
+             AND u.phone IS NOT NULL AND u.phone_verified_at IS NOT NULL`,
+          [platformTenant],
+        )
+      : [];
     if (rows.length > 0) return rows.map((r) => r.phone);
     const fallback = (this.config.get<string>('PLATFORM_ALERT_PHONES') ?? '')
       .split(',')
