@@ -57,6 +57,10 @@ describe('buildPinoOptions', () => {
     expect(ser('/api/v1/v/x')).toBe('/api/v1/v/x');
     expect(ser('/api/v1/invoices/123')).toBe('/api/v1/invoices/123');
     expect(redactPii('GET /i/tok9 → 200')).toBe('GET /i/[REDACTED] → 200');
+    expect(redactPii('https://x.test/i/tok1')).toBe('https://x.test/i/[REDACTED]');
+    expect(redactPii('http://host:8080/v/tok2?a=1')).toBe('http://host:8080/v/[REDACTED]?a=1');
+    expect(redactPii('next=/i/tok3')).toBe('next=/i/[REDACTED]');
+    expect(redactPii('https://x.test/api/v1/v/x')).toBe('https://x.test/api/v1/v/x');
   });
 
   it('[PUB-07] leaves normal URLs alone and masks ?token= query params', () => {
