@@ -527,7 +527,7 @@ describe('/students', () => {
   });
 
   // Epic 75 D2: a TEACHER only lists their current-year sections, so an unfiltered empty list
-  // is explained as "no section assigned" (MY_CLASS_VIEW is TEACHER-only).
+  // is explained as "no section assigned" (keyed on roleScope, review r1 m6).
   describe('empty-state explanation', () => {
     const teacherText =
       'You see the students of the sections you teach this year. Ask your school admin to assign you a section.';
@@ -556,6 +556,19 @@ describe('/students', () => {
       renderEmpty('ADMIN');
       expect(await screen.findByText(adminText)).toBeTruthy();
       expect(screen.queryByText(teacherText)).toBeNull();
+    });
+
+    // Review r1 m6: SUPER_ADMIN holds every permission (MY_CLASS_VIEW too) but is not section-scoped.
+    it('keeps the old explanation for SUPER_ADMIN', async () => {
+      renderEmpty('SUPER_ADMIN');
+      await screen.findByText('No students found');
+      expect(screen.queryByText(teacherText)).toBeNull();
+    });
+
+    // Review r1 m6: URL flags that are not list filters do not hide the teacher explanation.
+    it('shows the teacher explanation when only non-filter URL flags are set', async () => {
+      renderEmpty('TEACHER', '/students?openPerformance=1&photos=1');
+      expect(await screen.findByText(teacherText)).toBeTruthy();
     });
 
     it('keeps the old explanation for a TEACHER who is searching', async () => {
