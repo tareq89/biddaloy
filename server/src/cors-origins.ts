@@ -19,6 +19,16 @@ export function resolveCorsOrigins(
   return nodeEnv === 'production' ? [] : ['http://localhost:5173'];
 }
 
+/** A bare origin: http(s) scheme + host[:port], no path, query or trailing slash. */
+export function isValidOrigin(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'https:' || url.protocol === 'http:') && url.origin === value;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The full CORS configuration used at boot (main.ts). Also used directly by
  * cors.e2e-spec.ts so the test exercises the actual production wiring rather

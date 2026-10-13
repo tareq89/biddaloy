@@ -7,6 +7,94 @@ const validConfig = {
   JWT_SECRET: 'a'.repeat(32),
 };
 
+// A production env that passes every assertProductionConfig rule.
+const prodConfig = {
+  NODE_ENV: 'production',
+  DATABASE_URL: 'postgres://app:Zq8vR2mXw4Lp@db:5432/biddaloy',
+  JWT_SECRET: 'k9Zr2Qv7Lm4Xw8Tb3Nc6Hy1Pd5Sf0Ja2Ug',
+  SETTINGS_ENCRYPTION_KEY: 'Fh3Jd9Kc2Vb7Nx5Mz1Qw8Er4Ty6Ui0OpLk3Ase=',
+  APP_BASE_URL: 'https://app.school.org',
+  CORS_ORIGINS: 'https://app.school.org,https://admin.school.org',
+  S3_ACCESS_KEY_ID: 'AKIA7QW3ER9TY2UI',
+  S3_SECRET_ACCESS_KEY: 'sk9Jd3Kc7Vb1Nx5Mz8Qw2Er4Ty6Ui0Op',
+};
+
+describe('assertProductionConfig (via validate)', () => {
+  it('accepts a fully valid production env', () => {
+    expect(() => validate(prodConfig)).not.toThrow();
+  });
+
+  it('rejects a replace-me JWT_SECRET and never prints the value', () => {
+    const bad = 'replace-me-replace-me-replace-me-123';
+    const run = () => validate({ ...prodConfig, JWT_SECRET: bad });
+    expect(run).toThrow(/JWT_SECRET/);
+    expect(run).not.toThrow(bad);
+  });
+
+  it('rejects change-me in S3_SECRET_ACCESS_KEY', () => {
+    expect(() => validate({ ...prodConfig, S3_SECRET_ACCESS_KEY: 'change-me' })).toThrow(
+      /S3_SECRET_ACCESS_KEY/,
+    );
+  });
+
+  it('rejects a DATABASE_URL whose password is a placeholder', () => {
+    expect(() =>
+      validate({ ...prodConfig, DATABASE_URL: 'postgres://app:change-me@db:5432/biddaloy' }),
+    ).toThrow(/DATABASE_URL/);
+  });
+
+  it('rejects a JWT_SECRET with fewer than 16 distinct characters', () => {
+    expect(() => validate({ ...prodConfig, JWT_SECRET: 'a'.repeat(40) })).toThrow(/too weak/);
+  });
+
+  it('rejects JWT_SECRET equal to SETTINGS_ENCRYPTION_KEY', () => {
+    expect(() =>
+      validate({ ...prodConfig, SETTINGS_ENCRYPTION_KEY: prodConfig.JWT_SECRET }),
+    ).toThrow(/differ from SETTINGS_ENCRYPTION_KEY/);
+  });
+
+  it('rejects JWT_SECRET equal to JWT_SECRET_PREVIOUS', () => {
+    expect(() => validate({ ...prodConfig, JWT_SECRET_PREVIOUS: prodConfig.JWT_SECRET })).toThrow(
+      /differ from JWT_SECRET_PREVIOUS/,
+    );
+  });
+
+  it('accepts a distinct, strong JWT_SECRET_PREVIOUS', () => {
+    expect(() =>
+      validate({ ...prodConfig, JWT_SECRET_PREVIOUS: 'Bn4Hy7Gt2Fr9Dc6Xs1Zq3We5Ru8Io0PlMk' }),
+    ).not.toThrow();
+  });
+
+  it('rejects a missing SETTINGS_ENCRYPTION_KEY and APP_BASE_URL', () => {
+    const { SETTINGS_ENCRYPTION_KEY: _a, APP_BASE_URL: _b, ...rest } = prodConfig;
+    expect(() => validate(rest)).toThrow(/SETTINGS_ENCRYPTION_KEY[\s\S]*APP_BASE_URL/);
+  });
+
+  it('rejects a CORS_ORIGINS entry with a trailing slash', () => {
+    expect(() => validate({ ...prodConfig, CORS_ORIGINS: 'https://a.school.org/' })).toThrow(
+      /CORS_ORIGINS/,
+    );
+  });
+
+  it('reports every problem in one error', () => {
+    expect(() =>
+      validate({ ...prodConfig, JWT_SECRET: 'a'.repeat(40), CORS_ORIGINS: '*' }),
+    ).toThrow(/too weak[\s\S]*CORS_ORIGINS/);
+  });
+
+  it.each(['test', 'development'])('leaves the same bad values alone under NODE_ENV=%s', (env) => {
+    expect(() =>
+      validate({
+        ...validConfig,
+        NODE_ENV: env,
+        S3_SECRET_ACCESS_KEY: 'change-me',
+        CORS_ORIGINS: 'https://a.com/',
+        JWT_SECRET: 'replace-me-replace-me-replace-me-123',
+      }),
+    ).not.toThrow();
+  });
+});
+
 describe('env.validation', () => {
   it('accepts a config with all required fields present and valid', () => {
     expect(() => validate(validConfig)).not.toThrow();
@@ -34,7 +122,7 @@ describe('env.validation', () => {
   });
 
   it('accepts NODE_ENV=production', () => {
-    expect(() => validate({ ...validConfig, NODE_ENV: 'production' })).not.toThrow();
+    expect(() => validate(prodConfig)).not.toThrow();
   });
 
   it('rejects an unrecognized NODE_ENV', () => {
@@ -66,7 +154,7 @@ describe('env.validation', () => {
     });
 
     it('stays unset in production — fails closed, requires explicit ops config', () => {
-      const result = validate({ ...validConfig, NODE_ENV: 'production' });
+      const result = validate(prodConfig);
       expect(result.PLATFORM_TENANT_ID).toBeUndefined();
     });
 

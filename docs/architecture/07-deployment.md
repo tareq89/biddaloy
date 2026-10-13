@@ -65,6 +65,36 @@ This whole stack — including automated TLS — was **not** in the original
 plan, which treated Docker as a future migration. It shipped as the actual
 deployment mechanism.
 
+## Before you deploy: `yarn config:check`
+
+```mermaid
+flowchart LR
+    A[".env"] --> B["yarn config:check"]
+    B -->|"config ok, exit 0"| C["docker compose up -d"]
+    B -->|"problems listed, exit 1"| D["fix .env"]
+```
+
+It runs the same checks the server runs at boot in production, without
+starting anything. It names variables, never their values. Example, for an
+`.env` copied from `.env.example` where `JWT_SECRET` was lengthened but the
+other placeholders were left in (a `JWT_SECRET` under 32 characters fails
+earlier, with the plain schema error):
+
+```text
+Refusing to start with unsafe production config:
+- JWT_SECRET still holds a placeholder value
+- S3_ACCESS_KEY_ID still holds a placeholder value
+- S3_SECRET_ACCESS_KEY still holds a placeholder value
+- DATABASE_URL password still holds a placeholder value
+- JWT_SECRET is too weak (needs at least 16 distinct characters)
+- SETTINGS_ENCRYPTION_KEY is required in production
+- APP_BASE_URL is required in production
+```
+
+`docker-compose.yml` also refuses to start when `POSTGRES_*` or `S3_*`
+credentials are unset (`${VAR:?...}`), and a `client-admin` production build
+fails if `VITE_USE_MOCKS=true`.
+
 ## Build pipeline
 
 `yarn build:all` (`scripts/build-all.sh`) builds `shared` → `ui` →
@@ -122,15 +152,15 @@ is not something a regex can check.
 The public `/register` form needs a few values. Two are baked into the client
 bundle when it is built, so they are Docker build args, not runtime env.
 
-| Variable | Read by | Missing means |
-| --- | --- | --- |
-| `TURNSTILE_SECRET_KEY` | server, at runtime | dev/test skip the captcha; **production refuses every sign-up with 503** |
-| `VITE_TURNSTILE_SITE_KEY` | client, build arg in the `Dockerfile` | no captcha widget is drawn |
-| `SUPPORT_CONTACT_URL` | server, at runtime | no support link from the API |
-| `VITE_SUPPORT_URL` | client, build arg (Compose fills it from `SUPPORT_CONTACT_URL`) | no "Contact us" on the trial-ended screen |
-| `TRIAL_DAYS`, `TRIAL_SEAT_LIMIT` | server | 30 days, 10 students |
-| `OTP_SMS_ALLOWED_PREFIXES` | server | `+880` |
-| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | server | Google is not offered |
+| Variable                                               | Read by                                                         | Missing means                                                            |
+| ------------------------------------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `TURNSTILE_SECRET_KEY`                                 | server, at runtime                                              | dev/test skip the captcha; **production refuses every sign-up with 503** |
+| `VITE_TURNSTILE_SITE_KEY`                              | client, build arg in the `Dockerfile`                           | no captcha widget is drawn                                               |
+| `SUPPORT_CONTACT_URL`                                  | server, at runtime                                              | no support link from the API                                             |
+| `VITE_SUPPORT_URL`                                     | client, build arg (Compose fills it from `SUPPORT_CONTACT_URL`) | no "Contact us" on the trial-ended screen                                |
+| `TRIAL_DAYS`, `TRIAL_SEAT_LIMIT`                       | server                                                          | 30 days, 10 students                                                     |
+| `OTP_SMS_ALLOWED_PREFIXES`                             | server                                                          | `+880`                                                                   |
+| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | server                                                          | Google is not offered                                                    |
 
 Set `TURNSTILE_SECRET_KEY` and `VITE_TURNSTILE_SITE_KEY` together or not at
 all: a secret with no site key rejects every sign-up. A plain `docker build`

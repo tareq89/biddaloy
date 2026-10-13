@@ -28,6 +28,13 @@ flowchart TD
 Each box below is one paragraph in this doc — read the section with the
 matching name for the full reasoning.
 
+Before any of that runs, **boot-time config refusal** (`assertProductionConfig`
+in `server/src/config/env.validation.ts`): with `NODE_ENV=production` the
+server will not start on a placeholder or weak secret, a malformed
+`CORS_ORIGINS`, or a missing `SETTINGS_ENCRYPTION_KEY` / `APP_BASE_URL`.
+`yarn config:check` runs the same checks on demand. Dev, test and CI are
+unaffected.
+
 ## Login brute-force protection
 
 `POST /auth/login` layers three controls, defined in

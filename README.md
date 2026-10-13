@@ -1118,6 +1118,8 @@ cp .env.example .env
 # Edit .env: set POSTGRES_USER/PASSWORD/DB, JWT_SECRET, APP_DOMAIN,
 # LETSENCRYPT_EMAIL, and CORS_ORIGINS=https://<your-domain>
 
+yarn config:check   # fails and lists any placeholder/weak value still in .env
+
 docker compose up -d
 ```
 
