@@ -1,6 +1,7 @@
 import '@biddaloy/ui/test';
 
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { toIsoDate } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -255,7 +256,8 @@ describe('AttendanceSection', () => {
       await user.click(await screen.findByRole('button', { name: 'Add special timing' }));
       const dialog = await screen.findByRole('dialog');
       await user.type(within(dialog).getByLabelText('Name'), 'Winter');
-      const ym = new Date().toISOString().slice(0, 7);
+      // Local month: the picker opens on the local current month, not the UTC one.
+      const ym = toIsoDate(new Date()).slice(0, 7);
       const pick = async (label: string, day: string) => {
         await user.click(within(dialog).getByRole('button', { name: label }));
         await screen.findByRole('grid', { name: 'Calendar' });
