@@ -350,6 +350,7 @@ GET    /api/v1/payments/student/:studentId                                      
 GET    /api/v1/performance/classes/:classId                                      401 PASS PASS PASS 403 PASS 403 403 PASS 403 PASS 403
 GET    /api/v1/performance/staff/:userId                                         401 PASS PASS PASS 403 403 403 403 403 403 403 PASS
 GET    /api/v1/performance/students/:studentId                                   401 PASS PASS PASS 403 PASS 403 403 PASS 403 PASS 403
+GET    /api/v1/platform/alerts                                                   401 PASS PASS 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/attention/health                                         401 PASS PASS 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/backups/health                                           401 PASS PASS 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/holiday-sets                                             401 PASS PASS 403 403 403 403 403 403 403 403 403

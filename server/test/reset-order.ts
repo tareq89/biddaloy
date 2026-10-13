@@ -23,6 +23,8 @@ import {
  * why they need their own cadence.
  */
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
+  // [75.34] platform incident state; no FKs.
+  'platform_alerts',
   // [67.1.02] attention engine; recipients FK alerts, so they clear first.
   'alert_recipients',
   'alerts',

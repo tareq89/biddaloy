@@ -86,7 +86,7 @@ export class HealthService {
     }
   }
 
-  private async probeRedis(): Promise<'ok' | 'fail'> {
+  async probeRedis(): Promise<'ok' | 'fail'> {
     // A separate short-lived connection rather than a shared client — this
     // probe's whole point is to notice a Redis outage, so it must not
     // depend on a long-lived client that itself might be wedged waiting
