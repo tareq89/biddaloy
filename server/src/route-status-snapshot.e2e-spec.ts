@@ -16,7 +16,7 @@ import { DiscoveryModule, DiscoveryService, MetadataScanner } from '@nestjs/core
 import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from './app.module';
-import { buildFullPath, RequestMethodName } from './route-guard-coverage.e2e-spec';
+import { buildFullPath, RequestMethodName } from '@test/helpers/route-path.helper';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from './validation-pipe';
 import { SEED_TENANT_ID, SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH } from '@test/constants';
