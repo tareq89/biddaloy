@@ -8447,13 +8447,22 @@ export interface components {
         VerifyEmailDto: {
             /** @description The raw email-verify token from the ?token= query param. */
             token: string;
+            /**
+             * @description [75.1] Only for a school's contact-change proposal: opening the link shows it, 'approve' applies it, 'decline' cancels it.
+             * @enum {string}
+             */
+            action?: "approve" | "decline";
         };
         VerifyEmailResponseDto: {
             /**
-             * @description 'valid' means the email was changed; anything else means it was not.
+             * @description 'valid' means the contact was changed; 'proposal' is a school's pending request to show for approval; 'declined' means the person cancelled it; anything else means nothing changed.
              * @enum {string}
              */
-            status: "valid" | "expired" | "consumed" | "revoked" | "unknown";
+            status: "valid" | "expired" | "consumed" | "revoked" | "unknown" | "proposal" | "declined";
+            /** @description Only with status 'proposal': { from_school, new_email?, new_phone? }, values masked, null = removed. */
+            proposal?: {
+                [key: string]: unknown;
+            };
         };
         FirstPasswordDto: {
             /** @description The first password to set. */
@@ -8743,6 +8752,8 @@ export interface components {
             email_verified_at: string | null;
             /** Format: date-time */
             phone_verified_at: string | null;
+            /** Format: date-time */
+            tokens_valid_after: string | null;
             /** @enum {string} */
             status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
             full_name: string;
@@ -10136,6 +10147,8 @@ export interface components {
             updated_at: string;
             /** @enum {string} */
             invitation_status: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
+            /** @enum {string} */
+            pending_contact_change?: "email" | "phone" | "both";
             staff_profile_id: string | null;
         };
         StaffInvoiceDto: {
