@@ -106,6 +106,8 @@ const student = {
 };
 
 const posts: Array<{ url: string; body: unknown }> = [];
+// `page@limit` of every ACTIVE `GET /students` call.
+const studentPages: string[] = [];
 
 function serve(
   opts: {
@@ -202,20 +204,25 @@ function serve(
       });
     }),
     http.get('/api/v1/students', ({ request }) => {
-      const status = new URL(request.url).searchParams.get('enrollment_status');
+      const params = new URL(request.url).searchParams;
+      const status = params.get('enrollment_status');
       const ids = status === 'ACTIVE' ? (opts.classIds ?? ['s-3', 's-1', 's-2']) : [];
       const rolls: Record<string, number> = { 's-1': 1, 's-2': 2, 's-3': 3, 's-4': 4 };
+      // Paged like the server: `limit` is capped at 100.
+      const page = Number(params.get('page') ?? 1);
+      const limit = Number(params.get('limit') ?? 10);
+      if (status === 'ACTIVE') studentPages.push(`${page}@${limit}`);
       return HttpResponse.json({
-        data: ids.map((id) => ({
+        data: ids.slice((page - 1) * limit, page * limit).map((id) => ({
           ...student,
           id,
           full_name: `Student ${id}`,
-          roll_number: rolls[id] ?? 9,
+          roll_number: rolls[id] ?? Number(id.replace(/\D/g, '')),
         })),
         total: ids.length,
-        page: 1,
-        limit: 100,
-        totalPages: 1,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(ids.length / limit)),
       });
     }),
     http.post('/api/v1/certificates', async ({ request }) => {
@@ -279,6 +286,7 @@ const next = async (user: { click: (e: Element) => Promise<void> }, name: RegExp
 describe('IssueCertificateModal', () => {
   beforeEach(() => {
     posts.length = 0;
+    studentPages.length = 0;
     window.localStorage.clear();
   });
   afterEach(async () => {
@@ -633,19 +641,27 @@ describe('IssueCertificateModal', () => {
     expect(sent).toEqual([['s-1', 's-2'], ['s-3', 's-4'], ['s-4']]);
   });
 
-  it('over the 1000-row cap, bulk is refused with visible text and See preview is disabled', async () => {
-    serve();
-    server.use(
-      http.get('/api/v1/students', () =>
-        HttpResponse.json({
-          data: [{ ...student, roll_number: 1 }],
-          total: 1500,
-          page: 1,
-          limit: 100,
-          totalPages: 2,
-        }),
-      ),
-    );
+  it('a class of 150 is fetched as 2 pages of 100 and all 150 are issued', async () => {
+    // The page's own student is one of the 150.
+    const classIds = Array.from({ length: 150 }, (_, i) => (i === 0 ? 's-1' : `c-${i + 1}`));
+    serve({ classIds, batchSize: 200 });
+    const { user } = setup();
+    await next(user, /^next$/i);
+    await user.type(await screen.findByLabelText(/conduct/i), 'Good');
+    await user.click(await screen.findByRole('button', { name: /for all of class 10/i }));
+    await screen.findByText(/150 students/i);
+    expect([...studentPages].sort()).toEqual(['1@100', '2@100']);
+    await next(user, /see preview/i);
+    await next(user, /^next$/i);
+    await next(user, /^print$/i);
+    await waitFor(() => expect(posts.filter((p) => p.url === '/certificates').length).toBe(1));
+    const sent = (posts.find((p) => p.url === '/certificates')?.body as { subject_ids: string[] })
+      .subject_ids;
+    expect([...sent].sort()).toEqual([...classIds].sort());
+  });
+
+  it('over the 1000-student ceiling, bulk is refused with visible text and See preview is disabled', async () => {
+    serve({ classIds: Array.from({ length: 1001 }, (_, i) => `c-${i + 1}`) });
     const { user } = setup();
     await next(user, /^next$/i);
     await user.click(await screen.findByRole('button', { name: /for all of class 10/i }));
