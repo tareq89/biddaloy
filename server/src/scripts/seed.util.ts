@@ -990,6 +990,8 @@ export interface AttendanceSeedParams {
    * index 0 is roll 1, and so on. */
   studentIds: readonly string[];
   teacherUserId: string;
+  /** Raw ACTIVE-device key; defaults to the fixed {@link SEED_DEVICE_KEY}. */
+  deviceKey?: string;
 }
 
 export interface AttendanceSeedResult {
@@ -1161,13 +1163,14 @@ export async function ensureAttendanceSeed(
     where: { tenant_id: schoolId, name: activeDeviceName },
   });
   if (!existingActiveDevice) {
+    const activeKey = params.deviceKey ?? SEED_DEVICE_KEY;
     await repos.attendanceDeviceRepository.save(
       repos.attendanceDeviceRepository.create({
         tenant_id: schoolId,
         name: activeDeviceName,
         kind: AttendanceDeviceKind.RFID,
-        token_hash: hashDeviceKey(SEED_DEVICE_KEY),
-        token_last4: SEED_DEVICE_KEY.slice(-4),
+        token_hash: hashDeviceKey(activeKey),
+        token_last4: activeKey.slice(-4),
         section_id: sectionId,
         roster_access: true,
         status: AttendanceDeviceStatus.ACTIVE,

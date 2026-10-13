@@ -1,6 +1,7 @@
 import type { INestApplicationContext } from '@nestjs/common';
 import { Between, DataSource, In, type Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import { hashPassword } from '../modules/auth/password-hash';
+import { assertLocalSeedTarget } from './seed-guard';
 import { createScriptAppContext } from './script-app-context';
 import { User } from '../modules/users/entities/user.entity';
 import { School } from '../modules/schools/entities/school.entity';
@@ -132,12 +133,10 @@ export async function seed() {
   // database. Checked before booting `AppModule` at all, so a mistaken
   // invocation against production fails immediately rather than after
   // paying for a full Nest bootstrap.
-  if (process.env.NODE_ENV === 'production') {
-    console.error(
-      'Refusing to run the seed script with NODE_ENV=production — it writes ' +
-        'known, repository-visible credentials (SEED_ADMIN_PASSWORD, the fixed ' +
-        'attendance device key) into the database.',
-    );
+  try {
+    assertLocalSeedTarget(process.env, 'seed');
+  } catch (e) {
+    console.error((e as Error).message);
     process.exit(1);
   }
 
@@ -161,7 +160,7 @@ export async function seed() {
     );
     process.exit(1);
   }
-  const passwordHash = await bcrypt.hash(adminPassword, 10);
+  const passwordHash = await hashPassword(adminPassword);
 
   // Ensure the default school exists — every account below is a member of
   // it. `TenantStatusService.platformTenantId()` (used by ContextGuard)

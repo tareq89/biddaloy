@@ -2,6 +2,7 @@ import { AuthTokenPurpose, EnrollmentStatus, UserRole, UserStatus } from '@bidda
 import * as bcrypt from 'bcrypt';
 import { EntityManager, IsNull, Repository } from 'typeorm';
 import { AuthToken } from '../modules/account-access/entities/auth-token.entity';
+import { generateDeviceKey } from '../modules/attendance/devices/device.service';
 import { hashSecret } from '../modules/auth/token-hash.util';
 import { User } from '../modules/users/entities/user.entity';
 import { School } from '../modules/schools/entities/school.entity';
@@ -452,7 +453,8 @@ export async function seedAccounts(
       : [];
 
     if (academicYear && attendanceSection && attendanceStudents.length > 0) {
-      await ensureAttendanceSeed(
+      const seedDeviceKey = generateDeviceKey();
+      const attendanceSeedResult = await ensureAttendanceSeed(
         {
           subjectRepository: repos.subjectRepository,
           schoolHolidayRepository: repos.schoolHolidayRepository,
@@ -468,8 +470,13 @@ export async function seedAccounts(
           sectionId: attendanceSection.id,
           studentIds: attendanceStudents.map((s) => s.id),
           teacherUserId: teacherTestUser.id,
+          deviceKey: seedDeviceKey.raw,
         },
       );
+      // Random per database, so the key is never public in the repo.
+      if (attendanceSeedResult.devices > 0) {
+        console.log(`Seed attendance device key (shown once): ${seedDeviceKey.raw}`);
+      }
 
       // [21.11.1]: a published routine on top of the same "Class 6"
       // section A/B roster and `teacher@biddaloy.test` — deliberately

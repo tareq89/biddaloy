@@ -1074,6 +1074,21 @@ describe('ensureAttendanceSeed', () => {
     expect(SEED_DEVICE_KEY).toBe(E2E_SEED_DEVICE_KEY);
   });
 
+  it('uses params.deviceKey for the ACTIVE device when given', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+    const deviceKey = 'bd_random_key_abcd1234';
+
+    await ensureAttendanceSeed(repos, { ...BASE_PARAMS, deviceKey });
+
+    const active = vi
+      .mocked(repos.attendanceDeviceRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<AttendanceDevice>)
+      .find((d) => d.status === 'ACTIVE');
+    expect(active?.token_hash).toBe(hashDeviceKey(deviceKey));
+    expect(active?.token_last4).toBe('1234');
+  });
+
   it('produces the same (date, student, status) rows across two runs on an empty database (determinism)', async () => {
     // Compares the deterministic fields only — `id`/`session_id` come from
     // this mock's own shared, ever-incrementing counter (`mockRepo`'s

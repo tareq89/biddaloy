@@ -32,7 +32,7 @@ export function hashDeviceKey(rawKey: string): string {
  * recognisable in a leak scan. The hash covers the *prefixed* string, so
  * what the customer pastes is exactly what gets hashed and compared.
  */
-function generateDeviceKey(): { raw: string; hash: string; last4: string } {
+export function generateDeviceKey(): { raw: string; hash: string; last4: string } {
   const raw = `${KEY_PREFIX}${randomBytes(32).toString('base64url')}`;
   return { raw, hash: hashDeviceKey(raw), last4: raw.slice(-4) };
 }

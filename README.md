@@ -162,6 +162,8 @@ yarn workspace @biddaloy/server migration:run
 SEED_ADMIN_PASSWORD=<pick-one> yarn workspace @biddaloy/server seed
 ```
 
+The seed only runs against a database on localhost, and prints the attendance device key once.
+
 Then run the server and whichever client(s) you're working on, each in its own
 terminal:
 
