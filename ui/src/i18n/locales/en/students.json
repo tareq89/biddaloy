@@ -55,7 +55,8 @@
     "allGenders": "All genders",
     "searchPlaceholder": "Name, roll or registration number",
     "cardSubtitle": "{{class}} · Section {{section}} · Roll {{roll}}",
-    "emptyExplanation": "Add your first student and the list will show up here."
+    "emptyExplanation": "Add your first student and the list will show up here.",
+    "emptyTeacherExplanation": "You see the students of the sections you teach this year. Ask your school admin to assign you a section."
   },
   "sendReminderDialog": {
     "title": "Send reminder",

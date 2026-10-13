@@ -15,7 +15,9 @@ import type { Response } from 'express';
 import { Readable } from 'stream';
 import { IsNull, Repository } from 'typeorm';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, toCsvContent } from '@biddaloy/shared';
+import { JwtPayload, Permission, toCsvContent } from '@biddaloy/shared';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -125,7 +127,25 @@ export class AnalysisController {
     private readonly analysisService: AnalysisService,
     @InjectRepository(Exam)
     private readonly examRepo: Repository<Exam>,
+    private readonly teacherScope: TeacherScopeService,
   ) {}
+
+  /** TEACHER: the current-year assigned sections to restrict to (D2); an out-of-scope
+   * `section_id` is a 404 (D13). Other roles: `undefined`, so nothing changes. */
+  private async restrict(
+    tenant: { id: string; role: string },
+    user: JwtPayload,
+    sectionId?: string,
+  ): Promise<string[] | undefined> {
+    const ids = await this.teacherScope.sectionScope({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    if (!ids) return undefined;
+    if (sectionId && !ids.includes(sectionId)) throw new NotFoundException('Section not found');
+    return ids;
+  }
 
   private async examName(examId: string, tenantId: string): Promise<string> {
     const exam = await this.examRepo.findOne({
@@ -138,45 +158,69 @@ export class AnalysisController {
   @Get('merit')
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'Merit list for an exam, optionally section-scoped.' })
-  getMerit(
+  async getMerit(
     @Param('examId', ParseUUIDPipe) examId: string,
     @Query() query: AnalysisQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.analysisService.getMerit(examId, tenant.id, query.section_id);
+    return this.analysisService.getMerit(
+      examId,
+      tenant.id,
+      query.section_id,
+      await this.restrict(tenant, user, query.section_id),
+    );
   }
 
   @Get('defaulted')
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'Defaulted (failed or absent) students for an exam.' })
-  getDefaulted(
+  async getDefaulted(
     @Param('examId', ParseUUIDPipe) examId: string,
     @Query() query: AnalysisQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.analysisService.getDefaulted(examId, tenant.id, query.section_id);
+    return this.analysisService.getDefaulted(
+      examId,
+      tenant.id,
+      query.section_id,
+      await this.restrict(tenant, user, query.section_id),
+    );
   }
 
   @Get('pass-fail')
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'Per-subject pass/fail breakdown for an exam.' })
-  getPassFail(
+  async getPassFail(
     @Param('examId', ParseUUIDPipe) examId: string,
     @Query() query: AnalysisQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.analysisService.getPassFail(examId, tenant.id, query.section_id);
+    return this.analysisService.getPassFail(
+      examId,
+      tenant.id,
+      query.section_id,
+      await this.restrict(tenant, user, query.section_id),
+    );
   }
 
   @Get('pass-fail/components')
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'Per-subject × component pass/fail breakdown for an exam.' })
-  getPassFailComponents(
+  async getPassFailComponents(
     @Param('examId', ParseUUIDPipe) examId: string,
     @Query() query: AnalysisQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.analysisService.getPassFailComponents(examId, tenant.id, query.section_id);
+    return this.analysisService.getPassFailComponents(
+      examId,
+      tenant.id,
+      query.section_id,
+      await this.restrict(tenant, user, query.section_id),
+    );
   }
 
   @Get('merit.csv')
@@ -186,11 +230,13 @@ export class AnalysisController {
     @Param('examId', ParseUUIDPipe) examId: string,
     @Query() query: AnalysisQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
+    const restrict = await this.restrict(tenant, user, query.section_id);
     const [name, { rows }] = await Promise.all([
       this.examName(examId, tenant.id),
-      this.analysisService.getMerit(examId, tenant.id, query.section_id),
+      this.analysisService.getMerit(examId, tenant.id, query.section_id, restrict),
     ]);
     // `res.attachment` (Express, via the `content-disposition` package) emits
     // an ASCII-safe `filename` fallback plus an RFC 5987 `filename*` value
@@ -211,11 +257,13 @@ export class AnalysisController {
     @Param('examId', ParseUUIDPipe) examId: string,
     @Query() query: AnalysisQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
+    const restrict = await this.restrict(tenant, user, query.section_id);
     const [name, { rows }] = await Promise.all([
       this.examName(examId, tenant.id),
-      this.analysisService.getDefaulted(examId, tenant.id, query.section_id),
+      this.analysisService.getDefaulted(examId, tenant.id, query.section_id, restrict),
     ]);
     // See getMeritCsv's comment: attachment() first for the ASCII-safe
     // filename fallback, then the explicit Content-Type.
@@ -231,11 +279,13 @@ export class AnalysisController {
     @Param('examId', ParseUUIDPipe) examId: string,
     @Query() query: AnalysisQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
+    const restrict = await this.restrict(tenant, user, query.section_id);
     const [name, { subjects, overall }] = await Promise.all([
       this.examName(examId, tenant.id),
-      this.analysisService.getPassFail(examId, tenant.id, query.section_id),
+      this.analysisService.getPassFail(examId, tenant.id, query.section_id, restrict),
     ]);
     // See getMeritCsv's comment: attachment() first for the ASCII-safe
     // filename fallback, then the explicit Content-Type.

@@ -5,6 +5,7 @@ import { AnalysisController } from './analysis.controller';
 
 const TENANT = { id: 'tenant-1', role: 'ADMIN' };
 const EXAM_ID = 'exam-1';
+const USER: any = { sub: 'user-1' };
 
 function makeController(overrides: Record<string, any> = {}) {
   const analysisService: any = {
@@ -33,38 +34,55 @@ function makeController(overrides: Record<string, any> = {}) {
     findOne: vi.fn(async () => ({ id: EXAM_ID, name: 'Term Exam' })),
     ...overrides.examRepo,
   };
+  // null = tenant-wide role (no restriction); an array = a TEACHER's current-year sections.
+  const teacherScope: any = {
+    sectionScope: vi.fn(async () => null),
+    ...overrides.teacherScope,
+  };
   return {
-    controller: new AnalysisController(analysisService, examRepo),
+    controller: new AnalysisController(analysisService, examRepo, teacherScope),
     analysisService,
     examRepo,
+    teacherScope,
   };
 }
 
 describe('AnalysisController', () => {
   it('delegates GET merit to the service with the tenant and section filter', async () => {
     const { controller, analysisService } = makeController();
-    await controller.getMerit(EXAM_ID, { section_id: 'sec-1' }, TENANT);
-    expect(analysisService.getMerit).toHaveBeenCalledWith(EXAM_ID, TENANT.id, 'sec-1');
+    await controller.getMerit(EXAM_ID, { section_id: 'sec-1' }, TENANT, USER);
+    expect(analysisService.getMerit).toHaveBeenCalledWith(EXAM_ID, TENANT.id, 'sec-1', undefined);
   });
 
   it('delegates GET defaulted to the service', async () => {
     const { controller, analysisService } = makeController();
-    await controller.getDefaulted(EXAM_ID, {}, TENANT);
-    expect(analysisService.getDefaulted).toHaveBeenCalledWith(EXAM_ID, TENANT.id, undefined);
+    await controller.getDefaulted(EXAM_ID, {}, TENANT, USER);
+    expect(analysisService.getDefaulted).toHaveBeenCalledWith(
+      EXAM_ID,
+      TENANT.id,
+      undefined,
+      undefined,
+    );
   });
 
   it('delegates GET pass-fail to the service', async () => {
     const { controller, analysisService } = makeController();
-    await controller.getPassFail(EXAM_ID, {}, TENANT);
-    expect(analysisService.getPassFail).toHaveBeenCalledWith(EXAM_ID, TENANT.id, undefined);
+    await controller.getPassFail(EXAM_ID, {}, TENANT, USER);
+    expect(analysisService.getPassFail).toHaveBeenCalledWith(
+      EXAM_ID,
+      TENANT.id,
+      undefined,
+      undefined,
+    );
   });
 
   it('delegates GET pass-fail/components to the service', async () => {
     const { controller, analysisService } = makeController();
-    await controller.getPassFailComponents(EXAM_ID, {}, TENANT);
+    await controller.getPassFailComponents(EXAM_ID, {}, TENANT, USER);
     expect(analysisService.getPassFailComponents).toHaveBeenCalledWith(
       EXAM_ID,
       TENANT.id,
+      undefined,
       undefined,
     );
   });
@@ -93,7 +111,7 @@ describe('AnalysisController', () => {
       },
     });
     const res: any = { setHeader: vi.fn(), attachment: vi.fn() };
-    const file = await controller.getMeritCsv(EXAM_ID, {}, TENANT, res);
+    const file = await controller.getMeritCsv(EXAM_ID, {}, TENANT, USER, res);
     expect(res.attachment).toHaveBeenCalledWith('Term Exam-merit.csv');
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv; charset=utf-8');
     expect(file).toBeDefined();
@@ -102,8 +120,34 @@ describe('AnalysisController', () => {
   it('404s the CSV route when the exam is not in the tenant', async () => {
     const { controller } = makeController({ examRepo: { findOne: vi.fn(async () => null) } });
     const res: any = { setHeader: vi.fn(), attachment: vi.fn() };
-    await expect(controller.getMeritCsv(EXAM_ID, {}, TENANT, res)).rejects.toBeInstanceOf(
+    await expect(controller.getMeritCsv(EXAM_ID, {}, TENANT, USER, res)).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  // Epic 75 D2/D13: TEACHER is limited to current-year assigned sections.
+  it('TEACHER: passes the assigned section ids to the service', async () => {
+    const { controller, analysisService } = makeController({
+      teacherScope: { sectionScope: vi.fn(async () => ['sec-a']) },
+    });
+    await controller.getMerit(EXAM_ID, {}, { id: 'tenant-1', role: 'TEACHER' }, USER);
+    expect(analysisService.getMerit).toHaveBeenCalledWith(EXAM_ID, 'tenant-1', undefined, [
+      'sec-a',
+    ]);
+  });
+
+  it('TEACHER: a section_id outside the assigned sections is a 404', async () => {
+    const { controller, analysisService } = makeController({
+      teacherScope: { sectionScope: vi.fn(async () => ['sec-a']) },
+    });
+    await expect(
+      controller.getMerit(
+        EXAM_ID,
+        { section_id: 'sec-b' },
+        { id: 'tenant-1', role: 'TEACHER' },
+        USER,
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(analysisService.getMerit).not.toHaveBeenCalled();
   });
 });
