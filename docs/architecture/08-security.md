@@ -31,8 +31,9 @@ matching name for the full reasoning.
 Before any of that runs, **boot-time config refusal** (`assertProductionConfig`
 in `server/src/config/env.validation.ts`): with `NODE_ENV=production` the
 server will not start on a placeholder or weak secret, a malformed
-`CORS_ORIGINS`, or a missing `SETTINGS_ENCRYPTION_KEY` / `APP_BASE_URL`.
-`yarn config:check` runs the same checks on demand. Dev, test and CI are
+`CORS_ORIGINS`, or a missing `SETTINGS_ENCRYPTION_KEY` / `APP_BASE_URL` /
+`PUBLIC_APP_URL`. `yarn config:check` runs those checks on demand, plus the
+`DB_SSL`, encryption-key shape and https URL checks (07-deployment.md). Dev, test and CI are
 unaffected.
 
 ## Login brute-force protection

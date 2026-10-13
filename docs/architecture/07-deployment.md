@@ -74,23 +74,29 @@ flowchart LR
     B -->|"problems listed, exit 1"| D["fix .env"]
 ```
 
-It runs the same checks the server runs at boot in production, without
-starting anything, and always judges the env as production whatever
-`NODE_ENV` the file says. It reads the **host's** `.env` (not the container's
-environment) and needs node and `yarn install` on the deploy host. It names
-variables, never their values. Example, for an
-`.env` copied from `.env.example` where `JWT_SECRET` was lengthened but the
-other placeholders were left in (a `JWT_SECRET` under 32 characters fails
-earlier, with the plain schema error):
+It runs the server's boot-time config checks without starting anything:
+the env schema and placeholder rules (`env.validation.ts`), the
+secret-echo guard, `DB_SSL`, the `SETTINGS_ENCRYPTION_KEY` shape (32 bytes
+of base64), and the https rules for `APP_BASE_URL` and `PUBLIC_APP_URL`. It
+lists every failure, not just the first. It does not connect to Postgres,
+Redis or S3, so a wrong password or host still only shows up at boot. It
+always judges the env as production whatever `NODE_ENV` the file says. It
+reads the **host's** `.env` (not the container's environment) and needs node
+and `yarn install` on the deploy host. It names variables, never their
+values. Example, for an `.env` copied from `.env.example` where `JWT_SECRET`
+was lengthened but the other placeholders were left in (a `JWT_SECRET` under
+32 characters fails earlier, with the plain schema error):
 
 ```text
 Refusing to start with unsafe production config:
 - JWT_SECRET still holds a placeholder value
+- POSTGRES_PASSWORD still holds a placeholder value
 - S3_ACCESS_KEY_ID still holds a placeholder value
 - S3_SECRET_ACCESS_KEY still holds a placeholder value
-- POSTGRES_PASSWORD still holds a placeholder value
 - SETTINGS_ENCRYPTION_KEY is required in production
 - APP_BASE_URL is required in production
+- PUBLIC_APP_URL is required in production
+DB_SSL must be "true" in production — refusing to connect to Postgres over an unencrypted connection. Set DB_SSL=true (and use an sslmode=require-style DATABASE_URL) once the target Postgres serves TLS.
 ```
 
 `docker-compose.yml` also refuses to start when `POSTGRES_*` or `S3_*`
