@@ -118,10 +118,13 @@ describe('AttendanceService (integration)', () => {
     const classRepo = dataSource.getRepository(Class);
     const sectionRepo = dataSource.getRepository(ClassSection);
 
+    // Teacher scope is current-year only (D2), so the fixture year must be the current one.
+    await yearRepo.update({ tenant_id: TENANT_ID }, { is_current: false });
     const year = await yearRepo.save({
       name: 'Attendance Service Test Year',
       start_date: '2026-01-01',
       end_date: '2026-12-31',
+      is_current: true,
       tenant_id: TENANT_ID,
     });
     const klass = await classRepo.save({
@@ -683,7 +686,7 @@ describe('AttendanceService (integration)', () => {
       }
     });
 
-    it('403s a TEACHER of tenant A attempting to mark a section that belongs to tenant B', async () => {
+    it('404s a TEACHER of tenant A attempting to mark a section that belongs to tenant B', async () => {
       const dto = basePutDto();
       await expect(
         service.putRegister(
@@ -694,7 +697,7 @@ describe('AttendanceService (integration)', () => {
             dto,
           }),
         ),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -833,7 +836,7 @@ describe('AttendanceService (integration)', () => {
       ).resolves.toBeDefined();
     });
 
-    it("403s a TEACHER reading a record from a section they aren't mapped to", async () => {
+    it("404s a TEACHER reading a record from a section they aren't mapped to", async () => {
       const dto = basePutDto();
       const created = await service.putRegister(putParams({ dto })); // as ADMIN
       const recordId = created.students.find((s) => s.student_id === studentId1)
@@ -860,7 +863,7 @@ describe('AttendanceService (integration)', () => {
           userId: unmappedTeacherUser.id,
           query: {} as any,
         }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -1238,7 +1241,7 @@ describe('AttendanceService (integration)', () => {
         service.putRegister(
           putParams({ ...asSub, dto: basePutDto({ date: PDATE, period_no: 2 }) }),
         ),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     const notScheduled = { response: { details: { code: 'ATTENDANCE_PERIOD_NOT_SCHEDULED' } } };
