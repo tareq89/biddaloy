@@ -65,6 +65,21 @@ Both lockout and the strict rate-limit tier are disabled under
 `NODE_ENV=test` — the e2e suite logs in repeatedly against the same seeded
 account and would otherwise lock itself out.
 
+### Password hashing (75.11)
+
+Every password hash comes from one place, `auth/password-hash.ts`: bcrypt, cost **12**.
+
+```mermaid
+flowchart LR
+  A["Good sign-in<br/>(hash is cost 10)"] --> B["needsRehash?"]
+  B -- yes --> C["UPDATE users SET password_hash = new<br/>WHERE id = ? AND password_hash = old"]
+  B -- no --> D[done]
+```
+
+- **Upgrade on sign-in.** After the password is proven, a cheaper hash is rewritten. The `AND password_hash = old` condition means a password changed in the meantime always wins. A failed sign-in never rewrites anything.
+- **72-byte limit.** bcrypt ignores bytes past 72, so a _new_ password longer than that is refused with `PASSWORD_TOO_LONG` (72 Latin letters, or 24 Bangla letters). Sign-in is never checked, so an older long password keeps working.
+- **Dummy hash.** When no user matches, login compares against `DUMMY_PASSWORD_HASH` so the response takes as long as a real one. It is computed at boot, so its cost always equals the real cost.
+
 ## Password recovery
 
 `POST /auth/forgot-password` and `POST /auth/reset-password`

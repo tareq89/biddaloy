@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import { hashPassword } from '../auth/password-hash';
 import { AuditAction, UserStatus } from '@biddaloy/shared';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -9,8 +9,6 @@ import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import { RequestContext } from '../auth/refresh-token.service';
 import { assertPasswordAllowedForUser } from '../auth/password-policy';
-
-const BCRYPT_COST = 10;
 
 /**
  * `POST /account/first-password` — a signed-in user whose account has no
@@ -34,7 +32,7 @@ export class FirstPasswordService {
     if (user.password_hash !== null) throw this.alreadySet();
 
     await assertPasswordAllowedForUser(this.userTenantRepo, userId, password);
-    const password_hash = await bcrypt.hash(password, BCRYPT_COST);
+    const password_hash = await hashPassword(password);
 
     // Conditional write: two racing requests cannot both "set the first password".
     const result = await this.userRepo.update(

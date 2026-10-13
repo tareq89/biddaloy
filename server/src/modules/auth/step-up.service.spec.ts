@@ -6,10 +6,22 @@ import { ApprovalMode, ApprovalScope, AuditAction, UserRole, UserStatus } from '
 vi.mock('bcrypt', () => {
   const mockCompare = vi.fn();
   const mockHash = vi.fn();
+  // password-hash.ts computes its dummy hash at import and reads the cost with getRounds.
+  const mockHashSync = vi.fn(
+    () => '$2b$12$dummydummydummydummydummydummydummydummydummydummydummy',
+  );
+  const mockGetRounds = vi.fn(() => 12);
   return {
-    default: { compare: mockCompare, hash: mockHash },
+    default: {
+      compare: mockCompare,
+      hash: mockHash,
+      hashSync: mockHashSync,
+      getRounds: mockGetRounds,
+    },
     compare: mockCompare,
     hash: mockHash,
+    hashSync: mockHashSync,
+    getRounds: mockGetRounds,
   };
 });
 

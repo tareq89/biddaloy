@@ -8,6 +8,7 @@ import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { AuthService } from './auth.service';
 import { DataSource } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -889,6 +890,92 @@ describe('Auth E2E', () => {
       await supertest(app.getHttpServer())
         .delete(`/api/v1/auth/sessions/${'0'.repeat(8)}-0000-4000-8000-000000000000`)
         .expect(401);
+    });
+  });
+
+  // [75.11] bcrypt cost 12 everywhere: a cheaper stored hash is upgraded on the next good
+  // sign-in, never on a failed one; a NEW password over 72 bytes is refused, but an old long
+  // one still signs in. Dedicated user so no other suite's seed admin is touched.
+  describe('bcrypt cost upgrade (75.11)', () => {
+    const USER_ID = '00000000-0000-4000-8000-0000000003c5';
+    const EMAIL = 'bcrypt-cost@testschool.com';
+    const PASSWORD = SEED_ADMIN_PASSWORD;
+
+    const hashOf = async (): Promise<string> =>
+      (await dataSource.query(`SELECT password_hash FROM users WHERE id = $1`, [USER_ID]))[0]
+        .password_hash;
+    const setHash = (hash: string) =>
+      dataSource.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [hash, USER_ID]);
+    const login = (password: string) =>
+      supertest(app.getHttpServer()).post('/api/v1/auth/login').send({ email: EMAIL, password });
+
+    beforeAll(async () => {
+      await dataSource.query(
+        `INSERT INTO users (id, email, password_hash, full_name, status)
+         VALUES ($1, $2, $3, 'Bcrypt Cost', 'ACTIVE')
+         ON CONFLICT (id) DO UPDATE
+           SET email = EXCLUDED.email, password_hash = EXCLUDED.password_hash, status = 'ACTIVE'`,
+        [USER_ID, EMAIL, SEED_ADMIN_PASSWORD_HASH],
+      );
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'ADMIN')
+         ON CONFLICT DO NOTHING`,
+        [USER_ID, SEED_TENANT_ID],
+      );
+    });
+
+    afterAll(async () => {
+      await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [USER_ID]);
+      await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [USER_ID]);
+      // audit_logs is append-only, so the user row stays; blank its credentials instead.
+      await dataSource.query(
+        `UPDATE users SET password_hash = NULL, email = NULL, status = 'INACTIVE' WHERE id = $1`,
+        [USER_ID],
+      );
+    });
+
+    it('upgrades a cost-10 hash to cost 12 after a good login', async () => {
+      await setHash(await bcrypt.hash(PASSWORD, 10));
+      await login(PASSWORD).expect(200);
+      expect(bcrypt.getRounds(await hashOf())).toBe(12);
+      // and the upgraded hash still verifies
+      await login(PASSWORD).expect(200);
+    });
+
+    it('leaves the hash unchanged after a wrong password', async () => {
+      const old = await bcrypt.hash(PASSWORD, 10);
+      await setHash(old);
+      await login('wrong-password').expect(401);
+      expect(await hashOf()).toBe(old);
+    });
+
+    it('does not write the user row when the hash is already cost 12', async () => {
+      await setHash(await bcrypt.hash(PASSWORD, 12));
+      const before = await hashOf();
+      await login(PASSWORD).expect(200);
+      expect(await hashOf()).toBe(before);
+    });
+
+    it('refuses a 73-byte new password, accepts a valid one and stores it at cost 12', async () => {
+      await setHash(await bcrypt.hash(PASSWORD, 12));
+      const token = (await login(PASSWORD).expect(200)).body.access_token;
+      const change = (newPassword: string) =>
+        supertest(app.getHttpServer())
+          .post('/api/v1/auth/change-password')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ current_password: PASSWORD, new_password: newPassword });
+
+      const tooLong = await change('Aa1!' + 'x'.repeat(69)).expect(400);
+      expect(tooLong.body.details).toMatchObject({ code: 'PASSWORD_TOO_LONG', maxBytes: 72 });
+
+      await change('Brand-new-password-1!').expect(200);
+      expect(bcrypt.getRounds(await hashOf())).toBe(12);
+    });
+
+    it('still signs in with an old password longer than 72 bytes', async () => {
+      const longPassword = 'Aa1!' + 'y'.repeat(80);
+      await setHash(await bcrypt.hash(longPassword, 12));
+      await login(longPassword).expect(200);
     });
   });
 });

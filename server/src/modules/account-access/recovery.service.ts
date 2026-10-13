@@ -9,7 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
+import { hashPassword } from '../auth/password-hash';
 import { AuditAction, AuthTokenPurpose, CommunicationMedium, UserStatus } from '@biddaloy/shared';
 import { User } from '../users/entities/user.entity';
 import { countOtherMemberships } from '../users/users.service';
@@ -29,7 +29,6 @@ import { isSecretEchoEnabled } from './account-access-echo';
 import { resolveAppBaseUrl } from './app-base-url.util';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
-const BCRYPT_COST = 10;
 const OTP_PURPOSE = 'PASSWORD_RESET';
 
 export interface ForgotPasswordResult {
@@ -449,7 +448,7 @@ export class RecoveryService {
     context: RequestContext,
     audit: { action: AuditAction; performedByUserId: string; newValues: Record<string, unknown> },
   ): Promise<void> {
-    const password_hash = await bcrypt.hash(newPassword, BCRYPT_COST);
+    const password_hash = await hashPassword(newPassword);
 
     // GAP-04: a linked Google/Facebook sign-in outlives a reset otherwise.
     // One transaction: the new password and the identity removal commit or

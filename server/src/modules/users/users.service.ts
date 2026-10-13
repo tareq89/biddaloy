@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Not, In, QueryFailedError, type EntityManager } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import { hashPassword } from '../auth/password-hash';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
@@ -197,7 +197,7 @@ export class UserService {
     if (dto.password) {
       // D10: same strength rules as every other password path.
       assertPasswordAllowed(dto.password, [dto.role]);
-      password_hash = await bcrypt.hash(dto.password, 10);
+      password_hash = await hashPassword(dto.password);
     }
 
     try {

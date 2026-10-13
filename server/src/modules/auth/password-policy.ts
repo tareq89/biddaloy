@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { audienceForRoles, checkPassword } from '@biddaloy/shared';
 import type { UserRole } from '@biddaloy/shared';
+import { BCRYPT_MAX_BYTES } from './password-hash';
 import type { UserTenant } from './entities/user-tenant.entity';
 
 /**
@@ -18,6 +19,14 @@ export { PASSWORD_MIN_LENGTH } from '@biddaloy/shared';
  * (empty or mixed → staff rules).
  */
 export function assertPasswordAllowed(password: string, roles: UserRole[]): void {
+  // bcrypt silently ignores bytes past 72, so a longer NEW password would not mean
+  // what the user typed. Never checked at sign-in: old long passwords keep working.
+  if (Buffer.byteLength(password, 'utf8') > BCRYPT_MAX_BYTES) {
+    throw new BadRequestException({
+      message: 'Password is too long',
+      details: { code: 'PASSWORD_TOO_LONG', maxBytes: BCRYPT_MAX_BYTES },
+    });
+  }
   const failed = checkPassword(password, audienceForRoles(roles))
     .filter((r) => !r.ok)
     .map((r) => r.id);

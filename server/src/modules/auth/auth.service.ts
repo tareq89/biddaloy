@@ -39,16 +39,11 @@ import { AccessTokenDenylistService } from './access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
 import { SessionDto } from './dto/session.dto';
 import { ACCESS_TOKEN_AUDIENCE } from './jwt-secrets';
-import { DUMMY_PASSWORD_HASH } from './password-hash';
+import { DUMMY_PASSWORD_HASH, hashPassword, needsRehash } from './password-hash';
 
 export interface AuthResult extends LoginResponse {
   refreshToken: IssuedRefreshToken;
 }
-
-// Matches the cost factor used at the only other place a password hash is
-// created (UsersService.create) — a user's hash must not silently get
-// weaker or slower depending on which endpoint last wrote it.
-const BCRYPT_COST = 10;
 
 // "Earliest membership wins" (#356) for `getUserMemberships`: its
 // `memberships[0]` is the session's default tenant, preselected by
@@ -143,6 +138,15 @@ export class AuthService {
     }
 
     await this.loginAttempts.reset(identifier);
+
+    // Upgrade a cheaper stored hash now that the password is proven. The old-hash
+    // condition means a concurrent password change always wins.
+    if (user.password_hash && needsRehash(user.password_hash)) {
+      await this.userRepository.update(
+        { id: user.id, password_hash: user.password_hash },
+        { password_hash: await hashPassword(password) },
+      );
+    }
 
     // Update last login timestamp. A targeted update (not save(user)) avoids
     // clobbering a password hash changed concurrently by another request.
@@ -451,7 +455,7 @@ export class AuthService {
     // the path that produces the token and the refresh cookie. A targeted
     // update also avoids `save()` writing back every column that was read at
     // the top of this method.
-    const password_hash = await bcrypt.hash(dto.new_password, BCRYPT_COST);
+    const password_hash = await hashPassword(dto.new_password);
     // Re-read under a row lock inside the same transaction that revokes
     // refresh tokens: without this, a password change racing a concurrent
     // change on the same account could update the hash after the other

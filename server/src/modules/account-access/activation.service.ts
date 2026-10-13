@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, Inject } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, IsNull, Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import { hashPassword } from '../auth/password-hash';
 import { AuditAction, AuthTokenPurpose, UserStatus, audienceForRoles } from '@biddaloy/shared';
 import type { PasswordAudience } from '@biddaloy/shared';
 import { User } from '../users/entities/user.entity';
@@ -15,8 +15,6 @@ import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { AuthTokenService } from './auth-token.service';
 import { InvitationService } from './invitation.service';
-
-const BCRYPT_COST = 10;
 
 export type ActivateVerifyResult =
   | {
@@ -114,7 +112,7 @@ export class ActivationService {
     }
 
     await assertPasswordAllowedForUser(this.userTenantRepo, user.id, password);
-    const password_hash = await bcrypt.hash(password, BCRYPT_COST);
+    const password_hash = await hashPassword(password);
 
     // [12.7] Activating an invite proves the invitee controls whichever
     // contact the invite actually went out on (`InvitationService.issueAndSend`
