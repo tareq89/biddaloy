@@ -4,6 +4,9 @@ import { randomUUID } from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import type Redis from 'ioredis';
+import { OTP_REDIS } from '../account-access/otp.service';
+import { STEP_UP_REDIS } from '../auth/step-up.service';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
@@ -11,6 +14,7 @@ import { ApprovalScope, UserRole } from '@biddaloy/shared';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
+  SEED_ADMIN_USER_ID,
   SEED_ADMIN_PASSWORD,
   SEED_ADMIN_PASSWORD_HASH,
   SEED_SECTION_1_ID,
@@ -70,11 +74,28 @@ describe('[ACAD-05] Exam lifecycle guards', () => {
   }
 
   async function issueApprovalToken(scope: string, identifier: string): Promise<string> {
+    // The step-up OTP request always answers 202 and swallows a cooldown/limiter refusal, so a
+    // leftover key shows up only as a missing `debug.otp`. Start from clean counters (same as
+    // checkout.controller.e2e-spec).
+    await app
+      .get<Redis>(OTP_REDIS)
+      .del(`otp-cooldown:STEP_UP:${SEED_TENANT_ID}:${identifier.toLowerCase()}`);
+    await app
+      .get<Redis>(STEP_UP_REDIS)
+      .del(
+        `step-up-attempts:actor:${SEED_ADMIN_USER_ID}`,
+        `step-up-attempts:approver:${SEED_TENANT_ID}:${identifier.toLowerCase()}`,
+      );
     const { body } = await http()
       .post(`${API}/auth/step-up/otp/request`)
       .set(as(UserRole.ADMIN))
       .send({ identifier })
       .expect(202);
+    if (!body.debug?.otp) {
+      throw new Error(
+        `step-up OTP was not echoed (cooldown, cap or ineligible approver): ${JSON.stringify(body)}`,
+      );
+    }
     const verify = await http()
       .post(`${API}/auth/step-up`)
       .set(as(UserRole.ADMIN))
