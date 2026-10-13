@@ -34,6 +34,8 @@ describe('UserController', () => {
   let staffProfilesService: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT = { id: 'tenant-1', role: UserRole.ADMIN };
+  const REQUEST = { headers: {}, ip: '127.0.0.1' } as any;
+  let contactChangeService: { proposeByAdmin: ReturnType<typeof vi.fn> };
   const JWT = { sub: 'admin-1', email: null, phone: null, memberships: [], jti: 'jti-1' };
 
   beforeEach(() => {
@@ -42,6 +44,7 @@ describe('UserController', () => {
       findAll: vi.fn(),
       findOne: vi.fn(),
       update: vi.fn(),
+      sharedIdentifierChanges: vi.fn().mockResolvedValue(null),
       updateOwnProfile: vi.fn(),
       remove: vi.fn(),
     };
@@ -64,6 +67,7 @@ describe('UserController', () => {
     recoveryService = {
       adminReset: vi.fn(),
     };
+    contactChangeService = { proposeByAdmin: vi.fn().mockResolvedValue(undefined) };
     guardianProvisioningService = {
       preview: vi.fn(),
       dispatch: vi.fn(),
@@ -79,7 +83,7 @@ describe('UserController', () => {
       invitationService as any,
       recoveryService as any,
       guardianProvisioningService as any,
-      undefined as any,
+      contactChangeService as any,
       staffProfilesService as any,
     );
   });
@@ -266,7 +270,7 @@ describe('UserController', () => {
       const expected = { id: 'u1', full_name: 'Updated' };
       userService.update.mockResolvedValue(expected);
 
-      const result = await controller.updateUser('u1', dto as any, TENANT, JWT as any);
+      const result = await controller.updateUser('u1', dto as any, TENANT, JWT as any, REQUEST);
 
       expect(userService.update).toHaveBeenCalledWith('u1', dto, TENANT.id, JWT.sub);
       expect(result).toEqual({
@@ -276,6 +280,31 @@ describe('UserController', () => {
         left_at: null,
         invitation_status: 'NONE',
       });
+    });
+
+    it('[75.1] a shared person: email/phone go to proposeByAdmin, only the rest is updated', async () => {
+      userService.sharedIdentifierChanges.mockResolvedValue({ phone: '+8801712345678' });
+      userService.update.mockResolvedValue({ id: 'u1', full_name: 'New' });
+
+      const result = await controller.updateUser(
+        'u1',
+        { full_name: 'New', phone: '+8801712345678' } as any,
+        TENANT,
+        JWT as any,
+        REQUEST,
+      );
+
+      expect(userService.update).toHaveBeenCalledWith(
+        'u1',
+        { full_name: 'New' },
+        TENANT.id,
+        JWT.sub,
+      );
+      expect(contactChangeService.proposeByAdmin).toHaveBeenCalledWith(
+        { userId: 'u1', tenantId: TENANT.id, actorUserId: JWT.sub, phone: '+8801712345678' },
+        expect.anything(),
+      );
+      expect(result.pending_contact_change).toBe('phone');
     });
   });
 
@@ -446,7 +475,7 @@ describe('UserController', () => {
         password_hash: '$2b$10$secret',
       });
 
-      const result = await controller.updateUser('u1', {} as any, TENANT, JWT as any);
+      const result = await controller.updateUser('u1', {} as any, TENANT, JWT as any, REQUEST);
 
       expect(result).not.toHaveProperty('password_hash');
     });
@@ -538,9 +567,20 @@ describe('UserController', () => {
     it('leaves the admin route on plain update()', async () => {
       userService.update.mockResolvedValue({ id: 'u1', full_name: 'Them' });
 
-      await controller.updateUser('u1', { phone: '+8801712345678' } as any, TENANT, JWT as any);
+      await controller.updateUser(
+        'u1',
+        { phone: '+8801712345678' } as any,
+        TENANT,
+        JWT as any,
+        REQUEST,
+      );
 
-      expect(userService.update).toHaveBeenCalledWith('u1', { phone: '+8801712345678' }, TENANT.id, JWT.sub);
+      expect(userService.update).toHaveBeenCalledWith(
+        'u1',
+        { phone: '+8801712345678' },
+        TENANT.id,
+        JWT.sub,
+      );
       expect(userService.updateOwnProfile).not.toHaveBeenCalled();
     });
   });

@@ -175,6 +175,35 @@ The old value is never touched until the confirm step succeeds — a
 mistyped new number/address just leaves the request expiring unconfirmed,
 with the account's real contact untouched throughout.
 
+**A school admin changing a shared person's contact (75.1, D3/D23).** If the
+person also belongs to another school, `PATCH /users/:id` does **not** write a
+new email/phone. It holds the change until the person approves it:
+
+```mermaid
+sequenceDiagram
+  participant A as School B admin
+  participant S as Server
+  participant U as Person (current contact)
+  participant O as School A admins
+  A->>S: PATCH /users/U {phone: new}
+  S-->>A: 200 {phone: OLD, pending_contact_change: "phone"}
+  S->>U: approval link, sent to the CURRENT email/phone
+  S->>O: notice "School B asked to change U's phone" (no new value)
+  U->>S: POST /auth/verify-email {token}
+  S->>S: write new phone (unverified), cut off + revoke sessions
+```
+
+- The link goes to the person's current verified email, else current verified
+  phone, else whatever they have; never to the proposed value. No contact on
+  file: `409 NO_CONTACT`.
+- It is an `EMAIL_VERIFY` token with `metadata.kind = 'ADMIN_PROPOSAL'` (3-day
+  TTL); the latest proposal from a school revokes its earlier one.
+- Any contact change that is written (approved, or a single-school user's
+  admin edit) sets `users.tokens_valid_after` and revokes refresh tokens, so
+  whoever held the old contact is signed out everywhere.
+- `POST /users/:id/reset-password` on a shared user still returns
+  `409 SHARED_IDENTITY`.
+
 ## Passwordless sign-in (OTP login)
 
 `POST /auth/otp/request` and `POST /auth/otp/verify`

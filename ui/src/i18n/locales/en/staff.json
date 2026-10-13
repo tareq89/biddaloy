@@ -104,6 +104,7 @@
     "errorEmailRequired": "Email cannot be empty.",
     "errorMessage": "Could not save the changes. Please try again.",
     "contactUnverifiedHint": "Changing this marks it unverified.",
+    "pendingContactChange": "This person also belongs to another school. We sent them a link to approve the new contact; it changes only after they approve.",
     "save": "Save changes",
     "saving": "Saving…"
   },
