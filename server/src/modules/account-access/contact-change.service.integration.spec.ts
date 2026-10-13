@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -745,7 +746,16 @@ describe('ContactChangeService (integration)', () => {
         .spyOn(module.get(AuthTokenService), 'revoke')
         .mockRejectedValueOnce(new Error('db down'));
 
-      await expect(propose(user.id, { phone: NEW_PHONE })).rejects.toThrow();
+      // Review n-new-2: still the clean 503, and both failures are logged.
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+      const error = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+      await expect(propose(user.id, { phone: NEW_PHONE })).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('approval link not delivered'));
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('could not be revoked'));
+      warn.mockRestore();
+      error.mockRestore();
       deliver.mockRestore();
       revoke.mockRestore();
       expect(await liveTokens(user.id)).toBe(1);
