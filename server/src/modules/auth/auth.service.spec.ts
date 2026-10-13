@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -260,6 +260,25 @@ describe('AuthService', () => {
       );
       (bcrypt.getRounds as any).mockReturnValue(12);
       (bcrypt.hash as any).mockReset();
+    });
+
+    // [75.11 review r1, F-2319-2] the rehash is best effort.
+    it('still signs in when the rehash write fails', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      (bcrypt.getRounds as any).mockReturnValue(10);
+      (bcrypt.hash as any).mockResolvedValue('new-cost-12-hash');
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      mockUserRepo.update.mockRejectedValueOnce(new Error('lock timeout'));
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+
+      const result = await service.login('admin@test.com', 'password123');
+
+      expect(result.access_token).toBe('test-jwt-token');
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('password rehash skipped'));
+      (bcrypt.getRounds as any).mockReturnValue(12);
+      (bcrypt.hash as any).mockReset();
+      warn.mockRestore();
     });
 
     it('does not rehash when the stored hash is already at the current cost', async () => {

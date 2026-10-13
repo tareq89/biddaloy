@@ -9,6 +9,8 @@ describe('requiresRedis', () => {
     ['POST', '/api/v1/auth/forgot-password'],
     ['POST', '/api/v1/auth/step-up'],
     ['POST', '/api/v1/auth/register'],
+    // Checks current_password outside /auth/ (75.18 review r1).
+    ['POST', '/api/v1/users/me/contact-change'],
   ])('is true for %s %s', (method, path) => {
     expect(requiresRedis(method, path)).toBe(true);
   });
@@ -21,6 +23,7 @@ describe('requiresRedis', () => {
     ['GET', '/api/v1/auth/sessions'],
     ['DELETE', '/api/v1/auth/sessions/:id'],
     ['GET', '/api/v1/students'],
+    ['POST', '/api/v1/users/me/contact-change/confirm-phone'],
   ])('is false for %s %s', (method, path) => {
     expect(requiresRedis(method, path)).toBe(false);
   });

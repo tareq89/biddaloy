@@ -139,12 +139,19 @@ export class AuthService {
     await this.loginAttempts.reset(identifier);
 
     // Upgrade a cheaper stored hash now that the password is proven. The old-hash
-    // condition means a concurrent password change always wins.
+    // condition means a concurrent password change always wins. Best effort: a failed
+    // write must never fail a proven-good sign-in (the next sign-in retries it).
     if (user.password_hash && needsRehash(user.password_hash)) {
-      await this.userRepository.update(
-        { id: user.id, password_hash: user.password_hash },
-        { password_hash: await hashPassword(password) },
-      );
+      try {
+        await this.userRepository.update(
+          { id: user.id, password_hash: user.password_hash },
+          { password_hash: await hashPassword(password) },
+        );
+      } catch (error) {
+        this.logger.warn(
+          `password rehash skipped for user ${user.id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     }
 
     // Update last login timestamp. A targeted update (not save(user)) avoids

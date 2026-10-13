@@ -22,6 +22,15 @@ class AuthProbeController {
   }
 }
 
+// Checks the caller's current password outside /auth/.
+@Controller('users/me')
+class ContactChangeProbeController {
+  @Post('contact-change')
+  request() {
+    return { ok: true };
+  }
+}
+
 @Controller('things')
 class ThingsProbeController {
   @Get()
@@ -39,7 +48,7 @@ async function bootApp(storage: ThrottlerStorage, limit = 100): Promise<INestApp
     imports: [
       ThrottlerModule.forRoot({ throttlers: [{ name: 'default', limit, ttl: 60_000 }], storage }),
     ],
-    controllers: [AuthProbeController, ThingsProbeController],
+    controllers: [AuthProbeController, ContactChangeProbeController, ThingsProbeController],
     providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],
   }).compile();
   const app = moduleRef.createNestApplication();
@@ -59,6 +68,11 @@ describe('AppThrottlerGuard (Redis down vs up)', () => {
       app = await bootApp(new FailOpenThrottlerStorage(redisDown));
       const res = await supertest(app.getHttpServer()).post('/api/v1/auth/login').expect(503);
       expect(res.body.message).toMatch(/temporarily unavailable/);
+    });
+
+    it('answers 503 on POST /users/me/contact-change (password check, fail closed)', async () => {
+      app = await bootApp(new FailOpenThrottlerStorage(redisDown));
+      await supertest(app.getHttpServer()).post('/api/v1/users/me/contact-change').expect(503);
     });
 
     it('keeps POST /auth/refresh working (fail open)', async () => {

@@ -3,6 +3,7 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { APPROVAL_TOKEN_AUDIENCE } from '../auth/jwt-secrets';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { FeeGenerationBatchService } from './fee-generation-batch.service';
@@ -106,7 +107,7 @@ describe('FeeGenerationBatchService (integration)', () => {
         scope: ApprovalScope.FEES_EDIT_PAID,
         jti,
       },
-      { expiresIn: 300 },
+      { expiresIn: 300, audience: APPROVAL_TOKEN_AUDIENCE },
     );
   }
 

@@ -621,6 +621,13 @@ flowchart LR
 - **`RefreshToken`** — one token in a rotation "family"; only a hash is
   stored. See [02-auth-and-multitenancy.md](02-auth-and-multitenancy.md).
 
+### Platform health (`modules/health`)
+
+- **`PlatformAlert`** (platform-level, no `tenant_id`) — one open row per
+  outage kind (today only `REDIS_DOWN`), opened and cleared by the API's own
+  probe loop; read by platform SUPER_ADMINs via `GET /platform/alerts`. See
+  [12-operations.md §3.6](12-operations.md#36-platform-alert-redis-down).
+
 ## Conventions worth knowing before you add a table
 
 - **Soft deletes** (`@DeleteDateColumn`) are used on tenant-owned entities

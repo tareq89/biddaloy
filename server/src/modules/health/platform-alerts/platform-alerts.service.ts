@@ -100,7 +100,13 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  /** The first good probe closes the alert; "recovered" goes out once, and only if "down" did. */
+  /**
+   * The first good probe closes the alert; "recovered" goes out once, and only if "down" did.
+   * ponytail: `consecutiveFails` is per instance and any instance's one good probe closes the
+   * row, so a partial partition (one instance reaches Redis, another does not) repeats
+   * ALERT → RECOVERED texts about every 2 min. Upgrade: close only after N good probes, or
+   * gate a re-open text on the last close being over 1 h ago (12-operations.md §3.6).
+   */
   private async closeStep(): Promise<void> {
     const [rows]: UpdateResult<{ opened_at: Date; cleared_at: Date; sms_count: number }> =
       await this.dataSource.query(
@@ -166,7 +172,11 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
           provider === 'mimsms'
             ? await this.mim.sendSms(phone, text, { gateway: 'mimsms', apiKey, senderId, apiUrl })
             : await this.greenweb.sendSms(phone, text, { gateway: 'greenweb', apiKey, apiUrl });
-        this.logger.log(`platform alert SMS to ${maskPhone(phone)}: ${JSON.stringify(result)}`);
+        // Status only: the provider's raw body can echo the full destination number.
+        const { success, outcome, providerMessageId, error } = result;
+        this.logger.log(
+          `platform alert SMS to ${maskPhone(phone)}: ${JSON.stringify({ success, outcome, providerMessageId, error })}`,
+        );
       } catch (error) {
         this.logger.error(
           `platform alert SMS to ${maskPhone(phone)} failed: ${error instanceof Error ? error.message : String(error)}`,

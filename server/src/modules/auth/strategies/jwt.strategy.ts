@@ -40,14 +40,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       issuer: JWT_ISSUER,
       audience: ACCESS_TOKEN_AUDIENCE,
       // Rotation (D21): current secret first, JWT_SECRET_PREVIOUS only when the
-      // token does not verify against it. Verify-only; signing never uses previous.
+      // token's signature does not match it. Verify-only; signing never uses previous.
+      // Passport does the full verify afterwards, so this only picks the key: no
+      // second verify without a previous secret, and expiry is left to passport
+      // (an expired current-secret token then reports "jwt expired", not a bad signature).
       secretOrKeyProvider: (_req, rawJwt, done) => {
         const [current, previous] = jwtVerifySecrets(configService);
+        if (!previous) return done(null, current);
         try {
-          jwtService.verify(rawJwt, { secret: current });
+          jwtService.verify(rawJwt, { secret: current, ignoreExpiration: true });
           done(null, current);
         } catch {
-          done(null, previous ?? current);
+          done(null, previous);
         }
       },
     });
