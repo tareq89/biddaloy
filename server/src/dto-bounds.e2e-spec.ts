@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -56,8 +56,6 @@ describe('DTO bounds (75.14)', () => {
   let adminToken: string;
   let teacherToken: string;
   let parentToken: string;
-  let studentId: string;
-  const createdFeeStructureIds: string[] = [];
 
   async function login(email: string): Promise<string> {
     const res = await supertest(app.getHttpServer())
@@ -87,6 +85,13 @@ describe('DTO bounds (75.14)', () => {
       .expect(200);
     return verifyRes.body.approval_token;
   }
+
+  /** The 400 must name the field under test, so an unrelated 400 (a missing
+   * fixture, another field) can't make a case pass. */
+  const expectFieldError = (res: supertest.Response, field: RegExp) => {
+    expect(res.status).toBe(400);
+    expect(res.body.message).toEqual(expect.arrayContaining([expect.stringMatching(field)]));
+  };
 
   const feeStructure = (amount: number) => ({
     fee_type: 'MONTHLY_TUITION',
@@ -123,36 +128,25 @@ describe('DTO bounds (75.14)', () => {
         [id, SEED_TENANT_ID, role],
       );
     }
-    // A student for the discount-rule bodies. Never read or changed by the tests.
-    const [row] = await dataSource.query(
-      `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
-       VALUES (DEFAULT, 'DTO Bounds Student', 'REG-DTO-BOUNDS-1', 7514, $1, $2, '2010-01-01', 'SMS', 'ACTIVE', NOW(), NOW())
-       RETURNING id`,
-      [SEED_SECTION_1_ID, SEED_TENANT_ID],
-    );
-    studentId = row.id;
-
     adminToken = await login(SEED_ADMIN_EMAIL);
     teacherToken = await login(TEACHER_EMAIL);
     parentToken = await login(PARENT_EMAIL);
   }, 120000);
 
+  // `test/setup.ts` wipes students and fee structures before every test, so
+  // nothing created here needs cleaning up.
   afterAll(async () => {
-    for (const id of createdFeeStructureIds) {
-      await dataSource.query(`DELETE FROM fee_structures WHERE id = $1`, [id]);
-    }
-    await dataSource.query(`DELETE FROM students WHERE id = $1`, [studentId]);
     await app.close();
   });
 
   describe('list limit', () => {
     // The repro for the ticket: this used to return 200 with every row.
     it('GET /students?limit=100000 is 400', async () => {
-      await as('get', '/students?limit=100000', adminToken).expect(400);
+      expectFieldError(await as('get', '/students?limit=100000', adminToken), /^limit /);
     });
 
     it.each(LIST_ROUTES)('GET %s?limit=101 is 400', async (route) => {
-      await as('get', `${route}?limit=101`, adminToken).expect(400);
+      expectFieldError(await as('get', `${route}?limit=101`, adminToken), /^limit /);
     });
 
     it.each(LIST_ROUTES)('GET %s?limit=100 is 200 (allowed boundary)', async (route) => {
@@ -176,53 +170,85 @@ describe('DTO bounds (75.14)', () => {
   });
 
   describe('money fields', () => {
-    it('POST /fee-structures with amount one over MONEY_MAX is 400 with a field error', async () => {
-      const res = await as('post', '/fee-structures', adminToken)
-        .send(feeStructure(100000000))
-        .expect(400);
-      expect(JSON.stringify(res.body)).toContain('amount');
+    it('POST /fee-structures with amount one over MONEY_MAX is 400 naming amount', async () => {
+      const res = await as('post', '/fee-structures', adminToken).send(feeStructure(100000000));
+      expectFieldError(res, /^amount /);
     });
 
-    it('POST /fee-structures with amount 10.005 (3 decimals) is 400', async () => {
-      await as('post', '/fee-structures', adminToken).send(feeStructure(10.005)).expect(400);
+    it('POST /fee-structures with amount 10.005 (3 decimals) is 400 naming amount', async () => {
+      const res = await as('post', '/fee-structures', adminToken).send(feeStructure(10.005));
+      expectFieldError(res, /^amount /);
     });
 
     it('POST /fee-structures with amount MONEY_MAX is 201 (allowed boundary)', async () => {
       expect(MONEY_MAX).toBe(99999999.99);
-      const res = await as('post', '/fee-structures', adminToken)
-        .send(feeStructure(MONEY_MAX))
-        .expect(201);
-      createdFeeStructureIds.push(res.body.id);
+      await as('post', '/fee-structures', adminToken).send(feeStructure(MONEY_MAX)).expect(201);
     });
 
     it('a TEACHER (no FEE_STRUCTURE_CREATE) posting an oversized amount keeps the 403', async () => {
       await as('post', '/fee-structures', teacherToken).send(feeStructure(100000000)).expect(403);
     });
 
-    it('POST /discount-rules FLAT value 10.123 is 400', async () => {
-      const approval = await issueApprovalToken(APPROVERS[0][1]);
-      await as('post', '/discount-rules', adminToken)
-        .set('X-Approval-Token', approval)
-        .send({ student_id: studentId, kind: 'FLAT', value: 10.123, reason: 'bounds' })
-        .expect(400);
+    it('POST /payments/checkout with a line amount one over MONEY_MAX is 400 naming it', async () => {
+      const res = await as('post', '/payments/checkout', adminToken).send({
+        idempotency_key: '00000000-0000-4000-8000-0000007514d1',
+        payment_method: 'CASH',
+        lines: [{ student_fee_id: '00000000-0000-4000-8000-0000007514d2', amount: 100000000 }],
+      });
+      expectFieldError(res, /^lines\.0\.amount /);
     });
 
-    it('POST /discount-rules PERCENT value 101 is still 400', async () => {
-      const approval = await issueApprovalToken(APPROVERS[1][1]);
-      await as('post', '/discount-rules', adminToken)
-        .set('X-Approval-Token', approval)
-        .send({ student_id: studentId, kind: 'PERCENT', value: 101, reason: 'bounds' })
-        .expect(400);
+    it('POST /fees/fines with amount one over MONEY_MAX is 400 naming amount', async () => {
+      const res = await as('post', '/fees/fines', adminToken).send({
+        student_ids: ['00000000-0000-4000-8000-0000007514e1'],
+        fee_structure_id: '00000000-0000-4000-8000-0000007514e2',
+        amount: 100000000,
+        note: 'bounds',
+        incident_date: '2026-01-15',
+      });
+      expectFieldError(res, /^amount /);
     });
 
-    it('POST /payments/checkout with a line amount of 0.001 is 400', async () => {
-      await as('post', '/payments/checkout', adminToken)
-        .send({
-          idempotency_key: '00000000-0000-4000-8000-0000007514d1',
-          payment_method: 'CASH',
-          lines: [{ student_fee_id: '00000000-0000-4000-8000-0000007514d2', amount: 0.001 }],
-        })
-        .expect(400);
+    it('POST /fees/bills/:id/waive with amount one over MONEY_MAX is 400 naming amount', async () => {
+      const res = await as(
+        'post',
+        '/fees/bills/00000000-0000-4000-8000-0000007514f1/waive',
+        adminToken,
+      ).send({ amount: 100000000, reason: 'bounds' });
+      expectFieldError(res, /^amount /);
+    });
+
+    describe('discount rules', () => {
+      let studentId: string;
+
+      // Inside a `beforeEach`: `test/setup.ts` wipes students before every
+      // test, so a `beforeAll` student is gone by the time the request runs
+      // (and the 400 would be "Student not found", not the `value` bound).
+      beforeEach(async () => {
+        const [row] = await dataSource.query(
+          `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
+           VALUES (DEFAULT, 'DTO Bounds Student', 'REG-DTO-BOUNDS-1', 7514, $1, $2, '2010-01-01', 'SMS', 'ACTIVE', NOW(), NOW())
+           RETURNING id`,
+          [SEED_SECTION_1_ID, SEED_TENANT_ID],
+        );
+        studentId = row.id;
+      });
+
+      it('POST /discount-rules FLAT value 10.123 is 400 naming value', async () => {
+        const approval = await issueApprovalToken(APPROVERS[0][1]);
+        const res = await as('post', '/discount-rules', adminToken)
+          .set('X-Approval-Token', approval)
+          .send({ student_id: studentId, kind: 'FLAT', value: 10.123, reason: 'bounds' });
+        expectFieldError(res, /^value /);
+      });
+
+      it('POST /discount-rules PERCENT value 101 is still 400 naming value', async () => {
+        const approval = await issueApprovalToken(APPROVERS[1][1]);
+        const res = await as('post', '/discount-rules', adminToken)
+          .set('X-Approval-Token', approval)
+          .send({ student_id: studentId, kind: 'PERCENT', value: 101, reason: 'bounds' });
+        expectFieldError(res, /^value /);
+      });
     });
   });
 });
