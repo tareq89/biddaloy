@@ -1302,6 +1302,13 @@ describe('[5.1] Family-facing read API', () => {
           .set('X-Tenant-ID', SEED_TENANT_ID)
           .expect(200);
       }
+      // 75.6-d: an assigned teacher's dues rows still carry the staff-only field.
+      const dues = await http()
+        .get(`${API}/fees/dues`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .expect(200);
+      expect(dues.body.data[0].dues[0]).toHaveProperty('reminder_threshold_date');
     });
 
     it('[10.4] no longer admits TEACHER on the tightened invoice routes', async () => {

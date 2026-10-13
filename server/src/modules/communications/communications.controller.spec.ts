@@ -334,7 +334,7 @@ describe('CommunicationsController', () => {
 
       const result = await controller.findByGuardian('guardian-1', TENANT, USER);
 
-      expect(service.findByGuardian).toHaveBeenCalledWith('guardian-1', TENANT.id);
+      expect(service.findByGuardian).toHaveBeenCalledWith('guardian-1', TENANT.id, undefined);
       expect(result).toEqual(expected);
     });
   });
