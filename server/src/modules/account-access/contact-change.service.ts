@@ -64,7 +64,11 @@ interface AdminProposalMeta {
 
 export interface ConfirmEmailResult {
   status: string;
-  /** Only for status 'proposal': what the school asks for, values MASKED (null = remove it). */
+  /**
+   * Only for status 'proposal': what the school asks for, values in FULL (null = remove it). D25:
+   * only the person sees this page (the link went to their own current contact), and the full
+   * value lets them spot an address that is not theirs, e.g. one the admin typed for themselves.
+   */
   proposal?: { from_school: string; new_email?: string | null; new_phone?: string | null };
   /** Echo-only (D6), status 'confirm': the codes sent to the new contact(s). */
   debug?: { email_code?: string; phone_code?: string };
@@ -279,8 +283,9 @@ export class ContactChangeService {
   /**
    * [75.1, D3/D23] A school admin asks to change the email/phone of a person who
    * also belongs to another school. Nothing is written to `users`: the person
-   * gets a link at their CURRENT contact (never the proposed one) that shows
-   * the MASKED new value; the other schools' admins get a notice without it.
+   * gets a link at their CURRENT contact (never the proposed one); the message
+   * masks the new value, the page it opens shows it in full (D25). The other
+   * schools' admins get a notice without it.
    * The link only opens a page: the person must press Approve (`confirmEmail`
    * with action 'approve') or Decline. D23: Approve then sends a code to each
    * NEW value, and nothing is written until those codes come back.
@@ -790,12 +795,8 @@ export class ContactChangeService {
         status: 'proposal',
         proposal: {
           from_school: school?.name ?? '',
-          ...(meta.new_email !== undefined
-            ? { new_email: meta.new_email ? maskEmail(meta.new_email) : null }
-            : {}),
-          ...(meta.new_phone !== undefined
-            ? { new_phone: meta.new_phone ? maskPhone(meta.new_phone) : null }
-            : {}),
+          ...(meta.new_email !== undefined ? { new_email: meta.new_email } : {}),
+          ...(meta.new_phone !== undefined ? { new_phone: meta.new_phone } : {}),
         },
       };
     }

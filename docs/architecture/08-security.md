@@ -198,7 +198,7 @@ sequenceDiagram
   participant N as New phone/email
   A->>S: PATCH /users/U {phone: new}
   S-->>A: 200 {phone: OLD, pending_contact_change: "phone"}
-  S->>U: link to the CURRENT email/phone (shows the MASKED new value)
+  S->>U: link to the CURRENT email/phone (message masks the new value)
   S->>O: notice "School B asked to change U's phone" (no new value)
   U->>S: open link: POST /auth/verify-email {token} (shows it, changes nothing)
   U->>S: press Approve: {token, action: approve} (or Decline: cancels, tells School B)
@@ -223,8 +223,12 @@ recovery can never reach the proposed value. A removal (`null`) needs no code.
   TTL); the latest proposal from a school revokes its earlier proposal only
   (never the person's own email-change link). The token stores where the link
   was sent; if that contact has changed by approval time the link is refused.
-- Opening the link never approves: the page shows the school and the masked
-  value (`+88017••••998`, `j•••@example.com`) with Approve and Decline.
+- Opening the link never approves: the page shows the school and the **full**
+  new value (`+8801712345998`, `jack@gmail.com`) with Approve and Decline. The
+  message itself masks it (`+88017••••998`); the page can show it in full
+  because only the person reaches it, through a link sent to their own current
+  contact (D25). Seeing the full value lets them spot an address that is not
+  theirs, such as one the admin typed for themselves to receive the code.
 - Approval re-checks, under a row lock, that the account keeps an email or
   phone and that the new value is still unique; a refusal leaves the link usable.
 - Approval also re-checks that School B still has the person and that the
