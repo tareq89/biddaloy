@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { UserRole } from '@biddaloy/shared';
 import { PerformanceService } from './performance.service';
+import { teacherAssignments } from '../classes/teacher-scope.service';
+
+// The current-year scope query has its own integration spec; here it is just the rows.
+vi.mock('../classes/teacher-scope.service', () => ({ teacherAssignments: vi.fn() }));
 
 const T = 'tenant-1';
 const YEAR = { id: 'y1', start_date: '2026-01-01', end_date: '2026-12-31' };
@@ -16,7 +20,7 @@ const pf = (appeared: number, pass_pct: number, average: number | null) => ({
 
 describe('PerformanceService', () => {
   let examRepo: any, studentRepo: any, enrollmentRepo: any, classRepo: any, sectionRepo: any;
-  let yearRepo: any, termRepo: any, noteRepo: any, qb: any, noteQb: any;
+  let yearRepo: any, termRepo: any, noteRepo: any, noteQb: any;
   let analysis: any, attendance: any, homework: any, schools: any;
   let service: PerformanceService;
 
@@ -29,7 +33,6 @@ describe('PerformanceService', () => {
         c[m] = vi.fn(() => c);
       return c;
     };
-    qb = chain({ getOne: vi.fn(async () => ({ id: 'cs' })) });
     noteQb = chain({ getRawOne: vi.fn(async () => ({ average: null, count: '0' })) });
     examRepo = { find: vi.fn(async () => []) };
     studentRepo = { findOne: vi.fn(async () => ({ id: 's1' })) };
@@ -40,8 +43,13 @@ describe('PerformanceService', () => {
     sectionRepo = {
       findOne: vi.fn(async () => ({ id: 'sec1' })),
       find: vi.fn(async () => [{ id: 'sec1' }, { id: 'sec2' }, { id: 'sec3' }]),
-      createQueryBuilder: vi.fn(() => qb),
+      manager: {},
     };
+    vi.mocked(teacherAssignments)
+      .mockReset()
+      .mockResolvedValue([
+        { section_id: 'sec1', class_id: 'c1', assignment_type: 'CLASS_TEACHER', subject_id: null },
+      ] as never);
     yearRepo = { findOne: vi.fn(async () => YEAR) };
     termRepo = {
       findOne: vi.fn(async () => ({ start_date: '2026-03-01', end_date: '2026-04-30' })),
@@ -221,10 +229,10 @@ describe('PerformanceService', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-  it('ADMIN and EXECUTIVE skip the teacher join', async () => {
+  it('ADMIN and EXECUTIVE skip the teacher scope lookup', async () => {
     await service.getClassPerformance('c1', Q, admin);
     await service.getClassPerformance('c1', Q, { ...admin, role: UserRole.EXECUTIVE });
-    expect(sectionRepo.createQueryBuilder).not.toHaveBeenCalled();
+    expect(teacherAssignments).not.toHaveBeenCalled();
   });
 
   // [#1362] Per-role table: true = skips the teacher join (tenant-wide); false = 403.
@@ -243,12 +251,16 @@ describe('PerformanceService', () => {
     const call = service.getClassPerformance('c1', Q, { ...teacher, role });
     if (wide) await expect(call).resolves.toBeDefined();
     else await expect(call).rejects.toThrow(ForbiddenException);
-    expect(sectionRepo.createQueryBuilder).not.toHaveBeenCalled();
+    expect(teacherAssignments).not.toHaveBeenCalled();
   });
 
-  it('TEACHER without a matching section gets 403', async () => {
-    qb.getOne.mockResolvedValue(null);
-    await expect(service.getClassPerformance('c1', Q, teacher)).rejects.toThrow(ForbiddenException);
+  it('TEACHER with a current-year row in the class is allowed', async () => {
+    await expect(service.getClassPerformance('c1', Q, teacher)).resolves.toBeDefined();
+  });
+
+  it('TEACHER without a matching section gets 404 (D13)', async () => {
+    vi.mocked(teacherAssignments).mockResolvedValue([]);
+    await expect(service.getClassPerformance('c1', Q, teacher)).rejects.toThrow(NotFoundException);
   });
 
   it('non-teacher, non-tenant-wide role gets 403 without touching the teacher join', async () => {
@@ -258,12 +270,12 @@ describe('PerformanceService', () => {
         ForbiddenException,
       );
     }
-    expect(sectionRepo.createQueryBuilder).not.toHaveBeenCalled();
+    expect(teacherAssignments).not.toHaveBeenCalled();
   });
 
   it('student with null section is scope-checked by class', async () => {
     enrollmentRepo.findOne.mockResolvedValue({ class_id: 'c1', section_id: null });
     await service.getStudentPerformance('s1', Q, teacher);
-    expect(qb.andWhere).toHaveBeenCalledWith('cs.class_id = :classId', { classId: 'c1' });
+    expect(teacherAssignments).toHaveBeenCalledTimes(1);
   });
 });
