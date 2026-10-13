@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import ExcelJS from 'exceljs';
+import { assertXlsxWithinLimits, XlsxTooLargeError } from '../../common/utils/xlsx-guard.util';
+
+vi.mock('../../common/utils/xlsx-guard.util', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../common/utils/xlsx-guard.util')>();
+  return { ...actual, assertXlsxWithinLimits: vi.fn(actual.assertXlsxWithinLimits) };
+});
 import {
   parseSpreadsheet,
   BulkUploadParseError,
@@ -148,5 +154,18 @@ describe('parseSpreadsheet', () => {
     const rows = await parseSpreadsheet(buffer, 'students.xlsx');
 
     expect(rows[0].values.student_name).toBe('Padded Name');
+  });
+});
+
+describe('xlsx zip-bomb guard', () => {
+  it('refuses an xlsx the guard rejects with the usual "could not read" error', async () => {
+    const wb = new ExcelJS.Workbook();
+    wb.addWorksheet('Sheet1');
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+    vi.mocked(assertXlsxWithinLimits).mockImplementationOnce(() => {
+      throw new XlsxTooLargeError('bomb');
+    });
+
+    await expect(parseSpreadsheet(buf, 'a.xlsx')).rejects.toThrow(/Could not read file/);
   });
 });

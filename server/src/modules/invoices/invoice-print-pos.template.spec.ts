@@ -219,4 +219,16 @@ describe('renderInvoicePosHtml', () => {
       expect(html).not.toContain(amountInWords(1900, 'en'));
     });
   });
+
+  it('emits no inline event handler', () => {
+    const withLogo = { ...issuer, logo_key: 'x' };
+    const html = renderInvoicePosHtml(
+      makeInvoice(),
+      withLogo,
+      'data:image/png;base64,AAAA',
+      'pos58',
+    );
+    expect(html).toContain('<img');
+    expect(html).not.toMatch(/\son\w+=/i);
+  });
 });

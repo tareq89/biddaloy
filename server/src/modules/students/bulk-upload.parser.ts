@@ -1,3 +1,4 @@
+import { assertXlsxWithinLimits } from '../../common/utils/xlsx-guard.util';
 import ExcelJS from 'exceljs';
 import { Readable } from 'stream';
 
@@ -39,6 +40,7 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
 
   if (ext === '.xlsx') {
     try {
+      assertXlsxWithinLimits(buffer);
       await workbook.xlsx.load(buffer as never);
     } catch {
       throw new BulkUploadParseError('Could not read file — is it a valid Excel file?');
