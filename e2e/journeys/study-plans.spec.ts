@@ -199,16 +199,18 @@ test.describe('teacher: build, edit, reorder, copy; another teacher is fenced ou
 
       await test.step('copy to the other section the teacher teaches', async () => {
         await planAction(page, t('studyPlans.actions.copyToSection'));
-        await page
-          .getByRole('combobox', { name: t('studyPlans.copy.section') })
-          .fill(scene.sectionBName);
-        // Click the option rather than pressing Enter: the listbox re-renders while the lookup
-        // loads, and an Enter that lands before an option is active submits the form and closes
-        // the dialog. Picking closes the list, so the Save button is uncovered.
-        await page
-          .getByRole('option', { name: `${scene.className}-${scene.sectionBName}` })
-          .click();
-        await expect(page.getByRole('heading', { name: t('studyPlans.copy.title') })).toBeVisible();
+        // While the section lookup loads, the picker's popover can close and reopen, so a single
+        // Enter or option click may land on a closed list (CI: "element was detached"). Retry the
+        // pick until the closed input shows the chosen section — that is the only state in which
+        // the selection is really made and the list no longer covers Save.
+        const picker = page.getByRole('combobox', { name: t('studyPlans.copy.section') });
+        const label = `${scene.className}-${scene.sectionBName}`;
+        await expect(async () => {
+          await picker.fill(scene.sectionBName);
+          await expect(page.getByRole('option', { name: label })).toBeVisible({ timeout: 2000 });
+          await picker.press('Enter');
+          await expect(picker).toHaveValue(label, { timeout: 1000 });
+        }).toPass({ timeout: 20_000 });
         await page.getByRole('button', { name: t('studyPlans.copy.save') }).click();
         await page.waitForURL((url) => url.pathname !== planUrl);
         await expect(page).toHaveURL(new RegExp(`/academics/study-plans/${UUID}$`));
