@@ -327,14 +327,41 @@ describe('ContactChangeService (integration)', () => {
       await membershipRepo.save(
         membershipRepo.create({ user_id: admin.id, tenant_id: OTHER_SCHOOL, role: 'ADMIN' as any }),
       );
-      return { user, admin };
+      // The seed school's admin is the one who proposes (approval re-checks they still are one).
+      const proposer = await userRepo.save(
+        userRepo.create({
+          full_name: 'Proposing Admin',
+          status: UserStatus.ACTIVE,
+          email: 'proposing-admin@example.com',
+        }),
+      );
+      await membershipRepo.save(
+        membershipRepo.create({
+          user_id: proposer.id,
+          tenant_id: SEED_TENANT_ID,
+          role: 'ADMIN' as any,
+        }),
+      );
+      proposerId = proposer.id;
+      return { user, admin, proposer };
     }
+    let proposerId: string;
 
     const propose = (userId: string, extra: { email?: string | null; phone?: string | null }) =>
       service.proposeByAdmin(
-        { userId, tenantId: SEED_TENANT_ID, actorUserId: userId, ...extra },
+        { userId, tenantId: SEED_TENANT_ID, actorUserId: proposerId, ...extra },
         context,
       );
+    const liveTokens = async (userId: string) =>
+      Number(
+        (
+          await dataSource.query(
+            `SELECT count(*) n FROM auth_tokens WHERE user_id = $1 AND consumed_at IS NULL AND revoked_at IS NULL`,
+            [userId],
+          )
+        )[0].n,
+      );
+    const linkIn = (body: string) => decodeURIComponent(/token=([^\s&]+)/.exec(body)![1]);
 
     const sentTo = () =>
       fakeProvider.send.mock.calls.map((c) => c[0] as { to: string; body: string });
@@ -531,13 +558,18 @@ describe('ContactChangeService (integration)', () => {
 
     it('two schools propose email=null and phone=null: the second approval is refused, link kept', async () => {
       // Phone verified, email not: both links go to the phone, which stays current until B clears it.
-      const { user } = await sharedSetup({
+      const { user, admin, proposer } = await sharedSetup({
         email_verified_at: null,
         phone_verified_at: new Date(),
       });
       const proposeFrom = (tenantId: string, extra: { email?: null; phone?: null }) =>
         service.proposeByAdmin(
-          { userId: user.id, tenantId, actorUserId: user.id, ...extra },
+          {
+            userId: user.id,
+            tenantId,
+            actorUserId: tenantId === OTHER_SCHOOL ? admin.id : proposer.id,
+            ...extra,
+          },
           context,
         );
       await proposeFrom(SEED_TENANT_ID, { email: null });
@@ -578,6 +610,20 @@ describe('ContactChangeService (integration)', () => {
         [user.id],
       );
       expect(Number(n)).toBe(2);
+    });
+
+    // Review m2: re-saving the form with the same pending value must not re-send anything.
+    it('re-proposing the identical change keeps the live link and sends nothing', async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { phone: NEW_PHONE });
+      const first = linkIn(sentTo()[0].body);
+      fakeProvider.send.mockClear();
+
+      await propose(user.id, { phone: NEW_PHONE });
+
+      expect(fakeProvider.send).not.toHaveBeenCalled();
+      expect(await liveTokens(user.id)).toBe(1);
+      expect((await service.confirmEmail(first, context)).status).toBe('proposal');
     });
 
     it('notices skip the person themselves and inactive admins', async () => {
