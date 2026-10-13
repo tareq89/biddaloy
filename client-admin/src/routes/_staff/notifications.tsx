@@ -22,7 +22,7 @@ const searchSchema = z.object({
   class_id: z.string().optional().catch(undefined),
   section_id: z.string().optional().catch(undefined),
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   selected: z.string().optional().catch(undefined),
 });
 

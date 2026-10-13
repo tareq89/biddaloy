@@ -33,7 +33,7 @@ import { SeatPlanStatusBadge } from './-seat-plan-status-badge';
 
 const seatPlansSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores row selection under —
   // this page has no bulk actions, but the schema still has to declare it
   // or `validateSearch` strips it, same reasoning `fees/generate.tsx` gives.

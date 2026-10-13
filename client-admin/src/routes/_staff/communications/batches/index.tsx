@@ -40,7 +40,7 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loa
 
 const batchesSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   sort: z.string().optional().catch(undefined),
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
   search: z.string().optional().catch(undefined),

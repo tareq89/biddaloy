@@ -23,6 +23,7 @@ import {
   useLifecycleEvents,
   useSchoolSettings,
   useStudent,
+  useStudents,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell, StepIndicator, useWizardShellStep } from '@biddaloy/ui/shells';
@@ -179,13 +180,29 @@ export function IssueCertificateModal({
   const classId = student?.class_section?.class_id;
   const className = student?.class_section?.class?.name ?? '';
   const wantsGraduated = kind === DocumentKind.TESTIMONIAL;
-  const classActive = useAllStudents(
-    { ...(classId ? { class_id: classId } : {}), enrollment_status: 'ACTIVE' },
+  const classFilter = classId ? { class_id: classId } : {};
+  // A one-row page answers "how many?" first, so a class above BULK_MAX_STUDENTS (the old
+  // one-page ceiling) is refused before `useAllStudents` pages the whole of it.
+  const countActive = useStudents(
+    { ...classFilter, enrollment_status: 'ACTIVE', limit: 1 },
     { enabled: bulk && Boolean(classId) },
   );
-  const classGraduated = useAllStudents(
-    { ...(classId ? { class_id: classId } : {}), enrollment_status: 'GRADUATED' },
+  const countGraduated = useStudents(
+    { ...classFilter, enrollment_status: 'GRADUATED', limit: 1 },
     { enabled: bulk && Boolean(classId) && wantsGraduated },
+  );
+  const countPending = countActive.isPending || (wantsGraduated && countGraduated.isPending);
+  const classTotal =
+    (countActive.data?.total ?? 0) + (wantsGraduated ? (countGraduated.data?.total ?? 0) : 0);
+  const bulkTooMany = bulk && !countPending && classTotal > BULK_MAX_STUDENTS;
+  const fetchClass = bulk && Boolean(classId) && !countPending && !bulkTooMany;
+  const classActive = useAllStudents(
+    { ...classFilter, enrollment_status: 'ACTIVE' },
+    { enabled: fetchClass },
+  );
+  const classGraduated = useAllStudents(
+    { ...classFilter, enrollment_status: 'GRADUATED' },
+    { enabled: fetchClass && wantsGraduated },
   );
   const [excluded, setExcluded] = React.useState<ReadonlySet<string>>(new Set());
   const [ineligible, setIneligible] = React.useState<IneligibleStudent[]>([]);
@@ -199,10 +216,9 @@ export function IssueCertificateModal({
     [classActive.data, classGraduated.data, wantsGraduated],
   );
   const bulkLoading =
-    bulk && (classActive.isPending || (wantsGraduated && classGraduated.isPending));
-  // `useAllStudents` pages the whole class (the server caps one page at 100). Above
-  // BULK_MAX_STUDENTS, the old one-page ceiling, bulk is refused rather than run as one huge job.
-  const bulkTooMany = bulk && !bulkLoading && classmates.length > BULK_MAX_STUDENTS;
+    bulk &&
+    (countPending ||
+      (!bulkTooMany && (classActive.isPending || (wantsGraduated && classGraduated.isPending))));
   // The student whose page this is always stays in: a TC or character certificate is often for
   // someone who already left, so they are not among the class's ACTIVE students.
   const subjectIds = (

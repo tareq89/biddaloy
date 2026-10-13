@@ -31,7 +31,7 @@ import { RecordDialog } from './-record-dialog';
 
 const programsSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   sort: z.string().optional().catch(undefined),
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
   archived: z.coerce.string().optional().catch(undefined),

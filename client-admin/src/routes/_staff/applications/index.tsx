@@ -40,7 +40,7 @@ const applicationsSearchSchema = z.object({
   class_id: z.string().uuid().optional().catch(undefined),
   q: z.string().optional().catch(undefined),
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   // Row the reviewer just decided, so the list can focus its successor (D25).
   decided: z.string().uuid().optional().catch(undefined),
 });

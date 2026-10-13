@@ -650,7 +650,8 @@ describe('IssueCertificateModal', () => {
     await user.type(await screen.findByLabelText(/conduct/i), 'Good');
     await user.click(await screen.findByRole('button', { name: /for all of class 10/i }));
     await screen.findByText(/150 students/i);
-    expect([...studentPages].sort()).toEqual(['1@100', '2@100']);
+    // A one-row count first, then every 100-row page.
+    expect([...studentPages].sort()).toEqual(['1@1', '1@100', '2@100']);
     await next(user, /see preview/i);
     await next(user, /^next$/i);
     await next(user, /^print$/i);
@@ -669,6 +670,8 @@ describe('IssueCertificateModal', () => {
     expect(screen.getByRole('button', { name: /see preview/i }).hasAttribute('disabled')).toBe(
       true,
     );
+    // Refused from the count alone: no 100-row page was fetched.
+    expect(studentPages).toEqual(['1@1']);
   });
 
   it('a ?step=print link with empty required details lands on the details step', async () => {

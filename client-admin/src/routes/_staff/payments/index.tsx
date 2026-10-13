@@ -19,7 +19,7 @@ import { usePaymentsList } from './-list/use-payments-list';
 
 const paymentsSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   sort: z.string().optional().catch(undefined),
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
   // Coerced: a numeric-looking search ("2024") or `include_reversed=true`
