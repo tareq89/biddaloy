@@ -34,10 +34,13 @@ import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import { RefreshTokenService } from '../auth/refresh-token.service';
 import { SessionCutoffService } from '../auth/session-cutoff.service';
+import { TenantStatusService } from '../schools/tenant-status.service';
 import { SchoolsService } from '../schools/schools.service';
 import { CommunicationProviderRegistryService } from '../communications/providers/communication-provider.registry';
 
 const context = { ip: '127.0.0.1', userAgent: 'vitest' };
+/** The platform tenant: a SUPER_ADMIN row here is platform authority (`isPlatformSuperAdmin`). */
+const PLATFORM_SCHOOL = '00000000-0000-4000-8000-0000000007f0';
 
 describe('ContactChangeService (integration)', () => {
   let module: TestingModule;
@@ -67,6 +70,7 @@ describe('ContactChangeService (integration)', () => {
       AuditService,
       SessionCutoffService,
       { provide: RefreshTokenService, useValue: fakeRefreshTokens },
+      { provide: TenantStatusService, useValue: { platformTenantId: async () => PLATFORM_SCHOOL } },
       { provide: OTP_REDIS, useValue: redis },
       { provide: AuthService, useValue: fakeAuthService },
       {
@@ -842,6 +846,56 @@ describe('ContactChangeService (integration)', () => {
         ConflictException,
       );
       expect((await service.confirmEmail(token, context)).status).toBe('revoked');
+    });
+
+    // Review m-new-1: PATCH /users/:id is open to a platform SUPER_ADMIN, who has no ADMIN row there.
+    it('a proposal by a platform SUPER_ADMIN can be approved; a school-local SUPER_ADMIN cannot', async () => {
+      const { user } = await sharedSetup();
+      const schoolRepo = dataSource.getRepository(School);
+      await schoolRepo.save(
+        schoolRepo.create({ id: PLATFORM_SCHOOL, name: 'Platform', slug: 'platform-cc' }),
+      );
+      const userRepo = dataSource.getRepository(User);
+      const membershipRepo = dataSource.getRepository(UserTenant);
+      const platformAdmin = await userRepo.save(
+        userRepo.create({ full_name: 'Platform Admin', status: UserStatus.ACTIVE }),
+      );
+      await membershipRepo.save(
+        membershipRepo.create({
+          user_id: platformAdmin.id,
+          tenant_id: PLATFORM_SCHOOL,
+          role: 'SUPER_ADMIN' as any,
+        }),
+      );
+      const localSuper = await userRepo.save(
+        userRepo.create({ full_name: 'Legacy Local Super', status: UserStatus.ACTIVE }),
+      );
+      await membershipRepo.save(
+        membershipRepo.create({
+          user_id: localSuper.id,
+          tenant_id: SEED_TENANT_ID,
+          role: 'SUPER_ADMIN' as any,
+        }),
+      );
+      const proposeAs = (actorUserId: string, phone: string) =>
+        service.proposeByAdmin(
+          { userId: user.id, tenantId: SEED_TENANT_ID, actorUserId, phone },
+          context,
+        );
+      const lastLink = () =>
+        linkIn(
+          sentTo()
+            .filter((m) => m.body.includes('token='))
+            .at(-1)!.body,
+        );
+
+      await proposeAs(platformAdmin.id, NEW_PHONE);
+      expect((await service.confirmEmail(lastLink(), context, 'approve')).status).toBe('confirm');
+
+      await proposeAs(localSuper.id, '+8801799990002');
+      await expect(service.confirmEmail(lastLink(), context, 'approve')).rejects.toMatchObject({
+        response: { details: { code: 'PROPOSAL_WITHDRAWN' } },
+      });
     });
 
     it('notices skip the person themselves and inactive admins', async () => {

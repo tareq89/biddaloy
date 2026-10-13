@@ -24,6 +24,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import { RefreshTokenService, RequestContext } from '../auth/refresh-token.service';
 import { SessionCutoffService } from '../auth/session-cutoff.service';
+import { TenantStatusService } from '../schools/tenant-status.service';
 import { normalizeEmail, normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { OTP_REDIS } from './otp.service';
 import { OtpService, type OtpPurpose } from './otp.service';
@@ -120,6 +121,7 @@ export class ContactChangeService {
     private readonly config: ConfigService,
     private readonly sessionCutoff: SessionCutoffService,
     private readonly refreshTokens: RefreshTokenService,
+    private readonly tenantStatus: TenantStatusService,
   ) {}
 
   private redisKey(userId: string): string {
@@ -446,6 +448,8 @@ export class ContactChangeService {
   /**
    * Review m8: the asking school still has the person, and whoever asked is still an active
    * ADMIN there. Otherwise a school the person left could still change their login for 72 h.
+   * Review m-new-1: a platform SUPER_ADMIN (SUPER_ADMIN on the platform tenant, the same rule as
+   * ContextGuard's `isPlatformSuperAdmin`) has no ADMIN row in the school but may also propose.
    */
   private async proposalStillBacked(
     manager: EntityManager,
@@ -454,13 +458,16 @@ export class ContactChangeService {
     meta: AdminProposalMeta,
   ): Promise<boolean> {
     if (!proposerId || !meta.proposed_in_tenant_id) return false;
+    const platformTenantId = (await this.tenantStatus.platformTenantId()) ?? null;
     const [row] = await manager.query<Array<{ ok: boolean }>>(
       `SELECT EXISTS (SELECT 1 FROM user_tenants
                        WHERE user_id = $1 AND tenant_id = $2 AND deleted_at IS NULL)
           AND EXISTS (SELECT 1 FROM user_tenants ut JOIN users u ON u.id = ut.user_id
-                       WHERE ut.user_id = $3 AND ut.tenant_id = $2 AND ut.role = 'ADMIN'
+                       WHERE ut.user_id = $3
+                         AND ((ut.tenant_id = $2 AND ut.role = 'ADMIN')
+                           OR (ut.tenant_id = $4 AND ut.role = 'SUPER_ADMIN'))
                          AND ut.deleted_at IS NULL AND u.deleted_at IS NULL AND u.status = 'ACTIVE') AS ok`,
-      [userId, meta.proposed_in_tenant_id, proposerId],
+      [userId, meta.proposed_in_tenant_id, proposerId, platformTenantId],
     );
     return row.ok;
   }
