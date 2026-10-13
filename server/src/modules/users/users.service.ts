@@ -859,16 +859,21 @@ export class UserService {
         manager,
       );
     });
-    // [75.2] Durable DB cut-off, after commit so a token minted while the transaction was
-    // open (a refresh still sees the membership) is older than it. JwtStrategy reads it.
-    await this.sessionCutoff.cutOff(userId);
-    // After commit: every token the user already holds is refused, so removal
-    // is immediate (D16). The client's 401 -> refresh drops the school.
-    await this.accessTokenDenylist.revokeUserTokensIssuedBefore(
-      userId,
-      new Date(),
-      this.accessTokenTtlMs,
-    );
+    // After commit. "Membership ended => tokens dead" must hold even if one step fails, so the
+    // Redis cut-off runs in `finally`: a DB error from `cutOff` still propagates, but cannot skip it.
+    try {
+      // [75.2] Durable DB cut-off, after commit so a token minted while the transaction was
+      // open (a refresh still sees the membership) is older than it. JwtStrategy reads it.
+      await this.sessionCutoff.cutOff(userId);
+    } finally {
+      // Every token the user already holds is refused, so removal is immediate (D16).
+      // The client's 401 -> refresh drops the school.
+      await this.accessTokenDenylist.revokeUserTokensIssuedBefore(
+        userId,
+        new Date(),
+        this.accessTokenTtlMs,
+      );
+    }
   }
 }
 

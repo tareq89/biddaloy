@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DataSource } from 'typeorm';
+import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
 import Redis from 'ioredis';
 import * as bcrypt from 'bcrypt';
@@ -470,6 +470,42 @@ describe('ContactChangeService (integration)', () => {
       expect(row.phone).toBe('+8801711111111');
       // The link is spent: approving afterwards does nothing.
       expect((await service.confirmEmail(token, context, 'approve')).status).toBe('consumed');
+    });
+
+    it('approval: a value taken meanwhile (unique violation) is a 409 and the link stays usable', async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { phone: NEW_PHONE });
+      const token = decodeURIComponent(/token=([^\s&]+)/.exec(sentTo()[0].body)![1]);
+      // Another user claims the value between the check and the write.
+      const update = vi.spyOn(Repository.prototype, 'update').mockRejectedValueOnce(
+        Object.assign(new QueryFailedError('UPDATE users', [], new Error('dup')), {
+          code: '23505',
+        }),
+      );
+
+      await expect(service.confirmEmail(token, context, 'approve')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      update.mockRestore();
+
+      const [{ n }] = await dataSource.query(
+        `SELECT count(*) n FROM auth_tokens WHERE user_id = $1 AND consumed_at IS NULL AND revoked_at IS NULL`,
+        [user.id],
+      );
+      expect(Number(n)).toBe(1);
+    });
+
+    it('assertCanPropose: NO_CONTACT and taken values are rejected with no side effects', async () => {
+      const { user } = await sharedSetup({ email: null, phone: null });
+      await expect(service.assertCanPropose(user.id, 'x@example.com', undefined)).rejects.toThrow(
+        'approve the change',
+      );
+      expect(fakeProvider.send).not.toHaveBeenCalled();
+      const [{ n }] = await dataSource.query(
+        'SELECT count(*) n FROM auth_tokens WHERE user_id = $1',
+        [user.id],
+      );
+      expect(Number(n)).toBe(0);
     });
 
     it('stale: once the contact the link went to has changed, the link is refused', async () => {
