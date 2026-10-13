@@ -395,12 +395,8 @@ export class CalendarEventsService {
     ) {
       await this.assertMakeupDaysUnmarked(event);
     }
-    if (!nextCountsAsWorkingDay) {
-      const guardClassIds =
-        dto.class_ids !== undefined ? dto.class_ids : await this.classIdsOf(event.id);
-      await this.assertNoAttendanceInRange(tenantId, nextStart, nextEnd, guardClassIds);
-    }
-
+    // Validate the class ids first, so an unknown class is CALENDAR_INVALID_CLASS rather
+    // than whatever the attendance guard would say about a class that does not exist.
     let classIds: string[] | undefined;
     if (dto.class_ids !== undefined) {
       classIds = await this.assertClassesInTenant(tenantId, dto.class_ids, academicYear.id);
@@ -418,6 +414,13 @@ export class CalendarEventsService {
       if (retainedClassIds.length > 0) {
         await this.assertClassesInTenant(tenantId, retainedClassIds, academicYear.id);
       }
+    }
+
+    if (!nextCountsAsWorkingDay) {
+      // `classIds` is the validated explicit list (possibly empty = school-wide);
+      // omitted means the event keeps its current links.
+      const guardClassIds = classIds ?? (await this.classIdsOf(event.id));
+      await this.assertNoAttendanceInRange(tenantId, nextStart, nextEnd, guardClassIds);
     }
 
     Object.assign(event, {

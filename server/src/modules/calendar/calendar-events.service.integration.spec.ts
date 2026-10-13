@@ -322,6 +322,24 @@ describe('CalendarEventsService (integration)', () => {
       );
     });
 
+    it('an unknown class id is CALENDAR_INVALID_CLASS even when the day also has attendance', async () => {
+      const created = await service.create(holidayDto('2030-11-12'), TENANT_ID, SEED_ADMIN_USER_ID);
+      await register(sectionId, '2030-11-14', AttendanceSessionState.FINALIZED, true);
+      await expectCode(
+        service.update(
+          created.id,
+          {
+            start_date: '2030-11-14',
+            end_date: '2030-11-14',
+            class_ids: [otherTenantClassId],
+          } as any,
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+        'CALENDAR_INVALID_CLASS',
+      );
+    });
+
     it('a session with no records does not block', async () => {
       await register(sectionId, '2030-11-02', AttendanceSessionState.DRAFT, false);
       const created = await service.create(holidayDto('2030-11-02'), TENANT_ID, SEED_ADMIN_USER_ID);
