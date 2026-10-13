@@ -432,7 +432,8 @@ export class UserController {
     // Checks that can reject the proposal run before anything is saved: a rejected change writes nothing.
     if (proposed)
       await this.contactChangeService.assertCanPropose(id, proposed.email, proposed.phone);
-    // Non-contact fields are saved before anything is sent.
+    // Non-contact fields are saved before anything is sent. If the send then fails, the link is
+    // revoked and this is a 503: the other fields stay saved and nothing is pending (a retry is safe).
     const user = await this.userService.update(id, proposed ? rest : dto, tenant.id, jwt.sub);
     if (proposed) {
       await this.contactChangeService.proposeByAdmin(

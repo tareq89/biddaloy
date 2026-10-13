@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
@@ -290,7 +291,7 @@ export class ContactChangeService {
     }
 
     // Latest request from this school wins (`issue()` revokes its earlier ADMIN_PROPOSAL link only).
-    const { raw } = await this.authTokens.issue({
+    const { raw, row } = await this.authTokens.issue({
       userId,
       tenantId,
       purpose: AuthTokenPurpose.EMAIL_VERIFY,
@@ -305,73 +306,82 @@ export class ContactChangeService {
         sent_to: { medium: recipient.medium, address: recipient.to },
       },
     });
-    const link = `${resolveAppBaseUrl(this.config)}/verify-email?token=${encodeURIComponent(raw)}`;
-    const manager = this.userRepo.manager;
-    const [proposer] = await manager.query<Array<{ name: string }>>(
-      'SELECT name FROM schools WHERE id = $1',
-      [tenantId],
-    );
+    // Review m7: if anything below throws, revoke the link so no live proposal outlives a failed
+    // send (a retry would otherwise look like a duplicate and send nothing).
+    try {
+      const link = `${resolveAppBaseUrl(this.config)}/verify-email?token=${encodeURIComponent(raw)}`;
+      const manager = this.userRepo.manager;
+      const [proposer] = await manager.query<Array<{ name: string }>>(
+        'SELECT name FROM schools WHERE id = $1',
+        [tenantId],
+      );
 
-    // tenantId null: the person is shared, so the platform sends it (D28), not one school.
-    // (communication_logs.tenant_id is NOT NULL, so the record of this send is the audit row below.)
-    await this.delivery.deliver({
-      tenantId: null,
-      medium: recipient.medium,
-      to: recipient.to,
-      recipientName: user.full_name,
-      kind: 'CONTACT_CHANGE_APPROVAL_LINK',
-      vars: {
-        link,
-        from_school: proposer.name,
-        field,
-        new_value: maskedNewValue(newEmail, newPhone),
-      },
-    });
-
-    const admins = await manager.query<
-      Array<{ tenant_id: string; email: string | null; phone: string | null; full_name: string }>
-    >(
-      `SELECT DISTINCT ut.tenant_id, u.email, u.phone, u.full_name
-         FROM user_tenants ut JOIN users u ON u.id = ut.user_id
-        WHERE ut.role = 'ADMIN' AND ut.deleted_at IS NULL
-          AND u.deleted_at IS NULL AND u.status = 'ACTIVE' AND u.id <> $1
-          AND ut.tenant_id IN (
-            SELECT tenant_id FROM user_tenants
-             WHERE user_id = $1 AND tenant_id <> $2 AND deleted_at IS NULL)`,
-      [userId, tenantId],
-    );
-    for (const admin of admins) {
-      const channel = pickChannel(admin);
-      if (!channel) continue;
+      // tenantId null: the person is shared, so the platform sends it (D28), not one school.
+      // (communication_logs.tenant_id is NOT NULL, so the record of this send is the audit row below.)
       await this.delivery.deliver({
-        tenantId: admin.tenant_id,
-        ...channel,
-        recipientName: admin.full_name,
-        kind: 'SHARED_CONTACT_CHANGE_NOTICE',
-        // The new value is never in the notice.
-        vars: { from_school: proposer.name, field, person: user.full_name },
+        tenantId: null,
+        medium: recipient.medium,
+        to: recipient.to,
+        recipientName: user.full_name,
+        kind: 'CONTACT_CHANGE_APPROVAL_LINK',
+        vars: {
+          link,
+          from_school: proposer.name,
+          field,
+          new_value: maskedNewValue(newEmail, newPhone),
+        },
       });
-    }
 
-    await this.auditService.record({
-      action: AuditAction.UPDATE,
-      entity_type: 'User',
-      entity_id: userId,
-      tenant_id: tenantId,
-      performed_by_user_id: actorUserId,
-      ip_address: context.ip,
-      user_agent: context.userAgent,
-      new_values: {
-        operation: 'CONTACT_CHANGE_PROPOSED',
-        field,
-        proposed_by: actorUserId,
-        sent_via: recipient.medium,
-        sent_to_masked:
-          recipient.medium === CommunicationMedium.EMAIL
-            ? maskEmail(recipient.to)
-            : maskPhone(recipient.to),
-      },
-    });
+      const admins = await manager.query<
+        Array<{ tenant_id: string; email: string | null; phone: string | null; full_name: string }>
+      >(
+        `SELECT DISTINCT ut.tenant_id, u.email, u.phone, u.full_name
+           FROM user_tenants ut JOIN users u ON u.id = ut.user_id
+          WHERE ut.role = 'ADMIN' AND ut.deleted_at IS NULL
+            AND u.deleted_at IS NULL AND u.status = 'ACTIVE' AND u.id <> $1
+            AND ut.tenant_id IN (
+              SELECT tenant_id FROM user_tenants
+               WHERE user_id = $1 AND tenant_id <> $2 AND deleted_at IS NULL)`,
+        [userId, tenantId],
+      );
+      for (const admin of admins) {
+        const channel = pickChannel(admin);
+        if (!channel) continue;
+        await this.delivery.deliver({
+          tenantId: admin.tenant_id,
+          ...channel,
+          recipientName: admin.full_name,
+          kind: 'SHARED_CONTACT_CHANGE_NOTICE',
+          // The new value is never in the notice.
+          vars: { from_school: proposer.name, field, person: user.full_name },
+        });
+      }
+
+      await this.auditService.record({
+        action: AuditAction.UPDATE,
+        entity_type: 'User',
+        entity_id: userId,
+        tenant_id: tenantId,
+        performed_by_user_id: actorUserId,
+        ip_address: context.ip,
+        user_agent: context.userAgent,
+        new_values: {
+          operation: 'CONTACT_CHANGE_PROPOSED',
+          field,
+          proposed_by: actorUserId,
+          sent_via: recipient.medium,
+          sent_to_masked:
+            recipient.medium === CommunicationMedium.EMAIL
+              ? maskEmail(recipient.to)
+              : maskPhone(recipient.to),
+        },
+      });
+    } catch {
+      await this.authTokens.revoke(row.id);
+      throw new ServiceUnavailableException(
+        'The approval request could not be sent, so the email/phone change is not pending. Try again.',
+      );
+    }
   }
 
   /** Still the contact the link was sent to? Else the proposal is stale. */

@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
@@ -624,6 +625,25 @@ describe('ContactChangeService (integration)', () => {
       expect(fakeProvider.send).not.toHaveBeenCalled();
       expect(await liveTokens(user.id)).toBe(1);
       expect((await service.confirmEmail(first, context)).status).toBe('proposal');
+    });
+
+    // Review m7: a failure after the token is issued must not leave a live link nobody received.
+    it('if sending throws, the new link is revoked and the caller gets a clean 503', async () => {
+      const { user } = await sharedSetup();
+      const deliver = vi
+        .spyOn(module.get(AccountAccessDeliveryService), 'deliver')
+        .mockRejectedValueOnce(new Error('gateway down'));
+
+      await expect(propose(user.id, { phone: NEW_PHONE })).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      deliver.mockRestore();
+      expect(await liveTokens(user.id)).toBe(0);
+
+      // A retry is not mistaken for a duplicate: it issues and sends a fresh link.
+      await propose(user.id, { phone: NEW_PHONE });
+      expect(await liveTokens(user.id)).toBe(1);
+      expect(sentTo().some((m) => m.body.includes('token='))).toBe(true);
     });
 
     it('notices skip the person themselves and inactive admins', async () => {
