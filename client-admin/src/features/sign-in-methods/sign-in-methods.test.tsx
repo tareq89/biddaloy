@@ -120,6 +120,9 @@ describe('sign-in methods', () => {
     await userEvent.type(await screen.findByLabelText('Current password'), 'bad');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByText('That password is not correct.')).toBeTruthy();
+    // Editing the password clears the stale "wrong" line.
+    await userEvent.type(screen.getByLabelText('Current password'), 'x');
+    expect(screen.queryByText('That password is not correct.')).toBeNull();
 
     server.use(reply(400, { code: 'NO_PASSWORD' }));
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));

@@ -537,7 +537,8 @@ function InvoiceDetailPage() {
                       )}
                       <p className="text-text-secondary">
                         {t('invoiceDetail.share.expiresOn', {
-                          date: formatDate(parseServerDate(liveShare.expires_at), regionConfig),
+                          // A timestamp, not a date: keep the time so the tenant's clock picks the day.
+                          date: formatDate(new Date(liveShare.expires_at), regionConfig),
                         })}
                       </p>
                       <Button

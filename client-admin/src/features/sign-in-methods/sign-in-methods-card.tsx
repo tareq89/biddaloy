@@ -233,7 +233,11 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
                 aria-invalid={connectError ? true : undefined}
                 aria-describedby={connectError ? 'connect-password-error' : undefined}
                 value={connectPassword}
-                onChange={(e) => setConnectPassword(e.target.value)}
+                onChange={(e) => {
+                  setConnectPassword(e.target.value);
+                  // A new attempt makes "wrong password" stale; "no password" still holds.
+                  if (connectError === 'wrong') setConnectError(null);
+                }}
               />
               {connectError && (
                 <p id="connect-password-error" role="alert" className="text-destructive">
