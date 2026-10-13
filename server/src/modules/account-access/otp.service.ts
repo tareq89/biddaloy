@@ -155,12 +155,15 @@ export class OtpService {
    * same value, so a code stops working if that address changes meanwhile.
    * `uncapped` skips the GAP-05 cap (not the cooldown): only for a code a
    * signed-in admin asked for, which a stranger's requests must not block.
+   * `capDestination` is the address the code is really delivered to, when that
+   * differs from `identifier` (a phone login that falls back to email): the cap
+   * counts per inbox/handset, not per typed identifier.
    */
   async request(
     purpose: OtpPurpose,
     identifier: string,
     bind = '',
-    opts: { uncapped?: boolean } = {},
+    opts: { uncapped?: boolean; capDestination?: string } = {},
   ): Promise<{ code: string }> {
     try {
       const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
@@ -171,7 +174,7 @@ export class OtpService {
         3,
         otpKey(purpose, identifier),
         cooldownKey(purpose, identifier),
-        capKey(purpose, identifier),
+        capKey(purpose, opts.capDestination ?? identifier),
         JSON.stringify(record),
         CODE_TTL_MS,
         COOLDOWN_MS,

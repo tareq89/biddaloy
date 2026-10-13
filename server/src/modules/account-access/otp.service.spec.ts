@@ -238,6 +238,13 @@ describe('OtpService', () => {
       await expect(req('LOGIN', 'foo@test.com')).rejects.toBeInstanceOf(TooManyRequestsException);
     });
 
+    it('counts by capDestination: a phone login that falls back to email shares the email bucket', async () => {
+      for (let i = 0; i < 3; i++)
+        await req('LOGIN', '01712345678', { capDestination: 'a@test.com' });
+      for (let i = 0; i < 2; i++) await req('LOGIN', 'a@test.com');
+      await expect(req('LOGIN', 'a@test.com')).rejects.toBeInstanceOf(TooManyRequestsException);
+    });
+
     it('leaves other destinations alone', async () => {
       for (let i = 0; i < 5; i++) await req('LOGIN', 'a@test.com');
       await expect(req('LOGIN', 'b@test.com')).resolves.toBeDefined();
