@@ -193,15 +193,26 @@ sequenceDiagram
   participant S as Server
   participant U as Person (current contact)
   participant O as School A admins
+  participant N as New phone/email
   A->>S: PATCH /users/U {phone: new}
   S-->>A: 200 {phone: OLD, pending_contact_change: "phone"}
   S->>U: link to the CURRENT email/phone (shows the MASKED new value)
   S->>O: notice "School B asked to change U's phone" (no new value)
   U->>S: open link: POST /auth/verify-email {token} (shows it, changes nothing)
   U->>S: press Approve: {token, action: approve} (or Decline: cancels, tells School B)
-  S->>S: one transaction: lock user, re-check, write (unverified), consume link
-  S->>S: cut off + revoke sessions
+  S-->>U: 200 {status: "confirm"}
+  S->>N: 6-digit code to the NEW phone/email (nothing written yet)
+  U->>S: {token, action: approve, phone_code: "482913"}
+  S->>S: one transaction: lock user, re-check, write (verified), consume link
+  S->>S: revoke refresh tokens, then cut off sessions
 ```
+
+Why two steps (D23, review M1 on #2460): the masked value can't tell
+`john@gmail.com` from `jack@gmail.com`, so a person could approve an address
+a malicious admin typed. Approving is only **consent** from the current
+contact; the code to the **new** contact is **ownership**. Until the code
+comes back, the old value stays the login, so OTP sign-in and password
+recovery can never reach the proposed value. A removal (`null`) needs no code.
 
 - The link goes to the person's current verified email, else current verified
   phone, else whatever they have; never to the proposed value. No contact on
@@ -214,6 +225,12 @@ sequenceDiagram
   value (`+88017••••998`, `j•••@example.com`) with Approve and Decline.
 - Approval re-checks, under a row lock, that the account keeps an email or
   phone and that the new value is still unique; a refusal leaves the link usable.
+- Approval also re-checks that School B still has the person and that the
+  admin who asked is still an active ADMIN there; if not, the link is revoked
+  and the answer is `409 PROPOSAL_WITHDRAWN`.
+- Re-saving the form with the same pending value sends nothing again. If the
+  send fails, the link is revoked and the admin gets a 503 (other fields stay
+  saved).
 - Any contact change that is written (approved, or a single-school user's
   admin edit) sets `users.tokens_valid_after` and revokes refresh tokens, so
   whoever held the old contact is signed out everywhere.

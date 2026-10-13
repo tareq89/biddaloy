@@ -75,11 +75,23 @@ describe('/verify-email', () => {
       proposal: { from_school: 'Green Valley School', new_phone: '+88017••••998' },
     };
 
-    function proposalHandler(onAction: (action: string | undefined) => void) {
+    // D23: Approve without a code sends one to the NEW phone ('confirm'); only 123456 applies it.
+    function proposalHandler(onAction: (action: string | undefined, code?: string) => void) {
       return http.post('/api/v1/auth/verify-email', async ({ request }) => {
-        const body = (await request.json()) as { action?: string };
-        onAction(body.action);
-        if (body.action === 'approve') return HttpResponse.json({ status: 'valid' });
+        const body = (await request.json()) as { action?: string; phone_code?: string };
+        onAction(body.action, body.phone_code);
+        if (body.action === 'approve' && !body.phone_code) {
+          return HttpResponse.json({ status: 'confirm' });
+        }
+        if (body.action === 'approve' && body.phone_code === '123456') {
+          return HttpResponse.json({ status: 'valid' });
+        }
+        if (body.action === 'approve') {
+          return HttpResponse.json(
+            { statusCode: 400, message: 'Invalid or expired code' },
+            { status: 400 },
+          );
+        }
         if (body.action === 'decline') return HttpResponse.json({ status: 'declined' });
         return HttpResponse.json(proposal);
       });
@@ -106,11 +118,11 @@ describe('/verify-email', () => {
       expect(actions).toEqual([undefined]);
     });
 
-    it('Approve applies the change', async () => {
-      const actions: Array<string | undefined> = [];
+    it('Approve asks for the code sent to the new phone; only the right code applies the change', async () => {
+      const calls: Array<[string | undefined, string | undefined]> = [];
       server.use(
         authHandlers.refreshFailure,
-        proposalHandler((a) => actions.push(a)),
+        proposalHandler((a, c) => calls.push([a, c])),
       );
       renderWithRouter(routeTree, {
         initialEntries: ['/verify-email?token=a-proposal-token'],
@@ -120,8 +132,45 @@ describe('/verify-email', () => {
 
       await user.click(await screen.findByRole('button', { name: 'Approve' }));
 
+      const field = await screen.findByLabelText('Code sent to +88017••••998');
+      expect(screen.queryByText('Your contact details have been updated.')).toBeNull();
+      await user.type(field, '999999');
+      await user.click(screen.getByRole('button', { name: 'Confirm' }));
+      expect(await screen.findByRole('alert')).toBeTruthy();
+
+      await user.clear(field);
+      await user.type(field, '123456');
+      await user.click(screen.getByRole('button', { name: 'Confirm' }));
+
       expect(await screen.findByText('Your contact details have been updated.')).toBeTruthy();
-      expect(actions).toEqual([undefined, 'approve']);
+      expect(calls).toEqual([
+        [undefined, undefined],
+        ['approve', undefined],
+        ['approve', '999999'],
+        ['approve', '123456'],
+      ]);
+    });
+
+    it('a person who never got the code can still decline', async () => {
+      server.use(
+        authHandlers.refreshFailure,
+        proposalHandler(() => {}),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/verify-email?token=a-proposal-token'],
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole('button', { name: 'Approve' }));
+      await screen.findByLabelText('Code sent to +88017••••998');
+      await user.click(screen.getByRole('button', { name: 'Decline' }));
+
+      expect(
+        await screen.findByText(
+          'Declined. Nothing was changed, and Green Valley School has been told.',
+        ),
+      ).toBeTruthy();
     });
 
     it('Decline cancels it and says nothing changed', async () => {

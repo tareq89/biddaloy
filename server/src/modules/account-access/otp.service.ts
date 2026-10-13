@@ -13,7 +13,14 @@ import { toE164ish } from './phone-delivery.util';
 
 export const OTP_REDIS = 'OTP_REDIS';
 
-export type OtpPurpose = 'PASSWORD_RESET' | 'LOGIN' | 'PHONE_VERIFY' | 'REGISTER' | 'STEP_UP';
+export type OtpPurpose =
+  | 'PASSWORD_RESET'
+  | 'LOGIN'
+  | 'PHONE_VERIFY'
+  /** D23: proves a school-proposed NEW email before it is applied. */
+  | 'EMAIL_VERIFY'
+  | 'REGISTER'
+  | 'STEP_UP';
 export type OtpVerifyResult = 'ok' | 'invalid' | 'expired' | 'locked';
 
 const CODE_TTL_MS = 5 * 60_000;

@@ -20,7 +20,7 @@ import { RefreshTokenService, RequestContext } from '../auth/refresh-token.servi
 import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { normalizeEmail, normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { OTP_REDIS } from './otp.service';
-import { OtpService } from './otp.service';
+import { OtpService, type OtpPurpose } from './otp.service';
 import { AuthTokenService, EMAIL_VERIFY_TTL_MS } from './auth-token.service';
 import type { AuthToken } from './entities/auth-token.entity';
 import type { ContactField } from './account-access-templates';
@@ -33,6 +33,11 @@ const OTP_PURPOSE = 'PHONE_VERIFY';
 const PENDING_CHANGE_TTL_MS = 5 * 60_000;
 /** [75.1] A person gets three days to approve a school's proposed contact change. */
 const ADMIN_PROPOSAL_TTL_MS = 72 * 3_600_000;
+/** D23: the code that proves a proposed NEW contact; phone shares the self-service purpose. */
+const NEW_CONTACT_OTP = { email: 'EMAIL_VERIFY', phone: 'PHONE_VERIFY' } as const satisfies Record<
+  'email' | 'phone',
+  OtpPurpose
+>;
 
 interface PendingPhoneChange {
   field: 'phone';
@@ -52,6 +57,14 @@ export interface ConfirmEmailResult {
   status: string;
   /** Only for status 'proposal': what the school asks for, values MASKED (null = remove it). */
   proposal?: { from_school: string; new_email?: string | null; new_phone?: string | null };
+  /** Echo-only (D6), status 'confirm': the codes sent to the new contact(s). */
+  debug?: { email_code?: string; phone_code?: string };
+}
+
+/** D23: codes the person typed from the NEW contact(s), sent with action 'approve'. */
+export interface NewContactCodes {
+  email_code?: string;
+  phone_code?: string;
 }
 
 function fieldOf(email: string | null | undefined, phone: string | null | undefined): ContactField {
@@ -257,7 +270,8 @@ export class ContactChangeService {
    * gets a link at their CURRENT contact (never the proposed one) that shows
    * the MASKED new value; the other schools' admins get a notice without it.
    * The link only opens a page: the person must press Approve (`confirmEmail`
-   * with action 'approve') or Decline.
+   * with action 'approve') or Decline. D23: Approve then sends a code to each
+   * NEW value, and nothing is written until those codes come back.
    */
   async proposeByAdmin(
     input: {
@@ -419,55 +433,127 @@ export class ContactChangeService {
     return row.ok;
   }
 
-  /** [75.1] The person pressed Approve: one transaction, token consumed last. */
+  /**
+   * Can this proposal still be applied to `user` as it is now? 'valid', or why not. Throws the
+   * 409s for a change that is no longer possible (no identifier left, value taken meanwhile).
+   */
+  private async proposalOutcome(
+    manager: EntityManager,
+    user: User | null,
+    token: AuthToken,
+    meta: AdminProposalMeta,
+  ): Promise<'valid' | 'unknown' | 'revoked' | 'withdrawn'> {
+    if (!user) return 'unknown';
+    if (!this.sentToStillCurrent(user, meta)) return 'revoked';
+    if (!(await this.proposalStillBacked(manager, user.id, token.created_by_user_id, meta))) {
+      return 'withdrawn';
+    }
+    // Re-check against the CURRENT state: another approval or a self-service change may have landed.
+    const nextEmail = meta.new_email !== undefined ? meta.new_email : user.email;
+    const nextPhone = meta.new_phone !== undefined ? meta.new_phone : user.phone;
+    if (!nextEmail && !nextPhone) {
+      throw new ConflictException({
+        message: 'This change would leave the account with no email or phone.',
+        details: { code: 'LAST_IDENTIFIER' },
+      });
+    }
+    const clash = await manager
+      .getRepository(User)
+      .createQueryBuilder('u')
+      .withDeleted()
+      .where('u.id <> :id AND (u.email = :email OR u.phone = :phone)', {
+        id: user.id,
+        email: meta.new_email ?? '',
+        phone: meta.new_phone ?? '',
+      })
+      .getCount();
+    if (clash > 0) {
+      throw new ConflictException('That email address or phone number is already in use');
+    }
+    return 'valid';
+  }
+
+  /** A proposal that can't be applied: a withdrawn one is revoked and refused (409), the rest just reported. */
+  private async refuse(
+    outcome: 'unknown' | 'revoked' | 'withdrawn',
+    tokenId: string,
+  ): Promise<ConfirmEmailResult> {
+    if (outcome !== 'withdrawn') return { status: outcome };
+    await this.authTokens.revoke(tokenId);
+    throw new ConflictException({
+      message:
+        'The school that asked for this change no longer has you as a member, or the person who asked is no longer its admin.',
+      details: { code: 'PROPOSAL_WITHDRAWN' },
+    });
+  }
+
+  /**
+   * [75.1] The person pressed Approve. D23: approving is consent from the CURRENT contact; each
+   * NEW email/phone must then prove it is theirs with a code sent to it (the self-service
+   * contact-change OTP), entered on the same page. Nothing is written until every code checks
+   * out, so an unconfirmed value is never a login. A removal (null) needs no code.
+   * One transaction for the write, token consumed last.
+   */
   private async approveAdminProposal(
     token: AuthToken,
     meta: AdminProposalMeta,
     context: RequestContext,
-  ): Promise<{ status: string }> {
+    codes: NewContactCodes,
+  ): Promise<ConfirmEmailResult> {
     const { id: tokenId, user_id: userId, tenant_id: tenantId } = token;
+    const toProve = (['email', 'phone'] as const).flatMap((field) => {
+      const value = field === 'email' ? meta.new_email : meta.new_phone;
+      return value ? [{ field, value, code: codes[`${field}_code`] }] : [];
+    });
+
+    if (toProve.some((p) => !p.code)) {
+      // Check first, so a proposal that can no longer apply sends nothing.
+      const user = await this.userRepo.findOne({ where: { id: userId } });
+      const outcome = await this.proposalOutcome(this.userRepo.manager, user, token, meta);
+      if (outcome !== 'valid') return this.refuse(outcome, tokenId);
+      const sent: NewContactCodes = {};
+      for (const { field, value } of toProve) {
+        // Bound to this link: a code sent for another proposal or flow never confirms this one.
+        const { code } = await this.otpService.request(NEW_CONTACT_OTP[field], value, tokenId);
+        await this.delivery.deliver({
+          tenantId: null,
+          medium: field === 'email' ? CommunicationMedium.EMAIL : CommunicationMedium.SMS,
+          to: value,
+          recipientName: user!.full_name,
+          kind: 'OTP',
+          vars: { code },
+        });
+        sent[`${field}_code`] = code;
+      }
+      return { status: 'confirm', ...(isSecretEchoEnabled(this.config) ? { debug: sent } : {}) };
+    }
+
+    // ponytail: codes are checked one by one, so a right email code with a wrong phone code
+    // spends the email code too; the person presses Approve again for fresh ones.
+    for (const { field, value, code } of toProve) {
+      const result = await this.otpService.verify(NEW_CONTACT_OTP[field], value, code!, tokenId);
+      if (result === 'locked')
+        throw new ForbiddenException('Too many attempts — request a new code');
+      if (result !== 'ok') throw new BadRequestException('Invalid or expired code');
+    }
+
     const outcome = await this.userRepo.manager.transaction(async (manager) => {
       const user = await manager
         .getRepository(User)
         .findOne({ where: { id: userId }, lock: { mode: 'pessimistic_write' } });
-      if (!user) return 'unknown' as const;
-      if (!this.sentToStillCurrent(user, meta)) return 'revoked' as const;
-      if (!(await this.proposalStillBacked(manager, userId, token.created_by_user_id, meta))) {
-        return 'withdrawn' as const;
-      }
+      const check = await this.proposalOutcome(manager, user, token, meta);
+      if (check !== 'valid' || !user) return check;
 
-      // Re-check against the CURRENT state: another approval or a self-service change may have landed.
-      const nextEmail = meta.new_email !== undefined ? meta.new_email : user.email;
-      const nextPhone = meta.new_phone !== undefined ? meta.new_phone : user.phone;
-      if (!nextEmail && !nextPhone) {
-        throw new ConflictException({
-          message: 'This change would leave the account with no email or phone.',
-          details: { code: 'LAST_IDENTIFIER' },
-        });
-      }
-      const clash = await manager
-        .getRepository(User)
-        .createQueryBuilder('u')
-        .withDeleted()
-        .where('u.id <> :id AND (u.email = :email OR u.phone = :phone)', {
-          id: userId,
-          email: meta.new_email ?? '',
-          phone: meta.new_phone ?? '',
-        })
-        .getCount();
-      if (clash > 0) {
-        throw new ConflictException('That email address or phone number is already in use');
-      }
-
-      // `undefined` = not part of the proposal; `null` = clear it. Like any admin edit, new values start unverified.
+      // `undefined` = not part of the proposal; `null` = clear it. A new value was just proven by its code.
+      const now = new Date();
       const change: Partial<User> = {};
       if (meta.new_email !== undefined) {
         change.email = meta.new_email;
-        change.email_verified_at = null;
+        change.email_verified_at = meta.new_email ? now : null;
       }
       if (meta.new_phone !== undefined) {
         change.phone = meta.new_phone;
-        change.phone_verified_at = null;
+        change.phone_verified_at = meta.new_phone ? now : null;
       }
       try {
         await manager.getRepository(User).update({ id: userId }, change);
@@ -504,15 +590,7 @@ export class ContactChangeService {
       );
       return 'valid' as const;
     });
-    if (outcome === 'withdrawn') {
-      await this.authTokens.revoke(tokenId);
-      throw new ConflictException({
-        message:
-          'The school that asked for this change no longer has you as a member, or the person who asked is no longer its admin.',
-        details: { code: 'PROPOSAL_WITHDRAWN' },
-      });
-    }
-    if (outcome !== 'valid') return { status: outcome };
+    if (outcome !== 'valid') return this.refuse(outcome, tokenId);
 
     // After commit, from the app clock (see SessionCutoffService). Revoke first: a refresh
     // that rotates before the revoke then mints a token older than the cut-off.
@@ -624,6 +702,7 @@ export class ContactChangeService {
     rawToken: string,
     context: RequestContext,
     action?: 'approve' | 'decline',
+    codes: NewContactCodes = {},
   ): Promise<ConfirmEmailResult> {
     const result = await this.authTokens.verify(rawToken, AuthTokenPurpose.EMAIL_VERIFY);
     if (result.status !== 'valid') {
@@ -634,7 +713,7 @@ export class ContactChangeService {
     if (meta?.kind === 'ADMIN_PROPOSAL') {
       // Opening the link never changes anything: the person must press Approve or Decline.
       if (action === 'approve') {
-        return this.approveAdminProposal(row, meta, context);
+        return this.approveAdminProposal(row, meta, context, codes);
       }
       if (action === 'decline') {
         return this.declineAdminProposal(row.id, row.user_id, meta, context);

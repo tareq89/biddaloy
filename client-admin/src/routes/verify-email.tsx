@@ -6,11 +6,12 @@
  * and `reset-password.tsx` document for their own `?token=` search param.
  */
 import { postAuthVerifyEmail } from '@biddaloy/ui/api';
-import { AuthLayout, Button, Skeleton } from '@biddaloy/ui/components';
+import { AuthLayout, Button, OtpInput, Skeleton } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { CircleCheck, Link2Off, ShieldQuestion, TriangleAlert } from 'lucide-react';
+import { useState } from 'react';
 import { z } from 'zod';
 
 import { GuestStatus } from './-guest-status';
@@ -38,8 +39,21 @@ function VerifyEmailPage() {
   });
 
   // [75.1] A school's proposal is only shown on open; the person must press Approve or Decline.
+  // D23: Approve answers 'confirm' and sends a code to each NEW contact; the change applies only
+  // once those codes come back with a second Approve.
+  const [confirming, setConfirming] = useState(false);
+  const [codes, setCodes] = useState({ email_code: '', phone_code: '' });
   const decide = useMutation({
-    mutationFn: (action: 'approve' | 'decline') => postAuthVerifyEmail(token as string, action),
+    mutationFn: ({
+      action,
+      codes,
+    }: {
+      action: 'approve' | 'decline';
+      codes?: { email_code?: string; phone_code?: string };
+    }) => postAuthVerifyEmail(token as string, action, codes),
+    onSuccess: (data) => {
+      if (data.status === 'confirm') setConfirming(true);
+    },
   });
 
   const signInButton = (
@@ -111,7 +125,7 @@ function VerifyEmailPage() {
   }
 
   if (verifyQuery.data.status === 'proposal' && decide.data?.status !== 'valid') {
-    if (decide.data) {
+    if (decide.data && decide.data.status !== 'confirm') {
       // Approve or decline answered with something other than success: the link is stale or spent.
       return (
         <AuthLayout>
@@ -128,6 +142,72 @@ function VerifyEmailPage() {
     }
     const proposal = verifyQuery.data.proposal;
     const value = (v: string | null | undefined) => v ?? t('verifyEmail.proposal.removed');
+    const declineButton = (
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        disabled={decide.isPending}
+        onClick={() => decide.mutate({ action: 'decline' })}
+      >
+        {t('verifyEmail.proposal.decline')}
+      </Button>
+    );
+    if (confirming) {
+      // One code field per NEW value (a removal needs none), labelled with the masked address.
+      const fields = (
+        [
+          ['email_code', proposal?.new_email],
+          ['phone_code', proposal?.new_phone],
+        ] as const
+      ).filter(([, masked]) => masked);
+      const ready = fields.every(([key]) => codes[key].length === 6);
+      return (
+        <AuthLayout>
+          <GuestStatus
+            icon={ShieldQuestion}
+            tone="warning"
+            title={t('verifyEmail.proposal.codeTitle')}
+            explanation={t('verifyEmail.proposal.codeExplanation')}
+          >
+            <form
+              className="flex flex-col gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                decide.mutate({
+                  action: 'approve',
+                  codes: Object.fromEntries(fields.map(([k]) => [k, codes[k]])),
+                });
+              }}
+            >
+              {fields.map(([key, masked]) => (
+                <div key={key} className="flex flex-col gap-1.5">
+                  <label htmlFor={`verify-${key}`} className="text-sm font-medium">
+                    {t('verifyEmail.proposal.codeLabel', { value: masked })}
+                  </label>
+                  <OtpInput
+                    id={`verify-${key}`}
+                    value={codes[key]}
+                    onValueChange={(v) => setCodes((c) => ({ ...c, [key]: v }))}
+                    invalid={decide.isError}
+                    aria-label={t('verifyEmail.proposal.codeLabel', { value: masked })}
+                  />
+                </div>
+              ))}
+              {decide.isError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {t('verifyEmail.proposal.codeError')}
+                </p>
+              )}
+              <Button type="submit" className="w-full" loading={decide.isPending} disabled={!ready}>
+                {t('verifyEmail.proposal.confirm')}
+              </Button>
+              {declineButton}
+            </form>
+          </GuestStatus>
+        </AuthLayout>
+      );
+    }
     return (
       <AuthLayout>
         <GuestStatus
@@ -152,18 +232,11 @@ function VerifyEmailPage() {
           <Button
             className="w-full"
             loading={decide.isPending}
-            onClick={() => decide.mutate('approve')}
+            onClick={() => decide.mutate({ action: 'approve' })}
           >
             {t('verifyEmail.proposal.approve')}
           </Button>
-          <Button
-            variant="outline"
-            className="w-full"
-            disabled={decide.isPending}
-            onClick={() => decide.mutate('decline')}
-          >
-            {t('verifyEmail.proposal.decline')}
-          </Button>
+          {declineButton}
         </GuestStatus>
       </AuthLayout>
     );

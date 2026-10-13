@@ -414,24 +414,49 @@ describe('ContactChangeService (integration)', () => {
       expect(fakeProvider.send).not.toHaveBeenCalled();
     });
 
-    it('approval writes the new phone unverified, cuts off tokens and revokes refresh tokens', async () => {
+    // D23 (review M1): approval is consent; the change applies only once the NEW contact proves
+    // it is theirs with a code. Until then the old value stays the login.
+    it('approve sends a code to the NEW phone and changes nothing; the right code applies it verified', async () => {
       const { user } = await sharedSetup({ phone_verified_at: new Date() });
       await propose(user.id, { phone: NEW_PHONE });
-      const token = /token=([^\s&]+)/.exec(sentTo()[0].body)![1];
+      const token = linkIn(sentTo()[0].body);
 
       // Opening the link changes nothing: it shows the proposal, values masked.
-      const preview = await service.confirmEmail(decodeURIComponent(token), context);
+      const preview = await service.confirmEmail(token, context);
       expect(preview).toEqual({
         status: 'proposal',
         proposal: { from_school: 'Test School', new_phone: '+88017••••001' },
       });
-      const [untouched] = await dataSource.query('SELECT phone FROM users WHERE id = $1', [
-        user.id,
-      ]);
-      expect(untouched.phone).toBe('+8801711111111');
+      fakeProvider.send.mockClear();
 
+      const asked = await service.confirmEmail(token, context, 'approve');
+
+      expect(asked.status).toBe('confirm');
+      expect(sentTo().map((m) => m.to)).toEqual([NEW_PHONE]);
+      const code = asked.debug!.phone_code!;
+      expect(sentTo()[0].body).toContain(code);
+      const [untouched] = await dataSource.query(
+        'SELECT phone, tokens_valid_after FROM users WHERE id = $1',
+        [user.id],
+      );
+      expect(untouched.phone).toBe('+8801711111111');
+      expect(untouched.tokens_valid_after).toBeNull();
+      expect(await liveTokens(user.id)).toBe(1);
+
+      // A wrong code changes nothing either.
+      const wrong = code === '000000' ? '111111' : '000000';
+      await expect(
+        service.confirmEmail(token, context, 'approve', { phone_code: wrong }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      const asked2 = await (async () => {
+        await redis.flushdb(); // skip the 60 s resend cooldown
+        return service.confirmEmail(token, context, 'approve');
+      })();
       const cutOff = vi.spyOn(module.get(SessionCutoffService), 'cutOff');
-      const result = await service.confirmEmail(decodeURIComponent(token), context, 'approve');
+      const result = await service.confirmEmail(token, context, 'approve', {
+        phone_code: asked2.debug!.phone_code,
+      });
 
       expect(result).toEqual({ status: 'valid' });
       // Review m1: refresh tokens are revoked before the cut-off is stamped.
@@ -444,14 +469,58 @@ describe('ContactChangeService (integration)', () => {
         [user.id],
       );
       expect(row.phone).toBe(NEW_PHONE);
-      expect(row.phone_verified_at).toBeNull();
+      expect(row.phone_verified_at).not.toBeNull();
       expect(row.email).toBe('karim@example.com');
       expect(row.tokens_valid_after).not.toBeNull();
       expect(fakeRefreshTokens.revokeAllForUser).toHaveBeenCalledWith(user.id);
+      expect(await liveTokens(user.id)).toBe(0);
       const audits = await dataSource
         .getRepository(AuditLog)
         .find({ where: { entity_id: user.id, action: AuditAction.CONTACT_VERIFIED } });
       expect(audits[0].new_values).toMatchObject({ via: 'admin_proposal', new_phone: NEW_PHONE });
+    });
+
+    it('an email proposal is confirmed with a code sent to the NEW address', async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { email: 'karim.new@example.com' });
+      const token = linkIn(sentTo()[0].body);
+      fakeProvider.send.mockClear();
+
+      const asked = await service.confirmEmail(token, context, 'approve');
+      expect(sentTo().map((m) => m.to)).toEqual(['karim.new@example.com']);
+      const [before] = await dataSource.query('SELECT email FROM users WHERE id = $1', [user.id]);
+      expect(before.email).toBe('karim@example.com');
+
+      const result = await service.confirmEmail(token, context, 'approve', {
+        email_code: asked.debug!.email_code,
+      });
+
+      expect(result.status).toBe('valid');
+      const [row] = await dataSource.query(
+        'SELECT email, email_verified_at FROM users WHERE id = $1',
+        [user.id],
+      );
+      expect(row.email).toBe('karim.new@example.com');
+      expect(row.email_verified_at).not.toBeNull();
+    });
+
+    it('a code sent for one proposal does not confirm another value', async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { phone: NEW_PHONE });
+      const token = linkIn(sentTo()[0].body);
+      const asked = await service.confirmEmail(token, context, 'approve');
+      // The school replaces its proposal: the old link is revoked, so its code is useless.
+      await propose(user.id, { phone: '+8801799990002' });
+
+      expect(
+        (
+          await service.confirmEmail(token, context, 'approve', {
+            phone_code: asked.debug!.phone_code,
+          })
+        ).status,
+      ).toBe('revoked');
+      const [row] = await dataSource.query('SELECT phone FROM users WHERE id = $1', [user.id]);
+      expect(row.phone).toBe('+8801711111111');
     });
 
     it('a second proposal revokes the first link', async () => {
@@ -510,6 +579,7 @@ describe('ContactChangeService (integration)', () => {
       const { user } = await sharedSetup();
       await propose(user.id, { phone: NEW_PHONE });
       const token = decodeURIComponent(/token=([^\s&]+)/.exec(sentTo()[0].body)![1]);
+      const { debug } = await service.confirmEmail(token, context, 'approve');
       // Another user claims the value between the check and the write.
       const update = vi.spyOn(Repository.prototype, 'update').mockRejectedValueOnce(
         Object.assign(new QueryFailedError('UPDATE users', [], new Error('dup')), {
@@ -517,9 +587,9 @@ describe('ContactChangeService (integration)', () => {
         }),
       );
 
-      await expect(service.confirmEmail(token, context, 'approve')).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(
+        service.confirmEmail(token, context, 'approve', { phone_code: debug!.phone_code }),
+      ).rejects.toBeInstanceOf(ConflictException);
       update.mockRestore();
 
       const [{ n }] = await dataSource.query(
