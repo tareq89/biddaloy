@@ -8,9 +8,8 @@
 #     the visitor address from CF-Connecting-IP. Any other peer's header is
 #     ignored, so a direct caller cannot spoof its IP.
 #   - empty: no real-ip directives at all, i.e. exactly today's behaviour.
-# Also defines $origin_allowed (1 = peer is a trusted proxy, loopback or a
-# private range; 0 = anyone else). Nothing reads it yet; the origin lock-down
-# ([75.5]) will.
+# Also defines $origin_allowed (1 = peer is a trusted proxy or loopback;
+# 0 = anyone else). Nothing reads it yet; the origin lock-down ([75.5]) will.
 #
 # A bad entry stops the container: a loud failure beats a silently wrong
 # trust list.
@@ -37,7 +36,7 @@ else
     echo "real_ip_header CF-Connecting-IP;"
     echo 'geo $realip_remote_addr $origin_allowed {'
     echo "  default 0;"
-    for c in 127.0.0.0/8 ::1/128 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 fc00::/7 $CIDRS; do
+    for c in 127.0.0.0/8 ::1/128 $CIDRS; do
       echo "  $c 1;"
     done
     echo "}"
