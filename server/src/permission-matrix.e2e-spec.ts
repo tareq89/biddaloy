@@ -539,6 +539,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
   },
   {
     controller: 'InvoicesController',
+    method: 'POST',
+    path: '/invoices/:id/share/regenerate',
+    reason:
+      '[75.19-b, D9] same narrowing as POST /invoices/:id/share: regenerating kills every older link of the invoice and mints a new public one, so it is accountant/admin work.',
+  },
+  {
+    controller: 'InvoicesController',
     method: 'DELETE',
     path: '/invoices/:id/share/:tokenId',
     reason:

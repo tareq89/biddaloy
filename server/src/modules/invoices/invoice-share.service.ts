@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { randomBytes, createHash } from 'node:crypto';
 import { AuditAction } from '@biddaloy/shared';
 import { InvoiceShareToken } from './entities/invoice-share-token.entity';
@@ -17,9 +17,13 @@ function hashToken(rawToken: string): string {
   return createHash('sha256').update(rawToken).digest('hex');
 }
 
+/** [75.19-b, D9] A share link works for 30 days after it is made. */
+export const SHARE_LINK_TTL_MS = 30 * 24 * 3_600_000;
+
 export interface CreateShareTokenResult {
   rawToken: string;
   tokenId: string;
+  expiresAt: Date;
 }
 
 @Injectable()
@@ -55,6 +59,34 @@ export class InvoiceShareService {
     tenantId: string,
     actorUserId: string,
   ): Promise<CreateShareTokenResult> {
+    await this.assertInvoiceInTenant(invoiceId, tenantId);
+    return this.insertToken(this.repo.manager, invoiceId, tenantId, actorUserId);
+  }
+
+  /**
+   * [75.19-b, D9] Kills every live link of this invoice and mints a new one,
+   * in one transaction. Other invoices' links (same tenant or not) are untouched.
+   */
+  async regenerateToken(
+    invoiceId: string,
+    tenantId: string,
+    actorUserId: string,
+  ): Promise<CreateShareTokenResult> {
+    await this.assertInvoiceInTenant(invoiceId, tenantId);
+    return this.repo.manager.transaction(async (manager) => {
+      const revoked = await manager.update(
+        InvoiceShareToken,
+        { invoice_id: invoiceId, tenant_id: tenantId, revoked_at: IsNull() },
+        { revoked_at: new Date() },
+      );
+      return this.insertToken(manager, invoiceId, tenantId, actorUserId, {
+        regenerated: true,
+        revoked_count: revoked.affected ?? 0,
+      });
+    });
+  }
+
+  private async assertInvoiceInTenant(invoiceId: string, tenantId: string): Promise<void> {
     const invoice = await this.invoiceRepo.findOne({
       where: { id: invoiceId, deleted_at: IsNull() },
       relations: ['student'],
@@ -62,14 +94,25 @@ export class InvoiceShareService {
     if (!invoice || !invoice.student || invoice.student.tenant_id !== tenantId) {
       throw new NotFoundException(`Invoice with ID "${invoiceId}" not found`);
     }
+  }
 
+  private async insertToken(
+    manager: EntityManager,
+    invoiceId: string,
+    tenantId: string,
+    actorUserId: string,
+    auditExtra: Record<string, unknown> = {},
+  ): Promise<CreateShareTokenResult> {
     const rawToken = generateRawToken();
-    const saved = await this.repo.save(
-      this.repo.create({
+    const expiresAt = new Date(Date.now() + SHARE_LINK_TTL_MS);
+    const saved = await manager.save(
+      InvoiceShareToken,
+      manager.create(InvoiceShareToken, {
         tenant_id: tenantId,
         invoice_id: invoiceId,
         token_hash: hashToken(rawToken),
         created_by_user_id: actorUserId,
+        expires_at: expiresAt,
       }),
     );
 
@@ -79,10 +122,10 @@ export class InvoiceShareService {
       entity_id: invoiceId,
       tenant_id: tenantId,
       performed_by_user_id: actorUserId,
-      new_values: { share_token_id: saved.id },
+      new_values: { share_token_id: saved.id, ...auditExtra },
     });
 
-    return { rawToken, tokenId: saved.id };
+    return { rawToken, tokenId: saved.id, expiresAt };
   }
 
   async revokeToken(tokenId: string, tenantId: string, actorUserId: string): Promise<void> {
@@ -119,7 +162,7 @@ export class InvoiceShareService {
   /**
    * Validates a raw token from `GET /public/invoices/:token` and, on
    * success, bumps `view_count`/`last_viewed_at`. Returns `null` for any
-   * unknown, revoked token — the public controller turns that uniformly
+   * unknown, revoked or expired token — the public controller turns that uniformly
    * into a 404, never distinguishing "doesn't exist" from "revoked" (that
    * distinction would itself leak information to an outside caller).
    */
@@ -135,7 +178,7 @@ export class InvoiceShareService {
     // silently excludes a soft-deleted invoice. Treat that the same as
     // "not found" — both to 404 correctly and to avoid the `save()` below
     // writing a null FK back onto the token row.
-    if (!token || token.revoked_at || !token.invoice) {
+    if (!token || token.revoked_at || !token.invoice || token.expires_at <= new Date()) {
       return null;
     }
 

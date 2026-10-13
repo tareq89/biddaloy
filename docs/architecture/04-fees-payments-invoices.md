@@ -284,10 +284,13 @@ Two ways to view an invoice:
   A4 or POS 80mm (`@page { size: 80mm auto }`), reachable by staff and by
   the paying family (PARENT/STUDENT roles).
 - **Public share link** (`POST /invoices/:id/share`, admin/accountant
-  only) — a 32-byte random token (hash stored, not the token itself), no
-  expiry, individually revocable, rate-limited, opens at `/i/<token>` with
+  only) — a 32-byte random token (hash stored, not the token itself),
+  expires 30 days after it is made (D9), individually revocable, rate-limited, opens at `/i/<token>` with
   no login required (D15). The content shown there is receipt-only — no
-  internal remarks, no staff user IDs.
+  internal remarks, no staff user IDs. Regenerating (`POST
+/invoices/:id/share/regenerate`) kills every older link for that invoice
+  and mints a new one. Links that existed when expiry shipped got 30 days
+  from the deploy (D22).
 
   A link stops working (same 404 as any dead link) when the school is not
   ACTIVE, and all of a student's links are revoked when any guardian is

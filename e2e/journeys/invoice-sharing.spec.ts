@@ -93,6 +93,29 @@ test('print, copy the share link, open it unauthenticated, then revoke it', asyn
     await freshContext.close();
   });
 
+  await test.step('the page shows the expiry date; Regenerate gives a new link and kills the old one', async () => {
+    await expect(page.getByText(/Link works until|লিংকটি কাজ করবে/)).toBeVisible();
+    const oldUrl = shareUrl;
+    await page.getByRole('button', { name: t('fees.invoiceDetail.share.regenerate') }).click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: t('fees.invoiceDetail.share.regenerate') })
+      .click();
+    await expect(page.getByText(t('fees.invoiceDetail.share.regenerated'))).toBeVisible();
+    const urlInput = page.getByLabel(t('fees.invoiceDetail.share.urlLabel'));
+    await expect(urlInput).not.toHaveValue(oldUrl);
+    shareUrl = await urlInput.inputValue();
+
+    const freshContext = await page.context().browser()!.newContext();
+    const freshPage = await freshContext.newPage();
+    const oldPath = oldUrl.slice(oldUrl.indexOf('/i/'));
+    await freshPage.goto(oldPath);
+    await expect(
+      freshPage.getByText(t('fees.invoiceDetail.publicReceipt.notFoundExplanation')),
+    ).toBeVisible();
+    await freshContext.close();
+  });
+
   await test.step('Revoke, then the same link 404s', async () => {
     await page.getByRole('button', { name: t('payments.invoiceDetail.shareRevoke') }).click();
     await page

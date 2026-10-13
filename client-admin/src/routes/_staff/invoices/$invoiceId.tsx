@@ -30,6 +30,7 @@ import {
   useInvoiceSendCandidates,
   useInvoiceShares,
   usePrintInvoice,
+  useRegenerateShare,
   useRevokeShare,
   useSendInvoice,
   useShareInvoice,
@@ -102,7 +103,12 @@ function InvoiceDetailPage() {
   const shareInvoice = useShareInvoice();
   const revokeShare = useRevokeShare(invoiceId);
   const [revokeTargetId, setRevokeTargetId] = React.useState<string | null>(null);
-  const liveShare = sharesQuery.data?.find((share) => share.revoked_at === null);
+  const regenerateShare = useRegenerateShare(invoiceId);
+  const [confirmRegenerate, setConfirmRegenerate] = React.useState(false);
+  // [75.19-b] An expired link is dead even though it was never revoked.
+  const liveShare = sharesQuery.data?.find(
+    (share) => share.revoked_at === null && new Date(share.expires_at) > new Date(),
+  );
   // The raw share URL only ever exists in `POST /invoices/:id/share`'s own
   // response (`CreateInvoiceShareResult`) — `GET /invoices/:id/share`
   // (`useInvoiceShares`, which `liveShare` above reads) only ever returns
@@ -528,6 +534,23 @@ function InvoiceDetailPage() {
                       ) : (
                         <p className="text-text-secondary">{t('invoiceDetail.share.linkHidden')}</p>
                       )}
+                      <p className="text-text-secondary">
+                        {t('invoiceDetail.share.expiresOn', {
+                          date: formatDate(parseServerDate(liveShare.expires_at), regionConfig),
+                        })}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-11 w-full"
+                        loading={regenerateShare.isPending}
+                        onClick={() => {
+                          regenerateShare.reset();
+                          setConfirmRegenerate(true);
+                        }}
+                      >
+                        {t('invoiceDetail.share.regenerate')}
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"
@@ -542,9 +565,9 @@ function InvoiceDetailPage() {
                       </Button>
                     </div>
                   )}
-                  {(shareInvoice.isError || revokeShare.isError) && (
+                  {(shareInvoice.isError || revokeShare.isError || regenerateShare.isError) && (
                     <p role="alert" className="text-sm text-destructive">
-                      {shareInvoice.isError
+                      {shareInvoice.isError || regenerateShare.isError
                         ? t('invoiceDetail.shareFailed', { ns: 'payments' })
                         : t('invoiceDetail.revokeFailed', { ns: 'payments' })}
                     </p>
@@ -555,6 +578,25 @@ function InvoiceDetailPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmRegenerate}
+        onOpenChange={setConfirmRegenerate}
+        tone="danger"
+        title={t('invoiceDetail.share.regenerate')}
+        description={t('invoiceDetail.share.regenerateConfirmExplanation')}
+        confirmLabel={t('invoiceDetail.share.regenerate')}
+        busy={regenerateShare.isPending}
+        onConfirm={() =>
+          regenerateShare.mutate(undefined, {
+            onSuccess: (result) => {
+              setCreatedShareUrl(result.url);
+              toast.success(t('invoiceDetail.share.regenerated'));
+            },
+            onSettled: () => setConfirmRegenerate(false),
+          })
+        }
+      />
 
       <ConfirmDialog
         open={revokeTargetId !== null}
