@@ -52,7 +52,7 @@ module.exports = async (browser, context) => {
   await email.type(IDENTITIES[identity]);
   const password = await page.waitForSelector('aria/পাসওয়ার্ড');
   await password.type(PASSWORD);
-  const submit = await page.waitForSelector('aria/লগ ইন[role="button"]');
+  const submit = await page.waitForSelector('aria/সাইন ইন করুন[role="button"]');
   await submit.click();
 
   // Logged in once the router leaves /login — but "left /login" is not the
