@@ -181,10 +181,28 @@ flowchart LR
     REQ["GET /students/42"] --> NGINX["nginx"]
     NGINX --> APP["NestJS"]
     APP --> STATIC{"file exists in\nclient-admin/dist?"}
-    STATIC -->|yes| FILE["that file\n(/assets/* → 1-year immutable cache)"]
-    STATIC -->|"no, and GET/HEAD\noutside /api"| INDEX["index.html\n(the SPA router takes over)"]
+    STATIC -->|yes| FILE["that file\n(/assets/* → 1-year immutable cache;\nindex.html, sw.js → no-cache)"]
+    STATIC -->|"no, and GET/HEAD\noutside /api"| INDEX["index.html, no-cache\n(the SPA router takes over)"]
     STATIC -->|"no, and POST\nor under /api"| NOTFOUND["404"]
+    APP --> API["/api/*\nCache-Control: no-store\nunless the route sets its own"]
 ```
+
+**Cache headers ([75.20]).** `server/src/cache-control.ts` makes every
+`/api/*` response `no-store` before the handler runs, so a CDN "Cache
+Everything" rule can never serve one person's data to another. A route that
+sets its own `Cache-Control` replaces the default:
+
+| Route                                                          | Header                                           |
+| -------------------------------------------------------------- | ------------------------------------------------ |
+| `GET /api/v1/calendar/feed/:token.ics`                         | `private, max-age=900` (+ `ETag`/304)            |
+| print-assets, certificate assets, admit-card assets `…/file`   | `private, max-age=31536000, immutable`           |
+| `GET /api/v1/students/:id/photo`                               | `private, no-store`                              |
+| everything else under `/api` (JSON, CSV/PDF downloads, errors) | `no-store` (`Content-Disposition` is unaffected) |
+| `index.html`, `sw.js`                                          | `no-cache` (revalidated every load)              |
+| `/assets/*` (hashed)                                           | `public, max-age=31536000, immutable` (nginx)    |
+
+There is deliberately no `Vary: Authorization`: the PWA caches API responses
+by its own key and the header changes every token refresh.
 
 One SPA at `/` since [8.9.10] — no `/admin/` or `/student/` prefix, and no
 root redirect. The rules above live in `server/src/spa-fallback.ts`
