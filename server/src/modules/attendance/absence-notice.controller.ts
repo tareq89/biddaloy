@@ -7,6 +7,7 @@ import {
   Post,
   Req,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -62,7 +63,7 @@ export class AbsenceNoticeController {
   })
   @ApiOkResponse({ type: AbsenceNoticePreviewResponseDto })
   async preview(
-    @Param('sectionId') sectionId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Body() dto: AbsenceNoticeDateDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -97,7 +98,7 @@ export class AbsenceNoticeController {
   })
   @ApiOkResponse({ type: AbsenceNoticeSendResponseDto })
   async send(
-    @Param('sectionId') sectionId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Body() dto: AbsenceNoticeDateDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },

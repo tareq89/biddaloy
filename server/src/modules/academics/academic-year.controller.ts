@@ -10,6 +10,7 @@ import {
   UseGuards,
   Inject,
   Req,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -59,7 +60,10 @@ export class AcademicYearController {
   @Get(':id')
   // [10.4] G4 — reference-data read.
   @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
-  findOne(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
     return this.service.findOne(id, tenant.id);
   }
 
@@ -69,7 +73,10 @@ export class AcademicYearController {
   @ApiOperation({
     summary: 'Class/student/fee-structure counts attached to this academic year.',
   })
-  getStats(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+  getStats(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
     return this.service.getStats(id, tenant.id);
   }
 
@@ -77,7 +84,7 @@ export class AcademicYearController {
   // [10.4] G1, G2 — AC, E tightened off.
   @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateAcademicYearDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
@@ -90,7 +97,7 @@ export class AcademicYearController {
   // [10.4] G1, G2 — AC, E tightened off.
   @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
   remove(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
@@ -106,7 +113,7 @@ export class AcademicYearController {
       "Mark this academic year as the tenant's current one, unsetting any other year previously marked current.",
   })
   setCurrent(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,

@@ -11,6 +11,7 @@ import {
   Query,
   Req,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -96,7 +97,7 @@ export class AttendanceController {
   @ApiOperation({ summary: "A section's register for one day (and optionally one period)." })
   @ApiOkResponse({ type: RegisterResponseDto })
   async getRegister(
-    @Param('sectionId') sectionId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Query() query: QueryRegisterDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -129,7 +130,7 @@ export class AttendanceController {
   })
   @ApiOkResponse({ type: PeriodDto, isArray: true })
   async listPeriods(
-    @Param('sectionId') sectionId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Query() query: QueryPeriodsDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -174,7 +175,7 @@ export class AttendanceController {
     },
   })
   async putRegister(
-    @Param('sectionId') sectionId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Body() dto: PutRegisterDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -201,7 +202,7 @@ export class AttendanceController {
   })
   @ApiOkResponse({ type: MatrixSaveResponseDto })
   async putRegisterMatrix(
-    @Param('sectionId') sectionId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Body() dto: PutRegisterMatrixDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -228,7 +229,7 @@ export class AttendanceController {
   })
   @ApiOkResponse({ type: RegisterResponseDto })
   async finalize(
-    @Param('sectionId') sectionId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Body() dto: FinalizeRegisterDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -256,7 +257,7 @@ export class AttendanceController {
   })
   @ApiOkResponse({ type: RegisterResponseDto })
   async correctRecord(
-    @Param('recordId') recordId: string,
+    @Param('recordId', ParseUUIDPipe) recordId: string,
     @Body() dto: CorrectRecordDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -291,7 +292,7 @@ export class AttendanceController {
   })
   @ApiOkResponse({ type: RecordHistoryResponseDto })
   async getRecordHistory(
-    @Param('recordId') recordId: string,
+    @Param('recordId', ParseUUIDPipe) recordId: string,
     @Query() query: QueryAuditLogDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
