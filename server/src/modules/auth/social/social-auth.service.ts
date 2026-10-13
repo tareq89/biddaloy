@@ -9,7 +9,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
 import { createHash, randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { AuditAction, SocialProvider, UserStatus } from '@biddaloy/shared';
@@ -23,7 +22,7 @@ import { SOCIAL_PROVIDERS, type SocialProviderClient } from './providers/social-
 import { SocialIdentityService } from './social-identity.service';
 import { SocialIntent, SocialState, SocialStateService } from './social-state.service';
 import { SocialTicketService } from './social-ticket.service';
-import { DUMMY_PASSWORD_HASH } from '../password-hash';
+import { verifyPassword } from '../password-hash';
 
 export interface CallbackOutcome {
   /** Absolute URL to send the browser to. */
@@ -76,7 +75,7 @@ export class SocialAuthService {
     // Same rule as `AuthService.changePassword`: a suspended user holding a
     // still-valid access token must not act, and learns nothing from the difference.
     if (!user || user.status !== UserStatus.ACTIVE) {
-      await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+      await verifyPassword(password, null);
       throw new UnauthorizedException('Invalid credentials');
     }
     if (!user.password_hash) {
@@ -85,7 +84,7 @@ export class SocialAuthService {
         details: { code: 'NO_PASSWORD' },
       });
     }
-    if (!(await bcrypt.compare(password, user.password_hash))) {
+    if (!(await verifyPassword(password, user.password_hash))) {
       throw new ForbiddenException('Current password is incorrect');
     }
   }

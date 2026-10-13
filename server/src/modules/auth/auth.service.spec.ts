@@ -242,18 +242,24 @@ describe('AuthService', () => {
     it('rehashes a cost-10 hash to the current cost after a good login', async () => {
       mockUserRepo.findOne.mockResolvedValue(mockUser);
       (bcrypt.compare as any).mockResolvedValue(true);
-      (bcrypt.getRounds as any).mockReturnValueOnce(10);
-      (bcrypt.hash as any).mockResolvedValueOnce('new-cost-12-hash');
+      (bcrypt.getRounds as any).mockReturnValue(10);
+      // verifyPassword's timing pads also call hash (at cost 10 and 11).
+      (bcrypt.hash as any).mockImplementation(async (_p: string, cost: number) =>
+        cost === 12 ? 'new-cost-12-hash' : 'pad',
+      );
       mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
 
       await service.login('admin@test.com', 'password123');
 
-      expect(bcrypt.hash).toHaveBeenCalledWith('password123', 12);
+      // [75.11 review r1] the legacy check is padded to cost-12 time (routed via verifyPassword).
+      expect((bcrypt.hash as any).mock.calls.map((c: unknown[]) => c[1])).toEqual([10, 11, 12]);
       // The old hash is in the WHERE, so a concurrent password change wins.
       expect(mockUserRepo.update).toHaveBeenCalledWith(
         { id: mockUser.id, password_hash: mockUser.password_hash },
         { password_hash: 'new-cost-12-hash' },
       );
+      (bcrypt.getRounds as any).mockReturnValue(12);
+      (bcrypt.hash as any).mockReset();
     });
 
     it('does not rehash when the stored hash is already at the current cost', async () => {
@@ -277,7 +283,12 @@ describe('AuthService', () => {
 
       await expect(service.login('admin@test.com', 'wrong')).rejects.toThrow();
 
-      expect(bcrypt.hash).not.toHaveBeenCalled();
+      // Timing pads hash at cost 10/11; a rehash would hash at 12.
+      expect(bcrypt.hash).not.toHaveBeenCalledWith(expect.anything(), 12);
+      expect(mockUserRepo.update).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ password_hash: expect.anything() }),
+      );
       (bcrypt.getRounds as any).mockReturnValue(12);
     });
 
