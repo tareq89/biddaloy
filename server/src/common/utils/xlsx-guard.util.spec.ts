@@ -137,5 +137,32 @@ describe('assertXlsxWithinLimits', () => {
       // redirect it), so the guard refuses the sentinel outright.
       expect(() => assertXlsxWithinLimits(b, lim)).toThrow(XlsxTooLargeError);
     });
+
+    it('rejects directory entries that all point at the same compressed bytes', () => {
+      // Two central-directory records share one 200-byte stored body: their
+      // compressed sizes add up past the file, so the bytes are reused.
+      const name = Buffer.from('a');
+      const body = Buffer.alloc(200, 1);
+      const local = Buffer.alloc(30);
+      local.writeUInt32LE(0x04034b50, 0);
+      local.writeUInt16LE(name.length, 26);
+      const cen = Buffer.alloc(46);
+      cen.writeUInt32LE(0x02014b50, 0);
+      cen.writeUInt32LE(body.length, 20);
+      cen.writeUInt32LE(body.length, 24);
+      cen.writeUInt16LE(name.length, 28);
+      const cenOffset = local.length + name.length + body.length;
+      const cenRec = Buffer.concat([cen, name]);
+      const records = [cenRec, cenRec];
+      const eocd = Buffer.alloc(22);
+      eocd.writeUInt32LE(0x06054b50, 0);
+      eocd.writeUInt16LE(records.length, 8);
+      eocd.writeUInt16LE(records.length, 10);
+      eocd.writeUInt32LE(cenRec.length * records.length, 12);
+      eocd.writeUInt32LE(cenOffset, 16);
+      const zip = Buffer.concat([local, name, body, ...records, eocd]);
+
+      expect(() => assertXlsxWithinLimits(zip)).toThrow('Bad zip layout');
+    });
   });
 });
