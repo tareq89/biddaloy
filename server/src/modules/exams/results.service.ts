@@ -601,7 +601,7 @@ export class ResultsService {
     }
 
     if (!force) {
-      const { outstanding } = await this.gridService.progress(examId, tenantId);
+      const { outstanding } = await this.gridService.progress(examId, tenantId, undefined, null);
       if (outstanding.length > 0) {
         throw new ConflictException({
           message:

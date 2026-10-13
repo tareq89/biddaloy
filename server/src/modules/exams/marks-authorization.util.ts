@@ -72,22 +72,25 @@ export class MarksAuthorizationService {
     }
   }
 
-  /** D33: which of `sectionIds` a teacher may read marks in (any subject, same rule as
-   * `assertCanRead`). `null` = no filter: every role that is not section-scoped. */
-  async readableSectionIds(
+  /** D33/D44: per section of `sectionIds`, the subjects a teacher may *write* (same rule as
+   * `assertCanWrite`), i.e. the grids they can open and save. Homeroom read is left out on
+   * purpose: a class teacher offered a grid they can't save would 404 on every autosave.
+   * `null` = no filter: every role that is not section-scoped. */
+  async writableSubjects(
     input: { role: string; userId: string; tenantId: string },
     sectionIds: string[],
-  ): Promise<string[] | null> {
+  ): Promise<Map<string, Set<string>> | null> {
     if (roleScope(input.role) !== RoleScope.ASSIGNED_SECTIONS) return null;
     const { userId, tenantId } = input;
     // ponytail: one rolesInSection per section of the class (a handful); batch it if classes grow.
-    const ok = await Promise.all(
-      sectionIds.map(async (sectionId) => {
-        const r = await this.teacherScope.rolesInSection({ userId, tenantId, sectionId });
-        return r.inYearWindow && (!!r.homeroom || r.subjectIds.length > 0);
-      }),
+    const roles = await Promise.all(
+      sectionIds.map((sectionId) =>
+        this.teacherScope.rolesInSection({ userId, tenantId, sectionId }),
+      ),
     );
-    return sectionIds.filter((_, i) => ok[i]);
+    return new Map(
+      sectionIds.map((id, i) => [id, new Set(roles[i].inYearWindow ? roles[i].subjectIds : [])]),
+    );
   }
 
   /** [pr-fix #945] `MarksController.getGrid` had no object-level check at

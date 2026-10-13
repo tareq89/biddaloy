@@ -92,7 +92,7 @@ describe('MarkGridService.progress (integration)', () => {
     });
     await addComponent(subject.id);
 
-    const { outstanding } = await service.progress(examId, SEED_TENANT_ID);
+    const { outstanding } = await service.progress(examId, SEED_TENANT_ID, undefined, null);
 
     expect(outstanding.length).toBeGreaterThan(0);
     for (const row of outstanding) {
@@ -115,7 +115,7 @@ describe('MarkGridService.progress (integration)', () => {
     await addComponent(subject.id);
     await subjectRepo().softDelete({ id: subject.id });
 
-    const { outstanding } = await service.progress(examId, SEED_TENANT_ID);
+    const { outstanding } = await service.progress(examId, SEED_TENANT_ID, undefined, null);
 
     expect(outstanding.length).toBeGreaterThan(0);
     expect(outstanding[0]).toMatchObject({ subject_name: 'History', subject_name_bn: 'ইতিহাস' });
@@ -130,7 +130,7 @@ describe('MarkGridService.progress (integration)', () => {
     });
     await addComponent(foreign.id);
 
-    const { outstanding } = await service.progress(examId, SEED_TENANT_ID);
+    const { outstanding } = await service.progress(examId, SEED_TENANT_ID, undefined, null);
 
     expect(outstanding.length).toBeGreaterThan(0);
     expect(outstanding[0]).toMatchObject({ subject_name: null, subject_name_bn: null });
@@ -315,7 +315,7 @@ describe('MarkGridService blank cells (integration)', () => {
     expect(grid.students.find((s) => s.id === picker)?.not_taking).toBe(false);
     // The non-picker's empty row does not block submit or process.
     await expect(submit(secA)).resolves.toMatchObject({ state: MarkGridState.SUBMITTED });
-    const { outstanding } = await grids.progress(examId, SEED_TENANT_ID);
+    const { outstanding } = await grids.progress(examId, SEED_TENANT_ID, undefined, null);
     expect(outstanding.filter((o) => o.section_id === secA)).toEqual([]);
   });
 
@@ -354,7 +354,7 @@ describe('MarkGridService blank cells (integration)', () => {
     // moved student's mark stays; make them blank like the real case
     await dataSource.getRepository(Mark).delete({ student_id: moved });
 
-    const { outstanding } = await grids.progress(examId, SEED_TENANT_ID);
+    const { outstanding } = await grids.progress(examId, SEED_TENANT_ID, undefined, null);
     expect(outstanding).toEqual([
       expect.objectContaining({ section_id: secB, state: MarkGridState.SUBMITTED }),
     ]);

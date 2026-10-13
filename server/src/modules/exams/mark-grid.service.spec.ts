@@ -113,7 +113,7 @@ async function buildService(
   const authz = {
     assertCanWrite: vi.fn(async () => undefined),
     assertCanRead: vi.fn(async () => undefined),
-    readableSectionIds: vi.fn(async (): Promise<string[] | null> => null),
+    writableSubjects: vi.fn(async (): Promise<Map<string, Set<string>> | null> => null),
   };
   const auditService = { record: vi.fn(async () => undefined) };
 
@@ -464,7 +464,7 @@ describe('MarkGridService.progress', () => {
       grid: null,
     });
 
-    const result = await service.progress(EXAM_ID, TENANT_ID);
+    const result = await service.progress(EXAM_ID, TENANT_ID, undefined, null);
 
     expect(result.counts[MarkGridState.DRAFT]).toBe(1);
     expect(result.counts[MarkGridState.SUBMITTED]).toBe(0);
@@ -493,7 +493,7 @@ describe('MarkGridService.progress', () => {
       grid: null,
     });
 
-    const result = await service.progress(EXAM_ID, TENANT_ID);
+    const result = await service.progress(EXAM_ID, TENANT_ID, undefined, null);
 
     expect(result.outstanding[0]).toMatchObject({ subject_name: null, subject_name_bn: null });
     expect(result.counts[MarkGridState.DRAFT]).toBe(1);
@@ -506,36 +506,46 @@ describe('MarkGridService.progress', () => {
       grid: { section_id: SECTION_ID, subject_id: SUBJECT_ID, state: MarkGridState.SUBMITTED },
     });
 
-    const result = await service.progress(EXAM_ID, TENANT_ID);
+    const result = await service.progress(EXAM_ID, TENANT_ID, undefined, null);
 
     expect(result.counts[MarkGridState.SUBMITTED]).toBe(1);
     expect(result.outstanding).toEqual([]);
   });
 });
 
-// D33: a teacher's progress lists and counts only the sections whose marks they may read.
+// D33/D44: a teacher's progress lists and counts only the (section, subject) grids they may write.
 describe('MarkGridService.progress for a teacher', () => {
-  it('drops the sections the teacher cannot read and recomputes the counts', async () => {
+  it('drops every (section, subject) the teacher cannot write and recomputes the counts', async () => {
     const { service, sectionRepo, authz } = await buildService({
-      components: [{ id: 'comp-1', subject_id: SUBJECT_ID }],
+      components: [
+        { id: 'comp-1', subject_id: SUBJECT_ID },
+        { id: 'comp-2', subject_id: 'subj-other' },
+      ],
     });
     sectionRepo.find.mockResolvedValue([
       { id: 'sec-mine', tenant_id: TENANT_ID, section_name: 'A' },
       { id: 'sec-other', tenant_id: TENANT_ID, section_name: 'B' },
     ]);
-    authz.readableSectionIds.mockResolvedValue(['sec-mine']);
+    authz.writableSubjects.mockResolvedValue(
+      new Map([
+        ['sec-mine', new Set([SUBJECT_ID])],
+        ['sec-other', new Set<string>()],
+      ]),
+    );
 
     const result = await service.progress(EXAM_ID, TENANT_ID, undefined, {
       role: UserRole.TEACHER,
       userId: 'teacher-1',
     });
 
-    expect(authz.readableSectionIds).toHaveBeenCalledWith(
+    expect(authz.writableSubjects).toHaveBeenCalledWith(
       { role: UserRole.TEACHER, userId: 'teacher-1', tenantId: TENANT_ID },
       ['sec-mine', 'sec-other'],
     );
     expect(result.counts[MarkGridState.DRAFT]).toBe(1);
-    expect(result.outstanding.map((o) => o.section_id)).toEqual(['sec-mine']);
+    expect(result.outstanding.map((o) => `${o.section_id}:${o.subject_id}`)).toEqual([
+      `sec-mine:${SUBJECT_ID}`,
+    ]);
   });
 });
 
@@ -551,7 +561,7 @@ describe('MarkGridService.progress with blank cells (X-06)', () => {
       students: [STUDENT('s1')],
       components: [{ ...MANUAL('c1'), subject: { tenant_id: TENANT_ID } }],
     });
-    const result = await service.progress(EXAM_ID, TENANT_ID);
+    const result = await service.progress(EXAM_ID, TENANT_ID, undefined, null);
     expect(result.outstanding).toHaveLength(1);
     expect(result.outstanding[0].state).toBe(MarkGridState.SUBMITTED);
     expect(result.counts[MarkGridState.SUBMITTED]).toBe(1);
@@ -567,7 +577,7 @@ describe('MarkGridService.progress with blank cells (X-06)', () => {
       ],
       components: [{ ...MANUAL('c1'), subject: { tenant_id: TENANT_ID } }],
     });
-    const result = await service.progress(EXAM_ID, TENANT_ID);
+    const result = await service.progress(EXAM_ID, TENANT_ID, undefined, null);
     sitting.date = null;
     expect(result.outstanding).toEqual([]);
   });

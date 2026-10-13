@@ -6,7 +6,8 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
-import { ExamKind, ExamStatus, UserRole } from '@biddaloy/shared';
+import { ExamKind, ExamStatus, TeacherAssignmentType, UserRole } from '@biddaloy/shared';
+import { Teacher } from '../academics/entities/teacher.entity';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -172,6 +173,74 @@ describe('[68.0] Marks submit rejects blank cells', () => {
   it('404 for another tenant’s teacher on this tenant’s exam', async () => {
     await seed();
     await submit(tenantBTeacherToken, UserRole.TEACHER, TENANT_B).expect(404);
+  });
+
+  // D44: progress lists exactly the (section, subject) grids a teacher can open and save.
+  describe('GET marks/progress for a teacher (D44)', () => {
+    /** Math (`subjectId`) and English in section 1; the teacher gets `homeroom` and/or Math. */
+    async function seedTeacher(opts: { homeroom: boolean; math: boolean }): Promise<string> {
+      await seed();
+      await ds.query(`UPDATE academic_years SET is_current = (id = $2) WHERE tenant_id = $1`, [
+        SEED_TENANT_ID,
+        SEED_ACADEMIC_YEAR_ID,
+      ]);
+      const [english] = await ds.query(
+        `INSERT INTO subjects (name_en, code, tenant_id, created_at, updated_at)
+         VALUES ('Submit English', 'MS-2', $1, NOW(), NOW()) RETURNING id`,
+        [SEED_TENANT_ID],
+      );
+      await ds.query(
+        `INSERT INTO exam_components (exam_id, subject_id, name, kind, source, full_marks, sequence, tenant_id, created_at, updated_at)
+         VALUES ($1, $2, 'Written', 'WRITTEN', 'MANUAL', 100, 2, $3, NOW(), NOW())`,
+        [examId, english.id, SEED_TENANT_ID],
+      );
+      const teacher = await ds.getRepository(Teacher).save({
+        user_id: '00000000-0000-4000-8000-0000068a0001',
+        employee_id: 'EMP-MS-1',
+        tenant_id: SEED_TENANT_ID,
+        designations: [],
+      });
+      const rows: [TeacherAssignmentType, string | null][] = [];
+      if (opts.homeroom) rows.push([TeacherAssignmentType.CLASS_TEACHER, null]);
+      if (opts.math) rows.push([TeacherAssignmentType.SUBJECT_TEACHER, subjectId]);
+      for (const [type, subject] of rows) {
+        await ds.query(
+          `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id, subject_id, assignment_type)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [teacher.id, SEED_SECTION_1_ID, SEED_TENANT_ID, subject, type],
+        );
+      }
+      return english.id as string;
+    }
+    const progress = async (token = teacherToken, role = UserRole.TEACHER) =>
+      (await as(token, role, http().get(`${API}/exams/${examId}/marks/progress`)).expect(200))
+        .body as { counts: { DRAFT: number }; outstanding: { subject_id: string }[] };
+
+    it('a subject teacher sees only their own subject', async () => {
+      const englishId = await seedTeacher({ homeroom: false, math: true });
+      const body = await progress();
+      expect(body.outstanding.map((o) => o.subject_id)).toEqual([subjectId]);
+      expect(body.counts.DRAFT).toBe(1);
+      // the admin still sees both grids
+      const admin = await progress(adminToken, UserRole.ADMIN);
+      expect(admin.outstanding.map((o) => o.subject_id).sort()).toEqual(
+        [subjectId, englishId].sort(),
+      );
+    });
+
+    it('a class teacher sees only the grids they can save: their own subject, not the homeroom read', async () => {
+      await seedTeacher({ homeroom: true, math: true });
+      const body = await progress();
+      expect(body.outstanding.map((o) => o.subject_id)).toEqual([subjectId]);
+      expect(body.counts.DRAFT).toBe(1);
+    });
+
+    it('a class teacher with no subject row sees an empty list', async () => {
+      await seedTeacher({ homeroom: true, math: false });
+      const body = await progress();
+      expect(body.outstanding).toEqual([]);
+      expect(body.counts.DRAFT).toBe(0);
+    });
   });
 
   it('process (no force) 409 when a submitted sheet has a blank cell', async () => {

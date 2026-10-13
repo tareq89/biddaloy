@@ -164,8 +164,10 @@ current-year-only applies again.
 
 A teacher miss is a **404** with the missing-section body (`Section with ID
 "<id>" not found`, D33), like every other teacher route.
-`GET /exams/:examId/marks/progress` lists and counts only the sections a
-teacher may read (`readableSectionIds`). `GET /performance/classes/:classId`
+`GET /exams/:examId/marks/progress` lists and counts only the (section,
+subject) grids a teacher may **write** (`writableSubjects`, D44). Example: the
+class teacher of 7A who teaches Math sees "7A Math", not "7A English". They can
+read the English sheet, but every save on it would 404. `GET /performance/classes/:classId`
 without `sectionId` aggregates only the teacher's own sections (D35), the same
 rule as `exams/:examId/analysis/*`.
 

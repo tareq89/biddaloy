@@ -169,19 +169,20 @@ describe('MarksAuthorizationService teacher miss body (D33/D13)', () => {
   });
 });
 
-describe('MarksAuthorizationService.readableSectionIds (D33)', () => {
+describe('MarksAuthorizationService.writableSubjects (D33/D44)', () => {
   const who = (role: UserRole) => ({ role, userId: 'u1', tenantId: TENANT_ID });
 
   it('is null (no filter) for a role that is not section-scoped', async () => {
     const { service, rolesInSection } = buildService();
-    expect(await service.readableSectionIds(who(UserRole.ADMIN), ['s1'])).toBeNull();
-    expect(await service.readableSectionIds(who(UserRole.EXECUTIVE), ['s1'])).toBeNull();
+    expect(await service.writableSubjects(who(UserRole.ADMIN), ['s1'])).toBeNull();
+    expect(await service.writableSubjects(who(UserRole.EXECUTIVE), ['s1'])).toBeNull();
     expect(rolesInSection).not.toHaveBeenCalled();
   });
 
-  it('keeps a TEACHER to sections with a homeroom or subject row inside the year window', async () => {
+  it('gives a TEACHER only their subject rows inside the year window; homeroom adds nothing', async () => {
     const byId: Record<string, Partial<Roles>> = {
       home: { homeroom: TeacherAssignmentType.CLASS_TEACHER },
+      both: { homeroom: TeacherAssignmentType.CLASS_TEACHER, subjectIds: ['y'] },
       subj: { subjectIds: ['x'] },
       none: {},
       old: { subjectIds: ['x'], inYearWindow: false },
@@ -194,8 +195,19 @@ describe('MarksAuthorizationService.readableSectionIds (D33)', () => {
         ...byId[sectionId],
       })),
     } as unknown as TeacherScopeService);
-    expect(
-      await service.readableSectionIds(who(UserRole.TEACHER), ['home', 'subj', 'none', 'old']),
-    ).toEqual(['home', 'subj']);
+    const map = await service.writableSubjects(who(UserRole.TEACHER), [
+      'home',
+      'both',
+      'subj',
+      'none',
+      'old',
+    ]);
+    expect(Object.fromEntries([...map!].map(([k, v]) => [k, [...v]]))).toEqual({
+      home: [],
+      both: ['y'],
+      subj: ['x'],
+      none: [],
+      old: [],
+    });
   });
 });
