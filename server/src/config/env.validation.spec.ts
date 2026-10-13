@@ -44,11 +44,12 @@ describe('assertProductionConfig (via validate)', () => {
     ).toThrow(/DATABASE_URL/);
   });
 
-  it('rejects a JWT_SECRET with fewer than 11 distinct characters', () => {
+  it('rejects an all-digit JWT_SECRET or one with under 8 distinct characters', () => {
     expect(() => validate({ ...prodConfig, JWT_SECRET: 'a'.repeat(40) })).toThrow(/too weak/);
     expect(() => validate({ ...prodConfig, JWT_SECRET: '1234567890'.repeat(4) })).toThrow(
       /too weak/,
     );
+    expect(() => validate({ ...prodConfig, JWT_SECRET: 'abcdefg'.repeat(6) })).toThrow(/too weak/);
     expect(() => validate({ ...prodConfig, JWT_SECRET_PREVIOUS: 'a'.repeat(40) })).toThrow(
       /JWT_SECRET_PREVIOUS is too weak/,
     );
@@ -57,8 +58,8 @@ describe('assertProductionConfig (via validate)', () => {
   it('accepts real random secrets: hex (even missing digits) and UUIDs', () => {
     // 64-char hex missing the digit "f": 15 distinct symbols, a normal `openssl rand -hex 32` outcome.
     const hex64 = '0123456789abcde'.repeat(5).slice(0, 64);
-    // 32-char hex with only 11 distinct symbols.
-    const hex32 = '0123456789a'.repeat(3).slice(0, 32);
+    // 32-char hex with only 8 distinct symbols (rare but real for `openssl rand -hex 16`).
+    const hex32 = '01234abc'.repeat(4);
     const uuidSecret = '3f2b8c1e-9a4d-4e67-b5c0-7d1a2e8f9b34-3f2b8c1e';
     for (const secret of [hex64, hex32, uuidSecret]) {
       expect(() => validate({ ...prodConfig, JWT_SECRET: secret })).not.toThrow();

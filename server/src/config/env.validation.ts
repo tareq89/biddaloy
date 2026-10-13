@@ -340,10 +340,12 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
   }
 
   for (const key of ['JWT_SECRET', 'JWT_SECRET_PREVIOUS']) {
-    if (str(key) && new Set(str(key)).size < 11) {
-      // 11 catches all-digit and single-character secrets but never trips
-      // random hex (`openssl rand -hex`), which has at most 16 symbols.
-      problems.push(`${key} is too weak (needs at least 11 distinct characters)`);
+    const secret = str(key);
+    if (secret && (/^\d+$/.test(secret) || new Set(secret).size < 8)) {
+      // All digits, or under 8 distinct symbols ('a'.repeat(40)). Random hex
+      // of the minimum 32 characters falls under 8 distinct symbols far less than
+      // once in a million draws; the old bar of 11 refused ~0.2% of them.
+      problems.push(`${key} is too weak (all digits or under 8 distinct characters)`);
     }
   }
   if (str('JWT_SECRET') && str('JWT_SECRET') === str('SETTINGS_ENCRYPTION_KEY')) {
