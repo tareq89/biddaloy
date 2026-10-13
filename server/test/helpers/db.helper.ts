@@ -23,6 +23,19 @@ export async function clearTables(): Promise<void> {
 }
 
 /**
+ * Every `table.column` in the public schema, sorted. A migration round-trip
+ * spec compares it before and after, so a later migration it forgot to
+ * revert fails there instead of poisoning the next spec file on the worker.
+ */
+export async function publicColumns(ds: DataSource): Promise<string[]> {
+  const rows: { c: string }[] = await ds.query(
+    `SELECT table_name || '.' || column_name AS c FROM information_schema.columns
+     WHERE table_schema = 'public' ORDER BY 1`,
+  );
+  return rows.map((r) => r.c);
+}
+
+/**
  * Creates a test student in the database.
  */
 export async function seedStudent(

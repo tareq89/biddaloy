@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { DataSource, QueryRunner } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
+import { publicColumns } from '@test/helpers/db.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ACADEMIC_YEAR_ID, SEED_ADMIN_USER_ID, SEED_TENANT_ID } from '@test/constants';
 import { School } from '../schools/entities/school.entity';
@@ -251,7 +252,7 @@ describe('evaluations & performance schema (integration)', () => {
   it('migrates down and back up', async () => {
     const migration = new EvaluationsAndPerformance1790900000000();
     const withdrawal = new StaffIncidentWithdrawal1791805000300();
-    const run =async (fn: (qr: QueryRunner) => Promise<void>) => {
+    const run = async (fn: (qr: QueryRunner) => Promise<void>) => {
       const qr = ds.createQueryRunner();
       await qr.connect();
       try {
@@ -268,8 +269,9 @@ describe('evaluations & performance schema (integration)', () => {
     // Revert the later migration on staff_incidents first, as `migration:revert`
     // would: up() recreates the table without withdrawn_at, which poisoned
     // later spec files on this worker. Restore in `finally`.
-    await run((qr) => withdrawal.down(qr));
+    const before = await publicColumns(ds);
     try {
+      await run((qr) => withdrawal.down(qr));
       await run((qr) => migration.down(qr));
       const [{ t }] = await ds.query(`SELECT to_regclass('public.acr_scores') AS t`);
       expect(t).toBeNull();
@@ -279,5 +281,7 @@ describe('evaluations & performance schema (integration)', () => {
     } finally {
       await run((qr) => withdrawal.up(qr));
     }
+    // A new migration that alters these tables must be reverted above too.
+    expect(await publicColumns(ds)).toEqual(before);
   });
 });

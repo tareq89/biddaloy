@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { DataSource, QueryRunner } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
+import { publicColumns } from '@test/helpers/db.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { StudentLifecycle1790800000000 } from '../src/migrations/1790800000000-StudentLifecycle';
 import { EvaluationsAndPerformance1790900000000 } from '../src/migrations/1790900000000-EvaluationsAndPerformance';
@@ -103,15 +104,18 @@ describe('StudentLifecycle1790800000000 (integration)', () => {
     // 1790900000000 adds. Without the revert, every later spec file in this
     // worker (student-notes, evaluations-performance) sees a rating-less table.
     // Restore in `finally` so a failed step cannot poison them either.
-    await run((qr) => latest.down(qr));
-    await run((qr) => later.down(qr));
+    const before = await publicColumns(ds);
     try {
+      await run((qr) => latest.down(qr));
+      await run((qr) => later.down(qr));
       await run((qr) => migration.down(qr));
       await run((qr) => migration.up(qr));
     } finally {
       await run((qr) => later.up(qr));
       await run((qr) => latest.up(qr));
     }
+    // A new migration that alters these tables must be reverted above too.
+    expect(await publicColumns(ds)).toEqual(before);
   }
 
   afterAll(async () => {
