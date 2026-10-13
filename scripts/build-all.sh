@@ -60,6 +60,12 @@ cp "$ROOT_DIR/scripts/start.sh" "$OUTPUT_DIR/start.sh"
 chmod +x "$OUTPUT_DIR/start.sh"
 cp "$ROOT_DIR/.env.example" "$OUTPUT_DIR/.env.example"
 
+# [75.21] No source map may ship: express.static would serve a stray one.
+# client-admin/vite.config.ts deletes dist/**/*.map after the Sentry upload,
+# but a failed upload leaves them behind, so enforce it here too.
+# (-delete implies -depth, which defeats -prune, hence the ! -path form.)
+find "$OUTPUT_DIR" -type f -name '*.map' ! -path "$OUTPUT_DIR/server/node_modules/*" -print -delete
+
 echo "==> Done! Build output is at $OUTPUT_DIR"
 echo "    Deploy: zip -r deploy.zip build-output/"
 echo "    Run on server: unzip deploy.zip && cp .env.example .env && ./start.sh"
