@@ -44,8 +44,6 @@ export function userFactory(overrides: Partial<User> = {}, options: PersonOption
   return {
     ...buildPersonFields(options),
     user_tenants: [],
-    // [75.2] No session cut-off by default.
-    tokens_valid_after: null,
     deleted_at: null,
     ...overrides,
   };

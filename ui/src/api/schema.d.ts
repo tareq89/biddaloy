@@ -8452,13 +8452,17 @@ export interface components {
              * @enum {string}
              */
             action?: "approve" | "decline";
+            /** @description [75.1, D23] With action 'approve': the 6-digit code sent to the proposed NEW email. */
+            email_code?: string;
+            /** @description [75.1, D23] With action 'approve': the 6-digit code sent to the proposed NEW phone. */
+            phone_code?: string;
         };
         VerifyEmailResponseDto: {
             /**
-             * @description 'valid' means the contact was changed; 'proposal' is a school's pending request to show for approval; 'declined' means the person cancelled it; anything else means nothing changed.
+             * @description 'valid' means the contact was changed; 'proposal' is a school's pending request to show for approval; 'confirm' means the approval was accepted and a 6-digit code went to each NEW contact, to send back with action 'approve' (D23); 'declined' means the person cancelled it; anything else means nothing changed.
              * @enum {string}
              */
-            status: "valid" | "expired" | "consumed" | "revoked" | "unknown" | "proposal" | "declined";
+            status: "valid" | "expired" | "consumed" | "revoked" | "unknown" | "proposal" | "confirm" | "declined";
             /** @description Only with status 'proposal': { from_school, new_email?, new_phone? }, values masked, null = removed. */
             proposal?: {
                 [key: string]: unknown;
@@ -8752,8 +8756,6 @@ export interface components {
             email_verified_at: string | null;
             /** Format: date-time */
             phone_verified_at: string | null;
-            /** Format: date-time */
-            tokens_valid_after: string | null;
             /** @enum {string} */
             status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
             full_name: string;
