@@ -1816,8 +1816,25 @@ export interface paths {
         /** Lists this invoice's share tokens (never exposes token_hash). */
         get: operations["InvoicesController_listShareLinks_v1"];
         put?: never;
-        /** Mints a public share link for this invoice ({ url, token_id }). See InvoiceShareService.createToken for why this always mints a new token rather than literally reusing an old one. */
+        /** Mints a public share link for this invoice ({ url, token_id, expires_at }). See InvoiceShareService.createToken for why this always mints a new token rather than literally reusing an old one. */
         post: operations["InvoicesController_createShareLink_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{id}/share/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revokes every live share link of this invoice and mints a new one ({ url, token_id, expires_at }). */
+        post: operations["InvoicesController_regenerateShareLink_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10187,6 +10204,8 @@ export interface components {
         ShareLinkResponseDto: {
             url: string;
             token_id: string;
+            /** @description ISO timestamp after which the link stops working. */
+            expires_at: string;
         };
         SendInvoiceDto: {
             /** @enum {string} */
@@ -14728,6 +14747,10 @@ export interface components {
             url: string;
             confirmation_code: string;
         };
+        SocialLinkStartBodyDto: {
+            /** @description The signed-in user's current password. */
+            current_password: string;
+        };
         SocialLinkStartDto: {
             /** @description Provider authorization URL to send the browser to. */
             url: string;
@@ -19263,6 +19286,39 @@ export interface operations {
         };
     };
     InvoicesController_createShareLink_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareLinkResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvoicesController_regenerateShareLink_v1: {
         parameters: {
             query?: never;
             header: {
@@ -35609,7 +35665,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SocialLinkStartBodyDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
