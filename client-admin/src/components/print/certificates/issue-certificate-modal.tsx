@@ -194,8 +194,8 @@ export function IssueCertificateModal({
   const countPending = countActive.isPending || (wantsGraduated && countGraduated.isPending);
   const classTotal =
     (countActive.data?.total ?? 0) + (wantsGraduated ? (countGraduated.data?.total ?? 0) : 0);
-  const bulkTooMany = bulk && !countPending && classTotal > BULK_MAX_STUDENTS;
-  const fetchClass = bulk && Boolean(classId) && !countPending && !bulkTooMany;
+  const countTooMany = bulk && !countPending && classTotal > BULK_MAX_STUDENTS;
+  const fetchClass = bulk && Boolean(classId) && !countPending && !countTooMany;
   const classActive = useAllStudents(
     { ...classFilter, enrollment_status: 'ACTIVE' },
     { enabled: fetchClass },
@@ -204,6 +204,12 @@ export function IssueCertificateModal({
     { ...classFilter, enrollment_status: 'GRADUATED' },
     { enabled: fetchClass && wantsGraduated },
   );
+  // Backstop: a failed count reads as 0, so the fetched rows are checked against the cap too.
+  const bulkTooMany =
+    countTooMany ||
+    (bulk &&
+      (classActive.data?.length ?? 0) + (wantsGraduated ? (classGraduated.data?.length ?? 0) : 0) >
+        BULK_MAX_STUDENTS);
   const [excluded, setExcluded] = React.useState<ReadonlySet<string>>(new Set());
   const [ineligible, setIneligible] = React.useState<IneligibleStudent[]>([]);
   const classmates = React.useMemo(

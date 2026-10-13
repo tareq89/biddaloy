@@ -315,12 +315,11 @@ export class FineSweepService {
     const periodStart = new Date(`${month}-01T00:00:00.000Z`);
     const studentIds = [...new Set(rows.map((r) => r.student_id))];
     const structureIds = [...new Set(rows.map((r) => r.fee_structure_id))];
-    // Names for the rows the modal shows. Tenant-scoped; `withDeleted` so a
-    // student archived after the month still gets a label.
+    // Names for the rows the modal shows. Tenant-scoped; `compute()` already
+    // drops deleted students, so the default soft-delete filter loses nothing.
     const students = await this.dataSource.getRepository(Student).find({
       where: { id: In(studentIds), tenant_id: tenantId },
       select: { id: true, full_name: true },
-      withDeleted: true,
     });
     const nameById = new Map(students.map((s) => [s.id, s.full_name]));
     const existing = await this.studentFeeRepo.find({

@@ -674,6 +674,25 @@ describe('IssueCertificateModal', () => {
     expect(studentPages).toEqual(['1@1']);
   });
 
+  it('if the count request fails, a class over 1000 is still refused once its pages load', async () => {
+    serve({ classIds: Array.from({ length: 1001 }, (_, i) => `c-${i + 1}`) });
+    // Only the one-row count fails; the paged fetch falls through to `serve`.
+    server.use(
+      http.get('/api/v1/students', ({ request }) =>
+        new URL(request.url).searchParams.get('limit') === '1'
+          ? HttpResponse.json({ statusCode: 400, message: 'boom' }, { status: 400 })
+          : undefined,
+      ),
+    );
+    const { user } = setup();
+    await next(user, /^next$/i);
+    await user.click(await screen.findByRole('button', { name: /for all of class 10/i }));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/too big/i);
+    expect(screen.getByRole('button', { name: /see preview/i }).hasAttribute('disabled')).toBe(
+      true,
+    );
+  });
+
   it('a ?step=print link with empty required details lands on the details step', async () => {
     serve();
     const { user } = setup('TESTIMONIAL', '/?step=print');
