@@ -113,6 +113,8 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
   'modules/fees/fee-generation-batch.service.ts': ['i', 'k'],
   // BN_COLLATION constant
   'modules/fees/fees.service.ts': ['BN_COLLATION'],
+  // teacher subject terms: i is the forEach index naming :c<i>/:s<i>; values are bound
+  'modules/homework/homework.service.ts': ['i', 'i'],
   // ternary between two constant column lists
   'modules/print/exam-documents/exam-documents.service.ts': [
     "bySection ? 'cs.section_name NULLS LAST, r.section_id, r.section_position, r.position' : 'r.position'",
