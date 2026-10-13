@@ -154,6 +154,19 @@ describe('RecoveryService (integration)', () => {
   }
 
   describe('forgot', () => {
+    it('hands delivery to detach() once for a known account and never for an unknown one, with the same {} body', async () => {
+      const detach = vi.spyOn(module.get(AccountAccessDeliveryService), 'detach');
+      await createMember({ email: null, phone: '01712345678' });
+
+      const unknown = await service.forgot('01799999999', context);
+      expect(detach).not.toHaveBeenCalled();
+      const known = await service.forgot('01712345678', context);
+      expect(detach).toHaveBeenCalledTimes(1);
+      // Echo mode adds `debug` to the known body under test only; production bodies are both {}.
+      expect(unknown).toEqual({});
+      expect(known.debug?.otp).toMatch(/^\d{6}$/);
+    });
+
     it('returns 202-shaped {} and writes no communication_log for an unknown identifier', async () => {
       const result = await service.forgot('nobody@example.com', context);
       expect(result).toEqual({});

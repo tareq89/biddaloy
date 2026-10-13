@@ -433,6 +433,23 @@ describe('ActivationService (integration)', () => {
       await expect(service.resend('nobody@example.com')).resolves.toBeUndefined();
     });
 
+    it('hands the send to detach() for a reissuable invite, never for an unknown identifier, and swallows a failing job', async () => {
+      const delivery = module.get(AccountAccessDeliveryService);
+      const detach = vi.spyOn(delivery, 'detach');
+      const user = await createInvitee();
+      await issueInvite(user.id);
+
+      await service.resend('nobody@example.com');
+      expect(detach).not.toHaveBeenCalled();
+
+      const issue = vi
+        .spyOn(module.get(InvitationService), 'issueAndSend')
+        .mockRejectedValueOnce(new Error('provider down'));
+      await expect(service.resend(user.email!)).resolves.toBeUndefined();
+      expect(detach).toHaveBeenCalledTimes(1);
+      expect(issue).toHaveBeenCalledTimes(1);
+    });
+
     it('is a silent no-op for an account that already has a password', async () => {
       const user = await createInvitee({ password_hash: 'already-set', status: UserStatus.ACTIVE });
       await issueInvite(user.id);

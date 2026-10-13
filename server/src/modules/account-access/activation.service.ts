@@ -9,6 +9,7 @@ import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { assertPasswordAllowedForUser } from '../auth/password-policy';
 import { School } from '../schools/entities/school.entity';
 import { AuditService } from '../audit/audit.service';
+import { AccountAccessDeliveryService } from './account-access-delivery.service';
 import { AuthService, AuthResult } from '../auth/auth.service';
 import { RefreshTokenService, RequestContext } from '../auth/refresh-token.service';
 import { SessionCutoffService } from '../auth/session-cutoff.service';
@@ -46,6 +47,7 @@ export class ActivationService {
     @Inject(AuthService) private readonly authService: AuthService,
     private readonly auditService: AuditService,
     private readonly invitations: InvitationService,
+    private readonly delivery: AccountAccessDeliveryService,
     private readonly refreshTokens: RefreshTokenService,
     private readonly sessionCutoff: SessionCutoffService,
   ) {}
@@ -222,19 +224,18 @@ export class ActivationService {
       return;
     }
 
-    try {
-      await this.invitations.issueAndSend({
+    // Best-effort, deliberately swallowed (detach logs, never throws): this
+    // endpoint always returns 202 regardless of what happens underneath
+    // (delivery outage, ConflictException races with a concurrent activation) —
+    // surfacing *why* a resend didn't go out would leak the exact "does this
+    // account exist" signal it exists to hide. Detached so provider latency
+    // can't leak it either.
+    await this.delivery.detach(() =>
+      this.invitations.issueAndSend({
         userId: user.id,
-        tenantId: latest.tenant_id,
+        tenantId: latest.tenant_id!,
         actorUserId: null,
-      });
-    } catch {
-      // Best-effort, deliberately swallowed: this endpoint always returns
-      // 202 regardless of what happens underneath (delivery outage,
-      // ConflictException races with a concurrent activation, etc) — an
-      // enumeration-safe endpoint cannot surface *why* a resend didn't go
-      // out without leaking exactly the "does this account exist" signal
-      // it exists to hide.
-    }
+      }),
+    );
   }
 }

@@ -106,14 +106,16 @@ export class OtpLoginService {
       return this.echo({});
     }
 
-    await this.delivery.deliver({
-      tenantId,
-      medium: byEmail ? CommunicationMedium.EMAIL : CommunicationMedium.SMS,
-      to,
-      recipientName: user.full_name,
-      kind: 'OTP',
-      vars: { code },
-    });
+    await this.delivery.detach(() =>
+      this.delivery.deliver({
+        tenantId,
+        medium: byEmail ? CommunicationMedium.EMAIL : CommunicationMedium.SMS,
+        to,
+        recipientName: user.full_name,
+        kind: 'OTP',
+        vars: { code },
+      }),
+    );
 
     return this.echo({ otp: code });
   }

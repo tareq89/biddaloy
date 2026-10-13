@@ -58,6 +58,28 @@ export class AccountAccessDeliveryService {
     private readonly schoolsService: SchoolsService,
   ) {}
 
+  /**
+   * Runs `work` after the response is sent, so a caller's timing cannot depend on
+   * it (enumeration-safe routes). A failure is logged, never thrown. Under
+   * NODE_ENV=test it awaits instead, so specs that read the DB right after the
+   * call stay deterministic.
+   * ponytail: the known-account branch still pays one Redis/auth_tokens write
+   * before responding (a few ms); equal dummy work on the unknown branch if that matters.
+   */
+  async detach(work: () => Promise<unknown>): Promise<void> {
+    const run = () =>
+      work().catch((e) =>
+        this.logger.error(
+          `Detached delivery failed: ${e instanceof Error ? e.message : String(e)}`,
+        ),
+      );
+    if (process.env.NODE_ENV === 'test') {
+      await run();
+      return;
+    }
+    setImmediate(run);
+  }
+
   async deliver(input: DeliverInput): Promise<DeliverResult> {
     if (input.tenantId === null) return this.deliverAsPlatform(input);
     const settings = await this.schoolsService.getResolvedSettings(input.tenantId);

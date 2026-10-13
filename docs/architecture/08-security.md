@@ -173,6 +173,15 @@ Both endpoints are public and `strict`-rate-limited, same as `/auth/login`.
   resetting a compromised account must not leave a live session running
   while the reset is in flight.
 
+**Delivery runs after the response (75.17).** `forgot-password`, `otp/request`
+and `activate/resend` hand the SMS/email send to
+`AccountAccessDeliveryService.detach()` (`setImmediate`; a failure is logged,
+never returned), so a slow provider cannot show which accounts exist. Known and
+unknown identifiers return in the same time, minus the one Redis/`auth_tokens`
+write the known branch still does first (a few ms). Admin-initiated flows (admin
+reset, contact change) still wait and return 503 on failure: the caller is an
+admin acting on a known person.
+
 ## Contact verification (12.7)
 
 `users.email_verified_at`/`users.phone_verified_at` record the moment a
@@ -285,6 +294,8 @@ no password (a guardian who was never given one) sign in without one, by phone o
 email.
 It reuses the same building blocks as password recovery above: `OtpService`
 for the code, `AuthService.startSession()` for the session.
+
+Delivery of the code runs after the response, exactly as for password recovery above (75.17), so timing doesn't reveal whether the account exists.
 
 ```mermaid
 flowchart TD
