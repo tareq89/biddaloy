@@ -431,6 +431,7 @@ if should_run "audit"; then
   section "audit"
   node scripts/ci-audit.js
   node scripts/ci-audit.js --production
+  node scripts/check-tracked-files.mjs
   section_done "audit"
 fi
 

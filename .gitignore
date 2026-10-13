@@ -250,3 +250,12 @@ e2e/.auth/
 # test:timings`, never committed. The weekly trend (a *derived* history of
 # these) lives on the orphan `ci-timings` git branch instead, not here.
 /ci-timings/
+
+# Local agent/planning notes and audit evidence ([75.28]) - this repo is public.
+# .git/info/exclude is per-clone, so a fresh clone or new worktree host would
+# otherwise track them.
+.implement-epic*
+.plan-epic-*
+.epic-*-state.md
+audit-evidence/
+server/graphify-out/
