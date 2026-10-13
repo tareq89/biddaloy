@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
 import supertest = require('supertest');
+import { randomUUID } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -207,10 +208,18 @@ describe('Teacher scope: finance reads (75.6-d)', () => {
     it('communication history by student and guardian: 404 for B', async () => {
       await asTeacher(`/communications/student/${fx.studentA}`).expect(200);
       await asTeacher(`/communications/student/${fx.studentB}`).expect(404);
+      // D36: a guardian-level log (no student) may mention a sibling outside scope: hidden too.
+      const familyLogA = await dataSource.query(
+        `INSERT INTO communication_logs (tenant_id, medium, recipient_address, recipient_name, message_body, status, trigger, student_id, guardian_id, created_at, updated_at)
+         VALUES ($1, 'SMS', '+8801700000000', 'TS', 'hi', 'SENT', 'MANUAL', NULL, $2, NOW(), NOW()) RETURNING id`,
+        [SEED_TENANT_ID, fx.guardianA],
+      );
       const own = await asTeacher(`/communications/guardian/${fx.guardianA}`).expect(200);
       // Guardian A's log about sibling B is hidden; the log about A stays.
       expect(own.body.map((l: { id: string }) => l.id)).toEqual([logOfA]);
       expect(own.body.map((l: { id: string }) => l.id)).not.toContain(siblingLogB);
+      const family = await asTeacher(`/communications/${familyLogA[0].id}`).expect(404);
+      expect(family.body.message).toBe(`Communication log with ID "${familyLogA[0].id}" not found`);
       await asTeacher(`/communications/guardian/${fx.guardianB}`).expect(404);
     });
 
@@ -218,8 +227,17 @@ describe('Teacher scope: finance reads (75.6-d)', () => {
       const ok = await asTeacher(`/communications/${logOfA}`).expect(200);
       expect(ok.body).not.toHaveProperty('student_id');
       expect(ok.body).not.toHaveProperty('guardian_id');
-      await asTeacher(`/communications/${logOfB}`).expect(404);
-      await asTeacher(`/communications/${guardianLogB}`).expect(404);
+      // D13: an out-of-scope log reads exactly like a missing one (the message echoes the id).
+      const notFound = (id: string) => ({
+        statusCode: 404,
+        message: `Communication log with ID "${id}" not found`,
+      });
+      for (const id of [logOfB, guardianLogB, randomUUID()]) {
+        const res = await asTeacher(`/communications/${id}`).expect(404);
+        expect({ statusCode: res.body.statusCode, message: res.body.message }).toEqual(
+          notFound(id),
+        );
+      }
     });
 
     it('/communications/last-reminders returns only the entry of A', async () => {

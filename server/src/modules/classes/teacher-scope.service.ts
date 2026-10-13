@@ -146,13 +146,15 @@ export class TeacherScopeService {
     return this.sectionIds(input);
   }
 
-  /** Ids of live students in the caller's visible sections; `null` = no extra filter (non-teacher roles). */
+  /** Ids of live students in the caller's visible sections; `null` = no extra filter (non-teacher roles).
+   * Pass `scope` when the caller already holds `sectionScope` (e.g. from `assertCanSeeGuardian`). */
   async scopedStudentIds(input: {
     role: string;
     userId: string;
     tenantId: string;
+    scope?: string[] | null;
   }): Promise<string[] | null> {
-    const scope = await this.sectionScope(input);
+    const scope = input.scope !== undefined ? input.scope : await this.sectionScope(input);
     if (scope === null) return null;
     if (scope.length === 0) return [];
     const rows = await this.studentRepo

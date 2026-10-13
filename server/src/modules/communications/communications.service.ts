@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
-import { In, IsNull, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { StudentService, GuardianService } from '../students/students.service';
 import {
@@ -274,13 +274,9 @@ export class CommunicationsService {
 
     const base = { guardian_id: guardianId, tenant_id: tenantId };
     const logs = await this.repo.find({
-      // [75.6-d] TEACHER: drop rows about a sibling outside scope; keep rows with no student.
-      where: restrictToStudentIds
-        ? [
-            { ...base, student_id: IsNull() },
-            { ...base, student_id: In(restrictToStudentIds) },
-          ]
-        : base,
+      // [75.6-d] TEACHER: only rows about a student in scope. D36: guardian-level rows with no
+      // student are dropped too, since a family message can mention a sibling outside scope.
+      where: restrictToStudentIds ? { ...base, student_id: In(restrictToStudentIds) } : base,
       order: { created_at: 'DESC' },
     });
 

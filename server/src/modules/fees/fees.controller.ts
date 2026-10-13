@@ -393,10 +393,10 @@ export class FeeController {
     @CurrentUser() user: JwtPayload,
   ) {
     const who = { role: tenant.role, userId: user.sub, tenantId: tenant.id };
-    await this.teacherScope.assertCanSeeGuardian({ ...who, guardianId });
+    const scope = await this.teacherScope.assertCanSeeGuardian({ ...who, guardianId });
     const payments = await this.paymentService.findByGuardian(guardianId, tenant.id);
     // A sibling in another section is dropped for a TEACHER; `null` = unrestricted.
-    const scoped = await this.teacherScope.scopedStudentIds(who);
+    const scoped = await this.teacherScope.scopedStudentIds({ ...who, scope });
     if (!scoped) return payments;
     const visible = new Set(scoped);
     return payments.filter((p) => visible.has(p.student_id));

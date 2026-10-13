@@ -260,17 +260,9 @@ export class CommunicationsController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    await this.teacherScope.assertCanSeeGuardian({
-      role: tenant.role,
-      userId: user.sub,
-      tenantId: tenant.id,
-      guardianId,
-    });
-    const scoped = await this.teacherScope.scopedStudentIds({
-      role: tenant.role,
-      userId: user.sub,
-      tenantId: tenant.id,
-    });
+    const caller = { role: tenant.role, userId: user.sub, tenantId: tenant.id };
+    const scope = await this.teacherScope.assertCanSeeGuardian({ ...caller, guardianId });
+    const scoped = await this.teacherScope.scopedStudentIds({ ...caller, scope });
     return this.communicationsService.findByGuardian(guardianId, tenant.id, scoped ?? undefined);
   }
 
@@ -283,19 +275,16 @@ export class CommunicationsController {
     @CurrentUser() user: JwtPayload,
   ) {
     if (this.isTeacher(tenant.role)) {
+      // D13: every teacher miss reads exactly like a missing log. D36: a guardian-level log (no
+      // student) can be about a sibling outside scope, so a teacher never opens one.
+      const notFound = new NotFoundException(`Communication log with ID "${id}" not found`);
       const owner = await this.communicationsService.findOwner(id, tenant.id);
-      if (owner?.student_id) {
-        await this.familyAccess.assertLinked(tenant.role, user.sub, owner.student_id, tenant.id);
-      } else if (owner?.guardian_id) {
-        await this.teacherScope.assertCanSeeGuardian({
-          role: tenant.role,
-          userId: user.sub,
-          tenantId: tenant.id,
-          guardianId: owner.guardian_id,
+      if (!owner?.student_id) throw notFound;
+      await this.familyAccess
+        .assertLinked(tenant.role, user.sub, owner.student_id, tenant.id)
+        .catch((e: unknown) => {
+          throw e instanceof NotFoundException ? notFound : e;
         });
-      } else {
-        throw new NotFoundException(`Communication log with ID "${id}" not found`);
-      }
     }
     return this.communicationsService.findOne(id, tenant.id);
   }
