@@ -81,7 +81,7 @@ describe('ParseUUIDPipe on academics, attendance and calendar params (75.13-b)',
   });
 
   it('platform holiday-sets: ADMIN gets 403 from the guard, before the pipe', async () => {
-    // SUPER_ADMIN-only route; its pipe is covered by param-uuid-coverage.spec.ts.
+    // SUPER_ADMIN-only route; the SUPER_ADMIN 400 case is in public-holidays.e2e-spec.ts.
     await asAdmin('/platform/holiday-sets/not-a-uuid').expect(403);
   });
 

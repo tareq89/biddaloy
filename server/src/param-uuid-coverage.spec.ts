@@ -3,10 +3,11 @@ import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative } from 'path';
 
 /**
- * [75.13-b] Every `@Param('name')` in a controller must carry a pipe
- * (`ParseUUIDPipe`, `ParseEnumPipe`, ...) so a malformed id gets 400 instead of
- * reaching Postgres as a 500. The params below are real non-UUID values and
- * are the only reviewed exceptions. Keys are `<path under src>:<param name>`.
+ * [75.13-b] Every `@Param('name')` in a controller must carry `ParseUUIDPipe`
+ * so a malformed id gets 400 instead of reaching Postgres as a 500. Any other
+ * pipe does not count. The params below are real non-UUID values and are the
+ * only reviewed exceptions. Keys are `<path under src>:<param name>`; a bare
+ * `@Param()` (the whole params object) has the name `(all)`.
  */
 const NON_UUID_PARAMS = new Set([
   'modules/admission/public-admission.controller.ts:slug', // school slug
@@ -19,10 +20,13 @@ const NON_UUID_PARAMS = new Set([
   'modules/print/templates/print-templates.controller.ts:side', // artwork side name
   'modules/staff-hr/staff-document.controller.ts:documentType', // document type name
   'modules/audit/audit.controller.ts:entityType', // Student, Payment, ...
+  'modules/leave/leave.controller.ts:type', // LeaveType, ParseEnumPipe
+  'modules/admission/applicant-review.controller.ts:type', // AdmissionDocumentType, ParseEnumPipe
 ]);
 
 const SRC_DIR = __dirname;
-const PARAM_RE = /@Param\('(\w+)'[^)]*\)/g;
+// `\s*` and `[^)]*` span newlines, so a call spread over several lines matches.
+const PARAM_RE = /@Param\(\s*(?:['"](\w+)['"])?([^)]*)\)/g;
 
 function collectControllers(dir: string): string[] {
   const files: string[] = [];
@@ -38,22 +42,23 @@ function collectControllers(dir: string): string[] {
   return files;
 }
 
-/** Every `@Param('x')` call outside comments: where it is and whether it has a pipe. */
+/** Every `@Param(...)` call outside comments: where it is and whether it has ParseUUIDPipe. */
 function collectParams() {
   const found: { key: string; where: string; piped: boolean }[] = [];
   for (const file of collectControllers(SRC_DIR)) {
     const rel = relative(SRC_DIR, file);
-    const lines = readFileSync(file, 'utf8').split('\n');
-    lines.forEach((line, i) => {
-      if (/^\s*(\*|\/\/|\/\*)/.test(line)) return; // doc comment or line comment
-      for (const m of line.matchAll(PARAM_RE)) {
-        found.push({
-          key: `${rel}:${m[1]}`,
-          where: `${rel}:${i + 1} ${m[1]}`,
-          piped: /Pipe/.test(m[0]),
-        });
-      }
-    });
+    const text = readFileSync(file, 'utf8');
+    const lines = text.split('\n');
+    for (const m of text.matchAll(PARAM_RE)) {
+      const line = text.slice(0, m.index).split('\n').length;
+      if (/^\s*(\*|\/\/|\/\*)/.test(lines[line - 1])) continue; // doc comment or line comment
+      const name = m[1] ?? '(all)';
+      found.push({
+        key: `${rel}:${name}`,
+        where: `${rel}:${line} ${name}`,
+        piped: /\bParseUUIDPipe\b/.test(m[2]),
+      });
+    }
   }
   return found;
 }
