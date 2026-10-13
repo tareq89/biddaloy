@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { InvoiceShareService, SHARE_LINK_TTL_MS } from './invoice-share.service';
 import { InvoiceShareToken } from './entities/invoice-share-token.entity';
@@ -271,6 +271,18 @@ describe('InvoiceShareService (integration)', () => {
       expect(await service.validatePublicToken(a.rawToken)).toBeNull();
       expect(await service.validatePublicToken(b.rawToken)).toBeNull();
       expect(await service.validatePublicToken(fresh.rawToken)).not.toBeNull();
+    });
+
+    it('two parallel regenerates leave exactly one live link', async () => {
+      await service.createToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID);
+      await Promise.all([
+        service.regenerateToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID),
+        service.regenerateToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID),
+      ]);
+      const live = await tokenRepo.count({
+        where: { invoice_id: invoiceId, revoked_at: IsNull() },
+      });
+      expect(live).toBe(1);
     });
 
     it("regenerateToken leaves another invoice's links alone (same tenant)", async () => {

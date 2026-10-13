@@ -296,7 +296,7 @@ export class InvoicesController {
   @RequirePermissions(Permission.INVOICE_READ)
   @ApiOperation({
     summary:
-      'Mints a public share link for this invoice ({ url, token_id }). See InvoiceShareService.createToken for why this always mints a new token rather than literally reusing an old one.',
+      'Mints a public share link for this invoice ({ url, token_id, expires_at }). See InvoiceShareService.createToken for why this always mints a new token rather than literally reusing an old one.',
   })
   @ApiOkResponse({ type: ShareLinkResponseDto })
   async createShareLink(
