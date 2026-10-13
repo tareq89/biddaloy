@@ -15,9 +15,8 @@ import {
  * issuer-header.tsx`) renders client-side, built as a raw HTML string
  * here since this whole document is one — see that file's own comment on
  * why the shared React component can't render into either print path
- * directly. `logo_key` present means an `<img>` renders, pointed at the
- * versioned `/schools/:id/logo?v=<uuid>` URL; the logo is an embedded `data:` URL, so there is no
- * broken-image case. */
+ * directly. `logo_key` present means an `<img>` renders; the logo is an
+ * embedded `data:` URL, so there is no broken-image case. */
 function renderIssuerHeader(issuer: IssuerSnapshot, logoDataUrl: string | null): string {
   const secondaryName = issuer.name_bn;
   const logoUrl = issuer.logo_key ? logoDataUrl : null;

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { toCsvContent } from '@biddaloy/shared';
 import {
   buildCalendarImportCsvTemplate,
@@ -8,7 +8,31 @@ import {
 } from './calendar-import-file.util';
 import { CALENDAR_IMPORT_COLUMNS } from './calendar-import-rows.util';
 
+const guardState = vi.hoisted(() => ({ bomb: false }));
+vi.mock('../../../common/utils/xlsx-guard.util', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../common/utils/xlsx-guard.util')>();
+  return {
+    ...actual,
+    assertXlsxWithinLimits: (...a: Parameters<typeof actual.assertXlsxWithinLimits>) => {
+      if (guardState.bomb) throw new actual.XlsxTooLargeError('bomb');
+      actual.assertXlsxWithinLimits(...a);
+    },
+  };
+});
+
 describe('calendar-import-file.util (17.3.1)', () => {
+  it('refuses an xlsx the zip-bomb guard rejects with the usual error', async () => {
+    const buf = await buildCalendarImportXlsxTemplate();
+    guardState.bomb = true;
+    try {
+      await expect(parseCalendarImportFile(buf, 'a.xlsx')).rejects.toThrow(
+        'The uploaded file is not a valid .xlsx workbook.',
+      );
+    } finally {
+      guardState.bomb = false;
+    }
+  });
+
   it('round-trips the .csv template through the parser', async () => {
     const csv = buildCalendarImportCsvTemplate();
     const rows = await parseCalendarImportFile(Buffer.from(csv, 'utf8'), 'template.csv');

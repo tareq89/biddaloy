@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { assertXlsxWithinLimits } from '../../../common/utils/xlsx-guard.util';
 import { cellText } from '../../workbook/codec/cell-format';
 import { CALENDAR_IMPORT_COLUMNS, RawCalendarImportRow } from './calendar-import-rows.util';
 import { CalendarEventType, toCsvContent } from '@biddaloy/shared';
@@ -156,6 +157,7 @@ export async function parseCalendarImportFile(
   } else {
     const workbook = new ExcelJS.Workbook();
     try {
+      assertXlsxWithinLimits(buffer);
       // exceljs's own `.d.ts` for `load` predates the `Buffer<ArrayBufferLike>`
       // generic Node's current lib.d.ts uses — same workaround
       // `workbook-codec.ts` applies for this exact call.
