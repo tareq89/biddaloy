@@ -654,6 +654,27 @@ describe('AuthService', () => {
       nowSpy.mockRestore();
     });
 
+    // Review m1: a cut-off that lands while rotate() is in flight must still refuse the new
+    // access token. The new refresh token is revoked by the same change, so iat_ms has to
+    // predate the rotation, not just the membership read.
+    it('stamps iat_ms with the time before rotate(), so a cut-off during rotation refuses it', async () => {
+      let now = 1_000_000;
+      const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+      mockRefreshTokens.rotate.mockImplementation(async () => {
+        now += 5_000; // the contact change's revoke + cut-off land while the rotation commits
+        return { userId: 'user-1', refreshToken: mockIssuedRefreshToken };
+      });
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+
+      await service.refresh('token-id.secret', { ip: null, userAgent: null });
+
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ iat_ms: 1_000_000 }),
+      );
+      nowSpy.mockRestore();
+    });
+
     it('throws when the rotated token belongs to a user that no longer exists', async () => {
       mockRefreshTokens.rotate.mockResolvedValue({
         userId: 'ghost-user',

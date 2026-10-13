@@ -152,6 +152,8 @@ describe('UserService (integration)', () => {
   let userRepo: Repository<User>;
   let userTenantRepo: Repository<UserTenant>;
   let dataSource: DataSource;
+  let sessionCutoff: SessionCutoffService;
+  let refreshTokens: { revokeAllForUser: ReturnType<typeof vi.fn> };
 
   const TENANT_ID = SEED_TENANT_ID;
 
@@ -182,6 +184,8 @@ describe('UserService (integration)', () => {
     userRepo = module.get<Repository<User>>(getRepositoryToken(User));
     userTenantRepo = module.get<Repository<UserTenant>>(getRepositoryToken(UserTenant));
     dataSource = module.get(DataSource);
+    sessionCutoff = module.get(SessionCutoffService);
+    refreshTokens = module.get(RefreshTokenService);
 
     await seedReferenceData(dataSource);
   }, 60000);
@@ -1468,6 +1472,23 @@ describe('UserService (integration)', () => {
           REQUESTING_ADMIN_ID,
         );
         expect(updated.full_name).toBe('New Name');
+      });
+
+      // Review m1: revoke first, then cut off. The other order lets a refresh that rotates
+      // between the two calls mint an access token stamped after the cut-off.
+      it('update() revokes refresh tokens before it stamps the session cut-off', async () => {
+        const user = await createSolo('order-me@example.com');
+        const cutOff = vi.spyOn(sessionCutoff, 'cutOff');
+        refreshTokens.revokeAllForUser.mockClear();
+
+        await service.update(user.id, { phone: '+8801900000077' }, TENANT_ID, REQUESTING_ADMIN_ID);
+
+        expect(refreshTokens.revokeAllForUser).toHaveBeenCalledWith(user.id);
+        expect(cutOff).toHaveBeenCalledWith(user.id);
+        expect(refreshTokens.revokeAllForUser.mock.invocationCallOrder[0]).toBeLessThan(
+          cutOff.mock.invocationCallOrder[0],
+        );
+        cutOff.mockRestore();
       });
 
       it('a soft-deleted membership elsewhere does not count as shared', async () => {
