@@ -198,10 +198,13 @@ describe('AttendanceSection', () => {
   });
 
   describe('special timings', () => {
+    // Local current month: the picker opens on it. The saved fixture sits on days 1–9 so it can
+    // never overlap the 15–20 the Add test picks (a fixed date overlapped it in February 2027).
+    const ym = toIsoDate(new Date()).slice(0, 7);
     const RAMADAN: SpecialTiming = {
       name: 'Ramadan',
-      from: '2027-02-08',
-      to: '2027-03-09',
+      from: `${ym}-01`,
+      to: `${ym}-09`,
       shiftId: null,
       lateAfter: '08:45',
       absentAfter: '09:15',
@@ -256,8 +259,6 @@ describe('AttendanceSection', () => {
       await user.click(await screen.findByRole('button', { name: 'Add special timing' }));
       const dialog = await screen.findByRole('dialog');
       await user.type(within(dialog).getByLabelText('Name'), 'Winter');
-      // Local month: the picker opens on the local current month, not the UTC one.
-      const ym = toIsoDate(new Date()).slice(0, 7);
       const pick = async (label: string, day: string) => {
         await user.click(within(dialog).getByRole('button', { name: label }));
         await screen.findByRole('grid', { name: 'Calendar' });
