@@ -173,14 +173,41 @@ Both endpoints are public and `strict`-rate-limited, same as `/auth/login`.
   resetting a compromised account must not leave a live session running
   while the reset is in flight.
 
-**Delivery runs after the response (75.17).** `forgot-password`, `otp/request`
-and `activate/resend` hand the SMS/email send to
-`AccountAccessDeliveryService.detach()` (`setImmediate`; a failure is logged,
-never returned), so a slow provider cannot show which accounts exist. Known and
-unknown identifiers return in the same time, minus the one Redis/`auth_tokens`
-write the known branch still does first (a few ms). Admin-initiated flows (admin
-reset, contact change) still wait and return 503 on failure: the caller is an
-admin acting on a known person.
+**Everything after the lookup runs after the response (75.17).**
+`forgot-password`, `otp/request` and `activate/resend` do one thing before they
+answer: look the identifier up (one `users` query). Every other step runs in
+`AccountAccessDeliveryService.detach()` (`setImmediate`) after the `202` is
+sent, for every branch:
+
+```mermaid
+sequenceDiagram
+    participant C as Caller
+    participant API as forgot / otp request / resend
+    participant Job as detached job
+    C->>API: POST { identifier }
+    API->>API: SELECT user (1 query, known or unknown)
+    API-->>C: 202 {}
+    API->>Job: setImmediate
+    Job->>Job: unknown / inactive / no school? stop
+    Job->>Job: tenant, OTP or token issue (cooldown 429 = stop)
+    Job->>Job: audit row, then SMS / email
+```
+
+So a known and an unknown identifier cost the same one query; neither the
+provider, the membership reads, the OTP/token write nor the audit insert can
+show which accounts exist. A job failure is logged (with its flow and stack;
+a resend losing the activation race logs at `warn`), never returned. The
+rate limit (`STRICT_RATE_LIMIT`) still runs before the handler, and a cooldown
+or per-destination cap still ends in the same `{}`.
+
+Echo mode (`ACCOUNT_ACCESS_ECHO_SECRETS=true`, refused at boot in production)
+awaits the job instead, so tests can read `debug.otp` / `debug.token`.
+`NODE_ENV=test` on its own does not.
+
+What is left: the known branch's job runs on the same process and DB pool
+right after the response, so it can slow the _next_ request a little. Admin-
+initiated flows (admin reset, contact change) still wait and return 503 on
+failure: the caller is an admin acting on a known person.
 
 ## Contact verification (12.7)
 
@@ -295,7 +322,7 @@ email.
 It reuses the same building blocks as password recovery above: `OtpService`
 for the code, `AuthService.startSession()` for the session.
 
-Delivery of the code runs after the response, exactly as for password recovery above (75.17), so timing doesn't reveal whether the account exists.
+Everything after the identifier lookup (the opt-out check, the code, its delivery) runs after the response, exactly as for password recovery above (75.17): known and unknown identifiers cost the same one query before the `202`.
 
 ```mermaid
 flowchart TD
