@@ -64,7 +64,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 6
-      start_period: 30s
+      # nginx waits for this (service_healthy): give a slow cold boot ~2 min before compose gives up.
+      start_period: 60s
 
   redis:
     image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
