@@ -30,7 +30,7 @@ traffic that comes through Cloudflare.
 flowchart TD
   R["request reaches nginx"] --> H{"Host / SNI = APP_DOMAIN?"}
   H -- no --> D["catch-all default_server<br/>443: TLS handshake rejected<br/>80: 444 (empty reply)"]
-  H -- yes --> P{"peer is a Cloudflare range,<br/>private/loopback, or list is empty?"}
+  H -- yes --> P{"peer is a Cloudflare range,<br/>loopback, or list is empty?"}
   P -- yes --> OK["served as usual"]
   P -- no --> E{"/api/health or<br/>/.well-known/acme-challenge/?"}
   E -- yes --> OK
@@ -41,8 +41,12 @@ Always reachable, even by a non-Cloudflare public peer:
 
 - `/api/health` (uptime monitors may hit the origin directly; `/api/health/ready` stays a 404 at the edge)
 - `/.well-known/acme-challenge/` (Let's Encrypt renewal works whether DNS is proxied or not)
-- `/healthz` on port 80, loopback callers only (container healthcheck)
-- any private or loopback peer (the host's own smoke script, Docker's bridge)
+- `/healthz` on port 80, loopback callers only. It is for a future container
+  healthcheck ([75.29]); nothing uses it yet.
+- any loopback peer (the host's own smoke script). Private ranges are not
+  exempt: if the app logs show a Docker bridge gateway (`172.x`) instead of
+  real client IPs, the host uses Docker's userland proxy and the lock-down must
+  not be enabled there (see 12-operations.md 3.5)
 
 Example: `curl https://<origin-ip>/` gets a rejected TLS handshake;
 `curl --resolve <domain>:443:<origin-ip> https://<domain>/` from a laptop
