@@ -4,6 +4,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { StudentLifecycle1790800000000 } from '../src/migrations/1790800000000-StudentLifecycle';
 import { EvaluationsAndPerformance1790900000000 } from '../src/migrations/1790900000000-EvaluationsAndPerformance';
+import { StaffIncidentWithdrawal1791805000300 } from '../src/migrations/1791805000300-StaffIncidentWithdrawal';
 
 /**
  * [39.1.2]/#1183 Runs against the real migrated schema (default
@@ -19,6 +20,8 @@ describe('StudentLifecycle1790800000000 (integration)', () => {
   // Later migration that adds student_notes.rating (+ other tables) on top of
   // the table this one creates; see seedAndRoundTrip().
   const later = new EvaluationsAndPerformance1790900000000();
+  // Newest migration on later's staff_incidents table; reverted before it.
+  const latest = new StaffIncidentWithdrawal1791805000300();
 
   const T1 = '39000000-0000-4000-8000-000000000001';
   const T2 = '39000000-0000-4000-8000-000000000002';
@@ -100,12 +103,14 @@ describe('StudentLifecycle1790800000000 (integration)', () => {
     // 1790900000000 adds. Without the revert, every later spec file in this
     // worker (student-notes, evaluations-performance) sees a rating-less table.
     // Restore in `finally` so a failed step cannot poison them either.
+    await run((qr) => latest.down(qr));
     await run((qr) => later.down(qr));
     try {
       await run((qr) => migration.down(qr));
       await run((qr) => migration.up(qr));
     } finally {
       await run((qr) => later.up(qr));
+      await run((qr) => latest.up(qr));
     }
   }
 
