@@ -271,6 +271,24 @@ export class ContactChangeService {
     const { user, recipient } = await this.assertCanPropose(userId, newEmail, newPhone);
     const field = fieldOf(newEmail, newPhone);
 
+    // Re-saving the form with the same pending change sends nothing again (review m2): the live link stands.
+    const [live] = await this.userRepo.manager.query<Array<{ metadata: AdminProposalMeta }>>(
+      `SELECT metadata FROM auth_tokens
+        WHERE user_id = $1 AND tenant_id = $2 AND purpose = $3
+          AND metadata->>'kind' = 'ADMIN_PROPOSAL'
+          AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at > NOW()`,
+      [userId, tenantId, AuthTokenPurpose.EMAIL_VERIFY],
+    );
+    if (
+      live &&
+      live.metadata.new_email === newEmail &&
+      live.metadata.new_phone === newPhone &&
+      live.metadata.sent_to?.medium === recipient.medium &&
+      live.metadata.sent_to?.address === recipient.to
+    ) {
+      return;
+    }
+
     // Latest request from this school wins (`issue()` revokes its earlier ADMIN_PROPOSAL link only).
     const { raw } = await this.authTokens.issue({
       userId,
