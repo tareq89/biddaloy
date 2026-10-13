@@ -11,7 +11,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import type Redis from 'ioredis';
-import * as bcrypt from 'bcrypt';
 import { AuditAction, AuthTokenPurpose, CommunicationMedium } from '@biddaloy/shared';
 import { User } from '../users/entities/user.entity';
 import { AuditService } from '../audit/audit.service';
@@ -19,6 +18,7 @@ import { AuthService } from '../auth/auth.service';
 import { RefreshTokenService, RequestContext } from '../auth/refresh-token.service';
 import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { normalizeEmail, normalizeLoginIdentifier } from '../auth/normalize-identifier';
+import { verifyPassword } from '../auth/password-hash';
 import { OTP_REDIS } from './otp.service';
 import { OtpService, type OtpPurpose } from './otp.service';
 import { AuthTokenService, EMAIL_VERIFY_TTL_MS } from './auth-token.service';
@@ -129,7 +129,7 @@ export class ContactChangeService {
     if (!user.password_hash) {
       throw new BadRequestException('no_password');
     }
-    const valid = await bcrypt.compare(dto.current_password, user.password_hash);
+    const valid = await verifyPassword(dto.current_password, user.password_hash);
     if (!valid) {
       // 403, not 401 — same reasoning as `UserService.updateOwnProfile`'s
       // old gate: a transparent-refresh client must not silently replay a

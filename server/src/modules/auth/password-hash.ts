@@ -17,3 +17,42 @@ export const hashPassword = (plain: string): Promise<string> => bcrypt.hash(plai
 
 /** True for a stored hash cheaper than the current cost (upgraded on the next good sign-in). */
 export const needsRehash = (hash: string): boolean => bcrypt.getRounds(hash) < BCRYPT_COST;
+
+/**
+ * Extra bcrypt costs to run after checking a cost-`rounds` hash so the total
+ * work equals one BCRYPT_COST check. Each cost step doubles the work, so
+ * t(r) + t(r) + t(r+1) + … + t(BCRYPT_COST − 1) = t(BCRYPT_COST).
+ */
+export const padCosts = (rounds: number): number[] => {
+  const costs: number[] = [];
+  for (let cost = rounds; cost < BCRYPT_COST; cost++) costs.push(cost);
+  return costs;
+};
+
+/**
+ * The one password check. Always costs the same as one BCRYPT_COST compare,
+ * whatever is stored:
+ * - no hash (unknown user / passwordless account) → compare against the dummy hash, false;
+ * - a legacy cheaper hash (cost 10 until its owner signs in again) → padded with
+ *   throw-away hashes up to BCRYPT_COST, so a dormant real account is not faster
+ *   than an unknown identifier (a user-enumeration timing oracle otherwise).
+ */
+export async function verifyPassword(
+  plain: string,
+  stored: string | null | undefined,
+): Promise<boolean> {
+  if (!stored) {
+    await bcrypt.compare(plain, DUMMY_PASSWORD_HASH);
+    return false;
+  }
+  const ok = await bcrypt.compare(plain, stored);
+  let rounds = BCRYPT_COST;
+  try {
+    rounds = bcrypt.getRounds(stored);
+  } catch {
+    // Malformed stored hash: compare already returned false; nothing to pad.
+  }
+  // Sequential on purpose: run in parallel on the libuv pool they would finish early.
+  for (const cost of padCosts(rounds)) await bcrypt.hash(plain, cost);
+  return ok;
+}

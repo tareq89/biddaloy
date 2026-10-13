@@ -11,7 +11,6 @@ import { PushSubscriptionsService } from '../push/push-subscriptions.service';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, FindOptionsOrder, Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import { assertPasswordAllowedForUser } from './password-policy';
 import { randomUUID } from 'crypto';
 import { User } from '../users/entities/user.entity';
@@ -39,7 +38,7 @@ import { AccessTokenDenylistService } from './access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
 import { SessionDto } from './dto/session.dto';
 import { ACCESS_TOKEN_AUDIENCE } from './jwt-secrets';
-import { DUMMY_PASSWORD_HASH, hashPassword, needsRehash } from './password-hash';
+import { hashPassword, needsRehash, verifyPassword } from './password-hash';
 
 export interface AuthResult extends LoginResponse {
   refreshToken: IssuedRefreshToken;
@@ -89,8 +88,8 @@ export class AuthService {
       where: [{ email: emailOrPhone }, { phone: emailOrPhone }],
     });
 
-    const hashToCompare = user?.password_hash ?? DUMMY_PASSWORD_HASH;
-    const isPasswordValid = await bcrypt.compare(password, hashToCompare);
+    // Same bcrypt cost for an unknown user, a passwordless one and a legacy hash.
+    const isPasswordValid = await verifyPassword(password, user?.password_hash);
 
     if (!user || !user.password_hash || !isPasswordValid) {
       return null;
@@ -428,10 +427,7 @@ export class AuthService {
     // A null hash (accounts created without a password — see
     // UsersService.create) can never match; comparing against the dummy
     // hash anyway keeps the bcrypt cost paid in every branch.
-    const currentMatches = await bcrypt.compare(
-      dto.current_password,
-      user.password_hash ?? DUMMY_PASSWORD_HASH,
-    );
+    const currentMatches = await verifyPassword(dto.current_password, user.password_hash);
     if (!user.password_hash || !currentMatches) {
       // 403, deliberately NOT 401. The shared frontend axios client
       // (ui/src/api/client.ts) treats any 401 as an expired access token: it

@@ -10,7 +10,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import type Redis from 'ioredis';
 import {
@@ -32,7 +31,7 @@ import { redactPii } from '../../common/redact-log.util';
 import { SchoolsService } from '../schools/schools.service';
 import { StepUpVerifyDto, StepUpApprovalResponse } from './dto/step-up.dto';
 import { isSecretEchoEnabled } from '../account-access/account-access-echo';
-import { DUMMY_PASSWORD_HASH } from './password-hash';
+import { verifyPassword } from './password-hash';
 
 export const STEP_UP_REDIS = 'STEP_UP_REDIS';
 
@@ -174,7 +173,7 @@ export class StepUpService {
     const approver = await this.findEligibleApprover(dto.identifier, actorTenantId);
     // Always runs the same credential check, even for a missing/ineligible
     // approver (against a dummy hash / a doomed-to-fail OTP check) — see
-    // DUMMY_PASSWORD_HASH above. Using `&&` short-circuit here would skip
+    // verifyPassword in ./password-hash. Using `&&` short-circuit here would skip
     // bcrypt entirely for an unknown identifier, and that latency
     // difference is itself a signal despite the uniform 401 body.
     const verified = await this.verifyCredential(
@@ -265,7 +264,7 @@ export class StepUpService {
   }
 
   /** `approver` is `null` for an unknown/ineligible identifier — this still
-   * runs a real OTP lookup or bcrypt.compare against a dummy hash so the
+   * runs a real OTP lookup or verifyPassword (dummy-hash compare) so the
    * response time doesn't itself reveal whether the identifier resolved. */
   private async verifyCredential(
     dto: StepUpVerifyDto,
@@ -279,8 +278,7 @@ export class StepUpService {
     }
 
     if (!dto.password) return false;
-    const hashToCompare = approver?.password_hash ?? DUMMY_PASSWORD_HASH;
-    const isPasswordValid = await bcrypt.compare(dto.password, hashToCompare);
+    const isPasswordValid = await verifyPassword(dto.password, approver?.password_hash);
     return approver !== null && !!approver.password_hash && isPasswordValid;
   }
 
