@@ -74,7 +74,13 @@ describe('ActivationService (integration)', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: (key: string) => (key === 'APP_BASE_URL' ? 'http://localhost:5174' : undefined),
+            // Echo on = detach() awaits the resend job, so specs can read its rows.
+            get: (key: string) =>
+              key === 'APP_BASE_URL'
+                ? 'http://localhost:5174'
+                : key === 'ACCOUNT_ACCESS_ECHO_SECRETS'
+                  ? 'true'
+                  : undefined,
           },
         },
       ],

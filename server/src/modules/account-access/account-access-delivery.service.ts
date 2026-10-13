@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { isSecretEchoEnabled } from './account-access-echo';
 import { Repository } from 'typeorm';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
@@ -56,26 +58,40 @@ export class AccountAccessDeliveryService {
     private readonly logRepo: Repository<CommunicationLog>,
     private readonly registry: CommunicationProviderRegistryService,
     private readonly schoolsService: SchoolsService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
    * Runs `work` after the response is sent, so a caller's timing cannot depend on
-   * it (enumeration-safe routes). A failure is logged, never thrown. Under
-   * NODE_ENV=test it awaits instead, so specs that read the DB right after the
-   * call stay deterministic.
-   * ponytail: the known-account branch still pays one Redis/auth_tokens write
-   * before responding (a few ms); equal dummy work on the unknown branch if that matters.
+   * it (enumeration-safe routes). The callers put everything after their one
+   * user lookup in `work`, so a known and an unknown identifier do the same
+   * single query before responding. A failure is logged, never thrown.
+   *
+   * Echo mode (`ACCOUNT_ACCESS_ECHO_SECRETS`, which `assertSecretEchoAllowed`
+   * refuses to boot with in production) awaits instead and returns the job's
+   * value, so the `debug` echo and specs that read the DB right after the call
+   * keep working. `NODE_ENV=test` alone does not await.
+   *
+   * ponytail: the known branch's job still runs on the same event loop and DB
+   * pool right after the response, so it can slow the *next* request by a hair;
+   * a queue on a separate worker if that ever becomes measurable.
    */
   async detach<T>(flow: string, work: () => Promise<T>): Promise<T | undefined> {
-    const run = () =>
-      work().catch((e) => {
-        this.logger.error(
-          `Detached ${flow} job failed: ${e instanceof Error ? e.message : String(e)}`,
-        );
+    // async + try/catch: a synchronous throw inside `work` is caught too, never
+    // escaping setImmediate as an uncaughtException.
+    const run = async (): Promise<T | undefined> => {
+      try {
+        return await work();
+      } catch (e) {
+        const msg = `Detached ${flow} job failed: ${e instanceof Error ? e.message : String(e)}`;
+        // A resend losing the race with a concurrent activation is expected, not an error.
+        if (e instanceof ConflictException) this.logger.warn(msg);
+        else this.logger.error(msg, e instanceof Error ? e.stack : undefined);
         return undefined;
-      });
-    if (process.env.NODE_ENV === 'test') return run();
-    setImmediate(run);
+      }
+    };
+    if (isSecretEchoEnabled(this.config)) return run();
+    setImmediate(() => void run());
     return undefined;
   }
 
