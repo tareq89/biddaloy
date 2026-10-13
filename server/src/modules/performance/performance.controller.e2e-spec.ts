@@ -214,12 +214,12 @@ describe('performance (28.3.5)', () => {
     expect(res.body.noteRatingCount).toBe(0);
   });
 
-  it('teacher gets 403 for a class they do not teach', async () => {
+  it('teacher gets 404 for a class they do not teach (D13)', async () => {
     await as(
       supertest(app.getHttpServer()).get(`${API}/performance/classes/${SEED_CLASS_2_ID}?${year}`),
       teacherToken,
       UserRole.TEACHER,
-    ).expect(403);
+    ).expect(404);
   });
 
   it('section outside the class is 404 (lookup runs before scope check)', async () => {

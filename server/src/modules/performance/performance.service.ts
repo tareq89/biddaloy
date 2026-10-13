@@ -20,6 +20,7 @@ import { AnalysisService } from '../exams/analysis.service';
 import { AttendanceSummaryService } from '../attendance/attendance-summary.service';
 import { HomeworkAnalyticsService } from '../homework/homework-analytics.service';
 import { SchoolsService } from '../schools/schools.service';
+import { teacherAssignments } from '../classes/teacher-scope.service';
 import { localToday } from '../attendance/attendance-policy.util';
 import {
   ClassExamOutcomeDto,
@@ -125,24 +126,16 @@ export class PerformanceService {
   ): Promise<void> {
     if (canReadTenantWide(caller.role)) return;
     if (caller.role === UserRole.TEACHER) {
-      const { tenantId, userId } = caller;
-      const qb = this.sectionRepo
-        .createQueryBuilder('cs')
-        .innerJoin(
-          'teacher_class_sections',
-          'tcs',
-          'tcs.section_id = cs.id AND tcs.tenant_id = :tenantId',
-          { tenantId },
-        )
-        .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
-          tenantId,
-        })
-        .where('cs.tenant_id = :tenantId', { tenantId })
-        .andWhere('cs.deleted_at IS NULL')
-        .andWhere('t.user_id = :userId', { userId });
-      if ('sectionId' in target) qb.andWhere('cs.id = :sectionId', { sectionId: target.sectionId });
-      else qb.andWhere('cs.class_id = :classId', { classId: target.classId });
-      if (await qb.getOne()) return;
+      const rows = await teacherAssignments(this.sectionRepo.manager, {
+        userId: caller.userId,
+        tenantId: caller.tenantId,
+      });
+      const allowed =
+        'sectionId' in target
+          ? rows.some((r) => r.section_id === target.sectionId)
+          : rows.some((r) => r.class_id === target.classId);
+      if (allowed) return;
+      throw new NotFoundException('Class not found');
     }
     throw new ForbiddenException('You do not have access to this class');
   }

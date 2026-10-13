@@ -271,7 +271,7 @@ export class HomeworkBulkUploadService {
       );
       cache.set(cacheKey, true);
     } catch (err) {
-      if (err instanceof ForbiddenException) {
+      if (err instanceof ForbiddenException || err instanceof NotFoundException) {
         throw new BulkRowError(
           `You do not have access to Class '${row.class}' / Section '${row.section}' for subject '${row.subject}'`,
           'section',
