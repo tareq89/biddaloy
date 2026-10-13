@@ -12,7 +12,7 @@
     "share": {
       "create": "Create share link",
       "urlLabel": "Shareable receipt link",
-      "linkHidden": "Link created. It's only shown right after creation — revoke and create a new one if you need it again.",
+      "linkHidden": "Link created. It's only shown right after creation — use Regenerate link if you need a new one.",
       "copyLink": "Copy link",
       "copied": "Link copied.",
       "copyFailed": "Couldn't copy the link. You can select and copy it below.",

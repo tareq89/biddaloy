@@ -74,6 +74,10 @@ export class InvoiceShareService {
   ): Promise<CreateShareTokenResult> {
     await this.assertInvoiceInTenant(invoiceId, tenantId);
     return this.repo.manager.transaction(async (manager) => {
+      // Serialise regenerates per invoice so two parallel calls leave one live link.
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `invoice-share:${invoiceId}`,
+      ]);
       const revoked = await manager.update(
         InvoiceShareToken,
         { invoice_id: invoiceId, tenant_id: tenantId, revoked_at: IsNull() },
