@@ -29,6 +29,10 @@ services:
       # Public https origin; invitation, reset and social sign-in links are
       # built from it. Required in production (see .env.example).
       APP_BASE_URL: ${APP_BASE_URL:-}
+      # Public https origin of invoice share links (`/i/<token>`). Required in production.
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+      # Opt-in token for /api/health/ready (12-operations.md); unset = that route 404s.
+      HEALTH_TOKEN: ${HEALTH_TOKEN:-}
       # Both are required to boot in production (encryption-key.ts, db-ssl.ts).
       SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
       DB_SSL: ${DB_SSL:-}

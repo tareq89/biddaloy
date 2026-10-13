@@ -7,6 +7,7 @@ const valid = {
   JWT_SECRET: 'k9Zr2Qv7Lm4Xw8Tb3Nc6Hy1Pd5Sf0Ja2Ug',
   SETTINGS_ENCRYPTION_KEY: 'Fh3Jd9Kc2Vb7Nx5Mz1Qw8Er4Ty6Ui0OpLk3Ase=',
   APP_BASE_URL: 'https://app.school.org',
+  PUBLIC_APP_URL: 'https://app.school.org',
 };
 
 describe('runConfigCheck', () => {

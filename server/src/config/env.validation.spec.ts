@@ -14,6 +14,7 @@ const prodConfig = {
   JWT_SECRET: 'k9Zr2Qv7Lm4Xw8Tb3Nc6Hy1Pd5Sf0Ja2Ug',
   SETTINGS_ENCRYPTION_KEY: 'Fh3Jd9Kc2Vb7Nx5Mz1Qw8Er4Ty6Ui0OpLk3Ase=',
   APP_BASE_URL: 'https://app.school.org',
+  PUBLIC_APP_URL: 'https://app.school.org',
   CORS_ORIGINS: 'https://app.school.org,https://admin.school.org',
   S3_ACCESS_KEY_ID: 'AKIA7QW3ER9TY2UI',
   S3_SECRET_ACCESS_KEY: 'sk9Jd3Kc7Vb1Nx5Mz8Qw2Er4Ty6Ui0Op',
@@ -83,9 +84,16 @@ describe('assertProductionConfig (via validate)', () => {
     ).not.toThrow();
   });
 
-  it('rejects a missing SETTINGS_ENCRYPTION_KEY and APP_BASE_URL', () => {
-    const { SETTINGS_ENCRYPTION_KEY: _a, APP_BASE_URL: _b, ...rest } = prodConfig;
-    expect(() => validate(rest)).toThrow(/SETTINGS_ENCRYPTION_KEY[\s\S]*APP_BASE_URL/);
+  it('rejects a missing SETTINGS_ENCRYPTION_KEY, APP_BASE_URL and PUBLIC_APP_URL', () => {
+    const {
+      SETTINGS_ENCRYPTION_KEY: _a,
+      APP_BASE_URL: _b,
+      PUBLIC_APP_URL: _c,
+      ...rest
+    } = prodConfig;
+    expect(() => validate(rest)).toThrow(
+      /SETTINGS_ENCRYPTION_KEY[\s\S]*APP_BASE_URL[\s\S]*PUBLIC_APP_URL/,
+    );
   });
 
   it('rejects a CORS_ORIGINS entry with a trailing slash', () => {

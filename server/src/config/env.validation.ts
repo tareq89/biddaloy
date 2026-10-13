@@ -353,7 +353,7 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
     problems.push('JWT_SECRET must differ from JWT_SECRET_PREVIOUS');
   }
 
-  for (const key of ['SETTINGS_ENCRYPTION_KEY', 'APP_BASE_URL']) {
+  for (const key of ['SETTINGS_ENCRYPTION_KEY', 'APP_BASE_URL', 'PUBLIC_APP_URL']) {
     if (!str(key)) problems.push(`${key} is required in production`);
   }
 
