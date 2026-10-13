@@ -134,7 +134,11 @@ export class MarksController {
     @Param('examId', ParseUUIDPipe) examId: string,
     @Query() query: QueryProgressDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.gridService.progress(examId, tenant.id, query.state);
+    return this.gridService.progress(examId, tenant.id, query.state, {
+      role: tenant.role,
+      userId: user.sub,
+    });
   }
 }

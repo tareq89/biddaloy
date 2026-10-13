@@ -162,6 +162,13 @@ academic year, **or** in last year while its class still has a DRAFT exam
 sheet, and the marks-due alerts still name them. Once the exam is published,
 current-year-only applies again.
 
+A teacher miss is a **404** with the missing-section body (`Section with ID
+"<id>" not found`, D33), like every other teacher route.
+`GET /exams/:examId/marks/progress` lists and counts only the sections a
+teacher may read (`readableSectionIds`). `GET /performance/classes/:classId`
+without `sectionId` aggregates only the teacher's own sections (D35), the same
+rule as `exams/:examId/analysis/*`.
+
 ## Routines module
 
 `server/src/modules/routines/` (Epic 21.0, class routine/timetable). Owns

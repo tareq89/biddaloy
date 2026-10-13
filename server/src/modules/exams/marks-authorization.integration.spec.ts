@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
-import { ForbiddenException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -109,7 +109,7 @@ describe('MarksAuthorizationService with real TeacherScopeService (integration)'
     await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
     await expect(authz.assertCanRead(call(sec6A, liveSubjectId))).resolves.toBeUndefined();
     await expect(authz.assertCanWrite(call(sec6A, liveSubjectId))).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
   });
 
@@ -121,17 +121,17 @@ describe('MarksAuthorizationService with real TeacherScopeService (integration)'
   it('SUBJECT teacher of a soft-deleted subject is denied both read and write', async () => {
     await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, deletedSubjectId);
     await expect(authz.assertCanRead(call(sec6A, deletedSubjectId))).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
     await expect(authz.assertCanWrite(call(sec6A, deletedSubjectId))).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
   });
 
   it('CLASS teacher of 6A cannot read 6B', async () => {
     await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
     await expect(authz.assertCanRead(call(sec6B, liveSubjectId))).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
   });
 
@@ -176,16 +176,16 @@ describe('MarksAuthorizationService with real TeacherScopeService (integration)'
     await expect(authz.assertCanWrite(call(oldSection, otherSubjectId))).resolves.toBeUndefined();
     // Homeroom still never grants write.
     await expect(authz.assertCanWrite(call(oldSection, liveSubjectId))).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
 
     // Published: current-year-only applies again.
     await dataSource.query(`UPDATE exams SET status = 'PUBLISHED' WHERE id = $1`, [examId]);
     await expect(authz.assertCanRead(call(oldSection, liveSubjectId))).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
     await expect(authz.assertCanWrite(call(oldSection, otherSubjectId))).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
   });
 });

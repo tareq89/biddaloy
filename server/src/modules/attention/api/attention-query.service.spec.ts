@@ -3,22 +3,13 @@ import { UserRole } from '@biddaloy/shared';
 import { AttentionQueryService } from './attention-query.service';
 
 describe('AttentionQueryService.studentAlerts teacher scope', () => {
-  // A year rollover leaves two ACTIVE enrollments (one per academic year).
-  function make(teaches: string) {
-    const query = vi.fn(async (sql: string) => {
-      if (sql.includes('FROM students')) return [{ id: 's1' }];
-      if (sql.includes('FROM enrollments')) return [{ section_id: 'old' }, { section_id: 'new' }];
-      return [];
-    });
-    const teacherScope = {
-      rolesInSection: vi.fn(async ({ sectionId }: { sectionId: string }) =>
-        sectionId === teaches
-          ? { homeroom: 'CLASS_TEACHER', subjectIds: [] }
-          : { homeroom: null, subjectIds: [] },
-      ),
-    };
+  function make(canSee: boolean) {
+    const query = vi.fn(async (sql: string) =>
+      sql.includes('FROM students') ? [{ id: 's1' }] : [],
+    );
+    const teacherScope = { canSeeStudent: vi.fn(async () => canSee) };
     const schools = { getResolvedSettings: async () => ({ region: { locale: 'en' } }) };
-    return new AttentionQueryService(
+    const service = new AttentionQueryService(
       { query } as never,
       {} as never,
       {} as never,
@@ -28,17 +19,33 @@ describe('AttentionQueryService.studentAlerts teacher scope', () => {
       schools as never,
       {} as never,
     );
+    return { service, teacherScope };
   }
   const teacher = { userId: 'u1', role: UserRole.TEACHER };
 
-  it('allows the class teacher of either ACTIVE enrollment, whichever row comes first', async () => {
-    await expect(make('new').studentAlerts('t1', teacher, 's1')).resolves.toEqual([]);
-    await expect(make('old').studentAlerts('t1', teacher, 's1')).resolves.toEqual([]);
+  it('allows a teacher who can see the student (shared current-year scope)', async () => {
+    const { service, teacherScope } = make(true);
+    await expect(service.studentAlerts('t1', teacher, 's1')).resolves.toEqual([]);
+    expect(teacherScope.canSeeStudent).toHaveBeenCalledWith({
+      userId: 'u1',
+      tenantId: 't1',
+      studentId: 's1',
+    });
   });
 
-  it('403 when the teacher teaches none of the sections', async () => {
-    await expect(make('other').studentAlerts('t1', teacher, 's1')).rejects.toMatchObject({
-      status: 403,
+  // Epic 75 D13: a teacher miss reads exactly like a missing student.
+  it('404 "Student not found" when the teacher cannot see the student', async () => {
+    await expect(make(false).service.studentAlerts('t1', teacher, 's1')).rejects.toMatchObject({
+      status: 404,
+      message: 'Student not found',
     });
+  });
+
+  it('ADMIN skips the teacher scope', async () => {
+    const { service, teacherScope } = make(false);
+    await expect(
+      service.studentAlerts('t1', { userId: 'u1', role: UserRole.ADMIN }, 's1'),
+    ).resolves.toEqual([]);
+    expect(teacherScope.canSeeStudent).not.toHaveBeenCalled();
   });
 });

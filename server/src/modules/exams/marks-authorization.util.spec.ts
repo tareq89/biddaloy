@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { TeacherAssignmentType, UserRole } from '@biddaloy/shared';
@@ -60,17 +60,15 @@ describe('MarksAuthorizationService.assertCanWrite', () => {
       inYearWindow: false,
     });
     await expect(service.assertCanWrite(input(UserRole.TEACHER))).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
-    await expect(service.assertCanRead(input(UserRole.TEACHER))).rejects.toThrow(
-      ForbiddenException,
-    );
+    await expect(service.assertCanRead(input(UserRole.TEACHER))).rejects.toThrow(NotFoundException);
   });
 
   it('rejects a TEACHER with a different subject in the section', async () => {
     const { service } = buildService({ homeroom: null, subjectIds: ['other'] });
     await expect(service.assertCanWrite(input(UserRole.TEACHER))).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
   });
 
@@ -81,7 +79,7 @@ describe('MarksAuthorizationService.assertCanWrite', () => {
   ] as const)('rejects a %s homeroom teacher who does not teach the subject', async (homeroom) => {
     const { service } = buildService({ homeroom, subjectIds: [] });
     await expect(service.assertCanWrite(input(UserRole.TEACHER))).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
   });
 
@@ -90,7 +88,7 @@ describe('MarksAuthorizationService.assertCanWrite', () => {
   it('rejects a TEACHER whose subject was soft-deleted (absent from subjectIds)', async () => {
     const { service } = buildService({ homeroom: null, subjectIds: [] });
     await expect(service.assertCanWrite(input(UserRole.TEACHER))).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
   });
 
@@ -122,16 +120,12 @@ describe('MarksAuthorizationService.assertCanRead', () => {
 
   it('rejects a TEACHER with no row in the section', async () => {
     const { service } = buildService({ homeroom: null, subjectIds: [] });
-    await expect(service.assertCanRead(input(UserRole.TEACHER))).rejects.toThrow(
-      ForbiddenException,
-    );
+    await expect(service.assertCanRead(input(UserRole.TEACHER))).rejects.toThrow(NotFoundException);
   });
 
   it('rejects a TEACHER with only another subject in the section', async () => {
     const { service } = buildService({ homeroom: null, subjectIds: ['other'] });
-    await expect(service.assertCanRead(input(UserRole.TEACHER))).rejects.toThrow(
-      ForbiddenException,
-    );
+    await expect(service.assertCanRead(input(UserRole.TEACHER))).rejects.toThrow(NotFoundException);
   });
 });
 
@@ -157,9 +151,51 @@ describe('MarksAuthorizationService per-role table', () => {
     const { service } = buildService();
     const w = service.assertCanWrite(input(role));
     const r = service.assertCanRead(input(role));
+    // D33: the section-scoped TEACHER gets a 404 like a missing section; others keep the 403.
+    const denied = role === UserRole.TEACHER ? NotFoundException : ForbiddenException;
     if (write) await expect(w).resolves.toBeUndefined();
-    else await expect(w).rejects.toThrow(ForbiddenException);
+    else await expect(w).rejects.toThrow(denied);
     if (read) await expect(r).resolves.toBeUndefined();
-    else await expect(r).rejects.toThrow(ForbiddenException);
+    else await expect(r).rejects.toThrow(denied);
+  });
+});
+
+describe('MarksAuthorizationService teacher miss body (D33/D13)', () => {
+  it('says exactly what a missing section says', async () => {
+    const { service } = buildService();
+    await expect(service.assertCanRead(input(UserRole.TEACHER))).rejects.toThrow(
+      'Section with ID "s1" not found',
+    );
+  });
+});
+
+describe('MarksAuthorizationService.readableSectionIds (D33)', () => {
+  const who = (role: UserRole) => ({ role, userId: 'u1', tenantId: TENANT_ID });
+
+  it('is null (no filter) for a role that is not section-scoped', async () => {
+    const { service, rolesInSection } = buildService();
+    expect(await service.readableSectionIds(who(UserRole.ADMIN), ['s1'])).toBeNull();
+    expect(await service.readableSectionIds(who(UserRole.EXECUTIVE), ['s1'])).toBeNull();
+    expect(rolesInSection).not.toHaveBeenCalled();
+  });
+
+  it('keeps a TEACHER to sections with a homeroom or subject row inside the year window', async () => {
+    const byId: Record<string, Partial<Roles>> = {
+      home: { homeroom: TeacherAssignmentType.CLASS_TEACHER },
+      subj: { subjectIds: ['x'] },
+      none: {},
+      old: { subjectIds: ['x'], inYearWindow: false },
+    };
+    const service = new MarksAuthorizationService({
+      rolesInSection: vi.fn(async ({ sectionId }: { sectionId: string }) => ({
+        homeroom: null,
+        subjectIds: [],
+        inYearWindow: true,
+        ...byId[sectionId],
+      })),
+    } as unknown as TeacherScopeService);
+    expect(
+      await service.readableSectionIds(who(UserRole.TEACHER), ['home', 'subj', 'none', 'old']),
+    ).toEqual(['home', 'subj']);
   });
 });

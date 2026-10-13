@@ -1,5 +1,11 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
-import { Permission, hasTenantDataScope, roleHasPermission } from '@biddaloy/shared';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Permission,
+  RoleScope,
+  hasTenantDataScope,
+  roleHasPermission,
+  roleScope,
+} from '@biddaloy/shared';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 
 /** Tenant scope + MARK_ENTER may write marks for every section-subject
@@ -14,6 +20,13 @@ const canWriteTenantWide = (role: string) =>
  * SUPER_ADMIN is out of reads too, so the grid never looks editable and then 403s on save. */
 const canReadTenantWide = (role: string) =>
   hasTenantDataScope(role) && roleHasPermission(role, Permission.MARK_VIEW);
+
+/** D33/D13: a teacher miss is the same 404 as a missing section (`MarkGridService.findSection`);
+ * any other role keeps the 403. */
+const deny = (role: string, sectionId: string) =>
+  roleScope(role) === RoleScope.ASSIGNED_SECTIONS
+    ? new NotFoundException(`Section with ID "${sectionId}" not found`)
+    : new ForbiddenException('You are not the assigned subject teacher for this section-subject.');
 
 /**
  * The single "may this caller write marks for this section-subject?"
@@ -55,10 +68,26 @@ export class MarksAuthorizationService {
       sectionId,
     });
     if (!subjectIds.includes(subjectId) || !inYearWindow) {
-      throw new ForbiddenException(
-        'You are not the assigned subject teacher for this section-subject.',
-      );
+      throw deny(role, sectionId);
     }
+  }
+
+  /** D33: which of `sectionIds` a teacher may read marks in (any subject, same rule as
+   * `assertCanRead`). `null` = no filter: every role that is not section-scoped. */
+  async readableSectionIds(
+    input: { role: string; userId: string; tenantId: string },
+    sectionIds: string[],
+  ): Promise<string[] | null> {
+    if (roleScope(input.role) !== RoleScope.ASSIGNED_SECTIONS) return null;
+    const { userId, tenantId } = input;
+    // ponytail: one rolesInSection per section of the class (a handful); batch it if classes grow.
+    const ok = await Promise.all(
+      sectionIds.map(async (sectionId) => {
+        const r = await this.teacherScope.rolesInSection({ userId, tenantId, sectionId });
+        return r.inYearWindow && (!!r.homeroom || r.subjectIds.length > 0);
+      }),
+    );
+    return sectionIds.filter((_, i) => ok[i]);
   }
 
   /** [pr-fix #945] `MarksController.getGrid` had no object-level check at
@@ -83,9 +112,7 @@ export class MarksAuthorizationService {
       sectionId,
     });
     if ((!homeroom && !subjectIds.includes(subjectId)) || !inYearWindow) {
-      throw new ForbiddenException(
-        'You are not the assigned subject teacher for this section-subject.',
-      );
+      throw deny(role, sectionId);
     }
   }
 }

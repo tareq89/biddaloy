@@ -162,9 +162,11 @@ describe('[68.0] Marks submit rejects blank cells', () => {
     await submit().expect((r) => expect(r.status).toBeLessThan(300));
   });
 
-  it('403 for a teacher who is not this section-subject’s teacher', async () => {
+  // D33/D13: a teacher miss is the same 404 as a section that does not exist.
+  it('404 for a teacher who is not this section-subject’s teacher', async () => {
     await seed();
-    await submit(teacherToken, UserRole.TEACHER).expect(403);
+    const res = await submit(teacherToken, UserRole.TEACHER).expect(404);
+    expect(res.body.message).toBe(`Section with ID "${SEED_SECTION_1_ID}" not found`);
   });
 
   it('404 for another tenant’s teacher on this tenant’s exam', async () => {

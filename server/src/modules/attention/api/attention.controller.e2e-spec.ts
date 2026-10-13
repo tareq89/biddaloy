@@ -236,9 +236,76 @@ describe('Attention API E2E', () => {
       await call('get', `/students/${studentId}`, UserRole.PARENT).expect(403);
     });
 
-    it('403 for a TEACHER not assigned to the student section', async () => {
+    const RANDOM_STUDENT = '00000000-0000-4000-8000-000000000abc';
+    const missBody = (res: supertest.Response) => ({
+      statusCode: res.body.statusCode,
+      message: res.body.message,
+    });
+
+    // Epic 75 D13: a teacher miss is the same 404 as a student that does not exist.
+    it('404 for a TEACHER not assigned to the student section, same body as an unknown id', async () => {
       await teacherFor();
-      await call('get', `/students/${studentId}`, UserRole.TEACHER).expect(403);
+      const miss = await call('get', `/students/${studentId}`, UserRole.TEACHER).expect(404);
+      const unknown = await call('get', `/students/${RANDOM_STUDENT}`, UserRole.TEACHER).expect(
+        404,
+      );
+      expect(missBody(miss)).toEqual(missBody(unknown));
+    });
+
+    // Review r1 M2: a last-year SUBJECT row on a section the student still has an ACTIVE
+    // enrollment in no longer opens the student's alerts (current-year scope, D2).
+    it("404 for a TEACHER whose only link is last year's subject row", async () => {
+      const [past] = await ds.query(
+        `INSERT INTO academic_years (name, start_date, end_date, is_current, tenant_id)
+         VALUES ('Attn Past', '2018-01-01', '2018-12-31', false, $1) RETURNING id`,
+        [SEED_TENANT_ID],
+      );
+      const [pastClass] = await ds.query(
+        `INSERT INTO classes (tenant_id, name, academic_year_id) VALUES ($1, 'Attn Past', $2) RETURNING id`,
+        [SEED_TENANT_ID, past.id],
+      );
+      const [pastSection] = await ds.query(
+        `INSERT INTO class_sections (tenant_id, class_id, section_name) VALUES ($1, $2, 'P') RETURNING id`,
+        [SEED_TENANT_ID, pastClass.id],
+      );
+      const [subject] = await ds.query(
+        `INSERT INTO subjects (tenant_id, name_en, code) VALUES ($1, 'Attn Past Math', 'APM') RETURNING id`,
+        [SEED_TENANT_ID],
+      );
+      try {
+        await ds.query(
+          `INSERT INTO enrollments (student_id, class_id, section_id, academic_year_id, tenant_id, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+          [studentId, pastClass.id, pastSection.id, past.id, SEED_TENANT_ID],
+        );
+        const teacher = await ds.getRepository(Teacher).save({
+          user_id: SEED_ADMIN_USER_ID,
+          employee_id: `EMP-ATTN-${Math.random().toString(36).slice(2, 8)}`,
+          tenant_id: SEED_TENANT_ID,
+          designations: [TeacherDesignation.SUBJECT_TEACHER],
+        });
+        await ds.query(
+          `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id, subject_id, assignment_type)
+           VALUES ($1, $2, $3, $4, 'SUBJECT_TEACHER')`,
+          [teacher.id, pastSection.id, SEED_TENANT_ID, subject.id],
+        );
+        await add('WARNING', SEED_ADMIN_USER_ID, studentId);
+
+        const miss = await call('get', `/students/${studentId}`, UserRole.TEACHER).expect(404);
+        const unknown = await call('get', `/students/${RANDOM_STUDENT}`, UserRole.TEACHER).expect(
+          404,
+        );
+        expect(missBody(miss)).toEqual(missBody(unknown));
+      } finally {
+        await ds.query(`DELETE FROM teacher_class_sections WHERE section_id = $1`, [
+          pastSection.id,
+        ]);
+        await ds.query(`DELETE FROM enrollments WHERE section_id = $1`, [pastSection.id]);
+        await ds.query(`DELETE FROM class_sections WHERE id = $1`, [pastSection.id]);
+        await ds.query(`DELETE FROM classes WHERE id = $1`, [pastClass.id]);
+        await ds.query(`DELETE FROM academic_years WHERE id = $1`, [past.id]);
+        await ds.query(`DELETE FROM subjects WHERE id = $1`, [subject.id]);
+      }
     });
 
     it("200 for the section's CLASS_TEACHER and for ADMIN", async () => {
@@ -250,9 +317,7 @@ describe('Attention API E2E', () => {
     });
 
     it('404 for an unknown student', async () => {
-      await call('get', '/students/00000000-0000-4000-8000-000000000abc', UserRole.ADMIN).expect(
-        404,
-      );
+      await call('get', `/students/${RANDOM_STUDENT}`, UserRole.ADMIN).expect(404);
     });
   });
 });

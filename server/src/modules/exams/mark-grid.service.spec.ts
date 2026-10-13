@@ -113,6 +113,7 @@ async function buildService(
   const authz = {
     assertCanWrite: vi.fn(async () => undefined),
     assertCanRead: vi.fn(async () => undefined),
+    readableSectionIds: vi.fn(async (): Promise<string[] | null> => null),
   };
   const auditService = { record: vi.fn(async () => undefined) };
 
@@ -509,6 +510,32 @@ describe('MarkGridService.progress', () => {
 
     expect(result.counts[MarkGridState.SUBMITTED]).toBe(1);
     expect(result.outstanding).toEqual([]);
+  });
+});
+
+// D33: a teacher's progress lists and counts only the sections whose marks they may read.
+describe('MarkGridService.progress for a teacher', () => {
+  it('drops the sections the teacher cannot read and recomputes the counts', async () => {
+    const { service, sectionRepo, authz } = await buildService({
+      components: [{ id: 'comp-1', subject_id: SUBJECT_ID }],
+    });
+    sectionRepo.find.mockResolvedValue([
+      { id: 'sec-mine', tenant_id: TENANT_ID, section_name: 'A' },
+      { id: 'sec-other', tenant_id: TENANT_ID, section_name: 'B' },
+    ]);
+    authz.readableSectionIds.mockResolvedValue(['sec-mine']);
+
+    const result = await service.progress(EXAM_ID, TENANT_ID, undefined, {
+      role: UserRole.TEACHER,
+      userId: 'teacher-1',
+    });
+
+    expect(authz.readableSectionIds).toHaveBeenCalledWith(
+      { role: UserRole.TEACHER, userId: 'teacher-1', tenantId: TENANT_ID },
+      ['sec-mine', 'sec-other'],
+    );
+    expect(result.counts[MarkGridState.DRAFT]).toBe(1);
+    expect(result.outstanding.map((o) => o.section_id)).toEqual(['sec-mine']);
   });
 });
 

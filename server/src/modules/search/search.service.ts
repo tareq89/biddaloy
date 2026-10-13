@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Permission, UserRole, roleHasPermission } from '@biddaloy/shared';
+import { Permission, RoleScope, UserRole, roleHasPermission, roleScope } from '@biddaloy/shared';
 import { Student } from '../students/entities/student.entity';
 import { teacherSectionIds } from '../classes/teacher-scope.service';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
@@ -65,7 +65,7 @@ export class SearchService {
     private readonly studentRepo: Repository<Student>,
   ) {}
 
-  /** `userId` scopes a TEACHER's student and guardian groups to their current-year sections
+  /** `userId` scopes an assigned-sections role's (TEACHER's) student and guardian groups to their current-year sections
    * (Epic 75 D2/D13); with no assignment, or no `userId`, both groups are empty. The staff group
    * stays open (D2). Other roles are unchanged. */
   async search(
@@ -75,7 +75,7 @@ export class SearchService {
     userId?: string,
   ): Promise<SearchResultsDto> {
     const sectionIds =
-      role === UserRole.TEACHER
+      roleScope(role) === RoleScope.ASSIGNED_SECTIONS
         ? userId
           ? await teacherSectionIds(this.studentRepo.manager, { userId, tenantId })
           : []

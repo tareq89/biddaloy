@@ -366,24 +366,12 @@ export class AttentionQueryService {
     );
     if (!student) throw new NotFoundException('Student not found');
 
-    if (!hasTenantDataScope(caller.role)) {
-      // One ACTIVE enrollment per academic year, so a rollover can leave two: any taught section passes.
-      const enrollments: Row[] = await this.dataSource.query(
-        `SELECT section_id FROM enrollments
-         WHERE tenant_id = $1 AND student_id = $2 AND enrollment_status = 'ACTIVE'`,
-        [tenantId, studentId],
-      );
-      let teaches = false;
-      for (const { section_id } of enrollments) {
-        if (!section_id || teaches) continue;
-        const scope = await this.teacherScope.rolesInSection({
-          userId: caller.userId,
-          tenantId,
-          sectionId: section_id,
-        });
-        teaches = !!scope.homeroom || scope.subjectIds.length > 0;
-      }
-      if (!teaches) throw new ForbiddenException('You do not teach this student');
+    // Epic 75 D2/D13: the shared current-year teacher scope, and a miss looks like a missing student.
+    if (
+      !hasTenantDataScope(caller.role) &&
+      !(await this.teacherScope.canSeeStudent({ userId: caller.userId, tenantId, studentId }))
+    ) {
+      throw new NotFoundException('Student not found');
     }
 
     const loc = await this.localeFor(tenantId, locale);

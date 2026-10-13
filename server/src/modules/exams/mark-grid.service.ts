@@ -510,6 +510,7 @@ export class MarkGridService {
     examId: string,
     tenantId: string,
     stateFilter?: MarkGridState,
+    caller?: { role: string; userId: string },
   ): Promise<{
     counts: Record<MarkGridState, number>;
     outstanding: Array<{
@@ -523,7 +524,7 @@ export class MarkGridService {
   }> {
     const exam = await this.findExam(examId, tenantId);
 
-    const [sections, components, grids] = await Promise.all([
+    const [classSections, components, grids] = await Promise.all([
       this.sectionRepo.find({
         where: { class_id: exam.class_id, tenant_id: tenantId, deleted_at: IsNull() },
         order: { section_name: 'ASC' },
@@ -537,6 +538,17 @@ export class MarkGridService {
       }),
       this.gridRepo.find({ where: { exam_id: examId, tenant_id: tenantId } }),
     ]);
+
+    // D33: a teacher sees (and counts) only the sections whose marks they may read.
+    const readable = caller
+      ? await this.authz.readableSectionIds(
+          { ...caller, tenantId },
+          classSections.map((s) => s.id),
+        )
+      : null;
+    const sections = readable
+      ? classSections.filter((s) => readable.includes(s.id))
+      : classSections;
 
     const subjectIds = [...new Set(components.map((c) => c.subject_id))];
     // Names only from this tenant's own subjects (multi-tenancy rule) — a
