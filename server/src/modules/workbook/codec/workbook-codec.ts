@@ -313,9 +313,9 @@ export async function readWorkbook(buffer: Buffer): Promise<ReadWorkbookResult> 
   const workbook = new ExcelJS.Workbook();
 
   try {
-    // Whole-school backup: 20 MB compressed upload cap; 512 MB inflated sits
-    // below what `xlsx.load` can hold in heap anyway (see "Known asymmetry" above).
-    assertXlsxWithinLimits(buffer, { maxUncompressedBytes: 512 * 1024 * 1024, maxEntries: 5_000 });
+    // Whole-school backup: the 20 MB compressed upload cap is what binds in
+    // practice; 256 MB inflated is generous headroom over a real backup.
+    assertXlsxWithinLimits(buffer, { maxUncompressedBytes: 256 * 1024 * 1024, maxEntries: 5_000 });
     await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
   } catch (cause) {
     throw new WorkbookFormatError(
