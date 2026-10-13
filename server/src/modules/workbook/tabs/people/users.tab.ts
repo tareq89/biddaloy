@@ -104,6 +104,7 @@ const excluded: readonly string[] = [
   'profile_picture_url', // the image lives in the storage bucket; a workbook cannot carry it
   'preferences', // per-user UI state, not tenant data
   'last_login_at', // destination's own audit history
+  'tokens_valid_after', // [75.2] session cut-off of the destination account's own sessions, not tenant data
 ];
 
 const MAX_LENGTHS: Record<string, number> = {
