@@ -98,7 +98,10 @@ describe('sign-in methods', () => {
 
     // Reopening starts empty.
     await userEvent.click(screen.getByRole('button', { name: 'Connect Google' }));
-    expect((await screen.findByLabelText('Current password')).value).toBe('');
+    expect(await screen.findByLabelText<HTMLInputElement>('Current password')).toHaveProperty(
+      'value',
+      '',
+    );
   });
 
   it('Connect shows the wrong-password and set-a-password lines', async () => {
