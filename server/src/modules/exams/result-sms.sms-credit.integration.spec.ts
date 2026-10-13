@@ -71,6 +71,8 @@ describe('ResultSmsService metered SMS credit (integration, #1317)', () => {
     failSaveFor = new Set();
     saveCalls = 0;
     addCalls = 0;
+    // Same exam + publication each test: stale logs would read as already_sent.
+    await logRepo.delete({ tenant_id: TENANT_ID });
     credits = makeMeteredCreditService(dataSource);
     await credits.grant(TENANT_ID, 100, { idempotencyKey: 'seed:result-sms' });
 
@@ -99,7 +101,15 @@ describe('ResultSmsService metered SMS credit (integration, #1317)', () => {
 
     service = new ResultSmsService(
       {
-        findOne: async () => ({ id: EXAM_ID, status: ExamStatus.PUBLISHED, name: EXAM_NAME }),
+        findOne: async () => ({
+          id: EXAM_ID,
+          status: ExamStatus.PUBLISHED,
+          name: EXAM_NAME,
+          published_at: new Date('2026-10-01T00:00:00Z'),
+        }),
+        manager: {
+          findOne: async () => ({ id: TENANT_ID, settings: { region: { locale: 'en-BD' } } }),
+        },
       } as any,
       {
         find: async () =>
@@ -107,6 +117,7 @@ describe('ResultSmsService metered SMS credit (integration, #1317)', () => {
       } as any,
       { find: async () => students } as any,
       {
+        find: (o: any) => logRepo.find(o),
         create: (v: any) => logRepo.create(v),
         save: async (v: any) => {
           saveCalls += 1;
@@ -229,5 +240,24 @@ describe('ResultSmsService metered SMS credit (integration, #1317)', () => {
 
     expect(await balanceFor(dataSource, OTHER_TENANT_ID)).toEqual({ available: 50, reserved: 0 });
     expect(await ledgerFor(dataSource, OTHER_TENANT_ID)).toEqual(otherBefore);
+  });
+
+  it('two sequential sends leave one RESERVE and one log per (student, guardian)', async () => {
+    await send();
+    const second = await send();
+    expect(second.queued).toBe(0);
+    expect(second.skipped).toHaveLength(2);
+    const reserves = (await ledgerFor(dataSource, TENANT_ID)).filter((r) => r.kind === 'RESERVE');
+    expect(reserves).toHaveLength(1);
+    expect(await logRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(2);
+  });
+
+  it('two concurrent sends still leave one log per pair and release the loser', async () => {
+    await Promise.all([send(), send()]);
+    expect(await logRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(2);
+    expect(await balanceFor(dataSource, TENANT_ID)).toEqual({
+      available: 100 - totalUnits(),
+      reserved: totalUnits(),
+    });
   });
 });

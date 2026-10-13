@@ -65,7 +65,7 @@ describe('survey tabs', () => {
       id: S,
       title: 'Term 1',
       status: 'OPEN',
-      anonymous: true,
+      anonymous: false,
       respondent: 'BOTH',
       opens_at: null,
       closes_at: created,
@@ -73,7 +73,7 @@ describe('survey tabs', () => {
       created_at: created,
     });
     expect(roundTrip(surveysTab, survey, {}, keys)).toMatchObject({
-      anonymous: true,
+      anonymous: false,
       min_responses: 5,
     });
 

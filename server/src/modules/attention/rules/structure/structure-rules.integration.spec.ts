@@ -10,6 +10,7 @@ import { SchoolSettingsReader } from '../../../schools/settings/school-settings-
 import { SectionService } from '../../../classes/classes.service';
 import { RoutineStateService } from '../../../routines/routine-state.service';
 import { SubstitutionsService } from '../../../routines/substitutions.service';
+import { TeacherBusyService } from '../../../routines/teacher-busy.service';
 import { attentionEvents } from '../../attention.constants';
 import { ATTENTION_RECHECK, AttentionRecheckPayload } from '../../engine/attention-events';
 import { AlertWriterService } from '../../engine/alert-writer.service';
@@ -135,6 +136,10 @@ describe('Structure rules (integration)', () => {
        VALUES ($1, 'x', 'Structure Teacher', 'ACTIVE', NOW(), NOW()) RETURNING id`,
       [`structure-t-${rand()}@example.com`],
     );
+    await ds.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'TEACHER')`,
+      [userId, t.id],
+    );
     const [{ id }] = await ds.query(
       `WITH sp AS (
          INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
@@ -148,6 +153,26 @@ describe('Structure rules (integration)', () => {
     return id as string;
   };
 
+  const endMembership = (teacherId: string) =>
+    ds.query(
+      `UPDATE user_tenants SET deleted_at = NOW()
+       WHERE user_id = (SELECT user_id FROM teachers WHERE id = $1)`,
+      [teacherId],
+    );
+
+  const assignClassTeacher = async (t: Tenant, teacherId: string, sectionId: string) => {
+    // Earlier tests leave assignments behind; start each section from a clean slate.
+    await ds.query(`DELETE FROM teacher_class_sections WHERE section_id = $1 AND tenant_id = $2`, [
+      sectionId,
+      t.id,
+    ]);
+    await ds.query(
+      `INSERT INTO teacher_class_sections (tenant_id, teacher_id, section_id, assignment_type)
+       VALUES ($1, $2, $3, 'CLASS_TEACHER')`,
+      [t.id, teacherId, sectionId],
+    );
+  };
+
   beforeAll(async () => {
     redis = new Redis(process.env.REDIS_URL!);
     const module = await createTestModule(
@@ -158,6 +183,8 @@ describe('Structure rules (integration)', () => {
         SectionService,
         RoutineStateService,
         SubstitutionsService,
+        // These specs test attention rules, not clash detection: nobody is busy.
+        { provide: TeacherBusyService, useValue: { busyAt: async () => null } },
         { provide: TENANT_STATUS_REDIS, useValue: redis },
         { provide: SchoolSettingsReader, useValue: {} },
       ],
@@ -271,6 +298,55 @@ describe('Structure rules (integration)', () => {
       { tenantId: A.id, ruleKey: 'routine.substitution_today', actorUserId: A.adminId },
       { tenantId: A.id, ruleKey: 'routine.changed_today', actorUserId: A.adminId },
     ]);
+  });
+
+  it('section.no_class_teacher: a class teacher whose membership ended no longer counts', async () => {
+    const live = await mkTeacher(A);
+    const left = await mkTeacher(A);
+    await assignClassTeacher(A, live, A.sectionIds[0]);
+    await assignClassTeacher(A, left, A.sectionIds[1]);
+    expect(await noClassTeacher.evaluate(ctx(A))).toEqual([]);
+    await endMembership(left);
+    expect((await noClassTeacher.evaluate(ctx(A)))[0].params).toMatchObject({
+      count: 1,
+      sections: 'Six-B',
+    });
+  });
+
+  it('section.no_class_teacher: one ended and one live role row still counts', async () => {
+    const teacherId = await mkTeacher(A);
+    await ds.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, deleted_at)
+       SELECT user_id, $2, 'EXECUTIVE', NOW() FROM teachers WHERE id = $1`,
+      [teacherId, A.id],
+    );
+    for (const sid of A.sectionIds) await assignClassTeacher(A, teacherId, sid);
+    expect(await noClassTeacher.evaluate(ctx(A))).toEqual([]);
+  });
+
+  it("section.no_class_teacher: a live membership in tenant B does not cover tenant A's section", async () => {
+    const teacherId = await mkTeacher(A);
+    for (const sid of A.sectionIds) await assignClassTeacher(A, teacherId, sid);
+    await endMembership(teacherId);
+    await ds.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role)
+       SELECT user_id, $2, 'TEACHER' FROM teachers WHERE id = $1`,
+      [teacherId, B.id],
+    );
+    expect((await noClassTeacher.evaluate(ctx(A)))[0].params.count).toBe(2);
+  });
+
+  it('routine.subject_no_teacher: a slot whose only teacher left raises the alert', async () => {
+    await mkRoutineKit(A);
+    const slotId = await mkSlot(A);
+    const teacherId = await mkTeacher(A);
+    await ds.query(
+      `INSERT INTO routine_slot_teachers (tenant_id, routine_slot_id, teacher_id) VALUES ($1, $2, $3)`,
+      [A.id, slotId, teacherId],
+    );
+    expect(await noTeacher.evaluate(ctx(A))).toEqual([]);
+    await endMembership(teacherId);
+    expect((await noTeacher.evaluate(ctx(A)))[0].params.count).toBe(1);
   });
 
   it('guardian.contact_missing: a student whose only guardian has no phone, then fixed', async () => {

@@ -63,5 +63,20 @@
   },
   "errors": {
     "unknown": "Something went wrong. Please try again."
+  },
+  "unpublish": {
+    "button": "Unpublish",
+    "title": "Unpublish seat plan",
+    "description": "The plan goes back to draft so you can change seats, rooms and invigilators. You can publish it again afterwards.",
+    "confirm": "Unpublish",
+    "errorMessage": "Couldn't unpublish the seat plan.",
+    "errorStarted": "The first exam of this plan has started, so it can no longer be changed."
+  },
+  "delete": {
+    "button": "Delete plan",
+    "title": "Delete seat plan",
+    "description": "This draft plan is deleted. Its exam subjects can then be put into a new seat plan.",
+    "confirm": "Delete",
+    "errorMessage": "Couldn't delete the seat plan."
   }
 }

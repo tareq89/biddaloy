@@ -66,6 +66,7 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
     metered?: boolean;
     creditService?: SmsCreditService;
     sectionGonePlan?: boolean;
+    pushAccepted?: (userId: string) => number;
   }) {
     // [#2216] CommunicationsService now reserves for an unreserved SMS itself,
     // so an "unmetered" scenario must be unmetered for it too.
@@ -86,6 +87,8 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
       user_id: `gu-${id}`,
       full_name: `Guardian ${id}`,
       phone,
+      is_primary_contact: true,
+      notifications_enabled: true,
     });
     const student = {
       id: 'kid',
@@ -135,7 +138,12 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
       {} as never,
       { summarize: async () => new Map([['p1', { periods_behind: 3 }]]) } as never,
       {} as never,
-      { sendToUser: async (u: string) => void pushes.push(u) } as never,
+      {
+        sendToUser: async (u: string) => {
+          pushes.push(u);
+          return { accepted: opts.pushAccepted?.(u) ?? 0, transient: 0, pruned: 0 };
+        },
+      } as never,
       communications,
       effectiveCredits,
     );
@@ -212,5 +220,20 @@ describe('StudyPlanFlagsScheduler guardian-digest SMS credit (integration, D26)'
     expect(jobs).toHaveLength(2);
     expect(jobs.every((j) => j.data.batchId === undefined)).toBe(true);
     expect(await reserves()).toHaveLength(0);
+  });
+
+  it("push reached one guardian: only the other gets an SMS, the first one's units are released", async () => {
+    await credits.grant(TENANT_ID, 100, { idempotencyKey: `seed:${week}` });
+    const before = await balanceFor(ds, TENANT_ID);
+    await build({ provider: 'test', pushAccepted: (u) => (u === 'gu-1' ? 1 : 0) }).runDigest(
+      TENANT_ID,
+      SETTINGS,
+    );
+    expect(jobs).toHaveLength(1);
+    const log: any = await logRepo.findOneBy({ id: jobs[0].data.logId });
+    expect(log.recipient_address).toBe('+8801700000002');
+    // Reserved for two SMS; guardian 1's share is released straight away.
+    const after = await balanceFor(ds, TENANT_ID);
+    expect(after.reserved - before.reserved).toBe(units);
   });
 });

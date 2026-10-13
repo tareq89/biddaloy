@@ -26,6 +26,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { School } from '../schools/entities/school.entity';
 import { StudentWallet } from './entities/student-wallet.entity';
+import { WalletTransaction } from './entities/wallet-transaction.entity';
 import { Program } from '../programs/entities/program.entity';
 import { ProgramEnrollment } from '../programs/entities/program-enrollment.entity';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -43,6 +44,7 @@ import {
   PaymentAllocationType,
   ProgramEnrollmentStatus,
   FineTrigger,
+  WalletTransactionKind,
 } from '@biddaloy/shared';
 
 const JWT_SECRET = 'test-fee-generation-secret';
@@ -679,6 +681,17 @@ describe('FeeGenerationService (integration)', () => {
       expect(bills).toHaveLength(1);
       expect(bills[0].id).not.toBe(bill.id);
       expect(bills[0].occurrence).toBe(1);
+      expect(bills[0].status).toBe(FeeStatus.PENDING);
+
+      // MON-03: the money paid on the removed bill is not stranded — it sits
+      // in the wallet as a CREDIT_BILL_REMOVED row tied to that payment.
+      const wallet = await walletRepo.findOneOrFail({ where: { student_id: student.id } });
+      expect(Number(wallet.balance)).toBe(Number(bill.total_amount));
+      const credit = await dataSource.getRepository(WalletTransaction).findOneOrFail({
+        where: { wallet_id: wallet.id, kind: WalletTransactionKind.CREDIT_BILL_REMOVED },
+      });
+      expect(credit.payment_id).toBe(payment.id);
+      expect(credit.student_fee_id).toBe(bill.id);
     });
 
     it('recreates a soft-deleted bill under SKIP once the old one is removed (partial unique index)', async () => {

@@ -314,7 +314,7 @@ describe('FinesService (integration)', () => {
     });
   });
 
-  describe('waiveFine', () => {
+  describe('waiveBill', () => {
     async function makeFineBill(overrides: Partial<StudentFee> = {}) {
       const student = await studentRepo.save(makeStudent());
       const structure = await structureRepo.save(makeFineStructure({ amount: 100 }));
@@ -341,7 +341,7 @@ describe('FinesService (integration)', () => {
       const { bill } = await makeFineBill();
       const token = await issueApprovalToken('jti-waive-full');
 
-      const result = await service.waiveFine(
+      const result = await service.waiveBill(
         bill.id,
         { reason: 'Goodwill waiver' },
         TENANT_ID,
@@ -364,7 +364,7 @@ describe('FinesService (integration)', () => {
       const { bill } = await makeFineBill({ paid_amount: 40, status: FeeStatus.PARTIALLY_PAID });
       const token = await issueApprovalToken('jti-waive-half-paid');
 
-      const result = await service.waiveFine(
+      const result = await service.waiveBill(
         bill.id,
         { reason: 'Waive the rest' },
         TENANT_ID,
@@ -380,7 +380,7 @@ describe('FinesService (integration)', () => {
       const { bill } = await makeFineBill();
 
       // Waive 99.99 of 100: one cent is still owed, so the bill must NOT be WAIVED.
-      const first = await service.waiveFine(
+      const first = await service.waiveBill(
         bill.id,
         { amount: 99.99, reason: 'Almost all' },
         TENANT_ID,
@@ -390,7 +390,7 @@ describe('FinesService (integration)', () => {
       expect(first.status).toBe(FeeStatus.PENDING);
 
       // Waiving the last cent clears it.
-      const second = await service.waiveFine(
+      const second = await service.waiveBill(
         bill.id,
         { reason: 'Last cent' },
         TENANT_ID,
@@ -406,7 +406,7 @@ describe('FinesService (integration)', () => {
       const token = await issueApprovalToken('jti-waive-paid');
 
       await expect(
-        service.waiveFine(
+        service.waiveBill(
           bill.id,
           { reason: 'Nothing left' },
           TENANT_ID,
@@ -420,7 +420,7 @@ describe('FinesService (integration)', () => {
       const { bill } = await makeFineBill();
 
       await expect(
-        service.waiveFine(
+        service.waiveBill(
           bill.id,
           { reason: 'No token' },
           TENANT_ID,
@@ -433,42 +433,115 @@ describe('FinesService (integration)', () => {
       expect(unchanged.status).toBe(FeeStatus.PENDING);
     });
 
-    it('rejects waiving a tuition (non-FINE) bill with 400', async () => {
+    async function makeBill(feeType: FeeType, total: number, overrides: Partial<StudentFee> = {}) {
       const student = await studentRepo.save(makeStudent());
-      const structure = await structureRepo.save(makeTuitionStructure());
-      const bill = await studentFeeRepo.save(
+      const structure = await structureRepo.save(
+        structureRepo.create({
+          fee_type: feeType,
+          name: `${feeType} structure`,
+          amount: total,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      return studentFeeRepo.save(
         studentFeeRepo.create({
           student_id: student.id,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
           fee_structure_id: structure.id,
           period_start: new Date('2026-03-01'),
           occurrence: 1,
-          total_amount: 1000,
+          total_amount: total,
           paid_amount: 0,
           discount_amount: 0,
           standing_discount_amount: 0,
           one_off_discount_amount: 0,
           status: FeeStatus.PENDING,
+          ...overrides,
         }),
       );
-      const token = await issueApprovalToken('jti-waive-tuition');
+    }
+
+    it('fully waives an open LATE_FEE bill to WAIVED (MON-08)', async () => {
+      const bill = await makeBill(FeeType.LATE_FEE, 1000);
+      const token = await issueApprovalToken('jti-waive-any-LATE_FEE');
+
+      const result = await service.waiveBill(
+        bill.id,
+        { reason: 'Hardship month' },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(token),
+      );
+
+      expect(result).toEqual({ id: bill.id, amount: 1000, status: FeeStatus.WAIVED });
+      const logs = await auditRepo.find({
+        where: { entity_id: bill.id, entity_type: 'StudentFee' },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0].new_values).toMatchObject({ fee_type: FeeType.LATE_FEE });
+    });
+
+    it('fully waives an open MONTHLY_TUITION bill to WAIVED (MON-08)', async () => {
+      const bill = await makeBill(FeeType.MONTHLY_TUITION, 1000);
+      const token = await issueApprovalToken('jti-waive-any-MONTHLY_TUITION');
+
+      const result = await service.waiveBill(
+        bill.id,
+        { reason: 'Hardship month' },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(token),
+      );
+
+      expect(result).toEqual({ id: bill.id, amount: 1000, status: FeeStatus.WAIVED });
+      const logs = await auditRepo.find({
+        where: { entity_id: bill.id, entity_type: 'StudentFee' },
+      });
+      expect(logs).toHaveLength(1);
+      expect(logs[0].new_values).toMatchObject({ fee_type: FeeType.MONTHLY_TUITION });
+    });
+
+    it('partially waives a tuition bill and leaves the remainder open', async () => {
+      const bill = await makeBill(FeeType.MONTHLY_TUITION, 1000);
+      const token = await issueApprovalToken('jti-waive-tuition-partial');
+
+      const result = await service.waiveBill(
+        bill.id,
+        { reason: 'Part write-off', amount: 400 },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(token),
+      );
+
+      expect(result).toEqual({ id: bill.id, amount: 400, status: FeeStatus.PENDING });
+      const row = await studentFeeRepo.findOneByOrFail({ id: bill.id });
+      expect(Number(row.discount_amount)).toBe(400);
+    });
+
+    it('refuses a soft-deleted bill with 404 and keeps the approval token unspent', async () => {
+      const bill = await makeBill(FeeType.LATE_FEE, 100);
+      await studentFeeRepo.softDelete({ id: bill.id });
+      const token = await issueApprovalToken('jti-waive-deleted');
 
       await expect(
-        service.waiveFine(
+        service.waiveBill(
           bill.id,
-          { reason: 'Wrong bill type' },
+          { reason: 'Gone' },
           TENANT_ID,
           ACTOR_USER_ID,
           requestWithToken(token),
         ),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(NotFoundException);
+      // The token was not spent: its jti is still live in Redis.
+      expect(await redis.exists('approval:jti-waive-deleted')).toBe(1);
     });
 
     it('leaves an audit row with the waive reason', async () => {
       const { bill } = await makeFineBill();
       const token = await issueApprovalToken('jti-waive-audit');
 
-      await service.waiveFine(
+      await service.waiveBill(
         bill.id,
         { reason: 'Audited reason' },
         TENANT_ID,
@@ -511,7 +584,7 @@ describe('FinesService (integration)', () => {
       // TENANT_ID (the caller's tenant) must not be able to touch a bill
       // whose fee_structure belongs to OTHER_TENANT_ID.
       await expect(
-        service.waiveFine(
+        service.waiveBill(
           bill.id,
           { reason: 'Should not work' },
           TENANT_ID,

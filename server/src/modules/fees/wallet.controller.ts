@@ -1,4 +1,19 @@
-import { Controller, Get, Param, Query, UseGuards, Inject } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+  Inject,
+} from '@nestjs/common';
+import { Request } from 'express';
+import { DataSource } from 'typeorm';
 import { AuthGuard } from '@nestjs/passport';
 import {
   ApiExtraModels,
@@ -15,19 +30,20 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { FamilyAccessService } from '../students/family-access.service';
 import { WalletService } from './wallet.service';
-import { StudentWalletResponseDto } from './dto/wallet.dto';
+import { StudentWalletResponseDto, WalletPayoutDto } from './dto/wallet.dto';
+import { ApprovalService } from '../auth/guards/approval.guard';
 // [16.8.2] Family-facing shapes live in the one allow-list module.
 import { FamilyStudentWalletResponseDto, toFamilyWalletTransaction } from './dto/family.dto';
-import { Permission, isGuardianRole } from '@biddaloy/shared';
+import { ApprovalScope, Permission, isGuardianRole } from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 
 /** Default page size for the wallet ledger shown on `GET /students/:id/wallet`. */
 const WALLET_HISTORY_LIMIT = 50;
 
 /**
- * The read side of a student's wallet (16.1.5). Writes only ever happen as
- * a side effect of another operation (checkout, fee generation, reversal)
- * via `WalletService.credit`/`debit`, never through a route of their own.
+ * A student's wallet (16.1.5): the read route, plus the staff-only payout
+ * (MON-09). Other writes only happen as a side effect of another operation
+ * (checkout, fee generation, reversal) via `WalletService.credit`/`debit`.
  */
 @ApiTags('fees')
 @ApiTenantAuth()
@@ -38,6 +54,8 @@ export class WalletController {
   constructor(
     @Inject(WalletService) private readonly walletService: WalletService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
+    @Inject(DataSource) private readonly dataSource: DataSource,
+    @Inject(ApprovalService) private readonly approvalService: ApprovalService,
   ) {}
 
   @Get('students/:id/wallet')
@@ -81,6 +99,50 @@ export class WalletController {
       balance,
       // tx.amount is a numeric-as-string from the pg driver; normalize so
       // the staff shape matches `balance`'s type and the OpenAPI contract.
+      transactions: history.data.map((tx) => ({ ...tx, amount: Number(tx.amount) })),
+    };
+  }
+
+  @Post('students/:id/wallet/payout')
+  @RequirePermissions(Permission.PAYMENT_REVERSE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Pay wallet money out to the family as a cash refund (MON-09). Staff only; needs a fresh payments.reverse approval token (X-Approval-Token); the service consumes it after every check passes. Works for a student who has left. 409 WALLET_PAYOUT_EXCEEDS_BALANCE if more than the balance.',
+  })
+  @ApiOkResponse({ type: StudentWalletResponseDto })
+  async payout(
+    @Param('id', ParseUUIDPipe) studentId: string,
+    @Body() dto: WalletPayoutDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ): Promise<StudentWalletResponseDto> {
+    await this.dataSource.transaction((manager) =>
+      this.walletService.payout(
+        {
+          studentId,
+          tenantId: tenant.id,
+          amount: dto.amount,
+          reason: dto.reason,
+          actorUserId: user.sub,
+          approve: async () =>
+            (
+              await this.approvalService.consume(
+                request as unknown as Parameters<ApprovalService['consume']>[0],
+                ApprovalScope.PAYMENTS_REVERSE,
+              )
+            ).approverId,
+        },
+        manager,
+      ),
+    );
+    const [balance, history] = await Promise.all([
+      this.walletService.balance(studentId, tenant.id),
+      this.walletService.history(studentId, tenant.id, 1, WALLET_HISTORY_LIMIT),
+    ]);
+    return {
+      balance,
       transactions: history.data.map((tx) => ({ ...tx, amount: Number(tx.amount) })),
     };
   }

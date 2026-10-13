@@ -24,26 +24,13 @@ import {
 import { LateFeeService } from './late-fee.service';
 import { FineSweepService } from './fines/fine-sweep.service';
 import { applyProgramAudience } from './program-audience';
-
-/**
- * `RecurrenceRule` per #676's documented contract (`rule jsonb` on
- * `recurring_schedules`, [16.7.1]/#675).
- */
-type RecurrenceRule =
-  { kind: 'MONTHLY'; day_of_month: number | 'LAST' } | { kind: 'WEEKLY'; weekdays: number[] };
+import { firstFireInPeriod, periodFor } from './recurrence.util';
+import type { RecurringScheduleRule } from './entities/recurring-schedule.entity';
 
 /**
  * Row shape read off `recurring_schedules` (+ its `structures`/`exclusions`
- * side tables) via raw SQL rather than a TypeORM entity/repository.
- *
- * [16.7.1]/#675 — the sibling ticket that owns `RecurringSchedule` (entity,
- * migration, `recurrence.util.ts`'s real `periodFor`/`isDue`) — had not
- * merged to `main` when this was written (Wave 7 tickets run in parallel).
- * This file was built against #676's own documented contract for those
- * table/column names instead of importing code that does not exist yet.
- * Once #675 lands, this raw-SQL access and the local `periodFor`/`isDue`
- * below should be replaced with #675's real repository/entities and
- * `recurrence.util.ts` — flagged for re-verification in the PR.
+ * side tables) via raw SQL rather than a TypeORM entity/repository. The
+ * period maths and the "due" test come from `recurrence.util.ts`.
  */
 interface RecurringScheduleRow {
   id: string;
@@ -55,7 +42,7 @@ interface RecurringScheduleRow {
     program_id?: string;
     enrollment_status?: string;
   };
-  rule: RecurrenceRule;
+  rule: RecurringScheduleRule;
   period_type: 'MONTH' | 'WEEK';
   due_days_after_period_start: number;
   starts_on: string;
@@ -65,33 +52,11 @@ interface RecurringScheduleRow {
   fee_structure_ids: string[];
 }
 
-/** Mirrors #675's `recurrence.util.ts` contract: first day of the billing
- * period (month/week) that contains `today`. */
-export function periodFor(today: string, rule: Pick<RecurrenceRule, 'kind'>): string {
-  const d = new Date(`${today}T00:00:00.000Z`);
-  if (rule.kind === 'MONTHLY') {
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
-  }
-  // WEEKLY: Monday-start week containing `today`.
-  const day = d.getUTCDay(); // 0=Sun..6=Sat
-  const diffToMonday = day === 0 ? 6 : day - 1;
-  d.setUTCDate(d.getUTCDate() - diffToMonday);
-  return d.toISOString().slice(0, 10);
-}
-
-/** Mirrors #675's `recurrence.util.ts` contract: is `today` a firing day
- * for `rule`? */
-export function isDue(rule: RecurrenceRule, today: string): boolean {
-  const d = new Date(`${today}T00:00:00.000Z`);
-  if (rule.kind === 'WEEKLY') {
-    return rule.weekdays.includes(d.getUTCDay());
-  }
-  const lastDayOfMonth = new Date(
-    Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0),
-  ).getUTCDate();
-  const target =
-    rule.day_of_month === 'LAST' ? lastDayOfMonth : Math.min(rule.day_of_month, lastDayOfMonth);
-  return d.getUTCDate() === target;
+/** Normal due date, unless it is today or past: then the bill is due tomorrow, so the
+ * late-fee sweep that runs right after (it counts due_date + grace <= today) skips it
+ * even with 0 grace days. */
+function catchUpDueDate(normal: string, today: string): string {
+  return normal > today ? normal : addDays(today, 1);
 }
 
 function addDays(dateIso: string, days: number): string {
@@ -217,8 +182,9 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
 
   private async runTenant(tenantId: string, today: string): Promise<void> {
     // A restore is rewriting this school's data, so skip it for now. The next
-    // nightly run would NOT pick this day up (`isDue` matches only the exact
-    // firing day), so re-queue the school for this same `today` and keep
+    // nightly run picks the period up only while still inside it (due on or
+    // after the fire day), so a restore spanning the period's last day would
+    // lose it. Re-queue the school for this same `today` and keep
     // retrying until the lock clears (a live restore renews it; a crashed one
     // expires after the 1 h TTL). One job per 15 min per restoring school.
     // `last_run_period` keeps the catch-up exactly-once; the late-fee and fine
@@ -285,8 +251,8 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     }
   }
 
-  /** Active schedules whose window covers `today` and whose rule fires
-   * today — `last_run_period` re-check happens per-schedule in
+  /** Active schedules whose window covers `today` and whose rule's fire day this
+   * period has arrived (due on or after the fire day, once per period) — `last_run_period` re-check happens per-schedule in
    * `runSchedule`, inside the same transaction as the write, so a
    * concurrent run can't double-fire the same period. */
   private async findDueSchedules(tenantId: string, today: string): Promise<RecurringScheduleRow[]> {
@@ -306,7 +272,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       [tenantId, today],
     )) as RecurringScheduleRow[];
 
-    // [CodeRabbit review, PR #801] isDue() throws on a malformed rule
+    // [CodeRabbit review, PR #801] firstFireInPeriod() throws on a malformed rule
     // (e.g. a persisted WEEKLY row with no weekdays) — this runs before
     // runTenant's per-schedule try/catch, so one bad row here would
     // otherwise abort findDueSchedules entirely and skip every other
@@ -314,7 +280,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     // just the malformed one.
     return rows.filter((row) => {
       try {
-        return isDue(row.rule, today);
+        return firstFireInPeriod(row.rule, today, row.starts_on) !== null;
       } catch (error) {
         this.logger.error(
           `fees-daily: schedule ${row.id} has a malformed recurrence rule, skipping: ${String(error)}`,
@@ -362,10 +328,18 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
 
       if (!fresh || !fresh.is_active || fresh.deleted_at) return;
       if (fresh.starts_on > today || fresh.ends_on < today) return;
-      if (!isDue(fresh.rule, today)) return;
+      if (firstFireInPeriod(fresh.rule, today, fresh.starts_on) === null) return;
 
       const freshPeriod = periodFor(today, fresh.rule);
       if (fresh.last_run_period === freshPeriod) return;
+
+      // A stale restore catch-up (past `today`) can reach a period already billed after
+      // `last_run_period` moved on; the batch row is the per-period key.
+      const [billed] = await manager.query(
+        `SELECT 1 FROM fee_generations WHERE tenant_id = $1 AND recurring_schedule_id = $2 AND period_start = $3 LIMIT 1`,
+        [fresh.tenant_id, fresh.id, freshPeriod],
+      );
+      if (billed) return;
 
       const feeStructureRows = (await manager.query(
         `SELECT fee_structure_id FROM recurring_schedule_structures WHERE schedule_id = $1`,
@@ -401,11 +375,13 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       const students = await qb.getMany();
       const studentIds = students.map((s) => s.id).filter((id) => !excluded.has(id));
 
+      // ponytail: this path writes no fee_generations row, so the stale-catch-up check above
+      // cannot see it; GREATEST still stops the rewind. Rare; record a marker row if it bites.
       if (studentIds.length === 0 || feeStructureIds.length === 0) {
-        await manager.query(`UPDATE recurring_schedules SET last_run_period = $1 WHERE id = $2`, [
-          freshPeriod,
-          fresh.id,
-        ]);
+        await manager.query(
+          `UPDATE recurring_schedules SET last_run_period = GREATEST(last_run_period, $1::date) WHERE id = $2`,
+          [freshPeriod, fresh.id],
+        );
         return;
       }
 
@@ -417,7 +393,9 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
           student_ids: studentIds,
           fee_structure_ids: feeStructureIds,
           include_inactive: false,
-          due_date: addDays(freshPeriod, fresh.due_days_after_period_start),
+          // A caught-up run must not create a bill that is already overdue (the late-fee sweep
+          // runs right after): never due before tomorrow.
+          due_date: catchUpDueDate(addDays(freshPeriod, fresh.due_days_after_period_start), today),
           duplicate_strategy: DuplicateStrategy.SKIP,
           notify_families: fresh.notify_families,
         },
@@ -444,10 +422,10 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       // re-trigger (a second `FeeGeneration` batch row / notify event,
       // even though `duplicate_strategy: SKIP` already made the *bills*
       // themselves idempotent).
-      await manager.query(`UPDATE recurring_schedules SET last_run_period = $1 WHERE id = $2`, [
-        freshPeriod,
-        fresh.id,
-      ]);
+      await manager.query(
+        `UPDATE recurring_schedules SET last_run_period = GREATEST(last_run_period, $1::date) WHERE id = $2`,
+        [freshPeriod, fresh.id],
+      );
 
       if (fresh.notify_families) {
         notifyPayload = { tenantId: fresh.tenant_id, feeGenerationId: result.fee_generation_id };

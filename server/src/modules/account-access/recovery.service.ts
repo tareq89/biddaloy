@@ -14,6 +14,7 @@ import { AuditAction, AuthTokenPurpose, CommunicationMedium, UserStatus } from '
 import { User } from '../users/entities/user.entity';
 import { countOtherMemberships } from '../users/users.service';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { UserIdentity } from '../auth/entities/user-identity.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService, AuthResult } from '../auth/auth.service';
 import { RefreshTokenService, RequestContext } from '../auth/refresh-token.service';
@@ -54,6 +55,8 @@ export class RecoveryService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserTenant)
     private readonly userTenantRepo: Repository<UserTenant>,
+    @InjectRepository(UserIdentity)
+    private readonly identityRepo: Repository<UserIdentity>,
     private readonly otpService: OtpService,
     private readonly authTokens: AuthTokenService,
     private readonly delivery: AccountAccessDeliveryService,
@@ -436,7 +439,36 @@ export class RecoveryService {
     audit: { action: AuditAction; performedByUserId: string; newValues: Record<string, unknown> },
   ): Promise<void> {
     const password_hash = await bcrypt.hash(newPassword, BCRYPT_COST);
-    await this.userRepo.update({ id: user.id }, { password_hash });
+
+    // GAP-04: a linked Google/Facebook sign-in outlives a reset otherwise.
+    // One transaction: the new password and the identity removal commit or
+    // roll back together, and identities are never gone without their audit rows.
+    const tenantId = await this.authService.primaryTenantId(user.id);
+    await this.identityRepo.manager.transaction(async (manager) => {
+      await manager.update(User, { id: user.id }, { password_hash });
+      const { raw } = await manager
+        .createQueryBuilder()
+        .delete()
+        .from(UserIdentity)
+        .where({ user_id: user.id })
+        .returning(['id', 'provider'])
+        .execute();
+      for (const row of raw as Array<{ id: string; provider: string }>) {
+        await this.auditService.record(
+          {
+            action: AuditAction.DELETE,
+            entity_type: 'UserIdentity',
+            entity_id: row.id,
+            tenant_id: tenantId,
+            performed_by_user_id: audit.performedByUserId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: { provider: row.provider, reason: 'password_reset' },
+          },
+          manager,
+        );
+      }
+    });
 
     await this.refreshTokens.revokeAllForUser(user.id);
     await this.authService.resetLoginLockouts(user);
@@ -445,7 +477,7 @@ export class RecoveryService {
       action: audit.action,
       entity_type: 'User',
       entity_id: user.id,
-      tenant_id: await this.authService.primaryTenantId(user.id),
+      tenant_id: tenantId,
       performed_by_user_id: audit.performedByUserId,
       ip_address: context.ip,
       user_agent: context.userAgent,

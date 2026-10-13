@@ -15,6 +15,10 @@ import {
 import { Exam } from './entities/exam.entity';
 import { Result } from './entities/result.entity';
 import { Student } from '../students/entities/student.entity';
+import { School } from '../schools/entities/school.entity';
+import { resolveTenantSettings } from '../schools/settings/tenant-settings-resolver';
+import { resolveReminderAudience } from '../communications/reminder-recipients.util';
+import { resolveFeeNotificationLocale } from '../communications/fee-notification-template.util';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
 import { INSUFFICIENT_SMS_CREDIT } from '../communications/credits/insufficient-sms-credit.constants';
@@ -25,6 +29,19 @@ import { RequestContext } from '../../common/request-context.util';
 export interface ResultSmsOutcome {
   queued: number;
   skipped: Array<{ student_id: string; reason: string }>;
+}
+
+const PG_UNIQUE_VIOLATION = '23505';
+
+function buildBody(
+  locale: 'bn' | 'en',
+  name: string,
+  exam: string,
+  r: { gpa: unknown; grade: unknown; is_fail: boolean },
+): string {
+  return locale === 'bn'
+    ? `${name}-এর "${exam}" ফলাফল: জিপিএ ${r.gpa}, গ্রেড ${r.grade}${r.is_fail ? ' (অকৃতকার্য)' : ''}।`
+    : `${name}'s result for "${exam}": GPA ${r.gpa}, Grade ${r.grade}${r.is_fail ? ' (FAIL)' : ''}.`;
 }
 
 /**
@@ -82,7 +99,17 @@ export class ResultSmsService {
     const studentById = new Map(students.map((s) => [s.id, s]));
 
     const skipped: ResultSmsOutcome['skipped'] = [];
-    const jobs: Array<{ log: CommunicationLog; segments: number }> = [];
+    let jobs: Array<{ log: CommunicationLog; segments: number }> = [];
+    // Same pure resolver SchoolsService.getResolvedSettings uses; no SchoolsModule import needed.
+    const school = await this.examRepo.manager.findOne(School, {
+      where: { id: tenantId },
+      select: { id: true, settings: true },
+    });
+    const locale = resolveFeeNotificationLocale(
+      resolveTenantSettings(school?.settings ?? null).region?.locale,
+    );
+    // Nullable on older rows; 0 still gives them one stable publication key.
+    const publishedAt = exam.published_at?.getTime() ?? 0;
 
     for (const result of results) {
       const student = studentById.get(result.student_id);
@@ -90,13 +117,22 @@ export class ResultSmsService {
         skipped.push({ student_id: result.student_id, reason: 'student_not_found' });
         continue;
       }
-      const guardians = (student.guardians ?? []).filter((g) => g.phone && g.notifications_enabled);
+      // Reachable first, then the primary pick, so a primary with no phone
+      // falls back to a secondary who has one.
+      const guardians = resolveReminderAudience(
+        (student.guardians ?? []).filter((g) => g.phone),
+      ).guardians;
       if (guardians.length === 0) {
         skipped.push({ student_id: student.id, reason: 'no_reachable_guardian' });
         continue;
       }
 
-      const body = `${student.full_name}'s result for "${exam.name}": GPA ${result.gpa}, Grade ${result.grade}${result.is_fail ? ' (FAIL)' : ''}.`;
+      const body = buildBody(
+        locale,
+        locale === 'bn' ? (student.full_name_bn ?? student.full_name) : student.full_name,
+        exam.name,
+        result,
+      );
       const segments = countSmsSegments(body).segments;
       for (const guardian of guardians) {
         // One log per guardian per student — the same "one message per
@@ -113,10 +149,27 @@ export class ResultSmsService {
             sent_by_user_id: userId,
             status: CommunicationStatus.QUEUED,
             trigger: CommunicationTrigger.RESULT_SMS,
+            reference_key: `exam-result:${examId}:${publishedAt}:${student.id}:${guardian.id}`,
           }),
           segments,
         });
       }
+    }
+
+    // Drop pairs already sent for this publication (one query).
+    if (jobs.length > 0) {
+      const existing = await this.logRepo.find({
+        where: { tenant_id: tenantId, reference_key: In(jobs.map((j) => j.log.reference_key!)) },
+        select: ['reference_key'],
+      });
+      const sent = new Set(existing.map((e) => e.reference_key));
+      const dupStudents = new Set<string>();
+      jobs = jobs.filter((j) => {
+        if (!sent.has(j.log.reference_key)) return true;
+        dupStudents.add(j.log.student_id!);
+        return false;
+      });
+      for (const id of dupStudents) skipped.push({ student_id: id, reason: 'already_sent' });
     }
 
     if (jobs.length === 0) {
@@ -158,7 +211,12 @@ export class ResultSmsService {
           ...(metered ? { batchId, segments: job.segments } : {}),
         });
         queued += 1;
-      } catch {
+      } catch (err) {
+        // A concurrent double click lost the race on the unique reference_key.
+        const duplicate = (err as { code?: string } | null)?.code === PG_UNIQUE_VIOLATION;
+        if (duplicate) {
+          skipped.push({ student_id: job.log.student_id!, reason: 'already_sent' });
+        }
         if (metered) {
           // No job will ever settle this share. Before the log exists there is no
           // `log:<id>` to key on, so use a fresh part key (same as CommunicationsService.enqueue).
@@ -182,7 +240,13 @@ export class ResultSmsService {
         if (saved) {
           try {
             saved.status = CommunicationStatus.FAILED;
-            saved.metadata = { ...saved.metadata, error: 'Failed to enqueue for delivery' };
+            // Nothing was queued, so release the dedup key: a retry must be able to send this pair.
+            saved.metadata = {
+              ...saved.metadata,
+              error: 'Failed to enqueue for delivery',
+              released_reference_key: saved.reference_key,
+            };
+            saved.reference_key = null;
             await this.logRepo.save(saved);
           } catch (saveErr) {
             this.logger.error({

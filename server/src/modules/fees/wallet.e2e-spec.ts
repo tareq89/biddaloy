@@ -36,6 +36,9 @@ const STRANGER_USER_ID = '00000000-0000-4000-8000-0000005c0011';
 
 const PARENT_EMAIL = 'wallet-parent@e2e.example';
 const STRANGER_EMAIL = 'wallet-stranger@e2e.example';
+const ACCOUNTANT_USER_ID = '00000000-0000-4000-8000-0000005c0012';
+const ACCOUNTANT_EMAIL = 'wallet-accountant@e2e.example';
+process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
 
 describe('GET /students/:id/wallet (16.1.5)', () => {
   let app: INestApplication;
@@ -45,6 +48,7 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
   let adminToken: string;
   let parentToken: string;
   let strangerToken: string;
+  let accountantToken: string;
 
   let childId: string;
   let childInBId: string;
@@ -90,6 +94,7 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
     const accounts: Array<[string, string]> = [
       [PARENT_USER_ID, PARENT_EMAIL],
       [STRANGER_USER_ID, STRANGER_EMAIL],
+      [ACCOUNTANT_USER_ID, ACCOUNTANT_EMAIL],
     ];
     for (const [id, email] of accounts) {
       await dataSource.query(
@@ -106,6 +111,7 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
       // the service layer's fault, not ContextGuard refusing entry.
       [PARENT_USER_ID, TENANT_B, UserRole.PARENT],
       [STRANGER_USER_ID, SEED_TENANT_ID, UserRole.PARENT],
+      [ACCOUNTANT_USER_ID, SEED_TENANT_ID, UserRole.ACCOUNTANT],
     ];
     for (const [userId, tenantId, role] of memberships) {
       await dataSource.query(
@@ -118,6 +124,7 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
     adminToken = await login(SEED_ADMIN_EMAIL);
     parentToken = await login(PARENT_EMAIL);
     strangerToken = await login(STRANGER_EMAIL);
+    accountantToken = await login(ACCOUNTANT_EMAIL);
   }, 120000);
 
   afterAll(async () => {
@@ -262,5 +269,94 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .set('X-Role', UserRole.SUPER_ADMIN)
       .expect(401);
+  });
+
+  describe('POST /students/:id/wallet/payout (MON-09)', () => {
+    async function issueApprovalToken(scope: string): Promise<string> {
+      // The admin steps up for themselves; same flow as checkout.controller.e2e-spec.ts.
+      const identifier = SEED_ADMIN_EMAIL;
+      const requestRes = await supertest(app.getHttpServer())
+        .post(`${API}/auth/step-up/otp/request`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({ identifier })
+        .expect(202);
+      const verifyRes = await supertest(app.getHttpServer())
+        .post(`${API}/auth/step-up`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({ identifier, method: 'OTP', otp: requestRes.body.debug?.otp, scope })
+        .expect(200);
+      return verifyRes.body.approval_token;
+    }
+
+    const payout = (token: string, studentId: string, role = UserRole.ADMIN) =>
+      supertest(app.getHttpServer())
+        .post(`${API}/students/${studentId}/wallet/payout`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .set('X-Role', role);
+
+    it('with a payments.reverse token pays out and GET shows the new balance', async () => {
+      const approval = await issueApprovalToken('payments.reverse');
+      const res = await payout(adminToken, childId)
+        .set('X-Approval-Token', approval)
+        .send({ amount: 200, reason: 'Family leaving' })
+        .expect(200);
+      expect(Number(res.body.balance)).toBe(300);
+
+      const get = await supertest(app.getHttpServer())
+        .get(`${API}/students/${childId}/wallet`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+      expect(Number(get.body.balance)).toBe(300);
+      expect(get.body.transactions.map((t: { kind: string }) => t.kind)).toContain(
+        WalletTransactionKind.DEBIT_PAYOUT,
+      );
+    });
+
+    it('more than the balance is 409 and leaves the approval token unspent', async () => {
+      const approval = await issueApprovalToken('payments.reverse');
+      await payout(adminToken, childId)
+        .set('X-Approval-Token', approval)
+        .send({ amount: 500.01, reason: 'Too much' })
+        .expect(409);
+      // Review r1 #12: the approver should not have to approve again after a typo.
+      await payout(adminToken, childId)
+        .set('X-Approval-Token', approval)
+        .send({ amount: 1, reason: 'Corrected amount' })
+        .expect(200);
+    });
+
+    it('without an approval token is 403', async () => {
+      await payout(adminToken, childId).send({ amount: 10, reason: 'No token' }).expect(403);
+    });
+
+    it('a PARENT is 403', async () => {
+      const res = await payout(parentToken, childId, UserRole.PARENT)
+        .send({ amount: 10, reason: 'Parent' })
+        .expect(403);
+      // The role is what refuses, not the missing approval token.
+      expect(res.body.details?.code).not.toBe('APPROVAL_REQUIRED');
+    });
+
+    it('an ACCOUNTANT (no PAYMENT_REVERSE) is 403', async () => {
+      const res = await payout(accountantToken, childId, UserRole.ACCOUNTANT)
+        .send({ amount: 10, reason: 'Accountant' })
+        .expect(403);
+      // The role is what refuses, not the missing approval token.
+      expect(res.body.details?.code).not.toBe('APPROVAL_REQUIRED');
+    });
+
+    it("another tenant's student is 404", async () => {
+      const approval = await issueApprovalToken('payments.reverse');
+      const res = await payout(adminToken, childInBId)
+        .set('X-Approval-Token', approval)
+        .send({ amount: 10, reason: 'Wrong tenant' })
+        .expect(404);
+      expect(JSON.stringify(res.body)).toContain('Student not found');
+    });
   });
 });

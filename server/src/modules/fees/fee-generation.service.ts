@@ -1,3 +1,5 @@
+import { PaymentAllocation } from './entities/payment-allocation.entity';
+import { returnMoneyOfRemovedBills } from './removed-bill-money';
 import {
   Injectable,
   NotFoundException,
@@ -294,6 +296,7 @@ export class FeeGenerationService {
     let generatedBills: { fee_type: FeeType; note: string | null }[] = [];
     let skippedCount = 0;
     let removedCount = 0;
+    let removedBillsToReturn: StudentFee[] = [];
     let inactiveSkipped: InactiveStudentDto[] = [];
     let studentCount = 0;
 
@@ -418,6 +421,29 @@ export class FeeGenerationService {
               occurrence: existing.maxOccurrence + 1,
             });
           }
+        }
+      }
+
+      // Lock the bills REMOVE_OLDER will remove (same ORDER BY id as checkout)
+      // before deciding whether approval is needed, so a concurrent checkout
+      // cannot add money after the paid-check. The paid test is the same as
+      // the batch service's: paid_amount > 0 or a payment allocation.
+      if (bulkExistingIds.length > 0) {
+        removedBillsToReturn = await manager
+          .getRepository(StudentFee)
+          .createQueryBuilder('sf')
+          .where('sf.id IN (:...ids)', { ids: bulkExistingIds })
+          .orderBy('sf.id', 'ASC')
+          .setLock('pessimistic_write')
+          .getMany();
+        if (
+          removedBillsToReturn.some((b) => Number(b.paid_amount) > 0) ||
+          (await manager
+            .getRepository(PaymentAllocation)
+            .exists({ where: { student_fee_id: In(bulkExistingIds) } }))
+        ) {
+          approvalNeeded = true;
+          approvalReasons.add('REMOVE_OLDER_PAID');
         }
       }
 
@@ -685,6 +711,17 @@ export class FeeGenerationService {
         }
       }
 
+      // MON-03 / D16: checkout money on the removed bills goes to the wallet.
+      // Done AFTER the auto-apply above on purpose: the credit must not be
+      // swallowed by the replacement bill (it stays visible in the wallet).
+      const walletCredited = await returnMoneyOfRemovedBills(
+        manager,
+        this.walletService,
+        removedBillsToReturn,
+        tenantId,
+        userId,
+      );
+
       await manager.getRepository(FeeGeneration).update(
         { id: feeGenerationId },
         {
@@ -706,6 +743,7 @@ export class FeeGenerationService {
             generated_count: generatedCount,
             skipped_count: skippedCount,
             removed_count: removedCount,
+            wallet_credited: walletCredited,
           },
         },
         manager,

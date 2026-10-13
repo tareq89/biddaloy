@@ -274,4 +274,115 @@ describe('StudyPlanFlagsScheduler [66.2.05]', () => {
       expect(UserRole.COMMITTEE).toBeDefined();
     });
   });
+
+  describe('guardian digest: opt-out, one message per guardian, push-first [JOBS-11]', () => {
+    const g = (id: string, over: Record<string, unknown> = {}) => ({
+      id,
+      tenant_id: TENANT,
+      user_id: `u-${id}`,
+      full_name: id,
+      phone: `+8801${id}`,
+      is_primary_contact: true,
+      notifications_enabled: true,
+      ...over,
+    });
+    const kid = (id: string, guardians: unknown[]) => ({
+      id,
+      class_section_id: 's1',
+      full_name: id,
+      full_name_bn: id,
+      guardians,
+    });
+    const BEHIND = new Map([['s1', { behind: [{ subject: 'গণিত', periods: 2 }] }]]);
+
+    function digest(students: unknown[], accepted: number) {
+      const push = { sendToUser: vi.fn(async () => ({ accepted, transient: 0, pruned: 0 })) };
+      const enqueue = vi.fn(async () => undefined);
+      const settlePart = vi.fn(async () => undefined);
+      const scheduler = new StudyPlanFlagsScheduler(
+        {} as never,
+        {
+          manager: {
+            query: vi.fn(async (sql: string, params: unknown[]) =>
+              sql.includes('FROM users') ? (params[0] as string[]).map((id) => ({ id })) : [],
+            ),
+          },
+        } as never,
+        { find: vi.fn(async () => students) } as never,
+        {
+          find: vi.fn(async () => [{ user: { id: 'admin', status: UserStatus.ACTIVE } }]),
+        } as never,
+        {} as never,
+        {} as never,
+        {
+          getResolvedSettings: vi.fn(async () => ({ communications: { sms: { provider: 'x' } } })),
+        } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        push as never,
+        { enqueue } as never,
+        {
+          isMetered: vi.fn(async () => true),
+          reserve: vi.fn(async () => ({ ok: true })),
+          settlePart,
+        } as never,
+      );
+      const run = () =>
+        (scheduler as any).digestGuardians(
+          TENANT,
+          { ...SETTINGS, guardianDigestSms: true },
+          BEHIND,
+          new Map([['s1', '1-ক']]),
+        );
+      return { run, push, enqueue, settlePart };
+    }
+
+    it('opted-out guardian gets no push and no SMS', async () => {
+      const d = digest([kid('k1', [g('a', { notifications_enabled: false })])], 0);
+      await d.run();
+      expect(d.push.sendToUser).not.toHaveBeenCalled();
+      expect(d.enqueue).not.toHaveBeenCalled();
+    });
+
+    it('two behind children: one push and one SMS carrying both lines', async () => {
+      const d = digest([kid('k1', [g('a')]), kid('k2', [g('a')])], 0);
+      await d.run();
+      expect(d.push.sendToUser).toHaveBeenCalledTimes(1);
+      expect(d.enqueue).toHaveBeenCalledTimes(1);
+      const body = (d.enqueue.mock.calls[0] as any[])[0].message_body as string;
+      expect(body).toContain('k1');
+      expect(body).toContain('k2');
+    });
+
+    it('push accepted: no SMS, reserved units released; push refused: one SMS', async () => {
+      const ok = digest([kid('k1', [g('a')])], 1);
+      await ok.run();
+      expect(ok.enqueue).not.toHaveBeenCalled();
+      expect(ok.settlePart).toHaveBeenCalledTimes(1);
+      const none = digest([kid('k1', [g('a')])], 0);
+      await none.run();
+      expect(none.enqueue).toHaveBeenCalledTimes(1);
+      expect(none.settlePart).not.toHaveBeenCalled();
+    });
+
+    it('a non-primary guardian is skipped when a primary contact exists', async () => {
+      const d = digest([kid('k1', [g('a'), g('b', { is_primary_contact: false })])], 0);
+      await d.run();
+      expect(d.push.sendToUser).toHaveBeenCalledTimes(1);
+      expect((d.push.sendToUser.mock.calls[0] as any[])[0]).toBe('u-a');
+    });
+
+    // Review r1 #8: a primary with no portal account must not hide a secondary who has one.
+    it('falls back to a secondary guardian when the primary has no account', async () => {
+      const d = digest(
+        [kid('k1', [g('a', { user_id: null }), g('b', { is_primary_contact: false })])],
+        0,
+      );
+      await d.run();
+      expect(d.push.sendToUser).toHaveBeenCalledTimes(1);
+      expect((d.push.sendToUser.mock.calls[0] as any[])[0]).toBe('u-b');
+    });
+  });
 });

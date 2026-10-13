@@ -14,6 +14,7 @@ import {
   SEED_ADMIN_PASSWORD,
   SEED_CLASS_1_ID,
   SEED_ACADEMIC_YEAR_ID,
+  SEED_SECTION_1_ID,
 } from '@test/constants';
 
 /**
@@ -413,6 +414,94 @@ describe('Fee Structures E2E', () => {
       expect(latest.action).toBe('UPDATE');
       expect(Number(latest.old_values.amount)).toBe(1000);
       expect(Number(latest.new_values.amount)).toBe(1200);
+    });
+
+    it('409 FEE_TYPE_LOCKED when changing fee_type of a billed structure (X-03)', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/fee-structures')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          fee_type: FeeType.MONTHLY_TUITION,
+          name: 'Billed Fee',
+          amount: 1000,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        })
+        .expect(201);
+      const [student] = await dataSource.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
+         VALUES (DEFAULT, 'X03 Student', 'REG-X03-E2E', 9903, $1, $2, '2010-01-01', 'SMS', 'ACTIVE', NOW(), NOW())
+         RETURNING id`,
+        [SEED_SECTION_1_ID, TENANT_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, $3, '2026-01-01'::date, 1000, 0, 0, 'PENDING', NOW(), NOW())`,
+        [student.id, SEED_ACADEMIC_YEAR_ID, createRes.body.id],
+      );
+
+      const res = await supertest(app.getHttpServer())
+        .patch(`/api/v1/fee-structures/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ fee_type: FeeType.FINE })
+        .expect(409);
+      expect(res.body.details.code).toBe('FEE_TYPE_LOCKED');
+
+      const after = await supertest(app.getHttpServer())
+        .get(`/api/v1/fee-structures/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+      expect(after.body.fee_type).toBe(FeeType.MONTHLY_TUITION);
+    });
+
+    // Review r1 #1: over HTTP the ValidationPipe builds the DTO with every key
+    // present (unsent ones are `undefined`). A rename must not trip the type
+    // lock, and the audit row must name only the field that changed.
+    it('a name-only PATCH on a billed structure is 200 and audits only `name` (X-03)', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/fee-structures')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          fee_type: FeeType.MONTHLY_TUITION,
+          name: 'Billed Rename Fee',
+          amount: 1000,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        })
+        .expect(201);
+      const [student] = await dataSource.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
+         VALUES (DEFAULT, 'X03 Rename Student', 'REG-X03-REN', 9904, $1, $2, '2010-01-01', 'SMS', 'ACTIVE', NOW(), NOW())
+         RETURNING id`,
+        [SEED_SECTION_1_ID, TENANT_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, $3, '2026-01-01'::date, 1000, 0, 0, 'PENDING', NOW(), NOW())`,
+        [student.id, SEED_ACADEMIC_YEAR_ID, createRes.body.id],
+      );
+
+      const res = await supertest(app.getHttpServer())
+        .patch(`/api/v1/fee-structures/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Billed Rename Fee 2027' })
+        .expect(200);
+      expect(res.body.name).toBe('Billed Rename Fee 2027');
+      expect(res.body.fee_type).toBe(FeeType.MONTHLY_TUITION);
+
+      const rows = await dataSource.query(
+        `SELECT old_values, new_values FROM audit_logs
+          WHERE entity_type = 'FeeStructure' AND entity_id = $1 AND action = 'UPDATE'`,
+        [createRes.body.id],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].old_values).toEqual({ name: 'Billed Rename Fee' });
+      expect(rows[0].new_values).toEqual({ name: 'Billed Rename Fee 2027' });
     });
 
     it('should return 403 for STUDENT role', async () => {

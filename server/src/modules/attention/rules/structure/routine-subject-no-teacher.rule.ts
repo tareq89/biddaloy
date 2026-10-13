@@ -38,7 +38,11 @@ export class RoutineSubjectNoTeacherRule implements AttentionRuleShape {
        JOIN period_slots ps ON ps.id = rs.period_slot_id AND ps.tenant_id = $1 AND ps.kind = 'CLASS'
        JOIN class_sections cs ON cs.id = rs.section_id AND cs.tenant_id = $1 AND cs.deleted_at IS NULL
        WHERE rs.tenant_id = $1 AND rs.valid_from <= $2 AND (rs.valid_to IS NULL OR rs.valid_to >= $2)
-         AND NOT EXISTS (SELECT 1 FROM routine_slot_teachers rst WHERE rst.tenant_id = $1 AND rst.routine_slot_id = rs.id)`,
+         AND NOT EXISTS (
+           SELECT 1 FROM routine_slot_teachers rst
+           JOIN teachers t ON t.id = rst.teacher_id AND t.tenant_id = $1 AND t.deleted_at IS NULL
+           JOIN user_tenants ut ON ut.user_id = t.user_id AND ut.tenant_id = $1 AND ut.deleted_at IS NULL
+           WHERE rst.tenant_id = $1 AND rst.routine_slot_id = rs.id)`,
       [ctx.tenantId, ctx.localDate],
     );
     if (!row || row.n <= 0) return [];

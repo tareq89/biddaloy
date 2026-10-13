@@ -136,3 +136,23 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   // LeavePolicy — got a workbook tab in [36.5.1]. No exemption entries
   // left for them.
 ]);
+
+/**
+ * What a backup does not contain, in plain words, shown to the admin in the
+ * restore preview and doc 14. Mirrors the "Genuine gaps" block above:
+ * #856 removes a line here as each tab lands.
+ */
+export const NOT_IN_BACKUP: readonly string[] = [
+  'attendance registers and records',
+  'attendance devices',
+  'student wallet balances and history',
+  'discount rules',
+  'recurring fee schedules',
+  'fee generation runs',
+  'academic terms',
+  'SMS credit balance and history',
+  'school memberships (who can sign in to this school)',
+  'calendar event classes',
+  'attention alerts raised by hand (MANUAL)',
+  'answers to anonymous surveys',
+];

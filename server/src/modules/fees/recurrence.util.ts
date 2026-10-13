@@ -63,6 +63,8 @@ export function periodFor(date: string, rule: RecurringScheduleRule): string {
  * safely fires on Feb 28/29 rather than never firing that month).
  *
  * WEEKLY: fires when `date`'s ISO weekday is in `rule.weekdays`.
+ *
+ * Exact fire day only; "due on or after the fire day, once per period" is `firstFireInPeriod`.
  */
 export function isDue(rule: RecurringScheduleRule, date: string): boolean {
   if (rule.kind === 'MONTHLY') {
@@ -104,4 +106,22 @@ export function nextRunDates(rule: RecurringScheduleRule, from: string, count: n
   }
 
   return dates;
+}
+
+/**
+ * The first day `rule` fires in the period containing `date`, on or after
+ * `startsOn` (when given), if that day is on or before `date`; otherwise null.
+ * A schedule is due on any day of the period from this day on, once per
+ * period (MON-06 catch-up). Scanning from `startsOn` keeps a mid-week start on
+ * a multi-weekday rule (Mon+Thu, starts Wed) firing on the Thursday.
+ */
+export function firstFireInPeriod(
+  rule: RecurringScheduleRule,
+  date: string,
+  startsOn?: string,
+): string | null {
+  const periodStart = periodFor(date, rule);
+  const from = startsOn && startsOn > periodStart ? startsOn : periodStart;
+  const [first] = nextRunDates(rule, from, 1);
+  return first !== undefined && first <= date ? first : null;
 }

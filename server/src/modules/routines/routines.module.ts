@@ -26,6 +26,7 @@ import { ChangeRequestsService } from './change-requests.service';
 import { ChangeRequestsController } from './change-requests.controller';
 import { CopyRoutineService } from './copy-routine.service';
 import { WorkloadService } from './workload.service';
+import { TeacherBusyService } from './teacher-busy.service';
 import { SchoolsModule } from '../schools/schools.module';
 import { CalendarModule } from '../calendar/calendar.module';
 import { AuditModule } from '../audit/audit.module';
@@ -95,6 +96,7 @@ import { Enrollment } from '../students/entities/enrollment.entity';
     ChangeRequestsService,
     CopyRoutineService,
     WorkloadService,
+    TeacherBusyService,
   ],
   controllers: [
     ShiftsController,
@@ -125,6 +127,7 @@ import { Enrollment } from '../students/entities/enrollment.entity';
     ChangeRequestsService,
     CopyRoutineService,
     WorkloadService,
+    TeacherBusyService,
   ],
 })
 export class RoutinesModule {}

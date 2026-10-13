@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import {
   AuditAction,
   ApprovalScope,
@@ -16,6 +16,8 @@ import {
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
+import { WalletTransaction } from './entities/wallet-transaction.entity';
+import { StudentWallet } from './entities/student-wallet.entity';
 import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
@@ -80,9 +82,8 @@ export class PaymentReversalService {
     // doomed request off before it pays for a transaction and a wallet
     // lock. It is NOT the real guard: see the re-check under the wallet
     // row lock below, which is what actually prevents the race.
-    if (Number(payment.wallet_credit_added) > 0) {
-      await this.assertReverseInOrder(payment);
-    }
+    const preRemovedCredits = await this.removedBillCredits(this.paymentRepo.manager, payment.id);
+    await this.assertAllWalletsInOrder(payment, preRemovedCredits);
 
     const reversalPaymentId = await this.paymentRepo.manager.transaction(async (manager) => {
       const paymentRepo = manager.getRepository(Payment);
@@ -139,10 +140,19 @@ export class PaymentReversalService {
       // against a balance no concurrent debit/credit/reversal for this
       // student can change out from under it — is what actually prevents
       // the wallet balance from going negative.
-      if (Number(locked.wallet_credit_added) > 0) {
-        const wallet = await this.walletService.getOrCreate(locked.student_id, tenantId, manager);
-        await this.assertReverseInOrder(locked, Number(wallet.balance), manager);
-      }
+      // MON-03: credits made when this payment's bill was removed count too.
+      // They sit in the wallet of the bill's owner, which for a multi-student
+      // payment may not be the payer's. Read under the bill locks so a
+      // concurrent removal cannot add one unseen.
+      const removedCredits = await this.removedBillCredits(manager, payment.id);
+      const studentOfWallet = await this.walletOwners(manager, removedCredits);
+      await this.assertAllWalletsInOrder(
+        locked,
+        removedCredits,
+        manager,
+        studentOfWallet,
+        tenantId,
+      );
 
       const billAudit: {
         student_fee_id: string;
@@ -217,6 +227,36 @@ export class PaymentReversalService {
             reversalOfId: payment.id,
             createdByUserId: actorUserId,
             note: `Reversal of payment ${payment.id}`,
+            allowDeletedStudent: true,
+          },
+          manager,
+        );
+      }
+      const removedBillDebits: Array<{
+        student_id: string;
+        wallet_id: string;
+        credit_transaction_id: string;
+        amount: number;
+      }> = [];
+      for (const credit of removedCredits) {
+        removedBillDebits.push({
+          student_id: studentOfWallet.get(credit.wallet_id)!,
+          wallet_id: credit.wallet_id,
+          credit_transaction_id: credit.id,
+          amount: Math.abs(Number(credit.amount)),
+        });
+        await this.walletService.debit(
+          {
+            studentId: studentOfWallet.get(credit.wallet_id)!,
+            tenantId,
+            amount: Math.abs(Number(credit.amount)),
+            kind: WalletTransactionKind.REVERSAL,
+            paymentId: payment.id,
+            studentFeeId: credit.student_fee_id,
+            reversalOfId: credit.id,
+            createdByUserId: actorUserId,
+            note: `Reversal of payment ${payment.id}`,
+            allowDeletedStudent: true,
           },
           manager,
         );
@@ -232,6 +272,7 @@ export class PaymentReversalService {
             reversalOfId: payment.id,
             createdByUserId: actorUserId,
             note: `Reversal of payment ${payment.id}`,
+            allowDeletedStudent: true,
           },
           manager,
         );
@@ -289,8 +330,10 @@ export class PaymentReversalService {
       // "nothing to cancel" cases here, not errors that should abort the
       // whole reversal transaction — `payment.invoice_id` alone can't
       // distinguish a live invoice from a soft-deleted one, so the
-      // NotFoundException is the actual signal.
-      if (payment.invoice_id) {
+      // NotFoundException is the actual signal. `locked`, not `payment`: an
+      // invoice minted after the first read is visible only under the row lock
+      // (InvoicesService.create locks this same row).
+      if (locked.invoice_id) {
         try {
           await this.invoicesService.createCreditNote(payment.id, reason, manager);
         } catch (error) {
@@ -319,6 +362,7 @@ export class PaymentReversalService {
             reversal_payment_id: reversal.id,
             reversal_reason: reason,
             wallet_withdrawn: walletCreditAdded,
+            removed_bill_wallet_debits: removedBillDebits,
             wallet_refunded: walletCreditUsed,
             bills: billAudit.map((b) => ({
               student_fee_id: b.student_fee_id,
@@ -393,6 +437,8 @@ export class PaymentReversalService {
    * in order — covers the shortfall.
    */
   /**
+   * @param studentId Whose wallet is checked (the payer, or the owner of a removed bill).
+   * @param creditAdded What this payment put into that wallet (change added, or removed-bill credits).
    * @param currentBalance When called under the wallet row lock (the real
    * check — see the call site inside the transaction), the caller passes
    * the already-locked balance so this doesn't take its own unlocked read.
@@ -404,12 +450,14 @@ export class PaymentReversalService {
    */
   private async assertReverseInOrder(
     payment: Payment,
+    studentId: string,
+    creditAdded: number,
     currentBalance?: number,
     manager?: EntityManager,
   ): Promise<void> {
     const balance =
-      currentBalance ?? (await this.walletService.balance(payment.student_id, payment.tenant_id));
-    const creditAdded = round2(Number(payment.wallet_credit_added));
+      currentBalance ?? (await this.walletService.balance(studentId, payment.tenant_id));
+    creditAdded = round2(creditAdded);
     const balanceAfterRemoval = round2(balance - creditAdded);
     if (balanceAfterRemoval >= -AMOUNT_EPSILON) return;
 
@@ -425,12 +473,22 @@ export class PaymentReversalService {
     const ordered = await paymentRepo.find({
       where: {
         tenant_id: payment.tenant_id,
-        student_id: payment.student_id,
+        student_id: studentId,
       },
       order: { payment_date: 'ASC', created_at: 'ASC' },
     });
+    // `payment` is in this list only when `studentId` is the payer; for another
+    // student's wallet, "later" means after `payment` by (payment_date, created_at).
     const paymentIndex = ordered.findIndex((p) => p.id === payment.id);
-    const laterSpenders = paymentIndex === -1 ? ordered : ordered.slice(paymentIndex + 1);
+    const key = (p: Payment) => [+new Date(p.payment_date), +new Date(p.created_at)];
+    const laterSpenders =
+      paymentIndex !== -1
+        ? ordered.slice(paymentIndex + 1)
+        : ordered.filter((p) => {
+            const [a1, a2] = key(p);
+            const [b1, b2] = key(payment);
+            return a1 > b1 || (a1 === b1 && a2 > b2);
+          });
 
     const blockingIds: string[] = [];
     let covered = 0;
@@ -462,5 +520,69 @@ export class PaymentReversalService {
     }
 
     throw new ReverseLaterPaymentsFirstException(blockingIds);
+  }
+
+  /** Which student owns each wallet a removed-bill credit sits in. */
+  private async walletOwners(
+    manager: EntityManager,
+    credits: WalletTransaction[],
+  ): Promise<Map<string, string>> {
+    if (credits.length === 0) return new Map();
+    const wallets = await manager
+      .getRepository(StudentWallet)
+      .find({ where: { id: In([...new Set(credits.map((c) => c.wallet_id))]) } });
+    return new Map(wallets.map((w) => [w.id, w.student_id]));
+  }
+
+  /**
+   * D10 per wallet: the payer's wallet (change added) plus every wallet that got a
+   * removed-bill credit. Inside a transaction the wallets are locked first, in
+   * sorted student-id order (after the bills), then each is checked against its
+   * locked balance. Outside one it is the cheap unlocked pre-check.
+   */
+  private async assertAllWalletsInOrder(
+    payment: Payment,
+    credits: WalletTransaction[],
+    manager?: EntityManager,
+    owners?: Map<string, string>,
+    tenantId?: string,
+  ): Promise<void> {
+    const ownerOf = owners ?? (await this.walletOwners(this.paymentRepo.manager, credits));
+    // Only wallets this payment put money into: a plain cash payment locks
+    // (or creates) no wallet at all.
+    const added = new Map<string, number>();
+    if (Number(payment.wallet_credit_added) > 0) {
+      added.set(payment.student_id, Number(payment.wallet_credit_added));
+    }
+    for (const c of credits) {
+      const sid = ownerOf.get(c.wallet_id)!;
+      added.set(sid, round2((added.get(sid) ?? 0) + Number(c.amount)));
+    }
+    for (const sid of [...added.keys()].sort()) {
+      // allowDeleted: unwinding money must work for a student who has left.
+      const balance = manager
+        ? Number((await this.walletService.getOrCreate(sid, tenantId!, manager, true)).balance)
+        : await this.walletService.balance(sid, payment.tenant_id);
+      await this.assertReverseInOrder(payment, sid, added.get(sid)!, balance, manager);
+    }
+  }
+
+  /** Live `CREDIT_BILL_REMOVED` wallet credits made for `paymentId` (bill removed
+   * after payment, MON-03) that no `REVERSAL` row has taken back yet. */
+  private async removedBillCredits(
+    manager: EntityManager,
+    paymentId: string,
+  ): Promise<WalletTransaction[]> {
+    const repo = manager.getRepository(WalletTransaction);
+    const credits = await repo.find({
+      where: { payment_id: paymentId, kind: WalletTransactionKind.CREDIT_BILL_REMOVED },
+    });
+    if (credits.length === 0) return [];
+    const taken = new Set(
+      (await repo.find({ where: { reversal_of_id: In(credits.map((c) => c.id)) } })).map(
+        (r) => r.reversal_of_id,
+      ),
+    );
+    return credits.filter((c) => !taken.has(c.id));
   }
 }

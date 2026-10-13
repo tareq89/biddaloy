@@ -1,13 +1,15 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { WalletTransactionKind } from '@biddaloy/shared';
+import { ApprovalScope, WalletTransactionKind } from '@biddaloy/shared';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { createTestModule } from '@test/helpers/module.helper';
-import { SEED_TENANT_ID, SEED_SECTION_1_ID } from '@test/constants';
+import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { WalletService } from './wallet.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { StudentWallet } from './entities/student-wallet.entity';
 import { WalletTransaction } from './entities/wallet-transaction.entity';
 import { Student } from '../students/entities/student.entity';
@@ -33,7 +35,7 @@ describe('WalletService (integration)', () => {
   let transactionRepo: Repository<WalletTransaction>;
 
   beforeAll(async () => {
-    moduleRef = await createTestModule(ALL_ENTITIES, [WalletService]);
+    moduleRef = await createTestModule(ALL_ENTITIES, [WalletService, AuditService]);
     service = moduleRef.get(WalletService);
     dataSource = moduleRef.get(DataSource);
     studentRepo = moduleRef.get(getRepositoryToken(Student));
@@ -284,6 +286,111 @@ describe('WalletService (integration)', () => {
         where: { student_id: student.id, tenant_id: SEED_TENANT_ID },
       });
       expect(count).toBe(1);
+    });
+  });
+
+  describe('payout (MON-09)', () => {
+    async function fund(student: Student, amount: number) {
+      await dataSource.transaction((manager) =>
+        service.credit(
+          {
+            studentId: student.id,
+            tenantId: SEED_TENANT_ID,
+            amount,
+            kind: WalletTransactionKind.CREDIT_OVERPAYMENT,
+          },
+          manager,
+        ),
+      );
+    }
+
+    const payoutInput = (student: Student, amount: number) => ({
+      studentId: student.id,
+      tenantId: SEED_TENANT_ID,
+      amount,
+      reason: 'Family leaving, cash refund',
+      actorUserId: SEED_ADMIN_USER_ID,
+      approve: async () => SEED_ADMIN_USER_ID,
+    });
+
+    it('pays out 300 of 1,800: balance 1,500, one DEBIT_PAYOUT row, one approved audit row', async () => {
+      const student = await makeStudent();
+      await fund(student, 1800);
+
+      const result = await dataSource.transaction((manager) =>
+        service.payout(payoutInput(student, 300), manager),
+      );
+
+      expect(Number(result.balance)).toBe(1500);
+      expect(await service.balance(student.id, SEED_TENANT_ID)).toBe(1500);
+      const rows = await transactionRepo.find({
+        where: { kind: WalletTransactionKind.DEBIT_PAYOUT },
+      });
+      expect(rows).toHaveLength(1);
+      expect(Number(rows[0].amount)).toBe(-300);
+      expect(rows[0].created_by_user_id).toBe(SEED_ADMIN_USER_ID);
+      const logs = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_type: 'StudentWallet', tenant_id: SEED_TENANT_ID } });
+      expect(logs).toHaveLength(1);
+      expect(logs[0].new_values).toMatchObject({
+        balance: 1500,
+        payout: 300,
+        approved_by_user_id: SEED_ADMIN_USER_ID,
+        approval_scope: ApprovalScope.PAYMENTS_REVERSE,
+      });
+    });
+
+    it('refuses more than the balance with 409 WALLET_PAYOUT_EXCEEDS_BALANCE and writes nothing', async () => {
+      const student = await makeStudent();
+      await fund(student, 100);
+
+      const err = await dataSource
+        .transaction((manager) => service.payout(payoutInput(student, 100.01), manager))
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse()).toMatchObject({
+        code: 'WALLET_PAYOUT_EXCEEDS_BALANCE',
+        details: { balance: 100 },
+      });
+      expect(await service.balance(student.id, SEED_TENANT_ID)).toBe(100);
+      expect(
+        await transactionRepo.count({ where: { kind: WalletTransactionKind.DEBIT_PAYOUT } }),
+      ).toBe(0);
+    });
+
+    it('two concurrent payouts of 1,000 from 1,800: exactly one succeeds', async () => {
+      const student = await makeStudent();
+      await fund(student, 1800);
+
+      const results = await Promise.allSettled([
+        dataSource.transaction((m) => service.payout(payoutInput(student, 1000), m)),
+        dataSource.transaction((m) => service.payout(payoutInput(student, 1000), m)),
+      ]);
+
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+      expect(rejected.reason).toBeInstanceOf(ConflictException);
+      expect(await service.balance(student.id, SEED_TENANT_ID)).toBe(800);
+    });
+
+    it('pays out a soft-deleted (left) student', async () => {
+      const student = await makeStudent();
+      await fund(student, 500);
+      await studentRepo.softDelete({ id: student.id });
+
+      const result = await dataSource.transaction((manager) =>
+        service.payout(payoutInput(student, 500), manager),
+      );
+      expect(Number(result.balance)).toBe(0);
+    });
+
+    it("404s for another tenant's student", async () => {
+      const student = await makeStudent(OTHER_TENANT_ID);
+
+      await expect(
+        dataSource.transaction((manager) => service.payout(payoutInput(student, 10), manager)),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

@@ -37,6 +37,8 @@ through the authenticated `GET /backup/jobs/:id/download` route, same as how
 
 ## Restore flow
 
+Anonymous-survey answers found in an older file are skipped with a warning, and a restore refuses to change a survey's `anonymous` setting.
+
 ```mermaid
 sequenceDiagram
     participant Admin
@@ -168,7 +170,7 @@ key into the cell, and restore resolves it back to a real id.
   Rows missing from the file are kept (warning). A backup from another school can only be
   restored by a platform SUPER_ADMIN.
 
-- **The snapshot is the undo** (except that money/marks rows added by a restore
+- **The snapshot is the undo, for the data a backup contains** (except that money/marks rows added by a restore
   are not removed by restoring the snapshot either). Before touching a single row, `POST
 /backup/restore` queues a `SNAPSHOT`-kind export of the tenant's _current_
   data and waits for it to finish. If the restore then fails partway (or
@@ -200,6 +202,30 @@ key into the cell, and restore resolves it back to a real id.
   file is uploaded again. Helper:
   `server/src/modules/workbook/codec/storage-key-scope.ts`.
 
+### What a backup does not contain
+
+Some school data is in no backup file yet (tracked in #856). The restore
+preview warns about it, so nobody mistakes a backup for a full copy.
+
+```mermaid
+flowchart LR
+  A[School data] --> B{In a backup?}
+  B -->|yes| C[Restore replaces it]
+  B -->|no| D[Restore leaves it as is]
+  D --> E[New school: it is lost]
+```
+
+Not in a backup: attendance registers and records, attendance devices,
+student wallet balances and history, discount rules, recurring fee schedules,
+fee generation runs, academic terms, SMS credit balance and history, school
+memberships (who can sign in to this school), calendar event classes.
+
+**Anonymous surveys.** A backup never holds the responses or answers of an
+anonymous survey, because the file would show who answered what and when.
+Example: "Teacher feedback, Term 1 (anonymous)": the backup has the questions
+and targets, not the answers. Restoring in the same school keeps the answers
+(rows that are not in the file are kept). Moving to a new school loses them.
+
 ## The school is read-only while a restore runs (#2210)
 
 A restore deletes rows the workbook does not have. A save made during the
@@ -219,12 +245,12 @@ So while the restore lock is held, the school is read-only:
   overwritten by the restored email, #2351.)
 - **Background jobs that skip or wait:**
 
-  | Job                                  | While the school is restoring                                                                                                                                                                                     |
-  | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | fees-daily (bills, late fees, fines) | Re-queues the school for the **same day** every 15 min until the lock clears. `isDue` matches only the exact firing day, so a plain skip would lose that period's bills. `last_run_period` keeps it exactly-once. |
-  | study-plan auto deliveries           | Skips; the next 15-minute tick that day writes the rows.                                                                                                                                                          |
-  | scheduled backup                     | Skips that tick (the restore took its own snapshot), so a half-restored school is never saved as a normal backup and retention never prunes a good one for it.                                                    |
-  | guardian invitation batch            | Parks the job for 1 min (`DelayedError`) and checks again.                                                                                                                                                        |
+  | Job                                  | While the school is restoring                                                                                                                                                                                                                                                           |
+  | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | fees-daily (bills, late fees, fines) | Re-queues the school for the **same day** every 15 min until the lock clears. The nightly run only catches up a missed fire day while still inside that period, so a plain skip could lose the bills of a period that ends during the restore. `last_run_period` keeps it exactly-once. |
+  | study-plan auto deliveries           | Skips; the next 15-minute tick that day writes the rows.                                                                                                                                                                                                                                |
+  | scheduled backup                     | Skips that tick (the restore took its own snapshot), so a half-restored school is never saved as a normal backup and retention never prunes a good one for it.                                                                                                                          |
+  | guardian invitation batch            | Parks the job for 1 min (`DelayedError`) and checks again.                                                                                                                                                                                                                              |
 
   Other scheduled senders (attention alerts, absence notices, homework
   defaulters, study-plan flags) do not check yet (#2350).

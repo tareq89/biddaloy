@@ -1,9 +1,17 @@
-import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { RoutineSubstitution } from './entities/routine-substitution.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
 import { Routine } from './entities/routine.entity';
+import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
+import { PeriodSlot } from './entities/period-slot.entity';
+import { TeacherBusyService } from './teacher-busy.service';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { UpsertSubstitutionDto, QuerySubstitutionsDto } from './dto/substitution.dto';
@@ -27,6 +35,10 @@ export class SubstitutionsService {
     @InjectRepository(Routine) private readonly routineRepo: Repository<Routine>,
     @InjectRepository(AcademicYear) private readonly yearRepo: Repository<AcademicYear>,
     @InjectRepository(Teacher) private readonly teacherRepo: Repository<Teacher>,
+    @InjectRepository(RoutineSlotTeacher)
+    private readonly slotTeacherRepo: Repository<RoutineSlotTeacher>,
+    @InjectRepository(PeriodSlot) private readonly periodSlotRepo: Repository<PeriodSlot>,
+    private readonly teacherBusy: TeacherBusyService,
   ) {}
 
   async record(
@@ -44,6 +56,7 @@ export class SubstitutionsService {
     // IDOR guard: `dto.substitute_teacher_id` is caller-controlled and
     // otherwise flows straight into the write below — validate it
     // resolves to a teacher in this tenant, not just anywhere.
+    let substituteUserId: string | null = null;
     if (dto.substitute_teacher_id) {
       const teacher = await this.teacherRepo.findOne({
         where: { id: dto.substitute_teacher_id, tenant_id: tenantId },
@@ -51,9 +64,13 @@ export class SubstitutionsService {
       if (!teacher) {
         throw new NotFoundException(`Teacher with ID "${dto.substitute_teacher_id}" not found`);
       }
+      substituteUserId = teacher.user_id;
     }
 
     await this.assertSlotOccursOn(slot, dto.date, tenantId);
+    if (substituteUserId && !dto.is_cancelled) {
+      await this.assertSubstituteFree(slot, substituteUserId, dto, tenantId, userId);
+    }
 
     const values = {
       routine_slot_id: dto.routine_slot_id,
@@ -93,6 +110,50 @@ export class SubstitutionsService {
       actorUserId: userId,
     });
     return saved;
+  }
+
+  /** TEN-07: the cover must not be the slot's own teacher, nor busy then. */
+  private async assertSubstituteFree(
+    slot: RoutineSlot,
+    substituteUserId: string,
+    dto: UpsertSubstitutionDto,
+    tenantId: string,
+    actorUserId: string,
+  ) {
+    const own = await this.slotTeacherRepo.find({
+      where: { routine_slot_id: slot.id, tenant_id: tenantId },
+    });
+    if (own.some((r) => r.teacher_id === dto.substitute_teacher_id)) {
+      throw new ConflictException({
+        message: "The substitute is already this slot's teacher",
+        details: { code: 'SUBSTITUTE_IS_SLOT_TEACHER' },
+      });
+    }
+    const period = await this.periodSlotRepo.findOne({
+      where: { id: slot.period_slot_id, tenant_id: tenantId },
+    });
+    if (!period) return;
+    const clash = await this.teacherBusy.busyAt({
+      tenantId,
+      userId: substituteUserId,
+      date: dto.date,
+      from: period.starts_at.slice(0, 5),
+      to: period.ends_at.slice(0, 5),
+      actorUserId,
+      exclude: { routineSlotId: slot.id },
+    });
+    if (clash) {
+      throw new ConflictException({
+        message: 'This teacher is not free at that time',
+        details: {
+          code: 'TEACHER_BUSY',
+          kind: clash.kind,
+          tenantName: clash.tenantName,
+          from: clash.from,
+          to: clash.to,
+        },
+      });
+    }
   }
 
   private isUniqueViolation(err: unknown): boolean {

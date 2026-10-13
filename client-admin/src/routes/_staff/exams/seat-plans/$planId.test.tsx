@@ -326,4 +326,62 @@ describe('SeatPlanDetail', () => {
     expect(await screen.findByText(/Couldn't publish the seat plan\./)).toBeTruthy();
     expect(screen.queryByText(/db exploded/)).toBeNull();
   });
+
+  it('a PUBLISHED plan shows Unpublish, a DRAFT plan shows Delete plan [68.3.12]', async () => {
+    mockBaseline(plan({ status: 'PUBLISHED' }));
+    renderDetail();
+    expect(await screen.findByRole('button', { name: 'Unpublish' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Delete plan' })).toBeNull();
+    await cleanupTestState();
+
+    mockBaseline();
+    renderDetail();
+    expect(await screen.findByRole('button', { name: 'Delete plan' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Unpublish' })).toBeNull();
+  });
+
+  it('a 409 SEAT_PLAN_SITTING_STARTED on unpublish shows our own line, not the server text', async () => {
+    const user = userEvent.setup();
+    mockBaseline(plan({ status: 'PUBLISHED' }));
+    server.use(
+      http.post('/api/v1/seat-plans/:id/unpublish', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(409, 'Raw server text', '/api/v1/seat-plans/plan-1/unpublish'),
+            details: { code: 'SEAT_PLAN_SITTING_STARTED' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: 'Unpublish' }));
+    const confirm = await screen.findByRole('alertdialog');
+    await user.click(within(confirm).getByRole('button', { name: 'Unpublish' }));
+
+    expect(await screen.findByText(/The first exam of this plan has started/)).toBeTruthy();
+    expect(screen.queryByText(/Raw server text/)).toBeNull();
+  });
+
+  it('deleting a draft plan calls DELETE and returns to the list', async () => {
+    const user = userEvent.setup();
+    mockBaseline();
+    let deleted = false;
+    server.use(
+      http.delete('/api/v1/seat-plans/:id', () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.get('/api/v1/seat-plans', () => HttpResponse.json([])),
+    );
+    const view = renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete plan' }));
+    const confirm = await screen.findByRole('alertdialog');
+    await user.click(within(confirm).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(deleted).toBe(true));
+    await waitFor(() => expect(view.router.state.location.pathname).toBe('/exams/seat-plans'));
+  });
 });

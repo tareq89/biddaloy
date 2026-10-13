@@ -199,3 +199,27 @@ export function usePublishSeatPlan(planId: string) {
     },
   });
 }
+
+/** [68.3.12] PUBLISHED -> DRAFT, allowed until the plan's first sitting. */
+export function useUnpublishSeatPlan(planId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () =>
+      (await apiClient.post<SeatPlanDetail>(`/seat-plans/${planId}/unpublish`, {})).data,
+    onSuccess: (data) => {
+      queryClient.setQueryData(seatPlanKeys.detail(planId), data);
+      void queryClient.invalidateQueries({ queryKey: seatPlanKeys.lists() });
+    },
+  });
+}
+
+/** [68.3.12] Delete a DRAFT plan, freeing its sittings. */
+export function useDeleteSeatPlan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (planId: string) => {
+      await apiClient.delete(`/seat-plans/${planId}`);
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: seatPlanKeys.all }),
+  });
+}

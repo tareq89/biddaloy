@@ -106,6 +106,8 @@ describe('Invoices E2E', () => {
     }
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
     process.env.NODE_ENV = 'test';
+    // step-up OTP echoes the code only under this flag (real reversal e2e).
+    process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -165,6 +167,89 @@ describe('Invoices E2E', () => {
       // issued_by embeds the full User relation server-side — must never
       // carry password_hash into the response.
       expect(res.body.issued_by).not.toHaveProperty('password_hash');
+    });
+
+    it('[MON-05] returns 409 and writes no invoice for a reversal and for the reversed original', async () => {
+      const studentId = await createStudent();
+      const feeId = await createFee(studentId, 700);
+      const originalId = await createPayment(studentId, feeId, 700);
+      // Reversal state as PaymentReversalService leaves it: a REFUNDED row
+      // pointing back at the original, and the original pointing at it.
+      const rev = await dataSource.query(
+        `INSERT INTO payments (id, student_id, total_amount, payment_method, payment_status, received_by_user_id, payment_date, tenant_id, reversal_of_payment_id, created_at, updated_at)
+         VALUES (DEFAULT, $1, 700, 'CASH', 'REFUNDED', $2, NOW(), $3, $4, NOW(), NOW()) RETURNING id`,
+        [studentId, SEED_ADMIN_USER_ID, TENANT_ID, originalId],
+      );
+      const reversalId = rev[0].id;
+      await dataSource.query(`UPDATE payments SET reversed_by_payment_id = $1 WHERE id = $2`, [
+        reversalId,
+        originalId,
+      ]);
+
+      for (const id of [reversalId, originalId]) {
+        const res = await supertest(app.getHttpServer())
+          .post('/api/v1/invoices')
+          .set('Authorization', `Bearer ${token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', UserRole.ACCOUNTANT)
+          .send({ payment_id: id })
+          .expect(409);
+        expect(res.body.details.code).toBe('INVOICE_PAYMENT_NOT_INVOICEABLE');
+      }
+      const rows = await dataSource.query(
+        `SELECT id FROM invoices WHERE payment_id = ANY($1::uuid[])`,
+        [[reversalId, originalId]],
+      );
+      expect(rows).toHaveLength(0);
+    });
+
+    it('[MON-05] real flow: invoice, reverse via API, then POST /invoices for both ids is 409 with no new row', async () => {
+      const studentId = await createStudent();
+      const feeId = await createFee(studentId, 800);
+      const originalId = await createPayment(studentId, feeId, 800);
+      const post = (id: string) =>
+        supertest(app.getHttpServer())
+          .post('/api/v1/invoices')
+          .set('Authorization', `Bearer ${token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', UserRole.ACCOUNTANT)
+          .send({ payment_id: id });
+      await post(originalId).expect(201);
+
+      const otpRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/step-up/otp/request')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ identifier: SEED_ADMIN_EMAIL })
+        .expect(202);
+      const verifyRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/step-up')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          identifier: SEED_ADMIN_EMAIL,
+          method: 'OTP',
+          otp: otpRes.body.debug?.otp,
+          scope: 'payments.reverse',
+        })
+        .expect(200);
+      const revRes = await supertest(app.getHttpServer())
+        .post(`/api/v1/payments/${originalId}/reverse`)
+        .send({ reason: 'MON-05 e2e' })
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .set('X-Approval-Token', verifyRes.body.approval_token)
+        .expect(200);
+      const reversalId = revRes.body.id;
+
+      const before = await dataSource.query(`SELECT count(*)::int AS n FROM invoices`);
+      for (const id of [reversalId, originalId]) {
+        const res = await post(id).expect(409);
+        expect(res.body.details.code).toBe('INVOICE_PAYMENT_NOT_INVOICEABLE');
+      }
+      const after = await dataSource.query(`SELECT count(*)::int AS n FROM invoices`);
+      expect(after[0].n).toBe(before[0].n);
     });
 
     it('returns 403 for STUDENT role', async () => {
@@ -346,7 +431,10 @@ describe('Invoices E2E', () => {
         .expect(201);
       // Runs on the migrated DB, so this exercises the migration's trigger body, not a test copy.
       await expect(
-        dataSource.query(`UPDATE invoices SET tenant_id = $1 WHERE id = $2`, [OTHER_TENANT, res.body.id]),
+        dataSource.query(`UPDATE invoices SET tenant_id = $1 WHERE id = $2`, [
+          OTHER_TENANT,
+          res.body.id,
+        ]),
       ).rejects.toThrow(/immutable/);
     });
 

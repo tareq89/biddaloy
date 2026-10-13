@@ -1,14 +1,14 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Repository } from 'typeorm';
-import { AuditAction, ApprovalScope, WalletTransactionKind } from '@biddaloy/shared';
+import { AuditAction, ApprovalScope } from '@biddaloy/shared';
 import { FeeGeneration } from './entities/fee-generation.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
-import { WalletTransaction } from './entities/wallet-transaction.entity';
 import { Student } from '../students/entities/student.entity';
 import { AuditService } from '../audit/audit.service';
 import { WalletService } from './wallet.service';
+import { returnMoneyOfRemovedBills } from './removed-bill-money';
 import { ApprovalService } from '../auth/guards/approval.guard';
 import { PatchFeeGenerationDto } from './dto/fee-generations.dto';
 
@@ -65,9 +65,7 @@ export class FeeGenerationBatchService {
     const newDueDate = dto.due_date ? new Date(dto.due_date) : batch.due_date;
 
     await this.studentFeeRepo.manager.transaction(async (manager) => {
-      const bills = await manager
-        .getRepository(StudentFee)
-        .find({ where: { fee_generation_id: batch.id } });
+      const bills = await this.lockBills(manager, { fee_generation_id: batch.id });
       const billIds = bills.map((b) => b.id);
 
       // Only the period_start move can actually collide with the
@@ -188,9 +186,7 @@ export class FeeGenerationBatchService {
     const batch = await this.findBatch(id, tenantId);
 
     await this.studentFeeRepo.manager.transaction(async (manager) => {
-      const bills = await manager
-        .getRepository(StudentFee)
-        .find({ where: { fee_generation_id: batch.id } });
+      const bills = await this.lockBills(manager, { fee_generation_id: batch.id });
       const billIds = bills.map((b) => b.id);
 
       const collected = await this.anyCollected(manager, billIds);
@@ -205,14 +201,24 @@ export class FeeGenerationBatchService {
       }
       await manager.getRepository(FeeGeneration).softDelete({ id: batch.id });
 
-      await this.reverseWalletDebits(manager, bills, tenantId, userId);
+      const walletCredited = await returnMoneyOfRemovedBills(
+        manager,
+        this.walletService,
+        bills,
+        tenantId,
+        userId,
+      );
 
       const auditEntry = {
         entity_type: 'FeeGeneration' as const,
         entity_id: batch.id,
         tenant_id: tenantId,
         performed_by_user_id: userId,
-        new_values: { removed_bill_ids: billIds, removed_count: billIds.length },
+        new_values: {
+          removed_bill_ids: billIds,
+          removed_count: billIds.length,
+          wallet_credited: walletCredited,
+        },
       };
       if (collected && approvedBy) {
         await this.auditService.recordApproved(
@@ -240,9 +246,10 @@ export class FeeGenerationBatchService {
     const batch = await this.findBatch(id, tenantId);
 
     await this.studentFeeRepo.manager.transaction(async (manager) => {
-      const bills = await manager
-        .getRepository(StudentFee)
-        .find({ where: { fee_generation_id: batch.id, student_id: studentId } });
+      const bills = await this.lockBills(manager, {
+        fee_generation_id: batch.id,
+        student_id: studentId,
+      });
       const billIds = bills.map((b) => b.id);
 
       const collected = await this.anyCollected(manager, billIds);
@@ -259,7 +266,13 @@ export class FeeGenerationBatchService {
           .increment({ id: batch.id }, 'removed_count', billIds.length);
       }
 
-      await this.reverseWalletDebits(manager, bills, tenantId, userId);
+      const walletCredited = await returnMoneyOfRemovedBills(
+        manager,
+        this.walletService,
+        bills,
+        tenantId,
+        userId,
+      );
 
       const auditEntry = {
         entity_type: 'FeeGeneration' as const,
@@ -270,6 +283,7 @@ export class FeeGenerationBatchService {
           student_id: studentId,
           removed_bill_ids: billIds,
           removed_count: billIds.length,
+          wallet_credited: walletCredited,
         },
       };
       if (collected && approvedBy) {
@@ -358,71 +372,13 @@ export class FeeGenerationBatchService {
       .exists({ where: { student_fee_id: In(billIds) } });
   }
 
-  /**
-   * Undoes every `DEBIT_GENERATION` wallet movement tied to `bills` — the
-   * auto-apply `FeeGenerationService.generate` performed when it created
-   * them — crediting the money back to each student's wallet with a
-   * `REVERSAL` transaction linked to the original (D per the issue's
-   * "wallet auto-applied money returns to the wallet on removal"
-   * acceptance line). A payment made through checkout is untouched: that
-   * money lives in `payment_allocations`, which stays pointing at the
-   * now-soft-deleted bill, exactly as the plan asks.
-   */
-  private async reverseWalletDebits(
-    manager: EntityManager,
-    bills: StudentFee[],
-    tenantId: string,
-    userId: string | null,
-  ): Promise<void> {
-    if (bills.length === 0) return;
-    const billIds = bills.map((b) => b.id);
-    const studentByBill = new Map(bills.map((b) => [b.id, b.student_id]));
-
-    const debits = await manager.getRepository(WalletTransaction).find({
-      where: { student_fee_id: In(billIds), kind: WalletTransactionKind.DEBIT_GENERATION },
-    });
-    if (debits.length === 0) return;
-
-    // Lock every affected student's wallet row *before* deciding what's
-    // already reversed: two concurrent deletes of the same batch (or of
-    // overlapping batches for the same student) would otherwise both read
-    // "not yet reversed" under READ COMMITTED and double-credit the
-    // wallet. `getOrCreate`'s `SELECT ... FOR UPDATE` serializes them —
-    // the second call blocks until the first transaction commits, then
-    // this manager's fresh read of `wallet_transactions` (below) sees the
-    // `REVERSAL` row the first transaction just wrote.
-    const studentIds = [...new Set(bills.map((b) => b.student_id))];
-    for (const studentId of studentIds) {
-      await this.walletService.getOrCreate(studentId, tenantId, manager);
-    }
-
-    const alreadyReversed = new Set(
-      (
-        await manager
-          .getRepository(WalletTransaction)
-          .find({ where: { reversal_of_id: In(debits.map((d) => d.id)) } })
-      ).map((r) => r.reversal_of_id),
-    );
-
-    for (const debit of debits) {
-      if (alreadyReversed.has(debit.id)) continue;
-      const studentId = debit.student_fee_id ? studentByBill.get(debit.student_fee_id) : undefined;
-      if (!studentId) continue;
-      const amount = Math.abs(Number(debit.amount));
-      if (amount <= 0) continue;
-
-      await this.walletService.credit(
-        {
-          studentId,
-          tenantId: debit.tenant_id,
-          amount,
-          kind: WalletTransactionKind.REVERSAL,
-          studentFeeId: debit.student_fee_id,
-          reversalOfId: debit.id,
-          createdByUserId: userId,
-        },
-        manager,
-      );
-    }
+  /** Loads bills `FOR UPDATE` in `ORDER BY id` — the same lock order as
+   * `CheckoutService` — so the paid-check that follows cannot race a checkout
+   * (MON-13). Checkout money on bills that are then removed is credited to the
+   * wallet by `returnMoneyOfRemovedBills` (MON-03, D16). */
+  private lockBills(manager: EntityManager, where: Partial<StudentFee>): Promise<StudentFee[]> {
+    const qb = manager.getRepository(StudentFee).createQueryBuilder('sf');
+    Object.entries(where).forEach(([k, v], i) => qb.andWhere(`sf.${k} = :v${i}`, { [`v${i}`]: v }));
+    return qb.orderBy('sf.id', 'ASC').setLock('pessimistic_write').getMany();
   }
 }

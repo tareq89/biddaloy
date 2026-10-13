@@ -11,6 +11,7 @@
  * filled button would only read as broken.
  */
 import { Permission } from '@biddaloy/shared';
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   ConfirmDialog,
@@ -30,6 +31,8 @@ import {
   seatPlanDetailQueryOptions,
   useRooms,
   useReshuffleRoom,
+  useUnpublishSeatPlan,
+  useDeleteSeatPlan,
   useSeatPlanDetail,
   useHasPermission,
   type SeatPlanAllocationRow,
@@ -39,7 +42,7 @@ import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell } from '@biddaloy/ui/shells';
 import { formatDate, formatNumber, parseDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
-import { DoorOpen, Lock, Megaphone, Shuffle } from 'lucide-react';
+import { DoorOpen, Lock, Megaphone, Shuffle, Trash2, Undo2 } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -88,9 +91,13 @@ function SeatPlanDetailPage() {
   const roomsQuery = useRooms();
   const rooms = roomsQuery.data?.data ?? [];
   const reshuffleRoom = useReshuffleRoom(planId);
+  const unpublish = useUnpublishSeatPlan(planId);
+  const deletePlan = useDeleteSeatPlan();
 
   const [reseatTarget, setReseatTarget] = React.useState<SeatPlanAllocationRow | null>(null);
   const [publishOpen, setPublishOpen] = React.useState(false);
+  const [unpublishOpen, setUnpublishOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [reshuffleTarget, setReshuffleTarget] = React.useState<SeatPlanRoomDetail | null>(null);
 
   // `document.title` is owned by the `_staff` layout (breadcrumb trail).
@@ -161,6 +168,22 @@ function SeatPlanDetailPage() {
             priority: 'primary',
             allowed: editable,
             onClick: () => setPublishOpen(true),
+          },
+          {
+            id: 'unpublish',
+            label: t('unpublish.button'),
+            icon: <Undo2 aria-hidden className="size-4" />,
+            priority: 'secondary',
+            allowed: canManage && !isDraft,
+            onClick: () => setUnpublishOpen(true),
+          },
+          {
+            id: 'delete',
+            label: t('delete.button'),
+            icon: <Trash2 aria-hidden className="size-4" />,
+            priority: 'destructive',
+            allowed: editable,
+            onClick: () => setDeleteOpen(true),
           },
         ]}
       >
@@ -333,6 +356,49 @@ function SeatPlanDetailPage() {
         rooms={rooms}
       />
       <PublishSeatPlanDialog open={publishOpen} onOpenChange={setPublishOpen} planId={planId} />
+      <ConfirmDialog
+        open={unpublishOpen}
+        onOpenChange={(open) => {
+          if (!open && unpublish.isPending) return;
+          if (!open) unpublish.reset();
+          setUnpublishOpen(open);
+        }}
+        tone="default"
+        title={t('unpublish.title')}
+        description={`${t('unpublish.description')}${
+          unpublish.isError
+            ? ` ${
+                unpublish.error instanceof ApiError &&
+                (unpublish.error.details as { code?: string } | undefined)?.code ===
+                  'SEAT_PLAN_SITTING_STARTED'
+                  ? t('unpublish.errorStarted')
+                  : t('unpublish.errorMessage')
+              }`
+            : ''
+        }`}
+        confirmLabel={t('unpublish.confirm')}
+        busy={unpublish.isPending}
+        onConfirm={() => unpublish.mutate(undefined, { onSuccess: () => setUnpublishOpen(false) })}
+      />
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          if (!open && deletePlan.isPending) return;
+          if (!open) deletePlan.reset();
+          setDeleteOpen(open);
+        }}
+        title={t('delete.title')}
+        description={`${t('delete.description')}${
+          deletePlan.isError ? ` ${t('delete.errorMessage')}` : ''
+        }`}
+        confirmLabel={t('delete.confirm')}
+        busy={deletePlan.isPending}
+        onConfirm={() =>
+          deletePlan.mutate(planId, {
+            onSuccess: () => void navigate({ to: '/exams/seat-plans' }),
+          })
+        }
+      />
       <ConfirmDialog
         open={reshuffleTarget !== null}
         onOpenChange={(open) => {

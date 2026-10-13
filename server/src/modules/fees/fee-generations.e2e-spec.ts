@@ -109,6 +109,7 @@ describe('Fee Generations E2E', () => {
     }
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
     process.env.NODE_ENV = 'test';
+    process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -482,6 +483,82 @@ describe('Fee Generations E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
         .expect(403);
+    });
+  });
+
+  describe('DELETE /fees/generations/:id (paid bill, MON-03)', () => {
+    async function issueApprovalToken(): Promise<string> {
+      const identifier = SEED_ADMIN_EMAIL;
+      const requestRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/step-up/otp/request')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ identifier })
+        .expect(202);
+      const verifyRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/step-up')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          identifier,
+          method: 'OTP',
+          otp: requestRes.body.debug?.otp,
+          scope: 'fees.edit_paid',
+        })
+        .expect(200);
+      return verifyRes.body.approval_token;
+    }
+
+    it('without an approval token it is refused; with one it deletes and the wallet shows the credit', async () => {
+      const batchId = await createBatch();
+      const studentId = await createStudent();
+      const billId = await createBill(batchId, studentId, { paid_amount: 1000, status: 'PAID' });
+      // A real checkout payment against the bill (what makes the money "stranded" today).
+      const [payment] = await dataSource.query(
+        `INSERT INTO payments (id, tenant_id, student_id, total_amount, payment_method, payment_date, received_by_user_id, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, 1000, 'CASH', NOW(), $3, NOW(), NOW()) RETURNING id`,
+        [TENANT_ID, studentId, SEED_ADMIN_USER_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO payment_allocations (id, payment_id, student_fee_id, allocated_amount, allocation_type, discount_amount, created_at)
+         VALUES (DEFAULT, $1, $2, 1000, 'CURRENT', 0, NOW())`,
+        [payment.id, billId],
+      );
+
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/fees/generations/${batchId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(403);
+
+      const approval = await issueApprovalToken();
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/fees/generations/${batchId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .set('X-Approval-Token', approval)
+        .expect(200);
+
+      const walletRes = await supertest(app.getHttpServer())
+        .get(`/api/v1/students/${studentId}/wallet`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+      expect(Number(walletRes.body.balance)).toBe(1000);
+      expect(JSON.stringify(walletRes.body)).toContain('CREDIT_BILL_REMOVED');
+    });
+
+    it('tenant B cannot delete tenant A batch (404)', async () => {
+      const batchId = await createBatch();
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/fees/generations/${batchId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_B)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(404);
     });
   });
 

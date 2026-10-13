@@ -8,6 +8,7 @@ import { TENANT_STATUS_REDIS } from '../../../schools/tenant-status.service';
 import { SchoolCalendarService } from '../../../calendar/school-calendar.service';
 import { ResolveRoutineService } from '../../../routines/resolve-routine.service';
 import { SubstitutionsService } from '../../../routines/substitutions.service';
+import { TeacherBusyService } from '../../../routines/teacher-busy.service';
 import { FamilyAccessService } from '../../../students/family-access.service';
 import { attentionEvents } from '../../attention.constants';
 import { ATTENTION_RECHECK, AttentionRecheckPayload } from '../../engine/attention-events';
@@ -273,6 +274,8 @@ describe('Family rules (integration)', () => {
         ResolveRoutineService,
         FamilyAccessService,
         SubstitutionsService,
+        // These specs test attention rules, not clash detection: nobody is busy.
+        { provide: TeacherBusyService, useValue: { busyAt: async () => null } },
         {
           provide: SchoolCalendarService,
           useValue: { getWorkingDays: async () => ({ dates: [DAY] }) },

@@ -1,11 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, EntityManager, In } from 'typeorm';
 import { Invoice, InvoiceSnapshot, InvoiceSnapshotStudent } from './entities/invoice.entity';
 import { Student } from '../students/entities/student.entity';
 import { Payment } from '../fees/entities/payment.entity';
 import { School } from '../schools/entities/school.entity';
-import { InvoiceStatus, InvoiceKind } from '@biddaloy/shared';
+import { InvoiceStatus, InvoiceKind, PaymentStatus } from '@biddaloy/shared';
 import { QueryInvoiceDto } from './dto/invoices.dto';
 import { generateInvoiceNumber, generateCreditNoteNumber } from './invoice-numbering.util';
 import { MONTH_NAMES, periodStartFromLabel } from './invoice-period.util';
@@ -44,6 +49,22 @@ function withPeriodStart(invoice: Invoice): Invoice {
 /** [16.5.2] `GET /invoices/:id/print?format=` values — `a4` is the
  * default when the query param is absent. */
 export type InvoicePrintFormat = 'a4' | PosPrintWidth;
+
+/** [MON-05] A reversal, a reversed original or a non-SUCCESS payment must
+ * never get a "paid" invoice; reversals get credit notes instead. */
+function assertInvoiceable(payment: Payment): void {
+  if (
+    payment.payment_status !== PaymentStatus.SUCCESS ||
+    payment.reversal_of_payment_id ||
+    payment.reversed_by_payment_id
+  ) {
+    throw new ConflictException({
+      code: 'INVOICE_PAYMENT_NOT_INVOICEABLE',
+      details: { code: 'INVOICE_PAYMENT_NOT_INVOICEABLE' },
+      message: 'Only a live, successful payment can get an invoice. A reversal gets a credit note.',
+    });
+  }
+}
 
 @Injectable()
 export class InvoicesService {
@@ -144,6 +165,17 @@ export class InvoicesService {
    * invoice. Callers own their own transaction/lock strategy — this
    * method never opens one of its own. */
   async create(paymentId: string, manager: EntityManager): Promise<Invoice> {
+    // Lock the payment row so this serializes with a reversal's FOR UPDATE:
+    // we either see the reversal committed (and 409) or it waits for us.
+    // Write lock (not share): the caller later UPDATEs payments.invoice_id,
+    // and two share-holders upgrading would deadlock.
+    await manager
+      .getRepository(Payment)
+      .createQueryBuilder('p')
+      .select('p.id')
+      .where('p.id = :paymentId', { paymentId })
+      .setLock('pessimistic_write')
+      .getOne();
     const payment = await manager.getRepository(Payment).findOne({
       where: { id: paymentId },
       relations: [
@@ -156,6 +188,7 @@ export class InvoicesService {
     if (!payment) {
       throw new NotFoundException(`Payment with ID "${paymentId}" not found`);
     }
+    assertInvoiceable(payment);
     if (!payment.allocations || payment.allocations.length === 0) {
       throw new BadRequestException(
         `Payment "${paymentId}" has no allocations to build an invoice from`,
@@ -214,6 +247,9 @@ export class InvoicesService {
     if (!payment) {
       throw new NotFoundException(`Payment with ID "${paymentId}" not found`);
     }
+    // Before the idempotent "already invoiced" return: a payment invoiced
+    // and later reversed must 409, not hand back its stale invoice.
+    assertInvoiceable(payment);
     let invoiceId: string;
     try {
       invoiceId = await this.repo.manager.transaction(async (manager) => {

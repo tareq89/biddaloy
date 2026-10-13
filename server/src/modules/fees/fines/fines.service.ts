@@ -145,7 +145,11 @@ export class FinesService {
     return { bill_ids: createdBills.map((b) => b.id) };
   }
 
-  async waiveFine(
+  /**
+   * Writes off (fully or in part) any open bill, whatever its fee type
+   * (MON-08). Consumes a `fees.discount` approval token itself, last.
+   */
+  async waiveBill(
     id: string,
     dto: WaiveFineDto,
     tenantId: string,
@@ -159,20 +163,18 @@ export class FinesService {
         .innerJoinAndSelect('sf.fee_structure', 'fs')
         .where('sf.id = :id', { id })
         .andWhere('fs.tenant_id = :tenantId', { tenantId })
+        .andWhere('sf.deleted_at IS NULL')
         .setLock('pessimistic_write', undefined, ['sf'])
         .getOne();
       if (!bill) {
-        throw new NotFoundException(`Fine bill "${id}" not found`);
-      }
-      if (bill.fee_structure.fee_type !== FeeType.FINE) {
-        throw new BadRequestException(`Bill "${id}" is not a FINE bill`);
+        throw new NotFoundException(`Bill "${id}" not found`);
       }
 
       const outstanding = round2(
         Number(bill.total_amount) - Number(bill.discount_amount) - Number(bill.paid_amount),
       );
       if (outstanding <= 0) {
-        throw new ConflictException(`Fine bill "${id}" has no outstanding balance to waive`);
+        throw new ConflictException(`Bill "${id}" has no outstanding balance to waive`);
       }
 
       const requested = dto.amount ?? outstanding;
@@ -221,7 +223,12 @@ export class FinesService {
           performed_by_user_id: userId,
           approved_by_user_id: approval.approverId,
           approval_scope: ApprovalScope.FEES_DISCOUNT,
-          new_values: { reason: dto.reason, amount, status: newStatus },
+          new_values: {
+            reason: dto.reason,
+            amount,
+            status: newStatus,
+            fee_type: bill.fee_structure.fee_type,
+          },
         },
         manager,
       );

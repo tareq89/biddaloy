@@ -12,6 +12,7 @@ import {
   feesEvents,
   FEES_GENERATED_EVENT,
 } from './fee-generation.service';
+import { LateFeeService } from './late-fee.service';
 import { FeeGenerationsService } from './fee-generations.service';
 import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
@@ -85,6 +86,7 @@ describe('FeesDailyScheduler (integration)', () => {
   let dataSource: DataSource;
   let redis: Redis;
   let feeGenerationService: FeeGenerationService;
+  let lateFeeService: LateFeeService;
   let recurringSchedulesService: RecurringSchedulesService;
   let feeGenerationRepo: Repository<FeeGeneration>;
   let studentFeeRepo: Repository<StudentFee>;
@@ -130,14 +132,8 @@ describe('FeesDailyScheduler (integration)', () => {
    * A rule that's due "today" (`todayInSchoolTz()`), for whatever day the
    * suite happens to run on — without faking the system clock.
    *
-   * `isDue()`'s WEEKLY branch compares against `Date#getUTCDay()`, which is
-   * 0 (Sunday) - 6 (Saturday), but `RecurringSchedulesService.validateRule`
-   * only accepts `weekdays` values 1-7 — so a real WEEKLY schedule can
-   * never be persisted with a Sunday in its `weekdays` (0 is rejected,
-   * and 7 never matches `getUTCDay()`'s 0-6 range). That mismatch is a
-   * pre-existing quirk of the persisted-rule code, out of scope for this
-   * suite to fix — MONTHLY with today's exact `day_of_month` sidesteps it
-   * entirely and is due on any day 1-28 of the month.
+   * MONTHLY with today's exact `day_of_month` is due on any day 1-28 of the
+   * month; days 29-31 fall back to WEEKLY across every ISO weekday (1-7).
    */
   function dueRuleToday():
     { kind: 'MONTHLY'; day_of_month: number } | { kind: 'WEEKLY'; weekdays: number[] } {
@@ -145,8 +141,7 @@ describe('FeesDailyScheduler (integration)', () => {
     if (dayOfMonth <= 28) {
       return { kind: 'MONTHLY', day_of_month: dayOfMonth };
     }
-    // Rare fallback (29th-31st only): WEEKLY across every persistable
-    // weekday. Misses only if the suite happens to run on a Sunday.
+    // Rare fallback (29th-31st only): WEEKLY across every ISO weekday.
     return { kind: 'WEEKLY', weekdays: [1, 2, 3, 4, 5, 6, 7] };
   }
 
@@ -196,6 +191,7 @@ describe('FeesDailyScheduler (integration)', () => {
     );
 
     feeGenerationService = module.get(FeeGenerationService);
+    lateFeeService = new LateFeeService(module.get(DataSource), module.get(AuditService));
     recurringSchedulesService = module.get(RecurringSchedulesService);
     feeGenerationRepo = module.get(getRepositoryToken(FeeGeneration));
     studentFeeRepo = module.get(getRepositoryToken(StudentFee));
@@ -284,9 +280,8 @@ describe('FeesDailyScheduler (integration)', () => {
   });
 
   /**
-   * [68.1.fix] Review finding 2: `isDue` matches only the exact firing day, so a
-   * school skipped on its due day must be re-queued for THAT day, or the whole
-   * month's bills are lost. The catch-up bills it the next day, exactly once.
+   * [68.1.fix] Review finding 2: a school skipped on its due day must be re-queued for THAT
+   * day, since the catch-up is still needed when a restore spans the period's end. The catch-up bills it the next day, exactly once.
    */
   it('a restore on the due day re-queues the school, and the catch-up bills it afterwards exactly once', async () => {
     const structure = await structureRepo.save(makeStructure());
@@ -520,6 +515,210 @@ describe('FeesDailyScheduler (integration)', () => {
       [schedule.id],
     );
     expect(row.last_run_period).not.toBeNull();
+  });
+
+  /** [68.3.10] Catch-up: due on any day of the period on/after the fire day, once per period. */
+  describe('catch-up within the period [68.3.10]', () => {
+    async function scheduleWith(
+      rule: any,
+      starts_on = '2026-01-01',
+      lastRunPeriod: string | null = null,
+    ) {
+      const structure = await structureRepo.save(makeStructure());
+      const schedule = await recurringSchedulesService.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Catch-up ${Date.now()}-${Math.random()}`,
+          audience: { section_id: SEED_SECTION_1_ID, enrollment_status: 'ACTIVE' },
+          rule,
+          fee_structure_ids: [structure.id],
+          starts_on,
+          notify_families: false,
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      if (lastRunPeriod) {
+        await dataSource.query(
+          `UPDATE recurring_schedules SET last_run_period = $1 WHERE id = $2`,
+          [lastRunPeriod, schedule.id],
+        );
+      }
+      return schedule;
+    }
+    const runOn = (today: string, name = 'fees-daily', withLateFees = false) => {
+      const school = { id: TENANT_ID, status: 'ACTIVE' };
+      return new FeesDailyScheduler(
+        { upsertJobScheduler: async () => undefined, add: async () => undefined } as any,
+        dataSource,
+        { findAll: async () => [school], findById: async () => school } as any,
+        feeGenerationService,
+        { isRestoring: async () => false } as any,
+        withLateFees ? lateFeeService : undefined,
+      ).process({ name, data: { tenantId: TENANT_ID, today } } as any);
+    };
+    const lastRun = async (id: string) =>
+      (
+        await dataSource.query(
+          `SELECT last_run_period::text AS p FROM recurring_schedules WHERE id = $1`,
+          [id],
+        )
+      )[0].p;
+
+    it('bills a missed fire day on a later day, once', async () => {
+      await studentRepo.save(makeStudent());
+      const schedule = await scheduleWith(
+        { kind: 'MONTHLY', day_of_month: 1 },
+        '2026-01-01',
+        '2026-02-01',
+      );
+
+      await runOn('2026-03-02');
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+      const batches = await feeGenerationRepo.find();
+      expect(batches).toHaveLength(1);
+      expect(String(batches[0].period_start)).toContain('2026-03-01');
+      expect(await lastRun(schedule.id)).toBe('2026-03-01');
+
+      await runOn('2026-03-03');
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+      expect(await feeGenerationRepo.find()).toHaveLength(1);
+    });
+
+    it('is not due before the fire day, due after it', async () => {
+      await studentRepo.save(makeStudent());
+      await scheduleWith({ kind: 'MONTHLY', day_of_month: 15 });
+
+      await runOn('2026-03-14');
+      expect(await studentFeeRepo.find()).toHaveLength(0);
+      await runOn('2026-03-20');
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+    });
+
+    it('is not due in a period whose fire day is before starts_on', async () => {
+      await studentRepo.save(makeStudent());
+      await scheduleWith({ kind: 'MONTHLY', day_of_month: 1 }, '2026-03-02');
+
+      await runOn('2026-03-02');
+      await runOn('2026-03-31');
+      expect(await studentFeeRepo.find()).toHaveLength(0);
+      expect(await feeGenerationRepo.find()).toHaveLength(0);
+
+      await runOn('2026-04-01');
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+    });
+
+    it('WEEKLY Sunday (ISO 7) fires on Sunday, not Saturday', async () => {
+      await studentRepo.save(makeStudent());
+      await scheduleWith({ kind: 'WEEKLY', weekdays: [7] });
+
+      await runOn('2026-03-21'); // Saturday
+      expect(await studentFeeRepo.find()).toHaveLength(0);
+      await runOn('2026-03-22'); // Sunday
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+      const [batch] = await feeGenerationRepo.find();
+      expect(String(batch.period_start)).toContain('2026-03-16');
+    });
+
+    it('a caught-up bill is not born overdue: no same-night late fee, due date is not in the past', async () => {
+      await studentRepo.save(makeStudent());
+      const schedule = await scheduleWith({ kind: 'MONTHLY', day_of_month: 1 });
+      await dataSource.query(
+        `UPDATE recurring_schedules SET due_days_after_period_start = 5 WHERE id = $1`,
+        [schedule.id],
+      );
+      await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+        JSON.stringify({
+          fees: {
+            lateFees: {
+              MONTHLY_TUITION: { enabled: true, grace_days: 0, kind: 'FLAT', value: 50 },
+            },
+          },
+        }),
+        TENANT_ID,
+      ]);
+
+      await runOn('2026-03-15', 'fees-daily', true); // fire day (03-01) + 5 days is long past
+
+      const bills = await dataSource.query(
+        `SELECT due_date::text AS due FROM student_fees WHERE deleted_at IS NULL`,
+      );
+      expect(bills).toHaveLength(1); // the tuition bill only, no LATE_FEE
+      expect(bills[0].due).toBe('2026-03-16'); // tomorrow, not the long-gone 03-06
+    });
+
+    // Review r1 #10: a due date of today with 0 grace days is late the same night.
+    it('a caught-up bill whose normal due date is today is due tomorrow (no same-night late fee)', async () => {
+      await studentRepo.save(makeStudent());
+      const schedule = await scheduleWith({ kind: 'MONTHLY', day_of_month: 1 });
+      await dataSource.query(
+        `UPDATE recurring_schedules SET due_days_after_period_start = 14 WHERE id = $1`,
+        [schedule.id],
+      );
+      await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+        JSON.stringify({
+          fees: {
+            lateFees: {
+              MONTHLY_TUITION: { enabled: true, grace_days: 0, kind: 'FLAT', value: 50 },
+            },
+          },
+        }),
+        TENANT_ID,
+      ]);
+
+      await runOn('2026-03-15', 'fees-daily', true); // 03-01 + 14 days = today
+
+      const bills = await dataSource.query(
+        `SELECT due_date::text AS due FROM student_fees WHERE deleted_at IS NULL`,
+      );
+      expect(bills).toHaveLength(1); // no LATE_FEE
+      expect(bills[0].due).toBe('2026-03-16');
+    });
+
+    it('multi-weekday WEEKLY: the first fire on/after a mid-week starts_on bills (Thu, not skipped)', async () => {
+      await studentRepo.save(makeStudent());
+      // Mon+Thu rule; starts_on Wed 03-18, so Thu 03-19 is the first fire in the window.
+      await scheduleWith({ kind: 'WEEKLY', weekdays: [1, 4] }, '2026-03-18');
+
+      await runOn('2026-03-18');
+      expect(await studentFeeRepo.find()).toHaveLength(0);
+      await runOn('2026-03-19');
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+    });
+
+    it('last_run_period never rewinds (empty-audience stale catch-up)', async () => {
+      // No students: the run takes the empty-audience path, which only writes last_run_period.
+      const schedule = await scheduleWith(
+        { kind: 'MONTHLY', day_of_month: 1 },
+        '2026-01-01',
+        '2026-04-01',
+      );
+
+      await runOn('2026-03-31', 'restore-catch-up');
+
+      expect(await lastRun(schedule.id)).toBe('2026-04-01');
+    });
+
+    it('a stale restore catch-up neither re-bills a closed period nor rewinds last_run_period', async () => {
+      await studentRepo.save(makeStudent());
+      const schedule = await scheduleWith({ kind: 'MONTHLY', day_of_month: 1 });
+
+      await runOn('2026-03-01');
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+      await dataSource.query(`UPDATE student_fees SET deleted_at = now()`);
+      await runOn('2026-04-01');
+      expect(await feeGenerationRepo.find()).toHaveLength(2);
+
+      await runOn('2026-03-31', 'restore-catch-up');
+
+      const liveMarch = await dataSource.query(
+        `SELECT 1 FROM student_fees WHERE period_start = '2026-03-01' AND deleted_at IS NULL`,
+      );
+      expect(liveMarch).toHaveLength(0);
+      expect(await feeGenerationRepo.find()).toHaveLength(2);
+      expect(await lastRun(schedule.id)).toBe('2026-04-01');
+    });
   });
 
   // [34.2.2] Program-audience targeting — D7/D17/D26.
