@@ -303,6 +303,10 @@ export class ExamSchedulesService {
     scheduleId: string,
     tenantId: string,
   ): Promise<void> {
+    // Same tenant lock `SeatPlansService.publish`/`unpublish` take (namespace 25014), so this
+    // check and a publish cannot interleave: a move either lands before the publish checks
+    // conflicts, or sees the plan as published and is refused.
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1), 25014)', [tenantId]);
     // Raw SQL keeps ExamsModule free of seat-plan imports.
     const rows = await manager.query(
       `SELECT 1 FROM seat_plan_schedules sps
