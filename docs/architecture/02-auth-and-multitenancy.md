@@ -326,6 +326,8 @@ redundant and was deleted (Epic 24.0).
 permission metadata through. There the `@Roles` list plus the service's own
 identity check are the gate. Example: `GET /leave/balance` acts only on the caller's own staff profile.
 
+`ContextGuard` trusts the memberships inside the JWT. What makes a removed membership disappear within one request is the session cut-off (`users.tokens_valid_after`, checked in `JwtStrategy`; see [08-security](08-security.md) "Session cut-off").
+
 Which status a refused request gets depends on which guard refuses it:
 
 | Request                                                                                      | Refused by         | Status                                                  |

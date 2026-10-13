@@ -34,6 +34,7 @@ import type {
 } from './dto/notification-prefs.dto';
 import { AuditService } from '../audit/audit.service';
 import { AccessTokenDenylistService } from '../auth/access-token-denylist.service';
+import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { ACCESS_TOKEN_TTL_MS } from '../auth/auth-tokens';
 import { assertPasswordAllowed } from '../auth/password-policy';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
@@ -114,6 +115,7 @@ export class UserService {
     private readonly audit: AuditService,
     private readonly accessTokenDenylist: AccessTokenDenylistService,
     @Inject(ACCESS_TOKEN_TTL_MS) private readonly accessTokenTtlMs: number,
+    private readonly sessionCutoff: SessionCutoffService,
   ) {}
 
   /** [67.5.03] Own push mute + the school's (read-only) quiet hours. */
@@ -807,6 +809,8 @@ export class UserService {
         },
         manager,
       );
+      // [75.2] Durable DB cut-off, same transaction as the removal; JwtStrategy reads it.
+      await this.sessionCutoff.cutOff(userId, manager);
     });
     // After commit: every token the user already holds is refused, so removal
     // is immediate (D16). The client's 401 -> refresh drops the school.
