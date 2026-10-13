@@ -122,6 +122,7 @@ if (require.main === module) {
   }
 
   const advisories = [];
+  let sawSummary = false;
   for (const line of (result.stdout || '').split('\n')) {
     if (!line.trim()) continue;
     let entry;
@@ -131,6 +132,16 @@ if (require.main === module) {
       continue;
     }
     if (entry.type === 'auditAdvisory') advisories.push(entry.data.advisory);
+    if (entry.type === 'auditSummary') sawSummary = true;
+  }
+  // A finished audit always ends with an auditSummary line. Without one the
+  // audit did not run (registry outage, yarn error): fail closed, never "clean".
+  if (!sawSummary) {
+    console.error(
+      `yarn audit produced no summary (exit ${result.status}); the audit did not complete.`,
+    );
+    if (result.stderr) console.error(result.stderr.slice(-2000));
+    process.exit(1);
   }
 
   const { unallowed, expired, stale, lines } = evaluate({
