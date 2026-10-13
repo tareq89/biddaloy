@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
+import { SessionCutoffService } from './session-cutoff.service';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from './entities/user-tenant.entity';
 import { AuditService } from '../audit/audit.service';
@@ -30,6 +31,7 @@ import bcrypt from 'bcrypt';
 
 describe('AuthService', () => {
   let service: AuthService;
+  let mockSessionCutoff: { cutOff: ReturnType<typeof vi.fn> };
   let mockUserRepo: any;
   let mockUserTenantRepo: any;
   let mockAuditService: any;
@@ -129,6 +131,8 @@ describe('AuthService', () => {
       isRevoked: vi.fn().mockResolvedValue(false),
     };
 
+    mockSessionCutoff = { cutOff: vi.fn().mockResolvedValue(undefined) };
+
     mockPushSubscriptions = { removeAllForUser: vi.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -142,6 +146,7 @@ describe('AuthService', () => {
         { provide: RefreshTokenService, useValue: mockRefreshTokens },
         { provide: AccessTokenDenylistService, useValue: mockAccessTokenDenylist },
         { provide: PushSubscriptionsService, useValue: mockPushSubscriptions },
+        { provide: SessionCutoffService, useValue: mockSessionCutoff },
         { provide: ACCESS_TOKEN_TTL_MS, useValue: 900_000 },
       ],
     }).compile();
@@ -749,6 +754,8 @@ describe('AuthService', () => {
       await service.logoutAll('user-1', 'jti-123', { ip: '1.2.3.4', userAgent: 'ua' });
 
       expect(mockRefreshTokens.revokeAllForUser).toHaveBeenCalledWith('user-1');
+      // [75.2] every other device's access token dies too, not only this jti
+      expect(mockSessionCutoff.cutOff).toHaveBeenCalledWith('user-1');
       expect(mockAccessTokenDenylist.revoke).toHaveBeenCalledWith('jti-123', 900_000);
       expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({

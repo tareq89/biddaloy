@@ -11,6 +11,7 @@ import { School } from '../schools/entities/school.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService, AuthResult } from '../auth/auth.service';
 import { RefreshTokenService, RequestContext } from '../auth/refresh-token.service';
+import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { AuthTokenService } from './auth-token.service';
 import { InvitationService } from './invitation.service';
@@ -48,6 +49,7 @@ export class ActivationService {
     private readonly auditService: AuditService,
     private readonly invitations: InvitationService,
     private readonly refreshTokens: RefreshTokenService,
+    private readonly sessionCutoff: SessionCutoffService,
   ) {}
 
   /**
@@ -186,6 +188,7 @@ export class ActivationService {
     // After commit, like `RecoveryService.applyNewPassword`, and before `startSession` so the
     // new session survives. If this throws, the password is already set and old sessions live on.
     await this.refreshTokens.revokeAllForUser(user.id);
+    await this.sessionCutoff.cutOff(user.id); // [75.2] access tokens too; before startSession
     await this.authService.resetLoginLockouts(user);
 
     return this.authService.startSession(user, context);
