@@ -18,6 +18,7 @@ import { randomUUID } from 'node:crypto';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import {
+  ApiCreatedResponse,
   ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
@@ -298,7 +299,7 @@ export class InvoicesController {
     summary:
       'Mints a public share link for this invoice ({ url, token_id, expires_at }). See InvoiceShareService.createToken for why this always mints a new token rather than literally reusing an old one.',
   })
-  @ApiOkResponse({ type: ShareLinkResponseDto })
+  @ApiCreatedResponse({ type: ShareLinkResponseDto })
   async createShareLink(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -324,7 +325,7 @@ export class InvoicesController {
     summary:
       'Revokes every live share link of this invoice and mints a new one ({ url, token_id, expires_at }).',
   })
-  @ApiOkResponse({ type: ShareLinkResponseDto })
+  @ApiCreatedResponse({ type: ShareLinkResponseDto })
   async regenerateShareLink(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
