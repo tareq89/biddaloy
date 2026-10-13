@@ -63,6 +63,14 @@ function build(opts: { holidays?: string[]; weeklyOff?: number[]; unreported?: s
       { user: { id: 'gone', status: UserStatus.INACTIVE } },
     ]),
   };
+  // No `findAll`: calling the unfiltered list would throw, so a suspended school cannot slip in.
+  const schools = {
+    findAllActive: vi.fn(async () => [{ id: TENANT }]),
+    getResolvedSettings: vi.fn(async () => ({
+      region: { timezone: 'Asia/Dhaka' },
+      attendance: { weeklyOffDays: weeklyOff },
+    })),
+  };
   const scheduler = new StudyPlanFlagsScheduler(
     {} as never,
     planRepo as never,
@@ -76,12 +84,7 @@ function build(opts: { holidays?: string[]; weeklyOff?: number[]; unreported?: s
         return 'OK';
       }),
     } as never,
-    {
-      getResolvedSettings: vi.fn(async () => ({
-        region: { timezone: 'Asia/Dhaka' },
-        attendance: { weeklyOffDays: weeklyOff },
-      })),
-    } as never,
+    schools as never,
     { studyPlansSettings: vi.fn(async () => SETTINGS) } as never,
     calendar as never,
     schedule as never,
@@ -90,7 +93,7 @@ function build(opts: { holidays?: string[]; weeklyOff?: number[]; unreported?: s
     {} as never,
     {} as never,
   );
-  return { scheduler, redis, pushed, push, calendar, plans };
+  return { scheduler, redis, pushed, push, calendar, plans, schools };
 }
 
 const at = (iso: string) => vi.setSystemTime(new Date(iso));
@@ -98,6 +101,14 @@ const at = (iso: string) => vi.setSystemTime(new Date(iso));
 describe('StudyPlanFlagsScheduler [66.2.05]', () => {
   beforeEach(() => vi.useFakeTimers({ toFake: ['Date'] }));
   afterEach(() => vi.useRealTimers());
+
+  it('[TEN-06] process() sweeps only the ACTIVE schools: a suspended one gets no sweepTenant', async () => {
+    const { scheduler, schools } = build();
+    schools.findAllActive.mockResolvedValue([{ id: 'active-1' }]);
+    const sweep = vi.spyOn(scheduler, 'sweepTenant').mockResolvedValue(undefined as never);
+    await scheduler.process();
+    expect(sweep.mock.calls.map((c) => c[0])).toEqual(['active-1']);
+  });
 
   describe('reminder: fixed local hour + marker', () => {
     it('sends nothing before 08:00 Dhaka, once after, and nothing on a second sweep', async () => {

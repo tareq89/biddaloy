@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { AttendanceDeviceStatus } from '@biddaloy/shared';
 import { DeviceAuthGuard } from './device-auth.guard';
 import { hashDeviceKey } from './device.service';
@@ -15,16 +15,20 @@ function fakeRepo(device: any | null) {
   return { findOne: vi.fn().mockResolvedValue(device) } as any;
 }
 
+function tenantStatus(active = true) {
+  return { isActive: vi.fn().mockResolvedValue(active) } as any;
+}
+
 describe('DeviceAuthGuard', () => {
   it('rejects with "Device key required" when the header is missing', async () => {
-    const guard = new DeviceAuthGuard(fakeRepo(null));
+    const guard = new DeviceAuthGuard(fakeRepo(null), tenantStatus());
     await expect(guard.canActivate(fakeContext({}))).rejects.toThrow(
       new UnauthorizedException('Device key required'),
     );
   });
 
   it('rejects with "Device key required" when the header is too short', async () => {
-    const guard = new DeviceAuthGuard(fakeRepo(null));
+    const guard = new DeviceAuthGuard(fakeRepo(null), tenantStatus());
     await expect(guard.canActivate(fakeContext({ 'x-device-key': 'short' }))).rejects.toThrow(
       new UnauthorizedException('Device key required'),
     );
@@ -32,7 +36,7 @@ describe('DeviceAuthGuard', () => {
 
   it('rejects an unknown key with "Invalid device key" — same message as a missing device', async () => {
     const repo = fakeRepo(null);
-    const guard = new DeviceAuthGuard(repo);
+    const guard = new DeviceAuthGuard(repo, tenantStatus());
     const rawKey = 'bd_dev_00000000000000000000000000000000';
 
     await expect(guard.canActivate(fakeContext({ 'x-device-key': rawKey }))).rejects.toThrow(
@@ -49,7 +53,7 @@ describe('DeviceAuthGuard', () => {
     // guard cannot distinguish "unknown" from "revoked", which is the
     // point (no oracle for which keys exist).
     const repo = fakeRepo(null);
-    const guard = new DeviceAuthGuard(repo);
+    const guard = new DeviceAuthGuard(repo, tenantStatus());
 
     await expect(
       guard.canActivate(fakeContext({ 'x-device-key': 'bd_dev_revoked_key_00000000000000' })),
@@ -63,7 +67,7 @@ describe('DeviceAuthGuard', () => {
       status: AttendanceDeviceStatus.ACTIVE,
     };
     const repo = fakeRepo(device);
-    const guard = new DeviceAuthGuard(repo);
+    const guard = new DeviceAuthGuard(repo, tenantStatus());
     const request: any = {
       headers: {
         'x-device-key': 'bd_dev_valid_key_000000000000000',
@@ -86,7 +90,7 @@ describe('DeviceAuthGuard', () => {
       status: AttendanceDeviceStatus.ACTIVE,
     };
     const repo = fakeRepo(device);
-    const guard = new DeviceAuthGuard(repo);
+    const guard = new DeviceAuthGuard(repo, tenantStatus());
     const request: any = { headers: { 'x-device-key': 'bd_dev_valid_key_000000000000000' } };
     const context = { switchToHttp: () => ({ getRequest: () => request }) } as any;
 
@@ -95,5 +99,20 @@ describe('DeviceAuthGuard', () => {
     expect(result).toBe(true);
     expect(request.currentDevice).toBe(device);
     expect(request.currentTenant).toEqual({ id: 'tenant-1', role: 'DEVICE' });
+  });
+
+  it('[AUTH-08] refuses an active device of a suspended tenant with 403 TENANT_SUSPENDED', async () => {
+    const device = { id: 'd1', tenant_id: 'tenant-1', status: AttendanceDeviceStatus.ACTIVE };
+    const status = tenantStatus(false);
+    const guard = new DeviceAuthGuard(fakeRepo(device), status);
+    const request: any = { headers: { 'x-device-key': 'bd_dev_valid_key_000000000000000' } };
+    const context = { switchToHttp: () => ({ getRequest: () => request }) } as any;
+
+    const err = await guard.canActivate(context).catch((e) => e);
+
+    expect(err).toBeInstanceOf(ForbiddenException);
+    expect(err.getResponse()).toMatchObject({ details: { code: 'TENANT_SUSPENDED' } });
+    expect(status.isActive).toHaveBeenCalledWith('tenant-1');
+    expect(request.currentDevice).toBeUndefined();
   });
 });

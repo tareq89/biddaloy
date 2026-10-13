@@ -1038,6 +1038,72 @@ describe('PromotionsService (integration)', () => {
     });
   });
 
+  describe('CONDITIONAL (SENSE-13)', () => {
+    async function conditionalCommitted() {
+      const student = await buildStudent();
+      await enrollActive(student.id);
+      await addResult(student.id, { isFail: true, gpa: 0, total: 100 });
+      const run = await service.create(
+        {
+          source_class_id: SOURCE_CLASS_ID,
+          target_academic_year_id: TARGET_YEAR_ID,
+          exam_ids: [examId],
+          algorithm: PlacementAlgorithm.BLOCK,
+        },
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+      await service.patchEntries(
+        run.id,
+        [
+          {
+            student_id: student.id,
+            final_outcome: PromotionOutcome.CONDITIONAL,
+            override_note: 'Re-test by March',
+          },
+        ],
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+      await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
+      return { student, run };
+    }
+
+    it('commit moves a CONDITIONAL student into the target class with a new ACTIVE enrollment and roll number', async () => {
+      const { student, run } = await conditionalCommitted();
+
+      const enrollment = await enrollmentRepo.findOneOrFail({
+        where: {
+          student_id: student.id,
+          academic_year_id: TARGET_YEAR_ID,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        },
+      });
+      expect(enrollment.class_id).toBe(TARGET_CLASS_ID);
+      const entry = await entryRepo.findOneOrFail({
+        where: { run_id: run.id, student_id: student.id },
+      });
+      expect(entry.target_enrollment_id).toBe(enrollment.id);
+      expect(entry.new_roll_number).not.toBeNull();
+      const inRetain = await enrollmentRepo.count({
+        where: { student_id: student.id, class_id: RETAIN_CLASS_ID },
+      });
+      expect(inRetain).toBe(0);
+    });
+
+    it('findStudentOverrides returns the CONDITIONAL entry with its note', async () => {
+      const { student } = await conditionalCommitted();
+
+      const rows = await service.findStudentOverrides(student.id, TENANT_ID);
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        final_outcome: 'CONDITIONAL',
+        override_note: 'Re-test by March',
+      });
+    });
+  });
+
   describe('commit — choice-group carry-forward (D45)', () => {
     const TENANT_B = '00000000-0000-4000-8000-0000000b0001';
 
@@ -1105,6 +1171,30 @@ describe('PromotionsService (integration)', () => {
     }
     const commit = (id: string) =>
       service.commit(id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
+
+    it('carries picks for a CONDITIONAL student onto the target class subject', async () => {
+      const islam = await subject(TENANT_ID, 'ISL');
+      const oldCs = await classSubject(SOURCE_CLASS_ID, SOURCE_YEAR_ID, islam, 'Religion');
+      const newCs = await classSubject(TARGET_CLASS_ID, TARGET_YEAR_ID, islam, 'Religion');
+      const { student, run } = await promote(true);
+      await pick(student.id, oldCs, SOURCE_YEAR_ID, 'Religion');
+      await service.patchEntries(
+        run.id,
+        [
+          {
+            student_id: student.id,
+            final_outcome: PromotionOutcome.CONDITIONAL,
+            override_note: 'Re-test by March',
+          },
+        ],
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+
+      await commit(run.id);
+
+      expect((await picks(student.id)).map((p: any) => p.class_subject_id)).toEqual([newCs]);
+    });
 
     it('carries a same-named group pick into the target year', async () => {
       const islam = await subject(TENANT_ID, 'ISL');

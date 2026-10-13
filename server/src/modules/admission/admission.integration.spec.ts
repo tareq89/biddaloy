@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ADMIN_USER_ID } from '@test/constants';
@@ -131,6 +131,36 @@ describe('Admission flow (integration)', () => {
       expect(ids).not.toContain(theirs.id);
     } finally {
       await dataSource.query(`DELETE FROM admission_intakes WHERE tenant_id = $1`, [otherTenantId]);
+    }
+  });
+
+  it('[68.0 TEN-08] at 02:00 Dhaka on the 16th an intake that closed on the 15th is not listed and refuses submissions', async () => {
+    const intakeId = await createIntake({ open_date: '2026-03-01', close_date: '2026-03-15' });
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-03-15T20:00:00Z')); // 16 Mar 02:00 in Dhaka
+      const open = await applicantService.listOpenIntakes(SEED_SLUG);
+      expect(open.map((i) => i.id)).not.toContain(intakeId);
+      await expect(
+        applicantService.submit(
+          SEED_SLUG,
+          {
+            intake_id: intakeId,
+            applicant_name: 'Late Applicant',
+            date_of_birth: '2018-05-01',
+            gender: 'MALE',
+            guardian_name: 'Guardian',
+            guardian_phone: '01700000999',
+          },
+          [],
+        ),
+      ).rejects.toThrow(new BadRequestException('This admission intake is closed'));
+      // Control: three hours earlier (23:00 Dhaka on the 15th) it is open.
+      vi.setSystemTime(new Date('2026-03-15T17:00:00Z')); // 15 Mar 23:00 Dhaka
+      const stillOpen = await applicantService.listOpenIntakes(SEED_SLUG);
+      expect(stillOpen.map((i) => i.id)).toContain(intakeId);
+    } finally {
+      vi.useRealTimers();
     }
   });
 
@@ -481,5 +511,33 @@ describe('Admission flow (integration)', () => {
       const match = await reviewService.guardianMatch(id, SEED_TENANT_ID);
       expect(match.guardian).toBeNull();
     });
+  });
+
+  it('deleteDocuments on a REJECTED applicant empties documents and writes one audit row without storage keys', async () => {
+    const intakeId = await createIntake();
+    const key = `tenants/${SEED_TENANT_ID}/admission-documents/integ-doc`;
+    const [row] = await dataSource.query(
+      `INSERT INTO admission_applicants
+         (id, tenant_id, intake_id, reference_number, applicant_name, date_of_birth, gender, guardian_name, guardian_phone, documents, status, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, 'ADM-2026-DOCDEL', 'Doc Child', '2018-01-01', 'MALE', 'G', '8801700000977', $3::jsonb, 'REJECTED', NOW(), NOW())
+       RETURNING id`,
+      [SEED_TENANT_ID, intakeId, JSON.stringify([{ type: 'PHOTO', storage_key: key }])],
+    );
+    await reviewService.deleteDocuments(row.id, SEED_TENANT_ID, SEED_ADMIN_USER_ID, {
+      ip: null,
+      userAgent: null,
+    });
+    const [after] = await dataSource.query(
+      `SELECT documents FROM admission_applicants WHERE id = $1`,
+      [row.id],
+    );
+    expect(after.documents).toEqual([]);
+    const audits = await dataSource.query(
+      `SELECT old_values FROM audit_logs WHERE entity_type = 'AdmissionApplicantDocuments' AND entity_id = $1`,
+      [row.id],
+    );
+    expect(audits).toHaveLength(1);
+    expect(audits[0].old_values).toEqual({ types: ['PHOTO'] });
+    expect(JSON.stringify(audits[0].old_values)).not.toContain(key);
   });
 });

@@ -502,17 +502,20 @@ whoever provisions the host/database.
 
 **PII column inventory** (for any future data-subject/erasure request):
 
-| Entity             | Column(s)                                                                                                                                                                                                                        |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `User`             | `email`, `phone`, `full_name`, `password_hash` (bcrypt, already hashed), `profile_picture_url`                                                                                                                                   |
-| `Guardian`         | `full_name`, `phone`, `alternate_phone`, `email`, `address`, `occupation`                                                                                                                                                        |
-| `Student`          | `full_name`, `date_of_birth`, `gender`, `home_address`                                                                                                                                                                           |
-| `School`           | `address`, `phone`, `email` (tenant-level contact info)                                                                                                                                                                          |
-| `RefreshToken`     | `ip_address`, `user_agent`                                                                                                                                                                                                       |
-| `AuditLog`         | `ip_address`, `user_agent`, and `old_values`/`new_values` jsonb snapshots — redacted for credentials/tokens (`redact.util.ts`), but can still carry names/emails/phones since those aren't secrets by that redactor's definition |
-| `CommunicationLog` | `recipient_address`, `recipient_name`, `message_body` (free text)                                                                                                                                                                |
-| `Payment`          | `remarks` (free text)                                                                                                                                                                                                            |
-| `Invoice`          | `notes` (free text)                                                                                                                                                                                                              |
+| Entity               | Column(s)                                                                                                                                                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `User`               | `email`, `phone`, `full_name`, `password_hash` (bcrypt, already hashed), `profile_picture_url`                                                                                                                                   |
+| `Guardian`           | `full_name`, `phone`, `alternate_phone`, `email`, `address`, `occupation`                                                                                                                                                        |
+| `Student`            | `full_name`, `date_of_birth`, `gender`, `home_address`                                                                                                                                                                           |
+| `AdmissionApplicant` | applicant name, `date_of_birth`, `gender`, guardian name/phone/email, `home_address`, and its `admission-documents/` files in storage                                                                                            |
+| `School`             | `address`, `phone`, `email` (tenant-level contact info)                                                                                                                                                                          |
+| `RefreshToken`       | `ip_address`, `user_agent`                                                                                                                                                                                                       |
+| `AuditLog`           | `ip_address`, `user_agent`, and `old_values`/`new_values` jsonb snapshots — redacted for credentials/tokens (`redact.util.ts`), but can still carry names/emails/phones since those aren't secrets by that redactor's definition |
+| `CommunicationLog`   | `recipient_address`, `recipient_name`, `message_body` (free text)                                                                                                                                                                |
+| `Payment`            | `remarks` (free text)                                                                                                                                                                                                            |
+| `Invoice`            | `notes` (free text)                                                                                                                                                                                                              |
+
+Admission documents of a REJECTED applicant can be deleted by hand (`DELETE /admission/applicants/:id/documents`, audited). The retention period is #1792's decision.
 
 **Column-level encryption: deliberately deferred.** The original ask was to
 evaluate encrypting PII columns directly. Evaluated and not done, because it

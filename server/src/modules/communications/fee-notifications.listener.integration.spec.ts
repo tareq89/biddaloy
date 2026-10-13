@@ -281,7 +281,7 @@ describe('FeeNotificationsListener (integration)', () => {
     expect(jobsForThisLog).toHaveLength(1);
   });
 
-  it('re-emitting the same event creates zero new logs and zero new jobs (idempotent per feeGenerationId+guardianId)', async () => {
+  it('a retried fee-notify job (same event handled twice) creates zero new logs and zero new jobs (idempotent per feeGenerationId+guardianId)', async () => {
     const batch = await createBatch();
     const { studentId, guardianId } = await createStudentWithGuardian({ tenantId: TENANT_ID });
     await createBill({
@@ -518,7 +518,10 @@ describe('FeeNotificationsListener (integration)', () => {
       const { batchId, guardianId } = await setup();
       const listener = buildMeteredListener();
       failAdd = true;
-      await listener.handleFeesGenerated({ tenantId: TENANT_ID, feeGenerationId: batchId });
+      // Throws so BullMQ retries the job (the FAILED row is kept for the replay).
+      await expect(
+        listener.handleFeesGenerated({ tenantId: TENANT_ID, feeGenerationId: batchId }),
+      ).rejects.toThrow(/could not be enqueued/);
 
       const failed = (await logRepo.find({ where: { guardian_id: guardianId } }))[0];
       expect(failed.status).toBe(CommunicationStatus.FAILED);

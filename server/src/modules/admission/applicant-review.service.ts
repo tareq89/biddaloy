@@ -8,9 +8,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, EntityManager, Not, In } from 'typeorm';
 import {
   AdmissionApplicantStatus,
+  AdmissionDocumentType,
   AdmissionEvaluationDecision,
+  AuditAction,
   type AdmissionGuardianMatchDto,
 } from '@biddaloy/shared';
+import { isMissingObjectError } from '../schools/profile/logo.service';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
 import { AdmissionIntake } from './entities/admission-intake.entity';
@@ -21,6 +24,9 @@ import { AdmitApplicantDto } from './dto/admit-applicant.dto';
 import { AdmissionNotificationService } from './admission-notification.service';
 import { ListApplicantsDto } from './dto/list-applicants.dto';
 import { bdPhoneTail } from '../communications/providers/shared/phone-number.util';
+import { StorageService, type StoredObject } from '../storage/storage.service';
+import { AuditService } from '../audit/audit.service';
+import type { RequestContext } from '../../common/request-context.util';
 
 const DECISION_TO_STATUS: Record<AdmissionEvaluationDecision, AdmissionApplicantStatus> = {
   SHORTLIST: AdmissionApplicantStatus.SHORTLISTED,
@@ -41,7 +47,69 @@ export class ApplicantReviewService {
     private readonly studentService: StudentService,
     private readonly guardianService: GuardianService,
     private readonly notificationService: AdmissionNotificationService,
+    private readonly storage: StorageService,
+    private readonly auditService: AuditService,
   ) {}
+
+  /** [PUB-05] The bytes of one uploaded document. 404 across tenants or when absent. */
+  async getDocument(
+    id: string,
+    type: AdmissionDocumentType,
+    tenantId: string,
+  ): Promise<StoredObject> {
+    const applicant = await this.findOne(id, tenantId);
+    const doc = applicant.documents.find((d) => d.type === type);
+    if (!doc) throw new NotFoundException('Document not found');
+    try {
+      return await this.storage.getForTenant(doc.storage_key, tenantId);
+    } catch (error) {
+      // A row can outlive its object (deleted out of band): that is a 404, not a 500.
+      if (isMissingObjectError(error)) throw new NotFoundException('Document not found');
+      throw error;
+    }
+  }
+
+  /** [PUB-06] Clear a REJECTED applicant's documents: row, audit, then the storage objects. */
+  async deleteDocuments(
+    id: string,
+    tenantId: string,
+    userId: string,
+    context: RequestContext,
+  ): Promise<void> {
+    const keys = await this.applicants.manager.transaction(async (manager: EntityManager) => {
+      const repo = manager.getRepository(AdmissionApplicant);
+      const applicant = await repo.findOne({
+        where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!applicant) throw new NotFoundException('Admission applicant not found');
+      if (applicant.status !== AdmissionApplicantStatus.REJECTED) {
+        throw new ConflictException({
+          message: "Only a rejected applicant's documents can be deleted.",
+          details: { code: 'APPLICANT_NOT_REJECTED' },
+        });
+      }
+      await repo.update({ id, tenant_id: tenantId }, { documents: [] });
+      // Types only: never keys or file contents in the audit row.
+      await this.auditService.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'AdmissionApplicantDocuments',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: { types: applicant.documents.map((d) => d.type) },
+          new_values: null,
+        },
+        manager,
+      );
+      return applicant.documents.map((d) => d.storage_key);
+    });
+    // Best-effort after commit: a dangling object is cheaper than a failed delete.
+    await Promise.allSettled(keys.map((k) => this.storage.deleteForTenant(k, tenantId)));
+  }
 
   /** [LIFE-09] The guardian (if any) this applicant's phone would attach to on admit. */
   async guardianMatch(id: string, tenantId: string): Promise<AdmissionGuardianMatchDto> {

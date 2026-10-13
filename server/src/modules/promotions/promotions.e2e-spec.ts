@@ -75,6 +75,7 @@ describe('Promotions E2E (#788)', () => {
   async function seedRun(opts: {
     tenantId: string;
     withOverride: boolean;
+    graduation?: boolean;
   }): Promise<{ runId: string; studentId: string }> {
     seq += 1;
     // UUID's last group is 12 hex chars — pad seq to 8 so the 4-digit
@@ -163,14 +164,18 @@ describe('Promotions E2E (#788)', () => {
         classSrcId,
         yearSrcId,
         yearTgtId,
-        classTgtId,
+        opts.graduation ? null : classTgtId,
         PlacementAlgorithm.BLOCK,
         opts.withOverride ? 1 : 0,
         APPROVER_ID,
       ],
     );
-    const suggestedOutcome = PromotionOutcome.PROMOTE;
-    const finalOutcome = opts.withOverride ? PromotionOutcome.RETAIN : PromotionOutcome.PROMOTE;
+    const suggestedOutcome = opts.graduation ? PromotionOutcome.GRADUATE : PromotionOutcome.PROMOTE;
+    const finalOutcome = opts.graduation
+      ? PromotionOutcome.GRADUATE
+      : opts.withOverride
+        ? PromotionOutcome.RETAIN
+        : PromotionOutcome.PROMOTE;
     await dataSource.query(
       `INSERT INTO promotion_entries (id, tenant_id, run_id, student_id, source_enrollment_id, source_section_id, merit_rank, mean_gpa, total_marks_sum, passed_all, suggested_outcome, final_outcome, is_override, override_note, overridden_by_user_id, group_name, target_class_id, target_section_id, new_roll_number, placement_error, target_enrollment_id, created_at, updated_at)
        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 1, 4.00, 400.00, true, $6, $7, $8, $9, $10, NULL, NULL, NULL, NULL, NULL, NULL, NOW(), NOW())`,
@@ -309,5 +314,83 @@ describe('Promotions E2E (#788)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .expect(404);
+  });
+
+  describe('CONDITIONAL outcome (SENSE-13)', () => {
+    const patch = (runId: string, body: object, tenant = SEED_TENANT_ID) =>
+      supertest(app.getHttpServer())
+        .patch(`${API}/promotions/${runId}/entries`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', tenant)
+        .send([body]);
+
+    it('PATCH CONDITIONAL + note -> 200; commit needs the override token, then enrols the student', async () => {
+      const { runId, studentId } = await seedRun({ tenantId: SEED_TENANT_ID, withOverride: false });
+
+      const res = await patch(runId, {
+        student_id: studentId,
+        final_outcome: PromotionOutcome.CONDITIONAL,
+        override_note: 'Re-test in March',
+      }).expect(200);
+      expect(res.body.entries[0]).toMatchObject({
+        final_outcome: 'CONDITIONAL',
+        is_override: true,
+      });
+
+      await supertest(app.getHttpServer())
+        .post(`${API}/promotions/${runId}/commit`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .expect(403);
+
+      const token = await issueApprovalToken(ApprovalScope.PROMOTION_OVERRIDE, APPROVER_EMAIL);
+      await supertest(app.getHttpServer())
+        .post(`${API}/promotions/${runId}/commit`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .set('X-Approval-Token', token)
+        .expect(201);
+
+      const rows = await dataSource.query(
+        `SELECT 1 FROM enrollments e JOIN promotion_runs r ON r.target_class_id = e.class_id
+         WHERE r.id = $1 AND e.student_id = $2 AND e.enrollment_status = 'ACTIVE'`,
+        [runId, studentId],
+      );
+      expect(rows).toHaveLength(1);
+    });
+
+    it('CONDITIONAL without a note -> 422', async () => {
+      const { runId, studentId } = await seedRun({ tenantId: SEED_TENANT_ID, withOverride: false });
+      await patch(runId, {
+        student_id: studentId,
+        final_outcome: PromotionOutcome.CONDITIONAL,
+      }).expect(422);
+    });
+
+    it('CONDITIONAL on a graduation run -> 422 CONDITIONAL_NOT_FOR_GRADUATION', async () => {
+      const { runId, studentId } = await seedRun({
+        tenantId: SEED_TENANT_ID,
+        withOverride: false,
+        graduation: true,
+      });
+      const res = await patch(runId, {
+        student_id: studentId,
+        final_outcome: PromotionOutcome.CONDITIONAL,
+        override_note: 'Re-test',
+      }).expect(422);
+      expect(res.body.details.code).toBe('CONDITIONAL_NOT_FOR_GRADUATION');
+    });
+
+    it("tenant B's run patched through tenant A's admin -> 404", async () => {
+      const { runId, studentId } = await seedRun({
+        tenantId: OTHER_TENANT_ID,
+        withOverride: false,
+      });
+      await patch(runId, {
+        student_id: studentId,
+        final_outcome: PromotionOutcome.CONDITIONAL,
+        override_note: 'x',
+      }).expect(404);
+    });
   });
 });

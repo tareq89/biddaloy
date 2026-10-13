@@ -33,8 +33,11 @@ describe('InvitationBatchProcessor (integration)', () => {
       ds,
       { latest: vi.fn().mockResolvedValue(null) } as any,
       { issueAndSend } as any,
-      // The restore guard (#2348) is not what these tests are about: never restoring.
-      { isRestoring: vi.fn().mockResolvedValue(false) } as any,
+      // The restore and suspended-school guards are not what these tests are about.
+      {
+        isRestoring: vi.fn().mockResolvedValue(false),
+        isActive: vi.fn().mockResolvedValue(true),
+      } as any,
     );
   });
 

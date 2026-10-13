@@ -22,10 +22,10 @@ describe('COMMUNICATIONS_QUEUE_JOB_OPTIONS', () => {
     expect(typeof COMMUNICATIONS_QUEUE_JOB_OPTIONS.removeOnFail).toBe('number');
   });
 
-  it('every registerQueue({ name: COMMUNICATIONS_QUEUE }) passes the shared options', () => {
+  it('every registerQueue({ name: COMMUNICATIONS_QUEUE | FEE_NOTIFY_QUEUE }) passes the shared options', () => {
     const offenders = moduleFiles(MODULES_DIR).filter((file) => {
       const src = fs.readFileSync(file, 'utf8');
-      const registrations = count(src, /name:\s*COMMUNICATIONS_QUEUE\b/g);
+      const registrations = count(src, /name:\s*(?:COMMUNICATIONS_QUEUE|FEE_NOTIFY_QUEUE)\b/g);
       const shared = count(src, /defaultJobOptions:\s*COMMUNICATIONS_QUEUE_JOB_OPTIONS\b/g);
       return registrations > 0 && registrations !== shared;
     });

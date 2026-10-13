@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { WorkloadService } from './workload.service';
 
 const TENANT_ID = 'tenant-1';
+const TODAY = '2026-03-16';
 
 function buildService(overrides: { routine?: any; slots?: any[]; teacherRows?: any[] } = {}) {
   const routine =
@@ -13,11 +14,20 @@ function buildService(overrides: { routine?: any; slots?: any[]; teacherRows?: a
   const slotRepo: any = { find: vi.fn(async () => overrides.slots ?? []) };
   const slotTeacherRepo: any = { find: vi.fn(async () => overrides.teacherRows ?? []) };
 
-  const service = new WorkloadService(routineRepo, slotRepo, slotTeacherRepo);
-  return { service, routineRepo, slotRepo, slotTeacherRepo };
+  const schoolsService: any = { todayFor: vi.fn(async () => TODAY) };
+  const service = new WorkloadService(routineRepo, slotRepo, slotTeacherRepo, schoolsService);
+  return { service, routineRepo, slotRepo, slotTeacherRepo, schoolsService };
 }
 
 describe('WorkloadService [21.6.1] D19', () => {
+  it("filters slots by the school's today (todayFor), not UTC", async () => {
+    const ctx = buildService({ slots: [] });
+    await ctx.service.forRoutine('routine-1', TENANT_ID);
+    expect(ctx.schoolsService.todayFor).toHaveBeenCalledWith(TENANT_ID);
+    const where = ctx.slotRepo.find.mock.calls[0][0].where;
+    expect(JSON.stringify(where)).toContain(TODAY);
+  });
+
   it('404s for a routine outside the caller tenant', async () => {
     const ctx = buildService({ routine: null });
     await expect(ctx.service.forRoutine('routine-1', TENANT_ID)).rejects.toThrow(NotFoundException);

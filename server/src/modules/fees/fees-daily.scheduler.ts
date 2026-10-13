@@ -5,16 +5,14 @@ import { Job, Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import * as Sentry from '@sentry/node';
 import { DuplicateStrategy, FeeGenerationSource, PeriodType } from '@biddaloy/shared';
+import { emitRecheck } from '../attention/engine/attention-events';
+import { attentionEvents } from '../attention/attention.constants';
+import { enqueueFeeNotify, FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
 import { SchoolsService } from '../schools/schools.service';
 import { TenantStatusService } from '../schools/tenant-status.service';
-import {
-  FeeGenerationService,
-  feesEvents,
-  FEES_GENERATED_EVENT,
-  FeesGeneratedEventPayload,
-} from './fee-generation.service';
+import { FeeGenerationService, FeesGeneratedEventPayload } from './fee-generation.service';
 import { Student } from '../students/entities/student.entity';
-import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
+import { SCHOOL_TZ } from '../../common/time';
 import {
   FEES_DAILY_CRON,
   FEES_DAILY_JOB_ID,
@@ -93,6 +91,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     // fail at boot, not silently turn the restore skip off. Sits before the optional seams below
     // because TypeScript forbids a required parameter after an optional one.
     private readonly tenantStatus: TenantStatusService,
+    @InjectQueue(FEE_NOTIFY_QUEUE) private readonly feeNotifyQueue: Queue,
     // [16.7.4] #678 registers the real `LateFeeService` provider in
     // `fees.module.ts` — `@Optional()` + explicit `@Inject` (rather than
     // relying on the constructor parameter's own type, which Nest can only
@@ -150,7 +149,8 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
    * skipped on, so that day's schedules still fire (see `runTenant`).
    */
   async process(job?: Job<{ tenantId?: string; today?: string } | undefined>): Promise<void> {
-    const today = job?.data?.today ?? todayInSchoolTz();
+    // Catch-up replays a fixed day; every other path derives each school's own today.
+    const todayOverride = job?.data?.today;
     const requestedTenantId = job?.data?.tenantId;
 
     if (requestedTenantId) {
@@ -160,7 +160,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
         (await this.schoolsService.findById(requestedTenantId)).status !== 'ACTIVE'
       )
         return;
-      await this.runTenant(requestedTenantId, today);
+      await this.runTenant(requestedTenantId, todayOverride);
       return;
     }
 
@@ -168,7 +168,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     const activeTenants = tenants.filter((tenant) => tenant.status === 'ACTIVE');
     for (const tenant of activeTenants) {
       try {
-        await this.runTenant(tenant.id, today);
+        await this.runTenant(tenant.id, todayOverride);
       } catch (error) {
         this.logger.error(`fees-daily sweep failed for tenant ${tenant.id}: ${String(error)}`);
         Sentry.withScope((scope) => {
@@ -180,7 +180,8 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     }
   }
 
-  private async runTenant(tenantId: string, today: string): Promise<void> {
+  private async runTenant(tenantId: string, todayOverride?: string): Promise<void> {
+    const today = todayOverride ?? (await this.schoolsService.todayFor(tenantId));
     // A restore is rewriting this school's data, so skip it for now. The next
     // nightly run picks the period up only while still inside it (due on or
     // after the fire day), so a restore spanning the period's last day would
@@ -305,6 +306,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     // `FeeGenerationService.generate` itself normally follows for its own
     // non-scheduler callers).
     let notifyPayload: FeesGeneratedEventPayload | null = null;
+    let generatedTenantId: string | null = null;
 
     await this.dataSource.transaction(async (manager) => {
       // [CodeRabbit review, PR #801] Re-read the FULL schedule row under
@@ -427,14 +429,31 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
         [freshPeriod, fresh.id],
       );
 
+      generatedTenantId = fresh.tenant_id;
       if (fresh.notify_families) {
         notifyPayload = { tenantId: fresh.tenant_id, feeGenerationId: result.fee_generation_id };
       }
     });
 
     // Fires only after the transaction above has actually committed.
-    if (notifyPayload) {
-      feesEvents.emit(FEES_GENERATED_EVENT, notifyPayload);
+    const notify = notifyPayload as FeesGeneratedEventPayload | null;
+    if (notify) {
+      await enqueueFeeNotify(
+        this.feeNotifyQueue,
+        this.logger,
+        'fees.generated',
+        notify.feeGenerationId,
+        notify,
+      );
+    }
+    if (generatedTenantId) {
+      for (const ruleKey of [
+        'fees.unassigned_students',
+        'fees.due_soon',
+        'fees.overdue_family',
+      ] as const) {
+        emitRecheck(attentionEvents, { tenantId: generatedTenantId as string, ruleKey });
+      }
     }
   }
 }

@@ -1,5 +1,9 @@
-import { EventEmitter } from 'events';
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { emitRecheck } from '../attention/engine/attention-events';
+import { attentionEvents } from '../attention/attention.constants';
+import { enqueueFeeNotify, FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
+import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -21,19 +25,11 @@ import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { CheckoutDto, CheckoutResultDto } from './dto/checkout.dto';
 import { buildIssuerSnapshot, lockSchoolForSnapshot } from '../schools/profile/issuer-snapshot';
+import { SchoolsService } from '../schools/schools.service';
+import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
+import { localDate, localToday } from '../attendance/attendance-policy.util';
 
 const AMOUNT_EPSILON = 0.01;
-
-/** [D14] Same reasoning as `checkout-cart.service.ts`'s own copy — every
- * "is this bill overdue" check goes through the tenant's calendar day in
- * Asia/Dhaka, never server-local time. Duplicated rather than imported:
- * `checkout-cart.service.ts` doesn't export it, and this ticket's
- * territory doesn't include changing that file just to share one helper. */
-const SCHOOL_TIMEZONE = 'Asia/Dhaka';
-
-function todayInSchoolTimezone(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TIMEZONE }).format(new Date());
-}
 
 function dateKey(value: Date | string | null): string | null {
   if (value === null) return null;
@@ -44,20 +40,7 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/**
- * [16.4.2] Emitted after a checkout transaction commits. This is a
- * PLACEHOLDER for real cross-cutting event infra: this codebase has no
- * event-emitter mechanism anywhere (`@nestjs/event-emitter` isn't a
- * dependency, no `EventEmitter2` usage exists), and wiring one up properly
- * means registering it in `server/src/app.module.ts` — outside this
- * ticket's file territory. A plain Node `EventEmitter` scoped to this
- * module is the smallest thing that satisfies step 4 ("emit
- * `payments.recorded`") without touching `app.module.ts`. 16.5.4's
- * consumer (not built yet) can `checkoutEvents.on('payments.recorded', …)`
- * against this same instance until a real event bus replaces it.
- */
-export const checkoutEvents = new EventEmitter();
-
+/** Payload of the `payments.recorded` receipt job on `FEE_NOTIFY_QUEUE` [68.4.10]. */
 export interface PaymentsRecordedEvent {
   payment_id: string;
   tenant_id: string;
@@ -101,7 +84,10 @@ export interface CheckoutMeta {
  */
 @Injectable()
 export class CheckoutService {
+  private readonly logger = new Logger(CheckoutService.name);
+
   constructor(
+    @InjectQueue(FEE_NOTIFY_QUEUE) private readonly feeNotifyQueue: Queue,
     @InjectRepository(Payment)
     private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(Student)
@@ -110,6 +96,7 @@ export class CheckoutService {
     private readonly approvalService: ApprovalService,
     private readonly auditService: AuditService,
     private readonly invoicesService: InvoicesService,
+    private readonly schoolsService: SchoolsService,
   ) {}
 
   async checkout(
@@ -124,6 +111,9 @@ export class CheckoutService {
       this.assertIdempotentReplayMatches(existing, dto);
       if (meta) meta.replayed = true;
       const repaired = await this.ensureInvoiceLinked(existing.id);
+      // The usual retry path: the first request may have died after commit but
+      // before its after-commit work. The jobId makes a repeat harmless.
+      await this.afterCommit(repaired, tenantId, userId);
       return this.toResult(repaired, tenantId);
     }
 
@@ -131,6 +121,13 @@ export class CheckoutService {
     if (new Set(lineFeeIds).size !== lineFeeIds.length) {
       throw new BadRequestException('Duplicate student_fee_id in lines');
     }
+
+    // Read before the bill locks: `getResolvedSettings` uses its own pool connection, and a
+    // checkout holding locks while it waits for a connection can starve the pool (#2295).
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    const tz = settings.region?.timezone ?? DEFAULT_REGION_SETTINGS.timezone;
+    // The school's own date: the back-dating window and the DUE/CURRENT split both use it.
+    const todayKey = localToday(tz);
 
     const { paymentId, duplicateKey, winnerId } = await this.paymentRepo.manager.transaction(
       async (manager) => {
@@ -258,15 +255,51 @@ export class CheckoutService {
         // GETDEL — burn the token last, as the final gate before writes,
         // so a request that fails validation never wastes a legitimately
         // granted approval.
+        // MON-11: today, or up to 3 calendar days back (back-dating needs approval).
+        // "Today" is the school's own date (#2295). A bare 'YYYY-MM-DD' is already
+        // that calendar day; an instant is read in the school's time zone.
+        let backdatedTo: string | null = null;
+        if (dto.payment_date) {
+          const day = /^\d{4}-\d{2}-\d{2}$/.test(dto.payment_date)
+            ? dto.payment_date
+            : localDate(new Date(dto.payment_date), tz);
+          const earliest = new Date(`${todayKey}T00:00:00Z`);
+          earliest.setUTCDate(earliest.getUTCDate() - 3);
+          if (day > todayKey) {
+            throw new BadRequestException('payment_date cannot be in the future');
+          }
+          if (day < earliest.toISOString().slice(0, 10)) {
+            throw new BadRequestException('payment_date can be at most 3 days back');
+          }
+          if (day < todayKey) backdatedTo = day;
+        }
+
         const hasDiscount = dto.lines.some((l) => (l.one_off_discount ?? 0) > 0);
+        // One approval token carries one scope, and a back-dated discount would
+        // need two. Refuse up front, before any token is burned.
+        if (backdatedTo && hasDiscount) {
+          throw new BadRequestException('a back-dated checkout cannot carry a one-off discount');
+        }
         let approvedByUserId: string | null = null;
+        const approvalScope = backdatedTo
+          ? ApprovalScope.PAYMENTS_BACKDATE
+          : ApprovalScope.FEES_DISCOUNT;
         if (hasDiscount) {
           const approval = await this.approvalService.consume(request, ApprovalScope.FEES_DISCOUNT);
           approvedByUserId = approval.approverId;
         }
 
+        let backdateApproverId: string | null = null;
+        if (backdatedTo) {
+          const approval = await this.approvalService.consume(
+            request,
+            ApprovalScope.PAYMENTS_BACKDATE,
+          );
+          backdateApproverId = approval.approverId;
+          approvedByUserId = backdateApproverId;
+        }
+
         const now = dto.payment_date ? new Date(dto.payment_date) : new Date();
-        const today = todayInSchoolTimezone();
 
         // [15.5.5] Frozen at the moment of record — same reasoning as
         // `PaymentAllocationService.recordWithAllocation` and
@@ -334,7 +367,7 @@ export class CheckoutService {
 
           const dueKey = dateKey(bill.due_date);
           const allocationType =
-            dueKey !== null && dueKey < today
+            dueKey !== null && dueKey < todayKey
               ? PaymentAllocationType.DUE
               : PaymentAllocationType.CURRENT;
           allocationRows.push({
@@ -395,6 +428,9 @@ export class CheckoutService {
             wallet_use: walletUse,
             change_amount: change,
             change_handling: changeHandling,
+            ...(backdatedTo
+              ? { backdated_to: backdatedTo, backdate_approved_by_user_id: backdateApproverId }
+              : {}),
           },
         };
         if (approvedByUserId) {
@@ -402,7 +438,7 @@ export class CheckoutService {
             {
               ...auditPayload,
               approved_by_user_id: approvedByUserId,
-              approval_scope: ApprovalScope.FEES_DISCOUNT,
+              approval_scope: approvalScope,
             },
             manager,
           );
@@ -421,6 +457,9 @@ export class CheckoutService {
       // second invoice for the same payment.
       if (meta) meta.replayed = true;
       const repaired = await this.ensureInvoiceLinked(winnerId);
+      // The winner may have died before its own after-commit work; the jobId and the
+      // reference_key make repeating it harmless.
+      await this.afterCommit(repaired, tenantId, userId);
       return this.toResult(repaired, tenantId);
     }
 
@@ -434,6 +473,7 @@ export class CheckoutService {
         );
       }
       const repaired = await this.ensureInvoiceLinked(winner.id);
+      await this.afterCommit(repaired, tenantId, userId);
       return this.toResult(repaired, tenantId);
     }
 
@@ -455,11 +495,7 @@ export class CheckoutService {
 
     const walletBalanceAfter = await this.walletService.balance(payment.student_id, tenantId);
 
-    checkoutEvents.emit('payments.recorded', {
-      payment_id: payment.id,
-      tenant_id: tenantId,
-      student_ids: [...new Set(payment.allocations.map((a) => a.student_fee.student_id))],
-    } satisfies PaymentsRecordedEvent);
+    await this.afterCommit(payment, tenantId, userId);
 
     return {
       payment,
@@ -468,6 +504,24 @@ export class CheckoutService {
       change_amount: Number(payment.change_amount),
       wallet_balance_after: walletBalanceAfter,
     };
+  }
+
+  /** Receipt notice job + fee-alert rechecks, after the payment is committed. Safe to repeat. */
+  private async afterCommit(payment: Payment, tenantId: string, userId: string): Promise<void> {
+    await enqueueFeeNotify(this.feeNotifyQueue, this.logger, 'payments.recorded', payment.id, {
+      payment_id: payment.id,
+      tenant_id: tenantId,
+      // `student_fee` is null for a bill removed after the payment (soft-deleted rows drop out
+      // of the relation join); the payer still gets the receipt for money really received.
+      student_ids: [
+        ...new Set([
+          payment.student_id,
+          ...payment.allocations.flatMap((a) => (a.student_fee ? [a.student_fee.student_id] : [])),
+        ]),
+      ],
+    } satisfies PaymentsRecordedEvent);
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.overdue_family', actorUserId: userId });
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.due_soon', actorUserId: userId });
   }
 
   /**

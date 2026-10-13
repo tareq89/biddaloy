@@ -64,6 +64,7 @@ const KEY_INDEX: Record<string, Record<string, string>> = {
   classes: { 'Class 6|2026-2027||': SOURCE_CLASS_ID, 'Class 7|2027-2028||': TARGET_CLASS_ID },
   academic_years: { '2026-2027': SOURCE_YEAR_ID, '2027-2028': TARGET_YEAR_ID },
   exams: { 'First Term Exam|2026-2027|Class 6|2026-2027||': EXAM_ID_1, 'Second Exam': EXAM_ID_2 },
+  users: { 'head@school.test': USER_ID },
 };
 
 function exportCtx(): ExportContext {
@@ -75,8 +76,12 @@ function exportCtx(): ExportContext {
       if (tab === 'exams') {
         return id === EXAM_ID_1 ? 'First Term Exam|2026-2027|Class 6|2026-2027||' : 'Second Exam';
       }
+      if (tab === 'users') return 'head@school.test';
       return '';
     },
+    // Only USER_ID is in the exported `users` tab; any other id is not.
+    tryKeyOf: (tab: string, id: string) =>
+      tab === 'users' && id === USER_ID ? 'head@school.test' : null,
   };
 }
 
@@ -109,7 +114,7 @@ function fromRowOrThrow(cells: Record<string, string>): PromotionRunRow {
 describe('promotionRunsTab shape', () => {
   it('declares its dependency and identity shape', () => {
     expect(promotionRunsTab.name).toBe('promotion_runs');
-    expect(promotionRunsTab.dependsOn).toEqual(['classes', 'academic_years', 'exams']);
+    expect(promotionRunsTab.dependsOn).toEqual(['classes', 'academic_years', 'exams', 'users']);
     expect(promotionRunsTab.naturalKey).toEqual(['id']);
     expect(promotionRunsTab.deleteByAbsence).toBe(true);
   });
@@ -152,6 +157,57 @@ describe('round-trip', () => {
     const result = promotionRunsTab.fromRow(cells, 4, importCtx());
     expect('errors' in result).toBe(true);
     expect((result as { errors: RowError[] }).errors[0].column).toBe('source_class');
+  });
+});
+
+describe('user attribution columns (GAP-10)', () => {
+  it('exports the user key, not the raw uuid', () => {
+    const cells = toCells(makeRun());
+    expect(cells.committed_by).toBe('head@school.test');
+    expect(cells.approved_by).toBe('head@school.test');
+    expect(cells.created_by).toBe('head@school.test');
+  });
+
+  it('a known user key resolves to the id', () => {
+    const row = fromRowOrThrow(toCells(makeRun()));
+    expect(row.approved_by_user_id).toBe(USER_ID);
+    expect(row.committed_by_user_id).toBe(USER_ID);
+    expect(row.created_by_user_id).toBe(USER_ID);
+  });
+
+  it.each(['committed_by', 'approved_by', 'created_by'])(
+    'a %s key not in this school users is a row error',
+    (column) => {
+      const cells = toCells(makeRun());
+      cells[column] = 'someone@other-school.test';
+      const result = promotionRunsTab.fromRow(cells, 5, importCtx());
+      expect('errors' in result).toBe(true);
+      expect((result as { errors: RowError[] }).errors[0].column).toBe(column);
+    },
+  );
+
+  it('a nullable attribution of a user missing from the users tab exports null', () => {
+    const cells = toCells(makeRun({ approved_by_user_id: 'deadbeef-0000-4000-8000-000000000000' }));
+    expect(cells.approved_by).toBe('');
+  });
+
+  // A run created by a departed teacher or a SUPER_ADMIN must not fail the
+  // whole export (that would make the school impossible to back up).
+  it('created_by of a user missing from the users tab exports null instead of throwing', () => {
+    const ctx = exportCtx();
+    const base = ctx.keyOf;
+    ctx.keyOf = (tab, id) => {
+      if (tab === 'users') throw new Error('no key');
+      return base(tab, id);
+    };
+    ctx.tryKeyOf = () => null;
+    expect(promotionRunsTab.toRow(makeRun(), ctx).created_by).toBeNull();
+  });
+
+  it('a blank created_by imports as null, not a row error', () => {
+    const cells = toCells(makeRun());
+    cells.created_by = '';
+    expect(fromRowOrThrow(cells).created_by_user_id).toBeNull();
   });
 });
 
@@ -269,5 +325,44 @@ describe('upsert', () => {
     await promotionRunsTab.upsert(row, null, TENANT_ID, fakeManager as never);
     expect(saved?.id).toBe(row.id);
     expect(saved?.tenant_id).toBe(TENANT_ID);
+  });
+});
+
+describe('null attribution keeps the existing user (export could not name them)', () => {
+  it('diffFields ignores a null committed_by/approved_by row against a set existing value', () => {
+    const run = makeRun();
+    const row = { ...makeRow(run), committed_by_user_id: null, approved_by_user_id: null };
+    expect(promotionRunsTab.diffFields(row, run)).toEqual([]);
+  });
+
+  it('upsert keeps the existing committed_by/approved_by when the row value is null', async () => {
+    const existing = makeRun();
+    const row = { ...makeRow(existing), committed_by_user_id: null, approved_by_user_id: null };
+    const fakeManager = { save: async (_e: unknown, v: PromotionRun) => v };
+    const saved = await promotionRunsTab.upsert(row, existing, TENANT_ID, fakeManager as never);
+    expect(saved.committed_by_user_id).toBe(USER_ID);
+    expect(saved.approved_by_user_id).toBe(USER_ID);
+  });
+
+  it('diffFields and upsert keep the existing created_by when the row value is null', async () => {
+    const existing = makeRun();
+    const row = { ...makeRow(existing), created_by_user_id: null };
+    expect(promotionRunsTab.diffFields(row, existing)).toEqual([]);
+    const fakeManager = { save: async (_e: unknown, v: PromotionRun) => v };
+    const saved = await promotionRunsTab.upsert(row, existing, TENANT_ID, fakeManager as never);
+    expect(saved.created_by_user_id).toBe(USER_ID);
+  });
+
+  // created_by is NOT NULL: a new run whose creator the export could not name
+  // is attributed to the admin running the restore.
+  it('a new run with a null created_by is attributed to the user running the restore', async () => {
+    const ACTOR = '33333333-3333-4333-8333-333333333333';
+    const row = { ...makeRow(makeRun()), created_by_user_id: null };
+    const fakeManager = {
+      findOne: async () => null,
+      save: async (_e: unknown, v: PromotionRun) => v,
+    };
+    const saved = await promotionRunsTab.upsert(row, null, TENANT_ID, fakeManager as never, ACTOR);
+    expect(saved.created_by_user_id).toBe(ACTOR);
   });
 });

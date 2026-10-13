@@ -325,9 +325,20 @@ describe('WorkbookFormatError', () => {
   });
 
   it('throws UNSUPPORTED_VERSION for a future schema version', async () => {
-    const buffer = await buildWorkbook({ meta: { ...meta, schema_version: 2 } });
+    const buffer = await buildWorkbook({ meta: { ...meta, schema_version: SCHEMA_VERSION + 1 } });
 
     await expect(readWorkbook(buffer)).rejects.toMatchObject({ code: 'UNSUPPORTED_VERSION' });
+  });
+
+  // GAP-10: version 1 wrote raw user uuids where version 2 writes user
+  // emails. Refuse it with a clear message instead of failing every row.
+  it('throws UNSUPPORTED_VERSION for a version-1 workbook (raw user ids)', async () => {
+    const buffer = await buildWorkbook({ meta: { ...meta, schema_version: 1 } });
+
+    await expect(readWorkbook(buffer)).rejects.toMatchObject({
+      code: 'UNSUPPORTED_VERSION',
+      message: expect.stringContaining('schema version 1'),
+    });
   });
 
   it('carries a code field on the error instance', async () => {

@@ -1,8 +1,15 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AttendanceDeviceStatus } from '@biddaloy/shared';
 import { AttendanceDevice } from '../entities/attendance-device.entity';
+import { TenantStatusService } from '../../schools/tenant-status.service';
 import { hashDeviceKey } from './device.service';
 
 /**
@@ -22,6 +29,7 @@ export class DeviceAuthGuard implements CanActivate {
   constructor(
     @InjectRepository(AttendanceDevice)
     private readonly deviceRepo: Repository<AttendanceDevice>,
+    private readonly tenantStatus: TenantStatusService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -40,6 +48,14 @@ export class DeviceAuthGuard implements CanActivate {
     });
     if (!device) {
       throw new UnauthorizedException('Invalid device key');
+    }
+
+    // A suspended school's devices stop too (AUTH-08, #2288); same code ContextGuard uses.
+    if (!(await this.tenantStatus.isActive(device.tenant_id))) {
+      throw new ForbiddenException({
+        message: 'This school is suspended.',
+        details: { code: 'TENANT_SUSPENDED' },
+      });
     }
 
     // `last_seen_at` is not written here — a write on every request turns

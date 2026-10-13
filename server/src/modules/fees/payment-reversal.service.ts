@@ -21,12 +21,23 @@ import { StudentWallet } from './entities/student-wallet.entity';
 import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
-import { checkoutEvents } from './checkout.service';
+import { emitRecheck } from '../attention/engine/attention-events';
+import { attentionEvents } from '../attention/attention.constants';
 
 const AMOUNT_EPSILON = 0.01;
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+interface UndoneDebitAudit {
+  debit_id: string;
+  amount: number;
+  student_fee_id: string | null;
+  paid_amount_before?: number;
+  paid_amount_after?: number;
+  status_before?: FeeStatus;
+  status_after?: FeeStatus;
 }
 
 /** Thrown by the reverse-in-order precondition (D10) — 409 with the
@@ -105,24 +116,41 @@ export class PaymentReversalService {
       }
       this.assertReversible(locked);
 
-      // Lock every bill this payment allocated against BEFORE the wallet
+      // Lock every bill this payment allocated against, plus (MON-14) the
+      // bills fee generation may have paid from the wallet, BEFORE the wallet
       // lock below — `CheckoutService` locks bills (`ORDER BY sf.id ASC`)
       // then the wallet (`WalletService.getOrCreate`), so taking these in
       // the opposite order here would be a classic ABBA lock inversion: a
       // concurrent checkout and reversal on the same student could each
       // hold one lock and wait on the other, a Postgres 40P01 deadlock.
-      // Same deterministic `sf.id ASC` order as `CheckoutService` to also
-      // avoid deadlocking two reversals racing each other. `withDeleted`
-      // because a bill can have been soft-deleted since this payment was
-      // recorded — its paid_amount still needs unwinding even though it's
-      // gone.
+      // ONE batch in the same deterministic `sf.id ASC` order as checkout:
+      // two separately sorted batches can still interleave with checkout's
+      // single pass and deadlock. `withDeleted` because a bill can have been
+      // soft-deleted since this payment was recorded — its paid_amount still
+      // needs unwinding even though it's gone.
+      // The generation candidates come from an unlocked read (removed-bill
+      // credits from the pre-check above). `undoGenerationDebits` re-selects
+      // under the wallet lock and returns a retryable 409 if it then picks a
+      // bill that is not locked here.
       const feeIds = payment.allocations.map((a) => a.student_fee_id);
+      const candidateOwners = await this.walletOwners(manager, preRemovedCredits);
+      const generationBillIds = await this.generationBillIds(
+        manager,
+        payment,
+        [payment.student_id, ...candidateOwners.values()],
+        tenantId,
+      );
+      const lockIds = [...new Set([...feeIds, ...generationBillIds])];
       const lockedBills =
-        feeIds.length > 0
+        lockIds.length > 0
           ? await studentFeeRepo
               .createQueryBuilder('sf')
               .withDeleted()
-              .where('sf.id IN (:...ids)', { ids: feeIds })
+              .where('sf.id IN (:...ids)', { ids: lockIds })
+              .andWhere(
+                'sf.student_id IN (SELECT s.id FROM students s WHERE s.tenant_id = :tenantId)',
+                { tenantId },
+              )
               .orderBy('sf.id', 'ASC')
               .setLock('pessimistic_write')
               .getMany()
@@ -146,12 +174,23 @@ export class PaymentReversalService {
       // concurrent removal cannot add one unseen.
       const removedCredits = await this.removedBillCredits(manager, payment.id);
       const studentOfWallet = await this.walletOwners(manager, removedCredits);
-      await this.assertAllWalletsInOrder(
+      const shortfalls = await this.assertAllWalletsInOrder(
         locked,
         removedCredits,
         manager,
         studentOfWallet,
         tenantId,
+      );
+
+      // MON-14: the wallet change was spent only by fee generation — undo that
+      // auto-apply (re-opening the bills) so the wallet can cover this reversal.
+      const undone = await this.undoGenerationDebits(
+        manager,
+        payment,
+        shortfalls,
+        new Set(billsById.keys()),
+        tenantId,
+        actorUserId,
       );
 
       const billAudit: {
@@ -364,6 +403,8 @@ export class PaymentReversalService {
             wallet_withdrawn: walletCreditAdded,
             removed_bill_wallet_debits: removedBillDebits,
             wallet_refunded: walletCreditUsed,
+            reopened_bill_ids: undone.reopened_bill_ids,
+            undone_generation_debits: undone.undone_generation_debits,
             bills: billAudit.map((b) => ({
               student_fee_id: b.student_fee_id,
               paid_amount: b.paid_amount_after,
@@ -383,12 +424,8 @@ export class PaymentReversalService {
       relations: ['allocations'],
     });
 
-    checkoutEvents.emit('payments.reversed', {
-      payment_id: payment.id,
-      reversal_payment_id: reversalPayment.id,
-      tenant_id: tenantId,
-      student_id: payment.student_id,
-    });
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.overdue_family', actorUserId });
+    emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.due_soon', actorUserId });
 
     return reversalPayment;
   }
@@ -454,41 +491,37 @@ export class PaymentReversalService {
     creditAdded: number,
     currentBalance?: number,
     manager?: EntityManager,
-  ): Promise<void> {
+  ): Promise<number> {
     const balance =
       currentBalance ?? (await this.walletService.balance(studentId, payment.tenant_id));
     creditAdded = round2(creditAdded);
     const balanceAfterRemoval = round2(balance - creditAdded);
-    if (balanceAfterRemoval >= -AMOUNT_EPSILON) return;
+    if (balanceAfterRemoval >= -AMOUNT_EPSILON) return 0;
 
     const shortfall = round2(-balanceAfterRemoval);
     const paymentRepo = manager ? manager.getRepository(Payment) : this.paymentRepo;
-    // Same order the "later than `payment`" cutoff below relies on: ties
-    // break on `created_at ASC` (actual insertion order — `id` is a random
-    // uuid and tells you nothing about when a row was written), so a
-    // payment is "later" exactly when it sits after `payment`'s own
-    // position in this list, not when `payment_date` alone is strictly
-    // greater, which would wrongly skip a same-timestamp payment recorded
-    // after it.
+    // "Later" = later `created_at`, NOT `payment_date`: a back-dated payment
+    // (MON-11) can carry an earlier `payment_date` yet still have spent this
+    // payment's wallet change. `created_at` is the inserting transaction's START
+    // time (`now()`), not commit order, and ties sort by random uuid. A payment
+    // that started before this one but committed after it is missed; the
+    // reversal then fails safe with a 409.
+    // ponytail: no monotonic column; add one (or clock_timestamp()) per #2425.
     const ordered = await paymentRepo.find({
       where: {
         tenant_id: payment.tenant_id,
         student_id: studentId,
       },
-      order: { payment_date: 'ASC', created_at: 'ASC' },
+      order: { created_at: 'ASC', id: 'ASC' },
     });
-    // `payment` is in this list only when `studentId` is the payer; for another
-    // student's wallet, "later" means after `payment` by (payment_date, created_at).
+    // `payment` is in the list only when `studentId` is the payer; otherwise
+    // compare timestamps. Position (the `created_at, id` sort) wins over a
+    // timestamp compare so a same-timestamp row still lands on one side.
     const paymentIndex = ordered.findIndex((p) => p.id === payment.id);
-    const key = (p: Payment) => [+new Date(p.payment_date), +new Date(p.created_at)];
     const laterSpenders =
       paymentIndex !== -1
         ? ordered.slice(paymentIndex + 1)
-        : ordered.filter((p) => {
-            const [a1, a2] = key(p);
-            const [b1, b2] = key(payment);
-            return a1 > b1 || (a1 === b1 && a2 > b2);
-          });
+        : ordered.filter((p) => +new Date(p.created_at) > +new Date(payment.created_at));
 
     const blockingIds: string[] = [];
     let covered = 0;
@@ -505,21 +538,175 @@ export class PaymentReversalService {
       if (covered >= shortfall - AMOUNT_EPSILON) break;
     }
 
-    if (blockingIds.length === 0) {
-      // The shortfall is real (checked above) but no *payment* spent the
-      // wallet credit this one added — e.g. `FeeGenerationService` auto-
-      // debiting the wallet against a newly generated bill
-      // (`WalletTransactionKind.DEBIT_GENERATION`), not a payment at all.
-      // `payment_ids: []` here would tell the caller to "reverse the
-      // later payments first" while naming none, an un-actionable dead
-      // end — surface that plainly instead.
-      throw new ConflictException({
-        code: 'REVERSE_BLOCKED_BY_NON_PAYMENT_WALLET_SPEND',
-        message: `Reversing this payment would take the wallet balance negative, but no later payment (only a non-payment wallet debit, e.g. fee generation) is responsible — reversal must be handled manually.`,
-      });
-    }
+    // MON-14: no later *payment* spent it — only fee generation's auto-apply
+    // (`DEBIT_GENERATION`) did. Hand the shortfall back; `reverse` undoes those debits.
+    if (blockingIds.length === 0) return shortfall;
 
     throw new ReverseLaterPaymentsFirstException(blockingIds);
+  }
+
+  /**
+   * Live (not yet reversed) `DEBIT_GENERATION` rows of these wallets with
+   * `created_at` after `after`, oldest first. `created_at` is the generation
+   * transaction's start time, so a debit from a run that began before the
+   * payment is missed (fails safe as a 409, see #2425).
+   */
+  private liveGenerationDebits(
+    manager: EntityManager,
+    walletIds: string[],
+    tenantId: string,
+    after: Date,
+  ): Promise<WalletTransaction[]> {
+    if (walletIds.length === 0) return Promise.resolve([]);
+    return manager
+      .getRepository(WalletTransaction)
+      .createQueryBuilder('t')
+      .where('t.wallet_id IN (:...walletIds)', { walletIds })
+      .andWhere('t.tenant_id = :tenantId', { tenantId })
+      .andWhere('t.kind = :kind', { kind: WalletTransactionKind.DEBIT_GENERATION })
+      .andWhere('t.created_at > :after', { after })
+      .andWhere(`NOT EXISTS (SELECT 1 FROM wallet_transactions r WHERE r.reversal_of_id = t.id)`)
+      .orderBy('t.created_at', 'ASC')
+      .addOrderBy('t.id', 'ASC')
+      .getMany();
+  }
+
+  /**
+   * MON-14: ids of the bills fee generation may have paid from these students'
+   * wallets, read WITHOUT a lock. `reverse` locks them together with the
+   * payment's own bills in one sorted batch, before any wallet lock.
+   */
+  private async generationBillIds(
+    manager: EntityManager,
+    payment: Payment,
+    studentIds: string[],
+    tenantId: string,
+  ): Promise<string[]> {
+    const wallets = await manager
+      .getRepository(StudentWallet)
+      .find({ where: { tenant_id: tenantId, student_id: In([...new Set(studentIds)]) } });
+    const debits = await this.liveGenerationDebits(
+      manager,
+      wallets.map((w) => w.id),
+      tenantId,
+      payment.created_at,
+    );
+    return debits.map((d) => d.student_fee_id).filter((x): x is string => !!x);
+  }
+
+  /**
+   * MON-14. For each wallet short by `shortfall`, reverse the oldest live
+   * `DEBIT_GENERATION` rows made after the payment until covered: wallet gets a
+   * `REVERSAL` credit, the auto-paid bill's `paid_amount` drops and its status is
+   * recomputed (a soft-deleted bill keeps its status). Runs under the wallet locks
+   * already held. Throws the old 409 if the debits cannot cover the shortfall.
+   *
+   * Debits are undone whole, so the last one may overshoot the shortfall (shortfall
+   * 100, debit 200 -> 200 returns to the wallet and the bill is fully re-opened).
+   * That is deliberate: a bill is never left half re-opened.
+   */
+  private async undoGenerationDebits(
+    manager: EntityManager,
+    payment: Payment,
+    shortfalls: Map<string, number>,
+    lockedBills: Set<string>,
+    tenantId: string,
+    actorUserId: string,
+  ): Promise<{ reopened_bill_ids: string[]; undone_generation_debits: UndoneDebitAudit[] }> {
+    const out = {
+      reopened_bill_ids: [] as string[],
+      undone_generation_debits: [] as UndoneDebitAudit[],
+    };
+    const feeRepo = manager.getRepository(StudentFee);
+    for (const [studentId, shortfall] of [...shortfalls].sort(([a], [b]) => (a < b ? -1 : 1))) {
+      const wallet = await this.walletService.getOrCreate(studentId, tenantId, manager, true);
+      const debits = await this.liveGenerationDebits(
+        manager,
+        [wallet.id],
+        tenantId,
+        payment.created_at,
+      );
+
+      let covered = 0;
+      const picked: WalletTransaction[] = [];
+      for (const d of debits) {
+        if (covered >= shortfall - AMOUNT_EPSILON) break;
+        picked.push(d);
+        covered = round2(covered + Math.abs(Number(d.amount)));
+      }
+      if (covered < shortfall - AMOUNT_EPSILON) {
+        throw new ConflictException({
+          code: 'REVERSE_BLOCKED_BY_NON_PAYMENT_WALLET_SPEND',
+          message: `Reversing this payment would take the wallet balance negative, and the wallet debits made by fee generation cannot cover the shortfall — reversal must be handled manually.`,
+        });
+      }
+      // A debit appeared (or its bill changed) after the bills were locked.
+      if (picked.some((d) => d.student_fee_id && !lockedBills.has(d.student_fee_id))) {
+        throw new ConflictException({
+          code: 'REVERSE_RETRY',
+          message: 'Wallet activity changed while reversing — please retry.',
+        });
+      }
+
+      for (const debit of picked) {
+        const amount = Math.abs(Number(debit.amount));
+        await this.walletService.credit(
+          {
+            studentId,
+            tenantId,
+            amount,
+            kind: WalletTransactionKind.REVERSAL,
+            studentFeeId: debit.student_fee_id,
+            reversalOfId: debit.id,
+            createdByUserId: actorUserId,
+            note: `Undo fee-generation wallet spend to reverse payment ${payment.id}`,
+            allowDeletedStudent: true,
+          },
+          manager,
+        );
+        const entry: UndoneDebitAudit = {
+          debit_id: debit.id,
+          amount,
+          student_fee_id: debit.student_fee_id,
+        };
+        const bill = debit.student_fee_id
+          ? await feeRepo
+              .createQueryBuilder('sf')
+              .withDeleted()
+              .where('sf.id = :id', { id: debit.student_fee_id })
+              .andWhere(
+                'sf.student_id IN (SELECT s.id FROM students s WHERE s.tenant_id = :tenantId)',
+                { tenantId },
+              )
+              .getOne()
+          : null;
+        if (bill) {
+          const newPaid = round2(Math.max(0, Number(bill.paid_amount) - amount));
+          const remaining = round2(
+            Number(bill.total_amount) - newPaid - Number(bill.discount_amount),
+          );
+          const status = bill.deleted_at
+            ? bill.status
+            : remaining <= AMOUNT_EPSILON
+              ? FeeStatus.PAID
+              : newPaid > AMOUNT_EPSILON
+                ? FeeStatus.PARTIALLY_PAID
+                : FeeStatus.PENDING;
+          await feeRepo.update(bill.id, { paid_amount: newPaid, status });
+          Object.assign(entry, {
+            paid_amount_before: Number(bill.paid_amount),
+            paid_amount_after: newPaid,
+            status_before: bill.status,
+            status_after: status,
+          });
+          // Only a bill whose status really changed is "reopened"; the full detail is in
+          // undone_generation_debits either way.
+          if (status !== bill.status) out.reopened_bill_ids.push(bill.id);
+        }
+        out.undone_generation_debits.push(entry);
+      }
+    }
+    return out;
   }
 
   /** Which student owns each wallet a removed-bill credit sits in. */
@@ -546,7 +733,7 @@ export class PaymentReversalService {
     manager?: EntityManager,
     owners?: Map<string, string>,
     tenantId?: string,
-  ): Promise<void> {
+  ): Promise<Map<string, number>> {
     const ownerOf = owners ?? (await this.walletOwners(this.paymentRepo.manager, credits));
     // Only wallets this payment put money into: a plain cash payment locks
     // (or creates) no wallet at all.
@@ -558,13 +745,22 @@ export class PaymentReversalService {
       const sid = ownerOf.get(c.wallet_id)!;
       added.set(sid, round2((added.get(sid) ?? 0) + Number(c.amount)));
     }
+    const shortfalls = new Map<string, number>();
     for (const sid of [...added.keys()].sort()) {
       // allowDeleted: unwinding money must work for a student who has left.
       const balance = manager
         ? Number((await this.walletService.getOrCreate(sid, tenantId!, manager, true)).balance)
         : await this.walletService.balance(sid, payment.tenant_id);
-      await this.assertReverseInOrder(payment, sid, added.get(sid)!, balance, manager);
+      const short = await this.assertReverseInOrder(
+        payment,
+        sid,
+        added.get(sid)!,
+        balance,
+        manager,
+      );
+      if (short > 0) shortfalls.set(sid, short);
     }
+    return shortfalls;
   }
 
   /** Live `CREDIT_BILL_REMOVED` wallet credits made for `paymentId` (bill removed

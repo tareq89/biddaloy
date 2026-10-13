@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { SchoolsService } from '../schools/schools.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import { Routine } from './entities/routine.entity';
@@ -53,6 +54,7 @@ export class GreedyFillService {
     @InjectRepository(TeacherClassSection)
     private readonly tcsRepo: Repository<TeacherClassSection>,
     private readonly settingsReader: SchoolSettingsReader,
+    private readonly schoolsService: SchoolsService,
   ) {}
 
   async fill(
@@ -151,7 +153,7 @@ export class GreedyFillService {
 
     const settings = await this.settingsReader.routineSettings(tenantId);
     const assignedSections = new Set(tcsRows.map((r) => r.teacher_id));
-    const today = new Date().toISOString().slice(0, 10);
+    const today = await this.schoolsService.todayFor(tenantId);
     // A D4-superseded slot (`valid_to` already in the past) is no longer in
     // force — same bug class `checkSlot`'s daily-cap/consecutive-period
     // checks had (see constraint-check.ts), fixed there via

@@ -168,6 +168,36 @@ export async function patch<T>(
   return (await response.json()) as T;
 }
 
+/** Submits one section-subject mark sheet. #2246 refuses a sheet with blank
+ * cells (409 GRID_INCOMPLETE); specs that only mark the student they care
+ * about mark every blank the server reports as ABSENT (what a blank used to
+ * count as), then submit. */
+export async function submitMarkSheet(
+  request: APIRequestContext,
+  session: ApiSession,
+  examId: string,
+  body: { section_id: string; subject_id: string },
+): Promise<void> {
+  const headers = { Authorization: `Bearer ${session.token}`, 'X-Tenant-ID': session.tenantId };
+  const url = `/api/v1/exams/${examId}/marks/submit`;
+  let response = await request.post(url, { headers, data: body });
+  if (response.status() === 409) {
+    const { details } = (await response.json()) as {
+      details?: { code?: string; blank?: { student_id: string; component_id: string }[] };
+    };
+    if (details?.code === 'GRID_INCOMPLETE' && details.blank) {
+      await patch(request, session, `/exams/${examId}/marks`, {
+        ...body,
+        cells: details.blank.map((c) => ({ ...c, value: null, status: 'ABSENT' })),
+      });
+      response = await request.post(url, { headers, data: body });
+    }
+  }
+  if (!response.ok()) {
+    throw new Error(`POST ${url} failed: ${response.status()} ${await response.text()}`);
+  }
+}
+
 /** `PUT <path>` — same shape as `post`/`patch` above. [38.5.1]'s
  * `markAbsentDaysInPreviousMonth` uses this for
  * `PUT /attendance/sections/:sectionId/register`, the one write endpoint

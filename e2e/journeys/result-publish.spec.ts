@@ -1,5 +1,5 @@
 import { ExamComponentKind, ExamComponentSource, ExamKind } from '@biddaloy/shared';
-import { adminApiSession, get, post } from '../api';
+import { adminApiSession, get, post, submitMarkSheet } from '../api';
 import { ApprovalModalPage } from '../pages';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
@@ -137,7 +137,7 @@ test.describe.serial('exams: admin publishes -> guardian sees it in the portal',
           `PATCH marks failed: ${marksResponse.status()} ${await marksResponse.text()}`,
         );
       }
-      await post(request, session, `/exams/${exam.id}/marks/submit`, {
+      await submitMarkSheet(request, session, exam.id, {
         section_id: student.class_section_id,
         subject_id: subject.id,
       });
@@ -207,7 +207,8 @@ test.describe.serial('exams: admin publishes -> guardian sees it in the portal',
       );
       const template = templates.find((x) => x.is_default) ?? templates[0];
       if (!template) throw new Error('No result-certificate template — has `yarn seed` run?');
-      await post(request, session, '/certificates', {
+      // A result certificate prints on /print-jobs; /certificates is the five student certificates (D6).
+      await post(request, session, '/print-jobs', {
         template_id: template.id,
         subject_type: 'STUDENT',
         subject_ids: [studentId],

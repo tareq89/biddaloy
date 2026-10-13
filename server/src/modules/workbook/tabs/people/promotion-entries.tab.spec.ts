@@ -105,6 +105,7 @@ const KEY_INDEX: Record<string, Record<string, string>> = {
   students: { 'S-001': STUDENT_ID },
   enrollments: { 'S-001|2026-2027': ENROLLMENT_ID },
   sections: { 'Class 6|2026-2027|2026-2027|A': SECTION_ID },
+  users: { 'head@school.test': USER_ID },
 };
 
 function exportCtx(): ExportContext {
@@ -114,8 +115,12 @@ function exportCtx(): ExportContext {
       if (tab === 'students') return id === STUDENT_ID ? 'S-001' : '';
       if (tab === 'enrollments') return id === ENROLLMENT_ID ? 'S-001|2026-2027' : '';
       if (tab === 'sections') return id === SECTION_ID ? 'Class 6|2026-2027|2026-2027|A' : '';
+      if (tab === 'users') return 'head@school.test';
       return '';
     },
+    // Only USER_ID is in the exported `users` tab.
+    tryKeyOf: (tab: string, id: string) =>
+      tab === 'users' && id === USER_ID ? 'head@school.test' : null,
   };
 }
 
@@ -154,6 +159,7 @@ describe('promotionEntriesTab shape', () => {
       'enrollments',
       'sections',
       'classes',
+      'users',
     ]);
     expect(promotionEntriesTab.naturalKey).toEqual(['run', 'student']);
     expect(promotionEntriesTab.deleteByAbsence).toBe(true);
@@ -189,6 +195,34 @@ describe('round-trip', () => {
     expect(row.final_outcome).toBe(PromotionOutcome.RETAIN);
   });
 
+  it('overridden_by exports the user key and resolves back to the id (GAP-10)', () => {
+    const cells = toCells(
+      makeEntry({
+        final_outcome: PromotionOutcome.RETAIN,
+        is_override: true,
+        override_note: 'Medical absence',
+        overridden_by_user_id: USER_ID,
+      }),
+    );
+    expect(cells.overridden_by).toBe('head@school.test');
+    expect(fromRowOrThrow(cells).overridden_by_user_id).toBe(USER_ID);
+  });
+
+  it('an overridden_by key not in this school users is a row error (GAP-10)', () => {
+    const cells = toCells(makeEntry());
+    cells.overridden_by = 'someone@other-school.test';
+    const result = promotionEntriesTab.fromRow(cells, 3, importCtx());
+    expect('errors' in result).toBe(true);
+    expect((result as { errors: RowError[] }).errors[0].column).toBe('overridden_by');
+  });
+
+  it('an overridden_by user missing from the users tab exports null, not a crash', () => {
+    const cells = toCells(
+      makeEntry({ overridden_by_user_id: '00000000-0000-4000-8000-000000000000' }),
+    );
+    expect(cells.overridden_by).toBe('');
+  });
+
   it('is_override=true with a blank override_note is a RowError (mirrors the DB CHECK)', () => {
     const cells = toCells(makeEntry({ is_override: true, override_note: 'irrelevant' }));
     cells.override_note = '   ';
@@ -197,13 +231,11 @@ describe('round-trip', () => {
     expect((result as { errors: RowError[] }).errors[0].column).toBe('override_note');
   });
 
-  // [68.1.fix] Commit has no CONDITIONAL branch yet (#2296): restoring one would drop the student.
-  it('final_outcome CONDITIONAL is a RowError on final_outcome', () => {
+  it('final_outcome CONDITIONAL with a note restores', () => {
     const cells = toCells(makeEntry({ is_override: true, override_note: 'Re-test in March' }));
     cells.final_outcome = PromotionOutcome.CONDITIONAL;
-    const result = promotionEntriesTab.fromRow(cells, 3, importCtx());
-    expect('errors' in result).toBe(true);
-    expect((result as { errors: RowError[] }).errors[0].column).toBe('final_outcome');
+    const row = fromRowOrThrow(cells);
+    expect(row.final_outcome).toBe(PromotionOutcome.CONDITIONAL);
   });
 
   it('is_override=false with no override_note is not an error', () => {
@@ -287,5 +319,42 @@ describe('diffFields', () => {
       student_key: 'S-001',
     };
     expect(promotionEntriesTab.diffFields(row, entry)).toEqual(['is_override', 'override_note']);
+  });
+});
+
+describe('null overridden_by keeps the existing user (export could not name them)', () => {
+  function rowOf(entry: PromotionEntry): PromotionEntryRow {
+    return {
+      ...entry,
+      overridden_by_user_id: null,
+      run_key: RUN_KEY,
+      student_key: 'S-001',
+    } as unknown as PromotionEntryRow;
+  }
+
+  it('diffFields ignores a null row value against a set existing value', () => {
+    const entry = makeEntry({ overridden_by_user_id: USER_ID });
+    expect(promotionEntriesTab.diffFields(rowOf(entry), entry)).not.toContain('overridden_by');
+  });
+
+  it('upsert keeps the existing overridden_by when the row value is null', async () => {
+    const entry = makeEntry({ overridden_by_user_id: USER_ID });
+    const fakeManager = { save: async (_e: unknown, v: PromotionEntry) => v };
+    const saved = await promotionEntriesTab.upsert(
+      rowOf(entry),
+      entry,
+      TENANT_ID,
+      fakeManager as never,
+    );
+    expect(saved.overridden_by_user_id).toBe(USER_ID);
+  });
+
+  it('an unknown overridden_by user reads "no user", singular', () => {
+    const cells = toCells(makeEntry());
+    cells.overridden_by = 'x@y.test';
+    const result = promotionEntriesTab.fromRow(cells, 3, importCtx());
+    expect((result as { errors: RowError[] }).errors[0].message).toBe(
+      'Column "overridden_by": no user "x@y.test" was found.',
+    );
   });
 });

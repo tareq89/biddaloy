@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { attentionEvents } from '../attention/attention.constants';
+import { ATTENTION_RECHECK, AttentionRecheckPayload } from '../attention/engine/attention-events';
+import { getQueueToken } from '@nestjs/bullmq';
+import { FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -9,7 +13,9 @@ import { CheckoutService } from './checkout.service';
 import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
+import { SchoolsService } from '../schools/schools.service';
 import { StorageModule } from '../storage/storage.module';
+import { ApprovalRequiredException } from '../../common/errors/approval-required.exception';
 import { ApprovalService } from '../auth/guards/approval.guard';
 import { StudentFee } from './entities/student-fee.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
@@ -36,7 +42,13 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { FeeStatus, FeeType, PaymentMethod, ApprovalScope } from '@biddaloy/shared';
+import {
+  FeeStatus,
+  FeeType,
+  PaymentMethod,
+  ApprovalScope,
+  PaymentAllocationType,
+} from '@biddaloy/shared';
 
 /**
  * Integration tests for CheckoutService (16.4.2) — `POST /payments/checkout`'s
@@ -56,6 +68,22 @@ function daysFromToday(days: number): Date {
   d.setUTCDate(d.getUTCDate() + days);
   d.setUTCHours(0, 0, 0, 0);
   return d;
+}
+
+const feeNotifyAdd = vi.fn().mockResolvedValue(undefined);
+/** The school's `region.timezone`, as `SchoolsService.getResolvedSettings` returns it. */
+let schoolTz = 'Asia/Dhaka';
+/** Collects the attention rechecks emitted while `fn` runs. */
+async function captureRechecks(fn: () => Promise<unknown>): Promise<string[]> {
+  const seen: AttentionRecheckPayload[] = [];
+  const on = (p: AttentionRecheckPayload) => seen.push(p);
+  attentionEvents.on(ATTENTION_RECHECK, on);
+  try {
+    await fn();
+  } finally {
+    attentionEvents.off(ATTENTION_RECHECK, on);
+  }
+  return seen.map((r) => `${r.tenantId}:${r.ruleKey}`).sort();
 }
 
 describe('CheckoutService (integration)', () => {
@@ -105,7 +133,10 @@ describe('CheckoutService (integration)', () => {
     });
   }
 
-  async function issueApprovalToken(jti: string): Promise<string> {
+  async function issueApprovalToken(
+    jti: string,
+    scope: ApprovalScope = ApprovalScope.FEES_DISCOUNT,
+  ): Promise<string> {
     await redis.set(`approval:${jti}`, '1', 'EX', 300);
     const jwtService = new JwtService({ secret: JWT_SECRET });
     return jwtService.signAsync(
@@ -114,7 +145,7 @@ describe('CheckoutService (integration)', () => {
         sub: ACTOR_USER_ID,
         act: ACTOR_USER_ID,
         tid: TENANT_ID,
-        scope: ApprovalScope.FEES_DISCOUNT,
+        scope,
         jti,
       },
       { expiresIn: 300 },
@@ -136,6 +167,11 @@ describe('CheckoutService (integration)', () => {
       ALL_ENTITIES,
       [
         CheckoutService,
+        { provide: getQueueToken(FEE_NOTIFY_QUEUE), useValue: { add: feeNotifyAdd } },
+        {
+          provide: SchoolsService,
+          useValue: { getResolvedSettings: async () => ({ region: { timezone: schoolTz } }) },
+        },
         WalletService,
         AuditService,
         InvoicesService,
@@ -240,6 +276,34 @@ describe('CheckoutService (integration)', () => {
       }),
     );
     feeStructureId = structure.id;
+  });
+
+  it('a committed checkout enqueues one receipt job and rechecks the fee alerts', async () => {
+    feeNotifyAdd.mockClear();
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+    const dto = {
+      idempotency_key: '33333333-3333-4333-8333-333333333333',
+      lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+      change_handling: 'RETURN',
+    } as any;
+
+    let paymentId = '';
+    const rechecks = await captureRechecks(async () => {
+      const r = await service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+      paymentId = r.payment.id;
+    });
+
+    expect(feeNotifyAdd).toHaveBeenCalledTimes(1);
+    expect(feeNotifyAdd).toHaveBeenCalledWith(
+      'payments.recorded',
+      expect.objectContaining({ payment_id: paymentId, tenant_id: TENANT_ID }),
+      { jobId: `payments.recorded-${paymentId}` },
+    );
+    expect(rechecks).toEqual(
+      [`${TENANT_ID}:fees.due_soon`, `${TENANT_ID}:fees.overdue_family`].sort(),
+    );
   });
 
   it('records one payment across two students, three lines, one invoice with grouped lines', async () => {
@@ -349,6 +413,131 @@ describe('CheckoutService (integration)', () => {
     expect((auditRows[0].new_values as any).approved_by_user_id).toBe(ACTOR_USER_ID);
   });
 
+  describe('MON-11 payment_date bounds', () => {
+    const dayStr = (offset: number) =>
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(
+        new Date(Date.now() + offset * 86_400_000),
+      );
+    async function attempt(offset: number, key: string, token?: string) {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id));
+      const run = () =>
+        service.checkout(
+          {
+            idempotency_key: key,
+            lines: [{ student_fee_id: bill.id, amount: 1000 }],
+            payment_method: PaymentMethod.CASH,
+            payment_date: dayStr(offset),
+          } as any,
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(token),
+        );
+      return { run, bill };
+    }
+
+    it('rejects tomorrow (400)', async () => {
+      const { run } = await attempt(1, '55555555-5555-4555-8555-555555555501');
+      await expect(run()).rejects.toThrow('cannot be in the future');
+      expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+    });
+
+    it('rejects 4 days back (400)', async () => {
+      const { run } = await attempt(-4, '55555555-5555-4555-8555-555555555502');
+      await expect(run()).rejects.toThrow('at most 3 days back');
+      expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+    });
+
+    it('accepts today without an approval', async () => {
+      const { run } = await attempt(0, '55555555-5555-4555-8555-555555555503');
+      const r = await run();
+      expect(r.payment.approved_by_user_id).toBeNull();
+    });
+
+    it('2 days back without a token is refused and writes nothing', async () => {
+      const { run, bill } = await attempt(-2, '55555555-5555-4555-8555-555555555504');
+      await expect(run()).rejects.toBeInstanceOf(ApprovalRequiredException);
+      expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+      expect(Number((await studentFeeRepo.findOneByOrFail({ id: bill.id })).paid_amount)).toBe(0);
+    });
+
+    it('a token for another scope does not unlock a backdate', async () => {
+      const token = await issueApprovalToken('jti-bd-wrong', ApprovalScope.FEES_DISCOUNT);
+      const { run } = await attempt(-2, '55555555-5555-4555-8555-555555555505', token);
+      await expect(run()).rejects.toBeInstanceOf(ApprovalRequiredException);
+      expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+    });
+
+    it('exactly 3 days back is accepted with a backdate token', async () => {
+      const token = await issueApprovalToken('jti-bd-3', ApprovalScope.PAYMENTS_BACKDATE);
+      const { run } = await attempt(-3, '55555555-5555-4555-8555-555555555507', token);
+      const r = await run();
+      expect(r.payment.payment_date.toISOString().slice(0, 10)).toBe(dayStr(-3));
+    });
+
+    it('a back-dated checkout with a one-off discount is refused (400) before any token is spent', async () => {
+      const token = await issueApprovalToken('jti-bd-disc', ApprovalScope.PAYMENTS_BACKDATE);
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id));
+      await expect(
+        service.checkout(
+          {
+            idempotency_key: '55555555-5555-4555-8555-555555555508',
+            lines: [{ student_fee_id: bill.id, amount: 900, one_off_discount: 100 }],
+            payment_method: PaymentMethod.CASH,
+            payment_date: dayStr(-1),
+          } as any,
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(token),
+        ),
+      ).rejects.toThrow('cannot carry a one-off discount');
+      expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+      // The token was not burned.
+      expect(await redis.get('approval:jti-bd-disc')).toBe('1');
+    });
+
+    // [#2295] "Today" is the school's own date, not Dhaka's. At 12:00 UTC it is
+    // already tomorrow in Kiritimati (UTC+14) but still today in Dhaka.
+    it("uses the school's own time zone: Kiritimati's today is accepted without a token", async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-12T12:00:00Z'));
+      schoolTz = 'Pacific/Kiritimati';
+      try {
+        const student = await studentRepo.save(makeStudent());
+        const bill = await studentFeeRepo.save(makeBill(student.id));
+        const r = await service.checkout(
+          {
+            idempotency_key: '55555555-5555-4555-8555-555555555509',
+            lines: [{ student_fee_id: bill.id, amount: 1000 }],
+            payment_method: PaymentMethod.CASH,
+            payment_date: '2026-10-13',
+          } as any,
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        );
+        expect(r.payment.approved_by_user_id).toBeNull();
+      } finally {
+        schoolTz = 'Asia/Dhaka';
+        vi.useRealTimers();
+      }
+    });
+
+    it('2 days back with a payments.backdate token stores that day and audits it', async () => {
+      const token = await issueApprovalToken('jti-bd-ok', ApprovalScope.PAYMENTS_BACKDATE);
+      const { run } = await attempt(-2, '55555555-5555-4555-8555-555555555506', token);
+      const r = await run();
+      expect(r.payment.payment_date.toISOString().slice(0, 10)).toBe(dayStr(-2));
+      expect(r.payment.approved_by_user_id).toBe(ACTOR_USER_ID);
+      const rows = await auditLogRepo.find({ where: { entity_id: r.payment.id } });
+      expect(rows).toHaveLength(1);
+      const nv = rows[0].new_values as any;
+      expect(nv.backdated_to).toBe(dayStr(-2));
+      expect(nv.approval_scope).toBe(ApprovalScope.PAYMENTS_BACKDATE);
+    });
+  });
+
   it('tendered 5000 for a 4950 total returns change of 50 (RETURN) / credits wallet 50 (TO_WALLET)', async () => {
     const student = await studentRepo.save(makeStudent());
     const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 4950 }));
@@ -449,6 +638,61 @@ describe('CheckoutService (integration)', () => {
     expect(second.payment.id).toBe(first.payment.id);
     const payments = await paymentRepo.find({ where: { idempotency_key: key } });
     expect(payments).toHaveLength(1);
+  });
+
+  // Business-critical: the replay is the client's recovery path. A bill removed
+  // after the first request (MON-03) hides `student_fee` from the relation join;
+  // the replay must still return the stored result and re-enqueue the receipt.
+  it('replays to the stored result even when a paid bill was removed after the first request', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+    const dto = {
+      idempotency_key: '77777777-7777-4777-8777-777777777778',
+      lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+    };
+    const first = await service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+    await studentFeeRepo.softDelete(bill.id);
+    feeNotifyAdd.mockClear();
+
+    const replay = await service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+
+    expect(replay.payment.id).toBe(first.payment.id);
+    expect(feeNotifyAdd).toHaveBeenCalledWith(
+      'payments.recorded',
+      expect.objectContaining({ payment_id: first.payment.id, student_ids: [student.id] }),
+      { jobId: `payments.recorded-${first.payment.id}` },
+    );
+  });
+
+  // [#2295] DUE vs CURRENT uses the school's own date, the same one the
+  // back-dating window uses. At 12:00 UTC it is 13 Oct in Kiritimati but 12 Oct
+  // in Dhaka, so a bill due 12 Oct is already DUE for a Kiritimati school.
+  it("tags a bill due yesterday in the school's time zone as DUE", async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-12T12:00:00Z'));
+    schoolTz = 'Pacific/Kiritimati';
+    try {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(
+        makeBill(student.id, { due_date: new Date('2026-10-12T00:00:00Z') }),
+      );
+      const r = await service.checkout(
+        {
+          idempotency_key: '77777777-7777-4777-8777-777777777779',
+          lines: [{ student_fee_id: bill.id, amount: 1000 }],
+          payment_method: PaymentMethod.CASH,
+        } as any,
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      const [allocation] = await allocationRepo.find({ where: { payment_id: r.payment.id } });
+      expect(allocation.allocation_type).toBe(PaymentAllocationType.DUE);
+    } finally {
+      schoolTz = 'Asia/Dhaka';
+      vi.useRealTimers();
+    }
   });
 
   it('rejects a student_fee_id from another tenant (404)', async () => {
@@ -624,10 +868,13 @@ describe('CheckoutService (integration)', () => {
       const createSpy = vi
         .spyOn(invoicesService, 'create')
         .mockRejectedValueOnce(new Error('simulated invoice-service outage'));
+      feeNotifyAdd.mockClear();
 
       await expect(
         service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
       ).rejects.toThrow('simulated invoice-service outage');
+      // The first request died before its after-commit work: no receipt yet.
+      expect(feeNotifyAdd).not.toHaveBeenCalled();
 
       // The payment itself is durably committed even though the request
       // as a whole threw — this is the documented trade-off `checkout()`
@@ -653,6 +900,13 @@ describe('CheckoutService (integration)', () => {
       expect(retryMeta.replayed).toBe(true);
       expect(retried.payment.id).toBe(orphaned.id);
       expect(retried.invoice_id).toBeTruthy();
+      // [68.4.10] The sequential retry is what sends the guardian the receipt
+      // the first request never enqueued (the jobId makes a repeat harmless).
+      expect(feeNotifyAdd).toHaveBeenCalledWith(
+        'payments.recorded',
+        expect.objectContaining({ payment_id: orphaned.id, tenant_id: TENANT_ID }),
+        { jobId: `payments.recorded-${orphaned.id}` },
+      );
 
       const repaired = await paymentRepo.findOneOrFail({ where: { id: orphaned.id } });
       expect(repaired.invoice_id).toBeTruthy();

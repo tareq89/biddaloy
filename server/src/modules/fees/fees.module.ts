@@ -1,6 +1,10 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
+import {
+  COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+  FEE_NOTIFY_QUEUE,
+} from '../communications/communications.constants';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
@@ -80,6 +84,10 @@ import { FinesController } from './fines/fines.controller';
       CalendarEvent,
     ]),
     BullModule.registerQueue({ name: FEES_DAILY_QUEUE }),
+    BullModule.registerQueue({
+      name: FEE_NOTIFY_QUEUE,
+      defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+    }),
     AuditModule,
     StudentModule,
     InvoicesModule,

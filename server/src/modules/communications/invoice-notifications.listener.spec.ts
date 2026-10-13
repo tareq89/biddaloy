@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 import { InvoiceNotificationsListener } from './invoice-notifications.listener';
-import { checkoutEvents } from '../fees/checkout.service';
 import { Payment } from '../fees/entities/payment.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
 import { Student } from '../students/entities/student.entity';
@@ -88,35 +87,6 @@ function makeListener(
     shareService,
   };
 }
-
-describe('InvoiceNotificationsListener.onModuleInit', () => {
-  it('logs and does not throw when handlePaymentRecorded rejects', async () => {
-    const { listener } = makeListener();
-    const error = new Error('boom');
-    const handleSpy = vi.spyOn(listener, 'handlePaymentRecorded').mockRejectedValue(error);
-    const loggerSpy = vi.spyOn((listener as any).logger, 'error').mockImplementation(() => {});
-
-    const unhandled = vi.fn();
-    process.once('unhandledRejection', unhandled);
-
-    listener.onModuleInit();
-    checkoutEvents.emit('payments.recorded', {
-      payment_id: 'p1',
-      tenant_id: 't1',
-      student_ids: ['s1'],
-    });
-
-    await new Promise((resolve) => setImmediate(resolve));
-
-    expect(handleSpy).toHaveBeenCalled();
-    expect(loggerSpy).toHaveBeenCalledWith(
-      'payments.recorded handler failed for payment p1',
-      error.stack,
-    );
-    expect(unhandled).not.toHaveBeenCalled();
-    process.removeListener('unhandledRejection', unhandled);
-  });
-});
 
 describe('InvoiceNotificationsListener.handlePaymentRecorded', () => {
   const paymentId = 'pay-1';

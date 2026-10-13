@@ -18,6 +18,8 @@ import {
   UserStatus,
 } from '@biddaloy/shared';
 import { School } from './entities/school.entity';
+import { DEFAULT_REGION_SETTINGS } from './settings/tenant-settings-defaults';
+import { localToday } from '../attendance/attendance-policy.util';
 import { TenantSettingsDto, OrganisationRenameDto } from './dto/tenant-settings.dto';
 import { resolveTenantSettings } from './settings/tenant-settings-resolver';
 import { mergeTenantSettings, toPlainSettingsPatch } from './settings/tenant-settings-merge.util';
@@ -94,6 +96,11 @@ export class SchoolsService {
     return school;
   }
 
+  /** For per-tenant scheduler loops; a SUSPENDED school gets no background work (TEN-06, #1655). */
+  async findAllActive(): Promise<Pick<School, 'id'>[]> {
+    return this.repo.find({ where: { status: 'ACTIVE' }, select: { id: true } });
+  }
+
   /**
    * Every school, for #8.7.13's super-admin school picker *and* #533's
    * SUPER_ADMIN platform schools list. Originally `{ id, name }` only (the
@@ -167,6 +174,13 @@ export class SchoolsService {
   async getResolvedSettings(schoolId: string): Promise<TenantSettings> {
     const school = await this.findById(schoolId);
     return resolveTenantSettings(school.settings);
+  }
+
+  /** The school's local calendar date (YYYY-MM-DD) from its `region.timezone`.
+   * `resolveTenantSettings` always fills the timezone (the `??` only satisfies the optional type). */
+  async todayFor(tenantId: string): Promise<string> {
+    const settings = await this.getResolvedSettings(tenantId);
+    return localToday(settings.region?.timezone ?? DEFAULT_REGION_SETTINGS.timezone);
   }
 
   /** Shared `onError` for every `maskSecretFields` call site below — one
