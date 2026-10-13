@@ -12,7 +12,12 @@ import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import type Redis from 'ioredis';
 import * as bcrypt from 'bcrypt';
-import { AuditAction, AuthTokenPurpose, CommunicationMedium } from '@biddaloy/shared';
+import {
+  AuditAction,
+  AuthTokenPurpose,
+  CommunicationMedium,
+  CommunicationStatus,
+} from '@biddaloy/shared';
 import { User } from '../users/entities/user.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
@@ -51,6 +56,8 @@ interface AdminProposalMeta {
   new_phone?: string | null;
   proposed_in_tenant_id?: string;
   sent_to?: { medium: string; address: string };
+  /** Review R1: stamped once the approval link was really delivered. */
+  sent?: boolean;
 }
 
 export interface ConfirmEmailResult {
@@ -287,11 +294,13 @@ export class ContactChangeService {
     const { user, recipient } = await this.assertCanPropose(userId, newEmail, newPhone);
     const field = fieldOf(newEmail, newPhone);
 
-    // Re-saving the form with the same pending change sends nothing again (review m2): the live link stands.
+    // Re-saving the form with the same pending change sends nothing again (review m2): the live link
+    // stands. Only a link that was really delivered counts (review R1), so a re-save after a failed
+    // send always sends again.
     const [live] = await this.userRepo.manager.query<Array<{ metadata: AdminProposalMeta }>>(
       `SELECT metadata FROM auth_tokens
         WHERE user_id = $1 AND tenant_id = $2 AND purpose = $3
-          AND metadata->>'kind' = 'ADMIN_PROPOSAL'
+          AND metadata->>'kind' = 'ADMIN_PROPOSAL' AND metadata->>'sent' = 'true'
           AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at > NOW()`,
       [userId, tenantId, AuthTokenPurpose.EMAIL_VERIFY],
     );
@@ -333,7 +342,7 @@ export class ContactChangeService {
 
       // tenantId null: the person is shared, so the platform sends it (D28), not one school.
       // (communication_logs.tenant_id is NOT NULL, so the record of this send is the audit row below.)
-      await this.delivery.deliver({
+      const delivered = await this.delivery.deliver({
         tenantId: null,
         medium: recipient.medium,
         to: recipient.to,
@@ -346,6 +355,14 @@ export class ContactChangeService {
           new_value: maskedNewValue(newEmail, newPhone),
         },
       });
+      // Review R1: deliver() reports a gateway failure as FAILED; it never throws.
+      if (delivered.status !== CommunicationStatus.SENT) {
+        throw new Error('approval link not delivered');
+      }
+      await manager.query(
+        `UPDATE auth_tokens SET metadata = metadata || '{"sent": true}'::jsonb WHERE id = $1`,
+        [row.id],
+      );
 
       const admins = await manager.query<
         Array<{ tenant_id: string; email: string | null; phone: string | null; full_name: string }>
@@ -515,7 +532,7 @@ export class ContactChangeService {
       for (const { field, value } of toProve) {
         // Bound to this link: a code sent for another proposal or flow never confirms this one.
         const { code } = await this.otpService.request(NEW_CONTACT_OTP[field], value, tokenId);
-        await this.delivery.deliver({
+        const delivered = await this.delivery.deliver({
           tenantId: null,
           medium: field === 'email' ? CommunicationMedium.EMAIL : CommunicationMedium.SMS,
           to: value,
@@ -523,6 +540,13 @@ export class ContactChangeService {
           kind: 'OTP',
           vars: { code },
         });
+        // Review R1: never answer 'confirm' for a code that did not go out. The link stays
+        // usable; pressing Approve again (after the 60 s cooldown) re-sends.
+        if (delivered.status !== CommunicationStatus.SENT) {
+          throw new ServiceUnavailableException(
+            'The code could not be sent to the new contact. Try again in a minute.',
+          );
+        }
         sent[`${field}_code`] = code;
       }
       return { status: 'confirm', ...(isSecretEchoEnabled(this.config) ? { debug: sent } : {}) };
