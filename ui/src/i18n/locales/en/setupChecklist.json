@@ -20,6 +20,7 @@
     "body": "Connect your Google account and skip the code.",
     "google": "Connect Google",
     "facebook": "Connect Facebook",
+    "setup": "Set up in Security",
     "dismiss": "Dismiss",
     "failed": "We could not connect that account. Please try again."
   }

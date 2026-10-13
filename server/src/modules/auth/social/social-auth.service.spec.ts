@@ -119,8 +119,10 @@ describe('SocialAuthService.facebookDataDeletion', () => {
 });
 
 describe('SocialAuthService.assertCurrentPassword', () => {
-  function build(user: { password_hash: string | null }) {
-    const users = { findOne: vi.fn().mockResolvedValue(user) };
+  function build(user: { password_hash: string | null; status?: string } | null) {
+    const users = {
+      findOne: vi.fn().mockResolvedValue(user && { status: 'ACTIVE', ...user }),
+    };
     return new SocialAuthService(
       [],
       {} as never,
@@ -143,6 +145,16 @@ describe('SocialAuthService.assertCurrentPassword', () => {
     await expect(service.assertCurrentPassword('u', 'nope')).rejects.toThrow(
       'Current password is incorrect',
     );
+  });
+
+  it('throws 401 for a missing user and for a non-active user, even with the right password', async () => {
+    await expect(build(null).assertCurrentPassword('u', 'x')).rejects.toThrow(
+      'Invalid credentials',
+    );
+    const hash = await bcrypt.hash('right-pass', 4);
+    await expect(
+      build({ password_hash: hash, status: 'INACTIVE' }).assertCurrentPassword('u', 'right-pass'),
+    ).rejects.toThrow('Invalid credentials');
   });
 
   it('throws NO_PASSWORD for a user with a null password_hash', async () => {

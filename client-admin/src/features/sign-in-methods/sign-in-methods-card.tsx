@@ -111,7 +111,7 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
           } else if (error instanceof ApiError && error.statusCode === 403) {
             setConnectError('wrong');
           } else {
-            setConnectProvider(null);
+            closeConnect(); // also drops the typed password
             toast.error(t('error'));
           }
         },
@@ -228,11 +228,15 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
                 type="password"
                 autoComplete="current-password"
                 required
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- the dialog just opened for this one field
+                autoFocus
+                aria-invalid={connectError ? true : undefined}
+                aria-describedby={connectError ? 'connect-password-error' : undefined}
                 value={connectPassword}
                 onChange={(e) => setConnectPassword(e.target.value)}
               />
               {connectError && (
-                <p role="alert" className="text-destructive">
+                <p id="connect-password-error" role="alert" className="text-destructive">
                   {t(`connectPassword.${connectError}`)}
                 </p>
               )}

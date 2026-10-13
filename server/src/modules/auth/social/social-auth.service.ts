@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -49,6 +50,9 @@ export function safeRedirect(value: string | undefined, appBase: string): string
   }
 }
 
+// Same value as auth.service.ts's DUMMY_PASSWORD_HASH: keeps the bcrypt cost paid on the no-user path.
+const DUMMY_PASSWORD_HASH = '$2b$10$rGV9zEDpgnc/spXBlHqA9O5IjpBvndIyZE78fIhV8ZV4.5GAUfPJ.';
+
 @Injectable()
 export class SocialAuthService {
   private readonly logger = new Logger(SocialAuthService.name);
@@ -71,7 +75,13 @@ export class SocialAuthService {
    */
   async assertCurrentPassword(userId: string, password: string): Promise<void> {
     const user = await this.users.findOne({ where: { id: userId } });
-    if (!user?.password_hash) {
+    // Same rule as `AuthService.changePassword`: a suspended user holding a
+    // still-valid access token must not act, and learns nothing from the difference.
+    if (!user || user.status !== UserStatus.ACTIVE) {
+      await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    if (!user.password_hash) {
       throw new BadRequestException({
         message: 'Set a password before connecting another sign-in method',
         details: { code: 'NO_PASSWORD' },
