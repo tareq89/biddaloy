@@ -55,7 +55,8 @@
     "allGenders": "সকল লিঙ্গ",
     "searchPlaceholder": "নাম, রোল বা রেজিস্ট্রেশন নম্বর",
     "cardSubtitle": "{{class}} · শাখা {{section}} · রোল {{roll}}",
-    "emptyExplanation": "প্রথম শিক্ষার্থী যোগ করলে তালিকা এখানে দেখা যাবে।"
+    "emptyExplanation": "প্রথম শিক্ষার্থী যোগ করলে তালিকা এখানে দেখা যাবে।",
+    "emptyTeacherExplanation": "এ বছর আপনি যে শাখায় পড়ান, শুধু সেই শাখার শিক্ষার্থী এখানে দেখা যায়। শাখা পেতে স্কুলের অ্যাডমিনকে বলুন।"
   },
   "sendReminderDialog": {
     "title": "রিমাইন্ডার পাঠান",

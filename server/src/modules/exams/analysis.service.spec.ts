@@ -228,4 +228,54 @@ describe('AnalysisService', () => {
     await service.getPassFailComponents(EXAM_ID, TENANT_ID);
     expect(qb.innerJoin.mock.calls.some((c: unknown[]) => c[0] === ResultSubject)).toBe(true);
   });
+
+  // Epic 75 D2: a TEACHER's `restrictSectionIds` reaches every query. The stub cannot run SQL,
+  // so these check the filter is applied; `[]` matching nothing is covered in the e2e spec.
+  const RESTRICT = 'r.section_id = ANY(:restrictSectionIds::uuid[])';
+  const restrictCalls = (qb: any, ids: string[]) =>
+    qb.andWhere.mock.calls.filter(
+      (c: unknown[]) =>
+        c[0] === RESTRICT && JSON.stringify(c[1]) === JSON.stringify({ restrictSectionIds: ids }),
+    ).length;
+
+  it('getMerit applies restrictSectionIds', async () => {
+    const qb = makeQb([]);
+    await makeService({ resultQbQueue: [qb] }).getMerit(EXAM_ID, TENANT_ID, undefined, [
+      SECTION_ID,
+    ]);
+    expect(restrictCalls(qb, [SECTION_ID])).toBe(1);
+  });
+
+  it('getDefaulted applies restrictSectionIds', async () => {
+    const qb = makeQb([]);
+    await makeService({ resultQbQueue: [qb] }).getDefaulted(EXAM_ID, TENANT_ID, undefined, []);
+    expect(restrictCalls(qb, [])).toBe(1);
+  });
+
+  it('getPassFail applies restrictSectionIds to every query', async () => {
+    const subjectQbs = [makeQb([]), makeQb([])];
+    const overallQbs = [makeQb([], { appeared: '0' }), makeQb([])];
+    await makeService({ resultSubjectQbQueue: subjectQbs, resultQbQueue: overallQbs }).getPassFail(
+      EXAM_ID,
+      TENANT_ID,
+      undefined,
+      [SECTION_ID],
+    );
+    for (const qb of [...subjectQbs, ...overallQbs])
+      expect(restrictCalls(qb, [SECTION_ID])).toBe(1);
+  });
+
+  it('getPassFailComponents applies restrictSectionIds', async () => {
+    const qb = makeQb([]);
+    await makeService({ markQbQueue: [qb] }).getPassFailComponents(EXAM_ID, TENANT_ID, undefined, [
+      SECTION_ID,
+    ]);
+    expect(restrictCalls(qb, [SECTION_ID])).toBe(1);
+  });
+
+  it('without restrictSectionIds no restriction is added (other roles unchanged)', async () => {
+    const qb = makeQb([]);
+    await makeService({ resultQbQueue: [qb] }).getMerit(EXAM_ID, TENANT_ID);
+    expect(qb.andWhere.mock.calls.some((c: unknown[]) => c[0] === RESTRICT)).toBe(false);
+  });
 });

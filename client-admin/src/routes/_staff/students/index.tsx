@@ -228,6 +228,12 @@ function StudentsListPage() {
   const canUpdateStudent = useHasPermission(Permission.STUDENT_UPDATE);
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
+  // MY_CLASS_VIEW is TEACHER-only. A teacher's list is limited to the sections they teach this
+  // year, so an unfiltered empty list means "no section assigned", not "no students yet".
+  const isTeacher = useHasPermission(Permission.MY_CLASS_VIEW);
+  const hasActiveFilter = Object.values(effectiveFilters).some(
+    (v) => v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0),
+  );
   const navigate = useNavigate();
   const isEmpty =
     !studentsQuery.isLoading && !studentsQuery.isError && (studentsQuery.data?.total ?? 0) === 0;
@@ -544,7 +550,10 @@ function StudentsListPage() {
         {...(studentsQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyState={{
           title: t('list.emptyMessage'),
-          explanation: t('list.emptyExplanation'),
+          explanation:
+            isTeacher && !hasActiveFilter
+              ? t('list.emptyTeacherExplanation')
+              : t('list.emptyExplanation'),
           ...(canAddStudent
             ? {
                 action: {

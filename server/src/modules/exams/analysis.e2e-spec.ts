@@ -1,3 +1,4 @@
+import { assignTeacherToSection } from '@test/helpers/teacher-scope.fixture';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
@@ -144,6 +145,9 @@ describe('[997] Exam analysis (merit/defaulted/pass-fail)', () => {
        VALUES ($1, $2, 90.00, 5.00, 'A+', 1, $3, 1, false, $4, 1, 'nctb-v1', NOW(), $5, NOW(), NOW())`,
       [examId, studentId, SEED_SECTION_1_ID, scaleId, TENANT_ID],
     );
+
+    // Epic 75 D2: a TEACHER only sees results of a current-year section they teach.
+    await assignTeacherToSection(dataSource, TEACHER_USER_ID, SEED_SECTION_1_ID, TENANT_ID);
 
     // A second tenant's exam, for the 404 test.
     const otherExamRows = await dataSource.query(

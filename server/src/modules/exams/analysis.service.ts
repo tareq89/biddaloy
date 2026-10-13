@@ -96,7 +96,12 @@ export class AnalysisService {
     return exam;
   }
 
-  private meritQueryBuilder(examId: string, tenantId: string, sectionId?: string) {
+  private meritQueryBuilder(
+    examId: string,
+    tenantId: string,
+    sectionId?: string,
+    restrictSectionIds?: string[],
+  ) {
     const qb = this.resultRepo
       .createQueryBuilder('r')
       .innerJoin(Student, 's', 's.id = r.student_id')
@@ -107,7 +112,19 @@ export class AnalysisService {
     if (sectionId) {
       qb.andWhere('r.section_id = :sectionId', { sectionId });
     }
+    this.restrictSections(qb, restrictSectionIds);
     return qb;
+  }
+
+  /** TEACHER scope (Epic 75 D2): only these sections. `[]` matches nothing, so every method
+   * returns its empty shape. Other roles pass `undefined` and are unchanged. */
+  private restrictSections(
+    qb: { andWhere: (cond: string, params: object) => unknown },
+    restrictSectionIds?: string[],
+  ) {
+    if (restrictSectionIds) {
+      qb.andWhere('r.section_id = ANY(:restrictSectionIds::uuid[])', { restrictSectionIds });
+    }
   }
 
   private mapMeritRow(raw: Record<string, unknown>): MeritRow {
@@ -132,13 +149,14 @@ export class AnalysisService {
     examId: string,
     tenantId: string,
     sectionId?: string,
+    restrictSectionIds?: string[],
   ): Promise<{ status: ExamStatus; rows: MeritRow[] }> {
     const exam = await this.findExam(examId, tenantId);
     if (exam.status === ExamStatus.DRAFT) {
       return { status: exam.status, rows: [] };
     }
 
-    const qb = this.meritQueryBuilder(examId, tenantId, sectionId)
+    const qb = this.meritQueryBuilder(examId, tenantId, sectionId, restrictSectionIds)
       .select('r.student_id', 'student_id')
       .addSelect('s.roll_number', 'roll_number')
       .addSelect('s.full_name', 'full_name')
@@ -167,13 +185,14 @@ export class AnalysisService {
     examId: string,
     tenantId: string,
     sectionId?: string,
+    restrictSectionIds?: string[],
   ): Promise<{ status: ExamStatus; rows: DefaultedRow[] }> {
     const exam = await this.findExam(examId, tenantId);
     if (exam.status === ExamStatus.DRAFT) {
       return { status: exam.status, rows: [] };
     }
 
-    const qb = this.meritQueryBuilder(examId, tenantId, sectionId)
+    const qb = this.meritQueryBuilder(examId, tenantId, sectionId, restrictSectionIds)
       .select('r.id', 'result_id')
       .addSelect('r.student_id', 'student_id')
       .addSelect('s.roll_number', 'roll_number')
@@ -240,6 +259,7 @@ export class AnalysisService {
     examId: string,
     tenantId: string,
     sectionId?: string,
+    restrictSectionIds?: string[],
   ): Promise<{ status: ExamStatus; subjects: SubjectPassFailRow[]; overall: OverallPassFailRow }> {
     const exam = await this.findExam(examId, tenantId);
     if (exam.status === ExamStatus.DRAFT) {
@@ -271,6 +291,7 @@ export class AnalysisService {
         .andWhere('r.deleted_at IS NULL')
         .andWhere('rs.deleted_at IS NULL');
       if (sectionId) qb.andWhere('r.section_id = :sectionId', { sectionId });
+      this.restrictSections(qb, restrictSectionIds);
       return qb;
     };
 
@@ -326,6 +347,7 @@ export class AnalysisService {
         .andWhere('r.tenant_id = :tenantId', { tenantId })
         .andWhere('r.deleted_at IS NULL');
       if (sectionId) qb.andWhere('r.section_id = :sectionId', { sectionId });
+      this.restrictSections(qb, restrictSectionIds);
       return qb;
     };
 
@@ -375,6 +397,7 @@ export class AnalysisService {
     examId: string,
     tenantId: string,
     sectionId?: string,
+    restrictSectionIds?: string[],
   ): Promise<{ status: ExamStatus; rows: ComponentPassFailRow[] }> {
     const exam = await this.findExam(examId, tenantId);
     if (exam.status === ExamStatus.DRAFT) {
@@ -401,6 +424,7 @@ export class AnalysisService {
       .andWhere('m.tenant_id = :tenantId', { tenantId })
       .andWhere('ec.deleted_at IS NULL');
     if (sectionId) qb.andWhere('r.section_id = :sectionId', { sectionId });
+    this.restrictSections(qb, restrictSectionIds);
 
     const raw = await qb
       .select('ec.subject_id', 'subject_id')
