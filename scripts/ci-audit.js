@@ -65,7 +65,8 @@ const ALLOWLIST = {
       'Missing buffer bounds check in uuid v3/v5/v6 when a `buf` argument is ' +
       'passed. Reached via @biddaloy/server>exceljs>uuid (production) and ' +
       '@lhci/cli>uuid (dev). Both callers only use v4 with no buffer ' +
-      '(exceljs/lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js:1), so the ' +
+      '(exceljs/lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js:1; ' +
+      '@lhci/cli/src/collect/node-runner.js:65 calls uuid.v4()), so the ' +
       'vulnerable path is never called. Re-checked 2026-10-12: only v4 is ' +
       'required. Re-check after any exceljs or @lhci/cli upgrade.',
     recheckBy: '2027-01-24',
@@ -85,9 +86,11 @@ function evaluate({ advisories, allowlist, today, minSeverity }) {
   const byId = new Map();
   for (const a of advisories) if (!byId.has(a.id)) byId.set(a.id, a);
   const unique = [...byId.values()];
-  const unallowed = unique.filter(
-    (a) => SEVERITY_ORDER.indexOf(a.severity) >= min && !(a.id in allowlist),
-  );
+  const unallowed = unique.filter((a) => {
+    const i = SEVERITY_ORDER.indexOf(a.severity);
+    // Unknown severity string fails closed: treated as above the floor.
+    return (i < 0 || i >= min) && !(a.id in allowlist);
+  });
   const expired = Object.entries(allowlist)
     .filter(([, e]) => e.recheckBy < today)
     .map(([id]) => id);

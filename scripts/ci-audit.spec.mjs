@@ -14,6 +14,9 @@ describe('evaluate', () => {
   it('flags a non-allowlisted high advisory', () => {
     expect(run({ advisories: [adv(1, 'high')] }).unallowed.map((a) => a.id)).toEqual([1]);
   });
+  it('fails closed on an unknown severity string', () => {
+    expect(run({ advisories: [adv(1, 'weird')] }).unallowed).toHaveLength(1);
+  });
   it('ignores moderate in default (high) mode', () => {
     expect(run({ advisories: [adv(1, 'moderate')] }).unallowed).toEqual([]);
   });
