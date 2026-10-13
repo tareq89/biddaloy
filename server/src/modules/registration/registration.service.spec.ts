@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ServiceUnavailableException } from '@nestjs/common';
+import { TenantStatusService } from '../schools/tenant-status.service';
 import { RegistrationService } from './registration.service';
 
 /** Only the pieces `start` touches; everything else is never reached. */
@@ -23,6 +24,8 @@ function build(env: Record<string, string>, deliver: ReturnType<typeof vi.fn>) {
     config as never,
     {} as never,
     {} as never,
+    // Real service: only its constructor's env read is reached.
+    new TenantStatusService({} as never, {} as never, config as never),
   );
 }
 
@@ -59,6 +62,13 @@ describe('RegistrationService.start delivery', () => {
     expect(deliver).toHaveBeenCalledWith(expect.objectContaining({ tenantId: 'p', kind: 'OTP' }));
   });
 
+  it('sends from the trimmed platform id, not the raw env value', async () => {
+    const deliver = vi.fn().mockResolvedValue({ logId: 'l', status: 'SENT' });
+    const s = build({ NODE_ENV: 'production', PLATFORM_TENANT_ID: ' P \n' }, deliver);
+    await s.start(dto, ctx);
+    expect(deliver).toHaveBeenCalledWith(expect.objectContaining({ tenantId: 'p' }));
+  });
+
   it('stays quiet outside production when nothing can be sent', async () => {
     const s = build({ NODE_ENV: 'test' }, vi.fn());
     await expect(s.start(dto, ctx)).resolves.toMatchObject({ registration_id: 'id-1' });
@@ -93,6 +103,7 @@ describe('RegistrationService.createSchool contacts', () => {
       {} as never,
       {} as never,
       { findOne } as never,
+      {} as never,
       {} as never,
     );
     const call = (

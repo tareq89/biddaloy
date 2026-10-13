@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource } from 'typeorm';
@@ -7,6 +7,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { createTestModule } from '@test/helpers/module.helper';
 import { AuthModule } from '../../../auth/auth.module';
 import { TenantStatusModule } from '../../../schools/tenant-status.module';
+import { TenantStatusService } from '../../../schools/tenant-status.service';
 import { DEFAULT_TENANT_SETTINGS } from '../../../schools/settings/tenant-settings-defaults';
 import { AlertWriterService } from '../../engine/alert-writer.service';
 import type { AttentionRule, RuleContext } from '../rule.types';
@@ -105,7 +106,8 @@ describe('Platform rules (integration)', () => {
     P = await mkSchool('Platform HQ');
     A = await mkSchool('Alpha School', { backup: { schedule: 'DAILY' } });
     B = await mkSchool('Beta School');
-    process.env.PLATFORM_TENANT_ID = P;
+    // TenantStatusService reads PLATFORM_TENANT_ID once at construction, before P exists.
+    vi.spyOn(module.get(TenantStatusService), 'platformTenantId').mockResolvedValue(P);
     superAdminP = await mkMember(P, UserRole.SUPER_ADMIN);
     adminA = await mkMember(A, UserRole.ADMIN);
   }, 60000);
@@ -119,7 +121,7 @@ describe('Platform rules (integration)', () => {
   });
 
   afterAll(async () => {
-    delete process.env.PLATFORM_TENANT_ID;
+    vi.restoreAllMocks();
     await ds.destroy();
   });
 

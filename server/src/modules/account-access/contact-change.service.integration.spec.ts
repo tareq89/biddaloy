@@ -36,12 +36,18 @@ describe('ContactChangeService (integration)', () => {
   let service: ContactChangeService;
   let redis: Redis;
   let fakeProvider: { send: ReturnType<typeof vi.fn> };
-  let fakeAuthService: { primaryTenantId: ReturnType<typeof vi.fn> };
+  let fakeAuthService: {
+    primaryTenantId: ReturnType<typeof vi.fn>;
+    hasLiveMembership: ReturnType<typeof vi.fn>;
+  };
 
   beforeAll(async () => {
     redis = new Redis(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379');
     fakeProvider = { send: vi.fn().mockResolvedValue({ success: true, providerMessageId: 'p1' }) };
-    fakeAuthService = { primaryTenantId: vi.fn().mockResolvedValue(SEED_TENANT_ID) };
+    fakeAuthService = {
+      primaryTenantId: vi.fn().mockResolvedValue(SEED_TENANT_ID),
+      hasLiveMembership: vi.fn().mockResolvedValue(true),
+    };
 
     module = await createTestModule(ALL_ENTITIES, [
       ContactChangeService,
@@ -174,6 +180,30 @@ describe('ContactChangeService (integration)', () => {
 
     const reloaded = await dataSource.getRepository(User).findOneOrFail({ where: { id: user.id } });
     expect(reloaded.phone).toBe('+8801711111111');
+  });
+
+  // Money (F5): a user in no school would otherwise get platform-paid
+  // SMS/email to an address they choose. Refuse before anything is sent.
+  it('user with no school membership: 403 no_school, nothing sent', async () => {
+    const user = await createMember();
+    fakeAuthService.hasLiveMembership.mockResolvedValueOnce(false).mockResolvedValueOnce(false);
+    await expect(
+      service.request(
+        user.id,
+        { phone: '+8801722222222', current_password: 'correct-password' },
+        context,
+      ),
+    ).rejects.toThrow(new ForbiddenException('no_school'));
+    await expect(
+      service.request(
+        user.id,
+        { email: 'new@example.com', current_password: 'correct-password' },
+        context,
+      ),
+    ).rejects.toThrow(new ForbiddenException('no_school'));
+    expect(fakeProvider.send).not.toHaveBeenCalled();
+    expect(await dataSource.getRepository(CommunicationLog).count()).toBe(0);
+    expect(await dataSource.query('SELECT 1 FROM auth_tokens')).toHaveLength(0);
   });
 
   it('passwordless user: 400 no_password', async () => {

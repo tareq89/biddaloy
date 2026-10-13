@@ -47,7 +47,7 @@ function fakeAuditService() {
 }
 
 function fakeTenantStatus() {
-  return { invalidate: vi.fn(), isActive: vi.fn() };
+  return { invalidate: vi.fn(), isActive: vi.fn(), configuredPlatformTenantId: vi.fn() };
 }
 
 /**
@@ -311,7 +311,31 @@ describe('SchoolsService', () => {
         tenantStatus as any,
       );
 
+      tenantStatus.configuredPlatformTenantId.mockReturnValue(undefined);
+
       expect(await service.findAllActive()).toEqual([{ id: 's1' }]);
+      expect(repo.find).toHaveBeenCalledWith({ where: { status: 'ACTIVE' }, select: { id: true } });
+    });
+
+    it('[TEN-19] excludes the platform tenant id', async () => {
+      const repo = fakeRepo(null);
+      repo.find.mockResolvedValue([{ id: 's1' }, { id: 'platform-id' }]);
+      const service = new SchoolsService(
+        repo as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+      tenantStatus.configuredPlatformTenantId.mockReturnValue('platform-id');
+
+      expect(await service.findAllActive()).toEqual([{ id: 's1' }]);
+      // The id never reaches SQL: a non-uuid env value must not throw 22P02 for every sweep (F6).
       expect(repo.find).toHaveBeenCalledWith({ where: { status: 'ACTIVE' }, select: { id: true } });
     });
   });

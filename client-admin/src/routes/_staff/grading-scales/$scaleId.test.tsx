@@ -94,7 +94,8 @@ describe('/grading-scales/$scaleId', () => {
     server.use(http.get('/api/v1/grading/scales/:id', () => HttpResponse.json(SCALE)));
     renderScale();
 
-    await screen.findByText('2026');
+    // First test of the file: the route chunk is imported cold, which can pass the 5 s default under CI load.
+    await screen.findByText('2026', {}, { timeout: 15000 });
     expect(screen.getByText('All classes')).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1, name: 'Class 6 Scale' })).toBeTruthy();
   });

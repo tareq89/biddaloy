@@ -194,7 +194,7 @@ class EnvironmentVariables {
   // school's id (`seed.ts` itself refuses to run against production, so
   // there is no script-known id to default to there, and this validator
   // has no database access to look one up either). Outside production, left
-  // unset here on purpose: `ContextGuard.resolvePlatformTenantId()` resolves
+  // unset here on purpose: `TenantStatusService.platformTenantId()` resolves
   // it at request time instead, by looking up the school with the
   // well-known slug `default-school` and caching whatever id it finds — see
   // that method's own comment for why a *config-time* default here doesn't
@@ -257,7 +257,7 @@ class EnvironmentVariables {
  * slug nor this id already present). Purely a seed-script convenience for
  * a predictable dev/e2e fixture id — NOT used to resolve platform
  * authority anymore (see `PLATFORM_TENANT_ID`'s own comment above and
- * `context.guard.ts`'s `resolvePlatformTenantId`, which discovers the
+ * `TenantStatusService.platformTenantId()`, which discovers the
  * platform tenant from the database instead of assuming this id). Never
  * used in production (`seed.ts` refuses to run there). */
 export const DEV_SEED_PLATFORM_TENANT_ID = '00000000-0000-4000-8000-000000000001';

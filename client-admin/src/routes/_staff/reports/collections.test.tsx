@@ -77,8 +77,11 @@ describe('/reports/collections', () => {
     );
     renderReport();
 
-    await waitFor(() =>
-      expect(screen.getByText('Could not load the collections report.')).toBeTruthy(),
+    // The route chunk and report render can take longer than the 5 s default on a loaded CI shard
+    // (failed at 5.5 s); the portal error-state tests use the same 15 s.
+    await waitFor(
+      () => expect(screen.getByText('Could not load the collections report.')).toBeTruthy(),
+      { timeout: 15000 },
     );
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });

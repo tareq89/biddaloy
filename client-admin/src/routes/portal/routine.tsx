@@ -316,8 +316,8 @@ function PortalRoutine() {
         periodSlotId: slot.period_slot_id,
         title: subject || periodText || t('routine.periodFallback'),
         meta: [subject ? periodText : null, roomLabel(slot.room_id)].filter(Boolean).join(' · '),
-        startsAt: period?.starts_at ?? '',
-        endsAt: period?.ends_at ?? '',
+        startsAt: slot.starts_at ?? period?.starts_at ?? '',
+        endsAt: slot.ends_at ?? period?.ends_at ?? '',
         cancelled: slot.cancelled,
         substituted: slot.substituted,
       };

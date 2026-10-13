@@ -261,7 +261,7 @@ describe('FeesDailyScheduler (integration)', () => {
   function buildScheduler(): FeesDailyScheduler {
     const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
     const schoolsService = {
-      findAll: async () => [],
+      findAllActive: async () => [],
       todayFor: async () => todayInSchoolTz(),
     } as any;
     return new FeesDailyScheduler(
@@ -283,7 +283,7 @@ describe('FeesDailyScheduler (integration)', () => {
     await createDueSchedule({ fee_structure_ids: [structure.id] });
     const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
     const schoolsService = {
-      findAll: async () => [],
+      findAllActive: async () => [],
       todayFor: async () => todayInSchoolTz(),
     } as any;
     const build = (restoring: boolean) =>
@@ -323,7 +323,7 @@ describe('FeesDailyScheduler (integration)', () => {
     } as any;
     const school = { id: TENANT_ID, status: 'ACTIVE' };
     const schoolsService = {
-      findAll: async () => [school],
+      findAllActive: async () => [school],
       findById: async () => school,
       todayFor: async () => todayInSchoolTz(),
     } as any;
@@ -388,7 +388,7 @@ describe('FeesDailyScheduler (integration)', () => {
     const queue = { upsertJobScheduler: async () => undefined, add: async () => undefined } as any;
     const school = { id: TENANT_ID, status: 'ACTIVE' };
     const schoolsService = {
-      findAll: async () => [school],
+      findAllActive: async () => [school],
       findById: async () => school,
       todayFor: async () => localToday('Asia/Dhaka'),
     } as any;
@@ -621,7 +621,7 @@ describe('FeesDailyScheduler (integration)', () => {
         { upsertJobScheduler: async () => undefined, add: async () => undefined } as any,
         dataSource,
         {
-          findAll: async () => [school],
+          findAllActive: async () => [school],
           findById: async () => school,
           todayFor: async () => todayInSchoolTz(),
         } as any,
@@ -1069,7 +1069,7 @@ describe('FeesDailyScheduler (integration)', () => {
         add: async () => undefined,
       } as any;
       const schoolsService = {
-        findAll: async () => [],
+        findAllActive: async () => [],
         todayFor: async () => todayInSchoolTz(),
       } as any;
       return new FeesDailyScheduler(
@@ -1147,14 +1147,14 @@ describe('FeesDailyScheduler (integration)', () => {
         fineSweepDataSource,
         {
           todayFor: async () => todayInSchoolTz(),
-          findAll: async () => [
+          findAllActive: async () => [
             { id: tenantA.tenantId, status: 'ACTIVE' },
             { id: tenantB.tenantId, status: 'ACTIVE' },
           ],
         } as any,
         {} as any,
         // Real service over real Redis: reads the same key `acquire` wrote.
-        new TenantStatusService(redis, {} as any),
+        new TenantStatusService(redis, {} as any, { get: () => undefined } as any),
         notifyQueue,
         undefined,
         fineSweepService,

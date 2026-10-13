@@ -89,17 +89,22 @@ Both endpoints are public and `strict`-rate-limited, same as `/auth/login`.
   between two OTP requests for the same identifier. A reset link instead
   expires outright after **1 hour** and is single-use (`AuthTokenService
 .consume`) — there's no "wrong guess" to lock out.
-- **Multi-tenant wrinkle (D5).** A user's login identifier lives on the
-  `users` row, not on any one tenant — but _sending_ the SMS/email still
-  needs one school's provider configuration (its SMS gateway credentials,
-  its sender email). `forgot-password` is a user-level action with no
-  acting tenant in the request (unlike an admin sending an invite, which
-  has `X-Tenant-ID`), so it resolves the tenant via
-  `AuthService.primaryTenantId()` — the user's **earliest membership**,
-  the same "which school is this session's default" rule `login()` already
-  uses for its own audit rows. A school with no provider configured yet
-  falls back to the platform's env-level SMS/email config, same as every
-  other `account-access` send.
+- **Multi-tenant wrinkle (D28).** A login identifier lives on the `users` row,
+  not on any one school, but a message still needs a sender. The rule depends
+  on how many distinct schools the user has a live membership in
+  (`AuthService.primaryTenantId()`). Roles don't count: a teacher who is also
+  a guardian in the same school has two membership rows but one school.
+
+  | User belongs to               | Message sender     | Gateway                              | Audit row `tenant_id` | School comm log      |
+  | ----------------------------- | ------------------ | ------------------------------------ | --------------------- | -------------------- |
+  | 1 school, any number of roles | that school's name | that school's (or platform fallback) | that school           | yes                  |
+  | 2+ schools                    | "SchoolManager"    | platform env config                  | `NULL` (platform)     | no (one Logger line) |
+
+  For forgot-password and OTP sign-in, a user in no school gets nothing (same 202 as an unknown account).
+  A signed-in user in no school who asks to change their phone or email gets a
+  `403 no_school`, so platform-paid codes never go to an address they pick. So
+  one school never sees another school's logins and never pays for their codes.
+
 - **Sessions.** On success, every refresh token for the account is revoked
   (`RefreshTokenService.revokeAllForUser`) before the caller is signed back
   in with a fresh session — mirrors `AuthService.changePassword`'s "kill

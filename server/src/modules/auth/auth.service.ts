@@ -55,15 +55,12 @@ const DUMMY_PASSWORD_HASH = '$2b$10$rGV9zEDpgnc/spXBlHqA9O5IjpBvndIyZE78fIhV8ZV4
 // weaker or slower depending on which endpoint last wrote it.
 const BCRYPT_COST = 10;
 
-// "Earliest membership wins" (#356). Both `getUserMemberships` (whose
+// "Earliest membership wins" (#356) for `getUserMemberships`: its
 // `memberships[0]` is the session's default tenant, preselected by
-// SchoolPicker and queried by scripts/lighthouse-student-url.mjs) and
-// `primaryTenantId` (which stamps the audit row) must resolve to the *same*
-// membership, so they share one ordering rather than each spelling it out.
+// SchoolPicker and queried by scripts/lighthouse-student-url.mjs.
 // `created_at` alone is not enough: a bulk import or a backfill migration
 // can insert several memberships in one statement with identical
-// timestamps, and the `id` tiebreak is what keeps the two call sites in
-// agreement when that happens.
+// timestamps, so the `id` tiebreak keeps the order deterministic.
 const EARLIEST_MEMBERSHIP_ORDER = {
   created_at: 'ASC',
   id: 'ASC',
@@ -541,27 +538,39 @@ export class AuthService {
     return memberships.map((m) => ({ tenantId: m.tenant_id, role: m.role, name: m.tenant.name }));
   }
 
-  // A user can belong to several tenants, but an audit row needs exactly
-  // one — this picks the earliest membership as a stable, deterministic
-  // choice, the same rule the tenant-id backfill migrations use. It must
-  // stay byte-for-byte the same ordering `getUserMemberships` uses, hence
-  // the shared `EARLIEST_MEMBERSHIP_ORDER`: if the two diverged, the audit
-  // tenant and `memberships[0]` could name different schools.
-  async primaryTenantId(userId: string): Promise<string | null> {
+  /**
+   * The school a user-level event belongs to: the user's only live school,
+   * whatever roles they hold there. Null for a user in no school or in more
+   * than one (D28:
+   * platform-level, so no school sees another school's logins).
+   */
+  async primaryTenantId(userId: string, opts?: { throwOnError?: boolean }): Promise<string | null> {
     // This lookup only feeds an audit record, but it runs before
     // AuditService.record() ever gets a chance to fail open — left
     // unguarded, a transient DB error here would reject login after
     // last_login_at is already saved, replace logout's response with a 500,
     // or turn TOKEN_REUSE_DETECTED's rethrow into an unrelated error.
     try {
-      const membership = await this.userTenantRepository.findOne({
+      // Count SCHOOLS, not rows: the unique key is (user, tenant, role), so a
+      // teacher who is also a guardian in the same school has two rows but
+      // one school. find() already skips soft-deleted memberships.
+      const rows = await this.userTenantRepository.find({
         where: { user_id: userId },
-        order: EARLIEST_MEMBERSHIP_ORDER,
+        select: { tenant_id: true },
       });
-      return membership?.tenant_id ?? null;
-    } catch {
+      const schools = new Set(rows.map((r) => r.tenant_id));
+      return schools.size === 1 ? rows[0].tenant_id : null;
+    } catch (error) {
+      // Message senders pass throwOnError: a failed lookup must not turn a
+      // one-school user's message into a platform-sent one (D28).
+      if (opts?.throwOnError) throw error;
       return null;
     }
+  }
+
+  /** True when the user has at least one live school membership. */
+  async hasLiveMembership(userId: string): Promise<boolean> {
+    return this.userTenantRepository.exists({ where: { user_id: userId } });
   }
 
   /**

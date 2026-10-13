@@ -77,7 +77,7 @@ describe('FeesDailyScheduler', () => {
   beforeEach(() => {
     queue = { upsertJobScheduler: vi.fn(async () => undefined), add: vi.fn(async () => undefined) };
     schoolsService = {
-      findAll: vi.fn(async () => [{ id: TENANT, name: 'Green Valley School', status: 'ACTIVE' }]),
+      findAllActive: vi.fn(async () => [{ id: TENANT }]),
       todayFor: vi.fn(async () => todayInSchoolTz()),
     };
     feeGenerationService = {
@@ -258,7 +258,7 @@ describe('FeesDailyScheduler', () => {
   });
 
   it("[68.0 TEN-16] each tenant's sweep uses that school's own today; a catch-up keeps its fixed day", async () => {
-    schoolsService.findAll = vi.fn(async () => [
+    schoolsService.findAllActive = vi.fn(async () => [
       { id: 'tenant-dhaka', status: 'ACTIVE' },
       { id: 'tenant-utc', status: 'ACTIVE' },
     ]);
@@ -283,7 +283,7 @@ describe('FeesDailyScheduler', () => {
   });
 
   it('does not let one tenant throwing block the rest of the sweep', async () => {
-    schoolsService.findAll = vi.fn(async () => [
+    schoolsService.findAllActive = vi.fn(async () => [
       { id: 'tenant-broken', name: 'Broken', status: 'ACTIVE' },
       { id: TENANT, name: 'Green Valley School', status: 'ACTIVE' },
     ]);
@@ -357,7 +357,7 @@ describe('FeesDailyScheduler', () => {
     });
 
     it('process(job) with job.data.tenantId sweeps only that tenant, not every active tenant', async () => {
-      schoolsService.findAll = vi.fn(async () => [
+      schoolsService.findAllActive = vi.fn(async () => [
         { id: TENANT, name: 'Green Valley School', status: 'ACTIVE' },
         { id: 'tenant-other', name: 'Other School', status: 'ACTIVE' },
       ]);
@@ -366,7 +366,7 @@ describe('FeesDailyScheduler', () => {
 
       // findAll (the full-sweep tenant list) is never even consulted on
       // the tenant-scoped path.
-      expect(schoolsService.findAll).not.toHaveBeenCalled();
+      expect(schoolsService.findAllActive).not.toHaveBeenCalled();
       expect(feeGenerationService.generate).toHaveBeenCalledTimes(1);
       const [, tenantId] = feeGenerationService.generate.mock.calls[0];
       expect(tenantId).toBe(TENANT);
@@ -375,7 +375,7 @@ describe('FeesDailyScheduler', () => {
     it('process() with no job (the nightly repeatable job) still sweeps every active tenant', async () => {
       await scheduler.process();
 
-      expect(schoolsService.findAll).toHaveBeenCalledTimes(1);
+      expect(schoolsService.findAllActive).toHaveBeenCalledTimes(1);
     });
   });
 

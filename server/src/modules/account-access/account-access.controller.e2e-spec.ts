@@ -10,7 +10,7 @@ import { buildValidationPipeOptions } from '../../validation-pipe';
 import { AuthService } from '../auth/auth.service';
 import { AuthTokenService, INVITE_TTL_MS } from './auth-token.service';
 import { OTP_REDIS } from './otp.service';
-import { SEED_TENANT_ID } from '@test/constants';
+import { SEED_TENANT_ID, SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH } from '@test/constants';
 import { AuthTokenPurpose } from '@biddaloy/shared';
 
 function extractRefreshCookie(res: supertest.Response): string {
@@ -397,6 +397,243 @@ describe('AccountAccessController (e2e)', () => {
         .send({ identifier: 'nobody-at-all@testschool.com' })
         .expect(202);
       expect(res.body.debug?.otp).toBeUndefined();
+    });
+  });
+
+  // TEN-09 / D28: a user in 2+ schools has platform-level auth events and
+  // platform-sent account messages; a one-school user keeps the old behaviour.
+  describe('shared-user platform sender [TEN-09]', () => {
+    const TENANT_B = '00000000-0000-4000-8000-0000000004b0';
+    const SHARED_ID = '00000000-0000-4000-8000-0000000004b1';
+    const SHARED_EMAIL = 'ten09-shared@testschool.com';
+    const SHARED_PHONE = '01799991001';
+    const SINGLE_ID = '00000000-0000-4000-8000-0000000004b2';
+    const SINGLE_EMAIL = 'ten09-single@testschool.com';
+    const SINGLE_PHONE = '01799991002';
+    const NONE_ID = '00000000-0000-4000-8000-0000000004b3';
+    const NONE_PHONE = '01799991003';
+    // One school, two roles (TEACHER + PARENT, i.e. guardian): still a one-school user (F1).
+    const MULTI_ID = '00000000-0000-4000-8000-0000000004b4';
+    const MULTI_EMAIL = 'ten09-multi@testschool.com';
+    const MULTI_PHONE = '01799991004';
+    const ALL_IDS = [SHARED_ID, SINGLE_ID, NONE_ID, MULTI_ID];
+
+    const commLogCount = async (tenantId: string, to: string): Promise<number> =>
+      Number(
+        (
+          await dataSource.query(
+            `SELECT COUNT(*)::int AS n FROM communication_logs WHERE tenant_id = $1 AND recipient_address = $2`,
+            [tenantId, to],
+          )
+        )[0].n,
+      );
+    const auditTenants = async (userId: string, action: string): Promise<(string | null)[]> =>
+      (
+        await dataSource.query(
+          `SELECT tenant_id FROM audit_logs WHERE entity_id = $1 AND action = $2`,
+          [userId, action],
+        )
+      ).map((r: { tenant_id: string | null }) => r.tenant_id);
+
+    beforeAll(async () => {
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ($1, 'TEN-09 Second School', 'ten09-second-school', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+        [TENANT_B],
+      );
+      for (const [id, email, phone] of [
+        [SHARED_ID, SHARED_EMAIL, SHARED_PHONE],
+        [SINGLE_ID, SINGLE_EMAIL, SINGLE_PHONE],
+        [NONE_ID, null, NONE_PHONE],
+        [MULTI_ID, MULTI_EMAIL, MULTI_PHONE],
+      ]) {
+        await dataSource.query(
+          `INSERT INTO users (id, email, phone, password_hash, full_name, status)
+           VALUES ($1, $2, $3, $4, 'TEN-09 User', 'ACTIVE')
+           ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash, status = 'ACTIVE'`,
+          [id, email, phone, SEED_ADMIN_PASSWORD_HASH],
+        );
+      }
+      for (const [uid, tid, role] of [
+        [SHARED_ID, SEED_TENANT_ID, 'TEACHER'],
+        [SHARED_ID, TENANT_B, 'TEACHER'],
+        [SINGLE_ID, SEED_TENANT_ID, 'TEACHER'],
+        [MULTI_ID, SEED_TENANT_ID, 'TEACHER'],
+        [MULTI_ID, SEED_TENANT_ID, 'PARENT'],
+      ]) {
+        await dataSource.query(
+          `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, $3)
+           ON CONFLICT DO NOTHING`,
+          [uid, tid, role],
+        );
+      }
+    }, 30000);
+
+    afterAll(async () => {
+      // audit_logs is write-only (trigger), so users are reset, not deleted.
+      await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = ANY($1)`, [ALL_IDS]);
+      await dataSource.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [ALL_IDS]);
+      await dataSource.query(`UPDATE users SET password_hash = NULL WHERE id = ANY($1)`, [ALL_IDS]);
+      // Don't leak an extra ACTIVE school into later suites on this DB. If a
+      // row still points at it, park it as SUSPENDED (nightly sweeps skip it).
+      try {
+        await dataSource.query(`DELETE FROM schools WHERE id = $1`, [TENANT_B]);
+      } catch {
+        await dataSource.query(`UPDATE schools SET status = 'SUSPENDED' WHERE id = $1`, [TENANT_B]);
+      }
+    });
+
+    it('shared user: failed login and login audit rows have tenant_id NULL', async () => {
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SHARED_EMAIL, password: 'wrong-password-1' })
+        .expect(401);
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SHARED_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+
+      // Wrong password: no resolved user, so the row is keyed by identifier (weak claim; see SUSPENDED test).
+      const failed = await dataSource.query(
+        `SELECT tenant_id FROM audit_logs WHERE action = 'LOGIN_FAILED' AND new_values->>'identifier' = $1`,
+        [SHARED_EMAIL],
+      );
+      expect(failed.map((r: { tenant_id: string | null }) => r.tenant_id)).toEqual([null]);
+      expect(await auditTenants(SHARED_ID, 'LOGIN')).toEqual([null]);
+    });
+
+    it('suspended shared user: LOGIN_FAILED row carries the user id and tenant_id NULL; single-school control keeps its school', async () => {
+      try {
+        await dataSource.query(`UPDATE users SET status = 'SUSPENDED' WHERE id = ANY($1)`, [
+          [SHARED_ID, SINGLE_ID],
+        ]);
+        for (const email of [SHARED_EMAIL, SINGLE_EMAIL]) {
+          await supertest(app.getHttpServer())
+            .post('/api/v1/auth/login')
+            .send({ email, password: SEED_ADMIN_PASSWORD })
+            .expect(401);
+        }
+        expect(await auditTenants(SHARED_ID, 'LOGIN_FAILED')).toEqual([null]);
+        expect(await auditTenants(SINGLE_ID, 'LOGIN_FAILED')).toEqual([SEED_TENANT_ID]);
+      } finally {
+        await dataSource.query(`UPDATE users SET status = 'ACTIVE' WHERE id = ANY($1)`, [
+          [SHARED_ID, SINGLE_ID],
+        ]);
+      }
+    });
+
+    it('shared user: forgot-password writes no school communication log and the OTP still resets', async () => {
+      const beforeA = await commLogCount(SEED_TENANT_ID, SHARED_PHONE);
+      const beforeB = await commLogCount(TENANT_B, SHARED_PHONE);
+
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/forgot-password')
+        .send({ identifier: SHARED_PHONE })
+        .expect(202);
+      const otp = res.body.debug?.otp;
+      expect(otp).toMatch(/^\d{6}$/);
+
+      expect(await commLogCount(SEED_TENANT_ID, SHARED_PHONE)).toBe(beforeA);
+      expect(await commLogCount(TENANT_B, SHARED_PHONE)).toBe(beforeB);
+      expect(await auditTenants(SHARED_ID, 'PASSWORD_RESET_REQUESTED')).toEqual([null]);
+
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/reset-password')
+        .send({ new_password: 'Shared-new-password1', phone: SHARED_PHONE, otp })
+        .expect(200);
+    });
+
+    it('shared user: emailed reset link is platform-sent, with a NULL-tenant token', async () => {
+      // The phone reset above verified the phone; a verified email keeps
+      // recovery on the email (link) branch instead of switching to the phone.
+      await dataSource.query(`UPDATE users SET email_verified_at = NOW() WHERE id = $1`, [
+        SHARED_ID,
+      ]);
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/forgot-password')
+        .send({ identifier: SHARED_EMAIL })
+        .expect(202);
+      expect(res.body.debug?.token).toEqual(expect.any(String));
+
+      expect(await commLogCount(SEED_TENANT_ID, SHARED_EMAIL)).toBe(0);
+      expect(await commLogCount(TENANT_B, SHARED_EMAIL)).toBe(0);
+      const tokens = await dataSource.query(
+        `SELECT tenant_id FROM auth_tokens WHERE user_id = $1 AND purpose = 'PASSWORD_RESET'`,
+        [SHARED_ID],
+      );
+      expect(tokens.length).toBeGreaterThan(0);
+      expect(tokens.every((t: { tenant_id: string | null }) => t.tenant_id === null)).toBe(true);
+    });
+
+    it('shared user is not locked out of sign-in by code', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/request')
+        .send({ phone: SHARED_PHONE })
+        .expect(202);
+      const otp = res.body.debug?.otp;
+      expect(otp).toMatch(/^\d{6}$/);
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/verify')
+        .send({ phone: SHARED_PHONE, otp })
+        .expect(200);
+    });
+
+    it('single-school user: LOGIN row is that school and forgot-password logs one row naming it', async () => {
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SINGLE_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      expect(await auditTenants(SINGLE_ID, 'LOGIN')).toEqual([SEED_TENANT_ID]);
+
+      const before = await commLogCount(SEED_TENANT_ID, SINGLE_PHONE);
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/forgot-password')
+        .send({ identifier: SINGLE_PHONE })
+        .expect(202);
+      expect(res.body.debug?.otp).toMatch(/^\d{6}$/);
+      expect(await commLogCount(SEED_TENANT_ID, SINGLE_PHONE)).toBe(before + 1);
+      const [{ name }] = await dataSource.query(`SELECT name FROM schools WHERE id = $1`, [
+        SEED_TENANT_ID,
+      ]);
+      const [{ message_body }] = await dataSource.query(
+        `SELECT message_body FROM communication_logs WHERE tenant_id = $1 AND recipient_address = $2 ORDER BY created_at DESC LIMIT 1`,
+        [SEED_TENANT_ID, SINGLE_PHONE],
+      );
+      expect(message_body).toContain(name);
+    });
+
+    // Money + isolation (F1): two roles in ONE school is still a one-school
+    // user. Their codes go out on the school's gateway (logged under it) and
+    // their LOGIN row stays visible to that school's admin.
+    it("one school, two roles (TEACHER + PARENT): LOGIN row and comm log are the school's", async () => {
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: MULTI_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      expect(await auditTenants(MULTI_ID, 'LOGIN')).toEqual([SEED_TENANT_ID]);
+
+      const before = await commLogCount(SEED_TENANT_ID, MULTI_PHONE);
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/forgot-password')
+        .send({ identifier: MULTI_PHONE })
+        .expect(202);
+      expect(res.body.debug?.otp).toMatch(/^\d{6}$/);
+      expect(await commLogCount(SEED_TENANT_ID, MULTI_PHONE)).toBe(before + 1);
+      expect(await auditTenants(MULTI_ID, 'PASSWORD_RESET_REQUESTED')).toEqual([SEED_TENANT_ID]);
+    });
+
+    it('user with no membership: nothing sent, same 202, no code echoed (non-enumerating)', async () => {
+      const forgot = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/forgot-password')
+        .send({ identifier: NONE_PHONE })
+        .expect(202);
+      expect(forgot.body.debug?.otp).toBeUndefined();
+      const otpReq = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/request')
+        .send({ phone: NONE_PHONE })
+        .expect(202);
+      expect(otpReq.body.debug?.otp).toBeUndefined();
     });
   });
 });

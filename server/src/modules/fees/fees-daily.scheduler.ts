@@ -164,8 +164,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       return;
     }
 
-    const tenants = await this.schoolsService.findAll();
-    const activeTenants = tenants.filter((tenant) => tenant.status === 'ACTIVE');
+    const activeTenants = await this.schoolsService.findAllActive();
     for (const tenant of activeTenants) {
       try {
         await this.runTenant(tenant.id, todayOverride);

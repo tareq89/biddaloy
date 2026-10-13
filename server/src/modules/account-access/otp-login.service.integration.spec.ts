@@ -36,6 +36,7 @@ describe('OtpLoginService (integration)', () => {
   let fakeAuthService: {
     startSession: ReturnType<typeof vi.fn>;
     primaryTenantId: ReturnType<typeof vi.fn>;
+    hasLiveMembership: ReturnType<typeof vi.fn>;
   };
   let fakeLoginAttempts: { reset: ReturnType<typeof vi.fn> };
   // tenantId -> otpLoginEnabled, defaulting to true for any tenant not listed.
@@ -54,6 +55,12 @@ describe('OtpLoginService (integration)', () => {
         const membershipRepo = dataSource.getRepository(UserTenant);
         const m = await membershipRepo.findOne({ where: { user_id: userId } });
         return m?.tenant_id ?? null;
+      }),
+      hasLiveMembership: vi.fn().mockImplementation(async (userId: string) => {
+        const m = await dataSource
+          .getRepository(UserTenant)
+          .findOne({ where: { user_id: userId } });
+        return !!m;
       }),
     };
     fakeLoginAttempts = { reset: vi.fn().mockResolvedValue(undefined) };

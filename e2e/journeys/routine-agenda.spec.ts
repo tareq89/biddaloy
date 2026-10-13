@@ -1,3 +1,4 @@
+import { markableDateIso } from '../api';
 import { loggedIn, expect, test } from '../fixtures/test';
 import { t } from '../i18n';
 
@@ -66,5 +67,53 @@ test.describe('guardian: portal routine, phone viewport', () => {
     const daySwitcher = page.getByRole('tablist', { name: t('routines.agenda.daySwitcherLabel') });
     const emptyState = page.getByText(t('portal.routine.noRoutineExplanation'));
     await expect(daySwitcher.or(emptyState)).toBeVisible();
+  });
+});
+
+test.describe('admin: special timings on the attendance settings', () => {
+  test.use(loggedIn('admin'));
+
+  test('add a special timing, keep it after a reload, then remove it', async ({ page }) => {
+    test.setTimeout(90_000);
+    const name = `E2E Ramadan ${Date.now()}`;
+    // Days of the school's current month; the picker opens on that month.
+    const ym = markableDateIso().slice(0, 7);
+    const card = page.locator('#attendance-section');
+    const timings = card.getByRole('list');
+
+    await page.goto('/settings?section=academics');
+    await card.getByRole('button', { name: t('settings.attendance.specialTimings.add') }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel(t('settings.attendance.specialTimings.name')).fill(name);
+    for (const [label, day] of [
+      [t('settings.attendance.specialTimings.from'), '10'],
+      [t('settings.attendance.specialTimings.to'), '12'],
+    ] as const) {
+      await dialog.getByRole('button', { name: label }).click();
+      // `.last()`: the previous picker's grid can still be in the DOM while it closes, and the
+      // newest popover is the one just opened (a bare locator hit both: strict-mode violation).
+      await page.locator(`[data-date="${ym}-${day}"]`).last().click();
+    }
+    await dialog
+      .getByRole('button', { name: t('settings.attendance.specialTimings.save') })
+      .click();
+    await card.getByRole('button', { name: t('settings.save.action') }).click();
+    await expect(card.getByText(t('settings.save.success'))).toBeVisible();
+
+    try {
+      await page.reload();
+      await expect(timings.getByText(name)).toBeVisible();
+    } finally {
+      // Leave the school as the seed had it: drop the timing we added.
+      await page.goto('/settings?section=academics');
+      const row = card.getByRole('listitem').filter({ hasText: name });
+      if (await row.isVisible().catch(() => false)) {
+        await row
+          .getByRole('button', { name: new RegExp(t('settings.attendance.specialTimings.remove')) })
+          .click();
+        await card.getByRole('button', { name: t('settings.save.action') }).click();
+        await expect(card.getByText(t('settings.save.success'))).toBeVisible();
+      }
+    }
   });
 });

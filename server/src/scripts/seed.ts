@@ -164,7 +164,7 @@ export async function seed() {
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
   // Ensure the default school exists — every account below is a member of
-  // it. `context.guard.ts`'s `ContextGuard.resolvePlatformTenantId()`
+  // it. `TenantStatusService.platformTenantId()` (used by ContextGuard)
   // discovers this school by its slug (`default-school`) at request time
   // outside production, so this school's SUPER_ADMIN is recognized as a
   // genuine platform admin however this row got its id — no fixed id needs

@@ -90,7 +90,9 @@ export class RecoveryService {
     // switch a phone-only forgot-password attempt into failure for a user
     // who also happens to have an email on file elsewhere in the flow.
     const matchedEmail = user.email === normalized;
-    const tenantId = await this.authService.primaryTenantId(user.id);
+    // A user in no school has nowhere to be recovered into (non-enumerating: same {}).
+    if (!(await this.authService.hasLiveMembership(user.id))) return {};
+    const tenantId = await this.authService.primaryTenantId(user.id, { throwOnError: true });
 
     // [12.7] Recovery prefers a verified contact (D5 extension): if the
     // identifier that matched is itself unverified but the user's OTHER
@@ -349,7 +351,6 @@ export class RecoveryService {
     phone: string,
     tenantId: string | null,
   ): Promise<ForgotPasswordResult> {
-    if (!tenantId) return {};
     let code: string;
     try {
       ({ code } = await this.otpService.request(OTP_PURPOSE, normalizeLoginIdentifier(phone)));
@@ -380,7 +381,6 @@ export class RecoveryService {
     tenantId: string | null,
     _unused: null,
   ): Promise<ForgotPasswordResult> {
-    if (!tenantId) return {};
     const { raw } = await this.authTokens.issue({
       userId: user.id,
       tenantId,
@@ -411,7 +411,7 @@ export class RecoveryService {
 
   private async auditRequested(
     user: User,
-    tenantId: string,
+    tenantId: string | null,
     channel: (typeof CommunicationMedium)[keyof typeof CommunicationMedium],
   ): Promise<void> {
     // Never the identifier text — unlike LOGIN_FAILED's `new_values:

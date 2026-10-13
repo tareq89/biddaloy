@@ -75,6 +75,9 @@ describe('[ACAD-05] Exam lifecycle guards', () => {
       .set(as(UserRole.ADMIN))
       .send({ identifier })
       .expect(202);
+    if (!body.debug?.otp) {
+      throw new Error(`step-up OTP was not echoed: ${JSON.stringify(body)}`);
+    }
     const verify = await http()
       .post(`${API}/auth/step-up`)
       .set(as(UserRole.ADMIN))
@@ -83,7 +86,14 @@ describe('[ACAD-05] Exam lifecycle guards', () => {
     return verify.body.approval_token;
   }
 
+  let previousEchoSecrets: string | undefined;
+
   beforeAll(async () => {
+    // `issueApprovalToken` reads the OTP back from `debug.otp`, which only exists with echo on.
+    // CI does not set it for this job; other specs set it on the shared worker process, so
+    // without this line the test passed or failed depending on which file ran first.
+    previousEchoSecrets = process.env.ACCOUNT_ACCESS_ECHO_SECRETS;
+    process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -108,7 +118,13 @@ describe('[ACAD-05] Exam lifecycle guards', () => {
   }, 120000);
 
   afterAll(async () => {
-    await app.close();
+    try {
+      await app.close();
+    } finally {
+      // Put the flag back so later files on this worker do not inherit it.
+      if (previousEchoSecrets === undefined) delete process.env.ACCOUNT_ACCESS_ECHO_SECRETS;
+      else process.env.ACCOUNT_ACCESS_ECHO_SECRETS = previousEchoSecrets;
+    }
   });
 
   /** The suite wipes tenant data between tests, so the fixture is seeded per test. */

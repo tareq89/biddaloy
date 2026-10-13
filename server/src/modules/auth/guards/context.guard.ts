@@ -6,7 +6,6 @@ import {
   ForbiddenException,
   Inject,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import {
   JwtPayload,
@@ -38,7 +37,7 @@ const ROLE_PRIORITY: Record<string, number> = {
 
 /**
  * True only when the JWT holds a SUPER_ADMIN membership on the one
- * designated platform tenant (resolved by `ContextGuard.resolvePlatformTenantId`)
+ * designated platform tenant (resolved by `TenantStatusService.platformTenantId()`)
  * — never "any membership anywhere with role SUPER_ADMIN".
  *
  * That distinction is the whole fix for a real privilege escalation: a
@@ -50,7 +49,7 @@ const ROLE_PRIORITY: Record<string, number> = {
  * tenant via `X-Tenant-ID`.
  *
  * `platformTenantId` unresolved (undefined) means no membership qualifies —
- * fails closed. See `resolvePlatformTenantId` for how that id is obtained:
+ * fails closed. See `TenantStatusService.platformTenantId()` for how that id is obtained:
  * an explicit `PLATFORM_TENANT_ID` always wins; in production, unset means
  * this stays undefined forever; outside production it's discovered from the
  * database instead.
@@ -145,69 +144,12 @@ function resolveRole(
  * not an override of a school's suspended status, only of the "must hold a
  * membership" requirement.
  */
-// The one well-known slug the "Default School" row is created under — by
-// the `MultiTenantAuth` migration in production-shaped databases and by
-// `seed.ts` everywhere else. Used only to discover the platform tenant
-// dynamically outside production (see `resolvePlatformTenantId` below);
-// never used to derive or guess an id.
-const DEFAULT_SCHOOL_SLUG = 'default-school';
-
 @Injectable()
 export class ContextGuard implements CanActivate {
-  private readonly configuredPlatformTenantId?: string;
-  private readonly isProduction: boolean;
-  // Populated lazily the first time `resolvePlatformTenantId` succeeds
-  // outside production — see that method's own comment for why a *failed*
-  // lookup is deliberately never cached here.
-  private cachedDevPlatformTenantId?: string;
-
   constructor(
     @Inject(Reflector) private readonly reflector: Reflector,
     private readonly tenantStatus: TenantStatusService,
-    configService: ConfigService,
-  ) {
-    this.configuredPlatformTenantId = configService.get<string>('PLATFORM_TENANT_ID');
-    this.isProduction = configService.get<string>('NODE_ENV') === 'production';
-  }
-
-  /**
-   * Resolves the id of the one tenant that designates platform authority.
-   *
-   * - `PLATFORM_TENANT_ID` set (any environment): always wins, no DB call.
-   * - Production, unset: stays undefined forever — fails closed. Production
-   *   must set this by hand; there is no script-known default to fall back
-   *   to (`seed.ts` itself refuses to run against production).
-   * - Outside production, unset: no database actually has a predictable
-   *   hardcoded id for this — the `MultiTenantAuth` migration inserts the
-   *   real "Default School" row with a random uuid, and `seed.ts` reuses
-   *   whatever row already exists rather than overwriting its id (#620).
-   *   So instead this looks the school up by its well-known slug
-   *   (`default-school`) and caches the id it finds — a school's slug is
-   *   effectively immutable, so this is a one-time discovery per process,
-   *   not a per-request query.
-   *
-   * A failed lookup ("no such school yet") is deliberately NOT cached: an
-   * app instance that boots before the seed script has run should recover
-   * once seeding completes, rather than being stuck fail-closed until
-   * restart. Either way, "not found" means undefined — grants nothing,
-   * never falls back to "any SUPER_ADMIN membership".
-   */
-  private async resolvePlatformTenantId(): Promise<string | undefined> {
-    if (this.configuredPlatformTenantId) {
-      return this.configuredPlatformTenantId;
-    }
-    if (this.isProduction) {
-      return undefined;
-    }
-    if (this.cachedDevPlatformTenantId) {
-      return this.cachedDevPlatformTenantId;
-    }
-    const discoveredId = await this.tenantStatus.findSchoolIdBySlug(DEFAULT_SCHOOL_SLUG);
-    if (discoveredId) {
-      this.cachedDevPlatformTenantId = discoveredId;
-    }
-    return discoveredId ?? undefined;
-  }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -222,7 +164,7 @@ export class ContextGuard implements CanActivate {
       throw new UnauthorizedException('X-Tenant-ID header is required');
     }
 
-    const platformTenantId = await this.resolvePlatformTenantId();
+    const platformTenantId = await this.tenantStatus.platformTenantId();
     const explicitRole = request.headers['x-role'] as string | undefined;
     const activeRole = resolveRole(user.memberships, tenantId, explicitRole, platformTenantId);
 

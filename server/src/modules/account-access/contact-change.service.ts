@@ -81,7 +81,13 @@ export class ContactChangeService {
       throw new ForbiddenException('Current password is incorrect');
     }
 
-    const tenantId = await this.authService.primaryTenantId(userId);
+    // A user in no school must not get platform-paid SMS/email to an
+    // address they choose (per-school/global OTP caps are #1759). A shared
+    // user still passes: their messages are platform-sent by design (D28).
+    if (!(await this.authService.hasLiveMembership(userId))) {
+      throw new ForbiddenException('no_school');
+    }
+    const tenantId = await this.authService.primaryTenantId(userId, { throwOnError: true });
 
     if (dto.phone) {
       // Everything downstream — the uniqueness pre-check, the pending value
@@ -109,16 +115,14 @@ export class ContactChangeService {
         PENDING_CHANGE_TTL_MS,
       );
 
-      if (tenantId) {
-        await this.delivery.deliver({
-          tenantId,
-          medium: CommunicationMedium.SMS,
-          to: normalized,
-          recipientName: user.full_name,
-          kind: 'OTP',
-          vars: { code },
-        });
-      }
+      await this.delivery.deliver({
+        tenantId,
+        medium: CommunicationMedium.SMS,
+        to: normalized,
+        recipientName: user.full_name,
+        kind: 'OTP',
+        vars: { code },
+      });
 
       const echo = isSecretEchoEnabled(this.config);
       return { channel: 'otp', ...(echo ? { debug: { otp: code } } : {}) };
@@ -141,16 +145,14 @@ export class ContactChangeService {
     });
     const link = `${resolveAppBaseUrl(this.config)}/verify-email?token=${encodeURIComponent(raw)}`;
 
-    if (tenantId) {
-      await this.delivery.deliver({
-        tenantId,
-        medium: CommunicationMedium.EMAIL,
-        to: newEmail,
-        recipientName: user.full_name,
-        kind: 'EMAIL_VERIFY_LINK',
-        vars: { link },
-      });
-    }
+    await this.delivery.deliver({
+      tenantId,
+      medium: CommunicationMedium.EMAIL,
+      to: newEmail,
+      recipientName: user.full_name,
+      kind: 'EMAIL_VERIFY_LINK',
+      vars: { link },
+    });
 
     const echo = isSecretEchoEnabled(this.config);
     return { channel: 'link', ...(echo ? { debug: { token: raw } } : {}) };

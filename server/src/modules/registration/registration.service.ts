@@ -35,6 +35,7 @@ import { UserIdentity } from '../auth/entities/user-identity.entity';
 import { ProvisioningService, contactInUse } from '../schools/provisioning/provisioning.service';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { TrialService } from '../schools/trial/trial.service';
+import { TenantStatusService } from '../schools/tenant-status.service';
 import { User } from '../users/entities/user.entity';
 import { RegisterResendDto } from './dto/register-resend.dto';
 import { RegisterStartDto } from './dto/register-start.dto';
@@ -100,6 +101,7 @@ export class RegistrationService {
     private readonly config: ConfigService,
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(UserTenant) private readonly memberships: Repository<UserTenant>,
+    private readonly tenantStatus: TenantStatusService,
   ) {}
 
   async start(dto: RegisterStartDto, context: RequestContext): Promise<RegisterStartResult> {
@@ -202,7 +204,8 @@ export class RegistrationService {
    */
   private async deliver(staged: StagedRegistration, code: string): Promise<void> {
     const production = this.config.get<string>('NODE_ENV') === 'production';
-    const tenantId = this.config.get<string>('PLATFORM_TENANT_ID');
+    // Same trimmed/lower-cased id the guard and sweeps use; never the dev slug fallback.
+    const tenantId = this.tenantStatus.configuredPlatformTenantId();
     let sent = false;
     if (tenantId) {
       try {

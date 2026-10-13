@@ -44,6 +44,7 @@ describe('RecoveryService (integration)', () => {
     startSession: ReturnType<typeof vi.fn>;
     resetLoginLockouts: ReturnType<typeof vi.fn>;
     primaryTenantId: ReturnType<typeof vi.fn>;
+    hasLiveMembership: ReturnType<typeof vi.fn>;
   };
   let fakeRefreshTokens: { revokeAllForUser: ReturnType<typeof vi.fn> };
 
@@ -58,6 +59,7 @@ describe('RecoveryService (integration)', () => {
       }),
       resetLoginLockouts: vi.fn().mockResolvedValue(undefined),
       primaryTenantId: vi.fn().mockResolvedValue(SEED_TENANT_ID),
+      hasLiveMembership: vi.fn().mockResolvedValue(true),
     };
     fakeRefreshTokens = { revokeAllForUser: vi.fn().mockResolvedValue(undefined) };
 

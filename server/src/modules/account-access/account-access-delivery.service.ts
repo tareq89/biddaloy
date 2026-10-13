@@ -1,11 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { CommunicationProviderRegistryService } from '../communications/providers/communication-provider.registry';
 import { SchoolsService } from '../schools/schools.service';
+import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import {
+  PLATFORM_SENDER_NAME,
   render,
   redact,
   resolveTemplateLocale,
@@ -17,7 +19,8 @@ import { User } from '../users/entities/user.entity';
 export type DeliveryMedium = typeof CommunicationMedium.SMS | typeof CommunicationMedium.EMAIL;
 
 export interface DeliverInput {
-  tenantId: string;
+  /** null = platform sender for a shared user (D28): "SchoolManager", platform gateway, no school comm log. */
+  tenantId: string | null;
   medium: DeliveryMedium;
   to: string;
   recipientName: string;
@@ -34,7 +37,7 @@ export interface DeliverInput {
 }
 
 export interface DeliverResult {
-  logId: string;
+  logId: string | null;
   status: CommunicationStatus;
 }
 
@@ -46,6 +49,8 @@ export interface DeliverResult {
  */
 @Injectable()
 export class AccountAccessDeliveryService {
+  private readonly logger = new Logger(AccountAccessDeliveryService.name);
+
   constructor(
     @InjectRepository(CommunicationLog)
     private readonly logRepo: Repository<CommunicationLog>,
@@ -54,6 +59,7 @@ export class AccountAccessDeliveryService {
   ) {}
 
   async deliver(input: DeliverInput): Promise<DeliverResult> {
+    if (input.tenantId === null) return this.deliverAsPlatform(input);
     const settings = await this.schoolsService.getResolvedSettings(input.tenantId);
     const locale = resolveTemplateLocale(settings.region?.locale);
     const school = await this.schoolsService.findById(input.tenantId);
@@ -113,6 +119,33 @@ export class AccountAccessDeliveryService {
       await this.logRepo.save(log);
       return { logId: log.id, status: CommunicationStatus.FAILED };
     }
+  }
+
+  // communication_logs is per school (tenant_id NOT NULL), so a platform
+  // send leaves no row there — one Logger line, never the body/code/link.
+  private async deliverAsPlatform(input: DeliverInput): Promise<DeliverResult> {
+    const locale = resolveTemplateLocale(DEFAULT_REGION_SETTINGS.locale);
+    const vars: TemplateVars = {
+      school: PLATFORM_SENDER_NAME,
+      name: input.recipientName,
+      ...input.vars,
+    };
+    const real = render(input.kind, input.medium, locale, vars);
+    const provider = this.registry.resolve(input.medium);
+    let status: CommunicationStatus = CommunicationStatus.FAILED;
+    if (provider) {
+      try {
+        const result = await provider.send(
+          { to: input.to, body: real.body, subject: real.subject, allowPlatformSms: true },
+          null,
+        );
+        if (result.success) status = CommunicationStatus.SENT;
+      } catch {
+        // status stays FAILED
+      }
+    }
+    this.logger.log(`platform ${input.kind} via ${input.medium}: ${status}`);
+    return { logId: null, status };
   }
 }
 
