@@ -75,7 +75,6 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
         ...(values.email.trim() !== '' ? { email: values.email.trim() } : {}),
         ...(values.phone.trim() !== '' ? { phone: values.phone.trim() } : {}),
         role: values.role as UserRoleFilter,
-        tenantId,
       },
       {
         onSuccess: () => onOpenChange(false),
