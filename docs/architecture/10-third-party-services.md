@@ -16,11 +16,11 @@ flowchart LR
     FB -- "data-deletion callback" --> API
 ```
 
-| Service | What it is for | Env values |
-| --- | --- | --- |
-| Cloudflare Turnstile | Captcha on the public `/register` form. The widget loads from `https://challenges.cloudflare.com` (allowed in the CSP, see [07-deployment.md](07-deployment.md)). | `TURNSTILE_SECRET_KEY` (server). `VITE_TURNSTILE_SITE_KEY` (build arg; no key means the widget is hidden). Set both or neither. |
-| Google sign-in | "Continue with Google" at login and register, and "connect" on the security page. | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`. A provider with no credentials is not listed. |
-| Facebook sign-in | "Continue with Facebook", same places as Google. PKCE; Graph API `GRAPH_VERSION` is pinned in `facebook.provider.ts`. Meta also calls our data-deletion callback (`POST /api/v1/auth/social/facebook/data-deletion`), which links to a public status page. See [22-onboarding.md](22-onboarding.md). | `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET`. Set the callback URL in the Meta app dashboard. |
+| Service              | What it is for                                                                                                                                                                                                                                                                                       | Env values                                                                                                                      |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Cloudflare Turnstile | Captcha on the public `/register` form. The widget loads from `https://challenges.cloudflare.com` (allowed in the CSP, see [07-deployment.md](07-deployment.md)).                                                                                                                                    | `TURNSTILE_SECRET_KEY` (server). `VITE_TURNSTILE_SITE_KEY` (build arg; no key means the widget is hidden). Set both or neither. |
+| Google sign-in       | "Continue with Google" at login and register, and "connect" on the security page.                                                                                                                                                                                                                    | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`. A provider with no credentials is not listed.                           |
+| Facebook sign-in     | "Continue with Facebook", same places as Google. PKCE; Graph API `GRAPH_VERSION` is pinned in `facebook.provider.ts`. Meta also calls our data-deletion callback (`POST /api/v1/auth/social/facebook/data-deletion`), which links to a public status page. See [22-onboarding.md](22-onboarding.md). | `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET`. Set the callback URL in the Meta app dashboard.                     |
 
 ## Self-hosted infrastructure
 
@@ -82,6 +82,31 @@ module dispatches to them.
 credentials instead of the platform-wide ones above. Those are encrypted at
 rest with AES-256-GCM (`SETTINGS_ENCRYPTION_KEY`), in
 [`server/src/modules/schools/settings`](../../server/src/modules/schools/settings).
+
+## Outbound HTTP rule ([75.24])
+
+A URL a user or tenant can influence must never reach a bare `fetch`.
+
+```mermaid
+flowchart LR
+    URL{"who controls<br/>the URL?"} -->|"user / tenant / DB row"| SAFE["assertSafeHttpDestination<br/>+ fetchPinnedJson<br/>(shared/pinned-http.ts)"]
+    URL -->|"code constant or<br/>operator env"| LIST["bare fetch, file listed in<br/>REVIEWED_OUTBOUND"]
+```
+
+`server/src/outbound-http.contract.spec.ts` fails CI on any new outbound
+call (`fetch`, undici, axios, node `http(s)`, `web-push`, S3/SMTP/Sentry
+clients) outside the helper and that list. It also fails on a stale entry.
+The reviewed files and why each is safe:
+
+| Host                                                       | Who controls it                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------------- |
+| `graph.facebook.com` (WhatsApp, Messenger, Facebook login) | code constant; tenant ids pass `isValidGraphApiId`                  |
+| Google OAuth token URL, `challenges.cloudflare.com`        | code constant                                                       |
+| `calendar.google.com`, `date.nager.at`                     | code constant; path from a validated country code                   |
+| MiM SMS balance URL                                        | code constant (sending uses the pinned helper)                      |
+| `SENTRY_CRON_URL`, `SENTRY_DSN`, `S3_ENDPOINT`             | operator env                                                        |
+| Web Push subscription endpoint                             | user-supplied, but the DTO allowlists push-service hosts over https |
+| SMTP host                                                  | tenant-supplied, checked by `assertSafeSmtpDestination`             |
 
 ## Dev / CI only
 

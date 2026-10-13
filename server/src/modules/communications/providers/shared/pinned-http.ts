@@ -33,7 +33,13 @@ export function createPinnedLookup(addresses: readonly PinnedAddress[]): LookupF
   };
 }
 
-/** Fetches JSON from `requestUrl` with the connection pinned to
+/** The server's one SSRF-safe outbound HTTP path: any URL a user or tenant
+ * can influence goes through `assertSafeHttpDestination` + this function.
+ * `server/src/outbound-http.contract.spec.ts` fails CI on any other outbound
+ * call that is not on its reviewed list of constant-host / operator-config
+ * files. Returns JSON only; add a `Response` variant the day a caller needs one.
+ *
+ * Fetches JSON from `requestUrl` with the connection pinned to
  * `destination`'s already-validated addresses — the DNS-rebinding fix.
  * `requestUrl` must share `destination.url`'s origin (defense-in-depth:
  * callers append a query string after validation, so it's never literally
