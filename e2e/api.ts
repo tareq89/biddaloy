@@ -259,16 +259,18 @@ export async function del(
 }
 
 /** [48] The demo school's seeded "First Term Exam" (`ensureSeatPlanDemoSeed`: a schedule and a
- * published seat plan). `GET /exams` pages 10 rows by default, and other specs create exams, so
- * ask for one big page. */
+ * published seat plan) for seeded Class 6. `GET /exams` is newest first and capped at 100 rows,
+ * and other specs create exams, so filter by the seeded class instead of hoping the oldest
+ * exam is on page 1. */
 export async function seededFirstTermExamId(
   request: APIRequestContext,
   session: ApiSession,
 ): Promise<string> {
+  const { classId } = await findSeedSectionA(request, session);
   const exams = await get<{ data: { id: string; name: string }[] }>(
     request,
     session,
-    '/exams?limit=100',
+    `/exams?class_id=${classId}&limit=100`,
   );
   const exam = exams.data.find((e) => e.name === 'First Term Exam');
   if (!exam) throw new Error('No seeded "First Term Exam" — has `yarn seed` run?');

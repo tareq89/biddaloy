@@ -38,7 +38,6 @@ export class LogFineDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Max(MONEY_MAX)
-  @Max(MONEY_MAX)
   @IsPositive()
   amount?: number;
 
@@ -69,6 +68,7 @@ export class WaiveFineDto {
   /** Defaults to the bill's current outstanding balance when omitted. */
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @IsPositive()
   amount?: number;
 
