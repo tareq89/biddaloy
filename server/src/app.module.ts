@@ -423,7 +423,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
               },
             ),
           ),
-          getTracker: buildRateLimitTracker(jwtService),
+          getTracker: buildRateLimitTracker(jwtService, config),
           // The e2e suite fires many requests in sequence against a shared
           // Redis bucket; without this it goes red intermittently on the
           // default tier's limit, not on anything the tests are checking.

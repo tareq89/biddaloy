@@ -1,5 +1,5 @@
 import { JwtService } from '@nestjs/jwt';
-import { verifyWithRotation } from '../../modules/auth/jwt-secrets';
+import { type SecretSource, verifyWithRotation } from '../../modules/auth/jwt-secrets';
 
 /**
  * Builds the tracker function ThrottlerModule uses to bucket requests.
@@ -24,7 +24,7 @@ import { verifyWithRotation } from '../../modules/auth/jwt-secrets';
  * has verified the key and only then keys on the authenticated
  * `request.currentDevice`.
  */
-export function buildRateLimitTracker(jwtService: JwtService) {
+export function buildRateLimitTracker(jwtService: JwtService, config: SecretSource) {
   return async function getRateLimitTracker(req: Record<string, any>): Promise<string> {
     const authHeader = req.headers?.authorization;
     const token =
@@ -34,10 +34,7 @@ export function buildRateLimitTracker(jwtService: JwtService) {
 
     if (token) {
       try {
-        // Reads process.env directly so buildRateLimitTracker keeps its signature.
-        const payload = await verifyWithRotation<{ sub?: string }>(jwtService, token, {
-          get: (k) => process.env[k],
-        });
+        const payload = await verifyWithRotation<{ sub?: string }>(jwtService, token, config);
         if (payload?.sub) return `user:${payload.sub}`;
       } catch {
         // Invalid/expired token — fall through to IP keying.

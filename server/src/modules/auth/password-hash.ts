@@ -8,10 +8,11 @@ export const BCRYPT_MAX_BYTES = 72;
 /**
  * Compare target when no user is found, so login / step-up / social sign-in
  * always pay bcrypt's cost (otherwise "no such user" returns near-instantly —
- * a timing oracle for enumerating identifiers). Computed once at boot so its
- * cost always equals BCRYPT_COST. Never the hash of a real password.
+ * a timing oracle for enumerating identifiers). Precomputed (hashing at import
+ * blocked every process for ~250 ms); `password-hash.spec.ts` asserts its cost
+ * equals BCRYPT_COST. The hash of 'never-a-real-password', never a real one.
  */
-export const DUMMY_PASSWORD_HASH = bcrypt.hashSync('never-a-real-password', BCRYPT_COST);
+export const DUMMY_PASSWORD_HASH = '$2b$12$fL1KMZrg/xnNYKUWBx5eYu2/vceduZUeGNjWRRAZdhIL7Rj7MnElu';
 
 export const hashPassword = (plain: string): Promise<string> => bcrypt.hash(plain, BCRYPT_COST);
 

@@ -6,6 +6,9 @@ function fakeJwtService(behavior: { verifyAsync: (token: string) => Promise<any>
   return { verifyAsync: vi.fn(behavior.verifyAsync) } as any;
 }
 
+// Live view of process.env, so each test's JWT_SECRET_PREVIOUS change is seen.
+const env = { get: (k: string) => process.env[k] };
+
 describe('buildRateLimitTracker', () => {
   const saved = { s: process.env.JWT_SECRET, p: process.env.JWT_SECRET_PREVIOUS };
   beforeAll(() => {
@@ -24,7 +27,7 @@ describe('buildRateLimitTracker', () => {
     process.env.JWT_SECRET_PREVIOUS = previous;
     try {
       const real = new JwtService({});
-      const tracker = buildRateLimitTracker(real);
+      const tracker = buildRateLimitTracker(real, env);
       const good = real.sign({ sub: 'user-9' }, { secret: previous });
       expect(await tracker({ headers: { authorization: `Bearer ${good}` }, ip: '1.1.1.1' })).toBe(
         'user:user-9',
@@ -43,7 +46,7 @@ describe('buildRateLimitTracker', () => {
 
   it("keys by the JWT's sub when a valid Bearer token is present", async () => {
     const jwtService = fakeJwtService({ verifyAsync: async () => ({ sub: 'user-123' }) });
-    const tracker = buildRateLimitTracker(jwtService);
+    const tracker = buildRateLimitTracker(jwtService, env);
 
     const key = await tracker({
       headers: { authorization: 'Bearer a.valid.token' },
@@ -55,7 +58,7 @@ describe('buildRateLimitTracker', () => {
 
   it('falls back to IP when there is no Authorization header', async () => {
     const jwtService = fakeJwtService({ verifyAsync: async () => ({ sub: 'user-123' }) });
-    const tracker = buildRateLimitTracker(jwtService);
+    const tracker = buildRateLimitTracker(jwtService, env);
 
     const key = await tracker({ headers: {}, ip: '1.2.3.4' });
 
@@ -64,7 +67,7 @@ describe('buildRateLimitTracker', () => {
 
   it("falls back to IP when the Authorization header isn't a Bearer token", async () => {
     const jwtService = fakeJwtService({ verifyAsync: async () => ({ sub: 'user-123' }) });
-    const tracker = buildRateLimitTracker(jwtService);
+    const tracker = buildRateLimitTracker(jwtService, env);
 
     const key = await tracker({ headers: { authorization: 'Basic dXNlcjpwYXNz' }, ip: '1.2.3.4' });
 
@@ -77,7 +80,7 @@ describe('buildRateLimitTracker', () => {
         throw new Error('invalid signature');
       },
     });
-    const tracker = buildRateLimitTracker(jwtService);
+    const tracker = buildRateLimitTracker(jwtService, env);
 
     const key = await tracker({ headers: { authorization: 'Bearer garbage' }, ip: '5.6.7.8' });
 
@@ -86,7 +89,7 @@ describe('buildRateLimitTracker', () => {
 
   it('ignores an X-Device-Key header entirely — bucketing on it would let a caller mint a fresh bucket per request', async () => {
     const jwtService = fakeJwtService({ verifyAsync: async () => ({}) });
-    const tracker = buildRateLimitTracker(jwtService);
+    const tracker = buildRateLimitTracker(jwtService, env);
 
     const key = await tracker({
       headers: { 'x-device-key': 'bd_dev_a-fresh-value-every-request' },
@@ -98,7 +101,7 @@ describe('buildRateLimitTracker', () => {
 
   it('falls back to IP when the verified payload has no sub', async () => {
     const jwtService = fakeJwtService({ verifyAsync: async () => ({}) });
-    const tracker = buildRateLimitTracker(jwtService);
+    const tracker = buildRateLimitTracker(jwtService, env);
 
     const key = await tracker({
       headers: { authorization: 'Bearer a.valid.token' },
