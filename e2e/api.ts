@@ -1230,8 +1230,19 @@ export async function starterWorkbook(
  * ponytail: raw SQL via the server's `pg`; swap for an endpoint if one appears.
  * Limit: skips TrialService.expire (audit row, tenant-status cache invalidation). */
 export async function endTrial(schoolId: string): Promise<void> {
+  await runSqlOnOneRow(
+    `UPDATE schools SET trial_ends_at = now() - interval '1 day', status = 'SUSPENDED',
+       status_reason = 'TRIAL_EXPIRED' WHERE id = $1`,
+    [schoolId],
+    `endTrial: school ${schoolId}`,
+  );
+}
+
+/** Runs one raw SQL statement on the e2e database and returns its row count.
+ * ponytail: raw SQL via the server's `pg`; swap for an endpoint if one appears. */
+async function runSql(sql: string, params: unknown[] = []): Promise<number | null> {
   const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('DATABASE_URL is not set — endTrial needs the e2e database');
+  if (!url) throw new Error('DATABASE_URL is not set — raw-SQL e2e helpers need the e2e database');
   // `pg` is hoisted from the server and has no types here. A typed shape instead of
   // `@ts-expect-error`, which would break tsc the day `@types/pg` gets hoisted too.
   const { Client } = (await import('pg' as string)) as {
@@ -1244,40 +1255,17 @@ export async function endTrial(schoolId: string): Promise<void> {
   const client = new Client({ connectionString: url });
   await client.connect();
   try {
-    const { rowCount } = await client.query(
-      `UPDATE schools SET trial_ends_at = now() - interval '1 day', status = 'SUSPENDED',
-         status_reason = 'TRIAL_EXPIRED' WHERE id = $1`,
-      [schoolId],
-    );
-    // 0 rows means DATABASE_URL is not the database the server uses.
-    if (rowCount !== 1) {
-      throw new Error(`endTrial: school ${schoolId} not found in ${new URL(url).pathname}`);
-    }
+    return (await client.query(sql, params)).rowCount;
   } finally {
     await client.end();
   }
 }
-type PgClient = {
-  connect(): Promise<void>;
-  query(sql: string): Promise<unknown>;
-  end(): Promise<void>;
-};
 
-/** Runs one raw SQL statement on the e2e database.
- * ponytail: raw SQL via the server's `pg` (as `endTrial`); swap for an endpoint if one appears. */
-async function runSql(sql: string): Promise<void> {
-  const url = process.env.DATABASE_URL;
-  if (!url)
-    throw new Error('DATABASE_URL is not set — platform alert helpers need the e2e database');
-  const { Client } = (await import('pg' as string)) as {
-    Client: new (options: { connectionString: string }) => PgClient;
-  };
-  const client = new Client({ connectionString: url });
-  await client.connect();
-  try {
-    await client.query(sql);
-  } finally {
-    await client.end();
+/** `runSql` for an UPDATE that must hit exactly one row. 0 rows means DATABASE_URL is not
+ * the database the server uses. */
+async function runSqlOnOneRow(sql: string, params: unknown[], what: string): Promise<void> {
+  if ((await runSql(sql, params)) !== 1) {
+    throw new Error(`${what} not found in ${new URL(process.env.DATABASE_URL!).pathname}`);
   }
 }
 
@@ -1557,28 +1545,11 @@ export async function addRoutineSlot(
 }
 
 async function backdateRoutineSlot(slotId: string, validFrom: string): Promise<void> {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('DATABASE_URL is not set — addRoutineSlot needs the e2e database');
-  const { Client } = (await import('pg' as string)) as {
-    Client: new (options: { connectionString: string }) => {
-      connect(): Promise<void>;
-      query(sql: string, params: unknown[]): Promise<{ rowCount: number | null }>;
-      end(): Promise<void>;
-    };
-  };
-  const client = new Client({ connectionString: url });
-  await client.connect();
-  try {
-    const { rowCount } = await client.query(
-      `UPDATE routine_slots SET valid_from = $2 WHERE id = $1`,
-      [slotId, validFrom],
-    );
-    if (rowCount !== 1) {
-      throw new Error(`backdateRoutineSlot: slot ${slotId} not found in ${new URL(url).pathname}`);
-    }
-  } finally {
-    await client.end();
-  }
+  await runSqlOnOneRow(
+    `UPDATE routine_slots SET valid_from = $2 WHERE id = $1`,
+    [slotId, validFrom],
+    `backdateRoutineSlot: slot ${slotId}`,
+  );
 }
 
 /** Removes slots a spec added to the shared seeded routine, so the next run finds the period free. */
@@ -1671,30 +1642,11 @@ export async function detachOfferedSubjects(
 
 /** Moves a school's trial end to `days` from now. Same raw-SQL shortcut as `endTrial`. */
 export async function setTrialEndsInDays(schoolId: string, days: number): Promise<void> {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('DATABASE_URL is not set — setTrialEndsInDays needs the e2e database');
-  const { Client } = (await import('pg' as string)) as {
-    Client: new (options: { connectionString: string }) => {
-      connect(): Promise<void>;
-      query(sql: string, params: unknown[]): Promise<{ rowCount: number | null }>;
-      end(): Promise<void>;
-    };
-  };
-  const client = new Client({ connectionString: url });
-  await client.connect();
-  try {
-    const { rowCount } = await client.query(
-      `UPDATE schools SET trial_ends_at = now() + ($2 || ' days')::interval WHERE id = $1`,
-      [schoolId, String(days)],
-    );
-    if (rowCount !== 1) {
-      throw new Error(
-        `setTrialEndsInDays: school ${schoolId} not found in ${new URL(url).pathname}`,
-      );
-    }
-  } finally {
-    await client.end();
-  }
+  await runSqlOnOneRow(
+    `UPDATE schools SET trial_ends_at = now() + ($2 || ' days')::interval WHERE id = $1`,
+    [schoolId, String(days)],
+    `setTrialEndsInDays: school ${schoolId}`,
+  );
 }
 
 /** `PATCH /schools/:id/trial` as the platform super admin. It also triggers the
