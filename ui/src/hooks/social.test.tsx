@@ -99,18 +99,21 @@ describe('useDisconnectIdentity', () => {
 });
 
 describe('useStartSocialLink', () => {
-  it('POSTs link-start and resolves with the provider URL', async () => {
+  it('POSTs link-start with the current password and resolves with the provider URL', async () => {
+    let body: unknown;
     server.use(
-      http.post('/api/v1/auth/social/:provider/link-start', () =>
-        HttpResponse.json({ url: 'https://accounts.example/auth' }),
-      ),
+      http.post('/api/v1/auth/social/:provider/link-start', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ url: 'https://accounts.example/auth' });
+      }),
     );
     const { result } = renderHookWithProviders(() => useStartSocialLink(), {
       tenantId: 'tenant-1',
     });
-    await expect(result.current.mutateAsync('google')).resolves.toBe(
-      'https://accounts.example/auth',
-    );
+    await expect(
+      result.current.mutateAsync({ provider: 'google', currentPassword: 'pw-1' }),
+    ).resolves.toBe('https://accounts.example/auth');
+    expect(body).toEqual({ current_password: 'pw-1' });
   });
 
   it('surfaces the ApiError shape', async () => {
@@ -122,6 +125,8 @@ describe('useStartSocialLink', () => {
     const { result } = renderHookWithProviders(() => useStartSocialLink(), {
       tenantId: 'tenant-1',
     });
-    await expect(result.current.mutateAsync('google')).rejects.toMatchObject({ statusCode: 400 });
+    await expect(
+      result.current.mutateAsync({ provider: 'google', currentPassword: 'x' }),
+    ).rejects.toMatchObject({ statusCode: 400 });
   });
 });

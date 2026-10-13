@@ -3,13 +3,14 @@ import supertest = require('supertest');
 import cookieParser = require('cookie-parser');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { createHmac } from 'crypto';
 import { DataSource } from 'typeorm';
 import { SocialProvider } from '@biddaloy/shared';
 import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
-import { SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD } from '@test/constants';
+import { SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH } from '@test/constants';
 import { AuthService } from '../auth.service';
 import { SOCIAL_PROVIDERS, type SocialProviderClient } from './providers/social-provider';
 import { SocialTicketService } from './social-ticket.service';
@@ -115,11 +116,16 @@ describe('SocialAuthController (e2e)', () => {
     return session.access_token;
   }
 
-  async function connect(subject: string, token: string): Promise<string> {
+  async function connect(
+    subject: string,
+    token: string,
+    password = SEED_ADMIN_PASSWORD,
+  ): Promise<string> {
     google.nextSubject = subject;
     const res = await http()
       .post(`${API}/auth/social/google/link-start`)
       .set('Authorization', `Bearer ${token}`)
+      .send({ current_password: password })
       .expect(200);
     const state = stateOf(res.body.url);
     return (await callback(state)).headers.location;
@@ -319,9 +325,9 @@ describe('SocialAuthController (e2e)', () => {
     const token = await adminToken();
     expect(await connect(`${SUB_PREFIX}shared`, token)).toContain('linked=google');
     await dataSource.query(
-      `INSERT INTO users (id, full_name, status) VALUES ($1, 'No Login', 'ACTIVE')
-       ON CONFLICT (id) DO NOTHING`,
-      [NOLOGIN_ID],
+      `INSERT INTO users (id, full_name, status, password_hash) VALUES ($1, 'No Login', 'ACTIVE', $2)
+       ON CONFLICT (id) DO UPDATE SET password_hash = $2`,
+      [NOLOGIN_ID, SEED_ADMIN_PASSWORD_HASH],
     );
     const other = await app
       .get(AuthService)
@@ -385,6 +391,55 @@ describe('SocialAuthController (e2e)', () => {
     await http().post(`${API}/auth/social/google/link-start`).expect(401);
   });
 
+  describe('link-start password gate', () => {
+    const post = (token: string) =>
+      http().post(`${API}/auth/social/google/link-start`).set('Authorization', `Bearer ${token}`);
+
+    it('400s with no body', async () => {
+      await post(await adminToken()).expect(400);
+    });
+
+    it('403s on a wrong password and sets no state cookie', async () => {
+      const res = await post(await adminToken())
+        .send({ current_password: 'not-the-password' })
+        .expect(403);
+      expect(res.headers['set-cookie']).toBeUndefined();
+    });
+
+    it('200s with the right password, a url and the state cookie', async () => {
+      const res = await post(await adminToken())
+        .send({ current_password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      expect(res.body.url).toContain('state=');
+      expect(String(res.headers['set-cookie'])).toContain('social_state=');
+    });
+
+    it('400 NO_PASSWORD for a passwordless account', async () => {
+      await dataSource.query(
+        `INSERT INTO users (id, full_name, status, password_hash) VALUES ($1, 'No Login', 'ACTIVE', NULL)
+         ON CONFLICT (id) DO UPDATE SET status = 'ACTIVE', password_hash = NULL`,
+        [NOLOGIN_ID],
+      );
+      const res = await post(await sessionFor(NOLOGIN_ID))
+        .send({ current_password: SEED_ADMIN_PASSWORD })
+        .expect(400);
+      expect(res.body.details?.code).toBe('NO_PASSWORD');
+    });
+
+    it("another user's password does not unlock the bearer's own link-start", async () => {
+      // NOLOGIN has a password hash, but it is checked against the bearer's own user (the
+      // admin), so a password that is only the other user's is refused.
+      await dataSource.query(
+        `INSERT INTO users (id, full_name, status, password_hash) VALUES ($1, 'No Login', 'ACTIVE', $2)
+         ON CONFLICT (id) DO UPDATE SET status = 'ACTIVE', password_hash = $2`,
+        [NOLOGIN_ID, await bcrypt.hash('only-nologin-knows', 4)],
+      );
+      await post(await adminToken())
+        .send({ current_password: 'only-nologin-knows' })
+        .expect(403);
+    });
+  });
+
   it('an inactive user with a connected identity gets not_linked and no session', async () => {
     await dataSource.query(
       `INSERT INTO users (id, full_name, status) VALUES ($1, 'No Login', 'INACTIVE')
@@ -416,7 +471,7 @@ describe('SocialAuthController (e2e)', () => {
     // A user with no password, email or phone: the identity is their only way in.
     await dataSource.query(
       `INSERT INTO users (id, full_name, status) VALUES ($1, 'No Login', 'ACTIVE')
-       ON CONFLICT (id) DO NOTHING`,
+       ON CONFLICT (id) DO UPDATE SET password_hash = NULL`,
       [NOLOGIN_ID],
     );
     await dataSource.query(
@@ -450,14 +505,15 @@ describe('SocialAuthController (e2e)', () => {
 
   it('does not connect for a user suspended between link-start and the callback', async () => {
     await dataSource.query(
-      `INSERT INTO users (id, full_name, status) VALUES ($1, 'No Login', 'ACTIVE')
-       ON CONFLICT (id) DO UPDATE SET status = 'ACTIVE'`,
-      [NOLOGIN_ID],
+      `INSERT INTO users (id, full_name, status, password_hash) VALUES ($1, 'No Login', 'ACTIVE', $2)
+       ON CONFLICT (id) DO UPDATE SET status = 'ACTIVE', password_hash = $2`,
+      [NOLOGIN_ID, SEED_ADMIN_PASSWORD_HASH],
     );
     google.nextSubject = `${SUB_PREFIX}suspended`;
     const started = await http()
       .post(`${API}/auth/social/google/link-start`)
       .set('Authorization', `Bearer ${await sessionFor(NOLOGIN_ID)}`)
+      .send({ current_password: SEED_ADMIN_PASSWORD })
       .expect(200);
     await dataSource.query(`UPDATE users SET status = 'INACTIVE' WHERE id = $1`, [NOLOGIN_ID]);
 

@@ -37,6 +37,7 @@ import {
   FacebookDataDeletionStatusQueryDto,
   SocialCallbackQueryDto,
   SocialIdentityDto,
+  SocialLinkStartBodyDto,
   SocialLinkStartDto,
   SocialProvidersDto,
   SocialStartQueryDto,
@@ -182,9 +183,11 @@ export class SocialAuthController {
   @ApiOkResponse({ type: SocialLinkStartDto })
   async linkStart(
     @Param('provider') provider: string,
+    @Body() dto: SocialLinkStartBodyDto,
     @CurrentUser() user: JwtPayload,
     @Res({ passthrough: true }) response: Response,
   ): Promise<SocialLinkStartDto> {
+    await this.social.assertCurrentPassword(user.sub, dto.current_password);
     const { url, state } = await this.social.start(provider, 'link', user.sub);
     response.cookie(STATE_COOKIE, state, { ...stateCookieOptions(), maxAge: 10 * 60_000 });
     return { url };

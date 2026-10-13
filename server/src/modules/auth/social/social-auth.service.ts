@@ -1,6 +1,14 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcrypt';
 import { createHash, randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { AuditAction, SocialProvider, UserStatus } from '@biddaloy/shared';
@@ -55,6 +63,24 @@ export class SocialAuthService {
     private readonly config: ConfigService,
     @InjectRepository(User) private readonly users: Repository<User>,
   ) {}
+
+  /**
+   * Gate for connecting a social account: a borrowed session must not be able
+   * to plant a permanent sign-in. 403 (not 401) on a wrong password so the
+   * client's 401-refresh-replay never re-sends it.
+   */
+  async assertCurrentPassword(userId: string, password: string): Promise<void> {
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user?.password_hash) {
+      throw new BadRequestException({
+        message: 'Set a password before connecting another sign-in method',
+        details: { code: 'NO_PASSWORD' },
+      });
+    }
+    if (!(await bcrypt.compare(password, user.password_hash))) {
+      throw new ForbiddenException('Current password is incorrect');
+    }
+  }
 
   configuredProviders(): SocialProvider[] {
     return this.providers.filter((p) => p.isConfigured()).map((p) => p.name);

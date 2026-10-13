@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { SocialProvider } from '@biddaloy/shared';
 
 export class SocialProvidersDto {
@@ -27,6 +27,14 @@ export class SocialStartQueryDto {
   @IsString()
   @MaxLength(500)
   redirect?: string;
+}
+
+export class SocialLinkStartBodyDto {
+  @ApiProperty({ description: "The signed-in user's current password." })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  current_password: string;
 }
 
 export class SocialLinkStartDto {

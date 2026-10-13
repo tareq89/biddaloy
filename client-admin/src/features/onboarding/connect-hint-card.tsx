@@ -9,7 +9,6 @@ import {
   identitiesQueryOptions,
   socialProvidersQueryOptions,
   useCurrentUserId,
-  useStartSocialLink,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useQuery } from '@tanstack/react-query';
@@ -33,7 +32,6 @@ export function ConnectHintCard() {
   const [clicked, setDismissed] = React.useState(false);
   // Re-read per userId: it may arrive after the first render.
   const dismissed = clicked || readDismissed(userId);
-  const link = useStartSocialLink();
   const providers = useQuery({ ...socialProvidersQueryOptions(), enabled: !dismissed });
   const identities = useQuery({ ...identitiesQueryOptions(), enabled: !dismissed });
   if (
@@ -64,26 +62,23 @@ export function ConnectHintCard() {
         </h2>
         <p className="text-text-secondary">{t('hint.body')}</p>
       </div>
-      {/* ponytail: linking needs the bearer token, so the SPA fetches the provider URL
-          (useStartSocialLink) instead of linking to socialStartUrl(..., 'link'). */}
+      {/* [75.3] Connecting needs the current password, asked on the sign-in methods card. */}
       <div className="flex flex-col gap-2 md:flex-row">
         {providers.data.map((p) => (
           <Button
             key={p}
             variant="outline"
             className="min-h-11 w-full md:min-h-0 md:w-auto"
-            disabled={link.isPending}
-            onClick={() => link.mutate(p, { onSuccess: (url) => window.location.assign(url) })}
+            onClick={() =>
+              window.location.assign(
+                window.location.pathname.startsWith('/portal') ? '/portal/account' : '/security',
+              )
+            }
           >
             {t(`hint.${p}`)}
           </Button>
         ))}
       </div>
-      {link.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('hint.failed')}
-        </p>
-      )}
       <Button
         variant="ghost"
         size="icon"
