@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveBaseUrl, runSmoke } from './smoke-post-deploy.mjs';
+import { exitCode, resolveBaseUrl, runSmoke } from './smoke-post-deploy.mjs';
 
 const ENV = {
   SMOKE_ADMIN_EMAIL: 'adm@x.test',
@@ -106,5 +106,50 @@ describe('smoke-post-deploy', () => {
     const r = await run(b, { ...ENV, SMOKE_HEALTH_TOKEN: 'h' });
     expect(b.calls).toContain('GET /api/health/ready');
     expect(r.passed).toBe(8);
+  });
+
+  it('falls back to SMOKE_BASE_URL', () => {
+    expect(resolveBaseUrl([], { SMOKE_BASE_URL: 'https://y.test/' })).toBe('https://y.test');
+  });
+
+  it('treats --base-url followed by a flag, or nothing, as missing', async () => {
+    expect(resolveBaseUrl(['--base-url', '--x'], {})).toBe('');
+    const f = fakeFetch();
+    const r = await runSmoke({ baseUrl: '', env: ENV, fetch: f });
+    expect(r.usageError).toContain('--base-url');
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it('maps results to exit codes', async () => {
+    expect(exitCode(await run(fakeFetch()))).toBe(0);
+    expect(exitCode(await run(fakeFetch({ 'GET /api/health': json(500, {}) })))).toBe(1);
+    expect(exitCode(await runSmoke({ baseUrl: '', env: {}, fetch: fakeFetch() }))).toBe(2);
+  });
+
+  it('fails readiness on 503', async () => {
+    const r = await run(fakeFetch({ 'GET /api/health/ready': json(503, {}) }), {
+      ...ENV,
+      SMOKE_HEALTH_TOKEN: 'h',
+    });
+    expect(r.failed).toBe(1);
+    expect(r.lines.find((l) => l.startsWith('FAIL'))).toContain('503');
+  });
+
+  it('labels a rejected fetch as network error', async () => {
+    const r = await run(async () => {
+      throw new TypeError('fetch failed');
+    });
+    expect(r.lines[0]).toMatch(/^FAIL .*network error/);
+  });
+
+  it('fails a 200 with a non-JSON body', async () => {
+    const bad = {
+      status: 200,
+      json: async () => {
+        throw new SyntaxError('x');
+      },
+    };
+    const r = await run(fakeFetch({ 'GET /api/health': bad }));
+    expect(r.failed).toBe(1);
   });
 });

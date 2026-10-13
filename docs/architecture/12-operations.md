@@ -265,7 +265,7 @@ changes.
 ## 7. Post-deploy smoke check
 
 `yarn smoke:post-deploy --base-url <url>` checks, in about 5 seconds, that a
-fresh deploy answers the five things a real school needs. It stops at the first
+fresh deploy answers the seven things a real school needs (7 checks). It stops at the first
 failure. Run it after every deploy and in every Epic 75 wave-close.
 
 ```mermaid
@@ -322,4 +322,6 @@ SMOKE_SUPER_ADMIN_EMAIL=superadmin@biddaloy.test SMOKE_SUPER_ADMIN_PASSWORD=$SEE
 | `GET /api/health`                           | [§3.1](#31-5xx-spike)                                                           |
 | `POST /api/v1/auth/login`                   | If Redis is down, `/auth/*` is closed on purpose: [§3.2](#32-readiness-failing) |
 | `GET /api/health/ready`                     | [§3.2](#32-readiness-failing)                                                   |
+| Any line ending `timeout`                   | The API is hung or unreachable in time: [§3.1](#31-5xx-spike)                   |
+| Any line ending `network error`             | Nothing answered at the base URL: check DNS, nginx and that the app is up       |
 | A read (`students`, `fees/dues`, `schools`) | [§3.1](#31-5xx-spike) for 5xx; a 401/403 means a smoke account lost its role    |
