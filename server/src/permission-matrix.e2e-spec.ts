@@ -14,6 +14,7 @@ import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
 import { RolesGuard } from './modules/auth/guards/context.guard';
 import { ROLES_KEY } from './modules/auth/decorators/roles.decorator';
 import { PERMISSIONS_KEY } from './modules/auth/decorators/require-permissions.decorator';
+import { AUTHENTICATED_ONLY_KEY } from './modules/auth/decorators/authenticated-only.decorator';
 import { REQUIRE_APPROVAL_KEY } from './modules/auth/decorators/require-approval.decorator';
 import {
   ALLOWLIST,
@@ -905,6 +906,7 @@ describe('Permission matrix (regression)', () => {
       hasPermissionsGuard: boolean;
       guards: unknown[];
       approvalScope: string | undefined;
+      authenticatedOnly: boolean;
     }) => void,
     // Default: PermissionsGuard routes only. `includeRolesGuardOnly` also visits routes guarded
     // by RolesGuard without PermissionsGuard, so a mirrored @Roles there cannot hide (#1357).
@@ -968,6 +970,10 @@ describe('Permission matrix (regression)', () => {
           approvalScope:
             Reflect.getMetadata(REQUIRE_APPROVAL_KEY, handler) ??
             Reflect.getMetadata(REQUIRE_APPROVAL_KEY, metatype),
+          authenticatedOnly:
+            Reflect.getMetadata(AUTHENTICATED_ONLY_KEY, handler) ??
+            Reflect.getMetadata(AUTHENTICATED_ONLY_KEY, metatype) ??
+            false,
         });
       }
     }
@@ -1050,6 +1056,29 @@ describe('Permission matrix (regression)', () => {
         );
       }
     });
+
+    expect(violations).toEqual([]);
+  });
+
+  it('[75.7] every IDENTITY_SCOPED route carries @AuthenticatedOnly(), and every @AuthenticatedOnly() route is IDENTITY_SCOPED', () => {
+    const violations: string[] = [];
+
+    walkRoutes(
+      ({ controllerName, methodLabel, fullPath, permissions, authenticatedOnly }) => {
+        const label = `${methodLabel} ${fullPath} (${controllerName})`;
+        const identityScoped = !!findIdentityScopedEntry(controllerName, methodLabel, fullPath);
+        if (identityScoped && !authenticatedOnly) {
+          violations.push(`${label} is IDENTITY_SCOPED but lacks @AuthenticatedOnly()`);
+        }
+        if (authenticatedOnly && !identityScoped) {
+          violations.push(`${label} has @AuthenticatedOnly() but no IDENTITY_SCOPED entry`);
+        }
+        if (authenticatedOnly && permissions.length > 0) {
+          violations.push(`${label} has both @AuthenticatedOnly() and @RequirePermissions()`);
+        }
+      },
+      { includeEveryRoute: true },
+    );
 
     expect(violations).toEqual([]);
   });

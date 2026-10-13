@@ -17,6 +17,7 @@ import {
   SurveyResultsDto,
   SurveyVisibleResult,
 } from './dto/survey-respond.dto';
+import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 type Tenant = { id: string; role: string };
 
@@ -32,6 +33,7 @@ type Tenant = { id: string; role: string };
 export class SurveyRespondController {
   constructor(private readonly respondService: SurveyRespondService) {}
 
+  @AuthenticatedOnly()
   @Get('mine')
   @ApiOperation({ summary: "OPEN surveys with the caller's pending teacher-subject pairs." })
   @ApiOkResponse({ type: [PendingSurveyDto] })
@@ -39,6 +41,7 @@ export class SurveyRespondController {
     return this.respondService.listMine(tenant.role, user.sub, tenant.id);
   }
 
+  @AuthenticatedOnly()
   @Post(':id/respond')
   @ApiOperation({ summary: 'Answer one teacher-subject pair, once (409 on repeat).' })
   respond(
@@ -65,6 +68,7 @@ export class SurveyRespondController {
 export class SurveyResultsController {
   constructor(private readonly resultsService: SurveyResultsService) {}
 
+  @AuthenticatedOnly()
   @Get(':id/results')
   @ApiOperation({ summary: 'Aggregated results per teacher-subject, hidden below min_responses.' })
   @ApiOkResponse({ type: SurveyResultsDto })

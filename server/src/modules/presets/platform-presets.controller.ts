@@ -22,6 +22,7 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { requestContext } from '../../common/request-context.util';
 import { PresetResetService } from './preset-reset.service';
 import { ResetPresetDto, ResetPresetResponseDto } from './dto/reset-preset.dto';
+import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 /** The school comes from the path, never from @CurrentTenant (the caller's own tenant is irrelevant). */
 @ApiTags('platform')
@@ -31,6 +32,7 @@ import { ResetPresetDto, ResetPresetResponseDto } from './dto/reset-preset.dto';
 export class PlatformPresetsController {
   constructor(private readonly reset: PresetResetService) {}
 
+  @AuthenticatedOnly()
   @Post(':id/preset/reset')
   @HttpCode(HttpStatus.OK)
   @Roles(UserRole.SUPER_ADMIN)

@@ -38,6 +38,7 @@ import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decora
 import { requestContext } from '../../../common/request-context.util';
 import { assertCanReadSchoolLogo } from './assert-can-read-school-logo.util';
 import { SchoolLogoService } from './logo.service';
+import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.decorator';
 
 const LOGO_MAX_FILE_SIZE = 512 * 1024;
 
@@ -63,6 +64,7 @@ const LOGO_MAX_FILE_SIZE = 512 * 1024;
 export class SchoolLogoController {
   constructor(private readonly logo: SchoolLogoService) {}
 
+  @AuthenticatedOnly()
   @Get(':id/logo')
   @ApiOperation({
     summary:
@@ -86,6 +88,7 @@ export class SchoolLogoController {
     return new StreamableFile(stream);
   }
 
+  @AuthenticatedOnly()
   @Post('me/logo')
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: LOGO_MAX_FILE_SIZE } }))
@@ -110,6 +113,7 @@ export class SchoolLogoController {
     return this.logo.upload(tenant.id, file.buffer, user.sub, requestContext(request));
   }
 
+  @AuthenticatedOnly()
   @Delete('me/logo')
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)

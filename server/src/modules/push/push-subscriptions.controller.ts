@@ -29,6 +29,7 @@ import {
   PushPublicKeyResponseDto,
   PushSubscriptionResponseDto,
 } from './dto/push-subscription.dto';
+import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 const ALL_ROLES = [...STAFF_ROLES, ...GUARDIAN_ROLES];
 
@@ -64,6 +65,7 @@ export class PushSubscriptionsController {
     private readonly subscriptions: PushSubscriptionsService,
   ) {}
 
+  @AuthenticatedOnly()
   @Get('public-key')
   @Roles(...ALL_ROLES)
   @ApiOperation({
@@ -76,6 +78,7 @@ export class PushSubscriptionsController {
     return { enabled, public_key: enabled ? this.pushConfig.getVapidPublicKey() : null };
   }
 
+  @AuthenticatedOnly()
   @Post('subscriptions')
   @HttpCode(HttpStatus.CREATED)
   @Roles(...ALL_ROLES)
@@ -94,6 +97,7 @@ export class PushSubscriptionsController {
     return toResponse(row);
   }
 
+  @AuthenticatedOnly()
   @Get('subscriptions')
   @Roles(...ALL_ROLES)
   @ApiOperation({
@@ -108,6 +112,7 @@ export class PushSubscriptionsController {
     return rows.map(toResponse);
   }
 
+  @AuthenticatedOnly()
   @Delete('subscriptions/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Roles(...ALL_ROLES)
@@ -122,6 +127,7 @@ export class PushSubscriptionsController {
     await this.subscriptions.remove(id, user.sub, tenant.id);
   }
 
+  @AuthenticatedOnly()
   @Delete('subscriptions')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Roles(...ALL_ROLES)

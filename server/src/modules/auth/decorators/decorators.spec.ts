@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ROLES_KEY, Roles } from './roles.decorator';
+import { AUTHENTICATED_ONLY_KEY, AuthenticatedOnly } from './authenticated-only.decorator';
 import { PERMISSIONS_KEY, RequirePermissions } from './require-permissions.decorator';
 import { Permission } from '@biddaloy/shared';
 import { Reflector } from '@nestjs/core';
@@ -53,6 +54,15 @@ describe('@Roles decorator', () => {
 describe('@Roles decorator metadata key', () => {
   it('should export the correct metadata key', () => {
     expect(ROLES_KEY).toBe('roles');
+  });
+});
+
+describe('@AuthenticatedOnly decorator', () => {
+  it('should set the metadata to true on the handler', () => {
+    const target = () => {};
+    AuthenticatedOnly()(target, 'test', undefined);
+
+    expect(new Reflector().get(AUTHENTICATED_ONLY_KEY, target)).toBe(true);
   });
 });
 

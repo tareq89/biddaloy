@@ -20,6 +20,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { ProvisioningService } from './provisioning.service';
 import { ProvisionSchoolDto } from './dto/provision-school.dto';
+import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.decorator';
 
 /**
  * `POST /schools` (#529) — SUPER_ADMIN console: create a school and its
@@ -35,6 +36,7 @@ import { ProvisionSchoolDto } from './dto/provision-school.dto';
 export class ProvisioningController {
   constructor(private readonly provisioning: ProvisioningService) {}
 
+  @AuthenticatedOnly()
   @Post()
   @Roles(UserRole.SUPER_ADMIN)
   @HttpCode(HttpStatus.CREATED)

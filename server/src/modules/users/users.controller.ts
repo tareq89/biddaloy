@@ -58,6 +58,7 @@ import { InvitationService } from '../account-access/invitation.service';
 import { GuardianProvisioningService } from '../account-access/guardian-provisioning.service';
 import { BatchInviteDto } from '../account-access/dto/batch-invite.dto';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
+import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 /** The `users/me` routes act on the caller's own record (id from the JWT), so
  * every tenant role belongs on them. Derived, not hand-listed, so a new role
@@ -258,6 +259,7 @@ export class UserController {
    * routes have no `ParseUUIDPipe` on their param, so Nest (which matches
    * in declaration order) would otherwise capture `me` as a user id. [5.4a]
    */
+  @AuthenticatedOnly()
   @Get('users/me')
   @Roles(...SELF_SERVICE_ROLES)
   @ApiOperation({
@@ -277,6 +279,7 @@ export class UserController {
   }
 
   /** [67.5.03] Own push mute by category. Declared above `users/:id` (see `GET users/me`). */
+  @AuthenticatedOnly()
   @Get('users/me/preferences/notifications')
   @Roles(...SELF_SERVICE_ROLES)
   @ApiOperation({
@@ -290,6 +293,7 @@ export class UserController {
     return this.userService.getNotificationPrefs(jwt.sub, tenant.id);
   }
 
+  @AuthenticatedOnly()
   @Patch('users/me/preferences/notifications')
   @Throttle({ default: SETTINGS_RATE_LIMIT })
   @Roles(...SELF_SERVICE_ROLES)
@@ -322,6 +326,7 @@ export class UserController {
    * expensive endpoints, which a single-row profile write is not, and 5/60s
    * would sit on top of a normal edit-and-fix-a-typo session. [5.4a]
    */
+  @AuthenticatedOnly()
   @Patch('users/me')
   @Throttle({ default: SETTINGS_RATE_LIMIT })
   @Roles(...SELF_SERVICE_ROLES)
@@ -347,6 +352,7 @@ export class UserController {
    * Same role list as the other `/users/me` routes; must stay declared
    * above `users/:id` for the same ordering reason as `GET users/me`.
    */
+  @AuthenticatedOnly()
   @Post('users/me/contact-change')
   @HttpCode(202)
   @Throttle({ default: SETTINGS_RATE_LIMIT })
@@ -364,6 +370,7 @@ export class UserController {
     return this.contactChangeService.request(jwt.sub, dto, requestContext(request));
   }
 
+  @AuthenticatedOnly()
   @Post('users/me/contact-change/confirm-phone')
   @HttpCode(200)
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -380,6 +387,7 @@ export class UserController {
   }
 
   /** [13.2.1, D16] Staff leave a school themselves. Declared above `users/:id`. */
+  @AuthenticatedOnly()
   @Post('users/me/leave')
   @HttpCode(204)
   @Roles(...SELF_SERVICE_ROLES)

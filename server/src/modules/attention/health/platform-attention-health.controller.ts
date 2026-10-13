@@ -7,6 +7,7 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { AttentionHealthService } from './attention-health.service';
 import { PlatformAttentionHealthDto } from './dto/platform-attention-health.dto';
+import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.decorator';
 
 /**
  * [67.1.09] `GET /platform/attention/health` — SUPER_ADMIN only. Same guard
@@ -21,6 +22,7 @@ import { PlatformAttentionHealthDto } from './dto/platform-attention-health.dto'
 export class PlatformAttentionHealthController {
   constructor(private readonly service: AttentionHealthService) {}
 
+  @AuthenticatedOnly()
   @Get('health')
   @ApiOperation({
     summary: 'Attention engine last sweeps, durations and failing rules. SUPER_ADMIN only.',
