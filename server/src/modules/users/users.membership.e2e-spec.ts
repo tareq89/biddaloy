@@ -8,6 +8,7 @@ import Redis from 'ioredis';
 import { AuthTokenPurpose, UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { AuthTokenService } from '../account-access/auth-token.service';
+import { CommunicationProviderRegistryService } from '../communications/providers/communication-provider.registry';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import {
@@ -330,9 +331,16 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
     process.env.NODE_ENV = 'test';
     // D6: the approval and sign-in endpoints echo the codes they send, so the spec can use them.
     process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
+    // Review R1: a proposal whose link (or code) was not delivered is a 503, and CI has no
+    // SMTP/SMS gateway, so this block's sends go to a gateway that accepts everything.
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(CommunicationProviderRegistryService)
+      .useValue({
+        resolve: () => ({ send: async () => ({ success: true, providerMessageId: 'e2e' }) }),
+      })
+      .compile();
     app = moduleFixture.createNestApplication();
     configureApiVersioning(app);
     app.use(cookieParser());
