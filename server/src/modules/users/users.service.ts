@@ -809,9 +809,10 @@ export class UserService {
         },
         manager,
       );
-      // [75.2] Durable DB cut-off, same transaction as the removal; JwtStrategy reads it.
-      await this.sessionCutoff.cutOff(userId, manager);
     });
+    // [75.2] Durable DB cut-off, after commit so a token minted while the transaction was
+    // open (a refresh still sees the membership) is older than it. JwtStrategy reads it.
+    await this.sessionCutoff.cutOff(userId);
     // After commit: every token the user already holds is refused, so removal
     // is immediate (D16). The client's 401 -> refresh drops the school.
     await this.accessTokenDenylist.revokeUserTokensIssuedBefore(

@@ -34,6 +34,7 @@ import {
   IssuedRefreshToken,
   RequestContext,
 } from './refresh-token.service';
+import { SessionCutoffService } from './session-cutoff.service';
 import { AccessTokenDenylistService } from './access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
 import { SessionDto } from './dto/session.dto';
@@ -88,6 +89,7 @@ export class AuthService {
     @Inject(ACCESS_TOKEN_TTL_MS) private readonly accessTokenTtlMs: number,
     @Inject(PushSubscriptionsService)
     private readonly pushSubscriptions: PushSubscriptionsService,
+    private readonly sessionCutoff: SessionCutoffService,
     // Inject JwtStrategy to force eager creation — PassportModule needs it
     // to discover the strategy for AuthGuard('jwt').
     @Optional() @Inject(JwtStrategy) private readonly _jwtStrategy?: JwtStrategy,
@@ -280,6 +282,8 @@ export class AuthService {
    */
   async logoutAll(userId: string, jti: string, context: RequestContext): Promise<void> {
     await this.refreshTokens.revokeAllForUser(userId);
+    // [75.2, D12] "Everywhere" includes the access tokens other devices hold.
+    await this.sessionCutoff.cutOff(userId);
     // [JOBS-12] No device may keep getting this user's pushes. A push-table
     // error must never block logout (same stance as the denylist below).
     try {

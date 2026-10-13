@@ -253,6 +253,23 @@ describe('POST /users/me/leave (e2e)', () => {
       .expect(403);
   });
 
+  it('a TEACHER cannot remove a member (403) and the target token keeps working', async () => {
+    const targetToken = await tokenFor(PARENT_EMAIL);
+
+    await request()
+      .delete(`/api/v1/users/${PARENT_ID}`)
+      .set('Authorization', `Bearer ${await tokenFor(STAFF_EMAIL)}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(403);
+
+    // Denied path: no cut-off was set.
+    await request()
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${targetToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(200);
+  });
+
   it('a PARENT cannot leave (403)', async () => {
     await request()
       .post('/api/v1/users/me/leave')

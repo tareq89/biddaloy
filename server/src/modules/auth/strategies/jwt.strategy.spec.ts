@@ -137,6 +137,20 @@ describe('JwtStrategy', () => {
       await expect(strategy.validate(p)).resolves.toEqual(p);
     });
 
+    it('boundary with a mocked clock: iat_ms == cut-off and +1 ms pass, -1 ms is refused', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(cut); // the app clock the cut-off was taken from
+      try {
+        findOne.mockResolvedValue(row({ tokens_valid_after: new Date() }));
+        const at = (ms: number) => payload({ iat: 1767225610, iat_ms: Date.now() + ms });
+        await expect(strategy.validate(at(-1))).rejects.toThrow('Token has been revoked');
+        await expect(strategy.validate(at(0))).resolves.toBeDefined();
+        await expect(strategy.validate(at(1))).resolves.toBeDefined();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('uses iat_ms when present: older ms is refused, newer ms is allowed', async () => {
       findOne.mockResolvedValue(row({ tokens_valid_after: cut }));
       await expect(

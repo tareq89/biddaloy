@@ -232,8 +232,6 @@ describe('AccountAccessController (e2e)', () => {
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .expect(200);
 
-      // Let the cut-off land in a later millisecond than the token's iat_ms.
-      await new Promise((r) => setTimeout(r, 20));
       const forgot = await supertest(app.getHttpServer())
         .post('/api/v1/auth/forgot-password')
         .send({ identifier: PHONE_NUMBER })
