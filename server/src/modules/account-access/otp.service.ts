@@ -17,8 +17,8 @@ export type OtpPurpose =
   | 'PASSWORD_RESET'
   | 'LOGIN'
   | 'PHONE_VERIFY'
-  /** D23: proves a school-proposed NEW email before it is applied. */
-  | 'EMAIL_VERIFY'
+  /** D23: proves a school-proposed NEW email or phone before it is applied (own keys, review n-new-1). */
+  | 'CONTACT_PROPOSAL'
   | 'REGISTER'
   | 'STEP_UP';
 export type OtpVerifyResult = 'ok' | 'invalid' | 'expired' | 'locked';

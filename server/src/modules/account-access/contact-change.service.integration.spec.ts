@@ -514,6 +514,28 @@ describe('ContactChangeService (integration)', () => {
       expect(row.email_verified_at).not.toBeNull();
     });
 
+    // Review n-new-1: proposal codes have their own OTP purpose, apart from self-service PHONE_VERIFY.
+    it("someone's self-service request to the same number neither blocks nor replaces the proposal code", async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { phone: NEW_PHONE });
+      const token = linkIn(sentTo()[0].body);
+      const { debug } = await service.confirmEmail(token, context, 'approve');
+      const other = await createMember({ phone: '+8801722222222', email: 'other@example.com' });
+
+      await expect(
+        service.request(
+          other.id,
+          { phone: NEW_PHONE, current_password: 'correct-password' },
+          context,
+        ),
+      ).resolves.toMatchObject({ channel: 'otp' });
+
+      const result = await service.confirmEmail(token, context, 'approve', {
+        phone_code: debug!.phone_code,
+      });
+      expect(result.status).toBe('valid');
+    });
+
     it('a code sent for one proposal does not confirm another value', async () => {
       const { user } = await sharedSetup();
       await propose(user.id, { phone: NEW_PHONE });
