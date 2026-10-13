@@ -7,6 +7,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { RefreshTokenService, REFRESH_TOKEN_TTL_MS } from './refresh-token.service';
 import { User } from '../users/entities/user.entity';
+import { RefreshToken } from './entities/refresh-token.entity';
 
 /**
  * Review m-new-2: a refresh rotation and a "revoke every session" must not interleave so that the
@@ -20,16 +21,17 @@ describe('RefreshTokenService (integration): rotation vs revoke-all', () => {
   const context = { ip: '127.0.0.1', userAgent: 'vitest' };
 
   beforeAll(async () => {
-    module = await createTestModule(ALL_ENTITIES, [
-      RefreshTokenService,
-      { provide: REFRESH_TOKEN_TTL_MS, useValue: 3_600_000 },
-    ]);
+    // ALL_ENTITIES leaves RefreshToken out.
+    module = await createTestModule(
+      [...ALL_ENTITIES, RefreshToken],
+      [RefreshTokenService, { provide: REFRESH_TOKEN_TTL_MS, useValue: 3_600_000 }],
+    );
     dataSource = module.get(DataSource);
     service = module.get(RefreshTokenService);
   });
 
   afterAll(async () => {
-    await module.close();
+    await module?.close();
   });
 
   const liveTokens = async (userId: string) =>
