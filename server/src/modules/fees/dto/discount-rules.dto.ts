@@ -9,6 +9,7 @@ import {
   IsBoolean,
   MaxLength,
   Min,
+  Max,
   MinLength,
   Validate,
   ValidationArguments,
@@ -18,6 +19,7 @@ import {
 import { DiscountKind, FeeType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { DiscountRule } from '../entities/discount-rule.entity';
+import { MONEY_MAX } from '../../../common/constants/money';
 
 /**
  * [CodeRabbit review, PR #801] `@ValidateIf` on a property gates *every*
@@ -49,7 +51,8 @@ export class CreateDiscountRuleDto {
   @IsEnum(DiscountKind)
   kind: DiscountKind;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0)
   // A PERCENT rule over 100 is nonsensical; matches the DB-level
   // CHK_discount_rules_percent_range check — checked here too so a bad
@@ -86,7 +89,8 @@ export class UpdateDiscountRuleDto {
   kind?: DiscountKind;
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0)
   // Only actually enforces the <=100 bound when `kind` is also in this
   // same patch and PERCENT — a value-only PATCH against an existing

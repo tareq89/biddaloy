@@ -105,7 +105,7 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
     {
       ...(classId !== ALL_VALUE ? { class_id: classId } : {}),
       ...(sectionId !== ALL_VALUE ? { section_id: sectionId } : {}),
-      limit: 200,
+      limit: 100, // ponytail: server caps limit at 100; a preview over 100 students needs paging
     },
     { enabled: preview !== null },
   );

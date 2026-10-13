@@ -214,7 +214,7 @@ function serve(
         })),
         total: ids.length,
         page: 1,
-        limit: 1000,
+        limit: 100,
         totalPages: 1,
       });
     }),
@@ -641,7 +641,7 @@ describe('IssueCertificateModal', () => {
           data: [{ ...student, roll_number: 1 }],
           total: 1500,
           page: 1,
-          limit: 1000,
+          limit: 100,
           totalPages: 2,
         }),
       ),

@@ -268,7 +268,7 @@ export async function seededFirstTermExamId(
   const exams = await get<{ data: { id: string; name: string }[] }>(
     request,
     session,
-    '/exams?limit=1000',
+    '/exams?limit=100',
   );
   const exam = exams.data.find((e) => e.name === 'First Term Exam');
   if (!exam) throw new Error('No seeded "First Term Exam" — has `yarn seed` run?');
@@ -845,7 +845,7 @@ export async function createTeacher(
   });
   if (sectionId) {
     // The assign endpoint is keyed by class too; callers only hold the section id.
-    const classes = await get<{ data: { id: string }[] }>(request, session, '/classes?limit=1000');
+    const classes = await get<{ data: { id: string }[] }>(request, session, '/classes?limit=100');
     let assigned = false;
     for (const { id: classId } of classes.data) {
       const sections = await get<{ id: string }[]>(
@@ -1373,7 +1373,7 @@ export async function findSeedSectionA(
   const classes = await get<{ data: { id: string; name: string; academic_year_id: string }[] }>(
     request,
     session,
-    '/classes?limit=1000',
+    '/classes?limit=100',
   );
   const klass = classes.data.find((c) => c.name === 'Class 6');
   if (!klass) throw new Error('seeded "Class 6" not found — run the seed script first');

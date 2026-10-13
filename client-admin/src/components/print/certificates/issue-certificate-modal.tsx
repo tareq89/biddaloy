@@ -179,11 +179,11 @@ export function IssueCertificateModal({
   const className = student?.class_section?.class?.name ?? '';
   const wantsGraduated = kind === DocumentKind.TESTIMONIAL;
   const classActive = useStudents(
-    { ...(classId ? { class_id: classId } : {}), enrollment_status: 'ACTIVE', limit: 1000 },
+    { ...(classId ? { class_id: classId } : {}), enrollment_status: 'ACTIVE', limit: 100 },
     { enabled: bulk && Boolean(classId) },
   );
   const classGraduated = useStudents(
-    { ...(classId ? { class_id: classId } : {}), enrollment_status: 'GRADUATED', limit: 1000 },
+    { ...(classId ? { class_id: classId } : {}), enrollment_status: 'GRADUATED', limit: 100 },
     { enabled: bulk && Boolean(classId) && wantsGraduated },
   );
   const [excluded, setExcluded] = React.useState<ReadonlySet<string>>(new Set());

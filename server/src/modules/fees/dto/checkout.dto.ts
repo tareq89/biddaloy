@@ -10,6 +10,7 @@ import {
   ArrayMinSize,
   ArrayMaxSize,
   Min,
+  Max,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
@@ -18,6 +19,7 @@ import { FeeType, PaymentMethod, PeriodType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { MAX_CART_STUDENTS } from '../checkout-cart.service';
 import { Payment } from '../entities/payment.entity';
+import { MONEY_MAX } from '../../../common/constants/money';
 
 /**
  * `GET /payments/cart` (16.4.1) — everything the Record Payment modal needs
@@ -40,7 +42,8 @@ export class QueryCheckoutCartDto {
   /** Amount to suggest an allocation for. Omitted → no `suggested` block. */
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0)
   amount?: number;
 }
@@ -53,6 +56,7 @@ export class CheckoutLineDto {
   /** Amount allocated to this bill's `paid_amount` — not net of
    * `one_off_discount`, which is tracked (and settles the bill) separately. */
   @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0.01)
   amount: number;
 
@@ -61,6 +65,7 @@ export class CheckoutLineDto {
    * — one token covers every discounted line in the whole checkout. */
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0)
   one_off_discount?: number = 0;
 }
@@ -102,6 +107,7 @@ export class CheckoutDto {
    * owed after wallet credit, i.e. no change. */
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0)
   tendered_amount?: number;
 
@@ -109,6 +115,7 @@ export class CheckoutDto {
    * Must not exceed that wallet's balance. */
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0)
   wallet_use?: number;
 
