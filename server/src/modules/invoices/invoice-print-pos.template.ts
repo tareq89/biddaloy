@@ -153,7 +153,7 @@ export function renderInvoicePosHtml(
 </head>
 <body>
   <div class="section center">
-    ${issuer.logo_key && logoDataUrl ? `<img class="logo" src="${escapeHtml(logoDataUrl)}" alt="${escapeHtml(issuer.name)}" onerror="this.style.display='none'" />` : ''}
+    ${issuer.logo_key && logoDataUrl ? `<img class="logo" src="${escapeHtml(logoDataUrl)}" alt="${escapeHtml(issuer.name)}" />` : ''}
     <div class="school-name">${escapeHtml(issuer.name)}</div>
     ${issuer.address ? `<div class="school-detail">${escapeHtml(issuer.address)}</div>` : ''}
     ${issuer.phone ? `<div class="school-detail">${escapeHtml(issuer.phone)}</div>` : ''}
