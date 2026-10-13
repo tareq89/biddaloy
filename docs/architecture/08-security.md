@@ -329,6 +329,35 @@ seen by the client.
   very next request. `iat_ms` is taken before the memberships are read, so a
   token signed during the removal never outlives it.
 
+**Session cut-off (75.2, D12)** — the DB-backed cut-off. One column,
+`users.tokens_valid_after`, and one primary-key read per request in
+`JwtStrategy` (`server/src/modules/auth/strategies/jwt.strategy.ts`). No Redis.
+
+```mermaid
+flowchart LR
+  R["Request + access token"] --> S{"signature ok?"}
+  S -- no --> X[401]
+  S -- yes --> D{"jti / user denylisted? (Redis)"}
+  D -- yes --> X
+  D -- no --> U{"users row live, ACTIVE,<br/>token newer than tokens_valid_after?"}
+  U -- no --> X
+  U -- yes --> OK[allow]
+```
+
+- What sets it (`SessionCutoffService.cutOff`): removing or leaving a school
+  (same transaction as the membership delete), a completed password reset
+  (self-service or admin-started).
+- What does not: `POST /auth/change-password` (the caller keeps their own
+  token), `logout-all` and `DELETE /auth/sessions/:id` (still the `jti` denylist).
+- A user who is soft-deleted or not `ACTIVE` (for example `SUSPENDED`) is also
+  refused on the next request.
+- Precision: the token's `iat_ms` is compared with the cut-off in milliseconds.
+  A legacy token with only whole-second `iat` that was minted in the same
+  second as the cut-off survives (`<`, not `<=`, so a refresh racing the
+  cut-off is never rejected in a loop).
+- Example: admin removes Rahim from school A at 10:00:00.000 -> his token
+  issued 09:55 gets 401 -> the client refreshes -> the new token has no school A.
+
 Expired `refresh_tokens` rows (revoked or not) are deleted by an hourly
 BullMQ job (`refresh-token-cleanup.processor.ts`/`.scheduler.ts`).
 

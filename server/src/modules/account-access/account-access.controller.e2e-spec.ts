@@ -219,6 +219,45 @@ describe('AccountAccessController (e2e)', () => {
         .expect(200);
     });
 
+    // [75.2] A reset ends every session at once, access tokens included.
+    it('an access token issued before a reset gets 401 afterwards; a fresh login works', async () => {
+      const before = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ phone: PHONE_NUMBER, password: 'A-brand-new-password1' })
+        .expect(200);
+      const oldToken = before.body.access_token;
+      await supertest(app.getHttpServer())
+        .get('/api/v1/users/me')
+        .set('Authorization', `Bearer ${oldToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .expect(200);
+
+      // Let the cut-off land in a later millisecond than the token's iat_ms.
+      await new Promise((r) => setTimeout(r, 20));
+      const forgot = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/forgot-password')
+        .send({ identifier: PHONE_NUMBER })
+        .expect(202);
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/reset-password')
+        .send({
+          new_password: 'A-brand-new-password1',
+          phone: PHONE_NUMBER,
+          otp: forgot.body.debug.otp,
+        })
+        .expect(200);
+
+      await supertest(app.getHttpServer())
+        .get('/api/v1/users/me')
+        .set('Authorization', `Bearer ${oldToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .expect(401);
+      await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ phone: PHONE_NUMBER, password: 'A-brand-new-password1' })
+        .expect(200);
+    });
+
     // D6's echo flag is ON for this whole spec (the recovery-flow test above
     // needs it), which necessarily makes `debug` differ between a known and
     // an unknown identifier — that field is exactly what the flag exists to

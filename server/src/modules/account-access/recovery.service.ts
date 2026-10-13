@@ -18,6 +18,7 @@ import { UserIdentity } from '../auth/entities/user-identity.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService, AuthResult } from '../auth/auth.service';
 import { RefreshTokenService, RequestContext } from '../auth/refresh-token.service';
+import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { toLatinDigits } from '../../common/utils/bengali-digits.util';
 import { OtpService } from './otp.service';
@@ -62,6 +63,7 @@ export class RecoveryService {
     private readonly delivery: AccountAccessDeliveryService,
     private readonly authService: AuthService,
     private readonly refreshTokens: RefreshTokenService,
+    private readonly sessionCutoff: SessionCutoffService,
     private readonly auditService: AuditService,
     private readonly config: ConfigService,
   ) {}
@@ -298,6 +300,7 @@ export class RecoveryService {
     // must not leave a stolen/compromised session alive while the OTP/link
     // is in flight.
     await this.refreshTokens.revokeAllForUser(user.id);
+    await this.sessionCutoff.cutOff(user.id); // [75.2] access tokens too, not just refresh
 
     let expires_at: Date;
     if (code !== null) {
@@ -479,6 +482,7 @@ export class RecoveryService {
     });
 
     await this.refreshTokens.revokeAllForUser(user.id);
+    await this.sessionCutoff.cutOff(user.id); // [75.2] access tokens too, not just refresh
     await this.authService.resetLoginLockouts(user);
 
     await this.auditService.record({

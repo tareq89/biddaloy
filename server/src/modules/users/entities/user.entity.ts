@@ -64,6 +64,11 @@ export class User {
   @Column({ type: 'timestamptz', nullable: true })
   phone_verified_at: Date | null;
 
+  /** [75.2] Access tokens issued before this moment are refused. NULL = no cut-off.
+   * select:false: only JwtStrategy reads it, never an API response. */
+  @Column({ type: 'timestamptz', nullable: true, select: false })
+  tokens_valid_after: Date | null;
+
   // Hidden from every generated OpenAPI schema regardless of which class
   // references User (Teacher.user, Invoice.issued_by, and any entity that
   // ever gains a User relation later) — controllers additionally strip
