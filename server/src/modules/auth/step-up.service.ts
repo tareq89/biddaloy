@@ -32,6 +32,7 @@ import { SchoolsService } from '../schools/schools.service';
 import { StepUpVerifyDto, StepUpApprovalResponse } from './dto/step-up.dto';
 import { isSecretEchoEnabled } from '../account-access/account-access-echo';
 import { verifyPassword } from './password-hash';
+import { APPROVAL_TOKEN_AUDIENCE } from './jwt-secrets';
 
 export const STEP_UP_REDIS = 'STEP_UP_REDIS';
 
@@ -208,7 +209,10 @@ export class StepUpService {
       jti,
       typ: 'approval',
     };
-    const approval_token = this.jwtService.sign(payload, { expiresIn: APPROVAL_TOKEN_TTL_SECONDS });
+    const approval_token = this.jwtService.sign(payload, {
+      expiresIn: APPROVAL_TOKEN_TTL_SECONDS,
+      audience: APPROVAL_TOKEN_AUDIENCE,
+    });
     const expiresAt = new Date(Date.now() + APPROVAL_TOKEN_TTL_SECONDS * 1000);
 
     // Single-use marker other tickets (16.2.3/16.2.4) consume-and-delete

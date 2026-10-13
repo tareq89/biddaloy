@@ -215,5 +215,15 @@ describe('JwtStrategy', () => {
     it('hands back the current secret when no previous secret is set (so verify fails)', async () => {
       expect(await provide(undefined, sign(PREVIOUS))).toBe(CURRENT);
     });
+
+    // [75.9 review r1] an expired current-secret token keeps the current key, so passport
+    // reports "jwt expired" rather than falling back to previous and "invalid signature".
+    it('hands back the current secret for an expired token signed with it', async () => {
+      const expired = new JwtService({}).sign(
+        { sub: 'u', exp: Math.floor(Date.now() / 1000) - 60 },
+        { secret: CURRENT },
+      );
+      expect(await provide(PREVIOUS, expired)).toBe(CURRENT);
+    });
   });
 });

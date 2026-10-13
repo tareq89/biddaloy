@@ -6,6 +6,8 @@ export type SecretSource = { get(key: string): string | undefined };
 export const JWT_ALGORITHM = 'HS256' as const;
 export const JWT_ISSUER = 'biddaloy';
 export const ACCESS_TOKEN_AUDIENCE = 'biddaloy:access';
+/** Step-up approval tokens (X-Approval-Token): never interchangeable with an access token. */
+export const APPROVAL_TOKEN_AUDIENCE = 'biddaloy:approval';
 
 /** Current secret first; JWT_SECRET_PREVIOUS (verify-only, D21) second when set and non-empty. */
 export function jwtVerifySecrets(config: SecretSource): string[] {

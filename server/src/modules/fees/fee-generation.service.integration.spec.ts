@@ -7,6 +7,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { APPROVAL_TOKEN_AUDIENCE } from '../auth/jwt-secrets';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { FeeGenerationService, NoopDiscountResolver } from './fee-generation.service';
@@ -132,7 +133,7 @@ describe('FeeGenerationService (integration)', () => {
         scope: ApprovalScope.FEES_DUPLICATE_OVERRIDE,
         jti,
       },
-      { expiresIn: 300 },
+      { expiresIn: 300, audience: APPROVAL_TOKEN_AUDIENCE },
     );
   }
 

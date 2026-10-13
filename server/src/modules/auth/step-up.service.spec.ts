@@ -165,7 +165,7 @@ describe('StepUpService', () => {
           jti: expect.any(String),
           typ: 'approval',
         },
-        { expiresIn: 300 },
+        { expiresIn: 300, audience: 'biddaloy:approval' },
       );
       expect(result.approval_token).toBe('signed.jwt.token');
       expect(result.approver).toEqual({ id: APPROVER.id, full_name: APPROVER.full_name });

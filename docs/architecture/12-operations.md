@@ -183,14 +183,19 @@ stateDiagram-v2
 Order of events (a probe runs every 30 s, so about 90 s after Redis dies):
 
 1. A `platform_alerts` row `REDIS_DOWN` opens (at most one open row, enforced by a unique index).
-2. Every verified SUPER_ADMIN phone gets a text, then another every hour:
+2. Every verified phone of a platform SUPER_ADMIN (a SUPER_ADMIN of the platform tenant) gets a
+   text, then another every hour. With no platform tenant (production without `PLATFORM_TENANT_ID`)
+   only `PLATFORM_ALERT_PHONES` is texted, never a school's SUPER_ADMIN:
    `[production] ALERT: Redis is down since 08:02 UTC. Sign-in is closed. Repeats hourly until fixed.`
-3. `GET /api/v1/platform/alerts` (SUPER_ADMIN only) returns the open row for the banner (75.35).
+3. `GET /api/v1/platform/alerts` (platform SUPER_ADMIN only; a school's SUPER_ADMIN gets 403) returns the open row for the banner (75.35).
 4. The first good probe clears the row and sends one text:
    `[production] RECOVERED: Redis is back at 08:40 UTC after 38 min. Sign-in is open again.`
 
 Limit: a SUPER_ADMIN's 15-minute access token keeps working, but once it expires `/auth/refresh` is
 closed too, so the banner can no longer be reached. The SMS is the channel that still arrives.
+
+Limit: with several API instances in a partial partition (one reaches Redis, another does not), the
+alert re-opens and closes about every 2 minutes, so ALERT and RECOVERED texts repeat.
 
 **Confirm recovery:** `GET /api/v1/platform/alerts` returns `{ "alerts": [] }` and `/health/ready`
 shows `"redis": "ok"`.

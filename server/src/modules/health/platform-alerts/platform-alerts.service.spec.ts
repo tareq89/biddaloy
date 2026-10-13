@@ -186,6 +186,23 @@ describe('PlatformAlertsService', () => {
       expect(f.greenweb.sendSms).not.toHaveBeenCalled();
     });
 
+    // [75.34 review r1, F-2441-3] the raw provider body can echo the full number.
+    it('logs the send status only, never the raw provider response', async () => {
+      const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+      const f = fakes(open);
+      f.greenweb.sendSms.mockResolvedValue({
+        success: true,
+        outcome: 'ACCEPTED',
+        providerMessageId: 'm-1',
+        raw: { to: '01711111111' },
+      });
+      for (let i = 0; i < 3; i++) await f.service.tick();
+      const lines = log.mock.calls.map((c) => String(c[0]));
+      const sent = lines.find((l) => l.startsWith('platform alert SMS to ***111'));
+      expect(sent).toContain('"providerMessageId":"m-1"');
+      expect(lines.join('\n')).not.toContain('01711111111');
+    });
+
     it('logs the "not configured" line and calls no gateway when the API key is unset', async () => {
       const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
       const f = fakes({ ...open, env: {} });

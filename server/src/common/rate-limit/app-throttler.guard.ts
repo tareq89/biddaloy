@@ -13,19 +13,26 @@ const KEEP_WORKING_WITHOUT_REDIS = [
   'DELETE /auth/sessions/:id',
 ];
 
+// Outside /auth/ but checks the caller's current password: with no rate limiter, a stolen
+// access token could guess the password without limit and then take over the account.
+const ALSO_CLOSED_WITHOUT_REDIS = ['POST /users/me/contact-change'];
+
 /**
- * True for the sign-in, code, reset, register and step-up routes: with no rate limiter they
- * would be open to unlimited guessing, so they must answer 503 while Redis is down.
+ * True for the sign-in, code, reset, register and step-up routes, and any other route that
+ * checks a password: with no rate limiter they would be open to unlimited guessing, so they
+ * must answer 503 while Redis is down.
  */
 export function requiresRedis(method: string, path: string): boolean {
   const rest = path.replace(/^\/api\/v\d+/, '');
+  const route = `${method.toUpperCase()} ${rest}`;
+  if (ALSO_CLOSED_WITHOUT_REDIS.includes(route)) return true;
   if (!rest.startsWith('/auth/')) return false;
-  return !KEEP_WORKING_WITHOUT_REDIS.includes(`${method.toUpperCase()} ${rest}`);
+  return !KEEP_WORKING_WITHOUT_REDIS.includes(route);
 }
 
 /**
  * The global rate-limit guard. Behaves exactly like ThrottlerGuard while Redis is up. While
- * it is down: `/auth/*` sign-in routes answer 503, everything else is served (fail open; the
+ * it is down: `/auth/*` sign-in routes and password-checking routes answer 503, everything else is served (fail open; the
  * storage already logged the error).
  */
 @Injectable()
