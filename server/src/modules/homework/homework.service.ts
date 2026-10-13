@@ -158,14 +158,18 @@ export class HomeworkService {
           if (homeroomClassIds.length)
             w.where('h.class_id IN (:...homeroomClassIds)', { homeroomClassIds });
           else w.where('1 = 0');
-          rows
-            .filter((r) => r.subject_id !== null)
-            .forEach((r, i) =>
-              w.orWhere(`(h.class_id = :c${i} AND h.subject_id = :s${i})`, {
-                [`c${i}`]: r.class_id,
-                [`s${i}`]: r.subject_id,
-              }),
-            );
+          // One term per distinct (class, subject), skipping classes the homeroom already covers.
+          const subjectTerms = new Map(
+            rows
+              .filter((r) => r.subject_id !== null && !homeroomClassIds.includes(r.class_id))
+              .map((r) => [`${r.class_id}:${r.subject_id}`, r] as const),
+          );
+          [...subjectTerms.values()].forEach((r, i) =>
+            w.orWhere(`(h.class_id = :c${i} AND h.subject_id = :s${i})`, {
+              [`c${i}`]: r.class_id,
+              [`s${i}`]: r.subject_id,
+            }),
+          );
         }),
       );
     }

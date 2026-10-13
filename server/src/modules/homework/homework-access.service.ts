@@ -126,6 +126,12 @@ export class HomeworkAccessService {
     throw new ForbiddenException('This role cannot manage homework');
   }
 
+  /** An unknown student looks exactly like an out-of-scope one to a TEACHER (404, D13). */
+  private studentMiss(role: string) {
+    const msg = 'You do not have access to this student';
+    return role === UserRole.TEACHER ? new NotFoundException(msg) : new ForbiddenException(msg);
+  }
+
   /** Resolves a student's `section_id` so a single-student assignment can
    * reuse `assertCanManageSection` against the student's actual section. */
   async assertCanManageStudent(
@@ -138,9 +144,7 @@ export class HomeworkAccessService {
     const student = await this.studentRepo.findOne({
       where: { id: studentId, tenant_id: tenantId },
     });
-    if (!student) {
-      throw new ForbiddenException('You do not have access to this student');
-    }
+    if (!student) throw this.studentMiss(role);
     await this.assertCanManageSection(role, userId, student.class_section_id, subjectId, tenantId);
   }
 
@@ -211,9 +215,7 @@ export class HomeworkAccessService {
     const student = await this.studentRepo.findOne({
       where: { id: studentId, tenant_id: tenantId },
     });
-    if (!student) {
-      throw new ForbiddenException('You do not have access to this student');
-    }
+    if (!student) throw this.studentMiss(role);
     await this.assertCanViewSection(role, userId, student.class_section_id, tenantId);
   }
 

@@ -222,6 +222,20 @@ describe('performance (28.3.5)', () => {
     ).expect(404);
   });
 
+  it('teacher gets 404 for a student enrolled in a section they do not teach (D13)', async () => {
+    const outId = await insertStudent(SEED_TENANT_ID, SEED_SECTION_2_ID);
+    await ds.query(
+      `INSERT INTO enrollments (id, tenant_id, student_id, class_id, section_id, academic_year_id, enrollment_status)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'ACTIVE')`,
+      [SEED_TENANT_ID, outId, SEED_CLASS_1_ID, SEED_SECTION_2_ID, SEED_ACADEMIC_YEAR_ID],
+    );
+    await as(
+      supertest(app.getHttpServer()).get(`${API}/performance/students/${outId}?${year}`),
+      teacherToken,
+      UserRole.TEACHER,
+    ).expect(404);
+  });
+
   it('section outside the class is 404 (lookup runs before scope check)', async () => {
     await as(
       supertest(app.getHttpServer()).get(
