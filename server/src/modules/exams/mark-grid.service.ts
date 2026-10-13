@@ -27,7 +27,7 @@ import { AttendanceComponentService } from './attendance-component.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
-import { joinedAfterExam, lastSittingDate, subjectSitters } from './exam-cohort';
+import { effectiveSittingDate, joinedAfterExam, subjectSitters } from './exam-cohort';
 
 /**
  * [pr-fix #945] The single serialization point for one grid's marks and
@@ -149,7 +149,7 @@ export class MarkGridService {
     enrollments: Enrollment[],
   ): Promise<Set<string>> {
     if (enrollments.length === 0) return new Set();
-    const lastSitting = await lastSittingDate(manager, exam, tenantId);
+    const lastSitting = await effectiveSittingDate(manager, exam, tenantId);
     const late = enrollments.filter((e) => joinedAfterExam(e.enrolled_at, lastSitting));
     if (late.length === 0) return new Set();
     const withMark = await manager.getRepository(Mark).find({

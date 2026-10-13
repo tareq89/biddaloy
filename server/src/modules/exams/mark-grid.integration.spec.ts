@@ -319,6 +319,29 @@ describe('MarkGridService blank cells (integration)', () => {
     expect(outstanding.filter((o) => o.section_id === secA)).toEqual([]);
   });
 
+  it('no schedule and no term: someone enrolled after the first mark write is a late joiner, as in the cohort rule', async () => {
+    await mark(await student(secA), MarkStatus.PRESENT, '70.00');
+    const joiner = await student(secA);
+    await dataSource
+      .getRepository(Enrollment)
+      .update(
+        { student_id: joiner },
+        { enrolled_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) },
+      );
+
+    // The joiner has no marks and owes none, so the grid can be submitted.
+    await expect(submit(secA)).resolves.toMatchObject({ state: MarkGridState.SUBMITTED });
+    const grid = await grids.getGrid(
+      examId,
+      secA,
+      subjectId,
+      SEED_TENANT_ID,
+      UserRole.ADMIN,
+      SEED_ADMIN_USER_ID,
+    );
+    expect(grid.students.find((s) => s.id === joiner)?.joined_after_exam).toBe(true);
+  });
+
   it('X-06: a student moved into a submitted sheet blocks process until forced', async () => {
     await mark(await student(secB), MarkStatus.PRESENT, '60.00');
     await submit(secB);

@@ -36,6 +36,29 @@ export async function lastSittingDate(
   return term?.end_date ?? null;
 }
 
+/**
+ * The sitting date every late-joiner rule uses: the last schedule/term date,
+ * else — when the exam has neither — the day of the first mark write. Marks
+ * are only ever written after the sitting, so that day is a safe stand-in
+ * (created_at, not updated_at: a grid re-save must not move it). No marks at
+ * all: nobody can be told apart, so null and nobody is late.
+ */
+export async function effectiveSittingDate(
+  manager: EntityManager,
+  exam: Exam,
+  tenantId: string,
+): Promise<string | null> {
+  const scheduled = await lastSittingDate(manager, exam, tenantId);
+  if (scheduled) return scheduled;
+  const row = await manager
+    .getRepository(Mark)
+    .createQueryBuilder('m')
+    .select('MIN(m.created_at)', 'first_mark_at')
+    .where('m.exam_id = :examId AND m.tenant_id = :tenantId', { examId: exam.id, tenantId })
+    .getRawOne<{ first_mark_at: Date | null }>();
+  return row?.first_mark_at ? new Date(row.first_mark_at).toISOString().slice(0, 10) : null;
+}
+
 /** True when the enrollment started after the last sitting. Whole-day
  * comparison in UTC; a few hours of time-zone slop only ever keeps a
  * student in, never drops one. */
@@ -70,7 +93,7 @@ export async function loadExamCohort(
   exam: Exam,
   tenantId: string,
 ): Promise<{ members: CohortMember[]; studentsWithResult: Set<string> }> {
-  const [results, marks, scheduled] = await Promise.all([
+  const [results, marks, lastSitting] = await Promise.all([
     manager
       .getRepository(Result)
       .find({ where: { exam_id: exam.id, tenant_id: tenantId, deleted_at: IsNull() } }),
@@ -78,27 +101,14 @@ export async function loadExamCohort(
       .getRepository(Mark)
       .createQueryBuilder('m')
       .select('m.student_id', 'student_id')
-      .addSelect('MIN(m.created_at)', 'first_mark_at')
       .where('m.exam_id = :examId AND m.tenant_id = :tenantId', { examId: exam.id, tenantId })
       .groupBy('m.student_id')
-      .getRawMany<{ student_id: string; first_mark_at: Date }>(),
-    lastSittingDate(manager, exam, tenantId),
+      .getRawMany<{ student_id: string }>(),
+    effectiveSittingDate(manager, exam, tenantId),
   ]);
   const studentsWithResult = new Set(results.map((r) => r.student_id));
   const resultSection = new Map(results.map((r) => [r.student_id, r.section_id]));
   const studentsWithMark = new Set(marks.map((m) => m.student_id));
-
-  // No schedule and no term: the sitting date is unknown. Marks are only
-  // ever written after the sitting, so the first mark write is a safe
-  // stand-in — anyone enrolled after that day joined late and needs marks
-  // of their own. created_at, not updated_at: a grid re-save must not move it.
-  // No marks at all: nobody can be told apart, so nobody is late.
-  const firstMarkAt = marks.reduce<number | null>((min, m) => {
-    const t = new Date(m.first_mark_at).getTime();
-    return min === null || t < min ? t : min;
-  }, null);
-  const lastSitting =
-    scheduled ?? (firstMarkAt === null ? null : new Date(firstMarkAt).toISOString().slice(0, 10));
 
   const all = await manager.getRepository(Enrollment).find({
     where: {

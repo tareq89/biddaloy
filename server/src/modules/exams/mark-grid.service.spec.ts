@@ -17,11 +17,11 @@ import { MarksAuthorizationService } from './marks-authorization.util';
 import { AuditService } from '../audit/audit.service';
 import { ExamStatus, MarkGridState, UserRole } from '@biddaloy/shared';
 
-// lastSittingDate runs raw SQL; the rule itself (joinedAfterExam) stays real.
+// effectiveSittingDate runs raw SQL; the rule itself (joinedAfterExam) stays real.
 const sitting = vi.hoisted(() => ({ date: null as string | null }));
 vi.mock('./exam-cohort', async (orig) => ({
   ...(await orig<typeof import('./exam-cohort')>()),
-  lastSittingDate: vi.fn(async () => sitting.date),
+  effectiveSittingDate: vi.fn(async () => sitting.date),
 }));
 
 const TENANT_ID = 'tenant-1';
