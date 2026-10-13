@@ -121,6 +121,15 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      # [75.10] Compose must refuse an empty environment (required vars use
+      # `${VAR:?...}`), so a deploy with a forgotten .env fails loudly.
+      - name: Compose refuses an empty env
+        run: |
+          if env -i PATH="$PATH" docker compose config -q 2>/dev/null; then
+            echo "docker compose accepted an empty environment" >&2
+            exit 1
+          fi
+          echo "compose refuses an empty env"
       - name: Run infra tests
         run: |
           for t in $(git ls-files '*.infra.test.sh'); do

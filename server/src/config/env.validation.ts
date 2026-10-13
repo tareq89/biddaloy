@@ -6,8 +6,10 @@ import {
   IsString,
   Matches,
   MinLength,
+  ValidateIf,
   validateSync,
 } from 'class-validator';
+import { isValidOrigin } from '../cors-origins';
 
 const POSITIVE_INTEGER = /^[1-9]\d*$/;
 
@@ -22,6 +24,27 @@ class EnvironmentVariables {
   @IsNotEmpty()
   @MinLength(32)
   JWT_SECRET!: string;
+
+  // Verify-only previous signing secret during a JWT_SECRET rotation (see
+  // docs/architecture/08-security.md). An empty value counts as unset.
+  @ValidateIf((o: EnvironmentVariables) => !!o.JWT_SECRET_PREVIOUS)
+  @IsString()
+  @MinLength(32)
+  JWT_SECRET_PREVIOUS?: string;
+
+  // Read straight off process.env by StorageService / HealthController;
+  // declared so assertProductionConfig can vet them. Format is not checked.
+  @IsOptional()
+  @IsString()
+  S3_ACCESS_KEY_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  S3_SECRET_ACCESS_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  HEALTH_TOKEN?: string;
 
   @IsOptional()
   @IsIn(NODE_ENVS)
@@ -275,5 +298,73 @@ export function validate(config: Record<string, unknown>) {
     throw new Error(errors.toString());
   }
 
+  if (config.NODE_ENV === 'production') {
+    assertProductionConfig(config);
+  }
+
   return validatedConfig;
+}
+
+const PLACEHOLDER = /change-?me|replace-?me|do-not-use|placeholder|example/i;
+const PLACEHOLDER_KEYS = [
+  'JWT_SECRET',
+  'JWT_SECRET_PREVIOUS',
+  'SETTINGS_ENCRYPTION_KEY',
+  'S3_ACCESS_KEY_ID',
+  'S3_SECRET_ACCESS_KEY',
+  'API_DOCS_PASSWORD',
+  'SMTP_PASSWORD',
+  'HEALTH_TOKEN',
+] as const;
+
+/**
+ * Production-only boot guard (D21): collects every problem and throws one
+ * error. Messages name variables, never their values. Only called when
+ * NODE_ENV=production, so dev, test and CI env files are unaffected.
+ */
+export function assertProductionConfig(config: Record<string, unknown>): void {
+  const str = (k: string): string => (typeof config[k] === 'string' ? (config[k] as string) : '');
+  const problems: string[] = [];
+
+  for (const key of PLACEHOLDER_KEYS) {
+    if (PLACEHOLDER.test(str(key))) problems.push(`${key} still holds a placeholder value`);
+  }
+  try {
+    const password = decodeURIComponent(new URL(str('DATABASE_URL')).password);
+    if (PLACEHOLDER.test(password)) {
+      problems.push('DATABASE_URL password still holds a placeholder value');
+    }
+  } catch {
+    // Malformed URL or escape: the database driver reports it more clearly.
+  }
+
+  for (const key of ['JWT_SECRET', 'JWT_SECRET_PREVIOUS']) {
+    if (str(key) && new Set(str(key)).size < 16) {
+      problems.push(`${key} is too weak (needs at least 16 distinct characters)`);
+    }
+  }
+  if (str('JWT_SECRET') && str('JWT_SECRET') === str('SETTINGS_ENCRYPTION_KEY')) {
+    problems.push('JWT_SECRET must differ from SETTINGS_ENCRYPTION_KEY');
+  }
+  if (str('JWT_SECRET') && str('JWT_SECRET') === str('JWT_SECRET_PREVIOUS')) {
+    problems.push('JWT_SECRET must differ from JWT_SECRET_PREVIOUS');
+  }
+
+  for (const key of ['SETTINGS_ENCRYPTION_KEY', 'APP_BASE_URL']) {
+    if (!str(key)) problems.push(`${key} is required in production`);
+  }
+
+  const origins = str('CORS_ORIGINS')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if (origins.some((o) => !isValidOrigin(o))) {
+    problems.push(
+      'CORS_ORIGINS has an entry that is not a bare origin (expected e.g. https://app.school.org, no path or trailing slash)',
+    );
+  }
+
+  if (problems.length > 0) {
+    throw new Error(`Refusing to start with unsafe production config:\n- ${problems.join('\n- ')}`);
+  }
 }

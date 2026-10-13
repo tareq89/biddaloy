@@ -5,13 +5,23 @@ import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 import { pwaManifest } from './src/pwa/manifest';
 
 export default defineConfig({
   plugins: [
+    // A mock-API bundle (MSW) must never ship as a production build.
+    {
+      name: 'refuse-mock-production-build',
+      config(_config, { command, mode }) {
+        const env = loadEnv(mode, process.cwd(), 'VITE_');
+        if (command === 'build' && mode === 'production' && env.VITE_USE_MOCKS === 'true') {
+          throw new Error('VITE_USE_MOCKS=true cannot be used in a production build');
+        }
+      },
+    },
     // Must come before react() — the plugin transforms route files (and
     // generates routeTree.gen.ts) before the React plugin ever sees them.
     tanstackRouter({

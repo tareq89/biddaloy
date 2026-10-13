@@ -18,6 +18,7 @@
     "build:server": "yarn workspace @biddaloy/server build",
     "build:client-admin": "yarn workspace @biddaloy/client-admin build",
     "setup": "bash scripts/setup.sh",
+    "config:check": "yarn workspace @biddaloy/server config:check",
     "smoke:post-deploy": "node scripts/smoke-post-deploy.mjs",
     "dev": "bash scripts/start-dev.sh",
     "dev:server": "yarn workspace @biddaloy/server start:dev",
