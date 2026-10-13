@@ -20,7 +20,7 @@ import {
   buildFullPath,
   describeGuards,
   RequestMethodName,
-} from './route-guard-coverage.e2e-spec';
+} from '@test/helpers/route-path.helper';
 
 /**
  * Regression coverage for [10.3]/[10.4]'s route -> permission mapping (the
