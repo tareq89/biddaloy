@@ -90,7 +90,9 @@ test.describe('admin: special timings on the attendance settings', () => {
       [t('settings.attendance.specialTimings.to'), '12'],
     ] as const) {
       await dialog.getByRole('button', { name: label }).click();
-      await page.locator(`[data-date="${ym}-${day}"]`).click();
+      // `.last()`: the previous picker's grid can still be in the DOM while it closes, and the
+      // newest popover is the one just opened (a bare locator hit both: strict-mode violation).
+      await page.locator(`[data-date="${ym}-${day}"]`).last().click();
     }
     await dialog
       .getByRole('button', { name: t('settings.attendance.specialTimings.save') })
