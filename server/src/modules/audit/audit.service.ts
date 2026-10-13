@@ -332,5 +332,14 @@ export class AuditService {
           AND acr.user_id = :acrCallerId))`,
       { acrCallerId: callerId },
     );
+    // [GAP-11] Same rule for incident audit rows (create and withdraw): the
+    // subject must not learn an incident about them exists.
+    qb.andWhere(
+      `NOT (audit_log.entity_type = 'StaffIncident' AND EXISTS (
+        SELECT 1 FROM staff_incidents si
+        WHERE si.id::text = audit_log.entity_id::text
+          AND si.tenant_id = audit_log.tenant_id
+          AND si.staff_user_id = :acrCallerId))`,
+    );
   }
 }

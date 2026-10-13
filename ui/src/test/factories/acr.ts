@@ -43,6 +43,7 @@ export function incidentFactory(overrides: Partial<Incident> = {}): Incident {
     occurredOn: occurred.toISOString().slice(0, 10),
     description: 'Late to assembly',
     createdAt: occurred.toISOString(),
+    withdrawnAt: null,
     ...overrides,
   };
 }

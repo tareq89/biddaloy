@@ -5,6 +5,18 @@ import { RoleScope, TeacherAssignmentType, roleScope } from '@biddaloy/shared';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { Student } from '../students/entities/student.entity';
 
+/**
+ * [X-07] SQL scalar: the start_date of the academic year right before the tenant's current one
+ * (latest start before the current year's). The homeroom grant and the marks-overdue alerts both
+ * use it, so they cover the same years: current, or this prior one. `tenant` is the SQL
+ * parameter for the tenant id (`:tenantId` or `$1`).
+ */
+export function priorYearStartSql(tenant: string): string {
+  return `(SELECT max(p.start_date) FROM academic_years p
+    JOIN academic_years cur ON cur.tenant_id = ${tenant} AND cur.is_current = true AND cur.deleted_at IS NULL
+    WHERE p.tenant_id = ${tenant} AND p.deleted_at IS NULL AND p.start_date < cur.start_date)`;
+}
+
 export type HomeroomType =
   TeacherAssignmentType.CLASS_TEACHER | TeacherAssignmentType.ASSISTANT_CLASS_TEACHER;
 
@@ -144,7 +156,13 @@ export class TeacherScopeService {
         { tenantId },
       )
       // Homeroom (CLASS/ASSISTANT) grants a read of EVERY subject, so it only
-      // counts while the section is live and in the current academic year.
+      // counts while the section is live and in the current academic year, or in
+      // the year right before it (latest start_date before the current year's)
+      // while that class still has a DRAFT exam [X-07]: marks entry outlives the
+      // year flag. DRAFT only, and the same two years (`priorYearStartSql`) as the
+      // marks-overdue alert, so the grant ends when the alert clears; older and
+      // future years never qualify for either. Trade-off: the grant then covers every homeroom-gated read, not
+      // only marks; narrow it to marks reads if that ever matters.
       // SUBJECT_TEACHER rows keep their existing (year-agnostic) behaviour.
       .leftJoin(
         'class_sections',
@@ -161,23 +179,29 @@ export class TeacherScopeService {
       .leftJoin(
         'academic_years',
         'ay',
-        'ay.id = c.academic_year_id AND ay.tenant_id = :tenantId AND ay.is_current = true AND ay.deleted_at IS NULL',
+        `ay.id = c.academic_year_id AND ay.tenant_id = :tenantId AND ay.deleted_at IS NULL AND (
+          ay.is_current = true
+          OR (
+            ay.start_date = ${priorYearStartSql(':tenantId')}
+            AND EXISTS (SELECT 1 FROM exams e WHERE e.tenant_id = :tenantId AND e.class_id = c.id AND e.academic_year_id = ay.id AND e.deleted_at IS NULL AND e.status = 'DRAFT')
+          )
+        )`,
         { tenantId },
       )
       .select('tcs.assignment_type', 'assignment_type')
       .addSelect('s.id', 'live_subject_id')
-      .addSelect('ay.id', 'current_year_id')
+      .addSelect('ay.id', 'homeroom_year_id')
       .where('tcs.tenant_id = :tenantId', { tenantId })
       .andWhere('tcs.section_id = :sectionId', { sectionId })
       .andWhere('t.user_id = :userId', { userId })
       .getRawMany<{
         assignment_type: TeacherAssignmentType;
         live_subject_id: string | null;
-        current_year_id: string | null;
+        homeroom_year_id: string | null;
       }>();
 
     const homeroomTypes = rows
-      .filter((r) => r.current_year_id)
+      .filter((r) => r.homeroom_year_id)
       .map((r) => r.assignment_type)
       .filter((type): type is HomeroomType => HOMEROOM_TYPES.includes(type as HomeroomType));
     // CLASS_TEACHER wins if (impossibly, per the unique index) both appear.

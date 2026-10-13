@@ -61,7 +61,7 @@ describe('JwtStrategy', () => {
     await expect(strategy.validate(payload)).rejects.toThrow('Invalid token payload');
   });
 
-  it('throws UnauthorizedException when the jti has been denylisted', async () => {
+  it('throws UnauthorizedException when the denylist says revoked for the payload', async () => {
     mockDenylist.isRevoked.mockResolvedValue(true);
     const payload: JwtPayload = {
       sub: 'user-1',
@@ -72,7 +72,7 @@ describe('JwtStrategy', () => {
     };
 
     await expect(strategy.validate(payload)).rejects.toThrow('Token has been revoked');
-    expect(mockDenylist.isRevoked).toHaveBeenCalledWith('revoked-token');
+    expect(mockDenylist.isRevoked).toHaveBeenCalledWith(payload);
   });
 
   it('throws UnauthorizedException when the payload carries a single-purpose claim', async () => {

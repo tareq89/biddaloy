@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ConflictException,
@@ -32,6 +33,8 @@ import type {
   NotificationPrefsDto,
 } from './dto/notification-prefs.dto';
 import { AuditService } from '../audit/audit.service';
+import { AccessTokenDenylistService } from '../auth/access-token-denylist.service';
+import { ACCESS_TOKEN_TTL_MS } from '../auth/auth-tokens';
 import { assertPasswordAllowed } from '../auth/password-policy';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import {
@@ -109,6 +112,8 @@ export class UserService {
     private readonly schoolRepo: Repository<School>,
     private readonly staffProfilesService: StaffProfilesService,
     private readonly audit: AuditService,
+    private readonly accessTokenDenylist: AccessTokenDenylistService,
+    @Inject(ACCESS_TOKEN_TTL_MS) private readonly accessTokenTtlMs: number,
   ) {}
 
   /** [67.5.03] Own push mute + the school's (read-only) quiet hours. */
@@ -233,11 +238,17 @@ export class UserService {
       // same address both pass it and the loser hits the index. Map that to a
       // 409 rather than a 500, exactly as `update()` does. `phone` has no
       // pre-check at all, so this is its only guard.
+      // Only a clash on `users` is an email/phone clash. Any other one (a
+      // double-submitted "Add staff" racing on user_tenants, a staff_profiles id)
+      // is still a 409, not a 500.
       if (
         err instanceof QueryFailedError &&
         (err as unknown as { code?: string }).code === '23505'
       ) {
-        throw new ConflictException('That email address or phone number is already in use');
+        if ((err.driverError as { table?: string } | undefined)?.table === 'users') {
+          throw new ConflictException('That email address or phone number is already in use');
+        }
+        throw new ConflictException('This member was just added. Refresh and try again.');
       }
       throw err;
     }
@@ -797,6 +808,13 @@ export class UserService {
         manager,
       );
     });
+    // After commit: every token the user already holds is refused, so removal
+    // is immediate (D16). The client's 401 -> refresh drops the school.
+    await this.accessTokenDenylist.revokeUserTokensIssuedBefore(
+      userId,
+      new Date(),
+      this.accessTokenTtlMs,
+    );
   }
 }
 

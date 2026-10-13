@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource, EntityManager } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
-import { BadRequestException, UnprocessableEntityException } from '@nestjs/common';
+import { NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { ApplicationStatus, ApplicationType, ApprovalScope } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -263,6 +263,54 @@ describe('FeeWaiverHandler (integration)', () => {
   it('malformed date is refused', () => expectInvalid({ start_date: '01/11/2026' }));
   it('impossible date is refused, not a DB 500', () => expectInvalid({ end_date: '2026-02-30' }));
 
+  it('X-08: approving a waiver for a student who left throws 409 NO_ACTIVE_ENROLLMENT, token not spent, no rule', async () => {
+    await dataSource.query(`UPDATE students SET enrollment_status = 'TRANSFERRED' WHERE id = $1`, [
+      studentId,
+    ]);
+    // No token present: if the status check ran after consume() we would get APPROVAL_REQUIRED instead.
+    tokenPresent = false;
+    const app = await makeApp();
+    await expect(run((m) => handler.apply(m, app, ctx()))).rejects.toMatchObject({
+      status: 409,
+      response: { details: { code: 'NO_ACTIVE_ENROLLMENT' } },
+    });
+    expect(await rulesFor()).toHaveLength(0);
+  });
+
+  // Business-critical (money tier): a transfer recorded while the waiver is being decided must
+  // not slip past X-08. The status read takes a row lock, so it waits for the transfer to commit
+  // and then sees TRANSFERRED. Without the lock it reads the old ACTIVE row and goes on.
+  it('X-08: waits for an in-flight transfer of the student and then refuses with 409', async () => {
+    tokenPresent = false;
+    const app = await makeApp();
+    const transfer = dataSource.createQueryRunner();
+    await transfer.connect();
+    await transfer.startTransaction();
+    try {
+      await transfer.query(`UPDATE students SET enrollment_status = 'TRANSFERRED' WHERE id = $1`, [
+        studentId,
+      ]);
+      const decision = run((m) => handler.apply(m, app, ctx())).catch((e) => e);
+      await new Promise((r) => setTimeout(r, 300));
+      await transfer.commitTransaction();
+
+      expect(await decision).toMatchObject({
+        status: 409,
+        response: { details: { code: 'NO_ACTIVE_ENROLLMENT' } },
+      });
+      expect(await rulesFor()).toHaveLength(0);
+    } finally {
+      if (transfer.isTransactionActive) await transfer.rollbackTransaction();
+      await transfer.release();
+    }
+  });
+
+  it('an ACTIVE student still gets the waiver rule', async () => {
+    const app = await makeApp();
+    await run((m) => handler.apply(m, app, ctx()));
+    expect(await rulesFor()).toHaveLength(1);
+  });
+
   it('application without a student is refused', async () => {
     const app = await makeApp();
     app.subject_student_id = null as any;
@@ -305,7 +353,8 @@ describe('FeeWaiverHandler (integration)', () => {
       (e) => e,
     );
 
-    expect(err).toBeInstanceOf(BadRequestException);
+    // The student lookup is tenant-scoped, so a foreign student is simply not found.
+    expect(err).toBeInstanceOf(NotFoundException);
     expect(await rulesFor()).toHaveLength(0);
     expect(
       await dataSource.getRepository(DiscountRule).count({ where: { tenant_id: OTHER_TENANT } }),

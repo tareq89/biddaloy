@@ -101,7 +101,9 @@
     "CREDIT_CHANGE": "Change credit",
     "DEBIT_CHECKOUT": "Applied to payment",
     "DEBIT_GENERATION": "Fee generation adjustment",
-    "REVERSAL": "Reversal"
+    "REVERSAL": "Reversal",
+    "DEBIT_PAYOUT": "Paid out",
+    "CREDIT_BILL_REMOVED": "Bill removed credit"
   },
   "errors": {
     "uploadTooLarge": "This upload is too large. Send fewer or smaller files at a time.",

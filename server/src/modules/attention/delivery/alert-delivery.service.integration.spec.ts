@@ -201,6 +201,58 @@ describe('AlertDeliveryService (integration)', () => {
     expect(sendToUser).toHaveBeenCalledTimes(1);
   });
 
+  describe('catchUp', () => {
+    const aged = (id: string, minutes: number) =>
+      ds.query(
+        `UPDATE alert_recipients SET created_at = $2::timestamptz - ($3 || ' minutes')::interval WHERE id = $1`,
+        [id, DAY, String(minutes)],
+      );
+
+    it('pushes a stale unpushed recipient once and stamps it; a second run pushes nothing', async () => {
+      const id = await add();
+      await aged(id, 5);
+      await svc.catchUp(new Date(DAY));
+      expect(sendToUser).toHaveBeenCalledTimes(1);
+      expect(await pushedAt(id)).not.toBeNull();
+      await svc.catchUp(new Date(DAY));
+      expect(sendToUser).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves fresh (<2 min), day-old and other-status rows alone', async () => {
+      const fresh = await add();
+      await aged(fresh, 1);
+      const old = await add();
+      await aged(old, 60 * 25);
+      const resolved = await add({ status: 'RESOLVED' });
+      await aged(resolved, 5);
+      await svc.catchUp(new Date(DAY));
+      expect(sendToUser).not.toHaveBeenCalled();
+    });
+
+    it('covers every tenant, each delivered under its own tenant', async () => {
+      const idB = await add({ tenantId: tenantB });
+      await aged(idB, 5);
+      await svc.catchUp(new Date(DAY));
+      expect(sendToUser).toHaveBeenCalledTimes(1);
+      expect(await pushedAt(idB)).not.toBeNull();
+    });
+
+    // A suspended school does nothing in the background (25-domain-invariants).
+    // The sweep already skips it; the all-tenant catch-up must too.
+    it('skips a suspended school', async () => {
+      const idB = await add({ tenantId: tenantB });
+      await aged(idB, 5);
+      await ds.query(`UPDATE schools SET status = 'SUSPENDED' WHERE id = $1`, [tenantB]);
+      try {
+        await svc.catchUp(new Date(DAY));
+      } finally {
+        await ds.query(`UPDATE schools SET status = 'ACTIVE' WHERE id = $1`, [tenantB]);
+      }
+      expect(sendToUser).not.toHaveBeenCalled();
+      expect(await pushedAt(idB)).toBeNull();
+    });
+  });
+
   it('ignores a recipient id from another tenant (tenant isolation)', async () => {
     const idB = await add({ tenantId: tenantB });
     await svc.deliver(SEED_TENANT_ID, [idB], new Date(DAY));

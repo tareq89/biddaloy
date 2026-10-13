@@ -32,6 +32,11 @@ export interface JwtPayload {
   // AccessTokenDenylistService) without needing a blacklist of every
   // issued token, since the token's own lifetime is now short.
   jti: string;
+  // Standard whole-second issue time, added by the JWT library on sign.
+  iat?: number;
+  // Millisecond issue time, taken before the memberships were read; compared
+  // with the per-user removal cut-off (#2297). Absent on pre-#2297 tokens.
+  iat_ms?: number;
 }
 
 /**

@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConflictException } from '@nestjs/common';
 import { StaffProfilesService } from './staff-profiles.service';
+import { nextTenantSerial } from '../../common/utils/next-serial.util';
+
+vi.mock('../../common/utils/next-serial.util', () => ({ nextTenantSerial: vi.fn(async () => 3) }));
 
 const TENANT = 'tenant-1';
 
@@ -22,9 +25,17 @@ describe('StaffProfilesService', () => {
 
   describe('createFor', () => {
     it('generates a sequential EMP-<tenant_short>-<sequence> employee_id when none is given', async () => {
-      repo.count = vi.fn(async () => 2); // two profiles already exist for this tenant
       const profile = await service.createFor('user-1', TENANT);
       expect(profile.employee_id).toBe(`EMP-${TENANT.slice(0, 8)}-3`);
+      expect(nextTenantSerial).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          table: 'staff_profiles',
+          column: 'employee_id',
+          tenantId: TENANT,
+          prefix: `EMP-${TENANT.slice(0, 8)}-`,
+        }),
+      );
       expect(profile.user_id).toBe('user-1');
       expect(profile.tenant_id).toBe(TENANT);
     });

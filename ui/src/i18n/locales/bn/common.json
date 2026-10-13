@@ -101,7 +101,9 @@
     "CREDIT_CHANGE": "ফেরত অর্থের ক্রেডিট",
     "DEBIT_CHECKOUT": "পেমেন্টে ব্যবহৃত",
     "DEBIT_GENERATION": "ফি তৈরির সমন্বয়",
-    "REVERSAL": "বিপরীতকরণ"
+    "REVERSAL": "বিপরীতকরণ",
+    "DEBIT_PAYOUT": "ফেরত দেওয়া হয়েছে",
+    "CREDIT_BILL_REMOVED": "বিল বাতিলের ক্রেডিট"
   },
   "errors": {
     "uploadTooLarge": "এই আপলোডটি অনেক বড়। একবারে কম বা ছোট ফাইল পাঠান।",

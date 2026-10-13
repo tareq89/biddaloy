@@ -55,6 +55,7 @@ describe('students/-detail/fees-tab', () => {
     options: {
       role?: string;
       transactions?: Record<string, unknown>[];
+      balance?: number;
     } = {},
   ) {
     const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
@@ -71,7 +72,10 @@ describe('students/-detail/fees-tab', () => {
         }),
       ),
       http.get('/api/v1/students/:id/wallet', () =>
-        HttpResponse.json({ balance: 150, transactions: options.transactions ?? [] }),
+        HttpResponse.json({
+          balance: options.balance ?? 150,
+          transactions: options.transactions ?? [],
+        }),
       ),
     );
 
@@ -184,5 +188,71 @@ describe('students/-detail/fees-tab', () => {
     const panel = await screen.findByRole('tabpanel', { name: 'History' });
     await waitFor(() => expect(within(panel).getByText('Exam fee')).toBeTruthy());
     expect(within(panel).queryByText('Tuition')).toBeNull();
+  });
+  it('shows a Write off row action on open bills for ADMIN, not on History', async () => {
+    renderFeesTab([feeLine({ id: 'fee-1' }), feeLine({ id: 'fee-2', status: 'PAID' })]);
+
+    await screen.findByText('Tuition');
+    expect(await screen.findAllByRole('button', { name: 'Write off Tuition' })).toHaveLength(1);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'History' }));
+    const panel = await screen.findByRole('tabpanel', { name: 'History' });
+    await within(panel).findByText('Tuition');
+    expect(within(panel).queryByRole('button', { name: /Write off/ })).toBeNull();
+  });
+
+  it('hides Write off without FEE_APPROVE', async () => {
+    renderFeesTab([feeLine()], { role: 'TEACHER' });
+
+    await screen.findByText('Tuition');
+    expect(screen.queryByRole('button', { name: 'Write off Tuition' })).toBeNull();
+  });
+
+  it('Pay out shows beside a positive wallet balance for ADMIN and opens the dialog', async () => {
+    renderFeesTab([feeLine()]);
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('tab', { name: 'Credit balance' }));
+    await user.click(await screen.findByRole('button', { name: 'Pay out' }));
+    expect(await screen.findByRole('dialog', { name: 'Pay out credit balance' })).toBeTruthy();
+  });
+
+  it('hides Pay out when the balance is 0', async () => {
+    renderFeesTab([feeLine()], { balance: 0 });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('tab', { name: 'Credit balance' }));
+    const panel = await screen.findByRole('tabpanel', { name: 'Credit balance' });
+    await within(panel).findByText('৳0.00');
+    expect(screen.queryByRole('button', { name: 'Pay out' })).toBeNull();
+  });
+
+  it('hides Pay out without PAYMENT_REVERSE', async () => {
+    renderFeesTab([feeLine()], { role: 'TEACHER' });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('tab', { name: 'Credit balance' }));
+    const panel = await screen.findByRole('tabpanel', { name: 'Credit balance' });
+    await within(panel).findByText('৳150.00');
+    expect(screen.queryByRole('button', { name: 'Pay out' })).toBeNull();
+  });
+
+  it('labels a DEBIT_PAYOUT ledger row "Paid out"', async () => {
+    renderFeesTab([feeLine()], {
+      transactions: [
+        {
+          amount: '50.00',
+          kind: 'DEBIT_PAYOUT',
+          note: 'Left school',
+          created_at: '2026-03-02T00:00:00.000Z',
+        },
+      ],
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('tab', { name: 'Credit balance' }));
+    const panel = await screen.findByRole('tabpanel', { name: 'Credit balance' });
+    expect(await within(panel).findByText('Paid out')).toBeTruthy();
   });
 });

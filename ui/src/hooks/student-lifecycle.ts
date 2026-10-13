@@ -4,6 +4,7 @@ import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
 import { enrollmentKeys } from './enrollments';
+import { paymentKeys } from './payments';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 import { studentKeys, type Student } from './students';
@@ -14,6 +15,7 @@ import { studentKeys, type Student } from './students';
 
 export type StudentLifecycleEvent = components['schemas']['StudentLifecycleEventDto'];
 export type LeaveStudentInput = components['schemas']['LeaveStudentDto'];
+export type LeaveStudentResult = components['schemas']['LeaveStudentResultDto'];
 export type ReadmitStudentInput = components['schemas']['ReadmitStudentDto'];
 export type UpdateStudentRecordsInput = components['schemas']['UpdateStudentRecordsDto'];
 export type StudentNote = components['schemas']['StudentNoteResponseDto'];
@@ -67,8 +69,12 @@ export function useLeaveStudent(studentId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: LeaveStudentInput) =>
-      (await apiClient.post<StudentLifecycleEvent>(`/students/${studentId}/leave`, input)).data,
-    onSuccess: () => invalidateAfterLifecycleChange(queryClient, studentId),
+      (await apiClient.post<LeaveStudentResult>(`/students/${studentId}/leave`, input)).data,
+    onSuccess: () => {
+      invalidateAfterLifecycleChange(queryClient, studentId);
+      // The result step links to the Fees tab, which reads the fee summary.
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.all });
+    },
   });
 }
 

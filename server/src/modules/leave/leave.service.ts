@@ -28,13 +28,8 @@ function currentYearRange(): { from: string; to: string } {
   return { from: `${year}-01-01`, to: `${year}-12-31` };
 }
 
-/** The calendar year a leave record's own `start_date` falls in — used for
- * the balance check instead of the current calendar year, so a leave
- * spanning (or requested near) a year boundary is checked against the year
- * it actually consumes quota in. `getBalance` (the read-only display
- * endpoint) is the one place that still defaults to the current year (D12). */
-function yearRangeOf(date: string): { from: string; to: string } {
-  const year = Number(date.slice(0, 4));
+/** Jan 1 - Dec 31 of `year` (D16: leave year = calendar year). */
+function yearRange(year: number): { from: string; to: string } {
   return { from: `${year}-01-01`, to: `${year}-12-31` };
 }
 
@@ -97,7 +92,7 @@ export class LeaveService {
   /** `quota - sum(APPROVED days this calendar year)`, computed live — no
    * stored counter (D12). Read-only display endpoint: intentionally always
    * the *current* year, unlike the request/decide balance checks which use
-   * the leave's own year (see `yearRangeOf`). */
+   * every calendar year the leave touches. */
   async getBalance(
     tenantId: string,
     staffProfileId: string,
@@ -151,6 +146,11 @@ export class LeaveService {
     };
   }
 
+  /**
+   * Working days of APPROVED leaves that fall inside `range`, counted live from
+   * today's calendar [TIME-13]: a leave crossing a boundary is split, and a
+   * holiday declared later stops costing a day.
+   */
   private async approvedDaysInRange(
     repo: Repository<LeaveRecord>,
     tenantId: string,
@@ -159,16 +159,24 @@ export class LeaveService {
     range: { from: string; to: string },
   ): Promise<number> {
     const { from, to } = range;
-    const raw = await repo
+    const records = await repo
       .createQueryBuilder('leave_record')
-      .select('COALESCE(SUM(leave_record.days), 0)', 'sum')
       .where('leave_record.tenant_id = :tenantId', { tenantId })
       .andWhere('leave_record.staff_profile_id = :staffProfileId', { staffProfileId })
       .andWhere('leave_record.leave_type = :leaveType', { leaveType })
       .andWhere('leave_record.status = :status', { status: LeaveStatus.APPROVED })
-      .andWhere('leave_record.start_date BETWEEN :from AND :to', { from, to })
-      .getRawOne<{ sum: string }>();
-    return Number(raw?.sum ?? 0);
+      .andWhere('leave_record.start_date <= :to AND leave_record.end_date >= :from', { from, to })
+      .getMany();
+    const counts = await Promise.all(
+      records.map((r) =>
+        this.countWorkingDays(
+          tenantId,
+          r.start_date > from ? r.start_date : from,
+          r.end_date < to ? r.end_date : to,
+        ),
+      ),
+    );
+    return counts.reduce((a, b) => a + b, 0);
   }
 
   async listPolicies(tenantId: string): Promise<LeavePolicyDto[]> {
@@ -253,19 +261,33 @@ export class LeaveService {
       });
     }
     if (policy.annual_quota_days !== null) {
-      const used = await this.approvedDaysInRange(
-        recordRepo,
-        tenantId,
-        staffProfileId,
-        leaveType,
-        yearRangeOf(startDate),
-      );
-      const balance = policy.annual_quota_days - used;
-      if (days > balance) {
-        throw new UnprocessableEntityException({
-          message: `Approving would exceed the remaining balance of ${balance}`,
-          details: { code: 'LEAVE_BALANCE_EXCEEDED' },
-        });
+      // Each calendar year the leave touches is checked against its own balance [TIME-13].
+      for (let year = Number(startDate.slice(0, 4)); year <= Number(endDate.slice(0, 4)); year++) {
+        const { from, to } = yearRange(year);
+        const requested = await this.countWorkingDays(
+          tenantId,
+          startDate > from ? startDate : from,
+          endDate < to ? endDate : to,
+        );
+        // A year the leave takes no working day from cannot be over-drawn by it.
+        if (requested === 0) continue;
+        const used = await this.approvedDaysInRange(
+          recordRepo,
+          tenantId,
+          staffProfileId,
+          leaveType,
+          {
+            from,
+            to,
+          },
+        );
+        const balance = policy.annual_quota_days - used;
+        if (requested > balance) {
+          throw new UnprocessableEntityException({
+            message: `Approving would exceed the remaining balance of ${balance} for ${year}`,
+            details: { code: 'LEAVE_BALANCE_EXCEEDED' },
+          });
+        }
       }
     }
 

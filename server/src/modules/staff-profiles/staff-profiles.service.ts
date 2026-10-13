@@ -2,6 +2,7 @@ import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, In, QueryFailedError } from 'typeorm';
 import { StaffProfile } from './entities/staff-profile.entity';
+import { nextTenantSerial } from '../../common/utils/next-serial.util';
 
 /** Postgres unique_violation. */
 const UNIQUE_VIOLATION = '23505';
@@ -23,14 +24,21 @@ export class StaffProfilesService {
   ) {}
 
   /**
-   * Generates the next `EMP-<tenant_short>-<sequence>` id for a tenant —
-   * same scheme migration `StaffAttendanceLeave1789800014000` used for its
-   * backfill (`server/src/migrations/1789800014000-StaffAttendanceLeave.ts:96`).
-   * `<sequence>` is 1-based and counts existing profiles for the tenant.
+   * Generates the next `EMP-<tenant_short>-<sequence>` id for a tenant (same scheme as the
+   * `StaffAttendanceLeave1789800014000` backfill). `<sequence>` is the tenant's numeric max + 1,
+   * so removing a middle profile never reuses a taken id. Call inside the inserting transaction:
+   * the helper's advisory lock lives until it ends.
    */
-  private async nextEmployeeId(tenantId: string, repo: Repository<StaffProfile>): Promise<string> {
-    const count = await repo.count({ where: { tenant_id: tenantId } });
-    return `EMP-${tenantId.slice(0, 8)}-${count + 1}`;
+  private async nextEmployeeId(tenantId: string, manager: EntityManager): Promise<string> {
+    const short = tenantId.slice(0, 8);
+    const prefix = `EMP-${short}-`;
+    const seq = await nextTenantSerial(manager, {
+      table: 'staff_profiles',
+      column: 'employee_id',
+      tenantId,
+      prefix,
+    });
+    return `${prefix}${seq}`;
   }
 
   /**
@@ -70,24 +78,21 @@ export class StaffProfilesService {
       );
     }
 
-    // A generated `employee_id` isn't reserved by the `count`-based read
-    // above — two concurrent `createFor` calls for the same tenant can
-    // both read the same count and then race to insert the same id. That
-    // collision is expected and recoverable (retry with a fresh count),
+    // The advisory lock in `nextTenantSerial` serializes concurrent `createFor` calls for a tenant.
+    // The retry is a safety net: a clash is recoverable (retry takes a fresh max),
     // not a real conflict worth surfacing to the caller as one.
     let lastError: unknown;
     for (let attempt = 0; attempt < MAX_EMPLOYEE_ID_ATTEMPTS; attempt++) {
-      const employeeId = await this.nextEmployeeId(tenantId, repo);
       try {
         // Nested transaction = SAVEPOINT when the caller is already in one: a unique
         // violation then rolls back only this insert, so the retry is not run inside an
         // aborted Postgres transaction. [13.3.2]
-        return await repo.manager.transaction((m) =>
+        return await repo.manager.transaction(async (m) =>
           m.getRepository(StaffProfile).save(
             m.getRepository(StaffProfile).create({
               user_id: userId,
               tenant_id: tenantId,
-              employee_id: employeeId,
+              employee_id: await this.nextEmployeeId(tenantId, m),
               joining_date: opts?.joiningDate ?? null,
             }),
           ),

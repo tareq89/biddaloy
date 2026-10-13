@@ -14,6 +14,8 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { UserService, TeacherService, reviveMembership, ROLE_SWAP_ENDED } from './users.service';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import { AuditService } from '../audit/audit.service';
+import { AccessTokenDenylistService } from '../auth/access-token-denylist.service';
+import { ACCESS_TOKEN_TTL_MS } from '../auth/auth-tokens';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { School } from '../schools/entities/school.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -26,6 +28,7 @@ import { usersTab } from '../workbook/tabs/people/users.tab';
  * its own school so nothing depends on seed data or on other tests.
  */
 describe('UserService membership leave / remove / restore (integration)', () => {
+  const denylist = { revokeUserTokensIssuedBefore: vi.fn().mockResolvedValue(undefined) };
   let service: UserService;
   let dataSource: DataSource;
   let userTenantRepo: Repository<UserTenant>;
@@ -38,6 +41,8 @@ describe('UserService membership leave / remove / restore (integration)', () => 
       TeacherService,
       StaffProfilesService,
       AuditService,
+      { provide: AccessTokenDenylistService, useValue: denylist },
+      { provide: ACCESS_TOKEN_TTL_MS, useValue: 900_000 },
     ]);
     service = module.get(UserService);
     dataSource = module.get(DataSource);

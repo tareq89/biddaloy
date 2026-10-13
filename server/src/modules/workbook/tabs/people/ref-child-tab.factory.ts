@@ -41,6 +41,8 @@ export interface RefChildTabOptions<E> {
   refs: readonly RefSpec[];
   fields: readonly FieldSpec[];
   naturalKey: readonly string[];
+  /** Entity columns deliberately left out of the workbook (say why in a comment at the call site). */
+  excluded?: readonly string[];
   /** Default true. False for an append-only table: a restore must never delete its rows. */
   deleteByAbsence?: boolean;
   /** Drops rows from the export. Runs before refs are stamped, so a dropped row's parent is never needed. */
@@ -68,7 +70,16 @@ function sortKeys(x: unknown): unknown {
 export function createRefChildTab<E extends { id: string }>(
   opts: RefChildTabOptions<E>,
 ): TabSpec<E, Rec> {
-  const { name, entityClass, refs, fields, naturalKey, deleteByAbsence = true, filterRows } = opts;
+  const {
+    name,
+    entityClass,
+    refs,
+    fields,
+    naturalKey,
+    deleteByAbsence = true,
+    filterRows,
+    excluded = [],
+  } = opts;
   const typeOf = new Map(fields.map((f) => [f.key, f.type as string]));
 
   const columns: readonly ColumnSpec[] = [
@@ -86,7 +97,7 @@ export function createRefChildTab<E extends { id: string }>(
   return {
     name,
     entity: entityClass,
-    excluded: refs.map((r) => r.fk), // exported instead as the matching ref column
+    excluded: [...refs.map((r) => r.fk), ...excluded], // exported instead as the matching ref column
     dependsOn: [...new Set(refs.map((r) => r.tab.name))],
     columns,
     naturalKey,

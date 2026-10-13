@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import { DataSource, Repository } from 'typeorm';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -90,7 +90,7 @@ describe('IncidentNotifyListener metered SMS credit (integration, #1317)', () =>
   }, 30000);
 
   it('reserves one batch:incident:<id> for all recipients; worker DEBITs each log against it', async () => {
-    await listener.handleIncidentCreated(EVENT);
+    await listener.process({ data: EVENT } as never);
 
     const reserves = (await ledgerFor(dataSource, TENANT_ID)).filter((r) => r.kind === 'RESERVE');
     expect(reserves.map((r) => [r.idempotency_key, r.units])).toEqual([
@@ -118,7 +118,7 @@ describe('IncidentNotifyListener metered SMS credit (integration, #1317)', () =>
   });
 
   it('REJECTED provider outcome releases every share', async () => {
-    await listener.handleIncidentCreated(EVENT);
+    await listener.process({ data: EVENT } as never);
     const processor = makeProcessor(dataSource, credits, 'REJECTED');
     for (const job of queuedJobs) await runJob(processor, job.data);
 
@@ -127,7 +127,7 @@ describe('IncidentNotifyListener metered SMS credit (integration, #1317)', () =>
 
   it('queue.add failure releases each recipient share under log:<id>:settle', async () => {
     failAdd = true;
-    await listener.handleIncidentCreated(EVENT);
+    await listener.process({ data: EVENT } as never);
 
     const logs = await logRepo.find({ where: { tenant_id: TENANT_ID } });
     expect(logs).toHaveLength(2);
@@ -136,6 +136,26 @@ describe('IncidentNotifyListener metered SMS credit (integration, #1317)', () =>
     expect(release.map((r) => r.idempotency_key).sort()).toEqual(
       logs.map((l) => `log:${l.id}:settle`).sort(),
     );
+    expect(await balanceFor(dataSource, TENANT_ID)).toEqual({ available: 100, reserved: 0 });
+  });
+
+  // The job runs with attempts: 1, so a failure is only visible if the worker logs it.
+  it('a failed job is logged with the incident id, then rethrown so BullMQ marks it failed', async () => {
+    const failing = new IncidentNotifyListener(
+      {
+        find: async () => {
+          throw new Error('db down');
+        },
+      } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      credits,
+    );
+    const logError = vi.spyOn((failing as any).logger, 'error').mockImplementation(() => undefined);
+
+    await expect(failing.process({ data: EVENT } as never)).rejects.toThrow('db down');
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining(INCIDENT_ID), expect.any(String));
     expect(await balanceFor(dataSource, TENANT_ID)).toEqual({ available: 100, reserved: 0 });
   });
 });

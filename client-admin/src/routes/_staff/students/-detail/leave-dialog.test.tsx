@@ -5,6 +5,12 @@ import { http, HttpResponse } from 'msw';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+const navigateMock = vi.hoisted(() => vi.fn());
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
+  return { ...actual, useNavigate: () => navigateMock };
+});
+
 import { LeaveDialog } from './leave-dialog';
 
 function withBalance(balance: number) {
@@ -121,6 +127,62 @@ describe('LeaveDialog', () => {
     await user.type(screen.getByLabelText('Reason'), 'Moved away');
     await user.click(submit);
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
+
+  describe('result step', () => {
+    const bill = {
+      id: 'b1',
+      fee_structure_name: 'Monthly tuition',
+      period_start: '2026-09-01',
+      due_date: '2026-09-10',
+      outstanding: '700.00',
+    };
+    async function leaveWith(bills: unknown[]) {
+      server.use(
+        withBalance(0),
+        http.post('/api/v1/students/s1/leave', () =>
+          HttpResponse.json({ id: 'e1', bills_due_after_leave: bills }, { status: 201 }),
+        ),
+      );
+      const user = await openDialog();
+      await user.type(screen.getByLabelText('Reason'), 'Moved away');
+      await user.click(screen.getByRole('button', { name: 'Record leaving' }));
+      return user;
+    }
+
+    it('stays open and lists bills due after the leave date', async () => {
+      await leaveWith([bill]);
+      expect(await screen.findByText('Bills after the leave date')).toBeTruthy();
+      expect(screen.getByRole('dialog').textContent).toContain('Monthly tuition');
+      expect(screen.getByRole('dialog').textContent).toContain('৳৭০০');
+    });
+
+    it('Open Fees tab navigates with tab=fees and closes', async () => {
+      const user = await leaveWith([bill]);
+      await user.click(await screen.findByRole('button', { name: 'Open Fees tab' }));
+      const arg = navigateMock.mock.calls[0]![0] as { search: (p: object) => object };
+      expect(arg.search({ x: 1 })).toEqual({ x: 1, tab: 'fees' });
+    });
+
+    it('closes as before when no bills are due after the leave date', async () => {
+      server.use(withBalance(0));
+      const onOpenChange = vi.fn();
+      server.use(
+        http.post('/api/v1/students/s1/leave', () =>
+          HttpResponse.json({ id: 'e1', bills_due_after_leave: [] }, { status: 201 }),
+        ),
+      );
+      const view = renderWithProviders(<Harness onOpenChange={onOpenChange} />, {
+        tenantId: 'tenant-1',
+        locale: 'en',
+      });
+      await view.localeReady;
+      const user = userEvent.setup();
+      await user.click(await screen.findByTestId('open-leave'));
+      await user.type(await screen.findByLabelText('Reason'), 'Moved away');
+      await user.click(screen.getByRole('button', { name: 'Record leaving' }));
+      await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    });
   });
 
   it('shows destination only for a transfer', async () => {

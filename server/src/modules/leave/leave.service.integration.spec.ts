@@ -15,6 +15,8 @@ import { User } from '../users/entities/user.entity';
 import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { LeaveRecord } from './entities/leave-record.entity';
 import { LeavePolicy } from './entities/leave-policy.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
 import { LeaveStatus, LeaveType } from '@biddaloy/shared';
 
 /**
@@ -244,6 +246,137 @@ describe('LeaveService (integration)', () => {
       const results = await Promise.allSettled([record(app1, SUN, SUN), record(app2, SUN, MON)]);
       expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
       expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
+    });
+
+    describe('a leave crossing 31 December [TIME-13]', () => {
+      // Fri/Sat off. Sun 2031-12-28 .. Wed 2032-01-07: 4 working days in 2031, 5 in 2032.
+      const DEC_START = '2031-12-28';
+      const JAN_END = '2032-01-07';
+      const year2031 = { from: '2031-01-01', to: '2031-12-31' };
+      const year2032 = { from: '2032-01-01', to: '2032-12-31' };
+      const used = (range: { from: string; to: string }, profileId = staffProfileId) =>
+        (service as any).approvedDaysInRange(
+          dataSource.getRepository(LeaveRecord),
+          TENANT_ID,
+          profileId,
+          LeaveType.CASUAL,
+          range,
+        ) as Promise<number>;
+
+      it('charges each year its own working days (2031: 4, 2032: 5)', async () => {
+        await setQuota(10);
+        const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        const result = await record(appId, DEC_START, JAN_END);
+
+        expect(result.days).toBe(9);
+        expect(await used(year2031)).toBe(4);
+        expect(await used(year2032)).toBe(5);
+      });
+
+      it('approves when each year has room even though the total exceeds one year balance', async () => {
+        await setQuota(5); // 9 days in total, but at most 5 in any one year
+        const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        await expect(record(appId, DEC_START, JAN_END)).resolves.toMatchObject({ days: 9 });
+      });
+
+      it('a year the leave uses no working day of is not checked, even when over quota', async () => {
+        await setQuota(10);
+        await record(
+          await newApplication(TENANT_ID, staffProfileId, staffUserId),
+          DEC_START,
+          '2031-12-30',
+        );
+        await setQuota(1); // lowered after approval: 2031 balance is now 1 - 3 = -2
+        const yearRow = await dataSource.getRepository(AcademicYear).save({
+          name: `Leave TIME-13 zero ${Date.now()}`,
+          start_date: '2031-12-01',
+          end_date: '2032-02-28',
+          is_current: false,
+          tenant_id: TENANT_ID,
+        });
+        try {
+          await dataSource.getRepository(CalendarEvent).save({
+            tenant_id: TENANT_ID,
+            academic_year_id: yearRow.id,
+            start_date: '2031-12-31',
+            end_date: '2031-12-31',
+            name: 'Year-end holiday',
+            counts_as_working_day: false,
+            published_at: new Date(),
+          });
+          // Wed 31 Dec 2031 is a holiday, so 2031 gives 0 days; Thu 1 Jan 2032 is the only one.
+          const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+          await expect(record(appId, '2031-12-31', '2032-01-01')).resolves.toMatchObject({
+            days: 1,
+          });
+        } finally {
+          await dataSource.query(`DELETE FROM calendar_events WHERE academic_year_id = $1`, [
+            yearRow.id,
+          ]);
+          await dataSource.query(`DELETE FROM academic_years WHERE id = $1`, [yearRow.id]);
+        }
+      });
+
+      it('is refused naming the year that has no room', async () => {
+        await setQuota(4); // 2031 fits (4), 2032 needs 5
+        const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        await expect(record(appId, DEC_START, JAN_END)).rejects.toMatchObject({
+          response: {
+            message: expect.stringContaining('2032'),
+            details: { code: 'LEAVE_BALANCE_EXCEEDED' },
+          },
+        });
+        expect(
+          await dataSource.getRepository(LeaveRecord).count({ where: { tenant_id: TENANT_ID } }),
+        ).toBe(0);
+      });
+
+      it('a holiday published after approval gives that day back', async () => {
+        await setQuota(10);
+        const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        await record(appId, DEC_START, JAN_END);
+        const yearRow = await dataSource.getRepository(AcademicYear).save({
+          name: `Leave TIME-13 ${Date.now()}`,
+          start_date: '2031-12-01',
+          end_date: '2032-02-28',
+          is_current: false,
+          tenant_id: TENANT_ID,
+        });
+        try {
+          await dataSource.getRepository(CalendarEvent).save({
+            tenant_id: TENANT_ID,
+            academic_year_id: yearRow.id,
+            start_date: '2031-12-30',
+            end_date: '2031-12-30',
+            name: 'Late holiday',
+            counts_as_working_day: false,
+            published_at: new Date(),
+          });
+          expect(await used(year2031)).toBe(3);
+        } finally {
+          await dataSource.query(`DELETE FROM calendar_events WHERE academic_year_id = $1`, [
+            yearRow.id,
+          ]);
+          await dataSource.query(`DELETE FROM academic_years WHERE id = $1`, [yearRow.id]);
+        }
+      });
+
+      it("another staff member's leave is not counted", async () => {
+        await setQuota(10);
+        const appId = await newApplication(TENANT_ID, staffProfileId, staffUserId);
+        await record(appId, DEC_START, JAN_END);
+        const other = await dataSource.getRepository(StaffProfile).save({
+          user_id: (
+            await dataSource.getRepository(User).save({
+              email: `leave-other-${Date.now()}@test.com`,
+              full_name: 'Other Staff',
+            })
+          ).id,
+          tenant_id: TENANT_ID,
+          employee_id: `EMP-OTHER-${Date.now()}`,
+        });
+        expect(await used(year2031, other.id)).toBe(0);
+      });
     });
 
     it('cancelApprovedLeave -> CANCELLED, balance back; a second cancel is 422', async () => {

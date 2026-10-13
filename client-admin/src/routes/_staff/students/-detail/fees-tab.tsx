@@ -1,4 +1,4 @@
-import { FeeStatus } from '@biddaloy/shared';
+import { FeeStatus, Permission } from '@biddaloy/shared';
 import {
   Button,
   Card,
@@ -10,8 +10,14 @@ import {
   TabsList,
   TabsTrigger,
   type DataTableColumn,
+  type RowAction,
 } from '@biddaloy/ui/components';
-import { useStudentFeeSummary, useStudentWallet, type StudentFee } from '@biddaloy/ui/hooks';
+import {
+  useHasPermission,
+  useStudentFeeSummary,
+  useStudentWallet,
+  type StudentFee,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import {
   formatDate,
@@ -21,13 +27,21 @@ import {
   isPastDueDate,
   parseServerDate,
 } from '@biddaloy/ui/utils';
-import { ChevronLeftIcon, ChevronRightIcon, ReceiptIcon } from 'lucide-react';
+import {
+  BadgeMinusIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  HandCoinsIcon,
+  ReceiptIcon,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { DEFAULT_PAGE_SIZE } from '../-constants';
 
 import { DiscountsSection } from './discounts-section';
 import { TabQueryState } from './tab-query-state';
+import { WalletPayoutDialog } from './wallet-payout-dialog';
+import { WriteOffBillDialog } from './write-off-bill-dialog';
 
 export interface FeesTabProps {
   studentId: string;
@@ -74,11 +88,14 @@ function FeeLinesTable({
   tableId,
   emptyTitle,
   emptyExplanation,
+  onWriteOff,
 }: {
   fees: StudentFee[];
   tableId: string;
   emptyTitle: string;
   emptyExplanation: string;
+  /** Present only on the Open bills table, for a user who may write bills off. */
+  onWriteOff?: ((fee: StudentFee) => void) | undefined;
 }) {
   const { t } = useTranslation('students');
   const regionConfig = useRegionConfig();
@@ -152,6 +169,17 @@ function FeeLinesTable({
       sorting={null}
       onSortingChange={() => {}}
       columns={columns}
+      {...(onWriteOff && {
+        rowActions: (fee: StudentFee): RowAction[] => [
+          {
+            intent: 'edit',
+            icon: <BadgeMinusIcon aria-hidden="true" />,
+            label: t('detail.fees.writeOff.actionFor', { name: fee.fee_structure.name }),
+            onClick: () => onWriteOff(fee),
+            allowed: OPEN_STATUSES.includes(fee.status),
+          },
+        ],
+      })}
       data={fees}
       getRowId={(fee) => fee.id}
       totalCount={fees.length}
@@ -168,6 +196,8 @@ function WalletSection({ studentId }: { studentId: string }) {
   const { t } = useTranslation('students');
   const regionConfig = useRegionConfig();
   const walletQuery = useStudentWallet(studentId);
+  const canPayout = useHasPermission(Permission.PAYMENT_REVERSE);
+  const [payingOut, setPayingOut] = React.useState(false);
 
   return (
     <TabQueryState
@@ -208,11 +238,34 @@ function WalletSection({ studentId }: { studentId: string }) {
         return (
           <div className="flex flex-col gap-4">
             <Card padded>
-              <p className="text-caption text-text-secondary">{t('detail.fees.walletBalance')}</p>
-              <p className="mt-1 text-h2 tabular-nums">
-                {formatServerAmount(wallet.balance, regionConfig)}
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-caption text-text-secondary">
+                    {t('detail.fees.walletBalance')}
+                  </p>
+                  <p className="mt-1 text-h2 tabular-nums">
+                    {formatServerAmount(wallet.balance, regionConfig)}
+                  </p>
+                </div>
+                {canPayout && Number(wallet.balance) > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full md:w-auto"
+                    onClick={() => setPayingOut(true)}
+                  >
+                    <HandCoinsIcon className="size-4" aria-hidden />
+                    {t('detail.fees.payout.action')}
+                  </Button>
+                )}
+              </div>
             </Card>
+            <WalletPayoutDialog
+              open={payingOut}
+              onOpenChange={setPayingOut}
+              studentId={studentId}
+              balance={wallet.balance}
+            />
             <DataTable
               tableId="student-wallet"
               caption={t('detail.fees.walletTab')}
@@ -310,6 +363,8 @@ export function FeesTab({ studentId }: FeesTabProps) {
   const { t } = useTranslation('students');
   const regionConfig = useRegionConfig();
   const query = useStudentFeeSummary(studentId);
+  const canWriteOff = useHasPermission(Permission.FEE_APPROVE);
+  const [writingOff, setWritingOff] = React.useState<StudentFee | null>(null);
 
   function money(amount: number | string): string {
     return formatServerAmount(amount, regionConfig);
@@ -384,7 +439,15 @@ export function FeesTab({ studentId }: FeesTabProps) {
                   tableId="student-fee-lines"
                   emptyTitle={t('detail.fees.emptyMessage')}
                   emptyExplanation={t('detail.fees.emptyExplanation')}
+                  onWriteOff={canWriteOff ? setWritingOff : undefined}
                 />
+                {writingOff && (
+                  <WriteOffBillDialog
+                    open
+                    onOpenChange={(next) => !next && setWritingOff(null)}
+                    bill={writingOff}
+                  />
+                )}
               </TabsContent>
               <TabsContent value="wallet">
                 <WalletSection studentId={studentId} />

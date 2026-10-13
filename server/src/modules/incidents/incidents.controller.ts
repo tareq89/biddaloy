@@ -19,7 +19,12 @@ import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { IncidentsService } from './incidents.service';
-import { CreateIncidentDto, IncidentResponseDto, QueryIncidentsDto } from './dto/incident.dto';
+import {
+  CreateIncidentDto,
+  IncidentResponseDto,
+  QueryIncidentsDto,
+  WithdrawIncidentDto,
+} from './dto/incident.dto';
 
 @ApiTags('incidents')
 @ApiTenantAuth()
@@ -39,6 +44,20 @@ export class IncidentsController {
     @CurrentUser() user: { sub: string },
   ) {
     return this.service.create(dto, tenant.id, user.sub);
+  }
+
+  @Post(':id/withdraw')
+  @HttpCode(200)
+  @RequirePermissions(Permission.ACR_WRITE)
+  @ApiOperation({ summary: 'Withdraw an incident with a reason (kept, but hidden).' })
+  @ApiResponse({ status: 200, type: IncidentResponseDto })
+  withdraw(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: WithdrawIncidentDto,
+    @CurrentTenant() tenant: { id: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    return this.service.withdraw(id, tenant.id, user.sub, dto.reason);
   }
 
   @Get()

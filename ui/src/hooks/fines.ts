@@ -6,6 +6,7 @@ import type { components } from '../api/schema';
 
 import { type ApprovedMutationResult, useApprovedMutation } from './approval';
 import { feeDuesKeys } from './fee-dues';
+import { paymentKeys } from './payments';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -204,6 +205,29 @@ export function useWaiveFine(): ApprovedMutationResult<WaiveFineInput, WaiveFine
         void queryClient.invalidateQueries({ queryKey: finesKeys.all });
         void queryClient.invalidateQueries({ queryKey: feeDuesKeys.all });
         void queryClient.invalidateQueries({ queryKey: ['student-fees'] });
+        // The student Fees tab reads `paymentKeys.all/fee-summary`.
+        void queryClient.invalidateQueries({ queryKey: paymentKeys.all });
+      },
+    },
+  );
+}
+
+/** `POST /fees/bills/:id/waive` (MON-08) — write off an open bill of any fee type.
+ * Same body, result and `FEES_DISCOUNT` step-up as `useWaiveFine`. */
+export function useWaiveBill(): ApprovedMutationResult<WaiveFineInput, WaiveFineResult> {
+  const queryClient = useQueryClient();
+  return useApprovedMutation(
+    async ({ id, ...body }, options) =>
+      (await apiClient.post<WaiveFineResult>(`/fees/bills/${id}/waive`, body, options)).data,
+    {
+      approvalScope: ApprovalScope.FEES_DISCOUNT,
+      retry: false,
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: finesKeys.all });
+        void queryClient.invalidateQueries({ queryKey: feeDuesKeys.all });
+        void queryClient.invalidateQueries({ queryKey: ['student-fees'] });
+        // The student Fees tab reads `paymentKeys.all/fee-summary`.
+        void queryClient.invalidateQueries({ queryKey: paymentKeys.all });
       },
     },
   );

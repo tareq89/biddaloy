@@ -6,7 +6,7 @@ import { usersTab } from './users.tab';
  * [28.1.3] `staff_incidents`. No DB unique key, so `created_at` (second-level
  * resolution) joins the natural key to keep two same-day incidents apart.
  */
-export const staffIncidentsTab = createRefChildTab<StaffIncident>({
+const baseTab = createRefChildTab<StaffIncident>({
   name: 'staff_incidents',
   entityClass: StaffIncident,
   refs: [
@@ -46,8 +46,47 @@ export const staffIncidentsTab = createRefChildTab<StaffIncident>({
       required: true,
       label: { en: 'Created at', bn: 'তৈরির সময়' },
     },
+    {
+      key: 'withdrawn_at',
+      type: 'datetime',
+      label: { en: 'Withdrawn at', bn: 'প্রত্যাহারের সময়' },
+    },
+    {
+      key: 'withdraw_reason',
+      type: 'string',
+      label: { en: 'Withdraw reason', bn: 'প্রত্যাহারের কারণ' },
+    },
   ],
+  // The withdrawing user is not backed up (the FK is nullable, ON DELETE SET NULL);
+  // when and why a withdrawn incident was withdrawn are.
+  excluded: ['withdrawn_by_user_id'],
   naturalKey: ['staff', 'occurred_on', 'type', 'created_at'],
 });
+
+/**
+ * Same as the factory tab, plus the `CHK_staff_incidents_withdraw_reason` rule
+ * as a row error: otherwise a hand-edited row with `withdrawn_at` but a blank
+ * reason passes the preview and aborts the whole restore at apply time.
+ */
+export const staffIncidentsTab: typeof baseTab = {
+  ...baseTab,
+  fromRow(cells, rowNo, ctx) {
+    const res = baseTab.fromRow(cells, rowNo, ctx);
+    if ('row' in res && res.row.withdrawn_at && !String(res.row.withdraw_reason ?? '').trim()) {
+      return {
+        errors: [
+          {
+            tab: 'staff_incidents',
+            row: rowNo,
+            column: 'withdraw_reason',
+            message: 'Column "withdraw_reason": is required when "withdrawn_at" is set.',
+            severity: 'error',
+          },
+        ],
+      };
+    }
+    return res;
+  },
+};
 
 export const incidentsTabs = [staffIncidentsTab];

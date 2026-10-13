@@ -1,5 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
+import type { JwtPayload } from '@biddaloy/shared';
 
 export const ACCESS_TOKEN_DENYLIST_REDIS = 'ACCESS_TOKEN_DENYLIST_REDIS';
 
@@ -28,6 +29,10 @@ export class AccessTokenDenylistService {
     return `access-denylist:${jti}`;
   }
 
+  private userKey(userId: string): string {
+    return `access-denylist:user:${userId}`;
+  }
+
   async revoke(jti: string, ttlMs: number): Promise<void> {
     if (ttlMs <= 0) return;
     try {
@@ -39,12 +44,37 @@ export class AccessTokenDenylistService {
     }
   }
 
-  async isRevoked(jti: string): Promise<boolean> {
+  /**
+   * Refuses every access token of `userId` issued at or before `at` (millisecond
+   * precision, compared with the token's `iat_ms`). The key outlives the
+   * longest-lived token it can still apply to by one minute: a token is signed
+   * a few ms after its `iat_ms`, so it expires a few ms after `at + ttlMs`.
+   */
+  async revokeUserTokensIssuedBefore(userId: string, at: Date, ttlMs: number): Promise<void> {
+    if (ttlMs <= 0) return;
     try {
-      return (await this.redis.exists(this.key(jti))) === 1;
+      await this.redis.set(this.userKey(userId), String(at.getTime()), 'PX', ttlMs + 60_000);
     } catch (error) {
       this.logger.error(
-        `Denylist check failed for ${jti}, failing open: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to set token cut-off for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  async isRevoked(payload: Pick<JwtPayload, 'jti' | 'sub' | 'iat' | 'iat_ms'>): Promise<boolean> {
+    try {
+      const [jtiHit, cutOff] = await this.redis.mget(
+        this.key(payload.jti),
+        this.userKey(payload.sub),
+      );
+      if (jtiHit !== null) return true;
+      if (cutOff === null) return false;
+      // Legacy tokens carry only whole-second `iat`: assume the end of that second.
+      const issuedMs = payload.iat_ms ?? (payload.iat ?? 0) * 1000 + 999;
+      return issuedMs <= Number(cutOff);
+    } catch (error) {
+      this.logger.error(
+        `Denylist check failed for ${payload.jti}, failing open: ${error instanceof Error ? error.message : String(error)}`,
       );
       return false;
     }

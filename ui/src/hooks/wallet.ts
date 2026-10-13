@@ -1,8 +1,11 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { ApprovalScope } from '@biddaloy/shared';
+import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
+import { type ApprovedMutationResult, useApprovedMutation } from './approval';
+import { paymentKeys } from './payments';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -24,9 +27,8 @@ export const walletKeys = createEntityKeys<{ studentId: string; page?: number }>
 /** [16.4.5]'s wallet balance chip (dues.tsx) and Wallet section
  * (fees-tab.tsx) — both back onto `GET students/:id/wallet`
  * (`server/src/modules/fees/wallet.controller.ts`), which is read-only:
- * writes only ever happen as a side effect of another operation (checkout,
- * fee generation, reversal), never through a route of its own — so this
- * file has no mutation hook. */
+ * writes mostly happen as a side effect of another operation (checkout,
+ * fee generation, reversal); the one direct write is `useWalletPayout`. */
 export function useStudentWallet(studentId: string | undefined, page = 1) {
   return useQuery(
     queryOptions({
@@ -49,5 +51,26 @@ export function useStudentWallet(studentId: string | undefined, page = 1) {
       staleTime: 30_000,
       retry: shouldRetryQuery,
     }),
+  );
+}
+
+export type WalletPayoutInput = components['schemas']['WalletPayoutDto'] & { studentId: string };
+
+/** `POST /students/:id/wallet/payout` (MON-09) — cash handed back to the family.
+ * Needs a `PAYMENTS_REVERSE` approval token (same step-up retry as the others). */
+export function useWalletPayout(): ApprovedMutationResult<WalletPayoutInput, StudentWallet> {
+  const queryClient = useQueryClient();
+  return useApprovedMutation(
+    async ({ studentId, ...body }, options) =>
+      (await apiClient.post<StudentWallet>(`/students/${studentId}/wallet/payout`, body, options))
+        .data,
+    {
+      approvalScope: ApprovalScope.PAYMENTS_REVERSE,
+      retry: false,
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: walletKeys.all });
+        void queryClient.invalidateQueries({ queryKey: paymentKeys.all });
+      },
+    },
   );
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -159,6 +159,41 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
 }
 
 const NO_CTX = { ip: null, userAgent: null };
+
+/** [68.4.#2298 PUB-10] Insert a minimal invoice + a live share token for a student; returns the token id. */
+async function seedShareToken(
+  ds: DataSource,
+  studentId: string,
+  tenantId: string,
+  seq: number,
+): Promise<string> {
+  const userRepo = ds.getRepository('User');
+  const user = (await userRepo.save(
+    userRepo.create({
+      full_name: 'Share Actor',
+      email: `share-${seq}-${Date.now()}@example.com`,
+      status: 'ACTIVE',
+    }),
+  )) as { id: string };
+  const [inv] = await ds.query(
+    `INSERT INTO invoices (invoice_number, tenant_id, student_id, total_amount, issued_date, due_date, snapshot)
+     VALUES ($1, $2, $3, 100, now(), now(), '{}'::jsonb) RETURNING id`,
+    [`INV-SHARE-${seq}-${Date.now()}`, tenantId, studentId],
+  );
+  const [tok] = await ds.query(
+    `INSERT INTO invoice_share_tokens (tenant_id, invoice_id, token_hash, created_by_user_id)
+     VALUES ($1, $2, $3, $4) RETURNING id`,
+    [tenantId, inv.id, `${seq}`.padStart(64, 'a'), user.id],
+  );
+  return tok.id;
+}
+
+async function isRevoked(ds: DataSource, tokenId: string): Promise<boolean> {
+  const [row] = await ds.query('SELECT revoked_at FROM invoice_share_tokens WHERE id = $1', [
+    tokenId,
+  ]);
+  return row.revoked_at !== null;
+}
 
 describe('StudentService (integration)', () => {
   let service: StudentService;
@@ -426,6 +461,27 @@ describe('StudentService (integration)', () => {
       expect(student1.registration_number).toMatch(/REG-\d{4}-\d{4}$/);
       expect(student2.registration_number).toMatch(/REG-\d{4}-\d{4}$/);
       expect(student2.registration_number).not.toBe(student1.registration_number);
+    });
+
+    it('[LIFE-13] takes the numeric max, so REG-<yr>-9999 and -10000 are followed by -10001', async () => {
+      const yr = new Date().getFullYear();
+      for (const [i, n] of ['9999', '10000'].entries()) {
+        await studentRepo.save(
+          studentRepo.create({
+            full_name: `Old ${n}`,
+            registration_number: `REG-${yr}-${n}`,
+            roll_number: 100 + i,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+          }),
+        );
+      }
+      const next = await service.create(
+        { full_name: 'New', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      expect(next.registration_number).toBe(`REG-${yr}-10001`);
     });
 
     it('serializes concurrent creates so no two students in the same section collide on roll_number or registration_number', async () => {
@@ -1350,6 +1406,175 @@ describe('StudentService (integration)', () => {
       });
       expect(newYearEnrollment.section_id).toBe(nextYearSection.id);
       expect(newYearEnrollment.class_id).toBe(nextYearClass.id);
+    });
+  });
+
+  describe('guardian unlink revokes invoice share links [68.4.#2298 PUB-10 / D16]', () => {
+    // The outer beforeEach deletes students; invoices reference them, so clear ours first.
+    afterEach(async () => {
+      await dataSource.query('DELETE FROM invoice_share_tokens');
+      await dataSource.query('DELETE FROM invoices');
+    });
+
+    async function setup() {
+      const g1 = await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'G One',
+          relationship: 'FATHER',
+          phone: '+880****1001',
+          tenant_id: TENANT_ID,
+        }),
+      );
+      const g2 = await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'G Two',
+          relationship: 'MOTHER',
+          phone: '+880****1002',
+          tenant_id: TENANT_ID,
+        }),
+      );
+      const student = await service.create(
+        {
+          full_name: 'Linked Kid',
+          class_section_id: SEED_SECTION_1_ID,
+          guardian_ids: [g1.id, g2.id],
+        },
+        TENANT_ID,
+      );
+      const other = await service.create(
+        { full_name: 'Unrelated Kid', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      const foreign = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Foreign Kid',
+          registration_number: 'REG-FOREIGN-2298',
+          roll_number: 1,
+          class_section_id: '00000000-0000-4000-8000-000000000097',
+          tenant_id: OTHER_TENANT,
+        } as any),
+      );
+      return {
+        g1,
+        g2,
+        student,
+        tok: await seedShareToken(dataSource, student.id, TENANT_ID, 1),
+        otherTok: await seedShareToken(dataSource, other.id, TENANT_ID, 2),
+        foreignTok: await seedShareToken(dataSource, foreign.id, OTHER_TENANT, 3),
+      };
+    }
+
+    it("revokes the student's links when update drops a guardian; other students and tenants stay live", async () => {
+      const c = await setup();
+      await service.update(c.student.id, { guardian_ids: [c.g2.id] } as any, TENANT_ID);
+      expect(await isRevoked(dataSource, c.tok)).toBe(true);
+      expect(await isRevoked(dataSource, c.otherTok)).toBe(false);
+      expect(await isRevoked(dataSource, c.foreignTok)).toBe(false);
+    });
+
+    it('leaves links live when guardians are unchanged, or a guardian is added', async () => {
+      const c = await setup();
+      await service.update(c.student.id, { full_name: 'Renamed' } as any, TENANT_ID);
+      await service.update(c.student.id, { guardian_ids: [c.g1.id, c.g2.id] } as any, TENANT_ID);
+      expect(await isRevoked(dataSource, c.tok)).toBe(false);
+      const g3 = await guardianRepo.save(
+        guardianRepo.create({
+          full_name: 'G Three',
+          relationship: 'UNCLE',
+          phone: '+880****1003',
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await service.update(
+        c.student.id,
+        { guardian_ids: [c.g1.id, c.g2.id, g3.id] } as any,
+        TENANT_ID,
+      );
+      expect(await isRevoked(dataSource, c.tok)).toBe(false);
+    });
+
+    it('partial drop via GuardianService.update revokes only the dropped student', async () => {
+      const c = await setup();
+      const other = await studentRepo.findOneOrFail({ where: { full_name: 'Unrelated Kid' } });
+      await guardianService.update(
+        c.g1.id,
+        { student_ids: [c.student.id, other.id] } as any,
+        TENANT_ID,
+      );
+      // g1 now covers both kids; drop the first, keep `other`
+      await guardianService.update(c.g1.id, { student_ids: [other.id] } as any, TENANT_ID);
+      expect(await isRevoked(dataSource, c.tok)).toBe(true);
+      expect(await isRevoked(dataSource, c.otherTok)).toBe(false);
+      expect(await isRevoked(dataSource, c.foreignTok)).toBe(false);
+    });
+
+    it('revokes via GuardianService.update({ student_ids: [] })', async () => {
+      const c = await setup();
+      await guardianService.update(c.g1.id, { student_ids: [] } as any, TENANT_ID);
+      expect(await isRevoked(dataSource, c.tok)).toBe(true);
+      expect(await isRevoked(dataSource, c.otherTok)).toBe(false);
+    });
+
+    it('revokes via GuardianService.remove', async () => {
+      const c = await setup();
+      await guardianService.remove(c.g1.id, TENANT_ID);
+      expect(await isRevoked(dataSource, c.tok)).toBe(true);
+      expect(await isRevoked(dataSource, c.otherTok)).toBe(false);
+      expect(await isRevoked(dataSource, c.foreignTok)).toBe(false);
+    });
+  });
+
+  describe('junction rows to soft-deleted records survive link edits [68.4.#2299 DATA-07]', () => {
+    const links = async (): Promise<string[]> =>
+      (await dataSource.query('SELECT student_id, guardian_id FROM student_guardians')).map(
+        (r: any) => `${r.student_id}|${r.guardian_id}`,
+      );
+
+    const mkGuardian = (name: string, n: number) =>
+      guardianRepo.save(
+        guardianRepo.create({
+          full_name: name,
+          relationship: 'FATHER',
+          phone: `+880****20${n}`,
+          tenant_id: TENANT_ID,
+        }),
+      );
+    const mkStudent = (name: string, guardian_ids: string[]) =>
+      service.create(
+        { full_name: name, class_section_id: SEED_SECTION_1_ID, guardian_ids },
+        TENANT_ID,
+      );
+
+    it('keeps the G-S row when G is edited to [T] after S was soft-deleted', async () => {
+      const g = await mkGuardian('G', 1);
+      const s = await mkStudent('S', [g.id]);
+      const t = await mkStudent('T', [g.id]);
+      await service.remove(s.id, TENANT_ID, null, NO_CTX);
+      await guardianService.update(g.id, { student_ids: [t.id] } as any, TENANT_ID);
+      const rows = await links();
+      expect(rows).toContain(`${s.id}|${g.id}`);
+      expect(rows).toContain(`${t.id}|${g.id}`);
+    });
+
+    it('keeps the X-B row when X is edited to [A] after guardian B was soft-deleted', async () => {
+      const a = await mkGuardian('A', 2);
+      const b = await mkGuardian('B', 3);
+      const x = await mkStudent('X', [a.id, b.id]);
+      await guardianService.remove(b.id, TENANT_ID);
+      await service.update(x.id, { guardian_ids: [a.id] } as any, TENANT_ID);
+      const rows = await links();
+      expect(rows).toContain(`${x.id}|${b.id}`);
+      expect(rows).toContain(`${x.id}|${a.id}`);
+    });
+
+    it('still removes a link to a live student taken out of the list', async () => {
+      const g = await mkGuardian('G', 4);
+      const s = await mkStudent('S', [g.id]);
+      const t = await mkStudent('T', [g.id]);
+      await guardianService.update(g.id, { student_ids: [t.id] } as any, TENANT_ID);
+      const rows = await links();
+      expect(rows).not.toContain(`${s.id}|${g.id}`);
+      expect(rows).toContain(`${t.id}|${g.id}`);
     });
   });
 

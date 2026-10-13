@@ -20,8 +20,10 @@ import {
   useGenerateFines,
   useLogFine,
   usePreviewFineGeneration,
+  useWaiveBill,
   useWaiveFine,
 } from './fines';
+import { paymentKeys } from './payments';
 
 afterEach(async () => {
   await cleanupTestState();
@@ -133,6 +135,88 @@ describe('useWaiveFine', () => {
         }
         expect(request.headers.get('X-Approval-Token')).toBe('tok-123');
         return HttpResponse.json({ id: 'fine-1', amount: 100, status: 'WAIVED' }, { status: 201 });
+      }),
+      http.post('/api/v1/auth/step-up/otp/request', () => HttpResponse.json({}, { status: 202 })),
+      http.post('/api/v1/auth/step-up', () =>
+        HttpResponse.json(
+          { approval_token: 'tok-123', approver: { id: 'u1', name: 'Admin' } },
+          { status: 201 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<Harness />, { locale: 'en', tenantId: 'tenant-1' });
+
+    await user.click(screen.getByRole('button', { name: 'waive' }));
+    await screen.findByRole('dialog');
+    await user.type(screen.getByLabelText('Email or phone'), 'admin@example.com');
+    await user.click(screen.getByRole('button', { name: 'Send code' }));
+    await user.type(await screen.findByLabelText('Verification code'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Verify' }));
+
+    await screen.findByText('WAIVED', { selector: '[data-testid="result"]' });
+    expect(attempt).toBe(2);
+  });
+
+  // A waived fine changes the student's fee summary too, same as useWaiveBill.
+  it('invalidates the fines, fee-dues, student-fees and payments query keys', async () => {
+    server.use(
+      http.post('/api/v1/fees/fines/fine-1/waive', () =>
+        HttpResponse.json({ id: 'fine-1', amount: 100, status: 'WAIVED' }, { status: 201 }),
+      ),
+    );
+
+    const { queryClient } = renderWithProviders(<Harness />, {
+      locale: 'en',
+      tenantId: 'tenant-1',
+    });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'waive' }));
+
+    await screen.findByText('WAIVED', { selector: '[data-testid="result"]' });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: finesKeys.all });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: feeDuesKeys.all });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['student-fees'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: paymentKeys.all });
+  });
+});
+
+describe('useWaiveBill', () => {
+  function Harness() {
+    const waive = useWaiveBill();
+    return (
+      <div>
+        <button onClick={() => waive.mutate({ id: 'bill-1', reason: 'Hardship case' })}>
+          waive
+        </button>
+        {waive.isSuccess && <span data-testid="result">{waive.data?.status}</span>}
+      </div>
+    );
+  }
+
+  it('posts to /fees/bills/:id/waive and retries once with the approval token', async () => {
+    let attempt = 0;
+    server.use(
+      http.post('/api/v1/fees/bills/bill-1/waive', async ({ request }) => {
+        attempt += 1;
+        if (attempt === 1) {
+          return HttpResponse.json(
+            {
+              statusCode: 403,
+              message: 'Approval required',
+              timestamp: new Date().toISOString(),
+              path: '/fees/bills/bill-1/waive',
+              requestId: 'req-1',
+              details: { code: 'APPROVAL_REQUIRED' },
+            },
+            { status: 403 },
+          );
+        }
+        expect(request.headers.get('X-Approval-Token')).toBe('tok-123');
+        expect(await request.json()).toEqual({ reason: 'Hardship case' });
+        return HttpResponse.json({ id: 'bill-1', amount: 100, status: 'WAIVED' });
       }),
       http.post('/api/v1/auth/step-up/otp/request', () => HttpResponse.json({}, { status: 202 })),
       http.post('/api/v1/auth/step-up', () =>

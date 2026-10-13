@@ -1,4 +1,6 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Job } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -17,7 +19,9 @@ import { PushService } from '../push/push.service';
 import { CommunicationsService } from '../communications/communications.service';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
 import { resolveTenantSettings } from '../schools/settings/tenant-settings-resolver';
-import { INCIDENT_CREATED, IncidentCreatedEvent, incidentEvents } from './incidents.service';
+import type { IncidentCreatedEvent } from './incidents.service';
+
+export const INCIDENT_NOTIFY_QUEUE = 'incident-notify';
 
 /** The only text ever sent. Incident text (`body`) is never read here (D2). */
 export const INCIDENT_NOTIFICATION_TEXT = 'New incident report';
@@ -29,7 +33,8 @@ const ACR_WRITE_ROLES = (Object.keys(ROLE_PERMISSIONS) as UserRole[]).filter((r)
 /** Pushes a fixed string to every ACR_WRITE holder of the tenant; SMS only
  * when `settings.evaluations.incidentSmsEnabled === true` (default off). */
 @Injectable()
-export class IncidentNotifyListener implements OnModuleInit {
+@Processor(INCIDENT_NOTIFY_QUEUE)
+export class IncidentNotifyListener extends WorkerHost {
   private readonly logger = new Logger(IncidentNotifyListener.name);
 
   constructor(
@@ -38,17 +43,21 @@ export class IncidentNotifyListener implements OnModuleInit {
     private readonly push: PushService,
     private readonly communications: CommunicationsService,
     private readonly smsCredit: SmsCreditService,
-  ) {}
+  ) {
+    super();
+  }
 
-  onModuleInit(): void {
-    incidentEvents.on(INCIDENT_CREATED, (event: IncidentCreatedEvent) => {
-      void this.handleIncidentCreated(event).catch((error) =>
-        this.logger.error(
-          `incident.created handler failed for ${event.incidentId}`,
-          error instanceof Error ? error.stack : String(error),
-        ),
+  async process(job: Job<IncidentCreatedEvent>): Promise<void> {
+    try {
+      await this.handleIncidentCreated(job.data);
+    } catch (error) {
+      // attempts: 1, so this log is the only trace of a lost notice; rethrow so BullMQ marks it failed.
+      this.logger.error(
+        `incident-notify failed for incident ${job.data.incidentId}`,
+        error instanceof Error ? error.stack : String(error),
       );
-    });
+      throw error;
+    }
   }
 
   async handleIncidentCreated({

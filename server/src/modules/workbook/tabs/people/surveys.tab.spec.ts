@@ -51,6 +51,33 @@ describe('staff_incidents tab', () => {
       roundTrip(staffIncidentsTab, incident, { staff: 'a@x.test', reporter: 'a@x.test' }, keys),
     ).toMatchObject({ occurred_on: '2026-04-02', body: 'Great term' });
   });
+
+  // #2286: CHK_staff_incidents_withdraw_reason would abort the whole restore
+  // at apply time; the preview must report it as a row error instead.
+  it('withdrawn_at without a withdraw_reason is a row error, not a DB abort', () => {
+    const cells = {
+      id: R,
+      staff: 'a@x.test',
+      reporter: 'a@x.test',
+      type: 'BEHAVIOUR',
+      severity: 'LOW',
+      body: 'Late',
+      occurred_on: '2026-04-02',
+      created_at: '2026-05-01T09:00:00.000Z',
+      withdrawn_at: '2026-05-02T09:00:00.000Z',
+      withdraw_reason: '   ',
+    };
+    const ctx = { tenantId: 'tenant', ref: () => U, warn: () => undefined };
+    const res = staffIncidentsTab.fromRow(cells, 7, ctx);
+    expect(res).toEqual({
+      errors: [expect.objectContaining({ row: 7, column: 'withdraw_reason', severity: 'error' })],
+    });
+
+    // A reason makes the same row valid.
+    expect(
+      staffIncidentsTab.fromRow({ ...cells, withdraw_reason: 'Wrong person' }, 7, ctx),
+    ).toHaveProperty('row');
+  });
 });
 
 describe('survey tabs', () => {

@@ -222,6 +222,59 @@ describe('Public Invoice Share E2E', () => {
     });
   });
 
+  describe('link lifetime [68.4.#2298 PUB-10 / D16]', () => {
+    async function mintLink(invoiceId: string): Promise<string> {
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/invoices/${invoiceId}/share`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ACCOUNTANT)
+        .expect(201);
+      return extractToken(res.body.url);
+    }
+
+    it('404s while the school is suspended and works again once reactivated', async () => {
+      const raw = await mintLink(await createInvoice());
+      await supertest(app.getHttpServer()).get(`/api/v1/public/invoices/${raw}`).expect(200);
+
+      await dataSource.query(`UPDATE schools SET status = 'SUSPENDED' WHERE id = $1`, [TENANT_ID]);
+      try {
+        await supertest(app.getHttpServer()).get(`/api/v1/public/invoices/${raw}`).expect(404);
+      } finally {
+        await dataSource.query(`UPDATE schools SET status = 'ACTIVE' WHERE id = $1`, [TENANT_ID]);
+      }
+      await supertest(app.getHttpServer()).get(`/api/v1/public/invoices/${raw}`).expect(200);
+    });
+
+    it('404s for good after a linked guardian is deleted', async () => {
+      const invoiceId = await createInvoice();
+      const [{ student_id }] = await dataSource.query(
+        `SELECT student_id FROM invoices WHERE id = $1`,
+        [invoiceId],
+      );
+      const [{ id: guardianId }] = await dataSource.query(
+        `INSERT INTO guardians (full_name, relationship, phone, tenant_id, created_at, updated_at)
+         VALUES ('Share Guardian', 'FATHER', '+8801700000099', $1, NOW(), NOW()) RETURNING id`,
+        [TENANT_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)`,
+        [student_id, guardianId],
+      );
+      const raw = await mintLink(invoiceId);
+      await supertest(app.getHttpServer()).get(`/api/v1/public/invoices/${raw}`).expect(200);
+
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/guardians/${guardianId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+
+      await supertest(app.getHttpServer()).get(`/api/v1/public/invoices/${raw}`).expect(404);
+    });
+  });
+
   describe('GET /public/invoices/:token', () => {
     it('works with no Authorization header and no X-Tenant-ID header', async () => {
       const invoiceId = await createInvoice();

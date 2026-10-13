@@ -5,6 +5,7 @@ import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 import { addDaysIso } from '../rule-context.service';
 import { roleRecipients } from '../structure/role-recipients';
+import { priorYearStartSql } from '../../../classes/teacher-scope.service';
 
 // ponytail: constants until #1859 gives a real mark-entry deadline
 export const MARKS_GRACE_DAYS = 7;
@@ -27,8 +28,9 @@ export function daysBetween(fromIso: string, toIso: string): number {
 
 /**
  * Set-based form of `MarkGridService.progress`: every section of the exam's class x every
- * subject with a live component; no grid row reads as open. DRAFT exams of the current
- * year whose last sitting is on/before `lastSittingOnOrBefore`.
+ * subject with a live component; no grid row reads as open. DRAFT exams of the current year or
+ * the one right before it (the year flag flipping does not hide open work; the same window as
+ * the homeroom grant, X-07) whose last sitting is on/before `lastSittingOnOrBefore`.
  */
 export async function loadOutstandingGrids(
   ds: DataSource,
@@ -40,7 +42,8 @@ export async function loadOutstandingGrids(
        SELECT e.id, e.name, e.class_id, c.name AS class_name, MAX(es.date) AS last_date
        FROM exams e
        JOIN classes c ON c.id = e.class_id AND c.tenant_id = $1 AND c.deleted_at IS NULL
-       JOIN academic_years y ON y.id = e.academic_year_id AND y.tenant_id = $1 AND y.is_current = true AND y.deleted_at IS NULL
+       JOIN academic_years y ON y.id = e.academic_year_id AND y.tenant_id = $1 AND y.deleted_at IS NULL
+         AND (y.is_current = true OR y.start_date = ${priorYearStartSql('$1')})
        JOIN exam_schedules es ON es.exam_id = e.id AND es.tenant_id = $1 AND es.deleted_at IS NULL
        WHERE e.tenant_id = $1 AND e.deleted_at IS NULL AND e.status = 'DRAFT'
        GROUP BY e.id, e.name, e.class_id, c.name

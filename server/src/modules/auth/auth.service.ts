@@ -183,12 +183,14 @@ export class AuthService {
    * (`randomUUID()`), same as `login()`.
    */
   async startSession(user: User, context: RequestContext): Promise<AuthResult> {
+    // Before the membership read: see signAccessToken's `issuedAtMs`.
+    const issuedAtMs = Date.now();
     const membershipPayload = await this.fetchMembershipPayload(user.id);
     const familyId = randomUUID();
     const refreshToken = await this.refreshTokens.issueForUser(user.id, familyId, context);
 
     return {
-      access_token: this.signAccessToken(user, membershipPayload),
+      access_token: this.signAccessToken(user, membershipPayload, issuedAtMs),
       memberships: membershipPayload,
       refreshToken,
     };
@@ -235,10 +237,11 @@ export class AuthService {
       throw new UnauthorizedException('User no longer exists');
     }
 
+    const issuedAtMs = Date.now();
     const membershipPayload = await this.fetchMembershipPayload(user.id);
 
     return {
-      access_token: this.signAccessToken(user, membershipPayload),
+      access_token: this.signAccessToken(user, membershipPayload, issuedAtMs),
       memberships: membershipPayload,
       refreshToken: rotated.refreshToken,
     };
@@ -561,13 +564,22 @@ export class AuthService {
     }
   }
 
-  private signAccessToken(user: User, memberships: JwtMembership[]): string {
+  /**
+   * `issuedAtMs` must be taken BEFORE `memberships` were read (#2297). The
+   * removal cut-off refuses tokens with `iat_ms <= cutOff`; a token whose
+   * memberships predate the removal commit therefore always predates the
+   * cut-off too, however long the read or the refresh-token write took.
+   */
+  private signAccessToken(user: User, memberships: JwtMembership[], issuedAtMs: number): string {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       phone: user.phone,
       memberships,
       jti: randomUUID(),
+      // Millisecond issue time for the per-user revocation cut-off (the
+      // standard `iat` is whole seconds). Standard `iat`/`exp` stay untouched.
+      iat_ms: issuedAtMs,
     };
     return this.jwtService.sign(payload);
   }

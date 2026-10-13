@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
-import { IncidentsService, incidentEvents, INCIDENT_CREATED } from './incidents.service';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { IsNull } from 'typeorm';
+import { IncidentsService } from './incidents.service';
 import { IncidentNotifyListener, INCIDENT_NOTIFICATION_TEXT } from './incident-notify.listener';
 
 const TENANT = 'tenant-1';
@@ -26,13 +27,21 @@ function row(over: Record<string, unknown> = {}) {
     occurred_on: '2026-09-30',
     reported_by: ADMIN,
     created_at: new Date('2026-09-30T00:00:00Z'),
+    withdrawn_at: null,
+    withdrawn_by_user_id: null,
+    withdraw_reason: null,
     ...over,
   };
 }
 
 describe('IncidentsService', () => {
-  let repo: { save: any; create: any; find: any; findOne: any };
+  let repo: { save: any; create: any; find: any; findOne: any; update: any; manager: any };
+  // What the transaction callback gets: writes must go through it, not `repo`.
+  let txRepo: { save: any; update: any };
+  let tx: { getRepository: any };
   let memberships: { findOne: any };
+  let audit: { record: any };
+  let queue: { add: any };
   let service: IncidentsService;
 
   beforeEach(() => {
@@ -41,12 +50,16 @@ describe('IncidentsService', () => {
       save: vi.fn(async (x) => row(x)),
       find: vi.fn(async () => []),
       findOne: vi.fn(),
+      update: vi.fn(async () => ({ affected: 1 })),
+      manager: { transaction: vi.fn(async (cb: (m: unknown) => unknown) => cb(tx)) },
     };
+    txRepo = { save: repo.save, update: repo.update };
+    tx = { getRepository: vi.fn(() => txRepo) };
     memberships = { findOne: vi.fn(async () => ({ id: 'm' })) };
-    service = new IncidentsService(repo as any, memberships as any);
+    audit = { record: vi.fn(async () => ({})) };
+    queue = { add: vi.fn(async () => ({})) };
+    service = new IncidentsService(repo as any, memberships as any, audit as any, queue as any);
   });
-
-  afterEach(() => incidentEvents.removeAllListeners());
 
   const dto = {
     staffId: STAFF,
@@ -56,10 +69,7 @@ describe('IncidentsService', () => {
     description: SECRET,
   } as any;
 
-  it('maps shared names to entity columns, scopes by tenant, and emits ids only', async () => {
-    const seen: unknown[] = [];
-    incidentEvents.on(INCIDENT_CREATED, (e) => seen.push(e));
-
+  it('maps shared names to entity columns, scopes by tenant, and enqueues an ids-only notify job', async () => {
     const res = await service.create(dto, TENANT, ADMIN);
 
     expect(repo.create).toHaveBeenCalledWith(
@@ -72,8 +82,104 @@ describe('IncidentsService', () => {
     );
     expect(res.staffId).toBe(STAFF);
     expect(res.description).toBe(SECRET);
-    expect(seen).toEqual([{ ...EVENT, staffUserId: STAFF, reportedBy: ADMIN }]);
-    expect(JSON.stringify(seen)).not.toContain(SECRET);
+    expect(queue.add).toHaveBeenCalledTimes(1);
+    expect(queue.add).toHaveBeenCalledWith(
+      'incident.created',
+      { ...EVENT, staffUserId: STAFF, reportedBy: ADMIN },
+      { jobId: 'incident-inc-1' },
+    );
+    expect(JSON.stringify(queue.add.mock.calls)).not.toContain(SECRET);
+  });
+
+  it('a queue error is logged and create still returns the incident', async () => {
+    queue.add.mockRejectedValue(new Error('redis down'));
+    const res = await service.create(dto, TENANT, ADMIN);
+    expect(res.staffId).toBe(STAFF);
+    expect(audit.record).toHaveBeenCalledTimes(1);
+  });
+
+  it('create records an audit row without incident text', async () => {
+    await service.create(dto, TENANT, ADMIN);
+    expect(audit.record).toHaveBeenCalledTimes(1);
+    const entry = audit.record.mock.calls[0][0];
+    expect(entry).toMatchObject({
+      action: 'CREATE',
+      entity_type: 'StaffIncident',
+      tenant_id: TENANT,
+      performed_by_user_id: ADMIN,
+      old_values: null,
+    });
+    expect(JSON.stringify(entry)).not.toContain(SECRET);
+  });
+
+  // #2286: the audit row commits with the change. Without the manager,
+  // AuditService.record fails open and the row can be silently lost.
+  it('create saves and audits inside one transaction', async () => {
+    await service.create(dto, TENANT, ADMIN);
+    expect(repo.manager.transaction).toHaveBeenCalledTimes(1);
+    expect(tx.getRepository).toHaveBeenCalled();
+    expect(audit.record.mock.calls[0][1]).toBe(tx);
+  });
+
+  it('withdraw updates and audits inside one transaction', async () => {
+    repo.findOne.mockResolvedValue(row());
+    await service.withdraw('inc-1', TENANT, ADMIN, 'Wrong person');
+    expect(repo.manager.transaction).toHaveBeenCalledTimes(1);
+    expect(tx.getRepository).toHaveBeenCalled();
+    expect(audit.record.mock.calls[0][1]).toBe(tx);
+  });
+
+  it('withdraw sets the columns and records an audit row', async () => {
+    repo.findOne.mockResolvedValue(row());
+    const res = await service.withdraw('inc-1', TENANT, ADMIN, 'Wrong person');
+    const [where, set] = repo.update.mock.calls[0];
+    // Conditional on "not yet withdrawn" and tenant-scoped.
+    expect(where).toMatchObject({ id: 'inc-1', tenant_id: TENANT, withdrawn_at: IsNull() });
+    expect(set.withdrawn_by_user_id).toBe(ADMIN);
+    expect(set.withdraw_reason).toBe('Wrong person');
+    expect(set.withdrawn_at).toBeInstanceOf(Date);
+    expect(res.withdrawnAt).toBe(set.withdrawn_at.toISOString());
+    expect(audit.record.mock.calls[0][0]).toMatchObject({
+      action: 'UPDATE',
+      entity_type: 'StaffIncident',
+      entity_id: 'inc-1',
+      new_values: expect.objectContaining({ reason: 'Wrong person' }),
+    });
+  });
+
+  it('withdrawing twice → 409 INCIDENT_ALREADY_WITHDRAWN', async () => {
+    repo.findOne.mockResolvedValue(row({ withdrawn_at: new Date() }));
+    const err = await service.withdraw('inc-1', TENANT, ADMIN, 'x').catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    // Same shape as every other 409: the error filter forwards `details` only.
+    expect(err.getResponse().details).toEqual({ code: 'INCIDENT_ALREADY_WITHDRAWN' });
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('a concurrent withdrawal that loses the race → 409 and no audit row', async () => {
+    repo.findOne.mockResolvedValue(row());
+    repo.update.mockResolvedValue({ affected: 0 });
+    const err = await service.withdraw('inc-1', TENANT, ADMIN, 'x').catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details).toEqual({ code: 'INCIDENT_ALREADY_WITHDRAWN' });
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('withdraw 404s for the subject themself or a missing row (tenant-scoped lookup)', async () => {
+    repo.findOne.mockResolvedValue(row({ staff_user_id: ADMIN }));
+    await expect(service.withdraw('inc-1', TENANT, ADMIN, 'x')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    repo.findOne.mockResolvedValue(null);
+    await expect(service.withdraw('inc-1', TENANT, ADMIN, 'x')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(repo.findOne.mock.calls[0][0].where.tenant_id).toBe(TENANT);
+  });
+
+  it('list skips withdrawn rows', async () => {
+    await service.list({}, TENANT, ADMIN);
+    expect(repo.find.mock.calls[0][0].where.withdrawn_at).toEqual(IsNull());
   });
 
   it('404s when the subject is not a member of the tenant', async () => {
@@ -98,7 +204,10 @@ describe('IncidentsService', () => {
   it('findOne filters tenant_id and 404s on the caller’s own incident', async () => {
     repo.findOne.mockResolvedValue(row({ staff_user_id: ADMIN }));
     await expect(service.findOne('inc-1', TENANT, ADMIN)).rejects.toBeInstanceOf(NotFoundException);
-    expect(repo.findOne).toHaveBeenCalledWith({ where: { id: 'inc-1', tenant_id: TENANT } });
+    // Withdrawn incidents are invisible to reads.
+    expect(repo.findOne).toHaveBeenCalledWith({
+      where: { id: 'inc-1', tenant_id: TENANT, withdrawn_at: IsNull() },
+    });
   });
 
   it('findOne 404s when not found in this tenant', async () => {
@@ -149,6 +258,12 @@ describe('IncidentNotifyListener', () => {
       smsCredit as any,
     );
   }
+
+  it('process() runs the handler with the job payload', async () => {
+    const listener = build(null);
+    await listener.process({ data: EVENT } as any);
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+  });
 
   it('pushes only the fixed string, never incident text, and no SMS by default', async () => {
     const listener = build(null);

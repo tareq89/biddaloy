@@ -101,6 +101,13 @@ test.describe('student lifecycle, keyboard only', () => {
       await page.keyboard.type(reason);
       await page.keyboard.press('ControlOrMeta+Enter');
       await expect(dialog).toBeHidden();
+      // A bill still due after the leave date keeps the dialog open on its result step
+      // (#2293, LIFE-16); Escape closes it.
+      const result = page.getByRole('dialog', { name: t('student-lifecycle.leave.result.title') });
+      if (await result.isVisible()) {
+        await page.keyboard.press('Escape');
+        await expect(result).toBeHidden();
+      }
     });
 
     await test.step('focus after close', async () => {

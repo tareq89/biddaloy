@@ -1009,7 +1009,9 @@ export {
 } from './fee-dues';
 export {
   useStudentWallet,
+  useWalletPayout,
   walletKeys,
+  type WalletPayoutInput,
   type FamilyStudentWallet,
   type FamilyWalletTransaction,
   type StudentWallet,
@@ -1058,6 +1060,7 @@ export {
   useLogFine,
   usePreviewFineGeneration,
   useUpdateFineRule,
+  useWaiveBill,
   useWaiveFine,
   type CopyFineRulesInput,
   type CopyFineRulesResult,
@@ -1257,6 +1260,7 @@ export {
   incidentKeys,
   useIncidents,
   useReportIncident,
+  useWithdrawIncident,
   type CreateIncidentInput,
   type Incident,
   type IncidentListFilters,
@@ -1532,6 +1536,7 @@ export {
   type CreateStudentNoteInput,
   type CreateStudentPublicExamInput,
   type LeaveStudentInput,
+  type LeaveStudentResult,
   type ReadmitStudentInput,
   type SavePublicExamInput,
   type StudentLifecycleEvent,

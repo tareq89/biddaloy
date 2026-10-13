@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
-import { Repository, DataSource, In } from 'typeorm';
+import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } from 'vitest';
+import { Repository, DataSource, In, EntityManager } from 'typeorm';
+import { ConflictException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import ExcelJS from 'exceljs';
 import Redis from 'ioredis';
@@ -679,5 +680,185 @@ describe('StudentBulkUploadService (integration)', () => {
     });
     expect(logs.map((l) => l.entity_id).sort()).toEqual([...result.created_student_ids].sort());
     expect(logs.every((l) => l.performed_by_user_id === SEED_ADMIN_USER_ID)).toBe(true);
+  });
+
+  describe('re-upload of an already-imported file [LIFE-12]', () => {
+    const twoRows = () => [
+      rowValues(headers, { student_name: 'Dup One', guardian1_phone: '+8801711200001' }),
+      rowValues(headers, { student_name: 'Dup Two', guardian1_phone: '+8801711200002' }),
+    ];
+
+    it('flags every already-imported roll-less row as a blocking error', async () => {
+      const first = await service.validate(
+        await buildXlsxFile(twoRows()),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await service.commit(first.staging_id, TENANT_ID, SEED_ADMIN_USER_ID);
+
+      const second = await service.validate(
+        await buildXlsxFile(twoRows()),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      expect(second.hard_error_count).toBe(2);
+      expect(second.rows_to_create).toBe(0);
+      expect(second.errors.filter((e) => e.severity === 'error')).toHaveLength(2);
+      expect(second.errors[0].message).toMatch(/Already imported/);
+      await expect(
+        service.commit(second.staging_id, TENANT_ID, SEED_ADMIN_USER_ID),
+      ).rejects.toThrow(/validation errors/);
+    });
+
+    // The same student listed twice in ONE file would otherwise create two
+    // students: neither row matches a live student yet. The first row stays.
+    it('flags the second copy of a student within the same file', async () => {
+      const v = await service.validate(
+        await buildXlsxFile([
+          ...twoRows(),
+          rowValues(headers, { student_name: ' dup  one', guardian1_phone: '+8801711200001' }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(1);
+      expect(v.rows_to_create).toBe(2);
+      const [err] = v.errors.filter((e) => e.severity === 'error');
+      expect(err.message).toMatch(/also in row/);
+    });
+
+    async function importOnce(rows: string[][]) {
+      const v = await service.validate(await buildXlsxFile(rows), TENANT_ID, SEED_ADMIN_USER_ID);
+      await service.commit(v.staging_id, TENANT_ID, SEED_ADMIN_USER_ID);
+    }
+
+    it('the same name with a different guardian phone is not a duplicate', async () => {
+      await importOnce(twoRows());
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, { student_name: 'Dup One', guardian1_phone: '+8801711299999' }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(0);
+    });
+
+    it('matches names ignoring case and extra spaces', async () => {
+      await importOnce(twoRows());
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, { student_name: '  dup   ONE ', guardian1_phone: '+8801711200001' }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(1);
+    });
+
+    // BD_PHONE_REGEX accepts +880…, 880… and 01…; a re-export often changes the format.
+    it('matches the guardian phone in any accepted format', async () => {
+      await importOnce(twoRows());
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, { student_name: 'Dup One', guardian1_phone: '01711200001' }),
+          rowValues(headers, { student_name: 'Dup Two', guardian1_phone: '8801711200002' }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(2);
+      expect(v.rows_to_create).toBe(0);
+    });
+
+    // Two tabs validate the same file before either commits: the second commit must not
+    // import every student again.
+    it('refuses the second of two stagings of the same file at commit (409), writing nothing', async () => {
+      const a = await service.validate(
+        await buildXlsxFile(twoRows()),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      const b = await service.validate(
+        await buildXlsxFile(twoRows()),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await service.commit(a.staging_id, TENANT_ID, SEED_ADMIN_USER_ID);
+
+      const err = await service.commit(b.staging_id, TENANT_ID, SEED_ADMIN_USER_ID).catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse()).toMatchObject({
+        details: { code: 'BULK_UPLOAD_ALREADY_IMPORTED' },
+      });
+      expect(
+        await dataSource.getRepository(Student).count({ where: { tenant_id: TENANT_ID } }),
+      ).toBe(2);
+    });
+
+    it('another school importing the same file sees no duplicates (tenant isolation)', async () => {
+      await importOnce(twoRows());
+      const v = await service.validate(
+        await buildXlsxFile(twoRows()),
+        OTHER_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(0);
+      expect(v.rows_to_create).toBe(2);
+    });
+
+    it('a soft-deleted student does not block re-import', async () => {
+      await importOnce(twoRows());
+      await dataSource.query('UPDATE students SET deleted_at = now()');
+      const v = await service.validate(
+        await buildXlsxFile(twoRows()),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(0);
+    });
+
+    it('a student in another section with the same name and phone is not a duplicate', async () => {
+      await importOnce(twoRows());
+      const sectionBId = '00000000-0000-4000-8000-000000000931';
+      await dataSource.getRepository(ClassSection).save({
+        id: sectionBId,
+        section_name: 'Section B',
+        class_id: SEED_CLASS_1_ID,
+        tenant_id: TENANT_ID,
+      });
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, {
+            student_name: 'Dup One',
+            section: 'Section B',
+            guardian1_phone: '+8801711200001',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await dataSource.query('DELETE FROM class_sections WHERE id = $1', [sectionBId]);
+      expect(v.hard_error_count).toBe(0);
+    });
+
+    it('runs the duplicate check in one students query for a 500-row file', async () => {
+      const rows = Array.from({ length: 500 }, (_, i) =>
+        rowValues(headers, {
+          student_name: `Bulk ${i}`,
+          guardian1_phone: `+88017${String(10000000 + i)}`,
+        }),
+      );
+      const file = await buildXlsxFile(rows);
+      const spy = vi.spyOn(EntityManager.prototype, 'find');
+      try {
+        await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+        const studentFinds = spy.mock.calls.filter((c) => c[0] === Student).length;
+        expect(studentFinds).toBe(1);
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 });

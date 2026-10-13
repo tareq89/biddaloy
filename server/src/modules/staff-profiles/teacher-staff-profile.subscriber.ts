@@ -1,11 +1,7 @@
 import { EventSubscriber, EntitySubscriberInterface, InsertEvent } from 'typeorm';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { StaffProfile } from './entities/staff-profile.entity';
-import { isUniqueViolationOn } from './staff-profiles.service';
-
-/** Bounds the retry loop below — see `StaffProfilesService.createFor`'s
- * identical constant for why a collision here is expected/recoverable. */
-const MAX_EMPLOYEE_ID_ATTEMPTS = 5;
+import { nextTenantSerial } from '../../common/utils/next-serial.util';
 
 /**
  * `teachers.staff_profile_id` is NOT NULL as of the [36.1.1] migration, but
@@ -36,28 +32,27 @@ export class TeacherStaffProfileSubscriber implements EntitySubscriberInterface<
     const m = event.manager;
     let staffProfile = await m.findOne(StaffProfile, { where: { user_id: teacher.user_id } });
     if (!staffProfile) {
-      // Same concurrent-insert race `StaffProfilesService.createFor`
-      // documents: the `count` read isn't a reservation, so two inserts
-      // racing for the same tenant can generate the same `employee_id`.
-      let lastError: unknown;
-      for (let attempt = 0; attempt < MAX_EMPLOYEE_ID_ATTEMPTS && !staffProfile; attempt++) {
-        const count = await m.count(StaffProfile, { where: { tenant_id: teacher.tenant_id } });
-        try {
-          staffProfile = await m.save(
-            StaffProfile,
-            m.create(StaffProfile, {
-              user_id: teacher.user_id,
-              tenant_id: teacher.tenant_id,
-              employee_id: `EMP-${teacher.tenant_id.slice(0, 8)}-${count + 1}`,
-              joining_date: teacher.joining_date ?? null,
-            }),
-          );
-        } catch (error) {
-          if (!isUniqueViolationOn(error, 'UQ_staff_profiles_tenant_employee_id')) throw error;
-          lastError = error;
-        }
-      }
-      if (!staffProfile) throw lastError;
+      // Same series and lock as `StaffProfilesService.createFor` (#2291): the
+      // numeric max + 1 never reuses a removed profile's id, and the advisory
+      // lock (held until the insert's transaction ends) serializes concurrent
+      // inserts. No retry: a clash here would already have aborted the
+      // caller's transaction, so retrying in it could not succeed.
+      const prefix = `EMP-${teacher.tenant_id.slice(0, 8)}-`;
+      const seq = await nextTenantSerial(m, {
+        table: 'staff_profiles',
+        column: 'employee_id',
+        tenantId: teacher.tenant_id,
+        prefix,
+      });
+      staffProfile = await m.save(
+        StaffProfile,
+        m.create(StaffProfile, {
+          user_id: teacher.user_id,
+          tenant_id: teacher.tenant_id,
+          employee_id: `${prefix}${seq}`,
+          joining_date: teacher.joining_date ?? null,
+        }),
+      );
     }
     teacher.staff_profile_id = staffProfile.id;
   }

@@ -21,14 +21,21 @@ import {
   SelectValue,
   Textarea,
 } from '@biddaloy/ui/components';
-import { useLeaveStudent, useStudentFeeSummary, type LeaveStudentInput } from '@biddaloy/ui/hooks';
+import {
+  useLeaveStudent,
+  useStudentFeeSummary,
+  type LeaveStudentInput,
+  type LeaveStudentResult,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import {
   formatCurrency,
+  formatDate,
   parseServerDate,
   serverAmountToMinorUnits,
   toIsoDate,
 } from '@biddaloy/ui/utils';
+import { useNavigate } from '@tanstack/react-router';
 import { AlertTriangle } from 'lucide-react';
 import * as React from 'react';
 
@@ -58,6 +65,10 @@ export function LeaveDialog({ open, onOpenChange, studentId, studentName }: Leav
   const [destination, setDestination] = React.useState('');
   const [remark, setRemark] = React.useState('');
   const [submitted, setSubmitted] = React.useState(false);
+  const [bills, setBills] = React.useState<LeaveStudentResult['bills_due_after_leave'] | null>(
+    null,
+  );
+  const navigate = useNavigate();
 
   const leave = useLeaveStudent(studentId);
   const feeSummary = useStudentFeeSummary(open ? studentId : undefined);
@@ -71,6 +82,7 @@ export function LeaveDialog({ open, onOpenChange, studentId, studentName }: Leav
       setDestination('');
       setRemark('');
       setSubmitted(false);
+      setBills(null);
       leave.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open transitions
@@ -98,7 +110,13 @@ export function LeaveDialog({ open, onOpenChange, studentId, studentName }: Leav
           : {}),
         ...(remark.trim() ? { remark: remark.trim() } : {}),
       },
-      { onSuccess: () => onOpenChange(false) },
+      {
+        onSuccess: (result) => {
+          // Backdated leave: show bills still due after the leave date (LIFE-16).
+          if (result.bills_due_after_leave?.length) setBills(result.bills_due_after_leave);
+          else onOpenChange(false);
+        },
+      },
     );
   }
 
@@ -112,138 +130,187 @@ export function LeaveDialog({ open, onOpenChange, studentId, studentName }: Leav
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
-        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Ctrl+Enter bubbles from the focused field */}
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={handleSubmit}
-          onKeyDown={handleKeyDown}
-          noValidate
-        >
-          <DialogHeader>
-            <DialogTitle>{t('leave.title')}</DialogTitle>
-            <DialogDescription>{t('leave.description', { name: studentName })}</DialogDescription>
-          </DialogHeader>
-
-          {balance > 0 && (
-            <div
-              role="status"
-              className="flex items-start gap-2 rounded-md bg-status-due-bg p-3 text-status-due-fg"
+        {bills ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>{t('leave.result.title')}</DialogTitle>
+              <DialogDescription>{t('leave.result.description')}</DialogDescription>
+            </DialogHeader>
+            <ul className="flex flex-col gap-2">
+              {bills.map((bill) => (
+                <li key={bill.id} className="flex items-baseline justify-between gap-3">
+                  <span>
+                    {bill.fee_structure_name}
+                    <span className="text-caption text-muted-foreground">
+                      {' · '}
+                      {formatDate(parseServerDate(bill.period_start), config)}
+                    </span>
+                  </span>
+                  <span className="font-medium">
+                    {formatCurrency(
+                      serverAmountToMinorUnits(Number(bill.outstanding), config),
+                      config,
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                {t('actions.close', { ns: 'common' })}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  onOpenChange(false);
+                  void navigate({
+                    to: '.',
+                    search: (p: Record<string, unknown>) => ({ ...p, tab: 'fees' }),
+                  });
+                }}
+              >
+                {t('leave.result.openFees')}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Ctrl+Enter bubbles from the focused field */}
+            <form
+              className="flex flex-col gap-4"
+              onSubmit={handleSubmit}
+              onKeyDown={handleKeyDown}
+              noValidate
             >
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span>
-                {t('leave.duesWarning', {
-                  amount: formatCurrency(serverAmountToMinorUnits(balance, config), config),
-                })}
-              </span>
-            </div>
-          )}
+              <DialogHeader>
+                <DialogTitle>{t('leave.title')}</DialogTitle>
+                <DialogDescription>
+                  {t('leave.description', { name: studentName })}
+                </DialogDescription>
+              </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-type" className="font-medium">
-              {t('leave.typeLabel')}
-            </label>
-            <Select value={type} onValueChange={(value) => setType(value as LeaveType)}>
-              <SelectTrigger id="leave-type" aria-label={t('leave.typeLabel')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LEAVE_TYPES.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {t(`leave.type.${option}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              {balance > 0 && (
+                <div
+                  role="status"
+                  className="flex items-start gap-2 rounded-md bg-status-due-bg p-3 text-status-due-fg"
+                >
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  <span>
+                    {t('leave.duesWarning', {
+                      amount: formatCurrency(serverAmountToMinorUnits(balance, config), config),
+                    })}
+                  </span>
+                </div>
+              )}
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-date" className="font-medium">
-              {t('leave.dateLabel')}
-            </label>
-            <DatePicker
-              id="leave-date"
-              aria-label={t('leave.dateLabel')}
-              config={config}
-              value={occurredOn ? parseServerDate(occurredOn) : undefined}
-              onValueChange={(date) => setOccurredOn(date ? toIsoDate(date) : '')}
-              max={new Date()}
-              aria-invalid={submitted && dateError !== null}
-              aria-describedby={submitted && dateError ? 'leave-date-error' : undefined}
-            />
-            {submitted && dateError && (
-              <p
-                id="leave-date-error"
-                role="alert"
-                className="flex items-center gap-1 text-caption text-destructive"
-              >
-                {dateError}
-              </p>
-            )}
-          </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="leave-type" className="font-medium">
+                  {t('leave.typeLabel')}
+                </label>
+                <Select value={type} onValueChange={(value) => setType(value as LeaveType)}>
+                  <SelectTrigger id="leave-type" aria-label={t('leave.typeLabel')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LEAVE_TYPES.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {t(`leave.type.${option}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {type === 'TRANSFERRED_OUT' && (
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="leave-destination" className="font-medium">
-                {t('leave.destinationLabel')}
-              </label>
-              <Input
-                id="leave-destination"
-                value={destination}
-                onChange={(event) => setDestination(event.target.value)}
-              />
-            </div>
-          )}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="leave-date" className="font-medium">
+                  {t('leave.dateLabel')}
+                </label>
+                <DatePicker
+                  id="leave-date"
+                  aria-label={t('leave.dateLabel')}
+                  config={config}
+                  value={occurredOn ? parseServerDate(occurredOn) : undefined}
+                  onValueChange={(date) => setOccurredOn(date ? toIsoDate(date) : '')}
+                  max={new Date()}
+                  aria-invalid={submitted && dateError !== null}
+                  aria-describedby={submitted && dateError ? 'leave-date-error' : undefined}
+                />
+                {submitted && dateError && (
+                  <p
+                    id="leave-date-error"
+                    role="alert"
+                    className="flex items-center gap-1 text-caption text-destructive"
+                  >
+                    {dateError}
+                  </p>
+                )}
+              </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-reason" className="font-medium">
-              {t('leave.reasonLabel')}
-            </label>
-            <Textarea
-              id="leave-reason"
-              rows={3}
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              aria-invalid={submitted && reasonError !== null}
-              aria-describedby={submitted && reasonError ? 'leave-reason-error' : undefined}
-            />
-            {submitted && reasonError && (
-              <p
-                id="leave-reason-error"
-                role="alert"
-                className="flex items-center gap-1 text-caption text-destructive"
-              >
-                {reasonError}
-              </p>
-            )}
-          </div>
+              {type === 'TRANSFERRED_OUT' && (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="leave-destination" className="font-medium">
+                    {t('leave.destinationLabel')}
+                  </label>
+                  <Input
+                    id="leave-destination"
+                    value={destination}
+                    onChange={(event) => setDestination(event.target.value)}
+                  />
+                </div>
+              )}
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="leave-remark" className="font-medium">
-              {t('leave.remarkLabel')}
-            </label>
-            <Textarea
-              id="leave-remark"
-              rows={2}
-              value={remark}
-              onChange={(event) => setRemark(event.target.value)}
-            />
-          </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="leave-reason" className="font-medium">
+                  {t('leave.reasonLabel')}
+                </label>
+                <Textarea
+                  id="leave-reason"
+                  rows={3}
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  aria-invalid={submitted && reasonError !== null}
+                  aria-describedby={submitted && reasonError ? 'leave-reason-error' : undefined}
+                />
+                {submitted && reasonError && (
+                  <p
+                    id="leave-reason-error"
+                    role="alert"
+                    className="flex items-center gap-1 text-caption text-destructive"
+                  >
+                    {reasonError}
+                  </p>
+                )}
+              </div>
 
-          {leave.isError && (
-            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
-              {t('errors.generic')}
-            </p>
-          )}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="leave-remark" className="font-medium">
+                  {t('leave.remarkLabel')}
+                </label>
+                <Textarea
+                  id="leave-remark"
+                  rows={2}
+                  value={remark}
+                  onChange={(event) => setRemark(event.target.value)}
+                />
+              </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-            <Button type="submit" loading={leave.isPending}>
-              {leave.isPending ? t('leave.saving') : t('leave.confirm')}
-            </Button>
-          </DialogFooter>
-        </form>
+              {leave.isError && (
+                <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+                  {t('errors.generic')}
+                </p>
+              )}
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  {t('actions.cancel', { ns: 'common' })}
+                </Button>
+                <Button type="submit" loading={leave.isPending}>
+                  {leave.isPending ? t('leave.saving') : t('leave.confirm')}
+                </Button>
+              </DialogFooter>
+            </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

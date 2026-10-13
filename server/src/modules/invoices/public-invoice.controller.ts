@@ -60,7 +60,7 @@ export class PublicInvoiceController {
     // theory, hard-removed) must 404 like any other dead token on this
     // unauthenticated route, not throw an unhandled 500.
     const school = await this.schoolRepo.findOne({ where: { id: tenantId } });
-    if (!school) {
+    if (!school || school.status !== 'ACTIVE') {
       throw new NotFoundException('Share link not found or no longer active');
     }
     const issuer = resolveIssuer(invoice, school);
