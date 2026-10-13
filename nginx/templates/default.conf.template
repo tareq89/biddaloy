@@ -20,6 +20,7 @@ upstream app_upstream {
 # scan of the bare IP (or a DNS-history lookup) never reaches the app.
 server {
     listen 80 default_server;
+    access_log /var/log/nginx/access.log redacted;
     # Loopback-only liveness for the container healthcheck ([75.29]).
     # $realip_remote_addr = the TCP peer, so a CF-Connecting-IP header
     # can never fake it.
@@ -34,6 +35,7 @@ server {
 
 server {
     listen 443 ssl default_server;
+    access_log /var/log/nginx/access.log redacted;
     ssl_reject_handshake on;   # nginx >= 1.19.4; no certificate needed
 }
 

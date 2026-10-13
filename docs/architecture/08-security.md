@@ -608,8 +608,22 @@ it logs the path without the query string, masks the calendar-feed,
 public-verify and public-invoice path tokens and the SPA share pages
 (`/i/<token>`, `/v/<token>`), and omits the Referer, because
 reset/invite/verify links are bearer secrets and must not sit in log files.
-`redactPii` masks the same three API path tokens, so the pino request
-serializer, the exception filter and Sentry all hide them.
+`redactPii` masks the same three API path tokens plus the two SPA pages, so
+the pino request serializer, the exception filter and Sentry all hide them.
+All server blocks, including the two catch-all default servers, use the
+`redacted` format, so scanner traffic is logged in the same safe shape.
+
+| URL shape                      | nginx access log | pino / exception filter / Sentry |
+| ------------------------------ | ---------------- | -------------------------------- |
+| `/api/v1/public/invoices/:tok` | masked           | masked                           |
+| `/api/v1/public/verify/:tok`   | masked           | masked                           |
+| `/api/v1/calendar/feed/:tok`   | masked           | masked                           |
+| `/i/:tok`, `/v/:tok` (SPA)     | masked           | masked                           |
+| `?token=` (reset, activate…)   | query dropped    | `token=[REDACTED]`               |
+
+The audit's national-ID item was checked: no NID number field exists in
+server code (NID is only an uploaded document file), so there is nothing to
+redact.
 
 Example: `GET /api/v1/calendar/feed/abc123.ics` is logged as
 `GET /api/v1/calendar/feed/[REDACTED]`.
