@@ -116,6 +116,45 @@ async function deleteSubscription(id: string): Promise<void> {
   await apiClient.delete(`/me/push/subscriptions/${id}`);
 }
 
+/**
+ * [JOBS-12] Best-effort: drop this browser's push subscription so a shared
+ * phone / office PC stops getting the previous user's pushes after logout.
+ * Once unsubscribed, the push service answers 404/410 and the server prunes
+ * the row (`PushService`). Uses `getRegistration()`, not `.ready`, which
+ * never resolves when no worker is registered and would hang logout.
+ * Never throws.
+ */
+export async function unsubscribeThisBrowser(): Promise<void> {
+  try {
+    const registration = await navigator.serviceWorker?.getRegistration();
+    const subscription = await registration?.pushManager.getSubscription();
+    await subscription?.unsubscribe();
+  } catch {
+    // Logout must never be blocked by push cleanup.
+  }
+}
+
+const DEVICE_ROW_IDS_KEY = 'biddaloy.push.deviceRowIds';
+
+/** Row ids this browser created, one per school. A local cache only: the
+ * server stays the source of truth (an id missing from this school's list is ignored). */
+function readDeviceRowIds(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(DEVICE_ROW_IDS_KEY) ?? '[]');
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDeviceRowIds(ids: string[]): void {
+  try {
+    localStorage.setItem(DEVICE_ROW_IDS_KEY, JSON.stringify(ids.slice(-20)));
+  } catch {
+    // Storage blocked: after a reload the toggle just shows "off".
+  }
+}
+
 export function usePushSubscription(): UsePushSubscriptionResult {
   const [permission, setPermission] = React.useState<PushPermissionState>(detectPermission);
   const [isSubscribedOnThisDevice, setIsSubscribedOnThisDevice] = React.useState(false);
@@ -128,21 +167,23 @@ export function usePushSubscription(): UsePushSubscriptionResult {
 
   // Recover this device's subscription state after a reload — subscribe()
   // only sets isSubscribedOnThisDevice/thisDeviceSubscriptionId for the
-  // session it ran in, so a browser that was already subscribed would
-  // otherwise report unsubscribed until the next subscribe() call.
-  // `POST /me/push/subscriptions` upserts by endpoint (see the route's own
-  // doc comment), so re-posting the browser's existing registration is a
-  // safe way to resolve its row id, not a fresh subscribe.
+  // session it ran in. [68.3.36 / #2271] The row ids this browser created
+  // are remembered locally and matched against this school's list; nothing
+  // is re-POSTed. One browser endpoint now backs one row per school, so a
+  // re-POST would create a row here and silently re-subscribe a school the
+  // guardian turned off (or never turned on). Lost storage just shows "off".
   React.useEffect(() => {
     if (permission !== 'granted') return;
     let cancelled = false;
     void (async () => {
       try {
+        const ids = readDeviceRowIds();
+        if (ids.length === 0) return;
         const registration = await navigator.serviceWorker.ready;
         const pushSubscription = await registration.pushManager.getSubscription();
         if (!pushSubscription || cancelled) return;
-        const row = await postSubscription(pushSubscription.toJSON());
-        if (cancelled) return;
+        const row = (await fetchSubscriptions()).find((r) => ids.includes(r.id));
+        if (!row || cancelled) return;
         setThisDeviceSubscriptionId(row.id);
         setIsSubscribedOnThisDevice(true);
       } catch {
@@ -204,6 +245,7 @@ export function usePushSubscription(): UsePushSubscriptionResult {
         applicationServerKey: applicationServerKey as unknown as BufferSource,
       });
       const created = await postSubscription(pushSubscription.toJSON());
+      writeDeviceRowIds([...readDeviceRowIds().filter((x) => x !== created.id), created.id]);
       setThisDeviceSubscriptionId(created.id);
       setIsSubscribedOnThisDevice(true);
       await refresh();
@@ -221,19 +263,12 @@ export function usePushSubscription(): UsePushSubscriptionResult {
       try {
         await deleteSubscription(id);
         setSubscriptions((prev) => (prev ? prev.filter((row) => row.id !== id) : prev));
-        const isThisDevice = thisDeviceSubscriptionId === id;
-        // Best-effort: also unsubscribe the browser's own PushManager
-        // registration, but only when this device is the one being
-        // removed — otherwise removing another device's row would revoke
-        // this browser's own (still-valid) push registration.
-        if (isThisDevice && permission !== 'unsupported') {
-          const registration = await navigator.serviceWorker.ready;
-          const pushSubscription = await registration.pushManager.getSubscription();
-          if (pushSubscription) {
-            await pushSubscription.unsubscribe();
-          }
-        }
-        if (isThisDevice) {
+        // [68.3.36 / #2271] Only this school's row goes. The browser's
+        // PushSubscription is kept: the same endpoint backs this device's
+        // rows in the guardian's other schools, and revoking it would make
+        // the push service 410 all of them. Logout revokes it instead.
+        writeDeviceRowIds(readDeviceRowIds().filter((x) => x !== id));
+        if (thisDeviceSubscriptionId === id) {
           setThisDeviceSubscriptionId(null);
           setIsSubscribedOnThisDevice(false);
         }
@@ -243,7 +278,7 @@ export function usePushSubscription(): UsePushSubscriptionResult {
         setLoading(false);
       }
     },
-    [permission, thisDeviceSubscriptionId],
+    [thisDeviceSubscriptionId],
   );
 
   return {

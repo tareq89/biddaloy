@@ -271,4 +271,43 @@ describe('Promotions E2E (#788)', () => {
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .expect(404);
   });
+
+  it('refresh after a student leaves drops their entry, then commit succeeds (LIFE-06)', async () => {
+    const { runId, studentId } = await seedRun({ tenantId: SEED_TENANT_ID, withOverride: false });
+    await dataSource.query(
+      `UPDATE enrollments SET enrollment_status = 'TRANSFERRED' WHERE student_id = $1`,
+      [studentId],
+    );
+
+    // Without a refresh the guard still fires.
+    await supertest(app.getHttpServer())
+      .post(`${API}/promotions/${runId}/commit`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(409);
+
+    const refreshed = await supertest(app.getHttpServer())
+      .post(`${API}/promotions/${runId}/refresh`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(201);
+    expect(refreshed.body.entries).toHaveLength(0);
+
+    const res = await supertest(app.getHttpServer())
+      .post(`${API}/promotions/${runId}/commit`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(201);
+    expect(res.body.status).toBe(PromotionRunStatus.COMMITTED);
+  });
+
+  it("returns 404 when another tenant's admin refreshes the run", async () => {
+    const { runId } = await seedRun({ tenantId: OTHER_TENANT_ID, withOverride: false });
+
+    await supertest(app.getHttpServer())
+      .post(`${API}/promotions/${runId}/refresh`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(404);
+  });
 });

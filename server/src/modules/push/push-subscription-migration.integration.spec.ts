@@ -111,4 +111,73 @@ describe('AddPushSubscriptions migration (integration)', () => {
       ),
     ).rejects.toThrow();
   });
+
+  describe('PushSubscriptionEndpointPerTenant', () => {
+    async function seed() {
+      const mkSchool = () =>
+        schoolRepo.save(
+          schoolRepo.create({ name: `S ${randomUUID()}`, slug: `s-${randomUUID()}` }),
+        );
+      const [a, b] = [await mkSchool(), await mkSchool()];
+      const user = await userRepo.save(
+        userRepo.create({
+          email: `push-pt-${randomUUID()}@example.com`,
+          password_hash: 'x',
+          full_name: 'Push PT',
+        }),
+      );
+      const row = (tenantId: string, endpoint: string) =>
+        pushSubscriptionRepo.save(
+          pushSubscriptionRepo.create({
+            user_id: user.id,
+            tenant_id: tenantId,
+            endpoint,
+            p256dh: 'p',
+            auth: 'a',
+          }),
+        );
+      return { a, b, row };
+    }
+
+    it('allows the same endpoint once per tenant and rejects a second row in one tenant with 23505', async () => {
+      const { a, b, row } = await seed();
+      const endpoint = `https://push.example.com/${randomUUID()}`;
+
+      await row(a.id, endpoint);
+      await row(b.id, endpoint);
+
+      await expect(row(a.id, endpoint)).rejects.toMatchObject({ code: '23505' });
+    });
+
+    it('down refuses while an endpoint exists in two tenants, then round-trips once cleaned', async () => {
+      const { a, b, row } = await seed();
+      const endpoint = `https://push.example.com/${randomUUID()}`;
+      const first = await row(a.id, endpoint);
+      await row(b.id, endpoint);
+
+      const { PushSubscriptionEndpointPerTenant1791805000100: Migration } =
+        await import('../../migrations/1791805000100-PushSubscriptionEndpointPerTenant');
+      const qr = dataSource.createQueryRunner();
+      try {
+        await expect(new Migration().down(qr)).rejects.toThrow(/more than one tenant/);
+
+        // Clean ALL cross-tenant duplicates (other tests in this file may have left some), revert, re-apply.
+        await dataSource.query(
+          `DELETE FROM push_subscriptions p USING push_subscriptions q
+           WHERE p.endpoint = q.endpoint AND p.id > q.id`,
+        );
+        await new Migration().down(qr);
+        await new Migration().up(qr);
+      } finally {
+        await qr.release();
+      }
+      expect(first.id).toBeDefined();
+
+      // After down() + up() the per-tenant key is back: once per tenant, not twice in one.
+      const again = `https://push.example.com/${randomUUID()}`;
+      await row(a.id, again);
+      await row(b.id, again);
+      await expect(row(a.id, again)).rejects.toMatchObject({ code: '23505' });
+    });
+  });
 });

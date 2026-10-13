@@ -52,8 +52,14 @@ function safeDecode(text: string): string {
   }
 }
 
+// [PUB-07] Path segments that ARE bearer secrets: `/public/invoices/:token`,
+// `/public/verify/:token`, `/calendar/feed/:token.ics`. Here, not only in the
+// pino serializer, so the exception filter and Sentry mask them too.
+const SECRET_PATH_PATTERN = /(\/(?:public\/invoices|public\/verify|calendar\/feed)\/)[^/?\s"]+/g;
+
 function applyRedaction(text: string): string {
   return text
+    .replace(SECRET_PATH_PATTERN, '$1[REDACTED]')
     .replace(EMAIL_PATTERN, '[REDACTED_EMAIL]')
     .replace(PHONE_PATTERN, '[REDACTED_PHONE]')
     .replace(SENSITIVE_QUERY_PATTERN, '$1[REDACTED]')

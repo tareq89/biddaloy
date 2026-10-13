@@ -79,6 +79,9 @@ interface ValidatedBulkUploadRow {
   guardian2_name?: string;
   guardian2_phone?: string;
   guardian2_email?: string;
+  /** Guardians the validate warning named; commit refuses a row if that phone now resolves elsewhere. */
+  guardian1_match_id?: string;
+  guardian2_match_id?: string;
   home_address?: string;
   preferred_communication?: string;
   classSectionId: string;
@@ -166,6 +169,37 @@ export class StudentBulkUploadService {
       }
     }
 
+    // [LIFE-09] Joining an existing family is allowed but visible: committing after
+    // seeing this warning is the staff confirmation. One query for the whole file.
+    const matchByPhone = await this.guardianService.findOldestByPhones(
+      staged.flatMap((r) => [r.guardian1_phone, r.guardian2_phone]).filter((p): p is string => !!p),
+      tenantId,
+    );
+    for (const row of staged) {
+      const phones = [
+        ['guardian1_phone', row.guardian1_phone],
+        // A second guardian on the first guardian's phone is the same match: warn once.
+        [
+          'guardian2_phone',
+          row.guardian2_phone === row.guardian1_phone ? undefined : row.guardian2_phone,
+        ],
+      ] as const;
+      for (const [column, phone] of phones) {
+        const match = phone ? matchByPhone.get(phone) : undefined;
+        if (!match) continue;
+        if (column === 'guardian1_phone') row.guardian1_match_id = match.id;
+        else row.guardian2_match_id = match.id;
+        errors.push({
+          row: row.rowNumber,
+          tab: undefined,
+          column,
+          value: phone,
+          severity: 'warning',
+          message: `Will be linked to existing guardian "${match.full_name}"`,
+        });
+      }
+    }
+
     // [13.2.3] Every row creates an ACTIVE student, so the file as a whole must fit the seats left.
     // Blocking (counts as a hard error) — commit also re-checks under a lock.
     const seatUsage = await getSeatUsage(this.classRepo.manager, tenantId);
@@ -179,10 +213,11 @@ export class StudentBulkUploadService {
       });
     }
 
+    const hardErrorCount = errors.filter((e) => e.severity === 'error').length;
     const stagedPayload: StagedBulkUpload = {
       filename: file.originalname,
       rows: staged,
-      hardErrorCount: errors.length,
+      hardErrorCount,
     };
     const { stagingId, expiresAt } = await this.staging.stage(
       tenantId,
@@ -198,7 +233,7 @@ export class StudentBulkUploadService {
       // payload — the admin is confirming a shape, not proofreading.
       preview: preview.slice(0, 20),
       errors,
-      hard_error_count: errors.length,
+      hard_error_count: hardErrorCount,
       seats: { ...seatUsage, new_rows: staged.length },
     };
   }
@@ -384,6 +419,7 @@ export class StudentBulkUploadService {
           guardianCache,
           manager,
           userId,
+          row.guardian1_match_id,
         );
         guardianResolutions.push({ phone: row.guardian1_phone, id: g1Id });
         guardianIds.push(g1Id);
@@ -399,6 +435,8 @@ export class StudentBulkUploadService {
             guardianCache,
             manager,
             userId,
+            row.guardian2_match_id ??
+              (row.guardian2_phone === row.guardian1_phone ? row.guardian1_match_id : undefined),
           );
           guardianResolutions.push({ phone: row.guardian2_phone as string, id: g2Id });
           guardianIds.push(g2Id);
@@ -415,12 +453,22 @@ export class StudentBulkUploadService {
           },
           tenantId,
           manager,
+          userId ? { userId } : undefined,
         );
         return student.id;
       });
     } catch (err) {
-      if (this.isUniqueViolation(err)) {
-        if (row.rollNumber !== undefined && this.violatedColumns(err).includes('roll_number')) {
+      // [68.3.40] StudentService.create now turns the roll unique violation
+      // into a 409 ROLL_NUMBER_TAKEN itself, so the raw 23505 never reaches here.
+      const rollTaken =
+        err instanceof ConflictException &&
+        (err.getResponse() as { details?: { code?: string } }).details?.code ===
+          'ROLL_NUMBER_TAKEN';
+      if (rollTaken || this.isUniqueViolation(err)) {
+        if (
+          row.rollNumber !== undefined &&
+          (rollTaken || this.violatedColumns(err).includes('roll_number'))
+        ) {
           throw new BulkRowError(
             `Duplicate roll number ${row.rollNumber} in class '${row.class}' section '${row.section}'`,
             'roll',
@@ -484,12 +532,23 @@ export class StudentBulkUploadService {
     cache: Map<string, string>,
     manager: EntityManager,
     userId: string | undefined,
+    expectedId?: string,
   ): Promise<string> {
     const cached = cache.get(info.phone);
-    if (cached) return cached;
-
-    const existing = await this.guardianService.findByPhone(info.phone, tenantId, manager);
-    if (existing) return existing.id;
+    const existing = cached
+      ? undefined
+      : await this.guardianService.findByPhone(info.phone, tenantId, manager);
+    const foundId = cached ?? existing?.id;
+    // Staff confirmed a warning naming this guardian; linking anyone else (or
+    // creating a new one) would be a family they never saw.
+    if (expectedId && foundId !== expectedId) {
+      throw new BulkRowError(
+        'The existing guardian this row was going to join changed since validation — validate the file again',
+        'guardian_phone',
+        info.phone,
+      );
+    }
+    if (foundId) return foundId;
 
     const created = await this.guardianService.create(
       { full_name: info.name, phone: info.phone, email: info.email },

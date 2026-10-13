@@ -1,7 +1,7 @@
 import { UserRole } from '@biddaloy/shared';
 import { QueryClient } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   getAccessToken,
@@ -19,7 +19,12 @@ import { errorHandler } from '../test/msw/support';
 
 import { changePassword, forgotPassword, login, logout, logoutAll, resetPassword } from './auth';
 
+const { unsubscribeMock } = vi.hoisted(() => ({ unsubscribeMock: vi.fn() }));
+vi.mock('../pwa/use-push-subscription', () => ({ unsubscribeThisBrowser: unsubscribeMock }));
+
 afterEach(() => {
+  unsubscribeMock.mockReset();
+  unsubscribeMock.mockResolvedValue(undefined);
   setAccessToken(null);
   setActiveTenant(null);
   setActiveRole(null);
@@ -207,6 +212,67 @@ describe('logout', () => {
     expect(getActiveTenant()).toBeNull();
     expect(getActiveRole()).toBeNull();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  it('unsubscribes the browser before POST /auth/logout', async () => {
+    seedSession();
+    const order: string[] = [];
+    unsubscribeMock.mockImplementation(() => {
+      order.push('unsubscribe');
+      return Promise.resolve();
+    });
+    server.use(
+      http.post('/api/v1/auth/logout', () => {
+        order.push('post');
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await logout(new QueryClient());
+
+    expect(order).toEqual(['unsubscribe', 'post']);
+  });
+
+  it('still clears auth state when unsubscribe throws', async () => {
+    seedSession();
+    unsubscribeMock.mockRejectedValue(new Error('boom'));
+    let logoutRequests = 0;
+    server.use(
+      http.post('/api/v1/auth/logout', () => {
+        logoutRequests += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await expect(logout(new QueryClient())).resolves.toBeUndefined();
+
+    expect(logoutRequests).toBe(1);
+    expect(getAccessToken()).toBeNull();
+    expect(getActiveTenant()).toBeNull();
+  });
+
+  it('still posts logout when unsubscribe hangs', async () => {
+    seedSession();
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      unsubscribeMock.mockImplementation(() => new Promise<void>(() => {}));
+      let logoutRequests = 0;
+      server.use(
+        http.post('/api/v1/auth/logout', () => {
+          logoutRequests += 1;
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+
+      const done = logout(new QueryClient());
+      await vi.advanceTimersByTimeAsync(2500);
+      await done;
+
+      expect(logoutRequests).toBe(1);
+      expect(getAccessToken()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('reaches the server even with an access token but no active tenant selected yet', async () => {

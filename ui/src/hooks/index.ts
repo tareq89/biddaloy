@@ -1537,3 +1537,11 @@ export {
   type StudentPublicExam,
   type UpdateStudentPublicExamInput,
 } from './student-lifecycle';
+export {
+  schoolInvitesKey,
+  useAcceptSchoolInvite,
+  useDeclineSchoolInvite,
+  useSchoolInvites,
+  useSchoolInvitesCardProps,
+  type SchoolInvite,
+} from './school-invites';

@@ -437,8 +437,8 @@ function PromotionRunPage() {
           setCommitOpen(false);
           setStaleBanner(true);
         } else if (code === 'COHORT_CHANGED') {
-          // Refresh can't fix this: it never drops a departed student's
-          // entry. The way out is deleting the draft and starting over.
+          // Refresh re-members the cohort (drops leavers, adds joiners), so
+          // the banner carries the Refresh button; then the user commits again.
           setCommitOpen(false);
           setCohortChangedBanner(true);
         } else if (error instanceof ApiError && error.statusCode !== 403) {
@@ -452,6 +452,7 @@ function PromotionRunPage() {
     try {
       await refreshRun.mutateAsync();
       setStaleBanner(false);
+      setCohortChangedBanner(false);
     } catch (error) {
       if (!(error instanceof ApiError && error.statusCode === 403)) {
         toast.error(t('grid.refreshFailed'));
@@ -619,7 +620,21 @@ function PromotionRunPage() {
           />
         )}
 
-        {cohortChangedBanner && !readOnly && <AlertCard title={t('grid.cohortChangedPrompt')} />}
+        {cohortChangedBanner && !readOnly && (
+          <AlertCard
+            title={t('grid.cohortChangedPrompt')}
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                loading={refreshRun.isPending}
+                onClick={() => void refresh()}
+              >
+                {t('grid.refresh')}
+              </Button>
+            }
+          />
+        )}
 
         {isMobile ? (
           <PromotionEntryCard

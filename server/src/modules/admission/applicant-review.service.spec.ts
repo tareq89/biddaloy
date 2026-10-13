@@ -8,6 +8,7 @@ import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import { StudentService, GuardianService } from '../students/students.service';
+import { Guardian } from '../students/entities/guardian.entity';
 import { AdmissionApplicantStatus } from '@biddaloy/shared';
 import { AdmissionNotificationService } from './admission-notification.service';
 
@@ -56,10 +57,14 @@ describe('ApplicantReviewService', () => {
   let evaluationRepo: Record<string, ReturnType<typeof vi.fn>>;
   let intakeRepo: Record<string, ReturnType<typeof vi.fn>>;
   let studentService: { create: ReturnType<typeof vi.fn> };
-  let guardianService: { findByPhone: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
+  let guardianService: {
+    findByPhoneAnyFormat: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+  };
   let notificationService: { notifyStatusChange: ReturnType<typeof vi.fn> };
   let setLockMock: ReturnType<typeof vi.fn>;
   let getOneMock: ReturnType<typeof vi.fn>;
+  let guardianRepo: { findOne: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     applicantRepo = {
@@ -74,6 +79,7 @@ describe('ApplicantReviewService', () => {
               if (entity === AdmissionEvaluation) return evaluationRepo;
               if (entity === AdmissionApplicant) return applicantRepo;
               if (entity === AdmissionIntake) return intakeRepo;
+              if (entity === Guardian) return guardianRepo;
               throw new Error('unexpected entity');
             },
           }),
@@ -106,7 +112,8 @@ describe('ApplicantReviewService', () => {
       })),
     };
     studentService = { create: vi.fn(async () => ({ id: 'student-1' })) };
-    guardianService = { findByPhone: vi.fn(), create: vi.fn() };
+    guardianService = { findByPhoneAnyFormat: vi.fn(), create: vi.fn() };
+    guardianRepo = { findOne: vi.fn(async () => null) };
     notificationService = { notifyStatusChange: vi.fn(async () => undefined) };
 
     const moduleRef = await Test.createTestingModule({
@@ -231,20 +238,30 @@ describe('ApplicantReviewService', () => {
   });
 
   describe('admit', () => {
-    it('creates exactly one student and reuses an existing guardian by phone', async () => {
+    it('LINK_EXISTING creates exactly one student and links the matched guardian', async () => {
       applicantRepo.findOne
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.SHORTLISTED }))
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.SHORTLISTED }))
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
-      guardianService.findByPhone.mockResolvedValueOnce({ id: 'guardian-existing' });
+      guardianService.findByPhoneAnyFormat.mockResolvedValueOnce({ id: 'guardian-existing' });
+      guardianRepo.findOne.mockResolvedValueOnce({ id: 'guardian-existing', phone: '01700000000' });
 
-      await service.admit('applicant-1', {}, TENANT_A, REVIEWER);
+      await service.admit(
+        'applicant-1',
+        { guardian_choice: 'LINK_EXISTING', guardian_id: 'guardian-existing' },
+        TENANT_A,
+        REVIEWER,
+      );
 
-      expect(guardianService.findByPhone).toHaveBeenCalledWith(
+      expect(guardianService.findByPhoneAnyFormat).toHaveBeenCalledWith(
         '01700000000',
         TENANT_A,
         expect.anything(),
       );
+      // The shown guardian is re-checked: same tenant, still live (phone compared after).
+      expect(guardianRepo.findOne).toHaveBeenCalledWith({
+        where: expect.objectContaining({ id: 'guardian-existing', tenant_id: TENANT_A }),
+      });
       expect(guardianService.create).not.toHaveBeenCalled();
       expect(studentService.create).toHaveBeenCalledTimes(1);
       expect(studentService.create).toHaveBeenCalledWith(
@@ -254,6 +271,7 @@ describe('ApplicantReviewService', () => {
         }),
         TENANT_A,
         expect.anything(),
+        { userId: REVIEWER },
       );
       expect(applicantRepo.update).toHaveBeenCalledWith(
         { id: 'applicant-1', tenant_id: TENANT_A },
@@ -266,12 +284,89 @@ describe('ApplicantReviewService', () => {
       expect(setLockMock).toHaveBeenCalledWith('pessimistic_write');
     });
 
+    it('admit with a matching guardian and no choice throws GUARDIAN_MATCH_NEEDS_CHOICE', async () => {
+      applicantRepo.findOne
+        .mockResolvedValueOnce(makeApplicant())
+        .mockResolvedValueOnce(makeApplicant());
+      guardianService.findByPhoneAnyFormat.mockResolvedValueOnce({ id: 'guardian-existing' });
+
+      const err = await service.admit('applicant-1', {}, TENANT_A, REVIEWER).catch((e) => e);
+
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('GUARDIAN_MATCH_NEEDS_CHOICE');
+      expect(studentService.create).not.toHaveBeenCalled();
+    });
+
+    it('CREATE_NEW creates a new guardian even when one matches', async () => {
+      applicantRepo.findOne
+        .mockResolvedValueOnce(makeApplicant())
+        .mockResolvedValueOnce(makeApplicant())
+        .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
+      guardianService.findByPhoneAnyFormat.mockResolvedValueOnce({ id: 'guardian-existing' });
+      guardianService.create.mockResolvedValueOnce({ id: 'guardian-new' });
+
+      await service.admit('applicant-1', { guardian_choice: 'CREATE_NEW' }, TENANT_A, REVIEWER);
+
+      expect(guardianService.create).toHaveBeenCalledTimes(1);
+      expect(studentService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ guardian_ids: ['guardian-new'] }),
+        TENANT_A,
+        expect.anything(),
+        { userId: REVIEWER },
+      );
+    });
+
+    it('[#2250] LINK_EXISTING links the guardian_id staff were shown, not the first phone match', async () => {
+      // Two guardians share the phone. findByPhone's pick must not decide the link.
+      applicantRepo.findOne
+        .mockResolvedValueOnce(makeApplicant())
+        .mockResolvedValueOnce(makeApplicant())
+        .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
+      guardianService.findByPhoneAnyFormat.mockResolvedValueOnce({ id: 'guardian-oldest' });
+      guardianRepo.findOne.mockResolvedValueOnce({ id: 'guardian-shown', phone: '+8801700000000' });
+
+      await service.admit(
+        'applicant-1',
+        { guardian_choice: 'LINK_EXISTING', guardian_id: 'guardian-shown' },
+        TENANT_A,
+        REVIEWER,
+      );
+
+      expect(studentService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ guardian_ids: ['guardian-shown'] }),
+        TENANT_A,
+        expect.anything(),
+        { userId: REVIEWER },
+      );
+    });
+
+    it('LINK_EXISTING whose guardian no longer matches throws GUARDIAN_MATCH_CHANGED', async () => {
+      applicantRepo.findOne
+        .mockResolvedValueOnce(makeApplicant())
+        .mockResolvedValueOnce(makeApplicant());
+      guardianService.findByPhoneAnyFormat.mockResolvedValueOnce(null);
+      guardianRepo.findOne.mockResolvedValueOnce(null);
+
+      const err = await service
+        .admit(
+          'applicant-1',
+          { guardian_choice: 'LINK_EXISTING', guardian_id: 'guardian-gone' },
+          TENANT_A,
+          REVIEWER,
+        )
+        .catch((e) => e);
+
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('GUARDIAN_MATCH_CHANGED');
+      expect(studentService.create).not.toHaveBeenCalled();
+    });
+
     it('creates a new guardian when the phone does not match an existing one', async () => {
       applicantRepo.findOne
         .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
-      guardianService.findByPhone.mockResolvedValueOnce(null);
+      guardianService.findByPhoneAnyFormat.mockResolvedValueOnce(null);
       guardianService.create.mockResolvedValueOnce({ id: 'guardian-new' });
 
       await service.admit('applicant-1', {}, TENANT_A, REVIEWER);
@@ -286,6 +381,7 @@ describe('ApplicantReviewService', () => {
         expect.objectContaining({ guardian_ids: ['guardian-new'] }),
         TENANT_A,
         expect.anything(),
+        { userId: REVIEWER },
       );
     });
 
@@ -317,7 +413,7 @@ describe('ApplicantReviewService', () => {
         ConflictException,
       );
       expect(studentService.create).not.toHaveBeenCalled();
-      expect(guardianService.findByPhone).not.toHaveBeenCalled();
+      expect(guardianService.findByPhoneAnyFormat).not.toHaveBeenCalled();
     });
   });
 

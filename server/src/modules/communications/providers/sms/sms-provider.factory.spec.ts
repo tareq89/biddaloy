@@ -30,7 +30,9 @@ describe('SmsProviderFactory', () => {
 
     const result = await factory.send({ to: '01712345678', body: 'hi' }, tenantId);
 
-    expect(configResolver.resolveSms).toHaveBeenCalledWith(tenantId);
+    expect(configResolver.resolveSms).toHaveBeenCalledWith(tenantId, undefined, {
+      allowPlatformKeys: false,
+    });
     expect(mimSms.sendSms).toHaveBeenCalledWith('01712345678', 'hi', {
       gateway: 'mimsms',
       apiKey: 'key',
@@ -38,6 +40,17 @@ describe('SmsProviderFactory', () => {
     });
     expect(greenweb.sendSms).not.toHaveBeenCalled();
     expect(result.success).toBe(true);
+  });
+
+  it('passes allowPlatformKeys through from allowPlatformSms', async () => {
+    configResolver.resolveSms.mockResolvedValue({ gateway: 'greenweb', apiKey: 'key' });
+    const factory = new SmsProviderFactory(configResolver as any, greenweb as any, mimSms as any);
+
+    await factory.send({ to: '01712345678', body: 'hi', allowPlatformSms: true }, tenantId);
+
+    expect(configResolver.resolveSms).toHaveBeenCalledWith(tenantId, undefined, {
+      allowPlatformKeys: true,
+    });
   });
 
   it('routes to the Greenweb gateway when resolved config selects greenweb', async () => {

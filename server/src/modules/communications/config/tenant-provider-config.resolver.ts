@@ -265,14 +265,23 @@ export class TenantProviderConfigResolver {
     return { pageId, accessToken };
   }
 
-  async resolveSms(tenantId: string, override?: SmsOverride): Promise<ResolvedSmsConfig> {
+  async resolveSms(
+    tenantId: string,
+    override?: SmsOverride,
+    opts?: { allowPlatformKeys?: boolean },
+  ): Promise<ResolvedSmsConfig> {
     const settings = await this.loadSettings(tenantId);
     const tenant = settings.communications?.sms;
+    // Platform env keys are only for schools paying from SMS credit, and for
+    // account-access sends (sign-in codes etc.). Anyone else must bring their own gateway.
+    const platformOk = tenant?.metering === 'PLATFORM' || opts?.allowPlatformKeys === true;
+    const notOnCredit =
+      'This school has no SMS gateway of its own and is not on prepaid SMS credit. Add a gateway in Settings › SMS, or ask the platform to turn on SMS credit.';
 
     const gateway =
       override?.provider ??
       tenant?.provider ??
-      this.config.get<string>('SMS_PROVIDER') ??
+      (platformOk ? this.config.get<string>('SMS_PROVIDER') : undefined) ??
       DEFAULT_SMS_GATEWAY;
 
     if (gateway !== 'greenweb' && gateway !== 'mimsms') {
@@ -312,9 +321,10 @@ export class TenantProviderConfigResolver {
         senderId = override?.mimsms?.senderId ?? tenant?.mimsms?.senderId;
         apiUrl = override?.mimsms?.apiUrl ?? tenant?.mimsms?.apiUrl;
       } else {
-        apiKey = override?.mimsms?.apiKey ?? this.config.get<string>('MIMSMS_API_KEY');
-        senderId = override?.mimsms?.senderId ?? this.config.get<string>('MIMSMS_SENDER_ID');
-        apiUrl = override?.mimsms?.apiUrl ?? this.config.get<string>('MIMSMS_API_URL');
+        const env = (k: string) => (platformOk ? this.config.get<string>(k) : undefined);
+        apiKey = override?.mimsms?.apiKey ?? env('MIMSMS_API_KEY');
+        senderId = override?.mimsms?.senderId ?? env('MIMSMS_SENDER_ID');
+        apiUrl = override?.mimsms?.apiUrl ?? env('MIMSMS_API_URL');
       }
 
       if (!apiKey || !senderId) {
@@ -322,7 +332,9 @@ export class TenantProviderConfigResolver {
           'SMS (MimSMS)',
           tenantOwnsIt
             ? "Complete MimSMS's apiKey and senderId together on this school's settings — a partially-configured medium never falls back to the platform account."
-            : "Configure it on this school's settings, or set MIMSMS_API_KEY/MIMSMS_SENDER_ID as a platform-wide fallback.",
+            : platformOk
+              ? "Configure it on this school's settings, or set MIMSMS_API_KEY/MIMSMS_SENDER_ID as a platform-wide fallback."
+              : notOnCredit,
         );
       }
       return { gateway: 'mimsms', apiKey, senderId, ...(apiUrl ? { apiUrl } : {}) };
@@ -350,8 +362,9 @@ export class TenantProviderConfigResolver {
       apiKey = override?.greenweb?.apiKey ?? tenant?.greenweb?.apiKey;
       apiUrl = override?.greenweb?.apiUrl ?? tenant?.greenweb?.apiUrl;
     } else {
-      apiKey = override?.greenweb?.apiKey ?? this.config.get<string>('GREENWEB_API_KEY');
-      apiUrl = override?.greenweb?.apiUrl ?? this.config.get<string>('GREENWEB_API_URL');
+      const env = (k: string) => (platformOk ? this.config.get<string>(k) : undefined);
+      apiKey = override?.greenweb?.apiKey ?? env('GREENWEB_API_KEY');
+      apiUrl = override?.greenweb?.apiUrl ?? env('GREENWEB_API_URL');
     }
 
     if (!apiKey) {
@@ -359,7 +372,9 @@ export class TenantProviderConfigResolver {
         'SMS (Greenweb)',
         tenantOwnsIt
           ? "Complete Greenweb's apiKey on this school's settings — a partially-configured medium never falls back to the platform account."
-          : "Configure it on this school's settings, or set GREENWEB_API_KEY as a platform-wide fallback.",
+          : platformOk
+            ? "Configure it on this school's settings, or set GREENWEB_API_KEY as a platform-wide fallback."
+            : notOnCredit,
       );
     }
     return { gateway: 'greenweb', apiKey, ...(apiUrl ? { apiUrl } : {}) };

@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { TeacherAssignmentType } from '@biddaloy/shared';
+import { IsNull, Repository } from 'typeorm';
+import { RoleScope, TeacherAssignmentType, roleScope } from '@biddaloy/shared';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { Student } from '../students/entities/student.entity';
 
 export type HomeroomType =
   TeacherAssignmentType.CLASS_TEACHER | TeacherAssignmentType.ASSISTANT_CLASS_TEACHER;
@@ -34,7 +35,87 @@ export class TeacherScopeService {
   constructor(
     @InjectRepository(TeacherClassSection)
     private readonly tcsRepo: Repository<TeacherClassSection>,
+    @InjectRepository(Student)
+    private readonly studentRepo: Repository<Student>,
   ) {}
+
+  /** Distinct sections the user teaches: live homeroom (current year) or live-subject rows. */
+  async sectionIds(input: { userId: string; tenantId: string }): Promise<string[]> {
+    const { userId, tenantId } = input;
+    const rows = await this.tcsRepo
+      .createQueryBuilder('tcs')
+      .innerJoin(
+        'teachers',
+        't',
+        't.id = tcs.teacher_id AND t.tenant_id = :tenantId AND t.deleted_at IS NULL',
+        { tenantId },
+      )
+      .innerJoin(
+        'class_sections',
+        'cs',
+        'cs.id = tcs.section_id AND cs.tenant_id = :tenantId AND cs.deleted_at IS NULL',
+        { tenantId },
+      )
+      .innerJoin(
+        'classes',
+        'c',
+        'c.id = cs.class_id AND c.tenant_id = :tenantId AND c.deleted_at IS NULL',
+        { tenantId },
+      )
+      .leftJoin(
+        'academic_years',
+        'ay',
+        'ay.id = c.academic_year_id AND ay.tenant_id = :tenantId AND ay.is_current = true AND ay.deleted_at IS NULL',
+        { tenantId },
+      )
+      .leftJoin(
+        'subjects',
+        's',
+        's.id = tcs.subject_id AND s.tenant_id = :tenantId AND s.deleted_at IS NULL',
+        { tenantId },
+      )
+      .select('DISTINCT tcs.section_id', 'section_id')
+      .where('tcs.tenant_id = :tenantId', { tenantId })
+      .andWhere('t.user_id = :userId', { userId })
+      .andWhere(
+        `((tcs.assignment_type IN (:...homeroom) AND ay.id IS NOT NULL)
+          OR (tcs.assignment_type = :subjectType AND s.id IS NOT NULL))`,
+        { homeroom: HOMEROOM_TYPES, subjectType: TeacherAssignmentType.SUBJECT_TEACHER },
+      )
+      .getRawMany<{ section_id: string }>();
+    return rows.map((r) => r.section_id);
+  }
+
+  /** `null` = no extra filter (tenant-scope and guardian roles); array = ASSIGNED_SECTIONS.
+   * An unknown role sees nothing (`[]`), per `roleScope`'s contract. */
+  async sectionScope(input: {
+    role: string;
+    userId: string;
+    tenantId: string;
+  }): Promise<string[] | null> {
+    const scope = roleScope(input.role);
+    if (scope === null) return [];
+    if (scope !== RoleScope.ASSIGNED_SECTIONS) return null;
+    return this.sectionIds(input);
+  }
+
+  /** 403 unless the student's current section is in the caller's scope (missing student = 403 too). */
+  async assertCanSeeStudent(input: {
+    role: string;
+    userId: string;
+    tenantId: string;
+    studentId: string;
+  }): Promise<void> {
+    const scope = await this.sectionScope(input);
+    if (scope === null) return;
+    const student = await this.studentRepo.findOne({
+      where: { id: input.studentId, tenant_id: input.tenantId, deleted_at: IsNull() },
+      select: { id: true, class_section_id: true },
+    });
+    if (!student?.class_section_id || !scope.includes(student.class_section_id)) {
+      throw new ForbiddenException("You do not teach this student's section.");
+    }
+  }
 
   /**
    * `homeroom` is the caller's CLASS/ASSISTANT row for the section (a teacher

@@ -6,15 +6,21 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, EntityManager, Not, In } from 'typeorm';
-import { AdmissionApplicantStatus, AdmissionEvaluationDecision } from '@biddaloy/shared';
+import {
+  AdmissionApplicantStatus,
+  AdmissionEvaluationDecision,
+  type AdmissionGuardianMatchDto,
+} from '@biddaloy/shared';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import { StudentService, GuardianService } from '../students/students.service';
+import { Guardian } from '../students/entities/guardian.entity';
 import { EvaluateApplicantDto } from './dto/evaluate-applicant.dto';
 import { AdmitApplicantDto } from './dto/admit-applicant.dto';
 import { AdmissionNotificationService } from './admission-notification.service';
 import { ListApplicantsDto } from './dto/list-applicants.dto';
+import { bdPhoneTail } from '../communications/providers/shared/phone-number.util';
 
 const DECISION_TO_STATUS: Record<AdmissionEvaluationDecision, AdmissionApplicantStatus> = {
   SHORTLIST: AdmissionApplicantStatus.SHORTLISTED,
@@ -23,9 +29,8 @@ const DECISION_TO_STATUS: Record<AdmissionEvaluationDecision, AdmissionApplicant
 };
 
 /** [27.5] Staff review of `admission_applicants`: evaluate, admit (converts
- * to a real Student + Guardian, reusing `GuardianService.findByPhone`/
- * `.create` — the same calls `bulk-upload.service.ts`'s `resolveGuardian()`
- * makes, see D7), or reject. */
+ * to a real Student + Guardian via `GuardianService.findByPhoneAnyFormat`/
+ * `.create`, see D7), or reject. */
 @Injectable()
 export class ApplicantReviewService {
   constructor(
@@ -37,6 +42,24 @@ export class ApplicantReviewService {
     private readonly guardianService: GuardianService,
     private readonly notificationService: AdmissionNotificationService,
   ) {}
+
+  /** [LIFE-09] The guardian (if any) this applicant's phone would attach to on admit. */
+  async guardianMatch(id: string, tenantId: string): Promise<AdmissionGuardianMatchDto> {
+    const applicant = await this.findOne(id, tenantId);
+    const found = await this.guardianService.findByPhoneAnyFormat(
+      applicant.guardian_phone,
+      tenantId,
+    );
+    if (!found) return { guardian: null };
+    return {
+      guardian: {
+        id: found.id,
+        full_name: found.full_name,
+        phone: found.phone ?? applicant.guardian_phone,
+        student_names: (found.students ?? []).filter((s) => !s.deleted_at).map((s) => s.full_name),
+      },
+    };
+  }
 
   private async findOne(id: string, tenantId: string): Promise<AdmissionApplicant> {
     const applicant = await this.applicants.findOne({
@@ -152,7 +175,7 @@ export class ApplicantReviewService {
   }
 
   /** Admits from PENDING or SHORTLISTED (D6). Resolves/creates the guardian
-   * by phone (same lookup `resolveGuardian()` does), creates the Student
+   * by phone (same any-format lookup as `guardianMatch()`), creates the Student
    * linked to the intake's class section, records an ADMIT evaluation, and
    * marks the applicant ADMITTED — all inside one transaction. */
   async admit(
@@ -209,25 +232,52 @@ export class ApplicantReviewService {
         throw new ConflictException(`Cannot admit an applicant with status ${current.status}`);
       }
 
-      const existingGuardian = await this.guardianService.findByPhone(
+      const existingGuardian = await this.guardianService.findByPhoneAnyFormat(
         applicant.guardian_phone,
         tenantId,
         manager,
       );
-      const guardianId =
-        existingGuardian?.id ??
-        (
-          await this.guardianService.create(
-            {
-              full_name: applicant.guardian_name,
-              phone: applicant.guardian_phone,
-              email: applicant.guardian_email ?? undefined,
-            },
-            tenantId,
-            manager,
-            reviewerUserId,
-          )
-        ).id;
+      // [LIFE-09] A phone match is never linked silently: staff pick link or create-new.
+      if (existingGuardian && !dto.guardian_choice) {
+        throw new ConflictException({
+          message:
+            'This phone number belongs to an existing guardian. Choose whether to link this child to that family or create a new guardian.',
+          details: { code: 'GUARDIAN_MATCH_NEEDS_CHOICE', guardian_id: existingGuardian.id },
+        });
+      }
+      // Phones are not unique (CREATE_NEW makes a second guardian on the same
+      // phone), so link exactly the guardian staff were shown, never "a" match.
+      const candidate =
+        dto.guardian_choice === 'LINK_EXISTING' && dto.guardian_id
+          ? await manager.getRepository(Guardian).findOne({
+              where: { id: dto.guardian_id, tenant_id: tenantId, deleted_at: IsNull() },
+            })
+          : null;
+      const shownGuardian =
+        candidate && bdPhoneTail(candidate.phone ?? '') === bdPhoneTail(applicant.guardian_phone)
+          ? candidate
+          : null;
+      if (dto.guardian_choice === 'LINK_EXISTING' && !shownGuardian) {
+        throw new ConflictException({
+          message: 'The matching guardian changed. Reload and choose again.',
+          details: { code: 'GUARDIAN_MATCH_CHANGED' },
+        });
+      }
+      const linked = !!shownGuardian;
+      const guardianId = shownGuardian
+        ? shownGuardian.id
+        : (
+            await this.guardianService.create(
+              {
+                full_name: applicant.guardian_name,
+                phone: applicant.guardian_phone,
+                email: applicant.guardian_email ?? undefined,
+              },
+              tenantId,
+              manager,
+              reviewerUserId,
+            )
+          ).id;
 
       await this.studentService.create(
         {
@@ -240,6 +290,7 @@ export class ApplicantReviewService {
         },
         tenantId,
         manager,
+        { userId: reviewerUserId },
       );
 
       await manager.getRepository(AdmissionEvaluation).save(
@@ -247,7 +298,7 @@ export class ApplicantReviewService {
           tenant_id: tenantId,
           applicant_id: id,
           reviewer_user_id: reviewerUserId,
-          notes: dto.notes ?? 'Admitted',
+          notes: dto.notes ?? (linked ? 'Admitted (linked to existing guardian)' : 'Admitted'),
           decision: 'ADMIT',
         }),
       );

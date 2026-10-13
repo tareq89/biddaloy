@@ -217,7 +217,7 @@ describe('MarksService.upsertBatch', () => {
 
     expect(markRepo.update).toHaveBeenCalledWith(
       { id: 'mark-1' },
-      { value: '60', status: MarkStatus.PRESENT, entered_by: 'user-1' },
+      { value: '60.00', status: MarkStatus.PRESENT, entered_by: 'user-1' },
     );
     expect(markRepo.save).not.toHaveBeenCalled();
   });

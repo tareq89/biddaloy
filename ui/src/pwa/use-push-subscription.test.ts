@@ -5,7 +5,50 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
-import { usePushSubscription } from './use-push-subscription';
+import { unsubscribeThisBrowser, usePushSubscription } from './use-push-subscription';
+
+describe('unsubscribeThisBrowser', () => {
+  afterEach(() => {
+    Object.defineProperty(navigator, 'serviceWorker', { value: undefined, configurable: true });
+  });
+
+  function installRegistration(getRegistration: () => Promise<unknown>) {
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: { getRegistration },
+      configurable: true,
+    });
+  }
+
+  it('calls unsubscribe() on the current subscription', async () => {
+    const unsubscribe = vi.fn().mockResolvedValue(true);
+    installRegistration(() =>
+      Promise.resolve({
+        pushManager: { getSubscription: () => Promise.resolve({ unsubscribe }) },
+      }),
+    );
+
+    await unsubscribeThisBrowser();
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves when no service worker is registered', async () => {
+    installRegistration(() => Promise.resolve(undefined));
+    await expect(unsubscribeThisBrowser()).resolves.toBeUndefined();
+  });
+
+  it('resolves when unsubscribe() throws', async () => {
+    installRegistration(() =>
+      Promise.resolve({
+        pushManager: {
+          getSubscription: () =>
+            Promise.resolve({ unsubscribe: () => Promise.reject(new Error('boom')) }),
+        },
+      }),
+    );
+    await expect(unsubscribeThisBrowser()).resolves.toBeUndefined();
+  });
+});
 
 const PUBLIC_KEY = 'BExampleBase64UrlSafeVapidPublicKey_-1234567890';
 
@@ -60,6 +103,7 @@ describe('usePushSubscription', () => {
   afterEach(() => {
     removeServiceWorkerAndPushManager();
     vi.restoreAllMocks();
+    localStorage.clear();
   });
 
   it('reports unsupported when PushManager/serviceWorker are absent', () => {
@@ -109,16 +153,22 @@ describe('usePushSubscription', () => {
     const getSubscription = vi.fn().mockResolvedValue(existingSubscription);
     installServiceWorkerAndPushManager(mockPushManager({ getSubscription }).pushManager);
     mockNotification('granted');
+    localStorage.setItem(
+      'biddaloy.push.deviceRowIds',
+      JSON.stringify(['other-school-row', 'recovered-id']),
+    );
 
-    let posted: unknown = null;
+    let posted = false;
     server.use(
-      http.post('/api/v1/me/push/subscriptions', async ({ request }) => {
-        posted = await request.json();
-        return HttpResponse.json(
-          { id: 'recovered-id', user_agent: null, created_at: '2026-01-01', last_used_at: null },
-          { status: 201 },
-        );
+      http.post('/api/v1/me/push/subscriptions', () => {
+        posted = true;
+        return HttpResponse.json({}, { status: 500 });
       }),
+      http.get('/api/v1/me/push/subscriptions', () =>
+        HttpResponse.json([
+          { id: 'recovered-id', user_agent: null, created_at: '2026-01-01', last_used_at: null },
+        ]),
+      ),
     );
 
     const { result } = renderHookWithProviders(() => usePushSubscription(), {
@@ -129,7 +179,91 @@ describe('usePushSubscription', () => {
       expect(result.current.isSubscribedOnThisDevice).toBe(true);
     });
     expect(result.current.thisDeviceSubscriptionId).toBe('recovered-id');
-    expect(posted).toMatchObject({ endpoint: 'https://push.example.com/existing' });
+    expect(posted).toBe(false);
+  });
+
+  it('[#2271] never re-subscribes on mount a school this device has no row in', async () => {
+    // The browser is subscribed (for another school, or this one was turned
+    // off). Mount must not POST — that would create a row here.
+    const existingSubscription = {
+      endpoint: 'https://push.example.com/existing',
+      toJSON: () => ({
+        endpoint: 'https://push.example.com/existing',
+        keys: { p256dh: 'p', auth: 'a' },
+      }),
+    };
+    installServiceWorkerAndPushManager(
+      mockPushManager({ getSubscription: vi.fn().mockResolvedValue(existingSubscription) })
+        .pushManager,
+    );
+    mockNotification('granted');
+    localStorage.setItem('biddaloy.push.deviceRowIds', JSON.stringify(['other-school-row']));
+
+    let posted = false;
+    server.use(
+      http.post('/api/v1/me/push/subscriptions', () => {
+        posted = true;
+        return HttpResponse.json({}, { status: 500 });
+      }),
+      http.get('/api/v1/me/push/subscriptions', () => HttpResponse.json([])),
+    );
+
+    const { result } = renderHookWithProviders(() => usePushSubscription(), {
+      tenantId: 'tenant-1',
+    });
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(posted).toBe(false);
+    expect(result.current.isSubscribedOnThisDevice).toBe(false);
+  });
+
+  it("[#2271] turning this device off in one school keeps the browser's push registration", async () => {
+    // The same endpoint backs this device's rows in other schools; revoking
+    // it would make the push service 410 them all.
+    const browserUnsubscribe = vi.fn().mockResolvedValue(true);
+    const subscription = {
+      endpoint: 'https://push.example.com/abc',
+      toJSON: () => ({
+        endpoint: 'https://push.example.com/abc',
+        keys: { p256dh: 'p', auth: 'a' },
+      }),
+      unsubscribe: browserUnsubscribe,
+    };
+    installServiceWorkerAndPushManager(
+      mockPushManager({
+        subscribe: vi.fn().mockResolvedValue(subscription),
+        getSubscription: vi.fn().mockResolvedValue(subscription),
+      }).pushManager,
+    );
+    mockNotification('granted');
+    server.use(
+      http.get('/api/v1/me/push/public-key', () =>
+        HttpResponse.json({ enabled: true, public_key: PUBLIC_KEY }),
+      ),
+      http.post('/api/v1/me/push/subscriptions', () =>
+        HttpResponse.json(
+          { id: 'this-device', user_agent: null, created_at: '2026-01-01', last_used_at: null },
+          { status: 201 },
+        ),
+      ),
+      http.get('/api/v1/me/push/subscriptions', () => HttpResponse.json([])),
+      http.delete(
+        '/api/v1/me/push/subscriptions/:id',
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => usePushSubscription(), {
+      tenantId: 'tenant-1',
+    });
+    await result.current.subscribe();
+    await waitFor(() => expect(result.current.thisDeviceSubscriptionId).toBe('this-device'));
+
+    await result.current.unsubscribe('this-device');
+
+    await waitFor(() => expect(result.current.isSubscribedOnThisDevice).toBe(false));
+    expect(browserUnsubscribe).not.toHaveBeenCalled();
+    expect(localStorage.getItem('biddaloy.push.deviceRowIds')).toBe('[]');
   });
 
   it('stays unsubscribed on mount when the browser holds no registration', async () => {

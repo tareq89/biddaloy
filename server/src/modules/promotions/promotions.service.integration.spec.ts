@@ -16,6 +16,7 @@ import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { School } from '../schools/entities/school.entity';
 import { EnrollmentService } from '../enrollments/enrollments.service';
 import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { StudentLifecycleService } from '../students/student-lifecycle.service';
 import { StudentLifecycleEvent } from '../students/entities/student-lifecycle-event.entity';
 import { ApprovalService } from '../auth/guards/approval.guard';
@@ -176,7 +177,10 @@ describe('PromotionsService (integration)', () => {
         EnrollmentService,
         AuditService,
         StudentLifecycleService,
-        { provide: ApprovalService, useValue: { consume: vi.fn() } },
+        {
+          provide: ApprovalService,
+          useValue: { consume: vi.fn().mockResolvedValue({ approverId: ADMIN_USER_ID }) },
+        },
       ],
       [],
       { synchronize: true, dropSchema: true },
@@ -380,6 +384,184 @@ describe('PromotionsService (integration)', () => {
       expect(entry?.final_outcome).toBe(PromotionOutcome.RETAIN);
       expect(entry?.override_note).toBe('Manual hold');
       expect(entry?.is_override).toBe(true);
+    });
+
+    const createDraft = () =>
+      service.create(
+        {
+          source_class_id: SOURCE_CLASS_ID,
+          target_academic_year_id: TARGET_YEAR_ID,
+          exam_ids: [examId],
+          algorithm: PlacementAlgorithm.BLOCK,
+        },
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+
+    async function passingStudent(roll: number): Promise<Student> {
+      const s = await buildStudent({ registration_number: `REG-R${roll}`, roll_number: roll });
+      await enrollActive(s.id);
+      await addResult(s.id, { isFail: false, gpa: 4.0, total: 400 });
+      return s;
+    }
+
+    // LIFE-06: a leaver used to block commit with COHORT_CHANGED forever.
+    it('drops a departed student, keeps the override, and commit then succeeds (LIFE-06)', async () => {
+      const a = await passingStudent(1);
+      await passingStudent(2);
+      const c = await passingStudent(3);
+      const run = await createDraft();
+      await service.patchEntries(
+        run.id,
+        [
+          {
+            student_id: a.id,
+            final_outcome: PromotionOutcome.RETAIN,
+            override_note: 'Manual hold',
+          },
+        ],
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+      // Same effect as StudentLifecycleService.leave on the source enrollment.
+      await enrollmentRepo.update(
+        { student_id: c.id, tenant_id: TENANT_ID },
+        { enrollment_status: EnrollmentStatus.TRANSFERRED },
+      );
+
+      await service.refresh(run.id, TENANT_ID);
+
+      const entries = await entryRepo.find({ where: { run_id: run.id } });
+      expect(entries.map((e) => e.student_id)).not.toContain(c.id);
+      expect(entries).toHaveLength(2);
+      const aEntry = entries.find((e) => e.student_id === a.id);
+      expect(aEntry?.final_outcome).toBe(PromotionOutcome.RETAIN);
+      expect(aEntry?.override_note).toBe('Manual hold');
+
+      // The run's override_count stays correct after the removal.
+      expect((await runRepo.findOneOrFail({ where: { id: run.id } })).override_count).toBe(1);
+
+      await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
+      const committed = await runRepo.findOneOrFail({ where: { id: run.id } });
+      expect(committed.status).toBe(PromotionRunStatus.COMMITTED);
+    });
+
+    it('LIFE-17: commit writes one PromotionRun audit row with override_count and approver', async () => {
+      const a = await passingStudent(1);
+      await passingStudent(2);
+      const run = await createDraft();
+      await service.patchEntries(
+        run.id,
+        [{ student_id: a.id, final_outcome: PromotionOutcome.RETAIN, override_note: 'hold' }],
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+
+      await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
+
+      const rows = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_type: 'PromotionRun', entity_id: run.id, tenant_id: TENANT_ID } });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].performed_by_user_id).toBe(ADMIN_USER_ID);
+      const committed = await runRepo.findOneOrFail({ where: { id: run.id } });
+      expect(rows[0].new_values).toMatchObject({
+        event: 'PROMOTION_COMMITTED',
+        promoted_count: 1,
+        override_count: 1,
+        approved_by_user_id: committed.approved_by_user_id,
+      });
+    });
+
+    it('override_count drops when the removed entry was the overridden one', async () => {
+      const a = await passingStudent(1);
+      await passingStudent(2);
+      const run = await createDraft();
+      await service.patchEntries(
+        run.id,
+        [{ student_id: a.id, final_outcome: PromotionOutcome.RETAIN, override_note: 'hold' }],
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+      await enrollmentRepo.update(
+        { student_id: a.id, tenant_id: TENANT_ID },
+        { enrollment_status: EnrollmentStatus.TRANSFERRED },
+      );
+
+      await service.refresh(run.id, TENANT_ID, ADMIN_USER_ID);
+
+      expect((await runRepo.findOneOrFail({ where: { id: run.id } })).override_count).toBe(0);
+      // [#2268] The vanished override stays answerable: one audit row names it and the refresher.
+      const rows = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_type: 'PromotionRun', entity_id: run.id, tenant_id: TENANT_ID } });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].performed_by_user_id).toBe(ADMIN_USER_ID);
+      expect(rows[0].new_values).toMatchObject({
+        event: 'PROMOTION_REFRESHED',
+        removed_student_ids: [a.id],
+        removed_overrides: [
+          { student_id: a.id, final_outcome: PromotionOutcome.RETAIN, override_note: 'hold' },
+        ],
+      });
+    });
+
+    it('commit refuses with COHORT_CHANGED when a student joined after the last refresh', async () => {
+      await passingStudent(1);
+      const run = await createDraft();
+      await passingStudent(2); // joined after create, no refresh yet
+
+      const err = await service
+        .commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} })
+        .catch((e) => e);
+      expect(err.getResponse?.().details?.code).toBe('COHORT_CHANGED');
+
+      await service.refresh(run.id, TENANT_ID);
+      await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
+    });
+
+    it('a student readmitted into the source class after create gets an entry with a suggested outcome', async () => {
+      await passingStudent(1);
+      const run = await createDraft();
+      const joiner = await passingStudent(2);
+
+      await service.refresh(run.id, TENANT_ID);
+
+      const entry = await entryRepo.findOne({
+        where: { run_id: run.id, student_id: joiner.id },
+      });
+      expect(entry?.suggested_outcome).toBe(PromotionOutcome.PROMOTE);
+      expect(entry?.final_outcome).toBe(PromotionOutcome.PROMOTE);
+      expect(entry?.is_override).toBe(false);
+      await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
+    });
+
+    it('never touches an overridden entry outcome, note or group', async () => {
+      const a = await passingStudent(1);
+      const run = await createDraft();
+      await service.patchEntries(
+        run.id,
+        [
+          {
+            student_id: a.id,
+            final_outcome: PromotionOutcome.RETAIN,
+            override_note: 'keep me',
+            group_name: 'Science',
+          },
+        ],
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+      await passingStudent(2); // joiner forces a non-trivial refresh
+
+      await service.refresh(run.id, TENANT_ID);
+
+      const entry = await entryRepo.findOneOrFail({
+        where: { run_id: run.id, student_id: a.id },
+      });
+      expect(entry.final_outcome).toBe(PromotionOutcome.RETAIN);
+      expect(entry.override_note).toBe('keep me');
+      expect(entry.group_name).toBe('Science');
     });
   });
 

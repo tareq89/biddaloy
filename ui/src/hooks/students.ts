@@ -395,6 +395,10 @@ export function useDeleteStudent() {
 /** Server cap per bulk request (`FilesInterceptor('files', 25)`); D57. */
 export const STUDENT_PHOTO_CHUNK_SIZE = 25;
 
+/** Byte budget per bulk request. Must stay under nginx `client_max_body_size`
+ * (nginx/templates/default.conf.template); mirrored in server/src/nginx-body-limit.spec.ts. */
+export const STUDENT_PHOTO_CHUNK_BYTES = 40 * 1024 * 1024;
+
 export interface BulkStudentPhotoResult {
   matched: Array<{ file: string; student_id: string; full_name: string }>;
   unmatched: string[];
@@ -431,17 +435,33 @@ export function useBulkUploadStudentPhotos() {
       onProgress?: (percent: number) => void;
     }): Promise<BulkStudentPhotoResult> => {
       const merged: BulkStudentPhotoResult = { matched: [], unmatched: [], invalid: [] };
-      for (let start = 0; start < files.length; start += STUDENT_PHOTO_CHUNK_SIZE) {
-        const chunk = files.slice(start, start + STUDENT_PHOTO_CHUNK_SIZE);
+      // A chunk closes at 25 files or the byte budget; it always holds >= 1 file.
+      const chunks: File[][] = [];
+      let bytes = 0;
+      for (const file of files) {
+        const last = chunks[chunks.length - 1];
+        if (
+          last &&
+          last.length < STUDENT_PHOTO_CHUNK_SIZE &&
+          bytes + file.size <= STUDENT_PHOTO_CHUNK_BYTES
+        ) {
+          last.push(file);
+          bytes += file.size;
+        } else {
+          chunks.push([file]);
+          bytes = file.size;
+        }
+      }
+      let sent = 0;
+      for (const chunk of chunks) {
         const formData = new FormData();
         for (const file of chunk) formData.append('files', file);
         const res = await apiClient.post<BulkStudentPhotoResult>('/students/photos/bulk', formData);
         merged.matched.push(...res.data.matched);
         merged.unmatched.push(...res.data.unmatched);
         merged.invalid.push(...res.data.invalid);
-        onProgress?.(
-          Math.round((Math.min(start + chunk.length, files.length) / files.length) * 100),
-        );
+        sent += chunk.length;
+        onProgress?.(Math.round((sent / files.length) * 100));
       }
       return merged;
     },

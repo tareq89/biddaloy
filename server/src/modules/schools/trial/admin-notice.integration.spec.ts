@@ -75,6 +75,9 @@ describe('AdminNoticeService (integration)', () => {
     const [params, tenantId] = send.mock.calls[0];
     expect(params.to).toBe(admin);
     expect(tenantId).toBe(a);
+    // The notice is the platform talking to the school's admins, so it may use the platform SMS
+    // keys even when the school has no gateway of its own (#2233 would otherwise refuse it).
+    expect(params.allowPlatformSms).toBe(true);
     expect(params.body).toContain('ট্রায়াল'); // bn template
     const logs = await ds.query(
       `SELECT recipient_address, status, tenant_id FROM communication_logs WHERE tenant_id = $1`,

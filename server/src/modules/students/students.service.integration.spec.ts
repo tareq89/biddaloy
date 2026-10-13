@@ -296,6 +296,36 @@ describe('StudentService (integration)', () => {
   });
 
   describe('create', () => {
+    it('LIFE-11: create writes one Student CREATE audit row with the actor', async () => {
+      const userRepo = dataSource.getRepository('User');
+      const actor = (await userRepo.save(
+        userRepo.create({
+          full_name: 'Create Actor',
+          email: `create-actor-${Date.now()}@example.com`,
+          status: 'ACTIVE',
+        }),
+      )) as { id: string };
+
+      const student = await service.create(
+        { full_name: 'Audited Kid', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+        undefined,
+        { userId: actor.id, context: { ip: '10.0.0.1', userAgent: 'vitest' } },
+      );
+
+      const rows = await dataSource.getRepository(AuditLog).find({
+        where: { entity_type: 'Student', entity_id: student.id, tenant_id: TENANT_ID },
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].action).toBe('CREATE');
+      expect(rows[0].performed_by_user_id).toBe(actor.id);
+      expect(rows[0].new_values).toMatchObject({
+        full_name: 'Audited Kid',
+        registration_number: student.registration_number,
+        class_section_id: SEED_SECTION_1_ID,
+      });
+    });
+
     it('should create a student with auto-generated registration number', async () => {
       const dto = {
         full_name: 'John Doe',
@@ -1120,6 +1150,84 @@ describe('StudentService (integration)', () => {
       );
 
       await expect(service.findOne(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('roll number conflicts [68.3.40 / LIFE-05]', () => {
+    const mk = (name: string, section: string, roll?: number) =>
+      service.create(
+        { full_name: name, class_section_id: section, ...(roll ? { roll_number: roll } : {}) },
+        TENANT_ID,
+      );
+
+    it('section move that re-sends the old roll, taken in the target, gets a free roll', async () => {
+      await mk('Holder In B', SEED_SECTION_2_ID, 5);
+      const s = await mk('Mover', SEED_SECTION_1_ID, 5);
+
+      const updated = await service.update(
+        s.id,
+        { class_section_id: SEED_SECTION_2_ID, roll_number: 5 },
+        TENANT_ID,
+      );
+
+      expect(updated.class_section_id).toBe(SEED_SECTION_2_ID);
+      expect(updated.roll_number).toBe(6);
+    });
+
+    it('create after soft-deleting the top roll in a section does not collide', async () => {
+      await mk('One', SEED_SECTION_1_ID);
+      const top = await mk('Two', SEED_SECTION_1_ID);
+      await service.remove(top.id, TENANT_ID, null, { ip: null, userAgent: null });
+
+      const next = await mk('Three', SEED_SECTION_1_ID);
+
+      expect(next.roll_number).toBe(top.roll_number + 1);
+    });
+
+    it('section move with an explicit, free roll keeps that roll', async () => {
+      const s = await mk('Mover', SEED_SECTION_1_ID, 5);
+      const updated = await service.update(
+        s.id,
+        { class_section_id: SEED_SECTION_2_ID, roll_number: 42 },
+        TENANT_ID,
+      );
+      expect(updated.roll_number).toBe(42);
+    });
+
+    it('section move with an explicit, taken roll throws ROLL_NUMBER_TAKEN', async () => {
+      await mk('Holder', SEED_SECTION_2_ID, 9);
+      const s = await mk('Mover', SEED_SECTION_1_ID, 5);
+      await expect(
+        service.update(s.id, { class_section_id: SEED_SECTION_2_ID, roll_number: 9 }, TENANT_ID),
+      ).rejects.toMatchObject({
+        status: 409,
+        response: { details: { code: 'ROLL_NUMBER_TAKEN' } },
+      });
+    });
+
+    it('create with an explicit, taken roll throws ROLL_NUMBER_TAKEN and leaves no student row', async () => {
+      await mk('Holder', SEED_SECTION_1_ID, 77);
+      await expect(mk('Clasher', SEED_SECTION_1_ID, 77)).rejects.toMatchObject({
+        status: 409,
+        response: { details: { code: 'ROLL_NUMBER_TAKEN' } },
+      });
+      // The create transaction rolled back: no student, no enrollment.
+      const rows = await dataSource.query(
+        `SELECT s.id, (SELECT count(*) FROM enrollments e WHERE e.student_id = s.id) AS n
+         FROM students s WHERE s.tenant_id = $1 AND s.full_name = 'Clasher'`,
+        [TENANT_ID],
+      );
+      expect(rows).toHaveLength(0);
+    });
+
+    it('a move inside the same section with no roll change keeps the roll', async () => {
+      const s = await mk('Stays', SEED_SECTION_1_ID, 5);
+      const updated = await service.update(
+        s.id,
+        { class_section_id: SEED_SECTION_1_ID, roll_number: 5 },
+        TENANT_ID,
+      );
+      expect(updated.roll_number).toBe(5);
     });
   });
 

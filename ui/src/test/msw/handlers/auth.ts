@@ -213,6 +213,31 @@ const logoutAll = http.post(
   () => new HttpResponse(null, { status: 204 }),
 );
 
+/** `GET /account/school-invites` — one pending request. Default is empty (see
+ * `authDefaultHandlers`); tests that need a row use `schoolInvites`. */
+const schoolInvitesEmpty = http.get('/api/v1/account/school-invites', () => HttpResponse.json([]));
+
+const schoolInvites = http.get('/api/v1/account/school-invites', () =>
+  HttpResponse.json([
+    {
+      id: '11111111-1111-4111-8111-111111111111',
+      school_id: '22222222-2222-4222-8222-222222222222',
+      school_name: 'Rose Valley School',
+      role: UserRole.PARENT,
+      expires_at: '2026-10-20T00:00:00.000Z',
+    },
+  ]),
+);
+
+const acceptSchoolInvite = http.post('/api/v1/account/school-invites/:id/accept', () =>
+  HttpResponse.json({ id: 'x' }),
+);
+
+const declineSchoolInvite = http.post(
+  '/api/v1/account/school-invites/:id/decline',
+  () => new HttpResponse(null, { status: 204 }),
+);
+
 /** `GET /auth/sessions` — [12.8]. Two rows, one `current`, matching the
  * shape `SessionList`'s Populated story/test uses. */
 const sessions = http.get('/api/v1/auth/sessions', () =>
@@ -312,6 +337,10 @@ export const authHandlers = {
   sessionsError,
   deleteSession,
   deleteSessionNotFound,
+  schoolInvitesEmpty,
+  schoolInvites,
+  acceptSchoolInvite,
+  declineSchoolInvite,
 };
 
 export const authDefaultHandlers = [
@@ -329,5 +358,6 @@ export const authDefaultHandlers = [
   logout,
   logoutAll,
   sessions,
+  schoolInvitesEmpty,
   socialProviders,
 ];

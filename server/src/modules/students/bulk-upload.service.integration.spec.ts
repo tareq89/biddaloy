@@ -364,6 +364,84 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(allGuardians[0].id).toBe(existing.id);
   });
 
+  it('warns once for a row whose guardian1_phone matches an existing guardian, without blocking commit [LIFE-09]', async () => {
+    const existing = await guardianRepo.save(
+      guardianRepo.create({
+        full_name: 'Family Already Here',
+        relationship: 'OTHER',
+        phone: '+8801733333333',
+        tenant_id: TENANT_ID,
+      }),
+    );
+    const file = await buildXlsxFile([rowValues(headers, { guardian1_phone: '+8801733333333' })]);
+
+    const validated = await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    // A warning is shown, but it is not a hard error: commit stays allowed.
+    expect(validated.hard_error_count).toBe(0);
+    expect(validated.errors).toHaveLength(1);
+    expect(validated.errors[0]).toMatchObject({
+      severity: 'warning',
+      column: 'guardian1_phone',
+      message: 'Will be linked to existing guardian "Family Already Here"',
+    });
+
+    // Committing after seeing the warning is the staff confirmation: the row joins that family.
+    const committed = await service.commit(validated.staging_id, TENANT_ID, SEED_ADMIN_USER_ID);
+    expect(committed.success_count).toBe(1);
+    const student = await studentRepo.findOne({
+      where: { id: committed.created_student_ids[0] },
+      relations: ['guardians'],
+    });
+    expect(student?.guardians.map((g) => g.id)).toEqual([existing.id]);
+  });
+
+  it('refuses a row whose warned guardian lost the phone between validate and commit [LIFE-09]', async () => {
+    const existing = await guardianRepo.save(
+      guardianRepo.create({
+        full_name: 'Moved Family',
+        relationship: 'OTHER',
+        phone: '+8801755555555',
+        tenant_id: TENANT_ID,
+      }),
+    );
+    const file = await buildXlsxFile([rowValues(headers, { guardian1_phone: '+8801755555555' })]);
+    const validated = await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    // Staff saw "Moved Family"; before they commit, that guardian's phone changes.
+    await guardianRepo.update({ id: existing.id }, { phone: '+8801766666666' });
+    const committed = await service.commit(validated.staging_id, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    // The student is not created and no new guardian is made on the stale phone.
+    expect(committed.success_count).toBe(0);
+    expect(committed.errors[0].reason).toContain('changed since validation');
+    expect(await guardianRepo.count({ where: { phone: '+8801755555555' } })).toBe(0);
+  });
+
+  it('warns once per phone when guardian2_phone repeats guardian1_phone, labelled per column [LIFE-09]', async () => {
+    await guardianRepo.save(
+      guardianRepo.create({
+        full_name: 'Shared Phone Family',
+        relationship: 'OTHER',
+        phone: '+8801744444444',
+        tenant_id: TENANT_ID,
+      }),
+    );
+    const file = await buildXlsxFile([
+      rowValues(headers, {
+        guardian1_phone: '+8801744444444',
+        guardian2_name: 'Second Guardian',
+        guardian2_phone: '+8801744444444',
+      }),
+    ]);
+
+    const validated = await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    expect(validated.errors.filter((e) => e.severity === 'warning')).toEqual([
+      expect.objectContaining({ column: 'guardian1_phone', value: '+8801744444444' }),
+    ]);
+  });
+
   it('reports a specific error for a duplicate roll number within the same file, and blocks the whole batch', async () => {
     const file = await buildXlsxFile([
       rowValues(headers, { student_name: 'First', roll: '5' }),
@@ -581,5 +659,25 @@ describe('StudentBulkUploadService (integration)', () => {
     });
     expect(logs).toHaveLength(1);
     expect(logs[0].performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
+  });
+
+  it('LIFE-11: a bulk import writes one Student CREATE audit row per student with the actor', async () => {
+    const file = await buildXlsxFile([
+      rowValues(headers, { student_name: 'Audit Row One', roll: '60' }),
+      rowValues(headers, {
+        student_name: 'Audit Row Two',
+        roll: '61',
+        guardian1_phone: '+8801711100061',
+      }),
+    ]);
+
+    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    expect(result.success_count).toBe(2);
+
+    const logs = await auditLogRepo.find({
+      where: { action: AuditAction.CREATE, entity_type: 'Student' },
+    });
+    expect(logs.map((l) => l.entity_id).sort()).toEqual([...result.created_student_ids].sort());
+    expect(logs.every((l) => l.performed_by_user_id === SEED_ADMIN_USER_ID)).toBe(true);
   });
 });

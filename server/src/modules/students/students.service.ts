@@ -34,21 +34,29 @@ import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { assertSeatsAvailable } from '../schools/trial/seat-limit.service';
 import { PAYABLE_FEE_STATUSES } from './open-money';
+import { bdPhoneTail } from '../communications/providers/shared/phone-number.util';
 
 // [16.3.3] Caps the audience picker's "select all matching" id list — bounds
 // both the query cost and the response size for a single selection.
 const MAX_STUDENT_IDS_RESULT = 5000;
 
 const BIRTH_REG_NO_INDEX = 'IDX_students_tenant_birth_reg_no';
+/** Unique (class_section_id, roll_number); counts soft-deleted rows too. */
+const ROLL_NUMBER_INDEX = 'IDX_ca01941430b7d99b013e6c6948';
 
-/** [39.2.1] Turns the partial-unique violation on (tenant, birth_reg_no) into a 409. */
-function rethrowBirthRegNoConflict(err: unknown): never {
-  if (
-    err instanceof QueryFailedError &&
-    (err as unknown as { code?: string; constraint?: string }).code === '23505' &&
-    (err as unknown as { constraint?: string }).constraint === BIRTH_REG_NO_INDEX
-  ) {
-    throw new ConflictException('A student with this birth registration number already exists');
+/** [39.2.1] Turns the unique violations on (tenant, birth_reg_no) and (section, roll) into a 409. */
+function rethrowStudentUniqueConflict(err: unknown): never {
+  if (err instanceof QueryFailedError) {
+    const { code, constraint } = err as unknown as { code?: string; constraint?: string };
+    if (code === '23505' && constraint === BIRTH_REG_NO_INDEX) {
+      throw new ConflictException('A student with this birth registration number already exists');
+    }
+    if (code === '23505' && constraint === ROLL_NUMBER_INDEX) {
+      throw new ConflictException({
+        message: 'This roll number is already taken in that section.',
+        details: { code: 'ROLL_NUMBER_TAKEN' },
+      });
+    }
   }
   throw err;
 }
@@ -107,7 +115,12 @@ export class StudentService {
    * atomic unit), all reads/writes run on it instead of starting a new
    * transaction — so a failure here rolls back sibling writes too.
    */
-  async create(dto: CreateStudentDto, tenantId: string, manager?: EntityManager): Promise<Student> {
+  async create(
+    dto: CreateStudentDto,
+    tenantId: string,
+    manager?: EntityManager,
+    actor?: { userId: string; context?: RequestContext },
+  ): Promise<Student> {
     const sectionRepo = manager ? manager.getRepository(ClassSection) : this.sectionRepo;
     const guardianRepo = manager ? manager.getRepository(Guardian) : this.guardianRepo;
     const studentRepo = manager ? manager.getRepository(Student) : this.repo;
@@ -196,7 +209,12 @@ export class StudentService {
         tenant_id: tenantId,
       });
 
-      const savedStudent = await txStudentRepo.save(student);
+      let savedStudent: Student;
+      try {
+        savedStudent = await txStudentRepo.save(student);
+      } catch (err) {
+        rethrowStudentUniqueConflict(err);
+      }
 
       // [8.11.3] Every new student gets a day-one enrollment history row —
       // `EnrollmentService.create` isn't reused here (it re-validates the
@@ -217,6 +235,26 @@ export class StudentService {
         }),
       );
 
+      // [LIFE-11] One CREATE audit row per student, in the same transaction.
+      await this.auditService.record(
+        {
+          action: AuditAction.CREATE,
+          entity_type: 'Student',
+          entity_id: savedStudent.id,
+          tenant_id: tenantId,
+          performed_by_user_id: actor?.userId ?? null,
+          ip_address: actor?.context?.ip ?? null,
+          user_agent: actor?.context?.userAgent ?? null,
+          new_values: {
+            full_name: savedStudent.full_name,
+            registration_number: savedStudent.registration_number,
+            class_section_id: dto.class_section_id,
+            roll_number: savedStudent.roll_number,
+          },
+        },
+        txManager,
+      );
+
       return savedStudent;
     };
 
@@ -226,7 +264,7 @@ export class StudentService {
         ? await generateAndSave(manager)
         : await this.repo.manager.transaction(generateAndSave);
     } catch (err) {
-      rethrowBirthRegNoConflict(err);
+      rethrowStudentUniqueConflict(err);
     }
 
     // Link guardians
@@ -272,6 +310,7 @@ export class StudentService {
       | 'search'
     >,
     tenantId: string,
+    sectionIds?: string[] | null,
   ) {
     const qb = this.repo
       .createQueryBuilder('student')
@@ -279,6 +318,15 @@ export class StudentService {
       .leftJoin('student.class_section', 'class_section')
       .where('student.tenant_id = :tenantId', { tenantId })
       .andWhere('student.deleted_at IS NULL');
+
+    // [68.3.01] ASSIGNED_SECTIONS callers (TEACHER): only their sections. Never `IN ()`.
+    if (sectionIds) {
+      if (sectionIds.length === 0) qb.andWhere('1 = 0');
+      else
+        qb.andWhere('student.class_section_id IN (:...scopeSectionIds)', {
+          scopeSectionIds: sectionIds,
+        });
+    }
 
     if (query.class_id) {
       qb.andWhere('class_section.class_id = :classId', { classId: query.class_id });
@@ -369,8 +417,12 @@ export class StudentService {
   async findAllIds(
     query: QueryStudentIdsDto,
     tenantId: string,
+    sectionIds?: string[] | null,
   ): Promise<{ ids: string[]; total: number }> {
-    const qb = this.buildStudentIdsQuery(query, tenantId).addOrderBy('student.id', 'ASC');
+    const qb = this.buildStudentIdsQuery(query, tenantId, sectionIds).addOrderBy(
+      'student.id',
+      'ASC',
+    );
     const total = await qb.getCount();
     if (total > MAX_STUDENT_IDS_RESULT) {
       throw new PayloadTooLargeException(
@@ -381,7 +433,7 @@ export class StudentService {
     return { ids: rows.map((row) => row.id), total };
   }
 
-  async findAll(query: QueryStudentDto, tenantId: string) {
+  async findAll(query: QueryStudentDto, tenantId: string, sectionIds?: string[] | null) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -394,7 +446,7 @@ export class StudentService {
     // and corrupting pagination whenever a matched student has more than
     // one guardian. The guardian search branch below uses an `EXISTS`
     // subquery instead, which cannot multiply rows.
-    const buildIdQuery = () => this.buildStudentIdsQuery(query, tenantId);
+    const buildIdQuery = () => this.buildStudentIdsQuery(query, tenantId, sectionIds);
 
     const total = await buildIdQuery().getCount();
 
@@ -526,6 +578,15 @@ export class StudentService {
       // The validated DTO instance carries every declared property, `undefined` when the caller
       // did not send it. Only what was actually supplied counts: for the empty-body guard below
       // and for the audit diff (otherwise every unsent field looked like a change).
+      // [68.3.40] A section move that keeps (or re-sends) the old roll gets the next free roll
+      // in the target section; a different roll the user picked is kept (409 if taken).
+      if (
+        sectionChanged &&
+        (dto.roll_number == null || dto.roll_number === existingStudent.roll_number)
+      ) {
+        updateData.roll_number = await nextRollNumber(manager, dto.class_section_id!, tenantId);
+      }
+
       const supplied = Object.keys(updateData).filter((k) => updateData[k] !== undefined);
 
       // An empty body (`{}`) would make TypeORM throw UpdateValuesMissingError, a 500.
@@ -533,7 +594,7 @@ export class StudentService {
         try {
           await txStudentRepo.update({ id, tenant_id: tenantId }, updateData);
         } catch (err) {
-          rethrowBirthRegNoConflict(err);
+          rethrowStudentUniqueConflict(err);
         }
       }
 
@@ -815,7 +876,7 @@ export class GuardianService {
     return manager ? run(manager) : this.repo.manager.transaction(run);
   }
 
-  async findAll(query: QueryGuardianDto, tenantId: string) {
+  async findAll(query: QueryGuardianDto, tenantId: string, sectionIds?: string[] | null) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -831,6 +892,19 @@ export class GuardianService {
         .select('guardian.id', 'id')
         .where('guardian.tenant_id = :tenantId', { tenantId })
         .andWhere('guardian.deleted_at IS NULL');
+
+      // [68.3.01] TEACHER: only guardians linked to a live student in their sections.
+      if (sectionIds) {
+        if (sectionIds.length === 0) qb.andWhere('1 = 0');
+        else
+          qb.andWhere(
+            `EXISTS (SELECT 1 FROM student_guardians sg
+               INNER JOIN students st ON st.id = sg.student_id
+                 AND st.tenant_id = :tenantId AND st.deleted_at IS NULL
+               WHERE sg.guardian_id = guardian.id AND st.class_section_id IN (:...scopeSectionIds))`,
+            { scopeSectionIds: sectionIds },
+          );
+      }
 
       const search = normalizeSearchTerm(query.search);
       if (search) {
@@ -911,7 +985,51 @@ export class GuardianService {
     manager?: EntityManager,
   ): Promise<Guardian | null> {
     const repo = manager ? manager.getRepository(Guardian) : this.repo;
-    return repo.findOne({ where: { phone, tenant_id: tenantId, deleted_at: IsNull() } });
+    // Phones are not unique: always the oldest match, so every caller agrees.
+    return repo.findOne({
+      where: { phone, tenant_id: tenantId, deleted_at: IsNull() },
+      order: { created_at: 'ASC', id: 'ASC' },
+    });
+  }
+
+  /** `findByPhone` for many phones in one query: phone -> its oldest live guardian. */
+  async findOldestByPhones(phones: string[], tenantId: string): Promise<Map<string, Guardian>> {
+    const unique = [...new Set(phones)];
+    if (unique.length === 0) return new Map();
+    const rows = await this.repo.find({
+      where: { phone: In(unique), tenant_id: tenantId, deleted_at: IsNull() },
+      order: { created_at: 'ASC', id: 'ASC' },
+    });
+    const byPhone = new Map<string, Guardian>();
+    for (const g of rows) if (g.phone && !byPhone.has(g.phone)) byPhone.set(g.phone, g);
+    return byPhone;
+  }
+
+  /**
+   * [LIFE-09] The oldest live guardian on this phone in any format, with
+   * their linked students loaded. Admission stores phones canonical
+   * ("8801…") while staff forms store them as typed ("01…"), so an exact
+   * match would miss the family (#2374).
+   */
+  async findByPhoneAnyFormat(
+    phone: string,
+    tenantId: string,
+    manager?: EntityManager,
+  ): Promise<Guardian | null> {
+    const repo = manager ? manager.getRepository(Guardian) : this.repo;
+    const match = await repo
+      .createQueryBuilder('g')
+      .select('g.id')
+      .where('g.tenant_id = :tenantId AND g.deleted_at IS NULL', { tenantId })
+      .andWhere(`right(regexp_replace(g.phone, '[^0-9]', '', 'g'), 10) = :tail`, {
+        tail: bdPhoneTail(phone),
+      })
+      .orderBy('g.created_at', 'ASC')
+      .addOrderBy('g.id', 'ASC')
+      .getOne();
+    return match
+      ? repo.findOne({ where: { id: match.id, tenant_id: tenantId }, relations: ['students'] })
+      : null;
   }
 
   /**

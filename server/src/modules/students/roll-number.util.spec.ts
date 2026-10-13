@@ -50,7 +50,15 @@ describe('nextRollNumber', () => {
     expect(result).toBe(8);
   });
 
-  it('scopes the lookup to the given section and tenant, excluding soft-deleted students', async () => {
+  it('passes withDeleted: true so a soft-deleted top roll is skipped', async () => {
+    const { manager, findOne } = buildManager({ roll_number: 7 });
+
+    await nextRollNumber(manager, 'section-1', 'tenant-1');
+
+    expect(findOne).toHaveBeenCalledWith(expect.objectContaining({ withDeleted: true }));
+  });
+
+  it('scopes the lookup to the given section and tenant, counting soft-deleted students (no deleted_at filter)', async () => {
     const { manager, findOne } = buildManager(null);
 
     await nextRollNumber(manager, 'section-1', 'tenant-1');
@@ -64,10 +72,8 @@ describe('nextRollNumber', () => {
         order: { roll_number: 'DESC' },
       }),
     );
-    // `deleted_at` filter is a nested TypeORM find-operator (`IsNull()`),
-    // not a plain value — asserted by key presence rather than equality
-    // so this test doesn't couple to that operator's internal shape.
+    // No `deleted_at` filter: the unique index counts soft-deleted rows too.
     const whereArg = findOne.mock.calls[0][0].where;
-    expect('deleted_at' in whereArg).toBe(true);
+    expect('deleted_at' in whereArg).toBe(false);
   });
 });

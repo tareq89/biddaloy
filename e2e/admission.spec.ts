@@ -1,4 +1,4 @@
-import { adminApiSession, createClassSection, post } from './api';
+import { adminApiSession, createClassSection, createGuardian, post } from './api';
 import { expect, loggedIn, test } from './fixtures/test';
 import { t } from './i18n';
 import { DetailShellPage } from './pages/detail-shell';
@@ -171,5 +171,103 @@ test('public submit → staff shortlist/admit → student created → public sta
     await expect(guestPage.getByText(t('admission-public.status.statuses.ADMITTED'))).toBeVisible();
 
     await guestContext.close();
+  });
+});
+
+/**
+ * [LIFE-09] An applicant whose guardian phone matches an existing guardian is
+ * never linked silently: the admit modal names that guardian, Confirm stays
+ * disabled until staff pick link or create-new, and "create new" admits.
+ */
+test('admit modal shows the matched guardian and requires a choice', async ({ page, request }) => {
+  const admin = await adminApiSession(request);
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+  const applicantName = `Match E2E ${suffix}`;
+  const existingGuardianName = `Existing Family ${suffix}`;
+  const guardianPhone = `1${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`;
+
+  await test.step('seed a guardian and an open intake over the API', async () => {
+    await createGuardian(request, admin, existingGuardianName, `0${guardianPhone}`);
+    const section = await createClassSection(request, admin);
+    await post(request, admin, '/admission-intakes', {
+      title: `Match Intake ${suffix}`,
+      class_section_id: section.sectionId,
+      seat_count: 10,
+      open_date: '2020-01-01',
+      close_date: '2099-12-31',
+      required_document_types: ['PHOTO'],
+    });
+  });
+
+  await test.step('a guardian submits the public application with that phone', async () => {
+    const guestContext = await page.context().browser()!.newContext();
+    const guestPage = await guestContext.newPage();
+    await guestPage.goto('/admission/default-school');
+    await guestPage
+      .getByRole('combobox', { name: t('admission-public.form.fields.intake') })
+      .click();
+    await guestPage.getByRole('option', { name: `Match Intake ${suffix}` }).click();
+    await guestPage.getByLabel(t('admission-public.form.fields.applicantName')).fill(applicantName);
+    const today = new Date();
+    const firstOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+    await guestPage
+      .getByRole('button', { name: t('admission-public.form.fields.dateOfBirth') })
+      .click();
+    await guestPage.locator(`[data-date="${firstOfMonth}"]`).click();
+    await guestPage
+      .getByRole('combobox', { name: t('admission-public.form.fields.gender') })
+      .click();
+    await guestPage
+      .getByRole('option', { name: t('admission-public.form.fields.genderOptions.MALE') })
+      .click();
+    await guestPage
+      .getByLabel(t('admission-public.form.fields.guardianName'))
+      .fill(`Typed Guardian ${suffix}`);
+    await guestPage.getByLabel(t('admission-public.form.fields.guardianPhone')).fill(guardianPhone);
+    await guestPage
+      .getByLabel(t('admission-public.form.documents.PHOTO'), { exact: true })
+      .setInputFiles({
+        name: 'photo.jpg',
+        mimeType: 'image/jpeg',
+        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+      });
+    await guestPage.getByRole('button', { name: t('admission-public.form.submit') }).click();
+    await guestPage.getByTestId('reference-number').waitFor();
+    await guestContext.close();
+  });
+
+  await test.step('staff opens Admit: the matched guardian is named and a choice is required', async () => {
+    const list = new ListShellPage(page, {
+      titleKey: 'admission-staff-applicants.list.title',
+      openLabelKey: 'admission-staff-applicants.list.view',
+    });
+    await page.goto('/admissions/applicants');
+    await list.expectLoaded();
+    await list.openRowByText(applicantName);
+    const detail = new DetailShellPage(page);
+    await detail.expectLoaded(applicantName);
+    await detail.clickAction('admission-staff-applicants.detail.actionAdmit');
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText(existingGuardianName, { exact: false })).toBeVisible();
+    const confirm = dialog.getByRole('button', {
+      name: t('admission-staff-applicants.admitModal.confirm'),
+    });
+    await expect(confirm).toBeDisabled();
+
+    // RadioRows stretches each label over its row, so the label takes the click.
+    await dialog
+      .getByText(t('admission-staff-applicants.admitModal.createNew'), { exact: true })
+      .click();
+    await expect(
+      dialog.getByRole('radio', { name: t('admission-staff-applicants.admitModal.createNew') }),
+    ).toBeChecked();
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect(
+      dialog.getByText(
+        t('admission-staff-applicants.admitModal.successMessage', { name: applicantName }),
+      ),
+    ).toBeVisible();
   });
 });

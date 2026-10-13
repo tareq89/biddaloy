@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import pino from 'pino';
 import { buildPinoOptions } from './pino-options';
+import { redactPii } from '../redact-log.util';
 
 describe('buildPinoOptions', () => {
   it('redacts PII from the serialized request URL in production', () => {
@@ -24,6 +25,35 @@ describe('buildPinoOptions', () => {
 
     expect(serialized.url).not.toContain('WUbOO2kZjr0vHJE7Hpi8HGmhPo01oMNgOcDAgFvDgLA');
     expect(serialized.url).toBe('/api/v1/public/invoices/[REDACTED]');
+  });
+
+  it('[PUB-07] masks calendar-feed and public-verify path tokens', () => {
+    const options = buildPinoOptions('production');
+    for (const [url, want] of [
+      ['/api/v1/calendar/feed/abc123.ics', '/api/v1/calendar/feed/[REDACTED]'],
+      ['/api/v1/public/verify/abc123', '/api/v1/public/verify/[REDACTED]'],
+      ['/api/v1/public/invoices/abc123?x=1', '/api/v1/public/invoices/[REDACTED]?x=1'],
+    ]) {
+      const serialized = options?.serializers?.req?.({ method: 'GET', url } as any);
+      expect(serialized.url).not.toContain('abc123');
+      expect(serialized.url).toBe(want);
+    }
+  });
+
+  it('[PUB-07] redactPii itself masks path tokens, so the exception filter and Sentry do too', () => {
+    // HttpExceptionFilter logs `${method} ${url} → ${status}` through redactPii.
+    const line = redactPii('GET /api/v1/calendar/feed/abc123.ics → 404');
+    expect(line).toBe('GET /api/v1/calendar/feed/[REDACTED] → 404');
+    expect(redactPii('GET /api/v1/public/invoices/tok1 and /api/v1/public/verify/tok2')).toBe(
+      'GET /api/v1/public/invoices/[REDACTED] and /api/v1/public/verify/[REDACTED]',
+    );
+  });
+
+  it('[PUB-07] leaves normal URLs alone and masks ?token= query params', () => {
+    const options = buildPinoOptions('production');
+    const ser = (url: string) => options?.serializers?.req?.({ method: 'GET', url } as any).url;
+    expect(ser('/api/v1/students?page=2')).toBe('/api/v1/students?page=2');
+    expect(ser('/reset-password?token=abc')).not.toContain('abc');
   });
 
   it('keeps only statusCode on the serialized response', () => {

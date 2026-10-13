@@ -13,6 +13,7 @@ import {
   Inject,
   ParseUUIDPipe,
   Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -36,6 +37,7 @@ import {
 } from './students.service';
 import { StudentBulkUploadService } from './bulk-upload.service';
 import { FamilyAccessService } from './family-access.service';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 import {
   CreateStudentDto,
   UpdateStudentDto,
@@ -66,6 +68,7 @@ export class StudentController {
     @Inject(GuardianService) private readonly guardianService: GuardianService,
     @Inject(StudentBulkUploadService) private readonly bulkUploadService: StudentBulkUploadService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
+    @Inject(TeacherScopeService) private readonly teacherScope: TeacherScopeService,
   ) {}
 
   // --- Student endpoints ---
@@ -77,9 +80,14 @@ export class StudentController {
   async createStudent(
     @Body() dto: CreateStudentDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
     assertCanWriteProfileFields(dto, canWriteRecords(tenant.role));
-    const student = await this.studentService.create(dto, tenant.id);
+    const student = await this.studentService.create(dto, tenant.id, undefined, {
+      userId: user.sub,
+      context: requestContext(request),
+    });
     return redactHealthNotes(student, canReadRecords(tenant.role));
   }
 
@@ -134,8 +142,14 @@ export class StudentController {
   async findAllStudents(
     @Query() query: QueryStudentDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    const page = await this.studentService.findAll(query, tenant.id);
+    const scope = await this.teacherScope.sectionScope({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    const page = await this.studentService.findAll(query, tenant.id, scope);
     return redactHealthNotes(page, canReadRecords(tenant.role));
   }
 
@@ -179,11 +193,17 @@ export class StudentController {
       'All student IDs matching the given filters, unpaginated — backs the audience picker\'s "select all matching" action. Capped; returns 413 when the match count exceeds the cap.',
   })
   @ApiOkResponse({ type: StudentIdsResultDto })
-  findAllStudentIds(
+  async findAllStudentIds(
     @Query() query: QueryStudentIdsDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ): Promise<StudentIdsResultDto> {
-    return this.studentService.findAllIds(query, tenant.id);
+    const scope = await this.teacherScope.sectionScope({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    return this.studentService.findAllIds(query, tenant.id, scope);
   }
 
   @Get('students/:id')
@@ -202,6 +222,12 @@ export class StudentController {
     // [5.1] moved the check that used to be inline here into
     // FamilyAccessService so every widened family route shares one copy.
     await this.familyAccess.assertLinked(tenant.role, user.sub, id, tenant.id);
+    await this.teacherScope.assertCanSeeStudent({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+      studentId: id,
+    });
     return redactHealthNotes(student, canReadRecords(tenant.role));
   }
 
@@ -289,8 +315,14 @@ export class StudentController {
   async findAllGuardians(
     @Query() query: QueryGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    const page = await this.guardianService.findAll(query, tenant.id);
+    const scope = await this.teacherScope.sectionScope({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    const page = await this.guardianService.findAll(query, tenant.id, scope);
     return redactHealthNotes(page, canReadRecords(tenant.role));
   }
 
@@ -342,8 +374,23 @@ export class StudentController {
   async findOneGuardian(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
     const guardian = await this.guardianService.findOne(id, tenant.id);
+    const scope = await this.teacherScope.sectionScope({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    if (scope) {
+      // Only the children the teacher teaches; siblings elsewhere stay hidden.
+      guardian.students = (guardian.students ?? []).filter(
+        (s) => s.class_section_id && scope.includes(s.class_section_id),
+      );
+      if (guardian.students.length === 0) {
+        throw new ForbiddenException("You do not teach this guardian's students.");
+      }
+    }
     return redactHealthNotes(guardian, canReadRecords(tenant.role));
   }
 

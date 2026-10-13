@@ -23,8 +23,20 @@
  * 'ios-instructions'` opens `IosInstallSheet` instead, since iOS has no
  * native prompt to trigger (see that component's own header comment).
  */
-import { MenuItem, UserMenu } from '@biddaloy/ui/components';
-import { logout, useActiveRole, useCurrentUser } from '@biddaloy/ui/hooks';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  SchoolInvitesCard,
+  UserMenu,
+} from '@biddaloy/ui/components';
+import {
+  logout,
+  useActiveRole,
+  useCurrentUser,
+  useSchoolInvitesCardProps,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { IosInstallSheet, useInstallPrompt } from '@biddaloy/ui/pwa';
 import { useQueryClient } from '@tanstack/react-query';
@@ -32,7 +44,15 @@ import { useNavigate } from '@tanstack/react-router';
 import { DownloadIcon } from 'lucide-react';
 import * as React from 'react';
 
-export function StaffUserMenu({ securityTo = '/security' }: { securityTo?: string } = {}) {
+export function StaffUserMenu({
+  securityTo = '/security',
+  invites: sharedInvites,
+}: {
+  securityTo?: string;
+  /** Pass the layout's copy when it also shows the invites card, so both
+   * share one busy state (no double accept, or accept + decline at once). */
+  invites?: ReturnType<typeof useSchoolInvitesCardProps>;
+} = {}) {
   // Loaded first — `check-i18n-keys.mjs` resolves a file's bare `t()`
   // calls off its *first* `useTranslation` call, so `nav` (this
   // component's own namespace) must be established before `auth` is
@@ -52,6 +72,9 @@ export function StaffUserMenu({ securityTo = '/security' }: { securityTo?: strin
   const installPrompt = useInstallPrompt();
   const { mode } = installPrompt;
   const [iosSheetOpen, setIosSheetOpen] = React.useState(false);
+  const [invitesOpen, setInvitesOpen] = React.useState(false);
+  const ownInvites = useSchoolInvitesCardProps();
+  const invites = sharedInvites ?? ownInvites;
 
   async function handleSignOut(): Promise<void> {
     setSigningOut(true);
@@ -98,11 +121,24 @@ export function StaffUserMenu({ securityTo = '/security' }: { securityTo?: strin
         profileItem={
           // [12.8] — `/security` is gated only by `DASHBOARD_VIEW` (see
           // `route-permissions.ts`'s own comment on that route).
-          <MenuItem onSelect={() => void navigate({ to: securityTo })}>
-            {t('userMenu.security')}
-          </MenuItem>
+          <>
+            {invites.count > 0 && (
+              <MenuItem onSelect={() => setInvitesOpen(true)}>
+                {t('userMenu.schoolInvites')} ({invites.count})
+              </MenuItem>
+            )}
+            <MenuItem onSelect={() => void navigate({ to: securityTo })}>
+              {t('userMenu.security')}
+            </MenuItem>
+          </>
         }
       />
+      <Dialog open={invitesOpen && invites.count > 0} onOpenChange={setInvitesOpen}>
+        <DialogContent size="md" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">{t('schoolInvites.title')}</DialogTitle>
+          <SchoolInvitesCard {...invites.cardProps} />
+        </DialogContent>
+      </Dialog>
       {mode === 'ios-instructions' && (
         <IosInstallSheet open={iosSheetOpen} onOpenChange={setIosSheetOpen} />
       )}

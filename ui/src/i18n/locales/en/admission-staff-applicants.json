@@ -84,6 +84,13 @@
     "errorMessage": "Failed to admit applicant",
     "confirm": "Admit",
     "admitting": "Admitting…",
-    "close": "Close"
+    "close": "Close",
+    "existingGuardian": "Existing guardian: {{name}}, {{phone}}.",
+    "children": "Children: {{names}}",
+    "noChildren": "No children linked yet.",
+    "choiceLegend": "This phone number already belongs to a guardian",
+    "linkExisting": "Link this child to this family",
+    "createNew": "Create a new guardian for this child",
+    "matchError": "Could not check for an existing guardian. Try again before admitting."
   }
 }
