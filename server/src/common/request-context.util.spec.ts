@@ -9,6 +9,10 @@ describe('resolveRequestId', () => {
   it('keeps a short plain id', () => {
     expect(resolveRequestId(req('req-1_ABC'))).toBe('req-1_ABC');
   });
+  it('keeps an id of exactly 64 characters', () => {
+    const id = 'a'.repeat(64);
+    expect(resolveRequestId(req(id))).toBe(id);
+  });
   it('replaces an id longer than 64 characters', () => {
     const id = 'a'.repeat(65);
     const out = resolveRequestId(req(id));

@@ -189,7 +189,7 @@ export class UserService {
         withDeleted: true,
       });
       if (existing) {
-        throw new ConflictException('That email address is already in use');
+        throw new ConflictException('That email address or phone number is already in use');
       }
     }
 
