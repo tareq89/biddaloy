@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 import { AccountAccessDeliveryService, pickChannel } from './account-access-delivery.service';
 
@@ -37,6 +37,43 @@ describe('AccountAccessDeliveryService', () => {
       registry as any,
       schoolsService as any,
     );
+  });
+
+  describe('detach', () => {
+    // The service reads process.env.NODE_ENV (vitest sets 'test'); flip it per case.
+    const original = process.env.NODE_ENV;
+    afterEach(() => {
+      process.env.NODE_ENV = original;
+    });
+    const make = (env: string) => {
+      process.env.NODE_ENV = env;
+      return service;
+    };
+
+    it('returns before the work finishes outside NODE_ENV=test', async () => {
+      await make('production').detach(() => new Promise(() => {}));
+    });
+
+    it('awaits the work under NODE_ENV=test', async () => {
+      let done = false;
+      await make('test').detach(async () => {
+        await Promise.resolve();
+        done = true;
+      });
+      expect(done).toBe(true);
+    });
+
+    it('logs a rejected job instead of throwing, in both modes', async () => {
+      for (const env of ['test', 'production']) {
+        const svc = make(env);
+        const err = vi.spyOn((svc as any).logger, 'error').mockImplementation(() => undefined);
+        err.mockClear();
+        await expect(svc.detach(() => Promise.reject(new Error('boom')))).resolves.toBeUndefined();
+        await new Promise((r) => setImmediate(r));
+        await new Promise((r) => setImmediate(r));
+        expect(err).toHaveBeenCalledTimes(1);
+      }
+    });
   });
 
   it('stores a redacted message_body, never the raw link', async () => {

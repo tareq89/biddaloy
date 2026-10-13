@@ -180,6 +180,16 @@ describe('OtpLoginService (integration)', () => {
       expect(logs).toHaveLength(0);
     });
 
+    it('hands delivery to detach() once for a known account and never for an unknown one', async () => {
+      const detach = vi.spyOn(module.get(AccountAccessDeliveryService), 'detach');
+      await createMember({ phone: '01712345678' });
+
+      expect(await service.request('01799999999', context)).toEqual({});
+      expect(detach).not.toHaveBeenCalled();
+      await service.request('01712345678', context);
+      expect(detach).toHaveBeenCalledTimes(1);
+    });
+
     it('deny wins: a user in tenant A(on) + tenant B(off) is refused', async () => {
       await createMember({ phone: '01712349999' }, [SEED_TENANT_ID, OTHER_TENANT]);
       tenantOtpEnabled.set(OTHER_TENANT, false);

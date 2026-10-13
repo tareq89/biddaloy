@@ -365,14 +365,16 @@ export class RecoveryService {
       return this.echo({});
     }
 
-    await this.delivery.deliver({
-      tenantId,
-      medium: CommunicationMedium.SMS,
-      to: phone,
-      recipientName: user.full_name,
-      kind: 'OTP',
-      vars: { code },
-    });
+    await this.delivery.detach(() =>
+      this.delivery.deliver({
+        tenantId,
+        medium: CommunicationMedium.SMS,
+        to: phone,
+        recipientName: user.full_name,
+        kind: 'OTP',
+        vars: { code },
+      }),
+    );
     await this.auditRequested(user, tenantId, CommunicationMedium.SMS);
     return this.echo({ otp: code });
   }
@@ -399,14 +401,16 @@ export class RecoveryService {
     });
     const link = this.buildResetLink(raw);
 
-    await this.delivery.deliver({
-      tenantId,
-      medium: CommunicationMedium.EMAIL,
-      to: email,
-      recipientName: user.full_name,
-      kind: 'PASSWORD_RESET_LINK',
-      vars: { link },
-    });
+    await this.delivery.detach(() =>
+      this.delivery.deliver({
+        tenantId,
+        medium: CommunicationMedium.EMAIL,
+        to: email,
+        recipientName: user.full_name,
+        kind: 'PASSWORD_RESET_LINK',
+        vars: { link },
+      }),
+    );
     await this.auditRequested(user, tenantId, CommunicationMedium.EMAIL);
     return this.echo({ token: raw });
   }
