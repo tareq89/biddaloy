@@ -34,7 +34,12 @@ async function bootstrap() {
   // Throws (malformed SENTRY_DSN) or no-ops (unset), never half-inits.
   initSentry();
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    // Keeps `req.rawBody` (a Buffer, bounded by the 1 MB JSON limit) so an
+    // inbound webhook route can verify its signature over the exact bytes.
+    rawBody: true,
+  });
   // Every Nest-internal log line (framework startup, module init) from
   // this point on goes through pino too — buffered above so nothing before
   // this call is lost to the default console logger.
