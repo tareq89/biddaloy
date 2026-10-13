@@ -8,7 +8,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import type Redis from 'ioredis';
 import * as bcrypt from 'bcrypt';
@@ -22,6 +22,7 @@ import { normalizeEmail, normalizeLoginIdentifier } from '../auth/normalize-iden
 import { OTP_REDIS } from './otp.service';
 import { OtpService } from './otp.service';
 import { AuthTokenService, EMAIL_VERIFY_TTL_MS } from './auth-token.service';
+import type { AuthToken } from './entities/auth-token.entity';
 import type { ContactField } from './account-access-templates';
 import { maskEmail, maskPhone } from './contact-mask.util';
 import { AccountAccessDeliveryService, pickChannel } from './account-access-delivery.service';
@@ -396,20 +397,44 @@ export class ContactChangeService {
       : user.phone === sent.address;
   }
 
+  /**
+   * Review m8: the asking school still has the person, and whoever asked is still an active
+   * ADMIN there. Otherwise a school the person left could still change their login for 72 h.
+   */
+  private async proposalStillBacked(
+    manager: EntityManager,
+    userId: string,
+    proposerId: string | null,
+    meta: AdminProposalMeta,
+  ): Promise<boolean> {
+    if (!proposerId || !meta.proposed_in_tenant_id) return false;
+    const [row] = await manager.query<Array<{ ok: boolean }>>(
+      `SELECT EXISTS (SELECT 1 FROM user_tenants
+                       WHERE user_id = $1 AND tenant_id = $2 AND deleted_at IS NULL)
+          AND EXISTS (SELECT 1 FROM user_tenants ut JOIN users u ON u.id = ut.user_id
+                       WHERE ut.user_id = $3 AND ut.tenant_id = $2 AND ut.role = 'ADMIN'
+                         AND ut.deleted_at IS NULL AND u.deleted_at IS NULL AND u.status = 'ACTIVE') AS ok`,
+      [userId, meta.proposed_in_tenant_id, proposerId],
+    );
+    return row.ok;
+  }
+
   /** [75.1] The person pressed Approve: one transaction, token consumed last. */
   private async approveAdminProposal(
-    tokenId: string,
-    userId: string,
-    tenantId: string | null,
+    token: AuthToken,
     meta: AdminProposalMeta,
     context: RequestContext,
   ): Promise<{ status: string }> {
+    const { id: tokenId, user_id: userId, tenant_id: tenantId } = token;
     const outcome = await this.userRepo.manager.transaction(async (manager) => {
       const user = await manager
         .getRepository(User)
         .findOne({ where: { id: userId }, lock: { mode: 'pessimistic_write' } });
       if (!user) return 'unknown' as const;
       if (!this.sentToStillCurrent(user, meta)) return 'revoked' as const;
+      if (!(await this.proposalStillBacked(manager, userId, token.created_by_user_id, meta))) {
+        return 'withdrawn' as const;
+      }
 
       // Re-check against the CURRENT state: another approval or a self-service change may have landed.
       const nextEmail = meta.new_email !== undefined ? meta.new_email : user.email;
@@ -479,6 +504,14 @@ export class ContactChangeService {
       );
       return 'valid' as const;
     });
+    if (outcome === 'withdrawn') {
+      await this.authTokens.revoke(tokenId);
+      throw new ConflictException({
+        message:
+          'The school that asked for this change no longer has you as a member, or the person who asked is no longer its admin.',
+        details: { code: 'PROPOSAL_WITHDRAWN' },
+      });
+    }
     if (outcome !== 'valid') return { status: outcome };
 
     // After commit, from the app clock (see SessionCutoffService). Revoke first: a refresh
@@ -601,7 +634,7 @@ export class ContactChangeService {
     if (meta?.kind === 'ADMIN_PROPOSAL') {
       // Opening the link never changes anything: the person must press Approve or Decline.
       if (action === 'approve') {
-        return this.approveAdminProposal(row.id, row.user_id, row.tenant_id, meta, context);
+        return this.approveAdminProposal(row, meta, context);
       }
       if (action === 'decline') {
         return this.declineAdminProposal(row.id, row.user_id, meta, context);

@@ -646,6 +646,39 @@ describe('ContactChangeService (integration)', () => {
       expect(sentTo().some((m) => m.body.includes('token='))).toBe(true);
     });
 
+    // Review m8: the proposing school must still have the person, and the proposer must still be its admin.
+    it('approval after the asking school removed the person: 409, the link is revoked, nothing changes', async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { phone: NEW_PHONE });
+      const token = linkIn(sentTo()[0].body);
+      await dataSource.query(
+        'UPDATE user_tenants SET deleted_at = NOW() WHERE user_id = $1 AND tenant_id = $2',
+        [user.id, SEED_TENANT_ID],
+      );
+
+      await expect(service.confirmEmail(token, context, 'approve')).rejects.toMatchObject({
+        status: 409,
+        response: { details: { code: 'PROPOSAL_WITHDRAWN' } },
+      });
+      expect((await service.confirmEmail(token, context)).status).toBe('revoked');
+      const [row] = await dataSource.query('SELECT phone FROM users WHERE id = $1', [user.id]);
+      expect(row.phone).toBe('+8801711111111');
+    });
+
+    it('approval after the proposer stopped being an admin there: 409 and the link is revoked', async () => {
+      const { user, proposer } = await sharedSetup();
+      await propose(user.id, { phone: NEW_PHONE });
+      const token = linkIn(sentTo()[0].body);
+      await dataSource.query(`UPDATE user_tenants SET role = 'TEACHER' WHERE user_id = $1`, [
+        proposer.id,
+      ]);
+
+      await expect(service.confirmEmail(token, context, 'approve')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect((await service.confirmEmail(token, context)).status).toBe('revoked');
+    });
+
     it('notices skip the person themselves and inactive admins', async () => {
       const { user, admin } = await sharedSetup();
       await dataSource.query(`UPDATE users SET status = 'INACTIVE' WHERE id = $1`, [admin.id]);
