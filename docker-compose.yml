@@ -58,9 +58,16 @@ services:
         condition: service_healthy
     expose:
       - '3000'
+    # /api/health is unthrottled; busybox wget ships in node:*-alpine.
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     # --databases 64: scripts/test-env.sh gives each parallel test run its
     # own block of 5 db slots (slot 0 stays the app's); 16 fits only 2 runs.
     command: ['redis-server', '--appendonly', 'yes', '--databases', '64']
@@ -82,7 +89,7 @@ services:
       retries: 5
 
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     restart: unless-stopped
     # The default 100 runs out locally: the dev server plus several parallel
     # test runs (scripts/test-env.sh), each with 4 vitest workers' pools.
@@ -111,7 +118,7 @@ services:
     # process. It creates S3_BUCKET on boot if missing (idempotent), which
     # replaces the old one-shot bucket-init service. Official image lives
     # on Docker Hub; keep the tag pinned.
-    image: chrislusf/seaweedfs:4.47
+    image: chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882
     restart: unless-stopped
     command: ['mini', '-dir=/data', '-webdav=false', '-admin.ui=false']
     environment:
@@ -171,7 +178,7 @@ services:
   # nginx/generate-dummy-cert.sh and the README for the real first-issuance
   # flow that replaces it.
   cert-bootstrap:
-    image: certbot/certbot
+    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
     entrypoint: ['sh', '/scripts/generate-dummy-cert.sh']
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
@@ -184,7 +191,7 @@ services:
   # that's a one-off manual command (see README) since it needs --email and
   # --staging/production endpoint choices a human should make deliberately.
   certbot:
-    image: certbot/certbot
+    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
     restart: unless-stopped
     volumes:
       - certs:/etc/letsencrypt
@@ -193,7 +200,7 @@ services:
       sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
 
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
     restart: unless-stopped
     ports:
       - '80:80'
@@ -207,9 +214,16 @@ services:
       - ./nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro
       - certs:/etc/letsencrypt:ro
       - certbot-webroot:/var/www/certbot:ro
+    # /healthz answers loopback callers only (nginx/templates/default.conf.template).
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1/healthz || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
     depends_on:
       app:
-        condition: service_started
+        condition: service_healthy
       cert-bootstrap:
         condition: service_completed_successfully
 

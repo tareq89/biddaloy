@@ -28,6 +28,13 @@ describe('parseNvmrc', () => {
   });
 });
 
+describe('extractDockerNodeMajor', () => {
+  it('still parses a digest-pinned FROM', () => {
+    const digest = 'a'.repeat(64);
+    expect(extractDockerNodeMajor(`FROM node:26-alpine@sha256:${digest} AS base`)).toBe('26');
+  });
+});
+
 describe('extractWorkflowNodeMajors', () => {
   it('finds NODE_VERSION and node-version, quoted or bare', () => {
     expect(extractWorkflowNodeMajors('env:\n  NODE_VERSION: "24"\n')).toEqual(['24']);
