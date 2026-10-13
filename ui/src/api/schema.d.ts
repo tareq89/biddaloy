@@ -11636,7 +11636,7 @@ export interface components {
             room: components["schemas"]["Room"] | null;
             room_id: string | null;
             /** @enum {string} */
-            recurrence: "MONTHLY" | "WEEKLY" | "BIWEEKLY";
+            recurrence: "WEEKLY" | "MONTHLY" | "BIWEEKLY";
             recurrence_offset: number;
             valid_from: string;
             valid_to: string | null;
@@ -11676,7 +11676,7 @@ export interface components {
             requested_by: string;
             note: string;
             /** @enum {string} */
-            state: "OPEN" | "ACCEPTED" | "REJECTED";
+            state: "ACCEPTED" | "REJECTED" | "OPEN";
             resolved_by_user: components["schemas"]["User"] | null;
             resolved_by: string | null;
             /** Format: date-time */
@@ -11708,7 +11708,7 @@ export interface components {
             /** Format: uuid */
             room_id?: string | null;
             /** @enum {string} */
-            recurrence: "MONTHLY" | "WEEKLY" | "BIWEEKLY";
+            recurrence: "WEEKLY" | "MONTHLY" | "BIWEEKLY";
             recurrence_offset?: number;
             valid_from: string;
             valid_to?: string | null;
@@ -11980,7 +11980,7 @@ export interface components {
         CreateExamDto: {
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
+            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
             /** Format: uuid */
             academic_year_id: string;
             /** Format: uuid */
@@ -12020,7 +12020,7 @@ export interface components {
             academic_term_id: string | null;
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
+            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
             /** @enum {string} */
             status: "DRAFT" | "PROCESSED" | "PUBLISHED";
             /** Format: date-time */
@@ -12044,7 +12044,7 @@ export interface components {
             academic_term_id: string | null;
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
+            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
             /** @enum {string} */
             status: "DRAFT" | "PROCESSED" | "PUBLISHED";
             /** Format: date-time */
@@ -12059,7 +12059,7 @@ export interface components {
         UpdateExamDto: {
             name?: string;
             /** @enum {string} */
-            kind?: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
+            kind?: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
             /** Format: uuid */
             academic_year_id?: string;
             /** Format: uuid */
@@ -12123,7 +12123,7 @@ export interface components {
             id: string;
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
+            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
             rowCount: number;
             classGrades: number[];
         };
@@ -12145,13 +12145,13 @@ export interface components {
             id: string;
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
+            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
             rows: components["schemas"]["ExamTemplateRowDto"][];
         };
         CreateExamTemplateDto: {
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
+            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
         };
         ExamTemplateComponentInputDto: {
             name: string;
@@ -12168,7 +12168,7 @@ export interface components {
         UpdateExamTemplateDto: {
             name?: string;
             /** @enum {string} */
-            kind?: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
+            kind?: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
             rows?: components["schemas"]["ExamTemplateRowInputDto"][];
         };
         SetSubjectChoiceDto: {
@@ -12932,7 +12932,7 @@ export interface components {
             home_address: string | null;
             documents: Record<string, never>[];
             /** @enum {string} */
-            status: "PENDING" | "REJECTED" | "SHORTLISTED" | "ADMITTED";
+            status: "REJECTED" | "PENDING" | "SHORTLISTED" | "ADMITTED";
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
