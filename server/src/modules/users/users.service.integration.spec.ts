@@ -13,6 +13,7 @@ import { AuditService } from '../audit/audit.service';
 import { AccessTokenDenylistService } from '../auth/access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from '../auth/auth-tokens';
 import { SessionCutoffService } from '../auth/session-cutoff.service';
+import { RefreshTokenService } from '../auth/refresh-token.service';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { CreateUserDto, CreateTeacherDto, UpdateTeacherDto } from './dto/users.dto';
@@ -168,6 +169,7 @@ describe('UserService (integration)', () => {
         },
         { provide: ACCESS_TOKEN_TTL_MS, useValue: 900_000 },
         SessionCutoffService,
+        { provide: RefreshTokenService, useValue: { revokeAllForUser: vi.fn() } },
       ],
       [],
       {
@@ -1572,6 +1574,7 @@ describe('TeacherService (integration)', () => {
         },
         { provide: ACCESS_TOKEN_TTL_MS, useValue: 900_000 },
         SessionCutoffService,
+        { provide: RefreshTokenService, useValue: { revokeAllForUser: vi.fn() } },
       ],
       [],
       {

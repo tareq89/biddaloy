@@ -416,10 +416,30 @@ export class UserController {
     @Body() dto: UpdateUserDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() jwt: JwtPayload,
+    @Req() request: Request,
   ) {
-    const user = await this.userService.update(id, dto, tenant.id, jwt.sub);
+    // [75.1] A shared person's email/phone is only proposed; they approve it from their current contact.
+    const proposed = await this.userService.sharedIdentifierChanges(id, dto, tenant.id);
+    let applied = dto;
+    if (proposed) {
+      const { email: _email, phone: _phone, ...rest } = dto;
+      applied = rest;
+      await this.contactChangeService.proposeByAdmin(
+        { userId: id, tenantId: tenant.id, actorUserId: jwt.sub, ...proposed },
+        requestContext(request),
+      );
+    }
+    const user = await this.userService.update(id, applied, tenant.id, jwt.sub);
     const responseDto = UserResponseDto.fromEntity(user, tenant.id);
     responseDto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
+    if (proposed) {
+      responseDto.pending_contact_change =
+        'email' in proposed && 'phone' in proposed
+          ? 'both'
+          : 'email' in proposed
+            ? 'email'
+            : 'phone';
+    }
     return responseDto;
   }
 
