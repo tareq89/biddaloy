@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { UserRole } from '@biddaloy/shared';
 import { HomeworkAccessService } from './homework-access.service';
+import { teacherAssignments } from '../classes/teacher-scope.service';
+
+// The current-year scope query is covered by teacher-scope.service.integration.spec.ts;
+// here it is just the rows the gate reasons over.
+vi.mock('../classes/teacher-scope.service', () => ({ teacherAssignments: vi.fn() }));
 
 /**
  * Unit tests for `HomeworkAccessService` with mocked repositories — the
@@ -18,50 +23,42 @@ describe('HomeworkAccessService', () => {
   let studentRepo: { findOne: ReturnType<typeof vi.fn> };
   let classRepo: { exist: ReturnType<typeof vi.fn> };
   let subjectRepo: { exist: ReturnType<typeof vi.fn> };
-  let tcsRepo: { createQueryBuilder: ReturnType<typeof vi.fn> };
-  let getOne: ReturnType<typeof vi.fn<() => unknown>>;
+  let tcsRepo: { manager: object };
   let service: HomeworkAccessService;
 
-  /** In-memory fixture of `teacher_class_sections` rows (already joined to
-   * `teachers`), so the query-builder mock can filter on the same
-   * (userId, sectionId, subjectId) params the real query filters on —
-   * instead of a single canned `getOne` result — letting a test seed two
-   * competing rows (two different teachers mapped to the same section) and
-   * verify each teacher's own params resolve independently. */
-  let tcsRows: Array<{ userId: string; sectionId: string; subjectId: string | null }>;
+  type Row = {
+    userId: string;
+    section_id: string;
+    class_id: string;
+    subject_id: string | null;
+  };
+  /** The (current-year) assignment rows, filtered by the caller's userId like the real query. */
+  let rows: Row[];
+  const CLASS_ID = 'class-1';
+  const homeroom = (userId = USER_ID): Row => ({
+    userId,
+    section_id: SECTION_ID,
+    class_id: CLASS_ID,
+    subject_id: null,
+  });
+  const subjectRow = (subjectId: string, userId = USER_ID): Row => ({
+    userId,
+    section_id: SECTION_ID,
+    class_id: CLASS_ID,
+    subject_id: subjectId,
+  });
 
   beforeEach(() => {
     sectionRepo = { findOne: vi.fn(), exist: vi.fn() };
     studentRepo = { findOne: vi.fn() };
     classRepo = { exist: vi.fn() };
     subjectRepo = { exist: vi.fn() };
-    tcsRows = [];
-    getOne = vi.fn<() => unknown>(); // still settable directly by tests that don't need real filtering
-    let params: Record<string, unknown> = {};
-    const qb: Record<string, unknown> = {};
-    qb.innerJoin = vi.fn().mockReturnValue(qb);
-    qb.where = vi.fn((_sql: string, p?: Record<string, unknown>) => {
-      params = { ...params, ...p };
-      return qb;
-    });
-    qb.andWhere = vi.fn((_sql: string, p?: Record<string, unknown>) => {
-      params = { ...params, ...p };
-      return qb;
-    });
-    qb.getOne = vi.fn(async () => {
-      if (getOne.getMockImplementation()) {
-        return getOne();
-      }
-      return (
-        tcsRows.find(
-          (row) =>
-            row.userId === params.userId &&
-            row.sectionId === params.sectionId &&
-            (row.subjectId === null || row.subjectId === params.subjectId),
-        ) ?? null
-      );
-    });
-    tcsRepo = { createQueryBuilder: vi.fn().mockReturnValue(qb) };
+    rows = [];
+    vi.mocked(teacherAssignments).mockImplementation((async (
+      _m: unknown,
+      { userId }: { userId: string },
+    ) => rows.filter((r) => r.userId === userId)) as never);
+    tcsRepo = { manager: {} };
 
     service = new HomeworkAccessService(
       tcsRepo as never,
@@ -88,7 +85,7 @@ describe('HomeworkAccessService', () => {
     });
 
     it('allows a TEACHER mapped to the section (class teacher, subject_id null)', async () => {
-      getOne.mockResolvedValue({ id: 'tcs-1' });
+      rows = [homeroom()];
       await expect(
         service.assertCanManageSection(
           UserRole.TEACHER,
@@ -100,8 +97,8 @@ describe('HomeworkAccessService', () => {
       ).resolves.toBeUndefined();
     });
 
-    it('denies a TEACHER not mapped to the section', async () => {
-      getOne.mockResolvedValue(null);
+    it('404s a TEACHER not mapped to the section (no current-year rows)', async () => {
+      rows = [];
       await expect(
         service.assertCanManageSection(
           UserRole.TEACHER,
@@ -110,7 +107,7 @@ describe('HomeworkAccessService', () => {
           SUBJECT_ID,
           TENANT_ID,
         ),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     // Substitute-teacher access (D17): a second `TeacherClassSection` row for
@@ -119,10 +116,7 @@ describe('HomeworkAccessService', () => {
     // (userId, sectionId, subjectId) params are asserted to resolve
     // independently — a real substitution, not a single mock echoing back.
     it('allows a substitute teacher via a second TeacherClassSection row for the same section', async () => {
-      tcsRows = [
-        { userId: 'original-teacher', sectionId: SECTION_ID, subjectId: null },
-        { userId: 'substitute-teacher', sectionId: SECTION_ID, subjectId: null },
-      ];
+      rows = [homeroom('original-teacher'), homeroom('substitute-teacher')];
 
       await expect(
         service.assertCanManageSection(
@@ -154,7 +148,17 @@ describe('HomeworkAccessService', () => {
           SUBJECT_ID,
           TENANT_ID,
         ),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('a subject row manages only its own subject; a homeroom row manages any', async () => {
+      rows = [subjectRow(SUBJECT_ID)];
+      const manage = (subjectId: string) =>
+        service.assertCanManageSection(UserRole.TEACHER, USER_ID, SECTION_ID, subjectId, TENANT_ID);
+      await expect(manage(SUBJECT_ID)).resolves.toBeUndefined();
+      await expect(manage('other-subject')).rejects.toBeInstanceOf(NotFoundException);
+      rows = [homeroom()];
+      await expect(manage('other-subject')).resolves.toBeUndefined();
     });
 
     it('denies a role that is neither tenant-wide nor TEACHER', async () => {
@@ -177,7 +181,7 @@ describe('HomeworkAccessService', () => {
         class_section_id: SECTION_ID,
         tenant_id: TENANT_ID,
       });
-      getOne.mockResolvedValue({ id: 'tcs-1' });
+      rows = [homeroom()];
       await expect(
         service.assertCanManageStudent(
           UserRole.TEACHER,
@@ -225,23 +229,54 @@ describe('HomeworkAccessService', () => {
     });
 
     it('allows a TEACHER with any teacher_class_sections row for the section, subject-agnostic', async () => {
-      getOne.mockResolvedValue({ id: 'tcs-1' });
+      rows = [homeroom()];
       await expect(
         service.assertCanViewSection(UserRole.TEACHER, USER_ID, SECTION_ID, TENANT_ID),
       ).resolves.toBeUndefined();
     });
 
     it('denies a TEACHER with no teacher_class_sections row for the section', async () => {
-      getOne.mockResolvedValue(null);
+      rows = [];
       await expect(
         service.assertCanViewSection(UserRole.TEACHER, 'unrelated-teacher', SECTION_ID, TENANT_ID),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('lets a subject-row TEACHER view the section', async () => {
+      rows = [subjectRow(SUBJECT_ID)];
+      await expect(
+        service.assertCanViewSection(UserRole.TEACHER, USER_ID, SECTION_ID, TENANT_ID),
+      ).resolves.toBeUndefined();
     });
 
     it('denies any other role', async () => {
       await expect(
         service.assertCanViewSection(UserRole.PARENT, USER_ID, SECTION_ID, TENANT_ID),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('assertCanManageClass', () => {
+    const manage = (subjectId: string) =>
+      service.assertCanManageClass(UserRole.TEACHER, USER_ID, CLASS_ID, subjectId, TENANT_ID);
+
+    it('homeroom row manages any subject; subject row only its own', async () => {
+      rows = [homeroom()];
+      await expect(manage('any')).resolves.toBeUndefined();
+      rows = [subjectRow(SUBJECT_ID)];
+      await expect(manage(SUBJECT_ID)).resolves.toBeUndefined();
+      await expect(manage('other-subject')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('404s a TEACHER with no row in the class', async () => {
+      rows = [];
+      await expect(manage(SUBJECT_ID)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('denies STUDENT with 403', async () => {
+      await expect(
+        service.assertCanManageClass(UserRole.STUDENT, USER_ID, CLASS_ID, SUBJECT_ID, TENANT_ID),
+      ).rejects.toThrow('This role cannot manage homework');
     });
   });
 
@@ -253,17 +288,17 @@ describe('HomeworkAccessService', () => {
     });
 
     it('allows a TEACHER with any teacher_class_sections row in a section of the class', async () => {
-      getOne.mockResolvedValue({ id: 'tcs-1' });
+      rows = [homeroom()];
       await expect(
-        service.assertCanViewClass(UserRole.TEACHER, USER_ID, 'class-1', TENANT_ID),
+        service.assertCanViewClass(UserRole.TEACHER, USER_ID, CLASS_ID, TENANT_ID),
       ).resolves.toBeUndefined();
     });
 
     it('denies a TEACHER with no section in the class', async () => {
-      getOne.mockResolvedValue(null);
+      rows = [];
       await expect(
         service.assertCanViewClass(UserRole.TEACHER, 'unrelated-teacher', 'class-1', TENANT_ID),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -274,7 +309,7 @@ describe('HomeworkAccessService', () => {
         class_section_id: SECTION_ID,
         tenant_id: TENANT_ID,
       });
-      getOne.mockResolvedValue({ id: 'tcs-1' });
+      rows = [homeroom()];
       await expect(
         service.assertCanViewStudent(UserRole.TEACHER, USER_ID, 'student-1', TENANT_ID),
       ).resolves.toBeUndefined();
@@ -360,13 +395,13 @@ describe('HomeworkAccessService', () => {
       [UserRole.OFFICE_STAFF, false, false],
       [UserRole.EXAM_CONTROLLER, false, false],
       [UserRole.COMMITTEE, false, false], // no HOMEWORK_* (D9)
-      [UserRole.TEACHER, false, false], // section-scoped: denied when unmapped
+      [UserRole.TEACHER, false, false], // section-scoped: 404 when unmapped
       [UserRole.PARENT, false, false],
       [UserRole.STUDENT, false, false],
     ];
     it.each(TABLE)('%s: manage=%s view=%s', async (role, canManage, wide) => {
       sectionRepo.findOne.mockResolvedValue({ id: SECTION_ID, tenant_id: TENANT_ID });
-      getOne.mockResolvedValue(null); // no teacher_class_sections row
+      rows = [];
       expect(service.canManageTenantWide(role)).toBe(canManage);
       const manage = service.assertCanManageSection(
         role,
@@ -376,10 +411,11 @@ describe('HomeworkAccessService', () => {
         TENANT_ID,
       );
       const view = service.assertCanViewSection(role, USER_ID, SECTION_ID, TENANT_ID);
+      const denied = role === UserRole.TEACHER ? NotFoundException : ForbiddenException;
       if (canManage) await expect(manage).resolves.toBeUndefined();
-      else await expect(manage).rejects.toBeInstanceOf(ForbiddenException);
+      else await expect(manage).rejects.toBeInstanceOf(denied);
       if (wide) await expect(view).resolves.toBeUndefined();
-      else await expect(view).rejects.toBeInstanceOf(ForbiddenException);
+      else await expect(view).rejects.toBeInstanceOf(denied);
     });
   });
 });
