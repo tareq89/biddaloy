@@ -339,8 +339,10 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
   }
 
   for (const key of ['JWT_SECRET', 'JWT_SECRET_PREVIOUS']) {
-    if (str(key) && new Set(str(key)).size < 16) {
-      problems.push(`${key} is too weak (needs at least 16 distinct characters)`);
+    if (str(key) && new Set(str(key)).size < 11) {
+      // 11 catches all-digit and single-character secrets but never trips
+      // random hex (`openssl rand -hex`), which has at most 16 symbols.
+      problems.push(`${key} is too weak (needs at least 11 distinct characters)`);
     }
   }
   if (str('JWT_SECRET') && str('JWT_SECRET') === str('SETTINGS_ENCRYPTION_KEY')) {
