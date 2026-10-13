@@ -8,8 +8,7 @@
 #   - nginx -t passes in both modes
 # curl exit 52 = empty reply (nginx 444); 35 = TLS handshake rejected.
 # The test network is the public documentation range 198.51.100.0/24 on
-# purpose: its peers are not RFC1918, so the private-range exemption cannot
-# hide the rule. Needs docker only. Run: bash nginx/test/origin-lockdown.infra.test.sh
+# purpose: its peers look like real public clients, not a private network. Needs docker only. Run: bash nginx/test/origin-lockdown.infra.test.sh
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."

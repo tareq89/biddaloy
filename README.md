@@ -184,6 +184,8 @@ Set `VITE_USE_MOCKS=true` in that client's `.env.local` and skip
 `yarn dev:server`/Docker entirely — MSW's browser worker intercepts every
 API call instead. See [`ui/README.md`](ui/README.md#mocking-msw) for how
 the handler library (populated by [8.4.2]) and the worker itself work.
+A production build (`yarn build`, `build:all`, the `ci:local` e2e build)
+refuses to run while `VITE_USE_MOCKS=true` is set, so remove that line first.
 
 ### Regenerating API types
 

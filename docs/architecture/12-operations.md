@@ -164,15 +164,15 @@ Empty means no CDN trust at all, which is how the stack behaved before.
 
 ## 4. Env var reference
 
-| Variable                    | Required in prod? | What it does                                                                 |
-| --------------------------- | ----------------- | ---------------------------------------------------------------------------- |
-| `SENTRY_DSN`                | No (recommended)  | Server Sentry project. Unset = server Sentry is a no-op.                     |
-| `SENTRY_ENVIRONMENT`        | No                | Defaults to `NODE_ENV`.                                                      |
-| `SENTRY_RELEASE`            | No                | Tags events with a release/version string.                                   |
-| `SENTRY_TRACES_SAMPLE_RATE` | No                | Fraction of requests traced, default `0.1`.                                  |
-| `HEALTH_TOKEN`              | No (recommended)  | Required to call `/health/ready` at all — unset means that route 404s.       |
-| `LOG_LEVEL`                 | No                | Pino's log level; see `.env.example`.                                        |
-| `ATTENTION_SENTRY_CRON_URL` | No (recommended)  | Sentry Cron Monitor check-in URL for attention sweeps; unset = no check-ins. |
+| Variable                    | Required in prod?      | What it does                                                                    |
+| --------------------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| `SENTRY_DSN`                | No (recommended)       | Server Sentry project. Unset = server Sentry is a no-op.                        |
+| `SENTRY_ENVIRONMENT`        | No                     | Defaults to `NODE_ENV`.                                                         |
+| `SENTRY_RELEASE`            | No                     | Tags events with a release/version string.                                      |
+| `SENTRY_TRACES_SAMPLE_RATE` | No                     | Fraction of requests traced, default `0.1`.                                     |
+| `HEALTH_TOKEN`              | No (recommended)       | Required to call `/health/ready` at all — unset means that route 404s.          |
+| `LOG_LEVEL`                 | No                     | Pino's log level; see `.env.example`.                                           |
+| `ATTENTION_SENTRY_CRON_URL` | No (recommended)       | Sentry Cron Monitor check-in URL for attention sweeps; unset = no check-ins.    |
 | `TRUSTED_PROXY_CIDRS`       | No (only behind a CDN) | nginx only. CDN ranges whose `CF-Connecting-IP` is trusted; empty = off (§3.5). |
 
 Smoke-check variables (read by `scripts/smoke-post-deploy.mjs`, see §7). They
@@ -301,7 +301,7 @@ changes.
 ## 7. Post-deploy smoke check
 
 `yarn smoke:post-deploy --base-url <url>` checks, in about 5 seconds, that a
-fresh deploy answers the seven things a real school needs (7 checks). It stops at the first
+fresh deploy answers the seven things a real school needs. It stops at the first
 failure. Run it after every deploy and in every Epic 75 wave-close.
 
 ```mermaid

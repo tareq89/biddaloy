@@ -43,8 +43,11 @@ Always reachable, even by a non-Cloudflare public peer:
 - `/.well-known/acme-challenge/` (Let's Encrypt renewal works whether DNS is proxied or not)
 - `/healthz` on port 80, loopback callers only. It is for a future container
   healthcheck ([75.29]); nothing uses it yet.
-- any loopback peer (the host's own smoke script). Private ranges are not
-  exempt: if the app logs show a Docker bridge gateway (`172.x`) instead of
+- any loopback peer, which means callers inside the nginx container (a
+  container healthcheck, `docker exec`). A request from the host itself to the
+  published port arrives from the Docker bridge gateway (`172.x`), not
+  loopback, so run the smoke script through the public URL. Private ranges are
+  not exempt: if the app logs show a Docker bridge gateway (`172.x`) instead of
   real client IPs, the host uses Docker's userland proxy and the lock-down must
   not be enabled there (see 12-operations.md 3.5)
 
@@ -127,7 +130,10 @@ There is no separate deploy pipeline to hang the source-map upload on
 (the build _is_ `scripts/build-all.sh`), so the upload is a Vite plugin
 that only switches on when `SENTRY_AUTH_TOKEN` is present. With the
 token set, the build emits `sourcemap: 'hidden'` maps, uploads them, and
-deletes them from `dist/` — so users never download them:
+deletes them from `dist/` — so users never download them.
+`scripts/build-all.sh` also deletes any stray `.map` left in `build-output/`.
+The Docker build has no such step; it is safe only because
+`SENTRY_AUTH_TOKEN` is not a build arg there, so no maps are emitted:
 
 ```bash
 SENTRY_ORG=biddaloy SENTRY_PROJECT=client-admin SENTRY_AUTH_TOKEN=sntrys_... \

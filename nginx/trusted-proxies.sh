@@ -9,7 +9,7 @@
 #     ignored, so a direct caller cannot spoof its IP.
 #   - empty: no real-ip directives at all, i.e. exactly today's behaviour.
 # Also defines $origin_allowed (1 = peer is a trusted proxy or loopback;
-# 0 = anyone else). Nothing reads it yet; the origin lock-down ([75.5]) will.
+# 0 = anyone else). The origin lock-down in default.conf.template reads it.
 #
 # A bad entry stops the container: a loud failure beats a silently wrong
 # trust list.

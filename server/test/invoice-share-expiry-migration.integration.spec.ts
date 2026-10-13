@@ -62,8 +62,7 @@ describe('AddInvoiceShareTokenExpiry1791805000500 (integration)', () => {
 
   it('up() backfills existing rows to now + 30 days (not created_at + 30) and sets NOT NULL', async () => {
     // A row from "before deploy": created 100 days ago, so created_at + 30d is long past.
-    // FK-free insert is not possible (FKs exist), so borrow real ids when present; otherwise
-    // drop the FKs for this row by inserting inside a transaction with constraints deferred.
+    // The FKs would refuse random ids, so triggers (which enforce FKs) are off for this insert.
     await dataSource.query(`ALTER TABLE invoice_share_tokens DISABLE TRIGGER ALL`);
     try {
       await dataSource.query(
