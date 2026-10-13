@@ -10,6 +10,7 @@
  * keyed by `documentFieldName()` so the multipart field names match what
  * `PublicAdmissionController.submit` expects (`photo`/`birth_certificate`/`transcript`).
  */
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   DatePicker,
@@ -52,6 +53,14 @@ const GENDER_OPTIONS = ['MALE', 'FEMALE', 'OTHER'] as const;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const SECTION = 'space-y-4 border-t border-border-subtle pt-5';
+
+/** Captcha check can't run (server has no Turnstile secret in production): retrying the answers won't help. */
+function isUnavailable(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    (error.statusCode === 503 || error.details?.code === 'REGISTRATION_UNAVAILABLE')
+  );
+}
 
 export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormProps) {
   const { t } = useTranslation('admission-public');
@@ -109,11 +118,11 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
     else if (!guardianPhoneValid) found['guardian-phone'] = t('form.errors.phone');
     if (guardianEmail.trim() !== '' && !EMAIL_RE.test(guardianEmail.trim()))
       found['guardian-email'] = t('form.errors.email');
-    if (TURNSTILE_SITE_KEY && !captcha) found.captcha = t('form.errors.captcha');
     for (const type of selectedIntake?.required_document_types ?? []) {
       const field = documentFieldName(type);
       if (!documents[field]) found[`doc-${field}`] = t('form.errors.document');
     }
+    if (TURNSTILE_SITE_KEY && !captcha) found.captcha = t('form.errors.captcha');
     return found;
   }
 
@@ -533,16 +542,25 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
         {submitMutation.isError && (
           <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
             <CircleAlertIcon className="size-3.5 shrink-0" aria-hidden />
-            {t('form.submitError')}
+            {isUnavailable(submitMutation.error) ? t('form.unavailable') : t('form.submitError')}
           </p>
         )}
 
-        <Turnstile key={captchaKey} onToken={setCaptcha} />
-        {errors.captcha && (
-          <p role="alert" className="text-caption text-destructive">
-            {errors.captcha}
-          </p>
-        )}
+        {/* Focus target for the first-error jump. */}
+        <div id="captcha" tabIndex={-1} className="outline-none">
+          <Turnstile
+            key={captchaKey}
+            onToken={(token) => {
+              setCaptcha(token);
+              if (token) clearError('captcha');
+            }}
+          />
+          {errors.captcha && (
+            <p role="alert" className="text-caption text-destructive">
+              {errors.captcha}
+            </p>
+          )}
+        </div>
 
         <Button type="submit" className="w-full" loading={submitMutation.isPending}>
           {t('form.submit')}
