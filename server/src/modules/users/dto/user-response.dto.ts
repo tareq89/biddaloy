@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole, UserStatus, InvitationStatus } from '@biddaloy/shared';
 import { User } from '../entities/user.entity';
 
@@ -85,6 +85,11 @@ export class UserResponseDto {
    * `InvitationService.statusFor`. */
   @ApiProperty({ enum: INVITATION_STATUS_VALUES })
   invitation_status: InvitationStatus;
+
+  /** [75.1] Set only on the response to an admin edit of a person who also belongs to another
+   * school: that contact was NOT changed; the person was asked to approve it. */
+  @ApiPropertyOptional({ enum: ['email', 'phone', 'both'] })
+  pending_contact_change?: 'email' | 'phone' | 'both';
 
   /** [36.2.1] `staff_profiles.id` for this user, or `null` if they have no
    * staff profile (e.g. PARENT/STUDENT roles). Not populated by `fromEntity`

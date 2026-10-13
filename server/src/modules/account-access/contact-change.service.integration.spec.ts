@@ -25,6 +25,8 @@ import { School } from '../schools/entities/school.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
+import { RefreshTokenService } from '../auth/refresh-token.service';
+import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { SchoolsService } from '../schools/schools.service';
 import { CommunicationProviderRegistryService } from '../communications/providers/communication-provider.registry';
 
@@ -36,6 +38,7 @@ describe('ContactChangeService (integration)', () => {
   let service: ContactChangeService;
   let redis: Redis;
   let fakeProvider: { send: ReturnType<typeof vi.fn> };
+  const fakeRefreshTokens = { revokeAllForUser: vi.fn().mockResolvedValue(undefined) };
   let fakeAuthService: {
     primaryTenantId: ReturnType<typeof vi.fn>;
     hasLiveMembership: ReturnType<typeof vi.fn>;
@@ -55,6 +58,8 @@ describe('ContactChangeService (integration)', () => {
       OtpService,
       AccountAccessDeliveryService,
       AuditService,
+      SessionCutoffService,
+      { provide: RefreshTokenService, useValue: fakeRefreshTokens },
       { provide: OTP_REDIS, useValue: redis },
       { provide: AuthService, useValue: fakeAuthService },
       {
@@ -92,6 +97,7 @@ describe('ContactChangeService (integration)', () => {
 
   beforeEach(async () => {
     fakeProvider.send.mockClear();
+    fakeRefreshTokens.revokeAllForUser.mockClear();
     await redis.flushdb();
     await dataSource.query('DELETE FROM audit_logs');
     await dataSource.query('DELETE FROM communication_logs');
@@ -290,5 +296,128 @@ describe('ContactChangeService (integration)', () => {
         context,
       ),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+  describe('[75.1] proposeByAdmin / approval', () => {
+    const OTHER_SCHOOL = '00000000-0000-4000-8000-0000000007a1';
+    const NEW_PHONE = '+8801799990001';
+
+    /** The person (TEACHER in the seed school) also belongs to OTHER_SCHOOL, whose ADMIN is returned. */
+    async function sharedSetup(overrides: Partial<User> = {}) {
+      const user = await createMember({ email_verified_at: new Date(), ...overrides });
+      const schoolRepo = dataSource.getRepository(School);
+      await schoolRepo.save(
+        schoolRepo.create({ id: OTHER_SCHOOL, name: 'Other School', slug: 'other-school-cc' }),
+      );
+      const userRepo = dataSource.getRepository(User);
+      const admin = await userRepo.save(
+        userRepo.create({
+          full_name: 'Other Admin',
+          status: UserStatus.ACTIVE,
+          email: 'other-admin@example.com',
+        }),
+      );
+      const membershipRepo = dataSource.getRepository(UserTenant);
+      await membershipRepo.save(
+        membershipRepo.create({
+          user_id: user.id,
+          tenant_id: OTHER_SCHOOL,
+          role: 'TEACHER' as any,
+        }),
+      );
+      await membershipRepo.save(
+        membershipRepo.create({ user_id: admin.id, tenant_id: OTHER_SCHOOL, role: 'ADMIN' as any }),
+      );
+      return { user, admin };
+    }
+
+    const propose = (userId: string, extra: { email?: string | null; phone?: string | null }) =>
+      service.proposeByAdmin(
+        { userId, tenantId: SEED_TENANT_ID, actorUserId: userId, ...extra },
+        context,
+      );
+
+    const sentTo = () =>
+      fakeProvider.send.mock.calls.map((c) => c[0] as { to: string; body: string });
+
+    it('sends the link to the CURRENT verified email, never to the proposed address', async () => {
+      const { user } = await sharedSetup();
+
+      await propose(user.id, { phone: NEW_PHONE });
+
+      const approval = sentTo().find((m) => m.to === 'karim@example.com');
+      expect(approval?.body).toContain('/verify-email?token=');
+      expect(sentTo().some((m) => m.to === NEW_PHONE)).toBe(false);
+      // Nothing is written to the user yet.
+      const reloaded = await dataSource
+        .getRepository(User)
+        .findOneOrFail({ where: { id: user.id } });
+      expect(reloaded.phone).toBe('+8801711111111');
+    });
+
+    it('with no email or phone on file: NO_CONTACT 409 and nothing sent', async () => {
+      const { user } = await sharedSetup({ email: null, phone: null });
+
+      await expect(propose(user.id, { email: 'new@example.com' })).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(fakeProvider.send).not.toHaveBeenCalled();
+    });
+
+    it("notifies the other school's ADMIN; the notice does not contain the new value", async () => {
+      const { user } = await sharedSetup();
+
+      await propose(user.id, { phone: NEW_PHONE });
+
+      const notice = sentTo().find((m) => m.to === 'other-admin@example.com');
+      expect(notice).toBeDefined();
+      expect(notice?.body).toContain('Test School');
+      expect(notice?.body).not.toContain(NEW_PHONE);
+      const stored = await dataSource.getRepository(CommunicationLog).find();
+      expect(stored.some((l) => l.message_body.includes(NEW_PHONE))).toBe(false);
+    });
+
+    it('rejects a phone already used by someone else: 409, nothing sent', async () => {
+      const { user } = await sharedSetup();
+      await createMember({ phone: NEW_PHONE, email: 'taken@example.com' });
+
+      await expect(propose(user.id, { phone: NEW_PHONE })).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(fakeProvider.send).not.toHaveBeenCalled();
+    });
+
+    it('approval writes the new phone unverified, cuts off tokens and revokes refresh tokens', async () => {
+      const { user } = await sharedSetup({ phone_verified_at: new Date() });
+      await propose(user.id, { phone: NEW_PHONE });
+      const token = /token=([^\s&]+)/.exec(sentTo()[0].body)![1];
+
+      const result = await service.confirmEmail(decodeURIComponent(token), context);
+
+      expect(result).toEqual({ status: 'valid' });
+      const [row] = await dataSource.query(
+        'SELECT phone, phone_verified_at, email, tokens_valid_after FROM users WHERE id = $1',
+        [user.id],
+      );
+      expect(row.phone).toBe(NEW_PHONE);
+      expect(row.phone_verified_at).toBeNull();
+      expect(row.email).toBe('karim@example.com');
+      expect(row.tokens_valid_after).not.toBeNull();
+      expect(fakeRefreshTokens.revokeAllForUser).toHaveBeenCalledWith(user.id);
+      const audits = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_id: user.id, action: AuditAction.CONTACT_VERIFIED } });
+      expect(audits[0].new_values).toMatchObject({ via: 'admin_proposal', new_phone: NEW_PHONE });
+    });
+
+    it('a second proposal revokes the first link', async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { phone: NEW_PHONE });
+      const first = /token=([^\s&]+)/.exec(sentTo()[0].body)![1];
+      await propose(user.id, { phone: '+8801799990002' });
+
+      const result = await service.confirmEmail(decodeURIComponent(first), context);
+
+      expect(result).toEqual({ status: 'revoked' });
+    });
   });
 });

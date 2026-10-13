@@ -16,7 +16,8 @@ import { TeacherClassSection } from '../academics/entities/teacher-class-section
 import { escapeLikePattern } from '../../common/utils/escape-like.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
-import { normalizeEmail } from '../auth/normalize-identifier';
+import { normalizeEmail, normalizeLoginIdentifier } from '../auth/normalize-identifier';
+import { RefreshTokenService } from '../auth/refresh-token.service';
 import {
   AlertCategory,
   AuditAction,
@@ -116,6 +117,7 @@ export class UserService {
     private readonly accessTokenDenylist: AccessTokenDenylistService,
     @Inject(ACCESS_TOKEN_TTL_MS) private readonly accessTokenTtlMs: number,
     private readonly sessionCutoff: SessionCutoffService,
+    private readonly refreshTokens: RefreshTokenService,
   ) {}
 
   /** [67.5.03] Own push mute + the school's (read-only) quiet hours. */
@@ -456,6 +458,41 @@ export class UserService {
     return user;
   }
 
+  /**
+   * [75.1, D3] For an admin edit of a person who also belongs to another school:
+   * the email/phone values that would actually change, to be proposed to the
+   * person instead of written. `null` = nothing to propose (no contact change,
+   * or a single-school user, whose edit `update()` applies directly).
+   */
+  async sharedIdentifierChanges(
+    id: string,
+    dto: UpdateUserDto,
+    tenantId: string,
+  ): Promise<{ email?: string | null; phone?: string | null } | null> {
+    const current = await this.findOne(id, tenantId); // keeps the 404 for a non-member
+    const changes: { email?: string | null; phone?: string | null } = {};
+    if (dto.email !== undefined) {
+      const email = dto.email ? normalizeEmail(dto.email) : null;
+      if (email !== (current.email ?? null)) changes.email = email;
+    }
+    if (dto.phone !== undefined) {
+      const phone = dto.phone ? normalizeLoginIdentifier(dto.phone) : null;
+      const stored = current.phone ? normalizeLoginIdentifier(current.phone) : null;
+      if (phone !== stored) changes.phone = phone;
+    }
+    if (Object.keys(changes).length === 0) return null;
+    if ((await countOtherMemberships(this.userRepo.manager, id, tenantId)) === 0) return null;
+    // Same login-identifier invariant as `update()`, on the state the approval would produce.
+    const nextEmail = 'email' in changes ? changes.email : current.email;
+    const nextPhone = 'phone' in changes ? changes.phone : current.phone;
+    if (!nextEmail && !nextPhone) {
+      throw new BadRequestException(
+        'An account must keep at least one login identifier — set an email address or a phone number before clearing the other',
+      );
+    }
+    return changes;
+  }
+
   async update(
     id: string,
     dto: UpdateUserDto,
@@ -629,6 +666,18 @@ export class UserService {
           throw new ConflictException('That email address or phone number is already in use');
         }
         throw err;
+      }
+    }
+
+    // [75.1] A written email/phone change (single-school user: a shared one never gets here)
+    // ends every session, so whoever held the old contact is out.
+    if ('email' in updateData || 'phone' in updateData) {
+      const changed =
+        ('email' in updateData && updateData.email !== (current.email ?? null)) ||
+        ('phone' in updateData && updateData.phone !== (current.phone ?? null));
+      if (changed) {
+        await this.sessionCutoff.cutOff(id);
+        await this.refreshTokens.revokeAllForUser(id);
       }
     }
 

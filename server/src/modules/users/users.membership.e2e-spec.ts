@@ -5,8 +5,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import Redis from 'ioredis';
-import { UserRole } from '@biddaloy/shared';
+import { AuthTokenPurpose, UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
+import { AuthTokenService } from '../account-access/auth-token.service';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import {
@@ -372,19 +373,88 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
     await app.close();
   });
 
-  it('B admin gets 409 SHARED_IDENTITY on PATCH email of a user also in another school; DB unchanged', async () => {
-    const res = await request()
-      .patch(`/api/v1/users/${SHARED_ID}`)
+  const get = (token: string) =>
+    request()
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID);
+  const login = async (email: string) =>
+    (
+      await request()
+        .post('/api/v1/auth/login')
+        .send({ email, password: SEED_ADMIN_PASSWORD })
+        .expect(200)
+    ).body.access_token as string;
+  const patch = async (id: string, body: object) =>
+    request()
+      .patch(`/api/v1/users/${id}`)
       .set('Authorization', `Bearer ${await adminToken()}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
-      .send({ email: 'attacker@evil.test' })
-      .expect(409);
-    expect(JSON.stringify(res.body)).toContain('SHARED_IDENTITY');
+      .send(body)
+      .expect(200);
+
+  // [75.1] Was a 409 under #2209: now the change is held until the person approves it.
+  it('B admin PATCH of a shared user email is pending: 200, DB unchanged, one ADMIN_PROPOSAL token', async () => {
+    const res = await patch(SHARED_ID, { email: 'attacker@evil.test' });
+    expect(res.body.pending_contact_change).toBe('email');
+    expect(res.body.email).toBe(SHARED_EMAIL);
     const [row] = await dataSource.query('SELECT email FROM users WHERE id = $1', [SHARED_ID]);
     expect(row.email).toBe(SHARED_EMAIL);
+    const tokens = await dataSource.query(
+      `SELECT metadata FROM auth_tokens
+        WHERE user_id = $1 AND purpose = 'EMAIL_VERIFY' AND revoked_at IS NULL AND consumed_at IS NULL`,
+      [SHARED_ID],
+    );
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].metadata.kind).toBe('ADMIN_PROPOSAL');
+  });
+
+  it('a name change in the same request is saved now; the phone stays pending', async () => {
+    const res = await patch(SHARED_ID, { full_name: 'Renamed Person', phone: '+8801700000999' });
+    expect(res.body.pending_contact_change).toBe('phone');
+    const [row] = await dataSource.query('SELECT full_name, phone FROM users WHERE id = $1', [
+      SHARED_ID,
+    ]);
+    expect(row.full_name).toBe('Renamed Person');
+    expect(row.phone).toBeNull();
+  });
+
+  it('approving the proposal changes the phone and the old access token gets 401', async () => {
+    const oldToken = await login(SHARED_EMAIL);
+    await get(oldToken).expect(200);
+    await patch(SHARED_ID, { phone: '+8801700000998' });
+    // The raw link only ever reaches the person's inbox; mint the same token the way the
+    // server did (copying the stored proposal) to drive the public verify-email route.
+    const [live] = await dataSource.query(
+      `SELECT metadata, tenant_id FROM auth_tokens
+        WHERE user_id = $1 AND purpose = 'EMAIL_VERIFY' AND revoked_at IS NULL AND consumed_at IS NULL`,
+      [SHARED_ID],
+    );
+    const { raw } = await app.get(AuthTokenService).issue({
+      userId: SHARED_ID,
+      tenantId: live.tenant_id,
+      purpose: AuthTokenPurpose.EMAIL_VERIFY,
+      ttlMs: 3_600_000,
+      metadata: live.metadata,
+    });
+    // Let the cut-off land after the old token's iat_ms.
+    await new Promise((r) => setTimeout(r, 20));
+
+    const res = await request().post('/api/v1/auth/verify-email').send({ token: raw }).expect(200);
+    expect(res.body.status).toBe('valid');
+
+    const [row] = await dataSource.query(
+      'SELECT phone, phone_verified_at FROM users WHERE id = $1',
+      [SHARED_ID],
+    );
+    expect(row.phone).toBe('+8801700000998');
+    expect(row.phone_verified_at).toBeNull();
+    await get(oldToken).expect(401);
   });
 
   it('B admin gets 409 on reset-password of a shared user: no token, no log, no session revoked', async () => {
+    // Earlier cases (the approval) revoked this user's sessions; start from none.
+    await dataSource.query('DELETE FROM refresh_tokens WHERE user_id = $1', [SHARED_ID]);
     await dataSource.query(
       `INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at, created_at)
        VALUES ($1, gen_random_uuid(), 'hash-2209', NOW() + interval '1 day', NOW())`,
@@ -409,13 +479,22 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
     ).toBe(0);
   });
 
-  it('B admin can still PATCH the email of a user who belongs only to B (200)', async () => {
-    await request()
-      .patch(`/api/v1/users/${SOLO_ID}`)
-      .set('Authorization', `Bearer ${await adminToken()}`)
-      .set('X-Tenant-ID', SEED_TENANT_ID)
-      .send({ email: 'solo-2209-new@example.com' })
-      .expect(200);
+  it('B admin PATCH of the email of a user who belongs only to B: 200, applied, old token 401', async () => {
+    const oldToken = await login('solo-2209@example.com');
+    await get(oldToken).expect(200);
+    await new Promise((r) => setTimeout(r, 20));
+
+    const res = await patch(SOLO_ID, { email: 'solo-2209-new@example.com' });
+
+    expect(res.body.pending_contact_change).toBeUndefined();
+    expect(res.body.email).toBe('solo-2209-new@example.com');
+    await get(oldToken).expect(401);
+  });
+
+  it('a name-only edit of a single-school user signs nobody out', async () => {
+    const token = await login('solo-2209-new@example.com');
+    await patch(SOLO_ID, { full_name: 'Solo Renamed' });
+    await get(token).expect(200);
   });
 
   it('B admin gets 404 on PATCH of a user with no membership in B', async () => {

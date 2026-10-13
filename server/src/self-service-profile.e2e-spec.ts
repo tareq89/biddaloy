@@ -163,7 +163,12 @@ describe('[5.4a] Self-service profile', () => {
       `UPDATE users SET email = $2, phone = NULL, full_name = 'Profile Parent' WHERE id = $1`,
       [PARENT_USER_ID, PARENT_EMAIL],
     );
-    await dataSource.query(`UPDATE users SET phone = NULL WHERE id = $1`, [LONELY_USER_ID]);
+    // An admin edit of a single-school user's phone signs them out [75.1]: lift that cut-off
+    // so `lonelyToken` (minted once above) works for the next test.
+    await dataSource.query(
+      `UPDATE users SET phone = NULL, tokens_valid_after = NULL WHERE id = $1`,
+      [LONELY_USER_ID],
+    );
   });
 
   afterAll(async () => {
