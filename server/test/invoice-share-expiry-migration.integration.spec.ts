@@ -21,6 +21,10 @@ describe('AddInvoiceShareTokenExpiry1791805000500 (integration)', () => {
   }, 60000);
 
   afterAll(async () => {
+    // A failed up() must not leave later spec files on this worker without the column.
+    await dataSource.query(
+      `ALTER TABLE invoice_share_tokens ADD COLUMN IF NOT EXISTS expires_at timestamptz NOT NULL DEFAULT (now() + interval '30 days')`,
+    );
     await queryRunner.release();
     await dataSource.destroy();
   });
@@ -32,9 +36,28 @@ describe('AddInvoiceShareTokenExpiry1791805000500 (integration)', () => {
     );
   }
 
-  it('down() drops the column', async () => {
-    await migration.down(queryRunner);
-    expect(await columnInfo()).toEqual([]);
+  it('down() drops the column and keeps an already-expired link dead (revoked)', async () => {
+    await dataSource.query(`ALTER TABLE invoice_share_tokens DISABLE TRIGGER ALL`);
+    try {
+      await dataSource.query(
+        `INSERT INTO invoice_share_tokens (tenant_id, invoice_id, token_hash, created_by_user_id, expires_at)
+         VALUES (gen_random_uuid(), gen_random_uuid(), repeat('b', 64), gen_random_uuid(), now() - interval '1 day'),
+                (gen_random_uuid(), gen_random_uuid(), repeat('c', 64), gen_random_uuid(), now() + interval '1 day')`,
+      );
+      await migration.down(queryRunner);
+      expect(await columnInfo()).toEqual([]);
+      const rows: Array<{ token_hash: string; revoked_at: Date | null }> = await dataSource.query(
+        `SELECT token_hash, revoked_at FROM invoice_share_tokens WHERE token_hash IN (repeat('b', 64), repeat('c', 64))`,
+      );
+      const byHash = new Map(rows.map((r) => [r.token_hash[0], r.revoked_at]));
+      expect(byHash.get('b')).not.toBeNull(); // expired -> revoked
+      expect(byHash.get('c')).toBeNull(); // still live stays live
+    } finally {
+      await dataSource.query(
+        `DELETE FROM invoice_share_tokens WHERE token_hash IN (repeat('b', 64), repeat('c', 64))`,
+      );
+      await dataSource.query(`ALTER TABLE invoice_share_tokens ENABLE TRIGGER ALL`);
+    }
   });
 
   it('up() backfills existing rows to now + 30 days (not created_at + 30) and sets NOT NULL', async () => {

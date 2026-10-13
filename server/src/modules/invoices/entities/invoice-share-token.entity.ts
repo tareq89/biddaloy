@@ -61,7 +61,7 @@ export class InvoiceShareToken {
   revoked_at: Date | null;
 
   /** [75.19-b, D9] The link stops working at this instant (30 days after it is made). */
-  @Column({ type: 'timestamptz' })
+  @Column({ type: 'timestamptz', default: () => "now() + '30 days'::interval" })
   expires_at: Date;
 
   @Column({ type: 'timestamptz', nullable: true })

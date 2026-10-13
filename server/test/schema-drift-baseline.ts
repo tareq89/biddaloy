@@ -1324,4 +1324,12 @@ export const DRIFT_BASELINE: DriftGroup[] = [
       'CREATE INDEX "IDX_8b2981d62fb0165dc2719af0f0" ON "teachers" ("tenant_id") ',
     ],
   },
+  {
+    reason:
+      "[75.19-b] invoice_share_tokens.expires_at: the migration sets DEFAULT (now() + interval '30 days'); TypeORM never sees an expression default as equal to the catalog text, so it re-emits SET DEFAULT. Same default, only spelled differently.",
+    owner: 'Epic 75 #2438',
+    statements: [
+      'ALTER TABLE "invoice_share_tokens" ALTER COLUMN "expires_at" SET DEFAULT now() + \'30 days\'::interval',
+    ],
+  },
 ];
