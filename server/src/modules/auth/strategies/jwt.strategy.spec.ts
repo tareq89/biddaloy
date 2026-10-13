@@ -3,7 +3,9 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
 import { AccessTokenDenylistService } from '../access-token-denylist.service';
-import { JwtPayload } from '@biddaloy/shared';
+import { JwtPayload, UserStatus } from '@biddaloy/shared';
+import type { Repository } from 'typeorm';
+import type { User } from '../../users/entities/user.entity';
 
 function configServiceWithSecret(secret: string | undefined): ConfigService {
   return { get: () => secret } as unknown as ConfigService;
@@ -12,12 +14,21 @@ function configServiceWithSecret(secret: string | undefined): ConfigService {
 describe('JwtStrategy', () => {
   let strategy: JwtStrategy;
   let mockDenylist: { isRevoked: ReturnType<typeof vi.fn> };
+  let findOne: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     mockDenylist = { isRevoked: vi.fn().mockResolvedValue(false) };
+    findOne = vi.fn().mockResolvedValue({
+      id: 'user-1',
+      status: UserStatus.ACTIVE,
+      deleted_at: null,
+      tokens_valid_after: null,
+    });
+    const userRepo = { findOne } as unknown as Repository<User>;
     strategy = new JwtStrategy(
       configServiceWithSecret('test-jwt-secret-do-not-use-in-production'),
       mockDenylist as unknown as AccessTokenDenylistService,
+      userRepo,
     );
   });
 
@@ -90,12 +101,69 @@ describe('JwtStrategy', () => {
     await expect(strategy.validate(payload)).rejects.toThrow('Invalid token payload');
   });
 
+  describe('session cut-off (75.2)', () => {
+    const payload = (extra: Partial<JwtPayload> = {}): JwtPayload => ({
+      sub: 'user-1',
+      email: null,
+      phone: null,
+      memberships: [],
+      jti: 'token-1',
+      ...extra,
+    });
+    const row = (extra: Record<string, unknown>) => ({
+      id: 'user-1',
+      status: UserStatus.ACTIVE,
+      deleted_at: null,
+      tokens_valid_after: null,
+      ...extra,
+    });
+    const cut = new Date('2026-01-01T00:00:10.500Z'); // 1767225610 s
+
+    it('returns the payload when tokens_valid_after is NULL', async () => {
+      const p = payload({ iat: 1 });
+      await expect(strategy.validate(p)).resolves.toEqual(p);
+    });
+
+    it('401 when iat is before tokens_valid_after', async () => {
+      findOne.mockResolvedValue(row({ tokens_valid_after: cut }));
+      await expect(strategy.validate(payload({ iat: 1767225609 }))).rejects.toThrow(
+        'Token has been revoked',
+      );
+    });
+
+    it('allows a token with iat in the same second as tokens_valid_after', async () => {
+      findOne.mockResolvedValue(row({ tokens_valid_after: cut }));
+      const p = payload({ iat: 1767225610 });
+      await expect(strategy.validate(p)).resolves.toEqual(p);
+    });
+
+    it('uses iat_ms when present: older ms is refused, newer ms is allowed', async () => {
+      findOne.mockResolvedValue(row({ tokens_valid_after: cut }));
+      await expect(
+        strategy.validate(payload({ iat: 1767225610, iat_ms: cut.getTime() - 1 })),
+      ).rejects.toThrow(UnauthorizedException);
+      const ok = payload({ iat: 1767225610, iat_ms: cut.getTime() + 1 });
+      await expect(strategy.validate(ok)).resolves.toEqual(ok);
+    });
+
+    it.each([
+      ['missing', null],
+      ['soft-deleted', row({ deleted_at: new Date() })],
+      ['SUSPENDED', row({ status: UserStatus.SUSPENDED })],
+      ['INACTIVE', row({ status: UserStatus.INACTIVE })],
+    ])('401 when the user row is %s', async (_label, found) => {
+      findOne.mockResolvedValue(found);
+      await expect(strategy.validate(payload({ iat: 1 }))).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
   it('throws instead of falling back to a default secret when JWT_SECRET is missing', () => {
     expect(
       () =>
         new JwtStrategy(
           configServiceWithSecret(undefined),
           mockDenylist as unknown as AccessTokenDenylistService,
+          { findOne } as unknown as Repository<User>,
         ),
     ).toThrow('JWT_SECRET is not configured');
   });

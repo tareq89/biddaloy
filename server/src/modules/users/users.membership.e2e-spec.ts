@@ -4,6 +4,7 @@ import cookieParser = require('cookie-parser');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import Redis from 'ioredis';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
@@ -32,6 +33,8 @@ describe('POST /users/me/leave (e2e)', () => {
   const REMOVED_EMAIL = 'removed-2297@example.com';
   const REMOVED2_ID = '00000000-0000-4000-8000-000000000397';
   const REMOVED2_EMAIL = 'removed2-2297@example.com';
+  const REMOVED3_ID = '00000000-0000-4000-8000-000000000398';
+  const REMOVED3_EMAIL = 'removed3-2310@example.com';
   const PARENT_EMAIL = 'parent-1321@example.com';
 
   async function tokenFor(email: string): Promise<string> {
@@ -74,6 +77,7 @@ describe('POST /users/me/leave (e2e)', () => {
       [PARENT_ID, PARENT_EMAIL, UserRole.PARENT],
       [REMOVED_ID, REMOVED_EMAIL, UserRole.ACCOUNTANT],
       [REMOVED2_ID, REMOVED2_EMAIL, UserRole.ACCOUNTANT],
+      [REMOVED3_ID, REMOVED3_EMAIL, UserRole.ACCOUNTANT],
     ] as const) {
       await dataSource.query(
         `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
@@ -102,7 +106,7 @@ describe('POST /users/me/leave (e2e)', () => {
 
   afterAll(async () => {
     // Best-effort: audit_logs is append-only, so the school and user may stay behind.
-    const ids = [TEACHER_ID, STAFF_ID, PARENT_ID, FORMER_ID, REMOVED_ID, REMOVED2_ID];
+    const ids = [TEACHER_ID, STAFF_ID, PARENT_ID, FORMER_ID, REMOVED_ID, REMOVED2_ID, REMOVED3_ID];
     await dataSource.query('DELETE FROM user_tenants WHERE user_id = ANY($1)', [ids]);
     await dataSource.query('DELETE FROM refresh_tokens WHERE user_id = ANY($1)', [ids]);
     await app.close();
@@ -175,6 +179,33 @@ describe('POST /users/me/leave (e2e)', () => {
     await request()
       .get('/api/v1/users/me')
       .set('Authorization', `Bearer ${fresh.body.access_token}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(401);
+  });
+
+  // [75.2, D12] The DB cut-off alone refuses the token: wipe the Redis user cut-off
+  // (best-effort, fail-open) and the old token is still 401.
+  it('a removed member stays cut off without Redis (users.tokens_valid_after)', async () => {
+    const token = await tokenFor(REMOVED3_EMAIL);
+    const adminToken = await tokenFor(SEED_ADMIN_EMAIL);
+    await request()
+      .delete(`/api/v1/users/${REMOVED3_ID}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(200);
+
+    const redis = new Redis(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379');
+    await redis.del(`access-denylist:user:${REMOVED3_ID}`);
+    redis.disconnect();
+
+    const [{ tokens_valid_after }] = await dataSource.query(
+      'SELECT tokens_valid_after FROM users WHERE id = $1',
+      [REMOVED3_ID],
+    );
+    expect(tokens_valid_after).not.toBeNull();
+    await request()
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .expect(401);
   });

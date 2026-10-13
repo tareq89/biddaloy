@@ -27,6 +27,7 @@ import { UserIdentity } from '../auth/entities/user-identity.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import { RefreshTokenService } from '../auth/refresh-token.service';
+import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { SchoolsService } from '../schools/schools.service';
 import { CommunicationProviderRegistryService } from '../communications/providers/communication-provider.registry';
 
@@ -66,6 +67,7 @@ describe('RecoveryService (integration)', () => {
     module = await createTestModule(ALL_ENTITIES, [
       RecoveryService,
       AuthTokenService,
+      SessionCutoffService,
       OtpService,
       AccountAccessDeliveryService,
       AuditService,
@@ -142,6 +144,13 @@ describe('RecoveryService (integration)', () => {
       membershipRepo.create({ user_id: user.id, tenant_id: tenantId, role: 'PARENT' as any }),
     );
     return user;
+  }
+
+  async function cutOffOf(id: string): Promise<Date | null> {
+    const [row] = await dataSource.query('SELECT tokens_valid_after FROM users WHERE id = $1', [
+      id,
+    ]);
+    return row.tokens_valid_after;
   }
 
   describe('forgot', () => {
@@ -260,6 +269,8 @@ describe('RecoveryService (integration)', () => {
 
       expect(result.access_token).toBe('fake-access-token');
       expect(fakeRefreshTokens.revokeAllForUser).toHaveBeenCalledWith(user.id);
+      // [75.2] older access tokens are refused from now on
+      expect(await cutOffOf(user.id)).not.toBeNull();
       expect(fakeAuthService.startSession).toHaveBeenCalledTimes(1);
 
       const updated = await dataSource
@@ -507,6 +518,7 @@ describe('RecoveryService (integration)', () => {
 
       expect(result.channel).toBe(CommunicationMedium.SMS);
       expect(fakeRefreshTokens.revokeAllForUser).toHaveBeenCalledWith(user.id);
+      expect(await cutOffOf(user.id)).not.toBeNull(); // [75.2]
 
       const auditRows = await dataSource.getRepository(AuditLog).find({
         where: { entity_id: user.id, action: AuditAction.PASSWORD_RESET_REQUESTED },

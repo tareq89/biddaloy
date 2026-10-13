@@ -20,6 +20,7 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { User } from '../users/entities/user.entity';
 import { AuditModule } from '../audit/audit.module';
 import { PushModule } from '../push/push.module';
+import { SessionCutoffService } from './session-cutoff.service';
 import { LoginAttemptService } from './login-attempt.service';
 import { RefreshTokenService, REFRESH_TOKEN_TTL_MS } from './refresh-token.service';
 import {
@@ -108,6 +109,7 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
     PermissionsGuard,
     ApprovalGuard,
     ApprovalService,
+    SessionCutoffService,
     RefreshTokenService,
     AccessTokenDenylistService,
     RefreshTokenCleanupProcessor,
@@ -179,6 +181,7 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
     ApprovalService,
     JwtStrategy,
     ACCESS_TOKEN_TTL_MS,
+    SessionCutoffService,
     RefreshTokenService,
     AccessTokenDenylistService,
     // 12.5's OtpLoginService (account-access module) needs this to reset a
