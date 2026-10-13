@@ -7,6 +7,7 @@ import {
   IsObject,
   IsBoolean,
   Min,
+  Max,
   Validate,
   ValidationArguments,
   ValidatorConstraint,
@@ -14,6 +15,7 @@ import {
 } from 'class-validator';
 import { FineTrigger } from '@biddaloy/shared';
 import { FineRule } from '../../entities/fine-rule.entity';
+import { MONEY_MAX } from '../../../../common/constants/money';
 
 /**
  * [38.2.1, D6] Per-`FineTrigger` shape of `conditions`. Adding a new
@@ -78,7 +80,8 @@ export class CreateFineRuleDto {
   free_per_period?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0.01)
   cap_per_period?: number | null;
 
@@ -103,7 +106,8 @@ export class UpdateFineRuleDto {
   free_per_period?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0.01)
   cap_per_period?: number | null;
 

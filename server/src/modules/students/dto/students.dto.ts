@@ -9,6 +9,7 @@ import {
   IsIn,
   IsInt,
   Min,
+  Max,
   IsDateString,
   IsNotEmpty,
   Matches,
@@ -281,6 +282,7 @@ export class QueryStudentDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   limit?: number = 10;
 }
 
@@ -668,5 +670,6 @@ export class QueryGuardianDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   limit?: number = 10;
 }

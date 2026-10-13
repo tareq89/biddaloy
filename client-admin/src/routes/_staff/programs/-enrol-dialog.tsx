@@ -83,7 +83,7 @@ export function EnrolDialog({
     {
       ...(classId ? { class_id: classId } : {}),
       ...(sectionId ? { section_id: sectionId } : {}),
-      limit: 200,
+      limit: 100, // ponytail: a class-wide enrol over 100 needs paging
     },
     { enabled: Boolean(classId) },
   );

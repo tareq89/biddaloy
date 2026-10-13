@@ -20,6 +20,7 @@ import {
 import { Type } from 'class-transformer';
 import { FeeStatus, FeeType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../../common/decorators/sanitize-text.decorator';
+import { MONEY_MAX } from '../../../../common/constants/money';
 
 /** [38.2.3] `POST /fees/fines` — log a fine for one or many students against
  * a FINE-type fee structure. */
@@ -36,6 +37,8 @@ export class LogFineDto {
   /** Defaults to the structure's own `amount` when omitted. */
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
+  @Max(MONEY_MAX)
   @IsPositive()
   amount?: number;
 
