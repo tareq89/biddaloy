@@ -74,7 +74,11 @@ export function useSchoolInvitesCardProps() {
     count: invites.length,
     cardProps: {
       invites,
-      onAccept: (id: string) => accept.mutate(id),
+      onAccept: (id: string) => {
+        // A retry that succeeded for an earlier accept must not hide this one's recovery button.
+        retryRefresh.reset();
+        accept.mutate(id);
+      },
       onDecline: (id: string) => decline.mutate(id),
       busy: accept.isPending || decline.isPending || retryRefresh.isPending,
       ...(failed && { error: t('schoolInvites.error') }),
