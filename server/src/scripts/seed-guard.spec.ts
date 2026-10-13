@@ -21,6 +21,32 @@ describe('assertLocalSeedTarget', () => {
     }
   });
 
+  it('refuses a ?host= that points pg somewhere else', () => {
+    const DATABASE_URL = `${url('localhost')}?host=prod.example.com`;
+    expect(() => assertLocalSeedTarget({ NODE_ENV: 'development', DATABASE_URL }, 'seed')).toThrow(
+      /prod\.example\.com/,
+    );
+  });
+
+  it.each([
+    `${url('localhost')}?host=/tmp`,
+    'postgres://u@%2Fvar%2Frun%2Fpostgresql/x',
+    'postgres:///x',
+  ])('allows a Unix-socket or default host: %s', (DATABASE_URL) => {
+    expect(() =>
+      assertLocalSeedTarget({ NODE_ENV: 'development', DATABASE_URL }, 'seed'),
+    ).not.toThrow();
+  });
+
+  it('refuses an empty host when PGHOST points pg somewhere else', () => {
+    expect(() =>
+      assertLocalSeedTarget(
+        { NODE_ENV: 'development', DATABASE_URL: 'postgres:///x', PGHOST: 'db.example.com' },
+        'seed',
+      ),
+    ).toThrow(/db\.example\.com/);
+  });
+
   it('refuses production even on localhost', () => {
     expect(() =>
       assertLocalSeedTarget({ NODE_ENV: 'production', DATABASE_URL: url('localhost') }, 'db:clear'),

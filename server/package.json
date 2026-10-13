@@ -57,6 +57,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8",
+    "pg-connection-string": "^2.14.0",
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2",
     "rxjs": "^7",
