@@ -2,6 +2,7 @@ import {
   adminApiSession,
   createStudentsInSection,
   createTeacherForSection,
+  currentAcademicYear,
   markableDateIso,
 } from '../api';
 import { shells } from '../config';
@@ -34,7 +35,14 @@ import {
 test.describe('attendance offline marking', () => {
   test('a register queued while offline replays on reconnect', async ({ browser, request }) => {
     const admin = await adminApiSession(request);
-    const chain = await createStudentsInSection(request, admin, 'Offline Student', 3);
+    // [75.6-b, D16] Teacher scope counts current-year sections only.
+    const chain = await createStudentsInSection(
+      request,
+      admin,
+      'Offline Student',
+      3,
+      await currentAcademicYear(request, admin),
+    );
     const studentsResponse = await request.get('/api/v1/students', {
       headers: { Authorization: `Bearer ${admin.token}`, 'X-Tenant-ID': admin.tenantId },
       params: { section_id: chain.sectionId },
