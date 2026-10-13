@@ -191,8 +191,9 @@ Order of events (a probe runs every 30 s, so about 90 s after Redis dies):
 4. The first good probe clears the row and sends one text:
    `[production] RECOVERED: Redis is back at 08:40 UTC after 38 min. Sign-in is open again.`
 
-Limit: a SUPER_ADMIN's 15-minute access token keeps working, but once it expires `/auth/refresh` is
-closed too, so the banner can no longer be reached. The SMS is the channel that still arrives.
+Limit: a platform SUPER_ADMIN who is already signed in keeps seeing the banner for the whole
+outage, because `POST /auth/refresh` keeps working without Redis (refresh tokens are DB rows). One
+who is _not_ signed in cannot sign in to see it, since sign-in answers 503. The SMS is their channel.
 
 Limit: with several API instances in a partial partition (one reaches Redis, another does not), the
 alert re-opens and closes about every 2 minutes, so ALERT and RECOVERED texts repeat.

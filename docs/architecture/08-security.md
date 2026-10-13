@@ -101,7 +101,7 @@ flowchart LR
 
 - **Upgrade on sign-in.** After the password is proven, a cheaper hash is rewritten. The `AND password_hash = old` condition means a password changed in the meantime always wins. A failed sign-in never rewrites anything.
 - **72-byte limit.** bcrypt ignores bytes past 72, so a _new_ password longer than that is refused with `PASSWORD_TOO_LONG` (72 Latin letters, or 24 Bangla letters). Sign-in is never checked, so an older long password keeps working.
-- **Dummy hash.** When no user matches, login compares against `DUMMY_PASSWORD_HASH` so the response takes as long as a real one. It is computed at boot, so its cost always equals the real cost.
+- **Dummy hash.** When no user matches, login compares against `DUMMY_PASSWORD_HASH` so the response takes as long as a real one. It is a precomputed cost-12 literal (hashing at import cost every process ~250 ms); `password-hash.spec.ts` fails if its cost ever differs from `BCRYPT_COST`.
 
 ## Password recovery
 
@@ -509,10 +509,22 @@ To rotate the secret without logging anyone out, the old value moves to
 
 ```mermaid
 flowchart LR
-  A["Generate new secret<br/>openssl rand -base64 48"] --> B["Set JWT_SECRET_PREVIOUS = old<br/>JWT_SECRET = new; deploy"]
-  B --> C["Wait 30 days<br/>(refresh-token lifetime; access tokens re-mint every 15 min)"]
+  A["Generate new secret<br/>openssl rand -base64 48"] --> L{"Was the old secret leaked?"}
+  L -- no --> B["Set JWT_SECRET_PREVIOUS = old<br/>JWT_SECRET = new; deploy"]
+  B --> C["Wait at least the access-token lifetime<br/>(ACCESS_TOKEN_TTL_MS, 15 min by default)"]
   C --> D["Remove JWT_SECRET_PREVIOUS; deploy"]
+  L -- yes --> H["Set JWT_SECRET = new only; deploy<br/>(never put a leaked secret in JWT_SECRET_PREVIOUS)"]
 ```
+
+Why the wait is minutes, not 30 days: only access tokens (15 min) and approval
+tokens (5 min) are signed with `JWT_SECRET`. Refresh tokens are opaque DB rows,
+so they keep working through any rotation and re-mint access tokens with the new
+secret.
+
+**After a leak, rotate hard.** Do not set `JWT_SECRET_PREVIOUS`: that would keep
+the leaked secret valid for verification. Every access token gets one 401, the
+client's refresh path re-mints it with the new secret, and nobody types a
+password again. Anyone holding only a forged token is out at once.
 
 There is no transition window for the format change itself (D21): tokens minted
 before this change have no `iss`/`aud` and get 401 once. The client's refresh
@@ -586,7 +598,7 @@ Out of scope for this ticket: a "new sign-in to your account" notification
 2. `DATABASE_URL` is missing or not a URL, or
 3. its host is not `localhost`, `127.0.0.1` or `::1` (an SSH tunnel to localhost works for a deliberate remote seed).
 
-The message names the script and host, never the password. The dev seed's attendance device gets a fresh random key per database, printed once as `Seed attendance device key (shown once): bd_...`; re-runs do not reprint it. Specs that call `ensureAttendanceSeed` directly keep the fixed `SEED_DEVICE_KEY`.
+The message names the script and host, never the password. The dev seed's attendance device gets a fresh random key per database, printed once as `Seed attendance device key (shown once): bd_...`; re-runs do not reprint it. Specs that call `ensureAttendanceSeed` directly keep the fixed `SEED_DEVICE_KEY` from `seed.util.ts`; `e2e/seed-contract.ts` no longer exports one, since a Playwright spec cannot know the random key.
 
 ## CSRF posture
 
@@ -991,11 +1003,11 @@ flowchart LR
   A --> B["GET /platform/alerts<br/>PlatformSuperAdminGuard → red banner (75.35)"]
 ```
 
-- **JWT pin and rotation.** Pinning HS256 + issuer + audience logs out every token minted before the change once (no `iss`/`aud`), by design (D21) — none in practice, the client's refresh path re-mints because refresh tokens are DB rows — fix: #2317 — rule candidate: a token-format change ships with a note that names who gets one 401 and why it self-heals; secret rotation is "old value to `JWT_SECRET_PREVIOUS`, wait 30 days, remove", never a hard swap.
+- **JWT pin and rotation.** Pinning HS256 + issuer + audience logs out every token minted before the change once (no `iss`/`aud`), by design (D21) — none in practice, the client's refresh path re-mints because refresh tokens are DB rows — fix: #2317 — rule candidate: a token-format change ships with a note that names who gets one 401 and why it self-heals; secret rotation is "old value to `JWT_SECRET_PREVIOUS`, wait out the access-token lifetime (15 min), remove", and after a leak a hard swap with no `JWT_SECRET_PREVIOUS` (refresh re-mints, so nobody signs in again).
 - **bcrypt timing padding.** Raising the cost to 12 _reversed_ the enumeration oracle instead of closing it: every real account still had a cost-10 hash (~80 ms) while an unknown identifier paid the cost-12 dummy (~320 ms) — one review round — fix: `verifyPassword` in `auth/password-hash.ts` pads a cost-`r` check with throw-away hashes at costs `r..11`, run one after another, and every password check (login, change-password, step-up, social connect, contact-change) goes through it (#2319, 9e41e1404) — rule candidate: a security cost change is checked for _every_ stored-data state the system is in on deploy day, not just new rows; no `bcrypt.compare` on a password outside `password-hash.ts`.
 - **Redis-down policy.** "Fail open everywhere" would mean unlimited password guessing while Redis is down, and "fail closed everywhere" would take the whole app down with it — the split is per route (D4) — fix: `AppThrottlerGuard` returns 503 only for `/auth/*` sign-in routes; refresh, logout and every other route fail open; `/health/ready` reports `degraded` (#2326) — rule candidate: each Redis-backed control states its own down-mode in the ticket, and an e2e spec with a throwing store proves it (`app-throttler.guard.e2e-spec.ts`).
 - **Platform-only guards.** `@Roles(SUPER_ADMIN)` is also passed by a _school-local_ SUPER_ADMIN, so `GET /platform/alerts` and `GET /platform/attention/health` were open to every school's super admin, and the alert SMS went to them too — one review round — fix: `PlatformSuperAdminGuard` after `ContextGuard` on both routes (snapshot `TENANT_SA` PASS → 403), SMS recipients limited to the platform tenant's SUPER_ADMINs (da142ff55, 749d6954f) — rule candidate: a `/platform/*` route always carries `PlatformSuperAdminGuard`; the snapshot's `TENANT_SA` column must read 403 on every `/platform/*` row. `route-permissions.txt` does not record this guard, so only the route-status snapshot catches it.
-- **macOS enum-order artifact.** `yarn api:types` on macOS reorders the literals of 12 enum unions in `ui/src/api/schema.d.ts` (e.g. `"MONTHLY" | "WEEKLY"` → `"WEEKLY" | "MONTHLY"`) that CI on Linux does not. With the committed (CI) order in place, the local `ci:local` integration section then fails at `check:api-types` before any test runs — a near-miss commit of 12 noise lines, and one aborted full run — fix: keep the committed order, commit only real drift (here: none) — rule candidate: after a local `api:types`, `git diff` must show only changed paths/fields; a pure reorder is reverted, never committed.
+- **Enum-order drift is real, not a macOS artifact.** After the platform-alert backend (#2441), `api:types` reordered the literals of 12 enum unions in `ui/src/api/schema.d.ts` (e.g. `"TERM" | "MONTHLY" | "MODEL" | "OTHER"` → `"TERM" | "OTHER" | "MONTHLY" | "MODEL"`). It was written off as "macOS only" and reverted by hand, and CI's `check-api-types` then failed, so the integration and server e2e suites never ran on that head. Cause: the `@nestjs/swagger` CLI plugin writes a string-literal union in the order TypeScript created those literal types. `health.module.ts` started importing the SMS gateways and the platform-alerts service, which moved files that mention `'OTHER'`, `'WEEKLY'`, `'ACCEPTED'` and `'REJECTED'` earlier in the program, so the checker created those literals first. The order is the same on macOS and Linux for the same code (the base branch had 0 drift on both) — fix: regenerate and commit the reorder (review r1, F1) — rule candidate: an `api:types` reorder is real drift; commit it, never revert it by hand. If it only shows up on one machine, rebuild from clean (`rm -rf server/dist`) before calling it platform noise.
 - **Cost 12 slows every test login.** The shared test fixture hash (`server/test/constants.ts`) was cost 10, so each fixture login paid the cost-12 padding _plus_ a rehash write (~580 ms instead of ~70 ms). Specs that sign in ten roles per test hit the 10 s hook timeout, and bcrypt work still running when the vitest thread was torn down aborted the whole server e2e run (`libc++abi: Napi::Error`, SIGABRT) — two red full runs — fix: fixture hash at cost 12 (311161f67); a login is still ~4x slower than before, so login-heavy specs (documents journey: 1.3 s → 2.9 s alone) have less headroom under load (#2456) — rule candidate: when a security cost goes up, test fixtures move to the same cost in the same ticket, and the slowest login-heavy spec is timed before and after.
 - **Global tables and parallel e2e.** The banner Playwright spec opened and cleared the one global `platform_alerts` table from four tests running in parallel, so one test's clear hid another's banner — flaky first tries — fix: `test.describe.configure({ mode: 'serial' })` (3c8f48444) — rule candidate: a Playwright spec that writes a table with no tenant column runs serial.
 - **Transient URLs under load.** Slower activation (cost-12 hash) made `toHaveURL(/dashboard/)` miss the brief `/dashboard` before the first-visit gate moved a new school's admin to `/welcome` — fix: accept either (4e1a940a1) — rule candidate: assert the URL a page settles on, never one it passes through.
