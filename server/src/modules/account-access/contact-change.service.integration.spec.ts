@@ -834,6 +834,39 @@ describe('ContactChangeService (integration)', () => {
       expect(row.phone).toBe('+8801711111111');
     });
 
+    // Review n-new-3: a removal that commits while the approval is running must be seen, not missed.
+    it('a removal mid-approval is waited for and refuses the change', async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { phone: NEW_PHONE });
+      const token = linkIn(sentTo()[0].body);
+      const { debug } = await service.confirmEmail(token, context, 'approve');
+      const removal = dataSource.createQueryRunner();
+      await removal.connect();
+      await removal.startTransaction();
+      await removal.query(
+        'UPDATE user_tenants SET deleted_at = NOW() WHERE user_id = $1 AND tenant_id = $2',
+        [user.id, SEED_TENANT_ID],
+      );
+
+      const approval = service.confirmEmail(token, context, 'approve', {
+        phone_code: debug!.phone_code,
+      });
+      const settled = approval.then(
+        () => 'resolved',
+        () => 'rejected',
+      );
+      await new Promise((r) => setTimeout(r, 300));
+      await removal.commitTransaction();
+      await removal.release();
+
+      expect(await settled).toBe('rejected');
+      await expect(approval).rejects.toMatchObject({
+        response: { details: { code: 'PROPOSAL_WITHDRAWN' } },
+      });
+      const [row] = await dataSource.query('SELECT phone FROM users WHERE id = $1', [user.id]);
+      expect(row.phone).toBe('+8801711111111');
+    });
+
     it('approval after the proposer stopped being an admin there: 409 and the link is revoked', async () => {
       const { user, proposer } = await sharedSetup();
       await propose(user.id, { phone: NEW_PHONE });

@@ -460,13 +460,16 @@ export class ContactChangeService {
     if (!proposerId || !meta.proposed_in_tenant_id) return false;
     const platformTenantId = (await this.tenantStatus.platformTenantId()) ?? null;
     const [row] = await manager.query<Array<{ ok: boolean }>>(
+      // FOR SHARE (review n-new-3): inside the approval transaction, a removal or demotion that is
+      // mid-commit is waited for and then seen, instead of read as its old, still-live version.
       `SELECT EXISTS (SELECT 1 FROM user_tenants
-                       WHERE user_id = $1 AND tenant_id = $2 AND deleted_at IS NULL)
+                       WHERE user_id = $1 AND tenant_id = $2 AND deleted_at IS NULL FOR SHARE)
           AND EXISTS (SELECT 1 FROM user_tenants ut JOIN users u ON u.id = ut.user_id
                        WHERE ut.user_id = $3
                          AND ((ut.tenant_id = $2 AND ut.role = 'ADMIN')
                            OR (ut.tenant_id = $4 AND ut.role = 'SUPER_ADMIN'))
-                         AND ut.deleted_at IS NULL AND u.deleted_at IS NULL AND u.status = 'ACTIVE') AS ok`,
+                         AND ut.deleted_at IS NULL AND u.deleted_at IS NULL AND u.status = 'ACTIVE'
+                       FOR SHARE OF ut) AS ok`,
       [userId, meta.proposed_in_tenant_id, proposerId, platformTenantId],
     );
     return row.ok;
