@@ -699,7 +699,9 @@ export class PaymentReversalService {
             status_before: bill.status,
             status_after: status,
           });
-          out.reopened_bill_ids.push(bill.id);
+          // Only a bill whose status really changed is "reopened"; the full detail is in
+          // undone_generation_debits either way.
+          if (status !== bill.status) out.reopened_bill_ids.push(bill.id);
         }
         out.undone_generation_debits.push(entry);
       }
