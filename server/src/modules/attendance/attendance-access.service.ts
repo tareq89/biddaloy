@@ -81,8 +81,8 @@ export class AttendanceAccessService {
    * Throws `ForbiddenException` (403; `NotFoundException` 404 for a TEACHER miss) when the caller
    * may not touch this section's attendance, otherwise returns it. A section that simply
    * doesn't exist in this tenant is indistinguishable from one the caller
-   * isn't mapped to — both come back 403, so a cross-tenant probe learns
-   * nothing about whether the id exists elsewhere.
+   * isn't mapped to — both come back 403 (404 for a TEACHER), so a cross-tenant probe
+   * learns nothing about whether the id exists elsewhere.
    */
   async assertCanAccessSection(
     role: string,
@@ -160,7 +160,7 @@ export class AttendanceAccessService {
    * Like `assertCanAccessSection`, plus: a teacher who is that date's
    * substitute for `periodNo` may touch that one period of that one date (D7,
    * D23). Never the day register (`periodNo` null), another period or another
-   * date. Same 403 message as the section gate — no hint whether it exists.
+   * date. Same status as the section gate (403 tenant-wide roles, 404 TEACHER) — no hint whether it exists.
    */
   async assertCanAccessPeriod(
     role: string,
@@ -180,7 +180,7 @@ export class AttendanceAccessService {
   }
 
   /** The periods this caller may see for the section on that date: all of them
-   * with section access, only their own substituted ones otherwise (403 if none). */
+   * with section access, only their own substituted ones otherwise (the section gate's 403/404 if none). */
   async listAccessiblePeriods(
     role: string,
     userId: string,
