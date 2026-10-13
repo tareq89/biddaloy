@@ -25,6 +25,36 @@ says. Follow that doc's safety rules: no literal dates, fresh DB only,
 `ctx.rng` only, real services for "today", no real contacts. The dev seed
 (`yarn seed`) stays e2e-only.
 
+## Security rules (always)
+
+Any change to auth, routes, uploads, SQL, logs or infra follows these. The full
+text, the reason and the enforcing test live in
+[`08-security.md` → Security rules](docs/architecture/08-security.md#security-rules).
+
+- **Routes are closed by default.** Every route declares `@RequirePermissions(...)`, or `@AuthenticatedOnly()` plus an `IDENTITY_SCOPED` reason (D14). → [08-security §Rules 1](docs/architecture/08-security.md#rule-1-routes-are-closed-by-default)
+- **Teacher reads are scoped.** Only assigned sections, via `TeacherScopeService`; outside is 404, no assignment is an empty list (D2). → [08-security §Rules 2](docs/architecture/08-security.md#rule-2-teacher-reads-are-scoped-to-assigned-sections)
+- **UUID params use `ParseUUIDPipe`.** A non-UUID `:id` is a 400, never a 500 (75.13). → [08-security §Rules 3](docs/architecture/08-security.md#rule-3-every-id-path-param-goes-through-parseuuidpipe)
+- **No string-built SQL.** No `${}` in a query; LIKE input goes through `normalizeSearchTerm` (75.15). → [08-security §Rules 4](docs/architecture/08-security.md#rule-4-no-string-built-sql)
+- **Limits and money are capped.** `limit` ≤ 100, money ≤ `MONEY_MAX` with 2 decimals; clients page (75.14). → [08-security §Rules 5](docs/architecture/08-security.md#rule-5-limit-is-capped-and-money-fields-are-bounded)
+- **Uploads are checked by signature.** `matchesDeclaredType`, never the client mimetype; xlsx through `xlsx-guard` (75.8). → [08-security §Rules 6](docs/architecture/08-security.md#rule-6-uploads-are-checked-by-file-signature)
+- **Outbound HTTP is pinned.** Only through `pinned-http.ts` after `assertSafeHttpDestination` (75.24). → [08-security §Rules 7](docs/architecture/08-security.md#rule-7-outbound-http-only-through-the-ssrf-guarded-helper)
+- **Cut sessions off.** Suspend, remove or reset bumps `users.tokens_valid_after` (D12). → [08-security §Rules 8](docs/architecture/08-security.md#rule-8-suspend-remove-or-reset-bumps-tokens_valid_after)
+- **One bcrypt cost.** `hashPassword` / `verifyPassword` only, `BCRYPT_COST` 12, 72-byte limit (D5). → [08-security §Rules 9](docs/architecture/08-security.md#rule-9-one-bcrypt-cost-one-password-check)
+- **Unsafe config never boots.** `assertProductionConfig`; JWT HS256 + `iss` + `aud`, `JWT_SECRET_PREVIOUS` for rotation (75.9, 75.10). → [08-security §Rules 10](docs/architecture/08-security.md#rule-10-boot-refuses-unsafe-config-and-jwts-are-pinned)
+- **Client IP is `req.ip`.** Set by nginx from `TRUSTED_PROXY_CIDRS`; never read `X-Forwarded-For` (75.4). → [08-security §Rules 11](docs/architecture/08-security.md#rule-11-client-ip-comes-only-from-reqip)
+- **Only Cloudflare reaches the origin.** Unknown `Host` or peer gets 444 (D17). → [08-security §Rules 12](docs/architecture/08-security.md#rule-12-the-origin-accepts-only-cloudflare)
+- **Logs carry no secrets.** nginx `redacted` format + `redactPii`; new secret URL shapes join it (75.23). → [08-security §Rules 13](docs/architecture/08-security.md#rule-13-logs-never-carry-secrets)
+- **`/api/*` is `no-store`.** The SPA shell is `no-cache`; the service worker skips auth and public routes (75.20). → [08-security §Rules 14](docs/architecture/08-security.md#rule-14-api-responses-are-no-store)
+- **Redis down is decided per route.** `@FailClosedWithoutRedis()` + `redis-outage-routes.ts`; platform alert on outage (D4, D15). → [08-security §Rules 15](docs/architecture/08-security.md#rule-15-redis-down-has-a-written-answer-per-route)
+- **Share links expire.** 30 days, regenerate kills old links (D9, D22). → [08-security §Rules 16](docs/architecture/08-security.md#rule-16-public-share-links-expire)
+- **Shared contact changes wait.** Pending until the person approves; a link never changes state on open (D3, D11, D23). → [08-security §Rules 17](docs/architecture/08-security.md#rule-17-a-shared-persons-new-contact-waits-for-their-approval)
+- **Equal-time account answers.** One lookup on the request path, the rest in `detach()` (75.17). → [08-security §Rules 18](docs/architecture/08-security.md#rule-18-does-this-account-exist-answers-take-equal-time)
+- **Webhooks are verified.** `verifyWebhookSignature` before anything else (75.30). → [08-security §Rules 19](docs/architecture/08-security.md#rule-19-inbound-webhooks-go-through-the-verification-kit)
+- **Reachability changes update the snapshot.** `route-status.snapshot.txt` in the same PR, each line explained (D21). → [08-security §Rules 20](docs/architecture/08-security.md#rule-20-a-reachability-change-updates-the-route-snapshot)
+- **Pin CI and images.** Actions by SHA, images by `@sha256:`, audit allowlist with `recheckBy` (75.25, 75.26). → [08-security §Rules 21](docs/architecture/08-security.md#rule-21-ci-actions-and-images-are-pinned)
+- **Public write forms carry Turnstile.** `TurnstileService` before any write; fails closed in production (75.16). → [08-security §Rules 22](docs/architecture/08-security.md#rule-22-public-write-forms-carry-turnstile)
+- **Errors never echo input.** A 409 names the field kind, not the value, with one text on every path (75.19). → [08-security §Rules 23](docs/architecture/08-security.md#rule-23-errors-never-echo-what-was-sent)
+
 ## Documentation style (always, for any doc in this repo)
 
 Any time you write or edit documentation — root or package `README.md`,

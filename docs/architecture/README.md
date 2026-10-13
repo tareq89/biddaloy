@@ -19,7 +19,7 @@ at hand instead of loading the whole set.
 | [05-communications.md](05-communications.md) | Working on SMS/WhatsApp/email/Messenger reminders |
 | [06-frontend-architecture.md](06-frontend-architecture.md) | Working in `ui/` or `client-admin/` (the one SPA — staff routes + `/portal`) |
 | [07-deployment.md](07-deployment.md) | Working on Docker, nginx, CI, or production deploys |
-| [08-security.md](08-security.md) | Working on login, tokens, CSRF, audit logging, or PII/data-protection handling |
+| [08-security.md](08-security.md) | **Security rules** (read first for any change to auth, routes, uploads, SQL, logs or infra), then login, tokens, CSRF, audit logging, or PII/data-protection handling |
 | [09-design-direction.md](09-design-direction.md) | Touching design tokens — type, colour, elevation, borders, density, motion — or the interaction contract built on top of them: focus vocabulary, action hierarchy, table→card responsive grammar, `ui/` i18n defaults, access states. Decided in 8.13 (#343–#354), recorded from 8.14 (#365–#377, #457–#461) |
 | [10-third-party-services.md](10-third-party-services.md) | Need to know what external services/APIs SchoolManager depends on (Postgres, Redis, BullMQ, S3/SeaweedFS object storage, SMS/WhatsApp/email providers, Sentry) — and what it deliberately doesn't use (no payment gateway) |
 | [11-attendance.md](11-attendance.md) | Working on attendance, registers, the teacher marking flow, or integrating a scanner |

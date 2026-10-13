@@ -292,6 +292,11 @@ changes a table or column must also cover it in the demo seed**
 included. A schema change with no slice, no `DEMO_SEED_EXEMPT` reason and
 (before #2161) no PR line is a finding.
 
+Either tier, a ticket touching `server/src/modules/auth/**`, a guard, a
+controller or an upload path also runs the **security hunt list** in
+`.claude/agents/issue-reviewer.md` §4, and attaches the
+`server/src/route-status.snapshot.txt` diff (or "no change") to the PR.
+
 Act on what it finds:
 
 - Fix anything real. Re-run tests and lint after the fixes.

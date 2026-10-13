@@ -7,6 +7,22 @@ for the higher-level shape (diagrams) this detail sits underneath.
 
 ## The layers, at a glance
 
+One request, from the internet to the service. `R1` = [Rule 1](#rule-1-routes-are-closed-by-default), and so on.
+
+```mermaid
+flowchart TD
+  CF["Cloudflare<br/>(TLS, WAF)"] --> NG["nginx origin lock<br/>Cloudflare peers + real Host only, else 444<br/>(D17, R12)"]
+  NG --> IP["real client IP<br/>CF-Connecting-IP → req.ip (75.4, R11)"]
+  IP --> TH["throttler + login lockout<br/>Redis down → 503 on sign-in routes (R15)"]
+  TH --> JWT["JWT: HS256 + iss + aud (R10)<br/>iat ≥ users.tokens_valid_after (D12, R8)"]
+  JWT --> PG["ContextGuard, then PermissionsGuard<br/>fails closed (D14, R1)"]
+  PG --> TS["teacher section scope<br/>outside → 404 (D2, R2)"]
+  TS --> PU["ParseUUIDPipe + DTO bounds<br/>(R3, R5, R22)"]
+  PU --> SV["service: bound SQL (R4), file signature (R6),<br/>pinned outbound HTTP (R7), equal-time answers (R18)"]
+```
+
+Sign-in, in detail:
+
 ```mermaid
 flowchart TD
     A["POST /auth/login"] --> B["Per-IP rate limit\n(5 req/60s)"]
@@ -37,6 +53,184 @@ server will not start on a placeholder or weak secret, a malformed
 `PUBLIC_APP_URL`. `yarn config:check` runs those checks on demand, plus the
 `DB_SSL`, encryption-key shape and https URL checks (07-deployment.md). Dev, test and CI are
 unaffected.
+
+## Security rules
+
+Short rules for anyone (person or agent) about to touch auth, routes, uploads,
+SQL or infra. Each rule is written once, here. Root `CLAUDE.md`, the reviewer
+hunt list and the `plan-epic` slicing rules only name a rule and link to it.
+The [Learnings log](#learnings-log-epic-75) at the end of this doc is where
+each rule came from.
+
+Every rule has the same four parts:
+
+- **Rule.** One sentence.
+- **Why.** The decision (D#) or ticket behind it.
+- **Example.** A real path or line.
+- **Test.** The spec that fails if the rule is broken.
+
+The layers diagram above shows where most of these rules sit on a request's way in (`R1` = Rule 1).
+
+### Rule 1: Routes are closed by default
+
+- **Rule.** Every route behind `PermissionsGuard` declares `@RequirePermissions(...)`, or `@AuthenticatedOnly()` plus a reviewed `IDENTITY_SCOPED` entry with a reason. A route with neither is a 403.
+- **Why.** A forgotten permission used to be a silent allow (D14, #2315, #2436).
+- **Example.** `GET /users/me` carries `@AuthenticatedOnly()` and the entry `{ path: '/users/me', reason: '10.4 — self-service: the id comes from the JWT, never the path' }`.
+- **Test.** `server/src/permission-matrix.e2e-spec.ts` (marker and list match one-for-one), `route-guard-coverage.e2e-spec.ts`.
+
+### Rule 2: Teacher reads are scoped to assigned sections
+
+- **Rule.** A teacher reads students, guardians, fees, notes, records, attendance and results only for sections assigned this academic year. A record outside scope is 404, never 403. A teacher with no assignment gets an empty list. Every "which sections" question goes through `TeacherScopeService`.
+- **Why.** A 403 tells the caller the record exists; a raw `teacher_class_sections` query missed the year window (D2, D13, D31, #2314).
+- **Example.** `GET /api/v1/students/<other section's student>` as TEACHER → `404`.
+- **Test.** `server/src/teacher-section-scope.e2e-spec.ts`, `teacher-scope-finance.e2e-spec.ts`, `teacher-scope-exams-search.e2e-spec.ts`.
+
+### Rule 3: Every id path param goes through ParseUUIDPipe
+
+- **Rule.** Every `:id`-style `@Param` that holds a UUID uses `ParseUUIDPipe`. A non-UUID param is on the reviewed allowlist.
+- **Why.** A malformed id reached Postgres and came back as a 500 (75.13, #2321, #2437).
+- **Example.** `@Param('id', ParseUUIDPipe) id: string`; `GET /api/v1/students/not-a-uuid` → `400`.
+- **Test.** `server/src/param-uuid-coverage.spec.ts`.
+
+### Rule 4: No string-built SQL
+
+- **Rule.** No `${}` or `+` reaches `query()`, `.where()`, `.andWhere()`, a join condition or `orHaving`. User input is a bound parameter. LIKE input goes through `normalizeSearchTerm` (or `escapeLikePattern`).
+- **Why.** Injection, and a raw `%` matched every row (75.15, #2323).
+- **Example.** `search=%` returns only names holding a literal `%`.
+- **Test.** `server/src/sql-interpolation.contract.spec.ts` (its header lists its blind spots), `escape-like.util.spec.ts`.
+
+### Rule 5: limit is capped and money fields are bounded
+
+- **Rule.** List DTOs cap `limit` at 100 (`@Max(100)`). Money DTO fields take at most 2 decimals and `MONEY_MAX` (99,999,999.99, the `decimal(10,2)` limit). A client that needs more rows pages.
+- **Why.** Huge pages and oversized amounts became a 500 or a rounded amount (75.14, #2322).
+- **Example.** `GET /api/v1/students?limit=100000` → `400`; `useAllStudents` pages whole classes 100 at a time.
+- **Test.** `server/src/dto-bounds.e2e-spec.ts` (each 400 names the field).
+
+### Rule 6: Uploads are checked by file signature
+
+- **Rule.** An upload is accepted on its leading bytes (`matchesDeclaredType` in `server/src/modules/storage/file-signature.ts`), never on the client's mimetype. An xlsx goes through `xlsx-guard.util.ts` before parsing.
+- **Why.** The mimetype is client-sent; a zip bomb hid behind a valid header (75.8, #2330).
+- **Example.** A `.png` whose bytes are a PDF → `400 File content does not match its declared type`.
+- **Test.** `homework-submission.controller.e2e-spec.ts`, `xlsx-guard.util.spec.ts`.
+
+### Rule 7: Outbound HTTP only through the SSRF-guarded helper
+
+- **Rule.** Server code calls the outside world only through `fetchPinnedJson` (`server/src/modules/communications/providers/shared/pinned-http.ts`), after `assertSafeHttpDestination` has checked the address. No bare `fetch`, `ws`, `net` or `tls`.
+- **Why.** A configurable URL could be pointed at internal addresses (75.24, #2332).
+- **Example.** The SMS gateways resolve a tenant's `apiUrl` once, refuse private, loopback and metadata addresses, and connect to exactly the checked address (no second DNS answer can sneak in).
+- **Test.** `server/src/outbound-http.contract.spec.ts`.
+
+### Rule 8: Suspend, remove or reset bumps tokens_valid_after
+
+- **Rule.** Suspending, removing or resetting a user sets `users.tokens_valid_after = now()`. `JwtStrategy` refuses any access token issued before it.
+- **Why.** A 15-minute access token outlived the action that should have ended it (D12, 75.2).
+- **Example.** Admin suspends a teacher; the teacher's next request with the old token → `401`.
+- **Test.** `session-cutoff.service.integration.spec.ts`, `jwt.strategy.spec.ts`.
+
+### Rule 9: One bcrypt cost, one password check
+
+- **Rule.** Hash only with `hashPassword` (`BCRYPT_COST = 12`), check only with `verifyPassword`, both in `server/src/modules/auth/password-hash.ts`. No literal cost and no `bcrypt.compare` on a password elsewhere. A new password over `BCRYPT_MAX_BYTES` (72) is refused. An old cheaper hash is rehashed on the next good sign-in.
+- **Why.** bcrypt ignores bytes past 72. A cost change without padding made old accounts faster than unknown ones (D5, 75.11, #2319).
+- **Example.** `verifyPassword(plain, cost10Hash)` pads with throw-away hashes so it costs one cost-12 check.
+- **Test.** `password-hash.spec.ts`.
+
+### Rule 10: Boot refuses unsafe config, and JWTs are pinned
+
+- **Rule.** With `NODE_ENV=production` the server refuses placeholder or weak secrets, bad `CORS_ORIGINS` and missing URLs (`assertProductionConfig`; `yarn config:check` runs it on demand). JWTs are HS256 with a pinned `iss` and `aud`. `JWT_SECRET_PREVIOUS` is verify-only during a rotation.
+- **Why.** A deploy with `.env.example` values must fail loudly, and a token must not verify for another app (75.9, 75.10, D21).
+- **Example.** Rotation: move the old value to `JWT_SECRET_PREVIOUS`, wait 15 minutes, remove it. See [Token signing and rotating JWT_SECRET](#token-signing-and-rotating-jwt_secret-759).
+- **Test.** `env.validation.spec.ts`, `jwt-secrets.spec.ts`, `jwt-rotation.e2e-spec.ts`.
+
+### Rule 11: Client IP comes only from req.ip
+
+- **Rule.** Code reads the client IP only from `req.ip` (via `requestContext()`). nginx sets it from `CF-Connecting-IP` for peers in `TRUSTED_PROXY_CIDRS`, and Express trusts exactly one hop. Never read `X-Forwarded-For` yourself.
+- **Why.** A client can write any `X-Forwarded-For`; rate limits and audit rows would trust it (75.4, D1).
+- **Example.** `requestContext(request).ip` in the Turnstile check.
+- **Test.** `nginx/test/real-ip.infra.test.sh`, `server/src/trust-proxy.e2e-spec.ts`.
+
+### Rule 12: The origin accepts only Cloudflare
+
+- **Rule.** nginx serves the app only for the real `Host` and, when `TRUSTED_PROXY_CIDRS` is set, only to Cloudflare peers. Anything else gets `444`. Only `/api/health` and the ACME path stay open.
+- **Why.** A direct hit on the origin IP skips Cloudflare's WAF and rate limits (D17, 75.5).
+- **Example.** `curl --resolve <domain>:443:<origin-ip> https://<domain>/` → empty reply. See [07-deployment](07-deployment.md#who-can-reach-the-origin).
+- **Test.** `nginx/test/origin-lockdown.infra.test.sh`.
+
+### Rule 13: Logs never carry secrets
+
+- **Rule.** Tokens, phone numbers, emails and secret query strings (`password`, `token`, `otp`, `code`, …) never reach a log. nginx logs with the `redacted` format and the API log goes through `redactPii`. A new secret-bearing URL shape is added to `redactPii` in the same ticket. Request ids are kept only if they are 1-64 of `[A-Za-z0-9_-]`.
+- **Why.** Logs are read by more people, and kept longer, than the data (75.23, 75.19).
+- **Example.** `GET /api/v1/public/invoices/<token>` logs as `[REDACTED]`.
+- **Test.** `redact-log.util.spec.ts`, `nginx/test/access-log.infra.test.sh`, `request-context.util.spec.ts`.
+
+### Rule 14: API responses are no-store
+
+- **Rule.** Every `/api/*` response is `Cache-Control: no-store` by default and the SPA shell (`index.html`, `sw.js`) is `no-cache`. A route that needs another value overrides it. The service worker never caches `/api/v1/auth/*` or `/api/v1/public/*`.
+- **Why.** A shared computer or proxy kept personal data (75.20). Workbox ignores `no-store`, so it kept expired receipt links (#2438).
+- **Example.** `apiNoStoreByDefault` in `server/src/cache-control.ts`.
+- **Test.** `cache-control.spec.ts`, `cache-control.e2e-spec.ts`, `client-admin/src/pwa/cache-policy.test.ts`.
+
+### Rule 15: Redis down has a written answer per route
+
+- **Rule.** When Redis is down, routes marked `@FailClosedWithoutRedis()` (sign-in, OTP, reset, step-up, contact change) answer 503. The throttler and lockout fail open everywhere else. Every route on an `/auth*` or `/account*` controller is listed as fail-closed or fail-open in `server/test/helpers/redis-outage-routes.ts`. A down Redis raises a platform alert: a SUPER_ADMIN banner plus SMS.
+- **Why.** "Open everywhere" means unlimited password guessing; "closed everywhere" takes the app down (D4, D4b, D15, 75.18, 75.34).
+- **Example.** `POST /auth/login` with Redis down → `503`; `POST /auth/refresh` → served.
+- **Test.** `app-throttler.guard.spec.ts`, `app-throttler.guard.e2e-spec.ts`, `route-guard-coverage.e2e-spec.ts`, `platform-alerts.service.spec.ts`.
+
+### Rule 16: Public share links expire
+
+- **Rule.** A public invoice share link works for 30 days. Staff can regenerate it, which kills every older link of that invoice. An expired, revoked or unknown token is the same 404.
+- **Why.** A forwarded link used to work forever (D9). Links that existed before the change got 30 days from the deploy (D22).
+- **Example.** `POST /api/v1/invoices/:id/share/regenerate` → new link 200, old link 404.
+- **Test.** `public-invoice.e2e-spec.ts`, `test/invoice-share-expiry-migration.integration.spec.ts`.
+
+### Rule 17: A shared person's new contact waits for their approval
+
+- **Rule.** When a school admin changes the email or phone of a person who also belongs to another school, nothing is written until the person approves through a link to their current contact and a code to the new one. The other schools' admins are told. Opening a link never changes anything; a button does.
+- **Why.** One school could take over a person's sign-in at every school (D3, D23). A mail scanner "opened" the first version's link (D11).
+- **Example.** `PATCH /users/:id {phone}` → `200 {phone: OLD, pending_contact_change: "phone"}`. See [Contact verification](#contact-verification-127).
+- **Test.** `contact-change.service.integration.spec.ts`, `users.membership.e2e-spec.ts`.
+
+### Rule 18: Does-this-account-exist answers take equal time
+
+- **Rule.** Recovery, OTP request and activation resend do one identifier lookup on the request path. Everything after it (checks, codes, audit, delivery) runs inside one `detach()` job after the response.
+- **Why.** A known account cost more queries than an unknown one, so timing gave it away (75.17, #2325).
+- **Example.** `POST /auth/forgot-password` → `{}` in the same time for a real and a made-up address.
+- **Test.** `recovery.service.integration.spec.ts`, `otp-login.service.integration.spec.ts` and `activation.service.integration.spec.ts` (exactly one query before the response), `account-access-delivery.service.spec.ts`.
+
+### Rule 19: Inbound webhooks go through the verification kit
+
+- **Rule.** An inbound webhook is accepted only after `verifyWebhookSignature` (`server/src/common/webhooks/webhook-signature.util.ts`) checks its HMAC over the raw body, timing-safe, with a timestamp window.
+- **Why.** Anyone can POST to a public URL (75.30).
+- **Example.** An empty or non-string secret makes verification return `false`, never pass.
+- **Test.** `webhook-signature.util.spec.ts`, `webhook-signature.e2e-spec.ts`.
+
+### Rule 20: A reachability change updates the route snapshot
+
+- **Rule.** A change in who can reach a route updates `server/src/route-status.snapshot.txt` in the same PR, and the PR lists each changed line with its ticket.
+- **Why.** Guard changes are easy to miss in a diff (D21). A `/platform/*` route also needs `PlatformSuperAdminGuard`, which only this snapshot shows.
+- **Example.** `GET /api/v1/platform/alerts  401 PASS 403 …` (`TENANT_SA` 403).
+- **Test.** `server/src/route-status-snapshot.e2e-spec.ts`. See `server/CLAUDE.md` "Route status snapshot".
+
+### Rule 21: CI actions and images are pinned
+
+- **Rule.** Every workflow `uses:` names a 40-character commit SHA (`# vX` comment), every `actions/checkout` sets `persist-credentials: false`, and every pulled image carries `@sha256:`. Every `yarn audit` allowlist entry has a `recheckBy` date.
+- **Why.** A moved tag runs someone else's code with our secrets (75.25, 75.26, 75.29).
+- **Example.** `uses: actions/checkout@<sha> # v4`; `ALLOWLIST` in `scripts/ci-audit.js`.
+- **Test.** `docker/test/compose.infra.test.sh` (images), `scripts/ci-audit.spec.mjs` (expiry), `actionlint` in the CI audit job. Action SHAs have no automated check yet; the reviewer checks them.
+
+### Rule 22: Public write forms carry Turnstile
+
+- **Rule.** An unauthenticated route that writes data (registration, public admission submit) verifies a Cloudflare Turnstile token with `TurnstileService` before it writes anything. In production with no `TURNSTILE_SECRET_KEY` it fails closed (503).
+- **Why.** A public form is the cheapest target for automated abuse (75.16, #2324).
+- **Example.** `POST /api/v1/public/admission/:slug/applicants` without `captcha_token` → `400`.
+- **Test.** `public-admission.controller.e2e-spec.ts`, `registration.controller.e2e-spec.ts`.
+
+### Rule 23: Errors never echo what was sent
+
+- **Rule.** A uniqueness 409 names the kind of field, never the value, and every path that can raise it uses the same text.
+- **Why.** An echoed address, or two different texts, tells a caller which accounts exist (75.19, #2327).
+- **Example.** `409 That email address or phone number is already in use`.
+- **Test.** `users.e2e-spec.ts`.
 
 ## Login brute-force protection
 
@@ -1030,21 +1224,22 @@ grep -E '^"?compression@' yarn.lock   # every range listed must start at >= 1.8.
 
 ## Learnings log (Epic 75)
 
-Raw notes from each wave close. 75.36 turns them into rules later; they are not
-polished on purpose. Format: what surprised us — what it cost — fix — rule
-candidate.
+Raw notes from each wave close, kept as the history behind the
+[Security rules](#security-rules). They are not polished on purpose. Format:
+what surprised us — what it cost — fix — rule candidate — and, since 75.36,
+an arrow to the rule it became (`→ Rule N`) or `→ no rule` with the reason.
 
 ### Wave 0 — 2026-10-13
 
-- The first route-status snapshot had one `SUPER_ADMIN` column, but a tenant-local super admin and a platform super admin (no tenant) are guarded differently, so the column hid real 401/403 differences — one review round — fix: `PLATFORM_SA` column in `server/src/route-status-snapshot.e2e-spec.ts` (#2439) — rule candidate: a snapshot gets one column per distinct guard path, not per role name.
-- Snapshot diff since wave start is one line, `POST /api/v1/invoices/:id/share/regenerate` (new route, same guards as the other share routes) — none; the 403 → 404 teacher changes are in services, which a guard-only snapshot never sees — fix: #2438 — rule candidate: the snapshot proves guards only; handler-level scope needs its own e2e spec.
-- Opening a contact-change approval link applied the change on GET, so a mail scanner or anyone holding the link could take over a shared person's email/phone (D11) — a rework of 75.1 — fix: explicit Approve/Decline under a row lock (#2309, b95ed16a2) — rule candidate: a link in a message never changes state on open; it shows a page with a button.
-- Flipping `PermissionsGuard` to fail closed was safe only because every identity route got a readable `@AuthenticatedOnly()` marker first, checked both ways against `IDENTITY_SCOPED` — two tickets instead of one — fix: #2315 then #2436 — rule candidate: a deny-by-default flip ships behind a marker plus a two-way CI check, never on a hand list.
-- Teacher scope has to be current academic year only (D2): a past-year SUBJECT assignment kept leaking students. One exception survives (D31): marks read and write stay open for last year's section while its class still has a DRAFT exam (X-07), so the marks-due alerts and the marks gate agree. The window keys on DRAFT only, so after rollover a PROCESSED (not yet published) exam of last year is corrected by an admin, not by its subject teacher, who gets the teacher-miss 404 (D45) — fix: `teacher-scope.service.ts` (#2314, `rolesInSection().inYearWindow`) — rule candidate: every "which sections does this teacher see" question goes through `TeacherScopeService`, never a raw `teacher_class_sections` query.
-- `TeacherScopeService` lived in `ClassModule`, which fees, fines and communications cannot import (load-order cycle), so #2434 was blocked until it was exported from `StudentModule` — a blocked lane — fix: 6c7a4a121 — rule candidate: a cross-cutting scope service is exported from the module its consumers already import, decided in the plan.
-- Under a full `ci:local` (4 busy workers) specs leak into each other and slow tests pass the 5 s timeout, then pass alone — repeated red runs to triage — fix: #2456 (open) — rule candidate: a spec that fails only under load is checked alone and against #2456 before anyone "fixes" it.
-- Review found three ways past the first xlsx zip-bomb guard: a crafted EOCD (count 0, decoy prefix, zip64 sentinel), directory entries that reuse the same compressed bytes, and the calendar import that was not guarded at all — three fix commits — fix: `server/src/common/utils/xlsx-guard.util.ts` (#2330) — rule candidate: a parser guard is reviewed against crafted inputs, and every upload path is listed in the ticket by grep, not memory.
-- The Lighthouse login waited for a `লগ ইন` button that the Epic 31 sign-in rework renamed to `সাইন ইন করুন`; the job broke silently on main too — a red lighthouse section to diagnose — fix: b6ce4ba00 — rule candidate: e2e/Lighthouse helpers find buttons by i18n key or test id, never by copied UI text.
+- The first route-status snapshot had one `SUPER_ADMIN` column, but a tenant-local super admin and a platform super admin (no tenant) are guarded differently, so the column hid real 401/403 differences — one review round — fix: `PLATFORM_SA` column in `server/src/route-status-snapshot.e2e-spec.ts` (#2439) — rule candidate: a snapshot gets one column per distinct guard path, not per role name. → Rule 20
+- Snapshot diff since wave start is one line, `POST /api/v1/invoices/:id/share/regenerate` (new route, same guards as the other share routes) — none; the 403 → 404 teacher changes are in services, which a guard-only snapshot never sees — fix: #2438 — rule candidate: the snapshot proves guards only; handler-level scope needs its own e2e spec. → Rule 20, Rule 2
+- Opening a contact-change approval link applied the change on GET, so a mail scanner or anyone holding the link could take over a shared person's email/phone (D11) — a rework of 75.1 — fix: explicit Approve/Decline under a row lock (#2309, b95ed16a2) — rule candidate: a link in a message never changes state on open; it shows a page with a button. → Rule 17
+- Flipping `PermissionsGuard` to fail closed was safe only because every identity route got a readable `@AuthenticatedOnly()` marker first, checked both ways against `IDENTITY_SCOPED` — two tickets instead of one — fix: #2315 then #2436 — rule candidate: a deny-by-default flip ships behind a marker plus a two-way CI check, never on a hand list. → Rule 1
+- Teacher scope has to be current academic year only (D2): a past-year SUBJECT assignment kept leaking students. One exception survives (D31): marks read and write stay open for last year's section while its class still has a DRAFT exam (X-07), so the marks-due alerts and the marks gate agree. The window keys on DRAFT only, so after rollover a PROCESSED (not yet published) exam of last year is corrected by an admin, not by its subject teacher, who gets the teacher-miss 404 (D45) — fix: `teacher-scope.service.ts` (#2314, `rolesInSection().inYearWindow`) — rule candidate: every "which sections does this teacher see" question goes through `TeacherScopeService`, never a raw `teacher_class_sections` query. → Rule 2
+- `TeacherScopeService` lived in `ClassModule`, which fees, fines and communications cannot import (load-order cycle), so #2434 was blocked until it was exported from `StudentModule` — a blocked lane — fix: 6c7a4a121 — rule candidate: a cross-cutting scope service is exported from the module its consumers already import, decided in the plan. → no rule (a planning lesson, not a security rule: the plan decides which module exports a cross-cutting service)
+- Under a full `ci:local` (4 busy workers) specs leak into each other and slow tests pass the 5 s timeout, then pass alone — repeated red runs to triage — fix: #2456 (open) — rule candidate: a spec that fails only under load is checked alone and against #2456 before anyone "fixes" it. → no rule (test infrastructure, tracked in #2456)
+- Review found three ways past the first xlsx zip-bomb guard: a crafted EOCD (count 0, decoy prefix, zip64 sentinel), directory entries that reuse the same compressed bytes, and the calendar import that was not guarded at all — three fix commits — fix: `server/src/common/utils/xlsx-guard.util.ts` (#2330) — rule candidate: a parser guard is reviewed against crafted inputs, and every upload path is listed in the ticket by grep, not memory. → Rule 6
+- The Lighthouse login waited for a `লগ ইন` button that the Epic 31 sign-in rework renamed to `সাইন ইন করুন`; the job broke silently on main too — a red lighthouse section to diagnose — fix: b6ce4ba00 — rule candidate: e2e/Lighthouse helpers find buttons by i18n key or test id, never by copied UI text. → no rule (a test-helper lesson: find buttons by i18n key or test id)
 
 ### Wave 1 — 2026-10-14
 
@@ -1061,16 +1256,16 @@ flowchart LR
   A --> B["GET /platform/alerts<br/>PlatformSuperAdminGuard → red banner (75.35)"]
 ```
 
-- **JWT pin and rotation.** Pinning HS256 + issuer + audience logs out every token minted before the change once (no `iss`/`aud`), by design (D21) — none in practice, the client's refresh path re-mints because refresh tokens are DB rows — fix: #2317 — rule candidate: a token-format change ships with a note that names who gets one 401 and why it self-heals; secret rotation is "old value to `JWT_SECRET_PREVIOUS`, wait out the access-token lifetime (15 min), remove", and after a leak a hard swap with no `JWT_SECRET_PREVIOUS` (refresh re-mints, so nobody signs in again).
-- **bcrypt timing padding.** Raising the cost to 12 _reversed_ the enumeration oracle instead of closing it: every real account still had a cost-10 hash (~80 ms) while an unknown identifier paid the cost-12 dummy (~320 ms) — one review round — fix: `verifyPassword` in `auth/password-hash.ts` pads a cost-`r` check with throw-away hashes at costs `r..11`, run one after another, and every password check (login, change-password, step-up, social connect, contact-change) goes through it (#2319, 9e41e1404) — rule candidate: a security cost change is checked for _every_ stored-data state the system is in on deploy day, not just new rows; no `bcrypt.compare` on a password outside `password-hash.ts`.
-- **Redis-down policy.** "Fail open everywhere" would mean unlimited password guessing while Redis is down, and "fail closed everywhere" would take the whole app down with it — the split is per route (D4) — fix: `AppThrottlerGuard` returns 503 only for routes marked `@FailClosedWithoutRedis()` (first a hand-kept route-string list, which was too wide, closing read-only social GETs, and fragile, since a renamed route failed open silently: review r1, F11); refresh, logout and every other route fail open; `/health/ready` reports `degraded` (#2326) — rule candidate: each Redis-backed control states its own down-mode in the ticket, and an e2e spec with a throwing store proves it (`app-throttler.guard.e2e-spec.ts`).
-- **Platform-only guards.** `@Roles(SUPER_ADMIN)` is also passed by a _school-local_ SUPER_ADMIN, so `GET /platform/alerts` and `GET /platform/attention/health` were open to every school's super admin, and the alert SMS went to them too — one review round — fix: `PlatformSuperAdminGuard` after `ContextGuard` on both routes (snapshot `TENANT_SA` PASS → 403), SMS recipients limited to the platform tenant's SUPER_ADMINs (da142ff55, 749d6954f) — rule candidate: a `/platform/*` route always carries `PlatformSuperAdminGuard`; the snapshot's `TENANT_SA` column must read 403 on every `/platform/*` row. `route-permissions.txt` does not record this guard, so only the route-status snapshot catches it.
-- **Enum-order drift is real, not a macOS artifact.** After the platform-alert backend (#2441), `api:types` reordered the literals of 12 enum unions in `ui/src/api/schema.d.ts` (e.g. `"TERM" | "MONTHLY" | "MODEL" | "OTHER"` → `"TERM" | "OTHER" | "MONTHLY" | "MODEL"`). It was written off as "macOS only" and reverted by hand, and CI's `check-api-types` then failed, so the integration and server e2e suites never ran on that head. Cause: the `@nestjs/swagger` CLI plugin writes a string-literal union in the order TypeScript created those literal types. `health.module.ts` started importing the SMS gateways and the platform-alerts service, which moved files that mention `'OTHER'`, `'WEEKLY'`, `'ACCEPTED'` and `'REJECTED'` earlier in the program, so the checker created those literals first. The order is the same on macOS and Linux for the same code (the base branch had 0 drift on both) — fix: regenerate and commit the reorder (review r1, F1) — rule candidate: an `api:types` reorder is real drift; commit it, never revert it by hand. If it only shows up on one machine, rebuild from clean (`rm -rf server/dist`) before calling it platform noise.
-- **Cost 12 slows every test login.** The shared test fixture hash (`server/test/constants.ts`) was cost 10, so each fixture login paid the cost-12 padding _plus_ a rehash write (~580 ms instead of ~70 ms). Specs that sign in ten roles per test hit the 10 s hook timeout, and bcrypt work still running when the vitest thread was torn down aborted the whole server e2e run (`libc++abi: Napi::Error`, SIGABRT) — two red full runs — fix: fixture hash at cost 12 (311161f67); a login is still ~4x slower than before, so login-heavy specs (documents journey: 1.3 s → 2.9 s alone) have less headroom under load (#2456) — rule candidate: when a security cost goes up, test fixtures move to the same cost in the same ticket, and the slowest login-heavy spec is timed before and after.
-- **Global tables and parallel e2e.** The banner Playwright spec opened and cleared the one global `platform_alerts` table from four tests running in parallel, so one test's clear hid another's banner — flaky first tries — fix: `test.describe.configure({ mode: 'serial' })` (3c8f48444) — rule candidate: a Playwright spec that writes a table with no tenant column runs serial.
-- **Transient URLs under load.** Slower activation (cost-12 hash) made `toHaveURL(/dashboard/)` miss the brief `/dashboard` before the first-visit gate moved a new school's admin to `/welcome` — fix: accept either (4e1a940a1) — rule candidate: assert the URL a page settles on, never one it passes through.
-- **Seed device key.** The dev seed printed the "shown once" key when only the _revoked_ seed device was inserted, because `devices` counted both rows — a review LOW — fix: `ensureAttendanceSeed` returns `activeDeviceCreated` and the print keys on it (#2320) — rule candidate: a "shown once" secret is printed on the flag of the exact row that holds it, never on a count.
-- **Redis-down drill not run live (D48).** Stopping the shared `redis` container would break every other agent's test-env slice, so the drill in #2444 is an owner action after deploy. What covers it until then: `app-throttler.guard.e2e-spec.ts` (throwing store → 503), `platform-alerts.service.spec.ts` (3 fails open one row, one "recovered" text, the hourly repeat sends only when its conditional UPDATE wins), `platform-alerts.controller.e2e-spec.ts` (platform-only), and `e2e/platform/platform-alert-banner.spec.ts` (banner) — rule candidate: a drill that needs a shared container stopped runs on a deploy target, never on the shared local stack.
+- **JWT pin and rotation.** Pinning HS256 + issuer + audience logs out every token minted before the change once (no `iss`/`aud`), by design (D21) — none in practice, the client's refresh path re-mints because refresh tokens are DB rows — fix: #2317 — rule candidate: a token-format change ships with a note that names who gets one 401 and why it self-heals; secret rotation is "old value to `JWT_SECRET_PREVIOUS`, wait out the access-token lifetime (15 min), remove", and after a leak a hard swap with no `JWT_SECRET_PREVIOUS` (refresh re-mints, so nobody signs in again). → Rule 10
+- **bcrypt timing padding.** Raising the cost to 12 _reversed_ the enumeration oracle instead of closing it: every real account still had a cost-10 hash (~80 ms) while an unknown identifier paid the cost-12 dummy (~320 ms) — one review round — fix: `verifyPassword` in `auth/password-hash.ts` pads a cost-`r` check with throw-away hashes at costs `r..11`, run one after another, and every password check (login, change-password, step-up, social connect, contact-change) goes through it (#2319, 9e41e1404) — rule candidate: a security cost change is checked for _every_ stored-data state the system is in on deploy day, not just new rows; no `bcrypt.compare` on a password outside `password-hash.ts`. → Rule 9
+- **Redis-down policy.** "Fail open everywhere" would mean unlimited password guessing while Redis is down, and "fail closed everywhere" would take the whole app down with it — the split is per route (D4) — fix: `AppThrottlerGuard` returns 503 only for routes marked `@FailClosedWithoutRedis()` (first a hand-kept route-string list, which was too wide, closing read-only social GETs, and fragile, since a renamed route failed open silently: review r1, F11); refresh, logout and every other route fail open; `/health/ready` reports `degraded` (#2326) — rule candidate: each Redis-backed control states its own down-mode in the ticket, and an e2e spec with a throwing store proves it (`app-throttler.guard.e2e-spec.ts`). → Rule 15
+- **Platform-only guards.** `@Roles(SUPER_ADMIN)` is also passed by a _school-local_ SUPER_ADMIN, so `GET /platform/alerts` and `GET /platform/attention/health` were open to every school's super admin, and the alert SMS went to them too — one review round — fix: `PlatformSuperAdminGuard` after `ContextGuard` on both routes (snapshot `TENANT_SA` PASS → 403), SMS recipients limited to the platform tenant's SUPER_ADMINs (da142ff55, 749d6954f) — rule candidate: a `/platform/*` route always carries `PlatformSuperAdminGuard`; the snapshot's `TENANT_SA` column must read 403 on every `/platform/*` row. `route-permissions.txt` does not record this guard, so only the route-status snapshot catches it. → Rule 20
+- **Enum-order drift is real, not a macOS artifact.** After the platform-alert backend (#2441), `api:types` reordered the literals of 12 enum unions in `ui/src/api/schema.d.ts` (e.g. `"TERM" | "MONTHLY" | "MODEL" | "OTHER"` → `"TERM" | "OTHER" | "MONTHLY" | "MODEL"`). It was written off as "macOS only" and reverted by hand, and CI's `check-api-types` then failed, so the integration and server e2e suites never ran on that head. Cause: the `@nestjs/swagger` CLI plugin writes a string-literal union in the order TypeScript created those literal types. `health.module.ts` started importing the SMS gateways and the platform-alerts service, which moved files that mention `'OTHER'`, `'WEEKLY'`, `'ACCEPTED'` and `'REJECTED'` earlier in the program, so the checker created those literals first. The order is the same on macOS and Linux for the same code (the base branch had 0 drift on both) — fix: regenerate and commit the reorder (review r1, F1) — rule candidate: an `api:types` reorder is real drift; commit it, never revert it by hand. If it only shows up on one machine, rebuild from clean (`rm -rf server/dist`) before calling it platform noise. → no rule (tooling: `check-api-types` catches it; commit the reorder)
+- **Cost 12 slows every test login.** The shared test fixture hash (`server/test/constants.ts`) was cost 10, so each fixture login paid the cost-12 padding _plus_ a rehash write (~580 ms instead of ~70 ms). Specs that sign in ten roles per test hit the 10 s hook timeout, and bcrypt work still running when the vitest thread was torn down aborted the whole server e2e run (`libc++abi: Napi::Error`, SIGABRT) — two red full runs — fix: fixture hash at cost 12 (311161f67); a login is still ~4x slower than before, so login-heavy specs (documents journey: 1.3 s → 2.9 s alone) have less headroom under load (#2456) — rule candidate: when a security cost goes up, test fixtures move to the same cost in the same ticket, and the slowest login-heavy spec is timed before and after. → Rule 9 (fixtures move to the same cost)
+- **Global tables and parallel e2e.** The banner Playwright spec opened and cleared the one global `platform_alerts` table from four tests running in parallel, so one test's clear hid another's banner — flaky first tries — fix: `test.describe.configure({ mode: 'serial' })` (3c8f48444) — rule candidate: a Playwright spec that writes a table with no tenant column runs serial. → no rule (test hygiene: a spec that writes a table with no tenant column runs serial)
+- **Transient URLs under load.** Slower activation (cost-12 hash) made `toHaveURL(/dashboard/)` miss the brief `/dashboard` before the first-visit gate moved a new school's admin to `/welcome` — fix: accept either (4e1a940a1) — rule candidate: assert the URL a page settles on, never one it passes through. → no rule (test hygiene: assert the URL a page settles on)
+- **Seed device key.** The dev seed printed the "shown once" key when only the _revoked_ seed device was inserted, because `devices` counted both rows — a review LOW — fix: `ensureAttendanceSeed` returns `activeDeviceCreated` and the print keys on it (#2320) — rule candidate: a "shown once" secret is printed on the flag of the exact row that holds it, never on a count. → no rule (one-off: dev seed only)
+- **Redis-down drill not run live (D48).** Stopping the shared `redis` container would break every other agent's test-env slice, so the drill in #2444 is an owner action after deploy. What covers it until then: `app-throttler.guard.e2e-spec.ts` (throwing store → 503), `platform-alerts.service.spec.ts` (3 fails open one row, one "recovered" text, the hourly repeat sends only when its conditional UPDATE wins), `platform-alerts.controller.e2e-spec.ts` (platform-only), and `e2e/platform/platform-alert-banner.spec.ts` (banner) — rule candidate: a drill that needs a shared container stopped runs on a deploy target, never on the shared local stack. → Rule 15 (the live drill is an owner action after deploy)
 
 ### Wave 2 — 2026-10-14
 
@@ -1091,17 +1286,17 @@ flowchart LR
   V --> A["recovery, OTP, resend: one lookup,<br/>rest in detach() (75.17)"]
 ```
 
-- **A hand-picked list of params missed whole modules.** 75.13 added `ParseUUIDPipe` to the modules its ticket named, and academics, attendance and calendar params still let a malformed id reach Postgres as a 500 — a second ticket (75.13-b, #2437) — fix: `param-uuid-coverage.spec.ts`, which fails on any `@Param` with no pipe that is not on a reviewed allowlist (9eebbc45b). Review then found it counted _any_ pipe as covered and missed an `@Param(` spread over several lines (2a23dafc6) — rule candidate: every `:id` param goes through `ParseUUIDPipe`, enforced by a whole-file contract spec, not by a list in a ticket.
-- **A server cap silently cut three client callers.** Capping `GET /students` at `limit=100` meant bulk certificates refused any class over 100, program-enrol "select all" covered only the first 100, and the generate-fines preview showed "—" past row 100 — one review round — fix: `useAllStudents` pages through `fetchAllPages` (ef87bc053, #2322) — rule candidate: before a ticket adds a server-side cap, it greps every client and e2e caller that asks for more and pages them in the same ticket.
-- **A 400 test passed for the wrong reason.** One DTO-bounds case got its 400 from "Student not found" (the setup wiped the student), not from the field it meant to test — review r1 — fix: every 400 case asserts the message names the field under test (a8d24e3d5) — rule candidate: a validation test asserts _which_ field failed, not just the status.
-- **One raw ILIKE survived.** `PaymentService.findAll` still built its search pattern by hand, so `%` matched every row — fix: it now goes through `normalizeSearchTerm`, plus `sql-interpolation.contract.spec.ts`, which fails on a `${}` reaching a query call (acc013700). Review widened the spec to generic `.query<T>(`, join conditions, `orHaving` and `distinctOn`, with the allowlist pinned to exact expressions per file (b21e251cb) — rule candidate: no `${}` in SQL; LIKE input goes through the escape helper; the contract spec names its own blind spots.
-- **"Detach the send" was not enough to hide account existence.** The first 75.17 commit only moved the provider send after the response. The inactive, opt-out and cooldown checks, the token issue and the audit insert still ran on the request path for known accounts only, so the timing gap stayed — one review round — fix: the request path does the one identifier lookup and nothing else; everything after it runs inside one `detach()` job, and specs assert exactly one query on the request path for known and unknown identifiers (2f66eaa09, fceda0c28). `detach()` awaits only under `ACCOUNT_ACCESS_ECHO_SECRETS`, which production refuses to boot with — rule candidate: "takes equal time" means equal work before the response, proved by counting queries, not by a stopwatch.
-- **A required field broke a journey nobody listed.** Making `captcha_token` required on the public admission submit broke `e2e/journeys/office-staff-role.spec.ts`, which posts to that route — review r1 — fix: the journey sends `no-captcha` like `e2e/responsive/routes.ts` (51348e143, #2324) — rule candidate: a ticket that adds a required field to a route greps `e2e/` and the clients for every caller of that route.
-- **Turnstile fails closed with no warning at boot.** With no `TURNSTILE_SECRET_KEY` in production every admission submit is a 503, which is safe, but nothing tells the operator at start-up — fix: not in this epic (#2476: boot check, multipart text limits, `required` in `@ApiBody`) — rule candidate: a fail-closed dependency also gets a boot-time check, or a deploy turns the feature off silently.
-- **Small leaks are one text, everywhere.** The duplicate-user 409 echoed the email address, and after 75.19 the pre-check and the unique-index race path still used different texts, so the two paths could be told apart — fix: both say "That email address or phone number is already in use" (8b249e35c, deca6390a). `X-Request-Id` is kept only if it is 1-64 of `[A-Za-z0-9_-]` — rule candidate: a uniqueness 409 never repeats the value, and every path that can raise it uses the same text.
-- **Share-link expiry had three side doors.** The first migration backfilled then set NOT NULL (two statements, a rolling deploy could insert NULLs between them), a rollback would have revived expired links, and the service worker kept serving a receipt link offline after it expired, because Workbox ignores `no-store` — review r1 — fix: one metadata-only `ADD COLUMN … DEFAULT now() + 30 days` (0576eb5ca), `down()` revokes expired links before dropping the column, `/api/v1/public/invoices/*` is excluded from the service-worker cache (86c4c422f), and regenerate holds a per-invoice advisory lock (454c29782, #2438) — rule candidate: an expiring public link is checked on every path that can still serve it: DB, rollback and offline cache.
-- **Spot-checks, live.** On a built server against a seeded test-env database: `GET /students/not-a-uuid` → 400; `?limit=100000` → 400 and `?limit=1` → 200; `?search=%` → 1 of 19 rows, the one whose name holds a literal `%`; a public admission submit with no `captcha_token` → 400. Share link minted before the migration (a row with `created_at` 100 days ago and no `expires_at`, inserted after reverting the migration): after migrating, `expires_at` = migration time + 30.000 days and the link opens (200); after `POST /invoices/:id/share/regenerate` the old link is 404 and the new one 200 (D9, D22). Smoke 7/7. `yarn config:check` with `.env.example` loaded refuses to start (placeholder `JWT_SECRET` fails its length check, and `DB_SSL` is not `true`).
-- **Demo seed.** 75.19-b added `invoice_share_tokens.expires_at`. The demo-seed runner is not on `main` yet, so the column is recorded on #2177 (slice `invoices.ts`, `expires_at = now() + 30 days`), as `22-demo-seed.md` says. The column's DB default already gives every seeded link a valid value.
+- **A hand-picked list of params missed whole modules.** 75.13 added `ParseUUIDPipe` to the modules its ticket named, and academics, attendance and calendar params still let a malformed id reach Postgres as a 500 — a second ticket (75.13-b, #2437) — fix: `param-uuid-coverage.spec.ts`, which fails on any `@Param` with no pipe that is not on a reviewed allowlist (9eebbc45b). Review then found it counted _any_ pipe as covered and missed an `@Param(` spread over several lines (2a23dafc6) — rule candidate: every `:id` param goes through `ParseUUIDPipe`, enforced by a whole-file contract spec, not by a list in a ticket. → Rule 3
+- **A server cap silently cut three client callers.** Capping `GET /students` at `limit=100` meant bulk certificates refused any class over 100, program-enrol "select all" covered only the first 100, and the generate-fines preview showed "—" past row 100 — one review round — fix: `useAllStudents` pages through `fetchAllPages` (ef87bc053, #2322) — rule candidate: before a ticket adds a server-side cap, it greps every client and e2e caller that asks for more and pages them in the same ticket. → Rule 5
+- **A 400 test passed for the wrong reason.** One DTO-bounds case got its 400 from "Student not found" (the setup wiped the student), not from the field it meant to test — review r1 — fix: every 400 case asserts the message names the field under test (a8d24e3d5) — rule candidate: a validation test asserts _which_ field failed, not just the status. → Rule 5
+- **One raw ILIKE survived.** `PaymentService.findAll` still built its search pattern by hand, so `%` matched every row — fix: it now goes through `normalizeSearchTerm`, plus `sql-interpolation.contract.spec.ts`, which fails on a `${}` reaching a query call (acc013700). Review widened the spec to generic `.query<T>(`, join conditions, `orHaving` and `distinctOn`, with the allowlist pinned to exact expressions per file (b21e251cb) — rule candidate: no `${}` in SQL; LIKE input goes through the escape helper; the contract spec names its own blind spots. → Rule 4
+- **"Detach the send" was not enough to hide account existence.** The first 75.17 commit only moved the provider send after the response. The inactive, opt-out and cooldown checks, the token issue and the audit insert still ran on the request path for known accounts only, so the timing gap stayed — one review round — fix: the request path does the one identifier lookup and nothing else; everything after it runs inside one `detach()` job, and specs assert exactly one query on the request path for known and unknown identifiers (2f66eaa09, fceda0c28). `detach()` awaits only under `ACCOUNT_ACCESS_ECHO_SECRETS`, which production refuses to boot with — rule candidate: "takes equal time" means equal work before the response, proved by counting queries, not by a stopwatch. → Rule 18
+- **A required field broke a journey nobody listed.** Making `captcha_token` required on the public admission submit broke `e2e/journeys/office-staff-role.spec.ts`, which posts to that route — review r1 — fix: the journey sends `no-captcha` like `e2e/responsive/routes.ts` (51348e143, #2324) — rule candidate: a ticket that adds a required field to a route greps `e2e/` and the clients for every caller of that route. → Rule 22
+- **Turnstile fails closed with no warning at boot.** With no `TURNSTILE_SECRET_KEY` in production every admission submit is a 503, which is safe, but nothing tells the operator at start-up — fix: not in this epic (#2476: boot check, multipart text limits, `required` in `@ApiBody`) — rule candidate: a fail-closed dependency also gets a boot-time check, or a deploy turns the feature off silently. → Rule 22 (boot check still open: #2476)
+- **Small leaks are one text, everywhere.** The duplicate-user 409 echoed the email address, and after 75.19 the pre-check and the unique-index race path still used different texts, so the two paths could be told apart — fix: both say "That email address or phone number is already in use" (8b249e35c, deca6390a). `X-Request-Id` is kept only if it is 1-64 of `[A-Za-z0-9_-]` — rule candidate: a uniqueness 409 never repeats the value, and every path that can raise it uses the same text. → Rule 23, Rule 13
+- **Share-link expiry had three side doors.** The first migration backfilled then set NOT NULL (two statements, a rolling deploy could insert NULLs between them), a rollback would have revived expired links, and the service worker kept serving a receipt link offline after it expired, because Workbox ignores `no-store` — review r1 — fix: one metadata-only `ADD COLUMN … DEFAULT now() + 30 days` (0576eb5ca), `down()` revokes expired links before dropping the column, `/api/v1/public/invoices/*` is excluded from the service-worker cache (86c4c422f), and regenerate holds a per-invoice advisory lock (454c29782, #2438) — rule candidate: an expiring public link is checked on every path that can still serve it: DB, rollback and offline cache. → Rule 16, Rule 14
+- **Spot-checks, live.** On a built server against a seeded test-env database: `GET /students/not-a-uuid` → 400; `?limit=100000` → 400 and `?limit=1` → 200; `?search=%` → 1 of 19 rows, the one whose name holds a literal `%`; a public admission submit with no `captcha_token` → 400. Share link minted before the migration (a row with `created_at` 100 days ago and no `expires_at`, inserted after reverting the migration): after migrating, `expires_at` = migration time + 30.000 days and the link opens (200); after `POST /invoices/:id/share/regenerate` the old link is 404 and the new one 200 (D9, D22). Smoke 7/7. `yarn config:check` with `.env.example` loaded refuses to start (placeholder `JWT_SECRET` fails its length check, and `DB_SSL` is not `true`). → no rule (verification record)
+- **Demo seed.** 75.19-b added `invoice_share_tokens.expires_at`. The demo-seed runner is not on `main` yet, so the column is recorded on #2177 (slice `invoices.ts`, `expires_at = now() + 30 days`), as `22-demo-seed.md` says. The column's DB default already gives every seeded link a valid value. → no rule (covered by the demo-seed rule in root `CLAUDE.md`)
 
 ### Wave 3 — 2026-10-14
 
@@ -1120,13 +1315,13 @@ flowchart LR
   S --> O["outbound HTTP only via pinned-http.ts (75.24)"]
 ```
 
-- **Cache headers by default.** `no-store` is set on every `/api/*` response before the handler runs, and a route that needs its own value (the ICS feed, immutable asset routes) overwrites it — none — fix: `apiNoStoreByDefault` and `setStaticCacheHeaders` in `server/src/cache-control.ts` (#2328) — rule candidate: a cache header is a default set in one place, with per-route overrides, never a per-route opt-in. Checked live on a built server: `GET /api/v1/students` (200) and an unauthenticated 401 both carry `Cache-Control: no-store`. The SPA shell header is only served with `NODE_ENV=production`, which refuses a non-TLS local Postgres (`DB_SSL`), so `cache-control.e2e-spec.ts` covers it and the compose check is an owner action.
-- **Source maps.** A failed Sentry upload could leave hidden `.map` files in `client-admin/dist`, so "Vite does not emit them" was not enough — fix: `scripts/build-all.sh` deletes every `*.map` before it finishes (#2329) — rule candidate: a "never ship X" rule is enforced on the build output, not on the build config.
-- **Infra test bugs, not nginx bugs.** CI failed three hardening checks: the template aligns values with extra spaces and the check matched one space, and the slow-header timer wrapped the whole pipeline, so it always read ~21 s. The CI loop also stopped at the first failing script, so later infra tests never ran — one fix round — fix: squeeze spaces before matching, time the client itself, run every `*.infra.test.sh` and fail at the end (3a81ded87) — rule candidate: a test loop over scripts runs them all and reports at the end; config greps normalise whitespace first.
-- **Token redaction has two layers.** nginx's `redacted` access-log format masks path and query tokens, and pino's `redactPii` masks them again in the API log. The SPA share links (`/i/:token`, `/v/:token`) slipped through until the pattern also matched inside full URLs and `next=/i/tok` — one review round — fix: 37cedfd52 (#2331). Checked live: `GET /api/v1/public/invoices/<token>` and `?token=<value>` both log as `[REDACTED]`, and the raw values appear nowhere in the log — rule candidate: every new secret-bearing URL shape is added to `redactPii` and its spec in the same ticket that adds the route.
-- **Outbound HTTP guard.** The first contract spec only matched `fetch(`; review found `globalThis.fetch`, `fetch` passed as a value, dynamic imports, `ws`, raw `net`/`tls` and AWS SDK clients — one review round — fix: 75704314d (#2332) — rule candidate: a "no X outside helper Y" contract spec lists its own blind spots in a comment, so a reviewer knows what it cannot see.
-- **xlsx guard on the event loop.** Measuring each zip entry with sync inflate blocked every request while one upload was checked — fix: async `zlib.inflateRaw` with `maxOutputLength`, and "too large" is no longer reported as "not a valid file" (9dce2379f, #2330) — rule candidate: a guard that does CPU work on user input runs off the event loop.
-- **Live compose checks are owner actions.** Smoke through nginx, `.map` denial, the nginx access log and an SSRF refusal per migrated caller on the compose stack need Docker containers, which this run may not start. Covered here by the smoke run against a built server on a seeded test-env database (7/7) by the `nginx/test/*.infra.test.sh` scripts that CI's `infra` job runs, and for SSRF by `outbound-http.contract.spec.ts` plus the SMS gateway specs.
+- **Cache headers by default.** `no-store` is set on every `/api/*` response before the handler runs, and a route that needs its own value (the ICS feed, immutable asset routes) overwrites it — none — fix: `apiNoStoreByDefault` and `setStaticCacheHeaders` in `server/src/cache-control.ts` (#2328) — rule candidate: a cache header is a default set in one place, with per-route overrides, never a per-route opt-in. Checked live on a built server: `GET /api/v1/students` (200) and an unauthenticated 401 both carry `Cache-Control: no-store`. The SPA shell header is only served with `NODE_ENV=production`, which refuses a non-TLS local Postgres (`DB_SSL`), so `cache-control.e2e-spec.ts` covers it and the compose check is an owner action. → Rule 14
+- **Source maps.** A failed Sentry upload could leave hidden `.map` files in `client-admin/dist`, so "Vite does not emit them" was not enough — fix: `scripts/build-all.sh` deletes every `*.map` before it finishes (#2329) — rule candidate: a "never ship X" rule is enforced on the build output, not on the build config. → no rule (one place enforces it: `scripts/build-all.sh` deletes every `*.map`)
+- **Infra test bugs, not nginx bugs.** CI failed three hardening checks: the template aligns values with extra spaces and the check matched one space, and the slow-header timer wrapped the whole pipeline, so it always read ~21 s. The CI loop also stopped at the first failing script, so later infra tests never ran — one fix round — fix: squeeze spaces before matching, time the client itself, run every `*.infra.test.sh` and fail at the end (3a81ded87) — rule candidate: a test loop over scripts runs them all and reports at the end; config greps normalise whitespace first. → no rule (test hygiene: a test loop runs every script and fails at the end)
+- **Token redaction has two layers.** nginx's `redacted` access-log format masks path and query tokens, and pino's `redactPii` masks them again in the API log. The SPA share links (`/i/:token`, `/v/:token`) slipped through until the pattern also matched inside full URLs and `next=/i/tok` — one review round — fix: 37cedfd52 (#2331). Checked live: `GET /api/v1/public/invoices/<token>` and `?token=<value>` both log as `[REDACTED]`, and the raw values appear nowhere in the log — rule candidate: every new secret-bearing URL shape is added to `redactPii` and its spec in the same ticket that adds the route. → Rule 13
+- **Outbound HTTP guard.** The first contract spec only matched `fetch(`; review found `globalThis.fetch`, `fetch` passed as a value, dynamic imports, `ws`, raw `net`/`tls` and AWS SDK clients — one review round — fix: 75704314d (#2332) — rule candidate: a "no X outside helper Y" contract spec lists its own blind spots in a comment, so a reviewer knows what it cannot see. → Rule 7
+- **xlsx guard on the event loop.** Measuring each zip entry with sync inflate blocked every request while one upload was checked — fix: async `zlib.inflateRaw` with `maxOutputLength`, and "too large" is no longer reported as "not a valid file" (9dce2379f, #2330) — rule candidate: a guard that does CPU work on user input runs off the event loop. → Rule 6
+- **Live compose checks are owner actions.** Smoke through nginx, `.map` denial, the nginx access log and an SSRF refusal per migrated caller on the compose stack need Docker containers, which this run may not start. Covered here by the smoke run against a built server on a seeded test-env database (7/7) by the `nginx/test/*.infra.test.sh` scripts that CI's `infra` job runs, and for SSRF by `outbound-http.contract.spec.ts` plus the SMS gateway specs. → no rule (verification record)
 
 ### Wave 4 — 2026-10-14
 
@@ -1144,10 +1339,10 @@ flowchart LR
   I --> B["backup: uid 10001 under supercronic,<br/>schedule-only crontab (75.29)"]
 ```
 
-- **A lane's territory left a file out.** The image-pin lane owned `docker-compose.yml` and the backup Dockerfile, not the root `Dockerfile`, so the app's own `node:26-alpine` base stayed on a floating tag after the lane said "done" — one integration commit — fix: 92e522e70 pins it and extends the infra test's `FROM` check (#2337) — rule candidate: an "every X in the repo" ticket lists its files with `git ls-files`, and its check scans the same list, not the lane's territory.
-- **Healthcheck dependencies change boot timing.** Making nginx wait for `app: service_healthy` meant a cold app boot slower than ~90 s aborted `docker compose up` — a review finding — fix: `start_period: 60s` on the app healthcheck (60cce35ac) — rule candidate: a new `depends_on: condition: service_healthy` comes with a `start_period` sized to the slowest real cold boot.
-- **Non-root cron needs a different cron.** busybox `crond` needs root and drops the container env, which is why the old backup image wrote secrets into a crontab file. supercronic runs as uid 10001 and passes the env to jobs, so the crontab now holds the schedule only — fix: 295385ea3 (#2337) — rule candidate: when a container moves off root, check every tool in it that assumed root, and what it did to work around the env.
-- **Untracking without rewriting history.** `server/graphify-out/` and `.epic-8.5-state.md` were removed from the index only, so the files stay on disk and old commits still hold them (D18) — fix: `.gitignore` entries plus `scripts/check-tracked-files.mjs`, run in the `ci:local` audit section and the CI audit job (#2336) — rule candidate: "this must stay local" is a CI guard, not a `.gitignore` line, because `.gitignore` does nothing for a file someone force-adds. Checked here: the guard prints `OK`, and `git ls-files` only holds the two deliberately tracked root `graphify-out/README.md` and `cost.json`.
-- **SHA pins and the timings push.** Turning off `persist-credentials` on every checkout broke nothing except the one job that pushes CI timings, which now gets a step-scoped token — fix: 9c133ba58 (#2334) — rule candidate: before removing a default credential, grep the workflows for `git push` and give only those steps a token. Checked here: no `uses:` without a 40-character SHA, every `actions/checkout` sets `persist-credentials: false`, and `actionlint` is clean. Whether the GitHub Actions run on `main` stays green with the pins is only provable after the merge.
-- **Owner actions left open.** Rebuilding the compose stack from the pinned images (`docker compose build --no-cache && docker compose up -d`), the healthy-status check, `docker compose exec backup id -u` and the GitHub settings in "Repository and GitHub settings" above all need Docker or repo admin rights, which this run did not use. Statically: the backup Dockerfile ends in `USER backup` (uid 10001), and every `FROM` and pulled `image:` carries `@sha256:` (the two locally built images, `biddaloy-app` and `biddaloy-backup`, have no registry digest by design).
-- **`ci:local --full` reused one database across sections.** The integration section's vitest global-setup drops the run's database and re-creates it with test fixtures only, and the e2e section then ran `seed` on top of it. With no `default-school` row, the dev platform tenant could not be resolved, so every platform SUPER_ADMIN call got 403 and `/admission/default-school` said "school not found": 16 red Playwright specs that all pass alone, and pass in CI, where each job has its own database — one full run to triage — fix: `fresh_stack` in `scripts/ci-local.sh` gives the e2e and lighthouse sections a fresh test-env slice — rule candidate: a local runner that mirrors several CI jobs gives each job the same fresh state CI does; a spec that fails only in the full local run is first checked for state left by an earlier section.
+- **A lane's territory left a file out.** The image-pin lane owned `docker-compose.yml` and the backup Dockerfile, not the root `Dockerfile`, so the app's own `node:26-alpine` base stayed on a floating tag after the lane said "done" — one integration commit — fix: 92e522e70 pins it and extends the infra test's `FROM` check (#2337) — rule candidate: an "every X in the repo" ticket lists its files with `git ls-files`, and its check scans the same list, not the lane's territory. → Rule 21
+- **Healthcheck dependencies change boot timing.** Making nginx wait for `app: service_healthy` meant a cold app boot slower than ~90 s aborted `docker compose up` — a review finding — fix: `start_period: 60s` on the app healthcheck (60cce35ac) — rule candidate: a new `depends_on: condition: service_healthy` comes with a `start_period` sized to the slowest real cold boot. → no rule (ops: size `start_period` to the slowest cold boot)
+- **Non-root cron needs a different cron.** busybox `crond` needs root and drops the container env, which is why the old backup image wrote secrets into a crontab file. supercronic runs as uid 10001 and passes the env to jobs, so the crontab now holds the schedule only — fix: 295385ea3 (#2337) — rule candidate: when a container moves off root, check every tool in it that assumed root, and what it did to work around the env. → no rule (one-off: the backup image)
+- **Untracking without rewriting history.** `server/graphify-out/` and `.epic-8.5-state.md` were removed from the index only, so the files stay on disk and old commits still hold them (D18) — fix: `.gitignore` entries plus `scripts/check-tracked-files.mjs`, run in the `ci:local` audit section and the CI audit job (#2336) — rule candidate: "this must stay local" is a CI guard, not a `.gitignore` line, because `.gitignore` does nothing for a file someone force-adds. Checked here: the guard prints `OK`, and `git ls-files` only holds the two deliberately tracked root `graphify-out/README.md` and `cost.json`. → no rule (enforced by `scripts/check-tracked-files.mjs` in CI)
+- **SHA pins and the timings push.** Turning off `persist-credentials` on every checkout broke nothing except the one job that pushes CI timings, which now gets a step-scoped token — fix: 9c133ba58 (#2334) — rule candidate: before removing a default credential, grep the workflows for `git push` and give only those steps a token. Checked here: no `uses:` without a 40-character SHA, every `actions/checkout` sets `persist-credentials: false`, and `actionlint` is clean. Whether the GitHub Actions run on `main` stays green with the pins is only provable after the merge. → Rule 21
+- **Owner actions left open.** Rebuilding the compose stack from the pinned images (`docker compose build --no-cache && docker compose up -d`), the healthy-status check, `docker compose exec backup id -u` and the GitHub settings in "Repository and GitHub settings" above all need Docker or repo admin rights, which this run did not use. Statically: the backup Dockerfile ends in `USER backup` (uid 10001), and every `FROM` and pulled `image:` carries `@sha256:` (the two locally built images, `biddaloy-app` and `biddaloy-backup`, have no registry digest by design). → no rule (verification record)
+- **`ci:local --full` reused one database across sections.** The integration section's vitest global-setup drops the run's database and re-creates it with test fixtures only, and the e2e section then ran `seed` on top of it. With no `default-school` row, the dev platform tenant could not be resolved, so every platform SUPER_ADMIN call got 403 and `/admission/default-school` said "school not found": 16 red Playwright specs that all pass alone, and pass in CI, where each job has its own database — one full run to triage — fix: `fresh_stack` in `scripts/ci-local.sh` gives the e2e and lighthouse sections a fresh test-env slice — rule candidate: a local runner that mirrors several CI jobs gives each job the same fresh state CI does; a spec that fails only in the full local run is first checked for state left by an earlier section. → no rule (test infrastructure, fixed in `scripts/ci-local.sh`)
