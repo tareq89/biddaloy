@@ -76,6 +76,11 @@ export class AuthTokenService {
       if (input.tenantId) {
         revokeQb.andWhere('tenant_id = :tenantId', { tenantId: input.tenantId });
       }
+      // [75.1] A token kind (metadata.kind, e.g. ADMIN_PROPOSAL) only replaces tokens of its own
+      // kind, so a school's proposal and the person's own link never cancel each other.
+      revokeQb.andWhere("COALESCE(metadata->>'kind', '') = :kind", {
+        kind: (input.metadata?.kind as string | undefined) ?? '',
+      });
       await revokeQb.execute();
 
       const raw = generateSecret();

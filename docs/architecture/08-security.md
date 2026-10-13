@@ -195,17 +195,25 @@ sequenceDiagram
   participant O as School A admins
   A->>S: PATCH /users/U {phone: new}
   S-->>A: 200 {phone: OLD, pending_contact_change: "phone"}
-  S->>U: approval link, sent to the CURRENT email/phone
+  S->>U: link to the CURRENT email/phone (shows the MASKED new value)
   S->>O: notice "School B asked to change U's phone" (no new value)
-  U->>S: POST /auth/verify-email {token}
-  S->>S: write new phone (unverified), cut off + revoke sessions
+  U->>S: open link: POST /auth/verify-email {token} (shows it, changes nothing)
+  U->>S: press Approve: {token, action: approve} (or Decline: cancels, tells School B)
+  S->>S: one transaction: lock user, re-check, write (unverified), consume link
+  S->>S: cut off + revoke sessions
 ```
 
 - The link goes to the person's current verified email, else current verified
   phone, else whatever they have; never to the proposed value. No contact on
   file: `409 NO_CONTACT`.
 - It is an `EMAIL_VERIFY` token with `metadata.kind = 'ADMIN_PROPOSAL'` (3-day
-  TTL); the latest proposal from a school revokes its earlier one.
+  TTL); the latest proposal from a school revokes its earlier proposal only
+  (never the person's own email-change link). The token stores where the link
+  was sent; if that contact has changed by approval time the link is refused.
+- Opening the link never approves: the page shows the school and the masked
+  value (`+88017••••998`, `j•••@example.com`) with Approve and Decline.
+- Approval re-checks, under a row lock, that the account keeps an email or
+  phone and that the new value is still unique; a refusal leaves the link usable.
 - Any contact change that is written (approved, or a single-school user's
   admin edit) sets `users.tokens_valid_after` and revokes refresh tokens, so
   whoever held the old contact is signed out everywhere.

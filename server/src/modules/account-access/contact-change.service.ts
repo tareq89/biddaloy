@@ -22,6 +22,7 @@ import { OTP_REDIS } from './otp.service';
 import { OtpService } from './otp.service';
 import { AuthTokenService, EMAIL_VERIFY_TTL_MS } from './auth-token.service';
 import type { ContactField } from './account-access-templates';
+import { maskEmail, maskPhone } from './contact-mask.util';
 import { AccountAccessDeliveryService, pickChannel } from './account-access-delivery.service';
 import { isSecretEchoEnabled } from './account-access-echo';
 import { resolveAppBaseUrl } from './app-base-url.util';
@@ -34,6 +35,40 @@ const ADMIN_PROPOSAL_TTL_MS = 72 * 3_600_000;
 interface PendingPhoneChange {
   field: 'phone';
   value: string;
+}
+
+/** What an ADMIN_PROPOSAL token stores in `auth_tokens.metadata`. */
+interface AdminProposalMeta {
+  kind?: string;
+  new_email?: string | null;
+  new_phone?: string | null;
+  proposed_in_tenant_id?: string;
+  sent_to?: { medium: string; address: string };
+}
+
+export interface ConfirmEmailResult {
+  status: string;
+  /** Only for status 'proposal': what the school asks for, values MASKED (null = remove it). */
+  proposal?: { from_school: string; new_email?: string | null; new_phone?: string | null };
+}
+
+function fieldOf(email: string | null | undefined, phone: string | null | undefined): ContactField {
+  return email !== undefined && phone !== undefined
+    ? 'both'
+    : email !== undefined
+      ? 'email'
+      : 'phone';
+}
+
+/** The proposed value(s) for the approval message, masked; `(removed)` when a contact is cleared. */
+function maskedNewValue(
+  email: string | null | undefined,
+  phone: string | null | undefined,
+): string {
+  const parts: string[] = [];
+  if (email !== undefined) parts.push(email ? maskEmail(email) : '(removed)');
+  if (phone !== undefined) parts.push(phone ? maskPhone(phone) : '(removed)');
+  return parts.join(' / ');
 }
 
 export type ContactChangeRequestResult =
@@ -167,9 +202,10 @@ export class ContactChangeService {
   /**
    * [75.1, D3/D23] A school admin asks to change the email/phone of a person who
    * also belongs to another school. Nothing is written to `users`: the person
-   * gets a link at their CURRENT contact (never the proposed one) and the
-   * other schools' admins get a notice that does not contain the new value.
-   * `confirmEmail` applies it when the person opens the link.
+   * gets a link at their CURRENT contact (never the proposed one) that shows
+   * the MASKED new value; the other schools' admins get a notice without it.
+   * The link only opens a page: the person must press Approve (`confirmEmail`
+   * with action 'approve') or Decline.
    */
   async proposeByAdmin(
     input: {
@@ -183,12 +219,7 @@ export class ContactChangeService {
   ): Promise<void> {
     const { userId, tenantId, actorUserId, email: newEmail, phone: newPhone } = input;
     const user = await this.userRepo.findOneOrFail({ where: { id: userId } });
-    const field: ContactField =
-      newEmail !== undefined && newPhone !== undefined
-        ? 'both'
-        : newEmail !== undefined
-          ? 'email'
-          : 'phone';
+    const field = fieldOf(newEmail, newPhone);
 
     // Approval goes to what the person has today: verified email, else verified phone, else any.
     const recipient =
@@ -228,7 +259,7 @@ export class ContactChangeService {
       }
     }
 
-    // Latest request wins: `issue()` revokes this school's earlier live link.
+    // Latest request from this school wins (`issue()` revokes its earlier ADMIN_PROPOSAL link only).
     const { raw } = await this.authTokens.issue({
       userId,
       tenantId,
@@ -240,6 +271,8 @@ export class ContactChangeService {
         new_email: newEmail,
         new_phone: newPhone,
         proposed_in_tenant_id: tenantId,
+        // Where the link went: at approval it must still be the person's contact (else stale).
+        sent_to: { medium: recipient.medium, address: recipient.to },
       },
     });
     const link = `${resolveAppBaseUrl(this.config)}/verify-email?token=${encodeURIComponent(raw)}`;
@@ -250,13 +283,19 @@ export class ContactChangeService {
     );
 
     // tenantId null: the person is shared, so the platform sends it (D28), not one school.
+    // (communication_logs.tenant_id is NOT NULL, so the record of this send is the audit row below.)
     await this.delivery.deliver({
       tenantId: null,
       medium: recipient.medium,
       to: recipient.to,
       recipientName: user.full_name,
       kind: 'CONTACT_CHANGE_APPROVAL_LINK',
-      vars: { link, from_school: proposer.name, field },
+      vars: {
+        link,
+        from_school: proposer.name,
+        field,
+        new_value: maskedNewValue(newEmail, newPhone),
+      },
     });
 
     const admins = await manager.query<
@@ -264,7 +303,8 @@ export class ContactChangeService {
     >(
       `SELECT DISTINCT ut.tenant_id, u.email, u.phone, u.full_name
          FROM user_tenants ut JOIN users u ON u.id = ut.user_id
-        WHERE ut.role = 'ADMIN' AND ut.deleted_at IS NULL AND u.deleted_at IS NULL
+        WHERE ut.role = 'ADMIN' AND ut.deleted_at IS NULL
+          AND u.deleted_at IS NULL AND u.status = 'ACTIVE' AND u.id <> $1
           AND ut.tenant_id IN (
             SELECT tenant_id FROM user_tenants
              WHERE user_id = $1 AND tenant_id <> $2 AND deleted_at IS NULL)`,
@@ -291,63 +331,154 @@ export class ContactChangeService {
       performed_by_user_id: actorUserId,
       ip_address: context.ip,
       user_agent: context.userAgent,
-      new_values: { operation: 'CONTACT_CHANGE_PROPOSED', field, proposed_by: actorUserId },
+      new_values: {
+        operation: 'CONTACT_CHANGE_PROPOSED',
+        field,
+        proposed_by: actorUserId,
+        sent_via: recipient.medium,
+        sent_to_masked:
+          recipient.medium === CommunicationMedium.EMAIL
+            ? maskEmail(recipient.to)
+            : maskPhone(recipient.to),
+      },
     });
   }
 
-  /** [75.1] The person approved a school's proposal: write it (unverified), sign them out everywhere. */
-  private async applyAdminProposal(
+  /** Still the contact the link was sent to? Else the proposal is stale. */
+  private sentToStillCurrent(
+    user: Pick<User, 'email' | 'phone'>,
+    meta: AdminProposalMeta,
+  ): boolean {
+    const sent = meta.sent_to;
+    if (!sent) return false;
+    return sent.medium === CommunicationMedium.EMAIL
+      ? user.email === sent.address
+      : user.phone === sent.address;
+  }
+
+  /** [75.1] The person pressed Approve: one transaction, token consumed last. */
+  private async approveAdminProposal(
     tokenId: string,
     userId: string,
     tenantId: string | null,
-    meta: { new_email?: string | null; new_phone?: string | null },
+    meta: AdminProposalMeta,
+    context: RequestContext,
+  ): Promise<{ status: string }> {
+    const outcome = await this.userRepo.manager.transaction(async (manager) => {
+      const user = await manager
+        .getRepository(User)
+        .findOne({ where: { id: userId }, lock: { mode: 'pessimistic_write' } });
+      if (!user) return 'unknown' as const;
+      if (!this.sentToStillCurrent(user, meta)) return 'revoked' as const;
+
+      // Re-check against the CURRENT state: another approval or a self-service change may have landed.
+      const nextEmail = meta.new_email !== undefined ? meta.new_email : user.email;
+      const nextPhone = meta.new_phone !== undefined ? meta.new_phone : user.phone;
+      if (!nextEmail && !nextPhone) {
+        throw new ConflictException({
+          message: 'This change would leave the account with no email or phone.',
+          details: { code: 'LAST_IDENTIFIER' },
+        });
+      }
+      const clash = await manager
+        .getRepository(User)
+        .createQueryBuilder('u')
+        .withDeleted()
+        .where('u.id <> :id AND (u.email = :email OR u.phone = :phone)', {
+          id: userId,
+          email: meta.new_email ?? '',
+          phone: meta.new_phone ?? '',
+        })
+        .getCount();
+      if (clash > 0) {
+        throw new ConflictException('That email address or phone number is already in use');
+      }
+
+      // `undefined` = not part of the proposal; `null` = clear it. Like any admin edit, new values start unverified.
+      const change: Partial<User> = {};
+      if (meta.new_email !== undefined) {
+        change.email = meta.new_email;
+        change.email_verified_at = null;
+      }
+      if (meta.new_phone !== undefined) {
+        change.phone = meta.new_phone;
+        change.phone_verified_at = null;
+      }
+      await manager.getRepository(User).update({ id: userId }, change);
+      // Last: a conflict above rolls back and leaves the link usable.
+      await this.authTokens.consume(tokenId, manager);
+      await this.auditService.record(
+        {
+          action: AuditAction.CONTACT_VERIFIED,
+          entity_type: 'User',
+          entity_id: userId,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          new_values: {
+            via: 'admin_proposal',
+            old_email: user.email,
+            old_phone: user.phone,
+            ...(meta.new_email !== undefined ? { new_email: meta.new_email } : {}),
+            ...(meta.new_phone !== undefined ? { new_phone: meta.new_phone } : {}),
+          },
+        },
+        manager,
+      );
+      return 'valid' as const;
+    });
+    if (outcome !== 'valid') return { status: outcome };
+
+    // After commit, from the app clock (see SessionCutoffService).
+    await this.sessionCutoff.cutOff(userId);
+    await this.refreshTokens.revokeAllForUser(userId);
+    return { status: 'valid' };
+  }
+
+  /** [75.1] The person pressed Decline: the proposal is cancelled and the asking school is told. */
+  private async declineAdminProposal(
+    tokenId: string,
+    userId: string,
+    meta: AdminProposalMeta,
     context: RequestContext,
   ): Promise<{ status: string }> {
     await this.authTokens.consume(tokenId);
+    const askingTenant = meta.proposed_in_tenant_id;
     const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user) return { status: 'unknown' };
-
-    // `undefined` = not part of the proposal; `null` = clear it. Like any admin edit, the new value starts unverified.
-    const change: Partial<User> = {};
-    if (meta.new_email !== undefined) {
-      change.email = meta.new_email;
-      change.email_verified_at = null;
+    if (!user || !askingTenant) return { status: 'declined' };
+    const field = fieldOf(meta.new_email, meta.new_phone);
+    const admins = await this.userRepo.manager.query<
+      Array<{ email: string | null; phone: string | null; full_name: string }>
+    >(
+      `SELECT DISTINCT u.email, u.phone, u.full_name
+         FROM user_tenants ut JOIN users u ON u.id = ut.user_id
+        WHERE ut.role = 'ADMIN' AND ut.tenant_id = $1 AND ut.deleted_at IS NULL
+          AND u.deleted_at IS NULL AND u.status = 'ACTIVE' AND u.id <> $2`,
+      [askingTenant, userId],
+    );
+    for (const admin of admins) {
+      const channel = pickChannel(admin);
+      if (!channel) continue;
+      await this.delivery.deliver({
+        tenantId: askingTenant,
+        ...channel,
+        recipientName: admin.full_name,
+        kind: 'CONTACT_CHANGE_DECLINED_NOTICE',
+        vars: { field, person: user.full_name },
+      });
     }
-    if (meta.new_phone !== undefined) {
-      change.phone = meta.new_phone;
-      change.phone_verified_at = null;
-    }
-    try {
-      await this.userRepo.update({ id: userId }, change);
-    } catch (err) {
-      if (
-        err instanceof QueryFailedError &&
-        (err as unknown as { code?: string }).code === '23505'
-      ) {
-        throw new ConflictException('That email address or phone number is already in use');
-      }
-      throw err;
-    }
-    await this.sessionCutoff.cutOff(userId);
-    await this.refreshTokens.revokeAllForUser(userId);
-
     await this.auditService.record({
-      action: AuditAction.CONTACT_VERIFIED,
+      action: AuditAction.UPDATE,
       entity_type: 'User',
       entity_id: userId,
-      tenant_id: tenantId,
+      tenant_id: askingTenant,
       performed_by_user_id: userId,
       ip_address: context.ip,
       user_agent: context.userAgent,
-      new_values: {
-        via: 'admin_proposal',
-        old_email: user.email,
-        old_phone: user.phone,
-        ...(meta.new_email !== undefined ? { new_email: meta.new_email } : {}),
-        ...(meta.new_phone !== undefined ? { new_phone: meta.new_phone } : {}),
-      },
+      new_values: { operation: 'CONTACT_CHANGE_DECLINED', field },
     });
-    return { status: 'valid' };
+    return { status: 'declined' };
   }
 
   async confirmPhone(userId: string, otp: string, context: RequestContext): Promise<void> {
@@ -404,19 +535,43 @@ export class ContactChangeService {
   }
 
   /** Public — the link is clicked from the inbox, possibly logged out. */
-  async confirmEmail(rawToken: string, context: RequestContext): Promise<{ status: string }> {
+  async confirmEmail(
+    rawToken: string,
+    context: RequestContext,
+    action?: 'approve' | 'decline',
+  ): Promise<ConfirmEmailResult> {
     const result = await this.authTokens.verify(rawToken, AuthTokenPurpose.EMAIL_VERIFY);
     if (result.status !== 'valid') {
       return { status: result.status };
     }
     const { row } = result;
-    const meta = row.metadata as {
-      kind?: string;
-      new_email?: string | null;
-      new_phone?: string | null;
-    } | null;
+    const meta = row.metadata as AdminProposalMeta | null;
     if (meta?.kind === 'ADMIN_PROPOSAL') {
-      return this.applyAdminProposal(row.id, row.user_id, row.tenant_id, meta, context);
+      // Opening the link never changes anything: the person must press Approve or Decline.
+      if (action === 'approve') {
+        return this.approveAdminProposal(row.id, row.user_id, row.tenant_id, meta, context);
+      }
+      if (action === 'decline') {
+        return this.declineAdminProposal(row.id, row.user_id, meta, context);
+      }
+      const owner = await this.userRepo.findOne({ where: { id: row.user_id } });
+      if (!owner || !this.sentToStillCurrent(owner, meta)) return { status: 'revoked' };
+      const [school] = await this.userRepo.manager.query<Array<{ name: string }>>(
+        'SELECT name FROM schools WHERE id = $1',
+        [meta.proposed_in_tenant_id],
+      );
+      return {
+        status: 'proposal',
+        proposal: {
+          from_school: school?.name ?? '',
+          ...(meta.new_email !== undefined
+            ? { new_email: meta.new_email ? maskEmail(meta.new_email) : null }
+            : {}),
+          ...(meta.new_phone !== undefined
+            ? { new_phone: meta.new_phone ? maskPhone(meta.new_phone) : null }
+            : {}),
+        },
+      };
     }
     const newEmail = (row.metadata as { new_email?: string } | null)?.new_email;
     if (!newEmail) {

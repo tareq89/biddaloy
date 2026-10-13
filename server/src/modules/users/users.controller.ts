@@ -420,16 +420,15 @@ export class UserController {
   ) {
     // [75.1] A shared person's email/phone is only proposed; they approve it from their current contact.
     const proposed = await this.userService.sharedIdentifierChanges(id, dto, tenant.id);
-    let applied = dto;
+    const { email: _email, phone: _phone, ...rest } = dto;
+    // Non-contact fields are saved first: if that fails, nobody has been messaged yet.
+    const user = await this.userService.update(id, proposed ? rest : dto, tenant.id, jwt.sub);
     if (proposed) {
-      const { email: _email, phone: _phone, ...rest } = dto;
-      applied = rest;
       await this.contactChangeService.proposeByAdmin(
         { userId: id, tenantId: tenant.id, actorUserId: jwt.sub, ...proposed },
         requestContext(request),
       );
     }
-    const user = await this.userService.update(id, applied, tenant.id, jwt.sub);
     const responseDto = UserResponseDto.fromEntity(user, tenant.id);
     responseDto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
     if (proposed) {
