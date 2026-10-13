@@ -211,6 +211,18 @@ describe('ResultSmsService.sendForExam', () => {
     );
   });
 
+  it('an enqueue failure releases the reference_key so a retry can send that pair', async () => {
+    const { service, queue, logRepo } = await buildService();
+    queue.add.mockRejectedValueOnce(new Error('redis down'));
+    const outcome = await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
+    expect(outcome.queued).toBe(0);
+    // The second save is the FAILED mark: it must not keep the dedup key.
+    const failedSave = logRepo.save.mock.calls[1][0];
+    expect(failedSave.status).toBe('FAILED');
+    expect(failedSave.reference_key).toBeNull();
+    expect(failedSave.metadata.released_reference_key).toMatch(/^exam-result:/);
+  });
+
   it('sends to the primary contact only, and skips an opted-out guardian', async () => {
     const mk = (id: string, primary: boolean, on = true) => ({
       id,
@@ -241,8 +253,20 @@ describe('ResultSmsService.sendForExam', () => {
           id: 'stu-1',
           full_name: 'Student One',
           guardians: [
-            { id: 'g1', phone: null, full_name: 'P', is_primary_contact: true, notifications_enabled: true },
-            { id: 'g2', phone: '017', full_name: 'S', is_primary_contact: false, notifications_enabled: true },
+            {
+              id: 'g1',
+              phone: null,
+              full_name: 'P',
+              is_primary_contact: true,
+              notifications_enabled: true,
+            },
+            {
+              id: 'g2',
+              phone: '017',
+              full_name: 'S',
+              is_primary_contact: false,
+              notifications_enabled: true,
+            },
           ],
         },
       ],

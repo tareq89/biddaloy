@@ -240,7 +240,13 @@ export class ResultSmsService {
         if (saved) {
           try {
             saved.status = CommunicationStatus.FAILED;
-            saved.metadata = { ...saved.metadata, error: 'Failed to enqueue for delivery' };
+            // Nothing was queued, so release the dedup key: a retry must be able to send this pair.
+            saved.metadata = {
+              ...saved.metadata,
+              error: 'Failed to enqueue for delivery',
+              released_reference_key: saved.reference_key,
+            };
+            saved.reference_key = null;
             await this.logRepo.save(saved);
           } catch (saveErr) {
             this.logger.error({
