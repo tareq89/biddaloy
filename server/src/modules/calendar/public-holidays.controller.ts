@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Permission, UserRole } from '@biddaloy/shared';
@@ -53,7 +63,7 @@ export class PublicHolidaysController {
   @Get('platform/holiday-sets/:id')
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get one platform public-holiday set. SUPER_ADMIN only.' })
-  async getSet(@Param('id') id: string) {
+  async getSet(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.getSet(id);
   }
 
@@ -73,7 +83,7 @@ export class PublicHolidaysController {
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: "Replace a holiday set's entries. SUPER_ADMIN only." })
   async updateEntries(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateHolidaySetEntriesDto,
     @CurrentUser() user: { sub: string },
   ) {
@@ -84,7 +94,7 @@ export class PublicHolidaysController {
   @Post('platform/holiday-sets/:id/publish')
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Publish a holiday set for tenants to import from. SUPER_ADMIN only.' })
-  async publish(@Param('id') id: string, @CurrentUser() user: { sub: string }) {
+  async publish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: { sub: string }) {
     return this.service.publish(id, user.sub);
   }
 
@@ -92,7 +102,7 @@ export class PublicHolidaysController {
   @Post('platform/holiday-sets/:id/unpublish')
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Unpublish a holiday set. SUPER_ADMIN only.' })
-  async unpublish(@Param('id') id: string, @CurrentUser() user: { sub: string }) {
+  async unpublish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: { sub: string }) {
     return this.service.unpublish(id, user.sub);
   }
 

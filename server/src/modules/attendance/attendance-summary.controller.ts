@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission, UserRole } from '@biddaloy/shared';
@@ -56,7 +56,7 @@ export class AttendanceSummaryController {
   })
   @ApiOkResponse({ type: AttendanceSummaryDto })
   async getStudentSummary(
-    @Param('studentId') studentId: string,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
     @Query() query: QueryStudentSummaryDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -72,7 +72,7 @@ export class AttendanceSummaryController {
     summary: "One student's day-by-day marks for one month — drives the portal month grid.",
   })
   async getStudentDays(
-    @Param('studentId') studentId: string,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
     @Query() query: QueryStudentDaysDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -97,7 +97,7 @@ export class AttendanceSummaryController {
   })
   @ApiOkResponse({ type: SectionSummaryDto })
   async getSectionSummary(
-    @Param('sectionId') sectionId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Query() query: QuerySectionSummaryDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -133,7 +133,7 @@ export class AttendanceSummaryController {
   })
   @ApiOkResponse({ type: RegisterMatrixDto })
   async getSectionRegisterMatrix(
-    @Param('sectionId') sectionId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Query() query: QueryRegisterMatrixDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -170,7 +170,7 @@ export class AttendanceSummaryController {
   })
   @ApiOkResponse({ type: SubjectSummaryDto })
   async getSectionSubjectSummary(
-    @Param('sectionId') sectionId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Query() query: QuerySectionSummaryDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -206,7 +206,7 @@ export class AttendanceSummaryController {
   })
   @ApiOkResponse({ type: AttendanceStreaksDto })
   async getSectionStreaks(
-    @Param('sectionId') sectionId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
   ) {
