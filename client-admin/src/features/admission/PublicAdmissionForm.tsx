@@ -31,6 +31,8 @@ import { Link } from '@tanstack/react-router';
 import { CircleAlertIcon, FileImageIcon, FileTextIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { NO_CAPTCHA_TOKEN, TURNSTILE_SITE_KEY, Turnstile } from '../registration/turnstile';
+
 import {
   documentFieldName,
   isUnknownSchool,
@@ -72,6 +74,9 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
   // real user never sees or fills it — a bot filling every visible field
   // fills this too. See `SubmitApplicantDto.middle_name_confirm`.
   const [honeypot, setHoneypot] = React.useState('');
+  const [captcha, setCaptcha] = React.useState<string | null>(null);
+  // A Turnstile token is single use: bumping the key remounts the widget after a failed submit.
+  const [captchaKey, setCaptchaKey] = React.useState(0);
 
   const intakes = intakesQuery.data ?? [];
   const selectedIntake = intakes.find((intake) => intake.id === intakeId);
@@ -104,6 +109,7 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
     else if (!guardianPhoneValid) found['guardian-phone'] = t('form.errors.phone');
     if (guardianEmail.trim() !== '' && !EMAIL_RE.test(guardianEmail.trim()))
       found['guardian-email'] = t('form.errors.email');
+    if (TURNSTILE_SITE_KEY && !captcha) found.captcha = t('form.errors.captcha');
     for (const type of selectedIntake?.required_document_types ?? []) {
       const field = documentFieldName(type);
       if (!documents[field]) found[`doc-${field}`] = t('form.errors.document');
@@ -131,13 +137,20 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
       gender,
       guardian_name: guardianName.trim(),
       guardian_phone: guardianPhone,
+      captcha_token: TURNSTILE_SITE_KEY && captcha ? captcha : NO_CAPTCHA_TOKEN,
       middle_name_confirm: honeypot,
       documents,
       ...(guardianEmail.trim() ? { guardian_email: guardianEmail.trim() } : {}),
       ...(homeAddress.trim() ? { home_address: homeAddress.trim() } : {}),
     };
 
-    submitMutation.mutate(input, { onSuccess: onSubmitted });
+    submitMutation.mutate(input, {
+      onSuccess: onSubmitted,
+      onError: () => {
+        setCaptcha(null);
+        setCaptchaKey((k) => k + 1);
+      },
+    });
   }
 
   const header = (
@@ -521,6 +534,13 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
           <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
             <CircleAlertIcon className="size-3.5 shrink-0" aria-hidden />
             {t('form.submitError')}
+          </p>
+        )}
+
+        <Turnstile key={captchaKey} onToken={setCaptcha} />
+        {errors.captcha && (
+          <p role="alert" className="text-caption text-destructive">
+            {errors.captcha}
           </p>
         )}
 

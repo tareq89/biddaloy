@@ -57,7 +57,8 @@
       "choose": "Please choose one.",
       "phone": "Enter a correct mobile number, like 01711-000004.",
       "document": "Please add this file.",
-      "email": "Enter a correct email address."
+      "email": "Enter a correct email address.",
+      "captcha": "Please complete the check above."
     }
   },
   "confirmation": {

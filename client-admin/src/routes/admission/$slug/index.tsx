@@ -17,7 +17,7 @@ import { PublicAdmissionForm } from '../../../features/admission/PublicAdmission
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 export const Route = createFileRoute('/admission/$slug/')({
-  loader: () => loadRouteNamespaces('admission-public'),
+  loader: () => loadRouteNamespaces('admission-public', 'register'),
   component: PublicAdmissionRoute,
 });
 
