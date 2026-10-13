@@ -40,6 +40,7 @@ import {
 } from './token-cookie';
 import { SameOriginGuard } from './guards/same-origin.guard';
 import { requestContext } from '../../common/request-context.util';
+import { FailClosedWithoutRedis } from '../../common/rate-limit/app-throttler.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -47,6 +48,7 @@ export class AuthController {
   constructor(@Inject(AuthService) private readonly authService: AuthService) {}
 
   @Post('login')
+  @FailClosedWithoutRedis()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
@@ -224,6 +226,7 @@ export class AuthController {
    * field into a 400.
    */
   @Post('change-password')
+  @FailClosedWithoutRedis()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseGuards(AuthGuard('jwt'))

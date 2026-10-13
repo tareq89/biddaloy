@@ -66,8 +66,8 @@ export class HealthService {
     ]);
 
     // Only Postgres failing pulls the API out of the load balancer. Redis, the queue or a stale
-    // engine degrade but never fail: the app still serves (rate limiter fails open, /auth/*
-    // sign-in fails closed, sessions are cut off in the DB), and the platform alert covers Redis.
+    // engine degrade but never fail: the app still serves (rate limiter fails open,
+    // @FailClosedWithoutRedis routes answer 503, sessions are cut off in the DB), and the platform alert covers Redis.
     const status =
       db !== 'ok'
         ? 'fail'

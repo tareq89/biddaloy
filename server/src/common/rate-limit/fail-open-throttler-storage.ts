@@ -8,7 +8,7 @@ export class ThrottlerStorageUnavailableError extends Error {}
 /**
  * Wraps the real (Redis-backed) storage. On any error it logs and throws
  * `ThrottlerStorageUnavailableError`: the storage only reports, `AppThrottlerGuard`
- * decides — fail closed for the `/auth/*` sign-in routes, fail open for the rest of the
+ * decides — fail closed for `@FailClosedWithoutRedis()` routes, fail open for the rest of the
  * app (Redis is already a hard dependency for BullMQ, so an outage here is already an
  * incident; the rate limiter shouldn't turn it into a site-wide 500 on top).
  * (File and class name kept from when this failed open everywhere.)

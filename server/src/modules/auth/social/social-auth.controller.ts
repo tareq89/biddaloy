@@ -28,6 +28,7 @@ import type { CookieOptions, Request, Response } from 'express';
 import { JwtPayload, SocialProvider } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../../rate-limit';
 import { requestContext } from '../../../common/request-context.util';
+import { FailClosedWithoutRedis } from '../../../common/rate-limit/app-throttler.guard';
 import { escapeHtml } from '../../invoices/invoice-print-format.util';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { setRefreshCookie } from '../token-cookie';
@@ -85,6 +86,7 @@ export class SocialAuthController {
   }
 
   @Delete('identities/:provider')
+  @FailClosedWithoutRedis()
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(AuthGuard('jwt'))
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -111,6 +113,7 @@ export class SocialAuthController {
    * Meta calls from a few IPs and a 429 would drop a real deletion request.
    */
   @Post('facebook/data-deletion')
+  @FailClosedWithoutRedis()
   @HttpCode(HttpStatus.OK)
   @ApiConsumes('application/x-www-form-urlencoded')
   @ApiOperation({ summary: "Meta's data-deletion callback: removes the Facebook identity only." })
@@ -151,6 +154,7 @@ export class SocialAuthController {
   }
 
   @Get(':provider/start')
+  @FailClosedWithoutRedis()
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({ summary: 'Redirect the browser to the provider to sign in or register.' })
   @ApiResponse({ status: HttpStatus.FOUND, description: 'Redirect to the provider.' })
@@ -175,6 +179,7 @@ export class SocialAuthController {
    * the browser to the returned URL.
    */
   @Post(':provider/link-start')
+  @FailClosedWithoutRedis()
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'))
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -194,6 +199,7 @@ export class SocialAuthController {
   }
 
   @Get(':provider/callback')
+  @FailClosedWithoutRedis()
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
     summary: 'Provider redirect target; completes sign-in, registration or connect.',

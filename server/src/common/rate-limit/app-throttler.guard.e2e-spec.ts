@@ -5,13 +5,14 @@ import { Controller, Get, INestApplication, Post } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
-import { AppThrottlerGuard } from './app-throttler.guard';
+import { AppThrottlerGuard, FailClosedWithoutRedis } from './app-throttler.guard';
 import { FailOpenThrottlerStorage } from './fail-open-throttler-storage';
 
 // Probe routes shaped like the real ones: sign-in and refresh under /auth, one ordinary route.
 @Controller('auth')
 class AuthProbeController {
   @Post('login')
+  @FailClosedWithoutRedis()
   login() {
     return { ok: true };
   }
@@ -22,7 +23,8 @@ class AuthProbeController {
   }
 }
 
-// Checks the caller's current password outside /auth/.
+// Checks the caller's current password outside /auth/; marked at class level.
+@FailClosedWithoutRedis()
 @Controller('users/me')
 class ContactChangeProbeController {
   @Post('contact-change')
@@ -67,7 +69,9 @@ describe('AppThrottlerGuard (Redis down vs up)', () => {
     it('answers 503 on POST /auth/login (fail closed)', async () => {
       app = await bootApp(new FailOpenThrottlerStorage(redisDown));
       const res = await supertest(app.getHttpServer()).post('/api/v1/auth/login').expect(503);
-      expect(res.body.message).toMatch(/temporarily unavailable/);
+      expect(res.body.message).toBe(
+        'This action is temporarily unavailable. Please try again in a few minutes.',
+      );
     });
 
     it('answers 503 on POST /users/me/contact-change (password check, fail closed)', async () => {
