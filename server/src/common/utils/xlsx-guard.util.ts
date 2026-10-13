@@ -54,11 +54,15 @@ export function assertXlsxWithinLimits(
   if (count > maxEntries) throw new XlsxTooLargeError('Too many entries in archive');
 
   let total = 0;
+  let compTotal = 0;
   for (let n = 0; n < count; n++) {
     if (p + 46 > buf.length || buf.readUInt32LE(p) !== CEN_SIG)
       throw new Error('Bad zip directory');
     const method = buf.readUInt16LE(p + 10);
     const compSize = buf.readUInt32LE(p + 20);
+    // Entries pointing at the same bytes would multiply inflate work per upload.
+    compTotal += compSize;
+    if (compTotal > buf.length) throw new Error('Bad zip layout');
     const local = buf.readUInt32LE(p + 42);
     p += 46 + buf.readUInt16LE(p + 28) + buf.readUInt16LE(p + 30) + buf.readUInt16LE(p + 32);
 
