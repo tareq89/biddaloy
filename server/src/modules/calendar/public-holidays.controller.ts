@@ -16,6 +16,7 @@ import {
   SuggestHolidaysQueryDto,
   UpdateHolidaySetEntriesDto,
 } from './dto/public-holidays.dto';
+import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 /**
  * Two unrelated route families share this controller (17.2.4), which is
@@ -40,6 +41,7 @@ export class PublicHolidaysController {
   // Platform (SUPER_ADMIN)
   // -------------------------------------------------------------------
 
+  @AuthenticatedOnly()
   @Get('platform/holiday-sets')
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'List every platform public-holiday set. SUPER_ADMIN only.' })
@@ -47,6 +49,7 @@ export class PublicHolidaysController {
     return this.service.listSets();
   }
 
+  @AuthenticatedOnly()
   @Get('platform/holiday-sets/:id')
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get one platform public-holiday set. SUPER_ADMIN only.' })
@@ -54,6 +57,7 @@ export class PublicHolidaysController {
     return this.service.getSet(id);
   }
 
+  @AuthenticatedOnly()
   @Post('platform/holiday-sets/fetch')
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({
@@ -64,6 +68,7 @@ export class PublicHolidaysController {
     return this.service.fetchIntoSet(dto.country, dto.year, user.sub);
   }
 
+  @AuthenticatedOnly()
   @Put('platform/holiday-sets/:id/entries')
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: "Replace a holiday set's entries. SUPER_ADMIN only." })
@@ -75,6 +80,7 @@ export class PublicHolidaysController {
     return this.service.updateEntries(id, dto.entries, user.sub);
   }
 
+  @AuthenticatedOnly()
   @Post('platform/holiday-sets/:id/publish')
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Publish a holiday set for tenants to import from. SUPER_ADMIN only.' })
@@ -82,6 +88,7 @@ export class PublicHolidaysController {
     return this.service.publish(id, user.sub);
   }
 
+  @AuthenticatedOnly()
   @Post('platform/holiday-sets/:id/unpublish')
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Unpublish a holiday set. SUPER_ADMIN only.' })

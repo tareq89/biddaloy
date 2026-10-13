@@ -13,6 +13,7 @@ import {
   PlatformBackupHealthResponseDto,
   PlatformSchoolBackupHealthDto,
 } from './dto/platform-backup-health.dto';
+import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.decorator';
 
 /**
  * [14.12.3/#617] `GET /platform/backups/health` — SUPER_ADMIN only. It
@@ -54,6 +55,7 @@ export class PlatformBackupHealthController {
     @InjectRepository(WorkbookJob) private readonly jobs: Repository<WorkbookJob>,
   ) {}
 
+  @AuthenticatedOnly()
   @Get('health')
   @ApiOperation({
     summary:

@@ -52,6 +52,7 @@ import {
   CommitBulkUploadDto,
 } from './dto/students.dto';
 import { UserRole, JwtPayload, Permission, roleHasPermission } from '@biddaloy/shared';
+import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -333,6 +334,7 @@ export class StudentController {
    * PARENT only: STUDENT accounts link through `students.user_id`, not a
    * guardian row, so they get a 403 rather than a guaranteed 404.
    */
+  @AuthenticatedOnly()
   @Get('guardians/mine')
   @Roles(UserRole.PARENT)
   @ApiOperation({
@@ -348,6 +350,7 @@ export class StudentController {
   }
 
   /** See the ordering note on `GET guardians/mine`. */
+  @AuthenticatedOnly()
   @Patch('guardians/mine')
   @Roles(UserRole.PARENT)
   @ApiOperation({

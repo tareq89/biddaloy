@@ -33,6 +33,7 @@ import {
   SnoozeDto,
   SummaryQueryDto,
 } from './dto/attention-query.dto';
+import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.decorator';
 
 type Tenant = { id: string; role: string };
 
@@ -44,6 +45,7 @@ type Tenant = { id: string; role: string };
 export class AttentionController {
   constructor(private readonly attention: AttentionQueryService) {}
 
+  @AuthenticatedOnly()
   @Get('summary')
   @ApiOperation({ summary: "The caller's attention bar counts and top item." })
   @ApiOkResponse({ type: AttentionSummaryDto })
@@ -55,6 +57,7 @@ export class AttentionController {
     return this.attention.summary(tenant.id, user.sub, tenant.role, query);
   }
 
+  @AuthenticatedOnly()
   @Get('items')
   @ApiOperation({ summary: "The caller's alert worklist (tab=active) or history." })
   @ApiOkResponse({ type: AlertItemsPageDto })
@@ -66,6 +69,7 @@ export class AttentionController {
     return this.attention.items(tenant.id, user.sub, tenant.role, query);
   }
 
+  @AuthenticatedOnly()
   @Post('items/seen')
   @HttpCode(200)
   @ApiOperation({ summary: "Mark the caller's own items as seen." })
@@ -74,6 +78,7 @@ export class AttentionController {
     return this.attention.markSeen(tenant.id, user.sub, dto.recipientIds);
   }
 
+  @AuthenticatedOnly()
   @Post('items/:recipientId/hide')
   @HttpCode(200)
   @ApiOperation({ summary: "Close (hide) one of the caller's non-critical items." })
@@ -87,6 +92,7 @@ export class AttentionController {
     return this.attention.hide(tenant.id, user.sub, recipientId, query.locale);
   }
 
+  @AuthenticatedOnly()
   @Post('items/:recipientId/snooze')
   @HttpCode(200)
   @ApiOperation({ summary: "Snooze one of the caller's non-critical items." })

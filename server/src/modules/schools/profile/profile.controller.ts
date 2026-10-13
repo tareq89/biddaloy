@@ -12,6 +12,7 @@ import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decora
 import { requestContext } from '../../../common/request-context.util';
 import { SchoolProfileService } from './profile.service';
 import { UpdateSchoolProfileDto } from './dto/update-school-profile.dto';
+import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.decorator';
 
 /**
  * [15.5.2] `/schools/me/profile` — the ADMIN-editable identity fields for
@@ -25,6 +26,7 @@ import { UpdateSchoolProfileDto } from './dto/update-school-profile.dto';
 export class SchoolProfileController {
   constructor(private readonly profile: SchoolProfileService) {}
 
+  @AuthenticatedOnly()
   @Get()
   @ApiOperation({
     summary:
@@ -35,6 +37,7 @@ export class SchoolProfileController {
     return this.profile.getProfile(tenant.id);
   }
 
+  @AuthenticatedOnly()
   @Patch()
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({

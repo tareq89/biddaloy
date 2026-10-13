@@ -33,6 +33,7 @@ import { ExtendTrialDto } from './dto/extend-trial.dto';
 import { ListSchoolsQueryDto, SchoolListItemDto } from './dto/school-list-item.dto';
 import { TenantSettingsResponseDto } from './dto/school-settings-response.dto';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
+import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 @ApiTags('schools')
 @ApiTenantAuth()
@@ -44,6 +45,7 @@ export class SchoolsController {
     private readonly moduleRef: ModuleRef,
   ) {}
 
+  @AuthenticatedOnly()
   @Get()
   @Roles(UserRole.SUPER_ADMIN)
   @UseGuards(PlatformSuperAdminGuard)
@@ -56,6 +58,7 @@ export class SchoolsController {
     return this.schools.findAll(query.trial);
   }
 
+  @AuthenticatedOnly()
   @Get(':id/stats')
   @Roles(UserRole.SUPER_ADMIN)
   @UseGuards(PlatformSuperAdminGuard)
@@ -67,6 +70,7 @@ export class SchoolsController {
     return this.schools.getStats(id);
   }
 
+  @AuthenticatedOnly()
   @Patch(':id/status')
   @Roles(UserRole.SUPER_ADMIN)
   @UseGuards(PlatformSuperAdminGuard)
@@ -83,6 +87,7 @@ export class SchoolsController {
     return this.schools.updateStatus(id, dto, user.sub, requestContext(request));
   }
 
+  @AuthenticatedOnly()
   @Patch(':id/trial')
   @Roles(UserRole.SUPER_ADMIN)
   @UseGuards(PlatformSuperAdminGuard)

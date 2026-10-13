@@ -13,6 +13,7 @@ import { SETTINGS_RATE_LIMIT } from '../../rate-limit';
 import { OnboardingService } from './onboarding.service';
 import { UpdateOnboardingDto } from './dto/onboarding.dto';
 import { OnboardingStatusDto } from './dto/onboarding-status.dto';
+import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 @ApiTags('onboarding')
 @ApiTenantAuth()
@@ -22,6 +23,7 @@ import { OnboardingStatusDto } from './dto/onboarding-status.dto';
 export class OnboardingController {
   constructor(private readonly onboarding: OnboardingService) {}
 
+  @AuthenticatedOnly()
   @Get('status')
   @ApiOperation({ summary: "How far the school's setup is, derived from real data [13.3.3]." })
   @ApiOkResponse({ type: OnboardingStatusDto })
@@ -29,6 +31,7 @@ export class OnboardingController {
     return this.onboarding.getStatus(tenant.id, user.sub);
   }
 
+  @AuthenticatedOnly()
   @Patch()
   @Throttle({ default: SETTINGS_RATE_LIMIT })
   @ApiOperation({
