@@ -388,7 +388,11 @@ if should_run "e2e"; then
   # client-admin/dist in this script (check:route-chunks above builds into
   # its own temp dir, not client-admin/dist). Setting it here would silently
   # serve a stale or missing dist instead of failing loudly.
-  CI=1 yarn e2e --project=chromium && CI=1 yarn e2e:pwa
+  # Two separate commands, not `a && b`: under `set -e` a failure in the left
+  # side of `&&` doesn't abort the script, so a red chromium run used to
+  # report success and silently skip the PWA suite.
+  CI=1 yarn e2e --project=chromium
+  CI=1 yarn e2e:pwa
   section_done "e2e"
 fi
 
