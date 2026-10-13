@@ -5,7 +5,7 @@
  * device that may not have an active session, same reasoning `activate.tsx`
  * and `reset-password.tsx` document for their own `?token=` search param.
  */
-import { postAuthVerifyEmail } from '@biddaloy/ui/api';
+import { ApiError, postAuthVerifyEmail, RateLimitedError } from '@biddaloy/ui/api';
 import { AuthLayout, Button, OtpInput, Skeleton } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -21,6 +21,21 @@ import { GuestStatus } from './-guest-status';
 const verifyEmailSearchSchema = z.object({
   token: z.string().optional().catch(undefined),
 });
+
+/**
+ * Review n-new-4: what went wrong on Approve/Confirm, so the advice fits. 409 = withdrawn or no
+ * longer possible, 403 = locked after wrong codes, 429 = asked too often, 503 = not sent/checked.
+ * Anything else falls back to `fallback` (on the code step: a wrong or expired code).
+ */
+function decideErrorKey(error: unknown, fallback: 'error' | 'codeError') {
+  if (error instanceof RateLimitedError) return 'tooMany' as const;
+  if (error instanceof ApiError) {
+    if (error.statusCode === 409) return 'withdrawn' as const;
+    if (error.statusCode === 403) return 'locked' as const;
+    if (error.statusCode === 503) return 'unavailable' as const;
+  }
+  return fallback;
+}
 
 export const Route = createFileRoute('/verify-email')({
   validateSearch: verifyEmailSearchSchema,
@@ -196,7 +211,7 @@ function VerifyEmailPage() {
               ))}
               {decide.isError && (
                 <p role="alert" className="text-sm text-destructive">
-                  {t('verifyEmail.proposal.codeError')}
+                  {t(`verifyEmail.proposal.${decideErrorKey(decide.error, 'codeError')}`)}
                 </p>
               )}
               <Button type="submit" className="w-full" loading={decide.isPending} disabled={!ready}>
@@ -226,7 +241,7 @@ function VerifyEmailPage() {
           </ul>
           {decide.isError && (
             <p role="alert" className="text-sm text-destructive">
-              {t('verifyEmail.proposal.error')}
+              {t(`verifyEmail.proposal.${decideErrorKey(decide.error, 'error')}`)}
             </p>
           )}
           <Button

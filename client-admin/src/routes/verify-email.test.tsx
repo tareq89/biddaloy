@@ -151,6 +151,49 @@ describe('/verify-email', () => {
       ]);
     });
 
+    // Review n-new-4: each failure on the code step gets advice that fits it.
+    it.each([
+      [409, 'This change can no longer be made.'],
+      [403, 'Too many wrong codes. Wait 15 minutes'],
+      [429, 'Too many requests. Wait a minute, then try again.'],
+      [503, "We couldn't send or check the code just now."],
+      [400, "That code didn't work."],
+    ])('a %i on the code step shows its own message', async (status, message) => {
+      server.use(
+        authHandlers.refreshFailure,
+        http.post('/api/v1/auth/verify-email', async ({ request }) => {
+          const body = (await request.json()) as { action?: string; phone_code?: string };
+          if (body.action === 'approve' && !body.phone_code) {
+            return HttpResponse.json({ status: 'confirm' });
+          }
+          if (body.action === 'approve') {
+            return HttpResponse.json(
+              {
+                statusCode: status,
+                message: 'nope',
+                requestId: 'req-1',
+                path: '/api/v1/auth/verify-email',
+                timestamp: new Date().toISOString(),
+              },
+              { status },
+            );
+          }
+          return HttpResponse.json(proposal);
+        }),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/verify-email?token=a-proposal-token'],
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole('button', { name: 'Approve' }));
+      await user.type(await screen.findByLabelText('Code sent to +8801712345998'), '123456');
+      await user.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      expect((await screen.findByRole('alert')).textContent).toContain(message);
+    });
+
     it('a person who never got the code can still decline', async () => {
       server.use(
         authHandlers.refreshFailure,
