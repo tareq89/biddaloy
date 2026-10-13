@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ApiError } from '../api';
 import { cleanupTestState, renderWithProviders } from '../test/render-with-providers';
 
-import { PasswordChecklist, weakPasswordRules } from './password-checklist';
+import { PasswordChecklist, passwordTooLong, weakPasswordRules } from './password-checklist';
 
 afterEach(async () => {
   await cleanupTestState();
@@ -84,5 +84,33 @@ describe('PasswordChecklist', () => {
     });
     await screen.findAllByRole('listitem');
     await expect(container).toHaveNoViolations();
+  });
+
+  it('shows the too-long line for a PASSWORD_TOO_LONG error, and recognises only that error', async () => {
+    const tooLong = new ApiError({
+      statusCode: 400,
+      message: 'long',
+      details: { code: 'PASSWORD_TOO_LONG' },
+    } as never);
+    expect(passwordTooLong(tooLong)).toBe(true);
+    expect(
+      passwordTooLong(
+        new ApiError({
+          statusCode: 400,
+          message: 'x',
+          details: { code: 'PASSWORD_TOO_WEAK' },
+        } as never),
+      ),
+    ).toBe(false);
+    renderWithProviders(<PasswordChecklist password="x" tooLong={passwordTooLong(tooLong)} />, {
+      locale: 'en',
+    });
+    expect((await screen.findByRole('alert')).textContent).toMatch(/at most 72 letters/);
+  });
+
+  it('shows no too-long line by default', async () => {
+    renderWithProviders(<PasswordChecklist password="x" />, { locale: 'en' });
+    await screen.findAllByRole('listitem');
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

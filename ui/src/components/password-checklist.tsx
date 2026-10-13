@@ -22,6 +22,8 @@ export interface PasswordChecklistProps {
   audience?: PasswordAudience;
   /** Rules the server rejected (`PASSWORD_TOO_WEAK`); shown as not met. */
   failed?: PasswordRuleId[] | undefined;
+  /** The server refused a password over 72 bytes (`passwordTooLong`). */
+  tooLong?: boolean | undefined;
   /** Ties the list to its input via `aria-describedby`. */
   id?: string;
 }
@@ -49,10 +51,16 @@ export function weakPasswordRules(error: unknown): PasswordRuleId[] | undefined 
     : undefined;
 }
 
+/** True for a 400 `PASSWORD_TOO_LONG` (bcrypt's 72-byte limit on a new password). */
+export function passwordTooLong(error: unknown): boolean {
+  return error instanceof ApiError && error.details?.code === 'PASSWORD_TOO_LONG';
+}
+
 export function PasswordChecklist({
   password,
   audience = 'staff',
   failed,
+  tooLong,
   id,
 }: PasswordChecklistProps) {
   const { t } = useTranslation('auth');
@@ -92,6 +100,11 @@ export function PasswordChecklist({
           </li>
         ))}
       </ul>
+      {tooLong ? (
+        <p role="alert" className="text-xs text-destructive">
+          {t('passwordTooLong')}
+        </p>
+      ) : null}
     </div>
   );
 }
