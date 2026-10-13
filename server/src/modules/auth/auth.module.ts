@@ -31,6 +31,7 @@ import { RefreshTokenCleanupProcessor } from './refresh-token-cleanup.processor'
 import { RefreshTokenCleanupScheduler } from './refresh-token-cleanup.scheduler';
 import { REFRESH_TOKEN_CLEANUP_QUEUE } from './refresh-token-cleanup.constants';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
+import { JWT_ALGORITHM, JWT_ISSUER } from './jwt-secrets';
 
 const DEFAULT_ACCESS_TOKEN_TTL_MS = 15 * 60_000; // 15 minutes
 const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
@@ -75,7 +76,11 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
           // TTL, so the two never drift apart.
           signOptions: {
             expiresIn: Math.floor((ttlMs ? Number(ttlMs) : DEFAULT_ACCESS_TOKEN_TTL_MS) / 1000),
+            algorithm: JWT_ALGORITHM,
+            issuer: JWT_ISSUER,
           },
+          // Merged into every verify call (approval guard, rate-limit tracker).
+          verifyOptions: { algorithms: [JWT_ALGORITHM], issuer: JWT_ISSUER },
         };
       },
     }),

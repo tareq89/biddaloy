@@ -32,6 +32,7 @@ import { redactPii } from '../../common/redact-log.util';
 import { SchoolsService } from '../schools/schools.service';
 import { StepUpVerifyDto, StepUpApprovalResponse } from './dto/step-up.dto';
 import { isSecretEchoEnabled } from '../account-access/account-access-echo';
+import { DUMMY_PASSWORD_HASH } from './password-hash';
 
 export const STEP_UP_REDIS = 'STEP_UP_REDIS';
 
@@ -53,12 +54,6 @@ const FEE_APPROVE_PERMISSION = Permission.FEE_APPROVE;
 const APPROVAL_TOKEN_TTL_SECONDS = 300;
 const DEFAULT_RATE_LIMIT_MAX_ATTEMPTS = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60_000;
-// bcrypt.compare against a hash that never matches — same shape as
-// auth.service.ts's DUMMY_PASSWORD_HASH, run for every step-up verify so a
-// missing/ineligible approver takes the same ~constant time as a real one
-// with a wrong password. Without this, response latency alone tells an
-// attacker which identifiers are real FEE_APPROVE holders.
-const DUMMY_PASSWORD_HASH = '$2b$10$rGV9zEDpgnc/spXBlHqA9O5IjpBvndIyZE78fIhV8ZV4.5GAUfPJ.';
 
 export interface StepUpOtpRequestResult {
   debug?: { otp?: string };

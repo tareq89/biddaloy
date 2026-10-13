@@ -456,6 +456,30 @@ flowchart LR
 Expired `refresh_tokens` rows (revoked or not) are deleted by an hourly
 BullMQ job (`refresh-token-cleanup.processor.ts`/`.scheduler.ts`).
 
+### Token signing and rotating `JWT_SECRET` (75.9)
+
+Every JWT is signed **HS256** with issuer `biddaloy`. Access tokens also carry
+audience `biddaloy:access`; the Passport strategy requires all three, so an
+HS512 token, an `alg: none` token, or an approval token used as a Bearer all
+get 401. Approval tokens (`X-Approval-Token`) are checked for algorithm and
+issuer too, and the rate-limit tracker verifies the same way.
+
+To rotate the secret without logging anyone out, the old value moves to
+`JWT_SECRET_PREVIOUS`. It is tried **for verification only** (after
+`JWT_SECRET`); new tokens are always signed with `JWT_SECRET`. An empty
+`JWT_SECRET_PREVIOUS` counts as unset.
+
+```mermaid
+flowchart LR
+  A["Generate new secret<br/>openssl rand -base64 48"] --> B["Set JWT_SECRET_PREVIOUS = old<br/>JWT_SECRET = new; deploy"]
+  B --> C["Wait 30 days<br/>(refresh-token lifetime; access tokens re-mint every 15 min)"]
+  C --> D["Remove JWT_SECRET_PREVIOUS; deploy"]
+```
+
+There is no transition window for the format change itself (D21): tokens minted
+before this change have no `iss`/`aud` and get 401 once. The client's refresh
+path re-mints them, because refresh tokens are opaque DB rows, not JWTs.
+
 ### Self-service revocation (12.8)
 
 A "session" in the API is a refresh-token **family**, not a row — rotation

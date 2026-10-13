@@ -1,4 +1,5 @@
 import { JwtService } from '@nestjs/jwt';
+import { verifyWithRotation } from '../../modules/auth/jwt-secrets';
 
 /**
  * Builds the tracker function ThrottlerModule uses to bucket requests.
@@ -33,7 +34,10 @@ export function buildRateLimitTracker(jwtService: JwtService) {
 
     if (token) {
       try {
-        const payload = await jwtService.verifyAsync(token);
+        // Reads process.env directly so buildRateLimitTracker keeps its signature.
+        const payload = await verifyWithRotation<{ sub?: string }>(jwtService, token, {
+          get: (k) => process.env[k],
+        });
         if (payload?.sub) return `user:${payload.sub}`;
       } catch {
         // Invalid/expired token — fall through to IP keying.

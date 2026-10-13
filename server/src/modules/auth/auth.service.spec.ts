@@ -241,14 +241,17 @@ describe('AuthService', () => {
         role: UserRole.ADMIN,
         name: 'Greenview School',
       });
-      expect(mockJwtService.sign).toHaveBeenCalledWith({
-        sub: 'user-1',
-        email: 'admin@test.com',
-        phone: null,
-        memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' }],
-        jti: expect.any(String),
-        iat_ms: expect.any(Number),
-      });
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        {
+          sub: 'user-1',
+          email: 'admin@test.com',
+          phone: null,
+          memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' }],
+          jti: expect.any(String),
+          iat_ms: expect.any(Number),
+        },
+        { audience: 'biddaloy:access' },
+      );
     });
 
     // #2297: login/activation/reset share startSession, which also writes the
@@ -269,6 +272,7 @@ describe('AuthService', () => {
 
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ iat_ms: 1_000_000 }),
+        { audience: 'biddaloy:access' },
       );
       nowSpy.mockRestore();
     });
@@ -650,6 +654,7 @@ describe('AuthService', () => {
 
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ iat_ms: 1_000_000 }),
+        { audience: 'biddaloy:access' },
       );
       nowSpy.mockRestore();
     });
@@ -671,6 +676,7 @@ describe('AuthService', () => {
 
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ iat_ms: 1_000_000 }),
+        { audience: 'biddaloy:access' },
       );
       nowSpy.mockRestore();
     });

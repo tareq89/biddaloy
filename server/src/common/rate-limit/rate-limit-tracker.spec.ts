@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { JwtService } from '@nestjs/jwt';
 import { buildRateLimitTracker } from './rate-limit-tracker';
 
 function fakeJwtService(behavior: { verifyAsync: (token: string) => Promise<any> }) {
@@ -6,6 +7,40 @@ function fakeJwtService(behavior: { verifyAsync: (token: string) => Promise<any>
 }
 
 describe('buildRateLimitTracker', () => {
+  const saved = { s: process.env.JWT_SECRET, p: process.env.JWT_SECRET_PREVIOUS };
+  beforeAll(() => {
+    process.env.JWT_SECRET = 'current-secret-current-secret-current-secret-1';
+    delete process.env.JWT_SECRET_PREVIOUS;
+  });
+  afterAll(() => {
+    if (saved.s === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = saved.s;
+    if (saved.p === undefined) delete process.env.JWT_SECRET_PREVIOUS;
+    else process.env.JWT_SECRET_PREVIOUS = saved.p;
+  });
+
+  it('keys a token signed with the previous secret as user:<sub> (rotation)', async () => {
+    const previous = 'previous-secret-previous-secret-previous-secret';
+    process.env.JWT_SECRET_PREVIOUS = previous;
+    try {
+      const real = new JwtService({});
+      const tracker = buildRateLimitTracker(real);
+      const good = real.sign({ sub: 'user-9' }, { secret: previous });
+      expect(await tracker({ headers: { authorization: `Bearer ${good}` }, ip: '1.1.1.1' })).toBe(
+        'user:user-9',
+      );
+      const bad = real.sign(
+        { sub: 'user-9' },
+        { secret: 'unrelated-unrelated-unrelated-unrelated-1' },
+      );
+      expect(await tracker({ headers: { authorization: `Bearer ${bad}` }, ip: '1.1.1.1' })).toBe(
+        'ip:1.1.1.1',
+      );
+    } finally {
+      delete process.env.JWT_SECRET_PREVIOUS;
+    }
+  });
+
   it("keys by the JWT's sub when a valid Bearer token is present", async () => {
     const jwtService = fakeJwtService({ verifyAsync: async () => ({ sub: 'user-123' }) });
     const tracker = buildRateLimitTracker(jwtService);
