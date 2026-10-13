@@ -110,7 +110,7 @@ export function useStudents(filters: StudentListFilters = {}, { enabled = true }
 
 /** [75.14] Every student matching `filters`, not one page: the server caps
  * `limit` at 100, so a whole-class action (bulk certificates, program
- * enrol "select all", the fines preview's name lookup) pages through
+ * enrol "select all") pages through
  * `GET /students` with `fetchAllPages`. Same endpoint, filters and
  * tenant/teacher-section scoping as `useStudents`. Under `studentKeys.lists()`
  * so student mutations invalidate it; skips the offline cache, like
