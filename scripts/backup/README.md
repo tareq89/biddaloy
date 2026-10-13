@@ -7,7 +7,9 @@ for the full recovery story (RPO/RTO, retention, key rotation).
 ## backup.sh
 
 Runs on a schedule inside the `backup` docker-compose service
-(`BACKUP_SCHEDULE`, default `0 2 * * *`, `TZ=Asia/Dhaka`). Pipeline:
+(`BACKUP_SCHEDULE`, default `0 2 * * *`, `TZ=Asia/Dhaka`). The container runs
+as non-root (uid 10001) via supercronic, and logs go to
+`docker compose logs backup`. Pipeline:
 
 ```
 pg_dump -Fc  →  age -r $BACKUP_AGE_PUBLIC_KEY  →  aws s3 cp - s3://$S3_BUCKET/backups/db/<timestamp>.dump.age
