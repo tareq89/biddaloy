@@ -1,4 +1,14 @@
-import { Controller, Get, Param, Query, UseGuards, Inject } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Query,
+  UseGuards,
+  Inject,
+} from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -10,14 +20,18 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { AuditService } from './audit.service';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
 import { AuditLogListResponseDto, AuditLogResponseDto } from './dto/audit-log-response.dto';
-import { Permission } from '@biddaloy/shared';
+import { Permission, RoleScope, roleScope } from '@biddaloy/shared';
+import { teacherCanSeeStudent } from '../classes/teacher-scope.service';
 
 @ApiTags('audit-logs')
 @ApiTenantAuth()
 @Controller('audit-logs')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class AuditController {
-  constructor(@Inject(AuditService) private readonly auditService: AuditService) {}
+  constructor(
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @InjectDataSource() private readonly dataSource: DataSource,
+  ) {}
 
   @Get()
   @RequirePermissions(Permission.AUDIT_LOG_READ)
@@ -59,6 +73,21 @@ export class AuditController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
   ) {
+    // [75.6-d] TEACHER: only a Student in a current-year assigned section; AuditModule can't import
+    // the scope service (cycle), so this uses the free function. A miss is 404 (D13).
+    if (
+      roleScope(tenant.role) === RoleScope.ASSIGNED_SECTIONS &&
+      !(
+        entityType === 'Student' &&
+        (await teacherCanSeeStudent(this.dataSource.manager, {
+          userId: user.sub,
+          tenantId: tenant.id,
+          studentId: entityId,
+        }))
+      )
+    ) {
+      throw new NotFoundException('Not found');
+    }
     const result = await this.auditService.findByEntity(
       entityType,
       entityId,

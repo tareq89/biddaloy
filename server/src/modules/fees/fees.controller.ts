@@ -37,6 +37,7 @@ import { FeeGenerationService } from './fee-generation.service';
 import { FeeDuesService } from './fee-dues.service';
 import { FeesDailyScheduler } from './fees-daily.scheduler';
 import { FamilyAccessService } from '../students/family-access.service';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 import {
   CreateFeeStructureDto,
   UpdateFeeStructureDto,
@@ -97,6 +98,7 @@ export class FeeController {
     @Inject(FeeGenerationService) private readonly feeGenerationService: FeeGenerationService,
     @Inject(FeeDuesService) private readonly feeDuesService: FeeDuesService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
+    @Inject(TeacherScopeService) private readonly teacherScope: TeacherScopeService,
     @Inject(FeesDailyScheduler) private readonly feesDailyScheduler: FeesDailyScheduler,
   ) {}
 
@@ -126,7 +128,13 @@ export class FeeController {
     // narrow that set further, never widen it. `getFlaggedDues` below stays
     // staff-only: it returns guardian contact details for follow-up.
     if (!isGuardianRole(tenant.role)) {
-      return this.feeDuesService.getDues(query, tenant.id);
+      // [75.6-d] TEACHER: only current-year assigned sections (`null` = unrestricted staff).
+      const scoped = await this.teacherScope.scopedStudentIds({
+        role: tenant.role,
+        userId: user.sub,
+        tenantId: tenant.id,
+      });
+      return this.feeDuesService.getDues(query, tenant.id, scoped ?? undefined);
     }
     const restrictToStudentIds = await this.familyAccess.getLinkedStudentIds(
       tenant.role,
@@ -150,11 +158,17 @@ export class FeeController {
   )
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: 'List dues flagged for follow-up (e.g. overdue past a threshold).' })
-  getFlaggedDues(
+  async getFlaggedDues(
     @Query() query: QueryFlaggedDuesDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.feeDuesService.getFlaggedDues(query, tenant.id);
+    const scoped = await this.teacherScope.scopedStudentIds({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    return this.feeDuesService.getFlaggedDues(query, tenant.id, scoped ?? undefined);
   }
 
   // --- Fee Generation endpoints [16.3.1] ---
@@ -373,11 +387,19 @@ export class FeeController {
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: "Get every payment recorded for a guardian's linked students." })
-  findPaymentsByGuardian(
+  async findPaymentsByGuardian(
     @Param('guardianId', ParseUUIDPipe) guardianId: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.paymentService.findByGuardian(guardianId, tenant.id);
+    const who = { role: tenant.role, userId: user.sub, tenantId: tenant.id };
+    await this.teacherScope.assertCanSeeGuardian({ ...who, guardianId });
+    const payments = await this.paymentService.findByGuardian(guardianId, tenant.id);
+    // A sibling in another section is dropped for a TEACHER; `null` = unrestricted.
+    const scoped = await this.teacherScope.scopedStudentIds(who);
+    if (!scoped) return payments;
+    const visible = new Set(scoped);
+    return payments.filter((p) => visible.has(p.student_id));
   }
 
   @Get('payments/invoices/student/:studentId')

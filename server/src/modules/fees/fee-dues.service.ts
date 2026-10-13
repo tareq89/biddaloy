@@ -166,11 +166,16 @@ export class FeeDuesService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async getFlaggedDues(query: QueryFlaggedDuesDto, tenantId: string) {
+  async getFlaggedDues(
+    query: QueryFlaggedDuesDto,
+    tenantId: string,
+    restrictToStudentIds?: string[],
+  ) {
     const studentIds = await this.findMatchingStudentIds(tenantId, OPEN_STATUSES, {
       class_id: query.class_id,
       section_id: query.section_id,
       reminderThresholdBefore: new Date(),
+      restrictToStudentIds,
     });
 
     const page = query.page || 1;

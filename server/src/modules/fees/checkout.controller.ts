@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Inject,
   InternalServerErrorException,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
@@ -44,6 +45,7 @@ import {
   QueryCheckoutCartDto,
 } from './dto/checkout.dto';
 import { Payment } from './entities/payment.entity';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { ApprovalScope, JwtPayload, Permission, isGuardianRole } from '@biddaloy/shared';
 
 /** `POST /payments/:id/reverse` (16.6.1) body — just the audit-trail
@@ -78,6 +80,7 @@ export class CheckoutController {
   constructor(
     @Inject(CheckoutCartService) private readonly checkoutCartService: CheckoutCartService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
+    @Inject(TeacherScopeService) private readonly teacherScope: TeacherScopeService,
     @Inject(CheckoutService) private readonly checkoutService: CheckoutService,
     @Inject(PaymentReversalService)
     private readonly paymentReversalService: PaymentReversalService,
@@ -107,6 +110,19 @@ export class CheckoutController {
         throw new ForbiddenException(
           "You do not have access to one or more of these students' information",
         );
+      }
+    }
+
+    // [75.6-d] TEACHER: any student outside current-year assigned sections is a 404 (D13).
+    const scoped = await this.teacherScope.scopedStudentIds({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    if (scoped) {
+      const visible = new Set(scoped);
+      if (query.student_ids.some((id) => !visible.has(id))) {
+        throw new NotFoundException('Student not found');
       }
     }
 
