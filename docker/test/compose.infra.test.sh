@@ -20,13 +20,12 @@ unpinned="$(docker compose config --images | grep -v '^biddaloy-' | grep -v -E '
 [ -z "$unpinned" ] || fail "compose images not digest-pinned: $unpinned"
 pass "compose images are digest-pinned"
 
-# TODO([75.29]): add the root Dockerfile once its digest pin lands (outside this lane).
-for df in scripts/backup/Dockerfile; do
+for df in Dockerfile scripts/backup/Dockerfile; do
   # Skip FROMs of earlier build stages (FROM base AS deps).
   bad="$(grep -E '^FROM ' "$df" | grep -v -E '^FROM [a-z]+ AS ' | grep -v -E '@sha256:[0-9a-f]{64}' || true)"
   [ -z "$bad" ] || fail "$df has an unpinned FROM: $bad"
 done
-pass "backup Dockerfile FROM is digest-pinned"
+pass "app and backup Dockerfile FROMs are digest-pinned"
 
 docker build -q -t biddaloy-backup-test scripts/backup >/dev/null
 [ "$(docker run --rm --entrypoint id biddaloy-backup-test -u)" = "10001" ] \
