@@ -29,6 +29,10 @@ services:
       # Public https origin; invitation, reset and social sign-in links are
       # built from it. Required in production (see .env.example).
       APP_BASE_URL: ${APP_BASE_URL:-}
+      # Both are required to boot in production (encryption-key.ts, db-ssl.ts).
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
+      DB_SSL: ${DB_SSL:-}
+      DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
       # Onboarding (Epic 13). Empty means "off": no captcha check, no social
       # sign-in button, no support link. The trial values repeat the server's
       # defaults here because an empty TRIAL_* fails env validation.

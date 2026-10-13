@@ -75,7 +75,10 @@ flowchart LR
 ```
 
 It runs the same checks the server runs at boot in production, without
-starting anything. It names variables, never their values. Example, for an
+starting anything, and always judges the env as production whatever
+`NODE_ENV` the file says. It reads the **host's** `.env` (not the container's
+environment) and needs node and `yarn install` on the deploy host. It names
+variables, never their values. Example, for an
 `.env` copied from `.env.example` where `JWT_SECRET` was lengthened but the
 other placeholders were left in (a `JWT_SECRET` under 32 characters fails
 earlier, with the plain schema error):
@@ -85,8 +88,7 @@ Refusing to start with unsafe production config:
 - JWT_SECRET still holds a placeholder value
 - S3_ACCESS_KEY_ID still holds a placeholder value
 - S3_SECRET_ACCESS_KEY still holds a placeholder value
-- DATABASE_URL password still holds a placeholder value
-- JWT_SECRET is too weak (needs at least 16 distinct characters)
+- POSTGRES_PASSWORD still holds a placeholder value
 - SETTINGS_ENCRYPTION_KEY is required in production
 - APP_BASE_URL is required in production
 ```

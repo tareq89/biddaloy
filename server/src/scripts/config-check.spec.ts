@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { runConfigCheck } from './config-check';
+import { runConfigCheck, runProductionConfigCheck } from './config-check';
 
 const valid = {
   NODE_ENV: 'production',
@@ -20,6 +20,20 @@ describe('runConfigCheck', () => {
     expect(result.ok).toBe(false);
     expect(result.output).toContain('JWT_SECRET');
     expect(result.output).not.toContain(secret);
+  });
+
+  it('the CLI judges production even when NODE_ENV is development or unset', () => {
+    const bad = { ...valid, JWT_SECRET: 'replace-me-replace-me-replace-me-123' };
+    expect(runConfigCheck({ ...bad, NODE_ENV: 'development' }).ok).toBe(true); // rules skipped
+    expect(runProductionConfigCheck({ ...bad, NODE_ENV: 'development' }).ok).toBe(false);
+    const { NODE_ENV: _omit, ...unset } = bad;
+    expect(runProductionConfigCheck(unset).ok).toBe(false);
+  });
+
+  it('fails POSTGRES_PASSWORD=change-me (compose builds the container DATABASE_URL from it)', () => {
+    const result = runConfigCheck({ ...valid, POSTGRES_PASSWORD: 'change-me' });
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain('POSTGRES_PASSWORD');
   });
 
   it('fails when the secret-echo flag is on in production', () => {

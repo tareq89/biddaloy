@@ -125,10 +125,12 @@ jobs:
       # `${VAR:?...}`), so a deploy with a forgotten .env fails loudly.
       - name: Compose refuses an empty env
         run: |
-          if env -i PATH="$PATH" docker compose config -q 2>/dev/null; then
+          out=$(env -i PATH="$PATH" HOME="$HOME" docker compose config -q 2>&1) && {
             echo "docker compose accepted an empty environment" >&2
             exit 1
-          fi
+          }
+          # A failure for any other reason (missing plugin, bad YAML) must not pass.
+          grep -q 'must be set' <<<"$out" || { echo "$out" >&2; exit 1; }
           echo "compose refuses an empty env"
       - name: Run infra tests
         run: |
