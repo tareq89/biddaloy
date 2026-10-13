@@ -35,9 +35,22 @@ export function assertXlsxWithinLimits(
     }
   }
   if (eocd < 0) throw new Error('Not a zip file');
-  const count = buf.readUInt16LE(eocd + 10);
+  // jszip (inside exceljs) is lenient about the EOCD, so every field it could
+  // read differently from us must be pinned down, or a crafted zip can pass
+  // this check yet inflate more when exceljs loads it.
+  const u16 = (o: number) => buf.readUInt16LE(eocd + o);
+  const count = u16(10);
+  const cenSize = buf.readUInt32LE(eocd + 12);
   let p = buf.readUInt32LE(eocd + 16);
-  if (count === 0xffff || p === 0xffffffff) throw new XlsxTooLargeError('zip64 not accepted');
+  if (
+    [u16(4), u16(6), u16(8), count].includes(0xffff) ||
+    cenSize === 0xffffffff ||
+    p === 0xffffffff
+  ) {
+    throw new XlsxTooLargeError('zip64 not accepted');
+  }
+  if (u16(4) !== 0 || u16(6) !== 0 || u16(8) !== count) throw new Error('Multi-disk zip');
+  if (p + cenSize !== eocd || eocd + 22 + u16(20) !== buf.length) throw new Error('Bad zip layout');
   if (count > maxEntries) throw new XlsxTooLargeError('Too many entries in archive');
 
   let total = 0;
@@ -69,4 +82,6 @@ export function assertXlsxWithinLimits(
     if (total > maxUncompressedBytes)
       throw new XlsxTooLargeError('Archive inflates past the size limit');
   }
+  // jszip keeps reading records while signatures match, whatever the count says.
+  if (p !== eocd) throw new Error('Bad zip directory');
 }

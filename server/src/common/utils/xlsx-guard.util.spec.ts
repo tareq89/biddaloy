@@ -69,7 +69,9 @@ describe('assertXlsxWithinLimits', () => {
     const cenOffset = local.length + name.length + body.length;
     const eocd = Buffer.alloc(22);
     eocd.writeUInt32LE(0x06054b50, 0);
+    eocd.writeUInt16LE(1, 8);
     eocd.writeUInt16LE(1, 10);
+    eocd.writeUInt32LE(cen.length + name.length, 12);
     eocd.writeUInt32LE(cenOffset, 16);
     const zip = Buffer.concat([local, name, body, cen, name, eocd]);
 
@@ -77,5 +79,63 @@ describe('assertXlsxWithinLimits', () => {
     expect(() => assertXlsxWithinLimits(zip, { maxUncompressedBytes: 9 })).toThrow(
       XlsxTooLargeError,
     );
+  });
+
+  // Regression: jszip (inside exceljs) reads the EOCD more leniently than a
+  // naive walker. Each case below LOADS fine in real exceljs yet must be refused.
+  describe('crafted zips that exceljs would still load', () => {
+    const lim = { maxUncompressedBytes: 1024 * 1024 };
+    const big = () => workbookWith('A'.repeat(8 * 1024 * 1024));
+    const eocdAt = (b: Buffer) => b.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+    async function exceljsCellLength(b: Buffer): Promise<number> {
+      const w = new ExcelJS.Workbook();
+      await w.xlsx.load(b as never);
+      return String(w.worksheets[0].getCell('A1').value).length;
+    }
+
+    it('rejects an EOCD entry count of 0 (jszip ignores the count)', async () => {
+      const b = await big();
+      const e = eocdAt(b);
+      b.writeUInt16LE(0, e + 8);
+      b.writeUInt16LE(0, e + 10);
+
+      expect(await exceljsCellLength(b)).toBe(8 * 1024 * 1024);
+      expect(() => assertXlsxWithinLimits(b, lim)).toThrow();
+    });
+
+    it('rejects decoy data prepended so that the directory offsets shift', async () => {
+      const good = await big();
+      const e = eocdAt(good);
+      const n = good.readUInt16LE(e + 10);
+      const oB = good.readUInt32LE(e + 16);
+      const name = Buffer.from('a');
+      const loc = Buffer.alloc(30);
+      loc.writeUInt32LE(0x04034b50, 0);
+      loc.writeUInt16LE(1, 26);
+      const cen = Buffer.alloc(46);
+      cen.writeUInt32LE(0x02014b50, 0);
+      cen.writeUInt32LE(1, 20);
+      cen.writeUInt32LE(1, 24);
+      cen.writeUInt16LE(1, 28);
+      const head = Buffer.concat([loc, name, Buffer.from([0x41])]);
+      const prefix = Buffer.concat([
+        head,
+        Buffer.alloc(oB - head.length),
+        ...Array(n).fill(Buffer.concat([cen, name])),
+      ]);
+      const file = Buffer.concat([prefix, good]);
+
+      expect(await exceljsCellLength(file)).toBe(8 * 1024 * 1024);
+      expect(() => assertXlsxWithinLimits(file, lim)).toThrow();
+    });
+
+    it('rejects a zip64-sentinel field in the EOCD', async () => {
+      const b = await big();
+      b.writeUInt16LE(0xffff, eocdAt(b) + 4);
+
+      // jszip would go looking for a zip64 record here (and a forged one could
+      // redirect it), so the guard refuses the sentinel outright.
+      expect(() => assertXlsxWithinLimits(b, lim)).toThrow(XlsxTooLargeError);
+    });
   });
 });
