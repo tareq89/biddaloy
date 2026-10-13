@@ -11,7 +11,12 @@ import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
 import Redis from 'ioredis';
 import * as bcrypt from 'bcrypt';
-import { AuditAction, CommunicationMedium, UserStatus } from '@biddaloy/shared';
+import {
+  AuditAction,
+  CommunicationMedium,
+  CommunicationStatus,
+  UserStatus,
+} from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { SEED_TENANT_ID } from '@test/constants';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -697,12 +702,13 @@ describe('ContactChangeService (integration)', () => {
       expect((await service.confirmEmail(first, context)).status).toBe('proposal');
     });
 
-    // Review m7: a failure after the token is issued must not leave a live link nobody received.
-    it('if sending throws, the new link is revoked and the caller gets a clean 503', async () => {
+    // Review m7/R1: deliver() reports a gateway outage as a FAILED result (it never throws), so that
+    // is the shape that must revoke the link and answer 503.
+    it('if the approval link is not delivered, the new link is revoked and the caller gets a clean 503', async () => {
       const { user } = await sharedSetup();
       const deliver = vi
         .spyOn(module.get(AccountAccessDeliveryService), 'deliver')
-        .mockRejectedValueOnce(new Error('gateway down'));
+        .mockResolvedValueOnce({ logId: null, status: CommunicationStatus.FAILED });
 
       await expect(propose(user.id, { phone: NEW_PHONE })).rejects.toBeInstanceOf(
         ServiceUnavailableException,
@@ -714,6 +720,53 @@ describe('ContactChangeService (integration)', () => {
       await propose(user.id, { phone: NEW_PHONE });
       expect(await liveTokens(user.id)).toBe(1);
       expect(sentTo().some((m) => m.body.includes('token='))).toBe(true);
+    });
+
+    it('if sending throws, the new link is revoked and the caller gets a clean 503', async () => {
+      const { user } = await sharedSetup();
+      const deliver = vi
+        .spyOn(module.get(AccountAccessDeliveryService), 'deliver')
+        .mockRejectedValueOnce(new Error('db down'));
+
+      await expect(propose(user.id, { phone: NEW_PHONE })).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      deliver.mockRestore();
+      expect(await liveTokens(user.id)).toBe(0);
+    });
+
+    it('a live link that was never delivered is not a duplicate: a re-save sends a fresh one', async () => {
+      const { user } = await sharedSetup();
+      const deliver = vi
+        .spyOn(module.get(AccountAccessDeliveryService), 'deliver')
+        .mockResolvedValueOnce({ logId: null, status: CommunicationStatus.FAILED });
+      // The clean-up revoke fails too, so the undelivered link stays live.
+      const revoke = vi
+        .spyOn(module.get(AuthTokenService), 'revoke')
+        .mockRejectedValueOnce(new Error('db down'));
+
+      await expect(propose(user.id, { phone: NEW_PHONE })).rejects.toThrow();
+      deliver.mockRestore();
+      revoke.mockRestore();
+      expect(await liveTokens(user.id)).toBe(1);
+      fakeProvider.send.mockClear();
+
+      await propose(user.id, { phone: NEW_PHONE });
+
+      expect(sentTo().some((m) => m.body.includes('token='))).toBe(true);
+      expect(await liveTokens(user.id)).toBe(1);
+    });
+
+    it('a code that could not be sent to the new contact is a 503, not confirm; the link stays', async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { phone: NEW_PHONE });
+      const token = linkIn(sentTo()[0].body);
+      fakeProvider.send.mockResolvedValueOnce({ success: false });
+
+      await expect(service.confirmEmail(token, context, 'approve')).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      expect(await liveTokens(user.id)).toBe(1);
     });
 
     // Review m8: the proposing school must still have the person, and the proposer must still be its admin.
