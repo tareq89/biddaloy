@@ -77,8 +77,11 @@ describe('/reports/collections', () => {
     );
     renderReport();
 
-    await waitFor(() =>
-      expect(screen.getByText('Could not load the collections report.')).toBeTruthy(),
+    // A 500 is retried with backoff before the error state shows, so this passes the 5 s default
+    // under CI load; the portal error-state tests use the same 15 s.
+    await waitFor(
+      () => expect(screen.getByText('Could not load the collections report.')).toBeTruthy(),
+      { timeout: 15000 },
     );
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
