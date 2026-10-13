@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
+import { isUUID } from 'class-validator';
 import { RoleScope, TeacherAssignmentType, roleScope } from '@biddaloy/shared';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { Student } from '../students/entities/student.entity';
@@ -15,6 +16,74 @@ export function priorYearStartSql(tenant: string): string {
   return `(SELECT max(p.start_date) FROM academic_years p
     JOIN academic_years cur ON cur.tenant_id = ${tenant} AND cur.is_current = true AND cur.deleted_at IS NULL
     WHERE p.tenant_id = ${tenant} AND p.deleted_at IS NULL AND p.start_date < cur.start_date)`;
+}
+
+/**
+ * The one definition of "which sections does this teacher see" (Epic 75, D2): every live
+ * CLASS / ASSISTANT / SUBJECT row of the caller, in a live section of a live class of the
+ * tenant's **current** academic year. A SUBJECT row counts only while its subject is live.
+ * `$1` = tenant id, `$2` = user id (the JWT carries a user id, not a teacher id).
+ */
+const TEACHER_ROWS_FROM_SQL = `
+  FROM teacher_class_sections tcs
+  JOIN teachers t ON t.id = tcs.teacher_id AND t.tenant_id = $1 AND t.deleted_at IS NULL
+  JOIN class_sections cs ON cs.id = tcs.section_id AND cs.tenant_id = $1 AND cs.deleted_at IS NULL
+  JOIN classes c ON c.id = cs.class_id AND c.tenant_id = $1 AND c.deleted_at IS NULL
+  JOIN academic_years ay ON ay.id = c.academic_year_id AND ay.tenant_id = $1
+    AND ay.is_current = true AND ay.deleted_at IS NULL
+  LEFT JOIN subjects s ON s.id = tcs.subject_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
+  WHERE tcs.tenant_id = $1 AND t.user_id = $2
+    AND (tcs.assignment_type <> 'SUBJECT_TEACHER' OR s.id IS NOT NULL)`;
+
+export interface TeacherAssignmentRow {
+  section_id: string;
+  class_id: string;
+  assignment_type: TeacherAssignmentType;
+  subject_id: string | null;
+}
+
+interface TeacherScopeInput {
+  userId: string;
+  tenantId: string;
+}
+
+export function teacherAssignments(
+  manager: EntityManager,
+  { userId, tenantId }: TeacherScopeInput,
+): Promise<TeacherAssignmentRow[]> {
+  return manager.query(
+    `SELECT tcs.section_id, cs.class_id, tcs.assignment_type, s.id AS subject_id ${TEACHER_ROWS_FROM_SQL}`,
+    [tenantId, userId],
+  );
+}
+
+/** Distinct section ids of `teacherAssignments`. */
+export async function teacherSectionIds(
+  manager: EntityManager,
+  { userId, tenantId }: TeacherScopeInput,
+): Promise<string[]> {
+  const rows: { section_id: string }[] = await manager.query(
+    `SELECT DISTINCT tcs.section_id ${TEACHER_ROWS_FROM_SQL}`,
+    [tenantId, userId],
+  );
+  return rows.map((r) => r.section_id);
+}
+
+/** True when a live student of the tenant sits in one of the caller's visible sections.
+ * A non-UUID id is `false`, not a 500 (some routes have no `ParseUUIDPipe`). */
+export async function teacherCanSeeStudent(
+  manager: EntityManager,
+  { userId, tenantId, studentId }: TeacherScopeInput & { studentId: string },
+): Promise<boolean> {
+  if (!isUUID(studentId)) return false;
+  const rows: unknown[] = await manager.query(
+    `SELECT 1 FROM students st
+      WHERE st.id = $3 AND st.tenant_id = $1 AND st.deleted_at IS NULL
+        AND st.class_section_id IN (SELECT tcs.section_id ${TEACHER_ROWS_FROM_SQL})
+      LIMIT 1`,
+    [tenantId, userId, studentId],
+  );
+  return rows.length > 0;
 }
 
 export type HomeroomType =
@@ -51,51 +120,17 @@ export class TeacherScopeService {
     private readonly studentRepo: Repository<Student>,
   ) {}
 
-  /** Distinct sections the user teaches: live homeroom (current year) or live-subject rows. */
-  async sectionIds(input: { userId: string; tenantId: string }): Promise<string[]> {
-    const { userId, tenantId } = input;
-    const rows = await this.tcsRepo
-      .createQueryBuilder('tcs')
-      .innerJoin(
-        'teachers',
-        't',
-        't.id = tcs.teacher_id AND t.tenant_id = :tenantId AND t.deleted_at IS NULL',
-        { tenantId },
-      )
-      .innerJoin(
-        'class_sections',
-        'cs',
-        'cs.id = tcs.section_id AND cs.tenant_id = :tenantId AND cs.deleted_at IS NULL',
-        { tenantId },
-      )
-      .innerJoin(
-        'classes',
-        'c',
-        'c.id = cs.class_id AND c.tenant_id = :tenantId AND c.deleted_at IS NULL',
-        { tenantId },
-      )
-      .leftJoin(
-        'academic_years',
-        'ay',
-        'ay.id = c.academic_year_id AND ay.tenant_id = :tenantId AND ay.is_current = true AND ay.deleted_at IS NULL',
-        { tenantId },
-      )
-      .leftJoin(
-        'subjects',
-        's',
-        's.id = tcs.subject_id AND s.tenant_id = :tenantId AND s.deleted_at IS NULL',
-        { tenantId },
-      )
-      .select('DISTINCT tcs.section_id', 'section_id')
-      .where('tcs.tenant_id = :tenantId', { tenantId })
-      .andWhere('t.user_id = :userId', { userId })
-      .andWhere(
-        `((tcs.assignment_type IN (:...homeroom) AND ay.id IS NOT NULL)
-          OR (tcs.assignment_type = :subjectType AND s.id IS NOT NULL))`,
-        { homeroom: HOMEROOM_TYPES, subjectType: TeacherAssignmentType.SUBJECT_TEACHER },
-      )
-      .getRawMany<{ section_id: string }>();
-    return rows.map((r) => r.section_id);
+  /** Distinct sections the user teaches, current academic year only (see `teacherSectionIds`). */
+  sectionIds(input: TeacherScopeInput): Promise<string[]> {
+    return teacherSectionIds(this.tcsRepo.manager, input);
+  }
+
+  currentAssignments(input: TeacherScopeInput): Promise<TeacherAssignmentRow[]> {
+    return teacherAssignments(this.tcsRepo.manager, input);
+  }
+
+  canSeeStudent(input: TeacherScopeInput & { studentId: string }): Promise<boolean> {
+    return teacherCanSeeStudent(this.tcsRepo.manager, input);
   }
 
   /** `null` = no extra filter (tenant-scope and guardian roles); array = ASSIGNED_SECTIONS.

@@ -7,6 +7,7 @@ import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
+import { assignTeacherToSection } from '@test/helpers/teacher-scope.fixture';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -130,6 +131,10 @@ describe('Enrollments E2E — GET /enrollments/:studentId/current', () => {
   it.each([UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER])(
     'returns 200 for %s role',
     async (role) => {
+      // 75.6: a TEACHER reads only the sections they teach.
+      if (role === UserRole.TEACHER) {
+        await assignTeacherToSection(dataSource, SEED_ADMIN_USER_ID, SEED_SECTION_1_ID);
+      }
       const res = await supertest(app.getHttpServer())
         .get(`/api/v1/enrollments/${studentId}/current`)
         .set('Authorization', `Bearer ${token}`)

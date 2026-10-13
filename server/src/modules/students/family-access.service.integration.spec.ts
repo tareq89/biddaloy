@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { UnauthorizedException } from '@nestjs/common';
+import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { UserRole } from '@biddaloy/shared';
+import { TeacherAssignmentType, UserRole } from '@biddaloy/shared';
+import { Teacher } from '../academics/entities/teacher.entity';
+import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { createTestModule } from '@test/helpers/module.helper';
 import {
@@ -343,7 +345,7 @@ describe('FamilyAccessService (integration)', () => {
     it('lets a staff role through for a student they have no linkage to', async () => {
       const child = await makeStudent();
 
-      for (const role of [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER]) {
+      for (const role of [UserRole.ADMIN, UserRole.ACCOUNTANT]) {
         await expect(
           service.assertLinked(role, STRANGER_USER_ID, child.id, SEED_TENANT_ID),
         ).resolves.toBeUndefined();
@@ -372,6 +374,54 @@ describe('FamilyAccessService (integration)', () => {
           SEED_TENANT_ID,
         ),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+  });
+
+  describe('assertLinked — TEACHER (Epic 75 D2/D13)', () => {
+    async function assignTeacher(sectionId: string) {
+      const teacher = await dataSource.getRepository(Teacher).save({
+        user_id: STRANGER_USER_ID,
+        employee_id: `FA-T-${Math.random().toString(36).slice(2, 8)}`,
+        tenant_id: SEED_TENANT_ID,
+        designations: [],
+      });
+      await dataSource.getRepository(TeacherClassSection).save({
+        teacher_id: teacher.id,
+        section_id: sectionId,
+        tenant_id: SEED_TENANT_ID,
+        subject_id: null,
+        assignment_type: TeacherAssignmentType.CLASS_TEACHER,
+      });
+    }
+    const asTeacher = (studentId: string) =>
+      service.assertLinked(UserRole.TEACHER, STRANGER_USER_ID, studentId, SEED_TENANT_ID);
+
+    it('passes for a student in an assigned current-year section', async () => {
+      const child = await makeStudent();
+      await assignTeacher(SEED_SECTION_1_ID);
+      await expect(asTeacher(child.id)).resolves.toBeUndefined();
+    });
+
+    it('404s a student in an unassigned section, a missing student and a non-UUID id', async () => {
+      const child = await makeStudent();
+      await expect(asTeacher(child.id)).rejects.toBeInstanceOf(NotFoundException);
+      await assignTeacher(SEED_SECTION_1_ID);
+      await expect(asTeacher('00000000-0000-4000-8000-00000000dead')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await expect(asTeacher('not-a-uuid')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('404s a soft-deleted student and a student of another tenant', async () => {
+      await assignTeacher(SEED_SECTION_1_ID);
+      const gone = await makeStudent();
+      await studentRepo.softDelete({ id: gone.id });
+      await expect(asTeacher(gone.id)).rejects.toBeInstanceOf(NotFoundException);
+      const other = await makeStudent({
+        tenant_id: TENANT_B,
+        class_section_id: TENANT_B_SECTION,
+      });
+      await expect(asTeacher(other.id)).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

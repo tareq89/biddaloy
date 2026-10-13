@@ -727,12 +727,12 @@ describe('Guardians E2E', () => {
       expect(new Set(ids).size).toBe(ids.length);
     });
 
-    it('TEACHER GET /guardians/:id of an other-section-only guardian -> 403', async () => {
+    it('TEACHER GET /guardians/:id of an other-section-only guardian -> 404', async () => {
       const mineStudent = await insertStudent('Scope Mine', SEED_SECTION_1_ID);
       const otherStudent = await insertStudent('Scope Other', SEED_SECTION_2_ID);
       const mine = await insertGuardian('Scope Guardian Mine', [mineStudent]);
       const other = await insertGuardian('Scope Guardian Other', [otherStudent]);
-      await asTeacher(get(`/guardians/${other}`)).expect(403);
+      await asTeacher(get(`/guardians/${other}`)).expect(404);
       await asTeacher(get(`/guardians/${mine}`)).expect(200);
     });
 

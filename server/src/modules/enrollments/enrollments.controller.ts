@@ -1,4 +1,17 @@
-import { Controller, Get, Post, Patch, Body, Param, Res, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Res,
+  UseGuards,
+  Req,
+  NotFoundException,
+} from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { teacherCanSeeStudent } from '../classes/teacher-scope.service';
 import type { Response, Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiExtraModels, ApiOkResponse, ApiTags, getSchemaPath } from '@nestjs/swagger';
@@ -21,7 +34,28 @@ import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
 @Controller('enrollments')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class EnrollmentController {
-  constructor(private readonly service: EnrollmentService) {}
+  constructor(
+    private readonly service: EnrollmentService,
+    private readonly dataSource: DataSource,
+  ) {}
+
+  /** Epic 75 D2/D13: a TEACHER reads only students in their current-year sections; a miss is 404. */
+  private async assertTeacherCanSee(
+    tenant: { id: string; role: string },
+    userId: string,
+    studentId: string,
+  ) {
+    if (
+      tenant.role === UserRole.TEACHER &&
+      !(await teacherCanSeeStudent(this.dataSource.manager, {
+        userId,
+        tenantId: tenant.id,
+        studentId,
+      }))
+    ) {
+      throw new NotFoundException('Student not found');
+    }
+  }
 
   @Post()
   // [10.4] G3 grants AC STUDENT_UPDATE (front-office intake); G1 tightens E
@@ -46,10 +80,12 @@ export class EnrollmentController {
     UserRole.EXAM_CONTROLLER,
   )
   @RequirePermissions(Permission.STUDENT_READ)
-  findByStudent(
+  async findByStudent(
     @Param('studentId') studentId: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
+    await this.assertTeacherCanSee(tenant, user.sub, studentId);
     return this.service.findByStudent(studentId, tenant.id);
   }
 
@@ -82,8 +118,10 @@ export class EnrollmentController {
   async findCurrent(
     @Param('studentId') studentId: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
     @Res({ passthrough: false }) res: Response,
   ): Promise<void> {
+    await this.assertTeacherCanSee(tenant, user.sub, studentId);
     const enrollment = await this.service.findCurrentByStudent(studentId, tenant.id);
     res.status(200).json(enrollment);
   }

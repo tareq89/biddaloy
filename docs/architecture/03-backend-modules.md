@@ -94,6 +94,8 @@ flowchart LR
   M["MarksAuthorizationService<br/>(exams)"] --> T
   T --> R1["rolesInSection(user, section)<br/>→ homeroom: CLASS | ASSISTANT | null<br/>+ live subjectIds"]
   T --> R2["homeroomSections(user)<br/>→ current-year CLASS/ASSISTANT sections"]
+  F["FamilyAccessService.assertLinked<br/>students.controller lists, notes, enrollments"] --> S["teacherSectionIds / teacherCanSeeStudent<br/>(free functions, current year only)"]
+  T --> S
 ```
 
 - `rolesInSection` returns `subjectIds` of **live** subjects only. A
@@ -104,12 +106,46 @@ flowchart LR
 - It only answers for the teacher's own rows. Tenant-wide roles never reach
   it: callers check `hasTenantDataScope` first.
 
-**This is the place new teacher-scope checks go.** The older user → teacher →
-tcs joins (about ten of them, in attendance, homework, performance, student notes and surveys) have **not** been migrated.
-They still do their own joins, and some do not filter by academic year, so a
-teacher can still reach past-year sections there. Moving them onto this
-service, and fixing that leak, is a separate follow-up (Epic 47.0 D4).
-Today only My class and marks authorization use it.
+**This is the place new teacher-scope checks go.** Epic 75 (75.6 to 75.6-e)
+moves the caller-scope joins onto this file, **current academic year only**.
+A teacher miss is **404**, never 403 (D13). A teacher with no assignment gets
+empty lists.
+
+One query answers "which sections does this teacher see?": every live
+CLASS / ASSISTANT / SUBJECT row in a live section of a live class of the
+**current** year (a SUBJECT row counts only while its subject is live). It is
+exported as plain functions that take an `EntityManager`, so modules that
+cannot import `ClassModule` (Student, Enrollment) still use it:
+
+| Function                                            | Returns                                                                                       |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `teacherAssignments(manager, { userId, tenantId })` | `{ section_id, class_id, assignment_type, subject_id }[]`                                     |
+| `teacherSectionIds(manager, { userId, tenantId })`  | distinct `section_id`s                                                                        |
+| `teacherCanSeeStudent(manager, { …, studentId })`   | `true` when a live student of the tenant sits in a visible section; `false` for a non-UUID id |
+
+`TeacherScopeService` has thin wrappers (`currentAssignments`, `sectionIds`,
+`canSeeStudent`). `rolesInSection` and `teachesSubjectInClass` are unchanged,
+so marks behave as before.
+
+**Teacher-reachable routes and where each is scoped (Epic 75 audit).** Scope for
+every row: the student sits in a section where the caller has any live row in the
+current year. Per-subject writes (marks, homework) keep their subject rules.
+
+| Route(s)                                                                                                                                                                                                                                                                  | Scoped by                                                                              | Ticket             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------ |
+| `GET /students`, `GET /students/ids`, `GET /guardians`, `GET /guardians/:id`                                                                                                                                                                                              | `sectionScope` (now current-year only); guardian miss is 404                           | 75.6               |
+| `GET /students/:id`, `/students/:id/photo`, and every route that calls `FamilyAccessService.assertLinked` (payments/student, wallet, attendance/students/:id/\*, transcript, document prints, admit card, student results, programs per student, study plans per student) | `assertLinked` TEACHER branch, 404                                                     | 75.6               |
+| `GET /enrollments/student/:studentId`, `GET /enrollments/:studentId/current`                                                                                                                                                                                              | `teacherCanSeeStudent` in the controller, 404                                          | 75.6               |
+| `GET/POST /students/:id/notes`, `DELETE …/notes/:noteId`                                                                                                                                                                                                                  | `teacherSectionIds` in `student-notes.service.ts`, 404                                 | 75.6               |
+| `GET /students/:id/lifecycle-events`, `GET /students/:id/public-exams`                                                                                                                                                                                                    | `assertLinked`, 404                                                                    | 75.6               |
+| Attendance section routes                                                                                                                                                                                                                                                 | `AttendanceAccessService` own join, any year, 403                                      | 75.6-b             |
+| Homework routes, `performance/students/:id`, `performance/classes/:id`                                                                                                                                                                                                    | `HomeworkAccessService` / `performance.service.ts` own joins                           | 75.6-c             |
+| `GET /fees/dues`, `/fees/dues/flagged`, `/fees/fines`, `/payments/guardian/:id`, `/payments/cart`, `/students/:id/discount-rules`, `communications/*`, `audit-logs/entity/:type/:id`                                                                                      | none today                                                                             | 75.6-d             |
+| `GET /exams/:examId/results`, `…/results/:studentId`, `exams/:examId/analysis/*`, `GET /search`                                                                                                                                                                           | `sectionScope` / `assertCanSeeStudent` (403 today) or none                             | 75.6-e             |
+| Marks, syllabus, study plans, lesson deliveries, attention, my-class                                                                                                                                                                                                      | `TeacherScopeService` already                                                          | no change          |
+| `GET /programs/:id/enrollments`, `POST /programs/:id/achievements`, `DELETE /milestone-achievements/:id`                                                                                                                                                                  | none, on purpose: programs (Hifz, clubs) run across sections and D2 does not list them | accepted exception |
+| Calendar, routines, notices, dashboard, academic structure, applications, surveys, own staff attendance                                                                                                                                                                   | open, per D2                                                                           | no change          |
+| Incidents/ACR, staff-hr, leave approve                                                                                                                                                                                                                                    | TEACHER lacks `ACR_READ` / `STAFF_HR_READ` / `LEAVE_APPROVE`                           | unreachable        |
 
 **Marks rules** (`MarksAuthorizationService`, `exams/marks-authorization.util.ts`),
 for a teacher without tenant-wide data scope:

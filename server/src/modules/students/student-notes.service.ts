@@ -4,6 +4,7 @@ import { DataSource, IsNull, Repository } from 'typeorm';
 import { AuditAction, UserRole } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { teacherSectionIds } from '../classes/teacher-scope.service';
 import { Student } from './entities/student.entity';
 import { StudentNote } from './entities/student-note.entity';
 import { CreateStudentNoteDto, StudentNoteResponseDto } from './dto/student-notes.dto';
@@ -30,12 +31,9 @@ export class StudentNotesService {
   ) {}
 
   /**
-   * 404 if the student isn't in this tenant; 403 for a TEACHER not mapped
-   * (teacher_class_sections, via teachers.user_id) to the student's section.
-   * Same rule as AttendanceAccessService.assertCanAccessSection — duplicated
-   * here because StudentModule can't import AttendanceModule (D29 freezes
-   * students.module.ts). ponytail: fold into one shared service if a third
-   * caller appears.
+   * 404 if the student isn't in this tenant, and also for a TEACHER with no live
+   * row in the student's section in the current academic year (Epic 75 D13; the
+   * shared `teacherSectionIds` free function, since StudentModule can't import ClassModule).
    */
   private async assertStudentAccess(studentId: string, caller: NoteCaller): Promise<Student> {
     const student = await this.students.findOne({
@@ -44,14 +42,13 @@ export class StudentNotesService {
     if (!student) throw new NotFoundException(`Student with ID "${studentId}" not found`);
 
     if (caller.role === UserRole.TEACHER) {
-      const rows = await this.dataSource.query(
-        `SELECT 1 FROM teacher_class_sections tcs
-           JOIN teachers t ON t.id = tcs.teacher_id AND t.tenant_id = $1
-          WHERE tcs.tenant_id = $1 AND tcs.section_id = $2 AND t.user_id = $3
-          LIMIT 1`,
-        [caller.tenantId, student.class_section_id, caller.userId],
-      );
-      if (rows.length === 0) throw new ForbiddenException('You do not have access to this student');
+      const sections = await teacherSectionIds(this.dataSource.manager, {
+        userId: caller.userId,
+        tenantId: caller.tenantId,
+      });
+      if (!student.class_section_id || !sections.includes(student.class_section_id)) {
+        throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      }
     }
     return student;
   }
