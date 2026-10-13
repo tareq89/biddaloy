@@ -1,5 +1,4 @@
 import { AuthTokenPurpose, EnrollmentStatus, UserRole, UserStatus } from '@biddaloy/shared';
-import * as bcrypt from 'bcrypt';
 import { EntityManager, IsNull, Repository } from 'typeorm';
 import { AuthToken } from '../modules/account-access/entities/auth-token.entity';
 import { generateDeviceKey } from '../modules/attendance/devices/device.service';

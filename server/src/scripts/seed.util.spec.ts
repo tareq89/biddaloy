@@ -86,7 +86,6 @@ import {
   SEED_ACADEMIC_TERM_NAMES,
   SEED_ASSISTANT_TEACHER_EMAIL,
   SEED_CALENDAR_EVENT_NAMES,
-  SEED_DEVICE_KEY as E2E_SEED_DEVICE_KEY,
   SEED_PASSWORD_ENV,
   SEED_PUBLIC_HOLIDAY_SAMPLE_NAME,
   SEED_PUBLIC_HOLIDAY_SETS,
@@ -348,10 +347,6 @@ describe('e2e seed contract', () => {
     // seed.ts reads process.env.SEED_ADMIN_PASSWORD; the contract must
     // point E2E fixtures at the same variable.
     expect(SEED_PASSWORD_ENV).toBe('SEED_ADMIN_PASSWORD');
-  });
-
-  it('[9.11] matches the literal device key seed.util.ts hashes and stores', () => {
-    expect(E2E_SEED_DEVICE_KEY).toBe(SEED_DEVICE_KEY);
   });
 
   it('[9.11] matches the literal absent date seed.util.ts actually seeds for roll 1', () => {
@@ -1074,7 +1069,7 @@ describe('ensureAttendanceSeed', () => {
     expect(streaks[0]!.length).toBeGreaterThanOrEqual(15);
   });
 
-  it("stores the ACTIVE device's key as the SHA-256 hash of SEED_DEVICE_KEY, matching the e2e contract", async () => {
+  it("stores the ACTIVE device's key as the SHA-256 hash of SEED_DEVICE_KEY by default", async () => {
     const repos = attendanceRepos();
     emptyDatabase(repos);
 
@@ -1085,7 +1080,6 @@ describe('ensureAttendanceSeed', () => {
       .mock.calls.map(([payload]) => payload as Partial<AttendanceDevice>);
     const active = devices.find((d) => d.status === 'ACTIVE');
     expect(active?.token_hash).toBe(hashDeviceKey(SEED_DEVICE_KEY));
-    expect(SEED_DEVICE_KEY).toBe(E2E_SEED_DEVICE_KEY);
   });
 
   it('reports activeDeviceCreated=false when only the revoked device is inserted', async () => {

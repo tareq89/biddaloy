@@ -126,9 +126,9 @@ import {
 export { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 
 export async function seed() {
-  // [9.11] `ensureAttendanceSeed` writes a fixed, repository-known
-  // `SEED_DEVICE_KEY` onto an ACTIVE, roster-enabled attendance device —
-  // and every other seed account in this file uses one shared password
+  // [9.11] `ensureAttendanceSeed` writes an ACTIVE, roster-enabled
+  // attendance device (a random key per database since #2320, printed once)
+  // — and every other seed account in this file uses one shared password
   // from `SEED_ADMIN_PASSWORD`. None of that is safe against a real
   // database. Checked before booting `AppModule` at all, so a mistaken
   // invocation against production fails immediately rather than after
