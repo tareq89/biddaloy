@@ -109,6 +109,24 @@ describe('Teacher section scope (75.6)', () => {
       await asTeacher('get', `/students/${UUID_MISSING}`).expect(404);
     });
 
+    // D13: "not yours" must look exactly like "does not exist", body included, so a teacher can't probe.
+    it('GET /students/:id and /guardians/:id: the 404 body for B equals the body for a missing id', async () => {
+      const body = async (path: string) => {
+        const {
+          path: _p,
+          timestamp: _t,
+          ...rest
+        } = (await asTeacher('get', path).expect(404)).body as Record<string, unknown>;
+        return rest;
+      };
+      expect(await body(`/students/${fx.studentB}`)).toEqual(
+        await body(`/students/${UUID_MISSING}`),
+      );
+      expect(await body(`/guardians/${fx.guardianB}`)).toEqual(
+        await body(`/guardians/${UUID_MISSING}`),
+      );
+    });
+
     it('GET /students/:id/photo is 404 for B', async () => {
       await asTeacher('get', `/students/${fx.studentB}/photo`).expect(404);
     });

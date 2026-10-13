@@ -218,11 +218,12 @@ export class StudentController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    const student = await this.studentService.findOne(id, tenant.id);
-    // Object-level authorization for PARENT/STUDENT; a no-op for staff.
+    // Object-level authorization for PARENT/STUDENT/TEACHER; a no-op for tenant-wide staff.
     // [5.1] moved the check that used to be inline here into
     // FamilyAccessService so every widened family route shares one copy.
+    // Before the lookup (D13): a missing id and someone else's student give the same answer.
     await this.familyAccess.assertLinked(tenant.role, user.sub, id, tenant.id);
+    const student = await this.studentService.findOne(id, tenant.id);
     return redactHealthNotes(student, canReadRecords(tenant.role));
   }
 
@@ -373,6 +374,13 @@ export class StudentController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
+    // Before the lookup (D13): a missing id and someone else's guardian give the same 404.
+    await this.teacherScope.assertCanSeeGuardian({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+      guardianId: id,
+    });
     const guardian = await this.guardianService.findOne(id, tenant.id);
     const scope = await this.teacherScope.sectionScope({
       role: tenant.role,
