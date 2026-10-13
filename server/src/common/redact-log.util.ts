@@ -57,9 +57,15 @@ function safeDecode(text: string): string {
 // pino serializer, so the exception filter and Sentry mask them too.
 const SECRET_PATH_PATTERN = /(\/(?:public\/invoices|public\/verify|calendar\/feed)\/)[^/?\s"]+/g;
 
+// [75.23] The SPA pages people open from a shared link: `/i/:token` (invoice
+// receipt) and `/v/:token` (certificate verify). Only at the start of the
+// URL (or of a log word), so `/api/v1/v/x` is never matched.
+const SECRET_SPA_PATH_PATTERN = /(?<=^|[\s"])(\/[iv]\/)[^/?\s"]+/g;
+
 function applyRedaction(text: string): string {
   return text
     .replace(SECRET_PATH_PATTERN, '$1[REDACTED]')
+    .replace(SECRET_SPA_PATH_PATTERN, '$1[REDACTED]')
     .replace(EMAIL_PATTERN, '[REDACTED_EMAIL]')
     .replace(PHONE_PATTERN, '[REDACTED_PHONE]')
     .replace(SENSITIVE_QUERY_PATTERN, '$1[REDACTED]')
