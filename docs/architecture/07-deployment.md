@@ -80,8 +80,9 @@ flowchart LR
 It runs the server's boot-time config checks without starting anything:
 the env schema and placeholder rules (`env.validation.ts`), the
 secret-echo guard, `DB_SSL`, the `SETTINGS_ENCRYPTION_KEY` shape (32 bytes
-of base64), and the https rules for `APP_BASE_URL` and `PUBLIC_APP_URL`. It
-lists every failure, not just the first. It does not connect to Postgres,
+of base64), the https rules for `APP_BASE_URL` and `PUBLIC_APP_URL`, and,
+when `ENABLE_API_DOCS=true`, that `API_DOCS_USER` and `API_DOCS_PASSWORD` are
+both set. It lists every failure, not just the first. It does not connect to Postgres,
 Redis or S3, so a wrong password or host still only shows up at boot. It
 always judges the env as production whatever `NODE_ENV` the file says. It
 reads the **host's** `.env` (not the container's environment) and needs node
