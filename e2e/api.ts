@@ -1257,6 +1257,39 @@ export async function endTrial(schoolId: string): Promise<void> {
     await client.end();
   }
 }
+type PgClient = {
+  connect(): Promise<void>;
+  query(sql: string): Promise<unknown>;
+  end(): Promise<void>;
+};
+
+/** Runs one raw SQL statement on the e2e database.
+ * ponytail: raw SQL via the server's `pg` (as `endTrial`); swap for an endpoint if one appears. */
+async function runSql(sql: string): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  if (!url)
+    throw new Error('DATABASE_URL is not set — platform alert helpers need the e2e database');
+  const { Client } = (await import('pg' as string)) as {
+    Client: new (options: { connectionString: string }) => PgClient;
+  };
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  try {
+    await client.query(sql);
+  } finally {
+    await client.end();
+  }
+}
+
+/** Opens a REDIS_DOWN platform alert. The e2e server runs with NODE_ENV=test,
+ * so the live probe is off and cannot clear it behind the test's back. */
+export const openPlatformAlert = () =>
+  runSql(`INSERT INTO platform_alerts (kind) VALUES ('REDIS_DOWN') ON CONFLICT DO NOTHING`);
+
+/** Clears every open platform alert. */
+export const clearPlatformAlerts = () =>
+  runSql(`UPDATE platform_alerts SET cleared_at = now() WHERE cleared_at IS NULL`);
+
 // ---------------------------------------------------------------------------
 // [66.3.99] Study plans (Epic 66)
 // ---------------------------------------------------------------------------

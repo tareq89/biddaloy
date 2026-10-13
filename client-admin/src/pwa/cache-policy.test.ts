@@ -30,6 +30,10 @@ describe('isCacheableApiRequest', () => {
     expect(isCacheableApiRequest(match('/api/v1/fees/invoices?page=2'))).toBe(true);
   });
 
+  it('never caches the live platform alert, so offline never shows a stale one', () => {
+    expect(isCacheableApiRequest(match('/api/v1/platform/alerts'))).toBe(false);
+  });
+
   it('never caches auth endpoints, which carry rotating credentials', () => {
     expect(isCacheableApiRequest(match('/api/v1/auth/refresh'))).toBe(false);
     expect(isCacheableApiRequest(match('/api/v1/auth/me'))).toBe(false);

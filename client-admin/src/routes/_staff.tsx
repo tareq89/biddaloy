@@ -36,6 +36,7 @@ import {
 import * as React from 'react';
 
 import { CommandPaletteLauncher } from '../components/command-palette-launcher';
+import { PlatformAlertBanner } from '../components/platform-alert-banner';
 import { RestoreInProgressBar } from '../components/restore-in-progress-bar';
 import { StaffUserMenu } from '../components/staff-user-menu';
 import { useAttentionCenter } from '../features/attention/attention-center';
@@ -387,6 +388,7 @@ function StaffLayout() {
             skipLinkLabel={t('skipToContent')}
           >
             <RestoreInProgressBar />
+            <PlatformAlertBanner enabled={activeRole === UserRole.SUPER_ADMIN} />
             {attention.bar}
             {attention.modal}
             <TrialDetailsLanding />
