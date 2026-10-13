@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
-import { Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { StudentService, GuardianService } from '../students/students.service';
 import {
@@ -265,11 +265,22 @@ export class CommunicationsService {
    * `findOne` below throws `NotFoundException` if the guardian doesn't
    * belong to this tenant, so a cross-tenant guardian ID never leaks a
    * (necessarily empty) log list. */
-  async findByGuardian(guardianId: string, tenantId: string): Promise<CommunicationResponseDto[]> {
+  async findByGuardian(
+    guardianId: string,
+    tenantId: string,
+    restrictToStudentIds?: string[],
+  ): Promise<CommunicationResponseDto[]> {
     await this.guardianService.findOne(guardianId, tenantId);
 
+    const base = { guardian_id: guardianId, tenant_id: tenantId };
     const logs = await this.repo.find({
-      where: { guardian_id: guardianId, tenant_id: tenantId },
+      // [75.6-d] TEACHER: drop rows about a sibling outside scope; keep rows with no student.
+      where: restrictToStudentIds
+        ? [
+            { ...base, student_id: IsNull() },
+            { ...base, student_id: In(restrictToStudentIds) },
+          ]
+        : base,
       order: { created_at: 'DESC' },
     });
 
