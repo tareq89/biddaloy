@@ -539,6 +539,16 @@ the honest value when there's no active tenant to record.
 Out of scope for this ticket: a "new sign-in to your account" notification
 (needs a per-user notification-preference surface that doesn't exist yet).
 
+## Dev seed safety (75.12)
+
+`yarn seed`, `db:reset` and `db:clear` call `assertLocalSeedTarget` first and exit 1 when:
+
+1. `NODE_ENV=production`, or
+2. `DATABASE_URL` is missing or not a URL, or
+3. its host is not `localhost`, `127.0.0.1` or `::1` (an SSH tunnel to localhost works for a deliberate remote seed).
+
+The message names the script and host, never the password. The dev seed's attendance device gets a fresh random key per database, printed once as `Seed attendance device key (shown once): bd_...`; re-runs do not reprint it. Specs that call `ensureAttendanceSeed` directly keep the fixed `SEED_DEVICE_KEY`.
+
 ## CSRF posture
 
 The API splits cleanly into two authentication modes, and the CSRF argument

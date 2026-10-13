@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { resolve } from 'path';
 import { config } from 'dotenv';
+import { assertLocalSeedTarget } from './seed-guard';
 
 config({ path: resolve(__dirname, '..', '..', '..', '.env') });
 
@@ -22,11 +23,10 @@ async function dbClear() {
   }
 
   // Additional guard: refuse to run in production
-  if (process.env.NODE_ENV === 'production') {
-    console.error(
-      'Refusing to run db:clear in NODE_ENV=production.\n' +
-        'Set NODE_ENV=development or unset it before running this destructive command.',
-    );
+  try {
+    assertLocalSeedTarget(process.env, 'db:clear');
+  } catch (e) {
+    console.error((e as Error).message);
     process.exit(1);
   }
 
