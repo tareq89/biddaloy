@@ -23,14 +23,19 @@ const verifyEmailSearchSchema = z.object({
 });
 
 /**
- * Review n-new-4: what went wrong on Approve/Confirm, so the advice fits. 409 = withdrawn or no
- * longer possible, 403 = locked after wrong codes, 429 = asked too often, 503 = not sent/checked.
+ * Review n-new-4: what went wrong on Approve/Confirm, so the advice fits. 409 PROPOSAL_WITHDRAWN =
+ * the school withdrew it; any other 409 (value taken, no identifier left) = not possible now, link
+ * kept. 403 = locked after wrong codes, 429 = asked too often, 503 = not sent/checked.
  * Anything else falls back to `fallback` (on the code step: a wrong or expired code).
  */
 function decideErrorKey(error: unknown, fallback: 'error' | 'codeError') {
   if (error instanceof RateLimitedError) return 'tooMany' as const;
   if (error instanceof ApiError) {
-    if (error.statusCode === 409) return 'withdrawn' as const;
+    if (error.statusCode === 409) {
+      return error.details?.code === 'PROPOSAL_WITHDRAWN'
+        ? ('withdrawn' as const)
+        : ('conflict' as const);
+    }
     if (error.statusCode === 403) return 'locked' as const;
     if (error.statusCode === 503) return 'unavailable' as const;
   }
@@ -204,7 +209,10 @@ function VerifyEmailPage() {
                     id={`verify-${key}`}
                     value={codes[key]}
                     onValueChange={(v) => setCodes((c) => ({ ...c, [key]: v }))}
-                    invalid={decide.isError}
+                    // Red only when the code itself was the problem (review n-r3-1).
+                    invalid={
+                      decide.isError && decideErrorKey(decide.error, 'codeError') === 'codeError'
+                    }
                     aria-label={t('verifyEmail.proposal.codeLabel', { value: address })}
                   />
                 </div>

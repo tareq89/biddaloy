@@ -151,48 +151,56 @@ describe('/verify-email', () => {
       ]);
     });
 
-    // Review n-new-4: each failure on the code step gets advice that fits it.
+    // Review n-new-4: each failure on the code step gets advice that fits it. Review n-r3-1: only a
+    // wrong/expired code outlines the code boxes red, and only PROPOSAL_WITHDRAWN says "withdrawn".
     it.each([
-      [409, 'This change can no longer be made.'],
-      [403, 'Too many wrong codes. Wait 15 minutes'],
-      [429, 'Too many requests. Wait a minute, then try again.'],
-      [503, "We couldn't send or check the code just now."],
-      [400, "That code didn't work."],
-    ])('a %i on the code step shows its own message', async (status, message) => {
-      server.use(
-        authHandlers.refreshFailure,
-        http.post('/api/v1/auth/verify-email', async ({ request }) => {
-          const body = (await request.json()) as { action?: string; phone_code?: string };
-          if (body.action === 'approve' && !body.phone_code) {
-            return HttpResponse.json({ status: 'confirm' });
-          }
-          if (body.action === 'approve') {
-            return HttpResponse.json(
-              {
-                statusCode: status,
-                message: 'nope',
-                requestId: 'req-1',
-                path: '/api/v1/auth/verify-email',
-                timestamp: new Date().toISOString(),
-              },
-              { status },
-            );
-          }
-          return HttpResponse.json(proposal);
-        }),
-      );
-      renderWithRouter(routeTree, {
-        initialEntries: ['/verify-email?token=a-proposal-token'],
-        locale: 'en',
-      });
-      const user = userEvent.setup();
+      [409, 'PROPOSAL_WITHDRAWN', 'The school may have withdrawn it.', 'false'],
+      [409, undefined, 'already used by another account', 'false'],
+      [403, undefined, 'Too many wrong codes. Wait 15 minutes', 'false'],
+      [429, undefined, 'Too many requests. Wait a minute, then try again.', 'false'],
+      [503, undefined, "We couldn't send or check the code just now.", 'false'],
+      [400, undefined, "That code didn't work.", 'true'],
+    ])(
+      'a %i (%s) on the code step shows its own message',
+      async (status, code, message, invalid) => {
+        server.use(
+          authHandlers.refreshFailure,
+          http.post('/api/v1/auth/verify-email', async ({ request }) => {
+            const body = (await request.json()) as { action?: string; phone_code?: string };
+            if (body.action === 'approve' && !body.phone_code) {
+              return HttpResponse.json({ status: 'confirm' });
+            }
+            if (body.action === 'approve') {
+              return HttpResponse.json(
+                {
+                  statusCode: status,
+                  message: 'nope',
+                  requestId: 'req-1',
+                  path: '/api/v1/auth/verify-email',
+                  timestamp: new Date().toISOString(),
+                  ...(code ? { details: { code } } : {}),
+                },
+                { status },
+              );
+            }
+            return HttpResponse.json(proposal);
+          }),
+        );
+        renderWithRouter(routeTree, {
+          initialEntries: ['/verify-email?token=a-proposal-token'],
+          locale: 'en',
+        });
+        const user = userEvent.setup();
 
-      await user.click(await screen.findByRole('button', { name: 'Approve' }));
-      await user.type(await screen.findByLabelText('Code sent to +8801712345998'), '123456');
-      await user.click(screen.getByRole('button', { name: 'Confirm' }));
+        await user.click(await screen.findByRole('button', { name: 'Approve' }));
+        const field = await screen.findByLabelText('Code sent to +8801712345998');
+        await user.type(field, '123456');
+        await user.click(screen.getByRole('button', { name: 'Confirm' }));
 
-      expect((await screen.findByRole('alert')).textContent).toContain(message);
-    });
+        expect((await screen.findByRole('alert')).textContent).toContain(message);
+        expect(field.getAttribute('aria-invalid')).toBe(invalid);
+      },
+    );
 
     it('a person who never got the code can still decline', async () => {
       server.use(
