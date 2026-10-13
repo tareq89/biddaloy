@@ -7,21 +7,23 @@ import { join, relative } from 'path';
  * so a malformed id gets 400 instead of reaching Postgres as a 500. Any other
  * pipe does not count. The params below are real non-UUID values and are the
  * only reviewed exceptions. Keys are `<path under src>:<param name>`; a bare
- * `@Param()` (the whole params object) has the name `(all)`.
+ * `@Param()` (the whole params object) has the name `(all)`. The number is how
+ * many unpiped uses of that key the file has, so a new UUID `:id` route added
+ * unpiped to an allowlisted file still fails.
  */
-const NON_UUID_PARAMS = new Set([
-  'modules/admission/public-admission.controller.ts:slug', // school slug
-  'modules/auth/social/social-auth.controller.ts:provider', // google / facebook
-  'modules/calendar/calendar-feed.controller.ts:token', // opaque feed token
-  'modules/invoices/public-invoice.controller.ts:token', // share-link token
-  'modules/print/verify/public-verify.controller.ts:token', // verify token
-  'modules/presets/presets.controller.ts:id', // preset key such as bd/nctb
-  'modules/print/templates/print-templates.controller.ts:key', // artwork key
-  'modules/print/templates/print-templates.controller.ts:side', // artwork side name
-  'modules/staff-hr/staff-document.controller.ts:documentType', // document type name
-  'modules/audit/audit.controller.ts:entityType', // Student, Payment, ...
-  'modules/leave/leave.controller.ts:type', // LeaveType, ParseEnumPipe
-  'modules/admission/applicant-review.controller.ts:type', // AdmissionDocumentType, ParseEnumPipe
+const NON_UUID_PARAMS = new Map<string, number>([
+  ['modules/admission/public-admission.controller.ts:slug', 3], // school slug
+  ['modules/auth/social/social-auth.controller.ts:provider', 4], // google / facebook
+  ['modules/calendar/calendar-feed.controller.ts:token', 1], // opaque feed token
+  ['modules/invoices/public-invoice.controller.ts:token', 1], // share-link token
+  ['modules/print/verify/public-verify.controller.ts:token', 1], // verify token
+  ['modules/presets/presets.controller.ts:id', 1], // preset key such as bd/nctb
+  ['modules/print/templates/print-templates.controller.ts:key', 1], // artwork key
+  ['modules/print/templates/print-templates.controller.ts:side', 1], // artwork side name
+  ['modules/staff-hr/staff-document.controller.ts:documentType', 1], // document type name
+  ['modules/audit/audit.controller.ts:entityType', 1], // Student, Payment, ...
+  ['modules/leave/leave.controller.ts:type', 1], // LeaveType, ParseEnumPipe
+  ['modules/admission/applicant-review.controller.ts:type', 1], // AdmissionDocumentType, ParseEnumPipe
 ]);
 
 const SRC_DIR = __dirname;
@@ -63,22 +65,28 @@ function collectParams() {
   return found;
 }
 
+/** Unpiped `@Param` uses per key. */
+function unpipedCounts() {
+  const counts = new Map<string, number>();
+  for (const p of collectParams()) {
+    if (!p.piped) counts.set(p.key, (counts.get(p.key) ?? 0) + 1);
+  }
+  return counts;
+}
+
 describe('param UUID coverage', () => {
   it('every @Param is piped or allowlisted', () => {
+    const counts = unpipedCounts();
     const offenders = collectParams()
-      .filter((p) => !p.piped && !NON_UUID_PARAMS.has(p.key))
+      .filter((p) => !p.piped && (counts.get(p.key) ?? 0) > (NON_UUID_PARAMS.get(p.key) ?? 0))
       .map((p) => p.where);
     // Fix: add ParseUUIDPipe, or add a reviewed NON_UUID_PARAMS entry.
     expect(offenders, 'add ParseUUIDPipe, or add a reviewed NON_UUID_PARAMS entry').toEqual([]);
   });
 
-  it('every allowlist entry still exists', () => {
-    const unpiped = new Set(
-      collectParams()
-        .filter((p) => !p.piped)
-        .map((p) => p.key),
-    );
-    const stale = [...NON_UUID_PARAMS].filter((k) => !unpiped.has(k));
-    expect(stale, 'remove allowlist entries whose param is gone or now piped').toEqual([]);
+  it('every allowlist entry still exists with its exact count', () => {
+    const counts = unpipedCounts();
+    const stale = [...NON_UUID_PARAMS].filter(([k, n]) => (counts.get(k) ?? 0) !== n);
+    expect(stale, 'fix allowlist entries whose param is gone, now piped, or recounted').toEqual([]);
   });
 });
