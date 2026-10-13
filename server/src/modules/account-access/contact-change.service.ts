@@ -548,15 +548,28 @@ export class ContactChangeService {
       return value ? [{ field, value, code: codes[`${field}_code`] }] : [];
     });
 
-    if (toProve.some((p) => !p.code)) {
+    // Review m-new-3: a value sent without its code gets a (new) code; a code that WAS sent is not
+    // checked or spent by this call, so the person can type the missing one and send both.
+    const toSend = toProve.filter((p) => !p.code);
+    if (toSend.length > 0) {
       // Check first, so a proposal that can no longer apply sends nothing.
       const user = await this.userRepo.findOne({ where: { id: userId } });
       const outcome = await this.proposalOutcome(this.userRepo.manager, user, token, meta);
       if (outcome !== 'valid') return this.refuse(outcome, tokenId);
+      // Every code is issued before any is delivered, so a cooldown/cap 429 on one value never
+      // leaves a code already sent to the other. Bound to this link: a code sent for another
+      // proposal or flow never confirms this one.
+      // ponytail: a 429 on the second value still spends the first value's 60 s cooldown.
+      const issued: Array<{ field: 'email' | 'phone'; value: string; code: string }> = [];
+      for (const { field, value } of toSend) {
+        issued.push({
+          field,
+          value,
+          code: (await this.otpService.request(PROPOSAL_OTP, value, tokenId)).code,
+        });
+      }
       const sent: NewContactCodes = {};
-      for (const { field, value } of toProve) {
-        // Bound to this link: a code sent for another proposal or flow never confirms this one.
-        const { code } = await this.otpService.request(PROPOSAL_OTP, value, tokenId);
+      for (const { field, value, code } of issued) {
         const delivered = await this.delivery.deliver({
           tenantId: null,
           medium: field === 'email' ? CommunicationMedium.EMAIL : CommunicationMedium.SMS,
