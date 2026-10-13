@@ -29156,7 +29156,7 @@ export interface operations {
                     guardian_phone?: string;
                     guardian_email?: string | null;
                     home_address?: string | null;
-                    /** @description Proof of ownership when updating an existing PENDING application for the same phone number. Omit on a first submission. */
+                    /** @description Proof of ownership when updating an existing PENDING application for the same child. Omit on a first submission. */
                     reference_number?: string | null;
                     /** Format: binary */
                     photo?: string;
