@@ -184,13 +184,18 @@ export class HomeworkService {
     if (!homework) {
       throw new NotFoundException('Homework not found');
     }
-    await this.access.assertCanManageClass(
-      ctx.role,
-      ctx.userId,
-      homework.class_id,
-      homework.subject_id,
-      ctx.tenantId,
-    );
+    // D13: a teacher outside the class gets the same 404 as a missing homework.
+    await this.access
+      .assertCanManageClass(
+        ctx.role,
+        ctx.userId,
+        homework.class_id,
+        homework.subject_id,
+        ctx.tenantId,
+      )
+      .catch((e: unknown) => {
+        throw e instanceof NotFoundException ? new NotFoundException('Homework not found') : e;
+      });
     return homework;
   }
 

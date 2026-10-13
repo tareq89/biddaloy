@@ -263,6 +263,34 @@ describe('PerformanceService', () => {
     await expect(service.getClassPerformance('c1', Q, teacher)).rejects.toThrow(NotFoundException);
   });
 
+  // D35: without a section, a teacher's class aggregates cover only their own sections.
+  it("TEACHER class view without a section is restricted to the teacher's sections", async () => {
+    exams(1);
+    analysis.getPassFail.mockResolvedValue(pf(1, 100, 90));
+    await service.getClassPerformance('c1', Q, teacher);
+    expect(analysis.getPassFail).toHaveBeenCalledWith('e1', T, undefined, ['sec1']);
+    expect(sectionRepo.find).toHaveBeenCalledWith({
+      where: { tenant_id: T, class_id: 'c1', id: expect.anything() },
+    });
+    expect(homework.getClassRollup).toHaveBeenCalledWith('c1', T, 'UTC', ['sec1']);
+  });
+
+  // D13: one body for "no such student", "not enrolled" and "not yours".
+  it('TEACHER gets "Student not found" when not enrolled or out of scope; ADMIN keeps the detail', async () => {
+    enrollmentRepo.findOne.mockResolvedValueOnce(null);
+    await expect(service.getStudentPerformance('s1', Q, teacher)).rejects.toThrow(
+      'Student not found',
+    );
+    vi.mocked(teacherAssignments).mockResolvedValue([]);
+    await expect(service.getStudentPerformance('s1', Q, teacher)).rejects.toThrow(
+      'Student not found',
+    );
+    enrollmentRepo.findOne.mockResolvedValueOnce(null);
+    await expect(service.getStudentPerformance('s1', Q, admin)).rejects.toThrow(
+      'Student has no enrollment in this academic year',
+    );
+  });
+
   it('non-teacher, non-tenant-wide role gets 403 without touching the teacher join', async () => {
     // assertTeacherScope falls through to the final throw for e.g. ACCOUNTANT / PARENT.
     for (const role of [UserRole.ACCOUNTANT, UserRole.PARENT]) {

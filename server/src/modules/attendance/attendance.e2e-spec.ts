@@ -689,7 +689,16 @@ describe('Attendance E2E', () => {
       it('an unassigned TEACHER gets 404 correcting a record (D13)', async () => {
         const recordId = await putAbsent(todayIso());
         await dataSource.query(`DELETE FROM teacher_class_sections`);
-        await patchAs(teacherToken, UserRole.TEACHER, recordId, 'PRESENT').expect(404);
+        const miss = await patchAs(teacherToken, UserRole.TEACHER, recordId, 'PRESENT').expect(404);
+        const unknown = await patchAs(
+          teacherToken,
+          UserRole.TEACHER,
+          randomUUID(),
+          'PRESENT',
+        ).expect(404);
+        // Same body as a record that does not exist.
+        expect(miss.body.message).toBe('Attendance record not found');
+        expect(miss.body.message).toBe(unknown.body.message);
       });
 
       it('TEACHER cannot edit one record of a finalized register (403 ATTENDANCE_FINALIZED)', async () => {

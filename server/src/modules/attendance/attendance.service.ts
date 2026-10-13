@@ -1230,6 +1230,7 @@ export class AttendanceService {
         throw new NotFoundException('Attendance session not found');
       }
 
+      // D13: a teacher outside the section gets the same 404 as a missing record.
       await this.assertRegisterAccess(
         role,
         userId,
@@ -1237,7 +1238,11 @@ export class AttendanceService {
         tenantId,
         session.date,
         session.period_no,
-      );
+      ).catch((e: unknown) => {
+        throw e instanceof NotFoundException
+          ? new NotFoundException('Attendance record not found')
+          : e;
+      });
 
       const settings = await this.schoolsService.getResolvedSettings(tenantId);
       const policy = resolveAttendancePolicy(settings);

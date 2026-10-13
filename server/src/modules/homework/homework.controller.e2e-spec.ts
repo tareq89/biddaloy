@@ -268,9 +268,15 @@ describe('Homework E2E', () => {
         200,
       );
       expect(list.body).toEqual([]);
-      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${homeworkId}`)).expect(
-        404,
-      );
+      const miss = await asTeacher(
+        supertest(app.getHttpServer()).get(`/api/v1/homework/${homeworkId}`),
+      ).expect(404);
+      const unknown = await asTeacher(
+        supertest(app.getHttpServer()).get(`/api/v1/homework/${randomUUID()}`),
+      ).expect(404);
+      // D13: same body as a homework that does not exist.
+      expect(miss.body.message).toBe('Homework not found');
+      expect(miss.body.message).toBe(unknown.body.message);
       await asTeacher(
         supertest(app.getHttpServer()).patch(`/api/v1/homework-assignments/${assignmentId}`),
       )
