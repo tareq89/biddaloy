@@ -920,7 +920,14 @@ describe('ensureAttendanceSeed', () => {
 
     // 26 working days in ATTENDANCE_SEED_MONTH (31 days − 4 Fridays − 1
     // non-working holiday) × 3 students.
-    expect(result).toEqual({ subjects: 5, holidays: 3, sessions: 26, records: 78, devices: 2 });
+    expect(result).toEqual({
+      subjects: 5,
+      holidays: 3,
+      sessions: 26,
+      records: 78,
+      devices: 2,
+      activeDeviceCreated: true,
+    });
   });
 
   it('is idempotent: a second run against an already-seeded database creates nothing further', async () => {
@@ -949,7 +956,14 @@ describe('ensureAttendanceSeed', () => {
 
     const second = await ensureAttendanceSeed(repos, BASE_PARAMS);
 
-    expect(second).toEqual({ subjects: 0, holidays: 0, sessions: 0, records: 0, devices: 0 });
+    expect(second).toEqual({
+      subjects: 0,
+      holidays: 0,
+      sessions: 0,
+      records: 0,
+      devices: 0,
+      activeDeviceCreated: false,
+    });
   });
 
   it('gives exactly one of the three seeded students a record set that would compute below 75%', async () => {
@@ -1072,6 +1086,22 @@ describe('ensureAttendanceSeed', () => {
     const active = devices.find((d) => d.status === 'ACTIVE');
     expect(active?.token_hash).toBe(hashDeviceKey(SEED_DEVICE_KEY));
     expect(SEED_DEVICE_KEY).toBe(E2E_SEED_DEVICE_KEY);
+  });
+
+  it('reports activeDeviceCreated=false when only the revoked device is inserted', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+    // The ACTIVE device already exists; the revoked one does not.
+    vi.mocked(repos.attendanceDeviceRepository.findOne).mockImplementation(async (opts) =>
+      (opts as { where: { name: string } }).where.name === 'Seed Front-Gate Scanner'
+        ? ({} as AttendanceDevice)
+        : null,
+    );
+
+    const result = await ensureAttendanceSeed(repos, { ...BASE_PARAMS, deviceKey: 'bd_x_9999' });
+
+    expect(result.devices).toBe(1);
+    expect(result.activeDeviceCreated).toBe(false);
   });
 
   it('uses params.deviceKey for the ACTIVE device when given', async () => {

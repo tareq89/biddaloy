@@ -1000,6 +1000,8 @@ export interface AttendanceSeedResult {
   sessions: number;
   records: number;
   devices: number;
+  /** True only when this run inserted the ACTIVE device, i.e. `params.deviceKey` is now live. */
+  activeDeviceCreated: boolean;
 }
 
 /** Idempotent, same find-or-create shape as every other `ensure*` in this
@@ -1015,6 +1017,7 @@ export async function ensureAttendanceSeed(
     sessions: 0,
     records: 0,
     devices: 0,
+    activeDeviceCreated: false,
   };
 
   // --- subjects --------------------------------------------------------
@@ -1177,6 +1180,7 @@ export async function ensureAttendanceSeed(
       }),
     );
     result.devices += 1;
+    result.activeDeviceCreated = true;
   }
 
   const revokedDeviceKey = 'bd_dev_seed_revoked_0000000000000000000';

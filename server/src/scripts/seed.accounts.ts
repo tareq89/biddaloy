@@ -473,8 +473,10 @@ export async function seedAccounts(
           deviceKey: seedDeviceKey.raw,
         },
       );
-      // Random per database, so the key is never public in the repo.
-      if (attendanceSeedResult.devices > 0) {
+      // Random per database, so the key is never public in the repo. Printed
+      // only when this run created the ACTIVE device: `devices` also counts
+      // the revoked seed device, whose insert doesn't make this key live.
+      if (attendanceSeedResult.activeDeviceCreated) {
         console.log(`Seed attendance device key (shown once): ${seedDeviceKey.raw}`);
       }
 
