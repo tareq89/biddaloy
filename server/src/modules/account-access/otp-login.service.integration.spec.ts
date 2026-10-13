@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { PostgresQueryRunner } from 'typeorm/driver/postgres/PostgresQueryRunner';
 import { TestingModule } from '@nestjs/testing';
 import Redis from 'ioredis';
 import { AuditAction, AuthTokenPurpose, CommunicationMedium, UserStatus } from '@biddaloy/shared';
@@ -180,14 +181,25 @@ describe('OtpLoginService (integration)', () => {
       expect(logs).toHaveLength(0);
     });
 
-    it('hands delivery to detach() once for a known account and never for an unknown one', async () => {
-      const detach = vi.spyOn(module.get(AccountAccessDeliveryService), 'detach');
+    it('request path is one user lookup, then detach, for a known and an unknown phone alike [75.17]', async () => {
       await createMember({ phone: '01712345678' });
-
-      expect(await service.request('01799999999', context)).toEqual({});
-      expect(detach).not.toHaveBeenCalled();
-      await service.request('01712345678', context);
-      expect(detach).toHaveBeenCalledTimes(1);
+      // Production-like: the job never runs inline, so the response carries nothing of it.
+      const detach = vi
+        .spyOn(module.get(AccountAccessDeliveryService), 'detach')
+        .mockResolvedValue(undefined);
+      const query = vi.spyOn(PostgresQueryRunner.prototype, 'query');
+      try {
+        for (const identifier of ['01712345678', '01799999999']) {
+          query.mockClear();
+          detach.mockClear();
+          await expect(service.request(identifier, context)).resolves.toEqual({});
+          expect(query, identifier).toHaveBeenCalledTimes(1);
+          expect(detach, identifier).toHaveBeenCalledTimes(1);
+        }
+      } finally {
+        detach.mockRestore();
+        query.mockRestore();
+      }
     });
 
     it('deny wins: a user in tenant A(on) + tenant B(off) is refused', async () => {

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { PostgresQueryRunner } from 'typeorm/driver/postgres/PostgresQueryRunner';
 import { TestingModule } from '@nestjs/testing';
 import Redis from 'ioredis';
 import * as bcrypt from 'bcrypt';
@@ -154,17 +155,37 @@ describe('RecoveryService (integration)', () => {
   }
 
   describe('forgot', () => {
-    it('hands delivery to detach() once for a known account and never for an unknown one, with the same {} body', async () => {
-      const detach = vi.spyOn(module.get(AccountAccessDeliveryService), 'detach');
+    it('request path is one user lookup, then detach, for known SMS, known email and unknown alike [75.17]', async () => {
       await createMember({ email: null, phone: '01712345678' });
+      await createMember({ email: 'known@example.com', phone: null });
+      // Production-like: the job never runs inline, so the response carries nothing of it.
+      const detach = vi
+        .spyOn(module.get(AccountAccessDeliveryService), 'detach')
+        .mockResolvedValue(undefined);
+      const query = vi.spyOn(PostgresQueryRunner.prototype, 'query');
+      try {
+        for (const identifier of ['01712345678', 'known@example.com', '01799999999']) {
+          query.mockClear();
+          detach.mockClear();
+          await expect(service.forgot(identifier, context)).resolves.toEqual({});
+          expect(query, identifier).toHaveBeenCalledTimes(1);
+          expect(detach, identifier).toHaveBeenCalledTimes(1);
+        }
+      } finally {
+        detach.mockRestore();
+        query.mockRestore();
+      }
+    });
 
-      const unknown = await service.forgot('01799999999', context);
-      expect(detach).not.toHaveBeenCalled();
+    it('still issues, delivers and audits inside the job (echo mode awaits it)', async () => {
+      const user = await createMember({ email: null, phone: '01712345678' });
       const known = await service.forgot('01712345678', context);
-      expect(detach).toHaveBeenCalledTimes(1);
-      // Echo mode adds `debug` to the known body under test only; production bodies are both {}.
-      expect(unknown).toEqual({});
       expect(known.debug?.otp).toMatch(/^\d{6}$/);
+      expect(fakeProvider.send).toHaveBeenCalledTimes(1);
+      const audits = await dataSource.getRepository(AuditLog).find({
+        where: { entity_id: user.id, action: AuditAction.PASSWORD_RESET_REQUESTED },
+      });
+      expect(audits).toHaveLength(1);
     });
 
     it('returns 202-shaped {} and writes no communication_log for an unknown identifier', async () => {

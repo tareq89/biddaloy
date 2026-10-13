@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { PostgresQueryRunner } from 'typeorm/driver/postgres/PostgresQueryRunner';
 import { TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
 import { AuditAction, AuthTokenPurpose, UserStatus } from '@biddaloy/shared';
@@ -433,20 +434,35 @@ describe('ActivationService (integration)', () => {
       await expect(service.resend('nobody@example.com')).resolves.toBeUndefined();
     });
 
-    it('hands the send to detach() for a reissuable invite, never for an unknown identifier, and swallows a failing job', async () => {
-      const delivery = module.get(AccountAccessDeliveryService);
-      const detach = vi.spyOn(delivery, 'detach');
+    it('request path is one user lookup, then detach, for a reissuable invite and an unknown identifier alike [75.17]', async () => {
       const user = await createInvitee();
       await issueInvite(user.id);
+      // Production-like: the job never runs inline.
+      const detach = vi
+        .spyOn(module.get(AccountAccessDeliveryService), 'detach')
+        .mockResolvedValue(undefined);
+      const query = vi.spyOn(PostgresQueryRunner.prototype, 'query');
+      try {
+        for (const identifier of [user.email!, 'nobody@example.com']) {
+          query.mockClear();
+          detach.mockClear();
+          await expect(service.resend(identifier)).resolves.toBeUndefined();
+          expect(query, identifier).toHaveBeenCalledTimes(1);
+          expect(detach, identifier).toHaveBeenCalledTimes(1);
+        }
+      } finally {
+        detach.mockRestore();
+        query.mockRestore();
+      }
+    });
 
-      await service.resend('nobody@example.com');
-      expect(detach).not.toHaveBeenCalled();
-
+    it('swallows a failing job: resend still resolves', async () => {
+      const user = await createInvitee();
+      await issueInvite(user.id);
       const issue = vi
         .spyOn(module.get(InvitationService), 'issueAndSend')
         .mockRejectedValueOnce(new Error('provider down'));
       await expect(service.resend(user.email!)).resolves.toBeUndefined();
-      expect(detach).toHaveBeenCalledTimes(1);
       expect(issue).toHaveBeenCalledTimes(1);
     });
 

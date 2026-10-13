@@ -71,6 +71,10 @@ export class RecoveryService {
    * Enumeration-safe: always resolves, never throws for "no such account" /
    * "not active" / delivery failure. D6's echo flag is the only way a test
    * can observe the OTP/token this issues.
+   *
+   * [75.17] The request path is the user lookup and nothing else: every
+   * branch (unknown, inactive, no school, cooldown, send) runs in the detached
+   * job, so known and unknown identifiers cost the same one query.
    */
   async forgot(identifier: string, context: RequestContext): Promise<ForgotPasswordResult> {
     const normalized = normalizeLoginIdentifier(identifier);
@@ -80,7 +84,13 @@ export class RecoveryService {
         { phone: normalized, deleted_at: IsNull() },
       ],
     });
+    return (
+      (await this.delivery.detach('forgot-password', () => this.forgotJob(user, normalized))) ?? {}
+    );
+  }
 
+  /** Everything `forgot` does after the lookup; its value only reaches the caller in echo mode. */
+  private async forgotJob(user: User | null, normalized: string): Promise<ForgotPasswordResult> {
     if (!user || user.status !== UserStatus.ACTIVE) {
       return {};
     }
@@ -365,17 +375,16 @@ export class RecoveryService {
       return this.echo({});
     }
 
-    await this.delivery.detach(() =>
-      this.delivery.deliver({
-        tenantId,
-        medium: CommunicationMedium.SMS,
-        to: phone,
-        recipientName: user.full_name,
-        kind: 'OTP',
-        vars: { code },
-      }),
-    );
+    // Audit first: a delivery that throws (DB error) must not drop the audit row.
     await this.auditRequested(user, tenantId, CommunicationMedium.SMS);
+    await this.delivery.deliver({
+      tenantId,
+      medium: CommunicationMedium.SMS,
+      to: phone,
+      recipientName: user.full_name,
+      kind: 'OTP',
+      vars: { code },
+    });
     return this.echo({ otp: code });
   }
 
@@ -401,17 +410,15 @@ export class RecoveryService {
     });
     const link = this.buildResetLink(raw);
 
-    await this.delivery.detach(() =>
-      this.delivery.deliver({
-        tenantId,
-        medium: CommunicationMedium.EMAIL,
-        to: email,
-        recipientName: user.full_name,
-        kind: 'PASSWORD_RESET_LINK',
-        vars: { link },
-      }),
-    );
     await this.auditRequested(user, tenantId, CommunicationMedium.EMAIL);
+    await this.delivery.deliver({
+      tenantId,
+      medium: CommunicationMedium.EMAIL,
+      to: email,
+      recipientName: user.full_name,
+      kind: 'PASSWORD_RESET_LINK',
+      vars: { link },
+    });
     return this.echo({ token: raw });
   }
 

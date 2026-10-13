@@ -201,6 +201,13 @@ export class ActivationService {
    * invite — a used/revoked invite, an already-active account, or an
    * unknown identifier are all silent no-ops from the caller's point of
    * view.
+   *
+   * [75.17] The request path is the user lookup and nothing else: every
+   * branch runs in the detached job, so known and unknown identifiers cost the
+   * same one query. Best-effort, deliberately swallowed (detach logs, never
+   * throws): surfacing *why* a resend didn't go out (delivery outage, a
+   * ConflictException race with a concurrent activation) would leak the exact
+   * "does this account exist" signal this endpoint exists to hide.
    */
   async resend(identifier: string): Promise<void> {
     const normalized = normalizeLoginIdentifier(identifier);
@@ -210,6 +217,10 @@ export class ActivationService {
         { phone: normalized, deleted_at: IsNull() },
       ],
     });
+    await this.delivery.detach('activation-resend', () => this.resendJob(user));
+  }
+
+  private async resendJob(user: User | null): Promise<void> {
     if (!user || user.password_hash !== null) {
       return;
     }
@@ -224,18 +235,10 @@ export class ActivationService {
       return;
     }
 
-    // Best-effort, deliberately swallowed (detach logs, never throws): this
-    // endpoint always returns 202 regardless of what happens underneath
-    // (delivery outage, ConflictException races with a concurrent activation) —
-    // surfacing *why* a resend didn't go out would leak the exact "does this
-    // account exist" signal it exists to hide. Detached so provider latency
-    // can't leak it either.
-    await this.delivery.detach(() =>
-      this.invitations.issueAndSend({
-        userId: user.id,
-        tenantId: latest.tenant_id!,
-        actorUserId: null,
-      }),
-    );
+    await this.invitations.issueAndSend({
+      userId: user.id,
+      tenantId: latest.tenant_id,
+      actorUserId: null,
+    });
   }
 }
