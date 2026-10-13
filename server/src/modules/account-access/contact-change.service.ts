@@ -615,9 +615,15 @@ export class ContactChangeService {
     }
 
     const outcome = await this.userRepo.manager.transaction(async (manager) => {
+      // FOR NO KEY UPDATE, not FOR UPDATE (review m-r3-3): it still serializes approvals and
+      // blocks a refresh (FOR SHARE) and revoke-all (FOR UPDATE), but lets an FK check (FOR KEY
+      // SHARE) through. A leave/removal holding the membership row and inserting its audit row
+      // (FK to this user) would otherwise deadlock with the FOR SHARE membership re-check below.
+      // The `email`/`phone` UPDATE later upgrades to FOR UPDATE, but only after that re-check
+      // holds the membership rows, so a leave then waits on those first: no cycle.
       const user = await manager
         .getRepository(User)
-        .findOne({ where: { id: userId }, lock: { mode: 'pessimistic_write' } });
+        .findOne({ where: { id: userId }, lock: { mode: 'for_no_key_update' } });
       const check = await this.proposalOutcome(manager, user, token, meta);
       if (check !== 'valid' || !user) return check;
 
