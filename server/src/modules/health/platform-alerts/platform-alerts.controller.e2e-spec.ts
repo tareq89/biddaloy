@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import supertest = require('supertest');
+import { randomUUID } from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -16,13 +17,14 @@ import {
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
 
-/** [75.34] `GET /platform/alerts`: SUPER_ADMIN only, answered from Postgres. */
+/** [75.34] `GET /platform/alerts`: platform SUPER_ADMIN only, answered from Postgres. */
 describe('Platform Alerts E2E', () => {
   let app: INestApplication;
   let redisDownApp: INestApplication;
   let dataSource: DataSource;
   let adminToken: string;
   let superAdminToken: string;
+  let platformId: string;
 
   const URL = '/api/v1/platform/alerts';
   const SUPER_ADMIN_USER_ID = '00000000-0000-4000-8000-0000000c0d02';
@@ -31,6 +33,9 @@ describe('Platform Alerts E2E', () => {
   const TEACHER_EMAIL = 'teacher@platform-alerts-e2e.example';
   const PARENT_USER_ID = '00000000-0000-4000-8000-0000000c0d04';
   const PARENT_EMAIL = 'parent@platform-alerts-e2e.example';
+  // [75.34 review r1] SUPER_ADMIN on the seed tenant only: school-local, not platform.
+  const TENANT_SA_USER_ID = '00000000-0000-4000-8000-0000000c0d06';
+  const TENANT_SA_EMAIL = 'tenant-sa@platform-alerts-e2e.example';
 
   async function boot(configure: (b: ReturnType<typeof Test.createTestingModule>) => void) {
     const builder = Test.createTestingModule({ imports: [AppModule] });
@@ -76,6 +81,7 @@ describe('Platform Alerts E2E', () => {
       [SUPER_ADMIN_USER_ID, SUPER_ADMIN_EMAIL, UserRole.SUPER_ADMIN],
       [TEACHER_USER_ID, TEACHER_EMAIL, UserRole.TEACHER],
       [PARENT_USER_ID, PARENT_EMAIL, UserRole.PARENT],
+      [TENANT_SA_USER_ID, TENANT_SA_EMAIL, UserRole.SUPER_ADMIN],
     ] as const) {
       await dataSource.query(
         `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
@@ -88,6 +94,22 @@ describe('Platform Alerts E2E', () => {
         [id, SEED_TENANT_ID, role],
       );
     }
+    // Platform authority = SUPER_ADMIN on the platform tenant, which ContextGuard
+    // discovers by slug outside production. The test seed has no such school; it is
+    // left in place afterwards, like the other specs that add it.
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       SELECT $1, 'Platform', 'default-school', NOW(), NOW()
+       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school')`,
+      [randomUUID()],
+    );
+    platformId = (await dataSource.query(`SELECT id FROM schools WHERE slug = 'default-school'`))[0]
+      .id;
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [SUPER_ADMIN_USER_ID, platformId, UserRole.SUPER_ADMIN],
+    );
     await dataSource.query(`DELETE FROM platform_alerts`);
 
     adminToken = await loginAs(app, SEED_ADMIN_EMAIL);
@@ -96,11 +118,15 @@ describe('Platform Alerts E2E', () => {
 
   afterAll(async () => {
     await dataSource.query(`DELETE FROM platform_alerts`);
+    await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2`, [
+      SUPER_ADMIN_USER_ID,
+      platformId,
+    ]);
     await redisDownApp?.close();
     await app.close();
   });
 
-  it('lets SUPER_ADMIN read an empty list, then an open alert, then an empty list again', async () => {
+  it('lets a platform SUPER_ADMIN read an empty list, then an open alert, then an empty list again', async () => {
     await dataSource.query(`DELETE FROM platform_alerts`);
     let res = await get(app, superAdminToken).expect(200);
     expect(res.body).toEqual({ alerts: [] });
@@ -116,6 +142,10 @@ describe('Platform Alerts E2E', () => {
     await dataSource.query(`UPDATE platform_alerts SET cleared_at = now()`);
     res = await get(app, superAdminToken).expect(200);
     expect(res.body).toEqual({ alerts: [] });
+  });
+
+  it('refuses a school-local SUPER_ADMIN with 403 (PlatformSuperAdminGuard)', async () => {
+    await get(app, await loginAs(app, TENANT_SA_EMAIL)).expect(403);
   });
 
   it('refuses ADMIN, TEACHER and PARENT with 403', async () => {
