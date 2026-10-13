@@ -25,6 +25,8 @@ flowchart TD
     E -.->|"every significant action"| L["Audit log\n(write-only, redacted)"]
 ```
 
+**PermissionsGuard fails closed.** A route behind it needs `@RequirePermissions(...)` or `@AuthenticatedOnly()` (identity-scoped, e.g. `GET /users/me`). A route with neither gets `403 This route declares no permission`, so a forgotten permission is a runtime refusal, not a silent allow.
+
 Each box below is one paragraph in this doc — read the section with the
 matching name for the full reasoning.
 
