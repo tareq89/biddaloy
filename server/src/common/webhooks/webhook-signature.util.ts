@@ -14,7 +14,7 @@ export function signWebhookPayload(rawBody: Buffer, timestamp: string, secret: s
 /**
  * True only when `signature` matches the body and `timestamp` is inside the
  * replay window (+-tolerance). Constant-time compare; false (never a throw) on
- * a bad/short signature or a non-integer timestamp. Provider adapters map their
+ * a bad/short signature, a non-integer timestamp, or an empty / non-string secret. Provider adapters map their
  * own header format (e.g. Stripe's `t=...,v1=...`) onto these inputs. The
  * caller throws, usually a 401 with no detail.
  */
@@ -27,6 +27,8 @@ export function verifyWebhookSignature(input: {
   nowMs?: number;
 }): boolean {
   const { rawBody, signature, timestamp, secret } = input;
+  // An unset env var must never verify: anyone can sign with an empty key.
+  if (typeof secret !== 'string' || secret.length === 0) return false;
   if (typeof timestamp !== 'string' || !/^\d+$/.test(timestamp)) return false;
   const now = (input.nowMs ?? Date.now()) / 1000;
   if (Math.abs(now - Number(timestamp)) > (input.toleranceSeconds ?? WEBHOOK_TOLERANCE_SECONDS)) {

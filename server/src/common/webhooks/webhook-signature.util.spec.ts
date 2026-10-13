@@ -36,6 +36,13 @@ describe('webhook signature util', () => {
     expect(check({ secret: 'other' })).toBe(false);
   });
 
+  // Review r1 m5: an unset secret env var must not let anyone sign.
+  it('returns false for an empty or non-string secret, even with a matching signature', () => {
+    const emptySig = signWebhookPayload(body, timestamp, '');
+    expect(check({ secret: '', signature: emptySig })).toBe(false);
+    expect(check({ secret: undefined as unknown as string })).toBe(false);
+  });
+
   it('accepts uppercase hex', () => expect(check({ signature: sig.toUpperCase() })).toBe(true));
 
   it('matches the worked example in docs/architecture/10-third-party-services.md', () => {
