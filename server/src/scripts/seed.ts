@@ -1,4 +1,6 @@
 import type { INestApplicationContext } from '@nestjs/common';
+import { resolve } from 'path';
+import { config } from 'dotenv';
 import { Between, DataSource, In, type Repository } from 'typeorm';
 import { hashPassword } from '../modules/auth/password-hash';
 import { assertLocalSeedTarget } from './seed-guard';
@@ -806,6 +808,9 @@ const isDirectRun =
   typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module;
 
 if (isDirectRun) {
+  // Load the root .env before seed() checks DATABASE_URL, like db-clear and db-reset do. Here,
+  // not at the top of the file, so a spec that imports this file does not pick up a local .env.
+  config({ path: resolve(__dirname, '..', '..', '..', '.env') });
   seed()
     // createScriptAppContext boots the full AppModule (workers off, but its
     // queues and other modules still hold Redis connections that app.close()
