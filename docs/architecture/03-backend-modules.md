@@ -160,7 +160,9 @@ academic year, **or** in last year while its class still has a DRAFT exam
 (X-07, kept by D31). Example: the admin flips the year to 2027 while Class 7's
 2026 half-yearly is still DRAFT. The 2026 Math teacher can still finish that
 sheet, and the marks-due alerts still name them. Once the exam is published,
-current-year-only applies again.
+current-year-only applies again. A PROCESSED exam does not hold the window
+open (D45): if the 2026 half-yearly is already processed and no DRAFT exam is
+left, only an admin can correct its marks.
 
 A teacher miss is a **404** with the missing-section body (`Section with ID
 "<id>" not found`, D33), like every other teacher route.

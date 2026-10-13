@@ -188,4 +188,34 @@ describe('MarksAuthorizationService with real TeacherScopeService (integration)'
       NotFoundException,
     );
   });
+
+  // D45: the window keys on DRAFT only. After rollover, correcting last year's PROCESSED
+  // (not yet published) exam is admin-only; its subject teacher gets the teacher-miss 404.
+  it("D45: last year's SUBJECT teacher cannot write a PROCESSED exam once no DRAFT exam is left", async () => {
+    const oldYear = await dataSource.getRepository(AcademicYear).save({
+      name: `Marks Authz Old ${Math.random()}`,
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+      is_current: false,
+      tenant_id: TENANT,
+    });
+    const oldClass = await dataSource
+      .getRepository(Class)
+      .save({ name: 'Class 5', academic_year_id: oldYear.id, tenant_id: TENANT });
+    const oldSection = (
+      await dataSource
+        .getRepository(ClassSection)
+        .save({ section_name: 'A', class_id: oldClass.id, tenant_id: TENANT })
+    ).id;
+    await dataSource.query(
+      `INSERT INTO exams (tenant_id, academic_year_id, class_id, name, kind, status)
+       VALUES ($1, $2, $3, 'Annual', 'TERM', 'PROCESSED')`,
+      [TENANT, oldYear.id, oldClass.id],
+    );
+    await assign(TeacherAssignmentType.SUBJECT_TEACHER, oldSection, liveSubjectId);
+
+    await expect(authz.assertCanWrite(call(oldSection, liveSubjectId))).rejects.toThrow(
+      `Section with ID "${oldSection}" not found`,
+    );
+  });
 });

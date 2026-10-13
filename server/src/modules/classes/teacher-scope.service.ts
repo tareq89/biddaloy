@@ -203,6 +203,8 @@ export class TeacherScopeService {
    * section is live and in the current academic year, or in the year right
    * before it while its class still has a DRAFT exam [X-07]. Marks gate on it
    * (Epic 75 D31), so marks entry outlives the year flag for subject rows too.
+   * DRAFT only, on purpose (D45): last year's PROCESSED-but-unpublished exam
+   * is admin-only to correct, and the window matches the marks-due alerts.
    */
   async rolesInSection(input: {
     userId: string;
