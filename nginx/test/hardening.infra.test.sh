@@ -49,7 +49,8 @@ done
 
 # nginx -t + effective config
 docker exec hardening-edge nginx -t >/dev/null 2>&1 && pass "nginx -t" || fail "nginx -t" "non-zero"
-conf=$(docker exec hardening-edge nginx -T 2>/dev/null)
+# Squeeze runs of spaces: the template aligns values (`client_body_timeout   30s;`).
+conf=$(docker exec hardening-edge nginx -T 2>/dev/null | tr -s ' ')
 for d in 'client_header_timeout 10s' 'client_body_timeout 30s' 'send_timeout 30s' 'server_tokens off'; do
   [[ "$conf" == *"$d;"* ]] && pass "config has: $d" || fail "config has: $d" "missing"
 done
@@ -59,11 +60,16 @@ hdr=$(docker run --rm --network "$NET" "$CURL_IMG" -skI --resolve "example.test:
 [[ "$hdr" =~ ^[Ss]erver:\ nginx$ ]] && pass "Server header has no version" || fail "Server header" "$hdr"
 
 # Slow header: an unfinished request must be closed in ~10 s, not held for 20+.
-start=$(date +%s)
-docker run --rm --network "$NET" --entrypoint sh alpine/openssl -c \
-  "(printf 'GET / HTTP/1.1\r\nHost: example.test\r\n'; sleep 20) | timeout 25 openssl s_client -quiet -connect $EDGE_IP:443 -servername example.test >/dev/null 2>&1" || true
-elapsed=$(( $(date +%s) - start ))
-[ "$elapsed" -le 15 ] && pass "slow header closed in ${elapsed}s" || fail "slow header" "${elapsed}s"
+# The client times itself: the pipeline as a whole always lasts as long as the
+# writer's `sleep 20`, whenever nginx hangs up. Over 5 s also proves the TLS
+# client really connected (a failed connect exits at once).
+elapsed=$(docker run --rm --network "$NET" --entrypoint sh alpine/openssl -c \
+  "s=\$(date +%s); { printf 'GET / HTTP/1.1\r\nHost: example.test\r\n'; sleep 20; } | { timeout 25 openssl s_client -quiet -connect $EDGE_IP:443 -servername example.test >/dev/null 2>&1; echo \$(( \$(date +%s) - s )); }" || true)
+if [ -n "$elapsed" ] && [ "$elapsed" -ge 5 ] && [ "$elapsed" -le 15 ]; then
+  pass "slow header closed in ${elapsed}s"
+else
+  fail "slow header" "${elapsed:-no result}s"
+fi
 
 [ "$FAILS" = 0 ] || { echo "$FAILS check(s) failed"; exit 1; }
 echo "all checks passed"

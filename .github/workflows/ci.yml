@@ -134,11 +134,14 @@ jobs:
           echo "compose refuses an empty env"
       - name: Run infra tests
         run: |
+          # Run every script even after a failure, so one run shows them all.
+          failed=""
           for t in $(git ls-files '*.infra.test.sh'); do
             echo "::group::$t"
-            bash "$t"
+            bash "$t" || failed="$failed $t"
             echo "::endgroup::"
           done
+          [ -z "$failed" ] || { echo "::error::failed:$failed"; exit 1; }
 
   verify:
     name: Build, lint, unit tests
