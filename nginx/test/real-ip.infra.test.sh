@@ -66,11 +66,12 @@ run_edge() {
   done
 }
 
-# get_as <client-ip> — request through the edge, spoofing CF-Connecting-IP.
+# get_as <client-ip> [path] — request through the edge, spoofing CF-Connecting-IP.
+# `|| true`: a refused request must show up as a FAIL line, not end the script.
 get_as() {
   docker run --rm --network "$NET" --ip "$1" "$CURL_IMG" -sk \
     --resolve "example.test:443:$EDGE_IP" -H 'CF-Connecting-IP: 203.0.113.9' \
-    https://example.test/api/x
+    "https://example.test${2:-/api/x}" || true
 }
 
 nginx_t() { # <cidrs>
@@ -90,7 +91,8 @@ run_edge realip-edge "$TRUSTED_IP/32" "$EDGE_IP"
 body=$(get_as "$TRUSTED_IP")
 [[ "$body" == *"xri=203.0.113.9"* && "$body" == *"xff=203.0.113.9"* ]] \
   && pass "trusted peer: header value reaches upstream" || fail "trusted peer" "$body"
-body=$(get_as "$OTHER_IP")
+# An untrusted peer only reaches /api/health once the origin lock-down is on.
+body=$(get_as "$OTHER_IP" /api/health)
 [[ "$body" == *"xri=$OTHER_IP"* && "$body" != *"203.0.113.9"* ]] \
   && pass "untrusted peer: spoofed header ignored" || fail "untrusted peer" "$body"
 

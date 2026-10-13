@@ -6,7 +6,8 @@
 #   - /healthz answers only to loopback
 #   - TRUSTED_PROXY_CIDRS empty: named host answers every peer (today)
 #   - nginx -t passes in both modes
-# curl exit 52 = empty reply (nginx 444); 35 = TLS handshake rejected.
+# nginx 444 = curl exit 52 (empty reply) over http, 56 over https (the socket
+# closes with no TLS close_notify). 35 = TLS handshake rejected.
 # The test network is the public documentation range 198.51.100.0/24 on
 # purpose: its peers look like real public clients, not a private network. Needs docker only. Run: bash nginx/test/origin-lockdown.infra.test.sh
 set -euo pipefail
@@ -97,7 +98,7 @@ expect "no SNI (bare IP) on 443 -> handshake rejected" "000 35" "$(curl_as "$TRU
 expect "trusted peer -> site 200" "200 0" "$(curl_as "$TRUSTED_IP" $(https /))"
 for p in / /assets/x.js /api/v1/anything; do
   # shellcheck disable=SC2046
-  expect "untrusted peer $p -> 444" "000 52" "$(curl_as "$OTHER_IP" $(https "$p"))"
+  expect "untrusted peer $p -> 444" "000 56" "$(curl_as "$OTHER_IP" $(https "$p"))"
 done
 # shellcheck disable=SC2046
 expect "untrusted peer /api/health -> 200" "200 0" "$(curl_as "$OTHER_IP" $(https /api/health))"
