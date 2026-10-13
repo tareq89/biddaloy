@@ -20,6 +20,7 @@ import {
   type ProfileFormServerError,
   type ProfileFormSubmitValues,
   weakPasswordRules,
+  passwordTooLong,
 } from '@biddaloy/ui/components';
 import {
   changePassword,
@@ -166,6 +167,7 @@ function PortalAccount() {
     null,
   );
   const [passwordFailedRules, setPasswordFailedRules] = React.useState<PasswordRuleId[]>();
+  const [passwordIsTooLong, setPasswordIsTooLong] = React.useState(false);
   const [changingPassword, setChangingPassword] = React.useState(false);
   const [signingOut, setSigningOut] = React.useState(false);
   const [showAllDevices, setShowAllDevices] = React.useState(false);
@@ -286,6 +288,7 @@ function PortalAccount() {
   }): Promise<void> {
     setPasswordError(null);
     setPasswordFailedRules(undefined);
+    setPasswordIsTooLong(false);
     setChangingPassword(true);
     try {
       await changePassword(values);
@@ -299,6 +302,7 @@ function PortalAccount() {
         setPasswordError({ message: t('account.error.saveFailed') });
       }
       setPasswordFailedRules(weakPasswordRules(error));
+      setPasswordIsTooLong(passwordTooLong(error));
     } finally {
       setChangingPassword(false);
     }
@@ -435,6 +439,7 @@ function PortalAccount() {
           decodeAccessTokenMemberships(accessToken ?? '').map((m) => m.role),
         )}
         failedRules={passwordFailedRules}
+        tooLong={passwordIsTooLong}
       />
 
       <SignInMethodsCard

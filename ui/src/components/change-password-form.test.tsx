@@ -96,6 +96,27 @@ describe('ChangePasswordForm', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('shows the too-long line for the submitted password only (#2469)', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    const { rerender } = renderWithProviders(<ChangePasswordForm onSubmit={onSubmit} />, {
+      locale: 'en',
+    });
+    const tooLong = 'Use a shorter password — at most 72 letters, or 24 Bangla letters.';
+
+    await user.type(await screen.findByLabelText('Current password'), 'old-pass');
+    await user.type(screen.getByLabelText('New password'), 'New-pass1!');
+    await user.type(screen.getByLabelText('Confirm new password'), 'New-pass1!');
+    await user.click(screen.getByRole('button', { name: 'Change password' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    // The server answered PASSWORD_TOO_LONG.
+    rerender(<ChangePasswordForm onSubmit={onSubmit} tooLong />);
+    expect(await screen.findByText(tooLong)).toBeTruthy();
+
+    await user.type(screen.getByLabelText('New password'), 'x');
+    expect(screen.queryByText(tooLong)).toBeNull();
+  });
+
   it('renders the persistent consequence notice unconditionally', async () => {
     renderWithProviders(<ChangePasswordForm onSubmit={vi.fn()} />, { locale: 'en' });
 

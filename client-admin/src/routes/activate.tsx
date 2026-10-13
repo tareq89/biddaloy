@@ -13,6 +13,7 @@ import {
   SetPasswordForm,
   Skeleton,
   weakPasswordRules,
+  passwordTooLong,
 } from '@biddaloy/ui/components';
 import type { SignInFormError } from '@biddaloy/ui/components';
 import { activate } from '@biddaloy/ui/hooks';
@@ -301,6 +302,7 @@ function ActivatePage() {
           'staff'
         }
         failedRules={weakPasswordRules(mutation.error)}
+        tooLong={passwordTooLong(mutation.error)}
       />
     </AuthLayout>
   );

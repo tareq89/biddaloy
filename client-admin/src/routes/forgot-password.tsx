@@ -31,6 +31,7 @@ import {
   SetPasswordForm,
   type SignInFormError,
   weakPasswordRules,
+  passwordTooLong,
 } from '@biddaloy/ui/components';
 import { resetPassword } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -372,6 +373,7 @@ function ForgotPasswordPage() {
         // stricter set, the server still accepts them (W5 #1632 refines this).
         audience="staff"
         failedRules={weakPasswordRules(resetMutation.error)}
+        tooLong={passwordTooLong(resetMutation.error)}
         onSubmit={(password) =>
           resetMutation.mutate({ phone: step.phone, otp: step.otp, new_password: password })
         }

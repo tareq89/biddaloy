@@ -11,6 +11,8 @@ export interface RegisterPasswordStepProps {
   error?: SignInFormError | null;
   /** Rules the server said the last submitted password broke. */
   failedRules?: PasswordRuleId[] | undefined;
+  /** The server refused the last submitted password as over 72 bytes. */
+  tooLong?: boolean | undefined;
 }
 
 export function RegisterPasswordStep({
@@ -19,6 +21,7 @@ export function RegisterPasswordStep({
   loading,
   error,
   failedRules,
+  tooLong,
 }: RegisterPasswordStepProps) {
   const { t } = useTranslation('register');
   return (
@@ -30,6 +33,7 @@ export function RegisterPasswordStep({
       skipLabel={t('password.skip')}
       onSubmit={onSubmit}
       failedRules={failedRules}
+      tooLong={tooLong}
       {...(onSkip ? { onSkip } : {})}
       {...(loading !== undefined ? { loading } : {})}
       {...(error !== undefined ? { error } : {})}

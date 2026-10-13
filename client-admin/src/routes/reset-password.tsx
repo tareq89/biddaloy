@@ -13,6 +13,7 @@ import {
   SetPasswordForm,
   type SignInFormError,
   weakPasswordRules,
+  passwordTooLong,
 } from '@biddaloy/ui/components';
 import { resetPassword } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -122,6 +123,7 @@ function ResetPasswordPage() {
         // the family rules it accepts these too; `failedRules` covers the rest.
         audience="staff"
         failedRules={weakPasswordRules(mutation.error)}
+        tooLong={passwordTooLong(mutation.error)}
         submitLabel={t('setPassword.submit')}
       />
     </AuthLayout>

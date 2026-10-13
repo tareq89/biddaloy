@@ -13,6 +13,7 @@ import {
   StatusBadge,
   toast,
   weakPasswordRules,
+  passwordTooLong,
   type SignInFormError,
 } from '@biddaloy/ui/components';
 import {
@@ -87,7 +88,9 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
   });
 
   const passwordError: SignInFormError | null =
-    setPassword.error && !weakPasswordRules(setPassword.error)
+    setPassword.error &&
+    !weakPasswordRules(setPassword.error) &&
+    !passwordTooLong(setPassword.error)
       ? { message: t('error'), tone: 'alert' }
       : null;
 
@@ -268,6 +271,7 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
               loading={setPassword.isPending}
               error={passwordError}
               failedRules={weakPasswordRules(setPassword.error)}
+              tooLong={passwordTooLong(setPassword.error)}
               submitLabel={t('password.setNow')}
             />
           </DialogContent>
