@@ -1,6 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength,
@@ -75,10 +76,19 @@ export class ContactChangeRequestResponseDto {
  */
 export class VerifyEmailResponseDto {
   @ApiProperty({
-    enum: ['valid', 'expired', 'consumed', 'revoked', 'unknown'],
-    description: "'valid' means the email was changed; anything else means it was not.",
+    enum: ['valid', 'expired', 'consumed', 'revoked', 'unknown', 'proposal', 'declined'],
+    description:
+      "'valid' means the contact was changed; 'proposal' is a school's pending request to show for approval; 'declined' means the person cancelled it; anything else means nothing changed.",
   })
   status: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Only with status 'proposal': { from_school, new_email?, new_phone? }, values masked, null = removed.",
+    type: 'object',
+    additionalProperties: true,
+  })
+  proposal?: { from_school: string; new_email?: string | null; new_phone?: string | null };
 }
 
 /** Body of `POST /users/me/contact-change/confirm-phone`. */
@@ -95,4 +105,13 @@ export class VerifyEmailDto {
   @IsString()
   @MaxLength(200)
   token: string;
+
+  @ApiPropertyOptional({
+    enum: ['approve', 'decline'],
+    description:
+      "[75.1] Only for a school's contact-change proposal: opening the link shows it, 'approve' applies it, 'decline' cancels it.",
+  })
+  @IsOptional()
+  @IsIn(['approve', 'decline'])
+  action?: 'approve' | 'decline';
 }

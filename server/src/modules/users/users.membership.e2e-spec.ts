@@ -310,7 +310,9 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
   const SOLO_ID = '00000000-0000-4000-8000-000000002093';
   const ELSEWHERE_ID = '00000000-0000-4000-8000-000000002094';
   const SHARED_EMAIL = 'shared-2209@example.com';
-  const ids = [SHARED_ID, SOLO_ID, ELSEWHERE_ID];
+  const ACCOUNTANT_ID = '00000000-0000-4000-8000-000000002095';
+  const ACCOUNTANT_EMAIL = 'accountant-2309@example.com';
+  const ids = [SHARED_ID, SOLO_ID, ELSEWHERE_ID, ACCOUNTANT_ID];
 
   const request = () => supertest(app.getHttpServer());
   const adminToken = async () =>
@@ -346,6 +348,7 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
       [SHARED_ID, SHARED_EMAIL],
       [SOLO_ID, 'solo-2209@example.com'],
       [ELSEWHERE_ID, 'elsewhere-2209@example.com'],
+      [ACCOUNTANT_ID, ACCOUNTANT_EMAIL],
     ]) {
       await dataSource.query(
         `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
@@ -358,6 +361,7 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
       [SHARED_ID, OTHER_TENANT, UserRole.ADMIN],
       [SOLO_ID, SEED_TENANT_ID, UserRole.TEACHER],
       [ELSEWHERE_ID, OTHER_TENANT, UserRole.TEACHER],
+      [ACCOUNTANT_ID, SEED_TENANT_ID, UserRole.ACCOUNTANT],
     ]) {
       await dataSource.query(
         `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
@@ -437,10 +441,19 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
       ttlMs: 3_600_000,
       metadata: live.metadata,
     });
-    // Let the cut-off land after the old token's iat_ms.
-    await new Promise((r) => setTimeout(r, 20));
 
-    const res = await request().post('/api/v1/auth/verify-email').send({ token: raw }).expect(200);
+    // Opening the link only shows the proposal (masked); nothing changes yet.
+    const peek = await request().post('/api/v1/auth/verify-email').send({ token: raw }).expect(200);
+    expect(peek.body.status).toBe('proposal');
+    expect(peek.body.proposal.new_phone).toBe('+88017••••998');
+    const [before] = await dataSource.query('SELECT phone FROM users WHERE id = $1', [SHARED_ID]);
+    expect(before.phone).not.toBe('+8801700000998');
+    await get(oldToken).expect(200);
+
+    const res = await request()
+      .post('/api/v1/auth/verify-email')
+      .send({ token: raw, action: 'approve' })
+      .expect(200);
     expect(res.body.status).toBe('valid');
 
     const [row] = await dataSource.query(
@@ -450,6 +463,55 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
     expect(row.phone).toBe('+8801700000998');
     expect(row.phone_verified_at).toBeNull();
     await get(oldToken).expect(401);
+  });
+
+  it('declining the proposal cancels it: nothing changes and the link is spent', async () => {
+    await patch(SHARED_ID, { phone: '+8801700000997' });
+    const [live] = await dataSource.query(
+      `SELECT metadata, tenant_id FROM auth_tokens
+        WHERE user_id = $1 AND purpose = 'EMAIL_VERIFY' AND revoked_at IS NULL AND consumed_at IS NULL`,
+      [SHARED_ID],
+    );
+    const { raw } = await app.get(AuthTokenService).issue({
+      userId: SHARED_ID,
+      tenantId: live.tenant_id,
+      purpose: AuthTokenPurpose.EMAIL_VERIFY,
+      ttlMs: 3_600_000,
+      metadata: live.metadata,
+    });
+
+    const res = await request()
+      .post('/api/v1/auth/verify-email')
+      .send({ token: raw, action: 'decline' })
+      .expect(200);
+
+    expect(res.body.status).toBe('declined');
+    const [row] = await dataSource.query('SELECT phone FROM users WHERE id = $1', [SHARED_ID]);
+    expect(row.phone).not.toBe('+8801700000997');
+    const again = await request()
+      .post('/api/v1/auth/verify-email')
+      .send({ token: raw, action: 'approve' })
+      .expect(200);
+    expect(again.body.status).toBe('consumed');
+  });
+
+  it('an ACCOUNTANT cannot PATCH a user contact (403); nothing is proposed or changed', async () => {
+    const accountantToken = await login(ACCOUNTANT_EMAIL);
+    const before = await count(
+      `SELECT count(*) n FROM auth_tokens WHERE user_id = $1 AND revoked_at IS NULL`,
+      [SHARED_ID],
+    );
+    await request()
+      .patch(`/api/v1/users/${SHARED_ID}`)
+      .set('Authorization', `Bearer ${accountantToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .send({ phone: '+8801700000996' })
+      .expect(403);
+    expect(
+      await count(`SELECT count(*) n FROM auth_tokens WHERE user_id = $1 AND revoked_at IS NULL`, [
+        SHARED_ID,
+      ]),
+    ).toBe(before);
   });
 
   it('B admin gets 409 on reset-password of a shared user: no token, no log, no session revoked', async () => {

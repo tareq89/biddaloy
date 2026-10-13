@@ -8,9 +8,9 @@
 import { postAuthVerifyEmail } from '@biddaloy/ui/api';
 import { AuthLayout, Button, Skeleton } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { CircleCheck, Link2Off, TriangleAlert } from 'lucide-react';
+import { CircleCheck, Link2Off, ShieldQuestion, TriangleAlert } from 'lucide-react';
 import { z } from 'zod';
 
 import { GuestStatus } from './-guest-status';
@@ -35,6 +35,11 @@ function VerifyEmailPage() {
     queryFn: () => postAuthVerifyEmail(token as string),
     enabled: !!token,
     retry: false,
+  });
+
+  // [75.1] A school's proposal is only shown on open; the person must press Approve or Decline.
+  const decide = useMutation({
+    mutationFn: (action: 'approve' | 'decline') => postAuthVerifyEmail(token as string, action),
   });
 
   const signInButton = (
@@ -89,7 +94,82 @@ function VerifyEmailPage() {
     );
   }
 
-  if (verifyQuery.data.status !== 'valid') {
+  if (decide.data?.status === 'declined') {
+    return (
+      <AuthLayout>
+        <GuestStatus
+          icon={CircleCheck}
+          tone="success"
+          title={t('verifyEmail.proposal.declined', {
+            school: verifyQuery.data.proposal?.from_school ?? '',
+          })}
+        >
+          {signInButton}
+        </GuestStatus>
+      </AuthLayout>
+    );
+  }
+
+  if (verifyQuery.data.status === 'proposal' && decide.data?.status !== 'valid') {
+    if (decide.data) {
+      // Approve or decline answered with something other than success: the link is stale or spent.
+      return (
+        <AuthLayout>
+          <GuestStatus
+            icon={Link2Off}
+            tone="warning"
+            title={t('verifyEmail.linkExpired')}
+            explanation={t('verifyEmail.linkExplanation')}
+          >
+            {signInButton}
+          </GuestStatus>
+        </AuthLayout>
+      );
+    }
+    const proposal = verifyQuery.data.proposal;
+    const value = (v: string | null | undefined) => v ?? t('verifyEmail.proposal.removed');
+    return (
+      <AuthLayout>
+        <GuestStatus
+          icon={ShieldQuestion}
+          tone="warning"
+          title={t('verifyEmail.proposal.title', { school: proposal?.from_school ?? '' })}
+          explanation={t('verifyEmail.proposal.explanation')}
+        >
+          <ul className="flex flex-col gap-1 text-sm">
+            {proposal?.new_email !== undefined && (
+              <li>{t('verifyEmail.proposal.newEmail', { value: value(proposal.new_email) })}</li>
+            )}
+            {proposal?.new_phone !== undefined && (
+              <li>{t('verifyEmail.proposal.newPhone', { value: value(proposal.new_phone) })}</li>
+            )}
+          </ul>
+          {decide.isError && (
+            <p role="alert" className="text-sm text-destructive">
+              {t('verifyEmail.proposal.error')}
+            </p>
+          )}
+          <Button
+            className="w-full"
+            loading={decide.isPending}
+            onClick={() => decide.mutate('approve')}
+          >
+            {t('verifyEmail.proposal.approve')}
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full"
+            disabled={decide.isPending}
+            onClick={() => decide.mutate('decline')}
+          >
+            {t('verifyEmail.proposal.decline')}
+          </Button>
+        </GuestStatus>
+      </AuthLayout>
+    );
+  }
+
+  if (verifyQuery.data.status !== 'valid' && decide.data?.status !== 'valid') {
     return (
       <AuthLayout>
         <GuestStatus
