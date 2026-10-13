@@ -100,7 +100,7 @@ export class PublicAdmissionController {
           type: 'string',
           nullable: true,
           description:
-            'Proof of ownership when updating an existing PENDING application for the same phone number. Omit on a first submission.',
+            'Proof of ownership when updating an existing PENDING application for the same child. Omit on a first submission.',
         },
         photo: { type: 'string', format: 'binary' },
         birth_certificate: { type: 'string', format: 'binary' },

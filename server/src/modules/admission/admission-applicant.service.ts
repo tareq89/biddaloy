@@ -236,7 +236,11 @@ export class AdmissionApplicantService {
         // The reference number the caller quotes (if any) names the row they
         // want to correct, even when they changed the child's name/DOB; else
         // the same child is matched by phone + DOB + name.
-        const dob = dto.date_of_birth.slice(0, 10);
+        // IsDateString also lets compact forms like 20180501 through; only a
+        // calendar date (optionally followed by a time) matches the stored value.
+        const dobMatch = /^(\d{4}-\d{2}-\d{2})(?:T|$)/.exec(dto.date_of_birth);
+        if (!dobMatch) throw new BadRequestException('date_of_birth must be in YYYY-MM-DD format');
+        const dob = dobMatch[1];
         const quotedRef = normalizeReferenceNumber(dto.reference_number ?? '');
         const samePhone = (c: AdmissionApplicant) =>
           normalizeBdPhoneNumber(c.guardian_phone) === normalizedPhone;
