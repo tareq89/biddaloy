@@ -1,0 +1,87 @@
+import '@biddaloy/ui/test';
+
+import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { screen, waitFor } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { PlatformAlertBanner } from './platform-alert-banner';
+
+const OPEN = { alerts: [{ kind: 'REDIS_DOWN', opened_at: '2026-10-13T08:02:00.000Z' }] };
+
+describe('PlatformAlertBanner', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  it('renders the red notice when an alert is open', async () => {
+    server.use(http.get('/api/v1/platform/alerts', () => HttpResponse.json(OPEN)));
+    renderWithProviders(<PlatformAlertBanner enabled />, {
+      locale: 'en',
+      role: 'SUPER_ADMIN',
+      tenantId: 'tenant-1',
+    });
+
+    const notice = await screen.findByRole('status');
+    expect(notice.textContent).toMatch(/^Redis is down since .*\. Sign-in and password reset/);
+    // Not dismissable: no button of any kind inside the banner.
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('renders nothing when no alert is open', async () => {
+    const hit = vi.fn(() => HttpResponse.json({ alerts: [] }));
+    server.use(http.get('/api/v1/platform/alerts', hit));
+    const { container } = renderWithProviders(<PlatformAlertBanner enabled />, {
+      locale: 'en',
+      role: 'SUPER_ADMIN',
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(hit).toHaveBeenCalled());
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('sends no request and renders nothing when disabled (non-SUPER_ADMIN)', async () => {
+    const hit = vi.fn(() => HttpResponse.json(OPEN));
+    server.use(http.get('/api/v1/platform/alerts', hit));
+    const { container } = renderWithProviders(<PlatformAlertBanner enabled={false} />, {
+      locale: 'en',
+      role: 'ADMIN',
+    });
+
+    await Promise.resolve();
+    expect(hit).not.toHaveBeenCalled();
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('keeps the banner when a later poll fails', async () => {
+    let fail = false;
+    server.use(
+      http.get('/api/v1/platform/alerts', () =>
+        fail ? HttpResponse.json({ message: 'x' }, { status: 400 }) : HttpResponse.json(OPEN),
+      ),
+    );
+    const { queryClient } = renderWithProviders(<PlatformAlertBanner enabled />, {
+      locale: 'en',
+      role: 'SUPER_ADMIN',
+      tenantId: 'tenant-1',
+    });
+    await screen.findByRole('status');
+
+    fail = true;
+    await queryClient.refetchQueries({ queryKey: ['platform-alerts'] });
+    expect(screen.getByRole('status')).toBeTruthy();
+  });
+
+  it('renders the bn text', async () => {
+    server.use(http.get('/api/v1/platform/alerts', () => HttpResponse.json(OPEN)));
+    renderWithProviders(<PlatformAlertBanner enabled />, {
+      locale: 'bn',
+      role: 'SUPER_ADMIN',
+      tenantId: 'tenant-1',
+    });
+
+    const notice = await screen.findByRole('status');
+    expect(notice.textContent).toContain('থেকে Redis বন্ধ');
+  });
+});

@@ -14,6 +14,7 @@ import { createFileRoute, Outlet, useMatches, useRouterState } from '@tanstack/r
 import * as React from 'react';
 
 import { CommandPaletteLauncher } from '../../components/command-palette-launcher';
+import { PlatformAlertBanner } from '../../components/platform-alert-banner';
 import { StaffUserMenu } from '../../components/staff-user-menu';
 import { useAttentionCenter } from '../../features/attention/attention-center';
 import { MORE_ICON, PLATFORM_NAV_ICONS, STAFF_NAV_ICONS } from '../../nav-icons';
@@ -155,6 +156,7 @@ function PlatformLayout() {
           navLabel={t('navLabel')}
           skipLinkLabel={t('skipToContent')}
         >
+          <PlatformAlertBanner enabled />
           {attention.bar}
           {attention.modal}
           {breadcrumbItems.length > 0 && (
