@@ -370,10 +370,6 @@ export class ContactChangeService {
       if (delivered.status !== CommunicationStatus.SENT) {
         throw new Error('approval link not delivered');
       }
-      await manager.query(
-        `UPDATE auth_tokens SET metadata = metadata || '{"sent": true}'::jsonb WHERE id = $1`,
-        [row.id],
-      );
 
       const admins = await manager.query<
         Array<{ tenant_id: string; email: string | null; phone: string | null; full_name: string }>
@@ -419,6 +415,12 @@ export class ContactChangeService {
               : maskPhone(recipient.to),
         },
       });
+      // Review m-r3-2: the stamp is the LAST step, so any failure above leaves the link unstamped
+      // (and revoked below), and the admin's retry is never mistaken for a duplicate.
+      await manager.query(
+        `UPDATE auth_tokens SET metadata = metadata || '{"sent": true}'::jsonb WHERE id = $1`,
+        [row.id],
+      );
     } catch (err) {
       // Review n-new-2: the reason only, never the link, a code or a body.
       this.logger.warn(
@@ -427,7 +429,8 @@ export class ContactChangeService {
       try {
         await this.authTokens.revoke(row.id);
       } catch (revokeErr) {
-        // The link stays live but unstamped, so the dedupe still lets a re-save send a fresh one.
+        // The link stays live but unstamped (the stamp is the try's last step), so the dedupe
+        // still lets a re-save send a fresh one, and `issue()` then revokes this one.
         this.logger.error(
           `contact-change proposal ${row.id} could not be revoked: ${(revokeErr as Error).message}`,
         );

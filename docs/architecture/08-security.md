@@ -238,8 +238,9 @@ recovery can never reach the proposed value. A removal (`null`) needs no code.
   `FOR SHARE`, so a removal committing at the same moment is waited for.
 - Re-saving the form with the same pending value **by the same admin** sends
   nothing again, but only once the link was really delivered (the token is
-  stamped `sent: true`). A different admin's save sends a fresh link and
-  revokes the old one.
+  stamped `sent: true` as the very last step, after the notices and the audit
+  row, so a save that answered 503 is never deduped). A different admin's save
+  sends a fresh link and revokes the old one.
 - The delivery service reports a gateway outage as `FAILED`; it never throws.
   So the server checks the result: an approval link that was not `SENT` is
   revoked and the admin gets a 503 (other fields stay saved). A code that

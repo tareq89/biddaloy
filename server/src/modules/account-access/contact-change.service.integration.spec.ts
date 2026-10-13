@@ -881,6 +881,36 @@ describe('ContactChangeService (integration)', () => {
       expect(await liveTokens(user.id)).toBe(1);
     });
 
+    // Review m-r3-2: a failure AFTER the link went out (here the audit write), with a failed
+    // clean-up revoke too, must not leave the link stamped as sent: the admin was told 503.
+    it('a failure after delivery leaves the link unstamped, so the retry sends a fresh one', async () => {
+      const { user } = await sharedSetup();
+      const audit = vi
+        .spyOn(module.get(AuditService), 'record')
+        .mockRejectedValueOnce(new Error('audit down'));
+      const revoke = vi
+        .spyOn(module.get(AuthTokenService), 'revoke')
+        .mockRejectedValueOnce(new Error('db down'));
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+      const error = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+
+      await expect(propose(user.id, { phone: NEW_PHONE })).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      for (const spy of [audit, revoke, warn, error]) spy.mockRestore();
+      const [left] = await dataSource.query(
+        `SELECT metadata->>'sent' AS sent FROM auth_tokens WHERE user_id = $1`,
+        [user.id],
+      );
+      expect(left.sent).toBeNull();
+      fakeProvider.send.mockClear();
+
+      await propose(user.id, { phone: NEW_PHONE });
+
+      expect(sentTo().some((m) => m.body.includes('token='))).toBe(true);
+      expect(await liveTokens(user.id)).toBe(1);
+    });
+
     it('a code that could not be sent to the new contact is a 503, not confirm; the link stays', async () => {
       const { user } = await sharedSetup();
       await propose(user.id, { phone: NEW_PHONE });
