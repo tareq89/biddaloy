@@ -792,6 +792,20 @@ no merge queue. The full `main-gate` changes how every PR merges and needs the m
 queue to have run green once, so it is a separate decision. Record the chosen option,
 the date and the reason here when the owner decides.
 
+Apply (the repo owner runs these; they change live GitHub settings):
+
+```bash
+# private vulnerability reporting on
+gh api -X PUT repos/tareq89/biddaloy/private-vulnerability-reporting
+# secret scanning: non-provider patterns + validity checks
+gh api -X PATCH repos/tareq89/biddaloy \
+  -F 'security_and_analysis[secret_scanning_non_provider_patterns][status]=enabled' \
+  -F 'security_and_analysis[secret_scanning_validity_checks][status]=enabled'
+# fork PRs from any outside contributor wait for approval before workflows run
+gh api -X PUT repos/tareq89/biddaloy/actions/permissions/fork-pr-contributor-approval \
+  -f approval_policy=all_external_contributors
+```
+
 Verify after applying (each should match **Target**):
 
 ```bash
