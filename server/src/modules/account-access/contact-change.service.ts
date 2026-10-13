@@ -453,9 +453,10 @@ export class ContactChangeService {
     });
     if (outcome !== 'valid') return { status: outcome };
 
-    // After commit, from the app clock (see SessionCutoffService).
-    await this.sessionCutoff.cutOff(userId);
+    // After commit, from the app clock (see SessionCutoffService). Revoke first: a refresh
+    // that rotates before the revoke then mints a token older than the cut-off.
     await this.refreshTokens.revokeAllForUser(userId);
+    await this.sessionCutoff.cutOff(userId);
     return { status: 'valid' };
   }
 

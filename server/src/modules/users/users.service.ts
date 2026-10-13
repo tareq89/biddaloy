@@ -676,8 +676,9 @@ export class UserService {
         ('email' in updateData && updateData.email !== (current.email ?? null)) ||
         ('phone' in updateData && updateData.phone !== (current.phone ?? null));
       if (changed) {
-        await this.sessionCutoff.cutOff(id);
+        // Revoke first: a refresh that rotates before the revoke then mints a token older than the cut-off.
         await this.refreshTokens.revokeAllForUser(id);
+        await this.sessionCutoff.cutOff(id);
       }
     }
 

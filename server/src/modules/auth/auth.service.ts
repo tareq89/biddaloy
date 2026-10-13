@@ -208,6 +208,10 @@ export class AuthService {
       throw new UnauthorizedException('Missing refresh token');
     }
 
+    // Before rotate() (review m1), not just before the membership read: a contact change
+    // revokes refresh tokens and then cuts off, so a rotation that commits before the revoke
+    // must get an iat_ms that predates the cut-off too.
+    const issuedAtMs = Date.now();
     let rotated;
     try {
       rotated = await this.refreshTokens.rotate(cookieValue, context);
@@ -236,7 +240,6 @@ export class AuthService {
       throw new UnauthorizedException('User no longer exists');
     }
 
-    const issuedAtMs = Date.now();
     const membershipPayload = await this.fetchMembershipPayload(user.id);
 
     return {

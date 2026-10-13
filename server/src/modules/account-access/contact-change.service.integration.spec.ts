@@ -402,9 +402,15 @@ describe('ContactChangeService (integration)', () => {
       ]);
       expect(untouched.phone).toBe('+8801711111111');
 
+      const cutOff = vi.spyOn(module.get(SessionCutoffService), 'cutOff');
       const result = await service.confirmEmail(decodeURIComponent(token), context, 'approve');
 
       expect(result).toEqual({ status: 'valid' });
+      // Review m1: refresh tokens are revoked before the cut-off is stamped.
+      expect(fakeRefreshTokens.revokeAllForUser.mock.invocationCallOrder[0]).toBeLessThan(
+        cutOff.mock.invocationCallOrder[0],
+      );
+      cutOff.mockRestore();
       const [row] = await dataSource.query(
         'SELECT phone, phone_verified_at, email, tokens_valid_after FROM users WHERE id = $1',
         [user.id],
