@@ -1507,6 +1507,33 @@ describe('PaymentService (integration)', () => {
       expect(noMatch.total).toBe(0);
     });
 
+    // A bare % would match every payment if left unescaped.
+    it('treats % in payment search as literal text, not a wildcard', async () => {
+      const student = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Ahmed Khan',
+          registration_number: 'REG-2026-0011',
+          roll_number: 11,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+          preferred_communication: 'SMS',
+        }),
+      );
+      await service.create(
+        {
+          student_id: student.id,
+          total_amount: 500,
+          payment_method: 'CASH' as any,
+          transaction_reference: 'ABC',
+        },
+        TENANT_ID,
+      );
+
+      const result = await service.findAll({ search: '%', page: 1, limit: 10 }, TENANT_ID);
+      expect(result.total).toBe(0);
+    });
+
     it("does not return another tenant's payment when searching", async () => {
       const OTHER_TENANT = '00000000-0000-4000-8000-000000000099';
       const otherStudent = await studentRepo.save(

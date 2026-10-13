@@ -410,10 +410,11 @@ export class PaymentService {
       .andWhere('payment.deleted_at IS NULL')
       .orderBy('payment.payment_date', 'DESC');
 
-    if (query.search) {
+    const search = normalizeSearchTerm(query.search);
+    if (search) {
       qb.andWhere(
         '(payment.transaction_reference ILIKE :search OR student.full_name ILIKE :search)',
-        { search: `%${query.search}%` },
+        { search: `%${search}%` },
       );
     }
 
