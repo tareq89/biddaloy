@@ -186,6 +186,34 @@ describe('Homework Submission E2E', () => {
     expect(res.body.attachments).toHaveLength(1);
   });
 
+  it('rejects an HTML file sent as application/pdf', async () => {
+    await supertest(app.getHttpServer())
+      .post(`${API}/homework-assignments/${assignmentId}/submissions`)
+      .set('Authorization', `Bearer ${parentToken}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Role', UserRole.PARENT)
+      .field('student_id', studentId)
+      .attach('files', Buffer.from('<html><script>alert(1)</script></html>'), {
+        filename: 'x.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(400);
+  });
+
+  it('rejects a PNG-declared file whose bytes are JPEG', async () => {
+    await supertest(app.getHttpServer())
+      .post(`${API}/homework-assignments/${assignmentId}/submissions`)
+      .set('Authorization', `Bearer ${parentToken}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Role', UserRole.PARENT)
+      .field('student_id', studentId)
+      .attach('files', Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10]), {
+        filename: 'x.png',
+        contentType: 'image/png',
+      })
+      .expect(400);
+  });
+
   it("rejects a guardian not linked to this student (another guardian's child)", async () => {
     await supertest(app.getHttpServer())
       .post(`${API}/homework-assignments/${assignmentId}/submissions`)
