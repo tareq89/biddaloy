@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -105,6 +106,8 @@ export type ContactChangeRequestResult =
  */
 @Injectable()
 export class ContactChangeService {
+  private readonly logger = new Logger(ContactChangeService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
@@ -408,8 +411,19 @@ export class ContactChangeService {
               : maskPhone(recipient.to),
         },
       });
-    } catch {
-      await this.authTokens.revoke(row.id);
+    } catch (err) {
+      // Review n-new-2: the reason only, never the link, a code or a body.
+      this.logger.warn(
+        `contact-change proposal ${row.id} not sent, revoking: ${(err as Error).message}`,
+      );
+      try {
+        await this.authTokens.revoke(row.id);
+      } catch (revokeErr) {
+        // The link stays live but unstamped, so the dedupe still lets a re-save send a fresh one.
+        this.logger.error(
+          `contact-change proposal ${row.id} could not be revoked: ${(revokeErr as Error).message}`,
+        );
+      }
       throw new ServiceUnavailableException(
         'The approval request could not be sent, so the email/phone change is not pending. Try again.',
       );
