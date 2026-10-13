@@ -6,7 +6,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { queueWorkers } from './common/queue-workers';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { LoggerModule } from 'nestjs-pino';
 import { buildPinoOptions } from './common/logging/pino-options';
@@ -16,6 +16,7 @@ import { buildDatabaseSsl } from './db-ssl';
 import { RedactingTypeOrmLogger } from './db-logger';
 import { TeacherStaffProfileSubscriber } from './modules/staff-profiles/teacher-staff-profile.subscriber';
 import { buildRateLimitTracker } from './common/rate-limit/rate-limit-tracker';
+import { AppThrottlerGuard } from './common/rate-limit/app-throttler.guard';
 import { FailOpenThrottlerStorage } from './common/rate-limit/fail-open-throttler-storage';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -479,6 +480,6 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     TrialModule,
   ],
   controllers: [AppController],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],
 })
 export class AppModule {}

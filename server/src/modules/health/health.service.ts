@@ -65,11 +65,13 @@ export class HealthService {
       this.probeAttention(),
     ]);
 
-    // A stale engine degrades but never fails: it must not pull the API out of the load balancer.
+    // Only Postgres failing pulls the API out of the load balancer. Redis, the queue or a stale
+    // engine degrade but never fail: the app still serves (rate limiter fails open, /auth/*
+    // sign-in fails closed, sessions are cut off in the DB), and the platform alert covers Redis.
     const status =
-      db !== 'ok' || redis !== 'ok' || queue !== 'ok'
+      db !== 'ok'
         ? 'fail'
-        : attention === 'stale'
+        : redis !== 'ok' || queue !== 'ok' || attention === 'stale'
           ? 'degraded'
           : 'ok';
     return { status, checks: { db, redis, queue, attention } };
