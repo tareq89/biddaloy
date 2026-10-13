@@ -327,7 +327,7 @@ original bill. Waiving a late fee works like waiving any bill; see
 ### Write-offs and wallet payouts
 
 Three ways a bill or the wallet is settled without a normal payment.
-Each one is audited. The first two need a step-up approval token.
+Each one is audited. Waiving needs a `fees.discount` approval token and a wallet payout needs `payments.reverse`. The wallet credit for a removed paid bill is automatic; the removal itself is what is gated (`fees.edit_paid`, or the duplicate-override approval).
 
 ```mermaid
 flowchart TD
