@@ -39,6 +39,14 @@ describe('isCacheableApiRequest', () => {
     expect(isCacheableApiRequest(match('/api/v1/public/invoices/abc123'))).toBe(false);
   });
 
+  it('never caches a public verify verdict, which flips to REVOKED', () => {
+    expect(isCacheableApiRequest(match('/api/v1/public/verify/abc123'))).toBe(false);
+  });
+
+  it('never caches any public route', () => {
+    expect(isCacheableApiRequest(match('/api/v1/public/admission/demo-school'))).toBe(false);
+  });
+
   it.each(['POST', 'PATCH', 'PUT', 'DELETE'])(
     'never matches %s — a mutation must not be cached or replayed',
     (method) => {
