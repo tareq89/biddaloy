@@ -225,5 +225,21 @@ describe('JwtStrategy', () => {
       );
       expect(await provide(PREVIOUS, expired)).toBe(CURRENT);
     });
+
+    // [75.9 review r2, F12] a current-secret token that fails for another reason (here a
+    // wrong issuer) keeps the current key, so passport reports that reason.
+    it('hands back the current secret when the signature matches but a claim does not', async () => {
+      const s = new JwtStrategy(
+        configServiceWithSecret(CURRENT, PREVIOUS),
+        new JwtService({ verifyOptions: { issuer: 'biddaloy' } }),
+        mockDenylist as unknown as AccessTokenDenylistService,
+        { findOne } as unknown as Repository<User>,
+      );
+      const wrongIss = new JwtService({}).sign({ sub: 'u' }, { secret: CURRENT, issuer: 'evil' });
+      const key = await new Promise<string>((resolve) =>
+        (s as any)._secretOrKeyProvider({}, wrongIss, (_e: unknown, k: string) => resolve(k)),
+      );
+      expect(key).toBe(CURRENT);
+    });
   });
 });

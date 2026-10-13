@@ -44,14 +44,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // Passport does the full verify afterwards, so this only picks the key: no
       // second verify without a previous secret, and expiry is left to passport
       // (an expired current-secret token then reports "jwt expired", not a bad signature).
+      // Only a signature mismatch moves to previous; any other failure (wrong alg, iss, aud)
+      // keeps current, so passport reports the real reason.
       secretOrKeyProvider: (_req, rawJwt, done) => {
         const [current, previous] = jwtVerifySecrets(configService);
         if (!previous) return done(null, current);
         try {
           jwtService.verify(rawJwt, { secret: current, ignoreExpiration: true });
           done(null, current);
-        } catch {
-          done(null, previous);
+        } catch (error) {
+          done(null, (error as Error).message === 'invalid signature' ? previous : current);
         }
       },
     });
