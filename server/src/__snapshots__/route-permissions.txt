@@ -504,6 +504,7 @@ POST /incidents/:id/withdraw | IncidentsController | perm: ACR_WRITE
 POST /invoices | InvoicesController | perm: INVOICE_CREATE
 POST /invoices/:id/send | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
 POST /invoices/:id/share | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
+POST /invoices/:id/share/regenerate | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
 POST /lesson-deliveries/extra | LessonDeliveriesController | perm: SYLLABUS_MANAGE
 POST /lesson-deliveries/today-all-taught | LessonDeliveriesController | perm: SYLLABUS_MANAGE
 POST /me/push/subscriptions | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER

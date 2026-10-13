@@ -41,6 +41,7 @@ export type InvoiceWithSnapshot = Invoice & {
 export interface InvoiceShareToken {
   id: string;
   revoked_at: string | null;
+  expires_at: string;
   last_viewed_at?: string | null;
   view_count?: number;
   url?: string;
@@ -49,6 +50,7 @@ export interface InvoiceShareToken {
 export interface CreateInvoiceShareResult {
   url: string;
   token_id: string;
+  expires_at: string;
 }
 
 export type SendInvoiceMedium = 'WHATSAPP' | 'SMS';
@@ -255,6 +257,26 @@ export function useShareInvoice() {
       return { invoiceId, result: res.data };
     },
     onSuccess: ({ invoiceId }) => {
+      void queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(invoiceId) });
+      void queryClient.invalidateQueries({
+        queryKey: [...invoiceKeys.detail(invoiceId), 'shares'],
+      });
+    },
+  });
+}
+
+/** [75.19-b] `POST /invoices/:id/share/regenerate` — revokes every live link
+ * of the invoice and mints a new one. Same invalidations as `useShareInvoice`. */
+export function useRegenerateShare(invoiceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<CreateInvoiceShareResult>(
+        `/invoices/${invoiceId}/share/regenerate`,
+      );
+      return res.data;
+    },
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(invoiceId) });
       void queryClient.invalidateQueries({
         queryKey: [...invoiceKeys.detail(invoiceId), 'shares'],

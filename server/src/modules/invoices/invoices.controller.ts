@@ -304,9 +304,43 @@ export class InvoicesController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ): Promise<ShareLinkResponseDto> {
-    const { rawToken, tokenId } = await this.shareService.createToken(id, tenant.id, user.sub);
+    const { rawToken, tokenId, expiresAt } = await this.shareService.createToken(
+      id,
+      tenant.id,
+      user.sub,
+    );
     const baseUrl = resolvePublicAppUrl(this.config);
-    return { url: `${baseUrl}/i/${rawToken}`, token_id: tokenId };
+    return {
+      url: `${baseUrl}/i/${rawToken}`,
+      token_id: tokenId,
+      expires_at: expiresAt.toISOString(),
+    };
+  }
+
+  @Post(':id/share/regenerate')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.INVOICE_READ)
+  @ApiOperation({
+    summary:
+      'Revokes every live share link of this invoice and mints a new one ({ url, token_id, expires_at }).',
+  })
+  @ApiOkResponse({ type: ShareLinkResponseDto })
+  async regenerateShareLink(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ShareLinkResponseDto> {
+    const { rawToken, tokenId, expiresAt } = await this.shareService.regenerateToken(
+      id,
+      tenant.id,
+      user.sub,
+    );
+    const baseUrl = resolvePublicAppUrl(this.config);
+    return {
+      url: `${baseUrl}/i/${rawToken}`,
+      token_id: tokenId,
+      expires_at: expiresAt.toISOString(),
+    };
   }
 
   @Post(':id/send')

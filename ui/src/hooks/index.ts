@@ -980,6 +980,7 @@ export {
   useInvoices,
   usePrintInvoice,
   usePublicInvoice,
+  useRegenerateShare,
   useRevokeShare,
   useSendInvoice,
   useShareInvoice,

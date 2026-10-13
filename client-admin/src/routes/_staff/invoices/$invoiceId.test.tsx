@@ -279,7 +279,9 @@ describe('/invoices/$invoiceId', () => {
     server.use(
       http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
       http.get('/api/v1/invoices/:id/share', () =>
-        HttpResponse.json([{ id: 'share-1', revoked_at: null }]),
+        HttpResponse.json([
+          { id: 'share-1', revoked_at: null, expires_at: '2999-01-01T00:00:00.000Z' },
+        ]),
       ),
       http.delete('/api/v1/invoices/:id/share/:tokenId', () =>
         HttpResponse.json(
@@ -429,12 +431,20 @@ describe('/invoices/$invoiceId', () => {
 
   it('walks the share create → copy → revoke flow', async () => {
     const invoice = invoiceFactory({ id: 'invoice-1' });
-    let shares: Array<{ id: string; url: string; revoked_at: string | null }> = [];
+    let shares: Array<{ id: string; url: string; revoked_at: string | null; expires_at: string }> =
+      [];
     server.use(
       http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
       http.get('/api/v1/invoices/:id/share', () => HttpResponse.json(shares)),
       http.post('/api/v1/invoices/:id/share', () => {
-        shares = [{ id: 'share-1', url: 'https://example.test/i/tok', revoked_at: null }];
+        shares = [
+          {
+            id: 'share-1',
+            url: 'https://example.test/i/tok',
+            revoked_at: null,
+            expires_at: '2999-01-01T00:00:00.000Z',
+          },
+        ];
         return HttpResponse.json({ id: 'share-1', url: 'https://example.test/i/tok' });
       }),
       http.delete('/api/v1/invoices/:id/share/:tokenId', () => {
@@ -471,12 +481,20 @@ describe('/invoices/$invoiceId', () => {
 
   it('shows the created share URL in a labelled input right after creation', async () => {
     const invoice = invoiceFactory({ id: 'invoice-1' });
-    let shares: Array<{ id: string; url: string; revoked_at: string | null }> = [];
+    let shares: Array<{ id: string; url: string; revoked_at: string | null; expires_at: string }> =
+      [];
     server.use(
       http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
       http.get('/api/v1/invoices/:id/share', () => HttpResponse.json(shares)),
       http.post('/api/v1/invoices/:id/share', () => {
-        shares = [{ id: 'share-1', url: 'https://example.test/i/tok', revoked_at: null }];
+        shares = [
+          {
+            id: 'share-1',
+            url: 'https://example.test/i/tok',
+            revoked_at: null,
+            expires_at: '2999-01-01T00:00:00.000Z',
+          },
+        ];
         return HttpResponse.json({ id: 'share-1', url: 'https://example.test/i/tok' });
       }),
     );
@@ -505,7 +523,9 @@ describe('/invoices/$invoiceId', () => {
     server.use(
       http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
       http.get('/api/v1/invoices/:id/share', () =>
-        HttpResponse.json([{ id: 'share-1', revoked_at: null }]),
+        HttpResponse.json([
+          { id: 'share-1', revoked_at: null, expires_at: '2999-01-01T00:00:00.000Z' },
+        ]),
       ),
     );
     renderWithRouter(routeTree, {
@@ -520,5 +540,76 @@ describe('/invoices/$invoiceId', () => {
     expect(
       await screen.findByText(/Link created\. It's only shown right after creation/),
     ).toBeTruthy();
+  });
+  describe('share expiry and regenerate [75.19-b]', () => {
+    const render = () =>
+      renderWithRouter(routeTree, {
+        initialEntries: ['/invoices/invoice-1'],
+        tenantId: 'tenant-1',
+        role: 'ACCOUNTANT',
+        locale: 'en',
+      });
+
+    it('shows when the live link stops working', async () => {
+      server.use(
+        http.get('/api/v1/invoices/:id', () =>
+          HttpResponse.json(invoiceFactory({ id: 'invoice-1' })),
+        ),
+        http.get('/api/v1/invoices/:id/share', () =>
+          HttpResponse.json([
+            { id: 'share-1', revoked_at: null, expires_at: '2999-01-01T00:00:00.000Z' },
+          ]),
+        ),
+      );
+      render();
+      expect(await screen.findByText(/Link works until/)).toBeTruthy();
+    });
+
+    it('treats an expired, never-revoked link as no link (offers Create link)', async () => {
+      server.use(
+        http.get('/api/v1/invoices/:id', () =>
+          HttpResponse.json(invoiceFactory({ id: 'invoice-1' })),
+        ),
+        http.get('/api/v1/invoices/:id/share', () =>
+          HttpResponse.json([
+            { id: 'share-1', revoked_at: null, expires_at: '2000-01-01T00:00:00.000Z' },
+          ]),
+        ),
+      );
+      render();
+      expect(await screen.findByRole('button', { name: 'Create link' })).toBeTruthy();
+      expect(screen.queryByText(/Link works until/)).toBeNull();
+    });
+
+    it('Regenerate link confirms, posts, and shows the new URL', async () => {
+      let regenerated = false;
+      server.use(
+        http.get('/api/v1/invoices/:id', () =>
+          HttpResponse.json(invoiceFactory({ id: 'invoice-1' })),
+        ),
+        http.get('/api/v1/invoices/:id/share', () =>
+          HttpResponse.json([
+            { id: 'share-1', revoked_at: null, expires_at: '2999-01-01T00:00:00.000Z' },
+          ]),
+        ),
+        http.post('/api/v1/invoices/:id/share/regenerate', () => {
+          regenerated = true;
+          return HttpResponse.json({
+            url: 'https://example.test/i/new',
+            token_id: 'share-2',
+            expires_at: '2999-01-01T00:00:00.000Z',
+          });
+        }),
+      );
+      render();
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Regenerate link' }));
+      const dialog = await screen.findByRole('alertdialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Regenerate link' }));
+
+      const input = await screen.findByLabelText('Shareable receipt link');
+      expect((input as HTMLInputElement).value).toBe('https://example.test/i/new');
+      expect(regenerated).toBe(true);
+    });
   });
 });
