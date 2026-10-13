@@ -75,7 +75,31 @@ describe('sign-in methods', () => {
     renderAt('/security');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Connect Google' }));
+    await userEvent.type(await screen.findByLabelText('Current password'), 'pw-1');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(assign).toHaveBeenCalledWith('https://accounts.example/auth'));
+  });
+
+  it('Connect shows the wrong-password and set-a-password lines', async () => {
+    mockPage();
+    const reply = (status: number, details?: Record<string, string>) =>
+      http.post('/api/v1/auth/social/google/link-start', () =>
+        HttpResponse.json(
+          { statusCode: status, message: 'x', requestId: 'r1', details },
+          { status },
+        ),
+      );
+    renderAt('/security');
+
+    server.use(reply(403));
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect Google' }));
+    await userEvent.type(await screen.findByLabelText('Current password'), 'bad');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('That password is not correct.')).toBeTruthy();
+
+    server.use(reply(400, { code: 'NO_PASSWORD' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('Set a password above first, then connect.')).toBeTruthy();
   });
 
   it('explains why the last sign-in method cannot be disconnected', async () => {

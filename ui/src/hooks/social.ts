@@ -71,10 +71,17 @@ export function useDisconnectIdentity() {
  * fetches it and navigates itself: `window.location.assign(await mutateAsync(p))`. */
 export function useStartSocialLink() {
   return useMutation({
-    mutationFn: async (provider: SocialProvider) =>
+    mutationFn: async ({
+      provider,
+      currentPassword,
+    }: {
+      provider: SocialProvider;
+      currentPassword: string;
+    }) =>
       (
         await apiClient.post<components['schemas']['SocialLinkStartDto']>(
           `/auth/social/${provider}/link-start`,
+          { current_password: currentPassword },
         )
       ).data.url,
   });

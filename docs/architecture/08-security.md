@@ -244,6 +244,32 @@ flowchart TD
 Gaps: the server has no captcha-specific error code (#1700) and does not
 normalise phone numbers (#1701). See [22-onboarding.md](22-onboarding.md).
 
+## Connecting a social account (75.3)
+
+A stolen or borrowed session must not be able to plant a permanent Google or
+Facebook sign-in. So connecting one asks for the account's **current password**
+first. The reverse also holds: a password reset removes every connected social
+account (`RecoveryService.applyNewPassword`, #2239).
+
+```mermaid
+sequenceDiagram
+  participant B as Browser (Security page)
+  participant S as Server
+  B->>S: POST /auth/social/google/link-start {current_password}
+  alt account has no password
+    S-->>B: 400 {details.code: NO_PASSWORD}
+  else wrong password
+    S-->>B: 403 "Current password is incorrect"
+  else ok
+    S-->>B: 200 {url} + state cookie
+  end
+```
+
+- 403, not 401, on a wrong password, so the client's 401 refresh-and-replay never re-sends it.
+- A passwordless (OTP-only) account must set a password first (`NO_PASSWORD`).
+- The route keeps `STRICT_RATE_LIMIT`, which is now also the password-guess limit.
+- Social sign-in, sign-up, disconnect and the Facebook data-deletion routes are unchanged.
+
 ## Session & token lifecycle
 
 `POST /auth/login` returns two things: a short-lived (**15 minutes** by
