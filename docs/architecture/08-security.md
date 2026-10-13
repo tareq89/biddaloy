@@ -246,7 +246,10 @@ recovery can never reach the proposed value. A removal (`null`) needs no code.
   could not reach the new contact is a 503 to the person, never `confirm`.
 - The codes use their own OTP purpose, `CONTACT_PROPOSAL`, so a self-service
   phone change to the same number can't overwrite, cool down or lock them.
-  All codes are issued before any is sent, so a 429 on one sends nothing.
+  Before a re-send, every value's cooldown and cap are checked, and only then
+  are codes issued and sent. So a 429 on one value sends nothing **and** keeps
+  the code the person already holds for the other (a new code replaces the old
+  one, so issuing it first would have wiped it).
   Approving with only one of two codes re-sends just the missing one.
 - Any contact change that is written (approved, or a single-school user's
   admin edit) sets `users.tokens_valid_after` and revokes refresh tokens, so

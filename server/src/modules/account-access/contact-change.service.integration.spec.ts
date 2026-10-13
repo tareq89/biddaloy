@@ -572,6 +572,26 @@ describe('ContactChangeService (integration)', () => {
       expect(fakeProvider.send).not.toHaveBeenCalled();
     });
 
+    // Review m-r3-1: a re-send that 429s on the phone must not replace the email code already sent.
+    it('a re-send that 429s on one value keeps the code the person already holds for the other', async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { email: 'karim.new@example.com', phone: NEW_PHONE });
+      const token = linkIn(sentTo()[0].body);
+      const first = await service.confirmEmail(token, context, 'approve');
+      // The email cooldown is over; the phone one is still running.
+      await redis.del(`otp-cooldown:CONTACT_PROPOSAL:karim.new@example.com`);
+
+      await expect(service.confirmEmail(token, context, 'approve')).rejects.toMatchObject({
+        status: 429,
+      });
+
+      const result = await service.confirmEmail(token, context, 'approve', {
+        email_code: first.debug!.email_code,
+        phone_code: first.debug!.phone_code,
+      });
+      expect(result.status).toBe('valid');
+    });
+
     it('a code sent for one proposal does not confirm another value', async () => {
       const { user } = await sharedSetup();
       await propose(user.id, { phone: NEW_PHONE });
