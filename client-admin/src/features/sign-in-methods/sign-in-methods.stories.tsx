@@ -1,6 +1,7 @@
 import { UserRole } from '@biddaloy/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { http, HttpResponse } from 'msw';
+import { userEvent, within } from 'storybook/test';
 
 import { LeaveSchoolSection } from './leave-school-section';
 import { SignInMethodsCard } from './sign-in-methods-card';
@@ -50,6 +51,41 @@ export const Mobile: Story = {
     viewport: { defaultViewport: 'mobile1' },
   },
 };
+
+/** Opens "Connect Google" → password dialog, types a password and (unless 200) submits. */
+function connectDialog(status: number, details?: Record<string, string>): Story {
+  return {
+    parameters: {
+      msw: {
+        handlers: [
+          ...handlers(['google'], []).msw.handlers,
+          http.post('/api/v1/auth/social/google/link-start', () =>
+            status === 200
+              ? HttpResponse.json({ url: '#' })
+              : HttpResponse.json({ statusCode: status, message: 'x', details }, { status }),
+          ),
+        ],
+      },
+    },
+    play: async ({ canvasElement }) => {
+      await userEvent.click(
+        await within(canvasElement).findByRole('button', { name: 'Connect Google' }),
+      );
+      const body = within(document.body);
+      await userEvent.type(await body.findByLabelText('Current password'), 'hunter2');
+      if (status !== 200) await userEvent.click(body.getByRole('button', { name: 'Continue' }));
+    },
+  };
+}
+
+/** The password dialog, just opened. */
+export const ConnectPasswordDialog: Story = connectDialog(200);
+
+/** The server said the password is wrong. */
+export const ConnectWrongPassword: Story = connectDialog(403);
+
+/** The account has no password yet. */
+export const ConnectNoPassword: Story = connectDialog(400, { code: 'NO_PASSWORD' });
 
 /** The quiet leave section that ends `/security` (staff only). */
 export const LeaveSchool: StoryObj<typeof LeaveSchoolSection> = {

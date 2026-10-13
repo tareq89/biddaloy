@@ -42,8 +42,10 @@ describe('ConnectHintCard', () => {
     mock(['google', 'facebook'], []);
     renderCard();
     expect(await screen.findByText('Sign in faster next time')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Connect Google' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Connect Facebook' })).toBeTruthy();
+    // One link to the Security page, where the password is asked.
+    expect(screen.getByRole('link', { name: 'Set up in Security' }).getAttribute('href')).toBe(
+      '/security',
+    );
   });
 
   it('is hidden with no provider or with a linked identity', async () => {

@@ -603,7 +603,7 @@ flowchart TD
   button each. The flow is server-side authorization code with PKCE and
   `state`. Identities live in `user_identities`. **Connecting is always
   explicit** (`POST /auth/social/:provider/link-start` from a signed-in
-  session). An identity is never attached by matching email. Example: a Google
+  session, with the account's `current_password`). An identity is never attached by matching email. Example: a Google
   account with `rahim@example.com` does not sign in to a user who has that
   email unless it was connected first.
 - **Leaving and former members.** Staff leave with `POST /users/me/leave`.
