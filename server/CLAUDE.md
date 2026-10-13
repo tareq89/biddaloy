@@ -44,7 +44,9 @@ Tests must be readable by a junior developer. No dynamic test generation. Use ex
 GET  /api/v1/platform/attention/health   401 PASS 403 403 ...   # ANON SUPER_ADMIN ADMIN ...
 ```
 
-`PASS` = all guards let it through; otherwise the status code. Pipes, services and `X-Health-Token` are not in it.
+`PASS` = all guards let it through; otherwise the status code. Pipes, services, `X-Health-Token` and anything wired only in `main.ts` (helmet, CORS, cookie parsing, docs auth, `AllExceptionsFilter`) or nginx are not in it.
+
+`PLATFORM_SA` is SUPER_ADMIN on the platform tenant (the real console); `TENANT_SA` is a SUPER_ADMIN membership on an ordinary school (legacy shape).
 
 - **When it fails:** any change to who can reach a route changes a line. In CI (`CI=1`) a changed or missing file fails with the diff.
 - **Update:** `yarn workspace @biddaloy/server test:file src/route-status-snapshot.e2e-spec.ts -u` (with the e2e database env, e.g. `yarn test-env run -- ...`). Commit the file in the same PR and list each changed line in the PR description next to the ticket or decision that intends it.
