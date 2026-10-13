@@ -362,7 +362,9 @@ if should_run "integration"; then
   yarn workspace @biddaloy/server docs:generate
   yarn workspace @biddaloy/ui check:api-types
   yarn test:integration
-  yarn test:e2e
+  # CI=1 makes vitest fail on a missing or changed snapshot (e.g.
+  # server/src/route-status.snapshot.txt) instead of writing it, as on CI.
+  CI=1 yarn test:e2e
   section_done "integration"
 fi
 
