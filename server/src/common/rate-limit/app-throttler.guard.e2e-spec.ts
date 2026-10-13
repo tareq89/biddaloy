@@ -87,11 +87,13 @@ describe('AppThrottlerGuard (Redis down vs up)', () => {
   });
 
   describe('with a working store', () => {
-    it('serves all three routes and still rate-limits (101st call is 429)', async () => {
-      app = await bootApp(new ThrottlerStorageService());
+    // A limit of 3, not 100: 100 sequential calls can outlast the 60 s window on a loaded
+    // runner, the bucket resets and the last call gets 200 (#2478).
+    it('serves all three routes and still rate-limits (4th call is 429)', async () => {
+      app = await bootApp(new ThrottlerStorageService(), 3);
       await supertest(app.getHttpServer()).post('/api/v1/auth/login').expect(201);
       await supertest(app.getHttpServer()).post('/api/v1/auth/refresh').expect(201);
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 3; i++) {
         await supertest(app.getHttpServer()).get('/api/v1/things').expect(200);
       }
       await supertest(app.getHttpServer()).get('/api/v1/things').expect(429);
