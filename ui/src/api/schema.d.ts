@@ -36,6 +36,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open platform alerts (e.g. Redis down). SUPER_ADMIN only. */
+        get: operations["PlatformAlertsController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit-logs": {
         parameters: {
             query?: never;
@@ -8277,6 +8294,15 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        PlatformAlertItemDto: {
+            /** @enum {string} */
+            kind: "REDIS_DOWN";
+            /** @description ISO timestamp the alert opened. */
+            opened_at: string;
+        };
+        PlatformAlertsDto: {
+            alerts: components["schemas"]["PlatformAlertItemDto"][];
+        };
         AuditLogResponseDto: {
             id: string;
             tenant_id: string | null;
@@ -14811,6 +14837,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformAlertsController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformAlertsDto"];
                 };
             };
         };
