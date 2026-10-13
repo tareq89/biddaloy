@@ -44,6 +44,7 @@ jobs:
       server: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.server }}
       api-surface: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.api-surface }}
       ui: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.ui }}
+      infra: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.infra }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -97,6 +98,36 @@ jobs:
             api-surface:
               - 'server/src/**'
               - 'ui/src/api/**'
+            # [75.4] nginx/compose behaviour tests (`*.infra.test.sh`).
+            infra:
+              - 'nginx/**'
+              - 'docker-compose.yml'
+              - 'Dockerfile'
+              - 'scripts/backup/**'
+              - '**/*.infra.test.sh'
+              - '.github/workflows/ci.yml'
+
+  # [75.4] Runs every `*.infra.test.sh` in the repo (docker-driven nginx /
+  # compose behaviour tests). New infra tests just add their own file; they
+  # never edit this job.
+  infra:
+    name: Infra config tests
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.infra == 'true'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Run infra tests
+        run: |
+          for t in $(git ls-files '*.infra.test.sh'); do
+            echo "::group::$t"
+            bash "$t"
+            echo "::endgroup::"
+          done
 
   verify:
     name: Build, lint, unit tests
@@ -1060,7 +1091,7 @@ jobs:
     name: Test timings & budgets
     runs-on: ubuntu-latest
     if: always()
-    needs: [changes, verify, frontend-merge, integration, e2e, bundle-delta, storybook, audit]
+    needs: [changes, verify, frontend-merge, integration, e2e, bundle-delta, storybook, audit, infra]
     permissions:
       contents: read
       actions: read

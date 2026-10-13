@@ -53,10 +53,10 @@ AFFECTED=0
 
 usage() {
   echo "usage: $(basename "$0") [--integration] [--e2e] [--lighthouse] [--storybook] [--full] [--no-coverage] [--only <job,job,...>] [--affected]" >&2
-  echo "  --only accepts: verify, frontend, storybook, integration, e2e, audit, lighthouse" >&2
+  echo "  --only accepts: verify, frontend, storybook, integration, e2e, audit, lighthouse, infra" >&2
 }
 
-VALID_JOBS="verify frontend storybook integration e2e audit lighthouse"
+VALID_JOBS="verify frontend storybook integration e2e audit lighthouse infra"
 
 args=("$@")
 i=0
@@ -154,6 +154,14 @@ CI_PATHS_API_SURFACE=(
   'server/src/**'
   'ui/src/api/**'
 )
+# Mirror of ci.yml's `changes` job "infra" filter — keep in sync.
+CI_PATHS_INFRA=(
+  'nginx/**'
+  'docker-compose.yml'
+  'Dockerfile'
+  'scripts/backup/**'
+  '.github/workflows/ci.yml'
+)
 CI_PATHS_UI=(
   'ui/**'
   'yarn.lock'
@@ -200,6 +208,7 @@ area_touched() {
     frontend) patterns=("${CI_PATHS_FRONTEND[@]}") ;;
     server) patterns=("${CI_PATHS_SERVER[@]}") ;;
     ui) patterns=("${CI_PATHS_UI[@]}") ;;
+    infra) patterns=("${CI_PATHS_INFRA[@]}") ;;
     api-surface) patterns=("${CI_PATHS_API_SURFACE[@]}") ;;
   esac
   # `set -u` treats an empty array's "${arr[@]}" as unbound on this
@@ -227,7 +236,7 @@ should_run() {
     [ "$found" = 1 ] || return 1
   else
     case "$name" in
-      verify | frontend | audit) : ;;
+      verify | frontend | audit | infra) : ;;
       storybook) [ "$RUN_STORYBOOK" = 1 ] || return 1 ;;
       integration) [ "$RUN_INTEGRATION" = 1 ] || return 1 ;;
       e2e) [ "$RUN_E2E" = 1 ] || return 1 ;;
@@ -249,6 +258,9 @@ should_run() {
         ;;
       storybook)
         area_touched ui || return 1
+        ;;
+      infra)
+        area_touched infra || return 1
         ;;
       # verify, audit, lighthouse: no ci.yml area gating to mirror.
     esac
@@ -413,6 +425,19 @@ if should_run "audit"; then
   node scripts/ci-audit.js
   node scripts/ci-audit.js --production
   section_done "audit"
+fi
+
+if should_run "infra"; then
+  section "infra"
+  if command -v docker >/dev/null 2>&1; then
+    for t in $(git ls-files '*.infra.test.sh'); do
+      echo "--- $t"
+      bash "$t"
+    done
+  else
+    echo "docker not found — skipping infra tests (CI's infra job runs them)"
+  fi
+  section_done "infra"
 fi
 
 echo ""

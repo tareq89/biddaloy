@@ -188,8 +188,10 @@ services:
       - '443:443'
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
     volumes:
       - ./nginx/templates:/etc/nginx/templates:ro
+      - ./nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro
       - ./nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro
       - certs:/etc/letsencrypt:ro
       - certbot-webroot:/var/www/certbot:ro
