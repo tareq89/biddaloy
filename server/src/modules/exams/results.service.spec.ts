@@ -2,7 +2,9 @@ import { describe, it, expect, vi } from 'vitest';
 
 // The cohort query has its own integration coverage (results.service.integration.spec.ts);
 // here it just hands back whatever the test put in `enrollmentRepo.find`.
-vi.mock('./exam-cohort', () => ({
+vi.mock('./exam-cohort', async (orig) => ({
+  // the pure "who sits this subject" rule stays real
+  sitsSubject: (await orig<typeof import('./exam-cohort')>()).sitsSubject,
   loadExamCohort: async (manager: { find: () => Promise<unknown[]> }) => ({
     members: await manager.find(),
     studentsWithResult: new Set<string>(),
@@ -356,6 +358,18 @@ describe('ResultsService.process', () => {
     });
 
     await expect(service.process(EXAM_ID, TENANT_ID, 'user-1')).rejects.toThrow(ConflictException);
+  });
+
+  it('names blank cells too, with code GRIDS_OUTSTANDING (a SUBMITTED grid can still be outstanding)', async () => {
+    const { service } = await buildService({
+      outstanding: [
+        { section_id: SECTION_ID, subject_id: SUBJECT_ID, section_name: 'A', state: 'SUBMITTED' },
+      ],
+    });
+
+    const err = await service.process(EXAM_ID, TENANT_ID, 'user-1').catch((e) => e);
+    expect(err.getResponse().message).toContain('blank cells');
+    expect(err.getResponse().details.code).toBe('GRIDS_OUTSTANDING');
   });
 
   it("computes and stores every enrolled student's result, moving the exam to PROCESSED", async () => {

@@ -59,6 +59,9 @@ export class SectionChangeHandler {
     }
 
     // Rejects a class from another academic year (400) and audits the move.
+    // A section of another class is a class move (#2255): the approver's
+    // role must hold PROMOTION_MANAGE (403). No role on the context counts
+    // as no rights, never as a trusted system caller.
     await this.enrollments.update(
       enrollment.id,
       { class_id: section.class_id, section_id: section.id },
@@ -66,6 +69,7 @@ export class SectionChangeHandler {
       ctx.actorUserId,
       requestContext(ctx.req),
       manager,
+      ctx.role ?? '',
     );
     return {
       enrollment_id: enrollment.id,

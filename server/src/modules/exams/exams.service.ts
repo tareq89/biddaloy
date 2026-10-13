@@ -6,9 +6,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, QueryFailedError, EntityManager } from 'typeorm';
-import { AuditAction, ExamComponentKind, ExamComponentSource } from '@biddaloy/shared';
+import { AuditAction, ExamComponentKind, ExamComponentSource, ExamStatus } from '@biddaloy/shared';
 import { Exam } from './entities/exam.entity';
 import { Mark } from './entities/mark.entity';
+import { Result } from './entities/result.entity';
+import { ResultsService, examPublished, lockExam } from './results.service';
 import { ExamComponent } from './entities/exam-component.entity';
 import { ExamTemplate } from './entities/exam-template.entity';
 import { ExamTemplatesService } from './exam-templates.service';
@@ -43,6 +45,7 @@ export class ExamsService {
     private readonly termRepo: Repository<AcademicTerm>,
     private readonly auditService: AuditService,
     private readonly templatesService: ExamTemplatesService,
+    private readonly resultsService: ResultsService,
   ) {}
 
   /** IDOR guard: every client-supplied foreign key on an Exam must belong
@@ -307,6 +310,17 @@ export class ExamsService {
       }
     }
 
+    // [ACAD-05] Once published, only a rename is allowed; anything that
+    // changes how the results read goes through "reopen" (approval-gated).
+    const changesReadings = (e: Exam) =>
+      (dto.class_id !== undefined && dto.class_id !== e.class_id) ||
+      (dto.academic_year_id !== undefined && dto.academic_year_id !== e.academic_year_id) ||
+      (dto.kind !== undefined && dto.kind !== e.kind) ||
+      (dto.academic_term_id !== undefined && dto.academic_term_id !== e.academic_term_id);
+    if (existing.status === ExamStatus.PUBLISHED && changesReadings(existing)) {
+      throw examPublished();
+    }
+
     // Same IDOR guard as create() — re-validated whenever any of these
     // three fields is present in the PATCH, even the ones that didn't
     // "change" from the exam's own recorded value, since a caller could
@@ -328,6 +342,10 @@ export class ExamsService {
     if (changedKeys.length > 0) {
       try {
         await this.repo.manager.transaction(async (manager) => {
+          const locked = await lockExam(manager, id, tenantId);
+          if (locked.status === ExamStatus.PUBLISHED && changesReadings(locked)) {
+            throw examPublished();
+          }
           const repo = manager.getRepository(Exam);
           const oldValues = Object.fromEntries(
             changedKeys.map((key) => [key, (existing as any)[key]]),
@@ -349,6 +367,21 @@ export class ExamsService {
             },
             manager,
           );
+
+          // The term feeds the DERIVED attendance component.
+          if (
+            locked.status === ExamStatus.PROCESSED &&
+            dto.academic_term_id !== undefined &&
+            dto.academic_term_id !== existing.academic_term_id
+          ) {
+            await this.resultsService.recomputeProcessedExam(
+              manager,
+              id,
+              tenantId,
+              userId,
+              context,
+            );
+          }
         });
       } catch (err) {
         if (isUniqueViolation(err)) {
@@ -372,6 +405,16 @@ export class ExamsService {
     const existing = await this.findOne(id, tenantId);
 
     await this.repo.manager.transaction(async (manager) => {
+      await lockExam(manager, id, tenantId);
+      const liveResults = await manager
+        .getRepository(Result)
+        .count({ where: { exam_id: id, tenant_id: tenantId, deleted_at: IsNull() } });
+      if (liveResults > 0) {
+        throw new ConflictException({
+          message: 'This exam has results. Reopen and correct them instead of deleting the exam.',
+          details: { code: 'EXAM_HAS_RESULTS' },
+        });
+      }
       const repo = manager.getRepository(Exam);
       await repo.softDelete({ id, tenant_id: tenantId });
 

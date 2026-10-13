@@ -30,6 +30,8 @@
  * criterion, shared with the retired status dialog's identical
  * reasoning).
  */
+import { Permission } from '@biddaloy/shared';
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Dialog,
@@ -50,6 +52,7 @@ import {
   useClassSections,
   useCreateEnrollment,
   useCurrentEnrollment,
+  useHasPermission,
   useUpdateEnrollment,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -79,6 +82,10 @@ export function TransferDialog({
 
   const currentEnrollmentQuery = useCurrentEnrollment(studentId);
   const currentEnrollment = currentEnrollmentQuery.data;
+  // [68.3.17.1] Changing class is promotion territory; the server enforces it, this only
+  // keeps the picker honest. A student with no enrollment yet may still be placed.
+  const canChangeClass = useHasPermission(Permission.PROMOTION_MANAGE);
+  const classLocked = !!currentEnrollment && !canChangeClass;
 
   const classesQuery = useClasses(
     currentEnrollment ? { academic_year_id: currentEnrollment.academic_year_id } : {},
@@ -153,6 +160,7 @@ export function TransferDialog({
               </label>
               <Select
                 value={classId}
+                disabled={classLocked}
                 onValueChange={(value) => {
                   setClassId(value);
                   setSectionId('');
@@ -172,6 +180,11 @@ export function TransferDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {classLocked && (
+                <p className="text-sm text-muted-foreground">
+                  {t('detail.moveClassDialog.classLockedHint')}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -218,7 +231,12 @@ export function TransferDialog({
 
             {mutation.isError && (
               <p role="alert" className="text-destructive">
-                {t('detail.moveClassDialog.errorMessage')}
+                {t(
+                  mutation.error instanceof ApiError &&
+                    mutation.error.details?.code === 'ENROLLMENT_CLASS_CHANGE_NEEDS_PROMOTION'
+                    ? 'detail.moveClassDialog.classLockedHint'
+                    : 'detail.moveClassDialog.errorMessage',
+                )}
               </p>
             )}
           </div>

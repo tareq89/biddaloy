@@ -50,6 +50,7 @@ describe('EnrollmentController', () => {
         TENANT.id,
         USER.sub,
         expect.objectContaining({ ip: REQUEST.ip }),
+        TENANT.role,
       );
       expect(result).toEqual(expected);
     });
@@ -137,6 +138,8 @@ describe('EnrollmentController', () => {
         TENANT.id,
         USER.sub,
         expect.objectContaining({ ip: REQUEST.ip }),
+        undefined,
+        TENANT.role,
       );
       expect(result).toEqual(expected);
     });
@@ -154,6 +157,8 @@ describe('EnrollmentController', () => {
         TENANT.id,
         USER.sub,
         expect.objectContaining({ ip: REQUEST.ip }),
+        undefined,
+        TENANT.role,
       );
       expect(result).toEqual(expected);
     });

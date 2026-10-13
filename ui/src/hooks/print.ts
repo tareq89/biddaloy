@@ -22,7 +22,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { apiClient, fetchPublicVerification } from '../api/client';
 import type { components } from '../api/schema';
 
-import { createEntityKeys } from './query-keys';
+import { createEntityKeys, fetchAllPages } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
 /* ------------------------------------------------------------------ types */
@@ -194,6 +194,8 @@ export interface RegisterFilters {
   status?: 'VALID' | 'REVOKED';
   q?: string;
   subject_id?: string;
+  /** Only copies printed for this exam. */
+  context_id?: string;
   page?: number;
   limit?: number;
 }
@@ -672,8 +674,48 @@ export function certificateRegisterQueryOptions(filters: RegisterFilters = {}) {
   });
 }
 
-export function useCertificateRegister(filters: RegisterFilters = {}) {
-  return useQuery(certificateRegisterQueryOptions(filters));
+export function useCertificateRegister(
+  filters: RegisterFilters = {},
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({
+    ...certificateRegisterQueryOptions(filters),
+    enabled: options.enabled ?? true,
+  });
+}
+
+/** ACAD-12: every live result and merit certificate printed for one exam,
+ * all pages (the register caps a page at 100). Under the register's key
+ * root, so a revoke refreshes it. */
+export function useExamCertificates(examId: string, options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: [...certificateRegisterKeys.lists(), 'exam-certificates', examId] as const,
+    queryFn: async ({ signal }) => {
+      const kinds: DocumentKind[] = ['RESULT_CERTIFICATE', 'MERIT_CERTIFICATE'];
+      const perKind = await Promise.all(
+        kinds.map((document_kind) =>
+          fetchAllPages(
+            async (page) =>
+              (
+                await apiClient.get<RegisterPage>('/print-history/register', {
+                  params: definedParams({
+                    context_id: examId,
+                    status: 'VALID',
+                    document_kind,
+                    page,
+                    limit: 100,
+                  }),
+                  signal,
+                })
+              ).data,
+          ),
+        ),
+      );
+      return perKind.flat();
+    },
+    enabled: options.enabled ?? true,
+    retry: shouldRetryQuery,
+  });
 }
 
 /** Same blob-URL save as `downloadCollectionsReportCsv` (auth is a header, so no plain `<a href>`). */

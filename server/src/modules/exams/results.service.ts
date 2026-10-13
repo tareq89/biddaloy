@@ -37,7 +37,7 @@ import {
   ComponentInput,
   SubjectResult,
 } from './result-rules';
-import { loadExamCohort } from './exam-cohort';
+import { loadExamCohort, sitsSubject } from './exam-cohort';
 import { AttendanceComponentService } from './attendance-component.service';
 import { MarkGridService } from './mark-grid.service';
 import { attentionEvents } from '../attention/attention.constants';
@@ -62,6 +62,14 @@ export const RULE_VERSION = 'nctb-v3';
  * but a publish can't commit while a mark write is mid-transaction.
  * Lock order is always exam, then grid (`lockGrid`).
  */
+/** [ACAD-05] The one 409 for "results are published, reopen first". */
+export function examPublished(): ConflictException {
+  return new ConflictException({
+    message: "This exam's results are published. Reopen the results first.",
+    details: { code: 'EXAM_PUBLISHED' },
+  });
+}
+
 export async function lockExam(
   manager: EntityManager,
   examId: string,
@@ -375,15 +383,15 @@ export class ResultsService {
       const subjectDisplay: ComputedStudentResult['subjects'] = [];
 
       for (const classSubject of classSubjects) {
-        // A stream subject is only for sections of that stream (case-sensitive).
-        if (classSubject.group_name && classSubject.group_name !== groupByStudent.get(student.id)) {
-          continue;
-        }
-        // Optional offerings and choice-group members count only when the
-        // student picked/opted into THIS one; a non-taker's marks are never read.
+        // Stream subjects only for their stream; optional / choice-group
+        // subjects only for students who picked THIS one (non-takers' marks
+        // are never read). Shared with the mark grid's blank-cell check.
         if (
-          (classSubject.is_optional || Boolean(classSubject.choice_group)) &&
-          !choiceByStudentAndSubject.has(`${student.id}:${classSubject.id}`)
+          !sitsSubject(
+            classSubject,
+            groupByStudent.get(student.id) ?? null,
+            choiceByStudentAndSubject.has(`${student.id}:${classSubject.id}`),
+          )
         ) {
           continue;
         }
@@ -595,11 +603,13 @@ export class ResultsService {
     if (!force) {
       const { outstanding } = await this.gridService.progress(examId, tenantId);
       if (outstanding.length > 0) {
-        throw new ConflictException(
-          `Cannot process exam "${examId}": ${outstanding.length} grid(s) are not SUBMITTED ` +
+        throw new ConflictException({
+          message:
+            `Cannot process exam "${examId}": ${outstanding.length} grid(s) are not submitted or still have blank cells ` +
             `(section ${outstanding[0].section_id}, subject ${outstanding[0].subject_id}, and ${outstanding.length - 1} more). ` +
             'Pass force=true to override — the override is audited.',
-        );
+          details: { code: 'GRIDS_OUTSTANDING', outstanding: outstanding.slice(0, 50) },
+        });
       }
     }
 

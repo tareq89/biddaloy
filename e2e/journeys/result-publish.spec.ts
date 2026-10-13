@@ -1,5 +1,6 @@
 import { ExamComponentKind, ExamComponentSource, ExamKind } from '@biddaloy/shared';
 import { adminApiSession, get, post } from '../api';
+import { ApprovalModalPage } from '../pages';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { DetailShellPage } from '../pages/detail-shell';
@@ -72,6 +73,7 @@ async function findSeededRollOne(
 
 test.describe.serial('exams: admin publishes -> guardian sees it in the portal', () => {
   let examName: string;
+  let examId: string;
   let studentId: string;
 
   test.describe('1. admin processes and publishes', () => {
@@ -95,6 +97,8 @@ test.describe.serial('exams: admin publishes -> guardian sees it in the portal',
         academic_year_id: student.academic_year_id,
         class_id: student.class_id,
       });
+
+      examId = exam.id;
 
       const component = await post<{ id: string }>(
         request,
@@ -182,6 +186,57 @@ test.describe.serial('exams: admin publishes -> guardian sees it in the portal',
       await expect(page.getByRole('heading', { name: t('portal.results.title') })).toBeVisible();
       // [31.4] The exam name is the result card's heading now; the name also appears in its print label.
       await expect(page.getByRole('heading', { name: examName })).toBeVisible();
+    });
+  });
+
+  // ACAD-12: reopening lists the exam's live result certificates and revokes them in one confirm.
+  test.describe('3. admin reopens: the issued result certificate is revoked', () => {
+    test.use(loggedIn('admin'));
+
+    test('the reopen dialog lists the certificate checked; confirm revokes it', async ({
+      page,
+      request,
+    }) => {
+      // The step-up OTP has a 60s per-identifier cooldown that api.ts waits out.
+      test.setTimeout(120_000);
+      const session = await adminApiSession(request);
+      const templates = await get<Array<{ id: string; is_default: boolean }>>(
+        request,
+        session,
+        '/print-templates?document_kind=RESULT_CERTIFICATE',
+      );
+      const template = templates.find((x) => x.is_default) ?? templates[0];
+      if (!template) throw new Error('No result-certificate template — has `yarn seed` run?');
+      await post(request, session, '/certificates', {
+        template_id: template.id,
+        subject_type: 'STUDENT',
+        subject_ids: [studentId],
+        context_type: 'EXAM',
+        context_id: examId,
+      });
+
+      await page.goto(`/exams/${examId}`);
+      await page.getByRole('button', { name: t('common.actions.moreActions') }).click();
+      await page.getByRole('menuitem', { name: t('exams.resultsPanel.reopen') }).click();
+      await expect(
+        page.getByRole('heading', { name: t('printHistory.reopenRevokeTitle') }),
+      ).toBeVisible();
+      await expect(page.getByRole('checkbox')).toBeChecked();
+
+      await page
+        .getByRole('button', { name: t('printHistory.reopenRevokeConfirm', { n: '১' }) })
+        .click();
+      await new ApprovalModalPage(page).complete('admin@biddaloy.test');
+
+      // The register now shows that copy as revoked, with the reopen reason.
+      await expect
+        .poll(async () => {
+          const rows = await get<{
+            data: Array<{ subject_id: string; revoked_at: string | null }>;
+          }>(request, session, `/print-history/register?context_id=${examId}&status=REVOKED`);
+          return rows.data.some((r) => r.subject_id === studentId);
+        })
+        .toBe(true);
     });
   });
 });

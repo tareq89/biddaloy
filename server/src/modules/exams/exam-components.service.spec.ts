@@ -7,7 +7,9 @@ import { Exam } from './entities/exam.entity';
 import { ExamComponent } from './entities/exam-component.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { AuditService } from '../audit/audit.service';
-import { ExamComponentKind, ExamComponentSource } from '@biddaloy/shared';
+import { ExamComponentKind, ExamComponentSource, ExamStatus } from '@biddaloy/shared';
+import { ResultsService } from './results.service';
+import { Mark } from './entities/mark.entity';
 
 /**
  * Unit tests for 19.3.1's `ExamComponentsService`: component validation
@@ -17,7 +19,7 @@ import { ExamComponentKind, ExamComponentSource } from '@biddaloy/shared';
 
 const TENANT_ID = 'tenant-1';
 
-function createComponentRepoStub(existing: ExamComponent[] = []) {
+function createComponentRepoStub(existing: ExamComponent[] = [], examRepo?: any, markRepo?: any) {
   const repo: any = {
     create: vi.fn((v: any) => v),
     save: vi.fn(async (v: any) => ({ id: `id-${Math.random()}`, ...v })),
@@ -27,7 +29,11 @@ function createComponentRepoStub(existing: ExamComponent[] = []) {
     findOne: vi.fn(async () => null),
   };
   repo.manager = {
-    transaction: vi.fn(async (cb: any) => cb({ getRepository: () => repo })),
+    transaction: vi.fn(async (cb: any) =>
+      cb({
+        getRepository: (e: any) => (e === Exam ? examRepo : e === Mark ? markRepo : repo),
+      }),
+    ),
   };
   return repo;
 }
@@ -51,9 +57,22 @@ function component(overrides: Partial<ExamComponent> = {}): ExamComponent {
   } as ExamComponent;
 }
 
-async function buildService(existing: ExamComponent[] = []) {
-  const examRepo = { findOne: vi.fn(async () => ({ id: 'exam-1', tenant_id: TENANT_ID })) };
-  const componentRepo = createComponentRepoStub(existing);
+async function buildService(existing: ExamComponent[] = [], status: ExamStatus = ExamStatus.DRAFT) {
+  const examRepo = {
+    findOne: vi.fn(async () => ({ id: 'exam-1', tenant_id: TENANT_ID, status })),
+    update: vi.fn(async () => undefined),
+  };
+  const markRepo = { createQueryBuilder: vi.fn() };
+  const maxMark = { value: null as string | null };
+  markRepo.createQueryBuilder.mockReturnValue({
+    select: () => ({
+      where: () => ({
+        andWhere: () => ({ getRawOne: async () => ({ max: maxMark.value }) }),
+      }),
+    }),
+  });
+  const resultsService = { recomputeProcessedExam: vi.fn(async () => 0) };
+  const componentRepo = createComponentRepoStub(existing, examRepo, markRepo);
   // Default: any subject_id/target_subject_ids requested belongs to the
   // tenant — matches every existing test's fixture data, so only the
   // IDOR-guard-specific tests below need to override this.
@@ -72,10 +91,13 @@ async function buildService(existing: ExamComponent[] = []) {
       { provide: getRepositoryToken(ExamComponent), useValue: componentRepo },
       { provide: getRepositoryToken(Subject), useValue: subjectRepo },
       { provide: AuditService, useValue: auditService },
+      { provide: ResultsService, useValue: resultsService },
     ],
   }).compile();
 
   return {
+    maxMark,
+    resultsService,
     service: moduleRef.get(ExamComponentsService),
     examRepo,
     componentRepo,
@@ -351,5 +373,114 @@ describe('ExamComponentsService tenant-reference guard (IDOR)', () => {
         TENANT_ID,
       ),
     ).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('ExamComponentsService published/processed guard (ACAD-05)', () => {
+  const createDto = {
+    subject_id: 'subj-1',
+    name: 'Written',
+    kind: ExamComponentKind.WRITTEN,
+    full_marks: '100',
+    sequence: 1,
+  } as any;
+  const copyDto = {
+    source_exam_id: 'exam-1',
+    source_subject_id: 'subj-1',
+    target_subject_ids: ['subj-2'],
+  } as any;
+
+  it.each([
+    ['create', (s: ExamComponentsService) => s.create('exam-1', createDto, TENANT_ID)],
+    ['update', (s: ExamComponentsService) => s.update('exam-1', 'c1', { name: 'X' }, TENANT_ID)],
+    ['remove', (s: ExamComponentsService) => s.remove('exam-1', 'c1', TENANT_ID)],
+    ['copy', (s: ExamComponentsService) => s.copy('exam-1', copyDto, TENANT_ID)],
+  ])('%s on a PUBLISHED exam is a 409 EXAM_PUBLISHED', async (_n, call) => {
+    const { service, componentRepo } = await buildService([], ExamStatus.PUBLISHED);
+    componentRepo.findOne = vi.fn(async () => component({ id: 'c1' }));
+    await expect(call(service)).rejects.toMatchObject({
+      response: { details: { code: 'EXAM_PUBLISHED' } },
+    });
+    expect(componentRepo.save).not.toHaveBeenCalled();
+    expect(componentRepo.update).not.toHaveBeenCalled();
+    expect(componentRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('rejects full_marks below the highest entered mark', async () => {
+    const { service, componentRepo, maxMark } = await buildService();
+    componentRepo.findOne = vi.fn(async () => component({ id: 'c1', pass_marks: null }));
+    maxMark.value = '24';
+    const err = await service
+      .update('exam-1', 'c1', { full_marks: '20' }, TENANT_ID)
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect(err.getResponse().details.code).toBe('FULL_MARKS_BELOW_ENTERED');
+    expect(componentRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('recomputes in the same transaction on a PROCESSED exam', async () => {
+    const { service, componentRepo, resultsService } = await buildService([], ExamStatus.PROCESSED);
+    componentRepo.findOne = vi.fn(async () => component({ id: 'c1' }));
+    await service.update('exam-1', 'c1', { full_marks: '80' }, TENANT_ID, 'u1');
+    expect(resultsService.recomputeProcessedExam).toHaveBeenCalledTimes(1);
+    expect(componentRepo.manager.transaction).toHaveBeenCalled();
+  });
+
+  it('#2246: a new MANUAL part on a PROCESSED exam sends it back to DRAFT, no recompute', async () => {
+    const { service, examRepo, resultsService, auditService } = await buildService(
+      [],
+      ExamStatus.PROCESSED,
+    );
+    await service.create(
+      'exam-1',
+      {
+        subject_id: 'subj-1',
+        name: 'Practical',
+        kind: ExamComponentKind.PRACTICAL,
+        full_marks: '25',
+        sequence: 2,
+      } as any,
+      TENANT_ID,
+      'u1',
+    );
+    // Recomputing would store the empty part as ABSENT for everyone, ready to publish.
+    expect(resultsService.recomputeProcessedExam).not.toHaveBeenCalled();
+    expect(examRepo.update).toHaveBeenCalledWith(
+      { id: 'exam-1', tenant_id: TENANT_ID },
+      { status: ExamStatus.DRAFT },
+    );
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity_type: 'Exam',
+        new_values: { status: ExamStatus.DRAFT, reason: 'COMPONENT_ADDED' },
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('a new DERIVED part on a PROCESSED exam just recomputes (it is never blank)', async () => {
+    const { service, examRepo, resultsService } = await buildService([], ExamStatus.PROCESSED);
+    await service.create(
+      'exam-1',
+      {
+        subject_id: 'subj-1',
+        name: 'Attendance',
+        kind: ExamComponentKind.ATTENDANCE,
+        source: ExamComponentSource.DERIVED,
+        full_marks: '5',
+        sequence: 2,
+      } as any,
+      TENANT_ID,
+      'u1',
+    );
+    expect(resultsService.recomputeProcessedExam).toHaveBeenCalledTimes(1);
+    expect(examRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('does not recompute on a DRAFT exam', async () => {
+    const { service, componentRepo, resultsService } = await buildService();
+    componentRepo.findOne = vi.fn(async () => component({ id: 'c1' }));
+    await service.update('exam-1', 'c1', { full_marks: '80' }, TENANT_ID);
+    expect(resultsService.recomputeProcessedExam).not.toHaveBeenCalled();
   });
 });

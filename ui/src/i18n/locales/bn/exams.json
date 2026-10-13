@@ -114,6 +114,7 @@
     "goToSetup": "নম্বর বিভাজনে যান"
   },
   "componentsPanel": {
+    "lockedPublished": "ফল প্রকাশ হয়ে গেছে। পরীক্ষার অংশ বদলাতে আগে ফল আবার খুলুন।",
     "subjectLabel": "বিষয়",
     "subjectPlaceholder": "একটি বিষয় নির্বাচন করুন",
     "copyComponents": "অন্য জায়গা থেকে কপি করুন",

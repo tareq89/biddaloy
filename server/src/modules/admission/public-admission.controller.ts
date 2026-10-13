@@ -79,7 +79,7 @@ export class PublicAdmissionController {
     summary:
       'Submit an admission application. Multipart form: applicant fields plus one file field per ' +
       'required document type (photo/birth_certificate/transcript). Updating an existing PENDING ' +
-      'application for the same intake and guardian_phone requires its reference_number as proof ' +
+      'application for the same child (intake, guardian_phone, date of birth, name) requires its reference_number as proof ' +
       'of ownership — a phone number and intake_id are both public, so matching on those two alone ' +
       "isn't enough.",
   })
@@ -100,7 +100,7 @@ export class PublicAdmissionController {
           type: 'string',
           nullable: true,
           description:
-            'Proof of ownership when updating an existing PENDING application for the same phone number. Omit on a first submission.',
+            'Proof of ownership when updating an existing PENDING application for the same child. Omit on a first submission.',
         },
         photo: { type: 'string', format: 'binary' },
         birth_certificate: { type: 'string', format: 'binary' },

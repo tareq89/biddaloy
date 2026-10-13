@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
@@ -267,6 +267,77 @@ describe('StudentLifecycleService (integration)', () => {
     });
   });
 
+  describe('readmit revokes Transfer Certificates (X-09)', () => {
+    async function seedTc(
+      studentId: string,
+      tenantId = SEED_TENANT_ID,
+      kind = 'TRANSFER_CERTIFICATE',
+    ) {
+      const [tpl] = await q(
+        `INSERT INTO print_templates (tenant_id, document_kind, name, batch_size, draft)
+         VALUES ($1, $2, $3, 1, '{}'::jsonb) RETURNING id`,
+        [tenantId, kind, `T ${(n += 1)}`],
+      );
+      const [tv] = await q(
+        `INSERT INTO print_template_versions (tenant_id, template_id, version, definition)
+         VALUES ($1, $2, 1, '{}'::jsonb) RETURNING id`,
+        [tenantId, tpl.id],
+      );
+      const [job] = await q(
+        `INSERT INTO print_jobs (tenant_id, template_version_id, document_kind, item_count)
+         VALUES ($1, $2, $3, 1) RETURNING id`,
+        [tenantId, tv.id, kind],
+      );
+      n += 1;
+      const [item] = await q(
+        `INSERT INTO print_job_items
+           (tenant_id, job_id, document_kind, subject_type, subject_id, subject_label, copy_number,
+            serial_no, serial_year, data_snapshot, verify_token_hash)
+         VALUES ($1, $2, $3, 'STUDENT', $4, 'x', 1, $5, 2026, '{}'::jsonb, $6) RETURNING id`,
+        [tenantId, job.id, kind, studentId, n, String(n).padStart(64, '0')],
+      );
+      return item.id as string;
+    }
+    const state = async (id: string) =>
+      (await q(`SELECT revoked_at, revoke_reason FROM print_job_items WHERE id = $1`, [id]))[0];
+
+    it("revokes only that student's live TCs, with one audit row each", async () => {
+      const a = await seedStudent();
+      const b = await seedStudent();
+      const tcA = await seedTc(a.studentId);
+      const tcB = await seedTc(b.studentId);
+      const other = await seedTc(a.studentId, SEED_TENANT_ID, 'TESTIMONIAL');
+      await service.leave(a.studentId, leaveDto(), SEED_TENANT_ID, USER, CTX);
+      await service.readmit(a.studentId, readmitDto(SEED_SECTION_1_ID), SEED_TENANT_ID, USER, CTX);
+
+      expect((await state(tcA)).revoke_reason).toBe('Readmitted');
+      expect((await state(tcA)).revoked_at).toBeTruthy();
+      expect((await state(tcB)).revoked_at).toBeNull(); // another student
+      expect((await state(other)).revoked_at).toBeNull(); // another document kind
+      const audits = await q(
+        `SELECT 1 FROM audit_logs WHERE entity_type = 'PrintJobItem' AND entity_id = $1`,
+        [tcA],
+      );
+      expect(audits).toHaveLength(1);
+    });
+
+    it('a readmit that fails leaves the TC valid', async () => {
+      const a = await seedStudent();
+      const tc = await seedTc(a.studentId);
+      await service.leave(a.studentId, leaveDto(), SEED_TENANT_ID, USER, CTX);
+      await expect(
+        service.readmit(
+          a.studentId,
+          readmitDto('39210000-0000-4000-8000-0000000000ff'),
+          SEED_TENANT_ID,
+          USER,
+          CTX,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect((await state(tc)).revoked_at).toBeNull();
+    });
+  });
+
   it('readmit in the same year into another section moves class, section and roll', async () => {
     // occupy roll 1 in section 2 so the next free roll is 2
     await seedStudent(SEED_SECTION_2_ID, '00000000-0000-4000-8000-000000000031');
@@ -447,6 +518,110 @@ describe('StudentLifecycleService (integration)', () => {
           [studentId],
         ),
       ).toHaveLength(0);
+    });
+  });
+
+  describe('billsDueAfter [68.3.15] LIFE-16', () => {
+    const day = (offset: number) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + offset);
+      return d.toISOString().slice(0, 10);
+    };
+    let structureId: string;
+
+    async function seedBill(
+      studentId: string,
+      due: string | null,
+      over: { status?: string; paid?: number; discount?: number; deleted?: boolean } = {},
+    ) {
+      if (!structureId) {
+        const [fs] = await q(
+          `INSERT INTO fee_structures (fee_type, name, amount, class_id, academic_year_id, tenant_id, created_at, updated_at)
+           VALUES ('MONTHLY_TUITION', 'Tuition', 1000, $1, $2, $3, NOW(), NOW()) RETURNING id`,
+          [SEED_CLASS_1_ID, SEED_ACADEMIC_YEAR_ID, SEED_TENANT_ID],
+        );
+        structureId = fs.id;
+      }
+      const [r] = await q(
+        `INSERT INTO student_fees (student_id, academic_year_id, fee_structure_id, period_start, total_amount,
+           paid_amount, discount_amount, standing_discount_amount, status, due_date, deleted_at, created_at, updated_at)
+         VALUES ($1, $2, $3, $4::date, 1000, $5, $6, $6, $7, $8, $9, NOW(), NOW()) RETURNING id`,
+        [
+          studentId,
+          SEED_ACADEMIC_YEAR_ID,
+          structureId,
+          due ?? day(-1),
+          over.paid ?? 0,
+          over.discount ?? 0,
+          over.status ?? 'PENDING',
+          due,
+          over.deleted ? new Date() : null,
+        ],
+      );
+      return r.id as string;
+    }
+
+    beforeEach(() => {
+      structureId = '';
+    });
+
+    it('lists unpaid bills due after occurred_on, ordered, with outstanding', async () => {
+      const { studentId } = await seedStudent();
+      await seedBill(studentId, day(-60));
+      const sep = await seedBill(studentId, day(-30), { paid: 250, discount: 50 });
+      const oct = await seedBill(studentId, day(-1), { status: 'OVERDUE' });
+      const rows = await service.billsDueAfter(studentId, day(-31), SEED_TENANT_ID);
+      expect(rows.map((r) => r.id)).toEqual([sep, oct]);
+      expect(rows[0]).toMatchObject({ fee_structure_name: 'Tuition', outstanding: '700.00' });
+      expect(rows[1].outstanding).toBe('1000.00');
+    });
+
+    it('does not list PAID or WAIVED bills', async () => {
+      const { studentId } = await seedStudent();
+      await seedBill(studentId, day(-5), { status: 'PAID', paid: 1000 });
+      await seedBill(studentId, day(-4), { status: 'WAIVED' });
+      expect(await service.billsDueAfter(studentId, day(-31), SEED_TENANT_ID)).toEqual([]);
+    });
+
+    it('does not list a soft-deleted bill', async () => {
+      const { studentId } = await seedStudent();
+      await seedBill(studentId, day(-5), { deleted: true });
+      expect(await service.billsDueAfter(studentId, day(-31), SEED_TENANT_ID)).toEqual([]);
+    });
+
+    it('falls back to period_start when there is no due date', async () => {
+      const { studentId } = await seedStudent();
+      const id = await seedBill(studentId, null);
+      const rows = await service.billsDueAfter(studentId, day(-3), SEED_TENANT_ID);
+      expect(rows.map((r) => r.id)).toEqual([id]);
+    });
+
+    it('lists an unpaid bill whose fee structure was soft-deleted', async () => {
+      const { studentId } = await seedStudent();
+      const id = await seedBill(studentId, day(-5));
+      await q(`UPDATE fee_structures SET deleted_at = NOW() WHERE id = $1`, [structureId]);
+      const rows = await service.billsDueAfter(studentId, day(-31), SEED_TENANT_ID);
+      expect(rows.map((r) => r.id)).toEqual([id]);
+      expect(rows[0].fee_structure_name).toBe('Tuition');
+    });
+
+    it('is tenant-scoped', async () => {
+      const { studentId } = await seedStudent();
+      await seedBill(studentId, day(-5));
+      expect(await service.billsDueAfter(studentId, day(-31), TENANT_B)).toEqual([]);
+    });
+
+    it('changes no row (status and paid_amount unchanged)', async () => {
+      const { studentId } = await seedStudent();
+      await seedBill(studentId, day(-5), { paid: 100, status: 'PARTIALLY_PAID' });
+      const snap = () =>
+        q(
+          `SELECT id, status, paid_amount, discount_amount, deleted_at, updated_at FROM student_fees WHERE student_id = $1`,
+          [studentId],
+        );
+      const before = await snap();
+      await service.billsDueAfter(studentId, day(-31), SEED_TENANT_ID);
+      expect(await snap()).toEqual(before);
     });
   });
 });

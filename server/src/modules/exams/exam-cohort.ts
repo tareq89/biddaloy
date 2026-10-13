@@ -7,6 +7,8 @@ import { Result } from './entities/result.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { AcademicTerm } from '../calendar/entities/academic-term.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { ClassSubject } from '../academics/entities/class-subject.entity';
+import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -32,6 +34,29 @@ export async function lastSittingDate(
     where: { id: exam.academic_term_id, tenant_id: tenantId, deleted_at: IsNull() },
   });
   return term?.end_date ?? null;
+}
+
+/**
+ * The sitting date every late-joiner rule uses: the last schedule/term date,
+ * else — when the exam has neither — the day of the first mark write. Marks
+ * are only ever written after the sitting, so that day is a safe stand-in
+ * (created_at, not updated_at: a grid re-save must not move it). No marks at
+ * all: nobody can be told apart, so null and nobody is late.
+ */
+export async function effectiveSittingDate(
+  manager: EntityManager,
+  exam: Exam,
+  tenantId: string,
+): Promise<string | null> {
+  const scheduled = await lastSittingDate(manager, exam, tenantId);
+  if (scheduled) return scheduled;
+  const row = await manager
+    .getRepository(Mark)
+    .createQueryBuilder('m')
+    .select('MIN(m.created_at)', 'first_mark_at')
+    .where('m.exam_id = :examId AND m.tenant_id = :tenantId', { examId: exam.id, tenantId })
+    .getRawOne<{ first_mark_at: Date | null }>();
+  return row?.first_mark_at ? new Date(row.first_mark_at).toISOString().slice(0, 10) : null;
 }
 
 /** True when the enrollment started after the last sitting. Whole-day
@@ -68,7 +93,7 @@ export async function loadExamCohort(
   exam: Exam,
   tenantId: string,
 ): Promise<{ members: CohortMember[]; studentsWithResult: Set<string> }> {
-  const [results, marks, scheduled] = await Promise.all([
+  const [results, marks, lastSitting] = await Promise.all([
     manager
       .getRepository(Result)
       .find({ where: { exam_id: exam.id, tenant_id: tenantId, deleted_at: IsNull() } }),
@@ -76,27 +101,14 @@ export async function loadExamCohort(
       .getRepository(Mark)
       .createQueryBuilder('m')
       .select('m.student_id', 'student_id')
-      .addSelect('MIN(m.created_at)', 'first_mark_at')
       .where('m.exam_id = :examId AND m.tenant_id = :tenantId', { examId: exam.id, tenantId })
       .groupBy('m.student_id')
-      .getRawMany<{ student_id: string; first_mark_at: Date }>(),
-    lastSittingDate(manager, exam, tenantId),
+      .getRawMany<{ student_id: string }>(),
+    effectiveSittingDate(manager, exam, tenantId),
   ]);
   const studentsWithResult = new Set(results.map((r) => r.student_id));
   const resultSection = new Map(results.map((r) => [r.student_id, r.section_id]));
   const studentsWithMark = new Set(marks.map((m) => m.student_id));
-
-  // No schedule and no term: the sitting date is unknown. Marks are only
-  // ever written after the sitting, so the first mark write is a safe
-  // stand-in — anyone enrolled after that day joined late and needs marks
-  // of their own. created_at, not updated_at: a grid re-save must not move it.
-  // No marks at all: nobody can be told apart, so nobody is late.
-  const firstMarkAt = marks.reduce<number | null>((min, m) => {
-    const t = new Date(m.first_mark_at).getTime();
-    return min === null || t < min ? t : min;
-  }, null);
-  const lastSitting =
-    scheduled ?? (firstMarkAt === null ? null : new Date(firstMarkAt).toISOString().slice(0, 10));
 
   const all = await manager.getRepository(Enrollment).find({
     where: {
@@ -156,4 +168,65 @@ export async function loadExamCohort(
     });
   }
   return { members: [...members.values()], studentsWithResult };
+}
+
+/**
+ * Does this student sit this class subject? The one rule `computeAll` and
+ * the mark grid's blank-cell check share, so the two never drift:
+ * - a stream subject (`group_name`) only for sections of that stream;
+ * - an optional or choice-group subject only for students who picked it.
+ */
+export function sitsSubject(
+  classSubject: Pick<ClassSubject, 'group_name' | 'is_optional' | 'choice_group'>,
+  sectionGroup: string | null,
+  picked: boolean,
+): boolean {
+  if (classSubject.group_name && classSubject.group_name !== sectionGroup) return false;
+  if ((classSubject.is_optional || Boolean(classSubject.choice_group)) && !picked) return false;
+  return true;
+}
+
+/**
+ * Per subject, the students of `members` who sit it (see `sitsSubject`).
+ * A subject with no class-subject row in the exam's class/year is left out
+ * of the map: callers treat it as "everyone sits it".
+ */
+export async function subjectSitters(
+  manager: EntityManager,
+  exam: Exam,
+  tenantId: string,
+  members: CohortMember[],
+  subjectIds: string[],
+): Promise<Map<string, Set<string>>> {
+  const out = new Map<string, Set<string>>();
+  if (members.length === 0 || subjectIds.length === 0) return out;
+  const [classSubjects, choices] = await Promise.all([
+    manager.getRepository(ClassSubject).find({
+      where: {
+        class_id: exam.class_id,
+        academic_year_id: exam.academic_year_id,
+        subject_id: In(subjectIds),
+        tenant_id: tenantId,
+        deleted_at: IsNull(),
+      },
+    }),
+    manager.getRepository(StudentSubjectChoice).find({
+      where: {
+        student_id: In(members.map((m) => m.student_id)),
+        academic_year_id: exam.academic_year_id,
+        tenant_id: tenantId,
+      },
+    }),
+  ]);
+  const picked = new Set(choices.map((c) => `${c.student_id}:${c.class_subject_id}`));
+  for (const cs of classSubjects) {
+    const sitters = out.get(cs.subject_id) ?? new Set<string>();
+    out.set(cs.subject_id, sitters);
+    for (const m of members) {
+      if (sitsSubject(cs, m.section?.group_name ?? null, picked.has(`${m.student_id}:${cs.id}`))) {
+        sitters.add(m.student_id);
+      }
+    }
+  }
+  return out;
 }

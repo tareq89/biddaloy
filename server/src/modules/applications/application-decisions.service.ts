@@ -8,6 +8,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -166,6 +167,7 @@ export class ApplicationDecisionsService {
         app.effect_result = await handler.apply(manager, app, {
           tenantId,
           actorUserId: user.userId,
+          role: user.role,
           granted: app.granted ?? undefined,
           req,
         });
@@ -272,6 +274,12 @@ export class ApplicationDecisionsService {
           details: { code: 'NOT_CANCELLABLE' },
         });
       }
+      if (dto.revoke_taken_days && app.type !== ApplicationType.STAFF_LEAVE) {
+        throw new UnprocessableEntityException({
+          message: 'Only a staff leave can have its taken days revoked',
+          details: { code: 'REVOKE_ONLY_STAFF_LEAVE' },
+        });
+      }
       if (await this.reviewerScope.isOwn(manager, user, app)) {
         throw new ForbiddenException({
           message: 'You cannot cancel your own application',
@@ -303,6 +311,7 @@ export class ApplicationDecisionsService {
           actorUserId: user.userId,
           req,
           reason: dto.reason,
+          revokeTakenDays: dto.revoke_taken_days === true,
         });
       }
 

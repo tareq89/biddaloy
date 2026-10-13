@@ -34,7 +34,7 @@ describe('AdmissionIntake1789800014000 (integration)', () => {
     expect(intake.required_document_types).toEqual(['PHOTO', 'BIRTH_CERTIFICATE']);
   });
 
-  it('rejects two applicants on the same intake sharing a guardian phone', async () => {
+  it('rejects the same child (phone, date of birth, name) twice on one intake [68.3 LIFE-10]', async () => {
     const [intake] = await dataSource.query(
       `INSERT INTO "admission_intakes" (id, tenant_id, class_section_id, title, seat_count, open_date, close_date)
        VALUES (gen_random_uuid(), $1, $2, 'Dup Phone Intake', 10, '2026-01-01', '2026-02-01')
@@ -49,10 +49,27 @@ describe('AdmissionIntake1789800014000 (integration)', () => {
     await expect(
       dataSource.query(
         `INSERT INTO "admission_applicants" (id, tenant_id, intake_id, reference_number, applicant_name, date_of_birth, gender, guardian_name, guardian_phone)
-         VALUES (gen_random_uuid(), $1, $2, 'REF-2', 'Applicant Two', '2015-01-01', 'MALE', 'Guardian One', '01700000000')`,
+         VALUES (gen_random_uuid(), $1, $2, 'REF-2', 'Applicant One', '2015-01-01', 'MALE', 'Guardian One', '01700000000')`,
         [TENANT_ID, intake.id],
       ),
     ).rejects.toThrow();
+  });
+
+  it('allows two children with one guardian phone on the same intake (twins) [68.3 LIFE-10]', async () => {
+    const [intake] = await dataSource.query(
+      `INSERT INTO "admission_intakes" (id, tenant_id, class_section_id, title, seat_count, open_date, close_date)
+       VALUES (gen_random_uuid(), $1, $2, 'Twins Intake', 10, '2026-01-01', '2026-02-01')
+       RETURNING id`,
+      [TENANT_ID, classSectionId],
+    );
+    const insert = (ref: string, name: string) =>
+      dataSource.query(
+        `INSERT INTO "admission_applicants" (id, tenant_id, intake_id, reference_number, applicant_name, date_of_birth, gender, guardian_name, guardian_phone)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, '2015-01-01', 'MALE', 'Guardian One', '01711111111')`,
+        [TENANT_ID, intake.id, ref, name],
+      );
+    await insert('REF-T1', 'Twin One');
+    await expect(insert('REF-T2', 'Twin Two')).resolves.toBeDefined();
   });
 
   it('rejects a duplicate reference_number within the same tenant', async () => {

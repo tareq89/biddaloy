@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Not, EntityManager } from 'typeorm';
@@ -12,10 +13,16 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { CreateEnrollmentDto, EnrollmentUpdate } from './dto/enrollments.dto';
-import { EnrollmentStatus, AuditAction } from '@biddaloy/shared';
+import { EnrollmentStatus, AuditAction, Permission, roleHasPermission } from '@biddaloy/shared';
 import { nextRollNumber } from '../students/roll-number.util';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+
+const needsPromotion = () =>
+  new ForbiddenException({
+    message: 'Moving a student to another class or year is done through promotion',
+    details: { code: 'ENROLLMENT_CLASS_CHANGE_NEEDS_PROMOTION' },
+  });
 
 @Injectable()
 export class EnrollmentService {
@@ -38,19 +45,31 @@ export class EnrollmentService {
     tenantId: string,
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
+    role?: string,
   ): Promise<Enrollment> {
     return this.repo.manager.transaction(async (manager) => {
       // [39.2.1] POST /enrollments must not bring a student who has left back into an ACTIVE
       // enrollment: that is a readmission (POST /students/:id/readmit: permission, reason,
       // date, event). `createInTransaction` stays unguarded because readmit and the promotion
       // commit legitimately call it for a non-ACTIVE student.
+      // The row lock serializes two first-enrollment requests for one student, so both
+      // cannot count zero existing rows below and each insert an enrollment.
       const student = await manager.getRepository(Student).findOne({
         where: { id: dto.student_id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_write' },
       });
       if (student && student.enrollment_status !== EnrollmentStatus.ACTIVE) {
         throw new ConflictException(
           'This student is not currently enrolled. Use "Readmit" to bring them back; a new enrollment cannot reactivate them.',
         );
+      }
+      // [68.3.17.1] A second enrollment is a class/year move: promotion territory. System
+      // callers pass no role and are not gated.
+      if (role !== undefined && !roleHasPermission(role, Permission.PROMOTION_MANAGE)) {
+        const existing = await manager.getRepository(Enrollment).count({
+          where: { student_id: dto.student_id, tenant_id: tenantId },
+        });
+        if (existing > 0) throw needsPromotion();
       }
       return this.createInTransaction(manager, dto, tenantId, userId, context);
     });
@@ -232,13 +251,23 @@ export class EnrollmentService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
     manager?: EntityManager,
+    role?: string,
   ): Promise<Enrollment> {
-    const repo = manager ? manager.getRepository(Enrollment) : this.repo;
-    const classRepo = manager ? manager.getRepository(Class) : this.classRepo;
-    const sectionRepo = manager ? manager.getRepository(ClassSection) : this.sectionRepo;
+    // Everything below runs in one transaction, with the enrollment row locked, so the
+    // permission check compares against the row that is actually updated (not a stale read).
+    if (!manager) {
+      return this.repo.manager.transaction((m) =>
+        this.update(id, dto, tenantId, userId, context, m, role),
+      );
+    }
+    const repo = manager.getRepository(Enrollment);
+    const classRepo = manager.getRepository(Class);
+    const sectionRepo = manager.getRepository(ClassSection);
     const enrollment = await repo.findOne({
       where: { id, tenant_id: tenantId },
       relations: ['class', 'section'],
+      // `tables`: FOR UPDATE cannot apply to the nullable side of the relation joins.
+      lock: { mode: 'pessimistic_write', tables: ['enrollments'] },
     });
     if (!enrollment) {
       throw new NotFoundException(`Enrollment with ID "${id}" not found`);
@@ -250,6 +279,15 @@ export class EnrollmentService {
     }
 
     const classChanging = dto.class_id !== undefined && dto.class_id !== enrollment.class_id;
+    // `role` undefined = internal caller with its own gate; any string (even
+    // '') is a person's role and must hold the right.
+    if (
+      classChanging &&
+      role !== undefined &&
+      !roleHasPermission(role, Permission.PROMOTION_MANAGE)
+    ) {
+      throw needsPromotion();
+    }
 
     // Validate the new class if the caller is moving it — [8.11.3]. Also
     // enforced: the new class must belong to the *same* academic year as
@@ -335,32 +373,28 @@ export class EnrollmentService {
     const changedKeys = Object.keys(dto);
     const oldValues = Object.fromEntries(changedKeys.map((key) => [key, (enrollment as any)[key]]));
 
-    const run = <T>(fn: (m: EntityManager) => Promise<T>) =>
-      manager ? fn(manager) : this.repo.manager.transaction(fn);
-    await run(async (manager) => {
-      await manager.getRepository(Enrollment).update({ id, tenant_id: tenantId }, dto);
+    await repo.update({ id, tenant_id: tenantId }, dto);
 
-      if (shouldSyncStudent) {
-        await this.syncStudentPlacement(manager, enrollment.student_id, targetSectionId!, tenantId);
-      }
+    if (shouldSyncStudent) {
+      await this.syncStudentPlacement(manager, enrollment.student_id, targetSectionId!, tenantId);
+    }
 
-      if (changedKeys.length > 0) {
-        await this.auditService.record(
-          {
-            action: AuditAction.UPDATE,
-            entity_type: 'Enrollment',
-            entity_id: id,
-            tenant_id: tenantId,
-            performed_by_user_id: userId,
-            ip_address: context.ip,
-            user_agent: context.userAgent,
-            old_values: oldValues,
-            new_values: { ...dto },
-          },
-          manager,
-        );
-      }
-    });
+    if (changedKeys.length > 0) {
+      await this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'Enrollment',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: oldValues,
+          new_values: { ...dto },
+        },
+        manager,
+      );
+    }
 
     return repo.findOne({
       where: { id, tenant_id: tenantId },

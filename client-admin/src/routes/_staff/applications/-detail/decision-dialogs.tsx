@@ -7,6 +7,7 @@ import { APPLICATION_OVERRIDE_ROLES, ApplicationType } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  Checkbox,
   ConfirmDialog,
   Dialog,
   DialogContent,
@@ -59,6 +60,7 @@ const KNOWN_CODES = new Set([
   'LEAVE_OVERLAP',
   'LEAVE_POLICY_MISSING',
   'LEAVE_ALREADY_ENDED',
+  'REVOKE_ONLY_STAFF_LEAVE',
   'DATE_IN_FUTURE',
   'NO_ACTIVE_ENROLLMENT',
   'SECTION_UNCHANGED',
@@ -220,7 +222,9 @@ function ReasonDialog({ kind, app, onClose, onDone }: DialogProps & { kind: 'rej
   const { error, fail, clear } = useDecisionError(app);
   const [reason, setReason] = React.useState('');
   const [invalid, setInvalid] = React.useState<string | undefined>();
+  const [revoke, setRevoke] = React.useState(false);
   const reasonRef = React.useRef<HTMLInputElement>(null);
+  const canRevoke = kind === 'cancel' && app.type === 'STAFF_LEAVE';
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -229,7 +233,10 @@ function ReasonDialog({ kind, app, onClose, onDone }: DialogProps & { kind: 'rej
     if (text.length > 500) return setInvalid(t(`dialogs.${kind}.reasonTooLong`));
     setInvalid(undefined);
     clear();
-    mutation.mutate({ id: app.id, reason: text }, { onSuccess: () => onDone(kind), onError: fail });
+    const input = canRevoke
+      ? { id: app.id, reason: text, revokeTakenDays: revoke }
+      : { id: app.id, reason: text };
+    mutation.mutate(input, { onSuccess: () => onDone(kind), onError: fail });
   };
 
   return (
@@ -260,6 +267,20 @@ function ReasonDialog({ kind, app, onClose, onDone }: DialogProps & { kind: 'rej
             />
             <ErrorLine message={invalid} />
           </div>
+          {canRevoke && (
+            <div className="space-y-1">
+              <label className="flex min-h-11 items-center gap-3 md:min-h-8">
+                <Checkbox
+                  checked={revoke}
+                  onCheckedChange={(checked) => setRevoke(checked === true)}
+                />
+                {t('dialogs.cancel.revokeTakenDays')}
+              </label>
+              <p className="text-caption text-muted-foreground">
+                {t('dialogs.cancel.revokeTakenDaysHint')}
+              </p>
+            </div>
+          )}
           <ErrorLine message={error} />
         </form>
         <DialogFooter>

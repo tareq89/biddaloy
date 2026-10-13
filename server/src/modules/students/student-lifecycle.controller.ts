@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Inject,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -23,6 +24,7 @@ import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
 import { StudentLifecycleService } from './student-lifecycle.service';
 import {
   LeaveStudentDto,
+  LeaveStudentResultDto,
   ReadmitStudentDto,
   StudentLifecycleEventDto,
 } from './dto/student-lifecycle.dto';
@@ -35,6 +37,8 @@ import {
 @Controller('students')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StudentLifecycleController {
+  private readonly logger = new Logger(StudentLifecycleController.name);
+
   constructor(
     @Inject(StudentLifecycleService) private readonly lifecycle: StudentLifecycleService,
   ) {}
@@ -42,15 +46,24 @@ export class StudentLifecycleController {
   @Post(':id/leave')
   @RequirePermissions(Permission.STUDENT_LIFECYCLE_MANAGE)
   @ApiOperation({ summary: 'Withdraw, transfer out or graduate a student' })
-  @ApiCreatedResponse({ type: StudentLifecycleEventDto })
-  leave(
+  @ApiCreatedResponse({ type: LeaveStudentResultDto })
+  async leave(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: LeaveStudentDto,
     @CurrentTenant() tenant: { id: string; role: UserRole },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    return this.lifecycle.leave(id, dto, tenant.id, user.sub, requestContext(request));
+    const event = await this.lifecycle.leave(id, dto, tenant.id, user.sub, requestContext(request));
+    // The leave is committed: a failed read of the bill list must not turn
+    // it into a 500 (a retry would then get 409 "already left").
+    const bills = await this.lifecycle
+      .billsDueAfter(id, dto.occurred_on, tenant.id)
+      .catch((err: unknown) => {
+        this.logger.error(`billsDueAfter failed for student ${id}`, err as Error);
+        return [];
+      });
+    return { ...event, bills_due_after_leave: bills };
   }
 
   @Post(':id/readmit')

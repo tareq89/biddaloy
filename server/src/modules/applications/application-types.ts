@@ -24,11 +24,15 @@ import { GeneralPayloadDto } from './dto/payloads/general.dto';
 export interface ApplicationEffectContext {
   tenantId: string;
   actorUserId: string;
+  /** The deciding user's role: effects that need a further right check it (#2255). */
+  role?: string;
   granted?: Record<string, unknown>; // D39
   /** Express request: handlers call requestContext(req); FEE_WAIVER reads X-Approval-Token from it. */
   req: Request;
   /** Cancel reason (D41), passed to cancel(). */
   reason?: string;
+  /** STAFF_LEAVE cancel: also revoke days already taken (leave approved by mistake). */
+  revokeTakenDays?: boolean;
 }
 
 /** Structural, not a class hierarchy (D42). */

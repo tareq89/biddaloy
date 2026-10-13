@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, QueryFailedError, Repository } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   AdmissionApplicantStatus,
@@ -46,6 +46,10 @@ export interface PublicIntakeDto {
   close_date: string;
   required_document_types: AdmissionDocumentType[];
 }
+
+/** One message for every duplicate, so status isn't leaked (PUB-09). */
+const DUPLICATE_MESSAGE =
+  'We could not accept this application. If you already applied for this child, contact the school with your reference number.';
 
 const EXT_BY_MIME: Record<string, string> = {
   'image/png': 'png',
@@ -149,9 +153,11 @@ export class AdmissionApplicantService {
    * fake-success return before touching the database (and before any
    * upload) — a caught bot must see the same 200 shape a real submission
    * gets, and must not cost storage. Duplicate guard: one applicant per
-   * `(tenant_id, intake_id, guardian_phone)` regardless of status — a
-   * PENDING row is updated in place, anything else (SHORTLISTED/ADMITTED/
-   * REJECTED) is a 409, matching the partial unique index on that triple.
+   * child (`tenant_id, intake_id, guardian_phone, date_of_birth,
+   * applicant_name`) regardless of status — a PENDING row is updated in
+   * place, anything else (SHORTLISTED/ADMITTED/REJECTED) is a 409, matching
+   * the partial unique index on that key. Every duplicate gets the same
+   * 409 so status isn't leaked to an anonymous caller.
    *
    * Uploads happen before the transaction (multer has already buffered
    * them), so a failure anywhere below — including inside the tx — must
@@ -227,28 +233,39 @@ export class AdmissionApplicantService {
         const candidates = await applicantRepo.find({
           where: { tenant_id: school.id, intake_id: intake.id },
         });
-        const existing = candidates.find(
-          (c) => normalizeBdPhoneNumber(c.guardian_phone) === normalizedPhone,
-        );
+        // The reference number the caller quotes (if any) names the row they
+        // want to correct, even when they changed the child's name/DOB; else
+        // the same child is matched by phone + DOB + name.
+        // IsDateString also lets compact forms like 20180501 through; only a
+        // calendar date (optionally followed by a time) matches the stored value.
+        const dobMatch = /^(\d{4}-\d{2}-\d{2})(?:T|$)/.exec(dto.date_of_birth);
+        if (!dobMatch) throw new BadRequestException('date_of_birth must be in YYYY-MM-DD format');
+        const dob = dobMatch[1];
+        const quotedRef = normalizeReferenceNumber(dto.reference_number ?? '');
+        const samePhone = (c: AdmissionApplicant) =>
+          normalizeBdPhoneNumber(c.guardian_phone) === normalizedPhone;
+        const sameChild = (c: AdmissionApplicant) =>
+          samePhone(c) && c.date_of_birth === dob && sameName(c.applicant_name, dto.applicant_name);
+        const byRef = candidates.find((c) => samePhone(c) && c.reference_number === quotedRef);
+        const existing = byRef ?? candidates.find(sameChild);
 
-        if (existing && existing.status !== AdmissionApplicantStatus.PENDING) {
-          throw new ConflictException(
-            'An application with this phone number has already been reviewed for this intake',
-          );
+        // Correcting one row by reference must not turn it into a different
+        // live row's child (e.g. renaming into a reviewed sibling).
+        if (byRef && candidates.some((c) => c.id !== byRef.id && sameChild(c))) {
+          throw new ConflictException(DUPLICATE_MESSAGE);
         }
 
-        // A phone number isn't secret and intake_id is public (returned by
-        // GET /public/admission/:slug), so matching on those two alone
-        // would let anyone overwrite someone else's pending application.
-        // Updating an existing row requires proving ownership with the
-        // reference_number the original submission got back.
+        // One generic message for every duplicate (reviewed, or pending
+        // without proof of ownership): a phone number isn't secret and
+        // intake_id is public, so updating a row needs the reference number
+        // the original submission returned, and the refusal must not tell an
+        // anonymous caller whether that family applied or was reviewed.
         if (
           existing &&
-          normalizeReferenceNumber(dto.reference_number ?? '') !== existing.reference_number
+          (existing.status !== AdmissionApplicantStatus.PENDING ||
+            quotedRef !== existing.reference_number)
         ) {
-          throw new ConflictException(
-            'An application already exists for this phone number. Provide its reference number to update it.',
-          );
+          throw new ConflictException(DUPLICATE_MESSAGE);
         }
 
         // Merge by document type rather than replacing the whole list — a
@@ -269,7 +286,7 @@ export class AdmissionApplicantService {
             .filter((d) => newTypes.has(d.type))
             .map((d) => d.storage_key);
           existing.applicant_name = dto.applicant_name;
-          existing.date_of_birth = dto.date_of_birth;
+          existing.date_of_birth = dob;
           existing.gender = dto.gender;
           existing.guardian_name = dto.guardian_name;
           // Canonical, not the raw value the resubmission happened to use —
@@ -300,7 +317,7 @@ export class AdmissionApplicantService {
             intake_id: intake.id,
             reference_number: referenceNumber,
             applicant_name: dto.applicant_name,
-            date_of_birth: dto.date_of_birth,
+            date_of_birth: dob,
             gender: dto.gender,
             guardian_name: dto.guardian_name,
             // Canonical (880...), not whatever raw format the guardian
@@ -333,6 +350,16 @@ export class AdmissionApplicantService {
         await Promise.allSettled(
           uploadedKeys.map((key) => this.storage.deleteForTenant(key, school.id)),
         );
+      }
+      // Lost a race to the per-child unique index: same generic refusal.
+      const driver = (err as QueryFailedError).driverError as
+        { code?: string; constraint?: string } | undefined;
+      if (
+        err instanceof QueryFailedError &&
+        driver?.code === '23505' &&
+        driver.constraint === 'IDX_admission_applicants_intake_child'
+      ) {
+        throw new ConflictException(DUPLICATE_MESSAGE);
       }
       throw err;
     }
@@ -430,4 +457,10 @@ function documentTypeForFieldname(fieldname: string): AdmissionDocumentType | un
  * none of those letters. */
 function normalizeReferenceNumber(raw: string): string {
   return raw.trim().toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1');
+}
+
+/** "Same child" name match: ignores case and stray/repeated spaces. */
+function sameName(a: string, b: string): boolean {
+  const norm = (n: string) => n.normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
+  return norm(a) === norm(b);
 }

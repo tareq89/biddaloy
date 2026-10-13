@@ -7,6 +7,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ExamComponentKind, ExamComponentSource, ExamKind } from '@biddaloy/shared';
 import { ExamsService } from './exams.service';
 import { ExamTemplatesService } from './exam-templates.service';
+import { ResultsService } from './results.service';
 import { Exam } from './entities/exam.entity';
 import { ExamComponent } from './entities/exam-component.entity';
 import { ExamTemplate } from './entities/exam-template.entity';
@@ -44,6 +45,7 @@ describe('ExamsService.create with template_id (integration)', () => {
       [
         ExamsService,
         ExamTemplatesService,
+        { provide: ResultsService, useValue: {} },
         { provide: AuditService, useValue: audit },
         ...[Exam, Mark, Class, AcademicYear, AcademicTerm].map((e) => ({
           provide: getRepositoryToken(e),
