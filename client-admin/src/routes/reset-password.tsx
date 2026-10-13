@@ -54,6 +54,9 @@ function buildResetError(error: unknown, t: TFunction<'auth'>): SignInFormError 
     return null;
   }
 
+  // The password checklist shows which rule failed; no generic banner on top.
+  if (weakPasswordRules(error) || passwordTooLong(error)) return null;
+
   return { message: t('errors.generic'), tone: 'alert' };
 }
 

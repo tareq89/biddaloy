@@ -298,7 +298,8 @@ function PortalAccount() {
         setPasswordError({
           fieldErrors: { current_password: t('account.password.errors.wrongPassword') },
         });
-      } else {
+      } else if (!weakPasswordRules(error) && !passwordTooLong(error)) {
+        // A too-weak or too-long password shows in the checklist instead.
         setPasswordError({ message: t('account.error.saveFailed') });
       }
       setPasswordFailedRules(weakPasswordRules(error));

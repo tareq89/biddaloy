@@ -1,6 +1,7 @@
 import '@biddaloy/ui/test';
 
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { focusManager } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -99,8 +100,38 @@ describe('PlatformAlertBanner', () => {
     const query = queryClient.getQueryCache().find({ queryKey: ['platform-alerts'] })!;
     const interval = query.observers[0]!.options.refetchInterval;
     expect(typeof interval === 'function' ? interval(query) : interval).toBe(false);
+    // Nor on tab focus or on mount. Read from the options because the test QueryClient turns
+    // focus refetches off by default, so a focus event here could not show the difference.
+    const { refetchOnMount, refetchOnWindowFocus } = query.observers[0]!.options;
+    expect(typeof refetchOnMount === 'function' ? refetchOnMount(query) : refetchOnMount).toBe(
+      false,
+    );
+    expect(
+      typeof refetchOnWindowFocus === 'function'
+        ? refetchOnWindowFocus(query)
+        : refetchOnWindowFocus,
+    ).toBe(false);
     expect(hit).toHaveBeenCalledTimes(1);
     expect(container.innerHTML).toBe('');
+  });
+
+  it('still refetches on tab focus after an error that is not a 403', async () => {
+    const hit = vi.fn(() => HttpResponse.json({ message: 'x' }, { status: 400 }));
+    server.use(http.get('/api/v1/platform/alerts', hit));
+    const { queryClient } = renderWithProviders(<PlatformAlertBanner enabled />, {
+      locale: 'en',
+      role: 'SUPER_ADMIN',
+      tenantId: 'tenant-1',
+    });
+    await waitFor(() =>
+      expect(queryClient.getQueryState(['platform-alerts'])?.status).toBe('error'),
+    );
+    const before = hit.mock.calls.length;
+
+    focusManager.setFocused(false);
+    focusManager.setFocused(true);
+    await waitFor(() => expect(hit).toHaveBeenCalledTimes(before + 1));
+    focusManager.setFocused(undefined);
   });
 
   it('renders the bn text', async () => {
