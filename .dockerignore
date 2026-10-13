@@ -15,3 +15,9 @@ yarn-error.log*
 *.local
 build-output
 graphify-out
+drafts
+audit-evidence
+.implement-epic*
+.plan-epic-*
+.epic-*
+**/graphify-out
