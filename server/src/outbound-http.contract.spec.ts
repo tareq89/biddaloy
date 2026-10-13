@@ -55,7 +55,8 @@ const PATTERNS: RegExp[] = [
   // bare `fetch` used as a value: `const f = fetch`, `fetch.bind(...)`, `x ?? fetch`
   /(?:[=:,?(]|\?\?|\|\|)\s*fetch\s*(?:[;,)\n]|\.bind\b)/,
   /\bfetch\.(?:bind|call|apply)\(/,
-  /from\s+'(?:undici|axios|got|node-fetch|superagent|ky|needle|ws|@nestjs\/axios|@aws-sdk\/client-[\w-]+)'/,
+  // runtime imports only: `import type { X } from '@aws-sdk/client-s3'` opens nothing
+  /\bimport\s+(?!type\b)[^;]*?\bfrom\s+'(?:undici|axios|got|node-fetch|superagent|ky|needle|ws|@nestjs\/axios|@aws-sdk\/client-[\w-]+)'/,
   // net/tls only when a socket can be opened (`isIP` alone is a pure helper)
   /import\s+(?!type\b)(?:\*\s+as\s+\w+|\w+|\{[^}]*\b(?:connect|createConnection|Socket)\b[^}]*\})\s+from\s+'(?:node:)?(?:net|tls)'/,
   /import\(\s*'(?:node:)?(?:https?|http2|net|tls|undici|axios|got|ws|node-fetch)'\s*\)/,
@@ -162,6 +163,8 @@ describe('outbound HTTP guard', () => {
     expect(matches("import { isIP } from 'node:net';")).toBe(false);
     expect(matches("import { connect } from 'node:net';")).toBe(true);
     expect(matches("import { SESClient } from '@aws-sdk/client-ses';")).toBe(true);
+    expect(matches("import {\n  S3Client,\n} from '@aws-sdk/client-s3';")).toBe(true);
+    expect(matches("import type { S3ClientConfig } from '@aws-sdk/client-s3';")).toBe(false);
     expect(matches('// used with fetch() and an axios client\nconst a = 1;')).toBe(false);
     expect(matches('/* fetch(x) */ const a = 1;')).toBe(false);
     expect(matches("const u = 'https://a.b'; await fetch(u)")).toBe(true);
