@@ -52,8 +52,11 @@ export class EnrollmentService {
       // enrollment: that is a readmission (POST /students/:id/readmit: permission, reason,
       // date, event). `createInTransaction` stays unguarded because readmit and the promotion
       // commit legitimately call it for a non-ACTIVE student.
+      // The row lock serializes two first-enrollment requests for one student, so both
+      // cannot count zero existing rows below and each insert an enrollment.
       const student = await manager.getRepository(Student).findOne({
         where: { id: dto.student_id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_write' },
       });
       if (student && student.enrollment_status !== EnrollmentStatus.ACTIVE) {
         throw new ConflictException(
@@ -250,12 +253,21 @@ export class EnrollmentService {
     manager?: EntityManager,
     role?: string,
   ): Promise<Enrollment> {
-    const repo = manager ? manager.getRepository(Enrollment) : this.repo;
-    const classRepo = manager ? manager.getRepository(Class) : this.classRepo;
-    const sectionRepo = manager ? manager.getRepository(ClassSection) : this.sectionRepo;
+    // Everything below runs in one transaction, with the enrollment row locked, so the
+    // permission check compares against the row that is actually updated (not a stale read).
+    if (!manager) {
+      return this.repo.manager.transaction((m) =>
+        this.update(id, dto, tenantId, userId, context, m, role),
+      );
+    }
+    const repo = manager.getRepository(Enrollment);
+    const classRepo = manager.getRepository(Class);
+    const sectionRepo = manager.getRepository(ClassSection);
     const enrollment = await repo.findOne({
       where: { id, tenant_id: tenantId },
       relations: ['class', 'section'],
+      // `tables`: FOR UPDATE cannot apply to the nullable side of the relation joins.
+      lock: { mode: 'pessimistic_write', tables: ['enrollments'] },
     });
     if (!enrollment) {
       throw new NotFoundException(`Enrollment with ID "${id}" not found`);
@@ -361,32 +373,28 @@ export class EnrollmentService {
     const changedKeys = Object.keys(dto);
     const oldValues = Object.fromEntries(changedKeys.map((key) => [key, (enrollment as any)[key]]));
 
-    const run = <T>(fn: (m: EntityManager) => Promise<T>) =>
-      manager ? fn(manager) : this.repo.manager.transaction(fn);
-    await run(async (manager) => {
-      await manager.getRepository(Enrollment).update({ id, tenant_id: tenantId }, dto);
+    await repo.update({ id, tenant_id: tenantId }, dto);
 
-      if (shouldSyncStudent) {
-        await this.syncStudentPlacement(manager, enrollment.student_id, targetSectionId!, tenantId);
-      }
+    if (shouldSyncStudent) {
+      await this.syncStudentPlacement(manager, enrollment.student_id, targetSectionId!, tenantId);
+    }
 
-      if (changedKeys.length > 0) {
-        await this.auditService.record(
-          {
-            action: AuditAction.UPDATE,
-            entity_type: 'Enrollment',
-            entity_id: id,
-            tenant_id: tenantId,
-            performed_by_user_id: userId,
-            ip_address: context.ip,
-            user_agent: context.userAgent,
-            old_values: oldValues,
-            new_values: { ...dto },
-          },
-          manager,
-        );
-      }
-    });
+    if (changedKeys.length > 0) {
+      await this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'Enrollment',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: oldValues,
+          new_values: { ...dto },
+        },
+        manager,
+      );
+    }
 
     return repo.findOne({
       where: { id, tenant_id: tenantId },
