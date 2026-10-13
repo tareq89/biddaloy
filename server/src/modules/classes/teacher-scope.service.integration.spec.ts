@@ -576,10 +576,11 @@ describe('TeacherScopeService (integration)', () => {
       const gB = await link(await makeStudentIn(sec6B));
       const ask = (guardianId: string, role = 'TEACHER') =>
         service.assertCanSeeGuardian({ userId, tenantId: TENANT_A, role, guardianId });
-      await expect(ask(gA)).resolves.toBeUndefined();
+      // Review n-new-7: it hands back the scope it computed, so callers need not compute it again.
+      await expect(ask(gA)).resolves.toEqual([sec6A]);
       await expect(ask(gB)).rejects.toThrow(NotFoundException);
       await expect(ask('not-a-uuid')).rejects.toThrow(NotFoundException);
-      await expect(ask(gB, 'ADMIN')).resolves.toBeUndefined();
+      await expect(ask(gB, 'ADMIN')).resolves.toBeNull();
     });
   });
 });

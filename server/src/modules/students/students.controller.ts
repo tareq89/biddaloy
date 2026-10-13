@@ -375,18 +375,13 @@ export class StudentController {
     @CurrentUser() user: JwtPayload,
   ) {
     // Before the lookup (D13): a missing id and someone else's guardian give the same 404.
-    await this.teacherScope.assertCanSeeGuardian({
+    const scope = await this.teacherScope.assertCanSeeGuardian({
       role: tenant.role,
       userId: user.sub,
       tenantId: tenant.id,
       guardianId: id,
     });
     const guardian = await this.guardianService.findOne(id, tenant.id);
-    const scope = await this.teacherScope.sectionScope({
-      role: tenant.role,
-      userId: user.sub,
-      tenantId: tenant.id,
-    });
     if (scope) {
       // Only the children the teacher teaches; siblings elsewhere stay hidden.
       guardian.students = (guardian.students ?? []).filter(

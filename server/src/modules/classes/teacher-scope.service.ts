@@ -165,15 +165,18 @@ export class TeacherScopeService {
     return rows.map((r) => r.id);
   }
 
-  /** 404 unless the guardian is linked to a live student in a visible section. No-op when unscoped. */
+  /**
+   * 404 unless the guardian is linked to a live student in a visible section. No-op when unscoped.
+   * Returns the caller's `sectionScope`, so the caller can filter without computing it again.
+   */
   async assertCanSeeGuardian(input: {
     role: string;
     userId: string;
     tenantId: string;
     guardianId: string;
-  }): Promise<void> {
+  }): Promise<string[] | null> {
     const scope = await this.sectionScope(input);
-    if (scope === null) return;
+    if (scope === null) return null;
     const ok =
       scope.length > 0 &&
       isUUID(input.guardianId) &&
@@ -187,6 +190,7 @@ export class TeacherScopeService {
         )
       ).length > 0;
     if (!ok) throw new NotFoundException('Guardian not found');
+    return scope;
   }
 
   /** 403 unless the student's current section is in the caller's scope (missing student = 403 too). */
