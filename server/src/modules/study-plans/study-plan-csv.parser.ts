@@ -1,4 +1,8 @@
-import { assertXlsxWithinLimits } from '../../common/utils/xlsx-guard.util';
+import {
+  assertXlsxWithinLimits,
+  XLSX_TOO_LARGE_MESSAGE,
+  XlsxTooLargeError,
+} from '../../common/utils/xlsx-guard.util';
 import ExcelJS from 'exceljs';
 import { Readable } from 'stream';
 import { STUDY_PLAN_CSV_COLUMNS, STUDY_PLAN_LIMITS } from '@biddaloy/shared';
@@ -26,10 +30,14 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
   const workbook = new ExcelJS.Workbook();
   if (ext === '.xlsx') {
     try {
-      assertXlsxWithinLimits(buffer);
+      await assertXlsxWithinLimits(buffer);
       await workbook.xlsx.load(buffer as never);
-    } catch {
-      throw new StudyPlanParseError('Could not read file — is it a valid Excel file?');
+    } catch (e) {
+      throw new StudyPlanParseError(
+        e instanceof XlsxTooLargeError
+          ? XLSX_TOO_LARGE_MESSAGE
+          : 'Could not read file — is it a valid Excel file?',
+      );
     }
     const sheet = workbook.worksheets[0];
     if (!sheet) throw new StudyPlanParseError('Could not read file — is it a valid Excel file?');

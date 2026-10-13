@@ -14,14 +14,14 @@ describe('assertXlsxWithinLimits', () => {
     const bomb = await workbookWith('A'.repeat(2 * 1024 * 1024));
     expect(bomb.length).toBeLessThan(100 * 1024);
 
-    expect(() => assertXlsxWithinLimits(bomb, { maxUncompressedBytes: 1024 * 1024 })).toThrow(
-      XlsxTooLargeError,
-    );
+    await expect(
+      assertXlsxWithinLimits(bomb, { maxUncompressedBytes: 1024 * 1024 }),
+    ).rejects.toThrow(XlsxTooLargeError);
   });
 
   it('passes a normal small workbook under the default caps', async () => {
     const buf = await workbookWith('hello');
-    expect(() => assertXlsxWithinLimits(buf)).not.toThrow();
+    await expect(assertXlsxWithinLimits(buf)).resolves.toBeUndefined();
   });
 
   it('passes a large-but-legitimate workbook (many rows) under the default caps', async () => {
@@ -30,12 +30,12 @@ describe('assertXlsxWithinLimits', () => {
     for (let i = 0; i < 20_000; i++) ws.addRow([`student ${i}`, i, 'Class One', 'A']);
     const buf = Buffer.from(await wb.xlsx.writeBuffer());
 
-    expect(() => assertXlsxWithinLimits(buf)).not.toThrow();
+    await expect(assertXlsxWithinLimits(buf)).resolves.toBeUndefined();
   });
 
   it('rejects too many entries', async () => {
     const buf = await workbookWith('x');
-    expect(() => assertXlsxWithinLimits(buf, { maxEntries: 2 })).toThrow(XlsxTooLargeError);
+    await expect(assertXlsxWithinLimits(buf, { maxEntries: 2 })).rejects.toThrow(XlsxTooLargeError);
   });
 
   it('does not trust a forged uncompressed size in the central directory', async () => {
@@ -45,16 +45,16 @@ describe('assertXlsxWithinLimits', () => {
       if (buf.readUInt32LE(i) === 0x02014b50) buf.writeUInt32LE(10, i + 24);
     }
 
-    expect(() => assertXlsxWithinLimits(buf, { maxUncompressedBytes: 1024 * 1024 })).toThrow(
-      XlsxTooLargeError,
-    );
+    await expect(
+      assertXlsxWithinLimits(buf, { maxUncompressedBytes: 1024 * 1024 }),
+    ).rejects.toThrow(XlsxTooLargeError);
   });
 
-  it('throws on bytes that are not a zip', () => {
-    expect(() => assertXlsxWithinLimits(Buffer.from('hello'))).toThrow();
+  it('throws on bytes that are not a zip', async () => {
+    await expect(assertXlsxWithinLimits(Buffer.from('hello'))).rejects.toThrow();
   });
 
-  it('counts a stored (method 0) entry by its size', () => {
+  it('counts a stored (method 0) entry by its size', async () => {
     // Hand-built zip: one stored entry "a" holding 10 bytes.
     const name = Buffer.from('a');
     const body = Buffer.alloc(10, 1);
@@ -75,8 +75,10 @@ describe('assertXlsxWithinLimits', () => {
     eocd.writeUInt32LE(cenOffset, 16);
     const zip = Buffer.concat([local, name, body, cen, name, eocd]);
 
-    expect(() => assertXlsxWithinLimits(zip, { maxUncompressedBytes: 10 })).not.toThrow();
-    expect(() => assertXlsxWithinLimits(zip, { maxUncompressedBytes: 9 })).toThrow(
+    await expect(
+      assertXlsxWithinLimits(zip, { maxUncompressedBytes: 10 }),
+    ).resolves.toBeUndefined();
+    await expect(assertXlsxWithinLimits(zip, { maxUncompressedBytes: 9 })).rejects.toThrow(
       XlsxTooLargeError,
     );
   });
@@ -100,7 +102,7 @@ describe('assertXlsxWithinLimits', () => {
       b.writeUInt16LE(0, e + 10);
 
       expect(await exceljsCellLength(b)).toBe(8 * 1024 * 1024);
-      expect(() => assertXlsxWithinLimits(b, lim)).toThrow();
+      await expect(assertXlsxWithinLimits(b, lim)).rejects.toThrow();
     });
 
     it('rejects decoy data prepended so that the directory offsets shift', async () => {
@@ -126,7 +128,7 @@ describe('assertXlsxWithinLimits', () => {
       const file = Buffer.concat([prefix, good]);
 
       expect(await exceljsCellLength(file)).toBe(8 * 1024 * 1024);
-      expect(() => assertXlsxWithinLimits(file, lim)).toThrow();
+      await expect(assertXlsxWithinLimits(file, lim)).rejects.toThrow();
     });
 
     it('rejects a zip64-sentinel field in the EOCD', async () => {
@@ -135,10 +137,10 @@ describe('assertXlsxWithinLimits', () => {
 
       // jszip would go looking for a zip64 record here (and a forged one could
       // redirect it), so the guard refuses the sentinel outright.
-      expect(() => assertXlsxWithinLimits(b, lim)).toThrow(XlsxTooLargeError);
+      await expect(assertXlsxWithinLimits(b, lim)).rejects.toThrow(XlsxTooLargeError);
     });
 
-    it('rejects directory entries that all point at the same compressed bytes', () => {
+    it('rejects directory entries that all point at the same compressed bytes', async () => {
       // Two central-directory records share one 200-byte stored body: their
       // compressed sizes add up past the file, so the bytes are reused.
       const name = Buffer.from('a');
@@ -162,7 +164,7 @@ describe('assertXlsxWithinLimits', () => {
       eocd.writeUInt32LE(cenOffset, 16);
       const zip = Buffer.concat([local, name, body, ...records, eocd]);
 
-      expect(() => assertXlsxWithinLimits(zip)).toThrow('Bad zip layout');
+      await expect(assertXlsxWithinLimits(zip)).rejects.toThrow('Bad zip layout');
     });
   });
 });

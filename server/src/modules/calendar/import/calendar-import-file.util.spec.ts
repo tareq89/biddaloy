@@ -7,27 +7,26 @@ import {
   parseCalendarImportFile,
 } from './calendar-import-file.util';
 import { CALENDAR_IMPORT_COLUMNS } from './calendar-import-rows.util';
+import { XLSX_TOO_LARGE_MESSAGE } from '../../../common/utils/xlsx-guard.util';
 
 const guardState = vi.hoisted(() => ({ bomb: false }));
 vi.mock('../../../common/utils/xlsx-guard.util', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../common/utils/xlsx-guard.util')>();
   return {
     ...actual,
-    assertXlsxWithinLimits: (...a: Parameters<typeof actual.assertXlsxWithinLimits>) => {
+    assertXlsxWithinLimits: async (...a: Parameters<typeof actual.assertXlsxWithinLimits>) => {
       if (guardState.bomb) throw new actual.XlsxTooLargeError('bomb');
-      actual.assertXlsxWithinLimits(...a);
+      return actual.assertXlsxWithinLimits(...a);
     },
   };
 });
 
 describe('calendar-import-file.util (17.3.1)', () => {
-  it('refuses an xlsx the zip-bomb guard rejects with the usual error', async () => {
+  it('refuses an xlsx the zip-bomb guard rejects with the "too large" error', async () => {
     const buf = await buildCalendarImportXlsxTemplate();
     guardState.bomb = true;
     try {
-      await expect(parseCalendarImportFile(buf, 'a.xlsx')).rejects.toThrow(
-        'The uploaded file is not a valid .xlsx workbook.',
-      );
+      await expect(parseCalendarImportFile(buf, 'a.xlsx')).rejects.toThrow(XLSX_TOO_LARGE_MESSAGE);
     } finally {
       guardState.bomb = false;
     }

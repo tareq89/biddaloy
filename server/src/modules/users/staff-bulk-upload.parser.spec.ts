@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import ExcelJS from 'exceljs';
-import { assertXlsxWithinLimits, XlsxTooLargeError } from '../../common/utils/xlsx-guard.util';
+import {
+  assertXlsxWithinLimits,
+  XLSX_TOO_LARGE_MESSAGE,
+  XlsxTooLargeError,
+} from '../../common/utils/xlsx-guard.util';
 
 vi.mock('../../common/utils/xlsx-guard.util', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../common/utils/xlsx-guard.util')>();
@@ -108,14 +112,20 @@ describe('parseDesignation', () => {
 });
 
 describe('xlsx zip-bomb guard', () => {
-  it('refuses an xlsx the guard rejects with the usual "could not read" error', async () => {
+  it('refuses an xlsx the guard rejects as too large with the "too large" error', async () => {
     const wb = new ExcelJS.Workbook();
     wb.addWorksheet('Sheet1');
     const buf = Buffer.from(await wb.xlsx.writeBuffer());
-    vi.mocked(assertXlsxWithinLimits).mockImplementationOnce(() => {
+    vi.mocked(assertXlsxWithinLimits).mockImplementationOnce(async () => {
       throw new XlsxTooLargeError('bomb');
     });
 
-    await expect(parseStaffSpreadsheet(buf, 'a.xlsx')).rejects.toThrow(/Could not read file/);
+    await expect(parseStaffSpreadsheet(buf, 'a.xlsx')).rejects.toThrow(XLSX_TOO_LARGE_MESSAGE);
+  });
+
+  it('keeps the "could not read" error for a malformed xlsx', async () => {
+    await expect(parseStaffSpreadsheet(Buffer.from('PK'), 'a.xlsx')).rejects.toThrow(
+      /Could not read file/,
+    );
   });
 });
