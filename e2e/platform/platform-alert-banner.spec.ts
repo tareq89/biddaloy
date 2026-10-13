@@ -10,6 +10,10 @@ import { t } from '../i18n';
 // The banner text starts with the time, so match on the fixed part after it.
 const BANNER = t('attention.platformAlert.REDIS_DOWN', { time: '' }).trim();
 
+// platform_alerts is one global table: under fullyParallel, one test's clear
+// removed the row another test was still waiting to see.
+test.describe.configure({ mode: 'serial' });
+
 test.afterEach(async () => {
   await clearPlatformAlerts();
 });
