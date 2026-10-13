@@ -233,7 +233,10 @@ recovery can never reach the proposed value. A removal (`null`) needs no code.
   admin who asked is still an active ADMIN there (or a platform SUPER_ADMIN,
   who has no ADMIN row in the school); if not, the link is revoked and the
   answer is `409 PROPOSAL_WITHDRAWN`. These membership rows are read
-  `FOR SHARE`, so a removal committing at the same moment is waited for.
+  `FOR SHARE`, so a removal committing at the same moment is waited for. The
+  person's `users` row is locked `FOR NO KEY UPDATE` (not `FOR UPDATE`), so the
+  person leaving that school at the same moment, whose audit row points at the
+  same `users` row, does not deadlock with the approval.
 - Re-saving the form with the same pending value **by the same admin** sends
   nothing again, but only once the link was really delivered (the token is
   stamped `sent: true` as the very last step, after the notices and the audit

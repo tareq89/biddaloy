@@ -943,7 +943,10 @@ describe('ContactChangeService (integration)', () => {
     });
 
     // Review n-new-3: a removal that commits while the approval is running must be seen, not missed.
-    it('a removal mid-approval is waited for and refuses the change', async () => {
+    // Review m-r3-3: shaped like the person's own `POST /users/me/leave` (membership soft-delete,
+    // then an audit row whose FK locks the person's `users` row FOR KEY SHARE). The approval holds
+    // that row; with FOR UPDATE the two deadlocked, with FOR NO KEY UPDATE the leave goes through.
+    it('a leave mid-approval is waited for, does not deadlock, and refuses the change', async () => {
       const { user } = await sharedSetup();
       await propose(user.id, { phone: NEW_PHONE });
       const token = linkIn(sentTo()[0].body);
@@ -964,6 +967,11 @@ describe('ContactChangeService (integration)', () => {
         () => 'rejected',
       );
       await new Promise((r) => setTimeout(r, 300));
+      await removal.query(
+        `INSERT INTO audit_logs (action, entity_type, entity_id, tenant_id, performed_by_user_id)
+         VALUES ('DELETE', 'Membership', $1, $2, $1)`,
+        [user.id, SEED_TENANT_ID],
+      );
       await removal.commitTransaction();
       await removal.release();
 
