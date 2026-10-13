@@ -36,6 +36,20 @@ Tests must be readable by a junior developer. No dynamic test generation. Use ex
 - **Context Header:** Always test missing and invalid `X-Tenant-ID` scenarios.
 - **Permissions:** New tenant routes must declare `@RequirePermissions()` or carry a reviewed entry in `IDENTITY_SCOPED`; `permission-matrix.e2e-spec.ts` fails otherwise. Every route's permission is also recorded in `src/__snapshots__/route-permissions.txt`. After adding or changing a route, run `yarn test:file src/permission-matrix.e2e-spec.ts -u` and commit the diff; reviewers read it like a permission change. The snapshot covers controller routes only: Swagger docs, static files and the SPA fallback in `main.ts` are not in it.
 
+## Route status snapshot
+
+`src/route-status.snapshot.txt` records what the guards answer for every route and every role (plus `ANON`, no token). `src/route-status-snapshot.e2e-spec.ts` sends the real request; a test-only interceptor stops it after the guards, so no handler runs.
+
+```text
+GET  /api/v1/platform/attention/health   401 PASS 403 403 ...   # ANON SUPER_ADMIN ADMIN ...
+```
+
+`PASS` = all guards let it through; otherwise the status code. Pipes, services and `X-Health-Token` are not in it.
+
+- **When it fails:** any change to who can reach a route changes a line. In CI (`CI=1`) a changed or missing file fails with the diff.
+- **Update:** `yarn workspace @biddaloy/server test:file src/route-status-snapshot.e2e-spec.ts -u` (with the e2e database env, e.g. `yarn test-env run -- ...`). Commit the file in the same PR and list each changed line in the PR description next to the ticket or decision that intends it.
+- **Reviewers:** a changed line no ticket asked for is a bug. New routes add lines and removed routes drop lines; both are expected.
+
 ## Minting an approval token in a spec
 
 Any route behind `@RequireApproval(scope)` (e.g. `payments.reverse`,
