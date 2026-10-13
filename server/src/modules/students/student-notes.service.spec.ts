@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { teacherSectionIds } from '../classes/teacher-scope.service';
+import { teacherCanSeeStudent } from '../classes/teacher-scope.service';
 
 vi.mock('../classes/teacher-scope.service', () => ({
-  teacherSectionIds: vi.fn().mockResolvedValue(['sec']),
+  teacherCanSeeStudent: vi.fn().mockResolvedValue(true),
 }));
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
@@ -107,7 +107,7 @@ describe('StudentNotesService', () => {
   });
 
   it('404s a TEACHER with no visible section for the student (D13)', async () => {
-    vi.mocked(teacherSectionIds).mockResolvedValueOnce([]);
+    vi.mocked(teacherCanSeeStudent).mockResolvedValueOnce(false);
     await expect(service.list(STUDENT, caller('t', UserRole.TEACHER))).rejects.toThrow(
       NotFoundException,
     );

@@ -4,7 +4,7 @@ import { DataSource, IsNull, Repository } from 'typeorm';
 import { AuditAction, UserRole } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
-import { teacherSectionIds } from '../classes/teacher-scope.service';
+import { teacherCanSeeStudent } from '../classes/teacher-scope.service';
 import { Student } from './entities/student.entity';
 import { StudentNote } from './entities/student-note.entity';
 import { CreateStudentNoteDto, StudentNoteResponseDto } from './dto/student-notes.dto';
@@ -33,7 +33,7 @@ export class StudentNotesService {
   /**
    * 404 if the student isn't in this tenant, and also for a TEACHER with no live
    * row in the student's section in the current academic year (Epic 75 D13; the
-   * shared `teacherSectionIds` free function, since StudentModule can't import ClassModule).
+   * shared `teacherCanSeeStudent` free function, since StudentModule can't import ClassModule).
    */
   private async assertStudentAccess(studentId: string, caller: NoteCaller): Promise<Student> {
     const student = await this.students.findOne({
@@ -41,14 +41,15 @@ export class StudentNotesService {
     });
     if (!student) throw new NotFoundException(`Student with ID "${studentId}" not found`);
 
-    if (caller.role === UserRole.TEACHER) {
-      const sections = await teacherSectionIds(this.dataSource.manager, {
+    if (
+      caller.role === UserRole.TEACHER &&
+      !(await teacherCanSeeStudent(this.dataSource.manager, {
         userId: caller.userId,
         tenantId: caller.tenantId,
-      });
-      if (!student.class_section_id || !sections.includes(student.class_section_id)) {
-        throw new NotFoundException(`Student with ID "${studentId}" not found`);
-      }
+        studentId,
+      }))
+    ) {
+      throw new NotFoundException(`Student with ID "${studentId}" not found`);
     }
     return student;
   }
