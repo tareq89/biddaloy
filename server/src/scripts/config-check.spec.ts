@@ -58,4 +58,12 @@ describe('runConfigCheck', () => {
     expect(result.ok).toBe(false);
     expect(result.output).toContain('ACCOUNT_ACCESS_ECHO_SECRETS');
   });
+
+  it('fails ENABLE_API_DOCS=true without both docs credentials, as boot does', () => {
+    const docs = { ...valid, ENABLE_API_DOCS: 'true', API_DOCS_USER: 'docs' };
+    const result = runConfigCheck(docs);
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain('API_DOCS_PASSWORD');
+    expect(runConfigCheck({ ...docs, API_DOCS_PASSWORD: 'Zq8vR2mXw4Lp' }).ok).toBe(true);
+  });
 });

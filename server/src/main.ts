@@ -15,7 +15,12 @@ import { buildHelmetOptions } from './security-headers';
 import { buildValidationPipeOptions } from './validation-pipe';
 import { configureBodyParser } from './body-parser';
 import { buildVersioningOptions } from './api-versioning';
-import { buildSwaggerDocumentConfig, shouldMountDocs, DOCS_PATH } from './swagger';
+import {
+  buildSwaggerDocumentConfig,
+  shouldMountDocs,
+  requireDocsCredentials,
+  DOCS_PATH,
+} from './swagger';
 import { buildDocsBasicAuthMiddleware, buildDocsCspOverrideMiddleware } from './docs-auth';
 import { buildSpaFallback } from './spa-fallback';
 import { assertSecretEchoAllowed } from './modules/account-access/account-access-echo';
@@ -75,13 +80,10 @@ async function bootstrap() {
   // rejection. See swagger.ts for the full policy.
   if (shouldMountDocs(process.env.NODE_ENV, process.env.ENABLE_API_DOCS)) {
     if (process.env.NODE_ENV === 'production') {
-      const docsUser = process.env.API_DOCS_USER;
-      const docsPassword = process.env.API_DOCS_PASSWORD;
-      if (!docsUser || !docsPassword) {
-        throw new Error(
-          'ENABLE_API_DOCS=true requires API_DOCS_USER and API_DOCS_PASSWORD to be set — refusing to boot with an unauthenticated docs route in production.',
-        );
-      }
+      const [docsUser, docsPassword] = requireDocsCredentials(
+        process.env.API_DOCS_USER,
+        process.env.API_DOCS_PASSWORD,
+      );
       // No path argument here — buildDocsBasicAuthMiddleware checks
       // req.path itself, because app.use('/api/docs', ...) would not
       // match the sibling /api/docs-json route SwaggerModule.setup also

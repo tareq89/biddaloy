@@ -11,12 +11,14 @@ import {
 } from '../modules/schools/settings/encryption-key';
 import { resolveAppBaseUrl } from '../modules/account-access/app-base-url.util';
 import { resolvePublicAppUrl } from '../modules/invoices/public-app-url.util';
+import { requireDocsCredentials } from '../swagger';
 
 /**
  * `yarn config:check` — runs the boot-time config checks without starting
  * Nest: env.validation.ts, the ACCOUNT_ACCESS_ECHO_SECRETS guard (main.ts),
  * DB_SSL (db-ssl.ts), the SETTINGS_ENCRYPTION_KEY(_PREVIOUS) shape (encryption-key.ts),
- * and the APP_BASE_URL / PUBLIC_APP_URL https checks the link builders run.
+ * the APP_BASE_URL / PUBLIC_APP_URL https checks the link builders run, and
+ * the ENABLE_API_DOCS credentials check (main.ts).
  * Every failing check is listed. Error text names variables only, never
  * their values.
  */
@@ -34,6 +36,10 @@ export function runConfigCheck(env: Record<string, unknown>): { ok: boolean; out
     () => buildPreviousEncryptionKeys(get('SETTINGS_ENCRYPTION_KEY_PREVIOUS')),
     () => get('APP_BASE_URL') && resolveAppBaseUrl(config),
     () => get('PUBLIC_APP_URL') && resolvePublicAppUrl(config),
+    () =>
+      get('NODE_ENV') === 'production' &&
+      get('ENABLE_API_DOCS') === 'true' &&
+      requireDocsCredentials(get('API_DOCS_USER'), get('API_DOCS_PASSWORD')),
   ];
   const errors = checks.flatMap((check) => {
     try {
