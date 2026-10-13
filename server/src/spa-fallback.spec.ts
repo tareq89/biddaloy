@@ -18,14 +18,22 @@ function fakeRequest(method: string, path: string): Request {
 /** Captures the `sendFile` call rather than touching the filesystem — the
  * behaviour under test is "which path, and what happens when it fails",
  * not Express's own file streaming. */
-function fakeResponse(): { res: Response; calls: SendFileCall[] } {
+function fakeResponse(): {
+  res: Response;
+  calls: SendFileCall[];
+  headers: Record<string, string>;
+} {
   const calls: SendFileCall[] = [];
+  const headers: Record<string, string> = {};
   const res = {
+    setHeader: (k: string, v: string) => {
+      headers[k] = v;
+    },
     sendFile: (path: string, callback: (error?: Error) => void) => {
       calls.push({ path, callback });
     },
   } as unknown as Response;
-  return { res, calls };
+  return { res, calls, headers };
 }
 
 describe('buildSpaFallback', () => {
@@ -38,6 +46,16 @@ describe('buildSpaFallback', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]?.path).toBe(INDEX_HTML);
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it('serves index.html with Cache-Control: no-cache', () => {
+    const { res, headers } = fakeResponse();
+    buildSpaFallback(CLIENT_DIST)(
+      fakeRequest('GET', '/students/42'),
+      res,
+      vi.fn() as unknown as NextFunction,
+    );
+    expect(headers['Cache-Control']).toBe('no-cache');
   });
 
   it('serves index.html for a HEAD request too', () => {
