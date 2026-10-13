@@ -25,7 +25,9 @@ import {
  * Overriding it here avoids depending on a real S3 endpoint being
  * reachable from wherever this suite runs. */
 class FakeStorageService {
+  static puts = 0;
   async put(): Promise<void> {
+    FakeStorageService.puts += 1;
     return undefined;
   }
   async deleteForTenant(): Promise<void> {
@@ -186,18 +188,43 @@ describe('Homework Submission E2E', () => {
     expect(res.body.attachments).toHaveLength(1);
   });
 
-  it('rejects an HTML file sent as application/pdf', async () => {
-    await supertest(app.getHttpServer())
+  async function expectRejectedAndNothingStored(files: Array<[Buffer, string, string]>) {
+    const countRows = async () =>
+      Number(
+        (
+          await dataSource.query(
+            'SELECT count(*) AS n FROM homework_submissions WHERE assignment_id = $1',
+            [assignmentId],
+          )
+        )[0].n,
+      );
+    const rowsBefore = await countRows();
+    const putsBefore = FakeStorageService.puts;
+    let req = supertest(app.getHttpServer())
       .post(`${API}/homework-assignments/${assignmentId}/submissions`)
       .set('Authorization', `Bearer ${parentToken}`)
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.PARENT)
-      .field('student_id', studentId)
-      .attach('files', Buffer.from('<html><script>alert(1)</script></html>'), {
-        filename: 'x.pdf',
-        contentType: 'application/pdf',
-      })
-      .expect(400);
+      .field('student_id', studentId);
+    for (const [buf, filename, contentType] of files) {
+      req = req.attach('files', buf, { filename, contentType });
+    }
+    await req.expect(400);
+    expect(await countRows()).toBe(rowsBefore);
+    expect(FakeStorageService.puts).toBe(putsBefore);
+  }
+
+  it('rejects an HTML file sent as application/pdf', async () => {
+    await expectRejectedAndNothingStored([
+      [Buffer.from('<html><script>alert(1)</script></html>'), 'x.pdf', 'application/pdf'],
+    ]);
+  });
+
+  it('rejects the whole upload when one of several files has mismatched bytes', async () => {
+    await expectRejectedAndNothingStored([
+      [Buffer.from('%PDF-1.4 ok'), 'ok.pdf', 'application/pdf'],
+      [Buffer.from('<html></html>'), 'bad.pdf', 'application/pdf'],
+    ]);
   });
 
   it('rejects a PNG-declared file whose bytes are JPEG', async () => {
