@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import supertest = require('supertest');
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -44,7 +45,7 @@ export async function createTeacherScopeFixture(
   dataSource: DataSource,
 ): Promise<TeacherScopeFixture> {
   const tenantId = SEED_TENANT_ID;
-  const tag = Math.random().toString(36).slice(2, 8);
+  const tag = randomUUID().slice(0, 8);
   const email = `teacher-scope-${tag}@e2e.example`;
 
   const [user] = await dataSource.query(
@@ -193,7 +194,7 @@ export async function assignTeacherToSection(
     (await repo.findOneBy({ user_id: userId, tenant_id: tenantId })) ??
     (await repo.save({
       user_id: userId,
-      employee_id: `EMP-AS-${Math.random().toString(36).slice(2, 8)}`,
+      employee_id: `EMP-AS-${randomUUID().slice(0, 8)}`,
       tenant_id: tenantId,
       designations: [],
     }));
