@@ -40,11 +40,11 @@ const OTP_PURPOSE = 'PHONE_VERIFY';
 const PENDING_CHANGE_TTL_MS = 5 * 60_000;
 /** [75.1] A person gets three days to approve a school's proposed contact change. */
 const ADMIN_PROPOSAL_TTL_MS = 72 * 3_600_000;
-/** D23: the code that proves a proposed NEW contact; phone shares the self-service purpose. */
-const NEW_CONTACT_OTP = { email: 'EMAIL_VERIFY', phone: 'PHONE_VERIFY' } as const satisfies Record<
-  'email' | 'phone',
-  OtpPurpose
->;
+/**
+ * D23: the code that proves a proposed NEW email/phone. Its own purpose (review n-new-1), so a
+ * self-service phone change to the same number never overwrites, cools down or locks it.
+ */
+const PROPOSAL_OTP: OtpPurpose = 'CONTACT_PROPOSAL';
 
 interface PendingPhoneChange {
   field: 'phone';
@@ -556,7 +556,7 @@ export class ContactChangeService {
       const sent: NewContactCodes = {};
       for (const { field, value } of toProve) {
         // Bound to this link: a code sent for another proposal or flow never confirms this one.
-        const { code } = await this.otpService.request(NEW_CONTACT_OTP[field], value, tokenId);
+        const { code } = await this.otpService.request(PROPOSAL_OTP, value, tokenId);
         const delivered = await this.delivery.deliver({
           tenantId: null,
           medium: field === 'email' ? CommunicationMedium.EMAIL : CommunicationMedium.SMS,
@@ -580,7 +580,7 @@ export class ContactChangeService {
     // ponytail: codes are checked one by one, so a right email code with a wrong phone code
     // spends the email code too; the person presses Approve again for fresh ones.
     for (const { field, value, code } of toProve) {
-      const result = await this.otpService.verify(NEW_CONTACT_OTP[field], value, code!, tokenId);
+      const result = await this.otpService.verify(PROPOSAL_OTP, value, code!, tokenId);
       if (result === 'locked')
         throw new ForbiddenException('Too many attempts — request a new code');
       if (result !== 'ok') throw new BadRequestException('Invalid or expired code');
