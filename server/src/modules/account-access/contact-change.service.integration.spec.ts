@@ -703,6 +703,38 @@ describe('ContactChangeService (integration)', () => {
       expect((await service.confirmEmail(first, context)).status).toBe('proposal');
     });
 
+    // Review m-new-5: the dedupe matches the proposer too, so the link always names an admin who asked.
+    it('the same change re-saved by a different admin gets a fresh link and the old one is revoked', async () => {
+      const { user, proposer } = await sharedSetup();
+      await propose(user.id, { phone: NEW_PHONE });
+      const first = linkIn(sentTo()[0].body);
+      const userRepo = dataSource.getRepository(User);
+      const second = await userRepo.save(
+        userRepo.create({ full_name: 'Second Admin', status: UserStatus.ACTIVE }),
+      );
+      await dataSource.getRepository(UserTenant).save(
+        dataSource.getRepository(UserTenant).create({
+          user_id: second.id,
+          tenant_id: SEED_TENANT_ID,
+          role: 'ADMIN' as any,
+        }),
+      );
+      fakeProvider.send.mockClear();
+
+      await service.proposeByAdmin(
+        { userId: user.id, tenantId: SEED_TENANT_ID, actorUserId: second.id, phone: NEW_PHONE },
+        context,
+      );
+
+      const fresh = linkIn(sentTo().find((m) => m.body.includes('token='))!.body);
+      expect((await service.confirmEmail(first, context)).status).toBe('revoked');
+      // The first admin is demoted: the second admin's link is still backed.
+      await dataSource.query(`UPDATE user_tenants SET role = 'TEACHER' WHERE user_id = $1`, [
+        proposer.id,
+      ]);
+      expect((await service.confirmEmail(fresh, context, 'approve')).status).toBe('confirm');
+    });
+
     // Review m7/R1: deliver() reports a gateway outage as a FAILED result (it never throws), so that
     // is the shape that must revoke the link and answer 503.
     it('if the approval link is not delivered, the new link is revoked and the caller gets a clean 503', async () => {

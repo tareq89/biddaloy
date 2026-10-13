@@ -299,13 +299,14 @@ export class ContactChangeService {
 
     // Re-saving the form with the same pending change sends nothing again (review m2): the live link
     // stands. Only a link that was really delivered counts (review R1), so a re-save after a failed
-    // send always sends again.
+    // send always sends again. Only the same admin's link counts (review m-new-5): approval checks
+    // the proposer, so another admin's re-save gets its own link and `issue()` revokes the old one.
     const [live] = await this.userRepo.manager.query<Array<{ metadata: AdminProposalMeta }>>(
       `SELECT metadata FROM auth_tokens
-        WHERE user_id = $1 AND tenant_id = $2 AND purpose = $3
+        WHERE user_id = $1 AND tenant_id = $2 AND purpose = $3 AND created_by_user_id = $4
           AND metadata->>'kind' = 'ADMIN_PROPOSAL' AND metadata->>'sent' = 'true'
           AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at > NOW()`,
-      [userId, tenantId, AuthTokenPurpose.EMAIL_VERIFY],
+      [userId, tenantId, AuthTokenPurpose.EMAIL_VERIFY, actorUserId],
     );
     if (
       live &&
