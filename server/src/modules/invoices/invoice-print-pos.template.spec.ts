@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { InvoiceKind, InvoiceStatus, PaymentMethod } from '@biddaloy/shared';
+import { amountInWords, InvoiceKind, InvoiceStatus, PaymentMethod } from '@biddaloy/shared';
 import { renderInvoicePosHtml } from './invoice-print-pos.template';
 import { Invoice } from './entities/invoice.entity';
 import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
@@ -140,5 +140,83 @@ describe('renderInvoicePosHtml', () => {
     expect(html).toContain('Rahim Uddin');
     expect(html).not.toContain('Karim Uddin');
     expect(html).not.toContain('REG-0002');
+  });
+
+  describe('amount in words', () => {
+    const withPaid = (paid: number) => {
+      const inv = makeInvoice();
+      inv.snapshot.totals.paid = paid;
+      return inv;
+    };
+    // Both thermal widths share one template; check each explicitly.
+    const expectTwoThousandFiveHundred = (w: 'pos58' | 'pos80') => {
+      const html = renderInvoicePosHtml(withPaid(2500), issuer, null, w);
+      expect(html).toContain('Taka Two Thousand Five Hundred only');
+      expect(html).toContain('দুই হাজার পাঁচশত টাকা মাত্র');
+      expect(html).toContain('২,৫০০.০০');
+    };
+    it('pos58: prints the paid total in English and Bangla words', () => {
+      expectTwoThousandFiveHundred('pos58');
+    });
+    it('pos80: prints the paid total in English and Bangla words', () => {
+      expectTwoThousandFiveHundred('pos80');
+    });
+    // Business-critical: the words must describe exactly the figure printed beside them.
+    const expectWordsMatch = (paid: number, figure: string) => {
+      const html = renderInvoicePosHtml(withPaid(paid), issuer, null, 'pos58');
+      expect(html).toContain(amountInWords(paid, 'en'));
+      expect(html).toContain(amountInWords(paid, 'bn'));
+      expect(html).toContain(figure);
+    };
+    it('boundary 0: words match the printed figure', () => {
+      expectWordsMatch(0, '০.০০');
+    });
+    it('boundary 1: words match the printed figure', () => {
+      expectWordsMatch(1, '১.০০');
+    });
+    it('boundary 99: words match the printed figure', () => {
+      expectWordsMatch(99, '৯৯.০০');
+    });
+    it('boundary 100: words match the printed figure', () => {
+      expectWordsMatch(100, '১০০.০০');
+    });
+    it('boundary 1000: words match the printed figure', () => {
+      expectWordsMatch(1000, '১,০০০.০০');
+    });
+    it('boundary 100000: words match the printed figure', () => {
+      expectWordsMatch(100000, '১০০,০০০.০০');
+    });
+    it('boundary 1234567.5: words match the printed figure', () => {
+      expectWordsMatch(1234567.5, '১,২৩৪,৫৬৭.৫০');
+    });
+    it('boundary 0.01: words match the printed figure', () => {
+      expectWordsMatch(0.01, '০.০১');
+    });
+    it('boundary 0.99: words match the printed figure', () => {
+      expectWordsMatch(0.99, '০.৯৯');
+    });
+
+    it('a credit note prints the absolute amount in words', () => {
+      const html = renderInvoicePosHtml(
+        { ...withPaid(2500), kind: InvoiceKind.CREDIT_NOTE } as Invoice,
+        issuer,
+        null,
+        'pos58',
+      );
+      expect(html).toContain('-২,৫০০.০০');
+      expect(html).toContain('Taka Two Thousand Five Hundred only');
+    });
+    // #2399 M1: a bad snapshot total must not 500 the whole print; it just loses the words lines.
+    it('a non-finite paid total still renders, without the words lines', () => {
+      const html = renderInvoicePosHtml(withPaid(Infinity), issuer, null, 'pos58');
+      expect(html).toContain('Sunrise School');
+      expect(html).not.toContain('In words:');
+      expect(html).not.toContain('কথায়:');
+    });
+    it("a guardian's partial view prints its own filtered total", () => {
+      const html = renderInvoicePosHtml(makeInvoice(), issuer, null, 'pos58', ['student-2']);
+      expect(html).toContain(amountInWords(1000, 'en'));
+      expect(html).not.toContain(amountInWords(1900, 'en'));
+    });
   });
 });

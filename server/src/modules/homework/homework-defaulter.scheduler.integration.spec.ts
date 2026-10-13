@@ -33,6 +33,8 @@ describe('HomeworkDefaulterScheduler (integration)', () => {
   let dataSource: DataSource;
   let scheduler: HomeworkDefaulterScheduler;
   let tenantIds: string[];
+  // [TIME-11] Defaulter switch; the sweep skips a school whose switch is off.
+  let notifyDefaulters = true;
   const notify = vi.fn(async (..._args: unknown[]) => undefined);
 
   let sectionId: string;
@@ -54,7 +56,10 @@ describe('HomeworkDefaulterScheduler (integration)', () => {
         provide: SchoolsService,
         useValue: {
           findAll: async () => tenantIds.map((id) => ({ id })),
-          getResolvedSettings: async () => ({ region: { timezone: 'UTC' } }),
+          getResolvedSettings: async () => ({
+            region: { timezone: 'UTC' },
+            homework: { notifyDefaulters },
+          }),
         },
       },
       { provide: HomeworkNoticeService, useValue: { notifyDefaulters: notify } },
@@ -70,6 +75,7 @@ describe('HomeworkDefaulterScheduler (integration)', () => {
   // The global setup resets all tables before every test, so seed per test.
   beforeEach(async () => {
     notify.mockClear();
+    notifyDefaulters = true;
     tenantIds = [TENANT];
     seq += 1000;
     const schoolRepo = dataSource.getRepository(School);
@@ -96,13 +102,11 @@ describe('HomeworkDefaulterScheduler (integration)', () => {
         .getRepository(ClassSection)
         .save({ section_name: 'D', class_id: cls.id, tenant_id: TENANT })
     ).id;
-    const subject = await dataSource
-      .getRepository(Subject)
-      .save({
-        tenant_id: TENANT,
-        name_en: 'DEFMATH',
-        code: `D${String(Date.now()).slice(-8)}${seq}`,
-      });
+    const subject = await dataSource.getRepository(Subject).save({
+      tenant_id: TENANT,
+      name_en: 'DEFMATH',
+      code: `D${String(Date.now()).slice(-8)}${seq}`,
+    });
     homeworkId = (
       await dataSource.getRepository(Homework).save({
         title: 'Defaulter HW',
@@ -202,6 +206,20 @@ describe('HomeworkDefaulterScheduler (integration)', () => {
     await scheduler.process();
 
     expect(notify.mock.calls.filter((c) => (c[0] as { id: string }).id === asg.id)).toHaveLength(0);
+    await cleanup(asg.id);
+  });
+
+  it("[TIME-11] switch off: nobody is notified; switch on: today's behaviour", async () => {
+    const lazy = await student();
+    const asg = await assign({ section_id: sectionId });
+
+    notifyDefaulters = false;
+    await scheduler.process();
+    expect(notify).not.toHaveBeenCalled();
+
+    notifyDefaulters = true;
+    await scheduler.process();
+    expect(notifiedIds()).toContain(lazy.id);
     await cleanup(asg.id);
   });
 });

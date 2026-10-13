@@ -10420,6 +10420,10 @@ export interface components {
         ApplicationsSettingsDto: {
             smsOnDecision?: boolean;
         };
+        HomeworkSettingsDto: {
+            notifyOnAssign?: boolean;
+            notifyDefaulters?: boolean;
+        };
         StudyPlansSettingsDto: {
             statusDeadline?: string;
             reminderTime?: string;
@@ -10469,6 +10473,7 @@ export interface components {
             fees?: components["schemas"]["FeesSettingsDto"];
             evaluations?: components["schemas"]["EvaluationsSettingsDto"];
             applications?: components["schemas"]["ApplicationsSettingsDto"];
+            homework?: components["schemas"]["HomeworkSettingsDto"];
             documents?: components["schemas"]["DocumentsSettingsDto"];
             studyPlans?: components["schemas"]["StudyPlansSettingsDto"];
             attention?: components["schemas"]["AttentionSettingsDto"];

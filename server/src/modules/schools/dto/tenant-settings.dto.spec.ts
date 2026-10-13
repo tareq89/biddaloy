@@ -838,6 +838,25 @@ describe('TenantSettingsDto', () => {
     });
   });
 
+  describe('homework [TIME-11]', () => {
+    const withHomework = (homework: unknown) =>
+      toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, homework });
+
+    it('accepts the two booleans and an empty block', async () => {
+      for (const homework of [{ notifyOnAssign: true, notifyDefaulters: false }, {}]) {
+        const errors = await validate(withHomework(homework), VALIDATION_OPTIONS);
+        expect(errors.find((e) => e.property === 'homework')).toBeUndefined();
+      }
+    });
+
+    it('rejects a string value and an unknown key', async () => {
+      for (const homework of [{ notifyOnAssign: 'yes' }, { notifyEveryone: true }]) {
+        const errors = await validate(withHomework(homework), VALIDATION_OPTIONS);
+        expect(errors.some((e) => e.property === 'homework')).toBe(true);
+      }
+    });
+  });
+
   // `organisation.{shifts,versions,groups}` (33.1.1) — a tenant's own
   // vocabulary for shift/version/group. Same validation on all three lists.
   it('rejects a body containing preset (35.1.2, D37)', async () => {

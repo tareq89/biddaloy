@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HomeworkNoticeService } from './homework-notice.service';
-import { CommunicationStatus, CommunicationTrigger, CommunicationMedium } from '@biddaloy/shared';
+import {
+  CommunicationStatus,
+  CommunicationTrigger,
+  CommunicationMedium,
+  EnrollmentStatus,
+} from '@biddaloy/shared';
 
 const TENANT = 'tenant-1';
 
@@ -42,6 +47,7 @@ describe('HomeworkNoticeService', () => {
   let logRepo: any;
   let queue: any;
   let smsCredit: any;
+  let schoolsService: any;
   let service: HomeworkNoticeService;
 
   beforeEach(() => {
@@ -57,7 +63,13 @@ describe('HomeworkNoticeService', () => {
     queue = { add: vi.fn(async () => undefined) };
     // Unmetered by default: reserveForLog returns no extra job data.
     smsCredit = { reserveForLog: vi.fn(async () => ({})), releaseForLog: vi.fn() };
-    service = new HomeworkNoticeService(studentRepo, logRepo, queue, smsCredit);
+    // Both switches on by default so the existing delivery tests keep their meaning.
+    schoolsService = {
+      getResolvedSettings: vi.fn(async () => ({
+        homework: { notifyOnAssign: true, notifyDefaulters: true },
+      })),
+    };
+    service = new HomeworkNoticeService(studentRepo, logRepo, queue, smsCredit, schoolsService);
   });
 
   // [#2216]
@@ -125,7 +137,11 @@ describe('HomeworkNoticeService', () => {
 
       expect(studentRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { class_section_id: 'section-1', tenant_id: TENANT },
+          where: {
+            class_section_id: 'section-1',
+            tenant_id: TENANT,
+            enrollment_status: EnrollmentStatus.ACTIVE,
+          },
         }),
       );
       expect(logRepo.save).toHaveBeenCalledTimes(1);
@@ -145,7 +161,9 @@ describe('HomeworkNoticeService', () => {
       const single = { ...ASSIGNMENT, section_id: null, student_id: 'student-1' };
       await service.notifyAssignment(single as never, HOMEWORK as never);
       expect(studentRepo.findOne).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'student-1', tenant_id: TENANT } }),
+        expect.objectContaining({
+          where: { id: 'student-1', tenant_id: TENANT, enrollment_status: EnrollmentStatus.ACTIVE },
+        }),
       );
       expect(logRepo.save).toHaveBeenCalledTimes(1);
     });
@@ -178,18 +196,120 @@ describe('HomeworkNoticeService', () => {
       await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
       expect(logRepo.save).toHaveBeenCalledTimes(1);
     });
+
+    it('the single message to a guardian of two students names both students', async () => {
+      const sharedGuardian = guardian();
+      studentRepo.find.mockResolvedValue([
+        student({ id: 's-1', full_name: 'Rahim Uddin', guardians: [sharedGuardian] }),
+        student({ id: 's-2', full_name: 'Karima Uddin', guardians: [sharedGuardian] }),
+      ]);
+      await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
+      expect(logRepo.save).toHaveBeenCalledTimes(1);
+      const saved = logRepo.save.mock.calls[0][0];
+      expect(saved.student_id).toBe('s-1');
+      expect(saved.message_body).toContain('assigned to Rahim Uddin and Karima Uddin');
+    });
+
+    it("a WITHDRAWN student's guardian gets no assignment notice (ACTIVE filter)", async () => {
+      studentRepo.find.mockResolvedValue([]);
+      await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
+      expect(studentRepo.find.mock.calls[0][0].where.enrollment_status).toBe(
+        EnrollmentStatus.ACTIVE,
+      );
+      expect(logRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('a single-student assignment for a student who left sends nothing', async () => {
+      studentRepo.findOne.mockResolvedValue(null);
+      const single = { ...ASSIGNMENT, section_id: null, student_id: 'student-1' };
+      await service.notifyAssignment(single as never, HOMEWORK as never);
+      expect(logRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('two guardians of one student each get one message with that student name', async () => {
+      studentRepo.find.mockResolvedValue([
+        student({
+          guardians: [guardian({ id: 'g-1' }), guardian({ id: 'g-2' })],
+        }),
+      ]);
+      await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
+      const bodies = logRepo.save.mock.calls.map(
+        (c: unknown[]) => (c[0] as { message_body: string }).message_body,
+      );
+      expect(bodies).toHaveLength(2);
+      for (const b of bodies) expect(b).toContain('Rahim Uddin');
+    });
   });
 
   describe('notifyDefaulters', () => {
     it('creates a notice for each defaulting student passed in', async () => {
       await service.notifyDefaulters(ASSIGNMENT as never, HOMEWORK as never, [student()] as never);
       expect(logRepo.save).toHaveBeenCalledTimes(1);
-      expect(logRepo.save.mock.calls[0][0].message_body).toContain('has not been submitted yet');
+      expect(logRepo.save.mock.calls[0][0].message_body).toContain(
+        'has not been submitted yet by Rahim Uddin',
+      );
     });
 
     it('sends nothing for an empty defaulter list', async () => {
       await service.notifyDefaulters(ASSIGNMENT as never, HOMEWORK as never, []);
       expect(logRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  // [TIME-11] Both notices are off unless the school turns them on.
+  describe('school switches', () => {
+    it('switches absent: neither notice writes a log', async () => {
+      schoolsService.getResolvedSettings.mockResolvedValue({});
+
+      await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
+      await service.notifyDefaulters(ASSIGNMENT as never, HOMEWORK as never, [student()] as never);
+
+      expect(logRepo.save).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('each switch is independent', async () => {
+      schoolsService.getResolvedSettings.mockResolvedValue({ homework: { notifyOnAssign: true } });
+      await service.notifyDefaulters(ASSIGNMENT as never, HOMEWORK as never, [student()] as never);
+      expect(logRepo.save).not.toHaveBeenCalled();
+
+      await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
+      expect(logRepo.save).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // [JOBS-09] Bangla school, Bangla text. The title stays as the teacher typed it.
+  describe('locale', () => {
+    beforeEach(() => {
+      schoolsService.getResolvedSettings.mockResolvedValue({
+        region: { locale: 'bn-BD' },
+        homework: { notifyOnAssign: true, notifyDefaulters: true },
+      });
+    });
+
+    // #2399 H1: Bangla name, Bangla date and the Bangla "ও" join, like AbsenceNoticeService.
+    it('assignment notice is in Bangla for bn-BD: Bangla names joined with ও, Bangla date', async () => {
+      const shared = guardian();
+      studentRepo.find.mockResolvedValue([
+        student({ id: 's-1', full_name_bn: 'রহিম উদ্দিন', guardians: [shared] }),
+        student({
+          id: 's-2',
+          full_name: 'Karima Uddin',
+          full_name_bn: 'করিমা উদ্দিন',
+          guardians: [shared],
+        }),
+      ]);
+      await service.notifyAssignment(ASSIGNMENT as never, HOMEWORK as never);
+      expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+        'প্রিয় অভিভাবক, রহিম উদ্দিন ও করিমা উদ্দিন-এর জন্য নতুন বাড়ির কাজ "Chapter 3 exercises" দেওয়া হয়েছে, জমার শেষ তারিখ ৮ জানুয়ারি।',
+      );
+    });
+
+    it('defaulter notice is in Bangla for bn-BD, falling back to the English name when there is no Bangla one', async () => {
+      await service.notifyDefaulters(ASSIGNMENT as never, HOMEWORK as never, [student()] as never);
+      expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+        'প্রিয় অভিভাবক, Rahim Uddin-এর বাড়ির কাজ "Chapter 3 exercises" (শেষ তারিখ ৮ জানুয়ারি) এখনও জমা হয়নি।',
+      );
     });
   });
 });

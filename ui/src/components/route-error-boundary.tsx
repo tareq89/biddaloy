@@ -24,6 +24,7 @@
  * "reload to update" and reports nothing either. Which of the three forks
  * runs is decided in `classifyRouteError` below.
  */
+import { Permission } from '@biddaloy/shared';
 import { useNavigate, type ErrorComponentProps } from '@tanstack/react-router';
 import { Lock, RefreshCw, WifiOff } from 'lucide-react';
 import * as React from 'react';
@@ -33,6 +34,8 @@ import { isTenantSuspendedError } from '../api/errors';
 import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
 import { decodeAccessTokenMemberships } from '../api/session';
 import { clearPersistedTenant } from '../api/tenant-storage';
+import { downloadBackup, useBackupJob, useRequestBackup } from '../hooks/backup';
+import { useHasPermission } from '../hooks/permissions';
 import { useTranslation } from '../i18n';
 import { isSafeSupportUrl } from '../utils/support-url';
 
@@ -287,6 +290,59 @@ export function RouteErrorFallback({
 }
 
 /**
+ * D16: an ended trial can still take a copy of its data. Starts the export, polls
+ * it, and downloads once when it is DONE. Shown only to a role with BACKUP_MANAGE.
+ */
+function TrialExportAction() {
+  const { t } = useTranslation('trial');
+  const request = useRequestBackup();
+  const jobId = request.data?.job_id;
+  // throwOnError false: the app default rethrows a suspended-school 403 into this very
+  // fallback; here a failed poll is just the failed state.
+  const job = useBackupJob(jobId, { throwOnError: false });
+  const [downloadFailed, setDownloadFailed] = React.useState(false);
+  const downloaded = React.useRef<string | null>(null);
+  const status = job.data?.status;
+
+  function download(id: string): void {
+    downloaded.current = id;
+    setDownloadFailed(false);
+    downloadBackup(id).catch(() => setDownloadFailed(true));
+  }
+
+  React.useEffect(() => {
+    if (jobId && status === 'DONE' && downloaded.current !== jobId) download(jobId);
+  }, [jobId, status]);
+
+  const jobFailed = request.isError || job.isError || status === 'FAILED' || status === 'DELETED';
+  const failed = jobFailed || downloadFailed;
+  const busy = !failed && (request.isPending || (jobId !== undefined && status !== 'DONE'));
+  function retry(): void {
+    // Only a failed download of a finished job re-downloads; anything else starts a new export.
+    if (!jobFailed && jobId && status === 'DONE') return download(jobId);
+    downloaded.current = null;
+    setDownloadFailed(false);
+    request.mutate();
+  }
+  return (
+    <>
+      {failed && (
+        <p role="alert" className="text-sm text-destructive">
+          {t('ended.exportFailed', { ns: 'trial' })}
+        </p>
+      )}
+      <Button onClick={failed ? retry : () => request.mutate()} disabled={busy}>
+        {busy
+          ? t('ended.exportPreparing', { ns: 'trial' })
+          : failed
+            ? t('ended.exportRetry', { ns: 'trial' })
+            : t('ended.export', { ns: 'trial' })}
+      </Button>
+    </>
+  );
+}
+
+/**
  * The trial-ended fork, in its own component so only it loads the `trial` and
  * `auth` namespaces: the offline / update / generic forks keep reading `common`
  * alone, and never wait on two more chunks when the network is the problem.
@@ -307,6 +363,7 @@ function TrialEndedState({
   const navigate = useNavigate();
   const { t: tTrial } = useTranslation('trial');
   const { t: tAuth } = useTranslation('auth');
+  const canExport = useHasPermission(Permission.BACKUP_MANAGE);
   const token = getAccessToken();
   // A membership is a (school, role) pair: two roles at the expired school is not another school.
   const active = getActiveTenant();
@@ -335,8 +392,9 @@ function TrialEndedState({
         icon={<Lock aria-hidden="true" />}
       />
       <div className="flex flex-wrap items-center justify-center gap-2">
+        {canExport && <TrialExportAction />}
         {isSafeSupportUrl(supportUrl) && (
-          <Button asChild>
+          <Button asChild variant="outline">
             <a href={supportUrl}>{tTrial('ended.contact')}</a>
           </Button>
         )}

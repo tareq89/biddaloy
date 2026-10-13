@@ -7,15 +7,23 @@ import {
 } from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
+import { downloadBackup } from '../hooks/backup';
 import { i18n } from '../i18n';
 import { cleanupTestState } from '../test';
+import { server } from '../test/msw/server';
 import { renderWithRouter } from '../test/render-with-router';
 
 import { RouteErrorFallback } from './route-error-boundary';
+
+vi.mock('../hooks/backup', async (orig) => ({
+  ...(await orig<typeof import('../hooks/backup')>()),
+  downloadBackup: vi.fn(() => Promise.resolve()),
+}));
 
 vi.mock('../api/sentry', () => ({
   captureRouteError: vi.fn(),
@@ -234,6 +242,133 @@ describe('RouteErrorFallback', () => {
     );
     expect(screen.queryByRole('button', { name: 'Choose another school' })).toBeNull();
     expect(captureRouteError).not.toHaveBeenCalled();
+  });
+
+  it('offers "Download your data" on the trial-ended state to a role with BACKUP_MANAGE, and starts the export', async () => {
+    let posted = 0;
+    server.use(
+      http.post('/api/v1/backup/export', () => {
+        posted += 1;
+        return HttpResponse.json({ job_id: 'job-1' }, { status: 202 });
+      }),
+      http.get('/api/v1/backup/jobs/job-1', () =>
+        HttpResponse.json({ id: 'job-1', status: 'RUNNING' }),
+      ),
+    );
+    renderWithRouter(buildRouteTree(TrialEndedPage), {
+      initialEntries: ['/broken'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Download your data' }));
+
+    await waitFor(() => expect(posted).toBe(1));
+    const preparing = await screen.findByRole('button', { name: 'Preparing your file…' });
+    expect((preparing as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  /** Mounts the trial-ended page as an ADMIN with the export + poll answered by MSW. */
+  function renderTrialAdmin(jobStatus: string, onPost: () => void = () => {}) {
+    server.use(
+      http.post('/api/v1/backup/export', () => {
+        onPost();
+        return HttpResponse.json({ job_id: 'job-1' }, { status: 202 });
+      }),
+      http.get('/api/v1/backup/jobs/job-1', () =>
+        HttpResponse.json({ id: 'job-1', status: jobStatus }),
+      ),
+    );
+    renderWithRouter(buildRouteTree(TrialEndedPage), {
+      initialEntries: ['/broken'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+  }
+
+  it('downloads exactly once when the job reaches DONE', async () => {
+    renderTrialAdmin('DONE');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Download your data' }));
+
+    await waitFor(() => expect(downloadBackup).toHaveBeenCalledWith('job-1'));
+    expect(downloadBackup).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the failed alert and "Try again" when the job FAILED, and Try again posts a new export', async () => {
+    let posted = 0;
+    renderTrialAdmin('FAILED', () => (posted += 1));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Download your data' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('We could not prepare');
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(posted).toBe(2));
+    expect(downloadBackup).not.toHaveBeenCalled();
+  });
+
+  it('treats a DELETED job as failed, not as preparing forever', async () => {
+    renderTrialAdmin('DELETED');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Download your data' }));
+
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Preparing your file…' })).toBeNull();
+  });
+
+  it('shows failed (and stays on this page) when the poll itself is a suspended-school 403', async () => {
+    server.use(
+      http.post('/api/v1/backup/export', () =>
+        HttpResponse.json({ job_id: 'job-1' }, { status: 202 }),
+      ),
+      http.get('/api/v1/backup/jobs/job-1', () =>
+        HttpResponse.json(
+          {
+            statusCode: 403,
+            message: 'This school has been suspended',
+            details: { code: 'TENANT_SUSPENDED' },
+            requestId: 'x',
+          },
+          { status: 403 },
+        ),
+      ),
+    );
+    renderWithRouter(buildRouteTree(TrialEndedPage), {
+      initialEntries: ['/broken'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Download your data' }));
+
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Your trial has ended' })).toBeTruthy();
+  });
+
+  it('retries only the download, with no new export, when the download of a DONE job fails', async () => {
+    let posted = 0;
+    vi.mocked(downloadBackup).mockRejectedValueOnce(new Error('network'));
+    renderTrialAdmin('DONE', () => (posted += 1));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Download your data' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => expect(downloadBackup).toHaveBeenCalledTimes(2));
+    expect(posted).toBe(1);
+  });
+
+  it('shows no "Download your data" button to a TEACHER on the trial-ended state', async () => {
+    renderWithRouter(buildRouteTree(TrialEndedPage), {
+      initialEntries: ['/broken'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Your trial has ended' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Download your data' })).toBeNull();
   });
 
   it('drops a support link that is not https: or mailto:', async () => {

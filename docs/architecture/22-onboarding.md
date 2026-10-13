@@ -120,16 +120,41 @@ stateDiagram-v2
 - An ended trial is a suspension, not a delete (D39). The job sets
   `status = SUSPENDED`, `status_reason = 'TRIAL_EXPIRED'`. `deleted_at` is
   never touched.
-- The admin then sees "your trial has ended, contact us" (D33).
+- The admin then sees "your trial has ended" with a **Download your data**
+  button and a contact link (D33, D16).
 - The warning an admin sees in the attention bar is the `trial.ending` rule
   (WARNING from 7 days out, CRITICAL from 2). See [23-attention.md](23-attention.md).
 - Extend is `PATCH /schools/:id/trial` with `{ days, seat_limit?, reason }`.
   Platform SUPER_ADMIN only, audited. `seat_limit: null` means unlimited.
 
+### What an ended trial can still do
+
+Every request is refused once a trial has ended, with **one exception** (D16):
+the three backup routes marked `@AllowWhenTrialExpired`. An admin can take a
+copy of the data. `ContextGuard` opens them for `SUSPENDED` + `TRIAL_EXPIRED`
+only. A school suspended for any other reason stays fully blocked, and the
+permission check (`BACKUP_MANAGE`) still applies.
+
+```mermaid
+flowchart TD
+  R[Request from a trial-ended school] --> M{Route marked<br/>AllowWhenTrialExpired?}
+  M -- no --> X[403 TENANT_SUSPENDED]
+  M -- yes --> W{Reason is<br/>TRIAL_EXPIRED?}
+  W -- no --> X
+  W -- yes --> P{Has BACKUP_MANAGE?}
+  P -- no --> Y[403]
+  P -- yes --> OK[Allowed]
+```
+
+Example: the admin clicks **Download your data**. The page calls
+`POST /api/v1/backup/export` (202, `{ "job_id": "..." }`), polls
+`GET /api/v1/backup/jobs/<id>` until it is `DONE`, then downloads
+`GET /api/v1/backup/jobs/<id>/download`. `GET /api/v1/students` still returns 403.
+
 ### The support link
 
-Every request is refused once a trial has ended, so the ended screen cannot ask
-the server for the link. The client bundle carries it, set at build time:
+Everything else is refused, so the ended screen cannot ask the server for the
+link. The client bundle carries it, set at build time:
 
 ```text
 SUPPORT_CONTACT_URL=https://example.com/support   # server env; Compose also uses it below

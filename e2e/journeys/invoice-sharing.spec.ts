@@ -84,6 +84,12 @@ test('print, copy the share link, open it unauthenticated, then revoke it', asyn
     await expect(
       freshPage.getByText(t('fees.invoiceDetail.publicReceipt.billed')).first(),
     ).toBeVisible();
+    // SENSE-10: the paid total is also written in words (region language).
+    await expect(
+      freshPage.getByText(
+        new RegExp(`${t('fees.invoiceDetail.publicReceipt.inWords')}:.*(only|মাত্র)`),
+      ),
+    ).toBeVisible();
     await freshContext.close();
   });
 

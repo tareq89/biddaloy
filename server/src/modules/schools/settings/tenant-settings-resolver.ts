@@ -21,6 +21,7 @@ import type {
   AttentionSettings,
   DocumentsSettings,
   ApplicationsSettings,
+  HomeworkSettings,
   EvaluationsSettings,
   RoutineSettings,
   StudyPlansSettings,
@@ -275,6 +276,18 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
       ? { smsOnDecision: storedApplications.smsOnDecision }
       : undefined;
 
+  // [TIME-11] Only the two known booleans pass through; absent = off.
+  const storedHomework = isPlainObject(stored?.homework) ? stored.homework : undefined;
+  const homeworkPicked: HomeworkSettings = {
+    ...(typeof storedHomework?.notifyOnAssign === 'boolean'
+      ? { notifyOnAssign: storedHomework.notifyOnAssign }
+      : {}),
+    ...(typeof storedHomework?.notifyDefaulters === 'boolean'
+      ? { notifyDefaulters: storedHomework.notifyDefaulters }
+      : {}),
+  };
+  const homework = Object.keys(homeworkPicked).length > 0 ? homeworkPicked : undefined;
+
   // [48.1.03] Always present. A hand-edited or restored row must not put junk
   // on a printed certificate, so each field passes only if well-formed.
   const storedDocuments = isPlainObject(stored?.documents) ? stored.documents : undefined;
@@ -305,5 +318,6 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     ...(preset ? { preset } : {}),
     ...(evaluations ? { evaluations } : {}),
     ...(applications ? { applications } : {}),
+    ...(homework ? { homework } : {}),
   };
 }

@@ -297,6 +297,14 @@
     "smsOnDecisionHint": "Only the final decision (approved or rejected) is sent. The in-app notice always goes.",
     "providerMissingWarning": "Decision SMS will not be sent until an SMS company is added in Communication."
   },
+  "homework": {
+    "legend": "Homework",
+    "description": "When guardians get a text about homework. Both are off until you turn them on.",
+    "notifyOnAssign": "Text guardians when homework is assigned",
+    "notifyOnAssignHelp": "Every guardian in the section gets one text when a teacher assigns homework.",
+    "notifyDefaulters": "Text guardians when homework is not submitted",
+    "notifyDefaultersHelp": "Leave off if homework is collected on paper and ticked later."
+  },
   "organisation": {
     "legend": "Shift, version & group",
     "shiftsLabel": "Shifts",

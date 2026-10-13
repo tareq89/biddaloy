@@ -77,3 +77,11 @@ export function amountInWords(amount: number, locale: 'en' | 'bn'): string {
     ? `Taka ${takaWords} and ${under100(paisa, 'en')} Paisa only`
     : `Taka ${takaWords} only`;
 }
+
+/**
+ * For print surfaces: `null` instead of a throw when the amount cannot be spelled (NaN, Infinity,
+ * >= 1e15), so a bad total drops only the words line, never the whole receipt (#2399).
+ */
+export function amountInWordsOrNull(amount: number, locale: 'en' | 'bn'): string | null {
+  return Number.isFinite(amount) && Math.abs(amount) < 1e15 ? amountInWords(amount, locale) : null;
+}

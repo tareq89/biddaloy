@@ -1,3 +1,4 @@
+import { amountInWordsOrNull } from '@biddaloy/shared';
 import { Invoice } from './entities/invoice.entity';
 import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
 import {
@@ -90,7 +91,8 @@ export function renderInvoicePosHtml(
       ${totals.wallet_added ? lineRow('Wallet added', formatAmount(signedAmount(totals.wallet_added, invoice))) : ''}
       ${lineRow('Paid', formatAmount(signedAmount(totals.paid, invoice)), { emphasis: true })}
       ${totals.change ? lineRow('Change', formatAmount(signedAmount(totals.change, invoice))) : ''}
-    </div>`;
+    </div>
+    ${inWordsLines(totals.paid)}`;
 
   const payment = snapshot.payment;
   const paymentLine = `Paid via ${escapeHtml(payment.method)}${payment.reference ? ` &middot; ${escapeHtml(payment.reference)}` : ''}`;
@@ -137,6 +139,7 @@ export function renderInvoicePosHtml(
   .row-left { flex: 1; word-break: break-word; }
   .row-right { white-space: nowrap; }
   .row-emphasis { font-weight: bold; }
+  .in-words { margin-top: 4px; font-size: 11px; }
   .totals { margin-top: 4px; page-break-inside: avoid; }
   .payment-line { margin-top: 4px; }
   .qr-section { text-align: center; page-break-inside: avoid; }
@@ -183,4 +186,13 @@ export function renderInvoicePosHtml(
   <div class="footer">Thank you</div>
 </body>
 </html>`;
+}
+
+/** Both words lines, or nothing when the total cannot be spelled (#2399). */
+function inWordsLines(paid: number): string {
+  const en = amountInWordsOrNull(paid, 'en');
+  const bn = amountInWordsOrNull(paid, 'bn');
+  if (en === null || bn === null) return '';
+  return `<div class="in-words">In words: ${escapeHtml(en)}</div>
+    <div class="in-words">কথায়: ${escapeHtml(bn)}</div>`;
 }

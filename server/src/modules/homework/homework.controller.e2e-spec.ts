@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -7,6 +7,7 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
+import { TENANT_SETTINGS_SCHEMA_VERSION } from '../schools/dto/tenant-settings.dto';
 import { HomeworkGradingMode, UserRole } from '@biddaloy/shared';
 import {
   SEED_TENANT_ID,
@@ -192,5 +193,113 @@ describe('Homework E2E', () => {
         due_date: '2026-01-08',
       })
       .expect(403);
+  });
+
+  // [TIME-11] Guardian SMS on assign is off until the school turns it on.
+  describe('assign notice switch', () => {
+    const settingsUrl = `/api/v1/schools/${TENANT_ID}/settings`;
+    let studentId: string;
+    let guardianId: string;
+
+    const logCount = async (): Promise<number> => {
+      const rows = await dataSource.query(
+        `SELECT COUNT(*)::int AS n FROM communication_logs WHERE student_id = $1`,
+        [studentId],
+      );
+      return rows[0].n;
+    };
+
+    const assignHomework = async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/homework')
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .send({
+          subject_id: subjectId,
+          class_id: SEED_CLASS_1_ID,
+          title: 'Notice switch homework',
+          grading_mode: HomeworkGradingMode.TICK,
+        })
+        .expect(201);
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/homework/${createRes.body.id}/assign`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .send({
+          section_id: MAPPED_SECTION_ID,
+          assigned_date: '2026-01-01',
+          due_date: '2026-01-08',
+        })
+        .expect(201);
+    };
+
+    beforeEach(async () => {
+      await dataSource.query(`UPDATE schools SET settings = settings - 'homework' WHERE id = $1`, [
+        TENANT_ID,
+      ]);
+      studentId = randomUUID();
+      await dataSource.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status, created_at, updated_at)
+         VALUES ($1, 'Notice Student', $2, 1, $3, $4, 'ACTIVE', NOW(), NOW())`,
+        [studentId, `HW-NOTICE-${randomUUID().slice(0, 8)}`, MAPPED_SECTION_ID, TENANT_ID],
+      );
+      const guardian = await dataSource.query(
+        `INSERT INTO guardians (full_name, relationship, phone, tenant_id, preferred_communication, is_primary_contact, created_at, updated_at)
+         VALUES ('Notice Guardian', 'FATHER', '+8801700000077', $1, 'SMS', true, NOW(), NOW())
+         RETURNING id`,
+        [TENANT_ID],
+      );
+      guardianId = guardian[0].id;
+      await dataSource.query(
+        `INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)`,
+        [studentId, guardianId],
+      );
+    });
+
+    // Remove this test's student, guardian and their rows so later specs on the shared
+    // section (roster, defaulters, communication_logs counts) do not see them.
+    afterEach(async () => {
+      await dataSource.query(`DELETE FROM communication_logs WHERE student_id = $1`, [studentId]);
+      await dataSource.query(`DELETE FROM homework_submissions WHERE student_id = $1`, [studentId]);
+      await dataSource.query(`DELETE FROM student_guardians WHERE student_id = $1`, [studentId]);
+      await dataSource.query(`DELETE FROM guardians WHERE id = $1`, [guardianId]);
+      await dataSource.query(`DELETE FROM students WHERE id = $1`, [studentId]);
+    });
+
+    afterAll(async () => {
+      await dataSource.query(`UPDATE schools SET settings = settings - 'homework' WHERE id = $1`, [
+        TENANT_ID,
+      ]);
+    });
+
+    it('settings absent: assign returns 201 and writes no CommunicationLog', async () => {
+      await assignHomework();
+      expect(await logCount()).toBe(0);
+    });
+
+    it('after PATCH { homework: { notifyOnAssign: true } }: assign writes a log', async () => {
+      await supertest(app.getHttpServer())
+        .patch(settingsUrl)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({ version: TENANT_SETTINGS_SCHEMA_VERSION, homework: { notifyOnAssign: true } })
+        .expect(200);
+
+      await assignHomework();
+      expect(await logCount()).toBe(1);
+    });
+
+    it('a TEACHER cannot change the switch (403)', async () => {
+      await supertest(app.getHttpServer())
+        .patch(settingsUrl)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .send({ version: TENANT_SETTINGS_SCHEMA_VERSION, homework: { notifyOnAssign: true } })
+        .expect(403);
+    });
   });
 });

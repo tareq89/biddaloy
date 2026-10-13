@@ -205,6 +205,34 @@ describe('Platform trials E2E (13.3.4)', () => {
     expect(res.body.details.code).toBe('TRIAL_EXPIRED');
   });
 
+  // #2399 A1: an ended trial may still export (D16). A platform suspension on top of it must
+  // close that, and the reserved reason cannot be typed in by hand to open it.
+  it('re-suspending an expired-trial school for another reason closes its backup export', async () => {
+    const id = await newSchool({ trialEnds: new Date(Date.now() - DAY), expired: true });
+    const exportAsAdmin = () =>
+      supertest(app.getHttpServer())
+        .post(`${API}/backup/export`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', id)
+        .set('X-Role', UserRole.ADMIN);
+    const setStatus = (reason: string) =>
+      supertest(app.getHttpServer())
+        .patch(`${API}/schools/${id}/status`)
+        .set('Authorization', `Bearer ${superToken}`)
+        .set('X-Tenant-ID', platformId)
+        .set('X-Role', UserRole.SUPER_ADMIN)
+        .send({ status: 'SUSPENDED', reason });
+
+    await exportAsAdmin().expect(202);
+    await setStatus('TRIAL_EXPIRED').expect(400);
+    await setStatus('Fraud / legal hold').expect(200);
+
+    const res = await exportAsAdmin().expect(403);
+    expect(res.body.details).toEqual({ code: 'TENANT_SUSPENDED' });
+    const [school] = await ds.query(`SELECT status_reason FROM schools WHERE id = $1`, [id]);
+    expect(school.status_reason).toBe('Fraud / legal hold');
+  });
+
   it('refuses ADMIN and tenant-local SUPER_ADMIN with 403', async () => {
     const id = await newSchool({ trialEnds: new Date(Date.now() + DAY) });
     await patchTrial('admin', id, { days: 7, reason: REASON }).expect(403);

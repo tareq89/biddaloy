@@ -1,3 +1,4 @@
+import { amountInWordsOrNull } from '@biddaloy/shared';
 import { Invoice } from './entities/invoice.entity';
 import { Payment } from '../fees/entities/payment.entity';
 import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
@@ -134,6 +135,7 @@ export function renderInvoiceHtml(
   th { background: #f5f5f5; }
   td.num, th.num { text-align: right; }
   td.empty { text-align: center; color: #888; }
+  .in-words { margin-top: 8px; font-size: 13px; text-align: right; }
   .totals { width: 280px; margin-left: auto; margin-top: 12px; font-size: 14px; }
   .totals div { display: flex; justify-content: space-between; padding: 4px 0; }
   .totals .grand-total { font-weight: bold; font-size: 16px; border-top: 2px solid #1a1a1a; margin-top: 4px; padding-top: 8px; }
@@ -200,6 +202,7 @@ export function renderInvoiceHtml(
       <div><span>Discount</span><span>${formatAmount(-Math.abs(snapshot.totals.discount))}</span></div>
       <div class="grand-total"><span>Paid</span><span>${formatAmount(signedAmount(snapshot.totals.paid, invoice))}</span></div>
     </div>
+    ${inWordsBlock(snapshot.totals.paid)}
   </div>
 
   ${
@@ -221,4 +224,12 @@ export function renderInvoiceHtml(
   ${invoice.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(invoice.notes)}</div>` : ''}
 </body>
 </html>`;
+}
+
+/** English + Bangla words, or nothing when the total cannot be spelled (#2399). */
+function inWordsBlock(paid: number): string {
+  const en = amountInWordsOrNull(paid, 'en');
+  const bn = amountInWordsOrNull(paid, 'bn');
+  if (en === null || bn === null) return '';
+  return `<div class="in-words">In words: ${escapeHtml(en)}<br>কথায়: ${escapeHtml(bn)}</div>`;
 }
