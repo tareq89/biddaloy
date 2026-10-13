@@ -398,7 +398,9 @@ export async function publicPost<T>(path: string, body: unknown): Promise<T> {
 }
 
 export interface VerifyEmailResponse {
-  status: 'valid' | 'expired' | 'consumed' | 'revoked' | 'unknown' | 'proposal' | 'declined';
+  /** 'confirm' (D23): approved; a code went to each NEW contact, to send back with 'approve'. */
+  status:
+    'valid' | 'expired' | 'consumed' | 'revoked' | 'unknown' | 'proposal' | 'confirm' | 'declined';
   /** [75.1] Only with status 'proposal': a school's pending change, values MASKED (null = removed). */
   proposal?: { from_school: string; new_email?: string | null; new_phone?: string | null };
 }
@@ -413,11 +415,14 @@ export async function postAuthVerifyEmail(
   token: string,
   /** [75.1] A school's proposal is only shown until the person sends 'approve' or 'decline'. */
   action?: 'approve' | 'decline',
+  /** [75.1, D23] With 'approve': the codes sent to the proposed NEW email/phone. */
+  codes?: { email_code?: string; phone_code?: string },
 ): Promise<VerifyEmailResponse> {
   try {
     const response = await axios.post<VerifyEmailResponse>(`${API_BASE_URL}/auth/verify-email`, {
       token,
       ...(action ? { action } : {}),
+      ...codes,
     });
     return response.data;
   } catch (error) {

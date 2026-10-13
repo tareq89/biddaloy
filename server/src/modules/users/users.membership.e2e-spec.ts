@@ -328,6 +328,8 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
     process.env.NODE_ENV = 'test';
+    // D6: the approval and sign-in endpoints echo the codes they send, so the spec can use them.
+    process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -372,6 +374,7 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
   }, 60000);
 
   afterAll(async () => {
+    delete process.env.ACCOUNT_ACCESS_ECHO_SECRETS;
     await dataSource.query('DELETE FROM user_tenants WHERE user_id = ANY($1)', [ids]);
     await dataSource.query('DELETE FROM refresh_tokens WHERE user_id = ANY($1)', [ids]);
     await app.close();
@@ -423,38 +426,52 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
     expect(row.phone).toBeNull();
   });
 
-  it('approving the proposal changes the phone and the old access token gets 401', async () => {
+  /** The raw link only ever reaches the person's inbox; mint the same token the way the server
+   * did (copying the stored proposal) to drive the public verify-email route. */
+  const proposalLink = async () => {
+    const [live] = await dataSource.query(
+      `SELECT metadata, tenant_id, created_by_user_id FROM auth_tokens
+        WHERE user_id = $1 AND purpose = 'EMAIL_VERIFY' AND revoked_at IS NULL AND consumed_at IS NULL
+          AND metadata->>'kind' = 'ADMIN_PROPOSAL'`,
+      [SHARED_ID],
+    );
+    return (
+      await app.get(AuthTokenService).issue({
+        userId: SHARED_ID,
+        tenantId: live.tenant_id,
+        purpose: AuthTokenPurpose.EMAIL_VERIFY,
+        ttlMs: 3_600_000,
+        createdByUserId: live.created_by_user_id,
+        metadata: live.metadata,
+      })
+    ).raw;
+  };
+  const verifyEmail = (body: object) =>
+    request().post('/api/v1/auth/verify-email').send(body).expect(200);
+
+  // D23 (review M1): approving is consent; the NEW phone must still prove itself with a code.
+  it('approving sends a code to the new phone; only that code applies the change, and old tokens get 401', async () => {
     const oldToken = await login(SHARED_EMAIL);
     await get(oldToken).expect(200);
     await patch(SHARED_ID, { phone: '+8801700000998' });
-    // The raw link only ever reaches the person's inbox; mint the same token the way the
-    // server did (copying the stored proposal) to drive the public verify-email route.
-    const [live] = await dataSource.query(
-      `SELECT metadata, tenant_id, created_by_user_id FROM auth_tokens
-        WHERE user_id = $1 AND purpose = 'EMAIL_VERIFY' AND revoked_at IS NULL AND consumed_at IS NULL`,
-      [SHARED_ID],
-    );
-    const { raw } = await app.get(AuthTokenService).issue({
-      userId: SHARED_ID,
-      tenantId: live.tenant_id,
-      purpose: AuthTokenPurpose.EMAIL_VERIFY,
-      ttlMs: 3_600_000,
-      createdByUserId: live.created_by_user_id,
-      metadata: live.metadata,
-    });
+    const raw = await proposalLink();
 
     // Opening the link only shows the proposal (masked); nothing changes yet.
-    const peek = await request().post('/api/v1/auth/verify-email').send({ token: raw }).expect(200);
+    const peek = await verifyEmail({ token: raw });
     expect(peek.body.status).toBe('proposal');
     expect(peek.body.proposal.new_phone).toBe('+88017••••998');
-    const [before] = await dataSource.query('SELECT phone FROM users WHERE id = $1', [SHARED_ID]);
-    expect(before.phone).not.toBe('+8801700000998');
+
+    const asked = await verifyEmail({ token: raw, action: 'approve' });
+    expect(asked.body.status).toBe('confirm');
+    const [pending] = await dataSource.query('SELECT phone FROM users WHERE id = $1', [SHARED_ID]);
+    expect(pending.phone).not.toBe('+8801700000998');
     await get(oldToken).expect(200);
 
-    const res = await request()
-      .post('/api/v1/auth/verify-email')
-      .send({ token: raw, action: 'approve' })
-      .expect(200);
+    const res = await verifyEmail({
+      token: raw,
+      action: 'approve',
+      phone_code: asked.body.debug.phone_code,
+    });
     expect(res.body.status).toBe('valid');
 
     const [row] = await dataSource.query(
@@ -462,8 +479,47 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
       [SHARED_ID],
     );
     expect(row.phone).toBe('+8801700000998');
-    expect(row.phone_verified_at).toBeNull();
+    expect(row.phone_verified_at).not.toBeNull();
     await get(oldToken).expect(401);
+  });
+
+  // The review's M1 repro: the person asked for one address, a malicious admin typed their own,
+  // and the masked approval page looked the same. Approving must not hand the admin a login.
+  it('a malicious admin cannot redirect sign-in or recovery: an approved but unconfirmed email is never a login', async () => {
+    const ATTACKER = 'jack-2309@evil.test';
+    await patch(SHARED_ID, { email: ATTACKER });
+    const raw = await proposalLink();
+    const asked = await verifyEmail({ token: raw, action: 'approve' });
+    expect(asked.body.status).toBe('confirm');
+    // The code went to the attacker's inbox (echoed here). Without the person's link it is useless.
+    const stolenCode = asked.body.debug.email_code as string;
+
+    const [row] = await dataSource.query('SELECT email FROM users WHERE id = $1', [SHARED_ID]);
+    expect(row.email).toBe(SHARED_EMAIL);
+    // Sign-in by code and password recovery find no account at the attacker's address.
+    const otp = await request()
+      .post('/api/v1/auth/otp/request')
+      .send({ identifier: ATTACKER })
+      .expect(202);
+    expect(otp.body.debug).toBeUndefined();
+    const forgot = await request()
+      .post('/api/v1/auth/forgot-password')
+      .send({ identifier: ATTACKER })
+      .expect(202);
+    expect(forgot.body.debug).toBeUndefined();
+    // Nor does the code the attacker received sign anyone in.
+    const signIn = await request()
+      .post('/api/v1/auth/otp/verify')
+      .send({ identifier: ATTACKER, otp: stolenCode });
+    expect(signIn.status).toBeGreaterThanOrEqual(400);
+    expect(signIn.body.access_token).toBeUndefined();
+    // The person's own address still signs in.
+    await login(SHARED_EMAIL);
+
+    // The person declines once they see the code never reached them.
+    expect((await verifyEmail({ token: raw, action: 'decline' })).body.status).toBe('declined');
+    const [after] = await dataSource.query('SELECT email FROM users WHERE id = $1', [SHARED_ID]);
+    expect(after.email).toBe(SHARED_EMAIL);
   });
 
   it('declining the proposal cancels it: nothing changes and the link is spent', async () => {

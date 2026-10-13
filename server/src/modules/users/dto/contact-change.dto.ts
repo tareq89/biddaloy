@@ -76,9 +76,9 @@ export class ContactChangeRequestResponseDto {
  */
 export class VerifyEmailResponseDto {
   @ApiProperty({
-    enum: ['valid', 'expired', 'consumed', 'revoked', 'unknown', 'proposal', 'declined'],
+    enum: ['valid', 'expired', 'consumed', 'revoked', 'unknown', 'proposal', 'confirm', 'declined'],
     description:
-      "'valid' means the contact was changed; 'proposal' is a school's pending request to show for approval; 'declined' means the person cancelled it; anything else means nothing changed.",
+      "'valid' means the contact was changed; 'proposal' is a school's pending request to show for approval; 'confirm' means the approval was accepted and a 6-digit code went to each NEW contact, to send back with action 'approve' (D23); 'declined' means the person cancelled it; anything else means nothing changed.",
   })
   status: string;
 
@@ -114,4 +114,22 @@ export class VerifyEmailDto {
   @IsOptional()
   @IsIn(['approve', 'decline'])
   action?: 'approve' | 'decline';
+
+  @ApiPropertyOptional({
+    description:
+      "[75.1, D23] With action 'approve': the 6-digit code sent to the proposed NEW email.",
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9০-৯]{6}$/, { message: 'email_code must be a 6-digit code' })
+  email_code?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "[75.1, D23] With action 'approve': the 6-digit code sent to the proposed NEW phone.",
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9০-৯]{6}$/, { message: 'phone_code must be a 6-digit code' })
+  phone_code?: string;
 }

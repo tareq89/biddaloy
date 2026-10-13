@@ -164,7 +164,10 @@ export class AccountAccessController {
     @Body() dto: VerifyEmailDto,
     @Req() request: Request,
   ): Promise<ConfirmEmailResult> {
-    return this.contactChange.confirmEmail(dto.token, requestContext(request), dto.action);
+    return this.contactChange.confirmEmail(dto.token, requestContext(request), dto.action, {
+      email_code: dto.email_code,
+      phone_code: dto.phone_code,
+    });
   }
 }
 
