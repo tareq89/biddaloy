@@ -33,6 +33,9 @@ import { describe, expect, it } from 'vitest';
  *   - a reviewed file that later gets a second, unsafe call (the entry is per
  *     file, not per call)
  *   - non-HTTP outbound traffic: Redis, Postgres, SMTP sockets, BullMQ
+ *   - `stripComments` is not string-aware: a `/*` inside a string (e.g.
+ *     '**\/*.ts') or `//` inside a template (`${a}//${b}`) can swallow code
+ *     after it, hiding a call on that line or in the rest of the file
  *   - code outside `server/src` (`server/test`, other packages)
  * ponytail: per-file guard only; a lint rule banning global `fetch` would be
  * stricter if new callers keep appearing.
@@ -47,7 +50,16 @@ const HELPER = 'modules/communications/providers/shared/pinned-http.ts';
 const PATTERNS: RegExp[] = [
   // not `.fetch(`, and not a method declaration (`private async fetch(`)
   /(?<![.\w$])(?<!(?:async|function)\s+)fetch\(/,
-  /from\s+'(?:undici|axios|got|node-fetch|superagent|ky|needle|@nestjs\/axios)'/,
+  // `globalThis.fetch(...)` and friends
+  /\b(?:globalThis|global|self|window)\.fetch\b/,
+  // bare `fetch` used as a value: `const f = fetch`, `fetch.bind(...)`, `x ?? fetch`
+  /(?:[=:,?(]|\?\?|\|\|)\s*fetch\s*(?:[;,)\n]|\.bind\b)/,
+  /\bfetch\.(?:bind|call|apply)\(/,
+  /from\s+'(?:undici|axios|got|node-fetch|superagent|ky|needle|ws|@nestjs\/axios|@aws-sdk\/client-[\w-]+)'/,
+  // net/tls only when a socket can be opened (`isIP` alone is a pure helper)
+  /import\s+(?!type\b)(?:\*\s+as\s+\w+|\w+|\{[^}]*\b(?:connect|createConnection|Socket)\b[^}]*\})\s+from\s+'(?:node:)?(?:net|tls)'/,
+  /import\(\s*'(?:node:)?(?:https?|http2|net|tls|undici|axios|got|ws|node-fetch)'\s*\)/,
+  /\bnew (?!S3Client\b)\w+Client\(/,
   /import\s+(?!type\b)(?:\*\s+as\s+\w+|\w+|\{[^}]*\b(?:request|get)\b[^}]*\})\s+from\s+'(?:node:)?https?'/,
   /require\('(?:node:)?(?:https?|http2|axios|got)'\)/,
   /\b(?:https?|http2)\.(?:request|get)\(/,
@@ -143,6 +155,13 @@ describe('outbound HTTP guard', () => {
     expect(matches("import type { IncomingMessage } from 'http';")).toBe(false);
     expect(matches('await this.fetch(country, year)')).toBe(false);
     expect(matches('private async fetch(id: string) {}')).toBe(false);
+    expect(matches('await globalThis.fetch(u)')).toBe(true);
+    expect(matches('const f = fetch;')).toBe(true);
+    expect(matches('const f = fetch.bind(globalThis);')).toBe(true);
+    expect(matches("const h = await import('node:https');")).toBe(true);
+    expect(matches("import { isIP } from 'node:net';")).toBe(false);
+    expect(matches("import { connect } from 'node:net';")).toBe(true);
+    expect(matches("import { SESClient } from '@aws-sdk/client-ses';")).toBe(true);
     expect(matches('// used with fetch() and an axios client\nconst a = 1;')).toBe(false);
     expect(matches('/* fetch(x) */ const a = 1;')).toBe(false);
     expect(matches("const u = 'https://a.b'; await fetch(u)")).toBe(true);

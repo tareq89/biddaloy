@@ -201,6 +201,9 @@ sets its own `Cache-Control` replaces the default:
 | `index.html`, `sw.js`                                          | `no-cache` (revalidated every load)              |
 | `/assets/*` (hashed)                                           | `public, max-age=31536000, immutable` (nginx)    |
 
+The immutable `/assets/*` caching comes from nginx only; Nest's own static
+serving does not set it, so it holds only behind nginx.
+
 There is deliberately no `Vary: Authorization`: the PWA caches API responses
 by its own key and the header changes every token refresh.
 
