@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, IsNull, Repository } from 'typeorm';
 import { isUUID } from 'class-validator';
@@ -144,6 +144,49 @@ export class TeacherScopeService {
     if (scope === null) return [];
     if (scope !== RoleScope.ASSIGNED_SECTIONS) return null;
     return this.sectionIds(input);
+  }
+
+  /** Ids of live students in the caller's visible sections; `null` = no extra filter (non-teacher roles). */
+  async scopedStudentIds(input: {
+    role: string;
+    userId: string;
+    tenantId: string;
+  }): Promise<string[] | null> {
+    const scope = await this.sectionScope(input);
+    if (scope === null) return null;
+    if (scope.length === 0) return [];
+    const rows = await this.studentRepo
+      .createQueryBuilder('st')
+      .select('st.id', 'id')
+      .where('st.tenant_id = :tenantId', { tenantId: input.tenantId })
+      .andWhere('st.deleted_at IS NULL')
+      .andWhere('st.class_section_id IN (:...scope)', { scope })
+      .getRawMany<{ id: string }>();
+    return rows.map((r) => r.id);
+  }
+
+  /** 404 unless the guardian is linked to a live student in a visible section. No-op when unscoped. */
+  async assertCanSeeGuardian(input: {
+    role: string;
+    userId: string;
+    tenantId: string;
+    guardianId: string;
+  }): Promise<void> {
+    const scope = await this.sectionScope(input);
+    if (scope === null) return;
+    const ok =
+      scope.length > 0 &&
+      isUUID(input.guardianId) &&
+      (
+        await this.studentRepo.manager.query(
+          `SELECT 1 FROM student_guardians sg
+             JOIN students st ON st.id = sg.student_id AND st.tenant_id = $1 AND st.deleted_at IS NULL
+             JOIN guardians g ON g.id = sg.guardian_id AND g.tenant_id = $1 AND g.deleted_at IS NULL
+            WHERE sg.guardian_id = $2 AND st.class_section_id = ANY($3::uuid[]) LIMIT 1`,
+          [input.tenantId, input.guardianId, scope],
+        )
+      ).length > 0;
+    if (!ok) throw new NotFoundException('Guardian not found');
   }
 
   /** 403 unless the student's current section is in the caller's scope (missing student = 403 too). */

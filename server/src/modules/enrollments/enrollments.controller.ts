@@ -26,7 +26,7 @@ import { requestContext } from '../../common/request-context.util';
 import { EnrollmentService } from './enrollments.service';
 import { CreateEnrollmentDto, UpdateEnrollmentDto } from './dto/enrollments.dto';
 import { Enrollment } from '../students/entities/enrollment.entity';
-import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
+import { Permission, UserRole, JwtPayload, RoleScope, roleScope } from '@biddaloy/shared';
 
 @ApiTags('enrollments')
 @ApiTenantAuth()
@@ -45,8 +45,10 @@ export class EnrollmentController {
     userId: string,
     studentId: string,
   ) {
+    const scope = roleScope(tenant.role);
+    if (scope === RoleScope.TENANT) return;
     if (
-      tenant.role === UserRole.TEACHER &&
+      scope !== RoleScope.ASSIGNED_SECTIONS ||
       !(await teacherCanSeeStudent(this.dataSource.manager, {
         userId,
         tenantId: tenant.id,

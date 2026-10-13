@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { UserRole, isGuardianRole } from '@biddaloy/shared';
+import { RoleScope, UserRole, isGuardianRole, roleScope } from '@biddaloy/shared';
 import { Student } from './entities/student.entity';
 import { teacherCanSeeStudent } from '../classes/teacher-scope.service';
 
@@ -24,9 +24,11 @@ import { teacherCanSeeStudent } from '../classes/teacher-scope.service';
  * linked to a student in tenant B, but calls with `X-Tenant-ID: A`, matches
  * nothing here: the linkage lookup is scoped to A.
  *
- * Staff roles pass straight through (`assertLinked` is a no-op) — their
- * access is already decided by the route's `@Roles` list plus the service
- * layer's own tenant scoping, and staff are not "linked" to anyone.
+ * Tenant-scope staff roles pass straight through (`assertLinked` is a no-op) —
+ * their access is already decided by the route's `@Roles` list plus the service
+ * layer's own tenant scoping. A TEACHER (assigned-sections scope) is limited to
+ * students in their current-year sections, and an unknown role sees nothing;
+ * both get 404 (Epic 75 D2/D13).
  *
  * Do not re-implement this check in a controller. Before [5.1] it lived
  * inline in `students.controller.ts`; every widened family route now calls
@@ -130,8 +132,10 @@ export class FamilyAccessService {
     const qb = this.linkedStudentsQuery(role, userId, tenantId);
     if (!qb) {
       // Epic 75 D2/D13: a TEACHER sees only students in their current-year sections; a miss is 404.
+      const scope = roleScope(role);
+      if (scope === RoleScope.TENANT) return;
       if (
-        role === UserRole.TEACHER &&
+        scope !== RoleScope.ASSIGNED_SECTIONS ||
         !(await teacherCanSeeStudent(this.studentRepo.manager, { userId, tenantId, studentId }))
       ) {
         throw new NotFoundException('Student not found');
