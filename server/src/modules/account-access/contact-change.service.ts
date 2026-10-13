@@ -200,27 +200,15 @@ export class ContactChangeService {
   }
 
   /**
-   * [75.1, D3/D23] A school admin asks to change the email/phone of a person who
-   * also belongs to another school. Nothing is written to `users`: the person
-   * gets a link at their CURRENT contact (never the proposed one) that shows
-   * the MASKED new value; the other schools' admins get a notice without it.
-   * The link only opens a page: the person must press Approve (`confirmEmail`
-   * with action 'approve') or Decline.
+   * [75.1] The checks that can reject a proposal (NO_CONTACT, value already taken), with no side
+   * effects. The controller runs this BEFORE saving the other fields, so a rejected change writes nothing.
    */
-  async proposeByAdmin(
-    input: {
-      userId: string;
-      tenantId: string;
-      actorUserId: string;
-      email?: string | null;
-      phone?: string | null;
-    },
-    context: RequestContext,
-  ): Promise<void> {
-    const { userId, tenantId, actorUserId, email: newEmail, phone: newPhone } = input;
+  async assertCanPropose(
+    userId: string,
+    newEmail: string | null | undefined,
+    newPhone: string | null | undefined,
+  ) {
     const user = await this.userRepo.findOneOrFail({ where: { id: userId } });
-    const field = fieldOf(newEmail, newPhone);
-
     // Approval goes to what the person has today: verified email, else verified phone, else any.
     const recipient =
       user.email && user.email_verified_at
@@ -258,6 +246,30 @@ export class ContactChangeService {
         throw new ConflictException('That phone number is already in use');
       }
     }
+    return { user, recipient };
+  }
+
+  /**
+   * [75.1, D3/D23] A school admin asks to change the email/phone of a person who
+   * also belongs to another school. Nothing is written to `users`: the person
+   * gets a link at their CURRENT contact (never the proposed one) that shows
+   * the MASKED new value; the other schools' admins get a notice without it.
+   * The link only opens a page: the person must press Approve (`confirmEmail`
+   * with action 'approve') or Decline.
+   */
+  async proposeByAdmin(
+    input: {
+      userId: string;
+      tenantId: string;
+      actorUserId: string;
+      email?: string | null;
+      phone?: string | null;
+    },
+    context: RequestContext,
+  ): Promise<void> {
+    const { userId, tenantId, actorUserId, email: newEmail, phone: newPhone } = input;
+    const { user, recipient } = await this.assertCanPropose(userId, newEmail, newPhone);
+    const field = fieldOf(newEmail, newPhone);
 
     // Latest request from this school wins (`issue()` revokes its earlier ADMIN_PROPOSAL link only).
     const { raw } = await this.authTokens.issue({
@@ -404,7 +416,18 @@ export class ContactChangeService {
         change.phone = meta.new_phone;
         change.phone_verified_at = null;
       }
-      await manager.getRepository(User).update({ id: userId }, change);
+      try {
+        await manager.getRepository(User).update({ id: userId }, change);
+      } catch (err) {
+        // Another user took the value after the check above: 409, and the rollback keeps the link.
+        if (
+          err instanceof QueryFailedError &&
+          (err as unknown as { code?: string }).code === '23505'
+        ) {
+          throw new ConflictException('That email address or phone number is already in use');
+        }
+        throw err;
+      }
       // Last: a conflict above rolls back and leaves the link usable.
       await this.authTokens.consume(tokenId, manager);
       await this.auditService.record(

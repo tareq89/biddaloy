@@ -429,7 +429,10 @@ export class UserController {
     // [75.1] A shared person's email/phone is only proposed; they approve it from their current contact.
     const proposed = await this.userService.sharedIdentifierChanges(id, dto, tenant.id);
     const { email: _email, phone: _phone, ...rest } = dto;
-    // Non-contact fields are saved first: if that fails, nobody has been messaged yet.
+    // Checks that can reject the proposal run before anything is saved: a rejected change writes nothing.
+    if (proposed)
+      await this.contactChangeService.assertCanPropose(id, proposed.email, proposed.phone);
+    // Non-contact fields are saved before anything is sent.
     const user = await this.userService.update(id, proposed ? rest : dto, tenant.id, jwt.sub);
     if (proposed) {
       await this.contactChangeService.proposeByAdmin(

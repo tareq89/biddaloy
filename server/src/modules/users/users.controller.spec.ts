@@ -35,7 +35,10 @@ describe('UserController', () => {
 
   const TENANT = { id: 'tenant-1', role: UserRole.ADMIN };
   const REQUEST = { headers: {}, ip: '127.0.0.1' } as any;
-  let contactChangeService: { proposeByAdmin: ReturnType<typeof vi.fn> };
+  let contactChangeService: {
+    proposeByAdmin: ReturnType<typeof vi.fn>;
+    assertCanPropose: ReturnType<typeof vi.fn>;
+  };
   const JWT = { sub: 'admin-1', email: null, phone: null, memberships: [], jti: 'jti-1' };
 
   beforeEach(() => {
@@ -67,7 +70,10 @@ describe('UserController', () => {
     recoveryService = {
       adminReset: vi.fn(),
     };
-    contactChangeService = { proposeByAdmin: vi.fn().mockResolvedValue(undefined) };
+    contactChangeService = {
+      proposeByAdmin: vi.fn().mockResolvedValue(undefined),
+      assertCanPropose: vi.fn().mockResolvedValue(undefined),
+    };
     guardianProvisioningService = {
       preview: vi.fn(),
       dispatch: vi.fn(),
@@ -280,6 +286,24 @@ describe('UserController', () => {
         left_at: null,
         invitation_status: 'NONE',
       });
+    });
+
+    it('[75.1] a rejected proposal (NO_CONTACT / value taken) saves nothing: update() never runs', async () => {
+      userService.sharedIdentifierChanges.mockResolvedValue({ phone: '+8801712345678' });
+      contactChangeService.assertCanPropose.mockRejectedValue(new Error('NO_CONTACT'));
+
+      await expect(
+        controller.updateUser(
+          'u1',
+          { full_name: 'New', phone: '+8801712345678' } as any,
+          TENANT,
+          JWT as any,
+          REQUEST,
+        ),
+      ).rejects.toThrow('NO_CONTACT');
+
+      expect(userService.update).not.toHaveBeenCalled();
+      expect(contactChangeService.proposeByAdmin).not.toHaveBeenCalled();
     });
 
     it('[75.1] a shared person: email/phone go to proposeByAdmin, only the rest is updated', async () => {

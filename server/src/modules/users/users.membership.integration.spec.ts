@@ -10,6 +10,7 @@ import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
+import type { TestingModule } from '@nestjs/testing';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { UserService, TeacherService, reviveMembership, ROLE_SWAP_ENDED } from './users.service';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
@@ -31,6 +32,7 @@ import { usersTab } from '../workbook/tabs/people/users.tab';
  */
 describe('UserService membership leave / remove / restore (integration)', () => {
   const denylist = { revokeUserTokensIssuedBefore: vi.fn().mockResolvedValue(undefined) };
+  let module: TestingModule;
   let service: UserService;
   let dataSource: DataSource;
   let userTenantRepo: Repository<UserTenant>;
@@ -38,7 +40,7 @@ describe('UserService membership leave / remove / restore (integration)', () => 
   let ADMIN_ACTOR: string;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [
+    module = await createTestModule(ALL_ENTITIES, [
       UserService,
       TeacherService,
       StaffProfilesService,
@@ -131,6 +133,26 @@ describe('UserService membership leave / remove / restore (integration)', () => 
 
     await expect(service.remove(adminId, tenant, ADMIN_ACTOR)).rejects.toThrow(ConflictException);
     expect(await userTenantRepo.count({ where: { tenant_id: tenant, user_id: adminId } })).toBe(1);
+  });
+
+  // [75.2] N1: "membership ended => tokens dead" even if the DB cut-off step fails.
+  it('removal still sets the Redis cut-off when the DB cut-off throws (and the error surfaces)', async () => {
+    const tenant = await newSchool();
+    await addMember(tenant, UserRole.ADMIN);
+    const memberId = await addMember(tenant, UserRole.TEACHER);
+    denylist.revokeUserTokensIssuedBefore.mockClear();
+    const cutOff = vi
+      .spyOn(module.get(SessionCutoffService), 'cutOff')
+      .mockRejectedValueOnce(new Error('db down'));
+
+    await expect(service.remove(memberId, tenant, ADMIN_ACTOR)).rejects.toThrow('db down');
+
+    expect(denylist.revokeUserTokensIssuedBefore).toHaveBeenCalledWith(
+      memberId,
+      expect.any(Date),
+      900_000,
+    );
+    cutOff.mockRestore();
   });
 
   it('an admin may leave when another admin remains', async () => {
