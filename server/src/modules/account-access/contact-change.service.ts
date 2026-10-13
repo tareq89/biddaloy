@@ -27,7 +27,7 @@ import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { TenantStatusService } from '../schools/tenant-status.service';
 import { normalizeEmail, normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { OTP_REDIS } from './otp.service';
-import { OtpService, type OtpPurpose } from './otp.service';
+import { OtpService, TooManyRequestsException, type OtpPurpose } from './otp.service';
 import { AuthTokenService, EMAIL_VERIFY_TTL_MS } from './auth-token.service';
 import type { AuthToken } from './entities/auth-token.entity';
 import type { ContactField } from './account-access-templates';
@@ -561,10 +561,17 @@ export class ContactChangeService {
       const user = await this.userRepo.findOne({ where: { id: userId } });
       const outcome = await this.proposalOutcome(this.userRepo.manager, user, token, meta);
       if (outcome !== 'valid') return this.refuse(outcome, tokenId);
-      // Every code is issued before any is delivered, so a cooldown/cap 429 on one value never
-      // leaves a code already sent to the other. Bound to this link: a code sent for another
-      // proposal or flow never confirms this one.
-      // ponytail: a 429 on the second value still spends the first value's 60 s cooldown.
+      // Review m-r3-1: every value's cooldown and cap is checked before any code is (re)issued.
+      // `request()` replaces the stored code, so a 429 on the second value must not wipe the
+      // first value's code the person already holds. Then every code is issued before any is
+      // delivered. Bound to this link: a code sent for another proposal or flow never confirms it.
+      // ponytail: check-then-issue is not atomic; a concurrent request for the same value between
+      // the two can still 429 the second one. One multi-key Lua script if that ever matters.
+      for (const { value } of toSend) {
+        if (!(await this.otpService.canRequest(PROPOSAL_OTP, value))) {
+          throw new TooManyRequestsException();
+        }
+      }
       const issued: Array<{ field: 'email' | 'phone'; value: string; code: string }> = [];
       for (const { field, value } of toSend) {
         issued.push({
