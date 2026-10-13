@@ -15,6 +15,7 @@ import {
 import { getActiveTenant } from '@biddaloy/ui/api';
 import { ConfirmDialog, Skeleton } from '@biddaloy/ui/components';
 import {
+  useAllStudents,
   useCertificatePreview,
   useCertificateRegister,
   useCertificateTemplates,
@@ -22,7 +23,6 @@ import {
   useLifecycleEvents,
   useSchoolSettings,
   useStudent,
-  useStudents,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell, StepIndicator, useWizardShellStep } from '@biddaloy/ui/shells';
@@ -37,6 +37,7 @@ import { KindStep } from './kind-step';
 import { PreviewStep, PrintStep, usePrintRun, type IneligibleStudent } from './print-step';
 
 const STEP_IDS = ['kind', 'details', 'preview', 'print'] as const;
+const BULK_MAX_STUDENTS = 1000;
 type StepId = (typeof STEP_IDS)[number];
 
 export interface IssueCertificateModalProps {
@@ -178,22 +179,19 @@ export function IssueCertificateModal({
   const classId = student?.class_section?.class_id;
   const className = student?.class_section?.class?.name ?? '';
   const wantsGraduated = kind === DocumentKind.TESTIMONIAL;
-  const classActive = useStudents(
-    { ...(classId ? { class_id: classId } : {}), enrollment_status: 'ACTIVE', limit: 100 },
+  const classActive = useAllStudents(
+    { ...(classId ? { class_id: classId } : {}), enrollment_status: 'ACTIVE' },
     { enabled: bulk && Boolean(classId) },
   );
-  const classGraduated = useStudents(
-    { ...(classId ? { class_id: classId } : {}), enrollment_status: 'GRADUATED', limit: 100 },
+  const classGraduated = useAllStudents(
+    { ...(classId ? { class_id: classId } : {}), enrollment_status: 'GRADUATED' },
     { enabled: bulk && Boolean(classId) && wantsGraduated },
   );
   const [excluded, setExcluded] = React.useState<ReadonlySet<string>>(new Set());
   const [ineligible, setIneligible] = React.useState<IneligibleStudent[]>([]);
   const classmates = React.useMemo(
     () =>
-      [
-        ...(classActive.data?.data ?? []),
-        ...(wantsGraduated ? (classGraduated.data?.data ?? []) : []),
-      ].sort(
+      [...(classActive.data ?? []), ...(wantsGraduated ? (classGraduated.data ?? []) : [])].sort(
         (a, b) =>
           a.class_section.section_name.localeCompare(b.class_section.section_name) ||
           a.roll_number - b.roll_number,
@@ -202,13 +200,9 @@ export function IssueCertificateModal({
   );
   const bulkLoading =
     bulk && (classActive.isPending || (wantsGraduated && classGraduated.isPending));
-  // The list call is one page of 1000 (the server has no cap); a bigger class must not be issued short.
-  const bulkTooMany =
-    bulk &&
-    !bulkLoading &&
-    ((classActive.data?.total ?? 0) > (classActive.data?.data.length ?? 0) ||
-      (wantsGraduated &&
-        (classGraduated.data?.total ?? 0) > (classGraduated.data?.data.length ?? 0)));
+  // `useAllStudents` pages the whole class (the server caps one page at 100). Above
+  // BULK_MAX_STUDENTS, the old one-page ceiling, bulk is refused rather than run as one huge job.
+  const bulkTooMany = bulk && !bulkLoading && classmates.length > BULK_MAX_STUDENTS;
   // The student whose page this is always stays in: a TC or character certificate is often for
   // someone who already left, so they are not among the class's ACTIVE students.
   const subjectIds = (

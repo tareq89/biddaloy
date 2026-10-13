@@ -10,7 +10,7 @@ import { apiClient } from '../api/client';
 import { offlineCachedQueryFn } from '../api/offline-cache';
 import type { components } from '../api/schema';
 
-import { createEntityKeys } from './query-keys';
+import { createEntityKeys, fetchAllPages } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
 export type Student = components['schemas']['Student'];
@@ -106,6 +106,33 @@ export function studentsQueryOptions(filters: StudentListFilters = {}) {
  */
 export function useStudents(filters: StudentListFilters = {}, { enabled = true } = {}) {
   return useQuery({ ...studentsQueryOptions(filters), enabled });
+}
+
+/** [75.14] Every student matching `filters`, not one page: the server caps
+ * `limit` at 100, so a whole-class action (bulk certificates, program
+ * enrol "select all", the fines preview's name lookup) pages through
+ * `GET /students` with `fetchAllPages`. Same endpoint, filters and
+ * tenant/teacher-section scoping as `useStudents`. Under `studentKeys.lists()`
+ * so student mutations invalidate it; skips the offline cache, like
+ * `allClassesQueryOptions`. */
+export function allStudentsQueryOptions(filters: Omit<StudentListFilters, 'page' | 'limit'> = {}) {
+  return queryOptions({
+    queryKey: [...studentKeys.lists(), 'all-pages', filters] as const,
+    queryFn: ({ signal }) =>
+      fetchAllPages((page) =>
+        apiClient
+          .get<PaginatedStudents>('/students', { params: { ...filters, limit: 100, page }, signal })
+          .then((res) => res.data),
+      ),
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useAllStudents(
+  filters: Omit<StudentListFilters, 'page' | 'limit'> = {},
+  { enabled = true } = {},
+) {
+  return useQuery({ ...allStudentsQueryOptions(filters), enabled });
 }
 
 /**

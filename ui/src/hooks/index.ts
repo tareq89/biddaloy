@@ -180,6 +180,7 @@ export {
   type UpdateTeacherInput,
 } from './teachers';
 export {
+  allStudentsQueryOptions,
   myStudentsQueryOptions,
   STUDENT_PHOTO_CHUNK_SIZE,
   studentIdsQueryOptions,
@@ -189,6 +190,7 @@ export {
   studentsQueryOptions,
   useBulkUploadStudentPhotos,
   useCreateStudent,
+  useAllStudents,
   useDeleteStudent,
   useMyStudents,
   useStudent,

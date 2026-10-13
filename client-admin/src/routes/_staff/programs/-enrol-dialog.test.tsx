@@ -37,6 +37,9 @@ const STUDENTS = {
     { id: 'student-2', full_name: 'Bilal Hasan' },
   ],
   total: 2,
+  page: 1,
+  limit: 100,
+  totalPages: 1,
 };
 
 async function renderDialog(props: Partial<EnrolDialogProps> = {}) {
@@ -171,6 +174,44 @@ describe('EnrolDialog', () => {
     await renderDialog({ studentIdPrefill: 'student-1' });
     await screen.findByRole('heading', { level: 1, name: 'Enrol students' });
     expect(screen.getByRole('button', { name: 'Enrol' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('"Select all" on a class of 150 covers both pages of students (75.14)', async () => {
+    const user = userEvent.setup();
+    let requestBody: { student_ids: string[] } | undefined;
+    const pages: string[] = [];
+    const { onEnrolled } = await renderDialog();
+    server.use(
+      http.get('/api/v1/students', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        const page = Number(params.get('page'));
+        pages.push(`${page}@${params.get('limit')}`);
+        const ids = Array.from({ length: page === 1 ? 100 : 50 }, (_, i) => (page - 1) * 100 + i);
+        return HttpResponse.json({
+          data: ids.map((n) => ({ id: `big-${n}`, full_name: `Student ${n}` })),
+          total: 150,
+          page,
+          limit: 100,
+          totalPages: 2,
+        });
+      }),
+      http.post('/api/v1/programs/:id/enrollments', async ({ request }) => {
+        requestBody = (await request.json()) as { student_ids: string[] };
+        return HttpResponse.json({ enrolled: 150, skipped: 0 });
+      }),
+    );
+
+    await user.click(screen.getByRole('combobox', { name: 'Class' }));
+    await user.click(await screen.findByRole('option', { name: 'Class 5' }));
+    await screen.findByText('Student 149');
+    await user.click(screen.getByRole('button', { name: 'Select all' }));
+    await user.click(screen.getByRole('button', { name: 'Enrol' }));
+
+    await waitFor(() => expect(onEnrolled).toHaveBeenCalled());
+    expect([...pages].sort()).toEqual(['1@100', '2@100']);
+    expect(new Set(requestBody?.student_ids)).toEqual(
+      new Set(Array.from({ length: 150 }, (_, n) => `big-${n}`)),
+    );
   });
 
   it('treats swapping the prefilled student for another as a change', async () => {

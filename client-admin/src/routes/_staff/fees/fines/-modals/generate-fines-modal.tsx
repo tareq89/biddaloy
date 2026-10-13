@@ -7,7 +7,7 @@
  *
  * The preview response (`FineSweepPreviewResultDto`) carries only
  * `student_id`, not a name — this modal resolves display names itself via
- * `useStudentSearch` over the same class/section scope, same trick
+ * `useAllStudents` (every page) over the same class/section scope, same trick
  * `generate-fees-modal.tsx` uses for fee-structure names. See the plan
  * comment on #1119.
  */
@@ -30,12 +30,12 @@ import {
 import {
   ApprovalCancelledError,
   useAcademicYears,
+  useAllStudents,
   useClasses,
   useClassSections,
   useFeeStructures,
   useGenerateFines,
   usePreviewFineGeneration,
-  useStudentSearch,
   type FineSweepGenerateInput,
   type FineSweepPreviewResult,
 } from '@biddaloy/ui/hooks';
@@ -101,11 +101,10 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
 
   // Resolves student names for the preview table — same scope the preview
   // itself ran against.
-  const studentsQuery = useStudentSearch(
+  const studentsQuery = useAllStudents(
     {
       ...(classId !== ALL_VALUE ? { class_id: classId } : {}),
       ...(sectionId !== ALL_VALUE ? { section_id: sectionId } : {}),
-      limit: 100, // ponytail: server caps limit at 100; a preview over 100 students needs paging
     },
     { enabled: preview !== null },
   );
@@ -127,7 +126,7 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
   }, [fineTypesQuery.data]);
   const studentNames = React.useMemo(() => {
     const map = new Map<string, string>();
-    for (const student of studentsQuery.data?.data ?? []) map.set(student.id, student.full_name);
+    for (const student of studentsQuery.data ?? []) map.set(student.id, student.full_name);
     return map;
   }, [studentsQuery.data]);
 
