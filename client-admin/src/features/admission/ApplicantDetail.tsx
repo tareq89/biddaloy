@@ -54,6 +54,8 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
   const deleteDocuments = useDeleteApplicantDocuments(applicantId);
   const [deleteDocsOpen, setDeleteDocsOpen] = React.useState(false);
   const [openFailed, setOpenFailed] = React.useState(false);
+  // The document being fetched: its Open button is disabled so a double click opens one tab.
+  const [openingKey, setOpeningKey] = React.useState<string | null>(null);
 
   const [admitOpen, setAdmitOpen] = React.useState(false);
   const [evaluateOpen, setEvaluateOpen] = React.useState(false);
@@ -195,11 +197,14 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
                         <Button
                           variant="ghost"
                           size="sm"
+                          loading={openingKey === document.storage_key}
+                          disabled={openingKey !== null}
                           onClick={() => {
                             setOpenFailed(false);
-                            openApplicantDocument(applicant.id, document.type).catch(() =>
-                              setOpenFailed(true),
-                            );
+                            setOpeningKey(document.storage_key);
+                            openApplicantDocument(applicant.id, document.type)
+                              .catch(() => setOpenFailed(true))
+                              .finally(() => setOpeningKey(null));
                           }}
                         >
                           {t('detail.openDocument')}
@@ -210,7 +215,7 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
                 </ul>
               )}
               {openFailed ? (
-                <p role="alert" className="mt-2 text-danger">
+                <p role="alert" className="text-danger mt-2">
                   {t('detail.openDocumentError')}
                 </p>
               ) : null}
