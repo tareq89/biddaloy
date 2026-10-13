@@ -66,6 +66,7 @@ export class User {
 
   /** [75.2] Access tokens issued before this moment are refused. NULL = no cut-off.
    * select:false: only JwtStrategy reads it, never an API response. */
+  @ApiHideProperty()
   @Column({ type: 'timestamptz', nullable: true, select: false })
   tokens_valid_after: Date | null;
 
