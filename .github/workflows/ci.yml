@@ -68,6 +68,8 @@ jobs:
               - 'scripts/coverage-offenders.mjs'
               - 'scripts/coverage-delta.mjs'
               - 'scripts/bundle-delta.mjs'
+              - 'scripts/ci-audit.js'
+              - 'scripts/ci-audit.spec.mjs'
               - 'scripts/ci-timings.mjs'
               - 'scripts/ci-timings.spec.mjs'
               - 'scripts/ci-timings-trend.mjs'
@@ -1038,6 +1040,9 @@ jobs:
 
       - name: yarn audit (fails on new high/critical, ignores allowlisted advisories)
         run: node scripts/ci-audit.js
+
+      - name: yarn audit, production deps (fails on new moderate+)
+        run: node scripts/ci-audit.js --production
 
   # [15.1] "tests got slower" needs to be a graph, not a feeling — this
   # publishes wall/work/gap, a per-job budget verdict, and the top-10

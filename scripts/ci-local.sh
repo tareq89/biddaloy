@@ -121,6 +121,8 @@ CI_PATHS_FRONTEND=(
   'scripts/coverage-offenders.mjs'
   'scripts/coverage-delta.mjs'
   'scripts/bundle-delta.mjs'
+  'scripts/ci-audit.js'
+  'scripts/ci-audit.spec.mjs'
   'scripts/ci-timings.mjs'
   'scripts/ci-timings.spec.mjs'
   'scripts/ci-timings-trend.mjs'
@@ -409,6 +411,7 @@ fi
 if should_run "audit"; then
   section "audit"
   node scripts/ci-audit.js
+  node scripts/ci-audit.js --production
   section_done "audit"
 fi
 
