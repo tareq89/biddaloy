@@ -38,18 +38,12 @@ import { SessionCutoffService } from './session-cutoff.service';
 import { AccessTokenDenylistService } from './access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
 import { SessionDto } from './dto/session.dto';
+import { ACCESS_TOKEN_AUDIENCE } from './jwt-secrets';
+import { DUMMY_PASSWORD_HASH } from './password-hash';
 
 export interface AuthResult extends LoginResponse {
   refreshToken: IssuedRefreshToken;
 }
-
-// Precomputed bcrypt hash of an arbitrary, non-secret string — never the
-// hash of a real password. Used as the compare target when no user is
-// found, so validateUser always pays bcrypt's cost. Without this, "no such
-// user" returns near-instantly while "wrong password" takes ~bcrypt-cost
-// time — a timing oracle that lets an attacker enumerate valid identifiers
-// without ever seeing a different response body.
-const DUMMY_PASSWORD_HASH = '$2b$10$rGV9zEDpgnc/spXBlHqA9O5IjpBvndIyZE78fIhV8ZV4.5GAUfPJ.';
 
 // Matches the cost factor used at the only other place a password hash is
 // created (UsersService.create) — a user's hash must not silently get
@@ -599,6 +593,6 @@ export class AuthService {
       // standard `iat` is whole seconds). Standard `iat`/`exp` stay untouched.
       iat_ms: issuedAtMs,
     };
-    return this.jwtService.sign(payload);
+    return this.jwtService.sign(payload, { audience: ACCESS_TOKEN_AUDIENCE });
   }
 }

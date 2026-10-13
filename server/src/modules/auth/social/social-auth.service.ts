@@ -23,6 +23,7 @@ import { SOCIAL_PROVIDERS, type SocialProviderClient } from './providers/social-
 import { SocialIdentityService } from './social-identity.service';
 import { SocialIntent, SocialState, SocialStateService } from './social-state.service';
 import { SocialTicketService } from './social-ticket.service';
+import { DUMMY_PASSWORD_HASH } from '../password-hash';
 
 export interface CallbackOutcome {
   /** Absolute URL to send the browser to. */
@@ -49,9 +50,6 @@ export function safeRedirect(value: string | undefined, appBase: string): string
     return undefined;
   }
 }
-
-// Same value as auth.service.ts's DUMMY_PASSWORD_HASH: keeps the bcrypt cost paid on the no-user path.
-const DUMMY_PASSWORD_HASH = '$2b$10$rGV9zEDpgnc/spXBlHqA9O5IjpBvndIyZE78fIhV8ZV4.5GAUfPJ.';
 
 @Injectable()
 export class SocialAuthService {
