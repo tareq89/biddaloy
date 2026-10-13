@@ -108,6 +108,50 @@ The reviewed files and why each is safe:
 | Web Push subscription endpoint                             | user-supplied, but the DTO allowlists push-service hosts over https |
 | SMTP host                                                  | tenant-supplied, checked by `assertSafeSmtpDestination`             |
 
+## Inbound webhooks (kit only)
+
+No inbound webhook route exists yet. When one is added (bKash, SSLCommerz,
+Stripe, SMS delivery reports), it verifies the request with
+`verifyWebhookSignature` from `server/src/common/webhooks/webhook-signature.util.ts`.
+
+```mermaid
+sequenceDiagram
+    participant P as Provider
+    participant N as nginx
+    participant A as Nest (rawBody kept)
+    participant V as verifyWebhookSignature
+    P->>N: POST + signature + timestamp
+    N->>A: same bytes
+    A->>V: req.rawBody, signature, timestamp, secret
+    alt bad signature, or timestamp outside +-300 s
+        V-->>A: false
+        A-->>P: 401 (no detail)
+    else ok
+        V-->>A: true
+        A-->>P: handler runs
+    end
+```
+
+Rules:
+
+- Read `(req as RawBodyRequest<Request>).rawBody`. Never `JSON.stringify(body)`:
+  re-serialising changes the spacing and key order, so the signature no longer matches.
+  `main.ts` turns on Nest's `rawBody` option, and the 1 MB JSON limit still applies.
+- The secret comes from an env var, one per provider.
+- Signed text is `` `${timestamp}.${rawBody}` ``, HMAC-SHA256, lowercase hex, compared in constant time.
+  A provider with another header format (Stripe's `t=...,v1=...`) maps it onto the same three inputs.
+- Not built yet: a table of seen provider event ids (idempotency) and provider adapters.
+  The first gateway ticket adds them.
+
+Worked example (checked by `webhook-signature.util.spec.ts`):
+
+| Input     | Value                                                              |
+| --------- | ------------------------------------------------------------------ |
+| secret    | `whsec_test`                                                       |
+| timestamp | `1760000000`                                                       |
+| body      | `{"event":"ping"}`                                                 |
+| signature | `7b3dfb12b416238df73d3eb92d1702951e3ebe69a71967d039b03ccc93c8d291` |
+
 ## Dev / CI only
 
 Not present in the running application — only used to build, test, and ship
