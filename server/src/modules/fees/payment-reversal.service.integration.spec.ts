@@ -454,6 +454,52 @@ describe('PaymentReversalService (integration)', () => {
     expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
   });
 
+  it('MON-03: the reversal audit lists each removed-bill wallet debit', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const { payment } = await payThenRemoveBill(student.id, '11111111-1111-4111-8111-111111111203');
+
+    await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'wrong bill');
+
+    const audit = await auditLogRepo.find({
+      where: { entity_type: 'Payment', entity_id: payment.id },
+    });
+    const debits = audit
+      .map(
+        (a) =>
+          (a.new_values as { removed_bill_wallet_debits?: Array<Record<string, unknown>> })
+            ?.removed_bill_wallet_debits,
+      )
+      .find((d) => d !== undefined);
+    expect(debits).toHaveLength(1);
+    expect(debits![0]).toMatchObject({ student_id: student.id, amount: 1000 });
+  });
+
+  it('MON-03: removing a paid bill still credits the wallet of a student who has left', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 700 }));
+    await checkoutService.checkout(
+      {
+        idempotency_key: '11111111-1111-4111-8111-111111111204',
+        lines: [{ student_fee_id: bill.id, amount: 700, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    await studentRepo.softDelete({ id: student.id });
+
+    await dataSource.transaction(async (manager) => {
+      await manager.getRepository(StudentFee).softDelete({ id: bill.id });
+      const removed = await manager
+        .getRepository(StudentFee)
+        .find({ where: { id: bill.id }, withDeleted: true });
+      await returnMoneyOfRemovedBills(manager, walletService, removed, TENANT_ID, ACTOR_USER_ID);
+    });
+
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(700);
+  });
+
   // Review r1 #3: unwinding money must work for a student who has left.
   it('reverses a plain cash payment of a student who has left, and creates no wallet', async () => {
     const student = await studentRepo.save(makeStudent());

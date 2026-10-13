@@ -232,7 +232,19 @@ export class PaymentReversalService {
           manager,
         );
       }
+      const removedBillDebits: Array<{
+        student_id: string;
+        wallet_id: string;
+        credit_transaction_id: string;
+        amount: number;
+      }> = [];
       for (const credit of removedCredits) {
+        removedBillDebits.push({
+          student_id: studentOfWallet.get(credit.wallet_id)!,
+          wallet_id: credit.wallet_id,
+          credit_transaction_id: credit.id,
+          amount: Math.abs(Number(credit.amount)),
+        });
         await this.walletService.debit(
           {
             studentId: studentOfWallet.get(credit.wallet_id)!,
@@ -350,6 +362,7 @@ export class PaymentReversalService {
             reversal_payment_id: reversal.id,
             reversal_reason: reason,
             wallet_withdrawn: walletCreditAdded,
+            removed_bill_wallet_debits: removedBillDebits,
             wallet_refunded: walletCreditUsed,
             bills: billAudit.map((b) => ({
               student_fee_id: b.student_fee_id,

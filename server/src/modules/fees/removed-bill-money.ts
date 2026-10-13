@@ -66,7 +66,8 @@ export async function returnMoneyOfRemovedBills(
     if (Number(a.allocated_amount) > 0) needed.add(studentByBill.get(a.student_fee_id)!);
   }
   for (const studentId of [...needed].sort()) {
-    await walletService.getOrCreate(studentId, tenantId, manager);
+    // allowDeleted: a soft-deleted student's wallet still has to receive their money back.
+    await walletService.getOrCreate(studentId, tenantId, manager, true);
   }
   const credits: RemovedBillCredit[] = [];
 
@@ -92,6 +93,7 @@ export async function returnMoneyOfRemovedBills(
           studentFeeId: debit.student_fee_id,
           reversalOfId: debit.id,
           createdByUserId: userId,
+          allowDeletedStudent: true,
         },
         manager,
       );
@@ -119,6 +121,7 @@ export async function returnMoneyOfRemovedBills(
         studentFeeId: a.student_fee_id,
         createdByUserId: userId,
         note: 'Bill removed after payment',
+        allowDeletedStudent: true,
       },
       manager,
     );
