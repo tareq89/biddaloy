@@ -618,7 +618,7 @@ All server blocks, including the two catch-all default servers, use the
 | `/api/v1/public/invoices/:tok` | masked           | masked                           |
 | `/api/v1/public/verify/:tok`   | masked           | masked                           |
 | `/api/v1/calendar/feed/:tok`   | masked           | masked                           |
-| `/i/:tok`, `/v/:tok` (SPA)     | masked           | masked                           |
+| `/i/:tok`, `/v/:tok` (SPA)     | masked           | masked, also in full URLs        |
 | `?token=` (reset, activate…)   | query dropped    | `token=[REDACTED]`               |
 
 The audit's national-ID item was checked: no NID number field exists in

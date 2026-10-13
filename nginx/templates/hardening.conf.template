@@ -1,5 +1,5 @@
 # [75.21] Slow-client limits that hold even without a CDN in front.
-# client_body_timeout is per read, not total, so a 10 MB upload on slow
+# client_body_timeout is per read, not total, so a 55 MB upload on slow
 # 3G still works as long as bytes keep arriving.
 client_header_timeout 10s;
 client_body_timeout   30s;
