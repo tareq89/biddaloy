@@ -322,6 +322,7 @@ POST   /api/v1/invoices/:id/send                                                
 GET    /api/v1/invoices/:id/share                                                401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 POST   /api/v1/invoices/:id/share                                                401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 DELETE /api/v1/invoices/:id/share/:tokenId                                       401 PASS PASS PASS PASS 403 403 403 403 403 403 403
+POST   /api/v1/invoices/:id/share/regenerate                                     401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 GET    /api/v1/leave/balance                                                     401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS 403
 GET    /api/v1/leave/policies                                                    401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS 403
 PUT    /api/v1/leave/policies/:type                                              401 PASS PASS PASS 403 403 403 403 PASS 403 403 403
