@@ -7,6 +7,7 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { UserRole } from '@biddaloy/shared';
+import { assignTeacherToSection } from '@test/helpers/teacher-scope.fixture';
 import { StudentLifecycleService } from './student-lifecycle.service';
 import {
   SEED_TENANT_ID,
@@ -192,6 +193,8 @@ describe('StudentLifecycleController (guards)', () => {
   });
 
   it('TEACHER lifecycle-events returns 200', async () => {
+    // 75.6: a TEACHER reads only the sections they teach.
+    await assignTeacherToSection(ds, SEED_ADMIN_USER_ID, SEED_SECTION_1_ID);
     await as(http().post(`/api/v1/students/${studentId}/leave`), UserRole.ADMIN)
       .send(body)
       .expect(201);

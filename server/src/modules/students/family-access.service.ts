@@ -1,8 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { UserRole, isGuardianRole } from '@biddaloy/shared';
 import { Student } from './entities/student.entity';
+import { teacherCanSeeStudent } from '../classes/teacher-scope.service';
 
 /**
  * The single home of SchoolManager's object-level "is this family caller allowed
@@ -114,7 +115,7 @@ export class FamilyAccessService {
   /**
    * Throws unless the caller may read this specific student.
    *
-   * No-op for staff roles. For PARENT/STUDENT it throws
+   * No-op for staff roles except TEACHER (404 outside their current-year sections). For PARENT/STUDENT it throws
    * `UnauthorizedException` with the exact message the inline check in
    * `students.controller.ts` threw before [5.1] — the contract that route
    * already had is unchanged, including the (unconventional but deliberate)
@@ -127,7 +128,16 @@ export class FamilyAccessService {
     tenantId: string,
   ): Promise<void> {
     const qb = this.linkedStudentsQuery(role, userId, tenantId);
-    if (!qb) return;
+    if (!qb) {
+      // Epic 75 D2/D13: a TEACHER sees only students in their current-year sections; a miss is 404.
+      if (
+        role === UserRole.TEACHER &&
+        !(await teacherCanSeeStudent(this.studentRepo.manager, { userId, tenantId, studentId }))
+      ) {
+        throw new NotFoundException('Student not found');
+      }
+      return;
+    }
 
     const count = await qb.andWhere('student.id = :studentId', { studentId }).getCount();
     if (count === 0) {

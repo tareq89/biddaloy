@@ -13,7 +13,7 @@ import {
   Inject,
   ParseUUIDPipe,
   Req,
-  ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -223,12 +223,6 @@ export class StudentController {
     // [5.1] moved the check that used to be inline here into
     // FamilyAccessService so every widened family route shares one copy.
     await this.familyAccess.assertLinked(tenant.role, user.sub, id, tenant.id);
-    await this.teacherScope.assertCanSeeStudent({
-      role: tenant.role,
-      userId: user.sub,
-      tenantId: tenant.id,
-      studentId: id,
-    });
     return redactHealthNotes(student, canReadRecords(tenant.role));
   }
 
@@ -391,7 +385,7 @@ export class StudentController {
         (s) => s.class_section_id && scope.includes(s.class_section_id),
       );
       if (guardian.students.length === 0) {
-        throw new ForbiddenException("You do not teach this guardian's students.");
+        throw new NotFoundException('Guardian not found');
       }
     }
     return redactHealthNotes(guardian, canReadRecords(tenant.role));

@@ -1,4 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { teacherSectionIds } from '../classes/teacher-scope.service';
+
+vi.mock('../classes/teacher-scope.service', () => ({
+  teacherSectionIds: vi.fn().mockResolvedValue(['sec']),
+}));
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -101,10 +106,10 @@ describe('StudentNotesService', () => {
     expect(notes.findOne.mock.calls[0][0].where).toMatchObject({ tenant_id: TENANT });
   });
 
-  it('forbids a TEACHER with no section mapping', async () => {
-    dataSource.query.mockResolvedValue([]);
+  it('404s a TEACHER with no visible section for the student (D13)', async () => {
+    vi.mocked(teacherSectionIds).mockResolvedValueOnce([]);
     await expect(service.list(STUDENT, caller('t', UserRole.TEACHER))).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
   });
 

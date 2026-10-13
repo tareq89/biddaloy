@@ -20,6 +20,7 @@ import {
 import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
 
 import { Teacher } from './modules/academics/entities/teacher.entity';
+import { assignTeacherToSection } from '@test/helpers/teacher-scope.fixture';
 /**
  * [5.1] Family-facing read API — the full authorization matrix.
  *
@@ -942,6 +943,8 @@ describe('[5.1] Family-facing read API', () => {
     });
 
     it('keeps staff payment responses unchanged', async () => {
+      // 75.6: a TEACHER reads only the sections they teach, so this one teaches the children's.
+      await assignTeacherToSection(dataSource, TEACHER_USER_ID, SEED_SECTION_1_ID);
       const res = await http()
         .get(`${API}/payments/student/${childOneId}`)
         .set('Authorization', `Bearer ${teacherToken}`)
@@ -972,6 +975,8 @@ describe('[5.1] Family-facing read API', () => {
     });
 
     it('keeps the staff invoice summary unchanged', async () => {
+      // 75.6: a TEACHER reads only the sections they teach, so this one teaches the children's.
+      await assignTeacherToSection(dataSource, TEACHER_USER_ID, SEED_SECTION_1_ID);
       const res = await http()
         .get(`${API}/payments/invoices/student/${childOneId}`)
         .set('Authorization', `Bearer ${teacherToken}`)
@@ -1321,6 +1326,8 @@ describe('[5.1] Family-facing read API', () => {
     // Staff are not "linked" to anyone; the object check must stay a no-op
     // for them or [5.1] would have quietly locked staff out of most reads.
     it('does not subject a staff caller to the linkage check', async () => {
+      // 75.6: a TEACHER reads only the sections they teach, so this one teaches the children's.
+      await assignTeacherToSection(dataSource, TEACHER_USER_ID, SEED_SECTION_1_ID);
       await http()
         .get(`${API}/payments/student/${unlinkedChildId}`)
         .set('Authorization', `Bearer ${teacherToken}`)

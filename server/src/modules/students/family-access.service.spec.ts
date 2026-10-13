@@ -84,7 +84,6 @@ describe('FamilyAccessService', () => {
       UserRole.ADMIN,
       UserRole.ACCOUNTANT,
       UserRole.EXECUTIVE,
-      UserRole.TEACHER,
     ];
 
     for (const role of STAFF_ROLES) {

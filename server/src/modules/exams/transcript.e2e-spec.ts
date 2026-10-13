@@ -227,14 +227,14 @@ describe('[48.2.10] Transcript + document prints (HTTP)', () => {
       },
     );
 
-    it('[AUTH-06] TEACHER gets 403 for a student outside their sections (read and print log)', async () => {
+    it('[AUTH-06] TEACHER gets 404 for a student outside their sections (read and print log)', async () => {
       await seed();
       await ds.query(`UPDATE students SET class_section_id = $1 WHERE id = $2`, [
         SEED_SECTION_2_ID,
         studentId,
       ]);
-      await get(UserRole.TEACHER).expect(403);
-      await post(UserRole.TEACHER, reportCard()).expect(403);
+      await get(UserRole.TEACHER).expect(404);
+      await post(UserRole.TEACHER, reportCard()).expect(404);
       await get(UserRole.ADMIN).expect(200);
     });
 

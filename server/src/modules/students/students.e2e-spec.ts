@@ -772,10 +772,10 @@ describe('Students E2E', () => {
       ).toBe(true);
     });
 
-    it('TEACHER GET /students/:id of another section -> 403, own section -> 200', async () => {
+    it('TEACHER GET /students/:id of another section -> 404, own section -> 200', async () => {
       const mine = await insertStudent('Scope Mine', SEED_SECTION_1_ID);
       const other = await insertStudent('Scope Other', SEED_SECTION_2_ID);
-      await asTeacher(get(`/students/${other}`)).expect(403);
+      await asTeacher(get(`/students/${other}`)).expect(404);
       await asTeacher(get(`/students/${mine}`)).expect(200);
     });
 

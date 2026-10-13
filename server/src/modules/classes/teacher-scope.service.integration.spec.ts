@@ -14,6 +14,12 @@ import { Subject } from '../academics/entities/subject.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { User } from '../users/entities/user.entity';
+import { Student } from '../students/entities/student.entity';
+import {
+  teacherAssignments,
+  teacherCanSeeStudent,
+  teacherSectionIds,
+} from './teacher-scope.service';
 
 /**
  * Integration tests for `TeacherScopeService` against a real, migrated DB.
@@ -469,6 +475,65 @@ describe('TeacherScopeService (integration)', () => {
       await assign(TeacherAssignmentType.CLASS_TEACHER, secB, null, { tenant_id: TENANT_B });
       expect(await ids()).toEqual([sec6A]);
       expect(await ids(TENANT_B)).toEqual([]);
+    });
+  });
+
+  describe('shared current-year queries (Epic 75, 75.6)', () => {
+    const base = () => ({ userId, tenantId: TENANT_A });
+    const manager = () => dataSource.manager;
+    const makeStudentIn = (sectionId: string, tenantId = TENANT_A) =>
+      dataSource.getRepository(Student).save({
+        full_name: 'Scope Child',
+        registration_number: `SC-${Math.random().toString(36).slice(2, 10)}`,
+        roll_number: Math.floor(Math.random() * 100000),
+        class_section_id: sectionId,
+        tenant_id: tenantId,
+      } as Partial<Student> as Student);
+
+    it('teacherAssignments returns the current-year rows with their subject', async () => {
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, liveSubjectId);
+      const rows = await teacherAssignments(manager(), base());
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        section_id: sec6A,
+        assignment_type: TeacherAssignmentType.SUBJECT_TEACHER,
+        subject_id: liveSubjectId,
+      });
+      expect(rows[0].class_id).toBeTruthy();
+    });
+
+    it('excludes a past-year section (even for a SUBJECT row), deleted section, deleted subject, other tenant', async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, secOld);
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, secOld, liveSubjectId);
+      await assign(TeacherAssignmentType.CLASS_TEACHER, secDeleted);
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec7A, deletedSubjectId);
+      await assign(TeacherAssignmentType.CLASS_TEACHER, secB, null, { tenant_id: TENANT_B });
+      expect(await teacherAssignments(manager(), base())).toEqual([]);
+      expect(await teacherAssignments(manager(), { userId, tenantId: TENANT_B })).toEqual([]);
+    });
+
+    it('teacherSectionIds dedupes a CLASS row plus a SUBJECT row in one section', async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, liveSubjectId);
+      expect(await teacherSectionIds(manager(), base())).toEqual([sec6A]);
+    });
+
+    it('teacherCanSeeStudent: true in A; false in B, past year, deleted, other tenant, non-UUID', async () => {
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, liveSubjectId);
+      await assign(TeacherAssignmentType.CLASS_TEACHER, secOld);
+      const inA = await makeStudentIn(sec6A);
+      const inB = await makeStudentIn(sec6B);
+      const inOld = await makeStudentIn(secOld);
+      const gone = await makeStudentIn(sec6A);
+      await dataSource.getRepository(Student).softDelete({ id: gone.id });
+      const see = (studentId: string, tenantId = TENANT_A) =>
+        teacherCanSeeStudent(manager(), { userId, tenantId, studentId });
+      expect(await see(inA.id)).toBe(true);
+      expect(await see(inB.id)).toBe(false);
+      expect(await see(inOld.id)).toBe(false);
+      expect(await see(gone.id)).toBe(false);
+      expect(await see(inA.id, TENANT_B)).toBe(false);
+      expect(await see('not-a-uuid')).toBe(false);
     });
   });
 });

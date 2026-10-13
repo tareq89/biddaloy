@@ -26,7 +26,7 @@ describe('EnrollmentController', () => {
       findCurrentByStudent: vi.fn(),
       update: vi.fn(),
     };
-    controller = new EnrollmentController(service as unknown as EnrollmentService);
+    controller = new EnrollmentController(service as unknown as EnrollmentService, {} as never);
   });
 
   // ────────────────────────
@@ -64,7 +64,7 @@ describe('EnrollmentController', () => {
       const expected = [{ id: 'e1', student_id: 's1' }];
       service.findByStudent.mockResolvedValue(expected);
 
-      const result = await controller.findByStudent('s1', TENANT);
+      const result = await controller.findByStudent('s1', TENANT, USER);
 
       expect(service.findByStudent).toHaveBeenCalledWith('s1', TENANT.id);
       expect(result).toEqual(expected);
@@ -94,7 +94,7 @@ describe('EnrollmentController', () => {
       service.findCurrentByStudent.mockResolvedValue(expected);
       const res = mockResponse();
 
-      await controller.findCurrent('s1', TENANT, res as any);
+      await controller.findCurrent('s1', TENANT, USER, res as any);
 
       expect(service.findCurrentByStudent).toHaveBeenCalledWith('s1', TENANT.id);
       expect(res.status).toHaveBeenCalledWith(200);
@@ -105,7 +105,7 @@ describe('EnrollmentController', () => {
       service.findCurrentByStudent.mockResolvedValue(null);
       const res = mockResponse();
 
-      await controller.findCurrent('s1', TENANT, res as any);
+      await controller.findCurrent('s1', TENANT, USER, res as any);
 
       expect(res.json).toHaveBeenCalledWith(null);
     });
@@ -115,7 +115,7 @@ describe('EnrollmentController', () => {
       service.findCurrentByStudent.mockRejectedValue(new NotFoundException('Student not found'));
       const res = mockResponse();
 
-      await expect(controller.findCurrent('bad', TENANT, res as any)).rejects.toThrow(
+      await expect(controller.findCurrent('bad', TENANT, USER, res as any)).rejects.toThrow(
         NotFoundException,
       );
     });

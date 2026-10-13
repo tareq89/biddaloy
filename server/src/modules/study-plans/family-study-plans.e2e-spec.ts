@@ -182,6 +182,12 @@ describe('Family study plans E2E (66.2/#2013)', () => {
        SELECT $1::uuid, $2::uuid, 'FSPE2E', '{}', $3::uuid, sp.id, NOW(), NOW() FROM sp`,
       [teacherId, USERS.T.id, SEED_TENANT_ID],
     );
+    // 75.6: a TEACHER reads only the sections they teach; this one teaches the student's.
+    await dataSource.query(
+      `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id, assignment_type)
+       VALUES ($1, $2, $3, 'CLASS_TEACHER')`,
+      [teacherId, SEED_SECTION_1_ID, SEED_TENANT_ID],
+    );
 
     const [{ id: shiftId }] = await dataSource.query(
       `INSERT INTO shifts (id, tenant_id, name, day_starts_at, day_ends_at, sequence, created_at, updated_at)

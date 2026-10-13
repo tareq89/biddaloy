@@ -21,6 +21,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { FamilyAccessService } from './family-access.service';
 import { StudentPublicExamsService } from './student-public-exams.service';
 import {
   CreateStudentPublicExamDto,
@@ -35,11 +36,19 @@ type Tenant = { id: string; role: string };
 @Controller('students')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StudentPublicExamsController {
-  constructor(private readonly service: StudentPublicExamsService) {}
+  constructor(
+    private readonly service: StudentPublicExamsService,
+    private readonly familyAccess: FamilyAccessService,
+  ) {}
 
   @Get(':id/public-exams')
   @RequirePermissions(Permission.STUDENT_RECORDS_READ)
-  list(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: Tenant) {
+  async list(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: Tenant,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    await this.familyAccess.assertLinked(tenant.role, user.sub, id, tenant.id);
     return this.service.list(id, tenant.id);
   }
 
