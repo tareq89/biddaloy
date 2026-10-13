@@ -67,16 +67,18 @@ describe('runTasks', () => {
     expect(elapsed).toBeLessThan(350);
   });
 
-  it('starts every task within 100ms of the others', async () => {
+  // Concurrency, not spawn speed: every task has started before any of them finishes. A
+  // wall-clock bound on the start spread flaked on a loaded CI runner (104ms > 100ms).
+  it('starts every task before any task finishes', async () => {
     const results = await Promise.all([
       runOne('a', process.execPath, ['-e', 'process.exit(0)']),
       runOne('b', process.execPath, ['-e', 'process.exit(0)']),
       runOne('c', process.execPath, ['-e', 'process.exit(0)']),
     ]);
 
-    const starts = results.map((r) => r.startedAt);
-    const spread = Math.max(...starts) - Math.min(...starts);
-    expect(spread).toBeLessThan(100);
+    const lastStart = Math.max(...results.map((r) => r.startedAt));
+    const firstFinish = Math.min(...results.map((r) => r.startedAt + r.seconds * 1000));
+    expect(lastStart).toBeLessThan(firstFinish);
   });
 
   const scratchFile = join(process.cwd(), 'ui', `__check-spec-scratch-${process.pid}.ts`);
