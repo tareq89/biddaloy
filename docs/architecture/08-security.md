@@ -230,11 +230,22 @@ recovery can never reach the proposed value. A removal (`null`) needs no code.
 - Approval re-checks, under a row lock, that the account keeps an email or
   phone and that the new value is still unique; a refusal leaves the link usable.
 - Approval also re-checks that School B still has the person and that the
-  admin who asked is still an active ADMIN there; if not, the link is revoked
-  and the answer is `409 PROPOSAL_WITHDRAWN`.
-- Re-saving the form with the same pending value sends nothing again. If the
-  send fails, the link is revoked and the admin gets a 503 (other fields stay
-  saved).
+  admin who asked is still an active ADMIN there (or a platform SUPER_ADMIN,
+  who has no ADMIN row in the school); if not, the link is revoked and the
+  answer is `409 PROPOSAL_WITHDRAWN`. These membership rows are read
+  `FOR SHARE`, so a removal committing at the same moment is waited for.
+- Re-saving the form with the same pending value **by the same admin** sends
+  nothing again, but only once the link was really delivered (the token is
+  stamped `sent: true`). A different admin's save sends a fresh link and
+  revokes the old one.
+- The delivery service reports a gateway outage as `FAILED`; it never throws.
+  So the server checks the result: an approval link that was not `SENT` is
+  revoked and the admin gets a 503 (other fields stay saved). A code that
+  could not reach the new contact is a 503 to the person, never `confirm`.
+- The codes use their own OTP purpose, `CONTACT_PROPOSAL`, so a self-service
+  phone change to the same number can't overwrite, cool down or lock them.
+  All codes are issued before any is sent, so a 429 on one sends nothing.
+  Approving with only one of two codes re-sends just the missing one.
 - Any contact change that is written (approved, or a single-school user's
   admin edit) sets `users.tokens_valid_after` and revokes refresh tokens, so
   whoever held the old contact is signed out everywhere.
@@ -415,6 +426,12 @@ flowchart LR
   cut-off is never rejected in a loop).
 - Example: admin removes Rahim from school A at 10:00:00.000 -> his token
   issued 09:55 gets 401 -> the client refreshes -> the new token has no school A.
+- Refresh rotation vs "revoke every refresh token" (review m-new-2 on #2460):
+  rotation claims the old token and inserts its successor in one transaction
+  holding the user row `FOR SHARE`; `revokeAllForUser` takes the same row
+  `FOR UPDATE` first. So a rotation in flight either finishes first (and its
+  successor is revoked) or waits and finds its token already revoked. Without
+  the lock, a successor inserted just after the revoke stayed live.
 
 Expired `refresh_tokens` rows (revoked or not) are deleted by an hourly
 BullMQ job (`refresh-token-cleanup.processor.ts`/`.scheduler.ts`).
