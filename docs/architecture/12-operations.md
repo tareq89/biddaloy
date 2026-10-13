@@ -68,7 +68,7 @@ anything that can reach the token-gated route).
    `redis` container/instance and `REDIS_URL`. BullMQ (the communications
    queue) and the rate limiter depend on it; see "When Redis is down" in
    [`08-security.md`](08-security.md). The uptime monitor will not page for
-   this: the platform alert (75.34) covers a Redis outage.
+   this: the platform alert covers a Redis outage, see [§3.6](#36-platform-alert-redis-down).
 3. **`queue: fail`** — Redis is reachable but the queue itself can't be
    read; check for a BullMQ version mismatch or a stuck connection pool.
 
@@ -165,18 +165,57 @@ ranges are not exempt.
 Rollback: set `TRUSTED_PROXY_CIDRS=` (empty) and `docker compose up -d nginx`.
 Empty means no CDN trust at all, which is how the stack behaved before.
 
+### 3.6 Platform alert: Redis down
+
+Redis down means sign-in is closed (75.18), but `/health/ready` is only `degraded`, so an uptime
+monitor does not page. The API raises its own alert, kept in Postgres so it works with Redis gone.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Healthy
+  Healthy --> Failing: probe fails (count 1..2, in memory)
+  Failing --> Healthy: probe ok (count = 0)
+  Failing --> Open: 3rd failure in a row - insert row, SMS now
+  Open --> Open: probe fails - SMS again if last SMS is over 1 h old
+  Open --> Healthy: first ok probe - set cleared_at, one recovered SMS
+```
+
+Order of events (a probe runs every 30 s, so about 90 s after Redis dies):
+
+1. A `platform_alerts` row `REDIS_DOWN` opens (at most one open row, enforced by a unique index).
+2. Every verified SUPER_ADMIN phone gets a text, then another every hour:
+   `[production] ALERT: Redis is down since 08:02 UTC. Sign-in is closed. Repeats hourly until fixed.`
+3. `GET /api/v1/platform/alerts` (SUPER_ADMIN only) returns the open row for the banner (75.35).
+4. The first good probe clears the row and sends one text:
+   `[production] RECOVERED: Redis is back at 08:40 UTC after 38 min. Sign-in is open again.`
+
+Limit: a SUPER_ADMIN's 15-minute access token keeps working, but once it expires `/auth/refresh` is
+closed too, so the banner can no longer be reached. The SMS is the channel that still arrives.
+
+**Confirm recovery:** `GET /api/v1/platform/alerts` returns `{ "alerts": [] }` and `/health/ready`
+shows `"redis": "ok"`.
+
+The loop runs in the API process only (not in scripts, not under `NODE_ENV=test`), uses no BullMQ,
+and sends SMS straight to the provider with the platform's own key, not a school's credits. With no
+`PLATFORM_SMS_API_KEY` it logs `platform alert SMS not configured; would text N phone(s): ...`.
+
 ## 4. Env var reference
 
-| Variable                    | Required in prod?      | What it does                                                                    |
-| --------------------------- | ---------------------- | ------------------------------------------------------------------------------- |
-| `SENTRY_DSN`                | No (recommended)       | Server Sentry project. Unset = server Sentry is a no-op.                        |
-| `SENTRY_ENVIRONMENT`        | No                     | Defaults to `NODE_ENV`.                                                         |
-| `SENTRY_RELEASE`            | No                     | Tags events with a release/version string.                                      |
-| `SENTRY_TRACES_SAMPLE_RATE` | No                     | Fraction of requests traced, default `0.1`.                                     |
-| `HEALTH_TOKEN`              | No (recommended)       | Required to call `/health/ready` at all — unset means that route 404s.          |
-| `LOG_LEVEL`                 | No                     | Pino's log level; see `.env.example`.                                           |
-| `ATTENTION_SENTRY_CRON_URL` | No (recommended)       | Sentry Cron Monitor check-in URL for attention sweeps; unset = no check-ins.    |
-| `TRUSTED_PROXY_CIDRS`       | No (only behind a CDN) | nginx only. CDN ranges whose `CF-Connecting-IP` is trusted; empty = off (§3.5). |
+| Variable                    | Required in prod?      | What it does                                                                       |
+| --------------------------- | ---------------------- | ---------------------------------------------------------------------------------- |
+| `SENTRY_DSN`                | No (recommended)       | Server Sentry project. Unset = server Sentry is a no-op.                           |
+| `SENTRY_ENVIRONMENT`        | No                     | Defaults to `NODE_ENV`.                                                            |
+| `SENTRY_RELEASE`            | No                     | Tags events with a release/version string.                                         |
+| `SENTRY_TRACES_SAMPLE_RATE` | No                     | Fraction of requests traced, default `0.1`.                                        |
+| `HEALTH_TOKEN`              | No (recommended)       | Required to call `/health/ready` at all — unset means that route 404s.             |
+| `LOG_LEVEL`                 | No                     | Pino's log level; see `.env.example`.                                              |
+| `ATTENTION_SENTRY_CRON_URL` | No (recommended)       | Sentry Cron Monitor check-in URL for attention sweeps; unset = no check-ins.       |
+| `TRUSTED_PROXY_CIDRS`       | No (only behind a CDN) | nginx only. CDN ranges whose `CF-Connecting-IP` is trusted; empty = off (§3.5).    |
+| `PLATFORM_SMS_PROVIDER`     | No (for alert SMS)     | `greenweb` (default) or `mimsms`. Provider for platform alert texts (§3.6).        |
+| `PLATFORM_SMS_API_KEY`      | No (recommended)       | Unset = alert SMS is only logged, never sent.                                      |
+| `PLATFORM_SMS_SENDER_ID`    | With `mimsms`          | Sender id for MimSMS.                                                              |
+| `PLATFORM_SMS_API_URL`      | No                     | Overrides the provider's send URL.                                                 |
+| `PLATFORM_ALERT_PHONES`     | No                     | Comma-separated fallback phones, used only when no SUPER_ADMIN has a verified one. |
 
 Smoke-check variables (read by `scripts/smoke-post-deploy.mjs`, see §7). They
 are **operator machine only, never in the app's env**:

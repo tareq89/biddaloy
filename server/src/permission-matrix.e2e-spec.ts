@@ -283,6 +283,13 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
       '[67.1.09] platform route (SUPER_ADMIN reads engine health, no tenant data), same rationale as GET /platform/backups/health.',
   },
   {
+    controller: 'PlatformAlertsController',
+    method: 'GET',
+    path: '/platform/alerts',
+    reason:
+      '[75.34] platform route (SUPER_ADMIN reads open platform alerts, no tenant data), same rationale as GET /platform/attention/health.',
+  },
+  {
     controller: 'PublicHolidaysController',
     method: 'GET',
     path: '/platform/holiday-sets',

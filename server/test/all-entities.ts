@@ -118,6 +118,7 @@ import { AcrAssessment } from '../src/modules/acr/entities/acr-assessment.entity
 import { AcrScore } from '../src/modules/acr/entities/acr-score.entity';
 import { StaffIncident } from '../src/modules/incidents/entities/staff-incident.entity';
 import { Alert } from '../src/modules/attention/entities/alert.entity';
+import { PlatformAlert } from '../src/modules/health/platform-alerts/platform-alert.entity';
 import { AlertRecipient } from '../src/modules/attention/entities/alert-recipient.entity';
 import { Survey } from '../src/modules/surveys/entities/survey.entity';
 import { SurveyQuestion } from '../src/modules/surveys/entities/survey-question.entity';
@@ -247,6 +248,7 @@ export const ALL_ENTITIES = [
   StaffIncident,
   Alert,
   AlertRecipient,
+  PlatformAlert,
   Survey,
   SurveyQuestion,
   SurveyTarget,

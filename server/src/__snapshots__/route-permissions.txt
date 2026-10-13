@@ -200,6 +200,7 @@ GET /payments/student/:studentId | FeeController | perm: FEE_READ
 GET /performance/classes/:classId | PerformanceController | perm: MARK_VIEW
 GET /performance/staff/:userId | StaffPerformanceController | perm: ACR_READ
 GET /performance/students/:studentId | PerformanceController | perm: MARK_VIEW
+GET /platform/alerts | PlatformAlertsController | identity | roles: SUPER_ADMIN
 GET /platform/attention/health | PlatformAttentionHealthController | identity | roles: SUPER_ADMIN
 GET /platform/backups/health | PlatformBackupHealthController | identity | roles: SUPER_ADMIN
 GET /platform/holiday-sets | PublicHolidaysController | identity | roles: SUPER_ADMIN
