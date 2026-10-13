@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { DataSource, MigrationInterface, QueryRunner } from 'typeorm';
 import {
   SEED_TENANT_ID,
   SEED_CLASS_1_ID,
@@ -23,16 +23,57 @@ export async function clearTables(): Promise<void> {
 }
 
 /**
- * Every `table.column` in the public schema, sorted. A migration round-trip
- * spec compares it before and after, so a later migration it forgot to
- * revert fails there instead of poisoning the next spec file on the worker.
+ * Every `table.column type null|not null` in the public schema, sorted. A
+ * migration round-trip spec compares it before and after, so a later
+ * migration it forgot to revert (or an up() that re-creates a column with a
+ * different type) fails there instead of poisoning the next spec file on the
+ * worker.
  */
 export async function publicColumns(ds: DataSource): Promise<string[]> {
   const rows: { c: string }[] = await ds.query(
-    `SELECT table_name || '.' || column_name AS c FROM information_schema.columns
-     WHERE table_schema = 'public' ORDER BY 1`,
+    `SELECT table_name || '.' || column_name || ' ' || udt_name
+       || CASE is_nullable WHEN 'YES' THEN ' null' ELSE ' not null' END AS c
+     FROM information_schema.columns WHERE table_schema = 'public' ORDER BY 1`,
   );
   return rows.map((r) => r.c);
+}
+
+/**
+ * Migration round-trip: runs `down()` on each of `migrations` in order (newest
+ * first, as `migration:revert` would), then `body`, then `up()` on every one
+ * that went down, oldest first. Only what actually went down is brought back,
+ * and a restore failure never hides an error thrown before it.
+ */
+export async function withMigrationsReverted(
+  ds: DataSource,
+  migrations: MigrationInterface[],
+  body: () => Promise<void> = async () => {},
+): Promise<void> {
+  const run = async (fn: (qr: QueryRunner) => Promise<unknown>) => {
+    const qr = ds.createQueryRunner();
+    await qr.connect();
+    try {
+      await fn(qr);
+    } finally {
+      await qr.release();
+    }
+  };
+  const down: MigrationInterface[] = [];
+  let failed = true;
+  try {
+    for (const m of migrations) {
+      await run((qr) => m.down(qr));
+      down.unshift(m);
+    }
+    await body();
+    failed = false;
+  } finally {
+    for (const m of down) {
+      await run((qr) => m.up(qr)).catch((err) => {
+        if (!failed) throw err;
+      });
+    }
+  }
 }
 
 /**
