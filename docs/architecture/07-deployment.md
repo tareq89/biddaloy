@@ -8,7 +8,8 @@
 
 ```mermaid
 flowchart LR
-    Internet -->|HTTPS| nginx
+    Internet -->|HTTPS| cloudflare["Cloudflare\n(optional CDN)"]
+    cloudflare -->|HTTPS| nginx
     nginx -->|reverse proxy| app["app\n(NestJS: API + the built SPA at /)"]
     app --> db[("db\nPostgreSQL")]
     app --> redis[("redis")]
@@ -18,6 +19,43 @@ flowchart LR
 Services (`docker-compose.yml`): `app`, `db` (Postgres), `redis`, `nginx`,
 `cert-bootstrap` (automated Let's Encrypt issuance — nginx self-reloads
 every 6h to pick up renewed certs, see `nginx/reload-loop.sh`).
+
+### Who can reach the origin
+
+nginx answers only the real site name, and (when `TRUSTED_PROXY_CIDRS` lists
+the Cloudflare ranges, see [12-operations.md](12-operations.md) 3.5) only for
+traffic that comes through Cloudflare.
+
+```mermaid
+flowchart TD
+  R["request reaches nginx"] --> H{"Host / SNI = APP_DOMAIN?"}
+  H -- no --> D["catch-all default_server<br/>443: TLS handshake rejected<br/>80: 444 (empty reply)"]
+  H -- yes --> P{"peer is a Cloudflare range,<br/>private/loopback, or list is empty?"}
+  P -- yes --> OK["served as usual"]
+  P -- no --> E{"/api/health or<br/>/.well-known/acme-challenge/?"}
+  E -- yes --> OK
+  E -- no --> X["444"]
+```
+
+Always reachable, even by a non-Cloudflare public peer:
+
+- `/api/health` (uptime monitors may hit the origin directly; `/api/health/ready` stays a 404 at the edge)
+- `/.well-known/acme-challenge/` (Let's Encrypt renewal works whether DNS is proxied or not)
+- `/healthz` on port 80, loopback callers only (container healthcheck)
+- any private or loopback peer (the host's own smoke script, Docker's bridge)
+
+Example: `curl https://<origin-ip>/` gets a rejected TLS handshake;
+`curl --resolve <domain>:443:<origin-ip> https://<domain>/` from a laptop
+gets an empty reply; the same URL through Cloudflare loads the app.
+
+Warning: if production ever serves a second hostname (for example `www.`),
+add it to `server_name` before deploying this, or that hostname gets 444.
+
+Rollback if real users or a monitor get 444: set `TRUSTED_PROXY_CIDRS=` and
+`docker compose up -d nginx`; the Cloudflare-only rule is off at once. If the
+catch-all itself is the problem (a hostname missing from `server_name`), revert
+the `default.conf.template` change and restart nginx. No data or app change is
+involved.
 
 This whole stack — including automated TLS — was **not** in the original
 plan, which treated Docker as a future migration. It shipped as the actual

@@ -16,6 +16,27 @@ upstream app_upstream {
     server app:3000;
 }
 
+# Unknown Host/SNI: answer nothing. Must be the default on both ports so a
+# scan of the bare IP (or a DNS-history lookup) never reaches the app.
+server {
+    listen 80 default_server;
+    # Loopback-only liveness for the container healthcheck ([75.29]).
+    # $realip_remote_addr = the TCP peer, so a CF-Connecting-IP header
+    # can never fake it.
+    location = /healthz {
+        access_log off;
+        if ($realip_remote_addr !~ "^(127\.0\.0\.1|::1)$") { return 444; }
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+    location / { return 444; }
+}
+
+server {
+    listen 443 ssl default_server;
+    ssl_reject_handshake on;   # nginx >= 1.19.4; no certificate needed
+}
+
 # HTTP: serve ACME challenges for cert issuance/renewal, redirect everything
 # else to HTTPS. Never redirect the challenge path — that's how certbot proves
 # domain ownership over plain HTTP before a certificate exists.
@@ -29,6 +50,7 @@ server {
     }
 
     location / {
+        if ($origin_allowed = 0) { return 444; }
         return 301 https://$host$request_uri;
     }
 }
@@ -62,7 +84,17 @@ server {
     }
 
 
+    # [75.5] Uptime monitors may hit the origin directly: no $origin_allowed check.
+    location = /api/health {
+        proxy_pass http://app_upstream;
+        proxy_set_header Host $host;
+    }
+
+    # Cloudflare-only (D17): $origin_allowed comes from conf.d/00-trusted-proxies.conf
+    # ([75.4]); it is 1 for everyone when TRUSTED_PROXY_CIDRS is empty. `if` + `return`
+    # only; allow/deny would run after realip and see the visitor, not the peer.
     location /api/ {
+        if ($origin_allowed = 0) { return 444; }
         proxy_pass http://app_upstream;
         proxy_http_version 1.1;
 
@@ -78,6 +110,7 @@ server {
     # aggressively. One SPA served at `/` since [8.9.10], so one path
     # prefix instead of one per client package (see main.ts).
     location ~ ^/assets/ {
+        if ($origin_allowed = 0) { return 444; }
         proxy_pass http://app_upstream;
         proxy_set_header Host $host;
         proxy_cache_valid 200 60m;
@@ -89,6 +122,7 @@ server {
     }
 
     location / {
+        if ($origin_allowed = 0) { return 444; }
         proxy_pass http://app_upstream;
         proxy_http_version 1.1;
 
