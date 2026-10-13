@@ -430,7 +430,7 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
     // The raw link only ever reaches the person's inbox; mint the same token the way the
     // server did (copying the stored proposal) to drive the public verify-email route.
     const [live] = await dataSource.query(
-      `SELECT metadata, tenant_id FROM auth_tokens
+      `SELECT metadata, tenant_id, created_by_user_id FROM auth_tokens
         WHERE user_id = $1 AND purpose = 'EMAIL_VERIFY' AND revoked_at IS NULL AND consumed_at IS NULL`,
       [SHARED_ID],
     );
@@ -439,6 +439,7 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
       tenantId: live.tenant_id,
       purpose: AuthTokenPurpose.EMAIL_VERIFY,
       ttlMs: 3_600_000,
+      createdByUserId: live.created_by_user_id,
       metadata: live.metadata,
     });
 
@@ -468,7 +469,7 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
   it('declining the proposal cancels it: nothing changes and the link is spent', async () => {
     await patch(SHARED_ID, { phone: '+8801700000997' });
     const [live] = await dataSource.query(
-      `SELECT metadata, tenant_id FROM auth_tokens
+      `SELECT metadata, tenant_id, created_by_user_id FROM auth_tokens
         WHERE user_id = $1 AND purpose = 'EMAIL_VERIFY' AND revoked_at IS NULL AND consumed_at IS NULL`,
       [SHARED_ID],
     );
@@ -477,6 +478,7 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
       tenantId: live.tenant_id,
       purpose: AuthTokenPurpose.EMAIL_VERIFY,
       ttlMs: 3_600_000,
+      createdByUserId: live.created_by_user_id,
       metadata: live.metadata,
     });
 
