@@ -10,3 +10,10 @@
 /server/src/modules/auth/         @tareq89
 /server/src/modules/account-access/ @tareq89
 /server/src/migrations/           @tareq89
+# Authorization source of truth (review r1 m8).
+/shared/src/enums/permissions.ts  @tareq89
+/shared/src/enums/audiences.ts    @tareq89
+/server/src/modules/classes/teacher-scope.service.ts @tareq89
+/server/src/modules/students/family-access.service.ts @tareq89
+/server/src/common/webhooks/      @tareq89
+/server/src/modules/fees/         @tareq89
