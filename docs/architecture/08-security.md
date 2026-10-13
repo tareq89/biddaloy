@@ -79,8 +79,18 @@ flowchart TD
 ```
 
 The mark is a decorator on the handler or controller, read by `AppThrottlerGuard` through
-`Reflector`, so the rule moves with the route. `app-throttler.guard.spec.ts` pins the exact set
-of marked routes: a new password- or code-checking route must be added there on purpose.
+`Reflector`, so the rule moves with the route. An unmarked route fails open, so two tests make
+the choice explicit:
+
+- `app-throttler.guard.spec.ts` checks every route on the sign-in controllers listed in
+  `server/test/helpers/redis-outage-routes.ts` (everything under `/auth` and `/account`, plus
+  `UserController`). Each route must be in `FAIL_CLOSED` (and carry the mark) or in `FAIL_OPEN`
+  (and not carry it). A new route on these controllers, for example
+  `POST /auth/magic-link/verify`, fails the spec until someone puts it in one list.
+- `route-guard-coverage.e2e-spec.ts` fails when a controller under `/auth*` or `/account*`
+  (for example a new `auth/passkeys`) is missing from that controller list.
+
+A password- or code-checking route on any other controller is not caught; review it by hand.
 
 | Part                                                                                                                                                              | Redis down                                                                                                           |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
