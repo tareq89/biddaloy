@@ -32,7 +32,14 @@ import {
 } from './dto/discount-rules.dto';
 // [16.8.2] Family-facing shape from the one allow-list module.
 import { toFamilyDiscountRule } from './dto/family.dto';
-import { ApprovalScope, JwtPayload, Permission, isGuardianRole } from '@biddaloy/shared';
+import {
+  ApprovalScope,
+  JwtPayload,
+  Permission,
+  RoleScope,
+  isGuardianRole,
+  roleScope,
+} from '@biddaloy/shared';
 
 /**
  * [16.7.3] `DiscountRule` CRUD. Writes require `DISCOUNT_RULE_MANAGE` +
@@ -86,6 +93,10 @@ export class DiscountRulesController {
       // family-facing fees response.
       const familyRules = await this.discountRulesService.listForStudent(tenant.id, studentId);
       return familyRules.map(toFamilyDiscountRule);
+    }
+    // [75.6-d] TEACHER: 404 outside current-year assigned sections; no-op for other staff.
+    if (roleScope(tenant.role) === RoleScope.ASSIGNED_SECTIONS) {
+      await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
     }
     const rules = await this.discountRulesService.listForStudent(tenant.id, studentId);
     return rules.map(toDiscountRuleDto);

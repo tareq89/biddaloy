@@ -813,9 +813,10 @@ describe('[5.1] Family-facing read API', () => {
     });
 
     it('keeps reminder_threshold_date on the staff dues rows', async () => {
+      // 75.6-d: a TEACHER sees only assigned sections now, so the whole-tenant staff view is ADMIN's.
       const staff = await http()
         .get(`${API}/fees/dues`)
-        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .expect(200);
 
@@ -836,7 +837,7 @@ describe('[5.1] Family-facing read API', () => {
     it('still returns the whole tenant to staff', async () => {
       const res = await http()
         .get(`${API}/fees/dues`)
-        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .expect(200);
 

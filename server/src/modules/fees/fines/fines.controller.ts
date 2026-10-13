@@ -22,6 +22,7 @@ import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { FamilyAccessService } from '../../students/family-access.service';
+import { TeacherScopeService } from '../../classes/teacher-scope.service';
 import { FinesService } from './fines.service';
 import {
   LogFineDto,
@@ -42,6 +43,7 @@ export class FinesController {
   constructor(
     @Inject(FinesService) private readonly finesService: FinesService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
+    @Inject(TeacherScopeService) private readonly teacherScope: TeacherScopeService,
   ) {}
 
   @Post('fees/fines')
@@ -126,7 +128,13 @@ export class FinesController {
     @CurrentUser() user: JwtPayload,
   ) {
     if (!isGuardianRole(tenant.role)) {
-      return this.finesService.listFines(query, tenant.id);
+      // [75.6-d] TEACHER: only current-year assigned sections (`null` = unrestricted staff).
+      const scoped = await this.teacherScope.scopedStudentIds({
+        role: tenant.role,
+        userId: user.sub,
+        tenantId: tenant.id,
+      });
+      return this.finesService.listFines(query, tenant.id, scoped ?? undefined);
     }
     const restrictToStudentIds = await this.familyAccess.getLinkedStudentIds(
       tenant.role,
