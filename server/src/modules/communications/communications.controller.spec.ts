@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { NotFoundException } from '@nestjs/common';
 import { CommunicationsController } from './communications.controller';
 import { CommunicationsService } from './communications.service';
 import { BulkReminderService } from './reminders.service';
 import { SingleReminderService } from './single-reminder.service';
 import { CommunicationMedium, UserRole } from '@biddaloy/shared';
+import { FamilyAccessService } from '../students/family-access.service';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 
 /**
  * Unit tests for CommunicationsController.
@@ -20,6 +23,8 @@ describe('CommunicationsController', () => {
   let service: Record<string, ReturnType<typeof vi.fn>>;
   let bulkReminderService: Record<string, ReturnType<typeof vi.fn>>;
   let singleReminderService: Record<string, ReturnType<typeof vi.fn>>;
+  let familyAccess: Record<string, ReturnType<typeof vi.fn>>;
+  let teacherScope: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT = { id: 'tenant-1', role: UserRole.ADMIN };
   const USER = { sub: 'user-1', memberships: [] } as any;
@@ -43,10 +48,18 @@ describe('CommunicationsController', () => {
       findBatchLogs: vi.fn(),
     };
     singleReminderService = { preview: vi.fn(), sendSingle: vi.fn() };
+    familyAccess = { assertLinked: vi.fn() };
+    // `scopedStudentIds` null = unrestricted staff; `assertCanSeeGuardian` is a no-op for them.
+    teacherScope = {
+      scopedStudentIds: vi.fn().mockResolvedValue(null),
+      assertCanSeeGuardian: vi.fn().mockResolvedValue(undefined),
+    };
     controller = new CommunicationsController(
       service as unknown as CommunicationsService,
       bulkReminderService as unknown as BulkReminderService,
       singleReminderService as unknown as SingleReminderService,
+      familyAccess as unknown as FamilyAccessService,
+      teacherScope as unknown as TeacherScopeService,
     );
   });
 
@@ -68,7 +81,7 @@ describe('CommunicationsController', () => {
       const expected = { id: 'log-1', status: 'SENT' };
       service.findOne.mockResolvedValue(expected);
 
-      const result = await controller.findOne('log-1', TENANT);
+      const result = await controller.findOne('log-1', TENANT, USER);
 
       expect(service.findOne).toHaveBeenCalledWith('log-1', TENANT.id);
       expect(result).toEqual(expected);
@@ -77,7 +90,6 @@ describe('CommunicationsController', () => {
 
   describe('error propagation', () => {
     it('should propagate NotFoundException from service.sendToGuardian', async () => {
-      const { NotFoundException } = await import('@nestjs/common');
       service.sendToGuardian.mockRejectedValue(
         new NotFoundException('Student with ID "bad" not found'),
       );
@@ -98,12 +110,11 @@ describe('CommunicationsController', () => {
     });
 
     it('should propagate NotFoundException from service.findOne', async () => {
-      const { NotFoundException } = await import('@nestjs/common');
       service.findOne.mockRejectedValue(
         new NotFoundException('Communication log with ID "bad" not found'),
       );
 
-      await expect(controller.findOne('bad', TENANT)).rejects.toThrow(NotFoundException);
+      await expect(controller.findOne('bad', TENANT, USER)).rejects.toThrow(NotFoundException);
     });
 
     it('should propagate BadRequestException from bulkReminderService.sendBulk', async () => {
@@ -153,7 +164,6 @@ describe('CommunicationsController', () => {
     });
 
     it('should propagate NotFoundException for a batch in another tenant', async () => {
-      const { NotFoundException } = await import('@nestjs/common');
       bulkReminderService.findBatch.mockRejectedValue(new NotFoundException('not found'));
 
       await expect(controller.findReminderBatch('batch-1', TENANT)).rejects.toThrow(
@@ -224,7 +234,6 @@ describe('CommunicationsController', () => {
     });
 
     it('should propagate NotFoundException for a batch in another tenant', async () => {
-      const { NotFoundException } = await import('@nestjs/common');
       bulkReminderService.findBatchLogs.mockRejectedValue(new NotFoundException('not found'));
 
       await expect(controller.findReminderBatchLogs('batch-1', {} as any, TENANT)).rejects.toThrow(
@@ -274,7 +283,6 @@ describe('CommunicationsController', () => {
     });
 
     it('should propagate NotFoundException from singleReminderService.sendSingle', async () => {
-      const { NotFoundException } = await import('@nestjs/common');
       singleReminderService.sendSingle.mockRejectedValue(new NotFoundException('not found'));
 
       await expect(
@@ -294,10 +302,28 @@ describe('CommunicationsController', () => {
       const expected = [{ id: 'log-1', recipient_name: 'Guardian' }];
       service.findByStudent.mockResolvedValue(expected);
 
-      const result = await controller.findByStudent('student-1', TENANT);
+      const result = await controller.findByStudent('student-1', TENANT, USER);
 
       expect(service.findByStudent).toHaveBeenCalledWith('student-1', TENANT.id);
       expect(result).toEqual(expected);
+      expect(familyAccess.assertLinked).not.toHaveBeenCalled();
+    });
+
+    // [75.6-d] A TEACHER must be linked to the student; a 404 from the check stops the read.
+    it('for a TEACHER calls assertLinked first and does not read when it throws', async () => {
+      familyAccess.assertLinked.mockRejectedValue(new NotFoundException());
+
+      await expect(
+        controller.findByStudent('student-1', { id: TENANT.id, role: UserRole.TEACHER }, USER),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(familyAccess.assertLinked).toHaveBeenCalledWith(
+        UserRole.TEACHER,
+        USER.sub,
+        'student-1',
+        TENANT.id,
+      );
+      expect(service.findByStudent).not.toHaveBeenCalled();
     });
   });
 
@@ -306,7 +332,7 @@ describe('CommunicationsController', () => {
       const expected = [{ id: 'log-1', recipient_name: 'Guardian' }];
       service.findByGuardian.mockResolvedValue(expected);
 
-      const result = await controller.findByGuardian('guardian-1', TENANT);
+      const result = await controller.findByGuardian('guardian-1', TENANT, USER);
 
       expect(service.findByGuardian).toHaveBeenCalledWith('guardian-1', TENANT.id);
       expect(result).toEqual(expected);
@@ -324,6 +350,7 @@ describe('CommunicationsController', () => {
       const result = await controller.findLastReminders(
         { student_ids: ['student-1', 'student-2'] } as any,
         TENANT,
+        USER,
       );
 
       expect(service.findLastReminders).toHaveBeenCalledWith(['student-1', 'student-2'], TENANT.id);

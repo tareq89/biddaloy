@@ -224,6 +224,17 @@ export class CommunicationsService {
     }
   }
 
+  /** Owner ids of a log, for the TEACHER scope check; `toResponseDto` hides them on purpose. */
+  findOwner(
+    id: string,
+    tenantId: string,
+  ): Promise<{ student_id: string | null; guardian_id: string | null } | null> {
+    return this.repo.findOne({
+      where: { id, tenant_id: tenantId },
+      select: ['student_id', 'guardian_id'],
+    });
+  }
+
   async findOne(id: string, tenantId: string): Promise<CommunicationResponseDto> {
     const log = await this.repo.findOne({ where: { id, tenant_id: tenantId } });
 

@@ -11,6 +11,7 @@ import {
   Inject,
   HttpCode,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
@@ -37,7 +38,9 @@ import {
   QueryReminderBatchLogsDto,
 } from './dto/reminders.dto';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
-import { JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, RoleScope, roleScope } from '@biddaloy/shared';
+import { FamilyAccessService } from '../students/family-access.service';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { requestContext } from '../../common/request-context.util';
 
 @ApiTags('communications')
@@ -49,6 +52,8 @@ export class CommunicationsController {
     @Inject(CommunicationsService) private readonly communicationsService: CommunicationsService,
     @Inject(BulkReminderService) private readonly bulkReminderService: BulkReminderService,
     @Inject(SingleReminderService) private readonly singleReminderService: SingleReminderService,
+    @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
+    @Inject(TeacherScopeService) private readonly teacherScope: TeacherScopeService,
   ) {}
 
   // Distinct segment count from reminder/bulk(/:id) above and reminder/single/:studentId
@@ -199,18 +204,27 @@ export class CommunicationsController {
     summary: "Batch lookup of each student's most recent fee reminder, for [8.10.4]'s dues queue.",
   })
   @ApiOkResponse({ type: LastReminderDto, isArray: true })
-  findLastReminders(
+  async findLastReminders(
     @Query() query: QueryLastRemindersDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.communicationsService
-      .findLastReminders(query.student_ids, tenant.id)
-      .then((byStudent) =>
-        Array.from(byStudent.entries()).map(([student_id, reminder]) => ({
-          student_id,
-          ...reminder,
-        })),
-      );
+    // [75.6-d] TEACHER: keep only students in current-year assigned sections (`null` = unrestricted).
+    const scoped = await this.teacherScope.scopedStudentIds({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    const visible = scoped && new Set(scoped);
+    const studentIds = visible
+      ? query.student_ids.filter((id) => visible.has(id))
+      : query.student_ids;
+    return this.communicationsService.findLastReminders(studentIds, tenant.id).then((byStudent) =>
+      Array.from(byStudent.entries()).map(([student_id, reminder]) => ({
+        student_id,
+        ...reminder,
+      })),
+    );
   }
 
   // Declared before `@Get(':id')` — same reasoning as `reminder/bulk`
@@ -222,10 +236,14 @@ export class CommunicationsController {
   @ApiOperation({
     summary: "Get every message sent about a student's guardians, newest first.",
   })
-  findByStudent(
+  async findByStudent(
     @Param('studentId', ParseUUIDPipe) studentId: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
+    if (this.isTeacher(tenant.role)) {
+      await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
+    }
     return this.communicationsService.findByStudent(studentId, tenant.id);
   }
 
@@ -237,20 +255,47 @@ export class CommunicationsController {
   @ApiOperation({
     summary: 'Get every message sent directly to a guardian, newest first.',
   })
-  findByGuardian(
+  async findByGuardian(
     @Param('guardianId', ParseUUIDPipe) guardianId: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
+    await this.teacherScope.assertCanSeeGuardian({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+      guardianId,
+    });
     return this.communicationsService.findByGuardian(guardianId, tenant.id);
   }
 
   @Get(':id')
   // [10.4] G5 — per-student communication history.
   @RequirePermissions(Permission.COMMUNICATION_LOG_READ)
-  findOne(
+  async findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
+    if (this.isTeacher(tenant.role)) {
+      const owner = await this.communicationsService.findOwner(id, tenant.id);
+      if (owner?.student_id) {
+        await this.familyAccess.assertLinked(tenant.role, user.sub, owner.student_id, tenant.id);
+      } else if (owner?.guardian_id) {
+        await this.teacherScope.assertCanSeeGuardian({
+          role: tenant.role,
+          userId: user.sub,
+          tenantId: tenant.id,
+          guardianId: owner.guardian_id,
+        });
+      } else {
+        throw new NotFoundException(`Communication log with ID "${id}" not found`);
+      }
+    }
     return this.communicationsService.findOne(id, tenant.id);
+  }
+
+  private isTeacher(role: string): boolean {
+    return roleScope(role) === RoleScope.ASSIGNED_SECTIONS;
   }
 }

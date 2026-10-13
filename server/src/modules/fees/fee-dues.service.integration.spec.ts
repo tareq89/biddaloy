@@ -790,6 +790,20 @@ describe('FeeDuesService (integration)', () => {
   });
 
   describe('getFlaggedDues', () => {
+    // [75.6-d] TEACHER scope: the optional third argument narrows the flagged set.
+    it('restrictToStudentIds: [] returns nobody; [idA] returns only A; omitted is unchanged', async () => {
+      const a = await studentRepo.save(makeStudent());
+      const b = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(a.id, { reminder_threshold_date: YESTERDAY }));
+      await studentFeeRepo.save(makeFee(b.id, { reminder_threshold_date: YESTERDAY }));
+      const q = { page: 1, limit: 10 };
+
+      expect((await service.getFlaggedDues(q, TENANT_ID, [])).total).toBe(0);
+      const only = await service.getFlaggedDues(q, TENANT_ID, [a.id]);
+      expect(only.data.map((d) => d.student_id)).toEqual([a.id]);
+      expect((await service.getFlaggedDues(q, TENANT_ID)).total).toBe(2);
+    });
+
     it('returns only students past their reminder_threshold_date', async () => {
       const flagged = await studentRepo.save(makeStudent());
       const notYet = await studentRepo.save(makeStudent());
