@@ -31,8 +31,15 @@ export function missingEnv(env) {
 /** Pure. `--base-url X` else SMOKE_BASE_URL, trailing slashes stripped. */
 export function resolveBaseUrl(argv, env) {
   const i = argv.indexOf('--base-url');
-  const raw = (i >= 0 ? argv[i + 1] : env.SMOKE_BASE_URL) ?? '';
+  const next = argv[i + 1];
+  // A flag right after --base-url means the value is missing.
+  const raw = (i >= 0 ? (next?.startsWith('--') ? '' : next) : env.SMOKE_BASE_URL) ?? '';
   return raw.replace(/\/+$/, '');
+}
+
+/** Pure. 0 all passed, 1 a check failed, 2 bad usage. */
+export function exitCode(result) {
+  return result.usageError ? 2 : result.failed ? 1 : 0;
 }
 
 export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
@@ -127,5 +134,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     fetch: globalThis.fetch,
     log: console.log,
   });
-  process.exit(r.usageError ? 2 : r.failed ? 1 : 0);
+  process.exit(exitCode(r));
 }
