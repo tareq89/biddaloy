@@ -39,7 +39,8 @@ export class ExamsMyMarksDueRule implements AttentionRuleShape {
       addDaysIso(ctx.localDate, -1),
     );
     if (!rows.length) return [];
-    // Write rule of MarksAuthorizationService.assertCanWrite: SUBJECT_TEACHER row of a live subject.
+    // Write rule of MarksAuthorizationService.assertCanWrite: SUBJECT_TEACHER row of a live subject
+    // in a current-year section (Epic 75 D2).
     const teachers: { sectionId: string; subjectId: string; userId: string }[] =
       await this.dataSource.query(
         `SELECT tcs.section_id AS "sectionId", tcs.subject_id AS "subjectId", t.user_id AS "userId"
@@ -47,6 +48,10 @@ export class ExamsMyMarksDueRule implements AttentionRuleShape {
          JOIN teachers t ON t.id = tcs.teacher_id AND t.tenant_id = $1 AND t.deleted_at IS NULL
          JOIN users u ON u.id = t.user_id AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
          JOIN subjects s ON s.id = tcs.subject_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
+         JOIN class_sections cs ON cs.id = tcs.section_id AND cs.tenant_id = $1 AND cs.deleted_at IS NULL
+         JOIN classes c ON c.id = cs.class_id AND c.tenant_id = $1 AND c.deleted_at IS NULL
+         JOIN academic_years ay ON ay.id = c.academic_year_id AND ay.tenant_id = $1
+           AND ay.is_current = true AND ay.deleted_at IS NULL
          WHERE tcs.tenant_id = $1 AND tcs.assignment_type = 'SUBJECT_TEACHER' AND tcs.section_id = ANY($2::uuid[])`,
         [ctx.tenantId, [...new Set(rows.map((r) => r.sectionId))]],
       );
