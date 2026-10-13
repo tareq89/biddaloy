@@ -15,8 +15,8 @@ export default defineConfig({
     // A mock-API bundle (MSW) must never ship as a production build.
     {
       name: 'refuse-mock-production-build',
-      config(_config, { command, mode }) {
-        const env = loadEnv(mode, process.cwd(), 'VITE_');
+      config(c, { command, mode }) {
+        const env = loadEnv(mode, c.envDir || c.root || process.cwd(), 'VITE_');
         if (command === 'build' && mode === 'production' && env.VITE_USE_MOCKS === 'true') {
           throw new Error('VITE_USE_MOCKS=true cannot be used in a production build');
         }
