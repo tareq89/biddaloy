@@ -9,6 +9,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { TENANT_STATUS_REDIS } from '../../../schools/tenant-status.service';
 import { AttendanceService } from '../../../attendance/attendance.service';
 import { AttendanceModule } from '../../../attendance/attendance.module';
+import { localToday } from '../../../attendance/attendance-policy.util';
 import { AuthModule } from '../../../auth/auth.module';
 import { CalendarEvent } from '../../../calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../../../calendar/entities/calendar-event-class.entity';
@@ -19,8 +20,10 @@ import type { RuleContext } from '../rule.types';
 import { AttendanceNotTakenRule } from './attendance-not-taken.rule';
 import { AttendanceRulesModule } from './attendance-rules.module';
 
-// Today (UTC), so putRegister's own date checks are satisfied.
-const DAY = new Date().toISOString().slice(0, 10);
+// Today in the tenant's timezone, as RuleContextService builds it. A UTC date is
+// a day behind from 18:00 UTC, so the alert's end-of-local-day expiry is already
+// past and AlertWriterService drops the finding.
+const DAY = localToday('Asia/Dhaka');
 const WEEKDAY = new Date(`${DAY}T00:00:00Z`).getUTCDay(); // 0 = Sunday, as routine_slots.weekday
 
 describe('AttendanceNotTakenRule (integration)', () => {
