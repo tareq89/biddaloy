@@ -210,7 +210,8 @@ export class AuthService {
 
     // Before rotate() (review m1), not just before the membership read: a contact change
     // revokes refresh tokens and then cuts off, so a rotation that commits before the revoke
-    // must get an iat_ms that predates the cut-off too.
+    // must get an iat_ms that predates the cut-off too. Its successor refresh token is revoked
+    // as well: the revoke locks the user row and waits for the rotation (review m-new-2).
     const issuedAtMs = Date.now();
     let rotated;
     try {
