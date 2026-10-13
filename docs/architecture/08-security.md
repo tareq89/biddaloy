@@ -659,6 +659,8 @@ actually needs enforcing.
 
 ## Data protection: transit, at rest, and logs
 
+**Request ids.** An incoming `X-Request-Id` is kept only if it is 1-64 letters, digits, `_` or `-` (`resolveRequestId`). Anything else is replaced with a fresh UUID, so a client cannot inject newlines or huge strings into logs or Sentry tags.
+
 This app handles student/guardian PII and payment records. The posture below
 covers connection security, storage, and what does (and deliberately does
 not) get encrypted at the column level.

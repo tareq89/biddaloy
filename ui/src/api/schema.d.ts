@@ -11001,6 +11001,12 @@ export interface components {
             assignment_type: components["schemas"]["HomeroomAssignmentType"];
         };
         CreateUserDto: {
+            /**
+             * Format: uuid
+             * @deprecated
+             * @description Ignored. The tenant comes from X-Tenant-ID.
+             */
+            tenantId?: string;
             /** Format: email */
             email?: string;
             phone?: string;
@@ -11008,8 +11014,6 @@ export interface components {
             full_name: string;
             /** @enum {string} */
             role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
-            /** Format: uuid */
-            tenantId: string;
         };
         BatchInviteDto: {
             guardian_ids?: string[];
