@@ -197,13 +197,16 @@ export class TeacherScopeService {
    * `homeroom` is the caller's CLASS/ASSISTANT row for the section (a teacher
    * holds at most one, by `UQ_tcs_teacher_section_homeroom`). `subjectIds`
    * holds only **live** subjects (D16): a soft-deleted subject drops out, so
-   * its teacher loses read and write on it.
+   * its teacher loses read and write on it. `inYearWindow` is true when the
+   * section is live and in the current academic year, or in the year right
+   * before it while its class still has a DRAFT exam [X-07]. Marks gate on it
+   * (Epic 75 D31), so marks entry outlives the year flag for subject rows too.
    */
   async rolesInSection(input: {
     userId: string;
     tenantId: string;
     sectionId: string;
-  }): Promise<{ homeroom: HomeroomType | null; subjectIds: string[] }> {
+  }): Promise<{ homeroom: HomeroomType | null; subjectIds: string[]; inYearWindow: boolean }> {
     const { userId, tenantId, sectionId } = input;
     const rows = await this.tcsRepo
       .createQueryBuilder('tcs')
@@ -227,7 +230,8 @@ export class TeacherScopeService {
       // marks-overdue alert, so the grant ends when the alert clears; older and
       // future years never qualify for either. Trade-off: the grant then covers every homeroom-gated read, not
       // only marks; narrow it to marks reads if that ever matters.
-      // SUBJECT_TEACHER rows keep their existing (year-agnostic) behaviour.
+      // SUBJECT_TEACHER rows stay year-agnostic in `subjectIds`; `inYearWindow` reports
+      // the same window for callers (marks) that need it.
       .leftJoin(
         'class_sections',
         'cs',
@@ -278,7 +282,7 @@ export class TeacherScopeService {
       )
       .map((r) => r.live_subject_id as string);
 
-    return { homeroom, subjectIds };
+    return { homeroom, subjectIds, inYearWindow: rows.some((r) => r.homeroom_year_id) };
   }
 
   /** The caller's CLASS/ASSISTANT sections in the **current** academic year,

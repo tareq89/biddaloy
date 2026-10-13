@@ -141,7 +141,8 @@ describe('MarksAuthorizationService with real TeacherScopeService (integration)'
     await expect(authz.assertCanWrite(call(sec6A, liveSubjectId))).resolves.toBeUndefined();
   });
 
-  it("75.6-e: last year's CLASS teacher no longer reads marks, even while the class has an unpublished exam (current-year scope only)", async () => {
+  // X-07, kept by Epic 75 D31: marks entry outlives the year flag while the exam is DRAFT.
+  it("X-07: last year's CLASS teacher reads and SUBJECT teacher writes marks while the class has an unpublished exam, not after publish", async () => {
     // A past (non-current) year with its own class, section and DRAFT exam.
     const oldYear = await dataSource.getRepository(AcademicYear).save({
       name: `Marks Authz Old ${Math.random()}`,
@@ -164,13 +165,26 @@ describe('MarksAuthorizationService with real TeacherScopeService (integration)'
       [TENANT, oldYear.id, oldClass.id],
     );
     await assign(TeacherAssignmentType.CLASS_TEACHER, oldSection);
+    const otherSubjectId = (
+      await dataSource
+        .getRepository(Subject)
+        .save({ tenant_id: TENANT, name_en: 'Other', code: 'AZO' })
+    ).id;
+    await assign(TeacherAssignmentType.SUBJECT_TEACHER, oldSection, otherSubjectId);
 
-    await expect(authz.assertCanRead(call(oldSection, liveSubjectId))).rejects.toThrow(
+    await expect(authz.assertCanRead(call(oldSection, liveSubjectId))).resolves.toBeUndefined();
+    await expect(authz.assertCanWrite(call(oldSection, otherSubjectId))).resolves.toBeUndefined();
+    // Homeroom still never grants write.
+    await expect(authz.assertCanWrite(call(oldSection, liveSubjectId))).rejects.toThrow(
       ForbiddenException,
     );
 
+    // Published: current-year-only applies again.
     await dataSource.query(`UPDATE exams SET status = 'PUBLISHED' WHERE id = $1`, [examId]);
     await expect(authz.assertCanRead(call(oldSection, liveSubjectId))).rejects.toThrow(
+      ForbiddenException,
+    );
+    await expect(authz.assertCanWrite(call(oldSection, otherSubjectId))).rejects.toThrow(
       ForbiddenException,
     );
   });

@@ -11,15 +11,15 @@ type Roles = Awaited<ReturnType<TeacherScopeService['rolesInSection']>>;
 /** `TeacherScopeService` is stubbed: its join (live subjects only, tenant
  * filtering) is covered by `teacher-scope.service.integration.spec.ts`. Here
  * we only check the decision made from what it returns. */
-function buildService(
-  roles: Roles = { homeroom: null, subjectIds: [] },
-  currentYearSectionIds: string[] = ['s1'],
-) {
-  const rolesInSection = vi.fn(async () => roles);
-  const sectionIds = vi.fn(async () => currentYearSectionIds);
+function buildService(roles: Partial<Roles> = {}) {
+  const rolesInSection = vi.fn(async (): Promise<Roles> => ({
+    homeroom: null,
+    subjectIds: [],
+    inYearWindow: true,
+    ...roles,
+  }));
   const service = new MarksAuthorizationService({
     rolesInSection,
-    sectionIds,
   } as unknown as TeacherScopeService);
   return { service, rolesInSection };
 }
@@ -51,9 +51,14 @@ describe('MarksAuthorizationService.assertCanWrite', () => {
     });
   });
 
-  // Epic 75 D2: a section outside the current-year scope is closed even with a subject row.
-  it('rejects write and read outside the current-year section scope', async () => {
-    const { service } = buildService({ homeroom: null, subjectIds: ['subj1'] }, []);
+  // Epic 75 D31: outside the year window (current year, or last year while its class has a
+  // DRAFT exam) the section is closed even with a subject or homeroom row.
+  it('rejects write and read outside the year window', async () => {
+    const { service } = buildService({
+      homeroom: TeacherAssignmentType.CLASS_TEACHER,
+      subjectIds: ['subj1'],
+      inYearWindow: false,
+    });
     await expect(service.assertCanWrite(input(UserRole.TEACHER))).rejects.toThrow(
       ForbiddenException,
     );

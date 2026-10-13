@@ -155,6 +155,13 @@ for a teacher without tenant-wide data scope:
 | Write  | a `SUBJECT_TEACHER` row for that exact, live (not deleted) subject. Homeroom never writes                      |
 | Read   | that same subject row, **or** a `CLASS_TEACHER` / `ASSISTANT_CLASS_TEACHER` row for the section (all subjects) |
 
+Both also need `rolesInSection().inYearWindow`: the section is in the current
+academic year, **or** in last year while its class still has a DRAFT exam
+(X-07, kept by D31). Example: the admin flips the year to 2027 while Class 7's
+2026 half-yearly is still DRAFT. The 2026 Math teacher can still finish that
+sheet, and the marks-due alerts still name them. Once the exam is published,
+current-year-only applies again.
+
 ## Routines module
 
 `server/src/modules/routines/` (Epic 21.0, class routine/timetable). Owns

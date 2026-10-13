@@ -24,7 +24,10 @@ const canReadTenantWide = (role: string) =>
  * directly rather than re-deriving the same join.
  *
  * For a non-tenant-scope caller the answer comes from `TeacherScopeService`,
- * which only counts **live** subjects (D16):
+ * which only counts **live** subjects (D16), and only in a section of the
+ * current academic year, or of the year right before it while its class still
+ * has a DRAFT exam (X-07, kept by Epic 75 D31; the same window as the
+ * marks-overdue alerts):
  * - write: only a SUBJECT_TEACHER row for the exact subject. A class or
  *   assistant teacher never gets write through their homeroom.
  * - read: that same subject row, **or** a CLASS_TEACHER / ASSISTANT row for
@@ -33,13 +36,6 @@ const canReadTenantWide = (role: string) =>
 @Injectable()
 export class MarksAuthorizationService {
   constructor(private readonly teacherScope: TeacherScopeService) {}
-
-  /** Epic 75 D2: a teacher reaches marks only in a section the student/results routes also show
-   * them (current academic year). Stops a prior-year row or homeroom grant from opening marks
-   * for students the teacher can no longer open. */
-  private async inCurrentYearScope(userId: string, tenantId: string, sectionId: string) {
-    return (await this.teacherScope.sectionIds({ userId, tenantId })).includes(sectionId);
-  }
 
   async assertCanWrite(input: {
     role: string;
@@ -53,11 +49,12 @@ export class MarksAuthorizationService {
       return;
     }
 
-    const { subjectIds } = await this.teacherScope.rolesInSection({ userId, tenantId, sectionId });
-    if (
-      !subjectIds.includes(subjectId) ||
-      !(await this.inCurrentYearScope(userId, tenantId, sectionId))
-    ) {
+    const { subjectIds, inYearWindow } = await this.teacherScope.rolesInSection({
+      userId,
+      tenantId,
+      sectionId,
+    });
+    if (!subjectIds.includes(subjectId) || !inYearWindow) {
       throw new ForbiddenException(
         'You are not the assigned subject teacher for this section-subject.',
       );
@@ -80,15 +77,12 @@ export class MarksAuthorizationService {
       return;
     }
 
-    const { homeroom, subjectIds } = await this.teacherScope.rolesInSection({
+    const { homeroom, subjectIds, inYearWindow } = await this.teacherScope.rolesInSection({
       userId,
       tenantId,
       sectionId,
     });
-    if (
-      (!homeroom && !subjectIds.includes(subjectId)) ||
-      !(await this.inCurrentYearScope(userId, tenantId, sectionId))
-    ) {
+    if ((!homeroom && !subjectIds.includes(subjectId)) || !inYearWindow) {
       throw new ForbiddenException(
         'You are not the assigned subject teacher for this section-subject.',
       );

@@ -168,6 +168,7 @@ describe('TeacherScopeService (integration)', () => {
       expect(await ask(sec6A)).toEqual({
         homeroom: TeacherAssignmentType.CLASS_TEACHER,
         subjectIds: [],
+        inYearWindow: true,
       });
     });
 
@@ -176,6 +177,7 @@ describe('TeacherScopeService (integration)', () => {
       expect(await ask(sec6A)).toEqual({
         homeroom: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
         subjectIds: [],
+        inYearWindow: true,
       });
     });
 
@@ -190,14 +192,14 @@ describe('TeacherScopeService (integration)', () => {
 
     it('reports nothing for a section the teacher is not mapped to', async () => {
       await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
-      expect(await ask(sec6B)).toEqual({ homeroom: null, subjectIds: [] });
+      expect(await ask(sec6B)).toEqual({ homeroom: null, subjectIds: [], inYearWindow: false });
     });
 
     it('gives a soft-deleted teacher no roles', async () => {
       await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
       await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, liveSubjectId);
       await dataSource.getRepository(Teacher).softDelete({ id: teacherId });
-      expect(await ask(sec6A)).toEqual({ homeroom: null, subjectIds: [] });
+      expect(await ask(sec6A)).toEqual({ homeroom: null, subjectIds: [], inYearWindow: false });
     });
 
     it('excludes a soft-deleted subject (D16)', async () => {
@@ -208,7 +210,7 @@ describe('TeacherScopeService (integration)', () => {
 
     it('gives no homeroom role in a past-year section (it would read every subject)', async () => {
       await assign(TeacherAssignmentType.CLASS_TEACHER, secOld);
-      expect(await ask(secOld)).toEqual({ homeroom: null, subjectIds: [] });
+      expect(await ask(secOld)).toEqual({ homeroom: null, subjectIds: [], inYearWindow: false });
     });
 
     describe('year switch with an unpublished exam [X-07]', () => {
@@ -238,6 +240,18 @@ describe('TeacherScopeService (integration)', () => {
         const { sectionId } = await mkOldClassWithExam('DRAFT');
         await assign(TeacherAssignmentType.CLASS_TEACHER, sectionId);
         expect((await ask(sectionId)).homeroom).toBe(TeacherAssignmentType.CLASS_TEACHER);
+      });
+
+      it('reports a SUBJECT row of that section as in the year window (Epic 75 D31)', async () => {
+        const { sectionId, examId } = await mkOldClassWithExam('DRAFT');
+        await assign(TeacherAssignmentType.SUBJECT_TEACHER, sectionId, liveSubjectId);
+        expect(await ask(sectionId)).toEqual({
+          homeroom: null,
+          subjectIds: [liveSubjectId],
+          inYearWindow: true,
+        });
+        await dataSource.query(`UPDATE exams SET status = 'PUBLISHED' WHERE id = $1`, [examId]);
+        expect((await ask(sectionId)).inYearWindow).toBe(false);
       });
 
       it('loses it once every exam of that class is PUBLISHED', async () => {
@@ -283,7 +297,11 @@ describe('TeacherScopeService (integration)', () => {
 
     it('still reports SUBJECT_TEACHER subjects in a past-year section (unchanged)', async () => {
       await assign(TeacherAssignmentType.SUBJECT_TEACHER, secOld, liveSubjectId);
-      expect(await ask(secOld)).toEqual({ homeroom: null, subjectIds: [liveSubjectId] });
+      expect(await ask(secOld)).toEqual({
+        homeroom: null,
+        subjectIds: [liveSubjectId],
+        inYearWindow: false,
+      });
     });
 
     it("never shows another teacher's rows", async () => {
@@ -299,12 +317,16 @@ describe('TeacherScopeService (integration)', () => {
       await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A, null, {
         teacher_id: otherTeacher.id,
       });
-      expect(await ask(sec6A)).toEqual({ homeroom: null, subjectIds: [] });
+      expect(await ask(sec6A)).toEqual({ homeroom: null, subjectIds: [], inYearWindow: false });
     });
 
     it("tenant isolation: tenant A's rows are invisible when asking as tenant B", async () => {
       await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
-      expect(await ask(sec6A, TENANT_B)).toEqual({ homeroom: null, subjectIds: [] });
+      expect(await ask(sec6A, TENANT_B)).toEqual({
+        homeroom: null,
+        subjectIds: [],
+        inYearWindow: false,
+      });
     });
   });
 
