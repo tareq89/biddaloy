@@ -434,11 +434,22 @@ flowchart LR
 - Example: admin removes Rahim from school A at 10:00:00.000 -> his token
   issued 09:55 gets 401 -> the client refreshes -> the new token has no school A.
 - Refresh rotation vs "revoke every refresh token" (review m-new-2 on #2460):
-  rotation claims the old token and inserts its successor in one transaction
-  holding the user row `FOR SHARE`; `revokeAllForUser` takes the same row
-  `FOR UPDATE` first. So a rotation in flight either finishes first (and its
-  successor is revoked) or waits and finds its token already revoked. Without
-  the lock, a successor inserted just after the revoke stayed live.
+  both lock the user row first, so a rotation in flight either finishes first
+  (and its successor is revoked too) or waits and finds its token already
+  revoked. Without the lock, a successor inserted just after the revoke stayed
+  live.
+
+  ```mermaid
+  sequenceDiagram
+    participant R as Refresh (rotateRow)
+    participant V as revokeAllForUser
+    participant DB as Postgres
+    R->>DB: users row FOR SHARE (granted)
+    V->>DB: users row FOR UPDATE (waits for R)
+    R->>DB: claim old token, INSERT successor, COMMIT
+    V->>DB: lock granted, revoke every live token (successor included)
+    Note over R,V: Other order: V locks first, R waits,<br/>then finds its old token revoked (401)
+  ```
 
 Expired `refresh_tokens` rows (revoked or not) are deleted by an hourly
 BullMQ job (`refresh-token-cleanup.processor.ts`/`.scheduler.ts`).
