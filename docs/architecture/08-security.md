@@ -1066,3 +1066,28 @@ flowchart LR
 - **Transient URLs under load.** Slower activation (cost-12 hash) made `toHaveURL(/dashboard/)` miss the brief `/dashboard` before the first-visit gate moved a new school's admin to `/welcome` — fix: accept either (4e1a940a1) — rule candidate: assert the URL a page settles on, never one it passes through.
 - **Seed device key.** The dev seed printed the "shown once" key when only the _revoked_ seed device was inserted, because `devices` counted both rows — a review LOW — fix: `ensureAttendanceSeed` returns `activeDeviceCreated` and the print keys on it (#2320) — rule candidate: a "shown once" secret is printed on the flag of the exact row that holds it, never on a count.
 - **Redis-down drill not run live (D48).** Stopping the shared `redis` container would break every other agent's test-env slice, so the drill in #2444 is an owner action after deploy. What covers it until then: `app-throttler.guard.e2e-spec.ts` (throwing store → 503), `platform-alerts.service.spec.ts` (3 fails open one row, one "recovered" text, the hourly repeat sends only when its conditional UPDATE wins), `platform-alerts.controller.e2e-spec.ts` (platform-only), and `e2e/platform/platform-alert-banner.spec.ts` (banner) — rule candidate: a drill that needs a shared container stopped runs on a deploy target, never on the shared local stack.
+
+### Wave 3 — 2026-10-14
+
+Closed on the PR 5 accumulating branch (`epic/75.0/accum-5`), which stands in
+for `main` (D21). The Wave 3 tickets (#2328–#2332) landed in PR 1 and PR 3, so
+wave start = `3e8786961` (accum-4 head). The route-status snapshot diff is
+empty: this wave changes headers, logs and outbound calls, not guards.
+
+```mermaid
+flowchart LR
+  R["request"] --> N["nginx: redacted access log,<br/>client timeouts, server_tokens off (75.21, 75.23)"]
+  N --> A{"path"}
+  A -- "/api/*" --> S["Cache-Control: no-store (75.20)"]
+  A -- "index.html, sw.js" --> C["Cache-Control: no-cache (75.20)"]
+  A -- "/assets/x.js.map" --> M["404: no .map in the build (75.21)"]
+  S --> O["outbound HTTP only via pinned-http.ts (75.24)"]
+```
+
+- **Cache headers by default.** `no-store` is set on every `/api/*` response before the handler runs, and a route that needs its own value (the ICS feed, immutable asset routes) overwrites it — none — fix: `apiNoStoreByDefault` and `setStaticCacheHeaders` in `server/src/cache-control.ts` (#2328) — rule candidate: a cache header is a default set in one place, with per-route overrides, never a per-route opt-in. Checked live on a built server: `GET /api/v1/students` (200) and an unauthenticated 401 both carry `Cache-Control: no-store`. The SPA shell header is only served with `NODE_ENV=production`, which refuses a non-TLS local Postgres (`DB_SSL`), so `cache-control.e2e-spec.ts` covers it and the compose check is an owner action.
+- **Source maps.** A failed Sentry upload could leave hidden `.map` files in `client-admin/dist`, so "Vite does not emit them" was not enough — fix: `scripts/build-all.sh` deletes every `*.map` before it finishes (#2329) — rule candidate: a "never ship X" rule is enforced on the build output, not on the build config.
+- **Infra test bugs, not nginx bugs.** CI failed three hardening checks: the template aligns values with extra spaces and the check matched one space, and the slow-header timer wrapped the whole pipeline, so it always read ~21 s. The CI loop also stopped at the first failing script, so later infra tests never ran — one fix round — fix: squeeze spaces before matching, time the client itself, run every `*.infra.test.sh` and fail at the end (3a81ded87) — rule candidate: a test loop over scripts runs them all and reports at the end; config greps normalise whitespace first.
+- **Token redaction has two layers.** nginx's `redacted` access-log format masks path and query tokens, and pino's `redactPii` masks them again in the API log. The SPA share links (`/i/:token`, `/v/:token`) slipped through until the pattern also matched inside full URLs and `next=/i/tok` — one review round — fix: 37cedfd52 (#2331). Checked live: `GET /api/v1/public/invoices/<token>` and `?token=<value>` both log as `[REDACTED]`, and the raw values appear nowhere in the log — rule candidate: every new secret-bearing URL shape is added to `redactPii` and its spec in the same ticket that adds the route.
+- **Outbound HTTP guard.** The first contract spec only matched `fetch(`; review found `globalThis.fetch`, `fetch` passed as a value, dynamic imports, `ws`, raw `net`/`tls` and AWS SDK clients — one review round — fix: 75704314d (#2332) — rule candidate: a "no X outside helper Y" contract spec lists its own blind spots in a comment, so a reviewer knows what it cannot see.
+- **xlsx guard on the event loop.** Measuring each zip entry with sync inflate blocked every request while one upload was checked — fix: async `zlib.inflateRaw` with `maxOutputLength`, and "too large" is no longer reported as "not a valid file" (9dce2379f, #2330) — rule candidate: a guard that does CPU work on user input runs off the event loop.
+- **Live compose checks are owner actions.** Smoke through nginx, `.map` denial, the nginx access log and an SSRF refusal per migrated caller on the compose stack need Docker containers, which this run may not start. Covered here by the smoke run against a built server on a seeded test-env database (7/7) by the `nginx/test/*.infra.test.sh` scripts that CI's `infra` job runs, and for SSRF by `outbound-http.contract.spec.ts` plus the SMS gateway specs.
