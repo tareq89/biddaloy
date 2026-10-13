@@ -548,6 +548,16 @@ describe('Attendance E2E', () => {
   });
 
   describe('POST /attendance/sections/:sectionId/register/finalize', () => {
+    it('404s a TEACHER not mapped to the section (D13)', async () => {
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/attendance/sections/${UNMAPPED_SECTION_ID}/register/finalize`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .send({ date: todayIso() })
+        .expect(404);
+    });
+
     it('finalizes an already-submitted register', async () => {
       const date = todayIso();
       await supertest(app.getHttpServer())
@@ -675,6 +685,12 @@ describe('Attendance E2E', () => {
           .set('X-Tenant-ID', TENANT_ID)
           .set('X-Role', role)
           .send({ status, reason: 'Marked by mistake' });
+
+      it('an unassigned TEACHER gets 404 correcting a record (D13)', async () => {
+        const recordId = await putAbsent(todayIso());
+        await dataSource.query(`DELETE FROM teacher_class_sections`);
+        await patchAs(teacherToken, UserRole.TEACHER, recordId, 'PRESENT').expect(404);
+      });
 
       it('TEACHER cannot edit one record of a finalized register (403 ATTENDANCE_FINALIZED)', async () => {
         const recordId = await putAbsent(todayIso());
