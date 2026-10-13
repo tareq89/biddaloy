@@ -58,7 +58,12 @@ run_edge() {
     -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro" \
     -v "$PWD/nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro" \
     -v "$VOL:/etc/letsencrypt:ro" "$NGINX_IMG" >/dev/null
-  sleep 2
+  # readiness: wait (max ~20 s) for 443 to listen, or for the container to exit
+  for _ in $(seq 20); do
+    [ "$(docker inspect -f '{{.State.Running}}' "$name")" = true ] || break
+    docker exec "$name" nc -z 127.0.0.1 443 >/dev/null 2>&1 && break
+    sleep 1
+  done
 }
 
 # get_as <client-ip> — request through the edge, spoofing CF-Connecting-IP.

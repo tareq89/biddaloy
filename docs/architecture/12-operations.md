@@ -151,6 +151,14 @@ Cloudflare publishes new ranges now and then. To refresh:
    `trusted-proxies.sh: invalid entry '<x>'`.
 4. Apply: `docker compose up -d nginx`.
 
+Check the lists again whenever the quarterly checklist ([75.31]) says so.
+
+After enabling the list, confirm the app logs show real client IPs, not a
+Docker bridge gateway (`172.x`). If they show the gateway, the host uses
+Docker's userland proxy, which hides the source IP: do not enable the origin
+lock-down on that host. Loopback is the only always-allowed range; private
+ranges are not exempt.
+
 Rollback: set `TRUSTED_PROXY_CIDRS=` (empty) and `docker compose up -d nginx`.
 Empty means no CDN trust at all, which is how the stack behaved before.
 

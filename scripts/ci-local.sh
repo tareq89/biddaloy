@@ -160,6 +160,7 @@ CI_PATHS_INFRA=(
   'docker-compose.yml'
   'Dockerfile'
   'scripts/backup/**'
+  '**/*.infra.test.sh'
   '.github/workflows/ci.yml'
 )
 CI_PATHS_UI=(
@@ -429,13 +430,15 @@ fi
 
 if should_run "infra"; then
   section "infra"
-  if command -v docker >/dev/null 2>&1; then
+  # The only ci:local step that starts containers (docker-driven nginx tests),
+  # so it is opt-in. CI always runs it via ci.yml's `infra` job.
+  if [ "${CI_LOCAL_INFRA:-}" = 1 ] && docker info >/dev/null 2>&1; then
     for t in $(git ls-files '*.infra.test.sh'); do
       echo "--- $t"
       bash "$t"
     done
   else
-    echo "docker not found — skipping infra tests (CI's infra job runs them)"
+    echo "infra: skipped (set CI_LOCAL_INFRA=1 and have docker running)"
   fi
   section_done "infra"
 fi
