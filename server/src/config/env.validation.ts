@@ -341,11 +341,15 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
 
   for (const key of ['JWT_SECRET', 'JWT_SECRET_PREVIOUS']) {
     const secret = str(key);
-    if (secret && (/^\d+$/.test(secret) || new Set(secret).size < 8)) {
-      // All digits, or under 8 distinct symbols ('a'.repeat(40)). Random hex
-      // of the minimum 32 characters falls under 8 distinct symbols far less than
-      // once in a million draws; the old bar of 11 refused ~0.2% of them.
-      problems.push(`${key} is too weak (all digits or under 8 distinct characters)`);
+    if (secret && (/^\d+$/.test(secret) || /^(.+?)\1+$/.test(secret) || new Set(secret).size < 8)) {
+      // All digits, one substring repeated ('abcde123'.repeat(4)), or under 8
+      // distinct symbols ('a'.repeat(40)). Random hex of the minimum 32
+      // characters trips none of these far less than once in a million draws;
+      // the old bar of 11 distinct refused ~0.2% of them. A floor, not an
+      // entropy check: 'password1234password1234password' still passes.
+      problems.push(
+        `${key} is too weak (all digits, a repeated pattern, or under 8 distinct characters)`,
+      );
     }
   }
   if (str('JWT_SECRET') && str('JWT_SECRET') === str('SETTINGS_ENCRYPTION_KEY')) {
