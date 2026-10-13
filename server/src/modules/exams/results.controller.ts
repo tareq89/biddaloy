@@ -202,7 +202,6 @@ export class StudentResultsController {
   constructor(
     private readonly resultsService: ResultsService,
     private readonly familyAccess: FamilyAccessService,
-    private readonly teacherScope: TeacherScopeService,
   ) {}
 
   @Get()
@@ -217,12 +216,6 @@ export class StudentResultsController {
     @CurrentUser() user: JwtPayload,
   ) {
     await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
-    await this.teacherScope.assertCanSeeStudent({
-      role: tenant.role,
-      userId: user.sub,
-      tenantId: tenant.id,
-      studentId,
-    });
     return this.resultsService.listForStudent(studentId, tenant.id, isGuardianRole(tenant.role));
   }
 
@@ -239,12 +232,6 @@ export class StudentResultsController {
     @CurrentUser() user: JwtPayload,
   ) {
     await this.familyAccess.assertLinked(tenant.role, user.sub, studentId, tenant.id);
-    await this.teacherScope.assertCanSeeStudent({
-      role: tenant.role,
-      userId: user.sub,
-      tenantId: tenant.id,
-      studentId,
-    });
     const card = await this.resultsService.getStudentResultCard(
       examId,
       studentId,

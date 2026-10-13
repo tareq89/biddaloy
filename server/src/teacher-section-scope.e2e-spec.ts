@@ -178,6 +178,29 @@ describe('Teacher section scope (75.6)', () => {
     });
   });
 
+  describe('OFFICE_STAFF is unchanged', () => {
+    it('still sees A, B and C', async () => {
+      // OFFICE_STAFF has a tenant-wide scope: the teacher rule must not narrow it.
+      const office = await dataSource.query(`SELECT id FROM users WHERE email = $1`, [
+        SEED_ADMIN_EMAIL,
+      ]);
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [office[0].id, SEED_TENANT_ID, UserRole.OFFICE_STAFF],
+      );
+      // The JWT carries memberships, so log in again after adding the new one.
+      const login = await supertest(app.getHttpServer())
+        .post(`${API}/auth/login`)
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      const officeToken = login.body.access_token as string;
+      for (const id of [fx.studentA, fx.studentB, fx.studentC]) {
+        await call('get', `/students/${id}`, officeToken, UserRole.OFFICE_STAFF).expect(200);
+      }
+    });
+  });
+
   describe('tenant isolation', () => {
     it('a tenant the teacher does not belong to is refused by ContextGuard (401)', async () => {
       await call(

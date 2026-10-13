@@ -15,6 +15,8 @@ import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { User } from '../users/entities/user.entity';
 import { Student } from '../students/entities/student.entity';
+import { Guardian } from '../students/entities/guardian.entity';
+import { NotFoundException } from '@nestjs/common';
 import {
   teacherAssignments,
   teacherCanSeeStudent,
@@ -534,6 +536,50 @@ describe('TeacherScopeService (integration)', () => {
       expect(await see(gone.id)).toBe(false);
       expect(await see(inA.id, TENANT_B)).toBe(false);
       expect(await see('not-a-uuid')).toBe(false);
+    });
+
+    it('scopedStudentIds: only live students of visible sections; null for ADMIN; [] with no rows', async () => {
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, liveSubjectId);
+      const inA = await makeStudentIn(sec6A);
+      await makeStudentIn(sec6B);
+      const gone = await makeStudentIn(sec6A);
+      await dataSource.getRepository(Student).softDelete({ id: gone.id });
+      const base = { userId, tenantId: TENANT_A };
+      expect(await service.scopedStudentIds({ ...base, role: 'TEACHER' })).toEqual([inA.id]);
+      expect(await service.scopedStudentIds({ ...base, role: 'ADMIN' })).toBeNull();
+      expect(
+        await service.scopedStudentIds({
+          userId: '00000000-0000-4000-8000-0000000000aa',
+          tenantId: TENANT_A,
+          role: 'TEACHER',
+        }),
+      ).toEqual([]);
+    });
+
+    it('assertCanSeeGuardian: 404 outside scope, ok inside, no-op for ADMIN', async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
+      const guardianRepo = dataSource.getRepository(Guardian);
+      const link = async (student: Student) => {
+        const g = await guardianRepo.save({
+          full_name: 'Scope Guardian',
+          relationship: 'FATHER',
+          phone: '+8801700000001',
+          tenant_id: TENANT_A,
+        } as Partial<Guardian> as Guardian);
+        await dataSource.query(
+          `INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)`,
+          [student.id, g.id],
+        );
+        return g.id;
+      };
+      const gA = await link(await makeStudentIn(sec6A));
+      const gB = await link(await makeStudentIn(sec6B));
+      const ask = (guardianId: string, role = 'TEACHER') =>
+        service.assertCanSeeGuardian({ userId, tenantId: TENANT_A, role, guardianId });
+      await expect(ask(gA)).resolves.toBeUndefined();
+      await expect(ask(gB)).rejects.toThrow(NotFoundException);
+      await expect(ask('not-a-uuid')).rejects.toThrow(NotFoundException);
+      await expect(ask(gB, 'ADMIN')).resolves.toBeUndefined();
     });
   });
 });
