@@ -93,9 +93,10 @@ describe('usersTab shape', () => {
         'profile_picture_url',
         'preferences',
         'last_login_at',
+        'tokens_valid_after',
       ]),
     );
-    expect(usersTab.excluded).toHaveLength(7);
+    expect(usersTab.excluded).toHaveLength(8);
 
     const exported = usersTab.columns.map((c) => c.key);
     for (const key of usersTab.excluded) {
