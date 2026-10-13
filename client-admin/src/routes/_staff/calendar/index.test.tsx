@@ -420,7 +420,7 @@ describe('EventFormPage', () => {
   it.each([
     ['CALENDAR_EVENT_LOCKED', 'This event is in the past and can no longer be changed.'],
     ['CALENDAR_OUTSIDE_ACADEMIC_YEAR', 'These dates fall outside the current academic year.'],
-    ['CALENDAR_DAY_HAS_ATTENDANCE', 'Attendance has already been recorded for one of these days.'],
+    ['CALENDAR_DAY_HAS_ATTENDANCE', 'Attendance has already been taken on one of these days.'],
     ['CALENDAR_INVALID_CLASS', 'One of the selected classes is not valid.'],
   ])('maps the %s 422 code to its message', async (code, expectedMessage) => {
     const body: ApiErrorBody = {
@@ -625,6 +625,131 @@ describe('EventFormPage', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Notify affected families/staff' }));
 
     expect((notifySms as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  // [68.3.15.01] TIME-06: a closure for a day that has passed needs a reason.
+  it('a past end date with "counts as working day" unchecked shows the required reason field and sends reason', async () => {
+    const onSubmit = vi.fn();
+    const { user } = renderWithProviders(
+      <EventFormPage
+        mode="create"
+        initialValues={baseEvent({
+          type: CalendarEventType.HOLIDAY,
+          name: 'Hartal',
+          start_date: '2020-03-10',
+          end_date: '2020-03-10',
+          counts_as_working_day: false,
+        })}
+        isPending={false}
+        error={null}
+        onClose={() => {}}
+        onSubmit={onSubmit}
+      />,
+      { locale: 'en' },
+    );
+
+    const reason = await screen.findByLabelText('Why is this being added late?');
+    expect(
+      screen.getByText(
+        'This day has already passed. It can only be added if no attendance was taken.',
+      ),
+    ).toBeTruthy();
+    // No SMS or announcement about a day that is over.
+    expect(
+      screen.getByRole<HTMLButtonElement>('checkbox', { name: 'Publish immediately' }).disabled,
+    ).toBe(true);
+    expect(
+      screen.getByRole<HTMLButtonElement>('checkbox', { name: 'Notify affected families/staff' })
+        .disabled,
+    ).toBe(true);
+
+    // Too short: blocked client-side.
+    await user.type(reason, 'a');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Give a reason of at least 3 characters.',
+    );
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await user.type(reason, 'bc hartal');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ reason: 'abc hartal' }));
+  });
+
+  // #2253 review: a closure is "past" once its first day has passed, even if it ends later.
+  it('a closure that started in the past but ends later still asks for a reason', async () => {
+    renderWithProviders(
+      <EventFormPage
+        mode="create"
+        initialValues={baseEvent({
+          type: CalendarEventType.HOLIDAY,
+          name: 'Flood',
+          start_date: '2020-03-10',
+          end_date: '2099-03-10',
+          counts_as_working_day: false,
+        })}
+        isPending={false}
+        error={null}
+        onClose={() => {}}
+        onSubmit={() => {}}
+      />,
+      { locale: 'en' },
+    );
+    expect(await screen.findByLabelText('Why is this being added late?')).toBeTruthy();
+  });
+
+  // #2253 review: a make-up day's forced "counts" must not stick after a type change.
+  it('leaving Make-up school day unchecks "counts as working day"', async () => {
+    const { user } = renderWithProviders(
+      <EventFormPage
+        mode="edit"
+        initialValues={baseEvent({
+          type: CalendarEventType.MAKEUP_DAY,
+          counts_as_working_day: true,
+        })}
+        isPending={false}
+        error={null}
+        onClose={() => {}}
+        onSubmit={() => {}}
+      />,
+      { locale: 'en' },
+    );
+    const working = await screen.findByRole<HTMLButtonElement>('checkbox', {
+      name: 'Counts as a working day',
+    });
+    expect(working.getAttribute('aria-checked')).toBe('true');
+
+    await user.click(screen.getByRole('combobox', { name: 'Type' }));
+    await user.click(await screen.findByRole('option', { name: 'Holiday' }));
+
+    expect(working.disabled).toBe(false);
+    expect(working.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('choosing Make-up school day checks and disables "counts as working day"', async () => {
+    const { user } = renderWithProviders(
+      <EventFormPage
+        mode="create"
+        initialValues={baseEvent({ counts_as_working_day: false })}
+        isPending={false}
+        error={null}
+        onClose={() => {}}
+        onSubmit={() => {}}
+      />,
+      { locale: 'en' },
+    );
+
+    const working = await screen.findByRole<HTMLButtonElement>('checkbox', {
+      name: 'Counts as a working day',
+    });
+    expect(working.disabled).toBe(false);
+    expect(working.getAttribute('aria-checked')).toBe('false');
+
+    await user.click(screen.getByRole('combobox', { name: 'Type' }));
+    await user.click(await screen.findByRole('option', { name: 'Make-up school day' }));
+
+    expect(working.disabled).toBe(true);
+    expect(working.getAttribute('aria-checked')).toBe('true');
   });
 });
 

@@ -51,7 +51,7 @@ describe('Attention role matrix (integration)', () => {
 
   async function seedSchool() {
     [{ id: tenantId }] = await q(
-      `INSERT INTO schools (name, slug) VALUES ('Role Matrix', $1) RETURNING id`,
+      `INSERT INTO schools (name, slug, settings) VALUES ('Role Matrix', $1, '{"version":1,"attendance":{"autoAbsentNotification":{"enabled":true,"cutoffTime":"14:00"}}}'::jsonb) RETURNING id`,
       [`role-matrix-${rand()}`],
     );
     for (const role of ROLES) {

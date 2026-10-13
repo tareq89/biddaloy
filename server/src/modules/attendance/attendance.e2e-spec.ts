@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
+import { enrollPlacedStudents } from '@test/helpers/enrollment.helper';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -130,6 +131,7 @@ describe('Attendance E2E', () => {
       [randomUUID(), MAPPED_SECTION_ID, TENANT_ID],
     );
     studentId = studentRes[0].id;
+    await enrollPlacedStudents(dataSource, TENANT_ID);
   });
 
   function todayIso(): string {
@@ -281,6 +283,7 @@ describe('Attendance E2E', () => {
          FROM generate_series(1, 59) AS n`,
         [MAPPED_SECTION_ID, TENANT_ID],
       );
+      await enrollPlacedStudents(dataSource, TENANT_ID);
       const rows: Array<{ id: string }> = await dataSource.query(
         `SELECT id FROM students WHERE class_section_id = $1 AND tenant_id = $2`,
         [MAPPED_SECTION_ID, TENANT_ID],
@@ -435,6 +438,49 @@ describe('Attendance E2E', () => {
       expect(res.body.session.version).toBe(1);
     });
 
+    // LIFE-08: the roster is the section's enrollments, so a student promoted
+    // out of it (placement moved) can still be marked on its register.
+    it('accepts a student promoted out of the section; refuses a student with no enrollment there (422)', async () => {
+      await dataSource.query(`UPDATE students SET class_section_id = $1 WHERE id = $2`, [
+        UNMAPPED_SECTION_ID,
+        studentId,
+      ]);
+      const put = (id: string, base_version = 0) =>
+        supertest(app.getHttpServer())
+          .put(`/api/v1/attendance/sections/${MAPPED_SECTION_ID}/register`)
+          .set('Authorization', `Bearer ${teacherToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', UserRole.TEACHER)
+          .send({
+            date: todayIso(),
+            base_version,
+            client_request_id: randomUUID(),
+            entries: [{ student_id: id, status: 'PRESENT' }],
+          });
+      await put(studentId).expect(200);
+      // A real student of ANOTHER school is not in this section's enrollments.
+      const tenantB = '00000000-0000-4000-8000-0000000022b3';
+      const bStudent = randomUUID();
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug) VALUES ($1, 'B2 School', 'e2e-b-2269')`,
+        [tenantB],
+      );
+      try {
+        await dataSource.query(
+          `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status, created_at, updated_at)
+           VALUES ($1, 'B Student', 'E2E-B-2269', 1, $2, $3, 'ACTIVE', NOW(), NOW())`,
+          [bStudent, MAPPED_SECTION_ID, tenantB],
+        );
+        const res = await put(bStudent, 1).expect(422);
+        expect(res.body.details?.code ?? res.body.message?.details?.code).toBe(
+          'ATTENDANCE_UNKNOWN_STUDENTS',
+        );
+      } finally {
+        await dataSource.query(`DELETE FROM students WHERE tenant_id = $1`, [tenantB]);
+        await dataSource.query(`DELETE FROM schools WHERE id = $1`, [tenantB]);
+      }
+    });
+
     it('returns 403 for a TEACHER not mapped to the section', async () => {
       await supertest(app.getHttpServer())
         .put(`/api/v1/attendance/sections/${UNMAPPED_SECTION_ID}/register`)
@@ -572,6 +618,214 @@ describe('Attendance E2E', () => {
       expect(
         res.body.students.find((s: { student_id: string }) => s.student_id === studentId).status,
       ).toBe('LATE');
+    });
+
+    describe('finalized and future rules (TIME-04)', () => {
+      const putAbsent = async (date: string, status = 'ABSENT') => {
+        const res = await supertest(app.getHttpServer())
+          .put(`/api/v1/attendance/sections/${MAPPED_SECTION_ID}/register`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .send({
+            date,
+            base_version: 0,
+            client_request_id: randomUUID(),
+            entries: [{ student_id: studentId, status }],
+          })
+          .expect(200);
+        return res.body.students.find((s: { student_id: string }) => s.student_id === studentId)
+          .record_id as string;
+      };
+      const finalize = (date: string) =>
+        supertest(app.getHttpServer())
+          .post(`/api/v1/attendance/sections/${MAPPED_SECTION_ID}/register/finalize`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .send({ date })
+          .expect(200);
+      const patchAs = (token: string, role: UserRole, recordId: string, status: string) =>
+        supertest(app.getHttpServer())
+          .patch(`/api/v1/attendance/records/${recordId}`)
+          .set('Authorization', `Bearer ${token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', role)
+          .send({ status, reason: 'Marked by mistake' });
+
+      it('TEACHER cannot edit one record of a finalized register (403 ATTENDANCE_FINALIZED)', async () => {
+        const recordId = await putAbsent(todayIso());
+        await finalize(todayIso());
+        const res = await patchAs(teacherToken, UserRole.TEACHER, recordId, 'PRESENT').expect(403);
+        expect(res.body.details.code).toBe('ATTENDANCE_FINALIZED');
+      });
+
+      it('ADMIN (holds ATTENDANCE_CORRECT) can still edit a finalized record with a reason', async () => {
+        const recordId = await putAbsent(todayIso());
+        await finalize(todayIso());
+        await patchAs(adminToken, UserRole.ADMIN, recordId, 'PRESENT').expect(200);
+      });
+
+      it('TEACHER can still edit a DRAFT record inside the window', async () => {
+        const recordId = await putAbsent(todayIso());
+        await patchAs(teacherToken, UserRole.TEACHER, recordId, 'PRESENT').expect(200);
+      });
+
+      it('a future-dated LEAVE record cannot be set to PRESENT (422 ATTENDANCE_FUTURE_NOT_LEAVE)', async () => {
+        await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+          JSON.stringify({
+            version: 1,
+            attendance: { weeklyOffDays: [], allowFutureDates: true },
+          }),
+          TENANT_ID,
+        ]);
+        try {
+          // +2d so it is future in any tenant timezone
+          const futureDate = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+          const recordId = await putAbsent(futureDate, 'LEAVE');
+          const res = await patchAs(adminToken, UserRole.ADMIN, recordId, 'PRESENT').expect(422);
+          expect(res.body.details.code).toBe('ATTENDANCE_FUTURE_NOT_LEAVE');
+        } finally {
+          await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+            JSON.stringify({ version: 1, attendance: { weeklyOffDays: [] } }),
+            TENANT_ID,
+          ]);
+        }
+      });
+
+      it('a record id from another tenant is 404', async () => {
+        const other = '00000000-0000-4000-8000-0000000022b3';
+        const bSession = randomUUID();
+        const bRecord = randomUUID();
+        try {
+          await dataSource.query(
+            `INSERT INTO schools (id, name, slug) VALUES ($1, 'B School', 'e2e-b-2276')`,
+            [other],
+          );
+          await dataSource.query(
+            `INSERT INTO attendance_sessions (id, tenant_id, section_id, date, state, version) VALUES ($1, $2, $3, $4, 'DRAFT', 1)`,
+            [bSession, other, MAPPED_SECTION_ID, todayIso()],
+          );
+          await dataSource.query(
+            `INSERT INTO attendance_records (id, tenant_id, session_id, student_id, status, date) VALUES ($1, $2, $3, $4, 'ABSENT', $5)`,
+            [bRecord, other, bSession, studentId, todayIso()],
+          );
+          await patchAs(teacherToken, UserRole.TEACHER, bRecord, 'PRESENT').expect(404);
+        } finally {
+          await dataSource.query(`DELETE FROM attendance_records WHERE tenant_id = $1`, [other]);
+          await dataSource.query(`DELETE FROM attendance_sessions WHERE tenant_id = $1`, [other]);
+          await dataSource.query(`DELETE FROM schools WHERE id = $1`, [other]);
+        }
+      });
+    });
+  });
+
+  describe('PATCH /attendance/records/:recordId — absence correction notice', () => {
+    const OTHER_TENANT = '00000000-0000-4000-8000-0000000022b2';
+    const logCount = async (guardianId?: string) =>
+      Number(
+        (
+          await dataSource.query(
+            `SELECT count(*) FROM communication_logs
+             WHERE reference_key LIKE 'absence-correction:%' ${guardianId ? 'AND guardian_id = $1' : ''}`,
+            guardianId ? [guardianId] : [],
+          )
+        )[0].count,
+      );
+    const settings = (enabled: boolean) =>
+      dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+        JSON.stringify({
+          version: 1,
+          attendance: {
+            weeklyOffDays: [],
+            autoAbsentNotification: { enabled, cutoffTime: '00:00' },
+          },
+        }),
+        TENANT_ID,
+      ]);
+    afterEach(async () => {
+      await settings(false);
+      await dataSource.query(`DELETE FROM attendance_records WHERE tenant_id = $1`, [OTHER_TENANT]);
+      await dataSource.query(`DELETE FROM attendance_sessions WHERE tenant_id = $1`, [
+        OTHER_TENANT,
+      ]);
+      await dataSource.query(`DELETE FROM schools WHERE id = $1`, [OTHER_TENANT]);
+    });
+
+    const patch = (recordId: string, status: string) =>
+      supertest(app.getHttpServer())
+        .patch(`/api/v1/attendance/records/${recordId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ status, reason: 'Marked by mistake' });
+
+    it("ABSENT -> PRESENT on a notified register logs one correction for that child's guardian only; a tenant-B record is 404 and sends nothing", async () => {
+      await settings(true);
+      const guardianId = randomUUID();
+      const otherGuardianId = randomUUID();
+      await dataSource.query(
+        `INSERT INTO guardians (id, full_name, relationship, phone, is_primary_contact, notifications_enabled, preferred_communication, tenant_id, created_at, updated_at)
+         VALUES ($1, 'Mine', 'Father', '01711111111', true, true, 'SMS', $3, NOW(), NOW()),
+                ($2, 'Other', 'Mother', '01722222222', true, true, 'SMS', $3, NOW(), NOW())`,
+        [guardianId, otherGuardianId, TENANT_ID],
+      );
+      const otherStudentId = randomUUID();
+      await dataSource.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status, created_at, updated_at)
+         VALUES ($1, 'Other Student', 'E2E-REG-2', 2, $2, $3, 'ACTIVE', NOW(), NOW())`,
+        [otherStudentId, MAPPED_SECTION_ID, TENANT_ID],
+      );
+      await enrollPlacedStudents(dataSource, TENANT_ID);
+      await dataSource.query(
+        `INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2), ($3, $4)`,
+        [studentId, guardianId, otherStudentId, otherGuardianId],
+      );
+
+      const putRes = await supertest(app.getHttpServer())
+        .put(`/api/v1/attendance/sections/${MAPPED_SECTION_ID}/register`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          date: todayIso(),
+          base_version: 0,
+          client_request_id: randomUUID(),
+          finalize: true,
+          entries: [
+            { student_id: studentId, status: 'ABSENT' },
+            { student_id: otherStudentId, status: 'ABSENT' },
+          ],
+        })
+        .expect(200);
+      const recordId = putRes.body.students.find(
+        (s: { student_id: string }) => s.student_id === studentId,
+      ).record_id;
+
+      // Tenant B owns a record with the same shape; tenant A cannot reach it.
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug) VALUES ($1, 'B School', 'e2e-b-2262')`,
+        [OTHER_TENANT],
+      );
+      const bSession = randomUUID();
+      const bRecord = randomUUID();
+      await dataSource.query(
+        `INSERT INTO attendance_sessions (id, tenant_id, section_id, date, state, version) VALUES ($1, $2, $3, $4, 'FINALIZED', 1)`,
+        [bSession, OTHER_TENANT, MAPPED_SECTION_ID, todayIso()],
+      );
+      await dataSource.query(
+        `INSERT INTO attendance_records (id, tenant_id, session_id, student_id, status, date) VALUES ($1, $2, $3, $4, 'ABSENT', $5)`,
+        [bRecord, OTHER_TENANT, bSession, studentId, todayIso()],
+      );
+      await patch(bRecord, 'PRESENT').expect(404);
+      expect(await logCount()).toBe(0);
+
+      // The notice must have reached the guardian: there is no SMS gateway
+      // here, so the worker marks it FAILED, and a failed notice is never
+      // "corrected" (#2262). Simulate delivery.
+      await dataSource.query(`UPDATE communication_logs SET status = 'SENT' WHERE tenant_id = $1`, [
+        TENANT_ID,
+      ]);
+      await patch(recordId, 'PRESENT').expect(200);
+      expect(await logCount()).toBe(1);
+      expect(await logCount(guardianId)).toBe(1);
+      expect(await logCount(otherGuardianId)).toBe(0);
     });
   });
 

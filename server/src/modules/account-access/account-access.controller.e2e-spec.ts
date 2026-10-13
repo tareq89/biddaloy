@@ -9,6 +9,7 @@ import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { AuthService } from '../auth/auth.service';
 import { AuthTokenService, INVITE_TTL_MS } from './auth-token.service';
+import { OTP_REDIS } from './otp.service';
 import { SEED_TENANT_ID } from '@test/constants';
 import { AuthTokenPurpose } from '@biddaloy/shared';
 
@@ -284,6 +285,54 @@ describe('AccountAccessController (e2e)', () => {
         .post('/api/v1/auth/otp/verify')
         .send({ phone: bengaliPhone, otp })
         .expect(200);
+    });
+
+    // PHONE_NUMBER's LOGIN bucket in its canonical cap form (country code, no "+").
+    const CAP_KEY = 'otp-cap:LOGIN:8801799990000';
+    const LOGIN_COOLDOWN = `otp-cooldown:LOGIN:${PHONE_NUMBER}`;
+
+    it("counts each sent code against the phone's hourly LOGIN budget, on real Redis", async () => {
+      const redis = app.get(OTP_REDIS, { strict: false });
+      const before = Number((await redis.get(CAP_KEY)) ?? 0);
+      await redis.del(LOGIN_COOLDOWN);
+
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/otp/request')
+        .send({ phone: PHONE_NUMBER })
+        .expect(202);
+      expect(res.body.debug?.otp).toMatch(/^\d{6}$/);
+
+      expect(await redis.get(CAP_KEY)).toBe(String(before + 1));
+      const ttl = await redis.pttl(CAP_KEY);
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(3_600_000);
+    });
+
+    it('after 5 codes in an hour, sends nothing and answers like the cooldown', async () => {
+      const redis = app.get(OTP_REDIS, { strict: false });
+      const sent = async () =>
+        (
+          await dataSource.query(
+            'SELECT count(*)::int AS n FROM communication_logs WHERE recipient_address = $1',
+            [PHONE_NUMBER],
+          )
+        )[0].n as number;
+      try {
+        await redis.set(CAP_KEY, '5', 'PX', 3_600_000);
+        await redis.del(LOGIN_COOLDOWN);
+        const before = await sent();
+
+        const res = await supertest(app.getHttpServer())
+          .post('/api/v1/auth/otp/request')
+          .send({ phone: PHONE_NUMBER })
+          .expect(202);
+
+        expect(res.body).toEqual({ debug: {} });
+        expect(await sent()).toBe(before);
+        expect(await redis.exists(LOGIN_COOLDOWN)).toBe(0);
+      } finally {
+        await redis.del(CAP_KEY);
+      }
     });
   });
   describe('email code sign-in and first password [13.2.2]', () => {

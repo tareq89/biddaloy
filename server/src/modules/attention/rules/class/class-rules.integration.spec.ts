@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { enrollPlacedStudents } from '@test/helpers/enrollment.helper';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource } from 'typeorm';
@@ -65,12 +66,15 @@ describe('Class rules (integration)', () => {
     );
     return userId;
   };
-  const mkStudent = (tenantId: string, sectionId: string, name: string) =>
-    one(
+  const mkStudent = async (tenantId: string, sectionId: string, name: string) => {
+    const id = await one(
       `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status, created_at, updated_at)
        VALUES (gen_random_uuid(), $1, $2, $5, $3, $4, 'ACTIVE', NOW(), NOW()) RETURNING id`,
       [name, 'REG-' + uniq(), sectionId, tenantId, ++seq],
     );
+    await enrollPlacedStudents(ds, tenantId);
+    return id;
+  };
   const mkGuardian = async (tenantId: string, studentId: string, phone: string | null) => {
     const gid = await one(
       `INSERT INTO guardians (id, full_name, relationship, phone, tenant_id, created_at, updated_at)

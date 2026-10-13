@@ -95,7 +95,9 @@ export class OtpLoginService {
     let code: string;
     try {
       // Bound to `to`: if that address changes before verify, the code stops working.
-      ({ code } = await this.otpService.request(OTP_PURPOSE, identifier, to));
+      ({ code } = await this.otpService.request(OTP_PURPOSE, identifier, to, {
+        capDestination: to,
+      }));
     } catch {
       // A 429 from the cooldown must not leak beyond the same 202 every
       // other branch returns — see RecoveryService.sendOtp for the same

@@ -1,4 +1,5 @@
 import { EntityManager } from 'typeorm';
+import { EnrollmentStatus } from '@biddaloy/shared';
 import { Enrollment } from '../students/entities/enrollment.entity';
 
 /**
@@ -8,8 +9,11 @@ import { Enrollment } from '../students/entities/enrollment.entity';
  * the student's CURRENT placement and moves on promotion. Same rule as
  * the mark grid (Epic 19 D17). Ordered by roll number.
  *
- * Every enrollment status counts: a student who left or graduated after the
- * exam is still in the results cohort (`loadExamCohort`), so must stay here.
+ * Every enrollment status counts by default: a student who left or graduated
+ * after the exam is still in the results cohort (`loadExamCohort`), so must
+ * stay here. Attendance passes `excludeLeft` (#2269): a student whose
+ * enrollment here ended INACTIVE or TRANSFERRED left the section, so is off
+ * its register and summaries. GRADUATED still counts: they finished the year.
  *
  * ponytail: an in-place section move rewrites `enrollments.section_id`, so
  * a mid-year move is not date-aware; that needs enrollment history (#2133
@@ -19,8 +23,9 @@ export async function sectionRosterStudentIds(
   manager: EntityManager,
   tenantId: string,
   sectionId: string,
+  opts: { excludeLeft?: boolean } = {},
 ): Promise<string[]> {
-  const rows = await manager
+  const qb = manager
     .getRepository(Enrollment)
     .createQueryBuilder('e')
     .innerJoin(
@@ -30,8 +35,12 @@ export async function sectionRosterStudentIds(
     )
     .select('e.student_id', 'student_id')
     .where('e.tenant_id = :tenantId', { tenantId })
-    .andWhere('e.section_id = :sectionId', { sectionId })
-    .orderBy('st.roll_number', 'ASC')
-    .getRawMany<{ student_id: string }>();
+    .andWhere('e.section_id = :sectionId', { sectionId });
+  if (opts.excludeLeft) {
+    qb.andWhere('e.enrollment_status IN (:...stayed)', {
+      stayed: [EnrollmentStatus.ACTIVE, EnrollmentStatus.GRADUATED],
+    });
+  }
+  const rows = await qb.orderBy('st.roll_number', 'ASC').getRawMany<{ student_id: string }>();
   return rows.map((r) => r.student_id);
 }

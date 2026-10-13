@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
+import { enrollPlacedStudents } from '@test/helpers/enrollment.helper';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule, getQueueToken } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -27,8 +28,11 @@ import {
   AttendanceStatus,
   AttendanceSessionState,
   CommunicationMedium,
+  CommunicationStatus,
+  EnrollmentStatus,
   UserRole,
 } from '@biddaloy/shared';
+import { Enrollment } from '../students/entities/enrollment.entity';
 
 /**
  * Integration tests for [9.8]'s `AbsenceNoticeService`, run against a real,
@@ -175,6 +179,7 @@ describe('AbsenceNoticeService (integration)', () => {
     });
     studentId1 = s1.id;
     studentId2 = s2.id;
+    await enrollPlacedStudents(dataSource, TENANT_ID);
   });
 
   function basePutDto(overrides: Record<string, unknown> = {}) {
@@ -348,6 +353,222 @@ describe('AbsenceNoticeService (integration)', () => {
     expect(preview.recipients[0].guardian_id).toBe(guardianId);
   });
 
+  describe('correction after the notice (D16)', () => {
+    let guardianId2: string;
+    const OFF = {
+      weeklyOffDays: [],
+      correctionWindowDays: 2,
+      allowFutureDates: false,
+      autoAbsentNotification: { enabled: false, cutoffTime: '00:00' },
+    };
+
+    beforeEach(async () => {
+      // Karim (student 2) gets his own guardian so "that child's guardians only" is observable.
+      const g2 = await dataSource.getRepository(Guardian).save({
+        full_name: 'Guardian Two',
+        relationship: 'Mother',
+        phone: '01722222222',
+        is_primary_contact: true,
+        notifications_enabled: true,
+        preferred_communication: CommunicationMedium.SMS,
+        tenant_id: TENANT_ID,
+      });
+      guardianId2 = g2.id;
+      await dataSource.getRepository(Student).save({ id: studentId2, guardians: [{ id: g2.id }] });
+      // Rahim (student 1) ABSENT, Karim (student 2) PRESENT; finalized -> one notice to guardian 1.
+      await attendanceService.putRegister(putParams({ dto: basePutDto() }));
+    });
+
+    const allLogs = () =>
+      dataSource
+        .getRepository(CommunicationLog)
+        .find({ where: { tenant_id: TENANT_ID }, order: { created_at: 'ASC' } });
+
+    const setEnglish = () =>
+      dataSource.getRepository(School).update(
+        { id: TENANT_ID },
+        {
+          settings: {
+            version: 1,
+            attendance: { ...OFF, autoAbsentNotification: { enabled: true, cutoffTime: '00:00' } },
+            region: { timezone: 'Asia/Dhaka', locale: 'en-US' },
+          } as any,
+        },
+      );
+
+    const correct = async (studentId: string, status: AttendanceStatus) => {
+      const rec = await dataSource
+        .getRepository(AttendanceRecord)
+        .findOneByOrFail({ student_id: studentId, tenant_id: TENANT_ID });
+      await attendanceService.correctRecord({
+        recordId: rec.id,
+        tenantId: TENANT_ID,
+        role: UserRole.ADMIN,
+        userId: ADMIN_USER_ID,
+        dto: { status, reason: 'Marked by mistake' } as any,
+        ip: null,
+        userAgent: null,
+      });
+    };
+
+    it("ABSENT -> PRESENT sends one correction, to that child's guardian only; repeating adds nothing", async () => {
+      expect(await allLogs()).toHaveLength(1);
+
+      await correct(studentId1, AttendanceStatus.PRESENT);
+
+      const logs = await allLogs();
+      expect(logs).toHaveLength(2);
+      expect(logs[1].guardian_id).toBe(guardianId);
+      // [#2403] The seeded school stores no locale, so it gets English.
+      expect(logs[1].message_body).toContain('Correction:');
+      expect(logs[1].message_body).toContain('Student One');
+
+      // Same correction replayed (e.g. a retried request): the reference key stops a second send.
+      await absenceNoticeService.notifyCorrection({
+        tenantId: TENANT_ID,
+        sessionId: (
+          await dataSource.getRepository(AttendanceRecord).findOneByOrFail({
+            student_id: studentId1,
+            tenant_id: TENANT_ID,
+          })
+        ).session_id,
+        studentId: studentId1,
+        oldStatus: AttendanceStatus.ABSENT,
+        newStatus: AttendanceStatus.PRESENT,
+        userId: ADMIN_USER_ID,
+      });
+      expect(await allLogs()).toHaveLength(2);
+    });
+
+    it("PRESENT -> ABSENT after the notice sends that child's absence notice once, to his guardian only", async () => {
+      await correct(studentId2, AttendanceStatus.ABSENT);
+
+      const logs = await allLogs();
+      expect(logs).toHaveLength(2);
+      expect(logs[1].guardian_id).toBe(guardianId2);
+      expect(logs[1].message_body).toContain('was marked absent today');
+      expect(logs[1].message_body).toContain('Student Two');
+      expect(logs.filter((l) => l.guardian_id === guardianId)).toHaveLength(1);
+    });
+
+    it('bn-BD school gets the Bangla correction text', async () => {
+      await dataSource.getRepository(School).update(
+        { id: TENANT_ID },
+        {
+          settings: {
+            version: 1,
+            attendance: {
+              weeklyOffDays: [],
+              correctionWindowDays: 2,
+              allowFutureDates: false,
+              autoAbsentNotification: { enabled: true, cutoffTime: '00:00' },
+            },
+            region: { timezone: 'Asia/Dhaka', locale: 'bn-BD' },
+          } as any,
+        },
+      );
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      const logs = await allLogs();
+      expect(logs[1].message_body).toContain('সংশোধন:');
+      expect(logs[1].message_body).toContain('Student One');
+    });
+
+    // #2262: the guardian's latest message must always match the record.
+    const purposes = async () =>
+      (
+        await dataSource.query(
+          `SELECT b.filters_applied->>'purpose' AS purpose
+             FROM communication_logs l JOIN reminder_batches b ON b.id = l.reminder_batch_id
+            WHERE l.tenant_id = $1 AND l.guardian_id = $2 ORDER BY l.created_at`,
+          [TENANT_ID, guardianId],
+        )
+      ).map((r: { purpose: string }) => r.purpose);
+
+    it('ABSENT -> LEAVE says "not absent", never "present"', async () => {
+      await setEnglish();
+      await correct(studentId1, AttendanceStatus.LEAVE);
+      const logs = await allLogs();
+      expect(logs).toHaveLength(2);
+      expect(logs[1].message_body).toBe(
+        `Correction: Student One was not absent on ${TODAY()}. Sorry for the earlier message.`,
+      );
+    });
+
+    it('ABSENT -> PRESENT -> ABSENT tells the guardian again that the child was absent', async () => {
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      await correct(studentId1, AttendanceStatus.ABSENT);
+      expect(await purposes()).toEqual(['ABSENCE_NOTICE', 'ABSENCE_CORRECTION', 'ABSENCE_NOTICE']);
+    });
+
+    it('ABSENT -> PRESENT -> LATE says sorry once', async () => {
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      await correct(studentId1, AttendanceStatus.LATE);
+      expect(await purposes()).toEqual(['ABSENCE_NOTICE', 'ABSENCE_CORRECTION']);
+    });
+
+    it('ABSENT -> PRESENT -> ABSENT -> LATE never sends two sorries in a row', async () => {
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      await correct(studentId1, AttendanceStatus.ABSENT);
+      await correct(studentId1, AttendanceStatus.LATE);
+      expect(await purposes()).toEqual([
+        'ABSENCE_NOTICE',
+        'ABSENCE_CORRECTION',
+        'ABSENCE_NOTICE',
+        'ABSENCE_CORRECTION',
+      ]);
+    });
+
+    it('a FAILED notice does not count as told: no sorry for a message never received', async () => {
+      await dataSource
+        .getRepository(CommunicationLog)
+        .update({ tenant_id: TENANT_ID }, { status: CommunicationStatus.FAILED });
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      expect(await allLogs()).toHaveLength(1);
+    });
+
+    it('a FAILED notice does not block a first notice when the child is marked absent again', async () => {
+      await dataSource
+        .getRepository(CommunicationLog)
+        .update({ tenant_id: TENANT_ID }, { status: CommunicationStatus.FAILED });
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      await correct(studentId1, AttendanceStatus.ABSENT);
+      const logs = await allLogs();
+      expect(logs).toHaveLength(2);
+      expect(await purposes()).toEqual(['ABSENCE_NOTICE', 'ABSENCE_NOTICE']);
+    });
+
+    it('switch off: a correction sends nothing', async () => {
+      await setTenantSettings(TENANT_ID, OFF);
+      await correct(studentId1, AttendanceStatus.PRESENT);
+      expect(await allLogs()).toHaveLength(1);
+    });
+  });
+
+  it('#2269: a child who left the section after being marked absent gets no notice', async () => {
+    await attendanceService.putRegister(putParams({ dto: basePutDto({ finalize: false }) }));
+    await dataSource
+      .getRepository(Enrollment)
+      .update(
+        { student_id: studentId1, tenant_id: TENANT_ID },
+        { enrollment_status: EnrollmentStatus.TRANSFERRED },
+      );
+    await dataSource
+      .getRepository(AttendanceSession)
+      .update(
+        { section_id: sectionId, tenant_id: TENANT_ID },
+        { state: AttendanceSessionState.FINALIZED },
+      );
+
+    const result = await absenceNoticeService.sendAbsenceNotices({
+      tenantId: TENANT_ID,
+      sectionId,
+      date: TODAY(),
+      initiatedByUserId: ADMIN_USER_ID,
+    });
+
+    expect(result.total_recipients).toBe(0);
+  });
+
   it('does nothing for a DRAFT (not finalized) session', async () => {
     await attendanceService.putRegister(putParams({ dto: basePutDto({ finalize: false }) }));
 
@@ -402,6 +623,7 @@ describe('AbsenceNoticeService (integration)', () => {
       tenant_id: OTHER_TENANT,
       guardians: [otherGuardian],
     });
+    await enrollPlacedStudents(dataSource, OTHER_TENANT);
 
     // Tenant A's send only ever resolves tenant A's own section/students —
     // there is no shared code path that could cross tenant_id boundaries,

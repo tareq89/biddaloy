@@ -123,8 +123,7 @@ describe('useSendCommunication posts the message and resolves the queued log', (
 
     result.current.mutate({
       medium: 'SMS',
-      recipient_address: '+8801700000000',
-      recipient_name: 'Rahima Begum',
+      guardian_id: 'guardian-1',
       message_body: 'School closed tomorrow.',
     });
 

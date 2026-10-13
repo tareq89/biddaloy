@@ -11,6 +11,7 @@ import { AttendanceRecord } from './entities/attendance-record.entity';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { currentStreaks, MAX_STREAK_SESSIONS, StreakStatus } from './attendance-streaks.util';
 import { Student } from '../students/entities/student.entity';
+import { sectionRosterStudentIds } from '../enrollments/section-roster';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { SchoolsService } from '../schools/schools.service';
@@ -146,6 +147,18 @@ export class AttendanceSummaryService {
   private async getPolicy(tenantId: string): Promise<AttendancePolicySettings> {
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     return resolveAttendancePolicy(settings);
+  }
+
+  /** Enrollment roster of a section (not `Student.class_section_id`), by roll number. */
+  private async loadSectionRoster(tenantId: string, sectionId: string): Promise<Student[]> {
+    const ids = await sectionRosterStudentIds(this.studentRepo.manager, tenantId, sectionId, {
+      excludeLeft: true,
+    });
+    if (ids.length === 0) return [];
+    return this.studentRepo.find({
+      where: { id: In(ids), tenant_id: tenantId },
+      order: { roll_number: 'ASC' },
+    });
   }
 
   /**
@@ -453,9 +466,10 @@ export class AttendanceSummaryService {
     section_percentage: number | null;
   }> {
     const { tenantId, sectionId, from, to } = input;
-    const students = await this.studentRepo.find({
-      where: { tenant_id: tenantId, class_section_id: sectionId },
-      order: { roll_number: 'ASC' },
+    const students = await this.loadSectionRoster(tenantId, sectionId);
+    // Working days follow the section's own class, not each student's current one.
+    const section = await this.sectionRepo.findOne({
+      where: { id: sectionId, tenant_id: tenantId },
     });
     const studentIds = students.map((s) => s.id);
     const { summaries, workingDaysCount } = await this.computeSummaries(
@@ -464,6 +478,7 @@ export class AttendanceSummaryService {
       from,
       to,
       sectionId,
+      section?.class_id,
     );
     const studentSummaries = students.map((s) => summaries.get(s.id)!);
 
@@ -504,9 +519,10 @@ export class AttendanceSummaryService {
     }>;
   }> {
     const { tenantId, sectionId, from, to } = input;
-    const students = await this.studentRepo.find({
-      where: { tenant_id: tenantId, class_section_id: sectionId },
-      order: { roll_number: 'ASC' },
+    const students = await this.loadSectionRoster(tenantId, sectionId);
+    // Working days follow the section's own class, not each student's current one.
+    const section = await this.sectionRepo.findOne({
+      where: { id: sectionId, tenant_id: tenantId },
     });
     const studentIds = students.map((s) => s.id);
 
@@ -516,6 +532,7 @@ export class AttendanceSummaryService {
       from,
       to,
       sectionId,
+      section?.class_id,
     );
     const workingDaySet = new Set(workingDays);
     const dates = everyDateInRange(from, to).map((date) => ({
@@ -617,10 +634,7 @@ export class AttendanceSummaryService {
     }
     const policy = resolveAttendancePolicy(settings);
 
-    const students = await this.studentRepo.find({
-      where: { tenant_id: tenantId, class_section_id: sectionId },
-      order: { roll_number: 'ASC' },
-    });
+    const students = await this.loadSectionRoster(tenantId, sectionId);
 
     // withDeleted: a soft-deleted subject still shows by name if it has registers.
     const subjectRows = await this.sessionRepo
@@ -752,9 +766,7 @@ export class AttendanceSummaryService {
     });
     if (sessions.length === 0) return { items: [], as_of_date: null };
 
-    const students = await this.studentRepo.find({
-      where: { tenant_id: tenantId, class_section_id: sectionId },
-    });
+    const students = await this.loadSectionRoster(tenantId, sectionId);
     const records =
       students.length === 0
         ? []

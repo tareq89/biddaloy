@@ -290,6 +290,16 @@ describe('ResultSmsService.sendForExam', () => {
     );
   });
 
+  // [#2403] No stored locale means English, not the bn-BD region default.
+  it('school with no stored locale gets the English body', async () => {
+    const { service, examRepo, logRepo } = await buildService();
+    examRepo.manager.findOne.mockResolvedValue({ id: TENANT_ID, settings: null });
+    await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
+    expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+      `Student One's result for "Term 1": GPA 4.00, Grade A.`,
+    );
+  });
+
   it('bn locale sends a Bangla body with the Bangla name', async () => {
     const { service, logRepo } = await buildService({
       locale: 'bn-BD',

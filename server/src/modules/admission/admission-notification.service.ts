@@ -3,7 +3,12 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
-import { AdmissionApplicantStatus, CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
+import {
+  AdmissionApplicantStatus,
+  CommunicationMedium,
+  CommunicationStatus,
+  CommunicationTrigger,
+} from '@biddaloy/shared';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
@@ -11,15 +16,36 @@ import {
   CREDIT_RESERVE_FAILED,
   INSUFFICIENT_SMS_CREDIT,
 } from '../communications/credits/insufficient-sms-credit.constants';
+import { School } from '../schools/entities/school.entity';
+import {
+  FeeNotificationLocale,
+  resolveFeeNotificationLocale,
+} from '../communications/fee-notification-template.util';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 
-const TEMPLATE_BY_STATUS: Partial<Record<AdmissionApplicantStatus, (applicantName: string, intakeTitle: string) => string>> = {
-  [AdmissionApplicantStatus.SHORTLISTED]: (name, intake) =>
-    `Good news! ${name}'s application for ${intake} has been shortlisted. We will contact you with next steps.`,
-  [AdmissionApplicantStatus.ADMITTED]: (name, intake) =>
-    `Congratulations! ${name} has been admitted for ${intake}. Please contact the school office to complete enrollment.`,
-  [AdmissionApplicantStatus.REJECTED]: (name, intake) =>
-    `Thank you for applying. ${name}'s application for ${intake} was not successful this time.`,
+type AdmissionTemplate = (applicantName: string, intakeTitle: string) => string;
+
+// [#2265] Typed values (name, intake title) are inserted as typed (D15).
+const TEMPLATE_BY_STATUS: Record<
+  FeeNotificationLocale,
+  Partial<Record<AdmissionApplicantStatus, AdmissionTemplate>>
+> = {
+  en: {
+    [AdmissionApplicantStatus.SHORTLISTED]: (name, intake) =>
+      `Good news! ${name}'s application for ${intake} has been shortlisted. We will contact you with next steps.`,
+    [AdmissionApplicantStatus.ADMITTED]: (name, intake) =>
+      `Congratulations! ${name} has been admitted for ${intake}. Please contact the school office to complete enrollment.`,
+    [AdmissionApplicantStatus.REJECTED]: (name, intake) =>
+      `Thank you for applying. ${name}'s application for ${intake} was not successful this time.`,
+  },
+  bn: {
+    [AdmissionApplicantStatus.SHORTLISTED]: (name, intake) =>
+      `সুখবর! ${intake}-এ ${name}-এর আবেদন প্রাথমিকভাবে নির্বাচিত হয়েছে। পরবর্তী ধাপ আমরা জানাব।`,
+    [AdmissionApplicantStatus.ADMITTED]: (name, intake) =>
+      `অভিনন্দন! ${name} ${intake}-এ ভর্তির জন্য নির্বাচিত হয়েছে। ভর্তি সম্পন্ন করতে স্কুল অফিসে যোগাযোগ করুন।`,
+    [AdmissionApplicantStatus.REJECTED]: (name, intake) =>
+      `আবেদন করার জন্য ধন্যবাদ। এবার ${intake}-এ ${name}-এর আবেদন সফল হয়নি।`,
+  },
 };
 
 /**
@@ -48,11 +74,23 @@ export class AdmissionNotificationService {
   ) {}
 
   async notifyStatusChange(
-    applicant: Pick<AdmissionApplicant, 'id' | 'tenant_id' | 'applicant_name' | 'guardian_name' | 'guardian_phone' | 'status'>,
+    applicant: Pick<
+      AdmissionApplicant,
+      'id' | 'tenant_id' | 'applicant_name' | 'guardian_name' | 'guardian_phone' | 'status'
+    >,
     intakeTitle: string,
   ): Promise<void> {
-    const template = TEMPLATE_BY_STATUS[applicant.status];
-    if (!template) return; // PENDING or any other status — nothing to notify about
+    // PENDING or any other status — nothing to notify about
+    if (!TEMPLATE_BY_STATUS.en[applicant.status]) return;
+
+    // No module change: read the school through the log repo's manager.
+    const school = await this.logRepo.manager.findOne(School, {
+      where: { id: applicant.tenant_id },
+      select: { id: true, settings: true },
+    });
+    // [#2403] The stored locale only: no locale means English, not the bn-BD region default.
+    const locale = resolveFeeNotificationLocale(school?.settings?.region?.locale);
+    const template = TEMPLATE_BY_STATUS[locale][applicant.status]!;
 
     const log = await this.logRepo.save(
       this.logRepo.create({

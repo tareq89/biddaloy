@@ -24,7 +24,7 @@ import { MessengerProvider } from './providers/messenger/messenger.provider';
 import { TenantProviderConfigResolver } from './config/tenant-provider-config.resolver';
 import { ConnectionTestService } from './testing/connection-test.service';
 import { ProviderConnectionTestController } from './testing/provider-connection-test.controller';
-import { COMMUNICATIONS_QUEUE } from './communications.constants';
+import { COMMUNICATIONS_QUEUE, COMMUNICATIONS_QUEUE_JOB_OPTIONS } from './communications.constants';
 import { CreditsModule } from './credits/credits.module';
 import { FeeNotificationsListener } from './fee-notifications.listener';
 import { InvoiceNotificationsListener } from './invoice-notifications.listener';
@@ -68,10 +68,7 @@ import { InvoicesModule } from '../invoices/invoices.module';
     forwardRef(() => CreditsModule),
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
-      defaultJobOptions: {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
-      },
+      defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
     }),
   ],
   providers: [

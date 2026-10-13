@@ -123,6 +123,17 @@ Turning a normal day into a non-working day is blocked if attendance was
 already recorded for it, so a register a teacher already submitted never
 silently stops counting.
 
+Two more rules guard the same promise (#2253):
+
+| Change                                                        | Rule                                                                              | Example                                                         |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Add a closure whose **first** day has passed                  | Needs a reason (3+ characters), is published at once, sends no SMS or push        | Hartal from yesterday to tomorrow: reason "Hartal, school shut" |
+| Delete, move or retype a `MAKEUP_DAY`                         | Refused with `CALENDAR_DAY_HAS_ATTENDANCE` if its old dates have marked registers | A make-up Friday already marked cannot be deleted               |
+| Retype a `MAKEUP_DAY` without sending `counts_as_working_day` | Falls back to "not a working day", like a new event                               | Make-up day changed to Holiday removes the day                  |
+
+The form decides "past" on the school's clock (`tenantTodayIso`), the same
+day the server uses, not the browser's.
+
 ## 5. Import flow
 
 An admin can bulk-load a term's calendar from a spreadsheet instead of

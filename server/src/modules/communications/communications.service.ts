@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
@@ -12,7 +13,12 @@ import { randomUUID } from 'node:crypto';
 import { Repository } from 'typeorm';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { StudentService, GuardianService } from '../students/students.service';
-import { SendCommunicationDto, CommunicationResponseDto } from './dto/communications.dto';
+import {
+  SendCommunicationDto,
+  SendGuardianMessageDto,
+  CommunicationResponseDto,
+} from './dto/communications.dto';
+import { addressForMedium } from './reminder-recipients.util';
 import {
   CommunicationMedium,
   CommunicationStatus,
@@ -55,6 +61,39 @@ export class CommunicationsService {
     private readonly guardianService: GuardianService,
     private readonly smsCreditService: SmsCreditService,
   ) {}
+
+  /**
+   * [#2259] Freeform send to one guardian of this tenant. The address and
+   * name come from the guardian's stored record, never from the client.
+   */
+  async sendToGuardian(
+    dto: SendGuardianMessageDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<CommunicationResponseDto> {
+    const guardian = await this.guardianService.findOne(dto.guardian_id, tenantId);
+    if (dto.student_id) {
+      const student = await this.studentService.findOne(dto.student_id, tenantId);
+      if (!student.guardians?.some((g) => g.id === guardian.id)) {
+        throw new BadRequestException({
+          message: 'This guardian is not linked to this student.',
+          details: { code: 'GUARDIAN_NOT_LINKED' },
+        });
+      }
+    }
+    const address = addressForMedium(guardian, dto.medium);
+    if (!address) {
+      throw new BadRequestException({
+        message: 'This guardian has no address for this channel.',
+        details: { code: 'GUARDIAN_NO_ADDRESS' },
+      });
+    }
+    return this.enqueue(
+      { ...dto, recipient_address: address, recipient_name: guardian.full_name },
+      tenantId,
+      userId,
+    );
+  }
 
   /**
    * [16.5.4] Optional SMS-credit reservation reference for a caller that

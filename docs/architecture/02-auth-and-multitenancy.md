@@ -330,9 +330,9 @@ Key points:
   persisted or logged. `trigger = ACCOUNT_ACCESS` marks these rows apart
   from ordinary reminders.
 - **One shared `OtpService`** (Redis, 6-digit codes, 5-minute TTL, 5
-  attempts then a 15-minute lock) is reused as-is by password recovery
-  (12.3) and OTP login (12.5) — nothing in this ticket calls it yet, but
-  it lives in the same `account-access` module.
+  attempts then a 15-minute lock) is shared by forgot-password, admin
+  reset, OTP sign-in, contact change, registration and step-up. It lives
+  in the `account-access` module.
 - **Resend revokes prior links.** `POST /users/:id/invitation/resend`
   calls the same `issueAndSend` path, which revokes every still-live
   invite for that user before issuing a new one — a stale link in an old
@@ -340,6 +340,44 @@ Key points:
 - A delivery failure (bad phone number, provider outage) never rolls back
   the user that was just created — user creation and invitation dispatch
   are independent outcomes.
+
+#### How many codes one phone or email can get (GAP-05)
+
+Each purpose has a 60-second cooldown. On top of that, one phone or email
+gets at most 5 codes **per purpose per hour** (sign-in, reset, registration
+and phone check each have their own count). Step-up codes are not counted,
+because they are not sent anywhere.
+
+Why per purpose and per hour: the first version shared 10 codes a day across
+all purposes. Anyone could then spend a parent's codes in ten minutes and
+lock them out of both sign-in and password reset for a whole day. Now a
+stranger can block one purpose for at most an hour.
+
+```mermaid
+flowchart TD
+  A[Code requested] --> U{"Admin reset?"}
+  U -- yes --> C
+  U -- no --> B{"This purpose's count this hour >= 5?"}
+  B -- yes --> X[429 Too Many Requests]
+  B -- no --> C{Cooldown live?}
+  C -- yes --> X
+  C -- no --> D["Issue code, count + 1<br/>(first one starts the 1 h clock)"]
+```
+
+Example: `01712345678`, `+880 1712-345678` and `8801712345678` are one
+handset, so sign-in codes for any of them count against the Redis key
+`otp-cap:LOGIN:8801712345678`. `Foo@X.com` resetting a password counts
+against `otp-cap:PASSWORD_RESET:foo@x.com`.
+
+An admin reset (`POST /users/:id/reset-password`) skips the cap, so a
+stranger cannot block it, and it asks for the code before signing the user
+out, so a refused code (cooldown) signs nobody out.
+
+Forgot-password and OTP sign-in still answer 202 when refused (so nobody
+can tell which numbers have accounts). Their "enter the code" screen says
+so: "No code after a few tries? Wait an hour, then try again."
+Registration and contact change show the 429. Per-school and global caps
+are #1759.
 
 ### Batch invites (12.6) — inviting a whole imported cohort's guardians
 

@@ -1,19 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  IsBoolean,
-  IsDateString,
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Matches,
-  Max,
-  MaxLength,
-  Min,
-  MinLength,
-} from 'class-validator';
-import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { IsInt, IsOptional, IsString, IsUUID, Matches, Max, Min } from 'class-validator';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -49,57 +36,6 @@ export class QueryHolidayDto {
   @Min(1)
   @Max(100)
   limit?: number = 10;
-}
-
-/** `POST /school-calendar/holidays`. `start_date`/`end_date` are inclusive —
- * a one-day holiday sets both the same. */
-export class CreateHolidayDto {
-  @IsUUID()
-  academic_year_id: string;
-
-  @IsDateString()
-  start_date: string;
-
-  @IsDateString()
-  end_date: string;
-
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
-  @SanitizeText()
-  name: string;
-
-  /** True for a calendar entry (exam day, school event) that is on the
-   * calendar but must still count toward the working-day denominator.
-   * Defaults to `false` — a plain holiday removes the day. */
-  @IsOptional()
-  @IsBoolean()
-  counts_as_working_day?: boolean;
-}
-
-export class UpdateHolidayDto {
-  @IsOptional()
-  @IsUUID()
-  academic_year_id?: string;
-
-  @IsOptional()
-  @IsDateString()
-  start_date?: string;
-
-  @IsOptional()
-  @IsDateString()
-  end_date?: string;
-
-  @IsOptional()
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
-  @SanitizeText()
-  name?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  counts_as_working_day?: boolean;
 }
 
 /** `GET /school-calendar/working-days` — bounded to 400 days, see

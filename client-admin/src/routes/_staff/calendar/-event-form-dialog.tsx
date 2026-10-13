@@ -6,7 +6,8 @@
  *
  * Server 422s (`CALENDAR_EVENT_LOCKED`, `CALENDAR_OUTSIDE_ACADEMIC_YEAR`,
  * `CALENDAR_DAY_HAS_ATTENDANCE`, `CALENDAR_INVALID_CLASS`,
- * `CALENDAR_INVALID_RANGE`) are mapped by `error.details.code` to a
+ * `CALENDAR_INVALID_RANGE`, `CALENDAR_REASON_REQUIRED`,
+ * `CALENDAR_MAKEUP_MUST_COUNT`) are mapped by `error.details.code` to a
  * translated message — see `calendar.json`'s `eventForm.errors`.
  */
 import { CalendarEventType } from '@biddaloy/shared';
@@ -27,7 +28,7 @@ import {
 import type { CalendarEvent } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
-import { toIsoDate } from '@biddaloy/ui/utils';
+import { tenantTodayIso, toIsoDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 export interface EventFormPayload {
@@ -40,6 +41,8 @@ export interface EventFormPayload {
   publish: boolean;
   notify?: boolean | undefined;
   notify_sms?: boolean | undefined;
+  /** Create only: required when the event ends before today. */
+  reason?: string | undefined;
 }
 
 export interface EventFormPageProps {
@@ -63,7 +66,11 @@ const KNOWN_ERROR_CODES = [
   'CALENDAR_DAY_HAS_ATTENDANCE',
   'CALENDAR_INVALID_CLASS',
   'CALENDAR_INVALID_RANGE',
+  'CALENDAR_REASON_REQUIRED',
+  'CALENDAR_MAKEUP_MUST_COUNT',
 ] as const;
+
+const MIN_REASON_LENGTH = 3;
 
 const LABEL = 'text-label';
 
@@ -125,8 +132,18 @@ export function EventFormPage({
   const [publish, setPublish] = React.useState(true);
   const [notify, setNotify] = React.useState(false);
   const [notifySms, setNotifySms] = React.useState(false);
+  const [reason, setReason] = React.useState('');
   const [validationError, setValidationError] = React.useState<string | null>(null);
   const [discardOpen, setDiscardOpen] = React.useState(false);
+
+  // A make-up day exists to add a school day, so it always counts.
+  const isMakeup = type === CalendarEventType.MAKEUP_DAY;
+  const working = isMakeup || countsAsWorkingDay;
+  // A closure with a day that has already passed (on the school's clock, like
+  // the server) is recorded after the fact: it needs a reason, and is
+  // published at once with no announcement.
+  const isPast = !!startDate && toIsoDate(startDate) < tenantTodayIso(regionConfig);
+  const lateClosure = mode === 'create' && isPast && !working;
 
   const isDirty =
     type !== initial.type ||
@@ -153,6 +170,10 @@ export function EventFormPage({
       setValidationError(t('eventForm.errors.CALENDAR_INVALID_RANGE'));
       return;
     }
+    if (lateClosure && reason.trim().length < MIN_REASON_LENGTH) {
+      setValidationError(t('eventForm.errors.CALENDAR_REASON_REQUIRED'));
+      return;
+    }
     setValidationError(null);
     onSubmit({
       type,
@@ -160,10 +181,11 @@ export function EventFormPage({
       description: description.trim() || undefined,
       start_date: toIsoDate(startDate),
       end_date: toIsoDate(endDate),
-      counts_as_working_day: countsAsWorkingDay,
-      publish,
-      notify,
-      notify_sms: notifySms,
+      counts_as_working_day: working,
+      publish: lateClosure ? true : publish,
+      notify: lateClosure ? false : notify,
+      notify_sms: lateClosure ? false : notifySms,
+      reason: lateClosure ? reason.trim() : undefined,
     });
   }
 
@@ -210,7 +232,17 @@ export function EventFormPage({
               <label htmlFor="event-form-type" className={LABEL}>
                 {t('eventForm.type')}
               </label>
-              <Select value={type} onValueChange={(value) => setType(value as CalendarEventType)}>
+              <Select
+                value={type}
+                onValueChange={(value) => {
+                  const next = value as CalendarEventType;
+                  // Leaving MAKEUP_DAY: its forced "counts" must not stick.
+                  if (isMakeup && next !== CalendarEventType.MAKEUP_DAY) {
+                    setCountsAsWorkingDay(false);
+                  }
+                  setType(next);
+                }}
+              >
                 <SelectTrigger id="event-form-type">
                   <SelectValue placeholder={t('eventForm.typePlaceholder')} />
                 </SelectTrigger>
@@ -256,6 +288,25 @@ export function EventFormPage({
               />
             </div>
 
+            {lateClosure && (
+              <div className="flex flex-col gap-1.5 md:col-span-2">
+                <label htmlFor="event-form-late-reason" className={LABEL}>
+                  {t('eventForm.lateReason')}
+                </label>
+                <Textarea
+                  id="event-form-late-reason"
+                  value={reason}
+                  required
+                  maxLength={500}
+                  aria-describedby="event-form-late-reason-hint"
+                  onChange={(event) => setReason(event.target.value)}
+                />
+                <p id="event-form-late-reason-hint" className="text-muted-foreground">
+                  {t('eventForm.lateReasonHint')}
+                </p>
+              </div>
+            )}
+
             <div className="flex flex-col gap-1.5 md:col-span-2">
               <label htmlFor="event-form-description" className={LABEL}>
                 {t('eventForm.description')}
@@ -275,7 +326,8 @@ export function EventFormPage({
             <CheckRow
               id="event-form-working-day"
               label={t('eventForm.countsAsWorkingDay')}
-              checked={countsAsWorkingDay}
+              checked={working}
+              disabled={isMakeup}
               onChange={setCountsAsWorkingDay}
             />
             {/* The update DTO has no `publish`: publishing an existing draft is its own action. */}
@@ -283,21 +335,23 @@ export function EventFormPage({
               <CheckRow
                 id="event-form-publish"
                 label={t('eventForm.publishNow')}
-                checked={publish}
+                checked={lateClosure ? true : publish}
+                disabled={lateClosure}
                 onChange={setPublish}
               />
             )}
             <CheckRow
               id="event-form-notify"
               label={t('eventForm.notify')}
-              checked={notify}
+              checked={lateClosure ? false : notify}
+              disabled={lateClosure}
               onChange={setNotify}
             />
             <CheckRow
               id="event-form-notify-sms"
               label={t('eventForm.notifySms')}
               checked={notifySms}
-              disabled={!notify}
+              disabled={!notify || lateClosure}
               onChange={setNotifySms}
             />
           </div>

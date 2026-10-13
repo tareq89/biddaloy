@@ -557,6 +557,36 @@ describe('RecoveryService (integration)', () => {
       ).toHaveLength(0);
     });
 
+    // #2260 review: a stranger spending a phone's reset codes must not block
+    // an admin's reset, and a refused code must not sign the user out first.
+    it("still sends when strangers used up the phone's reset codes for the hour", async () => {
+      const admin = await createMember({ email: 'admin@example.com', phone: null });
+      const user = await createMember({ email: null, phone: '01733333333' });
+      await redis.set('otp-cap:PASSWORD_RESET:8801733333333', '5', 'PX', 3_600_000);
+
+      const result = await service.adminReset({
+        user,
+        tenantId: SEED_TENANT_ID,
+        actorUserId: admin.id,
+        context,
+      });
+
+      expect(result.channel).toBe(CommunicationMedium.SMS);
+      expect(fakeProvider.send).toHaveBeenCalledTimes(1);
+      expect(await redis.get('otp-cap:PASSWORD_RESET:8801733333333')).toBe('5');
+    });
+
+    it('a refused code (cooldown live) signs nobody out', async () => {
+      const admin = await createMember({ email: 'admin@example.com', phone: null });
+      const user = await createMember({ email: null, phone: '01733333333' });
+      await redis.set('otp-cooldown:PASSWORD_RESET:01733333333', '1', 'PX', 60_000);
+
+      await expect(
+        service.adminReset({ user, tenantId: SEED_TENANT_ID, actorUserId: admin.id, context }),
+      ).rejects.toMatchObject({ status: 429 });
+      expect(fakeRefreshTokens.revokeAllForUser).not.toHaveBeenCalled();
+    });
+
     it('rejects a user with no email or phone with 400', async () => {
       const user = await createMember({ email: null, phone: null });
 

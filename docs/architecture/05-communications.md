@@ -65,6 +65,27 @@ shipped instead:
   one `CommunicationLog` row per recipient as each send completes —
   `GET communications/reminder/bulk/:id` polls that batch's status.
 
+## Free-form send: guardians only
+
+`POST communications/send` does not take a phone number or email. The
+caller sends a `guardian_id`; the server loads that guardian (404 if it is
+another school's) and reads the address from the guardian's own record.
+Only ADMIN, ACCOUNTANT and OFFICE_STAFF hold `COMMUNICATION_SEND`; teachers
+do not.
+
+```mermaid
+flowchart LR
+    REQ["POST /communications/send\n{ medium, guardian_id, message_body }"] --> G["guardian of this school?"]
+    G -- no --> E404["404"]
+    G -- yes --> A["address from guardian record\n(phone for SMS, email for EMAIL)"]
+    A -- none --> E400["400 GUARDIAN_NO_ADDRESS"]
+    A --> LOG["CommunicationLog + queue"]
+```
+
+If `student_id` is also sent, the guardian must be linked to that student
+(else 400 `GUARDIAN_NOT_LINKED`). Internal senders (invoices, study plans,
+incidents, applications) still call `enqueue` with addresses they resolved.
+
 ## Delivery tracking & debugging
 
 Every send — success or failure, automated or staff-triggered — gets a

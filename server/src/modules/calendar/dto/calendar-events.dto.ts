@@ -88,6 +88,14 @@ export class CreateCalendarEventDto {
   @IsOptional()
   @IsBoolean()
   notify_sms?: boolean;
+
+  /** Required (3+ characters) when the event ends before today — a past
+   * closure recorded after the fact, e.g. a hartal nobody entered. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  @SanitizeText()
+  reason?: string;
 }
 
 export class UpdateCalendarEventDto {

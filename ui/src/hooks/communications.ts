@@ -75,7 +75,7 @@ export function useLastReminders(studentIds: string[]) {
   );
 }
 
-export type SendCommunicationInput = components['schemas']['SendCommunicationDto'];
+export type SendCommunicationInput = components['schemas']['SendGuardianMessageDto'];
 
 /**
  * [8.11.9]'s Send Message page — one staff-composed message to one

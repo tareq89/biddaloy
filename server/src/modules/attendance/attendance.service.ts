@@ -30,6 +30,7 @@ import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { sectionRosterStudentIds } from '../enrollments/section-roster';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { AttendanceAccessService } from './attendance-access.service';
@@ -614,7 +615,6 @@ export class AttendanceService {
     const studentIds = dto.entries.map((e) => e.student_id);
     const sessionRepo = manager.getRepository(AttendanceSession);
     const recordRepo = manager.getRepository(AttendanceRecord);
-    const studentRepo = manager.getRepository(Student);
 
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const policy = resolveAttendancePolicy(settings);
@@ -766,17 +766,11 @@ export class AttendanceService {
 
     // 8. Roster membership.
     const uniqueStudentIds = [...new Set(studentIds)];
-    const roster =
-      uniqueStudentIds.length > 0
-        ? await studentRepo.find({
-            where: {
-              id: In(uniqueStudentIds),
-              class_section_id: sectionId,
-              tenant_id: tenantId,
-            },
-          })
-        : [];
-    const rosterIds = new Set(roster.map((s) => s.id));
+    // Enrollment roster, not `Student.class_section_id`: a promoted student
+    // still belongs to the old section's past registers (LIFE-08).
+    const rosterIds = new Set(
+      await sectionRosterStudentIds(manager, tenantId, sectionId, { excludeLeft: true }),
+    );
     const unknownStudentIds = uniqueStudentIds.filter((id) => !rosterIds.has(id));
     if (unknownStudentIds.length > 0) {
       throw new UnprocessableEntityException({
@@ -1220,7 +1214,8 @@ export class AttendanceService {
       });
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const corrected: { sessionId: string; studentId: string; oldStatus: AttendanceStatus }[] = [];
+    const result = await this.dataSource.transaction(async (manager) => {
       const recordRepo = manager.getRepository(AttendanceRecord);
       const sessionRepo = manager.getRepository(AttendanceSession);
 
@@ -1247,7 +1242,8 @@ export class AttendanceService {
       const settings = await this.schoolsService.getResolvedSettings(tenantId);
       const policy = resolveAttendancePolicy(settings);
       const timezone = settings.region?.timezone ?? 'UTC';
-      const age = daysBetween(session.date, localToday(timezone));
+      const today = localToday(timezone);
+      const age = daysBetween(session.date, today);
       const hasCorrect = roleHasPermission(role, Permission.ATTENDANCE_CORRECT);
 
       if (age > policy.correctionWindowDays && !hasCorrect) {
@@ -1256,12 +1252,31 @@ export class AttendanceService {
           details: { code: 'ATTENDANCE_WINDOW_CLOSED' },
         });
       }
+      // Same rules as writeRegisterDay: finalizing locks the register for
+      // anyone who cannot correct, and a future day only ever holds LEAVE.
+      if (session.state === AttendanceSessionState.FINALIZED && !hasCorrect) {
+        throw new ForbiddenException({
+          message: 'This register has been finalized',
+          details: { code: 'ATTENDANCE_FINALIZED' },
+        });
+      }
+      if (session.date > today && dto.status !== AttendanceStatus.LEAVE) {
+        throw new UnprocessableEntityException({
+          message: 'Only LEAVE may be marked for a future date',
+          details: { code: 'ATTENDANCE_FUTURE_NOT_LEAVE' },
+        });
+      }
 
       const oldValues = {
         status: record.status,
         minutes_late: record.minutes_late,
         remarks: record.remarks,
       };
+      corrected.push({
+        sessionId: session.id,
+        studentId: record.student_id,
+        oldStatus: record.status,
+      });
       record.status = dto.status;
       record.minutes_late =
         dto.status === AttendanceStatus.LATE ? (dto.minutes_late ?? null) : null;
@@ -1304,6 +1319,22 @@ export class AttendanceService {
         role,
       });
     });
+
+    // After commit: a failed send must never undo the correction.
+    const [c] = corrected;
+    if (c && c.oldStatus !== dto.status) {
+      try {
+        await this.absenceNoticeService.notifyCorrection({
+          tenantId,
+          userId,
+          newStatus: dto.status,
+          ...c,
+        });
+      } catch (err) {
+        this.logger.warn(`Absence correction notice failed for record ${recordId}: ${String(err)}`);
+      }
+    }
+    return result;
   }
 
   // ---------------------------------------------------------------------
@@ -1524,10 +1555,16 @@ export class AttendanceService {
 
     // roll_number is an int column, so this ORDER BY is already
     // numeric — no varchar-sort trap (1, 10, 2, ...) to work around.
-    const students = await manager.getRepository(Student).find({
-      where: { class_section_id: sectionId, tenant_id: tenantId },
-      order: { roll_number: 'ASC' },
+    const rosterIds = await sectionRosterStudentIds(manager, tenantId, sectionId, {
+      excludeLeft: true,
     });
+    const students =
+      rosterIds.length === 0
+        ? []
+        : await manager.getRepository(Student).find({
+            where: { id: In(rosterIds), tenant_id: tenantId },
+            order: { roll_number: 'ASC' },
+          });
 
     const records = session
       ? await manager

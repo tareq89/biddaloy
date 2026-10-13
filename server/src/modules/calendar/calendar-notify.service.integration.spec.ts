@@ -14,6 +14,7 @@ import { CalendarEventClass } from './entities/calendar-event-class.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { formatFeeNotificationDueDate } from '../communications/fee-notification-template.util';
 import { School } from '../schools/entities/school.entity';
 import { Student } from '../students/entities/student.entity';
 import { Guardian } from '../students/entities/guardian.entity';
@@ -36,6 +37,7 @@ import {
   EnrollmentStatus,
   UserRole,
   UserStatus,
+  countSmsSegments,
 } from '@biddaloy/shared';
 
 /**
@@ -338,6 +340,62 @@ describe('CalendarNotifyService (integration)', () => {
     expect(ledgerRow).not.toBeNull();
     expect(ledgerRow?.kind).toBe(SmsCreditLedgerKind.RESERVE);
 
+    await setSmsSettings('OFF');
+  });
+
+  // [#2265] Bangla-locale school: Bangla body, credit priced on that body.
+  async function setLocale(locale?: string): Promise<void> {
+    await dataSource.getRepository(School).update(
+      { id: TENANT_ID },
+      {
+        settings: {
+          version: 1,
+          communications: { sms: { metering: 'PLATFORM' } },
+          ...(locale ? { region: { locale } } : {}),
+        } as any,
+      },
+    );
+  }
+
+  it('bn-BD tenant: queued SMS body is Bangla and reserved units match its segments', async () => {
+    await setLocale('bn-BD');
+    await grantSmsCredit(100);
+
+    const event = await makeEvent({ audience: CalendarAudience.ALL, name: 'Eid Holiday' });
+    await notify.eventCreated(event, { notify: true, notifySms: true, userId: adminUserId });
+
+    const batch = await dataSource
+      .getRepository(ReminderBatch)
+      .findOne({ where: { tenant_id: TENANT_ID, batch_name: `Calendar: ${event.name}` } });
+    const logs = await dataSource
+      .getRepository(CommunicationLog)
+      .find({ where: { reminder_batch_id: batch!.id } });
+    const expected = `${event.name} — ${formatFeeNotificationDueDate('bn', event.start_date)}। বিস্তারিত স্কুলের ক্যালেন্ডারে দেখুন।`;
+    expect(logs[0].message_body).toBe(expected);
+    // UCS-2 message: units = Bangla segments x guardians, not the English count.
+    const ledger = await dataSource.getRepository(SmsCreditLedger).findOne({
+      where: { tenant_id: TENANT_ID, idempotency_key: `batch:${batch!.id}` },
+    });
+    expect(Math.abs(ledger!.units)).toBe(countSmsSegments(expected).segments * logs.length);
+
+    await setSmsSettings('OFF');
+  });
+
+  // [#2403] No stored locale means English, not the bn-BD region default.
+  it('tenant with no stored locale: SMS body is English', async () => {
+    await setLocale();
+    await grantSmsCredit(100);
+    const event = await makeEvent({ audience: CalendarAudience.ALL, name: 'English Event' });
+    await notify.eventCreated(event, { notify: true, notifySms: true, userId: adminUserId });
+    const batch = await dataSource
+      .getRepository(ReminderBatch)
+      .findOne({ where: { tenant_id: TENANT_ID, batch_name: `Calendar: ${event.name}` } });
+    const logs = await dataSource
+      .getRepository(CommunicationLog)
+      .find({ where: { reminder_batch_id: batch!.id } });
+    expect(logs[0].message_body).toBe(
+      `${event.name} on ${event.start_date}. Please check the school calendar for details.`,
+    );
     await setSmsSettings('OFF');
   });
 

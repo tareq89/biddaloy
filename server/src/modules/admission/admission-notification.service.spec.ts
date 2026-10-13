@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { getQueueToken } from '@nestjs/bullmq';
-import { AdmissionApplicantStatus, CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
+import {
+  AdmissionApplicantStatus,
+  CommunicationMedium,
+  CommunicationStatus,
+  CommunicationTrigger,
+} from '@biddaloy/shared';
 import { AdmissionNotificationService } from './admission-notification.service';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
@@ -16,7 +21,11 @@ import { SmsCreditService } from '../communications/credits/sms-credit.service';
  */
 describe('AdmissionNotificationService', () => {
   let service: AdmissionNotificationService;
-  let logRepo: { create: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn> };
+  let logRepo: {
+    create: ReturnType<typeof vi.fn>;
+    save: ReturnType<typeof vi.fn>;
+    manager: { findOne: ReturnType<typeof vi.fn> };
+  };
   let queue: { add: ReturnType<typeof vi.fn> };
   // Unmetered by default: reserveForLog returns no extra job data.
   const smsCredit = {
@@ -37,6 +46,10 @@ describe('AdmissionNotificationService', () => {
     logRepo = {
       create: vi.fn((dto) => dto),
       save: vi.fn(async (log) => ({ ...log, id: 'log-1' })),
+      // School lookup for region.locale; [#2403] no stored locale means English.
+      manager: {
+        findOne: vi.fn(async () => ({ id: 'tenant-a', settings: {} })),
+      },
     };
     queue = { add: vi.fn(async () => undefined) };
     smsCredit.reserveForLog.mockReset().mockResolvedValue({});
@@ -138,6 +151,72 @@ describe('AdmissionNotificationService', () => {
       'Class 1 Admission',
     );
     expect(logRepo.save.mock.calls[0][0].message_body).toContain('not successful');
+  });
+
+  // [#2265] Bangla-locale schools get Bangla bodies; typed names stay as typed.
+  describe('bn-BD locale', () => {
+    beforeEach(() => {
+      logRepo.manager.findOne.mockResolvedValue({
+        id: 'tenant-a',
+        settings: { region: { locale: 'bn-BD' } },
+      });
+    });
+
+    it('SHORTLISTED body is Bangla', async () => {
+      await service.notifyStatusChange(
+        { ...applicant, status: AdmissionApplicantStatus.SHORTLISTED },
+        'Class 1 Admission',
+      );
+      expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+        'সুখবর! Class 1 Admission-এ Rahim Uddin-এর আবেদন প্রাথমিকভাবে নির্বাচিত হয়েছে। পরবর্তী ধাপ আমরা জানাব।',
+      );
+    });
+
+    it('ADMITTED body is Bangla', async () => {
+      await service.notifyStatusChange(
+        { ...applicant, status: AdmissionApplicantStatus.ADMITTED },
+        'Class 1 Admission',
+      );
+      expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+        'অভিনন্দন! Rahim Uddin Class 1 Admission-এ ভর্তির জন্য নির্বাচিত হয়েছে। ভর্তি সম্পন্ন করতে স্কুল অফিসে যোগাযোগ করুন।',
+      );
+    });
+
+    it('REJECTED body is Bangla', async () => {
+      await service.notifyStatusChange(
+        { ...applicant, status: AdmissionApplicantStatus.REJECTED },
+        'Class 1 Admission',
+      );
+      expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+        'আবেদন করার জন্য ধন্যবাদ। এবার Class 1 Admission-এ Rahim Uddin-এর আবেদন সফল হয়নি।',
+      );
+    });
+  });
+
+  // [#2403] A school with no settings at all gets English, not the bn-BD region default.
+  it('school with null settings gets the English body', async () => {
+    logRepo.manager.findOne.mockResolvedValue({ id: 'tenant-a', settings: null });
+    await service.notifyStatusChange(
+      { ...applicant, status: AdmissionApplicantStatus.REJECTED },
+      'Class 1 Admission',
+    );
+    expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+      "Thank you for applying. Rahim Uddin's application for Class 1 Admission was not successful this time.",
+    );
+  });
+
+  it('en locale keeps the English body exactly', async () => {
+    logRepo.manager.findOne.mockResolvedValue({
+      id: 'tenant-a',
+      settings: { region: { locale: 'en-US' } },
+    });
+    await service.notifyStatusChange(
+      { ...applicant, status: AdmissionApplicantStatus.ADMITTED },
+      'Class 1 Admission',
+    );
+    expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+      'Congratulations! Rahim Uddin has been admitted for Class 1 Admission. Please contact the school office to complete enrollment.',
+    );
   });
 
   it('does nothing for PENDING (not a notifiable status)', async () => {

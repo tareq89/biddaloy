@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { enrollStudent } from '@test/helpers/enrollment.helper';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource, IsNull } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
@@ -18,7 +19,8 @@ import { Student } from '../students/entities/student.entity';
 import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
 import { Subject } from '../academics/entities/subject.entity';
-import { AttendanceSessionState, AttendanceStatus } from '@biddaloy/shared';
+import { AttendanceSessionState, AttendanceStatus, EnrollmentStatus } from '@biddaloy/shared';
+import { Enrollment } from '../students/entities/enrollment.entity';
 
 /**
  * Integration tests for `AttendanceSummaryService` — the single source of
@@ -118,6 +120,7 @@ describe('AttendanceSummaryService (integration)', () => {
       class_section_id: sectionId,
       tenant_id: TENANT_ID,
     });
+    await enrollStudent(dataSource, student);
     return student.id;
   }
 
@@ -206,6 +209,100 @@ describe('AttendanceSummaryService (integration)', () => {
       } finally {
         (dataSource as unknown as { query: typeof dataSource.query }).query = originalQuery;
       }
+    });
+  });
+
+  describe('after promotion the old section keeps its students (LIFE-08)', () => {
+    /** A student enrolled in this file's section, then promoted into a new Y2 section. */
+    async function promotedStudent(): Promise<string> {
+      const studentId = await makeStudent(600);
+      await markDay(studentId, '2026-09-01', AttendanceStatus.PRESENT);
+      const year2 = await dataSource.getRepository(AcademicYear).save({
+        name: `Promo Y2 ${Date.now()}`,
+        start_date: '2027-01-01',
+        end_date: '2027-12-31',
+        tenant_id: TENANT_ID,
+      });
+      const class2 = await dataSource.getRepository(Class).save({
+        name: 'Promo Class 2',
+        academic_year_id: year2.id,
+        tenant_id: TENANT_ID,
+      });
+      const section2 = await dataSource.getRepository(ClassSection).save({
+        section_name: 'Promo S2',
+        class_id: class2.id,
+        tenant_id: TENANT_ID,
+      });
+      await dataSource
+        .getRepository(Student)
+        .update({ id: studentId }, { class_section_id: section2.id });
+      await enrollStudent(dataSource, {
+        id: studentId,
+        tenant_id: TENANT_ID,
+        class_section_id: section2.id,
+      });
+      return studentId;
+    }
+
+    it('getSectionSummary of the old section still returns the student with a percentage', async () => {
+      const studentId = await promotedStudent();
+      const result = await service.getSectionSummary({
+        tenantId: TENANT_ID,
+        sectionId,
+        from: '2026-09-01',
+        to: '2026-09-01',
+      });
+      const row = result.students.find((s) => s.student_id === studentId);
+      expect(row?.attendance_percentage).not.toBeNull();
+    });
+
+    it('getSectionRegisterMatrix of the old section still has the student row', async () => {
+      const studentId = await promotedStudent();
+      const matrix = await service.getSectionRegisterMatrix({
+        tenantId: TENANT_ID,
+        sectionId,
+        from: '2026-09-01',
+        to: '2026-09-01',
+      });
+      expect(matrix.rows.map((r) => r.student_id)).toContain(studentId);
+    });
+  });
+
+  // #2269: a student who left the section (transferred out, withdrawn) is no
+  // longer counted in its summaries or matrix.
+  describe('a student who left the section is not counted', () => {
+    async function leftStudent(): Promise<string> {
+      const studentId = await makeStudent(700);
+      await markDay(studentId, '2026-09-01', AttendanceStatus.ABSENT);
+      await dataSource
+        .getRepository(Enrollment)
+        .update(
+          { student_id: studentId, tenant_id: TENANT_ID },
+          { enrollment_status: EnrollmentStatus.TRANSFERRED },
+        );
+      return studentId;
+    }
+
+    it('getSectionSummary leaves out a TRANSFERRED student', async () => {
+      const studentId = await leftStudent();
+      const result = await service.getSectionSummary({
+        tenantId: TENANT_ID,
+        sectionId,
+        from: '2026-09-01',
+        to: '2026-09-01',
+      });
+      expect(result.students.map((s) => s.student_id)).not.toContain(studentId);
+    });
+
+    it('getSectionRegisterMatrix leaves out a TRANSFERRED student', async () => {
+      const studentId = await leftStudent();
+      const matrix = await service.getSectionRegisterMatrix({
+        tenantId: TENANT_ID,
+        sectionId,
+        from: '2026-09-01',
+        to: '2026-09-01',
+      });
+      expect(matrix.rows.map((r) => r.student_id)).not.toContain(studentId);
     });
   });
 
@@ -478,6 +575,7 @@ describe('AttendanceSummaryService (integration)', () => {
         class_section_id: secId,
         tenant_id: tenantId,
       });
+      await enrollStudent(dataSource, s);
       return s.id;
     }
     /** One whole-day session per date, one record per [studentId, status]. */
@@ -675,6 +773,7 @@ describe('AttendanceSummaryService (integration)', () => {
         class_section_id: sec,
         tenant_id: tenantId,
       });
+      await enrollStudent(dataSource, s);
       return s.id;
     }
     async function reg(

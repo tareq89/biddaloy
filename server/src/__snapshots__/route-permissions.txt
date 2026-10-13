@@ -34,7 +34,6 @@ DELETE /promotions/:id | PromotionsController | perm: PROMOTION_MANAGE
 DELETE /routines/rooms/:id | RoomsController | perm: ROUTINE_MANAGE
 DELETE /routines/shifts/:id | ShiftsController | perm: ROUTINE_MANAGE
 DELETE /routines/slots/:slotId | RoutineSlotsController | perm: ROUTINE_MANAGE
-DELETE /school-calendar/holidays/:id | SchoolCalendarController | perm: ACADEMIC_YEAR_MANAGE
 DELETE /schools/:id/admins/:userId/invitation | SchoolAdminsController | identity | roles: SUPER_ADMIN
 DELETE /schools/me/logo | SchoolLogoController | identity | roles: ADMIN,SUPER_ADMIN
 DELETE /seat-plans/:id | SeatPlansController | perm: SEAT_PLAN_MANAGE
@@ -359,7 +358,6 @@ PATCH /routines/change-requests/:id | ChangeRequestsController | perm: ROUTINE_M
 PATCH /routines/rooms/:id | RoomsController | perm: ROUTINE_MANAGE
 PATCH /routines/shifts/:id | ShiftsController | perm: ROUTINE_MANAGE
 PATCH /routines/slots/:slotId | RoutineSlotsController | perm: ROUTINE_MANAGE
-PATCH /school-calendar/holidays/:id | SchoolCalendarController | perm: ACADEMIC_YEAR_MANAGE
 PATCH /schools/:id/settings | SchoolsController | perm: SETTINGS_MANAGE
 PATCH /schools/:id/status | SchoolsController | identity | roles: SUPER_ADMIN
 PATCH /schools/:id/trial | SchoolsController | identity | roles: SUPER_ADMIN
@@ -544,7 +542,6 @@ POST /routines/rooms | RoomsController | perm: ROUTINE_MANAGE
 POST /routines/shifts | ShiftsController | perm: ROUTINE_MANAGE
 POST /routines/slots/:slotId/change-requests | ChangeRequestsController | perm: ROUTINE_READ | roles: TEACHER
 POST /routines/substitutions | SubstitutionsController | perm: ROUTINE_MANAGE
-POST /school-calendar/holidays | SchoolCalendarController | perm: ACADEMIC_YEAR_MANAGE
 POST /schools | ProvisioningController | identity | roles: SUPER_ADMIN
 POST /schools/:id/admins | SchoolAdminsController | identity | roles: SUPER_ADMIN
 POST /schools/:id/admins/:userId/resend-invitation | SchoolAdminsController | identity | roles: SUPER_ADMIN

@@ -8,14 +8,27 @@ import {
 import type Redis from 'ioredis';
 import { randomInt, createHash } from 'crypto';
 import { toLatinDigits } from '../../common/utils/bengali-digits.util';
+import { normalizeLoginIdentifier } from '../auth/normalize-identifier';
+import { toE164ish } from './phone-delivery.util';
 
 export const OTP_REDIS = 'OTP_REDIS';
 
-export type OtpPurpose = 'PASSWORD_RESET' | 'LOGIN' | 'PHONE_VERIFY' | 'REGISTER';
+export type OtpPurpose = 'PASSWORD_RESET' | 'LOGIN' | 'PHONE_VERIFY' | 'REGISTER' | 'STEP_UP';
 export type OtpVerifyResult = 'ok' | 'invalid' | 'expired' | 'locked';
 
 const CODE_TTL_MS = 5 * 60_000;
 const COOLDOWN_MS = 60_000;
+/**
+ * GAP-05 cap: 5 codes per destination, per purpose, per hour. Per purpose so a
+ * stranger who spends a phone's sign-in codes cannot also block its password
+ * reset; per hour so any such block ends soon (a 24 h shared bucket let anyone
+ * lock a parent out of sign-in and recovery for a day, #2398 review).
+ * ponytail: per-destination only; per-school and global caps are #1759.
+ */
+const MAX_CODES_PER_WINDOW = 5;
+const CAP_WINDOW_MS = 60 * 60_000;
+/** Purposes that never reach a phone or inbox, so they are not counted (step-up sends nothing). */
+const UNCAPPED_PURPOSES: ReadonlySet<OtpPurpose> = new Set(['STEP_UP']);
 const LOCK_TTL_MS = 15 * 60_000;
 const MAX_ATTEMPTS = 5;
 
@@ -28,13 +41,22 @@ interface OtpRecord {
 // followed by a separate `SET` (the previous shape) left a window where two
 // concurrent `request()` calls could both pass the check and both send an
 // SMS/email for the same identifier. Returns 1 if this call won the race
-// and issued a code, 0 if a cooldown was already live.
+// and issued a code, 0 if a cooldown was already live, 2 if the destination
+// already had its cap of codes for this purpose (KEYS[3], checked first so a
+// capped request writes nothing). ARGV[4] = cap (0 = uncapped), ARGV[5] = window ms.
 const REQUEST_SCRIPT = `
+local cap = tonumber(ARGV[4])
+if cap > 0 and tonumber(redis.call('GET', KEYS[3]) or '0') >= cap then
+  return 2
+end
 local claimed = redis.call('SET', KEYS[2], '1', 'PX', ARGV[3], 'NX')
 if not claimed then
   return 0
 end
 redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[2])
+if cap > 0 and redis.call('INCR', KEYS[3]) == 1 then
+  redis.call('PEXPIRE', KEYS[3], ARGV[5])
+end
 return 1
 `;
 
@@ -79,6 +101,14 @@ function otpKey(purpose: OtpPurpose, identifier: string): string {
 function cooldownKey(purpose: OtpPurpose, identifier: string): string {
   return `otp-cooldown:${purpose}:${identifier}`;
 }
+/**
+ * One cap bucket per purpose and real destination, however it was typed
+ * (GAP-05): "+880 1712-345678", "01712345678" and "8801712345678" are one handset.
+ */
+function capKey(purpose: OtpPurpose, identifier: string): string {
+  const id = normalizeLoginIdentifier(toLatinDigits(identifier));
+  return `otp-cap:${purpose}:${id.includes('@') ? id : toE164ish(id).replace(/^\+/, '')}`;
+}
 function lockKey(purpose: OtpPurpose, identifier: string): string {
   return `otp-lock:${purpose}:${identifier}`;
 }
@@ -94,7 +124,8 @@ function hashCode(code: string, bind: string): string {
 
 /**
  * Thrown when a request for a new OTP arrives inside the 60s cooldown of
- * the previous one for the same (purpose, identifier).
+ * the previous one for the same (purpose, identifier), or when the destination
+ * (phone or email, any spelling) already had 5 codes for that purpose this hour.
  */
 export class TooManyRequestsException extends HttpException {
   constructor() {
@@ -122,22 +153,35 @@ export class OtpService {
   /**
    * `bind` (optional) is the address the code goes to; `verify` must pass the
    * same value, so a code stops working if that address changes meanwhile.
+   * `uncapped` skips the GAP-05 cap (not the cooldown): only for a code a
+   * signed-in admin asked for, which a stranger's requests must not block.
+   * `capDestination` is the address the code is really delivered to, when that
+   * differs from `identifier` (a phone login that falls back to email): the cap
+   * counts per inbox/handset, not per typed identifier.
    */
-  async request(purpose: OtpPurpose, identifier: string, bind = ''): Promise<{ code: string }> {
+  async request(
+    purpose: OtpPurpose,
+    identifier: string,
+    bind = '',
+    opts: { uncapped?: boolean; capDestination?: string } = {},
+  ): Promise<{ code: string }> {
     try {
       const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
       const record: OtpRecord = { hash: hashCode(code, bind) };
 
       const claimed = await this.redis.eval(
         REQUEST_SCRIPT,
-        2,
+        3,
         otpKey(purpose, identifier),
         cooldownKey(purpose, identifier),
+        capKey(purpose, opts.capDestination ?? identifier),
         JSON.stringify(record),
         CODE_TTL_MS,
         COOLDOWN_MS,
+        opts.uncapped || UNCAPPED_PURPOSES.has(purpose) ? 0 : MAX_CODES_PER_WINDOW,
+        CAP_WINDOW_MS,
       );
-      if (claimed === 0) {
+      if (claimed === 0 || claimed === 2) {
         throw new TooManyRequestsException();
       }
       return { code };

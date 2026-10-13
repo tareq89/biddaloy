@@ -36,7 +36,7 @@ import {
   useTranslation,
 } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
-import { formatPhone, toLatinDigits } from '@biddaloy/ui/utils';
+import { formatPhone } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { CircleAlertIcon, SendIcon } from 'lucide-react';
 import * as React from 'react';
@@ -79,10 +79,13 @@ const SENDABLE_MEDIUMS = ['SMS', 'WHATSAPP', 'EMAIL'] as const;
 type SendableMedium = (typeof SENDABLE_MEDIUMS)[number];
 
 /** Address a guardian is reachable at for the chosen channel — email for
- * EMAIL, phone otherwise. `null` means "no address on file", which the
+ * EMAIL, phone (else alternate phone) otherwise, the server's
+ * `addressForMedium` rule. `null` means "no address on file", which the
  * picker shows rather than silently prefilling nothing. */
 function guardianAddressFor(guardian: Guardian, medium: SendableMedium): string | null {
-  return medium === 'EMAIL' ? guardian.email : guardian.phone;
+  return medium === 'EMAIL'
+    ? guardian.email || null
+    : guardian.phone || guardian.alternate_phone || null;
 }
 
 function SendMessageForm() {
@@ -101,8 +104,6 @@ function SendMessageBody() {
   const sendMessage = useSendCommunication();
 
   const [medium, setMedium] = React.useState<SendableMedium>('SMS');
-  const [recipientName, setRecipientName] = React.useState('');
-  const [recipientAddress, setRecipientAddress] = React.useState('');
   const [subject, setSubject] = React.useState('');
   const [messageBody, setMessageBody] = React.useState('');
   const [templateName, setTemplateName] = React.useState('');
@@ -120,29 +121,25 @@ function SendMessageBody() {
   // Typed-but-unsent content is lost on leave — ask first.
   useWarnUnsavedChanges(
     !sendMessage.isSuccess &&
-      (recipientName !== '' ||
-        recipientAddress !== '' ||
-        subject !== '' ||
-        messageBody !== '' ||
-        templateName !== '' ||
-        student !== null),
+      (subject !== '' || messageBody !== '' || templateName !== '' || student !== null),
   );
 
-  // A phone typed in Bangla digits must go out in Latin digits; an email stays as typed.
-  const normalizedAddress =
-    medium === 'EMAIL' ? recipientAddress.trim() : toLatinDigits(recipientAddress.trim());
+  // [#2259] The server reads the address from the guardian's record; the page
+  // only shows it. No guardian, or none for this channel, means Send stays off.
+  const selectedGuardian =
+    student?.guardians.find((guardian) => guardian.id === guardianId) ?? null;
+  const address = selectedGuardian === null ? null : guardianAddressFor(selectedGuardian, medium);
+  const canSend = selectedGuardian !== null && address !== null && address !== '';
 
   function buildPayload(): SendCommunicationInput {
     const params = splitTemplateParams(templateParams);
     return {
       medium,
-      recipient_address: normalizedAddress,
-      recipient_name: recipientName.trim(),
       message_body: messageBody,
+      guardian_id: guardianId ?? '',
       // `exactOptionalPropertyTypes` — omit rather than set `undefined`.
       ...(medium === 'EMAIL' && subject.trim() !== '' ? { subject: subject.trim() } : {}),
       ...(student !== null ? { student_id: student.id } : {}),
-      ...(guardianId !== null ? { guardian_id: guardianId } : {}),
       ...(medium === 'WHATSAPP' && templateName.trim() !== ''
         ? {
             template_name: templateName.trim(),
@@ -153,6 +150,16 @@ function SendMessageBody() {
           }
         : {}),
     };
+  }
+
+  function errorText(error: unknown): string {
+    if (error instanceof ApiError && error.statusCode === 400) {
+      const code = error.details?.['code'];
+      if (code === 'GUARDIAN_NO_ADDRESS') return t('send.errorNoAddress');
+      if (code === 'GUARDIAN_NOT_LINKED') return t('send.errorNotLinked');
+      return t('send.errorInvalid');
+    }
+    return t('send.errorMessage');
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -181,34 +188,6 @@ function SendMessageBody() {
     setGuardianId(null);
   }
 
-  function handlePickGuardian(guardian: Guardian) {
-    setGuardianId(guardian.id);
-    setRecipientName(guardian.full_name);
-    // Always overwrite — leaving the previous guardian's address in
-    // place would send this guardian's message to someone else's
-    // phone/email while logging it against the new guardian. No address
-    // for this channel → empty field the sender must fill.
-    setRecipientAddress(guardianAddressFor(guardian, medium) ?? '');
-  }
-
-  // Finding its way here from the channel Select, not a bare setMedium:
-  // the address field's *kind* follows the channel (phone for SMS/
-  // WhatsApp, email for EMAIL), so a channel switch must not leave the
-  // old channel's address sitting in the field.
-  function handleMediumChange(value: SendableMedium) {
-    const guardian = student?.guardians.find((candidate) => candidate.id === guardianId);
-    if (guardian !== undefined) {
-      // Re-derive from the selected guardian for the new channel.
-      setRecipientAddress(guardianAddressFor(guardian, value) ?? '');
-    } else if ((medium === 'EMAIL') !== (value === 'EMAIL')) {
-      // Hand-typed address whose kind (phone vs email) no longer fits —
-      // clear rather than let `type=tel` (no native validation) carry an
-      // email into an SMS send.
-      setRecipientAddress('');
-    }
-    setMedium(value);
-  }
-
   function handleReset() {
     sendMessage.reset();
     setMessageBody('');
@@ -216,8 +195,6 @@ function SendMessageBody() {
     setTemplateName('');
     setTemplateLanguage('');
     setTemplateParams('');
-    setRecipientName('');
-    setRecipientAddress('');
     setStudent(null);
     setGuardianId(null);
   }
@@ -250,8 +227,6 @@ function SendMessageBody() {
     );
   }
 
-  const selectedGuardian =
-    student?.guardians.find((guardian) => guardian.id === guardianId) ?? null;
   const isEmail = medium === 'EMAIL';
   const formatAddress = (address: string) => (isEmail ? address : formatPhone(address, config));
 
@@ -303,7 +278,7 @@ function SendMessageBody() {
                   value={guardianId ?? ''}
                   onValueChange={(value) => {
                     const guardian = student.guardians.find((candidate) => candidate.id === value);
-                    if (guardian !== undefined) handlePickGuardian(guardian);
+                    if (guardian !== undefined) setGuardianId(guardian.id);
                   }}
                   className="gap-0 divide-y divide-border-subtle overflow-hidden rounded-md border border-border-subtle"
                 >
@@ -339,34 +314,14 @@ function SendMessageBody() {
               </fieldset>
             )}
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="send-recipient-name">{t('send.recipientNameLabel')}</Label>
-              <Input
-                id="send-recipient-name"
-                value={recipientName}
-                onChange={(event) => setRecipientName(event.target.value)}
-                required
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="send-recipient-address">
-                {isEmail ? t('send.recipientEmailLabel') : t('send.recipientAddressLabel')}
-              </Label>
-              <Input
-                id="send-recipient-address"
-                type={isEmail ? 'email' : 'tel'}
-                value={recipientAddress}
-                onChange={(event) => setRecipientAddress(event.target.value)}
-                aria-describedby={isEmail ? undefined : 'send-phone-help'}
-                required
-              />
-              {!isEmail && (
-                <p id="send-phone-help" className="text-caption text-text-secondary">
-                  {t('send.phoneHelp')}
-                </p>
-              )}
-            </div>
+            {selectedGuardian !== null && (
+              <dl className="grid gap-0.5 md:col-span-2">
+                <dt className="text-label text-text-primary">
+                  {isEmail ? t('send.recipientEmailLabel') : t('send.recipientAddressLabel')}
+                </dt>
+                <dd>{canSend && address ? formatAddress(address) : t('send.guardianNoAddress')}</dd>
+              </dl>
+            )}
           </div>
         </Card>
 
@@ -375,10 +330,7 @@ function SendMessageBody() {
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="send-medium">{t('send.mediumLabel')}</Label>
-              <Select
-                value={medium}
-                onValueChange={(value) => handleMediumChange(value as SendableMedium)}
-              >
+              <Select value={medium} onValueChange={(value) => setMedium(value as SendableMedium)}>
                 <SelectTrigger
                   id="send-medium"
                   aria-label={t('send.mediumLabel')}
@@ -436,7 +388,7 @@ function SendMessageBody() {
           </div>
 
           <div className="mt-5 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:justify-end">
-            <Button type="submit">
+            <Button type="submit" disabled={!canSend}>
               <SendIcon aria-hidden />
               {t('send.submit')}
             </Button>
@@ -454,7 +406,7 @@ function SendMessageBody() {
             <div className="grid gap-0.5">
               <dt className="font-medium">{t('send.confirmRecipientLabel')}</dt>
               <dd>
-                {recipientName.trim()} · {formatAddress(normalizedAddress)}
+                {selectedGuardian?.full_name} · {canSend && address ? formatAddress(address) : ''}
               </dd>
             </div>
             <div className="grid gap-0.5">
@@ -483,9 +435,7 @@ function SendMessageBody() {
           {sendMessage.isError && (
             <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
               <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
-              {sendMessage.error instanceof ApiError && sendMessage.error.statusCode === 400
-                ? t('send.errorInvalid')
-                : t('send.errorMessage')}
+              {errorText(sendMessage.error)}
             </p>
           )}
           <DialogFooter>

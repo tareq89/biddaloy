@@ -58,11 +58,6 @@ const studentSearchHandler = () =>
     HttpResponse.json({ data: [STUDENT], total: 1, page: 1, limit: 10, totalPages: 1 }),
   );
 
-/** The address field's label follows the channel: phone for SMS/WhatsApp, email otherwise. */
-function addressInput() {
-  return screen.getByRole<HTMLInputElement>('textbox', { name: /^(Mobile number|Email address)$/ });
-}
-
 function render(role = 'ADMIN') {
   return renderWithRouter(routeTree, {
     initialEntries: ['/communications/send'],
@@ -72,9 +67,18 @@ function render(role = 'ADMIN') {
   });
 }
 
+/** [#2259] A message needs a guardian of the school: pick the student, then a guardian. */
+async function pickGuardian(
+  user: ReturnType<typeof userEvent.setup>,
+  name = 'Rahima Begum (Mother)',
+) {
+  await user.type(screen.getByRole('textbox', { name: 'Student' }), 'Arif');
+  await user.click(await screen.findByRole('button', { name: /Arif Hossain · 12345678/ }));
+  await user.click(await screen.findByRole('radio', { name }));
+}
+
 async function fillBasicSmsMessage(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByRole('textbox', { name: 'Recipient name' }), 'Rahima Begum');
-  await user.type(screen.getByRole('textbox', { name: 'Mobile number' }), '+8801700000001');
+  await pickGuardian(user);
   await user.click(screen.getByRole('textbox', { name: 'Message' }));
   await user.paste('School closed tomorrow.');
 }
@@ -87,6 +91,7 @@ describe('/communications/send', () => {
   it('restates recipient and message in a confirm dialog, and posts nothing before confirm', async () => {
     let body: Record<string, unknown> | undefined;
     server.use(
+      studentSearchHandler(),
       http.post('/api/v1/communications/send', async ({ request }) => {
         body = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json(
@@ -123,127 +128,97 @@ describe('/communications/send', () => {
     await user.click(screen.getByRole('button', { name: 'Send message' }));
 
     await screen.findByText('Message on its way');
+    // The address is never sent: the server reads it from the guardian's record.
     expect(body).toEqual({
       medium: 'SMS',
-      recipient_address: '+8801700000001',
-      recipient_name: 'Rahima Begum',
+      guardian_id: GUARDIAN.id,
+      student_id: STUDENT.id,
       message_body: 'School closed tomorrow.',
     });
     expect(screen.getByText('Queued')).toBeTruthy();
   });
 
-  it('prefills recipient name and address from a linked student guardian', async () => {
-    let body: Record<string, unknown> | undefined;
-    server.use(
-      studentSearchHandler(),
-      http.post('/api/v1/communications/send', async ({ request }) => {
-        body = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json(communicationFactory({ status: 'QUEUED' }), { status: 201 });
-      }),
-    );
-
+  it('keeps Send disabled until a guardian is picked', async () => {
+    server.use(studentSearchHandler());
     const user = userEvent.setup();
     render();
     await screen.findByRole('heading', { name: 'Send Message' });
+    const send = screen.getByRole<HTMLButtonElement>('button', { name: 'Review and send' });
+    expect(send.disabled).toBe(true);
+    // No free address or name inputs any more.
+    expect(screen.queryByRole('textbox', { name: 'Recipient name' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Mobile number' })).toBeNull();
 
-    await user.type(screen.getByRole('textbox', { name: 'Student (optional)' }), 'Arif');
+    await user.type(screen.getByRole('textbox', { name: 'Student' }), 'Arif');
     await user.click(await screen.findByRole('button', { name: /Arif Hossain · 12345678/ }));
+    expect(send.disabled).toBe(true);
+
     await user.click(await screen.findByRole('radio', { name: 'Rahima Begum (Mother)' }));
-
-    // SMS is the active channel, so the guardian's phone prefills.
-    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Recipient name' }).value).toBe(
-      'Rahima Begum',
-    );
-    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Mobile number' }).value).toBe(
-      '+8801700000001',
-    );
-
-    await user.click(screen.getByRole('textbox', { name: 'Message' }));
-    await user.paste('School closed tomorrow.');
-    await user.click(screen.getByRole('button', { name: 'Review and send' }));
-    await user.click(await screen.findByRole('button', { name: 'Send message' }));
-
-    // The linked ids ride along so the message lands in both histories.
-    await waitFor(() => expect(body).toBeDefined());
-    expect(body?.['student_id']).toBe(STUDENT.id);
-    expect(body?.['guardian_id']).toBe(GUARDIAN.id);
+    expect(send.disabled).toBe(false);
   });
 
-  it("always overwrites the address on a guardian switch — never keeps the previous guardian's", async () => {
+  it('shows the guardian address read-only and follows the channel; no address keeps Send disabled', async () => {
     server.use(studentSearchHandler());
-
     const user = userEvent.setup();
     render();
     await screen.findByRole('heading', { name: 'Send Message' });
+    await pickGuardian(user);
+    const send = screen.getByRole<HTMLButtonElement>('button', { name: 'Review and send' });
 
-    await user.type(screen.getByRole('textbox', { name: 'Student (optional)' }), 'Arif');
-    await user.click(await screen.findByRole('button', { name: /Arif Hossain · 12345678/ }));
-    await user.click(await screen.findByRole('radio', { name: 'Rahima Begum (Mother)' }));
-    expect(addressInput().value).toBe('+8801700000001');
-
-    // The father has no phone for the active SMS channel. Keeping the
-    // mother's number here would send his message to her phone while
-    // logging it against him — the field must clear instead.
-    await user.click(screen.getByRole('radio', { name: 'Karim Uddin (Father)' }));
-    expect(addressInput().value).toBe('');
-    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Recipient name' }).value).toBe(
-      'Karim Uddin',
+    // Read-only text, not an input.
+    expect(screen.getByText('Mobile number').closest('dl')?.textContent).toContain(
+      formatPhone('+8801700000001', REGION_BD_EN),
     );
-  });
+    expect(send.disabled).toBe(false);
 
-  it('re-derives the address from the selected guardian when the channel changes', async () => {
-    server.use(studentSearchHandler());
-
-    const user = userEvent.setup();
-    render();
-    await screen.findByRole('heading', { name: 'Send Message' });
-
-    await user.type(screen.getByRole('textbox', { name: 'Student (optional)' }), 'Arif');
-    await user.click(await screen.findByRole('button', { name: /Arif Hossain · 12345678/ }));
-    await user.click(await screen.findByRole('radio', { name: 'Rahima Begum (Mother)' }));
-    expect(addressInput().value).toBe('+8801700000001');
-
-    // SMS → Email: her phone would be a nonsense email address
-    // (`type=email`'s native check only fires at submit; `type=tel` never
-    // does) — the field must follow the channel to her email.
     await user.click(screen.getByRole('combobox', { name: 'Send by' }));
     await user.click(await screen.findByRole('option', { name: 'Email' }));
-    expect(addressInput().value).toBe('rahima@example.com');
+    expect(screen.getByText('Email address').closest('dl')?.textContent).toContain(
+      'rahima@example.com',
+    );
 
-    // Email → SMS: back to the phone.
+    // The father has no phone: the SMS channel cannot go to him.
     await user.click(screen.getByRole('combobox', { name: 'Send by' }));
     await user.click(await screen.findByRole('option', { name: 'SMS' }));
-    expect(addressInput().value).toBe('+8801700000001');
+    await user.click(screen.getByRole('radio', { name: 'Karim Uddin (Father)' }));
+    expect(screen.getByText('Mobile number').closest('dl')?.textContent).toContain(
+      'no address for this channel',
+    );
+    expect(send.disabled).toBe(true);
   });
 
-  it('clears a hand-typed address when the channel switches kind with no guardian selected', async () => {
+  // Same rule as the server's addressForMedium: phone, else alternate phone.
+  it('uses the alternate phone when the guardian has no main phone', async () => {
+    const altOnly = guardianFactory({
+      id: 'guardian-3',
+      full_name: 'Salma Khatun',
+      relationship: 'Aunt',
+      phone: null,
+      alternate_phone: '+8801700000009',
+      email: null,
+    });
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({
+          data: [{ ...STUDENT, guardians: [altOnly] }],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
+      ),
+    );
     const user = userEvent.setup();
     render();
     await screen.findByRole('heading', { name: 'Send Message' });
+    await pickGuardian(user, 'Salma Khatun (Aunt)');
 
-    await user.type(addressInput(), '+8801700000009');
-
-    // Phone-kind → email-kind: the typed phone can't be right.
-    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
-    await user.click(await screen.findByRole('option', { name: 'Email' }));
-    expect(addressInput().value).toBe('');
-
-    // Email-kind → phone-kind: same in reverse.
-    await user.type(screen.getByRole('textbox', { name: 'Email address' }), 'someone@example.com');
-    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
-    await user.click(await screen.findByRole('option', { name: 'WhatsApp' }));
-    expect(addressInput().value).toBe('');
-  });
-
-  it('keeps a hand-typed phone across the SMS ↔ WhatsApp switch (same address kind)', async () => {
-    const user = userEvent.setup();
-    render();
-    await screen.findByRole('heading', { name: 'Send Message' });
-
-    await user.type(addressInput(), '+8801700000009');
-    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
-    await user.click(await screen.findByRole('option', { name: 'WhatsApp' }));
-    expect(addressInput().value).toBe('+8801700000009');
+    expect(screen.getByText('Mobile number').closest('dl')?.textContent).toContain(
+      formatPhone('+8801700000009', REGION_BD_EN),
+    );
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Review and send' }).disabled,
+    ).toBe(false);
   });
 
   it('shows the subject field for EMAIL and template fields for WHATSAPP only', async () => {
@@ -278,9 +253,40 @@ describe('/communications/send', () => {
     expect(counter.getAttribute('aria-live')).toBe('polite');
   });
 
-  it('shows one translated sentence for a server 400, never the server text, and keeps the dialog open', async () => {
-    const serverMessage = 'recipient_address must be a valid phone number';
+  it.each([
+    [
+      'GUARDIAN_NO_ADDRESS',
+      'This guardian has no number or email for this channel. Pick another channel or guardian.',
+    ],
+    ['GUARDIAN_NOT_LINKED', 'This guardian is not linked to the chosen student.'],
+  ])('maps a 400 %s to its own translated message', async (code, text) => {
     server.use(
+      studentSearchHandler(),
+      http.post('/api/v1/communications/send', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(400, 'raw server text', '/api/v1/communications/send'),
+            details: { code },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    render();
+    await screen.findByRole('heading', { name: 'Send Message' });
+    await fillBasicSmsMessage(user);
+    await user.click(screen.getByRole('button', { name: 'Review and send' }));
+    await user.click(await screen.findByRole('button', { name: 'Send message' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe(text);
+    expect(screen.queryByText('raw server text')).toBeNull();
+  });
+
+  it('shows one translated sentence for a server 400, never the server text, and keeps the dialog open', async () => {
+    const serverMessage = 'message_body must be a string';
+    server.use(
+      studentSearchHandler(),
       http.post('/api/v1/communications/send', () =>
         HttpResponse.json(apiErrorBody(400, serverMessage, '/api/v1/communications/send'), {
           status: 400,
@@ -310,27 +316,13 @@ describe('/communications/send', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('labels the address field by channel: Mobile number, then Email address', async () => {
-    const user = userEvent.setup();
-    render();
-    await screen.findByRole('heading', { name: 'Send Message' });
-    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(addressInput()).toBeTruthy();
-    expect(screen.getByText('e.g. 01711-000004')).toBeTruthy();
-
-    await user.click(screen.getByRole('combobox', { name: 'Send by' }));
-    await user.click(await screen.findByRole('option', { name: 'Email' }));
-    expect(screen.getByRole('textbox', { name: 'Email address' })).toBeTruthy();
-    expect(screen.queryByRole('textbox', { name: 'Mobile number' })).toBeNull();
-  });
-
   it('shows the guardian phone formatted in the radio row and lets "Change" clear the student', async () => {
     server.use(studentSearchHandler());
     const user = userEvent.setup();
     render();
     await screen.findByRole('heading', { name: 'Send Message' });
 
-    await user.type(screen.getByRole('textbox', { name: 'Student (optional)' }), 'Arif');
+    await user.type(screen.getByRole('textbox', { name: 'Student' }), 'Arif');
     await user.click(await screen.findByRole('button', { name: /Arif Hossain · 12345678/ }));
     const row = (await screen.findByRole('radio', { name: 'Rahima Begum (Mother)' })).closest(
       'label',
@@ -339,7 +331,7 @@ describe('/communications/send', () => {
 
     await user.click(screen.getByRole('button', { name: 'Change' }));
     expect(screen.queryByRole('radio')).toBeNull();
-    expect(screen.getByRole('textbox', { name: 'Student (optional)' })).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: 'Student' })).toBeTruthy();
   });
 
   it('renders the SMS counter in Bangla digits under a bn tenant', async () => {
@@ -359,6 +351,7 @@ describe('/communications/send', () => {
 
   it('cannot be closed while the send is in flight, so it cannot be sent twice', async () => {
     let posts = 0;
+    server.use(studentSearchHandler());
     // The response waits for the test, not a timer: on a busy runner a fixed
     // delay can elapse before the Escape check, closing the dialog first.
     let release!: () => void;
@@ -387,28 +380,6 @@ describe('/communications/send', () => {
     expect(posts).toBe(1);
   });
 
-  it('sends a phone typed in Bangla digits as Latin digits', async () => {
-    let body: Record<string, unknown> | undefined;
-    server.use(
-      http.post('/api/v1/communications/send', async ({ request }) => {
-        body = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json(communicationFactory({ status: 'QUEUED' }), { status: 201 });
-      }),
-    );
-    const user = userEvent.setup();
-    render();
-    await screen.findByRole('heading', { name: 'Send Message' });
-    await user.type(screen.getByRole('textbox', { name: 'Recipient name' }), 'Rahima Begum');
-    await user.type(addressInput(), '০১৭০০০০০০০০১');
-    await user.click(screen.getByRole('textbox', { name: 'Message' }));
-    await user.paste('Hi');
-    await user.click(screen.getByRole('button', { name: 'Review and send' }));
-    await user.click(await screen.findByRole('button', { name: 'Send message' }));
-
-    await waitFor(() => expect(body).toBeDefined());
-    expect(body?.['recipient_address']).toBe('017000000001');
-  });
-
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
   // route in place with the shared `AccessDeniedState` copy, replacing
   // this route's own hand-rolled "You cannot send messages" text.
@@ -416,10 +387,11 @@ describe('/communications/send', () => {
     render('EXECUTIVE');
 
     expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
-    expect(screen.queryByRole('textbox', { name: 'Recipient name' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
   });
 
   it('is axe clean with the confirm dialog open', async () => {
+    server.use(studentSearchHandler());
     const user = userEvent.setup();
     const { container } = render();
     await screen.findByRole('heading', { name: 'Send Message' });
