@@ -263,4 +263,16 @@ describe('renderInvoiceHtml (A4)', () => {
     expect(html).not.toContain('<script>alert(1)</script>');
     expect(html).toContain('&lt;script&gt;');
   });
+
+  it('emits no inline event handler', () => {
+    const withLogo = { ...issuer, logo_key: 'x' };
+    const html = renderInvoiceHtml(
+      makeInvoice(),
+      [makePayment()],
+      withLogo,
+      'data:image/png;base64,AAAA',
+    );
+    expect(html).toContain('<img');
+    expect(html).not.toMatch(/\son\w+=/i);
+  });
 });

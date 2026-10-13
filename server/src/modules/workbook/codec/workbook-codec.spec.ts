@@ -1,6 +1,18 @@
 import { execFileSync } from 'node:child_process';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
+
+const guardState = vi.hoisted(() => ({ bomb: false }));
+vi.mock('../../../common/utils/xlsx-guard.util', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../common/utils/xlsx-guard.util')>();
+  return {
+    ...actual,
+    assertXlsxWithinLimits: (...a: Parameters<typeof actual.assertXlsxWithinLimits>) => {
+      if (guardState.bomb) throw new actual.XlsxTooLargeError('bomb');
+      actual.assertXlsxWithinLimits(...a);
+    },
+  };
+});
 import { SCHEMA_VERSION, type WorkbookMeta } from './meta';
 import { buildSampleRow, WorkbookFormatError, readWorkbook, writeWorkbook } from './workbook-codec';
 import { ALL_TABS } from './registry';
@@ -297,6 +309,15 @@ describe('readWorkbook resilience', () => {
 });
 
 describe('WorkbookFormatError', () => {
+  it('throws NOT_XLSX when the zip-bomb guard rejects the buffer', async () => {
+    guardState.bomb = true;
+    try {
+      await expect(readWorkbook(Buffer.from('PK'))).rejects.toMatchObject({ code: 'NOT_XLSX' });
+    } finally {
+      guardState.bomb = false;
+    }
+  });
+
   it('rejects a _meta sheet whose kind is not a known kind', async () => {
     const buffer = await buildWorkbook({
       meta: { ...meta, kind: 'ARCHIVE' as WorkbookMeta['kind'] },
