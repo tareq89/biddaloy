@@ -73,6 +73,36 @@ describe('PlatformAlertBanner', () => {
     expect(screen.getByRole('status')).toBeTruthy();
   });
 
+  it('stops polling after a 403 (school-local SUPER_ADMIN)', async () => {
+    const hit = vi.fn(() =>
+      HttpResponse.json(
+        {
+          statusCode: 403,
+          message: 'Forbidden',
+          timestamp: new Date().toISOString(),
+          path: '/api/v1/platform/alerts',
+          requestId: 'r1',
+        },
+        { status: 403 },
+      ),
+    );
+    server.use(http.get('/api/v1/platform/alerts', hit));
+    const { container, queryClient } = renderWithProviders(<PlatformAlertBanner enabled />, {
+      locale: 'en',
+      role: 'SUPER_ADMIN',
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() =>
+      expect(queryClient.getQueryState(['platform-alerts'])?.status).toBe('error'),
+    );
+    const query = queryClient.getQueryCache().find({ queryKey: ['platform-alerts'] })!;
+    const interval = query.observers[0]!.options.refetchInterval;
+    expect(typeof interval === 'function' ? interval(query) : interval).toBe(false);
+    expect(hit).toHaveBeenCalledTimes(1);
+    expect(container.innerHTML).toBe('');
+  });
+
   it('renders the bn text', async () => {
     server.use(http.get('/api/v1/platform/alerts', () => HttpResponse.json(OPEN)));
     renderWithProviders(<PlatformAlertBanner enabled />, {
