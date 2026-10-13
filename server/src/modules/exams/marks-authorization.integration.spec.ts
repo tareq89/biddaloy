@@ -141,7 +141,7 @@ describe('MarksAuthorizationService with real TeacherScopeService (integration)'
     await expect(authz.assertCanWrite(call(sec6A, liveSubjectId))).resolves.toBeUndefined();
   });
 
-  it("X-07: last year's CLASS teacher still reads marks while the class has an unpublished exam, not after publish", async () => {
+  it("75.6-e: last year's CLASS teacher no longer reads marks, even while the class has an unpublished exam (current-year scope only)", async () => {
     // A past (non-current) year with its own class, section and DRAFT exam.
     const oldYear = await dataSource.getRepository(AcademicYear).save({
       name: `Marks Authz Old ${Math.random()}`,
@@ -165,7 +165,9 @@ describe('MarksAuthorizationService with real TeacherScopeService (integration)'
     );
     await assign(TeacherAssignmentType.CLASS_TEACHER, oldSection);
 
-    await expect(authz.assertCanRead(call(oldSection, liveSubjectId))).resolves.toBeUndefined();
+    await expect(authz.assertCanRead(call(oldSection, liveSubjectId))).rejects.toThrow(
+      ForbiddenException,
+    );
 
     await dataSource.query(`UPDATE exams SET status = 'PUBLISHED' WHERE id = $1`, [examId]);
     await expect(authz.assertCanRead(call(oldSection, liveSubjectId))).rejects.toThrow(

@@ -526,6 +526,45 @@ describe('/students', () => {
     expect(screen.queryByText('Migrating a whole school?')).toBeNull();
   });
 
+  // Epic 75 D2: a TEACHER only lists their current-year sections, so an unfiltered empty list
+  // is explained as "no section assigned" (MY_CLASS_VIEW is TEACHER-only).
+  describe('empty-state explanation', () => {
+    const teacherText =
+      'You see the students of the sections you teach this year. Ask your school admin to assign you a section.';
+    const adminText = 'Add your first student and the list will show up here.';
+    const renderEmpty = (role: string, entry = '/students') => {
+      server.use(
+        http.get('/api/v1/students', () =>
+          HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+        ),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: [entry],
+        tenantId: 'tenant-1',
+        role,
+        locale: 'en',
+      });
+    };
+
+    it('shows the teacher explanation to a TEACHER with an empty, unfiltered list', async () => {
+      renderEmpty('TEACHER');
+      expect(await screen.findByText(teacherText)).toBeTruthy();
+      expect(screen.queryByText(adminText)).toBeNull();
+    });
+
+    it('keeps the old explanation for ADMIN', async () => {
+      renderEmpty('ADMIN');
+      expect(await screen.findByText(adminText)).toBeTruthy();
+      expect(screen.queryByText(teacherText)).toBeNull();
+    });
+
+    it('keeps the old explanation for a TEACHER who is searching', async () => {
+      renderEmpty('TEACHER', '/students?search=zzz');
+      await screen.findByText('No students found');
+      expect(screen.queryByText(teacherText)).toBeNull();
+    });
+  });
+
   // [33.4.1] D5 — no shift/version filter field at all with an empty
   // organisation vocabulary (this suite's default handler).
   it('shows no shift/version filter with an empty organisation vocabulary', async () => {

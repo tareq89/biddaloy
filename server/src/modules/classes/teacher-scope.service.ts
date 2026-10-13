@@ -1,6 +1,6 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, IsNull, Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { isUUID } from 'class-validator';
 import { RoleScope, TeacherAssignmentType, roleScope } from '@biddaloy/shared';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
@@ -187,24 +187,6 @@ export class TeacherScopeService {
         )
       ).length > 0;
     if (!ok) throw new NotFoundException('Guardian not found');
-  }
-
-  /** 403 unless the student's current section is in the caller's scope (missing student = 403 too). */
-  async assertCanSeeStudent(input: {
-    role: string;
-    userId: string;
-    tenantId: string;
-    studentId: string;
-  }): Promise<void> {
-    const scope = await this.sectionScope(input);
-    if (scope === null) return;
-    const student = await this.studentRepo.findOne({
-      where: { id: input.studentId, tenant_id: input.tenantId, deleted_at: IsNull() },
-      select: { id: true, class_section_id: true },
-    });
-    if (!student?.class_section_id || !scope.includes(student.class_section_id)) {
-      throw new ForbiddenException("You do not teach this student's section.");
-    }
   }
 
   /**

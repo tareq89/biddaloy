@@ -34,6 +34,13 @@ const canReadTenantWide = (role: string) =>
 export class MarksAuthorizationService {
   constructor(private readonly teacherScope: TeacherScopeService) {}
 
+  /** Epic 75 D2: a teacher reaches marks only in a section the student/results routes also show
+   * them (current academic year). Stops a prior-year row or homeroom grant from opening marks
+   * for students the teacher can no longer open. */
+  private async inCurrentYearScope(userId: string, tenantId: string, sectionId: string) {
+    return (await this.teacherScope.sectionIds({ userId, tenantId })).includes(sectionId);
+  }
+
   async assertCanWrite(input: {
     role: string;
     userId: string;
@@ -47,7 +54,10 @@ export class MarksAuthorizationService {
     }
 
     const { subjectIds } = await this.teacherScope.rolesInSection({ userId, tenantId, sectionId });
-    if (!subjectIds.includes(subjectId)) {
+    if (
+      !subjectIds.includes(subjectId) ||
+      !(await this.inCurrentYearScope(userId, tenantId, sectionId))
+    ) {
       throw new ForbiddenException(
         'You are not the assigned subject teacher for this section-subject.',
       );
@@ -75,7 +85,10 @@ export class MarksAuthorizationService {
       tenantId,
       sectionId,
     });
-    if (!homeroom && !subjectIds.includes(subjectId)) {
+    if (
+      (!homeroom && !subjectIds.includes(subjectId)) ||
+      !(await this.inCurrentYearScope(userId, tenantId, sectionId))
+    ) {
       throw new ForbiddenException(
         'You are not the assigned subject teacher for this section-subject.',
       );

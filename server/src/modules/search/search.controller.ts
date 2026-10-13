@@ -1,11 +1,12 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { SearchService } from './search.service';
@@ -54,7 +55,8 @@ export class SearchController {
   async search(
     @Query() query: SearchQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ): Promise<SearchResultsDto> {
-    return this.searchService.search(tenant.id, tenant.role as UserRole, query);
+    return this.searchService.search(tenant.id, tenant.role as UserRole, query, user.sub);
   }
 }

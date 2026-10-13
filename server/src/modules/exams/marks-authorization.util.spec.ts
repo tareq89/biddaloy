@@ -11,10 +11,15 @@ type Roles = Awaited<ReturnType<TeacherScopeService['rolesInSection']>>;
 /** `TeacherScopeService` is stubbed: its join (live subjects only, tenant
  * filtering) is covered by `teacher-scope.service.integration.spec.ts`. Here
  * we only check the decision made from what it returns. */
-function buildService(roles: Roles = { homeroom: null, subjectIds: [] }) {
+function buildService(
+  roles: Roles = { homeroom: null, subjectIds: [] },
+  currentYearSectionIds: string[] = ['s1'],
+) {
   const rolesInSection = vi.fn(async () => roles);
+  const sectionIds = vi.fn(async () => currentYearSectionIds);
   const service = new MarksAuthorizationService({
     rolesInSection,
+    sectionIds,
   } as unknown as TeacherScopeService);
   return { service, rolesInSection };
 }
@@ -44,6 +49,17 @@ describe('MarksAuthorizationService.assertCanWrite', () => {
       tenantId: TENANT_ID,
       sectionId: 's1',
     });
+  });
+
+  // Epic 75 D2: a section outside the current-year scope is closed even with a subject row.
+  it('rejects write and read outside the current-year section scope', async () => {
+    const { service } = buildService({ homeroom: null, subjectIds: ['subj1'] }, []);
+    await expect(service.assertCanWrite(input(UserRole.TEACHER))).rejects.toThrow(
+      ForbiddenException,
+    );
+    await expect(service.assertCanRead(input(UserRole.TEACHER))).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
   it('rejects a TEACHER with a different subject in the section', async () => {

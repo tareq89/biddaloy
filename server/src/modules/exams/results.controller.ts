@@ -93,12 +93,14 @@ export class ResultsController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    await this.teacherScope.assertCanSeeStudent({
-      role: tenant.role,
-      userId: user.sub,
-      tenantId: tenant.id,
-      studentId,
-    });
+    // D13: a student outside the teacher's current-year sections is a 404, never a 403.
+    const input = { role: tenant.role, userId: user.sub, tenantId: tenant.id };
+    if (
+      (await this.teacherScope.sectionScope(input)) &&
+      !(await this.teacherScope.canSeeStudent({ ...input, studentId }))
+    ) {
+      throw new NotFoundException(`No result for student "${studentId}" on exam "${examId}"`);
+    }
     const detail = await this.resultsService.getStudentResult(examId, studentId, tenant.id);
     if (!detail) {
       throw new NotFoundException(`No result for student "${studentId}" on exam "${examId}"`);
