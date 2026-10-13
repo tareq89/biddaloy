@@ -8463,7 +8463,7 @@ export interface components {
              * @enum {string}
              */
             status: "valid" | "expired" | "consumed" | "revoked" | "unknown" | "proposal" | "confirm" | "declined";
-            /** @description Only with status 'proposal': { from_school, new_email?, new_phone? }, values masked, null = removed. */
+            /** @description Only with status 'proposal': { from_school, new_email?, new_phone? }, the full proposed values (D25: only the person, through a link sent to their own contact, sees this), null = removed. */
             proposal?: {
                 [key: string]: unknown;
             };
