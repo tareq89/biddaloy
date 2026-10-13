@@ -536,6 +536,41 @@ describe('ContactChangeService (integration)', () => {
       expect(result.status).toBe('valid');
     });
 
+    // Review m-new-3: a two-value proposal, approved with one code only.
+    it('a request with only the email code re-sends only the phone code, and the email code still works', async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { email: 'karim.new@example.com', phone: NEW_PHONE });
+      const token = linkIn(sentTo()[0].body);
+      const first = await service.confirmEmail(token, context, 'approve');
+      await redis.del(`otp-cooldown:CONTACT_PROPOSAL:${NEW_PHONE}`); // skip the 60 s resend wait
+      fakeProvider.send.mockClear();
+
+      const partial = await service.confirmEmail(token, context, 'approve', {
+        email_code: first.debug!.email_code,
+      });
+
+      expect(partial.status).toBe('confirm');
+      expect(sentTo().map((m) => m.to)).toEqual([NEW_PHONE]);
+      const result = await service.confirmEmail(token, context, 'approve', {
+        email_code: first.debug!.email_code,
+        phone_code: partial.debug!.phone_code,
+      });
+      expect(result.status).toBe('valid');
+    });
+
+    it('a 429 on the phone code sends nothing, not even the email code', async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { email: 'karim.new@example.com', phone: NEW_PHONE });
+      const token = linkIn(sentTo()[0].body);
+      await redis.set(`otp-cooldown:CONTACT_PROPOSAL:${NEW_PHONE}`, '1', 'PX', 60_000);
+      fakeProvider.send.mockClear();
+
+      await expect(service.confirmEmail(token, context, 'approve')).rejects.toMatchObject({
+        status: 429,
+      });
+      expect(fakeProvider.send).not.toHaveBeenCalled();
+    });
+
     it('a code sent for one proposal does not confirm another value', async () => {
       const { user } = await sharedSetup();
       await propose(user.id, { phone: NEW_PHONE });
