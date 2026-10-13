@@ -73,8 +73,12 @@ export class AccountAccessDeliveryService {
    * keep working. `NODE_ENV=test` alone does not await.
    *
    * ponytail: the known branch's job still runs on the same event loop and DB
-   * pool right after the response, so it can slow the *next* request by a hair;
-   * a queue on a separate worker if that ever becomes measurable.
+   * pool right after the response, so it can slow the *next* request by a hair.
+   * Nothing tracks in-flight jobs, so a deploy (SIGTERM) can drop one after the
+   * token/OTP and audit row are written but before the send: the user got a
+   * 202, gets no code, and the cooldown swallows an immediate retry. The window
+   * is milliseconds per request. A queue on a separate worker if either ever
+   * matters.
    */
   async detach<T>(flow: string, work: () => Promise<T>): Promise<T | undefined> {
     // async + try/catch: a synchronous throw inside `work` is caught too, never

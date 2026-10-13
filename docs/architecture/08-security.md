@@ -220,9 +220,12 @@ awaits the job instead, so tests can read `debug.otp` / `debug.token`.
 `NODE_ENV=test` on its own does not.
 
 What is left: the known branch's job runs on the same process and DB pool
-right after the response, so it can slow the _next_ request a little. Admin-
-initiated flows (admin reset, contact change) still wait and return 503 on
-failure: the caller is an admin acting on a known person.
+right after the response, so it can slow the _next_ request a little. A deploy
+can also drop a job that is in flight: the token or OTP and the audit row are
+written, the 202 went out, but the send never happens, so the user waits out
+the cooldown and asks again. The window is milliseconds per request; a queue is
+the fix if it ever matters. Admin-initiated flows (admin reset, contact
+change) still wait and return 503 on failure: the caller is an admin acting on a known person.
 
 ## Contact verification (12.7)
 
@@ -1071,7 +1074,7 @@ flowchart LR
 
 Closed on the PR 5 accumulating branch (`epic/75.0/accum-5`), which stands in
 for `main` (D21). The Wave 3 tickets (#2328–#2332) landed in PR 1 and PR 3, so
-wave start = `3e8786961` (accum-4 head). The route-status snapshot diff is
+wave start = `196a1c6bd` (accum-4 head). The route-status snapshot diff is
 empty: this wave changes headers, logs and outbound calls, not guards.
 
 ```mermaid
@@ -1095,7 +1098,7 @@ flowchart LR
 ### Wave 4 — 2026-10-14
 
 Closed on the same PR 5 branch (`epic/75.0/accum-5`), standing in for `main`
-(D21). Wave start = `3e8786961`. #2335 (75.27) landed in PR 3; #2334, #2336
+(D21). Wave start = `196a1c6bd`. #2335 (75.27) landed in PR 3; #2334, #2336
 and #2337 (75.26, 75.28, 75.29) were cherry-picked onto this branch without
 conflicts. The route-status snapshot diff is empty, as expected: nothing in
 this wave touches a guard.
@@ -1108,10 +1111,10 @@ flowchart LR
   I --> B["backup: uid 10001 under supercronic,<br/>schedule-only crontab (75.29)"]
 ```
 
-- **A lane's territory left a file out.** The image-pin lane owned `docker-compose.yml` and the backup Dockerfile, not the root `Dockerfile`, so the app's own `node:26-alpine` base stayed on a floating tag after the lane said "done" — one integration commit — fix: f04354429 pins it and extends the infra test's `FROM` check (#2337) — rule candidate: an "every X in the repo" ticket lists its files with `git ls-files`, and its check scans the same list, not the lane's territory.
-- **Healthcheck dependencies change boot timing.** Making nginx wait for `app: service_healthy` meant a cold app boot slower than ~90 s aborted `docker compose up` — a review finding — fix: `start_period: 60s` on the app healthcheck (894527bcd) — rule candidate: a new `depends_on: condition: service_healthy` comes with a `start_period` sized to the slowest real cold boot.
-- **Non-root cron needs a different cron.** busybox `crond` needs root and drops the container env, which is why the old backup image wrote secrets into a crontab file. supercronic runs as uid 10001 and passes the env to jobs, so the crontab now holds the schedule only — fix: 55668d44c (#2337) — rule candidate: when a container moves off root, check every tool in it that assumed root, and what it did to work around the env.
+- **A lane's territory left a file out.** The image-pin lane owned `docker-compose.yml` and the backup Dockerfile, not the root `Dockerfile`, so the app's own `node:26-alpine` base stayed on a floating tag after the lane said "done" — one integration commit — fix: 92e522e70 pins it and extends the infra test's `FROM` check (#2337) — rule candidate: an "every X in the repo" ticket lists its files with `git ls-files`, and its check scans the same list, not the lane's territory.
+- **Healthcheck dependencies change boot timing.** Making nginx wait for `app: service_healthy` meant a cold app boot slower than ~90 s aborted `docker compose up` — a review finding — fix: `start_period: 60s` on the app healthcheck (60cce35ac) — rule candidate: a new `depends_on: condition: service_healthy` comes with a `start_period` sized to the slowest real cold boot.
+- **Non-root cron needs a different cron.** busybox `crond` needs root and drops the container env, which is why the old backup image wrote secrets into a crontab file. supercronic runs as uid 10001 and passes the env to jobs, so the crontab now holds the schedule only — fix: 295385ea3 (#2337) — rule candidate: when a container moves off root, check every tool in it that assumed root, and what it did to work around the env.
 - **Untracking without rewriting history.** `server/graphify-out/` and `.epic-8.5-state.md` were removed from the index only, so the files stay on disk and old commits still hold them (D18) — fix: `.gitignore` entries plus `scripts/check-tracked-files.mjs`, run in the `ci:local` audit section and the CI audit job (#2336) — rule candidate: "this must stay local" is a CI guard, not a `.gitignore` line, because `.gitignore` does nothing for a file someone force-adds. Checked here: the guard prints `OK`, and `git ls-files` only holds the two deliberately tracked root `graphify-out/README.md` and `cost.json`.
-- **SHA pins and the timings push.** Turning off `persist-credentials` on every checkout broke nothing except the one job that pushes CI timings, which now gets a step-scoped token — fix: 6b0797ce7 (#2334) — rule candidate: before removing a default credential, grep the workflows for `git push` and give only those steps a token. Checked here: no `uses:` without a 40-character SHA, every `actions/checkout` sets `persist-credentials: false`, and `actionlint` is clean. Whether the GitHub Actions run on `main` stays green with the pins is only provable after the merge.
+- **SHA pins and the timings push.** Turning off `persist-credentials` on every checkout broke nothing except the one job that pushes CI timings, which now gets a step-scoped token — fix: 9c133ba58 (#2334) — rule candidate: before removing a default credential, grep the workflows for `git push` and give only those steps a token. Checked here: no `uses:` without a 40-character SHA, every `actions/checkout` sets `persist-credentials: false`, and `actionlint` is clean. Whether the GitHub Actions run on `main` stays green with the pins is only provable after the merge.
 - **Owner actions left open.** Rebuilding the compose stack from the pinned images (`docker compose build --no-cache && docker compose up -d`), the healthy-status check, `docker compose exec backup id -u` and the GitHub settings in "Repository and GitHub settings" above all need Docker or repo admin rights, which this run did not use. Statically: the backup Dockerfile ends in `USER backup` (uid 10001), and every `FROM` and pulled `image:` carries `@sha256:` (the two locally built images, `biddaloy-app` and `biddaloy-backup`, have no registry digest by design).
 - **`ci:local --full` reused one database across sections.** The integration section's vitest global-setup drops the run's database and re-creates it with test fixtures only, and the e2e section then ran `seed` on top of it. With no `default-school` row, the dev platform tenant could not be resolved, so every platform SUPER_ADMIN call got 403 and `/admission/default-school` said "school not found": 16 red Playwright specs that all pass alone, and pass in CI, where each job has its own database — one full run to triage — fix: `fresh_stack` in `scripts/ci-local.sh` gives the e2e and lighthouse sections a fresh test-env slice — rule candidate: a local runner that mirrors several CI jobs gives each job the same fresh state CI does; a spec that fails only in the full local run is first checked for state left by an earlier section.
