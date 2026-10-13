@@ -154,6 +154,13 @@ describe('Teacher scope: exam results, analysis, search (75.6-e)', () => {
       await asTeacher(`/exams/${examId}/results/${fx.studentA}`).expect(200);
     });
 
+    // Was a 500 (`In([''])` on a uuid column) before review r1.
+    it('results/:studentId for a result with no subject rows is 200 with empty subjects', async () => {
+      await dataSource.query(`DELETE FROM result_subjects WHERE tenant_id = $1`, [SEED_TENANT_ID]);
+      const res = await asTeacher(`/exams/${examId}/results/${fx.studentA}`).expect(200);
+      expect(res.body.subjects).toEqual([]);
+    });
+
     it('analysis/merit lists only A; ?section_id=B is 404; ?section_id=A is fine', async () => {
       const res = await asTeacher(`/exams/${examId}/analysis/merit`).expect(200);
       expect(studentIds(res.body.rows)).toEqual([fx.studentA]);
