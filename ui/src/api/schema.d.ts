@@ -29413,6 +29413,8 @@ export interface operations {
                     gender?: string;
                     guardian_name?: string;
                     guardian_phone?: string;
+                    /** @description Cloudflare Turnstile token. */
+                    captcha_token?: string;
                     guardian_email?: string | null;
                     home_address?: string | null;
                     /** @description Proof of ownership when updating an existing PENDING application for the same child. Omit on a first submission. */

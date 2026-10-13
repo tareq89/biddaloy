@@ -6,9 +6,11 @@ import {
   HttpStatus,
   Param,
   Post,
+  Req,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -21,6 +23,8 @@ import {
 import { SubmitApplicantDto, SubmitApplicantResponseDto } from './dto/submit-applicant.dto';
 import { CheckApplicantStatusDto } from './dto/check-applicant-status.dto';
 import { SchoolsService } from '../schools/schools.service';
+import { TurnstileService } from '../registration/turnstile.service';
+import { requestContext } from '../../common/request-context.util';
 import { TenantStatusService, tenantRestoringException } from '../schools/tenant-status.service';
 
 export const MAX_DOCUMENT_FILE_SIZE = 5 * 1024 * 1024; // 5MB per document, same tier as homework uploads
@@ -43,6 +47,7 @@ export class PublicAdmissionController {
     private readonly applicantService: AdmissionApplicantService,
     private readonly schoolsService: SchoolsService,
     private readonly tenantStatus: TenantStatusService,
+    private readonly turnstile: TurnstileService,
   ) {}
 
   @Get(':slug')
@@ -94,6 +99,7 @@ export class PublicAdmissionController {
         gender: { type: 'string' },
         guardian_name: { type: 'string' },
         guardian_phone: { type: 'string' },
+        captcha_token: { type: 'string', description: 'Cloudflare Turnstile token.' },
         guardian_email: { type: 'string', nullable: true },
         home_address: { type: 'string', nullable: true },
         reference_number: {
@@ -113,7 +119,10 @@ export class PublicAdmissionController {
     @Param('slug') slug: string,
     @Body() dto: SubmitApplicantDto,
     @UploadedFiles() files: Express.Multer.File[],
+    @Req() request: Request,
   ): Promise<SubmitApplicantResponseDto> {
+    // First, so a failed check writes no row and no file.
+    await this.turnstile.verify(dto.captcha_token, requestContext(request).ip);
     // No ContextGuard here, so the restore freeze (#2210) is checked by hand: a restore would
     // delete an applicant saved mid-restore. An unknown slug falls through to the service's 404.
     const school = await this.schoolsService.findBySlug(slug);
