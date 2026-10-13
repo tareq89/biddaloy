@@ -83,7 +83,7 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
   // dueSql constant
   'modules/attention/rules/family/family-data.ts': ['dueSql'],
   // constant scoped/unscoped fragment; class ids bound as $4 array
-  'modules/calendar/calendar-events.service.ts': ['scoped ?'],
+  'modules/calendar/calendar-events.service.ts': ['sectionScope'],
   // constant classScopeExists / noClassScope fragments
   'modules/calendar/calendar-visibility.util.ts': [
     'classScopeExists',
@@ -179,10 +179,12 @@ function collectFiles(dir: string): string[] {
   return files;
 }
 
-/** Each `${...}` body in a template, braces balanced, so `${fn({ a: 1 }) + x}` is
- * captured whole (a `[^}]*` capture stopped at the first `}` and could be
- * allowlisted as `fn({ a: 1 ` while an unsafe suffix slipped past). An
- * expression cut off by a nested backtick runs to that backtick. */
+/** Each `${...}` body in a template, braces balanced and quoted strings skipped,
+ * so `${fn({ a: 1 }) + x}` and `${safe('}') + x}` are captured whole (a `[^}]*`
+ * capture stopped at the first `}` and could be allowlisted as `fn({ a: 1 `
+ * while an unsafe suffix slipped past). An expression cut off by a nested
+ * backtick is returned with an `INCOMPLETE:` prefix, so it can never equal a
+ * reviewed entry and always has to be looked at. */
 function templateExpressions(template: string): string[] {
   const out: string[] = [];
   let i = template.indexOf('${');
@@ -190,10 +192,16 @@ function templateExpressions(template: string): string[] {
     let depth = 1;
     let j = i + 2;
     for (; j < template.length && depth > 0 && template[j] !== '`'; j++) {
-      if (template[j] === '{') depth++;
-      else if (template[j] === '}') depth--;
+      const c = template[j];
+      if (c === '{') depth++;
+      else if (c === '}') depth--;
+      else if (c === "'" || c === '"') {
+        do j++;
+        while (j < template.length && (template[j] !== c || template[j - 1] === '\\'));
+      }
     }
-    out.push(template.slice(i + 2, depth === 0 ? j - 1 : j));
+    const expr = template.slice(i + 2, depth === 0 ? j - 1 : j);
+    out.push(depth === 0 ? expr : `INCOMPLETE: ${expr}`);
     i = template.indexOf('${', j);
   }
   return out;
@@ -237,7 +245,9 @@ describe('SQL interpolation guard', () => {
       'fn({ a: 1 }) + userInput',
       'x',
     ]);
-    expect(templateExpressions('`a ${cond ? `x` : y}`')).toEqual(['cond ? ']);
+    expect(templateExpressions("`a ${safe('}') + userInput}`")).toEqual(["safe('}') + userInput"]);
+    // Cut off by a nested backtick: never matches a reviewed entry.
+    expect(templateExpressions('`a ${cond ? `x` : y}`')).toEqual(['INCOMPLETE: cond ? ']);
   });
 
   it('no reviewed entry is stale', () => {

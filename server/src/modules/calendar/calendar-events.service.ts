@@ -703,17 +703,16 @@ export class CalendarEventsService {
     classIds: string[],
   ): Promise<void> {
     const scoped = classIds.length > 0;
+    const sectionScope = scoped
+      ? `AND s.section_id IN (SELECT cs.id FROM class_sections cs
+                              WHERE cs.tenant_id = $1 AND cs.class_id = ANY($4::uuid[]))`
+      : '';
     const studentRows: Array<{ n: number }> = await this.attendanceSessionRepo.manager.query(
       `SELECT COUNT(*)::int AS n FROM attendance_sessions s
        WHERE s.tenant_id = $1 AND s.date >= $2 AND s.date <= $3
          AND EXISTS (SELECT 1 FROM attendance_records r
                      WHERE r.session_id = s.id AND r.tenant_id = $1)
-         ${
-           scoped
-             ? `AND s.section_id IN (SELECT cs.id FROM class_sections cs
-                                     WHERE cs.tenant_id = $1 AND cs.class_id = ANY($4::uuid[]))`
-             : ''
-         }`,
+         ${sectionScope}`,
       scoped ? [tenantId, startDate, endDate, classIds] : [tenantId, startDate, endDate],
     );
     let found = studentRows[0].n;
