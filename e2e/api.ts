@@ -813,12 +813,12 @@ export async function createTeacherForSection(
   request: APIRequestContext,
   session: ApiSession,
   fullName: string,
-  sectionId: string,
+  section: { classId: string; sectionId: string },
 ): Promise<FreshTeacher> {
-  return createTeacher(request, session, fullName, sectionId);
+  return createTeacher(request, session, fullName, section);
 }
 
-/** Creates a fresh TEACHER user + `Teacher` row. `sectionId` omitted =
+/** Creates a fresh TEACHER user + `Teacher` row. `section` omitted =
  * zero `TeacherClassSection` rows — for specs that need a teacher with no
  * assignments at all (e.g. an empty-state assertion on the
  * teaching-assignments screen). */
@@ -826,7 +826,7 @@ export async function createTeacher(
   request: APIRequestContext,
   session: ApiSession,
   fullName: string,
-  sectionId?: string,
+  section?: { classId: string; sectionId: string },
 ): Promise<FreshTeacher> {
   // `crypto.randomUUID()`, not `Math.random()` — CodeQL flags `Math.random()`
   // as insecure randomness wherever the value it seeds ends up in a field
@@ -845,25 +845,13 @@ export async function createTeacher(
     user_id: created.user.id,
     employee_id: `E2E-${suffix}`,
   });
-  if (sectionId) {
-    // The assign endpoint is keyed by class too; callers only hold the section id.
-    const classes = await get<{ data: { id: string }[] }>(request, session, '/classes?limit=100');
-    let assigned = false;
-    for (const { id: classId } of classes.data) {
-      const sections = await get<{ id: string }[]>(
-        request,
-        session,
-        `/classes/${classId}/sections`,
-      );
-      if (sections.some((s) => s.id === sectionId)) {
-        await post(request, session, `/classes/${classId}/sections/${sectionId}/teachers`, {
-          teacher_id: teacher.id,
-        });
-        assigned = true;
-        break;
-      }
-    }
-    if (!assigned) throw new Error(`createTeacher: no class contains section ${sectionId}`);
+  if (section) {
+    await post(
+      request,
+      session,
+      `/classes/${section.classId}/sections/${section.sectionId}/teachers`,
+      { teacher_id: teacher.id },
+    );
   }
   return { email, password, userId: created.user.id, teacherId: teacher.id };
 }

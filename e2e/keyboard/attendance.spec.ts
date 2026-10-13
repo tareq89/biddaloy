@@ -36,12 +36,7 @@ test('teacher marks and submits a whole section without touching the mouse', asy
     5,
     await currentAcademicYear(request, admin),
   );
-  const teacher = await createTeacherForSection(
-    request,
-    admin,
-    'Keyboard Teacher',
-    chain.sectionId,
-  );
+  const teacher = await createTeacherForSection(request, admin, 'Keyboard Teacher', chain);
 
   const response = await request.post('/api/v1/auth/login', {
     data: { email: teacher.email, password: teacher.password },

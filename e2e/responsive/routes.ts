@@ -274,7 +274,7 @@ export async function resolvePath(
       request,
       session,
       `Reflow Survey Teacher ${stamp}`,
-      chain.sectionId,
+      chain,
     );
     const subject = await post<{ id: string }>(request, session, '/subjects', {
       code: `RF-${stamp.toString(36).toUpperCase()}`,

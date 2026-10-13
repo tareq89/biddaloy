@@ -67,7 +67,7 @@ test.describe('evaluations API', () => {
       request,
       session,
       `Survey Teacher ${Date.now()}`,
-      chain.sectionId,
+      chain,
     );
     const subject = await post<{ id: string }>(request, session, '/subjects', {
       code: `E2E-${Date.now().toString(36).toUpperCase()}`,

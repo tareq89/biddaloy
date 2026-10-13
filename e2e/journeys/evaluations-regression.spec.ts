@@ -63,7 +63,7 @@ test.describe('admin builds the chain', () => {
       request,
       admin,
       `Regression Staff ${stamp}`,
-      chain.sectionId,
+      chain,
     ));
     const { criteria } = await get<{ criteria: { id: string }[] }>(request, admin, '/acr/criteria');
     expect(criteria.length).toBeGreaterThan(0);

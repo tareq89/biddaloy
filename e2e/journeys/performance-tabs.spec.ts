@@ -45,7 +45,7 @@ test.describe('admin', () => {
       request,
       session,
       `Perf Staff ${Date.now()}`,
-      chain.sectionId,
+      chain,
     );
 
     await test.step('student tab', async () => {
@@ -80,7 +80,7 @@ test.describe('admin withdraws an incident', () => {
       request,
       session,
       `Incident Staff ${Date.now()}`,
-      chain.sectionId,
+      chain,
     );
     const description = `Wrong person ${Date.now()}`;
     await createIncident(request, session, incidentBody(staff.userId, { description }));
@@ -109,12 +109,7 @@ test.describe('teacher', () => {
   test('sees student Performance but not staff Performance', async ({ page, request }) => {
     const admin = await adminApiSession(request);
     const chain = await createClassSection(request, admin);
-    const staff = await createTeacherForSection(
-      request,
-      admin,
-      `Perf Hidden ${Date.now()}`,
-      chain.sectionId,
-    );
+    const staff = await createTeacherForSection(request, admin, `Perf Hidden ${Date.now()}`, chain);
 
     await test.step('a student detail has the Performance tab', async () => {
       await page.goto('/students');
