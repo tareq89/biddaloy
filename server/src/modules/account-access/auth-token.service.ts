@@ -134,6 +134,18 @@ export class AuthTokenService {
     }
   }
 
+  /** Revokes one still-live token by id (a no-op once it is consumed or revoked). */
+  async revoke(rowId: string): Promise<void> {
+    await this.repo
+      .createQueryBuilder()
+      .update(AuthToken)
+      .set({ revoked_at: new Date() })
+      .where('id = :rowId', { rowId })
+      .andWhere('consumed_at IS NULL')
+      .andWhere('revoked_at IS NULL')
+      .execute();
+  }
+
   /** Marks every still-live token of `purpose` for the user consumed (e.g. an invite accepted by code sign-in). */
   async consumeLive(userId: string, purpose: AuthTokenPurpose): Promise<void> {
     await this.repo
