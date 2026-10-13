@@ -426,6 +426,83 @@ describe('TenantSettingsDto', () => {
       });
     });
 
+    describe('specialTimings', () => {
+      const SHIFT = '6b1f3c1e-5d2a-4c8e-9a47-1f2e3d4c5b6a';
+      const OTHER = '7c2f4d2f-6e3b-4d9f-8b58-2a3f4e5d6c7b';
+      const t = {
+        name: 'Ramadan',
+        from: '2027-02-08',
+        to: '2027-03-09',
+        shiftId: null,
+        lateAfter: '08:45',
+        absentAfter: '09:30',
+        periods: [{ sequence: 1, startsAt: '08:30', endsAt: '09:05' }],
+      };
+      const run = async (specialTimings: unknown[]) => {
+        const errors = await validate(
+          toDto({
+            version: TENANT_SETTINGS_SCHEMA_VERSION,
+            attendance: { ...DEFAULT_ATTENDANCE_SETTINGS, specialTimings },
+          }),
+          VALIDATION_OPTIONS,
+        );
+        return errors.find((e) => e.property === 'attendance');
+      };
+
+      it('accepts a valid list', async () => {
+        expect(await run([t])).toBeUndefined();
+      });
+      // A period grid may start at 0 (PeriodSlotItemDto allows it), so its first period
+      // must be overridable; a negative sequence is still refused.
+      it('accepts sequence 0 and rejects -1', async () => {
+        const at = (sequence: number) => [
+          { ...t, periods: [{ sequence, startsAt: '08:30', endsAt: '09:05' }] },
+        ];
+        expect(await run(at(0))).toBeUndefined();
+        expect(await run(at(-1))).toBeDefined();
+      });
+      it('rejects from > to', async () => {
+        expect(await run([{ ...t, from: '2027-03-10' }])).toBeDefined();
+      });
+      it('rejects startsAt >= endsAt', async () => {
+        expect(
+          await run([{ ...t, periods: [{ sequence: 1, startsAt: '09:05', endsAt: '09:05' }] }]),
+        ).toBeDefined();
+      });
+      it('rejects two overlapping all-shift entries', async () => {
+        expect(await run([t, { ...t, from: '2027-03-09', to: '2027-03-20' }])).toBeDefined();
+      });
+      it('rejects a duplicate sequence', async () => {
+        const p = { sequence: 1, startsAt: '08:30', endsAt: '09:05' };
+        expect(await run([{ ...t, periods: [p, p] }])).toBeDefined();
+      });
+      it('accepts overlapping entries for different shifts', async () => {
+        expect(
+          await run([
+            { ...t, shiftId: SHIFT },
+            { ...t, shiftId: OTHER },
+          ]),
+        ).toBeUndefined();
+      });
+      // The two boundaries a later `<` -> `<=` slip would break.
+      it('accepts adjacent entries (one ends the day before the next starts)', async () => {
+        expect(await run([t, { ...t, from: '2027-03-10', to: '2027-03-20' }])).toBeUndefined();
+      });
+      it('accepts a one-day entry (from == to)', async () => {
+        expect(await run([{ ...t, from: '2027-02-08', to: '2027-02-08' }])).toBeUndefined();
+      });
+      it('rejects an empty name', async () => {
+        expect(await run([{ ...t, name: '' }])).toBeDefined();
+      });
+      // A throw inside a constraint becomes a 500; malformed input must be a 400.
+      it('rejects malformed elements with a validation error, not a throw', async () => {
+        expect(await run([null])).toBeDefined();
+        expect(await run([{ ...t, periods: 'x' }])).toBeDefined();
+        expect(await run([{ ...t, periods: {} }])).toBeDefined();
+        expect(await run([{ ...t, periods: [null] }])).toBeDefined();
+      });
+    });
+
     it('rejects a weeklyOffDays entry outside 0-6', async () => {
       const dto = toDto({
         version: TENANT_SETTINGS_SCHEMA_VERSION,

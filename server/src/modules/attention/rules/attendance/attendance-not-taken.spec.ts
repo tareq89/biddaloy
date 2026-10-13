@@ -128,8 +128,8 @@ function build(f: Fx = {}) {
     if (sql.includes('FROM leave_records')) return [];
     if (sql.includes('FROM period_slots'))
       return [
-        { id: 'p1', sequence: 1, name: null, starts_at: '08:00', ends_at: '08:40' },
-        { id: 'p2', sequence: 2, name: null, starts_at: '09:00', ends_at: '09:40' },
+        { id: 'p1', sequence: 1, name: null },
+        { id: 'p2', sequence: 2, name: null },
       ];
     if (sql.includes('FROM teachers te'))
       return [
@@ -142,6 +142,9 @@ function build(f: Fx = {}) {
   const slot = (period: string, extra = {}) => ({
     section_id: 'S1',
     period_slot_id: period,
+    // The resolver fills the dated times on each slot, as `HH:mm:ss`.
+    starts_at: period === 'p1' ? '08:00:00' : '09:00:00',
+    ends_at: period === 'p1' ? '08:40:00' : '09:40:00',
     subject_id: 'sub',
     teacher_ids: ['T2'],
     substituted: false,
@@ -237,5 +240,29 @@ describe('AttendanceNotTakenRule', () => {
     });
     const [g] = await covered.rule.evaluate(ctx({ localTime: '09:20' }));
     expect(g.recipients).toEqual([{ userId: 'u-SUB', role: UserRole.TEACHER }]);
+  });
+
+  // The resolver's `HH:mm:ss` against `localTime`'s `HH:mm`: period 2 is due
+  // at 09:00 itself, not one tick later.
+  it('per-period: a period is due in its first minute', async () => {
+    const { rule } = build({
+      perPeriod: true,
+      sessions: [{ section_id: 'S1', period_no: null, state: 'FINALIZED' }],
+      slots: [build().slot('p2')],
+    });
+    const [f] = await rule.evaluate(ctx({ localTime: '09:00' }));
+    expect(f?.dedupeKey).toBe('section:S1:2026-10-10:p2');
+    expect(f.severity).toBe(AlertSeverity.REMINDER);
+  });
+
+  // #2290: a special timing moved period 1 to 08:30 today; the day register's
+  // first bell follows it.
+  it('a special timing moves the first bell of the day register', async () => {
+    const { rule } = build({
+      slots: [build().slot('p1', { starts_at: '08:30:00', ends_at: '09:05:00' })],
+    });
+    expect(await rule.evaluate(ctx({ localTime: '08:20' }))).toEqual([]);
+    const [f] = await rule.evaluate(ctx({ localTime: '08:30' }));
+    expect(f.params).toMatchObject({ startsAt: '08:30' });
   });
 });

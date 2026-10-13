@@ -195,15 +195,8 @@ export class AttendanceNotTakenRule implements AttentionRuleShape {
     ];
     const [periodSlots, teacherUsers] = await Promise.all([
       periodIds.length
-        ? q<{
-            id: string;
-            sequence: number;
-            name: string | null;
-            starts_at: string;
-            ends_at: string;
-          }>(
-            `SELECT id, sequence, name, to_char(starts_at,'HH24:MI') AS starts_at, to_char(ends_at,'HH24:MI') AS ends_at
-             FROM period_slots WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,
+        ? q<{ id: string; sequence: number; name: string | null }>(
+            `SELECT id, sequence, name FROM period_slots WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,
             [t, periodIds],
           )
         : [],
@@ -245,7 +238,7 @@ export class AttendanceNotTakenRule implements AttentionRuleShape {
       if (holiday.has(sec.class_id)) continue;
       const sectionSlots = slotsOf.get(sec.id) ?? [];
       const periods: ResolvedPeriod[] = periodsOf.get(sec.id) ?? [];
-      const shiftPolicy = policyForShift(policy, sec.shift_id);
+      const shiftPolicy = policyForShift(policy, sec.shift_id, ctx.localDate);
       // ponytail: no routine -> the shift's late-after time stands in for the first bell.
       const firstStart = periods[0]?.starts_at ?? shiftPolicy.lateAfter;
       const base = { sectionId: sec.id, sectionLabel: sec.label };
@@ -310,7 +303,9 @@ export class AttendanceNotTakenRule implements AttentionRuleShape {
       // Period registers (per-period schools only).
       if (!perPeriod) continue;
       for (const p of periods) {
-        if (p.starts_at > ctx.localTime || finalized.has(`${sec.id}|${p.period_no}`)) continue;
+        // `starts_at` is the resolver's `HH:mm:ss`; `localTime` is `HH:mm`.
+        if (p.starts_at.slice(0, 5) > ctx.localTime || finalized.has(`${sec.id}|${p.period_no}`))
+          continue;
         const ids = p.substitute_teacher_id ? [p.substitute_teacher_id] : p.teacher_ids;
         const users = ids.map((id) => userOfTeacher.get(id)).filter((u): u is string => !!u);
         if (!users.length) continue;

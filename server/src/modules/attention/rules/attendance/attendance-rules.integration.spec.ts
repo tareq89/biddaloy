@@ -112,6 +112,12 @@ describe('AttendanceNotTakenRule (integration)', () => {
        VALUES ('Kid', $1, 1, $2, $3, 'ACTIVE') RETURNING id`,
       [`AR-${rand()}`, sectionId, id],
     );
+    // The register roster is read from enrollments (#2269), not students.class_section_id.
+    await q(
+      `INSERT INTO enrollments (student_id, class_id, section_id, academic_year_id, enrollment_status, tenant_id)
+       VALUES ($1, $2, $3, $4, 'ACTIVE', $5)`,
+      [studentId, classId, sectionId, yearId, id],
+    );
     const adminId = await mkUser(id, 'ADMIN');
     const execId = await mkUser(id, 'EXECUTIVE');
     const userOf: Record<string, string> = {};

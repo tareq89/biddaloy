@@ -543,8 +543,9 @@ export class LessonDeliveriesService {
           subject: { id: p.subject_id, name_en: p.subject_name_en, name_bn: p.subject_name_bn },
           period_slot_id: p.period_slot_id,
           sequence: slot?.sequence ?? 0,
-          starts_at: (slot?.starts_at ?? '').slice(0, 5),
-          ends_at: (slot?.ends_at ?? '').slice(0, 5),
+          // The resolved slot's own times: a special timing (e.g. Ramadan) can move them.
+          starts_at: p.starts_at.slice(0, 5),
+          ends_at: p.ends_at.slice(0, 5),
           routine_slot_id: p.routine_slot_id,
           substituting: !!me && p.substitute_teacher_id === me,
           cancelled: p.cancelled,

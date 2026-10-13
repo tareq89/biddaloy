@@ -43,6 +43,9 @@ export interface ResolvedSlot {
   routine_slot_id: string;
   section_id: string;
   period_slot_id: string;
+  /** This date's start/end (special timings applied), `HH:mm:ss`. */
+  starts_at: string;
+  ends_at: string;
   weekday: number;
   subject_id: string;
   /** Families (403 on `GET /subjects`) read the subject name from the slot. */

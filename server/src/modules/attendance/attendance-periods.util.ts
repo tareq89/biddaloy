@@ -1,12 +1,11 @@
 import type { ResolvedSlot } from '../routines/dto/resolve.dto';
 
-/** The bits of a `PeriodSlot` row this module needs. */
+/** The bits of a `PeriodSlot` row this module needs. Times come from the
+ * resolved slot (dated, special timings applied), never the template row. */
 export interface PeriodSlotLike {
   id: string;
   sequence: number;
   name: string | null;
-  starts_at: string;
-  ends_at: string;
 }
 
 /** One schedulable period of a section on one date. `period_no` is the
@@ -40,8 +39,8 @@ export function toPeriods(
     byNo.set(ps.sequence, {
       period_no: ps.sequence,
       name: ps.name,
-      starts_at: ps.starts_at,
-      ends_at: ps.ends_at,
+      starts_at: slot.starts_at,
+      ends_at: slot.ends_at,
       subject_id: slot.subject_id,
       teacher_ids: slot.teacher_ids,
       substitute_teacher_id: slot.substitute_teacher_id ?? null,

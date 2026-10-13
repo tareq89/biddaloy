@@ -45,8 +45,11 @@ test.describe('Certificate register', () => {
       session,
       '/print-history/register',
     );
-    const revoked = register.data.find((r) => r.revoked_at !== null);
-    expect(revoked?.revoke_reason).toBe(SEED_REVOKED_REASON);
+    // Other journeys revoke too (result-publish reopens an exam, which revokes its result
+    // certificate), so look for the seeded row rather than the first revoked one.
+    expect(
+      register.data.some((r) => r.revoked_at !== null && r.revoke_reason === SEED_REVOKED_REASON),
+    ).toBe(true);
     expect(register.data.some((r) => r.document_kind === 'TESTIMONIAL' && !r.revoked_at)).toBe(
       true,
     );

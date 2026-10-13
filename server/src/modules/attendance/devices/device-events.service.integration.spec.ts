@@ -262,6 +262,50 @@ describe('DeviceEventsService (integration)', () => {
     expect(updated.check_in_at).not.toBeNull(); // filled
   });
 
+  describe('special timings (SENSE-09)', () => {
+    const special = (from: string, to: string) => ({
+      name: 'Ramadan',
+      from,
+      to,
+      shiftId: null,
+      lateAfter: '08:45',
+      absentAfter: '09:30',
+      periods: [],
+    });
+    const withSpecial = (from: string, to: string) =>
+      setTenantSettings(TENANT_ID, {
+        weeklyOffDays: [],
+        lateAfter: '08:15',
+        absentAfter: '10:00',
+        correctionWindowDays: 2,
+        allowFutureDates: false,
+        specialTimings: [special(from, to)],
+      });
+
+    it('08:40 is PRESENT on a date inside a special timing with lateAfter 08:45', async () => {
+      await withSpecial(TODAY(), TODAY());
+      const r = await service.ingest(await createActiveDevice(), [
+        inEvent({ student_id: studentId, occurred_at: `${TODAY()}T08:40:00Z` }),
+      ]);
+      expect(r.results[0].status).toBe(AttendanceStatus.PRESENT);
+    });
+
+    it('the same scan is LATE on a normal date (lateAfter 08:15)', async () => {
+      await withSpecial('2000-01-01', '2000-01-31');
+      const r = await service.ingest(await createActiveDevice(), [
+        inEvent({ student_id: studentId, occurred_at: `${TODAY()}T08:40:00Z` }),
+      ]);
+      expect(r.results[0].status).toBe(AttendanceStatus.LATE);
+    });
+
+    // The device must see the same cut-offs the server classifies against.
+    it("heartbeat sends today's special cut-offs", async () => {
+      await withSpecial(TODAY(), TODAY());
+      const hb = await service.heartbeat(await createActiveDevice());
+      expect(hb.policy).toEqual({ late_after: '08:45', absent_after: '09:30' });
+    });
+  });
+
   describe('shift-aware lateness [41.0]', () => {
     // Tenant pair 08:15 / 10:00; the day shift overrides it to 12:15 / 14:00.
     async function setup(withShiftTimes = true) {

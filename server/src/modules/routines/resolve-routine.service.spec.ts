@@ -39,6 +39,7 @@ function buildService(
     teacher?: any;
     routine?: any;
     subjects?: any[];
+    specialTimings?: any[];
   } = {},
 ) {
   const yearQb: any = {
@@ -78,6 +79,11 @@ function buildService(
         overrides.workingDays ?? ['2026-01-05', '2026-01-06'],
     })),
   };
+  const schoolsService: any = {
+    getResolvedSettings: vi.fn(async () => ({
+      attendance: { specialTimings: overrides.specialTimings ?? [] },
+    })),
+  };
   const sectionRepo: any = {
     find: vi.fn(async () => overrides.sections ?? [{ id: 'section-1', class_id: 'class-1' }]),
   };
@@ -93,6 +99,7 @@ function buildService(
     teacherRepo,
     subjectRepo,
     calendarService,
+    schoolsService,
     sectionRepo,
   );
   return {
@@ -140,6 +147,42 @@ describe('ResolveRoutineService [21.5.1]', () => {
     );
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ date: '2026-01-05', substituted: false, cancelled: false });
+  });
+
+  it('dates before a special timing carry the period times, dates inside the special ones', async () => {
+    const c = buildService({
+      workingDays: ['2026-01-05', '2026-01-12'],
+      periodSlots: [
+        {
+          id: 'period-1',
+          kind: PeriodSlotKind.CLASS,
+          shift_id: 'shift-1',
+          sequence: 1,
+          starts_at: '08:00:00',
+          ends_at: '08:45:00',
+        },
+      ],
+      specialTimings: [
+        {
+          name: 'Ramadan',
+          from: '2026-01-12',
+          to: '2026-02-12',
+          shiftId: null,
+          lateAfter: '08:45',
+          absentAfter: '09:30',
+          periods: [{ sequence: 1, startsAt: '08:30', endsAt: '09:05' }],
+        },
+      ],
+    });
+    const result = await c.service.resolveRoutine(
+      { section_id: 'section-1', from: '2026-01-05', to: '2026-01-12' } as any,
+      TENANT_ID,
+      { role: 'ADMIN', userId: 'user-1' },
+    );
+    expect(result.map((r) => [r.date, r.starts_at, r.ends_at])).toEqual([
+      ['2026-01-05', '08:00:00', '08:45:00'],
+      ['2026-01-12', '08:30:00', '09:05:00'],
+    ]);
   });
 
   it('names each slot subject in English and Bangla via a tenant-scoped lookup', async () => {

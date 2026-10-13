@@ -7,6 +7,8 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { TENANT_STATUS_REDIS } from '../../../schools/tenant-status.service';
 import { SchoolCalendarService } from '../../../calendar/school-calendar.service';
 import { ResolveRoutineService } from '../../../routines/resolve-routine.service';
+import { SchoolsService } from '../../../schools/schools.service';
+import { DEFAULT_ATTENDANCE_SETTINGS } from '../../../schools/settings/tenant-settings-defaults';
 import { FamilyAccessService } from '../../../students/family-access.service';
 import { AlertWriterService } from '../../engine/alert-writer.service';
 import type { RuleContext } from '../rule.types';
@@ -202,6 +204,15 @@ describe('Homework rules (integration)', () => {
         { provide: TENANT_STATUS_REDIS, useValue: redis },
         // Real resolver and family query; only the school calendar is stubbed (every day works).
         ResolveRoutineService,
+        {
+          provide: SchoolsService,
+          useValue: {
+            getResolvedSettings: async () => ({
+              region: { timezone: 'Asia/Dhaka' },
+              attendance: DEFAULT_ATTENDANCE_SETTINGS,
+            }),
+          },
+        },
         FamilyAccessService,
         {
           provide: SchoolCalendarService,

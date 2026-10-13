@@ -12,6 +12,8 @@ import { Routine } from './entities/routine.entity';
 import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
 import { PeriodSlot } from './entities/period-slot.entity';
 import { TeacherBusyService } from './teacher-busy.service';
+import { SchoolsService } from '../schools/schools.service';
+import { periodTimesOn, resolveAttendancePolicy } from '../attendance/attendance-policy.util';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { UpsertSubstitutionDto, QuerySubstitutionsDto } from './dto/substitution.dto';
@@ -39,6 +41,7 @@ export class SubstitutionsService {
     private readonly slotTeacherRepo: Repository<RoutineSlotTeacher>,
     @InjectRepository(PeriodSlot) private readonly periodSlotRepo: Repository<PeriodSlot>,
     private readonly teacherBusy: TeacherBusyService,
+    private readonly schools: SchoolsService,
   ) {}
 
   async record(
@@ -133,12 +136,18 @@ export class SubstitutionsService {
       where: { id: slot.period_slot_id, tenant_id: tenantId },
     });
     if (!period) return;
+    // The period's times on that date: a special timing (e.g. Ramadan) can move it.
+    const { starts_at, ends_at } = periodTimesOn(
+      resolveAttendancePolicy(await this.schools.getResolvedSettings(tenantId)),
+      period,
+      dto.date,
+    );
     const clash = await this.teacherBusy.busyAt({
       tenantId,
       userId: substituteUserId,
       date: dto.date,
-      from: period.starts_at.slice(0, 5),
-      to: period.ends_at.slice(0, 5),
+      from: starts_at.slice(0, 5),
+      to: ends_at.slice(0, 5),
       actorUserId,
       exclude: { routineSlotId: slot.id },
     });

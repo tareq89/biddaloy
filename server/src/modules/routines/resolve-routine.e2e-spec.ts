@@ -25,6 +25,8 @@ import { User } from '../users/entities/user.entity';
 import { randomUUID } from 'crypto';
 import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
+import { TENANT_SETTINGS_SCHEMA_VERSION } from '../schools/dto/tenant-settings.dto';
+import { DEFAULT_ATTENDANCE_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 
 /**
  * [66.0.02] A holiday scoped to Class 1 empties Class 1's routine and
@@ -139,27 +141,29 @@ describe('Routine resolver honours class-scoped holidays (e2e)', () => {
       .expect(401);
   });
 
+  // The seeded admin user also acts as each role through X-Role: GET
+  // /routines/resolve for section 2 on DAY.
+  const actAs = async (role: UserRole, tenantId = SEED_TENANT_ID) => {
+    await ds.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [SEED_ADMIN_USER_ID, tenantId, role],
+    );
+    // Log in again so the token carries the membership just added.
+    const login = await supertest(app.getHttpServer())
+      .post(`${API}/auth/login`)
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    return supertest(app.getHttpServer())
+      .get(`${API}/routines/resolve`)
+      .query({ section_id: SEED_SECTION_2_ID, from: DAY, to: DAY })
+      .set('Authorization', `Bearer ${login.body.access_token}`)
+      .set('X-Tenant-ID', tenantId)
+      .set('X-Role', role);
+  };
+
   describe('roles on /routines/resolve (pinned, unchanged behaviour)', () => {
-    // The seeded admin user also acts as each role through X-Role.
     const OTHER_TENANT = '00000000-0000-4000-8000-0000000066e2';
-    const actAs = async (role: UserRole, tenantId = SEED_TENANT_ID) => {
-      await ds.query(
-        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
-        [SEED_ADMIN_USER_ID, tenantId, role],
-      );
-      // Log in again so the token carries the membership just added.
-      const login = await supertest(app.getHttpServer())
-        .post(`${API}/auth/login`)
-        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-        .expect(200);
-      return supertest(app.getHttpServer())
-        .get(`${API}/routines/resolve`)
-        .query({ section_id: SEED_SECTION_2_ID, from: DAY, to: DAY })
-        .set('Authorization', `Bearer ${login.body.access_token}`)
-        .set('X-Tenant-ID', tenantId)
-        .set('X-Role', role);
-    };
 
     for (const role of [
       UserRole.ADMIN,
@@ -247,6 +251,55 @@ describe('Routine resolver honours class-scoped holidays (e2e)', () => {
         date: DAY,
         substitute_teacher_id: foreign.id,
       }).expect(404);
+    });
+  });
+
+  describe('special timings (SENSE-09)', () => {
+    const special = {
+      name: 'Ramadan',
+      from: DAY,
+      to: DAY,
+      shiftId: null,
+      lateAfter: '08:45',
+      absentAfter: '09:30',
+      periods: [{ sequence: 1, startsAt: '08:30', endsAt: '09:05' }],
+    };
+    const saveSettings = (specialTimings: unknown[]) =>
+      supertest(app.getHttpServer())
+        .patch(`${API}/schools/${SEED_TENANT_ID}/settings`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({
+          version: TENANT_SETTINGS_SCHEMA_VERSION,
+          attendance: {
+            ...DEFAULT_ATTENDANCE_SETTINGS,
+            weeklyOffDays: [],
+            periodAttendance: { enabled: true },
+            specialTimings,
+          },
+        });
+
+    it('a saved special timing changes the resolved times for dates inside it only', async () => {
+      await seed();
+      await saveSettings([special]).expect(200);
+      const inside = (await resolve(SEED_SECTION_2_ID).expect(200)).body;
+      expect(inside[0]).toMatchObject({ starts_at: '08:30:00', ends_at: '09:05:00' });
+
+      await saveSettings([{ ...special, from: '2026-03-10', to: '2026-03-11' }]).expect(200);
+      const outside = (await resolve(SEED_SECTION_2_ID).expect(200)).body;
+      expect(outside[0]).toMatchObject({ starts_at: '08:00:00', ends_at: '08:45:00' });
+    });
+
+    it('overlapping all-shift entries are rejected with 400', async () => {
+      await saveSettings([special, { ...special, name: 'Again' }]).expect(400);
+    });
+
+    it('a PARENT reading /routines/resolve sees the same special times', async () => {
+      await seed();
+      await saveSettings([special]).expect(200);
+      const res = await actAs(UserRole.PARENT);
+      expect(res.status).toBe(200);
+      expect(res.body[0]).toMatchObject({ starts_at: '08:30:00', ends_at: '09:05:00' });
     });
   });
 });

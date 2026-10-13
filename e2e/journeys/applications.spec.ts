@@ -241,14 +241,16 @@ test.describe('staff leave approved by mistake: revoke days already taken', () =
           admin,
           `/leave/balance?staff_profile_id=${me.staff_profile_id}`,
         )
-      ).find((b) => b.leave_type === 'CASUAL')?.balance;
+      ).find((b) => b.leave_type === 'SICK')?.balance;
     const before = await balanceOf();
 
     // A leave that has already ended, approved by the executive (nobody cancels their own).
     const filed = await post<{ id: string }>(request, admin, '/applications', {
       type: 'STAFF_LEAVE',
       payload: {
-        leave_type: 'CASUAL',
+        // SICK, not CASUAL: the journey above checks the same admin's CASUAL balance, and the two
+        // tests can run at the same time.
+        leave_type: 'SICK',
         start_date: daysAgo(10),
         end_date: daysAgo(8),
         reason: 'E2E mistake',
@@ -268,10 +270,16 @@ test.describe('staff leave approved by mistake: revoke days already taken', () =
     await dialog
       .getByRole('checkbox', { name: t('applicationsDetail.dialogs.cancel.revokeTakenDays') })
       .click();
+    // Wait for the cancel itself: the CANCELLED status text is also a substring of the submit
+    // button's label, so seeing it proves nothing about the server (#2409).
+    const cancelled = page.waitForResponse(
+      (r) =>
+        r.url().endsWith(`/applications/${filed.id}/cancel`) && r.request().method() === 'POST',
+    );
     await dialog
       .getByRole('button', { name: t('applicationsDetail.dialogs.cancel.submit') })
       .click();
-    await expect(page.getByText(t('applications.statuses.CANCELLED')).first()).toBeVisible();
+    expect((await cancelled).ok()).toBe(true);
     expect(await balanceOf()).toBe(before);
   });
 });

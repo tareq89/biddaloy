@@ -4,6 +4,8 @@ import type { AttendancePolicySettings, TenantSettings } from '@biddaloy/shared'
 import {
   classifyCheckIn,
   policyForShift,
+  specialTimingOn,
+  periodTimesOn,
   daysBetween,
   isWeeklyOff,
   localDate,
@@ -191,5 +193,87 @@ describe('policyForShift', () => {
     expect(classifyCheckIn(new Date('2026-09-04T02:30:00Z'), '2026-09-04', p, tz).status).toBe(
       AttendanceStatus.PRESENT,
     );
+  });
+});
+
+describe('special timings', () => {
+  const SHIFT = '6b1f3c1e-5d2a-4c8e-9a47-1f2e3d4c5b6a';
+  const all = {
+    name: 'Ramadan',
+    from: '2027-02-08',
+    to: '2027-03-09',
+    shiftId: null,
+    lateAfter: '08:45',
+    absentAfter: '09:30',
+    periods: [{ sequence: 1, startsAt: '08:30', endsAt: '09:05' }],
+  };
+  const own = { ...all, name: 'Day', shiftId: SHIFT, lateAfter: '12:45', absentAfter: '13:30' };
+  const policy: AttendancePolicySettings = { ...POLICY, specialTimings: [all, own] };
+  const period = { shift_id: SHIFT, sequence: 1, starts_at: '08:00:00', ends_at: '08:45:00' };
+
+  it('specialTimingOn: inside, on both edges, outside', () => {
+    expect(specialTimingOn(policy, null, '2027-02-20')).toBe(all);
+    expect(specialTimingOn(policy, null, '2027-02-08')).toBe(all);
+    expect(specialTimingOn(policy, null, '2027-03-09')).toBe(all);
+    expect(specialTimingOn(policy, null, '2027-02-07')).toBeNull();
+    expect(specialTimingOn(policy, null, '2027-03-10')).toBeNull();
+  });
+
+  it("specialTimingOn: shift entry beats all-shifts; other shift's entry ignored", () => {
+    expect(specialTimingOn(policy, SHIFT, '2027-02-20')).toBe(own);
+    expect(specialTimingOn(policy, 'other', '2027-02-20')).toBe(all);
+    expect(specialTimingOn({ ...POLICY, specialTimings: [own] }, 'other', '2027-02-20')).toBeNull();
+  });
+
+  it('policyForShift: special cut-offs in range, old result without a date', () => {
+    expect(policyForShift(policy, null, '2027-02-20')).toMatchObject({
+      lateAfter: '08:45',
+      absentAfter: '09:30',
+    });
+    expect(policyForShift(policy, null)).toBe(policy);
+    expect(policyForShift(policy, null, '2027-04-01')).toBe(policy);
+  });
+
+  it('periodTimesOn: listed sequence overridden with :00, unlisted untouched', () => {
+    const own1 = { ...own, periods: all.periods };
+    expect(periodTimesOn({ ...POLICY, specialTimings: [own1] }, period, '2027-02-20')).toEqual({
+      starts_at: '08:30:00',
+      ends_at: '09:05:00',
+    });
+    expect(periodTimesOn(policy, { ...period, sequence: 2 }, '2027-02-20')).toEqual({
+      starts_at: '08:00:00',
+      ends_at: '08:45:00',
+    });
+    expect(periodTimesOn(policy, period, '2027-04-01')).toEqual({
+      starts_at: '08:00:00',
+      ends_at: '08:45:00',
+    });
+  });
+
+  // Business-critical: in a two-shift school an "all shifts" Ramadan entry
+  // (morning clock times) must not mark an on-time day-shift scan ABSENT.
+  it('all-shifts entry does not override a shift that has its own shiftTimes', () => {
+    const twoShift: AttendancePolicySettings = {
+      ...POLICY,
+      shiftTimes: [{ shiftId: SHIFT, lateAfter: '12:15', absentAfter: '14:00' }],
+      specialTimings: [all],
+    };
+    expect(specialTimingOn(twoShift, SHIFT, '2027-02-20')).toBeNull();
+    expect(policyForShift(twoShift, SHIFT, '2027-02-20')).toMatchObject({
+      lateAfter: '12:15',
+      absentAfter: '14:00',
+    });
+    expect(periodTimesOn(twoShift, period, '2027-02-20')).toEqual({
+      starts_at: '08:00:00',
+      ends_at: '08:45:00',
+    });
+    // A day-shift scan at 12:20 local is LATE, not ABSENT.
+    const p = policyForShift(twoShift, SHIFT, '2027-02-20');
+    expect(
+      classifyCheckIn(new Date('2027-02-20T06:20:00Z'), '2027-02-20', p, 'Asia/Dhaka').status,
+    ).toBe(AttendanceStatus.LATE);
+    // Shifts without their own times, and staff (null), still take the entry.
+    expect(specialTimingOn(twoShift, 'other', '2027-02-20')).toBe(all);
+    expect(specialTimingOn(twoShift, null, '2027-02-20')).toBe(all);
   });
 });

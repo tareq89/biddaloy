@@ -39,9 +39,16 @@ function buildService() {
   };
   const slotTeacherRepo: any = { find: vi.fn(async () => [{ teacher_id: 't-1' }]) };
   const periodSlotRepo: any = {
-    findOne: vi.fn(async () => ({ starts_at: '08:00:00', ends_at: '08:40:00' })),
+    findOne: vi.fn(async () => ({
+      shift_id: 'shift-1',
+      sequence: 1,
+      starts_at: '08:00:00',
+      ends_at: '08:40:00',
+    })),
   };
   const busy: any = { busyAt: vi.fn(async () => null) };
+  const settings: any = { attendance: { specialTimings: [] } };
+  const schools: any = { getResolvedSettings: vi.fn(async () => settings) };
   const service = new SubstitutionsService(
     substitutionRepo,
     slotRepo,
@@ -51,9 +58,11 @@ function buildService() {
     slotTeacherRepo,
     periodSlotRepo,
     busy,
+    schools,
   );
   return {
     service,
+    settings,
     slotTeacherRepo,
     busy,
     substitutionRepo,
@@ -160,6 +169,26 @@ describe('SubstitutionsService [21.5.1]', () => {
         }),
       );
       expect(ctx.substitutionRepo.save).not.toHaveBeenCalled();
+    });
+
+    // A special timing (e.g. Ramadan) moves P1 to 08:30-09:05 on that date: the clash check must
+    // ask about the real dated window, or it accepts a cover that clashes with an exam at 08:45.
+    it('checks the dated period window when a special timing covers the date', async () => {
+      ctx.settings.attendance.specialTimings = [
+        {
+          name: 'Ramadan',
+          from: '2026-01-01',
+          to: '2026-01-31',
+          shiftId: null,
+          lateAfter: '08:45',
+          absentAfter: '10:00',
+          periods: [{ sequence: 1, startsAt: '08:30', endsAt: '09:05' }],
+        },
+      ];
+      await ctx.service.record(dto as any, TENANT_ID, 'user-1');
+      expect(ctx.busy.busyAt).toHaveBeenCalledWith(
+        expect.objectContaining({ date: '2026-01-05', from: '08:30', to: '09:05' }),
+      );
     });
 
     it('is_cancelled: true never calls busyAt', async () => {

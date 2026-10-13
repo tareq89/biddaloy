@@ -33,16 +33,65 @@ export function resolveAttendancePolicy(settings: TenantSettings): AttendancePol
   return settings.attendance;
 }
 
+export type SpecialTiming = NonNullable<AttendancePolicySettings['specialTimings']>[number];
+
 /**
- * The policy with `shiftId`'s late/absent times applied. Returns `policy`
- * unchanged when there is no shift id or no entry for it. Pure.
+ * The special timing covering `dateIso` (inclusive range) for `shiftId`: the
+ * shift's own entry wins, else the all-shifts (`shiftId: null`) entry, else
+ * `null`. The all-shifts entry stands in for the tenant-wide times only, so a
+ * shift with its own `shiftTimes` row ignores it — a day shift at 12:15 must
+ * not inherit a morning-clock Ramadan cut-off. Pure.
+ */
+export function specialTimingOn(
+  policy: AttendancePolicySettings,
+  shiftId: string | null | undefined,
+  dateIso: string,
+): SpecialTiming | null {
+  const covering = (policy.specialTimings ?? []).filter(
+    (t) => t.from <= dateIso && dateIso <= t.to,
+  );
+  const own = shiftId ? covering.find((t) => t.shiftId === shiftId) : undefined;
+  if (own) return own;
+  if (shiftId && policy.shiftTimes?.some((s) => s.shiftId === shiftId)) return null;
+  return covering.find((t) => t.shiftId === null) ?? null;
+}
+
+/**
+ * The policy with `shiftId`'s late/absent times applied, then — when `dateIso`
+ * is given and a special timing covers it — that timing's cut-offs on top.
+ * Returns `policy` unchanged when neither applies. Pure.
  */
 export function policyForShift(
   policy: AttendancePolicySettings,
   shiftId: string | null | undefined,
+  dateIso?: string,
 ): AttendancePolicySettings {
   const entry = shiftId ? policy.shiftTimes?.find((s) => s.shiftId === shiftId) : undefined;
-  return entry ? { ...policy, lateAfter: entry.lateAfter, absentAfter: entry.absentAfter } : policy;
+  const base = entry
+    ? { ...policy, lateAfter: entry.lateAfter, absentAfter: entry.absentAfter }
+    : policy;
+  const special = dateIso ? specialTimingOn(policy, shiftId, dateIso) : null;
+  return special
+    ? { ...base, lateAfter: special.lateAfter, absentAfter: special.absentAfter }
+    : base;
+}
+
+/**
+ * Start/end of one period on `dateIso`: the covering special timing's row for
+ * its `sequence` (`HH:mm` + `:00`, matching the `time` column), else the
+ * period's own times. Pure.
+ */
+export function periodTimesOn(
+  policy: AttendancePolicySettings,
+  period: { shift_id: string; sequence: number; starts_at: string; ends_at: string },
+  dateIso: string,
+): { starts_at: string; ends_at: string } {
+  const row = specialTimingOn(policy, period.shift_id, dateIso)?.periods.find(
+    (p) => p.sequence === period.sequence,
+  );
+  return row
+    ? { starts_at: `${row.startsAt}:00`, ends_at: `${row.endsAt}:00` }
+    : { starts_at: period.starts_at, ends_at: period.ends_at };
 }
 
 /** Days since the Unix epoch for a plain `'YYYY-MM-DD'` calendar date, computed

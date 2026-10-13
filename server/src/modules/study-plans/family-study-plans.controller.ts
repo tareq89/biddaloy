@@ -281,7 +281,8 @@ export class FamilyStudyPlansController {
         return {
           period_slot_id: s.period_slot_id,
           sequence: slotAt.get(s.period_slot_id)?.sequence ?? 0,
-          starts_at: (slotAt.get(s.period_slot_id)?.starts_at ?? '').slice(0, 5),
+          // The resolved slot's own time: a special timing (e.g. Ramadan) can move it.
+          starts_at: s.starts_at.slice(0, 5),
           subject: { id: s.subject_id, name_en: s.subject_name_en, name_bn: s.subject_name_bn },
           cancelled: s.cancelled,
           lesson: sch ? lessonAt(sch, date, s.period_slot_id, seq) : null,

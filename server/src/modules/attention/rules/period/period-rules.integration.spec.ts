@@ -7,6 +7,8 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { TENANT_STATUS_REDIS } from '../../../schools/tenant-status.service';
 import { SchoolCalendarService } from '../../../calendar/school-calendar.service';
 import { ResolveRoutineService } from '../../../routines/resolve-routine.service';
+import { SchoolsService } from '../../../schools/schools.service';
+import { DEFAULT_ATTENDANCE_SETTINGS } from '../../../schools/settings/tenant-settings-defaults';
 import { SubstitutionsService } from '../../../routines/substitutions.service';
 import { TeacherBusyService } from '../../../routines/teacher-busy.service';
 import { AlertWriterService } from '../../engine/alert-writer.service';
@@ -26,6 +28,8 @@ describe('Period rules (integration)', () => {
   let substitution: RoutineSubstitutionTodayRule;
   let uncovered: RoutineUncoveredPeriodsRule;
   let substitutions: SubstitutionsService;
+  /** The resolved attendance policy the stubbed `SchoolsService` returns. */
+  let attendance = DEFAULT_ATTENDANCE_SETTINGS;
 
   interface Tenant {
     id: string;
@@ -161,6 +165,15 @@ describe('Period rules (integration)', () => {
         AlertWriterService,
         { provide: TENANT_STATUS_REDIS, useValue: redis },
         ResolveRoutineService,
+        {
+          provide: SchoolsService,
+          useValue: {
+            getResolvedSettings: async () => ({
+              region: { timezone: 'Asia/Dhaka' },
+              attendance,
+            }),
+          },
+        },
         SubstitutionsService,
         // These specs test attention rules, not clash detection: nobody is busy.
         { provide: TeacherBusyService, useValue: { busyAt: async () => null } },
@@ -189,6 +202,7 @@ describe('Period rules (integration)', () => {
   });
 
   beforeEach(async () => {
+    attendance = DEFAULT_ATTENDANCE_SETTINGS;
     A = await mkTenant();
     B = await mkTenant();
   });
@@ -208,6 +222,40 @@ describe('Period rules (integration)', () => {
     expect(gap.recipients.map((r) => r.userId).sort()).toEqual(
       [A.userOf.EXEC, A.userOf.ADMIN].sort(),
     );
+  });
+
+  // #2290: an all-shifts special timing moves every period an hour later on DAY.
+  // The alerts follow the dated times, not the 10:00/11:00/12:00 template.
+  it('a covering special timing moves class.starting, substitution and uncovered times', async () => {
+    attendance = {
+      ...DEFAULT_ATTENDANCE_SETTINGS,
+      specialTimings: [
+        {
+          name: 'Ramadan',
+          from: DAY,
+          to: DAY,
+          shiftId: null,
+          lateAfter: '11:15',
+          absentAfter: '12:00',
+          periods: [
+            { sequence: 0, startsAt: '11:00', endsAt: '11:40' },
+            { sequence: 1, startsAt: '12:00', endsAt: '12:40' },
+            { sequence: 2, startsAt: '13:00', endsAt: '13:40' },
+          ],
+        },
+      ],
+    };
+    // 10:30 was inside T1's template period; on DAY it starts at 11:00 (lead 10 min).
+    expect(await starting.evaluate(ctx(A, '10:30'))).toEqual([]);
+    const [start] = await starting.evaluate(ctx(A, '10:50'));
+    expect(start.params).toMatchObject({ startsAt: '11:00' });
+    expect(start.expiresAt).toEqual(new Date(`${DAY}T05:40:00Z`)); // 11:40 Dhaka
+
+    const [sub] = await substitution.evaluate(ctx(A, '10:30'));
+    expect(sub.params).toMatchObject({ firstAt: '13:00' });
+
+    const [gap] = await uncovered.evaluate(ctx(A, '10:30'));
+    expect(gap.params).toMatchObject({ firstAt: '12:00' });
   });
 
   it('does not fire: a draft routine has no class.starting; a substituted period is not uncovered', async () => {

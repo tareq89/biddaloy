@@ -3,9 +3,9 @@ import type { ResolvedSlot } from '../routines/dto/resolve.dto';
 import { toPeriods } from './attendance-periods.util';
 
 const periodSlots = [
-  { id: 'ps1', sequence: 1, name: 'First', starts_at: '08:00', ends_at: '08:45' },
-  { id: 'ps2', sequence: 2, name: null, starts_at: '08:45', ends_at: '09:30' },
-  { id: 'ps3', sequence: 3, name: 'Third', starts_at: '09:30', ends_at: '10:15' },
+  { id: 'ps1', sequence: 1, name: 'First' },
+  { id: 'ps2', sequence: 2, name: null },
+  { id: 'ps3', sequence: 3, name: 'Third' },
 ];
 
 function slot(periodSlotId: string, over: Partial<ResolvedSlot> = {}): ResolvedSlot {
@@ -14,6 +14,8 @@ function slot(periodSlotId: string, over: Partial<ResolvedSlot> = {}): ResolvedS
     routine_slot_id: `rs-${periodSlotId}`,
     section_id: 'sec',
     period_slot_id: periodSlotId,
+    starts_at: '08:00:00',
+    ends_at: '08:45:00',
     weekday: 3,
     subject_id: `subj-${periodSlotId}`,
     room_id: null,
@@ -53,11 +55,19 @@ describe('toPeriods', () => {
     expect(p).toMatchObject({
       period_no: 1,
       name: 'First',
-      starts_at: '08:00',
-      ends_at: '08:45',
+      starts_at: '08:00:00',
+      ends_at: '08:45:00',
       subject_id: 'subj-ps1',
       teacher_ids: ['t1'],
     });
+  });
+
+  it("returns the slot's own (dated) times, not the period slot's", () => {
+    const [p] = toPeriods(
+      [slot('ps1', { starts_at: '08:30:00', ends_at: '09:05:00' })],
+      periodSlots,
+    );
+    expect(p).toMatchObject({ starts_at: '08:30:00', ends_at: '09:05:00' });
   });
 
   it('keeps the first slot when two share a period number', () => {

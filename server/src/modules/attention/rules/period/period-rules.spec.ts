@@ -13,23 +13,28 @@ import { RoutineUncoveredPeriodsRule } from './routine-uncovered-periods.rule';
 
 const SEC = 'sec-7b';
 const MATH = 'math';
-const slot = (extra: Record<string, unknown> = {}) => ({
-  routine_slot_id: 'rs1',
-  section_id: SEC,
-  period_slot_id: 'p1',
-  subject_id: MATH,
-  subject_name_en: 'Math',
-  subject_name_bn: 'গণিত',
-  teacher_ids: ['T1'],
-  substituted: false,
-  cancelled: false,
-  ...extra,
-});
-const PERIODS = [
-  { id: 'p1', starts_at: '10:00', ends_at: '10:40' },
-  { id: 'p2', starts_at: '08:00', ends_at: '08:40' },
-  { id: 'p3', starts_at: '00:05', ends_at: '00:45' },
-];
+// The resolver's dated `HH:mm:ss` times for each period of the day.
+const TIMES: Record<string, [string, string]> = {
+  p1: ['10:00:00', '10:40:00'],
+  p2: ['08:00:00', '08:40:00'],
+  p3: ['00:05:00', '00:45:00'],
+};
+const slot = (extra: Record<string, unknown> = {}) => {
+  const s = {
+    routine_slot_id: 'rs1',
+    section_id: SEC,
+    period_slot_id: 'p1',
+    subject_id: MATH,
+    subject_name_en: 'Math',
+    subject_name_bn: 'গণিত',
+    teacher_ids: ['T1'],
+    substituted: false,
+    cancelled: false,
+    ...extra,
+  };
+  const [starts_at, ends_at] = TIMES[s.period_slot_id];
+  return { starts_at, ends_at, ...s };
+};
 
 const ctx = (extra: Partial<RuleContext> = {}): RuleContext => ({
   tenantId: 't1',
@@ -50,7 +55,6 @@ interface Fx {
 }
 function fixture(f: Fx = {}) {
   const query = vi.fn(async (sql: string) => {
-    if (sql.includes('FROM period_slots')) return PERIODS;
     if (sql.includes('FROM class_sections cs')) return [{ id: SEC, label: '7-B' }];
     if (sql.includes('FROM teachers t'))
       return (
