@@ -193,7 +193,7 @@ describe('HomeworkAccessService', () => {
       ).resolves.toBeUndefined();
     });
 
-    it('throws when the student does not exist in this tenant', async () => {
+    it('404s a TEACHER (403s others) when the student does not exist in this tenant', async () => {
       studentRepo.findOne.mockResolvedValue(null);
       await expect(
         service.assertCanManageStudent(
@@ -203,6 +203,9 @@ describe('HomeworkAccessService', () => {
           SUBJECT_ID,
           TENANT_ID,
         ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.assertCanManageStudent(UserRole.ADMIN, USER_ID, 'student-1', SUBJECT_ID, TENANT_ID),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
@@ -319,6 +322,9 @@ describe('HomeworkAccessService', () => {
       studentRepo.findOne.mockResolvedValue(null);
       await expect(
         service.assertCanViewStudent(UserRole.TEACHER, USER_ID, 'student-1', TENANT_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.assertCanViewStudent(UserRole.ADMIN, USER_ID, 'student-1', TENANT_ID),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
