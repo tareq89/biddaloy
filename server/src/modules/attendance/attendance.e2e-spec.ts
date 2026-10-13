@@ -255,11 +255,11 @@ describe('Attendance E2E', () => {
       }).expect(400);
     });
 
-    it('403s a TEACHER not mapped to the section', async () => {
+    it('404s a TEACHER not mapped to the section', async () => {
       await putMatrix(UNMAPPED_SECTION_ID, {
         client_request_id: randomUUID(),
         days: [{ date: todayIso(), base_version: null, entries: [] }],
-      }).expect(403);
+      }).expect(404);
     });
 
     it('rejects base_version 0 with 400 (a saved register starts at version 1)', async () => {
@@ -362,7 +362,32 @@ describe('Attendance E2E', () => {
       expect(res.body).toEqual([]);
     });
 
-    it('403s a TEACHER who is neither mapped to the section nor its substitute', async () => {
+    it('lets a substitute TEACHER of an unmapped section see their one period (period attendance on)', async () => {
+      const [{ id: teacherId }] = await dataSource.query(
+        `SELECT id FROM teachers WHERE tenant_id = $1 AND user_id = $2`,
+        [TENANT_ID, SEED_ADMIN_USER_ID],
+      );
+      const routine = await seedPeriodRoutine(dataSource, {
+        tenantId: TENANT_ID,
+        academicYearId: SEED_ACADEMIC_YEAR_ID,
+        sectionId: UNMAPPED_SECTION_ID,
+        date: PDATE,
+        periods: 2,
+        createdBy: SEED_ADMIN_USER_ID,
+      });
+      await routine.substitute(0, teacherId);
+      await setPeriodSwitch(true);
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/attendance/sections/${UNMAPPED_SECTION_ID}/periods`)
+        .query({ date: PDATE })
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .expect(200);
+      expect(res.body.map((p: { period_no: number }) => p.period_no)).toEqual([1]);
+    });
+
+    it('404s a TEACHER who is neither mapped to the section nor its substitute', async () => {
       await setPeriodSwitch(true);
       await supertest(app.getHttpServer())
         .get(`/api/v1/attendance/sections/${UNMAPPED_SECTION_ID}/periods`)
@@ -370,7 +395,7 @@ describe('Attendance E2E', () => {
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .expect(403);
+        .expect(404);
     });
   });
 
@@ -389,14 +414,14 @@ describe('Attendance E2E', () => {
       ).toBe(true);
     });
 
-    it('returns 403 for a TEACHER not mapped to the section', async () => {
+    it('returns 404 for a TEACHER not mapped to the section', async () => {
       await supertest(app.getHttpServer())
         .get(`/api/v1/attendance/sections/${UNMAPPED_SECTION_ID}/register`)
         .query({ date: todayIso() })
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .expect(403);
+        .expect(404);
     });
 
     it("returns 403 for a role not in this route's @Roles list (STUDENT)", async () => {
@@ -481,7 +506,7 @@ describe('Attendance E2E', () => {
       }
     });
 
-    it('returns 403 for a TEACHER not mapped to the section', async () => {
+    it('returns 404 for a TEACHER not mapped to the section', async () => {
       await supertest(app.getHttpServer())
         .put(`/api/v1/attendance/sections/${UNMAPPED_SECTION_ID}/register`)
         .set('Authorization', `Bearer ${teacherToken}`)
@@ -493,7 +518,7 @@ describe('Attendance E2E', () => {
           client_request_id: randomUUID(),
           entries: [],
         })
-        .expect(403);
+        .expect(404);
     });
 
     it('returns 403 for a role lacking ATTENDANCE_MARK (ACCOUNTANT)', async () => {
