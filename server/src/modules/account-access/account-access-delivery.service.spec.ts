@@ -50,17 +50,19 @@ describe('AccountAccessDeliveryService', () => {
       return service;
     };
 
-    it('returns before the work finishes outside NODE_ENV=test', async () => {
-      await make('production').detach(() => new Promise(() => {}));
+    it('returns undefined before the work finishes outside NODE_ENV=test', async () => {
+      await expect(make('production').detach('t', () => new Promise(() => {}))).resolves.toBe(
+        undefined,
+      );
     });
 
-    it('awaits the work under NODE_ENV=test', async () => {
-      let done = false;
-      await make('test').detach(async () => {
-        await Promise.resolve();
-        done = true;
-      });
-      expect(done).toBe(true);
+    it("awaits the work under NODE_ENV=test and returns the job's value", async () => {
+      await expect(
+        make('test').detach('t', async () => {
+          await Promise.resolve();
+          return 42;
+        }),
+      ).resolves.toBe(42);
     });
 
     it('logs a rejected job instead of throwing, in both modes', async () => {
@@ -68,7 +70,9 @@ describe('AccountAccessDeliveryService', () => {
         const svc = make(env);
         const err = vi.spyOn((svc as any).logger, 'error').mockImplementation(() => undefined);
         err.mockClear();
-        await expect(svc.detach(() => Promise.reject(new Error('boom')))).resolves.toBeUndefined();
+        await expect(
+          svc.detach('t', () => Promise.reject(new Error('boom'))),
+        ).resolves.toBeUndefined();
         await new Promise((r) => setImmediate(r));
         await new Promise((r) => setImmediate(r));
         expect(err).toHaveBeenCalledTimes(1);

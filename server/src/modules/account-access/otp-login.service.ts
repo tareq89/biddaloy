@@ -73,11 +73,19 @@ export class OtpLoginService {
    * matches an account, is inactive, or belongs only to tenants with OTP
    * login switched off. D6's echo flag is the only way a test can observe
    * the OTP this issues.
+   *
+   * [75.17] The request path is the user lookup and nothing else: every
+   * branch (unknown, inactive, opted out, no school, cooldown, send) runs in
+   * the detached job, so known and unknown identifiers cost the same one query.
    */
   async request(rawIdentifier: string, context: RequestContext): Promise<OtpLoginRequestResult> {
     const identifier = normalizeLoginIdentifier(rawIdentifier);
     const user = await this.findUser(identifier);
+    return (await this.delivery.detach('otp-login', () => this.requestJob(user, identifier))) ?? {};
+  }
 
+  /** Everything `request` does after the lookup; its value only reaches the caller in echo mode. */
+  private async requestJob(user: User | null, identifier: string): Promise<OtpLoginRequestResult> {
     if (!user || !this.canSignInByCode(user) || !(await this.allowed(user.id))) {
       return {};
     }
@@ -106,16 +114,14 @@ export class OtpLoginService {
       return this.echo({});
     }
 
-    await this.delivery.detach(() =>
-      this.delivery.deliver({
-        tenantId,
-        medium: byEmail ? CommunicationMedium.EMAIL : CommunicationMedium.SMS,
-        to,
-        recipientName: user.full_name,
-        kind: 'OTP',
-        vars: { code },
-      }),
-    );
+    await this.delivery.deliver({
+      tenantId,
+      medium: byEmail ? CommunicationMedium.EMAIL : CommunicationMedium.SMS,
+      to,
+      recipientName: user.full_name,
+      kind: 'OTP',
+      vars: { code },
+    });
 
     return this.echo({ otp: code });
   }

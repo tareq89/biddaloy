@@ -66,18 +66,17 @@ export class AccountAccessDeliveryService {
    * ponytail: the known-account branch still pays one Redis/auth_tokens write
    * before responding (a few ms); equal dummy work on the unknown branch if that matters.
    */
-  async detach(work: () => Promise<unknown>): Promise<void> {
+  async detach<T>(flow: string, work: () => Promise<T>): Promise<T | undefined> {
     const run = () =>
-      work().catch((e) =>
+      work().catch((e) => {
         this.logger.error(
-          `Detached delivery failed: ${e instanceof Error ? e.message : String(e)}`,
-        ),
-      );
-    if (process.env.NODE_ENV === 'test') {
-      await run();
-      return;
-    }
+          `Detached ${flow} job failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+        return undefined;
+      });
+    if (process.env.NODE_ENV === 'test') return run();
     setImmediate(run);
+    return undefined;
   }
 
   async deliver(input: DeliverInput): Promise<DeliverResult> {
