@@ -581,10 +581,12 @@ export class AuthService {
   }
 
   /**
-   * `issuedAtMs` must be taken BEFORE `memberships` were read (#2297). The
-   * removal cut-off refuses tokens with `iat_ms <= cutOff`; a token whose
-   * memberships predate the removal commit therefore always predates the
-   * cut-off too, however long the read or the refresh-token write took.
+   * `issuedAtMs` must be taken BEFORE `memberships` were read (#2297), and in
+   * `refresh()` before the rotation too. Two checks refuse older tokens: the
+   * Redis removal denylist refuses `iat_ms <= cutOff`, and JwtStrategy's DB
+   * check refuses `iat_ms < users.tokens_valid_after`. A token whose
+   * memberships predate the change therefore always predates the cut-off
+   * too, however long the read or the refresh-token write took.
    */
   private signAccessToken(user: User, memberships: JwtMembership[], issuedAtMs: number): string {
     const payload: JwtPayload = {
