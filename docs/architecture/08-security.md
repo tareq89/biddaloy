@@ -756,6 +756,53 @@ Example: `GET /api/v1/calendar/feed/abc123.ics` is logged as
 Known gap: nginx's **error** log (502/504, client aborts) still writes the
 full request line, token included. Only the access log is masked.
 
+## Repository and GitHub settings
+
+Some protection lives in GitHub settings, not in code. Reporters are sent to
+[`.github/SECURITY.md`](../../.github/SECURITY.md); risky paths auto-request the
+owner's review through `.github/CODEOWNERS` (requested, not enforced).
+
+```mermaid
+flowchart LR
+    R[Researcher] -->|"Security > Report a vulnerability"| P[Private advisory]
+    P --> O[Owner @tareq89]
+    PR[PR touching /nginx/, /server/src/modules/auth/ ...] -->|CODEOWNERS| O
+```
+
+State read with `gh api` on 2026-10-12 (**Today**) and the value to reach (**Target**).
+Rows marked **owner to apply** are writes to repo settings; the implementer did not
+make them, and the **Today** column stays until the owner does and updates it.
+
+| Setting                                         | Today                                     | Target                                                   | Status                 |
+| ----------------------------------------------- | ----------------------------------------- | -------------------------------------------------------- | ---------------------- |
+| Visibility                                      | public                                    | -                                                        | -                      |
+| Private vulnerability reporting                 | disabled                                  | enabled (SECURITY.md points at it)                       | owner to apply         |
+| Secret scanning / push protection               | enabled / enabled                         | keep                                                     | ok                     |
+| Secret scanning non-provider patterns, validity | disabled / disabled                       | enabled / enabled                                        | owner to apply         |
+| Dependabot security updates                     | enabled                                   | keep                                                     | ok                     |
+| Default `GITHUB_TOKEN` permission               | `read`, cannot approve PRs                | keep                                                     | ok                     |
+| Fork PR workflow approval                       | `first_time_contributors`                 | `all_external_contributors`                              | owner to apply         |
+| Branch protection / rulesets on `main`          | none                                      | minimal ruleset: block deletion and force-push of `main` | owner decision pending |
+| `--frozen-lockfile` in CI                       | yes (`.github/actions/setup`, Dockerfile) | keep                                                     | ok                     |
+| CodeQL                                          | `.github/workflows/codeql.yml`            | keep                                                     | ok                     |
+
+Branch protection: the recommended option is the last two rules of
+`scripts/apply-main-ruleset.sh` (no deletion, no force-push), with no required checks and
+no merge queue. The full `main-gate` changes how every PR merges and needs the merge
+queue to have run green once, so it is a separate decision. Record the chosen option,
+the date and the reason here when the owner decides.
+
+Verify after applying (each should match **Target**):
+
+```bash
+gh api repos/tareq89/biddaloy/codeowners/errors --jq '.errors'                       # []
+gh api repos/tareq89/biddaloy/private-vulnerability-reporting --jq .enabled         # true
+gh api repos/tareq89/biddaloy --jq '.security_and_analysis'
+gh api repos/tareq89/biddaloy/actions/permissions/workflow
+gh api repos/tareq89/biddaloy/actions/permissions/fork-pr-contributor-approval --jq .approval_policy
+gh api repos/tareq89/biddaloy/rulesets --jq '.[].name'
+```
+
 ## Accepted dependency risks (Epic 51.0)
 
 `yarn audit` (this is a Yarn 1 repo, so `npm audit` does not work) still

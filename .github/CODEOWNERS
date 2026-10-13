@@ -1,0 +1,12 @@
+# [75.27] Paths where a mistake is a security incident. Review is
+# auto-requested; it is not enforced (no ruleset requires code-owner
+# review today, see docs/architecture/08-security.md).
+/.github/                         @tareq89
+/Dockerfile                       @tareq89
+/docker-compose.yml               @tareq89
+/nginx/                           @tareq89
+/scripts/backup/                  @tareq89
+/scripts/ci-audit.js              @tareq89
+/server/src/modules/auth/         @tareq89
+/server/src/modules/account-access/ @tareq89
+/server/src/migrations/           @tareq89
