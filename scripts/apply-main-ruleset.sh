@@ -54,7 +54,8 @@ desired_body="$(
           { "context": "Integration & e2e tests" },
           { "context": "E2E smoke (chromium)" },
           { "context": "Route sweeps (chromium-sweeps)" },
-          { "context": "Nightly quality (merge queue) / Lighthouse (3G budgets)" }
+          { "context": "Nightly quality (merge queue) / Lighthouse (3G budgets)" },
+          { "context": "Dependency vulnerability scan" }
         ]
       }
     },

@@ -793,10 +793,12 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
   job now. See "End-to-end Testing" above.
 - **storybook** — `yarn build:storybook`, PR-blocking build-only check
   (no visual regression yet).
-- **audit** — `node scripts/ci-audit.js`, which gates only on high/critical
-  `yarn audit` findings (yarn classic's `--level` flag doesn't affect its exit
-  code, so this re-implements the filter correctly). Allowlisted advisories
-  are declared inline in the script with a reason and a re-check date.
+- **audit** — two gates in `scripts/ci-audit.js` (yarn classic's `--level`
+  flag doesn't affect its exit code, so the script re-implements the filter):
+  `node scripts/ci-audit.js` fails on high/critical in all deps, and
+  `node scripts/ci-audit.js --production` fails on moderate+ in production
+  deps. Allowlisted advisories are declared inline in the script with a
+  reason and a re-check date (next: 2027-01-24).
 - **bundle-delta** — PR-comment-only, diffs the built `client-admin` against
   the latest `main` build; not required to pass.
 - **timings** — the "Test timings & budgets" job summary described below;

@@ -590,6 +590,19 @@ full request line, token included. Only the access log is masked.
 reports three advisories after Epic 51.0. We looked at each one and chose not
 to force a version. If `yarn audit` shows anything else, it is new: fix it.
 
+CI enforces this with `scripts/ci-audit.js`. All three advisories are entries
+in its `ALLOWLIST`, each with a `recheckBy` date (next: **2027-01-24**). Past
+that date the job fails until someone re-reviews. The `tmp` advisory no longer
+needs an entry, because the `resolutions` block below forces a patched version.
+
+| Mode       | Command                                 | Blocks on                       |
+| ---------- | --------------------------------------- | ------------------------------- |
+| default    | `node scripts/ci-audit.js`              | high/critical, all dependencies |
+| production | `node scripts/ci-audit.js --production` | moderate+, production deps only |
+
+The `uuid` row below is the one production-reachable advisory, which is why
+it must be an allowlist entry and not just prose.
+
 ```mermaid
 flowchart LR
   lhci["@lhci/cli (dev/CI only)"] --> lh["lighthouse 12.6.1"] --> pp["puppeteer-core 24.x"] --> pb["@puppeteer/browsers 2.x"] --> ez["extract-zip 2.0.1<br/>no patched version"]
