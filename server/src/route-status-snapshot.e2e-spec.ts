@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
@@ -23,7 +24,21 @@ import { SEED_TENANT_ID, SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH } from '@
 const SNAPSHOT_EMAIL = 'route-snapshot@biddaloy.test';
 const SNAPSHOT_USER_ID = '00000000-0000-4000-8000-0000000e7532';
 const SENTINEL = 299;
-const COLUMNS = ['ANON', ...Object.values(UserRole)] as const;
+const PLATFORM_EMAIL = 'route-snapshot-platform@biddaloy.test';
+const PLATFORM_USER_ID = '00000000-0000-4000-8000-0000000e7533';
+// Column = who sends the request. TENANT_SA is a SUPER_ADMIN membership on the seed tenant
+// (legacy shape); PLATFORM_SA is SUPER_ADMIN on the platform tenant (slug default-school),
+// sending that tenant's id in X-Tenant-ID, as the real platform console does.
+type Column = { name: string; role?: UserRole; platform?: boolean };
+const COLUMNS: Column[] = [
+  { name: 'ANON' },
+  { name: 'PLATFORM_SA', role: UserRole.SUPER_ADMIN, platform: true },
+  ...Object.values(UserRole).map((role) => ({
+    name: role === UserRole.SUPER_ADMIN ? 'TENANT_SA' : role,
+    role,
+  })),
+];
+const col = (name: string) => COLUMNS.find((c) => c.name === name)!;
 const BATCH = 20;
 
 /**
@@ -48,14 +63,21 @@ describe('Route status snapshot (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let token: string;
+  let platformToken: string;
+  let platformId: string;
+  let createdPlatformSchool = false;
   let server: ReturnType<INestApplication['getHttpServer']>;
 
-  const send = async (method: string, path: string, role: UserRole | 'ANON'): Promise<string> => {
+  const send = async (method: string, path: string, c: Column): Promise<string> => {
     let req = supertest(server)
       [method.toLowerCase() as 'get'](path)
-      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .set('X-Tenant-ID', c.platform ? platformId : SEED_TENANT_ID)
       .timeout({ response: 15000, deadline: 20000 });
-    if (role !== 'ANON') req = req.set('Authorization', `Bearer ${token}`).set('X-Role', role);
+    if (c.role) {
+      req = req
+        .set('Authorization', `Bearer ${c.platform ? platformToken : token}`)
+        .set('X-Role', c.role);
+    }
     try {
       const res = await req;
       return res.status === SENTINEL ? 'PASS' : String(res.status);
@@ -92,21 +114,51 @@ describe('Route status snapshot (e2e)', () => {
         [SNAPSHOT_USER_ID, SEED_TENANT_ID, role],
       );
     }
-    token = (
-      await supertest(server)
-        .post('/api/v1/auth/login')
-        .send({ email: SNAPSHOT_EMAIL, password: SEED_ADMIN_PASSWORD })
-        .expect(200)
-    ).body.access_token;
+    // Second user, platform authority only, so the TENANT_SA column stays tenant-local.
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'Route Snapshot Platform', 'ACTIVE', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [PLATFORM_USER_ID, PLATFORM_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+    );
+    const inserted = await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       SELECT $1, 'Platform', 'default-school', NOW(), NOW()
+       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school') RETURNING id`,
+      [randomUUID()],
+    );
+    createdPlatformSchool = inserted.length > 0;
+    platformId = (await dataSource.query(`SELECT id FROM schools WHERE slug = 'default-school'`))[0]
+      .id;
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, 'SUPER_ADMIN', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [PLATFORM_USER_ID, platformId],
+    );
+    const login = async (email: string) =>
+      (
+        await supertest(server)
+          .post('/api/v1/auth/login')
+          .send({ email, password: SEED_ADMIN_PASSWORD })
+          .expect(200)
+      ).body.access_token;
+    token = await login(SNAPSHOT_EMAIL);
+    platformToken = await login(PLATFORM_EMAIL);
     guardsOnly = true;
   }, 60000);
 
   afterAll(async () => {
     guardsOnly = false;
-    await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [SNAPSHOT_USER_ID]);
-    await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [SNAPSHOT_USER_ID]);
-    await dataSource.query(`DELETE FROM users WHERE id = $1`, [SNAPSHOT_USER_ID]);
-    await app.close();
+    // beforeAll may have failed before these were set; do not mask its error.
+    if (dataSource) {
+      const ids = [SNAPSHOT_USER_ID, PLATFORM_USER_ID];
+      await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = ANY($1)`, [ids]);
+      await dataSource.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [ids]);
+      await dataSource.query(`DELETE FROM users WHERE id = ANY($1)`, [ids]);
+      if (createdPlatformSchool) {
+        await dataSource.query(`DELETE FROM schools WHERE id = $1`, [platformId]);
+      }
+    }
+    await app?.close();
   });
 
   it('GET /api/health/ready (@Res route) answers without hanging', async () => {
@@ -116,9 +168,15 @@ describe('Route status snapshot (e2e)', () => {
 
   it('one row proves both outcomes: attention health is PASS / 403 / 401', async () => {
     const p = '/api/v1/platform/attention/health';
-    expect(await send('GET', p, UserRole.SUPER_ADMIN)).toBe('PASS');
-    expect(await send('GET', p, UserRole.ADMIN)).toBe('403');
-    expect(await send('GET', p, 'ANON')).toBe('401');
+    expect(await send('GET', p, col('PLATFORM_SA'))).toBe('PASS');
+    expect(await send('GET', p, col('ADMIN'))).toBe('403');
+    expect(await send('GET', p, col('ANON'))).toBe('401');
+  });
+
+  it('platform routes: PLATFORM_SA passes, a tenant-local SUPER_ADMIN is denied', async () => {
+    const p = '/api/v1/schools';
+    expect(await send('GET', p, col('PLATFORM_SA'))).toBe('PASS');
+    expect(await send('GET', p, col('TENANT_SA'))).toBe('403');
   });
 
   it('every route x role answers as recorded in route-status.snapshot.txt', async () => {
@@ -139,14 +197,24 @@ describe('Route status snapshot (e2e)', () => {
         routes.push({
           method: RequestMethodName(m),
           // Request path: every :param becomes the seed tenant id (same-tenant branch in guards).
-          path: base + template.replace(/:[^/]+/g, SEED_TENANT_ID),
+          path: base + template.replace(/:[A-Za-z0-9_]+/g, SEED_TENANT_ID),
           // Snapshot path: keeps :param so lines stay short and readable.
           label: base + template,
         });
       }
     }
     // Default sort = UTF-16 code-unit order: identical on every machine.
-    routes.sort((a, b) => (a.label + a.method < b.label + b.method ? -1 : 1));
+    routes.sort((a, b) =>
+      a.label !== b.label
+        ? a.label < b.label
+          ? -1
+          : 1
+        : a.method < b.method
+          ? -1
+          : a.method > b.method
+            ? 1
+            : 0,
+    );
 
     const rows: string[][] = [];
     for (let i = 0; i < routes.length; i += BATCH) {
@@ -154,9 +222,7 @@ describe('Route status snapshot (e2e)', () => {
         ...(await Promise.all(
           routes
             .slice(i, i + BATCH)
-            .map((r) =>
-              Promise.all(COLUMNS.map((c) => send(r.method, r.path, c as UserRole | 'ANON'))),
-            ),
+            .map((r) => Promise.all(COLUMNS.map((c) => send(r.method, r.path, c)))),
         )),
       );
     }
@@ -168,7 +234,7 @@ describe('Route status snapshot (e2e)', () => {
       [
         '# role x route guard snapshot — generated by server/src/route-status-snapshot.e2e-spec.ts',
         '# update: yarn workspace @biddaloy/server test:file src/route-status-snapshot.e2e-spec.ts -u   (then review the diff)',
-        `# columns: ${COLUMNS.join(' ')}`,
+        `# columns: ${COLUMNS.map((c) => c.name).join(' ')}`,
         ...routes.map(
           (r, i) => `${r.method.padEnd(mw)} ${r.label.padEnd(pw)} ${rows[i].join(' ')}`,
         ),
