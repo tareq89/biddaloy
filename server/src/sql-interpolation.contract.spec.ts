@@ -4,70 +4,158 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * Contract test [75.15]: no `${...}` inside a template literal that is passed
- * straight to a query method (`.query(`, `.where(`, `.andWhere(`, `.orderBy(`,
- * `.leftJoin(` ...), unless the file's count is on the reviewed list below.
+ * straight to a query method (`.query(`, `.query<T>(`, `.where(`, `.andWhere(`,
+ * `.orderBy(`, `.distinctOn(`, the condition argument of `.leftJoin(` ...),
+ * unless the file lists that exact expression below.
  *
  * Why: a `${userInput}` in SQL is injection. User values must be bound as
  * `:param` (query builder) or `$n` (raw `.query`).
  *
  * Fixing a failure:
  *   - value comes from a request  -> bind it as a :param / $n. Never allowlist it.
- *   - value is a code constant / whitelisted identifier -> add or raise the entry
- *     in REVIEWED_INTERPOLATIONS with a one-line reason.
+ *   - value is a code constant / whitelisted identifier -> add the expression to
+ *     REVIEWED_INTERPOLATIONS for that file, with a one-line reason.
  *
- * What it does NOT catch: SQL built into a variable first
- * (`const sql = \`...${x}...\`; qb.query(sql)`).
+ * Known blind spots (not caught):
+ *   - SQL built into a variable first: `const sql = \`...${x}...\`; qb.query(sql)`
+ *   - a ternary or string concatenation as the first argument
+ *   - `select([...])` / `groupBy([...])` arrays holding templates
+ *   - `.set({ col: () => \`${x}\` })` function values
+ *   - wrapper helpers (`run(...)`, `one(...)`, `q(...)`) around a query call
+ *   - anything after a nested backtick inside a template (the match stops there)
  * ponytail: direct-argument guard only; a lint rule or SQL tag function if
  * string-built SQL keeps slipping through.
  *
  * Skips `*.spec.ts`, `*.e2e-spec.ts` and `src/migrations/**` (fixed DDL text).
  */
-const QUERY_INTERPOLATION =
-  /\.(query|where|andWhere|orWhere|having|andHaving|orderBy|addOrderBy|select|addSelect|innerJoin|leftJoin|innerJoinAndSelect|leftJoinAndSelect|from|groupBy|addGroupBy)\(\s*`[^`]*\$\{/g;
+const QUERY_METHODS =
+  'query|where|andWhere|orWhere|having|andHaving|orHaving|orderBy|addOrderBy|select|addSelect|innerJoin|leftJoin|innerJoinAndSelect|leftJoinAndSelect|from|groupBy|addGroupBy|distinctOn';
+// optional generic, e.g. `.query<Row[]>(`
+const GENERIC = '(?:<[^>()]*>)?';
+// \x60 is a backtick. First argument is a template literal:
+const FIRST_ARG = new RegExp(
+  '\\.(?:' + QUERY_METHODS + ')' + GENERIC + '\\(\\s*(\x60[^\x60]*\x60)',
+  'g',
+);
+// Join condition: template after 1-3 leading string/identifier args.
+const JOIN_COND = new RegExp(
+  '\\.(?:innerJoin|leftJoin)(?:AndSelect|AndMapOne|AndMapMany)?' +
+    GENERIC +
+    '\\((?:\\s*(?:\'[^\'\x60]*\'|"[^"\x60]*"|[\\w.]+)\\s*,){1,3}\\s*(\x60[^\x60]*\x60)',
+  'g',
+);
 
-/** Hits per file (path relative to server/src), each audited 2026-10-13: none
- * interpolates request input. Verified safe unless marked UNSAFE. */
-const REVIEWED_INTERPOLATIONS: Record<string, number> = {
-  // table/column are code constants (documented "constants only" in the helper's JSDoc)
-  'common/utils/next-serial.util.ts': 1,
+/** Per file (path relative to server/src): the sorted `${...}` expressions that
+ * appear in direct query arguments. Audited 2026-10-13: none is request input. */
+const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
+  // table/column are code constants (JSDoc: constants only; callers pass literals)
+  'common/utils/next-serial.util.ts': ['column', 'column', 'column', 'table'],
   // SCHOOL_TZ / STALE_DAYS constants
-  'modules/applications/application-reports.service.ts': 3,
-  // SCHOOL_TZ constant, createdOn built from it, serialClause with :params, IN (:...linked) toggle
-  'modules/applications/applications.service.ts': 4,
-  // ITEM_COLS / ITEM_FROM / BY_SEVERITY constants; `where` built from $n placeholders
-  'modules/attention/api/attention-query.service.ts': 6,
-  // `where` joined from fixed fragments whose values are bound as $n (params.push)
-  'modules/attention/report/alerts-report.service.ts': 3,
-  // priorYearStartSql('$1') helper plus a constant ternary fragment
-  'modules/attention/rules/exams/exams-marks-overdue.rule.ts': 1,
-  // `dueSql` constant
-  'modules/attention/rules/family/family-data.ts': 1,
-  // constant scoped / unscoped fragment; ids bound as $4 array
-  'modules/calendar/calendar-events.service.ts': 1,
+  'modules/applications/application-reports.service.ts': ['SCHOOL_TZ', 'SCHOOL_TZ', 'STALE_DAYS'],
+  // SCHOOL_TZ-based fragment, serialClause with :params, constant IN (:...linked) toggle
+  'modules/applications/applications.service.ts': [
+    'createdOn',
+    'createdOn',
+    "linked.length > 0 ? 'OR a.subject_student_id IN (:...linked)' : ''",
+    'serialClause',
+  ],
+  // constant column/from/order fragments; where/page/order built from $n placeholders (arg() pushes to params)
+  'modules/attention/api/attention-query.service.ts': [
+    'BY_SEVERITY',
+    'BY_SEVERITY',
+    'ITEM_COLS',
+    'ITEM_COLS',
+    'ITEM_COLS',
+    'ITEM_FROM',
+    'ITEM_FROM',
+    'ITEM_FROM',
+    'order',
+    'page',
+    'where',
+    'where',
+    'where',
+    'where',
+  ],
+  // where joined from fixed fragments; values bound as $n (params.push)
+  'modules/attention/report/alerts-report.service.ts': ['cur.where', 'cur.where', 'prev.where'],
+  // priorYearStartSql helper with a fixed placeholder, plus a constant ternary fragment
+  'modules/attention/rules/exams/exams-marks-overdue.rule.ts': ["priorYearStartSql('$1')"],
+  // dueSql constant
+  'modules/attention/rules/family/family-data.ts': ['dueSql'],
+  // constant scoped/unscoped fragment; class ids bound as $4 array
+  'modules/calendar/calendar-events.service.ts': ['scoped ?'],
   // constant classScopeExists / noClassScope fragments
-  'modules/calendar/calendar-visibility.util.ts': 3,
+  'modules/calendar/calendar-visibility.util.ts': [
+    'classScopeExists',
+    'classScopeExists',
+    'noClassScope',
+    'noClassScope',
+  ],
   // scoped() returns constant fragments
-  'modules/calendar/school-calendar.service.ts': 2,
-  // `column` typed 'class_id' | 'section_id' (countLiveEnrollments)
-  'modules/classes/classes.service.ts': 1,
+  'modules/calendar/school-calendar.service.ts': [
+    "scoped(' AND ec.class_id = :classId')",
+    'scoped()',
+    'scoped()',
+  ],
+  // column typed 'class_id' | 'section_id'
+  'modules/classes/classes.service.ts': ['column'],
+  // priorYearStartSql helper with a fixed placeholder
+  'modules/classes/teacher-scope.service.ts': ["priorYearStartSql(':tenantId')"],
   // BN_COLLATION constant
-  'modules/communications/reminders.service.ts': 1,
-  // `k` is a key of Partial<StudentFee> built by internal callers (lockBills); values bound as :v<i>
-  'modules/fees/fee-generation-batch.service.ts': 1,
+  'modules/communications/reminders.service.ts': ['BN_COLLATION'],
+  // lockBills: k is a key of Partial<StudentFee> from internal callers, i is the loop index; values bound as :v<i>
+  'modules/fees/fee-generation-batch.service.ts': ['i', 'k'],
   // BN_COLLATION constant
-  'modules/fees/fees.service.ts': 1,
+  'modules/fees/fees.service.ts': ['BN_COLLATION'],
   // ternary between two constant column lists
-  'modules/print/exam-documents/exam-documents.service.ts': 1,
-  // constant SQL fragments (ID_CARD_WAITING, ROW_SELECT, ROW_FROM, REGISTER_SELECT); values as $n
-  'modules/print/jobs/print-history.service.ts': 12,
-  // `column` is `list === 'shifts' ? 'shift' : 'version'`
-  'modules/schools/schools.service.ts': 2,
+  'modules/print/exam-documents/exam-documents.service.ts': [
+    "bySection ? 'cs.section_name NULLS LAST, r.section_id, r.section_position, r.position' : 'r.position'",
+    "bySection ? 'r.section_position' : 'r.position'",
+  ],
+  // constant SQL fragments; sql/params.length+n are built from $n placeholders, values bound
+  'modules/print/jobs/print-history.service.ts': [
+    'ID_CARD_WAITING',
+    'ID_CARD_WAITING',
+    'ID_CARD_WAITING',
+    'REGISTER_MAX_ROWS + 1',
+    'REGISTER_ORDER',
+    'REGISTER_ORDER',
+    'REGISTER_SELECT',
+    'REGISTER_SELECT',
+    'ROW_FROM',
+    'ROW_FROM',
+    'ROW_FROM',
+    'ROW_FROM',
+    'ROW_FROM',
+    'ROW_FROM',
+    'ROW_FROM',
+    'ROW_SELECT',
+    'ROW_SELECT',
+    'ROW_SELECT',
+    "acrGate(caller.role, '$3')",
+    "acrGate(caller.role, '$3')",
+    "acrGate(caller.role, '$4')",
+    'params.length + 1',
+    'params.length + 1',
+    'params.length + 2',
+    'params.length + 2',
+    "printed('EXAM_ADMIT_CARD', 's.id', 'AND i.context_id = ex.id')",
+    'sql',
+    'sql',
+    'sql',
+    'sql',
+    'sql',
+  ],
+  // clause built by buildFilter from fixed fragments with $n placeholders; alias is the literal "p"
+  'modules/reports/collections-report.service.ts': ['clause', 'clause'],
+  // column is list === 'shifts' ? 'shift' : 'version'
+  'modules/schools/schools.service.ts': ['column', 'column'],
   // BN_COLLATION constant
-  'modules/students/students.service.ts': 2,
-  // BN_COLLATION, NOT_SWAPPED_SQL constants
-  'modules/users/users.service.ts': 2,
+  'modules/students/students.service.ts': ['BN_COLLATION', 'BN_COLLATION'],
+  // BN_COLLATION / NOT_SWAPPED_SQL constants
+  'modules/users/users.service.ts': ['BN_COLLATION', 'NOT_SWAPPED_SQL'],
   // dev seed: demoSchools slug list, not request input
-  'scripts/seed.ts': 2,
+  'scripts/seed.ts': ['demoSchools', 'demoSchools'],
 };
 
 const SRC_DIR = __dirname;
@@ -91,34 +179,53 @@ function collectFiles(dir: string): string[] {
   return files;
 }
 
-function countHits(): Record<string, number> {
-  const counts: Record<string, number> = {};
+/** file -> sorted `${...}` expressions found in direct query arguments. */
+function findInterpolations(): Record<string, string[]> {
+  const found: Record<string, string[]> = {};
   for (const file of collectFiles(SRC_DIR)) {
-    const n = (readFileSync(file, 'utf8').match(QUERY_INTERPOLATION) ?? []).length;
-    if (n > 0) counts[relative(SRC_DIR, file)] = n;
+    const source = readFileSync(file, 'utf8');
+    const exprs: string[] = [];
+    for (const re of [FIRST_ARG, JOIN_COND]) {
+      for (const m of source.matchAll(re)) {
+        // `[^}`]*` also keeps an expression that opens a nested template.
+        for (const e of m[1].matchAll(/\$\{([^}`]*)(?:\}|(?=`)|$)/g)) {
+          exprs.push(e[1].replace(/\s+/g, ' ').trim());
+        }
+      }
+    }
+    if (exprs.length > 0) found[relative(SRC_DIR, file)] = exprs.sort();
   }
-  return counts;
+  return found;
 }
 
 describe('SQL interpolation guard', () => {
-  it('no file has more template-literal interpolations in SQL than reviewed', () => {
-    const over = Object.entries(countHits())
-      .filter(([file, n]) => n > (REVIEWED_INTERPOLATIONS[file] ?? 0))
-      .map(([file, n]) => `${file}: ${n} found, ${REVIEWED_INTERPOLATIONS[file] ?? 0} reviewed`);
+  it('no file interpolates an expression that is not reviewed', () => {
+    const unreviewed: string[] = [];
+    for (const [file, exprs] of Object.entries(findInterpolations())) {
+      const left = [...(REVIEWED_INTERPOLATIONS[file] ?? [])];
+      for (const e of exprs) {
+        const i = left.indexOf(e);
+        if (i === -1) unreviewed.push(`${file}: \${${e}}`);
+        else left.splice(i, 1);
+      }
+    }
     expect(
-      over,
+      unreviewed,
       'bind the value as a :param / $n, or, if it is a code constant, add a reviewed entry with a reason',
     ).toEqual([]);
   });
 
   it('no reviewed entry is stale', () => {
-    const hits = countHits();
-    const stale = Object.entries(REVIEWED_INTERPOLATIONS)
-      .filter(([file, n]) => (hits[file] ?? 0) < n)
-      .map(
-        ([file, n]) =>
-          `${file}: ${hits[file] ?? 0} found, ${n} reviewed - lower or remove the entry`,
-      );
+    const found = findInterpolations();
+    const stale: string[] = [];
+    for (const [file, reviewed] of Object.entries(REVIEWED_INTERPOLATIONS)) {
+      const left = [...(found[file] ?? [])];
+      for (const e of reviewed) {
+        const i = left.indexOf(e);
+        if (i === -1) stale.push(`${file}: \${${e}} no longer present - remove the entry`);
+        else left.splice(i, 1);
+      }
+    }
     expect(stale).toEqual([]);
   });
 });
