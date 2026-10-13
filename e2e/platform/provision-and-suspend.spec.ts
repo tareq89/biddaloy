@@ -103,8 +103,11 @@ test('provision a school, activate its admin, suspend it, and reactivate it', as
     await activate.goto(token);
     await activate.expectWelcome(adminName);
     await activate.setPassword(E2E_PASSWORD);
-    // One membership — auto-continues, no picker.
-    await expect(activationPage).toHaveURL(/\/dashboard/);
+    // One membership — auto-continues, no picker. A fresh school's first
+    // ADMIN is then sent on to /welcome by the first-visit gate [13.5.1];
+    // when activation is slow (cost-12 bcrypt under load) the poll can miss
+    // the brief /dashboard, so either URL means "landed in the new school".
+    await expect(activationPage).toHaveURL(/\/(dashboard|welcome)/);
     await activationContext.close();
   });
 
