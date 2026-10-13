@@ -179,6 +179,26 @@ function collectFiles(dir: string): string[] {
   return files;
 }
 
+/** Each `${...}` body in a template, braces balanced, so `${fn({ a: 1 }) + x}` is
+ * captured whole (a `[^}]*` capture stopped at the first `}` and could be
+ * allowlisted as `fn({ a: 1 ` while an unsafe suffix slipped past). An
+ * expression cut off by a nested backtick runs to that backtick. */
+function templateExpressions(template: string): string[] {
+  const out: string[] = [];
+  let i = template.indexOf('${');
+  while (i !== -1) {
+    let depth = 1;
+    let j = i + 2;
+    for (; j < template.length && depth > 0 && template[j] !== '`'; j++) {
+      if (template[j] === '{') depth++;
+      else if (template[j] === '}') depth--;
+    }
+    out.push(template.slice(i + 2, depth === 0 ? j - 1 : j));
+    i = template.indexOf('${', j);
+  }
+  return out;
+}
+
 /** file -> sorted `${...}` expressions found in direct query arguments. */
 function findInterpolations(): Record<string, string[]> {
   const found: Record<string, string[]> = {};
@@ -187,10 +207,7 @@ function findInterpolations(): Record<string, string[]> {
     const exprs: string[] = [];
     for (const re of [FIRST_ARG, JOIN_COND]) {
       for (const m of source.matchAll(re)) {
-        // `[^}`]*` also keeps an expression that opens a nested template.
-        for (const e of m[1].matchAll(/\$\{([^}`]*)(?:\}|(?=`)|$)/g)) {
-          exprs.push(e[1].replace(/\s+/g, ' ').trim());
-        }
+        for (const e of templateExpressions(m[1])) exprs.push(e.replace(/\s+/g, ' ').trim());
       }
     }
     if (exprs.length > 0) found[relative(SRC_DIR, file)] = exprs.sort();
@@ -213,6 +230,14 @@ describe('SQL interpolation guard', () => {
       unreviewed,
       'bind the value as a :param / $n, or, if it is a code constant, add a reviewed entry with a reason',
     ).toEqual([]);
+  });
+
+  it('captures an expression with braces whole', () => {
+    expect(templateExpressions('`a ${fn({ a: 1 }) + userInput} b ${x}`')).toEqual([
+      'fn({ a: 1 }) + userInput',
+      'x',
+    ]);
+    expect(templateExpressions('`a ${cond ? `x` : y}`')).toEqual(['cond ? ']);
   });
 
   it('no reviewed entry is stale', () => {
