@@ -35,16 +35,8 @@ import { isSecretEchoEnabled } from '../account-access/account-access-echo';
 
 export const STEP_UP_REDIS = 'STEP_UP_REDIS';
 
-/**
- * OTP purpose used for step-up verification codes. `OtpService`'s
- * `OtpPurpose` union (`account-access/otp.service.ts`) doesn't list a
- * step-up purpose yet — widening it is outside this ticket's territory
- * (`otp.service.ts` isn't one of #646's owned files). The cast is safe:
- * `OtpService` only ever uses the purpose to namespace its Redis keys, it
- * never branches on the value. TODO: once a lane owns `otp.service.ts`
- * again, add `'STEP_UP'` to `OtpPurpose` properly and drop this cast.
- */
-const STEP_UP_OTP_PURPOSE = 'STEP_UP' as OtpPurpose;
+/** OTP purpose used for step-up verification codes. */
+const STEP_UP_OTP_PURPOSE: OtpPurpose = 'STEP_UP';
 
 /**
  * The OtpService identifier for a step-up code: tenant first. OtpService

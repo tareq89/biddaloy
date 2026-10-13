@@ -308,6 +308,8 @@ export class ContactChangeService {
     // stands. Only a link that was really delivered counts (review R1), so a re-save after a failed
     // send always sends again. Only the same admin's link counts (review m-new-5): approval checks
     // the proposer, so another admin's re-save gets its own link and `issue()` revokes the old one.
+    // ponytail: check-then-issue is not atomic; two identical saves at once both send a link, and
+    // the second `issue()` revokes the first. Harmless; an advisory lock per user if it matters.
     const [live] = await this.userRepo.manager.query<Array<{ metadata: AdminProposalMeta }>>(
       `SELECT metadata FROM auth_tokens
         WHERE user_id = $1 AND tenant_id = $2 AND purpose = $3 AND created_by_user_id = $4
