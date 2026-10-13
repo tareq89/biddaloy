@@ -439,15 +439,13 @@ export class RecoveryService {
     audit: { action: AuditAction; performedByUserId: string; newValues: Record<string, unknown> },
   ): Promise<void> {
     const password_hash = await bcrypt.hash(newPassword, BCRYPT_COST);
-    await this.userRepo.update({ id: user.id }, { password_hash });
-
-    await this.refreshTokens.revokeAllForUser(user.id);
-    await this.authService.resetLoginLockouts(user);
 
     // GAP-04: a linked Google/Facebook sign-in outlives a reset otherwise.
-    // One transaction: identities are never gone without their audit rows.
+    // One transaction: the new password and the identity removal commit or
+    // roll back together, and identities are never gone without their audit rows.
     const tenantId = await this.authService.primaryTenantId(user.id);
     await this.identityRepo.manager.transaction(async (manager) => {
+      await manager.update(User, { id: user.id }, { password_hash });
       const { raw } = await manager
         .createQueryBuilder()
         .delete()
@@ -471,6 +469,9 @@ export class RecoveryService {
         );
       }
     });
+
+    await this.refreshTokens.revokeAllForUser(user.id);
+    await this.authService.resetLoginLockouts(user);
 
     await this.auditService.record({
       action: audit.action,
