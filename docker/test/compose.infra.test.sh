@@ -21,8 +21,9 @@ unpinned="$(docker compose config --images | grep -v '^biddaloy-' | grep -v -E '
 pass "compose images are digest-pinned"
 
 for df in Dockerfile scripts/backup/Dockerfile; do
-  # Skip FROMs of earlier build stages (FROM base AS deps).
-  bad="$(grep -E '^FROM ' "$df" | grep -v -E '^FROM [a-z]+ AS ' | grep -v -E '@sha256:[0-9a-f]{64}' || true)"
+  # Skip only FROMs that name an earlier build stage (FROM base AS deps), so a
+  # real image with an alias (FROM alpine AS tools) is still checked.
+  bad="$(awk '$1=="FROM" { if (!($2 in stage) && $2 !~ /@sha256:[0-9a-f]{64}$/) print; if ($3=="AS") stage[$4]=1 }' "$df")"
   [ -z "$bad" ] || fail "$df has an unpinned FROM: $bad"
 done
 pass "app and backup Dockerfile FROMs are digest-pinned"
@@ -39,7 +40,11 @@ out="$(docker run --rm "${run_env[@]}" -e BACKUP_SCHEDULE='0 2 * * *' --entrypoi
 echo "$out" | grep -q 'starting supercronic' && pass "supercronic starts" || fail "supercronic did not start"
 echo "$out" | grep -q 'topsecret' && fail "secret leaked into crontab/log" || pass "no secret in crontab"
 
-if docker run --rm "${run_env[@]}" -e BACKUP_SCHEDULE='* * * * * ; rm -rf /' biddaloy-backup-test >/dev/null 2>&1; then
-  fail "injection schedule was accepted"
-fi
+# A regressed check would exec supercronic, which never exits: the timeout
+# turns that hang into a FAIL. 0 = accepted and exited, 124 = accepted and
+# still running; anything else is the entrypoint rejecting the schedule.
+rc=0
+timeout -k 5 20 docker run --rm "${run_env[@]}" -e BACKUP_SCHEDULE='* * * * * ; rm -rf /' \
+  biddaloy-backup-test >/dev/null 2>&1 || rc=$?
+{ [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ]; } || fail "injection schedule was accepted (exit $rc)"
 pass "injected BACKUP_SCHEDULE is rejected"
