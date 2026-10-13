@@ -1491,6 +1491,51 @@ describe('UserService (integration)', () => {
         cutOff.mockRestore();
       });
 
+      // Review m3: a legacy row stored before phones were normalised must compare equal to
+      // the same number re-saved from the form.
+      describe('legacy unnormalised phone', () => {
+        const legacy = async (email: string) => {
+          const user = await createSolo(email);
+          await dataSource.query(
+            `UPDATE users SET phone = ' +8801900000001 ', phone_verified_at = NOW() WHERE id = $1`,
+            [user.id],
+          );
+          return user;
+        };
+
+        it('re-saving it unchanged signs nobody out and keeps the verification', async () => {
+          const user = await legacy('legacy-solo@example.com');
+
+          await service.update(
+            user.id,
+            { phone: '+8801900000001' },
+            TENANT_ID,
+            REQUESTING_ADMIN_ID,
+          );
+
+          const [row] = await dataSource.query(
+            'SELECT phone_verified_at, tokens_valid_after FROM users WHERE id = $1',
+            [user.id],
+          );
+          expect(row.tokens_valid_after).toBeNull();
+          expect(row.phone_verified_at).not.toBeNull();
+        });
+
+        it('re-saving it unchanged on a shared user is not a SHARED_IDENTITY 409', async () => {
+          const user = await legacy('legacy-shared@example.com');
+          await joinOther(user.id);
+
+          await expect(
+            service.update(
+              user.id,
+              { phone: '+8801900000001', full_name: 'Same Phone' },
+              TENANT_ID,
+              REQUESTING_ADMIN_ID,
+            ),
+          ).resolves.toMatchObject({ full_name: 'Same Phone' });
+        });
+      });
+
       it('a soft-deleted membership elsewhere does not count as shared', async () => {
         const user = await createSolo('former-elsewhere@example.com');
         const other = await joinOther(user.id);

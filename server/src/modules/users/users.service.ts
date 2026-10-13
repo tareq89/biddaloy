@@ -506,7 +506,14 @@ export class UserService {
     // that way). It must become a real NULL: `''` is a value as far as the
     // UNIQUE index is concerned, so storing it would let only one user ever
     // have a blank phone. [5.4a]
-    const phone = dto.phone === '' ? null : dto.phone;
+    const phone =
+      dto.phone === '' || dto.phone === null
+        ? null
+        : dto.phone && normalizeLoginIdentifier(dto.phone);
+    // Compare with the stored value normalised the same way (review m3), as
+    // `sharedIdentifierChanges` does: a legacy row saved before phones were
+    // normalised must not look changed when the form re-sends the same number.
+    const storedPhone = current.phone ? normalizeLoginIdentifier(current.phone) : null;
 
     // Same gesture, same meaning for email: `''` is a cleared form input, not
     // an address. Everything else is lowercased before it is compared OR
@@ -553,7 +560,7 @@ export class UserService {
     // retarget it: that would let this school's admin reset the password and
     // sign in as the person in the other school. [68.1.#2209, TEN-01]
     const emailChanges = dto.email !== undefined && (email ?? null) !== (current.email ?? null);
-    const phoneChanges = dto.phone !== undefined && (phone ?? null) !== (current.phone ?? null);
+    const phoneChanges = dto.phone !== undefined && (phone ?? null) !== storedPhone;
     if (
       (emailChanges || phoneChanges) &&
       (await countOtherMemberships(this.userRepo.manager, id, tenantId)) > 0
@@ -611,7 +618,7 @@ export class UserService {
     } else if (dto.email !== undefined) {
       updateData.email = email ?? null;
     }
-    if (dto.phone !== undefined && phone !== (current.phone ?? null)) {
+    if (phoneChanges) {
       updateData.phone = phone;
       updateData.phone_verified_at = null;
     } else if (dto.phone !== undefined) {
@@ -671,15 +678,10 @@ export class UserService {
 
     // [75.1] A written email/phone change (single-school user: a shared one never gets here)
     // ends every session, so whoever held the old contact is out.
-    if ('email' in updateData || 'phone' in updateData) {
-      const changed =
-        ('email' in updateData && updateData.email !== (current.email ?? null)) ||
-        ('phone' in updateData && updateData.phone !== (current.phone ?? null));
-      if (changed) {
-        // Revoke first: a refresh that rotates before the revoke then mints a token older than the cut-off.
-        await this.refreshTokens.revokeAllForUser(id);
-        await this.sessionCutoff.cutOff(id);
-      }
+    if (emailChanges || phoneChanges) {
+      // Revoke first: a refresh that rotates before the revoke then mints a token older than the cut-off.
+      await this.refreshTokens.revokeAllForUser(id);
+      await this.sessionCutoff.cutOff(id);
     }
 
     return this.findOne(id, tenantId);
