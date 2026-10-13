@@ -13,6 +13,7 @@ import {
   AuditAction,
   type AdmissionGuardianMatchDto,
 } from '@biddaloy/shared';
+import { isMissingObjectError } from '../schools/profile/logo.service';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
 import { AdmissionIntake } from './entities/admission-intake.entity';
@@ -59,7 +60,13 @@ export class ApplicantReviewService {
     const applicant = await this.findOne(id, tenantId);
     const doc = applicant.documents.find((d) => d.type === type);
     if (!doc) throw new NotFoundException('Document not found');
-    return this.storage.getForTenant(doc.storage_key, tenantId);
+    try {
+      return await this.storage.getForTenant(doc.storage_key, tenantId);
+    } catch (error) {
+      // A row can outlive its object (deleted out of band): that is a 404, not a 500.
+      if (isMissingObjectError(error)) throw new NotFoundException('Document not found');
+      throw error;
+    }
   }
 
   /** [PUB-06] Clear a REJECTED applicant's documents: row, audit, then the storage objects. */

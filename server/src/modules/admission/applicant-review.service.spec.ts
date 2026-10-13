@@ -64,7 +64,10 @@ describe('ApplicantReviewService', () => {
     create: ReturnType<typeof vi.fn>;
   };
   let notificationService: { notifyStatusChange: ReturnType<typeof vi.fn> };
-  let storage: { getForTenant: ReturnType<typeof vi.fn>; deleteForTenant: ReturnType<typeof vi.fn> };
+  let storage: {
+    getForTenant: ReturnType<typeof vi.fn>;
+    deleteForTenant: ReturnType<typeof vi.fn>;
+  };
   let audit: { record: ReturnType<typeof vi.fn> };
   let setLockMock: ReturnType<typeof vi.fn>;
   let getOneMock: ReturnType<typeof vi.fn>;
@@ -120,7 +123,10 @@ describe('ApplicantReviewService', () => {
     guardianRepo = { findOne: vi.fn(async () => null) };
     notificationService = { notifyStatusChange: vi.fn(async () => undefined) };
 
-    storage = { getForTenant: vi.fn(async () => ({ body: 'x', contentType: 'image/jpeg' })), deleteForTenant: vi.fn(async () => undefined) };
+    storage = {
+      getForTenant: vi.fn(async () => ({ body: 'x', contentType: 'image/jpeg' })),
+      deleteForTenant: vi.fn(async () => undefined),
+    };
     audit = { record: vi.fn(async () => undefined) };
 
     const moduleRef = await Test.createTestingModule({
@@ -556,6 +562,16 @@ describe('ApplicantReviewService', () => {
       applicantRepo.findOne.mockResolvedValueOnce(rejected());
       await service.getDocument('applicant-1', 'PHOTO' as never, TENANT_A);
       expect(storage.getForTenant).toHaveBeenCalledWith(docs[0].storage_key, TENANT_A);
+    });
+
+    it('getDocument 404s, not 500s, when the stored object is gone', async () => {
+      applicantRepo.findOne.mockResolvedValueOnce(rejected());
+      storage.getForTenant.mockRejectedValueOnce(
+        Object.assign(new Error('gone'), { name: 'NoSuchKey' }),
+      );
+      await expect(
+        service.getDocument('applicant-1', 'PHOTO' as never, TENANT_A),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('getDocument 404s when the type was not uploaded', async () => {
