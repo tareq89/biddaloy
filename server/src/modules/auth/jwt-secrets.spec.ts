@@ -38,6 +38,20 @@ describe('verifyWithRotation', () => {
   it('accepts a token signed with the previous secret', async () => {
     expect((await verifyWithRotation<{ sub: string }>(jwt, sign(PREVIOUS), config)).sub).toBe('u1');
   });
+  it('reports the real error for a current-secret token, not the fallback one', async () => {
+    const expired = jwt.sign(
+      { sub: 'u1', exp: Math.floor(Date.now() / 1000) - 60 },
+      { secret: CURRENT },
+    );
+    await expect(verifyWithRotation(jwt, expired, config)).rejects.toThrow('jwt expired');
+  });
+  it('reports "jwt expired" for an expired previous-secret token', async () => {
+    const expired = jwt.sign(
+      { sub: 'u1', exp: Math.floor(Date.now() / 1000) - 60 },
+      { secret: PREVIOUS },
+    );
+    await expect(verifyWithRotation(jwt, expired, config)).rejects.toThrow('jwt expired');
+  });
   it('rejects a previous-secret token once JWT_SECRET_PREVIOUS is removed', async () => {
     await expect(
       verifyWithRotation(jwt, sign(PREVIOUS), cfg({ JWT_SECRET: CURRENT })),
