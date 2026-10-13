@@ -202,13 +202,13 @@ test.describe('teacher: build, edit, reorder, copy; another teacher is fenced ou
         await page
           .getByRole('combobox', { name: t('studyPlans.copy.section') })
           .fill(scene.sectionBName);
-        // The only match is the active option, so Enter picks it (the listbox re-renders while the lookup loads).
-        await expect(
-          page.getByRole('option', { name: `${scene.className}-${scene.sectionBName}` }),
-        ).toBeVisible();
-        await page.keyboard.press('Enter');
-        // Close the option list (it can cover the button) by clicking the dialog's own title.
-        await page.getByRole('heading', { name: t('studyPlans.copy.title') }).click();
+        // Click the option rather than pressing Enter: the listbox re-renders while the lookup
+        // loads, and an Enter that lands before an option is active submits the form and closes
+        // the dialog. Picking closes the list, so the Save button is uncovered.
+        await page
+          .getByRole('option', { name: `${scene.className}-${scene.sectionBName}` })
+          .click();
+        await expect(page.getByRole('heading', { name: t('studyPlans.copy.title') })).toBeVisible();
         await page.getByRole('button', { name: t('studyPlans.copy.save') }).click();
         await page.waitForURL((url) => url.pathname !== planUrl);
         await expect(page).toHaveURL(new RegExp(`/academics/study-plans/${UUID}$`));
