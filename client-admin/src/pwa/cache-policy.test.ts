@@ -35,6 +35,10 @@ describe('isCacheableApiRequest', () => {
     expect(isCacheableApiRequest(match('/api/v1/auth/me'))).toBe(false);
   });
 
+  it('never caches a public invoice link, which can expire or be revoked', () => {
+    expect(isCacheableApiRequest(match('/api/v1/public/invoices/abc123'))).toBe(false);
+  });
+
   it.each(['POST', 'PATCH', 'PUT', 'DELETE'])(
     'never matches %s — a mutation must not be cached or replayed',
     (method) => {
