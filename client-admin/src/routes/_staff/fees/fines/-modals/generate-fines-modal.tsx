@@ -5,11 +5,9 @@
  * duplicate handling reuses that file's `duplicates-step.tsx` shape (SKIP /
  * REMOVE_OLDER / CREATE_ANYWAY, the last one approval-gated).
  *
- * The preview response (`FineSweepPreviewResultDto`) carries only
- * `student_id`, not a name — this modal resolves display names itself via
- * `useAllStudents` (every page) over the same class/section scope, same trick
- * `generate-fees-modal.tsx` uses for fee-structure names. See the plan
- * comment on #1119.
+ * The preview response (`FineSweepPreviewResultDto`) carries each row's
+ * `full_name`, so this modal never downloads the roster to label rows
+ * (#2322 review: "All classes" used to page the whole school).
  */
 import { FeeType } from '@biddaloy/shared';
 import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
@@ -30,7 +28,6 @@ import {
 import {
   ApprovalCancelledError,
   useAcademicYears,
-  useAllStudents,
   useClasses,
   useClassSections,
   useFeeStructures,
@@ -99,15 +96,6 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
   const previewMutation = usePreviewFineGeneration();
   const generate = useGenerateFines();
 
-  // Resolves student names for the preview table — same scope the preview
-  // itself ran against.
-  const studentsQuery = useAllStudents(
-    {
-      ...(classId !== ALL_VALUE ? { class_id: classId } : {}),
-      ...(sectionId !== ALL_VALUE ? { section_id: sectionId } : {}),
-    },
-    { enabled: preview !== null },
-  );
   // Scope the name lookup to the month's academic year so the 100-row page is
   // not eaten by other years' fine types.
   const yearsQuery = useAcademicYears();
@@ -124,11 +112,6 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
     for (const structure of fineTypesQuery.data?.data ?? []) map.set(structure.id, structure.name);
     return map;
   }, [fineTypesQuery.data]);
-  const studentNames = React.useMemo(() => {
-    const map = new Map<string, string>();
-    for (const student of studentsQuery.data ?? []) map.set(student.id, student.full_name);
-    return map;
-  }, [studentsQuery.data]);
 
   function scope() {
     return {
@@ -390,7 +373,7 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
                   {
                     id: 'student',
                     header: t('generate.columnStudent'),
-                    accessorFn: (row) => studentNames.get(row.student_id) ?? '—',
+                    accessorFn: (row) => row.full_name || '—',
                     card: 'title',
                   },
                   {

@@ -45,8 +45,14 @@ export class FineSweepDuplicateDto {
   paid_amount: number;
 }
 
+/** A preview row plus the student's display name, so the modal never has to
+ * download the roster just to label the rows it shows. */
+export class FineSweepPreviewRowDto extends FineSweepRowDto {
+  full_name: string;
+}
+
 export class FineSweepPreviewResultDto {
-  students: FineSweepRowDto[];
+  students: FineSweepPreviewRowDto[];
   total_amount: number;
   would_create: number;
   duplicates: FineSweepDuplicateDto[];

@@ -3,6 +3,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
 import { School } from '../../schools/entities/school.entity';
+import { Student } from '../../students/entities/student.entity';
 import { FineRule } from '../entities/fine-rule.entity';
 import { FeeStructure } from '../entities/fee-structure.entity';
 import { StudentFee } from '../entities/student-fee.entity';
@@ -314,6 +315,14 @@ export class FineSweepService {
     const periodStart = new Date(`${month}-01T00:00:00.000Z`);
     const studentIds = [...new Set(rows.map((r) => r.student_id))];
     const structureIds = [...new Set(rows.map((r) => r.fee_structure_id))];
+    // Names for the rows the modal shows. Tenant-scoped; `withDeleted` so a
+    // student archived after the month still gets a label.
+    const students = await this.dataSource.getRepository(Student).find({
+      where: { id: In(studentIds), tenant_id: tenantId },
+      select: { id: true, full_name: true },
+      withDeleted: true,
+    });
+    const nameById = new Map(students.map((s) => [s.id, s.full_name]));
     const existing = await this.studentFeeRepo.find({
       where: {
         student_id: In(studentIds),
@@ -338,7 +347,12 @@ export class FineSweepService {
     const wouldCreate = wouldCreateKeys.size;
     const totalAmount = round2(rows.reduce((sum, r) => sum + r.amount, 0));
 
-    return { students: rows, total_amount: totalAmount, would_create: wouldCreate, duplicates };
+    return {
+      students: rows.map((r) => ({ ...r, full_name: nameById.get(r.student_id) ?? '' })),
+      total_amount: totalAmount,
+      would_create: wouldCreate,
+      duplicates,
+    };
   }
 
   /** Writes the computed fines through `FeeGenerationService.generate()`,

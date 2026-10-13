@@ -265,6 +265,19 @@ describe('FineSweepService (integration)', () => {
     expect(rows).toEqual([]);
   });
 
+  it('preview rows carry the student full_name, so the client needs no roster (#2322 review)', async () => {
+    const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
+    const structureId = await makeStructure(tenantId, yearId, 20);
+    await makeRule({ tenantId, yearId, structureId });
+    const studentId = await makeStudent(tenantId, sectionId, 'Named');
+    await markAbsences(tenantId, sectionId, studentId, ['2026-06-01', '2026-06-02']);
+
+    const preview = await service.preview(tenantId, '2026-06', {});
+    expect(preview.students).toEqual([
+      expect.objectContaining({ student_id: studentId, full_name: 'Fine Sweep Student Named' }),
+    ]);
+  });
+
   it('generate is idempotent under SKIP — a second run creates nothing', async () => {
     const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
     const structureId = await makeStructure(tenantId, yearId, 20);

@@ -10085,7 +10085,8 @@ export interface components {
             /** Format: uuid */
             section_id?: string;
         };
-        FineSweepRowDto: {
+        FineSweepPreviewRowDto: {
+            full_name: string;
             student_id: string;
             rule_id: string;
             fee_structure_id: string;
@@ -10100,7 +10101,7 @@ export interface components {
             paid_amount: number;
         };
         FineSweepPreviewResultDto: {
-            students: components["schemas"]["FineSweepRowDto"][];
+            students: components["schemas"]["FineSweepPreviewRowDto"][];
             total_amount: number;
             would_create: number;
             duplicates: components["schemas"]["FineSweepDuplicateDto"][];
