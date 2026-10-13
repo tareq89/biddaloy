@@ -77,8 +77,8 @@ describe('/reports/collections', () => {
     );
     renderReport();
 
-    // A 500 is retried with backoff before the error state shows, so this passes the 5 s default
-    // under CI load; the portal error-state tests use the same 15 s.
+    // The route chunk and report render can take longer than the 5 s default on a loaded CI shard
+    // (failed at 5.5 s); the portal error-state tests use the same 15 s.
     await waitFor(
       () => expect(screen.getByText('Could not load the collections report.')).toBeTruthy(),
       { timeout: 15000 },
