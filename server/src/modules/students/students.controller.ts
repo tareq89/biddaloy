@@ -155,9 +155,9 @@ export class StudentController {
   }
 
   /**
-   * MUST stay declared above `students/:id` — that route has no
-   * `ParseUUIDPipe` on its param, so Nest (which matches in declaration
-   * order) would otherwise capture `mine` as a student id and 404. [5.1]
+   * MUST stay declared above `students/:id` — Nest matches in declaration
+   * order, so otherwise `mine` would be captured as a student id and the
+   * `ParseUUIDPipe` on that param would answer 400 instead of this route. [5.1]
    */
   @Get('students/mine')
   @Roles(UserRole.PARENT, UserRole.STUDENT)
@@ -176,8 +176,8 @@ export class StudentController {
 
   /**
    * [16.3.3] MUST stay declared above `students/:id` — same reasoning as
-   * `students/mine` above: without a `ParseUUIDPipe` on that route's param,
-   * Nest would otherwise match `ids` as a student id and 404.
+   * `students/mine` above: otherwise `ids` would be matched as a student id
+   * and the `ParseUUIDPipe` would answer 400.
    */
   @Get('students/ids')
   @Roles(
@@ -214,7 +214,7 @@ export class StudentController {
       "Get a single student. A PARENT or STUDENT caller additionally must be linked to this specific student — role alone isn't enough.",
   })
   async findOneStudent(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
@@ -231,7 +231,7 @@ export class StudentController {
   // [10.4] G3, G1 — same reasoning as createStudent() above.
   @RequirePermissions(Permission.STUDENT_UPDATE)
   async updateStudent(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateStudentDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
@@ -276,7 +276,7 @@ export class StudentController {
   @Delete('students/:id')
   @RequirePermissions(Permission.STUDENT_DELETE)
   removeStudent(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
@@ -403,7 +403,7 @@ export class StudentController {
   // [10.4] G3 grants AC GUARDIAN_UPDATE; G1 tightens E off.
   @RequirePermissions(Permission.GUARDIAN_UPDATE)
   async updateGuardian(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
@@ -423,7 +423,7 @@ export class StudentController {
   // [10.4] G15 — new GUARDIAN_DELETE, mirrors STUDENT_DELETE.
   @RequirePermissions(Permission.GUARDIAN_DELETE)
   removeGuardian(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,

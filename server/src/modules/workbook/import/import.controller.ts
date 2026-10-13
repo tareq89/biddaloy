@@ -11,6 +11,7 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { AuthGuard } from '@nestjs/passport';
@@ -228,7 +229,7 @@ export class ImportController {
     content: { 'text/csv': { schema: { type: 'string' } } },
   })
   async errorsCsv(
-    @Param('stagingId') stagingId: string,
+    @Param('stagingId', ParseUUIDPipe) stagingId: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Res() res: Response,

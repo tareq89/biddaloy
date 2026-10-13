@@ -9,6 +9,7 @@ import {
   UseGuards,
   Req,
   NotFoundException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { teacherCanSeeStudent } from '../classes/teacher-scope.service';
@@ -83,7 +84,7 @@ export class EnrollmentController {
   )
   @RequirePermissions(Permission.STUDENT_READ)
   async findByStudent(
-    @Param('studentId') studentId: string,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
@@ -118,7 +119,7 @@ export class EnrollmentController {
     schema: { allOf: [{ $ref: getSchemaPath(Enrollment) }], nullable: true },
   })
   async findCurrent(
-    @Param('studentId') studentId: string,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Res({ passthrough: false }) res: Response,
@@ -132,7 +133,7 @@ export class EnrollmentController {
   // [10.4] G3, G1 — same reasoning as create() above.
   @RequirePermissions(Permission.STUDENT_UPDATE)
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateEnrollmentDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,

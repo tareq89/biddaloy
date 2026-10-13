@@ -128,7 +128,7 @@ export class UserController {
     summary: 'Re-issue an invitation link, revoking any prior link for this user.',
   })
   async resendInvitation(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() jwt: JwtPayload,
   ) {
@@ -149,7 +149,7 @@ export class UserController {
       'own contact and revokes their sessions immediately.',
   })
   async resetPassword(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() jwt: JwtPayload,
     @Req() request: Request,
@@ -171,7 +171,7 @@ export class UserController {
   @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({ summary: 'Revoke any live invitation link for this user.' })
   async revokeInvitation(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() jwt: JwtPayload,
   ) {
@@ -204,8 +204,8 @@ export class UserController {
 
   /**
    * MUST stay declared above `users/:id` — Nest matches routes in
-   * declaration order and `users/:id` has no `ParseUUIDPipe`, so it would
-   * otherwise capture `invitations` as an id. Same reasoning as
+   * declaration order and `users/:id` would otherwise capture `invitations`
+   * as an id (and answer 400 from its `ParseUUIDPipe`). Same reasoning as
    * `GET users/me` below. [12.6]
    */
   @Post('users/invitations/preview')
@@ -248,7 +248,7 @@ export class UserController {
   @ApiOperation({ summary: 'Progress of a previously dispatched invitation batch.' })
   @ApiOkResponse({ type: InviteBatchStatusResponseDto })
   async getInvitationBatchStatus(
-    @Param('batchId') batchId: string,
+    @Param('batchId', ParseUUIDPipe) batchId: string,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.guardianProvisioningService.batchStatus(tenant.id, batchId);
@@ -407,7 +407,7 @@ export class UserController {
   @RequirePermissions(Permission.USER_READ)
   @ApiResponse({ status: 200, type: UserResponseDto })
   async findOneUser(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const user = await this.userService.findOne(id, tenant.id);
@@ -420,7 +420,7 @@ export class UserController {
   // [10.4] G1 — E tightened off: lacks USER_UPDATE.
   @RequirePermissions(Permission.USER_UPDATE)
   async updateUser(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUserDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() jwt: JwtPayload,
@@ -461,7 +461,7 @@ export class UserController {
       "Remove a member's access to this school (soft-deletes the membership, not the account; the last admin cannot be removed).",
   })
   removeUser(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
@@ -473,7 +473,7 @@ export class UserController {
   @RequirePermissions(Permission.MEMBER_REMOVE)
   @ApiOperation({ summary: 'Bring a former member (left or removed) back into this school.' })
   restoreUser(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
@@ -513,7 +513,7 @@ export class UserController {
   @RequirePermissions(Permission.USER_UPDATE)
   @ApiResponse({ status: 200, type: TeacherResponseDto })
   async updateTeacher(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTeacherDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {

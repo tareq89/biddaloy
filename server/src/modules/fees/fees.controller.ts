@@ -293,7 +293,7 @@ export class FeeController {
     },
   })
   async findOneFeeStructure(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const structure = await this.feeStructureService.findOne(id, tenant.id);
@@ -307,7 +307,7 @@ export class FeeController {
   @Patch('fee-structures/:id')
   @RequirePermissions(Permission.FEE_STRUCTURE_UPDATE)
   updateFeeStructure(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateFeeStructureDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
@@ -319,7 +319,7 @@ export class FeeController {
   @Delete('fee-structures/:id')
   @RequirePermissions(Permission.FEE_STRUCTURE_DELETE)
   removeFeeStructure(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.feeStructureService.remove(id, tenant.id);
@@ -373,7 +373,7 @@ export class FeeController {
     },
   })
   async findPaymentsByStudent(
-    @Param('studentId') studentId: string,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
@@ -411,7 +411,7 @@ export class FeeController {
       "Get a student's fee/payment/balance summary. A PARENT or STUDENT must additionally be linked to this student.",
   })
   async getInvoiceSummary(
-    @Param('studentId') studentId: string,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
