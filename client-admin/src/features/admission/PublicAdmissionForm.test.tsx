@@ -9,7 +9,14 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: React.ReactNode }) => <a href="/">{children}</a>,
 }));
 
-const INTAKE = {
+const INTAKE: {
+  id: string;
+  title: string;
+  seat_count: number;
+  open_date: string;
+  close_date: string;
+  required_document_types: string[];
+} = {
   id: 'intake-1',
   title: 'Class 1, 2026',
   seat_count: 30,
@@ -25,7 +32,10 @@ afterEach(async () => {
 });
 
 /** Loads the form with the Turnstile module stubbed: `siteKey` '' means "no widget". */
-async function setup(siteKey: string) {
+async function setup(
+  siteKey: string,
+  { intake = INTAKE, status = 200 }: { intake?: typeof INTAKE; status?: number } = {},
+) {
   vi.doMock('../registration/turnstile', () => ({
     TURNSTILE_SITE_KEY: siteKey,
     NO_CAPTCHA_TOKEN: 'no-captcha',
@@ -36,9 +46,21 @@ async function setup(siteKey: string) {
   const { PublicAdmissionForm } = await import('./PublicAdmissionForm');
   const posted: string[] = [];
   server.use(
-    http.get('/api/v1/public/admission/:slug', () => HttpResponse.json([INTAKE])),
+    http.get('/api/v1/public/admission/:slug', () => HttpResponse.json([intake])),
     http.post('/api/v1/public/admission/:slug/applicants', async ({ request }) => {
       posted.push((await request.formData()).get('captcha_token') as string);
+      if (status === 503)
+        return HttpResponse.json(
+          {
+            statusCode: 503,
+            message: 'Registration is temporarily unavailable',
+            timestamp: '2026-01-01T00:00:00.000Z',
+            path: '/api/v1/public/admission/a-school/applicants',
+            requestId: 'req-1',
+            details: { code: 'REGISTRATION_UNAVAILABLE' },
+          },
+          { status: 503 },
+        );
       return HttpResponse.json({ reference_number: 'ADM-2026-000001', status: 'PENDING' });
     }),
   );
@@ -91,5 +113,42 @@ describe('PublicAdmissionForm captcha', () => {
     await fillValid(user);
     await user.click(screen.getByRole('button', { name: 'Submit application' }));
     await waitFor(() => expect(posted).toEqual(['no-captcha']));
+  });
+
+  it('focuses a missing document before the missing captcha', async () => {
+    const { user, posted } = await setup('test-key', {
+      intake: { ...INTAKE, required_document_types: ['PHOTO'] },
+    });
+    await fillValid(user);
+    await user.click(screen.getByRole('button', { name: 'Submit application' }));
+    expect(await screen.findByText('Please complete the check above.')).toBeTruthy();
+    expect(document.activeElement?.id).toBe('doc-photo');
+    expect(posted).toEqual([]);
+  });
+
+  it('focuses the captcha when it is the only error', async () => {
+    const { user } = await setup('test-key');
+    await fillValid(user);
+    await user.click(screen.getByRole('button', { name: 'Submit application' }));
+    await screen.findByText('Please complete the check above.');
+    expect(document.activeElement?.id).toBe('captcha');
+  });
+
+  it('clears the captcha message once a token arrives', async () => {
+    const { user } = await setup('test-key');
+    await fillValid(user);
+    await user.click(screen.getByRole('button', { name: 'Submit application' }));
+    await screen.findByText('Please complete the check above.');
+    await user.click(screen.getByTestId('solve-captcha'));
+    expect(screen.queryByText('Please complete the check above.')).toBeNull();
+  });
+
+  it('says applications are unavailable on a 503', async () => {
+    const { user, posted } = await setup('', { status: 503 });
+    await fillValid(user);
+    await user.click(screen.getByRole('button', { name: 'Submit application' }));
+    expect(await screen.findByText(/Applications can't be sent right now/)).toBeTruthy();
+    expect(screen.queryByText(/check your answers/)).toBeNull();
+    expect(posted).toEqual(['no-captcha']);
   });
 });

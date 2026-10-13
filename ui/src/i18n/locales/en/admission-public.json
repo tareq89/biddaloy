@@ -6,6 +6,7 @@
     "loadError": "Something went wrong loading the form. Please try again.",
     "noOpenIntakes": "This school isn't accepting new applications right now.",
     "submitError": "We couldn't submit your form. Please check your answers and try again.",
+    "unavailable": "Applications can't be sent right now. Please try again in a little while.",
     "submit": "Submit application",
     "fields": {
       "intake": "Which admission are you applying for?",
