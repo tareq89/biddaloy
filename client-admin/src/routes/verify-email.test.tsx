@@ -72,7 +72,7 @@ describe('/verify-email', () => {
   describe("a school's proposal [75.1]", () => {
     const proposal = {
       status: 'proposal',
-      proposal: { from_school: 'Green Valley School', new_phone: '+88017••••998' },
+      proposal: { from_school: 'Green Valley School', new_phone: '+8801712345998' },
     };
 
     // D23: Approve without a code sends one to the NEW phone ('confirm'); only 123456 applies it.
@@ -97,7 +97,7 @@ describe('/verify-email', () => {
       });
     }
 
-    it('opening the link only shows the school and the masked value: nothing is approved', async () => {
+    it('opening the link only shows the school and the full new value (D25): nothing is approved', async () => {
       const actions: Array<string | undefined> = [];
       server.use(
         authHandlers.refreshFailure,
@@ -112,7 +112,7 @@ describe('/verify-email', () => {
       expect(
         await screen.findByText('Green Valley School wants to change your contact details'),
       ).toBeTruthy();
-      expect(screen.getByText('New phone: +88017••••998')).toBeTruthy();
+      expect(screen.getByText('New phone: +8801712345998')).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Approve' })).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Decline' })).toBeTruthy();
       expect(actions).toEqual([undefined]);
@@ -132,7 +132,7 @@ describe('/verify-email', () => {
 
       await user.click(await screen.findByRole('button', { name: 'Approve' }));
 
-      const field = await screen.findByLabelText('Code sent to +88017••••998');
+      const field = await screen.findByLabelText('Code sent to +8801712345998');
       expect(screen.queryByText('Your contact details have been updated.')).toBeNull();
       await user.type(field, '999999');
       await user.click(screen.getByRole('button', { name: 'Confirm' }));
@@ -163,7 +163,7 @@ describe('/verify-email', () => {
       const user = userEvent.setup();
 
       await user.click(await screen.findByRole('button', { name: 'Approve' }));
-      await screen.findByLabelText('Code sent to +88017••••998');
+      await screen.findByLabelText('Code sent to +8801712345998');
       await user.click(screen.getByRole('button', { name: 'Decline' }));
 
       expect(

@@ -154,13 +154,13 @@ function VerifyEmailPage() {
       </Button>
     );
     if (confirming) {
-      // One code field per NEW value (a removal needs none), labelled with the masked address.
+      // One code field per NEW value (a removal needs none), labelled with the full address (D25).
       const fields = (
         [
           ['email_code', proposal?.new_email],
           ['phone_code', proposal?.new_phone],
         ] as const
-      ).filter(([, masked]) => masked);
+      ).filter(([, address]) => address);
       const ready = fields.every(([key]) => codes[key].length === 6);
       return (
         <AuthLayout>
@@ -180,17 +180,17 @@ function VerifyEmailPage() {
                 });
               }}
             >
-              {fields.map(([key, masked]) => (
+              {fields.map(([key, address]) => (
                 <div key={key} className="flex flex-col gap-1.5">
                   <label htmlFor={`verify-${key}`} className="text-sm font-medium">
-                    {t('verifyEmail.proposal.codeLabel', { value: masked })}
+                    {t('verifyEmail.proposal.codeLabel', { value: address })}
                   </label>
                   <OtpInput
                     id={`verify-${key}`}
                     value={codes[key]}
                     onValueChange={(v) => setCodes((c) => ({ ...c, [key]: v }))}
                     invalid={decide.isError}
-                    aria-label={t('verifyEmail.proposal.codeLabel', { value: masked })}
+                    aria-label={t('verifyEmail.proposal.codeLabel', { value: address })}
                   />
                 </div>
               ))}

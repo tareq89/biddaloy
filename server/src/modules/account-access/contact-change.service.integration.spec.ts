@@ -431,11 +431,12 @@ describe('ContactChangeService (integration)', () => {
       await propose(user.id, { phone: NEW_PHONE });
       const token = linkIn(sentTo()[0].body);
 
-      // Opening the link changes nothing: it shows the proposal, values masked.
+      // Opening the link changes nothing: it shows the proposal, the value in FULL (D25), so the
+      // person can tell a number that is not theirs from one that is.
       const preview = await service.confirmEmail(token, context);
       expect(preview).toEqual({
         status: 'proposal',
-        proposal: { from_school: 'Test School', new_phone: '+88017••••001' },
+        proposal: { from_school: 'Test School', new_phone: NEW_PHONE },
       });
       fakeProvider.send.mockClear();
 

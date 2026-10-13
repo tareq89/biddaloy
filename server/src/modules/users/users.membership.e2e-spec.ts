@@ -464,10 +464,10 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
     await patch(SHARED_ID, { phone: '+8801700000998' });
     const raw = await proposalLink();
 
-    // Opening the link only shows the proposal (masked); nothing changes yet.
+    // Opening the link only shows the proposal, in full (D25); nothing changes yet.
     const peek = await verifyEmail({ token: raw });
     expect(peek.body.status).toBe('proposal');
-    expect(peek.body.proposal.new_phone).toBe('+88017••••998');
+    expect(peek.body.proposal.new_phone).toBe('+8801700000998');
 
     const asked = await verifyEmail({ token: raw, action: 'approve' });
     expect(asked.body.status).toBe('confirm');
@@ -492,11 +492,13 @@ describe('shared identity (68.1.#2209) (e2e)', () => {
   });
 
   // The review's M1 repro: the person asked for one address, a malicious admin typed their own,
-  // and the masked approval page looked the same. Approving must not hand the admin a login.
+  // and the (then masked) approval page looked the same. Approving must not hand the admin a login.
   it('a malicious admin cannot redirect sign-in or recovery: an approved but unconfirmed email is never a login', async () => {
     const ATTACKER = 'jack-2309@evil.test';
     await patch(SHARED_ID, { email: ATTACKER });
     const raw = await proposalLink();
+    // D25: the person's page shows the address in full, so they can see it is not theirs.
+    expect((await verifyEmail({ token: raw })).body.proposal.new_email).toBe(ATTACKER);
     const asked = await verifyEmail({ token: raw, action: 'approve' });
     expect(asked.body.status).toBe('confirm');
     // The code went to the attacker's inbox (echoed here). Without the person's link it is useless.

@@ -401,7 +401,7 @@ export interface VerifyEmailResponse {
   /** 'confirm' (D23): approved; a code went to each NEW contact, to send back with 'approve'. */
   status:
     'valid' | 'expired' | 'consumed' | 'revoked' | 'unknown' | 'proposal' | 'confirm' | 'declined';
-  /** [75.1] Only with status 'proposal': a school's pending change, values MASKED (null = removed). */
+  /** [75.1] Only with status 'proposal': a school's pending change, values in FULL (D25; null = removed). */
   proposal?: { from_school: string; new_email?: string | null; new_phone?: string | null };
 }
 
