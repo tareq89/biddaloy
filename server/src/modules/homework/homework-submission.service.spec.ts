@@ -39,7 +39,7 @@ describe('HomeworkSubmissionService', () => {
     originalname: 'answer.pdf',
     mimetype: 'application/pdf',
     size: 1024,
-    buffer: Buffer.from('x'),
+    buffer: Buffer.from('%PDF-1.4 x'),
   } as Express.Multer.File;
 
   let homeworkRepo: { findOne: ReturnType<typeof vi.fn> };
@@ -125,6 +125,17 @@ describe('HomeworkSubmissionService', () => {
       expect(events).toEqual([
         { tenantId: TENANT_ID, ruleKey: 'homework.not_submitted', actorUserId: studentCtx.userId },
       ]);
+    });
+
+    it('throws BadRequestException when bytes do not match the declared mimetype', async () => {
+      const html = {
+        ...FILE,
+        buffer: Buffer.from('<html><script>alert(1)</script></html>'),
+      } as Express.Multer.File;
+      await expect(
+        service.upload('assign-1', 'student-1', [html], studentCtx),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(storage.put).not.toHaveBeenCalled();
     });
 
     it('rejects an upload after the due date', async () => {

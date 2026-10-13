@@ -19,6 +19,7 @@ import { Student } from '../students/entities/student.entity';
 import { FamilyAccessService } from '../students/family-access.service';
 import { StorageService } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
+import { matchesDeclaredType } from '../storage/file-signature';
 import { UpdateHomeworkSubmissionDto } from './dto/homework-submission.dto';
 import { SchoolsService } from '../schools/schools.service';
 import { localToday } from '../attendance/attendance-policy.util';
@@ -127,6 +128,10 @@ export class HomeworkSubmissionService {
       }
       if (!ALLOWED_MIME_TO_EXT[file.mimetype]) {
         throw new BadRequestException('Files must be PDF, JPG, PNG or WebP');
+      }
+      // The mimetype is client-sent; the leading bytes are not.
+      if (!matchesDeclaredType(file.buffer, file.mimetype)) {
+        throw new BadRequestException('File content does not match its declared type');
       }
     }
   }
