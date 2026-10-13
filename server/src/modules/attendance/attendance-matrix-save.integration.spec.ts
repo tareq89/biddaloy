@@ -90,10 +90,13 @@ describe('AttendanceService.putRegisterMatrix (integration)', () => {
     const classRepo = dataSource.getRepository(Class);
     const sectionRepo = dataSource.getRepository(ClassSection);
 
+    // Teacher scope is current-year only (D2), so the fixture year must be the current one.
+    await yearRepo.update({ tenant_id: TENANT_ID }, { is_current: false });
     const year = await yearRepo.save({
       name: 'Matrix Save Test Year',
       start_date: '2026-01-01',
       end_date: '2026-12-31',
+      is_current: true,
       tenant_id: TENANT_ID,
     });
     const klass = await classRepo.save({

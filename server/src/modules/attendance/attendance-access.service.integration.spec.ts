@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -42,6 +42,7 @@ describe('AttendanceAccessService (integration)', () => {
 
   let sectionA1Id: string;
   let sectionA2Id: string; // exists in tenant A; teacher A is never mapped to it
+  let sectionOldId: string; // tenant A, past (non-current) academic year
   let sectionB1Id: string; // same section_name as A1, in tenant B
 
   let teacherAUserId: string;
@@ -76,10 +77,13 @@ describe('AttendanceAccessService (integration)', () => {
       // A distinct name from the file-level baseline seed's own
       // `SEED_ACADEMIC_YEAR_ID` ('2026-2027') — both exist for `TENANT_A`,
       // and `(name, tenant_id)` is unique.
+      // Only one current year per tenant (D2: teacher scope is current-year only).
+      await yearRepo.update({ tenant_id: tenantId }, { is_current: false });
       const year = await yearRepo.save({
         name: 'Attendance Access Test Year',
         start_date: '2026-01-01',
         end_date: '2026-12-31',
+        is_current: true,
         tenant_id: tenantId,
       });
       const klass = await classRepo.save({
@@ -97,12 +101,30 @@ describe('AttendanceAccessService (integration)', () => {
         class_id: klass.id,
         tenant_id: tenantId,
       });
-      return { section1Id: section1.id, section2Id: section2.id };
+      const oldYear = await yearRepo.save({
+        name: `Attendance Past Year ${tenantId.slice(-4)}`,
+        start_date: '2025-01-01',
+        end_date: '2025-12-31',
+        is_current: false,
+        tenant_id: tenantId,
+      });
+      const oldClass = await classRepo.save({
+        name: 'Class 6 (past)',
+        academic_year_id: oldYear.id,
+        tenant_id: tenantId,
+      });
+      const sectionOld = await sectionRepo.save({
+        section_name: `${sectionName}-old`,
+        class_id: oldClass.id,
+        tenant_id: tenantId,
+      });
+      return { section1Id: section1.id, section2Id: section2.id, sectionOldId: sectionOld.id };
     }
 
     const a = await seedSections(TENANT_A, 'A');
     sectionA1Id = a.section1Id;
     sectionA2Id = a.section2Id;
+    sectionOldId = a.sectionOldId;
 
     const b = await seedSections(TENANT_B, 'A'); // deliberately the same name as tenant A's section 1
     sectionB1Id = b.section1Id;
@@ -170,6 +192,35 @@ describe('AttendanceAccessService (integration)', () => {
       expect(sections.map((s) => s.id)).not.toContain(sectionA1Id);
     });
 
+    it('gives a TEACHER with no assignment no sections', async () => {
+      await dataSource.getRepository(TeacherClassSection).delete({ teacher_id: teacherAId });
+      expect(
+        await service.listMarkableSections(UserRole.TEACHER, teacherAUserId, TENANT_A),
+      ).toEqual([]);
+    });
+
+    it('gives a TEACHER only the current-year section when also mapped to a past-year one', async () => {
+      await dataSource.getRepository(TeacherClassSection).save({
+        teacher_id: teacherAId,
+        section_id: sectionOldId,
+        tenant_id: TENANT_A,
+        subject_id: null,
+      });
+      const sections = await service.listMarkableSections(
+        UserRole.TEACHER,
+        teacherAUserId,
+        TENANT_A,
+      );
+      expect(sections.map((s) => s.id)).toEqual([sectionA1Id]);
+    });
+
+    it('gives a soft-deleted teacher no sections', async () => {
+      await dataSource.getRepository(Teacher).softDelete({ id: teacherAId });
+      expect(
+        await service.listMarkableSections(UserRole.TEACHER, teacherAUserId, TENANT_A),
+      ).toEqual([]);
+    });
+
     it('gives ADMIN every section in the tenant', async () => {
       const sections = await service.listMarkableSections(UserRole.ADMIN, teacherAUserId, TENANT_A);
       const ids = sections.map((s) => s.id);
@@ -199,18 +250,30 @@ describe('AttendanceAccessService (integration)', () => {
       expect(section.id).toBe(sectionA1Id);
     });
 
-    it('403s a TEACHER attempting a section they are not mapped to', async () => {
+    it('404s a TEACHER attempting a section they are not mapped to', async () => {
       await expect(
         service.assertCanAccessSection(UserRole.TEACHER, teacherAUserId, sectionA2Id, TENANT_A),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(NotFoundException);
     });
 
-    it("403s tenant B's teacher attempting to use tenant A's X-Tenant-ID header against their own section id", async () => {
+    it('404s a TEACHER mapped only to a past-year section', async () => {
+      await dataSource.getRepository(TeacherClassSection).save({
+        teacher_id: teacherAId,
+        section_id: sectionOldId,
+        tenant_id: TENANT_A,
+        subject_id: null,
+      });
+      await expect(
+        service.assertCanAccessSection(UserRole.TEACHER, teacherAUserId, sectionOldId, TENANT_A),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("404s tenant B's teacher attempting to use tenant A's X-Tenant-ID header against their own section id", async () => {
       // Cross-tenant probe: teacher B is genuinely mapped to sectionB1Id,
       // but calling with tenant A's id must find nothing.
       await expect(
         service.assertCanAccessSection(UserRole.TEACHER, teacherBUserId, sectionB1Id, TENANT_A),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('allows ADMIN to access any section in the tenant', async () => {
@@ -327,22 +390,22 @@ describe('AttendanceAccessService (integration)', () => {
       await expect(check(teacherAUserId, DATE, null)).resolves.toBeUndefined();
     });
 
-    it('403s an unrelated teacher who is not a substitute', async () => {
+    it('404s an unrelated teacher who is not a substitute', async () => {
       await setup();
-      await expect(check(teacherBUserId, DATE, 1)).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(check(teacherBUserId, DATE, 1)).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it("lets that date's substitute into the covered period only", async () => {
       await setup();
       await expect(check(subTeacherUserId, DATE, 1)).resolves.toBeUndefined();
       // Another period of the same date.
-      await expect(check(subTeacherUserId, DATE, 2)).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(check(subTeacherUserId, DATE, 2)).rejects.toBeInstanceOf(NotFoundException);
       // Another date.
       await expect(check(subTeacherUserId, OTHER_DATE, 1)).rejects.toBeInstanceOf(
-        ForbiddenException,
+        NotFoundException,
       );
       // The whole-day register is never reachable by substitution.
-      await expect(check(subTeacherUserId, DATE, null)).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(check(subTeacherUserId, DATE, null)).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('listAccessiblePeriods shows a substitute only the period they cover', async () => {
