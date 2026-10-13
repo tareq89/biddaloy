@@ -266,7 +266,12 @@ export class CommunicationsController {
       tenantId: tenant.id,
       guardianId,
     });
-    return this.communicationsService.findByGuardian(guardianId, tenant.id);
+    const scoped = await this.teacherScope.scopedStudentIds({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    return this.communicationsService.findByGuardian(guardianId, tenant.id, scoped ?? undefined);
   }
 
   @Get(':id')
