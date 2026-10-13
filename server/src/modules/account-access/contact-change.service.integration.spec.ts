@@ -391,7 +391,18 @@ describe('ContactChangeService (integration)', () => {
       await propose(user.id, { phone: NEW_PHONE });
       const token = /token=([^\s&]+)/.exec(sentTo()[0].body)![1];
 
-      const result = await service.confirmEmail(decodeURIComponent(token), context);
+      // Opening the link changes nothing: it shows the proposal, values masked.
+      const preview = await service.confirmEmail(decodeURIComponent(token), context);
+      expect(preview).toEqual({
+        status: 'proposal',
+        proposal: { from_school: 'Test School', new_phone: '+88017••••001' },
+      });
+      const [untouched] = await dataSource.query('SELECT phone FROM users WHERE id = $1', [
+        user.id,
+      ]);
+      expect(untouched.phone).toBe('+8801711111111');
+
+      const result = await service.confirmEmail(decodeURIComponent(token), context, 'approve');
 
       expect(result).toEqual({ status: 'valid' });
       const [row] = await dataSource.query(
@@ -418,6 +429,127 @@ describe('ContactChangeService (integration)', () => {
       const result = await service.confirmEmail(decodeURIComponent(first), context);
 
       expect(result).toEqual({ status: 'revoked' });
+    });
+    it('the approval message shows the MASKED new value, never the full one', async () => {
+      const { user } = await sharedSetup();
+
+      await propose(user.id, { phone: NEW_PHONE });
+
+      const approval = sentTo().find((m) => m.to === 'karim@example.com')!;
+      expect(approval.body).toContain('+88017••••001');
+      expect(approval.body).not.toContain(NEW_PHONE);
+    });
+
+    it('decline cancels the proposal and tells the asking school; nothing changes', async () => {
+      const { user } = await sharedSetup();
+      const userRepo = dataSource.getRepository(User);
+      const askingAdmin = await userRepo.save(
+        userRepo.create({
+          full_name: 'Asking Admin',
+          status: UserStatus.ACTIVE,
+          email: 'asking-admin@example.com',
+        }),
+      );
+      const membershipRepo = dataSource.getRepository(UserTenant);
+      await membershipRepo.save(
+        membershipRepo.create({
+          user_id: askingAdmin.id,
+          tenant_id: SEED_TENANT_ID,
+          role: 'ADMIN' as any,
+        }),
+      );
+      await propose(user.id, { phone: NEW_PHONE });
+      const token = decodeURIComponent(/token=([^\s&]+)/.exec(sentTo()[0].body)![1]);
+      fakeProvider.send.mockClear();
+
+      const result = await service.confirmEmail(token, context, 'decline');
+
+      expect(result).toEqual({ status: 'declined' });
+      expect(sentTo().some((m) => m.to === 'asking-admin@example.com')).toBe(true);
+      const [row] = await dataSource.query('SELECT phone FROM users WHERE id = $1', [user.id]);
+      expect(row.phone).toBe('+8801711111111');
+      // The link is spent: approving afterwards does nothing.
+      expect((await service.confirmEmail(token, context, 'approve')).status).toBe('consumed');
+    });
+
+    it('stale: once the contact the link went to has changed, the link is refused', async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { phone: NEW_PHONE });
+      const token = decodeURIComponent(/token=([^\s&]+)/.exec(sentTo()[0].body)![1]);
+      await dataSource.query('UPDATE users SET email = $2 WHERE id = $1', [
+        user.id,
+        'new-owner@example.com',
+      ]);
+
+      expect((await service.confirmEmail(token, context)).status).toBe('revoked');
+      expect((await service.confirmEmail(token, context, 'approve')).status).toBe('revoked');
+      const [row] = await dataSource.query('SELECT phone FROM users WHERE id = $1', [user.id]);
+      expect(row.phone).toBe('+8801711111111');
+    });
+
+    it('two schools propose email=null and phone=null: the second approval is refused, link kept', async () => {
+      // Phone verified, email not: both links go to the phone, which stays current until B clears it.
+      const { user } = await sharedSetup({
+        email_verified_at: null,
+        phone_verified_at: new Date(),
+      });
+      const proposeFrom = (tenantId: string, extra: { email?: null; phone?: null }) =>
+        service.proposeByAdmin(
+          { userId: user.id, tenantId, actorUserId: user.id, ...extra },
+          context,
+        );
+      await proposeFrom(SEED_TENANT_ID, { email: null });
+      const first = decodeURIComponent(/token=([^\s&]+)/.exec(sentTo()[0].body)![1]);
+      await proposeFrom(OTHER_SCHOOL, { phone: null });
+      const second = decodeURIComponent(
+        /token=([^\s&]+)/.exec(sentTo().filter((m) => m.body.includes('token='))[1].body)![1],
+      );
+
+      expect((await service.confirmEmail(first, context, 'approve')).status).toBe('valid');
+      await expect(service.confirmEmail(second, context, 'approve')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+
+      const [row] = await dataSource.query('SELECT email, phone FROM users WHERE id = $1', [
+        user.id,
+      ]);
+      expect(row.email).toBeNull();
+      expect(row.phone).toBe('+8801711111111');
+      // The refusal rolled back: the second link is not burned.
+      const [{ n }] = await dataSource.query(
+        `SELECT count(*) n FROM auth_tokens WHERE user_id = $1 AND consumed_at IS NULL AND revoked_at IS NULL`,
+        [user.id],
+      );
+      expect(Number(n)).toBe(1);
+    });
+
+    it("a school's proposal and the person's own email change do not cancel each other", async () => {
+      const { user } = await sharedSetup();
+      await propose(user.id, { phone: NEW_PHONE });
+      await service.request(
+        user.id,
+        { email: 'mine@example.com', current_password: 'correct-password' },
+        context,
+      );
+      const [{ n }] = await dataSource.query(
+        `SELECT count(*) n FROM auth_tokens WHERE user_id = $1 AND purpose = 'EMAIL_VERIFY' AND revoked_at IS NULL`,
+        [user.id],
+      );
+      expect(Number(n)).toBe(2);
+    });
+
+    it('notices skip the person themselves and inactive admins', async () => {
+      const { user, admin } = await sharedSetup();
+      await dataSource.query(`UPDATE users SET status = 'INACTIVE' WHERE id = $1`, [admin.id]);
+      const membershipRepo = dataSource.getRepository(UserTenant);
+      await membershipRepo.save(
+        membershipRepo.create({ user_id: user.id, tenant_id: OTHER_SCHOOL, role: 'ADMIN' as any }),
+      );
+
+      await propose(user.id, { phone: NEW_PHONE });
+
+      // Only the approval link went out: the one other admin is inactive, the person is excluded.
+      expect(sentTo()).toHaveLength(1);
     });
   });
 });

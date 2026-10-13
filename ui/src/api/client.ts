@@ -398,7 +398,9 @@ export async function publicPost<T>(path: string, body: unknown): Promise<T> {
 }
 
 export interface VerifyEmailResponse {
-  status: 'valid' | 'expired' | 'consumed' | 'revoked' | 'unknown';
+  status: 'valid' | 'expired' | 'consumed' | 'revoked' | 'unknown' | 'proposal' | 'declined';
+  /** [75.1] Only with status 'proposal': a school's pending change, values MASKED (null = removed). */
+  proposal?: { from_school: string; new_email?: string | null; new_phone?: string | null };
 }
 
 /** `POST /auth/verify-email` — [12.7]'s public link-click confirm. Bare
@@ -407,10 +409,15 @@ export interface VerifyEmailResponse {
  * on a device with no session). Never throws for an expired/consumed/
  * revoked/unknown token — same 200-with-a-different-status contract as
  * `ContactChangeService.confirmEmail`. */
-export async function postAuthVerifyEmail(token: string): Promise<VerifyEmailResponse> {
+export async function postAuthVerifyEmail(
+  token: string,
+  /** [75.1] A school's proposal is only shown until the person sends 'approve' or 'decline'. */
+  action?: 'approve' | 'decline',
+): Promise<VerifyEmailResponse> {
   try {
     const response = await axios.post<VerifyEmailResponse>(`${API_BASE_URL}/auth/verify-email`, {
       token,
+      ...(action ? { action } : {}),
     });
     return response.data;
   } catch (error) {

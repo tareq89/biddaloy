@@ -5,6 +5,7 @@ export type TemplateKind =
   | 'EMAIL_VERIFY_LINK'
   | 'CONTACT_CHANGE_APPROVAL_LINK'
   | 'SHARED_CONTACT_CHANGE_NOTICE'
+  | 'CONTACT_CHANGE_DECLINED_NOTICE'
   | 'BACKUP_READY'
   | 'BACKUP_FAILED'
   | 'RESTORE_DONE'
@@ -27,6 +28,8 @@ export interface TemplateVars {
   field?: ContactField;
   /** [75.1] Full name of the person whose contact is being changed. */
   person?: string;
+  /** [75.1] The proposed value(s), MASKED, shown only to the person who must approve. */
+  new_value?: string;
 }
 
 export type ContactField = 'email' | 'phone' | 'both';
@@ -124,20 +127,20 @@ const TEMPLATES: Record<
   CONTACT_CHANGE_APPROVAL_LINK: {
     SMS: {
       en: {
-        body: '{{from_school}} asked to change the {{field}} on your account. If you agree, open: {{link}} (expires in 3 days). If not, ignore this message.',
+        body: '{{from_school}} asked to change the {{field}} on your account to {{new_value}}. If you agree, open: {{link}} (expires in 3 days). If not, ignore this message.',
       },
       bn: {
-        body: '{{from_school}} আপনার অ্যাকাউন্টের {{field}} পরিবর্তনের অনুরোধ করেছে। আপনি রাজি হলে খুলুন: {{link}} (৩ দিনে মেয়াদোত্তীর্ণ)। রাজি না হলে এই বার্তা উপেক্ষা করুন।',
+        body: '{{from_school}} আপনার অ্যাকাউন্টের {{field}} পরিবর্তন করে {{new_value}} করার অনুরোধ করেছে। আপনি রাজি হলে খুলুন: {{link}} (৩ দিনে মেয়াদোত্তীর্ণ)। রাজি না হলে এই বার্তা উপেক্ষা করুন।',
       },
     },
     EMAIL: {
       en: {
         subject: 'Approve a change to your contact details',
-        body: 'Hi {{name}},\n\n{{from_school}} asked to change the {{field}} on your account.\n\nIf you agree, open the link below:\n\n{{link}}\n\nThis link expires in 3 days. If you do not agree, ignore this message and nothing will change.',
+        body: 'Hi {{name}},\n\n{{from_school}} asked to change the {{field}} on your account to {{new_value}}.\n\nIf you agree, open the link below and press Approve:\n\n{{link}}\n\nThis link expires in 3 days. If you do not agree, ignore this message and nothing will change.',
       },
       bn: {
         subject: 'আপনার যোগাযোগের তথ্য পরিবর্তন অনুমোদন করুন',
-        body: '{{name}},\n\n{{from_school}} আপনার অ্যাকাউন্টের {{field}} পরিবর্তনের অনুরোধ করেছে।\n\nআপনি রাজি হলে নিচের লিংক খুলুন:\n\n{{link}}\n\nএই লিংকটি ৩ দিনে মেয়াদোত্তীর্ণ হবে। রাজি না হলে এই বার্তা উপেক্ষা করুন, কিছুই পরিবর্তন হবে না।',
+        body: '{{name}},\n\n{{from_school}} আপনার অ্যাকাউন্টের {{field}} পরিবর্তন করে {{new_value}} করার অনুরোধ করেছে।\n\nআপনি রাজি হলে নিচের লিংক খুলে "অনুমোদন করুন" চাপুন:\n\n{{link}}\n\nএই লিংকটি ৩ দিনে মেয়াদোত্তীর্ণ হবে। রাজি না হলে এই বার্তা উপেক্ষা করুন, কিছুই পরিবর্তন হবে না।',
       },
     },
   },
@@ -158,6 +161,26 @@ const TEMPLATES: Record<
       bn: {
         subject: '{{person}}-এর যোগাযোগের তথ্য পরিবর্তনের অনুরোধ',
         body: '{{name}},\n\n{{from_school}} {{person}}-এর {{field}} পরিবর্তনের অনুরোধ করেছে; তিনি {{school}}-এরও সদস্য।\n\n{{person}} তাঁর বর্তমান যোগাযোগ থেকে অনুমোদন করলেই কেবল এটি পরিবর্তন হবে। আপনাকে কিছু করতে হবে না।',
+      },
+    },
+  },
+  CONTACT_CHANGE_DECLINED_NOTICE: {
+    SMS: {
+      en: {
+        body: '{{person}} declined the {{field}} change that {{school}} asked for. Nothing was changed.',
+      },
+      bn: {
+        body: '{{school}}-এর অনুরোধ করা {{field}} পরিবর্তন {{person}} প্রত্যাখ্যান করেছেন। কিছুই পরিবর্তন হয়নি।',
+      },
+    },
+    EMAIL: {
+      en: {
+        subject: '{{person}} declined a contact change',
+        body: 'Hi {{name}},\n\n{{person}} declined the {{field}} change that {{school}} asked for. Nothing was changed.',
+      },
+      bn: {
+        subject: '{{person}} যোগাযোগ পরিবর্তন প্রত্যাখ্যান করেছেন',
+        body: '{{name}},\n\n{{school}}-এর অনুরোধ করা {{field}} পরিবর্তন {{person}} প্রত্যাখ্যান করেছেন। কিছুই পরিবর্তন হয়নি।',
       },
     },
   },
@@ -264,6 +287,7 @@ export function render(
     from_school: vars.from_school ?? '',
     field: vars.field ? FIELD_LABEL[locale][vars.field] : '',
     person: vars.person ?? '',
+    new_value: vars.new_value ?? '',
   };
   return {
     body: fill(template.body, varsRecord),
