@@ -177,6 +177,17 @@ describe('routine slice (integration, 2 years, scale 0.2)', () => {
       `SELECT date::text AS date FROM routine_substitutions WHERE substitute_teacher_id IS NOT NULL`,
     );
     expect(subs).toEqual([{ date: SCHOOL_DAY }]);
+    // ...and never on a day the school is closed (a public holiday or a HOLIDAY event).
+    const [{ closed }] = await q<{ closed: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM public_holiday_entries e JOIN public_holiday_sets hs ON hs.id = e.set_id
+          WHERE hs.country = 'BD' AND $1::date BETWEEN e.date AND e.end_date
+         UNION ALL
+         SELECT 1 FROM calendar_events ce JOIN schools s ON s.id = ce.tenant_id AND s.slug = 'bmsc-high'
+          WHERE ce.type = 'HOLIDAY' AND $1::date BETWEEN ce.start_date AND ce.end_date) AS closed`,
+      [SCHOOL_DAY],
+    );
+    expect(closed).toBe(false);
     const card = DEMO_CARDS.find((c) => c.key === 'class-teacher-8a')!;
     const requests = await q(
       `SELECT cr.state FROM routine_change_requests cr JOIN users u ON u.id = cr.requested_by
