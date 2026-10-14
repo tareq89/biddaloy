@@ -1,5 +1,5 @@
 import type { DataSource } from 'typeorm';
-import { PeriodSlotKind } from '@biddaloy/shared';
+import { PaymentStatus, PeriodSlotKind, WalletTransactionKind } from '@biddaloy/shared';
 import { checkSlot, type SlotLike } from '../../modules/routines/constraint-check';
 import { DEMO_CARDS, DEMO_SCHOOL_SLUGS } from '../../modules/demo/demo-accounts';
 
@@ -86,30 +86,63 @@ async function academicYear(ds: Db): Promise<Violation[]> {
   }));
 }
 
-// Waivers are not a column in the model, so they are not checked.
+/**
+ * `paid_amount` moves with (a) allocations of live SUCCESS payments and (b) fee generation's wallet
+ * auto-apply: a `DEBIT_GENERATION` row (stored negative) with no allocation, undone by a `REVERSAL`
+ * credit. A reversed payment turns REFUNDED and gets a REFUNDED mirror with positive allocations;
+ * PENDING/FAILED payments carry allocations that never touched `paid_amount`. Neither counts.
+ * Checkout wallet use (`DEBIT_CHECKOUT`) is already inside that payment's allocations.
+ * Waivers are not a column in the model, so they are not checked.
+ */
 async function money(ds: Db): Promise<Violation[]> {
-  const fees: Row[] = await ds.query(`/* check:money-fees */
-    SELECT sf.id, sf.total_amount::float AS total, sf.paid_amount::float AS paid,
-           sf.discount_amount::float AS discount,
-           COALESCE((SELECT sum(pa.discount_amount) FROM payment_allocations pa
-                      WHERE pa.student_fee_id = sf.id), 0)::float AS alloc_discount,
-           COALESCE((SELECT sum(pa.allocated_amount) FROM payment_allocations pa
-                      WHERE pa.student_fee_id = sf.id), 0)::float AS allocated
-      FROM student_fees sf JOIN students st ON st.id = sf.student_id
-      JOIN schools s ON s.id = st.tenant_id
-     WHERE sf.deleted_at IS NULL AND ${DEMO}`);
+  const [fees, allocations, wallet]: Row[][] = await Promise.all([
+    ds.query(`/* check:money-fees */
+      SELECT sf.id, sf.total_amount::float AS total, sf.paid_amount::float AS paid,
+             sf.discount_amount::float AS discount
+        FROM student_fees sf JOIN students st ON st.id = sf.student_id
+        JOIN schools s ON s.id = st.tenant_id
+       WHERE sf.deleted_at IS NULL AND ${DEMO}`),
+    ds.query(`/* check:money-allocations */
+      SELECT pa.student_fee_id, pa.allocated_amount::float AS allocated,
+             pa.discount_amount::float AS discount, p.payment_status AS status,
+             p.deleted_at IS NOT NULL AS deleted
+        FROM payment_allocations pa JOIN payments p ON p.id = pa.payment_id
+        JOIN schools s ON s.id = p.tenant_id
+       WHERE ${DEMO}`),
+    ds.query(`/* check:money-wallet */
+      SELECT wt.student_fee_id, wt.kind, wt.amount::float AS amount
+        FROM wallet_transactions wt JOIN schools s ON s.id = wt.tenant_id
+       WHERE wt.student_fee_id IS NOT NULL AND ${DEMO}`),
+  ]);
+  const funded = new Map<string, number>();
+  const allocDiscount = new Map<string, number>();
+  const add = (m: Map<string, number>, k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v);
+  for (const a of allocations) {
+    if (a.status !== PaymentStatus.SUCCESS || a.deleted) continue;
+    add(funded, a.student_fee_id, a.allocated);
+    add(allocDiscount, a.student_fee_id, a.discount);
+  }
+  for (const w of wallet) {
+    if (
+      w.kind === WalletTransactionKind.DEBIT_GENERATION ||
+      w.kind === WalletTransactionKind.REVERSAL
+    )
+      add(funded, w.student_fee_id, -w.amount);
+  }
   const out: Violation[] = [];
   for (const f of fees) {
-    if (Math.abs(f.paid - f.allocated) > 0.005) {
+    const paidBy = funded.get(f.id) ?? 0;
+    if (Math.abs(f.paid - paidBy) > 0.005) {
       out.push({
         check: 'money',
-        message: `student_fee ${f.id}: paid_amount ${f.paid} <> sum of allocations ${f.allocated}`,
+        message: `student_fee ${f.id}: paid_amount ${f.paid} <> SUCCESS allocations + wallet auto-apply ${paidBy}`,
       });
     }
-    if (f.alloc_discount > f.discount + 0.005) {
+    const discount = allocDiscount.get(f.id) ?? 0;
+    if (discount > f.discount + 0.005) {
       out.push({
         check: 'money',
-        message: `student_fee ${f.id}: allocation discounts ${f.alloc_discount} exceed fee discount ${f.discount}`,
+        message: `student_fee ${f.id}: allocation discounts ${discount} exceed fee discount ${f.discount}`,
       });
     }
     if (f.paid + f.discount > f.total + 0.005) {
