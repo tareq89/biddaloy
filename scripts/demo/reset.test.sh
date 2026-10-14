@@ -23,11 +23,15 @@ LOG="$WORK/log"; mkdir -p "$LOG" "$WORK/bin" "$WORK/state"
 : > "$LOG/psql.log"; : > "$LOG/aws.log"; : > "$LOG/redis.log"; : > "$LOG/curl.log"
 
 # Stubs. psql runs inside the db container; everything else just records its arguments.
-# PSQL_FAIL_ON / REDIS_FAIL_ON (a regex on the arguments) and AWS_FAIL=1 make one call fail.
+# PSQL_FAIL_ON / REDIS_FAIL_ON (a regex on the arguments) and AWS_FAIL=1 make calls fail.
+# PSQL_FAIL_ONCE=1: only the first matching psql call fails.
 cat > "$WORK/bin/psql" <<EOF
 #!/usr/bin/env bash
 echo "\$*" >> "$LOG/psql.log"
-if [[ -n "\${PSQL_FAIL_ON:-}" && "\$*" =~ \$PSQL_FAIL_ON ]]; then echo "psql stub: forced failure" >&2; exit 3; fi
+if [[ -n "\${PSQL_FAIL_ON:-}" && "\$*" =~ \$PSQL_FAIL_ON && ! -e "$LOG/failed-once" ]]; then
+  [[ -z "\${PSQL_FAIL_ONCE:-}" ]] || touch "$LOG/failed-once"
+  echo "psql stub: forced failure" >&2; exit 3
+fi
 exec docker exec -i "$DB_CONTAINER" psql "\$@"
 EOF
 # The refusal cases below aim at real names (biddaloy, postgres). They get this psql instead, so a
@@ -110,6 +114,7 @@ FAKE_SEED="bash $WORK/seed.sh"
 
 # Runs reset.sh in a clean environment; extra KEY=VALUE args override the defaults. Returns its exit code.
 run_reset() {
+  rm -f "$LOG/failed-once"
   env -i PATH="$WORK/bin:$PATH" HOME="$HOME" \
     DEMO_MODE=true DEMO_PASSWORD=pw DATABASE_URL="$BASE_URL/$LIVE" REDIS_URL=redis://redis.invalid:6379 \
     DEMO_STATE_DIR="$WORK/state" S3_BUCKET=biddaloy-demo-test S3_ENDPOINT=http://s3.invalid S3_ALLOW_INSECURE_HTTP=true \
@@ -244,5 +249,19 @@ helper_refuses "rename_db \"$LIVE\" biddaloy"
 helper_refuses "rename_db biddaloy \"$LIVE\""
 db_exists "$LIVE" || fail "live throwaway database disappeared"
 pass "drop_db / rename_db refuse non-demo names"
+
+# ---- 11. re-opening the new live database fails once: the app still comes back ---------------
+: > "$LOG/redis.log"; : > "$LOG/curl.log"; rm -f "$WORK/restarted"
+if run_reset RUN_MARK=night4 PSQL_FAIL_ON="ALTER DATABASE \"${LIVE}\" WITH ALLOW_CONNECTIONS true" PSQL_FAIL_ONCE=1; then
+  fail "a failed live re-open should exit 1"
+fi
+expect "$(marker "$LIVE")" night4 "the new database stays live"
+expect "$(pg "SELECT datallowconn FROM pg_database WHERE datname = '$LIVE'")" t "recovery re-opened live"
+expect "$(cat "$WORK/state/platform-tenant-id")" "$(pg "SELECT id FROM schools WHERE slug = 'default-school'" "$LIVE")" "state file written"
+grep -q "redis.invalid:6379 FLUSHDB" "$LOG/redis.log" || fail "the live Redis db was not flushed"
+[[ -e "$WORK/restarted" ]] || fail "app was not restarted"
+grep -q "these steps failed: live-connections" "$WORK/err" || { cat "$WORK/err" >&2; fail "live-connections not reported"; }
+grep -q "status=error" "$LOG/curl.log" || fail "error check-in missing"
+pass "re-opening live fails: state file written, Redis flushed, app restarted, exit 1"
 
 echo "reset.test.sh: all passed"
