@@ -16,7 +16,7 @@ import {
   type ChangePasswordFormServerError,
   type ContactChangeField,
   type GuardianContactFormServerError,
-  type GuardianContactFormValues,
+  type GuardianContactFormSubmitValues,
   type ProfileFormServerError,
   type ProfileFormSubmitValues,
   weakPasswordRules,
@@ -257,13 +257,12 @@ function PortalAccount() {
     }
   }
 
-  function handleGuardianSubmit(values: GuardianContactFormValues): void {
+  function handleGuardianSubmit(values: GuardianContactFormSubmitValues): void {
     setGuardianError(null);
     updateGuardian.mutate(
       {
-        phone: values.phone,
+        // phone/email are the login's and never go through this form ([68.4.05]).
         alternate_phone: values.alternate_phone,
-        email: values.email,
         preferred_communication: values.preferred_communication,
         notifications_enabled: values.notifications_enabled,
       },
@@ -423,6 +422,8 @@ function PortalAccount() {
             notifications_enabled: guardianQuery.data.notifications_enabled,
           }}
           config={config}
+          lockContactFields
+          lockedContactHint={t('account.guardian.contactOwnedByLogin')}
           onSubmit={handleGuardianSubmit}
           submitting={updateGuardian.isPending}
           serverError={guardianError}

@@ -26,6 +26,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
+import { Guardian } from '../students/entities/guardian.entity';
 import { AuthToken } from '../account-access/entities/auth-token.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -59,6 +60,7 @@ const REQUESTING_ADMIN_ID = '00000000-0000-4000-8000-000000000aaa';
 async function seedReferenceData(ds: DataSource): Promise<void> {
   await ds.query('DELETE FROM teacher_class_sections');
   await ds.query('DELETE FROM teachers');
+  await ds.query('DELETE FROM guardians');
   await ds.query('DELETE FROM user_tenants');
   await ds.query('DELETE FROM users');
   await ds.query('DELETE FROM class_sections');
@@ -200,6 +202,7 @@ describe('UserService (integration)', () => {
     if (dataSource) {
       await dataSource.query('DELETE FROM teacher_class_sections');
       await dataSource.query('DELETE FROM teachers');
+      await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM user_tenants');
       await dataSource.query('DELETE FROM users');
       // remove() writes an audit row naming the actor, and that column is a FK.
@@ -991,6 +994,33 @@ describe('UserService (integration)', () => {
 
       expect(updated.email).toBe('new@example.com');
       expect(updated.phone).toBe('+8802');
+    });
+
+    it('[68.4.05] copies a changed phone/email to the linked guardian row, leaving others alone', async () => {
+      const { user } = await service.create(
+        { full_name: 'Parent', email: 'p@example.com', phone: '+8801', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+      const guardians = dataSource.getRepository(Guardian);
+      const mk = (user_id: string | null) =>
+        guardians.save(
+          guardians.create({
+            full_name: 'G',
+            relationship: 'Mother',
+            tenant_id: TENANT_ID,
+            user_id,
+            phone: '+8801',
+            email: 'p@example.com',
+          }),
+        );
+      const linked = await mk(user.id);
+      const unlinked = await mk(null);
+
+      await service.update(user.id, { phone: '+8802' }, TENANT_ID, REQUESTING_ADMIN_ID);
+
+      expect((await guardians.findOneByOrFail({ id: linked.id })).phone).toBe('+8802');
+      expect((await guardians.findOneByOrFail({ id: linked.id })).email).toBe('p@example.com');
+      expect((await guardians.findOneByOrFail({ id: unlinked.id })).phone).toBe('+8801');
     });
 
     // [12.7] An admin edit to email/phone is the "explicit unverified
