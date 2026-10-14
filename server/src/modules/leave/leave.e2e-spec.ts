@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { randomUUID } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -121,6 +121,43 @@ describe('Leave E2E', () => {
       .set('X-Tenant-ID', TENANT_ID)
       .expect(200);
     expect(balanceRes.body.find((b: any) => b.leave_type === 'CASUAL').balance).toBe(10);
+  });
+
+  describe('GET /leave/balance year boundary (tenant-local)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('00:30 Dhaka on 1 Jan shows the fresh quota; 23:30 on 31 Dec shows the old year', async () => {
+      const Y = Number(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' }).slice(0, 4));
+      await dataSource.query(
+        `INSERT INTO leave_records (id, tenant_id, staff_profile_id, leave_type, start_date, end_date, days, status, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, 'CASUAL', $3, $4, 3, 'APPROVED', NOW(), NOW())`,
+        [TENANT_ID, staffProfileId, `${Y}-03-01`, `${Y}-03-31`],
+      );
+      const casual = async (instant: string) => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date(instant));
+        const loginRes = await supertest(app.getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+          .expect(200);
+        const res = await supertest(app.getHttpServer())
+          .get('/api/v1/leave/balance')
+          .query({ staff_profile_id: staffProfileId })
+          .set('Authorization', `Bearer ${loginRes.body.access_token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .expect(200);
+        return res.body.find((b: any) => b.leave_type === 'CASUAL');
+      };
+
+      const fresh = await casual(`${Y}-12-31T18:30:00Z`);
+      expect(fresh.used_days).toBe(0);
+      expect(fresh.balance).toBe(10);
+      vi.useRealTimers();
+      const old = await casual(`${Y}-12-31T17:30:00Z`);
+      expect(old.used_days).toBeGreaterThan(0);
+    });
   });
 
   it('returns 401 when X-Tenant-ID is missing', async () => {
