@@ -14,6 +14,7 @@ import {
   SEED_ADMIN_PASSWORD,
   SEED_ADMIN_PASSWORD_HASH,
   SEED_SECTION_1_ID,
+  SEED_SECTION_2_ID,
   SEED_CLASS_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
@@ -171,6 +172,59 @@ describe('[997] Exam analysis (merit/defaulted/pass-fail)', () => {
 
       expect(res.body.status).toBe(ExamStatus.PROCESSED);
       expect(res.body.rows).toHaveLength(1);
+    });
+
+    // #1833: Epic 75 D2/D13 stand — a TEACHER reads only sections they are assigned to.
+    describe('TEACHER section scope', () => {
+      async function seedSection2Result(): Promise<void> {
+        const [{ id: scaleId }] = await dataSource.query(
+          `SELECT id FROM grading_scales WHERE tenant_id = $1 LIMIT 1`,
+          [TENANT_ID],
+        );
+        const [{ id: studentId }] = await dataSource.query(
+          `INSERT INTO students
+             (full_name, registration_number, roll_number, class_section_id, tenant_id,
+              enrollment_status, preferred_communication, created_at, updated_at)
+           VALUES ('Other Section Student', $1, 77, $2, $3, 'ACTIVE', 'SMS', NOW(), NOW())
+           RETURNING id`,
+          [`AR-${Math.random().toString(36).slice(2, 12)}`, SEED_SECTION_2_ID, TENANT_ID],
+        );
+        await dataSource.query(
+          `INSERT INTO results
+             (exam_id, student_id, total_marks, gpa, grade, position, section_id, section_position,
+              is_fail, grading_scale_id, grading_scale_revision, rule_version, computed_at, tenant_id,
+              created_at, updated_at)
+           VALUES ($1, $2, 50.00, 2.00, 'C', 2, $3, 1, true, $4, 1, 'nctb-v1', NOW(), $5, NOW(), NOW())`,
+          [examId, studentId, SEED_SECTION_2_ID, scaleId, TENANT_ID],
+        );
+      }
+      const asTeacher = (path: string) =>
+        http()
+          .get(`${API}/exams/${examId}/analysis/${path}`)
+          .set('Authorization', `Bearer ${teacherToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', UserRole.TEACHER);
+
+      it('without section_id lists only the assigned section, not the whole class', async () => {
+        await seedFixture();
+        await seedSection2Result();
+        const res = await asTeacher('merit').expect(200);
+        expect(res.body.rows).toHaveLength(1);
+        expect(res.body.rows[0].full_name).not.toBe('Other Section Student');
+      });
+
+      it('404s a section the teacher is not assigned to, on JSON and CSV', async () => {
+        await seedFixture();
+        await seedSection2Result();
+        await asTeacher(`merit?section_id=${SEED_SECTION_2_ID}`).expect(404);
+        const csv = await asTeacher(`merit.csv?section_id=${SEED_SECTION_2_ID}`).expect(404);
+        expect(csv.headers['content-disposition']).toBeUndefined();
+      });
+
+      it('lets the teacher read their own section', async () => {
+        await seedFixture();
+        await asTeacher(`merit?section_id=${SEED_SECTION_1_ID}`).expect(200);
+      });
     });
 
     it('a GUARDIAN (PARENT) gets 403 — lacks MARK_VIEW', async () => {
