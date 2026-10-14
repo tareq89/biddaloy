@@ -35,7 +35,7 @@
  * a real February.
  */
 import { AttendanceStatus } from '@biddaloy/shared';
-import { Ban, Calendar, Check, Clock, Minus, X, type LucideIcon } from 'lucide-react';
+import { Ban, Calendar, Check, Clock, Hourglass, Minus, X, type LucideIcon } from 'lucide-react';
 
 import { useRegionConfig, useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
@@ -79,7 +79,8 @@ export interface AttendanceMonthGridProps {
   className?: string;
 }
 
-type CellState = 'present' | 'late' | 'absent' | 'leave' | 'notSchoolDay' | 'notMarked';
+type CellState =
+  'present' | 'late' | 'absent' | 'leave' | 'notSchoolDay' | 'notMarked' | 'upcoming';
 
 const STATE_ICON: Record<CellState, LucideIcon> = {
   present: Check,
@@ -88,6 +89,7 @@ const STATE_ICON: Record<CellState, LucideIcon> = {
   leave: Calendar,
   notSchoolDay: Ban,
   notMarked: Minus,
+  upcoming: Hourglass,
 };
 
 /** Same four tones `attendance-status-control.tsx`'s `STATUS_TONE_CLASSES`
@@ -102,9 +104,10 @@ const STATE_TONE_CLASSES: Record<CellState, string> = {
   leave: 'text-status-partial-fg bg-status-partial-bg',
   notSchoolDay: 'text-muted-foreground bg-muted',
   notMarked: 'text-muted-foreground bg-transparent border border-dashed border-border-subtle',
+  upcoming: 'text-muted-foreground bg-transparent',
 };
 
-function stateOf(day: AttendanceDayCell): CellState {
+function stateOf(day: AttendanceDayCell, today: string): CellState {
   if (!day.isWorkingDay) return 'notSchoolDay';
   switch (day.status) {
     case AttendanceStatus.PRESENT:
@@ -116,7 +119,9 @@ function stateOf(day: AttendanceDayCell): CellState {
     case AttendanceStatus.LEAVE:
       return 'leave';
     default:
-      return 'notMarked';
+      // ISO dates compare lexically. An unmarked day still ahead of "today"
+      // is not a missed mark.
+      return day.date > today ? 'upcoming' : 'notMarked';
   }
 }
 
@@ -137,6 +142,8 @@ function stateLabel(t: ReturnType<typeof useTranslation>['t'], state: CellState)
       return t('attendanceGrid.status.notSchoolDay');
     case 'notMarked':
       return t('attendanceGrid.status.notMarked');
+    case 'upcoming':
+      return t('attendanceGrid.status.upcoming');
   }
 }
 
@@ -316,7 +323,7 @@ export function AttendanceMonthGrid({
                     );
                   }
 
-                  const state = stateOf(gridDay.cell);
+                  const state = stateOf(gridDay.cell, today);
                   const Icon = STATE_ICON[state];
                   const toneClasses = STATE_TONE_CLASSES[state];
                   const label = stateLabel(t, state);
@@ -343,7 +350,7 @@ export function AttendanceMonthGrid({
                       >
                         {renderDigits(String(gridDay.dayOfMonth), config.numerals)}
                       </span>
-                      {state !== 'notMarked' && (
+                      {state !== 'notMarked' && state !== 'upcoming' && (
                         <span
                           aria-hidden="true"
                           className={cn(
@@ -441,6 +448,7 @@ const LEGEND_STATES: CellState[] = [
   'leave',
   'notSchoolDay',
   'notMarked',
+  'upcoming',
 ];
 
 function Legend({ t }: { t: ReturnType<typeof useTranslation>['t'] }) {
