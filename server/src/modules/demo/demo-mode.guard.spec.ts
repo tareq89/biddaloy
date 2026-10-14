@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { ExecutionContext } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DemoModeGuard } from './demo-mode.guard';
@@ -9,16 +9,15 @@ function setup(demoMode: string | undefined) {
   const guard = new DemoModeGuard({
     get: (k: string) => (k === 'DEMO_MODE' ? demoMode : undefined),
   } as unknown as ConfigService);
-  const setHeader = vi.fn();
   const run = (method: string, path: string, headers: Record<string, string> = {}) =>
     guard.canActivate({
       getType: () => 'http',
       switchToHttp: () => ({
         getRequest: () => ({ method, path, headers }),
-        getResponse: () => ({ setHeader }),
+        getResponse: () => ({}),
       }),
     } as unknown as ExecutionContext);
-  return { run, setHeader };
+  return { run };
 }
 
 describe('DemoModeGuard', () => {
@@ -36,10 +35,46 @@ describe('DemoModeGuard', () => {
       },
     );
 
-    it('lets a normal read through and marks it noindex', () => {
-      const { run, setHeader } = setup('true');
+    it('lets a normal read through', () => {
+      const { run } = setup('true');
       expect(run('GET', '/api/v1/students')).toBe(true);
-      expect(setHeader).toHaveBeenCalledWith('X-Robots-Tag', 'noindex, nofollow');
+    });
+
+    // Express routes case-insensitively, so a changed case must not slip past the list.
+    it.each([
+      ['POST', '/api/v1/AUTH/Change-Password'],
+      ['POST', '/API/V1/auth/change-password'],
+      ['POST', '/api/v1/backup/RESTORE'],
+      ['DELETE', '/api/v1/Users/3f1b2c4d-0000-4000-8000-000000000000'],
+      ['POST', '/api/v1/auth/change-password/'],
+    ])('refuses the case or slash variant %s %s', (method, path) => {
+      const { run } = setup('true');
+      expect(() => run(method, path)).toThrowError(
+        expect.objectContaining({
+          response: expect.objectContaining({ details: { code: 'DEMO_DISABLED' } }),
+        }),
+      );
+    });
+
+    it('refuses an upper-case Content-Type multipart over the cap', () => {
+      const { run } = setup('true');
+      expect(() =>
+        run('POST', '/api/v1/x', {
+          'content-type': 'Multipart/Form-Data; boundary=x',
+          'content-length': String(3 * 1024 * 1024),
+        }),
+      ).toThrow();
+    });
+
+    it('refuses a multipart upload with no Content-Length', () => {
+      const { run } = setup('true');
+      expect(() =>
+        run('POST', '/api/v1/x', { 'content-type': 'multipart/form-data; boundary=x' }),
+      ).toThrowError(
+        expect.objectContaining({
+          response: expect.objectContaining({ details: { code: 'DEMO_UPLOAD_LIMIT' } }),
+        }),
+      );
     });
 
     it('keeps public admission submit open', () => {
@@ -73,8 +108,8 @@ describe('DemoModeGuard', () => {
   });
 
   describe('DEMO_MODE off', () => {
-    it('is a pass-through: no deny-list, no upload cap, no header', () => {
-      const { run, setHeader } = setup(undefined);
+    it('is a pass-through: no deny-list, no upload cap', () => {
+      const { run } = setup(undefined);
       expect(run('POST', '/api/v1/backup/restore')).toBe(true);
       expect(
         run('POST', '/api/v1/students/1/photo', {
@@ -82,7 +117,6 @@ describe('DemoModeGuard', () => {
           'content-length': String(9 * 1024 * 1024),
         }),
       ).toBe(true);
-      expect(setHeader).not.toHaveBeenCalled();
     });
 
     it('treats any value other than "true" as off', () => {
