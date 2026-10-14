@@ -48,8 +48,8 @@ export function ConflictList({ violations, warnings = [] }: ConflictListProps) {
       </li>
     );
   });
-  // The generic sentence would repeat the branch one; drop it when every
-  // TEACHER_DOUBLE_BOOKED has a branch version.
+  // Branch clashes get their own sentence; the generic code sentence covers
+  // local ones only.
   const generic = violations.filter((v) => !(v.details && v.code === 'TEACHER_DOUBLE_BOOKED'));
 
   return (

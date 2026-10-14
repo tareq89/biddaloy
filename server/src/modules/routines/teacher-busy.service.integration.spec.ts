@@ -250,4 +250,15 @@ describe('TeacherBusyService (integration)', () => {
     resolved[A] = [slot(periodSlotId, [teacher.id])];
     expect(await ask({ tenantId: B, actorUserId: other.id })).toBeNull();
   });
+
+  it('actor only a PARENT in A -> null (a non-staff membership is not access to the timetable)', async () => {
+    const other = await ds
+      .getRepository(User)
+      .save({ full_name: 'Parent', email: `p-${randomUUID()}@t.local` });
+    await member(other.id, A, UserRole.PARENT);
+    await member(other.id, B, UserRole.ADMIN);
+    await member(teacher.user_id, B);
+    resolved[A] = [slot(periodSlotId, [teacher.id])];
+    expect(await ask({ tenantId: B, actorUserId: other.id })).toBeNull();
+  });
 });

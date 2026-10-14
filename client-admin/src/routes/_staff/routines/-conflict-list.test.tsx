@@ -79,14 +79,14 @@ describe('ConflictList', () => {
     ).toBeNull();
   });
 
-  it('names the other branch, weekday and period for a cross-branch clash', async () => {
+  it('omits the period when the other branch period has no name', async () => {
     renderWithProviders(
       <ConflictList
         violations={[
           {
             code: 'TEACHER_DOUBLE_BOOKED',
             message: 'x',
-            details: { tenantName: 'North Branch', weekday: 0, periodName: 'Period 3' },
+            details: { tenantName: 'North Branch', weekday: 0, periodName: null },
           },
         ]}
       />,
@@ -95,7 +95,7 @@ describe('ConflictList', () => {
     await waitFor(() =>
       expect(
         screen.getByText(
-          'A teacher on this period is already teaching at North Branch on Sun, Period 3.',
+          'A teacher on this period is already teaching at North Branch on Sun at this time.',
         ),
       ).toBeTruthy(),
     );

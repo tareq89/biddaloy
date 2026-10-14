@@ -64,18 +64,20 @@ describe('RoutineSlotsService — cross-branch teacher clash (D12)', () => {
       .save({ full_name: label, email: `${label}-${n}@test.local` });
   }
 
-  /** One branch: a year, one section, a period (08:00-08:40 unless given), a draft routine. */
+  /** One branch: a year (2026 unless given), one section, a period
+   * (08:00-08:40 unless given), a draft routine. */
   async function seedBranch(
     tenantId: string,
     teacherUserId: string,
-    opts: { start?: string; end?: string; isCurrent?: boolean } = {},
+    opts: { start?: string; end?: string; isCurrent?: boolean; year?: number } = {},
   ) {
     n += 1;
+    const y = opts.year ?? 2026;
     const year = await dataSource.getRepository(AcademicYear).save({
       tenant_id: tenantId,
       name: `Y-${n}`,
-      start_date: '2026-01-01',
-      end_date: '2026-12-31',
+      start_date: `${y}-01-01`,
+      end_date: `${y}-12-31`,
       is_current: opts.isCurrent ?? true,
     });
     const shift = await dataSource.getRepository(Shift).save({
@@ -119,7 +121,7 @@ describe('RoutineSlotsService — cross-branch teacher clash (D12)', () => {
     return { year, routine, periodSlot, section, subject, teacher };
   }
 
-  const dto = (b: Awaited<ReturnType<typeof seedBranch>>) =>
+  const dto = (b: Awaited<ReturnType<typeof seedBranch>>, over: Record<string, unknown> = {}) =>
     ({
       section_id: b.section.id,
       period_slot_id: b.periodSlot.id,
@@ -128,19 +130,25 @@ describe('RoutineSlotsService — cross-branch teacher clash (D12)', () => {
       room_id: null,
       recurrence: SlotRecurrence.WEEKLY,
       recurrence_offset: 0,
-      valid_from: '2026-01-01',
+      valid_from: `${b.year.start_date}`.slice(0, 10),
       valid_to: null,
       teacher_ids: [b.teacher.id],
+      ...over,
     }) as any;
 
-  async function member(userId: string, tenantId: string) {
-    await dataSource
+  async function member(userId: string, tenantId: string, role = UserRole.ADMIN) {
+    return dataSource
       .getRepository(UserTenant)
-      .save({ user_id: userId, tenant_id: tenantId, role: UserRole.ADMIN });
+      .save({ user_id: userId, tenant_id: tenantId, role });
   }
 
-  /** T teaches Sunday 08:00-08:40 in branch A. Returns both branches. */
-  async function scenario(bTimes: { start?: string; end?: string } = {}, aCurrent = true) {
+  /** T teaches Sunday 08:00-08:40 in branch A (its slot's `valid_to` NULL
+   * unless given). Returns both branches. */
+  async function scenario(
+    bTimes: { start?: string; end?: string; year?: number } = {},
+    aCurrent = true,
+    aOpts: { year?: number; validTo?: string } = {},
+  ) {
     const schools = dataSource.getRepository(School);
     const [sa, sb] = await Promise.all([
       schools.save({ name: 'North Branch', slug: `north-${++n}` }),
@@ -150,10 +158,15 @@ describe('RoutineSlotsService — cross-branch teacher clash (D12)', () => {
     TENANT_B = sb.id;
     const teacherUser = await makeUser('teacher');
     const actor = await makeUser('actor');
-    const a = await seedBranch(TENANT_A, teacherUser.id, { isCurrent: aCurrent });
+    const a = await seedBranch(TENANT_A, teacherUser.id, { isCurrent: aCurrent, year: aOpts.year });
     const b = await seedBranch(TENANT_B, teacherUser.id, bTimes);
     // Branch A's own save has no foreign branch to compare with.
-    await service.create(a.routine.id, dto(a), TENANT_A, actor.id);
+    await service.create(
+      a.routine.id,
+      dto(a, { valid_to: aOpts.validTo ?? null }),
+      TENANT_A,
+      actor.id,
+    );
     return { actor, a, b };
   }
 
@@ -195,10 +208,80 @@ describe('RoutineSlotsService — cross-branch teacher clash (D12)', () => {
     expect(res.slot.id).toBeDefined();
   });
 
-  it("does not block on a slot in the other branch's non-current year", async () => {
-    const { actor, b } = await scenario({ start: '08:20:00', end: '09:00:00' }, false);
+  const OVERLAP = { start: '08:20:00', end: '09:00:00' };
+  const expectClash = (err: unknown) => {
+    expect(err).toBeInstanceOf(ConflictException);
+    const [v] = (err as ConflictException).getResponse()['details'].violations;
+    expect(v.details).toEqual({ tenantName: 'North Branch', weekday: 0, periodName: 'Period 3' });
+  };
+
+  it("planning next year: the other branch's current-year slot (valid_to NULL) ends with its year", async () => {
+    // A's 2026 slot is open-ended; B plans 2027. Before the year bound this was a false 409.
+    const { actor, b } = await scenario({ ...OVERLAP, year: 2027 });
     await member(actor.id, TENANT_A);
     await member(actor.id, TENANT_B);
+    const res = await service.create(b.routine.id, dto(b), TENANT_B, actor.id);
+    expect(res.slot.id).toBeDefined();
+  });
+
+  it("planning next year: the other branch's drafted next-year (not current) routine still clashes", async () => {
+    const { actor, b } = await scenario({ ...OVERLAP, year: 2027 }, false, { year: 2027 });
+    await member(actor.id, TENANT_A);
+    await member(actor.id, TENANT_B);
+    expectClash(await service.create(b.routine.id, dto(b), TENANT_B, actor.id).catch((e) => e));
+  });
+
+  it('saves when the two date ranges do not overlap', async () => {
+    const { actor, b } = await scenario(OVERLAP, true, { validTo: '2026-03-31' });
+    await member(actor.id, TENANT_A);
+    await member(actor.id, TENANT_B);
+    const res = await service.create(
+      b.routine.id,
+      dto(b, { valid_from: '2026-04-01' }),
+      TENANT_B,
+      actor.id,
+    );
+    expect(res.slot.id).toBeDefined();
+  });
+
+  it('update() runs the same cross-branch check', async () => {
+    const { actor, b } = await scenario(OVERLAP);
+    await member(actor.id, TENANT_A);
+    await member(actor.id, TENANT_B);
+    // Monday: no clash. Then moved to Sunday from February: clash.
+    const { slot } = await service.create(b.routine.id, dto(b, { weekday: 1 }), TENANT_B, actor.id);
+    expectClash(
+      await service
+        .update(slot.id, dto(b, { valid_from: '2026-02-01' }), TENANT_B, actor.id)
+        .catch((e) => e),
+    );
+  });
+
+  it('a PARENT (not staff) membership in A is not access: saves, and nothing from A is read', async () => {
+    const { actor, b } = await scenario(OVERLAP);
+    await member(actor.id, TENANT_A, UserRole.PARENT);
+    await member(actor.id, TENANT_B);
+    const spy = vi.spyOn(EntityManager.prototype, 'query');
+    const res = await service.create(b.routine.id, dto(b), TENANT_B, actor.id);
+    expect(res.slot.id).toBeDefined();
+    const returned = (await Promise.all(spy.mock.results.map((r) => r.value))).flat();
+    expect(JSON.stringify(returned)).not.toContain('North Branch');
+  });
+
+  it('a soft-deleted membership in A is not access: saves', async () => {
+    const { actor, b } = await scenario(OVERLAP);
+    const ut = await member(actor.id, TENANT_A);
+    await dataSource.getRepository(UserTenant).softDelete({ id: ut.id });
+    await member(actor.id, TENANT_B);
+    const res = await service.create(b.routine.id, dto(b), TENANT_B, actor.id);
+    expect(res.slot.id).toBeDefined();
+  });
+
+  it('a soft-deleted teacher row in A does not block', async () => {
+    const { actor, a, b } = await scenario(OVERLAP);
+    await member(actor.id, TENANT_A);
+    await member(actor.id, TENANT_B);
+    await dataSource.getRepository(Teacher).softDelete({ id: a.teacher.id });
     const res = await service.create(b.routine.id, dto(b), TENANT_B, actor.id);
     expect(res.slot.id).toBeDefined();
   });

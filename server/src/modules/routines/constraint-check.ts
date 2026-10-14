@@ -168,12 +168,12 @@ function slotsCoexist(a: SlotLike, b: SlotLike): boolean {
  * b.starts < a.ends`) instead of `period_slot_id` equality — two slots
  * from different shifts can still clash a teacher or a room even though
  * they reference different `PeriodSlot` rows. */
-function slotsOverlapInTime(a: SlotLike, b: SlotLike): boolean {
+function slotsOverlapInTime(a: SlotLike, b: SlotLike, compareRecurrence = true): boolean {
   return (
     a.weekday === b.weekday &&
     a.starts_at < b.ends_at &&
     b.starts_at < a.ends_at &&
-    recurrenceIntersects(a, b) &&
+    (!compareRecurrence || recurrenceIntersects(a, b)) &&
     dateRangesOverlap(a, b) &&
     a.id !== b.id
   );
@@ -248,10 +248,7 @@ export function checkSlot(
       // Recurrence is not compared: BIWEEKLY offsets count from each
       // branch's own year start, so across branches they can't be matched
       // (same stance as MONTHLY: assume they may meet).
-      candidate.weekday === s.weekday &&
-      candidate.starts_at < s.ends_at &&
-      s.starts_at < candidate.ends_at &&
-      dateRangesOverlap(candidate, s) &&
+      slotsOverlapInTime(candidate, s, false) &&
       s.teacher_ids.some((t) => candidate.teacher_ids.includes(t)),
   );
   if (foreignClash?.foreign) {

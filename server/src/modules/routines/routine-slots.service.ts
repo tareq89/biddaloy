@@ -23,6 +23,7 @@ import { localToday } from '../attendance/attendance-policy.util';
 import { AuditAction, RoutineState, SlotRecurrence } from '@biddaloy/shared';
 import { UpsertRoutineSlotDto } from './dto/routine-slots.dto';
 import { checkSlot, SlotLike, Violation, Warning } from './constraint-check';
+import { actorIsStaffIn } from './teacher-busy.service';
 
 export interface RoutineSlotWithWarnings {
   slot: RoutineSlot;
@@ -362,22 +363,30 @@ export class RoutineSlotsService {
   ): Promise<SlotLike[]> {
     const foreign =
       manager && candidate && actorUserId
-        ? await this.loadForeignTeacherSlots(manager, tenantId, actorUserId, candidate.teacher_ids)
+        ? await this.loadForeignTeacherSlots(manager, tenantId, actorUserId, candidate)
         : [];
     const local = await this.loadLocalSlots(routineId, tenantId, manager);
     return [...local, ...foreign];
   }
 
   /** [58.0.03] D12: slots of the same people in OTHER branches. One query.
-   * Membership is part of the join, so a branch the actor is not a live
-   * member of is never read. Returns clock times and names only, no
-   * section/subject/room/class data. */
+   * The actor's staff membership is part of the join (`actorIsStaffIn`), so a
+   * branch the actor does not staff is never read — the check depends on who
+   * saves, see that helper. Returns clock times and names only, no
+   * section/subject/room/class data.
+   *
+   * Each slot is bounded by its own academic year (a slot's `valid_to` is
+   * usually NULL; inside a branch the resolver bounds it by the year), and
+   * the years are picked by date overlap with the candidate, not
+   * `is_current`: planning next year neither clashes with this year's slots
+   * nor misses the other branch's drafted next-year routine. */
   private async loadForeignTeacherSlots(
     manager: EntityManager,
     tenantId: string,
     actorUserId: string,
-    teacherIds: string[],
+    candidate: UpsertRoutineSlotDto,
   ): Promise<SlotLike[]> {
+    const teacherIds = candidate.teacher_ids;
     if (teacherIds.length === 0) return [];
     const rows: Array<{
       id: string;
@@ -393,21 +402,23 @@ export class RoutineSlotsService {
       tenant_name: string;
     }> = await manager.query(
       `SELECT rs.id, lt.id AS local_teacher_id, rs.weekday, rs.recurrence, rs.recurrence_offset,
-              rs.valid_from::text AS valid_from, rs.valid_to::text AS valid_to,
+              GREATEST(rs.valid_from, ay.start_date)::text AS valid_from,
+              LEAST(COALESCE(rs.valid_to, ay.end_date), ay.end_date)::text AS valid_to,
               ps.starts_at, ps.ends_at, ps.name AS period_name, sch.name AS tenant_name
          FROM teachers lt
          JOIN teachers ft ON ft.user_id = lt.user_id AND ft.tenant_id <> lt.tenant_id AND ft.deleted_at IS NULL
-                  JOIN routine_slot_teachers rst ON rst.teacher_id = ft.id AND rst.tenant_id = ft.tenant_id
+         JOIN routine_slot_teachers rst ON rst.teacher_id = ft.id AND rst.tenant_id = ft.tenant_id
          JOIN routine_slots rs ON rs.id = rst.routine_slot_id AND rs.tenant_id = ft.tenant_id
          JOIN routines r ON r.id = rs.routine_id AND r.tenant_id = ft.tenant_id AND r.deleted_at IS NULL
          JOIN academic_years ay ON ay.id = r.academic_year_id AND ay.tenant_id = ft.tenant_id
-              AND ay.is_current = true AND ay.deleted_at IS NULL
+              AND ay.deleted_at IS NULL
+              AND ay.end_date >= $4::date AND ($5::date IS NULL OR ay.start_date <= $5::date)
          JOIN period_slots ps ON ps.id = rs.period_slot_id AND ps.tenant_id = ft.tenant_id
          JOIN schools sch ON sch.id = ft.tenant_id AND sch.deleted_at IS NULL
         WHERE lt.tenant_id = $1 AND lt.id = ANY($3::uuid[])
-          AND EXISTS (SELECT 1 FROM user_tenants ut WHERE ut.user_id = $2
-                       AND ut.tenant_id = ft.tenant_id AND ut.deleted_at IS NULL)`,
-      [tenantId, actorUserId, teacherIds],
+          AND (rs.valid_to IS NULL OR rs.valid_to >= $4::date)
+          AND ${actorIsStaffIn('$2', 'ft.tenant_id')}`,
+      [tenantId, actorUserId, teacherIds, candidate.valid_from, candidate.valid_to ?? null],
     );
     return rows.map((r) => ({
       id: r.id,
