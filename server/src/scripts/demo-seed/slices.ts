@@ -30,8 +30,13 @@ export const SLICES: DemoSlice[] = [
   attention,
 ];
 
-/** Entities that no slice fills, with the reason. 58.1.05's coverage guard reads this. */
+/** Entities that no slice fills, with the reason. `demo-seed.coverage.integration.spec.ts` reads this. */
 export const EXEMPT: Record<string, string> = {
   PlatformAlert: 'platform incident state, not school data',
   PushSubscription: 'push is off in the demo (D2)',
+  RefreshToken: 'login state, minted by real sign-ins',
+  AuthToken: 'login state: reset / verification tokens',
+  UserIdentity: 'login state: sign-in credentials come from the seeded users',
+  WorkbookJob: 'backups are off in the demo (D2)',
+  AuditLog: 'written by services as a side effect, never seeded directly',
 };
