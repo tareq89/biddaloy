@@ -229,6 +229,39 @@ describe('AttendanceAccessService (integration)', () => {
       expect(ids).not.toContain(sectionB1Id);
     });
 
+    it('does not list a previous-year section for ADMIN, but it stays reachable by direct link', async () => {
+      const ids = (
+        await service.listMarkableSections(UserRole.ADMIN, teacherAUserId, TENANT_A)
+      ).map((s) => s.id);
+      expect(ids).not.toContain(sectionOldId);
+      // Old registers stay readable/correctable by direct URL.
+      const opened = await service.assertCanAccessSection(
+        UserRole.ADMIN,
+        teacherAUserId,
+        sectionOldId,
+        TENANT_A,
+      );
+      expect(opened.id).toBe(sectionOldId);
+    });
+
+    it('gives ADMIN no sections when the tenant has no current year', async () => {
+      await dataSource
+        .getRepository(AcademicYear)
+        .update({ tenant_id: TENANT_A }, { is_current: false });
+      try {
+        expect(
+          await service.listMarkableSections(UserRole.ADMIN, teacherAUserId, TENANT_A),
+        ).toEqual([]);
+      } finally {
+        await dataSource
+          .getRepository(AcademicYear)
+          .update(
+            { tenant_id: TENANT_A, name: 'Attendance Access Test Year' },
+            { is_current: true },
+          );
+      }
+    });
+
     it('gives an unrecognized role no sections at all', async () => {
       const sections = await service.listMarkableSections(
         'SOME_OTHER_ROLE',
