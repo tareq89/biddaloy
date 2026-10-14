@@ -8314,7 +8314,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Demo role cards and the shared demo password (404 outside the demo). */
+        /** Demo role cards and the shared demo password (`enabled: false` outside the demo). */
         get: operations["DemoController_roles_v1"];
         put?: never;
         post?: never;
@@ -14856,6 +14856,8 @@ export interface components {
             tryKey: string;
         };
         DemoRolesResponseDto: {
+            /** @description False outside the demo; `cards` is then empty and `password` blank. */
+            enabled: boolean;
             /** @description Shared password of every demo login. */
             password: string;
             cards: components["schemas"]["DemoRoleDto"][];
