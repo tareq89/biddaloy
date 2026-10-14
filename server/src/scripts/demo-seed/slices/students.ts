@@ -688,7 +688,12 @@ function simulate(ctx: DemoSeedContext, org: OrgIds) {
     const t = tOf(kind);
     const cls = org.tenants[t].years[Y - 1].classes.find((c) => c.numericGrade === grade)!;
     const idx = org.tenants[t].years[Y - 1].classes.indexOf(cls);
-    return cur[t][idx].find((s) => !section || cls.sections[lastStay(s).s].name === section)!;
+    const here = cur[t][idx].filter(
+      (s) => !section || cls.sections[lastStay(s).s].name === section,
+    );
+    // Not a Primary leaver's High clone: that child's person (and household) is shared with Primary.
+    const solo = here.filter((s) => stus.every((o) => o === s || o.person !== s.person));
+    return (solo[0] ?? here[0])!;
   };
   const d13 = {
     hh: newHousehold(Y - 1),
@@ -699,10 +704,12 @@ function simulate(ctx: DemoSeedContext, org: OrgIds) {
   d13.hh.hasMother = true;
   d13.primary.person.hh = d13.hh;
   d13.high.person.hh = d13.hh;
+  // Households the two re-parented children left behind would keep guardians with no child.
+  const used = new Set(stus.map((x) => x.person.hh));
+  households.splice(0, households.length, ...households.filter((h) => used.has(h)));
 
   // Names, phones and addresses, once every household is final.
-  let phone = 0;
-  const nextPhone = () => `01700-${pad(++phone, 6)}`;
+  const nextPhone = ctx.nextPhone;
   const regSeq = new Map<string, number>();
   let birthSeq = 0;
   const pickName = (list: readonly NamePair[]) => ctx.rng.helpers.arrayElement(list);

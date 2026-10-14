@@ -177,6 +177,14 @@ describe('students slice (integration, 4 years, scale 0.1)', () => {
       `SELECT g.phone, g.email FROM guardians g JOIN schools s ON s.id = g.tenant_id
         WHERE ${D} AND g.relationship = 'Father'`,
     );
+    [{ orphans: facts.orphanGuardians }] = await q(
+      `SELECT count(*)::int AS orphans FROM guardians g
+        WHERE NOT EXISTS (SELECT 1 FROM student_guardians sg WHERE sg.guardian_id = g.id)`,
+    );
+    [{ shared: facts.sharedGuardians }] = await q(
+      `SELECT count(*)::int AS shared FROM (
+         SELECT guardian_id FROM student_guardians GROUP BY guardian_id HAVING count(*) >= 2) x`,
+    );
     facts.regDuplicates = await q(
       `SELECT registration_number FROM students GROUP BY tenant_id, registration_number HAVING count(*) > 1`,
     );
@@ -244,6 +252,11 @@ describe('students slice (integration, 4 years, scale 0.1)', () => {
     expect(facts.card9b[0].section_name).toBe('B');
     expect(facts.card9b[0].enrollment_status).toBe('ACTIVE');
     expect(facts.hashes).toHaveLength(1);
+  });
+
+  it('every Guardian has a child, and some siblings share one Guardian row', () => {
+    expect(facts.orphanGuardians).toBe(0);
+    expect(facts.sharedGuardians).toBeGreaterThan(0);
   });
 
   it('uses the D26 contact pattern and publishes ids for later slices', () => {

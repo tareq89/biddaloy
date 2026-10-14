@@ -34,6 +34,11 @@ import { slice as staff } from './staff';
 import { slice } from './routine';
 
 const ANCHOR = '2026-10-10'; // a Saturday: a school day
+/** The slice covers the first school day from the anchor on (Friday is the off day). */
+const SCHOOL_DAY =
+  new Date(`${ANCHOR}T00:00:00Z`).getUTCDay() === 5
+    ? new Date(Date.parse(ANCHOR) + 86_400_000).toISOString().slice(0, 10)
+    : ANCHOR;
 
 describe('routine slice (integration, 2 years, scale 0.2)', () => {
   let ds: DataSource;
@@ -171,7 +176,7 @@ describe('routine slice (integration, 2 years, scale 0.2)', () => {
     const subs = await q(
       `SELECT date::text AS date FROM routine_substitutions WHERE substitute_teacher_id IS NOT NULL`,
     );
-    expect(subs).toEqual([{ date: ANCHOR }]);
+    expect(subs).toEqual([{ date: SCHOOL_DAY }]);
     const card = DEMO_CARDS.find((c) => c.key === 'class-teacher-8a')!;
     const requests = await q(
       `SELECT cr.state FROM routine_change_requests cr JOIN users u ON u.id = cr.requested_by
