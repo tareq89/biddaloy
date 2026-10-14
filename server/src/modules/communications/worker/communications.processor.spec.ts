@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CommunicationsProcessor } from './communications.processor';
 import { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
 import { DemoLogProvider } from '../providers/demo/demo-log.provider';
@@ -61,6 +61,8 @@ describe('CommunicationsProcessor', () => {
       opts: { attempts: overrides.attempts ?? 3 },
     } as any;
   }
+
+  afterEach(() => vi.unstubAllEnvs());
 
   beforeEach(() => {
     provider = { send: vi.fn() };
@@ -156,7 +158,6 @@ describe('CommunicationsProcessor', () => {
         metadata: expect.objectContaining({ raw: { provider: 'demo-log' } }),
       }),
     );
-    vi.unstubAllEnvs();
   });
 
   // [15.6.1] `result.segments` (from the shared `countSmsSegments` via the

@@ -1,4 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { ALERT_RULES, CommunicationStatus } from '@biddaloy/shared';
+import { CommunicationsProcessor } from '../../communications/worker/communications.processor';
+import { CommunicationProviderRegistryService } from '../../communications/providers/communication-provider.registry';
+import { DemoLogProvider } from '../../communications/providers/demo/demo-log.provider';
 import {
   GuardianSmsFallbackService,
   fallbackReferenceKey,
@@ -101,5 +105,106 @@ describe('GuardianSmsFallbackService gates', () => {
       .mockRejectedValueOnce(new Error('db down'));
     const { service } = build(query);
     await expect(service.run(new Date())).resolves.toBeUndefined();
+  });
+});
+
+describe('GuardianSmsFallbackService in DEMO_MODE [58.1.02]', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  // A school whose SMS provider is only a placeholder still gets its fallback delivered as a
+  // SENT demo-log row: the registry swaps every medium for DemoLogProvider.
+  it('ends a fallback SMS as a SENT demo-log row', async () => {
+    vi.stubEnv('DEMO_MODE', 'true');
+    const ruleKey = ALERT_RULES.find(
+      (r) => r.guardianSmsFallback && r.key !== 'child.absent_today',
+    )!.key;
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce([{ id: 'a1', rule_key: ruleKey, params: {}, student_id: 's1' }])
+      .mockResolvedValueOnce([
+        {
+          id: 'g1',
+          user_id: null,
+          phone: '01712345678',
+          full_name: 'Guardian',
+          notifications_enabled: true,
+          is_primary_contact: true,
+          student_id: 's1',
+          has_push: false,
+        },
+      ])
+      .mockResolvedValue([]);
+    let saved: any;
+    const logRepo = {
+      create: (x: object) => x,
+      save: vi.fn(async (x: object) => (saved = { id: 'log-1', ...x })),
+    };
+    const queue = { add: vi.fn() };
+    const message = { title: 't', why: 'w', steps: [] as string[] };
+    const service = new GuardianSmsFallbackService(
+      {
+        query,
+        getRepository: () => logRepo,
+        createQueryRunner: () => ({
+          connect: vi.fn(),
+          query: vi.fn().mockResolvedValue([{ ok: true }]),
+          release: vi.fn(),
+        }),
+      } as any,
+      queue as any,
+      { isMetered: vi.fn().mockResolvedValue(false), reserve: vi.fn() } as any,
+      { get: () => ({ messages: { bn: message, en: message } }) } as any,
+    );
+
+    const queued = await service.runTenant(
+      {
+        id: 't1',
+        name: 'S',
+        name_bn: null,
+        settings: {
+          communications: { sms: { provider: 'placeholder' } },
+          attention: { guardianSmsFallback: true, quietHours: { start: '00:00', end: '00:00' } },
+        },
+      },
+      new Date('2026-10-10T06:00:00Z'),
+    );
+    expect(queued).toBe(1);
+    expect(queue.add).toHaveBeenCalledWith('send', { logId: 'log-1' });
+
+    // Hand the queued log to the real processor with the real (demo) registry.
+    const txSave = vi.fn(async (l: object) => l);
+    const processor = new CommunicationsProcessor(
+      {
+        findOneOrFail: async () => ({ ...saved }),
+        findOne: async () => ({ ...saved }),
+        save: async (l: object) => l,
+        manager: { transaction: async (cb: any) => cb({ save: txSave, query: vi.fn() }) },
+      } as any,
+      { findOne: async () => null } as any,
+      new CommunicationProviderRegistryService(
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        new DemoLogProvider(),
+      ),
+      { isActive: async () => true } as any,
+      { settlePart: vi.fn(), isMetered: async () => false } as any,
+      { sendToUser: async () => ({ accepted: 0, transient: 0, pruned: 0 }) } as any,
+    );
+    await processor.process({
+      name: undefined,
+      data: { logId: 'log-1' },
+      attemptsMade: 0,
+      opts: { attempts: 3 },
+    } as any);
+
+    expect(txSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: CommunicationStatus.SENT,
+        provider_message_id: expect.stringMatching(/^demo-log-/),
+        metadata: expect.objectContaining({ raw: { provider: 'demo-log' } }),
+      }),
+    );
   });
 });
