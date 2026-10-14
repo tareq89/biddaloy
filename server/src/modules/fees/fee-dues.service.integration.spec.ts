@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
+import { localDate } from '../../common/time';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { FeeDuesService } from './fee-dues.service';
@@ -176,17 +177,19 @@ describe('FeeDuesService (integration)', () => {
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
-  // `due_date` is a `date` column compared with Postgres CURRENT_DATE (UTC).
-  // TypeORM writes a Date into a `date` column from its *local* parts, so
-  // build each day from the UTC calendar date — otherwise between 00:00 and
-  // the UTC offset (e.g. 00:00–06:00 in Dhaka) "yesterday" lands on today.
-  const utcDay = (offsetDays: number) => {
-    const d = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
-    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  // `due_date` is a `date` column compared with the school's day (Asia/Dhaka,
+  // `localToday()`), passed in by the app. TypeORM writes a Date into a `date`
+  // column from its *local* parts, so build each day from the Dhaka calendar
+  // date — otherwise "yesterday" can land on today around midnight.
+  const day = (offsetDays: number) => {
+    const [y, m, d] = localDate(new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000))
+      .split('-')
+      .map(Number);
+    return new Date(y, m - 1, d);
   };
-  const YESTERDAY = utcDay(-1);
-  const TODAY = utcDay(0);
-  const TOMORROW = utcDay(1);
+  const YESTERDAY = day(-1);
+  const TODAY = day(0);
+  const TOMORROW = day(1);
 
   function makeStudent(overrides: Partial<Student> = {}) {
     studentSeq += 1;
@@ -332,13 +335,61 @@ describe('FeeDuesService (integration)', () => {
       // `due_date` is a `date` column, so the old `< NOW()` widened it to
       // midnight and counted today's fee from 00:00 onwards — telling a
       // parent they were late on the day they were asked to pay.
-      // `< CURRENT_DATE` is the fix; this pins it.
+      // `< :today` (the school's day) is the fix; this pins it.
       const student = await studentRepo.save(makeStudent());
       await studentFeeRepo.save(makeFee(student.id, { month: 1, due_date: TODAY }));
 
       const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
 
       expect(result.data[0].months_overdue).toBe(0);
+    });
+
+    describe('months_overdue at the Dhaka midnight boundary', () => {
+      // Postgres CURRENT_DATE cannot be frozen, so these use June 2030: the
+      // real DB date (2026) can never match the frozen app clock, and the old
+      // CURRENT_DATE code fails them in any DB timezone.
+      afterEach(() => vi.useRealTimers());
+      const freeze = (iso: string) => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date(iso));
+      };
+      const dueOn = async (...dates: string[]) => {
+        const student = await studentRepo.save(makeStudent());
+        for (const [i, date] of dates.entries()) {
+          const [y, m, d] = date.split('-').map(Number);
+          await studentFeeRepo.save(
+            makeFee(student.id, { month: i + 1, due_date: new Date(y, m - 1, d) }),
+          );
+        }
+      };
+
+      it('23:59 Dhaka on the due day: not overdue', async () => {
+        freeze('2030-06-14T17:59:00Z');
+        await dueOn('2030-06-14');
+        const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+        expect(result.data[0].months_overdue).toBe(0);
+      });
+
+      it('00:00 Dhaka the next day: overdue (not 6 hours later)', async () => {
+        freeze('2030-06-14T18:00:00Z');
+        await dueOn('2030-06-14');
+        const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+        expect(result.data[0].months_overdue).toBe(1);
+      });
+
+      it('05:59 Dhaka: the fee due today is not late, the earlier one is', async () => {
+        freeze('2030-06-14T23:59:00Z');
+        await dueOn('2030-06-14', '2030-06-15');
+        const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+        expect(result.data[0].months_overdue).toBe(1);
+      });
+
+      it('06:00 Dhaka: still only the earlier fee', async () => {
+        freeze('2030-06-15T00:00:00Z');
+        await dueOn('2030-06-14', '2030-06-15');
+        const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+        expect(result.data[0].months_overdue).toBe(1);
+      });
     });
 
     it('filters by class_id', async () => {

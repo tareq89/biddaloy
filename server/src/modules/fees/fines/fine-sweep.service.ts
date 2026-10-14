@@ -22,6 +22,7 @@ import {
   toBengaliDigits,
 } from '../../communications/fee-notification-template.util';
 import { FINE_TRIGGERS } from './triggers/fine-trigger';
+import { localToday } from '../../../common/time';
 import {
   FineSweepDuplicateDto,
   FineSweepGenerateResultDto,
@@ -368,7 +369,7 @@ export class FineSweepService {
     duplicateStrategy: DuplicateStrategy = DuplicateStrategy.SKIP,
     notify?: boolean,
     request: RequestLike = { headers: {} },
-    today: string = new Date().toISOString().slice(0, 10),
+    today: string = localToday(),
   ): Promise<FineSweepGenerateResultDto> {
     const settings = await this.loadSettings(tenantId);
     const rows = await this.compute(tenantId, month, scope, settings);
