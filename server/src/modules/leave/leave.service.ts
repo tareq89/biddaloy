@@ -20,13 +20,9 @@ import { LeavePolicy } from './entities/leave-policy.entity';
 import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { AuditService } from '../audit/audit.service';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
+import { SchoolsService } from '../schools/schools.service';
 import { StaffAttendanceService } from '../staff-attendance/staff-attendance.service';
 import { LeaveBalanceDto, LeavePolicyDto } from './dto/leave.dto';
-
-function currentYearRange(): { from: string; to: string } {
-  const year = new Date().getUTCFullYear();
-  return { from: `${year}-01-01`, to: `${year}-12-31` };
-}
 
 /** Jan 1 - Dec 31 of `year` (D16: leave year = calendar year). */
 function yearRange(year: number): { from: string; to: string } {
@@ -51,6 +47,7 @@ export class LeaveService {
     private readonly auditService: AuditService,
     private readonly schoolCalendarService: SchoolCalendarService,
     private readonly staffAttendanceService: StaffAttendanceService,
+    private readonly schoolsService: SchoolsService,
   ) {}
 
   private async getPolicy(tenantId: string, leaveType: LeaveType): Promise<LeavePolicy> {
@@ -89,7 +86,13 @@ export class LeaveService {
     return profile;
   }
 
-  /** `quota - sum(APPROVED days this calendar year)`, computed live — no
+  /** The tenant-local calendar year (its `region.timezone`), not the UTC one. */
+  private async currentYearRange(tenantId: string): Promise<{ from: string; to: string }> {
+    const year = (await this.schoolsService.todayFor(tenantId)).slice(0, 4);
+    return yearRange(Number(year));
+  }
+
+  /** `quota - sum(APPROVED days this calendar year in the tenant's timezone)`, computed live — no
    * stored counter (D12). Read-only display endpoint: intentionally always
    * the *current* year, unlike the request/decide balance checks which use
    * every calendar year the leave touches. */
@@ -97,13 +100,14 @@ export class LeaveService {
     tenantId: string,
     staffProfileId: string,
     leaveType: LeaveType,
+    range?: { from: string; to: string },
   ): Promise<LeaveBalanceDto> {
     return this.computeBalance(
       this.leaveRecordRepo,
       tenantId,
       staffProfileId,
       leaveType,
-      currentYearRange(),
+      range ?? (await this.currentYearRange(tenantId)),
     );
   }
 
@@ -117,8 +121,9 @@ export class LeaveService {
   ): Promise<LeaveBalanceDto[]> {
     await this.assertStaffProfileAccessible(tenantId, staffProfileId, callerUserId, role);
     const types = Object.values(LeaveType);
+    const range = await this.currentYearRange(tenantId);
     return Promise.all(
-      types.map((leaveType) => this.getBalance(tenantId, staffProfileId, leaveType)),
+      types.map((leaveType) => this.getBalance(tenantId, staffProfileId, leaveType, range)),
     );
   }
 

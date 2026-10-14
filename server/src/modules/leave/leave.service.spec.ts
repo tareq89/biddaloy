@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { LeaveStatus, LeaveType } from '@biddaloy/shared';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { LeaveStatus, LeaveType, UserRole } from '@biddaloy/shared';
+import { localToday } from '../../common/time';
 import { LeaveService } from './leave.service';
 
 /**
@@ -32,6 +33,13 @@ describe('LeaveService (unit)', () => {
     };
   }
 
+  let schoolsService: { todayFor: ReturnType<typeof vi.fn> };
+  let tenantTz: string;
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     leaveRecordRepo = {
       createQueryBuilder: vi.fn(),
@@ -54,6 +62,9 @@ describe('LeaveService (unit)', () => {
     };
     auditService = { record: vi.fn().mockResolvedValue(undefined) };
     calendar = { getWorkingDays: vi.fn() };
+    tenantTz = 'Asia/Dhaka';
+    // Same derivation as the real `SchoolsService.todayFor`, minus the DB read.
+    schoolsService = { todayFor: vi.fn(async () => localToday(tenantTz)) };
 
     service = new LeaveService(
       leaveRecordRepo,
@@ -62,6 +73,7 @@ describe('LeaveService (unit)', () => {
       auditService,
       calendar,
       { markLeaveRange: vi.fn(), revertLeaveRange: vi.fn() } as any,
+      schoolsService,
     );
   });
 
@@ -110,6 +122,40 @@ describe('LeaveService (unit)', () => {
         'leave_record.status = :status',
         expect.objectContaining({ status: LeaveStatus.APPROVED }),
       );
+    });
+  });
+
+  describe('getBalance year is the tenant-local year', () => {
+    it.each([
+      ['2026-12-31T17:59:00Z', 'Asia/Dhaka', '2026'],
+      ['2026-12-31T18:00:00Z', 'Asia/Dhaka', '2027'],
+      ['2026-12-31T23:59:00Z', 'Asia/Dhaka', '2027'],
+      ['2027-01-01T00:00:00Z', 'Asia/Dhaka', '2027'],
+      ['2027-01-01T01:00:00Z', 'America/New_York', '2026'],
+      ['2027-01-01T05:00:00Z', 'America/New_York', '2027'],
+    ])('at %s in %s the range is %s', async (instant, tz, year) => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(instant));
+      tenantTz = tz;
+      leavePolicyRepo.findOne.mockResolvedValue({ annual_quota_days: 10 });
+      const qb = makeQueryBuilder(0);
+      leaveRecordRepo.createQueryBuilder.mockReturnValue(qb);
+
+      await service.getBalance(TENANT_ID, STAFF_PROFILE_ID, LeaveType.CASUAL);
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('start_date'),
+        expect.objectContaining({ from: `${year}-01-01`, to: `${year}-12-31` }),
+      );
+    });
+
+    it('getBalancesForCaller resolves the tenant day once, not once per leave type', async () => {
+      leavePolicyRepo.findOne.mockResolvedValue({ annual_quota_days: 10 });
+      leaveRecordRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(0));
+
+      await service.getBalancesForCaller(TENANT_ID, STAFF_PROFILE_ID, OWNER_USER_ID, UserRole.TEACHER);
+
+      expect(schoolsService.todayFor).toHaveBeenCalledTimes(1);
     });
   });
 });
