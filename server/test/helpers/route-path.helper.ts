@@ -373,6 +373,13 @@ export const ALLOWLIST: AllowlistEntry[] = [
     reason:
       '[13.3.1] Public, unauthenticated — checks the code and creates the school in trial; STRICT throttle, 5-attempt lock, single-use stage.',
   },
+  {
+    controller: 'DemoController',
+    method: 'GET',
+    path: '/demo/roles',
+    reason:
+      '[58.1.01] Public, unauthenticated — the demo login cards and shared demo password; 404 unless DEMO_MODE=true, default throttle.',
+  },
 ];
 
 export function describeGuards(guards: unknown[]): string {
