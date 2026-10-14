@@ -145,6 +145,12 @@ describe('students slice (integration, 4 years, scale 0.1)', () => {
       `SELECT r.status, count(*)::int AS n, count(DISTINCT (r.tenant_id, r.target_academic_year_id))::int AS years
          FROM promotion_runs r JOIN schools s ON s.id = r.tenant_id WHERE ${D} GROUP BY 1`,
     );
+    // Every run, bulk or service-committed, is stamped on its source year's last day, never "today".
+    facts.runsOffYearEnd = await q(
+      `SELECT r.id FROM promotion_runs r JOIN schools s ON s.id = r.tenant_id
+         JOIN academic_years y ON y.id = r.source_academic_year_id
+        WHERE ${D} AND (r.committed_at AT TIME ZONE 'Asia/Dhaka')::date <> y.end_date`,
+    );
     facts.futureEvents = await q(
       `SELECT l.id FROM student_lifecycle_events l JOIN academic_years y ON y.id = l.academic_year_id
          JOIN schools s ON s.id = l.tenant_id
@@ -231,6 +237,7 @@ describe('students slice (integration, 4 years, scale 0.1)', () => {
     const committed = facts.runs.find((r: any) => r.status === 'COMMITTED');
     expect(committed.years).toBe(3 * (YEARS - 1)); // 3 branches x one run set per transition
     expect(facts.runs.find((r: any) => r.status === 'DRAFT')).toBeUndefined();
+    expect(facts.runsOffYearEnd).toEqual([]);
   });
 
   it('the D13 guardian is one login with a Guardian row in Primary and in High, same phone and email', () => {

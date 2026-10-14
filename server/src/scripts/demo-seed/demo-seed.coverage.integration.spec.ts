@@ -15,7 +15,8 @@ import { validate } from './validator';
  */
 const BUDGET_MS = 90_000; // D39
 const MAIN = { scale: 0.05, years: 2, anchor: '2026-10-10' };
-const SMALL = { scale: 0.02, years: 1, anchor: '2026-10-10' };
+// years: 2 so the pair also runs the PromotionsService.commit path (years 1 never reaches it).
+const SMALL = { scale: 0.02, years: 2, anchor: '2026-10-10' };
 const TENANTS = `SELECT id FROM schools WHERE slug LIKE 'bmsc-%'`;
 
 const entityNames = ALL_ENTITIES.map((e) => (e as { name: string }).name);
