@@ -89,17 +89,20 @@ async function countRows(ds: DataSource, tables: Table[]): Promise<Record<string
 
 /**
  * Columns a real service stamps with the real clock while the seed runs ("today" comes from the real
- * services). Only these lose their time of day (the space form of a timestamptz); every other column
- * must match in full, so a stray `Date.now()` in a slice still fails determinism.
+ * services). Only these lose their whole timestamp (date too: a run straddling Dhaka midnight changes
+ * the date); every other column must match in full, so a stray `Date.now()` in a slice still fails determinism.
  */
 const CLOCK_COLS: Record<string, string[]> = {
   payments: ['payment_date'],
   invoices: ['issued_date', 'due_date'],
   invoice_share_tokens: ['expires_at'],
   applications: ['decided_at'], // today's decisions go through ApplicationDecisionsService
-  alerts: ['raised_at', 'last_evaluated_at', 'expires_at'], // manual alerts go through ManualAlertsService
+  alerts: ['raised_at', 'last_evaluated_at', 'expires_at'], // manual alerts only, see CLOCK_ONLY_WHEN
   alert_recipients: ['pushed_at'], // delivery stamps it with the real clock, after the seed returns
 };
+
+/** Row filter for a table's CLOCK_COLS: rule and history alerts derive from the anchor, so they stay exact. */
+const CLOCK_ONLY_WHEN: Record<string, string> = { alerts: `source = 'MANUAL'` };
 
 /** Counts plus an md5 of business columns per table; ids, timestamps and hashes are left out. */
 async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<string, string>> {
@@ -112,12 +115,21 @@ async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<stri
     // Strip uuids (tenant ids sit inside storage keys and `_by` columns) and ISO clock times inside
     // jsonb (the preset apply stamps `appliedAt`, invoice snapshots `captured_at`); the CLOCK_COLS also
     // lose the Postgres space form. Everything else must match byte for byte.
+    const uuid = (c: string) =>
+      `regexp_replace("${c}"::text, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 'U', 'g')`;
+    const iso = (e: string) =>
+      `regexp_replace(${e}, 'T[0-9]{2}:[0-9]{2}:[0-9]{2}[0-9.]*(Z|[+-][0-9:]+)?', 'T', 'g')`;
+    const whole = (e: string) =>
+      `regexp_replace(${e}, '[0-9]{4}-[0-9]{2}-[0-9]{2}([ T][0-9]{2}:[0-9]{2}:[0-9]{2}[0-9.]*(Z|[+-][0-9:]+)?)?', 'T', 'g')`;
     const row =
       cols
-        .map(
-          (c) =>
-            `regexp_replace(regexp_replace("${c}"::text, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 'U', 'g'), '${CLOCK_COLS[t.table]?.includes(c) ? '[ T]' : 'T'}[0-9]{2}:[0-9]{2}:[0-9]{2}[0-9.]*(Z|[+-][0-9:]+)?', 'T', 'g')`,
-        )
+        .map((c) => {
+          const plain = iso(uuid(c));
+          if (!CLOCK_COLS[t.table]?.includes(c)) return plain;
+          const stripped = whole(uuid(c));
+          const when = CLOCK_ONLY_WHEN[t.table];
+          return when ? `CASE WHEN ${when} THEN ${stripped} ELSE ${plain} END` : stripped;
+        })
         .join(', ') || `''`;
     const [{ h, n }] = await ds.query(
       `SELECT count(*)::int AS n,
