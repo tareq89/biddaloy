@@ -878,6 +878,56 @@ export class DocumentsSettingsDto {
   serialPrefix?: string | null;
 }
 
+export class DashboardRiskThresholdsDto {
+  @ApiPropertyOptional({ minimum: 1, maximum: 30 })
+  @OptionalSetting()
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  absentStreakDays?: number;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 100 })
+  @OptionalSetting()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  monthlyAttendancePct?: number;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 20 })
+  @OptionalSetting()
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  failedSubjects?: number;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 365 })
+  @OptionalSetting()
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  overdueDays?: number;
+}
+
+/** [8.10.7] `settings.dashboard` — at-risk thresholds (D7), committee target (D23), digest time (D31). */
+export class DashboardSettingsDto {
+  @OptionalSetting()
+  @NestedSettings(() => DashboardRiskThresholdsDto)
+  risk?: DashboardRiskThresholdsDto;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 100 })
+  @OptionalSetting()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  committeeAttendanceTargetPct?: number;
+
+  @ApiPropertyOptional({ example: '07:30' })
+  @OptionalSetting()
+  @IsString()
+  @Matches(HH_MM_PATTERN, { message: 'digestTime must be HH:mm' })
+  digestTime?: string;
+}
+
 /** [66.1.04] `settings.studyPlans` — reminder and digest timing (D25, D26).
  * `@OptionalSetting` (not `@IsOptional`): an explicit `null` is a 400, since
  * clearing a field is not supported — omit it to keep the default. */
@@ -1005,4 +1055,8 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => AttentionSettingsDto)
   attention?: AttentionSettingsDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => DashboardSettingsDto)
+  dashboard?: DashboardSettingsDto;
 }
