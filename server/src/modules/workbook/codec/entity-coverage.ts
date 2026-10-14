@@ -15,6 +15,7 @@ import { AuditLog } from '../../audit/entities/audit-log.entity';
 import { UserTenant } from '../../auth/entities/user-tenant.entity';
 import { UserIdentity } from '../../auth/entities/user-identity.entity';
 import { AuthToken } from '../../account-access/entities/auth-token.entity';
+import { RefreshToken } from '../../auth/entities/refresh-token.entity';
 import { CommunicationLog } from '../../communications/entities/communication-log.entity';
 import { ReminderBatch } from '../../communications/entities/reminder-batch.entity';
 import { SmsCreditLedger } from '../../communications/credits/entities/sms-credit-ledger.entity';
@@ -71,6 +72,7 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   ],
   [AuditLog, 'Append-only audit trail, not tenant content to restore.'],
   [AuthToken, 'Password-reset / email-verification / refresh token — a regenerable credential.'],
+  [RefreshToken, 'Sign-in session credential — a regenerable token, not school data.'],
   [
     UserIdentity,
     'A sign-in credential of a person, not school data — restoring it from a workbook would let a file grant sign-in.',
