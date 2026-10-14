@@ -170,7 +170,7 @@ describe('GuardianContactForm', () => {
       { locale: 'en' },
     );
 
-    expect(await screen.findByText('+8801712345678')).toBeTruthy();
+    expect(await screen.findByText('01712-345678')).toBeTruthy();
     expect(screen.getByText('Change it under Contact.')).toBeTruthy();
     // No inputs for the two locked fields.
     expect(screen.queryByLabelText('Phone')).toBeNull();

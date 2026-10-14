@@ -28,7 +28,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { useTranslation, type RegionConfig } from '../i18n';
-import { parsePhone } from '../utils/phone';
+import { formatPhone, parsePhone } from '../utils/phone';
 
 import { Button } from './button';
 import { Card } from './card';
@@ -185,7 +185,9 @@ export function GuardianContactForm({
                     <dt className="text-caption text-text-secondary">
                       {t('account.guardian.fields.phone')}
                     </dt>
-                    <dd className="text-text-primary">{defaultValues.phone || '—'}</dd>
+                    <dd className="text-text-primary">
+                      {formatPhone(defaultValues.phone, config)}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-caption text-text-secondary">

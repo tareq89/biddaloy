@@ -464,6 +464,7 @@ describe('/guardians/$guardianId', () => {
     ).toBeTruthy();
     expect(screen.queryByRole('textbox', { name: 'Email' })).toBeNull();
     expect(screen.getAllByText('karim@example.com').some((el) => el.tagName === 'DD')).toBe(true);
+    expect(screen.getAllByText('01711-111111').some((el) => el.tagName === 'DD')).toBe(true);
 
     const user = userEvent.setup();
     await user.type(screen.getByRole('textbox', { name: 'Occupation' }), 'Farmer');
