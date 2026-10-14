@@ -86,10 +86,13 @@ async function academicYear(ds: Db): Promise<Violation[]> {
   }));
 }
 
+// Waivers are not a column in the model, so they are not checked.
 async function money(ds: Db): Promise<Violation[]> {
   const fees: Row[] = await ds.query(`/* check:money-fees */
     SELECT sf.id, sf.total_amount::float AS total, sf.paid_amount::float AS paid,
            sf.discount_amount::float AS discount,
+           COALESCE((SELECT sum(pa.discount_amount) FROM payment_allocations pa
+                      WHERE pa.student_fee_id = sf.id), 0)::float AS alloc_discount,
            COALESCE((SELECT sum(pa.allocated_amount) FROM payment_allocations pa
                       WHERE pa.student_fee_id = sf.id), 0)::float AS allocated
       FROM student_fees sf JOIN students st ON st.id = sf.student_id
@@ -101,6 +104,12 @@ async function money(ds: Db): Promise<Violation[]> {
       out.push({
         check: 'money',
         message: `student_fee ${f.id}: paid_amount ${f.paid} <> sum of allocations ${f.allocated}`,
+      });
+    }
+    if (f.alloc_discount > f.discount + 0.005) {
+      out.push({
+        check: 'money',
+        message: `student_fee ${f.id}: allocation discounts ${f.alloc_discount} exceed fee discount ${f.discount}`,
       });
     }
     if (f.paid + f.discount > f.total + 0.005) {
@@ -125,10 +134,12 @@ async function attendance(ds: Db): Promise<Violation[]> {
     `/* check:attendance */
     SELECT DISTINCT a.date::text AS date, s.slug,
            extract(dow FROM a.date)::int = $1 AS off_day,
-           EXISTS (SELECT 1 FROM public_holiday_entries e
-                     JOIN public_holiday_sets hs ON hs.id = e.set_id
-                    WHERE hs.country = s.country_code
-                      AND a.date BETWEEN e.date AND e.end_date) AS holiday
+           EXISTS (SELECT 1 FROM calendar_events h
+                    WHERE h.tenant_id = a.tenant_id AND h.deleted_at IS NULL
+                      AND h.published_at IS NOT NULL AND h.counts_as_working_day = false
+                      AND a.date BETWEEN h.start_date AND h.end_date
+                      AND NOT EXISTS (SELECT 1 FROM calendar_event_classes ec
+                                       WHERE ec.event_id = h.id)) AS holiday
       FROM attendance_sessions a JOIN schools s ON s.id = a.tenant_id
      WHERE ${DEMO}`,
     [WEEKLY_OFF],
@@ -154,16 +165,16 @@ async function enrollment(ds: Db): Promise<Violation[]> {
 }
 
 async function logins(ds: Db): Promise<Violation[]> {
-  const rows: Row[] = await ds.query(`/* check:logins */
+  const rows: Row[] = await ds.query(
+    `/* check:logins */
     SELECT u.email, s.slug
       FROM users u JOIN user_tenants ut ON ut.user_id = u.id
       JOIN schools s ON s.id = ut.tenant_id
      WHERE u.email = ANY($1) AND s.slug = ANY($2)
     UNION ALL
-    SELECT NULL, s.slug FROM schools s WHERE ${DEMO}`, [
-    DEMO_CARDS.map((c) => c.email),
-    [...DEMO_SCHOOL_SLUGS],
-  ]);
+    SELECT NULL, s.slug FROM schools s WHERE ${DEMO}`,
+    [DEMO_CARDS.map((c) => c.email), [...DEMO_SCHOOL_SLUGS]],
+  );
   // No demo branch yet (the org slice is still owed): nothing to check. Coverage rule (c) catches
   // a slice that claims to be done while the branches are missing.
   if (!rows.some((r) => r.email === null)) return [];
