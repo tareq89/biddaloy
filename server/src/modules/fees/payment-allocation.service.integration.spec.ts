@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -505,6 +505,55 @@ describe('PaymentAllocationService (integration)', () => {
       expect(byFee.get(dueOld.id)).toBe(PaymentAllocationType.DUE);
       expect(byFee.get(dueRecent.id)).toBe(PaymentAllocationType.DUE);
       expect(byFee.get(current.id)).toBe(PaymentAllocationType.CURRENT);
+    });
+
+    it('classifies by the Dhaka month, not the server clock (00:30 Dhaka on 1 Jan 2027)', async () => {
+      // 2026-12-31T18:30Z is 1 Jan 2027 in Dhaka but still December in UTC.
+      // Only Date is faked so the pg pool keeps its timers.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-12-31T18:30:00Z'));
+      try {
+        const student = await studentRepo.save(makeStudent());
+        const dec = await studentFeeRepo.save(
+          makeFee(student.id, 0, { period_start: new Date(Date.UTC(2026, 11, 1)) }),
+        );
+        const jan = await studentFeeRepo.save(
+          makeFee(student.id, 0, { period_start: new Date(Date.UTC(2027, 0, 1)) }),
+        );
+        const result = await service.recordWithAllocation(
+          {
+            student_id: student.id,
+            total_amount: 2000,
+            payment_method: PaymentMethod.CASH,
+            allocations: [
+              {
+                student_fee_id: dec.id,
+                allocated_amount: 1000,
+                allocation_type: PaymentAllocationType.DUE,
+              },
+              {
+                student_fee_id: jan.id,
+                allocated_amount: 1000,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
+          } as any,
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        );
+        const invoice = await invoiceRepo.findOneByOrFail({ id: result.invoice_id! });
+        expect(invoice.invoice_number).toMatch(/^INV-2027-\d{5}$/);
+        const types = new Map(
+          (await allocationRepo.find({ where: { payment_id: result.id } })).map((a) => [
+            a.student_fee_id,
+            a.allocation_type,
+          ]),
+        );
+        expect(types.get(dec.id)).toBe(PaymentAllocationType.DUE);
+        expect(types.get(jan.id)).toBe(PaymentAllocationType.CURRENT);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('rejects an attempt to allocate against a future-dated (advance) fee', async () => {
