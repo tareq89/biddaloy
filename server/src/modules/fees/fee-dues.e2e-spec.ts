@@ -139,13 +139,19 @@ describe('Fee Dues E2E', () => {
       expect(Array.isArray(entry.dues)).toBe(true);
     });
 
-    it('allows TEACHER role (read access)', async () => {
-      await supertest(app.getHttpServer())
+    it('admits a TEACHER, scoped to their assigned sections (here: none)', async () => {
+      // This user has no `teachers` row, so its scope is empty; the full teacher
+      // matrix lives in src/teacher-scope-finance.e2e-spec.ts.
+      const studentId = await createStudent();
+      await createFee(studentId, { status: 'PENDING' });
+      const res = await supertest(app.getHttpServer())
         .get('/api/v1/fees/dues')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
         .expect(200);
+      expect(res.body.data).toEqual([]);
+      expect(res.body.total).toBe(0);
     });
 
     /**

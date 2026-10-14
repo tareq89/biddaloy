@@ -615,7 +615,8 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     path: '/fees/dues/flagged',
     reason:
       'staff-only follow-up queue — returns guardian contact details, not exposed to family' +
-      ' #1364 OFFICE_STAFF joined (holds FEE_READ; front-office follow-up with guardian contacts); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
+      ' #1364 OFFICE_STAFF joined (holds FEE_READ; front-office follow-up with guardian contacts); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.' +
+      " #1808 TEACHER kept (Epic 75 D2): rows narrowed to the teacher's current-year assigned sections by TeacherScopeService.scopedStudentIds, so guardian contacts never leave those sections.",
   },
   {
     controller: 'FeeController',
