@@ -1,4 +1,16 @@
-import type { DemoSlice } from '../context';
+import { createHash, randomUUID } from 'crypto';
+import type { DataSource } from 'typeorm';
+import {
+  AttendanceDeviceKind,
+  AttendanceDeviceStatus,
+  AttendanceEventDirection,
+  AttendanceSessionState,
+  AttendanceSource,
+  AttendanceStatus,
+  LeaveStatus,
+  LeaveType,
+} from '@biddaloy/shared';
+import { hashDeviceKey } from '../../../modules/attendance/devices/device.service';
 import { AttendanceSession } from '../../../modules/attendance/entities/attendance-session.entity';
 import { AttendanceRecord } from '../../../modules/attendance/entities/attendance-record.entity';
 import { AttendanceDevice } from '../../../modules/attendance/entities/attendance-device.entity';
@@ -7,6 +19,95 @@ import { StaffAttendanceSession } from '../../../modules/staff-attendance/entiti
 import { StaffAttendanceRecord } from '../../../modules/staff-attendance/entities/staff-attendance-record.entity';
 import { LeavePolicy } from '../../../modules/leave/entities/leave-policy.entity';
 import { LeaveRecord } from '../../../modules/leave/entities/leave-record.entity';
+import { insertChunked } from '../bulk';
+import { demoPassword, type DemoSeedContext, type DemoSlice } from '../context';
+import { schoolDays, todayAt } from '../dates';
+import { orgIds } from './org';
+import { studentIds } from './students';
+import { teachersByTenant } from './staff';
+
+const CHUNK = 5000; // 8-11 columns a row stays under Postgres' 65535 parameters
+const BASE = 0.935; // ~92% overall once monsoon, Eid and the chronic pair are in (D36)
+const LATE_SHARE = 0.03;
+const PERIODS_TODAY = 3; // today's finalized sections have their first 3 periods marked (D15)
+const FINALIZED_SHARE = 0.7;
+/** D9 defaults, same as `seed.util.ts` (not exported there). */
+const POLICIES: [LeaveType, number][] = [
+  [LeaveType.CASUAL, 10],
+  [LeaveType.SICK, 14],
+  [LeaveType.EARNED, 15],
+  [LeaveType.MATERNITY, 112],
+  [LeaveType.PATERNITY, 7],
+];
+const REASONS = ['জরুরি পারিবারিক কাজ', 'অসুস্থতার কারণে', 'ব্যক্তিগত কাজ'];
+
+const addDays = (d: string, n: number) =>
+  new Date(Date.parse(d) + n * 86_400_000).toISOString().slice(0, 10);
+const range = (from: string, to: string): string[] => {
+  const out: string[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
+  return out;
+};
+/** mulberry32: a fast seeded stream. It is seeded from `ctx.rng`, so a run is still deterministic. */
+const stream = (seed: number) => () => {
+  seed = (seed + 0x6d2b79f5) | 0;
+  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+
+type Col = [name: string, pgType: string];
+/**
+ * One `INSERT ... SELECT FROM unnest(...)` per chunk: about 10x faster than the query builder, which is
+ * what the 5M-row history needs (D38). Same effect as `insertChunked`; defaults (source) fill in.
+ */
+async function unnestInsert(
+  ds: DataSource,
+  table: string,
+  cols: Col[],
+  rows: Record<string, unknown>[],
+): Promise<number> {
+  const names = cols.map(([n]) => `"${n}"`).join(', ');
+  const args = cols.map(([, t], i) => `$${i + 1}::${t}[]`).join(', ');
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const part = rows.slice(i, i + CHUNK);
+    await ds.query(
+      `INSERT INTO ${table} (${names}) SELECT * FROM unnest(${args})`,
+      cols.map(([n]) =>
+        part.map((r) => (r[n] instanceof Date ? (r[n] as Date).toISOString() : (r[n] ?? null))),
+      ),
+    );
+  }
+  return rows.length;
+}
+const SESSION_COLS: Col[] = [
+  ['id', 'uuid'],
+  ['tenant_id', 'uuid'],
+  ['section_id', 'uuid'],
+  ['date', 'date'],
+  ['period_no', 'smallint'],
+  ['subject_id', 'uuid'],
+  ['state', 'attendance_session_state_enum'],
+  ['marked_by_user_id', 'uuid'],
+  ['marked_at', 'timestamptz'],
+  ['finalized_at', 'timestamptz'],
+];
+const RECORD_COLS: Col[] = [
+  ['tenant_id', 'uuid'],
+  ['session_id', 'uuid'],
+  ['student_id', 'uuid'],
+  ['date', 'date'],
+  ['status', 'attendance_status_enum'],
+  ['minutes_late', 'int'],
+  ['recorded_by_user_id', 'uuid'],
+  ['recorded_at', 'timestamptz'],
+];
+
+interface PeriodSlot {
+  periodNo: number;
+  subjectId: string;
+  userId: string | null;
+}
 
 export const slice: DemoSlice = {
   name: 'attendance',
@@ -20,6 +121,412 @@ export const slice: DemoSlice = {
     LeavePolicy,
     LeaveRecord,
   ],
-  owedBy: '58.3.01',
-  run: async () => {},
+  run: async (ctx: DemoSeedContext) => {
+    const org = orgIds(ctx);
+    const st = studentIds(ctx);
+    const rnd = stream(ctx.rng.number.int({ min: 1, max: 2 ** 31 - 1 }));
+    const q = <T>(sql: string, args: unknown[] = []): Promise<T[]> => ctx.ds.query(sql, args);
+    const tenantIds = org.tenants.map((t) => t.id);
+    const yesterday = addDays(ctx.anchor, -1);
+    let rows = 0;
+
+    // --- calendar: holidays per tenant / per class, and the Eid windows (D36) ----------------
+    const tenantOff = new Map<string, Set<string>>();
+    const classOff = new Map<string, Set<string>>();
+    const events = await q<{ tenant_id: string; s: string; e: string; classes: string[] }>(
+      `SELECT e.tenant_id, e.start_date::text AS s, e.end_date::text AS e,
+              array(SELECT ec.class_id FROM calendar_event_classes ec WHERE ec.event_id = e.id) AS classes
+         FROM calendar_events e
+        WHERE e.tenant_id = ANY($1) AND e.deleted_at IS NULL AND e.published_at IS NOT NULL
+          AND e.counts_as_working_day = false`,
+      [tenantIds],
+    );
+    for (const ev of events) {
+      const into = (map: Map<string, Set<string>>, key: string) =>
+        map.get(key) ?? map.set(key, new Set()).get(key)!;
+      for (const d of range(ev.s, ev.e)) {
+        if (!ev.classes.length) into(tenantOff, ev.tenant_id).add(d);
+        for (const c of ev.classes) into(classOff, c).add(d);
+      }
+    }
+    const eid = new Set<string>();
+    const eids = await q<{ s: string; e: string }>(
+      `SELECT e.date::text AS s, e.end_date::text AS e FROM public_holiday_entries e
+         JOIN public_holiday_sets h ON h.id = e.set_id
+        WHERE h.country = 'BD' AND e.name LIKE 'Eid-ul-%'`,
+    );
+    for (const h of eids) for (const d of range(addDays(h.s, -3), addDays(h.e, 3))) eid.add(d);
+
+    // --- who marks what: class teachers and the routine's period slots -----------------------
+    const classTeacher = new Map<string, string>();
+    for (const r of await q<{ section_id: string; user_id: string }>(
+      `SELECT DISTINCT ON (tcs.section_id) tcs.section_id, t.user_id
+         FROM teacher_class_sections tcs JOIN teachers t ON t.id = tcs.teacher_id
+        WHERE tcs.tenant_id = ANY($1) AND tcs.assignment_type = 'CLASS_TEACHER'
+        ORDER BY tcs.section_id, t.id`,
+      [tenantIds],
+    ))
+      classTeacher.set(r.section_id, r.user_id);
+    // section -> weekday -> periods (every slot is WEEKLY, so the grid repeats all year)
+    const grid = new Map<string, Map<number, PeriodSlot[]>>();
+    for (const r of await q<{
+      section_id: string;
+      weekday: number;
+      period_no: number;
+      subject_id: string;
+      user_id: string | null;
+    }>(
+      `SELECT rs.section_id, rs.weekday, ps.sequence AS period_no, rs.subject_id,
+              (SELECT t.user_id FROM routine_slot_teachers rst JOIN teachers t ON t.id = rst.teacher_id
+                WHERE rst.routine_slot_id = rs.id ORDER BY t.id LIMIT 1) AS user_id
+         FROM routine_slots rs JOIN period_slots ps ON ps.id = rs.period_slot_id
+        WHERE rs.tenant_id = ANY($1) AND ps.kind = 'CLASS'
+        ORDER BY ps.sequence`,
+      [tenantIds],
+    )) {
+      const byDay = grid.get(r.section_id) ?? grid.set(r.section_id, new Map()).get(r.section_id)!;
+      const list = byDay.get(r.weekday) ?? byDay.set(r.weekday, []).get(r.weekday)!;
+      list.push({ periodNo: r.period_no, subjectId: r.subject_id, userId: r.user_id });
+    }
+
+    // --- devices: one per branch, key derived from DEMO_PASSWORD and never printed (D39) -----
+    const deviceOf = new Map<string, string>();
+    const devices = org.tenants.map((t) => {
+      const key = `bd_dev_${createHash('sha256')
+        .update(`${demoPassword(process.env)}:${t.slug}`)
+        .digest('hex')
+        .slice(0, 36)}`;
+      const id = randomUUID();
+      deviceOf.set(t.id, id);
+      return {
+        id,
+        tenant_id: t.id,
+        name: 'Main Gate Reader',
+        kind: AttendanceDeviceKind.FACE,
+        token_hash: hashDeviceKey(key),
+        token_last4: key.slice(-4),
+        roster_access: true,
+        status: AttendanceDeviceStatus.ACTIVE,
+        last_seen_at: todayAt(ctx.anchor, 8, 0),
+        created_by_user_id: org.adminUserId,
+      };
+    });
+    rows += await insertChunked(ctx.ds.getRepository(AttendanceDevice), devices as never);
+
+    // --- today (D15): which sections are finalized, which one is a draft ---------------------
+    const high = org.tenants.find((t) => t.kind === 'HIGH')!;
+    const todayMode = new Map<string, 'FINALIZED' | 'DRAFT'>();
+    const current: { id: string }[] = [];
+    for (const t of org.tenants) {
+      const year = t.years.find((y) => y.isCurrent)!;
+      for (const c of year.classes)
+        for (const s of c.sections) {
+          if (!st.bySection.get(s.id)?.length) continue;
+          // High Class 8-A is the demo class teacher's section: its register is the draft.
+          const draft = t.id === high.id && c.name === 'Class 8' && s.name === 'A';
+          if (draft) todayMode.set(s.id, 'DRAFT');
+          else current.push({ id: s.id });
+        }
+    }
+    // Deterministic shuffle, then the first 70% (of all sections) are finalized.
+    for (let i = current.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [current[i], current[j]] = [current[j], current[i]];
+    }
+    const total = current.length + todayMode.size;
+    for (const s of current.slice(0, Math.round(total * FINALIZED_SHARE)))
+      todayMode.set(s.id, 'FINALIZED');
+
+    // --- student attendance --------------------------------------------------------------
+    let sBuf: Record<string, unknown>[] = [];
+    let rBuf: Record<string, unknown>[] = [];
+    // Rows with a device, an explicit id or a non-default source (today at High): the slow path.
+    const rSlow: Record<string, unknown>[] = [];
+    const flush = async () => {
+      rows += await unnestInsert(ctx.ds, 'attendance_sessions', SESSION_COLS, sBuf);
+      rows += await unnestInsert(ctx.ds, 'attendance_records', RECORD_COLS, rBuf);
+      sBuf = [];
+      rBuf = [];
+    };
+    const todayEvents: Record<string, unknown>[] = [];
+
+    for (const t of org.tenants) {
+      for (const [yi, year] of t.years.entries()) {
+        const withPeriods = yi >= t.years.length - 2; // current and previous year (D3)
+        const to = year.end < ctx.anchor ? year.end : ctx.anchor;
+        if (year.start > to) continue;
+        for (const cls of year.classes) {
+          const off = [...(tenantOff.get(t.id) ?? []), ...(classOff.get(cls.id) ?? [])];
+          const days = schoolDays(year.start, to, [5], off);
+          for (const sec of cls.sections) {
+            const kids = st.bySection.get(sec.id);
+            if (!kids?.length) continue;
+            // Two chronic absentees in a real-sized section, one in a small one: a defaulter list is never empty.
+            const chronic = new Set<number>();
+            while (chronic.size < (kids.length >= 10 ? 2 : 1))
+              chronic.add(Math.floor(rnd() * kids.length));
+            const rate = kids.map(() => BASE + (rnd() - 0.5) * 0.06);
+            // A chronic absentee misses 3 days in every 10 (70%): always under 75%, in runs of 3.
+            const phase = kids.map(() => Math.floor(rnd() * 10));
+            const marker = classTeacher.get(sec.id) ?? org.adminUserId;
+            for (const [k, date] of days.entries()) {
+              const isToday = date === ctx.anchor;
+              const mode = isToday ? todayMode.get(sec.id) : 'FINALIZED';
+              if (!mode) continue; // today, not started: "attendance pending"
+              const month = Number(date.slice(5, 7));
+              const drop = (month >= 6 && month <= 8 ? 0.05 : 0) + (eid.has(date) ? 0.05 : 0);
+              const dayState =
+                mode === 'DRAFT' ? AttendanceSessionState.DRAFT : AttendanceSessionState.FINALIZED;
+              const deviceFilled = isToday && mode === 'DRAFT' && t.id === high.id;
+              const sessionId = randomUUID();
+              const markedAt = todayAt(date, 13);
+              sBuf.push({
+                id: sessionId,
+                tenant_id: t.id,
+                section_id: sec.id,
+                date,
+                period_no: null,
+                state: dayState,
+                marked_by_user_id: marker,
+                marked_at: markedAt,
+                finalized_at: dayState === AttendanceSessionState.FINALIZED ? markedAt : null,
+              });
+              const status: AttendanceStatus[] = [];
+              const late: (number | null)[] = [];
+              kids.forEach((studentId, i) => {
+                const r = rnd();
+                let s: AttendanceStatus;
+                const present = chronic.has(i) ? (k + phase[i]) % 10 >= 3 : r < rate[i] - drop;
+                if (present)
+                  s = rnd() < LATE_SHARE ? AttendanceStatus.LATE : AttendanceStatus.PRESENT;
+                else
+                  s =
+                    !chronic.has(i) && rnd() < 0.15
+                      ? AttendanceStatus.LEAVE
+                      : AttendanceStatus.ABSENT;
+                status.push(s);
+                const minutes = s === AttendanceStatus.LATE ? 5 + Math.floor(rnd() * 26) : null;
+                late.push(minutes);
+                const id = isToday && t.id === high.id ? randomUUID() : undefined;
+                const row = {
+                  ...(id && { id }),
+                  tenant_id: t.id,
+                  session_id: sessionId,
+                  student_id: studentId,
+                  date,
+                  status: s,
+                  minutes_late: minutes,
+                  recorded_by_user_id: deviceFilled ? null : marker,
+                  recorded_at: markedAt, // not the DB clock: two runs must match
+                };
+                if (id) {
+                  rSlow.push({
+                    ...row,
+                    source: deviceFilled ? AttendanceSource.DEVICE : AttendanceSource.TEACHER,
+                    device_id: deviceFilled ? deviceOf.get(t.id) : null,
+                    check_in_at: deviceFilled ? todayAt(date, 7, Math.floor(rnd() * 50)) : null,
+                  });
+                } else rBuf.push(row);
+                if (id && s !== AttendanceStatus.ABSENT && s !== AttendanceStatus.LEAVE) {
+                  todayEvents.push({
+                    tenant_id: t.id,
+                    device_id: deviceOf.get(t.id),
+                    device_event_id: `${date}-${todayEvents.length}`,
+                    student_id: studentId,
+                    occurred_at: todayAt(date, 7, Math.floor(rnd() * 50)),
+                    direction: AttendanceEventDirection.IN,
+                    // A teacher's mark wins over a device scan (rule 1 on the record entity).
+                    outcome: deviceFilled ? 'accepted' : 'skipped_teacher_marked',
+                    record_id: id,
+                  });
+                }
+              });
+              // Period registers: a student absent for the day is absent in every period.
+              if (withPeriods && mode === 'FINALIZED') {
+                const slots =
+                  grid.get(sec.id)?.get(new Date(`${date}T00:00:00Z`).getUTCDay()) ?? [];
+                for (const p of slots) {
+                  if (isToday && p.periodNo > PERIODS_TODAY) continue;
+                  const pid = randomUUID();
+                  const at = todayAt(date, 8 + p.periodNo);
+                  const by = p.userId ?? marker;
+                  sBuf.push({
+                    id: pid,
+                    tenant_id: t.id,
+                    section_id: sec.id,
+                    date,
+                    period_no: p.periodNo,
+                    subject_id: p.subjectId,
+                    state: AttendanceSessionState.FINALIZED,
+                    marked_by_user_id: by,
+                    marked_at: at,
+                    finalized_at: at,
+                  });
+                  kids.forEach((studentId, i) => {
+                    // Lateness belongs to the first period only.
+                    const s =
+                      status[i] === AttendanceStatus.LATE && p.periodNo !== slots[0].periodNo
+                        ? AttendanceStatus.PRESENT
+                        : status[i];
+                    rBuf.push({
+                      tenant_id: t.id,
+                      session_id: pid,
+                      student_id: studentId,
+                      date,
+                      status: s,
+                      minutes_late: s === AttendanceStatus.LATE ? late[i] : null,
+                      recorded_by_user_id: by,
+                      recorded_at: at,
+                    });
+                  });
+                }
+              }
+              if (rBuf.length >= CHUNK) await flush();
+            }
+          }
+        }
+      }
+    }
+    await flush();
+    // The sessions of the slow rows were flushed above, so the foreign keys hold.
+    rows += await insertChunked(ctx.ds.getRepository(AttendanceRecord), rSlow as never, CHUNK / 2);
+    rows += await insertChunked(
+      ctx.ds.getRepository(AttendanceDeviceEvent),
+      todayEvents as never,
+      CHUNK / 2,
+    );
+
+    // --- leave policies and the approved / rejected ledger -------------------------------
+    await ctx.ds
+      .getRepository(LeavePolicy)
+      .createQueryBuilder()
+      .insert()
+      .values(
+        tenantIds.flatMap((tenant_id) =>
+          POLICIES.map(([leave_type, annual_quota_days]) => ({
+            tenant_id,
+            leave_type,
+            annual_quota_days,
+          })),
+        ),
+      )
+      .orIgnore()
+      .execute();
+    rows += tenantIds.length * POLICIES.length;
+
+    const joined = new Map<string, string>(
+      (
+        await q<{ id: string; j: string | null }>(
+          `SELECT id, joining_date::text AS j FROM staff_profiles WHERE tenant_id = ANY($1)`,
+          [tenantIds],
+        )
+      ).map((r) => [r.id, r.j ?? '0000-01-01']),
+    );
+    const leaveDays = new Set<string>(); // `${staffProfileId}|${date}`
+    const leaves: Record<string, unknown>[] = [];
+    const teachers = teachersByTenant(ctx);
+    for (const t of org.tenants) {
+      const off = tenantOff.get(t.id) ?? new Set<string>();
+      for (const year of t.years) {
+        const to = year.end < yesterday ? year.end : yesterday;
+        if (year.start > to) continue;
+        const days = schoolDays(year.start, to, [5], off);
+        for (const teacher of teachers.get(t.id) ?? []) {
+          const since = joined.get(teacher.staffProfileId)!;
+          const usable = days.filter((d) => d >= since);
+          let next = 0; // the next free day index: leaves never overlap
+          for (let n = 0; n < 6 && next < usable.length; n++) {
+            const length = 1 + Math.floor(rnd() * 3);
+            const left = usable.length - next - length;
+            if (left < 0) break;
+            const i = next + Math.floor(rnd() * Math.max(1, left / (6 - n)));
+            const span = usable.slice(i, i + length);
+            next = i + length + 1;
+            const approved = rnd() < 0.8;
+            const r = rnd();
+            leaves.push({
+              tenant_id: t.id,
+              staff_profile_id: teacher.staffProfileId,
+              leave_type: r < 0.5 ? LeaveType.CASUAL : r < 0.8 ? LeaveType.SICK : LeaveType.EARNED,
+              start_date: span[0],
+              end_date: span[span.length - 1],
+              days: span.length,
+              status: approved ? LeaveStatus.APPROVED : LeaveStatus.REJECTED,
+              reason: ctx.pick(REASONS),
+              approved_by: org.adminUserId,
+              decided_at: todayAt(addDays(span[0], -2), 10),
+            });
+            if (approved) for (const d of span) leaveDays.add(`${teacher.staffProfileId}|${d}`);
+          }
+        }
+      }
+    }
+    // Today: the teacher the routine's substitution covers is on approved leave.
+    const rt = ctx.ids.get('routineToday') as
+      { tenantId: string; date: string; coveredUserId: string } | undefined;
+    if (rt) {
+      const [p] = await q<{ id: string }>(
+        `SELECT id FROM staff_profiles WHERE tenant_id = $1 AND user_id = $2`,
+        [rt.tenantId, rt.coveredUserId],
+      );
+      leaves.push({
+        tenant_id: rt.tenantId,
+        staff_profile_id: p.id,
+        leave_type: LeaveType.SICK,
+        start_date: rt.date,
+        end_date: rt.date,
+        days: 1,
+        status: LeaveStatus.APPROVED,
+        reason: REASONS[1],
+        approved_by: org.adminUserId,
+        decided_at: todayAt(addDays(rt.date, -1), 10),
+      });
+      leaveDays.add(`${p.id}|${rt.date}`);
+    }
+    rows += await insertChunked(ctx.ds.getRepository(LeaveRecord), leaves as never, CHUNK / 2);
+
+    // --- staff attendance: every school day for every year (~97% present) -----------------
+    const staff = await q<{ id: string; tenant_id: string }>(
+      `SELECT sp.id, sp.tenant_id FROM staff_profiles sp
+        WHERE sp.tenant_id = ANY($1) AND EXISTS (
+          SELECT 1 FROM user_tenants ut WHERE ut.user_id = sp.user_id
+             AND ut.tenant_id = sp.tenant_id AND ut.deleted_at IS NULL)`,
+      [tenantIds],
+    );
+    const staffSessions: Record<string, unknown>[] = [];
+    const staffRecords: Record<string, unknown>[] = [];
+    const staffSessionRepo = ctx.ds.getRepository(StaffAttendanceSession);
+    const staffRecordRepo = ctx.ds.getRepository(StaffAttendanceRecord);
+    const flushStaff = async () => {
+      rows += await insertChunked(staffSessionRepo, staffSessions.splice(0) as never, CHUNK);
+      rows += await insertChunked(staffRecordRepo, staffRecords.splice(0) as never, CHUNK);
+    };
+    for (const t of org.tenants) {
+      const mine = staff.filter((s) => s.tenant_id === t.id);
+      const days = schoolDays(t.years[0].start, ctx.anchor, [5], tenantOff.get(t.id) ?? []);
+      for (const date of days) {
+        const id = randomUUID();
+        staffSessions.push({ id, tenant_id: t.id, date });
+        for (const s of mine) {
+          if ((joined.get(s.id) ?? '') > date) continue;
+          const r = rnd();
+          staffRecords.push({
+            tenant_id: t.id,
+            session_id: id,
+            staff_profile_id: s.id,
+            status: leaveDays.has(`${s.id}|${date}`)
+              ? AttendanceStatus.LEAVE
+              : r < 0.97
+                ? r < 0.02
+                  ? AttendanceStatus.LATE
+                  : AttendanceStatus.PRESENT
+                : AttendanceStatus.ABSENT,
+          });
+        }
+        if (staffRecords.length >= CHUNK) await flushStaff();
+      }
+    }
+    await flushStaff();
+    return rows;
+  },
 };
