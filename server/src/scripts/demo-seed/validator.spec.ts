@@ -50,12 +50,13 @@ describe('demo seed validator', () => {
   });
 
   it('money: flags paid <> allocations, overpaid fees and invoice-less payments', async () => {
-    const fee = { id: 'f', total: 100, paid: 40, discount: 10, allocated: 40 };
+    const fee = { id: 'f', total: 100, paid: 40, discount: 10, alloc_discount: 10, allocated: 40 };
     expect(await checksOf({ 'money-fees': [fee] })).not.toContain('money');
     expect(await checksOf({ 'money-fees': [{ ...fee, allocated: 30 }] })).toContain('money');
     expect(await checksOf({ 'money-fees': [{ ...fee, paid: 95, allocated: 95 }] })).toContain(
       'money',
     );
+    expect(await checksOf({ 'money-fees': [{ ...fee, alloc_discount: 20 }] })).toContain('money');
     expect(await checksOf({ 'money-invoice': [{ id: 'p' }] })).toContain('money');
   });
 
