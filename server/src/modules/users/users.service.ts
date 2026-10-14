@@ -21,10 +21,14 @@ import { RefreshTokenService } from '../auth/refresh-token.service';
 import {
   AlertCategory,
   AuditAction,
+  DASHBOARD_LAYOUT_MAX_BYTES,
+  type DashboardLayoutItem,
+  type DashboardLayoutPref,
   EMPLOYEE_ROLES,
   GUARDIAN_ROLES,
   UserRole,
   UserStatus,
+  WIDGET_CATALOGUE,
 } from '@biddaloy/shared';
 import { School } from '../schools/entities/school.entity';
 import { DEFAULT_ATTENTION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
@@ -52,6 +56,7 @@ import {
 import { syncLinkedGuardianContacts } from '../students/linked-guardian-contacts.util';
 import { Guardian } from '../students/entities/guardian.entity';
 import { JoinRequestDto } from './dto/join-request.dto';
+import type { DashboardLayoutDto } from './dto/dashboard-layout.dto';
 import { insertJoinRequest } from '../account-access/school-invite.service';
 import { ASSIGNMENT_TYPE_ORDER_SQL } from '../classes/classes.service';
 import type { SectionTeacherAssignment } from '../classes/classes.service';
@@ -204,6 +209,56 @@ export class UserService {
       [userId, JSON.stringify(dto.mutedCategories)],
     );
     return this.getNotificationPrefs(userId, tenantId);
+  }
+
+  /**
+   * [8.10.7.1.02] Saves the caller's dashboard layout for the role they are
+   * acting as, in `users.preferences.dashboard[role]`. `users` is global, so
+   * the value holds widget keys only, never school data.
+   */
+  async updateDashboardLayout(
+    userId: string,
+    role: UserRole,
+    dto: DashboardLayoutDto,
+  ): Promise<DashboardLayoutPref> {
+    const widgets: DashboardLayoutItem[] = dto.widgets.map((item) => {
+      const entry = WIDGET_CATALOGUE[item.key];
+      if (!entry?.roles.includes(role)) {
+        throw new BadRequestException(`Widget ${item.key} is not available to ${role}`);
+      }
+      if (item.size && !entry.sizes.includes(item.size)) {
+        throw new BadRequestException(`Widget ${item.key} does not support size ${item.size}`);
+      }
+      // Only these three fields are ever stored.
+      return {
+        key: item.key,
+        ...(item.hidden === true && { hidden: true }),
+        ...(item.size && { size: item.size }),
+      };
+    });
+    const layout: DashboardLayoutPref = { widgets };
+    const json = JSON.stringify(layout);
+    if (Buffer.byteLength(json) > DASHBOARD_LAYOUT_MAX_BYTES) {
+      throw new BadRequestException(
+        `Dashboard layout is too large (max ${DASHBOARD_LAYOUT_MAX_BYTES} bytes)`,
+      );
+    }
+    // One statement, so other preference keys and other roles' layouts are
+    // never clobbered. A non-object `dashboard` would turn || into array concat.
+    const [, affected] = await this.userRepo.query(
+      `UPDATE users
+          SET preferences = CASE WHEN jsonb_typeof(preferences) = 'object'
+                                 THEN preferences ELSE '{}'::jsonb END
+                || jsonb_build_object('dashboard',
+                     CASE WHEN jsonb_typeof(preferences->'dashboard') = 'object'
+                          THEN preferences->'dashboard' ELSE '{}'::jsonb END
+                     || jsonb_build_object($2::text, $3::jsonb)),
+              updated_at = NOW()
+        WHERE id = $1`,
+      [userId, role, json],
+    );
+    if (!affected) throw new NotFoundException('User not found');
+    return layout;
   }
 
   async create(

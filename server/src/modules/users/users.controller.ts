@@ -48,13 +48,20 @@ import {
 import { NotificationPrefsDto, UpdateNotificationPrefsDto } from './dto/notification-prefs.dto';
 import { JoinRequestDto, JoinRequestResponseDto } from './dto/join-request.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { DashboardLayoutDto } from './dto/dashboard-layout.dto';
 import {
   InviteBatchStatusResponseDto,
   InviteDispatchResponseDto,
   InvitePreviewResponseDto,
 } from '../account-access/dto/batch-invite.dto';
 import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
-import { JwtPayload, Permission, STAFF_ROLES, GUARDIAN_ROLES } from '@biddaloy/shared';
+import {
+  JwtPayload,
+  Permission,
+  STAFF_ROLES,
+  GUARDIAN_ROLES,
+  type UserRole,
+} from '@biddaloy/shared';
 import { SETTINGS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
 import { InvitationService } from '../account-access/invitation.service';
 import { GuardianProvisioningService } from '../account-access/guardian-provisioning.service';
@@ -362,6 +369,27 @@ export class UserController {
     const responseDto = UserResponseDto.fromEntity(user, tenant.id);
     responseDto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
     return responseDto;
+  }
+
+  /**
+   * [8.10.7.1.02] Saves the caller's dashboard layout for the role they are
+   * acting as (id from the JWT, role from X-Role). Gated on permission only;
+   * PARENT/STUDENT lack DASHBOARD_VIEW. Declared above `users/:id`.
+   */
+  @Patch('users/me/preferences/dashboard')
+  @Throttle({ default: SETTINGS_RATE_LIMIT })
+  @RequirePermissions(Permission.DASHBOARD_VIEW)
+  @ApiOperation({
+    summary:
+      "Save the caller's dashboard layout for the role they are acting as. Id from the JWT, role from X-Role.",
+  })
+  @ApiOkResponse({ type: DashboardLayoutDto })
+  updateDashboardLayout(
+    @Body() dto: DashboardLayoutDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() jwt: JwtPayload,
+  ) {
+    return this.userService.updateDashboardLayout(jwt.sub, tenant.role as UserRole, dto);
   }
 
   /**

@@ -67,6 +67,15 @@ describe('dashboard widget catalogue [8.10.7.1.01]', () => {
     }
   });
 
+  it('the cap fits every widget a role may save, not just its default layout', () => {
+    for (const role of Object.values(UserRole)) {
+      const allowed = entries.filter(([, e]) => e.roles.includes(role)).length;
+      expect(allowed, `${role} could not save every widget`).toBeLessThanOrEqual(
+        DASHBOARD_LAYOUT_MAX_WIDGETS,
+      );
+    }
+  });
+
   it('needsEpic is set on exactly the five waiting widgets', () => {
     const actual = Object.fromEntries(
       entries.filter(([, e]) => e.needsEpic).map(([k, e]) => [k, e.needsEpic]),

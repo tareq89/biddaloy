@@ -367,5 +367,5 @@ export interface DashboardLayoutPref {
 /** `users.preferences.dashboard` (D9). */
 export type DashboardPreferences = Partial<Record<UserRole, DashboardLayoutPref>>;
 
-export const DASHBOARD_LAYOUT_MAX_WIDGETS = 30; // D34
+export const DASHBOARD_LAYOUT_MAX_WIDGETS = 40; // D34; 40 (not 30) so ADMIN, who lists 31 widgets, can save them all
 export const DASHBOARD_LAYOUT_MAX_BYTES = 8192; // D34
