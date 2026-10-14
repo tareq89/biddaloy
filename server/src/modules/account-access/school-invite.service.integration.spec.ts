@@ -218,14 +218,17 @@ describe('SchoolInviteService (integration)', () => {
     expect(await service.listMine(user.id)).toHaveLength(0);
   });
 
-  it('a link held by a soft-deleted guardian of the same school also blocks (restoring it would collide)', async () => {
+  it('a link held only by a soft-deleted guardian of the same school does not block (matches the partial index)', async () => {
     const old = await makeGuardian(SEED_TENANT_ID, { user_id: user.id });
     await ds.getRepository(Guardian).softDelete({ id: old.id });
     const gA = await makeGuardian();
     const row = await request(SEED_TENANT_ID, { guardianId: gA.id });
 
-    await expect(service.accept(user.id, row.id, CTX)).rejects.toBeInstanceOf(ConflictException);
-    expect(await memberships()).toHaveLength(0);
+    await service.accept(user.id, row.id, CTX);
+
+    expect(await memberships()).toHaveLength(1);
+    const after = await ds.getRepository(Guardian).findOneOrFail({ where: { id: gA.id } });
+    expect(after.user_id).toBe(user.id);
   });
 
   it('a guardian deleted since the request was filed gives a 409 and no membership', async () => {

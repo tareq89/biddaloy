@@ -21,9 +21,11 @@ interface JoinRequestMetadata {
 }
 
 /**
- * `guardians (tenant_id, user_id)` is UNIQUE per school, so an account already
- * linked to another guardian row of this school can never be linked to this
- * one. Links in other schools do not count (D11).
+ * `guardians (tenant_id, user_id)` is UNIQUE per school among live rows, so an
+ * account already linked to another live guardian row of this school can never
+ * be linked to this one. A soft-deleted guardian (child left) does not block,
+ * same as the index; workbook restore prefers the live row over it. Links in
+ * other schools do not count (D11).
  */
 export function guardianLinkedElsewhere(
   m: EntityManager,
@@ -33,7 +35,6 @@ export function guardianLinkedElsewhere(
 ): Promise<boolean> {
   return m.exists(Guardian, {
     where: { user_id: userId, tenant_id: tenantId, id: Not(guardianId) },
-    withDeleted: true,
   });
 }
 

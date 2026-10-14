@@ -145,6 +145,50 @@ describe('multi-branch person (integration)', () => {
     expect(profileB).not.toBe(profileA);
   });
 
+  it('promoting with a reused staff profile checks the employee ID actually written (409, not 23505)', async () => {
+    const a = await mkSchool();
+    const mkAdmin = async (name: string) =>
+      (
+        await users.create(
+          {
+            full_name: name,
+            email: `${name}-${randomUUID()}@example.com`,
+            password: 'Str0ng!Passw0rd',
+            role: UserRole.ADMIN,
+          },
+          a,
+        )
+      ).user;
+    const staffIdOf = async (userId: string) =>
+      (
+        await ds.query(
+          `SELECT employee_id FROM staff_profiles WHERE user_id = $1 AND tenant_id = $2`,
+          [userId, a],
+        )
+      )[0].employee_id as string;
+
+    // The typed ID is not written, so a clash on it must not block.
+    const t1 = await mkUser();
+    await member(t1, a, UserRole.TEACHER);
+    await teachers.create({ user_id: t1, employee_id: 'TYPED-1' }, a);
+    const admin1 = await mkAdmin('admin-one');
+    const promoted = await teachers.create({ user_id: admin1.id, employee_id: 'TYPED-1' }, a);
+    expect(promoted.employee_id).toBe(await staffIdOf(admin1.id));
+
+    // The reused staff ID is already on another teacher (edited via PATCH /teachers).
+    const admin2 = await mkAdmin('admin-two');
+    const t2 = await mkUser();
+    await member(t2, a, UserRole.TEACHER);
+    const other = await teachers.create({ user_id: t2, employee_id: 'TMP-2' }, a);
+    await ds.query(`UPDATE teachers SET employee_id = $1 WHERE id = $2`, [
+      await staffIdOf(admin2.id),
+      other.id,
+    ]);
+    await expect(teachers.create({ user_id: admin2.id, employee_id: 'FREE-2' }, a)).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
   it('teacher section scope in school B sees only school B sections', async () => {
     const [a, b, u] = [await mkSchool(), await mkSchool(), await mkUser()];
     await member(u, a, UserRole.TEACHER);

@@ -228,7 +228,7 @@ export class UserService {
         // own staff_profiles row later, reusing the Teacher's own
         // employee_id (mirrors the [36.1.1] migration backfill, which did
         // the same for pre-existing teachers) — creating one here too would
-        // hit the `staff_profiles.user_id` unique constraint.
+        // hit the per-school `UQ_staff_profiles_tenant_user` key.
         // COMMITTEE is deliberately absent (D16): not an employee, so not in
         // EMPLOYEE_ROLES. SUPER_ADMIN is refused above (#731).
         if (dto.role !== UserRole.TEACHER && EMPLOYEE_ROLES.includes(dto.role)) {
@@ -936,13 +936,25 @@ export class TeacherService {
       });
     }
 
-    // Check for duplicate employee_id
-    const existing = dto.employee_id
-      ? await teacherRepo.findOne({ where: { employee_id: dto.employee_id, tenant_id: tenantId } })
+    // An ADMIN / ACCOUNTANT / EXECUTIVE already has this school's staff
+    // profile (UserService.create makes one): promoting them reuses it, and
+    // the Teacher takes its employee_id, not the typed one. So check the id
+    // that is actually written, or a clash with a teacher whose id was edited
+    // away from its staff profile surfaces as a raw 23505.
+    const reusedProfile = await m.findOne(StaffProfile, {
+      where: { user_id: dto.user_id, tenant_id: tenantId },
+    });
+    const employeeId = reusedProfile?.employee_id ?? dto.employee_id;
+    const existing = employeeId
+      ? await teacherRepo.findOne({ where: { employee_id: employeeId, tenant_id: tenantId } })
       : null;
     if (existing) {
       // Rule 23: name the field, never echo the value.
-      throw new ConflictException('That employee ID is already in use');
+      throw new ConflictException(
+        reusedProfile
+          ? "This person's staff employee ID is already used by another teacher"
+          : 'That employee ID is already in use',
+      );
     }
 
     // [36.2.1] Teacher's own employee_id also seeds its staff_profiles row
@@ -955,13 +967,9 @@ export class TeacherService {
     // staff profile" / "already has a teacher profile" guards.
     const joiningDate = dto.joining_date ? new Date(dto.joining_date) : null;
     const work = async (manager: EntityManager) => {
-      // An ADMIN / ACCOUNTANT / EXECUTIVE already has this school's profile
-      // (UserService.create makes one): promoting them reuses it, and the
-      // Teacher takes its employee_id. Anyone else gets a new one.
+      // Reuse the staff profile found above; anyone else gets a new one.
       const staffProfile =
-        (await manager.findOne(StaffProfile, {
-          where: { user_id: dto.user_id, tenant_id: tenantId },
-        })) ??
+        reusedProfile ??
         (await this.staffProfilesService.createFor(
           dto.user_id,
           tenantId,

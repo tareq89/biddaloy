@@ -283,6 +283,44 @@ describe('/staff', () => {
     );
   });
 
+  it('promote dialog tells an already-promoted member apart by details.code', async () => {
+    const member = userResponseFactory({ id: 'user-1', full_name: 'Abdul Karim' });
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([member]))),
+      http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
+      http.post('/api/v1/teachers', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(409, 'exists', '/api/v1/teachers'),
+            details: { code: 'ALREADY_TEACHER_HERE' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Give teacher profile' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Give a teacher profile' });
+    const picker = within(dialog).getByRole('combobox', { name: 'Member' });
+    await user.click(picker);
+    await user.type(picker, 'Abdul');
+    await user.keyboard('{ArrowDown}{Enter}');
+    await user.type(within(dialog).getByLabelText('Employee ID'), 'EMP-42');
+    await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
+
+    expect(
+      await within(dialog).findByText('This person already has a teacher profile.'),
+    ).toBeTruthy();
+  });
+
   it('promote dialog surfaces a 409 duplicate-employee-id inline', async () => {
     const member = userResponseFactory({ id: 'user-1', full_name: 'Abdul Karim' });
     server.use(

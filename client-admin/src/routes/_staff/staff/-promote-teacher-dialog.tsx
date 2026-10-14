@@ -120,14 +120,14 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
     );
   }
 
-  // Two distinct 409s exist server-side — split them by message so an
+  // Two distinct 409s exist server-side — split them by `details.code` so an
   // already-promoted member (possible when the picker's 100-teacher page
   // missed them) isn't blamed on the employee ID.
   const conflictIsExistingTeacher =
     createTeacher.isError &&
     createTeacher.error instanceof ApiError &&
     createTeacher.error.statusCode === 409 &&
-    createTeacher.error.message.includes('already has a teacher profile');
+    createTeacher.error.details?.code === 'ALREADY_TEACHER_HERE';
   const conflict =
     createTeacher.isError &&
     createTeacher.error instanceof ApiError &&
