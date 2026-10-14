@@ -1,6 +1,6 @@
 import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DEMO_CARDS } from './demo-accounts';
 import { DemoRolesResponseDto } from './dto/demo-role.dto';
 
@@ -16,6 +16,7 @@ export class DemoController {
   @Get('roles')
   @ApiOperation({ summary: 'Demo role cards and the shared demo password (404 outside the demo).' })
   @ApiOkResponse({ type: DemoRolesResponseDto })
+  @ApiNotFoundResponse({ description: 'Not running in demo mode.' })
   roles(): DemoRolesResponseDto {
     if (this.config.get<string>('DEMO_MODE') !== 'true') throw new NotFoundException();
     return {
