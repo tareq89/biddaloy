@@ -262,22 +262,31 @@ export const slice: DemoSlice = {
         };
         if (year.isCurrent) {
           // The newest year goes through the real slot service: it checks every slot (D4).
-          for (const { pl, section } of usable) {
-            const res = await slots.create(
-              routine.id,
-              { ...base(pl, section), teacher_ids: [pl.teacher.teacherId] },
-              tenant.id,
-              adminId,
+          // ponytail: 8 at a time (the planned grid is clash-free, so no create can see a
+          // half-written neighbour); fully serial costs ~60 s at scale 1.
+          for (let i = 0; i < usable.length; i += 8) {
+            const batch = usable.slice(i, i + 8);
+            const results = await Promise.all(
+              batch.map(({ pl, section }) =>
+                slots.create(
+                  routine.id,
+                  { ...base(pl, section), teacher_ids: [pl.teacher.teacherId] },
+                  tenant.id,
+                  adminId,
+                ),
+              ),
             );
-            rows += 2;
-            created.push({
-              tenant,
-              yearIdx,
-              sectionId: section.id,
-              weekday: pl.weekday,
-              period: pl.period,
-              slotId: res.slot.id,
-              teacher: pl.teacher,
+            batch.forEach(({ pl, section }, j) => {
+              rows += 2;
+              created.push({
+                tenant,
+                yearIdx,
+                sectionId: section.id,
+                weekday: pl.weekday,
+                period: pl.period,
+                slotId: results[j].slot.id,
+                teacher: pl.teacher,
+              });
             });
           }
         } else {
