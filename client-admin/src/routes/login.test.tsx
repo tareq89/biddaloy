@@ -517,23 +517,38 @@ describe('/login', () => {
     it('text typed before the demo answer survives the switch to the demo layout', async () => {
       let answer: () => void = () => undefined;
       const gate = new Promise<void>((resolve) => (answer = resolve));
+      let logins = 0;
       server.use(
         authHandlers.refreshFailure,
+        http.post('/api/v1/auth/login', () => {
+          logins += 1;
+          return HttpResponse.json(loginResponseFactory());
+        }),
         http.get('/api/v1/demo/roles', async () => {
           await gate;
           return HttpResponse.json(demoBody);
         }),
       );
-      renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
+      const { router } = renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
       const email = await screen.findByRole('textbox', { name: 'Email or phone number' });
-      await userEvent.setup().type(email, 'rahim@greenview.edu.bd');
+      const user = userEvent.setup();
+      await user.type(email, 'rahim@greenview.edu.bd');
 
       answer();
       await screen.findByRole('heading', { name: 'Enter the demo school' });
 
-      // Same input node, same text: the form was not remounted (it is only folded away).
+      // Same input node, same text, still visible and focused: a visitor mid-typing keeps the
+      // form, and the Admin card does not steal focus.
       expect(email.isConnected).toBe(true);
       expect((email as HTMLInputElement).value).toBe('rahim@greenview.edu.bd');
+      expect(document.getElementById('demo-own-account')?.hidden).toBe(false);
+      expect(document.activeElement).toBe(email);
+      expect(ownAccountToggle().getAttribute('aria-expanded')).toBe('true');
+
+      // Enter submits the visitor's own (half-filled) form, never a role card.
+      await user.keyboard('{Enter}');
+      expect(logins).toBe(0);
+      expect(router.state.location.pathname).toBe('/login');
     });
 
     it('outside the demo (enabled: false) the page is exactly as before: no cards, no ribbon', async () => {

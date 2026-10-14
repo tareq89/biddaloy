@@ -128,7 +128,7 @@ function LoginPage() {
   const { t } = useTranslation('auth');
   const demo = useDemoMode();
   // Demo only: the "own account" form starts folded under the role cards. A failed card opens it
-  // (the form shows the error); nothing closes it but the user.
+  // (the form shows the error), and so does focus inside it; nothing closes it but the user.
   const [ownOpen, setOwnOpen] = React.useState(false);
   const search = Route.useSearch();
   const navigate = useNavigate();
@@ -296,8 +296,11 @@ function LoginPage() {
             onToggleOwn={() => setOwnOpen((open) => !open)}
           />
         )}
+        {/* Focus here before a cold `/demo/roles` answer means the visitor is typing: keep the
+            form open and the cards from stealing focus (Enter would sign in as Admin). */}
         <div
           id={OWN_ACCOUNT_ID}
+          onFocus={() => setOwnOpen(true)}
           hidden={demo.enabled && !ownOpen}
           className={demo.enabled ? 'mt-4' : undefined}
         >
@@ -331,7 +334,7 @@ function DemoLoginIntro({
     <>
       <h1 className="text-h2">{tDemo('title')}</h1>
       <p className="mt-1 mb-4 text-text-secondary">{tDemo('subtitle')}</p>
-      <DemoRoleCards cards={cards} disabled={disabled} onPick={onPick} />
+      <DemoRoleCards cards={cards} disabled={disabled} onPick={onPick} focusFirst={!ownOpen} />
       <button
         type="button"
         aria-expanded={ownOpen}
