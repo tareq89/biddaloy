@@ -7,6 +7,8 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { SEED_TENANT_ID } from '@test/constants';
 import { ALL_ENTITIES } from '@test/all-entities';
+import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
+import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthTokenService } from './auth-token.service';
 import { insertJoinRequest, SchoolInviteService } from './school-invite.service';
@@ -30,6 +32,7 @@ describe('SchoolInviteService (integration)', () => {
       SchoolInviteService,
       AuthTokenService,
       AuditService,
+      StaffProfilesService,
     ]);
     ds = module.get(DataSource);
     service = module.get(SchoolInviteService);
@@ -42,6 +45,7 @@ describe('SchoolInviteService (integration)', () => {
   beforeEach(async () => {
     await ds.query('DELETE FROM audit_logs');
     await ds.query('DELETE FROM auth_tokens');
+    await ds.query('DELETE FROM staff_profiles');
     await ds.query('DELETE FROM guardians');
     await ds.query('DELETE FROM user_tenants');
     await ds.query('DELETE FROM users');
@@ -95,6 +99,18 @@ describe('SchoolInviteService (integration)', () => {
     expect(linked.user_id).toBe(user.id);
     // The request is spent: a second accept finds nothing live.
     await expect(service.accept(user.id, row.id, CTX)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('[68.2.02] accepting an ACCOUNTANT request creates the membership and this school staff profile', async () => {
+    const row = await request(TENANT_B, {}, UserRole.ACCOUNTANT);
+    expect(await memberships(TENANT_B)).toHaveLength(0);
+
+    await service.accept(user.id, row.id, CTX);
+
+    const [ut] = await memberships(TENANT_B);
+    expect(ut.role).toBe(UserRole.ACCOUNTANT);
+    const profiles = await ds.getRepository(StaffProfile).find({ where: { user_id: user.id } });
+    expect(profiles.map((p) => p.tenant_id)).toEqual([TENANT_B]);
   });
 
   it('accept revives a soft-deleted membership instead of inserting (no 23505)', async () => {

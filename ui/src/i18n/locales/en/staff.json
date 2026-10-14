@@ -59,6 +59,9 @@
     "errorNameRequired": "Enter the person's full name.",
     "errorRoleRequired": "Choose a role.",
     "errorDuplicateEmail": "A user with this email already exists.",
+    "accountExists": "This person already has an account. Send them a join request instead.",
+    "sendJoinRequest": "Send join request",
+    "joinRequestSent": "Join request sent. They will be added when they accept.",
     "errorMessage": "Could not add the user. Please try again.",
     "save": "Add staff member",
     "saving": "Adding…"
