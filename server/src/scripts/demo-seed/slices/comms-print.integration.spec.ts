@@ -92,6 +92,27 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
                           FROM sms_credit_ledger l WHERE l.tenant_id = b.tenant_id), 0)::int AS ledger
          FROM sms_credit_balance b`,
     );
+    facts.tenants = await q(`SELECT count(*)::int AS n FROM schools WHERE slug LIKE 'bmsc-%'`);
+    // Running balance per tenant, in time order: never below zero.
+    facts.negative = await q(
+      `SELECT count(*)::int AS n FROM (
+         SELECT sum(CASE WHEN kind = 'GRANT' THEN units ELSE -units END)
+                  OVER (PARTITION BY tenant_id ORDER BY created_at, kind DESC, id) AS running
+           FROM sms_credit_ledger) x WHERE running < 0`,
+    );
+    // Printed documents derive from the anchor, not the run day.
+    facts.printDates = await q(
+      `SELECT count(*)::int AS n,
+              count(*) FILTER (WHERE i.serial_year IS NOT NULL
+                AND i.serial_year > extract(year FROM $1::date))::int AS future_serial,
+              count(*) FILTER (WHERE (i.data_snapshot->>'issuedAt')::timestamptz > $1::date + 1)::int AS future_issued,
+              count(*) FILTER (WHERE i.created_at::date > $1::date)::int AS future_created,
+              count(*) FILTER (WHERE i.serial_year IS NOT NULL
+                AND i.serial_year <> extract(year FROM (i.data_snapshot->>'issuedAt')::timestamptz
+                      AT TIME ZONE 'Asia/Dhaka'))::int AS serial_mismatch
+         FROM print_job_items i`,
+      [ANCHOR],
+    );
     facts.logs = await q(
       `SELECT count(*)::int AS n,
               count(*) FILTER (WHERE status = 'FAILED')::int AS failed,
@@ -135,10 +156,11 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
   });
 
   it('keeps the SMS credit balance equal to the ledger and above zero', () => {
-    expect(facts.credit.length).toBe(3);
+    expect(facts.credit.length).toBe(facts.tenants[0].n);
+    expect(facts.negative[0].n).toBe(0);
     for (const c of facts.credit) {
       expect(c.available).toBe(c.ledger);
-      expect(c.available).toBeGreaterThanOrEqual(10_000);
+      expect(c.available).toBe(10_000);
       expect(c.reserved).toBe(0);
     }
   });
@@ -171,7 +193,16 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
 
   it('adds calendar tokens, printer profiles and certificates', () => {
     expect(facts.counts[0].tokens).toBeGreaterThanOrEqual(3);
-    expect(facts.counts[0].printers).toBe(6);
+    expect(facts.counts[0].printers).toBe(facts.tenants[0].n * 2);
     expect(facts.counts[0].certificates).toBeGreaterThan(0);
+  });
+
+  it('derives print dates and serial years from the anchor, not the run day', () => {
+    const d = facts.printDates[0];
+    expect(d.n).toBeGreaterThan(0);
+    expect(d.future_serial).toBe(0);
+    expect(d.future_issued).toBe(0);
+    expect(d.future_created).toBe(0);
+    expect(d.serial_mismatch).toBe(0);
   });
 });
