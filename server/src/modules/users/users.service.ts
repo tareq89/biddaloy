@@ -88,6 +88,30 @@ export async function countOtherMemberships(
 }
 
 /**
+ * The one live account whose VERIFIED email or phone matches (an unverified
+ * contact proves nothing, PUB-01). `null` on no match, and also when the email
+ * and the phone match two different accounts: guessing would offer a school
+ * role, or a child's guardian link, to the wrong person. [68.2.02]
+ */
+export async function findVerifiedAccount(
+  m: EntityManager,
+  email: string | null | undefined,
+  phone: string | null | undefined,
+): Promise<User | null> {
+  const matches = await m
+    .getRepository(User)
+    .createQueryBuilder('u')
+    .where('u.deleted_at IS NULL')
+    .andWhere(
+      '((u.email = :email AND u.email_verified_at IS NOT NULL) OR (u.phone = :phone AND u.phone_verified_at IS NOT NULL))',
+      { email: email ?? null, phone: phone ?? null },
+    )
+    .limit(2)
+    .getMany();
+  return matches.length === 1 ? matches[0] : null;
+}
+
+/**
  * [68.2.02] The neutral 409 for "that contact belongs to an account": it never
  * repeats the address, and `details.code` lets "Add staff" offer a join request.
  */
@@ -277,7 +301,9 @@ export class UserService {
    * [68.2.02] "Add staff" for a person who already has an account. Files a
    * JOIN_SCHOOL request; the person becomes staff only when they accept while
    * signed in. Only a VERIFIED email/phone matches (an unverified one proves
-   * nothing), and a miss answers exactly like a hit, so this is no lookup oracle.
+   * nothing), and a miss, or a match on two different accounts, gets the same
+   * body as a hit, so the body is no lookup oracle. The time is not equal: see
+   * Rule 18's known exception in docs/architecture/08-security.md.
    */
   async requestJoin(
     dto: JoinRequestDto,
@@ -292,15 +318,7 @@ export class UserService {
     const email = dto.email ? normalizeEmail(dto.email) : null;
     const phone = dto.phone ?? null;
     return this.userRepo.manager.transaction(async (m) => {
-      const user = await m
-        .getRepository(User)
-        .createQueryBuilder('u')
-        .where('u.deleted_at IS NULL')
-        .andWhere(
-          '((u.email = :email AND u.email_verified_at IS NOT NULL) OR (u.phone = :phone AND u.phone_verified_at IS NOT NULL))',
-          { email, phone },
-        )
-        .getOne();
+      const user = await findVerifiedAccount(m, email, phone);
       if (!user) return { status: 'PENDING' as const };
       // Same rule as restore(): a live staff membership here means nothing to request.
       if (
