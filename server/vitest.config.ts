@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import { resolve } from 'path';
 import swc from 'unplugin-swc';
 import { WORKERS } from './test/global-setup';
@@ -27,6 +27,8 @@ export default defineConfig({
       'src/**/*.e2e-spec.ts',
       'test/*.integration.spec.ts',
     ],
+    // unit-setup-env.spec.ts tests test/unit-setup.ts, so it runs under vitest.unit.config.ts only.
+    exclude: [...configDefaults.exclude, 'src/unit-setup-env.spec.ts'],
 
     // Environment
     environment: 'node',
