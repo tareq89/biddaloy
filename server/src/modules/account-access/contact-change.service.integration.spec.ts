@@ -29,6 +29,7 @@ import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { School } from '../schools/entities/school.entity';
+import { Guardian } from '../students/entities/guardian.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
@@ -113,6 +114,7 @@ describe('ContactChangeService (integration)', () => {
     await dataSource.query('DELETE FROM audit_logs');
     await dataSource.query('DELETE FROM communication_logs');
     await dataSource.query('DELETE FROM auth_tokens');
+    await dataSource.query('DELETE FROM guardians');
     await dataSource.query('DELETE FROM user_tenants');
     await dataSource.query('DELETE FROM users');
     await dataSource.query('DELETE FROM schools');
@@ -261,6 +263,75 @@ describe('ContactChangeService (integration)', () => {
 
     const second = await service.confirmEmail(token, context);
     expect(second.status).toBe('consumed');
+  });
+
+  describe('[68.4.05] a confirmed contact change reaches every linked guardian row', () => {
+    const SCHOOL_B = '00000000-0000-4000-8000-0000000000b5';
+
+    async function linkGuardians(userId: string, otherUserId?: string) {
+      await dataSource
+        .getRepository(School)
+        .save({ id: SCHOOL_B, name: 'School B', slug: 'school-b-cc' } as School);
+      const repo = dataSource.getRepository(Guardian);
+      const row = (tenant_id: string, user_id: string) =>
+        repo.save(
+          repo.create({
+            full_name: 'G',
+            relationship: 'Mother',
+            tenant_id,
+            user_id,
+            phone: '+8801711111111',
+            email: 'karim@example.com',
+          }),
+        );
+      const mine = [await row(SEED_TENANT_ID, userId), await row(SCHOOL_B, userId)];
+      const other = otherUserId ? await row(SCHOOL_B, otherUserId) : null;
+      return { mine, other };
+    }
+    const reload = (id: string) =>
+      dataSource.getRepository(Guardian).findOneOrFail({ where: { id } });
+
+    it('phone confirm copies the new users.phone to both schools', async () => {
+      const user = await createMember();
+      const { mine } = await linkGuardians(user.id);
+      const result = await service.request(
+        user.id,
+        { phone: '+8801722222222', current_password: 'correct-password' },
+        context,
+      );
+      await service.confirmPhone(user.id, (result as any).debug.otp, context);
+      for (const g of mine) expect((await reload(g.id)).phone).toBe('+8801722222222');
+    });
+
+    it('email confirm copies the email to every linked row; another user is untouched', async () => {
+      const user = await createMember();
+      const bystander = await createMember({ phone: '+8801799999999', email: 'by@example.com' });
+      const { mine, other } = await linkGuardians(user.id, bystander.id);
+      const result = await service.request(
+        user.id,
+        { email: 'new-karim@example.com', current_password: 'correct-password' },
+        context,
+      );
+      await service.confirmEmail((result as any).debug.token, context);
+      for (const g of mine) expect((await reload(g.id)).email).toBe('new-karim@example.com');
+      expect((await reload(other!.id)).email).toBe('karim@example.com');
+    });
+
+    it('when the users update hits 23505, no guardian row changes', async () => {
+      const user = await createMember();
+      const { mine } = await linkGuardians(user.id);
+      const result = await service.request(
+        user.id,
+        { phone: '+8801722222222', current_password: 'correct-password' },
+        context,
+      );
+      // Someone takes the number between request and confirm.
+      await createMember({ phone: '+8801722222222', email: 'taker@example.com' });
+      await expect(
+        service.confirmPhone(user.id, (result as any).debug.otp, context),
+      ).rejects.toBeInstanceOf(ConflictException);
+      for (const g of mine) expect((await reload(g.id)).phone).toBe('+8801711111111');
+    });
   });
 
   it('confirmPhone with no pending change: 404', async () => {

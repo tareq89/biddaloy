@@ -7,6 +7,7 @@ import {
 } from '../api';
 import { expect, guest, loggedIn, test } from '../fixtures/test';
 import { ActivatePage } from '../pages/activate-page';
+import { SEED_PASSWORD_ENV } from '../seed-contract';
 import { t } from '../i18n';
 
 /**
@@ -27,8 +28,8 @@ import { t } from '../i18n';
  *
  * Field ids, for reference: `#account-full-name`, `#account-email`,
  * `#account-phone`, `#account-current-password` (`profile-form.tsx`);
- * `#account-guardian-phone`, `#account-guardian-alternate-phone`,
- * `#account-guardian-email` (`guardian-contact-form.tsx`);
+ * `#account-guardian-alternate-phone` (`guardian-contact-form.tsx`; its phone and email
+ * are read-only since [68.4.05]);
  * `#account-change-current-password`, `#account-change-new-password`,
  * `#account-change-confirm-password` (`change-password-form.tsx`).
  */
@@ -47,7 +48,7 @@ interface GuardianSummary {
 
 test.use(loggedIn('parent'));
 
-test('the phone AC end to end: a guardian-contact edit changes what the reminder preview dials', async ({
+test('the phone AC end to end: a verified contact change changes what the reminder preview dials', async ({
   page,
   request,
 }) => {
@@ -86,24 +87,36 @@ test('the phone AC end to end: a guardian-contact edit changes what the reminder
   await test.step('navigate to /portal/account via the nav link', async () => {
     await page.goto('/portal');
     await page.getByRole('link', { name: t('nav.items.portalAccount') }).click();
-    await expect(page.locator('#account-guardian-phone')).toBeVisible();
+    await expect(page.locator('#account-guardian-alternate-phone')).toBeVisible();
   });
 
-  await test.step('change the guardian contact phone number and save', async () => {
-    const phoneField = page.locator('#account-guardian-phone');
-    await phoneField.fill(newPhone);
-    await page.locator('#account-guardian-phone').press('Tab');
-    // The PATCH response is the confirmation — no navigation follows a save here, and the
-    // field is still enabled the instant after the click, so it can't tell "saved" from "not yet".
-    const saved = page.waitForResponse(
-      (r) => r.request().method() === 'PATCH' && r.url().endsWith('/guardians/mine'),
-    );
-    await page
-      .locator('form', { has: page.locator('#account-guardian-phone') })
-      .getByRole('button', { name: /./ })
-      .last()
-      .click();
-    expect((await saved).ok()).toBe(true);
+  await test.step('the guardian form shows phone/email read-only, owned by the login', async () => {
+    // [68.4.05] The sign-in phone is changed under "Contact", never in this form.
+    await expect(page.locator('#account-guardian-phone')).toHaveCount(0);
+    await expect(page.getByText(t('portal.account.guardian.contactOwnedByLogin'))).toBeVisible();
+  });
+
+  await test.step('change the phone through the verified contact-change flow', async () => {
+    // The UI dialog is covered by the "contact change" journey below; here the same two API
+    // calls it makes keep the step independent of how the seeded phone is formatted on screen.
+    const password = process.env[SEED_PASSWORD_ENV];
+    if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
+    const headers = {
+      Authorization: `Bearer ${parentSession.token}`,
+      'X-Tenant-ID': parentSession.tenantId,
+    };
+    const requested = await request.post('/api/v1/users/me/contact-change', {
+      headers,
+      data: { phone: `+880${newPhone}`, current_password: password },
+    });
+    expect(requested.ok()).toBe(true);
+    const otp = ((await requested.json()) as { debug?: { otp?: string } }).debug?.otp;
+    if (!otp) throw new Error('No debug.otp — is ACCOUNT_ACCESS_ECHO_SECRETS=true set?');
+    const confirmed = await request.post('/api/v1/users/me/contact-change/confirm-phone', {
+      headers,
+      data: { otp },
+    });
+    expect(confirmed.ok()).toBe(true);
   });
 
   await test.step('the reminder-preview endpoint now dials the new number', async () => {

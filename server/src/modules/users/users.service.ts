@@ -48,6 +48,7 @@ import {
   UpdateTeacherDto,
   QueryTeacherDto,
 } from './dto/users.dto';
+import { syncLinkedGuardianContacts } from '../students/linked-guardian-contacts.util';
 import { JoinRequestDto } from './dto/join-request.dto';
 import { insertJoinRequest } from '../account-access/school-invite.service';
 import { ASSIGNMENT_TYPE_ORDER_SQL } from '../classes/classes.service';
@@ -713,6 +714,11 @@ export class UserService {
             }
           }
           await manager.getRepository(User).update({ id }, updateData);
+          // [68.4.05] A linked guardian's phone/email follow the login in every school.
+          await syncLinkedGuardianContacts(manager, id, {
+            email: 'email' in updateData ? updateData.email : undefined,
+            phone: 'phone' in updateData ? updateData.phone : undefined,
+          });
           if (Object.keys(after).length > 0) {
             await this.audit.record(
               {
