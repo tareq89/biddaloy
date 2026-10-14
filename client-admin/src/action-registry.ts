@@ -41,6 +41,8 @@ export type ActionKind = 'modal' | 'navigate' | 'inline';
 /** What `run()` receives — currently just a TanStack Router navigate. */
 export interface ActionRunContext {
   readonly navigate: (opts: { readonly to: string }) => void;
+  /** Ends the session; only the demo "switch role" action needs it (a signed-in visitor cannot reach `/login`). */
+  readonly signOut?: () => Promise<unknown>;
   /** Ids of the current route, when it has them (the palette's context). */
   readonly params?: {
     readonly studentId?: string | undefined;
@@ -893,3 +895,18 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/reports/printables?tab=to-print' }),
   },
 ];
+
+/**
+ * [58.2.07] Offered by the palette launcher only when `GET /demo/roles` answers (the demo school);
+ * kept out of `ACTIONS` so a normal school's palette is untouched. DASHBOARD_VIEW = any staff role.
+ */
+export const DEMO_SWITCH_ROLE_ACTION: PaletteAction = {
+  id: 'demo.switchRole',
+  label: { en: 'Switch demo role', bn: 'ডেমো ভূমিকা বদলান' },
+  permission: Permission.DASHBOARD_VIEW,
+  kind: 'navigate',
+  group: 'top',
+  run: (ctx) => {
+    void (ctx.signOut?.() ?? Promise.resolve()).finally(() => ctx.navigate({ to: '/login' }));
+  },
+};

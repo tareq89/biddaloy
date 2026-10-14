@@ -145,6 +145,36 @@ describe('createAppQueryClient', () => {
     );
   });
 
+  it('shows plain demo copy for a DEMO_DISABLED mutation error, not the permission toast', async () => {
+    await i18n.changeLanguage('en');
+    const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    const queryClient = createAppQueryClient();
+
+    await expect(
+      queryClient
+        .getMutationCache()
+        .build(queryClient, {
+          mutationFn: () => {
+            throw new ApiError({
+              statusCode: 403,
+              message: 'demo',
+              timestamp: new Date().toISOString(),
+              path: '/x',
+              requestId: 'r1',
+              details: { code: 'DEMO_DISABLED' },
+            });
+          },
+        })
+        .execute(undefined),
+    ).rejects.toThrow();
+
+    await vi.waitFor(() =>
+      expect(toastErrorSpy).toHaveBeenCalledExactlyOnceWith(
+        'This is turned off in the demo school.',
+      ),
+    );
+  });
+
   it('does not toast a 403 for a mutation that handles it itself (meta.handlesForbidden)', async () => {
     const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
     const queryClient = createAppQueryClient();
