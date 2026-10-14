@@ -252,11 +252,13 @@ describe('StudyPlans1791500000000 (integration)', () => {
     expect(row.recorded_by_user_id).toBeNull();
   });
 
-  it('refuses to delete a period slot that a delivery points at (RESTRICT, 23503)', async () => {
+  // 23001 (restrict_violation): Postgres 18+ code for a DELETE blocked by an
+  // ON DELETE RESTRICT key. Postgres 16 reported 23503 here.
+  it('refuses to delete a period slot that a delivery points at (RESTRICT, 23001)', async () => {
     await insertDelivery();
     await expect(
       dataSource.query(`DELETE FROM "period_slots" WHERE id = $1`, [slotA]),
-    ).rejects.toMatchObject({ code: '23503' });
+    ).rejects.toMatchObject({ code: '23001' });
     // An unreferenced slot still deletes.
     await expect(
       dataSource.query(`DELETE FROM "period_slots" WHERE id = $1`, [slotB]),

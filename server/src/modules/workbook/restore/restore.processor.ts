@@ -446,7 +446,9 @@ export class RestoreProcessor extends WorkerHost {
       if (code === '23505') {
         return `already exists: ${constraint ?? 'unique constraint'}`;
       }
-      if (code === '23503') {
+      // Postgres 18+ reports a DELETE blocked by an ON DELETE RESTRICT key as
+      // 23001 (restrict_violation); NO ACTION keys still report 23503.
+      if (code === '23503' || code === '23001') {
         return `related record missing or still referenced: ${constraint ?? 'foreign key constraint'}`;
       }
     }
