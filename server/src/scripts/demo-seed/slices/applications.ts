@@ -214,16 +214,12 @@ export const slice: DemoSlice = {
       (kids.get(s.tenantId) ?? kids.set(s.tenantId, []).get(s.tenantId)!).push(s);
     const guardianUser = new Map(st.guardians.map((g) => [g.id, g.userId]));
     const exams = await q<{ id: string; tenant_id: string; subject_id: string }>(
-      `SELECT DISTINCT ON (e.tenant_id) e.id, e.tenant_id, es.subject_id
-         FROM exams e JOIN exam_subjects es ON es.exam_id = e.id
-        WHERE e.tenant_id = ANY($1) ORDER BY e.tenant_id, e.id`,
+      `SELECT DISTINCT ON (e.tenant_id) e.id, e.tenant_id, ec.subject_id
+         FROM exams e JOIN exam_components ec ON ec.exam_id = e.id AND ec.deleted_at IS NULL
+        WHERE e.tenant_id = ANY($1) AND e.deleted_at IS NULL ORDER BY e.tenant_id, e.id, ec.subject_id`,
       [org.tenants.map((t) => t.id)],
-    ).catch(() => []); // the exams slice may not have run
-    const types = Object.values(ApplicationType).filter(
-      (t) =>
-        t !== ApplicationType.STAFF_LEAVE &&
-        (t !== ApplicationType.SCRIPT_RECHECK || exams.length > 0),
     );
+    const examOf = new Map(exams.map((e) => [e.tenant_id, e]));
     for (const t of org.tenants) {
       const mine = kids.get(t.id) ?? [];
       if (!mine.length) continue;
@@ -232,6 +228,11 @@ export const slice: DemoSlice = {
       const per = Math.max(
         2,
         ctx.count(t.id === high.id ? HISTORY_PER_TYPE * 2 : HISTORY_PER_TYPE),
+      );
+      const types = Object.values(ApplicationType).filter(
+        (x) =>
+          x !== ApplicationType.STAFF_LEAVE &&
+          (x !== ApplicationType.SCRIPT_RECHECK || examOf.has(t.id)),
       );
       for (const type of types) {
         const def = APPLICATION_TYPES[type];
@@ -276,8 +277,8 @@ export const slice: DemoSlice = {
             },
             [ApplicationType.SECTION_CHANGE]: { to_section_id: section.id, reason: REASON },
             [ApplicationType.SCRIPT_RECHECK]: {
-              exam_id: exams[0]?.id,
-              subject_id: exams[0]?.subject_id,
+              exam_id: examOf.get(t.id)?.id,
+              subject_id: examOf.get(t.id)?.subject_id,
               reason: REASON,
             },
             [ApplicationType.ID_CARD_REPRINT]: { reason: 'কার্ডটি হারিয়ে গেছে।' },

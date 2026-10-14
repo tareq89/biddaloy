@@ -40,7 +40,16 @@ import { slice as org } from './org';
 import { slice as staff } from './staff';
 import { slice as students } from './students';
 import { slice as attendance } from './attendance';
+import { slice as extras } from './student-extras';
+import { slice as exams } from './exams';
 import { slice } from './applications';
+import { ResultsService } from '../../../modules/exams/results.service';
+import { MarkGridService } from '../../../modules/exams/mark-grid.service';
+import { AttendanceComponentService } from '../../../modules/exams/attendance-component.service';
+import { MarksAuthorizationService } from '../../../modules/exams/marks-authorization.util';
+import { SeatPlansService } from '../../../modules/seat-plans/seat-plans.service';
+import { TeacherBusyService } from '../../../modules/routines/teacher-busy.service';
+import { ResolveRoutineService } from '../../../modules/routines/resolve-routine.service';
 
 const ANCHOR = '2026-10-10';
 const SCALE = 0.1;
@@ -81,6 +90,14 @@ describe('applications slice (integration, 2 years, scale 0.1)', () => {
         provide: StorageService,
         useValue: { put: async () => undefined, delete: async () => undefined },
       },
+      // exams slice (runs before applications, as in slices.ts)
+      ResultsService,
+      MarkGridService,
+      SeatPlansService,
+      TeacherBusyService,
+      { provide: AttendanceComponentService, useValue: {} },
+      { provide: MarksAuthorizationService, useValue: {} },
+      { provide: ResolveRoutineService, useValue: { resolveTenantDay: async () => [] } },
       // applications (the notifier talks to push, SMS and the communications module: stubbed)
       SchoolCalendarService,
       FamilyAccessService,
@@ -122,6 +139,8 @@ describe('applications slice (integration, 2 years, scale 0.1)', () => {
     await staff.run(ctx);
     await students.run(ctx);
     await attendance.run(ctx);
+    await extras.run(ctx);
+    await exams.run(ctx);
     await slice.run(ctx);
   }, 900_000);
 
@@ -130,7 +149,7 @@ describe('applications slice (integration, 2 years, scale 0.1)', () => {
   });
 
   it('gives every application type a history and the demo cards their open requests', async () => {
-    // Every type except SCRIPT_RECHECK (it needs the exams slice) has decided history.
+    // Every type has decided history; SCRIPT_RECHECK is checked per branch below.
     const types = await q(
       `SELECT type, count(*) FILTER (WHERE status <> 'PENDING') AS decided FROM applications GROUP BY type`,
     );
@@ -148,6 +167,19 @@ describe('applications slice (integration, 2 years, scale 0.1)', () => {
     ]) {
       expect(seen.has(t), t).toBe(true);
     }
+
+    // SCRIPT_RECHECK: every branch with exams has one, pointing at its own exam.
+    const branches = await q(
+      `SELECT s.id, (SELECT count(*) FROM applications a WHERE a.tenant_id = s.id AND a.type = 'SCRIPT_RECHECK')::int AS n
+         FROM schools s WHERE s.slug LIKE 'bmsc-%' AND EXISTS (SELECT 1 FROM exams e WHERE e.tenant_id = s.id)`,
+    );
+    expect(branches.length).toBeGreaterThan(0);
+    for (const b of branches) expect(b.n, b.id).toBeGreaterThan(0);
+    const foreign = await q(
+      `SELECT a.id FROM applications a LEFT JOIN exams e ON e.id = (a.payload->>'exam_id')::uuid
+        WHERE a.type = 'SCRIPT_RECHECK' AND e.tenant_id IS DISTINCT FROM a.tenant_id`,
+    );
+    expect(foreign).toEqual([]);
 
     // The principal card has 3+ pending approvals (staff leave waits for LEAVE_APPROVE; the principal holds it).
     const principal = DEMO_CARDS.find((c) => c.key === 'principal')!;
