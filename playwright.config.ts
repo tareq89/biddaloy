@@ -19,8 +19,9 @@ const CI = !!process.env.CI;
 // [58.4.02] The nightly demo sweep. With DEMO_SWEEP_URL it drives an already-running demo site
 // (no local servers are started); the whole run must finish inside 8 minutes (globalTimeout) so
 // the 02:00 reset never overruns by much.
-const DEMO_NIGHTLY = process.env.E2E_DEMO_NIGHTLY === '1';
-const DEMO_SWEEP_URL = DEMO_NIGHTLY ? process.env.DEMO_SWEEP_URL : undefined;
+// DEMO_SWEEP_URL alone selects the project (the reset container sets only it).
+const DEMO_SWEEP_URL = process.env.DEMO_SWEEP_URL || undefined;
+const DEMO_NIGHTLY = process.env.E2E_DEMO_NIGHTLY === '1' || !!DEMO_SWEEP_URL;
 
 // [15.1] Set only by ci.yml's per-job collect step. Unset (every local run)
 // means zero behaviour change — the array below is unchanged.
@@ -70,7 +71,10 @@ export default defineConfig({
   // A suite needing more than one CI retry is hiding flake — see
   // [8.5.1]'s acceptance criteria.
   retries: CI ? 1 : 0,
-  reporter: [...baseReporter, ...timingsReporter],
+  // The sweep runs unattended (no CI var in the reset container): never serve an html report.
+  reporter: DEMO_SWEEP_URL
+    ? [['list'], ['html', { open: 'never' }]]
+    : [...baseReporter, ...timingsReporter],
   use: {
     // Relative page.goto()/request URLs resolve against the client shell —
     // matches e2e/config.ts's single-shell entry ([8.5.2]).
@@ -127,7 +131,7 @@ export default defineConfig({
             name: 'demo-nightly',
             testDir: './e2e/demo',
             testMatch: /demo-nightly-sweep\.spec\.ts/,
-            testIgnore: [],
+            testIgnore: [], // overrides the top-level '**/demo/**' ignore
             retries: 0, // a retry would double a role's visit time against the 8-minute budget
             use: {
               ...BROWSER_DEVICES.chromium,
