@@ -3,7 +3,7 @@ import type { INestApplicationContext } from '@nestjs/common';
 import type { DataSource } from 'typeorm';
 import { hashPassword } from '../../modules/auth/password-hash';
 
-/** Local-only fallback. Production runs must set DEMO_PASSWORD (assertDemoTarget refuses otherwise). */
+/** Local-only fallback. Production and DEMO_MODE runs must set DEMO_PASSWORD (assertDemoTarget refuses otherwise). */
 export const demoPassword = (env: NodeJS.ProcessEnv): string => env.DEMO_PASSWORD || 'Demo@12345';
 
 export interface DemoSlice {

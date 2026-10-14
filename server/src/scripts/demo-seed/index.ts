@@ -41,9 +41,11 @@ export function assertDemoTarget(env: NodeJS.ProcessEnv): void {
       'Refusing to run seed:demo with NODE_ENV=production unless DEMO_MODE=true: it writes a fake school.',
     );
   }
-  if (env.NODE_ENV === 'production' && !env.DEMO_PASSWORD) {
+  // Same rule as the server's env validation: a DEMO_MODE host shows DEMO_PASSWORD on the login
+  // cards, so seeding the fallback there would make every card fail to log in.
+  if ((env.NODE_ENV === 'production' || env.DEMO_MODE === 'true') && !env.DEMO_PASSWORD) {
     throw new Error(
-      'DEMO_PASSWORD is required with NODE_ENV=production: demo logins must not use a public default.',
+      'DEMO_PASSWORD is required with NODE_ENV=production or DEMO_MODE=true: demo logins must not use a public default.',
     );
   }
   let database: string;
@@ -93,10 +95,11 @@ export function formatTimings(timings: DemoSeedContext['timings']): string {
 }
 
 /**
- * Boots the app, checks the DB is empty, runs every slice. The caller owns `app.close()` (main and
- * the coverage spec both need the DataSource afterwards).
+ * Runs guards 1-2, boots the app, checks the DB is empty, runs every slice. The caller owns
+ * `app.close()` (main and the coverage spec both need the DataSource afterwards).
  */
 export async function runDemoSeed(args: DemoSeedArgs, password: string) {
+  assertDemoTarget(process.env);
   const app = await createScriptAppContext();
   try {
     const ds = app.get(DataSource);
@@ -112,7 +115,6 @@ export async function runDemoSeed(args: DemoSeedArgs, password: string) {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  assertDemoTarget(process.env);
   const { app, ctx } = await runDemoSeed(args, demoPassword(process.env));
   try {
     console.log(formatTimings(ctx.timings));

@@ -35,6 +35,12 @@ describe('guards', () => {
     expect(() => assertDemoTarget({ ...base, DEMO_PASSWORD: 'pw' })).not.toThrow();
   });
 
+  it('DEMO_MODE=true needs DEMO_PASSWORD outside production too (the cards show it)', () => {
+    const base = { DEMO_MODE: 'true', DATABASE_URL: demoUrl('biddaloy_demo_next') };
+    expect(() => assertDemoTarget(base)).toThrow(/DEMO_PASSWORD/);
+    expect(() => assertDemoTarget({ ...base, DEMO_PASSWORD: 'pw' })).not.toThrow();
+  });
+
   it('dev with DEMO_PASSWORD unset falls back to the local default', () => {
     expect(demoPassword({ NODE_ENV: 'development' })).toBe('Demo@12345');
     expect(demoPassword({ DEMO_PASSWORD: 'pw' })).toBe('pw');

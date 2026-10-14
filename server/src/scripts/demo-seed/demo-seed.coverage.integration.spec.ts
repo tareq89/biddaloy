@@ -104,7 +104,8 @@ async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<stri
 }
 
 describe('demo seed coverage', () => {
-  const dbs = [`${baseDb}_democov_main`, `${baseDb}_democov_a`, `${baseDb}_democov_b`];
+  // biddaloy_demo* so runDemoSeed's own DB-name guard passes; the base name keeps runs apart.
+  const dbs = ['main', 'a', 'b'].map((x) => `biddaloy_demo_cov_${baseDb}_${x}`);
   const savedUrl = process.env.DATABASE_URL;
   let closeMain: () => Promise<void> = async () => {};
   let slices: DemoSlice[] = [];
