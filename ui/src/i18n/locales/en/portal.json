@@ -385,6 +385,7 @@
       "add": "Add"
     },
     "guardian": {
+      "contactOwnedByLogin": "Change your phone or email under Contact above; school messages will follow.",
       "title": "Contact numbers",
       "explanation": "These are the numbers the school's fee reminders call and text.",
       "save": "Save changes",

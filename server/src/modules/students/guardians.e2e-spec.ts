@@ -513,6 +513,45 @@ describe('Guardians E2E', () => {
       expect(res.body.phone).toBe('+8801711111111');
     });
 
+    describe('[68.4.05] phone/email of a guardian linked to a login', () => {
+      const patch = (id: string, body: object) =>
+        supertest(app.getHttpServer())
+          .patch(`/api/v1/guardians/${id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .send(body);
+      const create = async (name: string) =>
+        (
+          await supertest(app.getHttpServer())
+            .post('/api/v1/guardians')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .set('X-Tenant-ID', TENANT_ID)
+            .send({ full_name: name, relationship: 'Father', phone: '+8801711111111' })
+            .expect(201)
+        ).body.id as string;
+
+      it('staff cannot change a linked guardian phone: 409 CONTACT_OWNED_BY_LOGIN', async () => {
+        const id = await create('Linked Guardian');
+        await dataSource.query(`UPDATE guardians SET user_id = $1 WHERE id = $2`, [
+          SEED_ADMIN_USER_ID,
+          id,
+        ]);
+        try {
+          const res = await patch(id, { phone: '+8801722222222' }).expect(409);
+          expect(res.body.details).toMatchObject({ code: 'CONTACT_OWNED_BY_LOGIN' });
+          // Other fields and an unchanged phone still save.
+          await patch(id, { occupation: 'Farmer', phone: '+8801711111111' }).expect(200);
+        } finally {
+          await dataSource.query(`UPDATE guardians SET user_id = NULL WHERE id = $1`, [id]);
+        }
+      });
+
+      it('an unlinked guardian keeps today behaviour: 200', async () => {
+        const id = await create('Unlinked Guardian');
+        await patch(id, { phone: '+8801733333333' }).expect(200);
+      });
+    });
+
     it('should return 403 for STUDENT role on update', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/guardians')
