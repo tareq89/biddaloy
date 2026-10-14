@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CommunicationsProcessor } from './communications.processor';
+import { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
+import { DemoLogProvider } from '../providers/demo/demo-log.provider';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 
 // [15.1.4] captureException/captureMessage/withScope are spied so onFailed/
@@ -123,6 +125,38 @@ describe('CommunicationsProcessor', () => {
     expect(txManager.save).toHaveBeenCalledWith(
       expect.objectContaining({ status: CommunicationStatus.SENT, provider_message_id: 'p-1' }),
     );
+  });
+
+  // [58.1.02] Acceptance: in DEMO_MODE a notification ends as a SENT row whose provider is
+  // demo-log. Wires the real registry + DemoLogProvider, so no gateway can be reached.
+  it('in DEMO_MODE settles the log SENT through the demo-log provider', async () => {
+    vi.stubEnv('DEMO_MODE', 'true');
+    const registry = new CommunicationProviderRegistryService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      new DemoLogProvider(),
+    );
+    processor = new CommunicationsProcessor(
+      repo as any,
+      guardianRepo as any,
+      registry,
+      tenantStatus as any,
+      smsCredits as any,
+      pushService as any,
+    );
+
+    await processor.process(job());
+
+    expect(txManager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: CommunicationStatus.SENT,
+        provider_message_id: expect.stringMatching(/^demo-log-/),
+        metadata: expect.objectContaining({ raw: { provider: 'demo-log' } }),
+      }),
+    );
+    vi.unstubAllEnvs();
   });
 
   // [15.6.1] `result.segments` (from the shared `countSmsSegments` via the
