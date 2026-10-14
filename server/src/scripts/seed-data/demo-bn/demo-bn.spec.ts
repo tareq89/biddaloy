@@ -67,6 +67,13 @@ describe('demo-bn name pools', () => {
           expect(new Set(keys).size).toBe(keys.length);
         }
       });
+
+      it('has no duplicate en spelling within a list', () => {
+        for (const list of [pool.boys, pool.girls, pool.surnames]) {
+          const en = list.map((p) => p.en);
+          expect(new Set(en).size).toBe(en.length);
+        }
+      });
     });
   }
 
@@ -194,6 +201,9 @@ describe('BD public holidays 2016-2027', () => {
     expect(find(2019, 'Eid-ul-Fitr')?.date).toBe('2019-06-04');
     expect(find(2022, 'Eid-ul-Azha')?.date).toBe('2022-07-10');
     expect(find(2023, 'Ashura')?.date).toBe('2023-07-29');
+    // The 17.2.6 sets must stay as they were; 58.1.04 only added older years.
+    const eid2026 = find(2026, 'Eid-ul-Fitr');
+    expect([eid2026?.date, eid2026?.end_date]).toEqual(['2026-03-20', '2026-03-22']);
   });
 });
 
