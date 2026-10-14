@@ -35,9 +35,9 @@ erDiagram
     Student }o--|| ClassSection : "enrolled in"
     Student ||--o{ Enrollment : "history"
     Student }o--o{ Guardian : "linked (student_guardians)"
-    User ||--o| Teacher : "profile"
-    User ||--o| Guardian : "profile"
-    User ||--o| Student : "profile"
+    User ||--o{ Teacher : "profile, one per branch"
+    User ||--o{ Guardian : "profile, one per branch"
+    User ||--o{ Student : "profile, one per branch"
 
     FeeStructure ||--o{ FeeStructureStudent : "selected students"
     FeeStructure ||--o{ StudentFee : generates
