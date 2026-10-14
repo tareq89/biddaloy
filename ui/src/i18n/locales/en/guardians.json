@@ -110,7 +110,8 @@
     "save": "Save changes",
     "saving": "Saving…",
     "errorMessage": "Couldn't update the guardian. Try again.",
-    "sectionTitle": "Guardian details"
+    "sectionTitle": "Guardian details",
+    "contactOwnedByLogin": "This guardian signs in with this phone and email. The parent changes them from their own account, or an admin edits their user."
   },
   "studentPicker": {
     "selectedLabel": "Linked students",
