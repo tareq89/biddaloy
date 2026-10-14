@@ -36,6 +36,13 @@ flowchart LR
 | `--years`  | `10`                    | Years of history (integer, >= 1).                             |
 | `--anchor` | today (school timezone) | The demo's "today", `YYYY-MM-DD`. Every date derives from it. |
 
+Before a run, know these:
+
+- **A killed run leaves the attendance tables without their plain indexes.**
+  The `attendance` slice drops them for its bulk load and rebuilds them at
+  the end (UNIQUE indexes stay). A run killed in between (Ctrl-C, OOM) never
+  rebuilds them. The seed only targets a fresh database, so drop it and re-run.
+
 Where things live (all under `server/src/scripts/demo-seed/`):
 
 | File                                     | Job                                                                                   |
