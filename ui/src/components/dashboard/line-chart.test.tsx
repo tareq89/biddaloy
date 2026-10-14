@@ -1,5 +1,5 @@
 import { createEvent, fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { LineChart, type LineChartPoint } from './line-chart';
 
@@ -12,6 +12,13 @@ const points: LineChartPoint[] = months.map((x, i) => ({
 const base = { label: 'Monthly collection', points, formatTick: (n: number) => `${n}%` };
 
 describe('LineChart', () => {
+  it('a flat yDomain renders without duplicate-key warnings', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<LineChart {...base} yDomain={[5, 5]} />);
+    expect(err.mock.calls.filter((c) => String(c[0]).includes('same key'))).toHaveLength(0);
+    err.mockRestore();
+  });
+
   it('is an img named label with one path and one x label per point', () => {
     const { container } = render(<LineChart {...base} />);
     expect(screen.getByRole('img', { name: 'Monthly collection' })).toBeTruthy();

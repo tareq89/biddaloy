@@ -2,7 +2,15 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEve
 
 import { cn } from '../../primitives/lib/utils';
 
-import { FILL, STROKE, nearestIndex, niceMax, scaleLinear, ticks, type ChartColor } from './chart-utils';
+import {
+  FILL,
+  STROKE,
+  nearestIndex,
+  niceMax,
+  scaleLinear,
+  ticks,
+  type ChartColor,
+} from './chart-utils';
 
 export interface LineChartPoint {
   /** Already formatted, e.g. "অক্টো". */
@@ -75,9 +83,7 @@ export function LineChart({
   const drawn = points.slice(0, last + 1);
   const max = Math.max(...drawn.map((p) => p.y), target?.value ?? 0);
   const domain: [number, number] = yDomain ?? [0, niceMax(max)];
-  const tickVals = yDomain
-    ? [domain[0], (domain[0] + domain[1]) / 2, domain[1]]
-    : ticks(domain[1]);
+  const tickVals = yDomain ? [domain[0], (domain[0] + domain[1]) / 2, domain[1]] : ticks(domain[1]);
 
   const plotW = Math.max(width - PAD.l - PAD.r, 1);
   const plotH = height - PAD.t - PAD.b;
@@ -115,7 +121,12 @@ export function LineChart({
   const onPointer = (e: PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - r.left) * (r.width ? width / r.width : 1);
-    setActive(nearestIndex(x, drawn.map((_, i) => xAt(i))));
+    setActive(
+      nearestIndex(
+        x,
+        drawn.map((_, i) => xAt(i)),
+      ),
+    );
   };
 
   const marked = new Set(labelled.filter((i) => i >= 0 && i <= last));
@@ -132,15 +143,15 @@ export function LineChart({
         tabIndex={0}
         width={width}
         height={height}
-        className="block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="block rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         onKeyDown={onKey}
         onPointerMove={onPointer}
         onPointerDown={onPointer}
         onPointerLeave={() => setActive(null)}
         onBlur={() => setActive(null)}
       >
-        {tickVals.map((t) => (
-          <g key={`${t}`}>
+        {tickVals.map((t, ti) => (
+          <g key={ti}>
             <line
               x1={PAD.l}
               x2={width - PAD.r}
@@ -270,8 +281,9 @@ export function LineChart({
         <div
           id={tipId}
           role="tooltip"
-          className="pointer-events-none absolute -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md bg-popover px-2 py-1 text-caption text-popover-foreground shadow-e2"
-          style={{ left: xAt(active), top: yAt(act.y) - 10 }}
+          className="pointer-events-none absolute -translate-x-1/2 -translate-y-full rounded-md bg-popover px-2 py-1 text-caption whitespace-nowrap text-popover-foreground shadow-e2"
+          // ponytail: fixed 48px edge margin, not measured; measure the tooltip if labels get long
+          style={{ left: Math.min(Math.max(xAt(active), 48), width - 48), top: yAt(act.y) - 10 }}
         >
           {tooltipLabel(act)}
         </div>
