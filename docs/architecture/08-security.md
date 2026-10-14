@@ -851,6 +851,22 @@ Out of scope for this ticket: a "new sign-in to your account" notification
 
 The message names the script and host, never the password. The dev seed's attendance device gets a fresh random key per database, printed once as `Seed attendance device key (shown once): bd_...`; re-runs do not reprint it. Specs that call `ensureAttendanceSeed` directly keep the fixed `SEED_DEVICE_KEY` from `seed.util.ts`; `e2e/seed-contract.ts` no longer exports one, since a Playwright spec cannot know the random key.
 
+## Demo seed safety (58.1.03)
+
+`yarn seed:demo` does not call `assertLocalSeedTarget`: the nightly demo reset runs with `NODE_ENV=production` against a Docker-service host, which that guard refuses by design. It runs its own three checks, in this order, before any write:
+
+```mermaid
+flowchart LR
+  A["1. NODE_ENV=production<br/>and DEMO_MODE not 'true'?"] -->|yes| X[exit 1]
+  A -->|no| B["2. DATABASE_URL database name<br/>starts with biddaloy_demo?"]
+  B -->|no| X
+  B -->|yes| C["3. any school besides<br/>default-school exists?"]
+  C -->|yes| X
+  C -->|no| D[run slices]
+```
+
+Example: `postgres://u:p@db:5432/biddaloy` is refused at step 2; `.../biddaloy_demo_next` on a freshly migrated database passes. The host is not checked because the database name already limits the blast radius, and the real database can never be called `biddaloy_demo*`. `default-school` is the platform row every migrated database already holds, so it does not count as data.
+
 ## CSRF posture
 
 The API splits cleanly into two authentication modes, and the CSRF argument
