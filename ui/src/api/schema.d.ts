@@ -1143,7 +1143,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List outstanding dues. Staff see the whole tenant (subject to the query filters); a PARENT or STUDENT sees only their linked students' dues, whatever filters they send. */
+        /** List outstanding dues. Tenant-wide staff see the whole tenant (subject to the query filters); a TEACHER sees only students in their current-year assigned sections; a PARENT or STUDENT sees only their linked students' dues, whatever filters they send. */
         get: operations["FeeController_getDues_v1"];
         put?: never;
         post?: never;
@@ -3658,7 +3658,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Resolve concrete, dated slots for a section, teacher or student. */
+        /** Resolve concrete, dated slots for a section, teacher or student. A PARENT or STUDENT must use `student_id` for a student they are linked to. */
         get: operations["ResolveRoutineController_resolve_v1"];
         put?: never;
         post?: never;
