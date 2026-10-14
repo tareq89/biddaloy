@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { Brackets, Not, Repository } from 'typeorm';
 import { HomeworkAssignmentStatus } from '@biddaloy/shared';
 import { Homework } from './entities/homework.entity';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkAccessService } from './homework-access.service';
+import { teacherAssignments } from '../classes/teacher-scope.service';
 import { HomeworkNoticeService } from './homework-notice.service';
 import {
   AssignHomeworkDto,
@@ -139,22 +140,37 @@ export class HomeworkService {
       }
     }
 
-    // Same object-level gate as mutations: tenant-wide managers (`canManageTenantWide`) see everything
-    // in tenant, a TEACHER only sees homework for classes they're linked to
-    // via teacher_class_sections (any section, any subject they teach).
+    // Same object-level gate as mutations: tenant-wide managers see everything in the
+    // tenant; a TEACHER only homework for their current-year assignments (a homeroom row
+    // covers any subject of its class, a subject row only that subject). No rows = nothing.
     if (!this.access.canManageTenantWide(ctx.role)) {
-      qb.innerJoin(
-        'teacher_class_sections',
-        'tcs',
-        'tcs.tenant_id = :tenantId AND tcs.section_id IN ' +
-          '(SELECT id FROM class_sections WHERE class_id = h.class_id AND tenant_id = :tenantId) ' +
-          'AND (tcs.subject_id IS NULL OR tcs.subject_id = h.subject_id)',
-      );
-      qb.innerJoin(
-        'teachers',
-        't',
-        't.id = tcs.teacher_id AND t.tenant_id = :tenantId AND t.user_id = :userId',
-        { userId: ctx.userId },
+      const rows = await teacherAssignments(this.homeworkRepo.manager, {
+        userId: ctx.userId,
+        tenantId: ctx.tenantId,
+      });
+      if (rows.length === 0) return [];
+      const homeroomClassIds = [
+        ...new Set(rows.filter((r) => r.subject_id === null).map((r) => r.class_id)),
+      ];
+      qb.andWhere(
+        new Brackets((w) => {
+          // `1 = 0` keeps the OR chain valid when there is no homeroom row.
+          if (homeroomClassIds.length)
+            w.where('h.class_id IN (:...homeroomClassIds)', { homeroomClassIds });
+          else w.where('1 = 0');
+          // One term per distinct (class, subject), skipping classes the homeroom already covers.
+          const subjectTerms = new Map(
+            rows
+              .filter((r) => r.subject_id !== null && !homeroomClassIds.includes(r.class_id))
+              .map((r) => [`${r.class_id}:${r.subject_id}`, r] as const),
+          );
+          [...subjectTerms.values()].forEach((r, i) =>
+            w.orWhere(`(h.class_id = :c${i} AND h.subject_id = :s${i})`, {
+              [`c${i}`]: r.class_id,
+              [`s${i}`]: r.subject_id,
+            }),
+          );
+        }),
       );
     }
 
@@ -168,13 +184,18 @@ export class HomeworkService {
     if (!homework) {
       throw new NotFoundException('Homework not found');
     }
-    await this.access.assertCanManageClass(
-      ctx.role,
-      ctx.userId,
-      homework.class_id,
-      homework.subject_id,
-      ctx.tenantId,
-    );
+    // D13: a teacher outside the class gets the same 404 as a missing homework.
+    await this.access
+      .assertCanManageClass(
+        ctx.role,
+        ctx.userId,
+        homework.class_id,
+        homework.subject_id,
+        ctx.tenantId,
+      )
+      .catch((e: unknown) => {
+        throw e instanceof NotFoundException ? new NotFoundException('Homework not found') : e;
+      });
     return homework;
   }
 

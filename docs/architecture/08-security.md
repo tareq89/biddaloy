@@ -756,6 +756,67 @@ Example: `GET /api/v1/calendar/feed/abc123.ics` is logged as
 Known gap: nginx's **error** log (502/504, client aborts) still writes the
 full request line, token included. Only the access log is masked.
 
+## Repository and GitHub settings
+
+Some protection lives in GitHub settings, not in code. Reporters are sent to
+[`.github/SECURITY.md`](../../.github/SECURITY.md); risky paths auto-request the
+owner's review through `.github/CODEOWNERS` (requested, not enforced).
+
+```mermaid
+flowchart LR
+    R[Researcher] -->|"Security > Report a vulnerability"| P[Private advisory]
+    P --> O[Owner @tareq89]
+    PR[PR touching /nginx/, /server/src/modules/auth/ ...] -->|CODEOWNERS| O
+```
+
+State read with `gh api` on 2026-10-12 (**Today**) and the value to reach (**Target**).
+Rows marked **owner to apply** are writes to repo settings; the implementer did not
+make them, and the **Today** column stays until the owner does and updates it.
+
+| Setting                                         | Today                                     | Target                                                   | Status                 |
+| ----------------------------------------------- | ----------------------------------------- | -------------------------------------------------------- | ---------------------- |
+| Visibility                                      | public                                    | -                                                        | -                      |
+| Private vulnerability reporting                 | disabled                                  | enabled (SECURITY.md points at it)                       | owner to apply         |
+| Secret scanning / push protection               | enabled / enabled                         | keep                                                     | ok                     |
+| Secret scanning non-provider patterns, validity | disabled / disabled                       | enabled / enabled                                        | owner to apply         |
+| Dependabot security updates                     | enabled                                   | keep                                                     | ok                     |
+| Default `GITHUB_TOKEN` permission               | `read`, cannot approve PRs                | keep                                                     | ok                     |
+| Fork PR workflow approval                       | `first_time_contributors`                 | `all_external_contributors`                              | owner to apply         |
+| Branch protection / rulesets on `main`          | none                                      | minimal ruleset: block deletion and force-push of `main` | owner decision pending |
+| `--frozen-lockfile` in CI                       | yes (`.github/actions/setup`, Dockerfile) | keep                                                     | ok                     |
+| CodeQL                                          | `.github/workflows/codeql.yml`            | keep                                                     | ok                     |
+
+Branch protection: the recommended option is the last two rules of
+`scripts/apply-main-ruleset.sh` (no deletion, no force-push), with no required checks and
+no merge queue. The full `main-gate` changes how every PR merges and needs the merge
+queue to have run green once, so it is a separate decision. Record the chosen option,
+the date and the reason here when the owner decides.
+
+Apply (the repo owner runs these; they change live GitHub settings):
+
+```bash
+# private vulnerability reporting on
+gh api -X PUT repos/tareq89/biddaloy/private-vulnerability-reporting
+# secret scanning: non-provider patterns + validity checks
+gh api -X PATCH repos/tareq89/biddaloy \
+  -F 'security_and_analysis[secret_scanning_non_provider_patterns][status]=enabled' \
+  -F 'security_and_analysis[secret_scanning_validity_checks][status]=enabled'
+# fork PRs from any outside contributor wait for approval before workflows run
+gh api -X PUT repos/tareq89/biddaloy/actions/permissions/fork-pr-contributor-approval \
+  -f approval_policy=all_external_contributors
+```
+
+Verify after applying (each should match **Target**):
+
+```bash
+gh api repos/tareq89/biddaloy/codeowners/errors --jq '.errors'                       # []
+gh api repos/tareq89/biddaloy/private-vulnerability-reporting --jq .enabled         # true
+gh api repos/tareq89/biddaloy --jq '.security_and_analysis'
+gh api repos/tareq89/biddaloy/actions/permissions/workflow
+gh api repos/tareq89/biddaloy/actions/permissions/fork-pr-contributor-approval --jq .approval_policy
+gh api repos/tareq89/biddaloy/rulesets --jq '.[].name'
+```
+
 ## Accepted dependency risks (Epic 51.0)
 
 `yarn audit` (this is a Yarn 1 repo, so `npm audit` does not work) still
@@ -824,3 +885,21 @@ To check, read the ranges, not the audit:
 ```bash
 grep -E '^"?compression@' yarn.lock   # every range listed must start at >= 1.8.2
 ```
+
+## Learnings log (Epic 75)
+
+Raw notes from each wave close. 75.36 turns them into rules later; they are not
+polished on purpose. Format: what surprised us — what it cost — fix — rule
+candidate.
+
+### Wave 0 — 2026-10-13
+
+- The first route-status snapshot had one `SUPER_ADMIN` column, but a tenant-local super admin and a platform super admin (no tenant) are guarded differently, so the column hid real 401/403 differences — one review round — fix: `PLATFORM_SA` column in `server/src/route-status-snapshot.e2e-spec.ts` (#2439) — rule candidate: a snapshot gets one column per distinct guard path, not per role name.
+- Snapshot diff since wave start is one line, `POST /api/v1/invoices/:id/share/regenerate` (new route, same guards as the other share routes) — none; the 403 → 404 teacher changes are in services, which a guard-only snapshot never sees — fix: #2438 — rule candidate: the snapshot proves guards only; handler-level scope needs its own e2e spec.
+- Opening a contact-change approval link applied the change on GET, so a mail scanner or anyone holding the link could take over a shared person's email/phone (D11) — a rework of 75.1 — fix: explicit Approve/Decline under a row lock (#2309, b95ed16a2) — rule candidate: a link in a message never changes state on open; it shows a page with a button.
+- Flipping `PermissionsGuard` to fail closed was safe only because every identity route got a readable `@AuthenticatedOnly()` marker first, checked both ways against `IDENTITY_SCOPED` — two tickets instead of one — fix: #2315 then #2436 — rule candidate: a deny-by-default flip ships behind a marker plus a two-way CI check, never on a hand list.
+- Teacher scope has to be current academic year only (D2): a past-year SUBJECT assignment kept leaking students. One exception survives (D31): marks read and write stay open for last year's section while its class still has a DRAFT exam (X-07), so the marks-due alerts and the marks gate agree. The window keys on DRAFT only, so after rollover a PROCESSED (not yet published) exam of last year is corrected by an admin, not by its subject teacher, who gets the teacher-miss 404 (D45) — fix: `teacher-scope.service.ts` (#2314, `rolesInSection().inYearWindow`) — rule candidate: every "which sections does this teacher see" question goes through `TeacherScopeService`, never a raw `teacher_class_sections` query.
+- `TeacherScopeService` lived in `ClassModule`, which fees, fines and communications cannot import (load-order cycle), so #2434 was blocked until it was exported from `StudentModule` — a blocked lane — fix: 6c7a4a121 — rule candidate: a cross-cutting scope service is exported from the module its consumers already import, decided in the plan.
+- Under a full `ci:local` (4 busy workers) specs leak into each other and slow tests pass the 5 s timeout, then pass alone — repeated red runs to triage — fix: #2456 (open) — rule candidate: a spec that fails only under load is checked alone and against #2456 before anyone "fixes" it.
+- Review found three ways past the first xlsx zip-bomb guard: a crafted EOCD (count 0, decoy prefix, zip64 sentinel), directory entries that reuse the same compressed bytes, and the calendar import that was not guarded at all — three fix commits — fix: `server/src/common/utils/xlsx-guard.util.ts` (#2330) — rule candidate: a parser guard is reviewed against crafted inputs, and every upload path is listed in the ticket by grep, not memory.
+- The Lighthouse login waited for a `লগ ইন` button that the Epic 31 sign-in rework renamed to `সাইন ইন করুন`; the job broke silently on main too — a red lighthouse section to diagnose — fix: b6ce4ba00 — rule candidate: e2e/Lighthouse helpers find buttons by i18n key or test id, never by copied UI text.

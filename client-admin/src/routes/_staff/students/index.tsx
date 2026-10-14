@@ -1,4 +1,4 @@
-import { EnrollmentStatus, Permission } from '@biddaloy/shared';
+import { EnrollmentStatus, Permission, RoleScope, roleScope } from '@biddaloy/shared';
 import {
   Button,
   CachedDataNotice,
@@ -10,6 +10,7 @@ import {
   studentQueryOptions,
   studentsQueryOptions,
   useClasses,
+  useActiveRole,
   useClassSections,
   useHasPermission,
   useOrganisationVocabulary,
@@ -228,6 +229,14 @@ function StudentsListPage() {
   const canUpdateStudent = useHasPermission(Permission.STUDENT_UPDATE);
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
+  // A section-scoped role (TEACHER) only lists the sections it teaches this year, so an
+  // unfiltered empty list means "no section assigned", not "no students yet". Checked by role
+  // scope, not a permission: SUPER_ADMIN holds every permission.
+  const isTeacher = roleScope(useActiveRole()) === RoleScope.ASSIGNED_SECTIONS;
+  // Only real list filters count; URL flags such as `photos` or `openPerformance` do not.
+  const hasActiveFilter = Object.values(toStudentListFilters(effectiveFilters, undefined)).some(
+    (v) => v !== '',
+  );
   const navigate = useNavigate();
   const isEmpty =
     !studentsQuery.isLoading && !studentsQuery.isError && (studentsQuery.data?.total ?? 0) === 0;
@@ -544,7 +553,10 @@ function StudentsListPage() {
         {...(studentsQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyState={{
           title: t('list.emptyMessage'),
-          explanation: t('list.emptyExplanation'),
+          explanation:
+            isTeacher && !hasActiveFilter
+              ? t('list.emptyTeacherExplanation')
+              : t('list.emptyExplanation'),
           ...(canAddStudent
             ? {
                 action: {

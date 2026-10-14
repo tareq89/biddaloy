@@ -1,8 +1,14 @@
-import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Permission, UserRole, hasTenantDataScope, roleHasPermission } from '@biddaloy/shared';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { teacherAssignments } from '../classes/teacher-scope.service';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Class } from '../academics/entities/class.entity';
 import { Subject } from '../academics/entities/subject.entity';
@@ -52,10 +58,9 @@ export class HomeworkAccessService {
   }
 
   /**
-   * Throws `ForbiddenException` (403) when the caller may not manage
-   * homework for this `(section, subject)` pair, otherwise resolves
-   * silently. A section that doesn't map to this teacher and one that
-   * doesn't exist in this tenant are indistinguishable — both 403.
+   * Throws when the caller may not manage homework for this `(section, subject)` pair,
+   * otherwise resolves silently: 404 for a TEACHER miss (current-year assignments only, D13),
+   * 403 for tenant-wide roles on an unknown section and for roles that cannot manage homework.
    */
   async assertCanManageSection(
     role: string,
@@ -75,20 +80,14 @@ export class HomeworkAccessService {
     }
 
     if (role === UserRole.TEACHER) {
-      // Every joined table is filtered on tenant_id, not just the outer
-      // query — same belt-and-braces convention as AttendanceAccessService.
-      const match = await this.tcsRepo
-        .createQueryBuilder('tcs')
-        .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
-          tenantId,
-        })
-        .where('tcs.section_id = :sectionId', { sectionId })
-        .andWhere('tcs.tenant_id = :tenantId', { tenantId })
-        .andWhere('t.user_id = :userId', { userId })
-        .andWhere('(tcs.subject_id IS NULL OR tcs.subject_id = :subjectId)', { subjectId })
-        .getOne();
-      if (!match) {
-        throw new ForbiddenException('You do not have access to this section');
+      const rows = await teacherAssignments(this.tcsRepo.manager, { userId, tenantId });
+      if (
+        !rows.some(
+          (r) =>
+            r.section_id === sectionId && (r.subject_id === null || r.subject_id === subjectId),
+        )
+      ) {
+        throw new NotFoundException('You do not have access to this section');
       }
       return;
     }
@@ -113,26 +112,24 @@ export class HomeworkAccessService {
     }
 
     if (role === UserRole.TEACHER) {
-      const match = await this.tcsRepo
-        .createQueryBuilder('tcs')
-        .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
-          tenantId,
-        })
-        .innerJoin('class_sections', 'cs', 'cs.id = tcs.section_id AND cs.tenant_id = :tenantId', {
-          tenantId,
-        })
-        .where('cs.class_id = :classId', { classId })
-        .andWhere('tcs.tenant_id = :tenantId', { tenantId })
-        .andWhere('t.user_id = :userId', { userId })
-        .andWhere('(tcs.subject_id IS NULL OR tcs.subject_id = :subjectId)', { subjectId })
-        .getOne();
-      if (!match) {
-        throw new ForbiddenException('You do not have access to this class');
+      const rows = await teacherAssignments(this.tcsRepo.manager, { userId, tenantId });
+      if (
+        !rows.some(
+          (r) => r.class_id === classId && (r.subject_id === null || r.subject_id === subjectId),
+        )
+      ) {
+        throw new NotFoundException('You do not have access to this class');
       }
       return;
     }
 
     throw new ForbiddenException('This role cannot manage homework');
+  }
+
+  /** An unknown student looks exactly like an out-of-scope one to a TEACHER (404, D13). */
+  private studentMiss(role: string) {
+    const msg = 'You do not have access to this student';
+    return role === UserRole.TEACHER ? new NotFoundException(msg) : new ForbiddenException(msg);
   }
 
   /** Resolves a student's `section_id` so a single-student assignment can
@@ -147,9 +144,7 @@ export class HomeworkAccessService {
     const student = await this.studentRepo.findOne({
       where: { id: studentId, tenant_id: tenantId },
     });
-    if (!student) {
-      throw new ForbiddenException('You do not have access to this student');
-    }
+    if (!student) throw this.studentMiss(role);
     await this.assertCanManageSection(role, userId, student.class_section_id, subjectId, tenantId);
   }
 
@@ -178,17 +173,9 @@ export class HomeworkAccessService {
     }
 
     if (role === UserRole.TEACHER) {
-      const match = await this.tcsRepo
-        .createQueryBuilder('tcs')
-        .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
-          tenantId,
-        })
-        .where('tcs.section_id = :sectionId', { sectionId })
-        .andWhere('tcs.tenant_id = :tenantId', { tenantId })
-        .andWhere('t.user_id = :userId', { userId })
-        .getOne();
-      if (!match) {
-        throw new ForbiddenException('You do not have access to this section');
+      const rows = await teacherAssignments(this.tcsRepo.manager, { userId, tenantId });
+      if (!rows.some((r) => r.section_id === sectionId)) {
+        throw new NotFoundException('You do not have access to this section');
       }
       return;
     }
@@ -208,20 +195,9 @@ export class HomeworkAccessService {
     }
 
     if (role === UserRole.TEACHER) {
-      const match = await this.tcsRepo
-        .createQueryBuilder('tcs')
-        .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
-          tenantId,
-        })
-        .innerJoin('class_sections', 'cs', 'cs.id = tcs.section_id AND cs.tenant_id = :tenantId', {
-          tenantId,
-        })
-        .where('cs.class_id = :classId', { classId })
-        .andWhere('tcs.tenant_id = :tenantId', { tenantId })
-        .andWhere('t.user_id = :userId', { userId })
-        .getOne();
-      if (!match) {
-        throw new ForbiddenException('You do not have access to this class');
+      const rows = await teacherAssignments(this.tcsRepo.manager, { userId, tenantId });
+      if (!rows.some((r) => r.class_id === classId)) {
+        throw new NotFoundException('You do not have access to this class');
       }
       return;
     }
@@ -239,9 +215,7 @@ export class HomeworkAccessService {
     const student = await this.studentRepo.findOne({
       where: { id: studentId, tenant_id: tenantId },
     });
-    if (!student) {
-      throw new ForbiddenException('You do not have access to this student');
-    }
+    if (!student) throw this.studentMiss(role);
     await this.assertCanViewSection(role, userId, student.class_section_id, tenantId);
   }
 

@@ -7,6 +7,7 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { UserRole } from '@biddaloy/shared';
+import { assignTeacherToSection } from '@test/helpers/teacher-scope.fixture';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -183,6 +184,8 @@ describe('GET /search (30.2.1)', () => {
   });
 
   it('permission denial: TEACHER (no INVOICE_READ/PAYMENT_READ) gets no invoices/payments key but does get students', async () => {
+    // Epic 75 D2: a TEACHER only finds students of a current-year section they teach.
+    await assignTeacherToSection(dataSource, TEACHER_USER_ID, SEED_SECTION_1_ID, TENANT_A);
     const res = await supertest(app.getHttpServer())
       .get(`${API}/search`)
       .query({ q: 'Search E2E Findable' })

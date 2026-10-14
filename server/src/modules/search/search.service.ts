@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Permission, UserRole, roleHasPermission } from '@biddaloy/shared';
+import { Permission, RoleScope, UserRole, roleHasPermission, roleScope } from '@biddaloy/shared';
 import { Student } from '../students/entities/student.entity';
+import { teacherSectionIds } from '../classes/teacher-scope.service';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import {
   SearchGuardianResult,
@@ -64,7 +65,21 @@ export class SearchService {
     private readonly studentRepo: Repository<Student>,
   ) {}
 
-  async search(tenantId: string, role: UserRole, query: SearchQueryDto): Promise<SearchResultsDto> {
+  /** `userId` scopes an assigned-sections role's (TEACHER's) student and guardian groups to their current-year sections
+   * (Epic 75 D2/D13); with no assignment, or no `userId`, both groups are empty. The staff group
+   * stays open (D2). Other roles are unchanged. */
+  async search(
+    tenantId: string,
+    role: UserRole,
+    query: SearchQueryDto,
+    userId?: string,
+  ): Promise<SearchResultsDto> {
+    const sectionIds =
+      roleScope(role) === RoleScope.ASSIGNED_SECTIONS
+        ? userId
+          ? await teacherSectionIds(this.studentRepo.manager, { userId, tenantId })
+          : []
+        : null;
     const term = normalizeSearchTerm(query.q);
     const limit = Math.min(Math.max(query.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
 
@@ -76,14 +91,20 @@ export class SearchService {
     // querying").
     if (roleHasPermission(role, Permission.STUDENT_READ)) {
       jobs.push(
-        (term ? this.searchStudents(tenantId, term, limit) : Promise.resolve([])).then((rows) => {
+        (term && sectionIds?.length !== 0
+          ? this.searchStudents(tenantId, term, limit, sectionIds)
+          : Promise.resolve([])
+        ).then((rows) => {
           result.students = rows;
         }),
       );
     }
     if (roleHasPermission(role, Permission.GUARDIAN_READ)) {
       jobs.push(
-        (term ? this.searchGuardians(tenantId, term, limit) : Promise.resolve([])).then((rows) => {
+        (term && sectionIds?.length !== 0
+          ? this.searchGuardians(tenantId, term, limit, sectionIds)
+          : Promise.resolve([])
+        ).then((rows) => {
           result.guardians = rows;
         }),
       );
@@ -132,6 +153,7 @@ export class SearchService {
     tenantId: string,
     term: string,
     limit: number,
+    sectionIds: string[] | null,
   ): Promise<SearchStudentResult[]> {
     const like = `%${term}%`;
     const isPlainInteger = /^\d+$/.test(term) && Number(term) <= 2147483647;
@@ -162,6 +184,7 @@ export class SearchService {
        LEFT JOIN classes c ON c.id = cs.class_id
        WHERE s.tenant_id = $1
          AND s.deleted_at IS NULL
+         AND ($5::uuid[] IS NULL OR s.class_section_id = ANY($5::uuid[]))
          AND (
            s.full_name ILIKE $2
            OR s.registration_number ILIKE $2
@@ -179,7 +202,7 @@ export class SearchService {
          )
        ORDER BY s.full_name ASC
        LIMIT $3`,
-      [tenantId, like, limit, rollNumber],
+      [tenantId, like, limit, rollNumber, sectionIds],
     );
 
     return rows.map((r) => ({
@@ -197,6 +220,7 @@ export class SearchService {
     tenantId: string,
     term: string,
     limit: number,
+    sectionIds: string[] | null,
   ): Promise<SearchGuardianResult[]> {
     const like = `%${term}%`;
     const rows = await this.studentRepo.manager.query<
@@ -207,9 +231,14 @@ export class SearchService {
        WHERE g.tenant_id = $1
          AND g.deleted_at IS NULL
          AND (g.full_name ILIKE $2 OR g.phone ILIKE $2)
+         AND ($4::uuid[] IS NULL OR EXISTS (
+           SELECT 1 FROM student_guardians sg
+           JOIN students s ON s.id = sg.student_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
+           WHERE sg.guardian_id = g.id AND s.class_section_id = ANY($4::uuid[])
+         ))
        ORDER BY g.full_name ASC
        LIMIT $3`,
-      [tenantId, like, limit],
+      [tenantId, like, limit, sectionIds],
     );
     return rows;
   }

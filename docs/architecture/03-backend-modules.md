@@ -155,6 +155,24 @@ for a teacher without tenant-wide data scope:
 | Write  | a `SUBJECT_TEACHER` row for that exact, live (not deleted) subject. Homeroom never writes                      |
 | Read   | that same subject row, **or** a `CLASS_TEACHER` / `ASSISTANT_CLASS_TEACHER` row for the section (all subjects) |
 
+Both also need `rolesInSection().inYearWindow`: the section is in the current
+academic year, **or** in last year while its class still has a DRAFT exam
+(X-07, kept by D31). Example: the admin flips the year to 2027 while Class 7's
+2026 half-yearly is still DRAFT. The 2026 Math teacher can still finish that
+sheet, and the marks-due alerts still name them. Once the exam is published,
+current-year-only applies again. A PROCESSED exam does not hold the window
+open (D45): if the 2026 half-yearly is already processed and no DRAFT exam is
+left, only an admin can correct its marks.
+
+A teacher miss is a **404** with the missing-section body (`Section with ID
+"<id>" not found`, D33), like every other teacher route.
+`GET /exams/:examId/marks/progress` lists and counts only the (section,
+subject) grids a teacher may **write** (`writableSubjects`, D44). Example: the
+class teacher of 7A who teaches Math sees "7A Math", not "7A English". They can
+read the English sheet, but every save on it would 404. `GET /performance/classes/:classId`
+without `sectionId` aggregates only the teacher's own sections (D35), the same
+rule as `exams/:examId/analysis/*`.
+
 ## Routines module
 
 `server/src/modules/routines/` (Epic 21.0, class routine/timetable). Owns

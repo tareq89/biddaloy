@@ -528,8 +528,9 @@ export async function createStudentsInSection(
   session: ApiSession,
   namePrefix: string,
   count: number,
+  academicYear?: AcademicYearBounds & { id?: string },
 ): Promise<ClassSectionChain> {
-  const chain = await createClassSection(request, session);
+  const chain = await createClassSection(request, session, academicYear);
   for (let i = 1; i <= count; i += 1) {
     await post(request, session, '/students', {
       full_name: `${namePrefix} ${String(i).padStart(2, '0')}`,

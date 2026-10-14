@@ -1,4 +1,9 @@
 import ExcelJS from 'exceljs';
+import {
+  assertXlsxWithinLimits,
+  XLSX_TOO_LARGE_MESSAGE,
+  XlsxTooLargeError,
+} from '../../../common/utils/xlsx-guard.util';
 import { cellText } from '../../workbook/codec/cell-format';
 import { CALENDAR_IMPORT_COLUMNS, RawCalendarImportRow } from './calendar-import-rows.util';
 import { CalendarEventType, toCsvContent } from '@biddaloy/shared';
@@ -156,12 +161,17 @@ export async function parseCalendarImportFile(
   } else {
     const workbook = new ExcelJS.Workbook();
     try {
+      await assertXlsxWithinLimits(buffer);
       // exceljs's own `.d.ts` for `load` predates the `Buffer<ArrayBufferLike>`
       // generic Node's current lib.d.ts uses — same workaround
       // `workbook-codec.ts` applies for this exact call.
       await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
-    } catch {
-      throw new CalendarImportFileError('The uploaded file is not a valid .xlsx workbook.');
+    } catch (e) {
+      throw new CalendarImportFileError(
+        e instanceof XlsxTooLargeError
+          ? XLSX_TOO_LARGE_MESSAGE
+          : 'The uploaded file is not a valid .xlsx workbook.',
+      );
     }
     const sheet = workbook.worksheets[0];
     if (!sheet) {

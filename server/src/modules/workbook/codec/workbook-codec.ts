@@ -1,5 +1,10 @@
 import { PassThrough } from 'node:stream';
 import { Logger } from '@nestjs/common';
+import {
+  assertXlsxWithinLimits,
+  XLSX_TOO_LARGE_MESSAGE,
+  XlsxTooLargeError,
+} from '../../../common/utils/xlsx-guard.util';
 import ExcelJS from 'exceljs';
 import { cellText, normalizeCell, toCell } from './cell-format';
 import { META_FIELDS, META_SHEET, SCHEMA_VERSION, type WorkbookMeta } from './meta';
@@ -26,7 +31,8 @@ import type { ColumnSpec, RowError, TabSpec } from './tab-spec';
  * so it is deliberately left for whoever needs it.
  */
 
-export type WorkbookFormatErrorCode = 'NOT_XLSX' | 'MISSING_META' | 'UNSUPPORTED_VERSION';
+export type WorkbookFormatErrorCode =
+  'NOT_XLSX' | 'TOO_LARGE' | 'MISSING_META' | 'UNSUPPORTED_VERSION';
 
 /**
  * A workbook that cannot be read at all. Distinct from a `RowError`: this is
@@ -312,8 +318,17 @@ export async function readWorkbook(buffer: Buffer): Promise<ReadWorkbookResult> 
   const workbook = new ExcelJS.Workbook();
 
   try {
+    // Whole-school backup: the 20 MB compressed upload cap is what binds in
+    // practice; 256 MB inflated is generous headroom over a real backup.
+    await assertXlsxWithinLimits(buffer, {
+      maxUncompressedBytes: 256 * 1024 * 1024,
+      maxEntries: 5_000,
+    });
     await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
   } catch (cause) {
+    if (cause instanceof XlsxTooLargeError) {
+      throw new WorkbookFormatError('TOO_LARGE', XLSX_TOO_LARGE_MESSAGE, { cause });
+    }
     throw new WorkbookFormatError(
       'NOT_XLSX',
       'This file is not a valid .xlsx workbook. Export a backup from SchoolManager and upload that file.',

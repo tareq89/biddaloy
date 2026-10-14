@@ -30,6 +30,11 @@ import { tabUntilFocused } from '../keyboard/keyboard-utils';
  */
 
 test.use(loggedIn('admin'));
+// The grid sends `valid_from` = the browser's local today, and the server
+// rejects a published-routine slot dated before the school's (Dhaka) today
+// with 422 ROUTINE_SLOT_BACKDATED. CI's browser runs in UTC, a day behind
+// Dhaka from 18:00 UTC, so run it as a school user's browser would.
+test.use({ timezoneId: 'Asia/Dhaka' });
 
 /** Checks the focused teacher checkbox, unless it is already checked.
  *

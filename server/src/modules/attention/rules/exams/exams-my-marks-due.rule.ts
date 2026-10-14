@@ -40,6 +40,8 @@ export class ExamsMyMarksDueRule implements AttentionRuleShape {
     );
     if (!rows.length) return [];
     // Write rule of MarksAuthorizationService.assertCanWrite: SUBJECT_TEACHER row of a live subject.
+    // `rows` already holds only DRAFT exams of the current or prior year, the same year window as
+    // the write gate (X-07, kept by Epic 75 D31).
     const teachers: { sectionId: string; subjectId: string; userId: string }[] =
       await this.dataSource.query(
         `SELECT tcs.section_id AS "sectionId", tcs.subject_id AS "subjectId", t.user_id AS "userId"

@@ -116,14 +116,23 @@ export class HomeworkAnalyticsService {
   }
 
   /** Completion + defaulter rollup across every assignment for a class
-   * (via that class's homework), plus a syllabus-completion % (D29). */
+   * (via that class's homework), plus a syllabus-completion % (D29).
+   * `sectionIds` (a teacher's sections, Epic 75 D35) keeps only assignments to those sections
+   * or to a student who sits in one. */
   async getClassRollup(
     classId: string,
     tenantId: string,
     timezone = 'UTC',
+    sectionIds?: string[],
   ): Promise<CompletionRollup & { syllabus: SyllabusRollup }> {
+    const base = { tenant_id: tenantId, homework: { class_id: classId } };
     const assignments = await this.assignmentRepo.find({
-      where: { tenant_id: tenantId, homework: { class_id: classId } },
+      where: sectionIds
+        ? [
+            { ...base, section_id: In(sectionIds) },
+            { ...base, student: { class_section_id: In(sectionIds) } },
+          ]
+        : base,
       relations: ['homework'],
     });
     const dueDateByAssignmentId = new Map(assignments.map((a) => [a.id, a.due_date]));

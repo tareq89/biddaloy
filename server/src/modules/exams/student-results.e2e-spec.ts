@@ -426,10 +426,10 @@ describe('[19.9.1] Student results (portal + staff)', () => {
       );
     });
 
-    it('TEACHER gets 403 on /exams/:id/results/:studentId for another section, 200 for own', async () => {
+    it('TEACHER gets 404 (D13) on /exams/:id/results/:studentId for another section, 200 for own', async () => {
       await seedResultFixture();
       const otherStudent = await addOtherStudentResult();
-      await asTeacher(get(`/exams/${unpublishedExamId}/results/${otherStudent}`)).expect(403);
+      await asTeacher(get(`/exams/${unpublishedExamId}/results/${otherStudent}`)).expect(404);
       await asTeacher(get(`/exams/${unpublishedExamId}/results/${studentId}`)).expect(200);
     });
 

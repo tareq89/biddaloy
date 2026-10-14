@@ -231,14 +231,14 @@ describe('Attendance Summary E2E', () => {
         .expect(200);
     });
 
-    it('returns 403 for a TEACHER not mapped to the section', async () => {
+    it('returns 404 for a TEACHER not mapped to the section', async () => {
       await supertest(app.getHttpServer())
         .get(`${API}/attendance/sections/${UNMAPPED_SECTION_ID}/summary`)
         .query({ from: '2026-09-01', to: '2026-09-05' })
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .expect(403);
+        .expect(404);
     });
   });
 
@@ -273,13 +273,13 @@ describe('Attendance Summary E2E', () => {
         .expect(200);
     });
 
-    it('returns 403 for a TEACHER with no row on the section', async () => {
+    it('returns 404 for a TEACHER with no row on the section', async () => {
       await supertest(app.getHttpServer())
         .get(`${API}/attendance/sections/${UNMAPPED_SECTION_ID}/streaks`)
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .expect(403);
+        .expect(404);
     });
 
     it('returns 200 for ADMIN', async () => {
@@ -376,14 +376,14 @@ describe('Attendance Summary E2E', () => {
       expect(res.body).toHaveProperty('rows');
     });
 
-    it('returns 403 for a TEACHER not mapped to the section', async () => {
+    it('returns 404 for a TEACHER not mapped to the section', async () => {
       await setPeriods(true);
       await supertest(app.getHttpServer())
         .get(url(UNMAPPED_SECTION_ID))
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .expect(403);
+        .expect(404);
     });
 
     it('returns 403 ATTENDANCE_PERIOD_DISABLED when the period switch is off', async () => {

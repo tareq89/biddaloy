@@ -509,7 +509,9 @@ export class MarkGridService {
   async progress(
     examId: string,
     tenantId: string,
-    stateFilter?: MarkGridState,
+    stateFilter: MarkGridState | undefined,
+    /** `null` only for internal, unscoped use (results processing). */
+    caller: { role: string; userId: string } | null,
   ): Promise<{
     counts: Record<MarkGridState, number>;
     outstanding: Array<{
@@ -523,7 +525,7 @@ export class MarkGridService {
   }> {
     const exam = await this.findExam(examId, tenantId);
 
-    const [sections, components, grids] = await Promise.all([
+    const [classSections, components, grids] = await Promise.all([
       this.sectionRepo.find({
         where: { class_id: exam.class_id, tenant_id: tenantId, deleted_at: IsNull() },
         order: { section_name: 'ASC' },
@@ -537,6 +539,16 @@ export class MarkGridService {
       }),
       this.gridRepo.find({ where: { exam_id: examId, tenant_id: tenantId } }),
     ]);
+
+    // D33/D44: a teacher sees (and counts) only the (section, subject) grids they may write.
+    const writable = caller
+      ? await this.authz.writableSubjects(
+          { ...caller, tenantId },
+          classSections.map((s) => s.id),
+        )
+      : null;
+    const canOpen = (sectionId: string, subjectId: string) =>
+      !writable || !!writable.get(sectionId)?.has(subjectId);
 
     const subjectIds = [...new Set(components.map((c) => c.subject_id))];
     // Names only from this tenant's own subjects (multi-tenancy rule) — a
@@ -563,7 +575,7 @@ export class MarkGridService {
     }> = [];
 
     // One batch for every SUBMITTED grid, not a query set per grid.
-    const sectionIdSet = new Set(sections.map((s) => s.id));
+    const sectionIdSet = new Set(classSections.map((s) => s.id));
     const blanks = await this.blankCells(
       this.gridRepo.manager,
       exam,
@@ -573,13 +585,15 @@ export class MarkGridService {
           (g) =>
             g.state === MarkGridState.SUBMITTED &&
             sectionIdSet.has(g.section_id) &&
-            subjectIds.includes(g.subject_id),
+            subjectIds.includes(g.subject_id) &&
+            canOpen(g.section_id, g.subject_id),
         )
         .map((g) => ({ sectionId: g.section_id, subjectId: g.subject_id })),
     );
 
-    for (const section of sections) {
+    for (const section of classSections) {
       for (const subjectId of subjectIds) {
+        if (!canOpen(section.id, subjectId)) continue;
         const grid = gridByKey.get(`${section.id}:${subjectId}`);
         const state = grid?.state ?? MarkGridState.DRAFT;
         counts[state] += 1;

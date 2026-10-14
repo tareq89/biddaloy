@@ -601,7 +601,7 @@ export class ResultsService {
     }
 
     if (!force) {
-      const { outstanding } = await this.gridService.progress(examId, tenantId);
+      const { outstanding } = await this.gridService.progress(examId, tenantId, undefined, null);
       if (outstanding.length > 0) {
         throw new ConflictException({
           message:
@@ -976,14 +976,17 @@ export class ResultsService {
         : await this.subjectRepo.find({ where: { id: In(subjectIds), tenant_id: tenantId } });
     const subjectNameById = new Map(subjects.map((s) => [s.id, s.name_en]));
 
-    const components = await this.componentRepo.find({
-      where: {
-        exam_id: examId,
-        subject_id: In(subjectIds.length ? subjectIds : ['']),
-        tenant_id: tenantId,
-        deleted_at: IsNull(),
-      },
-    });
+    // No subjects means no components; `In([])` would fail, so skip the query.
+    const components = !subjectIds.length
+      ? []
+      : await this.componentRepo.find({
+          where: {
+            exam_id: examId,
+            subject_id: In(subjectIds),
+            tenant_id: tenantId,
+            deleted_at: IsNull(),
+          },
+        });
     const marks = await this.markRepo.find({
       where: { exam_id: examId, student_id: studentId, tenant_id: tenantId },
     });

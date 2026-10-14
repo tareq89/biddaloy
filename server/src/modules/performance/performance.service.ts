@@ -4,9 +4,10 @@ import { In, Repository } from 'typeorm';
 import {
   ExamStatus,
   Permission,
-  UserRole,
+  RoleScope,
   hasTenantDataScope,
   roleHasPermission,
+  roleScope,
 } from '@biddaloy/shared';
 import { Exam } from '../exams/entities/exam.entity';
 import { Student } from '../students/entities/student.entity';
@@ -20,6 +21,7 @@ import { AnalysisService } from '../exams/analysis.service';
 import { AttendanceSummaryService } from '../attendance/attendance-summary.service';
 import { HomeworkAnalyticsService } from '../homework/homework-analytics.service';
 import { SchoolsService } from '../schools/schools.service';
+import { teacherAssignments } from '../classes/teacher-scope.service';
 import { localToday } from '../attendance/attendance-policy.util';
 import {
   ClassExamOutcomeDto,
@@ -119,30 +121,25 @@ export class PerformanceService {
     });
   }
 
+  /** Tenant-wide: `undefined`. TEACHER (assigned sections): the caller's sections in the class
+   * (D35: class aggregates cover only those, like analysis), or a 404 whose body matches the
+   * missing record's (D13). */
   private async assertTeacherScope(
     caller: Caller,
     target: { sectionId: string } | { classId: string },
-  ): Promise<void> {
-    if (canReadTenantWide(caller.role)) return;
-    if (caller.role === UserRole.TEACHER) {
-      const { tenantId, userId } = caller;
-      const qb = this.sectionRepo
-        .createQueryBuilder('cs')
-        .innerJoin(
-          'teacher_class_sections',
-          'tcs',
-          'tcs.section_id = cs.id AND tcs.tenant_id = :tenantId',
-          { tenantId },
-        )
-        .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
-          tenantId,
-        })
-        .where('cs.tenant_id = :tenantId', { tenantId })
-        .andWhere('cs.deleted_at IS NULL')
-        .andWhere('t.user_id = :userId', { userId });
-      if ('sectionId' in target) qb.andWhere('cs.id = :sectionId', { sectionId: target.sectionId });
-      else qb.andWhere('cs.class_id = :classId', { classId: target.classId });
-      if (await qb.getOne()) return;
+  ): Promise<string[] | undefined> {
+    if (canReadTenantWide(caller.role)) return undefined;
+    if (roleScope(caller.role) === RoleScope.ASSIGNED_SECTIONS) {
+      const rows = await teacherAssignments(this.sectionRepo.manager, {
+        userId: caller.userId,
+        tenantId: caller.tenantId,
+      });
+      const hits =
+        'sectionId' in target
+          ? rows.filter((r) => r.section_id === target.sectionId)
+          : rows.filter((r) => r.class_id === target.classId);
+      if (hits.length) return [...new Set(hits.map((r) => r.section_id))];
+      throw new NotFoundException('sectionId' in target ? 'Section not found' : 'Class not found');
     }
     throw new ForbiddenException('You do not have access to this class');
   }
@@ -156,6 +153,7 @@ export class PerformanceService {
     classId: string,
     sectionId: string | null,
     range: Range,
+    restrictSectionIds?: string[],
   ): Promise<ClassPerformanceResponseDto> {
     const tz = await this.timezone(tenantId);
     const exams = await this.listExams(tenantId, classId, range);
@@ -165,6 +163,7 @@ export class PerformanceService {
           exam.id,
           tenantId,
           sectionId ?? undefined,
+          ...(restrictSectionIds ? [restrictSectionIds] : []),
         );
         return {
           examId: exam.id,
@@ -190,7 +189,11 @@ export class PerformanceService {
         attendancePercent = s.section_percentage;
       } else {
         const sections = await this.sectionRepo.find({
-          where: { tenant_id: tenantId, class_id: classId },
+          where: {
+            tenant_id: tenantId,
+            class_id: classId,
+            ...(restrictSectionIds ? { id: In(restrictSectionIds) } : {}),
+          },
         });
         const pcts = await Promise.all(
           sections.map(
@@ -210,7 +213,12 @@ export class PerformanceService {
 
     const homework = sectionId
       ? await this.homeworkAnalyticsService.getSectionRollup(sectionId, tenantId, tz)
-      : await this.homeworkAnalyticsService.getClassRollup(classId, tenantId, tz);
+      : await this.homeworkAnalyticsService.getClassRollup(
+          classId,
+          tenantId,
+          tz,
+          restrictSectionIds,
+        );
 
     return {
       classId,
@@ -243,11 +251,11 @@ export class PerformanceService {
       });
       if (!section) throw new NotFoundException('Section not found');
     }
-    await this.assertTeacherScope(
+    const restrict = await this.assertTeacherScope(
       caller,
       query.sectionId ? { sectionId: query.sectionId } : { classId },
     );
-    return this.computeClassOutcomes(tenantId, classId, query.sectionId ?? null, range);
+    return this.computeClassOutcomes(tenantId, classId, query.sectionId ?? null, range, restrict);
   }
 
   async getStudentPerformance(
@@ -264,13 +272,22 @@ export class PerformanceService {
       where: { tenant_id: tenantId, student_id: studentId, academic_year_id: range.academicYearId },
       order: { enrolled_at: 'DESC' },
     });
-    if (!enrollment) throw new NotFoundException('Student has no enrollment in this academic year');
+    // D13: a teacher gets one 404 body for "no such student", "not enrolled" and "not yours".
+    const teacherMiss = roleScope(caller.role) === RoleScope.ASSIGNED_SECTIONS;
+    const studentNotFound = () => new NotFoundException('Student not found');
+    if (!enrollment) {
+      throw teacherMiss
+        ? studentNotFound()
+        : new NotFoundException('Student has no enrollment in this academic year');
+    }
     await this.assertTeacherScope(
       caller,
       enrollment.section_id
         ? { sectionId: enrollment.section_id }
         : { classId: enrollment.class_id },
-    );
+    ).catch((e: unknown) => {
+      throw e instanceof NotFoundException ? studentNotFound() : e;
+    });
 
     const tz = await this.timezone(tenantId);
     const exams = await this.listExams(tenantId, enrollment.class_id, range);

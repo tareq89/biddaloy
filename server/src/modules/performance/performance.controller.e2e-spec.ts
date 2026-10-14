@@ -214,12 +214,86 @@ describe('performance (28.3.5)', () => {
     expect(res.body.noteRatingCount).toBe(0);
   });
 
-  it('teacher gets 403 for a class they do not teach', async () => {
-    await as(
-      supertest(app.getHttpServer()).get(`${API}/performance/classes/${SEED_CLASS_2_ID}?${year}`),
-      teacherToken,
-      UserRole.TEACHER,
-    ).expect(403);
+  it('teacher gets 404 for a class they do not teach, same body as an unknown class (D13)', async () => {
+    const get = (classId: string) =>
+      as(
+        supertest(app.getHttpServer()).get(`${API}/performance/classes/${classId}?${year}`),
+        teacherToken,
+        UserRole.TEACHER,
+      ).expect(404);
+    const miss = await get(SEED_CLASS_2_ID);
+    const unknown = await get(randomUUID());
+    expect(miss.body.message).toBe('Class not found');
+    expect(miss.body.message).toBe(unknown.body.message);
+  });
+
+  // D35: a teacher's class view covers only their own sections, like analysis.
+  it("teacher's class view without a section counts only the teacher's sections", async () => {
+    const [other] = await ds.query(
+      `INSERT INTO class_sections (section_name, class_id, tenant_id, created_at, updated_at)
+       VALUES ('Perf-Other', $1, $2, NOW(), NOW()) RETURNING id`,
+      [SEED_CLASS_1_ID, SEED_TENANT_ID],
+    );
+    try {
+      const failing = await insertStudent(SEED_TENANT_ID, other.id);
+      const [{ grading_scale_id: scaleId }] = await ds.query(
+        `SELECT grading_scale_id FROM results WHERE exam_id = $1`,
+        [examId],
+      );
+      await ds.query(
+        `INSERT INTO results
+           (exam_id, student_id, total_marks, gpa, grade, position, section_id, section_position,
+            is_fail, grading_scale_id, grading_scale_revision, rule_version, computed_at, tenant_id,
+            created_at, updated_at)
+         VALUES ($1, $2, 10.00, 0.00, 'F', 2, $3, 1, true, $4, 1, 'nctb-v1', NOW(), $5, NOW(), NOW())`,
+        [examId, failing, other.id, scaleId, SEED_TENANT_ID],
+      );
+      const get = (token: string, role: UserRole, query = '') =>
+        as(
+          supertest(app.getHttpServer()).get(
+            `${API}/performance/classes/${SEED_CLASS_1_ID}?${year}${query}`,
+          ),
+          token,
+          role,
+        ).expect(200);
+      const admin = await get(adminToken, UserRole.ADMIN);
+      const teacher = await get(teacherToken, UserRole.TEACHER);
+      const ownSection = await get(
+        teacherToken,
+        UserRole.TEACHER,
+        `&sectionId=${SEED_SECTION_1_ID}`,
+      );
+      expect(admin.body.passRate).toBe(50);
+      expect(teacher.body.passRate).toBe(100);
+      expect(teacher.body.passRate).toBe(ownSection.body.passRate);
+      expect(teacher.body.averageMarks).toBe(ownSection.body.averageMarks);
+    } finally {
+      await ds.query(`DELETE FROM results WHERE section_id = $1`, [other.id]);
+      await ds.query(`DELETE FROM students WHERE class_section_id = $1`, [other.id]);
+      await ds.query(`DELETE FROM class_sections WHERE id = $1`, [other.id]);
+    }
+  });
+
+  it('teacher gets 404 for a student enrolled in a section they do not teach (D13)', async () => {
+    const outId = await insertStudent(SEED_TENANT_ID, SEED_SECTION_2_ID);
+    await ds.query(
+      `INSERT INTO enrollments (id, tenant_id, student_id, class_id, section_id, academic_year_id, enrollment_status)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'ACTIVE')`,
+      [SEED_TENANT_ID, outId, SEED_CLASS_1_ID, SEED_SECTION_2_ID, SEED_ACADEMIC_YEAR_ID],
+    );
+    const get = (id: string) =>
+      as(
+        supertest(app.getHttpServer()).get(`${API}/performance/students/${id}?${year}`),
+        teacherToken,
+        UserRole.TEACHER,
+      ).expect(404);
+    const miss = await get(outId);
+    // Not enrolled this year: once said "no enrollment", now the same body (D13).
+    const notEnrolled = await get(await insertStudent(SEED_TENANT_ID, SEED_SECTION_1_ID));
+    const unknown = await get(randomUUID());
+    expect(miss.body.message).toBe('Student not found');
+    expect(notEnrolled.body.message).toBe(unknown.body.message);
+    expect(miss.body.message).toBe(unknown.body.message);
   });
 
   it('section outside the class is 404 (lookup runs before scope check)', async () => {

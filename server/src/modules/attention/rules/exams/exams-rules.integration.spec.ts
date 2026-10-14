@@ -247,6 +247,20 @@ describe('Exams rules (integration)', () => {
     expect((await marksOverdue.evaluate(ctx(B)))[0].params).toMatchObject({ outstanding: 4 });
   });
 
+  // X-07, kept by Epic 75 D31: the Math teacher can still write last year's DRAFT sheet, so they
+  // are still told to.
+  it("X-07: after a year switch, the Math teacher is still told about last year's DRAFT exam", async () => {
+    await q(`UPDATE academic_years SET is_current = false WHERE id = $1`, [A.yearId]);
+    await q(
+      `INSERT INTO academic_years (name, start_date, end_date, is_current, tenant_id)
+       VALUES ('2044', '2044-01-01', '2044-12-31', true, $1)`,
+      [A.id],
+    );
+    expect(await marksOverdue.evaluate(ctx(A))).toHaveLength(1); // staff still told
+    const mine = await myMarks.evaluate(ctx(A));
+    expect(mine.map((m) => m.recipients[0].userId)).toContain(A.userOf.MATH1);
+  });
+
   it('X-07: a DRAFT exam two years back no longer alerts (same window as the homeroom grant)', async () => {
     // A's exam year (2043) becomes two years back: 2044, then 2045 (current).
     await q(`UPDATE academic_years SET is_current = false WHERE id = $1`, [A.yearId]);

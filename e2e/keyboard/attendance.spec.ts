@@ -2,6 +2,7 @@ import {
   adminApiSession,
   createStudentsInSection,
   createTeacherForSection,
+  currentAcademicYear,
   markableDateIso,
 } from '../api';
 import { shells } from '../config';
@@ -27,7 +28,14 @@ test('teacher marks and submits a whole section without touching the mouse', asy
   request,
 }) => {
   const admin = await adminApiSession(request);
-  const chain = await createStudentsInSection(request, admin, 'Keyboard Student', 5);
+  // [75.6-b, D16] Teacher scope counts current-year sections only.
+  const chain = await createStudentsInSection(
+    request,
+    admin,
+    'Keyboard Student',
+    5,
+    await currentAcademicYear(request, admin),
+  );
   const teacher = await createTeacherForSection(
     request,
     admin,

@@ -1,6 +1,19 @@
 import { execFileSync } from 'node:child_process';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
+
+const guardState = vi.hoisted(() => ({ bomb: false }));
+vi.mock('../../../common/utils/xlsx-guard.util', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../common/utils/xlsx-guard.util')>();
+  return {
+    ...actual,
+    assertXlsxWithinLimits: async (...a: Parameters<typeof actual.assertXlsxWithinLimits>) => {
+      if (guardState.bomb) throw new actual.XlsxTooLargeError('bomb');
+      return actual.assertXlsxWithinLimits(...a);
+    },
+  };
+});
+import { XLSX_TOO_LARGE_MESSAGE } from '../../../common/utils/xlsx-guard.util';
 import { SCHEMA_VERSION, type WorkbookMeta } from './meta';
 import { buildSampleRow, WorkbookFormatError, readWorkbook, writeWorkbook } from './workbook-codec';
 import { ALL_TABS } from './registry';
@@ -297,6 +310,23 @@ describe('readWorkbook resilience', () => {
 });
 
 describe('WorkbookFormatError', () => {
+  // Review r1 m4: a zip bomb says "too large", not "not a valid workbook".
+  it('throws TOO_LARGE when the zip-bomb guard rejects the buffer as too large', async () => {
+    guardState.bomb = true;
+    try {
+      await expect(readWorkbook(Buffer.from('PK'))).rejects.toMatchObject({
+        code: 'TOO_LARGE',
+        message: XLSX_TOO_LARGE_MESSAGE,
+      });
+    } finally {
+      guardState.bomb = false;
+    }
+  });
+
+  it('throws NOT_XLSX when the guard finds a malformed zip', async () => {
+    await expect(readWorkbook(Buffer.from('PK'))).rejects.toMatchObject({ code: 'NOT_XLSX' });
+  });
+
   it('rejects a _meta sheet whose kind is not a known kind', async () => {
     const buffer = await buildWorkbook({
       meta: { ...meta, kind: 'ARCHIVE' as WorkbookMeta['kind'] },

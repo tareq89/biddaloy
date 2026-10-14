@@ -1,9 +1,10 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, SelectQueryBuilder } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Permission, UserRole, hasTenantDataScope, roleHasPermission } from '@biddaloy/shared';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
+import { teacherSectionIds } from '../classes/teacher-scope.service';
 import { PeriodSlot } from '../routines/entities/period-slot.entity';
 import { ResolveRoutineService } from '../routines/resolve-routine.service';
 import { ResolvedPeriod, toPeriods } from './attendance-periods.util';
@@ -14,6 +15,10 @@ import { ResolvedPeriod, toPeriods } from './attendance-periods.util';
  * route reaches this service. SUPER_ADMIN: see `hasTenantDataScope` (#1362 D-N). */
 const canAccessTenantWide = (role: string) =>
   hasTenantDataScope(role) && roleHasPermission(role, Permission.ATTENDANCE_READ);
+
+/** 403 (staff / wrong role) or 404 (teacher miss, D13): both fall back to the substitute path. */
+const isAccessMiss = (err: unknown) =>
+  err instanceof ForbiddenException || err instanceof NotFoundException;
 
 /**
  * The object-level "may this caller touch this section's attendance?" gate —
@@ -39,31 +44,6 @@ export class AttendanceAccessService {
   ) {}
 
   /**
-   * The teacher-scoped query, joining through `teachers` — the JWT carries a
-   * **user** id, not a teacher id, so `teacher_class_sections.teacher_id`
-   * cannot be matched directly against the caller. Every table in the join
-   * is filtered on `tenant_id`, not just `class_sections` — belt and braces
-   * is cheap here, and this is the boundary that decides whether one
-   * school's teacher can mark another school's students.
-   */
-  private teacherSectionsQuery(userId: string, tenantId: string): SelectQueryBuilder<ClassSection> {
-    return this.sectionRepo
-      .createQueryBuilder('cs')
-      .innerJoin(
-        'teacher_class_sections',
-        'tcs',
-        'tcs.section_id = cs.id AND tcs.tenant_id = :tenantId',
-        { tenantId },
-      )
-      .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
-        tenantId,
-      })
-      .where('cs.tenant_id = :tenantId', { tenantId })
-      .andWhere('cs.deleted_at IS NULL')
-      .andWhere('t.user_id = :userId', { userId });
-  }
-
-  /**
    * Sections this caller may mark. Tenant-scoped roles (`ROLE_SCOPE`): every section
    * in the tenant. TEACHER: only sections in `teacher_class_sections`.
    * Anyone else: empty — fails closed rather than assuming a new role
@@ -83,28 +63,26 @@ export class AttendanceAccessService {
     }
 
     if (role === UserRole.TEACHER) {
-      // DISTINCT because a teacher can be mapped to the same section more
-      // than once (e.g. class-teacher row plus one or more subject-teacher
-      // rows), which would otherwise duplicate the section in this list.
-      // `class` is eager-loaded here (not just on `assertCanAccessSection`)
-      // because `AttendanceService.listMySections` needs `class_name` for
-      // every section this returns, without an N+1 follow-up query.
-      return this.teacherSectionsQuery(userId, tenantId)
-        .leftJoinAndSelect('cs.class', 'class')
-        .distinct(true)
-        .orderBy('cs.section_name', 'ASC')
-        .getMany();
+      // Current-year assigned sections only (D2); `class` is loaded because
+      // `AttendanceService.listMySections` reads `class.name`.
+      const ids = await teacherSectionIds(this.sectionRepo.manager, { userId, tenantId });
+      if (ids.length === 0) return [];
+      return this.sectionRepo.find({
+        where: { id: In(ids), tenant_id: tenantId },
+        relations: ['class'],
+        order: { section_name: 'ASC' },
+      });
     }
 
     return [];
   }
 
   /**
-   * Throws `ForbiddenException` (403) when the caller may not touch this
-   * section's attendance, otherwise returns it. A section that simply
+   * Throws `ForbiddenException` (403; `NotFoundException` 404 for a TEACHER miss) when the caller
+   * may not touch this section's attendance, otherwise returns it. A section that simply
    * doesn't exist in this tenant is indistinguishable from one the caller
-   * isn't mapped to — both come back 403, so a cross-tenant probe learns
-   * nothing about whether the id exists elsewhere.
+   * isn't mapped to — both come back 403 (404 for a TEACHER), so a cross-tenant probe
+   * learns nothing about whether the id exists elsewhere.
    */
   async assertCanAccessSection(
     role: string,
@@ -123,12 +101,11 @@ export class AttendanceAccessService {
     }
 
     if (role === UserRole.TEACHER) {
-      const section = await this.teacherSectionsQuery(userId, tenantId)
-        .andWhere('cs.id = :sectionId', { sectionId })
-        .getOne();
-      if (!section) {
-        throw new ForbiddenException('You do not have access to this section');
-      }
+      const ids = await teacherSectionIds(this.sectionRepo.manager, { userId, tenantId });
+      const section = ids.includes(sectionId)
+        ? await this.sectionRepo.findOne({ where: { id: sectionId, tenant_id: tenantId } })
+        : null;
+      if (!section) throw new NotFoundException('Section not found');
       return section;
     }
 
@@ -183,7 +160,7 @@ export class AttendanceAccessService {
    * Like `assertCanAccessSection`, plus: a teacher who is that date's
    * substitute for `periodNo` may touch that one period of that one date (D7,
    * D23). Never the day register (`periodNo` null), another period or another
-   * date. Same 403 message as the section gate — no hint whether it exists.
+   * date. Same status as the section gate (403 tenant-wide roles, 404 TEACHER) — no hint whether it exists.
    */
   async assertCanAccessPeriod(
     role: string,
@@ -196,14 +173,14 @@ export class AttendanceAccessService {
     try {
       await this.assertCanAccessSection(role, userId, sectionId, tenantId);
     } catch (err) {
-      if (!(err instanceof ForbiddenException) || periodNo === null) throw err;
+      if (!isAccessMiss(err) || periodNo === null) throw err;
       const mine = await this.substitutePeriods(role, userId, sectionId, tenantId, date);
       if (!mine.some((p) => p.period_no === periodNo)) throw err;
     }
   }
 
   /** The periods this caller may see for the section on that date: all of them
-   * with section access, only their own substituted ones otherwise (403 if none). */
+   * with section access, only their own substituted ones otherwise (the section gate's 403/404 if none). */
   async listAccessiblePeriods(
     role: string,
     userId: string,
@@ -214,7 +191,7 @@ export class AttendanceAccessService {
     try {
       await this.assertCanAccessSection(role, userId, sectionId, tenantId);
     } catch (err) {
-      if (!(err instanceof ForbiddenException)) throw err;
+      if (!isAccessMiss(err)) throw err;
       const mine = await this.substitutePeriods(role, userId, sectionId, tenantId, date);
       if (mine.length === 0) throw err;
       return mine;

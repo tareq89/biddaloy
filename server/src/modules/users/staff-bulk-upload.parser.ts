@@ -1,3 +1,8 @@
+import {
+  assertXlsxWithinLimits,
+  XLSX_TOO_LARGE_MESSAGE,
+  XlsxTooLargeError,
+} from '../../common/utils/xlsx-guard.util';
 import ExcelJS from 'exceljs';
 import { Readable } from 'stream';
 import { STAFF_ROLES, TeacherDesignation, UserRole } from '@biddaloy/shared';
@@ -107,9 +112,14 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
   const workbook = new ExcelJS.Workbook();
   if (ext === '.xlsx') {
     try {
+      await assertXlsxWithinLimits(buffer);
       await workbook.xlsx.load(buffer as never);
-    } catch {
-      throw new StaffUploadParseError('Could not read file — is it a valid Excel file?');
+    } catch (e) {
+      throw new StaffUploadParseError(
+        e instanceof XlsxTooLargeError
+          ? XLSX_TOO_LARGE_MESSAGE
+          : 'Could not read file — is it a valid Excel file?',
+      );
     }
     const ws = workbook.worksheets[0];
     if (!ws) throw new StaffUploadParseError('Could not read file — is it a valid Excel file?');
