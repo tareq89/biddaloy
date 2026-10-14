@@ -36,6 +36,7 @@ import { TeacherClassSection } from '../academics/entities/teacher-class-section
 import { Teacher } from '../academics/entities/teacher.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { StudentModule } from '../students/students.module';
 import { Enrollment } from '../students/entities/enrollment.entity';
 
 /**
@@ -82,6 +83,9 @@ import { Enrollment } from '../students/entities/enrollment.entity';
     // [21.6.1] `RoutineStateService`/`ChangeRequestsService` audit every
     // state transition and every resolved change request.
     AuditModule,
+    // [8.10.7.0-s2] `ResolveRoutineController` linkage-checks PARENT/STUDENT callers with
+    // `FamilyAccessService`. StudentModule imports only entities + AuditModule, so no cycle.
+    StudentModule,
   ],
   providers: [
     ShiftsService,
