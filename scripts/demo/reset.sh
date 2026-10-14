@@ -4,7 +4,7 @@
 #   1. create biddaloy_demo_next, migrate, seed, validate, sweep   (live DB untouched)
 #   2. wait for 02:00 (skipped with --now)
 #   3. swap: live -> _prev, _next -> live   (a few seconds of downtime)
-#   4. write default-school's id for the app, flush Redis, restart the app   (always attempted)
+#   4. re-open live, write default-school's id, flush Redis, restart the app (always attempted)
 #   5. drop _prev_old and its S3 objects, Sentry check-in                    (best effort)
 #
 # Any failure before step 3 drops _next and leaves yesterday's demo running. A failure inside
@@ -130,6 +130,7 @@ purge_db() {
 
 SWAPPED=false     # _next now has the live name
 LIVE_MOVED=false  # mid-swap: yesterday's live database sits at the _prev name
+SWAP_T0=""
 APP_PID=""
 
 # Run from on_exit in a subshell: puts the databases in the safest state it can, and logs which.
@@ -219,13 +220,12 @@ wait_for_swap_time() {
 
 # Any failure here exits; on_exit -> recover() rolls back from SWAPPED / LIVE_MOVED.
 swap() {
-  local t0 t1
   assert_demo_name "$LIVE"; assert_demo_name "$NEXT"; assert_demo_name "$PREV"; assert_demo_name "$PREV_OLD"
   # Keep exactly one previous DB: _prev becomes _prev_old now, and _prev_old is purged once the app
   # is back. A _prev_old found here is left over from a failed night.
   purge_db "$PREV_OLD"
   if db_exists "$PREV"; then rename_db "$PREV" "$PREV_OLD"; fi
-  t0="$(date +%s)"
+  SWAP_T0="$(date +%s)"
   set_connections "$NEXT" false
   if db_exists "$LIVE"; then
     set_connections "$LIVE" false
@@ -237,9 +237,7 @@ swap() {
   fi
   rename_db "$NEXT" "$LIVE"
   SWAPPED=true
-  set_connections "$LIVE" true
-  t1="$(date +%s)"
-  log "swap done; downtime from backend terminate to reconnect: $((t1 - t0)) s"
+  # Nothing after SWAPPED=true may exit: main() re-opens live with the other post-swap steps.
 }
 
 main() {
@@ -276,7 +274,10 @@ main() {
   swap
 
   # From here every step is attempted even if an earlier one failed: the app must come back on the
-  # new database. Order: the id file the app reads at boot, a clean Redis, then the restart.
+  # new database. Order: connections, the id file the app reads at boot, a clean Redis, the restart.
+  if set_connections "$LIVE" true; then
+    log "swap done; downtime from backend terminate to reconnect: $(( $(date +%s) - SWAP_T0 )) s"
+  else failed+=" live-connections"; fi
   { printf '%s\n' "$PLATFORM_ID" > "${state}.tmp" && mv "${state}.tmp" "$state"; } || failed+=" state-file"
   log "flushing Redis db ${REDIS_DB}"
   "$DEMO_REDIS_CLI" -u "$REDIS_URL" FLUSHDB >/dev/null || failed+=" redis-flush"
