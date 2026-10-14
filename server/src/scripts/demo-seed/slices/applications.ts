@@ -441,15 +441,25 @@ export const slice: DemoSlice = {
       first = false;
       rows += 3;
       if (i === 0) {
-        // A signed leave note on the class teacher's own request.
-        await attachments.upload(high.id, { userId, role: UserRole.TEACHER }, created.id, [
-          {
-            originalname: 'chhuti-note.pdf',
-            mimetype: 'application/pdf',
-            size: PDF.length,
-            buffer: PDF,
-          } as never,
-        ]);
+        // A signed leave note on the class teacher's own request. The bytes go to the real S3 store
+        // (the app does not boot without the S3_* env, so here the store itself is down or refusing).
+        await attachments
+          .upload(high.id, { userId, role: UserRole.TEACHER }, created.id, [
+            {
+              originalname: 'chhuti-note.pdf',
+              mimetype: 'application/pdf',
+              size: PDF.length,
+              buffer: PDF,
+            } as never,
+          ])
+          .catch((e: Error) => {
+            throw new Error(
+              `uploading the demo leave note to S3 failed: ${e.message}. seed:demo needs the S3 store ` +
+                'named by S3_ENDPOINT / S3_BUCKET / S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY to be up ' +
+                '(docs/architecture/22-demo-seed.md); drop the database and re-run.',
+              { cause: e },
+            );
+          });
         rows += 1;
       }
     }
