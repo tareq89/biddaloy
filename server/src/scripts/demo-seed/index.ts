@@ -1,0 +1,113 @@
+import { parse } from 'pg-connection-string';
+import { DataSource } from 'typeorm';
+import { todayInSchoolTz } from '../../common/time';
+import { createScriptAppContext } from '../script-app-context';
+import { createContext, type DemoSeedContext, type DemoSlice } from './context';
+import { SLICES } from './slices';
+
+export interface DemoSeedArgs {
+  scale: number;
+  years: number;
+  anchor: string;
+}
+
+/** `--scale 1 --anchor 2026-10-10 --years 10`; every flag optional. Throws on bad input. */
+export function parseArgs(argv: string[], today: () => string = todayInSchoolTz): DemoSeedArgs {
+  const flag = (name: string) => {
+    const i = argv.indexOf(`--${name}`);
+    return i === -1 ? undefined : argv[i + 1];
+  };
+  const scale = Number(flag('scale') ?? 1);
+  if (!Number.isFinite(scale) || scale <= 0) throw new Error('--scale must be a number > 0');
+  const years = Number(flag('years') ?? 10);
+  if (!Number.isInteger(years) || years < 1) throw new Error('--years must be an integer >= 1');
+  const anchor = flag('anchor') ?? today();
+  const valid =
+    /^\d{4}-\d{2}-\d{2}$/.test(anchor) &&
+    !Number.isNaN(Date.parse(anchor)) &&
+    new Date(anchor).toISOString().slice(0, 10) === anchor;
+  if (!valid) throw new Error('--anchor must be a real YYYY-MM-DD date');
+  return { scale, years, anchor };
+}
+
+/**
+ * Guards 1 and 2, run before the app boots. Deliberately not `assertLocalSeedTarget`: the nightly
+ * reset runs in production mode against a Docker-service host, which that guard refuses. The
+ * database name is the safety net instead (D40).
+ */
+export function assertDemoTarget(env: NodeJS.ProcessEnv): void {
+  if (env.NODE_ENV === 'production' && env.DEMO_MODE !== 'true') {
+    throw new Error(
+      'Refusing to run seed:demo with NODE_ENV=production unless DEMO_MODE=true: it writes a fake school.',
+    );
+  }
+  let database: string;
+  try {
+    database = parse(env.DATABASE_URL ?? '').database ?? '';
+  } catch {
+    database = '';
+  }
+  if (!database.startsWith('biddaloy_demo')) {
+    throw new Error(
+      `Refusing to run seed:demo: database "${database}" does not start with "biddaloy_demo". ` +
+        'Build the demo in a fresh biddaloy_demo* database, then swap it in.',
+    );
+  }
+}
+
+/**
+ * Guard 3. The `default-school` row is the platform tenant every migrated DB already has
+ * (MultiTenantAuth migration), so it does not count.
+ */
+export async function assertEmptyDatabase(ds: Pick<DataSource, 'query'>): Promise<void> {
+  const [{ n }] = await ds.query(
+    `SELECT count(*)::int AS n FROM schools WHERE slug <> 'default-school'`,
+  );
+  if (Number(n) > 0) throw new Error('demo seed needs an empty, migrated database');
+}
+
+/** Runs slices in order with one shared context. A throw names the slice and stops the run. */
+export async function runSlices(ctx: DemoSeedContext, slices: DemoSlice[]): Promise<void> {
+  for (const slice of slices) {
+    const t0 = Date.now();
+    try {
+      const rows = (await slice.run(ctx)) ?? 0;
+      ctx.timings.push({ slice: slice.name, rows, ms: Date.now() - t0 });
+    } catch (e) {
+      throw new Error(`slice "${slice.name}" failed: ${(e as Error).message}`, { cause: e });
+    }
+  }
+}
+
+export function formatTimings(timings: DemoSeedContext['timings']): string {
+  const lines = timings.map(
+    (t) =>
+      `${t.slice.padEnd(16)}${String(t.rows).padStart(10)}${(t.ms / 1000).toFixed(1).padStart(10)}`,
+  );
+  return ['slice               rows   seconds', ...lines].join('\n');
+}
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  assertDemoTarget(process.env);
+  const app = await createScriptAppContext();
+  try {
+    const ds = app.get(DataSource);
+    await assertEmptyDatabase(ds);
+    const ctx = await createContext({ ds, app, ...args });
+    await runSlices(ctx, SLICES);
+    console.log(formatTimings(ctx.timings));
+  } finally {
+    await app.close();
+  }
+}
+
+if (require.main === module) {
+  main().then(
+    () => process.exit(0),
+    (e) => {
+      console.error((e as Error).message);
+      process.exit(1);
+    },
+  );
+}
