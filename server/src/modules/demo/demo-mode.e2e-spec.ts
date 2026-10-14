@@ -60,6 +60,7 @@ describe('DEMO_MODE on (E2E)', () => {
   it('serves the role cards and the password on GET /demo/roles, noindex', async () => {
     const res = await request(app.getHttpServer()).get('/api/v1/demo/roles');
     expect(res.status).toBe(200);
+    expect(res.body.enabled).toBe(true);
     expect(res.body.password).toBe('demo-pass-1');
     expect(res.body.cards).toHaveLength(DEMO_CARDS.length);
     expect(res.headers['x-robots-tag']).toBe('noindex, nofollow');
@@ -114,9 +115,10 @@ describe('DEMO_MODE off (E2E)', () => {
     if (saved !== undefined) process.env.DEMO_MODE = saved;
   });
 
-  it('404s GET /demo/roles and sets no noindex header', async () => {
+  it('answers GET /demo/roles with enabled: false and sets no noindex header', async () => {
     const res = await request(app.getHttpServer()).get('/api/v1/demo/roles');
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ enabled: false, password: '', cards: [] });
     expect(res.headers['x-robots-tag']).toBeUndefined();
   });
 

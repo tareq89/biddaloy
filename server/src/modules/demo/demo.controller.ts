@@ -1,4 +1,4 @@
-import { Controller, Get, NotFoundException } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DEMO_CARDS } from './demo-accounts';
@@ -14,11 +14,18 @@ export class DemoController {
   constructor(private readonly config: ConfigService) {}
 
   @Get('roles')
-  @ApiOperation({ summary: 'Demo role cards and the shared demo password (404 outside the demo).' })
+  @ApiOperation({
+    summary: 'Demo role cards and the shared demo password (`enabled: false` outside the demo).',
+  })
   @ApiOkResponse({ type: DemoRolesResponseDto })
   roles(): DemoRolesResponseDto {
-    if (this.config.get<string>('DEMO_MODE') !== 'true') throw new NotFoundException();
+    // 200 either way: every login page and shell asks this, and a 404 logs a console error on
+    // every page load of a real school.
+    if (this.config.get<string>('DEMO_MODE') !== 'true') {
+      return { enabled: false, password: '', cards: [] };
+    }
     return {
+      enabled: true,
       password: this.config.get<string>('DEMO_PASSWORD') ?? '',
       cards: DEMO_CARDS.map((c) => ({ ...c })),
     };
