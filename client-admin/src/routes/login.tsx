@@ -243,6 +243,7 @@ function LoginPage() {
         </TabsList>
         <TabsContent value="password">
           <SignInForm
+            headingLevel={demo.enabled ? 'h2' : 'h1'}
             onSubmit={(credentials) => mutation.mutate(credentials)}
             loading={mutation.isPending}
             error={buildLoginError(mutation.error, t)}
@@ -266,6 +267,7 @@ function LoginPage() {
         </TabsContent>
         <TabsContent value="otp">
           <OtpSignInForm
+            headingLevel={demo.enabled ? 'h2' : 'h1'}
             onRequest={(phone) => otpRequestMutation.mutateAsync(phone).then(() => undefined)}
             onVerify={(credentials) => otpVerifyMutation.mutate(credentials)}
             loading={otpVerifyMutation.isPending}

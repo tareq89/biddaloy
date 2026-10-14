@@ -1,20 +1,8 @@
+import { API_BASE_URL, type components } from '@biddaloy/ui/api';
 import { useQuery } from '@tanstack/react-query';
 
-/** One `GET /demo/roles` card (server: `DemoRoleDto`). Typed here because the endpoint is public and fetched with plain `fetch`. */
-export interface DemoRoleCard {
-  key: string;
-  role: string;
-  email: string;
-  branchSlug: string;
-  nameEn: string;
-  nameBn: string;
-  tryKey: string;
-}
-
-interface DemoRolesResponse {
-  password: string;
-  cards: DemoRoleCard[];
-}
+type DemoRolesResponse = components['schemas']['DemoRolesResponseDto'];
+export type DemoRoleCard = DemoRolesResponse['cards'][number];
 
 const OFF = { enabled: false, cards: [] as DemoRoleCard[], password: '' };
 
@@ -32,7 +20,7 @@ export function useDemoMode(): {
     queryKey: ['demo-roles'],
     queryFn: async ({ signal }): Promise<DemoRolesResponse | null> => {
       try {
-        const res = await fetch('/api/v1/demo/roles', { signal });
+        const res = await fetch(`${API_BASE_URL}/demo/roles`, { signal });
         return res.ok ? ((await res.json()) as DemoRolesResponse) : null;
       } catch {
         return null;

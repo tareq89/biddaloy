@@ -566,7 +566,7 @@ describe('AppShell', () => {
   // bar's own "more" cell open that same drawer without a prop threaded
   // back up through `BottomNav`.
   describe('[8.14.3] mobile header row, drawer context, safe-area padding', () => {
-    function buildStaffMobileTree() {
+    function buildStaffMobileTree(reserveCorner = false) {
       const rootRoute = createRootRoute();
       const indexRoute = createRoute({
         getParentRoute: () => rootRoute,
@@ -577,6 +577,7 @@ describe('AppShell', () => {
             navGroups={navGroups}
             brand="SchoolManager"
             mobileTitle="SchoolManager"
+            reserveCorner={reserveCorner}
             mobileActions={<button type="button">Search</button>}
             bottomNav={
               <BottomNav items={navItems} label="Quick navigation" more={{ label: 'More' }} />
@@ -602,6 +603,24 @@ describe('AppShell', () => {
       expect(within(header).getByText('SchoolManager')).toBeTruthy();
       expect(within(header).getByRole('button', { name: 'Search' })).toBeTruthy();
       expect(within(header).getByRole('button', { name: 'Open menu' })).toBeTruthy();
+    });
+
+    it('pads the mobile header away from the demo ribbon only when reserveCorner is set', async () => {
+      const mobileHeader = () =>
+        screen
+          .getByRole('button', { name: 'Open menu' })
+          .closest('[data-app-mobile-header]') as HTMLElement;
+      const plain = renderWithRouter(buildStaffMobileTree(), {
+        initialEntries: ['/'],
+        role: 'SUPER_ADMIN',
+      });
+      await screen.findByText('Dashboard content');
+      expect(mobileHeader().className).not.toContain('pr-16');
+      plain.unmount();
+
+      renderWithRouter(buildStaffMobileTree(true), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
+      await screen.findByText('Dashboard content');
+      expect(mobileHeader().className).toContain('pr-16');
     });
 
     it("opens the drawer from a descendant via useAppShellDrawer, closes on Escape, and restores focus to the bottom nav's more cell", async () => {
