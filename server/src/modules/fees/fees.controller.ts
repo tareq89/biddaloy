@@ -108,7 +108,7 @@ export class FeeController {
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
-      "List outstanding dues. Staff see the whole tenant (subject to the query filters); a PARENT or STUDENT sees only their linked students' dues, whatever filters they send.",
+      "List outstanding dues. Tenant-wide staff see the whole tenant (subject to the query filters); a TEACHER sees only students in their current-year assigned sections; a PARENT or STUDENT sees only their linked students' dues, whatever filters they send.",
   })
   @ApiOkResponse({
     description:
@@ -125,8 +125,9 @@ export class FeeController {
   ) {
     // Family callers are narrowed to their linked students *before* the
     // query runs — `class_id`/`section_id` in the query string can only
-    // narrow that set further, never widen it. `getFlaggedDues` below stays
-    // staff-only: it returns guardian contact details for follow-up.
+    // narrow that set further, never widen it. `getFlaggedDues` below is
+    // staff-only and returns guardian contacts, but a TEACHER there is
+    // narrowed to the same assigned sections.
     if (!isGuardianRole(tenant.role)) {
       // [75.6-d] TEACHER: only current-year assigned sections (`null` = unrestricted staff).
       const scoped = await this.teacherScope.scopedStudentIds({
