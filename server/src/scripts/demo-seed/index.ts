@@ -2,7 +2,7 @@ import { parse } from 'pg-connection-string';
 import { DataSource } from 'typeorm';
 import { todayInSchoolTz } from '../../common/time';
 import { createScriptAppContext } from '../script-app-context';
-import { createContext, type DemoSeedContext, type DemoSlice } from './context';
+import { createContext, demoPassword, type DemoSeedContext, type DemoSlice } from './context';
 import { SLICES } from './slices';
 
 export interface DemoSeedArgs {
@@ -39,6 +39,11 @@ export function assertDemoTarget(env: NodeJS.ProcessEnv): void {
   if (env.NODE_ENV === 'production' && env.DEMO_MODE !== 'true') {
     throw new Error(
       'Refusing to run seed:demo with NODE_ENV=production unless DEMO_MODE=true: it writes a fake school.',
+    );
+  }
+  if (env.NODE_ENV === 'production' && !env.DEMO_PASSWORD) {
+    throw new Error(
+      'DEMO_PASSWORD is required with NODE_ENV=production: demo logins must not use a public default.',
     );
   }
   let database: string;
@@ -94,7 +99,7 @@ async function main(): Promise<void> {
   try {
     const ds = app.get(DataSource);
     await assertEmptyDatabase(ds);
-    const ctx = await createContext({ ds, app, ...args });
+    const ctx = await createContext({ ds, app, ...args, password: demoPassword(process.env) });
     await runSlices(ctx, SLICES);
     console.log(formatTimings(ctx.timings));
   } finally {

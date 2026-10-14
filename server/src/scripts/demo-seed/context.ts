@@ -3,8 +3,8 @@ import type { INestApplicationContext } from '@nestjs/common';
 import type { DataSource } from 'typeorm';
 import { hashPassword } from '../../modules/auth/password-hash';
 
-/** Public by design: every demo login shares it, and the demo school holds no real data. */
-export const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'Demo@12345';
+/** Local-only fallback. Production runs must set DEMO_PASSWORD (assertDemoTarget refuses otherwise). */
+export const demoPassword = (env: NodeJS.ProcessEnv): string => env.DEMO_PASSWORD || 'Demo@12345';
 
 export interface DemoSlice {
   name: string;
@@ -43,12 +43,14 @@ export async function createContext(opts: {
   scale: number;
   years: number;
   anchor: string;
+  password: string;
 }): Promise<DemoSeedContext> {
   faker.seed(Number(opts.anchor.replace(/-/g, '')) ^ 58);
+  const { password, ...rest } = opts;
   return {
-    ...opts,
+    ...rest,
     rng: faker,
-    demoPasswordHash: await hashPassword(DEMO_PASSWORD),
+    demoPasswordHash: await hashPassword(password),
     ids: new Map(),
     timings: [],
     pick: (items) => faker.helpers.arrayElement(items),
