@@ -343,6 +343,88 @@ describe('/staff', () => {
     expect(await within(dialog).findByText('A user with this email already exists.')).toBeTruthy();
   });
 
+  describe('[68.2.02] add-user dialog for an existing account', () => {
+    const accountExists = () =>
+      HttpResponse.json(
+        { ...apiErrorBody(409, 'exists', '/api/v1/users'), details: { code: 'ACCOUNT_EXISTS' } },
+        { status: 409 },
+      );
+
+    async function submit(contact: { email?: string; phone?: string }) {
+      renderWithRouter(routeTree, {
+        initialEntries: ['/staff'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Add staff member' }));
+      const dialog = await screen.findByRole('dialog');
+      await user.type(within(dialog).getByLabelText(/^Full name/), 'New Person');
+      if (contact.email) await user.type(within(dialog).getByLabelText(/^Email/), contact.email);
+      if (contact.phone) await user.type(within(dialog).getByLabelText(/^Phone/), contact.phone);
+      await user.click(within(dialog).getByRole('combobox', { name: /^Role/ }));
+      await user.click(await screen.findByRole('option', { name: /^Accountant/ }));
+      await user.click(within(dialog).getByRole('button', { name: 'Add staff member' }));
+      await within(dialog).findByRole('button', { name: 'Send join request' });
+      return { user, dialog };
+    }
+
+    beforeEach(() => {
+      server.use(
+        http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+        http.post('/api/v1/users', accountExists),
+      );
+    });
+
+    // Review F1: retrying can never work for someone already on the staff, so say that.
+    it('ALREADY_MEMBER says "already on your staff" under the field, not the generic error', async () => {
+      server.use(
+        http.post('/api/v1/users/join-requests', () =>
+          HttpResponse.json(
+            {
+              ...apiErrorBody(409, 'member', '/api/v1/users/join-requests'),
+              details: { code: 'ALREADY_MEMBER' },
+            },
+            { status: 409 },
+          ),
+        ),
+      );
+      const { user, dialog } = await submit({ email: 'taken@example.com' });
+
+      await user.click(within(dialog).getByRole('button', { name: 'Send join request' }));
+
+      expect(await within(dialog).findByText('This person is already on your staff.')).toBeTruthy();
+      expect(within(dialog).queryByText('Could not add the user. Please try again.')).toBeNull();
+      expect(within(dialog).queryByRole('button', { name: 'Send join request' })).toBeNull();
+    });
+
+    // Review F2: the offer belonged to the old address; a new one has not been checked.
+    it('editing the email removes the join offer', async () => {
+      const { user, dialog } = await submit({ email: 'taken@example.com' });
+
+      await user.type(within(dialog).getByLabelText(/^Email/), 'x');
+
+      expect(within(dialog).queryByRole('button', { name: 'Send join request' })).toBeNull();
+    });
+
+    // Review F9: with only a phone typed, the clash can only be the phone.
+    it('a phone-only clash is reported under the phone field', async () => {
+      const { dialog } = await submit({ phone: '01712345678' });
+
+      const phone = within(dialog).getByLabelText(/^Phone/);
+      const messageId = phone.getAttribute('aria-describedby')!.split(' ').pop()!;
+      expect(document.getElementById(messageId)?.textContent).toBe(
+        'This person already has an account. Send them a join request instead.',
+      );
+      expect(
+        within(dialog)
+          .getByLabelText(/^Email/)
+          .getAttribute('aria-invalid'),
+      ).not.toBe('true');
+    });
+  });
+
   it('add-user dialog shows a description under each role, including EXAM_CONTROLLER', async () => {
     server.use(
       http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
