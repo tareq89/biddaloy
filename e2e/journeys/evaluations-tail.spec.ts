@@ -83,7 +83,7 @@ test.describe('ACR print', () => {
       request,
       session,
       `Tail ACR Staff ${SUFFIX}`,
-      chain.sectionId,
+      chain,
     );
     const { criteria } = await get<{
       criteria: { id: string; label_en: string; label_bn: string }[];
@@ -122,9 +122,12 @@ test.describe('ACR print', () => {
 
     await test.step('INCOMPLETE: no Print button', async () => {
       await page.goto(`/staff/${incomplete!.user_id}/acr/${incomplete!.id}`);
-      await expect(page
-      .getByRole('dialog')
-      .getByRole('heading', { level: 1, name: t('evaluations.acr.pageTitle', { name: '' }).trim() })).toBeVisible();
+      await expect(
+        page.getByRole('dialog').getByRole('heading', {
+          level: 1,
+          name: t('evaluations.acr.pageTitle', { name: '' }).trim(),
+        }),
+      ).toBeVisible();
       await expect(page.getByRole('button', { name: t('evaluations.acr.print') })).toHaveCount(0);
     });
   });
@@ -143,12 +146,7 @@ test.describe('performance PDF', () => {
     const parent = await parentApiSession(request);
     const [student] = await get<{ id: string }[]>(request, parent, '/students/mine');
     const chain = await createClassSection(request, session);
-    const staff = await createTeacherForSection(
-      request,
-      session,
-      `Perf Print ${SUFFIX}`,
-      chain.sectionId,
-    );
+    const staff = await createTeacherForSection(request, session, `Perf Print ${SUFFIX}`, chain);
 
     await test.step('student tab', async () => {
       await page.goto(`/students/${student!.id}?tab=performance`);

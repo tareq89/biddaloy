@@ -104,6 +104,50 @@ judge it against the plan and the repo's invariants:
   Also check the doc's safety rules on any seed diff: no literal dates, no
   `Math.random`/`Date.now`, real services for "today", no real contacts.
 
+**Security hunt list.** Each bullet is one rule in
+`docs/architecture/08-security.md` → "Security rules"; read the rule for the
+why and the enforcing test.
+
+- **Open route (Rule 1).** Flag a new or changed route with neither
+  `@RequirePermissions(...)` nor `@AuthenticatedOnly()` plus an
+  `IDENTITY_SCOPED` entry with a reason.
+- **Teacher scope (Rule 2).** Flag a teacher-reachable read that queries
+  `teacher_class_sections` directly instead of `TeacherScopeService`, answers
+  403 instead of 404 outside scope, or errors instead of an empty list for a
+  teacher with no assignment.
+- **Unpiped id (Rule 3).** Flag a UUID `@Param` without `ParseUUIDPipe`, or a
+  new entry on the `param-uuid-coverage.spec.ts` allowlist without a reason.
+- **String-built SQL (Rule 4).** Flag a template literal or `+` concatenation
+  reaching `query()`, `.where()` or `.andWhere()`; LIKE input must go through
+  `normalizeSearchTerm` / `escapeLikePattern`.
+- **Upload trust (Rule 6).** Flag an upload accepted on `file.mimetype` alone
+  (no `matchesDeclaredType`), or an xlsx parsed without `xlsx-guard`.
+- **Outbound call (Rule 7).** Flag a URL a user or tenant can influence (a
+  request, a tenant setting, a DB row) that reaches `fetch`, `axios`, `ws`,
+  `net`/`tls` or an SDK client without `fetchPinnedJson` after
+  `assertSafeHttpDestination`. A fixed host (code constant or operator config)
+  is fine when its file is on `REVIEWED_OUTBOUND` in
+  `outbound-http.contract.spec.ts` with a reason; flag a new outbound file
+  that is on neither path.
+- **Session survives (Rule 8).** Flag a suspend, remove, role-drop or
+  password-reset path that does not bump `users.tokens_valid_after`.
+- **Password handling (Rule 9).** Flag `bcrypt.compare`/`bcrypt.hash` on a
+  password outside `password-hash.ts`, a literal cost, or a new-password path
+  without the 72-byte check.
+- **Client IP (Rule 11).** Flag code that reads `X-Forwarded-For`,
+  `X-Real-IP` or `CF-Connecting-IP` instead of `req.ip` / `requestContext()`.
+- **Secrets in logs (Rule 13).** Flag a log line, Sentry tag or error message
+  carrying a token, password, OTP, phone or email, or a new secret-bearing URL
+  shape not added to `redactPii` and its spec.
+- **Redis-down choice (Rule 15).** Flag a new route on an `/auth*` or
+  `/account*` controller that is not classified in
+  `server/test/helpers/redis-outage-routes.ts`.
+- **Snapshot drift (Rule 20).** Flag a change to who can reach a route without
+  the `route-status.snapshot.txt` diff, a changed line the PR does not
+  explain, or a `/platform/*` route without `PlatformSuperAdminGuard`.
+- **Public write without captcha (Rule 22).** Flag a new unauthenticated route
+  that writes data without `TurnstileService.verify` before the write.
+
 ### 5. Verify the suite yourself
 
 Run the tests and lint. A subagent's claim that they passed is a claim; the

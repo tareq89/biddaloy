@@ -397,8 +397,36 @@ describe('Users & Teachers E2E [8.11.8]', () => {
 
   describe('authorization and tenant-context boundaries', () => {
     let teacherToken: string;
+    let accountantToken: string;
+    const ACCOUNTANT_ID = '00000000-0000-4000-8000-000000000214';
+
+    afterAll(async () => {
+      await dataSource
+        .query('DELETE FROM auth_tokens WHERE user_id = $1', [ACCOUNTANT_ID])
+        .catch(() => {});
+      await dataSource.query('DELETE FROM user_tenants WHERE user_id = $1', [ACCOUNTANT_ID]);
+      await dataSource.query('DELETE FROM users WHERE id = $1', [ACCOUNTANT_ID]);
+    });
 
     beforeAll(async () => {
+      // #2327 step 6: ACCOUNTANT is the staff role that could plausibly gain USER_CREATE later.
+      await dataSource.query(
+        `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+         VALUES ($1, 'accountant-a@example.com', $2, 'Akhi TenantA Accountant', 'ACTIVE', NOW(), NOW())
+         ON CONFLICT (id) DO NOTHING`,
+        [ACCOUNTANT_ID, SEED_ADMIN_PASSWORD_HASH],
+      );
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [ACCOUNTANT_ID, TENANT_A, UserRole.ACCOUNTANT],
+      );
+      accountantToken = (
+        await request()
+          .post('/api/v1/auth/login')
+          .send({ email: 'accountant-a@example.com', password: SEED_ADMIN_PASSWORD })
+          .expect(200)
+      ).body.access_token;
       // Member A is a TEACHER in tenant A — the denied side of every
       // ADMIN/EXECUTIVE-only endpoint this suite covers. The self-removal
       // suite above deleted this membership; restore it before login so
@@ -462,6 +490,55 @@ describe('Users & Teachers E2E [8.11.8]', () => {
       await dataSource.query('DELETE FROM auth_tokens WHERE user_id = $1', [id]).catch(() => {});
       await dataSource.query('DELETE FROM user_tenants WHERE user_id = $1', [id]);
       await dataSource.query('DELETE FROM users WHERE id = $1', [id]);
+    });
+
+    it('[75.19] a duplicate email 409s without repeating the address', async () => {
+      const email = 'dup-7519@example.com';
+      const create = () =>
+        request()
+          .post('/api/v1/users')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_A)
+          .send({ email, full_name: 'Dup One', role: UserRole.TEACHER });
+      const first = await create().expect(201);
+      const res = await create().expect(409);
+      expect(JSON.stringify(res.body)).not.toContain(email);
+      const id = first.body.user.id;
+      await dataSource.query('DELETE FROM auth_tokens WHERE user_id = $1', [id]).catch(() => {});
+      await dataSource.query('DELETE FROM user_tenants WHERE user_id = $1', [id]);
+      await dataSource.query('DELETE FROM users WHERE id = $1', [id]);
+    });
+
+    it('[75.19] ignores a tenantId in the body: the membership is in X-Tenant-ID only', async () => {
+      const email = 'tenantid-7519@example.com';
+      const res = await request()
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({
+          email,
+          tenantId: '00000000-0000-4000-8000-0000000000bb',
+          full_name: 'Ignored Tenant',
+          role: UserRole.ADMIN,
+        })
+        .expect(201);
+      const id = res.body.user.id;
+      const rows = await dataSource.query('SELECT tenant_id FROM user_tenants WHERE user_id = $1', [
+        id,
+      ]);
+      expect(rows.map((r: { tenant_id: string }) => r.tenant_id)).toEqual([TENANT_A]);
+      await dataSource.query('DELETE FROM auth_tokens WHERE user_id = $1', [id]).catch(() => {});
+      await dataSource.query('DELETE FROM user_tenants WHERE user_id = $1', [id]);
+      await dataSource.query('DELETE FROM users WHERE id = $1', [id]);
+    });
+
+    it('[75.19] denies an ACCOUNTANT creating an ADMIN', async () => {
+      await request()
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${accountantToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ email: 'nope-7519@example.com', full_name: 'Nope', role: UserRole.ADMIN })
+        .expect(403);
     });
 
     it('denies a TEACHER creating a user (ADMIN/EXECUTIVE only)', async () => {

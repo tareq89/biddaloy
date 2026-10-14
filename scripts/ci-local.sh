@@ -298,6 +298,16 @@ provision_stack() {
   . "$TEST_ENV_UP"
   set +a
 }
+# The integration section's vitest global-setup drops the run's database and
+# re-creates it with test fixtures only (no `default-school`), so a later
+# section that runs migrations + `seed` needs its own fresh slice, the way each
+# CI job gets its own database. Reusing it broke every platform SUPER_ADMIN and
+# /admission/default-school e2e spec under `--full`.
+fresh_stack() {
+  test_env_down
+  TEST_ENV_UP=""
+  provision_stack
+}
 
 if should_run "verify"; then
   section "verify"
@@ -370,7 +380,7 @@ fi
 
 if should_run "e2e"; then
   section "e2e"
-  provision_stack
+  fresh_stack
   yarn workspace @biddaloy/server migration:run
   yarn workspace @biddaloy/server seed
   # CI=1 mirrors the pipeline and stops playwright.config.ts's
@@ -398,7 +408,7 @@ fi
 
 if should_run "lighthouse"; then
   section "lighthouse"
-  provision_stack
+  fresh_stack
   yarn workspace @biddaloy/server migration:run
   yarn workspace @biddaloy/server seed
   # Production builds on both sides, same as the CI lighthouse job —
@@ -431,6 +441,7 @@ if should_run "audit"; then
   section "audit"
   node scripts/ci-audit.js
   node scripts/ci-audit.js --production
+  node scripts/check-tracked-files.mjs
   section_done "audit"
 fi
 

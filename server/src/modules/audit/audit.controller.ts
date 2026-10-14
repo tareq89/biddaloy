@@ -6,6 +6,7 @@ import {
   Query,
   UseGuards,
   Inject,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -68,7 +69,7 @@ export class AuditController {
   @ApiResponse({ status: 200, type: AuditLogListResponseDto })
   async findByEntity(
     @Param('entityType') entityType: string,
-    @Param('entityId') entityId: string,
+    @Param('entityId', ParseUUIDPipe) entityId: string,
     @Query() query: QueryAuditLogDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },

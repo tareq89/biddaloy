@@ -11,6 +11,7 @@ import { createTestQueryClient } from '../test/render-with-providers';
 
 import {
   studentKeys,
+  useAllStudents,
   useCreateStudent,
   useDeleteStudent,
   useMyStudents,
@@ -561,6 +562,41 @@ describe('useStudentSearch', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.data).toBeInstanceOf(Array);
+  });
+});
+
+describe('useAllStudents (75.14)', () => {
+  it('pages GET /students at limit=100 with the same filters and concatenates every page', async () => {
+    const urls: URL[] = [];
+    server.use(
+      http.get('/api/v1/students', ({ request }) => {
+        const url = new URL(request.url);
+        urls.push(url);
+        const page = Number(url.searchParams.get('page'));
+        const size = page === 1 ? 100 : 50;
+        return HttpResponse.json({
+          data: Array.from({ length: size }, (_, i) => studentFactory({ id: `s-${page}-${i}` })),
+          total: 150,
+          page,
+          limit: 100,
+          totalPages: 2,
+        });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(
+      () => useAllStudents({ class_id: 'class-9', enrollment_status: 'ACTIVE' }),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toHaveLength(150);
+    expect(urls.map((u) => u.searchParams.get('page')).sort()).toEqual(['1', '2']);
+    for (const url of urls) {
+      expect(url.searchParams.get('limit')).toBe('100');
+      expect(url.searchParams.get('class_id')).toBe('class-9');
+      expect(url.searchParams.get('enrollment_status')).toBe('ACTIVE');
+    }
   });
 });
 

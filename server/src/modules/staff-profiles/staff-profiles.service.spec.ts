@@ -49,9 +49,10 @@ describe('StaffProfilesService', () => {
       repo.findOne = vi.fn(async ({ where }: any) =>
         where.employee_id ? { id: 'existing', ...where } : null,
       );
-      await expect(
-        service.createFor('user-1', TENANT, { employeeId: 'EMP-DUP-1' }),
-      ).rejects.toThrow(ConflictException);
+      const attempt = service.createFor('user-1', TENANT, { employeeId: 'EMP-DUP-1' });
+      await expect(attempt).rejects.toThrow(ConflictException);
+      await expect(attempt).rejects.toThrow('That employee ID is already in use');
+      await expect(attempt).rejects.not.toThrow('EMP-DUP-1');
     });
 
     it('throws ConflictException when the user already has a staff profile', async () => {

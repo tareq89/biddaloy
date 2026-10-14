@@ -31,6 +31,7 @@ import { Payment } from '../entities/payment.entity';
 import { StudentFee } from '../entities/student-fee.entity';
 import { FeeStructure } from '../entities/fee-structure.entity';
 import type { DueEntry, StudentDueSummary } from '../fee-dues.service';
+import { MONEY_MAX } from '../../../common/constants/money';
 
 export type FeeDuesSortBy = 'due_amount' | 'name' | 'class';
 export type SortOrder = 'ASC' | 'DESC';
@@ -42,7 +43,8 @@ export class CreateFeeStructureDto {
   @IsString()
   name: string;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0)
   amount: number;
 
@@ -71,7 +73,8 @@ export class UpdateFeeStructureDto {
   name?: string;
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0)
   amount?: number;
 
@@ -149,6 +152,7 @@ export class QueryFeeStructureDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   limit?: number = 10;
 }
 
@@ -156,7 +160,8 @@ export class CreatePaymentDto {
   @IsUUID()
   student_id: string;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0)
   total_amount: number;
 
@@ -186,6 +191,7 @@ export class PaymentAllocationInputDto {
   student_fee_id: string;
 
   @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0.01)
   allocated_amount: number;
 
@@ -198,6 +204,7 @@ export class RecordPaymentWithAllocationDto {
   student_id: string;
 
   @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0.01)
   total_amount: number;
 

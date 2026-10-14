@@ -26,6 +26,18 @@ updates:
     # a version bump).
 
   - package-ecosystem: "docker"
+    directories: ["/", "/scripts/backup"]
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # docker-compose.yml image digests ([75.29]).
+  - package-ecosystem: "docker-compose"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -36,8 +48,11 @@ updates:
           - "minor"
           - "patch"
 
+  # Rule: every third-party `uses:` is pinned to a full commit SHA with a
+  # `# vX.Y.Z` comment, Dependabot bumps both together, and workflows never
+  # persist credentials (`persist-credentials: false` on every checkout).
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories: ["/", "/.github/actions/setup"]
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

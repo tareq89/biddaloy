@@ -26,9 +26,11 @@ describe('TurnstileService', () => {
       'fetch',
       vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: false }) }),
     );
-    await expect(service({ TURNSTILE_SECRET_KEY: 's' }).verify('bad', '1.2.3.4')).rejects.toThrow(
-      BadRequestException,
-    );
+    const verify = service({ TURNSTILE_SECRET_KEY: 's' }).verify('bad', '1.2.3.4');
+    await expect(verify).rejects.toThrow(BadRequestException);
+    await expect(verify).rejects.toMatchObject({
+      response: { details: { code: 'CAPTCHA_FAILED' } },
+    });
   });
 
   it('accepts a token Cloudflare says is good', async () => {

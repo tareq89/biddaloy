@@ -137,6 +137,14 @@ describe('Public holiday sets (e2e)', () => {
       .expect(403);
   });
 
+  it('SUPER_ADMIN gets 400 for a malformed holiday-set id (ParseUUIDPipe, 75.13-b)', async () => {
+    await supertest(app.getHttpServer())
+      .get(`${API}/platform/holiday-sets/not-a-uuid`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .expect(400);
+  });
+
   it('SUPER_ADMIN can fetch, edit, and publish a BD 2031 set from a mocked source', async () => {
     fetchMock.mockResolvedValueOnce({
       source: PublicHolidaySource.GOOGLE_ICS,

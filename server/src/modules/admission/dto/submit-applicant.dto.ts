@@ -3,6 +3,7 @@ import {
   IsDateString,
   IsEmail,
   IsIn,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
@@ -49,6 +50,12 @@ export class SubmitApplicantDto {
   @IsOptional()
   @IsString()
   home_address?: string;
+
+  @ApiProperty({ description: 'Cloudflare Turnstile token.' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(4096)
+  captcha_token: string;
 
   /** Honeypot — must stay empty on a genuine submission. Named to look like
    * a plausible real field to a bot, not something a bot would skip. */

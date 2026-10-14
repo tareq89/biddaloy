@@ -13,6 +13,7 @@ import { CreditsModule } from '../communications/credits/credits.module';
 import { PublicAdmissionController } from './public-admission.controller';
 import { AdmissionApplicantService } from './admission-applicant.service';
 import { AdmissionNotificationService } from './admission-notification.service';
+import { TurnstileService } from '../registration/turnstile.service';
 import { SchoolsModule } from '../schools/schools.module';
 import { StorageModule } from '../storage/storage.module';
 import { AuditModule } from '../audit/audit.module';
@@ -20,7 +21,10 @@ import { CommunicationLog } from '../communications/entities/communication-log.e
 import { StudentLifecycleEvent } from '../students/entities/student-lifecycle-event.entity';
 import { AdmissionReportsService } from './admission-reports.service';
 import { AdmissionReportsController } from './admission-reports.controller';
-import { COMMUNICATIONS_QUEUE, COMMUNICATIONS_QUEUE_JOB_OPTIONS } from '../communications/communications.constants';
+import {
+  COMMUNICATIONS_QUEUE,
+  COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+} from '../communications/communications.constants';
 
 /**
  * [27.1] Registers the three admission entities with TypeORM.
@@ -37,21 +41,36 @@ import { COMMUNICATIONS_QUEUE, COMMUNICATIONS_QUEUE_JOB_OPTIONS } from '../commu
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AdmissionIntake, AdmissionApplicant, AdmissionEvaluation, CommunicationLog, StudentLifecycleEvent]),
-    BullModule.registerQueue({ name: COMMUNICATIONS_QUEUE, defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS }),
+    TypeOrmModule.forFeature([
+      AdmissionIntake,
+      AdmissionApplicant,
+      AdmissionEvaluation,
+      CommunicationLog,
+      StudentLifecycleEvent,
+    ]),
+    BullModule.registerQueue({
+      name: COMMUNICATIONS_QUEUE,
+      defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
+    }),
     StudentModule,
     CreditsModule,
     SchoolsModule,
     StorageModule,
     AuditModule,
   ],
-  controllers: [IntakeController, ApplicantReviewController, PublicAdmissionController, AdmissionReportsController],
+  controllers: [
+    IntakeController,
+    ApplicantReviewController,
+    PublicAdmissionController,
+    AdmissionReportsController,
+  ],
   providers: [
     IntakeService,
     ApplicantReviewService,
     AdmissionApplicantService,
     AdmissionNotificationService,
     AdmissionReportsService,
+    TurnstileService,
   ],
 })
 export class AdmissionModule {}

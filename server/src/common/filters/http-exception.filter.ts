@@ -1,9 +1,9 @@
 import { ExceptionFilter, Catch, ArgumentsHost, Logger, HttpStatus } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import { Request, Response } from 'express';
 import * as Sentry from '@sentry/node';
 import { buildErrorResponseBody, resolveDetailMessage, resolveStatus } from './error-response';
 import { redactPii } from '../redact-log.util';
+import { resolveRequestId } from '../request-context.util';
 
 interface RequestWithTenant extends Request {
   currentTenant?: { id: string };
@@ -20,11 +20,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<RequestWithTenant>();
 
-    const incomingRequestId = request.headers['x-request-id'];
-    const requestId =
-      typeof incomingRequestId === 'string' && incomingRequestId.length > 0
-        ? incomingRequestId
-        : randomUUID();
+    const requestId = resolveRequestId(request);
 
     const status = resolveStatus(exception);
     const body = buildErrorResponseBody(exception, {

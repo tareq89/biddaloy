@@ -312,6 +312,12 @@ flowchart LR
   PERMS --> HANDLER[controller method]
 ```
 
+**Security rules** for this path live in [08-security.md](08-security.md#security-rules):
+[Rule 1](08-security.md#rule-1-routes-are-closed-by-default) (routes closed by default),
+[Rule 2](08-security.md#rule-2-teacher-reads-are-scoped-to-assigned-sections) (teacher scope),
+[Rule 8](08-security.md#rule-8-suspend-remove-or-reset-bumps-tokens_valid_after) (session cut-off) and
+[Rule 15](08-security.md#rule-15-redis-down-has-a-written-answer-per-route) (Redis down).
+
 `@Roles` says which roles may reach a route; `@RequirePermissions` says
 which capability from `ROLE_PERMISSIONS` (`shared/src/enums/permissions.ts`)
 the route exercises. Both run today.

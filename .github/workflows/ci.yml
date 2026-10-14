@@ -46,8 +46,10 @@ jobs:
       ui: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.ui }}
       infra: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.infra }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         if: github.event_name != 'merge_group'
         id: filter
         with:
@@ -118,7 +120,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # [75.10] Compose must refuse an empty environment (required vars use
@@ -147,7 +149,9 @@ jobs:
     name: Build, lint, unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
 
@@ -181,7 +185,7 @@ jobs:
 
       - name: Upload unit test timings
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ci-timings-unit
           path: ci-timings/unit.json
@@ -227,7 +231,7 @@ jobs:
       # Baseline for the bundle-delta PR comment (#150): the latest
       # successful main run's report is downloaded by the bundle-delta job.
       - name: Upload route-chunks report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: route-chunks-report
           path: client-admin/dist/route-chunks-report.json
@@ -237,7 +241,7 @@ jobs:
       # build output — not a rebuild — download it instead. 1-day retention:
       # nothing outside this run's own jobs ever needs it.
       - name: Upload build output
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build-dist
           path: |
@@ -295,7 +299,9 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
 
@@ -364,7 +370,7 @@ jobs:
 
       - name: Upload frontend test timings
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ci-timings-frontend-${{ matrix.shard }}
           path: ci-timings/frontend-${{ matrix.shard }}.json
@@ -381,7 +387,7 @@ jobs:
       # artifact name in one run.
       - name: Upload shard report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vitest-shard-${{ matrix.shard }}
           path: .vitest-reports/
@@ -408,7 +414,9 @@ jobs:
       pull-requests: write
       actions: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
 
@@ -416,7 +424,7 @@ jobs:
         run: yarn build:shared
 
       - name: Download shard reports and coverage
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: vitest-shard-*
           merge-multiple: true
@@ -450,7 +458,7 @@ jobs:
       # "Fetch main coverage baseline" below.
       - name: Upload frontend coverage
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: frontend-coverage
           path: coverage/lcov.info
@@ -473,7 +481,7 @@ jobs:
 
       - name: Comment coverage on PR
         if: github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v3
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
         with:
           header: coverage
           path: coverage-comment.md
@@ -560,7 +568,9 @@ jobs:
       # pattern outruns.
       RATE_LIMIT_DEFAULT_LIMIT: '1000'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
 
@@ -616,7 +626,7 @@ jobs:
 
       - name: Upload integration/server-e2e test timings
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ci-timings-integration
           path: |
@@ -626,7 +636,7 @@ jobs:
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
           path: server/coverage/
@@ -733,7 +743,7 @@ jobs:
       S3_ALLOW_INSECURE_HTTP: 'true'
       S3_FORCE_PATH_STYLE: 'true'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -772,7 +782,7 @@ jobs:
       # cleanly on its own.
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ steps.pw.outputs.version }}
@@ -835,7 +845,7 @@ jobs:
       # errors on two legs uploading the same artifact name within one run.
       - name: Upload E2E timings
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ci-timings-e2e-${{ matrix.browser }}
           path: |
@@ -845,7 +855,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-${{ matrix.browser }}
           path: playwright-report/
@@ -853,7 +863,7 @@ jobs:
 
       - name: Upload PWA Playwright report
         if: failure() && matrix.browser == 'chromium'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-pwa
           path: playwright-report-pwa/
@@ -861,7 +871,7 @@ jobs:
 
       - name: Upload PWA traces, screenshots and videos
         if: failure() && matrix.browser == 'chromium'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results-pwa
           path: test-results-pwa/
@@ -869,7 +879,7 @@ jobs:
 
       - name: Upload traces, screenshots and videos
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results-${{ matrix.browser }}
           path: test-results/
@@ -932,7 +942,7 @@ jobs:
       S3_FORCE_PATH_STYLE: 'true'
       E2E_BROWSERS: chromium
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -947,7 +957,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-chromium-${{ steps.pw.outputs.version }}
@@ -971,7 +981,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-chromium-sweeps
           path: playwright-report/
@@ -979,7 +989,7 @@ jobs:
 
       - name: Upload traces, screenshots and videos
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results-chromium-sweeps
           path: test-results/
@@ -1020,12 +1030,14 @@ jobs:
       pull-requests: write
       actions: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
 
       - name: Download build output
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: build-dist
 
@@ -1044,7 +1056,7 @@ jobs:
         run: node scripts/bundle-delta.mjs baseline/route-chunks-report.json client-admin/dist/route-chunks-report.json delta.md
 
       - name: Post sticky PR comment
-        uses: marocchino/sticky-pull-request-comment@v3
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
         with:
           header: bundle-delta
           path: delta.md
@@ -1058,7 +1070,9 @@ jobs:
     # has nothing to build.
     if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.ui == 'true'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
 
@@ -1069,7 +1083,7 @@ jobs:
         run: yarn workspace @biddaloy/ui build-storybook
 
       - name: Upload Storybook static build
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: storybook-static
           path: ui/storybook-static/
@@ -1079,7 +1093,9 @@ jobs:
     name: Dependency vulnerability scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
 
@@ -1088,6 +1104,12 @@ jobs:
 
       - name: yarn audit, production deps (fails on new moderate+)
         run: node scripts/ci-audit.js --production
+
+      - name: Lint workflows (actionlint)
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -color
+
+      - name: Forbidden tracked files
+        run: node scripts/check-tracked-files.mjs
 
   # [15.1] "tests got slower" needs to be a graph, not a feeling — this
   # publishes wall/work/gap, a per-job budget verdict, and the top-10
@@ -1110,11 +1132,11 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 

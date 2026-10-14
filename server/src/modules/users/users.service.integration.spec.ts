@@ -1764,9 +1764,14 @@ describe('TeacherService (integration)', () => {
       await teacherService.create({ user_id: user1.id, employee_id: 'EMP-001' }, TENANT_ID);
 
       const user2 = await createTenantUser({ email: 'user2@example.com' });
-      await expect(
-        teacherService.create({ user_id: user2.id, employee_id: 'EMP-001' }, TENANT_ID),
-      ).rejects.toThrow(ConflictException);
+      const attempt = teacherService.create(
+        { user_id: user2.id, employee_id: 'EMP-001' },
+        TENANT_ID,
+      );
+      await expect(attempt).rejects.toThrow(ConflictException);
+      // Rule 23: the text names the field, not the value that was sent.
+      await expect(attempt).rejects.toThrow('That employee ID is already in use');
+      await expect(attempt).rejects.not.toThrow('EMP-001');
     });
 
     it('should throw ConflictException when the user already has a teacher profile', async () => {

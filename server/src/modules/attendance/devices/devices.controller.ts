@@ -9,6 +9,7 @@ import {
   Post,
   Req,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -70,7 +71,7 @@ export class DevicesController {
   })
   @ApiCreatedResponse({ type: DeviceWithKeyResponseDto })
   async rotate(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
     @Req() req: Request,
@@ -90,7 +91,7 @@ export class DevicesController {
     summary: 'Revokes a device. Sets status to REVOKED — never a hard delete.',
   })
   async revoke(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
     @Req() req: Request,

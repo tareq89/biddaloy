@@ -133,7 +133,7 @@ test('keyboard-only: assign an assistant class teacher, the class teacher stays'
   const suffix = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
   const classTeacherName = `E2E Homeroom ${suffix}`;
   const assistantName = `E2E Assistant ${suffix}`;
-  await createTeacherForSection(request, session, classTeacherName, sectionId);
+  await createTeacherForSection(request, session, classTeacherName, { classId, sectionId });
   await createTeacher(request, session, assistantName);
 
   const dialog = await openAssignDialogByKeyboard(page, classId, className, classTeacherName);
@@ -165,7 +165,7 @@ test('keyboard-only: assigning a new class teacher announces the replace warning
   const suffix = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
   const oldName = `E2E Old Homeroom ${suffix}`;
   const newName = `E2E New Homeroom ${suffix}`;
-  await createTeacherForSection(request, session, oldName, sectionId);
+  await createTeacherForSection(request, session, oldName, { classId, sectionId });
   await createTeacher(request, session, newName);
 
   const dialog = await openAssignDialogByKeyboard(page, classId, className, oldName);

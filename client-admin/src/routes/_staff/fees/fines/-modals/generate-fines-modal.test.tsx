@@ -24,7 +24,13 @@ describe('GenerateFinesModal', () => {
   });
 
   it('renders the preview count and total', async () => {
+    // The preview carries names itself; the modal must not page the roster.
+    const rosterFetch = vi.fn();
     server.use(
+      http.get('/api/v1/students', () => {
+        rosterFetch();
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 });
+      }),
       http.get('/api/v1/fee-structures', () =>
         HttpResponse.json({
           data: [{ id: 'f1', name: 'Late fine', amount: 100 }],
@@ -39,6 +45,7 @@ describe('GenerateFinesModal', () => {
           students: [
             {
               student_id: 's1',
+              full_name: 'Rahim Uddin',
               rule_id: 'r1',
               fee_structure_id: 'f1',
               count: 2,
@@ -70,6 +77,8 @@ describe('GenerateFinesModal', () => {
     // The preview table shows the row total, not "count x amount".
     const rows = within(screen.getByTestId('fine-preview-rows'));
     expect(await rows.findByText('Late fine')).toBeTruthy();
+    expect(rows.getByText('Rahim Uddin')).toBeTruthy();
+    expect(rosterFetch).not.toHaveBeenCalled();
     expect(
       rows.getByText(formatCurrency(serverAmountToMinorUnits(100, REGION_BD_BN), REGION_BD_BN)),
     ).toBeTruthy();

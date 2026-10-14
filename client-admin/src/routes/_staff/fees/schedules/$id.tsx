@@ -41,7 +41,7 @@ import { dhakaNow, nextRunDate, ruleSummary } from './-schedule-summary';
 const scheduleDetailSearchSchema = z.object({
   edit: z.literal(1).optional().catch(undefined),
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores row selection under — declared so
   // `validateSearch` does not strip it.
   selected: z.string().optional().catch(undefined),

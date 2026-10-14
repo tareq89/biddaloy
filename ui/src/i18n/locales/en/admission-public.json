@@ -6,6 +6,8 @@
     "loadError": "Something went wrong loading the form. Please try again.",
     "noOpenIntakes": "This school isn't accepting new applications right now.",
     "submitError": "We couldn't submit your form. Please check your answers and try again.",
+    "unavailable": "Applications can't be sent right now. Please try again in a little while.",
+    "captchaFailed": "The robot check didn't go through. Please complete the check below again, then submit.",
     "submit": "Submit application",
     "fields": {
       "intake": "Which admission are you applying for?",
@@ -57,7 +59,8 @@
       "choose": "Please choose one.",
       "phone": "Enter a correct mobile number, like 01711-000004.",
       "document": "Please add this file.",
-      "email": "Enter a correct email address."
+      "email": "Enter a correct email address.",
+      "captcha": "Please complete the check above."
     }
   },
   "confirmation": {

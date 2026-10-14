@@ -274,7 +274,7 @@ export async function resolvePath(
       request,
       session,
       `Reflow Survey Teacher ${stamp}`,
-      chain.sectionId,
+      chain,
     );
     const subject = await post<{ id: string }>(request, session, '/subjects', {
       code: `RF-${stamp.toString(36).toUpperCase()}`,
@@ -409,6 +409,7 @@ export async function resolvePath(
         gender: 'MALE',
         guardian_name: `Reflow Guardian ${stamp}`,
         guardian_phone: `1${3 + (stamp % 7)}${stamp.toString().slice(-8)}`,
+        captcha_token: 'no-captcha',
       },
     });
     if (!response.ok()) throw new Error(`applicant submit failed: ${response.status()}`);

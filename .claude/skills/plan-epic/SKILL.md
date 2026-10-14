@@ -259,6 +259,21 @@ Slicing rules — these are what make `implement-epic` run without conflicts:
   lanes verified file-disjoint by script.
 - **`## Steps` names the existing thing to clone** — a component, a service,
   a test file — by path. Sonnet copies well and invents badly.
+- **Safety net first.** An epic that changes guards, JWT, roles or who can
+  reach a route starts with a Wave 0.0 safety net — the route-status snapshot
+  gate, the post-deploy smoke script, and a full `ci:local` on Node 24 at
+  every wave-close — before any ticket changes behaviour. Epic 75 is the
+  model (`docs/architecture/08-security.md` → "Security rules").
+- **Reachability is money-tier.** Every ticket that changes who can reach a
+  route is money-tier and updates `server/src/route-status.snapshot.txt` in
+  the same ticket (Rule 20).
+- **Write the learning.** Every wave-close ticket has a "write the learning"
+  step that appends dated bullets (surprise — cost — fix — rule candidate) to
+  the doc that owns the area.
+- **Fail open or fail closed, per dependency.** Every dependency the epic
+  touches (Redis, the DB, an outside provider) gets an explicit fail-open or
+  fail-closed decision in the D-list, and a boot-time check when it fails
+  closed (Rule 15, #2476).
 - Never restate a decision in a body; cite `Dn`. Never describe the whole
   epic in a body; it has `Wave:` and `Depends on:` and that is enough.
 

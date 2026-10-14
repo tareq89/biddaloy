@@ -49,7 +49,7 @@ import { WaiveFineDialog } from './-modals/waive-fine-dialog';
 
 const finesSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   month: z.string().optional().catch(undefined),
   class_id: z.string().optional().catch(undefined),
   section_id: z.string().optional().catch(undefined),

@@ -1177,19 +1177,11 @@ automatically without a restart. Nothing else to do.
 
 ### Deploying behind an external load balancer instead
 
-If TLS terminates upstream of this stack (a cloud LB, Cloudflare, etc.)
-instead of the bundled nginx:
-
-- Don't run the `nginx`, `cert-bootstrap`, or `certbot` services.
-- Point the LB at the `app` service's port directly (change `expose` to
-  `ports` in `docker-compose.yml`, or route through your platform's service
-  discovery).
-- `app.set('trust proxy', 1)` in `main.ts` still applies and is correct as
-  long as your LB is exactly one hop in front of the app — if there's a
-  second proxy in the chain (e.g. LB → nginx → app), change the `1` to match
-  the actual hop count, or requests can get a client IP that's spoofable.
-- Set `CORS_ORIGINS` to your real public origin(s) regardless of which path
-  you use.
+If TLS terminates upstream of this stack (a cloud LB, Cloudflare, etc.), see
+[07-deployment.md → Deploying behind an external load balancer instead](docs/architecture/07-deployment.md#deploying-behind-an-external-load-balancer-instead).
+For Cloudflare in front of the bundled nginx (the default), see
+[07-deployment.md → Who can reach the origin](docs/architecture/07-deployment.md#who-can-reach-the-origin)
+and the security rules it links to.
 
 ## Project Structure
 

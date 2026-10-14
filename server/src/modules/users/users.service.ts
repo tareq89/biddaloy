@@ -189,7 +189,7 @@ export class UserService {
         withDeleted: true,
       });
       if (existing) {
-        throw new ConflictException(`User with email "${email}" already exists`);
+        throw new ConflictException('That email address or phone number is already in use');
       }
     }
 
@@ -937,7 +937,8 @@ export class TeacherService {
       ? await teacherRepo.findOne({ where: { employee_id: dto.employee_id } })
       : null;
     if (existing) {
-      throw new ConflictException(`Teacher with employee ID "${dto.employee_id}" already exists`);
+      // Rule 23: name the field, never echo the value.
+      throw new ConflictException('That employee ID is already in use');
     }
 
     // [36.2.1] Teacher's own employee_id also seeds its staff_profiles row

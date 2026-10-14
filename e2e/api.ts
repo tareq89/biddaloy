@@ -259,16 +259,18 @@ export async function del(
 }
 
 /** [48] The demo school's seeded "First Term Exam" (`ensureSeatPlanDemoSeed`: a schedule and a
- * published seat plan). `GET /exams` pages 10 rows by default, and other specs create exams, so
- * ask for one big page. */
+ * published seat plan) for seeded Class 6. `GET /exams` is newest first and capped at 100 rows,
+ * and other specs create exams, so filter by the seeded class instead of hoping the oldest
+ * exam is on page 1. */
 export async function seededFirstTermExamId(
   request: APIRequestContext,
   session: ApiSession,
 ): Promise<string> {
+  const { classId } = await findSeedSectionA(request, session);
   const exams = await get<{ data: { id: string; name: string }[] }>(
     request,
     session,
-    '/exams?limit=1000',
+    `/exams?class_id=${classId}&limit=100`,
   );
   const exam = exams.data.find((e) => e.name === 'First Term Exam');
   if (!exam) throw new Error('No seeded "First Term Exam" — has `yarn seed` run?');
@@ -811,12 +813,12 @@ export async function createTeacherForSection(
   request: APIRequestContext,
   session: ApiSession,
   fullName: string,
-  sectionId: string,
+  section: { classId: string; sectionId: string },
 ): Promise<FreshTeacher> {
-  return createTeacher(request, session, fullName, sectionId);
+  return createTeacher(request, session, fullName, section);
 }
 
-/** Creates a fresh TEACHER user + `Teacher` row. `sectionId` omitted =
+/** Creates a fresh TEACHER user + `Teacher` row. `section` omitted =
  * zero `TeacherClassSection` rows — for specs that need a teacher with no
  * assignments at all (e.g. an empty-state assertion on the
  * teaching-assignments screen). */
@@ -824,7 +826,7 @@ export async function createTeacher(
   request: APIRequestContext,
   session: ApiSession,
   fullName: string,
-  sectionId?: string,
+  section?: { classId: string; sectionId: string },
 ): Promise<FreshTeacher> {
   // `crypto.randomUUID()`, not `Math.random()` — CodeQL flags `Math.random()`
   // as insecure randomness wherever the value it seeds ends up in a field
@@ -843,25 +845,13 @@ export async function createTeacher(
     user_id: created.user.id,
     employee_id: `E2E-${suffix}`,
   });
-  if (sectionId) {
-    // The assign endpoint is keyed by class too; callers only hold the section id.
-    const classes = await get<{ data: { id: string }[] }>(request, session, '/classes?limit=1000');
-    let assigned = false;
-    for (const { id: classId } of classes.data) {
-      const sections = await get<{ id: string }[]>(
-        request,
-        session,
-        `/classes/${classId}/sections`,
-      );
-      if (sections.some((s) => s.id === sectionId)) {
-        await post(request, session, `/classes/${classId}/sections/${sectionId}/teachers`, {
-          teacher_id: teacher.id,
-        });
-        assigned = true;
-        break;
-      }
-    }
-    if (!assigned) throw new Error(`createTeacher: no class contains section ${sectionId}`);
+  if (section) {
+    await post(
+      request,
+      session,
+      `/classes/${section.classId}/sections/${section.sectionId}/teachers`,
+      { teacher_id: teacher.id },
+    );
   }
   return { email, password, userId: created.user.id, teacherId: teacher.id };
 }
@@ -1361,7 +1351,7 @@ export async function findSeedSectionA(
   const classes = await get<{ data: { id: string; name: string; academic_year_id: string }[] }>(
     request,
     session,
-    '/classes?limit=1000',
+    '/classes?limit=100',
   );
   const klass = classes.data.find((c) => c.name === 'Class 6');
   if (!klass) throw new Error('seeded "Class 6" not found — run the seed script first');

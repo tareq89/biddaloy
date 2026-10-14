@@ -10,6 +10,7 @@
  * keyed by `documentFieldName()` so the multipart field names match what
  * `PublicAdmissionController.submit` expects (`photo`/`birth_certificate`/`transcript`).
  */
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   DatePicker,
@@ -31,6 +32,8 @@ import { Link } from '@tanstack/react-router';
 import { CircleAlertIcon, FileImageIcon, FileTextIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { NO_CAPTCHA_TOKEN, TURNSTILE_SITE_KEY, Turnstile } from '../registration/turnstile';
+
 import {
   documentFieldName,
   isUnknownSchool,
@@ -50,6 +53,19 @@ const GENDER_OPTIONS = ['MALE', 'FEMALE', 'OTHER'] as const;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const SECTION = 'space-y-4 border-t border-border-subtle pt-5';
+
+/** Captcha check can't run (server has no Turnstile secret in production): retrying the answers won't help. */
+function isUnavailable(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    (error.statusCode === 503 || error.details?.code === 'REGISTRATION_UNAVAILABLE')
+  );
+}
+
+/** Cloudflare refused the token (stale, reused): the answers are fine, the check needs redoing. */
+function isCaptchaFailed(error: unknown): boolean {
+  return error instanceof ApiError && error.details?.code === 'CAPTCHA_FAILED';
+}
 
 export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormProps) {
   const { t } = useTranslation('admission-public');
@@ -72,6 +88,9 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
   // real user never sees or fills it — a bot filling every visible field
   // fills this too. See `SubmitApplicantDto.middle_name_confirm`.
   const [honeypot, setHoneypot] = React.useState('');
+  const [captcha, setCaptcha] = React.useState<string | null>(null);
+  // A Turnstile token is single use: bumping the key remounts the widget after a failed submit.
+  const [captchaKey, setCaptchaKey] = React.useState(0);
 
   const intakes = intakesQuery.data ?? [];
   const selectedIntake = intakes.find((intake) => intake.id === intakeId);
@@ -108,6 +127,7 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
       const field = documentFieldName(type);
       if (!documents[field]) found[`doc-${field}`] = t('form.errors.document');
     }
+    if (TURNSTILE_SITE_KEY && !captcha) found.captcha = t('form.errors.captcha');
     return found;
   }
 
@@ -131,13 +151,20 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
       gender,
       guardian_name: guardianName.trim(),
       guardian_phone: guardianPhone,
+      captcha_token: captcha ?? NO_CAPTCHA_TOKEN,
       middle_name_confirm: honeypot,
       documents,
       ...(guardianEmail.trim() ? { guardian_email: guardianEmail.trim() } : {}),
       ...(homeAddress.trim() ? { home_address: homeAddress.trim() } : {}),
     };
 
-    submitMutation.mutate(input, { onSuccess: onSubmitted });
+    submitMutation.mutate(input, {
+      onSuccess: onSubmitted,
+      onError: () => {
+        setCaptcha(null);
+        setCaptchaKey((k) => k + 1);
+      },
+    });
   }
 
   const header = (
@@ -520,9 +547,29 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
         {submitMutation.isError && (
           <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
             <CircleAlertIcon className="size-3.5 shrink-0" aria-hidden />
-            {t('form.submitError')}
+            {isUnavailable(submitMutation.error)
+              ? t('form.unavailable')
+              : isCaptchaFailed(submitMutation.error)
+                ? t('form.captchaFailed')
+                : t('form.submitError')}
           </p>
         )}
+
+        {/* Focus target for the first-error jump. */}
+        <div id="captcha" tabIndex={-1} className="outline-none">
+          <Turnstile
+            key={captchaKey}
+            onToken={(token) => {
+              setCaptcha(token);
+              if (token) clearError('captcha');
+            }}
+          />
+          {errors.captcha && (
+            <p role="alert" className="text-caption text-destructive">
+              {errors.captcha}
+            </p>
+          )}
+        </div>
 
         <Button type="submit" className="w-full" loading={submitMutation.isPending}>
           {t('form.submit')}

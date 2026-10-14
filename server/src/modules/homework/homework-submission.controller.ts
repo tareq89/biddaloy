@@ -9,6 +9,7 @@ import {
   UploadedFiles,
   UseGuards,
   UseInterceptors,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FilesInterceptor } from '@nestjs/platform-express';
@@ -69,7 +70,7 @@ export class HomeworkSubmissionController {
   })
   @ApiOkResponse({ type: HomeworkSubmissionResponseDto })
   async upload(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateHomeworkSubmissionDto,
     @UploadedFiles() files: Express.Multer.File[],
     @CurrentTenant() tenant: { id: string; role: string },
@@ -90,7 +91,7 @@ export class HomeworkSubmissionController {
   @ApiOperation({ summary: 'Teacher grade/tick/override of a submission (D9).' })
   @ApiOkResponse({ type: HomeworkSubmissionResponseDto })
   async update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateHomeworkSubmissionDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -108,7 +109,7 @@ export class HomeworkSubmissionController {
   @ApiOperation({ summary: 'List submissions for an assignment (teacher grid view).' })
   @ApiOkResponse({ type: HomeworkSubmissionResponseDto, isArray: true })
   async findAll(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
   ) {

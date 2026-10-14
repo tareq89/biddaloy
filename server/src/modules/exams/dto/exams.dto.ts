@@ -5,6 +5,7 @@ import {
   IsInt,
   IsBoolean,
   Min,
+  Max,
   MaxLength,
   IsNotEmpty,
   IsEnum,
@@ -138,6 +139,7 @@ export class QueryExamDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   limit?: number = 10;
 }
 

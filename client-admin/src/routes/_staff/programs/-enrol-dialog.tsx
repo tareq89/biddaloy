@@ -2,7 +2,7 @@
  * Enrol students into a program — [34.4.1], D16; a full-page modal since 31.4.programs-2b (D21).
  * Class → section selects reuse `useClasses`/`useClassSections`, the same hooks
  * `students/index.tsx`'s filter bar uses, and filter a checkbox list over
- * `useStudents({ class_id, section_id })`.
+ * `useAllStudents({ class_id, section_id })` (every page, so "select all" covers the whole class).
  *
  * When opened from the list page with no `programId` (D10 palette entry, `?enrol=1` with no
  * program in context), a Program select is shown first; the detail page always passes a real
@@ -18,11 +18,11 @@ import {
   SelectValue,
 } from '@biddaloy/ui/components';
 import {
+  useAllStudents,
   useClasses,
   useClassSections,
   useEnrolStudents,
   usePrograms,
-  useStudents,
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
@@ -79,17 +79,18 @@ export function EnrolDialog({
   const programsQuery = usePrograms();
   const classesQuery = useClasses();
   const sectionsQuery = useClassSections(classId || undefined);
-  const studentsQuery = useStudents(
+  // ponytail: the enrol POST caps `student_ids` at 500 (`ArrayMaxSize`), so enrolling a whole
+  // class over 500 at once is a 400; pick a section, or chunk the POST if that ever matters.
+  const studentsQuery = useAllStudents(
     {
       ...(classId ? { class_id: classId } : {}),
       ...(sectionId ? { section_id: sectionId } : {}),
-      limit: 200,
     },
     { enabled: Boolean(classId) },
   );
   const enrolStudents = useEnrolStudents(selectedProgramId);
 
-  const students = studentsQuery.data?.data ?? [];
+  const students = studentsQuery.data ?? [];
   const busy = enrolStudents.isPending;
   // Only ids the user can see are submitted: a prefilled id outside the loaded list is ignored.
   const visibleIds = students.filter((s) => studentIds.has(s.id)).map((s) => s.id);

@@ -20,6 +20,30 @@ Services (`docker-compose.yml`): `app`, `db` (Postgres), `redis`, `nginx`,
 `cert-bootstrap` (automated Let's Encrypt issuance — nginx self-reloads
 every 6h to pick up renewed certs, see `nginx/reload-loop.sh`).
 
+**Security rules for this stack** (full text in [08-security.md](08-security.md#security-rules)):
+
+- [Rule 11](08-security.md#rule-11-client-ip-comes-only-from-reqip): the client IP is `req.ip`, set by nginx from `CF-Connecting-IP` for peers in `TRUSTED_PROXY_CIDRS`.
+- [Rule 12](08-security.md#rule-12-the-origin-accepts-only-cloudflare): the origin accepts only Cloudflare (next section).
+- Cloudflare dashboard settings: the checklist in [25-cloudflare.md](25-cloudflare.md) (75.31).
+- After every deploy: `yarn smoke:post-deploy` ([12-operations.md §7](12-operations.md#7-post-deploy-smoke-check)).
+
+### Deploying behind an external load balancer instead
+
+If TLS terminates upstream of this stack (a cloud LB, or Cloudflare straight
+to the app) instead of the bundled nginx:
+
+- Don't run the `nginx`, `cert-bootstrap` or `certbot` services. The
+  Cloudflare-only origin lock ([Rule 12](08-security.md#rule-12-the-origin-accepts-only-cloudflare))
+  lives in nginx, so the LB or a firewall must do that job instead.
+- Point the LB at the `app` service's port directly (change `expose` to
+  `ports` in `docker-compose.yml`, or route through your platform's service
+  discovery).
+- `app.set('trust proxy', 1)` in `main.ts` trusts exactly one hop. That is
+  right when the LB is the only proxy in front of the app. With two (LB →
+  nginx → app), change the `1` to the real hop count, or a client can spoof
+  its IP ([Rule 11](08-security.md#rule-11-client-ip-comes-only-from-reqip)).
+- Set `CORS_ORIGINS` to your real public origin(s) either way.
+
 ### Who can reach the origin
 
 nginx answers only the real site name, and (when `TRUSTED_PROXY_CIDRS` lists

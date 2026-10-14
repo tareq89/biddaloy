@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
@@ -69,7 +70,7 @@ export class CalendarEventsController {
   @ApiOperation({ summary: 'Fetch one calendar event, if visible to the caller.' })
   @ApiResponse({ status: 200, type: CalendarEventResponseDto })
   async findOne(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
   ) {
@@ -95,7 +96,7 @@ export class CalendarEventsController {
   @ApiOperation({ summary: 'Update a calendar event.' })
   @ApiResponse({ status: 200, type: CalendarEventResponseDto })
   async update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCalendarEventDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -107,7 +108,7 @@ export class CalendarEventsController {
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Delete a calendar event.' })
   async remove(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
   ) {
@@ -132,7 +133,7 @@ export class CalendarEventsController {
   @ApiOperation({ summary: 'Publish a draft calendar event.' })
   @ApiResponse({ status: 200, type: CalendarEventResponseDto })
   async publish(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
   ) {

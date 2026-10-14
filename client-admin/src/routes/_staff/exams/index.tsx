@@ -30,7 +30,7 @@ import { ExamStatusBadge } from './-exam-status-badge';
 const examsSearchSchema = z.object({
   // List state; declared so `validateSearch` does not strip it from the URL.
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   sort: z.string().optional().catch(undefined),
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
   academic_year_id: z.string().optional().catch(undefined),

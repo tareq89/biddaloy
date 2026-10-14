@@ -13,6 +13,7 @@ import {
   Max,
   IsDateString,
 } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { UserRole, TeacherDesignation, UserStatus, InvitationStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
@@ -66,8 +67,13 @@ export class CreateUserDto {
   @IsEnum(UserRole)
   role: UserRole;
 
+  @ApiPropertyOptional({
+    deprecated: true,
+    description: 'Ignored. The tenant comes from X-Tenant-ID.',
+  })
+  @IsOptional()
   @IsUUID()
-  tenantId: string;
+  tenantId?: string;
 }
 
 export class UpdateUserDto {

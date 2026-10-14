@@ -75,7 +75,7 @@ export class WalletController {
     },
   })
   async getWallet(
-    @Param('id') studentId: string,
+    @Param('id', ParseUUIDPipe) studentId: string,
     @Query('page') page: string | undefined,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,

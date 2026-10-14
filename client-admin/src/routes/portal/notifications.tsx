@@ -17,7 +17,7 @@ const searchSchema = z.object({
   category: z.string().optional().catch(undefined),
   student_id: z.string().optional().catch(undefined),
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   selected: z.string().optional().catch(undefined),
 });
 

@@ -9,6 +9,7 @@ import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { assertPasswordAllowedForUser } from '../auth/password-policy';
 import { School } from '../schools/entities/school.entity';
 import { AuditService } from '../audit/audit.service';
+import { AccountAccessDeliveryService } from './account-access-delivery.service';
 import { AuthService, AuthResult } from '../auth/auth.service';
 import { RefreshTokenService, RequestContext } from '../auth/refresh-token.service';
 import { SessionCutoffService } from '../auth/session-cutoff.service';
@@ -46,6 +47,7 @@ export class ActivationService {
     @Inject(AuthService) private readonly authService: AuthService,
     private readonly auditService: AuditService,
     private readonly invitations: InvitationService,
+    private readonly delivery: AccountAccessDeliveryService,
     private readonly refreshTokens: RefreshTokenService,
     private readonly sessionCutoff: SessionCutoffService,
   ) {}
@@ -199,6 +201,13 @@ export class ActivationService {
    * invite — a used/revoked invite, an already-active account, or an
    * unknown identifier are all silent no-ops from the caller's point of
    * view.
+   *
+   * [75.17] The request path is the user lookup and nothing else: every
+   * branch runs in the detached job, so known and unknown identifiers cost the
+   * same one query. Best-effort, deliberately swallowed (detach logs, never
+   * throws): surfacing *why* a resend didn't go out (delivery outage, a
+   * ConflictException race with a concurrent activation) would leak the exact
+   * "does this account exist" signal this endpoint exists to hide.
    */
   async resend(identifier: string): Promise<void> {
     const normalized = normalizeLoginIdentifier(identifier);
@@ -208,6 +217,10 @@ export class ActivationService {
         { phone: normalized, deleted_at: IsNull() },
       ],
     });
+    await this.delivery.detach('activation-resend', () => this.resendJob(user));
+  }
+
+  private async resendJob(user: User | null): Promise<void> {
     if (!user || user.password_hash !== null) {
       return;
     }
@@ -222,19 +235,10 @@ export class ActivationService {
       return;
     }
 
-    try {
-      await this.invitations.issueAndSend({
-        userId: user.id,
-        tenantId: latest.tenant_id,
-        actorUserId: null,
-      });
-    } catch {
-      // Best-effort, deliberately swallowed: this endpoint always returns
-      // 202 regardless of what happens underneath (delivery outage,
-      // ConflictException races with a concurrent activation, etc) — an
-      // enumeration-safe endpoint cannot surface *why* a resend didn't go
-      // out without leaking exactly the "does this account exist" signal
-      // it exists to hide.
-    }
+    await this.invitations.issueAndSend({
+      userId: user.id,
+      tenantId: latest.tenant_id,
+      actorUserId: null,
+    });
   }
 }

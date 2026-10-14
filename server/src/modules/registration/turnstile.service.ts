@@ -42,6 +42,12 @@ export class TurnstileService {
     } catch {
       throw unavailable();
     }
-    if (!success) throw new BadRequestException('Captcha verification failed');
+    if (!success) {
+      // The code lets a form tell "do the check again" apart from a field error.
+      throw new BadRequestException({
+        message: 'Captcha verification failed',
+        details: { code: 'CAPTCHA_FAILED' },
+      });
+    }
   }
 }

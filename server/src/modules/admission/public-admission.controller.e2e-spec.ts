@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import type Redis from 'ioredis';
 import { AppModule } from '../../app.module';
@@ -81,6 +82,8 @@ describe('Public Admission Submission E2E', () => {
       gender: 'MALE',
       guardian_name: 'Karim Uddin',
       guardian_phone: '01700000001',
+      // No TURNSTILE_SECRET_KEY in tests: any non-empty token passes unchecked.
+      captcha_token: 'no-captcha',
       ...overrides,
     };
   }
@@ -234,6 +237,75 @@ describe('Public Admission Submission E2E', () => {
   });
 
   describe('POST /public/admission/:slug/applicants', () => {
+    const submitUrl = `/api/v1/public/admission/${SEED_SLUG}/applicants`;
+    const countRows = async (intakeId: string) =>
+      (
+        await dataSource.query(`SELECT 1 FROM admission_applicants WHERE intake_id = $1`, [
+          intakeId,
+        ])
+      ).length;
+
+    it('rejects a submission whose captcha token Cloudflare rejects, with CAPTCHA_FAILED', async () => {
+      const intakeId = await createIntake();
+      // Real TurnstileService: give it a secret and a siteverify that says no.
+      const config = app.get(ConfigService);
+      const realGet = config.get.bind(config);
+      const spy = vi
+        .spyOn(config, 'get')
+        .mockImplementation(((key: string) =>
+          key === 'TURNSTILE_SECRET_KEY' ? 'test-secret' : realGet(key)) as typeof config.get);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: false }) }),
+      );
+      try {
+        await supertest(app.getHttpServer())
+          .post(submitUrl)
+          .field(applicantPayload(intakeId))
+          .attach('photo', VALID_JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' })
+          .expect(400)
+          .expect((r) => {
+            expect(r.body.details.code).toBe('CAPTCHA_FAILED');
+            expect(JSON.stringify(r.body)).not.toContain('no-captcha');
+          });
+      } finally {
+        spy.mockRestore();
+        vi.unstubAllGlobals();
+      }
+      expect(await countRows(intakeId)).toBe(0);
+    });
+
+    it('400s when captcha_token is missing', async () => {
+      const intakeId = await createIntake();
+      const { captcha_token: _omit, ...noToken } = applicantPayload(intakeId);
+      await supertest(app.getHttpServer())
+        .post(submitUrl)
+        .field(noToken)
+        .expect(400)
+        .expect((r) => expect(JSON.stringify(r.body)).toContain('captcha_token'));
+      expect(await countRows(intakeId)).toBe(0);
+    });
+
+    it('answers 503 in production with no secret and stores nothing', async () => {
+      const intakeId = await createIntake();
+      // ConfigService caches its values at boot, so flip NODE_ENV on the service itself.
+      const config = app.get(ConfigService);
+      const realGet = config.get.bind(config);
+      const spy = vi
+        .spyOn(config, 'get')
+        .mockImplementation(((key: string) =>
+          key === 'NODE_ENV' ? 'production' : realGet(key)) as typeof config.get);
+      try {
+        await supertest(app.getHttpServer())
+          .post(submitUrl)
+          .field(applicantPayload(intakeId))
+          .expect(503);
+      } finally {
+        spy.mockRestore();
+      }
+      expect(await countRows(intakeId)).toBe(0);
+    });
+
     it('accepts a submission and returns a reference number', async () => {
       const intakeId = await createIntake();
 

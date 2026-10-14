@@ -54,12 +54,7 @@ test.describe('attendance offline marking', () => {
     const studentIds = studentsBody.data.map((s) => s.id);
     expect(studentIds).toHaveLength(3);
 
-    const teacher = await createTeacherForSection(
-      request,
-      admin,
-      'Offline Teacher',
-      chain.sectionId,
-    );
+    const teacher = await createTeacherForSection(request, admin, 'Offline Teacher', chain);
 
     const loginResponse = await request.post('/api/v1/auth/login', {
       data: { email: teacher.email, password: teacher.password },

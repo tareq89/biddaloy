@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ConflictException } from '@nestjs/common';
 import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 import { AccountAccessDeliveryService, pickChannel } from './account-access-delivery.service';
 
@@ -36,7 +37,87 @@ describe('AccountAccessDeliveryService', () => {
       logRepo as any,
       registry as any,
       schoolsService as any,
+      { get: () => undefined } as any,
     );
+  });
+
+  describe('detach', () => {
+    /** Echo flag on = test mode (awaits); off = production (setImmediate). */
+    const make = (echo: boolean) => {
+      const svc = new AccountAccessDeliveryService(
+        logRepo as any,
+        registry as any,
+        schoolsService as any,
+        {
+          get: (k: string) => (echo && k === 'ACCOUNT_ACCESS_ECHO_SECRETS' ? 'true' : undefined),
+        } as any,
+      );
+      const log = (svc as any).logger;
+      return {
+        svc,
+        error: vi.spyOn(log, 'error').mockImplementation(() => undefined),
+        warn: vi.spyOn(log, 'warn').mockImplementation(() => undefined),
+      };
+    };
+    const tick = () => new Promise((r) => setImmediate(r));
+
+    it('returns undefined before the work finishes when echo is off', async () => {
+      await expect(make(false).svc.detach('t', () => new Promise(() => {}))).resolves.toBe(
+        undefined,
+      );
+    });
+
+    it('does not await under NODE_ENV=test alone (vitest sets it); only the echo flag does', async () => {
+      expect(process.env.NODE_ENV).toBe('test');
+      let ran = false;
+      await make(false).svc.detach('t', async () => {
+        ran = true;
+      });
+      expect(ran).toBe(false);
+      await tick();
+      expect(ran).toBe(true);
+    });
+
+    it("awaits the work and returns the job's value when echo is on", async () => {
+      await expect(
+        make(true).svc.detach('t', async () => {
+          await Promise.resolve();
+          return 42;
+        }),
+      ).resolves.toBe(42);
+    });
+
+    it('logs a rejected job with its flow and stack instead of throwing, in both modes', async () => {
+      for (const echo of [true, false]) {
+        const { svc, error } = make(echo);
+        await expect(
+          svc.detach('otp-login', () => Promise.reject(new Error('boom'))),
+        ).resolves.toBeUndefined();
+        await tick();
+        await tick();
+        expect(error).toHaveBeenCalledTimes(1);
+        expect(error.mock.calls[0][0]).toContain('otp-login');
+        expect(error.mock.calls[0][1]).toContain('Error: boom');
+      }
+    });
+
+    it('catches a synchronous throw inside work, so nothing escapes setImmediate', async () => {
+      const { svc, error } = make(false);
+      const work = (() => {
+        throw new Error('sync');
+      }) as unknown as () => Promise<void>;
+      await svc.detach('t', work);
+      await tick();
+      await tick();
+      expect(error).toHaveBeenCalledTimes(1);
+    });
+
+    it('logs the activation-race ConflictException at warn, not error', async () => {
+      const { svc, error, warn } = make(true);
+      await svc.detach('activation-resend', () => Promise.reject(new ConflictException('race')));
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(error).not.toHaveBeenCalled();
+    });
   });
 
   it('stores a redacted message_body, never the raw link', async () => {
@@ -152,6 +233,7 @@ describe('AccountAccessDeliveryService platform sender (tenantId null, D28)', ()
       logRepo as any,
       { resolve: vi.fn().mockReturnValue(provider) } as any,
       schools as any,
+      { get: () => undefined } as any,
     );
 
     const result = await service.deliver({
@@ -177,6 +259,7 @@ describe('AccountAccessDeliveryService platform sender (tenantId null, D28)', ()
       fakeLogRepo() as any,
       { resolve: vi.fn().mockReturnValue(undefined) } as any,
       {} as any,
+      { get: () => undefined } as any,
     );
     const result = await service.deliver({
       tenantId: null,

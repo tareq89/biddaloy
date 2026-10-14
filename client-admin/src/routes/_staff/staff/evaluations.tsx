@@ -29,7 +29,7 @@ const TABS = ['acr', 'surveys', 'incidents'] as const;
 const evaluationsSearchSchema = z.object({
   tab: z.enum(TABS).optional().catch(undefined),
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   sort: z.string().optional().catch(undefined),
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
   year: z.string().optional().catch(undefined),

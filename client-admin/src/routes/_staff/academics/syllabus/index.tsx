@@ -31,7 +31,7 @@ const syllabusSearchSchema = z.object({
   subject_id: optionalString,
   // Plans tab list state; `plan_` keeps the filters apart from the topics pickers.
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   sort: optionalString,
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
   plan_class: optionalString,

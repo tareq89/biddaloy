@@ -136,6 +136,17 @@ describe('AllExceptionsFilter', () => {
     expect(mockSetHeader).toHaveBeenCalledWith('X-Request-Id', 'client-supplied-id');
   });
 
+  it('replaces an incoming X-Request-Id that is not plain, in body and header', () => {
+    const filter = new AllExceptionsFilter('production');
+    mockRequest.headers['x-request-id'] = 'has a space';
+
+    filter.catch(new HttpException('Forbidden', HttpStatus.FORBIDDEN), mockHost);
+
+    const body = mockJson.mock.calls[0][0];
+    expect(body.requestId).not.toBe('has a space');
+    expect(mockSetHeader).toHaveBeenCalledWith('X-Request-Id', body.requestId);
+  });
+
   it('includes the requestId in the server-side log line', () => {
     const filter = new AllExceptionsFilter('production');
     mockRequest.headers['x-request-id'] = 'log-correlation-id';

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { PostgresQueryRunner } from 'typeorm/driver/postgres/PostgresQueryRunner';
 import { TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
 import { AuditAction, AuthTokenPurpose, UserStatus } from '@biddaloy/shared';
@@ -73,7 +74,13 @@ describe('ActivationService (integration)', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: (key: string) => (key === 'APP_BASE_URL' ? 'http://localhost:5174' : undefined),
+            // Echo on = detach() awaits the resend job, so specs can read its rows.
+            get: (key: string) =>
+              key === 'APP_BASE_URL'
+                ? 'http://localhost:5174'
+                : key === 'ACCOUNT_ACCESS_ECHO_SECRETS'
+                  ? 'true'
+                  : undefined,
           },
         },
       ],
@@ -431,6 +438,38 @@ describe('ActivationService (integration)', () => {
   describe('resend', () => {
     it('is a silent no-op for an unknown identifier', async () => {
       await expect(service.resend('nobody@example.com')).resolves.toBeUndefined();
+    });
+
+    it('request path is one user lookup, then detach, for a reissuable invite and an unknown identifier alike [75.17]', async () => {
+      const user = await createInvitee();
+      await issueInvite(user.id);
+      // Production-like: the job never runs inline.
+      const detach = vi
+        .spyOn(module.get(AccountAccessDeliveryService), 'detach')
+        .mockResolvedValue(undefined);
+      const query = vi.spyOn(PostgresQueryRunner.prototype, 'query');
+      try {
+        for (const identifier of [user.email!, 'nobody@example.com']) {
+          query.mockClear();
+          detach.mockClear();
+          await expect(service.resend(identifier)).resolves.toBeUndefined();
+          expect(query, identifier).toHaveBeenCalledTimes(1);
+          expect(detach, identifier).toHaveBeenCalledTimes(1);
+        }
+      } finally {
+        detach.mockRestore();
+        query.mockRestore();
+      }
+    });
+
+    it('swallows a failing job: resend still resolves', async () => {
+      const user = await createInvitee();
+      await issueInvite(user.id);
+      const issue = vi
+        .spyOn(module.get(InvitationService), 'issueAndSend')
+        .mockRejectedValueOnce(new Error('provider down'));
+      await expect(service.resend(user.email!)).resolves.toBeUndefined();
+      expect(issue).toHaveBeenCalledTimes(1);
     });
 
     it('is a silent no-op for an account that already has a password', async () => {

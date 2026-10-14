@@ -9,11 +9,13 @@ import {
   IsOptional,
   IsString,
   Min,
+  Max,
   MaxLength,
   MinLength,
 } from 'class-validator';
 import { FeeType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../../common/decorators/sanitize-text.decorator';
+import { MONEY_MAX } from '../../../../common/constants/money';
 
 /**
  * FEE_WAIVER payload. 52.3.1 builds `GrantedFeeWaiverDto` from this.
@@ -25,6 +27,7 @@ export class FeeWaiverPayloadDto {
   kind: 'PERCENT' | 'FLAT';
 
   @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(MONEY_MAX)
   @Min(0.01)
   value: number;
 

@@ -33,6 +33,7 @@ export interface SubmitApplicantInput {
   gender: string;
   guardian_name: string;
   guardian_phone: string;
+  captcha_token: string;
   guardian_email?: string;
   home_address?: string;
   /** Honeypot — must stay empty, never rendered visibly. */
@@ -89,6 +90,7 @@ async function submitApplicant(
   formData.append('gender', input.gender);
   formData.append('guardian_name', input.guardian_name);
   formData.append('guardian_phone', input.guardian_phone);
+  formData.append('captcha_token', input.captcha_token);
   if (input.guardian_email) formData.append('guardian_email', input.guardian_email);
   if (input.home_address) formData.append('home_address', input.home_address);
   // Never rendered, always sent empty by a real submission — see the DTO's

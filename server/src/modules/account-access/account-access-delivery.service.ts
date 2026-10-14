@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { isSecretEchoEnabled } from './account-access-echo';
 import { Repository } from 'typeorm';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
@@ -56,7 +58,46 @@ export class AccountAccessDeliveryService {
     private readonly logRepo: Repository<CommunicationLog>,
     private readonly registry: CommunicationProviderRegistryService,
     private readonly schoolsService: SchoolsService,
+    private readonly config: ConfigService,
   ) {}
+
+  /**
+   * Runs `work` after the response is sent, so a caller's timing cannot depend on
+   * it (enumeration-safe routes). The callers put everything after their one
+   * user lookup in `work`, so a known and an unknown identifier do the same
+   * single query before responding. A failure is logged, never thrown.
+   *
+   * Echo mode (`ACCOUNT_ACCESS_ECHO_SECRETS`, which `assertSecretEchoAllowed`
+   * refuses to boot with in production) awaits instead and returns the job's
+   * value, so the `debug` echo and specs that read the DB right after the call
+   * keep working. `NODE_ENV=test` alone does not await.
+   *
+   * ponytail: the known branch's job still runs on the same event loop and DB
+   * pool right after the response, so it can slow the *next* request by a hair.
+   * Nothing tracks in-flight jobs, so a deploy (SIGTERM) can drop one after the
+   * token/OTP and audit row are written but before the send: the user got a
+   * 202, gets no code, and the cooldown swallows an immediate retry. The window
+   * is milliseconds per request. A queue on a separate worker if either ever
+   * matters.
+   */
+  async detach<T>(flow: string, work: () => Promise<T>): Promise<T | undefined> {
+    // async + try/catch: a synchronous throw inside `work` is caught too, never
+    // escaping setImmediate as an uncaughtException.
+    const run = async (): Promise<T | undefined> => {
+      try {
+        return await work();
+      } catch (e) {
+        const msg = `Detached ${flow} job failed: ${e instanceof Error ? e.message : String(e)}`;
+        // A resend losing the race with a concurrent activation is expected, not an error.
+        if (e instanceof ConflictException) this.logger.warn(msg);
+        else this.logger.error(msg, e instanceof Error ? e.stack : undefined);
+        return undefined;
+      }
+    };
+    if (isSecretEchoEnabled(this.config)) return run();
+    setImmediate(() => void run());
+    return undefined;
+  }
 
   async deliver(input: DeliverInput): Promise<DeliverResult> {
     if (input.tenantId === null) return this.deliverAsPlatform(input);

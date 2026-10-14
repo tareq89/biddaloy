@@ -47,7 +47,7 @@ interface GeneratedFeesFilters {
 
 const generateFeesSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
-  limit: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
   period_from: z.string().optional().catch(undefined),
   period_to: z.string().optional().catch(undefined),
   fee_type: z.string().optional().catch(undefined),
