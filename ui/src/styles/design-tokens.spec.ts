@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CONTRAST_PAIRS,
+  brand,
   chart,
   dark,
   light,
@@ -302,12 +303,10 @@ describe('chart tokens (8.10.7)', () => {
     return { light: css.slice(0, i), dark: css.slice(i) };
   };
   const valueOf = (css: string, name: string) =>
-    new RegExp(`--color-chart-${name}:\\s*([^;]+);`).exec(css)?.[1].trim();
+    new RegExp(`--color-chart-${name}:\\s*([^;]+);`).exec(css)?.[1]?.trim();
   const resolve = (v: string | undefined) =>
     v?.startsWith('var(--color-brand-')
-      ? ({ '400': '#8f96f4', '600': '#4a3fd4' } as Record<string, string>)[
-          /brand-(\d+)/.exec(v)![1]
-        ]
+      ? (brand as Record<string, string>)[/brand-(\d+)/.exec(v)![1]!]
       : v;
 
   it('declares all six in the theme block and the dark override', () => {
@@ -335,7 +334,7 @@ describe('chart tokens (8.10.7)', () => {
   });
 
   it('dark seq lightness increases 1 to 3', () => {
-    const [a, b, c] = chart.seq.dark.map(relativeLuminance);
+    const [a, b, c] = chart.seq.dark.map(relativeLuminance) as [number, number, number];
     expect(a).toBeLessThan(b);
     expect(b).toBeLessThan(c);
   });
@@ -345,7 +344,8 @@ describe('chart tokens (8.10.7)', () => {
     for (const sfx of ['', '--line-height', '--font-weight', '--letter-spacing']) {
       expect(css).toMatch(new RegExp(`--text-hero${sfx}:`));
     }
-    const rem = (k: string) => parseFloat(new RegExp(`--text-${k}:\\s*([\\d.]+)rem`).exec(css)![1]);
+    const rem = (k: string) =>
+      parseFloat(new RegExp(`--text-${k}:\\s*([\\d.]+)rem`).exec(css)![1]!);
     expect(rem('hero')).toBeGreaterThan(rem('display'));
   });
 
