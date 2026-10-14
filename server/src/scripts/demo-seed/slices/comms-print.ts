@@ -237,7 +237,8 @@ async function messages(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string
     idempotency_key: `demo-grant:${i}`,
     reason: 'ডেমো টপ-আপ',
     actor_user_id: adminId,
-    created_at: at(addDays(years[0].start, i * 180), 10),
+    // All before the first log (year start - 10 days), so the running balance never dips below 0.
+    created_at: at(addDays(years[0].start, -11), 10 + i),
   }));
   for (const d of debits) {
     ledger.push({
@@ -328,6 +329,39 @@ async function printing(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string
   const idCard = await publish('Student ID card', 'student-portrait-classic');
   const admit = await publish('Admit card (Bangla)', 'admit-card-bn');
 
+  // The service reads the clock for issuedAt, the printed issue date and serial_year: run it
+  // with `Date` frozen at the job's day, so every document derives from the anchor.
+  const withClock = async <T>(when: Date, fn: () => Promise<T>): Promise<T> => {
+    const Real = Date;
+    const frozen = when.getTime();
+    class Frozen extends Real {
+      constructor(...a: unknown[]) {
+        super(...((a.length ? a : [frozen]) as [number]));
+      }
+      static now() {
+        return frozen;
+      }
+    }
+    globalThis.Date = Frozen as DateConstructor;
+    try {
+      return await fn();
+    } finally {
+      globalThis.Date = Real;
+    }
+  };
+
+  // Templates and printers keep the service's real clock otherwise; date them before the first job.
+  const setupAt = at(addDays(year.start, 5), 9);
+  await q(`UPDATE printer_profiles SET created_at = $2, updated_at = $2 WHERE id = ANY($1)`, [
+    [cardPrinter.id, officePrinter.id],
+    setupAt,
+  ]);
+  await q(`UPDATE print_templates SET created_at = $2, updated_at = $2 WHERE id = ANY($1)`, [
+    [idCard.id, admit.id],
+    setupAt,
+  ]);
+  // print_template_versions is immutable (DB trigger): its published_at keeps the run clock.
+
   /** One real job per chunk, confirmed, then dated (the service stamps the real clock). */
   const run = async (
     c: typeof caller | typeof certCaller,
@@ -337,19 +371,21 @@ async function printing(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string
     date: string,
   ) => {
     for (let i = 0; i < subjects.length; i += size) {
-      const job = await jobs
-        .create(c, {
-          ...dto,
-          subject_type: 'STUDENT',
-          subject_ids: subjects.slice(i, i + size),
-        } as never)
-        .catch((e) => {
-          throw new Error(
-            `print job failed (${tenant.slug}, ${String(dto.batch_label ?? dto.template_id)}): ${JSON.stringify((e as { response?: unknown }).response ?? e.message)}`,
-          );
-        });
-      await jobs.confirm(c, job.job_id, []);
       const when = at(date, 11);
+      const job = await withClock(when, () =>
+        jobs
+          .create(c, {
+            ...dto,
+            subject_type: 'STUDENT',
+            subject_ids: subjects.slice(i, i + size),
+          } as never)
+          .catch((e) => {
+            throw new Error(
+              `print job failed (${tenant.slug}, ${String(dto.batch_label ?? dto.template_id)}): ${JSON.stringify((e as { response?: unknown }).response ?? e.message)}`,
+            );
+          }),
+      );
+      await withClock(when, () => jobs.confirm(c, job.job_id, []));
       await q(`UPDATE print_jobs SET created_at = $2, confirmed_at = $2 WHERE id = $1`, [
         job.job_id,
         when,
