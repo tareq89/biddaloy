@@ -292,4 +292,32 @@ describe('StaffUserMenu', () => {
     expect(await screen.findByRole('dialog')).toBeTruthy();
     expect(install).not.toHaveBeenCalled();
   });
+
+  it('offers "View as another role" only in the demo, and signs out to /login', async () => {
+    server.use(
+      http.get('/api/v1/demo/roles', () => HttpResponse.json({ password: 'x', cards: [] })),
+    );
+    const user = userEvent.setup();
+    const { router } = renderWithRouter(buildRouteTree(), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await user.click(await screen.findByRole('button', { name: /Account menu/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'View as another role' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+  });
+
+  it('hides "View as another role" outside the demo', async () => {
+    server.use(http.get('/api/v1/demo/roles', () => new HttpResponse(null, { status: 404 })));
+    const user = userEvent.setup();
+    renderWithRouter(buildRouteTree(), { tenantId: 'tenant-1', role: 'ADMIN', locale: 'en' });
+
+    await user.click(await screen.findByRole('button', { name: /Account menu/ }));
+    await screen.findByRole('menuitem', { name: 'Security' });
+
+    expect(screen.queryByRole('menuitem', { name: 'View as another role' })).toBeNull();
+  });
 });
