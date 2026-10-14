@@ -104,6 +104,15 @@ describe('parseArgs', () => {
   ])('rejects %j', (argv) => {
     expect(() => parseArgs(argv)).toThrow();
   });
+
+  it('rejects an anchor in a later month than the real clock (fees use the real clock)', () => {
+    expect(() => parseArgs(['--anchor', '2026-11-01'], undefined, () => '2026-10')).toThrow(
+      /later month than the real clock/,
+    );
+    expect(parseArgs(['--anchor', '2026-10-31'], undefined, () => '2026-10').anchor).toBe(
+      '2026-10-31',
+    );
+  });
 });
 
 describe('dates', () => {
