@@ -247,9 +247,29 @@ export const slice: DemoSlice = {
     ExamTemplateComponent,
   ],
   run: async (ctx) => {
+    // Content is deterministic for an anchor; ids from real services (schools, current year, ...) are not.
     const uuid = () => ctx.rng.string.uuid();
     const stamp = todayAt(ctx.anchor, 0);
     let rows = 0;
+
+    // Every calendar year the data touches needs holiday data; check before writing anything.
+    const spansByKind = new Map(
+      BRANCHES.map((b) => [b.kind, academicYears(b.kind, ctx.years, ctx.anchor)] as const),
+    );
+    const calendarYears = new Set<number>();
+    for (const spans of spansByKind.values()) {
+      for (const s of spans) {
+        calendarYears.add(Number(s.start.slice(0, 4)));
+        calendarYears.add(Number(s.end.slice(0, 4)));
+      }
+    }
+    for (const year of calendarYears) {
+      if (!BD_PUBLIC_HOLIDAYS_BY_YEAR[year]) {
+        throw new Error(
+          `BD_PUBLIC_HOLIDAYS_BY_YEAR has no ${year}; add it to seed-data/public-holidays-bd.ts or lower --years`,
+        );
+      }
+    }
 
     // --- schools (D31) -------------------------------------------------------
     const schoolRepo = ctx.ds.getRepository(School);
@@ -291,19 +311,8 @@ export const slice: DemoSlice = {
     rows += 4;
 
     // --- global public-holiday sets for every calendar year the data touches --
-    const spansByKind = new Map(
-      BRANCHES.map((b) => [b.kind, academicYears(b.kind, ctx.years, ctx.anchor)] as const),
-    );
-    const calendarYears = new Set<number>();
-    for (const spans of spansByKind.values()) {
-      for (const s of spans) {
-        calendarYears.add(Number(s.start.slice(0, 4)));
-        calendarYears.add(Number(s.end.slice(0, 4)));
-      }
-    }
     for (const year of [...calendarYears].sort()) {
       const entries = BD_PUBLIC_HOLIDAYS_BY_YEAR[year];
-      if (!entries) continue;
       const set = await ctx.ds.getRepository(PublicHolidaySet).save({
         country: 'BD',
         year,
@@ -517,24 +526,36 @@ export const slice: DemoSlice = {
           for (const [month, day] of rule.on) {
             let from = inSpan(span.start, month, day);
             if (text.kind !== 'HOLIDAY' && isFriday(from)) from = addDays(from, 1);
-            const id = uuid();
-            events.push({
-              id,
-              tenant_id: school.id,
-              academic_year_id: yearId,
-              type: EVENT_TYPE[text.kind],
-              audience: CalendarAudience.ALL,
-              name: text.bn,
-              start_date: from,
-              end_date: addDays(from, (rule.days ?? 1) - 1),
-              counts_as_working_day: text.kind !== 'HOLIDAY',
-              published_at: stamp,
-              external_refs: {},
-              created_by_user_id: admin.id,
-            });
-            const linked = rule.all ? orgClasses : rule.top2 ? orgClasses.slice(-2) : [];
-            for (const c of linked) {
-              eventClasses.push({ event_id: id, class_id: c.id, tenant_id: school.id });
+            // A working-day window must not cover a Friday (the weekly off): one row per Friday-free run.
+            const working = text.kind !== 'HOLIDAY';
+            const segments: [string, string][] = [];
+            for (let i = 0; i < (rule.days ?? 1); i++) {
+              const d = addDays(from, i);
+              if (working && isFriday(d)) continue;
+              const last = segments[segments.length - 1];
+              if (last && addDays(last[1], 1) === d) last[1] = d;
+              else segments.push([d, d]);
+            }
+            for (const [start, end] of segments) {
+              const id = uuid();
+              events.push({
+                id,
+                tenant_id: school.id,
+                academic_year_id: yearId,
+                type: EVENT_TYPE[text.kind],
+                audience: CalendarAudience.ALL,
+                name: text.bn,
+                start_date: start,
+                end_date: end,
+                counts_as_working_day: working,
+                published_at: stamp,
+                external_refs: {},
+                created_by_user_id: admin.id,
+              });
+              const linked = rule.all ? orgClasses : rule.top2 ? orgClasses.slice(-2) : [];
+              for (const c of linked) {
+                eventClasses.push({ event_id: id, class_id: c.id, tenant_id: school.id });
+              }
             }
           }
         }
