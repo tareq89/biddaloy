@@ -78,6 +78,11 @@ export async function unnestInsert(
     udt = Object.fromEntries(found.map((c) => [c.column_name, c.udt_name]));
     udtCache.set(table, udt);
   }
+  for (const c of columns) {
+    // Array columns would be flattened by unnest; an unknown name would cast to "undefined"[].
+    if (!udt[c] || udt[c].startsWith('_'))
+      throw new Error(`unnestInsert: ${table}.${c} unsupported`);
+  }
   const json = columns.map((c) => udt![c] === 'jsonb');
   const sql =
     `INSERT INTO "${table}" (${columns.map((c) => `"${c}"`).join(', ')}) SELECT ` +
