@@ -296,7 +296,8 @@ describe('/guardians/$guardianId', () => {
   });
 
   it('Edit opens a full-page form at ?edit=1 with labelled fields, and saving removes edit from the URL', async () => {
-    const guardian = guardianFactory({ id: 'guardian-1', full_name: 'Abdul Karim' });
+    // Unlinked (`user: null`): a linked guardian's phone/email are read-only ([68.4.05]).
+    const guardian = guardianFactory({ id: 'guardian-1', full_name: 'Abdul Karim', user: null });
     server.use(
       http.get('/api/v1/guardians/:id', () => HttpResponse.json(guardian)),
       http.patch('/api/v1/guardians/:id', async ({ request }) =>
@@ -427,6 +428,51 @@ describe('/guardians/$guardianId', () => {
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(patchedBody?.occupation).toBe(''));
+  });
+
+  // [68.4.05] review F9: a linked guardian's phone/email belong to the login, so staff
+  // see them read-only with the reason, and the save never sends them (no 409 surprise).
+  it("Edit shows a linked guardian's phone and email read-only and never sends them", async () => {
+    const guardian = guardianFactory({
+      id: 'guardian-1',
+      full_name: 'Abdul Karim',
+      user_id: 'user-1',
+      occupation: null,
+      phone: '+8801711111111',
+      email: 'karim@example.com',
+    });
+    let patchedBody: Record<string, unknown> | undefined;
+    server.use(
+      http.get('/api/v1/guardians/:id', () => HttpResponse.json(guardian)),
+      http.patch('/api/v1/guardians/:id', async ({ request }) => {
+        patchedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ ...guardian, ...patchedBody });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/guardians/guardian-1?edit=1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(
+      await screen.findByText(
+        'This guardian signs in with this phone and email. The parent changes them from their own account, or an admin edits their user.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Email' })).toBeNull();
+    expect(screen.getAllByText('karim@example.com').some((el) => el.tagName === 'DD')).toBe(true);
+    expect(screen.getAllByText('01711-111111').some((el) => el.tagName === 'DD')).toBe(true);
+
+    const user = userEvent.setup();
+    await user.type(screen.getByRole('textbox', { name: 'Occupation' }), 'Farmer');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(patchedBody?.occupation).toBe('Farmer'));
+    expect(patchedBody).not.toHaveProperty('phone');
+    expect(patchedBody).not.toHaveProperty('email');
   });
 
   it('Edit requires a full name and shows the mutation error on failure', async () => {

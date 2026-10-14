@@ -10,6 +10,7 @@ import {
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
+import { guardianKeys } from './guardians';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -17,6 +18,7 @@ import { shouldRetryQuery } from './retry';
 // that `schema.d.ts` is regenerated — no more hand-typed intersection.
 export type StaffUser = components['schemas']['UserResponseDto'];
 export type CreateUserInput = components['schemas']['CreateUserDto'];
+export type JoinRequestInput = components['schemas']['JoinRequestDto'];
 export type UpdateUserInput = components['schemas']['UpdateUserDto'];
 // [8.14.4] `PATCH /users/me`'s own DTO — distinct from `UpdateUserInput`
 // (`UpdateUserDto`) because it carries the caller-provided
@@ -172,6 +174,17 @@ export function useCreateUser() {
   });
 }
 
+/** [68.2.02] "Add staff" for someone who already has an account: files a join
+ * request (202). They become staff only when they accept. */
+export function useRequestStaffJoin() {
+  return useMutation({
+    mutationFn: async (input: JoinRequestInput) => {
+      const res = await apiClient.post<{ status: 'PENDING' }>('/users/join-requests', input);
+      return res.data;
+    },
+  });
+}
+
 export function useUpdateUser(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -182,6 +195,8 @@ export function useUpdateUser(id: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: userKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+      // [68.4.05] The server copies a changed phone/email to this person's guardian rows.
+      void queryClient.invalidateQueries({ queryKey: guardianKeys.all });
     },
   });
 }
@@ -276,7 +291,8 @@ export function useRequestContactChange() {
 
 /** [12.7] Confirms a pending phone change with the OTP sent to the new
  * number. Invalidates the caller's own record — this is the point the
- * server actually writes the new phone. */
+ * server actually writes the new phone — and their own guardian card, whose
+ * phone the server copies from the login in the same step [68.4.05]. */
 export function useConfirmPhoneChange() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -285,6 +301,7 @@ export function useConfirmPhoneChange() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: userKeys.detail('me') });
+      void queryClient.invalidateQueries({ queryKey: [...guardianKeys.all, 'mine'] });
     },
   });
 }

@@ -49,6 +49,10 @@ import {
   UpdateTeacherDto,
   QueryTeacherDto,
 } from './dto/users.dto';
+import { syncLinkedGuardianContacts } from '../students/linked-guardian-contacts.util';
+import { Guardian } from '../students/entities/guardian.entity';
+import { JoinRequestDto } from './dto/join-request.dto';
+import { insertJoinRequest } from '../account-access/school-invite.service';
 import { ASSIGNMENT_TYPE_ORDER_SQL } from '../classes/classes.service';
 import type { SectionTeacherAssignment } from '../classes/classes.service';
 
@@ -68,20 +72,61 @@ export const ROLE_SWAP_ENDED = 'ROLE_SWAP';
 const NOT_SWAPPED_SQL = `(b.metadata->>'ended_by') IS DISTINCT FROM '${ROLE_SWAP_ENDED}'`;
 
 /**
- * How many live memberships `userId` holds in schools other than `tenantId`.
- * > 0 means the login (email/phone/password) is shared, so no single school
- * may change it. [68.1.#2209]
+ * How many ties `userId` has to schools other than `tenantId`: live
+ * memberships plus live guardian rows linked to the login. > 0 means the login
+ * (email/phone/password) is shared, so no single school may change it.
+ * [68.1.#2209] A removed parent keeps `guardians.user_id`, and a contact edit
+ * copies to that row (`syncLinkedGuardianContacts`), so a link counts too. [68.4.05]
  */
 export async function countOtherMemberships(
   m: EntityManager,
   userId: string,
   tenantId: string,
 ): Promise<number> {
-  return m
+  const memberships = await m
     .getRepository(UserTenant)
     .createQueryBuilder('ut')
     .where('ut.user_id = :userId AND ut.tenant_id <> :tenantId', { userId, tenantId })
     .getCount();
+  const guardianLinks = await m
+    .getRepository(Guardian)
+    .count({ where: { user_id: userId, tenant_id: Not(tenantId) } });
+  return memberships + guardianLinks;
+}
+
+/**
+ * The one live account whose VERIFIED email or phone matches (an unverified
+ * contact proves nothing, PUB-01). `null` on no match, and also when the email
+ * and the phone match two different accounts: guessing would offer a school
+ * role, or a child's guardian link, to the wrong person. [68.2.02]
+ */
+export async function findVerifiedAccount(
+  m: EntityManager,
+  email: string | null | undefined,
+  phone: string | null | undefined,
+): Promise<User | null> {
+  const matches = await m
+    .getRepository(User)
+    .createQueryBuilder('u')
+    .where('u.deleted_at IS NULL')
+    .andWhere(
+      '((u.email = :email AND u.email_verified_at IS NOT NULL) OR (u.phone = :phone AND u.phone_verified_at IS NOT NULL))',
+      { email: email ?? null, phone: phone ?? null },
+    )
+    .limit(2)
+    .getMany();
+  return matches.length === 1 ? matches[0] : null;
+}
+
+/**
+ * [68.2.02] The neutral 409 for "that contact belongs to an account": it never
+ * repeats the address, and `details.code` lets "Add staff" offer a join request.
+ */
+function accountExists(): ConflictException {
+  return new ConflictException({
+    message: 'This person already has an account. Send them a join request instead.',
+    details: { code: 'ACCOUNT_EXISTS' },
+  });
 }
 
 /**
@@ -190,7 +235,7 @@ export class UserService {
         withDeleted: true,
       });
       if (existing) {
-        throw new ConflictException('That email address or phone number is already in use');
+        throw accountExists();
       }
     }
 
@@ -251,12 +296,60 @@ export class UserService {
         (err as unknown as { code?: string }).code === '23505'
       ) {
         if ((err.driverError as { table?: string } | undefined)?.table === 'users') {
-          throw new ConflictException('That email address or phone number is already in use');
+          throw accountExists();
         }
         throw new ConflictException('This member was just added. Refresh and try again.');
       }
       throw err;
     }
+  }
+
+  /**
+   * [68.2.02] "Add staff" for a person who already has an account. Files a
+   * JOIN_SCHOOL request; the person becomes staff only when they accept while
+   * signed in. Only a VERIFIED email/phone matches (an unverified one proves
+   * nothing), and a miss, or a match on two different accounts, gets the same
+   * body as a hit, so the body is no lookup oracle. The time is not equal: see
+   * Rule 18's known exception in docs/architecture/08-security.md.
+   */
+  async requestJoin(
+    dto: JoinRequestDto,
+    tenantId: string,
+    actorUserId: string,
+  ): Promise<{ status: 'PENDING' }> {
+    if (dto.role === UserRole.SUPER_ADMIN) {
+      throw new BadRequestException(
+        'The SUPER_ADMIN role cannot be assigned through this endpoint',
+      );
+    }
+    const email = dto.email ? normalizeEmail(dto.email) : null;
+    const phone = dto.phone ?? null;
+    return this.userRepo.manager.transaction(async (m) => {
+      const user = await findVerifiedAccount(m, email, phone);
+      if (!user) return { status: 'PENDING' as const };
+      // Same rule as restore(): a live staff membership here means nothing to request.
+      if (
+        await m.getRepository(UserTenant).exists({
+          where: {
+            user_id: user.id,
+            tenant_id: tenantId,
+            role: Not(In([...GUARDIAN_ROLES])),
+          },
+        })
+      ) {
+        throw new ConflictException({
+          message: 'This user is already a member of this school',
+          details: { code: 'ALREADY_MEMBER' },
+        });
+      }
+      await insertJoinRequest(m, {
+        userId: user.id,
+        tenantId,
+        role: dto.role,
+        createdByUserId: actorUserId,
+      });
+      return { status: 'PENDING' as const };
+    });
   }
 
   async findAll(query: QueryUserDto, tenantId: string) {
@@ -613,17 +706,16 @@ export class UserService {
     // CURRENT stored value, not just "field present in the body": a
     // profile-form resubmit of the same unchanged address must not wipe
     // out a real verification.
-    if (dto.email !== undefined && (email ?? null) !== (current.email ?? null)) {
+    // An unchanged email/phone is not written at all: the form's copy may be stale by the time
+    // the row lock is taken, and writing it back would undo another admin's change without the
+    // guardian copy following (and without the SHARED_IDENTITY check above having run on it).
+    if (emailChanges) {
       updateData.email = email ?? null;
       updateData.email_verified_at = null;
-    } else if (dto.email !== undefined) {
-      updateData.email = email ?? null;
     }
     if (phoneChanges) {
       updateData.phone = phone;
       updateData.phone_verified_at = null;
-    } else if (dto.phone !== undefined) {
-      updateData.phone = phone;
     }
     if (dto.full_name !== undefined) updateData.full_name = dto.full_name;
     if (dto.profile_picture_url !== undefined)
@@ -647,6 +739,15 @@ export class UserService {
             }
           }
           await manager.getRepository(User).update({ id }, updateData);
+          // [68.4.05] A linked guardian's phone/email follow the login in every school.
+          // Only keys that really changed (the locked-row diff): a resubmitted unchanged
+          // value must not overwrite another school's guardian copy (review r1 C1). And only
+          // keys the SHARED_IDENTITY check above passed: a raw-vs-normalised mismatch or a
+          // change landing before the lock must not skip that check yet still sync (review r2 M1).
+          await syncLinkedGuardianContacts(manager, id, {
+            email: emailChanges && 'email' in after ? (after.email as string | null) : undefined,
+            phone: phoneChanges && 'phone' in after ? (after.phone as string | null) : undefined,
+          });
           if (Object.keys(after).length > 0) {
             await this.audit.record(
               {

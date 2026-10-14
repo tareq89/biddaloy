@@ -194,6 +194,7 @@ The layers diagram above shows where most of these rules sit on a request's way 
 
 - **Rule.** Recovery, OTP request and activation resend do one identifier lookup on the request path. Everything after it (checks, codes, audit, delivery) runs inside one `detach()` job after the response.
 - **Why.** A known account cost more queries than an unknown one, so timing gave it away (75.17, #2325).
+- **Known exception.** `POST /users/join-requests` ("Add staff" for an existing account) answers `{status: "PENDING"}` for a hit and a miss, but a hit takes longer (it files the request). Left as is: only a school admin can call it, it is throttled (5 per minute) while Redis is up, and fails open without Redis, like the other admin routes, and `POST /users` already tells that admin the account exists (409 `ACCOUNT_EXISTS`). The only extra thing the timing shows is that the contact is verified (#2224).
 - **Example.** `POST /auth/forgot-password` → `{}` in the same time for a real and a made-up address.
 - **Test.** `recovery.service.integration.spec.ts`, `otp-login.service.integration.spec.ts` and `activation.service.integration.spec.ts` (exactly one query before the response), `account-access-delivery.service.spec.ts`.
 
@@ -230,7 +231,7 @@ The layers diagram above shows where most of these rules sit on a request's way 
 - **Rule.** An error on an identity field (email, phone, employee ID) names the kind of field, never the value. Within one operation, every failure path uses the same text, and no message echoes the submitted value.
 - **Known exception.** `UserService.update()` and `contact-change.service.ts` say "That email address is already in use" or "That phone number is already in use" on the pre-check, and "That email address or phone number is already in use" on the unique-index race path. The caller chose which field to change, so the field name tells them nothing new; left as is.
 - **Why.** An echoed address, or two different texts, tells a caller which accounts exist (75.19, #2327).
-- **Example.** `409 That email address or phone number is already in use`; `409 That employee ID is already in use`.
+- **Example.** `POST /users` with a taken email or phone → `409 This person already has an account. Send them a join request instead.` (`details.code: ACCOUNT_EXISTS`), the same text on the pre-check and the unique-index race; `409 That employee ID is already in use`.
 - **Test.** `users.e2e-spec.ts` (create), `users.service.integration.spec.ts` and `staff-profiles.service.spec.ts` (employee ID).
 
 ## Login brute-force protection

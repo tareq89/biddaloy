@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -2310,12 +2310,12 @@ describe('GuardianService (integration)', () => {
 
       const updated = await service.updateOwn(
         OWNER_USER_ID,
-        { phone: '+8801799999999', preferred_communication: CommunicationMedium.EMAIL },
+        { alternate_phone: '+8801799999999', preferred_communication: CommunicationMedium.EMAIL },
         TENANT_ID,
       );
 
       expect(updated.id).toBe(guardian.id);
-      expect(updated.phone).toBe('+8801799999999');
+      expect(updated.alternate_phone).toBe('+8801799999999');
       expect(updated.preferred_communication).toBe(CommunicationMedium.EMAIL);
       expect(updated.full_name).toBe('Own Guardian');
     });
@@ -2323,14 +2323,9 @@ describe('GuardianService (integration)', () => {
     it("updateOwn maps '' to NULL", async () => {
       await makeGuardian(OWNER_USER_ID, TENANT_ID);
 
-      const updated = await service.updateOwn(
-        OWNER_USER_ID,
-        { alternate_phone: '', email: '' },
-        TENANT_ID,
-      );
+      const updated = await service.updateOwn(OWNER_USER_ID, { alternate_phone: '' }, TENANT_ID);
 
       expect(updated.alternate_phone).toBeNull();
-      expect(updated.email).toBeNull();
     });
 
     it("updateOwn never touches another tenant's row with a matching user_id", async () => {
@@ -2340,12 +2335,70 @@ describe('GuardianService (integration)', () => {
       const mine = await makeGuardian(OWNER_USER_ID, TENANT_ID);
       const theirs = await makeGuardian(OTHER_USER_ID, OTHER_TENANT);
 
-      await service.updateOwn(OWNER_USER_ID, { phone: '+8801788888888' }, TENANT_ID);
+      await service.updateOwn(OWNER_USER_ID, { alternate_phone: '+8801788888888' }, TENANT_ID);
 
       const untouched = await guardianRepo.findOneOrFail({ where: { id: theirs.id } });
-      expect(untouched.phone).toBe('+8801700000001');
+      expect(untouched.alternate_phone).toBe('+8801700000002');
       const changed = await guardianRepo.findOneOrFail({ where: { id: mine.id } });
-      expect(changed.phone).toBe('+8801788888888');
+      expect(changed.alternate_phone).toBe('+8801788888888');
+    });
+
+    it('[68.4.05] updateOwn refuses a changed phone/email (CONTACT_OWNED_BY_LOGIN) but allows the same one', async () => {
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+      await expect(
+        service.updateOwn(OWNER_USER_ID, { phone: '+8801700009999' }, TENANT_ID),
+      ).rejects.toMatchObject({ response: { details: { code: 'CONTACT_OWNED_BY_LOGIN' } } });
+      await expect(
+        service.updateOwn(OWNER_USER_ID, { phone: guardian.phone as string }, TENANT_ID),
+      ).resolves.toBeDefined();
+    });
+
+    // Review r2 N3: the same number in another format is not a change, and the stored copy stays.
+    it('[68.4.05] updateOwn accepts the same phone in another format and keeps the stored one', async () => {
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+      const local = `0${(guardian.phone as string).slice(-10)}`;
+      await expect(
+        service.updateOwn(
+          OWNER_USER_ID,
+          { phone: local, alternate_phone: '01799999999' },
+          TENANT_ID,
+        ),
+      ).resolves.toBeDefined();
+      const after = await guardianRepo.findOneByOrFail({ id: guardian.id });
+      expect(after.phone).toBe(guardian.phone);
+      expect(after.alternate_phone).toBe('01799999999');
+    });
+
+    it('[68.4.05] updateOwn keeps the stored email casing on a case-only resubmit', async () => {
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+      await service.updateOwn(
+        OWNER_USER_ID,
+        { email: 'OWN-GUARDIAN@example.com', alternate_phone: '01799999999' },
+        TENANT_ID,
+      );
+      const after = await guardianRepo.findOneByOrFail({ id: guardian.id });
+      expect(after.email).toBe('own-guardian@example.com');
+      expect(after.alternate_phone).toBe('01799999999');
+    });
+
+    // An equal phone is dropped, not written back: the value read before the update may
+    // already be stale if the login's phone was synced in between.
+    it('[68.4.05] updateOwn never writes back a stale read of a linked phone', async () => {
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+      await guardianRepo.update({ id: guardian.id }, { phone: '+8801700000077' });
+      const spy = vi.spyOn(service, 'findOwn').mockResolvedValueOnce(guardian);
+      try {
+        await service.updateOwn(
+          OWNER_USER_ID,
+          { phone: '01700000001', alternate_phone: '01799999999' },
+          TENANT_ID,
+        );
+      } finally {
+        spy.mockRestore();
+      }
+      const after = await guardianRepo.findOneByOrFail({ id: guardian.id });
+      expect(after.phone).toBe('+8801700000077');
+      expect(after.alternate_phone).toBe('01799999999');
     });
 
     it('updateOwn flips notifications_enabled and returns it', async () => {
@@ -2471,14 +2524,14 @@ describe('GuardianService (integration)', () => {
       );
       await guardianRepo.update({ id: created.id }, { user_id: actorUserId });
 
-      await service.updateOwn(actorUserId, { phone: '+8801777777778' }, TENANT_ID);
+      await service.updateOwn(actorUserId, { alternate_phone: '+8801777777778' }, TENANT_ID);
 
       const logs = await auditLogRepo.find({
         where: { entity_id: created.id, entity_type: 'Guardian', action: AuditAction.UPDATE },
       });
       expect(logs).toHaveLength(1);
       expect(logs[0]?.performed_by_user_id).toBe(actorUserId);
-      expect(logs[0]?.new_values).toMatchObject({ phone: '+8801777777778' });
+      expect(logs[0]?.new_values).toMatchObject({ alternate_phone: '+8801777777778' });
     });
 
     it('writes a DELETE audit record on remove', async () => {

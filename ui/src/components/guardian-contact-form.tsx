@@ -28,7 +28,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { useTranslation, type RegionConfig } from '../i18n';
-import { parsePhone } from '../utils/phone';
+import { formatPhone, parsePhone } from '../utils/phone';
 
 import { Button } from './button';
 import { Card } from './card';
@@ -56,6 +56,10 @@ export interface GuardianContactFormValues {
   notifications_enabled: boolean;
 }
 
+/** What `onSubmit` hands back. With `lockContactFields`, `phone`/`email` are absent. */
+export type GuardianContactFormSubmitValues = Omit<GuardianContactFormValues, 'phone' | 'email'> &
+  Partial<Pick<GuardianContactFormValues, 'phone' | 'email'>>;
+
 export interface GuardianContactFormServerError {
   message?: string;
   fieldErrors?: Partial<Record<'phone' | 'alternate_phone' | 'email', string>>;
@@ -64,8 +68,12 @@ export interface GuardianContactFormServerError {
 export interface GuardianContactFormProps {
   defaultValues: GuardianContactFormValues;
   config: RegionConfig;
-  onSubmit: (values: GuardianContactFormValues) => void;
+  onSubmit: (values: GuardianContactFormSubmitValues) => void;
   submitting?: boolean;
+  /** [68.4.05] The guardian is linked to a login: phone and email belong to it and are shown
+   * read-only (with `lockedContactHint`) and never submitted. */
+  lockContactFields?: boolean;
+  lockedContactHint?: string;
   serverError?: GuardianContactFormServerError | null;
 }
 
@@ -84,6 +92,8 @@ export function GuardianContactForm({
   config,
   onSubmit,
   submitting = false,
+  lockContactFields = false,
+  lockedContactHint,
   serverError = null,
 }: GuardianContactFormProps) {
   const { t } = useTranslation('portal');
@@ -91,29 +101,34 @@ export function GuardianContactForm({
   const schema = React.useMemo(
     () =>
       z.object({
-        phone: z
-          .string()
-          .refine(
-            (value) => value === '' || parsePhone(value, config).valid,
-            t('account.guardian.errors.phoneInvalid'),
-          ),
+        // Locked fields are display-only: a stored value must not block saving the rest.
+        phone: lockContactFields
+          ? z.string()
+          : z
+              .string()
+              .refine(
+                (value) => value === '' || parsePhone(value, config).valid,
+                t('account.guardian.errors.phoneInvalid'),
+              ),
         alternate_phone: z
           .string()
           .refine(
             (value) => value === '' || parsePhone(value, config).valid,
             t('account.guardian.errors.phoneInvalid'),
           ),
-        email: z
-          .string()
-          .trim()
-          .refine(
-            (value) => value === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
-            t('account.guardian.errors.emailInvalid'),
-          ),
+        email: lockContactFields
+          ? z.string()
+          : z
+              .string()
+              .trim()
+              .refine(
+                (value) => value === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+                t('account.guardian.errors.emailInvalid'),
+              ),
         preferred_communication: z.enum(PREFERRED_COMMUNICATION_OPTIONS),
         notifications_enabled: z.boolean(),
       }),
-    [config, t],
+    [config, t, lockContactFields],
   );
 
   const form = useForm<GuardianContactFormValues>({
@@ -133,10 +148,19 @@ export function GuardianContactForm({
   }, [serverError]);
 
   function handleValidSubmit(values: GuardianContactFormValues): void {
+    const alternate_phone = toCanonicalPhone(values.alternate_phone.trim(), config);
+    if (lockContactFields) {
+      onSubmit({
+        alternate_phone,
+        preferred_communication: values.preferred_communication,
+        notifications_enabled: values.notifications_enabled,
+      });
+      return;
+    }
     onSubmit({
       ...values,
       phone: toCanonicalPhone(values.phone.trim(), config),
-      alternate_phone: toCanonicalPhone(values.alternate_phone.trim(), config),
+      alternate_phone,
       email: values.email.trim(),
     });
   }
@@ -154,27 +178,53 @@ export function GuardianContactForm({
       <Form {...form}>
         <form onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)} noValidate>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel htmlFor="account-guardian-phone">
-                    {t('account.guardian.fields.phone')}
-                  </FormLabel>
-                  <FormControl>
-                    <PhoneInput
-                      {...field}
-                      id="account-guardian-phone"
-                      config={config}
-                      disabled={submitting}
-                      onValueChange={(value) => field.onChange(value)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {lockContactFields && (
+              <div className="md:col-span-2">
+                <dl className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <dt className="text-caption text-text-secondary">
+                      {t('account.guardian.fields.phone')}
+                    </dt>
+                    <dd className="text-text-primary">
+                      {formatPhone(defaultValues.phone, config)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-caption text-text-secondary">
+                      {t('account.guardian.fields.email')}
+                    </dt>
+                    <dd className="text-text-primary">{defaultValues.email || '—'}</dd>
+                  </div>
+                </dl>
+                {lockedContactHint && (
+                  <p className="mt-2 text-caption text-text-secondary">{lockedContactHint}</p>
+                )}
+              </div>
+            )}
+
+            {!lockContactFields && (
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="account-guardian-phone">
+                      {t('account.guardian.fields.phone')}
+                    </FormLabel>
+                    <FormControl>
+                      <PhoneInput
+                        {...field}
+                        id="account-guardian-phone"
+                        config={config}
+                        disabled={submitting}
+                        onValueChange={(value) => field.onChange(value)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}
@@ -198,27 +248,29 @@ export function GuardianContactForm({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel htmlFor="account-guardian-email">
-                    {t('account.guardian.fields.email')}
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      id="account-guardian-email"
-                      type="email"
-                      autoComplete="email"
-                      disabled={submitting}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {!lockContactFields && (
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="account-guardian-email">
+                      {t('account.guardian.fields.email')}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        id="account-guardian-email"
+                        type="email"
+                        autoComplete="email"
+                        disabled={submitting}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

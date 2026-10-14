@@ -3,7 +3,7 @@
  * its membership in the active school in one transaction
  * (`UserService.create`). Built on react-hook-form (`useForm`) so name
  * and role errors sit under their own fields.
- * A 409 (duplicate email — global accounts are unique by email, not
+ * A 409 (the contact belongs to an account — accounts are global, not
  * per-school) renders its own inline message instead of the generic one.
  */
 import { STAFF_ROLES, UserRole } from '@biddaloy/shared';
@@ -30,8 +30,15 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  toast,
 } from '@biddaloy/ui/components';
-import { useActiveTenant, useCreateUser, type UserRoleFilter } from '@biddaloy/ui/hooks';
+import {
+  useActiveTenant,
+  useCreateUser,
+  useRequestStaffJoin,
+  type JoinRequestInput,
+  type UserRoleFilter,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -53,17 +60,28 @@ interface AddUserValues {
 
 const EMPTY: AddUserValues = { full_name: '', email: '', phone: '', role: '' };
 
+/** [68.2.02] `POST /users` 409s with `ACCOUNT_EXISTS` when the contact already belongs to an
+ * account; `POST /users/join-requests` 409s with `ALREADY_MEMBER` when they are staff here. */
+function hasCode(error: unknown, code: string): boolean {
+  return error instanceof ApiError && error.details?.code === code;
+}
+
 export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
   const { t } = useTranslation('staff');
   const regionConfig = useRegionConfig();
   const tenantId = useActiveTenant();
   const createUser = useCreateUser();
+  const requestJoin = useRequestStaffJoin();
   const form = useForm<AddUserValues>({ defaultValues: EMPTY });
+  // Where a clash message goes. The server never says which contact clashed (Rule 23), so
+  // it sits under phone only when phone is the only contact typed.
+  const [clashField, setClashField] = React.useState<'email' | 'phone'>('email');
 
   React.useEffect(() => {
     if (!open) return;
     form.reset(EMPTY);
     createUser.reset();
+    requestJoin.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
 
@@ -82,16 +100,68 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
         // keeps the generic alert above the footer.
         onError: (error) => {
           if (error instanceof ApiError && error.statusCode === 409) {
-            form.setError('email', { message: t('addUser.errorDuplicateEmail') });
+            const field =
+              values.email.trim() === '' && values.phone.trim() !== '' ? 'phone' : 'email';
+            setClashField(field);
+            form.setError(field, {
+              message: hasCode(error, 'ACCOUNT_EXISTS')
+                ? t('addUser.accountExists')
+                : t('addUser.errorDuplicateEmail'),
+            });
           }
         },
       },
     );
   }
 
+  const alreadyMember = hasCode(requestJoin.error, 'ALREADY_MEMBER');
   const genericError =
-    createUser.isError &&
-    !(createUser.error instanceof ApiError && createUser.error.statusCode === 409);
+    (createUser.isError &&
+      !(createUser.error instanceof ApiError && createUser.error.statusCode === 409)) ||
+    (requestJoin.isError && !alreadyMember);
+  const offerJoinRequest = hasCode(createUser.error, 'ACCOUNT_EXISTS') && !alreadyMember;
+
+  /** A contact edit makes any earlier answer stale: drop it, with the join offer it brought. */
+  function contactEdited(field: 'email' | 'phone') {
+    form.clearErrors(field);
+    createUser.reset();
+    requestJoin.reset();
+  }
+
+  function sendJoinRequest() {
+    const { email, phone, role } = form.getValues();
+    requestJoin.mutate(
+      {
+        ...(email.trim() !== '' ? { email: email.trim() } : {}),
+        ...(phone.trim() !== '' ? { phone: phone.trim() } : {}),
+        role: role as JoinRequestInput['role'],
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('addUser.joinRequestSent'));
+          onOpenChange(false);
+        },
+        // Already staff here: retrying can never work, so say why under the field.
+        onError: (error) => {
+          if (hasCode(error, 'ALREADY_MEMBER')) {
+            form.setError(clashField, { message: t('addUser.alreadyMember') });
+          }
+        },
+      },
+    );
+  }
+
+  const joinButton = (
+    <Button
+      type="button"
+      variant="outline"
+      className="self-start"
+      loading={requestJoin.isPending}
+      onClick={sendJoinRequest}
+    >
+      {t('addUser.sendJoinRequest')}
+    </Button>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -138,12 +208,13 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
                       type="email"
                       {...field}
                       onChange={(event) => {
-                        form.clearErrors('email');
+                        contactEdited('email');
                         field.onChange(event);
                       }}
                     />
                   </FormControl>
                   <FormMessage />
+                  {offerJoinRequest && clashField === 'email' && joinButton}
                 </FormItem>
               )}
             />
@@ -159,10 +230,14 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
                       id="add-user-phone"
                       value={field.value}
                       config={regionConfig}
-                      onValueChange={(value) => field.onChange(value)}
+                      onValueChange={(value) => {
+                        contactEdited('phone');
+                        field.onChange(value);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
+                  {offerJoinRequest && clashField === 'phone' && joinButton}
                 </FormItem>
               )}
             />

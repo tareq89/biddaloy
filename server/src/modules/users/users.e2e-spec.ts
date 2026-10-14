@@ -503,10 +503,46 @@ describe('Users & Teachers E2E [8.11.8]', () => {
       const first = await create().expect(201);
       const res = await create().expect(409);
       expect(JSON.stringify(res.body)).not.toContain(email);
+      // [68.2.02] The UI keys its "Send join request" offer on this code.
+      expect(res.body.details).toMatchObject({ code: 'ACCOUNT_EXISTS' });
       const id = first.body.user.id;
       await dataSource.query('DELETE FROM auth_tokens WHERE user_id = $1', [id]).catch(() => {});
       await dataSource.query('DELETE FROM user_tenants WHERE user_id = $1', [id]);
       await dataSource.query('DELETE FROM users WHERE id = $1', [id]);
+    });
+
+    describe('[68.2.02] POST /users/join-requests', () => {
+      const send = (token: string, body: object, tenant: string | null = TENANT_A) => {
+        const r = request()
+          .post('/api/v1/users/join-requests')
+          .set('Authorization', `Bearer ${token}`);
+        return (tenant ? r.set('X-Tenant-ID', tenant) : r).send(body);
+      };
+      const body = { email: 'nobody-6822@example.com', role: UserRole.ACCOUNTANT };
+
+      it('ADMIN gets 202 PENDING (a miss answers like a hit)', async () => {
+        const res = await send(adminToken, body).expect(202);
+        expect(res.body).toEqual({ status: 'PENDING' });
+      });
+
+      it('TEACHER gets 403', async () => {
+        await send(teacherToken, body).expect(403);
+      });
+
+      it('missing X-Tenant-ID gets 401', async () => {
+        await send(adminToken, body, null).expect(401);
+      });
+
+      it.each([UserRole.SUPER_ADMIN, UserRole.PARENT, UserRole.STUDENT])(
+        'role %s gets 400',
+        async (role) => {
+          await send(adminToken, { ...body, role }).expect(400);
+        },
+      );
+
+      it('neither email nor phone gets 400', async () => {
+        await send(adminToken, { role: UserRole.ACCOUNTANT }).expect(400);
+      });
     });
 
     it('[75.19] ignores a tenantId in the body: the membership is in X-Tenant-ID only', async () => {

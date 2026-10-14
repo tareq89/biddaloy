@@ -19,6 +19,7 @@ import {
   CommunicationStatus,
 } from '@biddaloy/shared';
 import { User } from '../users/entities/user.entity';
+import { syncLinkedGuardianContacts } from '../students/linked-guardian-contacts.util';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import { RefreshTokenService, RequestContext } from '../auth/refresh-token.service';
@@ -642,6 +643,10 @@ export class ContactChangeService {
       }
       try {
         await manager.getRepository(User).update({ id: userId }, change);
+        await syncLinkedGuardianContacts(manager, userId, {
+          email: change.email,
+          phone: change.phone,
+        });
       } catch (err) {
         // Another user took the value after the check above: 409, and the rollback keeps the link.
         if (
@@ -749,10 +754,13 @@ export class ContactChangeService {
     const oldPhone = user.phone;
 
     try {
-      await this.userRepo.update(
-        { id: userId },
-        { phone: pending.value, phone_verified_at: new Date() },
-      );
+      // One transaction: the login and every school's guardian copy move together or not at all.
+      await this.userRepo.manager.transaction(async (manager) => {
+        await manager
+          .getRepository(User)
+          .update({ id: userId }, { phone: pending.value, phone_verified_at: new Date() });
+        await syncLinkedGuardianContacts(manager, userId, { phone: pending.value });
+      });
     } catch (err) {
       if (
         err instanceof QueryFailedError &&
@@ -823,8 +831,6 @@ export class ContactChangeService {
       return { status: 'unknown' };
     }
 
-    await this.authTokens.consume(row.id);
-
     const user = await this.userRepo.findOne({ where: { id: row.user_id } });
     if (!user) {
       return { status: 'unknown' };
@@ -832,10 +838,14 @@ export class ContactChangeService {
     const oldEmail = user.email;
 
     try {
-      await this.userRepo.update(
-        { id: user.id },
-        { email: newEmail, email_verified_at: new Date() },
-      );
+      await this.userRepo.manager.transaction(async (manager) => {
+        await manager
+          .getRepository(User)
+          .update({ id: user.id }, { email: newEmail, email_verified_at: new Date() });
+        await syncLinkedGuardianContacts(manager, user.id, { email: newEmail });
+        // Spent inside the same transaction: a failed write leaves the link usable for a retry.
+        await this.authTokens.consume(row.id, manager);
+      });
     } catch (err) {
       if (
         err instanceof QueryFailedError &&

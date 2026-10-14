@@ -330,6 +330,7 @@ export {
   GuardianContactForm,
   type GuardianContactFormProps,
   type GuardianContactFormServerError,
+  type GuardianContactFormSubmitValues,
   type GuardianContactFormValues,
   type GuardianPreferredCommunication,
 } from './guardian-contact-form';

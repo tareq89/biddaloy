@@ -26,6 +26,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
+import { Guardian } from '../students/entities/guardian.entity';
 import { AuthToken } from '../account-access/entities/auth-token.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -59,6 +60,7 @@ const REQUESTING_ADMIN_ID = '00000000-0000-4000-8000-000000000aaa';
 async function seedReferenceData(ds: DataSource): Promise<void> {
   await ds.query('DELETE FROM teacher_class_sections');
   await ds.query('DELETE FROM teachers');
+  await ds.query('DELETE FROM guardians');
   await ds.query('DELETE FROM user_tenants');
   await ds.query('DELETE FROM users');
   await ds.query('DELETE FROM class_sections');
@@ -200,6 +202,7 @@ describe('UserService (integration)', () => {
     if (dataSource) {
       await dataSource.query('DELETE FROM teacher_class_sections');
       await dataSource.query('DELETE FROM teachers');
+      await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM user_tenants');
       await dataSource.query('DELETE FROM users');
       // remove() writes an audit row naming the actor, and that column is a FK.
@@ -386,7 +389,7 @@ describe('UserService (integration)', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('should allow same email in different tenants (email is globally unique)', async () => {
+    it('[68.2.02] an email owned by another school answers ACCOUNT_EXISTS without echoing it', async () => {
       await service.create(
         {
           full_name: 'User A',
@@ -397,9 +400,8 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      // Same email — should still conflict because email is globally unique
-      await expect(
-        service.create(
+      const err = await service
+        .create(
           {
             full_name: 'User B',
             email: 'shared@example.com',
@@ -407,8 +409,106 @@ describe('UserService (integration)', () => {
             role: UserRole.ADMIN,
           },
           OTHER_TENANT,
-        ),
-      ).rejects.toThrow(ConflictException);
+        )
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect((err as ConflictException).getResponse()).toMatchObject({
+        details: { code: 'ACCOUNT_EXISTS' },
+      });
+      expect(JSON.stringify((err as ConflictException).getResponse())).not.toContain(
+        'shared@example.com',
+      );
+    });
+
+    describe('[68.2.02] requestJoin', () => {
+      const makeOwner = async (verified: boolean) => {
+        const { user } = await service.create(
+          {
+            full_name: 'Owner',
+            email: 'owner@example.com',
+            password: 'Str0ng!Passw0rd',
+            role: UserRole.TEACHER,
+          },
+          TENANT_ID,
+        );
+        if (verified) await userRepo.update(user.id, { email_verified_at: new Date() });
+        return user;
+      };
+      const tokens = (userId: string, tenantId: string) =>
+        dataSource.getRepository(AuthToken).find({
+          where: { user_id: userId, tenant_id: tenantId, purpose: AuthTokenPurpose.JOIN_SCHOOL },
+        });
+
+      it('files a JOIN_SCHOOL request for this school and no membership', async () => {
+        const owner = await makeOwner(true);
+        const res = await service.requestJoin(
+          { email: 'Owner@Example.com', role: UserRole.ACCOUNTANT },
+          OTHER_TENANT,
+          REQUESTING_ADMIN_ID,
+        );
+        expect(res).toEqual({ status: 'PENDING' });
+        const rows = await tokens(owner.id, OTHER_TENANT);
+        expect(rows).toHaveLength(1);
+        expect(rows[0].metadata).toMatchObject({ role: UserRole.ACCOUNTANT });
+        expect(
+          await dataSource
+            .getRepository(UserTenant)
+            .count({ where: { user_id: owner.id, tenant_id: OTHER_TENANT } }),
+        ).toBe(0);
+      });
+
+      it('a user who is already a member here -> 409 ALREADY_MEMBER', async () => {
+        await makeOwner(true);
+        await expect(
+          service.requestJoin(
+            { email: 'owner@example.com', role: UserRole.ACCOUNTANT },
+            TENANT_ID,
+            REQUESTING_ADMIN_ID,
+          ),
+        ).rejects.toMatchObject({ response: { details: { code: 'ALREADY_MEMBER' } } });
+      });
+
+      it('an unverified-only contact creates nothing but answers the same', async () => {
+        const owner = await makeOwner(false);
+        const res = await service.requestJoin(
+          { email: 'owner@example.com', role: UserRole.ACCOUNTANT },
+          OTHER_TENANT,
+          REQUESTING_ADMIN_ID,
+        );
+        expect(res).toEqual({ status: 'PENDING' });
+        expect(await tokens(owner.id, OTHER_TENANT)).toHaveLength(0);
+      });
+
+      // Review F0: the email is one person's, the phone (say, a typo) another's.
+      // Guessing would offer this school's role to someone the admin did not mean.
+      it('an email and a phone of two different verified accounts file nothing for either', async () => {
+        const owner = await makeOwner(true);
+        const { user: other } = await service.create(
+          { full_name: 'Other', phone: '+8801700000077', role: UserRole.TEACHER },
+          TENANT_ID,
+        );
+        await userRepo.update(other.id, { phone_verified_at: new Date() });
+
+        const res = await service.requestJoin(
+          { email: 'owner@example.com', phone: '+8801700000077', role: UserRole.ADMIN },
+          OTHER_TENANT,
+          REQUESTING_ADMIN_ID,
+        );
+
+        expect(res).toEqual({ status: 'PENDING' });
+        expect(await tokens(owner.id, OTHER_TENANT)).toHaveLength(0);
+        expect(await tokens(other.id, OTHER_TENANT)).toHaveLength(0);
+      });
+
+      it('refuses SUPER_ADMIN', async () => {
+        await expect(
+          service.requestJoin(
+            { email: 'owner@example.com', role: UserRole.SUPER_ADMIN },
+            OTHER_TENANT,
+            REQUESTING_ADMIN_ID,
+          ),
+        ).rejects.toThrow(BadRequestException);
+      });
     });
 
     it('should create a user without email (null email)', async () => {
@@ -915,6 +1015,134 @@ describe('UserService (integration)', () => {
 
       expect(updated.email).toBe('new@example.com');
       expect(updated.phone).toBe('+8802');
+    });
+
+    it('[68.4.05] copies a changed phone/email to the linked guardian row, leaving others alone', async () => {
+      const { user } = await service.create(
+        { full_name: 'Parent', email: 'p@example.com', phone: '+8801', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+      const guardians = dataSource.getRepository(Guardian);
+      const mk = (user_id: string | null) =>
+        guardians.save(
+          guardians.create({
+            full_name: 'G',
+            relationship: 'Mother',
+            tenant_id: TENANT_ID,
+            user_id,
+            phone: '+8801',
+            email: 'p@example.com',
+          }),
+        );
+      const linked = await mk(user.id);
+      const unlinked = await mk(null);
+
+      await service.update(user.id, { phone: '+8802' }, TENANT_ID, REQUESTING_ADMIN_ID);
+
+      expect((await guardians.findOneByOrFail({ id: linked.id })).phone).toBe('+8802');
+      expect((await guardians.findOneByOrFail({ id: linked.id })).email).toBe('p@example.com');
+      expect((await guardians.findOneByOrFail({ id: unlinked.id })).phone).toBe('+8801');
+    });
+
+    // Two admins open the same user. A changes the email; B saves a name edit from a form that
+    // still holds the old email. B must not write the old email back, and the linked guardian
+    // copy must keep matching the login.
+    it('[68.4.05] a stale unchanged email in a later edit does not undo a concurrent change', async () => {
+      const { user } = await service.create(
+        { full_name: 'Parent', email: 'p@example.com', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+      const guardians = dataSource.getRepository(Guardian);
+      const linked = await guardians.save(
+        guardians.create({
+          full_name: 'G',
+          relationship: 'Mother',
+          tenant_id: TENANT_ID,
+          user_id: user.id,
+          email: 'p@example.com',
+        }),
+      );
+      const staleRead = await service.findOne(user.id, TENANT_ID);
+
+      await service.update(user.id, { email: 'y@example.com' }, TENANT_ID, REQUESTING_ADMIN_ID);
+      const spy = vi.spyOn(service, 'findOne').mockResolvedValueOnce(staleRead);
+      try {
+        await service.update(
+          user.id,
+          { full_name: 'B', email: 'p@example.com' },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        );
+      } finally {
+        spy.mockRestore();
+      }
+
+      const [row] = await dataSource.query('SELECT email, full_name FROM users WHERE id = $1', [
+        user.id,
+      ]);
+      expect(row).toEqual({ email: 'y@example.com', full_name: 'B' });
+      expect((await guardians.findOneByOrFail({ id: linked.id })).email).toBe('y@example.com');
+    });
+
+    // Review r1 C1: the Edit-user dialog always sends `phone` (null when blank). A name-only
+    // edit here must not copy that unchanged null over another school's guardian phone.
+    it('[68.4.05] a name-only edit with phone: null leaves another school guardian contact unchanged', async () => {
+      const { user } = await service.create(
+        { full_name: 'Rahim', email: 'rahim@example.com', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      const guardians = dataSource.getRepository(Guardian);
+      const theirs = await guardians.save(
+        guardians.create({
+          full_name: 'Rahim',
+          relationship: 'Father',
+          tenant_id: OTHER_TENANT,
+          user_id: user.id,
+          phone: '+8801700000009',
+          email: 'college-copy@example.com',
+        }),
+      );
+
+      await service.update(
+        user.id,
+        { full_name: 'Rahim Uddin', email: 'rahim@example.com', phone: null },
+        TENANT_ID,
+        REQUESTING_ADMIN_ID,
+      );
+
+      const after = await guardians.findOneByOrFail({ id: theirs.id });
+      expect(after.phone).toBe('+8801700000009');
+      expect(after.email).toBe('college-copy@example.com');
+    });
+
+    // Review r2 M1: a legacy un-normalised stored phone makes the raw locked-row diff see a
+    // "change" the SHARED_IDENTITY check (normalised compare) does not. Resending the same
+    // number must neither 409 nor copy it over another school's guardian.
+    it('[68.4.05] resending an un-normalised stored phone leaves another school guardian unchanged', async () => {
+      const { user } = await service.create(
+        { full_name: 'Karim', email: 'karim@example.com', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await dataSource.query(`UPDATE users SET phone = ' +8801711111111' WHERE id = $1`, [user.id]);
+      const guardians = dataSource.getRepository(Guardian);
+      const theirs = await guardians.save(
+        guardians.create({
+          full_name: 'Karim',
+          relationship: 'Father',
+          tenant_id: OTHER_TENANT,
+          user_id: user.id,
+          phone: '+8801700000008',
+        }),
+      );
+
+      await service.update(
+        user.id,
+        { full_name: 'Karim Uddin', phone: '+8801711111111' },
+        TENANT_ID,
+        REQUESTING_ADMIN_ID,
+      );
+
+      expect((await guardians.findOneByOrFail({ id: theirs.id })).phone).toBe('+8801700000008');
     });
 
     // [12.7] An admin edit to email/phone is the "explicit unverified
@@ -1459,6 +1687,29 @@ describe('UserService (integration)', () => {
         ).rejects.toMatchObject({ response: { details: { code: 'SHARED_IDENTITY' } } });
         const after = await userRepo.findOneByOrFail({ id: user.id });
         expect(after.phone).toBe('+8801900000001');
+      });
+
+      // Review #2282 F1: a parent removed from OTHER_TENANT keeps guardians.user_id there, and
+      // an edit here copies to that row. So the link counts as "another school": this school
+      // must not choose the number OTHER_TENANT's fee and absence SMS go to.
+      it('update() throws SHARED_IDENTITY when the login is linked to a guardian in another school with no membership there', async () => {
+        const user = await createSolo('linked-elsewhere@example.com');
+        const guardians = dataSource.getRepository(Guardian);
+        const theirs = await guardians.save(
+          guardians.create({
+            full_name: 'G',
+            relationship: 'Mother',
+            tenant_id: OTHER_TENANT,
+            user_id: user.id,
+            phone: '+8801900000001',
+          }),
+        );
+
+        await expect(
+          service.update(user.id, { phone: '+8801900000002' }, TENANT_ID, REQUESTING_ADMIN_ID),
+        ).rejects.toMatchObject({ response: { details: { code: 'SHARED_IDENTITY' } } });
+        expect((await userRepo.findOneByOrFail({ id: user.id })).phone).toBe('+8801900000001');
+        expect((await guardians.findOneByOrFail({ id: theirs.id })).phone).toBe('+8801900000001');
       });
 
       it('update() still changes full_name of a shared user', async () => {

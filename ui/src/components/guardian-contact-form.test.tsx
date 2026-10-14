@@ -155,4 +155,34 @@ describe('GuardianContactForm', () => {
       ),
     );
   });
+
+  it('[68.4.05] with lockContactFields phone and email are read-only and not submitted; alternate phone still is', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <GuardianContactForm
+        defaultValues={{ ...defaultValues, phone: '+8801712345678', email: 'k@example.com' }}
+        config={REGION_BD_EN}
+        lockContactFields
+        lockedContactHint="Change it under Contact."
+        onSubmit={onSubmit}
+      />,
+      { locale: 'en' },
+    );
+
+    expect(await screen.findByText('01712-345678')).toBeTruthy();
+    expect(screen.getByText('Change it under Contact.')).toBeTruthy();
+    // No inputs for the two locked fields.
+    expect(screen.queryByLabelText('Phone')).toBeNull();
+    expect(screen.queryByLabelText('Email')).toBeNull();
+
+    await user.type(screen.getByLabelText('Alternate phone'), '01812345678');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    const submitted = onSubmit.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(submitted).toMatchObject({ alternate_phone: '+8801812345678' });
+    expect('phone' in submitted).toBe(false);
+    expect('email' in submitted).toBe(false);
+  });
 });

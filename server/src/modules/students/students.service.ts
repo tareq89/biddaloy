@@ -785,6 +785,35 @@ export class StudentService {
   }
 }
 
+/**
+ * [68.4.05] A guardian linked to a login (`user_id` set) has no phone/email of
+ * its own: `users` owns them and copies them to every school's guardian row
+ * (`syncLinkedGuardianContacts`). Editing them here would split the two copies
+ * (SMS to one number, sign-in codes to another), so a change is refused with a
+ * pointer. Resending the stored value is fine (phone in any format, email in any
+ * case) and is dropped from the update, never written. Unlinked guardians are unaffected.
+ */
+function assertContactNotOwnedByLogin(
+  guardian: Pick<Guardian, 'user_id' | 'phone' | 'email'>,
+  updateData: Record<string, unknown>,
+  message: string,
+): void {
+  if (!guardian.user_id) return;
+  const same = (a: unknown, b: unknown) => (a ?? null) === (b ?? null);
+  const lower = (v: unknown) => (typeof v === 'string' ? v.toLowerCase() : v);
+  const tail = (v: unknown) => (typeof v === 'string' ? bdPhoneTail(v) : v);
+  const changed =
+    (updateData.phone !== undefined && !same(tail(updateData.phone), tail(guardian.phone))) ||
+    (updateData.email !== undefined && !same(lower(updateData.email), lower(guardian.email)));
+  if (changed) {
+    throw new ConflictException({ message, details: { code: 'CONTACT_OWNED_BY_LOGIN' } });
+  }
+  // Equal values are dropped, not written: `users` owns them, and writing back what was read
+  // before the transaction could undo a login change synced in the meantime.
+  delete updateData.phone;
+  delete updateData.email;
+}
+
 @Injectable()
 export class GuardianService {
   constructor(
@@ -1068,6 +1097,12 @@ export class GuardianService {
       if (updateData[key] === '') updateData[key] = null;
     }
 
+    assertContactNotOwnedByLogin(
+      guardian,
+      updateData,
+      'This is your sign-in phone/email. Change it under "Contact" on your account page so sign-in and school messages both use the new one.',
+    );
+
     const changedKeys = Object.keys(updateData);
     if (changedKeys.length > 0) {
       await this.repo.manager.transaction(async (manager) => {
@@ -1120,6 +1155,12 @@ export class GuardianService {
     for (const key of ['phone', 'email', 'alternate_phone', 'address', 'occupation'] as const) {
       if (updateData[key] === '') updateData[key] = null;
     }
+
+    assertContactNotOwnedByLogin(
+      existing,
+      updateData,
+      'This guardian signs in with this phone/email. The parent changes it from their account, or an admin edits their user.',
+    );
 
     // Diffed against exactly the fields this request changed — see the
     // identical reasoning on FeeStructureService.update.
