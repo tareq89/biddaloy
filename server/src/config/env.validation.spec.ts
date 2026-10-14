@@ -271,3 +271,25 @@ describe('env.validation', () => {
     expect(() => validate({ ...validConfig, RATE_LIMIT_DEFAULT_TTL_MS: ' ' })).toThrow();
   });
 });
+
+describe('DEMO_MODE / DEMO_PASSWORD', () => {
+  it('fails when DEMO_MODE=true has no DEMO_PASSWORD', () => {
+    expect(() => validate({ ...validConfig, DEMO_MODE: 'true' })).toThrow(/DEMO_PASSWORD/);
+  });
+
+  it('fails when the DEMO_PASSWORD is shorter than 8 characters', () => {
+    expect(() => validate({ ...validConfig, DEMO_MODE: 'true', DEMO_PASSWORD: 'short' })).toThrow(
+      /DEMO_PASSWORD/,
+    );
+  });
+
+  it('passes when DEMO_MODE=true has a DEMO_PASSWORD', () => {
+    expect(() =>
+      validate({ ...validConfig, DEMO_MODE: 'true', DEMO_PASSWORD: 'demo-pass-1' }),
+    ).not.toThrow();
+  });
+
+  it('passes with DEMO_MODE unset', () => {
+    expect(() => validate(validConfig)).not.toThrow();
+  });
+});

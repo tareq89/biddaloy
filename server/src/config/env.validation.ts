@@ -273,6 +273,18 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   SUPPORT_CONTACT_URL?: string;
+
+  // Public demo deployment [58.1.01]. Exactly "true" switches on the demo
+  // guards (see modules/demo); anything else leaves behaviour untouched.
+  @IsOptional()
+  @IsString()
+  DEMO_MODE?: string;
+
+  // The one shared password of every demo login, shown on the role cards.
+  @ValidateIf((o: EnvironmentVariables) => o.DEMO_MODE === 'true')
+  @IsString()
+  @MinLength(8)
+  DEMO_PASSWORD?: string;
 }
 
 /** The fixed id `seed.ts` gives its "Default School" row when it has to
