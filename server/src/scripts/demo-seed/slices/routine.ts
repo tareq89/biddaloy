@@ -130,7 +130,7 @@ export const slice: DemoSlice = {
       const pick = (code: string, weekday: number, p: number) => {
         const ok = teachers.filter((t) => free(t, weekday, p));
         const under = ok.filter((t) => (load.get(t.userId) ?? 0) < WEEKLY_CAP);
-        const pool = under.length ? under : ok;
+        const pool = under; // hard cap: a full grid with no teacher under 30 a week throws below
         const score = (t: StaffTeacher) =>
           (load.get(t.userId) ?? 0) + (t.subjects.includes(code) ? 0 : OFF_SUBJECT_PENALTY);
         return pool.sort((a, b) => score(a) - score(b))[0] ?? null;
@@ -220,9 +220,21 @@ export const slice: DemoSlice = {
         rows++;
 
         // Subject-teacher assignments the constraint check requires (class-teacher rows already exist).
+        // Older years may have fewer classes or sections than the current one: index by name and
+        // skip what that year lacks.
+        const sectionOf = (pl: Planned) => {
+          const mine = cur.classes[pl.ci];
+          return year.classes
+            .find((c) => c.name === mine.name)
+            ?.sections.find((s) => s.name === mine.sections[pl.si].name);
+        };
+        const usable = planned.flatMap((pl) => {
+          const section = sectionOf(pl);
+          return section ? [{ pl, section }] : [];
+        });
         const pairs = new Map<string, Record<string, unknown>>();
-        for (const pl of planned) {
-          const sectionId = year.classes[pl.ci].sections[pl.si].id;
+        for (const { pl, section } of usable) {
+          const sectionId = section.id;
           pairs.set(`${pl.teacher.teacherId}|${sectionId}|${pl.subjectId}`, {
             teacher_id: pl.teacher.teacherId,
             section_id: sectionId,
@@ -235,8 +247,7 @@ export const slice: DemoSlice = {
           ...pairs.values(),
         ] as never);
 
-        const base = (pl: Planned) => {
-          const section = year.classes[pl.ci].sections[pl.si];
+        const base = (pl: Planned, section: { id: string }) => {
           return {
             section_id: section.id,
             period_slot_id: periods[pl.period].id,
@@ -251,10 +262,10 @@ export const slice: DemoSlice = {
         };
         if (year.isCurrent) {
           // The newest year goes through the real slot service: it checks every slot (D4).
-          for (const pl of planned) {
+          for (const { pl, section } of usable) {
             const res = await slots.create(
               routine.id,
-              { ...base(pl), teacher_ids: [pl.teacher.teacherId] },
+              { ...base(pl, section), teacher_ids: [pl.teacher.teacherId] },
               tenant.id,
               adminId,
             );
@@ -262,7 +273,7 @@ export const slice: DemoSlice = {
             created.push({
               tenant,
               yearIdx,
-              sectionId: base(pl).section_id,
+              sectionId: section.id,
               weekday: pl.weekday,
               period: pl.period,
               slotId: res.slot.id,
@@ -271,11 +282,11 @@ export const slice: DemoSlice = {
           }
         } else {
           // Older years repeat the same checked grid, so they are bulk-inserted (D38, 90 s budget).
-          const slotRows = planned.map((pl) => ({
+          const slotRows = usable.map(({ pl, section }) => ({
             id: ctx.rng.string.uuid(),
             routine_id: routine.id,
             tenant_id: tenant.id,
-            ...base(pl),
+            ...base(pl, section),
           }));
           rows += await insertChunked(ctx.ds.getRepository(RoutineSlot), slotRows as never);
           rows += await insertChunked(
@@ -283,7 +294,7 @@ export const slice: DemoSlice = {
             slotRows.map((r, i) => ({
               routine_slot_id: r.id,
               tenant_id: tenant.id,
-              teacher_id: planned[i].teacher.teacherId,
+              teacher_id: usable[i].pl.teacher.teacherId,
             })) as never,
           );
         }
@@ -305,7 +316,8 @@ export const slice: DemoSlice = {
     const bad: string[] = [];
     for (const t of org.tenants) {
       for (const x of staff.get(t.id)!) {
-        if (t.kind === 'COLLEGE' && shared.has(x.userId)) continue; // counted once, in High
+        // The shared ICT teacher's load already sums High and College: check it once, under High.
+        if (t.kind === 'COLLEGE' && shared.has(x.userId)) continue;
         const perDay = (load.get(x.userId) ?? 0) / WEEK.length;
         console.log(`  ${t.kind.padEnd(7)} ${x.slot}  ${perDay.toFixed(2)}`);
         const min = t.kind === 'COLLEGE' ? 2.5 : 3;
@@ -332,7 +344,9 @@ export const slice: DemoSlice = {
         c.weekday === weekday &&
         c.period === 1 &&
         !shared.has(c.teacher.userId),
-    )!;
+    );
+    if (!second)
+      throw new Error(`routine: no unshared High slot at period 2 on weekday ${weekday}`);
     const highBusy = busyByTenant.get(high.id)!;
     const cover = staff
       .get(high.id)!
@@ -357,9 +371,11 @@ export const slice: DemoSlice = {
     const sec8a = high.years[highYear].classes
       .find((c) => c.name === 'Class 8')!
       .sections.find((s) => s.name === 'A')!;
-    const flagged = created.find(
-      (c) => c.tenant.id === high.id && c.yearIdx === highYear && c.sectionId === sec8a.id,
-    )!;
+    // The note asks to move the last period of the day, so flag a slot in the last period.
+    const flagged = created
+      .filter((c) => c.tenant.id === high.id && c.yearIdx === highYear && c.sectionId === sec8a.id)
+      .sort((a, b) => b.period - a.period)[0];
+    if (!flagged) throw new Error('routine: Class 8-A has no slot to flag');
     await ctx.app
       .get(ChangeRequestsService)
       .open(

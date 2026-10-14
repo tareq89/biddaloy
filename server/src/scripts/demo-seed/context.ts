@@ -35,6 +35,8 @@ export interface DemoSeedContext {
   weighted: <T>(pairs: readonly (readonly [T, number])[]) => T;
   /** `Math.round(n * scale)` */
   count: (n: number) => number;
+  /** The only phone source for demo users: `01700-000001`, `01700-000002`, ... (`users.phone` is unique). */
+  nextPhone: () => string;
 }
 
 export async function createContext(opts: {
@@ -45,6 +47,7 @@ export async function createContext(opts: {
   anchor: string;
   password: string;
 }): Promise<DemoSeedContext> {
+  let phoneSeq = 0;
   faker.seed(Number(opts.anchor.replace(/-/g, '')) ^ 58);
   const { password, ...rest } = opts;
   return {
@@ -57,5 +60,6 @@ export async function createContext(opts: {
     weighted: (pairs) =>
       faker.helpers.weightedArrayElement(pairs.map(([value, weight]) => ({ value, weight }))),
     count: (n) => Math.round(n * opts.scale),
+    nextPhone: () => `01700-${String(++phoneSeq).padStart(6, '0')}`,
   };
 }

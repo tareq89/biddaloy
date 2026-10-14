@@ -104,8 +104,6 @@ export const slice: DemoSlice = {
     const veteran = () => ago(span + rng.number.int({ min: 30, max: 3000 }));
     const newcomer = () => ago(rng.number.int({ min: 30, max: Math.max(31, span - 30) }));
 
-    // Staff phones run 01700-900001 up, a block apart from the students slice's counter (D26).
-    let phoneSeq = 0;
     const person = (): { name: NamePair; religion: string; group: NameGroup; boy: boolean } => {
       const bucket = ctx.weighted(Object.entries(RELIGION_WEIGHTS));
       const group: NameGroup =
@@ -138,7 +136,7 @@ export const slice: DemoSlice = {
           email,
           full_name: nm.en,
           role: role as UserRole,
-          phone: `01700${String(900_000 + ++phoneSeq)}`,
+          phone: ctx.nextPhone(),
         },
         tenant.id,
       );
@@ -369,7 +367,12 @@ export const slice: DemoSlice = {
         ['Spouse', 'Homemaker'],
         ['Father', 'Retired'],
       ] as const) {
-        const pool = NAME_POOLS[p.religion === 'Islam' ? 'MUSLIM' : 'HINDU'];
+        const pool =
+          NAME_POOLS[
+            (Object.keys(RELIGION_LABEL) as NameGroup[]).find(
+              (g) => RELIGION_LABEL[g] === p.religion,
+            ) ?? 'MUSLIM'
+          ];
         const nm = ctx.pick(relation === 'Spouse' ? pool.girls : pool.boys);
         family.push({
           ...base,
