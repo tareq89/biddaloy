@@ -1,3 +1,5 @@
+import { resolve } from 'path';
+import { config } from 'dotenv';
 import { parse } from 'pg-connection-string';
 import { DataSource } from 'typeorm';
 import { todayInSchoolTz } from '../../common/time';
@@ -114,6 +116,8 @@ export async function runDemoSeed(args: DemoSeedArgs, password: string) {
 }
 
 async function main(): Promise<void> {
+  // Before the guards read DEMO_MODE / DEMO_PASSWORD / DATABASE_URL. Exported vars still win.
+  config({ path: resolve(__dirname, '..', '..', '..', '..', '.env') });
   const args = parseArgs(process.argv.slice(2));
   const { app, ctx } = await runDemoSeed(args, demoPassword(process.env));
   try {
