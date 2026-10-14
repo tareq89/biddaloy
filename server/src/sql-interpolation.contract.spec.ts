@@ -165,6 +165,8 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
   'modules/students/students.service.ts': ['BN_COLLATION', 'BN_COLLATION'],
   // BN_COLLATION / NOT_SWAPPED_SQL constants
   'modules/users/users.service.ts': ['BN_COLLATION', 'NOT_SWAPPED_SQL'],
+  // DEMO: constant `s.slug LIKE 'bmsc-%'` fragment, no input
+  'scripts/demo-seed/validator.ts': ['DEMO', 'DEMO', 'DEMO', 'DEMO', 'DEMO', 'DEMO', 'DEMO'],
   // dev seed: demoSchools slug list, not request input
   'scripts/seed.ts': ['demoSchools', 'demoSchools'],
 };
