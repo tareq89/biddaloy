@@ -97,6 +97,8 @@ describe('SchoolInviteService (integration)', () => {
     expect(ut.role).toBe(UserRole.PARENT);
     const linked = await ds.getRepository(Guardian).findOneOrFail({ where: { id: g.id } });
     expect(linked.user_id).toBe(user.id);
+    // Review F5: a family role is not an employee; only staff roles get a staff profile.
+    expect(await ds.getRepository(StaffProfile).count({ where: { user_id: user.id } })).toBe(0);
     // The request is spent: a second accept finds nothing live.
     await expect(service.accept(user.id, row.id, CTX)).rejects.toBeInstanceOf(NotFoundException);
   });
