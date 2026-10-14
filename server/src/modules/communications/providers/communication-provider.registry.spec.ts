@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { CommunicationProviderRegistryService } from './communication-provider.registry';
 import { CommunicationMedium } from '@biddaloy/shared';
 
@@ -7,13 +7,39 @@ describe('CommunicationProviderRegistryService', () => {
   const whatsAppCloudProvider = { send: () => Promise.resolve() } as any;
   const smtpEmailProvider = { send: () => Promise.resolve() } as any;
   const messengerProvider = { send: () => Promise.resolve() } as any;
+  const demoLogProvider = { send: () => Promise.resolve() } as any;
 
-  const registry = new CommunicationProviderRegistryService(
-    smsProviderFactory,
-    whatsAppCloudProvider,
-    smtpEmailProvider,
-    messengerProvider,
-  );
+  const build = () =>
+    new CommunicationProviderRegistryService(
+      smsProviderFactory,
+      whatsAppCloudProvider,
+      smtpEmailProvider,
+      messengerProvider,
+      demoLogProvider,
+    );
+  const registry = build();
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  // [58.1.02, D2] Demo: nothing leaves the server, whatever the tenant or env config says.
+  it('with DEMO_MODE, every medium resolves to the demo-log provider', () => {
+    vi.stubEnv('DEMO_MODE', 'true');
+    const demo = build();
+    for (const medium of [
+      CommunicationMedium.SMS,
+      CommunicationMedium.WHATSAPP,
+      CommunicationMedium.EMAIL,
+      CommunicationMedium.MESSENGER,
+    ]) {
+      expect(demo.resolve(medium)).toBe(demoLogProvider);
+    }
+    expect(demo.resolve(CommunicationMedium.PHONE_CALL)).toBeUndefined();
+  });
+
+  it('without DEMO_MODE, the real providers are untouched', () => {
+    vi.stubEnv('DEMO_MODE', '');
+    expect(build().resolve(CommunicationMedium.SMS)).toBe(smsProviderFactory);
+  });
 
   it('resolves SMS to the SMS provider factory', () => {
     expect(registry.resolve(CommunicationMedium.SMS)).toBe(smsProviderFactory);
