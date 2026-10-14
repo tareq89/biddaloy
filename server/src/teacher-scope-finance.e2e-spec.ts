@@ -282,6 +282,16 @@ describe('Teacher scope: finance reads (75.6-d)', () => {
       await asTeacher(`/payments/cart?student_ids=${fx.studentA}`).expect(200);
     });
 
+    // [#1832] Already scoped by Epic 75 (assertLinked → 404); pinned here so it can't regress.
+    it('/payments/student/:id and /payments/invoices/student/:id are 200 for A, 404 for B', async () => {
+      const list = await asTeacher(`/payments/student/${fx.studentA}`).expect(200);
+      expect(ids(list.body)).toEqual([fx.studentA]);
+      await asTeacher(`/payments/student/${fx.studentB}`).expect(404);
+      const summary = await asTeacher(`/payments/invoices/student/${fx.studentA}`).expect(200);
+      expect(summary.body.student_id).toBe(fx.studentA);
+      await asTeacher(`/payments/invoices/student/${fx.studentB}`).expect(404);
+    });
+
     it('/payments/guardian/:id is 200 for A, 404 for B', async () => {
       // Guardian A is linked to A and B: the sibling's payment must be dropped.
       const res = await asTeacher(`/payments/guardian/${fx.guardianA}`).expect(200);
