@@ -4,6 +4,7 @@ import { join } from 'path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DataSource } from 'typeorm';
 import { ALL_ENTITIES } from '../../../test/all-entities';
+import { DEMO_CARDS } from '../../modules/demo/demo-accounts';
 import type { DemoSlice } from './context';
 import { validate } from './validator';
 
@@ -97,6 +98,8 @@ const CLOCK_COLS: Record<string, string[]> = {
   invoices: ['issued_date', 'due_date'],
   invoice_share_tokens: ['expires_at'],
   applications: ['decided_at'], // today's decisions go through ApplicationDecisionsService
+  alerts: ['raised_at', 'last_evaluated_at', 'expires_at'], // manual alerts go through ManualAlertsService
+  alert_recipients: ['pushed_at'], // delivery stamps it with the real clock, after the seed returns
 };
 
 /** Counts plus an md5 of business columns per table; ids, timestamps and hashes are left out. */
@@ -127,6 +130,22 @@ async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<stri
   return out;
 }
 
+/** Open alerts each demo login sees: the attention engine's sweeps derive them (58.3.09). */
+async function openAlertsByCard(ds: DataSource): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  for (const c of DEMO_CARDS) {
+    const [{ n }] = await ds.query(
+      `SELECT count(*)::int AS n FROM alert_recipients r
+         JOIN alerts a ON a.id = r.alert_id AND a.status = 'ACTIVE'
+         JOIN users u ON u.id = r.user_id
+        WHERE u.email = $1 AND r.state = 'OPEN'`,
+      [c.email],
+    );
+    out[c.key] = Number(n);
+  }
+  return out;
+}
+
 describe('demo seed coverage', () => {
   // biddaloy_demo* so runDemoSeed's own DB-name guard passes. A hash of the base name keeps runs
   // apart and the name under Postgres's 63-char limit (longer names truncate into one database).
@@ -141,6 +160,7 @@ describe('demo seed coverage', () => {
   let violations: Awaited<ReturnType<typeof validate>> = [];
   let fpA: Record<string, string> = {};
   let fpB: Record<string, string> = {};
+  let openAlerts: Record<string, number> = {};
 
   /** Seeds `db` from a freshly loaded module graph (the app caches DATABASE_URL on first load). */
   async function seedInto(db: string, args: typeof MAIN, keepOpen: boolean) {
@@ -174,6 +194,7 @@ describe('demo seed coverage', () => {
       ),
       counts: keepOpen ? await countRows(run.ds, tables) : {},
       violations: keepOpen ? await validate(run.ds) : [],
+      openAlerts: keepOpen ? await openAlertsByCard(run.ds) : {},
     };
     if (keepOpen) closeMain = () => run.app.close();
     else await run.app.close();
@@ -189,6 +210,7 @@ describe('demo seed coverage', () => {
       violations: main.violations,
     });
     rows = main.counts;
+    openAlerts = main.openAlerts;
     fpA = (await seedInto(dbs[1], SMALL, false)).fp;
     fpB = (await seedInto(dbs[2], SMALL, false)).fp;
   }, 600_000);
@@ -260,6 +282,13 @@ describe('demo seed coverage', () => {
 
   it('same inputs give the same data', () => {
     expect(fpB).toEqual(fpA);
+  });
+
+  it('every demo login opens the app to at least 3 open alerts', () => {
+    expect(
+      Object.entries(openAlerts).filter(([, n]) => n < 3),
+      'card key and its open alert count',
+    ).toEqual([]);
   });
 
   it('every invariant holds on the seeded data', () => {
