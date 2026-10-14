@@ -124,7 +124,7 @@ export default defineConfig({
         ]
       : []),
     // [58.4.02] Opt-in: `E2E_DEMO_NIGHTLY=1 DEMO_SWEEP_URL=https://... yarn e2e --project=demo-nightly
-    // --workers=1`. Run by the nightly reset (58.4.01) before the swap; see DEMO_NIGHTLY below.
+    // --workers=3`. Run by the nightly reset (58.4.01) before the swap; see DEMO_NIGHTLY below.
     ...(DEMO_NIGHTLY
       ? [
           {
