@@ -14,6 +14,7 @@ import { PresetApplyService } from '../../../modules/presets/preset-apply.servic
 import { PresetRegistryService } from '../../../modules/presets/preset-registry.service';
 import { AuthTokenService } from '../../../modules/account-access/auth-token.service';
 import { SchoolInviteService } from '../../../modules/account-access/school-invite.service';
+import { StaffProfilesService } from '../../../modules/staff-profiles/staff-profiles.service';
 import { DEMO_CARDS } from '../../../modules/demo/demo-accounts';
 import { createContext, type DemoSeedContext } from '../context';
 import { academicYears } from '../dates';
@@ -39,6 +40,7 @@ describe('org slice (integration, 2 years)', () => {
       AuditService,
       AuthTokenService,
       SchoolInviteService,
+      StaffProfilesService,
       { provide: TenantSettingsCache, useValue: { invalidate: vi.fn() } },
       { provide: StorageService, useValue: { put: async () => undefined } },
     ]);
@@ -48,10 +50,10 @@ describe('org slice (integration, 2 years)', () => {
 
   // The test setup empties the data tables before every `it`, so the slice runs once per test.
   beforeEach(async () => {
-    // Schools, users and holiday sets survive that reset; drop ours so a re-run starts fresh.
+    // Schools and users survive that reset; drop ours so a re-run starts fresh.
+    // (Holiday sets and entries are in the reset, so they need no cleanup.)
     await ds.query(`DELETE FROM schools WHERE slug LIKE 'bmsc-%'`);
     await ds.query(`DELETE FROM users WHERE email LIKE '%@bmsc.example'`);
-    await ds.query(`DELETE FROM public_holiday_sets WHERE country = 'BD'`);
     ctx = await createContext({
       ds,
       app,
@@ -187,6 +189,59 @@ describe('org slice (integration, 2 years)', () => {
       `SELECT count(*) AS linked FROM calendar_event_classes`,
     );
     expect(Number(linked)).toBeGreaterThan(0);
+  });
+
+  it('no Friday (the weekly off) falls inside a counts_as_working_day event', async () => {
+    const [{ n }] = await q<{ n: string }>(
+      `SELECT count(*) AS n
+         FROM calendar_events e JOIN schools s ON s.id = e.tenant_id,
+              generate_series(e.start_date, e.end_date, interval '1 day') AS d
+        WHERE s.slug LIKE 'bmsc-%' AND e.counts_as_working_day
+          AND extract(dow FROM d) = 5`,
+    );
+    expect(Number(n)).toBe(0);
+  });
+
+  it('after apply: period attendance on, Morning shift, classes on it, bn locale, terms, exam templates', async () => {
+    const schools = await q<{ id: string; settings: Record<string, any> }>(
+      `SELECT id, settings FROM schools WHERE slug LIKE 'bmsc-%'`,
+    );
+    expect(schools).toHaveLength(3);
+    for (const s of schools) {
+      expect(s.settings.attendance.periodAttendance.enabled).toBe(true);
+      expect(s.settings.organisation.shifts).toContain('Morning');
+      expect(JSON.stringify(s.settings.region)).toContain('bn');
+    }
+    // Every class of every year points at the shift.
+    const [{ n }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM classes c JOIN schools s ON s.id = c.tenant_id
+        WHERE s.slug LIKE 'bmsc-%' AND c.shift_id IS NULL`,
+    );
+    expect(Number(n)).toBe(0);
+    // Current year: three terms per branch; the NCTB pack's exam templates cover grades 9-10 (High).
+    const perTenant = await q(
+      `SELECT s.slug,
+              (SELECT count(*) FROM academic_terms t JOIN academic_years a ON a.id = t.academic_year_id
+                WHERE a.tenant_id = s.id AND a.is_current) AS terms,
+              (SELECT count(*) FROM exam_templates x WHERE x.tenant_id = s.id) AS templates
+         FROM schools s WHERE s.slug LIKE 'bmsc-%'`,
+    );
+    expect(perTenant).toHaveLength(3);
+    for (const r of perTenant) expect(Number(r.terms)).toBe(3);
+    expect(Number(perTenant.find((r) => r.slug === 'bmsc-high')!.templates)).toBeGreaterThan(0);
+  });
+
+  it('fails loudly when the holiday data lacks a seeded year', async () => {
+    // The year check runs before any insert, so the rows from beforeEach don't get in the way.
+    const far = await createContext({
+      ds,
+      app,
+      scale: 0.05,
+      years: YEARS,
+      anchor: '2099-10-10',
+      password: 'unit-test-password',
+    });
+    await expect(slice.run(far)).rejects.toThrow(/BD_PUBLIC_HOLIDAYS_BY_YEAR has no 2/);
   });
 
   it('writes shifts, period slots, rooms and the Bangladesh holiday sets', async () => {
