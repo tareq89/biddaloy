@@ -27,6 +27,13 @@ cat > "$WORK/bin/psql" <<EOF
 echo "\$*" >> "$LOG/psql.log"
 exec docker exec -i "$DB_CONTAINER" psql "\$@"
 EOF
+# The refusal cases below aim at real names (biddaloy, postgres). They get this psql instead, so a
+# broken guard fails the test without ever reaching the shared Postgres.
+cat > "$WORK/bin/psql-forbidden" <<EOF
+#!/usr/bin/env bash
+echo "\$*" >> "$LOG/forbidden.log"
+exit 97
+EOF
 cat > "$WORK/bin/redis-cli" <<EOF
 #!/usr/bin/env bash
 echo "\$*" >> "$LOG/redis.log"
@@ -142,10 +149,10 @@ pass "sweep failure: no swap"
 # ---- 6. refusals: nothing may touch any database ----------------------------------------------
 refuses() { # $1 description, $2 expected message, rest: env overrides
   local what="$1" msg="$2"; shift 2
-  : > "$LOG/psql.log"
-  if run_reset "$@"; then fail "$what: should have refused"; fi
+  : > "$LOG/forbidden.log"
+  if run_reset DEMO_PSQL="$WORK/bin/psql-forbidden" "$@"; then fail "$what: should have refused"; fi
   grep -q "$msg" "$WORK/err" || { cat "$WORK/err" >&2; fail "$what: wrong message"; }
-  [[ ! -s "$LOG/psql.log" ]] || fail "$what: psql was called before the refusal"
+  [[ ! -s "$LOG/forbidden.log" ]] || fail "$what: psql was called before the refusal"
   expect "$(marker "$LIVE")" night2 "$what: live database untouched"
   pass "refuses: $what"
 }
@@ -160,12 +167,15 @@ refuses "no sweep decision" "DEMO_SWEEP_CMD" DEMO_SKIP_SWEEP=
 
 # ---- 7. the drop / rename helpers refuse a non-demo name even if called directly --------------
 helper_refuses() { # $1 helper call
+  : > "$LOG/forbidden.log"
   ( set +e
-    DEMO_PSQL="$WORK/bin/psql"; URL_BASE="$BASE_URL"; URL_QUERY=""
+    # shellcheck disable=SC2034  # read by the sourced reset.sh
+    DEMO_PSQL="$WORK/bin/psql-forbidden"; URL_BASE="$BASE_URL"; URL_QUERY=""
     # shellcheck disable=SC1091
     source "$HERE/reset.sh"
     set +e; eval "$1" ) 2>"$WORK/err" && fail "'$1' should have been refused"
   grep -q "must start with biddaloy_demo" "$WORK/err" || fail "'$1': wrong message"
+  [[ ! -s "$LOG/forbidden.log" ]] || fail "'$1': psql was called"
 }
 helper_refuses 'drop_db biddaloy'
 helper_refuses 'drop_db postgres'
