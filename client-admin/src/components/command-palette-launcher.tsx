@@ -41,17 +41,20 @@ import {
 } from '@biddaloy/ui/components';
 import {
   hasPermission,
+  logout,
   useActiveRole,
   useDebouncedValue,
   useEntityLabel,
   usePaletteSearch,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { SearchIcon } from 'lucide-react';
 import * as React from 'react';
 
-import { ACTIONS, type ActionContext } from '../action-registry';
+import { ACTIONS, DEMO_SWITCH_ROLE_ACTION, type ActionContext } from '../action-registry';
+import { useDemoMode } from '../features/demo/use-demo-mode';
 import {
   matchesNavSearch,
   rankByMatch,
@@ -83,6 +86,12 @@ export function CommandPaletteLauncher({
   const { t, i18n } = useTranslation('nav');
   const navigate = useNavigate();
   const activeRole = useActiveRole();
+  const queryClient = useQueryClient();
+  const demo = useDemoMode();
+  const actions = React.useMemo(
+    () => (demo.enabled ? [...ACTIONS, DEMO_SWITCH_ROLE_ACTION] : ACTIONS),
+    [demo.enabled],
+  );
   const [open, setOpen] = React.useState(false);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
@@ -229,12 +238,17 @@ export function CommandPaletteLauncher({
   const trimmedQuery = query.trim().toLowerCase();
   const pageGroups = React.useMemo<GlobalSearchGroup[]>(() => {
     if (pages) {
+      // Portal / platform palettes have no Action tab, so the demo switch rides along as a page.
+      const demoLabel = DEMO_SWITCH_ROLE_ACTION.label[i18n.language.startsWith('bn') ? 'bn' : 'en'];
+      const listed = demo.enabled
+        ? [...pages, { id: DEMO_SWITCH_ROLE_ACTION.id, label: demoLabel, to: '/login' }]
+        : pages;
       return [
         {
           id: 'pages',
           label: t('commandPalette.groups.pages'),
           results: rankByMatch(
-            pages
+            listed
               .filter((page) => matchesNavSearch(page.label, page.synonyms, trimmedQuery))
               .map((page) => ({ id: page.id, label: page.label, description: page.to })),
             trimmedQuery,
@@ -262,7 +276,7 @@ export function CommandPaletteLauncher({
       })),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmedQuery, activeRole, i18n.language, pages]);
+  }, [trimmedQuery, activeRole, i18n.language, pages, demo.enabled]);
 
   // Action tab — `ACTIONS` (30.4.2), one section per nav group. Hidden when
   // the role lacks the permission; *disabled with a reason* (not hidden) when
@@ -298,13 +312,15 @@ export function CommandPaletteLauncher({
       id: 'top',
       label: '',
       results: rankByMatch(
-        ACTIONS.filter(
-          (action) =>
-            action.group === 'top' &&
-            hasPermission(activeRole, action.permission) &&
-            (action.alsoRequires ?? []).every((p) => hasPermission(activeRole, p)) &&
-            action.label[locale].toLowerCase().includes(trimmedQuery),
-        ).map(toActionRow),
+        actions
+          .filter(
+            (action) =>
+              action.group === 'top' &&
+              hasPermission(activeRole, action.permission) &&
+              (action.alsoRequires ?? []).every((p) => hasPermission(activeRole, p)) &&
+              action.label[locale].toLowerCase().includes(trimmedQuery),
+          )
+          .map(toActionRow),
         trimmedQuery,
       ),
     };
@@ -314,18 +330,20 @@ export function CommandPaletteLauncher({
         id: group.id,
         label: resolveNavLabel(group.label, 'groups'),
         results: rankByMatch(
-          ACTIONS.filter(
-            (action) =>
-              action.group === group.id &&
-              hasPermission(activeRole, action.permission) &&
-              action.label[locale].toLowerCase().includes(trimmedQuery),
-          ).map(toActionRow),
+          actions
+            .filter(
+              (action) =>
+                action.group === group.id &&
+                hasPermission(activeRole, action.permission) &&
+                action.label[locale].toLowerCase().includes(trimmedQuery),
+            )
+            .map(toActionRow),
           trimmedQuery,
         ),
       })),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmedQuery, activeRole, availableContexts, i18n.language]);
+  }, [trimmedQuery, activeRole, availableContexts, i18n.language, actions]);
 
   const peopleTab: CommandPaletteTab = {
     id: 'people',
@@ -369,14 +387,22 @@ export function CommandPaletteLauncher({
       return;
     }
     if (tabId === 'page') {
+      if (resultId === DEMO_SWITCH_ROLE_ACTION.id) {
+        DEMO_SWITCH_ROLE_ACTION.run({
+          navigate: (opts) => void navigate({ to: opts.to }),
+          signOut: () => logout(queryClient),
+        });
+        return;
+      }
       const item = pageGroups.flatMap((g) => g.results).find((result) => result.id === resultId);
       if (item?.description) void navigate({ to: item.description });
       return;
     }
     if (tabId === 'action') {
-      const action = ACTIONS.find((candidate) => candidate.id === resultId);
+      const action = actions.find((candidate) => candidate.id === resultId);
       action?.run({
         navigate: (opts) => void navigate({ to: opts.to }),
+        signOut: () => logout(queryClient),
         params: { studentId: params.studentId, examId: params.examId },
       });
     }

@@ -17,6 +17,8 @@ import { CommandPaletteLauncher } from '../../components/command-palette-launche
 import { PlatformAlertBanner } from '../../components/platform-alert-banner';
 import { StaffUserMenu } from '../../components/staff-user-menu';
 import { useAttentionCenter } from '../../features/attention/attention-center';
+import { DemoCornerFrame } from '../../features/demo/demo-corner-frame';
+import { useDemoMode } from '../../features/demo/use-demo-mode';
 import { MORE_ICON, PLATFORM_NAV_ICONS, STAFF_NAV_ICONS } from '../../nav-icons';
 import { isPathUnder } from '../../nav-tree';
 import { loadRouteNamespaces } from '../../route-loaders';
@@ -53,6 +55,7 @@ export const Route = createFileRoute('/_platform')({
 });
 
 function PlatformLayout() {
+  const demo = useDemoMode();
   // `nav` first: `check-i18n-keys.mjs` resolves bare keys off the first call.
   const { t } = useTranslation('nav');
   const { t: tPlatform } = useTranslation('platform');
@@ -102,73 +105,76 @@ function PlatformLayout() {
   );
 
   return (
-    <RequireRole allow={[UserRole.SUPER_ADMIN]} redirectTo="/dashboard">
-      {chromeless ? (
-        <Outlet />
-      ) : (
-        <AppShell
-          navItems={navItems}
-          brand={t('brand')}
-          topBar={
-            <div className="hidden md:flex">
-              <AppHeader
-                start={
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{consoleTitle}</span>
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary">
-                      {tAuth('schoolPicker.roles.SUPER_ADMIN')}
-                    </span>
-                  </div>
-                }
-                end={
-                  <>
-                    <CommandPaletteLauncher pages={platformPages} />
-                    {notificationBell}
-                    <LocaleSwitcher />
-                    <ThemeToggle />
-                    <StaffUserMenu />
-                  </>
-                }
-              />
-            </div>
-          }
-          mobileTitle={consoleTitle}
-          mobileActions={
-            <>
-              <CommandPaletteLauncher pages={platformPages} />
-              {notificationBell}
-              <StaffUserMenu />
-            </>
-          }
-          bottomNav={
-            <BottomNav
-              items={cells}
-              label={t('bottomNavStaffLabel')}
-              more={{
-                label: t('items.more'),
-                icon: <MORE_ICON className="size-5" aria-hidden="true" />,
-                active: !cells.some((c) => isPathUnder(pathname, c.to)),
-              }}
-            />
-          }
-          openMenuLabel={t('openMenuLabel')}
-          closeMenuLabel={t('closeMenuLabel')}
-          navLabel={t('navLabel')}
-          skipLinkLabel={t('skipToContent')}
-        >
-          <PlatformAlertBanner enabled />
-          {attention.bar}
-          {attention.modal}
-          {breadcrumbItems.length > 0 && (
-            <Breadcrumbs
-              items={breadcrumbItems}
-              aria-label={t('breadcrumb.navLabel')}
-              className="mb-4"
-            />
-          )}
+    <DemoCornerFrame>
+      <RequireRole allow={[UserRole.SUPER_ADMIN]} redirectTo="/dashboard">
+        {chromeless ? (
           <Outlet />
-        </AppShell>
-      )}
-    </RequireRole>
+        ) : (
+          <AppShell
+            navItems={navItems}
+            brand={t('brand')}
+            topBar={
+              <div className="hidden md:flex">
+                <AppHeader
+                  reserveCorner={demo.enabled}
+                  start={
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{consoleTitle}</span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary">
+                        {tAuth('schoolPicker.roles.SUPER_ADMIN')}
+                      </span>
+                    </div>
+                  }
+                  end={
+                    <>
+                      <CommandPaletteLauncher pages={platformPages} />
+                      {notificationBell}
+                      <LocaleSwitcher />
+                      <ThemeToggle />
+                      <StaffUserMenu />
+                    </>
+                  }
+                />
+              </div>
+            }
+            mobileTitle={consoleTitle}
+            mobileActions={
+              <>
+                <CommandPaletteLauncher pages={platformPages} />
+                {notificationBell}
+                <StaffUserMenu />
+              </>
+            }
+            bottomNav={
+              <BottomNav
+                items={cells}
+                label={t('bottomNavStaffLabel')}
+                more={{
+                  label: t('items.more'),
+                  icon: <MORE_ICON className="size-5" aria-hidden="true" />,
+                  active: !cells.some((c) => isPathUnder(pathname, c.to)),
+                }}
+              />
+            }
+            openMenuLabel={t('openMenuLabel')}
+            closeMenuLabel={t('closeMenuLabel')}
+            navLabel={t('navLabel')}
+            skipLinkLabel={t('skipToContent')}
+          >
+            <PlatformAlertBanner enabled />
+            {attention.bar}
+            {attention.modal}
+            {breadcrumbItems.length > 0 && (
+              <Breadcrumbs
+                items={breadcrumbItems}
+                aria-label={t('breadcrumb.navLabel')}
+                className="mb-4"
+              />
+            )}
+            <Outlet />
+          </AppShell>
+        )}
+      </RequireRole>
+    </DemoCornerFrame>
   );
 }
