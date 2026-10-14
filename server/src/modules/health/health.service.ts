@@ -65,11 +65,13 @@ export class HealthService {
       this.probeAttention(),
     ]);
 
-    // A stale engine degrades but never fails: it must not pull the API out of the load balancer.
+    // Only Postgres failing pulls the API out of the load balancer. Redis, the queue or a stale
+    // engine degrade but never fail: the app still serves (rate limiter fails open,
+    // @FailClosedWithoutRedis routes answer 503, sessions are cut off in the DB), and the platform alert covers Redis.
     const status =
-      db !== 'ok' || redis !== 'ok' || queue !== 'ok'
+      db !== 'ok'
         ? 'fail'
-        : attention === 'stale'
+        : redis !== 'ok' || queue !== 'ok' || attention === 'stale'
           ? 'degraded'
           : 'ok';
     return { status, checks: { db, redis, queue, attention } };
@@ -84,7 +86,7 @@ export class HealthService {
     }
   }
 
-  private async probeRedis(): Promise<'ok' | 'fail'> {
+  async probeRedis(): Promise<'ok' | 'fail'> {
     // A separate short-lived connection rather than a shared client — this
     // probe's whole point is to notice a Redis outage, so it must not
     // depend on a long-lived client that itself might be wedged waiting

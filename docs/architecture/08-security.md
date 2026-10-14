@@ -65,6 +65,59 @@ Both lockout and the strict rate-limit tier are disabled under
 `NODE_ENV=test` — the e2e suite logs in repeatedly against the same seeded
 account and would otherwise lock itself out.
 
+### When Redis is down (75.18)
+
+Most of the app keeps working; only the routes where "no rate limit" means "unlimited password guessing" stop.
+
+```mermaid
+flowchart TD
+  R[Request] --> T{"rate-limit store<br/>(Redis) reachable?"}
+  T -- yes --> N[normal limit, 429 when over]
+  T -- no --> A{"route marked<br/>@FailClosedWithoutRedis()?"}
+  A -- yes --> X["503 This action is temporarily unavailable"]
+  A -- no --> O["served; error logged (fails open)"]
+```
+
+The mark is a decorator on the handler or controller, read by `AppThrottlerGuard` through
+`Reflector`, so the rule moves with the route. An unmarked route fails open, so two tests make
+the choice explicit:
+
+- `app-throttler.guard.spec.ts` checks every route on the sign-in controllers listed in
+  `server/test/helpers/redis-outage-routes.ts` (everything under `/auth` and `/account`, plus
+  `UserController`). Each route must be in `FAIL_CLOSED` (and carry the mark) or in `FAIL_OPEN`
+  (and not carry it). A new route on these controllers, for example
+  `POST /auth/magic-link/verify`, fails the spec until someone puts it in one list.
+- `route-guard-coverage.e2e-spec.ts` fails when a controller under `/auth*` or `/account*`
+  (for example a new `auth/passkeys`) is missing from that controller list.
+
+A password- or code-checking route on any other controller is not caught; review it by hand.
+
+| Part                                                                                                                                                              | Redis down                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Sign-in, activation, OTP, reset, register, step-up, `change-password`, social sign-in/link/unlink, Meta's data-deletion callback, `POST /users/me/contact-change` | 503 (`@FailClosedWithoutRedis()`)                                                                                    |
+| `POST /auth/refresh`, `logout`, `logout-all`, `GET/DELETE /auth/sessions`                                                                                         | work (refresh tokens are DB rows)                                                                                    |
+| `GET /auth/social/providers`, `/identities`, `/facebook/data-deletion/status`                                                                                     | work (read-only)                                                                                                     |
+| Every other route                                                                                                                                                 | served, no rate limit (fails open)                                                                                   |
+| Login lockout, access-token denylist                                                                                                                              | fail open                                                                                                            |
+| "Log out everywhere", member removal                                                                                                                              | still ends every session: they set `users.tokens_valid_after` in Postgres, which `JwtStrategy` reads on each request |
+| Single-session revoke (`DELETE /auth/sessions/:id`)                                                                                                               | waits out the 15-minute access token                                                                                 |
+| `/health/ready`                                                                                                                                                   | `degraded` (HTTP 200), not `fail`                                                                                    |
+
+### Password hashing (75.11)
+
+Every password hash comes from one place, `auth/password-hash.ts`: bcrypt, cost **12**.
+
+```mermaid
+flowchart LR
+  A["Good sign-in<br/>(hash is cost 10)"] --> B["needsRehash?"]
+  B -- yes --> C["UPDATE users SET password_hash = new<br/>WHERE id = ? AND password_hash = old"]
+  B -- no --> D[done]
+```
+
+- **Upgrade on sign-in.** After the password is proven, a cheaper hash is rewritten. The `AND password_hash = old` condition means a password changed in the meantime always wins. A failed sign-in never rewrites anything.
+- **72-byte limit.** bcrypt ignores bytes past 72, so a _new_ password longer than that is refused with `PASSWORD_TOO_LONG` (72 Latin letters, or 24 Bangla letters). Sign-in is never checked, so an older long password keeps working.
+- **Dummy hash.** When no user matches, login compares against `DUMMY_PASSWORD_HASH` so the response takes as long as a real one. It is a precomputed cost-12 literal (hashing at import cost every process ~250 ms); `password-hash.spec.ts` fails if its cost ever differs from `BCRYPT_COST`.
+
 ## Password recovery
 
 `POST /auth/forgot-password` and `POST /auth/reset-password`
@@ -456,6 +509,42 @@ flowchart LR
 Expired `refresh_tokens` rows (revoked or not) are deleted by an hourly
 BullMQ job (`refresh-token-cleanup.processor.ts`/`.scheduler.ts`).
 
+### Token signing and rotating `JWT_SECRET` (75.9)
+
+Every JWT is signed **HS256** with issuer `biddaloy`. Access tokens also carry
+audience `biddaloy:access`; the Passport strategy requires all three, so an
+HS512 token, an `alg: none` token, or an approval token used as a Bearer all
+get 401. Approval tokens (`X-Approval-Token`) are checked for algorithm and
+issuer too, and the rate-limit tracker verifies the same way.
+
+To rotate the secret without logging anyone out, the old value moves to
+`JWT_SECRET_PREVIOUS`. It is tried **for verification only** (after
+`JWT_SECRET`); new tokens are always signed with `JWT_SECRET`. An empty
+`JWT_SECRET_PREVIOUS` counts as unset.
+
+```mermaid
+flowchart LR
+  A["Generate new secret<br/>openssl rand -base64 48"] --> L{"Was the old secret leaked?"}
+  L -- no --> B["Set JWT_SECRET_PREVIOUS = old<br/>JWT_SECRET = new; deploy"]
+  B --> C["Wait at least the access-token lifetime<br/>(ACCESS_TOKEN_TTL_MS, 15 min by default)"]
+  C --> D["Remove JWT_SECRET_PREVIOUS; deploy"]
+  L -- yes --> H["Set JWT_SECRET = new only; deploy<br/>(never put a leaked secret in JWT_SECRET_PREVIOUS)"]
+```
+
+Why the wait is minutes, not 30 days: only access tokens (15 min) and approval
+tokens (5 min) are signed with `JWT_SECRET`. Refresh tokens are opaque DB rows,
+so they keep working through any rotation and re-mint access tokens with the new
+secret.
+
+**After a leak, rotate hard.** Do not set `JWT_SECRET_PREVIOUS`: that would keep
+the leaked secret valid for verification. Every access token gets one 401, the
+client's refresh path re-mints it with the new secret, and nobody types a
+password again. Anyone holding only a forged token is out at once.
+
+There is no transition window for the format change itself (D21): tokens minted
+before this change have no `iss`/`aud` and get 401 once. The client's refresh
+path re-mints them, because refresh tokens are opaque DB rows, not JWTs.
+
 ### Self-service revocation (12.8)
 
 A "session" in the API is a refresh-token **family**, not a row — rotation
@@ -515,6 +604,16 @@ the honest value when there's no active tenant to record.
 
 Out of scope for this ticket: a "new sign-in to your account" notification
 (needs a per-user notification-preference surface that doesn't exist yet).
+
+## Dev seed safety (75.12)
+
+`yarn seed`, `db:reset` and `db:clear` call `assertLocalSeedTarget` first and exit 1 when:
+
+1. `NODE_ENV=production`, or
+2. `DATABASE_URL` is missing or not a URL, or
+3. its host is not `localhost`, `127.0.0.1` or `::1` (an SSH tunnel to localhost works for a deliberate remote seed).
+
+The message names the script and host, never the password. The dev seed's attendance device gets a fresh random key per database, printed once as `Seed attendance device key (shown once): bd_...`; re-runs do not reprint it. Specs that call `ensureAttendanceSeed` directly keep the fixed `SEED_DEVICE_KEY` from `seed.util.ts`; `e2e/seed-contract.ts` no longer exports one, since a Playwright spec cannot know the random key.
 
 ## CSRF posture
 
@@ -903,3 +1002,29 @@ candidate.
 - Under a full `ci:local` (4 busy workers) specs leak into each other and slow tests pass the 5 s timeout, then pass alone — repeated red runs to triage — fix: #2456 (open) — rule candidate: a spec that fails only under load is checked alone and against #2456 before anyone "fixes" it.
 - Review found three ways past the first xlsx zip-bomb guard: a crafted EOCD (count 0, decoy prefix, zip64 sentinel), directory entries that reuse the same compressed bytes, and the calendar import that was not guarded at all — three fix commits — fix: `server/src/common/utils/xlsx-guard.util.ts` (#2330) — rule candidate: a parser guard is reviewed against crafted inputs, and every upload path is listed in the ticket by grep, not memory.
 - The Lighthouse login waited for a `লগ ইন` button that the Epic 31 sign-in rework renamed to `সাইন ইন করুন`; the job broke silently on main too — a red lighthouse section to diagnose — fix: b6ce4ba00 — rule candidate: e2e/Lighthouse helpers find buttons by i18n key or test id, never by copied UI text.
+
+### Wave 1 — 2026-10-14
+
+Closed on the PR 4 accumulating branch (`epic/75.0/accum-4`), which stands in
+for `main` (D21). Wave start = `0d6254672` (accum-3 head).
+
+```mermaid
+flowchart LR
+  L["POST /auth/login"] --> T{"Redis up?"}
+  T -- no --> X["503, sign-in closed (75.18)"]
+  T -- yes --> J["JWT HS256 + iss + aud (75.9)"]
+  L --> P["verifyPassword: always one cost-12 unit (75.11)"]
+  R["Redis probe every 30 s"] -- "3 fails" --> A["platform_alerts row + SMS (75.34)"]
+  A --> B["GET /platform/alerts<br/>PlatformSuperAdminGuard → red banner (75.35)"]
+```
+
+- **JWT pin and rotation.** Pinning HS256 + issuer + audience logs out every token minted before the change once (no `iss`/`aud`), by design (D21) — none in practice, the client's refresh path re-mints because refresh tokens are DB rows — fix: #2317 — rule candidate: a token-format change ships with a note that names who gets one 401 and why it self-heals; secret rotation is "old value to `JWT_SECRET_PREVIOUS`, wait out the access-token lifetime (15 min), remove", and after a leak a hard swap with no `JWT_SECRET_PREVIOUS` (refresh re-mints, so nobody signs in again).
+- **bcrypt timing padding.** Raising the cost to 12 _reversed_ the enumeration oracle instead of closing it: every real account still had a cost-10 hash (~80 ms) while an unknown identifier paid the cost-12 dummy (~320 ms) — one review round — fix: `verifyPassword` in `auth/password-hash.ts` pads a cost-`r` check with throw-away hashes at costs `r..11`, run one after another, and every password check (login, change-password, step-up, social connect, contact-change) goes through it (#2319, 9e41e1404) — rule candidate: a security cost change is checked for _every_ stored-data state the system is in on deploy day, not just new rows; no `bcrypt.compare` on a password outside `password-hash.ts`.
+- **Redis-down policy.** "Fail open everywhere" would mean unlimited password guessing while Redis is down, and "fail closed everywhere" would take the whole app down with it — the split is per route (D4) — fix: `AppThrottlerGuard` returns 503 only for routes marked `@FailClosedWithoutRedis()` (first a hand-kept route-string list, which was too wide, closing read-only social GETs, and fragile, since a renamed route failed open silently: review r1, F11); refresh, logout and every other route fail open; `/health/ready` reports `degraded` (#2326) — rule candidate: each Redis-backed control states its own down-mode in the ticket, and an e2e spec with a throwing store proves it (`app-throttler.guard.e2e-spec.ts`).
+- **Platform-only guards.** `@Roles(SUPER_ADMIN)` is also passed by a _school-local_ SUPER_ADMIN, so `GET /platform/alerts` and `GET /platform/attention/health` were open to every school's super admin, and the alert SMS went to them too — one review round — fix: `PlatformSuperAdminGuard` after `ContextGuard` on both routes (snapshot `TENANT_SA` PASS → 403), SMS recipients limited to the platform tenant's SUPER_ADMINs (da142ff55, 749d6954f) — rule candidate: a `/platform/*` route always carries `PlatformSuperAdminGuard`; the snapshot's `TENANT_SA` column must read 403 on every `/platform/*` row. `route-permissions.txt` does not record this guard, so only the route-status snapshot catches it.
+- **Enum-order drift is real, not a macOS artifact.** After the platform-alert backend (#2441), `api:types` reordered the literals of 12 enum unions in `ui/src/api/schema.d.ts` (e.g. `"TERM" | "MONTHLY" | "MODEL" | "OTHER"` → `"TERM" | "OTHER" | "MONTHLY" | "MODEL"`). It was written off as "macOS only" and reverted by hand, and CI's `check-api-types` then failed, so the integration and server e2e suites never ran on that head. Cause: the `@nestjs/swagger` CLI plugin writes a string-literal union in the order TypeScript created those literal types. `health.module.ts` started importing the SMS gateways and the platform-alerts service, which moved files that mention `'OTHER'`, `'WEEKLY'`, `'ACCEPTED'` and `'REJECTED'` earlier in the program, so the checker created those literals first. The order is the same on macOS and Linux for the same code (the base branch had 0 drift on both) — fix: regenerate and commit the reorder (review r1, F1) — rule candidate: an `api:types` reorder is real drift; commit it, never revert it by hand. If it only shows up on one machine, rebuild from clean (`rm -rf server/dist`) before calling it platform noise.
+- **Cost 12 slows every test login.** The shared test fixture hash (`server/test/constants.ts`) was cost 10, so each fixture login paid the cost-12 padding _plus_ a rehash write (~580 ms instead of ~70 ms). Specs that sign in ten roles per test hit the 10 s hook timeout, and bcrypt work still running when the vitest thread was torn down aborted the whole server e2e run (`libc++abi: Napi::Error`, SIGABRT) — two red full runs — fix: fixture hash at cost 12 (311161f67); a login is still ~4x slower than before, so login-heavy specs (documents journey: 1.3 s → 2.9 s alone) have less headroom under load (#2456) — rule candidate: when a security cost goes up, test fixtures move to the same cost in the same ticket, and the slowest login-heavy spec is timed before and after.
+- **Global tables and parallel e2e.** The banner Playwright spec opened and cleared the one global `platform_alerts` table from four tests running in parallel, so one test's clear hid another's banner — flaky first tries — fix: `test.describe.configure({ mode: 'serial' })` (3c8f48444) — rule candidate: a Playwright spec that writes a table with no tenant column runs serial.
+- **Transient URLs under load.** Slower activation (cost-12 hash) made `toHaveURL(/dashboard/)` miss the brief `/dashboard` before the first-visit gate moved a new school's admin to `/welcome` — fix: accept either (4e1a940a1) — rule candidate: assert the URL a page settles on, never one it passes through.
+- **Seed device key.** The dev seed printed the "shown once" key when only the _revoked_ seed device was inserted, because `devices` counted both rows — a review LOW — fix: `ensureAttendanceSeed` returns `activeDeviceCreated` and the print keys on it (#2320) — rule candidate: a "shown once" secret is printed on the flag of the exact row that holds it, never on a count.
+- **Redis-down drill not run live (D48).** Stopping the shared `redis` container would break every other agent's test-env slice, so the drill in #2444 is an owner action after deploy. What covers it until then: `app-throttler.guard.e2e-spec.ts` (throwing store → 503), `platform-alerts.service.spec.ts` (3 fails open one row, one "recovered" text, the hourly repeat sends only when its conditional UPDATE wins), `platform-alerts.controller.e2e-spec.ts` (platform-only), and `e2e/platform/platform-alert-banner.spec.ts` (banner) — rule candidate: a drill that needs a shared container stopped runs on a deploy target, never on the shared local stack.

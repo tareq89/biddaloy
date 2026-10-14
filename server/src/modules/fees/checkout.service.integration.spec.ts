@@ -7,6 +7,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { APPROVAL_TOKEN_AUDIENCE } from '../auth/jwt-secrets';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { CheckoutService } from './checkout.service';
@@ -148,7 +149,7 @@ describe('CheckoutService (integration)', () => {
         scope,
         jti,
       },
-      { expiresIn: 300 },
+      { expiresIn: 300, audience: APPROVAL_TOKEN_AUDIENCE },
     );
   }
 

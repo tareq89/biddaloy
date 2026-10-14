@@ -6,7 +6,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { queueWorkers } from './common/queue-workers';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { LoggerModule } from 'nestjs-pino';
 import { buildPinoOptions } from './common/logging/pino-options';
@@ -16,6 +16,7 @@ import { buildDatabaseSsl } from './db-ssl';
 import { RedactingTypeOrmLogger } from './db-logger';
 import { TeacherStaffProfileSubscriber } from './modules/staff-profiles/teacher-staff-profile.subscriber';
 import { buildRateLimitTracker } from './common/rate-limit/rate-limit-tracker';
+import { AppThrottlerGuard } from './common/rate-limit/app-throttler.guard';
 import { FailOpenThrottlerStorage } from './common/rate-limit/fail-open-throttler-storage';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -77,6 +78,7 @@ import { AcrAssessment } from './modules/acr/entities/acr-assessment.entity';
 import { AcrScore } from './modules/acr/entities/acr-score.entity';
 import { StaffIncident } from './modules/incidents/entities/staff-incident.entity';
 import { Alert } from './modules/attention/entities/alert.entity';
+import { PlatformAlert } from './modules/health/platform-alerts/platform-alert.entity';
 import { AlertRecipient } from './modules/attention/entities/alert-recipient.entity';
 import { Survey } from './modules/surveys/entities/survey.entity';
 import { SurveyQuestion } from './modules/surveys/entities/survey-question.entity';
@@ -362,6 +364,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             StaffIncident,
             Alert,
             AlertRecipient,
+            PlatformAlert,
             Survey,
             SurveyQuestion,
             SurveyTarget,
@@ -420,7 +423,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
               },
             ),
           ),
-          getTracker: buildRateLimitTracker(jwtService),
+          getTracker: buildRateLimitTracker(jwtService, config),
           // The e2e suite fires many requests in sequence against a shared
           // Redis bucket; without this it goes red intermittently on the
           // default tier's limit, not on anything the tests are checking.
@@ -479,6 +482,6 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     TrialModule,
   ],
   controllers: [AppController],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],
 })
 export class AppModule {}

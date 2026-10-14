@@ -38,6 +38,8 @@ export interface SetPasswordFormProps {
   skipLabel?: string;
   /** Server-rejected rules for the last submitted password (`weakPasswordRules`). */
   failedRules?: PasswordRuleId[] | undefined;
+  /** The server refused the last submitted password as over 72 bytes (`passwordTooLong`). */
+  tooLong?: boolean | undefined;
 }
 
 interface SetPasswordFormValues {
@@ -92,6 +94,7 @@ function PasswordField({
   loading,
   audience,
   failed,
+  tooLong,
 }: {
   id: string;
   label: string;
@@ -101,6 +104,7 @@ function PasswordField({
   /** Set on the new-password field to show the live checklist under it. */
   audience?: PasswordAudience;
   failed?: PasswordRuleId[] | undefined;
+  tooLong?: boolean | undefined;
 }) {
   const { t } = useTranslation('auth');
   const [visible, setVisible] = React.useState(false);
@@ -139,7 +143,12 @@ function PasswordField({
             </Button>
           </div>
           {audience && (
-            <FormPasswordChecklist password={field.value} audience={audience} failed={failed} />
+            <FormPasswordChecklist
+              password={field.value}
+              audience={audience}
+              failed={failed}
+              tooLong={tooLong}
+            />
           )}
           <FormMessage />
         </FormItem>
@@ -159,6 +168,7 @@ export function SetPasswordForm({
   onSkip,
   skipLabel,
   failedRules,
+  tooLong,
 }: SetPasswordFormProps) {
   const { t } = useTranslation('auth');
   // Inside <AuthLayout> the layout owns the card.
@@ -246,6 +256,7 @@ export function SetPasswordForm({
             loading={loading}
             audience={audience}
             failed={password === submitted.current ? failedRules : undefined}
+            tooLong={password === submitted.current ? tooLong : undefined}
           />
           <PasswordField
             id="set-password-confirm"

@@ -1,7 +1,8 @@
 import { resolve } from 'path';
 import { config } from 'dotenv';
-import * as bcrypt from 'bcrypt';
+import { hashPassword } from '../modules/auth/password-hash';
 import { QueryRunner } from 'typeorm';
+import { assertLocalSeedTarget } from './seed-guard';
 import migrationDataSource from '../data-source';
 
 // Entities
@@ -25,11 +26,10 @@ async function dbReset() {
   }
 
   // Additional guard: refuse to run in production unless DB_DESTROY_CONFIRM is explicitly set
-  if (process.env.NODE_ENV === 'production') {
-    console.error(
-      'Refusing to run db:reset in NODE_ENV=production.\n' +
-        'Set NODE_ENV=development or unset it before running this destructive command.',
-    );
+  try {
+    assertLocalSeedTarget(process.env, 'db:reset');
+  } catch (e) {
+    console.error((e as Error).message);
     process.exit(1);
   }
 
@@ -90,7 +90,7 @@ async function dbReset() {
     const schoolRepository = migrationDataSource.getRepository(School);
     const userTenantRepository = migrationDataSource.getRepository(UserTenant);
 
-    const passwordHash = await bcrypt.hash(adminPassword, 10);
+    const passwordHash = await hashPassword(adminPassword);
 
     const admin = userRepository.create({
       email: 'admin@school.com',

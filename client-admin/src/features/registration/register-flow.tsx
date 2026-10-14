@@ -14,6 +14,7 @@ import {
   SocialButtons,
   StepIndicator,
   weakPasswordRules,
+  passwordTooLong,
   type SignInFormError,
 } from '@biddaloy/ui/components';
 import {
@@ -177,8 +178,8 @@ export function RegisterFlow({
     onError: (e) => {
       // 409: a password already exists (set in another tab) — nothing left to do.
       if (e instanceof ApiError && e.statusCode === 409) return passwordDone();
-      // A weak password is shown on the checklist itself, not as a banner.
-      setError(weakPasswordRules(e) ? null : errorKey(e, 'password'));
+      // A weak or too-long password is shown on the checklist itself, not as a banner.
+      setError(weakPasswordRules(e) || passwordTooLong(e) ? null : errorKey(e, 'password'));
     },
   });
 
@@ -271,6 +272,7 @@ export function RegisterFlow({
           loading={savePassword.isPending}
           error={passwordError}
           failedRules={weakPasswordRules(savePassword.error)}
+          tooLong={passwordTooLong(savePassword.error)}
           onSubmit={(password) => savePassword.mutate(password)}
           {...(verified?.password_required === false ? { onSkip: onDone } : {})}
         />

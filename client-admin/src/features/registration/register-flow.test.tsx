@@ -121,6 +121,22 @@ describe('RegisterFlow', () => {
     expect(onDone).not.toHaveBeenCalled();
   });
 
+  it('a password over 72 bytes shows the too-long line, with no generic banner (#2469)', async () => {
+    useServer();
+    server.use(
+      http.post('/api/v1/account/first-password', () =>
+        errorBody(400, { code: 'PASSWORD_TOO_LONG', maxBytes: 72 }),
+      ),
+    );
+    const { onDone, user } = setup();
+    await reachPassword(user);
+    expect(
+      await screen.findByText('Use a shorter password — at most 72 letters, or 24 Bangla letters.'),
+    ).toBeTruthy();
+    expect(screen.queryByText('Something went wrong. Please try again.')).toBeNull();
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
   it('a 409 (password already set in another tab) just continues', async () => {
     useServer();
     server.use(http.post('/api/v1/account/first-password', () => errorBody(409)));

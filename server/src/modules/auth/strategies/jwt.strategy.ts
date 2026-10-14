@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -7,6 +8,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { JwtPayload, UserStatus } from '@biddaloy/shared';
 import { User } from '../../users/entities/user.entity';
 import { AccessTokenDenylistService } from '../access-token-denylist.service';
+import { ACCESS_TOKEN_AUDIENCE, JWT_ALGORITHM, JWT_ISSUER, jwtVerifySecrets } from '../jwt-secrets';
 
 /**
  * Validates the JWT on every authenticated request.
@@ -19,6 +21,7 @@ import { AccessTokenDenylistService } from '../access-token-denylist.service';
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     configService: ConfigService,
+    jwtService: JwtService,
     private readonly denylist: AccessTokenDenylistService,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {
@@ -33,7 +36,26 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: secret,
+      algorithms: [JWT_ALGORITHM],
+      issuer: JWT_ISSUER,
+      audience: ACCESS_TOKEN_AUDIENCE,
+      // Rotation (D21): current secret first, JWT_SECRET_PREVIOUS only when the
+      // token's signature does not match it. Verify-only; signing never uses previous.
+      // Passport does the full verify afterwards, so this only picks the key: no
+      // second verify without a previous secret, and expiry is left to passport
+      // (an expired current-secret token then reports "jwt expired", not a bad signature).
+      // Only a signature mismatch moves to previous; any other failure (wrong alg, iss, aud)
+      // keeps current, so passport reports the real reason.
+      secretOrKeyProvider: (_req, rawJwt, done) => {
+        const [current, previous] = jwtVerifySecrets(configService);
+        if (!previous) return done(null, current);
+        try {
+          jwtService.verify(rawJwt, { secret: current, ignoreExpiration: true });
+          done(null, current);
+        } catch (error) {
+          done(null, (error as Error).message === 'invalid signature' ? previous : current);
+        }
+      },
     });
   }
 

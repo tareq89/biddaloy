@@ -2,11 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ThrottlerStorage } from '@nestjs/throttler';
 import { ThrottlerStorageRecord } from '@nestjs/throttler/dist/throttler-storage-record.interface';
 
+/** Thrown when the rate-limit store (Redis) cannot be reached. */
+export class ThrottlerStorageUnavailableError extends Error {}
+
 /**
- * Wraps the real (Redis-backed) storage and fails open on any error —
- * Redis is already a hard dependency for BullMQ, so an outage here is
- * already an incident; the rate limiter shouldn't turn a Redis blip into
- * a site-wide 500 on top of it.
+ * Wraps the real (Redis-backed) storage. On any error it logs and throws
+ * `ThrottlerStorageUnavailableError`: the storage only reports, `AppThrottlerGuard`
+ * decides — fail closed for `@FailClosedWithoutRedis()` routes, fail open for the rest of the
+ * app (Redis is already a hard dependency for BullMQ, so an outage here is already an
+ * incident; the rate limiter shouldn't turn it into a site-wide 500 on top).
+ * (File and class name kept from when this failed open everywhere.)
  */
 @Injectable()
 export class FailOpenThrottlerStorage implements ThrottlerStorage {
@@ -25,10 +30,10 @@ export class FailOpenThrottlerStorage implements ThrottlerStorage {
       return await this.delegate.increment(key, ttl, limit, blockDuration, throttlerName);
     } catch (error) {
       this.logger.error(
-        `Rate limiter storage unavailable, failing open: ${error instanceof Error ? error.message : String(error)}`,
+        `Rate limiter storage unavailable: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      return { totalHits: 0, timeToExpire: 0, isBlocked: false, timeToBlockExpire: 0 };
+      throw new ThrottlerStorageUnavailableError('Rate limiter storage unavailable');
     }
   }
 }

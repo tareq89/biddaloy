@@ -1,6 +1,9 @@
 import type { INestApplicationContext } from '@nestjs/common';
+import { resolve } from 'path';
+import { config } from 'dotenv';
 import { Between, DataSource, In, type Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import { hashPassword } from '../modules/auth/password-hash';
+import { assertLocalSeedTarget } from './seed-guard';
 import { createScriptAppContext } from './script-app-context';
 import { User } from '../modules/users/entities/user.entity';
 import { School } from '../modules/schools/entities/school.entity';
@@ -125,19 +128,17 @@ import {
 export { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 
 export async function seed() {
-  // [9.11] `ensureAttendanceSeed` writes a fixed, repository-known
-  // `SEED_DEVICE_KEY` onto an ACTIVE, roster-enabled attendance device —
-  // and every other seed account in this file uses one shared password
+  // [9.11] `ensureAttendanceSeed` writes an ACTIVE, roster-enabled
+  // attendance device (a random key per database since #2320, printed once)
+  // — and every other seed account in this file uses one shared password
   // from `SEED_ADMIN_PASSWORD`. None of that is safe against a real
   // database. Checked before booting `AppModule` at all, so a mistaken
   // invocation against production fails immediately rather than after
   // paying for a full Nest bootstrap.
-  if (process.env.NODE_ENV === 'production') {
-    console.error(
-      'Refusing to run the seed script with NODE_ENV=production — it writes ' +
-        'known, repository-visible credentials (SEED_ADMIN_PASSWORD, the fixed ' +
-        'attendance device key) into the database.',
-    );
+  try {
+    assertLocalSeedTarget(process.env, 'seed');
+  } catch (e) {
+    console.error((e as Error).message);
     process.exit(1);
   }
 
@@ -161,7 +162,7 @@ export async function seed() {
     );
     process.exit(1);
   }
-  const passwordHash = await bcrypt.hash(adminPassword, 10);
+  const passwordHash = await hashPassword(adminPassword);
 
   // Ensure the default school exists — every account below is a member of
   // it. `TenantStatusService.platformTenantId()` (used by ContextGuard)
@@ -807,6 +808,9 @@ const isDirectRun =
   typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module;
 
 if (isDirectRun) {
+  // Load the root .env before seed() checks DATABASE_URL, like db-clear and db-reset do. Here,
+  // not at the top of the file, so a spec that imports this file does not pick up a local .env.
+  config({ path: resolve(__dirname, '..', '..', '..', '.env') });
   seed()
     // createScriptAppContext boots the full AppModule (workers off, but its
     // queues and other modules still hold Redis connections that app.close()

@@ -1,6 +1,11 @@
 import { audienceForRoles, type UserRole } from '@biddaloy/shared';
 import { ApiError, clearFirstPasswordGate } from '@biddaloy/ui/api';
-import { SetPasswordForm, weakPasswordRules, type SignInFormError } from '@biddaloy/ui/components';
+import {
+  SetPasswordForm,
+  passwordTooLong,
+  weakPasswordRules,
+  type SignInFormError,
+} from '@biddaloy/ui/components';
 import { setFirstPassword } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation } from '@tanstack/react-query';
@@ -42,7 +47,7 @@ export function FirstPasswordStep({
   });
 
   const error: SignInFormError | null =
-    mutation.error && !weakPasswordRules(mutation.error)
+    mutation.error && !weakPasswordRules(mutation.error) && !passwordTooLong(mutation.error)
       ? { message: t('errors.generic'), tone: 'alert' }
       : null;
 
@@ -55,6 +60,7 @@ export function FirstPasswordStep({
       loading={mutation.isPending}
       error={error}
       failedRules={weakPasswordRules(mutation.error)}
+      tooLong={passwordTooLong(mutation.error)}
       submitLabel={t('setPassword.submit')}
       {...(!passwordRequired
         ? { onSkip: onDone, skipLabel: t('setPassword.skip') }

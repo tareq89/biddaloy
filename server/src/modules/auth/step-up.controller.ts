@@ -8,6 +8,7 @@ import { CurrentTenant } from './decorators/current-tenant.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { requestContext } from '../../common/request-context.util';
+import { FailClosedWithoutRedis } from '../../common/rate-limit/app-throttler.guard';
 import { StepUpService, StepUpOtpRequestResult } from './step-up.service';
 import { StepUpOtpRequestDto, StepUpVerifyDto, StepUpApprovalResponse } from './dto/step-up.dto';
 
@@ -20,6 +21,7 @@ import { StepUpOtpRequestDto, StepUpVerifyDto, StepUpApprovalResponse } from './
  */
 @ApiTags('auth')
 @ApiTenantAuth()
+@FailClosedWithoutRedis()
 @Controller('auth/step-up')
 @UseGuards(AuthGuard('jwt'), ContextGuard)
 export class StepUpController {

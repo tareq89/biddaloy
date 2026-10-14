@@ -26,8 +26,9 @@ flowchart LR
 - **`GET /health`** — liveness. Cheap, no dependency checks. Never fails
   because Postgres or Redis is down.
 - **`GET /health/ready`** — readiness. Checks Postgres, Redis, the
-  communications queue, and the attention engine heartbeat (`stale` makes the
-  status `degraded`, never `fail`). Token-protected, blocked at nginx from outside the
+  communications queue, and the attention engine heartbeat. Only Postgres
+  down is `fail` (503); Redis, the queue or a stale engine is `degraded` (200),
+  so a Redis outage does not take the instance out of the load balancer. Token-protected, blocked at nginx from outside the
   cluster — see [§3.2](#32-readiness-failing).
 
 ## 2. Alert thresholds (configure these in Sentry / your uptime tool)
@@ -36,7 +37,7 @@ flowchart LR
 | ------------------------------------ | ----------------------------------------- | ------------------------------------------------------------ |
 | 5xx rate                             | > 1% of requests over 5 min               | Sentry alert rule on the server project                      |
 | `communications job stalled` message | any occurrence                            | Sentry alert rule (issue alert, not metric)                  |
-| Readiness failing                    | `/health/ready` returns 503 for > 2 min   | Uptime monitor hitting `/health/ready` with `X-Health-Token` |
+| Readiness failing (Postgres down)    | `/health/ready` returns 503 for > 2 min   | Uptime monitor hitting `/health/ready` with `X-Health-Token` |
 | Attention cron check-in missed       | > 15 min                                  | Sentry Cron Monitor (5-min schedule, 15-min margin)          |
 | Engine stale reported by readiness   | `checks.attention = "stale"` for > 15 min | Uptime monitor body match on `/health/ready`                 |
 
@@ -63,9 +64,11 @@ anything that can reach the token-gated route).
 
 1. **`db: fail`** — check the `db` container/instance is up and accepting
    connections; check `DATABASE_URL` hasn't rotated.
-2. **`redis: fail`** — check the `redis` container/instance; check
-   `REDIS_URL`. BullMQ (the communications queue) and the rate limiter both
-   depend on this — expect login/throttling to degrade too.
+2. **`redis: fail`** — status is `degraded` (HTTP 200), not `fail`. Check the
+   `redis` container/instance and `REDIS_URL`. BullMQ (the communications
+   queue) and the rate limiter depend on it; see "When Redis is down" in
+   [`08-security.md`](08-security.md). The uptime monitor will not page for
+   this: the platform alert covers a Redis outage, see [§3.6](#36-platform-alert-redis-down).
 3. **`queue: fail`** — Redis is reachable but the queue itself can't be
    read; check for a BullMQ version mismatch or a stuck connection pool.
 
@@ -162,18 +165,63 @@ ranges are not exempt.
 Rollback: set `TRUSTED_PROXY_CIDRS=` (empty) and `docker compose up -d nginx`.
 Empty means no CDN trust at all, which is how the stack behaved before.
 
+### 3.6 Platform alert: Redis down
+
+Redis down means sign-in is closed (75.18), but `/health/ready` is only `degraded`, so an uptime
+monitor does not page. The API raises its own alert, kept in Postgres so it works with Redis gone.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Healthy
+  Healthy --> Failing: probe fails (count 1..2, in memory)
+  Failing --> Healthy: probe ok (count = 0)
+  Failing --> Open: 3rd failure in a row - insert row, SMS now
+  Open --> Open: probe fails - SMS again if last SMS is over 1 h old
+  Open --> Healthy: first ok probe - set cleared_at, one recovered SMS
+```
+
+Order of events (a probe runs every 30 s, so about 90 s after Redis dies):
+
+1. A `platform_alerts` row `REDIS_DOWN` opens (at most one open row, enforced by a unique index).
+2. Every verified phone of a platform SUPER_ADMIN (a SUPER_ADMIN of the platform tenant) gets a
+   text, then another every hour. With no platform tenant (production without `PLATFORM_TENANT_ID`)
+   only `PLATFORM_ALERT_PHONES` is texted, never a school's SUPER_ADMIN:
+   `[production] ALERT: Redis is down since 08:02 UTC. Sign-in is closed. Repeats hourly until fixed.`
+3. `GET /api/v1/platform/alerts` (platform SUPER_ADMIN only; a school's SUPER_ADMIN gets 403) returns the open row for the banner (75.35).
+4. The first good probe clears the row and sends one text:
+   `[production] RECOVERED: Redis is back at 08:40 UTC after 38 min. Sign-in is open again.`
+
+Limit: a platform SUPER_ADMIN who is already signed in keeps seeing the banner for the whole
+outage, because `POST /auth/refresh` keeps working without Redis (refresh tokens are DB rows). One
+who is _not_ signed in cannot sign in to see it, since sign-in answers 503. The SMS is their channel.
+
+Limit: with several API instances in a partial partition (one reaches Redis, another does not), the
+alert re-opens and closes about every 2 minutes, so ALERT and RECOVERED texts repeat.
+
+**Confirm recovery:** `GET /api/v1/platform/alerts` returns `{ "alerts": [] }` and `/health/ready`
+shows `"redis": "ok"`.
+
+The loop runs in the API process only (not in scripts, not under `NODE_ENV=test`), uses no BullMQ,
+and sends SMS straight to the provider with the platform's own key, not a school's credits. With no
+`PLATFORM_SMS_API_KEY` it logs `platform alert SMS not configured; would text N phone(s): ...`.
+
 ## 4. Env var reference
 
-| Variable                    | Required in prod?      | What it does                                                                    |
-| --------------------------- | ---------------------- | ------------------------------------------------------------------------------- |
-| `SENTRY_DSN`                | No (recommended)       | Server Sentry project. Unset = server Sentry is a no-op.                        |
-| `SENTRY_ENVIRONMENT`        | No                     | Defaults to `NODE_ENV`.                                                         |
-| `SENTRY_RELEASE`            | No                     | Tags events with a release/version string.                                      |
-| `SENTRY_TRACES_SAMPLE_RATE` | No                     | Fraction of requests traced, default `0.1`.                                     |
-| `HEALTH_TOKEN`              | No (recommended)       | Required to call `/health/ready` at all — unset means that route 404s.          |
-| `LOG_LEVEL`                 | No                     | Pino's log level; see `.env.example`.                                           |
-| `ATTENTION_SENTRY_CRON_URL` | No (recommended)       | Sentry Cron Monitor check-in URL for attention sweeps; unset = no check-ins.    |
-| `TRUSTED_PROXY_CIDRS`       | No (only behind a CDN) | nginx only. CDN ranges whose `CF-Connecting-IP` is trusted; empty = off (§3.5). |
+| Variable                    | Required in prod?      | What it does                                                                       |
+| --------------------------- | ---------------------- | ---------------------------------------------------------------------------------- |
+| `SENTRY_DSN`                | No (recommended)       | Server Sentry project. Unset = server Sentry is a no-op.                           |
+| `SENTRY_ENVIRONMENT`        | No                     | Defaults to `NODE_ENV`.                                                            |
+| `SENTRY_RELEASE`            | No                     | Tags events with a release/version string.                                         |
+| `SENTRY_TRACES_SAMPLE_RATE` | No                     | Fraction of requests traced, default `0.1`.                                        |
+| `HEALTH_TOKEN`              | No (recommended)       | Required to call `/health/ready` at all — unset means that route 404s.             |
+| `LOG_LEVEL`                 | No                     | Pino's log level; see `.env.example`.                                              |
+| `ATTENTION_SENTRY_CRON_URL` | No (recommended)       | Sentry Cron Monitor check-in URL for attention sweeps; unset = no check-ins.       |
+| `TRUSTED_PROXY_CIDRS`       | No (only behind a CDN) | nginx only. CDN ranges whose `CF-Connecting-IP` is trusted; empty = off (§3.5).    |
+| `PLATFORM_SMS_PROVIDER`     | No (for alert SMS)     | `greenweb` (default) or `mimsms`. Provider for platform alert texts (§3.6).        |
+| `PLATFORM_SMS_API_KEY`      | No (recommended)       | Unset = alert SMS is only logged, never sent.                                      |
+| `PLATFORM_SMS_SENDER_ID`    | With `mimsms`          | Sender id for MimSMS.                                                              |
+| `PLATFORM_SMS_API_URL`      | No                     | Overrides the provider's send URL.                                                 |
+| `PLATFORM_ALERT_PHONES`     | No                     | Comma-separated fallback phones, used only when no SUPER_ADMIN has a verified one. |
 
 Smoke-check variables (read by `scripts/smoke-post-deploy.mjs`, see §7). They
 are **operator machine only, never in the app's env**:
@@ -353,11 +401,11 @@ SMOKE_SUPER_ADMIN_EMAIL=superadmin@biddaloy.test SMOKE_SUPER_ADMIN_PASSWORD=$SEE
 
 ### What a FAIL means
 
-| Failing line                                | Go to                                                                           |
-| ------------------------------------------- | ------------------------------------------------------------------------------- |
-| `GET /api/health`                           | [§3.1](#31-5xx-spike)                                                           |
-| `POST /api/v1/auth/login`                   | If Redis is down, `/auth/*` is closed on purpose: [§3.2](#32-readiness-failing) |
-| `GET /api/health/ready`                     | [§3.2](#32-readiness-failing)                                                   |
-| Any line ending `timeout`                   | The API is hung or unreachable in time: [§3.1](#31-5xx-spike)                   |
-| Any line ending `network error`             | Nothing answered at the base URL: check DNS, nginx and that the app is up       |
-| A read (`students`, `fees/dues`, `schools`) | [§3.1](#31-5xx-spike) for 5xx; a 401/403 means a smoke account lost its role    |
+| Failing line                                | Go to                                                                         |
+| ------------------------------------------- | ----------------------------------------------------------------------------- |
+| `GET /api/health`                           | [§3.1](#31-5xx-spike)                                                         |
+| `POST /api/v1/auth/login`                   | If Redis is down, sign-in is closed on purpose: [§3.2](#32-readiness-failing) |
+| `GET /api/health/ready`                     | [§3.2](#32-readiness-failing)                                                 |
+| Any line ending `timeout`                   | The API is hung or unreachable in time: [§3.1](#31-5xx-spike)                 |
+| Any line ending `network error`             | Nothing answered at the base URL: check DNS, nginx and that the app is up     |
+| A read (`students`, `fees/dues`, `schools`) | [§3.1](#31-5xx-spike) for 5xx; a 401/403 means a smoke account lost its role  |

@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { ApprovalScope } from '@biddaloy/shared';
+import { APPROVAL_TOKEN_AUDIENCE, verifyWithRotation } from '../jwt-secrets';
 import { ApprovalRequiredException } from '../../../common/errors/approval-required.exception';
 import { REQUIRE_APPROVAL_KEY } from '../decorators/require-approval.decorator';
 
@@ -80,9 +81,13 @@ export class ApprovalService {
 
     let payload: ApprovalTokenPayload;
     try {
-      payload = await this.jwtService.verifyAsync<ApprovalTokenPayload>(token, {
-        secret: this.configService.get<string>('JWT_SECRET'),
-      });
+      payload = await verifyWithRotation<ApprovalTokenPayload>(
+        this.jwtService,
+        token,
+        this.configService,
+        // An access token (aud biddaloy:access) is never an approval, whatever its `typ`.
+        { audience: APPROVAL_TOKEN_AUDIENCE },
+      );
     } catch {
       // Expired, malformed, or wrongly-signed — same 403 as "missing".
       throw new ApprovalRequiredException(scope);

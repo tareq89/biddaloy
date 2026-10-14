@@ -13,6 +13,7 @@ import {
   SetPasswordForm,
   Skeleton,
   weakPasswordRules,
+  passwordTooLong,
 } from '@biddaloy/ui/components';
 import type { SignInFormError } from '@biddaloy/ui/components';
 import { activate } from '@biddaloy/ui/hooks';
@@ -70,6 +71,9 @@ function buildActivateError(error: unknown, t: TFunction<'auth'>): SignInFormErr
     // banner needed for this case.
     return null;
   }
+
+  // The password checklist shows which rule failed; no generic banner on top.
+  if (weakPasswordRules(error) || passwordTooLong(error)) return null;
 
   return { message: t('errors.generic'), tone: 'alert' };
 }
@@ -301,6 +305,7 @@ function ActivatePage() {
           'staff'
         }
         failedRules={weakPasswordRules(mutation.error)}
+        tooLong={passwordTooLong(mutation.error)}
       />
     </AuthLayout>
   );

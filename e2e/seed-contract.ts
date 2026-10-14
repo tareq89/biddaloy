@@ -27,13 +27,6 @@ export type SeedRole = keyof typeof SEED_ROLE_EMAILS;
 
 export const SEED_ROLES = Object.keys(SEED_ROLE_EMAILS) as SeedRole[];
 
-/** [9.11] The seeded ACTIVE attendance device's key — fixed, not
- * generated, so a device-integration e2e test can authenticate without a
- * setup step of its own. Obviously fake (`bd_dev_seed_...`), and
- * `seed.util.spec.ts` asserts this matches what `seed.util.ts` actually
- * stores the hash of. */
-export const SEED_DEVICE_KEY = 'bd_dev_seed_0000000000000000000000000000';
-
 /** [9.11] Roll 1's one seeded ABSENT day in `attendance_records` — roll 1
  * is `parent@biddaloy.test`'s linked child (see `seed.util.ts`'s
  * `ensureDemoStudents` comment), so `journeys/attendance.spec.ts` reads
@@ -80,7 +73,7 @@ export const SEED_CALENDAR_EVENT_NAMES = {
 
 /** [34.2.4] `ensureProgramsDemoSeed`/`ensureProgramParticipationDemoSeed` in
  * `seed.util.ts` seed a "Hifz" program (and a "Debate club" one) with real
- * `id`s — generated, not fixed, so unlike `SEED_DEVICE_KEY` above there is
+ * `id`s — generated, not fixed, so there is
  * no id to duplicate here. Name only, the same "expose what's stable, look
  * up the rest at runtime" convention `ensureGradingScale` in `e2e/api.ts`
  * uses for the seeded grading scale. `programs.spec.ts` finds the program

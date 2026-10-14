@@ -13,6 +13,7 @@ import {
   SetPasswordForm,
   type SignInFormError,
   weakPasswordRules,
+  passwordTooLong,
 } from '@biddaloy/ui/components';
 import { resetPassword } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -52,6 +53,9 @@ function buildResetError(error: unknown, t: TFunction<'auth'>): SignInFormError 
     // Handled by the caller switching to the "expired" card.
     return null;
   }
+
+  // The password checklist shows which rule failed; no generic banner on top.
+  if (weakPasswordRules(error) || passwordTooLong(error)) return null;
 
   return { message: t('errors.generic'), tone: 'alert' };
 }
@@ -122,6 +126,7 @@ function ResetPasswordPage() {
         // the family rules it accepts these too; `failedRules` covers the rest.
         audience="staff"
         failedRules={weakPasswordRules(mutation.error)}
+        tooLong={passwordTooLong(mutation.error)}
         submitLabel={t('setPassword.submit')}
       />
     </AuthLayout>

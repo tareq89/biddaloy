@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -20,10 +20,22 @@ import { AuditAction, UserRole, UserStatus } from '@biddaloy/shared';
 vi.mock('bcrypt', () => {
   const mockCompare = vi.fn();
   const mockHash = vi.fn();
+  // password-hash.ts computes its dummy hash at import and reads the cost with getRounds.
+  const mockHashSync = vi.fn(
+    () => '$2b$12$dummydummydummydummydummydummydummydummydummydummydummy',
+  );
+  const mockGetRounds = vi.fn(() => 12);
   return {
-    default: { compare: mockCompare, hash: mockHash },
+    default: {
+      compare: mockCompare,
+      hash: mockHash,
+      hashSync: mockHashSync,
+      getRounds: mockGetRounds,
+    },
     compare: mockCompare,
     hash: mockHash,
+    hashSync: mockHashSync,
+    getRounds: mockGetRounds,
   };
 });
 
@@ -226,6 +238,79 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
+    // [75.11] A cheaper stored hash is upgraded once the password is proven; never on failure.
+    it('rehashes a cost-10 hash to the current cost after a good login', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      (bcrypt.getRounds as any).mockReturnValue(10);
+      // verifyPassword's timing pads also call hash (at cost 10 and 11).
+      (bcrypt.hash as any).mockImplementation(async (_p: string, cost: number) =>
+        cost === 12 ? 'new-cost-12-hash' : 'pad',
+      );
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+
+      await service.login('admin@test.com', 'password123');
+
+      // [75.11 review r1] the legacy check is padded to cost-12 time (routed via verifyPassword).
+      expect((bcrypt.hash as any).mock.calls.map((c: unknown[]) => c[1])).toEqual([10, 11, 12]);
+      // The old hash is in the WHERE, so a concurrent password change wins.
+      expect(mockUserRepo.update).toHaveBeenCalledWith(
+        { id: mockUser.id, password_hash: mockUser.password_hash },
+        { password_hash: 'new-cost-12-hash' },
+      );
+      (bcrypt.getRounds as any).mockReturnValue(12);
+      (bcrypt.hash as any).mockReset();
+    });
+
+    // [75.11 review r1, F-2319-2] the rehash is best effort.
+    it('still signs in when the rehash write fails', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      (bcrypt.getRounds as any).mockReturnValue(10);
+      (bcrypt.hash as any).mockResolvedValue('new-cost-12-hash');
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+      mockUserRepo.update.mockRejectedValueOnce(new Error('lock timeout'));
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+
+      const result = await service.login('admin@test.com', 'password123');
+
+      expect(result.access_token).toBe('test-jwt-token');
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('password rehash skipped'));
+      (bcrypt.getRounds as any).mockReturnValue(12);
+      (bcrypt.hash as any).mockReset();
+      warn.mockRestore();
+    });
+
+    it('does not rehash when the stored hash is already at the current cost', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(true);
+      mockUserTenantRepo.find.mockResolvedValue(mockMemberships);
+
+      await service.login('admin@test.com', 'password123');
+
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+      expect(mockUserRepo.update).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ password_hash: expect.anything() }),
+      );
+    });
+
+    it('never rehashes after a failed login', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as any).mockResolvedValue(false);
+      (bcrypt.getRounds as any).mockReturnValue(10);
+
+      await expect(service.login('admin@test.com', 'wrong')).rejects.toThrow();
+
+      // Timing pads hash at cost 10/11; a rehash would hash at 12.
+      expect(bcrypt.hash).not.toHaveBeenCalledWith(expect.anything(), 12);
+      expect(mockUserRepo.update).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ password_hash: expect.anything() }),
+      );
+      (bcrypt.getRounds as any).mockReturnValue(12);
+    });
+
     it('should return access_token and memberships on successful login', async () => {
       mockUserRepo.findOne.mockResolvedValue(mockUser);
       (bcrypt.compare as any).mockResolvedValue(true);
@@ -241,14 +326,17 @@ describe('AuthService', () => {
         role: UserRole.ADMIN,
         name: 'Greenview School',
       });
-      expect(mockJwtService.sign).toHaveBeenCalledWith({
-        sub: 'user-1',
-        email: 'admin@test.com',
-        phone: null,
-        memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' }],
-        jti: expect.any(String),
-        iat_ms: expect.any(Number),
-      });
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        {
+          sub: 'user-1',
+          email: 'admin@test.com',
+          phone: null,
+          memberships: [{ tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' }],
+          jti: expect.any(String),
+          iat_ms: expect.any(Number),
+        },
+        { audience: 'biddaloy:access' },
+      );
     });
 
     // #2297: login/activation/reset share startSession, which also writes the
@@ -269,6 +357,7 @@ describe('AuthService', () => {
 
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ iat_ms: 1_000_000 }),
+        { audience: 'biddaloy:access' },
       );
       nowSpy.mockRestore();
     });
@@ -650,6 +739,7 @@ describe('AuthService', () => {
 
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ iat_ms: 1_000_000 }),
+        { audience: 'biddaloy:access' },
       );
       nowSpy.mockRestore();
     });
@@ -671,6 +761,7 @@ describe('AuthService', () => {
 
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ iat_ms: 1_000_000 }),
+        { audience: 'biddaloy:access' },
       );
       nowSpy.mockRestore();
     });
@@ -826,7 +917,7 @@ describe('AuthService', () => {
       );
 
       // The new hash is what gets persisted — cost 10, matching UsersService.create.
-      expect(bcrypt.hash).toHaveBeenCalledWith('New-password1!', 10);
+      expect(bcrypt.hash).toHaveBeenCalledWith('New-password1!', 12);
       expect(mockUserRepo.update).toHaveBeenCalledWith(
         { id: 'user-1' },
         expect.objectContaining({ password_hash: '$2b$10$brand-new-hash' }),

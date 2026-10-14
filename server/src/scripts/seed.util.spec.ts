@@ -86,7 +86,6 @@ import {
   SEED_ACADEMIC_TERM_NAMES,
   SEED_ASSISTANT_TEACHER_EMAIL,
   SEED_CALENDAR_EVENT_NAMES,
-  SEED_DEVICE_KEY as E2E_SEED_DEVICE_KEY,
   SEED_PASSWORD_ENV,
   SEED_PUBLIC_HOLIDAY_SAMPLE_NAME,
   SEED_PUBLIC_HOLIDAY_SETS,
@@ -348,10 +347,6 @@ describe('e2e seed contract', () => {
     // seed.ts reads process.env.SEED_ADMIN_PASSWORD; the contract must
     // point E2E fixtures at the same variable.
     expect(SEED_PASSWORD_ENV).toBe('SEED_ADMIN_PASSWORD');
-  });
-
-  it('[9.11] matches the literal device key seed.util.ts hashes and stores', () => {
-    expect(E2E_SEED_DEVICE_KEY).toBe(SEED_DEVICE_KEY);
   });
 
   it('[9.11] matches the literal absent date seed.util.ts actually seeds for roll 1', () => {
@@ -920,7 +915,14 @@ describe('ensureAttendanceSeed', () => {
 
     // 26 working days in ATTENDANCE_SEED_MONTH (31 days − 4 Fridays − 1
     // non-working holiday) × 3 students.
-    expect(result).toEqual({ subjects: 5, holidays: 3, sessions: 26, records: 78, devices: 2 });
+    expect(result).toEqual({
+      subjects: 5,
+      holidays: 3,
+      sessions: 26,
+      records: 78,
+      devices: 2,
+      activeDeviceCreated: true,
+    });
   });
 
   it('is idempotent: a second run against an already-seeded database creates nothing further', async () => {
@@ -949,7 +951,14 @@ describe('ensureAttendanceSeed', () => {
 
     const second = await ensureAttendanceSeed(repos, BASE_PARAMS);
 
-    expect(second).toEqual({ subjects: 0, holidays: 0, sessions: 0, records: 0, devices: 0 });
+    expect(second).toEqual({
+      subjects: 0,
+      holidays: 0,
+      sessions: 0,
+      records: 0,
+      devices: 0,
+      activeDeviceCreated: false,
+    });
   });
 
   it('gives exactly one of the three seeded students a record set that would compute below 75%', async () => {
@@ -1060,7 +1069,7 @@ describe('ensureAttendanceSeed', () => {
     expect(streaks[0]!.length).toBeGreaterThanOrEqual(15);
   });
 
-  it("stores the ACTIVE device's key as the SHA-256 hash of SEED_DEVICE_KEY, matching the e2e contract", async () => {
+  it("stores the ACTIVE device's key as the SHA-256 hash of SEED_DEVICE_KEY by default", async () => {
     const repos = attendanceRepos();
     emptyDatabase(repos);
 
@@ -1071,7 +1080,37 @@ describe('ensureAttendanceSeed', () => {
       .mock.calls.map(([payload]) => payload as Partial<AttendanceDevice>);
     const active = devices.find((d) => d.status === 'ACTIVE');
     expect(active?.token_hash).toBe(hashDeviceKey(SEED_DEVICE_KEY));
-    expect(SEED_DEVICE_KEY).toBe(E2E_SEED_DEVICE_KEY);
+  });
+
+  it('reports activeDeviceCreated=false when only the revoked device is inserted', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+    // The ACTIVE device already exists; the revoked one does not.
+    vi.mocked(repos.attendanceDeviceRepository.findOne).mockImplementation(async (opts) =>
+      (opts as { where: { name: string } }).where.name === 'Seed Front-Gate Scanner'
+        ? ({} as AttendanceDevice)
+        : null,
+    );
+
+    const result = await ensureAttendanceSeed(repos, { ...BASE_PARAMS, deviceKey: 'bd_x_9999' });
+
+    expect(result.devices).toBe(1);
+    expect(result.activeDeviceCreated).toBe(false);
+  });
+
+  it('uses params.deviceKey for the ACTIVE device when given', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+    const deviceKey = 'bd_random_key_abcd1234';
+
+    await ensureAttendanceSeed(repos, { ...BASE_PARAMS, deviceKey });
+
+    const active = vi
+      .mocked(repos.attendanceDeviceRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<AttendanceDevice>)
+      .find((d) => d.status === 'ACTIVE');
+    expect(active?.token_hash).toBe(hashDeviceKey(deviceKey));
+    expect(active?.token_last4).toBe('1234');
   });
 
   it('produces the same (date, student, status) rows across two runs on an empty database (determinism)', async () => {

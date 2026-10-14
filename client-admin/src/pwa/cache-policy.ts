@@ -51,6 +51,10 @@ const AUTH_PATH_PREFIX = '/api/v1/auth/';
  * anyway, so caching it buys nothing. */
 const PUBLIC_PATH_PREFIX = '/api/v1/public/';
 
+/** [75.35] The live platform alert (Redis down). An offline replay would show a
+ * stale "open" or a stale "clear", so it is never cached. */
+const PLATFORM_ALERTS_PATH = '/api/v1/platform/alerts';
+
 export const TENANT_HEADER = 'X-Tenant-ID';
 
 /**
@@ -90,7 +94,11 @@ export function isCacheableApiRequest({ url, request, sameOrigin = true }: ApiRo
   if (!sameOrigin) return false;
   if (request.method !== 'GET') return false;
   if (!url.pathname.startsWith(API_PATH_PREFIX)) return false;
-  return !url.pathname.startsWith(AUTH_PATH_PREFIX) && !url.pathname.startsWith(PUBLIC_PATH_PREFIX);
+  return (
+    !url.pathname.startsWith(AUTH_PATH_PREFIX) &&
+    !url.pathname.startsWith(PUBLIC_PATH_PREFIX) &&
+    url.pathname !== PLATFORM_ALERTS_PATH
+  );
 }
 
 /** Vite emits every built chunk into `/assets/` with a content hash in

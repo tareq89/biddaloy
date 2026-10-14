@@ -53,6 +53,8 @@ export interface ChangePasswordFormProps {
   audience?: PasswordAudience;
   /** Server-rejected rules for the last submitted password (`weakPasswordRules`). */
   failedRules?: PasswordRuleId[] | undefined;
+  /** The server refused the last submitted password as over 72 bytes (`passwordTooLong`). */
+  tooLong?: boolean | undefined;
 }
 
 export function ChangePasswordForm({
@@ -61,6 +63,7 @@ export function ChangePasswordForm({
   serverError = null,
   audience = 'staff',
   failedRules,
+  tooLong,
 }: ChangePasswordFormProps) {
   const { t } = useTranslation('portal');
   const { t: tAuth } = useTranslation('auth');
@@ -176,6 +179,7 @@ export function ChangePasswordForm({
                     password={field.value}
                     audience={audience}
                     failed={field.value === submitted.current ? failedRules : undefined}
+                    tooLong={field.value === submitted.current ? tooLong : undefined}
                   />
                   <FormMessage />
                 </FormItem>

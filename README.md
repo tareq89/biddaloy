@@ -159,8 +159,12 @@ On a fresh database, create the tables and the admin user once:
 
 ```bash
 yarn workspace @biddaloy/server migration:run
-SEED_ADMIN_PASSWORD=<pick-one> yarn workspace @biddaloy/server seed
+NODE_ENV=development SEED_ADMIN_PASSWORD=<pick-one> yarn workspace @biddaloy/server seed
 ```
+
+The seed reads `DATABASE_URL` from the root `.env`. It only runs against a database on
+localhost, and prints the attendance device key once. `NODE_ENV=development` is needed because
+`.env.example` sets `NODE_ENV=production`, and the seed refuses to run in production.
 
 Then run the server and whichever client(s) you're working on, each in its own
 terminal:
@@ -476,7 +480,7 @@ createdb -h 127.0.0.1 -U postgres betonboi_e2e   # once, if it doesn't exist yet
 DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/betonboi_e2e \
   yarn workspace @biddaloy/server migration:run
 DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/betonboi_e2e \
-  SEED_ADMIN_PASSWORD=<password> yarn workspace @biddaloy/server seed
+  NODE_ENV=development SEED_ADMIN_PASSWORD=<password> yarn workspace @biddaloy/server seed
 ```
 
 Then start the server itself against that same database before running

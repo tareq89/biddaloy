@@ -30,6 +30,7 @@ import {
   ContactChangeRequestResult,
 } from '../account-access/contact-change.service';
 import { requestContext } from '../../common/request-context.util';
+import { FailClosedWithoutRedis } from '../../common/rate-limit/app-throttler.guard';
 import {
   CreateUserDto,
   UpdateUserDto,
@@ -354,6 +355,7 @@ export class UserController {
    */
   @AuthenticatedOnly()
   @Post('users/me/contact-change')
+  @FailClosedWithoutRedis()
   @HttpCode(202)
   @Throttle({ default: SETTINGS_RATE_LIMIT })
   @Roles(...SELF_SERVICE_ROLES)

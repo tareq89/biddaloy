@@ -11,7 +11,6 @@ import { PushSubscriptionsService } from '../push/push-subscriptions.service';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, FindOptionsOrder, Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import { assertPasswordAllowedForUser } from './password-policy';
 import { randomUUID } from 'crypto';
 import { User } from '../users/entities/user.entity';
@@ -38,23 +37,12 @@ import { SessionCutoffService } from './session-cutoff.service';
 import { AccessTokenDenylistService } from './access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
 import { SessionDto } from './dto/session.dto';
+import { ACCESS_TOKEN_AUDIENCE } from './jwt-secrets';
+import { hashPassword, needsRehash, verifyPassword } from './password-hash';
 
 export interface AuthResult extends LoginResponse {
   refreshToken: IssuedRefreshToken;
 }
-
-// Precomputed bcrypt hash of an arbitrary, non-secret string — never the
-// hash of a real password. Used as the compare target when no user is
-// found, so validateUser always pays bcrypt's cost. Without this, "no such
-// user" returns near-instantly while "wrong password" takes ~bcrypt-cost
-// time — a timing oracle that lets an attacker enumerate valid identifiers
-// without ever seeing a different response body.
-const DUMMY_PASSWORD_HASH = '$2b$10$rGV9zEDpgnc/spXBlHqA9O5IjpBvndIyZE78fIhV8ZV4.5GAUfPJ.';
-
-// Matches the cost factor used at the only other place a password hash is
-// created (UsersService.create) — a user's hash must not silently get
-// weaker or slower depending on which endpoint last wrote it.
-const BCRYPT_COST = 10;
 
 // "Earliest membership wins" (#356) for `getUserMemberships`: its
 // `memberships[0]` is the session's default tenant, preselected by
@@ -100,8 +88,8 @@ export class AuthService {
       where: [{ email: emailOrPhone }, { phone: emailOrPhone }],
     });
 
-    const hashToCompare = user?.password_hash ?? DUMMY_PASSWORD_HASH;
-    const isPasswordValid = await bcrypt.compare(password, hashToCompare);
+    // Same bcrypt cost for an unknown user, a passwordless one and a legacy hash.
+    const isPasswordValid = await verifyPassword(password, user?.password_hash);
 
     if (!user || !user.password_hash || !isPasswordValid) {
       return null;
@@ -149,6 +137,22 @@ export class AuthService {
     }
 
     await this.loginAttempts.reset(identifier);
+
+    // Upgrade a cheaper stored hash now that the password is proven. The old-hash
+    // condition means a concurrent password change always wins. Best effort: a failed
+    // write must never fail a proven-good sign-in (the next sign-in retries it).
+    if (user.password_hash && needsRehash(user.password_hash)) {
+      try {
+        await this.userRepository.update(
+          { id: user.id, password_hash: user.password_hash },
+          { password_hash: await hashPassword(password) },
+        );
+      } catch (error) {
+        this.logger.warn(
+          `password rehash skipped for user ${user.id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
 
     // Update last login timestamp. A targeted update (not save(user)) avoids
     // clobbering a password hash changed concurrently by another request.
@@ -431,10 +435,7 @@ export class AuthService {
     // A null hash (accounts created without a password — see
     // UsersService.create) can never match; comparing against the dummy
     // hash anyway keeps the bcrypt cost paid in every branch.
-    const currentMatches = await bcrypt.compare(
-      dto.current_password,
-      user.password_hash ?? DUMMY_PASSWORD_HASH,
-    );
+    const currentMatches = await verifyPassword(dto.current_password, user.password_hash);
     if (!user.password_hash || !currentMatches) {
       // 403, deliberately NOT 401. The shared frontend axios client
       // (ui/src/api/client.ts) treats any 401 as an expired access token: it
@@ -458,7 +459,7 @@ export class AuthService {
     // the path that produces the token and the refresh cookie. A targeted
     // update also avoids `save()` writing back every column that was read at
     // the top of this method.
-    const password_hash = await bcrypt.hash(dto.new_password, BCRYPT_COST);
+    const password_hash = await hashPassword(dto.new_password);
     // Re-read under a row lock inside the same transaction that revokes
     // refresh tokens: without this, a password change racing a concurrent
     // change on the same account could update the hash after the other
@@ -600,6 +601,6 @@ export class AuthService {
       // standard `iat` is whole seconds). Standard `iat`/`exp` stay untouched.
       iat_ms: issuedAtMs,
     };
-    return this.jwtService.sign(payload);
+    return this.jwtService.sign(payload, { audience: ACCESS_TOKEN_AUDIENCE });
   }
 }

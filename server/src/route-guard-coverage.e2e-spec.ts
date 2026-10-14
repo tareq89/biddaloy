@@ -13,6 +13,7 @@ import {
   JWT_AUTH_GUARD,
   RequestMethodName,
 } from '@test/helpers/route-path.helper';
+import { REDIS_OUTAGE_CONTROLLERS } from '@test/helpers/redis-outage-routes';
 
 /**
  * Regression coverage for the guard stack itself (#31): turns "remember to
@@ -155,6 +156,23 @@ describe('Route guard coverage (regression)', () => {
     }
 
     expect(violations).toEqual([]);
+  });
+
+  // app-throttler.guard.spec only inspects the controllers it is given. A new /auth* or
+  // /account* controller (say auth/passkeys) has to be added there, so each of its routes
+  // is classified as fail-closed or fail-open for a Redis outage (75.18 review r2, F14).
+  it('classifies every /auth* and /account* controller for a Redis outage', () => {
+    const missing = discoveryService
+      .getControllers()
+      .map(({ metatype }) => metatype)
+      .filter((metatype): metatype is NonNullable<typeof metatype> => !!metatype)
+      .filter((metatype) =>
+        /^\/?(auth|account)(\/|$)/.test(Reflect.getMetadata(PATH_METADATA, metatype) ?? ''),
+      )
+      .filter((metatype) => !REDIS_OUTAGE_CONTROLLERS.includes(metatype))
+      .map((metatype) => metatype.name);
+
+    expect(missing).toEqual([]);
   });
 
   it('keeps every allowlist entry pointed at a route that still exists', () => {

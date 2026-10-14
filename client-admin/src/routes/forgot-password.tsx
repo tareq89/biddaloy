@@ -31,6 +31,7 @@ import {
   SetPasswordForm,
   type SignInFormError,
   weakPasswordRules,
+  passwordTooLong,
 } from '@biddaloy/ui/components';
 import { resetPassword } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -75,6 +76,9 @@ function buildResetError(error: unknown, t: TFunction<'auth'>): SignInFormError 
   if (error instanceof ApiError && error.statusCode === 401) {
     return { message: t('forgot.errors.invalidCode'), tone: 'alert' };
   }
+
+  // The password checklist shows which rule failed; no generic banner on top.
+  if (weakPasswordRules(error) || passwordTooLong(error)) return null;
 
   return { message: t('errors.generic'), tone: 'alert' };
 }
@@ -372,6 +376,7 @@ function ForgotPasswordPage() {
         // stricter set, the server still accepts them (W5 #1632 refines this).
         audience="staff"
         failedRules={weakPasswordRules(resetMutation.error)}
+        tooLong={passwordTooLong(resetMutation.error)}
         onSubmit={(password) =>
           resetMutation.mutate({ phone: step.phone, otp: step.otp, new_password: password })
         }

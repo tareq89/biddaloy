@@ -1,0 +1,18 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { PlatformAlertNotice } from './platform-alert-banner';
+
+const meta: Meta<typeof PlatformAlertNotice> = {
+  component: PlatformAlertNotice,
+  args: { alert: { kind: 'REDIS_DOWN', opened_at: '2026-10-13T08:02:00.000Z' } },
+};
+export default meta;
+type Story = StoryObj<typeof PlatformAlertNotice>;
+
+/** An open alert on desktop. */
+export const Open: Story = {};
+
+/** One truncated line at 390 px. */
+export const OpenPhone: Story = {
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+};

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import Redis from 'ioredis';
 import { JwtService } from '@nestjs/jwt';
+import { ACCESS_TOKEN_AUDIENCE, APPROVAL_TOKEN_AUDIENCE } from '../jwt-secrets';
 import { ConfigService } from '@nestjs/config';
 import { ApprovalScope } from '@biddaloy/shared';
 import { ApprovalService } from './approval.guard';
@@ -61,7 +62,7 @@ describe('ApprovalService.consume (integration)', () => {
         jti,
         ...overrides,
       },
-      { expiresIn: 300 },
+      { expiresIn: 300, audience: APPROVAL_TOKEN_AUDIENCE },
     );
   }
 
@@ -109,12 +110,38 @@ describe('ApprovalService.consume (integration)', () => {
         scope: ApprovalScope.PAYMENTS_REVERSE,
         jti: 'jti-never-staged',
       },
-      { expiresIn: 300 },
+      { expiresIn: 300, audience: APPROVAL_TOKEN_AUDIENCE },
     );
 
     await expect(service().consume(req(token), ApprovalScope.PAYMENTS_REVERSE)).rejects.toThrow(
       ApprovalRequiredException,
     );
+  });
+
+  // [75.9 review r1, F-2317-1] approval tokens have their own audience, so an access token
+  // (or any token without it) is refused even when every other claim looks like an approval.
+  it.each([
+    ['an access-token audience', { audience: ACCESS_TOKEN_AUDIENCE }],
+    ['no audience', {}],
+  ])('a token with %s is rejected', async (_label, audience) => {
+    await redis.set('approval:jti-wrong-aud', '1', 'EX', 300);
+    const token = await jwtService.signAsync(
+      {
+        typ: 'approval',
+        sub: APPROVER_ID,
+        act: ACTOR_ID,
+        tid: TENANT_ID,
+        scope: ApprovalScope.PAYMENTS_REVERSE,
+        jti: 'jti-wrong-aud',
+      },
+      { expiresIn: 300, ...audience },
+    );
+
+    await expect(service().consume(req(token), ApprovalScope.PAYMENTS_REVERSE)).rejects.toThrow(
+      ApprovalRequiredException,
+    );
+    // Refused before the single-use marker is touched.
+    expect(await redis.get('approval:jti-wrong-aud')).toBe('1');
   });
 
   it('two parallel requests with the same token → exactly one succeeds', async () => {

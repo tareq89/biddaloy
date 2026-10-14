@@ -1,14 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
 import { AccessTokenDenylistService } from '../access-token-denylist.service';
 import { JwtPayload, UserStatus } from '@biddaloy/shared';
 import type { Repository } from 'typeorm';
 import type { User } from '../../users/entities/user.entity';
 
-function configServiceWithSecret(secret: string | undefined): ConfigService {
-  return { get: () => secret } as unknown as ConfigService;
+function configServiceWithSecret(secret: string | undefined, previous?: string): ConfigService {
+  return {
+    get: (key: string) => (key === 'JWT_SECRET_PREVIOUS' ? previous : secret),
+  } as unknown as ConfigService;
 }
 
 describe('JwtStrategy', () => {
@@ -27,6 +30,7 @@ describe('JwtStrategy', () => {
     const userRepo = { findOne } as unknown as Repository<User>;
     strategy = new JwtStrategy(
       configServiceWithSecret('test-jwt-secret-do-not-use-in-production'),
+      new JwtService({}),
       mockDenylist as unknown as AccessTokenDenylistService,
       userRepo,
     );
@@ -176,9 +180,66 @@ describe('JwtStrategy', () => {
       () =>
         new JwtStrategy(
           configServiceWithSecret(undefined),
+          new JwtService({}),
           mockDenylist as unknown as AccessTokenDenylistService,
           { findOne } as unknown as Repository<User>,
         ),
     ).toThrow('JWT_SECRET is not configured');
+  });
+
+  describe('secretOrKeyProvider (rotation, D21)', () => {
+    const CURRENT = 'current-secret-current-secret-current-secret-1';
+    const PREVIOUS = 'previous-secret-previous-secret-previous-secret';
+    const provide = (previous: string | undefined, token: string) => {
+      const s = new JwtStrategy(
+        configServiceWithSecret(CURRENT, previous),
+        new JwtService({}),
+        mockDenylist as unknown as AccessTokenDenylistService,
+        { findOne } as unknown as Repository<User>,
+      );
+      // passport-jwt keeps the provider on the instance
+      return new Promise<string | null>((resolve) =>
+        (s as any)._secretOrKeyProvider({}, token, (_e: unknown, key: string) => resolve(key)),
+      );
+    };
+    const sign = (secret: string) => new JwtService({}).sign({ sub: 'u' }, { secret });
+
+    it('hands back the current secret when the token verifies against it', async () => {
+      expect(await provide(PREVIOUS, sign(CURRENT))).toBe(CURRENT);
+    });
+
+    it('hands back the previous secret when current fails and previous is set', async () => {
+      expect(await provide(PREVIOUS, sign(PREVIOUS))).toBe(PREVIOUS);
+    });
+
+    it('hands back the current secret when no previous secret is set (so verify fails)', async () => {
+      expect(await provide(undefined, sign(PREVIOUS))).toBe(CURRENT);
+    });
+
+    // [75.9 review r1] an expired current-secret token keeps the current key, so passport
+    // reports "jwt expired" rather than falling back to previous and "invalid signature".
+    it('hands back the current secret for an expired token signed with it', async () => {
+      const expired = new JwtService({}).sign(
+        { sub: 'u', exp: Math.floor(Date.now() / 1000) - 60 },
+        { secret: CURRENT },
+      );
+      expect(await provide(PREVIOUS, expired)).toBe(CURRENT);
+    });
+
+    // [75.9 review r2, F12] a current-secret token that fails for another reason (here a
+    // wrong issuer) keeps the current key, so passport reports that reason.
+    it('hands back the current secret when the signature matches but a claim does not', async () => {
+      const s = new JwtStrategy(
+        configServiceWithSecret(CURRENT, PREVIOUS),
+        new JwtService({ verifyOptions: { issuer: 'biddaloy' } }),
+        mockDenylist as unknown as AccessTokenDenylistService,
+        { findOne } as unknown as Repository<User>,
+      );
+      const wrongIss = new JwtService({}).sign({ sub: 'u' }, { secret: CURRENT, issuer: 'evil' });
+      const key = await new Promise<string>((resolve) =>
+        (s as any)._secretOrKeyProvider({}, wrongIss, (_e: unknown, k: string) => resolve(k)),
+      );
+      expect(key).toBe(CURRENT);
+    });
   });
 });

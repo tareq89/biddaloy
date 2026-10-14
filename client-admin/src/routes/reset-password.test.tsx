@@ -1,6 +1,7 @@
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
@@ -58,6 +59,34 @@ describe('/reset-password', () => {
     await waitFor(() =>
       expect(screen.getByText('This link has expired or has already been used.')).toBeTruthy(),
     );
+  });
+
+  it('shows the too-long line without the generic banner on PASSWORD_TOO_LONG', async () => {
+    server.use(
+      authHandlers.refreshFailure,
+      http.post('/api/v1/auth/reset-password', () =>
+        HttpResponse.json(
+          {
+            statusCode: 400,
+            message: 'Password is too long',
+            details: { code: 'PASSWORD_TOO_LONG' },
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/auth/reset-password',
+            requestId: 'r1',
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/reset-password?token=a-valid-reset-token'],
+      locale: 'en',
+    });
+
+    await setPassword();
+
+    await screen.findByText(/at most 72 letters/);
+    expect(screen.queryByText('Something went wrong. Please try again.')).toBeNull();
   });
 
   it('shows the five staff rules (the audience is unknown before the reset)', async () => {

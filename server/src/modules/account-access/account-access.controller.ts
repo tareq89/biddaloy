@@ -14,6 +14,7 @@ import { Request, Response } from 'express';
 import { LoginResponse } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { requestContext } from '../../common/request-context.util';
+import { FailClosedWithoutRedis } from '../../common/rate-limit/app-throttler.guard';
 import { setRefreshCookie } from '../auth/token-cookie';
 import { toLatinDigits } from '../../common/utils/bengali-digits.util';
 import { LoginResponseDto } from '../auth/dto/auth-response.dto';
@@ -37,6 +38,7 @@ import { VerifyEmailDto, VerifyEmailResponseDto } from '../users/dto/contact-cha
  * exactly the brute-force shape `STRICT_RATE_LIMIT` exists for.
  */
 @ApiTags('auth')
+@FailClosedWithoutRedis()
 @Controller('auth')
 export class AccountAccessController {
   constructor(

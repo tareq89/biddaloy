@@ -4,6 +4,7 @@ import { ApiAcceptedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nest
 import { Request, Response } from 'express';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { requestContext } from '../../common/request-context.util';
+import { FailClosedWithoutRedis } from '../../common/rate-limit/app-throttler.guard';
 import { setRefreshCookie } from '../auth/token-cookie';
 import {
   SOCIAL_TICKET_COOKIE,
@@ -25,6 +26,7 @@ import {
  * never has to pass through page JavaScript.
  */
 @ApiTags('registration')
+@FailClosedWithoutRedis()
 @Controller('auth/register')
 export class RegistrationController {
   constructor(private readonly registration: RegistrationService) {}

@@ -6,10 +6,22 @@ import { ApprovalMode, ApprovalScope, AuditAction, UserRole, UserStatus } from '
 vi.mock('bcrypt', () => {
   const mockCompare = vi.fn();
   const mockHash = vi.fn();
+  // password-hash.ts computes its dummy hash at import and reads the cost with getRounds.
+  const mockHashSync = vi.fn(
+    () => '$2b$12$dummydummydummydummydummydummydummydummydummydummydummy',
+  );
+  const mockGetRounds = vi.fn(() => 12);
   return {
-    default: { compare: mockCompare, hash: mockHash },
+    default: {
+      compare: mockCompare,
+      hash: mockHash,
+      hashSync: mockHashSync,
+      getRounds: mockGetRounds,
+    },
     compare: mockCompare,
     hash: mockHash,
+    hashSync: mockHashSync,
+    getRounds: mockGetRounds,
   };
 });
 
@@ -153,7 +165,7 @@ describe('StepUpService', () => {
           jti: expect.any(String),
           typ: 'approval',
         },
-        { expiresIn: 300 },
+        { expiresIn: 300, audience: 'biddaloy:approval' },
       );
       expect(result.approval_token).toBe('signed.jwt.token');
       expect(result.approver).toEqual({ id: APPROVER.id, full_name: APPROVER.full_name });

@@ -601,5 +601,8 @@
     "save": "Save",
     "saved": "Saved",
     "loadError": "Could not load your choices."
+  },
+  "platformAlert": {
+    "REDIS_DOWN": "Redis is down since {{time}}. Sign-in and password reset are closed for everyone until it recovers. You get an SMS every hour."
   }
 }

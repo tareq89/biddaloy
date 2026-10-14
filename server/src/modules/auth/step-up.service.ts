@@ -10,7 +10,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import type Redis from 'ioredis';
 import {
@@ -32,6 +31,8 @@ import { redactPii } from '../../common/redact-log.util';
 import { SchoolsService } from '../schools/schools.service';
 import { StepUpVerifyDto, StepUpApprovalResponse } from './dto/step-up.dto';
 import { isSecretEchoEnabled } from '../account-access/account-access-echo';
+import { verifyPassword } from './password-hash';
+import { APPROVAL_TOKEN_AUDIENCE } from './jwt-secrets';
 
 export const STEP_UP_REDIS = 'STEP_UP_REDIS';
 
@@ -53,12 +54,6 @@ const FEE_APPROVE_PERMISSION = Permission.FEE_APPROVE;
 const APPROVAL_TOKEN_TTL_SECONDS = 300;
 const DEFAULT_RATE_LIMIT_MAX_ATTEMPTS = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60_000;
-// bcrypt.compare against a hash that never matches — same shape as
-// auth.service.ts's DUMMY_PASSWORD_HASH, run for every step-up verify so a
-// missing/ineligible approver takes the same ~constant time as a real one
-// with a wrong password. Without this, response latency alone tells an
-// attacker which identifiers are real FEE_APPROVE holders.
-const DUMMY_PASSWORD_HASH = '$2b$10$rGV9zEDpgnc/spXBlHqA9O5IjpBvndIyZE78fIhV8ZV4.5GAUfPJ.';
 
 export interface StepUpOtpRequestResult {
   debug?: { otp?: string };
@@ -171,7 +166,7 @@ export class StepUpService {
     const approver = await this.findEligibleApprover(dto.identifier, actorTenantId);
     // Always runs the same credential check, even for a missing/ineligible
     // approver (against a dummy hash / a doomed-to-fail OTP check) — see
-    // DUMMY_PASSWORD_HASH above. Using `&&` short-circuit here would skip
+    // verifyPassword in ./password-hash. Using `&&` short-circuit here would skip
     // bcrypt entirely for an unknown identifier, and that latency
     // difference is itself a signal despite the uniform 401 body.
     const verified = await this.verifyCredential(
@@ -206,7 +201,10 @@ export class StepUpService {
       jti,
       typ: 'approval',
     };
-    const approval_token = this.jwtService.sign(payload, { expiresIn: APPROVAL_TOKEN_TTL_SECONDS });
+    const approval_token = this.jwtService.sign(payload, {
+      expiresIn: APPROVAL_TOKEN_TTL_SECONDS,
+      audience: APPROVAL_TOKEN_AUDIENCE,
+    });
     const expiresAt = new Date(Date.now() + APPROVAL_TOKEN_TTL_SECONDS * 1000);
 
     // Single-use marker other tickets (16.2.3/16.2.4) consume-and-delete
@@ -262,7 +260,7 @@ export class StepUpService {
   }
 
   /** `approver` is `null` for an unknown/ineligible identifier — this still
-   * runs a real OTP lookup or bcrypt.compare against a dummy hash so the
+   * runs a real OTP lookup or verifyPassword (dummy-hash compare) so the
    * response time doesn't itself reveal whether the identifier resolved. */
   private async verifyCredential(
     dto: StepUpVerifyDto,
@@ -276,8 +274,7 @@ export class StepUpService {
     }
 
     if (!dto.password) return false;
-    const hashToCompare = approver?.password_hash ?? DUMMY_PASSWORD_HASH;
-    const isPasswordValid = await bcrypt.compare(dto.password, hashToCompare);
+    const isPasswordValid = await verifyPassword(dto.password, approver?.password_hash);
     return approver !== null && !!approver.password_hash && isPasswordValid;
   }
 
