@@ -6,7 +6,14 @@ import { expect, test, type Page } from '@playwright/test';
 
 import manifest from '../route-manifest.json';
 
-import { CONSOLE_ERROR_ALLOWLIST, EXPECTED_SKIPS, KNOWN_ISSUES } from './sweep-allowlist';
+import {
+  CONSOLE_ERROR_ALLOWLIST,
+  EXPECTED_SKIPS,
+  KNOWN_ISSUES,
+  NOT_SWEPT,
+  SMALL_SCALE_SKIPS,
+} from './sweep-allowlist';
+import { signedOutAt } from './sweep-session';
 
 /**
  * [58.4.02] Nightly demo sweep. Runs only in the opt-in `demo-nightly` project (see
@@ -20,7 +27,8 @@ import { CONSOLE_ERROR_ALLOWLIST, EXPECTED_SKIPS, KNOWN_ISSUES } from './sweep-a
  * several params (marks, results, ACR) and details with no row to click are listed as skipped.
  *
  * Branch switching is never used, so the guardian bug #2509 (data stays stale after a switch)
- * cannot make this sweep fail.
+ * cannot make this sweep fail. Every visit must still be signed in: a bounce to `/login` (or any
+ * signed-out page) fails the run, because a signed-out page shows no error state to catch.
  */
 const routes = (manifest as { routes: { path: string }[] }).routes.map((r) => r.path);
 
@@ -34,11 +42,29 @@ const { roleHasPermission } = createRequire(__filename)(join(root, 'shared/dist/
   roleHasPermission: (role: string, permission: string) => boolean;
 };
 /** The login cards, in the order the login screen shows them (read as text, like the file above). */
-const DEMO_CARDS = [
-  ...readFileSync(join(root, 'server/src/modules/demo/demo-accounts.ts'), 'utf8').matchAll(
-    /key: '([^']+)',\s*role: '([^']+)'/g,
-  ),
-].map((m) => ({ key: m[1]!, role: m[2]! }));
+const demoAccounts = readFileSync(join(root, 'server/src/modules/demo/demo-accounts.ts'), 'utf8');
+const DEMO_CARDS = [...demoAccounts.matchAll(/key: '([^']+)',\s*role: '([^']+)'/g)].map((m) => ({
+  key: m[1]!,
+  role: m[2]!,
+}));
+/** The demo branches' slugs: each has an open admission intake (the people-ops slice). */
+const SLUGS = [
+  ...(/DEMO_SCHOOL_SLUGS = \[([^\]]+)\]/.exec(demoAccounts)?.[1] ?? '').matchAll(/'([^']+)'/g),
+].map((m) => m[1]!);
+if (!SLUGS.length) throw new Error('DEMO_SCHOOL_SLUGS not found in demo-accounts.ts');
+
+/** Public pages the seed fills, visited once (by the first card). No permission applies to them. */
+const PUBLIC_TARGETS: Record<string, string[]> = {
+  '/admission/$slug': SLUGS.map((s) => `/admission/${s}`),
+  '/admission/$slug/status': SLUGS.map((s) => `/admission/${s}/status`),
+};
+/** A detail route whose rows are listed on another page than its parent path. */
+const LIST_PAGE: Record<string, string> = {
+  '/staff/evaluations/surveys/$surveyId': '/staff/evaluations?tab=surveys',
+};
+/** The scale the seed ran at; unset means full scale, so the small-scale skips do not apply. */
+const scale = Number(process.env.DEMO_SCALE ?? '1');
+const SKIPS = [...EXPECTED_SKIPS, ...(scale < 1 ? SMALL_SCALE_SKIPS : [])];
 
 const STAFF_ROUTE_PERMISSIONS = Object.fromEntries(
   [
@@ -53,14 +79,37 @@ if (Object.keys(STAFF_ROUTE_PERMISSIONS).length < 50) {
   throw new Error('route-permissions.ts parsed to fewer than 50 entries; did its format change?');
 }
 
-/** `/students/$studentId_/edit` and `/students/$id/edit` both become `/students/$/edit`. */
-const shape = (p: string) => p.replace(/\$\w+_?/g, '$').replace(/(.)\/$/, '$1');
+/**
+ * `/students/$studentId_/edit` and `/students/$id/edit` both become `/students/$/edit`; a route id's
+ * `evaluations_/` (not nested under its parent) is the URL's `evaluations/`.
+ */
+const shape = (p: string) =>
+  p
+    .replace(/\$\w+_?/g, '$')
+    .replace(/_(?=\/|$)/g, '')
+    .replace(/(.)\/$/, '$1');
 const permissionByShape = new Map(
   Object.entries(STAFF_ROUTE_PERMISSIONS).map(([id, perm]) => [
     shape(id.replace('/_staff', '')),
     perm,
   ]),
 );
+
+// Every non-portal route is swept, public, or listed in NOT_SWEPT with a reason: a new route is
+// never dropped without a word.
+const unaccounted = routes.filter(
+  (p) =>
+    p !== '/portal' &&
+    !p.startsWith('/portal/') &&
+    !permissionByShape.has(shape(p)) &&
+    !PUBLIC_TARGETS[p] &&
+    !Object.hasOwn(NOT_SWEPT, p),
+);
+if (unaccounted.length) {
+  throw new Error(
+    `routes neither swept nor in NOT_SWEPT (sweep-allowlist.ts): ${unaccounted.join(' ')}`,
+  );
+}
 
 function routesFor(role: string): string[] {
   if (role === 'PARENT' || role === 'STUDENT') {
@@ -90,8 +139,11 @@ async function resolveDetail(page: Page, path: string): Promise<string | null> {
   if (segments.filter((s) => s.startsWith('$')).length !== 1) return null;
   const listPath = segments.slice(0, at).join('/') || '/';
   const rest = segments.slice(at + 1).join('/');
-  await page.goto(listPath);
+  await page.goto(LIST_PAGE[path] ?? listPath);
   await page.waitForLoadState('networkidle');
+  // A bounced list page has no rows; say so instead of reporting an empty list.
+  const out = signedOutAt(page.url());
+  if (out) throw new SignedOut(out);
   const hrefs = await page
     .locator(`main a[href^="${listPath}/"]`)
     .evaluateAll((els) => els.map((a) => a.getAttribute('href') ?? ''));
@@ -102,6 +154,12 @@ async function resolveDetail(page: Page, path: string): Promise<string | null> {
     return parts.length === depth && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(parts[at]!);
   });
   return href ? (rest ? `${href}/${rest}` : href) : null;
+}
+
+class SignedOut extends Error {
+  constructor(readonly at: string) {
+    super(`signed out: landed on ${at}`);
+  }
 }
 
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -133,22 +191,17 @@ DEMO_CARDS.forEach((card, index) => {
     });
     page.on('pageerror', (e) => problems.push(`${where}: uncaught ${e.message.slice(0, 200)}`));
 
-    await signIn(page, index);
-    const paths = routesFor(card.role);
-    expect(paths.length, `no routes for ${card.key}`).toBeGreaterThan(0);
-
     const skipped: string[] = [];
-    for (const path of paths) {
-      where = path;
-      const target = path.includes('$') ? await resolveDetail(page, path) : path;
+    /** Opens `target` for manifest route `path`; a null target is a detail with no row link. */
+    const visit = async (path: string, target: string | null) => {
       if (!target) {
         skipped.push(path);
-        if (!EXPECTED_SKIPS.includes(path)) {
+        if (!SKIPS.includes(path)) {
           problems.push(
             `${path}: no row link on its list page for ${card.role} (page empty or broken)`,
           );
         }
-        continue;
+        return;
       }
       console.log(`[demo-nightly] ${card.key}: ${path} -> ${target}`);
       where = target;
@@ -161,10 +214,38 @@ DEMO_CARDS.forEach((card, index) => {
         .waitFor({ state: 'attached', timeout: 5000 })
         .catch(() => {});
       await page.waitForTimeout(500);
+      const out = signedOutAt(page.url());
+      if (out) {
+        problems.push(`${target}: signed out, landed on ${out}`);
+        return;
+      }
       if (await page.locator('[data-slot="error-state"]').count()) {
         const known = KNOWN_ISSUES.find((k) => k.path === path && k.roles.includes(card.role));
         if (known) clientErrors.add(`${target}: error boundary tolerated, ${known.reason}`);
         else problems.push(`${target}: error boundary`);
+      }
+    };
+
+    await signIn(page, index);
+    const paths = routesFor(card.role);
+    expect(paths.length, `no routes for ${card.key}`).toBeGreaterThan(0);
+
+    for (const path of paths) {
+      where = path;
+      let target: string | null;
+      try {
+        target = path.includes('$') ? await resolveDetail(page, path) : path;
+      } catch (e) {
+        if (!(e instanceof SignedOut)) throw e;
+        problems.push(`${path}: ${e.message} while opening its list page`);
+        continue;
+      }
+      await visit(path, target);
+    }
+    // Public pages: one card is enough, they look the same to everyone.
+    if (index === 0) {
+      for (const [path, targets] of Object.entries(PUBLIC_TARGETS)) {
+        for (const target of targets) await visit(path, target);
       }
     }
     const note = `${paths.length - skipped.length}/${paths.length} routes visited, skipped: ${skipped.join(' ') || 'none'}`;

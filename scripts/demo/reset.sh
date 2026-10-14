@@ -198,8 +198,9 @@ build_next() {
 sweep_next() {
   if [[ "${DEMO_SKIP_SWEEP:-}" == "true" ]]; then log "sweep skipped (DEMO_SKIP_SWEEP=true)"; return; fi
   log "starting a temporary app on :${SWEEP_PORT} against ${NEXT}"
-  # It listens on every interface: 127.0.0.1 inside this container, http://demo-reset:3999 on the
-  # compose network (not published to the host). 9>&- so it never holds the reset lock.
+  # The runner shares this container's network namespace and uses http://127.0.0.1:3999 (loopback
+  # keeps the Secure session cookie over plain HTTP). Not published to the host. 9>&- so it never
+  # holds the reset lock.
   PORT="$SWEEP_PORT" DATABASE_URL="$(url_for "$NEXT")" REDIS_URL="$SWEEP_REDIS" PLATFORM_TENANT_ID="$PLATFORM_ID" \
     bash -c "$DEMO_APP_CMD" 9>&- &
   APP_PID=$!
@@ -212,7 +213,8 @@ sweep_next() {
   log "running the sweep"
   local rc=0
   # 9>&-: a runner child that outlives the timeout must not keep the reset lock.
-  DEMO_SWEEP_URL="${DEMO_SWEEP_URL:-http://127.0.0.1:${SWEEP_PORT}}" \
+  # DEMO_SCALE tells the sweep whether the small-scale skips apply (e2e/demo/sweep-allowlist.ts).
+  DEMO_SWEEP_URL="${DEMO_SWEEP_URL:-http://127.0.0.1:${SWEEP_PORT}}" DEMO_SCALE="$DEMO_SCALE" \
     timeout "${DEMO_SWEEP_TIMEOUT:-1800}" bash -c "$DEMO_SWEEP_CMD" 9>&- || rc=$?
   kill "$APP_PID" 2>/dev/null || true
   wait "$APP_PID" 2>/dev/null || true

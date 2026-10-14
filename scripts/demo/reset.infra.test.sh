@@ -150,7 +150,7 @@ run_reset() {
 # ---- 1. a good run swaps -------------------------------------------------------------------
 make_live old
 rm -f "$WORK/restarted"
-run_reset RUN_MARK=night1 DEMO_SKIP_SWEEP= DEMO_SWEEP_CMD='test "$DEMO_SWEEP_URL" = http://127.0.0.1:3999' \
+run_reset RUN_MARK=night1 DEMO_SKIP_SWEEP= DEMO_SWEEP_CMD='test "$DEMO_SWEEP_URL" = http://127.0.0.1:3999 && test "$DEMO_SCALE" = 1' \
   DEMO_APP_CMD='exec sleep 300' || { cat "$WORK/out" "$WORK/err" >&2; fail "good run exited non-zero"; }
 expect "$(marker "$LIVE")" night1 "live holds the new database after the swap"
 expect "$(marker "${LIVE}_prev")" old "yesterday's database is kept as _prev"
