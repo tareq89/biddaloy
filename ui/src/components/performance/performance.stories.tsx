@@ -68,6 +68,53 @@ export const ErrorState: Story = {
   ),
 };
 
+const syllabus = [
+  { label: 'Class 6', value: 41, valueLabel: '41%', highlight: true, note: '19% behind' },
+  { label: 'Class 7', value: 63, valueLabel: '63%' },
+  { label: 'Class 8', value: 72, valueLabel: '72%' },
+];
+const target = { value: 60, label: 'Expected by today: 60%' };
+
+export const WithTargetAndHighlight: Story = {
+  render: () => (
+    <BarWidget
+      title="Syllabus progress"
+      bars={syllabus}
+      target={target}
+      emphasis="highlighted"
+      emptyLabel="Not enough data yet"
+    />
+  ),
+};
+
+export const LowestEmphasised: Story = {
+  render: () => (
+    <BarWidget
+      title="Mark entry"
+      bars={[
+        { label: 'Class 6', value: 88, valueLabel: '88%' },
+        { label: 'Class 7', value: 35, valueLabel: '35%', highlight: true },
+        { label: 'Class 8', value: 76, valueLabel: '76%' },
+      ]}
+      emphasis="highlighted"
+      emptyLabel="Not enough data yet"
+    />
+  ),
+};
+
+export const BareInsideCard: Story = {
+  render: () => (
+    <div className="rounded-lg border border-border-subtle p-4">
+      <BarWidget bare bars={syllabus} target={target} emptyLabel="Not enough data yet" />
+    </div>
+  ),
+};
+
+export const TargetDark: Story = {
+  ...WithTargetAndHighlight,
+  globals: { theme: 'dark' },
+};
+
 export const Phone: Story = {
   render: () => <Overview />,
   parameters: { viewport: { defaultViewport: 'mobile1' } },
