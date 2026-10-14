@@ -1,4 +1,4 @@
-import { createTeacher, loginAsFreshUser, post } from '../api';
+import { activateInvite, E2E_PASSWORD, loginAsFreshUser, post } from '../api';
 import { shells } from '../config';
 import { newSchool } from '../fixtures/new-school';
 import { expect, test } from '../fixtures/test';
@@ -18,13 +18,39 @@ test.describe('same teacher in several branches', () => {
   test('join request, accept, own teacher profile in B', async ({
     browser,
     playwright,
+    request,
   }) => {
     const branchA = await newSchool(browser, playwright);
     const branchB = await newSchool(browser, playwright);
-    const teacher = await createTeacher(branchA.api, branchA.session, 'Rahim Shared');
+    // A real, verified account: a join request needs one (as in add-existing-staff).
+    const email = `shared-${crypto.randomUUID()}@e2e.example.com`;
+    const created = await post<{ user: { id: string }; invitation: { debug?: { token: string } } }>(
+      branchA.api,
+      branchA.session,
+      '/users',
+      { full_name: 'Rahim Shared', email, role: 'TEACHER' },
+    );
+    const token = created.invitation.debug?.token;
+    if (!token) throw new Error('no invitation.debug.token — is ACCOUNT_ACCESS_ECHO_SECRETS=true?');
+    await activateInvite(request, token, E2E_PASSWORD);
+    const teacherA = await post<{ id: string }>(branchA.api, branchA.session, '/teachers', {
+      user_id: created.user.id,
+      employee_id: `A-${crypto.randomUUID()}`,
+    });
+    const teacher = {
+      email,
+      password: E2E_PASSWORD,
+      userId: created.user.id,
+      teacherId: teacherA.id,
+    };
     const api = await playwright.request.newContext({ baseURL: shells.app.baseURL });
     const context = await browser.newContext({
-      storageState: await loginAsFreshUser(api, shells.app.baseURL, teacher.email, teacher.password),
+      storageState: await loginAsFreshUser(
+        api,
+        shells.app.baseURL,
+        teacher.email,
+        teacher.password,
+      ),
     });
     try {
       await test.step('B admin files a join request for the teacher', async () => {
