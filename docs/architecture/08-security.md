@@ -876,9 +876,11 @@ A server or script started with `DEMO_MODE=true` first checks that the database 
 flowchart LR
   A["DEMO_MODE=true?"] -->|no| N[boot Nest]
   A -->|yes| B["assertDemoDatabase<br/>SELECT id, slug FROM schools<br/>(soft-deleted rows too)"]
-  B -->|"only bmsc-* rows<br/>(+ default-school, PLATFORM_TENANT_ID)"| N
-  B -->|"any other slug"| X["throw, exit 1"]
+  B -->|"only bmsc-* rows<br/>(+ default-school with no students, PLATFORM_TENANT_ID)"| N
+  B -->|"any other slug,<br/>or default-school with students"| X["throw, exit 1"]
 ```
+
+`default-school` counts only while it has no students: a pre-multi-tenant install moved all its real data into that row.
 
 Why not a Nest `onApplicationBootstrap` hook: every module's `onModuleInit` runs first. On a real Redis that already removes the real trial and backup schedulers and starts the BullMQ workers, and a worker could settle a real queued SMS as SENT through the demo-log provider. Example: a copied env file with `DEMO_MODE=true` pointed at the real `biddaloy` database stops with `DEMO_MODE refuses to start: database holds non-demo schools (...)` before any of that runs.
 

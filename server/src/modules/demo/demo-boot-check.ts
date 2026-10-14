@@ -2,7 +2,7 @@ import { DataSource } from 'typeorm';
 import { buildDatabaseSsl } from '../../db-ssl';
 import { DEMO_SCHOOL_SLUGS } from './demo-accounts';
 
-type SchoolRow = { id: string; slug: string };
+type SchoolRow = { id: string; slug: string; has_students?: boolean };
 
 /** Every school row, soft-deleted ones included: a deleted real school still means a real DB. */
 async function loadSchools(env: NodeJS.ProcessEnv): Promise<SchoolRow[]> {
@@ -10,7 +10,11 @@ async function loadSchools(env: NodeJS.ProcessEnv): Promise<SchoolRow[]> {
   const ds = new DataSource({ type: 'postgres', url: env.DATABASE_URL, ssl });
   await ds.initialize();
   try {
-    return await ds.query('SELECT id, slug FROM schools');
+    return await ds.query(
+      `SELECT s.id, s.slug,
+              EXISTS (SELECT 1 FROM students st WHERE st.tenant_id = s.id) AS has_students
+         FROM schools s`,
+    );
   } finally {
     await ds.destroy();
   }
@@ -20,7 +24,8 @@ async function loadSchools(env: NodeJS.ProcessEnv): Promise<SchoolRow[]> {
  * D30: a demo build must never run against a real database. With `DEMO_MODE=true`, any school
  * whose slug is not a demo branch throws. Exempt: the configured `PLATFORM_TENANT_ID`, and
  * `default-school`, the platform row every migrated DB holds (random uuid, MultiTenantAuth
- * migration); the seed runner's guard 3 exempts it too. A real DB has real schools besides it.
+ * migration); the seed runner's guard 3 exempts it too, but only while it holds no students: a
+ * pre-multi-tenant install keeps its real data under `default-school`.
  *
  * Called from `main.ts` and `createScriptAppContext` BEFORE Nest builds the app. It cannot be a
  * Nest lifecycle hook: every module's `onModuleInit` runs first, and on a wrong Redis that already
@@ -34,7 +39,9 @@ export async function assertDemoDatabase(
   if (env.DEMO_MODE !== 'true') return;
   const allowed = new Set<string>([...DEMO_SCHOOL_SLUGS, 'default-school']);
   const foreign = (await load(env)).filter(
-    (r) => !allowed.has(r.slug) && r.id !== env.PLATFORM_TENANT_ID,
+    (r) =>
+      (!allowed.has(r.slug) || (r.slug === 'default-school' && r.has_students)) &&
+      r.id !== env.PLATFORM_TENANT_ID,
   );
   if (foreign.length > 0) {
     throw new Error(
