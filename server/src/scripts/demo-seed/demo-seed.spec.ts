@@ -211,6 +211,7 @@ describe('SLICES', () => {
       'attention',
     ]);
     expect(SLICES.every((s) => s.covers.length > 0)).toBe(true);
-    expect(SLICES.filter((s) => !s.owedBy).map((s) => s.name)).toEqual(['org']);
+    // Each slice ticket deletes its own owedBy line; an owed stub names its ticket.
+    for (const s of SLICES) if (s.owedBy) expect(s.owedBy).toMatch(/^(58\.\d\.\d{2}|#\d+)$/);
   });
 });
