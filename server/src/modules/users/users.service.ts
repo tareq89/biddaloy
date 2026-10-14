@@ -706,17 +706,16 @@ export class UserService {
     // CURRENT stored value, not just "field present in the body": a
     // profile-form resubmit of the same unchanged address must not wipe
     // out a real verification.
-    if (dto.email !== undefined && (email ?? null) !== (current.email ?? null)) {
+    // An unchanged email/phone is not written at all: the form's copy may be stale by the time
+    // the row lock is taken, and writing it back would undo another admin's change without the
+    // guardian copy following (and without the SHARED_IDENTITY check above having run on it).
+    if (emailChanges) {
       updateData.email = email ?? null;
       updateData.email_verified_at = null;
-    } else if (dto.email !== undefined) {
-      updateData.email = email ?? null;
     }
     if (phoneChanges) {
       updateData.phone = phone;
       updateData.phone_verified_at = null;
-    } else if (dto.phone !== undefined) {
-      updateData.phone = phone;
     }
     if (dto.full_name !== undefined) updateData.full_name = dto.full_name;
     if (dto.profile_picture_url !== undefined)
