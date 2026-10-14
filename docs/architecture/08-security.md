@@ -194,7 +194,7 @@ The layers diagram above shows where most of these rules sit on a request's way 
 
 - **Rule.** Recovery, OTP request and activation resend do one identifier lookup on the request path. Everything after it (checks, codes, audit, delivery) runs inside one `detach()` job after the response.
 - **Why.** A known account cost more queries than an unknown one, so timing gave it away (75.17, #2325).
-- **Known exception.** `POST /users/join-requests` ("Add staff" for an existing account) answers `{status: "PENDING"}` for a hit and a miss, but a hit takes longer (it files the request). Left as is: only a school admin can call it, it is throttled (5 per minute), and `POST /users` already tells that admin the account exists (409 `ACCOUNT_EXISTS`). The only extra thing the timing shows is that the contact is verified (#2224).
+- **Known exception.** `POST /users/join-requests` ("Add staff" for an existing account) answers `{status: "PENDING"}` for a hit and a miss, but a hit takes longer (it files the request). Left as is: only a school admin can call it, it is throttled (5 per minute) while Redis is up, and fails open without Redis, like the other admin routes, and `POST /users` already tells that admin the account exists (409 `ACCOUNT_EXISTS`). The only extra thing the timing shows is that the contact is verified (#2224).
 - **Example.** `POST /auth/forgot-password` → `{}` in the same time for a real and a made-up address.
 - **Test.** `recovery.service.integration.spec.ts`, `otp-login.service.integration.spec.ts` and `activation.service.integration.spec.ts` (exactly one query before the response), `account-access-delivery.service.spec.ts`.
 
