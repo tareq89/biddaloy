@@ -5,6 +5,7 @@ import { SchoolsService } from '../../schools/schools.service';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 import { ExportService } from '../export/export.service';
 import { WorkbookJobKind, WorkbookJobSource } from '../jobs/workbook-job.entity';
+import { isDemoMode } from '../../demo/demo-mode';
 import {
   BACKUP_SCHEDULE_CRON,
   BACKUP_SCHEDULE_QUEUE,
@@ -43,7 +44,8 @@ export class BackupScheduleService {
     const school = await this.schools.findById(tenantId);
     const id = schedulerIdFor(tenantId);
 
-    if (school.status !== 'ACTIVE') {
+    // [58.1.02] Demo: no scheduled backups; also clears any scheduler left from a non-demo run.
+    if (isDemoMode() || school.status !== 'ACTIVE') {
       await this.queue.removeJobScheduler(id);
       return;
     }
