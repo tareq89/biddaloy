@@ -11,11 +11,16 @@ import { useDemoMode } from './use-demo-mode';
  */
 export function DemoCornerFrame({ children }: { children: ReactNode }) {
   const { enabled } = useDemoMode();
-  const { t } = useTranslation('demo');
   return (
     <div className="relative">
-      {enabled && <DemoRibbon label={t('ribbonLabel')} />}
+      {enabled && <LabelledRibbon />}
       {children}
     </div>
   );
+}
+
+/** Only mounted in the demo: a normal school's shell must not wait on the `demo` translations. */
+function LabelledRibbon() {
+  const { t } = useTranslation('demo');
+  return <DemoRibbon label={t('ribbonLabel')} />;
 }

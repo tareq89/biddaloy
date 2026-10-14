@@ -1,6 +1,7 @@
 import { UserRole, type LoginResponse } from '@biddaloy/shared';
 import { http, HttpResponse } from 'msw';
 
+import type { components } from '../../../api/schema';
 import { apiErrorBody } from '../support';
 
 /**
@@ -303,6 +304,15 @@ const socialProviders = http.get('/api/v1/auth/social/providers', () =>
   HttpResponse.json({ providers: [] }),
 );
 
+/** `GET /demo/roles` — not the demo school: every shell and `/login` asks this once. */
+const demoRolesOff = http.get('/api/v1/demo/roles', () =>
+  HttpResponse.json<components['schemas']['DemoRolesResponseDto']>({
+    enabled: false,
+    password: '',
+    cards: [],
+  }),
+);
+
 export const authHandlers = {
   socialProviders,
   login,
@@ -360,4 +370,5 @@ export const authDefaultHandlers = [
   sessions,
   schoolInvitesEmpty,
   socialProviders,
+  demoRolesOff,
 ];
