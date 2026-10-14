@@ -92,8 +92,9 @@ export class RoutineSlotsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpsertRoutineSlotDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.slotsService.create(id, dto, tenant.id);
+    return this.slotsService.create(id, dto, tenant.id, user.sub);
   }
 
   @Patch('slots/:slotId')

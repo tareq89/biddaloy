@@ -48,6 +48,10 @@ export interface SlotLike {
   valid_to: string | null;
   /** Teacher ids assigned to this slot (via `RoutineSlotTeacher`). */
   teacher_ids: string[];
+  /** [58.0.03] Set only on a slot loaded from ANOTHER branch (tenant) where
+   * the acting user is also a member. It takes part in the teacher-overlap
+   * check and nothing else, and carries no section/subject/room data. */
+  foreign?: { tenantName: string; periodName: string | null };
 }
 
 /** The period-slot metadata a candidate references — enough to tell a
@@ -87,6 +91,8 @@ export type WarningCode = 'TEACHER_NOT_ASSIGNED' | 'TEACHER_OVER_CONSECUTIVE_LIM
 export interface Violation {
   code: ViolationCode;
   message: string;
+  /** Only on a cross-branch `TEACHER_DOUBLE_BOOKED`: "busy at that period". */
+  details?: { tenantName: string; weekday: number; periodName: string | null };
 }
 
 export interface Warning {
@@ -195,6 +201,10 @@ export function checkSlot(
     });
   }
 
+  // Foreign-branch slots only matter for the teacher clash below; every
+  // other rule (section, room, caps) is per-branch.
+  const foreignSlots = existing.filter((s) => s.foreign);
+  existing = existing.filter((s) => !s.foreign);
   const coexisting = existing.filter((s) => slotsCoexist(candidate, s));
   const timeOverlapping = existing.filter((s) => slotsOverlapInTime(candidate, s));
 
@@ -229,6 +239,23 @@ export function checkSlot(
     violations.push({
       code: 'TEACHER_DOUBLE_BOOKED',
       message: 'A teacher on this slot is already teaching another section at this weekday/time.',
+    });
+  }
+  // [58.0.03] Same person, another branch, overlapping wall-clock time.
+  const foreignClash = foreignSlots.find(
+    (s) =>
+      slotsOverlapInTime(candidate, s) &&
+      s.teacher_ids.some((t) => candidate.teacher_ids.includes(t)),
+  );
+  if (foreignClash?.foreign) {
+    violations.push({
+      code: 'TEACHER_DOUBLE_BOOKED',
+      message: `A teacher on this slot is already teaching at ${foreignClash.foreign.tenantName} at this weekday/time.`,
+      details: {
+        tenantName: foreignClash.foreign.tenantName,
+        weekday: foreignClash.weekday,
+        periodName: foreignClash.foreign.periodName,
+      },
     });
   }
 
