@@ -189,9 +189,10 @@ export class InvitationBatchProcessor extends WorkerHost {
             err instanceof QueryFailedError &&
             (err as unknown as { code?: string }).code === '23505'
           ) {
-            // An unverified holder owns this contact. Never fall back to matching them.
+            // Another account owns this contact (unverified, or email and phone on two
+            // different accounts). Never fall back to matching them.
             this.logger.warn(
-              `Guardian ${guardian.id}: email/phone already held by an unverified account, not linked`,
+              `Guardian ${guardian.id}: email/phone already held by another account (unverified, or email and phone on different accounts), not linked`,
             );
             return null;
           }

@@ -287,6 +287,23 @@ describe('useUpdateUser', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(body).toEqual({ full_name: 'Renamed', phone: '+8801700000000' });
   });
+
+  // [68.4.05] review r2 N4: the server copies a changed phone/email to the guardian rows.
+  it('invalidates the guardian keys too', async () => {
+    server.use(
+      http.patch('/api/v1/users/:id', ({ params }) =>
+        HttpResponse.json(userResponseFactory({ id: params.id as string })),
+      ),
+    );
+    const { result, queryClient } = renderHookWithProviders(() => useUpdateUser('user-1'), {
+      tenantId: 'tenant-1',
+    });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    result.current.mutate({ phone: '+8801700000000' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: guardianKeys.all });
+  });
 });
 
 describe('useRemoveMember', () => {

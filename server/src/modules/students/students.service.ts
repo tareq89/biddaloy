@@ -790,7 +790,8 @@ export class StudentService {
  * its own: `users` owns them and copies them to every school's guardian row
  * (`syncLinkedGuardianContacts`). Editing them here would split the two copies
  * (SMS to one number, sign-in codes to another), so a change is refused with a
- * pointer. Resending the stored value is fine. Unlinked guardians are unaffected.
+ * pointer. Resending the stored value is fine (phone in any format, review r2 N3:
+ * the stored copy is kept). Unlinked guardians are unaffected.
  */
 function assertContactNotOwnedByLogin(
   guardian: Pick<Guardian, 'user_id' | 'phone' | 'email'>,
@@ -800,6 +801,10 @@ function assertContactNotOwnedByLogin(
   if (!guardian.user_id) return;
   const same = (a: unknown, b: unknown) => (a ?? null) === (b ?? null);
   const lower = (v: unknown) => (typeof v === 'string' ? v.toLowerCase() : v);
+  const tail = (v: unknown) => (typeof v === 'string' ? bdPhoneTail(v) : v);
+  if (updateData.phone !== undefined && same(tail(updateData.phone), tail(guardian.phone))) {
+    updateData.phone = guardian.phone;
+  }
   const changed =
     (updateData.phone !== undefined && !same(updateData.phone, guardian.phone)) ||
     (updateData.email !== undefined && !same(lower(updateData.email), lower(guardian.email)));
