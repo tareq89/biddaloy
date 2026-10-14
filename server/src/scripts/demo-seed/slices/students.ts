@@ -461,11 +461,16 @@ export const slice: DemoSlice = {
         }
         rows += runs.length + entries.length;
         const [from, to] = [yearOf(t, y), yearOf(t, y + 1)];
-        // The service stamps "today"; these happened at the end of the source year.
+        // The service stamps "today"; these happened at the end of the source year. The spread
+        // hashes student_id (from ctx.rng), never the database's own row id, so a re-run matches.
         await ctx.ds.query(
-          `UPDATE student_lifecycle_events SET occurred_on = $3::date - (abs(hashtext(id::text)) % 20) - 1
+          `UPDATE student_lifecycle_events SET occurred_on = $3::date - (abs(hashtext(student_id::text)) % 20) - 1
              WHERE tenant_id = $1 AND academic_year_id = $2 AND event_type = 'GRADUATED'`,
           [tenantId, from.id, from.end],
+        );
+        await ctx.ds.query(
+          `UPDATE promotion_runs SET committed_at = $2, refreshed_at = $2 WHERE id = ANY($1)`,
+          [runs.map((r) => r.id), stamp(from.end)],
         );
         await ctx.ds.query(
           `UPDATE enrollments SET enrolled_at = $3 WHERE tenant_id = $1 AND academic_year_id = $2`,
