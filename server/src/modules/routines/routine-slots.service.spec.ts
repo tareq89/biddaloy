@@ -83,6 +83,7 @@ function buildService() {
     [Teacher, teacherRepo],
   ]);
   const manager: any = {
+    query: vi.fn(async () => []), // [58.0.03] cross-branch lookup: no other branch
     getRepository: (entity: unknown) => reposByEntity.get(entity),
     findOne: (entity: unknown, opts: any) => reposByEntity.get(entity).findOne(opts),
     find: (entity: unknown, opts: any) => reposByEntity.get(entity).find(opts),
