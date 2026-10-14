@@ -66,9 +66,9 @@ export const radius = {
  * `--text-*` theme variable, and check-contrast.mjs fails on drift.
  */
 export const typography = {
-  fontSans:
-    '"Biddaloy Sans", "Biddaloy Sans Fallback", system-ui, "Segoe UI", sans-serif',
+  fontSans: '"Biddaloy Sans", "Biddaloy Sans Fallback", system-ui, "Segoe UI", sans-serif',
   ramp: {
+    hero: { size: '2rem', lineHeight: '2.5rem', weight: '650', tracking: '-0.015em' },
     display: { size: '1.75rem', lineHeight: '2.25rem', weight: '620', tracking: '-0.01em' },
     h1: { size: '1.375rem', lineHeight: '1.875rem', weight: '620', tracking: '-0.01em' },
     h2: { size: '1.125rem', lineHeight: '1.625rem', weight: '600', tracking: '0em' },
@@ -262,6 +262,12 @@ export type StatusKey = keyof typeof status;
  * foreground/background combination a component actually renders — an
  * unlisted pair is an unverified one.
  */
+/** [8.10.7.1.05] Chart palette: identity (cat) and magnitude (seq), never status. */
+export const chart = {
+  cat: { light: ['#2a78d6', '#eb6834', '#18a372'], dark: ['#3987e5', '#d95926', '#199e70'] },
+  seq: { light: [brand[400], brand[600], '#2a2385'], dark: ['#6b63e6', '#8f96f4', '#c3c7fb'] },
+} as const;
+
 export const CONTRAST_PAIRS = [
   { name: 'neutral-900 text on white', fg: neutral[900], bg: neutral[0], min: 4.5 },
   { name: 'neutral-600 text on white', fg: neutral[600], bg: neutral[0], min: 4.5 },
@@ -344,6 +350,28 @@ export const CONTRAST_PAIRS = [
   // genuinely new numeric pair — brand-100 is lighter than brand-50, so this
   // is not the rest-state row above recomputed.
   { name: 'brand-700 on brand-100 (secondary hover)', fg: brand[700], bg: brand[100], min: 4.5 },
+  ...chart.cat.light.map((fg, i) => ({
+    name: `chart cat-${i + 1} light on white`,
+    fg,
+    bg: neutral[0],
+    min: 3,
+  })),
+  ...chart.cat.dark.map((fg, i) => ({
+    name: `chart cat-${i + 1} dark on surface`,
+    fg,
+    bg: dark.surface,
+    min: 3,
+  })),
+  { name: 'chart seq-2 light on white', fg: chart.seq.light[1], bg: neutral[0], min: 3 },
+  { name: 'chart seq-3 light on white', fg: chart.seq.light[2], bg: neutral[0], min: 3 },
+  // ordinal light-end floor (dataviz validator); always shown with a value label
+  { name: 'chart seq-1 light on white', fg: chart.seq.light[0], bg: neutral[0], min: 2 },
+  ...chart.seq.dark.map((fg, i) => ({
+    name: `chart seq-${i + 1} dark on surface`,
+    fg,
+    bg: dark.surface,
+    min: 3,
+  })),
 ] as const;
 
 export const biddaloyPreset = {
