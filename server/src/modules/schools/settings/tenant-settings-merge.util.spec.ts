@@ -53,6 +53,23 @@ describe('mergeTenantSettings', () => {
     );
   });
 
+  it('stores dashboard wholesale, leaves fees alone, and keeps it when omitted (8.10.7)', () => {
+    const existing = {
+      version: 1,
+      fees: { approvalMode: 'OTP' },
+      dashboard: { risk: { overdueDays: 30 } },
+    };
+    const merged = mergeTenantSettings(
+      existing,
+      toPatch({ version: 1, dashboard: { digestTime: '08:00' } }),
+    );
+    expect(merged.dashboard).toEqual({ digestTime: '08:00' });
+    expect(merged.fees).toEqual(existing.fees);
+    expect(mergeTenantSettings(existing, toPatch({ version: 1 })).dashboard).toEqual(
+      existing.dashboard,
+    );
+  });
+
   it('shallow-merges studyPlans per field and keeps it when omitted (66.1.04)', () => {
     const existing = { version: 1, studyPlans: { statusDeadline: '17:30' } };
     const merged = mergeTenantSettings(
@@ -305,6 +322,7 @@ describe('mergeTenantSettings', () => {
     documents: { marker: 'documents' },
     studyPlans: { marker: 'studyPlans' },
     attention: { marker: 'attention' },
+    dashboard: { marker: 'dashboard' },
   };
 
   it('every DTO section survives a merge (#1811 guard)', () => {

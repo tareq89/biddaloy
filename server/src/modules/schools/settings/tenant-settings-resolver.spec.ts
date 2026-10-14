@@ -189,6 +189,36 @@ describe('resolveTenantSettings', () => {
     );
   });
 
+  describe('dashboard (8.10.7)', () => {
+    const D = {
+      risk: { absentStreakDays: 3, monthlyAttendancePct: 75, failedSubjects: 1, overdueDays: 60 },
+      committeeAttendanceTargetPct: 90,
+      digestTime: '07:30',
+    };
+    it('null settings resolve to defaults', () => {
+      expect(resolveTenantSettings(null).dashboard).toEqual(D);
+    });
+    it('partial block overlays; the rest stay default', () => {
+      expect(
+        resolveTenantSettings({ dashboard: { risk: { absentStreakDays: 5 } } }).dashboard,
+      ).toEqual({ ...D, risk: { ...D.risk, absentStreakDays: 5 } });
+    });
+    it('wrong kinds fall back per field', () => {
+      expect(
+        resolveTenantSettings({ dashboard: { risk: 'x', committeeAttendanceTargetPct: '90' } })
+          .dashboard,
+      ).toEqual(D);
+    });
+    it('malformed digestTime falls back, valid one is kept', () => {
+      expect(
+        resolveTenantSettings({ dashboard: { digestTime: 'soon' } }).dashboard?.digestTime,
+      ).toBe('07:30');
+      expect(
+        resolveTenantSettings({ dashboard: { digestTime: '06:45' } }).dashboard?.digestTime,
+      ).toBe('06:45');
+    });
+  });
+
   describe('studyPlans (66.1.04)', () => {
     it('nothing stored resolves to the defaults', () => {
       expect(resolveTenantSettings({}).studyPlans).toEqual(DEFAULT_STUDY_PLANS_SETTINGS);

@@ -5,6 +5,7 @@ import type {
   AttentionSettings,
   AuthSettings,
   BackupSettings,
+  DashboardSettings,
   DocumentsSettings,
   FeesSettings,
   OrganisationSettings,
@@ -139,6 +140,13 @@ export const DEFAULT_ATTENTION_SETTINGS: AttentionSettings = {
   escalateAttendanceToHeads: true,
 };
 
+/** [8.10.7] D7 at-risk thresholds, D23 committee attendance target, D31 morning digest time. */
+export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
+  risk: { absentStreakDays: 3, monthlyAttendancePct: 75, failedSubjects: 1, overdueDays: 60 },
+  committeeAttendanceTargetPct: 90,
+  digestTime: '07:30',
+};
+
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   version: TENANT_SETTINGS_SCHEMA_VERSION,
   region: DEFAULT_REGION_SETTINGS,
@@ -151,4 +159,5 @@ export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   documents: DEFAULT_DOCUMENTS_SETTINGS,
   studyPlans: DEFAULT_STUDY_PLANS_SETTINGS,
   attention: DEFAULT_ATTENTION_SETTINGS,
+  dashboard: DEFAULT_DASHBOARD_SETTINGS,
 };

@@ -56,7 +56,7 @@ function deepMergeOmittingUnset(existing: unknown, patch: unknown): unknown {
  * `region` is one dashboard section and is replaced wholesale when
  * present — the form that produces it always submits every field.
  *
- * `routine`, `fees` and `evaluations` are replaced wholesale when
+ * `routine`, `fees`, `evaluations` and `dashboard` are replaced wholesale when
  * present (the forms always send the whole block).
  *
  * `attendance` and `documents` are shallow-merged: keys the patch omits (e.g. `shiftTimes`,
@@ -194,6 +194,11 @@ export function mergeTenantSettings(
       ...(isPlainObject(merged.studyPlans) ? merged.studyPlans : {}),
       ...(patch.studyPlans as Record<string, unknown>),
     };
+  }
+
+  // [8.10.7] Wholesale replace, like `fees`/`evaluations`. Missing fields fall back to defaults on read.
+  if (patch.dashboard !== undefined) {
+    merged.dashboard = patch.dashboard;
   }
 
   // [67.1.06] Shallow merge so a PATCH may send one field; `rules` merged one level deeper
