@@ -2338,7 +2338,7 @@ describe('GuardianService (integration)', () => {
       await service.updateOwn(OWNER_USER_ID, { alternate_phone: '+8801788888888' }, TENANT_ID);
 
       const untouched = await guardianRepo.findOneOrFail({ where: { id: theirs.id } });
-      expect(untouched.alternate_phone).not.toBe('+8801788888888');
+      expect(untouched.alternate_phone).toBe('+8801700000002');
       const changed = await guardianRepo.findOneOrFail({ where: { id: mine.id } });
       expect(changed.alternate_phone).toBe('+8801788888888');
     });

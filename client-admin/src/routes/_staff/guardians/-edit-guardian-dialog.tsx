@@ -24,6 +24,7 @@ import {
 import { useUpdateGuardian, type Guardian, type UpdateGuardianInput } from '@biddaloy/ui/hooks';
 import { useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
+import { formatPhone } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 const PREFERRED_COMMUNICATION_OPTIONS = [
@@ -180,7 +181,7 @@ export function EditGuardianDialog({ guardian, config, onClose }: EditGuardianDi
                     <dt className="text-caption text-text-secondary">
                       {t('editDialog.fields.phone')}
                     </dt>
-                    <dd className="text-text-primary">{form.phone || '—'}</dd>
+                    <dd className="text-text-primary">{formatPhone(form.phone, config)}</dd>
                   </div>
                   <div>
                     <dt className="text-caption text-text-secondary">
