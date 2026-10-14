@@ -18,6 +18,7 @@ import { AttendanceDevice } from '../src/modules/attendance/entities/attendance-
 import { AttendanceDeviceEvent } from '../src/modules/attendance/entities/attendance-device-event.entity';
 import { AuditLog } from '../src/modules/audit/entities/audit-log.entity';
 import { UserTenant } from '../src/modules/auth/entities/user-tenant.entity';
+import { RefreshToken } from '../src/modules/auth/entities/refresh-token.entity';
 import { UserIdentity } from '../src/modules/auth/entities/user-identity.entity';
 import { AuthToken } from '../src/modules/account-access/entities/auth-token.entity';
 import { CommunicationLog } from '../src/modules/communications/entities/communication-log.entity';
@@ -149,6 +150,7 @@ export const ALL_ENTITIES = [
   UserTenant,
   AuthToken,
   UserIdentity,
+  RefreshToken,
   CommunicationLog,
   ReminderBatch,
   SmsCreditLedger,
