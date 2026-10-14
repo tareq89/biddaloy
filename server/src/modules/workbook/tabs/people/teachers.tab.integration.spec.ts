@@ -241,6 +241,52 @@ describe('teachersTab (integration)', () => {
       const rows = await teacherRepo.find({ where: { employee_id: 'EMP-SHARED' } });
       expect(rows.map((r) => r.tenant_id).sort()).toEqual([TENANT_A, TENANT_B]);
     });
+
+    it('refuses with a clear error when the user already holds a different live teacher (no 23505)', async () => {
+      const user = await makeUser({ email: 'holder@teachers-a.test' });
+      await teachersTab.upsert(
+        rowFor({ user_id: user.id, employee_id: 'EMP-A-HELD' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const otherUser = await makeUser({ email: 'holder-other@teachers-a.test' });
+      const other = await teachersTab.upsert(
+        rowFor({ user_id: otherUser.id, employee_id: 'EMP-A-OTHER' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      await expect(
+        teachersTab.upsert(
+          rowFor({ user_id: user.id, employee_id: 'EMP-A-OTHER' }),
+          other,
+          TENANT_A,
+          dataSource.manager,
+        ),
+      ).rejects.toThrow(/already belongs to a different teacher record/);
+    });
+
+    it("takes over the user's own live row when no row has the employee id (edited after export)", async () => {
+      const user = await makeUser({ email: 'renamed@teachers-a.test' });
+      const held = await teachersTab.upsert(
+        rowFor({ user_id: user.id, employee_id: 'EMP-A-OLD' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      const again = await teachersTab.upsert(
+        rowFor({ user_id: user.id, employee_id: 'EMP-A-NEW' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      expect(again.id).toBe(held.id);
+      expect((await teacherRepo.findOneByOrFail({ id: held.id })).employee_id).toBe('EMP-A-NEW');
+    });
   });
 
   describe('remove', () => {

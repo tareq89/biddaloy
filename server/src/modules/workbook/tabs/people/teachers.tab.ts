@@ -261,6 +261,24 @@ export const teachersTab: TabSpec<Teacher, TeacherRow> = {
       (await m.findOne(Teacher, { where })) ??
       (await m.findOne(Teacher, { where, withDeleted: true }));
 
+    // `teachers (tenant_id, user_id)` is unique among LIVE rows too
+    // (`UQ_teachers_tenant_user`, D11). The row's user may already hold a
+    // different live teacher row here (its employee id edited after export),
+    // and a soft-deleted match may carry this user beside a live twin. Either
+    // way `m.save` would hit 23505 and abort the restore, so name it instead.
+    // With no match by employee id, the user's own row is taken over.
+    if (teacher?.user_id !== row.user_id || teacher.deleted_at !== null) {
+      const byUser = { user_id: row.user_id, tenant_id: tenantId };
+      const live = await m.findOne(Teacher, { where: byUser });
+      if (live && teacher && live.id !== teacher.id) {
+        throw new Error(
+          `Teacher with user "${row.user_key || row.user_id}" already belongs to a different ` +
+            `teacher record and cannot be reassigned by a restore.`,
+        );
+      }
+      teacher ??= live ?? (await m.findOne(Teacher, { where: byUser, withDeleted: true }));
+    }
+
     if (teacher) {
       teacher.deleted_at = null;
     } else {

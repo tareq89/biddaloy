@@ -438,6 +438,56 @@ describe('studentsTab (integration)', () => {
       const rows = await studentRepo.find({ where: { user_id: user.id } });
       expect(rows.map((r) => r.tenant_id).sort()).toEqual([TENANT_A, TENANT_B]);
     });
+
+    it('prefers the live holder over a soft-deleted twin with the same user (no 23505)', async () => {
+      const chain = await seedChain(TENANT_A, 'tw');
+      const user = await userRepo.save(
+        userRepo.create({
+          email: 'twin-user@students-tab.test',
+          phone: null,
+          full_name: 'Twin User',
+          password_hash: null,
+        }),
+      );
+      const old = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-T1', user_id: user.id }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      await studentsTab.remove(
+        await studentRepo.findOneByOrFail({ id: old.id }),
+        dataSource.manager,
+      );
+      // The per-school key is partial on deleted_at, so a live twin can hold the user.
+      const live = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-T2', roll_number: 2 }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      await studentRepo.update(live.id, { user_id: user.id });
+
+      const again = await studentsTab.upsert(
+        rowFor(chain, { registration_number: 'STU-T3', roll_number: 2, user_id: user.id }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      expect(again.id).toBe(live.id);
+
+      // A row matching the soft-deleted twin by registration number names the clash.
+      await expect(
+        studentsTab.upsert(
+          rowFor(chain, { registration_number: 'STU-T1', user_id: user.id }),
+          null,
+          TENANT_A,
+          dataSource.manager,
+        ),
+      ).rejects.toThrow(/already belongs to a different student record/);
+      const stillDeleted = await studentRepo.findOne({ where: { id: old.id }, withDeleted: true });
+      expect(stillDeleted?.deleted_at).not.toBeNull();
+    });
   });
 
   describe('Enrollment sync (#1020)', () => {

@@ -305,44 +305,29 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
     // itself — it relies on `existing` (from the engine's `KeyIndex`) plus a
     // `user_id` lookup below.
     //
-    // `guardians (tenant_id, user_id)` is unique per school
-    // (`UQ_guardians_tenant_user`, D11), so the holder lookup below is
-    // tenant-scoped. `withDeleted: true` so a
-    // soft-deleted holder is revived rather than colliding with a fresh
-    // insert.
+    // `guardians (tenant_id, user_id)` is unique per school among LIVE rows
+    // (`UQ_guardians_tenant_user`, D11, partial on `deleted_at`), so the
+    // holder lookup below is tenant-scoped and live-first.
     let guardian = existing;
 
     // Even with an `existing` match (found by the engine's `KeyIndex` on
     // phone/email/name), the row's `user` ref can still point at a
     // *different* guardian, because `keyOf` never considers `user_id`. Look
-    // up that other holder before saving, or `m.save` below would hit the
-    // per-tenant unique index (`UQ_guardians_tenant_user`) as an unhandled
-    // 23505 instead of this deliberate error. The lookup is tenant-scoped:
-    // the same user may hold a guardian row in another school.
+    // up that other holder before saving, or `m.save` below would hit
+    // `UQ_guardians_tenant_user` as an unhandled 23505 instead of this
+    // deliberate error. A soft-deleted row and a live row can share the user,
+    // so the LIVE holder wins; a soft-deleted one is only revived when nothing
+    // else matched. The same user may hold a guardian row in another school.
     if (row.user_id && (!guardian || guardian.user_id !== row.user_id)) {
-      const holder = await m.findOne(Guardian, {
-        where: { user_id: row.user_id, tenant_id: tenantId },
-        withDeleted: true,
-      });
-      if (holder && holder.id !== guardian?.id) guardian = guardian ?? holder;
-      if (holder && guardian && holder.id !== guardian.id) {
+      const where = { user_id: row.user_id, tenant_id: tenantId };
+      const live = await m.findOne(Guardian, { where });
+      if (live && guardian && live.id !== guardian.id) {
         throw new Error(
           `Guardian with user "${row.user_key ?? row.user_id}" already belongs to a different ` +
-            `guardian record (tenant "${holder.tenant_id}") and cannot be reassigned by a restore.`,
+            `guardian record and cannot be reassigned by a restore.`,
         );
       }
-    }
-
-    if (guardian && guardian.tenant_id !== tenantId) {
-      // A cross-tenant user_id collision is a genuine data conflict, not
-      // something `upsert` can silently resolve by re-tenanting another
-      // school's guardian. `upsert` has no `ImportContext` (`tab-spec.ts`),
-      // so it cannot emit a `RowError`/warning — throw a clear error naming
-      // both tenants instead, the deliberate exception to "never throw."
-      throw new Error(
-        `Guardian with user "${row.user_key ?? row.user_id}" already exists in tenant ` +
-          `"${guardian.tenant_id}" and cannot be restored into tenant "${tenantId}".`,
-      );
+      guardian ??= live ?? (await m.findOne(Guardian, { where, withDeleted: true }));
     }
 
     if (guardian) {
