@@ -82,6 +82,7 @@ export const FAIL_OPEN = [
   'POST /users/invitations/preview',
   'POST /users/invitations/batch',
   'GET /users/invitations/batch/:batchId',
+  'POST /users/join-requests',
   'GET /users/me',
   'PATCH /users/me',
   'POST /users/me/leave',
