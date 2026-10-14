@@ -2,9 +2,12 @@ import type { DataSource } from 'typeorm';
 import { PaymentStatus, PeriodSlotKind, WalletTransactionKind } from '@biddaloy/shared';
 import { checkSlot, type SlotLike } from '../../modules/routines/constraint-check';
 import { DEMO_CARDS, DEMO_SCHOOL_SLUGS } from '../../modules/demo/demo-accounts';
+import {
+  isWeeklyOff,
+  resolveAttendancePolicy,
+} from '../../modules/attendance/attendance-policy.util';
+import { resolveTenantSettings } from '../../modules/schools/settings/tenant-settings-resolver';
 
-/** Weekly off-day is Friday (0=Sun..5=Fri), same default as `schoolDays` in dates.ts. */
-const WEEKLY_OFF = 5;
 const DEMO = `s.slug LIKE 'bmsc-%'`;
 
 export interface Violation {
@@ -15,18 +18,26 @@ export interface Violation {
 type Db = Pick<DataSource, 'query'>;
 type Row = Record<string, any>;
 
-/** Each query starts with `/* check:<name> *\/` so a test fake can answer it without a database. */
+/**
+ * Each query starts with `/* check:<name> *\/` so a test fake can answer it without a database.
+ * Same rule as the app's cross-branch clash check (`routine-slots.service.ts`): every non-deleted
+ * routine counts (drafts too), and a slot's dates are clipped to its academic year.
+ */
 async function routine(ds: Db): Promise<Violation[]> {
   const rows: Row[] = await ds.query(`/* check:routine */
     SELECT rs.id, rs.section_id, rs.period_slot_id, rs.weekday, rs.subject_id, rs.room_id,
-           rs.recurrence, rs.recurrence_offset, rs.valid_from::text AS valid_from,
-           rs.valid_to::text AS valid_to, ps.starts_at::text AS starts_at,
+           rs.recurrence, rs.recurrence_offset,
+           GREATEST(rs.valid_from, ay.start_date)::text AS valid_from,
+           LEAST(COALESCE(rs.valid_to, ay.end_date), ay.end_date)::text AS valid_to,
+           ps.starts_at::text AS starts_at,
            ps.ends_at::text AS ends_at, ps.sequence, ps.kind, t.user_id, s.slug
       FROM routine_slots rs
+      JOIN routines r ON r.id = rs.routine_id AND r.deleted_at IS NULL
+      JOIN academic_years ay ON ay.id = r.academic_year_id AND ay.deleted_at IS NULL
       JOIN schools s ON s.id = rs.tenant_id
       JOIN period_slots ps ON ps.id = rs.period_slot_id
       JOIN routine_slot_teachers rst ON rst.routine_slot_id = rs.id
-      JOIN teachers t ON t.id = rst.teacher_id
+      JOIN teachers t ON t.id = rst.teacher_id AND t.deleted_at IS NULL
      WHERE ${DEMO}`);
   // One entry per (slot, teacher user): a user teaching in two branches is one person (D12).
   const byUser = new Map<string, { slot: SlotLike; kind: PeriodSlotKind; slug: string }[]>();
@@ -162,11 +173,11 @@ async function money(ds: Db): Promise<Violation[]> {
   return out;
 }
 
+/** Weekly off days come from each branch's own settings (with history), like the app. */
 async function attendance(ds: Db): Promise<Violation[]> {
   const rows: Row[] = await ds.query(
     `/* check:attendance */
-    SELECT DISTINCT a.date::text AS date, s.slug,
-           extract(dow FROM a.date)::int = $1 AS off_day,
+    SELECT DISTINCT a.date::text AS date, s.slug, s.settings,
            EXISTS (SELECT 1 FROM calendar_events h
                     WHERE h.tenant_id = a.tenant_id AND h.deleted_at IS NULL
                       AND h.published_at IS NOT NULL AND h.counts_as_working_day = false
@@ -175,14 +186,17 @@ async function attendance(ds: Db): Promise<Violation[]> {
                                        WHERE ec.event_id = h.id)) AS holiday
       FROM attendance_sessions a JOIN schools s ON s.id = a.tenant_id
      WHERE ${DEMO}`,
-    [WEEKLY_OFF],
   );
-  return rows
-    .filter((r) => r.off_day || r.holiday)
-    .map((r) => ({
-      check: 'attendance',
-      message: `${r.slug} has an attendance session on ${r.date}, a ${r.off_day ? 'weekly off-day' : 'holiday'}`,
-    }));
+  return rows.flatMap((r) => {
+    const off = isWeeklyOff(r.date, resolveAttendancePolicy(resolveTenantSettings(r.settings)));
+    if (!off && !r.holiday) return [];
+    return [
+      {
+        check: 'attendance' as const,
+        message: `${r.slug} has an attendance session on ${r.date}, a ${off ? 'weekly off-day' : 'holiday'}`,
+      },
+    ];
+  });
 }
 
 async function enrollment(ds: Db): Promise<Violation[]> {
@@ -204,6 +218,7 @@ async function logins(ds: Db): Promise<Violation[]> {
       FROM users u JOIN user_tenants ut ON ut.user_id = u.id
       JOIN schools s ON s.id = ut.tenant_id
      WHERE u.email = ANY($1) AND s.slug = ANY($2)
+       AND u.deleted_at IS NULL AND ut.deleted_at IS NULL
     UNION ALL
     SELECT NULL, s.slug FROM schools s WHERE ${DEMO}`,
     [DEMO_CARDS.map((c) => c.email), [...DEMO_SCHOOL_SLUGS]],

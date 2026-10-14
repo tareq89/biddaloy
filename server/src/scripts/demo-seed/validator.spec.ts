@@ -130,11 +130,23 @@ describe('demo seed validator', () => {
     ).not.toContain('money');
   });
 
-  it('attendance: flags a session on an off-day or a holiday only', async () => {
-    const row = { date: '2026-10-09', slug: 'bmsc-high', off_day: false, holiday: false };
+  it('attendance: flags a session on a branch weekly off-day or a holiday only', async () => {
+    // 2026-10-08 is a Thursday, 2026-10-09 a Friday, 2026-10-10 a Saturday
+    const row = { date: '2026-10-08', slug: 'bmsc-high', settings: null, holiday: false };
     expect(await checksOf({ attendance: [row] })).not.toContain('attendance');
-    expect(await checksOf({ attendance: [{ ...row, off_day: true }] })).toContain('attendance');
     expect(await checksOf({ attendance: [{ ...row, holiday: true }] })).toContain('attendance');
+    // default policy: Friday off
+    expect(await checksOf({ attendance: [{ ...row, date: '2026-10-09' }] })).toContain(
+      'attendance',
+    );
+    expect(await checksOf({ attendance: [{ ...row, date: '2026-10-10' }] })).not.toContain(
+      'attendance',
+    );
+    // a branch off on Friday and Saturday
+    const friSat = { version: 1, attendance: { weeklyOffDays: [5, 6] } };
+    expect(
+      await checksOf({ attendance: [{ ...row, date: '2026-10-10', settings: friSat }] }),
+    ).toContain('attendance');
   });
 
   it('enrollment: flags a student with two ACTIVE enrollments in a year', async () => {
