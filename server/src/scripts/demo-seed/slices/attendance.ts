@@ -130,26 +130,48 @@ interface PeriodSlot {
 }
 
 /**
- * Bulk-load trick: the secondary indexes of the two big tables are dropped for the load and rebuilt from
- * their own definitions afterwards (the rebuild re-checks uniqueness). Keys and foreign keys stay.
+ * Bulk-load trick: the plain secondary indexes of the two big tables are dropped for the load and rebuilt
+ * from their own definitions afterwards. Keys, foreign keys and UNIQUE indexes (`UQ_att_session`,
+ * `IDX_attendance_records_session_student`) stay, so a duplicate row fails at its insert. A killed run
+ * leaves the dropped indexes missing: the seed only targets a fresh DB, so drop it and re-run.
  */
 async function withoutIndexes<T>(
   ds: DataSource,
   tables: string[],
   load: () => Promise<T>,
 ): Promise<T> {
-  const defs: { indexname: string; indexdef: string }[] = await ds.query(
-    `SELECT i.indexname, i.indexdef FROM pg_indexes i
+  const defs: { indexname: string; indexdef: string; dropdef: string }[] = await ds.query(
+    `SELECT i.indexname, i.indexdef, format('DROP INDEX public.%I', i.indexname) AS dropdef
+       FROM pg_indexes i
       WHERE i.schemaname = 'public' AND i.tablename = ANY($1)
+        AND i.indexdef NOT LIKE 'CREATE UNIQUE INDEX%'
         AND NOT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conname = i.indexname)`,
     [tables],
   );
-  for (const d of defs) await ds.query(`DROP INDEX "public"."${d.indexname}"`);
+  for (const d of defs) await ds.query(d.dropdef); // the name is quoted by format('%I')
+  // Every index is rebuilt in its own try, so one failure does not leave the rest missing.
+  const rebuild = async (): Promise<unknown[]> => {
+    const errors: unknown[] = [];
+    for (const d of defs) {
+      try {
+        await ds.query(d.indexdef);
+      } catch (e) {
+        errors.push(e);
+        console.error(`attendance: rebuilding ${d.indexname} failed: ${(e as Error).message}`);
+      }
+    }
+    return errors;
+  };
+  let result: T;
   try {
-    return await load();
-  } finally {
-    for (const d of defs) await ds.query(d.indexdef);
+    result = await load();
+  } catch (e) {
+    await rebuild(); // the load error is the one that surfaces; rebuild errors are only logged
+    throw e;
   }
+  const errors = await rebuild();
+  if (errors.length) throw errors[0];
+  return result;
 }
 
 const load = async (ctx: DemoSeedContext) => {
