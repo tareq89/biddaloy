@@ -111,6 +111,7 @@ function PlatformLayout() {
           <Outlet />
         ) : (
           <AppShell
+            reserveCorner={demo.enabled}
             navItems={navItems}
             brand={t('brand')}
             topBar={

@@ -228,6 +228,7 @@ function PortalLayout() {
     <DemoCornerFrame>
       <RequireRole allow={GUARDIAN_ROLES} redirectTo="/dashboard">
         <AppShell
+          reserveCorner={demo.enabled}
           navItems={navItems}
           brand={t('brand')}
           // Desktop-only, as in the staff shell: below `md` the phone row
