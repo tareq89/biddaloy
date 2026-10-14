@@ -38,6 +38,17 @@ flowchart LR
 
 Before a run, know these:
 
+- **S3 must be up.** The `applications` slice uploads one PDF leave note
+  through the real storage service. The app does not boot without
+  `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID` and
+  `S3_SECRET_ACCESS_KEY`; if the store behind them is down, the slice fails
+  near the end with a message naming those variables. Locally,
+  `yarn test-env up` (or the compose `seaweedfs` service) provides one.
+- **Set `DEMO_MODE=true`.** The `applications` slice decides requests through
+  the real notify services. Only `DEMO_MODE` turns SMS and push into log
+  rows; without it they would use the real providers. `seed:demo` prints a
+  loud warning when it is not set.
+
 - **`--anchor` must not be in a later month than the real clock.** The `fees`
   slice records last month's and this month's payments through the real
   payment service, which dates and types them by the real clock. So
