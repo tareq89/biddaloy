@@ -113,6 +113,21 @@ export const FirstDayMonday: Story = {
   },
 };
 
+/** Unmarked working days after `today` read "Upcoming", not "Not marked". */
+export const UpcomingDays: Story = {
+  args: {
+    month: MONTH,
+    today: '2026-09-03',
+    days: [
+      day({ date: '2026-09-01', status: AttendanceStatus.PRESENT }),
+      day({ date: '2026-09-02', status: null }),
+      day({ date: '2026-09-03', status: null }),
+      day({ date: '2026-09-04', status: null }),
+      day({ date: '2026-09-05', isWorkingDay: false }),
+    ],
+  },
+};
+
 export const Bengali: Story = {
   args: typicalArgs,
   globals: { locale: 'bn' },
