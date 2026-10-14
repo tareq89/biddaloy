@@ -942,6 +942,17 @@ describe('workbook round trip (integration)', () => {
       }),
     );
 
+    // [58.0.02] The same person also teaches at tenant B (one Teacher + StaffProfile per
+    // school). Tenant A's export must not carry it, and the restore must not collide with it.
+    await dataSource.getRepository(Teacher).save(
+      dataSource.getRepository(Teacher).create({
+        user_id: teacherUserOne.id,
+        employee_id: `EMP-610-1-${TENANT_A.slice(0, 6)}`,
+        designations: [TeacherDesignation.SUBJECT_TEACHER],
+        tenant_id: TENANT_B,
+      }),
+    );
+
     // [47.x] teacher_assignments with all three roles: a CLASS_TEACHER, an
     // ASSISTANT beside it, a SUBJECT_TEACHER row, and an ASSISTANT on a
     // section that has no class teacher. Before the Role column an assistant

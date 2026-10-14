@@ -317,11 +317,12 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
     // phone/email/name), the row's `user` ref can still point at a
     // *different* guardian, because `keyOf` never considers `user_id`. Look
     // up that other holder before saving, or `m.save` below would hit the
-    // global unique constraint as an unhandled 23505 instead of this
-    // deliberate error.
+    // per-tenant unique index (`UQ_guardians_tenant_user`) as an unhandled
+    // 23505 instead of this deliberate error. The lookup is tenant-scoped:
+    // the same user may hold a guardian row in another school.
     if (row.user_id && (!guardian || guardian.user_id !== row.user_id)) {
       const holder = await m.findOne(Guardian, {
-        where: { user_id: row.user_id },
+        where: { user_id: row.user_id, tenant_id: tenantId },
         withDeleted: true,
       });
       if (holder && holder.id !== guardian?.id) guardian = guardian ?? holder;

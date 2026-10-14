@@ -921,20 +921,23 @@ export class TeacherService {
       throw new BadRequestException(`User "${dto.user_id}" is not a member of this tenant`);
     }
 
-    // A user can hold at most one teacher profile (unique index on
-    // teachers.user_id) — guard here so the client sees a mapped 409
-    // instead of a raw DB constraint error. The promote dialog's
+    // A user can hold at most one teacher profile per school (unique index on
+    // teachers (tenant_id, user_id)) — guard here so the client sees a mapped
+    // 409 instead of a raw DB constraint error. The promote dialog's
     // client-side exclusion only sees the first 100 teachers.
     const existingProfile = await teacherRepo.findOne({
-      where: { user_id: dto.user_id },
+      where: { user_id: dto.user_id, tenant_id: tenantId },
     });
     if (existingProfile) {
-      throw new ConflictException(`User "${dto.user_id}" already has a teacher profile`);
+      throw new ConflictException({
+        message: `User "${dto.user_id}" already has a teacher profile`,
+        details: { code: 'ALREADY_TEACHER_HERE' },
+      });
     }
 
     // Check for duplicate employee_id
     const existing = dto.employee_id
-      ? await teacherRepo.findOne({ where: { employee_id: dto.employee_id } })
+      ? await teacherRepo.findOne({ where: { employee_id: dto.employee_id, tenant_id: tenantId } })
       : null;
     if (existing) {
       // Rule 23: name the field, never echo the value.

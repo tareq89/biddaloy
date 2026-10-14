@@ -484,7 +484,7 @@ export async function seedAccounts(
       // after `ensureAttendanceSeed`, whose Teacher row and "MATH"
       // subject this reuses.
       const primaryTeacher = await repos.teacherRepository.findOne({
-        where: { user_id: teacherTestUser.id },
+        where: { user_id: teacherTestUser.id, tenant_id: school.id },
       });
       const attendanceClassForRoutine = await repos.classRepository.findOne({
         where: { name: 'Class 6', tenant_id: school.id, academic_year_id: academicYear.id },

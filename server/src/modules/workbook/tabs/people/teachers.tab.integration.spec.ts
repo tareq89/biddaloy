@@ -15,10 +15,9 @@ import { teachersTab, type TeacherRow } from './teachers.tab';
  *
  * The unit spec covers the pure mapping. What it cannot cover is the
  * sharpest edge in this tab: `Teacher.employee_id` (and `user_id`) are
- * globally unique across every tenant, not scoped to one — so `upsert`
- * must look them up without a tenant filter, must revive a soft-deleted
- * holder instead of re-inserting, and must refuse to silently re-tenant a
- * teacher that belongs to a different school.
+ * unique per school (D10/D11) — so `upsert` must look them up within the
+ * tenant, must revive a soft-deleted holder instead of re-inserting, and
+ * must never re-tenant another school's teacher.
  */
 describe('teachersTab (integration)', () => {
   let module: TestingModule;
@@ -186,7 +185,7 @@ describe('teachersTab (integration)', () => {
       expect(saved.subject_specialization).toBe('Physics');
     });
 
-    it('throws a clear error naming both tenants on a cross-tenant employee_id collision', async () => {
+    it('allows the same employee_id in each school, and never re-tenants the other (D10)', async () => {
       const userA = await makeUser({ email: 'collide-a@teachers-a.test' });
       await teachersTab.upsert(
         rowFor({ user_id: userA.id, employee_id: 'EMP-SHARED' }),
@@ -196,15 +195,15 @@ describe('teachersTab (integration)', () => {
       );
 
       const userB = await makeUser({ email: 'collide-b@teachers-b.test' });
-      const rowForB = rowFor({ user_id: userB.id, employee_id: 'EMP-SHARED' });
-
-      await expect(teachersTab.upsert(rowForB, null, TENANT_B, dataSource.manager)).rejects.toThrow(
-        /EMP-SHARED/,
+      await teachersTab.upsert(
+        rowFor({ user_id: userB.id, employee_id: 'EMP-SHARED' }),
+        null,
+        TENANT_B,
+        dataSource.manager,
       );
 
-      // The tenant A teacher must not have been re-tenanted.
-      const stillA = await teacherRepo.findOneByOrFail({ employee_id: 'EMP-SHARED' });
-      expect(stillA.tenant_id).toBe(TENANT_A);
+      const rows = await teacherRepo.find({ where: { employee_id: 'EMP-SHARED' } });
+      expect(rows.map((r) => r.tenant_id).sort()).toEqual([TENANT_A, TENANT_B]);
     });
   });
 

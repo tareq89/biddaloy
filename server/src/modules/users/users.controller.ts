@@ -191,6 +191,7 @@ export class UserController {
     const statusByUserId = await this.invitationService.statusForMany(result.data, tenant.id);
     const staffProfileIdByUserId = await this.staffProfilesService.findIdsByUserIds(
       result.data.map((u) => u.id),
+      tenant.id,
     );
     return {
       ...result,
@@ -275,7 +276,7 @@ export class UserController {
     const user = await this.userService.findOne(jwt.sub, tenant.id);
     const dto = UserResponseDto.fromEntity(user, tenant.id);
     dto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
-    dto.staff_profile_id = await this.staffProfilesService.findIdByUserId(user.id);
+    dto.staff_profile_id = await this.staffProfilesService.findIdByUserId(user.id, tenant.id);
     return dto;
   }
 

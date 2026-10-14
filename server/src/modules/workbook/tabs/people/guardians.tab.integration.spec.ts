@@ -179,7 +179,7 @@ describe('guardiansTab (integration)', () => {
       expect(saved.occupation).toBe('Revived job');
     });
 
-    it('throws a clear error naming both tenants on a cross-tenant user_id collision', async () => {
+    it('lets the same user hold a guardian row in each school (D11)', async () => {
       const user = await makeUser({ email: 'collide@guardians-a.test' });
       await guardiansTab.upsert(
         rowFor({ user_id: user.id, phone: '01755555555' }),
@@ -188,18 +188,16 @@ describe('guardiansTab (integration)', () => {
         dataSource.manager,
       );
 
-      const rowForB = rowFor({ user_id: user.id, phone: '01766666666', user_key: user.email });
+      await guardiansTab.upsert(
+        rowFor({ user_id: user.id, phone: '01766666666', user_key: user.email }),
+        null,
+        TENANT_B,
+        dataSource.manager,
+      );
 
-      await expect(
-        guardiansTab.upsert(rowForB, null, TENANT_B, dataSource.manager),
-      ).rejects.toThrow(new RegExp(TENANT_A));
-
-      // The tenant A guardian must not have been re-tenanted, and no row
-      // written for tenant B.
-      const stillA = await guardianRepo.findOneByOrFail({ user_id: user.id });
-      expect(stillA.tenant_id).toBe(TENANT_A);
-      const tenantBGuardians = await guardianRepo.find({ where: { tenant_id: TENANT_B } });
-      expect(tenantBGuardians).toHaveLength(0);
+      // One row per school, neither re-tenanted.
+      const rows = await guardianRepo.find({ where: { user_id: user.id } });
+      expect(rows.map((r) => r.tenant_id).sort()).toEqual([TENANT_A, TENANT_B]);
     });
   });
 
