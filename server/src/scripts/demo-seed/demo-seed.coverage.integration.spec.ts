@@ -1,4 +1,5 @@
 import 'ts-node/register/transpile-only';
+import { createHash } from 'crypto';
 import { join } from 'path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DataSource } from 'typeorm';
@@ -104,8 +105,10 @@ async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<stri
 }
 
 describe('demo seed coverage', () => {
-  // biddaloy_demo* so runDemoSeed's own DB-name guard passes; the base name keeps runs apart.
-  const dbs = ['main', 'a', 'b'].map((x) => `biddaloy_demo_cov_${baseDb}_${x}`);
+  // biddaloy_demo* so runDemoSeed's own DB-name guard passes. A hash of the base name keeps runs
+  // apart and the name under Postgres's 63-char limit (longer names truncate into one database).
+  const tag = createHash('sha1').update(baseDb).digest('hex').slice(0, 12);
+  const dbs = ['main', 'a', 'b'].map((x) => `biddaloy_demo_cov_${tag}_${x}`);
   const savedUrl = process.env.DATABASE_URL;
   let closeMain: () => Promise<void> = async () => {};
   let slices: DemoSlice[] = [];
