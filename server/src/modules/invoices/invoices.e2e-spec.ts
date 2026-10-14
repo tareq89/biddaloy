@@ -7,6 +7,7 @@ import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
+import { todayInSchoolTz } from '../../common/time';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -450,7 +451,7 @@ describe('Invoices E2E', () => {
          RETURNING id`,
         [SEED_SECTION_1_ID, OTHER_TENANT],
       );
-      const foreignNumber = `INV-${new Date().getFullYear()}-99999`;
+      const foreignNumber = `INV-${todayInSchoolTz().slice(0, 4)}-99999`;
       await dataSource.query(
         `INSERT INTO invoices (invoice_number, tenant_id, student_id, total_amount, tax_amount, discount_amount, status, kind, issued_date, due_date, snapshot, created_at, updated_at)
          VALUES ($1, $2, $3, 1, 0, 0, 'ISSUED', 'INVOICE', '2026-01-01', '2026-01-31', '{}', NOW(), NOW())`,

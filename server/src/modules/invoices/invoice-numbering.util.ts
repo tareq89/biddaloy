@@ -1,4 +1,5 @@
 import type { EntityManager } from 'typeorm';
+import { todayInSchoolTz } from '../../common/time';
 import { nextTenantSerial } from '../../common/utils/next-serial.util';
 
 async function nextNumber(
@@ -7,7 +8,8 @@ async function nextNumber(
   prefix: string,
   padLength: number,
 ): Promise<string> {
-  const stem = `${prefix}-${new Date().getFullYear()}-`;
+  // The school's (Asia/Dhaka) calendar year, never the server clock's: the process TZ is UTC in prod.
+  const stem = `${prefix}-${todayInSchoolTz().slice(0, 4)}-`;
   const n = await nextTenantSerial(manager, {
     table: 'invoices',
     column: 'invoice_number',
