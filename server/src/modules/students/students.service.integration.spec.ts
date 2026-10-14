@@ -2353,6 +2353,22 @@ describe('GuardianService (integration)', () => {
       ).resolves.toBeDefined();
     });
 
+    // Review r2 N3: the same number in another format is not a change, and the stored copy stays.
+    it('[68.4.05] updateOwn accepts the same phone in another format and keeps the stored one', async () => {
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+      const local = `0${(guardian.phone as string).slice(-10)}`;
+      await expect(
+        service.updateOwn(
+          OWNER_USER_ID,
+          { phone: local, alternate_phone: '01799999999' },
+          TENANT_ID,
+        ),
+      ).resolves.toBeDefined();
+      const after = await guardianRepo.findOneByOrFail({ id: guardian.id });
+      expect(after.phone).toBe(guardian.phone);
+      expect(after.alternate_phone).toBe('01799999999');
+    });
+
     it('updateOwn flips notifications_enabled and returns it', async () => {
       await makeGuardian(OWNER_USER_ID, TENANT_ID);
 

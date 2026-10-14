@@ -195,6 +195,8 @@ export function useUpdateUser(id: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: userKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+      // [68.4.05] The server copies a changed phone/email to this person's guardian rows.
+      void queryClient.invalidateQueries({ queryKey: guardianKeys.all });
     },
   });
 }
