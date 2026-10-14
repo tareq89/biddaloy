@@ -18,12 +18,12 @@ at hand instead of loading the whole set.
 | [04-fees-payments-invoices.md](04-fees-payments-invoices.md) | Working on fee generation, payments, dues, or invoices — the core business flow |
 | [05-communications.md](05-communications.md) | Working on SMS/WhatsApp/email/Messenger reminders |
 | [06-frontend-architecture.md](06-frontend-architecture.md) | Working in `ui/` or `client-admin/` (the one SPA — staff routes + `/portal`) |
-| [07-deployment.md](07-deployment.md) | Working on Docker, nginx, CI, or production deploys |
+| [07-deployment.md](07-deployment.md) | Working on Docker, nginx, CI, production deploys, or the demo site host |
 | [08-security.md](08-security.md) | **Security rules** (read first for any change to auth, routes, uploads, SQL, logs or infra), then login, tokens, CSRF, audit logging, or PII/data-protection handling |
 | [09-design-direction.md](09-design-direction.md) | Touching design tokens — type, colour, elevation, borders, density, motion — or the interaction contract built on top of them: focus vocabulary, action hierarchy, table→card responsive grammar, `ui/` i18n defaults, access states. Decided in 8.13 (#343–#354), recorded from 8.14 (#365–#377, #457–#461) |
 | [10-third-party-services.md](10-third-party-services.md) | Need to know what external services/APIs SchoolManager depends on (Postgres, Redis, BullMQ, S3/SeaweedFS object storage, SMS/WhatsApp/email providers, Sentry) — and what it deliberately doesn't use (no payment gateway) |
 | [11-attendance.md](11-attendance.md) | Working on attendance, registers, the teacher marking flow, or integrating a scanner |
-| [12-operations.md](12-operations.md) | On call, debugging a production incident, or need alert thresholds / runbooks for 5xx spikes, readiness failures, or failed communication jobs |
+| [12-operations.md](12-operations.md) | On call, debugging a production incident, or need alert thresholds / runbooks for 5xx spikes, readiness failures, failed communication jobs, or a failed demo reset |
 | [13-backup-restore.md](13-backup-restore.md) | Working on backups, restores, disaster recovery, object storage retention, or the `backup`/`seaweedfs` docker-compose services |
 | [14-school-workbook.md](14-school-workbook.md) | Working on per-school workbook export/import, the `/backup/*` routes, the tab registry, or restore/retention semantics for one tenant's data |
 | [15-ux-principles.md](15-ux-principles.md) | Planning or building any screen: where it lives in the nav tree, the `Ctrl+K` palette and its action registry, breadcrumbs, keyboard/a11y gates, the "no silent gaps" registry guards, and the three sections every epic must carry |
@@ -35,7 +35,7 @@ at hand instead of loading the whole set.
 | [19-print-module.md](19-print-module.md) | Working on `modules/print` or `print/` in shared/client — templates and the editor, printer profiles, print jobs and history, certificates and serial numbers, the certificate register, exam documents (admit cards, seat lists, tabulation), the public `/v/:token` verify page, or adding a new document kind |
 | [20-presets.md](20-presets.md) | Working on `modules/presets` — curriculum packs (NCTB, Alia, Qawmi, Cambridge, Blank), applying or resetting a school's preset, subject choice groups, exam templates from a pack, or adding a new board or country |
 | [21-ui-patterns.md](21-ui-patterns.md) | Designing, planning or building any screen: page shapes, page vs full-page modal vs dialog, table / filter / form rules, date-number-money formats, phone rules, wording, the component catalogue, and how to mock a screen up from the kit |
-| [22-demo-seed.md](22-demo-seed.md) | Adding or changing **any table or column** (the demo seed must get rows for it), working on `seed:demo`, the demo site, `DEMO_MODE`, or load-test data |
+| [22-demo-seed.md](22-demo-seed.md) | Adding or changing **any table or column** (the demo seed must get rows for it), working on `seed:demo`, the demo site, `DEMO_MODE`, load-test data, or **running the demo site** (nightly reset, env, sweep, rollback) |
 | [22-onboarding.md](22-onboarding.md) | Working on `/register`, the welcome wizard and setup checklist, the free trial and seat limit, first-password, or Google sign-in |
 | [23-study-plans.md](23-study-plans.md) | Working on `modules/study-plans` — lesson plans per section and subject, marking periods taught, how expected dates are computed, the study-plan template library and CSV, or the late-marking escalation |
 | [24-applications.md](24-applications.md) | Working on `modules/applications` — any application type (leave, fee waiver, certificates, general letters), who decides it, what approval does, the inbox/pending count, or the portal application pages |

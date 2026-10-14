@@ -72,6 +72,31 @@ Where things live (all under `server/src/scripts/demo-seed/`):
 | `validator.ts`                           | Invariant checks (teacher double-booking, money sums, ...)                            |
 | `demo-seed.coverage.integration.spec.ts` | The CI guard                                                                          |
 
+Slices run in this order. Later slices read ids that earlier ones publish in `ctx.ids`, and `attention` is always last
+because it derives alerts from everything before it.
+
+```mermaid
+flowchart LR
+  org --> staff --> students --> student-extras --> routine --> attendance --> fees --> exams --> learning --> people-ops --> comms-print --> applications --> attention
+```
+
+### The demo login cards (`DEMO_CARDS`)
+
+Nine cards, defined once in `server/src/modules/demo/demo-accounts.ts`. The seed creates exactly these users and the
+login screen shows exactly these cards. Every card uses `DEMO_PASSWORD`.
+
+| Card key           | Role              | Email                     | Branch      | What to try                         |
+| ------------------ | ----------------- | ------------------------- | ----------- | ----------------------------------- |
+| `admin`            | `ADMIN`           | `admin@bmsc.example`      | `bmsc-high` | dashboard                           |
+| `principal`        | `EXECUTIVE`       | `principal@bmsc.example`  | `bmsc-high` | overview                            |
+| `accountant`       | `ACCOUNTANT`      | `accountant@bmsc.example` | `bmsc-high` | fees                                |
+| `class-teacher-8a` | `TEACHER`         | `teacher8a@bmsc.example`  | `bmsc-high` | attendance                          |
+| `exam-controller`  | `EXAM_CONTROLLER` | `exams@bmsc.example`      | `bmsc-high` | exams                               |
+| `office-staff`     | `OFFICE_STAFF`    | `office@bmsc.example`     | `bmsc-high` | students                            |
+| `committee`        | `COMMITTEE`       | `committee@bmsc.example`  | `bmsc-high` | overview                            |
+| `guardian`         | `PARENT`          | `guardian@bmsc.example`   | `bmsc-high` | children (two kids, one in Primary) |
+| `student-9b`       | `STUDENT`         | `student9b@bmsc.example`  | `bmsc-high` | homework                            |
+
 `ctx.rng` is one seeded faker, so the same anchor and scale give the same data.
 `ctx.ids` is how a slice hands tenant, year and user ids to later slices.
 Every seeded login shares one bcrypt hash made once in `createContext` (cost 12
@@ -176,69 +201,195 @@ is only a label today).
 The demo host rebuilds itself every night. The new database is built **beside** the live one, so a
 bad night costs nothing: the old demo keeps running.
 
+Names used below: `biddaloy_demo` is the live database. `_next` is tomorrow's, built aside.
+`_prev` is yesterday's. `_prev_old` is the one before that, waiting to be deleted.
+
 ```mermaid
-flowchart LR
-  A["01:00 cron<br/>(supercronic in demo-reset)"] --> B["create biddaloy_demo_next<br/>migrate + seed:demo"]
-  B --> C["validate()<br/>0 violations?"]
-  C --> D["temp app on :3999<br/>+ DEMO_SWEEP_CMD"]
-  D --> E["wait for 02:00"]
-  E --> F["swap by rename<br/>live to _prev, _next to live"]
-  F --> G["write default-school id<br/>flush Redis, restart app<br/>(always attempted)"]
-  G --> H["drop _prev_old<br/>+ its S3 objects<br/>(best effort)"]
-  B -. any failure .-> X["drop _next<br/>Sentry error<br/>live unchanged"]
-  C -.-> X
-  D -.-> X
-  F -. rename fails .-> R["rename _prev back to live<br/>Sentry error"]
+sequenceDiagram
+  autonumber
+  participant C as cron (01:00)
+  participant R as reset.sh
+  participant P as Postgres
+  participant T as temp app :3999
+  participant W as sweep runner
+  participant S as S3, Redis, app container
+  C->>R: start
+  R->>R: flock reset.lock (a second run exits 1)
+  R->>P: create biddaloy_demo_next, migrate, seed:demo, validate
+  R->>T: start on _next (Redis db N+1)
+  R->>W: DEMO_SWEEP_CMD (skipped if DEMO_SKIP_SWEEP=true)
+  W-->>R: must exit 0, or no swap
+  R->>R: wait for 02:00 (not with --now)
+  R->>P: rename live to _prev, then _next to live
+  Note over R,S: the steps below always run, even if one fails
+  R->>P: re-open connections on live and _prev
+  R->>R: write default-school id to /demo-state
+  R->>S: flush Redis, restart app
+  R->>S: purge _prev_old (S3 objects first, then DROP)
+  Note over R,P: on any failure recover() reads pg_database, not its own notes
 ```
 
-Run it by hand (skips the 02:00 wait): `docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now`.
+Run it by hand (skips the 02:00 wait):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now
+```
+
 The tests are `scripts/demo/reset.test.sh` (they need the local `yarn test-env up` Postgres).
 
-- **Only `biddaloy_demo*` databases.** Every `DROP` and `RENAME` goes through one name check. The script also refuses to
-  start unless `DEMO_MODE=true`, `S3_BUCKET` is a plain bucket name containing `demo` (`biddaloy-demo` yes, `prod/demo`
-  no), and none of `SMS_PROVIDER`, `SMTP_HOST`, `VAPID_PUBLIC_KEY` is set.
-- **One reset at a time.** `reset.sh` takes `flock` on `/demo-state/reset.lock` before it touches anything. A manual
-  `run --rm` while the 01:00 run is still going exits 1 with `another reset is running`.
-- **A failed swap says where it stopped.** If a rename fails mid-swap, the reset renames `biddaloy_demo_prev` back and
-  logs `rolled back: yesterday's database is biddaloy_demo again`. If even that fails it logs `ROLLBACK FAILED` with the
-  names it left, and you finish by hand with the runbook below. To decide, it reads `pg_database`, not its own notes:
-  psql can report an error for a rename that did commit, and the catalog is the truth.
-- **After the swap the app always comes back.** Re-opening `biddaloy_demo` and `_prev` to connections, writing the id
-  file, flushing Redis and restarting `app` each run even if one before it failed. Then `_prev_old` and its S3 objects are dropped. Any failed step still means exit 1 and a Sentry
-  error, with the list: `swapped, but these steps failed: redis-flush purge-biddaloy_demo_prev_old`.
-- **One previous database is kept, with its files.** `biddaloy_demo_prev` is yesterday's, and its S3 objects stay until it
-  is dropped as `_prev_old` the next night. Runbook to undo a bad night:
-  1. `docker compose -f docker-compose.yml -f docker-compose.demo.yml stop demo-reset app` (a reset waiting for 02:00
-     would otherwise swap again on top of you).
-  2. Rename `biddaloy_demo` to `biddaloy_demo_bad`, then `biddaloy_demo_prev` to `biddaloy_demo`.
-  3. Write that database's `SELECT id FROM schools WHERE slug = 'default-school'` into `/demo-state/platform-tenant-id`.
-  4. Flush the app's Redis db (`redis-cli -u redis://redis:6379 FLUSHDB`): its caches and jobs belong to the bad night.
-  5. Start `app`, then `demo-reset`. Drop `biddaloy_demo_bad` when done.
+### What goes wrong, and what is left behind
+
+| Failure                              | State afterwards                                                                                     | Sentry |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------- | ------ |
+| Build, validate or sweep fails       | `_next` and its S3 objects are dropped. Yesterday's demo keeps running.                              | error  |
+| A rename fails mid-swap              | `recover()` renames `_prev` back and logs `rolled back: yesterday's database is biddaloy_demo again` | error  |
+| The rollback itself fails            | Log says `ROLLBACK FAILED` and names the databases. Finish by hand with the runbook below.           | error  |
+| A step after the swap fails          | The new demo is live. Exit 1 with `swapped, but these steps failed: redis-flush purge-...`.          | error  |
+| A second reset starts while one runs | Exits 1 with `another reset is running`. Nothing is touched.                                         | none   |
+
+`recover()` asks `pg_database` what really happened, because psql can report an error for a rename that did commit.
+
+### Safety, how it is built
+
+- **Only `biddaloy_demo*` databases.** Every `DROP` and `RENAME` goes through one name check (`assert_demo_name`).
+  The script refuses to start unless `DEMO_MODE=true`, `S3_BUCKET` is a plain bucket name containing `demo`
+  (`biddaloy-demo` yes, `prod/demo` no), and none of `SMS_PROVIDER`, `SMTP_HOST`, `VAPID_PUBLIC_KEY` is set.
+- **One previous database is kept, with its files.** `_prev` keeps its S3 objects until it is dropped as `_prev_old`
+  the next night, so a rollback brings back a demo whose files still exist.
 - **The database is picked with `DATABASE_URL`** (the server reads no `DB_NAME`).
 - **`PLATFORM_TENANT_ID` changes every night.** A fresh migration makes a new random `default-school` id, and
   `TenantStatusService.platformTenantId()` uses `PLATFORM_TENANT_ID` to find the platform tenant. The reset writes the id
   to the `demo-state` volume and the `app` service reads it at start. So `app` will not start until the first reset has
-  run once (see the header of `docker-compose.demo.yml`; that first run logs `app not restarted: first run`).
-- **Build-time Redis is not the app's.** Migrate, seed, validate and the temporary app use Redis db N+1 (db 1 when
-  `REDIS_URL` has none), so the live app's workers never see jobs for tenants that exist only in `_next`.
-- **S3 needs no prefix.** Keys are `tenants/<tenant-id>/...` and every reset creates new tenant ids, so the new run can
-  never collide with the old one in the same bucket. Instead of the planned `S3_PREFIX` or second bucket, the reset
-  deletes `tenants/<id>/` for each `bmsc-%` school of a database it drops (`_prev_old`, or `_next` when a build fails).
-  The objects go first and the database second: if S3 fails, the database (and so the list of ids) stays, and the next
-  run tries again. A leftover `_prev_old` that cannot be purged does not stop the night; the swap goes on without it.
-- **The sweep is a plug.** `DEMO_SWEEP_CMD` is run with `DEMO_SWEEP_URL` set to the temporary app and is
-  killed after `DEMO_SWEEP_TIMEOUT` seconds (default 1800); a non-zero exit stops the swap. The Playwright project
-  `demo-nightly` (#2179) is meant to be that command. The `demo-reset` image has no browser and cannot `docker run` one,
-  so a runner has to be another compose service, which reaches the temporary app at `http://demo-reset:3999`. That is
-  what `docker-compose.demo.yml` sets `DEMO_SWEEP_URL` to (the app listens on all interfaces; outside compose the script
-  falls back to `http://127.0.0.1:3999`). A manual `run --rm demo-reset` needs `--use-aliases` for that name to resolve.
-  Until a runner exists, set `DEMO_SKIP_SWEEP=true` on purpose.
-- **No Docker socket in `demo-reset`.** It restarts `app` through `demo-docker-proxy`, which only lets through
-  container stop / restart / kill, for **any** container on the host (the proxy cannot name one). A takeover of the reset
-  container can stop or kill anything there, including `db`, but cannot create, exec into or start a privileged one.
-  Acceptable because the host runs only the demo, and `demo-reset` already holds the database superuser password.
-- **The base `backup` service is off on the demo host** (its 02:00 dump would hit the 02:00 swap, and there is nothing to keep).
-- **Sentry:** `SENTRY_CRONS_URL` gets `?status=in_progress|ok|error`. Unset = no check-ins.
+  run once (that first run logs `app not restarted: first run`).
+- **Build-time Redis is not the app's.** Migrate, seed, validate and the temporary app use Redis db N+1, so the live
+  app's workers never see jobs for tenants that exist only in `_next`.
+- **S3 needs no prefix.** Keys are `tenants/<tenant-id>/...` and every reset creates new tenant ids, so a new run never
+  collides with an old one. Instead of the planned `S3_PREFIX` or second bucket, the reset deletes `tenants/<id>/` for
+  each `bmsc-%` school of a database it drops. Objects go first, the database second: if S3 fails, the database (and so
+  the list of ids) stays, and the next run tries again.
+- **The base `backup` service is off on the demo host** (its 02:00 dump would hit the 02:00 swap).
+
+### Host env variables
+
+Set these in the host `.env`. Compose passes them to `demo-reset`.
+
+| Variable                  | Default                                                                     | Example                                            | Notes                                                                                      |
+| ------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `DEMO_MODE`               | `true`, set by compose                                                      | `true`                                             | Leave it. `reset.sh` and the server refuse to run without it.                              |
+| `DEMO_PASSWORD`           | none, required                                                              | `Demo-Public-2026`                                 | Shown on the login screen, so it is public.                                                |
+| `S3_BUCKET`               | none, required                                                              | `biddaloy-demo`                                    | A plain name containing `demo`. The reset deletes objects in it.                           |
+| `REDIS_URL`               | `redis://redis:6379` (db 0), set by compose                                 | `redis://redis:6379/3`                             | The db must be below 15, because the build uses db N+1.                                    |
+| `SENTRY_CRONS_URL`        | empty (no check-ins)                                                        | `https://o1.ingest.sentry.io/api/2/cron/demo/KEY/` | Gets `?status=in_progress`, then `ok` or `error`.                                          |
+| `DEMO_RESET_SCHEDULE`     | `0 1 * * *` (01:00 Asia/Dhaka)                                              | `30 0 * * *`                                       | One five-field cron expression. The swap still waits for 02:00.                            |
+| `DEMO_SKIP_SWEEP`         | empty                                                                       | `true`                                             | Needed today. See "The nightly sweep".                                                     |
+| `DEMO_SWEEP_CMD`          | empty                                                                       | `/app/run-sweep.sh`                                | A command that drives a Playwright runner. Needed unless `DEMO_SKIP_SWEEP=true`.           |
+| `DEMO_SWEEP_URL`          | compose: `http://demo-reset:3999`. Script fallback: `http://127.0.0.1:3999` | `http://demo-reset:3999`                           | Where the sweep finds the temporary app.                                                   |
+| `DEMO_SWEEP_TIMEOUT`      | `1800` (seconds)                                                            | `900`                                              | The sweep is killed after this.                                                            |
+| `DEMO_STATE_DIR`          | `/demo-state`, set by compose                                               | `/demo-state`                                      | Holds `reset.lock` and `platform-tenant-id`.                                               |
+| `DEMO_SCALE`              | `1`                                                                         | `0.05`                                             | Seed size.                                                                                 |
+| `DEMO_YEARS`              | `10`                                                                        | `2`                                                | Years of history.                                                                          |
+| `TURNSTILE_SECRET_KEY`    | empty                                                                       | `0x4AAAAAAA...`                                    | Server. Needs its client twin below, or the public admission form refuses to submit (D42). |
+| `VITE_TURNSTILE_SITE_KEY` | empty                                                                       | `0x4AAAAAAA...`                                    | Client build arg. Make both keys in Cloudflare for the demo hostname.                      |
+
+`reset.sh` also reads these. They are not host settings, because compose pins them or the script defaults them:
+`DEMO_SWAP_AT` (default `02:00`; compose does **not** pass it, so change it only with `run -e DEMO_SWAP_AT=03:00`),
+`DEMO_SWEEP_PORT` (`3999`), `DEMO_APP_CONTAINER` (`biddaloy-demo-app`),
+`DEMO_RESTART_CMD` (default `docker restart $DEMO_APP_CONTAINER`), `DOCKER_HOST`, `S3_ENDPOINT`, `S3_REGION`,
+`S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_ALLOW_INSECURE_HTTP`, and the test hooks
+`DEMO_MIGRATE_CMD`, `DEMO_SEED_CMD`, `DEMO_VALIDATE_CMD`, `DEMO_APP_CMD`, `DEMO_PSQL`, `DEMO_REDIS_CLI`.
+
+**Never set `SMS_*`, `SMTP_*` or `VAPID_*`** on the demo host. `reset.sh` refuses to run if they are set (D2).
+One hole remains: platform alerts text operators straight through the SMS gateway, outside the `DEMO_MODE`
+log-only switch. So leave `PLATFORM_SMS_API_KEY` and `PLATFORM_ALERT_PHONES` unset on the demo host.
+
+### The nightly sweep
+
+Before the swap, a Playwright run signs in as each of the 9 demo cards and visits every route that role may see.
+A 5xx response, an error boundary or a console error fails the run, and then **no swap happens**.
+
+```bash
+yarn workspace @biddaloy/shared build   # the sweep reads shared/dist
+E2E_DEMO_NIGHTLY=1 DEMO_SWEEP_URL=http://demo-reset:3999 yarn e2e --project=demo-nightly --workers=3
+```
+
+Measured: scale 0.05 took 3.7 min with 3 workers and 9.7 min with 1. The budget is 8 min at full scale
+(`globalTimeout` is 8 min whenever `DEMO_SWEEP_URL` is set).
+
+**The sweep cannot run on the demo host yet.** The `demo-reset` image is Alpine. It has no Playwright and no browsers,
+and it cannot `docker run` one (it has no Docker socket). So today, **keep `DEMO_SKIP_SWEEP=true`** until a runner
+service exists. That runner must join the compose network and reach `http://demo-reset:3999`.
+A manual `run --rm demo-reset` needs `--use-aliases` for that name to resolve.
+
+Two lists in `e2e/demo/sweep-allowlist.ts` decide what the sweep tolerates (a third, `CONSOLE_ERROR_ALLOWLIST`, is empty):
+
+| List             | Holds                                                                                     | Edit it when                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `KNOWN_ISSUES`   | A route and the only roles whose error boundary is a known app bug, with the issue number | A real bug would block the swap and the fix is not in yet. Delete the entry when the issue is fixed. |
+| `EXPECTED_SKIPS` | Detail routes with no list page to open a row from                                        | A new detail route has no way in. Any other skipped route fails the run.                             |
+
+Bugs the sweep found:
+
+- **#2513**: `/attendance/staff` shows an error state for every staff role but admin (`GET /users` needs `USER_READ`). It is in `KNOWN_ISSUES`.
+- **#2514**: the route permission map and the API guards disagree, so pages load but their data calls return 403 for allowed roles.
+
+### Security of the reset host
+
+- **`demo-docker-proxy` can stop, restart or kill ANY container on the host**, not only `biddaloy-demo-app`. The proxy
+  image cannot name one container. A takeover of `demo-reset` could stop `db`, nginx or the proxy itself, but cannot create,
+  exec into or inspect one. This is acceptable only because the host runs nothing but the demo. Follow-up: #2512.
+- **`demo-reset` runs as root.** It needs that to write the `demo-state` volume, and it also holds the database superuser
+  password. Follow-up: #2512.
+
+### Roll back a bad night
+
+Yesterday's database is still there as `biddaloy_demo_prev`, with its S3 objects. Run this on the demo host.
+
+```bash
+C="docker compose -f docker-compose.yml -f docker-compose.demo.yml"
+SQL='psql -U "$POSTGRES_USER" -d postgres -c'
+
+# 1. Stop both. A reset waiting for 02:00 would swap again on top of you.
+$C stop demo-reset app
+
+# 2. Swap the names back.
+$C exec -T db sh -c "$SQL 'ALTER DATABASE biddaloy_demo RENAME TO biddaloy_demo_bad'"
+$C exec -T db sh -c "$SQL 'ALTER DATABASE biddaloy_demo_prev RENAME TO biddaloy_demo'"
+
+# 3. Rewrite the id file with the restored database's default-school id.
+ID=$($C exec -T db sh -c "psql -U \"\$POSTGRES_USER\" -d biddaloy_demo -tAc \"SELECT id FROM schools WHERE slug = 'default-school'\"" | tr -d '[:space:]')
+$C run --rm --no-deps demo-reset sh -c "echo $ID > /demo-state/platform-tenant-id"
+
+# 4. Flush the app's Redis db: its caches and jobs belong to the bad night.
+$C exec -T redis redis-cli FLUSHDB    # add -n <db> if REDIS_URL names a db
+
+# 5. Start again. Drop biddaloy_demo_bad when you are happy.
+$C up -d app demo-reset
+```
+
+### Before the first live run
+
+Nobody could check these locally. Tick each one on the host.
+
+- [ ] Docker Compose is new enough for `additional_contexts: app: service:app` (2.20.2 reads it as a folder).
+- [ ] The first `docker compose build` works. It installs `flock` and pulls the `docker-socket-proxy` image.
+- [ ] `docker restart biddaloy-demo-app` works through the proxy. With the container missing it prints `No such container`, which is the first-run path.
+- [ ] `nginx -t` passes with the new `if ($origin_allowed = 0)` in `nginx/demo/robots.conf`.
+- [ ] The sweep runner can reach `http://demo-reset:3999` (a manual `run --rm` needs `--use-aliases`).
+- [ ] Swap downtime at scale 1 is under 10 s. Look for `swap done; downtime from backend terminate to reconnect: N s` in the log.
+- [ ] The sweep finishes in under 8 min at full scale with 3 workers (it took 3.7 min at scale 0.05).
+- [ ] `SENTRY_CRONS_URL` is set, and a test run shows `in_progress` then `ok` in Sentry.
+
+### Demo mode switches
+
+What `DEMO_MODE=true` does. The decision numbers are from Epic 58 (#1732).
+
+| Decision | Behaviour                                                                                                                                                                                                                                                                                                                     |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D2       | SMS, email and push are log-only. Password change, reset and OTP are off. No lockout. The trial and backup schedulers are off.                                                                                                                                                                                                |
+| D23      | Destructive and bulk routes answer "disabled in demo": workbook restore and import, bulk upload, bulk delete, academic-year delete, removing demo accounts, school danger zone. The settings "Test connection" route (`POST /schools/:id/settings/test`) is blocked too.                                                      |
+| D24      | Multipart bodies over 2 MB are refused.                                                                                                                                                                                                                                                                                       |
+| D27      | Every response carries `X-Robots-Tag: noindex, nofollow`, and nginx serves a disallow-all `robots.txt` from `nginx/demo/`.                                                                                                                                                                                                    |
+| D30      | Logins use the normal password login. The boot guard refuses to start if any school is not a `bmsc-*` branch (see [08-security.md](08-security.md#demo-boot-check-5801) and [Demo seed safety](08-security.md#demo-seed-safety-5813)). It runs after the BullMQ workers start, so a bad row stops the process a moment later. |
 
 ## The rule
 
@@ -279,22 +430,28 @@ There is nothing to run yet. Instead:
 3. Run the guard locally:
    `yarn workspace @biddaloy/server vitest run src/scripts/demo-seed/demo-seed.coverage.integration.spec.ts`.
 
-A minimal slice looks like this:
+A real slice, trimmed (`slices/student-extras.ts`). It lists what it `covers`, reads earlier slices' ids, uses a
+real service for files, and takes every random choice from `ctx.rng`:
 
 ```ts
-// server/src/scripts/demo-seed/slices/notices.ts
 export const slice: DemoSlice = {
-  name: 'notices',
-  covers: [Notice, NoticeAudience],
-  run: async (ctx) => {
-    for (const tenantId of ctx.ids.tenants) {
-      const today = ctx.anchor;                      // never a literal date
-      await ctx.app.get(NoticesService).create(...); // "today" via the real service
-      await insertChunked(ctx.ds.getRepository(Notice), history(ctx, tenantId), 1000); // history in bulk
+  name: 'student-extras',
+  covers: [StudentSubjectChoice, StudentNote, StudentPublicExam],
+  run: async (ctx: DemoSeedContext) => {
+    const org = orgIds(ctx); // ids the `org` slice published
+    const { students } = studentIds(ctx); // ids the `students` slice published
+    const storage = ctx.app.get(StorageService); // the real service
+    for (const t of org.tenants) {
+      // Named (not random) keys: the same seed must give the same data.
+      const key = tenantObjectKeyNamed(t.id, 'student-photo', ctx.rng.string.uuid(), 'jpg');
+      await storage.put(key, avatar(1), 'image/jpeg');
     }
+    // ... then insertChunked(...) for the bulk rows, and return the row count
   },
 };
 ```
+
+Then add one line to `SLICES` in `slices.ts` (a new file) and run the guard.
 
 ## Safety rules for anyone touching the demo seed
 
@@ -335,13 +492,20 @@ alone: `yarn test-env run -- yarn workspace @biddaloy/server vitest run src/scri
 Entities with no rows on purpose are listed in the `EXEMPT` map in `slices.ts`,
 each with a reason.
 
-- Every entity in `ALL_ENTITIES` is covered by exactly one slice, or is exempt with a reason.
-- A covered entity has at least one row after a small run.
-- A slice still marked `owedBy: '<ticket>'` has no rows yet. When it gets rows, the `owedBy` line goes.
-- `ALL_ENTITIES` matches the `@Entity` files on disk.
-- The invariant validator finds nothing. It checks: no double-booked teacher (also across branches), one current year per branch, money sums, attendance only on school days, every demo login works.
-- Every demo login opens the app to at least 3 open alerts (see "The attention slice" below).
-- The run stays inside the time budget.
+| Rule | Fails when                                                     | Exact message                                                                                                                                           |
+| ---- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| (a)  | An entity is in no slice's `covers` and not exempt             | `<Entity> is in no slice's covers and not exempt. Add it to a slice's covers or to EXEMPT (slices.ts) with a reason.`                                   |
+| (b)  | An entity is covered by two slices                             | `<Entity> is covered by <a> and <b>. Keep one.`                                                                                                         |
+| (c)  | A finished slice (no `owedBy`) leaves a covered entity empty   | `<Entity> has 0 rows but slice "<s>" has no owedBy. Seed it in slices/<s>.ts or set owedBy.`                                                            |
+| (d)  | A slice still marked `owedBy` already has rows                 | `<Entity> already has rows but slice "<s>" still has owedBy "<ticket>". Delete owedBy in slices/<s>.ts.`                                                |
+| (e)  | An exemption is unknown, also covered, or has no reason        | `EXEMPT has unknown entity <E>. Remove it.`, `<E> is exempt but also in a covers. Remove one.`, `EXEMPT entry <E> has no reason. Say why it is exempt.` |
+| (f)  | The small run (scale 0.05, 2 years) takes over its 90 s budget | `seed run ms` expected to be less than the budget                                                                                                       |
+
+Three more checks run in the same spec:
+
+- **Determinism.** Two runs with the same inputs give the same rows (clock columns are listed in `CLOCK_COLS`).
+- **Alerts.** Every demo login opens the app to at least 3 open alerts (see "The attention slice").
+- **Invariants.** The validator finds nothing. It checks: no double-booked teacher (also across branches), one current year per branch, money sums, attendance only on school days, every demo login works.
 
 ## The attention slice (`slices/attention.ts`, runs last)
 
@@ -377,3 +541,4 @@ flowchart LR
 - `.claude/skills/plan-epic/SKILL.md`: every epic that adds a table carries a demo-seed slice ticket.
 - `.claude/agents/issue-reviewer.md`: a diff that changes the schema without a slice change is a finding.
 - `docs/architecture/15-ux-principles.md` §2: the "Seed data" registry row.
+- [08-security.md](08-security.md#demo-seed-safety-5813), "Demo seed safety (58.1.03)": the three checks `seed:demo` runs before any write.
