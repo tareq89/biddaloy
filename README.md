@@ -11,7 +11,7 @@ getting the app running, developing, testing, and deploying it.
 
 - Node.js 24 (see `.nvmrc`; `nvm use` picks it up)
 - Yarn 1.x
-- PostgreSQL 16+
+- PostgreSQL 18+
 
 Node is pinned in two places that must agree and one that deliberately
 doesn't: local dev and CI both run 24 (`.nvmrc`, plus every workflow under
@@ -789,7 +789,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
   see below.
 - **frontend** — installs, builds `shared`, then runs the `ui` and
   `client-admin` vitest suites with coverage. No infrastructure required.
-- **integration** — spins up its own Postgres 16 and Redis 7 service
+- **integration** — spins up its own Postgres 18 and Redis 8 service
   containers, then runs `yarn test:integration` and `yarn test:e2e`.
 - **e2e** — `E2E smoke (chromium)` job: Postgres/Redis service containers,
   migrated and seeded, Playwright against a **production build**
@@ -1046,8 +1046,8 @@ To reproduce the integration/e2e job locally without the compose stack:
 
 ```bash
 docker run -d --name pg-test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=biddaloy_test -p 5432:5432 postgres:16-alpine
-docker run -d --name redis-test -p 6379:6379 redis:7-alpine
+  -e POSTGRES_DB=biddaloy_test -p 5432:5432 postgres:18-alpine
+docker run -d --name redis-test -p 6379:6379 redis:8-alpine
 
 # Wait for both to accept connections — test/setup.ts initializes TypeORM and
 # runs migrations immediately, so a container that's merely running but not
@@ -1101,7 +1101,7 @@ on encrypted storage (a LUKS-encrypted disk, or the cloud provider's
 encryption-at-rest, if not self-hosting). `DB_SSL=true` is required
 whenever `NODE_ENV=production`, unconditionally — the app refuses to boot
 otherwise, regardless of network topology. **This bundled compose file does
-not currently configure TLS on the `db` service** — `postgres:16-alpine`
+not currently configure TLS on the `db` service** — `postgres:18-alpine`
 needs a cert/key pair and `ssl=on` to serve it, neither of which this stack
 sets up. Deploying this file as-is with `NODE_ENV=production` will fail to
 boot until either the `db` service is given real TLS certs, or

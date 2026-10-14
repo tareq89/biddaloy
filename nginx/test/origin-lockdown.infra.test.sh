@@ -16,7 +16,7 @@ cd "$(dirname "$0")/../.."
 
 NET=lockdown-test
 VOL=lockdown-test-certs
-NGINX_IMG=nginx:1.27-alpine
+NGINX_IMG=nginx:1.31-alpine
 CURL_IMG=curlimages/curl
 EDGE_IP=198.51.100.10
 TRUSTED_IP=198.51.100.50

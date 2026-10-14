@@ -68,7 +68,7 @@ services:
       start_period: 60s
 
   redis:
-    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    image: redis:8-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
     # --databases 64: scripts/test-env.sh gives each parallel test run its
     # own block of 5 db slots (slot 0 stays the app's); 16 fits only 2 runs.
     command: ['redis-server', '--appendonly', 'yes', '--databases', '64']
@@ -90,7 +90,7 @@ services:
       retries: 5
 
   db:
-    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     restart: unless-stopped
     # The default 100 runs out locally: the dev server plus several parallel
     # test runs (scripts/test-env.sh), each with 4 vitest workers' pools.
@@ -99,8 +99,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
+    # Postgres 18+ images keep data in /var/lib/postgresql/18/docker and
+    # refuse to start if /var/lib/postgresql/data is a mount, so the volume
+    # sits one level up. A volume holding Postgres 16 data won't open on 18:
+    # drop it locally (`docker compose down -v`) or dump and restore.
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     # Bound to localhost only — reachable for migrations/psql, not exposed publicly.
     ports:
       - '127.0.0.1:5432:5432'
@@ -119,7 +123,7 @@ services:
     # process. It creates S3_BUCKET on boot if missing (idempotent), which
     # replaces the old one-shot bucket-init service. Official image lives
     # on Docker Hub; keep the tag pinned.
-    image: chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882
+    image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
     restart: unless-stopped
     command: ['mini', '-dir=/data', '-webdav=false', '-admin.ui=false']
     environment:
@@ -201,7 +205,7 @@ services:
       sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
 
   nginx:
-    image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+    image: nginx:1.31-alpine@sha256:df221db836e1754089190208cee7eeda94f233197056426eda74a43ab1abeac2
     restart: unless-stopped
     ports:
       - '80:80'

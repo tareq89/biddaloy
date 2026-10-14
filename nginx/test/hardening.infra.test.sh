@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../.."
 
 NET=hardening-test
 VOL=hardening-test-certs
-NGINX_IMG=nginx:1.27-alpine
+NGINX_IMG=nginx:1.31-alpine
 CURL_IMG=curlimages/curl
 EDGE_IP=172.30.97.10
 FAILS=0

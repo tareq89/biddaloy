@@ -88,7 +88,9 @@ echo "backup.sh: upload complete"
 # Uses plain arithmetic on epoch seconds rather than `date -d "-N days"`
 # (GNU) or `date -v -Nd` (BSD) — this script runs in the Alpine image
 # (scripts/backup/Dockerfile), whose busybox `date` supports neither.
-# `-D FMT -d STR` below is busybox's own parse-a-custom-format syntax.
+# It also runs on the restore drill's Ubuntu runner (GNU `date`), so the
+# timestamp is parsed as "YYYY-MM-DD hh:mm:ss", which both accept; the
+# busybox-only `-D FMT` broke there.
 now_epoch="$(date -u +%s)"
 cutoff_epoch=$((now_epoch - BACKUP_RETENTION_DAYS * 86400))
 
@@ -105,7 +107,7 @@ aws s3api list-objects-v2 "${S3_ENDPOINT_ARGS[@]}" \
     # blank line, or this would try to `aws s3 rm s3://.../None`.
     [[ -z "$key" || "$key" == "None" ]] && continue
     last_modified_prefix="${last_modified:0:19}" # "2026-08-01T02:00:00" — drop offset/fraction
-    object_epoch="$(date -u -D '%Y-%m-%dT%H:%M:%S' -d "$last_modified_prefix" +%s)"
+    object_epoch="$(date -u -d "${last_modified_prefix/T/ }" +%s)"
     if [[ "$object_epoch" -lt "$cutoff_epoch" ]]; then
       echo "backup.sh: deleting expired backup ${key}"
       aws s3 rm "${S3_ENDPOINT_ARGS[@]}" "s3://${S3_BUCKET}/${key}"

@@ -15,7 +15,7 @@ cd "$(dirname "$0")/../.."
 
 NET=realip-test
 VOL=realip-test-certs
-NGINX_IMG=nginx:1.27-alpine
+NGINX_IMG=nginx:1.31-alpine
 CURL_IMG=curlimages/curl
 EDGE_IP=172.30.99.10
 TRUSTED_IP=172.30.99.50

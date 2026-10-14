@@ -395,12 +395,14 @@ describe('RestoreProcessor', () => {
       );
     });
 
-    it('maps a 23503 foreign-key violation to a readable message', async () => {
+    // 23001: Postgres 18+ uses restrict_violation for a DELETE blocked by an
+    // ON DELETE RESTRICT key.
+    it.each(['23503', '23001'])('maps a %s foreign-key violation to a readable message', async (sqlState) => {
       vi.spyOn(ALL_TABS[0], 'load').mockResolvedValue([]);
       vi.spyOn(ALL_TABS[0], 'keyOf').mockReturnValue('key');
       vi.spyOn(ALL_TABS[0], 'deleteByAbsence', 'get').mockReturnValue(false);
       const pgError = new QueryFailedError('insert', [], new Error('fk violation') as any);
-      (pgError as any).code = '23503';
+      (pgError as any).code = sqlState;
       vi.spyOn(ALL_TABS[0], 'upsert').mockRejectedValue(pgError);
 
       validationService.validate.mockResolvedValue(makeValidatedWorkbook({ [SCHOOL]: [{}] }));
