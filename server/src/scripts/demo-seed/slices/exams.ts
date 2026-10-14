@@ -7,7 +7,7 @@ import {
   MarkStatus,
   SeatOrderMode,
 } from '@biddaloy/shared';
-import type { DemoSeedContext, DemoSlice } from '../context';
+import type { DemoSlice } from '../context';
 import { Exam } from '../../../modules/exams/entities/exam.entity';
 import { ExamComponent } from '../../../modules/exams/entities/exam-component.entity';
 import { ExamSchedule } from '../../../modules/exams/entities/exam-schedule.entity';
@@ -293,15 +293,19 @@ export const slice: DemoSlice = {
             const days = schoolDays(start, end);
             const comps = new Map<string, Comp[]>(); // subject_id -> components
             offered.forEach((cs, i) => {
+              // More papers than school days: stack the extra ones into later time slots.
               const date = days[i % days.length];
+              const slot = Math.floor(i / days.length);
+              const startH = 10 + slot * 3;
+              const endH = startH + (e.name === TEST_EXAM.name ? 1 : 2);
               buf.schedules.push({
                 id: uuid(),
                 tenant_id: tenant.id,
                 exam_id: examId,
                 subject_id: cs.subject_id,
                 date,
-                starts_at: '10:00:00',
-                ends_at: e.name === TEST_EXAM.name ? '11:00:00' : '12:00:00',
+                starts_at: `${startH}:00:00`,
+                ends_at: `${endH}:00:00`,
               });
               if (state === 'next') nextSchedules.push(`${examId}:${cs.subject_id}`);
               const template = templateOf(cls.numericGrade, cs.code);
@@ -356,6 +360,7 @@ export const slice: DemoSlice = {
                 if (state === 'progress' && u() >= 0.5) continue;
                 filled.add(key);
                 buf.grids.push({
+                  id: uuid(),
                   tenant_id: tenant.id,
                   exam_id: examId,
                   section_id: sec.id,
@@ -400,6 +405,7 @@ export const slice: DemoSlice = {
                   if (!filled.has(`${sitter.sectionId}:${cs.subject_id}`)) continue;
                   const when = at(dateOf.get(cs.subject_id)!, 14);
                   buf.marks.push({
+                    id: uuid(),
                     tenant_id: tenant.id,
                     exam_id: examId,
                     student_id: sitter.s.id,
@@ -442,7 +448,12 @@ export const slice: DemoSlice = {
               });
             }
 
-            if (live || !scale) continue;
+            if (live) continue;
+            if (!scale) {
+              throw new Error(
+                `demo-seed exams: no grading scale for class ${cls.id} in year ${year.id}; cannot publish ${e.name}`,
+              );
+            }
             // Older years: the same columns ResultsService.replaceResults writes (D4: bulk insert).
             const rank = (list: typeof computed) =>
               rankByMerit(
@@ -482,6 +493,7 @@ export const slice: DemoSlice = {
               });
               for (const sub of c.subjects) {
                 buf.resultSubjects.push({
+                  id: uuid(),
                   tenant_id: tenant.id,
                   result_id: resultId,
                   subject_id: sub.subject_id,
@@ -512,6 +524,13 @@ export const slice: DemoSlice = {
                   published_at = ((s.last + 10)::timestamp + interval '10 hours') AT TIME ZONE 'Asia/Dhaka'
              FROM (SELECT exam_id, max(date) AS last FROM exam_schedules GROUP BY 1) s
             WHERE s.exam_id = r.exam_id AND r.tenant_id = $1 AND r.exam_id = ANY($2)`,
+          [tenant.id, examsToProcess],
+        );
+        await ctx.ds.query(
+          `UPDATE result_subjects rs
+              SET created_at = r.computed_at, updated_at = r.computed_at
+             FROM results r
+            WHERE rs.result_id = r.id AND r.tenant_id = $1 AND r.exam_id = ANY($2)`,
           [tenant.id, examsToProcess],
         );
         await ctx.ds.query(

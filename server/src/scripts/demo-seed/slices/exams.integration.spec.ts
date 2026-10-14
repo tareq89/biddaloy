@@ -132,9 +132,31 @@ describe('exams slice (integration, 2 years, scale 0.05)', () => {
                   BETWEEN d.first AND d.last + 1)::int AS inside
          FROM marks m
          JOIN exams e ON e.id = m.exam_id
-         JOIN academic_years y ON y.id = e.academic_year_id AND NOT y.is_current
+         JOIN academic_years y ON y.id = e.academic_year_id AND y.is_current = $1
          JOIN LATERAL (SELECT min(date) AS first, max(date) AS last FROM exam_schedules s
                         WHERE s.exam_id = e.id) d ON true`,
+      [false],
+    );
+    facts.markDatesNow = await q(
+      `SELECT count(*)::int AS marks,
+              count(*) FILTER (WHERE m.created_at::date
+                  BETWEEN d.first AND d.last + 1)::int AS inside
+         FROM marks m
+         JOIN exams e ON e.id = m.exam_id
+         JOIN academic_years y ON y.id = e.academic_year_id AND y.is_current = $1
+         JOIN LATERAL (SELECT min(date) AS first, max(date) AS last FROM exam_schedules s
+                        WHERE s.exam_id = e.id) d ON true`,
+      [true],
+    );
+    facts.subjectFails = await q(
+      `SELECT count(*)::int AS total, count(*) FILTER (WHERE is_fail)::int AS fails
+         FROM result_subjects WHERE deleted_at IS NULL`,
+    );
+    // Overlapping papers: a class sitting two subjects at the same date and start time.
+    facts.clashes = await q(
+      `SELECT count(*)::int AS n FROM (
+         SELECT exam_id, date, starts_at FROM exam_schedules
+          GROUP BY 1, 2, 3 HAVING count(*) > 1) x`,
     );
   }, 600_000);
 
@@ -186,5 +208,21 @@ describe('exams slice (integration, 2 years, scale 0.05)', () => {
   it("dates a past year's marks inside that exam's sitting window", () => {
     expect(facts.markDates[0].marks).toBeGreaterThan(0);
     expect(facts.markDates[0].inside).toBe(facts.markDates[0].marks);
+  });
+
+  it("dates the current year's marks inside that exam's sitting window", () => {
+    expect(facts.markDatesNow[0].marks).toBeGreaterThan(0);
+    expect(facts.markDatesNow[0].inside).toBe(facts.markDatesNow[0].marks);
+  });
+
+  it('fails about 5% of subject results', () => {
+    const { total, fails } = facts.subjectFails[0];
+    expect(total).toBeGreaterThan(0);
+    expect(fails / total).toBeGreaterThanOrEqual(0.01);
+    expect(fails / total).toBeLessThanOrEqual(0.1);
+  });
+
+  it('never puts two papers of one exam at the same date and time', () => {
+    expect(facts.clashes[0].n).toBe(0);
   });
 });
