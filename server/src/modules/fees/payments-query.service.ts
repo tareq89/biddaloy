@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Payment } from './entities/payment.entity';
 import { QueryPaymentDto, PaymentDetailDto } from './dto/fees.dto';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
+import { startOfLocalDay, endOfLocalDay } from '../../common/time';
 
 export interface PaginatedPayments {
   data: Payment[];
@@ -11,29 +12,6 @@ export interface PaginatedPayments {
   page: number;
   limit: number;
   totalPages: number;
-}
-
-/** [D4 fix] Same reasoning as `checkout.service.ts`'s own copy — every
- * "which school calendar day did this fall on" comparison goes through
- * the tenant's calendar day in Asia/Dhaka, never server-local/UTC time.
- * Duplicated rather than imported for the same reason as that file:
- * neither exports it, and this fix's territory doesn't include wiring up
- * shared date-utility plumbing across the fees module. */
-const SCHOOL_TIMEZONE = 'Asia/Dhaka';
-
-/** Converts a `YYYY-MM-DD` filter value into the UTC instant of that
- * calendar day's midnight *in the school's timezone* — so `date_from:
- * '2026-05-01'` means "May 1st started in Dhaka", not "May 1st started in
- * UTC". Works for any IANA zone/offset (including a future DST-observing
- * one), not just Dhaka's fixed +06:00. */
-function startOfDayInSchoolTimezone(dateStr: string): Date {
-  const utcMidnight = new Date(`${dateStr}T00:00:00Z`);
-  const tzMs = new Date(
-    utcMidnight.toLocaleString('en-US', { timeZone: SCHOOL_TIMEZONE }),
-  ).getTime();
-  const utcMs = new Date(utcMidnight.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
-  const offsetMs = tzMs - utcMs;
-  return new Date(utcMidnight.getTime() - offsetMs);
 }
 
 /**
@@ -97,25 +75,18 @@ export class PaymentsQueryService {
       });
     }
 
-    // `date_from`/`date_to` arrive as `YYYY-MM-DD` (IsDateString). Postgres
-    // casts a bare date string to that day's midnight UTC, so an inclusive
-    // upper bound needs the day pushed to its last instant — same pattern
-    // as `audit.service.ts`'s `to_date` handling. `date_from` is converted
-    // to the school's calendar day (Asia/Dhaka) rather than left at
-    // midnight UTC: a payment recorded 00:00-06:00 Dhaka time (UTC+6) on
-    // the start day would otherwise fall *before* midnight UTC of that day
-    // and be wrongly excluded (see the boundary test in
-    // `payments-query.service.integration.spec.ts`).
+    // Both bounds are school-calendar days (Asia/Dhaka) via `common/time.ts`,
+    // matching `collections-report.service.ts`.
     if (query.date_from) {
       qb.andWhere('payment.payment_date >= :dateFrom', {
-        dateFrom: startOfDayInSchoolTimezone(query.date_from),
+        dateFrom: startOfLocalDay(query.date_from),
       });
     }
 
     if (query.date_to) {
-      const dateTo = new Date(query.date_to);
-      dateTo.setUTCHours(23, 59, 59, 999);
-      qb.andWhere('payment.payment_date <= :dateTo', { dateTo });
+      qb.andWhere('payment.payment_date <= :dateTo', {
+        dateTo: endOfLocalDay(query.date_to),
+      });
     }
 
     if (query.is_reversal !== undefined) {
