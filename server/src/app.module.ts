@@ -71,6 +71,7 @@ import { RegistrationModule } from './modules/registration/registration.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { SocialAuthModule } from './modules/auth/social/social-auth.module';
 import { TrialModule } from './modules/schools/trial/trial.module';
+import { DemoModule } from './modules/demo/demo.module';
 import { PerformanceModule } from './modules/performance/performance.module';
 import { AcrFormVersion } from './modules/acr/entities/acr-form-version.entity';
 import { AcrCriterion } from './modules/acr/entities/acr-criterion.entity';
@@ -480,6 +481,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     OnboardingModule,
     SocialAuthModule,
     TrialModule,
+    DemoModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],
