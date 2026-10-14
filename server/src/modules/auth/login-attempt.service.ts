@@ -1,4 +1,6 @@
 import { Logger } from '@nestjs/common';
+import { DEMO_CARDS } from '../demo/demo-accounts';
+import { isDemoMode } from '../demo/demo-mode';
 
 export interface LoginAttemptRedisClient {
   incr(key: string): Promise<number>;
@@ -43,12 +45,22 @@ export class LoginAttemptService {
     // The e2e suite logs in repeatedly against the same seeded admin
     // account; without this it would lock itself out mid-suite.
     nodeEnv: string | undefined = process.env.NODE_ENV,
+    // [58.1.02, D38] The public demo's shared logins must never lock; every other identifier
+    // keeps the normal policy.
+    private readonly demoMode: boolean = isDemoMode(),
   ) {
     this.enabled = nodeEnv !== 'test';
   }
 
+  private isExempt(identifier: string): boolean {
+    return (
+      !this.enabled ||
+      (this.demoMode && DEMO_CARDS.some((c) => c.email === identifier.trim().toLowerCase()))
+    );
+  }
+
   async isLocked(identifier: string): Promise<boolean> {
-    if (!this.enabled) return false;
+    if (this.isExempt(identifier)) return false;
 
     try {
       const exists = await this.redis.exists(LOCKOUT_KEY_PREFIX + identifier);
@@ -65,7 +77,7 @@ export class LoginAttemptService {
    * shouldn't keep extending the lockout window indefinitely.
    */
   async recordFailure(identifier: string): Promise<LoginAttemptResult> {
-    if (!this.enabled) return { locked: false, delayMs: 0 };
+    if (this.isExempt(identifier)) return { locked: false, delayMs: 0 };
 
     try {
       const attemptsKey = ATTEMPTS_KEY_PREFIX + identifier;
@@ -97,7 +109,7 @@ export class LoginAttemptService {
   }
 
   async reset(identifier: string): Promise<void> {
-    if (!this.enabled) return;
+    if (this.isExempt(identifier)) return;
 
     try {
       await this.redis.del(ATTEMPTS_KEY_PREFIX + identifier, LOCKOUT_KEY_PREFIX + identifier);

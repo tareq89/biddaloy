@@ -16,6 +16,7 @@ import { CommunicationsController } from './communications.controller';
 import { CommunicationsProcessor } from './worker/communications.processor';
 import { CommunicationProviderRegistryService } from './providers/communication-provider.registry';
 import { SmsProviderFactory } from './providers/sms/sms-provider.factory';
+import { DemoLogProvider } from './providers/demo/demo-log.provider';
 import { GreenwebSmsGateway } from './providers/sms/greenweb-sms.gateway';
 import { MimSmsGateway } from './providers/sms/mim-sms.gateway';
 import { WhatsAppCloudProvider } from './providers/whatsapp/whatsapp-cloud.provider';
@@ -93,6 +94,7 @@ import { InvoicesModule } from '../invoices/invoices.module';
     WhatsAppCloudProvider,
     SmtpEmailProvider,
     MessengerProvider,
+    DemoLogProvider,
     ConnectionTestService,
     FeeNotificationsListener,
     InvoiceNotificationsListener,
