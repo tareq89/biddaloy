@@ -876,7 +876,7 @@ A server or script started with `DEMO_MODE=true` first checks that the database 
 flowchart LR
   A["DEMO_MODE=true?"] -->|no| N[boot Nest]
   A -->|yes| B["assertDemoDatabase<br/>SELECT id, slug FROM schools<br/>(soft-deleted rows too)"]
-  B -->|"only bmsc-* rows<br/>(+ PLATFORM_TENANT_ID)"| N
+  B -->|"only bmsc-* rows<br/>(+ default-school, PLATFORM_TENANT_ID)"| N
   B -->|"any other slug"| X["throw, exit 1"]
 ```
 
