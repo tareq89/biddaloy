@@ -172,11 +172,11 @@ describe('demo seed coverage', () => {
     for (const db of dbs) await dropDb(db);
   }, 60_000);
 
-  const fix = 'Add it to a slice\'s covers or to EXEMPT (slices.ts) with a reason.';
+  const fix = "Add it to a slice's covers or to EXEMPT (slices.ts) with a reason.";
   const coveredBy = (name: string) => slices.filter((s) => s.covers.some((c) => c.name === name));
 
   it('(a) every entity is in a slice covers or exempt', () => {
-    const bad = entityNames.filter((n) => !coveredBy(n).length && !(n in exempt));
+    const bad = entityNames.filter((n) => !coveredBy(n).length && !Object.hasOwn(exempt, n));
     expect(bad.map((n) => `${n} is in no slice's covers and not exempt. ${fix}`)).toEqual([]);
   });
 
@@ -184,7 +184,10 @@ describe('demo seed coverage', () => {
     const bad = entityNames.filter((n) => coveredBy(n).length > 1);
     expect(
       bad.map(
-        (n) => `${n} is covered by ${coveredBy(n).map((s) => s.name).join(' and ')}. Keep one.`,
+        (n) =>
+          `${n} is covered by ${coveredBy(n)
+            .map((s) => s.name)
+            .join(' and ')}. Keep one.`,
       ),
     ).toEqual([]);
   });
@@ -218,7 +221,10 @@ describe('demo seed coverage', () => {
       ...(entityNames.includes(n) ? [] : [`EXEMPT has unknown entity ${n}. Remove it.`]),
       ...(coveredBy(n).length ? [`${n} is exempt but also in a covers. Remove one.`] : []),
     ]);
-    expect(bad).toEqual([]);
+    const noReason = Object.entries(exempt)
+      .filter(([, why]) => typeof why !== 'string' || !why.trim())
+      .map(([n]) => `EXEMPT entry ${n} has no reason. Say why it is exempt.`);
+    expect([...bad, ...noReason]).toEqual([]);
   });
 
   it('(f) the small run stays inside the 90 s budget', () => {

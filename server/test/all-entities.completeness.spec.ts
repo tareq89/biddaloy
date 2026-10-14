@@ -9,8 +9,11 @@ function entityClassesOnDisk(dir: string, out: string[] = []): string[] {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) entityClassesOnDisk(path, out);
     else if (name.endsWith('.entity.ts')) {
-      const m = /@Entity\([^)]*\)[\s\S]*?export class (\w+)/.exec(readFileSync(path, 'utf8'));
-      if (m) out.push(m[1]);
+      for (const m of readFileSync(path, 'utf8').matchAll(
+        /@Entity\([^)]*\)[\s\S]*?export class (\w+)/g,
+      )) {
+        out.push(m[1]);
+      }
     }
   }
   return out;
