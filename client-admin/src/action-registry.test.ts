@@ -2,9 +2,14 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { Permission } from '@biddaloy/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { ACTIONS, type ActionContext, type PaletteAction } from './action-registry';
+import {
+  ACTIONS,
+  DEMO_SWITCH_ROLE_ACTION,
+  type ActionContext,
+  type PaletteAction,
+} from './action-registry';
 import { isPathUnder, STAFF_NAV_GROUPS } from './nav-tree';
 import { STAFF_ROUTE_PERMISSIONS } from './route-permissions';
 import { PALETTE_ALLOW_LIST, UNREGISTERED_ACTIONS } from './unregistered-actions';
@@ -507,4 +512,21 @@ describe('action-registry.ts', () => {
       }
     },
   );
+});
+
+describe('DEMO_SWITCH_ROLE_ACTION', () => {
+  it('is not in ACTIONS (a normal school never lists it)', () => {
+    expect(ACTIONS.some((a) => a.id === DEMO_SWITCH_ROLE_ACTION.id)).toBe(false);
+  });
+
+  it('signs out, then navigates to /login', async () => {
+    const order: string[] = [];
+    const navigate = vi.fn(() => void order.push('navigate'));
+    DEMO_SWITCH_ROLE_ACTION.run({
+      navigate,
+      signOut: () => Promise.resolve().then(() => void order.push('signOut')),
+    });
+    await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/login' }));
+    expect(order).toEqual(['signOut', 'navigate']);
+  });
 });
