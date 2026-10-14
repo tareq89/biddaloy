@@ -515,8 +515,16 @@ Rule 6 has one exception: platform alerts (`platform-alerts.service.ts`) text th
 The guard is `server/src/scripts/demo-seed/demo-seed.coverage.integration.spec.ts`.
 It is a copy of the workbook coverage guard
 (`server/src/modules/workbook/codec/entity-coverage.ts`). CI runs it in the
-`integration` job: `yarn test:integration` runs `vitest run 'integration.spec.ts'`,
-which matches the file, so no extra CI step exists. The job's Postgres user is the
+`integration` job, inside `yarn test:integration`. That script runs it on its own,
+after the parallel integration run, because rule (f) times the seed: beside the
+4-worker pool the same seed code measured under 90 s, then 135 s, then 166 s, with runner load.
+
+```text
+server test:integration = vitest run 'integration.spec.ts' --exclude '**/demo-seed.coverage.integration.spec.ts'
+                       && vitest run src/scripts/demo-seed/demo-seed.coverage.integration.spec.ts
+```
+
+`yarn ci:local --integration` calls the same script. The job's Postgres user is the
 `postgres` superuser, so the guard can create and drop its databases. To run it
 alone: `yarn test-env run -- yarn workspace @biddaloy/server vitest run src/scripts/demo-seed/demo-seed.coverage.integration.spec.ts`.
 Entities with no rows on purpose are listed in the `EXEMPT` map in `slices.ts`,
