@@ -194,6 +194,40 @@ describe('createAppQueryClient', () => {
     expect(toastErrorSpy).not.toHaveBeenCalled();
   });
 
+  it('handlesForbidden also silences DEMO_DISABLED, but never the 413 upload cap', async () => {
+    await i18n.changeLanguage('en');
+    const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    const queryClient = createAppQueryClient();
+    const failWith = (statusCode: number, code: string) =>
+      queryClient
+        .getMutationCache()
+        .build(queryClient, {
+          mutationFn: () => {
+            throw new ApiError({
+              statusCode,
+              message: 'demo',
+              timestamp: new Date().toISOString(),
+              path: '/x',
+              requestId: 'r1',
+              details: { code },
+            });
+          },
+          meta: { handlesForbidden: true },
+        })
+        .execute(undefined);
+
+    // The mutation shows its own 403 message, so no second toast on top.
+    await expect(failWith(403, 'DEMO_DISABLED')).rejects.toThrow();
+    // A 413 is not a 403: the mutation does not explain it, so the toast still shows.
+    await expect(failWith(413, 'DEMO_UPLOAD_LIMIT')).rejects.toThrow();
+
+    await vi.waitFor(() =>
+      expect(toastErrorSpy).toHaveBeenCalledExactlyOnceWith(
+        'The demo school allows only small uploads.',
+      ),
+    );
+  });
+
   it('does not toast for a non-403 ApiError or a plain Error', async () => {
     const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
     const queryClient = createAppQueryClient();

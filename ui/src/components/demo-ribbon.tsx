@@ -26,7 +26,7 @@ export function DemoRibbon({ label }: DemoRibbonProps) {
       />
       <span
         aria-hidden="true"
-        className="absolute top-[36%] left-[64%] -translate-x-1/2 -translate-y-1/2 rotate-45 text-caption font-bold tracking-widest whitespace-nowrap text-primary-foreground md:text-label"
+        className="absolute top-[36%] left-[64%] -translate-x-1/2 -translate-y-1/2 rotate-45 text-caption font-bold tracking-widest whitespace-nowrap text-destructive-foreground md:text-label"
       >
         DEMO
       </span>
