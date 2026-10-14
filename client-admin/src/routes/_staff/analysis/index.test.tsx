@@ -233,4 +233,47 @@ describe('/analysis', () => {
     await screen.findByText('Results are not ready yet');
     expect(screen.queryByRole('button', { name: 'Open the exam' })).toBeNull();
   });
+
+  // #1833: a teacher's picker lists only the sections they are assigned to (Epic 75 D2).
+  it('TEACHER: the section picker offers only assigned sections', async () => {
+    const user = userEvent.setup();
+    const exam = mockExam();
+    server.use(
+      http.get(`/api/v1/classes/${exam.class_id}/sections`, () =>
+        HttpResponse.json([
+          classSectionFactory({ id: 'sec-1', class: exam.class, section_name: 'Mine' }),
+          classSectionFactory({ id: 'sec-2', class: exam.class, section_name: 'Theirs' }),
+        ]),
+      ),
+      http.get('/api/v1/attendance/my-sections', () =>
+        HttpResponse.json([{ section_id: 'sec-1', section_name: 'Mine' }]),
+      ),
+    );
+    render(`/analysis?examId=${exam.id}&tab=merit`, 'TEACHER');
+    await user.click(await screen.findByRole('combobox', { name: 'Section' }));
+    await screen.findByRole('option', { name: 'Mine' });
+    expect(screen.queryByRole('option', { name: 'Theirs' })).toBeNull();
+  });
+
+  it('SUPER_ADMIN and ADMIN: the picker lists every section and never calls my-sections', async () => {
+    const user = userEvent.setup();
+    const exam = mockExam();
+    let called = false;
+    server.use(
+      http.get(`/api/v1/classes/${exam.class_id}/sections`, () =>
+        HttpResponse.json([
+          classSectionFactory({ id: 'sec-1', class: exam.class, section_name: 'Mine' }),
+          classSectionFactory({ id: 'sec-2', class: exam.class, section_name: 'Theirs' }),
+        ]),
+      ),
+      http.get('/api/v1/attendance/my-sections', () => {
+        called = true;
+        return HttpResponse.json([]);
+      }),
+    );
+    render(`/analysis?examId=${exam.id}&tab=merit`, 'SUPER_ADMIN');
+    await user.click(await screen.findByRole('combobox', { name: 'Section' }));
+    await screen.findByRole('option', { name: 'Theirs' });
+    expect(called).toBe(false);
+  });
 });

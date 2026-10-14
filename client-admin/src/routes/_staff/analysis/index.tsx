@@ -14,7 +14,7 @@
  * that satisfies step 7's "phone renders as cards" requirement without a
  * hand-rolled breakpoint.
  */
-import { Permission } from '@biddaloy/shared';
+import { Permission, RoleScope, roleScope } from '@biddaloy/shared';
 import {
   EmptyState,
   ErrorState,
@@ -35,12 +35,15 @@ import {
 import {
   downloadAnalysisCsv,
   examsQueryOptions,
+  mySectionsQueryOptions,
+  useActiveRole,
   useClassSections,
   useExams,
   useHasPermission,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { DownloadIcon, FileClockIcon, FilePenLineIcon, PrinterIcon } from 'lucide-react';
 import * as React from 'react';
@@ -90,7 +93,13 @@ function AnalysisPage() {
   const selectedExam = exams.find((exam) => exam.id === selectedExamId);
 
   const sectionsQuery = useClassSections(selectedExam?.class_id);
-  const sections = sectionsQuery.data ?? [];
+  // Server enforces it (Epic 75 D2/D13); the picker just hides what would 404.
+  // Same predicate as the server (TeacherScopeService.sectionScope). ponytail: reuses attendance my-sections.
+  const role = useActiveRole();
+  const scoped = roleScope(role) === RoleScope.ASSIGNED_SECTIONS;
+  const mySections = useQuery({ ...mySectionsQueryOptions(), enabled: scoped });
+  const mine = new Set((mySections.data ?? []).map((m) => m.section_id));
+  const sections = (sectionsQuery.data ?? []).filter((sec) => !scoped || mine.has(sec.id));
   const selectedSection = sections.find((section) => section.id === sectionId);
 
   React.useEffect(() => {
