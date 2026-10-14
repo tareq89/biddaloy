@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import * as http from 'http';
+import type { AddressInfo } from 'net';
 import request = require('supertest');
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '../../../test/helpers/e2e-app.helper';
@@ -67,11 +69,37 @@ describe('DEMO_MODE on (E2E)', () => {
   });
 
   it('refuses a multipart upload over 2 MB with DEMO_UPLOAD_LIMIT', async () => {
-    const res = await request(app.getHttpServer())
-      .post('/api/v1/schools/me/logo')
-      .attach('file', Buffer.alloc(3 * 1024 * 1024), 'big.png');
-    expect(res.status).toBe(413);
-    expect(res.body.details?.code ?? res.body.message?.details?.code).toBe('DEMO_UPLOAD_LIMIT');
+    // Raw request: the server answers from the header alone and may close the socket before a
+    // real 3 MB body is written, which would surface as ECONNRESET with supertest.
+    const server = app.getHttpServer();
+    if (!server.listening) await new Promise<void>((r) => server.listen(0, r));
+    const { port } = server.address() as AddressInfo;
+    const { status, body } = await new Promise<{ status: number; body: string }>(
+      (resolve, reject) => {
+        const req = http.request(
+          {
+            port,
+            method: 'POST',
+            path: '/api/v1/schools/me/logo',
+            headers: {
+              'content-type': 'multipart/form-data; boundary=x',
+              'content-length': String(3 * 1024 * 1024),
+            },
+          },
+          (res) => {
+            let data = '';
+            res.on('data', (c) => (data += c));
+            res.on('end', () => resolve({ status: res.statusCode ?? 0, body: data }));
+          },
+        );
+        req.on('error', reject);
+        req.write('--x\r\n');
+      },
+    );
+    expect(status).toBe(413);
+    expect(JSON.parse(body).details?.code ?? JSON.parse(body).message?.details?.code).toBe(
+      'DEMO_UPLOAD_LIMIT',
+    );
   });
 });
 
