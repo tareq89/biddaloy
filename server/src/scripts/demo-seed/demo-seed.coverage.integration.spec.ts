@@ -96,12 +96,13 @@ async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<stri
         !/^(id|created_at|updated_at|deleted_at|published_at)$|_id$|hash|token|secret|salt/.test(c),
     );
     // Strip uuids (tenant ids sit inside storage keys and `_by` columns) and clock times (the preset
-    // apply stamps `appliedAt` with the real clock); everything else must match byte for byte.
+    // apply stamps `appliedAt` with the real clock; the fees services stamp `payment_date` / `issued_date`);
+    // both the `T` and the Postgres space form of a time are stripped, everything else must match.
     const row =
       cols
         .map(
           (c) =>
-            `regexp_replace(regexp_replace("${c}"::text, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 'U', 'g'), 'T[0-9]{2}:[0-9]{2}:[0-9]{2}[0-9.]*(Z|[+-][0-9:]+)?', 'T', 'g')`,
+            `regexp_replace(regexp_replace("${c}"::text, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 'U', 'g'), '[ T][0-9]{2}:[0-9]{2}:[0-9]{2}[0-9.]*(Z|[+-][0-9:]+)?', 'T', 'g')`,
         )
         .join(', ') || `''`;
     const [{ h, n }] = await ds.query(
