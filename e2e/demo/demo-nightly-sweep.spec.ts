@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import manifest from '../route-manifest.json';
 
-import { CONSOLE_ERROR_ALLOWLIST, KNOWN_ISSUES } from './sweep-allowlist';
+import { CONSOLE_ERROR_ALLOWLIST, EXPECTED_SKIPS, KNOWN_ISSUES } from './sweep-allowlist';
 
 /**
  * [58.4.02] Nightly demo sweep. Runs only in the opt-in `demo-nightly` project (see
@@ -48,6 +48,11 @@ const STAFF_ROUTE_PERMISSIONS = Object.fromEntries(
   ].map((m) => [m[1]!, m[2]!]),
 );
 
+// A partial rename of the parsed source files must fail loudly, not visit fewer routes.
+if (Object.keys(STAFF_ROUTE_PERMISSIONS).length < 50) {
+  throw new Error('route-permissions.ts parsed to fewer than 50 entries; did its format change?');
+}
+
 /** `/students/$studentId_/edit` and `/students/$id/edit` both become `/students/$/edit`. */
 const shape = (p: string) => p.replace(/\$\w+_?/g, '$').replace(/(.)\/$/, '$1');
 const permissionByShape = new Map(
@@ -69,6 +74,7 @@ function routesFor(role: string): string[] {
 
 async function signIn(page: Page, index: number) {
   await page.goto('/login');
+  await expect(page.getByRole('button', { name: /Try:/ })).toHaveCount(DEMO_CARDS.length);
   await page.getByRole('button', { name: /Try:/ }).nth(index).click();
   await expect(page).toHaveURL(/\/(select-school|dashboard|portal)/);
   if (/\/select-school/.test(page.url())) {
@@ -137,13 +143,26 @@ DEMO_CARDS.forEach((card, index) => {
       const target = path.includes('$') ? await resolveDetail(page, path) : path;
       if (!target) {
         skipped.push(path);
+        if (!EXPECTED_SKIPS.includes(path)) {
+          problems.push(
+            `${path}: no row link on its list page for ${card.role} (page empty or broken)`,
+          );
+        }
         continue;
       }
+      console.log(`[demo-nightly] ${card.key}: ${path} -> ${target}`);
       where = target;
       await page.goto(target);
       await page.waitForLoadState('networkidle');
+      // Let a late-rendering boundary appear before checking.
+      await page
+        .locator('main')
+        .first()
+        .waitFor({ state: 'attached', timeout: 5000 })
+        .catch(() => {});
+      await page.waitForTimeout(500);
       if (await page.locator('[data-slot="error-state"]').count()) {
-        const known = KNOWN_ISSUES.find((k) => k.path === path);
+        const known = KNOWN_ISSUES.find((k) => k.path === path && k.roles.includes(card.role));
         if (known) clientErrors.add(`${target}: error boundary tolerated, ${known.reason}`);
         else problems.push(`${target}: error boundary`);
       }
