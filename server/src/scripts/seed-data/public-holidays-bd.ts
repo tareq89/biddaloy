@@ -1,5 +1,6 @@
 /**
- * Checked-in Bangladesh public-holiday list for 2026 and 2027 (17.2.6).
+ * Checked-in Bangladesh public-holiday lists for 2016 to 2027: 2026 and 2027
+ * from 17.2.6, 2016 to 2025 from [58.1.04] (demo-school history).
  *
  * **Source: MANUAL, not an external fetch.** The [17.2.4] platform flow
  * (`PublicHolidaysService.fetchIntoSet`) pulls a country/year set from
@@ -9,7 +10,7 @@
  * already-published `PublicHolidaySet` (see `ensurePublicHolidaySet` in
  * `../seed.util.ts`).
  *
- * Dates are **approximate, not the official government gazette** — no
+ * The 2026 and 2027 dates are **approximate, not the official government gazette** — no
  * gazette is available to this script. Fixed-date holidays (Independence
  * Day, Victory Day, Language Movement Day, May Day, National Mourning Day,
  * Pohela Boishakh) are exact. Lunar-calendar holidays (the two Eids,
