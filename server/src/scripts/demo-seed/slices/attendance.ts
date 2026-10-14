@@ -56,51 +56,71 @@ const stream = (seed: number) => () => {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
-type Col = [name: string, pgType: string];
+const udtCache = new Map<string, Record<string, string>>();
 /**
- * One `INSERT ... SELECT FROM unnest(...)` per chunk: about 10x faster than the query builder, which is
- * what the 5M-row history needs (D38). Same effect as `insertChunked`; defaults (source) fill in.
+ * One `INSERT ... SELECT FROM unnest(...)` per chunk: about 5x faster than the query builder, which
+ * the multi-million-row history needs (D38). Column types come from `information_schema`, so enums
+ * need no names here; jsonb goes through text. Columns left out of `columns` take their defaults.
  */
-async function unnestInsert(
+export async function unnestInsert(
   ds: DataSource,
   table: string,
-  cols: Col[],
+  columns: string[],
   rows: Record<string, unknown>[],
 ): Promise<number> {
-  const names = cols.map(([n]) => `"${n}"`).join(', ');
-  const args = cols.map(([, t], i) => `$${i + 1}::${t}[]`).join(', ');
+  let udt = udtCache.get(table);
+  if (!udt) {
+    const found: { column_name: string; udt_name: string }[] = await ds.query(
+      `SELECT column_name, udt_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = $1`,
+      [table],
+    );
+    udt = Object.fromEntries(found.map((c) => [c.column_name, c.udt_name]));
+    udtCache.set(table, udt);
+  }
+  const json = columns.map((c) => udt![c] === 'jsonb');
+  const sql =
+    `INSERT INTO "${table}" (${columns.map((c) => `"${c}"`).join(', ')}) SELECT ` +
+    columns.map((_, i) => (json[i] ? `c${i}::jsonb` : `c${i}`)).join(', ') +
+    ' FROM unnest(' +
+    columns.map((c, i) => `$${i + 1}::"${json[i] ? 'text' : udt![c]}"[]`).join(', ') +
+    `) AS u(${columns.map((_, i) => `c${i}`).join(', ')})`;
   for (let i = 0; i < rows.length; i += CHUNK) {
     const part = rows.slice(i, i + CHUNK);
     await ds.query(
-      `INSERT INTO ${table} (${names}) SELECT * FROM unnest(${args})`,
-      cols.map(([n]) =>
-        part.map((r) => (r[n] instanceof Date ? (r[n] as Date).toISOString() : (r[n] ?? null))),
+      sql,
+      columns.map((c, k) =>
+        part.map((r) => {
+          const v = r[c] ?? null;
+          if (v instanceof Date) return v.toISOString();
+          return json[k] && v !== null ? JSON.stringify(v) : v;
+        }),
       ),
     );
   }
   return rows.length;
 }
-const SESSION_COLS: Col[] = [
-  ['id', 'uuid'],
-  ['tenant_id', 'uuid'],
-  ['section_id', 'uuid'],
-  ['date', 'date'],
-  ['period_no', 'smallint'],
-  ['subject_id', 'uuid'],
-  ['state', 'attendance_session_state_enum'],
-  ['marked_by_user_id', 'uuid'],
-  ['marked_at', 'timestamptz'],
-  ['finalized_at', 'timestamptz'],
+const SESSION_COLS = [
+  'id',
+  'tenant_id',
+  'section_id',
+  'date',
+  'period_no',
+  'subject_id',
+  'state',
+  'marked_by_user_id',
+  'marked_at',
+  'finalized_at',
 ];
-const RECORD_COLS: Col[] = [
-  ['tenant_id', 'uuid'],
-  ['session_id', 'uuid'],
-  ['student_id', 'uuid'],
-  ['date', 'date'],
-  ['status', 'attendance_status_enum'],
-  ['minutes_late', 'int'],
-  ['recorded_by_user_id', 'uuid'],
-  ['recorded_at', 'timestamptz'],
+const RECORD_COLS = [
+  'tenant_id',
+  'session_id',
+  'student_id',
+  'date',
+  'status',
+  'minutes_late',
+  'recorded_by_user_id',
+  'recorded_at',
 ];
 
 interface PeriodSlot {
