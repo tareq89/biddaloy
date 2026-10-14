@@ -50,14 +50,84 @@ describe('demo seed validator', () => {
   });
 
   it('money: flags paid <> allocations, overpaid fees and invoice-less payments', async () => {
-    const fee = { id: 'f', total: 100, paid: 40, discount: 10, alloc_discount: 10, allocated: 40 };
-    expect(await checksOf({ 'money-fees': [fee] })).not.toContain('money');
-    expect(await checksOf({ 'money-fees': [{ ...fee, allocated: 30 }] })).toContain('money');
-    expect(await checksOf({ 'money-fees': [{ ...fee, paid: 95, allocated: 95 }] })).toContain(
+    const fee = { id: 'f', total: 100, paid: 40, discount: 10 };
+    const alloc = {
+      student_fee_id: 'f',
+      allocated: 40,
+      discount: 10,
+      status: 'SUCCESS',
+      deleted: false,
+    };
+    const ok = { 'money-fees': [fee], 'money-allocations': [alloc] };
+    expect(await checksOf(ok)).not.toContain('money');
+    expect(await checksOf({ ...ok, 'money-allocations': [{ ...alloc, allocated: 30 }] })).toContain(
       'money',
     );
-    expect(await checksOf({ 'money-fees': [{ ...fee, alloc_discount: 20 }] })).toContain('money');
+    expect(
+      await checksOf({
+        'money-fees': [{ ...fee, paid: 95 }],
+        'money-allocations': [{ ...alloc, allocated: 95 }],
+      }),
+    ).toContain('money');
+    expect(await checksOf({ ...ok, 'money-allocations': [{ ...alloc, discount: 20 }] })).toContain(
+      'money',
+    );
     expect(await checksOf({ 'money-invoice': [{ id: 'p' }] })).toContain('money');
+  });
+
+  // A reversal sets the original payment REFUNDED (its allocations stay) and adds a REFUNDED
+  // mirror payment with positive allocations, while paid_amount and discount drop back.
+  it('money: a reversed payment is healthy', async () => {
+    const fee = { id: 'f', total: 100, paid: 0, discount: 0 };
+    const alloc = {
+      student_fee_id: 'f',
+      allocated: 40,
+      discount: 10,
+      status: 'REFUNDED',
+      deleted: false,
+    };
+    expect(
+      await checksOf({ 'money-fees': [fee], 'money-allocations': [alloc, { ...alloc }] }),
+    ).not.toContain('money');
+  });
+
+  // PENDING / FAILED payments and soft-deleted ones carry allocations that never moved paid_amount.
+  it('money: ignores allocations of non-SUCCESS or deleted payments', async () => {
+    const fee = { id: 'f', total: 100, paid: 0, discount: 0 };
+    const alloc = {
+      student_fee_id: 'f',
+      allocated: 40,
+      discount: 0,
+      status: 'PENDING',
+      deleted: false,
+    };
+    expect(
+      await checksOf({
+        'money-fees': [fee],
+        'money-allocations': [alloc, { ...alloc, status: 'SUCCESS', deleted: true }],
+      }),
+    ).not.toContain('money');
+  });
+
+  // Fee generation pays a new bill from the wallet: a DEBIT_GENERATION row (stored negative),
+  // no payment allocation. Undoing it adds a REVERSAL credit and drops paid_amount again.
+  it('money: a wallet auto-paid bill, and its undo, are healthy', async () => {
+    const fee = { id: 'f', total: 100, paid: 60, discount: 0 };
+    const debit = { student_fee_id: 'f', kind: 'DEBIT_GENERATION', amount: -60 };
+    expect(await checksOf({ 'money-fees': [fee], 'money-wallet': [debit] })).not.toContain('money');
+    expect(
+      await checksOf({
+        'money-fees': [{ ...fee, paid: 0 }],
+        'money-wallet': [debit, { student_fee_id: 'f', kind: 'REVERSAL', amount: 60 }],
+      }),
+    ).not.toContain('money');
+    // checkout wallet use is already inside the payment's allocations, so it is not added again
+    expect(
+      await checksOf({
+        'money-fees': [{ ...fee, paid: 0 }],
+        'money-wallet': [{ student_fee_id: 'f', kind: 'DEBIT_CHECKOUT', amount: -60 }],
+      }),
+    ).not.toContain('money');
   });
 
   it('attendance: flags a session on an off-day or a holiday only', async () => {
