@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { assertDemoDatabase } from './demo-boot-check';
 
-type Row = { id: string; slug: string };
+type Row = { id: string; slug: string; has_students?: boolean };
 const check = (env: Record<string, string | undefined>, schools: Row[]) => {
   const load = vi.fn().mockResolvedValue(schools);
   return { run: () => assertDemoDatabase(env as NodeJS.ProcessEnv, load), load };
@@ -35,6 +35,17 @@ describe('assertDemoDatabase (runs in main.ts before NestFactory.create)', () =>
         { id: '2', slug: 'real-school' },
       ]).run(),
     ).rejects.toThrow(/real-school/);
+  });
+
+  // A pre-multi-tenant install moved all its real data into default-school, so a default-school
+  // with students is a real database, not the empty platform row.
+  it('refuses default-school with students', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        { id: '1', slug: 'default-school', has_students: true },
+        { id: '2', slug: 'bmsc-high' },
+      ]).run(),
+    ).rejects.toThrow(/default-school/);
   });
 
   it('passes with only bmsc-* rows', async () => {
