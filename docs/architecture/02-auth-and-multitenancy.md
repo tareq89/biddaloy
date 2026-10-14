@@ -40,10 +40,10 @@ erDiagram
     users ||--o{ user_identities : "Google or Facebook sign-ins"
     users ||--o{ user_tenants : "one row per school and role"
     schools ||--o{ user_tenants : "members"
-    users ||--o| teachers : "profile"
-    users ||--o| guardians : "profile"
-    users ||--o| staff_profiles : "profile"
-    users ||--o| students : "profile"
+    users ||--o{ teachers : "profile, one per school"
+    users ||--o{ guardians : "profile, one per school"
+    users ||--o{ staff_profiles : "profile, one per school"
+    users ||--o{ students : "profile, one per school"
     users {
         uuid id
         string email "unique across the platform"
@@ -76,11 +76,24 @@ The entities are `server/src/modules/users/entities/user.entity.ts`
 (`user_identities`). The profile tables (`teachers`, `guardians`,
 `staff_profiles`, `students`) each carry a `tenant_id`.
 
-**One profile per school is planned in #2153, not done.** Today each profile
-table links to `users` with `@OneToOne`, so its `user_id` is unique across
-all schools: one person can have at most one `guardians` row (and one
-`teachers`, `staff_profiles`, `students` row) on the whole platform. Epic 58
-W0 (#2153) changes that to one per school.
+**One profile per school (Epic 58.0 W0).** Each profile table links to `users`
+with `@ManyToOne`, and is unique on `(tenant_id, user_id)` for live rows
+(`teachers.employee_id` is unique per school too). `users.email` stays global.
+
+Example: Rahim teaches ICT in High School and in the College branch. He has one
+login, two `user_tenants` rows and two `teachers` rows, each with its own
+employee id, attendance, leave and ACR (D14).
+
+Three more rules from Epic 58.0:
+
+- **D12, clash scope.** The routine double-booking check also scans other
+  schools where the acting user is a member. It never reads a school the actor
+  cannot see.
+- **D13, guardian switcher.** A guardian with children in two schools uses the
+  existing school switcher. There is no merged cross-school view yet.
+- **D41, joining is never silent.** School B files a join request, the person
+  accepts, and only then does B appear in their switcher. See
+  `e2e/journeys/multi-branch-teacher.spec.ts`.
 
 Because the login is shared, no single school owns it. These rules come from
 decisions D12 and D16 of Epic 68 (#2150):
@@ -89,7 +102,7 @@ decisions D12 and D16 of Epic 68 (#2150):
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Change email or phone                                   | The person, from their own profile: `POST /users/me/contact-change` (needs their current password), then the code (`POST /users/me/contact-change/confirm-phone`) or the emailed link (`POST /auth/verify-email`). A school admin may use `PATCH /users/:id` only while the person belongs to no other school; otherwise `409` with `details.code: "SHARED_IDENTITY"`. D12 also allows platform support, but there is no route for that yet. | `account-access/contact-change.service.ts`; `UserService.update` with `countOtherMemberships` (`users/users.service.ts`)                                       |
 | Admin password reset (`POST /users/:id/reset-password`) | A school admin, only for a person who belongs to that school alone. Otherwise `409` `SHARED_IDENTITY`, and the person uses "Forgot password" on the sign-in page. Checked before any session is revoked.                                                                                                                                                                                                                                     | `RecoveryService.adminReset` (`account-access/recovery.service.ts`)                                                                                            |
-| Join another school                                     | Only the person, by accepting a pending join request. Nothing is attached silently. Platform provisioning (adding a school admin), the guardian invite batch and workbook restore all file a join request. "Add staff" (`POST /users`) with an email or phone that already has an account answers `409` today; sending a join request instead is planned in #2224.                                                                           | `insertJoinRequest` and `SchoolInviteService.accept` (`account-access/school-invite.service.ts`)                                                               |
+| Join another school                                     | Only the person, by accepting a pending join request. Nothing is attached silently. Platform provisioning (adding a school admin), the guardian invite batch and workbook restore all file a join request. "Add staff" (`POST /users`) with an email or phone that already has an account files a join request (the person accepts it) instead of failing (#2224).                                                                           | `insertJoinRequest` and `SchoolInviteService.accept` (`account-access/school-invite.service.ts`)                                                               |
 | Leave, or be removed from, one school                   | `POST /users/me/leave` or `DELETE /users/:id` soft-deletes that school's `user_tenants` row only; the login and other schools stay. Access ends on the very next request (D16 "staff removal immediate", #2297): a per-user cut-off in Redis refuses every access token issued before the removal. If Redis is down this fails open, and access then ends at the next token refresh, at most 15 minutes later.                               | `UserService` (`users/users.service.ts`); `AccessTokenDenylistService.revokeUserTokensIssuedBefore` + `JwtStrategy`; `POST /auth/refresh` re-reads memberships |
 | Login lockout                                           | Counted per identifier (email or phone), so a lockout applies in every school (D16 "login lockout stays global").                                                                                                                                                                                                                                                                                                                            | `login-attempt.service.ts` (Redis key `login-lockout:<identifier>`)                                                                                            |
 | Password reset                                          | Setting a new password through a reset removes every connected Google or Facebook sign-in, each with an audit row.                                                                                                                                                                                                                                                                                                                           | `RecoveryService.applyNewPassword`                                                                                                                             |
