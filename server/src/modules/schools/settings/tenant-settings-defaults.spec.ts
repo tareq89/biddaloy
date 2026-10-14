@@ -45,6 +45,14 @@ describe('DEFAULT_STUDY_PLANS_SETTINGS', () => {
     });
     expect(DEFAULT_TENANT_SETTINGS.studyPlans).toBe(DEFAULT_STUDY_PLANS_SETTINGS);
   });
+
+  it('dashboard defaults match D7/D23/D31 (8.10.7)', () => {
+    expect(DEFAULT_TENANT_SETTINGS.dashboard).toEqual({
+      risk: { absentStreakDays: 3, monthlyAttendancePct: 75, failedSubjects: 1, overdueDays: 60 },
+      committeeAttendanceTargetPct: 90,
+      digestTime: '07:30',
+    });
+  });
 });
 
 describe('DEFAULT_TENANT_SETTINGS', () => {

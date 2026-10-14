@@ -1194,4 +1194,45 @@ describe('TenantSettingsDto', () => {
       expect(await attErr({ rules: { 'system.backup_failed': { enabled: false } } })).toBeDefined();
     });
   });
+
+  describe('dashboard [8.10.7]', () => {
+    const dashErr = async (dashboard: unknown) =>
+      (
+        await validate(
+          toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, dashboard }),
+          VALIDATION_OPTIONS,
+        )
+      ).find((e) => e.property === 'dashboard');
+
+    it('accepts a full block, {}, a lone digestTime, a lone risk field', async () => {
+      expect(
+        await dashErr({
+          risk: {
+            absentStreakDays: 4,
+            monthlyAttendancePct: 80,
+            failedSubjects: 1,
+            overdueDays: 45,
+          },
+          committeeAttendanceTargetPct: 92,
+          digestTime: '07:15',
+        }),
+      ).toBeUndefined();
+      expect(await dashErr({})).toBeUndefined();
+      expect(await dashErr({ digestTime: '00:00' })).toBeUndefined();
+      expect(await dashErr({ risk: { overdueDays: 365 } })).toBeUndefined();
+    });
+
+    it.each([
+      ['absentStreakDays 0', { risk: { absentStreakDays: 0 } }],
+      ['monthlyAttendancePct 101', { risk: { monthlyAttendancePct: 101 } }],
+      ['failedSubjects 1.5', { risk: { failedSubjects: 1.5 } }],
+      ['target -1', { committeeAttendanceTargetPct: -1 }],
+      ['digestTime 7:30', { digestTime: '7:30' }],
+      ['digestTime 24:00', { digestTime: '24:00' }],
+      ['digestTime 07:30:00', { digestTime: '07:30:00' }],
+      ['unknown risk field', { risk: { colour: 1 } }],
+    ])('rejects %s', async (_n, block) => {
+      expect(await dashErr(block)).toBeDefined();
+    });
+  });
 });

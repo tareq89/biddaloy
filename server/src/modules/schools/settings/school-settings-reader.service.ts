@@ -5,6 +5,7 @@ import type {
   OrganisationSettings,
   PresetSettings,
   RoutineSettings,
+  DashboardSettings,
   StudyPlansSettings,
 } from '@biddaloy/shared';
 import { SchoolsService } from '../schools.service';
@@ -70,6 +71,13 @@ export class SchoolSettingsReader {
   async documentsSettings(tenantId: string): Promise<DocumentsSettings> {
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     return settings.documents!;
+  }
+
+  /** [8.10.7] The tenant's `settings.dashboard` — always present on a resolved
+   * `TenantSettings` (defaults via `DEFAULT_DASHBOARD_SETTINGS`). */
+  async dashboardSettings(tenantId: string): Promise<DashboardSettings> {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    return settings.dashboard!;
   }
 
   /** [66.1.04] The tenant's `settings.studyPlans` (reminder/digest timing),
