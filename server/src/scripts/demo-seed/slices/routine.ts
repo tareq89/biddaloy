@@ -13,7 +13,7 @@ import { ChangeRequestsService } from '../../../modules/routines/change-requests
 import { WEEKLY_PERIODS, type BranchKey } from '../../seed-data/demo-bn/subjects-staffing';
 import { insertChunked } from '../bulk';
 import type { DemoSeedContext, DemoSlice } from '../context';
-import { todayAt } from '../dates';
+import { schoolDays, todayAt } from '../dates';
 import { orgIds, type OrgTenant } from './org';
 import { staffByCardKey, teachersByTenant, type StaffTeacher } from './staff';
 
@@ -76,7 +76,7 @@ export const slice: DemoSlice = {
       for (const t of list) branchCount.set(t.userId, (branchCount.get(t.userId) ?? 0) + 1);
     }
     const shared = new Set([...branchCount].filter(([, n]) => n > 1).map(([id]) => id));
-    const sharedBusy: Interval[] = [];
+    const sharedBusy: (Interval & { userId: string })[] = [];
     const load = new Map<string, number>(); // userId -> periods a week
 
     let rows = 0;
@@ -125,7 +125,9 @@ export const slice: DemoSlice = {
         if (busy.has(`${t.userId}|${weekday}|${p}`)) return false;
         if (!shared.has(t.userId)) return true;
         const { starts_at: start, ends_at: end } = times.get(periods[p].id)!;
-        return !sharedBusy.some((i) => i.weekday === weekday && i.start < end && start < i.end);
+        return !sharedBusy.some(
+          (i) => i.userId === t.userId && i.weekday === weekday && i.start < end && start < i.end,
+        );
       };
       const pick = (code: string, weekday: number, p: number) => {
         const ok = teachers.filter((t) => free(t, weekday, p));
@@ -184,7 +186,7 @@ export const slice: DemoSlice = {
                 load.set(t.userId, (load.get(t.userId) ?? 0) + 1);
                 if (shared.has(t.userId)) {
                   const { starts_at: start, ends_at: end } = times.get(periods[p].id)!;
-                  sharedBusy.push({ weekday, start, end });
+                  sharedBusy.push({ userId: t.userId, weekday, start, end });
                 }
                 w.left--;
                 today[idx].set(w.code, (today[idx].get(w.code) ?? 0) + 1);
@@ -339,12 +341,26 @@ export const slice: DemoSlice = {
     // --- today (D15): one substitution, one change request ----------------------------------
     const high = org.tenants.find((t) => t.kind === 'HIGH')!;
     const highYear = high.years.length - 1;
-    const dayMs = 86_400_000;
-    // The anchor can be a Friday (off day): cover the first school day from the anchor on.
-    let date = ctx.anchor;
-    while (!WEEK.includes(new Date(`${date}T00:00:00Z`).getUTCDay())) {
-      date = new Date(Date.parse(date) + dayMs).toISOString().slice(0, 10);
-    }
+    // The anchor can be an off day (Friday, a public holiday, a HOLIDAY event such as Winter
+    // Break): cover the first school day from the anchor on. 60 days clears the longest break.
+    const horizon = new Date(Date.parse(ctx.anchor) + 60 * 86_400_000).toISOString().slice(0, 10);
+    const closed = await q<{ d: string }>(
+      `SELECT generate_series(e.date, e.end_date, interval '1 day')::date::text AS d
+         FROM public_holiday_entries e JOIN public_holiday_sets s ON s.id = e.set_id
+        WHERE s.country = 'BD'
+       UNION
+       SELECT generate_series(start_date, end_date, interval '1 day')::date::text
+         FROM calendar_events WHERE tenant_id = $1 AND type = 'HOLIDAY'`,
+      [high.id],
+    );
+    const weeklyOff = [0, 1, 2, 3, 4, 5, 6].filter((d) => !WEEK.includes(d));
+    const date = schoolDays(
+      ctx.anchor,
+      horizon,
+      weeklyOff,
+      closed.map((r) => r.d),
+    )[0];
+    if (!date) throw new Error(`routine: no school day within 60 days of ${ctx.anchor}`);
     const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
     const second = created.find(
       (c) =>

@@ -194,7 +194,7 @@ describe('runSlices', () => {
 });
 
 describe('SLICES', () => {
-  it('lists the 13 slices in order, attention last; every slice but org is still a stub', () => {
+  it('lists the 13 slices in order, attention last; an owed stub names its ticket', () => {
     expect(SLICES.map((s) => s.name)).toEqual([
       'org',
       'staff',
