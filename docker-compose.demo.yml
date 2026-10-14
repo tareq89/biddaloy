@@ -65,12 +65,13 @@ services:
       DEMO_SCALE: ${DEMO_SCALE:-1}
       DEMO_YEARS: ${DEMO_YEARS:-10}
       # The nightly sweep (58.4.02, Playwright project demo-nightly) needs a Playwright runner,
-      # which this image does not carry, and it cannot `docker run` one (no socket). The temporary
-      # app it tests listens on :3999 in this container: http://127.0.0.1:3999 here (DEMO_SWEEP_URL),
-      # http://demo-reset:3999 from another service on the compose network, never on the host.
-      # Set DEMO_SWEEP_CMD to a command that drives such a runner, or DEMO_SKIP_SWEEP=true to go
-      # without. One of them is required. The sweep is killed after DEMO_SWEEP_TIMEOUT seconds.
+      # which this image does not carry, and it cannot `docker run` one (no socket). So the runner is
+      # another service on the compose network. The temporary app it tests listens on :3999 on every
+      # interface of this container, so that runner reaches it at DEMO_SWEEP_URL below (never on the
+      # host). Set DEMO_SWEEP_CMD to a command that drives such a runner, or DEMO_SKIP_SWEEP=true to
+      # go without. One of them is required. The sweep is killed after DEMO_SWEEP_TIMEOUT seconds.
       DEMO_SWEEP_CMD: ${DEMO_SWEEP_CMD:-}
+      DEMO_SWEEP_URL: ${DEMO_SWEEP_URL:-http://demo-reset:3999}
       DEMO_SKIP_SWEEP: ${DEMO_SKIP_SWEEP:-}
       DEMO_SWEEP_TIMEOUT: ${DEMO_SWEEP_TIMEOUT:-1800}
       DOCKER_HOST: tcp://demo-docker-proxy:2375
@@ -102,9 +103,12 @@ services:
         condition: service_started
 
   # The reset's only use of Docker is `docker restart biddaloy-demo-app`. This proxy holds the
-  # socket and lets through only GETs plus POST .../containers/<id>/(stop|restart|kill), so a
-  # compromised demo-reset can bounce containers but cannot create one (no host root). It sits
-  # on an internal network that only demo-reset joins.
+  # socket and lets through GET /_ping, /version and /events, plus POST
+  # .../containers/<id>/(stop|restart|kill) for ANY container on this host: the image cannot limit
+  # it to one. So a compromised demo-reset can stop, restart or kill every container here (db,
+  # nginx, the proxy itself), but cannot create, exec into or inspect one (no host root).
+  # Acceptable only because this host runs nothing but the demo. It sits on an internal network
+  # that only demo-reset joins.
   demo-docker-proxy:
     image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
     restart: unless-stopped

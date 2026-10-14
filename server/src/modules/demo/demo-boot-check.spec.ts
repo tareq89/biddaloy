@@ -79,7 +79,7 @@ describe('assertDemoDatabase (runs in main.ts before NestFactory.create)', () =>
   });
 
   // The refusal must say why, so a 02:00 exit 1 after the nightly reset (#2178) is not silent.
-  // It must not suggest PLATFORM_TENANT_ID: an empty default-school is already exempt by slug.
+  // It must not suggest setting PLATFORM_TENANT_ID as a fix: an empty default-school is already exempt by slug.
   it('says why it refuses', async () => {
     await expect(
       check({ DEMO_MODE: 'true' }, [{ id: '1', slug: 'real-school' }]).run(),
