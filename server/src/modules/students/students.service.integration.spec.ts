@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -445,6 +445,34 @@ describe('StudentService (integration)', () => {
         TENANT_ID,
       );
       expect(student2.roll_number).toBe(2);
+    });
+
+    describe('registration year follows the school (Asia/Dhaka) calendar', () => {
+      afterEach(() => vi.useRealTimers());
+      const at = (iso: string) => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date(iso));
+      };
+      const mk = (n: string) =>
+        service.create({ full_name: n, class_section_id: SEED_SECTION_1_ID }, TENANT_ID);
+
+      it('00:30 on 1 Jan 2027 Dhaka is REG-2027', async () => {
+        at('2026-12-31T18:30:00Z');
+        expect((await mk('New Year')).registration_number).toMatch(/^REG-2027-\d{4}$/);
+      });
+
+      it('23:30 on 31 Dec 2026 Dhaka is REG-2026', async () => {
+        at('2026-12-31T17:30:00Z');
+        expect((await mk('Old Year')).registration_number).toMatch(/^REG-2026-\d{4}$/);
+      });
+
+      it('two students in the new Dhaka year get consecutive numbers', async () => {
+        at('2026-12-31T18:30:00Z');
+        const a = await mk('One');
+        const b = await mk('Two');
+        expect(a.registration_number).toBe('REG-2027-0001');
+        expect(b.registration_number).toBe('REG-2027-0002');
+      });
     });
 
     it('should generate sequential registration numbers per tenant', async () => {
