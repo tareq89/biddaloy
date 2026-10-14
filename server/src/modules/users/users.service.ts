@@ -742,10 +742,12 @@ export class UserService {
           await manager.getRepository(User).update({ id }, updateData);
           // [68.4.05] A linked guardian's phone/email follow the login in every school.
           // Only keys that really changed (the locked-row diff): a resubmitted unchanged
-          // value must not overwrite another school's guardian copy (review r1 C1).
+          // value must not overwrite another school's guardian copy (review r1 C1). And only
+          // keys the SHARED_IDENTITY check above passed: a raw-vs-normalised mismatch or a
+          // change landing before the lock must not skip that check yet still sync (review r2 M1).
           await syncLinkedGuardianContacts(manager, id, {
-            email: 'email' in after ? (after.email as string | null) : undefined,
-            phone: 'phone' in after ? (after.phone as string | null) : undefined,
+            email: emailChanges && 'email' in after ? (after.email as string | null) : undefined,
+            phone: phoneChanges && 'phone' in after ? (after.phone as string | null) : undefined,
           });
           if (Object.keys(after).length > 0) {
             await this.audit.record(
