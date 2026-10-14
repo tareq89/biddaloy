@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -72,6 +72,27 @@ describe('Students E2E', () => {
       class_section_id: SEED_SECTION_1_ID,
       date_of_birth: '2010-05-15',
     };
+
+    describe('registration year follows the school (Asia/Dhaka) calendar', () => {
+      afterEach(() => vi.useRealTimers());
+
+      it('00:30 on 1 Jan 2027 Dhaka gets REG-2027', async () => {
+        // Freeze before login so the JWT iat/exp match the frozen clock.
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-12-31T18:30:00Z'));
+        const login = await supertest(app.getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+          .expect(200);
+        const res = await supertest(app.getHttpServer())
+          .post('/api/v1/students')
+          .set('Authorization', `Bearer ${login.body.access_token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .send(createStudentPayload)
+          .expect(201);
+        expect(res.body.registration_number).toMatch(/^REG-2027-\d{4}$/);
+      });
+    });
 
     it('should create a student with ADMIN role', async () => {
       const res = await supertest(app.getHttpServer())

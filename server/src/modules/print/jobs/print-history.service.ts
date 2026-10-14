@@ -11,7 +11,7 @@ import { AuditAction, Permission, roleHasPermission } from '@biddaloy/shared';
 import { PrintJobItem } from '../entities/print-job-item.entity';
 import { AuditService } from '../../audit/audit.service';
 import { QueryPrintHistoryDto, QueryRegisterDto } from './dto/print-history.dto';
-import { todayInSchoolTz } from '../../../common/time';
+import { endOfLocalDay, startOfLocalDay, todayInSchoolTz } from '../../../common/time';
 import type { PrintCaller } from './print-jobs.service';
 
 /**
@@ -181,14 +181,15 @@ export class PrintHistoryService {
     if (q.subject_type) add((n) => `i.subject_type = ${n}`, q.subject_type);
     if (q.subject_id) add((n) => `i.subject_id = ${n}`, q.subject_id);
     if (q.printed_by) add((n) => `j.printed_by = ${n}`, q.printed_by);
-    if (q.from) add((n) => `i.created_at >= ${n}::timestamptz`, q.from);
+    // A date-only value is a school calendar day (Asia/Dhaka), not a UTC day.
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
+    if (q.from) {
+      if (dateOnly.test(q.from)) add((n) => `i.created_at >= ${n}`, startOfLocalDay(q.from));
+      else add((n) => `i.created_at >= ${n}::timestamptz`, q.from);
+    }
     if (q.to) {
-      // A date-only `to` means "through the end of that day".
-      if (/^\d{4}-\d{2}-\d{2}$/.test(q.to)) {
-        add((n) => `i.created_at < (${n}::date + 1)`, q.to);
-      } else {
-        add((n) => `i.created_at <= ${n}::timestamptz`, q.to);
-      }
+      if (dateOnly.test(q.to)) add((n) => `i.created_at <= ${n}`, endOfLocalDay(q.to));
+      else add((n) => `i.created_at <= ${n}::timestamptz`, q.to);
     }
     if (q.status) add((n) => `j.status = ${n}`, q.status);
     if (q.outcome) add((n) => `i.outcome = ${n}`, q.outcome);

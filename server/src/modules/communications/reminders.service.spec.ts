@@ -397,6 +397,23 @@ describe('BulkReminderService', () => {
       );
     });
 
+    it.each([
+      ['2026-10-07T17:59:00Z', '2026-10-07'],
+      ['2026-10-07T18:00:00Z', '2026-10-08'],
+      ['2026-10-08T00:00:00Z', '2026-10-08'],
+    ])('default batch name at %s uses the Dhaka day', async (now, day) => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(now));
+      try {
+        await service.sendBulk(dto as any, TENANT, USER);
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(batchRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ batch_name: `Fee Reminder ${day}` }),
+      );
+    });
+
     it('sends one message per primary guardian when a student has several', async () => {
       studentService.findManyWithGuardians.mockResolvedValue([
         student({
