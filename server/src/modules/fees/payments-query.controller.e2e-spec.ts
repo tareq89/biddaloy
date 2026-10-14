@@ -295,23 +295,45 @@ describe('GET /payments, GET /payments/:id (16.4.3)', () => {
       expect(refs).not.toContain('OTHER-TENANT-REF');
     });
 
-    it('applies an inclusive date_to boundary (F2): a same-day payment is not excluded', async () => {
+    it('date_to ends at 23:59:59.999 Asia/Dhaka (F2): next-morning payments are excluded', async () => {
       const student = await createStudent();
-      // 23:30 UTC on 2026-02-10 — inside the day but after naive midnight,
-      // which a non-inclusive date_to would have excluded (F2).
-      const lateInDay = await createPayment(student, SEED_TENANT_ID, {
-        payment_date: '2026-02-10T23:30:00Z',
+      const inside = await createPayment(student, SEED_TENANT_ID, {
+        payment_date: '2026-02-10T17:30:00Z', // 10 Feb 23:30 Dhaka
+      });
+      const nextMidnight = await createPayment(student, SEED_TENANT_ID, {
+        payment_date: '2026-02-10T18:00:00Z', // 11 Feb 00:00 Dhaka
+      });
+      const nextMorning = await createPayment(student, SEED_TENANT_ID, {
+        payment_date: '2026-02-10T23:30:00Z', // 11 Feb 05:30 Dhaka
       });
 
       const res = await supertest(app.getHttpServer())
         .get(`${API}/payments`)
-        .query({ date_from: '2026-02-01', date_to: '2026-02-10' })
+        .query({ date_from: '2026-02-10', date_to: '2026-02-10' })
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
         .expect(200);
 
-      expect(res.body.data.map((p: { id: string }) => p.id)).toContain(lateInDay);
+      const ids = res.body.data.map((p: { id: string }) => p.id);
+      expect(ids).toContain(inside);
+      expect(ids).not.toContain(nextMidnight);
+      expect(ids).not.toContain(nextMorning);
+    });
+
+    it('rejects a full timestamp in date_from/date_to with 400 (day filters are YYYY-MM-DD)', async () => {
+      for (const q of [
+        { date_to: '2026-02-10T12:00:00Z' },
+        { date_from: '2026-02-10T12:00:00Z' },
+      ]) {
+        await supertest(app.getHttpServer())
+          .get(`${API}/payments`)
+          .query(q)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .set('X-Role', UserRole.ADMIN)
+          .expect(400);
+      }
     });
 
     it('finds a reversed payment when include_reversed=true is set explicitly (F4)', async () => {
