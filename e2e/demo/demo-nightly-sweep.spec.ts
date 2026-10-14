@@ -11,7 +11,6 @@ import {
   EXPECTED_SKIPS,
   KNOWN_ISSUES,
   NOT_SWEPT,
-  SMALL_SCALE_SKIPS,
 } from './sweep-allowlist';
 import { signedOutAt } from './sweep-session';
 
@@ -62,9 +61,6 @@ const PUBLIC_TARGETS: Record<string, string[]> = {
 const LIST_PAGE: Record<string, string> = {
   '/staff/evaluations/surveys/$surveyId': '/staff/evaluations?tab=surveys',
 };
-/** The scale the seed ran at; unset means full scale, so the small-scale skips do not apply. */
-const scale = Number(process.env.DEMO_SCALE ?? '1');
-const SKIPS = [...EXPECTED_SKIPS, ...(scale < 1 ? SMALL_SCALE_SKIPS : [])];
 
 const STAFF_ROUTE_PERMISSIONS = Object.fromEntries(
   [
@@ -196,7 +192,7 @@ DEMO_CARDS.forEach((card, index) => {
     const visit = async (path: string, target: string | null) => {
       if (!target) {
         skipped.push(path);
-        if (!SKIPS.includes(path)) {
+        if (!EXPECTED_SKIPS.includes(path)) {
           problems.push(
             `${path}: no row link on its list page for ${card.role} (page empty or broken)`,
           );

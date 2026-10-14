@@ -28,9 +28,10 @@ const DEMO_NIGHTLY = process.env.E2E_DEMO_NIGHTLY === '1' || !!DEMO_SWEEP_URL;
 // secure context but Chromium still drops the cookie). So a plain-HTTP sweep URL must be loopback:
 // the runner shares demo-reset's network namespace. Anything else would reload every page signed
 // out, so it stops here instead of failing route by route.
-if (DEMO_SWEEP_URL?.startsWith('http://')) {
-  const host = new URL(DEMO_SWEEP_URL).hostname;
-  if (!['localhost', '127.0.0.1', '[::1]'].includes(host)) {
+// `new URL` lower-cases the scheme, so `HTTP://...` is caught too.
+const sweepUrl = DEMO_SWEEP_URL ? new URL(DEMO_SWEEP_URL) : null;
+if (sweepUrl?.protocol === 'http:') {
+  if (!['localhost', '127.0.0.1', '[::1]'].includes(sweepUrl.hostname)) {
     throw new Error(
       `DEMO_SWEEP_URL ${DEMO_SWEEP_URL}: plain HTTP keeps the session only on localhost/127.0.0.1. ` +
         'Run the sweep runner in the demo-reset network namespace and use http://127.0.0.1:3999 ' +

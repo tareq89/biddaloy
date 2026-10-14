@@ -26,24 +26,22 @@ export const KNOWN_ISSUES: { path: string; roles: string[]; reason: string }[] =
 ];
 
 /**
- * Detail routes the sweep may skip (no single list page to open a row from). Any other route
- * skipped fails the run, so an empty or broken list page cannot pass silently.
+ * Detail routes the sweep may skip: no list page renders a `<a href="<list>/...">` row link to open,
+ * at any seed scale. Any other route skipped fails the run, so an empty or broken list page cannot
+ * pass silently.
  */
 export const EXPECTED_SKIPS: string[] = [
+  // Several params: no single list page to open a row from.
   '/marks/$examId/$sectionId/$subjectId',
   '/results/$examId/$studentId',
   '/staff/$userId/acr/$assessmentId',
-];
-
-/**
- * Detail routes with no row link at a small demo scale (0.05 x 2 years). Skipped only when the
- * seed ran below full scale (`DEMO_SCALE` < 1, which the nightly reset passes to the sweep); at full
- * scale an empty list page here fails the run like any other.
- */
-export const SMALL_SCALE_SKIPS: string[] = [
+  // No list route: plans are listed on the Syllabus page's plans tab, opened by a row action.
   '/academics/study-plans/$planId',
+  // Edit is a row action that calls navigate(), not a link.
   '/print-templates/$templateId/edit',
+  // "View" is a row action, not a link.
   '/applications/$applicationId',
+  // `/my-class` redirects to the section when the teacher has one (the demo class teacher has one).
   '/my-class/$sectionId',
 ];
 

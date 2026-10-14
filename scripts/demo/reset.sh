@@ -214,8 +214,7 @@ sweep_next() {
   log "running the sweep"
   local rc=0
   # 9>&-: a runner child that outlives the timeout must not keep the reset lock.
-  # DEMO_SCALE tells the sweep whether the small-scale skips apply (e2e/demo/sweep-allowlist.ts).
-  DEMO_SWEEP_URL="${DEMO_SWEEP_URL:-http://127.0.0.1:${SWEEP_PORT}}" DEMO_SCALE="$DEMO_SCALE" \
+  DEMO_SWEEP_URL="${DEMO_SWEEP_URL:-http://127.0.0.1:${SWEEP_PORT}}" \
     timeout "${DEMO_SWEEP_TIMEOUT:-1800}" bash -c "$DEMO_SWEEP_CMD" 9>&- || rc=$?
   kill "$APP_PID" 2>/dev/null || true
   wait "$APP_PID" 2>/dev/null || true

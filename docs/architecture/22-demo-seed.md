@@ -288,7 +288,7 @@ Set these in the host `.env`. Compose passes them to `demo-reset`. Rows marked "
 | `DEMO_SWEEP_URL`          | `http://127.0.0.1:3999` (compose and script) | `http://127.0.0.1:3999`                            | Where the sweep finds the temporary app. Plain HTTP must be loopback (see "Staying signed in").                                                                      |
 | `DEMO_SWEEP_TIMEOUT`      | `1800` (seconds)                             | `900`                                              | The sweep is killed after this.                                                                                                                                      |
 | `DEMO_STATE_DIR`          | `/demo-state`, set by compose                | `/demo-state`                                      | Holds `reset.lock` and `platform-tenant-id`.                                                                                                                         |
-| `DEMO_SCALE`              | `1`                                          | `0.05`                                             | Seed size. Also passed to the sweep: below 1, the small-scale skips apply.                                                                                           |
+| `DEMO_SCALE`              | `1`                                          | `0.05`                                             | Seed size.                                                                                                                                                           |
 | `DEMO_YEARS`              | `10`                                         | `2`                                                | Years of history.                                                                                                                                                    |
 | `TURNSTILE_SECRET_KEY`    | empty                                        | `0x4AAAAAAA...`                                    | Server. Needs its client twin below, or the public admission form refuses to submit (D42).                                                                           |
 | `VITE_TURNSTILE_SITE_KEY` | empty                                        | `0x4AAAAAAA...`                                    | Client build arg. Make both keys in Cloudflare for the demo hostname.                                                                                                |
@@ -347,14 +347,13 @@ flowchart LR
 and it cannot `docker run` one (it has no Docker socket). So today, **keep `DEMO_SKIP_SWEEP=true`** until a runner
 service exists. That runner must share `demo-reset`'s network namespace and use `http://127.0.0.1:3999` (see above).
 
-Two lists in `e2e/demo/sweep-allowlist.ts` decide what the sweep tolerates (a third, `CONSOLE_ERROR_ALLOWLIST`, is empty):
+Three lists in `e2e/demo/sweep-allowlist.ts` decide what the sweep tolerates or skips (a fourth, `CONSOLE_ERROR_ALLOWLIST`, is empty):
 
-| List                | Holds                                                                                                      | Edit it when                                                                                             |
-| ------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `KNOWN_ISSUES`      | A route and the only roles whose error boundary is a known app bug, with the issue number                  | A real bug would block the swap and the fix is not in yet. Delete the entry when the issue is fixed.     |
-| `EXPECTED_SKIPS`    | Detail routes with no list page to open a row from                                                         | A new detail route has no way in. Any other skipped route fails the run.                                 |
-| `SMALL_SCALE_SKIPS` | Detail routes whose list is empty at a small scale. Skipped only when `DEMO_SCALE` < 1                     | A list is empty at scale 0.05 but full at scale 1.                                                       |
-| `NOT_SWEPT`         | Routes the sweep never visits, each with a reason (signed-out pages, platform console, hashed-token links) | A new route has no permission entry and no way to visit it. Without an entry the sweep refuses to start. |
+| List             | Holds                                                                                                      | Edit it when                                                                                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `KNOWN_ISSUES`   | A route and the only roles whose error boundary is a known app bug, with the issue number                  | A real bug would block the swap and the fix is not in yet. Delete the entry when the issue is fixed.     |
+| `EXPECTED_SKIPS` | Detail routes with no row link to open, at any scale (each entry says why)                                 | A new detail route has no way in. Any other skipped route fails the run.                                 |
+| `NOT_SWEPT`      | Routes the sweep never visits, each with a reason (signed-out pages, platform console, hashed-token links) | A new route has no permission entry and no way to visit it. Without an entry the sweep refuses to start. |
 
 Bugs the sweep found:
 
