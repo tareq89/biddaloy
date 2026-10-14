@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { faker } from '@faker-js/faker';
 import { assertDemoTarget, assertEmptyDatabase, parseArgs, runSlices } from './index';
 import { academicYears, schoolDays, todayAt } from './dates';
-import { createContext, type DemoSeedContext, type DemoSlice } from './context';
+import { createContext, demoPassword, type DemoSeedContext, type DemoSlice } from './context';
 import { SLICES } from './slices';
 
 const demoUrl = (db: string, host = 'localhost') => `postgres://u:s@${host}:5432/${db}`;
@@ -19,9 +19,25 @@ describe('guards', () => {
       assertDemoTarget({
         NODE_ENV: 'production',
         DEMO_MODE: 'true',
+        DEMO_PASSWORD: 'pw',
         DATABASE_URL: demoUrl('biddaloy_demo_next', 'db'),
       }),
     ).not.toThrow();
+  });
+
+  it('production needs DEMO_PASSWORD: unset refuses, set passes', () => {
+    const base = {
+      NODE_ENV: 'production',
+      DEMO_MODE: 'true',
+      DATABASE_URL: demoUrl('biddaloy_demo_x'),
+    };
+    expect(() => assertDemoTarget(base)).toThrow(/DEMO_PASSWORD/);
+    expect(() => assertDemoTarget({ ...base, DEMO_PASSWORD: 'pw' })).not.toThrow();
+  });
+
+  it('dev with DEMO_PASSWORD unset falls back to the local default', () => {
+    expect(demoPassword({ NODE_ENV: 'development' })).toBe('Demo@12345');
+    expect(demoPassword({ DEMO_PASSWORD: 'pw' })).toBe('pw');
   });
 
   it('refuses the real database name', () => {
@@ -110,7 +126,14 @@ describe('dates', () => {
 
 describe('context', () => {
   const make = (anchor: string) =>
-    createContext({ ds: {} as never, app: {} as never, scale: 2, years: 10, anchor });
+    createContext({
+      ds: {} as never,
+      app: {} as never,
+      scale: 2,
+      years: 10,
+      anchor,
+      password: 'x',
+    });
 
   it('same anchor gives the same faker output; scale multiplies counts', async () => {
     const a = await make('2026-10-10');
