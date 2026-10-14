@@ -12,7 +12,7 @@ import {
   CommunicationTrigger,
   ReminderBatchStatus,
 } from '@biddaloy/shared';
-import { resolveAttendancePolicy } from './attendance-policy.util';
+import { localToday, resolveAttendancePolicy } from './attendance-policy.util';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -230,9 +230,13 @@ export class AbsenceNoticeService {
       },
     });
     // #2269: a child who left the section since the register was marked is
-    // not texted about it.
+    // not texted about it (roster as of today, not the session date).
+    const timezone =
+      (await this.schoolsService.getResolvedSettings(tenantId)).region?.timezone ?? 'UTC';
     const roster = new Set(
-      await sectionRosterStudentIds(manager, tenantId, session.section_id, { excludeLeft: true }),
+      await sectionRosterStudentIds(manager, tenantId, session.section_id, {
+        onRollOn: localToday(timezone),
+      }),
     );
     const studentIds = absentRecords.map((r) => r.student_id).filter((id) => roster.has(id));
     if (studentIds.length === 0) {

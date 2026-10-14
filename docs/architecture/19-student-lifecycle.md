@@ -148,6 +148,33 @@ Rules the server enforces (all covered by tests):
   caller's, which would break "status and event commit together". The service writes the
   enrollment and student rows itself through the transaction manager.
 
+### What leaving does to attendance
+
+A student is on a section's attendance roll on date D when their enrollment there is ACTIVE,
+or their latest leaving event on that enrollment is dated **after** D. A saved mark always
+shows, so a back-dated leave never hides one.
+
+Example: Rahim leaves section 7-B on 3 Oct.
+
+| Register date | On the roll? |
+| --- | --- |
+| 2 Oct | yes |
+| 3 Oct (leaving day) | no |
+| 7 Oct | no |
+| September matrix | yes |
+
+```mermaid
+flowchart LR
+  Q{"What is asked?"}
+  Q -->|"section + date or range"| H["sectionRosterStudentIds(..., onRollOn)<br/>enrollments + leaving events"]
+  Q -->|"this student, right now"| S["students.enrollment_status = ACTIVE"]
+  H --> R["register GET/PUT, my-sections count,<br/>summary, matrix, streaks, absence SMS"]
+  S --> F["low-attendance flags, device roster, device scan"]
+```
+
+A device scan from a student who is not ACTIVE is `rejected` with reason `not_on_roll` and
+writes no record. Exams are not affected: the results cohort keeps leavers.
+
 ## 4. Status can change no other way
 
 Before this epic, `PATCH /students/:id` and `PATCH /enrollments/:id` accepted
@@ -262,3 +289,11 @@ The workbook has three new tabs (`student_lifecycle_events`, `student_notes`,
   this epic; found while running the sweeps on the report route.
 - The migration timestamp is `1790800000000`, not the planned `1790700000000` (Epic 32's print
   module already owned that one).
+- **Device scans use current standing, not the scan date.** An offline scan from before a leave,
+  uploaded after it, is rejected as `not_on_roll`; the teacher marks it by hand.
+- **Left, readmitted, left again** counts as on the roll for the gap in between. Fixing it
+  means reading the event sequence.
+- **my-sections `unmarked` can read one low** after a back-dated leave: the saved mark counts
+  as marked but the student is not in `student_count`.
+- Low-attendance flags read `students.enrollment_status`, not enrollments, because older-year
+  enrollments can stay ACTIVE after a leave (#1217, unchanged).

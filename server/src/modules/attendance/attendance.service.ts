@@ -30,7 +30,7 @@ import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
-import { sectionRosterStudentIds } from '../enrollments/section-roster';
+import { sectionRosterIdsBySection, sectionRosterStudentIds } from '../enrollments/section-roster';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { AttendanceAccessService } from './attendance-access.service';
@@ -161,16 +161,11 @@ export class AttendanceService {
     const sectionIds = sections.map((s) => s.id);
 
     // One grouped query for every section's roster size, not one per section.
-    const studentCountRows = await this.studentRepo
-      .createQueryBuilder('s')
-      .select('s.class_section_id', 'section_id')
-      .addSelect('COUNT(*)', 'count')
-      .where('s.tenant_id = :tenantId', { tenantId })
-      .andWhere('s.deleted_at IS NULL')
-      .andWhere('s.class_section_id IN (:...sectionIds)', { sectionIds })
-      .groupBy('s.class_section_id')
-      .getRawMany<{ section_id: string; count: string }>();
-    const studentCounts = new Map(studentCountRows.map((r) => [r.section_id, Number(r.count)]));
+    // ponytail: a back-dated leaver's saved mark is counted as marked but not in
+    // student_count, so unmarked can read 1 low; count the union per session if it matters.
+    const rosters = await sectionRosterIdsBySection(this.dataSource.manager, tenantId, sectionIds, {
+      onRollOn: date,
+    });
 
     // One query for every section's session on this date, not one per section.
     // Whole-day registers only: a period register on the same date must not
@@ -239,7 +234,7 @@ export class AttendanceService {
 
     return sections.map((section) => {
       const session = sessionBySectionId.get(section.id);
-      const studentCount = studentCounts.get(section.id) ?? 0;
+      const studentCount = rosters.get(section.id)?.length ?? 0;
       const className = (section as ClassSection & { class?: { name: string } }).class?.name ?? '';
 
       let today = null;
@@ -768,8 +763,12 @@ export class AttendanceService {
     const uniqueStudentIds = [...new Set(studentIds)];
     // Enrollment roster, not `Student.class_section_id`: a promoted student
     // still belongs to the old section's past registers (LIFE-08).
-    const rosterIds = new Set(
-      await sectionRosterStudentIds(manager, tenantId, sectionId, { excludeLeft: true }),
+    const rosterIds = await this.registerRosterIds(
+      manager,
+      tenantId,
+      sectionId,
+      dto.date,
+      session?.id ?? null,
     );
     const unknownStudentIds = uniqueStudentIds.filter((id) => !rosterIds.has(id));
     if (unknownStudentIds.length > 0) {
@@ -1509,6 +1508,28 @@ export class AttendanceService {
     return new Map(rows.map((r) => [r.entity_id, Number(r.count)]));
   }
 
+  /** Register rows for `date`: the roster on that date, plus anyone already marked in this
+   *  session (a back-dated leave never hides a saved mark). GET and PUT share this rule. */
+  private async registerRosterIds(
+    manager: EntityManager,
+    tenantId: string,
+    sectionId: string,
+    date: string,
+    sessionId: string | null,
+  ): Promise<Set<string>> {
+    const ids = new Set(
+      await sectionRosterStudentIds(manager, tenantId, sectionId, { onRollOn: date }),
+    );
+    if (sessionId) {
+      const marked = await manager.getRepository(AttendanceRecord).find({
+        where: { session_id: sessionId, tenant_id: tenantId },
+        select: { student_id: true },
+      });
+      for (const r of marked) ids.add(r.student_id);
+    }
+    return ids;
+  }
+
   /**
    * The one place that assembles the `RegisterResponseDto` shape, shared by
    * `getRegister`, every `putRegister`/`finalize`/`correctRecord` return
@@ -1560,9 +1581,9 @@ export class AttendanceService {
 
     // roll_number is an int column, so this ORDER BY is already
     // numeric — no varchar-sort trap (1, 10, 2, ...) to work around.
-    const rosterIds = await sectionRosterStudentIds(manager, tenantId, sectionId, {
-      excludeLeft: true,
-    });
+    const rosterIds = [
+      ...(await this.registerRosterIds(manager, tenantId, sectionId, date, session?.id ?? null)),
+    ];
     const students =
       rosterIds.length === 0
         ? []

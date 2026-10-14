@@ -19,7 +19,13 @@ import { Student } from '../students/entities/student.entity';
 import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
 import { Subject } from '../academics/entities/subject.entity';
-import { AttendanceSessionState, AttendanceStatus, EnrollmentStatus } from '@biddaloy/shared';
+import {
+  AttendanceSessionState,
+  AttendanceStatus,
+  EnrollmentStatus,
+  StudentLifecycleEventType,
+} from '@biddaloy/shared';
+import { StudentLifecycleEvent } from '../students/entities/student-lifecycle-event.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 
 /**
@@ -303,6 +309,62 @@ describe('AttendanceSummaryService (integration)', () => {
         to: '2026-09-01',
       });
       expect(matrix.rows.map((r) => r.student_id)).not.toContain(studentId);
+    });
+  });
+
+  // #1805: leaving is date-aware, and low flags list current students only.
+  describe('leaving date (#1805)', () => {
+    async function leaveOn(studentId: string, occurredOn: string) {
+      const enrollment = await dataSource
+        .getRepository(Enrollment)
+        .findOneByOrFail({ student_id: studentId, tenant_id: TENANT_ID });
+      await dataSource
+        .getRepository(Enrollment)
+        .update({ id: enrollment.id }, { enrollment_status: EnrollmentStatus.INACTIVE });
+      await dataSource
+        .getRepository(Student)
+        .update({ id: studentId }, { enrollment_status: EnrollmentStatus.INACTIVE });
+      await dataSource.getRepository(StudentLifecycleEvent).save({
+        tenant_id: TENANT_ID,
+        student_id: studentId,
+        enrollment_id: enrollment.id,
+        academic_year_id: enrollment.academic_year_id,
+        event_type: StudentLifecycleEventType.WITHDRAWN,
+        occurred_on: occurredOn,
+        reason: 'test',
+      });
+    }
+
+    it('summary and matrix keep the student for a range before leaving, drop after', async () => {
+      const studentId = await makeStudent(710);
+      await markDay(studentId, '2026-09-01', AttendanceStatus.ABSENT);
+      await leaveOn(studentId, '2026-09-02');
+      const range = (from: string) => ({ tenantId: TENANT_ID, sectionId, from, to: from });
+      const before = await service.getSectionSummary(range('2026-09-01'));
+      const after = await service.getSectionSummary(range('2026-09-03'));
+      expect(before.students.map((s) => s.student_id)).toContain(studentId);
+      expect(after.students.map((s) => s.student_id)).not.toContain(studentId);
+      const mBefore = await service.getSectionRegisterMatrix(range('2026-09-01'));
+      const mAfter = await service.getSectionRegisterMatrix(range('2026-09-03'));
+      expect(mBefore.rows.map((r) => r.student_id)).toContain(studentId);
+      expect(mAfter.rows.map((r) => r.student_id)).not.toContain(studentId);
+    });
+
+    it('getLowAttendanceFlags never lists a student who left', async () => {
+      const left = await makeStudent(711);
+      const active = await makeStudent(712);
+      await markDay(left, '2026-09-01', AttendanceStatus.ABSENT);
+      await markDay(active, '2026-09-01', AttendanceStatus.ABSENT);
+      await leaveOn(left, '2026-09-02');
+      const result = await service.getLowAttendanceFlags({
+        tenantId: TENANT_ID,
+        from: '2026-09-01',
+        to: '2026-09-01',
+        thresholdPercent: 100,
+      });
+      const ids = result.data.map((f) => f.student_id);
+      expect(ids).not.toContain(left);
+      expect(ids).toContain(active);
     });
   });
 
@@ -602,6 +664,39 @@ describe('AttendanceSummaryService (integration)', () => {
         });
       }
     }
+
+    it('leaves out a student who left today and keeps an active one with the same marks (#1805)', async () => {
+      const sec = await freshSection();
+      const leaver = await student(sec, 1);
+      const stayer = await student(sec, 2);
+      const A = AttendanceStatus.ABSENT;
+      for (const d of ['2026-09-01', '2026-09-02', '2026-09-03']) {
+        await day(sec, d, [
+          [leaver, A],
+          [stayer, A],
+        ]);
+      }
+      const enrollment = await dataSource
+        .getRepository(Enrollment)
+        .findOneByOrFail({ student_id: leaver, tenant_id: TENANT_ID });
+      await dataSource
+        .getRepository(Enrollment)
+        .update({ id: enrollment.id }, { enrollment_status: EnrollmentStatus.INACTIVE });
+      await dataSource.getRepository(StudentLifecycleEvent).save({
+        tenant_id: TENANT_ID,
+        student_id: leaver,
+        enrollment_id: enrollment.id,
+        academic_year_id: enrollment.academic_year_id,
+        event_type: StudentLifecycleEventType.WITHDRAWN,
+        occurred_on: new Date().toISOString().slice(0, 10),
+        reason: 'test',
+      });
+
+      const result = await service.getSectionStreaks({ tenantId: TENANT_ID, sectionId: sec });
+      const ids = result.items.map((i) => i.student_id);
+      expect(ids).not.toContain(leaver);
+      expect(ids).toContain(stayer);
+    });
 
     it('flags runs, orders deterministically, and uses a bounded number of queries', async () => {
       const sec = await freshSection();
