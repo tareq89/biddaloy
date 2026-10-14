@@ -282,6 +282,20 @@ describe('family read grants [5.1]', () => {
     }
   });
 
+  it('grants COMMITTEE_REPORT_READ to ADMIN, EXECUTIVE and COMMITTEE only (8.10.7)', () => {
+    const holders: UserRole[] = [
+      UserRole.ADMIN,
+      UserRole.EXECUTIVE,
+      UserRole.COMMITTEE,
+      UserRole.SUPER_ADMIN,
+    ];
+    for (const role of Object.values(UserRole)) {
+      expect(ROLE_PERMISSIONS[role].includes(Permission.COMMITTEE_REPORT_READ), role).toBe(
+        holders.includes(role),
+      );
+    }
+  });
+
   /**
    * `GET /payments/student/{studentId}` admits PARENT and STUDENT since
    * [5.1], and already admitted TEACHER and EXECUTIVE. None of them hold
@@ -918,6 +932,7 @@ describe('new role grants [#1358]', () => {
     ],
     [UserRole.COMMITTEE]: [
       Permission.DASHBOARD_VIEW,
+      Permission.COMMITTEE_REPORT_READ, // [8.10.7] D44
       Permission.ACR_READ,
       Permission.ACADEMIC_STRUCTURE_READ,
       Permission.CALENDAR_READ,

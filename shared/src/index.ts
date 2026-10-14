@@ -23,3 +23,4 @@ export * from './types/onboarding';
 export * from './enums/attention';
 export * from './attention/rule-catalogue';
 export * from './types/attention';
+export * from './dashboard/index';
