@@ -50,6 +50,7 @@ import {
   QueryTeacherDto,
 } from './dto/users.dto';
 import { syncLinkedGuardianContacts } from '../students/linked-guardian-contacts.util';
+import { Guardian } from '../students/entities/guardian.entity';
 import { JoinRequestDto } from './dto/join-request.dto';
 import { insertJoinRequest } from '../account-access/school-invite.service';
 import { ASSIGNMENT_TYPE_ORDER_SQL } from '../classes/classes.service';
@@ -71,20 +72,26 @@ export const ROLE_SWAP_ENDED = 'ROLE_SWAP';
 const NOT_SWAPPED_SQL = `(b.metadata->>'ended_by') IS DISTINCT FROM '${ROLE_SWAP_ENDED}'`;
 
 /**
- * How many live memberships `userId` holds in schools other than `tenantId`.
- * > 0 means the login (email/phone/password) is shared, so no single school
- * may change it. [68.1.#2209]
+ * How many ties `userId` has to schools other than `tenantId`: live
+ * memberships plus live guardian rows linked to the login. > 0 means the login
+ * (email/phone/password) is shared, so no single school may change it.
+ * [68.1.#2209] A removed parent keeps `guardians.user_id`, and a contact edit
+ * copies to that row (`syncLinkedGuardianContacts`), so a link counts too. [68.4.05]
  */
 export async function countOtherMemberships(
   m: EntityManager,
   userId: string,
   tenantId: string,
 ): Promise<number> {
-  return m
+  const memberships = await m
     .getRepository(UserTenant)
     .createQueryBuilder('ut')
     .where('ut.user_id = :userId AND ut.tenant_id <> :tenantId', { userId, tenantId })
     .getCount();
+  const guardianLinks = await m
+    .getRepository(Guardian)
+    .count({ where: { user_id: userId, tenant_id: Not(tenantId) } });
+  return memberships + guardianLinks;
 }
 
 /**
