@@ -13,7 +13,6 @@ import {
   WalletIcon,
   type LucideIcon,
 } from 'lucide-react';
-import * as React from 'react';
 
 import type { DemoRoleCard } from './use-demo-mode';
 
@@ -34,13 +33,13 @@ export interface DemoRoleCardsProps {
   /** Called with the chosen card; the page signs in with its email and the shared demo password. */
   onPick: (card: DemoRoleCard) => void;
   disabled?: boolean;
+  /** Focus the first card on mount (default). Off when the visitor is already typing elsewhere. */
+  focusFirst?: boolean;
 }
 
 /** The "pick a role" grid on the demo login screen. The first card (Admin) is outlined and gets focus. */
-export function DemoRoleCards({ cards, onPick, disabled }: DemoRoleCardsProps) {
+export function DemoRoleCards({ cards, onPick, disabled, focusFirst = true }: DemoRoleCardsProps) {
   const { t, i18n } = useTranslation('demo');
-  const first = React.useRef<HTMLButtonElement>(null);
-  React.useEffect(() => first.current?.focus(), []);
   const bn = i18n.language.startsWith('bn');
 
   return (
@@ -51,7 +50,9 @@ export function DemoRoleCards({ cards, onPick, disabled }: DemoRoleCardsProps) {
           <li key={card.key} className="flex">
             <Card asChild padded className={index === 0 ? 'border-primary' : undefined}>
               <button
-                ref={index === 0 ? first : undefined}
+                // React focuses on mount only, so toggling the form later never pulls focus back.
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- the cards are the page's main action
+                autoFocus={focusFirst && index === 0}
                 type="button"
                 disabled={disabled}
                 onClick={() => onPick(card)}
