@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import type { TestingModule } from '@nestjs/testing';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
+import { clearTables } from '@test/helpers/db.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { UserRole } from '@biddaloy/shared';
 import { AuditService } from '../../../modules/audit/audit.service';
@@ -18,6 +19,7 @@ import { StaffProfilesService } from '../../../modules/staff-profiles/staff-prof
 import { DEMO_CARDS } from '../../../modules/demo/demo-accounts';
 import { createContext, type DemoSeedContext } from '../context';
 import { academicYears } from '../dates';
+import { BD_PUBLIC_HOLIDAYS_BY_YEAR } from '../../seed-data/public-holidays-bd';
 import { orgIds, slice } from './org';
 
 // A fixed anchor keeps the assertions reproducible; org.ts itself never names a year.
@@ -231,18 +233,33 @@ describe('org slice (integration, 2 years)', () => {
     expect(Number(perTenant.find((r) => r.slug === 'bmsc-high')!.templates)).toBeGreaterThan(0);
   });
 
-  it('fails loudly when the holiday data lacks a seeded year', async () => {
-    // The year check runs before any insert, so the rows from beforeEach don't get in the way.
+  it('a year past the holiday table seeds with a warning and no holidays for it, never a throw', async () => {
+    // College runs Jul-Jun: an anchor of 1 July in the table's last year needs the next year too.
+    const last = Math.max(...Object.keys(BD_PUBLIC_HOLIDAYS_BY_YEAR).map(Number));
+    // Start clean, as beforeEach does, so this run creates its own schools and holiday sets.
+    await clearTables();
+    await ds.query(`DELETE FROM schools WHERE slug LIKE 'bmsc-%'`);
+    await ds.query(`DELETE FROM users WHERE email LIKE '%@bmsc.example'`);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const far = await createContext({
       ds,
       app,
       scale: 0.05,
       years: YEARS,
-      anchor: '2099-10-10',
+      anchor: `${last}-07-01`,
       password: 'unit-test-password',
     });
-    await expect(slice.run(far)).rejects.toThrow(/BD_PUBLIC_HOLIDAYS_BY_YEAR has no 2/);
-  });
+
+    await expect(slice.run(far)).resolves.toBeTypeOf('number');
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(`has no ${last + 1}`));
+    const years = await q<{ year: number }>(
+      `SELECT year FROM public_holiday_sets WHERE country = 'BD' ORDER BY year`,
+    );
+    expect(years.map((r) => Number(r.year))).toContain(last);
+    expect(years.map((r) => Number(r.year))).not.toContain(last + 1);
+    warn.mockRestore();
+  }, 120_000);
 
   it('writes shifts, period slots, rooms and the Bangladesh holiday sets', async () => {
     const slots = await q(

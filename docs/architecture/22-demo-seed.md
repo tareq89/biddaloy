@@ -190,6 +190,10 @@ These hold for every slice, forever. Reviewers reject a diff that breaks one.
 
 Rule 8 in practice: a bill's `paid_amount` must equal its allocations from live `SUCCESS` payments plus fee generation's wallet auto-apply (`DEBIT_GENERATION`, minus any `REVERSAL` of it). Reversed (`REFUNDED`) and `PENDING`/`FAILED` payments do not count.
 
+### Yearly chore: the Bangladesh holiday table
+
+`seed-data/public-holidays-bd.ts` (`BD_PUBLIC_HOLIDAYS_BY_YEAR`) ends at **2027**. Add **2028** before **2027-07-01**: that day College's 2027-2028 year starts, and the seed then needs 2028. A year missing from the table does not stop the reset. The org slice logs `BD_PUBLIC_HOLIDAYS_BY_YEAR has no 2028 …` and seeds that year with no public holidays, so the calendar looks thin until someone adds it. Each later year has the same deadline: add year N+1 before 1 July of year N.
+
 Rule 6 has one exception: platform alerts (`platform-alerts.service.ts`) text the verified phones of platform SUPER_ADMINs straight through the gateway, outside the `DEMO_MODE` log-only swap. So the demo host leaves `PLATFORM_SMS_API_KEY` unset, and the demo seed never gives a platform SUPER_ADMIN a verified phone.
 
 ## What the CI guard checks
