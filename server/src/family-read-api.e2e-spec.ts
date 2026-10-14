@@ -139,6 +139,13 @@ describe('[5.1] Family-facing read API', () => {
       name: 'GET /students/:id/results',
       path: (id: string) => `${API}/students/${id}/results`,
     },
+    // [8.10.7.0-s2] Portal > Routine - inherits every cross-family,
+    // cross-tenant and soft-delete case this table drives.
+    {
+      name: 'GET /routines/resolve?student_id=',
+      path: (id: string) =>
+        `${API}/routines/resolve?student_id=${id}&from=2026-10-04&to=2026-10-10`,
+    },
   ];
 
   beforeAll(async () => {
