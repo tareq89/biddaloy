@@ -103,6 +103,8 @@ export enum Permission {
   // Dashboard
   DASHBOARD_VIEW = 'DASHBOARD_VIEW',
   DASHBOARD_ADMIN = 'DASHBOARD_ADMIN',
+  // [8.10.7] D44 — aggregate-only committee widgets/report; see the COMMITTEE row.
+  COMMITTEE_REPORT_READ = 'COMMITTEE_REPORT_READ',
 
   // Academic Structure
   ACADEMIC_YEAR_MANAGE = 'ACADEMIC_YEAR_MANAGE',
@@ -321,6 +323,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.REPORT_COLLECTIONS_READ,
     Permission.DASHBOARD_VIEW,
     Permission.DASHBOARD_ADMIN,
+    Permission.COMMITTEE_REPORT_READ,
     Permission.ACADEMIC_YEAR_MANAGE,
     Permission.CLASS_MANAGE,
     // [10.4] G4 — reference-data read; see enum comment.
@@ -586,6 +589,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // FEE_GENERATE/PAYMENT_REVERSE/SCHEDULE_MANAGE/DISCOUNT_RULE_MANAGE.
     Permission.REPORT_COLLECTIONS_READ,
     Permission.DASHBOARD_VIEW,
+    Permission.COMMITTEE_REPORT_READ,
     // [10.4] G4 — reference-data read; see enum comment.
     Permission.ACADEMIC_STRUCTURE_READ,
     // [10.4] G5 — per-student Communications tab; see ACCOUNTANT comment.
@@ -685,10 +689,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
   // #1358 school management committee: read-only, no student PII (D9).
   // No REPORT_COLLECTIONS_READ (D16): the collections report and its CSV list
-  // a student_name per payment. An aggregate-only report would need its own
-  // permission.
+  // a student_name per payment. The aggregate-only report has its own
+  // permission, COMMITTEE_REPORT_READ [8.10.7 D44].
   [UserRole.COMMITTEE]: [
     Permission.DASHBOARD_VIEW,
+    Permission.COMMITTEE_REPORT_READ,
     Permission.ACR_READ,
     Permission.ACADEMIC_STRUCTURE_READ,
     Permission.CALENDAR_READ,
