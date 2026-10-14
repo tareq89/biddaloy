@@ -1,3 +1,5 @@
+import { isDemoMode } from './modules/demo/demo-mode';
+import { demoNoindex } from './modules/demo/demo-noindex.middleware';
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -58,6 +60,8 @@ async function bootstrap() {
 
   // As early as possible, and before the static-serving middleware below —
   // security headers should apply to every response, including the SPAs.
+  // [58.1.01, D27] Demo only: noindex on every response, SPA and 404s included.
+  if (isDemoMode()) app.use(demoNoindex);
   app.use(helmet(buildHelmetOptions(process.env.NODE_ENV)));
   // Swagger UI needs inline script/style the global CSP above deliberately
   // doesn't allow anywhere else — see docs-auth.ts.
