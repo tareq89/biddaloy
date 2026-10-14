@@ -35,6 +35,18 @@ function handleMutationError(
     toast.error(i18n.t('errors.schoolRestoring', { ns: COMMON_NAMESPACE }));
     return;
   }
+  // [58.2.07] The demo school refuses some writes with a plain-words code.
+  const code = error instanceof ApiError ? error.details?.code : undefined;
+  if (code === 'DEMO_DISABLED' || code === 'DEMO_UPLOAD_LIMIT') {
+    void i18n.loadNamespaces('demo').then(() => {
+      toast.error(
+        code === 'DEMO_DISABLED'
+          ? i18n.t('errors.DEMO_DISABLED', { ns: 'demo' })
+          : i18n.t('errors.DEMO_UPLOAD_LIMIT', { ns: 'demo' }),
+      );
+    });
+    return;
+  }
   if (mutation.meta?.handlesForbidden === true) return;
   if (error instanceof ApiError && error.statusCode === 403 && !isTenantSuspendedError(error)) {
     toast.error(i18n.t('errors.permissionDenied', { ns: COMMON_NAMESPACE }));
