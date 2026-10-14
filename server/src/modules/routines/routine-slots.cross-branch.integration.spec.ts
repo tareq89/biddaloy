@@ -181,6 +181,10 @@ describe('RoutineSlotsService — cross-branch teacher clash (D12)', () => {
     // Query log proof: no row from branch A came back from the cross-branch query.
     const returned = (await Promise.all(spy.mock.results.map((r) => r.value))).flat();
     expect(JSON.stringify(returned)).not.toContain('North Branch');
+    // ...and the lookup really ran (membership join present) and came back empty.
+    const lookup = spy.mock.calls.findIndex(([sql]) => String(sql).includes('user_tenants'));
+    expect(lookup).toBeGreaterThanOrEqual(0);
+    expect(await spy.mock.results[lookup].value).toEqual([]);
   });
 
   it('saves when the times do not overlap', async () => {

@@ -52,6 +52,60 @@ describe('ConflictList', () => {
     expect(screen.getByText('This breaks one of the routine rules.')).toBeTruthy();
   });
 
+  it('names the other branch, weekday and period for a cross-branch clash', async () => {
+    renderWithProviders(
+      <ConflictList
+        violations={[
+          {
+            code: 'TEACHER_DOUBLE_BOOKED',
+            message: 'x',
+            details: { tenantName: 'North Branch', weekday: 0, periodName: 'Period 3' },
+          },
+        ]}
+      />,
+      { locale: 'en' },
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'A teacher on this period is already teaching at North Branch on Sun, Period 3.',
+        ),
+      ).toBeTruthy(),
+    );
+    expect(
+      screen.queryByText(
+        'A teacher on this period is already teaching another section at this time.',
+      ),
+    ).toBeNull();
+  });
+
+  it('names the other branch, weekday and period for a cross-branch clash', async () => {
+    renderWithProviders(
+      <ConflictList
+        violations={[
+          {
+            code: 'TEACHER_DOUBLE_BOOKED',
+            message: 'x',
+            details: { tenantName: 'North Branch', weekday: 0, periodName: 'Period 3' },
+          },
+        ]}
+      />,
+      { locale: 'en' },
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'A teacher on this period is already teaching at North Branch on Sun, Period 3.',
+        ),
+      ).toBeTruthy(),
+    );
+    expect(
+      screen.queryByText(
+        'A teacher on this period is already teaching another section at this time.',
+      ),
+    ).toBeNull();
+  });
+
   it('renders warnings separately from violations', async () => {
     renderWithProviders(
       <ConflictList

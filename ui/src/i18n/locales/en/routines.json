@@ -192,6 +192,8 @@
   "conflictList": {
     "violationsTitle": "This can't be saved",
     "warningsTitle": "Heads up",
+    "teacherOtherBranch": "A teacher on this period is already teaching at {{branch}} on {{day}}, {{period}}.",
+    "teacherOtherBranchNoPeriod": "A teacher on this period is already teaching at {{branch}} on {{day}} at this time.",
     "codes": {
       "BREAK_SLOT": "A period can't go into a break.",
       "TEACHER_DOUBLE_BOOKED": "A teacher on this period is already teaching another section at this time.",
