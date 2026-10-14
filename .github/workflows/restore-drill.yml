@@ -92,11 +92,16 @@ jobs:
         # (confirmed locally: an 18 pg_restore into pg16 fails with
         # "unrecognized configuration parameter transaction_timeout").
         # Ubuntu's own archive has no -18 client, so add the PGDG repo first.
+        # The runner also ships a PostgreSQL 16 cluster, and Ubuntu's
+        # pg_dump wrapper picks that cluster's version over the newest
+        # client, so the -18 bin dir goes first on PATH.
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y age postgresql-client-18
+          echo /usr/lib/postgresql/18/bin >> "$GITHUB_PATH"
+          /usr/lib/postgresql/18/bin/pg_dump --version
 
 
       # aws-cli ships preinstalled on GitHub-hosted ubuntu runners.
