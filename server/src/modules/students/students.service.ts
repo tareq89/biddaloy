@@ -33,6 +33,7 @@ import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.ut
 import { BN_COLLATION } from '../../common/constants/collation';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { localToday } from '../../common/time';
 import { assertSeatsAvailable } from '../schools/trial/seat-limit.service';
 import { PAYABLE_FEE_STATUSES } from './open-money';
 import { bdPhoneTail } from '../communications/providers/shared/phone-number.util';
@@ -161,7 +162,7 @@ export class StudentService {
       }
     }
 
-    const currentYear = new Date().getFullYear();
+    const currentYear = Number(localToday().slice(0, 4));
 
     // Atomically generate reg number, determine roll number, and persist
     const generateAndSave = async (txManager: EntityManager) => {

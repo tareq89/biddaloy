@@ -55,6 +55,7 @@ import { SmsCreditService } from './credits/sms-credit.service';
 import { INSUFFICIENT_SMS_CREDIT } from './credits/insufficient-sms-credit.constants';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { localToday } from '../../common/time';
 import {
   AuditAction,
   CommunicationMedium,
@@ -761,7 +762,7 @@ export class BulkReminderService {
   }
 
   private defaultBatchName(): string {
-    return `Fee Reminder ${new Date().toISOString().slice(0, 10)}`;
+    return `Fee Reminder ${localToday()}`;
   }
 
   private toListItemDto(batch: ReminderBatch): ReminderBatchListItemDto {

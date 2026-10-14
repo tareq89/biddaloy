@@ -170,6 +170,21 @@ describe('Print module E2E (32.2.9)', () => {
     // EXECUTIVE reads the history; ACCOUNTANT is denied it.
     const history = await http().get(`${API}/print-history`).set(asRole('EXECUTIVE')).expect(200);
     expect(history.body.total).toBe(2);
+    // A date-only range is a school (Asia/Dhaka) calendar day, not a UTC day.
+    const [x, y] = job.body.items as Array<{ item_id: string }>;
+    await ds.query(`UPDATE print_job_items SET created_at = $1 WHERE id = $2`, [
+      '2026-10-06T19:00:00Z',
+      x.item_id,
+    ]);
+    await ds.query(`UPDATE print_job_items SET created_at = $1 WHERE id = $2`, [
+      '2026-10-07T21:00:00Z',
+      y.item_id,
+    ]);
+    const day = await http()
+      .get(`${API}/print-history?from=2026-10-07&to=2026-10-07`)
+      .set(asRole('EXECUTIVE'))
+      .expect(200);
+    expect(day.body.data.map((i: any) => i.item_id)).toEqual([x.item_id]);
     // PermissionsGuard answers a role without PRINT_HISTORY_READ with 403.
     await http().get(`${API}/print-history`).set(asRole('ACCOUNTANT')).expect(403);
 
