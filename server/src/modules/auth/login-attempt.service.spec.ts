@@ -193,4 +193,62 @@ describe('LoginAttemptService', () => {
       process.env.NODE_ENV = original;
     }
   });
+
+  // [58.1.02, D38] The demo's shared logins can be typed wrong by any visitor; they must not lock.
+  describe('DEMO_MODE', () => {
+    /** Counts failures like Redis would, and reports a lockout once the threshold is hit. */
+    function countingRedis() {
+      const counts = new Map<string, number>();
+      const locked = new Set<string>();
+      const redis = fakeRedis();
+      redis.incr.mockImplementation(async (k: string) => {
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+        return counts.get(k) as number;
+      });
+      redis.pexpire.mockResolvedValue(1);
+      redis.set.mockImplementation(async (k: string) => {
+        locked.add(k);
+        return 'OK';
+      });
+      redis.exists.mockImplementation(async (k: string) => (locked.has(k) ? 1 : 0));
+      return redis;
+    }
+
+    it('never locks a demo card email, however many bad passwords', async () => {
+      const redis = countingRedis();
+      const service = new LoginAttemptService(redis, THRESHOLD, WINDOW_MS, 'production', true);
+
+      for (let i = 0; i < 10; i++) await service.recordFailure('admin@bmsc.example');
+
+      expect(await service.isLocked('admin@bmsc.example')).toBe(false);
+      expect(redis.incr).not.toHaveBeenCalled();
+    });
+
+    it('matches the card email case-insensitively', async () => {
+      const redis = countingRedis();
+      const service = new LoginAttemptService(redis, THRESHOLD, WINDOW_MS, 'production', true);
+
+      await service.recordFailure('Admin@BMSC.example');
+
+      expect(redis.incr).not.toHaveBeenCalled();
+    });
+
+    it('still locks any other identifier after the threshold', async () => {
+      const redis = countingRedis();
+      const service = new LoginAttemptService(redis, THRESHOLD, WINDOW_MS, 'production', true);
+
+      for (let i = 0; i < THRESHOLD; i++) await service.recordFailure('someone@else.com');
+
+      expect(await service.isLocked('someone@else.com')).toBe(true);
+    });
+
+    it('locks a demo card email when DEMO_MODE is off', async () => {
+      const redis = countingRedis();
+      const service = new LoginAttemptService(redis, THRESHOLD, WINDOW_MS, 'production', false);
+
+      for (let i = 0; i < THRESHOLD; i++) await service.recordFailure('admin@bmsc.example');
+
+      expect(await service.isLocked('admin@bmsc.example')).toBe(true);
+    });
+  });
 });
