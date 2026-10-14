@@ -1,6 +1,15 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcrypt';
 import { createHash, randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { AuditAction, SocialProvider, UserStatus } from '@biddaloy/shared';
@@ -41,6 +50,9 @@ export function safeRedirect(value: string | undefined, appBase: string): string
   }
 }
 
+// Same value as auth.service.ts's DUMMY_PASSWORD_HASH: keeps the bcrypt cost paid on the no-user path.
+const DUMMY_PASSWORD_HASH = '$2b$10$rGV9zEDpgnc/spXBlHqA9O5IjpBvndIyZE78fIhV8ZV4.5GAUfPJ.';
+
 @Injectable()
 export class SocialAuthService {
   private readonly logger = new Logger(SocialAuthService.name);
@@ -55,6 +67,30 @@ export class SocialAuthService {
     private readonly config: ConfigService,
     @InjectRepository(User) private readonly users: Repository<User>,
   ) {}
+
+  /**
+   * Gate for connecting a social account: a borrowed session must not be able
+   * to plant a permanent sign-in. 403 (not 401) on a wrong password so the
+   * client's 401-refresh-replay never re-sends it.
+   */
+  async assertCurrentPassword(userId: string, password: string): Promise<void> {
+    const user = await this.users.findOne({ where: { id: userId } });
+    // Same rule as `AuthService.changePassword`: a suspended user holding a
+    // still-valid access token must not act, and learns nothing from the difference.
+    if (!user || user.status !== UserStatus.ACTIVE) {
+      await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    if (!user.password_hash) {
+      throw new BadRequestException({
+        message: 'Set a password before connecting another sign-in method',
+        details: { code: 'NO_PASSWORD' },
+      });
+    }
+    if (!(await bcrypt.compare(password, user.password_hash))) {
+      throw new ForbiddenException('Current password is incorrect');
+    }
+  }
 
   configuredProviders(): SocialProvider[] {
     return this.providers.filter((p) => p.isConfigured()).map((p) => p.name);

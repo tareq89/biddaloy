@@ -31,3 +31,17 @@ export function shouldMountDocs(
 ): boolean {
   return nodeEnv !== 'production' || enableApiDocsEnv === 'true';
 }
+
+/** Production docs sit behind Basic Auth, so both credentials must be set.
+ * Shared by main.ts (boot) and `yarn config:check`. */
+export function requireDocsCredentials(
+  user: string | undefined,
+  password: string | undefined,
+): [string, string] {
+  if (!user || !password) {
+    throw new Error(
+      'ENABLE_API_DOCS=true requires API_DOCS_USER and API_DOCS_PASSWORD to be set — refusing to boot with an unauthenticated docs route in production.',
+    );
+  }
+  return [user, password];
+}

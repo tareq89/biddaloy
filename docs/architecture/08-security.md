@@ -28,6 +28,14 @@ flowchart TD
 Each box below is one paragraph in this doc — read the section with the
 matching name for the full reasoning.
 
+Before any of that runs, **boot-time config refusal** (`assertProductionConfig`
+in `server/src/config/env.validation.ts`): with `NODE_ENV=production` the
+server will not start on a placeholder or weak secret, a malformed
+`CORS_ORIGINS`, or a missing `SETTINGS_ENCRYPTION_KEY` / `APP_BASE_URL` /
+`PUBLIC_APP_URL`. `yarn config:check` runs those checks on demand, plus the
+`DB_SSL`, encryption-key shape and https URL checks (07-deployment.md). Dev, test and CI are
+unaffected.
+
 ## Login brute-force protection
 
 `POST /auth/login` layers three controls, defined in
@@ -243,6 +251,32 @@ flowchart TD
 
 Gaps: the server has no captcha-specific error code (#1700) and does not
 normalise phone numbers (#1701). See [22-onboarding.md](22-onboarding.md).
+
+## Connecting a social account (75.3)
+
+A stolen or borrowed session must not be able to plant a permanent Google or
+Facebook sign-in. So connecting one asks for the account's **current password**
+first. The reverse also holds: a password reset removes every connected social
+account (`RecoveryService.applyNewPassword`, #2239).
+
+```mermaid
+sequenceDiagram
+  participant B as Browser (Security page)
+  participant S as Server
+  B->>S: POST /auth/social/google/link-start {current_password}
+  alt account has no password
+    S-->>B: 400 {details.code: NO_PASSWORD}
+  else wrong password
+    S-->>B: 403 "Current password is incorrect"
+  else ok
+    S-->>B: 200 {url} + state cookie
+  end
+```
+
+- 403, not 401, on a wrong password, so the client's 401 refresh-and-replay never re-sends it.
+- A passwordless (OTP-only) account must set a password first (`NO_PASSWORD`).
+- The route keeps `STRICT_RATE_LIMIT`, which is now also the password-guess limit.
+- Social sign-in, sign-up, disconnect and the Facebook data-deletion routes are unchanged.
 
 ## Session & token lifecycle
 
@@ -575,8 +609,22 @@ it logs the path without the query string, masks the calendar-feed,
 public-verify and public-invoice path tokens and the SPA share pages
 (`/i/<token>`, `/v/<token>`), and omits the Referer, because
 reset/invite/verify links are bearer secrets and must not sit in log files.
-`redactPii` masks the same three API path tokens, so the pino request
-serializer, the exception filter and Sentry all hide them.
+`redactPii` masks the same three API path tokens plus the two SPA pages, so
+the pino request serializer, the exception filter and Sentry all hide them.
+All server blocks, including the two catch-all default servers, use the
+`redacted` format, so scanner traffic is logged in the same safe shape.
+
+| URL shape                      | nginx access log | pino / exception filter / Sentry |
+| ------------------------------ | ---------------- | -------------------------------- |
+| `/api/v1/public/invoices/:tok` | masked           | masked                           |
+| `/api/v1/public/verify/:tok`   | masked           | masked                           |
+| `/api/v1/calendar/feed/:tok`   | masked           | masked                           |
+| `/i/:tok`, `/v/:tok` (SPA)     | masked           | masked, also in full URLs        |
+| `?token=` (reset, activate…)   | query dropped    | `token=[REDACTED]`               |
+
+The audit's national-ID item was checked: no NID number field exists in
+server code (NID is only an uploaded document file), so there is nothing to
+redact.
 
 Example: `GET /api/v1/calendar/feed/abc123.ics` is logged as
 `GET /api/v1/calendar/feed/[REDACTED]`.
@@ -589,6 +637,19 @@ full request line, token included. Only the access log is masked.
 `yarn audit` (this is a Yarn 1 repo, so `npm audit` does not work) still
 reports three advisories after Epic 51.0. We looked at each one and chose not
 to force a version. If `yarn audit` shows anything else, it is new: fix it.
+
+CI enforces this with `scripts/ci-audit.js`. All three advisories are entries
+in its `ALLOWLIST`, each with a `recheckBy` date (next: **2027-01-24**). Past
+that date the job fails until someone re-reviews. The `tmp` advisory no longer
+needs an entry, because the `resolutions` block below forces a patched version.
+
+| Mode       | Command                                 | Blocks on                       |
+| ---------- | --------------------------------------- | ------------------------------- |
+| default    | `node scripts/ci-audit.js`              | high/critical, all dependencies |
+| production | `node scripts/ci-audit.js --production` | moderate+, production deps only |
+
+The `uuid` row below is the one production-reachable advisory, which is why
+it must be an allowlist entry and not just prose.
 
 ```mermaid
 flowchart LR

@@ -184,6 +184,8 @@ Set `VITE_USE_MOCKS=true` in that client's `.env.local` and skip
 `yarn dev:server`/Docker entirely — MSW's browser worker intercepts every
 API call instead. See [`ui/README.md`](ui/README.md#mocking-msw) for how
 the handler library (populated by [8.4.2]) and the worker itself work.
+A production build (`yarn build`, `build:all`, the `ci:local` e2e build)
+refuses to run while `VITE_USE_MOCKS=true` is set, so remove that line first.
 
 ### Regenerating API types
 
@@ -793,10 +795,12 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
   job now. See "End-to-end Testing" above.
 - **storybook** — `yarn build:storybook`, PR-blocking build-only check
   (no visual regression yet).
-- **audit** — `node scripts/ci-audit.js`, which gates only on high/critical
-  `yarn audit` findings (yarn classic's `--level` flag doesn't affect its exit
-  code, so this re-implements the filter correctly). Allowlisted advisories
-  are declared inline in the script with a reason and a re-check date.
+- **audit** — two gates in `scripts/ci-audit.js` (yarn classic's `--level`
+  flag doesn't affect its exit code, so the script re-implements the filter):
+  `node scripts/ci-audit.js` fails on high/critical in all deps, and
+  `node scripts/ci-audit.js --production` fails on moderate+ in production
+  deps. Allowlisted advisories are declared inline in the script with a
+  reason and a re-check date (next: 2027-01-24).
 - **bundle-delta** — PR-comment-only, diffs the built `client-admin` against
   the latest `main` build; not required to pass.
 - **timings** — the "Test timings & budgets" job summary described below;
@@ -1115,6 +1119,8 @@ this doesn't work behind NAT without port 80 actually reachable at that domain.
 cp .env.example .env
 # Edit .env: set POSTGRES_USER/PASSWORD/DB, JWT_SECRET, APP_DOMAIN,
 # LETSENCRYPT_EMAIL, and CORS_ORIGINS=https://<your-domain>
+
+yarn config:check   # fails and lists any placeholder/weak value still in .env
 
 docker compose up -d
 ```

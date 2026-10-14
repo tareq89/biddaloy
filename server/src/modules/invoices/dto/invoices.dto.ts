@@ -162,4 +162,7 @@ export class ShareLinkResponseDto {
 
   @ApiProperty()
   token_id: string;
+
+  @ApiProperty({ description: 'ISO timestamp after which the link stops working.' })
+  expires_at: string;
 }

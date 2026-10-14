@@ -44,6 +44,7 @@ jobs:
       server: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.server }}
       api-surface: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.api-surface }}
       ui: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.ui }}
+      infra: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.infra }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -68,6 +69,8 @@ jobs:
               - 'scripts/coverage-offenders.mjs'
               - 'scripts/coverage-delta.mjs'
               - 'scripts/bundle-delta.mjs'
+              - 'scripts/ci-audit.js'
+              - 'scripts/ci-audit.spec.mjs'
               - 'scripts/ci-timings.mjs'
               - 'scripts/ci-timings.spec.mjs'
               - 'scripts/ci-timings-trend.mjs'
@@ -95,6 +98,50 @@ jobs:
             api-surface:
               - 'server/src/**'
               - 'ui/src/api/**'
+            # [75.4] nginx/compose behaviour tests (`*.infra.test.sh`).
+            infra:
+              - 'nginx/**'
+              - 'docker-compose.yml'
+              - 'Dockerfile'
+              - 'scripts/backup/**'
+              - '**/*.infra.test.sh'
+              - '.github/workflows/ci.yml'
+
+  # [75.4] Runs every `*.infra.test.sh` in the repo (docker-driven nginx /
+  # compose behaviour tests). New infra tests just add their own file; they
+  # never edit this job.
+  infra:
+    name: Infra config tests
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.infra == 'true'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # [75.10] Compose must refuse an empty environment (required vars use
+      # `${VAR:?...}`), so a deploy with a forgotten .env fails loudly.
+      - name: Compose refuses an empty env
+        run: |
+          out=$(env -i PATH="$PATH" HOME="$HOME" docker compose config -q 2>&1) && {
+            echo "docker compose accepted an empty environment" >&2
+            exit 1
+          }
+          # A failure for any other reason (missing plugin, bad YAML) must not pass.
+          grep -q 'must be set' <<<"$out" || { echo "$out" >&2; exit 1; }
+          echo "compose refuses an empty env"
+      - name: Run infra tests
+        run: |
+          # Run every script even after a failure, so one run shows them all.
+          failed=""
+          for t in $(git ls-files '*.infra.test.sh'); do
+            echo "::group::$t"
+            bash "$t" || failed="$failed $t"
+            echo "::endgroup::"
+          done
+          [ -z "$failed" ] || { echo "::error::failed:$failed"; exit 1; }
 
   verify:
     name: Build, lint, unit tests
@@ -1039,6 +1086,9 @@ jobs:
       - name: yarn audit (fails on new high/critical, ignores allowlisted advisories)
         run: node scripts/ci-audit.js
 
+      - name: yarn audit, production deps (fails on new moderate+)
+        run: node scripts/ci-audit.js --production
+
   # [15.1] "tests got slower" needs to be a graph, not a feeling — this
   # publishes wall/work/gap, a per-job budget verdict, and the top-10
   # slowest files as a job summary, on every run, so nobody has to open logs
@@ -1055,7 +1105,7 @@ jobs:
     name: Test timings & budgets
     runs-on: ubuntu-latest
     if: always()
-    needs: [changes, verify, frontend-merge, integration, e2e, bundle-delta, storybook, audit]
+    needs: [changes, verify, frontend-merge, integration, e2e, bundle-delta, storybook, audit, infra]
     permissions:
       contents: read
       actions: read

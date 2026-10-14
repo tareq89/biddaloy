@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { InvoiceShareService } from './invoice-share.service';
+import { InvoiceShareService, SHARE_LINK_TTL_MS } from './invoice-share.service';
 import { InvoiceShareToken } from './entities/invoice-share-token.entity';
 import { Invoice } from './entities/invoice.entity';
 import { Student } from '../students/entities/student.entity';
@@ -225,5 +225,91 @@ describe('InvoiceShareService (integration)', () => {
     await service.createToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID);
     const list = await service.listTokens(invoiceId, OTHER_TENANT_ID);
     expect(list).toHaveLength(0);
+  });
+
+  describe('expiry and regenerate [75.19-b, D9]', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('createToken sets expires_at to about now + 30 days and returns it', async () => {
+      const before = Date.now();
+      const { tokenId, expiresAt } = await service.createToken(
+        invoiceId,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      const row = await tokenRepo.findOneOrFail({ where: { id: tokenId } });
+      expect(row.expires_at.getTime()).toBe(expiresAt.getTime());
+      expect(expiresAt.getTime()).toBeGreaterThanOrEqual(before + SHARE_LINK_TTL_MS);
+      expect(expiresAt.getTime()).toBeLessThan(Date.now() + SHARE_LINK_TTL_MS + 1);
+    });
+
+    it('a link older than 30 days is rejected and its view_count does not move', async () => {
+      const { rawToken, tokenId } = await service.createToken(
+        invoiceId,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(await service.validatePublicToken(rawToken)).not.toBeNull();
+
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(Date.now() + 31 * 24 * 3_600_000);
+      expect(await service.validatePublicToken(rawToken)).toBeNull();
+      vi.useRealTimers();
+
+      const row = await tokenRepo.findOneOrFail({ where: { id: tokenId } });
+      expect(row.view_count).toBe(1); // only the live view counted
+    });
+
+    it('regenerateToken revokes every live link of that invoice and returns a working one', async () => {
+      const a = await service.createToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID);
+      const b = await service.createToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID);
+
+      const fresh = await service.regenerateToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID);
+
+      expect(await service.validatePublicToken(a.rawToken)).toBeNull();
+      expect(await service.validatePublicToken(b.rawToken)).toBeNull();
+      expect(await service.validatePublicToken(fresh.rawToken)).not.toBeNull();
+    });
+
+    it('two parallel regenerates leave exactly one live link', async () => {
+      await service.createToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID);
+      await Promise.all([
+        service.regenerateToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID),
+        service.regenerateToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID),
+      ]);
+      const live = await tokenRepo.count({
+        where: { invoice_id: invoiceId, revoked_at: IsNull() },
+      });
+      expect(live).toBe(1);
+    });
+
+    it("regenerateToken leaves another invoice's links alone (same tenant)", async () => {
+      const mine = await service.createToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID);
+      const student = await studentRepo.findOneOrFail({ where: { tenant_id: SEED_TENANT_ID } });
+      const other = await invoiceRepo.save(
+        invoiceRepo.create({
+          ...(await invoiceRepo.findOneByOrFail({ id: invoiceId })),
+          id: undefined,
+          invoice_number: 'INV-2026-00002',
+          student_id: student.id,
+        }),
+      );
+      const theirs = await service.createToken(other.id, SEED_TENANT_ID, SEED_ADMIN_USER_ID);
+
+      await service.regenerateToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID);
+
+      expect(await service.validatePublicToken(mine.rawToken)).toBeNull();
+      expect(await service.validatePublicToken(theirs.rawToken)).not.toBeNull();
+    });
+
+    it("regenerateToken for another tenant's invoice is 404 and revokes nothing", async () => {
+      const mine = await service.createToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID);
+      await expect(
+        service.regenerateToken(invoiceId, OTHER_TENANT_ID, SEED_ADMIN_USER_ID),
+      ).rejects.toThrow(NotFoundException);
+      expect(await service.validatePublicToken(mine.rawToken)).not.toBeNull();
+    });
   });
 });

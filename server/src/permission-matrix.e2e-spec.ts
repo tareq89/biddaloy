@@ -20,7 +20,7 @@ import {
   buildFullPath,
   describeGuards,
   RequestMethodName,
-} from './route-guard-coverage.e2e-spec';
+} from '@test/helpers/route-path.helper';
 
 /**
  * Regression coverage for [10.3]/[10.4]'s route -> permission mapping (the
@@ -536,6 +536,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     reason:
       '[#666] same narrowing as POST /invoices/:id/share' +
       ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
+  },
+  {
+    controller: 'InvoicesController',
+    method: 'POST',
+    path: '/invoices/:id/share/regenerate',
+    reason:
+      '[75.19-b, D9] same narrowing as POST /invoices/:id/share: regenerating kills every older link of the invoice and mints a new public one, so it is accountant/admin work.',
   },
   {
     controller: 'InvoicesController',

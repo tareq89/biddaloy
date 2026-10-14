@@ -7,6 +7,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  Input,
+  Label,
   SetPasswordForm,
   StatusBadge,
   toast,
@@ -49,6 +51,9 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
 
   const [passwordOpen, setPasswordOpen] = React.useState(false);
   const [lastMethod, setLastMethod] = React.useState(false);
+  const [connectProvider, setConnectProvider] = React.useState<SocialProvider | null>(null);
+  const [connectPassword, setConnectPassword] = React.useState('');
+  const [connectError, setConnectError] = React.useState<'wrong' | 'noPassword' | null>(null);
 
   // The server's callback comes back as `?linked=google` / `?social=…`.
   // Toast once, then drop the param so a reload does not repeat it.
@@ -90,12 +95,34 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
   const providerList = providers.data ?? [];
   const showProviders = providerList.length > 0 && identities.isSuccess;
 
-  // A button, not a plain link: the start URL needs the bearer token, so fetch it, then navigate.
-  function handleConnect(provider: SocialProvider): void {
-    startLink.mutate(provider, {
-      onSuccess: (url) => window.location.assign(url),
-      onError: () => toast.error(t('error')),
-    });
+  // Connecting needs the current password. The start URL also needs the bearer token,
+  // so fetch it (after the password check), then navigate.
+  function handleConnectSubmit(event: React.FormEvent): void {
+    event.preventDefault();
+    if (!connectProvider) return;
+    setConnectError(null);
+    startLink.mutate(
+      { provider: connectProvider, currentPassword: connectPassword },
+      {
+        onSuccess: (url) => window.location.assign(url),
+        onError: (error) => {
+          if (error instanceof ApiError && error.details?.code === 'NO_PASSWORD') {
+            setConnectError('noPassword');
+          } else if (error instanceof ApiError && error.statusCode === 403) {
+            setConnectError('wrong');
+          } else {
+            closeConnect(); // also drops the typed password
+            toast.error(t('error'));
+          }
+        },
+      },
+    );
+  }
+
+  function closeConnect(): void {
+    setConnectProvider(null);
+    setConnectPassword('');
+    setConnectError(null);
   }
 
   function handleDisconnect(provider: SocialProvider): void {
@@ -164,8 +191,7 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
                         variant="outline"
                         className="min-h-11 sm:min-h-0"
                         aria-label={t('connectProvider', { provider: label })}
-                        loading={startLink.isPending && startLink.variables === provider}
-                        onClick={() => handleConnect(provider)}
+                        onClick={() => setConnectProvider(provider)}
                       >
                         {t('connect')}
                       </Button>
@@ -185,6 +211,45 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
             {t('error')}
           </p>
         )}
+        <Dialog
+          open={connectProvider !== null}
+          onOpenChange={(open) => {
+            if (!open) closeConnect();
+          }}
+        >
+          <DialogContent size="md">
+            <DialogHeader>
+              <DialogTitle>{t('connectPassword.title')}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleConnectSubmit} className="flex flex-col gap-3">
+              <Label htmlFor="connect-current-password">{t('connectPassword.label')}</Label>
+              <Input
+                id="connect-current-password"
+                type="password"
+                autoComplete="current-password"
+                required
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- the dialog just opened for this one field
+                autoFocus
+                aria-invalid={connectError ? true : undefined}
+                aria-describedby={connectError ? 'connect-password-error' : undefined}
+                value={connectPassword}
+                onChange={(e) => {
+                  setConnectPassword(e.target.value);
+                  // A new attempt makes "wrong password" stale; "no password" still holds.
+                  if (connectError === 'wrong') setConnectError(null);
+                }}
+              />
+              {connectError && (
+                <p id="connect-password-error" role="alert" className="text-destructive">
+                  {t(`connectPassword.${connectError}`)}
+                </p>
+              )}
+              <Button type="submit" loading={startLink.isPending}>
+                {t('connectPassword.submit')}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
         <Dialog
           open={passwordOpen}
           onOpenChange={(open) => {

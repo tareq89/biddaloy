@@ -10,11 +10,17 @@ import { join } from 'path';
 import cookieParser = require('cookie-parser');
 import helmet from 'helmet';
 import { buildCorsOptions } from './cors-origins';
+import { apiNoStoreByDefault, setStaticCacheHeaders } from './cache-control';
 import { buildHelmetOptions } from './security-headers';
 import { buildValidationPipeOptions } from './validation-pipe';
 import { configureBodyParser } from './body-parser';
 import { buildVersioningOptions } from './api-versioning';
-import { buildSwaggerDocumentConfig, shouldMountDocs, DOCS_PATH } from './swagger';
+import {
+  buildSwaggerDocumentConfig,
+  shouldMountDocs,
+  requireDocsCredentials,
+  DOCS_PATH,
+} from './swagger';
 import { buildDocsBasicAuthMiddleware, buildDocsCspOverrideMiddleware } from './docs-auth';
 import { buildSpaFallback } from './spa-fallback';
 import { assertSecretEchoAllowed } from './modules/account-access/account-access-echo';
@@ -54,6 +60,9 @@ async function bootstrap() {
   // Needed to read the httpOnly refresh token cookie on /auth/refresh,
   // /auth/logout, /auth/logout-all — see token-cookie.ts.
   app.use(cookieParser());
+  // `no-store` on every /api response unless the route sets its own — see
+  // cache-control.ts.
+  app.use('/api', apiNoStoreByDefault);
 
   // Global prefix for API routes
   app.setGlobalPrefix('api');
@@ -71,13 +80,10 @@ async function bootstrap() {
   // rejection. See swagger.ts for the full policy.
   if (shouldMountDocs(process.env.NODE_ENV, process.env.ENABLE_API_DOCS)) {
     if (process.env.NODE_ENV === 'production') {
-      const docsUser = process.env.API_DOCS_USER;
-      const docsPassword = process.env.API_DOCS_PASSWORD;
-      if (!docsUser || !docsPassword) {
-        throw new Error(
-          'ENABLE_API_DOCS=true requires API_DOCS_USER and API_DOCS_PASSWORD to be set — refusing to boot with an unauthenticated docs route in production.',
-        );
-      }
+      const [docsUser, docsPassword] = requireDocsCredentials(
+        process.env.API_DOCS_USER,
+        process.env.API_DOCS_PASSWORD,
+      );
       // No path argument here — buildDocsBasicAuthMiddleware checks
       // req.path itself, because app.use('/api/docs', ...) would not
       // match the sibling /api/docs-json route SwaggerModule.setup also
@@ -101,7 +107,7 @@ async function bootstrap() {
   if (process.env.NODE_ENV === 'production') {
     const clientDist = join(__dirname, '..', '..', 'client-admin');
 
-    app.use(express.static(clientDist));
+    app.use(express.static(clientDist, { setHeaders: setStaticCacheHeaders }));
     // See spa-fallback.ts for the GET/HEAD-only and missing-file rules.
     app.use(buildSpaFallback(clientDist));
   }

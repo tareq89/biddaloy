@@ -1,6 +1,16 @@
 #!/usr/bin/env node
 /**
- * Gate CI on `yarn audit`, but only on high/critical severity.
+ * Gate CI on `yarn audit`. Two modes:
+ *
+ *   node scripts/ci-audit.js               all deps, fails on high/critical
+ *                                          (dev tooling noise stays out)
+ *   node scripts/ci-audit.js --production  production deps only
+ *                                          (`--groups dependencies`), fails on
+ *                                          moderate or worse: this code ships
+ *                                          to users, so the bar is lower.
+ *
+ * An allowlist entry absent from a run is only printed as a note: a
+ * dev-only entry is legitimately missing from the production run.
  *
  * Yarn 1's `--level` flag only filters what's printed — the process exit
  * code is a bitmask of every severity found (info=1, low=2, moderate=4,
@@ -24,18 +34,6 @@ const { spawnSync } = require('child_process');
 // adding an entry, check whether the vulnerable package is actually pinned
 // or merely stale.
 const ALLOWLIST = {
-  1120654: {
-    module: 'tmp',
-    reason:
-      'Path traversal via unsanitized prefix/postfix. Reached only through ' +
-      '@lhci/cli (devDependency, #149) — tmp@^0.1.0 directly and ' +
-      'tmp@^0.0.33 via inquirer>external-editor; neither range can reach ' +
-      'the patched 0.2.6, so a lockfile refresh cannot fix it. lhci runs ' +
-      'only in CI and locally against repo-controlled arguments — the ' +
-      'prefix/postfix values are never attacker-supplied here. Re-check ' +
-      'for an @lhci/cli release that bumps both chains.',
-    recheckBy: '2026-10-24',
-  },
   1139346: {
     module: 'extract-zip',
     reason:
@@ -44,8 +42,9 @@ const ALLOWLIST = {
       '@lhci/cli>lighthouse>puppeteer-core>@puppeteer/browsers ' +
       '(devDependency, #149), where extract-zip unpacks Chrome archives ' +
       "downloaded from Google's own distribution URLs — not " +
-      'attacker-supplied zips. Re-check for an upstream fix release.',
-    recheckBy: '2026-10-24',
+      'attacker-supplied zips. Re-check for an upstream fix release. ' +
+      'Re-checked 2026-10-12: extract-zip 2.0.1 is still the newest release.',
+    recheckBy: '2027-01-24',
   },
   1193685: {
     module: 'extract-zip',
@@ -56,70 +55,119 @@ const ALLOWLIST = {
       'no upgrade fixes this. Same reachability as #1139346: only via ' +
       '@lhci/cli>lighthouse>puppeteer-core>@puppeteer/browsers ' +
       '(devDependency, #149) unpacking Chrome archives from Google, not ' +
-      'attacker-supplied zips. Re-check for an upstream fix release.',
-    recheckBy: '2026-10-24',
+      'attacker-supplied zips. Re-check for an upstream fix release. ' +
+      'Re-checked 2026-10-12: extract-zip 2.0.1 is still the newest release.',
+    recheckBy: '2027-01-24',
+  },
+  1119441: {
+    module: 'uuid',
+    reason:
+      'Missing buffer bounds check in uuid v3/v5/v6 when a `buf` argument is ' +
+      'passed. Reached via @biddaloy/server>exceljs>uuid (production) and ' +
+      '@lhci/cli>uuid (dev). Both callers only use v4 with no buffer ' +
+      '(exceljs/lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js:1; ' +
+      '@lhci/cli/src/collect/node-runner.js:65 calls uuid.v4()), so the ' +
+      'vulnerable path is never called. Re-checked 2026-10-12: only v4 is ' +
+      'required. Re-check after any exceljs or @lhci/cli upgrade.',
+    recheckBy: '2027-01-24',
   },
 };
 
-const today = new Date().toISOString().slice(0, 10);
-const expired = Object.entries(ALLOWLIST).filter(([, e]) => e.recheckBy < today);
-for (const [id, entry] of expired) {
-  console.error(
-    `Allowlist entry #${id} expired its re-check date (${entry.recheckBy}) — ` +
-      're-review and update ALLOWLIST in scripts/ci-audit.js before this can pass again.',
-  );
+const SEVERITY_ORDER = ['info', 'low', 'moderate', 'high', 'critical'];
+
+/**
+ * Pure verdict: no spawn, no clock, no exit.
+ * unallowed = advisories at/above minSeverity not in the allowlist (one per id)
+ * expired   = allowlist ids whose recheckBy < today (string compare)
+ * stale     = allowlist ids absent from this run (note only, never a failure)
+ */
+function evaluate({ advisories, allowlist, today, minSeverity }) {
+  const min = SEVERITY_ORDER.indexOf(minSeverity);
+  const byId = new Map();
+  for (const a of advisories) if (!byId.has(a.id)) byId.set(a.id, a);
+  const unique = [...byId.values()];
+  const unallowed = unique.filter((a) => {
+    const i = SEVERITY_ORDER.indexOf(a.severity);
+    // Unknown severity string fails closed: treated as above the floor.
+    return (i < 0 || i >= min) && !(a.id in allowlist);
+  });
+  const expired = Object.entries(allowlist)
+    .filter(([, e]) => e.recheckBy < today)
+    .map(([id]) => id);
+  const stale = Object.keys(allowlist).filter((id) => !byId.has(Number(id)));
+  const lines = unique.map((a) => {
+    const status = a.id in allowlist ? 'ALLOWLISTED' : a.severity.toUpperCase();
+    return `[${status}] #${a.id} ${a.severity} — ${a.module_name}: ${a.title}`;
+  });
+  return { unallowed, expired, stale, lines };
 }
 
-const result = spawnSync('yarn', ['audit', '--json'], {
-  encoding: 'utf8',
-  timeout: 5 * 60 * 1000,
-});
+module.exports = { evaluate, ALLOWLIST, SEVERITY_ORDER };
 
-if (result.error) {
-  console.error(`Failed to run yarn audit: ${result.error.message}`);
-  process.exit(1);
-}
-if (result.signal) {
-  console.error(`yarn audit was terminated by signal ${result.signal} (possible timeout).`);
-  process.exit(1);
-}
+if (require.main === module) {
+  const production = process.argv.includes('--production');
+  const minSeverity = production ? 'moderate' : 'high';
+  const today = new Date().toISOString().slice(0, 10);
 
-const advisories = [];
-for (const line of (result.stdout || '').split('\n')) {
-  if (!line.trim()) continue;
-  let entry;
-  try {
-    entry = JSON.parse(line);
-  } catch {
-    continue;
+  const args = ['audit', '--json', ...(production ? ['--groups', 'dependencies'] : [])];
+  const result = spawnSync('yarn', args, { encoding: 'utf8', timeout: 5 * 60 * 1000 });
+
+  if (result.error) {
+    console.error(`Failed to run yarn audit: ${result.error.message}`);
+    process.exit(1);
   }
-  if (entry.type === 'auditAdvisory') {
-    advisories.push(entry.data.advisory);
+  if (result.signal) {
+    console.error(`yarn audit was terminated by signal ${result.signal} (possible timeout).`);
+    process.exit(1);
   }
+
+  const advisories = [];
+  let sawSummary = false;
+  for (const line of (result.stdout || '').split('\n')) {
+    if (!line.trim()) continue;
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (entry.type === 'auditAdvisory') advisories.push(entry.data.advisory);
+    if (entry.type === 'auditSummary') sawSummary = true;
+  }
+  // A finished audit always ends with an auditSummary line. Without one the
+  // audit did not run (registry outage, yarn error): fail closed, never "clean".
+  if (!sawSummary) {
+    console.error(
+      `yarn audit produced no summary (exit ${result.status}); the audit did not complete.`,
+    );
+    if (result.stderr) console.error(result.stderr.slice(-2000));
+    process.exit(1);
+  }
+
+  const { unallowed, expired, stale, lines } = evaluate({
+    advisories,
+    allowlist: ALLOWLIST,
+    today,
+    minSeverity,
+  });
+  lines.forEach((l) => console.log(l));
+  if (stale.length > 0) {
+    console.log(
+      `\nNote: allowlist entries not seen in this run (ok if dev-only): ${stale.join(', ')}`,
+    );
+  }
+  for (const id of expired) {
+    console.error(
+      `Allowlist entry #${id} expired its re-check date (${ALLOWLIST[id].recheckBy}) — ` +
+        're-review and update ALLOWLIST in scripts/ci-audit.js before this can pass again.',
+    );
+  }
+  if (unallowed.length > 0) {
+    console.error(
+      `\n${unallowed.length} new ${minSeverity}+ advisory(ies) found. ` +
+        'Fix them or add a reasoned, dated entry to ALLOWLIST in scripts/ci-audit.js.',
+    );
+  }
+  if (unallowed.length > 0 || expired.length > 0) process.exit(1);
+  console.log(`\nNo unallowed ${minSeverity}+ advisories.`);
 }
-
-const unallowed = advisories.filter(
-  (a) => (a.severity === 'high' || a.severity === 'critical') && !(a.id in ALLOWLIST),
-);
-
-const seen = new Set();
-for (const a of advisories) {
-  if (seen.has(a.id)) continue;
-  seen.add(a.id);
-  const status = a.id in ALLOWLIST ? 'ALLOWLISTED' : a.severity.toUpperCase();
-  console.log(`[${status}] #${a.id} ${a.severity} — ${a.module_name}: ${a.title}`);
-}
-
-if (unallowed.length > 0) {
-  console.error(
-    `\n${new Set(unallowed.map((a) => a.id)).size} new high/critical advisory(ies) found. ` +
-      'Fix them or add a reasoned, dated entry to ALLOWLIST in scripts/ci-audit.js.',
-  );
-  process.exit(1);
-}
-
-if (expired.length > 0) {
-  process.exit(1);
-}
-
-console.log('\nNo unallowed high/critical advisories.');

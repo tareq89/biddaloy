@@ -75,7 +75,58 @@ describe('sign-in methods', () => {
     renderAt('/security');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Connect Google' }));
+    await userEvent.type(await screen.findByLabelText('Current password'), 'pw-1');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(assign).toHaveBeenCalledWith('https://accounts.example/auth'));
+  });
+
+  it('a generic failure closes the dialog, toasts, and forgets the typed password', async () => {
+    mockPage();
+    const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(
+      http.post('/api/v1/auth/social/google/link-start', () =>
+        HttpResponse.json({ statusCode: 429, message: 'slow', requestId: 'r1' }, { status: 429 }),
+      ),
+    );
+    renderAt('/security');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect Google' }));
+    await userEvent.type(await screen.findByLabelText('Current password'), 'secret-pw');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
+    expect(screen.queryByLabelText('Current password')).toBeNull();
+
+    // Reopening starts empty.
+    await userEvent.click(screen.getByRole('button', { name: 'Connect Google' }));
+    expect(await screen.findByLabelText<HTMLInputElement>('Current password')).toHaveProperty(
+      'value',
+      '',
+    );
+  });
+
+  it('Connect shows the wrong-password and set-a-password lines', async () => {
+    mockPage();
+    const reply = (status: number, details?: Record<string, string>) =>
+      http.post('/api/v1/auth/social/google/link-start', () =>
+        HttpResponse.json(
+          { statusCode: status, message: 'x', requestId: 'r1', details },
+          { status },
+        ),
+      );
+    renderAt('/security');
+
+    server.use(reply(403));
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect Google' }));
+    await userEvent.type(await screen.findByLabelText('Current password'), 'bad');
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('That password is not correct.')).toBeTruthy();
+    // Editing the password clears the stale "wrong" line.
+    await userEvent.type(screen.getByLabelText('Current password'), 'x');
+    expect(screen.queryByText('That password is not correct.')).toBeNull();
+
+    server.use(reply(400, { code: 'NO_PASSWORD' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('Set a password above first, then connect.')).toBeTruthy();
   });
 
   it('explains why the last sign-in method cannot be disconnected', async () => {

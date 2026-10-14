@@ -18,9 +18,7 @@
   "hint": {
     "title": "Sign in faster next time",
     "body": "Connect your Google account and skip the code.",
-    "google": "Connect Google",
-    "facebook": "Connect Facebook",
-    "dismiss": "Dismiss",
-    "failed": "We could not connect that account. Please try again."
+    "setup": "Set up in Security",
+    "dismiss": "Dismiss"
   }
 }

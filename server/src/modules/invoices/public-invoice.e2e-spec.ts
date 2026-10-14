@@ -222,6 +222,71 @@ describe('Public Invoice Share E2E', () => {
     });
   });
 
+  describe('expiry and regenerate [75.19-b, D9]', () => {
+    function mint(invoiceId: string, path: 'share' | 'share/regenerate', role: UserRole) {
+      return supertest(app.getHttpServer())
+        .post(`/api/v1/invoices/${invoiceId}/${path}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', role);
+    }
+
+    it('an expired link answers the same 404 body as an unknown one; a live one is 200', async () => {
+      const invoiceId = await createInvoice();
+      const res = await mint(invoiceId, 'share', UserRole.ACCOUNTANT).expect(201);
+      expect(new Date(res.body.expires_at).getTime()).toBeGreaterThan(Date.now());
+      const raw = extractToken(res.body.url);
+      await supertest(app.getHttpServer()).get(`/api/v1/public/invoices/${raw}`).expect(200);
+
+      await dataSource.query(
+        `UPDATE invoice_share_tokens SET expires_at = now() - interval '1 second' WHERE id = $1`,
+        [res.body.token_id],
+      );
+      const expired = await supertest(app.getHttpServer())
+        .get(`/api/v1/public/invoices/${raw}`)
+        .expect(404);
+      const unknown = await supertest(app.getHttpServer())
+        .get('/api/v1/public/invoices/does-not-exist-at-all')
+        .expect(404);
+      expect({ ...expired.body, path: undefined }).toEqual({ ...unknown.body, path: undefined });
+    });
+
+    it.each([UserRole.ADMIN, UserRole.ACCOUNTANT])(
+      'regenerate as %s gives a new working link and kills the old one',
+      async (role) => {
+        const invoiceId = await createInvoice();
+        const old = await mint(invoiceId, 'share', UserRole.ACCOUNTANT).expect(201);
+
+        const fresh = await mint(invoiceId, 'share/regenerate', role).expect(201);
+        expect(fresh.body.expires_at).toBeTruthy();
+
+        await supertest(app.getHttpServer())
+          .get(`/api/v1/public/invoices/${extractToken(fresh.body.url)}`)
+          .expect(200);
+        await supertest(app.getHttpServer())
+          .get(`/api/v1/public/invoices/${extractToken(old.body.url)}`)
+          .expect(404);
+      },
+    );
+
+    it('regenerate is refused for PARENT (403)', async () => {
+      const invoiceId = await createInvoice();
+      await mint(invoiceId, 'share/regenerate', UserRole.PARENT).expect(403);
+    });
+
+    it('regenerate with a tenant the user does not belong to is refused', async () => {
+      const invoiceId = await createInvoice();
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/invoices/${invoiceId}/share/regenerate`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', '00000000-0000-4000-8000-000000000099')
+        .set('X-Role', UserRole.ACCOUNTANT);
+      // Guards stop a non-member before the handler (401); the service-level
+      // 404 for a foreign invoice is covered in invoice-share.service.integration.spec.ts.
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('link lifetime [68.4.#2298 PUB-10 / D16]', () => {
     async function mintLink(invoiceId: string): Promise<string> {
       const res = await supertest(app.getHttpServer())

@@ -102,7 +102,12 @@ export function WelcomeWizard({ guided, excel, people, summary }: WelcomeWizardP
       closeLabel={t('footer.later')}
       onClose={() => void doLater()}
       {...(footer
-        ? { primary: { ...footer.primary, busy: update.isPending && !update.variables?.seen && step === 'setup' && !path } }
+        ? {
+            primary: {
+              ...footer.primary,
+              busy: update.isPending && !update.variables?.seen && step === 'setup' && !path,
+            },
+          }
         : {})}
       {...(footer?.secondary ? { secondary: footer.secondary } : {})}
     >

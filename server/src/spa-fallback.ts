@@ -12,7 +12,7 @@ import type { Request, Response, NextFunction } from 'express';
  * the interesting part and booting a whole Nest app is a poor way to test
  * three `if`s.
  *
- * Three rules, all of them fixing something [8.9.10] found:
+ * Rules 1-3 each fix something [8.9.10] found:
  *
  * 1. **`GET`/`HEAD` only.** A `POST` to an unknown path isn't a
  *    navigation. Answering it with `index.html` turned a 404 into a 200
@@ -30,6 +30,10 @@ import type { Request, Response, NextFunction } from 'express';
  *    but Vite's build puts every hashed JS/CSS bundle under `/assets/`
  *    (`assetsDir`'s default) — a missing one is a broken deploy, and
  *    answering it with `index.html` would hide that behind a silent 200.
+ *
+ * 4. **The shell is always revalidated.** `index.html` is sent with
+ *    `Cache-Control: no-cache`, so a deploy is never hidden by a stale copy
+ *    and no shared cache is invited to store it ([75.20]).
  *
  * `/api` is excluded for the same reason: an unmatched API path is a real
  * 404 from the API — a client asking for JSON should never be handed a page.
@@ -50,6 +54,8 @@ export function buildSpaFallback(clientDistPath: string) {
       next();
       return;
     }
+    // The shell is always revalidated ([75.20]); `send` keeps an explicit value.
+    res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(indexHtmlPath, (error?: Error) => {
       if (error) next();
     });

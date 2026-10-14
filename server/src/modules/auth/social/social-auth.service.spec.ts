@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import * as bcrypt from 'bcrypt';
 import { createHmac } from 'crypto';
 import type { ConfigService } from '@nestjs/config';
 import { SocialProvider } from '@biddaloy/shared';
@@ -114,5 +115,53 @@ describe('SocialAuthService.facebookDataDeletion', () => {
       'Unknown sign-in provider',
     );
     expect(deleteBySubject).not.toHaveBeenCalled();
+  });
+});
+
+describe('SocialAuthService.assertCurrentPassword', () => {
+  function build(user: { password_hash: string | null; status?: string } | null) {
+    const users = {
+      findOne: vi.fn().mockResolvedValue(user && { status: 'ACTIVE', ...user }),
+    };
+    return new SocialAuthService(
+      [],
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      users as never,
+    );
+  }
+
+  it('passes for the right password', async () => {
+    const service = build({ password_hash: await bcrypt.hash('right-pass', 4) });
+    await expect(service.assertCurrentPassword('u', 'right-pass')).resolves.toBeUndefined();
+  });
+
+  it('throws 403 for a wrong password', async () => {
+    const service = build({ password_hash: await bcrypt.hash('right-pass', 4) });
+    await expect(service.assertCurrentPassword('u', 'nope')).rejects.toThrow(
+      'Current password is incorrect',
+    );
+  });
+
+  it('throws 401 for a missing user and for a non-active user, even with the right password', async () => {
+    await expect(build(null).assertCurrentPassword('u', 'x')).rejects.toThrow(
+      'Invalid credentials',
+    );
+    const hash = await bcrypt.hash('right-pass', 4);
+    await expect(
+      build({ password_hash: hash, status: 'INACTIVE' }).assertCurrentPassword('u', 'right-pass'),
+    ).rejects.toThrow('Invalid credentials');
+  });
+
+  it('throws NO_PASSWORD for a user with a null password_hash', async () => {
+    await expect(
+      build({ password_hash: null }).assertCurrentPassword('u', 'x'),
+    ).rejects.toMatchObject({
+      response: { details: { code: 'NO_PASSWORD' } },
+    });
   });
 });

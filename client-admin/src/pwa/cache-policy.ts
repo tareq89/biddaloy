@@ -44,6 +44,13 @@ const API_PATH_PREFIX = '/api/v1/';
  * that the server has already rotated or revoked. */
 const AUTH_PATH_PREFIX = '/api/v1/auth/';
 
+/** Every unauthenticated public route: invoice share links, document
+ * verification and the admission form. Share links and verify tokens can be
+ * revoked, so a cached copy would keep showing a receipt — or a `VALID`
+ * verdict — after that. The admission form needs the network to submit
+ * anyway, so caching it buys nothing. */
+const PUBLIC_PATH_PREFIX = '/api/v1/public/';
+
 export const TENANT_HEADER = 'X-Tenant-ID';
 
 /**
@@ -71,7 +78,7 @@ export interface ApiRouteMatch {
 }
 
 /**
- * True only for same-origin, non-auth `GET /api/v1/*`.
+ * True only for same-origin `GET /api/v1/*`, except auth and public routes.
  *
  * Non-GET is excluded structurally, not by configuration: nothing this
  * service worker can do to a POST/PATCH/DELETE is safe. Replaying one is a
@@ -83,7 +90,7 @@ export function isCacheableApiRequest({ url, request, sameOrigin = true }: ApiRo
   if (!sameOrigin) return false;
   if (request.method !== 'GET') return false;
   if (!url.pathname.startsWith(API_PATH_PREFIX)) return false;
-  return !url.pathname.startsWith(AUTH_PATH_PREFIX);
+  return !url.pathname.startsWith(AUTH_PATH_PREFIX) && !url.pathname.startsWith(PUBLIC_PATH_PREFIX);
 }
 
 /** Vite emits every built chunk into `/assets/` with a content hash in

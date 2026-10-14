@@ -127,17 +127,64 @@ rule budget exceeded`. A rule gets 10 seconds, then is skipped for that
 
 Measured sweep and summary timings: [23-attention.md](23-attention.md#performance).
 
+### 3.5 Cloudflare IP ranges changed
+
+Behind Cloudflare, every request reaches nginx from a Cloudflare edge address.
+`TRUSTED_PROXY_CIDRS` lists those addresses. When the TCP peer is in the list,
+nginx takes the visitor IP from `CF-Connecting-IP`. Anyone else sending that
+header is ignored, so nobody can fake their IP.
+
+```mermaid
+flowchart LR
+  V["Visitor 203.0.113.9"] --> CF["Cloudflare edge 104.16.0.1<br/>adds CF-Connecting-IP: 203.0.113.9"]
+  CF --> N["nginx<br/>peer 104.16.0.1 is in TRUSTED_PROXY_CIDRS<br/>so $remote_addr = 203.0.113.9"]
+  X["Direct caller 198.51.100.7<br/>sends CF-Connecting-IP: 1.2.3.4"] --> N2["nginx<br/>peer not trusted, header ignored<br/>$remote_addr = 198.51.100.7"]
+  N --> A["Nest app, trust proxy = 1<br/>req.ip = 203.0.113.9"]
+```
+
+Cloudflare publishes new ranges now and then. To refresh:
+
+1. Fetch `https://www.cloudflare.com/ips-v4/` and `https://www.cloudflare.com/ips-v6/`.
+2. Put all lines, space separated, in `TRUSTED_PROXY_CIDRS` in `.env`
+   (example list in `.env.example`).
+3. Check: `docker compose run --rm nginx nginx -t`. A bad entry fails with
+   `trusted-proxies.sh: invalid entry '<x>'`.
+4. Apply: `docker compose up -d nginx`.
+
+Check the lists again whenever the quarterly checklist ([75.31]) says so.
+
+After enabling the list, confirm the app logs show real client IPs, not a
+Docker bridge gateway (`172.x`). If they show the gateway, the host uses
+Docker's userland proxy, which hides the source IP: do not enable the origin
+lock-down on that host. Loopback is the only always-allowed range; private
+ranges are not exempt.
+
+Rollback: set `TRUSTED_PROXY_CIDRS=` (empty) and `docker compose up -d nginx`.
+Empty means no CDN trust at all, which is how the stack behaved before.
+
 ## 4. Env var reference
 
-| Variable                    | Required in prod? | What it does                                                                 |
-| --------------------------- | ----------------- | ---------------------------------------------------------------------------- |
-| `SENTRY_DSN`                | No (recommended)  | Server Sentry project. Unset = server Sentry is a no-op.                     |
-| `SENTRY_ENVIRONMENT`        | No                | Defaults to `NODE_ENV`.                                                      |
-| `SENTRY_RELEASE`            | No                | Tags events with a release/version string.                                   |
-| `SENTRY_TRACES_SAMPLE_RATE` | No                | Fraction of requests traced, default `0.1`.                                  |
-| `HEALTH_TOKEN`              | No (recommended)  | Required to call `/health/ready` at all — unset means that route 404s.       |
-| `LOG_LEVEL`                 | No                | Pino's log level; see `.env.example`.                                        |
-| `ATTENTION_SENTRY_CRON_URL` | No (recommended)  | Sentry Cron Monitor check-in URL for attention sweeps; unset = no check-ins. |
+| Variable                    | Required in prod?      | What it does                                                                    |
+| --------------------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| `SENTRY_DSN`                | No (recommended)       | Server Sentry project. Unset = server Sentry is a no-op.                        |
+| `SENTRY_ENVIRONMENT`        | No                     | Defaults to `NODE_ENV`.                                                         |
+| `SENTRY_RELEASE`            | No                     | Tags events with a release/version string.                                      |
+| `SENTRY_TRACES_SAMPLE_RATE` | No                     | Fraction of requests traced, default `0.1`.                                     |
+| `HEALTH_TOKEN`              | No (recommended)       | Required to call `/health/ready` at all — unset means that route 404s.          |
+| `LOG_LEVEL`                 | No                     | Pino's log level; see `.env.example`.                                           |
+| `ATTENTION_SENTRY_CRON_URL` | No (recommended)       | Sentry Cron Monitor check-in URL for attention sweeps; unset = no check-ins.    |
+| `TRUSTED_PROXY_CIDRS`       | No (only behind a CDN) | nginx only. CDN ranges whose `CF-Connecting-IP` is trusted; empty = off (§3.5). |
+
+Smoke-check variables (read by `scripts/smoke-post-deploy.mjs`, see §7). They
+are **operator machine only, never in the app's env**:
+
+| Variable                                         | What it does                                                                           |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `SMOKE_BASE_URL`                                 | Base URL when `--base-url` is not passed.                                              |
+| `SMOKE_ADMIN_EMAIL` / `SMOKE_ADMIN_PASSWORD`     | Login for the ADMIN smoke account.                                                     |
+| `SMOKE_TEACHER_EMAIL` / `SMOKE_TEACHER_PASSWORD` | Login for the TEACHER smoke account.                                                   |
+| `SMOKE_SUPER_ADMIN_EMAIL` / `_PASSWORD`          | Login for the SUPER_ADMIN smoke account.                                               |
+| `SMOKE_HEALTH_TOKEN`                             | Optional. Adds a `/api/health/ready` check (internal URL only; nginx 404s it outside). |
 
 ## 5. Web push (VAPID keys)
 
@@ -250,3 +297,67 @@ Redaction reuses one function, `redactPii` in
 in `ui/src/api/sentry.ts` all apply the same email/phone/sensitive-key
 patterns, so there's exactly one place to update if the PII shape ever
 changes.
+
+## 7. Post-deploy smoke check
+
+`yarn smoke:post-deploy --base-url <url>` checks, in about 5 seconds, that a
+fresh deploy answers the seven things a real school needs. It stops at the first
+failure. Run it after every deploy and in every Epic 75 wave-close.
+
+```mermaid
+sequenceDiagram
+  participant S as smoke-post-deploy.mjs
+  participant A as base URL (nginx → API)
+  S->>A: GET /api/health
+  A-->>S: 200
+  loop admin, teacher, super_admin
+    S->>A: POST /api/v1/auth/login {email, password}
+    A-->>S: 200 {access_token, memberships[]}
+  end
+  S->>A: GET /api/v1/students?limit=1 (teacher)
+  S->>A: GET /api/v1/fees/dues?limit=1 (admin)
+  S->>A: GET /api/v1/schools (super_admin)
+  Note over S: optional: GET /api/health/ready when SMOKE_HEALTH_TOKEN is set
+```
+
+Example run:
+
+```text
+$ yarn smoke:post-deploy --base-url https://staging.example.com
+PASS  GET  /api/health  200  41ms
+PASS  POST /api/v1/auth/login (admin)  200  212ms
+PASS  POST /api/v1/auth/login (teacher)  200  198ms
+PASS  POST /api/v1/auth/login (super_admin)  200  205ms
+PASS  GET  /api/v1/students?limit=1 (teacher)  200  63ms
+PASS  GET  /api/v1/fees/dues?limit=1 (admin)  200  88ms
+PASS  GET  /api/v1/schools (super_admin)  200  52ms
+smoke: 7/7 passed
+```
+
+Credentials come from the `SMOKE_*` env vars in §4, never from arguments. Exit
+code: 0 all passed, 1 a check failed, 2 bad usage (missing variable). Output
+never contains a token, password, email or response body.
+
+The only write is the login: one refresh-token row and one audit row per
+account per run. In production use **dedicated smoke accounts** for this
+reason.
+
+Against the local dev stack with the seed accounts:
+
+```bash
+SMOKE_ADMIN_EMAIL=admin@biddaloy.test SMOKE_ADMIN_PASSWORD=$SEED_ADMIN_PASSWORD \
+SMOKE_TEACHER_EMAIL=teacher@biddaloy.test SMOKE_TEACHER_PASSWORD=$SEED_ADMIN_PASSWORD \
+SMOKE_SUPER_ADMIN_EMAIL=superadmin@biddaloy.test SMOKE_SUPER_ADMIN_PASSWORD=$SEED_ADMIN_PASSWORD \
+  yarn smoke:post-deploy --base-url http://localhost:3000
+```
+
+### What a FAIL means
+
+| Failing line                                | Go to                                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------------- |
+| `GET /api/health`                           | [§3.1](#31-5xx-spike)                                                           |
+| `POST /api/v1/auth/login`                   | If Redis is down, `/auth/*` is closed on purpose: [§3.2](#32-readiness-failing) |
+| `GET /api/health/ready`                     | [§3.2](#32-readiness-failing)                                                   |
+| Any line ending `timeout`                   | The API is hung or unreachable in time: [§3.1](#31-5xx-spike)                   |
+| Any line ending `network error`             | Nothing answered at the base URL: check DNS, nginx and that the app is up       |
+| A read (`students`, `fees/dues`, `schools`) | [§3.1](#31-5xx-spike) for 5xx; a 401/403 means a smoke account lost its role    |

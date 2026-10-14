@@ -25,6 +25,9 @@ import { User } from '../../users/entities/user.entity';
  * is no "un-revoke". `last_viewed_at`/`view_count` are bumped on every
  * successful `validatePublicToken` call, for basic usage visibility —
  * they are not a security control.
+ *
+ * `expires_at` (30 days after creation; existing rows got 30 days from the
+ * migration) makes the token invalid the same way `revoked_at` does.
  */
 @Entity('invoice_share_tokens')
 export class InvoiceShareToken {
@@ -56,6 +59,10 @@ export class InvoiceShareToken {
 
   @Column({ type: 'timestamptz', nullable: true })
   revoked_at: Date | null;
+
+  /** [75.19-b, D9] The link stops working at this instant (30 days after it is made). */
+  @Column({ type: 'timestamptz', default: () => "now() + '30 days'::interval" })
+  expires_at: Date;
 
   @Column({ type: 'timestamptz', nullable: true })
   last_viewed_at: Date | null;

@@ -7,6 +7,13 @@
     "saved": "Your password is set.",
     "alreadySet": "You already have a password."
   },
+  "connectPassword": {
+    "title": "Confirm it's you",
+    "label": "Current password",
+    "submit": "Continue",
+    "wrong": "That password is not correct.",
+    "noPassword": "Set a password above first, then connect."
+  },
   "code": "A code by SMS or email",
   "google": "Google",
   "facebook": "Facebook",

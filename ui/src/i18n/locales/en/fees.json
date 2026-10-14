@@ -12,12 +12,16 @@
     "share": {
       "create": "Create share link",
       "urlLabel": "Shareable receipt link",
-      "linkHidden": "Link created. It's only shown right after creation — revoke and create a new one if you need it again.",
+      "linkHidden": "Link created. It's only shown right after creation — use Regenerate link if you need a new one.",
       "copyLink": "Copy link",
       "copied": "Link copied.",
       "copyFailed": "Couldn't copy the link. You can select and copy it below.",
       "revokeConfirmExplanation": "Anyone holding this link will no longer be able to open the receipt.",
-      "revoked": "Share link revoked."
+      "revoked": "Share link revoked.",
+      "expiresOn": "Link works until {{date}}",
+      "regenerate": "Regenerate link",
+      "regenerated": "New link made. The old link no longer works.",
+      "regenerateConfirmExplanation": "Anyone with the old link will no longer be able to open it."
     },
     "send": {
       "whatsapp": "Send via WhatsApp",

@@ -18,6 +18,7 @@ import { randomUUID } from 'node:crypto';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import {
+  ApiCreatedResponse,
   ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
@@ -296,17 +297,51 @@ export class InvoicesController {
   @RequirePermissions(Permission.INVOICE_READ)
   @ApiOperation({
     summary:
-      'Mints a public share link for this invoice ({ url, token_id }). See InvoiceShareService.createToken for why this always mints a new token rather than literally reusing an old one.',
+      'Mints a public share link for this invoice ({ url, token_id, expires_at }). See InvoiceShareService.createToken for why this always mints a new token rather than literally reusing an old one.',
   })
-  @ApiOkResponse({ type: ShareLinkResponseDto })
+  @ApiCreatedResponse({ type: ShareLinkResponseDto })
   async createShareLink(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ): Promise<ShareLinkResponseDto> {
-    const { rawToken, tokenId } = await this.shareService.createToken(id, tenant.id, user.sub);
+    const { rawToken, tokenId, expiresAt } = await this.shareService.createToken(
+      id,
+      tenant.id,
+      user.sub,
+    );
     const baseUrl = resolvePublicAppUrl(this.config);
-    return { url: `${baseUrl}/i/${rawToken}`, token_id: tokenId };
+    return {
+      url: `${baseUrl}/i/${rawToken}`,
+      token_id: tokenId,
+      expires_at: expiresAt.toISOString(),
+    };
+  }
+
+  @Post(':id/share/regenerate')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.INVOICE_READ)
+  @ApiOperation({
+    summary:
+      'Revokes every live share link of this invoice and mints a new one ({ url, token_id, expires_at }).',
+  })
+  @ApiCreatedResponse({ type: ShareLinkResponseDto })
+  async regenerateShareLink(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ShareLinkResponseDto> {
+    const { rawToken, tokenId, expiresAt } = await this.shareService.regenerateToken(
+      id,
+      tenant.id,
+      user.sub,
+    );
+    const baseUrl = resolvePublicAppUrl(this.config);
+    return {
+      url: `${baseUrl}/i/${rawToken}`,
+      token_id: tokenId,
+      expires_at: expiresAt.toISOString(),
+    };
   }
 
   @Post(':id/send')

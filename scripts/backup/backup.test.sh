@@ -17,6 +17,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
+# docker-compose.yml requires these (`${VAR:?...}`); same defaults as scripts/test-env.sh.
+export POSTGRES_USER="${POSTGRES_USER:-postgres}"
+export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
+export POSTGRES_DB="${POSTGRES_DB:-biddaloy}"
+export S3_ACCESS_KEY_ID="${S3_ACCESS_KEY_ID:-ci-access-key}"
+export S3_SECRET_ACCESS_KEY="${S3_SECRET_ACCESS_KEY:-ci-secret-key}"
+
 echo "backup.test.sh: bringing up db + seaweedfs"
 docker compose up -d --wait db seaweedfs
 docker compose exec -T db sh -c 'until pg_isready -U "$POSTGRES_USER"; do sleep 1; done' >/dev/null

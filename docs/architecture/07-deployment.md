@@ -8,7 +8,8 @@
 
 ```mermaid
 flowchart LR
-    Internet -->|HTTPS| nginx
+    Internet -->|HTTPS| cloudflare["Cloudflare\n(optional CDN)"]
+    cloudflare -->|HTTPS| nginx
     nginx -->|reverse proxy| app["app\n(NestJS: API + the built SPA at /)"]
     app --> db[("db\nPostgreSQL")]
     app --> redis[("redis")]
@@ -19,9 +20,92 @@ Services (`docker-compose.yml`): `app`, `db` (Postgres), `redis`, `nginx`,
 `cert-bootstrap` (automated Let's Encrypt issuance — nginx self-reloads
 every 6h to pick up renewed certs, see `nginx/reload-loop.sh`).
 
+### Who can reach the origin
+
+nginx answers only the real site name, and (when `TRUSTED_PROXY_CIDRS` lists
+the Cloudflare ranges, see [12-operations.md](12-operations.md) 3.5) only for
+traffic that comes through Cloudflare.
+
+```mermaid
+flowchart TD
+  R["request reaches nginx"] --> H{"Host / SNI = APP_DOMAIN?"}
+  H -- no --> D["catch-all default_server<br/>443: TLS handshake rejected<br/>80: 444 (empty reply)"]
+  H -- yes --> P{"peer is a Cloudflare range,<br/>loopback, or list is empty?"}
+  P -- yes --> OK["served as usual"]
+  P -- no --> E{"/api/health or<br/>/.well-known/acme-challenge/?"}
+  E -- yes --> OK
+  E -- no --> X["444"]
+```
+
+Always reachable, even by a non-Cloudflare public peer:
+
+- `/api/health` (uptime monitors may hit the origin directly; `/api/health/ready` stays a 404 at the edge)
+- `/.well-known/acme-challenge/` (Let's Encrypt renewal works whether DNS is proxied or not)
+- `/healthz` on port 80, loopback callers only. It is for a future container
+  healthcheck ([75.29]); nothing uses it yet.
+- any loopback peer, which means callers inside the nginx container (a
+  container healthcheck, `docker exec`). A request from the host itself to the
+  published port arrives from the Docker bridge gateway (`172.x`), not
+  loopback, so run the smoke script through the public URL. Private ranges are
+  not exempt: if the app logs show a Docker bridge gateway (`172.x`) instead of
+  real client IPs, the host uses Docker's userland proxy and the lock-down must
+  not be enabled there (see 12-operations.md 3.5)
+
+Example: `curl https://<origin-ip>/` gets a rejected TLS handshake;
+`curl --resolve <domain>:443:<origin-ip> https://<domain>/` from a laptop
+gets an empty reply; the same URL through Cloudflare loads the app.
+
+Warning: if production ever serves a second hostname (for example `www.`),
+add it to `server_name` before deploying this, or that hostname gets 444.
+
+Rollback if real users or a monitor get 444: set `TRUSTED_PROXY_CIDRS=` and
+`docker compose up -d nginx`; the Cloudflare-only rule is off at once. If the
+catch-all itself is the problem (a hostname missing from `server_name`), revert
+the `default.conf.template` change and restart nginx. No data or app change is
+involved.
+
 This whole stack — including automated TLS — was **not** in the original
 plan, which treated Docker as a future migration. It shipped as the actual
 deployment mechanism.
+
+## Before you deploy: `yarn config:check`
+
+```mermaid
+flowchart LR
+    A[".env"] --> B["yarn config:check"]
+    B -->|"config ok, exit 0"| C["docker compose up -d"]
+    B -->|"problems listed, exit 1"| D["fix .env"]
+```
+
+It runs the server's boot-time config checks without starting anything:
+the env schema and placeholder rules (`env.validation.ts`), the
+secret-echo guard, `DB_SSL`, the `SETTINGS_ENCRYPTION_KEY` shape (32 bytes
+of base64), the https rules for `APP_BASE_URL` and `PUBLIC_APP_URL`, and,
+when `ENABLE_API_DOCS=true`, that `API_DOCS_USER` and `API_DOCS_PASSWORD` are
+both set. It lists every failure, not just the first. It does not connect to Postgres,
+Redis or S3, so a wrong password or host still only shows up at boot. It
+always judges the env as production whatever `NODE_ENV` the file says. It
+reads the **host's** `.env` (not the container's environment) and needs node
+and `yarn install` on the deploy host. It names variables, never their
+values. Example, for an `.env` copied from `.env.example` where `JWT_SECRET`
+was lengthened but the other placeholders were left in (a `JWT_SECRET` under
+32 characters fails earlier, with the plain schema error):
+
+```text
+Refusing to start with unsafe production config:
+- JWT_SECRET still holds a placeholder value
+- POSTGRES_PASSWORD still holds a placeholder value
+- S3_ACCESS_KEY_ID still holds a placeholder value
+- S3_SECRET_ACCESS_KEY still holds a placeholder value
+- SETTINGS_ENCRYPTION_KEY is required in production
+- APP_BASE_URL is required in production
+- PUBLIC_APP_URL is required in production
+DB_SSL must be "true" in production — refusing to connect to Postgres over an unencrypted connection. Set DB_SSL=true (and use an sslmode=require-style DATABASE_URL) once the target Postgres serves TLS.
+```
+
+`docker-compose.yml` also refuses to start when `POSTGRES_*` or `S3_*`
+credentials are unset (`${VAR:?...}`), and a `client-admin` production build
+fails if `VITE_USE_MOCKS=true`.
 
 ## Build pipeline
 
@@ -47,7 +131,10 @@ There is no separate deploy pipeline to hang the source-map upload on
 (the build _is_ `scripts/build-all.sh`), so the upload is a Vite plugin
 that only switches on when `SENTRY_AUTH_TOKEN` is present. With the
 token set, the build emits `sourcemap: 'hidden'` maps, uploads them, and
-deletes them from `dist/` — so users never download them:
+deletes them from `dist/` — so users never download them.
+`scripts/build-all.sh` also deletes any stray `.map` left in `build-output/`.
+The Docker build has no such step; it is safe only because
+`SENTRY_AUTH_TOKEN` is not a build arg there, so no maps are emitted:
 
 ```bash
 SENTRY_ORG=biddaloy SENTRY_PROJECT=client-admin SENTRY_AUTH_TOKEN=sntrys_... \
@@ -80,15 +167,15 @@ is not something a regex can check.
 The public `/register` form needs a few values. Two are baked into the client
 bundle when it is built, so they are Docker build args, not runtime env.
 
-| Variable | Read by | Missing means |
-| --- | --- | --- |
-| `TURNSTILE_SECRET_KEY` | server, at runtime | dev/test skip the captcha; **production refuses every sign-up with 503** |
-| `VITE_TURNSTILE_SITE_KEY` | client, build arg in the `Dockerfile` | no captcha widget is drawn |
-| `SUPPORT_CONTACT_URL` | server, at runtime | no support link from the API |
-| `VITE_SUPPORT_URL` | client, build arg (Compose fills it from `SUPPORT_CONTACT_URL`) | no "Contact us" on the trial-ended screen |
-| `TRIAL_DAYS`, `TRIAL_SEAT_LIMIT` | server | 30 days, 10 students |
-| `OTP_SMS_ALLOWED_PREFIXES` | server | `+880` |
-| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | server | Google is not offered |
+| Variable                                               | Read by                                                         | Missing means                                                            |
+| ------------------------------------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `TURNSTILE_SECRET_KEY`                                 | server, at runtime                                              | dev/test skip the captcha; **production refuses every sign-up with 503** |
+| `VITE_TURNSTILE_SITE_KEY`                              | client, build arg in the `Dockerfile`                           | no captcha widget is drawn                                               |
+| `SUPPORT_CONTACT_URL`                                  | server, at runtime                                              | no support link from the API                                             |
+| `VITE_SUPPORT_URL`                                     | client, build arg (Compose fills it from `SUPPORT_CONTACT_URL`) | no "Contact us" on the trial-ended screen                                |
+| `TRIAL_DAYS`, `TRIAL_SEAT_LIMIT`                       | server                                                          | 30 days, 10 students                                                     |
+| `OTP_SMS_ALLOWED_PREFIXES`                             | server                                                          | `+880`                                                                   |
+| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | server                                                          | Google is not offered                                                    |
 
 Set `TURNSTILE_SECRET_KEY` and `VITE_TURNSTILE_SITE_KEY` together or not at
 all: a secret with no site key rejects every sign-up. A plain `docker build`
@@ -107,10 +194,31 @@ flowchart LR
     REQ["GET /students/42"] --> NGINX["nginx"]
     NGINX --> APP["NestJS"]
     APP --> STATIC{"file exists in\nclient-admin/dist?"}
-    STATIC -->|yes| FILE["that file\n(/assets/* → 1-year immutable cache)"]
-    STATIC -->|"no, and GET/HEAD\noutside /api"| INDEX["index.html\n(the SPA router takes over)"]
+    STATIC -->|yes| FILE["that file\n(/assets/* → 1-year immutable cache;\nindex.html, sw.js → no-cache)"]
+    STATIC -->|"no, and GET/HEAD\noutside /api"| INDEX["index.html, no-cache\n(the SPA router takes over)"]
     STATIC -->|"no, and POST\nor under /api"| NOTFOUND["404"]
+    APP --> API["/api/*\nCache-Control: no-store\nunless the route sets its own"]
 ```
+
+**Cache headers ([75.20]).** `server/src/cache-control.ts` makes every
+`/api/*` response `no-store` before the handler runs, so a CDN "Cache
+Everything" rule can never serve one person's data to another. A route that
+sets its own `Cache-Control` replaces the default:
+
+| Route                                                          | Header                                           |
+| -------------------------------------------------------------- | ------------------------------------------------ |
+| `GET /api/v1/calendar/feed/:token.ics`                         | `private, max-age=900` (+ `ETag`/304)            |
+| print-assets, certificate assets, admit-card assets `…/file`   | `private, max-age=31536000, immutable`           |
+| `GET /api/v1/students/:id/photo`                               | `private, no-store`                              |
+| everything else under `/api` (JSON, CSV/PDF downloads, errors) | `no-store` (`Content-Disposition` is unaffected) |
+| `index.html`, `sw.js`                                          | `no-cache` (revalidated every load)              |
+| `/assets/*` (hashed)                                           | `public, max-age=31536000, immutable` (nginx)    |
+
+The immutable `/assets/*` caching comes from nginx only; Nest's own static
+serving does not set it, so it holds only behind nginx.
+
+There is deliberately no `Vary: Authorization`: the PWA caches API responses
+by its own key and the header changes every token refresh.
 
 One SPA at `/` since [8.9.10] — no `/admin/` or `/student/` prefix, and no
 root redirect. The rules above live in `server/src/spa-fallback.ts`

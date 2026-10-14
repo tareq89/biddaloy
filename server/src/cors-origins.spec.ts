@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { resolveCorsOrigins, buildCorsOptions } from './cors-origins';
+import { resolveCorsOrigins, buildCorsOptions, isValidOrigin } from './cors-origins';
+
+describe('isValidOrigin', () => {
+  it.each(['https://app.biddaloy.com', 'http://localhost:5173'])('accepts %s', (o) => {
+    expect(isValidOrigin(o)).toBe(true);
+  });
+
+  it.each(['app.biddaloy.com', 'https://a.com/path', 'https://a.com/', '*', 'ftp://a.com'])(
+    'rejects %s',
+    (o) => {
+      expect(isValidOrigin(o)).toBe(false);
+    },
+  );
+});
 
 describe('resolveCorsOrigins', () => {
   it('parses a single origin from CORS_ORIGINS', () => {

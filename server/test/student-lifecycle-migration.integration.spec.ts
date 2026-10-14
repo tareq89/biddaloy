@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { DataSource, QueryRunner } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
+import { publicColumns, withMigrationsReverted } from '@test/helpers/db.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { StudentLifecycle1790800000000 } from '../src/migrations/1790800000000-StudentLifecycle';
 import { EvaluationsAndPerformance1790900000000 } from '../src/migrations/1790900000000-EvaluationsAndPerformance';
+import { StaffIncidentWithdrawal1791805000300 } from '../src/migrations/1791805000300-StaffIncidentWithdrawal';
 
 /**
  * [39.1.2]/#1183 Runs against the real migrated schema (default
@@ -19,22 +21,14 @@ describe('StudentLifecycle1790800000000 (integration)', () => {
   // Later migration that adds student_notes.rating (+ other tables) on top of
   // the table this one creates; see seedAndRoundTrip().
   const later = new EvaluationsAndPerformance1790900000000();
+  // Newest migration on later's staff_incidents table; reverted before it.
+  const latest = new StaffIncidentWithdrawal1791805000300();
 
   const T1 = '39000000-0000-4000-8000-000000000001';
   const T2 = '39000000-0000-4000-8000-000000000002';
   let ctx1: { yearId: string; classId: string; sectionId: string };
   let ctx2: typeof ctx1;
   const ids = { year: {} as Record<string, string>, enrollments: {} as Record<string, string> };
-
-  async function run(fn: (qr: QueryRunner) => Promise<void>) {
-    const qr = ds.createQueryRunner();
-    await qr.connect();
-    try {
-      await fn(qr);
-    } finally {
-      await qr.release();
-    }
-  }
 
   async function seedTenant(tenant: string, slug: string) {
     await ds.query(`INSERT INTO schools (id, name, slug) VALUES ($1, $2, $2)`, [tenant, slug]);
@@ -99,14 +93,11 @@ describe('StudentLifecycle1790800000000 (integration)', () => {
     // down() drops student_notes and up() recreates it WITHOUT `rating`, which
     // 1790900000000 adds. Without the revert, every later spec file in this
     // worker (student-notes, evaluations-performance) sees a rating-less table.
-    // Restore in `finally` so a failed step cannot poison them either.
-    await run((qr) => later.down(qr));
-    try {
-      await run((qr) => migration.down(qr));
-      await run((qr) => migration.up(qr));
-    } finally {
-      await run((qr) => later.up(qr));
-    }
+    // The helper ups them back even when a step fails, so it cannot poison them either.
+    const before = await publicColumns(ds);
+    await withMigrationsReverted(ds, [latest, later, migration]);
+    // A new migration that alters these tables must be reverted above too.
+    expect(await publicColumns(ds)).toEqual(before);
   }
 
   afterAll(async () => {

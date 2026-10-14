@@ -7,6 +7,125 @@ const validConfig = {
   JWT_SECRET: 'a'.repeat(32),
 };
 
+// A production env that passes every assertProductionConfig rule.
+const prodConfig = {
+  NODE_ENV: 'production',
+  DATABASE_URL: 'postgres://app:Zq8vR2mXw4Lp@db:5432/biddaloy',
+  JWT_SECRET: 'k9Zr2Qv7Lm4Xw8Tb3Nc6Hy1Pd5Sf0Ja2Ug',
+  SETTINGS_ENCRYPTION_KEY: 'Fh3Jd9Kc2Vb7Nx5Mz1Qw8Er4Ty6Ui0OpLk3Ase=',
+  APP_BASE_URL: 'https://app.school.org',
+  PUBLIC_APP_URL: 'https://app.school.org',
+  CORS_ORIGINS: 'https://app.school.org,https://admin.school.org',
+  S3_ACCESS_KEY_ID: 'AKIA7QW3ER9TY2UI',
+  S3_SECRET_ACCESS_KEY: 'sk9Jd3Kc7Vb1Nx5Mz8Qw2Er4Ty6Ui0Op',
+};
+
+describe('assertProductionConfig (via validate)', () => {
+  it('accepts a fully valid production env', () => {
+    expect(() => validate(prodConfig)).not.toThrow();
+  });
+
+  it('rejects a replace-me JWT_SECRET and never prints the value', () => {
+    const bad = 'replace-me-replace-me-replace-me-123';
+    const run = () => validate({ ...prodConfig, JWT_SECRET: bad });
+    expect(run).toThrow(/JWT_SECRET/);
+    expect(run).not.toThrow(bad);
+  });
+
+  it('rejects change-me in S3_SECRET_ACCESS_KEY', () => {
+    expect(() => validate({ ...prodConfig, S3_SECRET_ACCESS_KEY: 'change-me' })).toThrow(
+      /S3_SECRET_ACCESS_KEY/,
+    );
+  });
+
+  it('rejects a DATABASE_URL whose password is a placeholder', () => {
+    expect(() =>
+      validate({ ...prodConfig, DATABASE_URL: 'postgres://app:change-me@db:5432/biddaloy' }),
+    ).toThrow(/DATABASE_URL/);
+  });
+
+  it('rejects an all-digit JWT_SECRET, a repeated pattern, or under 8 distinct characters', () => {
+    expect(() => validate({ ...prodConfig, JWT_SECRET: 'a'.repeat(40) })).toThrow(/too weak/);
+    expect(() => validate({ ...prodConfig, JWT_SECRET: '1234567890'.repeat(4) })).toThrow(
+      /too weak/,
+    );
+    expect(() => validate({ ...prodConfig, JWT_SECRET: 'abcdefg'.repeat(6) })).toThrow(/too weak/);
+    // 8 distinct characters, but one substring repeated.
+    expect(() => validate({ ...prodConfig, JWT_SECRET: 'abcde123'.repeat(4) })).toThrow(
+      /repeated pattern/,
+    );
+    expect(() => validate({ ...prodConfig, JWT_SECRET_PREVIOUS: 'a'.repeat(40) })).toThrow(
+      /JWT_SECRET_PREVIOUS is too weak/,
+    );
+  });
+
+  it('accepts real random secrets: hex (even missing digits) and UUIDs', () => {
+    // 64-char hex missing the digit "f": 15 distinct symbols, a normal `openssl rand -hex 32` outcome.
+    const hex64 = '3a9c0e1d7b42865e0c3d9a1b7e24068c5d3e9b0a17c46e82d0b5a39c71e4d8b2';
+    // 32-char hex with only 8 distinct symbols (rare but real for `openssl rand -hex 16`).
+    const hex32 = '4b0c2a13c0b4a2310ac3b2140a3c1b42';
+    const uuidSecret = '3f2b8c1e-9a4d-4e67-b5c0-7d1a2e8f9b34-3f2b8c1e';
+    for (const secret of [hex64, hex32, uuidSecret]) {
+      expect(() => validate({ ...prodConfig, JWT_SECRET: secret })).not.toThrow();
+      expect(() => validate({ ...prodConfig, JWT_SECRET_PREVIOUS: secret })).not.toThrow();
+    }
+  });
+
+  it('rejects JWT_SECRET equal to SETTINGS_ENCRYPTION_KEY', () => {
+    expect(() =>
+      validate({ ...prodConfig, SETTINGS_ENCRYPTION_KEY: prodConfig.JWT_SECRET }),
+    ).toThrow(/differ from SETTINGS_ENCRYPTION_KEY/);
+  });
+
+  it('rejects JWT_SECRET equal to JWT_SECRET_PREVIOUS', () => {
+    expect(() => validate({ ...prodConfig, JWT_SECRET_PREVIOUS: prodConfig.JWT_SECRET })).toThrow(
+      /differ from JWT_SECRET_PREVIOUS/,
+    );
+  });
+
+  it('accepts a distinct, strong JWT_SECRET_PREVIOUS', () => {
+    expect(() =>
+      validate({ ...prodConfig, JWT_SECRET_PREVIOUS: 'Bn4Hy7Gt2Fr9Dc6Xs1Zq3We5Ru8Io0PlMk' }),
+    ).not.toThrow();
+  });
+
+  it('rejects a missing SETTINGS_ENCRYPTION_KEY, APP_BASE_URL and PUBLIC_APP_URL', () => {
+    const {
+      SETTINGS_ENCRYPTION_KEY: _a,
+      APP_BASE_URL: _b,
+      PUBLIC_APP_URL: _c,
+      ...rest
+    } = prodConfig;
+    expect(() => validate(rest)).toThrow(
+      /SETTINGS_ENCRYPTION_KEY[\s\S]*APP_BASE_URL[\s\S]*PUBLIC_APP_URL/,
+    );
+  });
+
+  it('rejects a CORS_ORIGINS entry with a trailing slash', () => {
+    expect(() => validate({ ...prodConfig, CORS_ORIGINS: 'https://a.school.org/' })).toThrow(
+      /CORS_ORIGINS/,
+    );
+  });
+
+  it('reports every problem in one error', () => {
+    expect(() =>
+      validate({ ...prodConfig, JWT_SECRET: 'a'.repeat(40), CORS_ORIGINS: '*' }),
+    ).toThrow(/too weak[\s\S]*CORS_ORIGINS/);
+  });
+
+  it.each(['test', 'development'])('leaves the same bad values alone under NODE_ENV=%s', (env) => {
+    expect(() =>
+      validate({
+        ...validConfig,
+        NODE_ENV: env,
+        S3_SECRET_ACCESS_KEY: 'change-me',
+        CORS_ORIGINS: 'https://a.com/',
+        JWT_SECRET: 'replace-me-replace-me-replace-me-123',
+      }),
+    ).not.toThrow();
+  });
+});
+
 describe('env.validation', () => {
   it('accepts a config with all required fields present and valid', () => {
     expect(() => validate(validConfig)).not.toThrow();
@@ -34,7 +153,7 @@ describe('env.validation', () => {
   });
 
   it('accepts NODE_ENV=production', () => {
-    expect(() => validate({ ...validConfig, NODE_ENV: 'production' })).not.toThrow();
+    expect(() => validate(prodConfig)).not.toThrow();
   });
 
   it('rejects an unrecognized NODE_ENV', () => {
@@ -66,7 +185,7 @@ describe('env.validation', () => {
     });
 
     it('stays unset in production — fails closed, requires explicit ops config', () => {
-      const result = validate({ ...validConfig, NODE_ENV: 'production' });
+      const result = validate(prodConfig);
       expect(result.PLATFORM_TENANT_ID).toBeUndefined();
     });
 

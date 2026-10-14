@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { DataSource, QueryRunner } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
+import { publicColumns, withMigrationsReverted } from '@test/helpers/db.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ACADEMIC_YEAR_ID, SEED_ADMIN_USER_ID, SEED_TENANT_ID } from '@test/constants';
 import { School } from '../schools/entities/school.entity';
@@ -14,6 +15,7 @@ import { Survey } from '../surveys/entities/survey.entity';
 import { SurveyQuestion } from '../surveys/entities/survey-question.entity';
 import { SurveyResponse } from '../surveys/entities/survey-response.entity';
 import { EvaluationsAndPerformance1790900000000 } from '../../migrations/1790900000000-EvaluationsAndPerformance';
+import { StaffIncidentWithdrawal1791805000300 } from '../../migrations/1791805000300-StaffIncidentWithdrawal';
 
 /**
  * [28.1.2] Runs against the real migrated schema (not `synchronize`): the
@@ -249,25 +251,23 @@ describe('evaluations & performance schema (integration)', () => {
 
   it('migrates down and back up', async () => {
     const migration = new EvaluationsAndPerformance1790900000000();
-    const run = async (fn: (qr: QueryRunner) => Promise<void>) => {
-      const qr = ds.createQueryRunner();
-      await qr.connect();
-      try {
-        await fn(qr);
-      } finally {
-        await qr.release();
-      }
-    };
+    const withdrawal = new StaffIncidentWithdrawal1791805000300();
     // Children first: clear rows the FKs would otherwise RESTRICT on.
     await ds.query(
       `TRUNCATE survey_answers, survey_responses, survey_targets, survey_questions, surveys,
         staff_incidents, acr_scores, acr_assessments, acr_criteria, acr_form_versions CASCADE`,
     );
-    await run((qr) => migration.down(qr));
-    const [{ t }] = await ds.query(`SELECT to_regclass('public.acr_scores') AS t`);
-    expect(t).toBeNull();
-    await run((qr) => migration.up(qr));
+    // Revert the later migration on staff_incidents first, as `migration:revert`
+    // would: up() recreates the table without withdrawn_at, which poisoned
+    // later spec files on this worker. The helper ups both back, even on failure.
+    const before = await publicColumns(ds);
+    await withMigrationsReverted(ds, [withdrawal, migration], async () => {
+      const [{ t }] = await ds.query(`SELECT to_regclass('public.acr_scores') AS t`);
+      expect(t).toBeNull();
+    });
     const [{ t: after }] = await ds.query(`SELECT to_regclass('public.acr_scores') AS t`);
     expect(after).toBe('acr_scores');
+    // A new migration that alters these tables must be reverted above too.
+    expect(await publicColumns(ds)).toEqual(before);
   });
 });

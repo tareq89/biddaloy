@@ -53,10 +53,10 @@ AFFECTED=0
 
 usage() {
   echo "usage: $(basename "$0") [--integration] [--e2e] [--lighthouse] [--storybook] [--full] [--no-coverage] [--only <job,job,...>] [--affected]" >&2
-  echo "  --only accepts: verify, frontend, storybook, integration, e2e, audit, lighthouse" >&2
+  echo "  --only accepts: verify, frontend, storybook, integration, e2e, audit, lighthouse, infra" >&2
 }
 
-VALID_JOBS="verify frontend storybook integration e2e audit lighthouse"
+VALID_JOBS="verify frontend storybook integration e2e audit lighthouse infra"
 
 args=("$@")
 i=0
@@ -121,6 +121,8 @@ CI_PATHS_FRONTEND=(
   'scripts/coverage-offenders.mjs'
   'scripts/coverage-delta.mjs'
   'scripts/bundle-delta.mjs'
+  'scripts/ci-audit.js'
+  'scripts/ci-audit.spec.mjs'
   'scripts/ci-timings.mjs'
   'scripts/ci-timings.spec.mjs'
   'scripts/ci-timings-trend.mjs'
@@ -151,6 +153,15 @@ CI_PATHS_SERVER=(
 CI_PATHS_API_SURFACE=(
   'server/src/**'
   'ui/src/api/**'
+)
+# Mirror of ci.yml's `changes` job "infra" filter — keep in sync.
+CI_PATHS_INFRA=(
+  'nginx/**'
+  'docker-compose.yml'
+  'Dockerfile'
+  'scripts/backup/**'
+  '**/*.infra.test.sh'
+  '.github/workflows/ci.yml'
 )
 CI_PATHS_UI=(
   'ui/**'
@@ -198,6 +209,7 @@ area_touched() {
     frontend) patterns=("${CI_PATHS_FRONTEND[@]}") ;;
     server) patterns=("${CI_PATHS_SERVER[@]}") ;;
     ui) patterns=("${CI_PATHS_UI[@]}") ;;
+    infra) patterns=("${CI_PATHS_INFRA[@]}") ;;
     api-surface) patterns=("${CI_PATHS_API_SURFACE[@]}") ;;
   esac
   # `set -u` treats an empty array's "${arr[@]}" as unbound on this
@@ -225,7 +237,7 @@ should_run() {
     [ "$found" = 1 ] || return 1
   else
     case "$name" in
-      verify | frontend | audit) : ;;
+      verify | frontend | audit | infra) : ;;
       storybook) [ "$RUN_STORYBOOK" = 1 ] || return 1 ;;
       integration) [ "$RUN_INTEGRATION" = 1 ] || return 1 ;;
       e2e) [ "$RUN_E2E" = 1 ] || return 1 ;;
@@ -247,6 +259,9 @@ should_run() {
         ;;
       storybook)
         area_touched ui || return 1
+        ;;
+      infra)
+        area_touched infra || return 1
         ;;
       # verify, audit, lighthouse: no ci.yml area gating to mirror.
     esac
@@ -347,7 +362,9 @@ if should_run "integration"; then
   yarn workspace @biddaloy/server docs:generate
   yarn workspace @biddaloy/ui check:api-types
   yarn test:integration
-  yarn test:e2e
+  # CI=1 makes vitest fail on a missing or changed snapshot (e.g.
+  # server/src/route-status.snapshot.txt) instead of writing it, as on CI.
+  CI=1 yarn test:e2e
   section_done "integration"
 fi
 
@@ -409,7 +426,23 @@ fi
 if should_run "audit"; then
   section "audit"
   node scripts/ci-audit.js
+  node scripts/ci-audit.js --production
   section_done "audit"
+fi
+
+if should_run "infra"; then
+  section "infra"
+  # The only ci:local step that starts containers (docker-driven nginx tests),
+  # so it is opt-in. CI always runs it via ci.yml's `infra` job.
+  if [ "${CI_LOCAL_INFRA:-}" = 1 ] && docker info >/dev/null 2>&1; then
+    for t in $(git ls-files '*.infra.test.sh'); do
+      echo "--- $t"
+      bash "$t"
+    done
+  else
+    echo "infra: skipped (set CI_LOCAL_INFRA=1 and have docker running)"
+  fi
+  section_done "infra"
 fi
 
 echo ""

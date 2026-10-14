@@ -49,6 +49,20 @@ describe('buildPinoOptions', () => {
     );
   });
 
+  it('[75.23] masks the SPA share pages /i/:token and /v/:token, but not look-alike API paths', () => {
+    const options = buildPinoOptions('production');
+    const ser = (url: string) => options?.serializers?.req?.({ method: 'GET', url } as any).url;
+    expect(ser('/i/abc123')).toBe('/i/[REDACTED]');
+    expect(ser('/v/abc123?x=1')).toBe('/v/[REDACTED]?x=1');
+    expect(ser('/api/v1/v/x')).toBe('/api/v1/v/x');
+    expect(ser('/api/v1/invoices/123')).toBe('/api/v1/invoices/123');
+    expect(redactPii('GET /i/tok9 → 200')).toBe('GET /i/[REDACTED] → 200');
+    expect(redactPii('https://x.test/i/tok1')).toBe('https://x.test/i/[REDACTED]');
+    expect(redactPii('http://host:8080/v/tok2?a=1')).toBe('http://host:8080/v/[REDACTED]?a=1');
+    expect(redactPii('next=/i/tok3')).toBe('next=/i/[REDACTED]');
+    expect(redactPii('https://x.test/api/v1/v/x')).toBe('https://x.test/api/v1/v/x');
+  });
+
   it('[PUB-07] leaves normal URLs alone and masks ?token= query params', () => {
     const options = buildPinoOptions('production');
     const ser = (url: string) => options?.serializers?.req?.({ method: 'GET', url } as any).url;
