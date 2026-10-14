@@ -33,8 +33,10 @@ import { userEvent, within } from 'storybook/test';
 import { withMemoryRouter } from '../../.storybook/router-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
 
+import { AppHeader } from './app-header';
 import { AppShell, type AppShellNavGroup } from './app-shell';
 import { BottomNav } from './bottom-nav';
+import { DemoRibbon } from './demo-ribbon';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: <LayoutDashboardIcon aria-hidden="true" /> },
@@ -142,6 +144,29 @@ export const WithTopBar: Story = {
       </div>
     ),
   },
+};
+
+/** Demo school: ribbon in the top-right corner, header reserves its width. The shell root must
+ * be `relative`, hence the wrapper. */
+export const WithDemoRibbon: Story = {
+  args: {
+    navGroups,
+    topBar: (
+      <AppHeader
+        reserveCorner
+        start={<span>Greenview School</span>}
+        end={<button>Search</button>}
+      />
+    ),
+  },
+  decorators: [
+    (Story) => (
+      <div className="relative">
+        <DemoRibbon label="Demo school" />
+        <Story />
+      </div>
+    ),
+  ],
 };
 
 /** Rendered as SUPER_ADMIN by default in Storybook (no auth-state seeded),

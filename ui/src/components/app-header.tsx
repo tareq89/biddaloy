@@ -16,22 +16,31 @@
  */
 import type { ReactNode } from 'react';
 
+import { cn } from '../primitives/lib/utils';
+
 export interface AppHeaderProps {
   /** Left side — identity. Typically `<TenantBar />`. */
   start: ReactNode;
   /** Right side — controls, in the epic's mandated order: search,
    * notifications, language, theme, user menu. */
   end: ReactNode;
+  /** Pad the right edge so a `DemoRibbon` in the corner covers nothing. */
+  reserveCorner?: boolean;
 }
 
-export function AppHeader({ start, end }: AppHeaderProps) {
+export function AppHeader({ start, end, reserveCorner }: AppHeaderProps) {
   return (
     // `<header>` rather than `<div>`: as a direct child of `<body>`'s
     // layout root (not nested inside another sectioning element) this is an
     // implicit `banner` landmark, which is what lets screen-reader users
     // jump to the site chrome. `AppShell` renders exactly one of these.
     <header
-      className="flex h-14 w-full items-center justify-between gap-2 border-b border-border-subtle bg-surface px-4 md:px-6"
+      className={cn(
+        'flex h-14 w-full items-center justify-between gap-2 border-b border-border-subtle bg-surface px-4 md:px-6',
+        // physical on purpose: the DemoRibbon is pinned top-right in RTL too
+        // eslint-disable-next-line logical-properties/no-physical-direction-classes
+        reserveCorner && 'pr-16 md:pr-24',
+      )}
       data-app-header-row
     >
       <div className="flex min-w-0 items-center gap-3">{start}</div>
