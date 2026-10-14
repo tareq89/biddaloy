@@ -131,6 +131,12 @@ describe('learning slice (integration, 2 years, scale 0.05)', () => {
     );
     expect(Number(defaulters)).toBeGreaterThan(0);
 
+    // The sweep only runs for schools that opted in.
+    const [{ n: optedOut }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM schools WHERE id IN (SELECT tenant_id FROM homework_assignments) AND (settings->'homework'->>'notifyDefaulters') IS DISTINCT FROM 'true'`,
+    );
+    expect(Number(optedOut)).toBe(0);
+
     // Submissions exist for the assignments (the unique index allows one per assignment and pupil).
     expect(
       Number((await q(`SELECT count(*) AS n FROM homework_submissions`))[0].n),
