@@ -9,6 +9,10 @@
       {
         "include": "modules/print/suggestions/artwork/*.svg",
         "watchAssets": true
+      },
+      {
+        "include": "scripts/seed-data/demo-avatars/*.jpg",
+        "watchAssets": true
       }
     ]
   }

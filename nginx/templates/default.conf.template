@@ -130,6 +130,10 @@ server {
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
+    # Demo host only: docker-compose.demo.yml mounts nginx/demo here (robots.txt). Matches
+    # nothing, and is harmless, everywhere else.
+    include /etc/nginx/demo-extra/*.conf;
+
     location / {
         if ($origin_allowed = 0) { return 444; }
         proxy_pass http://app_upstream;

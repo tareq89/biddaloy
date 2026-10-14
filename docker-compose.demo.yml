@@ -1,0 +1,96 @@
+# Demo deployment overlay (Epic 58.0). Use with the base file, on a host that serves only the demo:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+#
+# Host .env must set S3_BUCKET to a name containing "demo" (e.g. biddaloy-demo): the reset
+# deletes objects in that bucket and refuses any other. Also set DEMO_PASSWORD, and for the
+# sign-up captcha the demo hostname's TURNSTILE_SECRET_KEY + VITE_TURNSTILE_SITE_KEY (D42).
+#
+# Real providers stay OFF: the base file passes no SMS_PROVIDER / SMTP_* / VAPID_* to any
+# service, and reset.sh refuses to run if they are set (D2). Do not add them here.
+#
+# First boot: `app` refuses to start until a reset has run once (it reads default-school's id,
+# which changes every night, from the demo-state volume). So build the images, run the first
+# reset by hand, then bring the rest up:
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml build
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d db redis seaweedfs
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+
+x-demo-env: &demo-env
+  DEMO_MODE: 'true'
+  DEMO_PASSWORD: ${DEMO_PASSWORD:?DEMO_PASSWORD must be set}
+  # The LIVE demo database. reset.sh builds biddaloy_demo_next beside it and swaps by rename.
+  DATABASE_URL: postgres://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/biddaloy_demo
+  S3_BUCKET: ${S3_BUCKET:?S3_BUCKET must be set to a name containing "demo"}
+
+services:
+  app:
+    container_name: biddaloy-demo-app
+    environment:
+      <<: *demo-env
+    volumes:
+      - demo-state:/demo-state:ro
+    # default-school's id is new after every reset; DemoBootGuard needs it as PLATFORM_TENANT_ID.
+    command:
+      - sh
+      - -c
+      - '[ -s /demo-state/platform-tenant-id ] || { echo "demo: run the first reset before starting app (see docker-compose.demo.yml)" >&2; exit 1; }; PLATFORM_TENANT_ID="$$(cat /demo-state/platform-tenant-id)" exec node server/dist/main.js'
+
+  demo-reset:
+    build:
+      context: ./scripts/demo
+      dockerfile: Dockerfile
+      args:
+        APP_IMAGE: biddaloy-app
+    image: biddaloy-demo-reset
+    restart: unless-stopped
+    # Root: restarting the app container needs the docker socket (see volumes).
+    user: root
+    environment:
+      <<: *demo-env
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      DEMO_STATE_DIR: /demo-state
+      DEMO_APP_CONTAINER: biddaloy-demo-app
+      DEMO_RESET_SCHEDULE: ${DEMO_RESET_SCHEDULE:-0 1 * * *}
+      DEMO_SCALE: ${DEMO_SCALE:-1}
+      DEMO_YEARS: ${DEMO_YEARS:-10}
+      # The nightly sweep (58.4.02, Playwright project demo-nightly) needs a Playwright runner,
+      # which this image does not carry. Set DEMO_SWEEP_CMD to a command that runs it with
+      # DEMO_SWEEP_URL as base URL, or DEMO_SKIP_SWEEP=true to go without. One of them is required.
+      DEMO_SWEEP_CMD: ${DEMO_SWEEP_CMD:-}
+      DEMO_SKIP_SWEEP: ${DEMO_SKIP_SWEEP:-}
+      SENTRY_CRONS_URL: ${SENTRY_CRONS_URL:-}
+      JWT_SECRET: ${JWT_SECRET}
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
+      DB_SSL: ${DB_SSL:-}
+      DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
+      APP_BASE_URL: ${APP_BASE_URL:-}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      S3_ENDPOINT: http://seaweedfs:8333
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID must be set}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY must be set}
+      S3_FORCE_PATH_STYLE: 'true'
+    volumes:
+      - demo-state:/demo-state
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+
+  nginx:
+    volumes:
+      # robots.conf serves "Disallow: /" (nginx/templates/default.conf.template includes demo-extra/*.conf).
+      - ./nginx/demo:/etc/nginx/demo-extra:ro
+
+volumes:
+  demo-state:
