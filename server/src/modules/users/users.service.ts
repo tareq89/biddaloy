@@ -49,6 +49,8 @@ import {
   UpdateTeacherDto,
   QueryTeacherDto,
 } from './dto/users.dto';
+import { JoinRequestDto } from './dto/join-request.dto';
+import { insertJoinRequest } from '../account-access/school-invite.service';
 import { ASSIGNMENT_TYPE_ORDER_SQL } from '../classes/classes.service';
 import type { SectionTeacherAssignment } from '../classes/classes.service';
 
@@ -82,6 +84,17 @@ export async function countOtherMemberships(
     .createQueryBuilder('ut')
     .where('ut.user_id = :userId AND ut.tenant_id <> :tenantId', { userId, tenantId })
     .getCount();
+}
+
+/**
+ * [68.2.02] The neutral 409 for "that contact belongs to an account": it never
+ * repeats the address, and `details.code` lets "Add staff" offer a join request.
+ */
+function accountExists(): ConflictException {
+  return new ConflictException({
+    message: 'This person already has an account. Send them a join request instead.',
+    details: { code: 'ACCOUNT_EXISTS' },
+  });
 }
 
 /**
@@ -190,7 +203,7 @@ export class UserService {
         withDeleted: true,
       });
       if (existing) {
-        throw new ConflictException('That email address or phone number is already in use');
+        throw accountExists();
       }
     }
 
@@ -251,12 +264,66 @@ export class UserService {
         (err as unknown as { code?: string }).code === '23505'
       ) {
         if ((err.driverError as { table?: string } | undefined)?.table === 'users') {
-          throw new ConflictException('That email address or phone number is already in use');
+          throw accountExists();
         }
         throw new ConflictException('This member was just added. Refresh and try again.');
       }
       throw err;
     }
+  }
+
+  /**
+   * [68.2.02] "Add staff" for a person who already has an account. Files a
+   * JOIN_SCHOOL request; the person becomes staff only when they accept while
+   * signed in. Only a VERIFIED email/phone matches (an unverified one proves
+   * nothing), and a miss answers exactly like a hit, so this is no lookup oracle.
+   */
+  async requestJoin(
+    dto: JoinRequestDto,
+    tenantId: string,
+    actorUserId: string,
+  ): Promise<{ status: 'PENDING' }> {
+    if (dto.role === UserRole.SUPER_ADMIN) {
+      throw new BadRequestException(
+        'The SUPER_ADMIN role cannot be assigned through this endpoint',
+      );
+    }
+    const email = dto.email ? normalizeEmail(dto.email) : null;
+    const phone = dto.phone ?? null;
+    return this.userRepo.manager.transaction(async (m) => {
+      const user = await m
+        .getRepository(User)
+        .createQueryBuilder('u')
+        .where('u.deleted_at IS NULL')
+        .andWhere(
+          '((u.email = :email AND u.email_verified_at IS NOT NULL) OR (u.phone = :phone AND u.phone_verified_at IS NOT NULL))',
+          { email, phone },
+        )
+        .getOne();
+      if (!user) return { status: 'PENDING' as const };
+      // Same rule as restore(): a live staff membership here means nothing to request.
+      if (
+        await m.getRepository(UserTenant).exists({
+          where: {
+            user_id: user.id,
+            tenant_id: tenantId,
+            role: Not(In([...GUARDIAN_ROLES])),
+          },
+        })
+      ) {
+        throw new ConflictException({
+          message: 'This user is already a member of this school',
+          details: { code: 'ALREADY_MEMBER' },
+        });
+      }
+      await insertJoinRequest(m, {
+        userId: user.id,
+        tenantId,
+        role: dto.role,
+        createdByUserId: actorUserId,
+      });
+      return { status: 'PENDING' as const };
+    });
   }
 
   async findAll(query: QueryUserDto, tenantId: string) {
