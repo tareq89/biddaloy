@@ -10,7 +10,6 @@ import {
   JoinColumn,
   JoinTable,
   Index,
-  OneToOne,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { ClassSection } from '../../academics/entities/class-section.entity';
@@ -27,7 +26,7 @@ import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
  *
  * Relations:
  * - @ManyToOne → School: the tenant this student belongs to
- * - @OneToOne → User (optional): login account for student self-service
+ * - @ManyToOne → User (optional): login account for student self-service
  * - @ManyToOne → ClassSection: the class + section the student belongs to
  * - @ManyToMany → Guardian (via student_guardians): parents/guardians
  * - Referenced-by → StudentFee: monthly fee records for this student
@@ -37,6 +36,11 @@ import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
  * - Referenced-by → CommunicationLog: messages sent regarding this student
  */
 @Entity('students')
+@Index('UQ_students_tenant_user', ['tenant_id', 'user_id'], {
+  unique: true,
+  where: '"user_id" IS NOT NULL AND "deleted_at" IS NULL',
+})
+@Index('IDX_students_user_id', ['user_id'])
 @Index(['class_section_id', 'roll_number'], { unique: true })
 @Index(['tenant_id', 'registration_number'], { unique: true })
 @Index('IDX_students_tenant_birth_reg_no', ['tenant_id', 'birth_reg_no'], {
@@ -47,7 +51,7 @@ export class Student {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'user_id' })
   user: User | null;
 

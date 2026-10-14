@@ -25,9 +25,9 @@ import { UserStatus } from '@biddaloy/shared';
  *
  * Relations:
  * - @OneToMany → UserTenant: all memberships across tenants
- * - @OneToOne → Teacher (teacher_profile): linked when role=TEACHER
- * - @OneToOne → Guardian (guardian_profile): linked when role=PARENT
- * - @OneToOne → Student (student_profile): linked when role=STUDENT
+ * - @OneToMany → Teacher: at most one per tenant (a person can teach at two schools)
+ * - @OneToMany → Guardian: at most one per tenant, linked when role=PARENT
+ * - @OneToMany → Student: at most one per tenant, linked when role=STUDENT
  * - Referenced-by → Payment (received_by): the user who recorded a payment
  * - Referenced-by → CommunicationLog (sent_by): who sent the message
  * - Referenced-by → ReminderBatch (initiated_by): who triggered the batch
