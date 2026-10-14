@@ -5,6 +5,8 @@
  * per field, no `react-hook-form`. `student_ids` is deliberately not a
  * field here — the Linked Students tab owns that edit, via its own
  * `StudentPicker`.
+ * [68.4.05] A guardian linked to a login (`user_id`) shows phone and email
+ * read-only: they belong to the login, and the server refuses a change (409).
  */
 import {
   Card,
@@ -72,6 +74,7 @@ export function EditGuardianDialog({ guardian, config, onClose }: EditGuardianDi
   const formRef = React.useRef<HTMLFormElement>(null);
   const updateGuardian = useUpdateGuardian(guardian.id);
   const pending = updateGuardian.isPending;
+  const contactOwnedByLogin = guardian.user_id != null;
 
   // Every one of the 8 editable fields counts.
   const dirty = (Object.keys(initial) as (keyof FormState)[]).some((k) => form[k] !== initial[k]);
@@ -104,8 +107,7 @@ export function EditGuardianDialog({ guardian, config, onClose }: EditGuardianDi
     const input: UpdateGuardianInput = {
       full_name: fullName,
       relationship: form.relationship.trim(),
-      phone: form.phone.trim(),
-      email: form.email.trim(),
+      ...(contactOwnedByLogin ? {} : { phone: form.phone.trim(), email: form.email.trim() }),
       alternate_phone: form.alternate_phone.trim(),
       address: form.address.trim(),
       occupation: form.occupation.trim(),
@@ -171,15 +173,37 @@ export function EditGuardianDialog({ guardian, config, onClose }: EditGuardianDi
                 onChange={(event) => setForm({ ...form, relationship: event.target.value })}
               />,
             )}
-            {field(
-              'guardian-edit-phone',
-              t('editDialog.fields.phone'),
-              <PhoneInput
-                id="guardian-edit-phone"
-                value={form.phone}
-                config={config}
-                onValueChange={(value) => setForm({ ...form, phone: value })}
-              />,
+            {contactOwnedByLogin ? (
+              <div className="md:col-span-2">
+                <dl className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <dt className="text-caption text-text-secondary">
+                      {t('editDialog.fields.phone')}
+                    </dt>
+                    <dd className="text-text-primary">{form.phone || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-caption text-text-secondary">
+                      {t('editDialog.fields.email')}
+                    </dt>
+                    <dd className="text-text-primary">{form.email || '—'}</dd>
+                  </div>
+                </dl>
+                <p className="mt-2 text-caption text-text-secondary">
+                  {t('editDialog.contactOwnedByLogin')}
+                </p>
+              </div>
+            ) : (
+              field(
+                'guardian-edit-phone',
+                t('editDialog.fields.phone'),
+                <PhoneInput
+                  id="guardian-edit-phone"
+                  value={form.phone}
+                  config={config}
+                  onValueChange={(value) => setForm({ ...form, phone: value })}
+                />,
+              )
             )}
             {field(
               'guardian-edit-alternate-phone',
@@ -191,16 +215,17 @@ export function EditGuardianDialog({ guardian, config, onClose }: EditGuardianDi
                 onValueChange={(value) => setForm({ ...form, alternate_phone: value })}
               />,
             )}
-            {field(
-              'guardian-edit-email',
-              t('editDialog.fields.email'),
-              <Input
-                id="guardian-edit-email"
-                type="email"
-                value={form.email}
-                onChange={(event) => setForm({ ...form, email: event.target.value })}
-              />,
-            )}
+            {!contactOwnedByLogin &&
+              field(
+                'guardian-edit-email',
+                t('editDialog.fields.email'),
+                <Input
+                  id="guardian-edit-email"
+                  type="email"
+                  value={form.email}
+                  onChange={(event) => setForm({ ...form, email: event.target.value })}
+                />,
+              )}
             {field(
               'guardian-edit-occupation',
               t('editDialog.fields.occupation'),

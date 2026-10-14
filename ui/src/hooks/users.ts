@@ -10,6 +10,7 @@ import {
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
+import { guardianKeys } from './guardians';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -288,7 +289,8 @@ export function useRequestContactChange() {
 
 /** [12.7] Confirms a pending phone change with the OTP sent to the new
  * number. Invalidates the caller's own record — this is the point the
- * server actually writes the new phone. */
+ * server actually writes the new phone — and their own guardian card, whose
+ * phone the server copies from the login in the same step [68.4.05]. */
 export function useConfirmPhoneChange() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -297,6 +299,7 @@ export function useConfirmPhoneChange() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: userKeys.detail('me') });
+      void queryClient.invalidateQueries({ queryKey: [...guardianKeys.all, 'mine'] });
     },
   });
 }
