@@ -380,9 +380,11 @@ export class RoutineSlotsService {
    * the years are picked by date overlap with the candidate, not
    * `is_current`: planning next year neither clashes with this year's slots
    * nor misses the other branch's drafted next-year routine. The candidate
-   * is bounded the same way (`own.cand_to` = its own routine's year end), so
-   * editing this year's open-ended slot does not clash with the other
-   * branch's next-year draft. */
+   * is bounded the same way (`own.cand_from`..`own.cand_to` = clamped to its
+   * own routine's year), so a next-year slot saved with `valid_from = today`
+   * (what the UI sends) does not clash with this year's slots, and editing
+   * this year's open-ended slot does not clash with the other branch's
+   * next-year draft. */
   private async loadForeignTeacherSlots(
     manager: EntityManager,
     tenantId: string,
@@ -406,7 +408,8 @@ export class RoutineSlotsService {
       tenant_name: string;
     }> = await manager.query(
       `WITH own AS (
-         SELECT LEAST(COALESCE($5::date, oay.end_date), oay.end_date) AS cand_to
+         SELECT GREATEST($4::date, oay.start_date) AS cand_from,
+                LEAST(COALESCE($5::date, oay.end_date), oay.end_date) AS cand_to
            FROM routines orr
            JOIN academic_years oay ON oay.id = orr.academic_year_id AND oay.tenant_id = orr.tenant_id
           WHERE orr.id = $6 AND orr.tenant_id = $1)
@@ -421,11 +424,11 @@ export class RoutineSlotsService {
          JOIN routines r ON r.id = rs.routine_id AND r.tenant_id = ft.tenant_id AND r.deleted_at IS NULL
          JOIN academic_years ay ON ay.id = r.academic_year_id AND ay.tenant_id = ft.tenant_id
               AND ay.deleted_at IS NULL
-              AND ay.end_date >= $4::date AND ay.start_date <= own.cand_to
+              AND ay.end_date >= own.cand_from AND ay.start_date <= own.cand_to
          JOIN period_slots ps ON ps.id = rs.period_slot_id AND ps.tenant_id = ft.tenant_id
          JOIN schools sch ON sch.id = ft.tenant_id AND sch.deleted_at IS NULL
         WHERE lt.tenant_id = $1 AND lt.id = ANY($3::uuid[])
-          AND (rs.valid_to IS NULL OR rs.valid_to >= $4::date)
+          AND LEAST(COALESCE(rs.valid_to, ay.end_date), ay.end_date) >= own.cand_from
           AND GREATEST(rs.valid_from, ay.start_date) <= own.cand_to
           AND ${actorIsStaffIn('$2', 'ft.tenant_id')}`,
       [

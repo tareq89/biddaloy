@@ -132,7 +132,8 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
       : null;
   const conflictIsExistingTeacher = conflictCode === 'ALREADY_TEACHER_HERE';
   const conflictIsStaffId = conflictCode === 'STAFF_EMPLOYEE_ID_TAKEN';
-  const conflict = conflictCode !== null && !conflictIsExistingTeacher && !conflictIsStaffId;
+  // A 409 with no code is the typed-ID clash; an unknown code gets the generic error.
+  const conflict = conflictCode === 'EMPLOYEE_ID';
   const notMember =
     createTeacher.isError &&
     createTeacher.error instanceof ApiError &&

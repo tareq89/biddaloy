@@ -951,7 +951,8 @@ export class TeacherService {
       // the Teacher takes its employee_id, not the typed one. So check the id
       // that is actually written, or a clash with a teacher whose id was
       // edited away from its staff profile surfaces as a raw 23505. Read
-      // inside the transaction so the check and the insert see the same row.
+      // inside the transaction to narrow the race window (READ COMMITTED: two
+      // concurrent promotes can still both pass, the second then gets 23505).
       const reusedProfile = await manager.findOne(StaffProfile, {
         where: { user_id: dto.user_id, tenant_id: tenantId },
       });

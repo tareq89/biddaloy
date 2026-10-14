@@ -224,11 +224,40 @@ describe('RoutineSlotsService — cross-branch teacher clash (D12)', () => {
     expect(res.slot.id).toBeDefined();
   });
 
+  it("planning next year from the UI (valid_from = today, before the year starts): the other branch's current-year slot does not clash", async () => {
+    // The UI saves a new slot with valid_from = today. In December the 2027
+    // draft's slot starts in 2026, but it only runs from its own year start.
+    const { actor, b } = await scenario({ ...OVERLAP, year: 2027 });
+    await member(actor.id, TENANT_A);
+    await member(actor.id, TENANT_B);
+    const { slot } = await service.create(
+      b.routine.id,
+      dto(b, { valid_from: '2026-12-01' }),
+      TENANT_B,
+      actor.id,
+    );
+    expect(slot.id).toBeDefined();
+    // update() runs the same bound.
+    const res = await service.update(
+      slot.id,
+      dto(b, { valid_from: '2026-12-15' }),
+      TENANT_B,
+      actor.id,
+    );
+    expect(res.slot.id).toBeDefined();
+  });
+
   it("planning next year: the other branch's drafted next-year (not current) routine still clashes", async () => {
     const { actor, b } = await scenario({ ...OVERLAP, year: 2027 }, false, { year: 2027 });
     await member(actor.id, TENANT_A);
     await member(actor.id, TENANT_B);
     expectClash(await service.create(b.routine.id, dto(b), TENANT_B, actor.id).catch((e) => e));
+    // Same with the UI's valid_from = today (before the year starts).
+    expectClash(
+      await service
+        .create(b.routine.id, dto(b, { valid_from: '2026-12-01' }), TENANT_B, actor.id)
+        .catch((e) => e),
+    );
   });
 
   it("this year's open-ended slot (valid_to NULL) ends with its own year: the other branch's next-year draft does not clash", async () => {
