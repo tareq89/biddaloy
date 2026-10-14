@@ -24,7 +24,6 @@ import {
 } from '@biddaloy/ui/components';
 import {
   changePassword,
-  logout,
   logoutAll,
   myGuardianQueryOptions,
   sessionsQueryOptions,
@@ -60,6 +59,7 @@ import * as React from 'react';
 
 import { CalendarFeedCard } from '../../components/calendar-feed-card';
 import { NotificationPrefsCard } from '../../features/attention/notification-prefs/notification-prefs-card';
+import { useSignOutToLogin } from '../../features/demo/use-sign-out-to-login';
 import { SignInMethodsCard } from '../../features/sign-in-methods/sign-in-methods-card';
 import { loadRouteNamespaces } from '../../route-loaders';
 
@@ -125,6 +125,7 @@ function PortalAccount() {
   const isParent = role === 'PARENT';
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const signOutToLogin = useSignOutToLogin();
 
   const sessionsQuery = useQuery(sessionsQueryOptions());
   const revokeSession = useRevokeSession();
@@ -338,18 +339,7 @@ function PortalAccount() {
 
   async function handleSignOut(): Promise<void> {
     setSigningOut(true);
-    try {
-      await logout(queryClient);
-    } catch {
-      // `logout()` already clears local auth state/cache in its own
-      // `finally` even if the network call itself failed (offline, a
-      // transient 5xx) — same pattern `staff-user-menu.tsx`'s
-      // `handleSignOut` documents. Swallowed here, not left to propagate:
-      // this button always navigates away regardless, so there is nothing
-      // left for a caller of this handler to react to.
-    } finally {
-      void navigate({ to: '/login' });
-    }
+    await signOutToLogin();
   }
 
   // Current device first, then the most recently used. Only five rows show

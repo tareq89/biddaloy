@@ -8,7 +8,6 @@ import {
   SchoolPicker,
 } from '@biddaloy/ui/components';
 import {
-  logout,
   switchActiveTenant,
   useSchoolInvites,
   useSchoolInvitesCardProps,
@@ -20,6 +19,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { useSignOutToLogin } from '../features/demo/use-sign-out-to-login';
 import { isSameAppRedirect } from '../same-app-redirect';
 
 /**
@@ -47,6 +47,7 @@ function SelectSchoolPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const signOutToLogin = useSignOutToLogin();
   const invites = useSchoolInvitesCardProps();
   const { isPending: invitesPending, data: pendingInvites } = useSchoolInvites();
   // Unsettled counts as "may have invites": the refresh cookie must outlive the list so Accept can refresh.
@@ -88,7 +89,7 @@ function SelectSchoolPage() {
   }
 
   function handleSignOut(): void {
-    void logout(queryClient).finally(() => void navigate({ to: '/login' }));
+    void signOutToLogin();
   }
 
   if (memberships.length === 0) {
