@@ -42,7 +42,7 @@ export class StaffAttendanceSummaryService {
     // for writes — `STAFF_ATTENDANCE_READ` is held by every tenant role
     // for their own record, ADMIN/EXECUTIVE additionally for all staff.
     if (!roleHasPermission(role, Permission.LEAVE_APPROVE)) {
-      const ownStaffProfileId = await this.staffProfilesService.findIdByUserId(userId);
+      const ownStaffProfileId = await this.staffProfilesService.findIdByUserId(userId, tenantId);
       if (staffProfileId !== ownStaffProfileId) {
         throw new ForbiddenException({
           message: 'You may only read your own attendance summary',

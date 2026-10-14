@@ -553,13 +553,13 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       });
     }
 
-    // `Student.user_id` also carries a GLOBAL unique constraint
-    // (`REL_fb3eff90b11bddf7285f9b4e28`), not tenant-scoped and not partial
-    // on `deleted_at` (C2) — same hazard as `Guardian.user_id`
-    // (`guardians.tab.ts`).
+    // `students (tenant_id, user_id)` is unique per school (D11, partial on
+    // `deleted_at`), so look the holder up in THIS tenant only — same as
+    // `Guardian.user_id` (`guardians.tab.ts`). The same user may hold a
+    // student row in another school.
     if (row.user_id && (!student || student.user_id !== row.user_id)) {
       const holder = await m.findOne(Student, {
-        where: { user_id: row.user_id },
+        where: { user_id: row.user_id, tenant_id: tenantId },
         withDeleted: true,
       });
       if (holder && holder.id !== student?.id) student = student ?? holder;

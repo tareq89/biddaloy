@@ -54,7 +54,9 @@ export class StaffProfilesService {
   ): Promise<StaffProfile> {
     const repo = manager ? manager.getRepository(StaffProfile) : this.staffProfileRepo;
 
-    const existingForUser = await repo.findOne({ where: { user_id: userId } });
+    const existingForUser = await repo.findOne({
+      where: { user_id: userId, tenant_id: tenantId },
+    });
     if (existingForUser) {
       throw new ConflictException(`User "${userId}" already has a staff profile`);
     }
@@ -105,15 +107,19 @@ export class StaffProfilesService {
   }
 
   /** Single-user lookup for `staff_profile_id` — used to expose it on `UserResponseDto`. */
-  async findIdByUserId(userId: string): Promise<string | null> {
-    const profile = await this.staffProfileRepo.findOne({ where: { user_id: userId } });
+  async findIdByUserId(userId: string, tenantId: string): Promise<string | null> {
+    const profile = await this.staffProfileRepo.findOne({
+      where: { user_id: userId, tenant_id: tenantId },
+    });
     return profile?.id ?? null;
   }
 
   /** Bulk version for list responses — one query instead of N. */
-  async findIdsByUserIds(userIds: string[]): Promise<Map<string, string>> {
+  async findIdsByUserIds(userIds: string[], tenantId: string): Promise<Map<string, string>> {
     if (userIds.length === 0) return new Map();
-    const profiles = await this.staffProfileRepo.find({ where: { user_id: In(userIds) } });
+    const profiles = await this.staffProfileRepo.find({
+      where: { user_id: In(userIds), tenant_id: tenantId },
+    });
     return new Map(profiles.map((p) => [p.user_id, p.id]));
   }
 }

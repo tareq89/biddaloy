@@ -30,7 +30,9 @@ export class TeacherStaffProfileSubscriber implements EntitySubscriberInterface<
     if (!teacher || teacher.staff_profile_id) return;
 
     const m = event.manager;
-    let staffProfile = await m.findOne(StaffProfile, { where: { user_id: teacher.user_id } });
+    let staffProfile = await m.findOne(StaffProfile, {
+      where: { user_id: teacher.user_id, tenant_id: teacher.tenant_id },
+    });
     if (!staffProfile) {
       // Same series and lock as `StaffProfilesService.createFor` (#2291): the
       // numeric max + 1 never reuses a removed profile's id, and the advisory

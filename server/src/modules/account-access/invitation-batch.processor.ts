@@ -145,7 +145,7 @@ export class InvitationBatchProcessor extends WorkerHost {
         .getOne();
 
       if (user) {
-        if (await guardianLinkedElsewhere(manager, user.id, guardian.id)) {
+        if (await guardianLinkedElsewhere(manager, user.id, guardian.id, tenantId)) {
           this.logger.warn(
             `Guardian ${guardian.id}: the matched account is linked to another guardian, not linked`,
           );

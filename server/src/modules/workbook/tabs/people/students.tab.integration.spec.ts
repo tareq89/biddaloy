@@ -21,9 +21,9 @@ import { guardiansTab } from './guardians.tab';
  * database.
  *
  * The unit spec covers the pure mapping. What it cannot cover:
- * - `Student.registration_number` and `Student.user_id` both carry GLOBAL
- *   unique constraints, not tenant-scoped (C1, C2) — `upsert` must look
- *   them up without a tenant filter and revive a soft-deleted holder.
+ * - `Student.registration_number` and `Student.user_id` are unique per school
+ *   (C1, C2, D11) — `upsert` must look them up within the tenant and revive a
+ *   soft-deleted holder; the same user may hold a student row in each school.
  * - `Student.guardians` has `cascade: ['insert']` on the entity (C7) —
  *   `upsert` must reconcile the `student_guardians` join table via
  *   `addAndRemove`, never by assigning `.guardians` and calling `save`, or
@@ -409,7 +409,7 @@ describe('studentsTab (integration)', () => {
       expect(saved.deleted_at).toBeNull();
     });
 
-    it('throws a descriptive error when user_id already belongs to another tenant (C2)', async () => {
+    it('lets the same user hold a student row in each school (D11)', async () => {
       const chainA = await seedChain(TENANT_A, 'ua');
       const chainB = await seedChain(TENANT_B, 'ub');
       const user = await userRepo.save(
@@ -427,14 +427,16 @@ describe('studentsTab (integration)', () => {
         dataSource.manager,
       );
 
-      await expect(
-        studentsTab.upsert(
-          rowFor(chainB, { registration_number: 'STU-UB', user_id: user.id, user_key: user.email }),
-          null,
-          TENANT_B,
-          dataSource.manager,
-        ),
-      ).rejects.toThrow(new RegExp(TENANT_A));
+      await studentsTab.upsert(
+        rowFor(chainB, { registration_number: 'STU-UB', user_id: user.id, user_key: user.email }),
+        null,
+        TENANT_B,
+        dataSource.manager,
+      );
+
+      // One row per school, neither re-tenanted.
+      const rows = await studentRepo.find({ where: { user_id: user.id } });
+      expect(rows.map((r) => r.tenant_id).sort()).toEqual([TENANT_A, TENANT_B]);
     });
   });
 

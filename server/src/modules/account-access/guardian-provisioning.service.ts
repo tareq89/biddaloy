@@ -157,7 +157,7 @@ export class GuardianProvisioningService {
     if (user) {
       const m = this.userRepo.manager;
       // Same rule the processor applies: this account can never be linked here.
-      if (await guardianLinkedElsewhere(m, user.id, guardian.id)) {
+      if (await guardianLinkedElsewhere(m, user.id, guardian.id, tenantId)) {
         return { kind: 'skip', reason: 'contact_in_use' };
       }
       // Active only with a LIVE PARENT row here: that is what family access needs. A

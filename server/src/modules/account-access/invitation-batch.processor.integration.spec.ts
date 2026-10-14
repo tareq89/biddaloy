@@ -134,7 +134,7 @@ describe('InvitationBatchProcessor (integration)', () => {
 
   // M2: guardians.user_id is globally UNIQUE. A parent linked to a guardian at another
   // school can never be linked to this one, so no request is filed (it could only fail).
-  it('a verified parent already linked to a guardian at another school gets no request and no crash', async () => {
+  it('a verified parent already linked to a guardian at another school gets a join request here, no membership', async () => {
     const owner = await makeUser({ email: 'linked@example.com', email_verified_at: new Date() });
     await ds
       .getRepository(UserTenant)
@@ -147,7 +147,8 @@ describe('InvitationBatchProcessor (integration)', () => {
     const tokens = await ds.getRepository(AuthToken).find({
       where: { user_id: owner.id, purpose: AuthTokenPurpose.JOIN_SCHOOL },
     });
-    expect(tokens).toHaveLength(0);
+    // [58.0.02] The link is per school now: this school's guardian is not "linked elsewhere".
+    expect(tokens).toHaveLength(1);
     expect(await membership(owner.id)).toHaveLength(0);
     expect(issueAndSend).not.toHaveBeenCalled();
   });

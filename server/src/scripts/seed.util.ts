@@ -1079,7 +1079,7 @@ export async function ensureAttendanceSeed(
   // resolves markable sections through `teacher_class_sections`, not the
   // JWT role alone.
   let teacher = await repos.teacherRepository.findOne({
-    where: { user_id: teacherUserId },
+    where: { user_id: teacherUserId, tenant_id: schoolId },
     withDeleted: true,
   });
   if (!teacher) {
@@ -1877,10 +1877,10 @@ export async function ensureRoutineSeed(
     throw new Error(`${ASSISTANT_TEACHER_EMAIL} missing — run ensureRoleTestUsers first`);
   }
   // Looked up by employee_id, not user_id: a database seeded before 47.2.5
-  // holds SEED-TEACHER-0002 (globally unique) under the old
+  // holds SEED-TEACHER-0002 (unique per school) under the old
   // `routine-teacher2@biddaloy.test` user, so re-point it rather than insert.
   let secondTeacher = await repos.teacherRepository.findOne({
-    where: { employee_id: 'SEED-TEACHER-0002' },
+    where: { employee_id: 'SEED-TEACHER-0002', tenant_id: schoolId },
     withDeleted: true,
   });
   if (secondTeacher && secondTeacher.user_id !== secondTeacherUser.id) {
@@ -3581,23 +3581,10 @@ export async function ensureStaffHrSeed(
 
   const profiles: StaffProfile[] = [];
   for (const { userId, employeeId } of staffUserIds) {
-    // `staff_profiles.user_id` is unique across ALL tenants (one profile per
-    // user — same rule `StaffProfilesService.createFor` enforces), so look
-    // up by that key alone. A tenant-scoped lookup misses a profile that
-    // lives in another tenant (e.g. the user is also staff at the second
-    // school) and the insert below fails `UQ_staff_profiles_user`.
+    // One profile per user PER tenant (`UQ_staff_profiles_tenant_user`).
     let profile = await repos.staffProfileRepository.findOne({
-      where: { user_id: userId },
+      where: { user_id: userId, tenant_id: schoolId },
     });
-    if (profile && profile.tenant_id !== schoolId) {
-      // Don't reuse it: the sample attendance/leave rows below are written
-      // under `schoolId`, and pointing them at another tenant's profile
-      // would cross tenants.
-      console.warn(
-        `Seed: user ${userId} already has a staff profile in tenant ${profile.tenant_id}; skipping its staff HR seed.`,
-      );
-      continue;
-    }
     if (!profile) {
       profile = await repos.staffProfileRepository.save(
         repos.staffProfileRepository.create({
