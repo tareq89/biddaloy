@@ -62,6 +62,11 @@ function isUnavailable(error: unknown): boolean {
   );
 }
 
+/** Cloudflare refused the token (stale, reused): the answers are fine, the check needs redoing. */
+function isCaptchaFailed(error: unknown): boolean {
+  return error instanceof ApiError && error.details?.code === 'CAPTCHA_FAILED';
+}
+
 export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormProps) {
   const { t } = useTranslation('admission-public');
   const regionConfig = useRegionConfig();
@@ -146,7 +151,7 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
       gender,
       guardian_name: guardianName.trim(),
       guardian_phone: guardianPhone,
-      captcha_token: TURNSTILE_SITE_KEY && captcha ? captcha : NO_CAPTCHA_TOKEN,
+      captcha_token: captcha ?? NO_CAPTCHA_TOKEN,
       middle_name_confirm: honeypot,
       documents,
       ...(guardianEmail.trim() ? { guardian_email: guardianEmail.trim() } : {}),
@@ -542,7 +547,11 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
         {submitMutation.isError && (
           <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
             <CircleAlertIcon className="size-3.5 shrink-0" aria-hidden />
-            {isUnavailable(submitMutation.error) ? t('form.unavailable') : t('form.submitError')}
+            {isUnavailable(submitMutation.error)
+              ? t('form.unavailable')
+              : isCaptchaFailed(submitMutation.error)
+                ? t('form.captchaFailed')
+                : t('form.submitError')}
           </p>
         )}
 

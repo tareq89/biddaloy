@@ -79,6 +79,10 @@ export class PublicAdmissionController {
 
   @Post(':slug/applicants')
   @Throttle({ default: STRICT_RATE_LIMIT })
+  // ponytail: multer buffers up to 15 MB (3 files x 5 MB) in memory before the captcha check in
+  // submit() runs, so a bot with a junk token still costs that much RAM (the throttle caps the rate).
+  // Upgrade path: send the captcha token in a header and check it in a guard, which runs before
+  // this upload interceptor.
   @UseInterceptors(AnyFilesInterceptor({ limits: { fileSize: MAX_DOCUMENT_FILE_SIZE, files: 3 } }))
   @ApiOperation({
     summary:
@@ -122,6 +126,8 @@ export class PublicAdmissionController {
     @Req() request: Request,
   ): Promise<SubmitApplicantResponseDto> {
     // First, so a failed check writes no row and no file.
+    // ponytail: the upload is already buffered by now (see the interceptor note above); a header
+    // token checked by a guard before the interceptor would refuse it unread.
     await this.turnstile.verify(dto.captcha_token, requestContext(request).ip);
     // No ContextGuard here, so the restore freeze (#2210) is checked by hand: a restore would
     // delete an applicant saved mid-restore. An unknown slug falls through to the service's 404.

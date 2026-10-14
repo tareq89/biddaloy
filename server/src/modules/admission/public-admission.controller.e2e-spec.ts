@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { TurnstileService } from '../registration/turnstile.service';
 import { DataSource } from 'typeorm';
 import type Redis from 'ioredis';
 import { AppModule } from '../../app.module';
@@ -246,19 +245,32 @@ describe('Public Admission Submission E2E', () => {
         ])
       ).length;
 
-    it('rejects a submission whose captcha token Cloudflare rejects', async () => {
+    it('rejects a submission whose captcha token Cloudflare rejects, with CAPTCHA_FAILED', async () => {
       const intakeId = await createIntake();
+      // Real TurnstileService: give it a secret and a siteverify that says no.
+      const config = app.get(ConfigService);
+      const realGet = config.get.bind(config);
       const spy = vi
-        .spyOn(TurnstileService.prototype, 'verify')
-        .mockRejectedValue(new BadRequestException('Captcha verification failed'));
+        .spyOn(config, 'get')
+        .mockImplementation(((key: string) =>
+          key === 'TURNSTILE_SECRET_KEY' ? 'test-secret' : realGet(key)) as typeof config.get);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: false }) }),
+      );
       try {
         await supertest(app.getHttpServer())
           .post(submitUrl)
           .field(applicantPayload(intakeId))
           .attach('photo', VALID_JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' })
-          .expect(400);
+          .expect(400)
+          .expect((r) => {
+            expect(r.body.details.code).toBe('CAPTCHA_FAILED');
+            expect(JSON.stringify(r.body)).not.toContain('no-captcha');
+          });
       } finally {
         spy.mockRestore();
+        vi.unstubAllGlobals();
       }
       expect(await countRows(intakeId)).toBe(0);
     });
@@ -266,7 +278,11 @@ describe('Public Admission Submission E2E', () => {
     it('400s when captcha_token is missing', async () => {
       const intakeId = await createIntake();
       const { captcha_token: _omit, ...noToken } = applicantPayload(intakeId);
-      await supertest(app.getHttpServer()).post(submitUrl).field(noToken).expect(400);
+      await supertest(app.getHttpServer())
+        .post(submitUrl)
+        .field(noToken)
+        .expect(400)
+        .expect((r) => expect(JSON.stringify(r.body)).toContain('captcha_token'));
       expect(await countRows(intakeId)).toBe(0);
     });
 

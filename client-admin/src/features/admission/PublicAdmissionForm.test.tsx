@@ -61,6 +61,18 @@ async function setup(
           },
           { status: 503 },
         );
+      if (status === 400)
+        return HttpResponse.json(
+          {
+            statusCode: 400,
+            message: 'Captcha verification failed',
+            timestamp: '2026-01-01T00:00:00.000Z',
+            path: '/api/v1/public/admission/a-school/applicants',
+            requestId: 'req-1',
+            details: { code: 'CAPTCHA_FAILED' },
+          },
+          { status: 400 },
+        );
       return HttpResponse.json({ reference_number: 'ADM-2026-000001', status: 'PENDING' });
     }),
   );
@@ -150,5 +162,15 @@ describe('PublicAdmissionForm captcha', () => {
     expect(await screen.findByText(/Applications can't be sent right now/)).toBeTruthy();
     expect(screen.queryByText(/check your answers/)).toBeNull();
     expect(posted).toEqual(['no-captcha']);
+  });
+
+  it('asks for the check again (not the answers) when Cloudflare rejects the token', async () => {
+    const { user, posted } = await setup('test-key', { status: 400 });
+    await fillValid(user);
+    await user.click(screen.getByTestId('solve-captcha'));
+    await user.click(screen.getByRole('button', { name: 'Submit application' }));
+    expect(await screen.findByText(/The robot check didn't go through/)).toBeTruthy();
+    expect(screen.queryByText(/check your answers/)).toBeNull();
+    expect(posted).toEqual(['tok']);
   });
 });
