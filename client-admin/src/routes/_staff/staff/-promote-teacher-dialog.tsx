@@ -120,19 +120,19 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
     );
   }
 
-  // Two distinct 409s exist server-side — split them by `details.code` so an
-  // already-promoted member (possible when the picker's 100-teacher page
-  // missed them) isn't blamed on the employee ID.
-  const conflictIsExistingTeacher =
+  // Three distinct 409s exist server-side — split them by `details.code` so
+  // neither an already-promoted member (possible when the picker's
+  // 100-teacher page missed them) nor a clash on the kept staff employee ID
+  // (the typed one is never written then) is blamed on the typed ID.
+  const conflictCode =
     createTeacher.isError &&
     createTeacher.error instanceof ApiError &&
-    createTeacher.error.statusCode === 409 &&
-    createTeacher.error.details?.code === 'ALREADY_TEACHER_HERE';
-  const conflict =
-    createTeacher.isError &&
-    createTeacher.error instanceof ApiError &&
-    createTeacher.error.statusCode === 409 &&
-    !conflictIsExistingTeacher;
+    createTeacher.error.statusCode === 409
+      ? (createTeacher.error.details?.code ?? 'EMPLOYEE_ID')
+      : null;
+  const conflictIsExistingTeacher = conflictCode === 'ALREADY_TEACHER_HERE';
+  const conflictIsStaffId = conflictCode === 'STAFF_EMPLOYEE_ID_TAKEN';
+  const conflict = conflictCode !== null && !conflictIsExistingTeacher && !conflictIsStaffId;
   const notMember =
     createTeacher.isError &&
     createTeacher.error instanceof ApiError &&
@@ -218,11 +218,13 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
             <p role="alert" className="text-sm text-destructive">
               {conflictIsExistingTeacher
                 ? t('teacherForm.errorAlreadyTeacher')
-                : conflict
-                  ? t('teacherForm.errorDuplicateEmployeeId')
-                  : notMember
-                    ? t('teacherForm.errorNotMember')
-                    : t('teacherForm.errorMessage')}
+                : conflictIsStaffId
+                  ? t('teacherForm.errorStaffEmployeeIdTaken')
+                  : conflict
+                    ? t('teacherForm.errorDuplicateEmployeeId')
+                    : notMember
+                      ? t('teacherForm.errorNotMember')
+                      : t('teacherForm.errorMessage')}
             </p>
           )}
 

@@ -184,9 +184,14 @@ describe('multi-branch person (integration)', () => {
       await staffIdOf(admin2.id),
       other.id,
     ]);
-    await expect(teachers.create({ user_id: admin2.id, employee_id: 'FREE-2' }, a)).rejects.toThrow(
-      ConflictException,
-    );
+    const err = await teachers
+      .create({ user_id: admin2.id, employee_id: 'FREE-2' }, a)
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    // Its own code, so the dialog does not blame the typed (unwritten) ID.
+    expect((err as ConflictException).getResponse()).toMatchObject({
+      details: { code: 'STAFF_EMPLOYEE_ID_TAKEN' },
+    });
   });
 
   it('teacher section scope in school B sees only school B sections', async () => {

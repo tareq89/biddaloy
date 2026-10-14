@@ -88,6 +88,7 @@
     "errorEmployeeIdRequired": "Enter an employee ID.",
     "errorDuplicateEmployeeId": "This employee ID is already in use in this school.",
     "errorAlreadyTeacher": "This person already has a teacher profile.",
+    "errorStaffEmployeeIdTaken": "This person keeps their staff employee ID, and another teacher already uses it. Change that teacher's employee ID first.",
     "errorNotMember": "That person is not a member of this school.",
     "errorMessage": "Could not save the teacher profile. Please try again.",
     "promoteSave": "Give teacher profile",

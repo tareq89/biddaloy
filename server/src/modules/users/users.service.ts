@@ -936,27 +936,6 @@ export class TeacherService {
       });
     }
 
-    // An ADMIN / ACCOUNTANT / EXECUTIVE already has this school's staff
-    // profile (UserService.create makes one): promoting them reuses it, and
-    // the Teacher takes its employee_id, not the typed one. So check the id
-    // that is actually written, or a clash with a teacher whose id was edited
-    // away from its staff profile surfaces as a raw 23505.
-    const reusedProfile = await m.findOne(StaffProfile, {
-      where: { user_id: dto.user_id, tenant_id: tenantId },
-    });
-    const employeeId = reusedProfile?.employee_id ?? dto.employee_id;
-    const existing = employeeId
-      ? await teacherRepo.findOne({ where: { employee_id: employeeId, tenant_id: tenantId } })
-      : null;
-    if (existing) {
-      // Rule 23: name the field, never echo the value.
-      throw new ConflictException(
-        reusedProfile
-          ? "This person's staff employee ID is already used by another teacher"
-          : 'That employee ID is already in use',
-      );
-    }
-
     // [36.2.1] Teacher's own employee_id also seeds its staff_profiles row
     // (attendance/leave key off staff_profile_id, not the Teacher table) —
     // same reuse the [36.1.1] migration backfill did for pre-existing
@@ -967,7 +946,36 @@ export class TeacherService {
     // staff profile" / "already has a teacher profile" guards.
     const joiningDate = dto.joining_date ? new Date(dto.joining_date) : null;
     const work = async (manager: EntityManager) => {
-      // Reuse the staff profile found above; anyone else gets a new one.
+      // An ADMIN / ACCOUNTANT / EXECUTIVE already has this school's staff
+      // profile (UserService.create makes one): promoting them reuses it, and
+      // the Teacher takes its employee_id, not the typed one. So check the id
+      // that is actually written, or a clash with a teacher whose id was
+      // edited away from its staff profile surfaces as a raw 23505. Read
+      // inside the transaction so the check and the insert see the same row.
+      const reusedProfile = await manager.findOne(StaffProfile, {
+        where: { user_id: dto.user_id, tenant_id: tenantId },
+      });
+      const employeeId = reusedProfile?.employee_id ?? dto.employee_id;
+      const existing = employeeId
+        ? await manager.findOne(Teacher, {
+            where: { employee_id: employeeId, tenant_id: tenantId },
+          })
+        : null;
+      if (existing) {
+        // Rule 23: name the field, never echo the value. A reused profile's
+        // id is not the typed one, so it gets its own code: the dialog must
+        // not blame the field the admin typed.
+        throw new ConflictException(
+          reusedProfile
+            ? {
+                message: "This person's staff employee ID is already used by another teacher",
+                details: { code: 'STAFF_EMPLOYEE_ID_TAKEN' },
+              }
+            : 'That employee ID is already in use',
+        );
+      }
+
+      // Reuse that staff profile; anyone else gets a new one.
       const staffProfile =
         reusedProfile ??
         (await this.staffProfilesService.createFor(

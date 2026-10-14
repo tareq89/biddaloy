@@ -308,6 +308,8 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
     // `guardians (tenant_id, user_id)` is unique per school among LIVE rows
     // (`UQ_guardians_tenant_user`, D11, partial on `deleted_at`), so the
     // holder lookup below is tenant-scoped and live-first.
+    // `existing` is always live (`load()` excludes soft-deleted rows), so
+    // unlike teachers/students there is no soft-deleted match to re-check.
     let guardian = existing;
 
     // Even with an `existing` match (found by the engine's `KeyIndex` on

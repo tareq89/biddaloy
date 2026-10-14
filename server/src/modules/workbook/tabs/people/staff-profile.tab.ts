@@ -180,12 +180,31 @@ export const staffProfileTab: TabSpec<StaffProfile, StaffProfileRow> = {
   ): Promise<StaffProfile> {
     // `employee_id` is unique per tenant (`UQ_staff_profiles_tenant_employee_id`),
     // like `Teacher.employee_id` — scope the lookup accordingly.
-    const staffProfile =
+    let staffProfile =
       existing ??
       (await m.findOne(StaffProfile, {
         where: { tenant_id: tenantId, employee_id: row.employee_id },
-      })) ??
-      new StaffProfile();
+      }));
+
+    // `staff_profiles (tenant_id, user_id)` is unique too
+    // (`UQ_staff_profiles_tenant_user`; no soft delete here, so every row
+    // counts). The row's user may already hold a different profile (its
+    // employee id edited after export): `m.save` would hit 23505 and abort
+    // the restore, so name it instead — same as `teachers.tab.ts`. With no
+    // match by employee id, the user's own profile is taken over.
+    if (staffProfile?.user_id !== row.user_id) {
+      const byUser = await m.findOne(StaffProfile, {
+        where: { tenant_id: tenantId, user_id: row.user_id },
+      });
+      if (byUser && staffProfile && byUser.id !== staffProfile.id) {
+        throw new Error(
+          `Staff profile with user "${row.user_key || row.user_id}" already belongs to a ` +
+            `different staff profile and cannot be reassigned by a restore.`,
+        );
+      }
+      staffProfile ??= byUser;
+    }
+    staffProfile ??= new StaffProfile();
 
     staffProfile.tenant_id = tenantId;
     staffProfile.user_id = row.user_id;
