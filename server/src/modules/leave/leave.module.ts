@@ -6,6 +6,7 @@ import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { AuditModule } from '../audit/audit.module';
 import { CalendarModule } from '../calendar/calendar.module';
 import { StaffAttendanceModule } from '../staff-attendance/staff-attendance.module';
+import { SchoolsModule } from '../schools/schools.module';
 import { LeaveService } from './leave.service';
 import { LeaveController } from './leave.controller';
 
@@ -17,6 +18,7 @@ import { LeaveController } from './leave.controller';
     AuditModule,
     CalendarModule,
     StaffAttendanceModule,
+    SchoolsModule,
   ],
   providers: [LeaveService],
   controllers: [LeaveController],
