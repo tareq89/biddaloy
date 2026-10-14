@@ -277,7 +277,7 @@ class EnvironmentVariables {
   // Public demo deployment [58.1.01]. Exactly "true" switches on the demo
   // guards (see modules/demo); anything else leaves behaviour untouched.
   @IsOptional()
-  @IsString()
+  @IsIn(['true', 'false'])
   DEMO_MODE?: string;
 
   // The one shared password of every demo login, shown on the role cards.
