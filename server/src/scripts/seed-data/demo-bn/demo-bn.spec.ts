@@ -208,13 +208,13 @@ describe('BD public holidays 2016-2027', () => {
 });
 
 describe('demo avatars', () => {
-  it('has 24 PNGs, each under 30 KB', () => {
+  it('has 24 JPEGs, each under 30 KB', () => {
     for (let i = 1; i <= 24; i++) {
       const file = join(
         __dirname,
         '..',
         'demo-avatars',
-        `avatar-${String(i).padStart(2, '0')}.png`,
+        `avatar-${String(i).padStart(2, '0')}.jpg`,
       );
       expect(existsSync(file)).toBe(true);
       expect(statSync(file).size).toBeLessThan(30 * 1024);
