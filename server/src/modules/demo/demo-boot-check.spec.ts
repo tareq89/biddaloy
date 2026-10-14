@@ -67,6 +67,17 @@ describe('assertDemoDatabase (runs in main.ts before NestFactory.create)', () =>
     ).resolves.toBeUndefined();
   });
 
+  // A legacy install's env names its default-school row as the platform tenant; copying that env
+  // with DEMO_MODE=true must not let the exemption skip the students check.
+  it('refuses a platform tenant with students', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true', PLATFORM_TENANT_ID: 'p' }, [
+        { id: 'p', slug: 'default-school', has_students: true },
+        { id: '2', slug: 'bmsc-high' },
+      ]).run(),
+    ).rejects.toThrow(/default-school/);
+  });
+
   it('does not even query when DEMO_MODE is off', async () => {
     const { run, load } = check({}, [{ id: '1', slug: 'real-school' }]);
     await run();
