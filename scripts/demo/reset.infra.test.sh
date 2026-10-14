@@ -15,7 +15,9 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-DB_CONTAINER="$(docker ps -q --filter label=com.docker.compose.service=db | head -1)"
+# The same lookup as scripts/test-env.sh: the `db` service of the shared `biddaloy` compose project.
+DB_CONTAINER="$(docker ps -q --filter label=com.docker.compose.project=biddaloy \
+  --filter label=com.docker.compose.service=db | head -1)"
 OWN_DB=""
 if [[ -z "$DB_CONTAINER" ]]; then
   PG_IMAGE="$(sed -n 's/^ *image: \(postgres:.*\)$/\1/p' "$HERE/../../docker-compose.yml" | head -1)"

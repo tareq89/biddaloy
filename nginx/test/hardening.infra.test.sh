@@ -72,13 +72,16 @@ else
 fi
 
 # [58.4.01] The demo host mounts nginx/demo into the template's demo-extra include (robots.txt);
-# the config must still load with it. One-shot `nginx -t` on the same network (it resolves `app`).
-docker run --rm --network "$NET" -e APP_DOMAIN=example.test -e TRUSTED_PROXY_CIDRS= \
+# the config must still load with it. One-shot `nginx -T` on the same network (it resolves `app`):
+# it tests the config and prints it, and the grep proves robots.conf was really included (an
+# include glob that matches nothing is still valid config).
+demo_conf=$(docker run --rm --network "$NET" -e APP_DOMAIN=example.test -e TRUSTED_PROXY_CIDRS= \
   -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
   -v "$PWD/nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro" \
   -v "$PWD/nginx/demo:/etc/nginx/demo-extra:ro" \
-  -v "$VOL:/etc/letsencrypt:ro" "$NGINX_IMG" nginx -t >/dev/null 2>&1 \
-  && pass "nginx -t with the demo robots.conf" || fail "nginx -t with the demo robots.conf" "non-zero"
+  -v "$VOL:/etc/letsencrypt:ro" "$NGINX_IMG" nginx -T 2>/dev/null) \
+  && grep -q 'alias /etc/nginx/demo-extra/robots.txt' <<<"$demo_conf" \
+  && pass "nginx -T includes the demo robots.conf" || fail "nginx -T with the demo robots.conf" "failed or robots.conf not included"
 
 [ "$FAILS" = 0 ] || { echo "$FAILS check(s) failed"; exit 1; }
 echo "all checks passed"
