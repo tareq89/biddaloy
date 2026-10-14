@@ -8,7 +8,6 @@ import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from './validation-pipe';
 import { UserRole, CommunicationMedium } from '@biddaloy/shared';
 import { Guardian } from './modules/students/entities/guardian.entity';
-import { addressForMedium } from './modules/communications/reminder-recipients.util';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -427,24 +426,52 @@ describe('[5.4a] Self-service profile', () => {
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({
-          phone: '+8801911111111',
           alternate_phone: '+8801922222222',
-          email: 'new-guardian@e2e.example',
           preferred_communication: CommunicationMedium.EMAIL,
         })
         .expect(200);
 
       const rows = await dataSource.query(
-        `SELECT phone, alternate_phone, email, preferred_communication
-           FROM guardians WHERE id = $1`,
+        `SELECT alternate_phone, preferred_communication FROM guardians WHERE id = $1`,
         [parentGuardianId],
       );
       expect(rows[0]).toMatchObject({
-        phone: '+8801911111111',
         alternate_phone: '+8801922222222',
-        email: 'new-guardian@e2e.example',
         preferred_communication: CommunicationMedium.EMAIL,
       });
+    });
+
+    // [68.4.05] The sign-in phone/email belong to the login (users), so the
+    // guardian form refuses to change them and points at the contact-change flow.
+    it('[68.4.05] refuses a changed phone or email: 409 CONTACT_OWNED_BY_LOGIN, nothing written', async () => {
+      const before = await dataSource.query(`SELECT phone, email FROM guardians WHERE id = $1`, [
+        parentGuardianId,
+      ]);
+      for (const body of [{ phone: '+8801911111111' }, { email: 'new-guardian@e2e.example' }]) {
+        const res = await http()
+          .patch(`${API}/guardians/mine`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .send(body)
+          .expect(409);
+        expect(res.body.details).toMatchObject({ code: 'CONTACT_OWNED_BY_LOGIN' });
+      }
+      const after = await dataSource.query(`SELECT phone, email FROM guardians WHERE id = $1`, [
+        parentGuardianId,
+      ]);
+      expect(after[0]).toEqual(before[0]);
+    });
+
+    it('[68.4.05] sending the unchanged phone is still 200', async () => {
+      const [{ phone }] = await dataSource.query(`SELECT phone FROM guardians WHERE id = $1`, [
+        parentGuardianId,
+      ]);
+      await http()
+        .patch(`${API}/guardians/mine`)
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({ phone })
+        .expect(200);
     });
 
     it("maps '' to a real NULL rather than storing an empty string", async () => {
@@ -452,34 +479,17 @@ describe('[5.4a] Self-service profile', () => {
         .patch(`${API}/guardians/mine`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({ alternate_phone: '', email: '' })
+        .send({ alternate_phone: '' })
         .expect(200);
 
-      const rows = await dataSource.query(
-        `SELECT alternate_phone, email FROM guardians WHERE id = $1`,
-        [parentGuardianId],
-      );
+      const rows = await dataSource.query(`SELECT alternate_phone FROM guardians WHERE id = $1`, [
+        parentGuardianId,
+      ]);
       expect(rows[0].alternate_phone).toBeNull();
-      expect(rows[0].email).toBeNull();
     });
 
-    // The motivating story: a stale phone number silently stops fee
-    // reminders. After the self-edit, the reminder path must dial the NEW
-    // number — asserted against the very helper the dispatcher uses.
-    it('changes the number fee reminders will dial', async () => {
-      await http()
-        .patch(`${API}/guardians/mine`)
-        .set('Authorization', `Bearer ${parentToken}`)
-        .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({ phone: '+8801955555555' })
-        .expect(200);
-
-      const guardian = await dataSource
-        .getRepository(Guardian)
-        .findOneOrFail({ where: { id: parentGuardianId } });
-
-      expect(addressForMedium(guardian, CommunicationMedium.SMS)).toBe('+8801955555555');
-    });
+    // [68.4.05] The old "self-edit changes the number reminders dial" check moved to
+    // e2e/journeys/portal-account.spec.ts, where the number now changes through the contact flow.
 
     const expectGuardianFieldRejected = async (body: Record<string, unknown>) => {
       const snapshot = () =>
@@ -551,7 +561,7 @@ describe('[5.4a] Self-service profile', () => {
         .patch(`${API}/guardians/mine`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({ phone: '+8801966666666' })
+        .send({ alternate_phone: '+8801966666666' })
         .expect(200);
     });
 
