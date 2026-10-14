@@ -283,7 +283,7 @@ describe('/staff', () => {
     );
   });
 
-  it('promote dialog surfaces a 409 duplicate-employee-id inline, without claiming per-school uniqueness', async () => {
+  it('promote dialog surfaces a 409 duplicate-employee-id inline', async () => {
     const member = userResponseFactory({ id: 'user-1', full_name: 'Abdul Karim' });
     server.use(
       http.get('/api/v1/users', () => HttpResponse.json(paginated([member]))),
@@ -310,9 +310,9 @@ describe('/staff', () => {
     await user.type(within(dialog).getByLabelText('Employee ID'), 'EMP-42');
     await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
 
-    // employee_id is globally unique — the copy must not say "in this school".
+    // employee_id is unique per school (D10).
     const alert = await within(dialog).findByText(
-      'This employee ID is already in use. Employee IDs are unique across all schools.',
+      'This employee ID is already in use in this school.',
     );
     expect(alert).toBeTruthy();
   });

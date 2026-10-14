@@ -126,7 +126,7 @@ describe('Homework rules (integration)', () => {
     const [{ id: sp }] = await q(
       `INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
        VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW())
-       ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW() RETURNING id`,
+       ON CONFLICT (tenant_id, user_id) DO UPDATE SET updated_at = NOW() RETURNING id`,
       [t.teacherUserId, t.id, `SP-${rand()}`],
     );
     const [{ id: teacherId }] = await q(

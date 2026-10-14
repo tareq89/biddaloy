@@ -124,13 +124,13 @@ describe('Attendance Summary E2E', () => {
     // `teachers.staff_profile_id` is NOT NULL ([36.1.1]) — this raw insert
     // bypasses TypeORM (so `TeacherStaffProfileSubscriber` doesn't fire),
     // hence the `staff_profiles` CTE. `SEED_ADMIN_USER_ID` is reused across
-    // many e2e specs, so `ON CONFLICT (user_id)` reuses its profile instead
+    // many e2e specs, so `ON CONFLICT (tenant_id, user_id)` reuses its profile instead
     // of erroring on the second file to run.
     await dataSource.query(
       `WITH sp AS (
          INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
          VALUES (gen_random_uuid(), $2::uuid, $3::uuid, 'EMP-E2E-' || $1, NOW(), NOW())
-         ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+         ON CONFLICT (tenant_id, user_id) DO UPDATE SET updated_at = NOW()
          RETURNING id
        )
        INSERT INTO teachers (id, user_id, employee_id, designations, tenant_id, staff_profile_id, created_at, updated_at)

@@ -253,13 +253,13 @@ export const teachersTab: TabSpec<Teacher, TeacherRow> = {
     // Tenant-scoped: `teachers (tenant_id, employee_id)` is unique per school
     // (`UQ_teachers_tenant_employee_id`, D10), so another school's teacher with
     // the same employee id is a different person. A soft-deleted teacher of this
-    // school is revived rather than re-inserted next to it.
+    // school is revived rather than re-inserted next to it, but a LIVE row with
+    // the same id wins: reviving a soft-deleted twin beside it would hit 23505.
+    const where = { employee_id: row.employee_id, tenant_id: tenantId };
     let teacher =
       existing ??
-      (await m.findOne(Teacher, {
-        where: { employee_id: row.employee_id, tenant_id: tenantId },
-        withDeleted: true,
-      }));
+      (await m.findOne(Teacher, { where })) ??
+      (await m.findOne(Teacher, { where, withDeleted: true }));
 
     if (teacher) {
       teacher.deleted_at = null;

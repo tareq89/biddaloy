@@ -389,7 +389,7 @@ describe('TeacherScopeService (integration)', () => {
     });
 
     it("tenant isolation: another tenant's rows are invisible", async () => {
-      // A different user (`teachers.user_id` is globally unique) teaching in
+      // A different user (a user has one teacher row per school) teaching in
       // tenant B, mapped to tenant B's section.
       const userB = await dataSource
         .getRepository(User)

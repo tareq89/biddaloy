@@ -132,8 +132,8 @@ describe('InvitationBatchProcessor (integration)', () => {
     expect(issueAndSend).not.toHaveBeenCalled();
   });
 
-  // M2: guardians.user_id is globally UNIQUE. A parent linked to a guardian at another
-  // school can never be linked to this one, so no request is filed (it could only fail).
+  // [58.0.02] guardians (tenant_id, user_id) is unique per school, so a link at another
+  // school does not block this one: the account is asked by join request.
   it('a verified parent already linked to a guardian at another school gets a join request here, no membership', async () => {
     const owner = await makeUser({ email: 'linked@example.com', email_verified_at: new Date() });
     await ds
