@@ -166,7 +166,7 @@ export function ColumnChart({
           const live = series.filter((k) => (d.values[k.id] ?? 0) > 0);
           const topId = live[live.length - 1]?.id;
           return (
-            <g key={d.x}>
+            <g key={i}>
               {live.map((k, si) => {
                 const v = d.values[k.id]!;
                 const y1 = y(acc + v);

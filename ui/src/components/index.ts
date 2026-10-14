@@ -433,3 +433,4 @@ export {
   type ExamMarkerLineProps,
 } from './exam-marker-row';
 export { SchoolInvitesCard, type SchoolInvitesCardProps } from './school-invites-card';
+export * from './dashboard/index';

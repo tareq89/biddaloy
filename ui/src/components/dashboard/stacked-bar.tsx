@@ -1,20 +1,13 @@
 import { cn } from '../../primitives/lib/utils';
 
+import { BG, type ChartColor } from './chart-utils';
+
 /**
  * [169.1-04] One horizontal bar split into labelled parts (by method,
  * ageing). CSS only, no chart library (D27). The accessible text never
  * depends on colour. Presentational; strings arrive formatted.
  */
-// Literal class strings so Tailwind sees them. cat-* = categorical, seq-* = sequential.
-const BG = {
-  'cat-1': 'bg-chart-cat-1',
-  'cat-2': 'bg-chart-cat-2',
-  'cat-3': 'bg-chart-cat-3',
-  'seq-1': 'bg-chart-seq-1',
-  'seq-2': 'bg-chart-seq-2',
-  'seq-3': 'bg-chart-seq-3',
-} as const;
-export type StackedBarColor = keyof typeof BG;
+export type StackedBarColor = ChartColor;
 
 export interface StackedBarSegment {
   id: string;
