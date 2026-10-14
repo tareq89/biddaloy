@@ -18,7 +18,9 @@ async function loadSchools(env: NodeJS.ProcessEnv): Promise<SchoolRow[]> {
 
 /**
  * D30: a demo build must never run against a real database. With `DEMO_MODE=true`, any school
- * whose slug is not a demo branch (the configured `PLATFORM_TENANT_ID` excepted) throws.
+ * whose slug is not a demo branch throws. Exempt: the configured `PLATFORM_TENANT_ID`, and
+ * `default-school`, the platform row every migrated DB holds (random uuid, MultiTenantAuth
+ * migration); the seed runner's guard 3 exempts it too. A real DB has real schools besides it.
  *
  * Called from `main.ts` and `createScriptAppContext` BEFORE Nest builds the app. It cannot be a
  * Nest lifecycle hook: every module's `onModuleInit` runs first, and on a wrong Redis that already
@@ -30,7 +32,7 @@ export async function assertDemoDatabase(
   load: (env: NodeJS.ProcessEnv) => Promise<SchoolRow[]> = loadSchools,
 ): Promise<void> {
   if (env.DEMO_MODE !== 'true') return;
-  const allowed = new Set<string>(DEMO_SCHOOL_SLUGS);
+  const allowed = new Set<string>([...DEMO_SCHOOL_SLUGS, 'default-school']);
   const foreign = (await load(env)).filter(
     (r) => !allowed.has(r.slug) && r.id !== env.PLATFORM_TENANT_ID,
   );

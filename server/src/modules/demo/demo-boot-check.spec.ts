@@ -17,10 +17,24 @@ describe('assertDemoDatabase (runs in main.ts before NestFactory.create)', () =>
     ).rejects.toThrow(/real-school/);
   });
 
-  it('refuses a database holding a default-school row', async () => {
+  // Every migrated DB has default-school (MultiTenantAuth migration, random uuid), so a correctly
+  // built demo DB holds it too. The seed runner's guard 3 allows it for the same reason.
+  it('passes with the migrated default-school row next to the bmsc-* rows', async () => {
     await expect(
-      check({ DEMO_MODE: 'true' }, [{ id: '1', slug: 'default-school' }]).run(),
-    ).rejects.toThrow(/default-school/);
+      check({ DEMO_MODE: 'true' }, [
+        { id: 'random-uuid', slug: 'default-school' },
+        { id: '2', slug: 'bmsc-high' },
+      ]).run(),
+    ).resolves.toBeUndefined();
+  });
+
+  it('still refuses default-school next to a real school', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        { id: '1', slug: 'default-school' },
+        { id: '2', slug: 'real-school' },
+      ]).run(),
+    ).rejects.toThrow(/real-school/);
   });
 
   it('passes with only bmsc-* rows', async () => {
