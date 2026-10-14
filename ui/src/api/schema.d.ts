@@ -8307,6 +8307,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/demo/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Demo role cards and the shared demo password (404 outside the demo). */
+        get: operations["DemoController_roles_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -14828,6 +14845,20 @@ export interface components {
         SocialLinkStartDto: {
             /** @description Provider authorization URL to send the browser to. */
             url: string;
+        };
+        DemoRoleDto: {
+            key: string;
+            role: string;
+            email: string;
+            branchSlug: string;
+            nameEn: string;
+            nameBn: string;
+            tryKey: string;
+        };
+        DemoRolesResponseDto: {
+            /** @description Shared password of every demo login. */
+            password: string;
+            cards: components["schemas"]["DemoRoleDto"][];
         };
     };
     responses: never;
@@ -35832,6 +35863,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    DemoController_roles_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoRolesResponseDto"];
+                };
             };
         };
     };
