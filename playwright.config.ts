@@ -56,7 +56,9 @@ export default defineConfig({
   // (`devOptions.enabled: false` in `client-admin/vite.config.ts`).
   // Without this ignore, `testDir: './e2e'` globs those specs too and
   // runs every one of them against a stack that cannot satisfy them.
-  testIgnore: '**/pwa/**',
+  // [58.2.08] `e2e/demo/` needs a DEMO_MODE server on a seed:demo database; it has its own
+  // opt-in project below and never runs in the default or sweeps projects.
+  testIgnore: ['**/pwa/**', '**/demo/**'],
   fullyParallel: true,
   forbidOnly: CI,
   // A suite needing more than one CI retry is hiding flake — see
@@ -98,6 +100,19 @@ export default defineConfig({
   // smoke coverage (`e2e/smoke/`) plus everything else untagged.
   projects: [
     { name: 'setup', testMatch: /fixtures\/auth\.setup\.ts/ },
+    // [58.2.08] Opt-in: `E2E_DEMO=1 npx playwright test --project demo` against a DEMO_MODE
+    // server (docs/architecture/22-demo-seed.md). Absent unless E2E_DEMO=1, so a bare
+    // `playwright test` never picks it up. 58.4.02 wires it into the nightly pipeline.
+    ...(process.env.E2E_DEMO === '1'
+      ? [
+          {
+            name: 'demo',
+            testDir: './e2e/demo',
+            testIgnore: [],
+            use: { ...BROWSER_DEVICES.chromium },
+          },
+        ]
+      : []),
     ...browsers.flatMap((name) => [
       {
         name,
