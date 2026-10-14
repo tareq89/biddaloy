@@ -273,6 +273,7 @@ export {
   type AppShellDrawerValue,
 } from './app-shell';
 export { AppHeader, type AppHeaderProps } from './app-header';
+export { DemoRibbon, type DemoRibbonProps } from './demo-ribbon';
 export { UserMenu, type UserMenuProps } from './user-menu';
 export { SkipLink, type SkipLinkProps } from './skip-link';
 export { RouteAnnouncer, type RouteAnnouncerProps } from './route-announcer';
