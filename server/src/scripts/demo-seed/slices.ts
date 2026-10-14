@@ -29,3 +29,9 @@ export const SLICES: DemoSlice[] = [
   applications,
   attention,
 ];
+
+/** Entities that no slice fills, with the reason. 58.1.05's coverage guard reads this. */
+export const EXEMPT: Record<string, string> = {
+  PlatformAlert: 'platform incident state, not school data',
+  PushSubscription: 'push is off in the demo (D2)',
+};
