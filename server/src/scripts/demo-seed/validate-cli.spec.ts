@@ -35,6 +35,16 @@ describe('validate-cli main (the reset swap gate)', () => {
     expect(ds.destroy).toHaveBeenCalled();
   });
 
+  it('reports the validator error, not a teardown error that follows it', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const ds = { ...fakeDs(), destroy: vi.fn().mockRejectedValue(new Error('teardown broke')) };
+    const failing = async (): Promise<Violation[]> => {
+      throw new Error('query failed');
+    };
+    expect(await main(ds, failing)).toBe(1);
+    expect(errors).toHaveBeenCalledWith('query failed');
+  });
+
   it('returns 1 when the database cannot be reached', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const ds = { ...fakeDs(), initialize: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')) };

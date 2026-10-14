@@ -201,15 +201,19 @@ The tests are `scripts/demo/reset.test.sh` (they need the local `yarn test-env u
   `run --rm` while the 01:00 run is still going exits 1 with `another reset is running`.
 - **A failed swap says where it stopped.** If a rename fails mid-swap, the reset renames `biddaloy_demo_prev` back and
   logs `rolled back: yesterday's database is biddaloy_demo again`. If even that fails it logs `ROLLBACK FAILED` with the
-  names it left, and you finish by hand with the runbook below.
-- **After the swap the app always comes back.** Writing the id file, flushing Redis and restarting `app` each run even if
-  one before it failed. Then `_prev_old` and its S3 objects are dropped. Any failed step still means exit 1 and a Sentry
+  names it left, and you finish by hand with the runbook below. To decide, it reads `pg_database`, not its own notes:
+  psql can report an error for a rename that did commit, and the catalog is the truth.
+- **After the swap the app always comes back.** Re-opening `biddaloy_demo` and `_prev` to connections, writing the id
+  file, flushing Redis and restarting `app` each run even if one before it failed. Then `_prev_old` and its S3 objects are dropped. Any failed step still means exit 1 and a Sentry
   error, with the list: `swapped, but these steps failed: redis-flush purge-biddaloy_demo_prev_old`.
 - **One previous database is kept, with its files.** `biddaloy_demo_prev` is yesterday's, and its S3 objects stay until it
-  is dropped as `_prev_old` the next night. Runbook to undo a bad night: stop `app`; rename `biddaloy_demo` to
-  `biddaloy_demo_bad`; rename `biddaloy_demo_prev` to `biddaloy_demo`; write that database's
-  `SELECT id FROM schools WHERE slug = 'default-school'` into `/demo-state/platform-tenant-id`; start `app`; drop
-  `biddaloy_demo_bad` when done.
+  is dropped as `_prev_old` the next night. Runbook to undo a bad night:
+  1. `docker compose -f docker-compose.yml -f docker-compose.demo.yml stop demo-reset app` (a reset waiting for 02:00
+     would otherwise swap again on top of you).
+  2. Rename `biddaloy_demo` to `biddaloy_demo_bad`, then `biddaloy_demo_prev` to `biddaloy_demo`.
+  3. Write that database's `SELECT id FROM schools WHERE slug = 'default-school'` into `/demo-state/platform-tenant-id`.
+  4. Flush the app's Redis db (`redis-cli -u redis://redis:6379 FLUSHDB`): its caches and jobs belong to the bad night.
+  5. Start `app`, then `demo-reset`. Drop `biddaloy_demo_bad` when done.
 - **The database is picked with `DATABASE_URL`** (the server reads no `DB_NAME`).
 - **`PLATFORM_TENANT_ID` changes every night.** A fresh migration makes a new random `default-school` id, and
   `TenantStatusService.platformTenantId()` uses `PLATFORM_TENANT_ID` to find the platform tenant. The reset writes the id
@@ -220,13 +224,19 @@ The tests are `scripts/demo/reset.test.sh` (they need the local `yarn test-env u
 - **S3 needs no prefix.** Keys are `tenants/<tenant-id>/...` and every reset creates new tenant ids, so the new run can
   never collide with the old one in the same bucket. Instead of the planned `S3_PREFIX` or second bucket, the reset
   deletes `tenants/<id>/` for each `bmsc-%` school of a database it drops (`_prev_old`, or `_next` when a build fails).
-- **The sweep is a plug.** `DEMO_SWEEP_CMD` is run with `DEMO_SWEEP_URL=http://127.0.0.1:3999` (the temporary app) and is
+  The objects go first and the database second: if S3 fails, the database (and so the list of ids) stays, and the next
+  run tries again. A leftover `_prev_old` that cannot be purged does not stop the night; the swap goes on without it.
+- **The sweep is a plug.** `DEMO_SWEEP_CMD` is run with `DEMO_SWEEP_URL` set to the temporary app and is
   killed after `DEMO_SWEEP_TIMEOUT` seconds (default 1800); a non-zero exit stops the swap. The Playwright project
   `demo-nightly` (#2179) is meant to be that command. The `demo-reset` image has no browser and cannot `docker run` one,
-  so a runner has to be another compose service, which reaches the temporary app at `http://demo-reset:3999`. Until it
-  exists, set `DEMO_SKIP_SWEEP=true` on purpose.
+  so a runner has to be another compose service, which reaches the temporary app at `http://demo-reset:3999`. That is
+  what `docker-compose.demo.yml` sets `DEMO_SWEEP_URL` to (the app listens on all interfaces; outside compose the script
+  falls back to `http://127.0.0.1:3999`). A manual `run --rm demo-reset` needs `--use-aliases` for that name to resolve.
+  Until a runner exists, set `DEMO_SKIP_SWEEP=true` on purpose.
 - **No Docker socket in `demo-reset`.** It restarts `app` through `demo-docker-proxy`, which only lets through
-  container stop / restart / kill. A takeover of the reset container can bounce containers but cannot start a privileged one.
+  container stop / restart / kill, for **any** container on the host (the proxy cannot name one). A takeover of the reset
+  container can stop or kill anything there, including `db`, but cannot create, exec into or start a privileged one.
+  Acceptable because the host runs only the demo, and `demo-reset` already holds the database superuser password.
 - **The base `backup` service is off on the demo host** (its 02:00 dump would hit the 02:00 swap, and there is nothing to keep).
 - **Sentry:** `SENTRY_CRONS_URL` gets `?status=in_progress|ok|error`. Unset = no check-ins.
 
