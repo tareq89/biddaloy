@@ -1044,6 +1044,37 @@ describe('UserService (integration)', () => {
       expect((await guardians.findOneByOrFail({ id: unlinked.id })).phone).toBe('+8801');
     });
 
+    // Review r1 C1: the Edit-user dialog always sends `phone` (null when blank). A name-only
+    // edit here must not copy that unchanged null over another school's guardian phone.
+    it('[68.4.05] a name-only edit with phone: null leaves another school guardian contact unchanged', async () => {
+      const { user } = await service.create(
+        { full_name: 'Rahim', email: 'rahim@example.com', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      const guardians = dataSource.getRepository(Guardian);
+      const theirs = await guardians.save(
+        guardians.create({
+          full_name: 'Rahim',
+          relationship: 'Father',
+          tenant_id: OTHER_TENANT,
+          user_id: user.id,
+          phone: '+8801700000009',
+          email: 'college-copy@example.com',
+        }),
+      );
+
+      await service.update(
+        user.id,
+        { full_name: 'Rahim Uddin', email: 'rahim@example.com', phone: null },
+        TENANT_ID,
+        REQUESTING_ADMIN_ID,
+      );
+
+      const after = await guardians.findOneByOrFail({ id: theirs.id });
+      expect(after.phone).toBe('+8801700000009');
+      expect(after.email).toBe('college-copy@example.com');
+    });
+
     // [12.7] An admin edit to email/phone is the "explicit unverified
     // flag" the plan calls for — no extra boolean column.
     it('[12.7] nulls email_verified_at and phone_verified_at when the admin changes either', async () => {
