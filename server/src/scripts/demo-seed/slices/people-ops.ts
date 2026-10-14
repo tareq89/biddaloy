@@ -294,7 +294,10 @@ export const slice: DemoSlice = {
 
       // ---- 4. admission: one open intake for next year, applicants in every status --------------
       const klass = cur.classes.find((c) => c.numericGrade === INTAKE_GRADE[t.kind]);
-      if (!klass) continue;
+      if (!klass)
+        throw new Error(
+          `demo-seed people-ops: no grade ${INTAKE_GRADE[t.kind]} class for ${t.kind}`,
+        );
       const intakeId = uuid();
       intakes.push({
         id: intakeId,
