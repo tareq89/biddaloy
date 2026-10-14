@@ -45,7 +45,7 @@ export class AttendanceAccessService {
 
   /**
    * Sections this caller may mark. Tenant-scoped roles (`ROLE_SCOPE`): every section
-   * in the tenant. TEACHER: only sections in `teacher_class_sections`.
+   * of the tenant's current academic year. TEACHER: only sections in `teacher_class_sections`.
    * Anyone else: empty — fails closed rather than assuming a new role
    * inherits access.
    */
@@ -55,11 +55,20 @@ export class AttendanceAccessService {
     tenantId: string,
   ): Promise<ClassSection[]> {
     if (canAccessTenantWide(role)) {
-      return this.sectionRepo.find({
-        where: { tenant_id: tenantId },
-        relations: ['class'],
-        order: { section_name: 'ASC' },
-      });
+      // Current academic year only (`is_current`), the rule `teacherSectionIds` and My Class
+      // use. Older registers stay reachable by direct link (`assertCanAccessSection`).
+      return this.sectionRepo
+        .createQueryBuilder('cs')
+        .innerJoinAndSelect('cs.class', 'class', 'class.deleted_at IS NULL AND class.tenant_id = :tenantId')
+        .innerJoin(
+          'academic_years',
+          'ay',
+          'ay.id = class.academic_year_id AND ay.tenant_id = :tenantId AND ay.is_current = true AND ay.deleted_at IS NULL',
+          { tenantId },
+        )
+        .where('cs.tenant_id = :tenantId', { tenantId })
+        .orderBy('cs.section_name', 'ASC')
+        .getMany();
     }
 
     if (role === UserRole.TEACHER) {
