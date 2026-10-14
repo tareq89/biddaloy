@@ -1588,6 +1588,29 @@ describe('UserService (integration)', () => {
         expect(after.phone).toBe('+8801900000001');
       });
 
+      // Review #2282 F1: a parent removed from OTHER_TENANT keeps guardians.user_id there, and
+      // an edit here copies to that row. So the link counts as "another school": this school
+      // must not choose the number OTHER_TENANT's fee and absence SMS go to.
+      it('update() throws SHARED_IDENTITY when the login is linked to a guardian in another school with no membership there', async () => {
+        const user = await createSolo('linked-elsewhere@example.com');
+        const guardians = dataSource.getRepository(Guardian);
+        const theirs = await guardians.save(
+          guardians.create({
+            full_name: 'G',
+            relationship: 'Mother',
+            tenant_id: OTHER_TENANT,
+            user_id: user.id,
+            phone: '+8801900000001',
+          }),
+        );
+
+        await expect(
+          service.update(user.id, { phone: '+8801900000002' }, TENANT_ID, REQUESTING_ADMIN_ID),
+        ).rejects.toMatchObject({ response: { details: { code: 'SHARED_IDENTITY' } } });
+        expect((await userRepo.findOneByOrFail({ id: user.id })).phone).toBe('+8801900000001');
+        expect((await guardians.findOneByOrFail({ id: theirs.id })).phone).toBe('+8801900000001');
+      });
+
       it('update() still changes full_name of a shared user', async () => {
         const user = await createSolo('shared-name@example.com');
         await joinOther(user.id);
