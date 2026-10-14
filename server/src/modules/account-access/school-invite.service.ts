@@ -265,12 +265,14 @@ export class SchoolInviteService {
 
       // [68.2.02] Same rule as `UserService.create`: a non-teacher employee role
       // gets its generic staff profile for THIS school (profiles are per school).
-      if (
-        meta.role !== UserRole.TEACHER &&
-        EMPLOYEE_ROLES.includes(meta.role) &&
-        !(await m.exists(StaffProfile, { where: { user_id: userId, tenant_id: tenantId } }))
-      ) {
-        await this.staffProfiles.createFor(userId, tenantId, {}, m);
+      if (meta.role !== UserRole.TEACHER && EMPLOYEE_ROLES.includes(meta.role)) {
+        // Two employee-role requests accepted at once would both see "no profile" and the
+        // loser would 500 on UQ_staff_profiles_tenant_user (review r1 N4): serialise them.
+        await m.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          `staff-profile:${tenantId}:${userId}`,
+        ]);
+        if (!(await m.exists(StaffProfile, { where: { user_id: userId, tenant_id: tenantId } })))
+          await this.staffProfiles.createFor(userId, tenantId, {}, m);
       }
 
       await this.authTokens.consume(row.id, m);

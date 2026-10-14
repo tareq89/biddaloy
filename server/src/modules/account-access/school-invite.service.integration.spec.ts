@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
@@ -113,6 +113,30 @@ describe('SchoolInviteService (integration)', () => {
     expect(ut.role).toBe(UserRole.ACCOUNTANT);
     const profiles = await ds.getRepository(StaffProfile).find({ where: { user_id: user.id } });
     expect(profiles.map((p) => p.tenant_id)).toEqual([TENANT_B]);
+  });
+
+  // Review r1 N4: both see "no profile" without the lock, and the loser 500s on the unique index.
+  it('[68.2.02] two employee-role requests accepted at once both join and share one staff profile', async () => {
+    const a = await request(TENANT_B, {}, UserRole.ACCOUNTANT);
+    const b = await request(TENANT_B, {}, UserRole.ADMIN);
+    // Hold each createFor until both accepts reach it (or 300 ms pass), so without the lock
+    // both transactions are past the "no profile yet" check before either inserts.
+    const profiles = module.get(StaffProfilesService);
+    const real = profiles.createFor.bind(profiles);
+    let entered = 0;
+    const spy = vi.spyOn(profiles, 'createFor').mockImplementation(async (...args) => {
+      entered++;
+      for (let i = 0; i < 30 && entered < 2; i++) await new Promise((r) => setTimeout(r, 10));
+      return real(...args);
+    });
+
+    await Promise.all([service.accept(user.id, a.id, CTX), service.accept(user.id, b.id, CTX)]);
+    spy.mockRestore();
+
+    expect((await memberships(TENANT_B)).map((m) => m.role).sort()).toEqual(
+      [UserRole.ACCOUNTANT, UserRole.ADMIN].sort(),
+    );
+    expect(await ds.getRepository(StaffProfile).count({ where: { user_id: user.id } })).toBe(1);
   });
 
   it('accept revives a soft-deleted membership instead of inserting (no 23505)', async () => {

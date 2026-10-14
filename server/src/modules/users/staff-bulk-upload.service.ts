@@ -358,7 +358,14 @@ export class StaffBulkUploadService {
 
   /** Only deliberate HTTP errors carry text meant for the admin; anything else may name DB internals. */
   private reason(err: unknown): string {
-    if (err instanceof HttpException) return err.message;
+    if (err instanceof HttpException) {
+      // [68.2.02] `create()`'s 409 tells "Add staff" to send a join request; the import can't, so
+      // it reuses the validate-step wording (the account appeared between validate and commit).
+      const code = (err.getResponse() as { details?: { code?: string } })?.details?.code;
+      if (code === 'ACCOUNT_EXISTS')
+        return 'This email or mobile number is already used by another account';
+      return err.message;
+    }
     this.logger.error(`Staff import row failed: ${err instanceof Error ? err.message : err}`);
     return 'Could not save this row';
   }

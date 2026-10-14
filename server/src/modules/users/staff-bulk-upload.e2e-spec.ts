@@ -346,6 +346,21 @@ describe('Staff bulk import E2E', () => {
     expect(v.body.rows[0].name).not.toContain('<');
   });
 
+  // [68.2.02] review r1 N3: create()'s 409 says "send a join request", which the import can't do.
+  it('an account created between validate and commit is a row error without the join-request offer', async () => {
+    const v = await validate(
+      await sheet([['Late Comer', '', 'latecomer1332@x.com', 'Teacher', '']]),
+    ).expect(201);
+    await ds.query(
+      `INSERT INTO users (id, email, full_name, status, created_at, updated_at)
+       VALUES (gen_random_uuid(), 'latecomer1332@x.com', 'Late', 'ACTIVE', NOW(), NOW())`,
+    );
+    const res = await commit(v.body.staging_id).expect(201);
+    expect(res.body.failed).toEqual([
+      { row: 2, reason: 'This email or mobile number is already used by another account' },
+    ]);
+  });
+
   it('a failed teacher step rolls the whole row back (no half-made member)', async () => {
     const teachers = app.get(TeacherService);
     const spy = vi.spyOn(teachers, 'create').mockRejectedValueOnce(new Error('boom: db detail'));
