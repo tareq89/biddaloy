@@ -32,22 +32,24 @@ async function signIn(): Promise<void> {
 const socialProviders = (providers: string[]) =>
   http.get('/api/v1/auth/social/providers', () => HttpResponse.json({ providers }));
 
-const demoRoles = http.get('/api/v1/demo/roles', () =>
-  HttpResponse.json({
-    password: 'demo-pass',
-    cards: [
-      {
-        key: 'admin',
-        role: 'ADMIN',
-        email: 'admin@bmsc.example',
-        branchSlug: 'bmsc-high',
-        nameEn: 'Admin',
-        nameBn: 'অ্যাডমিন',
-        tryKey: 'dashboard',
-      },
-    ],
-  }),
-);
+const demoBody = {
+  enabled: true,
+  password: 'demo-pass',
+  cards: [
+    {
+      key: 'admin',
+      role: 'ADMIN',
+      email: 'admin@bmsc.example',
+      branchSlug: 'bmsc-high',
+      nameEn: 'Admin',
+      nameBn: 'অ্যাডমিন',
+      tryKey: 'dashboard',
+    },
+  ],
+};
+const demoRoles = http.get('/api/v1/demo/roles', () => HttpResponse.json(demoBody));
+const ownAccountToggle = () =>
+  screen.getByRole('button', { name: 'Sign in with your own account' });
 
 describe('/login', () => {
   beforeEach(() => {
@@ -467,14 +469,12 @@ describe('/login', () => {
   describe('demo school', () => {
     it('shows the title, role cards, a collapsed own-account form and the footer', async () => {
       server.use(authHandlers.refreshFailure, demoRoles);
-      const { container } = renderWithRouter(routeTree, {
-        initialEntries: ['/login'],
-        locale: 'en',
-      });
+      renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
 
       expect(await screen.findByRole('heading', { name: 'Enter the demo school' })).toBeTruthy();
       expect(screen.getByRole('button', { name: /Admin \(all three branches\)/ })).toBeTruthy();
-      expect(container.querySelector('details')?.open).toBe(false);
+      expect(ownAccountToggle().getAttribute('aria-expanded')).toBe('false');
+      expect(screen.queryByRole('textbox', { name: 'Email or phone number' })).toBeNull();
       expect(screen.getByText(/A fictional institution/)).toBeTruthy();
       expect(screen.getByRole('note', { name: /Demo site/ })).toBeTruthy();
     });
@@ -499,31 +499,49 @@ describe('/login', () => {
 
     it('a failed card opens the own-account form, which shows the error', async () => {
       server.use(authHandlers.refreshFailure, demoRoles, authHandlers.loginInvalidCredentials);
-      const { container } = renderWithRouter(routeTree, {
-        initialEntries: ['/login'],
-        locale: 'en',
-      });
+      renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
+      const user = userEvent.setup();
 
-      await userEvent.setup().click(await screen.findByRole('button', { name: /Admin/ }));
+      await user.click(await screen.findByRole('button', { name: /Admin/ }));
 
-      await waitFor(() => expect(container.querySelector('details')?.open).toBe(true));
+      await waitFor(() => expect(ownAccountToggle().getAttribute('aria-expanded')).toBe('true'));
       expect((await screen.findByRole('alert')).textContent).toContain('incorrect');
       // The open form must not add a second page title.
       expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+
+      // A second try clears the error while it is pending; the form must stay open meanwhile.
+      await user.click(screen.getByRole('button', { name: /Admin/ }));
+      expect(ownAccountToggle().getAttribute('aria-expanded')).toBe('true');
     });
 
-    it('a 404 leaves the page exactly as before: no cards, no ribbon', async () => {
+    it('text typed before the demo answer survives the switch to the demo layout', async () => {
+      let answer: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => (answer = resolve));
       server.use(
         authHandlers.refreshFailure,
-        http.get('/api/v1/demo/roles', () => new HttpResponse(null, { status: 404 })),
+        http.get('/api/v1/demo/roles', async () => {
+          await gate;
+          return HttpResponse.json(demoBody);
+        }),
       );
-      const { container } = renderWithRouter(routeTree, {
-        initialEntries: ['/login'],
-        locale: 'en',
-      });
+      renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
+      const email = await screen.findByRole('textbox', { name: 'Email or phone number' });
+      await userEvent.setup().type(email, 'rahim@greenview.edu.bd');
+
+      answer();
+      await screen.findByRole('heading', { name: 'Enter the demo school' });
+
+      // Same input node, same text: the form was not remounted (it is only folded away).
+      expect(email.isConnected).toBe(true);
+      expect((email as HTMLInputElement).value).toBe('rahim@greenview.edu.bd');
+    });
+
+    it('outside the demo (enabled: false) the page is exactly as before: no cards, no ribbon', async () => {
+      server.use(authHandlers.refreshFailure);
+      renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
 
       await screen.findByRole('heading', { name: 'Sign in' });
-      expect(container.querySelector('details')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Sign in with your own account' })).toBeNull();
       expect(screen.queryByRole('note')).toBeNull();
     });
   });
