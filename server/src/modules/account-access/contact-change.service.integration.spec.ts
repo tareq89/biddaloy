@@ -317,7 +317,9 @@ describe('ContactChangeService (integration)', () => {
       expect((await reload(other!.id)).email).toBe('karim@example.com');
     });
 
-    it('when the users update hits 23505, no guardian row changes', async () => {
+    // Review F7: fail the SECOND write (the guardian copy). If the two writes were not one
+    // transaction, users.phone would already hold the new number.
+    it('when the guardian copy fails, users.phone is rolled back too', async () => {
       const user = await createMember();
       const { mine } = await linkGuardians(user.id);
       const result = await service.request(
@@ -325,11 +327,23 @@ describe('ContactChangeService (integration)', () => {
         { phone: '+8801722222222', current_password: 'correct-password' },
         context,
       );
-      // Someone takes the number between request and confirm.
-      await createMember({ phone: '+8801722222222', email: 'taker@example.com' });
-      await expect(
-        service.confirmPhone(user.id, (result as any).debug.otp, context),
-      ).rejects.toBeInstanceOf(ConflictException);
+      const realUpdate = Repository.prototype.update;
+      const spy = vi.spyOn(Repository.prototype, 'update').mockImplementation(function (
+        this: Repository<any>,
+        ...args: any[]
+      ) {
+        if (this.metadata.target === Guardian) return Promise.reject(new Error('copy failed'));
+        return (realUpdate as any).apply(this, args);
+      });
+      try {
+        await expect(
+          service.confirmPhone(user.id, (result as any).debug.otp, context),
+        ).rejects.toThrow('copy failed');
+      } finally {
+        spy.mockRestore();
+      }
+      const [row] = await dataSource.query('SELECT phone FROM users WHERE id = $1', [user.id]);
+      expect(row.phone).toBe('+8801711111111');
       for (const g of mine) expect((await reload(g.id)).phone).toBe('+8801711111111');
     });
   });
@@ -584,6 +598,57 @@ describe('ContactChangeService (integration)', () => {
       );
       expect(row.email).toBe('karim.new@example.com');
       expect(row.email_verified_at).not.toBeNull();
+    });
+
+    describe('[68.4.05] an approved proposal reaches every linked guardian row', () => {
+      async function linkInBothSchools(userId: string) {
+        const repo = dataSource.getRepository(Guardian);
+        const row = (tenant_id: string) =>
+          repo.save(
+            repo.create({
+              full_name: 'G',
+              relationship: 'Mother',
+              tenant_id,
+              user_id: userId,
+              phone: '+8801711111111',
+              email: 'karim@example.com',
+            }),
+          );
+        return [await row(SEED_TENANT_ID), await row(OTHER_SCHOOL)];
+      }
+      const reload = (id: string) =>
+        dataSource.getRepository(Guardian).findOneOrFail({ where: { id } });
+
+      it('a phone proposal, approved with the code, copies the phone to both schools', async () => {
+        const { user } = await sharedSetup();
+        const rows = await linkInBothSchools(user.id);
+        await propose(user.id, { phone: NEW_PHONE });
+        const token = linkIn(sentTo()[0].body);
+        const asked = await service.confirmEmail(token, context, 'approve');
+
+        await service.confirmEmail(token, context, 'approve', {
+          phone_code: asked.debug!.phone_code,
+        });
+
+        for (const g of rows) {
+          expect((await reload(g.id)).phone).toBe(NEW_PHONE);
+          expect((await reload(g.id)).email).toBe('karim@example.com');
+        }
+      });
+
+      it('an approved email=null proposal clears the email on both rows', async () => {
+        const { user } = await sharedSetup({ phone_verified_at: new Date() });
+        const rows = await linkInBothSchools(user.id);
+        await propose(user.id, { email: null });
+        const token = linkIn(sentTo()[0].body);
+
+        expect((await service.confirmEmail(token, context, 'approve')).status).toBe('valid');
+
+        for (const g of rows) {
+          expect((await reload(g.id)).email).toBeNull();
+          expect((await reload(g.id)).phone).toBe('+8801711111111');
+        }
+      });
     });
 
     // Review n-new-1: proposal codes have their own OTP purpose, apart from self-service PHONE_VERIFY.
