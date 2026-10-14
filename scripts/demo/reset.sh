@@ -4,7 +4,7 @@
 #   1. create biddaloy_demo_next, migrate, seed, validate, sweep   (live DB untouched)
 #   2. wait for 02:00 (skipped with --now)
 #   3. swap: live -> _prev, _next -> live   (a few seconds of downtime)
-#   4. re-open live, write default-school's id, flush Redis, restart the app (always attempted)
+#   4. re-open live and _prev, write default-school's id, flush Redis, restart  (always attempted)
 #   5. drop _prev_old and its S3 objects, Sentry check-in                    (best effort)
 #
 # Any failure before step 3 drops _next and leaves yesterday's demo running. A failure inside
@@ -21,8 +21,8 @@
 # (a plain bucket name containing "demo"), S3_ENDPOINT, S3_REGION, S3_ACCESS_KEY_ID,
 # S3_SECRET_ACCESS_KEY.
 # Optional: DEMO_SCALE (1), DEMO_YEARS (10), DEMO_SWAP_AT (02:00), SENTRY_CRONS_URL,
-# DEMO_SWEEP_CMD (run with DEMO_SWEEP_URL set; non-zero = fail; killed after DEMO_SWEEP_TIMEOUT
-# seconds, default 1800) or DEMO_SKIP_SWEEP=true,
+# DEMO_SWEEP_CMD (run with DEMO_SWEEP_URL, default http://127.0.0.1:3999 = the temporary app;
+# non-zero = fail; killed after DEMO_SWEEP_TIMEOUT seconds, default 1800) or DEMO_SKIP_SWEEP=true,
 # DEMO_RESTART_CMD (default: docker restart $DEMO_APP_CONTAINER), and the DEMO_*_CMD overrides
 # below (tests inject fakes there; DEMO_PSQL / DEMO_REDIS_CLI do the same for the two clients).
 #
@@ -92,15 +92,20 @@ check_guards() {
   [[ "$REDIS_URL" =~ ^(redis://[^/]+)(/([0-9]+))?$ ]] || die "REDIS_URL must look like redis://host:port[/db]"
   REDIS_DB="${BASH_REMATCH[3]:-0}"
   # Migrate, seed, validate and the temporary app use the next Redis db, never the live app's jobs.
-  SWEEP_REDIS="${BASH_REMATCH[1]}/$((REDIS_DB + 1))"
+  (( 10#$REDIS_DB < 15 )) || die "REDIS_URL db must be below 15 (the build uses the next one), got ${REDIS_DB}"
+  SWEEP_REDIS="${BASH_REMATCH[1]}/$((10#$REDIS_DB + 1))"
 }
 
 # Tenant ids (one per line) of the demo branches in a database: their S3 objects live under
 # tenants/<id>/. None for a database that does not exist. Returns non-zero on a psql error, so
 # `ids="$(demo_tenant_ids db)"` stops the run (bash drops errexit inside $(...), hence the checks).
 demo_tenant_ids() {
-  local rows id
+  local rows id has
   db_exists "$1" || return 0
+  # A _next stopped mid-swap refuses connections, and the query below needs one.
+  set_connections "$1" true || return 1
+  has="$(psql_db "$1" "SELECT to_regclass('public.schools') IS NOT NULL")" || return 1
+  [[ "$has" == t ]] || return 0  # a build that died before migrating has no schools
   rows="$(psql_db "$1" "SELECT id FROM schools WHERE slug LIKE 'bmsc-%'")" || return 1
   while IFS= read -r id; do
     if [[ -z "$id" ]]; then continue; fi
@@ -119,41 +124,43 @@ delete_tenant_objects() {
   return "$rc"
 }
 
-# Drops a demo database, then its tenants' S3 objects. Objects live exactly as long as their DB,
-# so restoring _prev by hand (see the runbook) brings back a demo whose files still exist.
+# Deletes a demo database's S3 objects, then drops it. Objects live exactly as long as their DB, so
+# restoring _prev by hand (see the runbook) brings back a demo whose files still exist. A failed
+# delete keeps the database, and with it the ids, so the next run retries instead of leaking.
 purge_db() {
   local ids
   ids="$(demo_tenant_ids "$1")" || return 1
-  drop_db "$1" || return 1
-  delete_tenant_objects "$ids"
+  delete_tenant_objects "$ids" || return 1
+  drop_db "$1"
 }
 
-SWAPPED=false     # _next now has the live name
-LIVE_MOVED=false  # mid-swap: yesterday's live database sits at the _prev name
+# Both are set just BEFORE their rename; recover() asks the catalog whether the rename committed.
+SWAPPED=false     # _next -> live was attempted
+LIVE_MOVED=false  # live -> _prev was attempted
 SWAP_T0=""
 APP_PID=""
 
 # Run from on_exit in a subshell: puts the databases in the safest state it can, and logs which.
 recover() {
   local manual="fix by hand, runbook in docs/architecture/22-demo-seed.md"
-  if [[ "$SWAPPED" == true ]]; then
+  if [[ "$SWAPPED" == true ]] && db_exists "$LIVE" && ! db_exists "$NEXT"; then
     set_connections "$LIVE" true || { log "the new ${LIVE} refuses connections: ${manual}"; return 1; }
     log "the new database is live; a step after the swap failed (see above)"
     return 0
   fi
-  if [[ "$LIVE_MOVED" == true ]]; then
-    rename_db "$PREV" "$LIVE" \
+  if [[ "$LIVE_MOVED" == true ]] && ! db_exists "$LIVE"; then
+    rename_db "$PREV" "$LIVE" || { db_exists "$LIVE" && ! db_exists "$PREV"; } \
       || { log "ROLLBACK FAILED: yesterday's database is ${PREV}, there is no ${LIVE}, ${NEXT} is kept: ${manual}"; return 1; }
     log "rolled back: yesterday's database is ${LIVE} again"
   fi
   if db_exists "$LIVE"; then
     set_connections "$LIVE" true || { log "${LIVE} refuses connections: ${manual}"; return 1; }
     log "swap did not happen: ${LIVE} is yesterday's database and accepts connections"
+  else
+    log "there is no ${LIVE}: ${manual}"
   fi
   log "dropping ${NEXT} and the objects its seed uploaded"
-  local ids
-  ids="$(demo_tenant_ids "$NEXT" 2>/dev/null)" || ids=""  # a seed that died early has no schools table
-  drop_db "$NEXT" && delete_tenant_objects "$ids"
+  purge_db "$NEXT" || { log "could not purge ${NEXT}; the next run retries"; return 1; }
 }
 
 on_exit() {
@@ -173,15 +180,15 @@ on_exit() {
 build_next() {
   local url; url="$(url_for "$NEXT")"
   log "creating ${NEXT}"
-  drop_db "$NEXT"
+  purge_db "$NEXT" || die "could not purge a leftover ${NEXT}; it is kept for the next run"
   psql_admin "CREATE DATABASE \"${NEXT}\"" >/dev/null
   psql_db "$NEXT" 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"' >/dev/null
   log "migrating ${NEXT}"
-  DATABASE_URL="$url" REDIS_URL="$SWEEP_REDIS" bash -c "$DEMO_MIGRATE_CMD"
+  DATABASE_URL="$url" REDIS_URL="$SWEEP_REDIS" bash -c "$DEMO_MIGRATE_CMD" 9>&-
   log "seeding ${NEXT} (scale ${DEMO_SCALE}, ${DEMO_YEARS} years)"
-  DATABASE_URL="$url" REDIS_URL="$SWEEP_REDIS" bash -c "$DEMO_SEED_CMD"
+  DATABASE_URL="$url" REDIS_URL="$SWEEP_REDIS" bash -c "$DEMO_SEED_CMD" 9>&-
   log "validating ${NEXT}"
-  DATABASE_URL="$url" REDIS_URL="$SWEEP_REDIS" bash -c "$DEMO_VALIDATE_CMD" || die "validator found violations in ${NEXT}"
+  DATABASE_URL="$url" REDIS_URL="$SWEEP_REDIS" bash -c "$DEMO_VALIDATE_CMD" 9>&- || die "validator found violations in ${NEXT}"
   # A freshly migrated DB holds a random default-school id. The app's PLATFORM_TENANT_ID must name
   # it (TenantStatusService.platformTenantId(): platform authority), so main() hands it over.
   PLATFORM_ID="$(psql_db "$NEXT" "SELECT id FROM schools WHERE slug = 'default-school'")" || die "could not read default-school"
@@ -204,7 +211,9 @@ sweep_next() {
   curl -fs --max-time 5 "http://127.0.0.1:${SWEEP_PORT}/api/health" >/dev/null 2>&1 || die "temporary app never became healthy"
   log "running the sweep"
   local rc=0
-  DEMO_SWEEP_URL="http://127.0.0.1:${SWEEP_PORT}" timeout "${DEMO_SWEEP_TIMEOUT:-1800}" bash -c "$DEMO_SWEEP_CMD" || rc=$?
+  # 9>&-: a runner child that outlives the timeout must not keep the reset lock.
+  DEMO_SWEEP_URL="${DEMO_SWEEP_URL:-http://127.0.0.1:${SWEEP_PORT}}" \
+    timeout "${DEMO_SWEEP_TIMEOUT:-1800}" bash -c "$DEMO_SWEEP_CMD" 9>&- || rc=$?
   kill "$APP_PID" 2>/dev/null || true
   wait "$APP_PID" 2>/dev/null || true
   APP_PID=""
@@ -218,26 +227,32 @@ wait_for_swap_time() {
   if (( secs > 0 )); then log "waiting ${secs}s until ${DEMO_SWAP_AT}"; sleep "$secs"; fi
 }
 
-# Any failure here exits; on_exit -> recover() rolls back from SWAPPED / LIVE_MOVED.
+# Any failure here exits; on_exit -> recover() reads the catalog to roll back.
 swap() {
   assert_demo_name "$LIVE"; assert_demo_name "$NEXT"; assert_demo_name "$PREV"; assert_demo_name "$PREV_OLD"
   # Keep exactly one previous DB: _prev becomes _prev_old now, and _prev_old is purged once the app
   # is back. A _prev_old found here is left over from a failed night.
-  purge_db "$PREV_OLD"
-  if db_exists "$PREV"; then rename_db "$PREV" "$PREV_OLD"; fi
+  purge_db "$PREV_OLD" || log "could not purge leftover ${PREV_OLD}; continuing"
+  if db_exists "$PREV"; then
+    if ! db_exists "$PREV_OLD"; then rename_db "$PREV" "$PREV_OLD"
+    # The leftover's objects could not be deleted, so it stays for the next night to retry, and
+    # _prev (due to be purged tonight anyway) goes now instead of being renamed onto it.
+    else purge_db "$PREV" || die "could not purge ${PREV} either; nothing renamed, swap skipped"; fi
+  fi
   SWAP_T0="$(date +%s)"
   set_connections "$NEXT" false
   if db_exists "$LIVE"; then
     set_connections "$LIVE" false
     psql_admin "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${LIVE}' AND pid <> pg_backend_pid()" >/dev/null
-    rename_db "$LIVE" "$PREV"
     LIVE_MOVED=true
-    # Yesterday's database stays usable, so a bad night can be undone by hand (see the runbook).
-    set_connections "$PREV" true
+    rename_db "$LIVE" "$PREV"
   fi
-  rename_db "$NEXT" "$LIVE"
   SWAPPED=true
-  # Nothing after SWAPPED=true may exit: main() re-opens live with the other post-swap steps.
+  # psql can report an error for a rename that did commit (connection lost on the reply): the
+  # catalog decides, so a committed swap always goes on to the post-swap steps in main().
+  rename_db "$NEXT" "$LIVE" \
+    || { db_exists "$LIVE" && ! db_exists "$NEXT" && log "psql reported an error, but ${NEXT} is now ${LIVE}"; } \
+    || die "could not rename ${NEXT} to ${LIVE}"
 }
 
 main() {
@@ -263,7 +278,7 @@ main() {
   trap on_exit EXIT
   cron_checkin in_progress
 
-  local state="${DEMO_STATE_DIR}/platform-tenant-id" first_run=false failed=""
+  local state="${DEMO_STATE_DIR}/platform-tenant-id" first_run=false failed="" out
   [[ -s "$state" ]] || first_run=true
 
   build_next
@@ -278,12 +293,18 @@ main() {
   if set_connections "$LIVE" true; then
     log "swap done; downtime from backend terminate to reconnect: $(( $(date +%s) - SWAP_T0 )) s"
   else failed+=" live-connections"; fi
+  # Yesterday's database stays usable, so a bad night can be undone by hand (see the runbook).
+  # Opened only now: a rollback rename needs it free of sessions.
+  if [[ "$LIVE_MOVED" == true ]]; then set_connections "$PREV" true || failed+=" prev-connections"; fi
   { printf '%s\n' "$PLATFORM_ID" > "${state}.tmp" && mv "${state}.tmp" "$state"; } || failed+=" state-file"
   log "flushing Redis db ${REDIS_DB}"
   "$DEMO_REDIS_CLI" -u "$REDIS_URL" FLUSHDB >/dev/null || failed+=" redis-flush"
   log "restarting the app"
-  if ! bash -c "$DEMO_RESTART_CMD"; then
-    if [[ "$first_run" == true ]]; then log "app not restarted: first run, start it with docker compose up"
+  if ! out="$(bash -c "$DEMO_RESTART_CMD" 2>&1 9>&-)"; then
+    printf '%s\n' "$out" >&2
+    # First boot: `app` was never created (docker-compose.demo.yml header). Any other error counts.
+    if [[ "$first_run" == true && "$out" == *"No such container"* ]]; then
+      log "app not restarted: first run, start it with docker compose up"
     else failed+=" app-restart"; fi
   fi
   log "dropping ${PREV_OLD} and its S3 objects"

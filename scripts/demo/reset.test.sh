@@ -23,13 +23,15 @@ LOG="$WORK/log"; mkdir -p "$LOG" "$WORK/bin" "$WORK/state"
 : > "$LOG/psql.log"; : > "$LOG/aws.log"; : > "$LOG/redis.log"; : > "$LOG/curl.log"
 
 # Stubs. psql runs inside the db container; everything else just records its arguments.
-# PSQL_FAIL_ON / REDIS_FAIL_ON (a regex on the arguments) and AWS_FAIL=1 make calls fail.
-# PSQL_FAIL_ONCE=1: only the first matching psql call fails.
+# PSQL_FAIL_ON / REDIS_FAIL_ON / AWS_FAIL_ON (a regex on the arguments) and AWS_FAIL=1 make calls
+# fail. PSQL_FAIL_ONCE=1: only the first matching psql call fails. PSQL_FAIL_AFTER=1: that call
+# runs for real first, then reports a failure (a statement that committed, then lost its reply).
 cat > "$WORK/bin/psql" <<EOF
 #!/usr/bin/env bash
 echo "\$*" >> "$LOG/psql.log"
 if [[ -n "\${PSQL_FAIL_ON:-}" && "\$*" =~ \$PSQL_FAIL_ON && ! -e "$LOG/failed-once" ]]; then
   [[ -z "\${PSQL_FAIL_ONCE:-}" ]] || touch "$LOG/failed-once"
+  [[ -z "\${PSQL_FAIL_AFTER:-}" ]] || docker exec -i "$DB_CONTAINER" psql "\$@" >/dev/null
   echo "psql stub: forced failure" >&2; exit 3
 fi
 exec docker exec -i "$DB_CONTAINER" psql "\$@"
@@ -49,6 +51,7 @@ EOF
 cat > "$WORK/bin/aws" <<EOF
 #!/usr/bin/env bash
 echo "\$*" >> "$LOG/aws.log"
+if [[ -n "\${AWS_FAIL_ON:-}" && "\$*" =~ \$AWS_FAIL_ON ]]; then exit 1; fi
 [[ -z "\${AWS_FAIL:-}" ]]
 EOF
 cat > "$WORK/bin/curl" <<EOF
@@ -93,14 +96,16 @@ expect() { [[ "$1" == "$2" ]] || fail "$3 (expected '$2', got '$1')"; }
 
 OLD_TENANT="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
-# A "yesterday" live database: one marker row, one demo branch with a known tenant id.
-make_live() {
-  pg "DROP DATABASE IF EXISTS \"$LIVE\" WITH (FORCE)"
-  pg "CREATE DATABASE \"$LIVE\""
-  pg "CREATE TABLE marker(v text); INSERT INTO marker VALUES ('$1');
+# A built demo database: one marker row, one demo branch with a known tenant id. $1 name, $2 marker, $3 id.
+make_db() {
+  pg "DROP DATABASE IF EXISTS \"$1\" WITH (FORCE)"
+  pg "CREATE DATABASE \"$1\""
+  pg "CREATE TABLE marker(v text); INSERT INTO marker VALUES ('$2');
       CREATE TABLE schools(id uuid DEFAULT gen_random_uuid(), slug text);
-      INSERT INTO schools(id, slug) VALUES ('$OLD_TENANT', 'bmsc-old')" "$LIVE"
+      INSERT INTO schools(id, slug) VALUES ('$3', 'bmsc-old')" "$1"
 }
+# A "yesterday" live database.
+make_live() { make_db "$LIVE" "$1" "$OLD_TENANT"; }
 
 # Fake seed: what a built demo database looks like to reset.sh.
 cat > "$WORK/seed.sh" <<'SEED'
@@ -189,7 +194,7 @@ pass "post-swap S3/Redis failure: state file written, app restarted, error repor
 if run_reset RUN_MARK=bad PSQL_FAIL_ON="ALTER DATABASE \"${LIVE}_next\" RENAME TO"; then fail "failed swap should exit 1"; fi
 expect "$(marker "$LIVE")" night3 "yesterday's database is live again"
 expect "$(pg "SELECT datallowconn FROM pg_database WHERE datname = '$LIVE'")" t "rolled-back live accepts connections"
-db_exists "${LIVE}_next" && fail "_next should be dropped after a rollback"
+db_exists "${LIVE}_next" && { cat "$WORK/out" "$WORK/err" >&2; fail "_next should be dropped after a rollback"; }
 grep -q "rolled back: yesterday's database is ${LIVE} again" "$WORK/out" || { cat "$WORK/out" "$WORK/err" >&2; fail "rollback not logged"; }
 grep -q "untouched" "$WORK/out" && fail "must not claim the live database was untouched"
 pass "rename _next -> live fails: rolled back, live accepts connections, honest log"
@@ -229,6 +234,7 @@ refuses "VAPID_PUBLIC_KEY set" "VAPID_PUBLIC_KEY is set" VAPID_PUBLIC_KEY=abc
 refuses "an S3 bucket without 'demo' in its name" "plain bucket name containing 'demo'" S3_BUCKET=biddaloy
 refuses "an S3 bucket with a path in it" "plain bucket name containing 'demo'" S3_BUCKET=prod/demo
 refuses "no sweep decision" "DEMO_SWEEP_CMD" DEMO_SKIP_SWEEP=
+refuses "a Redis db with no next db" "must be below 15" REDIS_URL=redis://redis.invalid:6379/15
 
 # ---- 10. the drop / rename helpers refuse a non-demo name even if called directly --------------
 helper_refuses() { # $1 helper call
@@ -263,5 +269,50 @@ grep -q "redis.invalid:6379 FLUSHDB" "$LOG/redis.log" || fail "the live Redis db
 grep -q "these steps failed: live-connections" "$WORK/err" || { cat "$WORK/err" >&2; fail "live-connections not reported"; }
 grep -q "status=error" "$LOG/curl.log" || fail "error check-in missing"
 pass "re-opening live fails: state file written, Redis flushed, app restarted, exit 1"
+
+# ---- 12. a rename that commits but reports an error is judged by the catalog -------------------
+rm -f "$WORK/restarted"
+run_reset RUN_MARK=night5 PSQL_FAIL_ON="ALTER DATABASE \"${LIVE}_next\" RENAME TO" PSQL_FAIL_ONCE=1 PSQL_FAIL_AFTER=1 \
+  || { cat "$WORK/out" "$WORK/err" >&2; fail "a committed _next -> live rename should carry on"; }
+expect "$(marker "$LIVE")" night5 "the committed rename is live"
+expect "$(cat "$WORK/state/platform-tenant-id")" "$(pg "SELECT id FROM schools WHERE slug = 'default-school'" "$LIVE")" "state file written"
+[[ -e "$WORK/restarted" ]] || fail "app was not restarted"
+grep -q "psql reported an error, but ${LIVE}_next is now ${LIVE}" "$WORK/out" || fail "committed rename not logged"
+pass "_next -> live commits but reports an error: carries on to the restart"
+
+if run_reset RUN_MARK=bad PSQL_FAIL_ON="ALTER DATABASE \"${LIVE}\" RENAME TO" PSQL_FAIL_ONCE=1 PSQL_FAIL_AFTER=1; then
+  fail "a live -> _prev rename that reports an error should exit 1"
+fi
+expect "$(marker "$LIVE")" night5 "yesterday's database is live again"
+expect "$(pg "SELECT datallowconn FROM pg_database WHERE datname = '$LIVE'")" t "rolled-back live accepts connections"
+grep -q "rolled back: yesterday's database is ${LIVE} again" "$WORK/out" || { cat "$WORK/out" >&2; fail "rollback not logged"; }
+db_exists "${LIVE}_next" && { cat "$WORK/out" "$WORK/err" >&2; fail "_next should be dropped after a rollback"; }
+pass "live -> _prev commits but reports an error: rolled back, honest log"
+
+# ---- 13. a leftover _prev_old whose objects cannot be deleted does not stop the night ----------
+LEFT_TENANT="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"; PREV_TENANT="cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+make_db "${LIVE}_prev_old" leftover "$LEFT_TENANT"
+make_db "${LIVE}_prev" twoago "$PREV_TENANT"
+: > "$LOG/aws.log"
+if run_reset RUN_MARK=night6 AWS_FAIL_ON="$LEFT_TENANT"; then fail "the failed leftover purge should still be reported"; fi
+expect "$(marker "$LIVE")" night6 "the swap happened"
+expect "$(marker "${LIVE}_prev")" night5 "_prev is the previous night"
+expect "$(marker "${LIVE}_prev_old")" leftover "the leftover stays, with its ids, for the next night"
+grep -q "tenants/$PREV_TENANT/ --recursive" "$LOG/aws.log" || fail "the old _prev's objects were not deleted"
+grep -q "could not purge leftover ${LIVE}_prev_old; continuing" "$WORK/out" || fail "leftover failure not logged"
+grep -q "these steps failed: purge-${LIVE}_prev_old" "$WORK/err" || { cat "$WORK/err" >&2; fail "leftover failure not reported"; }
+pass "leftover _prev_old S3 failure: logged, kept for the next night, swap still happens"
+
+# ---- 14. a missing app container is excused only on the first run ------------------------------
+rm -f "$WORK/state/platform-tenant-id"
+run_reset RUN_MARK=night7 DEMO_RESTART_CMD='echo "Error response from daemon: No such container: biddaloy-demo-app" >&2; exit 1' \
+  || { cat "$WORK/err" >&2; fail "first run without an app container should pass"; }
+grep -q "app not restarted: first run" "$WORK/out" || fail "first run not logged"
+rm -f "$WORK/state/platform-tenant-id"
+if run_reset RUN_MARK=night8 DEMO_RESTART_CMD='echo "Cannot connect to the Docker daemon" >&2; exit 1'; then
+  fail "a real restart failure must not pass as a first run"
+fi
+grep -q "these steps failed: app-restart" "$WORK/err" || { cat "$WORK/err" >&2; fail "app-restart not reported"; }
+pass "restart: 'No such container' on the first run is fine, any other failure is reported"
 
 echo "reset.test.sh: all passed"

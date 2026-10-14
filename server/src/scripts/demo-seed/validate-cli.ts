@@ -19,7 +19,12 @@ export async function main(
       console.log(`demo validator: ${violations.length} violation(s)`);
       return violations.length === 0 ? 0 : 1;
     } finally {
-      await ds.destroy();
+      // A teardown error must not hide the validator's own error (or its result).
+      try {
+        await ds.destroy();
+      } catch (e) {
+        console.error(`demo validator: teardown failed: ${(e as Error).message}`);
+      }
     }
   } catch (e) {
     console.error((e as Error).message);
