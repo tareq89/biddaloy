@@ -132,5 +132,9 @@ async function bootstrap() {
 // Guarded so importing resolveCorsOrigins for tests doesn't also boot a
 // real Nest application.
 if (require.main === module) {
-  bootstrap();
+  // Explicit exit 1: Sentry's unhandled-rejection handler would otherwise only warn.
+  bootstrap().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
 }

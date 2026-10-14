@@ -5,6 +5,7 @@ import { SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from '../app.module';
 import { buildSwaggerDocumentConfig } from '../swagger';
 import { buildVersioningOptions } from '../api-versioning';
+import { assertDemoDatabase } from '../modules/demo/demo-boot-check';
 
 /**
  * Emits the current OpenAPI document as a build artifact (openapi.json, at
@@ -18,6 +19,7 @@ import { buildVersioningOptions } from '../api-versioning';
  * missing /v1, silently diverging from what the server actually serves.
  */
 async function generateOpenApiDocument() {
+  await assertDemoDatabase(); // no-op unless DEMO_MODE=true (CI never sets it)
   const app = await NestFactory.create(AppModule, { logger: false });
   app.setGlobalPrefix('api');
   app.enableVersioning(buildVersioningOptions());
