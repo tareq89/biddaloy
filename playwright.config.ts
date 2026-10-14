@@ -16,6 +16,12 @@ import { defineConfig, devices, type ReporterDescription } from '@playwright/tes
  */
 const CI = !!process.env.CI;
 
+// [58.4.02] The nightly demo sweep. With DEMO_SWEEP_URL it drives an already-running demo site
+// (no local servers are started); the whole run must finish inside 8 minutes (globalTimeout) so
+// the 02:00 reset never overruns by much.
+const DEMO_NIGHTLY = process.env.E2E_DEMO_NIGHTLY === '1';
+const DEMO_SWEEP_URL = DEMO_NIGHTLY ? process.env.DEMO_SWEEP_URL : undefined;
+
 // [15.1] Set only by ci.yml's per-job collect step. Unset (every local run)
 // means zero behaviour change — the array below is unchanged.
 const timingsOut = process.env.CI_TIMINGS_OUT;
@@ -108,8 +114,25 @@ export default defineConfig({
           {
             name: 'demo',
             testDir: './e2e/demo',
-            testIgnore: [],
+            testIgnore: ['**/demo-nightly-sweep.spec.ts'],
             use: { ...BROWSER_DEVICES.chromium },
+          },
+        ]
+      : []),
+    // [58.4.02] Opt-in: `E2E_DEMO_NIGHTLY=1 DEMO_SWEEP_URL=https://... yarn e2e --project=demo-nightly
+    // --workers=1`. Run by the nightly reset (58.4.01) before the swap; see DEMO_NIGHTLY below.
+    ...(DEMO_NIGHTLY
+      ? [
+          {
+            name: 'demo-nightly',
+            testDir: './e2e/demo',
+            testMatch: /demo-nightly-sweep\.spec\.ts/,
+            testIgnore: [],
+            retries: 0, // a retry would double a role's visit time against the 8-minute budget
+            use: {
+              ...BROWSER_DEVICES.chromium,
+              baseURL: DEMO_SWEEP_URL ?? 'http://localhost:5174',
+            },
           },
         ]
       : []),
@@ -129,19 +152,23 @@ export default defineConfig({
     ]),
   ],
   workers: CI ? 4 : undefined,
-  webServer: [
-    {
-      command: CI ? 'yarn e2e:serve:server' : 'yarn dev:server',
-      url: 'http://localhost:3000/api/health',
-      reuseExistingServer: !CI,
-      timeout: 300_000,
-      env: { NODE_ENV: 'test' },
-    },
-    {
-      command: CI ? 'yarn e2e:serve:client' : 'yarn dev:client-admin',
-      url: 'http://localhost:5174/',
-      reuseExistingServer: !CI,
-      timeout: 300_000,
-    },
-  ],
+  // Only against a running site: with local servers the build time would eat the budget.
+  ...(DEMO_SWEEP_URL ? { globalTimeout: 8 * 60_000 } : {}),
+  webServer: DEMO_SWEEP_URL
+    ? []
+    : [
+        {
+          command: CI ? 'yarn e2e:serve:server' : 'yarn dev:server',
+          url: 'http://localhost:3000/api/health',
+          reuseExistingServer: !CI,
+          timeout: 300_000,
+          env: { NODE_ENV: 'test' },
+        },
+        {
+          command: CI ? 'yarn e2e:serve:client' : 'yarn dev:client-admin',
+          url: 'http://localhost:5174/',
+          reuseExistingServer: !CI,
+          timeout: 300_000,
+        },
+      ],
 });
