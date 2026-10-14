@@ -145,6 +145,18 @@ export const DEMO_DENY_LIST: readonly DemoDenyEntry[] = [
     reason: 'new schools cannot be created in the demo',
     example: '/auth/register/verify',
   },
+  {
+    method: 'POST',
+    pathPattern: /^\/auth\/social\/[^/]+\/link-start$/,
+    reason: "would attach a visitor's real account to a shared card",
+    example: '/auth/social/google/link-start',
+  },
+  {
+    method: 'DELETE',
+    pathPattern: /^\/auth\/social\/identities\/[^/]+$/,
+    reason: 'sign-in methods of a shared card must not change',
+    example: '/auth/social/identities/google',
+  },
 ];
 
 export function findDenied(method: string, path: string): DemoDenyEntry | undefined {
