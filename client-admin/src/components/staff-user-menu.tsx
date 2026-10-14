@@ -41,8 +41,11 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { IosInstallSheet, useInstallPrompt } from '@biddaloy/ui/pwa';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { DownloadIcon } from 'lucide-react';
+import { DownloadIcon, DramaIcon } from 'lucide-react';
 import * as React from 'react';
+
+import { useDemoMode } from '../features/demo/use-demo-mode';
+import { useSwitchDemoRole } from '../features/demo/use-switch-demo-role';
 
 export function StaffUserMenu({
   securityTo = '/security',
@@ -75,6 +78,9 @@ export function StaffUserMenu({
   const [invitesOpen, setInvitesOpen] = React.useState(false);
   const ownInvites = useSchoolInvitesCardProps();
   const invites = sharedInvites ?? ownInvites;
+  const demo = useDemoMode();
+  const { t: tDemo } = useTranslation('demo');
+  const switchDemoRole = useSwitchDemoRole();
 
   async function handleSignOut(): Promise<void> {
     setSigningOut(true);
@@ -130,6 +136,12 @@ export function StaffUserMenu({
             <MenuItem onSelect={() => void navigate({ to: securityTo })}>
               {t('userMenu.security')}
             </MenuItem>
+            {demo.enabled && (
+              <MenuItem onSelect={switchDemoRole}>
+                <DramaIcon aria-hidden="true" />
+                {tDemo('switchRole')}
+              </MenuItem>
+            )}
           </>
         }
       />

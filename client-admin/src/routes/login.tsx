@@ -35,6 +35,9 @@ import type { TFunction } from 'i18next';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { DemoCornerFrame } from '../features/demo/demo-corner-frame';
+import { DemoRoleCards } from '../features/demo/demo-role-cards';
+import { useDemoMode } from '../features/demo/use-demo-mode';
 import { FirstPasswordStep } from '../features/first-password/first-password-step';
 import { isSameAppRedirect } from '../same-app-redirect';
 
@@ -122,6 +125,8 @@ function buildOtpError(error: unknown, t: TFunction<'auth'>): SignInFormError | 
 
 function LoginPage() {
   const { t } = useTranslation('auth');
+  const { t: tDemo } = useTranslation('demo');
+  const demo = useDemoMode();
   const search = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -214,8 +219,8 @@ function LoginPage() {
     );
   }
 
-  return (
-    <AuthLayout>
+  const form = (
+    <>
       {search.social === 'not_linked' && (
         <NoticeBar tone="info" className="mb-5 rounded-md py-2">
           {t('login.socialNotLinked')}
@@ -268,6 +273,30 @@ function LoginPage() {
           />
         </TabsContent>
       </Tabs>
-    </AuthLayout>
+    </>
+  );
+
+  if (!demo.enabled) return <AuthLayout>{form}</AuthLayout>;
+
+  return (
+    <DemoCornerFrame>
+      <AuthLayout size="wide" reserveCorner>
+        <h1 className="text-h2">{tDemo('title')}</h1>
+        <p className="mt-1 mb-4 text-text-secondary">{tDemo('subtitle')}</p>
+        <DemoRoleCards
+          cards={demo.cards}
+          disabled={mutation.isPending}
+          onPick={(card) => mutation.mutate({ email: card.email, password: demo.password })}
+        />
+        {/* A failed card opens the form, which shows the error. */}
+        <details className="mt-5" open={mutation.isError || undefined}>
+          <summary className="cursor-pointer text-body-lg font-medium text-primary">
+            {tDemo('ownAccount')}
+          </summary>
+          <div className="mt-4">{form}</div>
+        </details>
+        <p className="mt-5 text-caption text-text-secondary">{tDemo('footer')}</p>
+      </AuthLayout>
+    </DemoCornerFrame>
   );
 }
