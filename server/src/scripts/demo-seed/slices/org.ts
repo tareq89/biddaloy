@@ -259,7 +259,8 @@ export const slice: DemoSlice = {
     const stamp = todayAt(ctx.anchor, 0);
     let rows = 0;
 
-    // Every calendar year the data touches needs holiday data; check before writing anything.
+    // Every calendar year the data touches wants holiday data. A year past the table's end gets
+    // none, with a warning: the nightly reset must keep running (22-demo-seed.md says when to extend).
     const spansByKind = new Map(
       BRANCHES.map((b) => [b.kind, academicYears(b.kind, ctx.years, ctx.anchor)] as const),
     );
@@ -270,12 +271,11 @@ export const slice: DemoSlice = {
         calendarYears.add(Number(s.end.slice(0, 4)));
       }
     }
-    for (const year of calendarYears) {
-      if (!BD_PUBLIC_HOLIDAYS_BY_YEAR[year]) {
-        throw new Error(
-          `BD_PUBLIC_HOLIDAYS_BY_YEAR has no ${year}; add it to seed-data/public-holidays-bd.ts or lower --years`,
-        );
-      }
+    const missing = [...calendarYears].filter((year) => !BD_PUBLIC_HOLIDAYS_BY_YEAR[year]);
+    if (missing.length) {
+      console.warn(
+        `BD_PUBLIC_HOLIDAYS_BY_YEAR has no ${missing.join(', ')}: seeding those years with no public holidays. Add them to seed-data/public-holidays-bd.ts.`,
+      );
     }
 
     // --- schools (D31) -------------------------------------------------------
@@ -320,6 +320,7 @@ export const slice: DemoSlice = {
     // --- global public-holiday sets for every calendar year the data touches --
     for (const year of [...calendarYears].sort()) {
       const entries = BD_PUBLIC_HOLIDAYS_BY_YEAR[year];
+      if (!entries) continue;
       const set = await ctx.ds.getRepository(PublicHolidaySet).save({
         country: 'BD',
         year,
