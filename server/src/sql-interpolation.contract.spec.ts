@@ -156,6 +156,9 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
   ],
   // clause built by buildFilter from fixed fragments with $n placeholders; alias is the literal "p"
   'modules/reports/collections-report.service.ts': ['clause', 'clause'],
+  // [58.0.03] actorIsStaffIn: code-constant role list + literal $n / column refs
+  'modules/routines/routine-slots.service.ts': ["actorIsStaffIn('$2', 'ft.tenant_id')"],
+  'modules/routines/teacher-busy.service.ts': ["actorIsStaffIn('$3', 's.id')"],
   // column is list === 'shifts' ? 'shift' : 'version'
   'modules/schools/schools.service.ts': ['column', 'column'],
   // BN_COLLATION constant

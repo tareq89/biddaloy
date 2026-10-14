@@ -303,7 +303,7 @@ export class StaffAttendanceService {
     // admin-only (TIME-01).
     const isAdmin = roleHasPermission(role, Permission.LEAVE_APPROVE);
     if (!isAdmin) {
-      const ownStaffProfileId = await this.staffProfilesService.findIdByUserId(userId);
+      const ownStaffProfileId = await this.staffProfilesService.findIdByUserId(userId, tenantId);
       const notOwn = staffProfileIds.some((id) => id !== ownStaffProfileId);
       if (notOwn) {
         throw new ForbiddenException({

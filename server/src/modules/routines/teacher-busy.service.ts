@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { LeaveStatus } from '@biddaloy/shared';
+import { LeaveStatus, Permission, STAFF_ROLES, roleHasPermission } from '@biddaloy/shared';
 import { ResolveRoutineService } from './resolve-routine.service';
 
 export type BusyKind = 'TEACHING' | 'INVIGILATING' | 'ON_LEAVE';
@@ -27,6 +27,25 @@ export interface BusyAtInput {
   /** Rows to ignore: the slot or room being edited. */
   exclude?: { routineSlotId?: string; seatPlanId?: string; roomId?: string };
 }
+
+/**
+ * [58.0.03] The one rule for reading ANOTHER branch's timetable on the actor's
+ * behalf: the actor is a live member there with a staff role that can read
+ * routines. ROUTINE_READ alone is not enough: PARENT and STUDENT hold it for
+ * their own family's timetable, not the staff one. Shared by `busyAt` and the
+ * routine save's cross-branch clash read (`RoutineSlotsService`).
+ *
+ * The clash checks therefore depend on WHO saves (D12): an admin of one
+ * branch only cannot see, and so cannot be stopped by, a shared teacher's
+ * slots in a branch they do not staff. It is not a platform-wide guarantee.
+ */
+const TIMETABLE_ROLES = STAFF_ROLES.filter((r) => roleHasPermission(r, Permission.ROUTINE_READ))
+  .map((r) => `'${r}'`)
+  .join(', ');
+export const actorIsStaffIn = (actorRef: string, tenantRef: string): string =>
+  `EXISTS (SELECT 1 FROM user_tenants ut WHERE ut.user_id = ${actorRef}
+     AND ut.tenant_id = ${tenantRef} AND ut.deleted_at IS NULL
+     AND ut.role::text IN (${TIMETABLE_ROLES}))`;
 
 const hhmm = (t: string) => t.slice(0, 5);
 // Same wall-clock rule as `constraint-check.ts` `slotsOverlapInTime`.
@@ -67,7 +86,7 @@ export class TeacherBusyService {
        WHERE s.id = $1
           OR (s.id IN (SELECT tenant_id FROM teachers WHERE user_id = $2 AND deleted_at IS NULL
                        UNION SELECT tenant_id FROM user_tenants WHERE user_id = $2 AND deleted_at IS NULL)
-              AND s.id IN (SELECT tenant_id FROM user_tenants WHERE user_id = $3 AND deleted_at IS NULL))
+              AND ${actorIsStaffIn('$3', 's.id')})
        ORDER BY (s.id = $1) DESC, s.name`,
       [i.tenantId, i.userId, i.actorUserId],
     );

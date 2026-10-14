@@ -13,12 +13,8 @@ import { User } from './modules/users/entities/user.entity';
  * No database: `buildMetadatas()` resolves metadata from the decorators alone.
  * `ALL_ENTITIES` is hand-kept; #2161 makes it complete.
  */
-const ALLOWED = new Map<string, string>([
-  ['Teacher.user', 'one profile per person; removed by #2153'],
-  ['Guardian.user', 'one profile per person; removed by #2153'],
-  ['Student.user', 'one profile per person; removed by #2153'],
-  ['StaffProfile.user', 'one profile per person; removed by #2153'],
-]);
+// Empty since #2153 moved Teacher/Guardian/Student/StaffProfile to @ManyToOne.
+const ALLOWED = new Map<string, string>();
 
 describe('no @OneToOne(User) on tenant tables', () => {
   const found = new Set<string>();

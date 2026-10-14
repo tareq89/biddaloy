@@ -553,29 +553,26 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       });
     }
 
-    // `Student.user_id` also carries a GLOBAL unique constraint
-    // (`REL_fb3eff90b11bddf7285f9b4e28`), not tenant-scoped and not partial
-    // on `deleted_at` (C2) — same hazard as `Guardian.user_id`
-    // (`guardians.tab.ts`).
-    if (row.user_id && (!student || student.user_id !== row.user_id)) {
-      const holder = await m.findOne(Student, {
-        where: { user_id: row.user_id },
-        withDeleted: true,
-      });
-      if (holder && holder.id !== student?.id) student = student ?? holder;
-      if (holder && student && holder.id !== student.id) {
+    // `students (tenant_id, user_id)` is unique per school among LIVE rows
+    // (D11, partial on `deleted_at`), so look the holder up in THIS tenant
+    // only, live row first — same as `Guardian.user_id` (`guardians.tab.ts`).
+    // Reviving a soft-deleted twin beside a live one would hit 23505 and
+    // abort the restore. The same user may hold a student row in another school.
+    // A soft-deleted match (by registration number) is checked too: it may
+    // carry this user while a live twin already does.
+    if (
+      row.user_id &&
+      (!student || student.user_id !== row.user_id || student.deleted_at !== null)
+    ) {
+      const where = { user_id: row.user_id, tenant_id: tenantId };
+      const live = await m.findOne(Student, { where });
+      if (live && student && live.id !== student.id) {
         throw new Error(
           `Student with user "${row.user_key ?? row.user_id}" already belongs to a different ` +
-            `student record (tenant "${holder.tenant_id}") and cannot be reassigned by a restore.`,
+            `student record and cannot be reassigned by a restore.`,
         );
       }
-    }
-
-    if (student && student.tenant_id !== tenantId) {
-      throw new Error(
-        `Student with user "${row.user_key ?? row.user_id}" already exists in tenant ` +
-          `"${student.tenant_id}" and cannot be restored into tenant "${tenantId}".`,
-      );
+      student ??= live ?? (await m.findOne(Student, { where, withDeleted: true }));
     }
 
     // [13.2.3] A row takes a NEW seat when it ends up ACTIVE and the student was not already an

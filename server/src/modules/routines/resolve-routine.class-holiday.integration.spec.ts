@@ -227,7 +227,7 @@ describe('ResolveRoutineService — class-scoped holidays (integration)', () => 
         `WITH sp AS (
            INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
            VALUES (gen_random_uuid(), $1::uuid, $2::uuid, 'EMP-CH-66-' || $3::text, NOW(), NOW())
-           ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+           ON CONFLICT (tenant_id, user_id) DO UPDATE SET updated_at = NOW()
            RETURNING id
          )
          INSERT INTO teachers (id, user_id, employee_id, designations, tenant_id, staff_profile_id, created_at, updated_at)

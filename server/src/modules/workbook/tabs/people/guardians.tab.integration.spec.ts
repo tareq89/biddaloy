@@ -14,11 +14,10 @@ import { guardiansTab, type GuardianRow } from './guardians.tab';
  * Integration tests for the `guardians` tab against a real Postgres database.
  *
  * The unit spec covers the pure mapping. What it cannot cover is the
- * sharpest edge in this tab: `Guardian.user_id` carries a GLOBAL unique
- * constraint, not scoped to one tenant — so `upsert` must look it up without
- * a tenant filter, must revive a soft-deleted holder instead of
- * re-inserting, and must refuse to silently re-tenant a guardian that
- * belongs to a different school.
+ * sharpest edge in this tab: `guardians (tenant_id, user_id)` is unique per
+ * school among live rows (D11), so `upsert` looks the holder up in this
+ * school only, prefers a live holder, revives a soft-deleted one instead of
+ * re-inserting, and never touches the same user's guardian in another school.
  */
 describe('guardiansTab (integration)', () => {
   let module: TestingModule;
@@ -179,7 +178,7 @@ describe('guardiansTab (integration)', () => {
       expect(saved.occupation).toBe('Revived job');
     });
 
-    it('throws a clear error naming both tenants on a cross-tenant user_id collision', async () => {
+    it('lets the same user hold a guardian row in each school (D11)', async () => {
       const user = await makeUser({ email: 'collide@guardians-a.test' });
       await guardiansTab.upsert(
         rowFor({ user_id: user.id, phone: '01755555555' }),
@@ -188,18 +187,76 @@ describe('guardiansTab (integration)', () => {
         dataSource.manager,
       );
 
-      const rowForB = rowFor({ user_id: user.id, phone: '01766666666', user_key: user.email });
+      await guardiansTab.upsert(
+        rowFor({ user_id: user.id, phone: '01766666666', user_key: user.email }),
+        null,
+        TENANT_B,
+        dataSource.manager,
+      );
+
+      // One row per school, neither re-tenanted.
+      const rows = await guardianRepo.find({ where: { user_id: user.id } });
+      expect(rows.map((r) => r.tenant_id).sort()).toEqual([TENANT_A, TENANT_B]);
+    });
+
+    it('prefers the live holder over a soft-deleted twin with the same user (no 23505)', async () => {
+      const user = await makeUser({ email: 'twin@guardians-a.test' });
+      const old = await guardiansTab.upsert(
+        rowFor({ user_id: user.id, phone: '01700000001' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      await guardiansTab.remove(
+        await guardianRepo.findOneByOrFail({ id: old.id }),
+        dataSource.manager,
+      );
+      // The per-school key is partial on deleted_at, so a live twin can exist.
+      const live = await guardianRepo.save(
+        guardianRepo.create({
+          tenant_id: TENANT_A,
+          user_id: user.id,
+          full_name: 'Live Twin',
+          relationship: 'Father',
+          phone: '01700000002',
+        }),
+      );
+
+      const again = await guardiansTab.upsert(
+        rowFor({ user_id: user.id, phone: '01700000002', occupation: 'Kept' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      expect(again.id).toBe(live.id);
+      const stillDeleted = await guardianRepo.findOne({ where: { id: old.id }, withDeleted: true });
+      expect(stillDeleted?.deleted_at).not.toBeNull();
+    });
+
+    it('refuses with a clear error when the user already holds a different live guardian', async () => {
+      const user = await makeUser({ email: 'holder@guardians-a.test' });
+      await guardiansTab.upsert(
+        rowFor({ user_id: user.id, phone: '01700000003' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const other = await guardiansTab.upsert(
+        rowFor({ phone: '01700000004' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
 
       await expect(
-        guardiansTab.upsert(rowForB, null, TENANT_B, dataSource.manager),
-      ).rejects.toThrow(new RegExp(TENANT_A));
-
-      // The tenant A guardian must not have been re-tenanted, and no row
-      // written for tenant B.
-      const stillA = await guardianRepo.findOneByOrFail({ user_id: user.id });
-      expect(stillA.tenant_id).toBe(TENANT_A);
-      const tenantBGuardians = await guardianRepo.find({ where: { tenant_id: TENANT_B } });
-      expect(tenantBGuardians).toHaveLength(0);
+        guardiansTab.upsert(
+          rowFor({ user_id: user.id, phone: '01700000004' }),
+          other,
+          TENANT_A,
+          dataSource.manager,
+        ),
+      ).rejects.toThrow(/already belongs to a different guardian record/);
     });
   });
 

@@ -942,6 +942,18 @@ describe('workbook round trip (integration)', () => {
       }),
     );
 
+    // [58.0.02] The same person also teaches at tenant B (one Teacher + StaffProfile per
+    // school). Tenant A's export must not carry it. (Step 1b's reset wipes it again, so this
+    // covers export isolation only, not the restore.)
+    await dataSource.getRepository(Teacher).save(
+      dataSource.getRepository(Teacher).create({
+        user_id: teacherUserOne.id,
+        employee_id: `EMP-610-1-${TENANT_A.slice(0, 6)}`,
+        designations: [TeacherDesignation.SUBJECT_TEACHER],
+        tenant_id: TENANT_B,
+      }),
+    );
+
     // [47.x] teacher_assignments with all three roles: a CLASS_TEACHER, an
     // ASSISTANT beside it, a SUBJECT_TEACHER row, and an ASSISTANT on a
     // section that has no class teacher. Before the Role column an assistant
@@ -2101,11 +2113,10 @@ describe('workbook round trip (integration)', () => {
     }
 
     // --- 1b. Tear tenant A down -----------------------------------------
-    // Not optional, and not a convenience: several natural keys the
-    // workbook round-trips on carry **global** unique constraints, not
-    // tenant-scoped ones — `students.registration_number`
-    // (`UQ_82946fdb5652b83cacb81e9083e`), `teachers.employee_id`,
-    // `users.email`, `Student.user_id`. The restore tabs check them
+    // Not optional, and not a convenience: `students.registration_number`
+    // (`UQ_82946fdb5652b83cacb81e9083e`) and `users.email` are GLOBAL unique
+    // keys. (`teachers.employee_id` and the profile `user_id`s are per school
+    // since #2153.) The restore tabs check them
     // deliberately (see `students.tab.ts`'s `upsert`) and refuse to move a
     // row between tenants:
     //

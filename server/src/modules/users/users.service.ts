@@ -39,6 +39,7 @@ import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { ACCESS_TOKEN_TTL_MS } from '../auth/auth-tokens';
 import { assertPasswordAllowed } from '../auth/password-policy';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
+import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import {
   CreateUserDto,
   UpdateUserDto,
@@ -227,7 +228,7 @@ export class UserService {
         // own staff_profiles row later, reusing the Teacher's own
         // employee_id (mirrors the [36.1.1] migration backfill, which did
         // the same for pre-existing teachers) — creating one here too would
-        // hit the `staff_profiles.user_id` unique constraint.
+        // hit the per-school `UQ_staff_profiles_tenant_user` key.
         // COMMITTEE is deliberately absent (D16): not an employee, so not in
         // EMPLOYEE_ROLES. SUPER_ADMIN is refused above (#731).
         if (dto.role !== UserRole.TEACHER && EMPLOYEE_ROLES.includes(dto.role)) {
@@ -921,24 +922,18 @@ export class TeacherService {
       throw new BadRequestException(`User "${dto.user_id}" is not a member of this tenant`);
     }
 
-    // A user can hold at most one teacher profile (unique index on
-    // teachers.user_id) — guard here so the client sees a mapped 409
-    // instead of a raw DB constraint error. The promote dialog's
+    // A user can hold at most one teacher profile per school (unique index on
+    // teachers (tenant_id, user_id)) — guard here so the client sees a mapped
+    // 409 instead of a raw DB constraint error. The promote dialog's
     // client-side exclusion only sees the first 100 teachers.
     const existingProfile = await teacherRepo.findOne({
-      where: { user_id: dto.user_id },
+      where: { user_id: dto.user_id, tenant_id: tenantId },
     });
     if (existingProfile) {
-      throw new ConflictException(`User "${dto.user_id}" already has a teacher profile`);
-    }
-
-    // Check for duplicate employee_id
-    const existing = dto.employee_id
-      ? await teacherRepo.findOne({ where: { employee_id: dto.employee_id } })
-      : null;
-    if (existing) {
-      // Rule 23: name the field, never echo the value.
-      throw new ConflictException('That employee ID is already in use');
+      throw new ConflictException({
+        message: `User "${dto.user_id}" already has a teacher profile`,
+        details: { code: 'ALREADY_TEACHER_HERE' },
+      });
     }
 
     // [36.2.1] Teacher's own employee_id also seeds its staff_profiles row
@@ -951,12 +946,45 @@ export class TeacherService {
     // staff profile" / "already has a teacher profile" guards.
     const joiningDate = dto.joining_date ? new Date(dto.joining_date) : null;
     const work = async (manager: EntityManager) => {
-      const staffProfile = await this.staffProfilesService.createFor(
-        dto.user_id,
-        tenantId,
-        { employeeId: dto.employee_id, joiningDate },
-        manager,
-      );
+      // An ADMIN / ACCOUNTANT / EXECUTIVE already has this school's staff
+      // profile (UserService.create makes one): promoting them reuses it, and
+      // the Teacher takes its employee_id, not the typed one. So check the id
+      // that is actually written, or a clash with a teacher whose id was
+      // edited away from its staff profile surfaces as a raw 23505. Read
+      // inside the transaction to narrow the race window (READ COMMITTED: two
+      // concurrent promotes can still both pass, the second then gets 23505).
+      const reusedProfile = await manager.findOne(StaffProfile, {
+        where: { user_id: dto.user_id, tenant_id: tenantId },
+      });
+      const employeeId = reusedProfile?.employee_id ?? dto.employee_id;
+      const existing = employeeId
+        ? await manager.findOne(Teacher, {
+            where: { employee_id: employeeId, tenant_id: tenantId },
+          })
+        : null;
+      if (existing) {
+        // Rule 23: name the field, never echo the value. A reused profile's
+        // id is not the typed one, so it gets its own code: the dialog must
+        // not blame the field the admin typed.
+        throw new ConflictException(
+          reusedProfile
+            ? {
+                message: "This person's staff employee ID is already used by another teacher",
+                details: { code: 'STAFF_EMPLOYEE_ID_TAKEN' },
+              }
+            : 'That employee ID is already in use',
+        );
+      }
+
+      // Reuse that staff profile; anyone else gets a new one.
+      const staffProfile =
+        reusedProfile ??
+        (await this.staffProfilesService.createFor(
+          dto.user_id,
+          tenantId,
+          { employeeId: dto.employee_id, joiningDate },
+          manager,
+        ));
 
       const teacher = manager.create(Teacher, {
         user_id: dto.user_id,

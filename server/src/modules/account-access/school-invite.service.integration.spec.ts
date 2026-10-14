@@ -188,10 +188,24 @@ describe('SchoolInviteService (integration)', () => {
           .create({ full_name: 'G', relationship: 'Mother', tenant_id: tenantId, ...over }),
       );
 
-  // M2: guardians.user_id is globally UNIQUE, so a parent already linked at school B
-  // can never be linked to school A's guardian. Accept must say so, not 500.
-  it('a parent already linked to a guardian at another school gets a 409, no membership, and the request is retired', async () => {
+  // [58.0.02] guardians (tenant_id, user_id) is unique PER SCHOOL: a parent already
+  // linked at school B links to school A's guardian too (D11).
+  it('a parent already linked to a guardian at another school is linked here as well', async () => {
     await makeGuardian(TENANT_B, { user_id: user.id });
+    const gA = await makeGuardian();
+    const row = await request(SEED_TENANT_ID, { guardianId: gA.id });
+
+    await service.accept(user.id, row.id, CTX);
+
+    expect(await memberships()).toHaveLength(1);
+    const after = await ds.getRepository(Guardian).findOneOrFail({ where: { id: gA.id } });
+    expect(after.user_id).toBe(user.id);
+  });
+
+  // Same school: a second guardian row for the same account would break the per-school
+  // unique index, so accept says so (409), not 500.
+  it('a parent already linked to another guardian of the same school gets a 409, no membership, and the request is retired', async () => {
+    await makeGuardian(SEED_TENANT_ID, { user_id: user.id });
     const gA = await makeGuardian();
     const row = await request(SEED_TENANT_ID, { guardianId: gA.id });
 
@@ -204,14 +218,17 @@ describe('SchoolInviteService (integration)', () => {
     expect(await service.listMine(user.id)).toHaveLength(0);
   });
 
-  it('a link held by a soft-deleted guardian elsewhere also blocks (the unique index ignores deleted_at)', async () => {
-    const old = await makeGuardian(TENANT_B, { user_id: user.id });
+  it('a link held only by a soft-deleted guardian of the same school does not block (matches the partial index)', async () => {
+    const old = await makeGuardian(SEED_TENANT_ID, { user_id: user.id });
     await ds.getRepository(Guardian).softDelete({ id: old.id });
     const gA = await makeGuardian();
     const row = await request(SEED_TENANT_ID, { guardianId: gA.id });
 
-    await expect(service.accept(user.id, row.id, CTX)).rejects.toBeInstanceOf(ConflictException);
-    expect(await memberships()).toHaveLength(0);
+    await service.accept(user.id, row.id, CTX);
+
+    expect(await memberships()).toHaveLength(1);
+    const after = await ds.getRepository(Guardian).findOneOrFail({ where: { id: gA.id } });
+    expect(after.user_id).toBe(user.id);
   });
 
   it('a guardian deleted since the request was filed gives a 409 and no membership', async () => {

@@ -29,11 +29,6 @@ import { ALL_ENTITIES } from '@test/all-entities';
 
 /** Key = `table(col1,col2)`. Each entry has a reason and the ticket that removes it. */
 const ALLOW_LIST: Record<string, { reason: string; removedBy: string }> = {
-  'teachers(user_id)': { reason: 'one profile per person, Epic 58 W0', removedBy: '#2153' },
-  'teachers(employee_id)': { reason: 'global employee id', removedBy: '#2153' },
-  'students(user_id)': { reason: 'one profile per person', removedBy: '#2153' },
-  'guardians(user_id)': { reason: 'one profile per person', removedBy: '#2153' },
-  'staff_profiles(user_id)': { reason: 'one profile per person', removedBy: '#2153' },
   'auth_tokens(token_hash)': {
     reason: 'global on purpose: random secret hash, looked up before the school is known',
     removedBy: 'permanent',

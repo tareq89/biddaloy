@@ -191,6 +191,8 @@
   },
   "conflictList": {
     "violationsTitle": "এটি সংরক্ষণ করা যাবে না",
+    "teacherOtherBranch": "এই পিরিয়ডের একজন শিক্ষক {{day}} {{period}} সময়ে {{branch}}-এ পড়াচ্ছেন।",
+    "teacherOtherBranchNoPeriod": "এই পিরিয়ডের একজন শিক্ষক {{day}} এই সময়ে {{branch}}-এ পড়াচ্ছেন।",
     "warningsTitle": "মনে রাখুন",
     "codes": {
       "BREAK_SLOT": "বিরতির সময়ে পিরিয়ড বসানো যায় না।",

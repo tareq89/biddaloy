@@ -14,9 +14,7 @@ import type {
  * The `teachers` tab: staff profiles extending a `users` row.
  *
  * `entity: Teacher`, table `teachers`. `employee_id` is the natural key —
- * globally unique across every tenant (`teacher.entity.ts`), not just this
- * one, which is what makes `upsert` below unusual (see C6 in the issue
- * #591 plan).
+ * unique per school (`teacher.entity.ts`).
  *
  * `designations` is a Postgres enum array on the entity, but is exported as
  * a plain `;`-joined `string` column rather than `ref-list`: a `ref-list`
@@ -252,30 +250,33 @@ export const teachersTab: TabSpec<Teacher, TeacherRow> = {
     tenantId: string,
     m: EntityManager,
   ): Promise<Teacher> {
-    // Deliberately not tenant-scoped: `Teacher.employee_id` is globally
-    // unique (`teacher.entity.ts`), so a tenant-scoped lookup would miss a
-    // holder in another tenant and the insert below would die with a 23505
-    // that takes the whole restore with it (same hazard as `User.email` in
-    // `users.tab.ts`).
-    //
-    // `withDeleted: true`: the unique constraint is not partial on
-    // `deleted_at` (`1784175065078-InitialSchema.ts:175`), so a
-    // soft-deleted teacher still owns its `employee_id`. A found
-    // soft-deleted row must be revived, not re-inserted into a duplicate.
+    // Tenant-scoped: `teachers (tenant_id, employee_id)` is unique per school
+    // (`UQ_teachers_tenant_employee_id`, D10), so another school's teacher with
+    // the same employee id is a different person. A soft-deleted teacher of this
+    // school is revived rather than re-inserted next to it, but a LIVE row with
+    // the same id wins: reviving a soft-deleted twin beside it would hit 23505.
+    const where = { employee_id: row.employee_id, tenant_id: tenantId };
     let teacher =
       existing ??
-      (await m.findOne(Teacher, { where: { employee_id: row.employee_id }, withDeleted: true }));
+      (await m.findOne(Teacher, { where })) ??
+      (await m.findOne(Teacher, { where, withDeleted: true }));
 
-    if (teacher && teacher.tenant_id !== tenantId) {
-      // A cross-tenant employee_id collision is a genuine data conflict, not
-      // something `upsert` can silently resolve by re-tenanting another
-      // school's teacher. `upsert` has no `ImportContext` (`tab-spec.ts`),
-      // so it cannot emit a `RowError`/warning — throw a clear error naming
-      // both tenants instead, the deliberate exception to "never throw."
-      throw new Error(
-        `Teacher with employee_id "${row.employee_id}" already exists in tenant ` +
-          `"${teacher.tenant_id}" and cannot be restored into tenant "${tenantId}".`,
-      );
+    // `teachers (tenant_id, user_id)` is unique among LIVE rows too
+    // (`UQ_teachers_tenant_user`, D11). The row's user may already hold a
+    // different live teacher row here (its employee id edited after export),
+    // and a soft-deleted match may carry this user beside a live twin. Either
+    // way `m.save` would hit 23505 and abort the restore, so name it instead.
+    // With no match by employee id, the user's own row is taken over.
+    if (teacher?.user_id !== row.user_id || teacher.deleted_at !== null) {
+      const byUser = { user_id: row.user_id, tenant_id: tenantId };
+      const live = await m.findOne(Teacher, { where: byUser });
+      if (live && teacher && live.id !== teacher.id) {
+        throw new Error(
+          `Teacher with user "${row.user_key || row.user_id}" already belongs to a different ` +
+            `teacher record and cannot be reassigned by a restore.`,
+        );
+      }
+      teacher ??= live ?? (await m.findOne(Teacher, { where: byUser, withDeleted: true }));
     }
 
     if (teacher) {

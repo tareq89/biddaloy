@@ -139,7 +139,7 @@ describe('[28.4.2] Survey respond and results', () => {
       `WITH sp AS (
          INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
          VALUES (gen_random_uuid(), $2::uuid, $3::uuid, 'EMP-SRV-1', NOW(), NOW())
-         ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+         ON CONFLICT (tenant_id, user_id) DO UPDATE SET updated_at = NOW()
          RETURNING id
        )
        INSERT INTO teachers (id, user_id, employee_id, designations, tenant_id, staff_profile_id, created_at, updated_at)
@@ -470,7 +470,7 @@ describe('[28.4.2] Survey respond and results', () => {
       `WITH sp AS (
          INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
          VALUES (gen_random_uuid(), $2::uuid, $3::uuid, 'EMP-SRV-ADM', NOW(), NOW())
-         ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+         ON CONFLICT (tenant_id, user_id) DO UPDATE SET updated_at = NOW()
          RETURNING id
        )
        INSERT INTO teachers (id, user_id, employee_id, designations, tenant_id, staff_profile_id, created_at, updated_at)
@@ -564,7 +564,7 @@ describe('[28.4.2] Survey respond and results', () => {
         `WITH sp AS (
            INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
            VALUES (gen_random_uuid(), $2::uuid, $3::uuid, 'EMP-SRV-ADM2', NOW(), NOW())
-           ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+           ON CONFLICT (tenant_id, user_id) DO UPDATE SET updated_at = NOW()
            RETURNING id
          )
          INSERT INTO teachers (id, user_id, employee_id, designations, tenant_id, staff_profile_id, created_at, updated_at, deleted_at)

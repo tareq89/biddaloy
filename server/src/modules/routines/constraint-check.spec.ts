@@ -334,3 +334,60 @@ describe('checkSlot — recurrence matrix (D8)', () => {
     expect(result.violations).toHaveLength(0);
   });
 });
+
+// [58.0.03] Slots loaded from another branch (`foreign`) only feed the teacher clash.
+describe('checkSlot — foreign-branch slots (D12)', () => {
+  const foreign = (overrides: Partial<SlotLike> = {}): SlotLike =>
+    slot({
+      id: 'foreign-1',
+      section_id: '',
+      room_id: null,
+      foreign: { tenantName: 'North Branch', periodName: 'Period 3' },
+      ...overrides,
+    });
+  const mine = (overrides: Partial<SlotLike> = {}) =>
+    candidate({ teacher_ids: ['teacher-1'], ...overrides });
+
+  it('BIWEEKLY vs BIWEEKLY with different offsets still clashes across branches', () => {
+    // Offsets count from each branch's own year start, so they cannot be compared.
+    const result = checkSlot(
+      mine({ recurrence: SlotRecurrence.BIWEEKLY, recurrence_offset: 0 }),
+      [foreign({ recurrence: SlotRecurrence.BIWEEKLY, recurrence_offset: 1 })],
+      CLASS_PERIOD,
+      new Set(['teacher-1']),
+      {},
+    );
+    expect(result.violations.map((v) => v.code)).toEqual(['TEACHER_DOUBLE_BOOKED']);
+    expect(result.violations[0].details).toEqual({
+      tenantName: 'North Branch',
+      weekday: 1,
+      periodName: 'Period 3',
+    });
+  });
+
+  it('does not count toward the daily cap or the consecutive-period warning', () => {
+    const result = checkSlot(
+      mine({ period_sequence: 5, ...timesForSequence(5) }),
+      [
+        foreign({ period_sequence: 4, ...timesForSequence(4) }),
+        foreign({ id: 'foreign-2', period_sequence: 3, ...timesForSequence(3) }),
+      ],
+      CLASS_PERIOD,
+      new Set(['teacher-1']),
+      { maxPeriodsPerTeacherPerDay: 1, maxConsecutivePeriods: 1 },
+    );
+    expect(result.violations).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('does not trigger a section or room clash', () => {
+    const result = checkSlot(
+      mine({ section_id: '', room_id: 'room-9', teacher_ids: ['teacher-2'] }),
+      [foreign({ room_id: 'room-9' })],
+      CLASS_PERIOD,
+      new Set(),
+      {},
+    );
+    expect(result.violations).toEqual([]);
+  });
+});

@@ -21,17 +21,20 @@ interface JoinRequestMetadata {
 }
 
 /**
- * `guardians.user_id` is UNIQUE across all schools and ignores `deleted_at`, so
- * an account linked to any other guardian row can never be linked to this one.
+ * `guardians (tenant_id, user_id)` is UNIQUE per school among live rows, so an
+ * account already linked to another live guardian row of this school can never
+ * be linked to this one. A soft-deleted guardian (child left) does not block,
+ * same as the index; workbook restore prefers the live row over it. Links in
+ * other schools do not count (D11).
  */
 export function guardianLinkedElsewhere(
   m: EntityManager,
   userId: string,
   guardianId: string,
+  tenantId: string,
 ): Promise<boolean> {
   return m.exists(Guardian, {
-    where: { user_id: userId, id: Not(guardianId) },
-    withDeleted: true,
+    where: { user_id: userId, tenant_id: tenantId, id: Not(guardianId) },
   });
 }
 
@@ -191,7 +194,7 @@ export class SchoolInviteService {
 
       if (meta.guardian_id) {
         const linked =
-          !(await guardianLinkedElsewhere(m, userId, meta.guardian_id)) &&
+          !(await guardianLinkedElsewhere(m, userId, meta.guardian_id, tenantId)) &&
           ((
             await m
               .createQueryBuilder()

@@ -4,7 +4,6 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToOne,
   JoinColumn,
   ManyToOne,
   Index,
@@ -17,7 +16,7 @@ import { School } from '../../schools/entities/school.entity';
  * (TEACHER/ADMIN/ACCOUNTANT/EXECUTIVE) gets — `employee_id`/`joining_date`
  * live here, not on the role-specific table, so attendance/leave (and any
  * future staff feature) can key off one row regardless of role. `Teacher`
- * keeps its own `employee_id` too (unchanged, unique globally) and points
+ * keeps its own `employee_id` too (unchanged, unique per school) and points
  * at its `staff_profiles` row via `staff_profile_id`.
  *
  * Table created by migration `StaffAttendanceLeave1789800014000` — this
@@ -25,13 +24,15 @@ import { School } from '../../schools/entities/school.entity';
  * `server/src/migrations/1789800014000-StaffAttendanceLeave.ts`).
  */
 @Entity('staff_profiles')
+@Index('UQ_staff_profiles_tenant_user', ['tenant_id', 'user_id'], { unique: true })
+@Index('IDX_staff_profiles_user_id', ['user_id'])
 @Index(['tenant_id'])
 @Index(['tenant_id', 'employee_id'], { unique: true })
 export class StaffProfile {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 

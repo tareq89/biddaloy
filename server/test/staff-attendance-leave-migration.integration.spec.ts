@@ -45,7 +45,7 @@ describe('StaffAttendanceLeave1789800014000 (integration)', () => {
     );
     expect(profile.id).toBeTruthy();
 
-    // Same user, second staff_profiles row — rejected (UQ_staff_profiles_user).
+    // Same user, second staff_profiles row — rejected (UQ_staff_profiles_tenant_user).
     await expect(
       dataSource.query(
         `INSERT INTO "staff_profiles" (id, user_id, tenant_id, employee_id) VALUES (gen_random_uuid(), $1, $2, $3)`,

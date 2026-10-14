@@ -5,7 +5,6 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   DeleteDateColumn,
-  OneToOne,
   JoinColumn,
   ManyToOne,
   Index,
@@ -23,23 +22,32 @@ import { TeacherDesignation } from '@biddaloy/shared';
  *
  * Relations:
  * - @ManyToOne → School: the tenant this teacher belongs to
- * - @OneToOne → User (user): the login account (CASCADE delete — removing user removes teacher)
+ * - @ManyToOne → User (user): the login account (CASCADE delete — removing user removes teacher)
  * - @ManyToMany → ClassSection (via teacher_class_sections): sections the teacher is assigned to
  */
 @Entity('teachers')
+@Index('UQ_teachers_tenant_user', ['tenant_id', 'user_id'], {
+  unique: true,
+  where: '"deleted_at" IS NULL',
+})
+@Index('IDX_teachers_user_id', ['user_id'])
+@Index('UQ_teachers_tenant_employee_id', ['tenant_id', 'employee_id'], {
+  unique: true,
+  where: '"deleted_at" IS NULL',
+})
 @Index(['tenant_id'])
 export class Teacher {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
   @Column({ type: 'uuid' })
   user_id: string;
 
-  @Column({ type: 'varchar', length: 50, unique: true })
+  @Column({ type: 'varchar', length: 50 })
   employee_id: string;
 
   @Column({ type: 'enum', enum: TeacherDesignation, array: true, default: [] })

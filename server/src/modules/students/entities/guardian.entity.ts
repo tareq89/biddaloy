@@ -7,7 +7,6 @@ import {
   DeleteDateColumn,
   ManyToMany,
   JoinColumn,
-  OneToOne,
   Index,
   ManyToOne,
 } from 'typeorm';
@@ -25,11 +24,16 @@ import { CommunicationMedium } from '@biddaloy/shared';
  *
  * Relations:
  * - @ManyToOne → School: the tenant this guardian belongs to
- * - @OneToOne → User (optional): login account for guardian self-service
+ * - @ManyToOne → User (optional): login account for guardian self-service
  * - @ManyToMany → Student (via student_guardians): linked children
  * - Referenced-by → CommunicationLog: messages sent to this guardian
  */
 @Entity('guardians')
+@Index('UQ_guardians_tenant_user', ['tenant_id', 'user_id'], {
+  unique: true,
+  where: '"user_id" IS NOT NULL AND "deleted_at" IS NULL',
+})
+@Index('IDX_guardians_user_id', ['user_id'])
 @Index(['phone'])
 @Index(['email'])
 @Index(['tenant_id'])
@@ -37,7 +41,7 @@ export class Guardian {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'user_id' })
   user: User | null;
 

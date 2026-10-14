@@ -48,6 +48,10 @@ export interface SlotLike {
   valid_to: string | null;
   /** Teacher ids assigned to this slot (via `RoutineSlotTeacher`). */
   teacher_ids: string[];
+  /** [58.0.03] Set only on a slot loaded from ANOTHER branch (tenant) where
+   * the acting user is also a member. It takes part in the teacher-overlap
+   * check and nothing else, and carries no section/subject/room data. */
+  foreign?: { tenantName: string; periodName: string | null };
 }
 
 /** The period-slot metadata a candidate references — enough to tell a
@@ -87,6 +91,8 @@ export type WarningCode = 'TEACHER_NOT_ASSIGNED' | 'TEACHER_OVER_CONSECUTIVE_LIM
 export interface Violation {
   code: ViolationCode;
   message: string;
+  /** Only on a cross-branch `TEACHER_DOUBLE_BOOKED`: "busy at that period". */
+  details?: { tenantName: string; weekday: number; periodName: string | null };
 }
 
 export interface Warning {
@@ -162,12 +168,12 @@ function slotsCoexist(a: SlotLike, b: SlotLike): boolean {
  * b.starts < a.ends`) instead of `period_slot_id` equality — two slots
  * from different shifts can still clash a teacher or a room even though
  * they reference different `PeriodSlot` rows. */
-function slotsOverlapInTime(a: SlotLike, b: SlotLike): boolean {
+function slotsOverlapInTime(a: SlotLike, b: SlotLike, compareRecurrence = true): boolean {
   return (
     a.weekday === b.weekday &&
     a.starts_at < b.ends_at &&
     b.starts_at < a.ends_at &&
-    recurrenceIntersects(a, b) &&
+    (!compareRecurrence || recurrenceIntersects(a, b)) &&
     dateRangesOverlap(a, b) &&
     a.id !== b.id
   );
@@ -175,8 +181,9 @@ function slotsOverlapInTime(a: SlotLike, b: SlotLike): boolean {
 
 /**
  * Check one candidate slot against the slots it would coexist with.
- * `existing` should already be scoped by the caller to the same
- * routine/tenant — this function does no tenant filtering itself.
+ * `existing` is the same routine's slots, plus (only for the teacher
+ * clash) slots with `foreign` set from the actor's other branches. This
+ * function does no tenant filtering itself; the caller's query does.
  */
 export function checkSlot(
   candidate: SlotLike,
@@ -195,6 +202,10 @@ export function checkSlot(
     });
   }
 
+  // Foreign-branch slots only matter for the teacher clash below; every
+  // other rule (section, room, caps) is per-branch.
+  const foreignSlots = existing.filter((s) => s.foreign);
+  existing = existing.filter((s) => !s.foreign);
   const coexisting = existing.filter((s) => slotsCoexist(candidate, s));
   const timeOverlapping = existing.filter((s) => slotsOverlapInTime(candidate, s));
 
@@ -229,6 +240,26 @@ export function checkSlot(
     violations.push({
       code: 'TEACHER_DOUBLE_BOOKED',
       message: 'A teacher on this slot is already teaching another section at this weekday/time.',
+    });
+  }
+  // [58.0.03] Same person, another branch, overlapping wall-clock time.
+  const foreignClash = foreignSlots.find(
+    (s) =>
+      // Recurrence is not compared: BIWEEKLY offsets count from each
+      // branch's own year start, so across branches they can't be matched
+      // (same stance as MONTHLY: assume they may meet).
+      slotsOverlapInTime(candidate, s, false) &&
+      s.teacher_ids.some((t) => candidate.teacher_ids.includes(t)),
+  );
+  if (foreignClash?.foreign) {
+    violations.push({
+      code: 'TEACHER_DOUBLE_BOOKED',
+      message: `A teacher on this slot is already teaching at ${foreignClash.foreign.tenantName} at this weekday/time.`,
+      details: {
+        tenantName: foreignClash.foreign.tenantName,
+        weekday: foreignClash.weekday,
+        periodName: foreignClash.foreign.periodName,
+      },
     });
   }
 

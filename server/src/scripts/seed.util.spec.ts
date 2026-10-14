@@ -2169,44 +2169,18 @@ describe('ensureStaffHrSeed', () => {
     });
   });
 
-  it('looks a profile up by user alone, matching the global UQ_staff_profiles_user', async () => {
+  it('looks a profile up by user and school, matching UQ_staff_profiles_tenant_user', async () => {
     const repos = makeStaffHrRepos();
     vi.mocked(repos.staffProfileRepository.findOne).mockResolvedValue(null);
 
     await ensureStaffHrSeed(repos, 'school-a', [{ userId: 'user-1', employeeId: 'EMP-SEED-001' }]);
 
-    // A `{ tenant_id, user_id }` lookup would miss a profile in another
-    // tenant, and the insert would then violate the user-only unique key.
+    // A user who is staff in two schools has one profile per school, so a
+    // profile in another school must not be found (or reused) here.
     expect(repos.staffProfileRepository.findOne).toHaveBeenCalledWith({
-      where: { user_id: 'user-1' },
+      where: { user_id: 'user-1', tenant_id: 'school-a' },
     });
-  });
-
-  it('skips a user whose only profile is in another tenant instead of crashing', async () => {
-    // Real case: admin@biddaloy.test is ADMIN in both default-school and
-    // rose-valley-school, and its single profile lives in rose-valley.
-    const repos = makeStaffHrRepos();
-    vi.mocked(repos.staffProfileRepository.findOne).mockResolvedValue({
-      id: 'profile-in-b',
-      tenant_id: 'school-b',
-      user_id: 'user-1',
-    } as StaffProfile);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    const result = await ensureStaffHrSeed(repos, 'school-a', [
-      { userId: 'user-1', employeeId: 'EMP-SEED-001' },
-    ]);
-
-    // No second profile is inserted for this user...
-    expect(repos.staffProfileRepository.save).not.toHaveBeenCalled();
-    expect(result.staffProfiles).toBe(0);
-    // ...and school-a's sample attendance/leave rows are never attached to
-    // school-b's profile (tenant isolation): with no usable profile, none
-    // are written at all.
-    expect(repos.staffAttendanceRecordRepository.save).not.toHaveBeenCalled();
-    expect(repos.leaveRecordRepository.save).not.toHaveBeenCalled();
-    expect(warn).toHaveBeenCalledTimes(1);
-    warn.mockRestore();
+    expect(repos.staffProfileRepository.save).toHaveBeenCalled();
   });
 });
 

@@ -20,9 +20,10 @@ import { SchoolSettingsReader } from '../schools/settings/school-settings-reader
 import { SchoolsService } from '../schools/schools.service';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../attendance/attendance-policy.util';
-import { AuditAction, RoutineState } from '@biddaloy/shared';
+import { AuditAction, RoutineState, SlotRecurrence } from '@biddaloy/shared';
 import { UpsertRoutineSlotDto } from './dto/routine-slots.dto';
 import { checkSlot, SlotLike, Violation, Warning } from './constraint-check';
+import { actorIsStaffIn } from './teacher-busy.service';
 
 export interface RoutineSlotWithWarnings {
   slot: RoutineSlot;
@@ -87,6 +88,7 @@ export class RoutineSlotsService {
     routineId: string,
     dto: UpsertRoutineSlotDto,
     tenantId: string,
+    actorUserId: string | null = null,
   ): Promise<RoutineSlotWithWarnings> {
     const routine = await this.getRoutine(routineId, tenantId);
     await this.assertNotBackdated(routine, dto.valid_from, tenantId);
@@ -94,7 +96,7 @@ export class RoutineSlotsService {
     return this.dataSource.transaction(async (manager) => {
       await this.validateTenantReferences(manager, dto, tenantId);
       const periodSlot = await this.getPeriodSlot(dto.period_slot_id, tenantId, manager);
-      const existing = await this.loadExisting(routineId, tenantId, manager);
+      const existing = await this.loadExisting(routineId, tenantId, manager, dto, actorUserId);
       const candidate = this.toSlotLike(dto, periodSlot);
 
       const { violations, warnings } = await this.check(candidate, existing, periodSlot, tenantId);
@@ -161,7 +163,7 @@ export class RoutineSlotsService {
       // already ended.
       await manager.update(RoutineSlot, { id, tenant_id: tenantId }, { valid_to: closeDate });
 
-      const existing = await this.loadExisting(oldSlot.routine_id, tenantId, manager);
+      const existing = await this.loadExisting(oldSlot.routine_id, tenantId, manager, dto, userId);
       const candidate = this.toSlotLike(dto, periodSlot);
 
       const { violations, warnings } = await this.check(candidate, existing, periodSlot, tenantId);
@@ -353,6 +355,111 @@ export class RoutineSlotsService {
    * teacher assignments and period sequence attached — what a candidate
    * is checked against. */
   private async loadExisting(
+    routineId: string,
+    tenantId: string,
+    manager?: EntityManager,
+    candidate?: UpsertRoutineSlotDto,
+    actorUserId?: string | null,
+  ): Promise<SlotLike[]> {
+    const foreign =
+      manager && candidate && actorUserId
+        ? await this.loadForeignTeacherSlots(manager, tenantId, actorUserId, candidate, routineId)
+        : [];
+    const local = await this.loadLocalSlots(routineId, tenantId, manager);
+    return [...local, ...foreign];
+  }
+
+  /** [58.0.03] D12: slots of the same people in OTHER branches. One query.
+   * The actor's staff membership is part of the join (`actorIsStaffIn`), so a
+   * branch the actor does not staff is never read — the check depends on who
+   * saves, see that helper. Returns clock times and names only, no
+   * section/subject/room/class data.
+   *
+   * Each slot is bounded by its own academic year (a slot's `valid_to` is
+   * usually NULL; inside a branch the resolver bounds it by the year), and
+   * the years are picked by date overlap with the candidate, not
+   * `is_current`: planning next year neither clashes with this year's slots
+   * nor misses the other branch's drafted next-year routine. The candidate
+   * is bounded the same way (`own.cand_from`..`own.cand_to` = clamped to its
+   * own routine's year), so a next-year slot saved with `valid_from = today`
+   * (what the UI sends) does not clash with this year's slots, and editing
+   * this year's open-ended slot does not clash with the other branch's
+   * next-year draft. */
+  private async loadForeignTeacherSlots(
+    manager: EntityManager,
+    tenantId: string,
+    actorUserId: string,
+    candidate: UpsertRoutineSlotDto,
+    routineId: string,
+  ): Promise<SlotLike[]> {
+    const teacherIds = candidate.teacher_ids;
+    if (teacherIds.length === 0) return [];
+    const rows: Array<{
+      id: string;
+      local_teacher_id: string;
+      weekday: number;
+      recurrence: SlotRecurrence;
+      recurrence_offset: number;
+      valid_from: string;
+      valid_to: string | null;
+      starts_at: string;
+      ends_at: string;
+      period_name: string | null;
+      tenant_name: string;
+    }> = await manager.query(
+      `WITH own AS (
+         SELECT GREATEST($4::date, oay.start_date) AS cand_from,
+                LEAST(COALESCE($5::date, oay.end_date), oay.end_date) AS cand_to
+           FROM routines orr
+           JOIN academic_years oay ON oay.id = orr.academic_year_id AND oay.tenant_id = orr.tenant_id
+          WHERE orr.id = $6 AND orr.tenant_id = $1)
+       SELECT rs.id, lt.id AS local_teacher_id, rs.weekday, rs.recurrence, rs.recurrence_offset,
+              GREATEST(rs.valid_from, ay.start_date)::text AS valid_from,
+              LEAST(COALESCE(rs.valid_to, ay.end_date), ay.end_date)::text AS valid_to,
+              ps.starts_at, ps.ends_at, ps.name AS period_name, sch.name AS tenant_name
+         FROM own CROSS JOIN teachers lt
+         JOIN teachers ft ON ft.user_id = lt.user_id AND ft.tenant_id <> lt.tenant_id AND ft.deleted_at IS NULL
+         JOIN routine_slot_teachers rst ON rst.teacher_id = ft.id AND rst.tenant_id = ft.tenant_id
+         JOIN routine_slots rs ON rs.id = rst.routine_slot_id AND rs.tenant_id = ft.tenant_id
+         JOIN routines r ON r.id = rs.routine_id AND r.tenant_id = ft.tenant_id AND r.deleted_at IS NULL
+         JOIN academic_years ay ON ay.id = r.academic_year_id AND ay.tenant_id = ft.tenant_id
+              AND ay.deleted_at IS NULL
+              AND ay.end_date >= own.cand_from AND ay.start_date <= own.cand_to
+         JOIN period_slots ps ON ps.id = rs.period_slot_id AND ps.tenant_id = ft.tenant_id
+         JOIN schools sch ON sch.id = ft.tenant_id AND sch.deleted_at IS NULL
+        WHERE lt.tenant_id = $1 AND lt.id = ANY($3::uuid[])
+          AND LEAST(COALESCE(rs.valid_to, ay.end_date), ay.end_date) >= own.cand_from
+          AND GREATEST(rs.valid_from, ay.start_date) <= own.cand_to
+          AND ${actorIsStaffIn('$2', 'ft.tenant_id')}`,
+      [
+        tenantId,
+        actorUserId,
+        teacherIds,
+        candidate.valid_from,
+        candidate.valid_to ?? null,
+        routineId,
+      ],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      section_id: '',
+      period_slot_id: '',
+      period_sequence: 0,
+      starts_at: r.starts_at,
+      ends_at: r.ends_at,
+      weekday: r.weekday,
+      subject_id: '',
+      room_id: null,
+      recurrence: r.recurrence,
+      recurrence_offset: r.recurrence_offset,
+      valid_from: r.valid_from,
+      valid_to: r.valid_to,
+      teacher_ids: [r.local_teacher_id],
+      foreign: { tenantName: r.tenant_name, periodName: r.period_name },
+    }));
+  }
+
+  private async loadLocalSlots(
     routineId: string,
     tenantId: string,
     manager?: EntityManager,
