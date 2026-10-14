@@ -233,7 +233,33 @@ each with a reason.
 - A slice still marked `owedBy: '<ticket>'` has no rows yet. When it gets rows, the `owedBy` line goes.
 - `ALL_ENTITIES` matches the `@Entity` files on disk.
 - The invariant validator finds nothing. It checks: no double-booked teacher (also across branches), one current year per branch, money sums, attendance only on school days, every demo login works.
+- Every demo login opens the app to at least 3 open alerts (see "The attention slice" below).
 - The run stays inside the time budget.
+
+## The attention slice (`slices/attention.ts`, runs last)
+
+Open alerts are never inserted by hand. The slice seeds the history and some manual messages, then runs
+the attention engine over everything the other slices wrote, so the alerts are exactly what the rules derive.
+
+```mermaid
+flowchart LR
+  A[Other slices: attendance, fees, exams, homework...] --> D[(school data)]
+  H[attention slice: 30 days of resolved history] --> T[(alerts, alert_recipients)]
+  M[attention slice: 4 manual messages via ManualAlertsService] --> T
+  D --> S[attention slice: sweepTenant FAST, HOURLY, DAILY per branch]
+  S --> T
+```
+
+- **History**: `RESOLVED` (3 in 4, cleared 10 to 90 minutes after being raised) and `EXPIRED` alerts, from the first day of
+  last month up to yesterday, spread over four sections. The alerts report reads the previous local month, so it has data.
+- **Manual messages**: the principal tells the teachers about a staff meeting; the admin sends three notices to roles the
+  rules rarely reach (accountant, committee, office desk). Real send path, so the "sent by" screen is real.
+- **Sweeps**: each branch gets FAST (10:30 on the anchor day), HOURLY (10:30) and DAILY (18:00, after the evening slot).
+  All times come from `ctx.anchor`.
+- **Coverage guard**: `demo-seed.coverage.integration.spec.ts` counts `OPEN` recipients of `ACTIVE` alerts per `DEMO_CARDS`
+  login and fails below 3. If you add a role to the cards and it has no rule alerts, add a manual message for it.
+- `alerts.raised_at` / `expires_at` / `last_evaluated_at` and `alert_recipients.pushed_at` are in the determinism guard's
+  `CLOCK_COLS`: manual messages and push delivery use the real clock.
 
 ## Where this rule is also written
 
