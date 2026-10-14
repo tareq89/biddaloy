@@ -21,7 +21,10 @@ export function useDemoMode(): {
     queryFn: async ({ signal }): Promise<DemoRolesResponse | null> => {
       try {
         const res = await fetch(`${API_BASE_URL}/demo/roles`, { signal });
-        return res.ok ? ((await res.json()) as DemoRolesResponse) : null;
+        // Read the body even on a 404: an unread body leaves the request open in Chromium, so
+        // the page never reaches network idle.
+        const body: unknown = await res.json().catch(() => null);
+        return res.ok ? (body as DemoRolesResponse) : null;
       } catch {
         return null;
       }
