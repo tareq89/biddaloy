@@ -182,7 +182,9 @@ export class AdmissionApplicantService {
     // bot could diff against a real response.
     if (dto.middle_name_confirm) {
       return {
-        reference_number: this.randomReferenceCandidate(),
+        reference_number: this.randomReferenceCandidate(
+          await this.schoolsService.todayFor(school.id),
+        ),
         status: AdmissionApplicantStatus.PENDING,
       };
     }
@@ -310,7 +312,7 @@ export class AdmissionApplicantService {
           throw new BadRequestException('This admission intake has no seats left');
         }
 
-        const referenceNumber = await this.generateReferenceNumber(applicantRepo, school.id);
+        const referenceNumber = await this.generateReferenceNumber(applicantRepo, school.id, today);
         const saved = await applicantRepo.save(
           applicantRepo.create({
             tenant_id: school.id,
@@ -381,9 +383,10 @@ export class AdmissionApplicantService {
   private async generateReferenceNumber(
     applicantRepo: Repository<AdmissionApplicant>,
     tenantId: string,
+    today: string,
   ): Promise<string> {
     for (let attempt = 0; attempt < AdmissionApplicantService.REFERENCE_MAX_ATTEMPTS; attempt++) {
-      const candidate = this.randomReferenceCandidate();
+      const candidate = this.randomReferenceCandidate(today);
       const taken = await applicantRepo.exists({
         where: { tenant_id: tenantId, reference_number: candidate },
         withDeleted: true,
@@ -395,11 +398,12 @@ export class AdmissionApplicantService {
 
   /** One `ADM-<year>-<6 random chars>` candidate, with no DB check — used
    * both by `generateReferenceNumber` (which does check) and the honeypot
-   * path (which must return a real-looking value without touching the
+   * path (which must return a real-looking value without writing to the
    * database, so a bot can't tell it was caught by timing or a recognizable
-   * constant). */
-  private randomReferenceCandidate(): string {
-    const year = new Date().getFullYear();
+   * constant). `today` is the tenant's local YYYY-MM-DD; its year is the
+   * reference year. */
+  private randomReferenceCandidate(today: string): string {
+    const year = today.slice(0, 4);
     const code = Array.from(
       { length: AdmissionApplicantService.REFERENCE_CODE_LENGTH },
       () =>
