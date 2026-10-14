@@ -20,7 +20,9 @@ function fakeManagerQueryBuilder(result: { one?: unknown | null }) {
   const qb: any = {
     where: vi.fn().mockReturnThis(),
     andWhere: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
     getOne: vi.fn().mockResolvedValue(result.one ?? null),
+    getMany: vi.fn().mockResolvedValue(result.one ? [result.one] : []),
   };
   return qb;
 }

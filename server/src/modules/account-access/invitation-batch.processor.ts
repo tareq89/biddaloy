@@ -7,7 +7,7 @@ import { AuthTokenPurpose, UserRole } from '@biddaloy/shared';
 import { Guardian } from '../students/entities/guardian.entity';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
-import { reviveMembership } from '../users/users.service';
+import { findVerifiedAccount, reviveMembership } from '../users/users.service';
 import { TenantStatusService } from '../schools/tenant-status.service';
 import { AuthTokenService } from './auth-token.service';
 import { guardianLinkedElsewhere, insertJoinRequest } from './school-invite.service';
@@ -135,14 +135,9 @@ export class InvitationBatchProcessor extends WorkerHost {
         ? await userRepo.findOne({ where: { id: guardian.user_id } })
         : null;
 
-      user ??= await userRepo
-        .createQueryBuilder('u')
-        .where('u.deleted_at IS NULL')
-        .andWhere(
-          '((u.email = :email AND u.email_verified_at IS NOT NULL) OR (u.phone = :phone AND u.phone_verified_at IS NOT NULL))',
-          { email: guardian.email ?? '__none__', phone: guardian.phone ?? '__none__' },
-        )
-        .getOne();
+      // Two accounts matched (email of one, phone of another) → null; the insert below
+      // then hits 23505 and the guardian is left unlinked.
+      user ??= await findVerifiedAccount(manager, guardian.email, guardian.phone);
 
       if (user) {
         if (await guardianLinkedElsewhere(manager, user.id, guardian.id, tenantId)) {
