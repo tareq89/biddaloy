@@ -1,5 +1,6 @@
 import { isDemoMode } from './modules/demo/demo-mode';
 import { demoNoindex } from './modules/demo/demo-noindex.middleware';
+import { assertDemoDatabase } from './modules/demo/demo-boot-check';
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -35,6 +36,10 @@ async function bootstrap() {
   // here on can hit the exception filter's Sentry.captureException call.
   // Throws (malformed SENTRY_DSN) or no-ops (unset), never half-inits.
   initSentry();
+
+  // [58.1.01, D30] Before NestFactory.create: module init already touches Redis and starts
+  // workers, so a demo build pointed at a real database must stop before that. Throws → exit 1.
+  await assertDemoDatabase();
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
