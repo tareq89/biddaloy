@@ -12,5 +12,34 @@ export const SCHOOL_TZ = 'Asia/Dhaka';
  * `attendance-policy.util.ts`'s `localDate`.
  */
 export function todayInSchoolTz(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TZ }).format(new Date());
+  return localToday(SCHOOL_TZ);
+}
+
+/**
+ * Calendar day `instant` falls on in `timezone`, as `'YYYY-MM-DD'`. `en-CA`
+ * formats dates as `YYYY-MM-DD` directly. E.g. `2026-09-04T19:00Z` is already
+ * the 5th in Asia/Dhaka (UTC+6).
+ */
+export function localDate(instant: Date, timezone: string = SCHOOL_TZ): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(instant);
+}
+
+/** Today in `timezone`, as `'YYYY-MM-DD'`. */
+export function localToday(timezone: string = SCHOOL_TZ): string {
+  return localDate(new Date(), timezone);
+}
+
+/** UTC instant at which calendar day `dateIso` starts in `timezone`. */
+export function startOfLocalDay(dateIso: string, timezone: string = SCHOOL_TZ): Date {
+  const utcMidnight = new Date(`${dateIso}T00:00:00Z`);
+  const tzMs = new Date(utcMidnight.toLocaleString('en-US', { timeZone: timezone })).getTime();
+  const utcMs = new Date(utcMidnight.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
+  return new Date(utcMidnight.getTime() - (tzMs - utcMs));
+}
+
+/** Last millisecond of calendar day `dateIso` in `timezone`. */
+export function endOfLocalDay(dateIso: string, timezone: string = SCHOOL_TZ): Date {
+  const next = new Date(`${dateIso}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return new Date(startOfLocalDay(next.toISOString().slice(0, 10), timezone).getTime() - 1);
 }

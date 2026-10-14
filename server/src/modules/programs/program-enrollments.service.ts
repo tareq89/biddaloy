@@ -9,7 +9,7 @@ import { MilestoneAchievement } from './entities/milestone-achievement.entity';
 import { Student } from '../students/entities/student.entity';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
-import { localToday } from '../attendance/attendance-policy.util';
+import { localToday } from '../../common/time';
 import {
   EnrolStudentsDto,
   RecordAchievementsDto,
@@ -17,10 +17,6 @@ import {
 } from './dto/program-enrollments.dto';
 
 const NO_CONTEXT: RequestContext = { ip: null, userAgent: null };
-// Same reasoning as `recurring-schedules.service.ts`'s own `SCHOOL_TIMEZONE`
-// constant — a date default must be the school's local calendar day, not
-// UTC, or it's off by one for part of the day for a school east of UTC.
-const SCHOOL_TIMEZONE = 'Asia/Dhaka';
 
 function isUniqueViolation(err: unknown): boolean {
   return err instanceof QueryFailedError && (err as unknown as { code?: string }).code === '23505';
@@ -147,7 +143,7 @@ export class ProgramEnrollmentsService {
       throw new NotFoundException(`Student(s) not found in this tenant: ${missing.join(', ')}`);
     }
 
-    const startedOn = dto.started_on ?? localToday(SCHOOL_TIMEZONE);
+    const startedOn = dto.started_on ?? localToday();
 
     return this.dataSource.transaction(async (manager) => {
       const rows = (await manager.query(
@@ -202,9 +198,7 @@ export class ProgramEnrollmentsService {
     if (!existing) throw new NotFoundException(`Enrollment "${enrollmentId}" not found`);
 
     const endedOn =
-      dto.status === ProgramEnrollmentStatus.ACTIVE
-        ? null
-        : (dto.ended_on ?? localToday(SCHOOL_TIMEZONE));
+      dto.status === ProgramEnrollmentStatus.ACTIVE ? null : (dto.ended_on ?? localToday());
 
     try {
       await this.dataSource.transaction(async (manager) => {
@@ -269,7 +263,7 @@ export class ProgramEnrollmentsService {
       throw new NotFoundException(`Enrollment(s) not found in this program: ${missing.join(', ')}`);
     }
 
-    const achievedOn = dto.achieved_on ?? localToday(SCHOOL_TIMEZONE);
+    const achievedOn = dto.achieved_on ?? localToday();
 
     return this.dataSource.transaction(async (manager) => {
       // Read the prior values before the upsert overwrites them — the
