@@ -274,10 +274,17 @@ function shuffle<T>(items: T[], seed: number): T[] {
  * (D3): SEQUENTIAL by roll number, RANDOM shuffled. Order mode affects
  * which student gets which seat, never the seat-number format. */
 function orderRoster(roster: RosterEntry[], orderMode: SeatOrderMode, seed: number): RosterEntry[] {
-  if (orderMode === SeatOrderMode.RANDOM) {
-    return shuffle(roster, seed);
-  }
-  return [...roster].sort((a, b) => a.roll_number - b.roll_number);
+  // Roll numbers repeat across sections and the DB returns rows in no fixed
+  // order, so ties break on section, student, then sitting (#2574): the same
+  // roster always gets the same seats, and RANDOM shuffles from that order.
+  const canonical = [...roster].sort(
+    (a, b) =>
+      a.roll_number - b.roll_number ||
+      a.section_id.localeCompare(b.section_id) ||
+      a.student_id.localeCompare(b.student_id) ||
+      a.exam_schedule_id.localeCompare(b.exam_schedule_id),
+  );
+  return orderMode === SeatOrderMode.RANDOM ? shuffle(canonical, seed) : canonical;
 }
 
 /** Groups an ordered roster by section, then round-robins across those
