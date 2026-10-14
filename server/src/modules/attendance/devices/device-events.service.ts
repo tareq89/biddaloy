@@ -6,6 +6,7 @@ import {
   AttendanceSource,
   AttendanceSubjectType,
   AuditAction,
+  EnrollmentStatus,
 } from '@biddaloy/shared';
 import { AttendanceDevice } from '../entities/attendance-device.entity';
 import { AttendanceDeviceEvent } from '../entities/attendance-device-event.entity';
@@ -89,6 +90,7 @@ export class DeviceEventsService {
       where: {
         tenant_id: device.tenant_id,
         class_section_id: effectiveSectionId,
+        enrollment_status: EnrollmentStatus.ACTIVE,
         deleted_at: IsNull(),
       },
       order: { roll_number: 'ASC' },
@@ -283,6 +285,18 @@ export class DeviceEventsService {
           device_event_id: event.device_event_id,
           outcome: 'rejected',
           reason: 'section_mismatch',
+        };
+      }
+
+      // ponytail: current standing, not the scan date; an offline scan from before a leave,
+      // uploaded after it, is rejected (teacher marks it by hand). Use
+      // sectionRosterStudentIds(..., { onRollOn: eventDate }) if that bites.
+      if (student.enrollment_status !== EnrollmentStatus.ACTIVE) {
+        await eventRepo.update(eventRow.id, { outcome: 'rejected', student_id: student.id });
+        return {
+          device_event_id: event.device_event_id,
+          outcome: 'rejected',
+          reason: 'not_on_roll',
         };
       }
 

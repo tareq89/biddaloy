@@ -11,6 +11,7 @@ import {
   AttendanceSource,
   AttendanceStatus,
   AttendanceSubjectType,
+  EnrollmentStatus,
 } from '@biddaloy/shared';
 import { DeviceEventsService } from './device-events.service';
 import { DeviceService } from './device.service';
@@ -494,6 +495,37 @@ describe('DeviceEventsService (integration)', () => {
 
     expect(result.results[0].outcome).toBe('rejected');
     expect(result.results[0].reason).toBe('section_mismatch');
+  });
+
+  it('rejects a scan for a student who left as not_on_roll and writes no record (#1805)', async () => {
+    const device = await createActiveDevice();
+    await dataSource
+      .getRepository(Student)
+      .update({ id: studentId }, { enrollment_status: EnrollmentStatus.INACTIVE });
+
+    const result = await service.ingest(device, [inEvent({ student_id: studentId })]);
+
+    expect(result.results[0].outcome).toBe('rejected');
+    expect(result.results[0].reason).toBe('not_on_roll');
+    expect(await dataSource.getRepository(AttendanceRecord).count()).toBe(0);
+  });
+
+  it('getRoster omits a student who left and keeps an active one (#1805)', async () => {
+    const device = await createActiveDevice({ roster_access: true, section_id: sectionId });
+    const stayer = await dataSource.getRepository(Student).save({
+      full_name: 'Stayer',
+      registration_number: `DEV-STAY-${Date.now()}`,
+      roll_number: 2,
+      class_section_id: sectionId,
+      tenant_id: TENANT_ID,
+    });
+    await dataSource
+      .getRepository(Student)
+      .update({ id: studentId }, { enrollment_status: EnrollmentStatus.INACTIVE });
+
+    const roster = await service.getRoster(device);
+
+    expect(roster.map((r) => r.student_id)).toEqual([stayer.id]);
   });
 
   it('reports unknown_student when neither student_id nor external_ref is given', async () => {

@@ -24,6 +24,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
+import { StudentLifecycleEvent } from '../students/entities/student-lifecycle-event.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { User } from '../users/entities/user.entity';
@@ -39,7 +40,9 @@ import {
   AttendanceSessionState,
   AttendanceStatus,
   EnrollmentStatus,
+  LIFECYCLE_EVENT_TARGET_STATUS,
   RoutineState,
+  StudentLifecycleEventType,
   TeacherAssignmentType,
   UserRole,
 } from '@biddaloy/shared';
@@ -321,6 +324,36 @@ describe('AttendanceService (integration)', () => {
       expect(register.students.map((s) => s.student_id)).not.toContain(stranger.id);
     });
 
+    /** Raw leaving record: sets enrollment + student status and inserts the lifecycle event. */
+    async function recordLeaving(
+      studentId: string,
+      type: StudentLifecycleEventType,
+      occurredOn: string,
+      eventTenantId = TENANT_ID,
+    ) {
+      const enrollment = await dataSource
+        .getRepository(Enrollment)
+        .findOneByOrFail({ student_id: studentId, tenant_id: TENANT_ID });
+      if (eventTenantId === TENANT_ID) {
+        const status = LIFECYCLE_EVENT_TARGET_STATUS[type];
+        await dataSource
+          .getRepository(Enrollment)
+          .update({ id: enrollment.id }, { enrollment_status: status });
+        await dataSource
+          .getRepository(Student)
+          .update({ id: studentId }, { enrollment_status: status });
+      }
+      await dataSource.getRepository(StudentLifecycleEvent).save({
+        tenant_id: eventTenantId,
+        student_id: studentId,
+        enrollment_id: enrollment.id,
+        academic_year_id: enrollment.academic_year_id,
+        event_type: type,
+        occurred_on: occurredOn,
+        reason: 'test',
+      });
+    }
+
     let nextRoll = 20;
     /** A student enrolled here whose enrollment then ended with `status`. */
     async function seedEndedEnrollment(status: EnrollmentStatus) {
@@ -387,9 +420,118 @@ describe('AttendanceService (integration)', () => {
       expect(await registerIds()).not.toContain(moved.id);
     });
 
-    it('keeps a graduated student on the register of the year they finished', async () => {
+    it('keeps a graduated student on registers dated before their graduation', async () => {
       const graduated = await seedEndedEnrollment(EnrollmentStatus.GRADUATED);
+      await recordLeaving(graduated.id, StudentLifecycleEventType.GRADUATED, addDays(1));
       expect(await registerIds()).toContain(graduated.id);
+    });
+
+    it('drops a graduated student on and after their graduation day', async () => {
+      const graduated = await seedEndedEnrollment(EnrollmentStatus.GRADUATED);
+      await recordLeaving(graduated.id, StudentLifecycleEventType.GRADUATED, TODAY());
+      expect(await registerIds()).not.toContain(graduated.id);
+    });
+
+    // #1805: the roster is date-aware.
+    describe('leaving date (#1805)', () => {
+      const putOne = (studentId: string, baseVersion = 0, date = TODAY()) =>
+        service.putRegister(
+          putParams({
+            dto: basePutDto({
+              date,
+              base_version: baseVersion,
+              entries: [{ student_id: studentId, status: AttendanceStatus.ABSENT }],
+            }),
+          }),
+        );
+
+      it('drops the student on the leaving day itself', async () => {
+        const s = await seedEndedEnrollment(EnrollmentStatus.INACTIVE);
+        await recordLeaving(s.id, StudentLifecycleEventType.WITHDRAWN, TODAY());
+        expect(await registerIds()).not.toContain(s.id);
+      });
+
+      it('keeps the student on registers dated before leaving, and they can be marked', async () => {
+        const s = await seedEndedEnrollment(EnrollmentStatus.INACTIVE);
+        await recordLeaving(s.id, StudentLifecycleEventType.WITHDRAWN, addDays(1));
+        expect(await registerIds()).toContain(s.id);
+        await expect(putOne(s.id)).resolves.toBeDefined();
+      });
+
+      it('a back-dated leave never hides a mark already saved, and that register still saves', async () => {
+        const s = await seedEndedEnrollment(EnrollmentStatus.ACTIVE);
+        const other = await seedEndedEnrollment(EnrollmentStatus.INACTIVE);
+        await putOne(s.id);
+        await dataSource
+          .getRepository(Enrollment)
+          .update({ student_id: s.id }, { enrollment_status: EnrollmentStatus.INACTIVE });
+        await recordLeaving(s.id, StudentLifecycleEventType.WITHDRAWN, YESTERDAY());
+        const register = await service.getRegister({
+          sectionId,
+          tenantId: TENANT_ID,
+          date: TODAY(),
+          periodNo: null,
+          role: UserRole.ADMIN,
+          userId: ADMIN_USER_ID,
+        });
+        const row = register.students.find((r) => r.student_id === s.id);
+        expect(row?.status).toBe(AttendanceStatus.ABSENT);
+        const saved = await putOne(s.id, register.session!.version);
+        expect(saved).toBeDefined();
+        await expect(
+          service.putRegister(
+            putParams({
+              dto: basePutDto({
+                base_version: (saved as any).session.version,
+                entries: [
+                  { student_id: s.id, status: AttendanceStatus.ABSENT },
+                  { student_id: other.id, status: AttendanceStatus.ABSENT },
+                ],
+              }),
+            }),
+          ),
+        ).rejects.toMatchObject({
+          response: { details: { code: 'ATTENDANCE_UNKNOWN_STUDENTS', student_ids: [other.id] } },
+        });
+      });
+
+      it('lists a readmitted student', async () => {
+        const s = await seedEndedEnrollment(EnrollmentStatus.ACTIVE);
+        await recordLeaving(s.id, StudentLifecycleEventType.WITHDRAWN, YESTERDAY());
+        await recordLeaving(s.id, StudentLifecycleEventType.READMITTED, TODAY());
+        await dataSource
+          .getRepository(Enrollment)
+          .update({ student_id: s.id }, { enrollment_status: EnrollmentStatus.ACTIVE });
+        expect(await registerIds()).toContain(s.id);
+      });
+
+      it("ignores another tenant's leaving event", async () => {
+        const s = await seedEndedEnrollment(EnrollmentStatus.INACTIVE);
+        await recordLeaving(s.id, StudentLifecycleEventType.WITHDRAWN, addDays(1), OTHER_TENANT);
+        expect(await registerIds()).not.toContain(s.id);
+      });
+
+      it('my-sections student_count excludes a leaver and unmarked reaches 0', async () => {
+        const before = (
+          await service.listMySections({
+            role: UserRole.ADMIN,
+            userId: ADMIN_USER_ID,
+            tenantId: TENANT_ID,
+            date: TODAY(),
+          })
+        ).find((x) => x.section_id === sectionId)!;
+        const s = await seedEndedEnrollment(EnrollmentStatus.INACTIVE);
+        await recordLeaving(s.id, StudentLifecycleEventType.WITHDRAWN, TODAY());
+        const after = (
+          await service.listMySections({
+            role: UserRole.ADMIN,
+            userId: ADMIN_USER_ID,
+            tenantId: TENANT_ID,
+            date: TODAY(),
+          })
+        ).find((x) => x.section_id === sectionId)!;
+        expect(after.student_count).toBe(before.student_count);
+      });
     });
   });
 

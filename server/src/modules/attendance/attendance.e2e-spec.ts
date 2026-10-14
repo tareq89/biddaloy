@@ -908,4 +908,78 @@ describe('Attendance E2E', () => {
       expect(Array.isArray(res.body.data)).toBe(true);
     });
   });
+
+  describe('#1805 leavers', () => {
+    const as = (req: supertest.Test, token: string, role: UserRole) =>
+      req.set('Authorization', `Bearer ${token}`).set('X-Tenant-ID', TENANT_ID).set('X-Role', role);
+
+    async function withdrawOtherStudent(): Promise<string> {
+      const rows = await dataSource.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status, created_at, updated_at)
+         VALUES ($1, 'E2E Leaver', 'E2E-REG-LEFT', 2, $2, $3, 'ACTIVE', NOW(), NOW()) RETURNING id`,
+        [randomUUID(), MAPPED_SECTION_ID, TENANT_ID],
+      );
+      await enrollPlacedStudents(dataSource, TENANT_ID);
+      const leaverId = rows[0].id;
+      const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+      await as(
+        supertest(app.getHttpServer()).post(`/api/v1/students/${leaverId}/leave`),
+        adminToken,
+        UserRole.ADMIN,
+      )
+        .send({ type: 'WITHDRAWN', occurred_on: yesterday, reason: 'moved away' })
+        .expect(201);
+      return leaverId;
+    }
+
+    it('leaves the student off the register, the PUT, the count and the low flags', async () => {
+      const leaverId = await withdrawOtherStudent();
+      const base = `/api/v1/attendance/sections/${MAPPED_SECTION_ID}/register`;
+
+      for (const [token, role] of [
+        [teacherToken, UserRole.TEACHER],
+        [adminToken, UserRole.ADMIN],
+      ] as const) {
+        const reg = await as(
+          supertest(app.getHttpServer()).get(`${base}?date=${todayIso()}`),
+          token,
+          role,
+        ).expect(200);
+        const ids = reg.body.students.map((x: { student_id: string }) => x.student_id);
+        expect(ids).toContain(studentId);
+        expect(ids).not.toContain(leaverId);
+      }
+
+      const put = await as(supertest(app.getHttpServer()).put(base), teacherToken, UserRole.TEACHER)
+        .send({
+          date: todayIso(),
+          base_version: 0,
+          client_request_id: randomUUID(),
+          entries: [{ student_id: leaverId, status: 'ABSENT' }],
+        })
+        .expect(422);
+      expect(put.body.details.code).toBe('ATTENDANCE_UNKNOWN_STUDENTS');
+
+      const mine = await as(
+        supertest(app.getHttpServer()).get(`/api/v1/attendance/my-sections?date=${todayIso()}`),
+        teacherToken,
+        UserRole.TEACHER,
+      ).expect(200);
+      expect(
+        mine.body.find((x: { section_id: string }) => x.section_id === MAPPED_SECTION_ID)
+          .student_count,
+      ).toBe(1);
+
+      const flags = await as(
+        supertest(app.getHttpServer()).get(
+          `/api/v1/attendance/flags/low?from=${todayIso()}&to=${todayIso()}&threshold=100`,
+        ),
+        adminToken,
+        UserRole.ADMIN,
+      ).expect(200);
+      expect(flags.body.data.map((f: { student_id: string }) => f.student_id)).not.toContain(
+        leaverId,
+      );
+    });
+  });
 });
