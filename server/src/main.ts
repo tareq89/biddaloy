@@ -27,6 +27,7 @@ import {
 import { buildDocsBasicAuthMiddleware, buildDocsCspOverrideMiddleware } from './docs-auth';
 import { buildSpaFallback } from './spa-fallback';
 import { assertSecretEchoAllowed } from './modules/account-access/account-access-echo';
+import * as Sentry from '@sentry/node';
 import { initSentry } from './common/sentry';
 
 async function bootstrap() {
@@ -132,9 +133,12 @@ async function bootstrap() {
 // Guarded so importing resolveCorsOrigins for tests doesn't also boot a
 // real Nest application.
 if (require.main === module) {
-  // Explicit exit 1: Sentry's unhandled-rejection handler would otherwise only warn.
-  bootstrap().catch((e) => {
+  // Explicit exit 1: Sentry's unhandled-rejection handler would otherwise only warn. Catching it
+  // here also hides it from that handler, so report it ourselves (no-op when Sentry is off).
+  bootstrap().catch(async (e) => {
     console.error(e);
+    Sentry.captureException(e);
+    await Sentry.flush(2000);
     process.exit(1);
   });
 }
