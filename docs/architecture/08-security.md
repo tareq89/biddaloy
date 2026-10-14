@@ -870,7 +870,7 @@ Example: `postgres://u:p@db:5432/biddaloy` is refused at step 2; `.../biddaloy_d
 
 ## Demo boot check (58.1.01)
 
-A server or script started with `DEMO_MODE=true` first checks that the database is a demo one. It runs **before** `NestFactory.create`, in `main.ts` and in `createScriptAppContext`.
+A server or script started with `DEMO_MODE=true` first checks that the database is a demo one. It runs **before** `NestFactory.create`, in `main.ts`, in `createScriptAppContext` and in `generate-openapi.ts`. `main.ts` exits 1 on a refusal even with Sentry on.
 
 ```mermaid
 flowchart LR
