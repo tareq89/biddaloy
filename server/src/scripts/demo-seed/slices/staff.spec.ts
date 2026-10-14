@@ -114,6 +114,7 @@ describe('staff slice (integration, 2 years)', () => {
     const teachers = await q(`SELECT tenant_id FROM teachers WHERE user_id = $1`, [u.id]);
     const profiles = await q(`SELECT tenant_id FROM staff_profiles WHERE user_id = $1`, [u.id]);
     expect(new Set(teachers.map((t) => t.tenant_id)).size).toBe(2);
+    expect(profiles).toHaveLength(2);
     expect(new Set(profiles.map((t) => t.tenant_id)).size).toBe(2);
   });
 
@@ -179,6 +180,7 @@ describe('staff slice (integration, 2 years)', () => {
     // At scale 1 the split is 92/6/2; the roster is ~60 people, so the check is: mostly Islam.
     const muslim = rows.filter((r) => r.religion === 'Islam').length / rows.length;
     expect(muslim).toBeGreaterThan(0.7);
+    expect(rows.some((r) => r.religion !== 'Islam')).toBe(true);
   });
 
   it('every HR child table has rows, and each person has one appointment-letter document', async () => {
