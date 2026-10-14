@@ -131,6 +131,13 @@ export async function runDemoSeed(args: DemoSeedArgs, password: string) {
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   assertDemoTarget(process.env);
+  if (process.env.DEMO_MODE !== 'true') {
+    console.warn(
+      '\n*** WARNING: DEMO_MODE is not "true". The applications slice decides requests through the real\n' +
+        '*** notify services, which then use the real SMS / push providers and SMS credit.\n' +
+        '*** Set DEMO_MODE=true so every message becomes a log row.\n',
+    );
+  }
   const { app, ctx } = await runDemoSeed(args, demoPassword(process.env));
   try {
     console.log(formatTimings(ctx.timings));
