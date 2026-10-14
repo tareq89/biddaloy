@@ -78,12 +78,12 @@ describe('assertDemoDatabase (runs in main.ts before NestFactory.create)', () =>
     ).rejects.toThrow(/default-school/);
   });
 
-  // The nightly reset (#2178) exports PLATFORM_TENANT_ID; when it is wrong, the log line must say so
-  // instead of leaving a silent exit 1 at 02:00.
-  it('tells the operator about PLATFORM_TENANT_ID when it refuses', async () => {
+  // The refusal must say why, so a 02:00 exit 1 after the nightly reset (#2178) is not silent.
+  // It must not suggest PLATFORM_TENANT_ID: an empty default-school is already exempt by slug.
+  it('says why it refuses', async () => {
     await expect(
       check({ DEMO_MODE: 'true' }, [{ id: '1', slug: 'real-school' }]).run(),
-    ).rejects.toThrow(/set PLATFORM_TENANT_ID/);
+    ).rejects.toThrow(/real-school.*not a demo database/);
   });
 
   it('does not even query when DEMO_MODE is off', async () => {

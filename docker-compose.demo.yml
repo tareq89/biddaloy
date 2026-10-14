@@ -9,10 +9,14 @@
 # Real providers stay OFF: the base file passes no SMS_PROVIDER / SMTP_* / VAPID_* to any
 # service, and reset.sh refuses to run if they are set (D2). Do not add them here.
 #
+# The demo database is always biddaloy_demo (below); POSTGRES_DB only names the empty database
+# Postgres creates on first start. The base `backup` service is switched off here: there is
+# nothing to back up, and its 02:00 dump would collide with the 02:00 swap.
+#
 # First boot: `app` refuses to start until a reset has run once (it reads default-school's id,
 # which changes every night, from the demo-state volume). So build the images, run the first
-# reset by hand, then bring the rest up:
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml build
+# reset by hand, then bring the rest up (the first reset logs "app not restarted: first run"):
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml build   # see note on demo-reset.build
 #   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d db redis seaweedfs
 #   docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now
 #   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
@@ -31,7 +35,8 @@ services:
       <<: *demo-env
     volumes:
       - demo-state:/demo-state:ro
-    # default-school's id is new after every reset; DemoBootGuard needs it as PLATFORM_TENANT_ID.
+    # default-school's id is new after every reset. PLATFORM_TENANT_ID must name it, or
+    # TenantStatusService.platformTenantId() points at no school and platform authority is gone.
     command:
       - sh
       - -c
@@ -41,12 +46,15 @@ services:
     build:
       context: ./scripts/demo
       dockerfile: Dockerfile
-      args:
-        APP_IMAGE: biddaloy-app
+      # `FROM app` in the Dockerfile is the `app` service's image, built first and fresh. Needs a
+      # current Docker Compose: 2.20.2 does not know `service:` and reads it as a folder path.
+      additional_contexts:
+        app: service:app
     image: biddaloy-demo-reset
     restart: unless-stopped
-    # Root: restarting the app container needs the docker socket (see volumes).
+    # Root only to write the demo-state volume. No docker socket: see demo-docker-proxy.
     user: root
+    networks: [default, demo-docker]
     environment:
       <<: *demo-env
       NODE_ENV: production
@@ -57,10 +65,15 @@ services:
       DEMO_SCALE: ${DEMO_SCALE:-1}
       DEMO_YEARS: ${DEMO_YEARS:-10}
       # The nightly sweep (58.4.02, Playwright project demo-nightly) needs a Playwright runner,
-      # which this image does not carry. Set DEMO_SWEEP_CMD to a command that runs it with
-      # DEMO_SWEEP_URL as base URL, or DEMO_SKIP_SWEEP=true to go without. One of them is required.
+      # which this image does not carry, and it cannot `docker run` one (no socket). The temporary
+      # app it tests listens on :3999 in this container: http://127.0.0.1:3999 here (DEMO_SWEEP_URL),
+      # http://demo-reset:3999 from another service on the compose network, never on the host.
+      # Set DEMO_SWEEP_CMD to a command that drives such a runner, or DEMO_SKIP_SWEEP=true to go
+      # without. One of them is required. The sweep is killed after DEMO_SWEEP_TIMEOUT seconds.
       DEMO_SWEEP_CMD: ${DEMO_SWEEP_CMD:-}
       DEMO_SKIP_SWEEP: ${DEMO_SKIP_SWEEP:-}
+      DEMO_SWEEP_TIMEOUT: ${DEMO_SWEEP_TIMEOUT:-1800}
+      DOCKER_HOST: tcp://demo-docker-proxy:2375
       SENTRY_CRONS_URL: ${SENTRY_CRONS_URL:-}
       JWT_SECRET: ${JWT_SECRET}
       SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
@@ -78,7 +91,6 @@ services:
       S3_FORCE_PATH_STYLE: 'true'
     volumes:
       - demo-state:/demo-state
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       db:
         condition: service_healthy
@@ -86,6 +98,25 @@ services:
         condition: service_healthy
       seaweedfs:
         condition: service_healthy
+      demo-docker-proxy:
+        condition: service_started
+
+  # The reset's only use of Docker is `docker restart biddaloy-demo-app`. This proxy holds the
+  # socket and lets through only GETs plus POST .../containers/<id>/(stop|restart|kill), so a
+  # compromised demo-reset can bounce containers but cannot create one (no host root). It sits
+  # on an internal network that only demo-reset joins.
+  demo-docker-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    restart: unless-stopped
+    environment:
+      POST: 1
+      ALLOW_RESTARTS: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [demo-docker]
+
+  backup:
+    profiles: [disabled]
 
   nginx:
     volumes:
@@ -94,3 +125,7 @@ services:
 
 volumes:
   demo-state:
+
+networks:
+  demo-docker:
+    internal: true
