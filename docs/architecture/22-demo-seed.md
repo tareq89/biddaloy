@@ -54,13 +54,64 @@ Every seeded login shares one bcrypt hash made once in `createContext` (cost 12
 is about 250 ms, so never hash per user). The password is `DEMO_PASSWORD`,
 with a local-only fallback.
 
-Output of a run is a table like this (rows and seconds fill in as slices land):
+Output of a run is a table like this (measured, Wave 2, laptop, 2026-10-14):
 
 ```text
+yarn workspace @biddaloy/server seed:demo --scale 1 --years 10
 slice               rows   seconds
-org                   ...       ...
-staff                 ...       ...
+org                 3407       1.9
+staff                870       1.3
+students           33429      36.5
+student-extras      6569       2.4
+routine             5410      22.5
+                         total 80 s (budget: 8 min)
+
+yarn workspace @biddaloy/server seed:demo --scale 0.05 --years 2
+org                  588       1.9
+staff                871       1.9
+students             505       1.1
+student-extras       234       1.2
+routine             5410      26.6
+                         total 52 s (budget: 90 s, D39)
 ```
+
+`routine` costs the same at every scale: the teaching staff and the weekly
+grid are not scaled. It runs the newest year through the real slot service
+(8 slots at a time); serial it took 60 to 76 s. Slices after `routine` are
+still empty (Wave 3), so these totals grow.
+
+After a run the invariant validator found nothing (scale 1, 10 years).
+
+## Running the demo end to end
+
+```mermaid
+flowchart LR
+  A["1. create DB biddaloy_demo_x<br/>(name must start with biddaloy_demo)"] --> B["2. migration:run"]
+  B --> C["3. seed:demo --scale 1 --years 10"]
+  C --> D["4. start server: DEMO_MODE=true<br/>DEMO_PASSWORD=...<br/>PLATFORM_TENANT_ID=id of default-school"]
+  D --> E["5. start client-admin on :5174"]
+  E --> F["6. E2E_DEMO=1 npx playwright test<br/>--project=demo"]
+```
+
+Two things that are easy to miss:
+
+- `DemoBootGuard` refuses to start if the database holds any school that is not
+  a demo branch. A migrated database always has `default-school`, so set
+  `PLATFORM_TENANT_ID` to its id (`SELECT id FROM schools WHERE slug = 'default-school'`).
+- The `demo` project is opt-in. It only exists when `E2E_DEMO=1`, so a plain
+  `playwright test` and the sweeps never run it. CI does not run it yet
+  (58.4.02 wires it into the nightly pipeline).
+
+```bash
+E2E_DEMO=1 npx playwright test --project=demo --workers=1
+```
+
+It checks: 9 cards and one `<h1>` on `/login`; Enter on the focused first card;
+the ribbon never covers the account button at 1440 and 390 px; "View as another
+role" returns to `/login`; the guardian switches from the Secondary to the
+Primary branch and sees the Class 3 child. Admin and the guardian have several
+memberships, so they pass the school picker first (the card's `branchSlug`
+is only a label today).
 
 ## The rule
 
