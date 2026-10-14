@@ -1,7 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { DEMO_CARDS } from '../../server/src/modules/demo/demo-accounts';
-
 /**
  * [58.2.08] Demo login, end to end. Runs only in the opt-in `demo` project (see
  * `docs/architecture/22-demo-seed.md`): it needs a server started with `DEMO_MODE=true` on a
@@ -10,6 +8,9 @@ import { DEMO_CARDS } from '../../server/src/modules/demo/demo-accounts';
  * English strings are matched from `ui/src/i18n/locales/en/demo.json` on purpose: the page is
  * forced to `en` below, and the spec checks behaviour, not translations.
  */
+/** One card per entry of DEMO_CARDS (server/src/modules/demo/demo-accounts.ts). */
+const CARD_COUNT = 9;
+
 test.use({ viewport: { width: 1440, height: 900 } });
 
 test.beforeEach(async ({ page }) => {
@@ -37,8 +38,7 @@ async function continueFromPicker(page: Page) {
 test('/login shows one card per demo login and a single page title', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Enter the demo school');
-  await expect(page.getByRole('button', { name: /Try:/ })).toHaveCount(DEMO_CARDS.length);
-  expect(DEMO_CARDS).toHaveLength(9);
+  await expect(page.getByRole('button', { name: /Try:/ })).toHaveCount(CARD_COUNT);
 });
 
 test('keyboard only: the first card has focus, Enter lands on the dashboard', async ({ page }) => {
@@ -77,7 +77,7 @@ test('"View as another role" goes back to /login', async ({ page }) => {
   await accountButton(page).click();
   await page.getByRole('menuitem', { name: 'View as another role' }).click();
   await expect(page).toHaveURL(/\/login/);
-  await expect(page.getByRole('button', { name: /Try:/ })).toHaveCount(DEMO_CARDS.length);
+  await expect(page.getByRole('button', { name: /Try:/ })).toHaveCount(CARD_COUNT);
 });
 
 test('the guardian can switch branch and see the other child', async ({ page }) => {
