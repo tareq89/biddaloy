@@ -1392,7 +1392,7 @@ byte sequences. A plain byte-order `ORDER BY` or `ILIKE` sees those as
 different strings and can silently split what a user would read as
 duplicates into two search results, or sort them apart. ICU collation
 compares by linguistic value instead of by raw bytes, so both encodings
-sort and match together. This was verified on `postgres:16-alpine`
+sort and match together. This was verified on `postgres:18-alpine`
 (dev/CI/nightly) — see §17.2 for the one thing not yet confirmed
 (production and staging collation availability).
 
@@ -1585,7 +1585,7 @@ does not close them.
    its `check:contrast` step). §12's vocabulary is enforced by review
    today, not by a machine gate. **Follow-up: #469.**
 2. **ICU collation unconfirmed on production and staging.** §13.3's
-   `bn_icu` collation is verified on `postgres:16-alpine` (dev/CI/nightly)
+   `bn_icu` collation is verified on `postgres:18-alpine` (dev/CI/nightly)
    only. Someone needs to run
    `SELECT count(*) FROM pg_collation WHERE collname = 'und-x-icu';`
    against production and staging and confirm it returns ≥ 1. **Human-owned,

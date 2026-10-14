@@ -20,7 +20,7 @@ jobs:
       contents: read
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -75,15 +75,18 @@ jobs:
       - name: Build shared package
         run: yarn build:shared
 
-      - name: Install age and matching postgresql-16 client tools
-        # Pinned to the -16 client package deliberately — a pg_dump/
-        # pg_restore version newer than the postgres:16-alpine service can
-        # emit settings the older server rejects (confirmed locally: a
-        # host libpq 18 client's pg_restore fails restoring into pg16
-        # with "unrecognized configuration parameter transaction_timeout").
+      - name: Install age and matching postgresql-18 client tools
+        # Pinned to the -18 client package deliberately — client and server
+        # majors must match. An older pg_dump refuses a newer server, and a
+        # newer pg_restore can emit settings an older server rejects
+        # (confirmed locally: an 18 pg_restore into pg16 fails with
+        # "unrecognized configuration parameter transaction_timeout").
+        # Ubuntu's own archive has no -18 client, so add the PGDG repo first.
         run: |
           sudo apt-get update
-          sudo apt-get install -y age postgresql-client-16
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y age postgresql-client-18
 
 
       # aws-cli ships preinstalled on GitHub-hosted ubuntu runners.

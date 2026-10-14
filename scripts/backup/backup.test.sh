@@ -94,6 +94,6 @@ echo "backup.test.sh: decrypting with the matching private key"
 age --decrypt -i <(echo "$AGE_PRIVATE_KEY") -o "$WORKDIR/backup.dump" "$WORKDIR/backup.dump.age"
 
 echo "backup.test.sh: verifying the decrypted archive with pg_restore --list"
-docker run --rm -v "$WORKDIR:/work" postgres:16-alpine pg_restore --list /work/backup.dump >/dev/null
+docker run --rm -v "$WORKDIR:/work" postgres:18-alpine pg_restore --list /work/backup.dump >/dev/null
 
 echo "PASS: decrypted archive is a valid pg_dump custom-format dump"

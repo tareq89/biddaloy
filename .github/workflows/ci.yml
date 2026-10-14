@@ -493,7 +493,7 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.server == 'true' || needs.changes.outputs.api-surface == 'true'
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -678,7 +678,7 @@ jobs:
         browser: ${{ fromJSON(vars.E2E_BROWSERS_JSON || '["chromium"]') }}
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -901,7 +901,7 @@ jobs:
       contents: read
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
