@@ -363,7 +363,7 @@ export class RoutineSlotsService {
   ): Promise<SlotLike[]> {
     const foreign =
       manager && candidate && actorUserId
-        ? await this.loadForeignTeacherSlots(manager, tenantId, actorUserId, candidate)
+        ? await this.loadForeignTeacherSlots(manager, tenantId, actorUserId, candidate, routineId)
         : [];
     const local = await this.loadLocalSlots(routineId, tenantId, manager);
     return [...local, ...foreign];
@@ -379,12 +379,16 @@ export class RoutineSlotsService {
    * usually NULL; inside a branch the resolver bounds it by the year), and
    * the years are picked by date overlap with the candidate, not
    * `is_current`: planning next year neither clashes with this year's slots
-   * nor misses the other branch's drafted next-year routine. */
+   * nor misses the other branch's drafted next-year routine. The candidate
+   * is bounded the same way (`own.cand_to` = its own routine's year end), so
+   * editing this year's open-ended slot does not clash with the other
+   * branch's next-year draft. */
   private async loadForeignTeacherSlots(
     manager: EntityManager,
     tenantId: string,
     actorUserId: string,
     candidate: UpsertRoutineSlotDto,
+    routineId: string,
   ): Promise<SlotLike[]> {
     const teacherIds = candidate.teacher_ids;
     if (teacherIds.length === 0) return [];
@@ -401,24 +405,37 @@ export class RoutineSlotsService {
       period_name: string | null;
       tenant_name: string;
     }> = await manager.query(
-      `SELECT rs.id, lt.id AS local_teacher_id, rs.weekday, rs.recurrence, rs.recurrence_offset,
+      `WITH own AS (
+         SELECT LEAST(COALESCE($5::date, oay.end_date), oay.end_date) AS cand_to
+           FROM routines orr
+           JOIN academic_years oay ON oay.id = orr.academic_year_id AND oay.tenant_id = orr.tenant_id
+          WHERE orr.id = $6 AND orr.tenant_id = $1)
+       SELECT rs.id, lt.id AS local_teacher_id, rs.weekday, rs.recurrence, rs.recurrence_offset,
               GREATEST(rs.valid_from, ay.start_date)::text AS valid_from,
               LEAST(COALESCE(rs.valid_to, ay.end_date), ay.end_date)::text AS valid_to,
               ps.starts_at, ps.ends_at, ps.name AS period_name, sch.name AS tenant_name
-         FROM teachers lt
+         FROM own CROSS JOIN teachers lt
          JOIN teachers ft ON ft.user_id = lt.user_id AND ft.tenant_id <> lt.tenant_id AND ft.deleted_at IS NULL
          JOIN routine_slot_teachers rst ON rst.teacher_id = ft.id AND rst.tenant_id = ft.tenant_id
          JOIN routine_slots rs ON rs.id = rst.routine_slot_id AND rs.tenant_id = ft.tenant_id
          JOIN routines r ON r.id = rs.routine_id AND r.tenant_id = ft.tenant_id AND r.deleted_at IS NULL
          JOIN academic_years ay ON ay.id = r.academic_year_id AND ay.tenant_id = ft.tenant_id
               AND ay.deleted_at IS NULL
-              AND ay.end_date >= $4::date AND ($5::date IS NULL OR ay.start_date <= $5::date)
+              AND ay.end_date >= $4::date AND ay.start_date <= own.cand_to
          JOIN period_slots ps ON ps.id = rs.period_slot_id AND ps.tenant_id = ft.tenant_id
          JOIN schools sch ON sch.id = ft.tenant_id AND sch.deleted_at IS NULL
         WHERE lt.tenant_id = $1 AND lt.id = ANY($3::uuid[])
           AND (rs.valid_to IS NULL OR rs.valid_to >= $4::date)
+          AND GREATEST(rs.valid_from, ay.start_date) <= own.cand_to
           AND ${actorIsStaffIn('$2', 'ft.tenant_id')}`,
-      [tenantId, actorUserId, teacherIds, candidate.valid_from, candidate.valid_to ?? null],
+      [
+        tenantId,
+        actorUserId,
+        teacherIds,
+        candidate.valid_from,
+        candidate.valid_to ?? null,
+        routineId,
+      ],
     );
     return rows.map((r) => ({
       id: r.id,

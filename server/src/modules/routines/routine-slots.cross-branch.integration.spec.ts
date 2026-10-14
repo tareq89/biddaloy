@@ -231,6 +231,24 @@ describe('RoutineSlotsService — cross-branch teacher clash (D12)', () => {
     expectClash(await service.create(b.routine.id, dto(b), TENANT_B, actor.id).catch((e) => e));
   });
 
+  it("this year's open-ended slot (valid_to NULL) ends with its own year: the other branch's next-year draft does not clash", async () => {
+    // Mirror of the case above: A drafts 2027, B edits its 2026 routine. B's
+    // slot is bounded by B's year end, so A's 2027 slot is a year away.
+    const { actor, b } = await scenario(OVERLAP, false, { year: 2027 });
+    await member(actor.id, TENANT_A);
+    await member(actor.id, TENANT_B);
+    const { slot } = await service.create(b.routine.id, dto(b), TENANT_B, actor.id);
+    expect(slot.id).toBeDefined();
+    // update() runs the same bound (D4: it closes the row and inserts a new one).
+    const res = await service.update(
+      slot.id,
+      dto(b, { valid_from: '2026-02-01' }),
+      TENANT_B,
+      actor.id,
+    );
+    expect(res.slot.id).toBeDefined();
+  });
+
   it('saves when the two date ranges do not overlap', async () => {
     const { actor, b } = await scenario(OVERLAP, true, { validTo: '2026-03-31' });
     await member(actor.id, TENANT_A);
