@@ -1075,6 +1075,36 @@ describe('UserService (integration)', () => {
       expect(after.email).toBe('college-copy@example.com');
     });
 
+    // Review r2 M1: a legacy un-normalised stored phone makes the raw locked-row diff see a
+    // "change" the SHARED_IDENTITY check (normalised compare) does not. Resending the same
+    // number must neither 409 nor copy it over another school's guardian.
+    it('[68.4.05] resending an un-normalised stored phone leaves another school guardian unchanged', async () => {
+      const { user } = await service.create(
+        { full_name: 'Karim', email: 'karim@example.com', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await dataSource.query(`UPDATE users SET phone = ' +8801711111111' WHERE id = $1`, [user.id]);
+      const guardians = dataSource.getRepository(Guardian);
+      const theirs = await guardians.save(
+        guardians.create({
+          full_name: 'Karim',
+          relationship: 'Father',
+          tenant_id: OTHER_TENANT,
+          user_id: user.id,
+          phone: '+8801700000008',
+        }),
+      );
+
+      await service.update(
+        user.id,
+        { full_name: 'Karim Uddin', phone: '+8801711111111' },
+        TENANT_ID,
+        REQUESTING_ADMIN_ID,
+      );
+
+      expect((await guardians.findOneByOrFail({ id: theirs.id })).phone).toBe('+8801700000008');
+    });
+
     // [12.7] An admin edit to email/phone is the "explicit unverified
     // flag" the plan calls for — no extra boolean column.
     it('[12.7] nulls email_verified_at and phone_verified_at when the admin changes either', async () => {
