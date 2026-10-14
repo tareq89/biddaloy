@@ -28,7 +28,8 @@ async function signInAs(page: Page, cardName: RegExp) {
 
 /** Admin and the guardian hold several memberships, so they pass the school picker first. */
 async function continueFromPicker(page: Page) {
-  await expect(page).not.toHaveURL(/\/login/);
+  // Wait for where sign-in settles, not just "off /login": it can pass through `/` first.
+  await expect(page).toHaveURL(/\/(select-school|dashboard|portal)/);
   if (/\/select-school/.test(page.url())) {
     await page.getByRole('button', { name: 'Continue' }).click();
   }
@@ -53,23 +54,19 @@ test('keyboard only: the first card has focus, Enter lands on the dashboard', as
 test('the ribbon is visible and never covers the account button', async ({ page }) => {
   await signInAs(page, /Admin/);
   await expect(ribbon(page)).toBeVisible();
-  const covers = async () => {
-    const box = (await accountButton(page).boundingBox())!;
-    const topIsButton = await page.evaluate(
-      ({ x, y }) => {
-        const el = document.elementFromPoint(x, y);
-        return !!el?.closest('button[aria-label^="Account menu"]');
-      },
-      { x: box.x + box.width / 2, y: box.y + box.height / 2 },
-    );
-    return topIsButton;
+  // Boxes, not elementFromPoint: the ribbon is pointer-events-none, so a hit test sees through
+  // it. Its box is the square holding the triangle, the area `reserveCorner` keeps free.
+  const clear = async () => {
+    const r = (await ribbon(page).boundingBox())!;
+    const b = (await accountButton(page).boundingBox())!;
+    return b.x + b.width <= r.x || b.y >= r.y + r.height;
   };
-  expect(await covers()).toBe(true);
+  expect(await clear()).toBe(true);
 
   // Mobile (390 px): the corner is reserved on the phone header row too.
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(accountButton(page)).toBeVisible();
-  expect(await covers()).toBe(true);
+  expect(await clear()).toBe(true);
 });
 
 test('"View as another role" goes back to /login', async ({ page }) => {
