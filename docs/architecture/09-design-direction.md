@@ -197,16 +197,17 @@ precache globs in `client-admin/vite.config.ts` deliberately do not match
 `rem` values assume a 16 px root. Line-heights are deliberately loose:
 Bengali has a taller vertical extent than Latin at the same font size.
 
-| Step      | Size / line | Weight | Tracking | Used for                   |
-| --------- | ----------- | ------ | -------- | -------------------------- |
-| `display` | 28 / 36 px  | 620    | −0.01em  | Portal page title          |
-| `h1`      | 22 / 30 px  | 620    | −0.01em  | Admin page titles          |
-| `h2`      | 18 / 26 px  | 600    | 0        | Section headings           |
-| `h3`      | 16 / 24 px  | 600    | 0        | Card headings              |
-| `body-lg` | 16 / 26 px  | 400    | 0        | Portal default body        |
-| `body`    | 14 / 22 px  | 400    | 0        | Admin default body         |
-| `label`   | 13 / 18 px  | 500    | 0        | Form labels, table headers |
-| `caption` | 12 / 17 px  | 400    | 0        | Help text, timestamps      |
+| Step      | Size / line | Weight | Tracking | Used for                    |
+| --------- | ----------- | ------ | -------- | --------------------------- |
+| `hero`    | 32 / 40 px  | 650    | −0.015em | Big number on a widget card |
+| `display` | 28 / 36 px  | 620    | −0.01em  | Portal page title           |
+| `h1`      | 22 / 30 px  | 620    | −0.01em  | Admin page titles           |
+| `h2`      | 18 / 26 px  | 600    | 0        | Section headings            |
+| `h3`      | 16 / 24 px  | 600    | 0        | Card headings               |
+| `body-lg` | 16 / 26 px  | 400    | 0        | Portal default body         |
+| `body`    | 14 / 22 px  | 400    | 0        | Admin default body          |
+| `label`   | 13 / 18 px  | 500    | 0        | Form labels, table headers  |
+| `caption` | 12 / 17 px  | 400    | 0        | Help text, timestamps       |
 
 Two more rules:
 
@@ -609,6 +610,38 @@ reference `light.bg` rather than a literal.
 **`--color-border-subtle` gets no pair, on purpose.** It is decorative — the same
 `neutral-200` `#e2e8f0` that today's comment already documents as ~1.2:1 on
 white and unfit for anything conveying state. See §4.
+
+### 3.7 Chart colours
+
+Three kinds of colour, never mixed: **status** (paid / due / overdue, §3.5),
+**identity** (`chart-cat-*`: which payment method), **magnitude**
+(`chart-seq-*`: how much, one hue, light = less, dark = more). Chart series
+use `cat`/`seq`, never status colours (D23). Old `chart-1..5` stay for the
+grading-scales bar.
+
+| Token         | Light (on white)      | Dark (on `#1e293b`) |
+| ------------- | --------------------- | ------------------- |
+| `chart-cat-1` | `#2a78d6`             | `#3987e5`           |
+| `chart-cat-2` | `#eb6834`             | `#d95926`           |
+| `chart-cat-3` | `#18a372`             | `#199e70`           |
+| `chart-seq-1` | `brand-400` `#8f96f4` | `#6b63e6`           |
+| `chart-seq-2` | `brand-600` `#4a3fd4` | `#8f96f4`           |
+| `chart-seq-3` | `#2a2385`             | `#c3c7fb`           |
+
+- **Dark flips the sequential anchor:** least = darkest, most = lightest, so
+  "more" always stands out from the surface.
+- **Light `chart-cat-3` is `#18a372`, not the mockup's `#1baf7a`:** that one is
+  2.82:1 on white and fails the 3:1 graphics rule.
+- **Light `chart-seq-1` is 2.68:1** (floor 2:1 for an ordinal light end);
+  always shown with a visible value label.
+
+Validate with the dataviz skill's script:
+
+```
+node scripts/validate_palette.js "#2a78d6,#eb6834,#18a372" --mode light --surface "#ffffff"
+node scripts/validate_palette.js "#3987e5,#d95926,#199e70" --mode dark --surface "#1e293b"
+node scripts/validate_palette.js "#6b63e6,#8f96f4,#c3c7fb" --ordinal --mode dark --surface "#1e293b"
+```
 
 ---
 
