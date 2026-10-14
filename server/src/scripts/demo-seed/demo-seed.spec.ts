@@ -188,7 +188,7 @@ describe('runSlices', () => {
 });
 
 describe('SLICES', () => {
-  it('lists the 13 slices in order, attention last, each stub owed', () => {
+  it('lists the 13 slices in order, attention last; every slice but org is still a stub', () => {
     expect(SLICES.map((s) => s.name)).toEqual([
       'org',
       'staff',
@@ -204,6 +204,7 @@ describe('SLICES', () => {
       'applications',
       'attention',
     ]);
-    expect(SLICES.every((s) => s.owedBy && s.covers.length > 0)).toBe(true);
+    expect(SLICES.every((s) => s.covers.length > 0)).toBe(true);
+    expect(SLICES.filter((s) => !s.owedBy).map((s) => s.name)).toEqual(['org']);
   });
 });
