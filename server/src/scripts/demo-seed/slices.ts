@@ -1,0 +1,31 @@
+import type { DemoSlice } from './context';
+import { slice as org } from './slices/org';
+import { slice as staff } from './slices/staff';
+import { slice as students } from './slices/students';
+import { slice as studentExtras } from './slices/student-extras';
+import { slice as routine } from './slices/routine';
+import { slice as attendance } from './slices/attendance';
+import { slice as fees } from './slices/fees';
+import { slice as exams } from './slices/exams';
+import { slice as learning } from './slices/learning';
+import { slice as peopleOps } from './slices/people-ops';
+import { slice as commsPrint } from './slices/comms-print';
+import { slice as applications } from './slices/applications';
+import { slice as attention } from './slices/attention';
+
+/** Run order matters: later slices read ids earlier ones publish. `attention` is always last. */
+export const SLICES: DemoSlice[] = [
+  org,
+  staff,
+  students,
+  studentExtras,
+  routine,
+  attendance,
+  fees,
+  exams,
+  learning,
+  peopleOps,
+  commsPrint,
+  applications,
+  attention,
+];
