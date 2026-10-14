@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -238,6 +238,57 @@ describe('Fines E2E (38.2.5)', () => {
         .send({ month: '2026-02' })
         .expect(201);
       expect(generateRes.body.generated_count).toBe(0);
+    });
+  });
+
+  describe('generate: manual run uses the Dhaka day', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('00:30 Dhaka on 5 Aug: fine is due 12 Aug, not 11 Aug', async () => {
+      // A student with 2 absences in the seed year's first month + an active rule.
+      const [year] = await dataSource.query(
+        `SELECT to_char(start_date, 'YYYY-MM') AS month, to_char(start_date, 'YYYY-MM-DD') AS d1,
+                to_char(start_date + 1, 'YYYY-MM-DD') AS d2
+           FROM academic_years WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID],
+      );
+      const structureId = await createFineStructure(30);
+      const studentId = await createStudent();
+      await dataSource.query(
+        `INSERT INTO fine_rules (id, tenant_id, academic_year_id, trigger, fee_structure_id, class_id, free_per_period, conditions, is_active, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, 'ATTENDANCE_ABSENT', $3, NULL, 0, '{}', true, NOW(), NOW())`,
+        [SEED_TENANT_ID, SEED_ACADEMIC_YEAR_ID, structureId],
+      );
+      for (const date of [year.d1, year.d2]) {
+        const [session] = await dataSource.query(
+          `INSERT INTO attendance_sessions (id, tenant_id, section_id, date, period_no, state, created_at, updated_at)
+           VALUES (DEFAULT, $1, $2, $3, NULL, 'FINALIZED', NOW(), NOW()) RETURNING id`,
+          [SEED_TENANT_ID, SEED_SECTION_1_ID, date],
+        );
+        await dataSource.query(
+          `INSERT INTO attendance_records (id, tenant_id, session_id, student_id, date, status)
+           VALUES (DEFAULT, $1, $2, $3, $4, 'ABSENT')`,
+          [SEED_TENANT_ID, session.id, studentId, date],
+        );
+      }
+
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-08-04T18:30:00Z'));
+      const token = await login(SEED_ADMIN_EMAIL);
+      await supertest(app.getHttpServer())
+        .post(`${API}/fees/fines/generate`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({ month: year.month })
+        .expect(201);
+      vi.useRealTimers();
+
+      const [bill] = await dataSource.query(
+        `SELECT to_char(due_date, 'YYYY-MM-DD') AS due_date FROM student_fees
+          WHERE student_id = $1 AND fee_structure_id = $2`,
+        [studentId, structureId],
+      );
+      expect(bill.due_date).toBe('2026-08-12');
     });
   });
 
