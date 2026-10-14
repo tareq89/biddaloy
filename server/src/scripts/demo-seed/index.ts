@@ -2,6 +2,7 @@ import { resolve } from 'path';
 import { config } from 'dotenv';
 import { parse } from 'pg-connection-string';
 import { DataSource } from 'typeorm';
+import { RedactingTypeOrmLogger } from '../../db-logger';
 import { todayInSchoolTz } from '../../common/time';
 import { createScriptAppContext } from '../script-app-context';
 import { createContext, demoPassword, type DemoSeedContext, type DemoSlice } from './context';
@@ -127,6 +128,8 @@ export async function runDemoSeed(args: DemoSeedArgs, password: string) {
   const app = await createScriptAppContext();
   try {
     const ds = app.get(DataSource);
+    // Dev logging prints every query; millions of them skew the timings. Errors still show.
+    (ds as { logger: unknown }).logger = new RedactingTypeOrmLogger(['error', 'warn']);
     await assertEmptyDatabase(ds);
     const ctx = await createContext({ ds, app, ...args, password });
     await runSlices(ctx, SLICES);
