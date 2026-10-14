@@ -3,18 +3,34 @@
 # (migrate = nothing, seed = a few rows, validator = true/false). It proves the parts that
 # destroy things: the swap, the failure path, and the refusals.
 #
-#   scripts/demo/reset.test.sh
+#   bash scripts/demo/reset.infra.test.sh
 #
-# Needs the shared local stack (`yarn test-env up` started it, or `docker compose up -d db`):
-# it only runs `docker exec` into the running db container, and only ever creates, renames and
-# drops databases named biddaloy_demo_t<pid>*; the refusal cases get a psql that always fails.
+# Locally it uses the shared stack's running db container (`yarn test-env up` started it). With no
+# such container (CI's infra job, which runs every *.infra.test.sh) it starts a throwaway Postgres
+# from the image docker-compose.yml pins, and removes it on exit. Either way it only runs
+# `docker exec` into that container, and only ever creates, renames and drops databases named
+# biddaloy_demo_t<pid>*; the refusal cases get a psql that always fails.
 # aws, redis-cli and curl are stubs that log their arguments. The real seed and validator are
 # exercised by the demo-seed specs (validator.spec.ts, validate-cli.spec.ts).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 DB_CONTAINER="$(docker ps -q --filter label=com.docker.compose.service=db | head -1)"
-[[ -n "$DB_CONTAINER" ]] || { echo "reset.test.sh: no running db container (run yarn test-env up first)" >&2; exit 1; }
+OWN_DB=""
+if [[ -z "$DB_CONTAINER" ]]; then
+  PG_IMAGE="$(sed -n 's/^ *image: \(postgres:.*\)$/\1/p' "$HERE/../../docker-compose.yml" | head -1)"
+  [[ -n "$PG_IMAGE" ]] || { echo "reset.infra.test.sh: no postgres image in docker-compose.yml" >&2; exit 1; }
+  OWN_DB="reset-infra-test-pg-$$"
+  docker run -d --rm --name "$OWN_DB" -e POSTGRES_USER=demo -e POSTGRES_PASSWORD=demo "$PG_IMAGE" >/dev/null
+  trap 'docker rm -f "$OWN_DB" >/dev/null 2>&1 || true' EXIT
+  # TCP answers only once the init scripts are done and the real server is up.
+  for _ in $(seq 1 60); do
+    docker exec "$OWN_DB" pg_isready -q -h 127.0.0.1 -U demo 2>/dev/null && break
+    sleep 1
+  done
+  docker exec "$OWN_DB" pg_isready -q -h 127.0.0.1 -U demo || { echo "reset.infra.test.sh: Postgres did not start" >&2; exit 1; }
+  DB_CONTAINER="$OWN_DB"
+fi
 PG_USER="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$DB_CONTAINER" | sed -n 's/^POSTGRES_USER=//p')"
 PG_PASS="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$DB_CONTAINER" | sed -n 's/^POSTGRES_PASSWORD=//p')"
 
@@ -87,6 +103,7 @@ cleanup() {
     pg "DROP DATABASE IF EXISTS \"$d\" WITH (FORCE)" >/dev/null 2>&1 || true
   done
   rm -rf "$WORK"
+  [[ -z "$OWN_DB" ]] || docker rm -f "$OWN_DB" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -315,4 +332,4 @@ fi
 grep -q "these steps failed: app-restart" "$WORK/err" || { cat "$WORK/err" >&2; fail "app-restart not reported"; }
 pass "restart: 'No such container' on the first run is fine, any other failure is reported"
 
-echo "reset.test.sh: all passed"
+echo "reset.infra.test.sh: all passed"

@@ -13,6 +13,10 @@ export POSTGRES_USER=x POSTGRES_PASSWORD=x POSTGRES_DB=x JWT_SECRET=x \
   BACKUP_AGE_PUBLIC_KEY=age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 
 docker compose config -q && pass "compose config is valid"
+# [58.4.01] The demo overlay (docker-compose.demo.yml) must merge onto the base file.
+DEMO_PASSWORD=x S3_BUCKET=biddaloy-demo \
+  docker compose -f docker-compose.yml -f docker-compose.demo.yml config -q \
+  && pass "demo overlay config is valid"
 
 # Every third-party image in compose is pinned by digest. biddaloy-app and
 # biddaloy-backup are built locally from the Dockerfiles checked below.

@@ -71,5 +71,14 @@ else
   fail "slow header" "${elapsed:-no result}s"
 fi
 
+# [58.4.01] The demo host mounts nginx/demo into the template's demo-extra include (robots.txt);
+# the config must still load with it. One-shot `nginx -t` on the same network (it resolves `app`).
+docker run --rm --network "$NET" -e APP_DOMAIN=example.test -e TRUSTED_PROXY_CIDRS= \
+  -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
+  -v "$PWD/nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro" \
+  -v "$PWD/nginx/demo:/etc/nginx/demo-extra:ro" \
+  -v "$VOL:/etc/letsencrypt:ro" "$NGINX_IMG" nginx -t >/dev/null 2>&1 \
+  && pass "nginx -t with the demo robots.conf" || fail "nginx -t with the demo robots.conf" "non-zero"
+
 [ "$FAILS" = 0 ] || { echo "$FAILS check(s) failed"; exit 1; }
 echo "all checks passed"
