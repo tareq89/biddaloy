@@ -1,8 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { JwtPayload } from '@biddaloy/shared';
+import { JwtPayload, UserStatus } from '@biddaloy/shared';
+import { User } from '../../users/entities/user.entity';
 import { AccessTokenDenylistService } from '../access-token-denylist.service';
 
 /**
@@ -17,6 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     configService: ConfigService,
     private readonly denylist: AccessTokenDenylistService,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {
     const secret = configService.get<string>('JWT_SECRET');
     if (!secret) {
@@ -51,6 +55,28 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // see access-token-denylist.service.ts.
     if (await this.denylist.isRevoked(payload)) {
       throw new UnauthorizedException('Token has been revoked');
+    }
+
+    // [75.2, D12] One PK read: the account must still be live and ACTIVE, and
+    // the token must be newer than the user's cut-off (removal, password reset).
+    const user = await this.userRepo.findOne({
+      where: { id: payload.sub },
+      select: { id: true, status: true, tokens_valid_after: true, deleted_at: true },
+      withDeleted: true,
+    });
+    if (!user || user.deleted_at || user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('Token has been revoked');
+    }
+    if (user.tokens_valid_after) {
+      const cutMs = user.tokens_valid_after.getTime();
+      // ponytail: a token without iat_ms (legacy) has only whole-second iat, so one minted in
+      // the same second as the cut-off survives; `<`, not `<=`, so a refresh racing the cut-off
+      // is never rejected in a loop. Drop the fallback once legacy tokens have expired.
+      const revoked =
+        payload.iat_ms !== undefined
+          ? payload.iat_ms < cutMs
+          : (payload.iat ?? 0) < Math.floor(cutMs / 1000);
+      if (revoked) throw new UnauthorizedException('Token has been revoked');
     }
 
     return payload;

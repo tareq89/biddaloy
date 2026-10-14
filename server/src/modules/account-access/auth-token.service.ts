@@ -76,6 +76,11 @@ export class AuthTokenService {
       if (input.tenantId) {
         revokeQb.andWhere('tenant_id = :tenantId', { tenantId: input.tenantId });
       }
+      // [75.1] A token kind (metadata.kind, e.g. ADMIN_PROPOSAL) only replaces tokens of its own
+      // kind, so a school's proposal and the person's own link never cancel each other.
+      revokeQb.andWhere("COALESCE(metadata->>'kind', '') = :kind", {
+        kind: (input.metadata?.kind as string | undefined) ?? '',
+      });
       await revokeQb.execute();
 
       const raw = generateSecret();
@@ -127,6 +132,18 @@ export class AuthTokenService {
     if (result.affected !== 1) {
       throw new ConflictException('This link has already been used');
     }
+  }
+
+  /** Revokes one still-live token by id (a no-op once it is consumed or revoked). */
+  async revoke(rowId: string): Promise<void> {
+    await this.repo
+      .createQueryBuilder()
+      .update(AuthToken)
+      .set({ revoked_at: new Date() })
+      .where('id = :rowId', { rowId })
+      .andWhere('consumed_at IS NULL')
+      .andWhere('revoked_at IS NULL')
+      .execute();
   }
 
   /** Marks every still-live token of `purpose` for the user consumed (e.g. an invite accepted by code sign-in). */

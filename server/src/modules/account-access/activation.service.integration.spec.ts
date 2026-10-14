@@ -18,6 +18,7 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import { RefreshTokenService, REFRESH_TOKEN_TTL_MS } from '../auth/refresh-token.service';
+import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { randomUUID } from 'crypto';
 import { SchoolsService } from '../schools/schools.service';
@@ -53,6 +54,7 @@ describe('ActivationService (integration)', () => {
         AccountAccessDeliveryService,
         AuditService,
         RefreshTokenService,
+        SessionCutoffService,
         { provide: REFRESH_TOKEN_TTL_MS, useValue: 60_000 },
         { provide: AuthService, useValue: fakeAuthService },
         {
@@ -208,6 +210,12 @@ describe('ActivationService (integration)', () => {
         .getRepository(User)
         .findOneOrFail({ where: { id: user.id } });
       expect(updated.status).toBe(UserStatus.ACTIVE);
+      // [75.2] access tokens issued before activation are refused
+      const [{ tokens_valid_after }] = await dataSource.query(
+        'SELECT tokens_valid_after FROM users WHERE id = $1',
+        [user.id],
+      );
+      expect(tokens_valid_after).not.toBeNull();
       expect(updated.password_hash).not.toBeNull();
       await expect(bcrypt.compare('A-strong-password1', updated.password_hash!)).resolves.toBe(
         true,

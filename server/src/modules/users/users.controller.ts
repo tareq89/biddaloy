@@ -416,10 +416,33 @@ export class UserController {
     @Body() dto: UpdateUserDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() jwt: JwtPayload,
+    @Req() request: Request,
   ) {
-    const user = await this.userService.update(id, dto, tenant.id, jwt.sub);
+    // [75.1] A shared person's email/phone is only proposed; they approve it from their current contact.
+    const proposed = await this.userService.sharedIdentifierChanges(id, dto, tenant.id);
+    const { email: _email, phone: _phone, ...rest } = dto;
+    // Checks that can reject the proposal run before anything is saved: a rejected change writes nothing.
+    if (proposed)
+      await this.contactChangeService.assertCanPropose(id, proposed.email, proposed.phone);
+    // Non-contact fields are saved before anything is sent. If the send then fails, the link is
+    // revoked and this is a 503: the other fields stay saved and nothing is pending (a retry is safe).
+    const user = await this.userService.update(id, proposed ? rest : dto, tenant.id, jwt.sub);
+    if (proposed) {
+      await this.contactChangeService.proposeByAdmin(
+        { userId: id, tenantId: tenant.id, actorUserId: jwt.sub, ...proposed },
+        requestContext(request),
+      );
+    }
     const responseDto = UserResponseDto.fromEntity(user, tenant.id);
     responseDto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
+    if (proposed) {
+      responseDto.pending_contact_change =
+        'email' in proposed && 'phone' in proposed
+          ? 'both'
+          : 'email' in proposed
+            ? 'email'
+            : 'phone';
+    }
     return responseDto;
   }
 

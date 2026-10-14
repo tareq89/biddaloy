@@ -16,6 +16,7 @@ import {
   DialogTitle,
   Input,
   PhoneInput,
+  toast,
 } from '@biddaloy/ui/components';
 import { useUpdateUser, type StaffUser } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -67,7 +68,13 @@ export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps
         // Blank phone clears the stored number (server accepts null).
         phone: phone.trim() !== '' ? phone.trim() : null,
       },
-      { onSuccess: () => onOpenChange(false) },
+      {
+        onSuccess: (saved) => {
+          // [75.1] A shared person's contact change waits for their approval.
+          if (saved.pending_contact_change) toast.info(t('editUser.pendingContactChange'));
+          onOpenChange(false);
+        },
+      },
     );
   }
 

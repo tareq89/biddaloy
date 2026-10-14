@@ -107,11 +107,12 @@ export class RefreshTokenService {
     userId: string,
     familyId: string,
     context: RequestContext,
+    manager?: EntityManager,
   ): Promise<IssuedRefreshToken> {
     const secret = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + this.ttlMs);
 
-    await this.repo.insert({
+    await (manager ? manager.getRepository(RefreshToken) : this.repo).insert({
       id,
       user_id: userId,
       family_id: familyId,
@@ -185,16 +186,28 @@ export class RefreshTokenService {
     // concurrent loser matches zero rows and re-reads, falling through to
     // the grace/reuse logic above exactly as if it had arrived slightly
     // later.
+    //
+    // Review m-new-2: the claim and the successor's insert commit together, under a share lock on
+    // the user's row. `revokeAllForUser` takes that row FOR UPDATE, so a rotation in flight either
+    // commits first (and the revoke then sees and revokes the successor) or waits and then finds
+    // its own token already revoked. Without this, a successor inserted just after the revoke
+    // stayed live past a password reset or contact change.
     const successorId = randomUUID();
-    const claim = await this.repo
-      .createQueryBuilder()
-      .update(RefreshToken)
-      .set({ revoked_at: new Date(), replaced_by_id: successorId })
-      .where('id = :id', { id: row.id })
-      .andWhere('revoked_at IS NULL')
-      .execute();
+    const issued = await this.repo.manager.transaction(async (manager) => {
+      await manager.query('SELECT 1 FROM users WHERE id = $1 FOR SHARE', [row.user_id]);
+      const claim = await manager
+        .getRepository(RefreshToken)
+        .createQueryBuilder()
+        .update(RefreshToken)
+        .set({ revoked_at: new Date(), replaced_by_id: successorId })
+        .where('id = :id', { id: row.id })
+        .andWhere('revoked_at IS NULL')
+        .execute();
+      if (!claim.affected) return null;
+      return this.issueWithId(successorId, row.user_id, row.family_id, context, manager);
+    });
 
-    if (!claim.affected) {
+    if (!issued) {
       const reread = await this.repo.findOne({ where: { id: row.id } });
       if (!reread) {
         throw new UnauthorizedException('Invalid refresh token');
@@ -202,7 +215,6 @@ export class RefreshTokenService {
       return this.rotateRow(reread, context, hops + 1);
     }
 
-    const issued = await this.issueWithId(successorId, row.user_id, row.family_id, context);
     return { userId: row.user_id, refreshToken: issued };
   }
 
@@ -234,15 +246,23 @@ export class RefreshTokenService {
       .execute();
   }
 
+  /**
+   * Review m-new-2: takes the user's row FOR UPDATE first, which waits out any rotation in flight
+   * (it holds FOR SHARE, see `rotateRow`), so that rotation's successor is revoked here too.
+   */
   async revokeAllForUser(userId: string, manager?: EntityManager): Promise<void> {
-    const repo = manager ? manager.getRepository(RefreshToken) : this.repo;
-    await repo
-      .createQueryBuilder()
-      .update(RefreshToken)
-      .set({ revoked_at: new Date() })
-      .where('user_id = :userId', { userId })
-      .andWhere('revoked_at IS NULL')
-      .execute();
+    const revoke = async (m: EntityManager) => {
+      await m.query('SELECT 1 FROM users WHERE id = $1 FOR UPDATE', [userId]);
+      await m
+        .getRepository(RefreshToken)
+        .createQueryBuilder()
+        .update(RefreshToken)
+        .set({ revoked_at: new Date() })
+        .where('user_id = :userId', { userId })
+        .andWhere('revoked_at IS NULL')
+        .execute();
+    };
+    await (manager ? revoke(manager) : this.repo.manager.transaction(revoke));
   }
 
   /**

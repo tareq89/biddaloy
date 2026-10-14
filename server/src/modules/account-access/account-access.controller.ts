@@ -20,7 +20,7 @@ import { LoginResponseDto } from '../auth/dto/auth-response.dto';
 import { ActivationService, ActivateVerifyResult } from './activation.service';
 import { RecoveryService, ForgotPasswordResult } from './recovery.service';
 import { OtpLoginService, OtpLoginRequestResult } from './otp-login.service';
-import { ContactChangeService } from './contact-change.service';
+import { ContactChangeService, type ConfirmEmailResult } from './contact-change.service';
 import { ActivateVerifyDto } from './dto/activate-verify.dto';
 import { ActivateDto } from './dto/activate.dto';
 import { ActivateResendDto } from './dto/activate-resend.dto';
@@ -163,8 +163,11 @@ export class AccountAccessController {
   async verifyEmail(
     @Body() dto: VerifyEmailDto,
     @Req() request: Request,
-  ): Promise<{ status: string }> {
-    return this.contactChange.confirmEmail(dto.token, requestContext(request));
+  ): Promise<ConfirmEmailResult> {
+    return this.contactChange.confirmEmail(dto.token, requestContext(request), dto.action, {
+      email_code: dto.email_code,
+      phone_code: dto.phone_code,
+    });
   }
 }
 

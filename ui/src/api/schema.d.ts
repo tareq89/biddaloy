@@ -8447,13 +8447,26 @@ export interface components {
         VerifyEmailDto: {
             /** @description The raw email-verify token from the ?token= query param. */
             token: string;
+            /**
+             * @description [75.1] Only for a school's contact-change proposal: opening the link shows it, 'approve' applies it, 'decline' cancels it.
+             * @enum {string}
+             */
+            action?: "approve" | "decline";
+            /** @description [75.1, D23] With action 'approve': the 6-digit code sent to the proposed NEW email. */
+            email_code?: string;
+            /** @description [75.1, D23] With action 'approve': the 6-digit code sent to the proposed NEW phone. */
+            phone_code?: string;
         };
         VerifyEmailResponseDto: {
             /**
-             * @description 'valid' means the email was changed; anything else means it was not.
+             * @description 'valid' means the contact was changed; 'proposal' is a school's pending request to show for approval; 'confirm' means the approval was accepted and a 6-digit code went to each NEW contact, to send back with action 'approve' (D23); 'declined' means the person cancelled it; anything else means nothing changed.
              * @enum {string}
              */
-            status: "valid" | "expired" | "consumed" | "revoked" | "unknown";
+            status: "valid" | "expired" | "consumed" | "revoked" | "unknown" | "proposal" | "confirm" | "declined";
+            /** @description Only with status 'proposal': { from_school, new_email?, new_phone? }, the full proposed values (D25: only the person, through a link sent to their own contact, sees this), null = removed. */
+            proposal?: {
+                [key: string]: unknown;
+            };
         };
         FirstPasswordDto: {
             /** @description The first password to set. */
@@ -10136,6 +10149,8 @@ export interface components {
             updated_at: string;
             /** @enum {string} */
             invitation_status: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
+            /** @enum {string} */
+            pending_contact_change?: "email" | "phone" | "both";
             staff_profile_id: string | null;
         };
         StaffInvoiceDto: {

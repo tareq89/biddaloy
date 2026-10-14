@@ -16,7 +16,8 @@ import { TeacherClassSection } from '../academics/entities/teacher-class-section
 import { escapeLikePattern } from '../../common/utils/escape-like.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
-import { normalizeEmail } from '../auth/normalize-identifier';
+import { normalizeEmail, normalizeLoginIdentifier } from '../auth/normalize-identifier';
+import { RefreshTokenService } from '../auth/refresh-token.service';
 import {
   AlertCategory,
   AuditAction,
@@ -34,6 +35,7 @@ import type {
 } from './dto/notification-prefs.dto';
 import { AuditService } from '../audit/audit.service';
 import { AccessTokenDenylistService } from '../auth/access-token-denylist.service';
+import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { ACCESS_TOKEN_TTL_MS } from '../auth/auth-tokens';
 import { assertPasswordAllowed } from '../auth/password-policy';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
@@ -114,6 +116,8 @@ export class UserService {
     private readonly audit: AuditService,
     private readonly accessTokenDenylist: AccessTokenDenylistService,
     @Inject(ACCESS_TOKEN_TTL_MS) private readonly accessTokenTtlMs: number,
+    private readonly sessionCutoff: SessionCutoffService,
+    private readonly refreshTokens: RefreshTokenService,
   ) {}
 
   /** [67.5.03] Own push mute + the school's (read-only) quiet hours. */
@@ -454,6 +458,41 @@ export class UserService {
     return user;
   }
 
+  /**
+   * [75.1, D3] For an admin edit of a person who also belongs to another school:
+   * the email/phone values that would actually change, to be proposed to the
+   * person instead of written. `null` = nothing to propose (no contact change,
+   * or a single-school user, whose edit `update()` applies directly).
+   */
+  async sharedIdentifierChanges(
+    id: string,
+    dto: UpdateUserDto,
+    tenantId: string,
+  ): Promise<{ email?: string | null; phone?: string | null } | null> {
+    const current = await this.findOne(id, tenantId); // keeps the 404 for a non-member
+    const changes: { email?: string | null; phone?: string | null } = {};
+    if (dto.email !== undefined) {
+      const email = dto.email ? normalizeEmail(dto.email) : null;
+      if (email !== (current.email ?? null)) changes.email = email;
+    }
+    if (dto.phone !== undefined) {
+      const phone = dto.phone ? normalizeLoginIdentifier(dto.phone) : null;
+      const stored = current.phone ? normalizeLoginIdentifier(current.phone) : null;
+      if (phone !== stored) changes.phone = phone;
+    }
+    if (Object.keys(changes).length === 0) return null;
+    if ((await countOtherMemberships(this.userRepo.manager, id, tenantId)) === 0) return null;
+    // Same login-identifier invariant as `update()`, on the state the approval would produce.
+    const nextEmail = 'email' in changes ? changes.email : current.email;
+    const nextPhone = 'phone' in changes ? changes.phone : current.phone;
+    if (!nextEmail && !nextPhone) {
+      throw new BadRequestException(
+        'An account must keep at least one login identifier — set an email address or a phone number before clearing the other',
+      );
+    }
+    return changes;
+  }
+
   async update(
     id: string,
     dto: UpdateUserDto,
@@ -467,7 +506,14 @@ export class UserService {
     // that way). It must become a real NULL: `''` is a value as far as the
     // UNIQUE index is concerned, so storing it would let only one user ever
     // have a blank phone. [5.4a]
-    const phone = dto.phone === '' ? null : dto.phone;
+    const phone =
+      dto.phone === '' || dto.phone === null
+        ? null
+        : dto.phone && normalizeLoginIdentifier(dto.phone);
+    // Compare with the stored value normalised the same way (review m3), as
+    // `sharedIdentifierChanges` does: a legacy row saved before phones were
+    // normalised must not look changed when the form re-sends the same number.
+    const storedPhone = current.phone ? normalizeLoginIdentifier(current.phone) : null;
 
     // Same gesture, same meaning for email: `''` is a cleared form input, not
     // an address. Everything else is lowercased before it is compared OR
@@ -514,7 +560,7 @@ export class UserService {
     // retarget it: that would let this school's admin reset the password and
     // sign in as the person in the other school. [68.1.#2209, TEN-01]
     const emailChanges = dto.email !== undefined && (email ?? null) !== (current.email ?? null);
-    const phoneChanges = dto.phone !== undefined && (phone ?? null) !== (current.phone ?? null);
+    const phoneChanges = dto.phone !== undefined && (phone ?? null) !== storedPhone;
     if (
       (emailChanges || phoneChanges) &&
       (await countOtherMemberships(this.userRepo.manager, id, tenantId)) > 0
@@ -572,7 +618,7 @@ export class UserService {
     } else if (dto.email !== undefined) {
       updateData.email = email ?? null;
     }
-    if (dto.phone !== undefined && phone !== (current.phone ?? null)) {
+    if (phoneChanges) {
       updateData.phone = phone;
       updateData.phone_verified_at = null;
     } else if (dto.phone !== undefined) {
@@ -628,6 +674,14 @@ export class UserService {
         }
         throw err;
       }
+    }
+
+    // [75.1] A written email/phone change (single-school user: a shared one never gets here)
+    // ends every session, so whoever held the old contact is out.
+    if (emailChanges || phoneChanges) {
+      // Revoke first: a refresh that rotates before the revoke then mints a token older than the cut-off.
+      await this.refreshTokens.revokeAllForUser(id);
+      await this.sessionCutoff.cutOff(id);
     }
 
     return this.findOne(id, tenantId);
@@ -808,13 +862,21 @@ export class UserService {
         manager,
       );
     });
-    // After commit: every token the user already holds is refused, so removal
-    // is immediate (D16). The client's 401 -> refresh drops the school.
-    await this.accessTokenDenylist.revokeUserTokensIssuedBefore(
-      userId,
-      new Date(),
-      this.accessTokenTtlMs,
-    );
+    // After commit. "Membership ended => tokens dead" must hold even if one step fails, so the
+    // Redis cut-off runs in `finally`: a DB error from `cutOff` still propagates, but cannot skip it.
+    try {
+      // [75.2] Durable DB cut-off, after commit so a token minted while the transaction was
+      // open (a refresh still sees the membership) is older than it. JwtStrategy reads it.
+      await this.sessionCutoff.cutOff(userId);
+    } finally {
+      // Every token the user already holds is refused, so removal is immediate (D16).
+      // The client's 401 -> refresh drops the school.
+      await this.accessTokenDenylist.revokeUserTokensIssuedBefore(
+        userId,
+        new Date(),
+        this.accessTokenTtlMs,
+      );
+    }
   }
 }
 

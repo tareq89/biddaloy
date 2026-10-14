@@ -34,6 +34,7 @@ import {
   IssuedRefreshToken,
   RequestContext,
 } from './refresh-token.service';
+import { SessionCutoffService } from './session-cutoff.service';
 import { AccessTokenDenylistService } from './access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
 import { SessionDto } from './dto/session.dto';
@@ -88,6 +89,7 @@ export class AuthService {
     @Inject(ACCESS_TOKEN_TTL_MS) private readonly accessTokenTtlMs: number,
     @Inject(PushSubscriptionsService)
     private readonly pushSubscriptions: PushSubscriptionsService,
+    private readonly sessionCutoff: SessionCutoffService,
     // Inject JwtStrategy to force eager creation — PassportModule needs it
     // to discover the strategy for AuthGuard('jwt').
     @Optional() @Inject(JwtStrategy) private readonly _jwtStrategy?: JwtStrategy,
@@ -206,6 +208,11 @@ export class AuthService {
       throw new UnauthorizedException('Missing refresh token');
     }
 
+    // Before rotate() (review m1), not just before the membership read: a contact change
+    // revokes refresh tokens and then cuts off, so a rotation that commits before the revoke
+    // must get an iat_ms that predates the cut-off too. Its successor refresh token is revoked
+    // as well: the revoke locks the user row and waits for the rotation (review m-new-2).
+    const issuedAtMs = Date.now();
     let rotated;
     try {
       rotated = await this.refreshTokens.rotate(cookieValue, context);
@@ -234,7 +241,6 @@ export class AuthService {
       throw new UnauthorizedException('User no longer exists');
     }
 
-    const issuedAtMs = Date.now();
     const membershipPayload = await this.fetchMembershipPayload(user.id);
 
     return {
@@ -280,6 +286,8 @@ export class AuthService {
    */
   async logoutAll(userId: string, jti: string, context: RequestContext): Promise<void> {
     await this.refreshTokens.revokeAllForUser(userId);
+    // [75.2, D12] "Everywhere" includes the access tokens other devices hold.
+    await this.sessionCutoff.cutOff(userId);
     // [JOBS-12] No device may keep getting this user's pushes. A push-table
     // error must never block logout (same stance as the denylist below).
     try {
@@ -574,10 +582,12 @@ export class AuthService {
   }
 
   /**
-   * `issuedAtMs` must be taken BEFORE `memberships` were read (#2297). The
-   * removal cut-off refuses tokens with `iat_ms <= cutOff`; a token whose
-   * memberships predate the removal commit therefore always predates the
-   * cut-off too, however long the read or the refresh-token write took.
+   * `issuedAtMs` must be taken BEFORE `memberships` were read (#2297), and in
+   * `refresh()` before the rotation too. Two checks refuse older tokens: the
+   * Redis removal denylist refuses `iat_ms <= cutOff`, and JwtStrategy's DB
+   * check refuses `iat_ms < users.tokens_valid_after`. A token whose
+   * memberships predate the change therefore always predates the cut-off
+   * too, however long the read or the refresh-token write took.
    */
   private signAccessToken(user: User, memberships: JwtMembership[], issuedAtMs: number): string {
     const payload: JwtPayload = {

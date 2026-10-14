@@ -12,6 +12,8 @@ import { UserService, TeacherService } from './users.service';
 import { AuditService } from '../audit/audit.service';
 import { AccessTokenDenylistService } from '../auth/access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from '../auth/auth-tokens';
+import { SessionCutoffService } from '../auth/session-cutoff.service';
+import { RefreshTokenService } from '../auth/refresh-token.service';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { CreateUserDto, CreateTeacherDto, UpdateTeacherDto } from './dto/users.dto';
@@ -150,6 +152,8 @@ describe('UserService (integration)', () => {
   let userRepo: Repository<User>;
   let userTenantRepo: Repository<UserTenant>;
   let dataSource: DataSource;
+  let sessionCutoff: SessionCutoffService;
+  let refreshTokens: { revokeAllForUser: ReturnType<typeof vi.fn> };
 
   const TENANT_ID = SEED_TENANT_ID;
 
@@ -166,6 +170,8 @@ describe('UserService (integration)', () => {
           useValue: { revokeUserTokensIssuedBefore: vi.fn() },
         },
         { provide: ACCESS_TOKEN_TTL_MS, useValue: 900_000 },
+        SessionCutoffService,
+        { provide: RefreshTokenService, useValue: { revokeAllForUser: vi.fn() } },
       ],
       [],
       {
@@ -178,6 +184,8 @@ describe('UserService (integration)', () => {
     userRepo = module.get<Repository<User>>(getRepositoryToken(User));
     userTenantRepo = module.get<Repository<UserTenant>>(getRepositoryToken(UserTenant));
     dataSource = module.get(DataSource);
+    sessionCutoff = module.get(SessionCutoffService);
+    refreshTokens = module.get(RefreshTokenService);
 
     await seedReferenceData(dataSource);
   }, 60000);
@@ -1466,6 +1474,68 @@ describe('UserService (integration)', () => {
         expect(updated.full_name).toBe('New Name');
       });
 
+      // Review m1: revoke first, then cut off. The other order lets a refresh that rotates
+      // between the two calls mint an access token stamped after the cut-off.
+      it('update() revokes refresh tokens before it stamps the session cut-off', async () => {
+        const user = await createSolo('order-me@example.com');
+        const cutOff = vi.spyOn(sessionCutoff, 'cutOff');
+        refreshTokens.revokeAllForUser.mockClear();
+
+        await service.update(user.id, { phone: '+8801900000077' }, TENANT_ID, REQUESTING_ADMIN_ID);
+
+        expect(refreshTokens.revokeAllForUser).toHaveBeenCalledWith(user.id);
+        expect(cutOff).toHaveBeenCalledWith(user.id);
+        expect(refreshTokens.revokeAllForUser.mock.invocationCallOrder[0]).toBeLessThan(
+          cutOff.mock.invocationCallOrder[0],
+        );
+        cutOff.mockRestore();
+      });
+
+      // Review m3: a legacy row stored before phones were normalised must compare equal to
+      // the same number re-saved from the form.
+      describe('legacy unnormalised phone', () => {
+        const legacy = async (email: string) => {
+          const user = await createSolo(email);
+          await dataSource.query(
+            `UPDATE users SET phone = ' +8801900000001 ', phone_verified_at = NOW() WHERE id = $1`,
+            [user.id],
+          );
+          return user;
+        };
+
+        it('re-saving it unchanged signs nobody out and keeps the verification', async () => {
+          const user = await legacy('legacy-solo@example.com');
+
+          await service.update(
+            user.id,
+            { phone: '+8801900000001' },
+            TENANT_ID,
+            REQUESTING_ADMIN_ID,
+          );
+
+          const [row] = await dataSource.query(
+            'SELECT phone_verified_at, tokens_valid_after FROM users WHERE id = $1',
+            [user.id],
+          );
+          expect(row.tokens_valid_after).toBeNull();
+          expect(row.phone_verified_at).not.toBeNull();
+        });
+
+        it('re-saving it unchanged on a shared user is not a SHARED_IDENTITY 409', async () => {
+          const user = await legacy('legacy-shared@example.com');
+          await joinOther(user.id);
+
+          await expect(
+            service.update(
+              user.id,
+              { phone: '+8801900000001', full_name: 'Same Phone' },
+              TENANT_ID,
+              REQUESTING_ADMIN_ID,
+            ),
+          ).resolves.toMatchObject({ full_name: 'Same Phone' });
+        });
+      });
+
       it('a soft-deleted membership elsewhere does not count as shared', async () => {
         const user = await createSolo('former-elsewhere@example.com');
         const other = await joinOther(user.id);
@@ -1569,6 +1639,8 @@ describe('TeacherService (integration)', () => {
           useValue: { revokeUserTokensIssuedBefore: vi.fn() },
         },
         { provide: ACCESS_TOKEN_TTL_MS, useValue: 900_000 },
+        SessionCutoffService,
+        { provide: RefreshTokenService, useValue: { revokeAllForUser: vi.fn() } },
       ],
       [],
       {

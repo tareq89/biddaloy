@@ -109,7 +109,7 @@ function fakeRepo() {
     return builder;
   }
 
-  return {
+  const repo: any = {
     insert: vi.fn(async (row: any) => {
       // Real Postgres stamps `created_at` via @CreateDateColumn on insert —
       // this fake mirrors that so listActiveSessions' ordering/grouping has
@@ -132,6 +132,19 @@ function fakeRepo() {
     }),
     createQueryBuilder: vi.fn(createQueryBuilder),
     rows,
+  };
+  // The user-row lock (review m-new-2) is a no-op here; the transaction runs on the same rows.
+  const manager = { query: vi.fn(async () => []), getRepository: () => repo };
+  repo.manager = { transaction: async (work: (m: typeof manager) => unknown) => work(manager) };
+  repo.lockQueries = manager.query;
+  return repo as {
+    insert: ReturnType<typeof vi.fn>;
+    findOne: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
+    createQueryBuilder: ReturnType<typeof vi.fn>;
+    rows: Map<string, any>;
+    lockQueries: ReturnType<typeof vi.fn>;
   };
 }
 

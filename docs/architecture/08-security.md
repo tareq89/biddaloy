@@ -183,6 +183,82 @@ The old value is never touched until the confirm step succeeds — a
 mistyped new number/address just leaves the request expiring unconfirmed,
 with the account's real contact untouched throughout.
 
+**A school admin changing a shared person's contact (75.1, D3/D23).** If the
+person also belongs to another school, `PATCH /users/:id` does **not** write a
+new email/phone. It holds the change until the person approves it:
+
+```mermaid
+sequenceDiagram
+  participant A as School B admin
+  participant S as Server
+  participant U as Person (current contact)
+  participant O as School A admins
+  participant N as New phone/email
+  A->>S: PATCH /users/U {phone: new}
+  S-->>A: 200 {phone: OLD, pending_contact_change: "phone"}
+  S->>U: link to the CURRENT email/phone (message masks the new value)
+  S->>O: notice "School B asked to change U's phone" (no new value)
+  U->>S: open link: POST /auth/verify-email {token} (shows it, changes nothing)
+  U->>S: press Approve: {token, action: approve} (or Decline: cancels, tells School B)
+  S-->>U: 200 {status: "confirm"}
+  S->>N: 6-digit code to the NEW phone/email (nothing written yet)
+  U->>S: {token, action: approve, phone_code: "482913"}
+  S->>S: one transaction: lock user, re-check, write (verified), consume link
+  S->>S: revoke refresh tokens, then cut off sessions
+```
+
+Why two steps (D23, review M1 on #2460): the masked value can't tell
+`john@gmail.com` from `jack@gmail.com`, so a person could approve an address
+a malicious admin typed. Approving is only **consent** from the current
+contact; the code to the **new** contact is **ownership**. Until the code
+comes back, the old value stays the login, so OTP sign-in and password
+recovery can never reach the proposed value. A removal (`null`) needs no code.
+
+- The link goes to the person's current verified email, else current verified
+  phone, else whatever they have; never to the proposed value. No contact on
+  file: `409 NO_CONTACT`.
+- It is an `EMAIL_VERIFY` token with `metadata.kind = 'ADMIN_PROPOSAL'` (3-day
+  TTL); the latest proposal from a school revokes its earlier proposal only
+  (never the person's own email-change link). The token stores where the link
+  was sent; if that contact has changed by approval time the link is refused.
+- Opening the link never approves: the page shows the school and the **full**
+  new value (`+8801712345998`, `jack@gmail.com`) with Approve and Decline. The
+  message itself masks it (`+88017••••998`); the page can show it in full
+  because only the person reaches it, through a link sent to their own current
+  contact (D25). Seeing the full value lets them spot an address that is not
+  theirs, such as one the admin typed for themselves to receive the code.
+- Approval re-checks, under a row lock, that the account keeps an email or
+  phone and that the new value is still unique; a refusal leaves the link usable.
+- Approval also re-checks that School B still has the person and that the
+  admin who asked is still an active ADMIN there (or a platform SUPER_ADMIN,
+  who has no ADMIN row in the school); if not, the link is revoked and the
+  answer is `409 PROPOSAL_WITHDRAWN`. These membership rows are read
+  `FOR SHARE`, so a removal committing at the same moment is waited for. The
+  person's `users` row is locked `FOR NO KEY UPDATE` (not `FOR UPDATE`), so the
+  person leaving that school at the same moment, whose audit row points at the
+  same `users` row, does not deadlock with the approval.
+- Re-saving the form with the same pending value **by the same admin** sends
+  nothing again, but only once the link was really delivered (the token is
+  stamped `sent: true` as the very last step, after the notices and the audit
+  row, so a save that answered 503 is never deduped). A different admin's save
+  sends a fresh link and revokes the old one.
+- The delivery service reports a gateway outage as `FAILED`; it never throws.
+  So the server checks the result: an approval link that was not `SENT` is
+  revoked and the admin gets a 503 (other fields stay saved). A code that
+  could not reach the new contact is a 503 to the person, never `confirm`.
+- The codes use their own OTP purpose, `CONTACT_PROPOSAL`, so a self-service
+  phone change to the same number can't overwrite, cool down or lock them.
+  Before a re-send, every value's cooldown and cap are checked, and only then
+  are codes issued and sent. So a 429 on one value sends nothing **and** keeps
+  the code the person already holds for the other (a new code replaces the old
+  one, so issuing it first would have wiped it).
+  Approving with only one of two codes re-sends just the missing one.
+- Any contact change that is written (approved, or a single-school user's
+  admin edit) sets `users.tokens_valid_after` and revokes refresh tokens, so
+  whoever held the old contact is signed out everywhere.
+- `POST /users/:id/reset-password` on a shared user still returns
+  `409 SHARED_IDENTITY`.
+
 ## Passwordless sign-in (OTP login)
 
 `POST /auth/otp/request` and `POST /auth/otp/verify`
@@ -328,6 +404,52 @@ seen by the client.
   and every access token whose `iat_ms` is at or before it is refused on the
   very next request. `iat_ms` is taken before the memberships are read, so a
   token signed during the removal never outlives it.
+
+**Session cut-off (75.2, D12)** — the DB-backed cut-off. One column,
+`users.tokens_valid_after`, and one primary-key read per request in
+`JwtStrategy` (`server/src/modules/auth/strategies/jwt.strategy.ts`). No Redis.
+
+```mermaid
+flowchart LR
+  R["Request + access token"] --> S{"signature ok?"}
+  S -- no --> X[401]
+  S -- yes --> D{"jti / user denylisted? (Redis)"}
+  D -- yes --> X
+  D -- no --> U{"users row live, ACTIVE,<br/>token newer than tokens_valid_after?"}
+  U -- no --> X
+  U -- yes --> OK[allow]
+```
+
+- What sets it (`SessionCutoffService.cutOff`): removing or leaving a school
+  (same transaction as the membership delete), a completed password reset
+  (self-service or admin-started).
+- What does not: `POST /auth/change-password` (the caller keeps their own
+  token), `logout-all` and `DELETE /auth/sessions/:id` (still the `jti` denylist).
+- A user who is soft-deleted or not `ACTIVE` (for example `SUSPENDED`) is also
+  refused on the next request.
+- Precision: the token's `iat_ms` is compared with the cut-off in milliseconds.
+  A legacy token with only whole-second `iat` that was minted in the same
+  second as the cut-off survives (`<`, not `<=`, so a refresh racing the
+  cut-off is never rejected in a loop).
+- Example: admin removes Rahim from school A at 10:00:00.000 -> his token
+  issued 09:55 gets 401 -> the client refreshes -> the new token has no school A.
+- Refresh rotation vs "revoke every refresh token" (review m-new-2 on #2460):
+  both lock the user row first, so a rotation in flight either finishes first
+  (and its successor is revoked too) or waits and finds its token already
+  revoked. Without the lock, a successor inserted just after the revoke stayed
+  live.
+
+  ```mermaid
+  sequenceDiagram
+    participant R as Refresh (rotateRow)
+    participant V as revokeAllForUser
+    participant DB as Postgres
+    R->>DB: users row FOR SHARE (granted)
+    V->>DB: users row FOR UPDATE (waits for R)
+    R->>DB: claim old token, INSERT successor, COMMIT
+    V->>DB: lock granted, revoke every live token (successor included)
+    Note over R,V: Other order: V locks first, R waits,<br/>then finds its old token revoked (401)
+  ```
 
 Expired `refresh_tokens` rows (revoked or not) are deleted by an hourly
 BullMQ job (`refresh-token-cleanup.processor.ts`/`.scheduler.ts`).
