@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as http from 'http';
@@ -15,8 +15,6 @@ import { DEMO_CARDS } from './demo-accounts';
  * so this does the same.
  */
 async function boot(demo: boolean): Promise<INestApplication> {
-  // The test database holds default-school, so the boot guard would stop the process.
-  vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
   const fixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = fixture.createNestApplication();
   configureApiVersioning(app);
@@ -37,7 +35,6 @@ describe('DEMO_MODE on (E2E)', () => {
 
   afterAll(async () => {
     await app?.close();
-    vi.restoreAllMocks();
     if (saved.mode === undefined) delete process.env.DEMO_MODE;
     else process.env.DEMO_MODE = saved.mode;
     if (saved.pass === undefined) delete process.env.DEMO_PASSWORD;
@@ -114,7 +111,6 @@ describe('DEMO_MODE off (E2E)', () => {
 
   afterAll(async () => {
     await app?.close();
-    vi.restoreAllMocks();
     if (saved !== undefined) process.env.DEMO_MODE = saved;
   });
 
