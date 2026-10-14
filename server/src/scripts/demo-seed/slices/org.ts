@@ -33,6 +33,9 @@ import { PublicHolidayEntry } from '../../../modules/calendar/entities/public-ho
 import { Shift } from '../../../modules/routines/entities/shift.entity';
 import { PeriodSlot } from '../../../modules/routines/entities/period-slot.entity';
 import { Room } from '../../../modules/routines/entities/room.entity';
+import { PrintTemplate } from '../../../modules/print/entities/print-template.entity';
+import { PrintTemplateVersion } from '../../../modules/print/entities/print-template-version.entity';
+import { PrintAsset } from '../../../modules/print/entities/print-asset.entity';
 import { ExamTemplate } from '../../../modules/exams/entities/exam-template.entity';
 import { ExamTemplateComponent } from '../../../modules/exams/entities/exam-template-component.entity';
 import { BD_PUBLIC_HOLIDAYS_BY_YEAR } from '../../seed-data/public-holidays-bd';
@@ -245,6 +248,10 @@ export const slice: DemoSlice = {
     Room,
     ExamTemplate,
     ExamTemplateComponent,
+    // The curriculum-preset apply writes the print templates (58.3.06 owes only jobs and profiles).
+    PrintTemplate,
+    PrintTemplateVersion,
+    PrintAsset,
   ],
   run: async (ctx) => {
     // Content is deterministic for an anchor; ids from real services (schools, current year, ...) are not.

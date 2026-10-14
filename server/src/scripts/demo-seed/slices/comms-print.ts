@@ -5,9 +5,6 @@ import { SmsCreditBalance } from '../../../modules/communications/credits/entiti
 import { SmsCreditLedger } from '../../../modules/communications/credits/entities/sms-credit-ledger.entity';
 import { CalendarFeedToken } from '../../../modules/calendar/entities/calendar-feed-token.entity';
 import { PrinterProfile } from '../../../modules/print/entities/printer-profile.entity';
-import { PrintTemplate } from '../../../modules/print/entities/print-template.entity';
-import { PrintTemplateVersion } from '../../../modules/print/entities/print-template-version.entity';
-import { PrintAsset } from '../../../modules/print/entities/print-asset.entity';
 import { PrintJob } from '../../../modules/print/entities/print-job.entity';
 import { PrintJobItem } from '../../../modules/print/entities/print-job-item.entity';
 
@@ -20,9 +17,6 @@ export const slice: DemoSlice = {
     SmsCreditLedger,
     CalendarFeedToken,
     PrinterProfile,
-    PrintTemplate,
-    PrintTemplateVersion,
-    PrintAsset,
     PrintJob,
     PrintJobItem,
   ],
