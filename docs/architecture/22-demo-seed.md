@@ -14,8 +14,53 @@ second one.
 | Pinned by  | `e2e/seed-contract.ts` — don't rename anything  | `server/src/modules/demo/demo-accounts.ts` (the demo login cards)                                |
 | Guarded by | review only                                     | a CI **coverage guard**: every table must have demo rows                                         |
 
-The demo seed is built by Epic 58.0 (#1732). The rule below applies **today**;
-the tooling it points at lands in Epic 58 Wave 1 (#2159 runner, #2161 guard).
+The demo seed is built by Epic 58.0 (#1732). The runner (#2159) and the
+coverage guard (#2161) are on main as of Wave 1; the slices are filled in
+Waves 2 and 3.
+
+## How to run it
+
+```mermaid
+flowchart LR
+  A["yarn workspace @biddaloy/server seed:demo<br/>--scale 0.05 --years 2 --anchor 2026-10-14"] --> G1["Guard 1+2: assertDemoTarget<br/>DEMO_MODE / DEMO_PASSWORD in production,<br/>DB name must start with biddaloy_demo (D40)"]
+  G1 --> B["Boot Nest app context"]
+  B --> G3["Guard 3: assertEmptyDatabase<br/>only default-school may exist"]
+  G3 --> C["createContext<br/>ctx.rng (seeded), ctx.ids, one password hash (D43)"]
+  C --> S["runSlices(SLICES)<br/>in the order of slices.ts"]
+  S --> T["timing table: slice, rows, seconds"]
+```
+
+| Flag       | Default                 | Meaning                                                       |
+| ---------- | ----------------------- | ------------------------------------------------------------- |
+| `--scale`  | `1`                     | Size multiplier. `0.05` is the small CI run.                  |
+| `--years`  | `10`                    | Years of history (integer, >= 1).                             |
+| `--anchor` | today (school timezone) | The demo's "today", `YYYY-MM-DD`. Every date derives from it. |
+
+Where things live (all under `server/src/scripts/demo-seed/`):
+
+| File                                     | Job                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------- |
+| `index.ts`                               | CLI, `parseArgs`, the three guards, `runSlices`, timing table                         |
+| `context.ts`                             | `DemoSlice` and `DemoSeedContext` types; `ctx.rng`, `ctx.ids`, `ctx.demoPasswordHash` |
+| `slices.ts`                              | `SLICES` (run order, `attention` last) and the `EXEMPT` map (entity -> reason)        |
+| `slices/<area>.ts`                       | One file per slice                                                                    |
+| `dates.ts`, `bulk.ts`                    | Date helpers from the anchor; `insertChunked` for bulk history                        |
+| `validator.ts`                           | Invariant checks (teacher double-booking, money sums, ...)                            |
+| `demo-seed.coverage.integration.spec.ts` | The CI guard                                                                          |
+
+`ctx.rng` is one seeded faker, so the same anchor and scale give the same data.
+`ctx.ids` is how a slice hands tenant, year and user ids to later slices.
+Every seeded login shares one bcrypt hash made once in `createContext` (cost 12
+is about 250 ms, so never hash per user). The password is `DEMO_PASSWORD`,
+with a local-only fallback.
+
+Output of a run is a table like this (rows and seconds fill in as slices land):
+
+```text
+slice               rows   seconds
+org                   ...       ...
+staff                 ...       ...
+```
 
 ## The rule
 
@@ -39,7 +84,7 @@ flowchart LR
   G -->|"table empty, no reason"| RED["red — names the table and the fix"]
 ```
 
-### Until the guard is on main (before #2161 merges)
+### Before the guard exists (historic; it is on main now)
 
 There is nothing to run yet. Instead:
 
@@ -95,8 +140,14 @@ These hold for every slice, forever. Reviewers reject a diff that breaks one.
 ## What the CI guard checks
 
 The guard is `server/src/scripts/demo-seed/demo-seed.coverage.integration.spec.ts`.
-It is built in #2161 and is a copy of the workbook coverage guard
-(`server/src/modules/workbook/codec/entity-coverage.ts`).
+It is a copy of the workbook coverage guard
+(`server/src/modules/workbook/codec/entity-coverage.ts`). CI runs it in the
+`integration` job: `yarn test:integration` runs `vitest run 'integration.spec.ts'`,
+which matches the file, so no extra CI step exists. The job's Postgres user is the
+`postgres` superuser, so the guard can create and drop its databases. To run it
+alone: `yarn test-env run -- yarn workspace @biddaloy/server vitest run src/scripts/demo-seed/demo-seed.coverage.integration.spec.ts`.
+Entities with no rows on purpose are listed in the `EXEMPT` map in `slices.ts`,
+each with a reason.
 
 - Every entity in `ALL_ENTITIES` is covered by exactly one slice, or is exempt with a reason.
 - A covered entity has at least one row after a small run.
