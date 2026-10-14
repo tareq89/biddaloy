@@ -5,11 +5,11 @@
 # (S3-compatible upload), and supercronic (a cron runner that works as a
 # non-root user and hands its own environment to jobs, unlike busybox crond,
 # which needs root and drops the container env — forcing secrets into a file).
-FROM alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507
+FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0
 
 RUN apk add --no-cache \
   bash \
-  postgresql16-client \
+  postgresql18-client \
   age \
   aws-cli \
   tzdata \

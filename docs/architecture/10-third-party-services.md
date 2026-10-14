@@ -29,7 +29,7 @@ managed cloud services, but still "third party" software the app depends on.
 
 ```mermaid
 flowchart LR
-    app[NestJS app] --> db[(PostgreSQL 16)]
+    app[NestJS app] --> db[(PostgreSQL 18)]
     app --> redis[(Redis 7)]
     app --> seaweedfs[(SeaweedFS / S3)]
     redis --> bullmq[BullMQ queue]
@@ -39,7 +39,7 @@ flowchart LR
 
 | Service    | Image                 | Role                                                    |
 | ---------- | --------------------- | ------------------------------------------------------- |
-| PostgreSQL | `postgres:16-alpine`  | Primary database, all tenant data                       |
+| PostgreSQL | `postgres:18-alpine`  | Primary database, all tenant data                       |
 | Redis      | `redis:7-alpine`      | BullMQ queue backend + distributed rate-limit storage   |
 | SeaweedFS  | `chrislusf/seaweedfs` | S3-compatible object storage — tenant uploads + backups |
 | nginx      | `nginx:1.27-alpine`   | TLS termination, reverse proxy                          |
