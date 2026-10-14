@@ -506,7 +506,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: redis:7-alpine
+        image: redis:8-alpine
         ports:
           - 6379:6379
         options: >-
@@ -515,7 +515,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       seaweedfs:
-        image: chrislusf/seaweedfs:4.47
+        image: chrislusf/seaweedfs:4.48
         env:
           AWS_ACCESS_KEY_ID: ci-access-key
           AWS_SECRET_ACCESS_KEY: ci-secret-key
@@ -691,7 +691,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: redis:7-alpine
+        image: redis:8-alpine
         ports:
           - 6379:6379
         options: >-
@@ -700,7 +700,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       seaweedfs:
-        image: chrislusf/seaweedfs:4.47
+        image: chrislusf/seaweedfs:4.48
         env:
           AWS_ACCESS_KEY_ID: ci-access-key
           AWS_SECRET_ACCESS_KEY: ci-secret-key
@@ -914,7 +914,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: redis:7-alpine
+        image: redis:8-alpine
         ports:
           - 6379:6379
         options: >-

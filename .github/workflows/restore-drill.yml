@@ -32,8 +32,18 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # The e2e seed boots AppModule, which refuses to start without Redis.
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
       seaweedfs:
-        image: chrislusf/seaweedfs:4.47
+        image: chrislusf/seaweedfs:4.48
         env:
           AWS_ACCESS_KEY_ID: drill-access-key
           AWS_SECRET_ACCESS_KEY: drill-secret-key
