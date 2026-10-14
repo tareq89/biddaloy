@@ -1,7 +1,7 @@
 /**
  * Generated OpenAPI types and the shared axios client.
  */
-export { apiClient } from './client';
+export { apiClient, API_BASE_URL } from './client';
 export {
   fetchPublicVerification,
   getPublicInvoice,

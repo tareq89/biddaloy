@@ -508,6 +508,8 @@ describe('/login', () => {
 
       await waitFor(() => expect(container.querySelector('details')?.open).toBe(true));
       expect((await screen.findByRole('alert')).textContent).toContain('incorrect');
+      // The open form must not add a second page title.
+      expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     });
 
     it('a 404 leaves the page exactly as before: no cards, no ribbon', async () => {

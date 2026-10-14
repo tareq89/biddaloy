@@ -51,6 +51,8 @@ export interface SignInFormProps {
    * the submit button, right-aligned; `client-admin/src/routes/login.tsx`
    * passes a `<Link to="/forgot-password">`. */
   secondaryAction?: ReactNode;
+  /** Heading element; a page with its own `<h1>` (the demo login) passes `h2`. */
+  headingLevel?: 'h1' | 'h2';
 }
 
 interface SignInFormValues {
@@ -100,6 +102,7 @@ export function SignInForm({
   loading = false,
   error = null,
   secondaryAction,
+  headingLevel: Heading = 'h1',
 }: SignInFormProps) {
   const { t } = useTranslation('auth');
   // Inside <AuthLayout> the layout owns the logo and the card.
@@ -173,7 +176,7 @@ export function SignInForm({
           )}
         >
           <div>
-            <h1 className="text-h1 text-balance">{t('heading')}</h1>
+            <Heading className="text-h1 text-balance">{t('heading')}</Heading>
             <p className="mt-0.5 text-text-secondary">{t('subtext')}</p>
           </div>
 
