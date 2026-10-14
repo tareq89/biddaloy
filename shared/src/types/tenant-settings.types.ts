@@ -307,6 +307,20 @@ export const DEFAULT_STUDY_PLANS_SETTINGS: StudyPlansSettings = {
   guardianDigestSms: false,
 };
 
+/** `dashboard.*` (8.10.7) — at-risk thresholds (D7), committee attendance target (D23), digest time (D31). */
+export interface DashboardRiskThresholds {
+  absentStreakDays: number; // default 3
+  monthlyAttendancePct: number; // default 75
+  failedSubjects: number; // default 1
+  overdueDays: number; // default 60
+}
+
+export interface DashboardSettings {
+  risk: DashboardRiskThresholds;
+  committeeAttendanceTargetPct: number; // default 90
+  digestTime: string; // 'HH:mm', school-local, default '07:30'
+}
+
 export interface TenantSettings {
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
   region?: RegionSettings;
@@ -324,4 +338,5 @@ export interface TenantSettings {
   documents?: DocumentsSettings;
   studyPlans?: StudyPlansSettings;
   attention?: AttentionSettings;
+  dashboard?: DashboardSettings;
 }

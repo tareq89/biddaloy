@@ -90,6 +90,7 @@ export const PERMISSION_GROUPS: readonly { id: string; permissions: readonly Per
       Permission.ALERT_REPORT_READ,
       Permission.DASHBOARD_VIEW,
       Permission.DASHBOARD_ADMIN,
+      Permission.COMMITTEE_REPORT_READ,
     ],
   },
   {
