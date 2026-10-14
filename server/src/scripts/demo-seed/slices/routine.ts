@@ -18,7 +18,7 @@ import { orgIds, type OrgTenant } from './org';
 import { staffByCardKey, teachersByTenant, type StaffTeacher } from './staff';
 
 /** Preset subject name (HSC suffix dropped) -> the code `WEEKLY_PERIODS` uses. Others are not timetabled. */
-const CODE_OF: Record<string, string> = {
+export const CODE_OF: Record<string, string> = {
   Bangla: 'BAN',
   English: 'ENG',
   Mathematics: 'MATH',
