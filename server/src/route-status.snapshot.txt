@@ -612,6 +612,7 @@ POST   /api/v1/users/bulk-upload/validate                                       
 POST   /api/v1/users/invitations/batch                                           401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/users/invitations/batch/:batchId                                  401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/users/invitations/preview                                         401 PASS PASS PASS 403 403 403 403 403 403 403 403
+POST   /api/v1/users/join-requests                                               401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/users/me                                                          401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 PATCH  /api/v1/users/me                                                          401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 POST   /api/v1/users/me/contact-change                                           401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
