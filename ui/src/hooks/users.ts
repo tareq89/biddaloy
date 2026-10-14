@@ -17,6 +17,7 @@ import { shouldRetryQuery } from './retry';
 // that `schema.d.ts` is regenerated — no more hand-typed intersection.
 export type StaffUser = components['schemas']['UserResponseDto'];
 export type CreateUserInput = components['schemas']['CreateUserDto'];
+export type JoinRequestInput = components['schemas']['JoinRequestDto'];
 export type UpdateUserInput = components['schemas']['UpdateUserDto'];
 // [8.14.4] `PATCH /users/me`'s own DTO — distinct from `UpdateUserInput`
 // (`UpdateUserDto`) because it carries the caller-provided
@@ -168,6 +169,17 @@ export function useCreateUser() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+    },
+  });
+}
+
+/** [68.2.02] "Add staff" for someone who already has an account: files a join
+ * request (202). They become staff only when they accept. */
+export function useRequestStaffJoin() {
+  return useMutation({
+    mutationFn: async (input: JoinRequestInput) => {
+      const res = await apiClient.post<{ status: 'PENDING' }>('/users/join-requests', input);
+      return res.data;
     },
   });
 }

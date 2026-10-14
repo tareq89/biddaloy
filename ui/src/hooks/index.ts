@@ -83,6 +83,7 @@ export {
   useAdminResetPassword,
   useConfirmPhoneChange,
   useCreateUser,
+  useRequestStaffJoin,
   useCurrentUser,
   useRemoveMember,
   useLeaveSchool,

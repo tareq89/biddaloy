@@ -46,6 +46,7 @@ import {
   ContactChangeRequestResponseDto,
 } from './dto/contact-change.dto';
 import { NotificationPrefsDto, UpdateNotificationPrefsDto } from './dto/notification-prefs.dto';
+import { JoinRequestDto, JoinRequestResponseDto } from './dto/join-request.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import {
   InviteBatchStatusResponseDto,
@@ -117,6 +118,21 @@ export class UserController {
     userDto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
 
     return { user: userDto, membership, invitation };
+  }
+
+  /** [68.2.02] "Add staff" for someone who already has an account: they accept before they join. */
+  @Post('users/join-requests')
+  @RequirePermissions(Permission.USER_CREATE)
+  @HttpCode(202)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @ApiOperation({ summary: 'Send an existing account a request to join this school as staff' })
+  @ApiResponse({ status: 202, type: JoinRequestResponseDto })
+  requestJoin(
+    @Body() dto: JoinRequestDto,
+    @CurrentTenant() tenant: { id: string },
+    @CurrentUser() jwt: JwtPayload,
+  ): Promise<JoinRequestResponseDto> {
+    return this.userService.requestJoin(dto, tenant.id, jwt.sub);
   }
 
   @Post('users/:id/invitation/resend')
