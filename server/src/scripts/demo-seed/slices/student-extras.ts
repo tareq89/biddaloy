@@ -77,7 +77,7 @@ export const slice: DemoSlice = {
           '..',
           'seed-data',
           'demo-avatars',
-          `avatar-${String(i).padStart(2, '0')}.png`,
+          `avatar-${String(i).padStart(2, '0')}.jpg`,
         ),
       );
     const keysByTenant = new Map<string, string[]>();
@@ -85,8 +85,8 @@ export const slice: DemoSlice = {
       const keys: string[] = [];
       for (let i = 1; i <= AVATARS; i++) {
         // Named (not random) keys: the same seed must give the same data.
-        const key = tenantObjectKeyNamed(t.id, 'student-photo', ctx.rng.string.uuid(), 'png');
-        await storage.put(key, avatar(i), 'image/png');
+        const key = tenantObjectKeyNamed(t.id, 'student-photo', ctx.rng.string.uuid(), 'jpg');
+        await storage.put(key, avatar(i), 'image/jpeg');
         keys.push(key);
       }
       keysByTenant.set(t.id, keys);
@@ -178,14 +178,15 @@ export const slice: DemoSlice = {
 
     // ---- 4. public exams: SSC for class 10 graduates, HSC for class 12 (D34) ------------------
     const exams: Record<string, unknown>[] = [];
-    let roll = 100000;
+    const rollOf = new Map<string, number>(); // exam roll / registration numbers run per branch
     for (const s of students.filter((x) => x.status === EnrollmentStatus.GRADUATED)) {
       const info = classInfo.get(lastStay(s).classId)!;
       const type =
         info.grade === 10 ? PublicExamType.SSC : info.grade === 12 ? PublicExamType.HSC : null;
       if (!type) continue;
       const [min, max] = ctx.weighted(GPA_RANGES.map((r) => [r[0], r[1]] as const));
-      roll += ctx.rng.number.int({ min: 1, max: 9 });
+      const roll = (rollOf.get(s.tenantId) ?? 100000) + ctx.rng.number.int({ min: 1, max: 9 });
+      rollOf.set(s.tenantId, roll);
       exams.push({
         tenant_id: s.tenantId,
         student_id: s.id,
