@@ -4,7 +4,6 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToOne,
   JoinColumn,
   ManyToOne,
   Index,
@@ -25,13 +24,15 @@ import { School } from '../../schools/entities/school.entity';
  * `server/src/migrations/1789800014000-StaffAttendanceLeave.ts`).
  */
 @Entity('staff_profiles')
+@Index('UQ_staff_profiles_tenant_user', ['tenant_id', 'user_id'], { unique: true })
+@Index('IDX_staff_profiles_user_id', ['user_id'])
 @Index(['tenant_id'])
 @Index(['tenant_id', 'employee_id'], { unique: true })
 export class StaffProfile {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
