@@ -64,9 +64,8 @@ export class StaffProfilesService {
         where: { tenant_id: tenantId, employee_id: opts.employeeId },
       });
       if (duplicate) {
-        throw new ConflictException(
-          `Staff profile with employee ID "${opts.employeeId}" already exists`,
-        );
+        // Rule 23: name the field, never echo the value.
+        throw new ConflictException('That employee ID is already in use');
       }
       return repo.save(
         repo.create({
