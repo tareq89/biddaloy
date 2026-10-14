@@ -554,3 +554,42 @@ Gallery section 18 in `patterns.html`. Labels are always props.
 | ChoiceCards | `ChoiceCards` (`components/choice-cards.tsx`) | `value`, `onValueChange`, `options: {value,title,description?,icon?}[]`, `labelledBy?` / `label?` | the whole card is the radio; selected `border-primary` |
 | ReorderButtons | `ReorderButtons` (`components/reorder-buttons.tsx`) | `index`, `count`, `onMove(from,to)`, `upLabel`, `downLabel` | `flex items-center`; two ghost icon buttons `size-11 text-text-secondary md:size-8`; first ↑ and last ↓ `disabled`. Alt+↑/↓ stays in the page |
 | ExamMarkerRow | `ExamMarkerRow` / `ExamMarkerLine` (`components/exam-marker-row.tsx`) | `colSpan`, `title`, `meta?`, `onEdit?`, `editLabel?` | `<tr><td colspan>` holding `flex items-center gap-3 text-primary`: `flag size-4`, title `text-label`, rule `flex-1 border-t-2 border-dashed border-primary`, meta `text-caption text-text-secondary`, optional edit icon button. `ExamMarkerLine` is the same line without the `<tr>` (phone cards) |
+
+## 14. Dashboard kit — Epic 169.0 (D27)
+
+All from `@biddaloy/ui` (`components/dashboard/`). Presentational: every string arrives translated and formatted. Colours are `ChartColor` (`primary`, `muted`, `cat-1..3`, `seq-1..3`), mapped through literal class strings in `chart-utils.ts`. Charts are SVG/CSS, no chart library. Mockups: `design-assets` branch, `redesign/dashboard-*` (accountant, committee, headmaster, portal, teacher).
+
+```mermaid
+flowchart LR
+  WidgetCard --> StatTile
+  WidgetCard --> ChartTableToggle --> LineChart
+  ChartTableToggle --> ColumnChart
+  WidgetCard --> StackedBar
+  StatTile --> Sparkline
+  StatTile --> Meter
+```
+
+| Component | Props | Classes / shape |
+|---|---|---|
+| `WidgetCard` | `title`, `variant?: 'full'\|'compact'`, `headingLevel?: 2\|3`, `updatedLabel?`, `value?`, `unit?`, `summary?`, `menu?` + `menuLabel?`, `footer?`, `loading?` + `loadingLabel?`, `error?: {message, retryLabel, onRetry}`, `empty?: {reason, action?}`, `expanded?` / `defaultExpanded?` / `onExpandedChange?` | `Card` `flex flex-col`; states `min-h-40`; footer `mt-auto flex items-center justify-between gap-2 pt-3`; compact toggle `min-h-11 p-3`; priority loading > error > empty > content |
+| `StatTile` | `label`, `value`, `trend?: {direction: up\|down\|flat, text, tone?: neutral\|good\|bad}`, `note?`, `children?` (Sparkline / Meter), `asChild?` | tones `text-text-secondary`, `text-status-paid-fg`, `text-status-overdue-fg`; trend = icon + text |
+| `Sparkline` | `values`, `label`, `color?`, `showLastDot?` | 100x24 SVG |
+| `Meter` | `label`, `value`, `max`, `valueText`, `endText?`, `marker?: {value,label}`, `color?`, `size?: sm\|md`, `showText?` | `showText={false}` inside a StatTile |
+| `BriefingLine` / `BriefingChip` | `headline`, `mostUrgent?`, `action?` (the page's one filled button), `items?` + `moreLabel`, `itemsLabel?`, `icon?`, `caption?`, `loading?`, `loadingLabel?` | chips on desktop, "N more" disclosure on phone |
+| `ChartTableToggle` | `summary`, `table: {caption, columns, rows, numeric?}`, `showTableLabel`, `showChartLabel`, `defaultView?`, `children` (the chart) | summary sentence stays visible in both views |
+| `LineChart` | `label`, `points: {x,y,valueLabel}[]`, `formatTick`, `yDomain?`, `target?`, `inProgressFrom?`, `futureFrom?`, `labelled?`, `currentIndex?`, `tooltipLabel?`, `color?`, `height?` | arrow keys move the tooltip; in-progress segment dotted |
+| `ColumnChart` | `label`, `series: {id,label,color}[]`, `data: {x,values,valueLabels,totalLabel?}[]`, `formatTick`, `highlightIndex?`, `labelled?`, `currentIndex?`, `legend?`, `tooltipLabel?`, `height?` | 1 series = simple columns; 2+ = stacked bottom to top |
+| `StackedBar` | `label`, `segments: {id,label,value,valueLabel,detail?,color}[]`, `legend?`, `size?: sm\|md` | track `flex gap-0.5 rounded-full h-1.5 / h-5`; legend `grid-cols-1 min-[360px]:grid-cols-3`; text never depends on colour |
+
+Example:
+
+```tsx
+<WidgetCard title="Fee collection" value="91.4%" summary="Up 2.1 points">
+  <StackedBar label="By method" segments={[
+    { id: 'cash', label: 'Cash', value: 60, valueLabel: '60%', color: 'cat-1' },
+    { id: 'bkash', label: 'bKash', value: 40, valueLabel: '40%', color: 'cat-2' },
+  ]} />
+</WidgetCard>
+```
+
+Changed shared pieces: `BarWidget` gains `target`, `emphasis`, `bare`; `AttendanceMonthGrid` gains the `upcoming` day state.
