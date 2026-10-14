@@ -104,6 +104,36 @@ grid are not scaled. It runs the newest year through the real slot service
 (8 slots at a time); serial it took 60 to 76 s. Slices after `routine` are
 still empty (Wave 3), so these totals grow.
 
+### Final timings (Wave 3 close, 2026-10-14)
+
+Laptop, load average 5 to 6 (other lanes were running, so this is a worst case, not a quiet machine).
+Quiet TypeORM logger on (`runDemoSeed` logs errors and warnings only).
+
+```text
+yarn workspace @biddaloy/server seed:demo --scale 1 --years 10
+slice               rows   seconds
+org                 3407       6.6
+staff                870       1.9
+students           33429      31.2
+student-extras      6569       2.0
+routine             5410      15.2
+attendance       7673189    1057.7   <- 74% of the run
+fees              547150     174.2
+exams             394462      61.0
+learning          120008       9.7
+people-ops          3542       0.3
+comms-print        32339      16.0
+applications        8087       1.5
+attention           1425      26.2
+                         total 1425 s = 23.7 min (budget: 20 min, D8: OVER)
+
+pg_database_size 2686 MB. Big tables: marks 183k, invoices 121k, payments 121k.
+```
+
+The small run in the coverage spec (scale 0.05, 2 years) took 101 s against its 90 s budget (D39) on the same loaded machine.
+`attendance` already bulk-loads through `INSERT ... SELECT FROM unnest(...)`, so `insertChunked` would not help; the
+rows themselves (7.7 M) are the cost. Both budgets are open items for the product owner, not silently raised.
+
 After a run the invariant validator found nothing (scale 1, 10 years).
 
 ## Running the demo end to end
@@ -118,6 +148,10 @@ flowchart LR
 ```
 
 Two things that are easy to miss:
+
+- Under `yarn test-env run -- ... seed:demo` the throwaway database is named `biddaloy_test_run_*`, which the
+  seed refuses. Create a database whose name starts with `biddaloy_demo` (for example `biddaloy_demo_local`), run
+  `CREATE EXTENSION "uuid-ossp"` in it, point `DATABASE_URL` at it, then `migration:run` and `seed:demo`.
 
 - `DemoBootGuard` refuses to start if the database holds any school that is not
   a demo branch. A migrated database always has `default-school`, so set
@@ -262,8 +296,11 @@ flowchart LR
   All times come from `ctx.anchor`.
 - **Coverage guard**: `demo-seed.coverage.integration.spec.ts` counts `OPEN` recipients of `ACTIVE` alerts per `DEMO_CARDS`
   login and fails below 3. If you add a role to the cards and it has no rule alerts, add a manual message for it.
-- `alerts.raised_at` / `expires_at` / `last_evaluated_at` and `alert_recipients.pushed_at` are in the determinism guard's
-  `CLOCK_COLS`: manual messages and push delivery use the real clock.
+- `alerts.raised_at` / `expires_at` / `last_evaluated_at` (MANUAL rows only) and `alert_recipients.pushed_at` are in the
+  determinism guard's `CLOCK_COLS`: manual messages and push delivery use the real clock. Rule and history alerts are
+  anchor-derived and must match exactly.
+- **Manual alerts expire 7 real days after the seed.** The nightly reset (#2178) rebuilds the demo database, which keeps
+  the accountant, committee and office cards at 3 open alerts. A demo database that is not reseeded for a week loses them.
 
 ## Where this rule is also written
 
