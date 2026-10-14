@@ -22,7 +22,7 @@ Waves 2 and 3.
 
 ```mermaid
 flowchart LR
-  A["yarn workspace @biddaloy/server seed:demo<br/>--scale 0.05 --years 2 --anchor 2026-10-14"] --> G1["Guard 1+2: assertDemoTarget<br/>DEMO_MODE / DEMO_PASSWORD in production,<br/>DB name must start with biddaloy_demo (D40)"]
+  A["yarn workspace @biddaloy/server seed:demo<br/>--scale 0.05 --years 2 --anchor 2026-10-14"] --> G1["Guard 1+2: assertDemoTarget (inside runDemoSeed)<br/>DEMO_MODE in production; DEMO_PASSWORD in production or DEMO_MODE,<br/>DB name must start with biddaloy_demo (D40)"]
   G1 --> B["Boot Nest app context"]
   B --> G3["Guard 3: assertEmptyDatabase<br/>only default-school may exist"]
   G3 --> C["createContext<br/>ctx.rng (seeded), ctx.ids, one password hash (D43)"]
@@ -136,6 +136,10 @@ These hold for every slice, forever. Reviewers reject a diff that breaks one.
 | 10  | **Exempt only with a reason** in `DEMO_SEED_EXEMPT` (device-bound, platform-only, regenerable).                                                                                                                                        | An exemption without a reason is a hidden empty screen.                                        |
 | 11  | **Fees, payments and invoices slices are money-tier review.**                                                                                                                                                                          | Same tier as the fees module itself.                                                           |
 | 12  | **Don't change the dev seed to feed the demo**, and don't change the demo seed to feed e2e.                                                                                                                                            | They are pinned by different contracts.                                                        |
+
+Rule 8 in practice: a bill's `paid_amount` must equal its allocations from live `SUCCESS` payments plus fee generation's wallet auto-apply (`DEBIT_GENERATION`, minus any `REVERSAL` of it). Reversed (`REFUNDED`) and `PENDING`/`FAILED` payments do not count.
+
+Rule 6 has one exception: platform alerts (`platform-alerts.service.ts`) text the verified phones of platform SUPER_ADMINs straight through the gateway, outside the `DEMO_MODE` log-only swap. So the demo host leaves `PLATFORM_SMS_API_KEY` unset, and the demo seed never gives a platform SUPER_ADMIN a verified phone.
 
 ## What the CI guard checks
 
