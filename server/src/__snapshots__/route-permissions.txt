@@ -594,6 +594,7 @@ POST /users/bulk-upload/commit | StaffBulkUploadController | perm: USER_CREATE
 POST /users/bulk-upload/validate | StaffBulkUploadController | perm: USER_CREATE
 POST /users/invitations/batch | UserController | perm: USER_CREATE
 POST /users/invitations/preview | UserController | perm: USER_CREATE
+POST /users/join-requests | UserController | perm: USER_CREATE
 POST /users/me/contact-change | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 POST /users/me/contact-change/confirm-phone | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 POST /users/me/leave | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
