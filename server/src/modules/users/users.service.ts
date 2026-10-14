@@ -39,6 +39,7 @@ import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { ACCESS_TOKEN_TTL_MS } from '../auth/auth-tokens';
 import { assertPasswordAllowed } from '../auth/password-policy';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
+import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import {
   CreateUserDto,
   UpdateUserDto,
@@ -954,12 +955,19 @@ export class TeacherService {
     // staff profile" / "already has a teacher profile" guards.
     const joiningDate = dto.joining_date ? new Date(dto.joining_date) : null;
     const work = async (manager: EntityManager) => {
-      const staffProfile = await this.staffProfilesService.createFor(
-        dto.user_id,
-        tenantId,
-        { employeeId: dto.employee_id, joiningDate },
-        manager,
-      );
+      // An ADMIN / ACCOUNTANT / EXECUTIVE already has this school's profile
+      // (UserService.create makes one): promoting them reuses it, and the
+      // Teacher takes its employee_id. Anyone else gets a new one.
+      const staffProfile =
+        (await manager.findOne(StaffProfile, {
+          where: { user_id: dto.user_id, tenant_id: tenantId },
+        })) ??
+        (await this.staffProfilesService.createFor(
+          dto.user_id,
+          tenantId,
+          { employeeId: dto.employee_id, joiningDate },
+          manager,
+        ));
 
       const teacher = manager.create(Teacher, {
         user_id: dto.user_id,

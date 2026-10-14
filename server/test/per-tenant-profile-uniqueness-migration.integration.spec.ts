@@ -111,6 +111,60 @@ describe('PerTenantProfileUniqueness migration (integration)', () => {
     await expect(insert.teacher(a, u2, emp)).rejects.toMatchObject({ code: '23505' });
   });
 
+  it.each(['guardians', 'students', 'teachers'] as const)(
+    '%s: a soft-deleted row frees its (tenant, user) slot for a new live row',
+    async (table) => {
+      const [a, user] = [await mkSchool(), await mkUser()];
+      const kind =
+        table === 'guardians' ? 'guardian' : table === 'students' ? 'student' : 'teacher';
+      const args: [string, string] = [a, user];
+      if (kind === 'teacher') await insert.teacher(...args, `T-${randomUUID()}`);
+      else await insert[kind](...args);
+      await ds.query(`UPDATE ${table} SET deleted_at = now() WHERE user_id = $1`, [user]);
+      // The partial index ignores the soft-deleted row...
+      if (kind === 'teacher') await insert.teacher(...args, `T-${randomUUID()}`);
+      else await insert[kind](...args);
+      // ...but still stops a second LIVE one.
+      await expect(
+        kind === 'teacher' ? insert.teacher(...args, `T-${randomUUID()}`) : insert[kind](...args),
+      ).rejects.toMatchObject({ code: '23505' });
+    },
+  );
+
+  it('teacher employee_id: a soft-deleted row frees its slot in the same school', async () => {
+    const [a, u1, u2] = [await mkSchool(), await mkUser(), await mkUser()];
+    const emp = `T-${randomUUID()}`;
+    await insert.teacher(a, u1, emp);
+    await ds.query(`UPDATE teachers SET deleted_at = now() WHERE user_id = $1`, [u1]);
+    await insert.teacher(a, u2, emp);
+  });
+
+  it('down refuses on a duplicate teachers.employee_id across tenants', async () => {
+    const [a, b, u1, u2] = [await mkSchool(), await mkSchool(), await mkUser(), await mkUser()];
+    const emp = `T-${randomUUID()}`;
+    await insert.teacher(a, u1, emp);
+    await insert.teacher(b, u2, emp);
+    const qr = ds.createQueryRunner();
+    try {
+      await expect(migration.down(qr)).rejects.toThrow(/teachers\.employee_id/);
+    } finally {
+      await qr.release();
+    }
+  });
+
+  it('down refuses on a same-school soft-deleted duplicate user_id', async () => {
+    const [a, user] = [await mkSchool(), await mkUser()];
+    await insert.guardian(a, user);
+    await ds.query(`UPDATE guardians SET deleted_at = now() WHERE user_id = $1`, [user]);
+    await insert.guardian(a, user);
+    const qr = ds.createQueryRunner();
+    try {
+      await expect(migration.down(qr)).rejects.toThrow(/guardians\.user_id/);
+    } finally {
+      await qr.release();
+    }
+  });
+
   it('down refuses on a cross-tenant duplicate, then round-trips once cleaned', async () => {
     const [a, b, user] = [await mkSchool(), await mkSchool(), await mkUser()];
     await insert.staff(a, user);
@@ -123,15 +177,17 @@ describe('PerTenantProfileUniqueness migration (integration)', () => {
       await qr.release();
     }
 
-    // Remove every cross-tenant duplicate other tests left, then revert and re-apply.
-    for (const t of ['teachers', 'guardians', 'students', 'staff_profiles']) {
-      await ds.query(
-        `DELETE FROM ${t} p USING ${t} q WHERE p.user_id = q.user_id AND p.tenant_id <> q.tenant_id AND p.id > q.id`,
-      );
+    // down() refuses on ANY duplicate on the worker DB (other spec files leave some), so the
+    // cleanup uses down()'s own predicate: keep the oldest row per value, drop the rest.
+    for (const [t, col] of [
+      ['teachers', 'user_id'],
+      ['teachers', 'employee_id'],
+      ['guardians', 'user_id'],
+      ['students', 'user_id'],
+      ['staff_profiles', 'user_id'],
+    ]) {
+      await ds.query(`DELETE FROM ${t} p USING ${t} q WHERE p.${col} = q.${col} AND p.id > q.id`);
     }
-    await ds.query(
-      `DELETE FROM teachers p USING teachers q WHERE p.employee_id = q.employee_id AND p.id > q.id`,
-    );
     await withMigrationsReverted(ds, [migration], async () => {
       // Global key is back: the same user cannot have a second staff profile anywhere.
       const [c, d, u2] = [await mkSchool(), await mkSchool(), await mkUser()];

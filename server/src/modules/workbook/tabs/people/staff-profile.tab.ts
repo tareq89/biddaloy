@@ -178,8 +178,8 @@ export const staffProfileTab: TabSpec<StaffProfile, StaffProfileRow> = {
     tenantId: string,
     m: EntityManager,
   ): Promise<StaffProfile> {
-    // `employee_id` is unique only per tenant (`UQ_staff_profiles_tenant_employee_id`),
-    // unlike `Teacher.employee_id` — scope the lookup accordingly.
+    // `employee_id` is unique per tenant (`UQ_staff_profiles_tenant_employee_id`),
+    // like `Teacher.employee_id` — scope the lookup accordingly.
     const staffProfile =
       existing ??
       (await m.findOne(StaffProfile, {

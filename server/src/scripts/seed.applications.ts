@@ -751,7 +751,8 @@ export async function ensurePortalApplicationsSeed(
     // One login per student: only link if neither side is taken.
     await tx.query(
       `UPDATE students SET user_id = $2 WHERE id = $1 AND user_id IS NULL
-          AND NOT EXISTS (SELECT 1 FROM students WHERE user_id = $2)`,
+          AND NOT EXISTS (SELECT 1 FROM students s2 WHERE s2.user_id = $2
+            AND s2.tenant_id = (SELECT tenant_id FROM students WHERE id = $1))`,
       [child.id, studentUser.id],
     );
     const [{ user_id: linkedUser }] = await tx.query(`SELECT user_id FROM students WHERE id = $1`, [

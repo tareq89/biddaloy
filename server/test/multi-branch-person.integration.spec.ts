@@ -28,12 +28,14 @@ import { UserTenant } from '../src/modules/auth/entities/user-tenant.entity';
  * user always carries the school, so each school sees its own Teacher /
  * StaffProfile / Guardian row for U and never the other's (D11, D13, D14).
  *
- * Runs on the migrated DB with its own schools and users; deletes them at the end.
+ * Runs on the migrated DB with its own schools and users (left behind: audit_logs is
+ * append-only, and the test DB is dropped per run).
  */
 describe('multi-branch person (integration)', () => {
   let module: TestingModule;
   let ds: DataSource;
   let teachers: TeacherService;
+  let users: UserService;
   let staffProfiles: StaffProfilesService;
   let invites: SchoolInviteService;
   const CTX = { ip: null, userAgent: null };
@@ -53,6 +55,7 @@ describe('multi-branch person (integration)', () => {
     ]);
     ds = module.get(DataSource);
     teachers = module.get(TeacherService);
+    users = module.get(UserService);
     staffProfiles = module.get(StaffProfilesService);
     invites = module.get(SchoolInviteService);
   }, 60000);
@@ -114,6 +117,32 @@ describe('multi-branch person (integration)', () => {
       staff_profile_id: spB,
     });
     expect([...(await staffProfiles.findIdsByUserIds([u], b)).values()]).toEqual([spB]);
+  });
+
+  it('promoting a real ADMIN (made by UserService.create, who already has a staff profile) reuses it', async () => {
+    const [a, b] = [await mkSchool(), await mkSchool()];
+    const { user } = await users.create(
+      {
+        full_name: 'Real Admin',
+        email: `real-admin-${randomUUID()}@example.com`,
+        password: 'Str0ng!Passw0rd',
+        role: UserRole.ADMIN,
+      },
+      a,
+    );
+    const profileA = await staffProfiles.findIdByUserId(user.id, a);
+    expect(profileA).toBeTruthy();
+
+    const teacherA = await teachers.create({ user_id: user.id, employee_id: 'IGNORED-1' }, a);
+    expect(teacherA.staff_profile_id).toBe(profileA);
+
+    // Same person is ADMIN at school B too (membership by accept in real life; created here).
+    await member(user.id, b, UserRole.ADMIN);
+    await staffProfiles.createFor(user.id, b, {});
+    const profileB = await staffProfiles.findIdByUserId(user.id, b);
+    const teacherB = await teachers.create({ user_id: user.id, employee_id: 'IGNORED-2' }, b);
+    expect(teacherB.staff_profile_id).toBe(profileB);
+    expect(profileB).not.toBe(profileA);
   });
 
   it('teacher section scope in school B sees only school B sections', async () => {

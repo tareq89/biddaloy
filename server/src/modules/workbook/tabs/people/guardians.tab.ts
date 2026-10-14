@@ -305,10 +305,9 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
     // itself — it relies on `existing` (from the engine's `KeyIndex`) plus a
     // `user_id` lookup below.
     //
-    // `guardians.user_id` carries a GLOBAL unique constraint
-    // (`REL_f1d05a3a2d70db0a25479b6718`), not tenant-scoped and not partial
-    // on `deleted_at` — same hazard as `Teacher.employee_id`
-    // (`teachers.tab.ts`), one column over. `withDeleted: true` so a
+    // `guardians (tenant_id, user_id)` is unique per school
+    // (`UQ_guardians_tenant_user`, D11), so the holder lookup below is
+    // tenant-scoped. `withDeleted: true` so a
     // soft-deleted holder is revived rather than colliding with a fresh
     // insert.
     let guardian = existing;

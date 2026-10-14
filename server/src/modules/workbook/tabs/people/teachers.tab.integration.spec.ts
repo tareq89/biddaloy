@@ -185,6 +185,42 @@ describe('teachersTab (integration)', () => {
       expect(saved.subject_specialization).toBe('Physics');
     });
 
+    it('prefers the live row over a soft-deleted twin with the same employee_id (no 23505)', async () => {
+      const oldUser = await makeUser({ email: 'twin-old@teachers-a.test' });
+      const old = await teachersTab.upsert(
+        rowFor({ user_id: oldUser.id, employee_id: 'EMP-A-TWIN' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      await teachersTab.remove(
+        await teacherRepo.findOneByOrFail({ id: old.id }),
+        dataSource.manager,
+      );
+      // The partial unique index allows a new live row beside the soft-deleted one.
+      const liveUser = await makeUser({ email: 'twin-live@teachers-a.test' });
+      // (upsert would revive the soft-deleted row, so insert the live twin directly.)
+      const live = await teacherRepo.save(
+        teacherRepo.create({
+          user_id: liveUser.id,
+          employee_id: 'EMP-A-TWIN',
+          designations: [],
+          tenant_id: TENANT_A,
+        }),
+      );
+
+      const again = await teachersTab.upsert(
+        rowFor({ user_id: liveUser.id, employee_id: 'EMP-A-TWIN', subject_specialization: 'X' }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      expect(again.id).toBe(live.id);
+      const stillDeleted = await teacherRepo.findOne({ where: { id: old.id }, withDeleted: true });
+      expect(stillDeleted?.deleted_at).not.toBeNull();
+    });
+
     it('allows the same employee_id in each school, and never re-tenants the other (D10)', async () => {
       const userA = await makeUser({ email: 'collide-a@teachers-a.test' });
       await teachersTab.upsert(
