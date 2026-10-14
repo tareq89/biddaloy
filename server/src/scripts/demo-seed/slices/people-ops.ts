@@ -1,4 +1,8 @@
-import { AdmissionApplicantStatus, AdmissionDocumentType } from '@biddaloy/shared';
+import {
+  AdmissionApplicantStatus,
+  AdmissionDocumentType,
+  EnrollmentStatus,
+} from '@biddaloy/shared';
 import { AcrFormVersion } from '../../../modules/acr/entities/acr-form-version.entity';
 import { AcrCriterion } from '../../../modules/acr/entities/acr-criterion.entity';
 import { AcrAssessment } from '../../../modules/acr/entities/acr-assessment.entity';
@@ -118,6 +122,17 @@ export const slice: DemoSlice = {
     const nextYear = String(Number(ctx.anchor.slice(0, 4)) + 1);
     const references = new Set<string>();
 
+    // Joining dates: no ACR for a year that ended before a teacher joined, no incident before it.
+    const joinedOn = new Map<string, string>(
+      (
+        await ctx.ds.query(
+          `SELECT id, joining_date::text AS joined FROM staff_profiles WHERE tenant_id = ANY($1)`,
+          [org.tenants.map((t) => t.id)],
+        )
+      ).map((r: { id: string; joined: string | null }) => [r.id, r.joined ?? '']),
+    );
+    const joined = (x: { staffProfileId: string }) => joinedOn.get(x.staffProfileId) ?? '';
+
     for (const t of org.tenants) {
       const teachers = staff.get(t.id) ?? [];
       const cur = t.years[t.years.length - 1];
@@ -141,6 +156,7 @@ export const slice: DemoSlice = {
       });
       for (const year of t.years.slice(-ACR_YEARS)) {
         for (const teacher of teachers) {
+          if (joined(teacher) > year.end) continue; // not at the school that year
           const isCurrent = year === cur;
           const done = !isCurrent || ctx.rng.number.float() < CURRENT_COMPLETED_RATE;
           // An unfinished ACR has only the first block scored, like the reference seed.
@@ -183,13 +199,16 @@ export const slice: DemoSlice = {
       for (let i = 0; i < INCIDENTS_PER_BRANCH && teachers.length; i++) {
         const [type, severity, body] = INCIDENTS[i % INCIDENTS.length];
         const withdrawn = i === INCIDENTS_PER_BRANCH - 1;
+        const who = teachers[ctx.rng.number.int({ min: 0, max: teachers.length - 1 })];
+        const drawn = addDays(ctx.anchor, -ctx.rng.number.int({ min: 5, max: span }));
+        const occurredOn = drawn >= joined(who) ? drawn : joined(who); // never before joining
         incidents.push({
           tenant_id: t.id,
-          staff_user_id: teachers[ctx.rng.number.int({ min: 0, max: teachers.length - 1 })].userId,
+          staff_user_id: who.userId,
           type,
           severity,
           body,
-          occurred_on: addDays(ctx.anchor, -ctx.rng.number.int({ min: 5, max: span })),
+          occurred_on: occurredOn,
           reported_by: admin,
           withdrawn_at: withdrawn ? stamp(addDays(ctx.anchor, -2), 11) : null,
           withdrawn_by_user_id: withdrawn ? admin : null,
@@ -217,7 +236,9 @@ export const slice: DemoSlice = {
         .slice(0, SURVEY_TARGETS)
         .map((x) => ({ teacherId: x.teacherId, subjectId: subjectOf.get(x.teacherId)! }));
       // Only students who have a login can answer; ~40% of them do (at least one per survey).
-      const loginStudents = students.filter((s) => s.tenantId === t.id && s.userId);
+      const loginStudents = students.filter(
+        (s) => s.tenantId === t.id && s.userId && s.status === EnrollmentStatus.ACTIVE,
+      );
       for (const term of terms) {
         const open = term.end_date >= ctx.anchor;
         const surveyId = uuid();

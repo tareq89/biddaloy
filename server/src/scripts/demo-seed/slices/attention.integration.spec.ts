@@ -33,6 +33,11 @@ import { AlertWriterService } from '../../../modules/attention/engine/alert-writ
 import { AttentionScheduler } from '../../../modules/attention/engine/attention-scheduler';
 import { ManualAlertsService } from '../../../modules/attention/manual/manual-alerts.service';
 import { RuleContextService } from '../../../modules/attention/rules/rule-context.service';
+import { AttendanceNotTakenRule } from '../../../modules/attention/rules/attendance/attendance-not-taken.rule';
+import { HomeworkNotSubmittedRule } from '../../../modules/attention/rules/homework/homework-not-submitted.rule';
+import { FeesOverdueRisingRule } from '../../../modules/attention/rules/fees/fees-overdue-rising.rule';
+import { ExamsMarksOverdueRule } from '../../../modules/attention/rules/exams/exams-marks-overdue.rule';
+import { AdmissionApplicationsPendingRule } from '../../../modules/attention/rules/office/admission-applications-pending.rule';
 import { DEMO_CARDS } from '../../../modules/demo/demo-accounts';
 import { createContext, type DemoSeedContext } from '../context';
 import { validate } from '../validator';
@@ -155,6 +160,37 @@ describe('attention slice (integration, 2 years, scale 0.05)', () => {
            WHERE ut.user_id = r.user_id AND ut.tenant_id = a.tenant_id AND ut.role::text = r.role)`,
     );
     expect(strays[0].n).toBe(0);
+
+    // Every {placeholder} in a history rule's messages is filled by the alert's params, so a title
+    // never shows a raw "{count}". The rules are only read for their message templates here.
+    const messagesOf: Record<string, unknown> = Object.fromEntries(
+      [
+        AttendanceNotTakenRule,
+        HomeworkNotSubmittedRule,
+        FeesOverdueRisingRule,
+        ExamsMarksOverdueRule,
+        AdmissionApplicationsPendingRule,
+      ].map((R) => {
+        const rule = new (
+          R as new (...a: unknown[]) => { meta: { key: string }; messages: unknown }
+        )();
+        return [rule.meta.key, rule.messages];
+      }),
+    );
+    const withParams = await q<{ rule_key: string; params: Record<string, unknown> }>(
+      `SELECT DISTINCT ON (rule_key) rule_key, params FROM alerts WHERE source = 'RULE' ORDER BY rule_key`,
+    );
+    expect(withParams.length).toBeGreaterThan(1);
+    for (const a of withParams) {
+      expect(messagesOf[a.rule_key], `no message templates for ${a.rule_key}`).toBeDefined();
+      const wanted = [...JSON.stringify(messagesOf[a.rule_key]).matchAll(/\{(\w+)\}/g)].map(
+        (m) => m[1],
+      );
+      expect(
+        wanted.filter((k) => !(k in a.params)),
+        `${a.rule_key} params miss these placeholders`,
+      ).toEqual([]);
+    }
 
     // Manual alerts: sent by the principal and the admin, OPEN for the roles they name.
     const manual = await q(

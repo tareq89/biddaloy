@@ -224,27 +224,6 @@ export const slice: DemoSlice = {
       for (const year of tenant.years) {
         const yearTerms = terms.filter((t) => t.academic_year_id === year.id);
         const termId = (seq: number) => yearTerms.find((t) => t.seq === seq)?.id ?? null;
-        // Older years: a window a week before each term ends. The current year is laid out
-        // from the anchor so every year-end state exists "today" (ponytail: assumes the anchor
-        // is at least ~2 months into the year and the Annual window fits before it ends).
-        const windowOf = (e: { term: number; name: string }): { start: string; end: string } => {
-          let end: string;
-          if (year.isCurrent) {
-            end =
-              e.name === TEST_EXAM.name
-                ? addDays(ctx.anchor, TEST_END)
-                : e.term === 1
-                  ? addDays(ctx.anchor, FIRST_END)
-                  : e.term === 2
-                    ? addDays(ctx.anchor, HALF_END)
-                    : addDays(ctx.anchor, ANNUAL_START + WINDOW_DAYS - 1);
-          } else if (e.name === TEST_EXAM.name) {
-            end = addDays(year.start, 56);
-          } else {
-            end = addDays(yearTermEnd(year, e.term), -7);
-          }
-          return { start: addDays(end, 1 - WINDOW_DAYS), end };
-        };
         const yearEffect = 0.03 * gauss(); // D33: pass rate and GPA vary by year
 
         for (const cls of year.classes) {
@@ -274,7 +253,9 @@ export const slice: DemoSlice = {
                 : e.name === 'Annual Exam'
                   ? 'next'
                   : 'published';
-            const { start, end } = windowOf(e);
+            const window = examWindow(year, e, ctx.anchor);
+            if (!window) continue; // no room for it in this year yet (or any more)
+            const { start, end } = window;
             const examId = uuid();
             const live = year.isCurrent; // current-year results go through the real service
             buf.exams.push({
@@ -356,6 +337,8 @@ export const slice: DemoSlice = {
             const filled = new Set<string>();
             for (const sec of cls.sections) {
               for (const cs of offered) {
+                // Every section x subject, even a group subject in a section outside that group:
+                // MarkGridService.progress requires all of them before results can be processed.
                 const key = `${sec.id}:${cs.subject_id}`;
                 if (state === 'progress' && u() >= 0.5) continue;
                 filled.add(key);
@@ -566,7 +549,43 @@ export const slice: DemoSlice = {
 };
 
 /** End date of term `seq` of a year; the org slice cuts a year into three four-month terms. */
-function yearTermEnd(year: OrgYear, seq: number): string {
+/** The shortest sitting window kept: fewer days would stack papers past the evening. */
+const MIN_WINDOW_DAYS = 7;
+
+/**
+ * An exam's sitting window. Older years: a week before each term ends (the Test exam 8 weeks in).
+ * The current year is laid out from the anchor so every state exists "today" (D15): Test and First
+ * Term published, Half-Yearly in marks entry, Annual next. The window is kept inside the academic
+ * year, and an exam that does not fit is left out (null): early in the year there is no room yet for
+ * the exams before the anchor, and late in the year the Annual exam moves up to the year's last days.
+ */
+export function examWindow(
+  year: Pick<OrgYear, 'start' | 'end' | 'isCurrent'>,
+  e: { term: number; name: string },
+  anchor: string,
+): { start: string; end: string } | null {
+  let end: string;
+  if (!year.isCurrent) {
+    end =
+      e.name === TEST_EXAM.name ? addDays(year.start, 56) : addDays(yearTermEnd(year, e.term), -7);
+  } else if (e.name === TEST_EXAM.name) end = addDays(anchor, TEST_END);
+  else if (e.term === 1) end = addDays(anchor, FIRST_END);
+  else if (e.term === 2) end = addDays(anchor, HALF_END);
+  else end = addDays(anchor, ANNUAL_START + WINDOW_DAYS - 1);
+  let start = addDays(end, 1 - WINDOW_DAYS);
+  if (year.isCurrent && e.term === 3 && end > year.end) {
+    // Annual: the year's last days, but never today or earlier (it is still "next").
+    const tomorrow = addDays(anchor, 1);
+    const late = addDays(year.end, 1 - WINDOW_DAYS);
+    start = late > tomorrow ? late : tomorrow;
+  }
+  if (start < year.start) start = year.start;
+  if (end > year.end) end = year.end;
+  const days = Math.round((Date.parse(end) - Date.parse(start)) / 86_400_000) + 1;
+  return days >= MIN_WINDOW_DAYS ? { start, end } : null;
+}
+
+function yearTermEnd(year: Pick<OrgYear, 'start'>, seq: number): string {
   const d = new Date(`${year.start}T00:00:00Z`);
   d.setUTCMonth(d.getUTCMonth() + seq * 4, 0);
   return d.toISOString().slice(0, 10);
