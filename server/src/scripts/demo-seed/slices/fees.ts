@@ -68,9 +68,11 @@ const METHODS: readonly (readonly [PaymentMethod, number])[] = [
 ];
 const CHRONIC_LATE = 0.05; // pay 1-3 months late
 const CHRONIC_NEVER = 0.03; // stop paying a few months before last month
-const PREV_PAID = 0.85; // ~15% of last month is overdue (D15)
-const NOW_FULL = 0.7; // of the students who are clear, so ~60% of all (D15)
-const NOW_PARTIAL = 0.12; // ~10% of all
+// The 8% chronic students all have an older open bill and skip the live loop, so last month ends
+// ~0.08 + 0.92 * 0.15 = ~22% overdue, and this month ~0.92 * 0.85 * 0.7 = ~55% paid (D15).
+const PREV_PAID = 0.85; // of the students with no older open bill
+const NOW_FULL = 0.7; // of the students who paid last month
+const NOW_PARTIAL = 0.12; // of the same students, so ~9% of all
 const SIBLING_PCT = 10;
 const MERIT_SHARE = 0.03;
 const WALLET_SHARE = 0.05;
@@ -632,7 +634,10 @@ export const slice: DemoSlice = {
     const open = new Map<string, typeof live>();
     for (const b of live)
       (open.get(b.student_id) ?? open.set(b.student_id, []).get(b.student_id)!).push(b);
-    // The service types a payment by the real clock's month, so use the same rule.
+    // The service types a payment by the real clock's month (`new Date()` in recordWithAllocation), so
+    // this reads the same clock on purpose: a deliberate exception to "no Date.now in a slice", since the
+    // allocation types must match the service's or it refuses the payment. parseArgs already refuses an
+    // --anchor in a later month than this clock.
     const today = new Date();
     const clock = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
     const typeOf = (m: string) =>
@@ -688,6 +693,10 @@ export const slice: DemoSlice = {
 
     // --- fines (last month's absences and lateness), late fees, three waivers ------------------
     for (const t of org.tenants) {
+      // Raw SQL, not SchoolsService.updateSettings: that path needs encryption and the organisation guards
+      // (the slice specs stub SchoolsService), and nothing is lost here: LateFeeService reads
+      // schools.settings directly, the value is a fixed valid map, and the settings cache of a fresh
+      // demo DB is empty (the server starts after the seed).
       await ctx.ds.query(
         `UPDATE schools SET settings = COALESCE(settings, '{}'::jsonb) || jsonb_build_object('fees',
            COALESCE(settings->'fees', '{}'::jsonb) || jsonb_build_object('lateFees', $2::jsonb))
@@ -715,7 +724,7 @@ export const slice: DemoSlice = {
       `SELECT sf.id FROM student_fees sf JOIN students s ON s.id = sf.student_id
          JOIN fee_structures fs ON fs.id = sf.fee_structure_id
         WHERE s.tenant_id = $1 AND fs.fee_type = 'FINE' AND sf.status = 'PENDING' AND sf.deleted_at IS NULL
-        ORDER BY s.registration_number, sf.total_amount LIMIT 3`,
+        ORDER BY s.registration_number, sf.total_amount, fs.name, sf.id LIMIT 3`,
       [high.id],
     );
     const jwt = ctx.app.get(JwtService);
@@ -723,6 +732,11 @@ export const slice: DemoSlice = {
     const redis = ctx.app.get<Redis>(APPROVAL_REDIS);
     for (const bill of fineBills) {
       // The seed acts as the school admin: it mints the same one-use approval token a step-up gives.
+      // Acceptable because this is seed-only code (no HTTP path reaches it; the runner refuses any DB not
+      // named biddaloy_demo*), the token has the exact Rule 10 shape (HS256, pinned iss/aud, the payload
+      // StepUpService.verify builds), lives only in memory, and waiveBill consumes its Redis marker at once.
+      // The real step-up flow needs the plaintext password (createContext drops it) or an OTP that only
+      // echoes under NODE_ENV=test. Unlike a real step-up, no ApprovalToken audit row is written.
       const jti = randomUUID();
       await redis.set(`approval:${jti}`, '1', 'EX', 300);
       const token = await jwt.signAsync(

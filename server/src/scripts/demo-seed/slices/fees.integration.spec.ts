@@ -53,6 +53,8 @@ import { slice as attendance } from './attendance';
 import { slice } from './fees';
 
 const ANCHOR = '2026-10-10';
+const PREV_START = '2026-09-01'; // first day of the month before the anchor
+const FAKE_NOW = `${ANCHOR}T06:00:00Z`; // the clock the slice runs under
 const SCALE = 0.1;
 const YEARS = 2;
 const JWT_SECRET = 'fees-slice-spec-secret-0123456789abcdef';
@@ -144,7 +146,7 @@ describe('fees slice (integration, 2 years, scale 0.1)', () => {
     await attendance.run(ctx);
     // The payment service types a payment by the real clock's month, so the clock is the anchor.
     vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(`${ANCHOR}T06:00:00Z`));
+    vi.setSystemTime(new Date(FAKE_NOW));
     const t0 = Date.now();
     try {
       await slice.run(ctx);
@@ -270,8 +272,52 @@ describe('fees slice (integration, 2 years, scale 0.1)', () => {
       expect.arrayContaining(['CREDIT_BILL_REMOVED', 'CREDIT_OVERPAYMENT', 'DEBIT_PAYOUT']),
     );
 
-    // Three live share links.
-    const links = await q(`SELECT 1 FROM invoice_share_tokens WHERE expires_at > now()`);
+    // Late fees were applied to last month's overdue tuition (applyDue swallows its errors, so check).
+    const [{ n: lateFees }] = await q(
+      `SELECT count(*) AS n FROM student_fees sf JOIN fee_structures fs ON fs.id = sf.fee_structure_id
+         JOIN students s ON s.id = sf.student_id AND ${DEMO_STUDENT}
+        WHERE fs.fee_type = 'LATE_FEE' AND sf.deleted_at IS NULL`,
+    );
+    expect(Number(lateFees), 'late fees').toBeGreaterThan(0);
+
+    // Chronic payers still owe bills older than last month; others owe only last month.
+    const [due] = await q(
+      `SELECT count(DISTINCT sf.student_id) FILTER (WHERE sf.period_start < $1::date) AS chronic,
+              count(DISTINCT sf.student_id) FILTER (WHERE sf.period_start = $1::date) AS overdue
+         FROM student_fees sf JOIN fee_structures fs ON fs.id = sf.fee_structure_id
+         JOIN students s ON s.id = sf.student_id AND ${DEMO_STUDENT}
+        WHERE fs.fee_type = 'MONTHLY_TUITION' AND sf.deleted_at IS NULL
+          AND sf.status IN ('PENDING', 'PARTIALLY_PAID')`,
+      [PREV_START],
+    );
+    expect(Number(due.chronic), 'chronic').toBeGreaterThan(0);
+    expect(Number(due.overdue), 'overdue last month').toBeGreaterThan(0);
+
+    // Invoice numbers are INV-YYYY-NNNNN, and the live ones continue the bulk serials of their year.
+    const [{ n: badNumbers }] = await q(
+      `SELECT count(*) AS n FROM invoices i JOIN schools s ON s.id = i.tenant_id AND ${DEMO}
+        WHERE i.kind = 'INVOICE' AND i.invoice_number !~ '^INV-[0-9]{4}-[0-9]{5}$'`,
+    );
+    expect(Number(badNumbers), 'bad invoice numbers').toBe(0);
+    // Bulk payments are dated before last month; live ones at the faked clock.
+    const serials = await q<{ bulk_max: number | null; live_min: number | null }>(
+      `SELECT max(substr(i.invoice_number, 10)::int) FILTER (WHERE p.payment_date < $1::date) AS bulk_max,
+              min(substr(i.invoice_number, 10)::int) FILTER (WHERE p.payment_date >= $1::date) AS live_min
+         FROM invoices i JOIN payments p ON p.id = i.payment_id
+         JOIN schools s ON s.id = i.tenant_id AND ${DEMO}
+        WHERE i.kind = 'INVOICE'
+        GROUP BY i.tenant_id, substr(i.invoice_number, 5, 4)`,
+      [PREV_START],
+    );
+    const continued = serials.filter((r) => r.bulk_max !== null && r.live_min !== null);
+    expect(continued.length, 'branch-years with bulk and live invoices').toBeGreaterThan(0);
+    for (const r of continued) expect(Number(r.live_min)).toBeGreaterThan(Number(r.bulk_max));
+
+    // Three live share links. expires_at is computed in JS under the faked clock, so compare with that
+    // clock, not the database's now() (that would start failing 30 days after the anchor).
+    const links = await q(`SELECT 1 FROM invoice_share_tokens WHERE expires_at > $1::timestamptz`, [
+      FAKE_NOW,
+    ]);
     expect(links).toHaveLength(3);
   }, 120_000);
 });

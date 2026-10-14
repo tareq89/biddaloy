@@ -85,6 +85,18 @@ async function countRows(ds: DataSource, tables: Table[]): Promise<Record<string
   return out;
 }
 
+/**
+ * Columns a real service stamps with the real clock while the seed runs ("today" comes from the real
+ * services). Only these lose their time of day (the space form of a timestamptz); every other column
+ * must match in full, so a stray `Date.now()` in a slice still fails determinism.
+ */
+const CLOCK_COLS: Record<string, string[]> = {
+  payments: ['payment_date'],
+  invoices: ['issued_date', 'due_date'],
+  invoice_share_tokens: ['expires_at'],
+  applications: ['decided_at'], // today's decisions go through ApplicationDecisionsService
+};
+
 /** Counts plus an md5 of business columns per table; ids, timestamps and hashes are left out. */
 async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
@@ -93,14 +105,14 @@ async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<stri
       (c) =>
         !/^(id|created_at|updated_at|deleted_at|published_at)$|_id$|hash|token|secret|salt/.test(c),
     );
-    // Strip uuids (tenant ids sit inside storage keys and `_by` columns) and clock times (the preset
-    // apply stamps `appliedAt` with the real clock; the fees services stamp `payment_date` / `issued_date`);
-    // both the `T` and the Postgres space form of a time are stripped, everything else must match.
+    // Strip uuids (tenant ids sit inside storage keys and `_by` columns) and ISO clock times inside
+    // jsonb (the preset apply stamps `appliedAt`, invoice snapshots `captured_at`); the CLOCK_COLS also
+    // lose the Postgres space form. Everything else must match byte for byte.
     const row =
       cols
         .map(
           (c) =>
-            `regexp_replace(regexp_replace("${c}"::text, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 'U', 'g'), '[ T][0-9]{2}:[0-9]{2}:[0-9]{2}[0-9.]*(Z|[+-][0-9:]+)?', 'T', 'g')`,
+            `regexp_replace(regexp_replace("${c}"::text, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 'U', 'g'), '${CLOCK_COLS[t.table]?.includes(c) ? '[ T]' : 'T'}[0-9]{2}:[0-9]{2}:[0-9]{2}[0-9.]*(Z|[+-][0-9:]+)?', 'T', 'g')`,
         )
         .join(', ') || `''`;
     const [{ h, n }] = await ds.query(

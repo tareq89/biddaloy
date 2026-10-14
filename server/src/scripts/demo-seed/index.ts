@@ -11,8 +11,18 @@ export interface DemoSeedArgs {
   anchor: string;
 }
 
+/** The real clock's `YYYY-MM`, read the way `PaymentAllocationService` reads it (`new Date()`, local). */
+const realClockMonth = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
 /** `--scale 1 --anchor 2026-10-10 --years 10`; every flag optional. Throws on bad input. */
-export function parseArgs(argv: string[], today: () => string = todayInSchoolTz): DemoSeedArgs {
+export function parseArgs(
+  argv: string[],
+  today: () => string = todayInSchoolTz,
+  clockMonth: () => string = realClockMonth,
+): DemoSeedArgs {
   const flag = (name: string) => {
     const i = argv.indexOf(`--${name}`);
     return i === -1 ? undefined : argv[i + 1];
@@ -27,6 +37,14 @@ export function parseArgs(argv: string[], today: () => string = todayInSchoolTz)
     !Number.isNaN(Date.parse(anchor)) &&
     new Date(anchor).toISOString().slice(0, 10) === anchor;
   if (!valid) throw new Error('--anchor must be a real YYYY-MM-DD date');
+  // The fees slice records this month's payments through the real services, which type and date
+  // them by the real clock: a bill in a later month than the clock is refused as "future".
+  if (anchor.slice(0, 7) > clockMonth()) {
+    throw new Error(
+      `--anchor ${anchor} is in a later month than the real clock (${clockMonth()}): ` +
+        'fees payments use the real clock, so the anchor must be this month or earlier',
+    );
+  }
   return { scale, years, anchor };
 }
 
