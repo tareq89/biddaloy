@@ -93,6 +93,24 @@ export const DEMO_DENY_LIST: readonly DemoDenyEntry[] = [
   },
   {
     method: 'POST',
+    pathPattern: /^\/users\/me\/leave$/,
+    reason: 'a visitor could end a demo login by leaving its school',
+    example: '/users/me/leave',
+  },
+  {
+    method: 'POST',
+    pathPattern: /^\/users\/[^/]+\/reset-password$/,
+    reason: 'an admin reset logs out every visitor on that card',
+    example: '/users/3f1b2c4d-0000-4000-8000-000000000000/reset-password',
+  },
+  {
+    method: 'POST',
+    pathPattern: /^\/schools\/[^/]+\/settings\/test$/,
+    reason: 'provider connection test would call real hosts with visitor-typed credentials',
+    example: '/schools/3f1b2c4d-0000-4000-8000-000000000000/settings/test',
+  },
+  {
+    method: 'POST',
     pathPattern: /^\/auth\/change-password$/,
     reason: 'the shared demo password must not change',
     example: '/auth/change-password',
@@ -130,7 +148,12 @@ export const DEMO_DENY_LIST: readonly DemoDenyEntry[] = [
 ];
 
 export function findDenied(method: string, path: string): DemoDenyEntry | undefined {
-  const normalized = path.replace(/^\/api(\/v\d+)?/, '').replace(/\/+$/, '') || '/';
+  // Express routes case-insensitively, so match on the lower-cased path.
+  const normalized =
+    path
+      .toLowerCase()
+      .replace(/^\/api(\/v\d+)?/, '')
+      .replace(/\/+$/, '') || '/';
   return DEMO_DENY_LIST.find(
     (e) => e.method === method.toUpperCase() && e.pathPattern.test(normalized),
   );
