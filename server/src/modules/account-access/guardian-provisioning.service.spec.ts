@@ -18,7 +18,9 @@ function fakeQueryBuilder(result: { many?: unknown[]; one?: unknown | null; raw?
     select: vi.fn().mockReturnThis(),
     addSelect: vi.fn().mockReturnThis(),
     groupBy: vi.fn().mockReturnThis(),
-    getMany: vi.fn().mockResolvedValue(result.many ?? []),
+    limit: vi.fn().mockReturnThis(),
+    // `findVerifiedAccount` reads a `one` stub through getMany.
+    getMany: vi.fn().mockResolvedValue(result.many ?? (result.one ? [result.one] : [])),
     getOne: vi.fn().mockResolvedValue(result.one ?? null),
     getRawMany: vi.fn().mockResolvedValue(result.raw ?? []),
   };
@@ -56,7 +58,7 @@ describe('GuardianProvisioningService', () => {
     userRepo = {
       findOne: vi.fn(),
       createQueryBuilder: vi.fn(),
-      manager: { exists: vi.fn().mockResolvedValue(false) },
+      manager: { exists: vi.fn().mockResolvedValue(false), getRepository: () => userRepo },
     };
     logRepo = { createQueryBuilder: vi.fn() };
     auditLogRepo = { createQueryBuilder: vi.fn() };

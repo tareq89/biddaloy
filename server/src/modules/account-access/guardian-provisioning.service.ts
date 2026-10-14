@@ -14,6 +14,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthTokenService } from './auth-token.service';
 import { pickChannel } from './account-access-delivery.service';
 import { guardianLinkedElsewhere } from './school-invite.service';
+import { findVerifiedAccount } from '../users/users.service';
 import { INVITATION_BATCH_QUEUE, MAX_BATCH_INVITE_SELECTION } from './invitation-batch.constants';
 import type {
   InviteBatchStatusResponseDto,
@@ -127,15 +128,8 @@ export class GuardianProvisioningService {
       user = await this.userRepo.findOne({ where: { id: guardian.user_id } });
     }
     if (!user) {
-      // Verified contacts only: an unverified email/phone proves nothing (PUB-01).
-      user = await this.userRepo
-        .createQueryBuilder('u')
-        .where('u.deleted_at IS NULL')
-        .andWhere(
-          '((u.email = :email AND u.email_verified_at IS NOT NULL) OR (u.phone = :phone AND u.phone_verified_at IS NOT NULL))',
-          { email: guardian.email ?? '__none__', phone: guardian.phone ?? '__none__' },
-        )
-        .getOne();
+      // Verified contacts only, one account only (an email and a phone of two people match none).
+      user = await findVerifiedAccount(this.userRepo.manager, guardian.email, guardian.phone);
       if (!user) {
         // `withDeleted`: the unique index on email/phone ignores soft-deletion, so a deleted
         // account still owns the contact and the processor's insert would hit 23505.
