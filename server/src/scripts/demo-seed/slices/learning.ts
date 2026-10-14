@@ -8,6 +8,8 @@ import {
   ProgramEnrollmentStatus,
   SyllabusTopicStatus,
 } from '@biddaloy/shared';
+import { School } from '../../../modules/schools/entities/school.entity';
+import { TenantSettingsCache } from '../../../modules/schools/settings/tenant-settings-cache.service';
 import { Homework } from '../../../modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../../../modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../../../modules/homework/entities/homework-submission.entity';
@@ -118,6 +120,16 @@ export const slice: DemoSlice = {
     const uuid = () => ctx.rng.string.uuid();
     const repo = (e: Function) => ctx.ds.getRepository(e as never);
     let rows = 0;
+
+    // The defaulter sweep is a no-op unless the school opts in, so opt the demo schools in.
+    const schoolRepo = ctx.ds.getRepository(School);
+    for (const t of org.tenants) {
+      const school = await schoolRepo.findOneByOrFail({ id: t.id });
+      const hw = (school.settings?.homework ?? {}) as Record<string, unknown>;
+      school.settings = { ...school.settings, homework: { ...hw, notifyDefaulters: true } };
+      await schoolRepo.save(school);
+      ctx.app.get(TenantSettingsCache).invalidate(t.id);
+    }
 
     const homework: Record<string, unknown>[] = [];
     const assignments: Record<string, unknown>[] = [];
@@ -297,14 +309,14 @@ export const slice: DemoSlice = {
     }[] = await ctx.ds.query(
       `SELECT rs.tenant_id, rs.section_id, cs.class_id, rs.subject_id, rs.weekday, rs.period_slot_id,
               r.academic_year_id AS year_id, (SELECT te.user_id FROM routine_slot_teachers rst
-                 JOIN teachers te ON te.id = rst.teacher_id WHERE rst.routine_slot_id = rs.id LIMIT 1) AS user_id
+                 JOIN teachers te ON te.id = rst.teacher_id WHERE rst.routine_slot_id = rs.id ORDER BY te.id LIMIT 1) AS user_id
          FROM routine_slots rs
          JOIN routines r ON r.id = rs.routine_id
          JOIN academic_years y ON y.id = r.academic_year_id AND y.is_current
          JOIN class_sections cs ON cs.id = rs.section_id
          JOIN period_slots ps ON ps.id = rs.period_slot_id
         WHERE rs.tenant_id = ANY($1) AND r.deleted_at IS NULL
-        ORDER BY rs.section_id, ps.sequence, rs.weekday`,
+        ORDER BY rs.section_id, ps.sequence, rs.weekday, rs.id`,
       [org.tenants.map((t) => t.id)],
     );
     const planned = new Set<string>();
@@ -345,7 +357,11 @@ export const slice: DemoSlice = {
     const deliveries: Record<string, unknown>[] = [];
     for (const day of days) {
       const weekday = new Date(`${day}T00:00:00Z`).getUTCDay();
+      const seen = new Set<string>(); // one delivery per section + period (electives share a period)
       for (const s of slots.filter((x) => x.weekday === weekday)) {
+        const k = `${s.section_id}|${s.period_slot_id}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
         if (ctx.rng.number.float() < UNREPORTED_RATE) continue; // no delivery was recorded
         const roll = ctx.rng.number.float();
         const status =
