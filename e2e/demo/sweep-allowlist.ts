@@ -17,6 +17,12 @@ export const KNOWN_ISSUES: { path: string; roles: string[]; reason: string }[] =
     reason:
       'principal, accountant, class teacher, exam controller and office staff hold STAFF_ATTENDANCE_READ but not USER_READ; the page loads GET /users (403) and shows the error state. Tracked in #2513.',
   },
+  {
+    path: '/staff/evaluations/surveys/$surveyId',
+    roles: ['COMMITTEE'],
+    reason:
+      'committee holds ACR_READ (the page) but GET /surveys/:id/results is @Roles(ADMIN, TEACHER), so it returns 403 and the page shows the error state. Same class as #2514.',
+  },
 ];
 
 /**
