@@ -171,6 +171,45 @@ Primary branch and sees the Class 3 child. Admin and the guardian have several
 memberships, so they pass the school picker first (the card's `branchSlug`
 is only a label today).
 
+## The nightly reset (`scripts/demo/reset.sh`, #2178)
+
+The demo host rebuilds itself every night. The new database is built **beside** the live one, so a
+bad night costs nothing: the old demo keeps running.
+
+```mermaid
+flowchart LR
+  A["01:00 cron<br/>(supercronic in demo-reset)"] --> B["create biddaloy_demo_next<br/>migrate + seed:demo"]
+  B --> C["validate()<br/>0 violations?"]
+  C --> D["temp app on :3999<br/>+ DEMO_SWEEP_CMD"]
+  D --> E["wait for 02:00"]
+  E --> F["swap by rename<br/>live to _prev, _next to live"]
+  F --> G["delete old tenant S3 objects<br/>flush Redis, restart app"]
+  B -. any failure .-> X["drop _next<br/>Sentry error<br/>live untouched"]
+  C -.-> X
+  D -.-> X
+```
+
+Run it by hand (skips the 02:00 wait): `docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now`.
+The tests are `scripts/demo/reset.test.sh` (they need the local `yarn test-env up` Postgres).
+
+- **Only `biddaloy_demo*` databases.** Every `DROP` and `RENAME` goes through one name check. The script also refuses to
+  start unless `DEMO_MODE=true`, `S3_BUCKET` contains `demo`, and none of `SMS_PROVIDER`, `SMTP_HOST`, `VAPID_PUBLIC_KEY` is set.
+- **One previous database is kept.** `biddaloy_demo_prev` is yesterday's. To undo a bad night by hand: stop `app`,
+  rename `biddaloy_demo` away, rename `biddaloy_demo_prev` to `biddaloy_demo`, start `app`.
+- **The database is picked with `DATABASE_URL`** (the server reads no `DB_NAME`).
+- **`PLATFORM_TENANT_ID` changes every night.** A fresh migration makes a new random `default-school` id and `DemoBootGuard`
+  needs it. The reset writes it to the `demo-state` volume and the `app` service reads it at start. So `app` will not start
+  until the first reset has run once (see the header of `docker-compose.demo.yml`). If the guard still refuses, the
+  error now says why.
+- **S3 needs no prefix.** Keys are `tenants/<tenant-id>/...` and every reset creates new tenant ids, so the new run can
+  never collide with the old one in the same bucket. Instead of the planned `S3_PREFIX` or second bucket, the reset reads
+  the old run's `bmsc-%` school ids from the live database before the swap and deletes `tenants/<id>/` for each after it
+  (and does the same for `_next` when a build fails).
+- **The sweep is a plug.** `DEMO_SWEEP_CMD` is run with `DEMO_SWEEP_URL` pointing at the temporary app; a non-zero exit stops
+  the swap. The Playwright project `demo-nightly` (#2179) is meant to be that command. The `demo-reset` image has no browser,
+  so the host must supply a runner, or set `DEMO_SKIP_SWEEP=true` on purpose.
+- **Sentry:** `SENTRY_CRONS_URL` gets `?status=in_progress|ok|error`. Unset = no check-ins.
+
 ## The rule
 
 > **Any change that adds or changes a database table or column also updates
