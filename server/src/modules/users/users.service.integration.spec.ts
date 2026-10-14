@@ -479,6 +479,27 @@ describe('UserService (integration)', () => {
         expect(await tokens(owner.id, OTHER_TENANT)).toHaveLength(0);
       });
 
+      // Review F0: the email is one person's, the phone (say, a typo) another's.
+      // Guessing would offer this school's role to someone the admin did not mean.
+      it('an email and a phone of two different verified accounts file nothing for either', async () => {
+        const owner = await makeOwner(true);
+        const { user: other } = await service.create(
+          { full_name: 'Other', phone: '+8801700000077', role: UserRole.TEACHER },
+          TENANT_ID,
+        );
+        await userRepo.update(other.id, { phone_verified_at: new Date() });
+
+        const res = await service.requestJoin(
+          { email: 'owner@example.com', phone: '+8801700000077', role: UserRole.ADMIN },
+          OTHER_TENANT,
+          REQUESTING_ADMIN_ID,
+        );
+
+        expect(res).toEqual({ status: 'PENDING' });
+        expect(await tokens(owner.id, OTHER_TENANT)).toHaveLength(0);
+        expect(await tokens(other.id, OTHER_TENANT)).toHaveLength(0);
+      });
+
       it('refuses SUPER_ADMIN', async () => {
         await expect(
           service.requestJoin(
