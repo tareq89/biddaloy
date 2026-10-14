@@ -7,9 +7,11 @@ import { userResponseFactory } from '../test/factories';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
+import { guardianKeys } from './guardians';
 import {
   currentUserQueryOptions,
   useAdminResetPassword,
+  useConfirmPhoneChange,
   useCreateUser,
   useCurrentUser,
   useRemoveMember,
@@ -192,6 +194,27 @@ describe('useUpdateOwnProfile', () => {
     result.current.mutate({ full_name: 'Rahim' });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe('useConfirmPhoneChange', () => {
+  // [68.4.05] The server copies the new phone to the caller's guardian rows, so the
+  // read-only guardian card must refetch too, or it shows the old number.
+  it('invalidates the "me" user and the "mine" guardian keys', async () => {
+    server.use(
+      http.post('/api/v1/users/me/contact-change/confirm-phone', () =>
+        HttpResponse.json(null, { status: 200 }),
+      ),
+    );
+    const { result, queryClient } = renderHookWithProviders(() => useConfirmPhoneChange(), {
+      tenantId: 'tenant-1',
+    });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    result.current.mutate('123456');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: userKeys.detail('me') });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: [...guardianKeys.all, 'mine'] });
   });
 });
 
