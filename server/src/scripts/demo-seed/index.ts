@@ -92,15 +92,29 @@ export function formatTimings(timings: DemoSeedContext['timings']): string {
   return ['slice               rows   seconds', ...lines].join('\n');
 }
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
-  assertDemoTarget(process.env);
+/**
+ * Boots the app, checks the DB is empty, runs every slice. The caller owns `app.close()` (main and
+ * the coverage spec both need the DataSource afterwards).
+ */
+export async function runDemoSeed(args: DemoSeedArgs, password: string) {
   const app = await createScriptAppContext();
   try {
     const ds = app.get(DataSource);
     await assertEmptyDatabase(ds);
-    const ctx = await createContext({ ds, app, ...args, password: demoPassword(process.env) });
+    const ctx = await createContext({ ds, app, ...args, password });
     await runSlices(ctx, SLICES);
+    return { app, ds, ctx };
+  } catch (e) {
+    await app.close();
+    throw e;
+  }
+}
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  assertDemoTarget(process.env);
+  const { app, ctx } = await runDemoSeed(args, demoPassword(process.env));
+  try {
     console.log(formatTimings(ctx.timings));
   } finally {
     await app.close();
