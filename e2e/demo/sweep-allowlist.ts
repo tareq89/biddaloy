@@ -27,4 +27,9 @@ export const EXPECTED_SKIPS: string[] = [
   '/marks/$examId/$sectionId/$subjectId',
   '/results/$examId/$studentId',
   '/staff/$userId/acr/$assessmentId',
+  // No row link at the small demo scale (0.05 x 2 years); verify on a full-scale run.
+  '/academics/study-plans/$planId',
+  '/print-templates/$templateId/edit',
+  '/applications/$applicationId',
+  '/my-class/$sectionId',
 ];
