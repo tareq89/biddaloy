@@ -67,7 +67,8 @@ cron_checkin() {
 check_guards() {
   [[ "${DEMO_MODE:-}" == "true" ]] || die "refusing to run: DEMO_MODE is not 'true'"
   local v
-  for v in SMS_PROVIDER SMTP_HOST VAPID_PUBLIC_KEY; do
+  # Every SMS_*, SMTP_* and VAPID_* variable, not only the ones the app reads today.
+  for v in $(compgen -v | grep -E '^(SMS|SMTP|VAPID)_' || true); do
     [[ -z "${!v:-}" ]] || die "refusing to run: $v is set; the demo must not reach a real provider"
   done
   for v in DATABASE_URL REDIS_URL DEMO_PASSWORD DEMO_STATE_DIR S3_BUCKET S3_ENDPOINT S3_REGION S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY; do
