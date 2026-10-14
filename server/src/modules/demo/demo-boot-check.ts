@@ -47,7 +47,9 @@ export async function assertDemoDatabase(
   );
   if (foreign.length > 0) {
     throw new Error(
-      `DEMO_MODE refuses to start: database holds non-demo schools (${foreign.map((r) => r.slug).join(', ')})`,
+      `DEMO_MODE refuses to start: database holds non-demo schools (${foreign.map((r) => r.slug).join(', ')}). ` +
+        'A migrated demo database holds only the platform row default-school besides the bmsc-* branches; ' +
+        'if that is the one listed, set PLATFORM_TENANT_ID to its id. Anything else means this is not a demo database.',
     );
   }
 }
