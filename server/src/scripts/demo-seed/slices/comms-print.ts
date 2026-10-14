@@ -122,6 +122,7 @@ async function messages(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string
 
   const logs: Record<string, unknown>[] = [];
   const debits: { id: string; at: Date }[] = [];
+  const seen = new Set<string>(); // (tenant, reference_key) is unique: two random ABSENCE days can land on one date
   const log = (
     kind: Kind,
     studentId: string,
@@ -143,6 +144,9 @@ async function messages(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string
       9 + rng.number.int({ min: 0, max: 7 }),
       rng.number.int({ min: 0, max: 59 }),
     );
+    const referenceKey = `demo:${kind}:${studentId}:${date}${extra.batchId ? ':' + extra.batchId : ''}`;
+    if (seen.has(referenceKey)) return;
+    seen.add(referenceKey);
     const id = uuid();
     logs.push({
       id,
@@ -166,7 +170,7 @@ async function messages(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string
         status === CommunicationStatus.FAILED
           ? { provider: DEMO_PROVIDER, reason: 'SIMULATED_FAILURE' }
           : { provider: DEMO_PROVIDER, kind },
-      reference_key: `demo:${kind}:${studentId}:${date}${extra.batchId ? ':' + extra.batchId : ''}`,
+      reference_key: referenceKey,
       created_at: when,
       updated_at: when,
     });
