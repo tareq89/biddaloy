@@ -386,7 +386,7 @@ describe('UserService (integration)', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('should allow same email in different tenants (email is globally unique)', async () => {
+    it('[68.2.02] an email owned by another school answers ACCOUNT_EXISTS without echoing it', async () => {
       await service.create(
         {
           full_name: 'User A',
@@ -397,9 +397,8 @@ describe('UserService (integration)', () => {
         TENANT_ID,
       );
 
-      // Same email — should still conflict because email is globally unique
-      await expect(
-        service.create(
+      const err = await service
+        .create(
           {
             full_name: 'User B',
             email: 'shared@example.com',
@@ -407,8 +406,85 @@ describe('UserService (integration)', () => {
             role: UserRole.ADMIN,
           },
           OTHER_TENANT,
-        ),
-      ).rejects.toThrow(ConflictException);
+        )
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect((err as ConflictException).getResponse()).toMatchObject({
+        details: { code: 'ACCOUNT_EXISTS' },
+      });
+      expect(JSON.stringify((err as ConflictException).getResponse())).not.toContain(
+        'shared@example.com',
+      );
+    });
+
+    describe('[68.2.02] requestJoin', () => {
+      const makeOwner = async (verified: boolean) => {
+        const { user } = await service.create(
+          {
+            full_name: 'Owner',
+            email: 'owner@example.com',
+            password: 'Str0ng!Passw0rd',
+            role: UserRole.TEACHER,
+          },
+          TENANT_ID,
+        );
+        if (verified) await userRepo.update(user.id, { email_verified_at: new Date() });
+        return user;
+      };
+      const tokens = (userId: string, tenantId: string) =>
+        dataSource.getRepository(AuthToken).find({
+          where: { user_id: userId, tenant_id: tenantId, purpose: AuthTokenPurpose.JOIN_SCHOOL },
+        });
+
+      it('files a JOIN_SCHOOL request for this school and no membership', async () => {
+        const owner = await makeOwner(true);
+        const res = await service.requestJoin(
+          { email: 'Owner@Example.com', role: UserRole.ACCOUNTANT },
+          OTHER_TENANT,
+          REQUESTING_ADMIN_ID,
+        );
+        expect(res).toEqual({ status: 'PENDING' });
+        const rows = await tokens(owner.id, OTHER_TENANT);
+        expect(rows).toHaveLength(1);
+        expect(rows[0].metadata).toMatchObject({ role: UserRole.ACCOUNTANT });
+        expect(
+          await dataSource
+            .getRepository(UserTenant)
+            .count({ where: { user_id: owner.id, tenant_id: OTHER_TENANT } }),
+        ).toBe(0);
+      });
+
+      it('a user who is already a member here -> 409 ALREADY_MEMBER', async () => {
+        await makeOwner(true);
+        await expect(
+          service.requestJoin(
+            { email: 'owner@example.com', role: UserRole.ACCOUNTANT },
+            TENANT_ID,
+            REQUESTING_ADMIN_ID,
+          ),
+        ).rejects.toMatchObject({ response: { details: { code: 'ALREADY_MEMBER' } } });
+      });
+
+      it('an unverified-only contact creates nothing but answers the same', async () => {
+        const owner = await makeOwner(false);
+        const res = await service.requestJoin(
+          { email: 'owner@example.com', role: UserRole.ACCOUNTANT },
+          OTHER_TENANT,
+          REQUESTING_ADMIN_ID,
+        );
+        expect(res).toEqual({ status: 'PENDING' });
+        expect(await tokens(owner.id, OTHER_TENANT)).toHaveLength(0);
+      });
+
+      it('refuses SUPER_ADMIN', async () => {
+        await expect(
+          service.requestJoin(
+            { email: 'owner@example.com', role: UserRole.SUPER_ADMIN },
+            OTHER_TENANT,
+            REQUESTING_ADMIN_ID,
+          ),
+        ).rejects.toThrow(BadRequestException);
+      });
     });
 
     it('should create a user without email (null email)', async () => {
