@@ -226,6 +226,8 @@ export type WarningCode = 'TEACHER_NOT_ASSIGNED' | 'TEACHER_OVER_CONSECUTIVE_LIM
 export interface ConstraintViolation {
   code: ViolationCode;
   message: string;
+  /** Only on a cross-branch TEACHER_DOUBLE_BOOKED ([58.0.03]). */
+  details?: { tenantName: string; weekday: number; periodName: string | null };
 }
 
 export interface ConstraintWarning {

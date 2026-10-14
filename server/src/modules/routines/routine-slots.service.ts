@@ -397,15 +397,16 @@ export class RoutineSlotsService {
               ps.starts_at, ps.ends_at, ps.name AS period_name, sch.name AS tenant_name
          FROM teachers lt
          JOIN teachers ft ON ft.user_id = lt.user_id AND ft.tenant_id <> lt.tenant_id AND ft.deleted_at IS NULL
-         JOIN user_tenants ut ON ut.user_id = $2 AND ut.tenant_id = ft.tenant_id AND ut.deleted_at IS NULL
-         JOIN routine_slot_teachers rst ON rst.teacher_id = ft.id AND rst.tenant_id = ft.tenant_id
+                  JOIN routine_slot_teachers rst ON rst.teacher_id = ft.id AND rst.tenant_id = ft.tenant_id
          JOIN routine_slots rs ON rs.id = rst.routine_slot_id AND rs.tenant_id = ft.tenant_id
          JOIN routines r ON r.id = rs.routine_id AND r.tenant_id = ft.tenant_id AND r.deleted_at IS NULL
          JOIN academic_years ay ON ay.id = r.academic_year_id AND ay.tenant_id = ft.tenant_id
               AND ay.is_current = true AND ay.deleted_at IS NULL
          JOIN period_slots ps ON ps.id = rs.period_slot_id AND ps.tenant_id = ft.tenant_id
-         JOIN schools sch ON sch.id = ft.tenant_id
-        WHERE lt.tenant_id = $1 AND lt.id = ANY($3::uuid[])`,
+         JOIN schools sch ON sch.id = ft.tenant_id AND sch.deleted_at IS NULL
+        WHERE lt.tenant_id = $1 AND lt.id = ANY($3::uuid[])
+          AND EXISTS (SELECT 1 FROM user_tenants ut WHERE ut.user_id = $2
+                       AND ut.tenant_id = ft.tenant_id AND ut.deleted_at IS NULL)`,
       [tenantId, actorUserId, teacherIds],
     );
     return rows.map((r) => ({

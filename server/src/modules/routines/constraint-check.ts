@@ -181,8 +181,9 @@ function slotsOverlapInTime(a: SlotLike, b: SlotLike): boolean {
 
 /**
  * Check one candidate slot against the slots it would coexist with.
- * `existing` should already be scoped by the caller to the same
- * routine/tenant — this function does no tenant filtering itself.
+ * `existing` is the same routine's slots, plus (only for the teacher
+ * clash) slots with `foreign` set from the actor's other branches. This
+ * function does no tenant filtering itself; the caller's query does.
  */
 export function checkSlot(
   candidate: SlotLike,
@@ -244,7 +245,13 @@ export function checkSlot(
   // [58.0.03] Same person, another branch, overlapping wall-clock time.
   const foreignClash = foreignSlots.find(
     (s) =>
-      slotsOverlapInTime(candidate, s) &&
+      // Recurrence is not compared: BIWEEKLY offsets count from each
+      // branch's own year start, so across branches they can't be matched
+      // (same stance as MONTHLY: assume they may meet).
+      candidate.weekday === s.weekday &&
+      candidate.starts_at < s.ends_at &&
+      s.starts_at < candidate.ends_at &&
+      dateRangesOverlap(candidate, s) &&
       s.teacher_ids.some((t) => candidate.teacher_ids.includes(t)),
   );
   if (foreignClash?.foreign) {
