@@ -91,3 +91,20 @@ export const Bengali: Story = {
   },
   globals: { locale: 'bn' },
 };
+
+/** [68.4.05] A guardian linked to a login: phone and email are the login's,
+ * shown read-only with a pointer to the Contact section. */
+export const ContactOwnedByLogin: Story = {
+  args: {
+    defaultValues: {
+      phone: '+8801712345678',
+      alternate_phone: '',
+      email: 'karim@example.com',
+      preferred_communication: 'SMS',
+      notifications_enabled: true,
+    },
+    lockContactFields: true,
+    lockedContactHint:
+      'Change your phone or email under Contact above; school messages will follow.',
+  },
+};
