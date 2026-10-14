@@ -16,6 +16,7 @@ import {
   QueryLeaveBalanceDto,
   UpdateLeavePolicyDto,
 } from './dto/leave.dto';
+import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 /** Every employee role (they all have a staff profile). COMMITTEE is not an
  * employee and holds no staff-attendance permission (D17), so it stays out.
@@ -34,6 +35,7 @@ const LEAVE_SELF_SERVICE_ROLES = EMPLOYEE_ROLES;
 export class LeaveController {
   constructor(private readonly leaveService: LeaveService) {}
 
+  @AuthenticatedOnly()
   @Get('balance')
   @Roles(...LEAVE_SELF_SERVICE_ROLES)
   @ApiOperation({
@@ -55,6 +57,7 @@ export class LeaveController {
     );
   }
 
+  @AuthenticatedOnly()
   @Get('policies')
   @Roles(...LEAVE_SELF_SERVICE_ROLES)
   @ApiOperation({ summary: "This tenant's leave-type quotas." })

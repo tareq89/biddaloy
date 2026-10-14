@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
+import { assignTeacherToSection } from '@test/helpers/teacher-scope.fixture';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
 import { StorageService } from '../../storage/storage.service';
 import {
@@ -247,6 +248,10 @@ describe('Family admit-card self-print E2E (48.2.09)', () => {
     for (const role of STAFF_WITH_RESULT_READ) {
       it(`${role} is refused with 403 FAMILY_ONLY and nothing is written`, async () => {
         await template('EXAM_ADMIT_CARD');
+        // 75.6: a TEACHER reaches only the sections they teach; the FAMILY_ONLY check comes after.
+        if (role === UserRole.TEACHER) {
+          await assignTeacherToSection(ds, userIds.get(role)!, SEED_SECTION_1_ID);
+        }
         const res = await http().post(url(studentId, examId)).set(as(role));
         expect(res.status, JSON.stringify(res.body)).toBe(403);
         expect(res.body.details?.code ?? res.body.message?.details?.code).toBe('FAMILY_ONLY');
@@ -355,6 +360,7 @@ describe('Family admit-card self-print E2E (48.2.09)', () => {
 
     it('TEACHER is 403 FAMILY_ONLY', async () => {
       const asset = await artwork(SEED_TENANT_ID, true);
+      await assignTeacherToSection(ds, userIds.get(UserRole.TEACHER)!, SEED_SECTION_1_ID);
       await http()
         .get(fileUrl(studentId, examId, asset))
         .set(as('TEACHER'))

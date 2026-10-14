@@ -321,21 +321,30 @@ gate. `@Roles` now exists only on routes listed in `ROLE_NARROWINGS` or
 `IDENTITY_SCOPED` (`permission-matrix.e2e-spec.ts`). Everywhere else it was
 redundant and was deleted (Epic 24.0).
 
+`PermissionsGuard` **fails closed**: every route behind it carries either
+`@RequirePermissions` or `@AuthenticatedOnly()`. A route with neither is a 403
+(`This route declares no permission`).
+
 `IDENTITY_SCOPED` routes are the exception: some carry no
-`@RequirePermissions` at all, and `PermissionsGuard` lets a route with no
-permission metadata through. There the `@Roles` list plus the service's own
-identity check are the gate. Example: `GET /leave/balance` acts only on the caller's own staff profile.
+`@RequirePermissions` at all and are marked `@AuthenticatedOnly()` instead
+(`permission-matrix.e2e-spec.ts` proves the marker and the list match
+one-for-one). The gate is the route's own identity check, plus its `@Roles`
+list where it has one. Seven identity routes have no `@Roles` at all (the five
+`/attention/*` routes, `GET /schools/:id/logo`, `GET /schools/me/profile`): there
+the service's identity check is the only gate. Example: `GET /leave/balance` acts
+only on the caller's own staff profile.
 
 `ContextGuard` trusts the memberships inside the JWT. What makes a removed membership disappear within one request is the session cut-off (`users.tokens_valid_after`, checked in `JwtStrategy`; see [08-security](08-security.md) "Session cut-off").
 
 Which status a refused request gets depends on which guard refuses it:
 
-| Request                                                                                      | Refused by         | Status                                                  |
-| -------------------------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------- |
-| Valid token, wrong role, route has **no** `@Roles` (most routes)                             | `PermissionsGuard` | **403** `Requires permission(s): …`                     |
-| Valid token, wrong role, route **still has** `@Roles` (a narrowing or identity-scoped route) | `RolesGuard`       | **403** `Requires one of roles: …` (since #1360 / #729) |
-| `X-Role` names a role the user does not hold in this tenant                                  | `ContextGuard`     | **401**                                                 |
-| Missing or bad token                                                                         | `AuthGuard('jwt')` | **401**                                                 |
+| Request                                                                                         | Refused by         | Status                                                  |
+| ----------------------------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------- |
+| Valid token, wrong role, route has **no** `@Roles` (most routes)                                | `PermissionsGuard` | **403** `Requires permission(s): …`                     |
+| Valid token, wrong role, route **still has** `@Roles` (a narrowing or identity-scoped route)    | `RolesGuard`       | **403** `Requires one of roles: …` (since #1360 / #729) |
+| Route behind `PermissionsGuard` declares no `@RequirePermissions` and no `@AuthenticatedOnly()` | `PermissionsGuard` | **403** `This route declares no permission`             |
+| `X-Role` names a role the user does not hold in this tenant                                     | `ContextGuard`     | **401**                                                 |
+| Missing or bad token                                                                            | `AuthGuard('jwt')` | **401**                                                 |
 
 Example, with a PARENT token for the same school:
 

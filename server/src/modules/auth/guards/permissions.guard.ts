@@ -9,12 +9,15 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Permission, roleHasPermission } from '@biddaloy/shared';
 import { PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
+import { AUTHENTICATED_ONLY_KEY } from '../decorators/authenticated-only.decorator';
 
 /**
  * Enforces @RequirePermissions(...) against ROLE_PERMISSIONS for the
  * active role (req.currentTenant.role, set by ContextGuard).
  *
- * - No metadata on handler or class → allow (same convention as RolesGuard).
+ * - Fails closed: no @RequirePermissions and no @AuthenticatedOnly() on handler or
+ *   class → 403. A route behind this guard must say what it needs.
+ * - @AuthenticatedOnly() (identity-scoped routes) → allow with no permission check.
  * - No currentTenant → 401 (ContextGuard did not run; misconfigured route).
  * - Role lacks any required permission → 403.
  *
@@ -30,7 +33,15 @@ export class PermissionsGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!required || required.length === 0) return true;
+    if (!required || required.length === 0) {
+      const authenticatedOnly = this.reflector.getAllAndOverride<boolean>(AUTHENTICATED_ONLY_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      if (authenticatedOnly) return true;
+      // D14: fail closed. A route behind PermissionsGuard must say what it needs.
+      throw new ForbiddenException('This route declares no permission');
+    }
 
     const { currentTenant } = context.switchToHttp().getRequest();
     if (!currentTenant) throw new UnauthorizedException('No active tenant context');

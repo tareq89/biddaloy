@@ -84,7 +84,6 @@ describe('FamilyAccessService', () => {
       UserRole.ADMIN,
       UserRole.ACCOUNTANT,
       UserRole.EXECUTIVE,
-      UserRole.TEACHER,
     ];
 
     for (const role of STAFF_ROLES) {
@@ -97,11 +96,11 @@ describe('FamilyAccessService', () => {
       });
     }
 
-    it('is a no-op for an unknown or absent role, which is not a family role', async () => {
+    it('404s an unknown or absent role: no scope means it sees nothing (fails closed)', async () => {
       await build({ count: 0 });
       await expect(
         service.assertLinked('NOT_A_ROLE', USER_ID, STUDENT_ID, TENANT_ID),
-      ).resolves.toBeUndefined();
+      ).rejects.toThrow('Student not found');
       expect(repo.createQueryBuilder).not.toHaveBeenCalled();
     });
 

@@ -8,6 +8,7 @@ import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { randomUUID } from 'crypto';
 import { UserRole } from '@biddaloy/shared';
+import { assignTeacherToSection } from '@test/helpers/teacher-scope.fixture';
 import { hashSecret } from '../auth/token-hash.util';
 import {
   SEED_TENANT_ID,
@@ -200,6 +201,8 @@ describe('Student lifecycle (e2e journey)', () => {
       .expect(201);
     expect(created.body).toMatchObject({ exam_type: 'SSC', board: 'Dhaka', passing_year: 2024 });
 
+    // 75.6: a TEACHER reads only the sections they teach.
+    await assignTeacherToSection(app.get(DataSource), SEED_ADMIN_USER_ID, SEED_SECTION_1_ID);
     const listed = await as(
       http().get(`/api/v1/students/${studentId}/public-exams`),
       UserRole.TEACHER,

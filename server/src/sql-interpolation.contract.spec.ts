@@ -99,8 +99,14 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
   ],
   // column typed 'class_id' | 'section_id'
   'modules/classes/classes.service.ts': ['column'],
-  // priorYearStartSql helper with a fixed placeholder
-  'modules/classes/teacher-scope.service.ts': ["priorYearStartSql(':tenantId')"],
+  // priorYearStartSql helper with a fixed placeholder; [75.6] TEACHER_ROWS_FROM_SQL is a
+  // module constant FROM/WHERE fragment, tenant and user bound as $1/$2
+  'modules/classes/teacher-scope.service.ts': [
+    'TEACHER_ROWS_FROM_SQL',
+    'TEACHER_ROWS_FROM_SQL',
+    'TEACHER_ROWS_FROM_SQL',
+    "priorYearStartSql(':tenantId')",
+  ],
   // BN_COLLATION constant
   'modules/communications/reminders.service.ts': ['BN_COLLATION'],
   // lockBills: k is a key of Partial<StudentFee> from internal callers, i is the loop index; values bound as :v<i>

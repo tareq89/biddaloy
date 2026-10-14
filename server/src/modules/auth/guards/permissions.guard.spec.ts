@@ -4,6 +4,7 @@ import { Reflector } from '@nestjs/core';
 import { Permission, UserRole } from '@biddaloy/shared';
 import { PermissionsGuard } from './permissions.guard';
 import { PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
+import { AUTHENTICATED_ONLY_KEY } from '../decorators/authenticated-only.decorator';
 
 describe('PermissionsGuard', () => {
   let guard: PermissionsGuard;
@@ -23,6 +24,7 @@ describe('PermissionsGuard', () => {
     req: any,
     handlerPermissions?: Permission[],
     classPermissions?: Permission[],
+    authenticatedOnly?: { onHandler?: boolean; onClass?: boolean },
   ) {
     const handler = () => {};
     class TestController {}
@@ -32,6 +34,9 @@ describe('PermissionsGuard', () => {
     if (classPermissions) {
       Reflect.defineMetadata(PERMISSIONS_KEY, classPermissions, TestController);
     }
+    if (authenticatedOnly?.onHandler) Reflect.defineMetadata(AUTHENTICATED_ONLY_KEY, true, handler);
+    if (authenticatedOnly?.onClass)
+      Reflect.defineMetadata(AUTHENTICATED_ONLY_KEY, true, TestController);
     return {
       switchToHttp: () => ({
         getRequest: () => req,
@@ -42,19 +47,40 @@ describe('PermissionsGuard', () => {
     } as any;
   }
 
-  describe('Happy path: no metadata means no restriction', () => {
-    it('should allow access when no @RequirePermissions metadata is present', () => {
-      const req = { currentTenant: { id: 'tenant-1', role: UserRole.STUDENT } };
+  describe('Fail closed: a route must declare what it needs', () => {
+    const req = { currentTenant: { id: 'tenant-1', role: UserRole.STUDENT } };
+
+    it('should throw 403 when the route has neither @RequirePermissions nor @AuthenticatedOnly', () => {
       const context = createMockContext(req);
+
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+      expect(() => guard.canActivate(context)).toThrow('This route declares no permission');
+    });
+
+    it('should throw 403 when @RequirePermissions is an empty array and no @AuthenticatedOnly', () => {
+      const context = createMockContext(req, []);
+
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+    });
+
+    it('should allow when @AuthenticatedOnly is set on the handler and no permission is declared', () => {
+      const context = createMockContext(req, undefined, undefined, { onHandler: true });
 
       expect(guard.canActivate(context)).toBe(true);
     });
 
-    it('should allow access when @RequirePermissions metadata is an empty array', () => {
-      const req = { currentTenant: { id: 'tenant-1', role: UserRole.STUDENT } };
-      const context = createMockContext(req, []);
+    it('should allow when @AuthenticatedOnly is set on the class', () => {
+      const context = createMockContext(req, undefined, undefined, { onClass: true });
 
       expect(guard.canActivate(context)).toBe(true);
+    });
+
+    it('should still enforce the permission when both are declared', () => {
+      const context = createMockContext(req, [Permission.USER_CREATE], undefined, {
+        onHandler: true,
+      });
+
+      expect(() => guard.canActivate(context)).toThrow('Requires permission(s): USER_CREATE');
     });
   });
 

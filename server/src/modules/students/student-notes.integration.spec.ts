@@ -102,13 +102,49 @@ describe('StudentNotesService (integration)', () => {
     );
   });
 
-  it('TEACHER: allowed in own section, 403 outside it', async () => {
+  it('TEACHER: allowed in own section, 404 outside it', async () => {
     await service.create(studentA.id, { body: 'mine' }, teacher());
     expect(await service.list(studentA.id, teacher())).toHaveLength(1);
-    await expect(service.list(studentA2.id, teacher())).rejects.toThrow(ForbiddenException);
+    await expect(service.list(studentA2.id, teacher())).rejects.toThrow(NotFoundException);
     await expect(service.create(studentA2.id, { body: 'x' }, teacher())).rejects.toThrow(
-      ForbiddenException,
+      NotFoundException,
     );
+    await expect(service.remove(studentA2.id, 'any-note', teacher())).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('TEACHER of a past-year section only: 404', async () => {
+    const year = await ds.query(
+      `INSERT INTO academic_years (name, start_date, end_date, is_current, tenant_id, created_at, updated_at)
+       VALUES ('Notes Past', '2020-01-01', '2020-12-31', false, $1, NOW(), NOW()) RETURNING id`,
+      [SEED_TENANT_ID],
+    );
+    const cls = await ds.query(
+      `INSERT INTO classes (name, academic_year_id, tenant_id, created_at, updated_at)
+       VALUES ('Notes Old', $1, $2, NOW(), NOW()) RETURNING id`,
+      [year[0].id, SEED_TENANT_ID],
+    );
+    const sec = await ds.query(
+      `INSERT INTO class_sections (section_name, class_id, tenant_id, created_at, updated_at)
+       VALUES ('Z', $1, $2, NOW(), NOW()) RETURNING id`,
+      [cls[0].id, SEED_TENANT_ID],
+    );
+    const oldStudent = await ds.getRepository(Student).save({
+      full_name: 'Old Child',
+      registration_number: `N-${Math.random().toString(36).slice(2, 10)}`,
+      roll_number: 1,
+      class_section_id: sec[0].id,
+      tenant_id: SEED_TENANT_ID,
+    } as Partial<Student> as Student);
+    const t = await ds.getRepository(Teacher).findOneByOrFail({ user_id: teacherUserId });
+    await ds.getRepository(TeacherClassSection).save({
+      teacher_id: t.id,
+      section_id: sec[0].id,
+      tenant_id: SEED_TENANT_ID,
+      subject_id: null,
+    });
+    await expect(service.list(oldStudent.id, teacher())).rejects.toThrow(NotFoundException);
   });
 
   it('soft delete hides the note from the list but keeps the row; audits create and delete', async () => {

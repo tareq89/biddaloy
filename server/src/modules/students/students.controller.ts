@@ -13,7 +13,7 @@ import {
   Inject,
   ParseUUIDPipe,
   Req,
-  ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -52,6 +52,7 @@ import {
   CommitBulkUploadDto,
 } from './dto/students.dto';
 import { UserRole, JwtPayload, Permission, roleHasPermission } from '@biddaloy/shared';
+import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -217,17 +218,12 @@ export class StudentController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    const student = await this.studentService.findOne(id, tenant.id);
-    // Object-level authorization for PARENT/STUDENT; a no-op for staff.
+    // Object-level authorization for PARENT/STUDENT/TEACHER; a no-op for tenant-wide staff.
     // [5.1] moved the check that used to be inline here into
     // FamilyAccessService so every widened family route shares one copy.
+    // Before the lookup (D13): a missing id and someone else's student give the same answer.
     await this.familyAccess.assertLinked(tenant.role, user.sub, id, tenant.id);
-    await this.teacherScope.assertCanSeeStudent({
-      role: tenant.role,
-      userId: user.sub,
-      tenantId: tenant.id,
-      studentId: id,
-    });
+    const student = await this.studentService.findOne(id, tenant.id);
     return redactHealthNotes(student, canReadRecords(tenant.role));
   }
 
@@ -333,6 +329,7 @@ export class StudentController {
    * PARENT only: STUDENT accounts link through `students.user_id`, not a
    * guardian row, so they get a 403 rather than a guaranteed 404.
    */
+  @AuthenticatedOnly()
   @Get('guardians/mine')
   @Roles(UserRole.PARENT)
   @ApiOperation({
@@ -348,6 +345,7 @@ export class StudentController {
   }
 
   /** See the ordering note on `GET guardians/mine`. */
+  @AuthenticatedOnly()
   @Patch('guardians/mine')
   @Roles(UserRole.PARENT)
   @ApiOperation({
@@ -376,19 +374,21 @@ export class StudentController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    const guardian = await this.guardianService.findOne(id, tenant.id);
-    const scope = await this.teacherScope.sectionScope({
+    // Before the lookup (D13): a missing id and someone else's guardian give the same 404.
+    const scope = await this.teacherScope.assertCanSeeGuardian({
       role: tenant.role,
       userId: user.sub,
       tenantId: tenant.id,
+      guardianId: id,
     });
+    const guardian = await this.guardianService.findOne(id, tenant.id);
     if (scope) {
       // Only the children the teacher teaches; siblings elsewhere stay hidden.
       guardian.students = (guardian.students ?? []).filter(
         (s) => s.class_section_id && scope.includes(s.class_section_id),
       );
       if (guardian.students.length === 0) {
-        throw new ForbiddenException("You do not teach this guardian's students.");
+        throw new NotFoundException('Guardian not found');
       }
     }
     return redactHealthNotes(guardian, canReadRecords(tenant.role));

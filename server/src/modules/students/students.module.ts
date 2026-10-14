@@ -78,6 +78,9 @@ import { StorageModule } from '../storage/storage.module';
     GuardianService,
     StudentBulkUploadService,
     FamilyAccessService,
+    // [75.6] Fees, fines and communications scope teacher reads with it (they import StudentModule,
+    // not ClassModule, for the same cycle reason as above).
+    TeacherScopeService,
     StudentLifecycleService,
   ],
 })

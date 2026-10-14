@@ -19,6 +19,7 @@ import { ContextGuard, RolesGuard } from './context.guard';
 import { PermissionsGuard } from './permissions.guard';
 import { Roles } from '../decorators/roles.decorator';
 import { RequirePermissions } from '../decorators/require-permissions.decorator';
+import { AuthenticatedOnly } from '../decorators/authenticated-only.decorator';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -41,6 +42,18 @@ class ProbeController {
   @Roles(UserRole.TEACHER, UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   probe() {
+    return { ok: true };
+  }
+
+  // Guards on, no permission, no marker: the fail-closed case.
+  @Get('undeclared')
+  undeclared() {
+    return { ok: true };
+  }
+
+  @Get('identity')
+  @AuthenticatedOnly()
+  identity() {
     return { ok: true };
   }
 }
@@ -106,5 +119,25 @@ describe('PermissionsGuard wiring (regression)', () => {
       .expect(403);
 
     expect(res.body.message).toContain('USER_CREATE');
+  });
+
+  it('[D14] 403s a route that declares neither a permission nor @AuthenticatedOnly, even for ADMIN', async () => {
+    const res = await supertest(app.getHttpServer())
+      .get('/api/v1/perm-probe/undeclared')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .expect(403);
+
+    expect(res.body.message).toContain('declares no permission');
+  });
+
+  it('[D14] lets TEACHER through an @AuthenticatedOnly route', async () => {
+    await supertest(app.getHttpServer())
+      .get('/api/v1/perm-probe/identity')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Role', UserRole.TEACHER)
+      .expect(200);
   });
 });

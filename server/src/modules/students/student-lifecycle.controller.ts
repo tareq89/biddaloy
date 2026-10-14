@@ -22,6 +22,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
 import { StudentLifecycleService } from './student-lifecycle.service';
+import { FamilyAccessService } from './family-access.service';
 import {
   LeaveStudentDto,
   LeaveStudentResultDto,
@@ -41,6 +42,7 @@ export class StudentLifecycleController {
 
   constructor(
     @Inject(StudentLifecycleService) private readonly lifecycle: StudentLifecycleService,
+    private readonly familyAccess: FamilyAccessService,
   ) {}
 
   @Post(':id/leave')
@@ -84,10 +86,12 @@ export class StudentLifecycleController {
   @RequirePermissions(Permission.STUDENT_RECORDS_READ)
   @ApiOperation({ summary: "List a student's lifecycle events, newest first" })
   @ApiOkResponse({ type: [StudentLifecycleEventDto] })
-  listEvents(
+  async listEvents(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: UserRole },
+    @CurrentUser() user: JwtPayload,
   ) {
+    await this.familyAccess.assertLinked(tenant.role, user.sub, id, tenant.id);
     return this.lifecycle.listEvents(id, tenant.id);
   }
 }

@@ -433,11 +433,11 @@ describe('[19.9.1] Student results (portal + staff)', () => {
       await asTeacher(get(`/exams/${unpublishedExamId}/results/${studentId}`)).expect(200);
     });
 
-    it('TEACHER gets 403 on /students/:id/results and /results/:examId for another section', async () => {
+    it('TEACHER gets 404 on /students/:id/results and /results/:examId for another section', async () => {
       await seedResultFixture();
       const otherStudent = await addOtherStudentResult();
-      await asTeacher(get(`/students/${otherStudent}/results`)).expect(403);
-      await asTeacher(get(`/students/${otherStudent}/results/${unpublishedExamId}`)).expect(403);
+      await asTeacher(get(`/students/${otherStudent}/results`)).expect(404);
+      await asTeacher(get(`/students/${otherStudent}/results/${unpublishedExamId}`)).expect(404);
       await asTeacher(get(`/students/${studentId}/results`)).expect(200);
       await asTeacher(get(`/students/${studentId}/results/${unpublishedExamId}`)).expect(200);
     });

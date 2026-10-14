@@ -23,6 +23,7 @@ import {
 } from '../../communications/credits/dto/sms-credits.dto';
 import { SmsCreditsService } from './sms-credits.service';
 import { GrantSmsCreditsDto } from './dto/grant-sms-credits.dto';
+import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.decorator';
 
 /**
  * [15.6.7/#550] SUPER_ADMIN top-up/correction console for a school's SMS
@@ -43,6 +44,7 @@ export class SchoolSmsCreditsController {
     private readonly smsCreditService: SmsCreditService,
   ) {}
 
+  @AuthenticatedOnly()
   @Get()
   @ApiOperation({
     summary:
@@ -76,6 +78,7 @@ export class SchoolSmsCreditsController {
     };
   }
 
+  @AuthenticatedOnly()
   @Post()
   @ApiOperation({
     summary:
