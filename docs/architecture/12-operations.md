@@ -205,6 +205,44 @@ The loop runs in the API process only (not in scripts, not under `NODE_ENV=test`
 and sends SMS straight to the provider with the platform's own key, not a school's credits. With no
 `PLATFORM_SMS_API_KEY` it logs `platform alert SMS not configured; would text N phone(s): ...`.
 
+### 3.7 Demo reset failed (Sentry cron alert)
+
+**What the alert means.** The demo site's Sentry cron monitor (`SENTRY_CRONS_URL`) got `status=error`, or no check-in
+at all. Either way, tonight's rebuild did not finish. The demo is **not down**: until the swap, yesterday's database
+keeps serving. Sentry alerts when a night has no `ok` check-in.
+
+```mermaid
+flowchart TD
+  A[Sentry cron alert] --> B["read the reset.sh log"]
+  B --> C{"swap done?"}
+  C -->|"no: failed before the swap"| D["old demo is still live.<br/>Fix the cause, run the manual reset"]
+  C -->|"yes: swapped, but these steps failed"| E["new demo is live.<br/>Redo the failed step by hand"]
+  B --> F["ROLLBACK FAILED?"] --> G["finish by hand:<br/>22-demo-seed.md, Roll back a bad night"]
+```
+
+**See the log.** Cron runs `reset.sh` inside `demo-reset`, so the log is the container log:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml logs --since 24h demo-reset | grep reset.sh
+```
+
+Lines to look for: `validator found violations`, `sweep failed (exit N)`, `rolled back:`, `ROLLBACK FAILED`,
+`swapped, but these steps failed: ...`, `another reset is running`.
+
+**Manual reset** (same script as the nightly run; `--now` skips the wait for 02:00):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now
+```
+
+**Roll back to yesterday** (`biddaloy_demo_prev`): follow "Roll back a bad night" in
+[22-demo-seed.md](22-demo-seed.md#roll-back-a-bad-night). It stops `demo-reset` and `app`, renames the databases back,
+rewrites the id file, flushes Redis and starts again.
+
+**Two traps.** `PlatformAlertsService` texts operators straight through the SMS gateway, so `DEMO_MODE` does not silence
+it: leave `PLATFORM_SMS_API_KEY` and `PLATFORM_ALERT_PHONES` unset on the demo host. The boot guard runs after the BullMQ
+workers start, so a non-demo school row stops the process a moment after it begins.
+
 ## 4. Env var reference
 
 | Variable                    | Required in prod?      | What it does                                                                       |
