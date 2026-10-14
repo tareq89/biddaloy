@@ -35,6 +35,8 @@ export interface OtpSignInFormProps {
   onVerify: (input: OtpSignInCredentials) => void;
   loading?: boolean;
   error?: SignInFormError | null;
+  /** Heading element; a page with its own `<h1>` (the demo login) passes `h2`. */
+  headingLevel?: 'h1' | 'h2';
 }
 
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -102,6 +104,7 @@ export function OtpSignInForm({
   onVerify,
   loading = false,
   error = null,
+  headingLevel: Heading = 'h1',
 }: OtpSignInFormProps) {
   const { t } = useTranslation('auth');
   // Inside <AuthLayout> the layout owns the logo and the card.
@@ -206,7 +209,7 @@ export function OtpSignInForm({
         {brandMark}
         <div className={cardClass}>
           <div>
-            <h1 className="text-h1 text-balance">{t('otp.codeHeading')}</h1>
+            <Heading className="text-h1 text-balance">{t('otp.codeHeading')}</Heading>
             <p className="mt-0.5 text-text-secondary">
               {t('otp.codeSentTo', { phone: phase.phone })}
             </p>
@@ -270,7 +273,7 @@ export function OtpSignInForm({
           className={cardClass}
         >
           <div>
-            <h1 className="text-h1 text-balance">{t('heading')}</h1>
+            <Heading className="text-h1 text-balance">{t('heading')}</Heading>
             <p className="mt-0.5 text-text-secondary">{t('otp.subtext')}</p>
           </div>
 

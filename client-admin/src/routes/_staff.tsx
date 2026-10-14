@@ -334,6 +334,7 @@ function StaffLayout() {
             permissionGate
           ) : (
             <AppShell
+              reserveCorner={demo.enabled}
               navItems={navItems}
               navGroups={navGroups}
               brand={t('brand')}
