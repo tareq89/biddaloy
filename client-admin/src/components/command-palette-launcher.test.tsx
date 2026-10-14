@@ -157,7 +157,9 @@ describe('CommandPaletteLauncher', () => {
         signedOut = true;
         return new HttpResponse(null, { status: 204 });
       }),
-      http.get('/api/v1/demo/roles', () => HttpResponse.json({ password: 'x', cards: [] })),
+      http.get('/api/v1/demo/roles', () =>
+        HttpResponse.json({ enabled: true, password: 'x', cards: [] }),
+      ),
     );
     renderWithRouter(routeTree, {
       initialEntries: ['/students'],

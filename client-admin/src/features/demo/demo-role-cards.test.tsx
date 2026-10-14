@@ -51,7 +51,9 @@ function Probe() {
 describe('useDemoMode', () => {
   it('is on when /demo/roles answers', async () => {
     server.use(
-      http.get('/api/v1/demo/roles', () => HttpResponse.json({ password: 'x', cards: CARDS })),
+      http.get('/api/v1/demo/roles', () =>
+        HttpResponse.json({ enabled: true, password: 'x', cards: CARDS }),
+      ),
     );
     renderWithProviders(<Probe />, { locale: 'en' });
     expect(await screen.findByText('on:2')).toBeTruthy();

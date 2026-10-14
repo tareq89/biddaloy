@@ -5,6 +5,7 @@ import {
   ClipboardCheckIcon,
   FolderIcon,
   GraduationCapIcon,
+  HeartHandshakeIcon,
   PresentationIcon,
   ShieldCheckIcon,
   UserRoundIcon,
@@ -24,7 +25,7 @@ const ROLE_ICONS: Record<string, LucideIcon> = {
   EXAM_CONTROLLER: ClipboardCheckIcon,
   OFFICE_STAFF: FolderIcon,
   COMMITTEE: UsersIcon,
-  PARENT: UsersIcon,
+  PARENT: HeartHandshakeIcon,
   STUDENT: GraduationCapIcon,
 };
 

@@ -41,20 +41,19 @@ import {
 } from '@biddaloy/ui/components';
 import {
   hasPermission,
-  logout,
   useActiveRole,
   useDebouncedValue,
   useEntityLabel,
   usePaletteSearch,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { SearchIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { ACTIONS, DEMO_SWITCH_ROLE_ACTION, type ActionContext } from '../action-registry';
 import { useDemoMode } from '../features/demo/use-demo-mode';
+import { useSignOutToLogin } from '../features/demo/use-sign-out-to-login';
 import {
   matchesNavSearch,
   rankByMatch,
@@ -86,7 +85,7 @@ export function CommandPaletteLauncher({
   const { t, i18n } = useTranslation('nav');
   const navigate = useNavigate();
   const activeRole = useActiveRole();
-  const queryClient = useQueryClient();
+  const signOutToLogin = useSignOutToLogin();
   const demo = useDemoMode();
   const actions = React.useMemo(
     () => (demo.enabled ? [...ACTIONS, DEMO_SWITCH_ROLE_ACTION] : ACTIONS),
@@ -386,14 +385,12 @@ export function CommandPaletteLauncher({
       // this file's own header comment.
       return;
     }
+    // Listed as a page (portal/platform) or an action (staff); either way it is a sign-out.
+    if (resultId === DEMO_SWITCH_ROLE_ACTION.id) {
+      void signOutToLogin();
+      return;
+    }
     if (tabId === 'page') {
-      if (resultId === DEMO_SWITCH_ROLE_ACTION.id) {
-        DEMO_SWITCH_ROLE_ACTION.run({
-          navigate: (opts) => void navigate({ to: opts.to }),
-          signOut: () => logout(queryClient),
-        });
-        return;
-      }
       const item = pageGroups.flatMap((g) => g.results).find((result) => result.id === resultId);
       if (item?.description) void navigate({ to: item.description });
       return;
@@ -402,7 +399,6 @@ export function CommandPaletteLauncher({
       const action = actions.find((candidate) => candidate.id === resultId);
       action?.run({
         navigate: (opts) => void navigate({ to: opts.to }),
-        signOut: () => logout(queryClient),
         params: { studentId: params.studentId, examId: params.examId },
       });
     }
