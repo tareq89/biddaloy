@@ -3013,6 +3013,23 @@ export interface paths {
         patch: operations["UserController_updateNotificationPrefs_v1"];
         trace?: never;
     };
+    "/api/v1/users/me/preferences/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Save the caller's dashboard layout for the role they are acting as. Id from the JWT, role from X-Role. */
+        patch: operations["UserController_updateDashboardLayout_v1"];
+        trace?: never;
+    };
     "/api/v1/users/me/contact-change": {
         parameters: {
             query?: never;
@@ -10621,6 +10638,18 @@ export interface components {
             failedMessagesThreshold?: number;
             escalateAttendanceToHeads?: boolean;
         };
+        DashboardRiskThresholdsDto: {
+            absentStreakDays?: number;
+            monthlyAttendancePct?: number;
+            failedSubjects?: number;
+            overdueDays?: number;
+        };
+        DashboardSettingsDto: {
+            committeeAttendanceTargetPct?: number;
+            /** @example 07:30 */
+            digestTime?: string;
+            risk?: components["schemas"]["DashboardRiskThresholdsDto"];
+        };
         TenantSettingsDto: {
             organisationRenames?: components["schemas"]["OrganisationRenameDto"][];
             /** @enum {number} */
@@ -10639,6 +10668,7 @@ export interface components {
             documents?: components["schemas"]["DocumentsSettingsDto"];
             studyPlans?: components["schemas"]["StudyPlansSettingsDto"];
             attention?: components["schemas"]["AttentionSettingsDto"];
+            dashboard?: components["schemas"]["DashboardSettingsDto"];
         };
         UpdateSchoolProfileDto: {
             name?: string;
@@ -11114,6 +11144,16 @@ export interface components {
         UpdateOwnProfileDto: {
             full_name?: string;
             profile_picture_url?: string;
+        };
+        DashboardLayoutItemDto: {
+            /** @enum {string} */
+            key: "attendance-today" | "staff-today" | "collection-month" | "mark-entry-progress" | "syllabus-progress" | "at-risk-students" | "sms-balance" | "failed-messages" | "upcoming" | "homework-submission-rate" | "recent-activity" | "my-routine-today" | "my-pending-sections" | "my-mark-deadlines" | "homework-to-check" | "class-teacher-streaks" | "my-leave-balance" | "my-syllabus-progress" | "collection-today" | "collection-by-month" | "dues-ageing" | "dues-by-class" | "fee-generation-status" | "reminders-pending" | "recent-payments" | "committee-enrollment" | "committee-attendance" | "committee-finance" | "committee-pass-rate" | "seat-plan-status" | "results-state" | "admissions-today" | "guardians-incomplete" | "students-added-today" | "approvals-pending" | "print-queue" | "setup-checklist" | "syllabus-vs-plan" | "my-lessons-to-mark";
+            hidden?: boolean;
+            /** @enum {string} */
+            size?: "S" | "M" | "L";
+        };
+        DashboardLayoutDto: {
+            widgets: components["schemas"]["DashboardLayoutItemDto"][];
         };
         ContactChangeRequestDto: {
             /**
@@ -22703,6 +22743,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationPrefsDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_updateDashboardLayout_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardLayoutDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardLayoutDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
