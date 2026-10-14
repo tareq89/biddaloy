@@ -217,6 +217,11 @@
      same size. Weight 620 is legal on the variable `wght` axis (400-800 Latin,
      400-700 Bangla). Tracking is declared even where it is `0em`, so the drift
      gate in check-contrast.mjs can assert all four sub-properties uniformly. */
+  --text-hero: 2rem; /* 32px — big number on a full widget card */
+  --text-hero--line-height: 2.5rem; /* 40px */
+  --text-hero--font-weight: 650;
+  --text-hero--letter-spacing: -0.015em;
+
   --text-display: 1.75rem; /* 28px — portal page title */
   --text-display--line-height: 2.25rem; /* 36px */
   --text-display--font-weight: 620;
@@ -396,6 +401,14 @@
   --color-chart-3: var(--color-status-due-fg);
   --color-chart-4: var(--color-status-overdue-fg);
   --color-chart-5: var(--color-brand);
+  /* [8.10.7.1.05] Identity, never status (D23). Validated with the dataviz validator; see 09-design-direction §3.7. */
+  --color-chart-cat-1: #2a78d6;
+  --color-chart-cat-2: #eb6834;
+  --color-chart-cat-3: #18a372;
+  /* Magnitude: one hue, light → dark = less → more. */
+  --color-chart-seq-1: var(--color-brand-400);
+  --color-chart-seq-2: var(--color-brand-600);
+  --color-chart-seq-3: #2a2385;
 
   /**
    * Elevation — three steps, each with a job (design contract §5):
@@ -796,6 +809,14 @@
   --color-status-due-bg: #451a03;
   --color-status-overdue-fg: #f87171;
   --color-status-overdue-bg: #450a0a;
+
+  /* Chart colours, dark. Anchor flips in dark: least = darkest. */
+  --color-chart-cat-1: #3987e5;
+  --color-chart-cat-2: #d95926;
+  --color-chart-cat-3: #199e70;
+  --color-chart-seq-1: #6b63e6;
+  --color-chart-seq-2: #8f96f4;
+  --color-chart-seq-3: #c3c7fb;
 
   /* Dark elevation (design contract §5). Not the light scale reused: a shadow
      darkens what is behind it, and on `#0f172a` there is little left to
