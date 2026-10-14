@@ -1,12 +1,20 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource, EntityManager, Not } from 'typeorm';
-import { AuditAction, AuthTokenPurpose, SchoolStatus, UserRole } from '@biddaloy/shared';
+import {
+  AuditAction,
+  AuthTokenPurpose,
+  EMPLOYEE_ROLES,
+  SchoolStatus,
+  UserRole,
+} from '@biddaloy/shared';
+import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import { generateSecret, hashSecret } from '../auth/token-hash.util';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { reviveMembership } from '../users/users.service';
 import { Guardian } from '../students/entities/guardian.entity';
+import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { School } from '../schools/entities/school.entity';
 import type { RequestContext } from '../../common/request-context.util';
 import { AuthToken } from './entities/auth-token.entity';
@@ -117,6 +125,7 @@ export class SchoolInviteService {
     private readonly dataSource: DataSource,
     private readonly authTokens: AuthTokenService,
     private readonly audit: AuditService,
+    private readonly staffProfiles: StaffProfilesService,
   ) {}
 
   /** The caller's own live requests, with the school's name. */
@@ -251,6 +260,16 @@ export class SchoolInviteService {
             }),
           );
         }
+      }
+
+      // [68.2.02] Same rule as `UserService.create`: a non-teacher employee role
+      // gets its generic staff profile for THIS school (profiles are per school).
+      if (
+        meta.role !== UserRole.TEACHER &&
+        EMPLOYEE_ROLES.includes(meta.role) &&
+        !(await m.exists(StaffProfile, { where: { user_id: userId, tenant_id: tenantId } }))
+      ) {
+        await this.staffProfiles.createFor(userId, tenantId, {}, m);
       }
 
       await this.authTokens.consume(row.id, m);

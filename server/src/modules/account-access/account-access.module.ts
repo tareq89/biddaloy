@@ -14,6 +14,7 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
 import { CommunicationsModule } from '../communications/communications.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { AuditModule } from '../audit/audit.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { AuthTokenService } from './auth-token.service';
 import { OtpService, OTP_REDIS } from './otp.service';
 import { AccountAccessDeliveryService } from './account-access-delivery.service';
@@ -55,6 +56,7 @@ import { SchoolInvitesController } from './school-invites.controller';
     // back — forwardRef breaks that cycle.
     forwardRef(() => SchoolsModule),
     AuditModule,
+    StaffProfilesModule,
     ConfigModule,
     BullModule.registerQueue({
       name: INVITATION_BATCH_QUEUE,

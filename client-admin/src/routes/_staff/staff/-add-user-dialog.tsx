@@ -30,8 +30,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  toast,
 } from '@biddaloy/ui/components';
-import { useActiveTenant, useCreateUser, type UserRoleFilter } from '@biddaloy/ui/hooks';
+import {
+  useActiveTenant,
+  useCreateUser,
+  useRequestStaffJoin,
+  type UserRoleFilter,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -53,17 +59,24 @@ interface AddUserValues {
 
 const EMPTY: AddUserValues = { full_name: '', email: '', phone: '', role: '' };
 
+/** [68.2.02] `POST /users` 409s with this code when the contact already belongs to an account. */
+function isAccountExists(error: unknown): boolean {
+  return error instanceof ApiError && error.details?.code === 'ACCOUNT_EXISTS';
+}
+
 export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
   const { t } = useTranslation('staff');
   const regionConfig = useRegionConfig();
   const tenantId = useActiveTenant();
   const createUser = useCreateUser();
+  const requestJoin = useRequestStaffJoin();
   const form = useForm<AddUserValues>({ defaultValues: EMPTY });
 
   React.useEffect(() => {
     if (!open) return;
     form.reset(EMPTY);
     createUser.reset();
+    requestJoin.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
 
@@ -82,7 +95,11 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
         // keeps the generic alert above the footer.
         onError: (error) => {
           if (error instanceof ApiError && error.statusCode === 409) {
-            form.setError('email', { message: t('addUser.errorDuplicateEmail') });
+            form.setError('email', {
+              message: isAccountExists(error)
+                ? t('addUser.accountExists')
+                : t('addUser.errorDuplicateEmail'),
+            });
           }
         },
       },
@@ -90,8 +107,27 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
   }
 
   const genericError =
-    createUser.isError &&
-    !(createUser.error instanceof ApiError && createUser.error.statusCode === 409);
+    (createUser.isError &&
+      !(createUser.error instanceof ApiError && createUser.error.statusCode === 409)) ||
+    requestJoin.isError;
+  const offerJoinRequest = isAccountExists(createUser.error);
+
+  function sendJoinRequest() {
+    const { email, phone, role } = form.getValues();
+    requestJoin.mutate(
+      {
+        ...(email.trim() !== '' ? { email: email.trim() } : {}),
+        ...(phone.trim() !== '' ? { phone: phone.trim() } : {}),
+        role: role as UserRoleFilter,
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('addUser.joinRequestSent'));
+          onOpenChange(false);
+        },
+      },
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -144,6 +180,17 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
                     />
                   </FormControl>
                   <FormMessage />
+                  {offerJoinRequest && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="self-start"
+                      loading={requestJoin.isPending}
+                      onClick={sendJoinRequest}
+                    >
+                      {t('addUser.sendJoinRequest')}
+                    </Button>
+                  )}
                 </FormItem>
               )}
             />
