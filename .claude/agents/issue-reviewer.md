@@ -122,9 +122,13 @@ why and the enforcing test.
   `normalizeSearchTerm` / `escapeLikePattern`.
 - **Upload trust (Rule 6).** Flag an upload accepted on `file.mimetype` alone
   (no `matchesDeclaredType`), or an xlsx parsed without `xlsx-guard`.
-- **Outbound call (Rule 7).** Flag `fetch`, `axios`, `ws`, `net`/`tls` or an
-  SDK client outside `pinned-http.ts`, and a URL from config or tenant input
-  that skips `assertSafeHttpDestination`.
+- **Outbound call (Rule 7).** Flag a URL a user or tenant can influence (a
+  request, a tenant setting, a DB row) that reaches `fetch`, `axios`, `ws`,
+  `net`/`tls` or an SDK client without `fetchPinnedJson` after
+  `assertSafeHttpDestination`. A fixed host (code constant or operator config)
+  is fine when its file is on `REVIEWED_OUTBOUND` in
+  `outbound-http.contract.spec.ts` with a reason; flag a new outbound file
+  that is on neither path.
 - **Session survives (Rule 8).** Flag a suspend, remove, role-drop or
   password-reset path that does not bump `users.tokens_valid_after`.
 - **Password handling (Rule 9).** Flag `bcrypt.compare`/`bcrypt.hash` on a

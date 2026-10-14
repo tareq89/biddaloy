@@ -37,7 +37,7 @@ text, the reason and the enforcing test live in
 - **No string-built SQL.** No `${}` in a query; LIKE input goes through `normalizeSearchTerm` (75.15). → [08-security §Rules 4](docs/architecture/08-security.md#rule-4-no-string-built-sql)
 - **Limits and money are capped.** `limit` ≤ 100, money ≤ `MONEY_MAX` with 2 decimals; clients page (75.14). → [08-security §Rules 5](docs/architecture/08-security.md#rule-5-limit-is-capped-and-money-fields-are-bounded)
 - **Uploads are checked by signature.** `matchesDeclaredType`, never the client mimetype; xlsx through `xlsx-guard` (75.8). → [08-security §Rules 6](docs/architecture/08-security.md#rule-6-uploads-are-checked-by-file-signature)
-- **Outbound HTTP is pinned.** Only through `pinned-http.ts` after `assertSafeHttpDestination` (75.24). → [08-security §Rules 7](docs/architecture/08-security.md#rule-7-outbound-http-only-through-the-ssrf-guarded-helper)
+- **Outbound HTTP is guarded.** A user- or tenant-influenced URL goes only through `pinned-http.ts` after `assertSafeHttpDestination`; any other call is a fixed host on the reviewed `REVIEWED_OUTBOUND` list (75.24). → [08-security §Rules 7](docs/architecture/08-security.md#rule-7-outbound-http-goes-through-the-ssrf-guard-or-a-reviewed-fixed-host)
 - **Cut sessions off.** Suspend, remove or reset bumps `users.tokens_valid_after` (D12). → [08-security §Rules 8](docs/architecture/08-security.md#rule-8-suspend-remove-or-reset-bumps-tokens_valid_after)
 - **One bcrypt cost.** `hashPassword` / `verifyPassword` only, `BCRYPT_COST` 12, 72-byte limit (D5). → [08-security §Rules 9](docs/architecture/08-security.md#rule-9-one-bcrypt-cost-one-password-check)
 - **Unsafe config never boots.** `assertProductionConfig`; JWT HS256 + `iss` + `aud`, `JWT_SECRET_PREVIOUS` for rotation (75.9, 75.10). → [08-security §Rules 10](docs/architecture/08-security.md#rule-10-boot-refuses-unsafe-config-and-jwts-are-pinned)
@@ -53,7 +53,7 @@ text, the reason and the enforcing test live in
 - **Reachability changes update the snapshot.** `route-status.snapshot.txt` in the same PR, each line explained (D21). → [08-security §Rules 20](docs/architecture/08-security.md#rule-20-a-reachability-change-updates-the-route-snapshot)
 - **Pin CI and images.** Actions by SHA, images by `@sha256:`, audit allowlist with `recheckBy` (75.25, 75.26). → [08-security §Rules 21](docs/architecture/08-security.md#rule-21-ci-actions-and-images-are-pinned)
 - **Public write forms carry Turnstile.** `TurnstileService` before any write; fails closed in production (75.16). → [08-security §Rules 22](docs/architecture/08-security.md#rule-22-public-write-forms-carry-turnstile)
-- **Errors never echo input.** A 409 names the field kind, not the value, with one text on every path (75.19). → [08-security §Rules 23](docs/architecture/08-security.md#rule-23-errors-never-echo-what-was-sent)
+- **Errors never echo input.** Within one operation, every failure path uses the same text, and no message echoes the submitted value (75.19). → [08-security §Rules 23](docs/architecture/08-security.md#rule-23-errors-never-echo-what-was-sent)
 
 ## Documentation style (always, for any doc in this repo)
 
