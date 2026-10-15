@@ -88,7 +88,7 @@ Roles: **A** admin · **Ac** accountant · **E** executive · **T** teacher ·
 ### 3.1 Staff tree
 
 ```text
-Dashboard [partial → 8.10.7, 8.15]                                  A Ac E T
+Dashboard [have]                                                    A Ac E T
 Applications [52.0] — top level, pending-count badge                A Ac E T (+ office, exam controller)
   New application · Application detail
 
@@ -182,7 +182,7 @@ User menu → My account (profile, password, switch school/role, language, theme
 Overview [have]
 Fees & invoices [have] · Pay online [3.0] · Statement [8.15] · Fines [38.0]
 Attendance [have]
-Results [19.0] · Homework [22.0] · Syllabus [22.0] · Routine [21.0]
+Results [19.0] · Homework [have] · Syllabus [22.0] · Routine [21.0]
 Calendar & notices [17.0; notices have]
 Online exam & class [N6] · Programs [34.0] · Documents [Print module — follow-up epic]
 Applications [52.0] — under More on a phone
