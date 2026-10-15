@@ -21,6 +21,9 @@ import { CommunicationLog } from '../communications/entities/communication-log.e
 import { StudentLifecycleEvent } from '../students/entities/student-lifecycle-event.entity';
 import { AdmissionReportsService } from './admission-reports.service';
 import { AdmissionReportsController } from './admission-reports.controller';
+import { AdmissionDashboardService } from './admission-dashboard.service';
+import { AdmissionDashboardController } from './admission-dashboard.controller';
+import { DashboardModule } from '../dashboard/dashboard.module';
 import {
   COMMUNICATIONS_QUEUE,
   COMMUNICATIONS_QUEUE_JOB_OPTIONS,
@@ -57,14 +60,17 @@ import {
     SchoolsModule,
     StorageModule,
     AuditModule,
+    DashboardModule,
   ],
   controllers: [
     IntakeController,
     ApplicantReviewController,
     PublicAdmissionController,
     AdmissionReportsController,
+    AdmissionDashboardController,
   ],
   providers: [
+    AdmissionDashboardService,
     IntakeService,
     ApplicantReviewService,
     AdmissionApplicantService,
