@@ -271,7 +271,11 @@ function ExamsListPage() {
           onOpenChange={(open) => !open && setEditing(null)}
           mode="edit"
           examId={editing.id}
-          initialValues={{ name: editing.name, kind: editing.kind }}
+          initialValues={{
+            name: editing.name,
+            kind: editing.kind,
+            mark_entry_deadline: editing.mark_entry_deadline,
+          }}
           onSaved={() => setEditing(null)}
         />
       )}

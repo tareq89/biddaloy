@@ -177,7 +177,11 @@ function ExamDetailPage() {
           onOpenChange={setEditOpen}
           mode="edit"
           examId={examId}
-          initialValues={{ name: exam.name, kind: exam.kind }}
+          initialValues={{
+            name: exam.name,
+            kind: exam.kind,
+            mark_entry_deadline: exam.mark_entry_deadline,
+          }}
           onSaved={() => setEditOpen(false)}
         />
       )}
