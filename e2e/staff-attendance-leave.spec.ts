@@ -1,4 +1,4 @@
-import { adminApiSession, get } from './api';
+import { adminApiSession, get, isFridayAnywhere } from './api';
 import { expect, loggedIn, test } from './fixtures/test';
 import { t } from './i18n';
 
@@ -19,6 +19,8 @@ test.use(loggedIn('admin'));
 const MARK_STAFF_ATTENDANCE_ACTION_LABEL = 'কর্মীর উপস্থিতি নিন';
 
 test('staff attendance, keyboard only', async ({ page, request }) => {
+  // The register is today's, and the server refuses a register on the weekly off (422).
+  test.skip(isFridayAnywhere(), 'the school is closed on Friday');
   const session = await adminApiSession(request);
   const me = await get<{ id: string; full_name: string }>(request, session, '/users/me');
 
