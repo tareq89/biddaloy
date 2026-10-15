@@ -929,7 +929,13 @@ Every PR gets the same loop, right after it opens:
    `code-review` skill on the PR's full diff against its base, at high effort.
    It reviews the way CodeRabbit does: a short summary and walkthrough, then
    each finding with file:line, severity (critical / major / minor / nit), what
-   is wrong, and the suggested fix. It does not fix anything.
+   is wrong, and the suggested fix. It does not fix anything. The same agent
+   also runs the `coderabbit-review` skill (CodeRabbit CLI, `--agent
+   --base <base>`) and merges those findings into the review. If the CLI can't
+   review (rate-limited, no included reviews left, over the file limit, or
+   `review_skipped`), the review says "CodeRabbit CLI: skipped (<reason>)" and
+   goes on without it. No waiting, retrying, narrowing the scope to fit, or
+   `--use-credits`.
 2. **Post it on the PR** as a review comment, so it lives with the PR:
 
    ```bash

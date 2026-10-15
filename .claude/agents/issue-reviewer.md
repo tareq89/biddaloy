@@ -45,6 +45,12 @@ reads for the surrounding context.
 Invoke it directly. Take its findings as input, not as the whole review — it
 sees the diff, it does not see the plan.
 
+Then run the `coderabbit-review` skill (CodeRabbit CLI, `--agent`) on the same
+working tree and take its findings as input too. If it can't review
+(rate-limited, no included reviews left, over the file limit, or
+`review_skipped`), report "CodeRabbit CLI: skipped (<reason>)" and carry on.
+Don't wait, retry, narrow the scope to fit, or pass `--use-credits`.
+
 ### 4. Add the checks only you can make
 
 The `code-review` skill judges the diff on its own terms. You additionally
