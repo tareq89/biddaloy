@@ -121,9 +121,8 @@ export class ResolveRoutineService {
         sectionId = null;
       }
     }
-    // PUBLISHED: any ROUTINE_READ holder may read (existing behavior,
-    // unrestricted beyond the section/teacher/student filter already
-    // required above).
+    // PUBLISHED: any ROUTINE_READ holder may read; family callers are
+    // linkage-checked in `ResolveRoutineController` before reaching here.
 
     return this.expandSlots(
       tenantId,

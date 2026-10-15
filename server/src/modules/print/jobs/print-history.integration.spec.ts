@@ -7,6 +7,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { PrintJobsService } from './print-jobs.service';
 import { PrintHistoryService } from './print-history.service';
 import { PublicVerifyService } from '../verify/public-verify.service';
+import { localToday } from '../../../common/time';
 
 describe('print history (integration)', () => {
   let ds: DataSource;
@@ -196,8 +197,35 @@ describe('print history (integration)', () => {
     expect(await only({ document_kind: 'STAFF_ID_CARD' })).toBe(0);
     expect(await only({ from: '2999-01-01' })).toBe(0);
     // A date-only `to` covers the whole of today.
-    expect(await only({ to: new Date().toISOString().slice(0, 10) })).toBe(2);
+    expect(await only({ to: localToday() })).toBe(2);
     expect(await only({ q: '100%' })).toBe(0); // % is literal, not a wildcard
+  });
+
+  it('a date-only from/to is a school (Asia/Dhaka) calendar day', async () => {
+    const { items } = await create();
+    const [a, b] = items.map((i: any) => i.item_id);
+    const set = (id: string, at: string) =>
+      ds.query(`UPDATE print_job_items SET created_at = $1 WHERE id = $2`, [at, id]);
+    const day = async () =>
+      (await history.list(admin(), { from: '2026-10-07', to: '2026-10-07' } as any)).total;
+    const cases: Array<[string, boolean]> = [
+      ['2026-10-06T17:59:59Z', false],
+      ['2026-10-06T19:00:00Z', true],
+      ['2026-10-07T17:59:59Z', true],
+      ['2026-10-07T18:00:00Z', false],
+      ['2026-10-07T21:00:00Z', false],
+      ['2026-10-08T00:00:00Z', false],
+    ];
+    await set(b, '2000-01-01T00:00:00Z');
+    for (const [at, included] of cases) {
+      await set(a, at);
+      expect(await day(), at).toBe(included ? 1 : 0);
+    }
+    // A datetime value stays on the plain timestamptz path.
+    await set(a, '2026-10-07T11:00:00Z');
+    expect((await history.list(admin(), { to: '2026-10-07T12:00:00Z' } as any)).total).toBe(2);
+    await set(a, '2026-10-07T13:00:00Z');
+    expect((await history.list(admin(), { to: '2026-10-07T12:00:00Z' } as any)).total).toBe(1);
   });
 
   it('a subject history is limited to that subject', async () => {

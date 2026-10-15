@@ -6,6 +6,7 @@ import { Student } from '../students/entities/student.entity';
 import { FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
 import { QueryFeeDuesDto, QueryFlaggedDuesDto } from './dto/fees.dto';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
+import { localToday } from '../../common/time';
 
 const OPEN_STATUSES = [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID];
 
@@ -174,7 +175,7 @@ export class FeeDuesService {
     const studentIds = await this.findMatchingStudentIds(tenantId, OPEN_STATUSES, {
       class_id: query.class_id,
       section_id: query.section_id,
-      reminderThresholdBefore: new Date(),
+      reminderThresholdBefore: localToday(),
       restrictToStudentIds,
     });
 
@@ -271,7 +272,7 @@ export class FeeDuesService {
       month?: number;
       year?: number;
       fee_type?: FeeType;
-      reminderThresholdBefore?: Date;
+      reminderThresholdBefore?: string;
       restrictToStudentIds?: string[];
       search?: string;
     },
@@ -380,16 +381,20 @@ export class FeeDuesService {
       .addSelect('cs.section_name', 'section_name')
       .addSelect('SUM(sf.total_amount - sf.paid_amount - sf.discount_amount)', 'total_due')
       .addSelect(
-        // `< CURRENT_DATE`, not `< NOW()`. `sf.due_date` is a `date`
+        // `< :today`, not `< NOW()`. `sf.due_date` is a `date`
         // column, so `< NOW()` widens it to midnight of that day and any
         // fee due *today* counts as overdue from 00:00 onwards — a
         // parent was told they were late on the very day they were asked
         // to pay. A fee is overdue only once its due date has passed.
+        // `:today` is the school's day from `localToday()`, never
+        // `CURRENT_DATE`, which follows the DB session timezone (UTC in
+        // production) and so flips 6 hours after Dhaka midnight.
         // `ui/src/utils/date.ts`'s `isPastDueDate` is the client-side
         // twin of this predicate; the two must move together.
-        'COUNT(*) FILTER (WHERE sf.due_date IS NOT NULL AND sf.due_date < CURRENT_DATE)',
+        'COUNT(*) FILTER (WHERE sf.due_date IS NOT NULL AND sf.due_date < :today)',
         'months_overdue',
       )
+      .setParameter('today', localToday())
       .where('sf.student_id IN (:...studentIds)', { studentIds })
       .andWhere('sf.status IN (:...statuses)', { statuses: OPEN_STATUSES })
       .groupBy('sf.student_id')

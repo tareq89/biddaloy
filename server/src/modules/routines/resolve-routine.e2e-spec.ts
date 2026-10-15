@@ -165,15 +165,17 @@ describe('Routine resolver honours class-scoped holidays (e2e)', () => {
   describe('roles on /routines/resolve (pinned, unchanged behaviour)', () => {
     const OTHER_TENANT = '00000000-0000-4000-8000-0000000066e2';
 
-    for (const role of [
-      UserRole.ADMIN,
-      UserRole.EXECUTIVE,
-      UserRole.TEACHER,
-      UserRole.PARENT,
-      UserRole.STUDENT,
-    ]) {
+    for (const role of [UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER]) {
       it(`${role} gets 200`, async () => {
         await actAs(role).then((res) => expect(res.status).toBe(200));
+      });
+    }
+
+    // [8.10.7.0-s2] family callers may only read by a linked student_id;
+    // see resolve-routine.family-guard.e2e-spec.ts for the linked cases.
+    for (const role of [UserRole.PARENT, UserRole.STUDENT]) {
+      it(`${role} asking by section_id gets 403`, async () => {
+        await actAs(role).then((res) => expect(res.status).toBe(403));
       });
     }
 
@@ -294,10 +296,11 @@ describe('Routine resolver honours class-scoped holidays (e2e)', () => {
       await saveSettings([special, { ...special, name: 'Again' }]).expect(400);
     });
 
-    it('a PARENT reading /routines/resolve sees the same special times', async () => {
+    it('/routines/resolve returns the special times to a section reader', async () => {
       await seed();
       await saveSettings([special]).expect(200);
-      const res = await actAs(UserRole.PARENT);
+      // Not a PARENT: family callers can only read by a linked student_id (8.10.7.0-s2).
+      const res = await actAs(UserRole.TEACHER);
       expect(res.status).toBe(200);
       expect(res.body[0]).toMatchObject({ starts_at: '08:30:00', ends_at: '09:05:00' });
     });

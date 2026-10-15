@@ -159,7 +159,7 @@ describe('Teacher scope: finance reads (75.6-d)', () => {
       [fx.studentA, fx.studentB],
     ]);
     await dataSource.query(`DELETE FROM student_fees WHERE student_id = ANY($1)`, [
-      [fx.studentA, fx.studentB],
+      [fx.studentA, fx.studentB, fx.studentC],
     ]);
     await dataSource.query(`DELETE FROM fee_structures WHERE name = 'TS Fine'`);
   });
@@ -181,6 +181,85 @@ describe('Teacher scope: finance reads (75.6-d)', () => {
       expect(ids(res.body.data)).toEqual([fx.studentA]);
     });
 
+    it("a section_id outside the teacher's scope returns an empty page, not 403 (Rule 2)", async () => {
+      const outside = await asTeacher(`/fees/dues?limit=100&section_id=${fx.sectionB}`).expect(200);
+      expect(outside.body.data).toEqual([]);
+      const inside = await asTeacher(`/fees/dues?limit=100&section_id=${fx.sectionA}`).expect(200);
+      expect(ids(inside.body.data)).toEqual([fx.studentA]);
+      const flagged = await asTeacher(
+        `/fees/dues/flagged?limit=100&section_id=${fx.sectionB}`,
+      ).expect(200);
+      expect(flagged.body.data).toEqual([]);
+    });
+
+    it("a class_id filter can only narrow: B's class returns nothing", async () => {
+      const [{ class_id }] = await dataSource.query(
+        'SELECT class_id FROM class_sections WHERE id = $1',
+        [fx.sectionB],
+      );
+      const res = await asTeacher(`/fees/dues?limit=100&class_id=${class_id}`).expect(200);
+      expect(res.body.data).toEqual([]);
+    });
+
+    it('a homeroom in a past academic year grants no dues (section C)', async () => {
+      // The fixture teacher is CLASS_TEACHER of C, but C's year is not current
+      // (teacher-scope.service.ts).
+      const tuition = await ensureFeeStructure(dataSource);
+      await dataSource.query(
+        `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, occurrence,
+           total_amount, paid_amount, discount_amount, standing_discount_amount, one_off_discount_amount, status, reminder_threshold_date, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, $3, '2020-01-01', 1, 1000, 0, 0, 0, 0, 'PENDING', '2020-02-01', NOW(), NOW())`,
+        [fx.studentC, SEED_ACADEMIC_YEAR_ID, tuition],
+      );
+      const dues = await asTeacher('/fees/dues?limit=100').expect(200);
+      expect(
+        dues.body.data.filter((d: { student_id: string }) => d.student_id === fx.studentC),
+      ).toEqual([]);
+      const flagged = await asTeacher('/fees/dues/flagged?limit=100').expect(200);
+      expect(ids(flagged.body.data)).toEqual([fx.studentA]);
+    });
+
+    it("the same user's scope in this tenant never leaks into another tenant", async () => {
+      const OTHER_TENANT = '00000000-0000-4000-8000-000000000098';
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug) VALUES ($1, 'Other', 'other-tsfin') ON CONFLICT DO NOTHING`,
+        [OTHER_TENANT],
+      );
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, 'TEACHER', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [fx.teacherUserId, OTHER_TENANT],
+      );
+      try {
+        const token = await fx.login();
+        const dues = await asRole(
+          token,
+          UserRole.TEACHER,
+          '/fees/dues?limit=100',
+          OTHER_TENANT,
+        ).expect(200);
+        expect(dues.body.data).toEqual([]);
+        // Tenant 1's section id sent into tenant 2 must still find nothing.
+        const duesBySection = await asRole(
+          token,
+          UserRole.TEACHER,
+          `/fees/dues?limit=100&section_id=${fx.sectionA}`,
+          OTHER_TENANT,
+        ).expect(200);
+        expect(duesBySection.body.data).toEqual([]);
+        const flagged = await asRole(
+          token,
+          UserRole.TEACHER,
+          '/fees/dues/flagged?limit=100',
+          OTHER_TENANT,
+        ).expect(200);
+        expect(flagged.body.data).toEqual([]);
+      } finally {
+        await dataSource.query(`DELETE FROM user_tenants WHERE tenant_id = $1`, [OTHER_TENANT]);
+        await dataSource.query(`DELETE FROM schools WHERE id = $1`, [OTHER_TENANT]);
+      }
+    });
+
     it('/fees/fines includes A only', async () => {
       const res = await asTeacher('/fees/fines?limit=100').expect(200);
       expect(ids(res.body.items)).toEqual([fx.studentA]);
@@ -196,6 +275,16 @@ describe('Teacher scope: finance reads (75.6-d)', () => {
     it('/payments/cart is 404 when any student is out of scope, 200 for A alone', async () => {
       await asTeacher(`/payments/cart?student_ids=${fx.studentA},${fx.studentB}`).expect(404);
       await asTeacher(`/payments/cart?student_ids=${fx.studentA}`).expect(200);
+    });
+
+    // [#1832] Already scoped by Epic 75 (assertLinked → 404); pinned here so it can't regress.
+    it('/payments/student/:id and /payments/invoices/student/:id are 200 for A, 404 for B', async () => {
+      const list = await asTeacher(`/payments/student/${fx.studentA}`).expect(200);
+      expect(ids(list.body)).toEqual([fx.studentA]);
+      await asTeacher(`/payments/student/${fx.studentB}`).expect(404);
+      const summary = await asTeacher(`/payments/invoices/student/${fx.studentA}`).expect(200);
+      expect(summary.body.student_id).toBe(fx.studentA);
+      await asTeacher(`/payments/invoices/student/${fx.studentB}`).expect(404);
     });
 
     it('/payments/guardian/:id is 200 for A, 404 for B', async () => {

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
+import { todayInSchoolTz } from '../../common/time';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
@@ -202,8 +203,8 @@ export class PaymentAllocationService {
         const allocationsByFeeId = new Map(dto.allocations.map((a) => [a.student_fee_id, a]));
 
         const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth() + 1;
+        // Dhaka calendar month, not the server clock's. ponytail: Dhaka for every tenant; use the school's region.timezone like checkout when a non-Bangladesh school is onboarded.
+        const [currentYear, currentMonth] = todayInSchoolTz().split('-').map(Number);
 
         let blocked = false;
         const feeUpdates: {

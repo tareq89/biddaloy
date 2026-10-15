@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
@@ -37,7 +37,7 @@ describe('LeaveService (integration)', () => {
   let staffProfileId: string;
   let staffUserId: string;
 
-  const CURRENT_YEAR = new Date().getUTCFullYear();
+  const CURRENT_YEAR = Number(localToday('Asia/Dhaka').slice(0, 4));
   const NEXT_YEAR = CURRENT_YEAR + 1;
 
   beforeAll(async () => {
@@ -89,6 +89,50 @@ describe('LeaveService (integration)', () => {
   });
 
   describe('getBalance', () => {
+    afterEach(async () => {
+      vi.useRealTimers();
+      await dataSource.query(
+        `UPDATE schools SET settings = settings #- '{region,timezone}' WHERE id = $1`,
+        [TENANT_ID],
+      );
+    });
+
+    async function seed8DaysIn2026() {
+      await dataSource.getRepository(LeaveRecord).save({
+        tenant_id: TENANT_ID,
+        staff_profile_id: staffProfileId,
+        leave_type: LeaveType.CASUAL,
+        start_date: '2026-03-01',
+        end_date: '2026-03-31',
+        days: 8,
+        status: LeaveStatus.APPROVED,
+      });
+    }
+    const usedAt = async (instant: string) => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(instant));
+      return (await service.getBalance(TENANT_ID, staffProfileId, LeaveType.CASUAL)).used_days;
+    };
+
+    it('00:30 on 1 Jan in Dhaka already reads the new year (nothing used)', async () => {
+      await seed8DaysIn2026();
+      expect(await usedAt('2026-12-31T18:30:00Z')).toBe(0);
+    });
+
+    it('23:30 on 31 Dec in Dhaka still reads the old year', async () => {
+      await seed8DaysIn2026();
+      expect(await usedAt('2026-12-31T17:30:00Z')).toBeGreaterThan(0);
+    });
+
+    it('a New York tenant at 20:00 on 31 Dec local still reads the old year', async () => {
+      await seed8DaysIn2026();
+      await dataSource.query(
+        `UPDATE schools SET settings = jsonb_set(COALESCE(settings, '{"version":1}'::jsonb), '{region}', COALESCE(settings->'region','{}'::jsonb) || '{"timezone":"America/New_York"}'::jsonb) WHERE id = $1`,
+        [TENANT_ID],
+      );
+      expect(await usedAt('2027-01-01T01:00:00Z')).toBeGreaterThan(0);
+    });
+
     it(`10-day CASUAL quota, 3 approved days -> balance 7; pending/rejected do not reduce it`, async () => {
       const recordRepo = dataSource.getRepository(LeaveRecord);
       await recordRepo.save({

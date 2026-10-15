@@ -292,6 +292,48 @@ describe('Attendance Devices E2E', () => {
     }
   });
 
+  it('omits a withdrawn student from the roster and rejects their scan as not_on_roll (#1805)', async () => {
+    const createRes = await supertest(app.getHttpServer())
+      .post(`${API}/attendance/devices`)
+      .set(adminHeaders())
+      .send({
+        name: 'Leaver Device',
+        kind: AttendanceDeviceKind.FACE,
+        section_id: SEED_SECTION_1_ID,
+        roster_access: true,
+      })
+      .expect(201);
+    const key = createRes.body.key;
+    const [{ id: leaverId }] = await dataSource.query(
+      `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status, created_at, updated_at)
+       VALUES (gen_random_uuid(), 'Dev Leaver', 'DEV-E2E-LEFT', 90, $1, $2, 'INACTIVE', NOW(), NOW())
+       RETURNING id`,
+      [SEED_SECTION_1_ID, SEED_TENANT_ID],
+    );
+
+    const roster = await supertest(app.getHttpServer())
+      .get(`${API}/attendance/devices/me/roster`)
+      .set('X-Device-Key', key)
+      .expect(200);
+    expect(roster.body.map((r: { student_id: string }) => r.student_id)).not.toContain(leaverId);
+
+    const scan = await supertest(app.getHttpServer())
+      .post(`${API}/attendance/device-events`)
+      .set('X-Device-Key', key)
+      .send({
+        events: [
+          {
+            device_event_id: 'leaver-scan',
+            student_id: leaverId,
+            occurred_at: new Date().toISOString(),
+            direction: 'IN',
+          },
+        ],
+      })
+      .expect(200);
+    expect(scan.body.results[0]).toMatchObject({ outcome: 'rejected', reason: 'not_on_roll' });
+  });
+
   it('403s the roster route for a device without roster_access', async () => {
     const createRes = await supertest(app.getHttpServer())
       .post(`${API}/attendance/devices`)

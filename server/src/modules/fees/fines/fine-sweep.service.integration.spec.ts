@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource, IsNull } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
@@ -326,6 +326,36 @@ describe('FineSweepService (integration)', () => {
       .getRepository(StudentFee)
       .find({ where: { student_id: studentId, fee_structure_id: structureId } });
     expect(afterWindow).toHaveLength(1);
+  });
+
+  // The manual route passes no `today`, so the default must be the school's
+  // (Dhaka) day, not the UTC day. Only `Date` is faked: pg and Redis keep real timers.
+  describe('manual generate: default `today` is the Dhaka day', () => {
+    afterEach(() => vi.useRealTimers());
+
+    async function dueDateWhenRunAt(iso: string, label: string): Promise<string> {
+      const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
+      const structureId = await makeStructure(tenantId, yearId, 20);
+      await makeRule({ tenantId, yearId, structureId });
+      const studentId = await makeStudent(tenantId, sectionId, label);
+      await markAbsences(tenantId, sectionId, studentId, ['2026-07-01', '2026-07-02']);
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(iso));
+      await service.generate(tenantId, null, '2026-07', {}, DuplicateStrategy.SKIP, false);
+      vi.useRealTimers();
+      const bill = await dataSource
+        .getRepository(StudentFee)
+        .findOneOrFail({ where: { student_id: studentId, fee_structure_id: structureId } });
+      return String(bill.due_date);
+    }
+
+    it('00:30 Dhaka on 5 Aug: due 12 Aug (UTC day would give 11 Aug)', async () => {
+      expect(await dueDateWhenRunAt('2026-08-04T18:30:00Z', 'Early')).toContain('2026-08-12');
+    });
+
+    it('06:00 Dhaka on 5 Aug: still due 12 Aug', async () => {
+      expect(await dueDateWhenRunAt('2026-08-05T00:00:00Z', 'Day')).toContain('2026-08-12');
+    });
   });
 
   // [31.3.7d] D9: new fine notes follow the school's language and numerals.

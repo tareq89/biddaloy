@@ -11,6 +11,7 @@ import {
   IsIn,
   IsBoolean,
   IsDateString,
+  Matches,
   ArrayMinSize,
   ArrayMaxSize,
   ValidateNested,
@@ -263,10 +264,12 @@ export class QueryPaymentDto {
 
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'date_from must be YYYY-MM-DD' })
   date_from?: string;
 
   @IsOptional()
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'date_to must be YYYY-MM-DD' })
   date_to?: string;
 
   /** Only reversal payments (`reversal_of_payment_id IS NOT NULL`). */

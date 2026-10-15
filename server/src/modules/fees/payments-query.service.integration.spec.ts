@@ -280,18 +280,28 @@ describe('PaymentsQueryService (integration)', () => {
       expect(onlyReversals.data.map((p) => p.id)).toEqual([reversal.id]);
     });
 
-    it('date_to includes the whole final day (F2)', async () => {
+    it('date_to is the last instant of the Asia/Dhaka calendar day', async () => {
       const student = await makeStudent();
-      const lateInDay = await makePayment(student.id, SEED_TENANT_ID, {
-        payment_date: new Date('2026-04-10T23:30:00Z'),
-      });
+      const mk = (iso: string) =>
+        makePayment(student.id, SEED_TENANT_ID, { payment_date: new Date(iso) });
+      const dayBefore = await mk('2026-04-09T17:59:59Z'); // 9 Apr 23:59:59 Dhaka
+      const firstInstant = await mk('2026-04-09T18:00:00Z'); // 10 Apr 00:00
+      const lateInDay = await mk('2026-04-10T17:30:00Z'); // 10 Apr 23:30
+      const lastSecond = await mk('2026-04-10T17:59:59Z'); // 10 Apr 23:59:59
+      const nextMidnight = await mk('2026-04-10T18:00:00Z'); // 11 Apr 00:00
+      const nextMorning = await mk('2026-04-10T23:30:00Z'); // 11 Apr 05:30
+      const nextSixAm = await mk('2026-04-11T00:00:00Z'); // 11 Apr 06:00
 
       const result = await service.findAll(
-        { date_from: '2026-04-01', date_to: '2026-04-10', page: 1, limit: 10 } as any,
+        { date_from: '2026-04-10', date_to: '2026-04-10', page: 1, limit: 50 } as any,
         SEED_TENANT_ID,
       );
+      const ids = result.data.map((p) => p.id);
 
-      expect(result.data.map((p) => p.id)).toContain(lateInDay.id);
+      expect(ids.sort()).toEqual([firstInstant.id, lateInDay.id, lastSecond.id].sort());
+      for (const out of [dayBefore, nextMidnight, nextMorning, nextSixAm]) {
+        expect(ids).not.toContain(out.id);
+      }
     });
 
     it('date_from is compared against the school calendar day (Asia/Dhaka), not midnight UTC', async () => {

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, LessThanOrEqual, Repository } from 'typeorm';
-import { AttendancePolicySettings, AttendanceStatus } from '@biddaloy/shared';
+import { AttendancePolicySettings, AttendanceStatus, EnrollmentStatus } from '@biddaloy/shared';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { currentStreaks, MAX_STREAK_SESSIONS, StreakStatus } from './attendance-streaks.util';
@@ -149,10 +149,14 @@ export class AttendanceSummaryService {
     return resolveAttendancePolicy(settings);
   }
 
-  /** Enrollment roster of a section (not `Student.class_section_id`), by roll number. */
-  private async loadSectionRoster(tenantId: string, sectionId: string): Promise<Student[]> {
+  /** Enrollment roster of a section on a date (not `Student.class_section_id`), by roll number. */
+  private async loadSectionRoster(
+    tenantId: string,
+    sectionId: string,
+    onRollOn: string,
+  ): Promise<Student[]> {
     const ids = await sectionRosterStudentIds(this.studentRepo.manager, tenantId, sectionId, {
-      excludeLeft: true,
+      onRollOn,
     });
     if (ids.length === 0) return [];
     return this.studentRepo.find({
@@ -466,7 +470,7 @@ export class AttendanceSummaryService {
     section_percentage: number | null;
   }> {
     const { tenantId, sectionId, from, to } = input;
-    const students = await this.loadSectionRoster(tenantId, sectionId);
+    const students = await this.loadSectionRoster(tenantId, sectionId, from);
     // Working days follow the section's own class, not each student's current one.
     const section = await this.sectionRepo.findOne({
       where: { id: sectionId, tenant_id: tenantId },
@@ -519,7 +523,7 @@ export class AttendanceSummaryService {
     }>;
   }> {
     const { tenantId, sectionId, from, to } = input;
-    const students = await this.loadSectionRoster(tenantId, sectionId);
+    const students = await this.loadSectionRoster(tenantId, sectionId, from);
     // Working days follow the section's own class, not each student's current one.
     const section = await this.sectionRepo.findOne({
       where: { id: sectionId, tenant_id: tenantId },
@@ -634,7 +638,7 @@ export class AttendanceSummaryService {
     }
     const policy = resolveAttendancePolicy(settings);
 
-    const students = await this.loadSectionRoster(tenantId, sectionId);
+    const students = await this.loadSectionRoster(tenantId, sectionId, from);
 
     // withDeleted: a soft-deleted subject still shows by name if it has registers.
     const subjectRows = await this.sessionRepo
@@ -766,7 +770,7 @@ export class AttendanceSummaryService {
     });
     if (sessions.length === 0) return { items: [], as_of_date: null };
 
-    const students = await this.loadSectionRoster(tenantId, sectionId);
+    const students = await this.loadSectionRoster(tenantId, sectionId, today);
     const records =
       students.length === 0
         ? []
@@ -840,7 +844,10 @@ export class AttendanceSummaryService {
       .leftJoinAndSelect('student.class_section', 'class_section')
       .leftJoinAndSelect('class_section.class', 'class')
       .leftJoinAndSelect('student.guardians', 'guardians')
-      .where('student.tenant_id = :tenantId', { tenantId });
+      .where('student.tenant_id = :tenantId', { tenantId })
+      .andWhere('student.enrollment_status = :flagActive', {
+        flagActive: EnrollmentStatus.ACTIVE,
+      });
     if (sectionId) {
       qb.andWhere('student.class_section_id = :sectionId', { sectionId });
     }

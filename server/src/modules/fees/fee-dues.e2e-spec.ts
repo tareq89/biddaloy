@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -139,13 +139,55 @@ describe('Fee Dues E2E', () => {
       expect(Array.isArray(entry.dues)).toBe(true);
     });
 
-    it('allows TEACHER role (read access)', async () => {
-      await supertest(app.getHttpServer())
+    describe('months_overdue follows the Dhaka day', () => {
+      afterEach(() => vi.useRealTimers());
+
+      // Freeze `Date` only (pg/Redis keep real timers), then log in so the
+      // JWT's iat/exp are relative to the frozen clock.
+      async function overdueCountAt(iso: string): Promise<number> {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date(iso));
+        const login = await supertest(app.getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+          .expect(200);
+        const studentId = await createStudent();
+        const feeId = await createFee(studentId, { status: 'PENDING' });
+        await dataSource.query(`UPDATE student_fees SET due_date = '2030-06-14' WHERE id = $1`, [
+          feeId,
+        ]);
+        const res = await supertest(app.getHttpServer())
+          .get('/api/v1/fees/dues')
+          .query({ limit: 100 })
+          .set('Authorization', `Bearer ${login.body.access_token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', UserRole.ADMIN)
+          .expect(200);
+        return res.body.data.find((d: any) => d.student_id === studentId).months_overdue;
+      }
+
+      it('23:59 Dhaka on the due day: 0', async () => {
+        expect(await overdueCountAt('2030-06-14T17:59:00Z')).toBe(0);
+      });
+
+      it('00:00 Dhaka the next day: 1', async () => {
+        expect(await overdueCountAt('2030-06-14T18:00:00Z')).toBe(1);
+      });
+    });
+
+    it('admits a TEACHER, scoped to their assigned sections (here: none)', async () => {
+      // This user has no `teachers` row, so its scope is empty; the full teacher
+      // matrix lives in src/teacher-scope-finance.e2e-spec.ts.
+      const studentId = await createStudent();
+      await createFee(studentId, { status: 'PENDING' });
+      const res = await supertest(app.getHttpServer())
         .get('/api/v1/fees/dues')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
         .expect(200);
+      expect(res.body.data).toEqual([]);
+      expect(res.body.total).toBe(0);
     });
 
     /**

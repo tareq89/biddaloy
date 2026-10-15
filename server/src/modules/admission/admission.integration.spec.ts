@@ -164,6 +164,29 @@ describe('Admission flow (integration)', () => {
     }
   });
 
+  it('[1829] reference number year follows the tenant date: 00:30 Dhaka on 1 Jan 2027 is ADM-2027', async () => {
+    const intakeId = await createIntake({ open_date: '2026-12-01', close_date: '2027-01-31' });
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-12-31T18:30:00Z'));
+      const submitted = await applicantService.submit(
+        SEED_SLUG,
+        {
+          intake_id: intakeId,
+          applicant_name: 'New Year Applicant',
+          date_of_birth: '2018-05-01',
+          gender: 'MALE',
+          guardian_name: 'Guardian',
+          guardian_phone: '01700000998',
+        },
+        [],
+      );
+      expect(submitted.reference_number).toMatch(/^ADM-2027-[0-9A-HJKMNP-TV-Z]{6}$/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('submit -> shortlist -> admit produces a Student + Guardian, tenant-scoped throughout', async () => {
     const intakeId = await createIntake();
 

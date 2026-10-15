@@ -118,6 +118,8 @@ used to document as unresolved (see
 
 ### The teacher's check-list: `GET /attendance/my-sections`
 
+Only sections of the current academic year (`is_current`) are listed, the same rule as My Class. Older registers are still reachable by direct link.
+
 The landing screen asks one question per section: "has today's register been
 started?" Each item carries what the screen needs, with no second call:
 
