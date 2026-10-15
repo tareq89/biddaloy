@@ -15,7 +15,15 @@ const searchSchema = z.object({ customize: z.literal(1).optional().catch(undefin
 export const Route = createFileRoute('/_staff/dashboard')({
   validateSearch: searchSchema,
   loader: () =>
-    loadRouteNamespaces('dashboard', 'calendar', 'nav', 'attention', 'auth', 'applications'),
+    loadRouteNamespaces(
+      'dashboard',
+      'calendar',
+      'nav',
+      'attention',
+      'auth',
+      'applications',
+      'printHistory',
+    ),
   pendingComponent: DashboardPending,
   component: DashboardRoute,
 });

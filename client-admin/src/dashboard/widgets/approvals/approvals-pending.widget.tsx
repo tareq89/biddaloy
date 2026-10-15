@@ -3,7 +3,7 @@
  * THIS caller's decision, split by type, each type linking to the inbox filtered to it.
  * Counts only; no names. The server count is the inbox predicate, so card equals inbox.
  */
-import { DashboardWidgetKey } from '@biddaloy/shared';
+import { DashboardWidgetKey, type ApplicationType } from '@biddaloy/shared';
 import { apiClient, type components } from '@biddaloy/ui/api';
 import { StatTile, WidgetCard } from '@biddaloy/ui/components';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -102,7 +102,7 @@ export function ApprovalsPendingView({
             <li key={row.type} className="flex items-center justify-between gap-2">
               <Link
                 to="/applications"
-                search={{ view: 'inbox', type: row.type }}
+                search={{ view: 'inbox', type: row.type as ApplicationType }}
                 className="text-primary underline"
               >
                 {t(`applications:types.${row.type}`)}

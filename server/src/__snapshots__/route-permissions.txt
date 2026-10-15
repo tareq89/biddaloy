@@ -153,6 +153,7 @@ GET /dashboard/widgets/my-mark-deadlines | ExamsDashboardController | perm: DASH
 GET /dashboard/widgets/my-pending-sections | AttendanceDashboardController | perm: ATTENDANCE_MARK,DASHBOARD_VIEW
 GET /dashboard/widgets/my-routine-today | RoutinesDashboardController | perm: DASHBOARD_VIEW,ROUTINE_READ
 GET /dashboard/widgets/my-syllabus-progress | HomeworkDashboardController | perm: DASHBOARD_VIEW,SYLLABUS_READ
+GET /dashboard/widgets/print-queue | PrintDashboardController | perm: DASHBOARD_VIEW,DOCUMENT_PRINT
 GET /dashboard/widgets/recent-activity | AuditDashboardController | perm: AUDIT_LOG_READ,DASHBOARD_VIEW
 GET /dashboard/widgets/recent-payments | FeesDashboardController | perm: DASHBOARD_VIEW,PAYMENT_READ
 GET /dashboard/widgets/reminders-pending | FeesDashboardController | perm: DASHBOARD_VIEW,FEE_READ,REPORT_COLLECTIONS_READ

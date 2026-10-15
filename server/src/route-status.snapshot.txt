@@ -216,6 +216,7 @@ GET    /api/v1/dashboard/widgets/my-mark-deadlines                              
 GET    /api/v1/dashboard/widgets/my-pending-sections                             401 403 403 403 403 PASS 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/my-routine-today                                401 403 403 403 403 PASS 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/my-syllabus-progress                            401 403 403 403 403 PASS 403 403 403 403 403 403
+GET    /api/v1/dashboard/widgets/print-queue                                     401 403 403 PASS 403 403 403 403 403 PASS PASS 403
 GET    /api/v1/dashboard/widgets/recent-activity                                 401 403 403 PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/recent-payments                                 401 403 403 PASS PASS 403 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/reminders-pending                               401 403 403 PASS PASS 403 403 403 403 403 403 403
