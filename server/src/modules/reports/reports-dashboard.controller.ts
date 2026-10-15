@@ -11,6 +11,8 @@ import { DashboardWidgetRoute } from '../dashboard/widget-permission.decorator';
 import { SchoolsService } from '../schools/schools.service';
 import { CollectionsReportService } from './collections-report.service';
 import { CollectionMonthWidgetDto } from './dto/collection-month-widget.dto';
+import { CollectionTodayWidgetDto } from './dto/collection-today-widget.dto';
+import { CollectionByMonthWidgetDto } from './dto/collection-by-month-widget.dto';
 
 /** `GET /dashboard/widgets/collection-month` (Epic 169 D25/D46). */
 @ApiTags('dashboard')
@@ -36,6 +38,40 @@ export class ReportsDashboardController {
       'school',
       async () =>
         this.collectionsReport.getCollectionMonthWidget(
+          tenant.id,
+          await this.schools.todayFor(tenant.id),
+        ),
+    );
+  }
+
+  @DashboardWidgetRoute(DashboardWidgetKey.COLLECTION_TODAY)
+  @ApiOkResponse({ type: CollectionTodayWidgetDto })
+  async collectionToday(
+    @CurrentTenant() tenant: { id: string; role: string },
+  ): Promise<CollectionTodayWidgetDto> {
+    return this.cache.getOrLoad(
+      tenant.id,
+      DashboardWidgetKey.COLLECTION_TODAY,
+      'school',
+      async () =>
+        this.collectionsReport.getCollectionTodayWidget(
+          tenant.id,
+          await this.schools.todayFor(tenant.id),
+        ),
+    );
+  }
+
+  @DashboardWidgetRoute(DashboardWidgetKey.COLLECTION_BY_MONTH)
+  @ApiOkResponse({ type: CollectionByMonthWidgetDto })
+  async collectionByMonth(
+    @CurrentTenant() tenant: { id: string; role: string },
+  ): Promise<CollectionByMonthWidgetDto> {
+    return this.cache.getOrLoad(
+      tenant.id,
+      DashboardWidgetKey.COLLECTION_BY_MONTH,
+      'school',
+      async () =>
+        this.collectionsReport.getCollectionByMonthWidget(
           tenant.id,
           await this.schools.todayFor(tenant.id),
         ),

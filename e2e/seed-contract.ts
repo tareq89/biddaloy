@@ -99,6 +99,11 @@ export const SEED_TRANSFER_DESTINATION = 'Dhaka Residential Model College';
  * one account per role. */
 export const SEED_ASSISTANT_TEACHER_EMAIL = 'assistant-teacher@biddaloy.test';
 
+/** [8.10.7.3.99] The DRAFT exam `ensureDashboardSeed` gives every class: the mark-entry card
+ * is titled with it. Duplicated from `seed.dashboard.ts`'s `DASHBOARD_EXAM_NAME`;
+ * `seed.dashboard.integration.spec.ts` asserts the two match. */
+export const SEED_DASHBOARD_EXAM_NAME = 'Half-yearly';
+
 /** [13.1.4] A school mid-trial (23 days left, 4 of 10 seats used) that has not
  * finished onboarding, with its ADMIN and a TEACHER who was invited but never
  * set a password (no `password_hash`; log in via the invite token). Duplicated

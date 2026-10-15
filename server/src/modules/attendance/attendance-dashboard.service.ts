@@ -2,10 +2,19 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type Redis from 'ioredis';
 import { Repository } from 'typeorm';
-import { AttendanceSessionState, DashboardWidgetKey } from '@biddaloy/shared';
+import {
+  AttendanceSessionState,
+  AttendanceStatus,
+  DashboardWidgetKey,
+  TeacherAssignmentType,
+} from '@biddaloy/shared';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { AttendanceService } from './attendance.service';
-import { computeAttendancePercentage } from './attendance-summary.service';
+import {
+  AttendanceSummaryService,
+  computeAttendancePercentage,
+} from './attendance-summary.service';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { resolveAttendancePolicy } from './attendance-policy.util';
 import { DashboardCacheService } from '../dashboard/dashboard-cache.service';
 import { SchoolsService } from '../schools/schools.service';
@@ -13,6 +22,8 @@ import { TENANT_STATUS_REDIS } from '../schools/tenant-status.service';
 import type {
   AttendanceSeriesPointDto,
   AttendanceTodayWidgetDto,
+  ClassTeacherStreaksDto,
+  MyPendingSectionsDto,
 } from './dto/attendance-dashboard.dto';
 
 export const ATTENDANCE_SERIES_DAYS = 30;
@@ -55,6 +66,8 @@ export class AttendanceDashboardService {
   constructor(
     @InjectRepository(AttendanceRecord) private readonly recordRepo: Repository<AttendanceRecord>,
     private readonly attendanceService: AttendanceService,
+    private readonly summaryService: AttendanceSummaryService,
+    private readonly teacherScope: TeacherScopeService,
     private readonly schoolsService: SchoolsService,
     private readonly cache: DashboardCacheService,
     @Inject(TENANT_STATUS_REDIS) private readonly redis: Redis,
@@ -67,6 +80,69 @@ export class AttendanceDashboardService {
   getToday(tenantId: string, role: string, userId: string): Promise<AttendanceTodayWidgetDto> {
     return this.cache.getOrLoad(tenantId, DashboardWidgetKey.ATTENDANCE_TODAY, 'school', () =>
       this.load(tenantId, role, userId),
+    );
+  }
+
+  /** Teacher card "হাজিরা নেওয়া বাকি": today's marking state of every section the caller may mark. */
+  myPendingSections(tenantId: string, role: string, userId: string): Promise<MyPendingSectionsDto> {
+    return this.cache.getOrLoad(
+      tenantId,
+      DashboardWidgetKey.MY_PENDING_SECTIONS,
+      `user:${userId}`,
+      async () => {
+        const date = await this.schoolsService.todayFor(tenantId);
+        const rows = await this.attendanceService.listMySections({ role, userId, tenantId, date });
+        const sections = rows
+          .map((r) => ({
+            section_id: r.section_id,
+            class_name: r.class_name,
+            section_name: r.section_name,
+            student_count: r.student_count,
+            taken: r.today?.state === AttendanceSessionState.FINALIZED,
+            unmarked: r.today?.unmarked ?? r.student_count,
+          }))
+          // Not taken first, then class / section (stable, so listMySections order breaks ties).
+          .sort((a, b) => Number(a.taken) - Number(b.taken));
+        return {
+          date,
+          is_working_day: rows.length === 0 || rows.some((r) => r.is_working_day),
+          pending_count: sections.filter((s) => !s.taken).length,
+          sections,
+        };
+      },
+    );
+  }
+
+  /** Teacher card "আমার ক্লাস — টানা অনুপস্থিত": absent runs in the caller's own homeroom section. */
+  classTeacherStreaks(tenantId: string, userId: string): Promise<ClassTeacherStreaksDto> {
+    return this.cache.getOrLoad(
+      tenantId,
+      DashboardWidgetKey.CLASS_TEACHER_STREAKS,
+      `user:${userId}`,
+      async () => {
+        const homerooms = await this.teacherScope.homeroomSections({ userId, tenantId });
+        // ponytail: one homeroom section only (the card names one class); a teacher with two
+        // homeroom sections sees the CLASS_TEACHER one. Add a section picker when a school asks.
+        const home =
+          homerooms.find((h) => h.assignment_type === TeacherAssignmentType.CLASS_TEACHER) ??
+          homerooms[0];
+        if (!home) return { section: null, as_of_date: null, total: 0, items: [] };
+        const { items, as_of_date } = await this.summaryService.getSectionStreaks({
+          tenantId,
+          sectionId: home.section_id,
+        });
+        const absent = items.filter((i) => i.status === AttendanceStatus.ABSENT);
+        return {
+          section: {
+            section_id: home.section_id,
+            class_name: home.class_name,
+            section_name: home.section_name,
+          },
+          as_of_date,
+          total: absent.length,
+          items: absent.slice(0, 10).map(({ status: _status, ...rest }) => rest),
+        };
+      },
     );
   }
 

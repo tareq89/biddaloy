@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { localToday } from '../../common/time';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { FeeGenerationsService } from './fee-generations.service';
@@ -352,6 +353,106 @@ describe('FeeGenerationsService (integration)', () => {
 
       const bills = await service.findBills(batch.id, { page: 1, limit: 20 } as any, TENANT_ID);
       expect(bills.data).toHaveLength(0);
+    });
+  });
+
+  // [8.10.7.3.08] "Fee generation status" widget: this month's batches.
+  describe('currentPeriodStatus', () => {
+    async function bills(batchId: string, n: number) {
+      for (let i = 0; i < n; i++) {
+        const s = await studentRepo.save(makeStudent());
+        await dataSource.query(
+          `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, fee_generation_id, created_at, updated_at)
+           VALUES (DEFAULT, $1, $2, $3, DATE '2026-10-01', 1000, 0, 0, 'PENDING', $4, NOW(), NOW())`,
+          [s.id, SEED_ACADEMIC_YEAR_ID, feeStructureId, batchId],
+        );
+      }
+    }
+
+    it('this month: generated, summed bill_count, oldest created_at; last month ignored', async () => {
+      const first = await dataSource.transaction((m) =>
+        service.create({ ...baseInput, period_start: '2026-10-01' }, m),
+      );
+      const second = await dataSource.transaction((m) =>
+        service.create({ ...baseInput, period_start: '2026-10-01' }, m),
+      );
+      const lastMonth = await dataSource.transaction((m) =>
+        service.create({ ...baseInput, period_start: '2026-09-01' }, m),
+      );
+      await dataSource.query(`UPDATE fee_generations SET created_at = $2 WHERE id = $1`, [
+        first.id,
+        '2026-10-01T00:00:12.000Z',
+      ]);
+      await bills(first.id, 3);
+      await bills(second.id, 2);
+      await bills(lastMonth.id, 4);
+
+      const r = await service.currentPeriodStatus(TENANT_ID, '2026-10-17');
+
+      expect(r).toEqual({
+        period: '2026-10',
+        generated: true,
+        first_generated_at: '2026-10-01T00:00:12.000Z',
+        bill_count: 5,
+        batch_count: 2,
+      });
+      // Reconciles with the list behind GET /fees/generations for the same month.
+      const list = await service.findAll(
+        { period_from: '2026-10-01', period_to: '2026-10-31', page: 1, limit: 100 } as any,
+        TENANT_ID,
+      );
+      const [{ n }] = await dataSource.query(
+        `SELECT COUNT(*)::int AS n FROM student_fees WHERE fee_generation_id = ANY($1) AND deleted_at IS NULL`,
+        [list.data.map((d) => d.id)],
+      );
+      expect(r.bill_count).toBe(n);
+      expect(r.batch_count).toBe(list.total);
+    });
+
+    it('nothing this month: generated false, null time, zero counts', async () => {
+      await dataSource.transaction((m) =>
+        service.create({ ...baseInput, period_start: '2026-09-30' }, m),
+      );
+      expect(await service.currentPeriodStatus(TENANT_ID, '2026-10-17')).toEqual({
+        period: '2026-10',
+        generated: false,
+        first_generated_at: null,
+        bill_count: 0,
+        batch_count: 0,
+      });
+    });
+
+    it('month edges are inclusive: the 1st and the last day count, a batch for the next month does not', async () => {
+      await dataSource.transaction((m) =>
+        service.create({ ...baseInput, period_start: '2026-02-01' }, m),
+      );
+      await dataSource.transaction((m) =>
+        service.create({ ...baseInput, period_start: '2026-02-28' }, m),
+      );
+      await dataSource.transaction((m) =>
+        service.create({ ...baseInput, period_start: '2026-03-01' }, m),
+      );
+      const r = await service.currentPeriodStatus(TENANT_ID, '2026-02-10');
+      expect(r.batch_count).toBe(2);
+    });
+
+    it('Dhaka month edge: 18:30Z on 31 Oct is already 1 Nov (period 2026-11)', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-31T18:30:00Z'));
+      try {
+        const r = await service.currentPeriodStatus(TENANT_ID, localToday());
+        expect(r.period).toBe('2026-11');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("ignores another tenant's batches", async () => {
+      await dataSource.transaction((m) =>
+        service.create({ ...baseInput, tenant_id: OTHER_TENANT_ID, period_start: '2026-10-05' }, m),
+      );
+      const r = await service.currentPeriodStatus(TENANT_ID, '2026-10-17');
+      expect(r.generated).toBe(false);
     });
   });
 });

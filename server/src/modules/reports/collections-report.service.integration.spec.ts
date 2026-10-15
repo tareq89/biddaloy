@@ -24,6 +24,7 @@ import { Payment } from '../fees/entities/payment.entity';
 import { PaymentAllocation } from '../fees/entities/payment-allocation.entity';
 import { User } from '../users/entities/user.entity';
 import { PaymentReversalService } from '../fees/payment-reversal.service';
+import { PaymentsQueryService } from '../fees/payments-query.service';
 import { WalletService } from '../fees/wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
@@ -47,6 +48,7 @@ describe('CollectionsReportService', () => {
   let moduleRef: TestingModule;
   let service: CollectionsReportService;
   let reversalService: PaymentReversalService;
+  let paymentsQuery: PaymentsQueryService;
   let dataSource: DataSource;
   let studentRepo: Repository<Student>;
   let studentFeeRepo: Repository<StudentFee>;
@@ -64,9 +66,11 @@ describe('CollectionsReportService', () => {
         WalletService,
         AuditService,
         InvoicesService,
+        PaymentsQueryService,
       ],
       [StorageModule],
     );
+    paymentsQuery = moduleRef.get(PaymentsQueryService);
     reversalService = moduleRef.get(PaymentReversalService);
     service = moduleRef.get(CollectionsReportService);
     dataSource = moduleRef.get(DataSource);
@@ -279,6 +283,344 @@ describe('CollectionsReportService', () => {
       expect(await service.getBilledForMonth(OTHER_TENANT_ID, '2026-10-01', '2026-10-31')).toBe(
         900,
       );
+    });
+  });
+
+  describe('getCollectionTodayWidget (#1866)', () => {
+    const TODAY = '2026-10-07';
+    // 11:00 in Dhaka on 7 Oct.
+    const NOW = new Date('2026-10-07T05:00:00Z');
+    const at = (iso: string) => new Date(iso);
+
+    /** A day of mixed payments, all between Dhaka midnight and NOW. */
+    async function seedToday(tenantId = SEED_TENANT_ID) {
+      const s = await makeStudent(tenantId);
+      const pay = (o: Partial<Payment>) => makePayment(s.id, tenantId, o);
+      const cash1000 = await pay({ total_amount: 1000, payment_date: at('2026-10-06T19:00:00Z') });
+      const cash500 = await pay({ total_amount: 500, payment_date: at('2026-10-06T20:00:00Z') });
+      await pay({
+        total_amount: 300,
+        payment_method: PaymentMethod.BKASH,
+        payment_date: at('2026-10-06T21:00:00Z'),
+      });
+      await pay({
+        total_amount: 200,
+        payment_method: PaymentMethod.CARD,
+        payment_date: at('2026-10-06T22:00:00Z'),
+      });
+      await pay({
+        total_amount: 100,
+        payment_method: PaymentMethod.CHEQUE,
+        payment_date: at('2026-10-06T23:00:00Z'),
+      });
+      await pay({
+        total_amount: 50,
+        payment_method: PaymentMethod.NAGAD,
+        payment_date: at('2026-10-07T00:00:00Z'),
+      });
+      // A reversal of the 500 CASH payment, stored as a positive REFUNDED row.
+      const reversal = await pay({
+        total_amount: 500,
+        payment_status: PaymentStatus.REFUNDED,
+        reversal_of_payment_id: cash500.id,
+        payment_date: at('2026-10-07T01:00:00Z'),
+      });
+      await paymentRepo.update(cash500.id, { reversed_by_payment_id: reversal.id });
+      return { student: s, cash1000, cash500 };
+    }
+
+    it('groups net by method group, with reversals subtracted and not counted', async () => {
+      await seedToday();
+      const w = await service.getCollectionTodayWidget(SEED_TENANT_ID, TODAY, NOW);
+      expect(w.date).toBe(TODAY);
+      expect(w.net).toBe(1650); // 1000+500-500 + 300 + 200 + 100 + 50
+      // 6 real payments; the reversal row is not a payment.
+      expect(w.payment_count).toBe(6);
+      expect(w.groups.map((g) => g.group)).toEqual(['CASH', 'BKASH', 'BANK', 'OTHER_MOBILE']);
+      const [cash, bkash, bank, other] = w.groups;
+      expect(cash).toMatchObject({ net: 1000, payment_count: 2 });
+      expect(bkash).toMatchObject({ net: 300, payment_count: 1 });
+      // BANK holds CARD and CHEQUE, biggest net first.
+      expect(bank).toMatchObject({ net: 300, payment_count: 2 });
+      expect(bank.methods.map((m) => [m.payment_method, m.net])).toEqual([
+        ['CARD', 200],
+        ['CHEQUE', 100],
+      ]);
+      expect(other.methods.map((m) => [m.payment_method, m.net, m.payment_count])).toEqual([
+        ['NAGAD', 50, 1],
+      ]);
+    });
+
+    it('an empty day still returns four zero groups', async () => {
+      const w = await service.getCollectionTodayWidget(SEED_TENANT_ID, TODAY, NOW);
+      expect(w.net).toBe(0);
+      expect(w.payment_count).toBe(0);
+      expect(w.yesterday_same_time_net).toBe(0);
+      expect(w.groups).toHaveLength(4);
+      for (const g of w.groups) expect(g).toMatchObject({ net: 0, payment_count: 0, methods: [] });
+    });
+
+    it('ignores FAILED, PENDING and soft-deleted payments', async () => {
+      const s = await makeStudent();
+      const date = at('2026-10-07T01:00:00Z');
+      await makePayment(s.id, SEED_TENANT_ID, { total_amount: 100, payment_date: date });
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 700,
+        payment_status: PaymentStatus.FAILED,
+        payment_date: date,
+      });
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 800,
+        payment_status: PaymentStatus.PENDING,
+        payment_date: date,
+      });
+      const gone = await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 900,
+        payment_date: date,
+      });
+      await paymentRepo.softDelete(gone.id);
+      const w = await service.getCollectionTodayWidget(SEED_TENANT_ID, TODAY, NOW);
+      expect(w.net).toBe(100);
+      expect(w.payment_count).toBe(1);
+    });
+
+    it('reconciles with GET /reports/collections and the payments list', async () => {
+      await seedToday();
+      const w = await service.getCollectionTodayWidget(SEED_TENANT_ID, TODAY, NOW);
+      // The list (#1815) filters by status only when asked, so compare counts on
+      // SUCCESS-only data first; the FAILED row below must then move neither the
+      // widget nor the report.
+      const list = await paymentsQuery.findAll(
+        { date_from: TODAY, date_to: TODAY, is_reversal: false, include_reversed: true } as never,
+        SEED_TENANT_ID,
+      );
+      expect(w.payment_count).toBe(list.total);
+      const s = await makeStudent();
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 4242,
+        payment_status: PaymentStatus.FAILED,
+        payment_date: at('2026-10-07T02:00:00Z'),
+      });
+      expect(await service.getCollectionTodayWidget(SEED_TENANT_ID, TODAY, NOW)).toEqual(w);
+      const report = await service.getReport(SEED_TENANT_ID, { from: TODAY, to: TODAY });
+      expect(w.net).toBe(report.totals.net);
+      for (const g of w.groups) {
+        const fromReport = report.by_method
+          .filter((m) => g.methods.some((x) => x.payment_method === m.payment_method))
+          .reduce((a, m) => a + m.net, 0);
+        expect(g.net).toBe(fromReport);
+      }
+    });
+
+    it('rounds decimal sums: CARD 0.1 + CHEQUE 0.2 is exactly 0.3', async () => {
+      const s = await makeStudent();
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 0.1,
+        payment_method: PaymentMethod.CARD,
+        payment_date: at('2026-10-06T22:00:00Z'),
+      });
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 0.2,
+        payment_method: PaymentMethod.CHEQUE,
+        payment_date: at('2026-10-06T23:00:00Z'),
+      });
+      const w = await service.getCollectionTodayWidget(SEED_TENANT_ID, TODAY, NOW);
+      expect(w.groups[2].net).toBe(0.3); // BANK; 0.1 + 0.2 is 0.30000000000000004 unrounded
+      expect(w.net).toBe(0.3);
+      const m = await service.getCollectionByMonthWidget(SEED_TENANT_ID, TODAY);
+      expect(m.year_to_date_net).toBe(0.3);
+    });
+
+    it('wallet use: widget counts amount applied to bills, not physical cash', async () => {
+      const s = await makeStudent();
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 1000,
+        wallet_credit_used: 400,
+        payment_date: at('2026-10-06T22:00:00Z'),
+      } as Partial<Payment>);
+      const w = await service.getCollectionTodayWidget(SEED_TENANT_ID, TODAY, NOW);
+      const report = await service.getReport(SEED_TENANT_ID, { from: TODAY, to: TODAY });
+      expect(w.groups.reduce((a, g) => a + g.net, 0)).toBe(report.totals.net);
+      expect(report.totals.net).toBe(1000);
+      // Widget = amount applied to bills (total_amount); by_method = physical
+      // cash (total_amount - wallet_credit_used), so CASH differs: 1000 vs 600.
+      expect(w.groups[0].net).toBe(1000);
+      expect(report.by_method.find((r) => r.payment_method === PaymentMethod.CASH)?.net).toBe(600);
+    });
+
+    it('yesterday at the same time: 10:00 counts, 12:00 does not (now is 11:00)', async () => {
+      const s = await makeStudent();
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 400,
+        payment_date: at('2026-10-06T04:00:00Z'), // 10:00 Dhaka yesterday
+      });
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 999,
+        payment_date: at('2026-10-06T06:00:00Z'), // 12:00 Dhaka yesterday
+      });
+      const w = await service.getCollectionTodayWidget(SEED_TENANT_ID, TODAY, NOW);
+      expect(w.yesterday_same_time_net).toBe(400);
+      expect(w.net).toBe(0);
+    });
+
+    it('yesterday nets out its own reversal and skips FAILED', async () => {
+      const s = await makeStudent();
+      const orig = await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 600,
+        payment_date: at('2026-10-06T03:00:00Z'),
+      });
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 100,
+        payment_status: PaymentStatus.REFUNDED,
+        reversal_of_payment_id: orig.id,
+        payment_date: at('2026-10-06T04:00:00Z'),
+      });
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 77,
+        payment_status: PaymentStatus.FAILED,
+        payment_date: at('2026-10-06T04:30:00Z'),
+      });
+      const w = await service.getCollectionTodayWidget(SEED_TENANT_ID, TODAY, NOW);
+      expect(w.yesterday_same_time_net).toBe(500);
+    });
+
+    it('Dhaka midnight: 00:10 on the 8th is today, 23:50 on the 7th is not today', async () => {
+      const s = await makeStudent();
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 10,
+        payment_date: at('2026-10-07T18:10:00Z'), // 00:10 on the 8th
+      });
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 20,
+        payment_date: at('2026-10-06T18:20:00Z'), // 00:20 on the 7th: yesterday, before 00:30
+      });
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 5,
+        payment_date: at('2026-10-07T17:50:00Z'), // 23:50 on the 7th: yesterday, after 00:30
+      });
+      // now = 00:30 on the 8th, Dhaka.
+      const w = await service.getCollectionTodayWidget(
+        SEED_TENANT_ID,
+        '2026-10-08',
+        at('2026-10-07T18:30:00Z'),
+      );
+      expect(w.net).toBe(10);
+      expect(w.yesterday_same_time_net).toBe(20);
+    });
+
+    it("never counts another tenant's payments", async () => {
+      await seedToday(OTHER_TENANT_ID);
+      const w = await service.getCollectionTodayWidget(SEED_TENANT_ID, TODAY, NOW);
+      expect(w.net).toBe(0);
+      expect(w.payment_count).toBe(0);
+      const theirs = await service.getCollectionTodayWidget(OTHER_TENANT_ID, TODAY, NOW);
+      expect(theirs.net).toBe(1650);
+    });
+  });
+
+  describe('getCollectionByMonthWidget (#1866)', () => {
+    async function paid(amount: number, iso: string, o: Partial<Payment> = {}) {
+      const s = await makeStudent((o.tenant_id as string) ?? SEED_TENANT_ID);
+      return makePayment(s.id, (o.tenant_id as string) ?? SEED_TENANT_ID, {
+        total_amount: amount,
+        payment_date: new Date(iso),
+        ...o,
+      });
+    }
+
+    it('fills 12 slots: later months null, sums the rest, reversal and FAILED handled', async () => {
+      await paid(500, '2026-01-10T05:00:00Z');
+      const mar = await paid(700, '2026-03-10T05:00:00Z');
+      await paid(150, '2026-03-12T05:00:00Z', {
+        payment_status: PaymentStatus.REFUNDED,
+        reversal_of_payment_id: mar.id,
+      });
+      await paid(300, '2026-10-03T05:00:00Z');
+      await paid(9999, '2026-03-11T05:00:00Z', { payment_status: PaymentStatus.FAILED });
+      await paid(8888, '2026-11-05T05:00:00Z'); // future-dated: must not leak
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-10-07');
+      expect(w.year).toBe(2026);
+      expect(w.months).toHaveLength(12);
+      expect(w.months.map((m) => m.month)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+      expect(w.months[0]).toEqual({ month: 1, net: 500, is_current: false });
+      expect(w.months[1].net).toBe(0);
+      expect(w.months[2].net).toBe(550);
+      expect(w.months[9]).toEqual({ month: 10, net: 300, is_current: true });
+      expect(w.months[10].net).toBeNull();
+      expect(w.months[11].net).toBeNull();
+      expect(w.year_to_date_net).toBe(1350);
+      expect(w.month_to_date_net).toBe(300);
+    });
+
+    it('month boundaries are Dhaka-local: 31 Jan 18:30Z is February, 31 Dec 18:30Z is January', async () => {
+      await paid(200, '2026-01-31T18:30:00Z');
+      await paid(100, '2025-12-31T18:30:00Z'); // 1 Jan 2026 00:30 Dhaka
+      await paid(40, '2025-12-31T17:30:00Z'); // 31 Dec 2025 23:30 Dhaka: last year
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-03-05');
+      expect(w.months[0].net).toBe(100);
+      expect(w.months[1].net).toBe(200);
+      expect(w.year_to_date_net).toBe(300);
+    });
+
+    it('previous_month_same_days_net covers day 1 to the same day, previous month', async () => {
+      await paid(400, '2026-09-05T05:00:00Z');
+      await paid(999, '2026-09-08T05:00:00Z'); // after day 7
+      await paid(50, '2026-10-02T05:00:00Z');
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-10-07');
+      expect(w.previous_month_same_days_net).toBe(400);
+      expect(w.month_to_date_net).toBe(50);
+    });
+
+    it('January wraps to December of the previous year', async () => {
+      await paid(250, '2026-12-10T05:00:00Z');
+      await paid(999, '2026-12-20T05:00:00Z');
+      await paid(60, '2027-01-04T05:00:00Z');
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2027-01-15');
+      expect(w.year).toBe(2027);
+      expect(w.previous_month_same_days_net).toBe(250);
+      expect(w.months[0]).toEqual({ month: 1, net: 60, is_current: true });
+      expect(w.months.slice(1).every((m) => m.net === null)).toBe(true);
+    });
+
+    it('clamps the previous month day: 31 Mar maps to 28 Feb', async () => {
+      await paid(90, '2026-02-28T05:00:00Z');
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-03-31');
+      expect(w.previous_month_same_days_net).toBe(90);
+    });
+
+    it('previous values are numbers (0), never null, on an empty tenant', async () => {
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-10-07');
+      expect(w.previous_month_same_days_net).toBe(0);
+      expect(w.month_to_date_net).toBe(0);
+      expect(w.year_to_date_net).toBe(0);
+    });
+
+    it('every month equals GET /reports/collections totals.net for that month', async () => {
+      const mar = await paid(700, '2026-03-10T05:00:00Z');
+      await paid(150, '2026-03-12T05:00:00Z', {
+        payment_status: PaymentStatus.REFUNDED,
+        reversal_of_payment_id: mar.id,
+      });
+      await paid(31, '2026-03-31T17:59:00Z'); // last minute of March, Dhaka
+      await paid(5000, '2026-04-02T05:00:00Z', { payment_status: PaymentStatus.FAILED });
+      await paid(222, '2026-04-30T18:30:00Z'); // 1 May Dhaka
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-10-07');
+      const lastDay = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31];
+      for (const m of w.months.slice(0, 10)) {
+        const mm = String(m.month).padStart(2, '0');
+        const report = await service.getReport(SEED_TENANT_ID, {
+          from: `2026-${mm}-01`,
+          to: `2026-${mm}-${lastDay[m.month - 1]}`,
+        });
+        expect(m.net).toBe(report.totals.net);
+      }
+    });
+
+    it("never counts another tenant's payments", async () => {
+      await paid(800, '2026-10-03T05:00:00Z', { tenant_id: OTHER_TENANT_ID });
+      await paid(10, '2026-10-03T05:00:00Z');
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-10-07');
+      expect(w.year_to_date_net).toBe(10);
     });
   });
 

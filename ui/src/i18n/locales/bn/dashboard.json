@@ -155,7 +155,15 @@
     },
     "homework-submission-rate": {
       "title": "হোমওয়ার্ক জমার হার",
-      "description": "এ সপ্তাহে কত শতাংশ বাড়ির কাজ জমা পড়েছে"
+      "description": "এ সপ্তাহে কত শতাংশ বাড়ির কাজ জমা পড়েছে",
+      "value": "এ সপ্তাহে জমা পড়েছে",
+      "sentence": "{{expected}}টা জমার মধ্যে {{submitted}}টা এসেছে।",
+      "lowest": "সবচেয়ে কম: {{class}} শ্রেণি ({{percent}})।",
+      "colClass": "শ্রেণি",
+      "colRate": "জমা",
+      "emptyReason": "এ সপ্তাহে কোনো হোমওয়ার্ক জমার দিন ছিল না।",
+      "link": "হোমওয়ার্ক দেখুন",
+      "compactTitle": "হোমওয়ার্ক জমা"
     },
     "sms-balance": {
       "title": "SMS ব্যালান্স",
@@ -177,63 +185,217 @@
     },
     "recent-activity": {
       "title": "সাম্প্রতিক কার্যকলাপ",
-      "description": "সিস্টেমে কে কখন কী বদলেছে"
+      "description": "সিস্টেমে কে কখন কী বদলেছে",
+      "row": "{{actor}}: {{summary}}",
+      "system": "সিস্টেম",
+      "emptyReason": "সম্প্রতি কিছু বদলায়নি।",
+      "link": "পুরো কার্যকলাপের তালিকা"
     },
     "my-routine-today": {
       "title": "আজকের আমার রুটিন",
-      "description": "আজ আপনার পিরিয়ডগুলো পর পর"
+      "description": "আজ আপনার পিরিয়ডগুলো পর পর",
+      "value": "পিরিয়ড আজ, {{done}}টা শেষ",
+      "next": "পরের পিরিয়ড {{minutes}} মিনিট পরে, {{room}}",
+      "ownSection": "— আপনার নিজের শাখা {{section}}।",
+      "nowLine": "এখন {{time}}",
+      "inMinutes": "{{minutes}} মিনিট পরে",
+      "noPeriodNow": "এখন পিরিয়ড নেই",
+      "freeSince": "{{time}} থেকে ফাঁকা",
+      "labelNow": "এখন",
+      "labelNext": "পরের",
+      "covering": "বদলি",
+      "cancelled": "বাতিল",
+      "nextDayFirst": "{{date}} প্রথম পিরিয়ড {{time}}-এ, {{label}}।",
+      "emptyReason": "আজ আপনার কোনো পিরিয়ড নেই।",
+      "closedToday": "আজ স্কুল বন্ধ।",
+      "link": "পুরো সপ্তাহের রুটিন",
+      "compactTitle": "পিরিয়ড আজ"
     },
     "my-pending-sections": {
       "title": "উপস্থিতি নেওয়া বাকি",
-      "description": "আপনার যে শাখাগুলোয় এখনো উপস্থিতি নেওয়া হয়নি"
+      "description": "আপনার যে শাখাগুলোয় এখনো উপস্থিতি নেওয়া হয়নি",
+      "value_one": "শাখা বাকি",
+      "value_other": "শাখা বাকি",
+      "sentence": "{{section}}-এর আজকের উপস্থিতি এখনো নেওয়া হয়নি।",
+      "allTaken": "আজকের সব উপস্থিতি নেওয়া হয়েছে।",
+      "pending": "বাকি",
+      "taken": "নেওয়া হয়েছে",
+      "action": "{{section}}-এর উপস্থিতি নিন",
+      "compactTitle": "উপস্থিতি বাকি",
+      "compactHint": "{{section}} বাকি",
+      "closedToday": "আজ স্কুল বন্ধ।"
     },
     "my-mark-deadlines": {
       "title": "মার্ক জমার সময়সীমা",
-      "description": "কোন মার্ক কবে পর্যন্ত জমা দিতে হবে"
+      "description": "কোন মার্ক কবে পর্যন্ত জমা দিতে হবে",
+      "value_one": "জনের নম্বর বাকি",
+      "value_other": "জনের নম্বর বাকি",
+      "deadlineIn_one": "শেষ তারিখ {{count}} দিন পর, {{date}} — বাকি {{section}}।",
+      "deadlineIn_other": "শেষ তারিখ {{count}} দিন পর, {{date}} — বাকি {{section}}।",
+      "deadlineToday": "শেষ তারিখ আজ — বাকি {{section}}।",
+      "deadlinePassed_one": "শেষ তারিখ {{count}} দিন আগে পেরিয়েছে — বাকি {{section}}।",
+      "deadlinePassed_other": "শেষ তারিখ {{count}} দিন আগে পেরিয়েছে — বাকি {{section}}।",
+      "endedAgo_one": "{{exam}} শেষ হয়েছে {{count}} দিন আগে — বাকি {{section}}।",
+      "endedAgo_other": "{{exam}} শেষ হয়েছে {{count}} দিন আগে — বাকি {{section}}।",
+      "noDate": "বাকি {{section}}।",
+      "submitted": "জমা হয়েছে",
+      "action": "{{section}}-এর নম্বর দিন",
+      "emptyReason": "আপনার কোনো মার্ক এন্ট্রি বাকি নেই।",
+      "compactTitle": "মার্ক এন্ট্রি, {{section}}"
     },
     "homework-to-check": {
       "title": "দেখার বাকি হোমওয়ার্ক",
-      "description": "জমা পড়েছে কিন্তু আপনি এখনো দেখেননি"
+      "description": "জমা পড়েছে কিন্তু আপনি এখনো দেখেননি",
+      "value": "জমা দেখা বাকি",
+      "sentence_one": "{{count}}টা হোমওয়ার্কের জমা আপনার দেখার অপেক্ষায়।",
+      "sentence_other": "{{count}}টা হোমওয়ার্কের জমা আপনার দেখার অপেক্ষায়।",
+      "rowCount": "{{count}}টা",
+      "action": "জমা দেখুন",
+      "emptyReason": "দেখার মতো কোনো জমা নেই।",
+      "compactTitle": "হোমওয়ার্ক চেক",
+      "compactHint_one": "{{count}}টা হোমওয়ার্কে জমা",
+      "compactHint_other": "{{count}}টা হোমওয়ার্কে জমা"
     },
     "class-teacher-streaks": {
       "title": "আমার শ্রেণির ধারাবাহিকতা",
-      "description": "যারা টানা কয়েক দিন অনুপস্থিত"
+      "description": "যারা টানা কয়েক দিন অনুপস্থিত",
+      "subtitle": "{{date}}-এর উপস্থিতি পর্যন্ত",
+      "value": "জন {{days}} দিন বা বেশি টানা আসেনি",
+      "sentence": "{{name}} {{days}} দিন ধরে অনুপস্থিত — আজই অভিভাবকের সঙ্গে কথা বলা ভালো।",
+      "daysBadge": "{{days}} দিন টানা",
+      "roll": "রোল {{roll}}",
+      "notify": "অভিভাবককে জানান",
+      "link": "{{section}}-এর পুরো উপস্থিতি",
+      "emptyReason": "কেউ টানা অনুপস্থিত নেই।",
+      "notClassTeacher": "এ বছর আপনি কোনো শাখার শ্রেণি শিক্ষক নন।",
+      "compactTitle": "টানা অনুপস্থিত, {{section}}"
     },
     "my-leave-balance": {
       "title": "আমার ছুটির হিসাব",
-      "description": "কত ছুটি নিয়েছেন আর কত বাকি"
+      "description": "কত ছুটি নিয়েছেন আর কত বাকি",
+      "value": "দিন বাকি",
+      "sentence": "এ বছর {{quota}} দিনের মধ্যে {{used}} দিন নেওয়া হয়েছে।",
+      "used": "নেওয়া {{count}}",
+      "quota": "মোট {{count}}",
+      "action": "ছুটির আবেদন",
+      "noProfile": "আপনার ছুটির হিসাব এখনো চালু হয়নি। অফিসে জানান।"
     },
     "my-syllabus-progress": {
       "title": "আমার সিলেবাস অগ্রগতি",
-      "description": "প্রতি শ্রেণিতে কতটা পড়ানো হলো"
+      "description": "প্রতি শ্রেণিতে কতটা পড়ানো হলো",
+      "value": "আপনার বিষয়গুলোতে গড়ে পড়ানো হয়েছে",
+      "leastCovered": "{{label}}-এ সবচেয়ে কম পড়ানো হয়েছে ({{percent}})।",
+      "noPace": "পরিকল্পনার সঙ্গে তুলনা আসবে পাঠ পরিকল্পনা চালু হলে।",
+      "colSubject": "শাখা ও বিষয়",
+      "colCovered": "পড়ানো হয়েছে",
+      "emptyReason": "আপনার বিষয়ে এখনো কোনো সিলেবাস বিষয় নেই।",
+      "link": "সিলেবাস খুলুন",
+      "compactTitle": "আমার সিলেবাস"
     },
     "collection-today": {
       "title": "আজকের আদায়",
-      "description": "আজ কত টাকা এসেছে, ক্যাশ আর অন্যান্য"
+      "description": "আজ কত টাকা এসেছে, ক্যাশে আর অন্যান্য মাধ্যমে",
+      "value_one": "{{count}}টা পেমেন্ট",
+      "value_other": "{{count}}টা পেমেন্ট",
+      "vsYesterday": "গতকাল এই সময়ে ছিল {{amount}}",
+      "vsYesterdayNone": "গতকাল এই সময়ে: —",
+      "topGroup": "সবচেয়ে বেশি এসেছে {{group}}-এ।",
+      "groupCount_one": "{{count}}টা পেমেন্ট",
+      "groupCount_other": "{{count}}টা পেমেন্ট",
+      "group": {
+        "CASH": "ক্যাশ",
+        "BKASH": "বিকাশ",
+        "BANK": "ব্যাংক",
+        "OTHER_MOBILE": "অন্য মোবাইল"
+      },
+      "colMethod": "মাধ্যম",
+      "colAmount": "পরিমাণ",
+      "colCount": "পেমেন্ট",
+      "emptyReason": "আজ এখনো কোনো পেমেন্ট আসেনি।",
+      "link": "সংগ্রহ প্রতিবেদন",
+      "compactTitle": "আজকের আদায়",
+      "compactDelta": "গতকালের চেয়ে {{amount}}"
     },
     "collection-by-month": {
       "title": "মাস অনুযায়ী আদায়",
-      "description": "এ বছরের প্রতি মাসের আদায়"
+      "description": "এ বছরের প্রতি মাসের আদায়",
+      "value": "এ বছর এ পর্যন্ত",
+      "vsLastMonthMore": "{{month}}-এর প্রথম {{days}} দিনে {{amount}} এসেছে — {{prevMonth}}-এর একই সময়ের চেয়ে {{diff}} বেশি।",
+      "vsLastMonthLess": "{{month}}-এর প্রথম {{days}} দিনে {{amount}} এসেছে — {{prevMonth}}-এর একই সময়ের চেয়ে {{diff}} কম।",
+      "legendDone": "শেষ হওয়া মাস",
+      "legendRunning": "চলতি মাস, এখনো চলছে",
+      "peak": "{{amount}}, {{month}}",
+      "colMonth": "মাস",
+      "colAmount": "আদায়",
+      "emptyReason": "এ বছর এখনো কোনো আদায় নেই।",
+      "link": "সংগ্রহ প্রতিবেদন খুলুন"
     },
     "dues-ageing": {
       "title": "বকেয়া কত দিনের",
-      "description": "কত দিন ধরে বকেয়া, সেই অনুযায়ী টাকার পরিমাণ"
+      "description": "কত দিন ধরে বকেয়া, সেই অনুযায়ী টাকার পরিমাণ",
+      "value": "মোট বকেয়া",
+      "sentence": "এর মধ্যে {{amount}} দুই মাসের বেশি পুরনো — এগুলো যত দেরি হবে, আদায় তত কঠিন।",
+      "bucket": {
+        "0_30": "০–৩০ দিন",
+        "31_60": "৩১–৬০ দিন",
+        "60_PLUS": "৬০+ দিন"
+      },
+      "colAge": "কত পুরনো",
+      "colAmount": "পরিমাণ",
+      "colShare": "অংশ",
+      "emptyReason": "কোনো বকেয়া নেই।",
+      "link": "সব বকেয়া দেখুন",
+      "compactTitle": "মোট বকেয়া"
     },
     "dues-by-class": {
       "title": "শ্রেণি অনুযায়ী বকেয়া",
-      "description": "কোন শ্রেণির বকেয়া সবচেয়ে বেশি"
+      "description": "কোন শ্রেণির বকেয়া সবচেয়ে বেশি",
+      "value": "{{class}} শ্রেণিতে, সবচেয়ে বেশি",
+      "sentence": "মোট বকেয়ার {{percent}} শুধু {{class}} শ্রেণির।",
+      "colClass": "শ্রেণি",
+      "colAmount": "বকেয়া",
+      "colStudents": "শিক্ষার্থী",
+      "emptyReason": "কোনো শ্রেণিতে বকেয়া নেই।",
+      "link": "{{class}} শ্রেণির বকেয়া দেখুন"
     },
     "fee-generation-status": {
       "title": "ফি তৈরির অবস্থা",
-      "description": "এ মাসের বিল তৈরি হয়েছে কি না"
+      "description": "এ মাসের বিল তৈরি হয়েছে কি না",
+      "generatedOn": "জেনারেট হয়েছে {{date}}",
+      "notGenerated": "এখনো জেনারেট হয়নি",
+      "value_one": "চালান তৈরি",
+      "value_other": "চালান তৈরি",
+      "next": "পরেরটা {{date}} নিজে থেকেই হবে।",
+      "noSchedule": "পরের মাসের কোনো নির্ধারিত সময় নেই।",
+      "link": "চালান দেখুন",
+      "generateAction": "ফি তৈরি করুন"
     },
     "reminders-pending": {
       "title": "অপেক্ষায় থাকা রিমাইন্ডার",
-      "description": "পাঠানোর জন্য তৈরি ফি রিমাইন্ডার"
+      "description": "পাঠানোর জন্য তৈরি ফি রিমাইন্ডার",
+      "value_one": "জন শিক্ষার্থী",
+      "value_other": "জন শিক্ষার্থী",
+      "sentence": "এদের ফির মেয়াদ পেরিয়েছে, কিন্তু এখনো রিমাইন্ডার যায়নি।",
+      "since": "সবচেয়ে পুরনোটা {{date}} থেকে",
+      "emptyReason": "সবাইকে রিমাইন্ডার পাঠানো হয়েছে।",
+      "action": "রিমাইন্ডার পাঠান",
+      "compactTitle": "রিমাইন্ডার বাকি"
     },
     "recent-payments": {
       "title": "সাম্প্রতিক পেমেন্ট",
-      "description": "সবশেষ যে পেমেন্টগুলো এসেছে"
+      "description": "সবশেষ যে পেমেন্টগুলো এসেছে",
+      "value_one": "শেষ {{count}}টা পেমেন্টে",
+      "value_other": "শেষ {{count}}টা পেমেন্টে",
+      "sentence": "সবশেষ পেমেন্ট এসেছে {{ago}}, {{method}}-এ।",
+      "colStudent": "শিক্ষার্থী",
+      "colClass": "শ্রেণি",
+      "colAmount": "পরিমাণ",
+      "colMethod": "মাধ্যম",
+      "colTime": "সময়",
+      "unknownStudent": "মুছে ফেলা শিক্ষার্থী",
+      "emptyReason": "এখনো কোনো পেমেন্ট নেই।",
+      "link": "সব পেমেন্ট",
+      "notCounted": "{{status}}, মোটে ধরা হয়নি"
     },
     "committee-enrollment": {
       "title": "ভর্তির সংখ্যা",
@@ -295,6 +457,15 @@
       "updatedMinutes_other": "{{count}} মিনিট আগে আপডেট",
       "colDate": "তারিখ",
       "colClass": "শ্রেণি"
+    },
+    "paymentMethod": {
+      "CASH": "ক্যাশ",
+      "CHEQUE": "চেক",
+      "BANK_TRANSFER": "ব্যাংক ট্রান্সফার",
+      "CARD": "কার্ড",
+      "BKASH": "বিকাশ",
+      "NAGAD": "নগদ",
+      "ROCKET": "রকেট"
     }
   }
 }

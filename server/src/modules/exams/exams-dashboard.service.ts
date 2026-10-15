@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { MarkEntryClassDto, MarkEntryProgressWidgetDto } from './dto/exams-dashboard.dto';
+import {
+  MarkEntryClassDto,
+  MarkEntryProgressWidgetDto,
+  MyMarkDeadlineItemDto,
+  MyMarkDeadlinesDto,
+} from './dto/exams-dashboard.dto';
 
 const pct = (submitted: number, total: number) =>
   total === 0 ? 0 : Math.round((submitted / total) * 100);
@@ -107,6 +112,90 @@ export class ExamsDashboardService {
       overall: { submitted, total, percentage: pct(submitted, total) },
       classes,
       lowest_class_id: lowest?.class_id ?? null,
+    };
+  }
+
+  /**
+   * [8.10.7.3.03] One statement, no loop. Targets = sections the caller is
+   * SUBJECT_TEACHER of (the write rule) x DRAFT exams of that section's class
+   * with a live component for the subject. `expected` is the ACTIVE-enrollment
+   * roster of `MarkGridService.getGrid`; `entered` = roster students holding a
+   * mark row for every live component of the subject.
+   */
+  async myMarkDeadlines(tenantId: string, userId: string): Promise<MyMarkDeadlinesDto> {
+    const rows = await this.dataSource.query<
+      Array<
+        Omit<MyMarkDeadlineItemDto, 'entered' | 'expected'> & { entered: string; expected: string }
+      >
+    >(
+      `WITH mine AS (
+         SELECT DISTINCT tcs.section_id, tcs.subject_id
+         FROM teacher_class_sections tcs
+         JOIN teachers t ON t.id = tcs.teacher_id AND t.tenant_id = $1
+              AND t.user_id = $2 AND t.deleted_at IS NULL
+         WHERE tcs.tenant_id = $1 AND tcs.assignment_type = 'SUBJECT_TEACHER'
+           AND tcs.subject_id IS NOT NULL
+       ),
+       targets AS (
+         SELECT e.id AS exam_id, e.name AS exam_name, e.academic_year_id, e.class_id,
+                e.mark_entry_deadline::text AS mark_entry_deadline,
+                cs.id AS section_id, cs.section_name, c.name AS class_name,
+                sj.id AS subject_id, sj.name_en AS subject_name_en, sj.name_bn AS subject_name_bn,
+                comp.n AS component_count
+         FROM mine m
+         JOIN class_sections cs ON cs.id = m.section_id AND cs.tenant_id = $1 AND cs.deleted_at IS NULL
+         JOIN classes c ON c.id = cs.class_id AND c.tenant_id = $1 AND c.deleted_at IS NULL
+         JOIN subjects sj ON sj.id = m.subject_id AND sj.tenant_id = $1 AND sj.deleted_at IS NULL
+         JOIN exams e ON e.class_id = cs.class_id AND e.tenant_id = $1
+              AND e.status = 'DRAFT' AND e.deleted_at IS NULL
+         CROSS JOIN LATERAL (
+           SELECT COUNT(*) AS n FROM exam_components ec
+           WHERE ec.exam_id = e.id AND ec.subject_id = m.subject_id
+             AND ec.tenant_id = $1 AND ec.deleted_at IS NULL
+         ) comp
+         WHERE comp.n > 0
+       )
+       SELECT t.exam_id, t.exam_name, t.section_id, t.class_name, t.section_name,
+              t.subject_id, t.subject_name_en, t.subject_name_bn,
+              COALESCE(mg.state::text, 'DRAFT') AS state,
+              t.mark_entry_deadline,
+              (SELECT MAX(es.date)::text FROM exam_schedules es
+                WHERE es.exam_id = t.exam_id AND es.subject_id = t.subject_id
+                  AND es.tenant_id = $1 AND es.deleted_at IS NULL) AS last_sitting_date,
+              r.expected, r.entered
+       FROM targets t
+       LEFT JOIN mark_grids mg ON mg.exam_id = t.exam_id AND mg.section_id = t.section_id
+            AND mg.subject_id = t.subject_id AND mg.tenant_id = $1
+       CROSS JOIN LATERAL (
+         SELECT COUNT(*) AS expected,
+                COUNT(*) FILTER (WHERE (
+                  SELECT COUNT(DISTINCT mk.component_id) FROM marks mk
+                  JOIN exam_components ec ON ec.id = mk.component_id AND ec.deleted_at IS NULL
+                  WHERE mk.exam_id = t.exam_id AND mk.student_id = en.student_id
+                    AND mk.subject_id = t.subject_id AND mk.tenant_id = $1
+                ) = t.component_count) AS entered
+         FROM enrollments en
+         JOIN students s ON s.id = en.student_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
+         WHERE en.tenant_id = $1 AND en.enrollment_status = 'ACTIVE'
+           AND en.academic_year_id = t.academic_year_id AND en.class_id = t.class_id
+           AND en.section_id = t.section_id
+       ) r
+       ORDER BY (COALESCE(mg.state::text, 'DRAFT') = 'DRAFT') DESC,
+                t.mark_entry_deadline ASC NULLS LAST, last_sitting_date ASC NULLS LAST,
+                t.class_name, t.section_name`,
+      [tenantId, userId],
+    );
+
+    const items: MyMarkDeadlineItemDto[] = rows.map((r) => ({
+      ...r,
+      entered: Number(r.entered),
+      expected: Number(r.expected),
+    }));
+    return {
+      outstanding_students: items
+        .filter((i) => i.state === 'DRAFT')
+        .reduce((n, i) => n + i.expected - i.entered, 0),
+      items,
     };
   }
 }

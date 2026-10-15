@@ -1,7 +1,16 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
-import { ExamComponentKind, ExamKind, ExamStatus, MarkGridState } from '@biddaloy/shared';
+import {
+  EnrollmentStatus,
+  ExamComponentKind,
+  ExamKind,
+  ExamStatus,
+  MarkGridState,
+  MarkStatus,
+  TeacherAssignmentType,
+  UserRole,
+} from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { SEED_TENANT_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
 import { ExamsDashboardService } from './exams-dashboard.service';
@@ -15,6 +24,12 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
+import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
+import { User } from '../users/entities/user.entity';
+import { Mark } from './entities/mark.entity';
 
 /**
  * [#1850] Mark-entry progress widget: which exam is "current", and that each
@@ -194,13 +209,11 @@ describe('ExamsDashboardService.getMarkEntryProgress (integration)', () => {
   it('excludes a soft-deleted section and a soft-deleted component from total', async () => {
     const { a, examA } = await twoClassFixture();
     await ds.getRepository(ClassSection).softDelete({ id: a.sectionIds[1] });
-    await ds
-      .getRepository(ExamComponent)
-      .softDelete({
-        exam_id: examA,
-        subject_id: (await ds.getRepository(ExamComponent).findOneByOrFail({ exam_id: examA }))
-          .subject_id,
-      });
+    await ds.getRepository(ExamComponent).softDelete({
+      exam_id: examA,
+      subject_id: (await ds.getRepository(ExamComponent).findOneByOrFail({ exam_id: examA }))
+        .subject_id,
+    });
 
     const res = await service.getMarkEntryProgress(SEED_TENANT_ID, TODAY);
     const row = res.classes.find((c) => c.class_id === a.classId)!;
@@ -335,5 +348,277 @@ describe('ExamsDashboardService.getMarkEntryProgress (integration)', () => {
     const res = await service.getMarkEntryProgress(SEED_TENANT_ID, TODAY);
 
     expect(res.exam_name).toBeNull();
+  });
+
+  describe('myMarkDeadlines [#1863]', () => {
+    const EMPTY = { outstanding_students: 0, items: [] };
+
+    async function makeTeacher() {
+      const n = ++seq;
+      const user = await ds
+        .getRepository(User)
+        .save({ email: `mmd-${n}-${Date.now()}@test.com`, full_name: `MMD Teacher ${n}` });
+      const teacher = await ds.getRepository(Teacher).save({
+        user_id: user.id,
+        employee_id: `MMD-${n}-${Date.now()}`,
+        tenant_id: SEED_TENANT_ID,
+        designations: [],
+      });
+      return { userId: user.id, teacherId: teacher.id };
+    }
+
+    const assign = (
+      teacherId: string,
+      sectionId: string,
+      subjectId: string | null,
+      type = TeacherAssignmentType.SUBJECT_TEACHER,
+      tenantId = SEED_TENANT_ID,
+    ) =>
+      ds.getRepository(TeacherClassSection).save({
+        teacher_id: teacherId,
+        section_id: sectionId,
+        subject_id: subjectId,
+        assignment_type: type,
+        tenant_id: tenantId,
+      });
+
+    async function addStudent(
+      classId: string,
+      sectionId: string,
+      status = EnrollmentStatus.ACTIVE,
+    ) {
+      const n = ++seq;
+      const s = await ds.getRepository(Student).save({
+        full_name: `MMD Student ${n}`,
+        registration_number: `MMD-REG-${n}`,
+        roll_number: n,
+        class_section_id: sectionId,
+        tenant_id: SEED_TENANT_ID,
+        date_of_birth: new Date('2012-01-01'),
+        gender: 'MALE',
+        enrollment_status: EnrollmentStatus.ACTIVE,
+        preferred_communication: 'SMS',
+      } as Partial<Student>);
+      await ds.getRepository(Enrollment).save({
+        student_id: s.id,
+        class_id: classId,
+        section_id: sectionId,
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        enrollment_status: status,
+        tenant_id: SEED_TENANT_ID,
+      });
+      return s.id;
+    }
+
+    async function enter(
+      examId: string,
+      studentId: string,
+      subjectId: string,
+      componentIds: string[],
+    ) {
+      for (const componentId of componentIds) {
+        await ds.getRepository(Mark).save({
+          exam_id: examId,
+          student_id: studentId,
+          subject_id: subjectId,
+          component_id: componentId,
+          value: '50.00',
+          status: MarkStatus.PRESENT,
+          tenant_id: SEED_TENANT_ID,
+        });
+      }
+    }
+
+    const componentsOf = async (examId: string, subjectId: string) =>
+      (
+        await ds.getRepository(ExamComponent).findBy({ exam_id: examId, subject_id: subjectId })
+      ).map((c) => c.id);
+
+    it('counts students with every component entered per section-subject; sums the outstanding', async () => {
+      const [subject] = await makeSubjects(1);
+      const { classId, sectionIds } = await makeClass('MMD', 2);
+      const exam = await makeExam({ classId, subjectIds: [subject] });
+      const t = await makeTeacher();
+      await assign(t.teacherId, sectionIds[0], subject);
+      await assign(t.teacherId, sectionIds[1], subject);
+      const comps = await componentsOf(exam, subject);
+      for (let i = 0; i < 40; i++) {
+        await enter(exam, await addStudent(classId, sectionIds[1]), subject, comps);
+      }
+      await submitGrid(exam, sectionIds[1], subject);
+      for (let i = 0; i < 40; i++) {
+        const s = await addStudent(classId, sectionIds[0]);
+        if (i < 32) await enter(exam, s, subject, comps);
+      }
+
+      const res = await service.myMarkDeadlines(SEED_TENANT_ID, t.userId);
+
+      expect(res.outstanding_students).toBe(8);
+      expect(res.items).toHaveLength(2);
+      const a = res.items.find((i) => i.section_id === sectionIds[0])!;
+      const b = res.items.find((i) => i.section_id === sectionIds[1])!;
+      expect(a).toMatchObject({ entered: 32, expected: 40, state: MarkGridState.DRAFT });
+      expect(b).toMatchObject({ entered: 40, expected: 40, state: MarkGridState.SUBMITTED });
+      expect(a.exam_id).toBe(exam);
+      expect(a.subject_id).toBe(subject);
+    }, 120000);
+
+    it('a student with 1 of 2 components entered is not entered', async () => {
+      const [subject] = await makeSubjects(1);
+      const { classId, sectionIds } = await makeClass('MMD2', 1);
+      const exam = await makeExam({ classId, subjectIds: [subject] });
+      await ds.getRepository(ExamComponent).save({
+        exam_id: exam,
+        subject_id: subject,
+        name: 'Practical',
+        kind: ExamComponentKind.WRITTEN,
+        full_marks: '50',
+        sequence: 2,
+        tenant_id: SEED_TENANT_ID,
+      });
+      const t = await makeTeacher();
+      await assign(t.teacherId, sectionIds[0], subject);
+      const comps = await componentsOf(exam, subject);
+      const half = await addStudent(classId, sectionIds[0]);
+      const full = await addStudent(classId, sectionIds[0]);
+      await enter(exam, half, subject, [comps[0]]);
+      await enter(exam, full, subject, comps);
+
+      const res = await service.myMarkDeadlines(SEED_TENANT_ID, t.userId);
+
+      expect(res.items[0]).toMatchObject({ entered: 1, expected: 2 });
+    });
+
+    it('excludes PROCESSED, PUBLISHED and soft-deleted exams', async () => {
+      const [subject] = await makeSubjects(1);
+      const { classId, sectionIds } = await makeClass('MMD3', 1);
+      const t = await makeTeacher();
+      await assign(t.teacherId, sectionIds[0], subject);
+      await addStudent(classId, sectionIds[0]);
+      await makeExam({
+        classId,
+        subjectIds: [subject],
+        name: 'Processed',
+        status: ExamStatus.PROCESSED,
+      });
+      await makeExam({
+        classId,
+        subjectIds: [subject],
+        name: 'Published',
+        status: ExamStatus.PUBLISHED,
+      });
+      const gone = await makeExam({ classId, subjectIds: [subject], name: 'Gone' });
+      await ds.getRepository(Exam).softDelete({ id: gone });
+
+      expect(await service.myMarkDeadlines(SEED_TENANT_ID, t.userId)).toEqual(EMPTY);
+    });
+
+    it('a class teacher with no subject row gets nothing (write rule)', async () => {
+      const [subject] = await makeSubjects(1);
+      const { classId, sectionIds } = await makeClass('MMD4', 1);
+      await makeExam({ classId, subjectIds: [subject] });
+      await addStudent(classId, sectionIds[0]);
+      const t = await makeTeacher();
+      await assign(t.teacherId, sectionIds[0], null, TeacherAssignmentType.CLASS_TEACHER);
+
+      expect(await service.myMarkDeadlines(SEED_TENANT_ID, t.userId)).toEqual(EMPTY);
+    });
+
+    it('a user with no teacher row gets the empty state', async () => {
+      expect(
+        await service.myMarkDeadlines(SEED_TENANT_ID, '00000000-0000-4000-8000-000001863009'),
+      ).toEqual(EMPTY);
+    });
+
+    it('an INACTIVE enrollment is not in expected', async () => {
+      const [subject] = await makeSubjects(1);
+      const { classId, sectionIds } = await makeClass('MMD5', 1);
+      await makeExam({ classId, subjectIds: [subject] });
+      const t = await makeTeacher();
+      await assign(t.teacherId, sectionIds[0], subject);
+      await addStudent(classId, sectionIds[0]);
+      await addStudent(classId, sectionIds[0], EnrollmentStatus.TRANSFERRED);
+
+      const res = await service.myMarkDeadlines(SEED_TENANT_ID, t.userId);
+
+      expect(res.items[0].expected).toBe(1);
+    });
+
+    it('returns the deadline, sorts it before one without; last_sitting_date always set', async () => {
+      const [s1, s2] = await makeSubjects(2);
+      const a = await makeClass('MMD6a', 1);
+      const b = await makeClass('MMD6b', 1);
+      const noDl = await makeExam({
+        classId: a.classId,
+        subjectIds: [s1],
+        firstSitting: '2026-10-01',
+      });
+      const withDl = await makeExam({
+        classId: b.classId,
+        subjectIds: [s2],
+        firstSitting: '2026-10-02',
+        deadline: '2026-10-10',
+      });
+      const t = await makeTeacher();
+      await assign(t.teacherId, a.sectionIds[0], s1);
+      await assign(t.teacherId, b.sectionIds[0], s2);
+
+      const res = await service.myMarkDeadlines(SEED_TENANT_ID, t.userId);
+
+      expect(res.items.map((i) => i.exam_id)).toEqual([withDl, noDl]);
+      expect(res.items[0]).toMatchObject({
+        mark_entry_deadline: '2026-10-10',
+        last_sitting_date: '2026-10-02',
+      });
+      expect(res.items[1]).toMatchObject({
+        mark_entry_deadline: null,
+        last_sitting_date: '2026-10-01',
+      });
+    });
+
+    it('reconciles with MarkGridService.getGrid for the same section-subject', async () => {
+      const [subject] = await makeSubjects(1);
+      const { classId, sectionIds } = await makeClass('MMD7', 1);
+      const exam = await makeExam({ classId, subjectIds: [subject] });
+      const t = await makeTeacher();
+      await assign(t.teacherId, sectionIds[0], subject);
+      const comps = await componentsOf(exam, subject);
+      for (let i = 0; i < 4; i++) {
+        const s = await addStudent(classId, sectionIds[0]);
+        if (i < 3) await enter(exam, s, subject, comps);
+      }
+
+      const res = await service.myMarkDeadlines(SEED_TENANT_ID, t.userId);
+      const grid = await grids.getGrid(
+        exam,
+        sectionIds[0],
+        subject,
+        SEED_TENANT_ID,
+        UserRole.TEACHER,
+        t.userId,
+      );
+      const filled = new Set(grid.cells.filter((c) => c.value !== null).map((c) => c.student_id));
+
+      expect(res.items[0].expected).toBe(grid.students.length);
+      expect(res.items[0].entered).toBe(grid.students.filter((s) => filled.has(s.id)).length);
+      expect(res.items[0].state).toBe(grid.state);
+    });
+
+    it("never shows another tenant's exam for a same-named class", async () => {
+      const [subject] = await makeSubjects(1, OTHER_TENANT_ID);
+      const { classId, sectionIds } = await makeClass('MMD8', 1, OTHER_TENANT_ID);
+      await makeExam({ classId, subjectIds: [subject], tenantId: OTHER_TENANT_ID });
+      const t = await makeTeacher();
+      // even a cross-tenant assignment row must not leak: every join filters tenant_id
+      await assign(
+        t.teacherId,
+        sectionIds[0],
+        subject,
+        TeacherAssignmentType.SUBJECT_TEACHER,
+        OTHER_TENANT_ID,
+      );
+
+      expect(await service.myMarkDeadlines(SEED_TENANT_ID, t.userId)).toEqual(EMPTY);
+    });
   });
 });

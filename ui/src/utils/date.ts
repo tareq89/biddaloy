@@ -158,6 +158,12 @@ export function tenantTodayIso(config: RegionConfig, now: Date = new Date()): st
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+/** The tenant clock's `HH:MM` (24h, Latin digits) — for comparing against API `HH:MM` strings. */
+export function tenantNowHhmm(config: RegionConfig, now: Date = new Date()): string {
+  const { hh, mm } = tenantClock(now, config);
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
 /** `October 2026` / `অক্টোবর ২০২৬`. Accepts `YYYY-MM`, `YYYY-MM-DD…` or a `Date`. */
 export function formatMonth(value: Date | string | null | undefined, config: RegionConfig): string {
   const p = toParts(value, config, 'date', { month: true });

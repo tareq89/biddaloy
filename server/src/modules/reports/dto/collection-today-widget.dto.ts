@@ -1,0 +1,62 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { PaymentMethod } from '@biddaloy/shared';
+
+export const COLLECTION_METHOD_GROUPS = ['CASH', 'BKASH', 'BANK', 'OTHER_MOBILE'] as const;
+export type CollectionMethodGroup = (typeof COLLECTION_METHOD_GROUPS)[number];
+
+export class CollectionMethodFigure {
+  @ApiProperty({ enum: PaymentMethod, enumName: 'PaymentMethod' })
+  payment_method: PaymentMethod;
+
+  @ApiProperty({
+    description:
+      'Amount applied to bills (net of reversals), not physical cash; group nets sum to GET /reports/collections totals.net.',
+  })
+  net: number;
+
+  @ApiProperty({ description: 'Payments received; reversal rows are not payments.' })
+  payment_count: number;
+}
+
+export class CollectionGroupFigure {
+  @ApiProperty({ enum: COLLECTION_METHOD_GROUPS, enumName: 'CollectionMethodGroup' })
+  group: CollectionMethodGroup;
+
+  @ApiProperty({
+    description:
+      'Amount applied to bills (net of reversals), not physical cash; group nets sum to GET /reports/collections totals.net.',
+  })
+  net: number;
+
+  @ApiProperty()
+  payment_count: number;
+
+  @ApiProperty({
+    type: [CollectionMethodFigure],
+    description: 'Methods that had activity, biggest net first.',
+  })
+  methods: CollectionMethodFigure[];
+}
+
+export class CollectionTodayWidgetDto {
+  @ApiProperty({ example: '2026-10-07', description: 'School-local date, YYYY-MM-DD.' })
+  date: string;
+
+  @ApiProperty({
+    description:
+      'Amount applied to bills from the start of the school-local day until now (net of reversals), not physical cash; equals the sum of the group nets and uses the same filter as GET /reports/collections.',
+  })
+  net: number;
+
+  @ApiProperty({ description: 'Payments received today; reversal rows are not counted.' })
+  payment_count: number;
+
+  @ApiProperty({ description: 'Net received yesterday, from its start to this time of day.' })
+  yesterday_same_time_net: number;
+
+  @ApiProperty({
+    type: [CollectionGroupFigure],
+    description: 'Always four groups, in the order CASH, BKASH, BANK, OTHER_MOBILE.',
+  })
+  groups: CollectionGroupFigure[];
+}

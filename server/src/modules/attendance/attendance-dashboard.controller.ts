@@ -9,7 +9,11 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { DashboardWidgetRoute } from '../dashboard/widget-permission.decorator';
 import { AttendanceDashboardService } from './attendance-dashboard.service';
-import { AttendanceTodayWidgetDto } from './dto/attendance-dashboard.dto';
+import {
+  AttendanceTodayWidgetDto,
+  ClassTeacherStreaksDto,
+  MyPendingSectionsDto,
+} from './dto/attendance-dashboard.dto';
 
 @ApiTags('dashboard')
 @ApiTenantAuth()
@@ -25,5 +29,23 @@ export class AttendanceDashboardController {
     @CurrentUser() user: { sub: string },
   ): Promise<AttendanceTodayWidgetDto> {
     return this.service.getToday(tenant.id, tenant.role, user.sub);
+  }
+
+  @DashboardWidgetRoute(DashboardWidgetKey.MY_PENDING_SECTIONS)
+  @ApiOkResponse({ type: MyPendingSectionsDto })
+  getMyPendingSections(
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ): Promise<MyPendingSectionsDto> {
+    return this.service.myPendingSections(tenant.id, tenant.role, user.sub);
+  }
+
+  @DashboardWidgetRoute(DashboardWidgetKey.CLASS_TEACHER_STREAKS)
+  @ApiOkResponse({ type: ClassTeacherStreaksDto })
+  getClassTeacherStreaks(
+    @CurrentTenant() tenant: { id: string },
+    @CurrentUser() user: { sub: string },
+  ): Promise<ClassTeacherStreaksDto> {
+    return this.service.classTeacherStreaks(tenant.id, user.sub);
   }
 }
