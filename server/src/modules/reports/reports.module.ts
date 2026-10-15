@@ -3,6 +3,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Payment } from '../fees/entities/payment.entity';
 import { CollectionsReportService } from './collections-report.service';
 import { ReportsController } from './reports.controller';
+import { ReportsDashboardController } from './reports-dashboard.controller';
+import { DashboardModule } from '../dashboard/dashboard.module';
+import { SchoolsModule } from '../schools/schools.module';
 
 /** [16.6.2] Reports module — read-only aggregate views over data owned by
  * other modules (fees/payments). Registers `Payment` for `TypeOrmModule`
@@ -12,8 +15,8 @@ import { ReportsController } from './reports.controller';
  * migrated by their owning modules, so no entities beyond `Payment` need
  * registering here. */
 @Module({
-  imports: [TypeOrmModule.forFeature([Payment])],
+  imports: [TypeOrmModule.forFeature([Payment]), DashboardModule, SchoolsModule],
   providers: [CollectionsReportService],
-  controllers: [ReportsController],
+  controllers: [ReportsController, ReportsDashboardController],
 })
 export class ReportsModule {}

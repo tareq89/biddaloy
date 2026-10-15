@@ -35,11 +35,15 @@ import { CreditsModule } from './credits/credits.module';
 import { FeeNotificationsListener } from './fee-notifications.listener';
 import { InvoiceNotificationsListener } from './invoice-notifications.listener';
 import { InvoicesModule } from '../invoices/invoices.module';
+import { DashboardModule } from '../dashboard/dashboard.module';
+import { CommunicationsDashboardController } from './communications-dashboard.controller';
+import { CommunicationsDashboardService } from './communications-dashboard.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([CommunicationLog, ReminderBatch, Guardian]),
     StudentModule,
+    DashboardModule,
     // [CodeRabbit review, PR #801] The last of the four edges in the
     // Fees<->Schools cycle (FeeModule -> SchoolsModule ->
     // AccountAccessModule -> CommunicationsModule -> FeeModule) to switch
@@ -99,8 +103,13 @@ import { InvoicesModule } from '../invoices/invoices.module';
     FeeNotificationsListener,
     InvoiceNotificationsListener,
     FeeNotifyProcessor,
+    CommunicationsDashboardService,
   ],
-  controllers: [CommunicationsController, ProviderConnectionTestController],
+  controllers: [
+    CommunicationsController,
+    ProviderConnectionTestController,
+    CommunicationsDashboardController,
+  ],
   exports: [
     CommunicationsService,
     BulkReminderService,

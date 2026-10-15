@@ -5,6 +5,10 @@ import { SCHOOL_TZ, startOfLocalDay, endOfLocalDay } from '../../common/time';
 import { Payment } from '../fees/entities/payment.entity';
 import { PaymentMethod } from '@biddaloy/shared';
 import {
+  CollectionMonthFigures,
+  CollectionMonthWidgetDto,
+} from './dto/collection-month-widget.dto';
+import {
   CollectionsCsvRow,
   CollectionsByCollector,
   CollectionsByDay,
@@ -20,6 +24,21 @@ import {
 const CASH_RECEIVED_SQL = `CASE WHEN p.reversal_of_payment_id IS NULL
   THEN p.total_amount - p.wallet_credit_used + p.wallet_credit_added
   ELSE o.total_amount - o.wallet_credit_used + o.wallet_credit_added END`;
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Day 1 to the same day-of-month (clamped to the month's last day, so 31 Oct
+ * maps to 30 Sep) for `month`/`year`. Pure UTC maths: no server-local `Date`
+ * month arithmetic. */
+function monthRange(year: number, month: number, day: number) {
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const ym = `${year}-${pad(month)}`;
+  return {
+    from: `${ym}-01`,
+    to: `${ym}-${pad(Math.min(day, last))}`,
+    monthEnd: `${ym}-${pad(last)}`,
+  };
+}
 
 interface PaymentTotalsRow {
   collected: string | null;
@@ -107,6 +126,68 @@ export class CollectionsReportService {
       clause += ` AND ${alias}.payment_method = $${params.length}`;
     }
     return { clause, params };
+  }
+
+  /** Net cash received (SUCCESS payments, reversals subtracted) for the
+   * range. Same filter and `net` expression as `getReport().totals.net`. */
+  async getReceived(tenantId: string, from: string, to: string): Promise<number> {
+    const { clause, params } = this.buildFilter(tenantId, { from, to });
+    const rows = await this.paymentRepo.manager.query<Array<{ net: string | null }>>(
+      `SELECT COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN p.total_amount ELSE -p.total_amount END), 0) AS net
+       FROM payments p
+       WHERE ${clause}`,
+      params,
+    );
+    return Number(rows[0]?.net ?? 0);
+  }
+
+  /** Accrual basis: `total - discount` of live bills whose `period_start`
+   * falls in [monthStart, monthEnd], paid or not. `student_fees` has no
+   * `tenant_id` column, so the tenant comes from the student. */
+  async getBilledForMonth(tenantId: string, monthStart: string, monthEnd: string): Promise<number> {
+    const rows = await this.paymentRepo.manager.query<Array<{ billed: string | null }>>(
+      `SELECT COALESCE(SUM(sf.total_amount - sf.discount_amount), 0) AS billed
+       FROM student_fees sf
+       JOIN students s ON s.id = sf.student_id
+       WHERE s.tenant_id = $1 AND sf.deleted_at IS NULL
+         AND sf.period_start BETWEEN $2 AND $3`,
+      [tenantId, monthStart, monthEnd],
+    );
+    return Number(rows[0]?.billed ?? 0);
+  }
+
+  /** `today` is the school's local date (YYYY-MM-DD) from `SchoolsService.todayFor`. */
+  async getCollectionMonthWidget(
+    tenantId: string,
+    today: string,
+  ): Promise<CollectionMonthWidgetDto> {
+    type Range = ReturnType<typeof monthRange>;
+    const [y, m, d] = today.split('-').map(Number);
+    const figures = async (r: Range) => {
+      const [received, billed] = await Promise.all([
+        this.getReceived(tenantId, r.from, r.to),
+        this.getBilledForMonth(tenantId, r.from, r.monthEnd),
+      ]);
+      return { received, billed };
+    };
+    const point = (r: Range, f: { received: number; billed: number }): CollectionMonthFigures => ({
+      as_of: r.to,
+      received: f.received,
+      billed_for_month: f.billed,
+      received_pct: f.billed === 0 ? null : Math.round((f.received / f.billed) * 100),
+    });
+
+    const cur = monthRange(y, m, d);
+    const lm = monthRange(m === 1 ? y - 1 : y, m === 1 ? 12 : m - 1, d);
+    const ly = monthRange(y - 1, m, d);
+    const [fc, fm, fy] = await Promise.all([figures(cur), figures(lm), figures(ly)]);
+    return {
+      month: `${y}-${pad(m)}`,
+      ...point(cur, fc),
+      last_month_same_point: point(lm, fm),
+      // No bills and no net cash that month last year: client shows "—" (D25).
+      last_year_same_point: fy.billed === 0 && fy.received === 0 ? null : point(ly, fy),
+    };
   }
 
   async getReport(

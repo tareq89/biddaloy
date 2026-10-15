@@ -159,6 +159,43 @@ describe('ExamsService CRUD', () => {
     );
   });
 
+  it('create stores mark_entry_deadline; omitted means null', async () => {
+    const { service } = await buildService();
+    const base = { name: 'T', kind: ExamKind.TERM, academic_year_id: 'y1', class_id: 'c1' };
+
+    const withDeadline = await service.create(
+      { ...base, mark_entry_deadline: '2026-10-11' } as any,
+      TENANT_ID,
+    );
+    const without = await service.create(base as any, TENANT_ID);
+
+    expect(withDeadline.mark_entry_deadline).toBe('2026-10-11');
+    expect(without.mark_entry_deadline).toBeNull();
+  });
+
+  it('update with mark_entry_deadline null clears it; an absent key leaves it alone', async () => {
+    const { service, examRepo } = await buildService();
+    examRepo.findOne = vi.fn(async () => ({
+      id: 'e1',
+      tenant_id: TENANT_ID,
+      class_id: 'c1',
+      academic_year_id: 'y1',
+      mark_entry_deadline: '2026-10-11',
+    }));
+
+    await service.update('e1', { mark_entry_deadline: null } as any, TENANT_ID);
+    expect(examRepo.update).toHaveBeenLastCalledWith(
+      { id: 'e1', tenant_id: TENANT_ID },
+      { mark_entry_deadline: null },
+    );
+
+    await service.update('e1', { name: 'Renamed' } as any, TENANT_ID);
+    expect(examRepo.update).toHaveBeenLastCalledWith(
+      { id: 'e1', tenant_id: TENANT_ID },
+      { name: 'Renamed' },
+    );
+  });
+
   it('deletes (soft) an exam', async () => {
     const { service, examRepo } = await buildService();
     examRepo.findOne = vi.fn(async () => ({ id: 'e1', tenant_id: TENANT_ID, name: 'Term 1' }));

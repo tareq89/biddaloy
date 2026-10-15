@@ -24,6 +24,7 @@ export {
   NoActiveTenantError,
   NoMembershipsError,
   isTenantRestoringError,
+  isTenantSuspendedError,
   RateLimitedError,
   type ApiErrorBody,
 } from './errors';

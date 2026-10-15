@@ -191,6 +191,14 @@ POST   /api/v1/communications/reminder/single/:studentId/preview                
 POST   /api/v1/communications/send                                               401 PASS PASS PASS PASS 403 403 403 403 PASS 403 403
 GET    /api/v1/communications/sms-credits                                        401 PASS PASS PASS PASS PASS 403 403 PASS PASS 403 403
 GET    /api/v1/communications/student/:studentId                                 401 PASS PASS PASS PASS PASS 403 403 PASS PASS 403 403
+GET    /api/v1/dashboard/widgets/at-risk-students                                401 403 403 PASS 403 403 403 403 PASS 403 403 403
+GET    /api/v1/dashboard/widgets/attendance-today                                401 403 403 PASS 403 403 403 403 PASS PASS 403 403
+GET    /api/v1/dashboard/widgets/collection-month                                401 403 403 PASS PASS 403 403 403 PASS 403 403 403
+GET    /api/v1/dashboard/widgets/failed-messages                                 401 403 403 PASS 403 403 403 403 403 403 403 403
+GET    /api/v1/dashboard/widgets/mark-entry-progress                             401 403 403 PASS 403 403 403 403 PASS 403 PASS 403
+GET    /api/v1/dashboard/widgets/sms-balance                                     401 403 403 PASS 403 403 403 403 403 403 403 403
+GET    /api/v1/dashboard/widgets/staff-today                                     401 403 403 PASS 403 403 403 403 PASS PASS 403 403
+GET    /api/v1/dashboard/widgets/syllabus-progress                               401 403 403 PASS 403 403 403 403 PASS 403 403 403
 GET    /api/v1/demo/roles                                                        PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 GET    /api/v1/designations                                                      401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/designations                                                      401 PASS PASS PASS 403 403 403 403 403 403 403 403

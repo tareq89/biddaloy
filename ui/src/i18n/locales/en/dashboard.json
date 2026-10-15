@@ -1,0 +1,205 @@
+{
+  "page": {
+    "title": "Dashboard",
+    "customise": "Customise",
+    "customiseAria": "Customise dashboard",
+    "moreOptions": "More options",
+    "keyNumbers": "Key numbers",
+    "showMore": "Show more of {{title}}",
+    "showLess": "Show less of {{title}}"
+  },
+  "states": {
+    "loading": "Loading {{title}}",
+    "error": "This widget could not load.",
+    "retry": "Try again",
+    "allHidden": {
+      "title": "All widgets are hidden",
+      "explanation": "Choose which widgets to show on your dashboard.",
+      "action": "Customise"
+    },
+    "offlineCached": "Showing the last saved figures."
+  },
+  "customise": {
+    "badge": "Customising",
+    "intro": "Choose which widgets show and in what order. Nothing changes until you save.",
+    "preview": "Preview: this is how it will look after saving",
+    "panelTitle": "Widgets",
+    "summary": "{{total}} widgets for {{role}}, {{shown}} shown now.",
+    "shownHeading": "Shown ({{count}})",
+    "hiddenHeading": "Hidden ({{count}})",
+    "size": {
+      "label": "Size of {{title}}",
+      "S": "Small",
+      "M": "Medium",
+      "L": "Large"
+    },
+    "moveUp": "Move {{title}} up",
+    "moveDown": "Move {{title}} down",
+    "moved": "{{title}} is now at position {{position}}",
+    "shownNow": "{{title}} shown",
+    "hiddenNow": "{{title}} hidden",
+    "keyboardHint": "Space to show or hide, Alt + ↑ / ↓ to move",
+    "reset": "Reset to default",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saved": "Dashboard saved"
+  },
+  "widgets": {
+    "attendance-today": {
+      "title": "Student attendance today",
+      "description": "Share present today and sections left"
+    },
+    "staff-today": {
+      "title": "Teachers and staff",
+      "description": "Who is present, who is on leave"
+    },
+    "collection-month": {
+      "title": "Collection this month",
+      "description": "How much came in against this month's bills"
+    },
+    "approvals-pending": {
+      "title": "Waiting for your approval",
+      "description": "Leave, admission and fee waiver requests"
+    },
+    "at-risk-students": {
+      "title": "At-risk students",
+      "description": "Students with 2 or more warning signs"
+    },
+    "mark-entry-progress": {
+      "title": "Mark entry",
+      "description": "Which classes still have marks to submit"
+    },
+    "syllabus-progress": {
+      "title": "Syllabus progress",
+      "description": "Which classes are behind in teaching"
+    },
+    "upcoming": {
+      "title": "What's coming up",
+      "description": "Next holiday and upcoming events"
+    },
+    "homework-submission-rate": {
+      "title": "Homework submission rate",
+      "description": "Share of homework handed in this week"
+    },
+    "sms-balance": {
+      "title": "SMS balance",
+      "description": "How many more SMS can be sent"
+    },
+    "failed-messages": {
+      "title": "Failed messages",
+      "description": "SMS that failed in the last 7 days"
+    },
+    "recent-activity": {
+      "title": "Recent activity",
+      "description": "Who changed what in the system"
+    },
+    "my-routine-today": {
+      "title": "My routine today",
+      "description": "Your periods today, in order"
+    },
+    "my-pending-sections": {
+      "title": "Attendance left to take",
+      "description": "Your sections where attendance is not taken yet"
+    },
+    "my-mark-deadlines": {
+      "title": "Mark deadlines",
+      "description": "Marks you still need to submit, and by when"
+    },
+    "homework-to-check": {
+      "title": "Homework to check",
+      "description": "Submitted homework waiting for your check"
+    },
+    "class-teacher-streaks": {
+      "title": "My class streaks",
+      "description": "Students absent several days in a row"
+    },
+    "my-leave-balance": {
+      "title": "My leave balance",
+      "description": "Leave you have taken and what is left"
+    },
+    "my-syllabus-progress": {
+      "title": "My syllabus progress",
+      "description": "How far you have taught in each class"
+    },
+    "collection-today": {
+      "title": "Collection today",
+      "description": "Money received today, cash and other"
+    },
+    "collection-by-month": {
+      "title": "Collection by month",
+      "description": "Collection for each month this year"
+    },
+    "dues-ageing": {
+      "title": "Unpaid bills by age",
+      "description": "Unpaid amount by how long it is overdue"
+    },
+    "dues-by-class": {
+      "title": "Dues by class",
+      "description": "Which classes owe the most"
+    },
+    "fee-generation-status": {
+      "title": "Fee generation",
+      "description": "Whether this month's bills are made"
+    },
+    "reminders-pending": {
+      "title": "Reminders waiting",
+      "description": "Fee reminders ready to send"
+    },
+    "recent-payments": {
+      "title": "Recent payments",
+      "description": "The latest payments received"
+    },
+    "committee-enrollment": {
+      "title": "Enrolment",
+      "description": "Total students and change from last year"
+    },
+    "committee-attendance": {
+      "title": "Attendance",
+      "description": "Attendance over time against the target"
+    },
+    "committee-finance": {
+      "title": "Finance",
+      "description": "Collection and dues in short"
+    },
+    "committee-pass-rate": {
+      "title": "Pass rate",
+      "description": "Pass rate in the latest published exam"
+    },
+    "seat-plan-status": {
+      "title": "Seat plans",
+      "description": "Which exams have a seat plan and which do not"
+    },
+    "results-state": {
+      "title": "Results",
+      "description": "Which exams have results published"
+    },
+    "admissions-today": {
+      "title": "Admissions today",
+      "description": "New admission applications today"
+    },
+    "guardians-incomplete": {
+      "title": "Guardian details missing",
+      "description": "Students with no guardian phone number"
+    },
+    "students-added-today": {
+      "title": "Students added today",
+      "description": "Students newly added today"
+    },
+    "print-queue": {
+      "title": "Print queue",
+      "description": "Documents waiting to be printed"
+    },
+    "setup-checklist": {
+      "title": "Setup checklist",
+      "description": "What is left to set up for your school"
+    },
+    "syllabus-vs-plan": {
+      "title": "Syllabus against plan",
+      "description": "Taught so far against the study plan"
+    },
+    "my-lessons-to-mark": {
+      "title": "Lessons to mark done",
+      "description": "Lessons you taught but have not marked done"
+    }
+  }
+}

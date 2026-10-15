@@ -9,6 +9,8 @@ import {
   MaxLength,
   IsNotEmpty,
   IsEnum,
+  IsDateString,
+  ValidateIf,
   IsNumberString,
   IsArray,
   ArrayNotEmpty,
@@ -80,6 +82,11 @@ export class CreateExamDto {
   @IsOptional()
   @IsUUID()
   template_id?: string;
+
+  /** Last day for mark entry (YYYY-MM-DD). */
+  @ValidateIf((_, v) => v !== undefined) // omitted is fine; null is not (only update clears)
+  @IsDateString({ strict: true })
+  mark_entry_deadline?: string;
 }
 
 /** POST /exams response: the created exam plus how many template components were copied. */
@@ -111,6 +118,11 @@ export class UpdateExamDto {
   @IsOptional()
   @IsUUID()
   academic_term_id?: string | null;
+
+  /** YYYY-MM-DD; `null` clears it. */
+  @ValidateIf((_, v) => v != null) // undefined = unchanged, null = clear
+  @IsDateString({ strict: true })
+  mark_entry_deadline?: string | null;
 
   // Deliberately no `status` field here. `ExamsService.update` writes this
   // DTO straight through to `repo.update` — a status field would let any

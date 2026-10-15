@@ -704,6 +704,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/sms-balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: sms-balance */
+        get: operations["CommunicationsDashboardController_getSmsBalance_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/failed-messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: failed-messages */
+        get: operations["CommunicationsDashboardController_getFailedMessages_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students": {
         parameters: {
             query?: never;
@@ -3456,6 +3490,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/attendance-today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: attendance-today */
+        get: operations["AttendanceDashboardController_getToday_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/attendance/devices": {
         parameters: {
             query?: never;
@@ -4129,6 +4180,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/collection-month": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: collection-month */
+        get: operations["ReportsDashboardController_collectionMonth_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/at-risk-students": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: at-risk-students */
+        get: operations["AtRiskStudentsDashboardController_atRiskStudents_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search": {
         parameters: {
             query?: never;
@@ -4788,6 +4873,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/mark-entry-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: mark-entry-progress */
+        get: operations["ExamsDashboardController_markEntryProgress_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/homework": {
         parameters: {
             query?: never;
@@ -5045,6 +5147,23 @@ export interface paths {
         head?: never;
         /** Edit a syllabus topic (content and/or status). */
         patch: operations["SyllabusController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/syllabus-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: syllabus-progress */
+        get: operations["HomeworkDashboardController_getSyllabusProgress_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/study-plans": {
@@ -7247,6 +7366,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/staff-today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: staff-today */
+        get: operations["StaffAttendanceDashboardController_getToday_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/leave/balance": {
         parameters: {
             query?: never;
@@ -8749,6 +8885,31 @@ export interface components {
         ConnectionTestResultDto: {
             success: boolean;
             message: string;
+        };
+        SmsBalanceWidgetDto: {
+            /** @enum {string} */
+            metering: "OFF" | "PLATFORM";
+            /** @description SMS credits left to spend; 0 when metering is OFF */
+            available: number;
+            /** @description Credits held for queued sends; 0 when metering is OFF */
+            reserved: number;
+        };
+        FailedMessagesWindowDto: {
+            /**
+             * @description First school day counted (inclusive)
+             * @example 2026-10-01
+             */
+            from: string;
+            /**
+             * @description Today in the school timezone
+             * @example 2026-10-07
+             */
+            to: string;
+        };
+        FailedMessagesWidgetDto: {
+            /** @description SMS with status FAILED in the last 7 school days */
+            failed: number;
+            window: components["schemas"]["FailedMessagesWindowDto"];
         };
         CreateStudentDto: {
             full_name: string;
@@ -11551,6 +11712,38 @@ export interface components {
             /** @enum {string|null} */
             skipped_reason: "no_session" | "not_finalized" | "already_notified" | null;
         };
+        AttendanceTodayCountsDto: {
+            present: number;
+            late: number;
+            absent: number;
+            leave: number;
+            unmarked: number;
+        };
+        AttendancePendingSectionDto: {
+            /** Format: uuid */
+            section_id: string;
+            class_name: string;
+            section_name: string;
+        };
+        AttendanceSeriesPointDto: {
+            /** @example 2026-10-07 */
+            date: string;
+            /** @description null = no register that day */
+            percentage: number | null;
+        };
+        AttendanceTodayWidgetDto: {
+            /** @example 2026-10-07 */
+            date: string;
+            is_working_day: boolean;
+            /** @example 91.4 */
+            percentage: number | null;
+            counts: components["schemas"]["AttendanceTodayCountsDto"];
+            sections_total: number;
+            pending_sections: components["schemas"]["AttendancePendingSectionDto"][];
+            week_ago_percentage: number | null;
+            /** @description 30 points ending today */
+            series: components["schemas"]["AttendanceSeriesPointDto"][];
+        };
         CreateDeviceDto: {
             name: string;
             /** @enum {string} */
@@ -11975,6 +12168,80 @@ export interface components {
             by_fee_type: components["schemas"]["CollectionsByFeeType"][];
             by_day: components["schemas"]["CollectionsByDay"][];
         };
+        CollectionMonthFigures: {
+            /**
+             * @description Last day of the range, YYYY-MM-DD.
+             * @example 2026-09-07
+             */
+            as_of: string;
+            /** @description Amount applied to bills: net SUCCESS payments (reversals subtracted) dated day 1 to as_of, for any bill (not physical cash: wallet spend counts). Equals GET /reports/collections totals.net for the same range. */
+            received: number;
+            /** @description Accrual basis: total minus discount of non-deleted bills whose period_start is in the whole month, paid or not. */
+            billed_for_month: number;
+            /** @description round(received / billed_for_month * 100); null when billed_for_month is 0. Different bases, so it can exceed 100 (arrears paid this month). */
+            received_pct: number | null;
+        };
+        CollectionMonthWidgetDto: {
+            /**
+             * @description Last day of the range, YYYY-MM-DD.
+             * @example 2026-09-07
+             */
+            as_of: string;
+            /** @description Amount applied to bills: net SUCCESS payments (reversals subtracted) dated day 1 to as_of, for any bill (not physical cash: wallet spend counts). Equals GET /reports/collections totals.net for the same range. */
+            received: number;
+            /** @description Accrual basis: total minus discount of non-deleted bills whose period_start is in the whole month, paid or not. */
+            billed_for_month: number;
+            /** @description round(received / billed_for_month * 100); null when billed_for_month is 0. Different bases, so it can exceed 100 (arrears paid this month). */
+            received_pct: number | null;
+            /**
+             * @description School-local month, YYYY-MM.
+             * @example 2026-10
+             */
+            month: string;
+            /** @description Same day-of-month, previous month. */
+            last_month_same_point: components["schemas"]["CollectionMonthFigures"];
+            /** @description Same day-of-month, same month last year; null when it had no bills and no net cash. */
+            last_year_same_point: components["schemas"]["CollectionMonthFigures"] | null;
+        };
+        AtRiskThresholdsDto: {
+            absentStreakDays: number;
+            monthlyAttendancePct: number;
+            failedSubjects: number;
+            overdueDays: number;
+        };
+        AtRiskSubjectDto: {
+            name_en: string;
+            name_bn: string | null;
+        };
+        AtRiskSignalDto: {
+            /** @enum {string} */
+            kind: "ABSENT_STREAK" | "LOW_ATTENDANCE" | "FAILED_SUBJECTS" | "OVERDUE";
+            /** @description ABSENT_STREAK: days in the run. LOW_ATTENDANCE: % over the last 30 days. FAILED_SUBJECTS: count. OVERDUE: days since the oldest overdue bill. */
+            value: number;
+            /** @description FAILED_SUBJECTS only. */
+            subjects?: components["schemas"]["AtRiskSubjectDto"][];
+        };
+        AtRiskStudentDto: {
+            student_id: string;
+            full_name: string;
+            class_name: string;
+            section_name: string;
+            signals: components["schemas"]["AtRiskSignalDto"][];
+        };
+        AtRiskStudentsWidgetDto: {
+            /** @enum {string} */
+            state: "READY" | "COMPUTING";
+            /** @description ISO time of the last compute. */
+            computed_at: string | null;
+            /** @description True when the school thresholds changed since the last compute. */
+            stale: boolean;
+            thresholds: components["schemas"]["AtRiskThresholdsDto"];
+            total: number;
+            /** @description null until a week-old snapshot exists. */
+            week_ago_total: number | null;
+            new_this_week: number | null;
+            students: components["schemas"]["AtRiskStudentDto"][];
+        };
         SearchStudentResult: {
             id: string;
             full_name: string;
@@ -12079,6 +12346,7 @@ export interface components {
             academic_term_id?: string | null;
             /** Format: uuid */
             template_id?: string;
+            mark_entry_deadline?: string;
         };
         AcademicTerm: {
             id: string;
@@ -12115,6 +12383,7 @@ export interface components {
             status: "DRAFT" | "PROCESSED" | "PUBLISHED";
             /** Format: date-time */
             published_at: string | null;
+            mark_entry_deadline: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -12139,6 +12408,7 @@ export interface components {
             status: "DRAFT" | "PROCESSED" | "PUBLISHED";
             /** Format: date-time */
             published_at: string | null;
+            mark_entry_deadline: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -12156,6 +12426,7 @@ export interface components {
             class_id?: string;
             /** Format: uuid */
             academic_term_id?: string | null;
+            mark_entry_deadline?: string | null;
         };
         CreateExamComponentDto: {
             /** Format: uuid */
@@ -12371,6 +12642,39 @@ export interface components {
             ends_at?: string;
             venue?: string | null;
         };
+        MarkEntryFiguresDto: {
+            /** @description Mark grids in state SUBMITTED */
+            submitted: number;
+            /** @description Live sections x distinct subjects of the live components */
+            total: number;
+            /** @description Rounded; 0 when total is 0 */
+            percentage: number;
+        };
+        MarkEntryClassDto: {
+            /** @description Mark grids in state SUBMITTED */
+            submitted: number;
+            /** @description Live sections x distinct subjects of the live components */
+            total: number;
+            /** @description Rounded; 0 when total is 0 */
+            percentage: number;
+            /** Format: uuid */
+            class_id: string;
+            class_name: string;
+            /** Format: uuid */
+            exam_id: string;
+        };
+        MarkEntryProgressWidgetDto: {
+            /** @description null when no exam is in progress */
+            exam_name: string | null;
+            /** @description YYYY-MM-DD, latest in the group */
+            mark_entry_deadline: string | null;
+            /** @description Days since the last sitting, when it is before today */
+            exam_ended_days_ago: number | null;
+            overall: components["schemas"]["MarkEntryFiguresDto"];
+            classes: components["schemas"]["MarkEntryClassDto"][];
+            /** Format: uuid */
+            lowest_class_id: string | null;
+        };
         CreateHomeworkDto: {
             /** Format: uuid */
             subject_id: string;
@@ -12506,6 +12810,33 @@ export interface components {
             sequence?: number;
             /** @enum {string} */
             status?: "DONE" | "PLANNED" | "IN_PROGRESS";
+        };
+        SyllabusClassProgressDto: {
+            /** Format: uuid */
+            class_id: string;
+            /** @example 8 */
+            class_name: string;
+            /** @description Topics with status DONE */
+            done: number;
+            /** @description Topics with status IN_PROGRESS */
+            in_progress: number;
+            /** @description All topics of the class */
+            total: number;
+            /**
+             * @description round(done / total * 100)
+             * @example 41
+             */
+            percentage: number;
+        };
+        SyllabusOverallProgressDto: {
+            done: number;
+            total: number;
+            /** @example 60 */
+            percentage: number;
+        };
+        SyllabusProgressWidgetDto: {
+            classes: components["schemas"]["SyllabusClassProgressDto"][];
+            overall: components["schemas"]["SyllabusOverallProgressDto"];
         };
         PlanListSectionDto: {
             id: string;
@@ -13922,6 +14253,32 @@ export interface components {
             absent_days: number;
             leave_days: number;
             attendance_percentage: number | null;
+        };
+        /** @enum {string} */
+        LeaveType: "CASUAL" | "SICK" | "MATERNITY" | "PATERNITY" | "EARNED";
+        StaffOnLeaveDto: {
+            /** Format: uuid */
+            staff_profile_id: string;
+            /** @example Rasheda Parvin */
+            full_name: string;
+            leave_type: components["schemas"]["LeaveType"];
+            /** @example 2026-10-09 */
+            end_date: string;
+        };
+        StaffTodayWidgetDto: {
+            /** @example 2026-10-07 */
+            date: string;
+            staff_total: number;
+            present: number;
+            late: number;
+            absent: number;
+            /** @description Staff on approved leave today (length of on_leave) */
+            leave: number;
+            /** @description Active staff with no mark today */
+            unmarked: number;
+            /** @description Marked ABSENT today with no approved leave covering today */
+            absent_without_leave: number;
+            on_leave: components["schemas"]["StaffOnLeaveDto"][];
         };
         LeaveBalanceDto: {
             /** @enum {string} */
@@ -16170,6 +16527,82 @@ export interface operations {
                 content?: never;
             };
             /** @description An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommunicationsDashboardController_getSmsBalance_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmsBalanceWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommunicationsDashboardController_getFailedMessages_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FailedMessagesWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -23858,6 +24291,44 @@ export interface operations {
             };
         };
     };
+    AttendanceDashboardController_getToday_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceTodayWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     DevicesController_list_v1: {
         parameters: {
             query?: never;
@@ -25564,6 +26035,84 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportsDashboardController_collectionMonth_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionMonthWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AtRiskStudentsDashboardController_atRiskStudents_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtRiskStudentsWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -27433,6 +27982,44 @@ export interface operations {
             };
         };
     };
+    ExamsDashboardController_markEntryProgress_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkEntryProgressWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     HomeworkController_findAll_v1: {
         parameters: {
             query?: {
@@ -28096,6 +28683,44 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HomeworkDashboardController_getSyllabusProgress_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyllabusProgressWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -33584,6 +34209,44 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StaffAttendanceDashboardController_getToday_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffTodayWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

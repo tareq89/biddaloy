@@ -1,0 +1,205 @@
+{
+  "page": {
+    "title": "ড্যাশবোর্ড",
+    "customise": "সাজান",
+    "customiseAria": "ড্যাশবোর্ড সাজান",
+    "moreOptions": "আরও অপশন",
+    "keyNumbers": "মূল সংখ্যা",
+    "showMore": "{{title}} আরও দেখুন",
+    "showLess": "{{title}} কম দেখুন"
+  },
+  "states": {
+    "loading": "{{title}} লোড হচ্ছে",
+    "error": "এই উইজেটটা লোড হয়নি।",
+    "retry": "আবার চেষ্টা করুন",
+    "allHidden": {
+      "title": "সব উইজেট লুকানো",
+      "explanation": "আপনার ড্যাশবোর্ডে কোন উইজেট দেখাবে, বেছে নিন।",
+      "action": "সাজান"
+    },
+    "offlineCached": "সর্বশেষ সেভ করা হিসাব দেখানো হচ্ছে।"
+  },
+  "customise": {
+    "badge": "সাজানো হচ্ছে",
+    "intro": "কোন উইজেট দেখাবে আর কোনটা আগে আসবে, ঠিক করুন। সেভ না করা পর্যন্ত কিছু বদলাবে না।",
+    "preview": "প্রিভিউ: সেভ করলে এভাবে দেখাবে",
+    "panelTitle": "উইজেট",
+    "summary": "{{role}}-এর জন্য {{total}}টা উইজেট আছে, এখন {{shown}}টা দেখানো হচ্ছে।",
+    "shownHeading": "দেখানো হচ্ছে ({{count}})",
+    "hiddenHeading": "লুকানো ({{count}})",
+    "size": {
+      "label": "{{title}}-এর আকার",
+      "S": "ছোট",
+      "M": "মাঝারি",
+      "L": "বড়"
+    },
+    "moveUp": "{{title}} উপরে সরান",
+    "moveDown": "{{title}} নিচে সরান",
+    "moved": "{{title}} এখন {{position}} নম্বরে",
+    "shownNow": "{{title}} দেখানো হবে",
+    "hiddenNow": "{{title}} লুকানো হবে",
+    "keyboardHint": "Space দিয়ে দেখান/লুকান, Alt + ↑ / ↓ দিয়ে সরান",
+    "reset": "ডিফল্টে ফিরুন",
+    "cancel": "বাতিল",
+    "save": "সেভ করুন",
+    "saved": "ড্যাশবোর্ড সেভ হয়েছে"
+  },
+  "widgets": {
+    "attendance-today": {
+      "title": "আজকের শিক্ষার্থী উপস্থিতি",
+      "description": "আজ কত শতাংশ এসেছে, কোন শাখা বাকি"
+    },
+    "staff-today": {
+      "title": "শিক্ষক ও স্টাফ",
+      "description": "কে উপস্থিত, কে কোন ছুটিতে"
+    },
+    "collection-month": {
+      "title": "এ মাসের আদায়",
+      "description": "লক্ষ্যের কতটা আদায় হলো, গত মাসের তুলনায়"
+    },
+    "approvals-pending": {
+      "title": "আপনার অনুমোদনের অপেক্ষায়",
+      "description": "ছুটি, ভর্তি আর ফি মওকুফের আবেদন"
+    },
+    "at-risk-students": {
+      "title": "ঝুঁকিপূর্ণ শিক্ষার্থী",
+      "description": "যাদের ২টা বা বেশি সতর্ক সংকেত মিলেছে"
+    },
+    "mark-entry-progress": {
+      "title": "মার্ক এন্ট্রি",
+      "description": "কোন শ্রেণির মার্ক জমা বাকি"
+    },
+    "syllabus-progress": {
+      "title": "সিলেবাস অগ্রগতি",
+      "description": "কোন শ্রেণি পড়ানোয় পিছিয়ে আছে"
+    },
+    "upcoming": {
+      "title": "সামনে কী আছে",
+      "description": "পরের ছুটি আর সামনের অনুষ্ঠান"
+    },
+    "homework-submission-rate": {
+      "title": "হোমওয়ার্ক জমার হার",
+      "description": "এ সপ্তাহে কত শতাংশ বাড়ির কাজ জমা পড়েছে"
+    },
+    "sms-balance": {
+      "title": "SMS ব্যালান্স",
+      "description": "আর কতগুলো SMS পাঠানো যাবে"
+    },
+    "failed-messages": {
+      "title": "যে বার্তা যায়নি",
+      "description": "গত ৭ দিনে যে SMS যায়নি"
+    },
+    "recent-activity": {
+      "title": "সাম্প্রতিক কার্যকলাপ",
+      "description": "সিস্টেমে কে কখন কী বদলেছে"
+    },
+    "my-routine-today": {
+      "title": "আজকের আমার রুটিন",
+      "description": "আজ আপনার পিরিয়ডগুলো পর পর"
+    },
+    "my-pending-sections": {
+      "title": "উপস্থিতি নেওয়া বাকি",
+      "description": "আপনার যে শাখাগুলোয় এখনো উপস্থিতি নেওয়া হয়নি"
+    },
+    "my-mark-deadlines": {
+      "title": "মার্ক জমার সময়সীমা",
+      "description": "কোন মার্ক কবে পর্যন্ত জমা দিতে হবে"
+    },
+    "homework-to-check": {
+      "title": "দেখার বাকি হোমওয়ার্ক",
+      "description": "জমা পড়েছে কিন্তু আপনি এখনো দেখেননি"
+    },
+    "class-teacher-streaks": {
+      "title": "আমার শ্রেণির ধারাবাহিকতা",
+      "description": "যারা টানা কয়েক দিন অনুপস্থিত"
+    },
+    "my-leave-balance": {
+      "title": "আমার ছুটির হিসাব",
+      "description": "কত ছুটি নিয়েছেন আর কত বাকি"
+    },
+    "my-syllabus-progress": {
+      "title": "আমার সিলেবাস অগ্রগতি",
+      "description": "প্রতি শ্রেণিতে কতটা পড়ানো হলো"
+    },
+    "collection-today": {
+      "title": "আজকের আদায়",
+      "description": "আজ কত টাকা এসেছে, ক্যাশ আর অন্যান্য"
+    },
+    "collection-by-month": {
+      "title": "মাস অনুযায়ী আদায়",
+      "description": "এ বছরের প্রতি মাসের আদায়"
+    },
+    "dues-ageing": {
+      "title": "বকেয়া কত দিনের",
+      "description": "কত দিন ধরে বকেয়া, সেই অনুযায়ী টাকার পরিমাণ"
+    },
+    "dues-by-class": {
+      "title": "শ্রেণি অনুযায়ী বকেয়া",
+      "description": "কোন শ্রেণির বকেয়া সবচেয়ে বেশি"
+    },
+    "fee-generation-status": {
+      "title": "ফি তৈরির অবস্থা",
+      "description": "এ মাসের বিল তৈরি হয়েছে কি না"
+    },
+    "reminders-pending": {
+      "title": "অপেক্ষায় থাকা রিমাইন্ডার",
+      "description": "পাঠানোর জন্য তৈরি ফি রিমাইন্ডার"
+    },
+    "recent-payments": {
+      "title": "সাম্প্রতিক পেমেন্ট",
+      "description": "সবশেষ যে পেমেন্টগুলো এসেছে"
+    },
+    "committee-enrollment": {
+      "title": "ভর্তির সংখ্যা",
+      "description": "মোট শিক্ষার্থী আর গত বছরের তুলনায় পরিবর্তন"
+    },
+    "committee-attendance": {
+      "title": "উপস্থিতি",
+      "description": "লক্ষ্যের তুলনায় উপস্থিতির ধারা"
+    },
+    "committee-finance": {
+      "title": "আর্থিক অবস্থা",
+      "description": "আদায় আর বকেয়ার সংক্ষিপ্ত চিত্র"
+    },
+    "committee-pass-rate": {
+      "title": "পাসের হার",
+      "description": "সর্বশেষ প্রকাশিত পরীক্ষায় পাসের হার"
+    },
+    "seat-plan-status": {
+      "title": "আসন পরিকল্পনা",
+      "description": "কোন পরীক্ষার আসন পরিকল্পনা আছে, কোনটার নেই"
+    },
+    "results-state": {
+      "title": "ফলাফল",
+      "description": "কোন পরীক্ষার ফল প্রকাশ হয়েছে"
+    },
+    "admissions-today": {
+      "title": "আজকের ভর্তি",
+      "description": "আজ নতুন কত ভর্তির আবেদন এসেছে"
+    },
+    "guardians-incomplete": {
+      "title": "অভিভাবকের তথ্য অসম্পূর্ণ",
+      "description": "যাদের অভিভাবকের ফোন নম্বর নেই"
+    },
+    "students-added-today": {
+      "title": "আজ যোগ হওয়া শিক্ষার্থী",
+      "description": "আজ নতুন কত শিক্ষার্থী যোগ হয়েছে"
+    },
+    "print-queue": {
+      "title": "প্রিন্টের তালিকা",
+      "description": "প্রিন্টের অপেক্ষায় থাকা নথি"
+    },
+    "setup-checklist": {
+      "title": "সেটআপ তালিকা",
+      "description": "স্কুলের জন্য আর কী কী সেটআপ বাকি"
+    },
+    "syllabus-vs-plan": {
+      "title": "পরিকল্পনার তুলনায় সিলেবাস",
+      "description": "স্টাডি প্ল্যানের তুলনায় এ পর্যন্ত কতটা পড়ানো হলো"
+    },
+    "my-lessons-to-mark": {
+      "title": "শেষ বলে চিহ্নিত করার পাঠ",
+      "description": "যে পাঠ পড়িয়েছেন কিন্তু শেষ বলে চিহ্নিত করেননি"
+    }
+  }
+}

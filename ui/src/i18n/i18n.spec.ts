@@ -55,6 +55,17 @@ describe('createI18nInstance', () => {
     expect(instance.t('issue.titleNoKind', { ns: 'certificates' })).toBe('সনদ ইস্যু করুন');
   });
 
+  it('resolves the dashboard namespace in both languages', async () => {
+    const instance = createI18nInstance();
+    await instance.loadNamespaces(['dashboard']);
+
+    await instance.changeLanguage('en');
+    expect(instance.t('customise.save', { ns: 'dashboard' })).toBe('Save');
+
+    await instance.changeLanguage('bn');
+    expect(instance.t('customise.save', { ns: 'dashboard' })).toBe('সেভ করুন');
+  });
+
   it('does not double-escape interpolated values — React already escapes on render', () => {
     const instance = createI18nInstance();
 

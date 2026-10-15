@@ -39,19 +39,20 @@ export function currentStreaks(
   sessionsNewestFirst: StreakSession[],
   studentIds: string[],
   statusBySession: Map<string, Map<string, AttendanceStatus>>,
+  thresholds: Record<StreakStatus, number> = STREAK_THRESHOLDS,
 ): Streak[] {
   if (sessionsNewestFirst.length === 0) return [];
   const out: Streak[] = [];
   for (const studentId of studentIds) {
     const marks = statusBySession.get(studentId);
     const first = marks?.get(sessionsNewestFirst[0].id);
-    if (!marks || !first || !(first in STREAK_THRESHOLDS)) continue;
+    if (!marks || !first || !(first in thresholds)) continue;
     let length = 0;
     for (const s of sessionsNewestFirst) {
       if (marks.get(s.id) !== first) break;
       length++;
     }
-    if (length >= STREAK_THRESHOLDS[first as StreakStatus]) {
+    if (length >= thresholds[first as StreakStatus]) {
       out.push({
         student_id: studentId,
         status: first as StreakStatus,
