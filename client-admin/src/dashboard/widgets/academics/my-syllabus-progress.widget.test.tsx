@@ -91,4 +91,15 @@ describe('my-syllabus-progress widget', () => {
     renderWidget('full');
     expect(await screen.findByText('No syllabus topics in your subjects yet.')).toBeTruthy();
   });
+
+  it('subjects with no topics: all-zero is empty, otherwise never "least covered"', async () => {
+    const noTopics = { ...item('9', '6', 'Art', null, 0), total: 0 };
+    serve({ items: [noTopics] });
+    const { unmount } = renderWidget('full');
+    expect(await screen.findByText('No syllabus topics in your subjects yet.')).toBeTruthy();
+    unmount();
+    serve({ items: [noTopics, ...BASE.items] });
+    renderWidget('compact');
+    expect(await screen.findByText(/^7 A Science has covered the least/)).toBeTruthy();
+  });
 });

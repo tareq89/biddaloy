@@ -53,7 +53,10 @@ export function MySyllabusProgressView({
 
   const title = tw('title');
   const items = data?.items ?? [];
-  const empty = !!data && items.length === 0;
+  const totalTopics = items.reduce((sum, i) => sum + i.total, 0);
+  // A subject with no topics yet has nothing to cover: it stays in the table but never
+  // counts as "least covered", and all-zero data is the empty state.
+  const empty = !!data && totalTopics === 0;
   const rows = [...items]
     .sort((a, b) => a.percentage - b.percentage)
     .map((i) => ({
@@ -61,13 +64,13 @@ export function MySyllabusProgressView({
         (locale === 'bn' && i.subject_name_bn) || i.subject_name_en
       }`,
       percentage: i.percentage,
+      total: i.total,
     }));
-  const totalTopics = items.reduce((sum, i) => sum + i.total, 0);
   const average =
     totalTopics === 0
       ? 0
       : Math.round((items.reduce((sum, i) => sum + i.done, 0) / totalTopics) * 100);
-  const lowest = rows[0];
+  const lowest = rows.find((r) => r.total > 0);
   const leastText = lowest
     ? tw('leastCovered', { label: lowest.label, percent: pct(lowest.percentage) })
     : undefined;
