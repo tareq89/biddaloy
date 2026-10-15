@@ -19,3 +19,70 @@ export class SyllabusProgressWidgetDto {
   @ApiProperty({ type: [SyllabusClassProgressDto] }) classes!: SyllabusClassProgressDto[];
   @ApiProperty({ type: SyllabusOverallProgressDto }) overall!: SyllabusOverallProgressDto;
 }
+
+/** [8.10.7.3.04] One assignment with submissions waiting for the teacher. */
+export class HomeworkToCheckItemDto {
+  @ApiProperty({ format: 'uuid' }) assignment_id!: string;
+  @ApiProperty({ format: 'uuid' }) homework_id!: string;
+  @ApiProperty() title!: string;
+  @ApiProperty({ example: '7' }) class_name!: string;
+  @ApiProperty({ example: 'B' }) section_name!: string;
+  @ApiProperty({ example: 'Mathematics' }) subject_name_en!: string;
+  @ApiProperty({ type: String, nullable: true }) subject_name_bn!: string | null;
+  @ApiProperty({ example: '2026-10-06' }) due_date!: string;
+  @ApiProperty({ description: 'Submissions with status SUBMITTED' }) submitted_count!: number;
+}
+
+export class HomeworkToCheckDto {
+  @ApiProperty({ description: 'SUBMITTED rows across all of the caller assignments' })
+  total_submitted!: number;
+  @ApiProperty({ description: 'Assignments with at least one SUBMITTED row' })
+  assignment_count!: number;
+  @ApiProperty({ type: [HomeworkToCheckItemDto], description: 'Top 5 by submitted_count' })
+  items!: HomeworkToCheckItemDto[];
+}
+
+/** [8.10.7.3.19] Submitted vs assigned. */
+export class SubmissionRateCountsDto {
+  @ApiProperty() assigned!: number;
+  @ApiProperty() submitted!: number;
+  @ApiProperty({ example: 85 }) percentage!: number;
+}
+
+export class SubmissionRateClassDto extends SubmissionRateCountsDto {
+  @ApiProperty({ format: 'uuid' }) class_id!: string;
+  @ApiProperty({ example: '7' }) class_name!: string;
+}
+
+export class SubmissionRateWindowDto {
+  @ApiProperty({ example: '2026-10-01' }) from!: string;
+  @ApiProperty({ example: '2026-10-07' }) to!: string;
+}
+
+export class HomeworkSubmissionRateDto {
+  @ApiProperty({ type: SubmissionRateWindowDto }) window!: SubmissionRateWindowDto;
+  @ApiProperty({ type: SubmissionRateCountsDto }) overall!: SubmissionRateCountsDto;
+  @ApiProperty({ type: [SubmissionRateClassDto] }) classes!: SubmissionRateClassDto[];
+}
+
+/** [8.10.7.3.19] Teacher "my syllabus progress". */
+export class MySyllabusSectionDto {
+  @ApiProperty({ format: 'uuid' }) section_id!: string;
+  @ApiProperty({ example: 'B' }) section_name!: string;
+}
+
+export class MySyllabusProgressItemDto {
+  @ApiProperty({ format: 'uuid' }) class_id!: string;
+  @ApiProperty({ example: '7' }) class_name!: string;
+  @ApiProperty({ type: [MySyllabusSectionDto] }) sections!: MySyllabusSectionDto[];
+  @ApiProperty({ format: 'uuid' }) subject_id!: string;
+  @ApiProperty({ example: 'Mathematics' }) subject_name_en!: string;
+  @ApiProperty({ type: String, nullable: true }) subject_name_bn!: string | null;
+  @ApiProperty() done!: number;
+  @ApiProperty() total!: number;
+  @ApiProperty({ example: 37 }) percentage!: number;
+}
+
+export class MySyllabusProgressDto {
+  @ApiProperty({ type: [MySyllabusProgressItemDto] }) items!: MySyllabusProgressItemDto[];
+}
