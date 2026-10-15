@@ -84,6 +84,7 @@ import { Route as StaffPaymentsIndexRouteImport } from './routes/_staff/payments
 import { Route as StaffPaymentsIdRouteImport } from './routes/_staff/payments/$id'
 import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
 import { Route as StaffPrintTemplatesIndexRouteImport } from './routes/_staff/print-templates/index'
+import { Route as StaffPrintCommitteeReportRouteImport } from './routes/_staff/print/committee-report'
 import { Route as StaffPrintDocumentRouteImport } from './routes/_staff/print/document'
 import { Route as StaffPrintPreviewRouteImport } from './routes/_staff/print/preview'
 import { Route as StaffProgramsIndexRouteImport } from './routes/_staff/programs/index'
@@ -531,6 +532,12 @@ const StaffPrintTemplatesIndexRoute =
     path: '/print-templates/',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffPrintCommitteeReportRoute =
+  StaffPrintCommitteeReportRouteImport.update({
+    id: '/print/committee-report',
+    path: '/print/committee-report',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffPrintDocumentRoute = StaffPrintDocumentRouteImport.update({
   id: '/print/document',
   path: '/print/document',
@@ -925,6 +932,7 @@ export interface FileRoutesByFullPath {
   '/my-class/$sectionId': typeof StaffMyClassSectionIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/print/committee-report': typeof StaffPrintCommitteeReportRoute
   '/print/document': typeof StaffPrintDocumentRoute
   '/print/preview': typeof StaffPrintPreviewRoute
   '/programs/$programId': typeof StaffProgramsProgramIdRoute
@@ -1060,6 +1068,7 @@ export interface FileRoutesByTo {
   '/my-class/$sectionId': typeof StaffMyClassSectionIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/print/committee-report': typeof StaffPrintCommitteeReportRoute
   '/print/document': typeof StaffPrintDocumentRoute
   '/print/preview': typeof StaffPrintPreviewRoute
   '/programs/$programId': typeof StaffProgramsProgramIdRoute
@@ -1200,6 +1209,7 @@ export interface FileRoutesById {
   '/_staff/my-class/$sectionId': typeof StaffMyClassSectionIdRoute
   '/_staff/payments/$id': typeof StaffPaymentsIdRoute
   '/_staff/payments/record': typeof StaffPaymentsRecordRoute
+  '/_staff/print/committee-report': typeof StaffPrintCommitteeReportRoute
   '/_staff/print/document': typeof StaffPrintDocumentRoute
   '/_staff/print/preview': typeof StaffPrintPreviewRoute
   '/_staff/programs/$programId': typeof StaffProgramsProgramIdRoute
@@ -1339,6 +1349,7 @@ export interface FileRouteTypes {
     | '/my-class/$sectionId'
     | '/payments/$id'
     | '/payments/record'
+    | '/print/committee-report'
     | '/print/document'
     | '/print/preview'
     | '/programs/$programId'
@@ -1474,6 +1485,7 @@ export interface FileRouteTypes {
     | '/my-class/$sectionId'
     | '/payments/$id'
     | '/payments/record'
+    | '/print/committee-report'
     | '/print/document'
     | '/print/preview'
     | '/programs/$programId'
@@ -1613,6 +1625,7 @@ export interface FileRouteTypes {
     | '/_staff/my-class/$sectionId'
     | '/_staff/payments/$id'
     | '/_staff/payments/record'
+    | '/_staff/print/committee-report'
     | '/_staff/print/document'
     | '/_staff/print/preview'
     | '/_staff/programs/$programId'
@@ -2242,6 +2255,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffPrintTemplatesIndexRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/print/committee-report': {
+      id: '/_staff/print/committee-report'
+      path: '/print/committee-report'
+      fullPath: '/print/committee-report'
+      preLoaderRoute: typeof StaffPrintCommitteeReportRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/print/document': {
       id: '/_staff/print/document'
       path: '/print/document'
@@ -2750,6 +2770,7 @@ interface StaffRouteChildren {
   StaffMyClassSectionIdRoute: typeof StaffMyClassSectionIdRoute
   StaffPaymentsIdRoute: typeof StaffPaymentsIdRoute
   StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
+  StaffPrintCommitteeReportRoute: typeof StaffPrintCommitteeReportRoute
   StaffPrintDocumentRoute: typeof StaffPrintDocumentRoute
   StaffPrintPreviewRoute: typeof StaffPrintPreviewRoute
   StaffProgramsProgramIdRoute: typeof StaffProgramsProgramIdRoute
@@ -2847,6 +2868,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffMyClassSectionIdRoute: StaffMyClassSectionIdRoute,
   StaffPaymentsIdRoute: StaffPaymentsIdRoute,
   StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,
+  StaffPrintCommitteeReportRoute: StaffPrintCommitteeReportRoute,
   StaffPrintDocumentRoute: StaffPrintDocumentRoute,
   StaffPrintPreviewRoute: StaffPrintPreviewRoute,
   StaffProgramsProgramIdRoute: StaffProgramsProgramIdRoute,
