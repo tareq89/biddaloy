@@ -5,11 +5,19 @@ import { DashboardWidgetKey } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { DashboardWidgetRoute } from '../dashboard/widget-permission.decorator';
 import { DashboardCacheService } from '../dashboard/dashboard-cache.service';
 import { SyllabusService } from './syllabus.service';
-import { SyllabusProgressWidgetDto } from './dto/homework-dashboard.dto';
+import { HomeworkService } from './homework.service';
+import { HomeworkAnalyticsService } from './homework-analytics.service';
+import {
+  HomeworkSubmissionRateDto,
+  HomeworkToCheckDto,
+  MySyllabusProgressDto,
+  SyllabusProgressWidgetDto,
+} from './dto/homework-dashboard.dto';
 
 /** [8.10.7.2.05] "Syllabus progress" widget. Done % only; the expected-by-today marker waits for #1828. */
 @ApiTags('dashboard')
@@ -19,6 +27,8 @@ import { SyllabusProgressWidgetDto } from './dto/homework-dashboard.dto';
 export class HomeworkDashboardController {
   constructor(
     private readonly syllabus: SyllabusService,
+    private readonly homework: HomeworkService,
+    private readonly analytics: HomeworkAnalyticsService,
     private readonly cache: DashboardCacheService,
   ) {}
 
@@ -27,6 +37,53 @@ export class HomeworkDashboardController {
   getSyllabusProgress(@CurrentTenant() tenant: { id: string }): Promise<SyllabusProgressWidgetDto> {
     return this.cache.getOrLoad(tenant.id, DashboardWidgetKey.SYLLABUS_PROGRESS, 'school', () =>
       this.syllabus.progressByClass(tenant.id),
+    );
+  }
+
+  /** [8.10.7.3.04] Teacher card "homework to check". Cached per user. */
+  @DashboardWidgetRoute(DashboardWidgetKey.HOMEWORK_TO_CHECK)
+  @ApiOkResponse({ type: HomeworkToCheckDto })
+  getHomeworkToCheck(
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ): Promise<HomeworkToCheckDto> {
+    return this.cache.getOrLoad(
+      tenant.id,
+      DashboardWidgetKey.HOMEWORK_TO_CHECK,
+      `user:${user.sub}`,
+      () =>
+        this.homework.submissionsToCheck({
+          role: tenant.role,
+          userId: user.sub,
+          tenantId: tenant.id,
+        }),
+    );
+  }
+
+  /** [8.10.7.3.19] ADMIN card: submitted vs assigned, last 7 days. */
+  @DashboardWidgetRoute(DashboardWidgetKey.HOMEWORK_SUBMISSION_RATE)
+  @ApiOkResponse({ type: HomeworkSubmissionRateDto })
+  getSubmissionRate(@CurrentTenant() tenant: { id: string }): Promise<HomeworkSubmissionRateDto> {
+    return this.cache.getOrLoad(
+      tenant.id,
+      DashboardWidgetKey.HOMEWORK_SUBMISSION_RATE,
+      'school',
+      () => this.analytics.getSubmissionRateByClass(tenant.id),
+    );
+  }
+
+  /** [8.10.7.3.19] Teacher card "my syllabus progress". Cached per user. */
+  @DashboardWidgetRoute(DashboardWidgetKey.MY_SYLLABUS_PROGRESS)
+  @ApiOkResponse({ type: MySyllabusProgressDto })
+  getMySyllabusProgress(
+    @CurrentTenant() tenant: { id: string },
+    @CurrentUser() user: { sub: string },
+  ): Promise<MySyllabusProgressDto> {
+    return this.cache.getOrLoad(
+      tenant.id,
+      DashboardWidgetKey.MY_SYLLABUS_PROGRESS,
+      `user:${user.sub}`,
+      () => this.analytics.getTeacherSyllabusProgress(tenant.id, user.sub),
     );
   }
 }
