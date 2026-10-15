@@ -259,6 +259,121 @@ export class FeeDuesService {
   }
 
   /**
+   * The one base join every dues list and dashboard widget starts from:
+   * `student_fees -> students (tenant, not deleted) -> class_sections -> classes`.
+   * `student_fees` has no `tenant_id`; tenant scope comes only through the
+   * `students` join, so callers must never bypass this.
+   */
+  private openFeesBase(tenantId: string, statuses: FeeStatus[]) {
+    return this.studentFeeRepo
+      .createQueryBuilder('sf')
+      .innerJoin('sf.student', 'student')
+      .innerJoin('student.class_section', 'cs')
+      .innerJoin('cs.class', 'cls')
+      .where('student.tenant_id = :tenantId', { tenantId })
+      .andWhere('student.deleted_at IS NULL')
+      .andWhere('sf.status IN (:...statuses)', { statuses });
+  }
+
+  /**
+   * [8.10.7.3.07] Outstanding balance split by age in days past due on
+   * `today` (the school's day, passed in so it follows the tenant's
+   * timezone). 0_30 includes not-yet-due fees and fees with no due date.
+   */
+  async getAgeing(tenantId: string, today: string) {
+    const bal = '(sf.total_amount - sf.paid_amount - sf.discount_amount)';
+    const age = '(CAST(:today AS date) - COALESCE(sf.due_date, CAST(:today AS date)))';
+    const row = await this.openFeesBase(tenantId, OPEN_STATUSES)
+      .select(`COALESCE(SUM(${bal}) FILTER (WHERE ${age} <= 30), 0)`, 'b0_30')
+      .addSelect(`COALESCE(SUM(${bal}) FILTER (WHERE ${age} BETWEEN 31 AND 60), 0)`, 'b31_60')
+      .addSelect(`COALESCE(SUM(${bal}) FILTER (WHERE ${age} > 60), 0)`, 'b60_plus')
+      .setParameter('today', today)
+      .getRawOne<{ b0_30: string; b31_60: string; b60_plus: string }>();
+
+    const amounts = [Number(row?.b0_30 ?? 0), Number(row?.b31_60 ?? 0), Number(row?.b60_plus ?? 0)];
+    const total = amounts.reduce((a, b) => a + b, 0);
+    const names = ['0_30', '31_60', '60_PLUS'] as const;
+    return {
+      as_of: today,
+      total_due: total,
+      buckets: names.map((bucket, i) => ({
+        bucket,
+        amount: amounts[i],
+        share_pct: total === 0 ? 0 : Math.round((amounts[i] / total) * 100),
+      })),
+    };
+  }
+
+  /** [8.10.7.3.07] Outstanding balance per class, largest first. */
+  async getDuesByClass(tenantId: string) {
+    const rows = await this.openFeesBase(tenantId, OPEN_STATUSES)
+      .select('cls.id', 'class_id')
+      .addSelect('cls.name', 'class_name')
+      .addSelect('SUM(sf.total_amount - sf.paid_amount - sf.discount_amount)', 'amount')
+      .addSelect('COUNT(DISTINCT sf.student_id)', 'student_count')
+      .groupBy('cls.id')
+      .addGroupBy('cls.name')
+      .orderBy('amount', 'DESC')
+      .addOrderBy('cls.name', 'ASC')
+      .getRawMany<{
+        class_id: string;
+        class_name: string;
+        amount: string;
+        student_count: string;
+      }>();
+
+    const classes = rows.map((r) => ({
+      class_id: r.class_id,
+      class_name: r.class_name,
+      amount: Number(r.amount),
+      student_count: Number(r.student_count),
+    }));
+    return { total_due: classes.reduce((a, c) => a + c.amount, 0), classes };
+  }
+
+  /**
+   * [8.10.7.3.07] Flagged students (same predicate as `getFlaggedDues`) with
+   * no non-FAILED reminder log since their oldest threshold date, plus the
+   * distinct guardians behind them. `timezone` turns the threshold date into
+   * the instant its school day starts, for comparison with `created_at`.
+   */
+  async countRemindersPending(tenantId: string, today: string, timezone: string) {
+    const inner = this.openFeesBase(tenantId, OPEN_STATUSES)
+      .select('sf.student_id', 'student_id')
+      .addSelect('MIN(sf.reminder_threshold_date)', 'since')
+      .andWhere('sf.reminder_threshold_date IS NOT NULL')
+      .andWhere('sf.reminder_threshold_date < :today', { today })
+      .groupBy('sf.student_id')
+      .having(
+        `NOT EXISTS (
+          SELECT 1 FROM communication_logs cl
+          WHERE cl.tenant_id = :tenantId AND cl.student_id = sf.student_id
+            AND cl.trigger IN ('BULK_REMINDER', 'SINGLE_REMINDER')
+            AND cl.status <> 'FAILED'
+            AND cl.created_at >= (MIN(sf.reminder_threshold_date)::timestamp AT TIME ZONE :timezone)
+        )`,
+      )
+      .setParameter('timezone', timezone);
+
+    const row = await this.studentFeeRepo.manager
+      .createQueryBuilder()
+      .select('COUNT(DISTINCT sub.student_id)', 'student_count')
+      .addSelect('COUNT(DISTINCT g.id)', 'guardian_count')
+      .addSelect("TO_CHAR(MIN(sub.since), 'YYYY-MM-DD')", 'oldest')
+      .from(`(${inner.getQuery()})`, 'sub')
+      .leftJoin('student_guardians', 'sg', 'sg.student_id = sub.student_id')
+      .leftJoin('guardians', 'g', 'g.id = sg.guardian_id AND g.deleted_at IS NULL')
+      .setParameters(inner.getParameters())
+      .getRawOne<{ student_count: string; guardian_count: string; oldest: string | null }>();
+
+    return {
+      student_count: Number(row?.student_count ?? 0),
+      guardian_count: Number(row?.guardian_count ?? 0),
+      oldest_threshold_date: row?.oldest ?? null,
+    };
+  }
+
+  /**
    * Finds the distinct student IDs whose open fees match the given filters.
    * Cheap: selects only student_id, so it's safe to run before pagination
    * even when a tenant has many students with open dues.
@@ -287,14 +402,7 @@ export class FeeDuesService {
       return [];
     }
 
-    const qb = this.studentFeeRepo
-      .createQueryBuilder('sf')
-      .innerJoin('sf.student', 'student')
-      .innerJoin('student.class_section', 'cs')
-      .innerJoin('cs.class', 'cls')
-      .where('student.tenant_id = :tenantId', { tenantId })
-      .andWhere('student.deleted_at IS NULL')
-      .andWhere('sf.status IN (:...statuses)', { statuses });
+    const qb = this.openFeesBase(tenantId, statuses);
 
     if (filters.class_id) {
       qb.andWhere('cls.id = :classId', { classId: filters.class_id });

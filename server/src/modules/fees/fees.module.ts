@@ -58,6 +58,8 @@ import { FineSweepService } from './fines/fine-sweep.service';
 import { FineSweepController } from './fines/fine-sweep.controller';
 import { FinesService } from './fines/fines.service';
 import { FinesController } from './fines/fines.controller';
+import { DashboardModule } from '../dashboard/dashboard.module';
+import { FeesDashboardController } from './fees-dashboard.controller';
 
 @Module({
   imports: [
@@ -89,6 +91,7 @@ import { FinesController } from './fines/fines.controller';
       defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
     }),
     AuditModule,
+    DashboardModule,
     StudentModule,
     InvoicesModule,
     // [CI failure, PR #801] FeeModule -> SchoolsModule -> AccountAccessModule
@@ -164,6 +167,7 @@ import { FinesController } from './fines/fines.controller';
     FineRulesController,
     FineSweepController,
     FinesController,
+    FeesDashboardController,
   ],
   exports: [
     FeeStructureService,
