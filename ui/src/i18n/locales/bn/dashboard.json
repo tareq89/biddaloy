@@ -1,5 +1,6 @@
 {
   "page": {
+    "academicYear": "শিক্ষাবর্ষ {{name}}",
     "title": "ড্যাশবোর্ড",
     "customise": "সাজান",
     "customiseAria": "ড্যাশবোর্ড সাজান",

@@ -51,13 +51,73 @@ function mockApi(opts: { preferences?: unknown; userStatus?: number } = {}) {
   );
 }
 
-const render = (url = '/dashboard') =>
+const render = (url = '/dashboard', role = 'ADMIN') =>
   renderWithRouter(tree(), {
     initialEntries: [url],
     tenantId: 'tenant-1',
-    role: 'ADMIN',
+    role,
     locale: 'en',
   });
+
+const point = (received_pct: number) => ({
+  as_of: '2026-10-07',
+  received: 1,
+  billed_for_month: 1,
+  received_pct,
+});
+
+/** Committee aggregates: attendance 1 point short of target, collection 8 points ahead. */
+function mockCommittee(over: Partial<Record<string, number>> = {}) {
+  const bodies: Record<string, object> = {
+    enrollment: { years: [], current_count: 10, previous_count: 9 },
+    attendance: {
+      months: [{ month: '2026-10', percentage: 89 }],
+      current_month_percentage: 89,
+      year_percentage: 88,
+      target_percentage: 90,
+    },
+    finance: {
+      months: [],
+      year_outstanding: 0,
+      current_month: {
+        ...point(70),
+        month: '2026-10',
+        last_month_same_point: null,
+        last_year_same_point: point(62),
+      },
+    },
+    'pass-rate': {
+      exam_name: 'X',
+      classes: [],
+      overall_pass_percentage: null,
+      recent_rounds: [],
+      previous_pass_percentage: null,
+    },
+  };
+  const hits: string[] = [];
+  server.use(
+    ...Object.entries(bodies).map(([key, body]) =>
+      http.get(`/api/v1/dashboard/widgets/committee-${key}`, () => {
+        const status = over[key];
+        return status ? HttpResponse.json({ message: 'x' }, { status }) : HttpResponse.json(body);
+      }),
+    ),
+    http.get('/api/v1/academic-years', () =>
+      HttpResponse.json({
+        data: [{ id: 'y', name: '2026', is_current: true }],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+      }),
+    ),
+    http.get('/api/v1/dashboard/briefing', () => {
+      hits.push('briefing');
+      return HttpResponse.json({});
+    }),
+  );
+  return hits;
+}
 
 describe('DashboardPage', () => {
   afterEach(cleanupTestState);
@@ -116,5 +176,40 @@ describe('DashboardPage', () => {
     render('/dashboard?customize=1');
     expect(await screen.findByText('Customising')).toBeTruthy();
     expect(screen.queryByText('Nothing needs you right now.')).toBeNull();
+  });
+
+  it('COMMITTEE: privacy line, one filled print button, summary banner, no briefing request', async () => {
+    mockApi();
+    const hits = mockCommittee();
+    render('/dashboard', 'COMMITTEE');
+    expect(
+      await screen.findByText('For the committee: totals only, no personal details'),
+    ).toBeTruthy();
+    const print = await screen.findByRole('link', { name: 'Print monthly meeting report' });
+    expect(print.getAttribute('href')).toBe('/print/committee-report?from=%2Fdashboard');
+    expect(
+      await screen.findByText(
+        'Attendance is close to its target — collection is 8% ahead of this time last year.',
+      ),
+    ).toBeTruthy();
+    expect(await screen.findByText(/Academic year 2026/)).toBeTruthy();
+    expect(hits).toEqual([]);
+  });
+
+  it('COMMITTEE with the finance route failing: banner keeps the attendance clause', async () => {
+    mockApi();
+    mockCommittee({ finance: 500 });
+    render('/dashboard', 'COMMITTEE');
+    expect(
+      await screen.findByText('Attendance is close to its target.', {}, { timeout: 15000 }),
+    ).toBeTruthy();
+  });
+
+  it('EXECUTIVE: no print button, no privacy line, briefing as before', async () => {
+    mockApi();
+    render('/dashboard', 'EXECUTIVE');
+    expect(await screen.findByText('Nothing needs you right now.')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Print monthly meeting report' })).toBeNull();
+    expect(screen.queryByText('For the committee: totals only, no personal details')).toBeNull();
   });
 });
