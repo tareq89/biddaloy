@@ -278,13 +278,21 @@ export class AttendanceDashboardService {
                         AND le.enrollment_id = e.id AND le.event_type <> :onRollReadmitted)) AS left_on
             FROM enrollments e
             JOIN students st ON st.id = e.student_id AND st.tenant_id = e.tenant_id AND st.deleted_at IS NULL
-           WHERE e.tenant_id = :tenantId
+           WHERE e.tenant_id = :tenantId${
+             // Same year restriction as the outer filter, pushed in so the roll is not built
+             // for every section of every past year.
+             yearId
+               ? ` AND e.section_id IN (SELECT cs.id FROM class_sections cs
+                     JOIN classes c ON c.id = cs.class_id WHERE c.academic_year_id = :yearId)`
+               : ''
+           }
            GROUP BY e.student_id, e.section_id)`,
         'roll',
         'roll.student_id = r.student_id AND roll.section_id = s.section_id AND (roll.active OR roll.left_on > r.date)',
         {
           onRollActive: EnrollmentStatus.ACTIVE,
           onRollReadmitted: StudentLifecycleEventType.READMITTED,
+          yearId,
         },
       );
     if (yearId) {
@@ -344,9 +352,10 @@ export class AttendanceDashboardService {
   }
 
   /**
-   * Per-day tallies from the year's start to `to` (yesterday). The nightly job writes this;
-   * on a miss (or Redis error) compute once and store. The committee card folds it by month,
-   * so a request queries only today live instead of scanning the whole year's register rows.
+   * Per-day tallies from the year's start to `to` (today-8, see COMMITTEE_LIVE_DAYS). The
+   * nightly job writes this; on a miss (or Redis error) compute once and store. The committee
+   * card folds it by month, so a request queries only the last week live instead of
+   * scanning the whole year's register rows.
    */
   async committeeDaily(
     tenantId: string,
@@ -370,7 +379,7 @@ export class AttendanceDashboardService {
     return daily;
   }
 
-  /** Nightly entry point: rebuild the current year's daily tallies ending `to` (yesterday). */
+  /** Nightly entry point: rebuild the current year's daily tallies ending `to` (today-8). */
   async storeCommitteeDaily(tenantId: string, to: string): Promise<void> {
     const year = await this.currentYear(tenantId);
     if (!year) return;
@@ -380,9 +389,9 @@ export class AttendanceDashboardService {
 
   /**
    * Committee card: school-wide attendance % for each month of the current academic year,
-   * up to this month. Finished days come from the nightly per-day cache, today is one live
-   * query (a mark made now still shows within the 60 s widget cache); both fold with the
-   * same percentage function.
+   * up to this month. Days older than a week come from the nightly per-day cache; the last
+   * 7 days and today are one live query (a mark made now still shows within the 60 s widget
+   * cache); both fold with the same percentage function.
    */
   getCommitteeMonthly(tenantId: string): Promise<CommitteeAttendanceDto> {
     return this.cache.getOrLoad(
@@ -403,9 +412,24 @@ export class AttendanceDashboardService {
             target_percentage: target,
           };
         }
-        const past = await this.committeeDaily(tenantId, year, addDays(today, -1));
+        // Cached up to today-8; the last 7 days + today are live, so a register finalised or
+        // corrected within a week shows within the 60 s widget cache. Older days lag until
+        // the next nightly run.
+        const past = await this.committeeDaily(
+          tenantId,
+          year,
+          addDays(today, -COMMITTEE_LIVE_DAYS - 1),
+        );
+        const liveFrom = addDays(today, -COMMITTEE_LIVE_DAYS);
         const live =
-          year.start <= today ? await this.dailyTallies(tenantId, year.id, today, today) : [];
+          year.start <= today
+            ? await this.dailyTallies(
+                tenantId,
+                year.id,
+                year.start > liveFrom ? year.start : liveFrom,
+                today,
+              )
+            : [];
 
         const byMonth = new Map<string, Tally>();
         const whole: Tally = { present: 0, late: 0, absent: 0, leave: 0 };
@@ -433,6 +457,9 @@ export class AttendanceDashboardService {
     );
   }
 }
+
+/** Days before today the committee card recomputes live (cache covers everything older). */
+export const COMMITTEE_LIVE_DAYS = 7;
 
 function nextMonth(m: string): string {
   const d = new Date(`${m}-01T00:00:00.000Z`);

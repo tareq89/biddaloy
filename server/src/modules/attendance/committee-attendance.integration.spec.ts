@@ -295,6 +295,40 @@ describe('AttendanceDashboardService.getCommitteeMonthly (integration)', () => {
     expect((await widget()).target_percentage).toBe(92);
   });
 
+  it('cache-hit path: nightly daily cache + live last 7 days equals the uncached result', async () => {
+    // Now is 2026-10-20, so the nightly key date is today-8 = 2026-10-12 and 13..20 Oct are live.
+    await mark(sec, '2026-03-10', [P, A]); // old day: served from the cache
+    const [, , absentToFix] = await mark(sec, '2026-10-15', [P, P, A]); // inside the live window
+
+    await clearCaches();
+    await service.storeCommitteeDaily(TENANT_ID, '2026-10-12');
+    const dailyKeys = await redis.keys(
+      `tenant:${TENANT_ID}:dash:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:daily:*`,
+    );
+    expect(dailyKeys).toHaveLength(1);
+
+    // After the nightly job: today is marked, and the 15 Oct register is corrected (A -> P).
+    await mark(sec, '2026-10-20', [A]);
+    await dataSource.query(
+      `UPDATE attendance_records SET status = 'PRESENT' WHERE student_id = $1 AND date = '2026-10-15'`,
+      [absentToFix],
+    );
+
+    // Drop only the 60 s widget cache; the nightly daily key stays, so this is the cache-hit path.
+    const widgetKeys = (
+      await redis.keys(`tenant:${TENANT_ID}:dash:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:*`)
+    ).filter((k) => !k.includes(':daily:'));
+    if (widgetKeys.length) await redis.del(...widgetKeys);
+    const cached = await service.getCommitteeMonthly(TENANT_ID);
+
+    // October: corrected 15 Oct (3 present) + today (1 absent) = 75 %. Today counted twice would
+    // give 60 %; the uncorrected 15 Oct would give 50 %.
+    expect(pct(cached, '2026-10')).toBe(75);
+    expect(pct(cached, '2026-03')).toBe(50);
+    // Same numbers as recomputing everything from the registers.
+    expect(cached).toEqual(await widget());
+  });
+
   it('with no current academic year: no months, all percentages null', async () => {
     await dataSource.getRepository(AcademicYear).update({ id: yearId }, { is_current: false });
     try {

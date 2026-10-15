@@ -42,9 +42,9 @@ describe('AttendanceSeriesScheduler', () => {
     await scheduler.process();
     expect(storeSeries).toHaveBeenCalledWith('t1', '2026-10-07');
     expect(storeSeries).toHaveBeenCalledWith('t2', '2026-10-07');
-    // The committee card's per-day cache is refreshed by the same job.
-    expect(storeCommitteeDaily).toHaveBeenCalledWith('t1', '2026-10-07');
-    expect(storeCommitteeDaily).toHaveBeenCalledWith('t2', '2026-10-07');
+    // The committee card's per-day cache (today-8; last 7 days are live) is refreshed by the same job.
+    expect(storeCommitteeDaily).toHaveBeenCalledWith('t1', '2026-09-30');
+    expect(storeCommitteeDaily).toHaveBeenCalledWith('t2', '2026-09-30');
   });
 
   it('one tenant throwing does not stop the next', async () => {
