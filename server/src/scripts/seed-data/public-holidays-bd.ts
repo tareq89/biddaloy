@@ -12,8 +12,9 @@
  *
  * The 2026 and 2027 dates are **approximate, not the official government gazette** — no
  * gazette is available to this script. Fixed-date holidays (Independence
- * Day, Victory Day, Language Movement Day, May Day, National Mourning Day,
- * Pohela Boishakh) are exact. Lunar-calendar holidays (the two Eids,
+ * Day, Victory Day, Language Movement Day, May Day, Pohela Boishakh) are
+ * exact. National Mourning Day (15 August) is left out: the holiday was
+ * cancelled in August 2024. Lunar-calendar holidays (the two Eids,
  * Shab-e-Barat, Ashura, Eid-e-Milad-un-Nabi) and the Hindu-calendar ones
  * (Durga Puja, Janmashtami) are plausible estimates, shifted ~11 days
  * earlier from the prior year the way the lunar calendar actually moves —
@@ -92,12 +93,6 @@ export const BD_PUBLIC_HOLIDAYS_2026: readonly SeedPublicHolidayEntry[] = [
     name_bn: 'আশুরা',
   },
   {
-    date: '2026-08-15',
-    end_date: '2026-08-15',
-    name: 'National Mourning Day',
-    name_bn: 'জাতীয় শোক দিবস',
-  },
-  {
     date: '2026-09-16',
     end_date: '2026-09-16',
     name: 'Eid-e-Milad-un-Nabi',
@@ -171,12 +166,6 @@ export const BD_PUBLIC_HOLIDAYS_2027: readonly SeedPublicHolidayEntry[] = [
     end_date: '2027-06-06',
     name: 'Ashura',
     name_bn: 'আশুরা',
-  },
-  {
-    date: '2027-08-15',
-    end_date: '2027-08-15',
-    name: 'National Mourning Day',
-    name_bn: 'জাতীয় শোক দিবস',
   },
   {
     date: '2027-09-05',
