@@ -416,6 +416,7 @@ PATCH /teachers/:id | UserController | perm: USER_UPDATE
 PATCH /users/:id | UserController | perm: USER_UPDATE
 PATCH /users/me | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 PATCH /users/me/preferences/dashboard | UserController | perm: DASHBOARD_VIEW
+PATCH /users/me/preferences/digest | UserController | perm: DASHBOARD_VIEW
 PATCH /users/me/preferences/notifications | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 POST /academic-years | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 POST /academic-years/:id/set-current | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE

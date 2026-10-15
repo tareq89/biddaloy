@@ -654,5 +654,6 @@ POST   /api/v1/users/me/contact-change                                          
 POST   /api/v1/users/me/contact-change/confirm-phone                             401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 POST   /api/v1/users/me/leave                                                    401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 PATCH  /api/v1/users/me/preferences/dashboard                                    401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS PASS
+PATCH  /api/v1/users/me/preferences/digest                                       401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS PASS
 GET    /api/v1/users/me/preferences/notifications                                401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 PATCH  /api/v1/users/me/preferences/notifications                                401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
