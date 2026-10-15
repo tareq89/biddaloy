@@ -115,6 +115,13 @@ describe('my-routine-today widget', () => {
     expect(await screen.findByText(/First period on .*8th October, 2026.*6th A/)).toBeTruthy();
   });
 
+  it('a cancelled period running now is not "Now"', async () => {
+    serve({ ...BASE, periods: [period('10:00', '10:40', { cancelled: true })] });
+    renderWidget('full');
+    expect(await screen.findByText('Cancelled')).toBeTruthy();
+    expect(screen.queryByText('Now')).toBeNull();
+  });
+
   it('empty: reason and outline link', async () => {
     serve({ ...BASE, periods: [] });
     renderWidget('full');
