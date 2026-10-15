@@ -30,6 +30,7 @@ export interface ExamRow {
   kind: string;
   status: string;
   published_at: string | null;
+  mark_entry_deadline: string | null;
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -64,6 +65,11 @@ const columns: readonly ColumnSpec[] = [
     label: { en: 'Status', bn: 'অবস্থা' },
   },
   { key: 'published_at', type: 'datetime', label: { en: 'Published at', bn: 'প্রকাশের সময়' } },
+  {
+    key: 'mark_entry_deadline',
+    type: 'date',
+    label: { en: 'Mark entry deadline', bn: 'মার্ক এন্ট্রির শেষ দিন' },
+  },
 ];
 
 const excluded: readonly string[] = [
@@ -111,6 +117,7 @@ export const examsTab: TabSpec<Exam, ExamRow> = {
       kind: entity.kind,
       status: entity.status,
       published_at: entity.published_at,
+      mark_entry_deadline: entity.mark_entry_deadline,
     };
   },
 
@@ -193,6 +200,7 @@ export const examsTab: TabSpec<Exam, ExamRow> = {
         kind: values.kind as string,
         status: values.status as string,
         published_at: (values.published_at as string | null) ?? null,
+        mark_entry_deadline: (values.mark_entry_deadline as string | null) ?? null,
       },
     };
   },
@@ -213,6 +221,8 @@ export const examsTab: TabSpec<Exam, ExamRow> = {
     const rowPublished = row.published_at ?? null;
     const existingPublished = existing.published_at ? existing.published_at.toISOString() : null;
     if (rowPublished !== existingPublished) changed.push('published_at');
+    if ((row.mark_entry_deadline ?? null) !== (existing.mark_entry_deadline ?? null))
+      changed.push('mark_entry_deadline');
     return changed;
   },
 
@@ -230,6 +240,7 @@ export const examsTab: TabSpec<Exam, ExamRow> = {
     exam.kind = row.kind as Exam['kind'];
     exam.status = row.status as Exam['status'];
     exam.published_at = row.published_at ? new Date(row.published_at) : null;
+    exam.mark_entry_deadline = row.mark_entry_deadline ?? null;
 
     return m.save(Exam, exam);
   },

@@ -52,6 +52,7 @@ export type CommunicationLogMedium = CommunicationMedium | typeof PUSH_MEDIUM;
 @Entity('communication_logs')
 @Index(['tenant_id'])
 @Index(['reminder_batch_id'])
+@Index(['tenant_id', 'status', 'created_at'])
 export class CommunicationLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;

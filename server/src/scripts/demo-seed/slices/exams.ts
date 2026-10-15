@@ -287,6 +287,7 @@ export const slice: DemoSlice = {
               kind: e.name === TEST_EXAM.name ? ExamKind.OTHER : ExamKind.TERM,
               status: !live ? ExamStatus.PUBLISHED : ExamStatus.DRAFT,
               published_at: !live ? at(addDays(end, 10), 10) : null,
+              mark_entry_deadline: addDays(end, 7),
             });
             if (live && state === 'published') examsToProcess.push(examId);
 

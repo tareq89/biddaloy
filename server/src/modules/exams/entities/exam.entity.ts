@@ -86,6 +86,10 @@ export class Exam {
   @Column({ type: 'timestamptz', nullable: true })
   published_at: Date | null;
 
+  // (8.10.7 D40) last day for mark entry; null = not set
+  @Column({ type: 'date', nullable: true })
+  mark_entry_deadline: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
