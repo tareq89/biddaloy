@@ -5,6 +5,13 @@ import { SCHOOL_TZ, startOfLocalDay, endOfLocalDay } from '../../common/time';
 import { Payment } from '../fees/entities/payment.entity';
 import { PaymentMethod } from '@biddaloy/shared';
 import {
+  COLLECTION_METHOD_GROUPS,
+  CollectionGroupFigure,
+  CollectionMethodGroup,
+  CollectionTodayWidgetDto,
+} from './dto/collection-today-widget.dto';
+import { CollectionByMonthWidgetDto } from './dto/collection-by-month-widget.dto';
+import {
   CollectionMonthFigures,
   CollectionMonthWidgetDto,
 } from './dto/collection-month-widget.dto';
@@ -24,6 +31,21 @@ import {
 const CASH_RECEIVED_SQL = `CASE WHEN p.reversal_of_payment_id IS NULL
   THEN p.total_amount - p.wallet_credit_used + p.wallet_credit_added
   ELSE o.total_amount - o.wallet_credit_used + o.wallet_credit_added END`;
+
+/** Net of one payment row: a reversal row is a positive row that subtracts.
+ * The same expression `getReport().totals.net` sums. */
+const NET_SQL = `CASE WHEN p.reversal_of_payment_id IS NULL THEN p.total_amount ELSE -p.total_amount END`;
+
+/** Widget grouping of payment methods (D23). */
+const METHOD_GROUP: Record<PaymentMethod, CollectionMethodGroup> = {
+  [PaymentMethod.CASH]: 'CASH',
+  [PaymentMethod.BKASH]: 'BKASH',
+  [PaymentMethod.CHEQUE]: 'BANK',
+  [PaymentMethod.BANK_TRANSFER]: 'BANK',
+  [PaymentMethod.CARD]: 'BANK',
+  [PaymentMethod.NAGAD]: 'OTHER_MOBILE',
+  [PaymentMethod.ROCKET]: 'OTHER_MOBILE',
+};
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -115,17 +137,29 @@ export class CollectionsReportService {
     alias = 'p',
   ): { clause: string; params: unknown[] } {
     const { from, to } = this.buildRange(query);
-    const params: unknown[] = [tenantId, from, to];
-    let clause = `${alias}.tenant_id = $1 AND ${alias}.deleted_at IS NULL AND ${alias}.payment_date BETWEEN $2 AND $3 AND (${alias}.payment_status = 'SUCCESS' OR ${alias}.reversal_of_payment_id IS NOT NULL OR ${alias}.reversed_by_payment_id IS NOT NULL)`;
+    const { clause, params } = this.buildFilterBetween(tenantId, from, to, alias);
+    let out = clause;
     if (query.received_by_user_id) {
       params.push(query.received_by_user_id);
-      clause += ` AND ${alias}.received_by_user_id = $${params.length}`;
+      out += ` AND ${alias}.received_by_user_id = $${params.length}`;
     }
     if (query.payment_method) {
       params.push(query.payment_method);
-      clause += ` AND ${alias}.payment_method = $${params.length}`;
+      out += ` AND ${alias}.payment_method = $${params.length}`;
     }
-    return { clause, params };
+    return { clause: out, params };
+  }
+
+  /** The WHERE text itself, for an instant range [from, to] (so "until now"
+   * is possible). Tenant, soft delete and SUCCESS/reversal rules live only here. */
+  private buildFilterBetween(
+    tenantId: string,
+    from: Date,
+    to: Date,
+    alias = 'p',
+  ): { clause: string; params: unknown[] } {
+    const clause = `${alias}.tenant_id = $1 AND ${alias}.deleted_at IS NULL AND ${alias}.payment_date BETWEEN $2 AND $3 AND (${alias}.payment_status = 'SUCCESS' OR ${alias}.reversal_of_payment_id IS NOT NULL OR ${alias}.reversed_by_payment_id IS NOT NULL)`;
+    return { clause, params: [tenantId, from, to] };
   }
 
   /** Net cash received (SUCCESS payments, reversals subtracted) for the
@@ -133,12 +167,119 @@ export class CollectionsReportService {
   async getReceived(tenantId: string, from: string, to: string): Promise<number> {
     const { clause, params } = this.buildFilter(tenantId, { from, to });
     const rows = await this.paymentRepo.manager.query<Array<{ net: string | null }>>(
-      `SELECT COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN p.total_amount ELSE -p.total_amount END), 0) AS net
+      `SELECT COALESCE(SUM(${NET_SQL}), 0) AS net
        FROM payments p
        WHERE ${clause}`,
       params,
     );
     return Number(rows[0]?.net ?? 0);
+  }
+
+  /** Net and payment count per payment method for an instant range. */
+  async getNetByMethodBetween(
+    tenantId: string,
+    from: Date,
+    to: Date,
+  ): Promise<Array<{ payment_method: PaymentMethod; net: number; payment_count: number }>> {
+    const { clause, params } = this.buildFilterBetween(tenantId, from, to);
+    const rows = await this.paymentRepo.manager.query<
+      Array<{ payment_method: PaymentMethod; net: string; payment_count: string }>
+    >(
+      `SELECT p.payment_method,
+         COALESCE(SUM(${NET_SQL}), 0) AS net,
+         COUNT(*) FILTER (WHERE p.reversal_of_payment_id IS NULL) AS payment_count
+       FROM payments p
+       WHERE ${clause}
+       GROUP BY p.payment_method`,
+      params,
+    );
+    return rows.map((r) => ({
+      payment_method: r.payment_method,
+      net: Number(r.net),
+      payment_count: Number(r.payment_count),
+    }));
+  }
+
+  /** Net per school-local month of `year`: index 0 = January. */
+  async getNetByMonth(tenantId: string, year: number): Promise<number[]> {
+    const { clause, params } = this.buildFilterBetween(
+      tenantId,
+      startOfLocalDay(`${year}-01-01`),
+      endOfLocalDay(`${year}-12-31`),
+    );
+    const rows = await this.paymentRepo.manager.query<Array<{ month: number; net: string }>>(
+      `SELECT EXTRACT(MONTH FROM p.payment_date AT TIME ZONE '${SCHOOL_TZ}')::int AS month,
+         COALESCE(SUM(${NET_SQL}), 0) AS net
+       FROM payments p
+       WHERE ${clause}
+       GROUP BY 1`,
+      params,
+    );
+    const slots = Array<number>(12).fill(0);
+    for (const r of rows) slots[r.month - 1] = Number(r.net);
+    return slots;
+  }
+
+  /** `today` is the school's local date from `SchoolsService.todayFor`; `now`
+   * is injectable for tests. */
+  async getCollectionTodayWidget(
+    tenantId: string,
+    today: string,
+    now: Date = new Date(),
+  ): Promise<CollectionTodayWidgetDto> {
+    const yesterday = new Date(`${today}T00:00:00Z`);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const [rows, yRows] = await Promise.all([
+      this.getNetByMethodBetween(tenantId, startOfLocalDay(today), now),
+      this.getNetByMethodBetween(
+        tenantId,
+        startOfLocalDay(yesterday.toISOString().slice(0, 10)),
+        new Date(now.getTime() - 24 * 3600 * 1000),
+      ),
+    ]);
+    const groups: CollectionGroupFigure[] = COLLECTION_METHOD_GROUPS.map((group) => {
+      const methods = rows
+        .filter((r) => METHOD_GROUP[r.payment_method] === group)
+        .sort((a, b) => b.net - a.net);
+      return {
+        group,
+        net: methods.reduce((a, m) => a + m.net, 0),
+        payment_count: methods.reduce((a, m) => a + m.payment_count, 0),
+        methods,
+      };
+    });
+    return {
+      date: today,
+      net: groups.reduce((a, g) => a + g.net, 0),
+      payment_count: groups.reduce((a, g) => a + g.payment_count, 0),
+      yesterday_same_time_net: yRows.reduce((a, r) => a + r.net, 0),
+      groups,
+    };
+  }
+
+  async getCollectionByMonthWidget(
+    tenantId: string,
+    today: string,
+  ): Promise<CollectionByMonthWidgetDto> {
+    const [y, m, d] = today.split('-').map(Number);
+    const prev = monthRange(m === 1 ? y - 1 : y, m === 1 ? 12 : m - 1, d);
+    const [slots, previous] = await Promise.all([
+      this.getNetByMonth(tenantId, y),
+      this.getReceived(tenantId, prev.from, prev.to),
+    ]);
+    // Months after the current one are null, whatever future-dated rows exist.
+    const months = slots.map((net, i) => ({
+      month: i + 1,
+      net: i + 1 > m ? null : net,
+      is_current: i + 1 === m,
+    }));
+    return {
+      year: y,
+      year_to_date_net: slots.slice(0, m).reduce((a, n) => a + n, 0),
+      month_to_date_net: slots[m - 1],
+      previous_month_same_days_net: previous,
+      months,
+    };
   }
 
   /** Accrual basis: `total - discount` of live bills whose `period_start`
