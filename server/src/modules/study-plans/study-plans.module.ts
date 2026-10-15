@@ -39,6 +39,7 @@ import { StudyPlanTemplatesController } from './study-plan-templates.controller'
 import { FamilyStudyPlansController } from './family-study-plans.controller';
 import { StudyPlansService } from './study-plans.service';
 import { PlanScheduleService } from './plan-schedule.service';
+import { StudyPlanDashboardService } from './study-plan-dashboard.service';
 import { LessonDeliveriesService } from './lesson-deliveries.service';
 import { StudyPlanTemplatesService } from './study-plan-templates.service';
 import { StudyPlanCsvService } from './study-plan-csv.service';
@@ -110,7 +111,8 @@ import { StudyPlanFlagsScheduler, STUDY_PLAN_FLAGS_QUEUE } from './study-plan-fl
     StudyPlanCsvService,
     StudyPlanAutoDeliveriesScheduler,
     StudyPlanFlagsScheduler,
+    StudyPlanDashboardService,
   ],
-  exports: [StudyPlansService, PlanScheduleService],
+  exports: [StudyPlansService, PlanScheduleService, StudyPlanDashboardService],
 })
 export class StudyPlansModule {}

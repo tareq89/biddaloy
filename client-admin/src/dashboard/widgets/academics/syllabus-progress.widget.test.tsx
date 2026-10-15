@@ -61,6 +61,38 @@ describe('syllabus-progress widget', () => {
     );
   });
 
+  it('with a plan: expected marker, behind class highlighted with its gap, "N classes behind"', async () => {
+    serve({
+      classes: [
+        { ...cls('c6', '6', 80, 80), expected_percentage: 60 },
+        { ...cls('c8', '8', 41, 41), expected_percentage: 60 },
+        { ...cls('c9', '9', 65, 65), expected_percentage: null },
+      ],
+      overall: BASE.overall,
+      behind_count: 1,
+    });
+    renderWidget('full');
+    expect(await screen.findByText('1 class is behind the plan.')).toBeTruthy();
+    expect(screen.getAllByTestId('bar-target').length).toBeGreaterThan(0);
+    expect(screen.getByText('19% behind')).toBeTruthy();
+    expect(screen.getByRole('progressbar', { name: '8' }).getAttribute('aria-valuetext')).toContain(
+      'Expected by today: 60%',
+    );
+    expect(
+      screen.queryByText('Comparison with the expected pace comes with study plans.'),
+    ).toBeNull();
+  });
+
+  it('with a plan and nobody behind: on-pace line', async () => {
+    serve({
+      classes: [{ ...cls('c6', '6', 80, 80), expected_percentage: 60 }],
+      overall: BASE.overall,
+      behind_count: 0,
+    });
+    renderWidget('full');
+    expect(await screen.findByText('No class is behind the plan.')).toBeTruthy();
+  });
+
   it('table toggle lists every class', async () => {
     serve(BASE);
     renderWidget('full');

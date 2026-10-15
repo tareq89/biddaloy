@@ -1,6 +1,7 @@
 /**
  * [169.3-1875] `syllabus-progress` widget: full + compact, no phone tile.
- * No expected-pace marker until study plans ship (#1828): only the `noPace` line.
+ * [8.10.7.7.04] The dashed "expected by today" marker and the "N classes behind" line appear
+ * once any class has a study plan; otherwise the muted `noPace` line stays.
  */
 import { DashboardWidgetKey } from '@biddaloy/shared';
 import { apiClient, type components } from '@biddaloy/ui/api';
@@ -60,6 +61,19 @@ export function SyllabusView({
   const leastText = least
     ? tw('leastCovered', { class: least.class_name, percent: pct(least.percentage) })
     : undefined;
+  // BarWidget draws one marker for every bar, so it shows the mean expected % of planned classes.
+  const planned = data?.classes.filter((c) => c.expected_percentage != null) ?? [];
+  const expected = planned.length
+    ? Math.round(planned.reduce((n, c) => n + (c.expected_percentage ?? 0), 0) / planned.length)
+    : undefined;
+  const isBehind = (c: NonNullable<typeof data>['classes'][number]) =>
+    c.expected_percentage != null && c.expected_percentage > c.percentage;
+  const paceText =
+    expected === undefined || !data
+      ? tw('noPace')
+      : data.behind_count > 0
+        ? tw('behindClasses', { count: data.behind_count })
+        : tw('onPace');
   const summary = full ? leastText : [average, leastText].filter(Boolean).join(' ');
 
   const body =
@@ -79,14 +93,29 @@ export function SyllabusView({
           <BarWidget
             bare
             emptyLabel={tw('emptyReason')}
+            {...(expected !== undefined
+              ? {
+                  emphasis: 'highlighted' as const,
+                  target: {
+                    value: expected,
+                    label: tw('expectedMarker', { percent: pct(expected) }),
+                  },
+                }
+              : {})}
             bars={data.classes.map((c) => ({
               label: c.class_name,
               value: c.percentage,
               valueLabel: pct(c.percentage),
+              ...(isBehind(c)
+                ? {
+                    highlight: true,
+                    note: tw('gap', { percent: pct((c.expected_percentage ?? 0) - c.percentage) }),
+                  }
+                : {}),
             }))}
           />
         </ChartTableToggle>
-        <p className="text-caption text-text-secondary">{tw('noPace')}</p>
+        <p className="text-caption text-text-secondary">{paceText}</p>
       </div>
     ) : null;
 

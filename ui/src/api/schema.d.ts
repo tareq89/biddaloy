@@ -5745,6 +5745,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/syllabus-vs-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: syllabus-vs-plan */
+        get: operations["HomeworkDashboardController_getSyllabusVsPlan_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/widgets/homework-to-check": {
         parameters: {
             query?: never;
@@ -13953,6 +13970,11 @@ export interface components {
              * @example 41
              */
             percentage: number;
+            /**
+             * @description Share of lessons the study plan expects taught by today; null without a plan
+             * @example 60
+             */
+            expected_percentage: number | null;
         };
         SyllabusOverallProgressDto: {
             done: number;
@@ -13963,6 +13985,35 @@ export interface components {
         SyllabusProgressWidgetDto: {
             classes: components["schemas"]["SyllabusClassProgressDto"][];
             overall: components["schemas"]["SyllabusOverallProgressDto"];
+            /** @description Classes whose taught share is under the plan expectation */
+            behind_count: number;
+        };
+        SyllabusVsPlanClassDto: {
+            /** Format: uuid */
+            class_id: string;
+            /** @example 8 */
+            class_name: string;
+            /** @example 41 */
+            done_percentage: number;
+            /** @example 60 */
+            expected_percentage: number;
+            /**
+             * @description expected - done when positive, else 0
+             * @example 19
+             */
+            behind_by: number;
+            /** @description Past routine periods with no lesson report */
+            not_updated: number;
+        };
+        SyllabusVsPlanDto: {
+            /**
+             * @description School-local date
+             * @example 2026-10-07
+             */
+            as_of: string;
+            behind_count: number;
+            not_updated_count: number;
+            classes: components["schemas"]["SyllabusVsPlanClassDto"][];
         };
         HomeworkToCheckItemDto: {
             /** Format: uuid */
@@ -31010,6 +31061,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SyllabusProgressWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HomeworkDashboardController_getSyllabusVsPlan_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyllabusVsPlanDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

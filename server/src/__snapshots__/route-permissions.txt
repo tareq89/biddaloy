@@ -163,6 +163,7 @@ GET /dashboard/widgets/sms-balance | CommunicationsDashboardController | perm: D
 GET /dashboard/widgets/staff-today | StaffAttendanceDashboardController | perm: DASHBOARD_VIEW,STAFF_ATTENDANCE_READ
 GET /dashboard/widgets/students-added-today | StudentsDashboardController | perm: DASHBOARD_VIEW,STUDENT_READ
 GET /dashboard/widgets/syllabus-progress | HomeworkDashboardController | perm: DASHBOARD_VIEW,SYLLABUS_READ
+GET /dashboard/widgets/syllabus-vs-plan | HomeworkDashboardController | perm: DASHBOARD_VIEW,SYLLABUS_READ
 GET /demo/roles | DemoController | allowlist: none
 GET /designations | DesignationController | perm: STAFF_HR_READ
 GET /designations/:id | DesignationController | perm: STAFF_HR_READ

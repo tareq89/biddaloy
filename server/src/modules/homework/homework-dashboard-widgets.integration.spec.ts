@@ -17,6 +17,8 @@ import { HomeworkNoticeService } from './homework-notice.service';
 import { HomeworkAnalyticsService } from './homework-analytics.service';
 import { SyllabusService } from './syllabus.service';
 import { PlanScheduleService } from '../study-plans/plan-schedule.service';
+import { StudyPlanDashboardService } from '../study-plans/study-plan-dashboard.service';
+import { SchoolsService } from '../schools/schools.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { AuditService } from '../audit/audit.service';
 import { addDays, localToday } from '../attendance/attendance-policy.util';
@@ -66,6 +68,11 @@ describe('homework dashboard widgets (integration)', () => {
       { provide: HomeworkAccessService, useValue: {} },
       { provide: HomeworkNoticeService, useValue: {} },
       { provide: PlanScheduleService, useValue: {} },
+      { provide: StudyPlanDashboardService, useValue: { expectedByClass: async () => new Map() } },
+      {
+        provide: SchoolsService,
+        useValue: { getResolvedSettings: async () => ({ region: { timezone: 'UTC' } }) },
+      },
       TeacherScopeService,
       AuditService,
     ]);
