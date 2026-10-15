@@ -132,7 +132,10 @@ GET /dashboard/widgets/at-risk-students | AtRiskStudentsDashboardController | pe
 GET /dashboard/widgets/attendance-today | AttendanceDashboardController | perm: ATTENDANCE_READ,DASHBOARD_VIEW
 GET /dashboard/widgets/collection-month | ReportsDashboardController | perm: DASHBOARD_VIEW,REPORT_COLLECTIONS_READ
 GET /dashboard/widgets/failed-messages | CommunicationsDashboardController | perm: COMMUNICATION_LOG_READ,DASHBOARD_VIEW
+GET /dashboard/widgets/homework-submission-rate | HomeworkDashboardController | perm: DASHBOARD_VIEW,HOMEWORK_READ
+GET /dashboard/widgets/homework-to-check | HomeworkDashboardController | perm: DASHBOARD_VIEW,HOMEWORK_GRADE
 GET /dashboard/widgets/mark-entry-progress | ExamsDashboardController | perm: DASHBOARD_VIEW,MARK_VIEW
+GET /dashboard/widgets/my-syllabus-progress | HomeworkDashboardController | perm: DASHBOARD_VIEW,SYLLABUS_READ
 GET /dashboard/widgets/sms-balance | CommunicationsDashboardController | perm: DASHBOARD_VIEW,SETTINGS_MANAGE
 GET /dashboard/widgets/staff-today | StaffAttendanceDashboardController | perm: DASHBOARD_VIEW,STAFF_ATTENDANCE_READ
 GET /dashboard/widgets/syllabus-progress | HomeworkDashboardController | perm: DASHBOARD_VIEW,SYLLABUS_READ
