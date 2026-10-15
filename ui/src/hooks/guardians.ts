@@ -29,6 +29,8 @@ export interface GuardianListFilters {
   relationship?: string;
   preferred_communication?: CommunicationMedium;
   is_primary_contact?: boolean;
+  // [8.10.7.5.05] D33 — missing name, relationship or every phone number
+  incomplete?: boolean;
   sort?: 'full_name' | 'created_at';
   order?: 'asc' | 'desc';
   page?: number;

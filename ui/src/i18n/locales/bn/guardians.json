@@ -1,4 +1,9 @@
 {
+  "filters": {
+    "recordCompleteness": "রেকর্ড",
+    "allRecords": "সব রেকর্ড",
+    "incompleteOnly": "শুধু অসম্পূর্ণ রেকর্ড"
+  },
   "list": {
     "title": "অভিভাবক",
     "caption": "অভিভাবক",
