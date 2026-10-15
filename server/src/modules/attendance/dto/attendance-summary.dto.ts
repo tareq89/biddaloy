@@ -172,6 +172,8 @@ export class AttendanceDayDto {
   @ApiProperty({ type: String, nullable: true }) remarks: string | null;
   @ApiProperty() is_working_day: boolean;
   @ApiProperty({ type: String, nullable: true }) holiday_name: string | null;
+  /** UTC ISO time the day's whole-day register was marked; null if never. */
+  @ApiProperty({ type: String, nullable: true }) marked_at: string | null;
 }
 
 export class SectionSummaryDto {

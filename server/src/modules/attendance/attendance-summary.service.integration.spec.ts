@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { enrollStudent } from '@test/helpers/enrollment.helper';
+import { NotFoundException } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource, IsNull } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
@@ -494,6 +495,77 @@ describe('AttendanceSummaryService (integration)', () => {
       const flag = result.data.find((f) => f.student_id === studentId);
       expect(flag).toBeDefined();
       expect(flag!.attendance_percentage).toBe(0);
+    });
+  });
+
+  describe('getStudentDays marked_at (#1898)', () => {
+    const DATE = '2026-11-23';
+    const MARKED_AT = new Date('2026-11-23T02:10:00.000Z');
+
+    /** Saves a register with an explicit `marked_at` and one record for the student. */
+    async function register(
+      studentId: string,
+      date: string,
+      periodNo: number | null,
+      markedAt: Date | null,
+    ): Promise<void> {
+      const session = await dataSource.getRepository(AttendanceSession).save({
+        tenant_id: TENANT_ID,
+        section_id: sectionId,
+        date,
+        period_no: periodNo,
+        state: AttendanceSessionState.FINALIZED,
+        marked_at: markedAt,
+      });
+      await dataSource.getRepository(AttendanceRecord).save({
+        tenant_id: TENANT_ID,
+        session_id: session.id,
+        student_id: studentId,
+        date,
+        status: AttendanceStatus.PRESENT,
+      });
+    }
+
+    const days = (studentId: string) =>
+      service.getStudentDays({ tenantId: TENANT_ID, studentId, from: DATE, to: '2026-11-24' });
+
+    it('returns the daily register marked_at as a UTC ISO string', async () => {
+      const studentId = await makeStudent(900);
+      await register(studentId, DATE, null, MARKED_AT);
+      const day = (await days(studentId)).find((d) => d.date === DATE);
+      expect(day?.marked_at).toBe('2026-11-23T02:10:00.000Z');
+    });
+
+    it('returns null for a day with no session', async () => {
+      const studentId = await makeStudent(901);
+      await register(studentId, DATE, null, MARKED_AT);
+      const day = (await days(studentId)).find((d) => d.date === '2026-11-24');
+      expect(day?.marked_at).toBeNull();
+    });
+
+    it('returns null when the daily session was never marked', async () => {
+      const studentId = await makeStudent(902);
+      await register(studentId, DATE, null, null);
+      const day = (await days(studentId)).find((d) => d.date === DATE);
+      expect(day?.marked_at).toBeNull();
+    });
+
+    it('a period-only session never sets marked_at', async () => {
+      const studentId = await makeStudent(903);
+      await register(studentId, DATE, 1, MARKED_AT);
+      const day = (await days(studentId)).find((d) => d.date === DATE);
+      expect(day?.marked_at).toBeNull();
+    });
+
+    it("another tenant cannot read this student's days", async () => {
+      const studentId = await makeStudent(904);
+      await register(studentId, DATE, null, MARKED_AT);
+      const other = await dataSource
+        .getRepository(School)
+        .save({ name: 'Marked At Other School', slug: `marked-at-${Date.now()}` } as any);
+      await expect(
+        service.getStudentDays({ tenantId: other.id, studentId, from: DATE, to: DATE }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

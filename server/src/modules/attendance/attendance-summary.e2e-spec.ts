@@ -220,6 +220,119 @@ describe('Attendance Summary E2E', () => {
     });
   });
 
+  describe('GET /attendance/students/:studentId/days marked_at (#1898)', () => {
+    const STUDENT_USER_ID = '00000000-0000-4000-8000-000001898001';
+    const STUDENT_EMAIL = 'summary-student@e2e.example';
+    const MARKED_AT = '2026-11-23T02:10:00.000Z';
+
+    function getDays(token: string, role?: string, id = studentId) {
+      const req = supertest(app.getHttpServer())
+        .get(`${API}/attendance/students/${id}/days`)
+        .query({ month: '2026-11' })
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID);
+      return role ? req.set('X-Role', role) : req;
+    }
+
+    beforeEach(async () => {
+      // One marked whole-day register for the student (reseeded each test).
+      await dataSource.query(
+        `DELETE FROM attendance_records WHERE session_id IN (
+           SELECT id FROM attendance_sessions
+            WHERE tenant_id = $1 AND section_id = $2 AND date = '2026-11-23')`,
+        [TENANT_ID, MAPPED_SECTION_ID],
+      );
+      await dataSource.query(
+        `DELETE FROM attendance_sessions
+          WHERE tenant_id = $1 AND section_id = $2 AND date = '2026-11-23'`,
+        [TENANT_ID, MAPPED_SECTION_ID],
+      );
+      const sessionId = randomUUID();
+      await dataSource.query(
+        `INSERT INTO attendance_sessions (id, tenant_id, section_id, date, period_no, state, marked_at, created_at, updated_at)
+         VALUES ($1, $2, $3, '2026-11-23', NULL, 'FINALIZED', $4, NOW(), NOW())`,
+        [sessionId, TENANT_ID, MAPPED_SECTION_ID, MARKED_AT],
+      );
+      await dataSource.query(
+        `INSERT INTO attendance_records (id, tenant_id, session_id, student_id, date, status)
+         VALUES ($1, $2, $3, $4, '2026-11-23', 'PRESENT')`,
+        [randomUUID(), TENANT_ID, sessionId, studentId],
+      );
+    });
+
+    function expectMarkedAt(body: Array<{ date: string; marked_at: string | null }>) {
+      expect(body.find((d) => d.date === '2026-11-23')?.marked_at).toBe(MARKED_AT);
+      // A day with no session is null; every element carries the key.
+      expect(body.find((d) => d.date === '2026-11-24')?.marked_at).toBeNull();
+      expect(body.every((d) => 'marked_at' in d)).toBe(true);
+    }
+
+    it('PARENT linked to the child gets marked_at', async () => {
+      const res = await getDays(parentToken, UserRole.PARENT).expect(200);
+      expectMarkedAt(res.body);
+    });
+
+    it("PARENT of another family's child still gets 401 (isolation unchanged)", async () => {
+      await getDays(strangerToken, UserRole.PARENT).expect(401);
+    });
+
+    it('STUDENT reading self gets marked_at', async () => {
+      await dataSource.query(
+        `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+         VALUES ($1, $2, $3, 'Summary Student User', 'ACTIVE', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [STUDENT_USER_ID, STUDENT_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+      );
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [STUDENT_USER_ID, TENANT_ID, UserRole.STUDENT],
+      );
+      await dataSource.query(`UPDATE students SET user_id = $1 WHERE id = $2`, [
+        STUDENT_USER_ID,
+        studentId,
+      ]);
+      const token = await login(STUDENT_EMAIL);
+      const res = await getDays(token, UserRole.STUDENT).expect(200);
+      expectMarkedAt(res.body);
+    });
+
+    it('ADMIN gets marked_at', async () => {
+      const res = await getDays(adminToken).expect(200);
+      expectMarkedAt(res.body);
+    });
+
+    it('TEACHER of the mapped section gets marked_at', async () => {
+      const res = await getDays(teacherToken, UserRole.TEACHER).expect(200);
+      expectMarkedAt(res.body);
+    });
+
+    it('a missing X-Tenant-ID is refused', async () => {
+      const res = await supertest(app.getHttpServer())
+        .get(`${API}/attendance/students/${studentId}/days`)
+        .query({ month: '2026-11' })
+        .set('Authorization', `Bearer ${parentToken}`);
+      expect([400, 401, 403]).toContain(res.status);
+    });
+
+    it('an invalid X-Tenant-ID is refused', async () => {
+      const res = await supertest(app.getHttpServer())
+        .get(`${API}/attendance/students/${studentId}/days`)
+        .query({ month: '2026-11' })
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', 'not-a-uuid');
+      expect([400, 401, 403]).toContain(res.status);
+    });
+
+    it("another tenant's header never reaches this tenant's days", async () => {
+      const res = await supertest(app.getHttpServer())
+        .get(`${API}/attendance/students/${studentId}/days`)
+        .query({ month: '2026-11' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', '00000000-0000-4000-8000-0000000000aa');
+      expect([401, 403, 404]).toContain(res.status);
+    });
+  });
+
   describe('GET /attendance/sections/:sectionId/summary', () => {
     it('returns 200 for a TEACHER mapped to the section', async () => {
       await supertest(app.getHttpServer())
