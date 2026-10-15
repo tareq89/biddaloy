@@ -10,6 +10,9 @@ import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { StaffAttendanceService } from './staff-attendance.service';
 import { StaffAttendanceSummaryService } from './staff-attendance-summary.service';
 import { StaffAttendanceController } from './staff-attendance.controller';
+import { DashboardModule } from '../dashboard/dashboard.module';
+import { StaffAttendanceDashboardService } from './staff-attendance-dashboard.service';
+import { StaffAttendanceDashboardController } from './staff-attendance-dashboard.controller';
 
 /** [36.2.2] Staff attendance module — mark/correct a day, per-staff
  * summary. See `attendance.module.ts` for the pattern this mirrors. */
@@ -20,9 +23,19 @@ import { StaffAttendanceController } from './staff-attendance.controller';
     SchoolsModule,
     CalendarModule,
     StaffProfilesModule,
+    DashboardModule,
   ],
-  providers: [StaffAttendanceService, StaffAttendanceSummaryService],
-  controllers: [StaffAttendanceController],
-  exports: [TypeOrmModule, StaffAttendanceService, StaffAttendanceSummaryService],
+  providers: [
+    StaffAttendanceService,
+    StaffAttendanceSummaryService,
+    StaffAttendanceDashboardService,
+  ],
+  controllers: [StaffAttendanceController, StaffAttendanceDashboardController],
+  exports: [
+    TypeOrmModule,
+    StaffAttendanceService,
+    StaffAttendanceSummaryService,
+    StaffAttendanceDashboardService,
+  ],
 })
 export class StaffAttendanceModule {}
