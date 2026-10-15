@@ -7,6 +7,7 @@ import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkAccessService } from './homework-access.service';
 import { teacherAssignments } from '../classes/teacher-scope.service';
 import { HomeworkNoticeService } from './homework-notice.service';
+import { HomeworkToCheckDto } from './dto/homework-dashboard.dto';
 import {
   AssignHomeworkDto,
   CreateHomeworkDto,
@@ -175,6 +176,53 @@ export class HomeworkService {
     }
 
     return qb.orderBy('h.created_at', 'DESC').getMany();
+  }
+
+  /**
+   * [8.10.7.3.04] Teacher card "homework to check": SUBMITTED rows waiting in the caller's
+   * (section, subject) scope. Scope = `teacherAssignments` (the one teacher join, Epic 75 D2):
+   * a row with no subject (class teacher) covers every subject of its section, a subject row
+   * only that subject. One grouped query; totals are summed in TS, then the top 5 are kept.
+   */
+  async submissionsToCheck(ctx: CallerContext): Promise<HomeworkToCheckDto> {
+    const rows = await teacherAssignments(this.homeworkRepo.manager, ctx);
+    if (rows.length === 0) return { total_submitted: 0, assignment_count: 0, items: [] };
+    const groups: {
+      assignment_id: string;
+      homework_id: string;
+      title: string;
+      class_name: string;
+      section_name: string;
+      subject_name_en: string;
+      subject_name_bn: string | null;
+      due_date: string;
+      submitted_count: string;
+    }[] = await this.homeworkRepo.manager.query(
+      `WITH scope(section_id, subject_id) AS (SELECT * FROM unnest($2::uuid[], $3::uuid[]))
+       SELECT ha.id AS assignment_id, h.id AS homework_id, h.title,
+              c.name AS class_name, cs.section_name,
+              sub.name_en AS subject_name_en, sub.name_bn AS subject_name_bn,
+              ha.due_date::text AS due_date, COUNT(*) AS submitted_count
+         FROM homework_submissions hs
+         JOIN homework_assignments ha ON ha.id = hs.assignment_id AND ha.tenant_id = $1
+         JOIN homework h ON h.id = ha.homework_id AND h.tenant_id = $1
+         LEFT JOIN students st ON st.id = ha.student_id AND st.tenant_id = $1
+         JOIN class_sections cs ON cs.id = COALESCE(ha.section_id, st.class_section_id) AND cs.tenant_id = $1
+         JOIN classes c ON c.id = cs.class_id AND c.tenant_id = $1
+         JOIN subjects sub ON sub.id = h.subject_id AND sub.tenant_id = $1
+        WHERE hs.tenant_id = $1 AND hs.status = 'SUBMITTED' AND ha.status = 'ACTIVE'
+          AND EXISTS (SELECT 1 FROM scope sc WHERE sc.section_id = cs.id
+                        AND (sc.subject_id IS NULL OR sc.subject_id = h.subject_id))
+        GROUP BY ha.id, h.id, h.title, c.name, cs.section_name, sub.name_en, sub.name_bn, ha.due_date
+        ORDER BY submitted_count DESC, ha.due_date ASC, ha.id ASC`,
+      [ctx.tenantId, rows.map((r) => r.section_id), rows.map((r) => r.subject_id)],
+    );
+    const counted = groups.map((g) => ({ ...g, submitted_count: Number(g.submitted_count) }));
+    return {
+      total_submitted: counted.reduce((n, g) => n + g.submitted_count, 0),
+      assignment_count: counted.length,
+      items: counted.slice(0, 5),
+    };
   }
 
   async findOne(id: string, ctx: CallerContext): Promise<Homework> {
