@@ -4,11 +4,12 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { localToday } from '../modules/attendance/attendance-policy.util';
-import { SEED_DASHBOARD_EXAM_NAME } from '../../../e2e/seed-contract';
+import { SEED_DASHBOARD_EXAM_NAME, SEED_DASHBOARD_GROUP_C } from '../../../e2e/seed-contract';
 import {
   DASHBOARD_DUES_FEE_NAME,
   DASHBOARD_EXAM_NAME,
   DASHBOARD_OVERDUE_FEE_NAME,
+  DASHBOARD_GROUP_C,
   ensureDashboardSeed,
 } from './seed.dashboard';
 
@@ -53,6 +54,18 @@ describe('ensureDashboardSeed (integration)', () => {
       `INSERT INTO class_subjects (tenant_id, class_id, subject_id, academic_year_id) VALUES ($1, $2, $3, $4)`,
       [tenantId, classId, subjectId, yearId],
     );
+    // Group C: a grading scale for the results, and two more subjects for a 3-sitting exam.
+    await q(
+      `INSERT INTO grading_scales (id, tenant_id, academic_year_id, name) VALUES (gen_random_uuid(), $1, $2, 'Scale')`,
+      [tenantId, yearId],
+    );
+    for (const [n, name] of ['Science', 'English'].entries()) {
+      await q(`INSERT INTO subjects (tenant_id, name_en, name_bn, code) VALUES ($1, $2, $2, $3)`, [
+        tenantId,
+        name,
+        `X-${n}`,
+      ]);
+    }
     for (const name of ['A', 'B', 'C']) {
       const [{ id: sectionId }] = await q(
         `INSERT INTO class_sections (class_id, section_name, tenant_id) VALUES ($1, $2, $3) RETURNING id`,
@@ -122,6 +135,14 @@ describe('ensureDashboardSeed (integration)', () => {
        VALUES ($1, $2, 'Main routine', 'PUBLISHED', NOW())`,
       [tenantId, yearId],
     );
+    // The current-year roll the enrolment history grows back from.
+    await q(
+      `INSERT INTO enrollments (tenant_id, student_id, class_id, section_id, academic_year_id, enrollment_status, enrolled_at)
+       SELECT st.tenant_id, st.id, cs.class_id, cs.id, $2, 'ACTIVE', NOW()
+         FROM students st JOIN class_sections cs ON cs.id = st.class_section_id
+        WHERE st.tenant_id = $1`,
+      [tenantId, yearId],
+    );
   });
 
   const seed = (today?: string) => ensureDashboardSeed(ds, tenantId, teacherEmail, today);
@@ -136,6 +157,12 @@ describe('ensureDashboardSeed (integration)', () => {
     staffRecords: await count('staff_attendance_records'),
     leaves: await count('leave_records'),
     exams: await count('exams'),
+    results: await count('results'),
+    seatPlans: await count('seat_plans'),
+    seatPlanSchedules: await count('seat_plan_schedules'),
+    guardians: await count('guardians'),
+    years: await count('academic_years'),
+    enrollments: await count('enrollments'),
     grids: await count('mark_grids'),
     topics: await count('syllabus_topics'),
     payments: await count('payments'),
@@ -161,6 +188,11 @@ describe('ensureDashboardSeed (integration)', () => {
 
   it('keeps the e2e seed contract in step with the exam name', () => {
     expect(SEED_DASHBOARD_EXAM_NAME).toBe(DASHBOARD_EXAM_NAME);
+  });
+
+  it('keeps the e2e seed contract in step with the Group C names', () => {
+    expect(SEED_DASHBOARD_GROUP_C.upcomingExam).toBe(DASHBOARD_GROUP_C.upcomingExam);
+    expect(SEED_DASHBOARD_GROUP_C.familyHomework).toBe(DASHBOARD_GROUP_C.familyHomework[0]);
   });
 
   it('is idempotent: a second run adds no rows', async () => {
@@ -208,11 +240,11 @@ describe('ensureDashboardSeed (integration)', () => {
         `AND status = 'FAILED' AND created_at >= NOW() - interval '7 days'`,
       ),
     ).toBe(3);
-    // Draft exam, deadline today + 4, sitting began before today.
+    // Draft exam, deadline today + 3 (D40), sitting began before today.
     const [exam] = await q(
       `SELECT e.status, e.mark_entry_deadline::text AS d, (SELECT MIN(date)::text FROM exam_schedules WHERE exam_id = e.id) AS first
-         FROM exams e WHERE e.tenant_id = $1`,
-      [tenantId],
+         FROM exams e WHERE e.tenant_id = $1 AND e.name = $2`,
+      [tenantId, DASHBOARD_EXAM_NAME],
     );
     expect(exam.status).toBe('DRAFT');
     expect(exam.d > today).toBe(true);
@@ -315,6 +347,64 @@ describe('ensureDashboardSeed (integration)', () => {
     expect(flagged).toBe(2);
     expect(await count('fee_generations')).toBe(1);
     expect(await count('recurring_schedules', `AND is_active`)).toBe(1);
+  });
+
+  it('feeds the Group C routes: two published rounds, a processed one, a seat plan gap, an incomplete guardian, 4 past years', async () => {
+    await seed();
+
+    // Two PUBLISHED rounds with different publish times; the PROCESSED one is newer and unpublished.
+    const rounds = await q(
+      `SELECT name FROM exams WHERE tenant_id = $1 AND name = ANY($2::text[]) GROUP BY name`,
+      [tenantId, [...DASHBOARD_GROUP_C.rounds, DASHBOARD_GROUP_C.processedRound]],
+    );
+    expect(rounds.map((r: { name: string }) => r.name).sort()).toEqual([
+      DASHBOARD_GROUP_C.processedRound,
+      ...DASHBOARD_GROUP_C.rounds,
+    ]);
+    const stamps = await q(
+      `SELECT DISTINCT published_at FROM exams WHERE tenant_id = $1 AND status = 'PUBLISHED'`,
+      [tenantId],
+    );
+    expect(stamps).toHaveLength(2);
+    // Every published exam has at least one failing student (a pass rate below 100%).
+    const clean = await q(
+      `SELECT e.id FROM exams e WHERE e.tenant_id = $1 AND e.status = 'PUBLISHED'
+          AND NOT EXISTS (SELECT 1 FROM results r WHERE r.exam_id = e.id AND r.is_fail)`,
+      [tenantId],
+    );
+    expect(clean).toEqual([]);
+
+    // Upcoming exam: 3 sittings, a DRAFT seat plan on 2 of them (so one needs a plan).
+    const [sit] = await q(
+      `SELECT count(*)::int AS n FROM exam_schedules es JOIN exams e ON e.id = es.exam_id
+        WHERE e.tenant_id = $1 AND e.name = $2`,
+      [tenantId, DASHBOARD_GROUP_C.upcomingExam],
+    );
+    expect(sit.n).toBe(3);
+    const [plan] = await q(
+      `SELECT sp.status, count(sps.id)::int AS linked FROM seat_plans sp
+         LEFT JOIN seat_plan_schedules sps ON sps.seat_plan_id = sp.id
+        WHERE sp.tenant_id = $1 GROUP BY sp.status`,
+      [tenantId],
+    );
+    expect(plan).toEqual({ status: 'DRAFT', linked: 2 });
+
+    // D33: one guardian is incomplete (no relationship, no phone).
+    expect(
+      await count(
+        'guardians',
+        `AND btrim(relationship) = '' AND phone IS NULL AND alternate_phone IS NULL`,
+      ),
+    ).toBe(1);
+
+    // Four past years, growing towards the current one.
+    const years = await q(
+      `SELECT ay.name, count(e.id)::int AS n FROM academic_years ay
+         LEFT JOIN enrollments e ON e.academic_year_id = ay.id
+        WHERE ay.tenant_id = $1 AND NOT ay.is_current GROUP BY ay.name ORDER BY ay.name`,
+      [tenantId],
+    );
+    expect(years).toHaveLength(4);
   });
 });
 

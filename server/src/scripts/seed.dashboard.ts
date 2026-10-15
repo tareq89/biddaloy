@@ -165,6 +165,7 @@ export async function ensureDashboardSeed(
   await seedExams(q, tenantId, year.id, today, sections, mine);
   await seedSyllabus(q, tenantId, sections, mine);
   await seedFailedMessages(q, tenantId);
+  await seedGroupC(q, tenantId, year, today, sections);
 
   // Wave 3: teacher and accountant widgets.
   const pool = billed.length > 0 ? billed : students;
@@ -448,7 +449,7 @@ async function seedExams(
     // Dates move with today on every run, like the attention seeds.
     await q(`UPDATE exams SET mark_entry_deadline = $2, updated_at = NOW() WHERE id = $1`, [
       exam.id,
-      addDays(today, 4),
+      addDays(today, 3), // D40: "deadline in 3 days" on the teacher's card
     ]);
     for (const [si, { subject_id }] of subjects.entries()) {
       const [component] = await q(
@@ -1113,5 +1114,308 @@ async function seedTeacherLeave(q: Q, tenantId: string, today: string, staffProf
        VALUES ($1, $2, 'CASUAL', $3, $3, 1, 'APPROVED', $4, NOW(), NOW())`,
       [tenantId, staffProfileId, day, DASHBOARD_TEACHER_LEAVE_REASON],
     );
+  }
+}
+
+export const DASHBOARD_GROUP_C = {
+  rounds: ['Dashboard demo: first term', 'Dashboard demo: mid term'],
+  processedRound: 'Dashboard demo: final',
+  upcomingExam: 'Dashboard demo: upcoming',
+  seatPlan: 'Dashboard demo: seating (draft)',
+  incompleteGuardian: 'Dashboard demo: incomplete guardian',
+  familyHomework: ['Dashboard demo: family homework', 'Dashboard demo: family homework (later)'],
+} as const;
+const FAMILY_EMAILS = ['student@biddaloy.test', 'parent@biddaloy.test'] as const;
+const PAST_YEARS = 4;
+
+/**
+ * [8.10.7.4.99] Rows for the Group C routes (committee, exam controller, office staff, family).
+ * Dates hang off `today` / NOW(); natural keys are the fixed names above, so reruns add nothing.
+ */
+async function seedGroupC(
+  q: Q,
+  tenantId: string,
+  year: { id: string; start_date: string },
+  today: string,
+  sections: { id: string; class_id: string }[],
+) {
+  // Plain students only: no login, no guardian login (the portal demos own those children).
+  const students = await q<{ id: string; class_section_id: string; class_id: string }>(
+    `SELECT st.id, st.class_section_id, cs.class_id
+       FROM students st JOIN class_sections cs ON cs.id = st.class_section_id
+      WHERE st.tenant_id = $1 AND st.deleted_at IS NULL AND st.user_id IS NULL
+        AND NOT EXISTS (SELECT 1 FROM student_guardians sg
+                          JOIN guardians g ON g.id = sg.guardian_id AND g.user_id IS NOT NULL
+                         WHERE sg.student_id = st.id)
+      ORDER BY st.id`,
+    [tenantId],
+  );
+  const classIds = [...new Set(sections.map((s) => s.class_id))].filter((c) =>
+    students.some((s) => s.class_id === c),
+  );
+
+  await seedRounds(q, tenantId, year.id, classIds.slice(0, 3), students);
+  await seedUpcomingExam(q, tenantId, year.id, today, classIds[0]);
+  await seedIncompleteGuardian(q, tenantId, students.at(-1)?.id);
+  await seedEnrollmentHistory(q, tenantId, year.start_date);
+  await seedFamilyHomework(q, tenantId, today, sections);
+}
+
+/** Two PUBLISHED rounds (pass-rate spread) and a newer PROCESSED one the committee card must ignore. */
+async function seedRounds(
+  q: Q,
+  tenantId: string,
+  yearId: string,
+  classIds: string[],
+  students: { id: string; class_id: string }[],
+) {
+  const [scale] = await q<{ id: string }>(
+    `SELECT id FROM grading_scales WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY id LIMIT 1`,
+    [tenantId],
+  );
+  if (!scale) return;
+  const rounds = [
+    { name: DASHBOARD_GROUP_C.rounds[0], status: 'PUBLISHED', ageDays: 60 },
+    { name: DASHBOARD_GROUP_C.rounds[1], status: 'PUBLISHED', ageDays: 20 },
+    { name: DASHBOARD_GROUP_C.processedRound, status: 'PROCESSED', ageDays: 0 },
+  ];
+  for (const [ci, classId] of classIds.entries()) {
+    const roster = students.filter((s) => s.class_id === classId).slice(0, 6);
+    for (const [ri, round] of rounds.entries()) {
+      let [exam] = await q<{ id: string }>(
+        `SELECT id FROM exams WHERE tenant_id = $1 AND academic_year_id = $2 AND class_id = $3 AND name = $4 AND deleted_at IS NULL`,
+        [tenantId, yearId, classId, round.name],
+      );
+      if (!exam) {
+        [exam] = await q<{ id: string }>(
+          `INSERT INTO exams (tenant_id, academic_year_id, class_id, name, kind, status, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, 'TERM', $5, NOW(), NOW()) RETURNING id`,
+          [tenantId, yearId, classId, round.name, round.status],
+        );
+      }
+      if (round.status === 'PUBLISHED') {
+        await q(
+          `UPDATE exams SET published_at = NOW() - make_interval(days => $2), updated_at = NOW() WHERE id = $1`,
+          [exam.id, round.ageDays],
+        );
+      }
+      // First round: one failure per class. Second: class 1 fails 1, class 2 fails 2, ... (a spread).
+      // The PROCESSED round fails one student, which would show if it leaked into the pass rate.
+      const fails = ri === 1 ? ci + 1 : 1;
+      for (const [i, student] of roster.entries()) {
+        const [have] = await q(`SELECT 1 FROM results WHERE exam_id = $1 AND student_id = $2`, [
+          exam.id,
+          student.id,
+        ]);
+        if (have) continue;
+        const fail = i < fails;
+        await q(
+          `INSERT INTO results (id, tenant_id, exam_id, student_id, total_marks, gpa, grade, is_fail,
+                                grading_scale_id, grading_scale_revision, rule_version, computed_at)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, 1, 'dashboard-demo', NOW())`,
+          [
+            tenantId,
+            exam.id,
+            student.id,
+            fail ? 20 : 70,
+            fail ? 0 : 4,
+            fail ? 'F' : 'A',
+            fail,
+            scale.id,
+          ],
+        );
+      }
+    }
+  }
+}
+
+/** An exam with 3 sittings next week; a DRAFT seat plan covers only 2 of them. */
+async function seedUpcomingExam(
+  q: Q,
+  tenantId: string,
+  yearId: string,
+  today: string,
+  classId: string | undefined,
+) {
+  if (!classId) return;
+  const subjects = await q<{ id: string }>(
+    `SELECT id FROM subjects WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY id LIMIT 3`,
+    [tenantId],
+  );
+  if (subjects.length < 3) return;
+  let [exam] = await q<{ id: string }>(
+    `SELECT id FROM exams WHERE tenant_id = $1 AND academic_year_id = $2 AND class_id = $3 AND name = $4 AND deleted_at IS NULL`,
+    [tenantId, yearId, classId, DASHBOARD_GROUP_C.upcomingExam],
+  );
+  if (!exam) {
+    [exam] = await q<{ id: string }>(
+      `INSERT INTO exams (tenant_id, academic_year_id, class_id, name, kind, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, 'TERM', 'DRAFT', NOW(), NOW()) RETURNING id`,
+      [tenantId, yearId, classId, DASHBOARD_GROUP_C.upcomingExam],
+    );
+  }
+  let [plan] = await q<{ id: string }>(
+    `SELECT id FROM seat_plans WHERE tenant_id = $1 AND name = $2 AND deleted_at IS NULL`,
+    [tenantId, DASHBOARD_GROUP_C.seatPlan],
+  );
+  if (!plan) {
+    [plan] = await q<{ id: string }>(
+      `INSERT INTO seat_plans (tenant_id, name, status, seat_order_mode, created_at, updated_at)
+       VALUES ($1, $2, 'DRAFT', 'SEQUENTIAL', NOW(), NOW()) RETURNING id`,
+      [tenantId, DASHBOARD_GROUP_C.seatPlan],
+    );
+  }
+  for (const [i, subject] of subjects.entries()) {
+    const date = addDays(today, 7 + i);
+    let [sched] = await q<{ id: string }>(
+      `SELECT id FROM exam_schedules WHERE exam_id = $1 AND subject_id = $2 AND deleted_at IS NULL`,
+      [exam.id, subject.id],
+    );
+    if (sched) {
+      await q(`UPDATE exam_schedules SET date = $2, updated_at = NOW() WHERE id = $1`, [
+        sched.id,
+        date,
+      ]);
+    } else {
+      [sched] = await q<{ id: string }>(
+        `INSERT INTO exam_schedules (tenant_id, exam_id, subject_id, date, starts_at, ends_at, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, '10:00', '13:00', NOW(), NOW()) RETURNING id`,
+        [tenantId, exam.id, subject.id, date],
+      );
+    }
+    if (i >= 2) continue; // the last sitting stays without a plan
+    const [linked] = await q(
+      `SELECT 1 FROM seat_plan_schedules WHERE seat_plan_id = $1 AND exam_schedule_id = $2 AND deleted_at IS NULL`,
+      [plan.id, sched.id],
+    );
+    if (!linked) {
+      await q(
+        `INSERT INTO seat_plan_schedules (tenant_id, seat_plan_id, exam_schedule_id, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW())`,
+        [tenantId, plan.id, sched.id],
+      );
+    }
+  }
+}
+
+/** One guardian with no relationship and no phone (D33), attached to a plain student. */
+async function seedIncompleteGuardian(q: Q, tenantId: string, studentId: string | undefined) {
+  if (!studentId) return;
+  let [guardian] = await q<{ id: string }>(
+    `SELECT id FROM guardians WHERE tenant_id = $1 AND full_name = $2 AND deleted_at IS NULL`,
+    [tenantId, DASHBOARD_GROUP_C.incompleteGuardian],
+  );
+  if (!guardian) {
+    [guardian] = await q<{ id: string }>(
+      `INSERT INTO guardians (tenant_id, full_name, relationship, phone, alternate_phone, is_primary_contact, created_at, updated_at)
+       VALUES ($1, $2, '', NULL, NULL, false, NOW(), NOW()) RETURNING id`,
+      [tenantId, DASHBOARD_GROUP_C.incompleteGuardian],
+    );
+  }
+  await q(
+    `INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+    [studentId, guardian.id],
+  );
+}
+
+/**
+ * Four past academic years, each with a few more students on the roll than the one before it, so
+ * `committee-enrollment` has a trend. GRADUATED (counted by the card) keeps every "the ACTIVE
+ * enrolment" lookup pointing at the current year only.
+ */
+async function seedEnrollmentHistory(q: Q, tenantId: string, yearStart: string) {
+  const current = await q<{ student_id: string; class_id: string; section_id: string | null }>(
+    `SELECT e.student_id, e.class_id, e.section_id
+       FROM enrollments e JOIN academic_years ay ON ay.id = e.academic_year_id AND ay.is_current
+      WHERE e.tenant_id = $1 ORDER BY e.student_id`,
+    [tenantId],
+  );
+  if (current.length === 0) return;
+  for (let n = 1; n <= PAST_YEARS; n += 1) {
+    const start = addMonths(yearStart, -12 * n);
+    const name = `${start.slice(0, 4)}-${Number(start.slice(0, 4)) + 1}`;
+    let [past] = await q<{ id: string }>(
+      `SELECT id FROM academic_years WHERE tenant_id = $1 AND name = $2 AND deleted_at IS NULL`,
+      [tenantId, name],
+    );
+    if (!past) {
+      [past] = await q<{ id: string }>(
+        `INSERT INTO academic_years (tenant_id, name, start_date, end_date, is_current, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, false, NOW(), NOW()) RETURNING id`,
+        [tenantId, name, start, addDays(addMonths(start, 12), -1)],
+      );
+    }
+    const onRoll = Math.max(1, Math.round(current.length * (1 - 0.12 * n)));
+    for (const row of current.slice(0, onRoll)) {
+      const [have] = await q(
+        `SELECT 1 FROM enrollments WHERE student_id = $1 AND academic_year_id = $2`,
+        [row.student_id, past.id],
+      );
+      if (have) continue;
+      await q(
+        `INSERT INTO enrollments (tenant_id, student_id, class_id, section_id, academic_year_id, enrollment_status, enrolled_at, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'GRADUATED', $6, NOW(), NOW())`,
+        [tenantId, row.student_id, row.class_id, row.section_id, past.id, start],
+      );
+    }
+  }
+}
+
+/** Homework in the sections of `student@` and `parent@`'s children: due tomorrow and in five days. */
+async function seedFamilyHomework(
+  q: Q,
+  tenantId: string,
+  today: string,
+  sections: { id: string; class_id: string }[],
+) {
+  const own = await q<{ id: string; class_id: string }>(
+    `SELECT DISTINCT cs.id, cs.class_id
+       FROM students st JOIN class_sections cs ON cs.id = st.class_section_id
+      WHERE st.tenant_id = $1 AND st.deleted_at IS NULL
+        AND (st.user_id IN (SELECT id FROM users WHERE email = $2)
+          OR st.id IN (SELECT sg.student_id FROM student_guardians sg
+                         JOIN guardians g ON g.id = sg.guardian_id
+                         JOIN users u ON u.id = g.user_id AND u.email = $3))`,
+    [tenantId, FAMILY_EMAILS[0], FAMILY_EMAILS[1]],
+  );
+  const known = new Set(sections.map((s) => s.id));
+  for (const [ti, title] of DASHBOARD_GROUP_C.familyHomework.entries()) {
+    const due = addDays(today, ti === 0 ? 1 : 5);
+    for (const section of own.filter((s) => known.has(s.id))) {
+      const [subject] = await q<{ id: string }>(
+        `SELECT subject_id AS id FROM class_subjects WHERE tenant_id = $1 AND class_id = $2
+         UNION ALL SELECT id FROM subjects WHERE tenant_id = $1 AND deleted_at IS NULL
+         LIMIT 1`,
+        [tenantId, section.class_id],
+      );
+      if (!subject) continue;
+      let [hw] = await q<{ id: string }>(
+        `SELECT id FROM homework WHERE tenant_id = $1 AND class_id = $2 AND title = $3`,
+        [tenantId, section.class_id, title],
+      );
+      if (!hw) {
+        [hw] = await q<{ id: string }>(
+          `INSERT INTO homework (tenant_id, title, subject_id, class_id, grading_mode)
+           VALUES ($1, $2, $3, $4, 'TICK') RETURNING id`,
+          [tenantId, title, subject.id, section.class_id],
+        );
+      }
+      const [assignment] = await q<{ id: string }>(
+        `SELECT id FROM homework_assignments WHERE homework_id = $1 AND section_id = $2`,
+        [hw.id, section.id],
+      );
+      if (assignment) {
+        await q(
+          `UPDATE homework_assignments SET assigned_date = $2, due_date = $3, status = 'ACTIVE', updated_at = NOW() WHERE id = $1`,
+          [assignment.id, today, due],
+        );
+      } else {
+        await q(
+          `INSERT INTO homework_assignments (tenant_id, homework_id, section_id, assigned_date, due_date, status)
+           VALUES ($1, $2, $3, $4, $5, 'ACTIVE')`,
+          [tenantId, hw.id, section.id, today, due],
+        );
+      }
+    }
   }
 }
