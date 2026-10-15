@@ -128,18 +128,14 @@ test.describe('dashboard: executive', () => {
 test.describe('dashboard: executive on a phone', () => {
   test.use({ ...loggedIn('executive'), viewport: { width: 390, height: 844 }, hasTouch: true });
 
-  test('key numbers show as tiles; tapping the attendance tile expands its card', async ({
-    page,
-  }) => {
+  test('key numbers show as tiles; tapping a tile expands its card', async ({ page }) => {
     await openDashboard(page);
     const tiles = page.getByRole('region', { name: t('dashboard.page.keyNumbers') });
     await expect(tiles).toBeVisible();
 
-    const tile = page
-      .getByTestId('grid-phone')
-      .getByRole('button', {
-        name: new RegExp(t('dashboard.widgets.attendance-today.compactTitle')),
-      });
+    // A tile's own toggle, not the attendance tile by name: on the weekly off that tile falls
+    // back to a "school closed" card, which expands in place and has no toggle.
+    const tile = page.getByTestId('grid-phone').locator('[data-tile-toggle]:visible').first();
     await expect(tile).toHaveAttribute('aria-expanded', 'false');
     await tile.tap();
     await expect(tile).toHaveAttribute('aria-expanded', 'true');

@@ -104,7 +104,9 @@ test.describe('dashboard: teacher on a phone', () => {
     await openDashboard(page);
     await expect(page.getByRole('region', { name: t('dashboard.page.keyNumbers') })).toBeVisible();
 
-    const tile = page.getByTestId('grid-phone').locator('button[aria-expanded]').first();
+    // A tile's own toggle: on the weekly off the attendance tile is a "school closed" card whose
+    // button expands in place instead.
+    const tile = page.getByTestId('grid-phone').locator('[data-tile-toggle]:visible').first();
     await expect(tile).toHaveAttribute('aria-expanded', 'false');
     await tile.tap();
     await expect(tile).toHaveAttribute('aria-expanded', 'true');
