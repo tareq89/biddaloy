@@ -56,7 +56,11 @@ export class SyllabusService {
    * academic year, one query. Classes with no topics are left out. Class order
    * is the class picker's (`name ASC`).
    */
-  async progressByClass(tenantId: string): Promise<SyllabusProgressWidgetDto> {
+  async progressByClass(
+    tenantId: string,
+    /** Passed in by `syllabusVsPlan`, which needs the same map, so it is computed once. */
+    expectedByClass?: ReturnType<StudyPlanDashboardService['expectedByClass']>,
+  ): Promise<SyllabusProgressWidgetDto> {
     const rows = await this.repo
       .createQueryBuilder('st')
       .innerJoin(
@@ -93,7 +97,7 @@ export class SyllabusService {
       }>();
 
     const pct = (done: number, total: number) => (total ? Math.round((done / total) * 100) : 0);
-    const expected = await this.planDashboard.expectedByClass(tenantId);
+    const expected = await (expectedByClass ?? this.planDashboard.expectedByClass(tenantId));
     const classes = rows.map((r) => {
       const done = Number(r.done);
       const total = Number(r.total);
@@ -120,9 +124,10 @@ export class SyllabusService {
    * with a current plan. Joined in JS with `progressByClass` so both cards agree.
    */
   async syllabusVsPlan(tenantId: string): Promise<SyllabusVsPlanDto> {
+    const expectedByClass = this.planDashboard.expectedByClass(tenantId);
     const [progress, expected, settings] = await Promise.all([
-      this.progressByClass(tenantId),
-      this.planDashboard.expectedByClass(tenantId),
+      this.progressByClass(tenantId, expectedByClass),
+      expectedByClass,
       this.schools.getResolvedSettings(tenantId),
     ]);
     const classes = progress.classes.flatMap((c) => {
