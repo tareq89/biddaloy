@@ -12,6 +12,7 @@
 import { ExamKind } from '@biddaloy/shared';
 import {
   Button,
+  DatePicker,
   Dialog,
   DialogClose,
   DialogContent,
@@ -30,7 +31,7 @@ import {
 } from '@biddaloy/ui/components';
 import { useAcademicYears, useClasses, useCreateExam, useUpdateExam } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatNumber } from '@biddaloy/ui/utils';
+import { formatNumber, parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
@@ -39,6 +40,7 @@ import { examTemplatesQueryOptions } from './-use-exam-templates';
 export interface ExamFormInitialValues {
   name: string;
   kind: ExamKind;
+  mark_entry_deadline?: string | null;
 }
 
 export interface ExamFormDialogProps {
@@ -93,6 +95,11 @@ export function ExamFormDialog({
 
   const [name, setName] = React.useState(initialValues?.name ?? '');
   const [kind, setKind] = React.useState<ExamKind>(initialValues?.kind ?? ExamKind.TERM);
+  const [deadline, setDeadline] = React.useState<Date | undefined>(
+    initialValues?.mark_entry_deadline
+      ? parseServerDate(initialValues.mark_entry_deadline)
+      : undefined,
+  );
   const [academicYearId, setAcademicYearId] = React.useState(defaultAcademicYearId ?? '');
   const [classId, setClassId] = React.useState('');
   const [templateId, setTemplateId] = React.useState(defaultTemplateId ?? NO_TEMPLATE);
@@ -115,6 +122,9 @@ export function ExamFormDialog({
     const values = initialValues ?? EMPTY_VALUES;
     setName(values.name);
     setKind(values.kind);
+    setDeadline(
+      values.mark_entry_deadline ? parseServerDate(values.mark_entry_deadline) : undefined,
+    );
     setAcademicYearId(defaultAcademicYearId ?? '');
     setClassId('');
     setTemplateId(defaultTemplateId ?? NO_TEMPLATE);
@@ -144,6 +154,7 @@ export function ExamFormDialog({
           kind,
           academic_year_id: academicYearId,
           class_id: classId,
+          ...(deadline ? { mark_entry_deadline: toIsoDate(deadline) } : {}),
           ...(fromTemplate ? { template_id: templateId } : {}),
         },
         {
@@ -151,7 +162,8 @@ export function ExamFormDialog({
             if (fromTemplate) {
               // `POST /exams` returns the Exam plus `components_created`.
               const count = (exam as { components_created?: number }).components_created ?? 0;
-              if (count > 0) toast.success(tt('toast.created', { count, n: formatNumber(count, config) }));
+              if (count > 0)
+                toast.success(tt('toast.created', { count, n: formatNumber(count, config) }));
               else toast.info(tt('toast.noRows'));
             }
             onSaved();
@@ -159,7 +171,10 @@ export function ExamFormDialog({
         },
       );
     } else {
-      updateExam.mutate({ name: name.trim(), kind }, { onSuccess: onSaved });
+      updateExam.mutate(
+        { name: name.trim(), kind, mark_entry_deadline: deadline ? toIsoDate(deadline) : null },
+        { onSuccess: onSaved },
+      );
     }
   }
 
@@ -201,6 +216,33 @@ export function ExamFormDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel htmlFor="exam-form-deadline">{t('examForm.deadlineLabel')}</FieldLabel>
+            <div className="flex items-center gap-2">
+              <DatePicker
+                id="exam-form-deadline"
+                aria-label={t('examForm.deadlineLabel')}
+                placeholder={t('examForm.deadlinePlaceholder')}
+                config={config}
+                value={deadline}
+                onValueChange={setDeadline}
+                clearable={false}
+                className="min-h-11 flex-1 sm:min-h-9"
+              />
+              {deadline && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11 sm:min-h-9"
+                  onClick={() => setDeadline(undefined)}
+                >
+                  {t('examForm.deadlineClear')}
+                </Button>
+              )}
+            </div>
+            <p className="text-caption text-text-secondary">{t('examForm.deadlineHelp')}</p>
           </div>
 
           {mode === 'create' && (
