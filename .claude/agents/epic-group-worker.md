@@ -166,7 +166,11 @@ a new approach yourself.
 ### 5. Review — two passes
 
 First: invoke the `code-review` skill on the uncommitted working tree, so fixes
-land in the same commit instead of becoming PR noise.
+land in the same commit instead of becoming PR noise. Also run the
+`coderabbit-review` skill (CodeRabbit CLI, `--agent`) on the same tree. If it
+can't review (rate-limited, no included reviews left, over the file limit, or
+`review_skipped`), note "CodeRabbit CLI: skipped (<reason>)" and carry on.
+Don't wait, retry, narrow the scope to fit, or pass `--use-credits`.
 
 Second: dispatch a review subagent chosen by the ticket's **review tier**:
 

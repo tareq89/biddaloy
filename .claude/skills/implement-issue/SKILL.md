@@ -286,6 +286,12 @@ follow-up noise in the PR diff. Who reviews depends on the **review tier**:
   this session. (It's a skill, so you invoke it directly — unlike `/model`,
   this one really runs.)
 
+Either tier, also run the `coderabbit-review` skill (CodeRabbit CLI, `--agent`)
+on the same working tree, and treat its findings like the `code-review` ones. If
+it can't review (rate-limited, no included reviews left, over the file limit, or
+`review_skipped`), write "CodeRabbit CLI: skipped (<reason>)" and carry on.
+Don't wait, retry, narrow the scope to fit, or pass `--use-credits`.
+
 Either tier, one check the reviewer must not skip: **a diff that adds or
 changes a table or column must also cover it in the demo seed**
 (`docs/architecture/22-demo-seed.md`, rule and safety list). Bug fixes are
