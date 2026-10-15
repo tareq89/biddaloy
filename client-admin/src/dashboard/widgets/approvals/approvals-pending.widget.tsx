@@ -78,12 +78,12 @@ export function ApprovalsPendingView({
       {...(data ? { value: tw('value', { count: data.total }) } : {})}
       {...(data ? { summary: data.total === 0 ? tw('none') : oldest } : {})}
       loading={loading}
-      loadingLabel={t('dashboard:states.loading', { title })}
+      loadingLabel={t('states.loading', { ns: 'dashboard', title })}
       {...(failed && onRetry
         ? {
             error: {
-              message: t('dashboard:states.error'),
-              retryLabel: t('dashboard:states.retry'),
+              message: t('states.error', { ns: 'dashboard' }),
+              retryLabel: t('states.retry', { ns: 'dashboard' }),
               onRetry,
             },
           }
