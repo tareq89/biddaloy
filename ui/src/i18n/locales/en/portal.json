@@ -467,7 +467,8 @@
     "shortClosed": "Closed",
     "regionLabel": "Today at school",
     "markedAt": "Attendance was taken at {{time}}",
-    "notTakenYet": "Today's attendance has not been taken yet"
+    "notTakenYet": "Today's attendance has not been taken yet",
+    "tellSchool": "Tell the school"
   },
   "heatmap": {
     "title": "This month's attendance",

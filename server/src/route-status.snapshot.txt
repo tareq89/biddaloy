@@ -212,6 +212,7 @@ GET    /api/v1/dashboard/widgets/homework-submission-rate                       
 GET    /api/v1/dashboard/widgets/homework-to-check                               401 403 403 403 403 PASS 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/mark-entry-progress                             401 403 403 PASS 403 403 403 403 PASS 403 PASS 403
 GET    /api/v1/dashboard/widgets/my-leave-balance                                401 403 403 403 PASS PASS 403 403 403 PASS PASS 403
+GET    /api/v1/dashboard/widgets/my-lessons-to-mark                              401 403 403 403 403 PASS 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/my-mark-deadlines                               401 403 403 403 403 PASS 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/my-pending-sections                             401 403 403 403 403 PASS 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/my-routine-today                                401 403 403 403 403 PASS 403 403 403 403 403 403

@@ -174,6 +174,7 @@ export async function ensureDashboardSeed(
   await seedMarks(q, tenantId, teacher);
   await seedHomework(q, tenantId, today, sections, teacher);
   await seedRoutine(q, tenantId, year, teacher);
+  await seedLessonsToMark(q, tenantId, year, today, teacher);
   await seedTeacherLeave(q, tenantId, today, teacher.staffProfileId);
 }
 
@@ -1144,6 +1145,62 @@ async function seedRoutine(
       made += 1;
     }
   }
+}
+
+/**
+ * [8.10.7.7.05] "Lessons to mark": the demo teacher's first demo-room period gets a study
+ * plan (kept if one exists) whose creation day is the 3rd most recent teaching day, and any
+ * delivery since then is cleared, so the last 3 teaching days show up as not marked.
+ */
+async function seedLessonsToMark(
+  q: Q,
+  tenantId: string,
+  year: { id: string },
+  today: string,
+  teacher: TeacherCtx,
+) {
+  const [slot] = await q<{ section_id: string; subject_id: string }>(
+    `SELECT rs.section_id, rs.subject_id
+       FROM routine_slots rs
+       JOIN routine_slot_teachers rst ON rst.routine_slot_id = rs.id AND rst.teacher_id = $2
+       JOIN rooms r ON r.id = rs.room_id AND r.building = $3 AND r.room_no = $4
+      WHERE rs.tenant_id = $1
+      ORDER BY rs.weekday, rs.period_slot_id LIMIT 1`,
+    [tenantId, teacher.teacherId, DEMO_ROOM.building, DEMO_ROOM.room_no],
+  );
+  if (!slot) return;
+  let since = today;
+  for (let teachingDays = 0; teachingDays < 3;) {
+    since = addDays(since, -1);
+    if (weekday(since) !== WEEKLY_OFF) teachingDays += 1;
+  }
+  const [plan] = await q<{ id: string }>(
+    `SELECT id FROM study_plans
+      WHERE tenant_id = $1 AND section_id = $2 AND subject_id = $3 AND deleted_at IS NULL
+      ORDER BY created_at LIMIT 1`,
+    [tenantId, slot.section_id, slot.subject_id],
+  );
+  const lessons = JSON.stringify([
+    { id: 'dashboard-demo-l1', title: 'Chapter 1', periods: 6 },
+    { id: 'dashboard-demo-l2', title: 'Chapter 2', periods: 6 },
+  ]);
+  if (plan) {
+    await q(`UPDATE study_plans SET created_at = $2 WHERE id = $1`, [
+      plan.id,
+      `${since}T12:00:00Z`,
+    ]);
+  } else {
+    await q(
+      `INSERT INTO study_plans (tenant_id, academic_year_id, section_id, subject_id, lessons, exam_markers, created_at)
+       VALUES ($1, $2, $3, $4, $5::jsonb, '[]'::jsonb, $6)`,
+      [tenantId, year.id, slot.section_id, slot.subject_id, lessons, `${since}T12:00:00Z`],
+    );
+  }
+  await q(
+    `DELETE FROM lesson_deliveries
+      WHERE tenant_id = $1 AND section_id = $2 AND subject_id = $3 AND date >= $4 AND date < $5`,
+    [tenantId, slot.section_id, slot.subject_id, since, today],
+  );
 }
 
 /** One approved casual-leave day this year (a recent working day), so the balance card shows usage. */

@@ -149,6 +149,7 @@ GET /dashboard/widgets/homework-submission-rate | HomeworkDashboardController | 
 GET /dashboard/widgets/homework-to-check | HomeworkDashboardController | perm: DASHBOARD_VIEW,HOMEWORK_GRADE
 GET /dashboard/widgets/mark-entry-progress | ExamsDashboardController | perm: DASHBOARD_VIEW,MARK_VIEW
 GET /dashboard/widgets/my-leave-balance | LeaveDashboardController | perm: DASHBOARD_VIEW
+GET /dashboard/widgets/my-lessons-to-mark | HomeworkDashboardController | perm: DASHBOARD_VIEW,SYLLABUS_MANAGE
 GET /dashboard/widgets/my-mark-deadlines | ExamsDashboardController | perm: DASHBOARD_VIEW,MARK_ENTER
 GET /dashboard/widgets/my-pending-sections | AttendanceDashboardController | perm: ATTENDANCE_MARK,DASHBOARD_VIEW
 GET /dashboard/widgets/my-routine-today | RoutinesDashboardController | perm: DASHBOARD_VIEW,ROUTINE_READ

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { StudyPlanDashboardService } from '../study-plans/study-plan-dashboard.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -60,6 +61,7 @@ export class HomeworkAnalyticsService {
     private readonly submissionRepo: Repository<HomeworkSubmission>,
     @InjectRepository(SyllabusTopic)
     private readonly syllabusRepo: Repository<SyllabusTopic>,
+    private readonly planDashboard: StudyPlanDashboardService,
   ) {}
 
   private rollupFromSubmissions(
@@ -224,7 +226,7 @@ export class HomeworkAnalyticsService {
     const mine = (await teacherAssignments(manager, { userId, tenantId })).filter(
       (r) => r.assignment_type === TeacherAssignmentType.SUBJECT_TEACHER && r.subject_id,
     );
-    if (mine.length === 0) return { items: [] };
+    if (mine.length === 0) return { items: [], behind_count: 0 };
     const pairs = [...new Set(mine.map((r) => `${r.class_id}:${r.subject_id}`))].map((k) =>
       k.split(':'),
     );
@@ -253,6 +255,10 @@ export class HomeworkAnalyticsService {
       [tenantId, mine.map((r) => r.section_id)],
     );
     const nameOf = new Map(sectionRows.map((s) => [s.id, s.section_name]));
+    const pace = await this.planDashboard.expectedForTeacher(
+      tenantId,
+      mine.map((r) => ({ section_id: r.section_id, subject_id: r.subject_id! })),
+    );
     const items = rows.map((r) => {
       const done = Number(r.done);
       const total = Number(r.total);
@@ -263,6 +269,15 @@ export class HomeworkAnalyticsService {
             .map((m) => m.section_id),
         ),
       ].sort((a, b) => (nameOf.get(a) ?? '').localeCompare(nameOf.get(b) ?? ''));
+      let expected = 0;
+      let planTotal = 0;
+      for (const id of sectionIds) {
+        const p = pace.get(`${id}|${r.subject_id}`);
+        if (p) {
+          expected += p.expected;
+          planTotal += p.total;
+        }
+      }
       return {
         class_id: r.class_id,
         class_name: r.class_name,
@@ -273,9 +288,13 @@ export class HomeworkAnalyticsService {
         done,
         total,
         percentage: percent(done, total),
+        expected_percentage: planTotal ? Math.round((expected / planTotal) * 100) : null,
       };
     });
     return {
+      behind_count: items.filter(
+        (i) => i.expected_percentage !== null && i.percentage < i.expected_percentage,
+      ).length,
       items: items.sort(
         (a, b) =>
           a.percentage - b.percentage ||

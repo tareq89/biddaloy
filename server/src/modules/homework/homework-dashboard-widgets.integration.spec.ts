@@ -68,7 +68,13 @@ describe('homework dashboard widgets (integration)', () => {
       { provide: HomeworkAccessService, useValue: {} },
       { provide: HomeworkNoticeService, useValue: {} },
       { provide: PlanScheduleService, useValue: {} },
-      { provide: StudyPlanDashboardService, useValue: { expectedByClass: async () => new Map() } },
+      {
+        provide: StudyPlanDashboardService,
+        useValue: {
+          expectedByClass: async () => new Map(),
+          expectedForTeacher: async () => new Map(),
+        },
+      },
       {
         provide: SchoolsService,
         useValue: { getResolvedSettings: async () => ({ region: { timezone: 'UTC' } }) },
@@ -484,7 +490,10 @@ describe('homework dashboard widgets (integration)', () => {
 
     it('a teacher with no rows gets an empty list', async () => {
       const t = await mkTeacher();
-      expect(await analytics.getTeacherSyllabusProgress(TENANT, t.userId)).toEqual({ items: [] });
+      expect(await analytics.getTeacherSyllabusProgress(TENANT, t.userId)).toEqual({
+        items: [],
+        behind_count: 0,
+      });
     });
 
     it('reconciles with the syllabus list for the same class and subject', async () => {
@@ -503,7 +512,10 @@ describe('homework dashboard widgets (integration)', () => {
     it('never mixes in another tenant', async () => {
       const t = await mkTeacher();
       await assignTeacher(t.teacherId, sec7A, T.SUBJECT_TEACHER, math);
-      expect(await analytics.getTeacherSyllabusProgress(TENANT_B, t.userId)).toEqual({ items: [] });
+      expect(await analytics.getTeacherSyllabusProgress(TENANT_B, t.userId)).toEqual({
+        items: [],
+        behind_count: 0,
+      });
     });
   });
 });

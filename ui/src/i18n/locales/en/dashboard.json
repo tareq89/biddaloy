@@ -298,6 +298,11 @@
       "value": "covered on average in your subjects",
       "leastCovered": "{{label}} has covered the least ({{percent}}).",
       "noPace": "Comparison with the plan comes with study plans.",
+      "expectedMarker": "Expected by today: {{percent}}",
+      "gap": "{{percent}} behind",
+      "behindSubjects_one": "{{count}} subject is behind the plan.",
+      "behindSubjects_other": "{{count}} subjects are behind the plan.",
+      "onPace": "No subject is behind the plan.",
       "colSubject": "Section and subject",
       "colCovered": "Covered",
       "emptyReason": "No syllabus topics in your subjects yet.",
@@ -573,7 +578,13 @@
     },
     "my-lessons-to-mark": {
       "title": "Lessons to mark done",
-      "description": "Lessons you taught but have not marked done"
+      "description": "Lessons you taught but have not marked done",
+      "compactTitle": "Lessons to mark",
+      "value_one": "lesson not updated",
+      "value_other": "lessons not updated",
+      "since": "Since {{date}}",
+      "allMarked": "All your lessons are marked.",
+      "action": "Mark lessons"
     },
     "common": {
       "showTable": "Show table",

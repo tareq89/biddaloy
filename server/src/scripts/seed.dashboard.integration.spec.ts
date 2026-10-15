@@ -321,6 +321,32 @@ describe('ensureDashboardSeed (integration)', () => {
     expect(leave.d.slice(0, 4)).toBe(today.slice(0, 4));
   });
 
+  it('feeds my-lessons-to-mark: a plan on a teacher period, made 3 teaching days ago, nothing marked since', async () => {
+    await seed();
+    await seed(); // a rerun keeps the one plan
+    const rows = await q(
+      `SELECT sp.id, sp.section_id, sp.subject_id, sp.created_at::date::text AS made
+         FROM study_plans sp
+         JOIN routine_slots rs ON rs.section_id = sp.section_id AND rs.subject_id = sp.subject_id
+         JOIN routine_slot_teachers rst ON rst.routine_slot_id = rs.id AND rst.teacher_id = $2
+        WHERE sp.tenant_id = $1
+        GROUP BY sp.id`,
+      [tenantId, teacherId],
+    );
+    expect(rows).toHaveLength(1);
+    const today = localToday('Asia/Dhaka');
+    const days =
+      (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${rows[0].made}T00:00:00Z`)) / 864e5;
+    expect(days).toBeGreaterThanOrEqual(3); // 3 teaching days back, a Friday in between adds one
+    expect(days).toBeLessThanOrEqual(4);
+    const [{ n }] = await q(
+      `SELECT count(*)::int AS n FROM lesson_deliveries
+        WHERE tenant_id = $1 AND section_id = $2 AND subject_id = $3 AND date >= $4`,
+      [tenantId, rows[0].section_id, rows[0].subject_id, rows[0].made],
+    );
+    expect(n).toBe(0);
+  });
+
   it('feeds the accountant widgets: three method groups today, a reversal, bills in all ageing buckets', async () => {
     await seed();
     const today = localToday('Asia/Dhaka');
