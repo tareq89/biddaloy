@@ -28,6 +28,10 @@ import { AttendanceService } from './attendance.service';
 import { AttendanceAccessService } from './attendance-access.service';
 import { AttendanceSummaryService } from './attendance-summary.service';
 import { AttendanceSummaryController } from './attendance-summary.controller';
+import { DashboardModule } from '../dashboard/dashboard.module';
+import { AttendanceDashboardService } from './attendance-dashboard.service';
+import { AttendanceDashboardController } from './attendance-dashboard.controller';
+import { AttendanceSeriesScheduler, ATTENDANCE_SERIES_QUEUE } from './attendance-series.scheduler';
 import { AbsenceNoticeService } from './absence-notice.service';
 import { AbsenceNoticeController } from './absence-notice.controller';
 import { AbsenceNoticeScheduler, ABSENCE_NOTICE_SWEEP_QUEUE } from './absence-notice.scheduler';
@@ -84,6 +88,7 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     StudentModule,
     CreditsModule,
     RoutinesModule,
+    DashboardModule,
     // Registered here (not exported from CommunicationsModule) so
     // AbsenceNoticeService can enqueue onto the exact same Redis-backed
     // queue the communications worker already consumes — same queue name,
@@ -93,6 +98,7 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
       defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
     }),
     BullModule.registerQueue({ name: ABSENCE_NOTICE_SWEEP_QUEUE }),
+    BullModule.registerQueue({ name: ATTENDANCE_SERIES_QUEUE }),
   ],
   providers: [
     AttendanceService,
@@ -100,6 +106,8 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     AttendanceSummaryService,
     AbsenceNoticeService,
     AbsenceNoticeScheduler,
+    AttendanceDashboardService,
+    AttendanceSeriesScheduler,
     DeviceService,
     DeviceEventsService,
     DeviceAuthGuard,
@@ -108,9 +116,16 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     AttendanceController,
     AttendanceSummaryController,
     AbsenceNoticeController,
+    AttendanceDashboardController,
     DevicesController,
     DeviceIngestController,
   ],
-  exports: [TypeOrmModule, AttendanceService, AttendanceAccessService, AttendanceSummaryService],
+  exports: [
+    TypeOrmModule,
+    AttendanceService,
+    AttendanceAccessService,
+    AttendanceSummaryService,
+    AttendanceDashboardService,
+  ],
 })
 export class AttendanceModule {}
