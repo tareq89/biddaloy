@@ -30,6 +30,9 @@ import { StudentPhotoService } from './student-photo.service';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { StorageModule } from '../storage/storage.module';
+import { DashboardModule } from '../dashboard/dashboard.module';
+import { StudentsDashboardService } from './students-dashboard.service';
+import { StudentsDashboardController } from './students-dashboard.controller';
 
 @Module({
   imports: [
@@ -48,6 +51,7 @@ import { StorageModule } from '../storage/storage.module';
     ]),
     AuditModule,
     StorageModule,
+    DashboardModule,
     BulkImportModule,
     // Pre-wired so W2's lifecycle service can inject `EnrollmentService`
     // without reopening this file (D29).
@@ -65,6 +69,7 @@ import { StorageModule } from '../storage/storage.module';
     StudentNotesService,
     StudentPublicExamsService,
     StudentPhotoService,
+    StudentsDashboardService,
   ],
   controllers: [
     StudentController,
@@ -72,6 +77,7 @@ import { StorageModule } from '../storage/storage.module';
     StudentNotesController,
     StudentPublicExamsController,
     StudentPhotoController,
+    StudentsDashboardController,
   ],
   exports: [
     StudentService,
