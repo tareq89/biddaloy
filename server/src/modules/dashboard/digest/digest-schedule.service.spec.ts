@@ -186,7 +186,7 @@ describe('DigestScheduleService', () => {
       expect(push.sendToUser).not.toHaveBeenCalled();
       const [name, data, opts] = queue.add.mock.calls[0];
       expect(name).toBe(DIGEST_RUN_JOB);
-      expect(data).toEqual({ tenantId: T, deferred: true });
+      expect(data).toEqual({ tenantId: T, deferred: true, scheduledDate: '2026-10-08' });
       expect(opts.delay).toBe(9 * 3600_000);
     });
 
@@ -194,6 +194,21 @@ describe('DigestScheduleService', () => {
       rows = [{ id: 'u1', role: 'ADMIN', preferences: null }];
       await service.runNow(T, true, new Date('2026-10-08T16:00:00Z'));
       expect(push.sendToUser).toHaveBeenCalledTimes(1);
+    });
+
+    it('a deferred run keeps the day it was scheduled for, even when it fires after midnight', async () => {
+      calendar.isNonWorkingDay.mockResolvedValue(false);
+      rows = [{ id: 'u1', role: 'ADMIN', preferences: null }];
+      // Fires 02:00 Dhaka on the 9th, but the tick was for the 8th.
+      await service.runNow(T, true, new Date('2026-10-08T20:00:00Z'), '2026-10-08');
+      expect(calendar.isNonWorkingDay).toHaveBeenCalledWith({ tenantId: T, date: '2026-10-08' });
+      expect(redis.set).toHaveBeenCalledWith(
+        `tenant:${T}:digest:sent:2026-10-08`,
+        '1',
+        'EX',
+        expect.any(Number),
+        'NX',
+      );
     });
 
     it('one failing user does not stop the others', async () => {

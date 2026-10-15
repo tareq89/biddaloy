@@ -6,16 +6,16 @@ Epic #169. The staff `/dashboard` is a grid of **widgets**. Each widget is one s
 
 ## 1. What a user sees
 
-| Role | Default widgets (first 4, in order) | Phone tiles |
-|---|---|---|
-| ADMIN | attendance-today, staff-today, collection-month, approvals-pending … (11 total) | yes, for widgets marked `phoneTile` |
-| EXECUTIVE | same "school pulse" set as ADMIN, minus the system widgets (8) | yes |
-| TEACHER | my-routine-today, my-pending-sections, my-mark-deadlines, homework-to-check … (7) | yes |
-| ACCOUNTANT | collection-today, collection-month, fee-generation-status, reminders-pending … (8) | yes |
-| OFFICE_STAFF | admissions-today, students-added-today, guardians-incomplete, attendance-today … (7) | yes |
-| EXAM_CONTROLLER | mark-entry-progress, results-state, seat-plan-status, print-queue, upcoming | yes |
-| COMMITTEE | committee-enrollment, committee-attendance, committee-finance, committee-pass-rate | yes |
-| PARENT, STUDENT, SUPER_ADMIN | none. Parents and students get the curated `/portal` cards (D2, no customising). | no |
+| Role                         | Default widgets (first 4, in order)                                                  | Phone tiles                         |
+| ---------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------- |
+| ADMIN                        | attendance-today, staff-today, collection-month, approvals-pending … (11 total)      | yes, for widgets marked `phoneTile` |
+| EXECUTIVE                    | same "school pulse" set as ADMIN, minus the system widgets (8)                       | yes                                 |
+| TEACHER                      | my-routine-today, my-pending-sections, my-mark-deadlines, homework-to-check … (7)    | yes                                 |
+| ACCOUNTANT                   | collection-today, collection-month, fee-generation-status, reminders-pending … (8)   | yes                                 |
+| OFFICE_STAFF                 | admissions-today, students-added-today, guardians-incomplete, attendance-today … (7) | yes                                 |
+| EXAM_CONTROLLER              | mark-entry-progress, results-state, seat-plan-status, print-queue, upcoming          | yes                                 |
+| COMMITTEE                    | committee-enrollment, committee-attendance, committee-finance, committee-pass-rate   | yes                                 |
+| PARENT, STUDENT, SUPER_ADMIN | none. Parents and students get the curated `/portal` cards (D2, no customising).     | no                                  |
 
 The full lists are `ROLE_DEFAULT_LAYOUTS` in `shared/src/dashboard/widget-catalogue.ts`.
 
@@ -46,14 +46,14 @@ Key ideas:
 `server/src/modules/dashboard/dashboard-cache.service.ts`. Keys look like this:
 
 ```
-tenant:7c1e…:dash:collection-month:school
-tenant:7c1e…:dash:my-mark-deadlines:user:3f9a…
+tenant:7c1e…:dash:v1:collection-month:school
+tenant:7c1e…:dash:v1:my-mark-deadlines:user:3f9a…
 ```
 
-| Scope | Used when | Example widgets |
-|---|---|---|
-| `school` | The answer is the same for everyone allowed to see it | collection-month, dues-ageing |
-| `user:<sub>` | The answer depends on who asks (a teacher's own sections) | my-mark-deadlines |
+| Scope        | Used when                                                 | Example widgets               |
+| ------------ | --------------------------------------------------------- | ----------------------------- |
+| `school`     | The answer is the same for everyone allowed to see it     | collection-month, dues-ageing |
+| `user:<sub>` | The answer depends on who asks (a teacher's own sections) | my-mark-deadlines             |
 
 Notes:
 
@@ -95,7 +95,12 @@ async collectionMonth(@CurrentTenant() tenant) {
   "received": 412000,
   "billed_for_month": 980000,
   "received_pct": 42,
-  "last_month_same_point": { "as_of": "2026-09-07", "received": 385000, "billed_for_month": 960000, "received_pct": 40 },
+  "last_month_same_point": {
+    "as_of": "2026-09-07",
+    "received": 385000,
+    "billed_for_month": 960000,
+    "received_pct": 40
+  },
   "last_year_same_point": null
 }
 ```
@@ -104,11 +109,11 @@ async collectionMonth(@CurrentTenant() tenant) {
 
 **Client** (`client-admin/src/dashboard/widgets/finance/collection-month.widget.tsx`). It exports `widgetKey` and a default component that takes `variant`:
 
-| Variant | Where | Shows |
-|---|---|---|
-| `tile` | phone, 2-column KPI grid | one number |
-| `compact` | phone, after tap | number plus one sentence |
-| `full` | desktop | meter, comparisons, table toggle |
+| Variant   | Where                    | Shows                            |
+| --------- | ------------------------ | -------------------------------- |
+| `tile`    | phone, 2-column KPI grid | one number                       |
+| `compact` | phone, after tap         | number plus one sentence         |
+| `full`    | desktop                  | meter, comparisons, table toggle |
 
 **Reconciliation rule** (D29): the widget and its source page run the same query. `received` equals `totals.net` of `GET /reports/collections` for the same range. A test (`reports-dashboard.e2e-spec.ts`) checks they match.
 
@@ -171,13 +176,13 @@ flowchart LR
   end
 ```
 
-| What | Where | Default |
-|---|---|---|
-| Layout | `PATCH /users/me/preferences/dashboard` (`users.controller.ts`) | none (role default) |
-| Morning summary opt-out | `PATCH /users/me/preferences/digest`, body `{ "enabled": false }` (D50) | on |
-| At-risk thresholds | `settings.dashboard.risk`: `absentStreakDays` 3, `monthlyAttendancePct` 75, `failedSubjects` 1, `overdueDays` 60 | see left |
-| Committee attendance target | `settings.dashboard.committeeAttendanceTargetPct` | 90 |
-| Morning summary time | `settings.dashboard.digestTime` (school-local) | `07:30` |
+| What                        | Where                                                                                                            | Default             |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Layout                      | `PATCH /users/me/preferences/dashboard` (`users.controller.ts`)                                                  | none (role default) |
+| Morning summary opt-out     | `PATCH /users/me/preferences/digest`, body `{ "enabled": false }` (D50)                                          | on                  |
+| At-risk thresholds          | `settings.dashboard.risk`: `absentStreakDays` 3, `monthlyAttendancePct` 75, `failedSubjects` 1, `overdueDays` 60 | see left            |
+| Committee attendance target | `settings.dashboard.committeeAttendanceTargetPct`                                                                | 90                  |
+| Morning summary time        | `settings.dashboard.digestTime` (school-local)                                                                   | `07:30`             |
 
 Defaults: `DEFAULT_DASHBOARD_SETTINGS` in `server/src/modules/schools/settings/tenant-settings-defaults.ts`.
 
@@ -262,18 +267,18 @@ Files are in `server/src/modules/dashboard/digest/`.
 
 ## 13. Known limits and decisions that differ from the tickets
 
-| Item | Plan / ticket said | Built | Why |
-|---|---|---|---|
-| Doc number | `22-dashboard.md` | `26-dashboard.md` | 22 to 25 were taken |
-| `needsEpic` (D42) | Hide the widget until the dependency epic ships | A `needsEpic` widget shows **exactly when its `.widget.tsx` file exists** (D51). The file list is the switch. | The four dependency epics shipped, and "file exists" needs no shared edit. `resolveLayout` says it supersedes D42. |
-| Layout cap (D34) | 30 widgets | 40 | ADMIN has 31 |
-| Briefing (D10, D30, D37) | `GET /dashboard/briefing`, priority list in shared | `GET /attention/summary` (Epic 67) | One engine, one count, shell bar and dashboard agree |
-| Cache scopes | school / role / user | school / user | No widget differs by role alone |
-| Digest opt-out (D50) | in the layout DTO | `PATCH /users/me/preferences/digest` | Separate concern, separate route |
-| Recent payments total | total of shown rows | `total_of_shown` = SUCCESS rows shown only | FAILED rows move no money |
-| Phone tile tap | tile itself is a button | A sibling overlay button (`dashboard-grid.tsx`) expands the tile. A CSS `:has()` rule (`group-has-[a,button:not([data-tile-toggle])]:hidden`) hides it when the tile holds its own link or button | No button nested inside a button |
-| Customise | add from catalogue | Hide, show, reorder and resize the widgets the role may see. There is no "add from catalogue" step: every allowed widget is already listed, hidden or not. | Allowed set is already in the list |
-| Load test | manual run doc | The 10k-student run is manual only (D24). The run guide is [26-dashboard-load-test.md](26-dashboard-load-test.md) (`load:seed` and `run-dashboard-load.ts` under `server/src/scripts/load/`). The attention perf script `server/src/scripts/perf-attention.ts` also exists. | Epic 169 ticket 6-02 |
+| Item                     | Plan / ticket said                                 | Built                                                                                                                                                                                                                                                                       | Why                                                                                                                |
+| ------------------------ | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Doc number               | `22-dashboard.md`                                  | `26-dashboard.md`                                                                                                                                                                                                                                                           | 22 to 25 were taken                                                                                                |
+| `needsEpic` (D42)        | Hide the widget until the dependency epic ships    | A `needsEpic` widget shows **exactly when its `.widget.tsx` file exists** (D51). The file list is the switch.                                                                                                                                                               | The four dependency epics shipped, and "file exists" needs no shared edit. `resolveLayout` says it supersedes D42. |
+| Layout cap (D34)         | 30 widgets                                         | 40                                                                                                                                                                                                                                                                          | ADMIN has 31                                                                                                       |
+| Briefing (D10, D30, D37) | `GET /dashboard/briefing`, priority list in shared | `GET /attention/summary` (Epic 67)                                                                                                                                                                                                                                          | One engine, one count, shell bar and dashboard agree                                                               |
+| Cache scopes             | school / role / user                               | school / user                                                                                                                                                                                                                                                               | No widget differs by role alone                                                                                    |
+| Digest opt-out (D50)     | in the layout DTO                                  | `PATCH /users/me/preferences/digest`                                                                                                                                                                                                                                        | Separate concern, separate route                                                                                   |
+| Recent payments total    | total of shown rows                                | `total_of_shown` = SUCCESS rows shown only                                                                                                                                                                                                                                  | FAILED rows move no money                                                                                          |
+| Phone tile tap           | tile itself is a button                            | A sibling overlay button (`dashboard-grid.tsx`) expands the tile. A CSS `:has()` rule (`group-has-[a,button:not([data-tile-toggle])]:hidden`) hides it when the tile holds its own link or button                                                                           | No button nested inside a button                                                                                   |
+| Customise                | add from catalogue                                 | Hide, show, reorder and resize the widgets the role may see. There is no "add from catalogue" step: every allowed widget is already listed, hidden or not.                                                                                                                  | Allowed set is already in the list                                                                                 |
+| Load test                | manual run doc                                     | The 10k-student run is manual only (D24). The run guide is [26-dashboard-load-test.md](26-dashboard-load-test.md) (`load:seed` and `run-dashboard-load.ts` under `server/src/scripts/load/`). The attention perf script `server/src/scripts/perf-attention.ts` also exists. | Epic 169 ticket 6-02                                                                                               |
 
 Other limits:
 
@@ -311,20 +316,20 @@ Checklist to confirm before the PR: catalogue row, DTO, route, snapshots, `schem
 
 ## 15. Where things live
 
-| What | Path |
-|---|---|
-| Catalogue, default layouts, layout types | `shared/src/dashboard/widget-catalogue.ts` |
-| Cache, decorator, role guard | `server/src/modules/dashboard/` |
-| At-risk list and nightly job | `server/src/modules/dashboard/insights/` |
-| Morning summary | `server/src/modules/dashboard/digest/` |
-| Owner widget routes | `server/src/modules/<owner>/*-dashboard.controller.ts` |
-| Layout save routes | `server/src/modules/users/users.controller.ts` |
-| Settings defaults | `server/src/modules/schools/settings/tenant-settings-defaults.ts` |
-| Page, grid, slot, customise | `client-admin/src/dashboard/layout/` |
-| Widget files and glob registry | `client-admin/src/dashboard/widgets/` |
-| Chart and card components | `ui/src/components/dashboard/` |
-| Strings | `ui/src/i18n/locales/{en,bn}/dashboard.json` |
-| Portal cards | `client-admin/src/routes/portal/-*-card.tsx` |
-| Committee report page | `/print/committee-report` |
-| Dashboard seed | `server/src/scripts/seed.dashboard.ts` |
-| Briefing and attention | [23-attention.md](23-attention.md) |
+| What                                     | Path                                                              |
+| ---------------------------------------- | ----------------------------------------------------------------- |
+| Catalogue, default layouts, layout types | `shared/src/dashboard/widget-catalogue.ts`                        |
+| Cache, decorator, role guard             | `server/src/modules/dashboard/`                                   |
+| At-risk list and nightly job             | `server/src/modules/dashboard/insights/`                          |
+| Morning summary                          | `server/src/modules/dashboard/digest/`                            |
+| Owner widget routes                      | `server/src/modules/<owner>/*-dashboard.controller.ts`            |
+| Layout save routes                       | `server/src/modules/users/users.controller.ts`                    |
+| Settings defaults                        | `server/src/modules/schools/settings/tenant-settings-defaults.ts` |
+| Page, grid, slot, customise              | `client-admin/src/dashboard/layout/`                              |
+| Widget files and glob registry           | `client-admin/src/dashboard/widgets/`                             |
+| Chart and card components                | `ui/src/components/dashboard/`                                    |
+| Strings                                  | `ui/src/i18n/locales/{en,bn}/dashboard.json`                      |
+| Portal cards                             | `client-admin/src/routes/portal/-*-card.tsx`                      |
+| Committee report page                    | `/print/committee-report`                                         |
+| Dashboard seed                           | `server/src/scripts/seed.dashboard.ts`                            |
+| Briefing and attention                   | [23-attention.md](23-attention.md)                                |

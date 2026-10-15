@@ -91,8 +91,8 @@ cold   ADMIN       /dashboard/widgets/staff-today         30   20ms   59ms    80
 ```
 
 A row FAILS when its p95 is 300 ms or more, when it had any non-2xx answer, or when it has no
-samples. A `404` on the first probe means the widget has no route yet: it is listed under
-"Skipped" and not counted. The run writes `load-results-<time>.md` and `.json` in the current
+samples. A `404` on the first probe means a registered widget route is missing: it is listed under
+"Missing routes" and counts as a failure. The run writes `load-results-<time>.md` and `.json` in the current
 folder and exits `1` if any row failed.
 
 Things that make a number look worse than the widget really is:

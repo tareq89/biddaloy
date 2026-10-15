@@ -8,7 +8,10 @@ import { CommitteeEnrollmentDto } from './dto/enrollments-dashboard.dto';
 export class EnrollmentsDashboardService {
   constructor(@InjectRepository(Enrollment) private readonly repo: Repository<Enrollment>) {}
 
-  /** Students on the roll at year end (ACTIVE or GRADUATED), last 5 years up to the current one. */
+  /**
+   * Students on the roll at year end (ACTIVE or GRADUATED), last 5 years up to the current one.
+   * `is_current DESC` keeps the current year last when two years share a start date.
+   */
   async getEnrollmentTrend(tenantId: string): Promise<CommitteeEnrollmentDto> {
     const rows: { year_label: string; student_count: string }[] = await this.repo.manager.query(
       `SELECT ay.name AS year_label,
@@ -19,7 +22,7 @@ export class EnrollmentsDashboardService {
           AND ay.start_date <= (SELECT start_date FROM academic_years
                                  WHERE tenant_id = $1 AND is_current AND deleted_at IS NULL)
         GROUP BY ay.id, ay.name, ay.start_date
-        ORDER BY ay.start_date DESC LIMIT 5`,
+        ORDER BY ay.start_date DESC, ay.is_current DESC LIMIT 5`,
       [tenantId],
     );
     const years = rows

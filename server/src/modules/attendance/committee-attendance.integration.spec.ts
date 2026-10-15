@@ -104,9 +104,9 @@ describe('AttendanceDashboardService.getCommitteeMonthly (integration)', () => {
   async function clearCaches() {
     const keys = [
       ...(await redis.keys(
-        `tenant:${TENANT_ID}:dash:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:*`,
+        `tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:*`,
       )),
-      ...(await redis.keys(`tenant:${TENANT_ID}:dash:${DashboardWidgetKey.ATTENDANCE_TODAY}:*`)),
+      ...(await redis.keys(`tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.ATTENDANCE_TODAY}:*`)),
     ];
     if (keys.length) await redis.del(...keys);
   }
@@ -303,7 +303,7 @@ describe('AttendanceDashboardService.getCommitteeMonthly (integration)', () => {
     await clearCaches();
     await service.storeCommitteeDaily(TENANT_ID, '2026-10-12');
     const dailyKeys = await redis.keys(
-      `tenant:${TENANT_ID}:dash:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:daily:*`,
+      `tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:daily:*`,
     );
     expect(dailyKeys).toHaveLength(1);
 
@@ -316,7 +316,7 @@ describe('AttendanceDashboardService.getCommitteeMonthly (integration)', () => {
 
     // Drop only the 60 s widget cache; the nightly daily key stays, so this is the cache-hit path.
     const widgetKeys = (
-      await redis.keys(`tenant:${TENANT_ID}:dash:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:*`)
+      await redis.keys(`tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:*`)
     ).filter((k) => !k.includes(':daily:'));
     if (widgetKeys.length) await redis.del(...widgetKeys);
     const cached = await service.getCommitteeMonthly(TENANT_ID);

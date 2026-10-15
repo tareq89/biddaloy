@@ -101,7 +101,9 @@ test.describe('staff', () => {
     const bell = page.getByRole('button', { name: /need your attention/ });
     await bell.focus();
     await page.keyboard.press('Enter');
-    await page.getByRole('button', { name: t('nav.notifications.attentionOpen') }).focus();
+    await page
+      .getByRole('button', { name: t('nav.notifications.attentionOpen'), exact: true })
+      .focus();
     await page.keyboard.press('Enter');
     await expect(cards.first()).toBeFocused();
     await page.keyboard.press('Escape');

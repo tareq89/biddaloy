@@ -16,4 +16,6 @@ export interface DigestJobData {
   tenantId: string;
   /** Set by the quiet-hours delay: run now, do not re-check quiet hours. */
   deferred?: boolean;
+  /** School-local day (YYYY-MM-DD) a quiet-hours-deferred run was scheduled for. */
+  scheduledDate?: string;
 }

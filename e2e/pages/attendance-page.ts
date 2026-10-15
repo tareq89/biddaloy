@@ -206,7 +206,9 @@ export class AttendancePage {
     // Bangla digits too: the grid renders the day number through the region's
     // digit setting (default Bangla), not always ASCII.
     const bangla = dayOfMonth.replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)]!);
+    // Scoped to <main>: the header bell's count badge ("9 to do") also starts with a digit.
     return this.page
+      .getByRole('main')
       .getByRole('button')
       .filter({ hasText: new RegExp(`^(?:${dayOfMonth}|${bangla})(?![\\d০-৯])`) });
   }

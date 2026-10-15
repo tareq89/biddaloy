@@ -16,7 +16,7 @@ import { expectFocusRing, resetTabCursor, tabToLocator, tabToWithRing } from './
  *
  * Product facts these tests pin (they differ from the ticket text):
  * - The briefing button opens `/notifications?tab=active` (#1877), not `/attendance`.
- * - `ChartTableToggle` is a pressed-state button (`aria-pressed`), not `aria-expanded`; the
+ * - `ChartTableToggle` is a plain button whose label flips (no `aria-pressed`, no `aria-expanded`); the
  *   at-risk "see all" button is the one that uses `aria-expanded`.
  */
 
@@ -49,11 +49,9 @@ async function toggleTable(page: Page, c: Locator) {
   const show = c.getByRole('button', { name: t('dashboard.widgets.common.showTable') });
   const hide = c.getByRole('button', { name: t('dashboard.widgets.common.showChart') });
   await tabToLocator(page, show, 60);
-  await expect(show).toHaveAttribute('aria-pressed', 'false');
   await page.keyboard.press('Enter');
   await expect(c.getByRole('table')).toBeVisible();
   await expect(hide).toBeFocused();
-  await expect(hide).toHaveAttribute('aria-pressed', 'true');
   await expectFocusRing(page);
   return { show, hide };
 }
@@ -283,7 +281,12 @@ test.describe('keyboard journey: teacher on a phone', () => {
     await skipToMain(page);
 
     const tile = page.getByTestId('grid-phone').getByRole('button', {
-      name: new RegExp(t('dashboard.widgets.my-pending-sections.compactTitle')),
+      name: new RegExp(
+        t('dashboard.widgets.my-pending-sections.compactTitle').replace(
+          /[.*+?^${}()|[\]\\]/g,
+          '\\$&',
+        ),
+      ),
     });
     if ((await tile.count()) === 0) {
       test.info().annotations.push({
