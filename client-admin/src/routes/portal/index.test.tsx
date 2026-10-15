@@ -13,6 +13,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
+import { axe } from 'vitest-axe';
 
 import { routeTree } from '../../routeTree.gen';
 
@@ -53,6 +54,24 @@ vi.setSystemTime(new Date('2026-03-15T18:30:00.000Z'));
  * loading or erroring" is the contract this page has to hold — see the
  * table in `index.tsx`'s header comment.
  */
+/**
+ * The shared `toHaveNoViolations` matcher, minus `landmark-unique`. The
+ * overview's cards are rendered twice and switched with CSS (`hidden
+ * md:block` / `md:hidden`); jsdom applies no CSS, so both copies sit in the
+ * tree and share a name, which a browser never exposes. Each card is
+ * axe-checked on its own in its own test file.
+ */
+async function expectAxeClean(container: Element) {
+  const results = await axe(container, {
+    rules: {
+      'color-contrast': { enabled: false },
+      region: { enabled: false },
+      'landmark-unique': { enabled: false },
+    },
+  });
+  expect(results.violations.map((v) => v.id)).toEqual([]);
+}
+
 describe('/portal', () => {
   afterEach(async () => {
     await cleanupTestState();
@@ -135,6 +154,83 @@ describe('/portal', () => {
         }),
       ),
       http.get('/api/v1/payments/student/:studentId', () => HttpResponse.json(payments)),
+      // [8.10.7.5.09]: quiet defaults for the cards the overview now mounts;
+      // `mockFamily` below overrides them.
+      http.get('/api/v1/attendance/students/:id/days', () => HttpResponse.json([])),
+      http.get('/api/v1/students/:id/homework', () =>
+        HttpResponse.json({ today: '2026-03-16', items: [] }),
+      ),
+      http.get('/api/v1/students/:id/results', () => HttpResponse.json([])),
+      http.get('/api/v1/calendar/events', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 6, totalPages: 0 }),
+      ),
+    );
+  }
+
+  /** The clock is frozen at 15 Mar 18:30 UTC, which is 16 Mar 00:30 in Dhaka. */
+  function mockFamily(
+    daysOf: Record<string, Array<{ date: string; status: string | null }>>,
+    resultOf: Record<string, string> = {},
+  ) {
+    server.use(
+      http.get('/api/v1/attendance/students/:id/days', ({ params }) =>
+        HttpResponse.json(
+          (daysOf[String(params.id)] ?? []).map((day) => ({
+            ...day,
+            minutes_late: null,
+            remarks: null,
+            is_working_day: true,
+            holiday_name: null,
+            marked_at: null,
+          })),
+        ),
+      ),
+      http.get('/api/v1/students/:id/results', ({ params }) => {
+        const exam = resultOf[String(params.id)];
+        return HttpResponse.json(
+          exam
+            ? [
+                {
+                  exam_id: `exam-${exam}`,
+                  exam_name: exam,
+                  exam_kind: 'TERM',
+                  published: true,
+                  total_marks: 400,
+                  gpa: 4.5,
+                  grade: 'A',
+                  position: 2,
+                  is_fail: false,
+                },
+              ]
+            : [],
+        );
+      }),
+      http.get('/api/v1/calendar/events', () =>
+        HttpResponse.json({
+          data: [
+            {
+              id: 'holiday-1',
+              academic_year_id: 'year-1',
+              type: 'HOLIDAY',
+              name: 'Independence Day',
+              description: null,
+              start_date: '2026-03-26',
+              end_date: '2026-03-26',
+              start_time: null,
+              end_time: null,
+              counts_as_working_day: false,
+              audience: 'ALL',
+              class_ids: [],
+              is_locked: false,
+              published: true,
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 6,
+          totalPages: 1,
+        }),
+      ),
     );
   }
 
@@ -176,7 +272,7 @@ describe('/portal', () => {
       mockPortal(students, dues);
       renderPortal();
 
-      expect(await screen.findByText('Ayesha Rahman')).toBeTruthy();
+      expect(await screen.findByRole('heading', { level: 3, name: 'Ayesha Rahman' })).toBeTruthy();
       expect(screen.getByText('Nothing due')).toBeTruthy();
       expect(screen.getByText('Paid')).toBeTruthy();
       // Status is never carried by amount colour alone — each child's
@@ -192,16 +288,16 @@ describe('/portal', () => {
       // The regression this pins: `GET /fees/dues` can only ever return
       // PENDING/PARTIALLY_PAID entries, so a page keying "overdue" off
       // `due.status` shows a parent 12 days late a neutral Pending badge.
-      const card = (await screen.findByText('Fatima Rahman')).closest(
-        '[data-slot="card"]',
-      ) as HTMLElement;
+      const card = (
+        await screen.findByRole('heading', { level: 3, name: 'Fatima Rahman' })
+      ).closest('[data-slot="card"]') as HTMLElement;
       expect(within(card).getByText('Overdue')).toBeTruthy();
       expect(within(card).getByText(/12 days late/)).toBeTruthy();
       // ...and the sibling whose due date is still in the future is not
       // swept up with her.
-      const sibling = (await screen.findByText('Imran Rahman')).closest(
-        '[data-slot="card"]',
-      ) as HTMLElement;
+      const sibling = (
+        await screen.findByRole('heading', { level: 3, name: 'Imran Rahman' })
+      ).closest('[data-slot="card"]') as HTMLElement;
       expect(within(sibling).getByText('Pending')).toBeTruthy();
       expect(within(sibling).queryByText(/days late/)).toBeNull();
     });
@@ -237,7 +333,7 @@ describe('/portal', () => {
       mockPortal(students, dues);
       renderPortal();
 
-      await screen.findByText('Ayesha Rahman');
+      await screen.findByRole('heading', { level: 3, name: 'Ayesha Rahman' });
       expect(screen.queryByText('Recent payments')).toBeNull();
     });
 
@@ -245,7 +341,7 @@ describe('/portal', () => {
       mockPortal(students, dues);
       renderPortal();
 
-      await screen.findByText('Ayesha Rahman');
+      await screen.findByRole('heading', { level: 3, name: 'Ayesha Rahman' });
       expect(screen.queryByText(/Assalamu alaikum/i)).toBeNull();
       expect(screen.queryByText(/2025–26/)).toBeNull();
     });
@@ -258,7 +354,11 @@ describe('/portal', () => {
       expect(link.getAttribute('href')).toBe('/portal/fees?student=student-1');
       // The card itself is not a link — it holds a list.
       expect(
-        (screen.getByText('Fatima Rahman').closest('[data-slot="card"]') as HTMLElement).tagName,
+        (
+          screen
+            .getByRole('heading', { level: 3, name: 'Fatima Rahman' })
+            .closest('[data-slot="card"]') as HTMLElement
+        ).tagName,
       ).toBe('ARTICLE');
 
       // Every child gets their own, including the paid-up one.
@@ -273,12 +373,14 @@ describe('/portal', () => {
       mockPortal(students, dues);
       renderPortal();
 
-      const paidUp = (await screen.findByText('Ayesha Rahman')).closest(
-        '[data-slot="card"]',
-      ) as HTMLElement;
+      const paidUp = (
+        await screen.findByRole('heading', { level: 3, name: 'Ayesha Rahman' })
+      ).closest('[data-slot="card"]') as HTMLElement;
       expect(within(paidUp).queryByText('Due this month')).toBeNull();
       // ...while a child who owes this month carries it inside the same card.
-      const owing = screen.getByText('Fatima Rahman').closest('[data-slot="card"]') as HTMLElement;
+      const owing = screen
+        .getByRole('heading', { level: 3, name: 'Fatima Rahman' })
+        .closest('[data-slot="card"]') as HTMLElement;
       expect(within(owing).getByText('Due this month')).toBeTruthy();
     });
 
@@ -286,7 +388,7 @@ describe('/portal', () => {
       mockPortal(students, []);
       renderPortal();
 
-      await screen.findByText('Ayesha Rahman');
+      await screen.findByRole('heading', { level: 3, name: 'Ayesha Rahman' });
       const heading = screen.getByRole('heading', { level: 2, name: 'Total outstanding' });
       const amount = (heading.parentElement as HTMLElement).querySelector('p') as HTMLElement;
       expect(amount.textContent).toBe('Nothing due');
@@ -302,12 +404,16 @@ describe('/portal', () => {
       // semantics, restated here as the arithmetic a parent does by eye.
       expect(await screen.findByText('\u09f311,000.00')).toBeTruthy();
       const owing = ['Fatima Rahman', 'Imran Rahman'].map((name) => {
-        const card = screen.getByText(name).closest('[data-slot="card"]') as HTMLElement;
+        const card = screen
+          .getByRole('heading', { level: 3, name })
+          .closest('[data-slot="card"]') as HTMLElement;
         // The headline amount is the first figure in the card.
         return (card.querySelector('p.text-h2') as HTMLElement).textContent;
       });
       expect(owing).toEqual(['\u09f35,000.00', '\u09f36,000.00']);
-      const paidUp = screen.getByText('Ayesha Rahman').closest('[data-slot="card"]') as HTMLElement;
+      const paidUp = screen
+        .getByRole('heading', { level: 3, name: 'Ayesha Rahman' })
+        .closest('[data-slot="card"]') as HTMLElement;
       expect(within(paidUp).getByText('Nothing due')).toBeTruthy();
     });
 
@@ -315,7 +421,7 @@ describe('/portal', () => {
       mockPortal(students, dues);
       renderPortal();
 
-      await screen.findByText('Ayesha Rahman');
+      await screen.findByRole('heading', { level: 3, name: 'Ayesha Rahman' });
       const headings = screen.getAllByRole('heading', { level: 1 });
       expect(headings.map((h) => h.textContent)).toEqual(['Overview']);
       // Section titles stay h2 — `useRouteFocus` never looks at them.
@@ -328,8 +434,8 @@ describe('/portal', () => {
       mockPortal(students, dues);
       const { container } = renderPortal();
 
-      await screen.findByText('Ayesha Rahman');
-      await expect(container).toHaveNoViolations();
+      await screen.findByRole('heading', { level: 3, name: 'Ayesha Rahman' });
+      await expectAxeClean(container);
     });
 
     it('groups large amounts in lakh/crore, not thousands', async () => {
@@ -461,7 +567,7 @@ describe('/portal', () => {
       const { container } = renderPortal();
 
       await screen.findByRole('heading', { level: 2, name: 'Recent payments' });
-      await expect(container).toHaveNoViolations();
+      await expectAxeClean(container);
     });
   });
 
@@ -541,6 +647,81 @@ describe('/portal', () => {
     });
   });
 
+  describe('the family overview (today strip, heatmap, bottom cards)', () => {
+    const students = [
+      child('Fatima Rahman', 'student-1', 'Class 8', 'B', 14),
+      child('Imran Rahman', 'student-2', 'Class 3', 'A', 7),
+    ];
+
+    it('uses the school date for the strip: 16 Mar in Dhaka, not 15 Mar in the browser', async () => {
+      mockPortal(students, []);
+      mockFamily({
+        'student-1': [
+          { date: '2026-03-15', status: 'ABSENT' },
+          { date: '2026-03-16', status: 'PRESENT' },
+        ],
+        'student-2': [
+          { date: '2026-03-15', status: 'PRESENT' },
+          { date: '2026-03-16', status: 'ABSENT' },
+        ],
+      });
+      renderPortal();
+
+      const cards = await screen.findByTestId('today-cards');
+      expect(await within(cards).findByText('At school today')).toBeTruthy();
+      expect(within(cards).getByText('Absent today')).toBeTruthy();
+      expect(screen.getByText(/^Today, .*16th March, 2026$/)).toBeTruthy();
+    });
+
+    it('phone: the strip is one card with one row per child', async () => {
+      mockPortal(students, []);
+      mockFamily({ 'student-1': [{ date: '2026-03-16', status: 'PRESENT' }] });
+      renderPortal();
+
+      const rows = await screen.findByTestId('today-rows');
+      expect(within(rows).getAllByRole('listitem')).toHaveLength(2);
+    });
+
+    it('keeps one h1; the new cards are h2 and the old upcoming card is gone', async () => {
+      mockPortal(students, []);
+      mockFamily({});
+      renderPortal();
+
+      await screen.findByRole('heading', { level: 2, name: "This month's attendance" });
+      expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([
+        'Overview',
+      ]);
+      const h2 = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
+      for (const title of ['Latest result', "Today's homework", 'Next holiday']) {
+        expect(h2).toContain(title);
+      }
+      expect(h2).not.toContain('Upcoming');
+      // The next-holiday card replaces it.
+      expect((await screen.findAllByText('Independence Day')).length).toBeGreaterThan(0);
+    });
+
+    it('single student: still one h1 and the same cards', async () => {
+      mockPortal([students[0]], []);
+      mockFamily({});
+      renderPortal();
+
+      await screen.findByRole('heading', { level: 2, name: "This month's attendance" });
+      expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+      expect(screen.getAllByRole('heading', { level: 2, name: 'Latest result' }).length).toBe(2);
+    });
+
+    it('picking the second child in the heatmap card switches the latest-result card', async () => {
+      mockPortal(students, []);
+      mockFamily({}, { 'student-1': 'Half-yearly', 'student-2': 'Annual' });
+      renderPortal();
+
+      expect((await screen.findAllByText('Fatima · Half-yearly')).length).toBeGreaterThan(0);
+      await userEvent.click(screen.getByRole('button', { name: 'Imran Rahman' }));
+      expect((await screen.findAllByText('Imran · Annual')).length).toBeGreaterThan(0);
+      expect(screen.queryByText('Fatima · Half-yearly')).toBeNull();
+    });
+  });
+
   describe('an unlinked account', () => {
     it('explains what to do rather than showing an error', async () => {
       mockPortal([], []);
@@ -549,6 +730,17 @@ describe('/portal', () => {
       expect(await screen.findByText('No students linked to you yet')).toBeTruthy();
       expect(screen.getByText(/Ask the school office/)).toBeTruthy();
       expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('renders none of the overview cards', async () => {
+      mockPortal([], []);
+      renderPortal();
+
+      await screen.findByText('No students linked to you yet');
+      for (const title of ["This month's attendance", 'Latest result', 'Next holiday']) {
+        expect(screen.queryByRole('heading', { name: title })).toBeNull();
+      }
+      expect(screen.queryByRole('region', { name: 'Today at school' })).toBeNull();
     });
 
     it('uses the page title as the frame’s only h1; the EmptyState title is an h2', async () => {
@@ -702,7 +894,7 @@ describe('/portal', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'সারসংক্ষেপ' })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 2, name: 'মোট বকেয়া' })).toBeTruthy();
     // Roll numbers render in the tenant's numerals.
-    expect(screen.getByText('ক্লাস ৮ খ · রোল ১৪')).toBeTruthy();
+    expect(screen.getAllByText('ক্লাস ৮ খ · রোল ১৪').length).toBeGreaterThan(0);
     expect(screen.getByText('আপনার সন্তানেরা')).toBeTruthy();
     expect(screen.getByText('কোনো বকেয়া নেই')).toBeTruthy();
     // bn-BD's region config uses Bengali numerals, so the amount is not

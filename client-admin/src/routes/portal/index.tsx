@@ -26,19 +26,25 @@ import {
   formatDate,
   formatNumber,
   formatServerAmount,
+  formatWeekday,
   isPastDueDate,
   parseServerDate,
+  tenantTodayIso,
 } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ChevronRightIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
-import { UpcomingCalendarCard } from '../../components/upcoming-calendar-card';
 import { ConnectHintCard } from '../../features/onboarding/connect-hint-card';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
+import { AttendanceHeatmapCard } from './-attendance-heatmap-card';
 import { DueThisMonthCard, DueThisMonthSection } from './-due-this-month-card';
+import { HomeworkCard } from './-homework-card';
+import { LatestResultCard } from './-latest-result-card';
+import { NextHolidayCard } from './-next-holiday-card';
 import { PortalSurveysCard } from './-surveys-card';
+import { TodayStrip } from './-today-strip';
 
 /**
  * [5.2] — the family portal's landing page, replacing [8.9.10]'s
@@ -147,6 +153,17 @@ interface ChildSummary {
 }
 
 const MS_PER_DAY = 86_400_000;
+
+/** What the loaded frames add around the fee content: today's attendance
+ * strip, the month heatmap and the homework / result / holiday row. Absent in
+ * the no-students frame. `today` / `month` are the school's, not the browser's. */
+interface FamilyOverview {
+  children: ChildSummary[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  today: string;
+  month: string;
+}
 
 function daysBetween(due: string, now: Date): number {
   const dueDate = parseServerDate(due);
@@ -266,6 +283,9 @@ function PortalOverview() {
   // is passed, and a family's set is small enough that one page is all of
   // it.
   const duesQuery = useFeeDues({ limit: 50 });
+  // The child the heatmap (and so the latest-result card) follows; the first
+  // child until a parent picks another.
+  const [pickedId, setPickedId] = useState<string>();
 
   // A student always arrives with `class_section` loaded
   // (`family-access.service.ts` selects it), but the type allows it to be
@@ -318,34 +338,81 @@ function PortalOverview() {
 
   const now = new Date();
   const children = summarize(students, duesQuery.data.data, formatMeta, now);
+  const today = tenantTodayIso(config, now);
+  const family: FamilyOverview = {
+    children,
+    selectedId:
+      children.find((child) => child.id === pickedId)?.id ?? (children[0] as ChildSummary).id,
+    onSelect: setPickedId,
+    today,
+    month: today.slice(0, 7),
+  };
 
   if (children.length === 1) {
     const only = children[0] as ChildSummary;
-    return <SingleStudentView child={only} config={config} now={now} />;
+    return <SingleStudentView child={only} config={config} now={now} family={family} />;
   }
 
-  return <MultiChildView items={children} config={config} now={now} />;
+  return <MultiChildView items={children} config={config} now={now} family={family} />;
 }
 
-/** The loaded frames' shared page: header, main column (surveys card, then
- * the frame), and the upcoming-events side column (last on phone). */
-function PortalPage({ subtitle, children }: { subtitle?: string; children: ReactNode }) {
+/** The loaded frames' shared page: header, connect hint and surveys, then (when
+ * `family` is given) the date line and today strip, the frame next to the
+ * heatmap card, and the homework / latest-result / next-holiday row. None of
+ * the added pieces renders a heading above `h2` (see this file's header). */
+function PortalPage({
+  subtitle,
+  family,
+  children,
+}: {
+  subtitle?: string;
+  family?: FamilyOverview;
+  children: ReactNode;
+}) {
   const { t: tNav } = useTranslation('nav');
+  const { t } = useTranslation('portal');
+  const config = useRegionConfig();
+  const selected = family?.children.find((child) => child.id === family.selectedId);
   return (
     <PageContainer>
       <PageHeader title={tNav('items.portalOverview')} subtitle={subtitle} />
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-start">
-        <div className="min-w-0 space-y-6 md:col-span-2">
-          <ConnectHintCard />
-          <PortalSurveysCard />
-          {children}
+      <div className="space-y-6">
+        <ConnectHintCard />
+        <PortalSurveysCard />
+        {family && (
+          <>
+            <p className="text-text-secondary">
+              {t('today.dateLine', {
+                date: `${formatWeekday(family.today, config)}, ${formatDate(family.today, config)}`,
+              })}
+            </p>
+            <TodayStrip students={family.children} today={family.today} month={family.month} />
+          </>
+        )}
+        <div
+          className={family ? 'grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start' : undefined}
+        >
+          <div className="min-w-0 space-y-6">{children}</div>
+          {family && (
+            <AttendanceHeatmapCard
+              students={family.children}
+              selectedId={family.selectedId}
+              onSelect={family.onSelect}
+              today={family.today}
+              month={family.month}
+            />
+          )}
         </div>
-        <div className="space-y-6">
-          {/* [17.5.4]: mounted unconditionally — no permission prop on the
-              portal variant, same "role-gated server-side" pattern the
-              portal calendar/attendance routes already use. */}
-          <UpcomingCalendarCard calendarPath="/portal/calendar" />
-        </div>
+        {family && selected && (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <HomeworkCard students={family.children} />
+            <LatestResultCard
+              childId={selected.id}
+              childName={selected.fullName.split(' ')[0] ?? selected.fullName}
+            />
+            <NextHolidayCard />
+          </div>
+        )}
       </div>
     </PageContainer>
   );
@@ -365,8 +432,7 @@ function PortalSkeleton({
 }) {
   const single = studentCount === 1;
   return (
-    // Mirrors `PortalPage`: header, a two-column main column and the
-    // upcoming-events side column. No `<h1>` while pending — see this
+    // Mirrors `PortalPage`: header, then the main column. No `<h1>` while pending — see this
     // file's header comment; the `aria-busy` region carries the state for a
     // screen reader instead, so the frame is never silently blank.
     <PageContainer>
@@ -377,8 +443,8 @@ function PortalSkeleton({
           <Skeleton className="h-8 w-48" />
           {single && <Skeleton className="h-4 w-56" />}
         </div>
-        <div className="mt-6 grid gap-6 md:grid-cols-3 md:items-start">
-          <div className="min-w-0 space-y-6 md:col-span-2">
+        <div className="mt-6 grid gap-6 md:grid-cols-2 md:items-start">
+          <div className="min-w-0 space-y-6">
             {/* The hero `Card`: label, display figure, meta line (and a button for one student). */}
             <Skeleton className={`w-full rounded-lg ${single ? 'h-40' : 'h-32'}`} />
             {single ? (
@@ -394,7 +460,7 @@ function PortalSkeleton({
               </div>
             )}
           </div>
-          {/* `UpcomingCalendarCard`. */}
+          {/* The heatmap card. */}
           <Skeleton className="h-48 w-full rounded-lg" />
         </div>
       </div>
@@ -406,10 +472,12 @@ function MultiChildView({
   items,
   config,
   now,
+  family,
 }: {
   items: ChildSummary[];
   config: RegionConfig;
   now: Date;
+  family: FamilyOverview;
 }) {
   const { t } = useTranslation('portal');
 
@@ -437,7 +505,7 @@ function MultiChildView({
         : 'text-status-due-fg';
 
   return (
-    <PortalPage>
+    <PortalPage family={family}>
       <Card className="p-4 md:p-5">
         <h2 className="text-label text-text-secondary">{t('hero.label')}</h2>
         <p className={`mt-1 text-display tabular-nums ${totalTone}`}>
@@ -524,10 +592,12 @@ function SingleStudentView({
   child,
   config,
   now,
+  family,
 }: {
   child: ChildSummary;
   config: RegionConfig;
   now: Date;
+  family: FamilyOverview;
 }) {
   const { t } = useTranslation('portal');
   const paymentsQuery = usePaymentsByStudent(child.id);
@@ -550,7 +620,7 @@ function SingleStudentView({
   }
 
   return (
-    <PortalPage subtitle={`${child.fullName} · ${child.meta}`}>
+    <PortalPage subtitle={`${child.fullName} · ${child.meta}`} family={family}>
       <Card className="p-4 md:p-5">
         <h2 className="text-label text-text-secondary">{t('hero.label')}</h2>
         <p className={`mt-1 text-display tabular-nums ${toneFor(child.status)}`}>
