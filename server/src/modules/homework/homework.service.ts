@@ -11,6 +11,7 @@ import { HomeworkToCheckDto } from './dto/homework-dashboard.dto';
 import {
   AssignHomeworkDto,
   CreateHomeworkDto,
+  FamilyHomeworkListDto,
   QueryHomeworkDto,
   UpdateHomeworkAssignmentDto,
 } from './dto/homework.dto';
@@ -118,6 +119,46 @@ export class HomeworkService {
       tenant_id: ctx.tenantId,
     });
     return this.homeworkRepo.save(homework);
+  }
+
+  /**
+   * [8.10.7.4.14] One child's ACTIVE homework due `today` or later. The controller has already
+   * run `FamilyAccessService.assertLinked`; this one query is still tenant-filtered on every
+   * table and joins the student by id + tenant + not-deleted, so an unknown/deleted student is empty.
+   */
+  async findForStudent(
+    tenantId: string,
+    studentId: string,
+    today: string,
+  ): Promise<FamilyHomeworkListDto> {
+    const rows = await this.assignmentRepo
+      .createQueryBuilder('ha')
+      .innerJoin('homework', 'h', 'h.id = ha.homework_id AND h.tenant_id = :tenantId')
+      .innerJoin('subjects', 'sub', 'sub.id = h.subject_id AND sub.tenant_id = :tenantId')
+      .innerJoin(
+        'students',
+        'st',
+        'st.id = :studentId AND st.tenant_id = :tenantId AND st.deleted_at IS NULL',
+      )
+      .select('ha.id', 'assignment_id')
+      .addSelect('h.title', 'title')
+      .addSelect('h.description', 'description')
+      .addSelect('sub.name_en', 'subject_name_en')
+      .addSelect('sub.name_bn', 'subject_name_bn')
+      // to_char: the pg driver turns raw `date` columns into JS Dates (shifted by the server TZ).
+      .addSelect(`to_char(ha.assigned_date, 'YYYY-MM-DD')`, 'assigned_date')
+      .addSelect(`to_char(ha.due_date, 'YYYY-MM-DD')`, 'due_date')
+      .where('ha.tenant_id = :tenantId', { tenantId })
+      .andWhere('ha.status = :status', { status: HomeworkAssignmentStatus.ACTIVE })
+      .andWhere('ha.assigned_date <= :today AND ha.due_date >= :today', { today })
+      .andWhere('(ha.section_id = st.class_section_id OR ha.student_id = st.id)')
+      .orderBy('ha.due_date', 'ASC')
+      .addOrderBy('ha.assigned_date', 'ASC')
+      .addOrderBy('ha.id', 'ASC')
+      .limit(50)
+      .setParameter('studentId', studentId)
+      .getRawMany<FamilyHomeworkListDto['items'][number]>();
+    return { today, items: rows };
   }
 
   async findAll(query: QueryHomeworkDto, ctx: CallerContext): Promise<Homework[]> {
