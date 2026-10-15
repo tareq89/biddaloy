@@ -38,8 +38,11 @@ const render = () =>
     role: 'EXECUTIVE',
     tenantId: 'tenant-1',
   });
-// needsEpic widgets without a widget file are off (D42, D51).
-const exec = ROLE_DEFAULT_LAYOUTS.EXECUTIVE.filter((k) => !WIDGET_CATALOGUE[k].needsEpic);
+// needsEpic widgets without a widget file are off (D42, D51). List here each one turned on.
+const TURNED_ON = new Set<string>(['approvals-pending']);
+const exec = ROLE_DEFAULT_LAYOUTS.EXECUTIVE.filter(
+  (k) => !WIDGET_CATALOGUE[k].needsEpic || TURNED_ON.has(k),
+);
 
 describe('CustomiseMode', () => {
   afterEach(async () => {

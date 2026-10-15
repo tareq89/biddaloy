@@ -101,7 +101,13 @@
     },
     "approvals-pending": {
       "title": "Waiting for your approval",
-      "description": "Leave, admission and fee waiver requests"
+      "description": "Leave, admission and fee waiver requests",
+      "tileLabel": "Waiting for your approval",
+      "value_one": "{{count}} waiting",
+      "value_other": "{{count}} waiting",
+      "oldest": "Oldest sent {{ago}}",
+      "none": "Nothing is waiting for your approval.",
+      "link": "Open the inbox"
     },
     "at-risk-students": {
       "title": "At-risk students",

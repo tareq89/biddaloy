@@ -40,6 +40,9 @@ import { ApplicationDecisionsController } from './application-decisions.controll
 import { ApplicationDecisionsService } from './application-decisions.service';
 import { ApplicationReportsController } from './application-reports.controller';
 import { ApplicationReportsService } from './application-reports.service';
+import { ApplicationsDashboardController } from './applications-dashboard.controller';
+import { ApplicationsDashboardService } from './applications-dashboard.service';
+import { DashboardModule } from '../dashboard/dashboard.module';
 import { ApplicationLetterService } from './application-letter.service';
 import { ApplicationNotifyService } from './application-notify.service';
 import { ReviewerScopeService } from './reviewer-scope';
@@ -92,11 +95,13 @@ import { ManualHandler } from './handlers/manual.handler';
     StaffAttendanceModule,
     FeeModule,
     EnrollmentModule,
+    DashboardModule,
   ],
   providers: [
     ApplicationsService,
     ApplicationDecisionsService,
     ApplicationReportsService,
+    ApplicationsDashboardService,
     ApplicationAttachmentsService,
     ApplicationLetterService,
     ApplicationNotifyService,
@@ -113,6 +118,7 @@ import { ManualHandler } from './handlers/manual.handler';
   // /reports, /bulk-approve) must register before ApplicationsController's GET /applications/:id.
   controllers: [
     ApplicationReportsController,
+    ApplicationsDashboardController,
     ApplicationDecisionsController,
     ApplicationAttachmentsController,
     ApplicationsController,

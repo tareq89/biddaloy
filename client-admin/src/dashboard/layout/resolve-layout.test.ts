@@ -14,7 +14,8 @@ const allow = () => true;
 const run = (
   pref?: DashboardLayoutPref,
   can: (p: Permission) => boolean = allow,
-  available?: ReadonlySet<K>,
+  // No widget files unless a test says so: the real registry now has some (D51 turn-on).
+  available: ReadonlySet<K> = new Set(),
 ) =>
   resolveLayout({
     role: UserRole.ADMIN,
@@ -22,7 +23,7 @@ const run = (
     catalogue: WIDGET_CATALOGUE,
     defaults: ROLE_DEFAULT_LAYOUTS,
     can,
-    ...(available ? { available } : {}),
+    available,
   });
 const withFiles = ROLE_DEFAULT_LAYOUTS.ADMIN.filter((k) => !WIDGET_CATALOGUE[k].needsEpic);
 const keys = (items: { key: string }[]) => items.map((i) => i.key);

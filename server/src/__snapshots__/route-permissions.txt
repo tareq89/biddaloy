@@ -129,6 +129,7 @@ GET /communications/reminder/bulk/:id/logs | CommunicationsController | perm: CO
 GET /communications/sms-credits | CreditsController | perm: COMMUNICATION_CREDIT_READ
 GET /communications/student/:studentId | CommunicationsController | perm: COMMUNICATION_LOG_READ
 GET /dashboard/widgets/admissions-today | AdmissionDashboardController | perm: ADMISSION_REVIEW,DASHBOARD_VIEW
+GET /dashboard/widgets/approvals-pending | ApplicationsDashboardController | perm: APPLICATION_SUBMIT,DASHBOARD_VIEW
 GET /dashboard/widgets/at-risk-students | AtRiskStudentsDashboardController | perm: ATTENDANCE_READ,DASHBOARD_VIEW,FEE_READ,MARK_VIEW
 GET /dashboard/widgets/attendance-today | AttendanceDashboardController | perm: ATTENDANCE_READ,DASHBOARD_VIEW
 GET /dashboard/widgets/class-teacher-streaks | AttendanceDashboardController | perm: DASHBOARD_VIEW,MY_CLASS_VIEW
