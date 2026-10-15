@@ -538,7 +538,11 @@
     },
     "print-queue": {
       "title": "Print queue",
-      "description": "Documents waiting to be printed"
+      "description": "Documents waiting to be printed",
+      "value_one": "{{count}} waiting to print",
+      "value_other": "{{count}} waiting to print",
+      "none": "Nothing to print.",
+      "link": "Open the print queue"
     },
     "setup-checklist": {
       "title": "Setup checklist",

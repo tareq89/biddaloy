@@ -3,6 +3,8 @@ import { AuditModule } from '../../audit/audit.module';
 import { StorageModule } from '../../storage/storage.module';
 import { SchoolsModule } from '../../schools/schools.module';
 import { CertificatesController } from './certificates.controller';
+import { DashboardModule } from '../../dashboard/dashboard.module';
+import { PrintDashboardController } from './print-dashboard.controller';
 import { PrintJobsController } from './print-jobs.controller';
 import { PrintJobActionsController, PrintHistoryController } from './print-history.controller';
 import { PrintTemplatesModule } from '../templates/print-templates.module';
@@ -22,12 +24,14 @@ import { PublicVerifyService } from '../verify/public-verify.service';
     PrintTemplatesModule,
     PrintersModule,
     PrintAssetsModule,
+    DashboardModule,
   ],
   controllers: [
     PrintJobsController,
     CertificatesController,
     PrintJobActionsController,
     PrintHistoryController,
+    PrintDashboardController,
     PublicVerifyController,
   ],
   providers: [PrintJobsService, PrintHistoryService, PublicVerifyService],
