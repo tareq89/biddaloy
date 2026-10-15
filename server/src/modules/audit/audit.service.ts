@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, EntityTarget, Repository, SelectQueryBuilder } from 'typeorm';
@@ -5,6 +6,7 @@ import { AuditLog } from './entities/audit-log.entity';
 import { ApprovalScope, AuditAction, AuditEntityType } from '@biddaloy/shared';
 import { redactSensitiveFields } from './redact.util';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
+import type { RecentActivityDto } from './dto/audit-dashboard.dto';
 import { Student } from '../students/entities/student.entity';
 import { Guardian } from '../students/entities/guardian.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -13,6 +15,17 @@ import { Exam } from '../exams/entities/exam.entity';
 import { FeeStructure } from '../fees/entities/fee-structure.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
 import { User } from '../users/entities/user.entity';
+
+/** Keys of either snapshot whose value differs (deep equality); a key on one side only counts. Same rule as the client's `changedFieldCount`. */
+function countChangedFields(
+  before: Record<string, unknown> | null,
+  after: Record<string, unknown> | null,
+): number {
+  const b = before ?? {};
+  const a = after ?? {};
+  const keys = new Set([...Object.keys(b), ...Object.keys(a)]);
+  return [...keys].filter((k) => k in b !== k in a || !isDeepStrictEqual(b[k], a[k])).length;
+}
 
 export interface RecordAuditEntryInput {
   action: AuditAction;
@@ -188,6 +201,37 @@ export class AuditService {
     const entityLabels = await this.resolveEntityLabels(data, tenantId);
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit), entityLabels };
+  }
+
+  /**
+   * [8.10.7.3.18] "Recent activity" widget: the newest rows of `findAll` (so the same
+   * tenant filter, caller-ACR hiding and label resolution as the audit page), cut down to
+   * what one sentence needs. Never returns the raw old/new JSON, ip or user agent.
+   */
+  async findRecentForDashboard(
+    tenantId: string,
+    callerId: string,
+    limit = 8,
+  ): Promise<RecentActivityDto> {
+    const { data, entityLabels } = await this.findAll(
+      { page: 1, limit } as QueryAuditLogDto,
+      tenantId,
+      callerId,
+    );
+    return {
+      items: data.map((log) => ({
+        id: log.id,
+        action: log.action,
+        entity_type: log.entity_type,
+        entity_label: entityLabels.get(`${log.entity_type}:${log.entity_id}`) ?? null,
+        performed_by_name: log.performed_by?.full_name ?? null,
+        created_at: log.created_at.toISOString(),
+        changed_field_count:
+          log.action === AuditAction.UPDATE
+            ? countChangedFields(log.old_values, log.new_values)
+            : null,
+      })),
+    };
   }
 
   /**
