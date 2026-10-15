@@ -72,7 +72,7 @@ export function AttendanceHeatmapCard({
     <Link
       to="/portal/attendance"
       search={{ student: selectedId, month }}
-      className="text-primary underline"
+      className="inline-flex min-h-11 items-center text-primary underline md:min-h-6"
     >
       {t('heatmap.link')}
     </Link>

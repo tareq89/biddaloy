@@ -117,6 +117,15 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
       page.getByRole('heading', { name: makeT(locale)('dashboard.customise.panelTitle') }),
     ).toBeVisible();
   },
+  // [8.10.7.6.05] The same mode as a phone bottom sheet: below `md` the panel is a sheet, so the
+  // scan must run at phone width. Keep this overlay LAST in the manifest list (it resizes the page).
+  '/dashboard::customise-phone': async (page, locale) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/dashboard?customize=1');
+    await expect(
+      page.getByRole('heading', { name: makeT(locale)('dashboard.customise.panelTitle') }),
+    ).toBeVisible();
+  },
   // `$schoolId` resolves to the seeded trial school (`responsive/routes.ts`),
   // the only seeded school whose page has a trial card.
   '/schools/$schoolId::extend-trial': async (page, locale) => {
