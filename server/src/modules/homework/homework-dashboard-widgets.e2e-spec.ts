@@ -168,7 +168,7 @@ describe('[8.10.7.3.04/19] homework dashboard widget routes', () => {
     it('TEACHER gets 200 and the DTO keys', async () => {
       const res = await get(route, UserRole.TEACHER);
       expect(res.status).toBe(200);
-      expect(keys(res.body)).toEqual(['items']);
+      expect(keys(res.body)).toEqual(['behind_count', 'items']);
       expect(res.body.items).toEqual([]);
     });
     it('ADMIN gets 403', async () => {

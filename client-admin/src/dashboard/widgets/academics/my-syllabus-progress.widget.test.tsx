@@ -86,6 +86,32 @@ describe('my-syllabus-progress widget', () => {
     expect(screen.getAllByText(/বিজ্ঞান/).length).toBeGreaterThan(0);
   });
 
+  it('with a plan: marker at the expected %, gap note on the behind subject, behind sentence', async () => {
+    serve({
+      behind_count: 1,
+      items: [
+        { ...item('1', '6', 'Math', 'গণিত', 80), expected_percentage: 70 },
+        { ...item('2', '7', 'Science', 'বিজ্ঞান', 30), expected_percentage: 47 },
+      ],
+    });
+    renderWidget('full');
+    // mean of 70 and 47 = 59 (rounded)
+    expect(await screen.findByText('Expected by today: 59%')).toBeTruthy();
+    expect(screen.getByText('17% behind')).toBeTruthy();
+    expect(screen.getByText('1 subject is behind the plan.')).toBeTruthy();
+    expect(screen.queryByText('Comparison with the plan comes with study plans.')).toBeNull();
+  });
+
+  it('with a plan and nobody behind: on-pace line', async () => {
+    serve({
+      behind_count: 0,
+      items: [{ ...item('1', '6', 'Math', 'গণিত', 80), expected_percentage: 70 }],
+    });
+    renderWidget('full');
+    expect(await screen.findByText('No subject is behind the plan.')).toBeTruthy();
+    expect(screen.queryByText(/behind$/)).toBeNull();
+  });
+
   it('empty', async () => {
     serve({ items: [] });
     renderWidget('full');

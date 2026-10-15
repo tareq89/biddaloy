@@ -56,6 +56,23 @@ export const Phone: Story = {
     ),
   ],
 };
+/** Absent child: the outline "Tell the school" link (bn, phone width). */
+export const AbsentWithTellSchool: Story = {
+  globals: { locale: 'bn' },
+  args: { students: [FATIMA] },
+  decorators: [
+    (Story) => (
+      <div className="w-[390px]">
+        <Story />
+      </div>
+    ),
+  ],
+  parameters: {
+    msw: {
+      handlers: [days({ 'kid-a': { status: 'ABSENT', markedAt: '2026-11-23T02:10:00.000Z' } })],
+    },
+  },
+};
 export const LateAndLeave: Story = {
   parameters: {
     msw: { handlers: [days({ 'kid-a': { status: 'LATE' }, 'kid-b': { status: 'LEAVE' } })] },

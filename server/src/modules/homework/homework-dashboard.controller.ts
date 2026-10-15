@@ -12,9 +12,11 @@ import { DashboardCacheService } from '../dashboard/dashboard-cache.service';
 import { SyllabusService } from './syllabus.service';
 import { HomeworkService } from './homework.service';
 import { HomeworkAnalyticsService } from './homework-analytics.service';
+import { StudyPlanDashboardService } from '../study-plans/study-plan-dashboard.service';
 import {
   HomeworkSubmissionRateDto,
   HomeworkToCheckDto,
+  LessonsToMarkDto,
   MySyllabusProgressDto,
   SyllabusProgressWidgetDto,
   SyllabusVsPlanDto,
@@ -31,6 +33,7 @@ export class HomeworkDashboardController {
     private readonly homework: HomeworkService,
     private readonly analytics: HomeworkAnalyticsService,
     private readonly cache: DashboardCacheService,
+    private readonly planDashboard: StudyPlanDashboardService,
   ) {}
 
   @DashboardWidgetRoute(DashboardWidgetKey.SYLLABUS_PROGRESS)
@@ -94,6 +97,21 @@ export class HomeworkDashboardController {
       DashboardWidgetKey.MY_SYLLABUS_PROGRESS,
       `user:${user.sub}`,
       () => this.analytics.getTeacherSyllabusProgress(tenant.id, user.sub),
+    );
+  }
+
+  /** [8.10.7.7.05] Teacher card "lessons to mark". Cached per user (own routine only). */
+  @DashboardWidgetRoute(DashboardWidgetKey.MY_LESSONS_TO_MARK)
+  @ApiOkResponse({ type: LessonsToMarkDto })
+  getMyLessonsToMark(
+    @CurrentTenant() tenant: { id: string },
+    @CurrentUser() user: { sub: string },
+  ): Promise<LessonsToMarkDto> {
+    return this.cache.getOrLoad(
+      tenant.id,
+      DashboardWidgetKey.MY_LESSONS_TO_MARK,
+      `user:${user.sub}`,
+      () => this.planDashboard.lessonsToMark(tenant.id, user.sub),
     );
   }
 }

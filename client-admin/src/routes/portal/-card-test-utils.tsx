@@ -5,7 +5,7 @@ import type { ReactElement } from 'react';
 
 /** Mounts one portal card inside a one-route router (the cards hold `Link`s)
  * with the value-less region provider the portal page itself uses. */
-export function renderPortalCard(element: ReactElement, locale = 'en') {
+export function renderPortalCard(element: ReactElement, locale = 'en', role = 'PARENT') {
   const root = createRootRoute();
   const index = createRoute({
     getParentRoute: () => root,
@@ -14,7 +14,7 @@ export function renderPortalCard(element: ReactElement, locale = 'en') {
   });
   return renderWithRouter(root.addChildren([index]), {
     locale,
-    role: 'PARENT',
+    role,
     tenantId: 'tenant-1',
   });
 }

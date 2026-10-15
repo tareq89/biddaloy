@@ -108,8 +108,33 @@ export class MySyllabusProgressItemDto {
   @ApiProperty() done!: number;
   @ApiProperty() total!: number;
   @ApiProperty({ example: 37 }) percentage!: number;
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Study-plan pace by today across the sections; null without a plan.',
+  })
+  expected_percentage!: number | null;
 }
 
 export class MySyllabusProgressDto {
   @ApiProperty({ type: [MySyllabusProgressItemDto] }) items!: MySyllabusProgressItemDto[];
+  @ApiProperty({ description: 'Subjects whose done % is below the expected %.' })
+  behind_count!: number;
+}
+
+/** [8.10.7.7.05] Teacher card "lessons to mark". */
+export class LessonToMarkDto {
+  @ApiProperty({ example: '7' }) class_name!: string;
+  @ApiProperty({ example: 'B' }) section_name!: string;
+  @ApiProperty({ example: 'Mathematics' }) subject_name_en!: string;
+  @ApiProperty({ type: String, nullable: true }) subject_name_bn!: string | null;
+  @ApiProperty({ example: '2026-10-05' }) planned_on!: string;
+  @ApiProperty({ type: String, nullable: true }) lesson_title!: string | null;
+}
+
+export class LessonsToMarkDto {
+  @ApiProperty({ example: 3 }) to_mark!: number;
+  @ApiProperty({ type: String, nullable: true, example: '2026-10-05' })
+  oldest_planned_on!: string | null;
+  @ApiProperty({ type: [LessonToMarkDto], description: 'Newest 5.' }) items!: LessonToMarkDto[];
 }

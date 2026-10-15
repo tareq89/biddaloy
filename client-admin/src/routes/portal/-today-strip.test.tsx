@@ -39,8 +39,12 @@ function mock(byChild: Record<string, DayInput>) {
   );
 }
 
-function renderStrip(children = [A, B]) {
-  return renderPortalCard(<TodayStrip students={children} today={TODAY} month={MONTH} />);
+function renderStrip(children = [A, B], role = 'PARENT') {
+  return renderPortalCard(
+    <TodayStrip students={children} today={TODAY} month={MONTH} />,
+    'en',
+    role,
+  );
 }
 
 describe('TodayStrip', () => {
@@ -119,6 +123,71 @@ describe('TodayStrip', () => {
     await within(rows).findByText('Present');
     expect(within(rows).getAllByRole('listitem')).toHaveLength(2);
     expect(rows.getAttribute('data-slot')).toBe('card');
+  });
+
+  describe('Tell the school [8.10.7.7.06]', () => {
+    const tell = () => screen.queryAllByRole('link', { name: 'Tell the school' });
+
+    it('ABSENT: a link to the student-leave form for that child, in both layouts', async () => {
+      mock({ 'kid-a': { status: 'PRESENT' }, 'kid-b': { status: 'ABSENT' } });
+      renderStrip();
+      await screen.findByText('Absent today');
+      const links = tell();
+      // The desktop card and the phone row each carry one, for the absent child only.
+      expect(links).toHaveLength(2);
+      for (const l of links) {
+        const href = l.getAttribute('href') ?? '';
+        expect(href).toContain('/portal/applications/new');
+        expect(href).toContain('student=kid-b');
+        expect(href).toContain('type=STUDENT_LEAVE');
+      }
+    });
+
+    it('not marked yet on a school day: shown', async () => {
+      mock({ 'kid-a': { status: null } });
+      renderStrip([A]);
+      await screen.findByText('Attendance not taken yet');
+      expect(tell()).toHaveLength(2);
+    });
+
+    it.each([
+      ['PRESENT', true],
+      ['LATE', true],
+      ['LEAVE', true],
+      [null, false],
+    ] as const)('%s (working day: %s): not shown', async (status, working) => {
+      mock({ 'kid-a': { status, working } });
+      renderStrip([A]);
+      await within(await screen.findByTestId('today-rows')).findByRole('listitem');
+      await screen.findAllByText(
+        /Present|At school|Late|Came late|Leave|On leave|Closed|No school/,
+      );
+      expect(tell()).toHaveLength(0);
+    });
+
+    it('a role without APPLICATION_SUBMIT never sees it', async () => {
+      mock({ 'kid-a': { status: 'ABSENT' } });
+      renderStrip([A], 'COMMITTEE');
+      await screen.findByText('Absent today');
+      expect(tell()).toHaveLength(0);
+    });
+
+    it('STUDENT holds the permission and sees it', async () => {
+      mock({ 'kid-a': { status: 'ABSENT' } });
+      renderStrip([A], 'STUDENT');
+      await screen.findByText('Absent today');
+      expect(tell().length).toBeGreaterThan(0);
+    });
+
+    it('is axe clean with the link present, in bn', async () => {
+      mock({ 'kid-a': { status: 'ABSENT' } });
+      const { container } = renderPortalCard(
+        <TodayStrip students={[A]} today={TODAY} month={MONTH} />,
+        'bn',
+      );
+      expect((await screen.findAllByRole('link', { name: 'স্কুলকে জানান' })).length).toBe(2);
+      await expect(container).toHaveNoViolations();
+    });
   });
 
   it('renders no heading element and is axe clean', async () => {
