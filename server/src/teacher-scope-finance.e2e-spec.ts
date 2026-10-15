@@ -182,12 +182,10 @@ describe('Teacher scope: finance reads (75.6-d)', () => {
     });
 
     it("a section_id outside the teacher's scope returns an empty page, not 403 (Rule 2)", async () => {
-      const both = (rows: { student_id: string }[]) =>
-        rows.filter((d) => [fx.studentA, fx.studentB].includes(d.student_id));
       const outside = await asTeacher(`/fees/dues?limit=100&section_id=${fx.sectionB}`).expect(200);
-      expect(ids(both(outside.body.data))).toEqual([]);
+      expect(outside.body.data).toEqual([]);
       const inside = await asTeacher(`/fees/dues?limit=100&section_id=${fx.sectionA}`).expect(200);
-      expect(ids(both(inside.body.data))).toEqual([fx.studentA]);
+      expect(ids(inside.body.data)).toEqual([fx.studentA]);
       const flagged = await asTeacher(
         `/fees/dues/flagged?limit=100&section_id=${fx.sectionB}`,
       ).expect(200);
@@ -200,10 +198,7 @@ describe('Teacher scope: finance reads (75.6-d)', () => {
         [fx.sectionB],
       );
       const res = await asTeacher(`/fees/dues?limit=100&class_id=${class_id}`).expect(200);
-      const ours = res.body.data.filter((d: { student_id: string }) =>
-        [fx.studentA, fx.studentB].includes(d.student_id),
-      );
-      expect(ids(ours)).toEqual([]);
+      expect(res.body.data).toEqual([]);
     });
 
     it('a homeroom in a past academic year grants no dues (section C)', async () => {

@@ -7,7 +7,7 @@ export const DASHBOARD_CACHE_TTL_SECONDS = 60;
 
 /**
  * 60-second widget cache on the shared fail-fast Redis client
- * (`TENANT_STATUS_REDIS`, global). Keys are `tenant:<id>:dash:<widget>:<scope>`;
+ * (`TENANT_STATUS_REDIS`, global). Keys are `tenant:<id>:dash:v1:<widget>:<scope>` (bump `v1` when a cached payload changes shape);
  * `scope` is chosen by the caller (`school`, `user:<id>`, `section:<id>`), so a
  * per-user or per-section widget never leaks to another user or tenant.
  *
@@ -21,7 +21,7 @@ export class DashboardCacheService {
   constructor(@Inject(TENANT_STATUS_REDIS) private readonly redis: Redis) {}
 
   key(tenantId: string, widget: DashboardWidgetKey, scope: string): string {
-    return `tenant:${tenantId}:dash:${widget}:${scope}`;
+    return `tenant:${tenantId}:dash:v1:${widget}:${scope}`;
   }
 
   async getOrLoad<T>(

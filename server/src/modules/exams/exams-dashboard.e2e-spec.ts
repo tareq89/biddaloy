@@ -69,7 +69,7 @@ describe('GET /dashboard/widgets/mark-entry-progress', () => {
 
   afterAll(async () => {
     await redis.del(
-      `tenant:${SEED_TENANT_ID}:dash:${DashboardWidgetKey.MARK_ENTRY_PROGRESS}:school`,
+      `tenant:${SEED_TENANT_ID}:dash:v1:${DashboardWidgetKey.MARK_ENTRY_PROGRESS}:school`,
     );
     await app.close();
   });
@@ -99,6 +99,14 @@ describe('GET /dashboard/widgets/mark-entry-progress', () => {
   it("another tenant's X-Tenant-ID is refused (401/403)", async () => {
     const res = await call(UserRole.ADMIN, OTHER_TENANT_ID);
     expect([401, 403]).toContain(res.status);
+  });
+
+  // server/CLAUDE.md: always test a missing X-Tenant-ID.
+  it('missing X-Tenant-ID returns 401', async () => {
+    await supertest(app.getHttpServer())
+      .get(URL)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
   });
 });
 
@@ -150,7 +158,7 @@ describe('GET /dashboard/widgets/my-mark-deadlines', () => {
 
   afterAll(async () => {
     await redis.del(
-      `tenant:${SEED_TENANT_ID}:dash:${DashboardWidgetKey.MY_MARK_DEADLINES}:user:${SEED_ADMIN_USER_ID}`,
+      `tenant:${SEED_TENANT_ID}:dash:v1:${DashboardWidgetKey.MY_MARK_DEADLINES}:user:${SEED_ADMIN_USER_ID}`,
     );
     await app.close();
   });

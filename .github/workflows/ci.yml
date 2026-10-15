@@ -106,6 +106,8 @@ jobs:
               - 'docker-compose.yml'
               - 'Dockerfile'
               - 'scripts/backup/**'
+              - 'scripts/demo/**'
+              - 'docker-compose.demo.yml'
               - '**/*.infra.test.sh'
               - '.github/workflows/ci.yml'
 

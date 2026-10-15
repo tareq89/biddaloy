@@ -61,11 +61,21 @@ export function ChartTableToggle({
             <tbody>
               {table.rows.map((row, r) => (
                 <tr key={r} className="border-b border-border-subtle last:border-0">
-                  {row.map((cell, i) => (
-                    <td key={i} className={cn('px-2 py-1', numericClass(i))}>
-                      {cell}
-                    </td>
-                  ))}
+                  {row.map((cell, i) =>
+                    i === 0 ? (
+                      <th
+                        key={i}
+                        scope="row"
+                        className={cn('px-2 py-1 font-normal', numericClass(i))}
+                      >
+                        {cell}
+                      </th>
+                    ) : (
+                      <td key={i} className={cn('px-2 py-1', numericClass(i))}>
+                        {cell}
+                      </td>
+                    ),
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -78,7 +88,6 @@ export function ChartTableToggle({
         <span className="text-label text-muted-foreground">{summary}</span>
         <button
           type="button"
-          aria-pressed={isTable}
           onClick={() => setView(isTable ? 'chart' : 'table')}
           className="inline-flex h-11 items-center gap-2 rounded-md px-2 text-label focus-visible:ring-2 focus-visible:ring-ring md:h-8"
         >

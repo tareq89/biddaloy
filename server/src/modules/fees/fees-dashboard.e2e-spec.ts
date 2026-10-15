@@ -84,7 +84,7 @@ describe('fees dashboard widgets', () => {
   };
 
   const clearCache = () =>
-    Promise.all(ROUTES.map((r) => redis.del(`tenant:${SEED_TENANT_ID}:dash:${r.key}:school`)));
+    Promise.all(ROUTES.map((r) => redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${r.key}:school`)));
 
   async function insertStudent(tenantId: string, reg: string, roll: number): Promise<string> {
     const [{ id }] = await dataSource.query(

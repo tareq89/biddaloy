@@ -4,6 +4,7 @@ import {
   adminApiSession,
   apiSession,
   createStudentsInSection,
+  currentAcademicYear,
   get,
   isFridayAnywhere,
   markableDateIso,
@@ -89,7 +90,14 @@ test.describe('check-list', () => {
     request,
   }) => {
     const admin = await adminApiSession(request);
-    const chain = await createStudentsInSection(request, admin, 'Ops Pending Student', 2);
+    const chain = await createStudentsInSection(
+      request,
+      admin,
+      'Ops Pending Student',
+      2,
+      // The pending list only shows the current academic year's sections.
+      await currentAcademicYear(request, admin),
+    );
     const attendance = new AttendancePage(page);
 
     // Only this test's own row is asserted: other specs running beside this
@@ -130,7 +138,14 @@ test.describe('check-list', () => {
     );
     const admin = await adminApiSession(request);
     // A fresh, unmarked section: the card has at least one pending to show.
-    const chain = await createStudentsInSection(request, admin, 'Ops Card Student', 2);
+    const chain = await createStudentsInSection(
+      request,
+      admin,
+      'Ops Card Student',
+      2,
+      // The pending list only shows the current academic year's sections.
+      await currentAcademicYear(request, admin),
+    );
     const attendance = new AttendancePage(page);
 
     await page.goto('/dashboard');

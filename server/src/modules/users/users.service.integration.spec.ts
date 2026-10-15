@@ -1046,6 +1046,46 @@ describe('UserService (integration)', () => {
       expect((await guardians.findOneByOrFail({ id: unlinked.id })).phone).toBe('+8801');
     });
 
+    // Two admins open the same user. A changes the email; B saves a name edit from a form that
+    // still holds the old email. B must not write the old email back, and the linked guardian
+    // copy must keep matching the login.
+    it('[68.4.05] a stale unchanged email in a later edit does not undo a concurrent change', async () => {
+      const { user } = await service.create(
+        { full_name: 'Parent', email: 'p@example.com', role: UserRole.PARENT },
+        TENANT_ID,
+      );
+      const guardians = dataSource.getRepository(Guardian);
+      const linked = await guardians.save(
+        guardians.create({
+          full_name: 'G',
+          relationship: 'Mother',
+          tenant_id: TENANT_ID,
+          user_id: user.id,
+          email: 'p@example.com',
+        }),
+      );
+      const staleRead = await service.findOne(user.id, TENANT_ID);
+
+      await service.update(user.id, { email: 'y@example.com' }, TENANT_ID, REQUESTING_ADMIN_ID);
+      const spy = vi.spyOn(service, 'findOne').mockResolvedValueOnce(staleRead);
+      try {
+        await service.update(
+          user.id,
+          { full_name: 'B', email: 'p@example.com' },
+          TENANT_ID,
+          REQUESTING_ADMIN_ID,
+        );
+      } finally {
+        spy.mockRestore();
+      }
+
+      const [row] = await dataSource.query('SELECT email, full_name FROM users WHERE id = $1', [
+        user.id,
+      ]);
+      expect(row).toEqual({ email: 'y@example.com', full_name: 'B' });
+      expect((await guardians.findOneByOrFail({ id: linked.id })).email).toBe('y@example.com');
+    });
+
     // Review r1 C1: the Edit-user dialog always sends `phone` (null when blank). A name-only
     // edit here must not copy that unchanged null over another school's guardian phone.
     it('[68.4.05] a name-only edit with phone: null leaves another school guardian contact unchanged', async () => {

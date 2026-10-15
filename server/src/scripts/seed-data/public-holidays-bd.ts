@@ -12,8 +12,9 @@
  *
  * The 2026 and 2027 dates are **approximate, not the official government gazette** — no
  * gazette is available to this script. Fixed-date holidays (Independence
- * Day, Victory Day, Language Movement Day, May Day, National Mourning Day,
- * Pohela Boishakh) are exact. Lunar-calendar holidays (the two Eids,
+ * Day, Victory Day, Language Movement Day, May Day, Pohela Boishakh) are
+ * exact. National Mourning Day (15 August) is left out: the holiday was
+ * cancelled in August 2024. Lunar-calendar holidays (the two Eids,
  * Shab-e-Barat, Ashura, Eid-e-Milad-un-Nabi) and the Hindu-calendar ones
  * (Durga Puja, Janmashtami) are plausible estimates, shifted ~11 days
  * earlier from the prior year the way the lunar calendar actually moves —
@@ -27,7 +28,8 @@
  * date.nager.at for the fixed-date days. Eid / Puja ranges are the listed
  * holiday block. Left out because the source was unreliable: 2018
  * Shab-e-Barat (source says May 2, the moon puts it near Apr 30), and the
- * 2024 National Mourning Day (listed "not a public holiday"). Still worth a
+ * 2024 and 2025 National Mourning Day (the holiday was cancelled in August 2024;
+ * the source still lists 2025). Still worth a
  * gazette check: 2017 and 2020 Eid-ul-Fitr first day, and the 2024 Durga
  * Puja date. 2016 to 2025 are demo history; none are legal records.
  */
@@ -89,12 +91,6 @@ export const BD_PUBLIC_HOLIDAYS_2026: readonly SeedPublicHolidayEntry[] = [
     end_date: '2026-06-17',
     name: 'Ashura',
     name_bn: 'আশুরা',
-  },
-  {
-    date: '2026-08-15',
-    end_date: '2026-08-15',
-    name: 'National Mourning Day',
-    name_bn: 'জাতীয় শোক দিবস',
   },
   {
     date: '2026-09-16',
@@ -170,12 +166,6 @@ export const BD_PUBLIC_HOLIDAYS_2027: readonly SeedPublicHolidayEntry[] = [
     end_date: '2027-06-06',
     name: 'Ashura',
     name_bn: 'আশুরা',
-  },
-  {
-    date: '2027-08-15',
-    end_date: '2027-08-15',
-    name: 'National Mourning Day',
-    name_bn: 'জাতীয় শোক দিবস',
   },
   {
     date: '2027-09-05',
@@ -1142,12 +1132,6 @@ export const BD_PUBLIC_HOLIDAYS_2025: readonly SeedPublicHolidayEntry[] = [
     end_date: '2025-08-05',
     name: 'July Mass Uprising Day',
     name_bn: 'জুলাই গণ-অভ্যুত্থান দিবস',
-  },
-  {
-    date: '2025-08-15',
-    end_date: '2025-08-15',
-    name: 'National Mourning Day',
-    name_bn: 'জাতীয় শোক দিবস',
   },
   {
     date: '2025-08-16',

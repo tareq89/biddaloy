@@ -533,9 +533,12 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         await send(adminToken, body, null).expect(401);
       });
 
-      it('role SUPER_ADMIN gets 400', async () => {
-        await send(adminToken, { ...body, role: UserRole.SUPER_ADMIN }).expect(400);
-      });
+      it.each([UserRole.SUPER_ADMIN, UserRole.PARENT, UserRole.STUDENT])(
+        'role %s gets 400',
+        async (role) => {
+          await send(adminToken, { ...body, role }).expect(400);
+        },
+      );
 
       it('neither email nor phone gets 400', async () => {
         await send(adminToken, { role: UserRole.ACCOUNTANT }).expect(400);

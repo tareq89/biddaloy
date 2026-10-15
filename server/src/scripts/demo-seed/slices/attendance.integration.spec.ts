@@ -212,6 +212,17 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
       `SELECT DISTINCT s.slug FROM attendance_device_events e JOIN schools s ON s.id = e.tenant_id`,
     );
     expect(events).toEqual([{ slug: 'bmsc-high' }]);
+    // Only a student who came in has a device row and a check-in time: an absent or on-leave
+    // student in the device-filled draft never "scanned in".
+    const [{ n: ghostScans }] = await q(
+      `SELECT count(*)::int AS n FROM attendance_records
+        WHERE (source = 'DEVICE' OR check_in_at IS NOT NULL) AND status IN ('ABSENT', 'LEAVE')`,
+    );
+    expect(ghostScans).toBe(0);
+    const [{ n: deviceRows }] = await q(
+      `SELECT count(*)::int AS n FROM attendance_records WHERE source = 'DEVICE'`,
+    );
+    expect(deviceRows).toBeGreaterThan(0);
 
     // The teacher the routine's substitution covers is on approved leave, and marked LEAVE today.
     const rt = ctx.ids.get('routineToday') as {

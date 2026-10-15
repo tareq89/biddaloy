@@ -98,6 +98,9 @@ describe('parseArgs', () => {
     [['--anchor', '2026-13-01']],
     [['--anchor', '2026-02-30']],
     [['--anchor', 'yesterday']],
+    [['--anchor']],
+    [['--scale']],
+    [['--years', '--anchor', '2026-10-10']],
   ])('rejects %j', (argv) => {
     expect(() => parseArgs(argv)).toThrow();
   });

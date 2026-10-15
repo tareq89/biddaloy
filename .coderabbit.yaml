@@ -17,6 +17,7 @@ reviews:
       - main
       - develop
       - feature-*
+      - epic-*
   path_filters:
     - "!dist/**"
     - "!build-output/**"
