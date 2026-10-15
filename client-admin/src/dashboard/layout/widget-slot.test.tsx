@@ -1,5 +1,6 @@
 import '@biddaloy/ui/test';
 
+import { recordFreshness } from '@biddaloy/ui/api';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -34,6 +35,29 @@ describe('WidgetSlot', () => {
     shouldThrow = false;
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText(OK)).toBeTruthy();
+  });
+
+  it('shows the saved-data notice for sw-cache freshness, none for network', async () => {
+    recordFreshness(['dashboard', 'widget', 'upcoming'], {
+      fetchedAt: Date.now() - 3 * 3_600_000,
+      source: 'sw-cache',
+    });
+    recordFreshness(['dashboard', 'widget', 'sms-balance'], {
+      fetchedAt: Date.now(),
+      source: 'network',
+    });
+    renderWithProviders(
+      <>
+        <WidgetSlot size="S" widgetKey="upcoming">
+          <p data-testid="a" />
+        </WidgetSlot>
+        <WidgetSlot size="S" widgetKey="sms-balance">
+          <p data-testid="b" />
+        </WidgetSlot>
+      </>,
+      { locale: 'en' },
+    );
+    expect(await screen.findAllByText(/saved data/i)).toHaveLength(1);
   });
 
   it('lets a tenant-suspended error propagate to the route boundary', () => {

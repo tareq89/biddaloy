@@ -1,6 +1,11 @@
 import '@biddaloy/ui/test';
 
-import { ROLE_DEFAULT_LAYOUTS, UserRole, type DashboardLayoutPref } from '@biddaloy/shared';
+import {
+  ROLE_DEFAULT_LAYOUTS,
+  UserRole,
+  WIDGET_CATALOGUE,
+  type DashboardLayoutPref,
+} from '@biddaloy/shared';
 import { toast } from '@biddaloy/ui/components';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
@@ -33,7 +38,8 @@ const render = () =>
     role: 'EXECUTIVE',
     tenantId: 'tenant-1',
   });
-const exec = ROLE_DEFAULT_LAYOUTS.EXECUTIVE;
+// needsEpic widgets without a widget file are off (D42, D51).
+const exec = ROLE_DEFAULT_LAYOUTS.EXECUTIVE.filter((k) => !WIDGET_CATALOGUE[k].needsEpic);
 
 describe('CustomiseMode', () => {
   afterEach(async () => {

@@ -650,9 +650,9 @@ export const STAFF_BOTTOM_NAV: Record<StaffRole, readonly BottomNavCellDef[]> = 
     cell('attendance.attendance', 'attendance'),
     cell('reports.collectionsReport', 'reports'),
   ],
-  // My class replaces the dashboard placeholder as the teacher's home.
+  // [8.10.7.5.16] D23 — the teacher dashboard is the home again; My class stays in the drawer and the palette.
   TEACHER: [
-    cell('academics.myClass', 'myClass'),
+    cell('dashboard', 'dashboard'),
     cell('attendance.attendance', 'attendance'),
     cell('academics.myRoutine', 'routine'),
     cell('academics.homework', 'homework'),
