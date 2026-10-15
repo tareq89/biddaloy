@@ -2,6 +2,7 @@ import { resolve } from 'path';
 import { config } from 'dotenv';
 import { parse } from 'pg-connection-string';
 import { DataSource } from 'typeorm';
+import { RedactingTypeOrmLogger } from '../../db-logger';
 import { todayInSchoolTz } from '../../common/time';
 import { createScriptAppContext } from '../script-app-context';
 import { createContext, demoPassword, type DemoSeedContext, type DemoSlice } from './context';
@@ -13,8 +14,18 @@ export interface DemoSeedArgs {
   anchor: string;
 }
 
+/** The real clock's `YYYY-MM`, read the way `PaymentAllocationService` reads it (`new Date()`, local). */
+const realClockMonth = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
 /** `--scale 1 --anchor 2026-10-10 --years 10`; every flag optional. Throws on bad input. */
-export function parseArgs(argv: string[], today: () => string = todayInSchoolTz): DemoSeedArgs {
+export function parseArgs(
+  argv: string[],
+  today: () => string = todayInSchoolTz,
+  clockMonth: () => string = realClockMonth,
+): DemoSeedArgs {
   const flag = (name: string) => {
     const i = argv.indexOf(`--${name}`);
     if (i === -1) return undefined;
@@ -33,6 +44,14 @@ export function parseArgs(argv: string[], today: () => string = todayInSchoolTz)
     !Number.isNaN(Date.parse(anchor)) &&
     new Date(anchor).toISOString().slice(0, 10) === anchor;
   if (!valid) throw new Error('--anchor must be a real YYYY-MM-DD date');
+  // The fees slice records this month's payments through the real services, which type and date
+  // them by the real clock: a bill in a later month than the clock is refused as "future".
+  if (anchor.slice(0, 7) > clockMonth()) {
+    throw new Error(
+      `--anchor ${anchor} is in a later month than the real clock (${clockMonth()}): ` +
+        'fees payments use the real clock, so the anchor must be this month or earlier',
+    );
+  }
   return { scale, years, anchor };
 }
 
@@ -109,6 +128,8 @@ export async function runDemoSeed(args: DemoSeedArgs, password: string) {
   const app = await createScriptAppContext();
   try {
     const ds = app.get(DataSource);
+    // Dev logging prints every query; millions of them skew the timings. Errors still show.
+    (ds as { logger: unknown }).logger = new RedactingTypeOrmLogger(['error', 'warn']);
     await assertEmptyDatabase(ds);
     const ctx = await createContext({ ds, app, ...args, password });
     await runSlices(ctx, SLICES);
@@ -123,6 +144,13 @@ async function main(): Promise<void> {
   // Before the guards read DEMO_MODE / DEMO_PASSWORD / DATABASE_URL. Exported vars still win.
   config({ path: resolve(__dirname, '..', '..', '..', '..', '.env') });
   const args = parseArgs(process.argv.slice(2));
+  if (process.env.DEMO_MODE !== 'true') {
+    console.warn(
+      '\n*** WARNING: DEMO_MODE is not "true". The applications slice decides requests through the real\n' +
+        '*** notify services, which then use the real SMS / push providers and SMS credit.\n' +
+        '*** Set DEMO_MODE=true so every message becomes a log row.\n',
+    );
+  }
   const { app, ctx } = await runDemoSeed(args, demoPassword(process.env));
   try {
     console.log(formatTimings(ctx.timings));

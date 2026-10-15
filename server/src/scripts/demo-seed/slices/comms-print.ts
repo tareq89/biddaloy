@@ -1,12 +1,72 @@
-import type { DemoSlice } from '../context';
+import { createHash } from 'crypto';
+import {
+  CommunicationMedium,
+  CommunicationStatus,
+  CommunicationTrigger,
+  DocumentKind,
+  KIND_CONTEXT,
+  ReminderBatchStatus,
+} from '@biddaloy/shared';
+import type { DemoSeedContext, DemoSlice } from '../context';
 import { CommunicationLog } from '../../../modules/communications/entities/communication-log.entity';
 import { ReminderBatch } from '../../../modules/communications/entities/reminder-batch.entity';
-import { SmsCreditBalance } from '../../../modules/communications/credits/entities/sms-credit-balance.entity';
 import { SmsCreditLedger } from '../../../modules/communications/credits/entities/sms-credit-ledger.entity';
 import { CalendarFeedToken } from '../../../modules/calendar/entities/calendar-feed-token.entity';
 import { PrinterProfile } from '../../../modules/print/entities/printer-profile.entity';
 import { PrintJob } from '../../../modules/print/entities/print-job.entity';
 import { PrintJobItem } from '../../../modules/print/entities/print-job-item.entity';
+import { SmsCreditBalance } from '../../../modules/communications/credits/entities/sms-credit-balance.entity';
+import { PrintTemplatesService } from '../../../modules/print/templates/print-templates.service';
+import { PrintJobsService } from '../../../modules/print/jobs/print-jobs.service';
+import { insertChunked } from '../bulk';
+import { orgIds, type OrgTenant } from './org';
+import { studentIds } from './students';
+
+const DEMO_PROVIDER = 'demo-log';
+/** Issue comment on #2176: reminders spend credit, so every branch keeps this much after the history. */
+const CREDIT_FLOOR = 10_000;
+const CONDUCT = 'সন্তোষজনক';
+const MONTH_BN = [
+  'জানুয়ারি',
+  'ফেব্রুয়ারি',
+  'মার্চ',
+  'এপ্রিল',
+  'মে',
+  'জুন',
+  'জুলাই',
+  'আগস্ট',
+  'সেপ্টেম্বর',
+  'অক্টোবর',
+  'নভেম্বর',
+  'ডিসেম্বর',
+];
+
+type Kind = 'FEE' | 'OVERDUE' | 'INVOICE' | 'ADMISSION' | 'ABSENCE' | 'RESULT' | 'HOMEWORK';
+
+const addDays = (date: string, n: number) =>
+  new Date(Date.parse(date) + n * 86_400_000).toISOString().slice(0, 10);
+const at = (date: string, hh: number, mm = 0) =>
+  new Date(`${date}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00+06:00`);
+
+function body(kind: Kind, child: string, date: string): string {
+  const month = MONTH_BN[Number(date.slice(5, 7)) - 1];
+  switch (kind) {
+    case 'FEE':
+      return `প্রিয় অভিভাবক, ${child} এর ${month} মাসের ফি তৈরি হয়েছে। নির্ধারিত সময়ের মধ্যে পরিশোধ করুন।`;
+    case 'OVERDUE':
+      return `প্রিয় অভিভাবক, ${child} এর ${month} মাসের ফি বকেয়া আছে। অনুগ্রহ করে দ্রুত পরিশোধ করুন।`;
+    case 'INVOICE':
+      return `${child} এর ফি পরিশোধের ইনভয়েস সংযুক্ত করা হলো। ধন্যবাদ।`;
+    case 'ADMISSION':
+      return `${child} এর ভর্তি সম্পন্ন হয়েছে। আমাদের বিদ্যালয়ে স্বাগতম।`;
+    case 'ABSENCE':
+      return `প্রিয় অভিভাবক, ${child} আজ বিদ্যালয়ে অনুপস্থিত ছিল।`;
+    case 'RESULT':
+      return `${child} এর পরীক্ষার ফল প্রকাশিত হয়েছে। বিস্তারিত দেখতে পোর্টালে প্রবেশ করুন।`;
+    case 'HOMEWORK':
+      return `প্রিয় অভিভাবক, ${child} এর বাড়ির কাজ জমা দেওয়া হয়নি। অনুগ্রহ করে লক্ষ্য রাখুন।`;
+  }
+}
 
 export const slice: DemoSlice = {
   name: 'comms-print',
@@ -20,6 +80,423 @@ export const slice: DemoSlice = {
     PrintJob,
     PrintJobItem,
   ],
-  owedBy: '58.3.06',
-  run: async () => {},
+  run: async (ctx) => {
+    const org = orgIds(ctx);
+    let rows = 0;
+    for (const tenant of org.tenants) {
+      rows += await messages(ctx, tenant, org.adminUserId);
+      rows += await calendarTokens(ctx, tenant, org.adminUserId);
+      rows += await printing(ctx, tenant, org.adminUserId);
+    }
+    return rows;
+  },
 };
+
+/** Months of message history, reminder batches and the SMS credit that paid for them. */
+async function messages(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string): Promise<number> {
+  const rng = ctx.rng;
+  const uuid = () => rng.string.uuid();
+  const years = tenant.years.slice(-2);
+  const mine = studentIds(ctx).students.filter((s) => s.tenantId === tenant.id);
+  const names = new Map(
+    (
+      await ctx.ds.query(
+        `SELECT id, COALESCE(full_name_bn, full_name) AS name FROM students WHERE tenant_id = $1`,
+        [tenant.id],
+      )
+    ).map((r: { id: string; name: string }) => [r.id, r.name]),
+  );
+  // The first guardian of each student (primary contact first): the D26 phone / email.
+  const guardian = new Map<
+    string,
+    { id: string; name: string; phone: string | null; email: string | null }
+  >();
+  for (const g of await ctx.ds.query(
+    `SELECT sg.student_id, g.id, g.full_name AS name, g.phone, g.email
+       FROM student_guardians sg JOIN guardians g ON g.id = sg.guardian_id
+      WHERE g.tenant_id = $1 ORDER BY g.is_primary_contact DESC, g.id`,
+    [tenant.id],
+  )) {
+    if (!guardian.has(g.student_id)) guardian.set(g.student_id, g);
+  }
+
+  const logs: Record<string, unknown>[] = [];
+  const debits: { id: string; at: Date }[] = [];
+  const seen = new Set<string>(); // (tenant, reference_key) is unique: two random ABSENCE days can land on one date
+  const log = (
+    kind: Kind,
+    studentId: string,
+    date: string,
+    extra: { trigger?: CommunicationTrigger; batchId?: string } = {},
+  ) => {
+    const g = guardian.get(studentId);
+    if (!g || date > ctx.anchor) return;
+    const email = kind === 'INVOICE' && g.email;
+    if (!email && !g.phone) return;
+    const medium = email ? CommunicationMedium.EMAIL : CommunicationMedium.SMS;
+    const status = ctx.weighted([
+      [CommunicationStatus.SENT, 40],
+      [CommunicationStatus.DELIVERED, 58],
+      [CommunicationStatus.FAILED, 2],
+    ] as const);
+    const when = at(
+      date,
+      9 + rng.number.int({ min: 0, max: 7 }),
+      rng.number.int({ min: 0, max: 59 }),
+    );
+    const referenceKey = `demo:${kind}:${studentId}:${date}${extra.batchId ? ':' + extra.batchId : ''}`;
+    if (seen.has(referenceKey)) return;
+    seen.add(referenceKey);
+    const id = uuid();
+    logs.push({
+      id,
+      tenant_id: tenant.id,
+      medium,
+      recipient_address: email ? g.email : g.phone,
+      recipient_name: g.name,
+      message_body: body(kind, names.get(studentId) as string, date),
+      subject: email ? 'ফি ইনভয়েস' : null,
+      status,
+      trigger:
+        extra.trigger ??
+        (kind === 'RESULT' ? CommunicationTrigger.RESULT_SMS : CommunicationTrigger.AUTOMATED),
+      student_id: studentId,
+      guardian_id: g.id,
+      sent_by_user_id: null,
+      reminder_batch_id: extra.batchId ?? null,
+      provider_message_id:
+        status === CommunicationStatus.FAILED ? null : `${DEMO_PROVIDER}-${rng.string.uuid()}`,
+      metadata:
+        status === CommunicationStatus.FAILED
+          ? { provider: DEMO_PROVIDER, reason: 'SIMULATED_FAILURE' }
+          : { provider: DEMO_PROVIDER, kind },
+      reference_key: referenceKey,
+      created_at: when,
+      updated_at: when,
+    });
+    if (medium === CommunicationMedium.SMS && status !== CommunicationStatus.FAILED) {
+      debits.push({ id, at: when });
+    }
+  };
+
+  for (const year of years) {
+    for (const s of mine) {
+      const stay = s.stays.find((st) => st.yearId === year.id);
+      if (!stay) continue;
+      if (s.stays[0].yearId === year.id) log('ADMISSION', s.id, addDays(year.start, -10));
+      for (const term of [0, 122, 244]) log('FEE', s.id, addDays(year.start, term + 5));
+      if (ctx.rng.number.float() < 0.3)
+        log('OVERDUE', s.id, addDays(year.start, 25 + rng.number.int({ min: 0, max: 200 })));
+      if (ctx.rng.number.float() < 0.5)
+        log('INVOICE', s.id, addDays(year.start, 30 + rng.number.int({ min: 0, max: 200 })));
+      for (let i = rng.number.int({ min: 0, max: 2 }); i > 0; i--) {
+        log('ABSENCE', s.id, addDays(year.start, 10 + rng.number.int({ min: 0, max: 330 })));
+      }
+      for (const d of [133, 255]) log('RESULT', s.id, addDays(year.start, d));
+      if (ctx.rng.number.float() < 0.3)
+        log('HOMEWORK', s.id, addDays(year.start, 20 + rng.number.int({ min: 0, max: 300 })));
+    }
+
+    // Fee-reminder batches: three a year, each over a tenth of the branch's students.
+    for (const offset of [60, 180, 300]) {
+      const date = addDays(year.start, offset);
+      if (date > ctx.anchor) continue;
+      const batchId = uuid();
+      const before = logs.length;
+      const pool = mine.filter((s) => s.stays.some((st) => st.yearId === year.id));
+      for (const s of pool) {
+        if (rng.number.float() < 0.1) {
+          log('OVERDUE', s.id, date, { trigger: CommunicationTrigger.BULK_REMINDER, batchId });
+        }
+      }
+      const batch = logs.slice(before);
+      const failed = batch.filter((l) => l.status === CommunicationStatus.FAILED).length;
+      await ctx.ds.getRepository(ReminderBatch).insert({
+        id: batchId,
+        tenant_id: tenant.id,
+        batch_name: `ফি স্মারক — ${MONTH_BN[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`,
+        status: failed ? ReminderBatchStatus.PARTIALLY_FAILED : ReminderBatchStatus.COMPLETED,
+        total_recipients: batch.length,
+        successful_count: batch.length - failed,
+        failed_count: failed,
+        message_template: body('OVERDUE', '{{student}}', date),
+        initiated_by_user_id: adminId,
+        filters_applied: { fee_status: 'DUE' },
+        created_at: at(date, 9),
+        updated_at: at(date, 9),
+      } as never);
+    }
+  }
+  let rows = await insertChunked(ctx.ds.getRepository(CommunicationLog), logs as never);
+
+  // SMS credit: top-ups cover the history and leave CREDIT_FLOOR; the ledger sums to the balance.
+  const grantTotal = debits.length + CREDIT_FLOOR;
+  const grants = [0, 1, 2].map((i) => Math.floor(grantTotal / 3) + (i === 2 ? grantTotal % 3 : 0));
+  const ledger: Record<string, unknown>[] = grants.map((units, i) => ({
+    tenant_id: tenant.id,
+    kind: 'GRANT',
+    units,
+    reference_type: 'manual',
+    reference_id: null,
+    idempotency_key: `demo-grant:${i}`,
+    reason: 'ডেমো টপ-আপ',
+    actor_user_id: adminId,
+    // All before the first log (year start - 10 days), so the running balance never dips below 0.
+    created_at: at(addDays(years[0].start, -11), 10 + i),
+  }));
+  for (const d of debits) {
+    ledger.push({
+      tenant_id: tenant.id,
+      kind: 'DEBIT',
+      units: 1,
+      reference_type: 'log',
+      reference_id: d.id,
+      idempotency_key: `demo-debit:${d.id}`,
+      reason: null,
+      actor_user_id: null,
+      created_at: d.at,
+    });
+  }
+  rows += await insertChunked(ctx.ds.getRepository(SmsCreditLedger), ledger as never);
+  await ctx.ds.query(
+    `INSERT INTO sms_credit_balance (tenant_id, available, reserved) VALUES ($1, $2, 0)
+     ON CONFLICT (tenant_id) DO UPDATE SET available = EXCLUDED.available, reserved = 0`,
+    [tenant.id, CREDIT_FLOOR],
+  );
+  return rows + 1;
+}
+
+/** A calendar feed link for the admin and for one class teacher of the branch. */
+async function calendarTokens(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string) {
+  const teacher: { user_id: string }[] = await ctx.ds.query(
+    `SELECT te.user_id FROM teacher_class_sections tcs JOIN teachers te ON te.id = tcs.teacher_id
+      WHERE tcs.tenant_id = $1 AND tcs.assignment_type = 'CLASS_TEACHER'
+      ORDER BY te.user_id LIMIT 1`,
+    [tenant.id],
+  );
+  const users = [adminId, ...teacher.map((t) => t.user_id)];
+  return insertChunked(
+    ctx.ds.getRepository(CalendarFeedToken),
+    users.map((user_id) => ({
+      tenant_id: tenant.id,
+      user_id,
+      token_hash: createHash('sha256').update(ctx.rng.string.alphanumeric(40)).digest('hex'),
+    })) as never,
+  );
+}
+
+/** Printer profiles, ID and admit card templates, and issued ID cards, admit cards, certificates and TCs. */
+async function printing(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string): Promise<number> {
+  const templates = ctx.app.get(PrintTemplatesService);
+  const jobs = ctx.app.get(PrintJobsService);
+  const caller = { tenantId: tenant.id, userId: adminId, role: 'ADMIN' };
+  const certCaller = { ...caller, channel: 'CERTIFICATE' as const };
+  const q = <T>(sql: string, args: unknown[]): Promise<T[]> => ctx.ds.query(sql, args);
+  const year = tenant.years[tenant.years.length - 1];
+  let jobCount = 0;
+
+  const printers = await ctx.ds.getRepository(PrinterProfile).save([
+    {
+      tenant_id: tenant.id,
+      name: 'Card printer',
+      printer_type: 'CARD',
+      margin_top_mm: '0',
+      margin_right_mm: '0',
+      margin_bottom_mm: '0',
+      margin_left_mm: '0',
+    },
+    {
+      tenant_id: tenant.id,
+      name: 'Office printer (A4)',
+      printer_type: 'OFFICE',
+      margin_top_mm: '5',
+      margin_right_mm: '5',
+      margin_bottom_mm: '5',
+      margin_left_mm: '5',
+    },
+  ] as never);
+  const [cardPrinter, officePrinter] = printers as unknown as { id: string }[];
+
+  const publish = async (name: string, suggestion: string) => {
+    const t = await templates.create(tenant.id, adminId, {
+      name,
+      suggestion_key: suggestion,
+    } as never);
+    await templates.publish(tenant.id, adminId, t.id);
+    await templates.setDefault(tenant.id, adminId, t.id);
+    const [row] = await q<{ batch_size: number }>(
+      `SELECT batch_size FROM print_templates WHERE id = $1`,
+      [t.id],
+    );
+    return { id: t.id, size: row.batch_size };
+  };
+  const idCard = await publish('Student ID card', 'student-portrait-classic');
+  const admit = await publish('Admit card (Bangla)', 'admit-card-bn');
+
+  // The service reads the clock for issuedAt, the printed issue date and serial_year: run it
+  // with `Date` frozen at the job's day, so every document derives from the anchor.
+  // ponytail: swaps the process-wide `Date` across awaits. Safe only because the seed runs one slice
+  // at a time with nothing else in the process; `Date()` without `new` throws while it is swapped.
+  // If the seed ever runs work in parallel, post-date the rows with an UPDATE instead (as print_jobs is).
+  const withClock = async <T>(when: Date, fn: () => Promise<T>): Promise<T> => {
+    const Real = Date;
+    const frozen = when.getTime();
+    class Frozen extends Real {
+      constructor(...a: unknown[]) {
+        super(...((a.length ? a : [frozen]) as [number]));
+      }
+      static now() {
+        return frozen;
+      }
+    }
+    globalThis.Date = Frozen as DateConstructor;
+    try {
+      return await fn();
+    } finally {
+      globalThis.Date = Real;
+    }
+  };
+
+  // Templates and printers keep the service's real clock otherwise; date them before the first job.
+  const setupAt = at(addDays(year.start, 5), 9);
+  await q(`UPDATE printer_profiles SET created_at = $2, updated_at = $2 WHERE id = ANY($1)`, [
+    [cardPrinter.id, officePrinter.id],
+    setupAt,
+  ]);
+  await q(`UPDATE print_templates SET created_at = $2, updated_at = $2 WHERE id = ANY($1)`, [
+    [idCard.id, admit.id],
+    setupAt,
+  ]);
+  // print_template_versions is immutable (DB trigger): its published_at keeps the run clock.
+
+  /** One real job per chunk, confirmed, then dated (the service stamps the real clock). */
+  const run = async (
+    c: typeof caller | typeof certCaller,
+    dto: Record<string, unknown>,
+    subjects: string[],
+    size: number,
+    date: string,
+  ) => {
+    for (let i = 0; i < subjects.length; i += size) {
+      const when = at(date, 11);
+      const job = await withClock(when, () =>
+        jobs
+          .create(c, {
+            ...dto,
+            subject_type: 'STUDENT',
+            subject_ids: subjects.slice(i, i + size),
+          } as never)
+          .catch((e) => {
+            throw new Error(
+              `print job failed (${tenant.slug}, ${String(dto.batch_label ?? dto.template_id)}): ${JSON.stringify((e as { response?: unknown }).response ?? e.message)}`,
+            );
+          }),
+      );
+      await withClock(when, () => jobs.confirm(c, job.job_id, []));
+      await q(`UPDATE print_jobs SET created_at = $2, confirmed_at = $2 WHERE id = $1`, [
+        job.job_id,
+        when,
+      ]);
+      await q(`UPDATE print_job_items SET created_at = $2 WHERE job_id = $1`, [job.job_id, when]);
+      jobCount += 1;
+    }
+  };
+
+  // This year's ID cards for every current student.
+  const current = studentIds(ctx).students.filter(
+    (s) =>
+      s.tenantId === tenant.id &&
+      s.status === 'ACTIVE' &&
+      s.stays.some((st) => st.yearId === year.id),
+  );
+  const idDate = addDays(year.start, 20) > ctx.anchor ? ctx.anchor : addDays(year.start, 20);
+  await run(
+    caller,
+    {
+      template_id: idCard.id,
+      printer_profile_id: cardPrinter.id,
+      batch_label: `ID cards ${year.name}`,
+    },
+    current.map((s) => s.id),
+    idCard.size,
+    idDate,
+  );
+
+  // Admit cards for the next exam: everyone who has a seat.
+  const wantedContext = KIND_CONTEXT[DocumentKind.EXAM_ADMIT_CARD];
+  for (const exam of await q<{ id: string }>(
+    `SELECT e.id FROM exams e WHERE e.tenant_id = $1 AND e.name = 'Annual Exam' AND e.status = 'DRAFT'
+        AND e.academic_year_id = $2 ORDER BY e.class_id`,
+    [tenant.id, year.id],
+  )) {
+    const seated = await q<{ student_id: string }>(
+      `SELECT DISTINCT a.student_id FROM seat_allocations a JOIN exam_schedules es ON es.id = a.exam_schedule_id
+        WHERE es.exam_id = $1 ORDER BY a.student_id`,
+      [exam.id],
+    );
+    await run(
+      caller,
+      {
+        template_id: admit.id,
+        printer_profile_id: officePrinter.id,
+        context_type: wantedContext,
+        context_id: exam.id,
+        batch_label: 'Annual Exam admit cards',
+      },
+      seated.map((r) => r.student_id),
+      admit.size,
+      addDays(ctx.anchor, -2),
+    );
+  }
+
+  // About 20 certificates a year across the school, spread over the last 12 months.
+  const certificate = async (name: string) =>
+    (
+      await q<{ id: string }>(
+        `SELECT id FROM print_templates WHERE tenant_id = $1 AND name = $2 AND archived_at IS NULL`,
+        [tenant.id, name],
+      )
+    )[0]?.id;
+  const testimonial = await certificate('প্রশংসাপত্র (বাংলা)');
+  const character = await certificate('চারিত্রিক সনদপত্র (বাংলা)');
+  const pool = studentIds(ctx).students.filter(
+    (s) => s.tenantId === tenant.id && s.status === 'GRADUATED',
+  );
+  const wanted = Math.max(3, Math.round(ctx.count(20) / 3));
+  for (let i = 0; i < Math.min(wanted, pool.length); i++) {
+    const templateId = i % 2 ? character : testimonial;
+    if (!templateId) continue;
+    await run(
+      certCaller,
+      {
+        template_id: templateId,
+        issue_values:
+          i % 2 ? { 'issue.conduct': CONDUCT, 'issue.remark': '—' } : { 'issue.conduct': CONDUCT },
+      },
+      [pool[i].id],
+      1,
+      addDays(ctx.anchor, -10 - i * 15),
+    );
+  }
+
+  // A transfer certificate for every Primary -> High transfer of the last two years.
+  const tc = await certificate('ছাড়পত্র (বাংলা)');
+  const since = tenant.years.slice(-2)[0].start;
+  if (tc) {
+    for (const t of await q<{ student_id: string; day: string }>(
+      `SELECT student_id, occurred_on::text AS day FROM student_lifecycle_events
+        WHERE tenant_id = $1 AND event_type = 'TRANSFERRED_OUT' AND occurred_on >= $2
+          AND destination LIKE '%মাধ্যমিক শাখা' ORDER BY occurred_on, student_id`,
+      [tenant.id, since],
+    )) {
+      await run(
+        certCaller,
+        { template_id: tc, issue_values: { 'issue.conduct': CONDUCT, 'issue.remark': '—' } },
+        [t.student_id],
+        1,
+        addDays(t.day, 2),
+      );
+    }
+  }
+  return 2 + jobCount;
+}

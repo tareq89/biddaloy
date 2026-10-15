@@ -4,6 +4,7 @@ import { join } from 'path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DataSource } from 'typeorm';
 import { ALL_ENTITIES } from '../../../test/all-entities';
+import { DEMO_CARDS } from '../../modules/demo/demo-accounts';
 import type { DemoSlice } from './context';
 import { validate } from './validator';
 
@@ -87,6 +88,44 @@ async function countRows(ds: DataSource, tables: Table[]): Promise<Record<string
   return out;
 }
 
+/**
+ * Columns a real service stamps with the real clock while the seed runs ("today" comes from the real
+ * services). Only these lose their whole timestamp (date too: a run straddling Dhaka midnight changes
+ * the date); every other column must match in full, so a stray `Date.now()` in a slice still fails determinism.
+ */
+const CLOCK_COLS: Record<string, string[]> = {
+  payments: ['payment_date'],
+  invoices: ['issued_date', 'due_date'],
+  invoice_share_tokens: ['expires_at'],
+  applications: ['decided_at'], // today's decisions go through ApplicationDecisionsService
+  alerts: ['raised_at', 'last_evaluated_at', 'expires_at'], // manual alerts only, see CLOCK_ONLY_WHEN
+  alert_recipients: ['pushed_at'], // delivery stamps it with the real clock, after the seed returns
+};
+
+/** First day of the month before the anchor's: the live (real-service) money starts here. */
+const LIVE_FROM = (() => {
+  const [y, m] = SMALL.anchor.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);
+})();
+/** Payments the real allocation service wrote: they pay last month's or this month's bills. */
+const LIVE_PAYMENT = `SELECT pa.payment_id FROM payment_allocations pa
+  JOIN student_fees sf ON sf.id = pa.student_fee_id WHERE sf.period_start >= '${LIVE_FROM}'`;
+
+/**
+ * Row filter for a table's CLOCK_COLS: only the rows a real service wrote lose their clock columns.
+ * Every bulk row derives from the anchor and must match in full. No filter reads a column it strips,
+ * so a stray `new Date()` in a bulk path's clock column still changes the fingerprint.
+ * - alerts: manual alerts only (rule and history alerts derive from the anchor).
+ * - payments, invoices: the live payments (bills from last month on); 10 years of bulk history stay exact.
+ * - applications: today's requests, created by the service (bulk history is created before the anchor).
+ */
+const CLOCK_ONLY_WHEN: Record<string, string> = {
+  alerts: `source = 'MANUAL'`,
+  payments: `id IN (${LIVE_PAYMENT})`,
+  invoices: `payment_id IN (${LIVE_PAYMENT})`,
+  applications: `created_at >= '${SMALL.anchor}'`,
+};
+
 /** Counts plus an md5 of business columns per table; ids, timestamps and hashes are left out. */
 async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
@@ -95,14 +134,24 @@ async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<stri
       (c) =>
         !/^(id|created_at|updated_at|deleted_at|published_at)$|_id$|hash|token|secret|salt/.test(c),
     );
-    // Strip uuids (tenant ids sit inside storage keys and `_by` columns) and clock times (the preset
-    // apply stamps `appliedAt` with the real clock); everything else must match byte for byte.
+    // Strip uuids (tenant ids sit inside storage keys and `_by` columns) and ISO clock times inside
+    // jsonb (the preset apply stamps `appliedAt`, invoice snapshots `captured_at`); the CLOCK_COLS also
+    // lose the Postgres space form. Everything else must match byte for byte.
+    const uuid = (c: string) =>
+      `regexp_replace("${c}"::text, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 'U', 'g')`;
+    const iso = (e: string) =>
+      `regexp_replace(${e}, 'T[0-9]{2}:[0-9]{2}:[0-9]{2}[0-9.]*(Z|[+-][0-9:]+)?', 'T', 'g')`;
+    const whole = (e: string) =>
+      `regexp_replace(${e}, '[0-9]{4}-[0-9]{2}-[0-9]{2}([ T][0-9]{2}:[0-9]{2}:[0-9]{2}[0-9.]*(Z|[+-][0-9:]+)?)?', 'T', 'g')`;
     const row =
       cols
-        .map(
-          (c) =>
-            `regexp_replace(regexp_replace("${c}"::text, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 'U', 'g'), 'T[0-9]{2}:[0-9]{2}:[0-9]{2}[0-9.]*(Z|[+-][0-9:]+)?', 'T', 'g')`,
-        )
+        .map((c) => {
+          const plain = iso(uuid(c));
+          if (!CLOCK_COLS[t.table]?.includes(c)) return plain;
+          const stripped = whole(uuid(c));
+          const when = CLOCK_ONLY_WHEN[t.table];
+          return when ? `CASE WHEN ${when} THEN ${stripped} ELSE ${plain} END` : stripped;
+        })
         .join(', ') || `''`;
     const [{ h, n }] = await ds.query(
       `SELECT count(*)::int AS n,
@@ -110,6 +159,22 @@ async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<stri
          FROM (SELECT concat_ws('|', ${row}) AS r FROM "${t.table}"${scope(t)}) x`,
     );
     out[t.name] = `${n}:${h}`;
+  }
+  return out;
+}
+
+/** Open alerts each demo login sees: the attention engine's sweeps derive them (58.3.09). */
+async function openAlertsByCard(ds: DataSource): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  for (const c of DEMO_CARDS) {
+    const [{ n }] = await ds.query(
+      `SELECT count(*)::int AS n FROM alert_recipients r
+         JOIN alerts a ON a.id = r.alert_id AND a.status = 'ACTIVE'
+         JOIN users u ON u.id = r.user_id
+        WHERE u.email = $1 AND r.state = 'OPEN'`,
+      [c.email],
+    );
+    out[c.key] = Number(n);
   }
   return out;
 }
@@ -128,6 +193,7 @@ describe('demo seed coverage', () => {
   let violations: Awaited<ReturnType<typeof validate>> = [];
   let fpA: Record<string, string> = {};
   let fpB: Record<string, string> = {};
+  let openAlerts: Record<string, number> = {};
 
   /** Seeds `db` from a freshly loaded module graph (the app caches DATABASE_URL on first load). */
   async function seedInto(db: string, args: typeof MAIN, keepOpen: boolean) {
@@ -161,6 +227,7 @@ describe('demo seed coverage', () => {
       ),
       counts: keepOpen ? await countRows(run.ds, tables) : {},
       violations: keepOpen ? await validate(run.ds) : [],
+      openAlerts: keepOpen ? await openAlertsByCard(run.ds) : {},
     };
     if (keepOpen) closeMain = () => run.app.close();
     else await run.app.close();
@@ -176,6 +243,7 @@ describe('demo seed coverage', () => {
       violations: main.violations,
     });
     rows = main.counts;
+    openAlerts = main.openAlerts;
     fpA = (await seedInto(dbs[1], SMALL, false)).fp;
     fpB = (await seedInto(dbs[2], SMALL, false)).fp;
   }, 600_000);
@@ -247,6 +315,13 @@ describe('demo seed coverage', () => {
 
   it('same inputs give the same data', () => {
     expect(fpB).toEqual(fpA);
+  });
+
+  it('every demo login opens the app to at least 3 open alerts', () => {
+    expect(
+      Object.entries(openAlerts).filter(([, n]) => n < 3),
+      'card key and its open alert count',
+    ).toEqual([]);
   });
 
   it('every invariant holds on the seeded data', () => {

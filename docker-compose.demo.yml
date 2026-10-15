@@ -1,0 +1,138 @@
+# Demo deployment overlay (Epic 58.0). Use with the base file, on a host that serves only the demo:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+#
+# Host .env must set S3_BUCKET to a name containing "demo" (e.g. biddaloy-demo): the reset
+# deletes objects in that bucket and refuses any other. Also set DEMO_PASSWORD, and for the
+# sign-up captcha the demo hostname's TURNSTILE_SECRET_KEY + VITE_TURNSTILE_SITE_KEY (D42).
+#
+# Real providers stay OFF: the base file passes no SMS_PROVIDER / SMTP_* / VAPID_* to any
+# service, and reset.sh refuses to run if they are set (D2). Do not add them here.
+#
+# The demo database is always biddaloy_demo (below); POSTGRES_DB only names the empty database
+# Postgres creates on first start. The base `backup` service is switched off here: there is
+# nothing to back up, and its 02:00 dump would collide with the 02:00 swap.
+#
+# First boot: `app` refuses to start until a reset has run once (it reads default-school's id,
+# which changes every night, from the demo-state volume). So build the images, run the first
+# reset by hand, then bring the rest up (the first reset logs "app not restarted: first run"):
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml build   # see note on demo-reset.build
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d db redis seaweedfs
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+
+x-demo-env: &demo-env
+  DEMO_MODE: 'true'
+  DEMO_PASSWORD: ${DEMO_PASSWORD:?DEMO_PASSWORD must be set}
+  # The LIVE demo database. reset.sh builds biddaloy_demo_next beside it and swaps by rename.
+  DATABASE_URL: postgres://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/biddaloy_demo
+  S3_BUCKET: ${S3_BUCKET:?S3_BUCKET must be set to a name containing "demo"}
+
+services:
+  app:
+    container_name: biddaloy-demo-app
+    environment:
+      <<: *demo-env
+    volumes:
+      - demo-state:/demo-state:ro
+    # default-school's id is new after every reset. PLATFORM_TENANT_ID must name it, or
+    # TenantStatusService.platformTenantId() points at no school and platform authority is gone.
+    command:
+      - sh
+      - -c
+      - '[ -s /demo-state/platform-tenant-id ] || { echo "demo: run the first reset before starting app (see docker-compose.demo.yml)" >&2; exit 1; }; PLATFORM_TENANT_ID="$$(cat /demo-state/platform-tenant-id)" exec node server/dist/main.js'
+
+  demo-reset:
+    build:
+      context: ./scripts/demo
+      dockerfile: Dockerfile
+      # `FROM app` in the Dockerfile is the `app` service's image, built first and fresh. Needs a
+      # current Docker Compose: 2.20.2 does not know `service:` and reads it as a folder path.
+      additional_contexts:
+        app: service:app
+    image: biddaloy-demo-reset
+    restart: unless-stopped
+    # Root only to write the demo-state volume. No docker socket: see demo-docker-proxy.
+    user: root
+    networks: [default, demo-docker]
+    environment:
+      <<: *demo-env
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      DEMO_STATE_DIR: /demo-state
+      DEMO_APP_CONTAINER: biddaloy-demo-app
+      DEMO_RESET_SCHEDULE: ${DEMO_RESET_SCHEDULE:-0 1 * * *}
+      DEMO_SCALE: ${DEMO_SCALE:-1}
+      DEMO_YEARS: ${DEMO_YEARS:-10}
+      # The nightly sweep (58.4.02, Playwright project demo-nightly) needs a Playwright runner,
+      # which this image does not carry, and it cannot `docker run` one (no socket). So the runner is
+      # another service that shares THIS container's network namespace
+      # (`network_mode: service:demo-reset`) and reaches the temporary app at http://127.0.0.1:3999.
+      # It must be loopback: the session cookie is `__Host-` (always Secure), and over plain HTTP
+      # Chromium keeps it only on localhost/127.0.0.1, so http://demo-reset:3999 would sweep signed
+      # out (playwright.config.ts refuses such a URL). Set DEMO_SWEEP_CMD to a command that drives
+      # such a runner, or DEMO_SKIP_SWEEP=true to go without. One of them is required. The sweep is
+      # killed after DEMO_SWEEP_TIMEOUT seconds.
+      DEMO_SWEEP_CMD: ${DEMO_SWEEP_CMD:-}
+      DEMO_SWEEP_URL: ${DEMO_SWEEP_URL:-http://127.0.0.1:3999}
+      DEMO_SKIP_SWEEP: ${DEMO_SKIP_SWEEP:-}
+      DEMO_SWEEP_TIMEOUT: ${DEMO_SWEEP_TIMEOUT:-1800}
+      DOCKER_HOST: tcp://demo-docker-proxy:2375
+      SENTRY_CRONS_URL: ${SENTRY_CRONS_URL:-}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
+      DB_SSL: ${DB_SSL:-}
+      DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
+      APP_BASE_URL: ${APP_BASE_URL:-}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      S3_ENDPOINT: http://seaweedfs:8333
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID must be set}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY must be set}
+      S3_FORCE_PATH_STYLE: 'true'
+    volumes:
+      - demo-state:/demo-state
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+      demo-docker-proxy:
+        condition: service_started
+
+  # The reset's only use of Docker is `docker restart biddaloy-demo-app`. This proxy holds the
+  # socket and lets through GET /_ping, /version and /events, plus POST
+  # .../containers/<id>/(stop|restart|kill) for ANY container on this host: the image cannot limit
+  # it to one. So a compromised demo-reset can stop, restart or kill every container here (db,
+  # nginx, the proxy itself), but cannot create, exec into or inspect one (no host root).
+  # Acceptable only because this host runs nothing but the demo. It sits on an internal network
+  # that only demo-reset joins.
+  demo-docker-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    restart: unless-stopped
+    environment:
+      POST: 1
+      ALLOW_RESTARTS: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [demo-docker]
+
+  backup:
+    profiles: [disabled]
+
+  nginx:
+    volumes:
+      # robots.conf serves "Disallow: /" (nginx/templates/default.conf.template includes demo-extra/*.conf).
+      - ./nginx/demo:/etc/nginx/demo-extra:ro
+
+volumes:
+  demo-state:
+
+networks:
+  demo-docker:
+    internal: true

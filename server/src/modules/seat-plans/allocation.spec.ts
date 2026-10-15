@@ -243,6 +243,17 @@ describe('allocateSeats', () => {
     ]);
   });
 
+  it('gives the same seats whatever order the roster arrives in (#2574)', () => {
+    // Roll numbers repeat across sections, and the DB returns enrollments in
+    // no fixed order: ties must not fall back to the input order.
+    const reversed = [...roster].reverse();
+    for (const mode of [SeatOrderMode.SEQUENTIAL, SeatOrderMode.RANDOM]) {
+      expect(allocateSeats(reversed, rooms, mode, 5).assignments).toEqual(
+        allocateSeats(roster, rooms, mode, 5).assignments,
+      );
+    }
+  });
+
   it('RANDOM order is a valid permutation of the same student set', () => {
     const { assignments } = allocateSeats(roster, rooms, SeatOrderMode.RANDOM, 7);
     const original = new Set(roster.map((r) => r.student_id));

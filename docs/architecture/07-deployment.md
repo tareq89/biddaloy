@@ -211,6 +211,60 @@ outside origin, `https://challenges.cloudflare.com`, in `script-src` and
 `frame-src`. Turnstile loads a script and draws its challenge in an iframe.
 Everything else stays `'self'`. See [22-onboarding.md](22-onboarding.md).
 
+## Demo site
+
+The public demo is its own deployment: its own host, database and bucket. It runs the same images with `DEMO_MODE=true`
+and rebuilds itself every night. Full detail is in [22-demo-seed.md](22-demo-seed.md); this is what you need to stand it up.
+
+```mermaid
+flowchart LR
+  V[visitor] --> N["nginx<br/>robots.txt: Disallow all"]
+  N --> A["app<br/>(biddaloy-demo-app)"]
+  A --> D[(biddaloy_demo)]
+  A --> R[(Redis)]
+  A --> S[(S3 bucket<br/>biddaloy-demo)]
+  X["demo-reset<br/>cron 01:00, swap 02:00"] --> D
+  X --> S
+  X -->|"docker restart via<br/>demo-docker-proxy"| A
+```
+
+**Host needs.** The reset keeps three databases at once (live, `_next` while building, `_prev`), so plan for about
+**3x the database size**. At full scale one demo database is about 2.7 GB (measured: 2,686 MB at scale 1, 10 years),
+so keep at least 10 GB free for databases, plus the images. The full seed took 24 min on a busy laptop (the attendance
+slice is 74% of that), so give it a real CPU: start with 2 vCPU and 4 GB RAM and check the first night. These sizes are a
+starting point, not a measurement from a real host.
+
+**Bucket.** One bucket whose name contains `demo` (for example `biddaloy-demo`), used by nothing else. The reset deletes
+objects in it, and refuses any other name.
+
+**Env** (host `.env`; the full table is in [22-demo-seed.md](22-demo-seed.md#host-env-variables)):
+
+```bash
+DEMO_PASSWORD=Demo-Public-2026
+S3_BUCKET=biddaloy-demo
+SENTRY_CRONS_URL=https://o1.ingest.sentry.io/api/2/cron/demo/KEY/
+TURNSTILE_SECRET_KEY=0x4AAAAAAA...        # demo hostname's keys, from Cloudflare
+VITE_TURNSTILE_SITE_KEY=0x4AAAAAAA...
+DEMO_SKIP_SWEEP=true                      # until a Playwright runner service exists
+```
+
+Never set `SMS_*`, `SMTP_*` or `VAPID_*`. The reset refuses to run if any variable with one of those prefixes is set.
+
+**Compose.** The first start has an order, because `app` refuses to boot until a reset has written the platform id:
+
+```bash
+C="docker compose -f docker-compose.yml -f docker-compose.demo.yml"
+$C build
+$C up -d db redis seaweedfs
+$C run --rm demo-reset /app/reset.sh --now    # first run logs "app not restarted: first run"
+$C up -d
+```
+
+Compose must be new enough to read `additional_contexts: app: service:app` (2.20.2 is not).
+
+**Shared host.** The demo overlay assumes the host runs nothing else: the Docker proxy can stop any container on it.
+If the host is also used for staging (#1768), put the demo on its own host or accept that risk knowingly.
+
 ## How a request is served
 
 ```mermaid
