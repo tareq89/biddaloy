@@ -197,6 +197,7 @@ GET    /api/v1/dashboard/widgets/class-teacher-streaks                          
 GET    /api/v1/dashboard/widgets/collection-by-month                             401 403 403 PASS PASS 403 403 403 PASS 403 403 403
 GET    /api/v1/dashboard/widgets/collection-month                                401 403 403 PASS PASS 403 403 403 PASS 403 403 403
 GET    /api/v1/dashboard/widgets/collection-today                                401 403 403 PASS PASS 403 403 403 PASS 403 403 403
+GET    /api/v1/dashboard/widgets/committee-pass-rate                             401 403 403 PASS 403 403 403 403 PASS 403 403 PASS
 GET    /api/v1/dashboard/widgets/dues-ageing                                     401 403 403 PASS PASS 403 403 403 PASS 403 403 403
 GET    /api/v1/dashboard/widgets/dues-by-class                                   401 403 403 PASS PASS 403 403 403 PASS 403 403 403
 GET    /api/v1/dashboard/widgets/failed-messages                                 401 403 403 PASS 403 403 403 403 403 403 403 403
@@ -212,6 +213,7 @@ GET    /api/v1/dashboard/widgets/my-syllabus-progress                           
 GET    /api/v1/dashboard/widgets/recent-activity                                 401 403 403 PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/recent-payments                                 401 403 403 PASS PASS 403 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/reminders-pending                               401 403 403 PASS PASS 403 403 403 403 403 403 403
+GET    /api/v1/dashboard/widgets/results-state                                   401 403 403 PASS 403 403 403 403 PASS 403 PASS 403
 GET    /api/v1/dashboard/widgets/sms-balance                                     401 403 403 PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/staff-today                                     401 403 403 PASS 403 403 403 403 PASS PASS 403 403
 GET    /api/v1/dashboard/widgets/syllabus-progress                               401 403 403 PASS 403 403 403 403 PASS 403 403 403
