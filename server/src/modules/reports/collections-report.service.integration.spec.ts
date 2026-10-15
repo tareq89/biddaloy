@@ -180,6 +180,108 @@ describe('CollectionsReportService', () => {
     );
   }
 
+  describe('dashboard widget figures (getReceived / getBilledForMonth)', () => {
+    it('getReceived equals getReport totals.net for the same range', async () => {
+      const student = await makeStudent();
+      await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 700,
+        payment_date: new Date('2026-10-03T05:00:00Z'),
+      });
+      await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 300,
+        payment_date: new Date('2026-10-07T05:00:00Z'),
+      });
+      // outside the range
+      await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 999,
+        payment_date: new Date('2026-10-08T05:00:00Z'),
+      });
+      const received = await service.getReceived(SEED_TENANT_ID, '2026-10-01', '2026-10-07');
+      const report = await service.getReport(SEED_TENANT_ID, {
+        from: '2026-10-01',
+        to: '2026-10-07',
+      });
+      expect(received).toBe(1000);
+      expect(received).toBe(report.totals.net);
+    });
+
+    it('a reversal in range lowers received; a FAILED payment is ignored', async () => {
+      const student = await makeStudent();
+      const original = await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 1000,
+        payment_date: new Date('2026-10-02T05:00:00Z'),
+      });
+      await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 400,
+        payment_status: PaymentStatus.FAILED,
+        payment_date: new Date('2026-10-02T06:00:00Z'),
+      });
+      await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 250,
+        payment_status: PaymentStatus.REFUNDED,
+        reversal_of_payment_id: original.id,
+        payment_date: new Date('2026-10-04T05:00:00Z'),
+      });
+      expect(await service.getReceived(SEED_TENANT_ID, '2026-10-01', '2026-10-07')).toBe(750);
+    });
+
+    it('Dhaka midnight: 2026-09-30T18:30Z belongs to October, not September', async () => {
+      const student = await makeStudent();
+      await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 500,
+        payment_date: new Date('2026-09-30T18:30:00Z'),
+      });
+      expect(await service.getReceived(SEED_TENANT_ID, '2026-10-01', '2026-10-31')).toBe(500);
+      expect(await service.getReceived(SEED_TENANT_ID, '2026-09-01', '2026-09-30')).toBe(0);
+    });
+
+    it('getBilledForMonth sums total - discount for the month, skipping other months and deleted bills', async () => {
+      const student = await makeStudent();
+      await makeStudentFee(student.id, {
+        period_start: new Date('2026-10-01'),
+        total_amount: 2000,
+        discount_amount: 500,
+        standing_discount_amount: 500,
+      });
+      await makeStudentFee(student.id, {
+        period_start: new Date('2026-09-01'),
+        total_amount: 3000,
+      });
+      const deleted = await makeStudentFee(student.id, {
+        period_start: new Date('2026-10-01'),
+        total_amount: 4000,
+        occurrence: 2,
+      });
+      await studentFeeRepo.softDelete(deleted.id);
+      expect(await service.getBilledForMonth(SEED_TENANT_ID, '2026-10-01', '2026-10-31')).toBe(
+        1500,
+      );
+    });
+
+    it('never mixes tenants', async () => {
+      const mine = await makeStudent();
+      const theirs = await makeStudent(OTHER_TENANT_ID);
+      await makePayment(theirs.id, OTHER_TENANT_ID, {
+        total_amount: 800,
+        payment_date: new Date('2026-10-03T05:00:00Z'),
+      });
+      await makeStudentFee(theirs.id, {
+        tenant_id: OTHER_TENANT_ID,
+        period_start: new Date('2026-10-01'),
+        total_amount: 900,
+      });
+      await makePayment(mine.id, SEED_TENANT_ID, {
+        total_amount: 100,
+        payment_date: new Date('2026-10-03T05:00:00Z'),
+      });
+      expect(await service.getReceived(SEED_TENANT_ID, '2026-10-01', '2026-10-31')).toBe(100);
+      expect(await service.getBilledForMonth(SEED_TENANT_ID, '2026-10-01', '2026-10-31')).toBe(0);
+      expect(await service.getBilledForMonth(OTHER_TENANT_ID, '2026-10-01', '2026-10-31')).toBe(
+        900,
+      );
+    });
+  });
+
   describe('getReport', () => {
     it('sums collected, reversed and net across a fixture with a reversal and discounts', async () => {
       const student = await makeStudent();
