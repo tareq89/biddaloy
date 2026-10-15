@@ -34,6 +34,7 @@ describe('Dashboard settings (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let token: string;
+  let otherMembershipInserted = false;
 
   const TENANT_ID = SEED_TENANT_ID;
   const settingsUrl = (id: string) => `${API}/schools/${id}/settings`;
@@ -78,11 +79,12 @@ describe('Dashboard settings (e2e)', () => {
        ON CONFLICT DO NOTHING`,
       [OTHER_TENANT_ID],
     );
-    await dataSource.query(
+    const otherRows: unknown[] = await dataSource.query(
       `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+       VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING RETURNING role`,
       [SEED_ADMIN_USER_ID, OTHER_TENANT_ID, UserRole.ADMIN],
     );
+    otherMembershipInserted = otherRows.length > 0;
     // Same user holds every role on the seed tenant so `X-Role` can probe the matrix.
     for (const role of [...DENIED_ROLES, UserRole.SUPER_ADMIN]) {
       await dataSource.query(
@@ -107,6 +109,13 @@ describe('Dashboard settings (e2e)', () => {
       `DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2 AND role = ANY($3)`,
       [SEED_ADMIN_USER_ID, TENANT_ID, [...DENIED_ROLES, UserRole.SUPER_ADMIN]],
     );
+    // Only the other-school membership this suite created; a pre-existing one stays.
+    if (otherMembershipInserted) {
+      await dataSource.query(
+        `DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2 AND role = $3`,
+        [SEED_ADMIN_USER_ID, OTHER_TENANT_ID, UserRole.ADMIN],
+      );
+    }
     await app.close();
   });
 

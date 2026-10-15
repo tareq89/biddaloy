@@ -79,7 +79,7 @@ export class ExamsDashboardService {
               AND mg.subject_id IN (SELECT ec.subject_id FROM exam_components ec
                 WHERE ec.exam_id = e.id AND ec.tenant_id = $1 AND ec.deleted_at IS NULL)) AS submitted
        FROM exams e
-       JOIN classes c ON c.id = e.class_id
+       JOIN classes c ON c.id = e.class_id AND c.tenant_id = $1 AND c.deleted_at IS NULL
        WHERE e.tenant_id = $1 AND e.id = ANY($2::uuid[])
        ORDER BY c.numeric_grade NULLS LAST, c.name`,
       [tenantId, group.exam_ids],

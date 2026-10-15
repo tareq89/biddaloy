@@ -81,7 +81,7 @@ export class AttendanceDashboardService {
   ) {}
 
   seriesKey(tenantId: string, to: string): string {
-    return `tenant:${tenantId}:dash:${DashboardWidgetKey.ATTENDANCE_TODAY}:series:${to}`;
+    return `tenant:${tenantId}:dash:v1:${DashboardWidgetKey.ATTENDANCE_TODAY}:series:${to}`;
   }
 
   getToday(tenantId: string, role: string, userId: string): Promise<AttendanceTodayWidgetDto> {

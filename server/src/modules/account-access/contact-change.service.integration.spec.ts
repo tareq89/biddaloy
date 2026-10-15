@@ -346,6 +346,39 @@ describe('ContactChangeService (integration)', () => {
       expect(row.phone).toBe('+8801711111111');
       for (const g of mine) expect((await reload(g.id)).phone).toBe('+8801711111111');
     });
+
+    // The one-use token is spent inside the same transaction, so a failed copy leaves the
+    // emailed link working for a retry.
+    it('when the guardian copy fails, the email link still works on retry', async () => {
+      const user = await createMember();
+      const { mine } = await linkGuardians(user.id);
+      const result = await service.request(
+        user.id,
+        { email: 'new-karim@example.com', current_password: 'correct-password' },
+        context,
+      );
+      const token = (result as any).debug.token;
+      const realUpdate = Repository.prototype.update;
+      const spy = vi.spyOn(Repository.prototype, 'update').mockImplementation(function (
+        this: Repository<any>,
+        ...args: any[]
+      ) {
+        if (this.metadata.target === Guardian) return Promise.reject(new Error('copy failed'));
+        return (realUpdate as any).apply(this, args);
+      });
+      try {
+        await expect(service.confirmEmail(token, context)).rejects.toThrow('copy failed');
+      } finally {
+        spy.mockRestore();
+      }
+      const [row] = await dataSource.query('SELECT email FROM users WHERE id = $1', [user.id]);
+      expect(row.email).not.toBe('new-karim@example.com');
+
+      await expect(service.confirmEmail(token, context)).resolves.toMatchObject({
+        status: 'valid',
+      });
+      for (const g of mine) expect((await reload(g.id)).email).toBe('new-karim@example.com');
+    });
   });
 
   it('confirmPhone with no pending change: 404', async () => {

@@ -185,6 +185,48 @@ describe('SeatPlansService', () => {
       // 4 students across 2 rooms of capacity 2 each — fully packed, no shortfall.
     });
 
+    it('fills rooms in the order the caller lists them, not the order the DB returns them (#2574)', async () => {
+      examScheduleRepo.find.mockResolvedValue([makeSchedule(SCHEDULE_A, 'class-1')]);
+      // The DB hands the rooms back in the opposite order to room_ids.
+      roomRepo.find.mockResolvedValue([
+        { id: ROOM_2, capacity: 1, tenant_id: TENANT },
+        { id: ROOM_1, capacity: 1, tenant_id: TENANT },
+      ]);
+      sectionRepo.find.mockResolvedValue([{ id: SECTION_1, class_id: 'class-1' }]);
+      enrollmentRepo.find.mockResolvedValue([
+        makeEnrollment('s1', 1, 'class-1', SECTION_1),
+        makeEnrollment('s2', 2, 'class-1', SECTION_1),
+      ]);
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'SeatPlan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.DRAFT,
+      });
+      let saved: any[] = [];
+      dataSource.transaction = vi.fn(async (cb: any) => {
+        const manager = fakeManager();
+        const save = manager.save;
+        manager.save = vi.fn(async (entityClass: any, value: any) => {
+          if (entityClass.name === 'SeatAllocation') saved = value;
+          return save(entityClass, value);
+        });
+        return cb(manager);
+      });
+
+      await service.generate(TENANT, {
+        name: 'Room order',
+        exam_schedule_ids: [SCHEDULE_A],
+        room_ids: [ROOM_1, ROOM_2],
+        seat_order_mode: SeatOrderMode.SEQUENTIAL,
+      });
+
+      // Roll 1 goes to the first listed room.
+      expect(saved.map((a) => [a.student_id, a.room_id])).toEqual([
+        ['s1', ROOM_1],
+        ['s2', ROOM_2],
+      ]);
+    });
+
     it('fails with structured shortfall and suggestions when rooms are too small', async () => {
       const schedule = makeSchedule(SCHEDULE_A, 'class-1');
       examScheduleRepo.find.mockResolvedValue([schedule]);

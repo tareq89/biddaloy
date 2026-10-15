@@ -2397,6 +2397,38 @@ describe('GuardianService (integration)', () => {
       expect(after.alternate_phone).toBe('01799999999');
     });
 
+    it('[68.4.05] updateOwn keeps the stored email casing on a case-only resubmit', async () => {
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+      await service.updateOwn(
+        OWNER_USER_ID,
+        { email: 'OWN-GUARDIAN@example.com', alternate_phone: '01799999999' },
+        TENANT_ID,
+      );
+      const after = await guardianRepo.findOneByOrFail({ id: guardian.id });
+      expect(after.email).toBe('own-guardian@example.com');
+      expect(after.alternate_phone).toBe('01799999999');
+    });
+
+    // An equal phone is dropped, not written back: the value read before the update may
+    // already be stale if the login's phone was synced in between.
+    it('[68.4.05] updateOwn never writes back a stale read of a linked phone', async () => {
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+      await guardianRepo.update({ id: guardian.id }, { phone: '+8801700000077' });
+      const spy = vi.spyOn(service, 'findOwn').mockResolvedValueOnce(guardian);
+      try {
+        await service.updateOwn(
+          OWNER_USER_ID,
+          { phone: '01700000001', alternate_phone: '01799999999' },
+          TENANT_ID,
+        );
+      } finally {
+        spy.mockRestore();
+      }
+      const after = await guardianRepo.findOneByOrFail({ id: guardian.id });
+      expect(after.phone).toBe('+8801700000077');
+      expect(after.alternate_phone).toBe('01799999999');
+    });
+
     it('updateOwn flips notifications_enabled and returns it', async () => {
       await makeGuardian(OWNER_USER_ID, TENANT_ID);
 

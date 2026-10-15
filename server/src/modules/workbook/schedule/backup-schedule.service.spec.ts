@@ -200,5 +200,18 @@ describe('BackupScheduleService', () => {
       expect(exports.run).not.toHaveBeenCalled();
       expect(queue.removeJobScheduler).toHaveBeenCalledWith(schedulerIdFor(TENANT));
     });
+
+    // [58.1.02] A tick already queued when demo mode removed the scheduler still never exports.
+    it('with DEMO_MODE does not call ExportService.run, and cleans up the scheduler instead', async () => {
+      vi.stubEnv('DEMO_MODE', 'true');
+      try {
+        await service.runNow(TENANT);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+
+      expect(exports.run).not.toHaveBeenCalled();
+      expect(queue.removeJobScheduler).toHaveBeenCalledWith(schedulerIdFor(TENANT));
+    });
   });
 });

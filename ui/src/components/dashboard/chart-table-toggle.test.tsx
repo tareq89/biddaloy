@@ -26,7 +26,7 @@ describe('ChartTableToggle', () => {
     expect(screen.getByTestId('chart')).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();
     const btn = screen.getByRole('button', { name: 'Show as table' });
-    expect(btn.getAttribute('aria-pressed')).toBe('false');
+    expect(btn.hasAttribute('aria-pressed')).toBe(false); // the label changes with the action
   });
 
   it('switches to the table and keeps focus on the toggle', async () => {
@@ -44,7 +44,8 @@ describe('ChartTableToggle', () => {
     }
     expect(screen.queryByTestId('chart')).toBeNull();
     expect(btn.textContent).toContain('Show chart');
-    expect(btn.getAttribute('aria-pressed')).toBe('true');
+    expect(btn.hasAttribute('aria-pressed')).toBe(false);
+    expect(screen.getAllByRole('rowheader').length).toBeGreaterThan(0);
     expect(document.activeElement).toBe(btn);
   });
 
