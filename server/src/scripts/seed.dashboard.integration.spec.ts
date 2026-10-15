@@ -190,6 +190,7 @@ describe('ensureDashboardSeed (integration)', () => {
     generations: await count('fee_generations'),
     schedules: await count('recurring_schedules'),
     audit: await count('audit_logs'),
+    applications: await count('applications'),
     policies: await count('leave_policies'),
     rooms: await count('rooms'),
     failed: await count('communication_logs', `AND status = 'FAILED'`),
@@ -217,6 +218,19 @@ describe('ensureDashboardSeed (integration)', () => {
     const first = await snapshot();
     await seed();
     expect(await snapshot()).toEqual(first);
+  });
+
+  it('feeds approvals-pending: 5 staff leaves + 2 fee waivers, pending, at the admin steps', async () => {
+    await seed();
+    const rows = await q(
+      `SELECT type::text AS type, current_step, count(*)::int AS n FROM applications
+        WHERE tenant_id = $1 AND status = 'PENDING' GROUP BY type, current_step ORDER BY type`,
+      [tenantId],
+    );
+    expect(rows).toEqual([
+      { type: 'FEE_WAIVER', current_step: 1, n: 2 },
+      { type: 'STAFF_LEAVE', current_step: 0, n: 5 },
+    ]);
   });
 
   it('feeds every widget: 2 pending registers today, one absent staff, 3 recent failures', async () => {

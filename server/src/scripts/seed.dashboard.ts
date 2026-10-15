@@ -167,6 +167,8 @@ export async function ensureDashboardSeed(
   const pool = billed.length > 0 ? billed : students;
   await seedAccountant(q, tenantId, year.id, today, timezone, pool);
   await seedAudit(q, tenantId, pool);
+  // Wave 7: the "waiting for your approval" card (ADMIN / EXECUTIVE).
+  await seedPendingApplications(q, tenantId, year.id, today, pool);
   if (!teacher) return;
   await seedStreak(q, tenantId, today, teacher, students);
   await seedMarks(q, tenantId, teacher);
@@ -790,6 +792,79 @@ async function seedAudit(q: Q, tenantId: string, pool: Stu[]) {
         r.before ? JSON.stringify(r.before) : null,
         JSON.stringify(r.after),
         r.minutes,
+      ],
+    );
+  }
+}
+
+/**
+ * 5 pending staff leaves (step 0, LEAVE_APPROVE) + 2 pending fee waivers parked at the
+ * admin's own step (step 1), so the seed ADMIN and EXECUTIVE both see 7 in the inbox.
+ * Found by `letter_text` (a stable marker); only the age moves with today's run.
+ */
+async function seedPendingApplications(
+  q: Q,
+  tenantId: string,
+  yearId: string,
+  today: string,
+  pool: Stu[],
+) {
+  const staff = await q<{ id: string; user_id: string }>(
+    `SELECT sp.id, sp.user_id FROM staff_profiles sp WHERE sp.tenant_id = $1 ORDER BY sp.id`,
+    [tenantId],
+  );
+  if (staff.length === 0) return;
+  const applicant = staff[0].user_id; // a staff member files all of them: no PII, no extra users
+  const serialYear = Number(today.slice(0, 4));
+  const rows = [
+    ...[0, 1, 2, 3, 4].map((i) => ({
+      type: 'STAFF_LEAVE',
+      step: 0,
+      staff: staff[i % staff.length].id,
+      student: null as string | null,
+      ageDays: 5 - i,
+      payload: { leave_type: 'CASUAL', reason: 'Dashboard demo' },
+    })),
+    ...(pool.length === 0
+      ? []
+      : [0, 1].map((i) => ({
+          type: 'FEE_WAIVER',
+          step: 1,
+          staff: null as string | null,
+          student: pool[i % pool.length].id,
+          ageDays: 2 - i,
+          payload: { reason: 'Dashboard demo' },
+        }))),
+  ];
+  for (const [i, r] of rows.entries()) {
+    const marker = `Dashboard demo: pending application ${i + 1}`;
+    const [hit] = await q(`SELECT 1 FROM applications WHERE tenant_id = $1 AND letter_text = $2`, [
+      tenantId,
+      marker,
+    ]);
+    if (hit) continue;
+    await q(
+      `INSERT INTO applications
+         (tenant_id, type, status, source, serial_year, serial_no, academic_year_id, applicant_user_id,
+          subject_student_id, subject_staff_profile_id, payload, start_date, end_date,
+          current_step, letter_text, letter_locale, created_at, updated_at)
+       SELECT $1, $2::applications_type_enum, 'PENDING', 'APP', $3, coalesce(max(serial_no), 0) + 1, $4, $5,
+              $6, $7, $8::jsonb, $9::date, $9::date, $10, $11, 'en',
+              NOW() - make_interval(days => $12), NOW()
+         FROM applications WHERE tenant_id = $1 AND serial_year = $3`,
+      [
+        tenantId,
+        r.type,
+        serialYear,
+        yearId,
+        applicant,
+        r.student,
+        r.staff,
+        JSON.stringify(r.payload),
+        today,
+        r.step,
+        marker,
+        r.ageDays,
       ],
     );
   }
