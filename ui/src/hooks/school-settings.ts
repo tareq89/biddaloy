@@ -2,6 +2,7 @@ import type {
   ApplicationsSettings,
   BackupScheduleMode,
   AttentionSettings,
+  DashboardSettings,
   DocumentsSettings,
   EvaluationsSettings,
   HomeworkSettings,
@@ -194,6 +195,8 @@ export interface MaskedTenantSettings {
   routine?: RoutineSettingsInput;
   /** [66.1.01] Not secret data. */
   studyPlans?: StudyPlansSettings;
+  /** [8.10.7] Not secret data. */
+  dashboard?: DashboardSettings;
 }
 
 export interface ConnectionTestResult {

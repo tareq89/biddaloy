@@ -33,6 +33,7 @@ import { AttendanceSection } from './settings/AttendanceSection';
 import { BackupSection } from './settings/backup-section';
 import { CalendarSection } from './settings/CalendarSection';
 import { isSmsReady } from './settings/connection-test-status';
+import { DashboardSection } from './settings/DashboardSection';
 import { DocumentsSection } from './settings/DocumentsSection';
 import { EmailSection } from './settings/EmailSection';
 import { EvaluationsSection } from './settings/EvaluationsSection';
@@ -171,6 +172,11 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
                   schoolId={loaded.schoolId}
                   evaluations={loaded.data.evaluations}
                   smsConfigured={isSmsReady(loaded.data.communications?.sms)}
+                />
+                <DashboardSection
+                  key={loaded.schoolId}
+                  schoolId={loaded.schoolId}
+                  dashboard={loaded.data.dashboard}
                 />
                 <StudyPlansSection
                   key={loaded.schoolId}
