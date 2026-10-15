@@ -517,6 +517,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/communications/sms-credits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This tenant's SMS credit balance and ledger, newest first. `metering: 'OFF'` still returns the shape (an always-0/0 balance, an empty ledger) rather than a different one. */
+        get: operations["CreditsController_getSmsCredits_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/reminder/single/{studentId}/preview": {
         parameters: {
             query?: never;
@@ -2300,23 +2317,6 @@ export interface paths {
         put?: never;
         /** Grant (positive units) or adjust (negative units) a school's SMS credit balance. Audited (School/UPDATE). Idempotent on `idempotency_key` — a repeat is a no-op, still 200 with the current balance. */
         post: operations["SchoolSmsCreditsController_grantOrAdjust_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/communications/sms-credits": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** This tenant's SMS credit balance and ledger, newest first. `metering: 'OFF'` still returns the shape (an always-0/0 balance, an empty ledger) rather than a different one. */
-        get: operations["CreditsController_getSmsCredits_v1"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -9177,6 +9177,32 @@ export interface components {
             /** Format: date-time */
             expires_at: string;
         };
+        SmsCreditLedgerItemDto: {
+            id: string;
+            /** @enum {string} */
+            kind: "GRANT" | "RESERVE" | "DEBIT" | "RELEASE" | "ADJUST";
+            units: number;
+            /** @enum {string} */
+            reference_type: "batch" | "log" | "manual";
+            reference_id: string | null;
+            reason: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        SmsCreditLedgerListResponseDto: {
+            data: components["schemas"]["SmsCreditLedgerItemDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        SmsCreditsResponseDto: {
+            /** @enum {string} */
+            metering: "OFF" | "PLATFORM";
+            available: number;
+            reserved: number;
+            ledger: components["schemas"]["SmsCreditLedgerListResponseDto"];
+        };
         SendSingleReminderDto: {
             message_template: string;
             guardian_ids?: string[];
@@ -11461,32 +11487,6 @@ export interface components {
             /** Format: email */
             email?: string;
             phone?: string;
-        };
-        SmsCreditLedgerItemDto: {
-            id: string;
-            /** @enum {string} */
-            kind: "GRANT" | "RESERVE" | "DEBIT" | "RELEASE" | "ADJUST";
-            units: number;
-            /** @enum {string} */
-            reference_type: "batch" | "log" | "manual";
-            reference_id: string | null;
-            reason: string | null;
-            /** Format: date-time */
-            created_at: string;
-        };
-        SmsCreditLedgerListResponseDto: {
-            data: components["schemas"]["SmsCreditLedgerItemDto"][];
-            total: number;
-            page: number;
-            limit: number;
-            totalPages: number;
-        };
-        SmsCreditsResponseDto: {
-            /** @enum {string} */
-            metering: "OFF" | "PLATFORM";
-            available: number;
-            reserved: number;
-            ledger: components["schemas"]["SmsCreditLedgerListResponseDto"];
         };
         GrantSmsCreditsDto: {
             /** @description Signed credit delta. Positive = grant, negative = adjust. */
@@ -17097,6 +17097,40 @@ export interface operations {
             };
         };
     };
+    CreditsController_getSmsCredits_v1: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmsCreditsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CommunicationsController_previewSingleReminder_v1: {
         parameters: {
             query?: never;
@@ -22007,40 +22041,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    CreditsController_getSmsCredits_v1: {
-        parameters: {
-            query?: {
-                page?: number;
-                limit?: number;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SmsCreditsResponseDto"];
-                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

@@ -259,3 +259,5 @@ e2e/.auth/
 .epic-*-state.md
 audit-evidence/
 server/graphify-out/
+
+load-results-*

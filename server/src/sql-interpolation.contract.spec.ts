@@ -107,6 +107,10 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
     'TEACHER_ROWS_FROM_SQL',
     "priorYearStartSql(':tenantId')",
   ],
+  // guarded 10k load seed (throwaway DB only): t is a table name from a module-local constant list
+  'scripts/load/seed-load-10k.ts': ['t'],
+  // dayRecords: rollYearFilter is a fixed SQL fragment chosen by whether a year was given; the year is bound as :yearId
+  'modules/attendance/attendance-dashboard.service.ts': ['rollYearFilter'],
   // BN_COLLATION constant
   'modules/communications/reminders.service.ts': ['BN_COLLATION'],
   // lockBills: k is a key of Partial<StudentFee> from internal callers, i is the loop index; values bound as :v<i>

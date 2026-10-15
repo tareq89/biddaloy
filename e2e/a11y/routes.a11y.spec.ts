@@ -114,7 +114,7 @@ for (const { locale, theme } of VARIANTS) {
               // dialog: scan the page body.
               await expectNoAxeViolations(
                 page,
-                overlay.endsWith('-tab') || overlay === 'customise'
+                overlay.endsWith('-tab') || overlay.startsWith('customise')
                   ? 'main'
                   : '[role="dialog"], [role="alertdialog"]',
               );

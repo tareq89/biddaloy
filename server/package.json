@@ -23,6 +23,7 @@
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/data-source.ts",
     "seed": "ts-node src/scripts/seed.ts",
     "seed:demo": "ts-node src/scripts/demo-seed/index.ts",
+    "load:seed": "ts-node src/scripts/load/seed-load-10k.ts",
     "db:clear": "ts-node src/scripts/db-clear.ts",
     "config:check": "ts-node src/scripts/config-check.ts",
     "db:reset": "ts-node src/scripts/db-reset.ts",

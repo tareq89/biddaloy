@@ -4,7 +4,6 @@ import { SchoolsModule } from '../../schools/schools.module';
 import { SmsCreditBalance } from './entities/sms-credit-balance.entity';
 import { SmsCreditLedger } from './entities/sms-credit-ledger.entity';
 import { SmsCreditService } from './sms-credit.service';
-import { CreditsController } from './credits.controller';
 
 /** [15.6.3/#546] Owns `SmsCreditService`, the only writer to
  * `sms_credit_ledger`/`sms_credit_balance` (#545). `forwardRef` on
@@ -17,7 +16,7 @@ import { CreditsController } from './credits.controller';
     TypeOrmModule.forFeature([SmsCreditBalance, SmsCreditLedger]),
     forwardRef(() => SchoolsModule),
   ],
-  controllers: [CreditsController],
+  // `CreditsController` is registered by `CommunicationsModule` (route order vs `:id`).
   providers: [SmsCreditService],
   exports: [SmsCreditService],
 })

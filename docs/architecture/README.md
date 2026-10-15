@@ -40,6 +40,8 @@ at hand instead of loading the whole set.
 | [23-study-plans.md](23-study-plans.md) | Working on `modules/study-plans` — lesson plans per section and subject, marking periods taught, how expected dates are computed, the study-plan template library and CSV, or the late-marking escalation |
 | [24-applications.md](24-applications.md) | Working on `modules/applications` — any application type (leave, fee waiver, certificates, general letters), who decides it, what approval does, the inbox/pending count, or the portal application pages |
 | [25-domain-invariants.md](25-domain-invariants.md) | Planning or reviewing any change to money, enrolment, results, attendance, tenancy or permissions — the rules that must always hold, and the code that enforces each one |
+| [26-dashboard.md](26-dashboard.md) | Working on `/dashboard`: role dashboards, widgets and the widget catalogue, adding a widget, the layout and digest preferences, the morning summary push, or committee aggregates |
+| [26-dashboard-load-test.md](26-dashboard-load-test.md) | Running or changing the manual 10,000-student dashboard load test (`load:seed`, `run-dashboard-load.ts`), or reading its p95-per-widget table |
 | [23-attention.md](23-attention.md) | Working on the attention bar/modal, alert rules, the to-do/history page, manual alerts, the alerts report, push mute/quiet hours, or the guardian SMS fallback |
 
 For practical "how do I run/develop/test this" instructions, see the root

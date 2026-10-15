@@ -17,11 +17,10 @@ import {
   computeAttendancePercentage,
 } from './attendance-summary.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
-import { localToday, resolveAttendancePolicy } from './attendance-policy.util';
+import { resolveAttendancePolicy } from './attendance-policy.util';
 import { DashboardCacheService } from '../dashboard/dashboard-cache.service';
 import { SchoolsService } from '../schools/schools.service';
 import { TENANT_STATUS_REDIS } from '../schools/tenant-status.service';
-import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import type {
   CommitteeAttendanceDto,
   CommitteeAttendanceMonthDto,
@@ -39,6 +38,7 @@ export const ATTENDANCE_SERIES_TTL_SECONDS = 36 * 60 * 60;
 
 type Policy = ReturnType<typeof resolveAttendancePolicy>;
 type Tally = { present: number; late: number; absent: number; leave: number };
+export type DayTally = Tally & { date: string };
 
 export function addDays(dateIso: string, days: number): string {
   const d = new Date(`${dateIso}T00:00:00.000Z`);
@@ -258,25 +258,38 @@ export class AttendanceDashboardService {
    * year's sections, so last year's registers never leak into this year's numbers.
    */
   private dayRecords(tenantId: string, yearId?: string) {
+    // Same year restriction as the outer filter, pushed into the roll so it is not built for every
+    // section of every past year. A fixed fragment: the year is bound as :yearId.
+    const rollYearFilter = yearId
+      ? ' AND e.section_id IN (SELECT cs.id FROM class_sections cs JOIN classes c ON c.id = cs.class_id WHERE c.academic_year_id = :yearId)'
+      : '';
     const qb = this.recordRepo
       .createQueryBuilder('r')
       .innerJoin('attendance_sessions', 's', 's.id = r.session_id AND s.tenant_id = r.tenant_id')
       .where('r.tenant_id = :tenantId', { tenantId })
       .andWhere('s.period_no IS NULL')
       .andWhere('s.state = :finalized', { finalized: AttendanceSessionState.FINALIZED })
-      .andWhere(
-        `EXISTS (
-          SELECT 1 FROM enrollments e
-          JOIN students st ON st.id = e.student_id AND st.tenant_id = e.tenant_id AND st.deleted_at IS NULL
-          WHERE e.tenant_id = r.tenant_id AND e.student_id = r.student_id AND e.section_id = s.section_id
-            AND (e.enrollment_status = :onRollActive OR (
-              SELECT MAX(le.occurred_on) FROM student_lifecycle_events le
-              WHERE le.tenant_id = e.tenant_id AND le.student_id = e.student_id
-                AND le.enrollment_id = e.id AND le.event_type <> :onRollReadmitted
-            ) > r.date))`,
+      // On-roll rule, evaluated ONCE per (student, section) instead of once per register row:
+      // a student can hold several enrollments in one section (past years), and the old
+      // correlated EXISTS re-ran the leaving-event lookup for every one of them per record.
+      // "Some enrollment is ACTIVE, or the latest leaving event of some enrollment is after
+      // the date" == bool_or(active) OR max(left_on) > date, so the result is identical.
+      .innerJoin(
+        `(SELECT e.student_id, e.section_id,
+                 bool_or(e.enrollment_status = :onRollActive) AS active,
+                 MAX((SELECT MAX(le.occurred_on) FROM student_lifecycle_events le
+                      WHERE le.tenant_id = e.tenant_id AND le.student_id = e.student_id
+                        AND le.enrollment_id = e.id AND le.event_type <> :onRollReadmitted)) AS left_on
+            FROM enrollments e
+            JOIN students st ON st.id = e.student_id AND st.tenant_id = e.tenant_id AND st.deleted_at IS NULL
+           WHERE e.tenant_id = :tenantId${rollYearFilter}
+           GROUP BY e.student_id, e.section_id)`,
+        'roll',
+        'roll.student_id = r.student_id AND roll.section_id = s.section_id AND (roll.active OR roll.left_on > r.date)',
         {
           onRollActive: EnrollmentStatus.ACTIVE,
           onRollReadmitted: StudentLifecycleEventType.READMITTED,
+          yearId,
         },
       );
     if (yearId) {
@@ -289,11 +302,93 @@ export class AttendanceDashboardService {
     return qb;
   }
 
+  private async currentYear(tenantId: string) {
+    const [year] = await this.recordRepo.manager.query<{ id: string; start: string }[]>(
+      `SELECT id, start_date::text AS start FROM academic_years
+         WHERE tenant_id = $1 AND is_current = true AND deleted_at IS NULL LIMIT 1`,
+      [tenantId],
+    );
+    return year;
+  }
+
+  committeeDailyKey(tenantId: string, yearId: string, to: string): string {
+    return `tenant:${tenantId}:dash:v1:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:daily:${yearId}:${to}`;
+  }
+
+  /** One grouped query: the finalized whole-day tally of every date in [from, to] of that year. */
+  private async dailyTallies(
+    tenantId: string,
+    yearId: string,
+    from: string,
+    to: string,
+  ): Promise<DayTally[]> {
+    const rows = await this.dayRecords(tenantId, yearId)
+      .select('r.date::text', 'date')
+      .addSelect('r.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .andWhere('r.date BETWEEN :from AND :to', { from, to })
+      .groupBy('r.date')
+      .addGroupBy('r.status')
+      .getRawMany<{ date: string; status: string; count: string }>();
+    const byDate = new Map<string, DayTally>();
+    for (const row of rows) {
+      const c = byDate.get(row.date) ?? {
+        date: row.date,
+        present: 0,
+        late: 0,
+        absent: 0,
+        leave: 0,
+      };
+      const status = row.status.toLowerCase();
+      if (status === 'present' || status === 'late' || status === 'absent' || status === 'leave') {
+        c[status] += Number(row.count);
+      }
+      byDate.set(row.date, c);
+    }
+    return [...byDate.values()];
+  }
+
+  /**
+   * Per-day tallies from the year's start to `to` (today-8, see COMMITTEE_LIVE_DAYS). The
+   * nightly job writes this; on a miss (or Redis error) compute once and store. The committee
+   * card folds it by month, so a request queries only the last week live instead of
+   * scanning the whole year's register rows.
+   */
+  async committeeDaily(
+    tenantId: string,
+    year: { id: string; start: string },
+    to: string,
+  ): Promise<DayTally[]> {
+    const key = this.committeeDailyKey(tenantId, year.id, to);
+    try {
+      const cached = await this.redis.get(key);
+      if (cached) return JSON.parse(cached) as DayTally[];
+    } catch (error) {
+      this.logger.error(`Committee attendance read failed for ${key}: ${String(error)}`);
+    }
+    const daily =
+      year.start <= to ? await this.dailyTallies(tenantId, year.id, year.start, to) : [];
+    try {
+      await this.redis.set(key, JSON.stringify(daily), 'EX', ATTENDANCE_SERIES_TTL_SECONDS);
+    } catch (error) {
+      this.logger.error(`Committee attendance write failed for ${key}: ${String(error)}`);
+    }
+    return daily;
+  }
+
+  /** Nightly entry point: rebuild the current year's daily tallies ending `to` (today-8). */
+  async storeCommitteeDaily(tenantId: string, to: string): Promise<void> {
+    const year = await this.currentYear(tenantId);
+    if (!year) return;
+    await this.redis.del(this.committeeDailyKey(tenantId, year.id, to));
+    await this.committeeDaily(tenantId, year, to);
+  }
+
   /**
    * Committee card: school-wide attendance % for each month of the current academic year,
-   * up to this month. ONE grouped query, folded per month with the same percentage function.
-   * ponytail: if the wave-6 load run shows p95 >= 300 ms, move finished months into the
-   * nightly attendance-series.scheduler and keep only the current month live.
+   * up to this month. Days older than a week come from the nightly per-day cache; the last
+   * 7 days and today are one live query (a mark made now still shows within the 60 s widget
+   * cache); both fold with the same percentage function.
    */
   getCommitteeMonthly(tenantId: string): Promise<CommitteeAttendanceDto> {
     return this.cache.getOrLoad(
@@ -304,12 +399,9 @@ export class AttendanceDashboardService {
         const settings = await this.schoolsService.getResolvedSettings(tenantId);
         const policy = resolveAttendancePolicy(settings);
         const target = settings.dashboard?.committeeAttendanceTargetPct ?? 90;
-        const today = localToday(settings.region?.timezone ?? DEFAULT_REGION_SETTINGS.timezone);
-        const [year] = await this.recordRepo.manager.query<{ id: string; start: string }[]>(
-          `SELECT id, start_date::text AS start FROM academic_years
-         WHERE tenant_id = $1 AND is_current = true AND deleted_at IS NULL LIMIT 1`,
-          [tenantId],
-        );
+        // Same "today" source as the nightly job, so both build the same daily cache key.
+        const today = await this.schoolsService.todayFor(tenantId);
+        const year = await this.currentYear(tenantId);
         if (!year) {
           return {
             months: [],
@@ -318,25 +410,35 @@ export class AttendanceDashboardService {
             target_percentage: target,
           };
         }
-        const rows = await this.dayRecords(tenantId, year.id)
-          .select("to_char(r.date, 'YYYY-MM')", 'month')
-          .addSelect('r.status', 'status')
-          .addSelect('COUNT(*)', 'count')
-          .andWhere('r.date BETWEEN :from AND :to', { from: year.start, to: today })
-          .groupBy("to_char(r.date, 'YYYY-MM')")
-          .addGroupBy('r.status')
-          .getRawMany<{ month: string; status: string; count: string }>();
+        // Cached up to today-8; the last 7 days + today are live, so a register finalised or
+        // corrected within a week shows within the 60 s widget cache. Older days lag until
+        // the next nightly run.
+        const past = await this.committeeDaily(
+          tenantId,
+          year,
+          addDays(today, -COMMITTEE_LIVE_DAYS - 1),
+        );
+        const liveFrom = addDays(today, -COMMITTEE_LIVE_DAYS);
+        const live =
+          year.start <= today
+            ? await this.dailyTallies(
+                tenantId,
+                year.id,
+                year.start > liveFrom ? year.start : liveFrom,
+                today,
+              )
+            : [];
 
         const byMonth = new Map<string, Tally>();
         const whole: Tally = { present: 0, late: 0, absent: 0, leave: 0 };
-        for (const row of rows) {
-          const c = byMonth.get(row.month) ?? { present: 0, late: 0, absent: 0, leave: 0 };
-          const status = row.status.toLowerCase() as keyof Tally;
-          if (status in c) {
-            c[status] += Number(row.count);
-            whole[status] += Number(row.count);
+        for (const day of [...past, ...live]) {
+          const month = day.date.slice(0, 7);
+          const c = byMonth.get(month) ?? { present: 0, late: 0, absent: 0, leave: 0 };
+          for (const k of ['present', 'late', 'absent', 'leave'] as const) {
+            c[k] += day[k];
+            whole[k] += day[k];
           }
-          byMonth.set(row.month, c);
+          byMonth.set(month, c);
         }
         const months: CommitteeAttendanceMonthDto[] = [];
         for (let m = year.start.slice(0, 7); m <= today.slice(0, 7); m = nextMonth(m)) {
@@ -353,6 +455,9 @@ export class AttendanceDashboardService {
     );
   }
 }
+
+/** Days before today the committee card recomputes live (cache covers everything older). */
+export const COMMITTEE_LIVE_DAYS = 7;
 
 function nextMonth(m: string): string {
   const d = new Date(`${m}-01T00:00:00.000Z`);

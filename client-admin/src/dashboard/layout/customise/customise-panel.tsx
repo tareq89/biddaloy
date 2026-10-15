@@ -159,6 +159,7 @@ export function CustomisePanel({
           type="button"
           variant="ghost"
           iconOnly
+          size="icon"
           aria-label={t('customise.moveUp', { title: name })}
           disabled={!isShown || index === 0}
           onClick={() => apply({ type: 'move', key: item.key, dir: -1 })}
@@ -169,6 +170,7 @@ export function CustomisePanel({
           type="button"
           variant="ghost"
           iconOnly
+          size="icon"
           aria-label={t('customise.moveDown', { title: name })}
           disabled={!isShown || index === draft.shown.length - 1}
           onClick={() => apply({ type: 'move', key: item.key, dir: 1 })}

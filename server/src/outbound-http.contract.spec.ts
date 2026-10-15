@@ -72,6 +72,8 @@ const PATTERNS: RegExp[] = [
 
 /** Per file (relative to server/src): host and who controls the URL. Audited 2026-10-13. */
 const REVIEWED_OUTBOUND: Record<string, string> = {
+  'scripts/load/run-dashboard-load.ts':
+    'manual operator tool: LOAD_BASE_URL is operator config and the script refuses any host that is not localhost / 127.0.0.1 / ::1',
   'modules/communications/providers/whatsapp/whatsapp-cloud.provider.ts':
     'graph.facebook.com constant host; tenant path ids are checked by isValidGraphApiId',
   'modules/communications/providers/messenger/messenger.provider.ts':

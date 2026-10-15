@@ -64,7 +64,7 @@ test.describe('focus management, skip link, route announcements', () => {
 
     await page.getByRole('link', { name: 'শিক্ষার্থী', exact: true }).click();
 
-    const heading = page.getByRole('heading', { name: 'শিক্ষার্থী' });
+    const heading = page.getByRole('heading', { name: 'শিক্ষার্থী', exact: true });
     await expect(heading).toBeVisible();
     await expect(heading).toBeFocused();
     await expect(page).toHaveTitle('শিক্ষার্থী · SchoolManager');

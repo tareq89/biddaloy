@@ -5,7 +5,10 @@ import {
   ATTENDANCE_SERIES_JOB_ID,
 } from './attendance-series.scheduler';
 
-function build(storeSeries = vi.fn(async () => [])) {
+function build(
+  storeSeries = vi.fn(async () => []),
+  storeCommitteeDaily = vi.fn(async () => undefined),
+) {
   const queue = { upsertJobScheduler: vi.fn(async () => undefined) };
   const schools = {
     findAllActive: vi.fn(async () => [{ id: 't1' }, { id: 't2' }]),
@@ -16,9 +19,10 @@ function build(storeSeries = vi.fn(async () => [])) {
     schools as any,
     {
       storeSeries,
+      storeCommitteeDaily,
     } as any,
   );
-  return { scheduler, queue, storeSeries };
+  return { scheduler, queue, storeSeries, storeCommitteeDaily };
 }
 
 describe('AttendanceSeriesScheduler', () => {
@@ -34,10 +38,13 @@ describe('AttendanceSeriesScheduler', () => {
   });
 
   it("stores each tenant's series ending yesterday", async () => {
-    const { scheduler, storeSeries } = build();
+    const { scheduler, storeSeries, storeCommitteeDaily } = build();
     await scheduler.process();
     expect(storeSeries).toHaveBeenCalledWith('t1', '2026-10-07');
     expect(storeSeries).toHaveBeenCalledWith('t2', '2026-10-07');
+    // The committee card's per-day cache (today-8; last 7 days are live) is refreshed by the same job.
+    expect(storeCommitteeDaily).toHaveBeenCalledWith('t1', '2026-09-30');
+    expect(storeCommitteeDaily).toHaveBeenCalledWith('t2', '2026-09-30');
   });
 
   it('one tenant throwing does not stop the next', async () => {
