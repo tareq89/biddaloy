@@ -68,12 +68,14 @@ export function CollectionTodayView({
 
   const title = tw('title');
   const groups = data?.groups ?? [];
-  const empty = !!data && groups.every((g) => g.net <= 0);
+  // Empty means no payment at all; reversals can make the net 0 or negative, which is shown.
+  const empty = !!data && data.payment_count === 0;
   const top = groups.reduce<(typeof groups)[number] | undefined>(
     (best, g) => (!best || g.net > best.net ? g : best),
     undefined,
   );
-  const topSentence = top && !empty ? tw('topGroup', { group: groupName(top.group) }) : undefined;
+  const topSentence =
+    top && top.net > 0 ? tw('topGroup', { group: groupName(top.group) }) : undefined;
   // Schema types this as a number, but a day with no yesterday data is shown as "—" (D25).
   const yesterday = data?.yesterday_same_time_net ?? null;
   const diff = data && yesterday != null ? data.net - yesterday : null;
