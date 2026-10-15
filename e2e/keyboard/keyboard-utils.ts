@@ -135,3 +135,70 @@ export async function expectReachableInMain(page: Page): Promise<void> {
   await page.keyboard.press('Tab');
   await expect(page.locator('main :focus')).toHaveCount(1);
 }
+
+/** [8.10.7.6.04] Puts the Tab cursor back at the top of the document (see `focus-management.spec.ts`). */
+export async function resetTabCursor(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    document.body.setAttribute('tabindex', '-1');
+    document.body.focus();
+    document.body.removeAttribute('tabindex');
+  });
+}
+
+/** [8.10.7.6.04] The focused element is a rendered control that shows a focus ring (an outline or
+ * a box-shadow ring). Retried: the kit's rings fade in with a transition. */
+export async function expectFocusRing(page: Page): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const el = document.activeElement as HTMLElement | null;
+          if (!el || el === document.body) return 'focus is on <body>';
+          const cs = getComputedStyle(el);
+          if (el.getClientRects().length === 0 || cs.visibility === 'hidden')
+            return `focus is on a hidden element: ${el.tagName}`;
+          const outline = cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0;
+          const shadow = cs.boxShadow !== 'none';
+          return outline || shadow
+            ? 'ok'
+            : `no focus ring on ${el.tagName} "${el.textContent?.trim().slice(0, 40)}"`;
+        }),
+      { timeout: 3000 },
+    )
+    .toBe('ok');
+}
+
+/** [8.10.7.6.04] Like `tabUntilFocused`, but every stop on the way must be a visible control with
+ * a focus ring, so a hidden or ring-less tab stop anywhere in the walk fails the journey. */
+export async function tabToWithRing(
+  page: Page,
+  text: string,
+  max = 150,
+  options: { tag?: string; exact?: boolean; shift?: boolean } = {},
+): Promise<void> {
+  for (let i = 0; i < max; i += 1) {
+    await page.keyboard.press(options.shift ? 'Shift+Tab' : 'Tab');
+    await expectFocusRing(page);
+    const focused = await focusedText(page);
+    if (options.exact ? focused !== text : !focused.includes(text)) continue;
+    if (options.tag) {
+      const tag = await page.evaluate(() => document.activeElement?.tagName ?? '');
+      if (tag !== options.tag.toUpperCase()) continue;
+    }
+    return;
+  }
+  throw new Error(`could not reach "${text}" within ${max} presses`);
+}
+
+/** [8.10.7.6.04] Tab (with a focus-ring check at every stop) until `target` is the focused
+ * element. Use it when the same label appears on several cards, so text matching is ambiguous. */
+export async function tabToLocator(page: Page, target: Locator, max = 150): Promise<void> {
+  await expect(target.first()).toBeVisible();
+  const handle = await target.first().elementHandle();
+  for (let i = 0; i < max; i += 1) {
+    await page.keyboard.press('Tab');
+    await expectFocusRing(page);
+    if (await handle!.evaluate((el) => el === document.activeElement)) return;
+  }
+  throw new Error(`could not reach the target within ${max} Tab presses`);
+}
