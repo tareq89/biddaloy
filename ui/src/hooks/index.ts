@@ -101,6 +101,7 @@ export {
   type CreateUserInput,
   type CreateUserResult,
   type InvitationResult,
+  type JoinRequestInput,
   type PaginatedUsers,
   type StaffUser,
   type UpdateOwnProfileInput,

@@ -2,16 +2,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as Sentry from '@sentry/node';
 import { initSentry } from './sentry';
 
+// Env changes go through vi.stubEnv, which test/unit-setup.ts undoes after every test.
 describe('initSentry', () => {
-  const originalEnv = { ...process.env };
-
   afterEach(() => {
-    process.env = { ...originalEnv };
     Sentry.getCurrentScope().setClient(undefined);
   });
 
   it('is a no-op when SENTRY_DSN is unset', () => {
-    delete process.env.SENTRY_DSN;
+    vi.stubEnv('SENTRY_DSN', undefined);
 
     initSentry();
 
@@ -19,13 +17,13 @@ describe('initSentry', () => {
   });
 
   it('throws at boot when SENTRY_DSN is malformed', () => {
-    process.env.SENTRY_DSN = 'not-a-valid-url';
+    vi.stubEnv('SENTRY_DSN', 'not-a-valid-url');
 
     expect(() => initSentry()).toThrow(/SENTRY_DSN/);
   });
 
   it('initializes the client when SENTRY_DSN is a valid URL', () => {
-    process.env.SENTRY_DSN = 'https://public@o0.ingest.sentry.io/0';
+    vi.stubEnv('SENTRY_DSN', 'https://public@o0.ingest.sentry.io/0');
 
     initSentry();
 
@@ -35,12 +33,11 @@ describe('initSentry', () => {
 
 describe('initSentry beforeSend/beforeBreadcrumb scrubbing', () => {
   beforeEach(() => {
-    process.env.SENTRY_DSN = 'https://public@o0.ingest.sentry.io/0';
+    vi.stubEnv('SENTRY_DSN', 'https://public@o0.ingest.sentry.io/0');
     initSentry();
   });
 
   afterEach(() => {
-    delete process.env.SENTRY_DSN;
     Sentry.getCurrentScope().setClient(undefined);
   });
 

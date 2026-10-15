@@ -1,3 +1,4 @@
+import { toIsoDate } from '@biddaloy/ui/utils';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { withMemoryRouter } from '../../../../../ui/.storybook/router-decorator';
@@ -13,7 +14,8 @@ const data: AttendanceTodayDto = {
   pending_sections: [{ section_id: 's1', class_name: '7', section_name: 'B' }],
   week_ago_percentage: 89.4,
   series: Array.from({ length: 30 }, (_, i) => ({
-    date: `2026-09-${String(i + 8).padStart(2, '0')}`,
+    // 30 days ending 2026-10-07 (Sep 8 … Oct 7).
+    date: toIsoDate(new Date(2026, 8, 8 + i)),
     percentage: i === 5 ? null : 86.8 + ((i * 7) % 6),
   })),
 };

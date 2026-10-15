@@ -87,6 +87,11 @@ describe('[8.10.7.2.01] GET /dashboard/widgets/attendance-today', () => {
     expect([401, 403]).toContain(res.status);
   });
 
+  // server/CLAUDE.md: always test a missing X-Tenant-ID.
+  it('missing X-Tenant-ID returns 401', async () => {
+    await http().get(URL).set('Authorization', `Bearer ${tokens[UserRole.ADMIN]}`).expect(401);
+  });
+
   // [8.10.7.3.02] Teacher widgets: only TEACHER gets 200, every other role is 403.
   describe.each([
     ['my-pending-sections', ['date', 'is_working_day', 'pending_count', 'sections']],

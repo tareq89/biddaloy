@@ -95,7 +95,8 @@ export function CustomisePanel({
       const isButton = target.closest('button') && target.getAttribute('role') !== 'checkbox';
       if (isButton || target.closest('[role="listbox"]')) return;
       e.preventDefault();
-      onSave();
+      // Save is disabled while saving; Enter must not send a second PATCH.
+      if (!saving) onSave();
     }
   };
 

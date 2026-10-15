@@ -335,6 +335,9 @@ async function printing(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string
 
   // The service reads the clock for issuedAt, the printed issue date and serial_year: run it
   // with `Date` frozen at the job's day, so every document derives from the anchor.
+  // ponytail: swaps the process-wide `Date` across awaits. Safe only because the seed runs one slice
+  // at a time with nothing else in the process; `Date()` without `new` throws while it is swapped.
+  // If the seed ever runs work in parallel, post-date the rows with an UPDATE instead (as print_jobs is).
   const withClock = async <T>(when: Date, fn: () => Promise<T>): Promise<T> => {
     const Real = Date;
     const frozen = when.getTime();

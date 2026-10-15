@@ -102,8 +102,29 @@ const CLOCK_COLS: Record<string, string[]> = {
   alert_recipients: ['pushed_at'], // delivery stamps it with the real clock, after the seed returns
 };
 
-/** Row filter for a table's CLOCK_COLS: rule and history alerts derive from the anchor, so they stay exact. */
-const CLOCK_ONLY_WHEN: Record<string, string> = { alerts: `source = 'MANUAL'` };
+/** First day of the month before the anchor's: the live (real-service) money starts here. */
+const LIVE_FROM = (() => {
+  const [y, m] = SMALL.anchor.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);
+})();
+/** Payments the real allocation service wrote: they pay last month's or this month's bills. */
+const LIVE_PAYMENT = `SELECT pa.payment_id FROM payment_allocations pa
+  JOIN student_fees sf ON sf.id = pa.student_fee_id WHERE sf.period_start >= '${LIVE_FROM}'`;
+
+/**
+ * Row filter for a table's CLOCK_COLS: only the rows a real service wrote lose their clock columns.
+ * Every bulk row derives from the anchor and must match in full. No filter reads a column it strips,
+ * so a stray `new Date()` in a bulk path's clock column still changes the fingerprint.
+ * - alerts: manual alerts only (rule and history alerts derive from the anchor).
+ * - payments, invoices: the live payments (bills from last month on); 10 years of bulk history stay exact.
+ * - applications: today's requests, created by the service (bulk history is created before the anchor).
+ */
+const CLOCK_ONLY_WHEN: Record<string, string> = {
+  alerts: `source = 'MANUAL'`,
+  payments: `id IN (${LIVE_PAYMENT})`,
+  invoices: `payment_id IN (${LIVE_PAYMENT})`,
+  applications: `created_at >= '${SMALL.anchor}'`,
+};
 
 /** Counts plus an md5 of business columns per table; ids, timestamps and hashes are left out. */
 async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<string, string>> {

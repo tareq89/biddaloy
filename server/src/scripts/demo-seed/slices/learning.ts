@@ -25,6 +25,7 @@ import { HOMEWORK_TITLES, PROGRAM_NAMES } from '../../seed-data/demo-bn/texts';
 import { insertChunked } from '../bulk';
 import type { DemoSeedContext, DemoSlice } from '../context';
 import { schoolDays } from '../dates';
+import { calendarOffDays } from './attendance';
 import { orgIds } from './org';
 import { CODE_OF } from './routine';
 import { studentIds } from './students';
@@ -342,23 +343,21 @@ export const slice: DemoSlice = {
     }
     rows += await insertChunked(repo(StudyPlan) as never, plans as never);
 
-    const holidays = new Set<string>();
-    for (const h of await ctx.ds.query(
-      `SELECT date::text AS d, end_date::text AS e FROM public_holiday_entries`,
-    )) {
-      for (let d = h.d; d <= h.e; d = addDays(d, 1)) holidays.add(d);
-    }
-    const days = schoolDays(
-      addDays(ctx.anchor, -DELIVERY_DAYS),
-      addDays(ctx.anchor, -1),
-      [OFF_DAY],
-      holidays,
+    // The branch calendar's non-working days, the same ones the attendance slice skips: no lesson is
+    // "taught" on a day with no register.
+    const { tenantOff, classOff } = await calendarOffDays(
+      ctx.ds,
+      org.tenants.map((t) => t.id),
     );
+    const days = schoolDays(addDays(ctx.anchor, -DELIVERY_DAYS), addDays(ctx.anchor, -1), [
+      OFF_DAY,
+    ]);
     const deliveries: Record<string, unknown>[] = [];
     for (const day of days) {
       const weekday = new Date(`${day}T00:00:00Z`).getUTCDay();
       const seen = new Set<string>(); // one delivery per section + period (electives share a period)
       for (const s of slots.filter((x) => x.weekday === weekday)) {
+        if (tenantOff.get(s.tenant_id)?.has(day) || classOff.get(s.class_id)?.has(day)) continue;
         const k = `${s.section_id}|${s.period_slot_id}`;
         if (seen.has(k)) continue;
         seen.add(k);
@@ -440,9 +439,12 @@ export const slice: DemoSlice = {
         const programId = pids[i % pids.length];
         const stay = ctx.pick(s.stays);
         const year = yearEnd.get(stay.yearId)!;
-        const startedOn = addDays(year.start, ctx.rng.number.int({ min: 10, max: 60 }));
+        // Nothing after yesterday: the current year's stay of a student who left this year ends by then.
+        const yesterday = addDays(ctx.anchor, -1);
+        const early = (d: string) => (d < yesterday ? d : yesterday);
+        const startedOn = early(addDays(year.start, ctx.rng.number.int({ min: 10, max: 60 })));
         const active = s.status === EnrollmentStatus.ACTIVE;
-        const endedOn = active ? null : year.end;
+        const endedOn = active ? null : early(year.end);
         const enrollmentId = uuid();
         enrollments.push({
           id: enrollmentId,

@@ -108,7 +108,9 @@ export function ColumnChart({
   };
   const onMove = (e: MouseEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    const i = Math.floor((e.clientX - r.left - ML) / slot);
+    // Client pixels -> SVG units (the svg may render narrower than `width`).
+    const scale = r.width ? width / r.width : 1;
+    const i = Math.floor(((e.clientX - r.left) * scale - ML) / slot);
     setActive(i >= 0 && i < data.length ? i : null);
   };
 
@@ -125,7 +127,7 @@ export function ColumnChart({
         onMouseLeave={() => setActive(null)}
         onFocus={() => setActive((a) => a ?? 0)}
         onBlur={() => setActive(null)}
-        className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="block w-full rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {tk.map((t) => (
           <g key={t}>
