@@ -259,6 +259,11 @@ export class AttendanceDashboardService {
    * year's sections, so last year's registers never leak into this year's numbers.
    */
   private dayRecords(tenantId: string, yearId?: string) {
+    // Same year restriction as the outer filter, pushed into the roll so it is not built for every
+    // section of every past year. A fixed fragment: the year is bound as :yearId.
+    const rollYearFilter = yearId
+      ? ' AND e.section_id IN (SELECT cs.id FROM class_sections cs JOIN classes c ON c.id = cs.class_id WHERE c.academic_year_id = :yearId)'
+      : '';
     const qb = this.recordRepo
       .createQueryBuilder('r')
       .innerJoin('attendance_sessions', 's', 's.id = r.session_id AND s.tenant_id = r.tenant_id')
@@ -278,14 +283,7 @@ export class AttendanceDashboardService {
                         AND le.enrollment_id = e.id AND le.event_type <> :onRollReadmitted)) AS left_on
             FROM enrollments e
             JOIN students st ON st.id = e.student_id AND st.tenant_id = e.tenant_id AND st.deleted_at IS NULL
-           WHERE e.tenant_id = :tenantId${
-             // Same year restriction as the outer filter, pushed in so the roll is not built
-             // for every section of every past year.
-             yearId
-               ? ` AND e.section_id IN (SELECT cs.id FROM class_sections cs
-                     JOIN classes c ON c.id = cs.class_id WHERE c.academic_year_id = :yearId)`
-               : ''
-           }
+           WHERE e.tenant_id = :tenantId${rollYearFilter}
            GROUP BY e.student_id, e.section_id)`,
         'roll',
         'roll.student_id = r.student_id AND roll.section_id = s.section_id AND (roll.active OR roll.left_on > r.date)',
