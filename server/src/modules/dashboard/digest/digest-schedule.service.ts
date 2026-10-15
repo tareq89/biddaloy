@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
@@ -9,6 +9,7 @@ import { SchoolsService } from '../../schools/schools.service';
 import { TENANT_STATUS_REDIS } from '../../schools/tenant-status.service';
 import { SchoolCalendarService } from '../../calendar/school-calendar.service';
 import { PushService } from '../../push/push.service';
+import { PushConfigService } from '../../push/push-config';
 import { AttentionQueryService } from '../../attention/api/attention-query.service';
 import { isInQuietHours, quietHoursEnd } from '../../attention/delivery/alert-delivery.service';
 import { resolveLocale } from '../../attention/rules/messages';
@@ -51,6 +52,7 @@ export class DigestScheduleService {
     private readonly calendar: SchoolCalendarService,
     private readonly push: PushService,
     private readonly attention: AttentionQueryService,
+    private readonly pushConfig: PushConfigService,
   ) {}
 
   async sync(tenantId: string): Promise<void> {
@@ -88,7 +90,19 @@ export class DigestScheduleService {
   }
 
   async runNow(tenantId: string, deferred = false, now = new Date()): Promise<void> {
-    const school = await this.schools.findById(tenantId);
+    if (!this.pushConfig.isPushEnabled()) {
+      this.logger.log(`digest skipped for ${tenantId}: push is disabled`);
+      return;
+    }
+    let school;
+    try {
+      school = await this.schools.findById(tenantId);
+    } catch (err) {
+      if (!(err instanceof NotFoundException)) throw err;
+      // School was hard-deleted: its scheduler would fail every morning, so drop it.
+      await this.queue.removeJobScheduler(digestSchedulerIdFor(tenantId));
+      return;
+    }
     if (school.status !== 'ACTIVE') {
       await this.sync(tenantId);
       return;
@@ -119,7 +133,10 @@ export class DigestScheduleService {
       return;
     }
 
-    // Idempotent per school per day: only the first run of the day sends.
+    // Fetched BEFORE the claim so a DB blip leaves the day unclaimed. Idempotent per school per
+    // day: only the first run of the day sends. At-most-once: a crash mid-loop after the claim
+    // is not retried (a duplicate push is worse than a missed digest).
+    const recipients = await this.recipients(tenantId);
     const claimed = await this.redis.set(
       digestSentKey(tenantId, today),
       '1',
@@ -130,7 +147,6 @@ export class DigestScheduleService {
     if (!claimed) return;
 
     const locale = resolveLocale(settings.region!.locale);
-    const recipients = await this.recipients(tenantId);
     let sent = 0;
     let optedOut = 0;
     let empty = 0;

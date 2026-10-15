@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DigestScheduleService } from './digest-schedule.service';
 import { digestSchedulerIdFor, DIGEST_RUN_JOB } from './digest.constants';
@@ -13,6 +14,7 @@ describe('DigestScheduleService', () => {
     schools: any,
     calendar: any,
     push: any,
+    pushConfig: any,
     attention: any;
   let service: DigestScheduleService;
   let settings: any;
@@ -46,6 +48,7 @@ describe('DigestScheduleService', () => {
     };
     calendar = { isNonWorkingDay: vi.fn().mockResolvedValue(false) };
     push = { sendToUser: vi.fn().mockResolvedValue({ accepted: 1, transient: 0, pruned: 0 }) };
+    pushConfig = { isPushEnabled: vi.fn(() => true) };
     attention = { summary: vi.fn(async () => summary(2)) };
     service = new DigestScheduleService(
       queue,
@@ -55,6 +58,7 @@ describe('DigestScheduleService', () => {
       calendar,
       push,
       attention,
+      pushConfig,
     );
   });
 
@@ -103,6 +107,32 @@ describe('DigestScheduleService', () => {
   });
 
   describe('runNow', () => {
+    it('push disabled: returns before summaries, recipients and the claim', async () => {
+      pushConfig.isPushEnabled.mockReturnValue(false);
+      rows = [{ id: 'u1', role: 'ADMIN', preferences: null }];
+      await service.runNow(T, false, MORNING);
+      expect(attention.summary).not.toHaveBeenCalled();
+      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(redis.set).not.toHaveBeenCalled();
+    });
+
+    it('a recipients() DB failure does not burn the day: the claim is taken after the fetch', async () => {
+      dataSource.query.mockRejectedValueOnce(new Error('db blip'));
+      await expect(service.runNow(T, false, MORNING)).rejects.toThrow('db blip');
+      expect(redis.set).not.toHaveBeenCalled();
+    });
+
+    it('a hard-deleted school drops its scheduler instead of failing every day', async () => {
+      schools.findById.mockRejectedValue(new NotFoundException('gone'));
+      await service.runNow(T, false, MORNING);
+      expect(queue.removeJobScheduler).toHaveBeenCalledWith(digestSchedulerIdFor(T));
+    });
+
+    it('other errors from findById still propagate', async () => {
+      schools.findById.mockRejectedValue(new Error('boom'));
+      await expect(service.runNow(T, false, MORNING)).rejects.toThrow('boom');
+    });
+
     it('sends to each recipient with count > 0, url /dashboard', async () => {
       rows = [{ id: 'u1', role: 'ADMIN', preferences: null }];
       await service.runNow(T, false, MORNING);

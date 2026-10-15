@@ -111,6 +111,16 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
   'modules/communications/reminders.service.ts': ['BN_COLLATION'],
   // lockBills: k is a key of Partial<StudentFee> from internal callers, i is the loop index; values bound as :v<i>
   'modules/fees/fee-generation-batch.service.ts': ['i', 'k'],
+  // getAgeing: bal/age are module-local SQL constants (the date is bound as :today); inner is a query builder whose params are copied over
+  'modules/fees/fee-dues.service.ts': [
+    'age',
+    'age',
+    'age',
+    'bal',
+    'bal',
+    'bal',
+    'inner.getQuery()',
+  ],
   // BN_COLLATION constant
   'modules/fees/fees.service.ts': ['BN_COLLATION'],
   // teacher subject terms: i is the forEach index naming :c<i>/:s<i>; values are bound

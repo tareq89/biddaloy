@@ -15,7 +15,7 @@ import {
 
 /** Worker for `dashboard-digest`: the hourly reconciler plus each school's morning tick. */
 @Injectable()
-@Processor(DASHBOARD_DIGEST_QUEUE, { concurrency: 1 })
+@Processor(DASHBOARD_DIGEST_QUEUE, { concurrency: 5 })
 export class DigestScheduleProcessor extends WorkerHost implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DigestScheduleProcessor.name);
   private reconcileRetry?: NodeJS.Timeout;

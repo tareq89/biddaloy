@@ -28,6 +28,15 @@ describe('renderDigest', () => {
     expect(out!.body).toContain('সবচেয়ে জরুরি: Attendance not taken');
   });
 
+  it('leaves out a MANUAL top title (free text can name a student)', () => {
+    const out = renderDigest(
+      { critical: 1, warning: 0, reminder: 0, top: top({ source: 'MANUAL' }) },
+      'en',
+      'S',
+    );
+    expect(out!.body).toBe('1 thing needs you today.');
+  });
+
   it('leaves out a top title that names a student (no PII on a lock screen)', () => {
     const out = renderDigest(
       { critical: 1, warning: 0, reminder: 0, top: top({ studentName: 'Rahim' }) },

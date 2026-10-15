@@ -100,6 +100,7 @@ describe('DigestScheduleService recipients (integration, real DB + Redis)', () =
       { isNonWorkingDay: async () => false } as any,
       push as any,
       attention as any,
+      { isPushEnabled: () => true } as any,
     );
   });
 
