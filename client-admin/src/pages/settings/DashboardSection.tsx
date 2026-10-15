@@ -94,7 +94,8 @@ export function DashboardSection({ schoolId, dashboard }: DashboardSectionProps)
           digestTime: v.digestTime,
         },
       },
-      { onSuccess: () => form.reset(raw, { keepIsSubmitSuccessful: true }) },
+      // The saved (Latin-digit) values become the form's new defaults.
+      { onSuccess: () => form.reset(v, { keepIsSubmitSuccessful: true }) },
     );
   }
 
