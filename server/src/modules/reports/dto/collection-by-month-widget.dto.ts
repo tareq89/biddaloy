@@ -7,7 +7,8 @@ export class CollectionMonthFigure {
   @ApiProperty({
     type: Number,
     nullable: true,
-    description: 'Net received that school-local month; null for months after the current one.',
+    description:
+      'Amount applied to bills that school-local month (net of reversals, not physical cash); null for months after the current one.',
   })
   net: number | null;
 
@@ -22,7 +23,10 @@ export class CollectionByMonthWidgetDto {
   @ApiProperty({ description: 'Sum of the months up to and including the current one.' })
   year_to_date_net: number;
 
-  @ApiProperty({ description: 'Net received from day 1 of the current month until now.' })
+  @ApiProperty({
+    description:
+      'Amount applied to bills from day 1 of the current month until now (net of reversals, not physical cash).',
+  })
   month_to_date_net: number;
 
   @ApiProperty({
