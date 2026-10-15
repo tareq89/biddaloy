@@ -311,11 +311,6 @@ test.describe('dashboard reconciliation: admin', () => {
   });
 
   test('sms-balance = GET /communications/sms-credits', async ({ request }) => {
-    // BUG (reported, not fixed here): `GET /communications/sms-credits` answers 400 "uuid is
-    // expected" because CommunicationsController's `@Get(':id')` is registered before
-    // CreditsController's `@Get()` on the same prefix and swallows the path. The UI hook
-    // `useSmsCredits` calls this URL. Remove `test.fail` once the route order is fixed.
-    test.fail(true, 'GET /communications/sms-credits is shadowed by GET /communications/:id (400)');
     const w = await widget<{ metering: string; available: number; reserved: number }>(
       request,
       'admin',

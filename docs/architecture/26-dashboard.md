@@ -249,7 +249,7 @@ Files are in `server/src/modules/dashboard/digest/`.
 ## 11. Privacy
 
 - **COMMITTEE sees aggregates only** (D44). The four committee widgets need `COMMITTEE_REPORT_READ` and return counts and percentages: no names, ids or contacts. They have no drill-down links (D23), only the chart/table toggle. Each committee widget has an e2e that walks the JSON at any depth and fails on an `id`, `*_id` or personal key (example: `server/src/modules/enrollments/enrollments-dashboard.e2e-spec.ts`).
-- The committee report is `/print/committee-report` (permission-gated in `client-admin/src/route-permissions.ts`). It reuses the four committee endpoints for "this month as of today" (D48).
+- The committee report is `/print/committee-report` (permission-gated in `client-admin/src/route-permissions.ts`). It reuses the four committee endpoints for "this month as of today" (D48). Committee attendance serves days older than 8 days from a nightly Redis cache (key date = today-8), so those days lag corrections until the next nightly run; the last 7 days and today are computed live.
 - **Teacher widgets** are scoped to the caller's own sections and cached per `user:<sub>`.
 - **Portal (PARENT / STUDENT)** is not the widget engine. The cards in `client-admin/src/routes/portal/-*-card.tsx` call the existing family (guardian / student) endpoints, which are scoped to the signed-in account's own children. Do not add a widget route for them, and never trust a student id from the URL without that ownership check.
 - The digest and the push body never carry student names (section 8).
@@ -273,7 +273,7 @@ Files are in `server/src/modules/dashboard/digest/`.
 | Recent payments total | total of shown rows | `total_of_shown` = SUCCESS rows shown only | FAILED rows move no money |
 | Phone tile tap | tile itself is a button | A sibling overlay button (`dashboard-grid.tsx`) expands the tile. A CSS `:has()` rule (`group-has-[a,button:not([data-tile-toggle])]:hidden`) hides it when the tile holds its own link or button | No button nested inside a button |
 | Customise | add from catalogue | Hide, show, reorder and resize the widgets the role may see. There is no "add from catalogue" step: every allowed widget is already listed, hidden or not. | Allowed set is already in the list |
-| Load test | manual run doc | The 10k-student run is manual only (D24). Its README (`server/src/scripts/load/README.md`) is not on this branch yet. The attention perf script `server/src/scripts/perf-attention.ts` exists. | Epic 169 ticket 6-02 |
+| Load test | manual run doc | The 10k-student run is manual only (D24). The run guide is [26-dashboard-load-test.md](26-dashboard-load-test.md) (`load:seed` and `run-dashboard-load.ts` under `server/src/scripts/load/`). The attention perf script `server/src/scripts/perf-attention.ts` also exists. | Epic 169 ticket 6-02 |
 
 Other limits:
 
