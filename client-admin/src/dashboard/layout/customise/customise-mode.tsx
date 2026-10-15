@@ -57,7 +57,7 @@ export function CustomiseMode({ role, onDone }: { role: UserRole; onDone: () => 
         </span>
         <p className="text-text-secondary">{t('customise.intro')}</p>
       </div>
-      <div className="grid gap-6 xl:grid-cols-12">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
         <div className="xl:col-span-7">
           <CustomisePreview shown={draft.shown} focusedKey={focused} />
         </div>
