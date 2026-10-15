@@ -384,7 +384,9 @@ test.describe('dashboard reconciliation: admin', () => {
       await roleSession(request, role);
     }
     const w = await widget<{ items: { id: string }[] }>(request, 'admin', 'recent-activity');
-    const sourceUrl = '/audit-logs?page=1&limit=8';
+    // 100, not 8: other workers write audit rows all the time, and in 60 s more than 8 can land
+    // above the cached widget.
+    const sourceUrl = '/audit-logs?page=1&limit=100';
     const source = await getJson<{ data: { id: string }[] }>(request, 'admin', sourceUrl);
     const widgetIds = w.items.map((i) => i.id);
     const sourceIds = source.data.map((i) => i.id);
@@ -899,20 +901,33 @@ test.describe('dashboard reconciliation: committee', () => {
       status: string;
       class: { name: string };
     }>(request, 'admin', '/exams');
-    const round1 = (n: number) => Math.round(n * 10) / 10;
     for (const c of w.classes) {
-      const exam = exams.find(
+      // RULE: one bar per class name. The seed has two "Class 8" classes (Day, and Morning
+      // English), so a bar sums every same-named class's exam of the round.
+      const sources = exams.filter(
         (e) => e.name === w.exam_name && e.status === 'PUBLISHED' && e.class.name === c.class_name,
       );
-      expect(exam, `published exam "${w.exam_name}" for ${c.class_name}`).toBeDefined();
-      const sourceUrl = `/exams/${exam!.id}/analysis/pass-fail`;
-      const pf = await getJson<{ overall: { pass_pct: number } }>(request, 'admin', sourceUrl);
+      expect(sources.length, `published exam "${w.exam_name}" for ${c.class_name}`).toBeGreaterThan(
+        0,
+      );
+      let appeared = 0;
+      let passed = 0;
+      for (const exam of sources) {
+        const pf = await getJson<{ overall: { appeared: number; passed: number } }>(
+          request,
+          'admin',
+          `/exams/${exam.id}/analysis/pass-fail`,
+        );
+        appeared += pf.overall.appeared;
+        passed += pf.overall.passed;
+      }
       expectSame(
         `${c.class_name} pass %`,
         c.pass_percentage,
         '/dashboard/widgets/committee-pass-rate',
-        round1(pf.overall.pass_pct),
-        sourceUrl,
+        // Same rounding as the service (pct1).
+        appeared > 0 ? Math.round((passed / appeared) * 1000) / 10 : 0,
+        `/exams/:id/analysis/pass-fail (Σ over ${sources.length} "${c.class_name}" exam(s))`,
       );
     }
   });
