@@ -32,13 +32,15 @@ test.describe('dashboard widgets API: admin', () => {
     const admin = await adminApiSession(request);
     const attendance = await widget<{
       percentage: number | null;
+      is_working_day: boolean;
       pending_sections: unknown[];
       series: { percentage: number | null }[];
     }>(request, admin, 'attendance-today');
     expect(attendance.series).toHaveLength(30);
     // 30 days of finalised registers: more than one point has a value.
     expect(attendance.series.filter((p) => p.percentage !== null).length).toBeGreaterThan(1);
-    expect(attendance.pending_sections.length).toBeGreaterThanOrEqual(1);
+    // The seed leaves 2 registers open today; on the weekly off no register is due at all.
+    expect(attendance.pending_sections.length > 0).toBe(attendance.is_working_day);
 
     const staff = await widget<{ staff_total: number; absent: number; on_leave: unknown[] }>(
       request,
