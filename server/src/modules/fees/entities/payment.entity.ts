@@ -41,6 +41,15 @@ import { IssuerSnapshot } from '../../schools/profile/issuer-snapshot';
 @Index(['tenant_id'])
 @Index(['tenant_id', 'payment_date'])
 @Index(['received_by_user_id'])
+// Covering index for the collection dashboard sums (same predicate as CollectionsReportService).
+@Index(
+  'IDX_payments_dash_net',
+  ['tenant_id', 'payment_date', 'total_amount', 'reversal_of_payment_id'],
+  {
+    where:
+      '"deleted_at" IS NULL AND ("payment_status" = \'SUCCESS\' OR "reversal_of_payment_id" IS NOT NULL OR "reversed_by_payment_id" IS NOT NULL)',
+  },
+)
 @Index(['tenant_id', 'idempotency_key'], {
   unique: true,
   where: '"idempotency_key" IS NOT NULL',

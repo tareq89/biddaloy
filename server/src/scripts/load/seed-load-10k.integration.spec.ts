@@ -36,7 +36,7 @@ describe('seedLoadSchool (integration, 100 students)', () => {
       ).toBe(100);
       expect(
         await count(`SELECT count(*)::int c FROM user_tenants WHERE tenant_id = $1`, [tenantId]),
-      ).toBe(Object.keys(LOAD_LOGINS).length);
+      ).toBe(Object.keys(LOAD_LOGINS).length + 40); // + 40 staff (30 teachers, 10 office)
     }
 
     // --- writes a register for each of 60 working days, none on a Friday
@@ -89,6 +89,49 @@ describe('seedLoadSchool (integration, 100 students)', () => {
           [tenantId],
         ),
       ).toBe(0);
+    }
+
+    // --- seeds what the other widgets read (small-run row counts for 100 students)
+    {
+      const n = (table: string, where = '') =>
+        count(`SELECT count(*)::int c FROM ${table} WHERE tenant_id = $1 ${where}`, [tenantId]);
+      expect(await n('exams')).toBe(20); // 10 classes x (published term + draft monthly)
+      expect(await n('exams', `AND status = 'PUBLISHED'`)).toBe(10);
+      // every student has one published result; marks = 100 students x 8 subjects
+      expect(await n('results')).toBe(100);
+      expect(await n('marks', `AND value >= 30`)).toBeGreaterThanOrEqual(800);
+      expect(await n('homework')).toBe(80);
+      expect(await n('syllabus_topics')).toBe(800);
+      expect(await n('staff_profiles')).toBe(41);
+      // 41 staff x 60 working days
+      expect(await n('staff_attendance_records')).toBe(41 * 60);
+      expect(await n('communication_logs')).toBe(300);
+      expect(await n('communication_logs', `AND status = 'FAILED'`)).toBeGreaterThanOrEqual(1);
+      expect(await n('admission_applicants')).toBe(600);
+      expect(await n('seat_plans')).toBe(2);
+      expect(await n('seat_allocations')).toBeGreaterThan(0);
+      expect(await n('leave_records')).toBe(41 * 3);
+      expect(await n('routines')).toBe(1);
+      // 50 sections x 6 periods x 6 weekdays
+      expect(await n('routine_slots')).toBe(1800);
+      // the login teacher is class teacher of section 1 and teaches sections 1-10
+      expect(
+        await count(
+          `SELECT count(*)::int c FROM teacher_class_sections tcs
+             JOIN teachers t ON t.id = tcs.teacher_id JOIN users u ON u.id = t.user_id
+            WHERE tcs.tenant_id = $1 AND u.email = 'load-teacher@biddaloy.test'`,
+          [tenantId],
+        ),
+      ).toBeGreaterThanOrEqual(11);
+      // last year's bills exist for the same month a year ago
+      expect(
+        await count(
+          `SELECT count(*)::int c FROM student_fees sf JOIN students s ON s.id = sf.student_id
+            WHERE s.tenant_id = $1
+              AND sf.period_start = (date_trunc('month', now()) - interval '1 year')::date`,
+          [tenantId],
+        ),
+      ).toBeGreaterThanOrEqual(100);
     }
 
     // --- refuses to top up: a second run adds nothing, and other schools are untouched

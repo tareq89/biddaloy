@@ -52,6 +52,12 @@ import { FeeStatus, PeriodType } from '@biddaloy/shared';
 @Check('total_amount > 0')
 @Check('discount_amount = standing_discount_amount + one_off_discount_amount')
 @Index(['period_start'])
+// Covering index for the committee-finance billed / paid / outstanding sums.
+@Index(
+  'IDX_student_fees_dash_billing',
+  ['period_start', 'student_id', 'total_amount', 'discount_amount', 'paid_amount', 'status'],
+  { where: '"deleted_at" IS NULL' },
+)
 @Index(['fee_generation_id'])
 export class StudentFee {
   @PrimaryGeneratedColumn('uuid')

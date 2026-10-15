@@ -2,6 +2,12 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { hashPassword } from '../../modules/auth/password-hash';
 import { localToday } from '../../common/time';
 import { assertThrowawayDatabase } from './load-seed-guard';
+import {
+  EXTRA_COUNT_TABLES,
+  seedExtras,
+  seedLastYearBills,
+  type ExtrasContext,
+} from './seed-load-extras';
 
 // [8.10.7.6.01] Manual only (D24). Never imported by CI, `seed.ts` or the demo seed.
 // Plain DataSource + raw SQL: no AppModule, so no workers and no Redis side effects.
@@ -231,6 +237,16 @@ async function seedInTransaction(
       [tenantId, today],
     );
   }
+  const extras: ExtrasContext = {
+    q,
+    tenantId,
+    yearId,
+    days,
+    today,
+    students,
+    teacherUserId: '',
+  };
+  await seedLastYearBills(extras);
   await q(
     `INSERT INTO payment_allocations (payment_id, student_fee_id, allocated_amount, allocation_type, created_at)
      SELECT p.id, sf.id, p.total_amount, 'CURRENT', NOW()
@@ -251,6 +267,7 @@ async function seedInTransaction(
        VALUES ($1, $2, $3::user_tenants_role_enum, NOW(), NOW())`,
       [userId, tenantId, role],
     );
+    if (role === 'TEACHER') extras.teacherUserId = userId;
     if (role === 'PARENT') {
       await q(
         `UPDATE guardians SET user_id = $2 WHERE id = (
@@ -268,7 +285,10 @@ async function seedInTransaction(
     }
   }
 
+  await seedExtras(extras);
+
   const tables = [
+    ...EXTRA_COUNT_TABLES,
     'academic_years',
     'classes',
     'class_sections',
@@ -291,7 +311,14 @@ async function seedInTransaction(
   );
   counts.student_fees = fees.c;
   // The planner needs real statistics or the load run measures bad plans.
-  for (const t of [...tables, 'student_fees', 'payment_allocations', 'student_guardians']) {
+  for (const t of [
+    ...tables,
+    'student_fees',
+    'payment_allocations',
+    'student_guardians',
+    'result_subjects',
+    'seat_plans',
+  ]) {
     await q(`ANALYZE ${t}`);
   }
   return { status: 'seeded', tenantId, counts, seconds: (Date.now() - started) / 1000 };
@@ -321,6 +348,13 @@ async function main(): Promise<void> {
   await ds.initialize();
   try {
     const r = await seedLoadSchool(ds, { students: 10_000 * scale, password });
+    if (r.status === 'seeded') {
+      // Outside the transaction (VACUUM cannot run in one): sets the visibility map, which the
+      // covering-index scans of the money widgets need - production gets it from autovacuum.
+      for (const t of ['payments', 'student_fees', 'attendance_records', 'enrollments', 'marks']) {
+        await ds.query(`VACUUM ANALYZE ${t}`);
+      }
+    }
     if (r.status === 'already-seeded') {
       console.log('already seeded - drop the database to reseed');
       return;
