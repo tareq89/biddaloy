@@ -284,6 +284,8 @@ export interface StudentAttendanceDay {
   remarks: string | null;
   is_working_day: boolean;
   holiday_name: string | null;
+  /** [#1898] When the day's attendance was taken; `null` = not taken yet. */
+  marked_at?: string | null;
 }
 
 /** `GET /attendance/students/:studentId/summary`'s frozen contract shape
