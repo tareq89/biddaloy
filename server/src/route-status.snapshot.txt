@@ -193,7 +193,9 @@ GET    /api/v1/communications/sms-credits                                       
 GET    /api/v1/communications/student/:studentId                                 401 PASS PASS PASS PASS PASS 403 403 PASS PASS 403 403
 GET    /api/v1/dashboard/widgets/at-risk-students                                401 403 403 PASS 403 403 403 403 PASS 403 403 403
 GET    /api/v1/dashboard/widgets/attendance-today                                401 403 403 PASS 403 403 403 403 PASS PASS 403 403
+GET    /api/v1/dashboard/widgets/collection-by-month                             401 403 403 PASS PASS 403 403 403 PASS 403 403 403
 GET    /api/v1/dashboard/widgets/collection-month                                401 403 403 PASS PASS 403 403 403 PASS 403 403 403
+GET    /api/v1/dashboard/widgets/collection-today                                401 403 403 PASS PASS 403 403 403 PASS 403 403 403
 GET    /api/v1/dashboard/widgets/failed-messages                                 401 403 403 PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/mark-entry-progress                             401 403 403 PASS 403 403 403 403 PASS 403 PASS 403
 GET    /api/v1/dashboard/widgets/my-routine-today                                401 403 403 403 403 PASS 403 403 403 403 403 403
