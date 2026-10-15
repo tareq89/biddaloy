@@ -128,7 +128,12 @@ GET /communications/reminder/bulk/:id | CommunicationsController | perm: COMMUNI
 GET /communications/reminder/bulk/:id/logs | CommunicationsController | perm: COMMUNICATION_BULK_SEND
 GET /communications/sms-credits | CreditsController | perm: COMMUNICATION_CREDIT_READ
 GET /communications/student/:studentId | CommunicationsController | perm: COMMUNICATION_LOG_READ
+GET /dashboard/widgets/at-risk-students | AtRiskStudentsDashboardController | perm: ATTENDANCE_READ,DASHBOARD_VIEW,FEE_READ,MARK_VIEW
 GET /dashboard/widgets/attendance-today | AttendanceDashboardController | perm: ATTENDANCE_READ,DASHBOARD_VIEW
+GET /dashboard/widgets/collection-month | ReportsDashboardController | perm: DASHBOARD_VIEW,REPORT_COLLECTIONS_READ
+GET /dashboard/widgets/failed-messages | CommunicationsDashboardController | perm: COMMUNICATION_LOG_READ,DASHBOARD_VIEW
+GET /dashboard/widgets/mark-entry-progress | ExamsDashboardController | perm: DASHBOARD_VIEW,MARK_VIEW
+GET /dashboard/widgets/sms-balance | CommunicationsDashboardController | perm: DASHBOARD_VIEW,SETTINGS_MANAGE
 GET /dashboard/widgets/staff-today | StaffAttendanceDashboardController | perm: DASHBOARD_VIEW,STAFF_ATTENDANCE_READ
 GET /dashboard/widgets/syllabus-progress | HomeworkDashboardController | perm: DASHBOARD_VIEW,SYLLABUS_READ
 GET /demo/roles | DemoController | allowlist: none
