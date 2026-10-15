@@ -117,6 +117,15 @@ export function WidgetCard({
                 {summary ? (
                   <span className="text-caption text-text-secondary">{summary}</span>
                 ) : null}
+                {/* Collapsed: the body is hidden, so surface loading/error here (retry lives in the body). */}
+                {!open && loading && loadingLabel ? (
+                  <span aria-busy="true" className="text-caption text-text-secondary">
+                    {loadingLabel}
+                  </span>
+                ) : null}
+                {!open && !loading && error ? (
+                  <span className="text-caption text-destructive">{error.message}</span>
+                ) : null}
               </span>
               <ChevronDownIcon
                 aria-hidden="true"

@@ -11,7 +11,7 @@ import { resolveTenantSettings } from '../../modules/schools/settings/tenant-set
 const DEMO = `s.slug LIKE 'bmsc-%'`;
 
 export interface Violation {
-  check: 'routine' | 'academic-year' | 'money' | 'attendance' | 'enrollment' | 'logins';
+  check: 'routine' | 'academic-year' | 'money' | 'attendance' | 'enrollment' | 'logins' | 'tenancy';
   message: string;
 }
 
@@ -233,10 +233,39 @@ async function logins(ds: Db): Promise<Violation[]> {
   }));
 }
 
+/**
+ * A person who acts on a branch's record belongs to that branch. The service layer trusts its caller
+ * (the HTTP guard checks membership), so a slice that hands it another branch's user writes a decision
+ * nobody in the branch can resolve. Covers who files, enters and decides applications, and every
+ * actor on their history.
+ */
+async function tenancy(ds: Db): Promise<Violation[]> {
+  const rows: Row[] = await ds.query(`/* check:tenancy */
+    SELECT x.what, x.record_id, x.user_id, s.slug
+      FROM (SELECT 'application applicant' AS what, a.id AS record_id, a.tenant_id, a.applicant_user_id AS user_id
+              FROM applications a
+            UNION ALL
+            SELECT 'application entered_by', a.id, a.tenant_id, a.entered_by_user_id FROM applications a
+            UNION ALL
+            SELECT 'application decider', a.id, a.tenant_id, a.decided_by_user_id FROM applications a
+            UNION ALL
+            SELECT 'application event actor', e.application_id, e.tenant_id, e.actor_user_id
+              FROM application_events e) x
+      JOIN schools s ON s.id = x.tenant_id
+     WHERE ${DEMO} AND x.user_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM user_tenants ut
+                        WHERE ut.user_id = x.user_id AND ut.tenant_id = x.tenant_id AND ut.deleted_at IS NULL)
+     LIMIT 50`);
+  return rows.map((r) => ({
+    check: 'tenancy',
+    message: `${r.what} ${r.user_id} on ${r.record_id} has no membership in ${r.slug}`,
+  }));
+}
+
 /** Runs every invariant against the seeded demo tenants (`bmsc-*`). Empty array = healthy. */
 export async function validate(ds: Db): Promise<Violation[]> {
   const parts = await Promise.all(
-    [routine, academicYear, money, attendance, enrollment, logins].map((c) => c(ds)),
+    [routine, academicYear, money, attendance, enrollment, logins, tenancy].map((c) => c(ds)),
   );
   return parts.flat();
 }

@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import type { DataSource } from 'typeorm';
 import {
   AttendanceDeviceKind,
@@ -20,7 +20,7 @@ import { StaffAttendanceRecord } from '../../../modules/staff-attendance/entitie
 import { LeavePolicy } from '../../../modules/leave/entities/leave-policy.entity';
 import { LeaveRecord } from '../../../modules/leave/entities/leave-record.entity';
 import { insertChunked } from '../bulk';
-import { demoPassword, type DemoSeedContext, type DemoSlice } from '../context';
+import type { DemoSeedContext, DemoSlice } from '../context';
 import { schoolDays, todayAt } from '../dates';
 import { orgIds } from './org';
 import { studentIds } from './students';
@@ -153,11 +153,11 @@ async function withoutIndexes<T>(
         AND NOT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conname = i.indexname)`,
     [tables],
   );
-  for (const d of defs) await ds.query(d.dropdef); // the name is quoted by format('%I')
-  // Every index is rebuilt in its own try, so one failure does not leave the rest missing.
+  const dropped: typeof defs = [];
+  // Every dropped index is rebuilt in its own try, so one failure does not leave the rest missing.
   const rebuild = async (): Promise<unknown[]> => {
     const errors: unknown[] = [];
-    for (const d of defs) {
+    for (const d of dropped) {
       try {
         await ds.query(d.indexdef);
       } catch (e) {
@@ -169,6 +169,10 @@ async function withoutIndexes<T>(
   };
   let result: T;
   try {
+    for (const d of defs) {
+      await ds.query(d.dropdef); // the name is quoted by format('%I')
+      dropped.push(d);
+    }
     result = await load();
   } catch (e) {
     await rebuild(); // the load error is the one that surfaces; rebuild errors are only logged
@@ -179,19 +183,18 @@ async function withoutIndexes<T>(
   return result;
 }
 
-const load = async (ctx: DemoSeedContext) => {
-  const org = orgIds(ctx);
-  const st = studentIds(ctx);
-  const rnd = stream(ctx.rng.number.int({ min: 1, max: 2 ** 31 - 1 }));
-  const q = <T>(sql: string, args: unknown[] = []): Promise<T[]> => ctx.ds.query(sql, args);
-  const tenantIds = org.tenants.map((t) => t.id);
-  const yesterday = addDays(ctx.anchor, -1);
-  let rows = 0;
-
-  // --- calendar: holidays per tenant / per class, and the Eid windows (D36) ----------------
+/**
+ * Non-working days from each branch's published calendar: `tenantOff` (tenant id -> dates) for the
+ * whole branch, `classOff` (class id -> dates) for events limited to some classes. The learning slice
+ * uses the same days, so a lesson is never "taught" on a day with no attendance.
+ */
+export async function calendarOffDays(
+  ds: DataSource,
+  tenantIds: string[],
+): Promise<{ tenantOff: Map<string, Set<string>>; classOff: Map<string, Set<string>> }> {
   const tenantOff = new Map<string, Set<string>>();
   const classOff = new Map<string, Set<string>>();
-  const events = await q<{ tenant_id: string; s: string; e: string; classes: string[] }>(
+  const events: { tenant_id: string; s: string; e: string; classes: string[] }[] = await ds.query(
     `SELECT e.tenant_id, e.start_date::text AS s, e.end_date::text AS e,
               array(SELECT ec.class_id FROM calendar_event_classes ec WHERE ec.event_id = e.id) AS classes
          FROM calendar_events e
@@ -207,6 +210,20 @@ const load = async (ctx: DemoSeedContext) => {
       for (const c of ev.classes) into(classOff, c).add(d);
     }
   }
+  return { tenantOff, classOff };
+}
+
+const load = async (ctx: DemoSeedContext) => {
+  const org = orgIds(ctx);
+  const st = studentIds(ctx);
+  const rnd = stream(ctx.rng.number.int({ min: 1, max: 2 ** 31 - 1 }));
+  const q = <T>(sql: string, args: unknown[] = []): Promise<T[]> => ctx.ds.query(sql, args);
+  const tenantIds = org.tenants.map((t) => t.id);
+  const yesterday = addDays(ctx.anchor, -1);
+  let rows = 0;
+
+  // --- calendar: holidays per tenant / per class, and the Eid windows (D36) ----------------
+  const { tenantOff, classOff } = await calendarOffDays(ctx.ds, tenantIds);
   const eid = new Set<string>();
   const eids = await q<{ s: string; e: string }>(
     `SELECT e.date::text AS s, e.end_date::text AS e FROM public_holiday_entries e
@@ -247,13 +264,12 @@ const load = async (ctx: DemoSeedContext) => {
     list.push({ periodNo: r.period_no, subjectId: r.subject_id, userId: r.user_id });
   }
 
-  // --- devices: one per branch, key derived from DEMO_PASSWORD and never printed (D39) -----
+  // --- devices: one per branch. The key is random per run and never printed or stored
+  // (only its hash is), so no visitor can post scans; a gate reader is set up again by rotating it.
+  // The fingerprint skips token columns, so a fresh key per run keeps the seed deterministic.
   const deviceOf = new Map<string, string>();
   const devices = org.tenants.map((t) => {
-    const key = `bd_dev_${createHash('sha256')
-      .update(`${demoPassword(process.env)}:${t.slug}`)
-      .digest('hex')
-      .slice(0, 36)}`;
+    const key = `bd_dev_${randomBytes(18).toString('hex')}`;
     const id = randomUUID();
     deviceOf.set(t.id, id);
     return {
@@ -366,6 +382,13 @@ const load = async (ctx: DemoSeedContext) => {
               const minutes = s === AttendanceStatus.LATE ? 5 + Math.floor(rnd() * 26) : null;
               late.push(minutes);
               const id = isToday && t.id === high.id ? randomUUID() : undefined;
+              // Only a student who came in scanned at the gate; in the device-filled draft the rest
+              // are the teacher's marks, with no check-in time.
+              const scannedAt =
+                id && s !== AttendanceStatus.ABSENT && s !== AttendanceStatus.LEAVE
+                  ? todayAt(date, 7, Math.floor(rnd() * 50))
+                  : null;
+              const byDevice = deviceFilled && !!scannedAt;
               const row = {
                 ...(id && { id }),
                 tenant_id: t.id,
@@ -374,24 +397,24 @@ const load = async (ctx: DemoSeedContext) => {
                 date,
                 status: s,
                 minutes_late: minutes,
-                recorded_by_user_id: deviceFilled ? null : marker,
+                recorded_by_user_id: byDevice ? null : marker,
                 recorded_at: markedAt, // not the DB clock: two runs must match
               };
               if (id) {
                 rSlow.push({
                   ...row,
-                  source: deviceFilled ? AttendanceSource.DEVICE : AttendanceSource.TEACHER,
-                  device_id: deviceFilled ? deviceOf.get(t.id) : null,
-                  check_in_at: deviceFilled ? todayAt(date, 7, Math.floor(rnd() * 50)) : null,
+                  source: byDevice ? AttendanceSource.DEVICE : AttendanceSource.TEACHER,
+                  device_id: byDevice ? deviceOf.get(t.id) : null,
+                  check_in_at: byDevice ? scannedAt : null,
                 });
               } else rBuf.push(row);
-              if (id && s !== AttendanceStatus.ABSENT && s !== AttendanceStatus.LEAVE) {
+              if (scannedAt) {
                 todayEvents.push({
                   tenant_id: t.id,
                   device_id: deviceOf.get(t.id),
                   device_event_id: `${date}-${todayEvents.length}`,
                   student_id: studentId,
-                  occurred_at: todayAt(date, 7, Math.floor(rnd() * 50)),
+                  occurred_at: scannedAt,
                   direction: AttendanceEventDirection.IN,
                   // A teacher's mark wins over a device scan (rule 1 on the record entity).
                   outcome: deviceFilled ? 'accepted' : 'skipped_teacher_marked',

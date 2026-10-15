@@ -350,7 +350,7 @@ export function AttendanceMonthGrid({
                       >
                         {renderDigits(String(gridDay.dayOfMonth), config.numerals)}
                       </span>
-                      {state !== 'notMarked' && state !== 'upcoming' && (
+                      {state !== 'notMarked' && (
                         <span
                           aria-hidden="true"
                           className={cn(

@@ -52,7 +52,7 @@ describe('GET /dashboard/widgets/collection-month', () => {
 
   // The widget is cached for 60 s; clear it so each frozen-clock case recomputes.
   const clearCache = () =>
-    redis.del(`tenant:${SEED_TENANT_ID}:dash:${DashboardWidgetKey.COLLECTION_MONTH}:school`);
+    redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${DashboardWidgetKey.COLLECTION_MONTH}:school`);
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -146,7 +146,7 @@ describe('GET /dashboard/widgets/collection-month', () => {
         .set('X-Role', role);
       return tenantId === null ? req : req.set('X-Tenant-ID', tenantId);
     };
-    const clear = () => redis.del(`tenant:${SEED_TENANT_ID}:dash:${key}:school`);
+    const clear = () => redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${key}:school`);
 
     afterAll(clear);
 
@@ -219,7 +219,7 @@ describe('GET /dashboard/widgets/collection-month', () => {
       const clearBoth = () =>
         Promise.all(
           [DashboardWidgetKey.COLLECTION_TODAY, DashboardWidgetKey.COLLECTION_BY_MONTH].map((k) =>
-            redis.del(`tenant:${SEED_TENANT_ID}:dash:${k}:school`),
+            redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${k}:school`),
           ),
         );
       try {
@@ -318,5 +318,13 @@ describe('GET /dashboard/widgets/collection-month', () => {
         await dataSource.query(`DELETE FROM students WHERE id = $1`, [studentId]);
       }
     });
+  });
+
+  // server/CLAUDE.md: always test a missing X-Tenant-ID.
+  it('missing X-Tenant-ID returns 401', async () => {
+    await supertest(app.getHttpServer())
+      .get(URL)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
   });
 });

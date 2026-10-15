@@ -160,4 +160,15 @@ describe('demo seed validator', () => {
     // before the org slice lands there are no branches, so there is nothing to check
     expect(await checksOf({ logins: [] })).not.toContain('logins');
   });
+
+  it('tenancy: flags an application acted on by a user from another branch', async () => {
+    const stranger = {
+      what: 'application decider',
+      record_id: 'app-1',
+      user_id: 'u-high-office',
+      slug: 'bmsc-primary',
+    };
+    expect(await checksOf({ tenancy: [stranger] })).toContain('tenancy');
+    expect(await checksOf({ tenancy: [] })).not.toContain('tenancy');
+  });
 });

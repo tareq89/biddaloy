@@ -106,22 +106,27 @@ export function BriefingLine({
           </div>
         ) : null}
       </div>
-      {items && moreLabel ? (
+      {items ? (
         <div className="mt-3 flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
           {itemsLabel ? (
             <span className="hidden text-label text-muted-foreground md:inline">{itemsLabel}</span>
           ) : null}
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-controls={listId}
-            onClick={() => setOpen((o) => !o)}
-            className="inline-flex h-11 items-center justify-between gap-2 rounded-md px-1 text-label focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+          {moreLabel ? (
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={listId}
+              onClick={() => setOpen((o) => !o)}
+              className="inline-flex h-11 items-center justify-between gap-2 rounded-md px-1 text-label focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+            >
+              {moreLabel}
+              <ChevronDownIcon aria-hidden="true" className={cn('size-4', open && 'rotate-180')} />
+            </button>
+          ) : null}
+          <ul
+            id={listId}
+            className={cn('flex-wrap gap-2', open || !moreLabel ? 'flex' : 'hidden md:flex')}
           >
-            {moreLabel}
-            <ChevronDownIcon aria-hidden="true" className={cn('size-4', open && 'rotate-180')} />
-          </button>
-          <ul id={listId} className={cn('flex-wrap gap-2', open ? 'flex' : 'hidden md:flex')}>
             {items}
           </ul>
         </div>

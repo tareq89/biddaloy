@@ -17,7 +17,7 @@ describe('DashboardCacheService', () => {
     await expect(service.getOrLoad('t1', W, 'school', load)).resolves.toEqual({ n: 1 });
     expect(load).toHaveBeenCalledTimes(1);
     expect(redis.set).toHaveBeenCalledWith(
-      'tenant:t1:dash:attendance-today:school',
+      'tenant:t1:dash:v1:attendance-today:school',
       JSON.stringify({ n: 1 }),
       'EX',
       60,
