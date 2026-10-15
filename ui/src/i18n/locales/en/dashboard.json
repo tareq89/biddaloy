@@ -155,7 +155,15 @@
     },
     "homework-submission-rate": {
       "title": "Homework submission rate",
-      "description": "Share of homework handed in this week"
+      "description": "Share of homework handed in this week",
+      "value": "handed in this week",
+      "sentence": "{{submitted}} of {{expected}} expected submissions came in.",
+      "lowest": "Lowest: class {{class}} ({{percent}}).",
+      "colClass": "Class",
+      "colRate": "Handed in",
+      "emptyReason": "No homework was due this week.",
+      "link": "See homework",
+      "compactTitle": "Homework handed in"
     },
     "sms-balance": {
       "title": "SMS balance",
@@ -177,63 +185,217 @@
     },
     "recent-activity": {
       "title": "Recent activity",
-      "description": "Who changed what in the system"
+      "description": "Who changed what in the system",
+      "row": "{{actor}}: {{summary}}",
+      "system": "System",
+      "emptyReason": "Nothing changed recently.",
+      "link": "Full activity log"
     },
     "my-routine-today": {
       "title": "My routine today",
-      "description": "Your periods today, in order"
+      "description": "Your periods today, in order",
+      "value": "periods today, {{done}} done",
+      "next": "Next period in {{minutes}} min, {{room}}",
+      "ownSection": "— your own section {{section}}.",
+      "nowLine": "Now {{time}}",
+      "inMinutes": "in {{minutes}} min",
+      "noPeriodNow": "No period now",
+      "freeSince": "Free since {{time}}",
+      "labelNow": "Now",
+      "labelNext": "Next",
+      "covering": "Covering",
+      "cancelled": "Cancelled",
+      "nextDayFirst": "First period on {{date}}: {{time}}, {{label}}.",
+      "emptyReason": "No periods for you today.",
+      "closedToday": "No school today.",
+      "link": "Whole week's routine",
+      "compactTitle": "Periods today"
     },
     "my-pending-sections": {
       "title": "Attendance left to take",
-      "description": "Your sections where attendance is not taken yet"
+      "description": "Your sections where attendance is not taken yet",
+      "value_one": "section left",
+      "value_other": "sections left",
+      "sentence": "Today's attendance for {{section}} is not taken yet.",
+      "allTaken": "Today's attendance is taken everywhere.",
+      "pending": "Pending",
+      "taken": "Taken",
+      "action": "Take attendance for {{section}}",
+      "compactTitle": "Attendance pending",
+      "compactHint": "{{section}} pending",
+      "closedToday": "No school today."
     },
     "my-mark-deadlines": {
       "title": "Mark deadlines",
-      "description": "Marks you still need to submit, and by when"
+      "description": "Marks you still need to submit, and by when",
+      "value_one": "student's marks pending",
+      "value_other": "students' marks pending",
+      "deadlineIn_one": "Deadline in {{count}} day, {{date}} — {{section}} left.",
+      "deadlineIn_other": "Deadline in {{count}} days, {{date}} — {{section}} left.",
+      "deadlineToday": "Deadline today — {{section}} left.",
+      "deadlinePassed_one": "Deadline passed {{count}} day ago — {{section}} left.",
+      "deadlinePassed_other": "Deadline passed {{count}} days ago — {{section}} left.",
+      "endedAgo_one": "{{exam}} ended {{count}} day ago — {{section}} left.",
+      "endedAgo_other": "{{exam}} ended {{count}} days ago — {{section}} left.",
+      "noDate": "{{section}} left.",
+      "submitted": "Submitted",
+      "action": "Enter marks for {{section}}",
+      "emptyReason": "No mark entry waiting for you.",
+      "compactTitle": "Mark entry, {{section}}"
     },
     "homework-to-check": {
       "title": "Homework to check",
-      "description": "Submitted homework waiting for your check"
+      "description": "Submitted homework waiting for your check",
+      "value": "submissions to check",
+      "sentence_one": "Submissions for {{count}} homework are waiting for you.",
+      "sentence_other": "Submissions for {{count}} homework are waiting for you.",
+      "rowCount": "{{count}}",
+      "action": "See submissions",
+      "emptyReason": "Nothing to check.",
+      "compactTitle": "Homework to check",
+      "compactHint_one": "in {{count}} homework",
+      "compactHint_other": "in {{count}} homework"
     },
     "class-teacher-streaks": {
       "title": "My class streaks",
-      "description": "Students absent several days in a row"
+      "description": "Students absent several days in a row",
+      "subtitle": "Up to {{date}}'s attendance",
+      "value": "absent {{days}} days or more in a row",
+      "sentence": "{{name}} has been absent for {{days}} days — better talk to the guardian today.",
+      "daysBadge": "{{days}} days",
+      "roll": "Roll {{roll}}",
+      "notify": "Tell guardian",
+      "link": "Full attendance of {{section}}",
+      "emptyReason": "Nobody is absent in a row.",
+      "notClassTeacher": "You are not a class teacher this year.",
+      "compactTitle": "Absent in a row, {{section}}"
     },
     "my-leave-balance": {
       "title": "My leave balance",
-      "description": "Leave you have taken and what is left"
+      "description": "Leave you have taken and what is left",
+      "value": "days left",
+      "sentence": "{{used}} of {{quota}} days taken this year.",
+      "used": "Taken {{count}}",
+      "quota": "Total {{count}}",
+      "action": "Apply for leave",
+      "noProfile": "Your leave is not set up yet. Ask the office."
     },
     "my-syllabus-progress": {
       "title": "My syllabus progress",
-      "description": "How far you have taught in each class"
+      "description": "How far you have taught in each class",
+      "value": "covered on average in your subjects",
+      "leastCovered": "{{label}} has covered the least ({{percent}}).",
+      "noPace": "Comparison with the plan comes with study plans.",
+      "colSubject": "Section and subject",
+      "colCovered": "Covered",
+      "emptyReason": "No syllabus topics in your subjects yet.",
+      "link": "Open syllabus",
+      "compactTitle": "My syllabus"
     },
     "collection-today": {
       "title": "Collection today",
-      "description": "Money received today, cash and other"
+      "description": "Money received today, by cash and other methods",
+      "value_one": "{{count}} payment",
+      "value_other": "{{count}} payments",
+      "vsYesterday": "Yesterday at this time: {{amount}}",
+      "vsYesterdayNone": "Yesterday at this time: —",
+      "topGroup": "Most came by {{group}}.",
+      "groupCount_one": "{{count}} payment",
+      "groupCount_other": "{{count}} payments",
+      "group": {
+        "CASH": "Cash",
+        "BKASH": "bKash",
+        "BANK": "Bank",
+        "OTHER_MOBILE": "Other mobile"
+      },
+      "colMethod": "Method",
+      "colAmount": "Amount",
+      "colCount": "Payments",
+      "emptyReason": "No payment yet today.",
+      "link": "Collections report",
+      "compactTitle": "Today's collection",
+      "compactDelta": "{{amount}} vs yesterday"
     },
     "collection-by-month": {
       "title": "Collection by month",
-      "description": "Collection for each month this year"
+      "description": "Collection for each month this year",
+      "value": "this year so far",
+      "vsLastMonthMore": "{{amount}} in the first {{days}} days of {{month}} — {{diff}} more than the same days of {{prevMonth}}.",
+      "vsLastMonthLess": "{{amount}} in the first {{days}} days of {{month}} — {{diff}} less than the same days of {{prevMonth}}.",
+      "legendDone": "Finished month",
+      "legendRunning": "This month, still running",
+      "peak": "{{amount}}, {{month}}",
+      "colMonth": "Month",
+      "colAmount": "Collected",
+      "emptyReason": "Nothing collected this year yet.",
+      "link": "Open collections report"
     },
     "dues-ageing": {
       "title": "Unpaid bills by age",
-      "description": "Unpaid amount by how long it is overdue"
+      "description": "Unpaid amount by how long it is overdue",
+      "value": "total dues",
+      "sentence": "{{amount}} of it is more than two months old — the later, the harder to collect.",
+      "bucket": {
+        "0_30": "0–30 days",
+        "31_60": "31–60 days",
+        "60_PLUS": "60+ days"
+      },
+      "colAge": "Age",
+      "colAmount": "Amount",
+      "colShare": "Share",
+      "emptyReason": "No dues.",
+      "link": "See all dues",
+      "compactTitle": "Total dues"
     },
     "dues-by-class": {
       "title": "Dues by class",
-      "description": "Which classes owe the most"
+      "description": "Which classes owe the most",
+      "value": "in class {{class}}, the highest",
+      "sentence": "{{percent}} of all dues is in class {{class}} alone.",
+      "colClass": "Class",
+      "colAmount": "Dues",
+      "colStudents": "Students",
+      "emptyReason": "No class has dues.",
+      "link": "See class {{class}}'s dues"
     },
     "fee-generation-status": {
       "title": "Fee generation",
-      "description": "Whether this month's bills are made"
+      "description": "Whether this month's bills are made",
+      "generatedOn": "Generated {{date}}",
+      "notGenerated": "Not generated yet",
+      "value_one": "bill created",
+      "value_other": "bills created",
+      "next": "The next one runs on its own on {{date}}.",
+      "noSchedule": "No schedule for next month.",
+      "link": "See bills",
+      "generateAction": "Generate fees"
     },
     "reminders-pending": {
       "title": "Reminders waiting",
-      "description": "Fee reminders ready to send"
+      "description": "Fee reminders ready to send",
+      "value_one": "student",
+      "value_other": "students",
+      "sentence": "Their fees are overdue but no reminder has gone out yet.",
+      "since": "Oldest since {{date}}",
+      "emptyReason": "Everyone overdue has been reminded.",
+      "action": "Send reminders",
+      "compactTitle": "Reminders pending"
     },
     "recent-payments": {
       "title": "Recent payments",
-      "description": "The latest payments received"
+      "description": "The latest payments received",
+      "value_one": "in the last {{count}} payment",
+      "value_other": "in the last {{count}} payments",
+      "sentence": "Latest came {{ago}}, by {{method}}.",
+      "colStudent": "Student",
+      "colClass": "Class",
+      "colAmount": "Amount",
+      "colMethod": "Method",
+      "colTime": "Time",
+      "unknownStudent": "Removed student",
+      "emptyReason": "No payments yet.",
+      "link": "All payments",
+      "notCounted": "{{status}}, not in the total"
     },
     "committee-enrollment": {
       "title": "Enrolment",
@@ -295,6 +457,15 @@
       "updatedMinutes_other": "Updated {{count}} minutes ago",
       "colDate": "Date",
       "colClass": "Class"
+    },
+    "paymentMethod": {
+      "CASH": "Cash",
+      "CHEQUE": "Cheque",
+      "BANK_TRANSFER": "Bank transfer",
+      "CARD": "Card",
+      "BKASH": "bKash",
+      "NAGAD": "Nagad",
+      "ROCKET": "Rocket"
     }
   }
 }
