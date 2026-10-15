@@ -10,8 +10,14 @@ import {
   AttendanceSessionState,
   AttendanceStatus,
   DashboardWidgetKey,
+  EnrollmentStatus,
+  TeacherAssignmentType,
+  TeacherDesignation,
   UserRole,
 } from '@biddaloy/shared';
+import { Teacher } from '../academics/entities/teacher.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
+import { AttendanceSummaryService } from './attendance-summary.service';
 import { AttendanceModule } from './attendance.module';
 import { AuthModule } from '../auth/auth.module';
 import { AttendanceDashboardService } from './attendance-dashboard.service';
@@ -38,6 +44,7 @@ import { enrollStudent } from '@test/helpers/enrollment.helper';
 describe('AttendanceDashboardService (integration)', () => {
   let service: AttendanceDashboardService;
   let attendance: AttendanceService;
+  let summary: AttendanceSummaryService;
   let dataSource: DataSource;
   let redis: Redis;
 
@@ -115,9 +122,13 @@ describe('AttendanceDashboardService (integration)', () => {
   const widget = () => service.getToday(TENANT_ID, UserRole.ADMIN, SEED_ADMIN_USER_ID);
 
   async function clearCaches() {
-    const keys = await redis.keys(
-      `tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.ATTENDANCE_TODAY}:*`,
-    );
+    const keys = [
+      ...(await redis.keys(`tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.ATTENDANCE_TODAY}:*`)),
+      ...(await redis.keys(`tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.MY_PENDING_SECTIONS}:*`)),
+      ...(await redis.keys(
+        `tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.CLASS_TEACHER_STREAKS}:*`,
+      )),
+    ];
     if (keys.length) await redis.del(...keys);
   }
 
@@ -129,6 +140,7 @@ describe('AttendanceDashboardService (integration)', () => {
     );
     service = module.get(AttendanceDashboardService);
     attendance = module.get(AttendanceService);
+    summary = module.get(AttendanceSummaryService);
     dataSource = module.get<DataSource>(getDataSourceToken());
     redis = module.get(TENANT_STATUS_REDIS);
 
@@ -327,5 +339,231 @@ describe('AttendanceDashboardService (integration)', () => {
     expect((await widget()).counts).toEqual(before);
     const series = await service.computeSeries(TENANT_ID, date);
     expect(series.at(-1)!.percentage).toBeNull();
+  });
+
+  // [8.10.7.3.02] Teacher widgets: my-pending-sections and class-teacher-streaks.
+  describe('teacher widgets', () => {
+    const tag = Date.now().toString(36);
+    let teacherUserId: string;
+    let lonelyUserId: string;
+    let secDone: { id: string; classId: string };
+    let secDraft: { id: string; classId: string };
+    let secNone: { id: string; classId: string };
+    let secPast: { id: string; classId: string };
+
+    // The per-test DB reset empties teachers / assignments / students, so those are seeded in
+    // beforeEach; users and sections survive and are made once in beforeAll.
+    const makeUser = async (name: string) => {
+      const [user] = await dataSource.query(
+        `INSERT INTO users (email, password_hash, full_name, status, created_at, updated_at)
+         VALUES ($1, 'x', $2, 'ACTIVE', NOW(), NOW()) RETURNING id`,
+        [`dash-t-${name}-${tag}@e2e.example`, `Dash T ${name}`],
+      );
+      return user.id as string;
+    };
+    const makeTeacher = async (userId: string, name: string) =>
+      (
+        await dataSource.getRepository(Teacher).save({
+          user_id: userId,
+          employee_id: `EMP-DT-${name}-${tag}`,
+          tenant_id: TENANT_ID,
+          designations: [TeacherDesignation.SUBJECT_TEACHER],
+        })
+      ).id;
+    const assign = (teacherId: string, sectionId: string, type: TeacherAssignmentType) =>
+      dataSource.query(
+        `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id, assignment_type)
+         VALUES ($1, $2, $3, $4)`,
+        [teacherId, sectionId, TENANT_ID, type],
+      );
+    const addStudent = async (sectionId: string, label: string, tenantId = TENANT_ID) => {
+      n += 1;
+      const student = await dataSource.getRepository(Student).save({
+        full_name: `Dash Student ${label}`,
+        registration_number: `DASH-T-${n}-${Date.now()}`,
+        roll_number: n,
+        class_section_id: sectionId,
+        tenant_id: tenantId,
+      });
+      await enrollStudent(dataSource, student);
+      return student;
+    };
+    const register = async (
+      sectionId: string,
+      date: string,
+      state: AttendanceSessionState,
+      marks: Array<[string, AttendanceStatus]> = [],
+      tenantId = TENANT_ID,
+    ) => {
+      const session = await dataSource.getRepository(AttendanceSession).save({
+        tenant_id: tenantId,
+        section_id: sectionId,
+        date,
+        period_no: null,
+        state,
+      });
+      for (const [student_id, status] of marks) {
+        await dataSource
+          .getRepository(AttendanceRecord)
+          .save({ tenant_id: tenantId, session_id: session.id, student_id, date, status });
+      }
+    };
+    const pending = (userId = teacherUserId) =>
+      service.myPendingSections(TENANT_ID, UserRole.TEACHER, userId);
+    const streaks = (userId = teacherUserId, tenantId = TENANT_ID) =>
+      service.classTeacherStreaks(tenantId, userId);
+
+    beforeAll(async () => {
+      teacherUserId = await makeUser('main');
+      lonelyUserId = await makeUser('lonely');
+      secDone = await makeSection(TENANT_ID, yearId, 'DashTDone');
+      secDraft = await makeSection(TENANT_ID, yearId, 'DashTDraft');
+      secNone = await makeSection(TENANT_ID, yearId, 'DashTNone');
+      const [py] = await dataSource.query(
+        `INSERT INTO academic_years (name, start_date, end_date, is_current, tenant_id, created_at, updated_at)
+         VALUES ($1, '2018-01-01', '2018-12-31', false, $2, NOW(), NOW()) RETURNING id`,
+        [`Dash Past ${tag}`, TENANT_ID],
+      );
+      secPast = await makeSection(TENANT_ID, py.id, 'DashTPast');
+    }, 60000);
+
+    beforeEach(async () => {
+      await setSettings(TENANT_ID);
+      await clearCaches();
+      const teacherId = await makeTeacher(teacherUserId, 'main');
+      await assign(teacherId, secDone.id, TeacherAssignmentType.CLASS_TEACHER);
+      await assign(teacherId, secDraft.id, TeacherAssignmentType.ASSISTANT_CLASS_TEACHER);
+      await assign(teacherId, secNone.id, TeacherAssignmentType.ASSISTANT_CLASS_TEACHER);
+      await assign(teacherId, secPast.id, TeacherAssignmentType.CLASS_TEACHER);
+      await makeTeacher(lonelyUserId, 'lonely'); // a teacher with no assignment
+    });
+
+    it('pending: counts sections without a finalised register, not-taken first', async () => {
+      const date = await today();
+      const a = await addStudent(secDone.id, 'td1');
+      await addStudent(secDraft.id, 'td2');
+      await addStudent(secDraft.id, 'td3');
+      await addStudent(secNone.id, 'td4');
+      await register(secDone.id, date, AttendanceSessionState.FINALIZED, [[a.id, P]]);
+      await register(secDraft.id, date, AttendanceSessionState.DRAFT);
+      await clearCaches();
+      const w = await pending();
+      expect(w.date).toBe(date);
+      expect(w.pending_count).toBe(2);
+      expect(w.sections.map((s) => [s.section_id, s.taken])).toEqual([
+        [secDraft.id, false],
+        [secNone.id, false],
+        [secDone.id, true],
+      ]);
+      expect(w.sections.find((s) => s.section_id === secNone.id)!.unmarked).toBe(1);
+      expect(w.sections.find((s) => s.section_id === secDraft.id)!.unmarked).toBe(2);
+    });
+
+    it('a previous-year section the teacher still maps to is not listed (#1806)', async () => {
+      const w = await pending();
+      expect(w.sections.map((s) => s.section_id)).not.toContain(secPast.id);
+    });
+
+    it('a withdrawn student is not counted (#1805)', async () => {
+      await addStudent(secNone.id, 'tw1');
+      const left = await addStudent(secNone.id, 'tw2');
+      await dataSource
+        .getRepository(Enrollment)
+        .update({ student_id: left.id }, { enrollment_status: EnrollmentStatus.INACTIVE });
+      const w = await pending();
+      const row = w.sections.find((s) => s.section_id === secNone.id)!;
+      expect(row.student_count).toBe(1);
+      expect(row.unmarked).toBe(1);
+    });
+
+    it('reconciles with listMySections for the same caller', async () => {
+      const date = await today();
+      await addStudent(secDraft.id, 'tr1');
+      await clearCaches();
+      const w = await pending();
+      const rows = await attendance.listMySections({
+        role: UserRole.TEACHER,
+        userId: teacherUserId,
+        tenantId: TENANT_ID,
+        date,
+      });
+      expect(w.sections.map((s) => s.section_id).sort()).toEqual(
+        rows.map((r) => r.section_id).sort(),
+      );
+      for (const r of rows) {
+        expect(w.sections.find((s) => s.section_id === r.section_id)!.unmarked).toBe(
+          r.today?.unmarked ?? r.student_count,
+        );
+      }
+    });
+
+    it('Dhaka midnight: date rolls to the 8th and a register of the 7th is not taken', async () => {
+      const s = await addStudent(secNone.id, 'tm1');
+      await register(secNone.id, '2026-10-07', AttendanceSessionState.FINALIZED, [[s.id, P]]);
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-07T18:30:00Z'));
+      const w = await pending();
+      expect(w.date).toBe('2026-10-08');
+      expect(w.sections.find((x) => x.section_id === secNone.id)!.taken).toBe(false);
+    });
+
+    it('is cached per user, not shared between callers', async () => {
+      await pending();
+      const other = await pending(lonelyUserId);
+      expect(other.sections).toEqual([]);
+      expect(other.pending_count).toBe(0);
+    });
+
+    it('streaks: absent 4 and 3 days listed longest first; a LATE run is not', async () => {
+      const date = await today();
+      const x = await addStudent(secDone.id, 'ts1');
+      const y = await addStudent(secDone.id, 'ts2');
+      const z = await addStudent(secDone.id, 'ts3');
+      for (const i of [0, 1, 2, 3]) {
+        await register(secDone.id, isoOffset(date, -i), AttendanceSessionState.FINALIZED, [
+          [x.id, A],
+          [y.id, i === 3 ? P : A],
+          [z.id, i === 3 ? P : L],
+        ]);
+      }
+      await clearCaches();
+      const w = await streaks();
+      expect(w.section!.section_id).toBe(secDone.id);
+      expect(w.total).toBe(2);
+      expect(w.items.map((i) => [i.student_id, i.length])).toEqual([
+        [x.id, 4],
+        [y.id, 3],
+      ]);
+      const raw = await summary.getSectionStreaks({ tenantId: TENANT_ID, sectionId: secDone.id });
+      expect(w.items.map((i) => i.student_id)).toEqual(
+        raw.items.filter((i) => i.status === AttendanceStatus.ABSENT).map((i) => i.student_id),
+      );
+    });
+
+    it('streaks: a teacher with no homeroom gets an empty widget', async () => {
+      expect(await streaks(lonelyUserId)).toEqual({
+        section: null,
+        as_of_date: null,
+        total: 0,
+        items: [],
+      });
+    });
+
+    it("tenant isolation: another tenant's sections and students never appear", async () => {
+      const date = await today();
+      const s = await addStudent(otherSectionId, 'tx1', OTHER_TENANT);
+      await register(
+        otherSectionId,
+        date,
+        AttendanceSessionState.FINALIZED,
+        [[s.id, A]],
+        OTHER_TENANT,
+      );
+      await clearCaches();
+      const w = await pending();
+      expect(w.sections.map((x) => x.section_id)).not.toContain(otherSectionId);
+      expect((await streaks()).items.map((i) => i.student_id)).not.toContain(s.id);
+      expect((await streaks(teacherUserId, OTHER_TENANT)).section).toBeNull();
+    });
   });
 });

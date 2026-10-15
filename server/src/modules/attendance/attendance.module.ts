@@ -20,6 +20,7 @@ import { AuditModule } from '../audit/audit.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { CalendarModule } from '../calendar/calendar.module';
 import { RoutinesModule } from '../routines/routines.module';
+import { ClassModule } from '../classes/classes.module';
 import { PeriodSlot } from '../routines/entities/period-slot.entity';
 import { StudentModule } from '../students/students.module';
 import { CreditsModule } from '../communications/credits/credits.module';
@@ -88,6 +89,7 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     StudentModule,
     CreditsModule,
     RoutinesModule,
+    ClassModule, // TeacherScopeService for the class-teacher streaks widget
     DashboardModule,
     // Registered here (not exported from CommunicationsModule) so
     // AbsenceNoticeService can enqueue onto the exact same Redis-backed
