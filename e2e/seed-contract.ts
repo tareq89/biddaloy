@@ -111,6 +111,9 @@ export const SEED_DASHBOARD_EXAM_NAME = 'Half-yearly';
 export const SEED_DASHBOARD_GROUP_C = {
   upcomingExam: 'Dashboard demo: upcoming',
   familyHomework: 'Dashboard demo: family homework',
+  /** [8.10.7.5.99] The same family's homework due today, and the HOLIDAY 20 days ahead. */
+  familyHomeworkToday: 'Dashboard demo: family homework (today)',
+  holiday: 'Dashboard demo: school holiday',
 } as const;
 
 /** [13.1.4] A school mid-trial (23 days left, 4 of 10 seats used) that has not
