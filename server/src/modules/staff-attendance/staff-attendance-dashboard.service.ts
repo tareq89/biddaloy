@@ -56,10 +56,17 @@ export class StaffAttendanceDashboardService {
           ORDER BY u.full_name, l.staff_profile_id`,
         [tenantId, LeaveStatus.APPROVED, date],
       )
-    ).map((r) => r as unknown as StaffOnLeaveDto);
+    )
+      .map((r) => r as unknown as StaffOnLeaveDto)
+      // Overlapping approved leaves list a person once.
+      .filter((l, i, all) => all.findIndex((x) => x.staff_profile_id === l.staff_profile_id) === i);
 
     const onLeaveIds = new Set(on_leave.map((l) => l.staff_profile_id));
+    const markedIds = new Set(marks.map((m) => m.staff_id));
     const count = (s: AttendanceStatus) => marks.filter((m) => m.status === s).length;
+    // One bucket per person so the buckets add up to staff_total: a mark wins; an unmarked
+    // person on approved leave counts as leave, not unmarked.
+    const leaveUnmarked = [...onLeaveIds].filter((id) => !markedIds.has(id)).length;
 
     return {
       date,
@@ -67,8 +74,8 @@ export class StaffAttendanceDashboardService {
       present: count(AttendanceStatus.PRESENT),
       late: count(AttendanceStatus.LATE),
       absent: count(AttendanceStatus.ABSENT),
-      leave: on_leave.length,
-      unmarked: Number(total) - marks.length,
+      leave: count(AttendanceStatus.LEAVE) + leaveUnmarked,
+      unmarked: Number(total) - marks.length - leaveUnmarked,
       absent_without_leave: marks.filter(
         (m) => m.status === AttendanceStatus.ABSENT && !onLeaveIds.has(m.staff_id),
       ).length,
