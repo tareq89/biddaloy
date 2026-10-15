@@ -23,7 +23,8 @@ describe('seedLoadSchool (integration, 100 students)', () => {
   // would (correctly) refuse - so the whole story runs as one test on one seeded school.
   it('seeds one school with the expected volume, then refuses to run again', async () => {
     const otherStudentsBefore = await count(`SELECT count(*)::int c FROM students`);
-    const r = await seedLoadSchool(ds, { students: 100, password: 'load-test-pass1' });
+    const today = '2026-06-15'; // fixed, so the seed and the last-year query agree on the month
+    const r = await seedLoadSchool(ds, { students: 100, password: 'load-test-pass1', today });
     if (r.status !== 'seeded') throw new Error('expected a first run to seed');
     const tenantId = r.tenantId;
     // --- creates the tenant with 100 students and one login per role
@@ -128,8 +129,8 @@ describe('seedLoadSchool (integration, 100 students)', () => {
         await count(
           `SELECT count(*)::int c FROM student_fees sf JOIN students s ON s.id = sf.student_id
             WHERE s.tenant_id = $1
-              AND sf.period_start = (date_trunc('month', now()) - interval '1 year')::date`,
-          [tenantId],
+              AND sf.period_start = (date_trunc('month', $2::date) - interval '1 year')::date`,
+          [tenantId, today],
         ),
       ).toBeGreaterThanOrEqual(100);
     }

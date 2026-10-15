@@ -127,7 +127,7 @@ async function main(): Promise<void> {
   const sessions = new Map<string, Session>();
   for (const role of Object.keys(MIX)) sessions.set(role, await login(role));
 
-  // Probe once: a 404 means the widget has no route yet (skipped, not a failure).
+  // Probe once: a 404 means a registered widget route is missing, which fails the run.
   const skipped: string[] = [];
   for (const s of sessions.values()) {
     for (const path of await endpointsFor(s)) {
@@ -190,9 +190,11 @@ async function main(): Promise<void> {
   }
 
   console.log(formatTable(rows));
-  if (skipped.length) console.log(`\nSkipped (404, no route yet): ${skipped.join(', ')}`);
-  const failed = rows.filter((r) => !passes(r)).length;
-  console.log(`\n${failed} of ${rows.length} checks FAILED (p95 >= 300 ms or errors).`);
+  if (skipped.length) console.log(`\nMissing routes (404, counted as failures): ${skipped.join(', ')}`);
+  const failed = rows.filter((r) => !passes(r)).length + skipped.length;
+  console.log(
+    `\n${failed} of ${rows.length + skipped.length} checks FAILED (p95 >= 300 ms, errors or a 404).`,
+  );
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   writeFileSync(`load-results-${stamp}.json`, JSON.stringify({ rows, skipped }, null, 2));
@@ -205,9 +207,9 @@ async function main(): Promise<void> {
       '',
       formatMarkdownTable(rows),
       '',
-      skipped.length ? `Skipped (404): ${skipped.join(', ')}` : 'Skipped: none',
+      skipped.length ? `Missing routes (404, failures): ${skipped.join(', ')}` : 'Missing routes: none',
       '',
-      `${failed} of ${rows.length} checks FAILED.`,
+      `${failed} of ${rows.length + skipped.length} checks FAILED.`,
     ].join('\n'),
   );
   console.log(`Wrote load-results-${stamp}.json and .md`);

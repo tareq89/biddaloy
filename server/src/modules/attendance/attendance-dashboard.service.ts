@@ -17,11 +17,10 @@ import {
   computeAttendancePercentage,
 } from './attendance-summary.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
-import { localToday, resolveAttendancePolicy } from './attendance-policy.util';
+import { resolveAttendancePolicy } from './attendance-policy.util';
 import { DashboardCacheService } from '../dashboard/dashboard-cache.service';
 import { SchoolsService } from '../schools/schools.service';
 import { TENANT_STATUS_REDIS } from '../schools/tenant-status.service';
-import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import type {
   CommitteeAttendanceDto,
   CommitteeAttendanceMonthDto,
@@ -313,7 +312,7 @@ export class AttendanceDashboardService {
   }
 
   committeeDailyKey(tenantId: string, yearId: string, to: string): string {
-    return `tenant:${tenantId}:dash:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:daily:${yearId}:${to}`;
+    return `tenant:${tenantId}:dash:v1:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:daily:${yearId}:${to}`;
   }
 
   /** One grouped query: the finalized whole-day tally of every date in [from, to] of that year. */
@@ -400,7 +399,8 @@ export class AttendanceDashboardService {
         const settings = await this.schoolsService.getResolvedSettings(tenantId);
         const policy = resolveAttendancePolicy(settings);
         const target = settings.dashboard?.committeeAttendanceTargetPct ?? 90;
-        const today = localToday(settings.region?.timezone ?? DEFAULT_REGION_SETTINGS.timezone);
+        // Same "today" source as the nightly job, so both build the same daily cache key.
+        const today = await this.schoolsService.todayFor(tenantId);
         const year = await this.currentYear(tenantId);
         if (!year) {
           return {

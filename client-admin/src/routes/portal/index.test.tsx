@@ -707,7 +707,9 @@ describe('/portal', () => {
 
       await screen.findByRole('heading', { level: 2, name: "This month's attendance" });
       expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-      expect(screen.getAllByRole('heading', { level: 2, name: 'Latest result' }).length).toBe(2);
+      await waitFor(() =>
+        expect(screen.getAllByRole('heading', { level: 2, name: 'Latest result' }).length).toBe(2),
+      );
     });
 
     it('picking the second child in the heatmap card switches the latest-result card', async () => {

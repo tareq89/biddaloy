@@ -491,7 +491,7 @@ test.describe('dashboard reconciliation: accountant', () => {
         : `${w.year}-${String(m.month).padStart(2, '0')}-${lastDayOf(w.year, m.month)}`;
       const report = await getJson<CollectionsReport>(request, 'accountant', reportUrl(from, to));
       expectSame(`month ${m.month}`, m.net, url, report.totals.net, reportUrl(from, to));
-      ytd += report.totals.net;
+      ytd += round2(report.totals.net); // the server sums rounded months
     }
     expectSame(
       'year_to_date_net',

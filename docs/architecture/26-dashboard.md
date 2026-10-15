@@ -46,8 +46,8 @@ Key ideas:
 `server/src/modules/dashboard/dashboard-cache.service.ts`. Keys look like this:
 
 ```
-tenant:7c1e…:dash:collection-month:school
-tenant:7c1e…:dash:my-mark-deadlines:user:3f9a…
+tenant:7c1e…:dash:v1:collection-month:school
+tenant:7c1e…:dash:v1:my-mark-deadlines:user:3f9a…
 ```
 
 | Scope | Used when | Example widgets |

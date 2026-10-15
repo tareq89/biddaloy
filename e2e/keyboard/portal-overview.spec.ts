@@ -31,13 +31,18 @@ test('portal overview: skip link, Tab walk, child picker, homework link', async 
 
   await test.step('Tab through the strip and the cards: every stop is a visible control, no trap', async () => {
     const main = page.locator('#main-content');
-    const seen = new Set<string>();
+    const seen = new Set<number>();
     for (let i = 0; i < 12; i += 1) {
       await page.keyboard.press('Tab');
       await expectFocusRing(page);
       const inMain = await main.evaluate((m) => m.contains(document.activeElement));
       if (!inMain) break; // walked past the content into the bottom bar: no trap
-      seen.add(await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 80) ?? ''));
+      // Position in the document, so two cards with identical markup still count as two stops.
+      const stop = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('*')).indexOf(document.activeElement!),
+      );
+      expect(seen.has(stop), `Tab press ${i + 1} landed on a control already visited`).toBe(false);
+      seen.add(stop);
     }
     // Every Tab press moved on to a new control.
     expect(seen.size).toBeGreaterThan(2);
