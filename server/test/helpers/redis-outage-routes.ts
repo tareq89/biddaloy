@@ -88,6 +88,8 @@ export const FAIL_OPEN = [
   'POST /users/me/leave',
   'GET /users/me/preferences/notifications',
   'PATCH /users/me/preferences/notifications',
+  'PATCH /users/me/preferences/digest',
+  'PATCH /users/me/preferences/dashboard',
   'GET /teachers',
   'POST /teachers',
   'PATCH /teachers/:id',

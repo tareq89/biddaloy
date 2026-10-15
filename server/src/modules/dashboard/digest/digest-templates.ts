@@ -16,7 +16,9 @@ export function renderDigest(
     locale === 'bn'
       ? `আজ ${toBanglaDigits(String(count))}টা বিষয় আপনার নজর চাইছে।`
       : `${count} ${count === 1 ? 'thing needs' : 'things need'} you today.`;
-  const top = summary.top && !summary.top.studentName ? summary.top.title : null;
+  // MANUAL alerts carry free text that can name a student, so they are left out too.
+  const t = summary.top;
+  const top = t && !t.studentName && t.source !== 'MANUAL' ? t.title : null;
   const urgent = top ? ` ${locale === 'bn' ? 'সবচেয়ে জরুরি' : 'Most urgent'}: ${top}` : '';
   return { title: schoolName, body: headline + urgent };
 }
