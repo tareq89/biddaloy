@@ -27,6 +27,7 @@ import { School } from '../schools/entities/school.entity';
 import { ProgramEnrollment } from '../programs/entities/program-enrollment.entity';
 import { ProgramMilestone } from '../programs/entities/program-milestone.entity';
 import { MilestoneAchievement } from '../programs/entities/milestone-achievement.entity';
+import { DashboardModule } from '../dashboard/dashboard.module';
 import { AuditModule } from '../audit/audit.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { ClassModule } from '../classes/classes.module';
@@ -58,6 +59,8 @@ import { ResultSmsService } from './result-sms.service';
 import { FamilyAccessService } from '../students/family-access.service';
 import { ExamSchedulesService } from './exam-schedules.service';
 import { ExamResultRecomputer } from './result-recomputer.service';
+import { ExamsDashboardController } from './exams-dashboard.controller';
+import { ExamsDashboardService } from './exams-dashboard.service';
 import {
   ExamSchedulesController,
   StudentExamScheduleController,
@@ -103,6 +106,7 @@ import {
       MilestoneAchievement,
     ]),
     AuditModule,
+    DashboardModule,
     AttendanceModule,
     // `TeacherScopeService` for `MarksAuthorizationService` (47.2.3).
     // ClassModule imports no exams code, so there is no cycle.
@@ -129,6 +133,7 @@ import {
     AnalysisController,
     ExamSchedulesController,
     StudentExamScheduleController,
+    ExamsDashboardController,
   ],
   providers: [
     ExamsService,
@@ -146,10 +151,17 @@ import {
     FamilyAccessService,
     ExamSchedulesService,
     ExamResultRecomputer,
+    ExamsDashboardService,
   ],
   // `ExamResultRecomputer` is bound to the grading module's `RESULT_RECOMPUTER`
   // token there (a scale edit recomputes PROCESSED exams). No import cycle:
   // this module does not import `GradingModule`.
-  exports: [TypeOrmModule, AnalysisService, ExamTemplatesService, ExamResultRecomputer],
+  exports: [
+    TypeOrmModule,
+    AnalysisService,
+    ExamTemplatesService,
+    ExamResultRecomputer,
+    ExamsDashboardService,
+  ],
 })
 export class ExamsModule {}
