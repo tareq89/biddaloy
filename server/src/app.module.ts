@@ -42,6 +42,7 @@ import { RestoreModule } from './modules/workbook/restore/restore.module';
 import { ImportModule } from './modules/workbook/import/import.module';
 import { TemplateModule } from './modules/workbook/template/template.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { DashboardInsightsModule } from './modules/dashboard/insights/dashboard-insights.module';
 import { StaffHrModule } from './modules/staff-hr/staff-hr.module';
 import { SearchModule } from './modules/search/search.module';
 import { GradingModule } from './modules/grading/grading.module';
@@ -456,6 +457,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     RestoreModule,
     TemplateModule,
     ReportsModule,
+    DashboardInsightsModule,
     SearchModule,
     GradingModule,
     ExamsModule,

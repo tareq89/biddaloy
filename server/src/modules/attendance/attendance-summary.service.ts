@@ -9,7 +9,12 @@ import { In, IsNull, LessThanOrEqual, Repository } from 'typeorm';
 import { AttendancePolicySettings, AttendanceStatus, EnrollmentStatus } from '@biddaloy/shared';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { AttendanceSession } from './entities/attendance-session.entity';
-import { currentStreaks, MAX_STREAK_SESSIONS, StreakStatus } from './attendance-streaks.util';
+import {
+  currentStreaks,
+  MAX_STREAK_SESSIONS,
+  STREAK_THRESHOLDS,
+  StreakStatus,
+} from './attendance-streaks.util';
 import { Student } from '../students/entities/student.entity';
 import { sectionRosterStudentIds } from '../enrollments/section-roster';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -742,7 +747,12 @@ export class AttendanceSummaryService {
    * student leave writes that day's register early (`markLeaveRange`), holding
    * one student's mark, and as the "newest" session it would end every other run.
    */
-  async getSectionStreaks(input: { tenantId: string; sectionId: string }): Promise<{
+  async getSectionStreaks(input: {
+    tenantId: string;
+    sectionId: string;
+    /** Overrides the ABSENT run threshold (the school's at-risk setting). */
+    absentThreshold?: number;
+  }): Promise<{
     items: Array<{
       student_id: string;
       student_name: string;
@@ -753,7 +763,7 @@ export class AttendanceSummaryService {
     }>;
     as_of_date: string | null;
   }> {
-    const { tenantId, sectionId } = input;
+    const { tenantId, sectionId, absentThreshold } = input;
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const today = localToday(settings.region?.timezone ?? 'UTC');
     // Whole-day registers only (period_no IS NULL), up to today, newest first.
@@ -765,7 +775,7 @@ export class AttendanceSummaryService {
         date: LessThanOrEqual(today),
       },
       order: { date: 'DESC' },
-      take: MAX_STREAK_SESSIONS,
+      take: Math.max(MAX_STREAK_SESSIONS, absentThreshold ?? 0),
       select: { id: true, date: true },
     });
     if (sessions.length === 0) return { items: [], as_of_date: null };
@@ -794,7 +804,14 @@ export class AttendanceSummaryService {
       [AttendanceStatus.LATE]: 1,
       [AttendanceStatus.PRESENT]: 2,
     };
-    const items = currentStreaks(sessions, [...byId.keys()], statusBySession)
+    const items = currentStreaks(
+      sessions,
+      [...byId.keys()],
+      statusBySession,
+      absentThreshold === undefined
+        ? undefined
+        : { ...STREAK_THRESHOLDS, [AttendanceStatus.ABSENT]: absentThreshold },
+    )
       .map((s) => ({
         ...s,
         student_name: byId.get(s.student_id)!.full_name,
