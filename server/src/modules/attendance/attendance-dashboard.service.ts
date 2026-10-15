@@ -6,6 +6,8 @@ import {
   AttendanceSessionState,
   AttendanceStatus,
   DashboardWidgetKey,
+  EnrollmentStatus,
+  StudentLifecycleEventType,
   TeacherAssignmentType,
 } from '@biddaloy/shared';
 import { AttendanceRecord } from './entities/attendance-record.entity';
@@ -15,10 +17,15 @@ import {
   computeAttendancePercentage,
 } from './attendance-summary.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
-import { resolveAttendancePolicy } from './attendance-policy.util';
+import { localToday, resolveAttendancePolicy } from './attendance-policy.util';
 import { DashboardCacheService } from '../dashboard/dashboard-cache.service';
 import { SchoolsService } from '../schools/schools.service';
 import { TENANT_STATUS_REDIS } from '../schools/tenant-status.service';
+import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
+import type {
+  CommitteeAttendanceDto,
+  CommitteeAttendanceMonthDto,
+} from './dto/committee-attendance.dto';
 import type {
   AttendanceSeriesPointDto,
   AttendanceTodayWidgetDto,
@@ -220,14 +227,10 @@ export class AttendanceDashboardService {
   async computeSeries(tenantId: string, to: string): Promise<AttendanceSeriesPointDto[]> {
     const from = addDays(to, -(ATTENDANCE_SERIES_DAYS - 1));
     const policy = resolveAttendancePolicy(await this.schoolsService.getResolvedSettings(tenantId));
-    const rows = await this.recordRepo
-      .createQueryBuilder('r')
-      .innerJoin('attendance_sessions', 's', 's.id = r.session_id AND s.tenant_id = r.tenant_id')
+    const rows = await this.dayRecords(tenantId)
       .select('r.date::text', 'date')
       .addSelect('r.status', 'status')
       .addSelect('COUNT(*)', 'count')
-      .where('r.tenant_id = :tenantId', { tenantId })
-      .andWhere('s.period_no IS NULL')
       .andWhere('r.date BETWEEN :from AND :to', { from, to })
       .groupBy('r.date')
       .addGroupBy('r.status')
@@ -246,4 +249,113 @@ export class AttendanceDashboardService {
       return { date, percentage: c ? percentageOf(c, policy) : null };
     });
   }
+
+  /**
+   * The one FROM / JOIN / WHERE behind every attendance percentage on a dashboard:
+   * whole-day registers that are FINALIZED (a draft is not a result), for students on the
+   * roll that day (same rule as `sectionRosterStudentIds({ onRollOn })`: ACTIVE, or the
+   * last leaving event is after the record's date). `yearId` limits it to that academic
+   * year's sections, so last year's registers never leak into this year's numbers.
+   */
+  private dayRecords(tenantId: string, yearId?: string) {
+    const qb = this.recordRepo
+      .createQueryBuilder('r')
+      .innerJoin('attendance_sessions', 's', 's.id = r.session_id AND s.tenant_id = r.tenant_id')
+      .where('r.tenant_id = :tenantId', { tenantId })
+      .andWhere('s.period_no IS NULL')
+      .andWhere('s.state = :finalized', { finalized: AttendanceSessionState.FINALIZED })
+      .andWhere(
+        `EXISTS (
+          SELECT 1 FROM enrollments e
+          JOIN students st ON st.id = e.student_id AND st.tenant_id = e.tenant_id AND st.deleted_at IS NULL
+          WHERE e.tenant_id = r.tenant_id AND e.student_id = r.student_id AND e.section_id = s.section_id
+            AND (e.enrollment_status = :onRollActive OR (
+              SELECT MAX(le.occurred_on) FROM student_lifecycle_events le
+              WHERE le.tenant_id = e.tenant_id AND le.student_id = e.student_id
+                AND le.enrollment_id = e.id AND le.event_type <> :onRollReadmitted
+            ) > r.date))`,
+        {
+          onRollActive: EnrollmentStatus.ACTIVE,
+          onRollReadmitted: StudentLifecycleEventType.READMITTED,
+        },
+      );
+    if (yearId) {
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM class_sections cs JOIN classes c ON c.id = cs.class_id
+          WHERE cs.id = s.section_id AND c.academic_year_id = :yearId)`,
+        { yearId },
+      );
+    }
+    return qb;
+  }
+
+  /**
+   * Committee card: school-wide attendance % for each month of the current academic year,
+   * up to this month. ONE grouped query, folded per month with the same percentage function.
+   * ponytail: if the wave-6 load run shows p95 >= 300 ms, move finished months into the
+   * nightly attendance-series.scheduler and keep only the current month live.
+   */
+  getCommitteeMonthly(tenantId: string): Promise<CommitteeAttendanceDto> {
+    return this.cache.getOrLoad(
+      tenantId,
+      DashboardWidgetKey.COMMITTEE_ATTENDANCE,
+      'school',
+      async () => {
+        const settings = await this.schoolsService.getResolvedSettings(tenantId);
+        const policy = resolveAttendancePolicy(settings);
+        const target = settings.dashboard?.committeeAttendanceTargetPct ?? 90;
+        const today = localToday(settings.region?.timezone ?? DEFAULT_REGION_SETTINGS.timezone);
+        const [year] = await this.recordRepo.manager.query<{ id: string; start: string }[]>(
+          `SELECT id, start_date::text AS start FROM academic_years
+         WHERE tenant_id = $1 AND is_current = true AND deleted_at IS NULL LIMIT 1`,
+          [tenantId],
+        );
+        if (!year) {
+          return {
+            months: [],
+            current_month_percentage: null,
+            year_percentage: null,
+            target_percentage: target,
+          };
+        }
+        const rows = await this.dayRecords(tenantId, year.id)
+          .select("to_char(r.date, 'YYYY-MM')", 'month')
+          .addSelect('r.status', 'status')
+          .addSelect('COUNT(*)', 'count')
+          .andWhere('r.date BETWEEN :from AND :to', { from: year.start, to: today })
+          .groupBy("to_char(r.date, 'YYYY-MM')")
+          .addGroupBy('r.status')
+          .getRawMany<{ month: string; status: string; count: string }>();
+
+        const byMonth = new Map<string, Tally>();
+        const whole: Tally = { present: 0, late: 0, absent: 0, leave: 0 };
+        for (const row of rows) {
+          const c = byMonth.get(row.month) ?? { present: 0, late: 0, absent: 0, leave: 0 };
+          const status = row.status.toLowerCase() as keyof Tally;
+          if (status in c) {
+            c[status] += Number(row.count);
+            whole[status] += Number(row.count);
+          }
+          byMonth.set(row.month, c);
+        }
+        const months: CommitteeAttendanceMonthDto[] = [];
+        for (let m = year.start.slice(0, 7); m <= today.slice(0, 7); m = nextMonth(m)) {
+          const c = byMonth.get(m);
+          months.push({ month: m, percentage: c ? percentageOf(c, policy) : null });
+        }
+        return {
+          months,
+          current_month_percentage: months[months.length - 1]?.percentage ?? null,
+          year_percentage: percentageOf(whole, policy),
+          target_percentage: target,
+        };
+      },
+    );
+  }
+}
+
+function nextMonth(m: string): string {
+  const d = new Date(`${m}-01T00:00:00.000Z`);
+  d.setUTCMonth(d.getUTCMonth() + 1);
+  return d.toISOString().slice(0, 7);
 }
