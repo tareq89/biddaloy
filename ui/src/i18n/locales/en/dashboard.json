@@ -47,15 +47,56 @@
   "widgets": {
     "attendance-today": {
       "title": "Student attendance today",
-      "description": "Share present today and sections left"
+      "description": "Share present today and sections left",
+      "compactTitle": "Today's attendance",
+      "vsWeekUp": "{{diff}} higher than last week.",
+      "vsWeekDown": "{{diff}} lower than last week.",
+      "vsWeekSame": "Same as last week.",
+      "axisStart": "30 days ago",
+      "axisEnd": "Today",
+      "sparkLabel": "Attendance over 30 days, {{min}} to {{max}}",
+      "rangeSummary": "Lowest in 30 days {{min}}, highest {{max}}",
+      "colPercent": "Attendance",
+      "noRegister": "No register",
+      "pendingLink_one": "{{count}} section left, view",
+      "pendingLink_other": "{{count}} sections left, view",
+      "allMarked": "Every section is marked",
+      "emptyReason": "No attendance taken yet today.",
+      "emptyAction": "Take attendance",
+      "closedToday": "No school today."
     },
     "staff-today": {
       "title": "Teachers and staff",
-      "description": "Who is present, who is on leave"
+      "description": "Who is present, who is on leave",
+      "value": "{{present}}/{{total}} present",
+      "sentence": "{{onLeave}} on leave, {{absent}} absent without notice.",
+      "sentenceNoAbsent": "{{onLeave}} on leave, nobody absent without notice.",
+      "untilDate": "until {{date}}",
+      "link": "View staff attendance",
+      "emptyReason": "Staff attendance not taken yet today.",
+      "emptyAction": "Open staff attendance"
     },
     "collection-month": {
       "title": "Collection this month",
-      "description": "How much came in against this month's bills"
+      "description": "How much came in against this month's bills",
+      "compactTitle": "This month's collection",
+      "ahead": "{{diff}} ahead of the same time last month.",
+      "behind": "{{diff}} behind the same time last month.",
+      "target": "Billed {{amount}}",
+      "meterLabel": "Collected against billed",
+      "lastMonthMarker": "Same time last month: {{percent}}",
+      "lastYear": "Same time last year: {{amount}}",
+      "lastYearNone": "Same time last year: —",
+      "compactDelta": "{{diff}} vs last month",
+      "rowReceived": "Collected",
+      "rowBilled": "Billed",
+      "rowLastMonth": "Same time last month",
+      "rowLastYear": "Same time last year",
+      "colFigure": "Figure",
+      "colAmount": "Amount",
+      "link": "View dues",
+      "emptyReason": "No fees billed this month yet.",
+      "emptyAction": "Generate fees"
     },
     "approvals-pending": {
       "title": "Waiting for your approval",
@@ -63,15 +104,50 @@
     },
     "at-risk-students": {
       "title": "At-risk students",
-      "description": "Students with 2 or more warning signs"
+      "description": "Students with 2 or more warning signs",
+      "value_one": "{{count}} student",
+      "value_other": "{{count}} students",
+      "moreThanLastWeek": "{{diff}} more than last week. Most signals first.",
+      "fewerThanLastWeek": "{{diff}} fewer than last week.",
+      "colStudent": "Student",
+      "colSignals": "Signals",
+      "signalAbsentStreak": "Absent {{days}} days in a row",
+      "signalLowAttendance": "Monthly attendance {{percent}}",
+      "signalFailed": "Failed {{subjects}}",
+      "signalOverdue": "{{days}} days overdue",
+      "rule": "Listed when any 2 signals match.",
+      "seeAll": "See all {{count}}",
+      "showFewer": "Show fewer",
+      "computedAt": "Updated {{time}}",
+      "computing": "The list is being prepared. Check back in a minute.",
+      "stale": "These figures may be out of date.",
+      "emptyReason": "No student matches 2 signals right now.",
+      "emptyAction": "Change thresholds"
     },
     "mark-entry-progress": {
       "title": "Mark entry",
-      "description": "Which classes still have marks to submit"
+      "description": "Which classes still have marks to submit",
+      "furthestBehind": "Class {{class}} is furthest behind.",
+      "summary": "Lowest {{low}} ({{lowPct}}), highest {{high}} ({{highPct}})",
+      "compactValue": "{{percent}} submitted",
+      "deadlineIn_one": "Last day in {{count}} day ({{date}}).",
+      "deadlineIn_other": "Last day in {{count}} days ({{date}}).",
+      "deadlinePassed": "Deadline passed on {{date}}.",
+      "colSubmitted": "Submitted",
+      "link": "View class {{class}}'s missing subjects",
+      "emptyReason": "No exam is taking marks right now.",
+      "emptyAction": "Open mark entry"
     },
     "syllabus-progress": {
       "title": "Syllabus progress",
-      "description": "Which classes are behind in teaching"
+      "description": "Which classes are behind in teaching",
+      "average": "{{percent}} covered on average",
+      "leastCovered": "Class {{class}} has covered the least ({{percent}}).",
+      "noPace": "Comparison with the expected pace comes with study plans.",
+      "colCovered": "Covered",
+      "link": "View syllabus",
+      "emptyReason": "No syllabus topics yet.",
+      "emptyAction": "Add syllabus"
     },
     "upcoming": {
       "title": "What's coming up",
@@ -83,11 +159,21 @@
     },
     "sms-balance": {
       "title": "SMS balance",
-      "description": "How many more SMS can be sent"
+      "description": "How many more SMS can be sent",
+      "value_one": "{{count}} SMS left",
+      "value_other": "{{count}} SMS left",
+      "reserved": "{{count}} held for messages being sent",
+      "notMetered": "SMS is not metered for this school.",
+      "link": "View sent messages"
     },
     "failed-messages": {
       "title": "Failed messages",
-      "description": "SMS that failed in the last 7 days"
+      "description": "SMS that failed in the last 7 days",
+      "value_one": "{{count}} failed",
+      "value_other": "{{count}} failed",
+      "sentence": "SMS that could not be sent in the last 7 days.",
+      "none": "Nothing failed in the last 7 days.",
+      "link": "See which ones"
     },
     "recent-activity": {
       "title": "Recent activity",
@@ -200,6 +286,15 @@
     "my-lessons-to-mark": {
       "title": "Lessons to mark done",
       "description": "Lessons you taught but have not marked done"
+    },
+    "common": {
+      "showTable": "Show table",
+      "showChart": "Show chart",
+      "updatedJustNow": "Updated just now",
+      "updatedMinutes_one": "Updated {{count}} minute ago",
+      "updatedMinutes_other": "Updated {{count}} minutes ago",
+      "colDate": "Date",
+      "colClass": "Class"
     }
   }
 }
