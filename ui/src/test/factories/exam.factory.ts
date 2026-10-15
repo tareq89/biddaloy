@@ -27,6 +27,7 @@ export function examFactory(overrides: Partial<Exam> = {}): Exam {
     kind: ExamKind.TERM,
     status: ExamStatus.DRAFT,
     published_at: null,
+    mark_entry_deadline: null,
     created_at: faker.date.past({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
     updated_at: faker.date.recent({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
     deleted_at: null,
