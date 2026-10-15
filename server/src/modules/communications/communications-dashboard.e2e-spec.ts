@@ -100,4 +100,12 @@ describe('[8.10.7.2.06] communications dashboard widgets', () => {
     expect(Object.keys(res.body).sort()).toEqual(['failed', 'window']);
     expect(Object.keys(res.body.window).sort()).toEqual(['from', 'to']);
   });
+
+  // server/CLAUDE.md: always test a missing X-Tenant-ID.
+  it.each(KEYS)('%s: missing X-Tenant-ID returns 401', async (key) => {
+    await http()
+      .get(`/api/v1/dashboard/widgets/${key}`)
+      .set('Authorization', `Bearer ${tokens[UserRole.ADMIN]}`)
+      .expect(401);
+  });
 });
