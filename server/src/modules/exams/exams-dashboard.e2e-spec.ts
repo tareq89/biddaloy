@@ -109,3 +109,93 @@ describe('GET /dashboard/widgets/mark-entry-progress', () => {
       .expect(401);
   });
 });
+
+/** [#1863] `GET /dashboard/widgets/my-mark-deadlines`: TEACHER only (D46). */
+describe('GET /dashboard/widgets/my-mark-deadlines', () => {
+  let app: INestApplication;
+  let redis: Redis;
+  let token: string;
+  const MY_URL = `${API}/dashboard/widgets/my-mark-deadlines`;
+  const FOREIGN_TENANT_ID = '00000000-0000-4000-8000-000001863001';
+
+  const call = (role: UserRole, tenantId = SEED_TENANT_ID) =>
+    supertest(app.getHttpServer())
+      .get(MY_URL)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', tenantId)
+      .set('X-Role', role);
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    app = moduleFixture.createNestApplication();
+    configureApiVersioning(app);
+    app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
+    await app.init();
+    const dataSource = app.get(DataSource);
+    redis = app.get<Redis>(TENANT_STATUS_REDIS);
+    for (const role of Object.values(UserRole)) {
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [SEED_ADMIN_USER_ID, SEED_TENANT_ID, role],
+      );
+    }
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'my-mark-other', 'my-mark-other', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [FOREIGN_TENANT_ID],
+    );
+    token = (
+      await supertest(app.getHttpServer())
+        .post(`${API}/auth/login`)
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200)
+    ).body.access_token;
+  }, 120000);
+
+  afterAll(async () => {
+    await redis.del(
+      `tenant:${SEED_TENANT_ID}:dash:${DashboardWidgetKey.MY_MARK_DEADLINES}:user:${SEED_ADMIN_USER_ID}`,
+    );
+    await app.close();
+  });
+
+  it('catalogue roles are exactly TEACHER', () => {
+    expect([...WIDGET_CATALOGUE['my-mark-deadlines'].roles]).toEqual([UserRole.TEACHER]);
+  });
+
+  it('200 for TEACHER; a caller with no teacher row gets the empty state; keys match the DTO', async () => {
+    const res = await call(UserRole.TEACHER).expect(200);
+    expect(Object.keys(res.body).sort()).toEqual(['items', 'outstanding_students']);
+    expect(res.body).toEqual({ outstanding_students: 0, items: [] });
+  });
+
+  it.each([
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+    UserRole.COMMITTEE,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  ])('403 for %s', async (role) => {
+    await call(role).expect(403);
+  });
+
+  it('missing X-Tenant-ID is rejected', async () => {
+    const res = await supertest(app.getHttpServer())
+      .get(MY_URL)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Role', UserRole.TEACHER);
+    expect([400, 401, 403]).toContain(res.status);
+  });
+
+  it("a caller of school A with school B's header is refused (401/403)", async () => {
+    const res = await call(UserRole.TEACHER, FOREIGN_TENANT_ID);
+    expect([401, 403]).toContain(res.status);
+  });
+});
