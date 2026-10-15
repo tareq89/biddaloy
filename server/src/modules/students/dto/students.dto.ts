@@ -17,7 +17,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { applyDecorators } from '@nestjs/common';
-import { ApiProperty, PickType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
@@ -651,6 +651,17 @@ export class QueryGuardianDto {
   })
   @IsBoolean()
   is_primary_contact?: boolean;
+
+  /** [8.10.7.4.13] true = only guardians with a blank name/relationship or no phone at all (D33). */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  incomplete?: boolean;
 
   @IsOptional()
   @IsIn(['full_name', 'created_at'])

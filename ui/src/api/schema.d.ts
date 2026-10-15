@@ -1072,6 +1072,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/guardians-incomplete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: guardians-incomplete */
+        get: operations["StudentsDashboardController_getGuardiansIncomplete_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/students-added-today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: students-added-today */
+        get: operations["StudentsDashboardController_getStudentsAddedToday_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/enrollments": {
         parameters: {
             query?: never;
@@ -1134,6 +1168,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["EnrollmentController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/committee-enrollment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: committee-enrollment */
+        get: operations["EnrollmentsDashboardController_committeeEnrollment_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/payments/cart": {
@@ -3643,6 +3694,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/committee-attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: committee-attendance */
+        get: operations["AttendanceDashboardController_getCommitteeAttendance_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/attendance/devices": {
         parameters: {
             query?: never;
@@ -4367,6 +4435,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/committee-finance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: committee-finance */
+        get: operations["ReportsDashboardController_committeeFinance_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/widgets/collection-by-month": {
         parameters: {
             query?: never;
@@ -5077,6 +5162,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/committee-pass-rate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: committee-pass-rate */
+        get: operations["ExamsDashboardController_committeePassRate_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/results-state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: results-state */
+        get: operations["ExamsDashboardController_resultsState_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/widgets/my-mark-deadlines": {
         parameters: {
             query?: never;
@@ -5086,6 +5205,23 @@ export interface paths {
         };
         /** Dashboard widget: my-mark-deadlines */
         get: operations["ExamsDashboardController_myMarkDeadlines_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{studentId}/homework": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One linked child's active homework due today or later. */
+        get: operations["HomeworkController_findForStudent_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6042,6 +6178,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/admissions-today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: admissions-today */
+        get: operations["AdmissionDashboardController_getAdmissionsToday_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/seat-plans/generate": {
         parameters: {
             query?: never;
@@ -6173,6 +6326,23 @@ export interface paths {
         put?: never;
         /** Unpublish a plan back to DRAFT, before its first sitting. */
         post: operations["SeatPlansController_unpublish_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/seat-plan-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: seat-plan-status */
+        get: operations["SeatPlansDashboardController_status_v1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -9689,6 +9859,21 @@ export interface components {
             roll_no?: string;
             registration_no?: string;
         };
+        GuardiansIncompleteDto: {
+            /** @example 23 */
+            incomplete_count: number;
+            /** @example 1410 */
+            total_count: number;
+        };
+        StudentsAddedTodayDto: {
+            /** @example 3 */
+            added_today: number;
+            /**
+             * @description Dhaka calendar day counted
+             * @example 2026-10-07
+             */
+            as_of: string;
+        };
         Enrollment: {
             id: string;
             student: components["schemas"]["Student"];
@@ -9725,6 +9910,29 @@ export interface components {
             class_id?: string;
             /** Format: uuid */
             section_id?: string;
+        };
+        CommitteeEnrollmentYearDto: {
+            /**
+             * @description Academic year name
+             * @example 2026
+             */
+            year_label: string;
+            /**
+             * @description Enrollments ACTIVE or GRADUATED in that year
+             * @example 1248
+             */
+            student_count: number;
+        };
+        CommitteeEnrollmentDto: {
+            /** @description Up to 5 years, oldest first, ending at the current academic year */
+            years: components["schemas"]["CommitteeEnrollmentYearDto"][];
+            /** @example 1248 */
+            current_count: number;
+            /**
+             * @description null when no earlier year
+             * @example 1214
+             */
+            previous_count: number | null;
         };
         CartBillDto: {
             student_fee_id: string;
@@ -12165,6 +12373,28 @@ export interface components {
             /** @description First 10, longest first */
             items: components["schemas"]["ClassTeacherStreakItemDto"][];
         };
+        CommitteeAttendanceMonthDto: {
+            /** @example 2026-10 */
+            month: string;
+            /**
+             * @description null = no register that month
+             * @example 89
+             */
+            percentage: number | null;
+        };
+        CommitteeAttendanceDto: {
+            /** @description Academic-year start month to this month */
+            months: components["schemas"]["CommitteeAttendanceMonthDto"][];
+            /** @example 89 */
+            current_month_percentage: number | null;
+            /**
+             * @description From summed counts, not a mean of months
+             * @example 88.1
+             */
+            year_percentage: number | null;
+            /** @example 90 */
+            target_percentage: number;
+        };
         CreateDeviceDto: {
             name: string;
             /** @enum {string} */
@@ -12691,6 +12921,27 @@ export interface components {
             /** @description Always four groups, in the order CASH, BKASH, BANK, OTHER_MOBILE. */
             groups: components["schemas"]["CollectionGroupFigure"][];
         };
+        CommitteeFinanceMonthDto: {
+            /**
+             * @description Billing month (student_fees.period_start), YYYY-MM.
+             * @example 2026-10
+             */
+            month: string;
+            /** @description Accrual basis: total minus discount of non-deleted bills whose period_start is in the month, paid or not. Same rule as collection-month billed_for_month. */
+            billed: number;
+            /** @description Sum of paid_amount on those bills: the amount applied to bills, not physical cash (wallet credit spent on a bill counts). */
+            paid: number;
+            /** @description total minus paid minus discount over PENDING and PARTIALLY_PAID bills of the month: the dues rule of the fees dashboard. */
+            outstanding: number;
+        };
+        CommitteeFinanceDto: {
+            /** @description Every month from the start of the current academic year (1 January when none is current) to the school-local current month, ascending, zero-filled. No future months. */
+            months: components["schemas"]["CommitteeFinanceMonthDto"][];
+            /** @description Sum of outstanding over months. */
+            year_outstanding: number;
+            /** @description Cash basis (received) against accrual basis (billed_for_month); identical to the collection-month widget. */
+            current_month: components["schemas"]["CollectionMonthWidgetDto"];
+        };
         CollectionMonthFigure: {
             month: number;
             /** @description Amount applied to bills that school-local month (net of reversals, not physical cash); null for months after the current one. */
@@ -13184,6 +13435,48 @@ export interface components {
             /** Format: uuid */
             lowest_class_id: string | null;
         };
+        CommitteeClassPassRateDto: {
+            class_name: string;
+            /** @description Used to sort; null if unset */
+            numeric_grade: number | null;
+            /** @description Results counted (every live result row of the class exam) */
+            appeared: number;
+            /** @description passed / appeared, one decimal */
+            pass_percentage: number;
+        };
+        CommitteeRoundPassRateDto: {
+            exam_name: string;
+            /** @description One decimal */
+            pass_percentage: number;
+        };
+        CommitteePassRateDto: {
+            /** @description null when nothing is published */
+            exam_name: string | null;
+            /** @description Latest round, by numeric_grade */
+            classes: components["schemas"]["CommitteeClassPassRateDto"][];
+            overall_pass_percentage: number | null;
+            /** @description Oldest to newest, max 5 */
+            recent_rounds: components["schemas"]["CommitteeRoundPassRateDto"][];
+            /** @description Second newest round, if any */
+            previous_pass_percentage: number | null;
+        };
+        ResultsStateRoundDto: {
+            exam_name: string;
+            /** @description Distinct classes in the round */
+            class_count: number;
+            draft: number;
+            processed: number;
+            published: number;
+            /** Format: date-time */
+            last_published_at: string | null;
+        };
+        ResultsStateDto: {
+            draft: number;
+            processed: number;
+            published: number;
+            /** @description Current year, max 10 */
+            rounds: components["schemas"]["ResultsStateRoundDto"][];
+        };
         MyMarkDeadlineItemDto: {
             /** Format: uuid */
             exam_id: string;
@@ -13214,6 +13507,19 @@ export interface components {
             /** @description Sum of expected - entered over DRAFT grids */
             outstanding_students: number;
             items: components["schemas"]["MyMarkDeadlineItemDto"][];
+        };
+        FamilyHomeworkItemDto: {
+            assignment_id: string;
+            title: string;
+            description: string | null;
+            subject_name_en: string;
+            subject_name_bn: string | null;
+            assigned_date: string;
+            due_date: string;
+        };
+        FamilyHomeworkListDto: {
+            today: string;
+            items: components["schemas"]["FamilyHomeworkItemDto"][];
         };
         CreateHomeworkDto: {
             /** Format: uuid */
@@ -14040,6 +14346,28 @@ export interface components {
             /** @description True when more than 500 rows matched and the list was cut. */
             truncated: boolean;
         };
+        /** @enum {string} */
+        AdmissionApplicantStatus: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED";
+        AdmissionLatestApplicantDto: {
+            id: string;
+            /** @example ADM-2026-0042 */
+            reference_number: string;
+            applicant_name: string;
+            /**
+             * @description ISO instant
+             * @example 2026-10-07T03:12:00.000Z
+             */
+            created_at: string;
+            status: components["schemas"]["AdmissionApplicantStatus"];
+        };
+        AdmissionsTodayDto: {
+            /** @description Applications created in the school day (Asia/Dhaka) */
+            new_today: number;
+            /** @description PENDING applications, any day */
+            pending_total: number;
+            /** @description Up to 5 newest, any status */
+            latest: components["schemas"]["AdmissionLatestApplicantDto"][];
+        };
         GenerateSeatPlanDto: {
             name: string;
             exam_schedule_ids: string[];
@@ -14095,6 +14423,26 @@ export interface components {
             invigilator_user_id: string | null;
         };
         PublishSeatPlanDto: Record<string, never>;
+        SeatPlanStatusExamDto: {
+            /** Format: uuid */
+            exam_id: string;
+            exam_name: string;
+            class_name: string;
+            /** @description YYYY-MM-DD, first sitting of the exam */
+            first_date: string;
+            /** @description Live exam schedules */
+            schedule_count: number;
+            /** @description Schedules linked to a live seat plan */
+            planned_count: number;
+            /** @description Schedules whose live seat plan is PUBLISHED */
+            published_count: number;
+        };
+        SeatPlanStatusDto: {
+            /** @description Upcoming exams with planned_count < schedule_count (all of them, not just 10) */
+            exams_needing_plan: number;
+            /** @description Next 10 by first_date */
+            exams: components["schemas"]["SeatPlanStatusExamDto"][];
+        };
         ApplyPresetDto: {
             /** @example bd/nctb */
             preset_id: string;
@@ -17639,6 +17987,7 @@ export interface operations {
     StudentController_findAllGuardians_v1: {
         parameters: {
             query?: {
+                incomplete?: boolean;
                 search?: string;
                 relationship?: string;
                 preferred_communication?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
@@ -18329,6 +18678,82 @@ export interface operations {
             };
         };
     };
+    StudentsDashboardController_getGuardiansIncomplete_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuardiansIncompleteDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentsDashboardController_getStudentsAddedToday_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentsAddedTodayDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     EnrollmentController_create_v1: {
         parameters: {
             query?: never;
@@ -18461,6 +18886,44 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentsDashboardController_committeeEnrollment_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitteeEnrollmentDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -25259,6 +25722,44 @@ export interface operations {
             };
         };
     };
+    AttendanceDashboardController_getCommitteeAttendance_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitteeAttendanceDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     DevicesController_list_v1: {
         parameters: {
             query?: never;
@@ -27068,6 +27569,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CollectionTodayWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportsDashboardController_committeeFinance_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitteeFinanceDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -29064,6 +29603,82 @@ export interface operations {
             };
         };
     };
+    ExamsDashboardController_committeePassRate_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitteePassRateDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ExamsDashboardController_resultsState_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultsStateDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ExamsDashboardController_myMarkDeadlines_v1: {
         parameters: {
             query?: never;
@@ -29095,6 +29710,39 @@ export interface operations {
             };
             /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HomeworkController_findForStudent_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FamilyHomeworkListDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -31466,6 +32114,44 @@ export interface operations {
             };
         };
     };
+    AdmissionDashboardController_getAdmissionsToday_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionsTodayDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     SeatPlansController_generate_v1: {
         parameters: {
             query?: never;
@@ -31757,6 +32443,44 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SeatPlansDashboardController_status_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatPlanStatusDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

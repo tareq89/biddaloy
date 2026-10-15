@@ -294,7 +294,7 @@
     },
     "collection-today": {
       "title": "আজকের আদায়",
-      "description": "আজ কত টাকা এসেছে, ক্যাশে আর অন্যান্য মাধ্যমে",
+      "description": "আজ কত টাকা এসেছে, ক্যাশ আর অন্যান্য",
       "value_one": "{{count}}টা পেমেন্ট",
       "value_other": "{{count}}টা পেমেন্ট",
       "vsYesterday": "গতকাল এই সময়ে ছিল {{amount}}",

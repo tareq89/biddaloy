@@ -23,9 +23,11 @@ import { HomeworkService } from './homework.service';
 import { HomeworkAnalyticsService } from './homework-analytics.service';
 import { HomeworkAccessService } from './homework-access.service';
 import { SchoolsService } from '../schools/schools.service';
+import { FamilyAccessService } from '../students/family-access.service';
 import {
   AssignHomeworkDto,
   CreateHomeworkDto,
+  FamilyHomeworkListDto,
   HomeworkAssignmentResponseDto,
   HomeworkResponseDto,
   QueryHomeworkDto,
@@ -46,11 +48,32 @@ export class HomeworkController {
     private readonly homeworkAnalyticsService: HomeworkAnalyticsService,
     private readonly homeworkAccessService: HomeworkAccessService,
     private readonly schoolsService: SchoolsService,
+    private readonly familyAccessService: FamilyAccessService,
   ) {}
 
   private async resolveTimezone(tenantId: string): Promise<string> {
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     return settings.region?.timezone ?? 'UTC';
+  }
+
+  // [8.10.7.4.14] Family-only: a PARENT/STUDENT reads one linked child's upcoming homework.
+  // `assertLinked` runs first (unlinked child -> 401, same as `GET /attendance/students/:id/summary`).
+  @Get('students/:studentId/homework')
+  @Roles(UserRole.PARENT, UserRole.STUDENT)
+  @RequirePermissions(Permission.HOMEWORK_READ)
+  @ApiOperation({ summary: "One linked child's active homework due today or later." })
+  @ApiOkResponse({ type: FamilyHomeworkListDto })
+  async findForStudent(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    await this.familyAccessService.assertLinked(tenant.role, user.sub, studentId, tenant.id);
+    return this.homeworkService.findForStudent(
+      tenant.id,
+      studentId,
+      await this.schoolsService.todayFor(tenant.id),
+    );
   }
 
   @Post('homework')

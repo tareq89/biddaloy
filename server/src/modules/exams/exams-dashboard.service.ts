@@ -8,6 +8,8 @@ import {
   MyMarkDeadlinesDto,
 } from './dto/exams-dashboard.dto';
 
+import { CommitteePassRateDto, ResultsStateDto } from './dto/exams-dashboard-group-c.dto';
+
 const pct = (submitted: number, total: number) =>
   total === 0 ? 0 : Math.round((submitted / total) * 100);
 
@@ -112,6 +114,135 @@ export class ExamsDashboardService {
       overall: { submitted, total, percentage: pct(submitted, total) },
       classes,
       lowest_class_id: lowest?.class_id ?? null,
+    };
+  }
+
+  /**
+   * [8.10.7.4.10] Pass % per class for the latest PUBLISHED round (exams of one
+   * year sharing a `name`). Same rule as AnalysisService.getPassFail overall:
+   * appeared = result rows, passed = is_fail = false. No ids, no people.
+   */
+  async getCommitteePassRate(tenantId: string): Promise<CommitteePassRateDto> {
+    const rows = await this.dataSource.query<
+      Array<{
+        exam_name: string;
+        last_pub: Date;
+        class_name: string;
+        numeric_grade: number | null;
+        appeared: string;
+        passed: string;
+      }>
+    >(
+      `WITH rounds AS (
+         SELECT e.academic_year_id, e.name, MAX(e.published_at) AS last_pub
+         FROM exams e
+         WHERE e.tenant_id = $1 AND e.status = 'PUBLISHED' AND e.deleted_at IS NULL
+         GROUP BY e.academic_year_id, e.name
+         ORDER BY last_pub DESC LIMIT 5
+       )
+       SELECT ro.name AS exam_name, ro.last_pub, c.name AS class_name, c.numeric_grade,
+              COUNT(r.id) AS appeared, COUNT(r.id) FILTER (WHERE r.is_fail = false) AS passed
+       FROM rounds ro
+       JOIN exams e ON e.academic_year_id = ro.academic_year_id AND e.name = ro.name
+                   AND e.tenant_id = $1 AND e.status = 'PUBLISHED' AND e.deleted_at IS NULL
+       JOIN classes c ON c.id = e.class_id AND c.tenant_id = $1
+       JOIN results r ON r.exam_id = e.id AND r.tenant_id = $1 AND r.deleted_at IS NULL
+       GROUP BY ro.name, ro.last_pub, c.name, c.numeric_grade`,
+      [tenantId],
+    );
+
+    const pct1 = (passed: number, appeared: number) =>
+      appeared > 0 ? Math.round((passed / appeared) * 1000) / 10 : 0;
+
+    // Newest first; same-name rounds of different years are kept apart by last_pub.
+    const byRound = new Map<string, typeof rows>();
+    for (const r of rows) {
+      const key = `${r.last_pub.getTime()}|${r.exam_name}`;
+      byRound.set(key, [...(byRound.get(key) ?? []), r]);
+    }
+    const rounds = [...byRound.values()]
+      .sort((a, b) => b[0].last_pub.getTime() - a[0].last_pub.getTime())
+      .map((g) => ({
+        name: g[0].exam_name,
+        appeared: g.reduce((n, r) => n + Number(r.appeared), 0),
+        passed: g.reduce((n, r) => n + Number(r.passed), 0),
+        rows: g,
+      }));
+    if (rounds.length === 0) {
+      return {
+        exam_name: null,
+        classes: [],
+        overall_pass_percentage: null,
+        recent_rounds: [],
+        previous_pass_percentage: null,
+      };
+    }
+
+    const [latest, previous] = rounds;
+    return {
+      exam_name: latest.name,
+      classes: latest.rows
+        .map((r) => ({
+          class_name: r.class_name,
+          numeric_grade: r.numeric_grade,
+          appeared: Number(r.appeared),
+          pass_percentage: pct1(Number(r.passed), Number(r.appeared)),
+        }))
+        .sort(
+          (a, b) =>
+            (a.numeric_grade ?? Infinity) - (b.numeric_grade ?? Infinity) ||
+            a.class_name.localeCompare(b.class_name),
+        ),
+      overall_pass_percentage: pct1(latest.passed, latest.appeared),
+      recent_rounds: rounds
+        .map((r) => ({ exam_name: r.name, pass_percentage: pct1(r.passed, r.appeared) }))
+        .reverse(),
+      previous_pass_percentage: previous ? pct1(previous.passed, previous.appeared) : null,
+    };
+  }
+
+  /** [8.10.7.4.10] Draft / processed / published exam counts, per round, current year. */
+  async getResultsState(tenantId: string): Promise<ResultsStateDto> {
+    const rows = await this.dataSource.query<
+      Array<{
+        exam_name: string;
+        class_count: string;
+        draft: string;
+        processed: string;
+        published: string;
+        last_published_at: Date | null;
+      }>
+    >(
+      `SELECT e.name AS exam_name,
+              COUNT(DISTINCT e.class_id) AS class_count,
+              COUNT(*) FILTER (WHERE e.status = 'DRAFT') AS draft,
+              COUNT(*) FILTER (WHERE e.status = 'PROCESSED') AS processed,
+              COUNT(*) FILTER (WHERE e.status = 'PUBLISHED') AS published,
+              MAX(e.published_at) AS last_published_at
+       FROM exams e
+       JOIN academic_years ay ON ay.id = e.academic_year_id AND ay.tenant_id = $1
+            AND ay.is_current AND ay.deleted_at IS NULL
+       WHERE e.tenant_id = $1 AND e.deleted_at IS NULL
+       GROUP BY e.name
+       ORDER BY (COUNT(*) FILTER (WHERE e.status <> 'PUBLISHED') > 0) DESC,
+                MAX(e.published_at) DESC NULLS LAST, e.name
+       LIMIT 10`,
+      [tenantId],
+    );
+    const rounds = rows.map((r) => ({
+      exam_name: r.exam_name,
+      class_count: Number(r.class_count),
+      draft: Number(r.draft),
+      processed: Number(r.processed),
+      published: Number(r.published),
+      last_published_at: r.last_published_at ? r.last_published_at.toISOString() : null,
+    }));
+    const sum = (k: 'draft' | 'processed' | 'published') => rounds.reduce((n, r) => n + r[k], 0);
+    return {
+      draft: sum('draft'),
+      processed: sum('processed'),
+      published: sum('published'),
+      rounds,
     };
   }
 

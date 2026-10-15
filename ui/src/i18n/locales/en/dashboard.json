@@ -294,7 +294,7 @@
     },
     "collection-today": {
       "title": "Collection today",
-      "description": "Money received today, by cash and other methods",
+      "description": "Money received today, cash and other",
       "value_one": "{{count}} payment",
       "value_other": "{{count}} payments",
       "vsYesterday": "Yesterday at this time: {{amount}}",

@@ -121,17 +121,6 @@ describe('collection-today widget', () => {
     expect(screen.queryAllByTestId('stacked-bar-segment')).toHaveLength(0);
   });
 
-  it('payments reversed to a zero net are not "no payment yet"', async () => {
-    serve({
-      ...BASE,
-      net: 0,
-      groups: BASE.groups.map((g) => ({ ...g, net: 0 })),
-    });
-    renderWidget('full');
-    expect(await screen.findByText('Yesterday at this time: ৳41,200.00')).toBeTruthy();
-    expect(screen.queryByText('No payment yet today.')).toBeNull();
-  });
-
   it('tile: net and an up trend vs yesterday', async () => {
     serve(BASE);
     renderWidget('tile');

@@ -387,6 +387,7 @@ export class AttendanceSummaryService {
       remarks: string | null;
       is_working_day: boolean;
       holiday_name: string | null;
+      marked_at: string | null;
     }>
   > {
     const { tenantId, studentId, from, to } = input;
@@ -412,6 +413,8 @@ export class AttendanceSummaryService {
         date: In(everyDateInRange(from, to)),
         session: { period_no: IsNull() },
       },
+      // Same join the filter above already uses — no extra query.
+      relations: { session: true },
     });
     const recordByDate = new Map(records.map((r) => [r.date, r]));
 
@@ -440,6 +443,7 @@ export class AttendanceSummaryService {
         remarks: record?.remarks ?? null,
         is_working_day: workingDaySet.has(date),
         holiday_name: holidayNameByDate.get(date) ?? null,
+        marked_at: record?.session?.marked_at?.toISOString() ?? null,
       };
     });
   }

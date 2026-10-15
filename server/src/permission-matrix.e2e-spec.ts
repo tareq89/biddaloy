@@ -458,6 +458,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
     controller: 'HomeworkController',
     method: 'GET',
+    path: '/students/:studentId/homework',
+    reason:
+      "[8.10.7.4.14] family view of one linked child's homework — ADMIN/TEACHER also hold HOMEWORK_READ, but staff use the unscoped /homework list; this route is PARENT/STUDENT only and enforces the guardian link (FamilyAccessService.assertLinked)",
+  },
+  {
+    controller: 'HomeworkController',
+    method: 'GET',
     path: '/homework/analytics/student/:studentId',
     reason:
       "[22.3.6] staff-only rollup dashboard — although PARENT/STUDENT hold HOMEWORK_READ (for their own child's homework view), this analytics endpoint is the teacher/admin completion/defaulter rollup (D13), not a per-family view" +
@@ -818,8 +825,6 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   Permission.DASHBOARD_ADMIN,
   Permission.REPORTS_VIEW,
   Permission.REPORTS_EXPORT,
-  // [8.10.7.1.01] committee widgets (wave 4) and the committee report route (wave 5) will require it; remove then.
-  Permission.COMMITTEE_REPORT_READ,
   // [10.4] G17 — reserved for endpoints that don't exist yet (#291's
   // refund/void work); granted to ADMIN so the value isn't dead weight once
   // that endpoint ships, but nothing consumes it today.

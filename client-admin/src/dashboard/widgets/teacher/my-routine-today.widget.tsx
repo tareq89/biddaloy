@@ -62,13 +62,8 @@ export function MyRoutineTodayView({
   const nowMin = minutes(now);
 
   const periods = data?.periods ?? [];
-  // A cancelled period is never "now", even while its time slot runs.
   const state = periods.map((p) =>
-    minutes(p.ends_at) <= nowMin
-      ? 'done'
-      : !p.cancelled && minutes(p.starts_at) <= nowMin
-        ? 'now'
-        : 'later',
+    minutes(p.ends_at) <= nowMin ? 'done' : minutes(p.starts_at) <= nowMin ? 'now' : 'later',
   );
   const done = state.filter((s) => s === 'done').length;
   const nextIdx = periods.findIndex((p, i) => state[i] === 'later' && !p.cancelled);

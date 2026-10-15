@@ -14,6 +14,7 @@ import {
   ClassTeacherStreaksDto,
   MyPendingSectionsDto,
 } from './dto/attendance-dashboard.dto';
+import { CommitteeAttendanceDto } from './dto/committee-attendance.dto';
 
 @ApiTags('dashboard')
 @ApiTenantAuth()
@@ -47,5 +48,11 @@ export class AttendanceDashboardController {
     @CurrentUser() user: { sub: string },
   ): Promise<ClassTeacherStreaksDto> {
     return this.service.classTeacherStreaks(tenant.id, user.sub);
+  }
+
+  @DashboardWidgetRoute(DashboardWidgetKey.COMMITTEE_ATTENDANCE)
+  @ApiOkResponse({ type: CommitteeAttendanceDto })
+  getCommitteeAttendance(@CurrentTenant() tenant: { id: string }): Promise<CommitteeAttendanceDto> {
+    return this.service.getCommitteeMonthly(tenant.id);
   }
 }

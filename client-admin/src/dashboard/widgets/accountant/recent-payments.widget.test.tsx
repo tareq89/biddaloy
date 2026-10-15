@@ -96,7 +96,7 @@ describe('recent-payments widget', () => {
     serve(BASE);
     renderWidget('full');
     const rows = (await screen.findAllByRole('row')).slice(1);
-    expect(rows.map((r) => r.classList.contains('hidden'))).toEqual([
+    expect(rows.map((r) => r.className.includes('hidden'))).toEqual([
       false,
       false,
       false,
