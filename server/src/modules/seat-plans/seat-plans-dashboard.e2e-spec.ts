@@ -68,7 +68,9 @@ describe('GET /dashboard/widgets/seat-plan-status', () => {
   }, 120000);
 
   afterAll(async () => {
-    await redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${DashboardWidgetKey.SEAT_PLAN_STATUS}:school`);
+    await redis.del(
+      `tenant:${SEED_TENANT_ID}:dash:v1:${DashboardWidgetKey.SEAT_PLAN_STATUS}:school`,
+    );
     await app.close();
   });
 

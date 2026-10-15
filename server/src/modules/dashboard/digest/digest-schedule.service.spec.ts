@@ -202,7 +202,13 @@ describe('DigestScheduleService', () => {
       // Fires 02:00 Dhaka on the 9th, but the tick was for the 8th.
       await service.runNow(T, true, new Date('2026-10-08T20:00:00Z'), '2026-10-08');
       expect(calendar.isNonWorkingDay).toHaveBeenCalledWith({ tenantId: T, date: '2026-10-08' });
-      expect(redis.set).toHaveBeenCalledWith(`tenant:${T}:digest:sent:2026-10-08`, '1', 'EX', expect.any(Number), 'NX');
+      expect(redis.set).toHaveBeenCalledWith(
+        `tenant:${T}:digest:sent:2026-10-08`,
+        '1',
+        'EX',
+        expect.any(Number),
+        'NX',
+      );
     });
 
     it('one failing user does not stop the others', async () => {

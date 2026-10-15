@@ -367,7 +367,9 @@ test.describe('period attendance', () => {
     await attendance.gotoSection(sectionId, date);
     await page
       // The tab reads "<period> · <subject>"; a subject can repeat across periods.
-      .getByRole('tab', { name: new RegExp(`^${period.name ?? period.period_no} · ${period.subject_name ?? ''}`) })
+      .getByRole('tab', {
+        name: new RegExp(`^${period.name ?? period.period_no} · ${period.subject_name ?? ''}`),
+      })
       .click();
     await expect(page.getByText(t('attendance.period.prefilledNotice'))).toBeVisible();
     await attendance.markAllPresent();
