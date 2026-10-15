@@ -165,7 +165,7 @@ export async function ensureDashboardSeed(
   await seedExams(q, tenantId, year.id, today, sections, mine);
   await seedSyllabus(q, tenantId, sections, mine);
   await seedFailedMessages(q, tenantId);
-  await seedGroupC(q, tenantId, year, today, sections);
+  await seedGroupC(q, tenantId, year, today, sections, pending);
 
   // Wave 3: teacher and accountant widgets.
   const pool = billed.length > 0 ? billed : students;
@@ -1123,8 +1123,15 @@ export const DASHBOARD_GROUP_C = {
   upcomingExam: 'Dashboard demo: upcoming',
   seatPlan: 'Dashboard demo: seating (draft)',
   incompleteGuardian: 'Dashboard demo: incomplete guardian',
-  familyHomework: ['Dashboard demo: family homework', 'Dashboard demo: family homework (later)'],
+  familyHomework: [
+    'Dashboard demo: family homework',
+    'Dashboard demo: family homework (later)',
+    'Dashboard demo: family homework (today)',
+  ],
+  holiday: 'Dashboard demo: school holiday',
 } as const;
+/** Days from today each family homework title is due (same order as `familyHomework`). */
+const FAMILY_HOMEWORK_DUE_IN = [1, 5, 0] as const;
 const FAMILY_EMAILS = ['student@biddaloy.test', 'parent@biddaloy.test'] as const;
 const PAST_YEARS = 4;
 
@@ -1138,6 +1145,7 @@ async function seedGroupC(
   year: { id: string; start_date: string },
   today: string,
   sections: { id: string; class_id: string }[],
+  pending: string[],
 ) {
   // Plain students only: no login, no guardian login (the portal demos own those children).
   const students = await q<{ id: string; class_section_id: string; class_id: string }>(
@@ -1159,6 +1167,7 @@ async function seedGroupC(
   await seedIncompleteGuardian(q, tenantId, students.at(-1)?.id);
   await seedEnrollmentHistory(q, tenantId, year.start_date);
   await seedFamilyHomework(q, tenantId, today, sections);
+  await seedFamilyFacts(q, tenantId, year, today, pending);
 }
 
 /** Two PUBLISHED rounds (pass-rate spread) and a newer PROCESSED one the committee card must ignore. */
@@ -1380,7 +1389,7 @@ async function seedFamilyHomework(
   );
   const known = new Set(sections.map((s) => s.id));
   for (const [ti, title] of DASHBOARD_GROUP_C.familyHomework.entries()) {
-    const due = addDays(today, ti === 0 ? 1 : 5);
+    const due = addDays(today, FAMILY_HOMEWORK_DUE_IN[ti]);
     for (const section of own.filter((s) => known.has(s.id))) {
       const [subject] = await q<{ id: string }>(
         `SELECT subject_id AS id FROM class_subjects WHERE tenant_id = $1 AND class_id = $2
@@ -1417,5 +1426,120 @@ async function seedFamilyHomework(
         );
       }
     }
+  }
+}
+
+/**
+ * [8.10.7.5.99] What the portal overview shows for `parent@`'s children: today's mark, an earlier
+ * absent day this month, a published result in both rounds (GPA rises) and a holiday 20 days out.
+ * Marks are only set where the base register seed already wrote the session, so the "pending
+ * register" counts of the dashboards do not move. A second child, if any, is ABSENT today.
+ */
+async function seedFamilyFacts(
+  q: Q,
+  tenantId: string,
+  year: { id: string },
+  today: string,
+  pending: string[],
+) {
+  const kids = await q<{ id: string; class_id: string; class_section_id: string }>(
+    `SELECT DISTINCT st.id, cs.class_id, st.class_section_id
+       FROM students st JOIN class_sections cs ON cs.id = st.class_section_id
+       JOIN student_guardians sg ON sg.student_id = st.id
+       JOIN guardians g ON g.id = sg.guardian_id
+       JOIN users u ON u.id = g.user_id AND u.email = $2
+      WHERE st.tenant_id = $1 AND st.deleted_at IS NULL
+      ORDER BY st.id`,
+    [tenantId, FAMILY_EMAILS[1]],
+  );
+  const first = kids[0];
+  if (!first) return;
+
+  const monthStart = `${today.slice(0, 7)}-01`;
+  let missed = monthStart;
+  while (missed < today && weekday(missed) === WEEKLY_OFF) missed = addDays(missed, 1);
+  const [{ udt_name: statusType }] = await q<{ udt_name: string }>(
+    `SELECT udt_name FROM information_schema.columns
+      WHERE table_name = 'attendance_records' AND column_name = 'status'`,
+  );
+  // Writes the child's mark, adding the day's whole-day register first if the base seed has none
+  // (never for a section left pending on purpose today).
+  const mark = async (
+    kid: { id: string; class_section_id: string },
+    date: string,
+    status: string,
+  ) => {
+    if (date === today && pending.includes(kid.class_section_id)) return;
+    await q(
+      `INSERT INTO attendance_sessions (tenant_id, section_id, date, period_no, state, source, marked_at, finalized_at)
+       SELECT $1, $2, $3, NULL, 'FINALIZED', 'SYSTEM', NOW(), NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM attendance_sessions x
+                           WHERE x.tenant_id = $1 AND x.section_id = $2 AND x.date = $3 AND x.period_no IS NULL)`,
+      [tenantId, kid.class_section_id, date],
+    );
+    await q(
+      `INSERT INTO attendance_records (tenant_id, session_id, student_id, date, status, minutes_late, source)
+       SELECT $1, s.id, $4, $3, $5::text::"${statusType}", NULL, 'SYSTEM' FROM attendance_sessions s
+        WHERE s.tenant_id = $1 AND s.section_id = $2 AND s.date = $3 AND s.period_no IS NULL
+       ON CONFLICT (session_id, student_id) DO UPDATE SET status = EXCLUDED.status, minutes_late = NULL`,
+      [tenantId, kid.class_section_id, date, kid.id, status],
+    );
+  };
+  await mark(first, today, 'PRESENT');
+  if (missed < today) await mark(first, missed, 'ABSENT');
+  if (kids[1]) await mark(kids[1], today, 'ABSENT');
+
+  // A published result per round for each child; the later round has the higher GPA (a trend).
+  const [scale] = await q<{ id: string }>(
+    `SELECT id FROM grading_scales WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY id LIMIT 1`,
+    [tenantId],
+  );
+  if (scale) {
+    for (const [ri, name] of DASHBOARD_GROUP_C.rounds.entries()) {
+      for (const kid of kids) {
+        let [exam] = await q<{ id: string }>(
+          `SELECT id FROM exams WHERE tenant_id = $1 AND academic_year_id = $2 AND class_id = $3 AND name = $4 AND deleted_at IS NULL`,
+          [tenantId, year.id, kid.class_id, name],
+        );
+        if (!exam) {
+          [exam] = await q<{ id: string }>(
+            `INSERT INTO exams (tenant_id, academic_year_id, class_id, name, kind, status, published_at, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, 'TERM', 'PUBLISHED', NOW() - make_interval(days => $5), NOW(), NOW()) RETURNING id`,
+            [tenantId, year.id, kid.class_id, name, ri === 0 ? 60 : 20],
+          );
+        }
+        await q(
+          `INSERT INTO results (id, tenant_id, exam_id, student_id, total_marks, gpa, grade, is_fail,
+                                grading_scale_id, grading_scale_revision, rule_version, computed_at, published_at)
+           SELECT gen_random_uuid(), $1, $2, $3, $4, $5, $6, false, $7, 1, 'dashboard-demo', NOW(),
+                  NOW() - make_interval(days => $8)
+            WHERE NOT EXISTS (SELECT 1 FROM results WHERE exam_id = $2 AND student_id = $3)`,
+          [
+            tenantId,
+            exam.id,
+            kid.id,
+            ri === 0 ? 60 : 75,
+            ri === 0 ? 3 : 4,
+            ri === 0 ? 'B' : 'A',
+            scale.id,
+            ri === 0 ? 60 : 20,
+          ],
+        );
+      }
+    }
+  }
+
+  // A HOLIDAY 20 days ahead, unless the school already has one in the next 60 days.
+  const [near] = await q(
+    `SELECT 1 FROM calendar_events WHERE tenant_id = $1 AND type = 'HOLIDAY' AND deleted_at IS NULL
+        AND start_date BETWEEN $2 AND $3`,
+    [tenantId, today, addDays(today, 60)],
+  );
+  if (!near) {
+    await q(
+      `INSERT INTO calendar_events (tenant_id, academic_year_id, start_date, end_date, name, type, published_at)
+       VALUES ($1, $2, $3, $3, $4, 'HOLIDAY', NOW())`,
+      [tenantId, year.id, addDays(today, 20), DASHBOARD_GROUP_C.holiday],
+    );
   }
 }

@@ -135,6 +135,21 @@ describe('ensureDashboardSeed (integration)', () => {
        VALUES ($1, $2, 'Main routine', 'PUBLISHED', NOW())`,
       [tenantId, yearId],
     );
+    // parent@'s account, linked to the last student (the portal-overview facts hang off this child).
+    const [{ id: parentUserId }] = await q(
+      `INSERT INTO users (email, password_hash, full_name, status) VALUES ('parent@biddaloy.test', 'x', 'Parent', 'ACTIVE')
+       ON CONFLICT (email) DO UPDATE SET full_name = 'Parent' RETURNING id`,
+    );
+    const [{ id: parentGuardianId }] = await q(
+      `INSERT INTO guardians (tenant_id, full_name, relationship, phone, is_primary_contact, user_id, created_at, updated_at)
+       VALUES ($1, 'Parent', 'Mother', '01700000000', true, $2, NOW(), NOW()) RETURNING id`,
+      [tenantId, parentUserId],
+    );
+    await q(
+      `INSERT INTO student_guardians (student_id, guardian_id)
+       SELECT id, $2 FROM students WHERE tenant_id = $1 ORDER BY full_name DESC LIMIT 1`,
+      [tenantId, parentGuardianId],
+    );
     // The current-year roll the enrolment history grows back from.
     await q(
       `INSERT INTO enrollments (tenant_id, student_id, class_id, section_id, academic_year_id, enrollment_status, enrolled_at)
@@ -158,6 +173,7 @@ describe('ensureDashboardSeed (integration)', () => {
     leaves: await count('leave_records'),
     exams: await count('exams'),
     results: await count('results'),
+    calendarEvents: await count('calendar_events'),
     seatPlans: await count('seat_plans'),
     seatPlanSchedules: await count('seat_plan_schedules'),
     guardians: await count('guardians'),
@@ -193,6 +209,8 @@ describe('ensureDashboardSeed (integration)', () => {
   it('keeps the e2e seed contract in step with the Group C names', () => {
     expect(SEED_DASHBOARD_GROUP_C.upcomingExam).toBe(DASHBOARD_GROUP_C.upcomingExam);
     expect(SEED_DASHBOARD_GROUP_C.familyHomework).toBe(DASHBOARD_GROUP_C.familyHomework[0]);
+    expect(SEED_DASHBOARD_GROUP_C.familyHomeworkToday).toBe(DASHBOARD_GROUP_C.familyHomework[2]);
+    expect(SEED_DASHBOARD_GROUP_C.holiday).toBe(DASHBOARD_GROUP_C.holiday);
   });
 
   it('is idempotent: a second run adds no rows', async () => {
@@ -349,6 +367,42 @@ describe('ensureDashboardSeed (integration)', () => {
     expect(await count('recurring_schedules', `AND is_active`)).toBe(1);
   });
 
+  it('feeds the portal overview: parent@ child present today, absent earlier this month, two results, a holiday within 60 days', async () => {
+    await seed();
+    const today = localToday('Asia/Dhaka');
+    const kidRows = (extra: string) =>
+      q(
+        `SELECT r.status, r.date::text AS date FROM attendance_records r
+           JOIN student_guardians sg ON sg.student_id = r.student_id
+           JOIN guardians g ON g.id = sg.guardian_id
+           JOIN users u ON u.id = g.user_id AND u.email = 'parent@biddaloy.test'
+          WHERE r.tenant_id = $1 ${extra}`,
+        [tenantId],
+      );
+    // A register exists today only where the base seed wrote one; when it did, the mark is PRESENT.
+    const todayRows = await kidRows(`AND r.date = '${today}'`);
+    for (const r of todayRows) expect(['PRESENT', 'ABSENT']).toContain(r.status);
+    const absent = await kidRows(
+      `AND r.status = 'ABSENT' AND r.date >= date_trunc('month', '${today}'::date) AND r.date < '${today}'`,
+    );
+    if (today.slice(8) !== '01') expect(absent.length).toBeGreaterThan(0);
+    const results = await q(
+      `SELECT DISTINCT e.name FROM results r JOIN exams e ON e.id = r.exam_id
+         JOIN student_guardians sg ON sg.student_id = r.student_id
+         JOIN guardians g ON g.id = sg.guardian_id
+         JOIN users u ON u.id = g.user_id AND u.email = 'parent@biddaloy.test'
+        WHERE r.tenant_id = $1 AND e.status = 'PUBLISHED'`,
+      [tenantId],
+    );
+    expect(results.length).toBeGreaterThanOrEqual(2);
+    expect(
+      await count(
+        'calendar_events',
+        `AND type = 'HOLIDAY' AND deleted_at IS NULL AND start_date BETWEEN CURRENT_DATE AND CURRENT_DATE + 60`,
+      ),
+    ).toBeGreaterThan(0);
+  });
+
   it('feeds the Group C routes: two published rounds, a processed one, a seat plan gap, an incomplete guardian, 4 past years', async () => {
     await seed();
 
@@ -369,7 +423,12 @@ describe('ensureDashboardSeed (integration)', () => {
     // Every published exam has at least one failing student (a pass rate below 100%).
     const clean = await q(
       `SELECT e.id FROM exams e WHERE e.tenant_id = $1 AND e.status = 'PUBLISHED'
-          AND NOT EXISTS (SELECT 1 FROM results r WHERE r.exam_id = e.id AND r.is_fail)`,
+          AND NOT EXISTS (SELECT 1 FROM results r WHERE r.exam_id = e.id AND r.is_fail)
+          -- the family's own exams (passing results for parent@'s children) are not committee data
+          AND EXISTS (SELECT 1 FROM results r JOIN students s ON s.id = r.student_id
+                       WHERE r.exam_id = e.id AND NOT EXISTS (
+                         SELECT 1 FROM student_guardians sg JOIN guardians g ON g.id = sg.guardian_id
+                          WHERE sg.student_id = s.id AND g.user_id IS NOT NULL))`,
       [tenantId],
     );
     expect(clean).toEqual([]);

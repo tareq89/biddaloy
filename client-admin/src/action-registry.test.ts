@@ -44,6 +44,8 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/settings?section=alerts': '/_staff/settings',
   '/curriculum-preset': '/_staff/curriculum-preset',
   '/roles': '/_staff/roles/',
+  '/dashboard?customize=1': '/_staff/dashboard',
+  '/print/committee-report?from=/dashboard': '/_staff/print/committee-report',
   '/exams?create=1': '/_staff/exams/',
   '/exams/seat-plans?generate=1': '/_staff/exams/seat-plans/',
   '/programs?new=1': '/_staff/programs/',
@@ -193,6 +195,8 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'print.newTemplate': 'client-admin/src/components/print/library/new-template-dialog.tsx',
   'print.history': 'client-admin/src/components/print/history/print-history-page.tsx',
   'print.printers': 'client-admin/src/pages/settings/PrintersSection.tsx',
+  'dashboard.customise': 'client-admin/src/routes/_staff/dashboard.tsx',
+  'dashboard.committeeReport': 'client-admin/src/routes/_staff/print/committee-report.tsx',
   'staff.assignTeacher': 'client-admin/src/routes/_staff/staff/teaching-assignments.tsx',
 };
 
@@ -512,6 +516,24 @@ describe('action-registry.ts', () => {
       }
     },
   );
+});
+
+describe('[8.10.7.5.99] dashboard actions (D13)', () => {
+  it.each([
+    ['dashboard.customise', '/dashboard?customize=1', '/_staff/dashboard'],
+    [
+      'dashboard.committeeReport',
+      '/print/committee-report?from=/dashboard',
+      '/_staff/print/committee-report',
+    ],
+  ])('%s navigates to its route and matches its permission', (id, to, routeId) => {
+    const action = ACTIONS.find((a) => a.id === id);
+    expect(action).toBeDefined();
+    const calls: string[] = [];
+    action?.run({ navigate: (o) => calls.push(o.to) });
+    expect(calls).toEqual([to]);
+    expect(action?.permission).toBe(STAFF_ROUTE_PERMISSIONS[routeId]);
+  });
 });
 
 describe('DEMO_SWITCH_ROLE_ACTION', () => {

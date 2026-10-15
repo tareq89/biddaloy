@@ -114,6 +114,23 @@ export const ACTIONS: readonly PaletteAction[] = [
     group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/curriculum-preset' }),
   },
+  // [8.10.7.5.99] D13: dashboard actions.
+  {
+    id: 'dashboard.customise',
+    label: { en: 'Customise dashboard', bn: 'ড্যাশবোর্ড সাজান' },
+    permission: Permission.DASHBOARD_VIEW,
+    kind: 'navigate',
+    group: 'top',
+    run: (ctx) => ctx.navigate({ to: '/dashboard?customize=1' }),
+  },
+  {
+    id: 'dashboard.committeeReport',
+    label: { en: 'Committee monthly report', bn: 'মাসিক সভার রিপোর্ট' },
+    permission: Permission.COMMITTEE_REPORT_READ,
+    kind: 'navigate',
+    group: 'reports',
+    run: (ctx) => ctx.navigate({ to: '/print/committee-report?from=/dashboard' }),
+  },
   {
     id: 'roles.view',
     label: { en: 'Roles & access', bn: 'ভূমিকা ও অনুমতি' },
