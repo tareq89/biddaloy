@@ -297,7 +297,7 @@ export class CollectionsReportService {
       `SELECT COALESCE(SUM(sf.total_amount - sf.discount_amount), 0) AS billed
        FROM student_fees sf
        JOIN students s ON s.id = sf.student_id
-       WHERE s.tenant_id = $1 AND s.deleted_at IS NULL AND sf.deleted_at IS NULL
+       WHERE s.tenant_id = $1 AND sf.deleted_at IS NULL
          AND sf.period_start BETWEEN $2 AND $3`,
       [tenantId, monthStart, monthEnd],
     );
@@ -306,7 +306,8 @@ export class CollectionsReportService {
 
   /** Billed / paid / outstanding per `period_start` month in [fromIso, toIso]
    * (one SQL, months that have no bill are absent). `student_fees` has no
-   * `tenant_id`: the tenant comes from a live student. The `billed` expression
+   * `tenant_id`: the tenant comes from the student (deleted students' settled bills stay in
+   * billed/paid like their payments in received; only `outstanding` skips them). The `billed` expression
    * is `getBilledForMonth`'s; `outstanding` is the dues rule (`fee-dues.service`
    * OPEN_STATUSES). */
   async getBillingByMonth(
@@ -321,9 +322,9 @@ export class CollectionsReportService {
          COALESCE(SUM(sf.total_amount - sf.discount_amount), 0) AS billed,
          COALESCE(SUM(sf.paid_amount), 0) AS paid,
          COALESCE(SUM(sf.total_amount - sf.paid_amount - sf.discount_amount)
-           FILTER (WHERE sf.status IN ('PENDING', 'PARTIALLY_PAID')), 0) AS outstanding
+           FILTER (WHERE sf.status IN ('PENDING', 'PARTIALLY_PAID') AND s.deleted_at IS NULL), 0) AS outstanding
        FROM student_fees sf
-       JOIN students s ON s.id = sf.student_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
+       JOIN students s ON s.id = sf.student_id AND s.tenant_id = $1
        WHERE sf.deleted_at IS NULL AND sf.period_start BETWEEN $2 AND $3
        GROUP BY 1
        ORDER BY 1`,
@@ -340,25 +341,30 @@ export class CollectionsReportService {
   /** `GET /dashboard/widgets/committee-finance`. `today` is the school-local date. */
   async getCommitteeFinance(tenantId: string, today: string): Promise<CommitteeFinanceDto> {
     const [y, m] = today.split('-').map(Number);
-    const [year] = await this.paymentRepo.manager.query<Array<{ start: string }>>(
-      `SELECT to_char(start_date, 'YYYY-MM-DD') AS start FROM academic_years
+    const [year] = await this.paymentRepo.manager.query<Array<{ start: string; end: string }>>(
+      `SELECT to_char(start_date, 'YYYY-MM-DD') AS start, to_char(end_date, 'YYYY-MM-DD') AS "end"
+       FROM academic_years
        WHERE tenant_id = $1 AND is_current = true AND deleted_at IS NULL`,
       [tenantId],
     );
     // ponytail: no current year -> calendar year of today; revisit if tenants run without one.
-    const start = year?.start ?? `${y}-01-01`;
-    const { monthEnd } = monthRange(y, m, 1);
-    const [rows, current] = await Promise.all([
-      this.getBillingByMonth(tenantId, start, monthEnd),
-      this.getCollectionMonthWidget(tenantId, today),
-    ]);
-    const found = new Map(rows.map((r) => [r.month, r]));
+    // Snap to the 1st: `period_start` is the 1st of its month, a mid-month year start must not drop it.
+    const start = `${(year?.start ?? `${y}-01-01`).slice(0, 7)}-01`;
+    // Series ends at the earlier of the year's last month and today's month.
+    const endKey =
+      year && year.end.slice(0, 7) < today.slice(0, 7) ? year.end.slice(0, 7) : today.slice(0, 7);
+    const [ey, em] = endKey.split('-').map(Number);
     const months: CommitteeFinanceMonthDto[] = [];
-    let [cy, cm] = start.split('-').map(Number);
-    while (cy < y || (cy === y && cm <= m)) {
-      const key = `${cy}-${pad(cm)}`;
-      months.push(found.get(key) ?? { month: key, billed: 0, paid: 0, outstanding: 0 });
-      [cy, cm] = cm === 12 ? [cy + 1, 1] : [cy, cm + 1];
+    const current = await this.getCollectionMonthWidget(tenantId, today);
+    if (start.slice(0, 7) <= endKey) {
+      const rows = await this.getBillingByMonth(tenantId, start, monthRange(ey, em, 1).monthEnd);
+      const found = new Map(rows.map((r) => [r.month, r]));
+      let [cy, cm] = start.split('-').map(Number);
+      while (cy < ey || (cy === ey && cm <= em)) {
+        const key = `${cy}-${pad(cm)}`;
+        months.push(found.get(key) ?? { month: key, billed: 0, paid: 0, outstanding: 0 });
+        [cy, cm] = cm === 12 ? [cy + 1, 1] : [cy, cm + 1];
+      }
     }
     return {
       months,

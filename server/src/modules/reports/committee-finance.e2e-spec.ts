@@ -192,7 +192,8 @@ describe('GET /dashboard/widgets/committee-finance', () => {
       await dataSource.query(
         `INSERT INTO student_fees (student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, standing_discount_amount, status, created_at, updated_at)
          VALUES ($1, $2, $3, '2033-02-01', 1000, 400, 100, 100, 'PARTIALLY_PAID', NOW(), NOW()),
-                ($1, $2, $3, '2033-03-01', 500, 500, 0, 0, 'PAID', NOW(), NOW())`,
+                ($1, $2, $3, '2033-03-01', 500, 500, 0, 0, 'PAID', NOW(), NOW()),
+                ($1, $2, $3, '2033-04-01', 200, 0, 0, 0, 'PENDING', NOW(), NOW())`,
         [studentId, SEED_ACADEMIC_YEAR_ID, structureId],
       );
       await dataSource.query(
@@ -217,6 +218,12 @@ describe('GET /dashboard/widgets/committee-finance', () => {
           billed_for_month: 500,
           received_pct: 100,
         });
+        // Dhaka midnight: 2033-03-31T18:30Z is already 1 April in the school, so April is in.
+        vi.setSystemTime(new Date('2033-03-31T18:30:00Z'));
+        await clearCache();
+        const midnight = await call(UserRole.COMMITTEE, SEED_TENANT_ID, await login()).expect(200);
+        expect(midnight.body.months.at(-1).month).toBe('2033-04');
+        expect(midnight.body.current_month.month).toBe('2033-04');
         const keys = keysDeep(res.body);
         for (const k of keys) {
           expect(PII_KEYS, k).not.toContain(k);

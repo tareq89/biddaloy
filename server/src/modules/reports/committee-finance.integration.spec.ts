@@ -194,12 +194,17 @@ describe('CollectionsReportService.getCommitteeFinance', { timeout: 20000 }, () 
       discount_amount: 700,
       status: FeeStatus.WAIVED,
     });
-    // Ignored: soft-deleted bill, future month, soft-deleted student's bill.
+    // Ignored: soft-deleted bill, future month. A soft-deleted student's SETTLED bill
+    // still counts in billed/paid (their payments stay in received).
     const gone = await bill(s.id, '2026-10-01', { total_amount: 5000 });
     await feeRepo.softDelete(gone.id);
     await bill(s.id, '2026-11-01', { total_amount: 6000 });
     const deletedStudent = await student();
-    await bill(deletedStudent.id, '2026-10-01', { total_amount: 7000 });
+    await bill(deletedStudent.id, '2026-10-01', {
+      total_amount: 7000,
+      paid_amount: 7000,
+      status: FeeStatus.PAID,
+    });
     await studentRepo.softDelete(deletedStudent.id);
     return s;
   }
@@ -216,11 +221,12 @@ describe('CollectionsReportService.getCommitteeFinance', { timeout: 20000 }, () 
     expect(by['2026-02']).toEqual({ month: '2026-02', billed: 0, paid: 0, outstanding: 0 });
     // 0.1 + 0.2 = 0.30000000000000004 in floats; money must be exactly 0.3.
     expect(by['2026-08']).toEqual({ month: '2026-08', billed: 0.3, paid: 0, outstanding: 0.3 });
-    // billed = 1000 + 1900 + 800 + 0 ; paid = 1000 + 500 ; outstanding = 1400 + 800 (PAID/WAIVED excluded)
+    // billed = 1000 + 1900 + 800 + 0 + 7000 (deleted student, PAID); paid = 1000 + 500 + 7000;
+    // outstanding = 1400 + 800 (PAID/WAIVED excluded)
     expect(by['2026-10']).toEqual({
       month: '2026-10',
-      billed: 3700,
-      paid: 1500,
+      billed: 10700,
+      paid: 8500,
       outstanding: 2200,
     });
     expect(res.year_outstanding).toBe(2200.3);
@@ -301,7 +307,7 @@ describe('CollectionsReportService.getCommitteeFinance', { timeout: 20000 }, () 
   it('Dhaka midnight: 2026-11 is in the series once the school day is 1 Nov', async () => {
     const s = await student();
     await bill(s.id, '2026-11-01', { total_amount: 900 });
-    // SchoolsService.todayFor gives '2026-11-01' at 2026-10-31T18:30Z in Dhaka.
+    // Passes `today` directly (the clock-driven path is in the e2e spec). SchoolsService.todayFor gives '2026-11-01' at 2026-10-31T18:30Z in Dhaka.
     const res = await service.getCommitteeFinance(SEED_TENANT_ID, '2026-11-01');
     expect(res.months.at(-1)).toEqual({
       month: '2026-11',
@@ -333,5 +339,51 @@ describe('CollectionsReportService.getCommitteeFinance', { timeout: 20000 }, () 
     const res = await service.getCommitteeFinance(SEED_TENANT_ID, TODAY);
     expect(res.months[0].month).toBe('2026-01');
     expect(res.months.find((m) => m.month === '2026-03')?.billed).toBe(100);
+  });
+
+  it('an OPEN bill of a soft-deleted student is in billed but not in outstanding', async () => {
+    // Direct row insert: StudentsService.remove is not exercised here, only the SQL rule.
+    const gone = await student();
+    await bill(gone.id, '2026-10-01', { total_amount: 400 });
+    await studentRepo.softDelete(gone.id);
+    const res = await service.getCommitteeFinance(SEED_TENANT_ID, TODAY);
+    expect(res.months.at(-1)).toMatchObject({ billed: 400, paid: 0, outstanding: 0 });
+    expect(res.year_outstanding).toBe(0);
+  });
+
+  it('snaps a mid-month year start to the 1st and spans calendar years in order', async () => {
+    await dataSource.query(
+      `UPDATE academic_years SET start_date = '2025-07-15', end_date = '2026-06-30' WHERE id = $1`,
+      [SEED_ACADEMIC_YEAR_ID],
+    );
+    const s = await student();
+    await bill(s.id, '2025-07-01', { total_amount: 300 });
+    const res = await service.getCommitteeFinance(SEED_TENANT_ID, '2026-02-10');
+    expect(res.months.map((m) => m.month)).toEqual([
+      '2025-07', '2025-08', '2025-09', '2025-10', '2025-11', '2025-12',
+      '2026-01', '2026-02',
+    ]); // prettier-ignore
+    expect(res.months[0]).toEqual({ month: '2025-07', billed: 300, paid: 0, outstanding: 300 });
+    expect(res.months[1]).toEqual({ month: '2025-08', billed: 0, paid: 0, outstanding: 0 });
+  });
+
+  it('caps the series at the year end month when today is past it', async () => {
+    await dataSource.query(
+      `UPDATE academic_years SET start_date = '2026-01-01', end_date = '2026-03-31' WHERE id = $1`,
+      [SEED_ACADEMIC_YEAR_ID],
+    );
+    const res = await service.getCommitteeFinance(SEED_TENANT_ID, TODAY);
+    expect(res.months.map((m) => m.month)).toEqual(['2026-01', '2026-02', '2026-03']);
+  });
+
+  it('returns an empty series (no billing query) when the year starts after today', async () => {
+    await dataSource.query(
+      `UPDATE academic_years SET start_date = '2027-01-01', end_date = '2027-12-31' WHERE id = $1`,
+      [SEED_ACADEMIC_YEAR_ID],
+    );
+    const res = await service.getCommitteeFinance(SEED_TENANT_ID, TODAY);
+    expect(res.months).toEqual([]);
+    expect(res.year_outstanding).toBe(0);
+    expect(res.current_month.month).toBe('2026-10');
   });
 });
