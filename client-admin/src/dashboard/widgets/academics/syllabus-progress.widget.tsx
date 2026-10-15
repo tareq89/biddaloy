@@ -83,9 +83,19 @@ export function SyllabusView({
           summary={average ?? title}
           table={{
             caption: title,
-            columns: [t('widgets.common.colClass'), tw('colCovered')],
-            rows: data.classes.map((c) => [c.class_name, pct(c.percentage)]),
-            numeric: [false, true],
+            columns: [
+              t('widgets.common.colClass'),
+              tw('colCovered'),
+              tw('colExpected'),
+              tw('colGap'),
+            ],
+            rows: data.classes.map((c) => [
+              c.class_name,
+              pct(c.percentage),
+              c.expected_percentage == null ? '–' : pct(c.expected_percentage),
+              isBehind(c) ? pct((c.expected_percentage ?? 0) - c.percentage) : '–',
+            ]),
+            numeric: [false, true, true, true],
           }}
           showTableLabel={t('widgets.common.showTable')}
           showChartLabel={t('widgets.common.showChart')}

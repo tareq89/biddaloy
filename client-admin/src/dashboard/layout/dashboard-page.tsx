@@ -86,6 +86,10 @@ export function DashboardPage({ customize = false }: { customize?: boolean }) {
   const ob = onboarding.data;
   const brandNew =
     !!ob && !ob.dismissed_at && ob.items.length > 0 && ob.items.every((i) => !i.done);
+  // A hidden checklist (resolveLayout dropped it from `visible`) stays hidden even for a new school.
+  const checklistOnly = brandNew
+    ? visible.find((v) => v.key === DashboardWidgetKey.SETUP_CHECKLIST)
+    : undefined;
   const openCustomise = () => void navigate({ to: '/dashboard', search: { customize: 1 } });
   const closeCustomise = () => void navigate({ to: '/dashboard', search: {} });
 
@@ -141,7 +145,7 @@ export function DashboardPage({ customize = false }: { customize?: boolean }) {
         ) : (
           <>
             {isCommittee ? <CommitteeSummary /> : <BriefingSlot />}
-            {!brandNew && (
+            {!checklistOnly && (
               <>
                 {/* Stopgap until a widget replaces them; each hides itself
                     (dismissed / no ATTENDANCE_READ / nothing to show). */}
@@ -149,8 +153,8 @@ export function DashboardPage({ customize = false }: { customize?: boolean }) {
                 <AttendancePendingCard />
               </>
             )}
-            {brandNew ? (
-              <DashboardGrid visible={[{ key: DashboardWidgetKey.SETUP_CHECKLIST, size: 'L' }]} />
+            {checklistOnly ? (
+              <DashboardGrid visible={[checklistOnly]} />
             ) : visible.length === 0 ? (
               <EmptyState
                 title={t('states.allHidden.title')}

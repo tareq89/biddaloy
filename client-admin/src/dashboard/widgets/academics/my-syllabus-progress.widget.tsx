@@ -89,9 +89,14 @@ export function MySyllabusProgressView({
           summary={leastText ?? title}
           table={{
             caption: title,
-            columns: [tw('colSubject'), tw('colCovered')],
-            rows: rows.map((r) => [r.label, pct(r.percentage)]),
-            numeric: [false, true],
+            columns: [tw('colSubject'), tw('colCovered'), tw('colExpected'), tw('colGap')],
+            rows: rows.map((r) => [
+              r.label,
+              pct(r.percentage),
+              r.expected === null ? '–' : pct(r.expected),
+              behindBy(r) > 0 ? pct(behindBy(r)) : '–',
+            ]),
+            numeric: [false, true, true, true],
           }}
           showTableLabel={t('widgets.common.showTable')}
           showChartLabel={t('widgets.common.showChart')}
