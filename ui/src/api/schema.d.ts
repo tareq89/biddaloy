@@ -87,6 +87,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/recent-activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: recent-activity */
+        get: operations["AuditDashboardController_getRecentActivity_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -1806,6 +1823,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/dues-ageing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: dues-ageing */
+        get: operations["FeesDashboardController_duesAgeing_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/dues-by-class": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: dues-by-class */
+        get: operations["FeesDashboardController_duesByClass_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/reminders-pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: reminders-pending */
+        get: operations["FeesDashboardController_remindersPending_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/fee-generation-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: fee-generation-status */
+        get: operations["FeesDashboardController_feeGenerationStatus_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/recent-payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: recent-payments */
+        get: operations["FeesDashboardController_recentPayments_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invoices": {
         parameters: {
             query?: never;
@@ -3507,6 +3609,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/my-pending-sections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: my-pending-sections */
+        get: operations["AttendanceDashboardController_getMyPendingSections_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/class-teacher-streaks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: class-teacher-streaks */
+        get: operations["AttendanceDashboardController_getClassTeacherStreaks_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/attendance/devices": {
         parameters: {
             query?: never;
@@ -3728,6 +3864,23 @@ export interface paths {
         };
         /** Resolve concrete, dated slots for a section, teacher or student. A PARENT or STUDENT must use `student_id` for a student they are linked to. */
         get: operations["ResolveRoutineController_resolve_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/my-routine-today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: my-routine-today */
+        get: operations["RoutinesDashboardController_getMyRoutineToday_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4189,6 +4342,40 @@ export interface paths {
         };
         /** Dashboard widget: collection-month */
         get: operations["ReportsDashboardController_collectionMonth_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/collection-today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: collection-today */
+        get: operations["ReportsDashboardController_collectionToday_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/collection-by-month": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: collection-by-month */
+        get: operations["ReportsDashboardController_collectionByMonth_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4890,6 +5077,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/my-mark-deadlines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: my-mark-deadlines */
+        get: operations["ExamsDashboardController_myMarkDeadlines_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/homework": {
         parameters: {
             query?: never;
@@ -5158,6 +5362,57 @@ export interface paths {
         };
         /** Dashboard widget: syllabus-progress */
         get: operations["HomeworkDashboardController_getSyllabusProgress_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/homework-to-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: homework-to-check */
+        get: operations["HomeworkDashboardController_getHomeworkToCheck_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/homework-submission-rate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: homework-submission-rate */
+        get: operations["HomeworkDashboardController_getSubmissionRate_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/my-syllabus-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: my-syllabus-progress */
+        get: operations["HomeworkDashboardController_getMySyllabusProgress_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7434,6 +7689,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/my-leave-balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: my-leave-balance */
+        get: operations["LeaveDashboardController_getMyLeaveBalance_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/applications/pending-count": {
         parameters: {
             query?: never;
@@ -8518,6 +8790,27 @@ export interface components {
             page: number;
             limit: number;
             totalPages: number;
+        };
+        RecentActivityItemDto: {
+            id: string;
+            /** @enum {string} */
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED";
+            /** @example Student */
+            entity_type: string;
+            /** @description Display name of the record, when it can be resolved; null otherwise. */
+            entity_label: string | null;
+            /** @description Acting user’s full name; null for system actions or a removed user. */
+            performed_by_name: string | null;
+            /**
+             * @description ISO 8601, UTC
+             * @example 2026-10-07T04:12:00.000Z
+             */
+            created_at: string;
+            /** @description Fields whose value changed (UPDATE rows only); null for every other action. */
+            changed_field_count: number | null;
+        };
+        RecentActivityDto: {
+            items: components["schemas"]["RecentActivityItemDto"][];
         };
         LoginDto: {
             /** Format: email */
@@ -10359,6 +10652,89 @@ export interface components {
             /** @enum {string} */
             status: "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "WAIVED" | "ADVANCE";
         };
+        DuesAgeingBucketDto: {
+            /** @enum {string} */
+            bucket: "0_30" | "31_60" | "60_PLUS";
+            /** @description Sum of open balances (total - paid - discount) in the band. */
+            amount: number;
+            /** @description round(amount / total_due * 100); 0 when total_due is 0. */
+            share_pct: number;
+        };
+        DuesAgeingWidgetDto: {
+            /**
+             * @description School-local day the ages are measured on.
+             * @example 2026-10-07
+             */
+            as_of: string;
+            /** @description Sum of the three buckets. Equals the sum of total_due over every page of GET /fees/dues. */
+            total_due: number;
+            /** @description Always three, in order. Age = days past due_date; 0_30 includes not-yet-due fees and fees with no due date. */
+            buckets: components["schemas"]["DuesAgeingBucketDto"][];
+        };
+        DuesByClassItemDto: {
+            /** Format: uuid */
+            class_id: string;
+            class_name: string;
+            /** @description Open balance of the class. */
+            amount: number;
+            /** @description Distinct students with an open fee. */
+            student_count: number;
+        };
+        DuesByClassWidgetDto: {
+            total_due: number;
+            /** @description Largest amount first. */
+            classes: components["schemas"]["DuesByClassItemDto"][];
+        };
+        RemindersPendingWidgetDto: {
+            /** @description Flagged students (past reminder_threshold_date) with no non-FAILED reminder log since that date. */
+            student_count: number;
+            /** @description Distinct guardians of those students. */
+            guardian_count: number;
+            /** @example 2026-09-10 */
+            oldest_threshold_date: string | null;
+        };
+        FeeGenerationStatusWidgetDto: {
+            /**
+             * @description School-local month, YYYY-MM.
+             * @example 2026-10
+             */
+            period: string;
+            /** @description At least one batch exists for the month. */
+            generated: boolean;
+            /** @example 2026-10-01T00:00:12.000Z */
+            first_generated_at: string | null;
+            /** @description Bills created by the month batches. */
+            bill_count: number;
+            batch_count: number;
+            /**
+             * @description Earliest next run of an active recurring schedule; null when none.
+             * @example 2026-11-01
+             */
+            next_scheduled_run: string | null;
+        };
+        /** @enum {string} */
+        PaymentMethod: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+        /** @enum {string} */
+        PaymentStatus: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
+        RecentPaymentItemDto: {
+            /** Format: uuid */
+            payment_id: string;
+            /** @description Null if the student was deleted. */
+            student_name: string | null;
+            class_name: string | null;
+            section_name: string | null;
+            amount: number;
+            payment_method: components["schemas"]["PaymentMethod"];
+            payment_status: components["schemas"]["PaymentStatus"];
+            /** @example 2026-10-07T04:06:00.000Z */
+            payment_date: string;
+        };
+        RecentPaymentsWidgetDto: {
+            /** @description Sum of the SUCCESS rows shown; FAILED rows move no money. */
+            total_of_shown: number;
+            /** @description Up to 5, newest first. */
+            items: components["schemas"]["RecentPaymentItemDto"][];
+        };
         UserResponseDto: {
             id: string;
             email: string | null;
@@ -11744,6 +12120,51 @@ export interface components {
             /** @description 30 points ending today */
             series: components["schemas"]["AttendanceSeriesPointDto"][];
         };
+        MyPendingSectionDto: {
+            /** Format: uuid */
+            section_id: string;
+            class_name: string;
+            section_name: string;
+            student_count: number;
+            /** @description true once today's register is finalised */
+            taken: boolean;
+            /** @description Students on the roll with no mark yet today */
+            unmarked: number;
+        };
+        MyPendingSectionsDto: {
+            /** @example 2026-10-07 */
+            date: string;
+            is_working_day: boolean;
+            pending_count: number;
+            /** @description Not taken first, then class / section */
+            sections: components["schemas"]["MyPendingSectionDto"][];
+        };
+        StreakSectionDto: {
+            /** Format: uuid */
+            section_id: string;
+            class_name: string;
+            section_name: string;
+        };
+        ClassTeacherStreakItemDto: {
+            /** Format: uuid */
+            student_id: string;
+            student_name: string;
+            roll_number: number;
+            /** @description Consecutive absent school days */
+            length: number;
+            /** @example 2026-09-30 */
+            since_date: string;
+        };
+        ClassTeacherStreaksDto: {
+            /** @description null = no homeroom section */
+            section: components["schemas"]["StreakSectionDto"] | null;
+            /** @example 2026-10-06 */
+            as_of_date: string | null;
+            /** @description All students on an absent run, not just the first 10 */
+            total: number;
+            /** @description First 10, longest first */
+            items: components["schemas"]["ClassTeacherStreakItemDto"][];
+        };
         CreateDeviceDto: {
             name: string;
             /** @enum {string} */
@@ -11875,6 +12296,41 @@ export interface components {
             building?: string | null;
             room_no?: string;
             capacity?: number | null;
+        };
+        MyRoutinePeriodDto: {
+            /** @example 10:30 */
+            starts_at: string;
+            /** @example 11:10 */
+            ends_at: string;
+            section_id: string;
+            /** @example 7th */
+            class_name: string;
+            /** @example B */
+            section_name: string;
+            subject_name_en: string | null;
+            subject_name_bn: string | null;
+            /** @example Main 202 */
+            room_label: string | null;
+            is_homeroom: boolean;
+            covering: boolean;
+            cancelled: boolean;
+        };
+        MyRoutineNextDayDto: {
+            /** @example 2026-10-08 */
+            date: string;
+            /** @example 08:00 */
+            starts_at: string;
+            class_name: string;
+            section_name: string;
+            subject_name_en: string | null;
+            subject_name_bn: string | null;
+        };
+        MyRoutineTodayDto: {
+            /** @example 2026-10-07 */
+            date: string;
+            is_working_day: boolean;
+            periods: components["schemas"]["MyRoutinePeriodDto"][];
+            next_day: components["schemas"]["MyRoutineNextDayDto"] | null;
         };
         UpsertSubstitutionDto: {
             /** Format: uuid */
@@ -12202,6 +12658,59 @@ export interface components {
             last_month_same_point: components["schemas"]["CollectionMonthFigures"];
             /** @description Same day-of-month, same month last year; null when it had no bills and no net cash. */
             last_year_same_point: components["schemas"]["CollectionMonthFigures"] | null;
+        };
+        /** @enum {string} */
+        CollectionMethodGroup: "CASH" | "BKASH" | "BANK" | "OTHER_MOBILE";
+        CollectionMethodFigure: {
+            payment_method: components["schemas"]["PaymentMethod"];
+            /** @description Amount applied to bills (net of reversals), not physical cash; group nets sum to GET /reports/collections totals.net. */
+            net: number;
+            /** @description Payments received; reversal rows are not payments. */
+            payment_count: number;
+        };
+        CollectionGroupFigure: {
+            group: components["schemas"]["CollectionMethodGroup"];
+            /** @description Amount applied to bills (net of reversals), not physical cash; group nets sum to GET /reports/collections totals.net. */
+            net: number;
+            payment_count: number;
+            /** @description Methods that had activity, biggest net first. */
+            methods: components["schemas"]["CollectionMethodFigure"][];
+        };
+        CollectionTodayWidgetDto: {
+            /**
+             * @description School-local date, YYYY-MM-DD.
+             * @example 2026-10-07
+             */
+            date: string;
+            /** @description Amount applied to bills from the start of the school-local day until now (net of reversals), not physical cash; equals the sum of the group nets and uses the same filter as GET /reports/collections. */
+            net: number;
+            /** @description Payments received today; reversal rows are not counted. */
+            payment_count: number;
+            /** @description Net received yesterday, from its start to this time of day. */
+            yesterday_same_time_net: number;
+            /** @description Always four groups, in the order CASH, BKASH, BANK, OTHER_MOBILE. */
+            groups: components["schemas"]["CollectionGroupFigure"][];
+        };
+        CollectionMonthFigure: {
+            month: number;
+            /** @description Amount applied to bills that school-local month (net of reversals, not physical cash); null for months after the current one. */
+            net: number | null;
+            is_current: boolean;
+        };
+        CollectionByMonthWidgetDto: {
+            /**
+             * @description School-local year.
+             * @example 2026
+             */
+            year: number;
+            /** @description Sum of the months up to and including the current one. */
+            year_to_date_net: number;
+            /** @description Amount applied to bills from day 1 of the current month until now (net of reversals, not physical cash). */
+            month_to_date_net: number;
+            /** @description Net received in the previous month from day 1 to the same day-of-month (clamped to its last day). */
+            previous_month_same_days_net: number;
+            /** @description Twelve slots, January to December. */
+            months: components["schemas"]["CollectionMonthFigure"][];
         };
         AtRiskThresholdsDto: {
             absentStreakDays: number;
@@ -12675,6 +13184,37 @@ export interface components {
             /** Format: uuid */
             lowest_class_id: string | null;
         };
+        MyMarkDeadlineItemDto: {
+            /** Format: uuid */
+            exam_id: string;
+            exam_name: string;
+            /** Format: uuid */
+            section_id: string;
+            class_name: string;
+            section_name: string;
+            /** Format: uuid */
+            subject_id: string;
+            subject_name_en: string;
+            subject_name_bn: string | null;
+            /** @description Rostered students with every live component entered */
+            entered: number;
+            /** @description Students on the grid (ACTIVE enrollments of the section) */
+            expected: number;
+            /**
+             * @description No grid row means DRAFT
+             * @enum {string}
+             */
+            state: "DRAFT" | "SUBMITTED";
+            /** @description YYYY-MM-DD; null when not set */
+            mark_entry_deadline: string | null;
+            /** @description YYYY-MM-DD, latest sitting date of this subject, not a deadline */
+            last_sitting_date: string | null;
+        };
+        MyMarkDeadlinesDto: {
+            /** @description Sum of expected - entered over DRAFT grids */
+            outstanding_students: number;
+            items: components["schemas"]["MyMarkDeadlineItemDto"][];
+        };
         CreateHomeworkDto: {
             /** Format: uuid */
             subject_id: string;
@@ -12837,6 +13377,84 @@ export interface components {
         SyllabusProgressWidgetDto: {
             classes: components["schemas"]["SyllabusClassProgressDto"][];
             overall: components["schemas"]["SyllabusOverallProgressDto"];
+        };
+        HomeworkToCheckItemDto: {
+            /** Format: uuid */
+            assignment_id: string;
+            /** Format: uuid */
+            homework_id: string;
+            title: string;
+            /** @example 7 */
+            class_name: string;
+            /** @example B */
+            section_name: string;
+            /** @example Mathematics */
+            subject_name_en: string;
+            subject_name_bn: string | null;
+            /** @example 2026-10-06 */
+            due_date: string;
+            /** @description Submissions with status SUBMITTED */
+            submitted_count: number;
+        };
+        HomeworkToCheckDto: {
+            /** @description SUBMITTED rows across all of the caller assignments */
+            total_submitted: number;
+            /** @description Assignments with at least one SUBMITTED row */
+            assignment_count: number;
+            /** @description Top 5 by submitted_count */
+            items: components["schemas"]["HomeworkToCheckItemDto"][];
+        };
+        SubmissionRateWindowDto: {
+            /** @example 2026-10-01 */
+            from: string;
+            /** @example 2026-10-07 */
+            to: string;
+        };
+        SubmissionRateCountsDto: {
+            assigned: number;
+            submitted: number;
+            /** @example 85 */
+            percentage: number;
+        };
+        SubmissionRateClassDto: {
+            assigned: number;
+            submitted: number;
+            /** @example 85 */
+            percentage: number;
+            /** Format: uuid */
+            class_id: string;
+            /** @example 7 */
+            class_name: string;
+        };
+        HomeworkSubmissionRateDto: {
+            window: components["schemas"]["SubmissionRateWindowDto"];
+            overall: components["schemas"]["SubmissionRateCountsDto"];
+            classes: components["schemas"]["SubmissionRateClassDto"][];
+        };
+        MySyllabusSectionDto: {
+            /** Format: uuid */
+            section_id: string;
+            /** @example B */
+            section_name: string;
+        };
+        MySyllabusProgressItemDto: {
+            /** Format: uuid */
+            class_id: string;
+            /** @example 7 */
+            class_name: string;
+            sections: components["schemas"]["MySyllabusSectionDto"][];
+            /** Format: uuid */
+            subject_id: string;
+            /** @example Mathematics */
+            subject_name_en: string;
+            subject_name_bn: string | null;
+            done: number;
+            total: number;
+            /** @example 37 */
+            percentage: number;
+        };
+        MySyllabusProgressDto: {
+            items: components["schemas"]["MySyllabusProgressItemDto"][];
         };
         PlanListSectionDto: {
             id: string;
@@ -14295,6 +14913,14 @@ export interface components {
         UpdateLeavePolicyDto: {
             annual_quota_days: number | null;
         };
+        MyLeaveBalanceDto: {
+            has_profile: boolean;
+            year: number;
+            total_quota_days: number;
+            total_used_days: number;
+            total_balance_days: number;
+            by_type: components["schemas"]["LeaveBalanceDto"][];
+        };
         /** @enum {string} */
         ApplicationType: "STAFF_LEAVE" | "STUDENT_LEAVE" | "FEE_WAIVER" | "TESTIMONIAL" | "TRANSFER_CERTIFICATE" | "READMISSION" | "SECTION_CHANGE" | "SCRIPT_RECHECK" | "ID_CARD_REPRINT" | "GENERAL";
         PendingTypeCountDto: {
@@ -15399,6 +16025,44 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuditDashboardController_getRecentActivity_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecentActivityDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19686,6 +20350,196 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesDashboardController_duesAgeing_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuesAgeingWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesDashboardController_duesByClass_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuesByClassWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesDashboardController_remindersPending_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemindersPendingWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesDashboardController_feeGenerationStatus_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeeGenerationStatusWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesDashboardController_recentPayments_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecentPaymentsWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -24329,6 +25183,82 @@ export interface operations {
             };
         };
     };
+    AttendanceDashboardController_getMyPendingSections_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyPendingSectionsDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttendanceDashboardController_getClassTeacherStreaks_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassTeacherStreaksDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     DevicesController_list_v1: {
         parameters: {
             query?: never;
@@ -25009,6 +25939,44 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RoutinesDashboardController_getMyRoutineToday_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyRoutineTodayDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -26062,6 +27030,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CollectionMonthWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportsDashboardController_collectionToday_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionTodayWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportsDashboardController_collectionByMonth_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionByMonthWidgetDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -28020,6 +29064,44 @@ export interface operations {
             };
         };
     };
+    ExamsDashboardController_myMarkDeadlines_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMarkDeadlinesDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     HomeworkController_findAll_v1: {
         parameters: {
             query?: {
@@ -28710,6 +29792,120 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SyllabusProgressWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HomeworkDashboardController_getHomeworkToCheck_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeworkToCheckDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HomeworkDashboardController_getSubmissionRate_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeworkSubmissionRateDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HomeworkDashboardController_getMySyllabusProgress_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySyllabusProgressDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -34348,6 +35544,44 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LeaveDashboardController_getMyLeaveBalance_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyLeaveBalanceDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
