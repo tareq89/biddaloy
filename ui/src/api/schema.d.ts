@@ -11830,7 +11830,7 @@ export interface components {
             email?: string;
             phone?: string;
             /** @enum {string} */
-            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
+            role: "ADMIN" | "ACCOUNTANT" | "TEACHER" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
         };
         JoinRequestResponseDto: {
             /** @enum {string} */

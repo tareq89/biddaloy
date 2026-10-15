@@ -96,7 +96,8 @@ export class BackupScheduleService {
     const settings = await this.schools.getResolvedSettings(tenantId);
     const mode = settings.backup?.schedule ?? 'OFF';
 
-    if (school.status !== 'ACTIVE' || mode === 'OFF') {
+    // [58.1.02] Demo too: a tick queued before `sync()` removed the scheduler must not export.
+    if (isDemoMode() || school.status !== 'ACTIVE' || mode === 'OFF') {
       // Stale scheduler — clean it up rather than leaving it to tick
       // pointlessly forever.
       await this.sync(tenantId);

@@ -162,6 +162,26 @@ describe('learning slice (integration, 2 years, scale 0.05)', () => {
     expect(Number((await q(`SELECT count(*) AS n FROM lesson_deliveries`))[0].n)).toBeGreaterThan(
       0,
     );
+    // ...and never on a day the branch calendar closes (for the whole branch or the section's class).
+    const [{ n: onHoliday }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM lesson_deliveries d
+         JOIN class_sections cs ON cs.id = d.section_id
+         JOIN calendar_events e ON e.tenant_id = d.tenant_id AND e.deleted_at IS NULL
+          AND e.published_at IS NOT NULL AND e.counts_as_working_day = false
+          AND d.date BETWEEN e.start_date AND e.end_date
+        WHERE NOT EXISTS (SELECT 1 FROM calendar_event_classes ec WHERE ec.event_id = e.id)
+           OR EXISTS (SELECT 1 FROM calendar_event_classes ec
+                       WHERE ec.event_id = e.id AND ec.class_id = cs.class_id)`,
+    );
+    expect(Number(onHoliday)).toBe(0);
+
+    // Program enrollments and achievements never run past yesterday.
+    const [{ n: future }] = await q<{ n: string }>(
+      `SELECT (SELECT count(*) FROM program_enrollments WHERE ended_on > $1 OR started_on > $1)
+            + (SELECT count(*) FROM milestone_achievements WHERE achieved_on > $1) AS n`,
+      [yesterday],
+    );
+    expect(Number(future)).toBe(0);
 
     // Every program has milestones and at least one achievement; Hifz is not in College.
     const programs = await q<{

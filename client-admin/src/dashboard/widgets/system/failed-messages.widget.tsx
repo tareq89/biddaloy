@@ -5,7 +5,8 @@
 import { DashboardWidgetKey } from '@biddaloy/shared';
 import { apiClient, type components } from '@biddaloy/ui/api';
 import { StatusBadge, WidgetCard } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
@@ -43,6 +44,7 @@ export function FailedMessagesView({
   onRetry,
 }: FailedMessagesViewProps) {
   const { t } = useTranslation('dashboard');
+  const region = useTenantRegionConfig();
   const tw = (key: string, opts: Record<string, unknown> = {}) => t(`widgets.${K}.${key}`, opts);
   const title = tw('title');
   const some = !!data && data.failed > 0;
@@ -51,7 +53,9 @@ export function FailedMessagesView({
     <WidgetCard
       title={title}
       variant={variant === 'full' ? 'full' : 'compact'}
-      {...(data ? { value: tw('value', { count: data.failed }) } : {})}
+      {...(data
+        ? { value: tw('value', { count: data.failed, value: formatNumber(data.failed, region) }) }
+        : {})}
       {...(data && !some ? { summary: tw('none') } : {})}
       loading={loading}
       loadingLabel={t('states.loading', { title })}

@@ -36,6 +36,7 @@ import {
   useActiveTenant,
   useCreateUser,
   useRequestStaffJoin,
+  type JoinRequestInput,
   type UserRoleFilter,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -133,7 +134,7 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
       {
         ...(email.trim() !== '' ? { email: email.trim() } : {}),
         ...(phone.trim() !== '' ? { phone: phone.trim() } : {}),
-        role: role as UserRoleFilter,
+        role: role as JoinRequestInput['role'],
       },
       {
         onSuccess: () => {
