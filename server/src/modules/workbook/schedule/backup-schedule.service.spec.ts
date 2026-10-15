@@ -31,6 +31,19 @@ describe('BackupScheduleService', () => {
   });
 
   describe('sync', () => {
+    // [58.1.02] The demo never schedules backups, whatever the school's own setting says.
+    it('with DEMO_MODE removes the scheduler and never upserts', async () => {
+      vi.stubEnv('DEMO_MODE', 'true');
+      try {
+        await service.sync(TENANT);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+
+      expect(queue.upsertJobScheduler).not.toHaveBeenCalled();
+      expect(queue.removeJobScheduler).toHaveBeenCalledWith(schedulerIdFor(TENANT));
+    });
+
     it('WEEKLY upserts with pattern 0 2 * * 0 and the school timezone', async () => {
       await service.sync(TENANT);
 
@@ -183,6 +196,19 @@ describe('BackupScheduleService', () => {
       schools.getResolvedSettings.mockResolvedValue({ backup: { schedule: 'OFF' } });
 
       await service.runNow(TENANT);
+
+      expect(exports.run).not.toHaveBeenCalled();
+      expect(queue.removeJobScheduler).toHaveBeenCalledWith(schedulerIdFor(TENANT));
+    });
+
+    // [58.1.02] A tick already queued when demo mode removed the scheduler still never exports.
+    it('with DEMO_MODE does not call ExportService.run, and cleans up the scheduler instead', async () => {
+      vi.stubEnv('DEMO_MODE', 'true');
+      try {
+        await service.runNow(TENANT);
+      } finally {
+        vi.unstubAllEnvs();
+      }
 
       expect(exports.run).not.toHaveBeenCalled();
       expect(queue.removeJobScheduler).toHaveBeenCalledWith(schedulerIdFor(TENANT));

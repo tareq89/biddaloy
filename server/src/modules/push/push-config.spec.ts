@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ConfigService } from '@nestjs/config';
 import * as webpush from 'web-push';
 import { PushConfigService } from './push-config';
@@ -49,6 +49,17 @@ describe('PushConfigService', () => {
       VAPID_SUBJECT: 'mailto:admin@example.com',
     });
     expect(service.isPushEnabled()).toBe(true);
+  });
+
+  // The public demo must never send a real web push, even with VAPID keys left in its env.
+  it('is disabled under DEMO_MODE even when all three VAPID vars are set', () => {
+    vi.stubEnv('DEMO_MODE', 'true');
+    const service = makeService({
+      VAPID_PUBLIC_KEY: VALID_PUBLIC_KEY,
+      VAPID_PRIVATE_KEY: VALID_PRIVATE_KEY,
+      VAPID_SUBJECT: 'mailto:admin@example.com',
+    });
+    expect(service.isPushEnabled()).toBe(false);
   });
 
   it('onModuleInit does not throw when push is disabled', () => {

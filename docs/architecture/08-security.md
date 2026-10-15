@@ -852,6 +852,38 @@ Out of scope for this ticket: a "new sign-in to your account" notification
 
 The message names the script and host, never the password. The dev seed's attendance device gets a fresh random key per database, printed once as `Seed attendance device key (shown once): bd_...`; re-runs do not reprint it. Specs that call `ensureAttendanceSeed` directly keep the fixed `SEED_DEVICE_KEY` from `seed.util.ts`; `e2e/seed-contract.ts` no longer exports one, since a Playwright spec cannot know the random key.
 
+## Demo seed safety (58.1.03)
+
+`yarn seed:demo` does not call `assertLocalSeedTarget`: the nightly demo reset runs with `NODE_ENV=production` against a Docker-service host, which that guard refuses by design. It runs its own three checks, in this order, before any write:
+
+```mermaid
+flowchart LR
+  A["1. NODE_ENV=production<br/>and DEMO_MODE not 'true'?"] -->|yes| X[exit 1]
+  A -->|no| B["2. DATABASE_URL database name<br/>starts with biddaloy_demo?"]
+  B -->|no| X
+  B -->|yes| C["3. any school besides<br/>default-school exists?"]
+  C -->|yes| X
+  C -->|no| D[run slices]
+```
+
+Example: `postgres://u:p@db:5432/biddaloy` is refused at step 2; `.../biddaloy_demo_next` on a freshly migrated database passes. The host is not checked because the database name already limits the blast radius, and the real database can never be called `biddaloy_demo*`. `default-school` is the platform row every migrated database already holds, so it does not count as data.
+
+## Demo boot check (58.1.01)
+
+A server or script started with `DEMO_MODE=true` first checks that the database is a demo one. It runs **before** `NestFactory.create`, in `main.ts`, in `createScriptAppContext` and in `generate-openapi.ts`. `main.ts` exits 1 on a refusal even with Sentry on.
+
+```mermaid
+flowchart LR
+  A["DEMO_MODE=true?"] -->|no| N[boot Nest]
+  A -->|yes| B["assertDemoDatabase<br/>SELECT id, slug FROM schools<br/>(soft-deleted rows too)"]
+  B -->|"only bmsc-* rows<br/>(+ default-school with no students, PLATFORM_TENANT_ID)"| N
+  B -->|"any other slug,<br/>or default-school with students"| X["throw, exit 1"]
+```
+
+`default-school` counts only while it has no students: a pre-multi-tenant install moved all its real data into that row.
+
+Why not a Nest `onApplicationBootstrap` hook: every module's `onModuleInit` runs first. On a real Redis that already removes the real trial and backup schedulers and starts the BullMQ workers, and a worker could settle a real queued SMS as SENT through the demo-log provider. Example: a copied env file with `DEMO_MODE=true` pointed at the real `biddaloy` database stops with `DEMO_MODE refuses to start: database holds non-demo schools (...)` before any of that runs.
+
 ## CSRF posture
 
 The API splits cleanly into two authentication modes, and the CSRF argument

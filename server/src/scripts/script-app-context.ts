@@ -2,6 +2,7 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import Redis from 'ioredis';
 import { queueWorkers } from '../common/queue-workers';
+import { assertDemoDatabase } from '../modules/demo/demo-boot-check';
 
 const REDIS_CHECK_TIMEOUT_MS = 2_000;
 
@@ -22,6 +23,8 @@ export async function createScriptAppContext(): Promise<INestApplicationContext>
   // synchronous `validate`), so REDIS_URL is readable from here on.
   const { AppModule } = await import('../app.module');
   await assertRedisReachable(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379');
+  // Same pre-boot check as main.ts: a script with DEMO_MODE=true must not boot on a real DB.
+  await assertDemoDatabase();
   return NestFactory.createApplicationContext(AppModule);
 }
 

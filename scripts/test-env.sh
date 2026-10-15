@@ -221,6 +221,13 @@ cmd_sweep() {
       fi
     done
   fi
+  # 3. Demo-seed coverage databases older than <hours> (afterAll drops them unless the run crashed).
+  #    Age = when CREATE DATABASE wrote PG_VERSION; a live run is minutes old.
+  if [ -n "$(container db)" ]; then
+    for id in $(psql_admin "SELECT datname FROM pg_database WHERE datname LIKE 'biddaloy\\_demo\\_cov\\_%' AND (pg_stat_file('base/' || oid || '/PG_VERSION')).modification < now() - interval '$hours hours'"); do
+      psql_admin "DROP DATABASE IF EXISTS \"$id\" WITH (FORCE)" >/dev/null
+    done
+  fi
   for f in "$STATE_DIR"/redis-block-*/owner; do
     [ -e "$f" ] || continue
     id="$(cat "$f")"

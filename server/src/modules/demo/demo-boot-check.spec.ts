@@ -1,0 +1,86 @@
+import { describe, it, expect, vi } from 'vitest';
+import { assertDemoDatabase } from './demo-boot-check';
+
+type Row = { id: string; slug: string; has_students?: boolean };
+const check = (env: Record<string, string | undefined>, schools: Row[]) => {
+  const load = vi.fn().mockResolvedValue(schools);
+  return { run: () => assertDemoDatabase(env as NodeJS.ProcessEnv, load), load };
+};
+
+describe('assertDemoDatabase (runs in main.ts before NestFactory.create)', () => {
+  it('refuses a database holding a non-demo school', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        { id: '1', slug: 'bmsc-high' },
+        { id: '2', slug: 'real-school' },
+      ]).run(),
+    ).rejects.toThrow(/real-school/);
+  });
+
+  // Every migrated DB has default-school (MultiTenantAuth migration, random uuid), so a correctly
+  // built demo DB holds it too. The seed runner's guard 3 allows it for the same reason.
+  it('passes with the migrated default-school row next to the bmsc-* rows', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        { id: 'random-uuid', slug: 'default-school' },
+        { id: '2', slug: 'bmsc-high' },
+      ]).run(),
+    ).resolves.toBeUndefined();
+  });
+
+  it('still refuses default-school next to a real school', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        { id: '1', slug: 'default-school' },
+        { id: '2', slug: 'real-school' },
+      ]).run(),
+    ).rejects.toThrow(/real-school/);
+  });
+
+  // A pre-multi-tenant install moved all its real data into default-school, so a default-school
+  // with students is a real database, not the empty platform row.
+  it('refuses default-school with students', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        { id: '1', slug: 'default-school', has_students: true },
+        { id: '2', slug: 'bmsc-high' },
+      ]).run(),
+    ).rejects.toThrow(/default-school/);
+  });
+
+  it('passes with only bmsc-* rows', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        { id: '1', slug: 'bmsc-primary' },
+        { id: '2', slug: 'bmsc-high' },
+        { id: '3', slug: 'bmsc-college' },
+      ]).run(),
+    ).resolves.toBeUndefined();
+  });
+
+  it('excepts an explicitly configured platform tenant', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true', PLATFORM_TENANT_ID: 'p' }, [
+        { id: 'p', slug: 'platform' },
+        { id: '2', slug: 'bmsc-high' },
+      ]).run(),
+    ).resolves.toBeUndefined();
+  });
+
+  // A legacy install's env names its default-school row as the platform tenant; copying that env
+  // with DEMO_MODE=true must not let the exemption skip the students check.
+  it('refuses a platform tenant with students', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true', PLATFORM_TENANT_ID: 'p' }, [
+        { id: 'p', slug: 'default-school', has_students: true },
+        { id: '2', slug: 'bmsc-high' },
+      ]).run(),
+    ).rejects.toThrow(/default-school/);
+  });
+
+  it('does not even query when DEMO_MODE is off', async () => {
+    const { run, load } = check({}, [{ id: '1', slug: 'real-school' }]);
+    await run();
+    expect(load).not.toHaveBeenCalled();
+  });
+});

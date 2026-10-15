@@ -1,3 +1,6 @@
+import { isDemoMode } from './modules/demo/demo-mode';
+import { demoNoindex } from './modules/demo/demo-noindex.middleware';
+import { assertDemoDatabase } from './modules/demo/demo-boot-check';
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -24,6 +27,7 @@ import {
 import { buildDocsBasicAuthMiddleware, buildDocsCspOverrideMiddleware } from './docs-auth';
 import { buildSpaFallback } from './spa-fallback';
 import { assertSecretEchoAllowed } from './modules/account-access/account-access-echo';
+import * as Sentry from '@sentry/node';
 import { initSentry } from './common/sentry';
 
 async function bootstrap() {
@@ -33,6 +37,10 @@ async function bootstrap() {
   // here on can hit the exception filter's Sentry.captureException call.
   // Throws (malformed SENTRY_DSN) or no-ops (unset), never half-inits.
   initSentry();
+
+  // [58.1.01, D30] Before NestFactory.create: module init already touches Redis and starts
+  // workers, so a demo build pointed at a real database must stop before that. Throws → exit 1.
+  await assertDemoDatabase();
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
@@ -58,6 +66,8 @@ async function bootstrap() {
 
   // As early as possible, and before the static-serving middleware below —
   // security headers should apply to every response, including the SPAs.
+  // [58.1.01, D27] Demo only: noindex on every response, SPA and 404s included.
+  if (isDemoMode()) app.use(demoNoindex);
   app.use(helmet(buildHelmetOptions(process.env.NODE_ENV)));
   // Swagger UI needs inline script/style the global CSP above deliberately
   // doesn't allow anywhere else — see docs-auth.ts.
@@ -123,5 +133,12 @@ async function bootstrap() {
 // Guarded so importing resolveCorsOrigins for tests doesn't also boot a
 // real Nest application.
 if (require.main === module) {
-  bootstrap();
+  // Explicit exit 1: Sentry's unhandled-rejection handler would otherwise only warn. Catching it
+  // here also hides it from that handler, so report it ourselves (no-op when Sentry is off).
+  bootstrap().catch(async (e) => {
+    console.error(e);
+    Sentry.captureException(e);
+    await Sentry.flush(2000);
+    process.exit(1);
+  });
 }

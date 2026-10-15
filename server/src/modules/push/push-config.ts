@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as webpush from 'web-push';
+import { isDemoMode } from '../demo/demo-mode';
 
 /**
  * Reads the VAPID (Voluntary Application Server Identification) keys that
@@ -45,7 +46,11 @@ export class PushConfigService implements OnModuleInit {
     return this.configService.get<string>('VAPID_SUBJECT', '');
   }
 
+  /** [58.1.02] Off under DEMO_MODE whatever the VAPID env says, like every other channel. */
   isPushEnabled(): boolean {
-    return Boolean(this.getVapidPublicKey() && this.getVapidPrivateKey() && this.getVapidSubject());
+    return (
+      !isDemoMode() &&
+      Boolean(this.getVapidPublicKey() && this.getVapidPrivateKey() && this.getVapidSubject())
+    );
   }
 }
