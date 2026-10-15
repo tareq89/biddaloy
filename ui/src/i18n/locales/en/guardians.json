@@ -1,4 +1,9 @@
 {
+  "filters": {
+    "recordCompleteness": "Records",
+    "allRecords": "All records",
+    "incompleteOnly": "Incomplete records only"
+  },
   "list": {
     "title": "Guardians",
     "caption": "Guardians",

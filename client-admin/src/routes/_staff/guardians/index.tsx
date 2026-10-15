@@ -30,6 +30,7 @@ interface GuardianFilters {
   relationship?: string | undefined;
   preferred_communication?: string | undefined;
   is_primary_contact?: string | undefined;
+  incomplete?: string | undefined;
 }
 
 const guardiansSearchSchema = z.object({
@@ -42,6 +43,8 @@ const guardiansSearchSchema = z.object({
   relationship: z.string().optional().catch(undefined),
   preferred_communication: z.string().optional().catch(undefined),
   is_primary_contact: z.string().optional().catch(undefined),
+  // [8.10.7.5.05] D33 — only `1` is meaningful (dashboard card deep link).
+  incomplete: z.coerce.number().int().pipe(z.literal(1)).optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores row selection under —
   // must be declared here or TanStack Router's `validateSearch` strips it
   // from the URL. This page wires no bulk actions today, but keeping the
@@ -64,6 +67,7 @@ export const Route = createFileRoute('/_staff/guardians/')({
     relationship: search.relationship,
     preferredCommunication: search.preferred_communication,
     isPrimaryContact: search.is_primary_contact,
+    incomplete: search.incomplete,
   }),
   loader: ({ context: { queryClient }, deps }) => {
     const sortField = deps.sort !== undefined ? SORT_FIELD_BY_COLUMN[deps.sort] : undefined;
@@ -83,6 +87,7 @@ export const Route = createFileRoute('/_staff/guardians/')({
             ...(deps.isPrimaryContact !== undefined
               ? { is_primary_contact: deps.isPrimaryContact === 'true' }
               : {}),
+            ...(deps.incomplete === 1 ? { incomplete: true } : {}),
             ...(sortField !== undefined ? { sort: sortField } : {}),
             ...(deps.order !== undefined ? { order: deps.order } : {}),
           }),
@@ -117,6 +122,7 @@ function GuardiansListPage() {
     ...(filters.is_primary_contact !== undefined
       ? { is_primary_contact: filters.is_primary_contact === 'true' }
       : {}),
+    ...(filters.incomplete === '1' ? { incomplete: true } : {}),
     ...(sortField !== undefined ? { sort: sortField } : {}),
     ...(state.sorting ? { order: state.sorting.desc ? 'desc' : 'asc' } : {}),
   });
@@ -153,6 +159,15 @@ function GuardiansListPage() {
       kind: 'checkbox',
       key: 'is_primary_contact',
       label: t('list.primaryOnlyFilter'),
+    },
+    {
+      // Select (not checkbox) so the URL value stays `1` — the checkbox kind
+      // hard-codes `'true'`, but the dashboard card links `?incomplete=1`.
+      kind: 'select',
+      key: 'incomplete',
+      label: t('filters.recordCompleteness'),
+      allLabel: t('filters.allRecords'),
+      options: [{ value: '1', label: t('filters.incompleteOnly') }],
     },
   ];
 

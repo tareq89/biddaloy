@@ -351,4 +351,66 @@ describe('/guardians', () => {
       expect(router.state.location.search).not.toHaveProperty('relationship');
     });
   });
+  describe('[8.10.7.5.05] incomplete-records filter', () => {
+    const captured: URLSearchParams[] = [];
+    const setup = (url: string) => {
+      captured.length = 0;
+      server.use(
+        http.get('/api/v1/guardians', ({ request }) => {
+          captured.push(new URL(request.url).searchParams);
+          return HttpResponse.json({
+            data: [guardianFactory()],
+            total: 23,
+            page: 1,
+            limit: 10,
+            totalPages: 3,
+          });
+        }),
+      );
+      return renderWithRouter(routeTree, {
+        initialEntries: [url],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+    };
+    const last = () => captured[captured.length - 1];
+
+    it('?incomplete=1 sends incomplete=true, shows the control set and the total', async () => {
+      setup('/guardians?incomplete=1');
+      await screen.findByRole('region', { name: 'Guardians' });
+      await waitFor(() => expect(last()?.get('incomplete')).toBe('true'));
+      expect(screen.getAllByText(/Incomplete records only/).length).toBeGreaterThan(0);
+    });
+
+    it('?incomplete=yes drops the filter without crashing', async () => {
+      setup('/guardians?incomplete=yes');
+      await screen.findByRole('region', { name: 'Guardians' });
+      await waitFor(() => expect(captured.length).toBeGreaterThan(0));
+      expect(captured.every((p) => !p.has('incomplete'))).toBe(true);
+    });
+
+    it('combines with search', async () => {
+      setup('/guardians?incomplete=1&search=Karim');
+      await screen.findByRole('region', { name: 'Guardians' });
+      await waitFor(() => {
+        expect(last()?.get('incomplete')).toBe('true');
+        expect(last()?.get('search')).toBe('Karim');
+      });
+    });
+
+    it('toggling on writes incomplete=1 and resets page; the chip clears it', async () => {
+      const { router } = setup('/guardians?page=2');
+      await screen.findByRole('region', { name: 'Guardians' });
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('combobox', { name: 'Records' }));
+      await user.click(await screen.findByRole('option', { name: 'Incomplete records only' }));
+      await waitFor(() => expect(router.state.location.search).toMatchObject({ incomplete: 1 }));
+      expect(router.state.location.search).toMatchObject({ page: 1 });
+      await waitFor(() => expect(last()?.get('incomplete')).toBe('true'));
+
+      await user.click(screen.getByRole('button', { name: /Remove filter: Records/ }));
+      await waitFor(() => expect(router.state.location.search).not.toHaveProperty('incomplete'));
+    });
+  });
 });
