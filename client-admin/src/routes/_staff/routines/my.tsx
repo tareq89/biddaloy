@@ -30,9 +30,9 @@ import {
   type ResolvedSlot,
   type Routine,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { toIsoDate } from '@biddaloy/ui/utils';
+import { tenantTodayIso } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { CalendarClockIcon, UserRoundXIcon } from 'lucide-react';
 import * as React from 'react';
@@ -81,7 +81,8 @@ function MyRoutinePage() {
   const canManage = useHasPermission(Permission.ROUTINE_MANAGE);
   const currentUserId = useCurrentUserId();
   const search = Route.useSearch();
-  const today = React.useMemo(() => toIsoDate(new Date()), []);
+  const region = useTenantRegionConfig();
+  const today = React.useMemo(() => tenantTodayIso(region), [region]);
   const date = clampMarkingDate(search.date, today); // D29
   const isToday = date === today;
   const tomorrow = addDays(today, 1);

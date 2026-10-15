@@ -44,9 +44,9 @@ import {
   type ConstraintViolation,
   type ConstraintWarning,
 } from '@biddaloy/ui/hooks';
-import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { formatNumber, formatTime, toIsoDate } from '@biddaloy/ui/utils';
+import { formatNumber, formatTime, tenantTodayIso } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { SendIcon, TableIcon, WandSparklesIcon } from 'lucide-react';
 import * as React from 'react';
@@ -82,6 +82,7 @@ interface ActiveCell {
 function RoutineBuilderPage() {
   const { t, i18n } = useTranslation('routines');
   const config = useRegionConfig();
+  const tenantConfig = useTenantRegionConfig();
   const navigate = useNavigate();
   const { sectionId } = Route.useParams();
   const { classId } = Route.useSearch();
@@ -228,7 +229,8 @@ function RoutineBuilderPage() {
   // the grid (and `activeCellSlot`/`handleClearCell` below, which both
   // read `sectionSlots`) pointed at the live row, not the historical one —
   // same predicate `greedy-fill.service.ts` already uses server-side.
-  const today = toIsoDate(new Date());
+  // The school's day, not the browser's: the server refuses a change dated before its own today.
+  const today = tenantTodayIso(tenantConfig);
   const sectionSlots = (slotsQuery.data ?? []).filter(
     (entry) =>
       entry.slot.section_id === sectionId &&
@@ -274,7 +276,9 @@ function RoutineBuilderPage() {
       teacher_ids: value.teacherIds,
       recurrence: value.recurrence,
       recurrence_offset: value.recurrenceOffset,
-      valid_from: existing?.slot.valid_from ?? today,
+      // An edit replaces the row from today on (the server closes the old one the day before and
+      // refuses a date at or before the old row's start); a new slot starts today.
+      valid_from: today,
       valid_to: existing?.slot.valid_to ?? null,
     };
     const mutation = existing

@@ -7,7 +7,7 @@ import { DashboardWidgetKey } from '@biddaloy/shared';
 import { apiClient, type components } from '@biddaloy/ui/api';
 import { BarWidget, ChartTableToggle, WidgetCard } from '@biddaloy/ui/components';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate, formatNumber, parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
+import { formatDate, formatNumber, parseServerDate, tenantTodayIso } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
@@ -62,7 +62,7 @@ export function MarkEntryView({
   let deadline: string | undefined;
   if (data?.mark_entry_deadline) {
     const day = parseServerDate(data.mark_entry_deadline);
-    const today = parseServerDate(toIsoDate(new Date()));
+    const today = parseServerDate(tenantTodayIso(region));
     const days = Math.round((day.getTime() - today.getTime()) / 86_400_000);
     const date = formatDate(day, region);
     deadline = days < 0 ? tw('deadlinePassed', { date }) : tw('deadlineIn', { count: days, date });
