@@ -209,6 +209,20 @@ describe('resolveTenantSettings', () => {
           .dashboard,
       ).toEqual(D);
     });
+    it('out-of-bounds stored numbers fall back to the default, in-bounds ones are kept', () => {
+      const out = resolveTenantSettings({
+        dashboard: {
+          risk: {
+            absentStreakDays: 0,
+            monthlyAttendancePct: 101,
+            failedSubjects: 1.5,
+            overdueDays: 90,
+          },
+          committeeAttendanceTargetPct: 101,
+        },
+      }).dashboard;
+      expect(out).toEqual({ ...D, risk: { ...D.risk, overdueDays: 90 } });
+    });
     it('malformed digestTime falls back, valid one is kept', () => {
       expect(
         resolveTenantSettings({ dashboard: { digestTime: 'soon' } }).dashboard?.digestTime,

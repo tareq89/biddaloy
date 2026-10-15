@@ -28,7 +28,11 @@ export function parseArgs(
 ): DemoSeedArgs {
   const flag = (name: string) => {
     const i = argv.indexOf(`--${name}`);
-    return i === -1 ? undefined : argv[i + 1];
+    if (i === -1) return undefined;
+    // A flag with its value forgotten must fail, not fall back to the default (or today).
+    const v = argv[i + 1];
+    if (v === undefined || v.startsWith('--')) throw new Error(`--${name} needs a value`);
+    return v;
   };
   const scale = Number(flag('scale') ?? 1);
   if (!Number.isFinite(scale) || scale <= 0) throw new Error('--scale must be a number > 0');

@@ -19,9 +19,26 @@ const CI = !!process.env.CI;
 // [58.4.02] The nightly demo sweep. With DEMO_SWEEP_URL it drives an already-running demo site
 // (no local servers are started); the whole run must finish inside 8 minutes (globalTimeout) so
 // the 02:00 reset never overruns by much.
-// DEMO_SWEEP_URL alone selects the project (the reset container sets only it).
+// DEMO_SWEEP_URL adds the project (the reset container sets only it) but does not limit the run to
+// it: the command must still pass `--project=demo-nightly`, or every other suite runs against nothing.
 const DEMO_SWEEP_URL = process.env.DEMO_SWEEP_URL || undefined;
 const DEMO_NIGHTLY = process.env.E2E_DEMO_NIGHTLY === '1' || !!DEMO_SWEEP_URL;
+// The refresh cookie is `__Host-` and so always `Secure`. Over plain HTTP Chromium keeps it only on
+// localhost / 127.0.0.1 (measured: `--unsafely-treat-insecure-origin-as-secure` makes the page a
+// secure context but Chromium still drops the cookie). So a plain-HTTP sweep URL must be loopback:
+// the runner shares demo-reset's network namespace. Anything else would reload every page signed
+// out, so it stops here instead of failing route by route.
+// `new URL` lower-cases the scheme, so `HTTP://...` is caught too.
+const sweepUrl = DEMO_SWEEP_URL ? new URL(DEMO_SWEEP_URL) : null;
+if (sweepUrl?.protocol === 'http:') {
+  if (!['localhost', '127.0.0.1', '[::1]'].includes(sweepUrl.hostname)) {
+    throw new Error(
+      `DEMO_SWEEP_URL ${DEMO_SWEEP_URL}: plain HTTP keeps the session only on localhost/127.0.0.1. ` +
+        'Run the sweep runner in the demo-reset network namespace and use http://127.0.0.1:3999 ' +
+        '(docs/architecture/22-demo-seed.md, "The nightly sweep").',
+    );
+  }
+}
 
 // [15.1] Set only by ci.yml's per-job collect step. Unset (every local run)
 // means zero behaviour change — the array below is unchanged.
@@ -118,7 +135,7 @@ export default defineConfig({
           {
             name: 'demo',
             testDir: './e2e/demo',
-            testIgnore: ['**/demo-nightly-sweep.spec.ts'],
+            testIgnore: ['**/demo-nightly-sweep.spec.ts', '**/sweep-session.spec.ts'],
             use: { ...BROWSER_DEVICES.chromium },
           },
         ]
@@ -130,7 +147,8 @@ export default defineConfig({
           {
             name: 'demo-nightly',
             testDir: './e2e/demo',
-            testMatch: /demo-nightly-sweep\.spec\.ts/,
+            // sweep-session.spec.ts proves that a bounce to /login fails the sweep (no server needed).
+            testMatch: /(demo-nightly-sweep|sweep-session)\.spec\.ts/,
             testIgnore: [], // overrides the top-level '**/demo/**' ignore
             retries: 0, // a retry would double a role's visit time against the 8-minute budget
             use: {

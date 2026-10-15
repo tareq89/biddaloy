@@ -6,6 +6,8 @@ import { resolveTenantSettings } from '../modules/schools/settings/tenant-settin
 
 export const DASHBOARD_EXAM_NAME = 'Half-yearly';
 export const DASHBOARD_FEE_NAME = 'Dashboard demo fee';
+/** Own structure, so the overdue bill is found by student alone: its month moves with today. */
+export const DASHBOARD_OVERDUE_FEE_NAME = 'Dashboard demo overdue fee';
 export const DASHBOARD_LEAVE_REASONS = {
   approved: 'Dashboard demo: approved leave',
   pending: 'Dashboard demo: pending leave',
@@ -56,6 +58,8 @@ export async function ensureDashboardSeed(
   ds: DataSource,
   tenantId: string,
   teacherEmail: string = DASHBOARD_TEACHER_EMAIL,
+  /** Tests pin one date so seeding and asserting can't straddle midnight. */
+  todayOverride?: string,
 ): Promise<void> {
   const q = <R = Row>(sql: string, params: unknown[] = []): Promise<R[]> => ds.query(sql, params);
 
@@ -72,7 +76,7 @@ export async function ensureDashboardSeed(
     return;
   }
   const timezone = resolveTenantSettings(school.settings).region?.timezone ?? 'Asia/Dhaka';
-  const today = localToday(timezone);
+  const today = todayOverride ?? localToday(timezone);
 
   const sections = await q<{ id: string; class_id: string; class_name: string }>(
     `SELECT cs.id, cs.class_id, c.name AS class_name
@@ -248,7 +252,7 @@ async function seedBills(
     return row.id;
   };
 
-  /** One bill (found by student + structure + month). `paid` adds the SUCCESS payment. */
+  /** One bill on the `name` structure. `paid` adds the SUCCESS payment. */
   const bill = async (
     s: { id: string; class_id: string },
     periodStart: string,
@@ -256,10 +260,15 @@ async function seedBills(
     paid: boolean,
     name: string = DASHBOARD_FEE_NAME,
   ): Promise<string> => {
+    // Monthly bills are found by month; a dedicated structure (overdue, dues) holds one
+    // bill per student whose month moves with today, so it is found by student alone.
+    const moving = name !== DASHBOARD_FEE_NAME;
     const structureId = await structureFor(s.class_id, name);
     let [fee] = await q<{ id: string }>(
-      `SELECT id FROM student_fees WHERE student_id = $1 AND fee_structure_id = $2 AND period_start = $3 AND deleted_at IS NULL`,
-      [s.id, structureId, periodStart],
+      moving
+        ? `SELECT id FROM student_fees WHERE student_id = $1 AND fee_structure_id = $2 AND deleted_at IS NULL`
+        : `SELECT id FROM student_fees WHERE student_id = $1 AND fee_structure_id = $2 AND period_start = $3 AND deleted_at IS NULL`,
+      moving ? [s.id, structureId] : [s.id, structureId, periodStart],
     );
     if (!fee) {
       [fee] = await q<{ id: string }>(
@@ -278,10 +287,10 @@ async function seedBills(
         ],
       );
     } else if (!paid) {
-      await q(`UPDATE student_fees SET due_date = $2, updated_at = NOW() WHERE id = $1`, [
-        fee.id,
-        dueDate,
-      ]);
+      await q(
+        `UPDATE student_fees SET period_start = $2, due_date = $3, updated_at = NOW() WHERE id = $1`,
+        [fee.id, periodStart, dueDate],
+      );
     }
     if (!paid) return fee.id;
     const key = `seed:dashboard:${s.id}:${periodStart}`;
@@ -317,7 +326,13 @@ async function seedBills(
   }
   // At-risk signals: the pair's bill is 70 days overdue; one more student has only this signal.
   for (const s of [...atRisk, ...(oneSignal ? [oneSignal] : [])]) {
-    await bill(s, addDays(today, -100).slice(0, 8) + '01', addDays(today, -70), false);
+    await bill(
+      s,
+      addDays(today, -100).slice(0, 8) + '01',
+      addDays(today, -70),
+      false,
+      DASHBOARD_OVERDUE_FEE_NAME,
+    );
   }
   // Dues ageing: open bills 10 / 45 / 90 days past due, one per class. The 45- and 90-day ones are
   // also flagged for a reminder (threshold passed, no reminder log).

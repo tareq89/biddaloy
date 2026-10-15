@@ -155,4 +155,12 @@ describe('GET /dashboard/widgets/at-risk-students', () => {
       await call(UserRole.ADMIN, `?limit=${limit}`).expect(400);
     });
   });
+
+  // server/CLAUDE.md: always test a missing X-Tenant-ID.
+  it('missing X-Tenant-ID returns 401', async () => {
+    await supertest(app.getHttpServer())
+      .get(URL)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+  });
 });
