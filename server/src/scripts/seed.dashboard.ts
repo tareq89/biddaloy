@@ -325,7 +325,13 @@ async function seedBills(
   }
   // At-risk signals: the pair's bill is 70 days overdue; one more student has only this signal.
   for (const s of [...atRisk, ...(oneSignal ? [oneSignal] : [])]) {
-    await bill(s, addDays(today, -100).slice(0, 8) + '01', addDays(today, -70), false, DASHBOARD_OVERDUE_FEE_NAME);
+    await bill(
+      s,
+      addDays(today, -100).slice(0, 8) + '01',
+      addDays(today, -70),
+      false,
+      DASHBOARD_OVERDUE_FEE_NAME,
+    );
   }
   // Dues ageing: open bills 10 / 45 / 90 days past due, one per class. The 45- and 90-day ones are
   // also flagged for a reminder (threshold passed, no reminder log).

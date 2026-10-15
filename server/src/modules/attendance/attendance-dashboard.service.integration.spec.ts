@@ -124,7 +124,9 @@ describe('AttendanceDashboardService (integration)', () => {
   async function clearCaches() {
     const keys = [
       ...(await redis.keys(`tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.ATTENDANCE_TODAY}:*`)),
-      ...(await redis.keys(`tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.MY_PENDING_SECTIONS}:*`)),
+      ...(await redis.keys(
+        `tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.MY_PENDING_SECTIONS}:*`,
+      )),
       ...(await redis.keys(
         `tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.CLASS_TEACHER_STREAKS}:*`,
       )),

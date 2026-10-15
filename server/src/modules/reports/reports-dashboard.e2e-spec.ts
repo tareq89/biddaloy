@@ -146,7 +146,7 @@ describe('GET /dashboard/widgets/collection-month', () => {
         .set('X-Role', role);
       return tenantId === null ? req : req.set('X-Tenant-ID', tenantId);
     };
-    const clear = () => redis.del(`tenant:${SEED_TENANT_ID}:dash:${key}:school`);
+    const clear = () => redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${key}:school`);
 
     afterAll(clear);
 
@@ -219,7 +219,7 @@ describe('GET /dashboard/widgets/collection-month', () => {
       const clearBoth = () =>
         Promise.all(
           [DashboardWidgetKey.COLLECTION_TODAY, DashboardWidgetKey.COLLECTION_BY_MONTH].map((k) =>
-            redis.del(`tenant:${SEED_TENANT_ID}:dash:${k}:school`),
+            redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${k}:school`),
           ),
         );
       try {

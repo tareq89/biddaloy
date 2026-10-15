@@ -158,7 +158,7 @@ describe('GET /dashboard/widgets/my-mark-deadlines', () => {
 
   afterAll(async () => {
     await redis.del(
-      `tenant:${SEED_TENANT_ID}:dash:${DashboardWidgetKey.MY_MARK_DEADLINES}:user:${SEED_ADMIN_USER_ID}`,
+      `tenant:${SEED_TENANT_ID}:dash:v1:${DashboardWidgetKey.MY_MARK_DEADLINES}:user:${SEED_ADMIN_USER_ID}`,
     );
     await app.close();
   });
