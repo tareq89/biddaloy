@@ -79,9 +79,7 @@ export function GuardiansIncompleteView({
         data ? (
           <Link
             to="/guardians"
-            // ponytail: `incomplete` is added to the /guardians search schema by #1904
-            // (epic/169/w5-ui-02-1904); cast drops once integration merges both.
-            search={{ incomplete: 1 } as never}
+            search={{ incomplete: 1 }}
             className="text-primary underline"
           >
             {tw('link')}

@@ -22,7 +22,7 @@ const run = (
     catalogue: WIDGET_CATALOGUE,
     defaults: ROLE_DEFAULT_LAYOUTS,
     can,
-    available,
+    ...(available ? { available } : {}),
   });
 const withFiles = ROLE_DEFAULT_LAYOUTS.ADMIN.filter((k) => !WIDGET_CATALOGUE[k].needsEpic);
 const keys = (items: { key: string }[]) => items.map((i) => i.key);

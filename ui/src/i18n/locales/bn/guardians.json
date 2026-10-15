@@ -2,7 +2,10 @@
   "filters": {
     "recordCompleteness": "রেকর্ড",
     "allRecords": "সব রেকর্ড",
-    "incompleteOnly": "শুধু অসম্পূর্ণ রেকর্ড"
+    "incompleteOnly": "শুধু অসম্পূর্ণ রেকর্ড",
+    "incomplete": "শুধু অসম্পূর্ণ তথ্য",
+    "incompleteHint": "নাম, সম্পর্ক বা ফোন নম্বর নেই",
+    "incompleteChip": "অসম্পূর্ণ"
   },
   "list": {
     "title": "অভিভাবক",
@@ -160,10 +163,5 @@
       "previewFailed": "আমন্ত্রণ প্রিভিউ করা যায়নি। আবার চেষ্টা করুন।",
       "dispatchFailed": "আমন্ত্রণ পাঠানো যায়নি। আবার চেষ্টা করুন।"
     }
-  },
-  "filters": {
-    "incomplete": "শুধু অসম্পূর্ণ তথ্য",
-    "incompleteHint": "নাম, সম্পর্ক বা ফোন নম্বর নেই",
-    "incompleteChip": "অসম্পূর্ণ"
   }
 }
