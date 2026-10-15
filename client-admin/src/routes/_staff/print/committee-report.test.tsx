@@ -130,14 +130,20 @@ describe('/print/committee-report', () => {
       const rows = within(tbl)
         .getAllByRole('row')
         .slice(1)
-        .map((r) => within(r).getAllByRole('cell').map((c) => c.textContent));
+        .map((r) =>
+          within(r)
+            .getAllByRole('cell')
+            .map((c) => c.textContent),
+        );
       // Row cells with translated month names/labels differ only in text from the key-echo run,
       // so compare the count and numeric columns.
       expect(rows).toHaveLength(expected[i]!.rows.length);
     });
     // Exact row content for the numeric-only tables.
     expect(
-      within(tables[0]!).getAllByRole('row').map((r) => r.textContent),
+      within(tables[0]!)
+        .getAllByRole('row')
+        .map((r) => r.textContent),
     ).toContain('20261,248');
 
     // Same sentence the dashboard banner shows (buildCommitteeSummary, en strings).
@@ -146,6 +152,22 @@ describe('/print/committee-report', () => {
         'Attendance is close to its target — collection is 8% ahead of this time last year.',
       ),
     ).toBeTruthy();
+  });
+
+  it('keeps the same focused h1 from loading to loaded (route focus is not dropped)', async () => {
+    mockAll();
+    render();
+    const loading = await screen.findByRole('heading', {
+      level: 1,
+      name: 'Monthly meeting report',
+    });
+    expect(screen.queryAllByRole('table')).toHaveLength(0);
+    // As use-route-focus does.
+    loading.setAttribute('tabindex', '-1');
+    loading.focus();
+    await screen.findAllByRole('table');
+    expect(screen.getByRole('heading', { level: 1 })).toBe(loading);
+    expect(document.activeElement).toBe(loading);
   });
 
   it('prints aggregates only: planted names and phones never appear', async () => {
@@ -198,7 +220,9 @@ describe('/print/committee-report', () => {
   });
 
   it('an empty pass-rate block prints its empty sentence instead of a table', async () => {
-    mockAll({ 'pass-rate': { ...PASS_RATE, exam_name: null, classes: [], overall_pass_percentage: null } });
+    mockAll({
+      'pass-rate': { ...PASS_RATE, exam_name: null, classes: [], overall_pass_percentage: null },
+    });
     render();
     expect(await screen.findByText('No exam results published yet.')).toBeTruthy();
     expect(screen.getAllByRole('table')).toHaveLength(3);
