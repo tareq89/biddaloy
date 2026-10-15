@@ -9,6 +9,8 @@ import { StaffAttendanceModule } from '../staff-attendance/staff-attendance.modu
 import { SchoolsModule } from '../schools/schools.module';
 import { LeaveService } from './leave.service';
 import { LeaveController } from './leave.controller';
+import { LeaveDashboardController } from './leave-dashboard.controller';
+import { DashboardModule } from '../dashboard/dashboard.module';
 
 /** [36.3] Leave requests + approval + per-type quotas. See
  * `staff-attendance.module.ts` for the pattern this mirrors. */
@@ -19,9 +21,10 @@ import { LeaveController } from './leave.controller';
     CalendarModule,
     StaffAttendanceModule,
     SchoolsModule,
+    DashboardModule,
   ],
   providers: [LeaveService],
-  controllers: [LeaveController],
+  controllers: [LeaveController, LeaveDashboardController],
   exports: [TypeOrmModule, LeaveService],
 })
 export class LeaveModule {}

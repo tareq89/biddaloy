@@ -23,6 +23,7 @@ import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { SchoolsService } from '../schools/schools.service';
 import { StaffAttendanceService } from '../staff-attendance/staff-attendance.service';
 import { LeaveBalanceDto, LeavePolicyDto } from './dto/leave.dto';
+import { MyLeaveBalanceDto } from './dto/leave-dashboard.dto';
 
 /** Jan 1 - Dec 31 of `year` (D16: leave year = calendar year). */
 function yearRange(year: number): { from: string; to: string } {
@@ -125,6 +126,32 @@ export class LeaveService {
     return Promise.all(
       types.map((leaveType) => this.getBalance(tenantId, staffProfileId, leaveType, range)),
     );
+  }
+
+  /** [8.10.7.3.05] The caller's own balances for the dashboard widget: the same
+   * `getBalancesForCaller` as `GET /leave/balance`, plus totals. No profile → zeros. */
+  async getOwnBalances(
+    tenantId: string,
+    userId: string,
+    role: UserRole,
+  ): Promise<MyLeaveBalanceDto> {
+    const year = Number((await this.schoolsService.todayFor(tenantId)).slice(0, 4));
+    const profile = await this.staffProfileRepo.findOne({
+      where: { user_id: userId, tenant_id: tenantId },
+    });
+    const by_type = profile
+      ? await this.getBalancesForCaller(tenantId, profile.id, userId, role)
+      : [];
+    const sum = (f: (b: LeaveBalanceDto) => number | null) =>
+      by_type.reduce((t, b) => t + (f(b) ?? 0), 0);
+    return {
+      has_profile: !!profile,
+      year,
+      total_quota_days: sum((b) => b.annual_quota_days),
+      total_used_days: sum((b) => b.used_days),
+      total_balance_days: sum((b) => b.balance),
+      by_type,
+    };
   }
 
   private async computeBalance(
