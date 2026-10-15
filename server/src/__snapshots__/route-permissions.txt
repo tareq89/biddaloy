@@ -128,6 +128,8 @@ GET /communications/reminder/bulk/:id | CommunicationsController | perm: COMMUNI
 GET /communications/reminder/bulk/:id/logs | CommunicationsController | perm: COMMUNICATION_BULK_SEND
 GET /communications/sms-credits | CreditsController | perm: COMMUNICATION_CREDIT_READ
 GET /communications/student/:studentId | CommunicationsController | perm: COMMUNICATION_LOG_READ
+GET /dashboard/widgets/failed-messages | CommunicationsDashboardController | perm: COMMUNICATION_LOG_READ,DASHBOARD_VIEW
+GET /dashboard/widgets/sms-balance | CommunicationsDashboardController | perm: DASHBOARD_VIEW,SETTINGS_MANAGE
 GET /demo/roles | DemoController | allowlist: none
 GET /designations | DesignationController | perm: STAFF_HR_READ
 GET /designations/:id | DesignationController | perm: STAFF_HR_READ
