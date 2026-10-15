@@ -15,6 +15,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * would otherwise break silently.
  */
 vi.mock('@biddaloy/ui/api', () => ({
+  // The dashboard's WidgetSlot installs a response interceptor at module load (#1914).
+  apiClient: { interceptors: { response: { use: vi.fn() } } },
   createAppQueryClient: () => new QueryClient(),
   getActiveTenant: vi.fn(() => null),
   initSentry: vi.fn(),
