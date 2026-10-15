@@ -134,6 +134,7 @@ GET /dashboard/widgets/class-teacher-streaks | AttendanceDashboardController | p
 GET /dashboard/widgets/collection-by-month | ReportsDashboardController | perm: DASHBOARD_VIEW,REPORT_COLLECTIONS_READ
 GET /dashboard/widgets/collection-month | ReportsDashboardController | perm: DASHBOARD_VIEW,REPORT_COLLECTIONS_READ
 GET /dashboard/widgets/collection-today | ReportsDashboardController | perm: DASHBOARD_VIEW,REPORT_COLLECTIONS_READ
+GET /dashboard/widgets/committee-finance | ReportsDashboardController | perm: COMMITTEE_REPORT_READ,DASHBOARD_VIEW
 GET /dashboard/widgets/dues-ageing | FeesDashboardController | perm: DASHBOARD_VIEW,FEE_READ,REPORT_COLLECTIONS_READ
 GET /dashboard/widgets/dues-by-class | FeesDashboardController | perm: DASHBOARD_VIEW,FEE_READ,REPORT_COLLECTIONS_READ
 GET /dashboard/widgets/failed-messages | CommunicationsDashboardController | perm: COMMUNICATION_LOG_READ,DASHBOARD_VIEW

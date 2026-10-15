@@ -11,6 +11,7 @@ import {
   CollectionTodayWidgetDto,
 } from './dto/collection-today-widget.dto';
 import { CollectionByMonthWidgetDto } from './dto/collection-by-month-widget.dto';
+import { CommitteeFinanceDto, CommitteeFinanceMonthDto } from './dto/committee-finance.dto';
 import {
   CollectionMonthFigures,
   CollectionMonthWidgetDto,
@@ -296,11 +297,74 @@ export class CollectionsReportService {
       `SELECT COALESCE(SUM(sf.total_amount - sf.discount_amount), 0) AS billed
        FROM student_fees sf
        JOIN students s ON s.id = sf.student_id
-       WHERE s.tenant_id = $1 AND sf.deleted_at IS NULL
+       WHERE s.tenant_id = $1 AND s.deleted_at IS NULL AND sf.deleted_at IS NULL
          AND sf.period_start BETWEEN $2 AND $3`,
       [tenantId, monthStart, monthEnd],
     );
     return Number(rows[0]?.billed ?? 0);
+  }
+
+  /** Billed / paid / outstanding per `period_start` month in [fromIso, toIso]
+   * (one SQL, months that have no bill are absent). `student_fees` has no
+   * `tenant_id`: the tenant comes from a live student. The `billed` expression
+   * is `getBilledForMonth`'s; `outstanding` is the dues rule (`fee-dues.service`
+   * OPEN_STATUSES). */
+  async getBillingByMonth(
+    tenantId: string,
+    fromIso: string,
+    toIso: string,
+  ): Promise<Array<{ month: string; billed: number; paid: number; outstanding: number }>> {
+    const rows = await this.paymentRepo.manager.query<
+      Array<{ month: string; billed: string; paid: string; outstanding: string }>
+    >(
+      `SELECT to_char(date_trunc('month', sf.period_start), 'YYYY-MM') AS month,
+         COALESCE(SUM(sf.total_amount - sf.discount_amount), 0) AS billed,
+         COALESCE(SUM(sf.paid_amount), 0) AS paid,
+         COALESCE(SUM(sf.total_amount - sf.paid_amount - sf.discount_amount)
+           FILTER (WHERE sf.status IN ('PENDING', 'PARTIALLY_PAID')), 0) AS outstanding
+       FROM student_fees sf
+       JOIN students s ON s.id = sf.student_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
+       WHERE sf.deleted_at IS NULL AND sf.period_start BETWEEN $2 AND $3
+       GROUP BY 1
+       ORDER BY 1`,
+      [tenantId, fromIso, toIso],
+    );
+    return rows.map((r) => ({
+      month: r.month,
+      billed: round2(Number(r.billed)),
+      paid: round2(Number(r.paid)),
+      outstanding: round2(Number(r.outstanding)),
+    }));
+  }
+
+  /** `GET /dashboard/widgets/committee-finance`. `today` is the school-local date. */
+  async getCommitteeFinance(tenantId: string, today: string): Promise<CommitteeFinanceDto> {
+    const [y, m] = today.split('-').map(Number);
+    const [year] = await this.paymentRepo.manager.query<Array<{ start: string }>>(
+      `SELECT to_char(start_date, 'YYYY-MM-DD') AS start FROM academic_years
+       WHERE tenant_id = $1 AND is_current = true AND deleted_at IS NULL`,
+      [tenantId],
+    );
+    // ponytail: no current year -> calendar year of today; revisit if tenants run without one.
+    const start = year?.start ?? `${y}-01-01`;
+    const { monthEnd } = monthRange(y, m, 1);
+    const [rows, current] = await Promise.all([
+      this.getBillingByMonth(tenantId, start, monthEnd),
+      this.getCollectionMonthWidget(tenantId, today),
+    ]);
+    const found = new Map(rows.map((r) => [r.month, r]));
+    const months: CommitteeFinanceMonthDto[] = [];
+    let [cy, cm] = start.split('-').map(Number);
+    while (cy < y || (cy === y && cm <= m)) {
+      const key = `${cy}-${pad(cm)}`;
+      months.push(found.get(key) ?? { month: key, billed: 0, paid: 0, outstanding: 0 });
+      [cy, cm] = cm === 12 ? [cy + 1, 1] : [cy, cm + 1];
+    }
+    return {
+      months,
+      year_outstanding: round2(months.reduce((a, r) => a + r.outstanding, 0)),
+      current_month: current,
+    };
   }
 
   /** `today` is the school's local date (YYYY-MM-DD) from `SchoolsService.todayFor`. */

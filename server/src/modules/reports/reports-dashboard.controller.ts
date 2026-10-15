@@ -13,6 +13,7 @@ import { CollectionsReportService } from './collections-report.service';
 import { CollectionMonthWidgetDto } from './dto/collection-month-widget.dto';
 import { CollectionTodayWidgetDto } from './dto/collection-today-widget.dto';
 import { CollectionByMonthWidgetDto } from './dto/collection-by-month-widget.dto';
+import { CommitteeFinanceDto } from './dto/committee-finance.dto';
 
 /** `GET /dashboard/widgets/collection-month` (Epic 169 D25/D46). */
 @ApiTags('dashboard')
@@ -55,6 +56,24 @@ export class ReportsDashboardController {
       'school',
       async () =>
         this.collectionsReport.getCollectionTodayWidget(
+          tenant.id,
+          await this.schools.todayFor(tenant.id),
+        ),
+    );
+  }
+
+  /** COMMITTEE gets totals only; gated by COMMITTEE_REPORT_READ, never the collections report. */
+  @DashboardWidgetRoute(DashboardWidgetKey.COMMITTEE_FINANCE)
+  @ApiOkResponse({ type: CommitteeFinanceDto })
+  async committeeFinance(
+    @CurrentTenant() tenant: { id: string; role: string },
+  ): Promise<CommitteeFinanceDto> {
+    return this.cache.getOrLoad(
+      tenant.id,
+      DashboardWidgetKey.COMMITTEE_FINANCE,
+      'school',
+      async () =>
+        this.collectionsReport.getCommitteeFinance(
           tenant.id,
           await this.schools.todayFor(tenant.id),
         ),
