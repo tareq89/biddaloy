@@ -21,15 +21,69 @@ import type { DemoSeedContext, DemoSlice } from '../context';
 import { todayAt } from '../dates';
 import { orgIds, type OrgTenant } from './org';
 
-/** Rules whose alerts fill the history; the first role in each rule's own list receives it. */
-const HISTORY: AlertRuleKey[] = [
-  'attendance.not_taken',
-  'homework.not_submitted',
-  'fees.overdue_rising',
-  'exams.marks_overdue',
-  'attendance.not_taken',
-  'admission.applications_pending',
+type Section = { id: string; label: string; className: string };
+type HistoryRule = {
+  key: AlertRuleKey;
+  role?: UserRole;
+  params: (s: Section, n: number) => Record<string, string | number>;
+};
+
+const notTaken: HistoryRule = {
+  key: 'attendance.not_taken',
+  params: (s) => ({
+    sectionId: s.id,
+    sectionLabel: s.label,
+    startsAt: '08:00',
+    register_en: 'Daily',
+    register_bn: 'আজকের',
+  }),
+};
+
+/**
+ * Rules whose alerts fill the history. Each gives the params its own rule writes, so the stored title
+ * reads like a real one ("{count} fees became overdue this week" needs `count`). `role` is who gets it:
+ * the first role in the rule's own list, except homework, whose section-level alert goes to the teacher.
+ */
+const HISTORY: HistoryRule[] = [
+  notTaken,
+  {
+    key: 'homework.not_submitted',
+    role: UserRole.TEACHER,
+    params: (s, n) => {
+      const count = 3 + (n % 5);
+      return {
+        sectionId: s.id,
+        sectionLabel: s.label,
+        subject_en: 'Mathematics',
+        subject_bn: 'গণিত',
+        hwTitle: 'Exercise 3.2',
+        count,
+        headline_en: `${s.label}: ${count} students have not submitted the Mathematics homework`,
+        headline_bn: `${s.label}: ${count} জন শিক্ষার্থী গণিত বাড়ির কাজ জমা দেয়নি`,
+        step1_en: `Open the homework list for ${s.label}.`,
+        step1_bn: `${s.label}-এর বাড়ির কাজের তালিকা খুলুন।`,
+        step2_en: 'Remind the students, or mark late submissions.',
+        step2_bn: 'শিক্ষার্থীদের মনে করিয়ে দিন, অথবা দেরিতে জমা দেওয়াগুলো চিহ্নিত করুন।',
+      };
+    },
+  },
+  {
+    key: 'fees.overdue_rising',
+    params: (_, n) => ({ count: 4 + (n % 9), students: 3 + (n % 7), amount: 1500 * (4 + (n % 9)) }),
+  },
+  {
+    key: 'exams.marks_overdue',
+    params: (s, n) => ({
+      exam: 'First Term Exam',
+      className: s.className,
+      outstanding: 2 + (n % 4),
+      days: 3 + (n % 5),
+    }),
+  },
+  notTaken,
+  { key: 'admission.applications_pending', params: (_, n) => ({ count: 2 + (n % 6) }) },
 ];
+const roleOf = (h: HistoryRule) => h.role ?? alertRuleMeta(h.key).roles[0];
 const HISTORY_PER_BRANCH = 60;
 const MIN_HISTORY_PER_BRANCH = 8;
 
@@ -44,10 +98,12 @@ const previousMonthStart = (anchor: string): string => {
 };
 
 /** Up to `n` sections of the branch's current year, spread across its classes. */
-function pickSections(t: OrgTenant, n: number): { id: string; label: string }[] {
+function pickSections(t: OrgTenant, n: number): Section[] {
   const all = t.years
     .at(-1)!
-    .classes.flatMap((c) => c.sections.map((s) => ({ id: s.id, label: `${c.name}-${s.name}` })));
+    .classes.flatMap((c) =>
+      c.sections.map((s) => ({ id: s.id, label: `${c.name}-${s.name}`, className: c.name })),
+    );
   const step = Math.max(1, Math.floor(all.length / n));
   return all.filter((_, i) => i % step === 0).slice(0, n);
 }
@@ -61,7 +117,7 @@ async function seedHistory(ctx: DemoSeedContext, t: OrgTenant): Promise<number> 
   const sections = pickSections(t, 4);
   if (!sections.length) return 0;
   const recipients = new Map<UserRole, string[]>();
-  for (const role of new Set(HISTORY.map((k) => alertRuleMeta(k).roles[0]))) {
+  for (const role of new Set(HISTORY.map(roleOf))) {
     recipients.set(
       role,
       (
@@ -81,9 +137,10 @@ async function seedHistory(ctx: DemoSeedContext, t: OrgTenant): Promise<number> 
   const recipientRows: QueryDeepPartialEntity<AlertRecipient>[] = [];
   const total = Math.max(MIN_HISTORY_PER_BRANCH, ctx.count(HISTORY_PER_BRANCH));
   for (let n = 0; n < total; n++) {
-    const key = HISTORY[n % HISTORY.length];
+    const h = HISTORY[n % HISTORY.length];
+    const key = h.key;
     const meta = alertRuleMeta(key);
-    const role = meta.roles[0];
+    const role = roleOf(h);
     const users = recipients.get(role)!;
     if (!users.length) continue;
     const section = sections[n % sections.length];
@@ -105,7 +162,7 @@ async function seedHistory(ctx: DemoSeedContext, t: OrgTenant): Promise<number> 
       category: meta.category,
       status: resolved ? AlertStatus.RESOLVED : AlertStatus.EXPIRED,
       dedupe_key: `history:${t.slug}:${n}`,
-      params: { sectionId: section.id, sectionLabel: section.label },
+      params: h.params(section, n),
       raised_at: raisedAt,
       last_evaluated_at: raisedAt,
       resolved_at: resolved ? doneAt : null,

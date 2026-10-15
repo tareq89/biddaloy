@@ -210,7 +210,11 @@ function AnalysisPage() {
             {selectedExam && (
               <div className="flex flex-col gap-1.5 md:w-56 md:shrink-0">
                 <Label htmlFor="analysis-section">{t('analysis.sectionFilter')}</Label>
-                <Select value={sectionId ?? '__all__'} onValueChange={setSection}>
+                <Select
+                  value={sectionId ?? '__all__'}
+                  onValueChange={setSection}
+                  disabled={mySections.isLoading}
+                >
                   <SelectTrigger id="analysis-section" className="w-full">
                     <SelectValue placeholder={t('analysis.sectionFilter')} />
                   </SelectTrigger>
@@ -223,6 +227,11 @@ function AnalysisPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {mySections.isError && (
+                  <p role="alert" className="text-caption text-destructive">
+                    {t('resultsRoute.loadError')}
+                  </p>
+                )}
               </div>
             )}
           </div>

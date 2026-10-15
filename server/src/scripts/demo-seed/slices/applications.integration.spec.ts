@@ -228,6 +228,40 @@ describe('applications slice (integration, 2 years, scale 0.1)', () => {
     expect(Number((await q(`SELECT count(*) AS n FROM application_attachments`))[0].n)).toBe(1);
     expect(Number((await q(`SELECT count(*) AS n FROM application_tags`))[0].n)).toBeGreaterThan(0);
 
+    // Everyone who files, enters or decides an application, and every actor on its history, is a
+    // member of that application's branch (Primary's letter is decided by Primary's own office).
+    const outsiders = await q(
+      `SELECT x.what, x.app FROM (
+           SELECT 'applicant' AS what, a.id AS app, a.tenant_id, a.applicant_user_id AS u FROM applications a
+           UNION ALL SELECT 'entered_by', a.id, a.tenant_id, a.entered_by_user_id FROM applications a
+           UNION ALL SELECT 'decider', a.id, a.tenant_id, a.decided_by_user_id FROM applications a
+           UNION ALL SELECT 'actor', e.application_id, e.tenant_id, e.actor_user_id FROM application_events e
+         ) x
+        WHERE x.u IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM user_tenants ut
+           WHERE ut.user_id = x.u AND ut.tenant_id = x.tenant_id AND ut.deleted_at IS NULL)`,
+    );
+    expect(outsiders).toEqual([]);
+
+    // History (before the anchor) is filed for a student enrolled in that academic year, and a type
+    // whose approval would change the student (TC, section change, readmission, fee waiver) is never
+    // approved in bulk: the bulk rows apply no effect.
+    const [{ n: notEnrolled }] = await q(
+      `SELECT count(*)::int AS n FROM applications a
+        WHERE a.subject_student_id IS NOT NULL AND a.created_at < $1::date AND NOT EXISTS (
+          SELECT 1 FROM enrollments en
+           WHERE en.student_id = a.subject_student_id AND en.academic_year_id = a.academic_year_id)`,
+      [ANCHOR],
+    );
+    expect(notEnrolled).toBe(0);
+    const [{ n: effectApproved }] = await q(
+      `SELECT count(*)::int AS n FROM applications
+        WHERE created_at < $1::date AND status = 'APPROVED'
+          AND type IN ('TRANSFER_CERTIFICATE', 'SECTION_CHANGE', 'READMISSION', 'FEE_WAIVER')`,
+      [ANCHOR],
+    );
+    expect(effectApproved).toBe(0);
+
     // The 58.1.05 checks stay clean.
     expect(await validate(ds)).toEqual([]);
   }, 120_000);

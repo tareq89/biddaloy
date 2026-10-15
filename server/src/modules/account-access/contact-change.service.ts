@@ -831,8 +831,6 @@ export class ContactChangeService {
       return { status: 'unknown' };
     }
 
-    await this.authTokens.consume(row.id);
-
     const user = await this.userRepo.findOne({ where: { id: row.user_id } });
     if (!user) {
       return { status: 'unknown' };
@@ -845,6 +843,8 @@ export class ContactChangeService {
           .getRepository(User)
           .update({ id: user.id }, { email: newEmail, email_verified_at: new Date() });
         await syncLinkedGuardianContacts(manager, user.id, { email: newEmail });
+        // Spent inside the same transaction: a failed write leaves the link usable for a retry.
+        await this.authTokens.consume(row.id, manager);
       });
     } catch (err) {
       if (

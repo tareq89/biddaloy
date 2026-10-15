@@ -219,7 +219,10 @@ export class SeatPlansService {
     if (rooms.length !== roomIds.length) {
       throw new NotFoundException('One or more rooms were not found');
     }
-    const roomInputs: RoomInput[] = rooms.map((r) => ({ id: r.id, capacity: r.capacity ?? 0 }));
+    // Rooms fill in the order the caller lists them, not the DB's row order (#2574).
+    const roomInputs: RoomInput[] = rooms
+      .map((r) => ({ id: r.id, capacity: r.capacity ?? 0 }))
+      .sort((a, b) => roomIds.indexOf(a.id) - roomIds.indexOf(b.id));
     const allTenantRooms = await this.roomRepo.find({ where: { tenant_id: tenantId } });
     const allRoomInputs: RoomInput[] = allTenantRooms.map((r) => ({
       id: r.id,

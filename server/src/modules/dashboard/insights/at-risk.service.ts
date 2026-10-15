@@ -4,9 +4,10 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import type { Queue } from 'bullmq';
 import type Redis from 'ioredis';
 import { DataSource } from 'typeorm';
-import { AttendanceStatus, DashboardRiskThresholds, FeeStatus } from '@biddaloy/shared';
+import { AttendanceStatus, DashboardRiskThresholds } from '@biddaloy/shared';
 import { AttendanceSummaryService } from '../../attendance/attendance-summary.service';
 import { sectionRosterIdsBySection } from '../../enrollments/section-roster';
+import { PAYABLE_FEE_STATUSES } from '../../students/open-money';
 import { SchoolsService } from '../../schools/schools.service';
 import { TENANT_STATUS_REDIS } from '../../schools/tenant-status.service';
 import { DEFAULT_DASHBOARD_SETTINGS } from '../../schools/settings/tenant-settings-defaults';
@@ -64,11 +65,11 @@ export class AtRiskService {
   ) {}
 
   listKey(tenantId: string): string {
-    return `tenant:${tenantId}:dash:at-risk-students:list`;
+    return `tenant:${tenantId}:dash:v1:at-risk-students:list`;
   }
 
   idsKey(tenantId: string, date: string): string {
-    return `tenant:${tenantId}:dash:at-risk-students:ids:${date}`;
+    return `tenant:${tenantId}:dash:v1:at-risk-students:ids:${date}`;
   }
 
   private async thresholdsFor(tenantId: string): Promise<DashboardRiskThresholds> {
@@ -132,7 +133,8 @@ export class AtRiskService {
         {
           jobId: `at-risk-students-${tenantId}`,
           removeOnComplete: true,
-          removeOnFail: 100,
+          // A kept failed job would hold this jobId and BullMQ would ignore every later add.
+          removeOnFail: true,
         },
       );
     } catch (error) {
@@ -236,7 +238,7 @@ export class AtRiskService {
          SELECT DISTINCT ON (e.class_id) e.id, e.class_id
            FROM exams e
           WHERE e.tenant_id = $1 AND e.status = 'PUBLISHED' AND e.deleted_at IS NULL
-          ORDER BY e.class_id, e.published_at DESC
+          ORDER BY e.class_id, e.published_at DESC NULLS LAST
        )
        SELECT r.student_id, l.class_id, sub.name_en, sub.name_bn
          FROM latest l
@@ -269,7 +271,7 @@ export class AtRiskService {
           AND sf.due_date IS NOT NULL AND sf.due_date < $2::date AND sf.student_id = ANY($4)
         GROUP BY sf.student_id
        HAVING ($2::date - MIN(sf.due_date)::date) >= $5`,
-      [tenantId, today, [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID], ids, t.overdueDays],
+      [tenantId, today, PAYABLE_FEE_STATUSES, ids, t.overdueDays],
     )) as { student_id: string; days: number | string }[];
     for (const row of overdue) add(row.student_id, { kind: 'OVERDUE', value: Number(row.days) });
 
