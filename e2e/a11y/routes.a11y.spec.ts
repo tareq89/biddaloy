@@ -110,10 +110,13 @@ for (const { locale, theme } of VARIANTS) {
               const opener = overlayOpeners[`${route.path}::${overlay}`];
               if (!opener) throw new Error(`no opener for ${route.path}::${overlay}`);
               await opener(page, locale);
-              // A `-tab` overlay is a tab state of the page, not a dialog: scan the page body.
+              // A `-tab` overlay (and /dashboard's `customise` mode) is a state of the page, not a
+              // dialog: scan the page body.
               await expectNoAxeViolations(
                 page,
-                overlay.endsWith('-tab') ? 'main' : '[role="dialog"], [role="alertdialog"]',
+                overlay.endsWith('-tab') || overlay === 'customise'
+                  ? 'main'
+                  : '[role="dialog"], [role="alertdialog"]',
               );
               await page.keyboard.press('Escape');
             });

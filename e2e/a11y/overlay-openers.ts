@@ -109,6 +109,14 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     await page.goto('/dashboard?trial=1');
     await expectDialogOpen(page);
   },
+  // [8.10.7.2.99] Customise mode is a state of the page (`?customize=1`), not a dialog: wait for
+  // its panel heading so the scan runs with the preview and the widget list on screen.
+  '/dashboard::customise': async (page, locale) => {
+    await page.goto('/dashboard?customize=1');
+    await expect(
+      page.getByRole('heading', { name: makeT(locale)('dashboard.customise.panelTitle') }),
+    ).toBeVisible();
+  },
   // `$schoolId` resolves to the seeded trial school (`responsive/routes.ts`),
   // the only seeded school whose page has a trial card.
   '/schools/$schoolId::extend-trial': async (page, locale) => {

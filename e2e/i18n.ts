@@ -29,6 +29,7 @@ import bnCertificates from '../ui/src/i18n/locales/bn/certificates.json';
 import bnClasses from '../ui/src/i18n/locales/bn/classes.json';
 import bnCommon from '../ui/src/i18n/locales/bn/common.json';
 import bnCommunications from '../ui/src/i18n/locales/bn/communications.json';
+import bnDashboard from '../ui/src/i18n/locales/bn/dashboard.json';
 import bnEvaluations from '../ui/src/i18n/locales/bn/evaluations.json';
 import bnCurriculumPreset from '../ui/src/i18n/locales/bn/curriculumPreset.json';
 import bnExamTemplates from '../ui/src/i18n/locales/bn/examTemplates.json';
@@ -94,6 +95,7 @@ import enCertificates from '../ui/src/i18n/locales/en/certificates.json';
 import enClasses from '../ui/src/i18n/locales/en/classes.json';
 import enCommon from '../ui/src/i18n/locales/en/common.json';
 import enCommunications from '../ui/src/i18n/locales/en/communications.json';
+import enDashboard from '../ui/src/i18n/locales/en/dashboard.json';
 import enEvaluations from '../ui/src/i18n/locales/en/evaluations.json';
 import enCurriculumPreset from '../ui/src/i18n/locales/en/curriculumPreset.json';
 import enExamTemplates from '../ui/src/i18n/locales/en/examTemplates.json';
@@ -176,6 +178,7 @@ const catalogs = {
     classes: bnClasses,
     common: bnCommon,
     communications: bnCommunications,
+    dashboard: bnDashboard,
     evaluations: bnEvaluations,
     performance: bnPerformance,
     curriculumPreset: bnCurriculumPreset,
@@ -250,6 +253,7 @@ const catalogs = {
     classes: enClasses,
     common: enCommon,
     communications: enCommunications,
+    dashboard: enDashboard,
     evaluations: enEvaluations,
     performance: enPerformance,
     curriculumPreset: enCurriculumPreset,

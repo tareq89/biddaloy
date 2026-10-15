@@ -81,6 +81,7 @@ import { ensureEvaluationsSeed } from './seed.evaluations';
 import { ensureAttentionSeed } from './seed.attention';
 import { ensureAttentionRulesSeed } from './seed.attention-rules';
 import { ensureAttentionW5Seed } from './seed.attention-w5';
+import { ensureDashboardSeed } from './seed.dashboard';
 import { Alert } from '../modules/attention/entities/alert.entity';
 import { AlertRecipient } from '../modules/attention/entities/alert-recipient.entity';
 import { ensureStudyPlansSeed } from './seed.study-plans';
@@ -355,6 +356,9 @@ export async function seed() {
     await ensureAttentionRulesSeed(dataSource, school.id);
     // [67.5.10] A sent manual alert + last month's alert history (Epic 67 W5).
     if (lifecycleAdmin) await ensureAttentionW5Seed(dataSource, school.id, lifecycleAdmin.id);
+
+    // [8.10.7.2.99] Rows that make every wave-2 dashboard widget non-empty.
+    await ensureDashboardSeed(dataSource, school.id);
 
     // [66.1.07] Demo study-plan template, two plans and four lesson deliveries.
     await ensureStudyPlansSeed(
