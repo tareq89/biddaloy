@@ -475,5 +475,26 @@
     "guardianSmsHelp": "Push is always sent and is free. SMS uses credits every week.",
     "smsBalance": "Current balance: {{count}} credits",
     "invalidTime": "Enter a time like 18:00."
+  },
+  "dashboard": {
+    "legend": "Dashboard",
+    "riskLegend": "At-risk students",
+    "riskHint": "A student is listed when any 2 of these 4 signs match.",
+    "risk": {
+      "absentStreakDays": "Absent in a row (days)",
+      "monthlyAttendancePct": "Attendance in the last 30 days below (%)",
+      "failedSubjects": "Failed subjects in the latest published exam (at least)",
+      "overdueDays": "Oldest unpaid bill older than (days)"
+    },
+    "recomputeNote": "The at-risk list updates a few minutes after you save.",
+    "committeeLegend": "Committee",
+    "committeeAttendanceTargetPct": "Attendance target (%)",
+    "committeeAttendanceTargetHint": "Shown as a line on the committee's attendance chart.",
+    "digestLegend": "Morning summary",
+    "digestTime": "Send at",
+    "digestHint": "School time. Not sent on holidays.",
+    "errors": {
+      "range": "Enter a whole number from {{min}} to {{max}}."
+    }
   }
 }
