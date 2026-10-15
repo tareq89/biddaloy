@@ -12,6 +12,7 @@ import { DashboardCacheService } from '../dashboard/dashboard-cache.service';
 import { DashboardWidgetRoute } from '../dashboard/widget-permission.decorator';
 import { ExamsDashboardService } from './exams-dashboard.service';
 import { MarkEntryProgressWidgetDto, MyMarkDeadlinesDto } from './dto/exams-dashboard.dto';
+import { CommitteePassRateDto, ResultsStateDto } from './dto/exams-dashboard-group-c.dto';
 
 /** `GET /dashboard/widgets/mark-entry-progress` (Epic 169 D40/D46). */
 @ApiTags('dashboard')
@@ -31,6 +32,23 @@ export class ExamsDashboardController {
   ): Promise<MarkEntryProgressWidgetDto> {
     return this.cache.getOrLoad(tenant.id, DashboardWidgetKey.MARK_ENTRY_PROGRESS, 'school', () =>
       this.dashboard.getMarkEntryProgress(tenant.id, localToday()),
+    );
+  }
+
+  /** [8.10.7.4.10] Aggregate only; PUBLISHED exams only. Role gate = widget catalogue. */
+  @DashboardWidgetRoute(DashboardWidgetKey.COMMITTEE_PASS_RATE)
+  @ApiOkResponse({ type: CommitteePassRateDto })
+  committeePassRate(@CurrentTenant() tenant: { id: string; role: string }) {
+    return this.cache.getOrLoad(tenant.id, DashboardWidgetKey.COMMITTEE_PASS_RATE, 'school', () =>
+      this.dashboard.getCommitteePassRate(tenant.id),
+    );
+  }
+
+  @DashboardWidgetRoute(DashboardWidgetKey.RESULTS_STATE)
+  @ApiOkResponse({ type: ResultsStateDto })
+  resultsState(@CurrentTenant() tenant: { id: string; role: string }) {
+    return this.cache.getOrLoad(tenant.id, DashboardWidgetKey.RESULTS_STATE, 'school', () =>
+      this.dashboard.getResultsState(tenant.id),
     );
   }
 
