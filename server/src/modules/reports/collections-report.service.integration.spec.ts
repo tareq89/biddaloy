@@ -412,6 +412,42 @@ describe('CollectionsReportService', () => {
       }
     });
 
+    it('rounds decimal sums: CARD 0.1 + CHEQUE 0.2 is exactly 0.3', async () => {
+      const s = await makeStudent();
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 0.1,
+        payment_method: PaymentMethod.CARD,
+        payment_date: at('2026-10-06T22:00:00Z'),
+      });
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 0.2,
+        payment_method: PaymentMethod.CHEQUE,
+        payment_date: at('2026-10-06T23:00:00Z'),
+      });
+      const w = await service.getCollectionTodayWidget(SEED_TENANT_ID, TODAY, NOW);
+      expect(w.groups[2].net).toBe(0.3); // BANK; 0.1 + 0.2 is 0.30000000000000004 unrounded
+      expect(w.net).toBe(0.3);
+      const m = await service.getCollectionByMonthWidget(SEED_TENANT_ID, TODAY);
+      expect(m.year_to_date_net).toBe(0.3);
+    });
+
+    it('wallet use: widget counts amount applied to bills, not physical cash', async () => {
+      const s = await makeStudent();
+      await makePayment(s.id, SEED_TENANT_ID, {
+        total_amount: 1000,
+        wallet_credit_used: 400,
+        payment_date: at('2026-10-06T22:00:00Z'),
+      } as Partial<Payment>);
+      const w = await service.getCollectionTodayWidget(SEED_TENANT_ID, TODAY, NOW);
+      const report = await service.getReport(SEED_TENANT_ID, { from: TODAY, to: TODAY });
+      expect(w.groups.reduce((a, g) => a + g.net, 0)).toBe(report.totals.net);
+      expect(report.totals.net).toBe(1000);
+      // Widget = amount applied to bills (total_amount); by_method = physical
+      // cash (total_amount - wallet_credit_used), so CASH differs: 1000 vs 600.
+      expect(w.groups[0].net).toBe(1000);
+      expect(report.by_method.find((r) => r.payment_method === PaymentMethod.CASH)?.net).toBe(600);
+    });
+
     it('yesterday at the same time: 10:00 counts, 12:00 does not (now is 11:00)', async () => {
       const s = await makeStudent();
       await makePayment(s.id, SEED_TENANT_ID, {

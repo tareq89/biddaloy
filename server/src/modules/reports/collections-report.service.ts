@@ -47,6 +47,9 @@ const METHOD_GROUP: Record<PaymentMethod, CollectionMethodGroup> = {
   [PaymentMethod.ROCKET]: 'OTHER_MOBILE',
 };
 
+/** Money sums of `Number(decimal)` collect float noise (0.1 + 0.2). */
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Day 1 to the same day-of-month (clamped to the month's last day, so 31 Oct
@@ -243,16 +246,16 @@ export class CollectionsReportService {
         .sort((a, b) => b.net - a.net);
       return {
         group,
-        net: methods.reduce((a, m) => a + m.net, 0),
+        net: round2(methods.reduce((a, m) => a + m.net, 0)),
         payment_count: methods.reduce((a, m) => a + m.payment_count, 0),
         methods,
       };
     });
     return {
       date: today,
-      net: groups.reduce((a, g) => a + g.net, 0),
+      net: round2(groups.reduce((a, g) => a + g.net, 0)),
       payment_count: groups.reduce((a, g) => a + g.payment_count, 0),
-      yesterday_same_time_net: yRows.reduce((a, r) => a + r.net, 0),
+      yesterday_same_time_net: round2(yRows.reduce((a, r) => a + r.net, 0)),
       groups,
     };
   }
@@ -275,7 +278,10 @@ export class CollectionsReportService {
     }));
     return {
       year: y,
-      year_to_date_net: slots.slice(0, m).reduce((a, n) => a + n, 0),
+      year_to_date_net: round2(slots.slice(0, m).reduce((a, n) => a + n, 0)),
+      // ponytail: month_to_date ends at 'now' (monthly slot, payments dated later
+      // today are future rows), while previous_month_same_days covers its whole
+      // last day. Intentional asymmetry; no behaviour change.
       month_to_date_net: slots[m - 1],
       previous_month_same_days_net: previous,
       months,
