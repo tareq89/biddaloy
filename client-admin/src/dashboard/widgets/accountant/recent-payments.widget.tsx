@@ -103,7 +103,12 @@ export function RecentPaymentsView({
               return (
                 <tr
                   key={p.payment_id}
-                  className={`border-b border-border-subtle align-top${i >= PHONE_ROWS ? 'hidden md:table-row' : ''}`}
+                  className={[
+                    'border-b border-border-subtle align-top',
+                    i >= PHONE_ROWS && 'hidden md:table-row',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                 >
                   <td className="px-2 py-1">
                     {p.student_name ?? tw('unknownStudent')}
