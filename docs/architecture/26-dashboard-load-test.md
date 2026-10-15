@@ -129,13 +129,13 @@ Cold phase, cache cleared before every request, one at a time, p95 target 300 ms
 keys (`:series:`, `:daily:`) are kept, like production after the 00:15 job; set
 `LOAD_CLEAR_NIGHTLY=yes` to clear them too (first request after a missed night).
 
-| Widget                | Before p50 / p95 | After p50 / p95 |
-| --------------------- | ---------------- | --------------- |
-| attendance-today      | 1.2-1.9 s / 1.7-11 s | 126-194 ms / 232-290 ms |
-| committee-attendance  | 2.6 s / 10.7 s   | 92 ms / 116 ms  |
-| collection-by-month   | 106 ms / 1.4 s   | 40 ms / 57 ms   |
-| committee-finance     | - / 639 ms       | 72 ms / 105 ms  |
-| my-mark-deadlines     | 87 ms / 588 ms   | 53 ms / 115 ms (more data now) |
+| Widget               | Before p50 / p95     | After p50 / p95                |
+| -------------------- | -------------------- | ------------------------------ |
+| attendance-today     | 1.2-1.9 s / 1.7-11 s | 126-194 ms / 232-290 ms        |
+| committee-attendance | 2.6 s / 10.7 s       | 92 ms / 116 ms                 |
+| collection-by-month  | 106 ms / 1.4 s       | 40 ms / 57 ms                  |
+| committee-finance    | - / 639 ms           | 72 ms / 105 ms                 |
+| my-mark-deadlines    | 87 ms / 588 ms       | 53 ms / 115 ms (more data now) |
 
 All 43 cold rows pass. The 50-user load phase on one laptop (server, Redis, Postgres and the load
 generator share it) is not meaningful: it saturates, and `PARENT days` p95 was 419 ms there with
@@ -147,8 +147,12 @@ limit on a loaded machine; its remaining cost is the section roster query (about
 
 What changed: the on-roll test is a join evaluated once per student and section instead of a
 correlated lookup per register row; committee-attendance reads per-day tallies for finished days
-from a nightly Redis key (written by `attendance-series.scheduler`) and queries only today live;
+from a nightly Redis key (written by `attendance-series.scheduler`) for days up to today-8 and
+queries the last 7 days plus today live; days older than 8 days lag corrections until the next nightly run;
 two covering partial indexes (migration `1791900000200`) for the payment and bill sums.
+
+The seed runs `VACUUM ANALYZE`, so the covering indexes' index-only scans depend on a set
+visibility map (production relies on autovacuum for that).
 
 ## If a row fails
 
