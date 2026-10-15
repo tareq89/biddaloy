@@ -88,7 +88,7 @@ describe('exam dashboard group C widgets', () => {
 
   afterAll(async () => {
     for (const key of [DashboardWidgetKey.COMMITTEE_PASS_RATE, DashboardWidgetKey.RESULTS_STATE]) {
-      await redis.del(`tenant:${SEED_TENANT_ID}:dash:${key}:school`);
+      await redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${key}:school`);
     }
     await app.close();
   });

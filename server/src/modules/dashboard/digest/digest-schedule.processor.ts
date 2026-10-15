@@ -64,7 +64,12 @@ export class DigestScheduleProcessor extends WorkerHost implements OnModuleInit,
         await this.service.syncAll();
         return;
       case DIGEST_RUN_JOB:
-        await this.service.runNow(job.data.tenantId, job.data.deferred === true);
+        await this.service.runNow(
+          job.data.tenantId,
+          job.data.deferred === true,
+          new Date(),
+          job.data.scheduledDate,
+        );
         return;
       default:
         this.logger.warn(`unknown digest job '${job.name}' - skipping`);

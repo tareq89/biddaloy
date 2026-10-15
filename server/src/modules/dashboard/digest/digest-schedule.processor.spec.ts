@@ -14,9 +14,14 @@ describe('DigestScheduleProcessor', () => {
   it('run job passes tenant and deferred flag to runNow', async () => {
     const { p, service } = make();
     await p.process({ name: DIGEST_RUN_JOB, data: { tenantId: T, deferred: true } } as any);
-    expect(service.runNow).toHaveBeenCalledWith(T, true);
+    expect(service.runNow).toHaveBeenCalledWith(T, true, expect.any(Date), undefined);
     await p.process({ name: DIGEST_RUN_JOB, data: { tenantId: T } } as any);
-    expect(service.runNow).toHaveBeenLastCalledWith(T, false);
+    expect(service.runNow).toHaveBeenLastCalledWith(T, false, expect.any(Date), undefined);
+    await p.process({
+      name: DIGEST_RUN_JOB,
+      data: { tenantId: T, deferred: true, scheduledDate: '2026-10-08' },
+    } as any);
+    expect(service.runNow).toHaveBeenLastCalledWith(T, true, expect.any(Date), '2026-10-08');
   });
 
   it('reconcile job calls syncAll', async () => {

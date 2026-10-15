@@ -89,7 +89,16 @@ export class DigestScheduleService {
     }
   }
 
-  async runNow(tenantId: string, deferred = false, now = new Date()): Promise<void> {
+  /**
+   * `scheduledDate` is the school-local day the tick was meant for. A quiet-hours deferral
+   * carries it across midnight, so the working-day check and the sent-once key stay on that day.
+   */
+  async runNow(
+    tenantId: string,
+    deferred = false,
+    now = new Date(),
+    scheduledDate?: string,
+  ): Promise<void> {
     if (!this.pushConfig.isPushEnabled()) {
       this.logger.log(`digest skipped for ${tenantId}: push is disabled`);
       return;
@@ -109,7 +118,7 @@ export class DigestScheduleService {
     }
     const settings = await this.schools.getResolvedSettings(tenantId);
     const tz = settings.region!.timezone;
-    const today = localDate(now, tz);
+    const today = scheduledDate ?? localDate(now, tz);
 
     if (await this.calendar.isNonWorkingDay({ tenantId, date: today })) {
       this.logger.log(`digest skipped for ${tenantId}: non-working day`);
@@ -121,7 +130,7 @@ export class DigestScheduleService {
     if (!deferred && isInQuietHours(localTimeHHmm(now, tz), quiet)) {
       await this.queue.add(
         DIGEST_RUN_JOB,
-        { tenantId, deferred: true },
+        { tenantId, deferred: true, scheduledDate: today },
         {
           jobId: `dashboard-digest-deferred-${tenantId}-${today}`,
           delay: quietHoursEnd(now, tz, quiet).getTime() - now.getTime(),
