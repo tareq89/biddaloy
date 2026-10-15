@@ -18,9 +18,9 @@ export function CustomisePreview({
 }) {
   const { t } = useTranslation('dashboard');
   return (
-    <div aria-hidden="true" className="flex flex-col gap-3 opacity-80">
-      <p className="text-label text-muted-foreground">{t('customise.preview')}</p>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
+    <div aria-hidden="true" className="flex flex-col gap-3">
+      <p className="text-label text-text-secondary">{t('customise.preview')}</p>
+      <div className="grid grid-cols-1 gap-3 opacity-80 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
         {shown.map((item) => (
           <div
             key={item.key}

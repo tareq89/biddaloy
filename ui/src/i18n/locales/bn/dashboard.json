@@ -47,15 +47,56 @@
   "widgets": {
     "attendance-today": {
       "title": "আজকের শিক্ষার্থী উপস্থিতি",
-      "description": "আজ কত শতাংশ এসেছে, কোন শাখা বাকি"
+      "description": "আজ কত শতাংশ এসেছে, কোন শাখা বাকি",
+      "compactTitle": "আজকের উপস্থিতি",
+      "vsWeekUp": "গত সপ্তাহের চেয়ে {{diff}} বেশি।",
+      "vsWeekDown": "গত সপ্তাহের চেয়ে {{diff}} কম।",
+      "vsWeekSame": "গত সপ্তাহের মতোই।",
+      "axisStart": "৩০ দিন আগে",
+      "axisEnd": "আজ",
+      "sparkLabel": "৩০ দিনের উপস্থিতি, {{min}} থেকে {{max}}",
+      "rangeSummary": "৩০ দিনে সর্বনিম্ন {{min}}, সর্বোচ্চ {{max}}",
+      "colPercent": "উপস্থিতি",
+      "noRegister": "উপস্থিতি নেই",
+      "pendingLink_one": "{{count}}টা শাখা বাকি, দেখুন",
+      "pendingLink_other": "{{count}}টা শাখা বাকি, দেখুন",
+      "allMarked": "সব শাখার উপস্থিতি নেওয়া হয়েছে",
+      "emptyReason": "আজ এখনো কোনো উপস্থিতি নেওয়া হয়নি।",
+      "emptyAction": "উপস্থিতি নিন",
+      "closedToday": "আজ স্কুল বন্ধ।"
     },
     "staff-today": {
       "title": "শিক্ষক ও স্টাফ",
-      "description": "কে উপস্থিত, কে কোন ছুটিতে"
+      "description": "কে উপস্থিত, কে কোন ছুটিতে",
+      "value": "{{present}}/{{total}} উপস্থিত",
+      "sentence": "{{onLeave}} জন ছুটিতে, না জানিয়ে অনুপস্থিত {{absent}} জন।",
+      "sentenceNoAbsent": "{{onLeave}} জন ছুটিতে, না জানিয়ে অনুপস্থিত কেউ নেই।",
+      "untilDate": "{{date}} পর্যন্ত",
+      "link": "স্টাফ উপস্থিতি দেখুন",
+      "emptyReason": "আজ এখনো স্টাফ উপস্থিতি নেওয়া হয়নি।",
+      "emptyAction": "স্টাফ উপস্থিতি খুলুন"
     },
     "collection-month": {
       "title": "এ মাসের আদায়",
-      "description": "লক্ষ্যের কতটা আদায় হলো, গত মাসের তুলনায়"
+      "description": "লক্ষ্যের কতটা আদায় হলো, গত মাসের তুলনায়",
+      "compactTitle": "এ মাসের আদায়",
+      "ahead": "গত মাসের এই সময়ের চেয়ে {{diff}} এগিয়ে।",
+      "behind": "গত মাসের এই সময়ের চেয়ে {{diff}} পিছিয়ে।",
+      "target": "লক্ষ্য {{amount}}",
+      "meterLabel": "লক্ষ্যের কতটা আদায়",
+      "lastMonthMarker": "গত মাসে এ সময়ে ছিল {{percent}}",
+      "lastYear": "গত বছর এ সময়ে: {{amount}}",
+      "lastYearNone": "গত বছর এ সময়ে: —",
+      "compactDelta": "গত মাসের চেয়ে {{diff}}",
+      "rowReceived": "আদায়",
+      "rowBilled": "লক্ষ্য",
+      "rowLastMonth": "গত মাসে এ সময়ে",
+      "rowLastYear": "গত বছর এ সময়ে",
+      "colFigure": "হিসাব",
+      "colAmount": "পরিমাণ",
+      "link": "বকেয়া দেখুন",
+      "emptyReason": "এ মাসে এখনো ফি তৈরি হয়নি।",
+      "emptyAction": "ফি তৈরি করুন"
     },
     "approvals-pending": {
       "title": "আপনার অনুমোদনের অপেক্ষায়",
@@ -63,15 +104,50 @@
     },
     "at-risk-students": {
       "title": "ঝুঁকিপূর্ণ শিক্ষার্থী",
-      "description": "যাদের ২টা বা বেশি সতর্ক সংকেত মিলেছে"
+      "description": "যাদের ২টা বা বেশি সতর্ক সংকেত মিলেছে",
+      "value_one": "{{value}} জন",
+      "value_other": "{{value}} জন",
+      "moreThanLastWeek": "গত সপ্তাহের চেয়ে {{diff}} জন বেশি। সবচেয়ে বেশি সংকেত যাদের, তারা উপরে।",
+      "fewerThanLastWeek": "গত সপ্তাহের চেয়ে {{diff}} জন কম।",
+      "colStudent": "শিক্ষার্থী",
+      "colSignals": "সংকেত",
+      "signalAbsentStreak": "টানা {{days}} দিন অনুপস্থিত",
+      "signalLowAttendance": "মাসে উপস্থিতি {{percent}}",
+      "signalFailed": "{{subjects}}-তে ফেল",
+      "signalOverdue": "{{days}} দিনের বকেয়া",
+      "rule": "যেকোনো ২টা সংকেত মিললে তালিকায় আসে।",
+      "seeAll": "সব {{count}} জন দেখুন",
+      "showFewer": "কম দেখান",
+      "computedAt": "{{time}}-এ আপডেট",
+      "computing": "তালিকা তৈরি হচ্ছে, এক মিনিট পরে দেখুন।",
+      "stale": "এই হিসাব পুরনো হতে পারে।",
+      "emptyReason": "এই মুহূর্তে কোনো শিক্ষার্থীর ২টা সংকেত মেলেনি।",
+      "emptyAction": "সীমা বদলান"
     },
     "mark-entry-progress": {
       "title": "মার্ক এন্ট্রি",
-      "description": "কোন শ্রেণির মার্ক জমা বাকি"
+      "description": "কোন শ্রেণির মার্ক জমা বাকি",
+      "furthestBehind": "{{class}} শ্রেণি সবচেয়ে পিছিয়ে।",
+      "summary": "সর্বনিম্ন {{low}} ({{lowPct}}), সর্বোচ্চ {{high}} ({{highPct}})",
+      "compactValue": "{{percent}} জমা",
+      "deadlineIn_one": "জমার শেষ দিন {{count}} দিন পর ({{date}})।",
+      "deadlineIn_other": "জমার শেষ দিন {{count}} দিন পর ({{date}})।",
+      "deadlinePassed": "জমার শেষ দিন পার হয়েছে ({{date}})।",
+      "colSubmitted": "জমা",
+      "link": "{{class}} শ্রেণির বাকি বিষয় দেখুন",
+      "emptyReason": "এখন কোনো পরীক্ষার মার্ক নেওয়া হচ্ছে না।",
+      "emptyAction": "মার্ক এন্ট্রি খুলুন"
     },
     "syllabus-progress": {
       "title": "সিলেবাস অগ্রগতি",
-      "description": "কোন শ্রেণি পড়ানোয় পিছিয়ে আছে"
+      "description": "কোন শ্রেণি পড়ানোয় পিছিয়ে আছে",
+      "average": "গড়ে {{percent}} পড়ানো হয়েছে",
+      "leastCovered": "{{class}} শ্রেণিতে সবচেয়ে কম পড়ানো হয়েছে ({{percent}})।",
+      "noPace": "নির্ধারিত গতির সঙ্গে তুলনা আসবে পাঠ পরিকল্পনা চালু হলে।",
+      "colCovered": "পড়ানো হয়েছে",
+      "link": "সিলেবাস দেখুন",
+      "emptyReason": "এখনো কোনো সিলেবাস বিষয় যোগ হয়নি।",
+      "emptyAction": "সিলেবাস যোগ করুন"
     },
     "upcoming": {
       "title": "সামনে কী আছে",
@@ -83,11 +159,21 @@
     },
     "sms-balance": {
       "title": "SMS ব্যালান্স",
-      "description": "আর কতগুলো SMS পাঠানো যাবে"
+      "description": "আর কতগুলো SMS পাঠানো যাবে",
+      "value_one": "{{value}}টা SMS বাকি",
+      "value_other": "{{value}}টা SMS বাকি",
+      "reserved": "পাঠানোর অপেক্ষায় {{value}}টা আটকে আছে",
+      "notMetered": "এই স্কুলে SMS গোনা হয় না।",
+      "link": "পাঠানো বার্তা দেখুন"
     },
     "failed-messages": {
       "title": "যে বার্তা যায়নি",
-      "description": "গত ৭ দিনে যে SMS যায়নি"
+      "description": "গত ৭ দিনে যে SMS যায়নি",
+      "value_one": "{{value}}টা যায়নি",
+      "value_other": "{{value}}টা যায়নি",
+      "sentence": "গত ৭ দিনে যে SMS পাঠানো যায়নি।",
+      "none": "গত ৭ দিনে সব SMS গেছে।",
+      "link": "কোনগুলো দেখুন"
     },
     "recent-activity": {
       "title": "সাম্প্রতিক কার্যকলাপ",
@@ -200,6 +286,15 @@
     "my-lessons-to-mark": {
       "title": "শেষ বলে চিহ্নিত করার পাঠ",
       "description": "যে পাঠ পড়িয়েছেন কিন্তু শেষ বলে চিহ্নিত করেননি"
+    },
+    "common": {
+      "showTable": "টেবিল দেখুন",
+      "showChart": "চার্ট দেখুন",
+      "updatedJustNow": "এইমাত্র আপডেট",
+      "updatedMinutes_one": "{{count}} মিনিট আগে আপডেট",
+      "updatedMinutes_other": "{{count}} মিনিট আগে আপডেট",
+      "colDate": "তারিখ",
+      "colClass": "শ্রেণি"
     }
   }
 }

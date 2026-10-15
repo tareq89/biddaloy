@@ -51,7 +51,11 @@
     "errorMessage": "পরীক্ষা সংরক্ষণ করা যায়নি।",
     "saving": "সংরক্ষণ হচ্ছে…",
     "save": "সংরক্ষণ করুন",
-    "classNeedsYear": "আগে শিক্ষাবর্ষ বাছুন"
+    "classNeedsYear": "আগে শিক্ষাবর্ষ বাছুন",
+    "deadlineLabel": "মার্ক জমার শেষ তারিখ",
+    "deadlinePlaceholder": "তারিখ বাছুন",
+    "deadlineHelp": "শিক্ষকরা ড্যাশবোর্ডে দেখবেন কত দিন বাকি। না থাকলে ফাঁকা রাখুন।",
+    "deadlineClear": "তারিখ মুছুন"
   },
   "detail": {
     "loadError": "এই পরীক্ষা লোড করা যায়নি।",

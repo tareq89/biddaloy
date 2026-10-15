@@ -50,7 +50,7 @@
       "path": "/dashboard",
       "role": "admin",
       "archetype": "bespoke",
-      "overlays": ["trial-details"]
+      "overlays": ["trial-details", "customise"]
     },
     {
       "path": "/notifications",

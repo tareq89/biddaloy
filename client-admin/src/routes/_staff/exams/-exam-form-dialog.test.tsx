@@ -1,5 +1,6 @@
 import '@biddaloy/ui/test';
 
+import { ExamKind } from '@biddaloy/shared';
 import {
   academicYearFactory,
   classFactory,
@@ -8,6 +9,7 @@ import {
   renderWithProviders,
   server,
 } from '@biddaloy/ui/test';
+import { toIsoDate } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -70,7 +72,9 @@ async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>, template?
   await user.click(screen.getByRole('combobox', { name: 'Class' }));
   await user.click(await screen.findByRole('option', { name: 'Class 6' }));
   if (template) {
-    await user.click(screen.getByRole('combobox', { name: 'Start from an exam structure (optional)' }));
+    await user.click(
+      screen.getByRole('combobox', { name: 'Start from an exam structure (optional)' }),
+    );
     await user.click(await screen.findByRole('option', { name: template }));
   }
   await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -93,14 +97,18 @@ describe('ExamFormDialog template field', () => {
     const api = mockApi({ templates: [] });
     renderDialog();
     await waitFor(() => expect(api.templateCalls()).toBe(1));
-    expect(screen.queryByRole('combobox', { name: 'Start from an exam structure (optional)' })).toBeNull();
+    expect(
+      screen.queryByRole('combobox', { name: 'Start from an exam structure (optional)' }),
+    ).toBeNull();
   });
 
   it('is hidden in edit mode and does not fetch templates', async () => {
     const api = mockApi();
     renderDialog({ mode: 'edit', examId: 'exam-1' });
     await screen.findByLabelText('Name');
-    expect(screen.queryByRole('combobox', { name: 'Start from an exam structure (optional)' })).toBeNull();
+    expect(
+      screen.queryByRole('combobox', { name: 'Start from an exam structure (optional)' }),
+    ).toBeNull();
     expect(api.templateCalls()).toBe(0);
   });
 
@@ -110,9 +118,7 @@ describe('ExamFormDialog template field', () => {
     renderDialog();
     await screen.findByRole('combobox', { name: 'Start from an exam structure (optional)' });
     await fillAndSubmit(user, 'Half-yearly');
-    await waitFor(() =>
-      expect(toastSuccess).toHaveBeenCalledWith('Exam created with ৩ parts'),
-    );
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Exam created with ৩ parts'));
     expect(api.bodies[0]).toMatchObject({ template_id: 'tpl-1' });
   });
 
@@ -172,5 +178,94 @@ describe('ExamFormDialog template field', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe("Couldn't save the exam.");
     expect(alert.textContent).not.toMatch(/404|not found/);
+  });
+});
+
+describe('ExamFormDialog mark entry deadline', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  const trigger = () => screen.getByRole('button', { name: 'Mark entry deadline' });
+
+  it('has a visible label, the help text, and no clear button without a value', async () => {
+    mockApi();
+    renderDialog();
+    await screen.findByLabelText('Name');
+    expect(screen.getByText('Mark entry deadline', { selector: 'label' })).toBeTruthy();
+    expect(screen.getByText(/Teachers see the days left/)).toBeTruthy();
+    expect(trigger().textContent).toContain('Pick a date');
+    expect(screen.queryByRole('button', { name: 'Clear date' })).toBeNull();
+  });
+
+  it('create with a picked date posts it as YYYY-MM-DD; without one omits it', async () => {
+    const api = mockApi();
+    const user = userEvent.setup();
+    renderDialog();
+    await screen.findByLabelText('Name');
+    await user.click(trigger());
+    const iso = `${toIsoDate(new Date()).slice(0, 8)}10`;
+    await user.click(document.querySelector<HTMLElement>(`[data-date="${iso}"]`)!);
+    await fillAndSubmit(user);
+    await waitFor(() => expect(api.bodies[0]).toMatchObject({ mark_entry_deadline: iso }));
+  });
+
+  it('create without a date omits the field', async () => {
+    const api = mockApi();
+    const user = userEvent.setup();
+    renderDialog();
+    await screen.findByLabelText('Name');
+    await fillAndSubmit(user);
+    await waitFor(() => expect(api.bodies).toHaveLength(1));
+    expect(api.bodies[0]).not.toHaveProperty('mark_entry_deadline');
+  });
+
+  it('edit shows the saved date; clearing and saving sends null', async () => {
+    const patches: Record<string, unknown>[] = [];
+    server.use(
+      http.patch('/api/v1/exams/exam-1', async ({ request }) => {
+        patches.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json(examFactory({ id: 'exam-1' }));
+      }),
+    );
+    const user = userEvent.setup();
+    renderDialog({
+      mode: 'edit',
+      examId: 'exam-1',
+      initialValues: {
+        name: 'Half Yearly',
+        kind: ExamKind.TERM,
+        mark_entry_deadline: '2026-10-10',
+      },
+    });
+    await screen.findByLabelText('Name');
+    expect(trigger().textContent).toContain('১০ই অক্টোবর, ২০২৬');
+    await user.click(screen.getByRole('button', { name: 'Clear date' }));
+    expect(screen.queryByRole('button', { name: 'Clear date' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patches[0]).toMatchObject({ mark_entry_deadline: null }));
+  });
+
+  it('edit keeps an unchanged deadline', async () => {
+    const patches: Record<string, unknown>[] = [];
+    server.use(
+      http.patch('/api/v1/exams/exam-1', async ({ request }) => {
+        patches.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json(examFactory({ id: 'exam-1' }));
+      }),
+    );
+    const user = userEvent.setup();
+    renderDialog({
+      mode: 'edit',
+      examId: 'exam-1',
+      initialValues: {
+        name: 'Half Yearly',
+        kind: ExamKind.TERM,
+        mark_entry_deadline: '2026-10-10',
+      },
+    });
+    await screen.findByLabelText('Name');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patches[0]).toMatchObject({ mark_entry_deadline: '2026-10-10' }));
   });
 });

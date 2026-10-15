@@ -51,7 +51,11 @@
     "errorMessage": "Couldn't save the exam.",
     "saving": "Saving…",
     "save": "Save",
-    "classNeedsYear": "Pick an academic year first"
+    "classNeedsYear": "Pick an academic year first",
+    "deadlineLabel": "Mark entry deadline",
+    "deadlinePlaceholder": "Pick a date",
+    "deadlineHelp": "Teachers see the days left on their dashboard. Leave empty if there is none.",
+    "deadlineClear": "Clear date"
   },
   "detail": {
     "loadError": "Couldn't load this exam.",
