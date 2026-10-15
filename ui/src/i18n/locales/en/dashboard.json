@@ -399,39 +399,135 @@
     },
     "committee-enrollment": {
       "title": "Enrolment",
-      "description": "Total students and change from last year"
+      "description": "Total students and change from last year",
+      "tileLabel": "Total students",
+      "trendUp_one": "{{count}} more than last year",
+      "trendUp_other": "{{count}} more than last year",
+      "trendDown_one": "{{count}} fewer than last year",
+      "trendDown_other": "{{count}} fewer than last year",
+      "trendSame": "Same as last year",
+      "noPrevious": "No figure for last year",
+      "growthUnit": "in {{years}} years",
+      "summaryUp": "Students grew from {{from}} to {{to}} in {{years}} years.",
+      "summaryDown": "Students fell from {{from}} to {{to}} in {{years}} years.",
+      "sparkLabel": "Students per year, {{from}} to {{to}}",
+      "colYear": "Year",
+      "colStudents": "Students",
+      "emptyReason": "No academic year yet."
     },
     "committee-attendance": {
       "title": "Attendance",
-      "description": "Attendance over time against the target"
+      "description": "Attendance over time against the target",
+      "tileLabel": "Average attendance, this month",
+      "targetGap": "Target {{target}}, {{gap}} away",
+      "targetMet": "Target {{target}} reached",
+      "valueUnit": "this year's average",
+      "summary": "Lowest in {{month}} at {{low}}; now {{current}}.",
+      "targetLine": "Target {{target}}",
+      "sparkLabel": "Monthly attendance this year, {{low}} to {{high}}",
+      "colMonth": "Month",
+      "colPercent": "Attendance",
+      "noRegister": "No register",
+      "emptyReason": "No attendance taken this year yet."
     },
     "committee-finance": {
       "title": "Finance",
-      "description": "Collection and dues in short"
+      "description": "Collection and dues in short",
+      "tileLabel": "This month's collection",
+      "vsLastYearUp": "{{diff}} more than this time last year",
+      "vsLastYearDown": "{{diff}} less than this time last year",
+      "lastYearNone": "No figure for last year",
+      "tileNote": "{{received}} of {{billed}} billed",
+      "valueUnit": "outstanding this year",
+      "summary": "{{percent}} of this year's bills collected.",
+      "seriesCollected": "Collected",
+      "seriesOutstanding": "Outstanding",
+      "lastThreeMonths": "Last 3 months",
+      "colMonth": "Month",
+      "colBilled": "Billed",
+      "colCollected": "Collected",
+      "colOutstanding": "Outstanding",
+      "emptyReason": "No fees billed this year yet."
     },
     "committee-pass-rate": {
       "title": "Pass rate",
-      "description": "Pass rate in the latest published exam"
+      "description": "Pass rate in the latest published exam",
+      "tileLabel": "Pass rate, latest exam",
+      "vsPreviousUp": "{{diff}} higher than the previous exam",
+      "vsPreviousDown": "{{diff}} lower than the previous exam",
+      "noPrevious": "No earlier exam to compare",
+      "lowestUnit": "class {{class}}, lowest",
+      "summary": "In {{exam}}, class {{class}} is {{gap}} below the school average.",
+      "average": "School average {{percent}}",
+      "sparkLabel": "Pass rate of the last {{count}} exams",
+      "colPass": "Pass rate",
+      "emptyReason": "No exam results published yet."
     },
     "seat-plan-status": {
       "title": "Seat plans",
-      "description": "Which exams have a seat plan and which do not"
+      "description": "Which exams have a seat plan and which do not",
+      "value_one": "{{count}} exam needs a seat plan",
+      "value_other": "{{count}} exams need a seat plan",
+      "allPlanned": "Every upcoming exam has a seat plan.",
+      "row": "{{exam}}, class {{class}}",
+      "rowProgress": "{{planned}} of {{total}} sittings planned",
+      "startsOn": "Starts {{date}}",
+      "statusPublished": "Published",
+      "statusDraft": "Draft",
+      "statusNotStarted": "Not started",
+      "link": "Open seat plans",
+      "emptyReason": "No upcoming exam has a schedule yet.",
+      "emptyAction": "Open exams"
     },
     "results-state": {
       "title": "Results",
-      "description": "Which exams have results published"
+      "description": "Which exams have results published",
+      "tileLabel": "Results published",
+      "value": "{{published}} of {{total}}",
+      "waiting_one": "{{count}} exam is ready and waiting to be published.",
+      "waiting_other": "{{count}} exams are ready and waiting to be published.",
+      "allPublished": "Every finished exam is published.",
+      "stateDraft": "Draft",
+      "stateProcessed": "Ready to publish",
+      "statePublished": "Published",
+      "colExam": "Exam",
+      "colState": "Status",
+      "link": "Open results",
+      "emptyReason": "No exam this year yet."
     },
     "admissions-today": {
       "title": "Admissions today",
-      "description": "New admission applications today"
+      "description": "New admission applications today",
+      "tileLabel": "New applications today",
+      "value_one": "{{count}} new",
+      "value_other": "{{count}} new",
+      "pending_one": "{{count}} waiting for review",
+      "pending_other": "{{count}} waiting for review",
+      "none": "No new application today.",
+      "statusPENDING": "Waiting",
+      "statusSHORTLISTED": "Shortlisted",
+      "statusADMITTED": "Admitted",
+      "statusREJECTED": "Not accepted",
+      "link": "Open applicants"
     },
     "guardians-incomplete": {
       "title": "Guardian details missing",
-      "description": "Students with no guardian phone number"
+      "description": "Students with no guardian phone number",
+      "tileLabel": "Guardian records to complete",
+      "value_one": "{{count}} incomplete",
+      "value_other": "{{count}} incomplete",
+      "sentence": "Out of {{total}} guardians. A record is incomplete without a name, relationship or phone number.",
+      "none": "Every guardian record is complete.",
+      "link": "See who"
     },
     "students-added-today": {
       "title": "Students added today",
-      "description": "Students newly added today"
+      "description": "Students newly added today",
+      "tileLabel": "Students added today",
+      "value_one": "{{count}} student",
+      "value_other": "{{count}} students",
+      "none": "No student added today.",
+      "link": "Open students"
     },
     "print-queue": {
       "title": "Print queue",
@@ -467,5 +563,38 @@
       "NAGAD": "Nagad",
       "ROCKET": "Rocket"
     }
+  },
+  "committeeSummary": {
+    "attendanceMet": "Attendance has reached its target",
+    "attendanceNear": "Attendance is close to its target",
+    "attendanceBelow": "Attendance is {{gap}} below its target",
+    "collectionUp": "collection is {{diff}} ahead of this time last year.",
+    "collectionDown": "collection is {{diff}} behind this time last year.",
+    "collectionSame": "collection matches this time last year.",
+    "collectionNoLastYear": "this month's collection is {{percent}}.",
+    "joiner": "{{first}} — {{second}}",
+    "privacyNote": "For the committee: totals only, no personal details",
+    "printReport": "Print monthly meeting report"
+  },
+  "committeeReport": {
+    "title": "Monthly meeting report",
+    "subtitle": "{{school}} · {{month}}",
+    "asOf": "Figures as of {{date}}",
+    "print": "Print",
+    "back": "Back to dashboard",
+    "keyNumbers": "Key numbers",
+    "sectionEnrollment": "Enrollment",
+    "sectionAttendance": "Attendance",
+    "sectionFinance": "Collection and dues",
+    "sectionPassRate": "Pass rate by class",
+    "footer": "Totals only. No student, guardian or staff details are printed.",
+    "loadError": "The report could not load."
+  },
+  "digest": {
+    "title": "Morning summary",
+    "description": "On school days, a notification at {{time}} tells you how many things need you today.",
+    "toggle": "Send me the morning summary",
+    "needsPush": "Turn on notifications on this device to receive it.",
+    "saved": "Saved"
   }
 }
