@@ -357,9 +357,6 @@ export async function seed() {
     // [67.5.10] A sent manual alert + last month's alert history (Epic 67 W5).
     if (lifecycleAdmin) await ensureAttentionW5Seed(dataSource, school.id, lifecycleAdmin.id);
 
-    // [8.10.7.2.99] Rows that make every wave-2 dashboard widget non-empty.
-    await ensureDashboardSeed(dataSource, school.id);
-
     // [66.1.07] Demo study-plan template, two plans and four lesson deliveries.
     await ensureStudyPlansSeed(
       {
@@ -395,6 +392,10 @@ export async function seed() {
       school.id,
       lifecycleAdmin.id,
     );
+
+    // [8.10.7.2.99] Rows that make every dashboard widget non-empty. After the applications seed:
+    // that one skips when the school already has any application, and the dashboard seed adds some.
+    await ensureDashboardSeed(dataSource, school.id);
   }
 
   // [35.5.5] Unapplied tenant for walking the preset flow (after the demo seeds).
