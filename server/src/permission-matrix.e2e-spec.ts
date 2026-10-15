@@ -458,6 +458,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
     controller: 'HomeworkController',
     method: 'GET',
+    path: '/students/:studentId/homework',
+    reason:
+      "[8.10.7.4.14] family view of one linked child's homework — ADMIN/TEACHER also hold HOMEWORK_READ, but staff use the unscoped /homework list; this route is PARENT/STUDENT only and enforces the guardian link (FamilyAccessService.assertLinked)",
+  },
+  {
+    controller: 'HomeworkController',
+    method: 'GET',
     path: '/homework/analytics/student/:studentId',
     reason:
       "[22.3.6] staff-only rollup dashboard — although PARENT/STUDENT hold HOMEWORK_READ (for their own child's homework view), this analytics endpoint is the teacher/admin completion/defaulter rollup (D13), not a per-family view" +
