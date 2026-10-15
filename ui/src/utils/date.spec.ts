@@ -16,6 +16,7 @@ import {
   isPastDueDate,
   parseDate,
   parseServerDate,
+  tenantNowHhmm,
   tenantTodayIso,
   toIsoDate,
 } from './date';
@@ -148,6 +149,12 @@ describe('formatMonth', () => {
 
   it('shows the none value for a bad month', () => {
     expect(formatMonth('2026-13', REGION_BD_EN)).toBe('—');
+  });
+});
+
+describe('tenantNowHhmm', () => {
+  it('is the 24h tenant clock with Latin digits', () => {
+    expect(tenantNowHhmm(REGION_BD_BN, new Date('2026-10-07T04:10:00Z'))).toBe('10:10');
   });
 });
 
