@@ -399,39 +399,135 @@
     },
     "committee-enrollment": {
       "title": "ভর্তির সংখ্যা",
-      "description": "মোট শিক্ষার্থী আর গত বছরের তুলনায় পরিবর্তন"
+      "description": "মোট শিক্ষার্থী আর গত বছরের তুলনায় পরিবর্তন",
+      "tileLabel": "মোট শিক্ষার্থী",
+      "trendUp_one": "গত বছরের চেয়ে {{count}} জন বেশি",
+      "trendUp_other": "গত বছরের চেয়ে {{count}} জন বেশি",
+      "trendDown_one": "গত বছরের চেয়ে {{count}} জন কম",
+      "trendDown_other": "গত বছরের চেয়ে {{count}} জন কম",
+      "trendSame": "গত বছরের মতোই",
+      "noPrevious": "গত বছরের হিসাব নেই",
+      "growthUnit": "{{years}} বছরে",
+      "summaryUp": "{{years}} বছরে শিক্ষার্থী {{from}} থেকে বেড়ে {{to}} জন হয়েছে।",
+      "summaryDown": "{{years}} বছরে শিক্ষার্থী {{from}} থেকে কমে {{to}} জন হয়েছে।",
+      "sparkLabel": "বছরওয়ারি শিক্ষার্থী, {{from}} থেকে {{to}}",
+      "colYear": "বছর",
+      "colStudents": "শিক্ষার্থী",
+      "emptyReason": "এখনো কোনো শিক্ষাবর্ষ নেই।"
     },
     "committee-attendance": {
       "title": "উপস্থিতি",
-      "description": "লক্ষ্যের তুলনায় উপস্থিতির ধারা"
+      "description": "লক্ষ্যের তুলনায় উপস্থিতির ধারা",
+      "tileLabel": "গড় উপস্থিতি, এ মাসে",
+      "targetGap": "লক্ষ্য {{target}}, মাত্র {{gap}} দূরে",
+      "targetMet": "লক্ষ্য {{target}} পূরণ হয়েছে",
+      "valueUnit": "এ বছরের গড়",
+      "summary": "{{month}} মাসে উপস্থিতি {{low}}-এ নেমেছিল, এখন {{current}}।",
+      "targetLine": "লক্ষ্য {{target}}",
+      "sparkLabel": "এ বছরের মাসওয়ারি উপস্থিতি, {{low}} থেকে {{high}}",
+      "colMonth": "মাস",
+      "colPercent": "উপস্থিতি",
+      "noRegister": "উপস্থিতি নেই",
+      "emptyReason": "এ বছর এখনো কোনো উপস্থিতি নেওয়া হয়নি।"
     },
     "committee-finance": {
       "title": "আর্থিক অবস্থা",
-      "description": "আদায় আর বকেয়ার সংক্ষিপ্ত চিত্র"
+      "description": "আদায় আর বকেয়ার সংক্ষিপ্ত চিত্র",
+      "tileLabel": "এ মাসের আদায়",
+      "vsLastYearUp": "গত বছরের এই সময়ের চেয়ে {{diff}} বেশি",
+      "vsLastYearDown": "গত বছরের এই সময়ের চেয়ে {{diff}} কম",
+      "lastYearNone": "গত বছরের হিসাব নেই",
+      "tileNote": "{{billed}} বিলের মধ্যে {{received}}",
+      "valueUnit": "এ বছরের মোট বকেয়া",
+      "summary": "বছরের বিলের {{percent}} আদায় হয়েছে।",
+      "seriesCollected": "আদায়",
+      "seriesOutstanding": "বকেয়া",
+      "lastThreeMonths": "শেষ ৩ মাস",
+      "colMonth": "মাস",
+      "colBilled": "বিল",
+      "colCollected": "আদায়",
+      "colOutstanding": "বকেয়া",
+      "emptyReason": "এ বছর এখনো কোনো ফি তৈরি হয়নি।"
     },
     "committee-pass-rate": {
       "title": "পাসের হার",
-      "description": "সর্বশেষ প্রকাশিত পরীক্ষায় পাসের হার"
+      "description": "সর্বশেষ প্রকাশিত পরীক্ষায় পাসের হার",
+      "tileLabel": "শেষ পরীক্ষায় পাসের হার",
+      "vsPreviousUp": "আগের পরীক্ষার চেয়ে {{diff}} বেশি",
+      "vsPreviousDown": "আগের পরীক্ষার চেয়ে {{diff}} কম",
+      "noPrevious": "তুলনার জন্য আগের পরীক্ষা নেই",
+      "lowestUnit": "{{class}} শ্রেণি, সবচেয়ে কম",
+      "summary": "{{exam}}-এ {{class}} শ্রেণি স্কুলের গড়ের চেয়ে {{gap}} পিছিয়ে।",
+      "average": "স্কুলের গড় {{percent}}",
+      "sparkLabel": "শেষ {{count}}টা পরীক্ষার পাসের হার",
+      "colPass": "পাসের হার",
+      "emptyReason": "এখনো কোনো পরীক্ষার ফল প্রকাশ হয়নি।"
     },
     "seat-plan-status": {
       "title": "আসন পরিকল্পনা",
-      "description": "কোন পরীক্ষার আসন পরিকল্পনা আছে, কোনটার নেই"
+      "description": "কোন পরীক্ষার আসন পরিকল্পনা আছে, কোনটার নেই",
+      "value_one": "{{count}}টা পরীক্ষার সিট প্ল্যান বাকি",
+      "value_other": "{{count}}টা পরীক্ষার সিট প্ল্যান বাকি",
+      "allPlanned": "সামনের সব পরীক্ষার সিট প্ল্যান হয়ে গেছে।",
+      "row": "{{exam}}, {{class}} শ্রেণি",
+      "rowProgress": "{{total}}টার মধ্যে {{planned}}টা বসার ব্যবস্থা হয়েছে",
+      "startsOn": "শুরু {{date}}",
+      "statusPublished": "প্রকাশিত",
+      "statusDraft": "খসড়া",
+      "statusNotStarted": "শুরু হয়নি",
+      "link": "সিট প্ল্যান খুলুন",
+      "emptyReason": "সামনের কোনো পরীক্ষার সময়সূচি এখনো নেই।",
+      "emptyAction": "পরীক্ষা খুলুন"
     },
     "results-state": {
       "title": "ফলাফল",
-      "description": "কোন পরীক্ষার ফল প্রকাশ হয়েছে"
+      "description": "কোন পরীক্ষার ফল প্রকাশ হয়েছে",
+      "tileLabel": "প্রকাশিত ফলাফল",
+      "value": "{{total}}টার মধ্যে {{published}}টা",
+      "waiting_one": "{{count}}টা পরীক্ষার ফল তৈরি, প্রকাশের অপেক্ষায়।",
+      "waiting_other": "{{count}}টা পরীক্ষার ফল তৈরি, প্রকাশের অপেক্ষায়।",
+      "allPublished": "তৈরি হওয়া সব ফল প্রকাশ হয়েছে।",
+      "stateDraft": "খসড়া",
+      "stateProcessed": "প্রকাশের অপেক্ষায়",
+      "statePublished": "প্রকাশিত",
+      "colExam": "পরীক্ষা",
+      "colState": "অবস্থা",
+      "link": "ফলাফল খুলুন",
+      "emptyReason": "এ বছর এখনো কোনো পরীক্ষা নেই।"
     },
     "admissions-today": {
       "title": "আজকের ভর্তি",
-      "description": "আজ নতুন কত ভর্তির আবেদন এসেছে"
+      "description": "আজ নতুন কত ভর্তির আবেদন এসেছে",
+      "tileLabel": "আজকের নতুন আবেদন",
+      "value_one": "{{count}}টা নতুন",
+      "value_other": "{{count}}টা নতুন",
+      "pending_one": "{{count}}টা যাচাইয়ের অপেক্ষায়",
+      "pending_other": "{{count}}টা যাচাইয়ের অপেক্ষায়",
+      "none": "আজ কোনো নতুন আবেদন আসেনি।",
+      "statusPENDING": "অপেক্ষমাণ",
+      "statusSHORTLISTED": "বাছাই তালিকায়",
+      "statusADMITTED": "ভর্তি হয়েছে",
+      "statusREJECTED": "গৃহীত হয়নি",
+      "link": "আবেদনকারী খুলুন"
     },
     "guardians-incomplete": {
       "title": "অভিভাবকের তথ্য অসম্পূর্ণ",
-      "description": "যাদের অভিভাবকের ফোন নম্বর নেই"
+      "description": "যাদের অভিভাবকের ফোন নম্বর নেই",
+      "tileLabel": "অসম্পূর্ণ অভিভাবক তথ্য",
+      "value_one": "{{count}} জনের তথ্য অসম্পূর্ণ",
+      "value_other": "{{count}} জনের তথ্য অসম্পূর্ণ",
+      "sentence": "মোট {{total}} জন অভিভাবকের মধ্যে। নাম, সম্পর্ক বা ফোন নম্বর না থাকলে তথ্য অসম্পূর্ণ।",
+      "none": "সব অভিভাবকের তথ্য সম্পূর্ণ।",
+      "link": "কারা, দেখুন"
     },
     "students-added-today": {
       "title": "আজ যোগ হওয়া শিক্ষার্থী",
-      "description": "আজ নতুন কত শিক্ষার্থী যোগ হয়েছে"
+      "description": "আজ নতুন কত শিক্ষার্থী যোগ হয়েছে",
+      "tileLabel": "আজ যোগ হওয়া শিক্ষার্থী",
+      "value_one": "{{count}} জন",
+      "value_other": "{{count}} জন",
+      "none": "আজ কোনো শিক্ষার্থী যোগ হয়নি।",
+      "link": "শিক্ষার্থী খুলুন"
     },
     "print-queue": {
       "title": "প্রিন্টের তালিকা",
@@ -467,5 +563,38 @@
       "NAGAD": "নগদ",
       "ROCKET": "রকেট"
     }
+  },
+  "committeeSummary": {
+    "attendanceMet": "উপস্থিতি লক্ষ্য ছুঁয়েছে",
+    "attendanceNear": "উপস্থিতি লক্ষ্যের কাছাকাছি",
+    "attendanceBelow": "উপস্থিতি লক্ষ্যের চেয়ে {{gap}} কম",
+    "collectionUp": "আদায় গত বছরের এই সময়ের চেয়ে {{diff}} বেশি।",
+    "collectionDown": "আদায় গত বছরের এই সময়ের চেয়ে {{diff}} কম।",
+    "collectionSame": "আদায় গত বছরের এই সময়ের সমান।",
+    "collectionNoLastYear": "এ মাসে আদায় {{percent}}।",
+    "joiner": "{{first}} — {{second}}",
+    "privacyNote": "কমিটির জন্য: শুধু মোট হিসাব, কোনো ব্যক্তিগত তথ্য নয়",
+    "printReport": "মাসিক সভার রিপোর্ট প্রিন্ট"
+  },
+  "committeeReport": {
+    "title": "মাসিক সভার রিপোর্ট",
+    "subtitle": "{{school}} · {{month}}",
+    "asOf": "{{date}} পর্যন্ত হিসাব",
+    "print": "প্রিন্ট করুন",
+    "back": "ড্যাশবোর্ডে ফিরুন",
+    "keyNumbers": "মূল সংখ্যা",
+    "sectionEnrollment": "ভর্তি",
+    "sectionAttendance": "উপস্থিতি",
+    "sectionFinance": "আদায় ও বকেয়া",
+    "sectionPassRate": "শ্রেণিভিত্তিক পাসের হার",
+    "footer": "শুধু মোট হিসাব। কোনো শিক্ষার্থী, অভিভাবক বা কর্মীর তথ্য ছাপা হয় না।",
+    "loadError": "রিপোর্ট লোড হয়নি।"
+  },
+  "digest": {
+    "title": "সকালের সারসংক্ষেপ",
+    "description": "স্কুল খোলা থাকলে প্রতিদিন {{time}}-এ একটা নোটিফিকেশন জানাবে আজ কয়টা বিষয় আপনার নজর চাইছে।",
+    "toggle": "আমাকে সকালের সারসংক্ষেপ পাঠান",
+    "needsPush": "পেতে হলে এই ডিভাইসে নোটিফিকেশন চালু করুন।",
+    "saved": "সেভ হয়েছে"
   }
 }

@@ -155,5 +155,10 @@
       "previewFailed": "Could not preview invitations. Please try again.",
       "dispatchFailed": "Could not send invitations. Please try again."
     }
+  },
+  "filters": {
+    "incomplete": "Incomplete records only",
+    "incompleteHint": "Missing name, relationship or phone number",
+    "incompleteChip": "Incomplete"
   }
 }
