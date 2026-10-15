@@ -42,6 +42,7 @@ import {
   TeacherDesignation,
   UserStatus,
   AuthTokenPurpose,
+  DashboardWidgetKey,
 } from '@biddaloy/shared';
 
 /**
@@ -1859,6 +1860,113 @@ describe('UserService (integration)', () => {
       // Membership survives the refused attempt
       const stillThere = await service.findOne(user.id, TENANT_ID);
       expect(stillThere.id).toBe(user.id);
+    });
+  });
+
+  // ────────────────────────
+  //  updateDashboardLayout() [8.10.7.1.02]
+  // ────────────────────────
+  describe('updateDashboardLayout', () => {
+    const setPrefs = (id: string, prefs: unknown) =>
+      dataSource.query(`UPDATE users SET preferences = $2::jsonb WHERE id = $1`, [
+        id,
+        prefs === null ? null : JSON.stringify(prefs),
+      ]);
+    const readPrefs = async (id: string) =>
+      (await dataSource.query(`SELECT preferences FROM users WHERE id = $1`, [id]))[0].preferences;
+    const mkUser = async (name: string) =>
+      (await service.create({ full_name: name, role: UserRole.TEACHER }, TENANT_ID)).user;
+
+    it('saves into empty (NULL) preferences', async () => {
+      const user = await mkUser('Dash One');
+      await setPrefs(user.id, null);
+
+      const saved = await service.updateDashboardLayout(user.id, UserRole.TEACHER, {
+        widgets: [
+          { key: DashboardWidgetKey.MY_ROUTINE_TODAY, size: 'L' },
+          { key: DashboardWidgetKey.HOMEWORK_TO_CHECK, hidden: true },
+        ],
+      });
+
+      const expected = {
+        widgets: [
+          { key: 'my-routine-today', size: 'L' },
+          { key: 'homework-to-check', hidden: true },
+        ],
+      };
+      expect(saved).toEqual(expected);
+      expect(await readPrefs(user.id)).toEqual({ dashboard: { TEACHER: expected } });
+    });
+
+    it('keeps other preference keys and other roles layouts', async () => {
+      const user = await mkUser('Dash Two');
+      await setPrefs(user.id, {
+        theme: 'dark',
+        dashboard: { ADMIN: { widgets: [{ key: 'collection-month' }] } },
+      });
+
+      await service.updateDashboardLayout(user.id, UserRole.TEACHER, {
+        widgets: [{ key: DashboardWidgetKey.MY_ROUTINE_TODAY }],
+      });
+
+      expect(await readPrefs(user.id)).toEqual({
+        theme: 'dark',
+        dashboard: {
+          ADMIN: { widgets: [{ key: 'collection-month' }] },
+          TEACHER: { widgets: [{ key: 'my-routine-today' }] },
+        },
+      });
+    });
+
+    it('a second save for the same role replaces the first', async () => {
+      const user = await mkUser('Dash Three');
+      await service.updateDashboardLayout(user.id, UserRole.TEACHER, {
+        widgets: [{ key: DashboardWidgetKey.MY_ROUTINE_TODAY }],
+      });
+      await service.updateDashboardLayout(user.id, UserRole.TEACHER, {
+        widgets: [{ key: DashboardWidgetKey.HOMEWORK_TO_CHECK }],
+      });
+
+      expect((await readPrefs(user.id)).dashboard.TEACHER).toEqual({
+        widgets: [{ key: 'homework-to-check' }],
+      });
+    });
+
+    it('rejects a widget the role is not offered, row unchanged', async () => {
+      const user = await mkUser('Dash Four');
+      await setPrefs(user.id, { theme: 'dark' });
+
+      await expect(
+        service.updateDashboardLayout(user.id, UserRole.TEACHER, {
+          widgets: [{ key: DashboardWidgetKey.COLLECTION_MONTH }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(await readPrefs(user.id)).toEqual({ theme: 'dark' });
+    });
+
+    it('rejects a size the widget does not support', async () => {
+      const user = await mkUser('Dash Five');
+
+      await expect(
+        service.updateDashboardLayout(user.id, UserRole.ADMIN, {
+          widgets: [{ key: DashboardWidgetKey.SMS_BALANCE, size: 'L' }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a layout over the byte limit (DTO cap bypassed), row unchanged', async () => {
+      const user = await mkUser('Dash Six');
+      await setPrefs(user.id, { theme: 'dark' });
+      const widgets = Array.from({ length: 200 }, () => ({
+        key: DashboardWidgetKey.SMS_BALANCE,
+        hidden: true,
+        size: 'S' as const,
+      }));
+
+      await expect(
+        service.updateDashboardLayout(user.id, UserRole.ADMIN, { widgets }),
+      ).rejects.toThrow(/too large/i);
+      expect(await readPrefs(user.id)).toEqual({ theme: 'dark' });
     });
   });
 });

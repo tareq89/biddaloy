@@ -35,6 +35,55 @@ describe('BarWidget', () => {
   });
 });
 
+describe('BarWidget target / emphasis / bare', () => {
+  const bars = [
+    { label: 'Class 1', value: 41, valueLabel: '41%', highlight: true, note: '19% behind' },
+    { label: 'Class 2', value: 70, valueLabel: '70%' },
+  ];
+  const target = { value: 60, label: 'Expected today 60%' };
+
+  it('draws a target marker per bar and one legend label', () => {
+    render(<BarWidget title="t" bars={bars} emptyLabel="x" target={target} />);
+    const markers = screen.getAllByTestId('bar-target');
+    expect(markers).toHaveLength(2);
+    expect(markers[0]!.style.left).toBe('60%');
+    expect(screen.getAllByText('Expected today 60%')).toHaveLength(1);
+    expect(
+      screen.getByRole('progressbar', { name: 'Class 1' }).getAttribute('aria-valuetext'),
+    ).toBe('41%, Expected today 60%');
+  });
+
+  it('emphasis=highlighted mutes the others; default keeps all primary', () => {
+    const { rerender } = render(<BarWidget title="t" bars={bars} emptyLabel="x" />);
+    expect(screen.getAllByTestId('bar-fill').every((f) => f.className.includes('bg-primary'))).toBe(
+      true,
+    );
+    rerender(<BarWidget title="t" bars={bars} emptyLabel="x" emphasis="highlighted" />);
+    const [a, b] = screen.getAllByTestId('bar-fill');
+    expect(a!.className).toContain('bg-primary');
+    expect(b!.className).toContain('bg-muted-foreground');
+    expect(screen.getByText('41%').className).toContain('font-semibold');
+  });
+
+  it('renders note after the value', () => {
+    render(<BarWidget title="t" bars={bars} emptyLabel="x" />);
+    expect(screen.getByText('19% behind').className).toContain('text-muted-foreground');
+  });
+
+  it('bare has no card but still renders bars', () => {
+    const { container } = render(<BarWidget bare bars={bars} emptyLabel="x" />);
+    expect(container.querySelector('[data-slot="card"]')).toBeNull();
+    expect(screen.getAllByRole('progressbar')).toHaveLength(2);
+  });
+
+  it('is axe clean with target + highlight', async () => {
+    const { container } = render(
+      <BarWidget title="t" bars={bars} emptyLabel="x" target={target} emphasis="highlighted" />,
+    );
+    await expect(container).toHaveNoViolations();
+  });
+});
+
 describe('SummaryCard', () => {
   it('pairs each figure label with its value', () => {
     render(

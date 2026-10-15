@@ -2,6 +2,7 @@ import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
   DEFAULT_ATTENTION_SETTINGS,
+  DEFAULT_DASHBOARD_SETTINGS,
   DEFAULT_AUTH_SETTINGS,
   DEFAULT_BACKUP_SETTINGS,
   DEFAULT_DOCUMENTS_SETTINGS,
@@ -22,6 +23,7 @@ import type {
   DocumentsSettings,
   ApplicationsSettings,
   HomeworkSettings,
+  DashboardSettings,
   EvaluationsSettings,
   RoutineSettings,
   StudyPlansSettings,
@@ -302,6 +304,34 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
       : {}),
   };
 
+  // [8.10.7] Read-side guard, like backup.schedule: a malformed time would break the digest scheduler.
+  const overlaidDashboard: DashboardSettings = overlayOnDefaults(
+    DEFAULT_DASHBOARD_SETTINGS,
+    stored?.dashboard,
+  );
+  // Same bounds as DashboardSettingsDto: a restored row outside them falls back to the default.
+  const inRange = (v: number, d: number, max: number) =>
+    Number.isInteger(v) && v >= 1 && v <= max ? v : d;
+  const D = DEFAULT_DASHBOARD_SETTINGS;
+  const risk = overlaidDashboard.risk;
+  const dashboard: DashboardSettings = {
+    ...overlaidDashboard,
+    risk: {
+      absentStreakDays: inRange(risk.absentStreakDays, D.risk.absentStreakDays, 30),
+      monthlyAttendancePct: inRange(risk.monthlyAttendancePct, D.risk.monthlyAttendancePct, 100),
+      failedSubjects: inRange(risk.failedSubjects, D.risk.failedSubjects, 20),
+      overdueDays: inRange(risk.overdueDays, D.risk.overdueDays, 365),
+    },
+    committeeAttendanceTargetPct: inRange(
+      overlaidDashboard.committeeAttendanceTargetPct,
+      D.committeeAttendanceTargetPct,
+      100,
+    ),
+    digestTime: HH_MM.test(overlaidDashboard.digestTime)
+      ? overlaidDashboard.digestTime
+      : D.digestTime,
+  };
+
   return {
     version: TENANT_SETTINGS_SCHEMA_VERSION,
     region,
@@ -314,6 +344,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     documents,
     studyPlans: overlayStudyPlansSettings(stored?.studyPlans),
     attention: overlayAttentionSettings(stored?.attention),
+    dashboard,
     ...(communications ? { communications } : {}),
     ...(preset ? { preset } : {}),
     ...(evaluations ? { evaluations } : {}),

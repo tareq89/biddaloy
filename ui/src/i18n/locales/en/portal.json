@@ -212,7 +212,8 @@
       "absent": "Absent",
       "leave": "Leave",
       "notSchoolDay": "Not a school day",
-      "notMarked": "Not marked"
+      "notMarked": "Not marked",
+      "upcoming": "Upcoming"
     },
     "months": {
       "1": "January",

@@ -4,7 +4,17 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { CONTRAST_PAIRS, dark, light, motion, neutral, shadows } from '../../tailwind.preset';
+import {
+  CONTRAST_PAIRS,
+  brand,
+  chart,
+  dark,
+  light,
+  motion,
+  neutral,
+  shadows,
+} from '../../tailwind.preset';
+import { relativeLuminance } from '../foundations/contrast';
 
 const stylesDir = dirname(fileURLToPath(import.meta.url));
 const globalsCss = () => readFileSync(join(stylesDir, 'globals.css'), 'utf8');
@@ -282,5 +292,66 @@ describe('route transition scoping ([8.14.5])', () => {
     expect(reducedMotionBlock).toContain('::view-transition-old(*)');
     expect(reducedMotionBlock).toContain('::view-transition-new(*)');
     expect(reducedMotionBlock).toContain('animation-duration: 0.01ms !important;');
+  });
+});
+
+describe('chart tokens (8.10.7)', () => {
+  const names = ['cat-1', 'cat-2', 'cat-3', 'seq-1', 'seq-2', 'seq-3'];
+  const split = () => {
+    const css = globalsCss();
+    const i = css.indexOf(':root[data-theme="dark"] {');
+    return { light: css.slice(0, i), dark: css.slice(i) };
+  };
+  const valueOf = (css: string, name: string) =>
+    new RegExp(`--color-chart-${name}:\\s*([^;]+);`).exec(css)?.[1]?.trim();
+  const resolve = (v: string | undefined) =>
+    v?.startsWith('var(--color-brand-')
+      ? (brand as Record<string, string>)[/brand-(\d+)/.exec(v)![1]!]
+      : v;
+
+  it('declares all six in the theme block and the dark override', () => {
+    for (const n of names) {
+      expect(valueOf(split().light, n), `light ${n}`).toBeTruthy();
+      expect(valueOf(split().dark, n), `dark ${n}`).toBeTruthy();
+    }
+  });
+
+  it('light values equal the preset', () => {
+    const want = [...chart.cat.light, ...chart.seq.light];
+    names.forEach((n, i) => expect(resolve(valueOf(split().light, n))).toBe(want[i]));
+  });
+
+  it('dark values equal the preset', () => {
+    const want = [...chart.cat.dark, ...chart.seq.dark];
+    names.forEach((n, i) => expect(valueOf(split().dark, n)).toBe(want[i]));
+  });
+
+  it('never aliases a status token', () => {
+    for (const n of names) {
+      expect(valueOf(split().light, n)).not.toContain('status');
+      expect(valueOf(split().dark, n)).not.toContain('status');
+    }
+  });
+
+  it('dark seq lightness increases 1 to 3', () => {
+    const [a, b, c] = chart.seq.dark.map(relativeLuminance) as [number, number, number];
+    expect(a).toBeLessThan(b);
+    expect(b).toBeLessThan(c);
+  });
+
+  it('--text-hero has four sub-properties and is bigger than display', () => {
+    const css = globalsCss();
+    for (const sfx of ['', '--line-height', '--font-weight', '--letter-spacing']) {
+      expect(css).toMatch(new RegExp(`--text-hero${sfx}:`));
+    }
+    const rem = (k: string) =>
+      parseFloat(new RegExp(`--text-${k}:\\s*([\\d.]+)rem`).exec(css)![1]!);
+    expect(rem('hero')).toBeGreaterThan(rem('display'));
+  });
+
+  it('CONTRAST_PAIRS covers every light and dark cat value', () => {
+    for (const hex of [...chart.cat.light, ...chart.cat.dark]) {
+      expect(CONTRAST_PAIRS.some((p) => p.fg === hex)).toBe(true);
+    }
   });
 });

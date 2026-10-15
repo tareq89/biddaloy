@@ -61,7 +61,7 @@ const label = (iso: string, rest: string): string =>
   `${formatDate(parseServerDate(iso), REGION_BD_EN)} — ${rest}`;
 
 describe('AttendanceMonthGrid', () => {
-  it('renders all six visual states, each with an icon and a word', async () => {
+  it('renders all seven visual states, each with an icon and a word', async () => {
     const days: AttendanceDayCell[] = [
       day({ date: '2026-09-01', status: AttendanceStatus.PRESENT }),
       day({ date: '2026-09-02', status: AttendanceStatus.LATE, minutesLate: 12 }),
@@ -87,7 +87,7 @@ describe('AttendanceMonthGrid', () => {
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: label('2026-09-06', 'Not marked') })).toBeTruthy();
 
-    // The legend lists all six, always visible (not behind a disclosure).
+    // The legend lists all seven, always visible (not behind a disclosure).
     const legend = screen.getByRole('list', { name: 'Legend' });
     expect(within(legend).getByText('Present')).toBeTruthy();
     expect(within(legend).getByText('Late')).toBeTruthy();
@@ -95,6 +95,31 @@ describe('AttendanceMonthGrid', () => {
     expect(within(legend).getByText('Leave')).toBeTruthy();
     expect(within(legend).getByText('Not a school day')).toBeTruthy();
     expect(within(legend).getByText('Not marked')).toBeTruthy();
+    expect(within(legend).getByText('Upcoming')).toBeTruthy();
+  });
+
+  it('shows unmarked working days after today as Upcoming, not Not marked', async () => {
+    const days: AttendanceDayCell[] = [
+      day({ date: '2026-09-03', status: null }),
+      day({ date: '2026-09-04', status: null }),
+      day({ date: '2026-09-05', status: null }),
+      day({ date: '2026-09-06', isWorkingDay: false, holidayName: 'Holiday' }),
+    ];
+    await renderInEnglish(
+      <AttendanceMonthGrid
+        month={SEPTEMBER_2026}
+        days={days}
+        today="2026-09-04"
+        onSelectDay={() => {}}
+      />,
+    );
+    expect(screen.getByRole('button', { name: label('2026-09-03', 'Not marked') })).toBeTruthy();
+    expect(screen.getByRole('button', { name: label('2026-09-04', 'Not marked') })).toBeTruthy();
+    expect(screen.getByRole('button', { name: label('2026-09-05', 'Upcoming') })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: label('2026-09-06', 'Not a school day — Holiday') }),
+    ).toBeTruthy();
+    expect(within(screen.getByRole('list', { name: 'Legend' })).getByText('Upcoming')).toBeTruthy();
   });
 
   it('captions the month with the formatter and shows no header without onMonthChange', async () => {
@@ -221,6 +246,7 @@ describe('AttendanceMonthGrid', () => {
         <AttendanceMonthGrid
           month={FEBRUARY_2027}
           days={[]}
+          today="2027-03-01"
           firstDayOfWeek={0}
           onSelectDay={() => {}}
         />,

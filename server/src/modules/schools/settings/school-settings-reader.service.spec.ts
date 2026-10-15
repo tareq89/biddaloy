@@ -57,3 +57,17 @@ describe('SchoolSettingsReader.studyPlansSettings [66.1.04]', () => {
     expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith('t1');
   });
 });
+
+describe('SchoolSettingsReader.dashboardSettings [8.10.7]', () => {
+  it('returns the resolved dashboard block', async () => {
+    const dashboard = { digestTime: '07:30' };
+    const schoolsService = {
+      getResolvedSettings: vi.fn().mockResolvedValue({ version: 1, dashboard }),
+    } as unknown as SchoolsService;
+
+    const out = await new SchoolSettingsReader(schoolsService).dashboardSettings('t1');
+
+    expect(out).toBe(dashboard);
+    expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith('t1');
+  });
+});
