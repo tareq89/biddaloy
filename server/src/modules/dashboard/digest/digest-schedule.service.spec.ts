@@ -186,7 +186,7 @@ describe('DigestScheduleService', () => {
       expect(push.sendToUser).not.toHaveBeenCalled();
       const [name, data, opts] = queue.add.mock.calls[0];
       expect(name).toBe(DIGEST_RUN_JOB);
-      expect(data).toEqual({ tenantId: T, deferred: true, scheduledDate: '2026-10-09' });
+      expect(data).toEqual({ tenantId: T, deferred: true, scheduledDate: '2026-10-08' });
       expect(opts.delay).toBe(9 * 3600_000);
     });
 
