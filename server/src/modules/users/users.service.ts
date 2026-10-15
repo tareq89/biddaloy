@@ -261,6 +261,24 @@ export class UserService {
     return layout;
   }
 
+  /**
+   * [8.10.7.5.11] Saves the caller's morning-summary opt-out in
+   * `users.preferences.digest.enabled`. One statement, so other keys survive.
+   */
+  async updateDigestPreference(userId: string, enabled: boolean): Promise<{ enabled: boolean }> {
+    const [, affected] = await this.userRepo.query(
+      `UPDATE users
+          SET preferences = CASE WHEN jsonb_typeof(preferences) = 'object'
+                                 THEN preferences ELSE '{}'::jsonb END
+                || jsonb_build_object('digest', jsonb_build_object('enabled', $2::boolean)),
+              updated_at = NOW()
+        WHERE id = $1`,
+      [userId, enabled],
+    );
+    if (!affected) throw new NotFoundException('User not found');
+    return { enabled };
+  }
+
   async create(
     dto: CreateUserDto,
     tenantId: string,

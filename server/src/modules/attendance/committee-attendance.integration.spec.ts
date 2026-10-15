@@ -104,9 +104,9 @@ describe('AttendanceDashboardService.getCommitteeMonthly (integration)', () => {
   async function clearCaches() {
     const keys = [
       ...(await redis.keys(
-        `tenant:${TENANT_ID}:dash:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:*`,
+        `tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:*`,
       )),
-      ...(await redis.keys(`tenant:${TENANT_ID}:dash:${DashboardWidgetKey.ATTENDANCE_TODAY}:*`)),
+      ...(await redis.keys(`tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.ATTENDANCE_TODAY}:*`)),
     ];
     if (keys.length) await redis.del(...keys);
   }
