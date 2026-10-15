@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { AttendanceStatus as S } from '@biddaloy/shared';
-import { currentStreaks } from './attendance-streaks.util';
+import { currentStreaks, STREAK_THRESHOLDS } from './attendance-streaks.util';
 
 /** statuses newest first; `null` = no record. */
 function run(statuses: Array<S | null>) {
@@ -52,5 +52,21 @@ describe('currentStreaks', () => {
   });
   it('empty sessions -> []', () => {
     expect(currentStreaks([], ['stu'], new Map())).toEqual([]);
+  });
+
+  it('custom thresholds: ABSENT 2 flags a 2-day run, default still ignores it', () => {
+    const sessions = [
+      { id: 's0', date: '2026-09-30' },
+      { id: 's1', date: '2026-09-29' },
+    ];
+    const marks = new Map([
+      ['s0', S.ABSENT],
+      ['s1', S.ABSENT],
+    ]);
+    const by = new Map([['stu', marks]]);
+    expect(currentStreaks(sessions, ['stu'], by)).toEqual([]);
+    expect(currentStreaks(sessions, ['stu'], by, { ...STREAK_THRESHOLDS, [S.ABSENT]: 2 })).toEqual([
+      { student_id: 'stu', status: S.ABSENT, length: 2, since_date: '2026-09-29' },
+    ]);
   });
 });
