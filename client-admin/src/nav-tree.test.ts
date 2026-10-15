@@ -121,7 +121,7 @@ describe('nav-tree', () => {
         if ('permission' in item) expect(roleHasPermission(role, item.permission)).toBe(true);
       }
     }
-    expect(STAFF_BOTTOM_NAV.TEACHER[0]!.id).toBe('academics.myClass');
+    expect(STAFF_BOTTOM_NAV.TEACHER[0]!.id).toBe('dashboard');
   });
 
   it('[31.3.1] isPathUnder matches whole segments', () => {

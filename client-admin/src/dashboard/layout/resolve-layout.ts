@@ -16,6 +16,8 @@ import type {
   WidgetSize,
 } from '@biddaloy/shared';
 
+import { WIDGET_COMPONENTS } from '../widgets/registry';
+
 export interface LayoutItem {
   key: DashboardWidgetKey;
   size: WidgetSize;
@@ -27,12 +29,27 @@ export interface ResolveLayoutInput {
   catalogue: Record<DashboardWidgetKey, WidgetCatalogueEntry>;
   defaults: Record<UserRole, DashboardWidgetKey[]>;
   can: (permission: Permission) => boolean;
+  /** Keys whose widget file exists; defaults to the file registry. */
+  available?: ReadonlySet<DashboardWidgetKey>;
 }
 
-export function resolveLayout({ role, pref, catalogue, defaults, can }: ResolveLayoutInput) {
+const FILE_KEYS: ReadonlySet<DashboardWidgetKey> = new Set(WIDGET_COMPONENTS.keys());
+
+export function resolveLayout({
+  role,
+  pref,
+  catalogue,
+  defaults,
+  can,
+  available = FILE_KEYS,
+}: ResolveLayoutInput) {
   const allowed = (key: DashboardWidgetKey) => {
     const entry = catalogue[key] as WidgetCatalogueEntry | undefined;
-    return Boolean(entry?.roles.includes(role) && entry.permissions.every(can));
+    return Boolean(
+      entry?.roles.includes(role) &&
+      entry.permissions.every(can) &&
+      (!entry.needsEpic || available.has(key)),
+    );
   };
   const fromPref = pref?.widgets ?? [];
   const seen = new Set(fromPref.map((w) => w.key));

@@ -100,7 +100,7 @@ reuses none of them (`menu`, `search`, `bell`, `languages`, `moon`, `circle-user
 `arrow-left-right`); `ellipsis` is the bottom bar's "আরও" (More).
 
 TEACHER only: `academics.myClass` (`book-user`, route `/my-class`), permission `MY_CLASS_VIEW`.
-It is the first cell of TEACHER's bottom bar.
+It lives in the drawer ("আরও") and the palette, not the bottom bar (D23).
 
 ## Portal shell (`portal.tsx`)
 
@@ -142,7 +142,7 @@ item's sidebar icon.
 | ADMIN | `dashboard` — ড্যাশবোর্ড / Dashboard (10) | `people.students` — শিক্ষার্থী / Students (10) | `attendance.attendance` — উপস্থিতি / Attendance (8) | `finance.dues` — বকেয়া / Dues (6) |
 | ACCOUNTANT | `dashboard` — ড্যাশবোর্ড / Dashboard (10) | `finance.dues` — বকেয়া / Dues (6) | `finance.recordPayment` — পেমেন্ট / Payment (7) | `finance.invoices` — চালান / Invoices (5) |
 | EXECUTIVE | `dashboard` — ড্যাশবোর্ড / Dashboard (10) | `people.students` — শিক্ষার্থী / Students (10) | `attendance.attendance` — উপস্থিতি / Attendance (8) | `reports.collectionsReport` — প্রতিবেদন / Reports (9) |
-| TEACHER | `academics.myClass` — শ্রেণি / My class (6) | `attendance.attendance` — উপস্থিতি / Attendance (8) | `academics.myRoutine` — রুটিন / Routine (5) | `academics.homework` — বাড়ির কাজ / Homework (10) |
+| TEACHER | `dashboard` — ড্যাশবোর্ড / Dashboard (10) | `attendance.attendance` — উপস্থিতি / Attendance (8) | `academics.myRoutine` — রুটিন / Routine (5) | `academics.homework` — বাড়ির কাজ / Homework (10) |
 | OFFICE_STAFF | `dashboard` — ড্যাশবোর্ড / Dashboard (10) | `people.students` — শিক্ষার্থী / Students (10) | `people.admissionApplicants` — আবেদনকারী / Applicants (9) | `attendance.attendance` — উপস্থিতি / Attendance (8) |
 | EXAM_CONTROLLER | `dashboard` — ড্যাশবোর্ড / Dashboard (10) | `examsResults.exams` — পরীক্ষা / Exams (7) | `examsResults.analysis` — বিশ্লেষণ / Analysis (8) | `people.students` — শিক্ষার্থী / Students (10) |
 | COMMITTEE | `dashboard` — ড্যাশবোর্ড / Dashboard (10) | `people.calendar` — ক্যালেন্ডার / Calendar (11) | — | — |
