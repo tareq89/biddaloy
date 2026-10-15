@@ -35885,13 +35885,6 @@ export interface operations {
                     "application/json": components["schemas"]["DemoRolesResponseDto"];
                 };
             };
-            /** @description Not running in demo mode. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
 }
