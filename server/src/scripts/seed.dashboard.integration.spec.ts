@@ -4,7 +4,7 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { localToday } from '../modules/attendance/attendance-policy.util';
-import { ensureDashboardSeed } from './seed.dashboard';
+import { DASHBOARD_OVERDUE_FEE_NAME, ensureDashboardSeed } from './seed.dashboard';
 
 describe('ensureDashboardSeed (integration)', () => {
   let ds: DataSource;
@@ -98,9 +98,29 @@ describe('ensureDashboardSeed (integration)', () => {
     expect(await snapshot()).toEqual(first);
   });
 
-  it('feeds every widget: 2 pending registers today, one absent staff, 3 recent failures', async () => {
-    await ensureDashboardSeed(ds, tenantId);
+  it('a rerun in a later month moves the overdue bills instead of adding more', async () => {
+    const overdue = async () =>
+      (
+        await q(
+          `SELECT count(*)::int AS n FROM student_fees sf
+             JOIN fee_structures fs ON fs.id = sf.fee_structure_id
+            WHERE fs.tenant_id = $1 AND fs.name = $2`,
+          [tenantId, DASHBOARD_OVERDUE_FEE_NAME],
+        )
+      )[0].n as number;
     const today = localToday('Asia/Dhaka');
+    await ensureDashboardSeed(ds, tenantId, today);
+    const before = await overdue();
+    expect(before).toBeGreaterThan(0);
+    const later = new Date(`${today}T00:00:00Z`);
+    later.setUTCDate(later.getUTCDate() + 40);
+    await ensureDashboardSeed(ds, tenantId, later.toISOString().slice(0, 10));
+    expect(await overdue()).toBe(before);
+  });
+
+  it('feeds every widget: 2 pending registers today, one absent staff, 3 recent failures', async () => {
+    const today = localToday('Asia/Dhaka');
+    await ensureDashboardSeed(ds, tenantId, today);
 
     // 3 sections, 2 left open today (the third stays finalised).
     expect(await count('attendance_sessions', `AND date = '${today}'`)).toBe(

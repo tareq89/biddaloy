@@ -6,6 +6,8 @@ import { resolveTenantSettings } from '../modules/schools/settings/tenant-settin
 
 export const DASHBOARD_EXAM_NAME = 'Half-yearly';
 export const DASHBOARD_FEE_NAME = 'Dashboard demo fee';
+/** Own structure, so the overdue bill is found by student alone: its month moves with today. */
+export const DASHBOARD_OVERDUE_FEE_NAME = 'Dashboard demo overdue fee';
 export const DASHBOARD_LEAVE_REASONS = {
   approved: 'Dashboard demo: approved leave',
   pending: 'Dashboard demo: pending leave',
@@ -37,7 +39,12 @@ type Row = Record<string, any>;
  * Idempotent: every row is found by a natural key first; due dates, leave dates
  * and the SMS failures move with today on each run.
  */
-export async function ensureDashboardSeed(ds: DataSource, tenantId: string): Promise<void> {
+export async function ensureDashboardSeed(
+  ds: DataSource,
+  tenantId: string,
+  /** Tests pin one date so seeding and asserting can't straddle midnight. */
+  todayOverride?: string,
+): Promise<void> {
   const q = <R = Row>(sql: string, params: unknown[] = []): Promise<R[]> => ds.query(sql, params);
 
   const [school] = await q<{ settings: Record<string, unknown> | null }>(
@@ -52,7 +59,9 @@ export async function ensureDashboardSeed(ds: DataSource, tenantId: string): Pro
     console.warn('  Dashboard seed: no school / current academic year - skipping');
     return;
   }
-  const today = localToday(resolveTenantSettings(school.settings).region?.timezone ?? 'Asia/Dhaka');
+  const today =
+    todayOverride ??
+    localToday(resolveTenantSettings(school.settings).region?.timezone ?? 'Asia/Dhaka');
 
   const sections = await q<{ id: string; class_id: string; class_name: string }>(
     `SELECT cs.id, cs.class_id, c.name AS class_name
@@ -193,31 +202,38 @@ async function seedBills(
   atRisk: { id: string; class_id: string }[],
   oneSignal: { id: string; class_id: string } | undefined,
 ) {
-  const structureFor = async (classId: string): Promise<string> => {
+  const structureFor = async (classId: string, name: string): Promise<string> => {
     const [hit] = await q<{ id: string }>(
       `SELECT id FROM fee_structures WHERE tenant_id = $1 AND name = $2 AND class_id = $3 AND deleted_at IS NULL`,
-      [tenantId, DASHBOARD_FEE_NAME, classId],
+      [tenantId, name, classId],
     );
     if (hit) return hit.id;
     const [row] = await q<{ id: string }>(
       `INSERT INTO fee_structures (tenant_id, fee_type, name, amount, class_id, academic_year_id, created_at, updated_at)
        VALUES ($1, 'OTHER', $2, $3, $4, $5, NOW(), NOW()) RETURNING id`,
-      [tenantId, DASHBOARD_FEE_NAME, BILL, classId, yearId],
+      [tenantId, name, BILL, classId, yearId],
     );
     return row.id;
   };
 
-  /** One bill (found by student + structure + month). `paid` adds the SUCCESS payment. */
+  /** One bill (found by student + structure + month; the overdue bill by student + its own
+   * structure, since its month moves with today). `paid` adds the SUCCESS payment. */
   const bill = async (
     s: { id: string; class_id: string },
     periodStart: string,
     dueDate: string,
     paid: boolean,
+    overdue = false,
   ) => {
-    const structureId = await structureFor(s.class_id);
+    const structureId = await structureFor(
+      s.class_id,
+      overdue ? DASHBOARD_OVERDUE_FEE_NAME : DASHBOARD_FEE_NAME,
+    );
     let [fee] = await q<{ id: string }>(
-      `SELECT id FROM student_fees WHERE student_id = $1 AND fee_structure_id = $2 AND period_start = $3 AND deleted_at IS NULL`,
-      [s.id, structureId, periodStart],
+      overdue
+        ? `SELECT id FROM student_fees WHERE student_id = $1 AND fee_structure_id = $2 AND deleted_at IS NULL`
+        : `SELECT id FROM student_fees WHERE student_id = $1 AND fee_structure_id = $2 AND period_start = $3 AND deleted_at IS NULL`,
+      overdue ? [s.id, structureId] : [s.id, structureId, periodStart],
     );
     if (!fee) {
       [fee] = await q<{ id: string }>(
@@ -236,10 +252,10 @@ async function seedBills(
         ],
       );
     } else if (!paid) {
-      await q(`UPDATE student_fees SET due_date = $2, updated_at = NOW() WHERE id = $1`, [
-        fee.id,
-        dueDate,
-      ]);
+      await q(
+        `UPDATE student_fees SET period_start = $2, due_date = $3, updated_at = NOW() WHERE id = $1`,
+        [fee.id, periodStart, dueDate],
+      );
     }
     if (!paid) return;
     const key = `seed:dashboard:${s.id}:${periodStart}`;
@@ -274,7 +290,7 @@ async function seedBills(
   }
   // At-risk signals: the pair's bill is 70 days overdue; one more student has only this signal.
   for (const s of [...atRisk, ...(oneSignal ? [oneSignal] : [])]) {
-    await bill(s, addDays(today, -100).slice(0, 8) + '01', addDays(today, -70), false);
+    await bill(s, addDays(today, -100).slice(0, 8) + '01', addDays(today, -70), false, true);
   }
 }
 
