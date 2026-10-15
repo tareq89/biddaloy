@@ -37,6 +37,7 @@ import { AccountAccessModule } from './modules/account-access/account-access.mod
 import { WorkbookModule } from './modules/workbook/workbook.module';
 import { ExportModule } from './modules/workbook/export/export.module';
 import { BackupScheduleModule } from './modules/workbook/schedule/backup-schedule.module';
+import { DigestModule } from './modules/dashboard/digest/digest.module';
 import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
 import { RestoreModule } from './modules/workbook/restore/restore.module';
 import { ImportModule } from './modules/workbook/import/import.module';
@@ -452,6 +453,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     WorkbookModule,
     ExportModule,
     BackupScheduleModule,
+    DigestModule,
     BulkImportModule,
     ImportModule,
     RestoreModule,
