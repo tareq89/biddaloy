@@ -44,6 +44,9 @@ const addMonths = (iso: string, n: number): string => {
   return d.toISOString().slice(0, 10);
 };
 const weekday = (iso: string): number => new Date(`${iso}T00:00:00Z`).getUTCDay();
+/** The register the journeys mark: today, or Thursday on the Friday off (`e2e/api.ts` markableDateIso). */
+const openDay = (today: string): string =>
+  weekday(today) === WEEKLY_OFF ? addDays(today, -1) : today;
 
 type Row = Record<string, any>;
 
@@ -184,7 +187,10 @@ export async function ensureDashboardSeed(
 
 type Q = <R = Row>(sql: string, params?: unknown[]) => Promise<R[]>;
 
-/** 30 days of finalised whole-day registers; today's too, except `pending` sections. Returns the working days. */
+/**
+ * 30 days of finalised whole-day registers, except the `pending` sections' register on the
+ * open day (today, or Thursday on the Friday off). Returns the working days.
+ */
 async function seedAttendance(
   q: Q,
   tenantId: string,
@@ -195,8 +201,9 @@ async function seedAttendance(
   const days = Array.from({ length: SERIES_DAYS }, (_, i) =>
     addDays(today, i - (SERIES_DAYS - 1)),
   ).filter((d) => weekday(d) !== WEEKLY_OFF);
+  const open = openDay(today);
   const pairs = sectionIds.flatMap((s) =>
-    days.filter((d) => d !== today || !pending.includes(s)).map((d) => [s, d] as const),
+    days.filter((d) => d !== open || !pending.includes(s)).map((d) => [s, d] as const),
   );
   await q(
     `INSERT INTO attendance_sessions (tenant_id, section_id, date, period_no, state, source, marked_at, finalized_at)
@@ -1595,15 +1602,15 @@ async function seedFamilyFacts(
       WHERE table_name = 'attendance_records' AND column_name = 'status'`,
   );
   // Writes the child's mark, adding the day's whole-day register first if the base seed has none
-  // (never for a section left pending on purpose today, never on the weekly off: a Friday
-  // register would also pull the rest of the section into it on the next run).
+  // (never for a section left pending on purpose on the open day, never on the weekly off: a
+  // Friday register would also pull the rest of the section into it on the next run).
   const mark = async (
     kid: { id: string; class_section_id: string },
     date: string,
     status: string,
   ) => {
     if (weekday(date) === WEEKLY_OFF) return;
-    if (date === today && pending.includes(kid.class_section_id)) return;
+    if (date === openDay(today) && pending.includes(kid.class_section_id)) return;
     await q(
       `INSERT INTO attendance_sessions (tenant_id, section_id, date, period_no, state, source, marked_at, finalized_at)
        SELECT $1, $2, $3, NULL, 'FINALIZED', 'SYSTEM', NOW(), NOW()

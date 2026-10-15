@@ -221,6 +221,22 @@ describe('ensureDashboardSeed (integration)', () => {
     expect(await snapshot()).toEqual(first);
   });
 
+  it('on the Friday off: no register on Friday, Thursday stays open for the journeys, a rerun adds nothing', async () => {
+    const friday = new Date(`${localToday('Asia/Dhaka')}T00:00:00Z`);
+    while (friday.getUTCDay() !== 5) friday.setUTCDate(friday.getUTCDate() - 1);
+    const fri = friday.toISOString().slice(0, 10);
+    friday.setUTCDate(friday.getUTCDate() - 1);
+    const thu = friday.toISOString().slice(0, 10);
+
+    await seed(fri);
+    const first = await snapshot();
+    expect(await count('attendance_sessions', `AND date = '${fri}'`)).toBe(0);
+    // 3 sections, the 2 pending ones left open on Thursday (e2e markableDateIso's day).
+    expect(await count('attendance_sessions', `AND date = '${thu}'`)).toBe(1);
+    await seed(fri);
+    expect(await snapshot()).toEqual(first);
+  });
+
   it('feeds approvals-pending: 5 staff leaves + 2 fee waivers, pending, at the admin steps', async () => {
     await seed();
     const rows = await q(
