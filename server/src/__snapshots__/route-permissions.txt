@@ -312,6 +312,7 @@ GET /students/:id/schedules | RecurringSchedulesController | perm: FEE_READ | ro
 GET /students/:id/wallet | WalletController | perm: FEE_READ
 GET /students/:studentId/exam-schedule | StudentExamScheduleController | perm: RESULT_READ
 GET /students/:studentId/exams/:examId/admit-card/assets/:assetId/file | FamilyAdmitCardController | perm: RESULT_READ
+GET /students/:studentId/homework | HomeworkController | perm: HOMEWORK_READ | roles: PARENT,STUDENT
 GET /students/:studentId/lessons | FamilyStudyPlansController | perm: SYLLABUS_READ
 GET /students/:studentId/programs | StudentProgramsController | perm: PROGRAM_READ
 GET /students/:studentId/promotion-overrides | PromotionsController | perm: STUDENT_READ

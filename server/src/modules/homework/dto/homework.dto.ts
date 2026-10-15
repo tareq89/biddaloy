@@ -107,3 +107,21 @@ export class HomeworkAssignmentResponseDto {
   @ApiProperty() due_date: string;
   @ApiProperty({ enum: HomeworkAssignmentStatus }) status: HomeworkAssignmentStatus;
 }
+
+/** One homework a PARENT/STUDENT can see for a linked child ([8.10.7.4.14]). */
+export class FamilyHomeworkItemDto {
+  @ApiProperty() assignment_id: string;
+  @ApiProperty() title: string;
+  @ApiProperty({ nullable: true }) description: string | null;
+  @ApiProperty() subject_name_en: string;
+  @ApiProperty({ nullable: true }) subject_name_bn: string | null;
+  @ApiProperty() assigned_date: string;
+  @ApiProperty() due_date: string;
+}
+
+/** `GET /students/:studentId/homework`. `today` is the school's local date so the
+ * client can say "due today / tomorrow" without its own timezone maths. */
+export class FamilyHomeworkListDto {
+  @ApiProperty() today: string;
+  @ApiProperty({ type: [FamilyHomeworkItemDto] }) items: FamilyHomeworkItemDto[];
+}

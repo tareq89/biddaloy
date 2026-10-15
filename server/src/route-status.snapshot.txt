@@ -564,6 +564,7 @@ POST   /api/v1/students/:studentId/document-prints                              
 GET    /api/v1/students/:studentId/exam-schedule                                 401 PASS PASS PASS 403 PASS PASS PASS PASS PASS PASS 403
 POST   /api/v1/students/:studentId/exams/:examId/admit-card                      401 PASS PASS PASS 403 PASS PASS PASS PASS PASS PASS 403
 GET    /api/v1/students/:studentId/exams/:examId/admit-card/assets/:assetId/file 401 PASS PASS PASS 403 PASS PASS PASS PASS PASS PASS 403
+GET    /api/v1/students/:studentId/homework                                      401 PASS PASS 403 403 403 PASS PASS 403 403 403 403
 GET    /api/v1/students/:studentId/lessons                                       401 PASS PASS PASS 403 PASS PASS PASS PASS 403 403 403
 GET    /api/v1/students/:studentId/programs                                      401 PASS PASS PASS 403 PASS PASS PASS PASS 403 403 403
 GET    /api/v1/students/:studentId/promotion-overrides                           401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS 403
