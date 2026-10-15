@@ -30,6 +30,18 @@ describe('isCacheableApiRequest', () => {
     expect(isCacheableApiRequest(match('/api/v1/fees/invoices?page=2'))).toBe(true);
   });
 
+  it('caches the dashboard reads but not the layout write', () => {
+    for (const p of [
+      '/api/v1/dashboard/widgets/collection-month',
+      '/api/v1/dashboard/briefing',
+      '/api/v1/users/me',
+    ])
+      expect(isCacheableApiRequest(match(p))).toBe(true);
+    expect(isCacheableApiRequest(match('/api/v1/users/me/preferences/dashboard', 'PATCH'))).toBe(
+      false,
+    );
+  });
+
   it('never caches the live platform alert, so offline never shows a stale one', () => {
     expect(isCacheableApiRequest(match('/api/v1/platform/alerts'))).toBe(false);
   });

@@ -3,14 +3,15 @@
  * Role default + saved layout -> `resolveLayout`; a failed prefs read just
  * shows the role default. `customize` (from `?customize=1`) swaps the grid for customise mode (2-11).
  */
-import { ROLE_DEFAULT_LAYOUTS, WIDGET_CATALOGUE } from '@biddaloy/shared';
+import { Permission, ROLE_DEFAULT_LAYOUTS, UserRole, WIDGET_CATALOGUE } from '@biddaloy/shared';
 import { EmptyState, Skeleton } from '@biddaloy/ui/components';
-import { hasPermission } from '@biddaloy/ui/hooks';
+import { academicYearsQueryOptions, hasPermission, useHasPermission } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { formatDate, formatWeekday } from '@biddaloy/ui/utils';
+import { formatDate, formatMonth, formatWeekday } from '@biddaloy/ui/utils';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { SlidersHorizontalIcon } from 'lucide-react';
+import { PrinterIcon, ShieldCheckIcon, SlidersHorizontalIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { AttendancePendingCard } from '../../components/attendance-pending-card';
@@ -18,6 +19,7 @@ import { ConnectHintCard } from '../../features/onboarding/connect-hint-card';
 import { SetupChecklistCard } from '../../features/onboarding/setup-checklist-card';
 
 import { BriefingSlot } from './briefing-slot';
+import { CommitteeSummary } from './committee-summary';
 import { CustomiseMode } from './customise/customise-mode';
 import { DashboardGrid } from './dashboard-grid';
 import { resolveLayout } from './resolve-layout';
@@ -46,6 +48,11 @@ export function DashboardPage({ customize = false }: { customize?: boolean }) {
   const region = useTenantRegionConfig();
   const { role, pref, isLoading } = useDashboardPrefs();
   const today = React.useMemo(() => new Date(), []);
+  // [8.10.7.5.06] COMMITTEE header: privacy line, print button, "month · year" subtitle (D49).
+  const isCommittee = role === UserRole.COMMITTEE;
+  const canPrint = useHasPermission(Permission.COMMITTEE_REPORT_READ);
+  const years = useQuery({ ...academicYearsQueryOptions(), enabled: isCommittee });
+  const yearName = years.data?.data.find((y) => y.is_current)?.name;
 
   const { visible } = React.useMemo(
     () =>
@@ -70,11 +77,30 @@ export function DashboardPage({ customize = false }: { customize?: boolean }) {
       <div className="flex flex-col gap-4 md:gap-6">
         <PageHeader
           title={t('page.title')}
-          subtitle={`${formatWeekday(today, region)}, ${formatDate(today, region)}`}
+          subtitle={
+            isCommittee
+              ? [formatMonth(today, region), yearName && t('page.academicYear', { name: yearName })]
+                  .filter(Boolean)
+                  .join(' · ')
+              : `${formatWeekday(today, region)}, ${formatDate(today, region)}`
+          }
           actions={
             customize
               ? []
               : [
+                  ...(isCommittee
+                    ? [
+                        {
+                          id: 'print-report',
+                          label: t('committeeSummary.printReport'),
+                          icon: <PrinterIcon aria-hidden="true" />,
+                          to: '/print/committee-report',
+                          search: { from: '/dashboard' },
+                          priority: 'primary' as const,
+                          allowed: canPrint,
+                        },
+                      ]
+                    : []),
                   {
                     id: 'customise',
                     label: t('page.customise'),
@@ -85,11 +111,17 @@ export function DashboardPage({ customize = false }: { customize?: boolean }) {
                 ]
           }
         />
+        {isCommittee && !customize && (
+          <p className="-mt-2 flex items-center gap-2 text-caption text-text-secondary">
+            <ShieldCheckIcon aria-hidden="true" className="size-4 shrink-0" />
+            {t('committeeSummary.privacyNote')}
+          </p>
+        )}
         {customize && role ? (
           <CustomiseMode role={role} onDone={closeCustomise} />
         ) : (
           <>
-            <BriefingSlot />
+            {isCommittee ? <CommitteeSummary /> : <BriefingSlot />}
             {/* Stopgap until the wave-3 widgets replace them; each hides itself
                 (ADMIN only / dismissed / no ATTENDANCE_READ / nothing to show). */}
             <SetupChecklistCard />

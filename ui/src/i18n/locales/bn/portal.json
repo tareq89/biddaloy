@@ -450,5 +450,81 @@
     "pendingCount_one": "{{n}}টি ফরম পূরণ বাকি",
     "pendingCount_other": "{{n}}টি ফরম পূরণ বাকি",
     "optionalHint": "প্রতিটি প্রশ্ন ঐচ্ছিক — তারকা দিন, লিখুন, বা দুটোই। অন্তত একটির উত্তর দিন।"
+  },
+  "today": {
+    "dateLine": "আজ {{date}}",
+    "present": "আজ স্কুলে উপস্থিত",
+    "absent": "আজ অনুপস্থিত",
+    "late": "আজ দেরিতে এসেছে",
+    "leave": "আজ ছুটিতে",
+    "notMarked": "এখনো উপস্থিতি নেওয়া হয়নি",
+    "closed": "আজ স্কুল বন্ধ",
+    "shortPresent": "উপস্থিত",
+    "shortAbsent": "অনুপস্থিত",
+    "shortLate": "দেরি",
+    "shortLeave": "ছুটি",
+    "shortNotMarked": "নেওয়া হয়নি",
+    "shortClosed": "বন্ধ",
+    "regionLabel": "আজ স্কুলে",
+    "markedAt": "{{time}}-এ উপস্থিতি নেওয়া হয়েছে",
+    "notTakenYet": "আজকের উপস্থিতি এখনো নেওয়া হয়নি"
+  },
+  "heatmap": {
+    "title": "এ মাসের উপস্থিতি",
+    "value_one": "{{count}} দিন",
+    "value_other": "{{count}} দিন",
+    "valueUnit": "উপস্থিত",
+    "summaryAll": "এ পর্যন্ত {{total}} দিনের সবদিন উপস্থিত।",
+    "summarySome": "{{total}} দিনের মধ্যে {{present}} দিন উপস্থিত, আসেনি {{dates}}।",
+    "summaryNone": "এ মাসে এখনো স্কুলের দিন হয়নি।",
+    "childPicker": "সন্তান",
+    "link": "পুরো উপস্থিতি"
+  },
+  "latestResult": {
+    "title": "সর্বশেষ ফল",
+    "examLine": "{{child}} · {{exam}}",
+    "gpa": "জিপিএ {{gpa}}",
+    "outOf": "/ {{max}}",
+    "better": "গত পরীক্ষার চেয়ে ভালো (আগে {{previous}} ছিল)",
+    "worse": "গত পরীক্ষার চেয়ে কম (আগে {{previous}} ছিল)",
+    "same": "গত পরীক্ষার মতোই",
+    "failed": "উন্নতি দরকার: অন্তত একটা বিষয়ে ফেল",
+    "meterLabel": "{{max}}-এর মধ্যে জিপিএ",
+    "link": "পুরো ফল",
+    "emptyReason": "এখনো কোনো ফল প্রকাশ হয়নি।"
+  },
+  "homeworkCard": {
+    "title": "আজকের হোমওয়ার্ক",
+    "value_one": "{{count}}টা কাজ",
+    "value_other": "{{count}}টা কাজ",
+    "valueUnit": "নতুন",
+    "dueToday": "আজ জমা দিতে হবে",
+    "dueTomorrow": "কাল জমা দিতে হবে",
+    "dueOn": "{{date}} জমা",
+    "compactSentence": "{{child}}-এর {{subject}} {{when}}",
+    "whenToday": "আজ জমা দিতে হবে",
+    "whenTomorrow": "কাল জমা দিতে হবে",
+    "link": "সব হোমওয়ার্ক",
+    "emptyReason": "জমা দেওয়ার মতো কোনো হোমওয়ার্ক নেই।"
+  },
+  "nextHoliday": {
+    "title": "পরের ছুটি",
+    "inDays_one": "আর {{count}} দিন পর",
+    "inDays_other": "আর {{count}} দিন পর",
+    "today": "আজ",
+    "link": "ক্যালেন্ডার দেখুন",
+    "emptyReason": "আগামী ৬০ দিনে কোনো ছুটি নেই।"
+  },
+  "homework": {
+    "title": "হোমওয়ার্ক",
+    "subtitle": "আজ ও সামনে জমা দেওয়ার হোমওয়ার্ক",
+    "loading": "হোমওয়ার্ক লোড হচ্ছে",
+    "colSubject": "বিষয়",
+    "colTask": "কাজ",
+    "colAssigned": "দেওয়া হয়েছে",
+    "colDue": "জমার দিন",
+    "emptyTitle": "জমা দেওয়ার মতো হোমওয়ার্ক নেই",
+    "emptyBody": "শিক্ষকেরা হোমওয়ার্ক দিলে এখানে দেখা যাবে।",
+    "error": "হোমওয়ার্ক লোড হয়নি।"
   }
 }

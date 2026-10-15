@@ -1,4 +1,12 @@
 {
+  "filters": {
+    "recordCompleteness": "Records",
+    "allRecords": "All records",
+    "incompleteOnly": "Incomplete records only",
+    "incomplete": "Incomplete records only",
+    "incompleteHint": "Missing name, relationship or phone number",
+    "incompleteChip": "Incomplete"
+  },
   "list": {
     "title": "Guardians",
     "caption": "Guardians",

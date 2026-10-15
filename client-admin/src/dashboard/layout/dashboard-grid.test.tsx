@@ -4,7 +4,7 @@ import { DashboardWidgetKey as K, type DashboardWidgetKey } from '@biddaloy/shar
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { WidgetProps } from '../widgets/registry';
 
@@ -74,5 +74,26 @@ describe('DashboardGrid', () => {
     expect(within(screen.getByTestId('tile-expanded')).getByText('att:full')).toBeTruthy();
     await userEvent.click(tile);
     expect(screen.queryByTestId('tile-expanded')).toBeNull();
+  });
+
+  it('phone: a tile that falls back to an interactive card is not nested in a button', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const Fallback = () => (
+      <h2>
+        <button type="button" title={undefined} />
+      </h2>
+    );
+    renderWithProviders(
+      <DashboardGrid
+        visible={[{ key: K.ATTENDANCE_TODAY, size: 'S' as const }]}
+        components={new Map([[K.ATTENDANCE_TODAY, Fallback]])}
+      />,
+      { locale: 'en' },
+    );
+    const phone = screen.getByTestId('grid-phone');
+    expect(phone.querySelector('button button')).toBeNull();
+    const nesting = err.mock.calls.filter((c) => String(c[0]).includes('cannot be a descendant'));
+    err.mockRestore();
+    expect(nesting).toHaveLength(0);
   });
 });

@@ -90,7 +90,7 @@
     "applicationsPending_other": "{{n}} pending",
     "printTemplateEdit": "Edit design",
     "printPreview": "Print preview",
-    "printDocument": "Print document",
+    "printDocument": "Print",
     "myClass": "My class",
     "new": "New",
     "import": "Import from file",
@@ -114,11 +114,12 @@
     "portalSurveys": "Surveys",
     "surveyDetail": "Survey",
     "myClassSection": "Section",
-    "printDocument": "Print",
     "studyPlans": "Study plans",
     "studyPlanDetail": "Study plan",
     "sendAlert": "Send an alert",
-    "alertsReport": "Alerts report"
+    "alertsReport": "Alerts report",
+    "portalHomework": "Homework",
+    "committeeReport": "Monthly meeting report"
   },
   "groups": {
     "people": "People",

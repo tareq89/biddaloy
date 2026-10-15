@@ -34,6 +34,7 @@ import { Route as PortalAttendanceRouteImport } from './routes/portal/attendance
 import { Route as PortalCalendarRouteImport } from './routes/portal/calendar'
 import { Route as PortalExamScheduleRouteImport } from './routes/portal/exam-schedule'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
+import { Route as PortalHomeworkRouteImport } from './routes/portal/homework'
 import { Route as PortalNotificationsRouteImport } from './routes/portal/notifications'
 import { Route as PortalProgramsRouteImport } from './routes/portal/programs'
 import { Route as PortalResultsRouteImport } from './routes/portal/results'
@@ -84,6 +85,7 @@ import { Route as StaffPaymentsIndexRouteImport } from './routes/_staff/payments
 import { Route as StaffPaymentsIdRouteImport } from './routes/_staff/payments/$id'
 import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
 import { Route as StaffPrintTemplatesIndexRouteImport } from './routes/_staff/print-templates/index'
+import { Route as StaffPrintCommitteeReportRouteImport } from './routes/_staff/print/committee-report'
 import { Route as StaffPrintDocumentRouteImport } from './routes/_staff/print/document'
 import { Route as StaffPrintPreviewRouteImport } from './routes/_staff/print/preview'
 import { Route as StaffProgramsIndexRouteImport } from './routes/_staff/programs/index'
@@ -268,6 +270,11 @@ const PortalExamScheduleRoute = PortalExamScheduleRouteImport.update({
 const PortalFeesRoute = PortalFeesRouteImport.update({
   id: '/fees',
   path: '/fees',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalHomeworkRoute = PortalHomeworkRouteImport.update({
+  id: '/homework',
+  path: '/homework',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalNotificationsRoute = PortalNotificationsRouteImport.update({
@@ -529,6 +536,12 @@ const StaffPrintTemplatesIndexRoute =
   StaffPrintTemplatesIndexRouteImport.update({
     id: '/print-templates/',
     path: '/print-templates/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffPrintCommitteeReportRoute =
+  StaffPrintCommitteeReportRouteImport.update({
+    id: '/print/committee-report',
+    path: '/print/committee-report',
     getParentRoute: () => StaffRoute,
   } as any)
 const StaffPrintDocumentRoute = StaffPrintDocumentRouteImport.update({
@@ -893,6 +906,7 @@ export interface FileRoutesByFullPath {
   '/portal/calendar': typeof PortalCalendarRoute
   '/portal/exam-schedule': typeof PortalExamScheduleRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/homework': typeof PortalHomeworkRoute
   '/portal/notifications': typeof PortalNotificationsRoute
   '/portal/programs': typeof PortalProgramsRoute
   '/portal/results': typeof PortalResultsRoute
@@ -925,6 +939,7 @@ export interface FileRoutesByFullPath {
   '/my-class/$sectionId': typeof StaffMyClassSectionIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/print/committee-report': typeof StaffPrintCommitteeReportRoute
   '/print/document': typeof StaffPrintDocumentRoute
   '/print/preview': typeof StaffPrintPreviewRoute
   '/programs/$programId': typeof StaffProgramsProgramIdRoute
@@ -1028,6 +1043,7 @@ export interface FileRoutesByTo {
   '/portal/calendar': typeof PortalCalendarRoute
   '/portal/exam-schedule': typeof PortalExamScheduleRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/homework': typeof PortalHomeworkRoute
   '/portal/notifications': typeof PortalNotificationsRoute
   '/portal/programs': typeof PortalProgramsRoute
   '/portal/results': typeof PortalResultsRoute
@@ -1060,6 +1076,7 @@ export interface FileRoutesByTo {
   '/my-class/$sectionId': typeof StaffMyClassSectionIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/print/committee-report': typeof StaffPrintCommitteeReportRoute
   '/print/document': typeof StaffPrintDocumentRoute
   '/print/preview': typeof StaffPrintPreviewRoute
   '/programs/$programId': typeof StaffProgramsProgramIdRoute
@@ -1168,6 +1185,7 @@ export interface FileRoutesById {
   '/portal/calendar': typeof PortalCalendarRoute
   '/portal/exam-schedule': typeof PortalExamScheduleRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/homework': typeof PortalHomeworkRoute
   '/portal/notifications': typeof PortalNotificationsRoute
   '/portal/programs': typeof PortalProgramsRoute
   '/portal/results': typeof PortalResultsRoute
@@ -1200,6 +1218,7 @@ export interface FileRoutesById {
   '/_staff/my-class/$sectionId': typeof StaffMyClassSectionIdRoute
   '/_staff/payments/$id': typeof StaffPaymentsIdRoute
   '/_staff/payments/record': typeof StaffPaymentsRecordRoute
+  '/_staff/print/committee-report': typeof StaffPrintCommitteeReportRoute
   '/_staff/print/document': typeof StaffPrintDocumentRoute
   '/_staff/print/preview': typeof StaffPrintPreviewRoute
   '/_staff/programs/$programId': typeof StaffProgramsProgramIdRoute
@@ -1307,6 +1326,7 @@ export interface FileRouteTypes {
     | '/portal/calendar'
     | '/portal/exam-schedule'
     | '/portal/fees'
+    | '/portal/homework'
     | '/portal/notifications'
     | '/portal/programs'
     | '/portal/results'
@@ -1339,6 +1359,7 @@ export interface FileRouteTypes {
     | '/my-class/$sectionId'
     | '/payments/$id'
     | '/payments/record'
+    | '/print/committee-report'
     | '/print/document'
     | '/print/preview'
     | '/programs/$programId'
@@ -1442,6 +1463,7 @@ export interface FileRouteTypes {
     | '/portal/calendar'
     | '/portal/exam-schedule'
     | '/portal/fees'
+    | '/portal/homework'
     | '/portal/notifications'
     | '/portal/programs'
     | '/portal/results'
@@ -1474,6 +1496,7 @@ export interface FileRouteTypes {
     | '/my-class/$sectionId'
     | '/payments/$id'
     | '/payments/record'
+    | '/print/committee-report'
     | '/print/document'
     | '/print/preview'
     | '/programs/$programId'
@@ -1581,6 +1604,7 @@ export interface FileRouteTypes {
     | '/portal/calendar'
     | '/portal/exam-schedule'
     | '/portal/fees'
+    | '/portal/homework'
     | '/portal/notifications'
     | '/portal/programs'
     | '/portal/results'
@@ -1613,6 +1637,7 @@ export interface FileRouteTypes {
     | '/_staff/my-class/$sectionId'
     | '/_staff/payments/$id'
     | '/_staff/payments/record'
+    | '/_staff/print/committee-report'
     | '/_staff/print/document'
     | '/_staff/print/preview'
     | '/_staff/programs/$programId'
@@ -1890,6 +1915,13 @@ declare module '@tanstack/react-router' {
       path: '/fees'
       fullPath: '/portal/fees'
       preLoaderRoute: typeof PortalFeesRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/homework': {
+      id: '/portal/homework'
+      path: '/homework'
+      fullPath: '/portal/homework'
+      preLoaderRoute: typeof PortalHomeworkRouteImport
       parentRoute: typeof PortalRoute
     }
     '/portal/notifications': {
@@ -2240,6 +2272,13 @@ declare module '@tanstack/react-router' {
       path: '/print-templates'
       fullPath: '/print-templates/'
       preLoaderRoute: typeof StaffPrintTemplatesIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/print/committee-report': {
+      id: '/_staff/print/committee-report'
+      path: '/print/committee-report'
+      fullPath: '/print/committee-report'
+      preLoaderRoute: typeof StaffPrintCommitteeReportRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/print/document': {
@@ -2750,6 +2789,7 @@ interface StaffRouteChildren {
   StaffMyClassSectionIdRoute: typeof StaffMyClassSectionIdRoute
   StaffPaymentsIdRoute: typeof StaffPaymentsIdRoute
   StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
+  StaffPrintCommitteeReportRoute: typeof StaffPrintCommitteeReportRoute
   StaffPrintDocumentRoute: typeof StaffPrintDocumentRoute
   StaffPrintPreviewRoute: typeof StaffPrintPreviewRoute
   StaffProgramsProgramIdRoute: typeof StaffProgramsProgramIdRoute
@@ -2847,6 +2887,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffMyClassSectionIdRoute: StaffMyClassSectionIdRoute,
   StaffPaymentsIdRoute: StaffPaymentsIdRoute,
   StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,
+  StaffPrintCommitteeReportRoute: StaffPrintCommitteeReportRoute,
   StaffPrintDocumentRoute: StaffPrintDocumentRoute,
   StaffPrintPreviewRoute: StaffPrintPreviewRoute,
   StaffProgramsProgramIdRoute: StaffProgramsProgramIdRoute,
@@ -2930,6 +2971,7 @@ interface PortalRouteChildren {
   PortalCalendarRoute: typeof PortalCalendarRoute
   PortalExamScheduleRoute: typeof PortalExamScheduleRoute
   PortalFeesRoute: typeof PortalFeesRoute
+  PortalHomeworkRoute: typeof PortalHomeworkRoute
   PortalNotificationsRoute: typeof PortalNotificationsRoute
   PortalProgramsRoute: typeof PortalProgramsRoute
   PortalResultsRoute: typeof PortalResultsRoute
@@ -2948,6 +2990,7 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalCalendarRoute: PortalCalendarRoute,
   PortalExamScheduleRoute: PortalExamScheduleRoute,
   PortalFeesRoute: PortalFeesRoute,
+  PortalHomeworkRoute: PortalHomeworkRoute,
   PortalNotificationsRoute: PortalNotificationsRoute,
   PortalProgramsRoute: PortalProgramsRoute,
   PortalResultsRoute: PortalResultsRoute,

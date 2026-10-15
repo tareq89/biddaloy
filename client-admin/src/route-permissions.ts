@@ -229,6 +229,7 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/print-templates/': Permission.PRINT_TEMPLATE_MANAGE,
   '/_staff/print-templates/$templateId/edit': Permission.PRINT_TEMPLATE_MANAGE,
   '/_staff/print/preview': Permission.DOCUMENT_PRINT,
+  '/_staff/print/committee-report': Permission.COMMITTEE_REPORT_READ,
   '/_staff/print/document': Permission.DOCUMENT_PRINT,
   '/_staff/reports/printables': Permission.PRINT_HISTORY_READ,
 };

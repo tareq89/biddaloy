@@ -1,0 +1,33 @@
+/**
+ * [8.10.7.5.07] Committee monthly report: A4 portrait, black on white, every section and
+ * table kept whole across the page break. The toolbar hides itself with `print:hidden`.
+ * Print CSS needs a manual print-preview check (page breaks differ per browser).
+ */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+
+  .committee-report {
+    max-width: none;
+    padding: 0;
+    background: #fff;
+    color: #000;
+  }
+
+  .committee-report * {
+    color: #000;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .committee-report section,
+  .committee-report table {
+    break-inside: avoid;
+  }
+
+  .committee-report thead {
+    display: table-header-group;
+  }
+}

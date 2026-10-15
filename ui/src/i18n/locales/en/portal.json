@@ -450,5 +450,81 @@
     "pendingCount_one": "{{n}} form left to fill in",
     "pendingCount_other": "{{n}} forms left to fill in",
     "optionalHint": "Every question is optional — give stars, write, or both. Answer at least one."
+  },
+  "today": {
+    "dateLine": "Today, {{date}}",
+    "present": "At school today",
+    "absent": "Absent today",
+    "late": "Came late today",
+    "leave": "On leave today",
+    "notMarked": "Attendance not taken yet",
+    "closed": "No school today",
+    "shortPresent": "Present",
+    "shortAbsent": "Absent",
+    "shortLate": "Late",
+    "shortLeave": "Leave",
+    "shortNotMarked": "Not taken",
+    "shortClosed": "Closed",
+    "regionLabel": "Today at school",
+    "markedAt": "Attendance was taken at {{time}}",
+    "notTakenYet": "Today's attendance has not been taken yet"
+  },
+  "heatmap": {
+    "title": "This month's attendance",
+    "value_one": "{{count}} day",
+    "value_other": "{{count}} days",
+    "valueUnit": "present",
+    "summaryAll": "Present on all {{total}} school days so far.",
+    "summarySome": "Present {{present}} of {{total}} days; missed {{dates}}.",
+    "summaryNone": "No school day yet this month.",
+    "childPicker": "Child",
+    "link": "Full attendance"
+  },
+  "latestResult": {
+    "title": "Latest result",
+    "examLine": "{{child}} · {{exam}}",
+    "gpa": "GPA {{gpa}}",
+    "outOf": "/ {{max}}",
+    "better": "Better than the last exam (was {{previous}})",
+    "worse": "Lower than the last exam (was {{previous}})",
+    "same": "Same as the last exam",
+    "failed": "Needs to improve: failed at least one subject",
+    "meterLabel": "GPA out of {{max}}",
+    "link": "Full result",
+    "emptyReason": "No published result yet."
+  },
+  "homeworkCard": {
+    "title": "Today's homework",
+    "value_one": "{{count}} task",
+    "value_other": "{{count}} tasks",
+    "valueUnit": "new",
+    "dueToday": "Due today",
+    "dueTomorrow": "Due tomorrow",
+    "dueOn": "Due {{date}}",
+    "compactSentence": "{{child}}'s {{subject}} is due {{when}}",
+    "whenToday": "today",
+    "whenTomorrow": "tomorrow",
+    "link": "All homework",
+    "emptyReason": "No homework due."
+  },
+  "nextHoliday": {
+    "title": "Next holiday",
+    "inDays_one": "In {{count}} day",
+    "inDays_other": "In {{count}} days",
+    "today": "Today",
+    "link": "Open calendar",
+    "emptyReason": "No holiday in the next 60 days."
+  },
+  "homework": {
+    "title": "Homework",
+    "subtitle": "Homework due today and later",
+    "loading": "Loading homework",
+    "colSubject": "Subject",
+    "colTask": "Task",
+    "colAssigned": "Given on",
+    "colDue": "Due",
+    "emptyTitle": "No homework due",
+    "emptyBody": "Homework the teachers give will show up here.",
+    "error": "Homework could not load."
   }
 }

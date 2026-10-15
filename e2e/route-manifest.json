@@ -493,6 +493,7 @@
       "archetype": "bespoke"
     },
     { "path": "/print/preview", "role": "admin", "archetype": "bespoke" },
+    { "path": "/print/committee-report", "role": "committee", "archetype": "bespoke" },
     { "path": "/print/document", "role": "admin", "archetype": "bespoke" },
     {
       "path": "/reports/printables",
@@ -713,6 +714,11 @@
     },
     {
       "path": "/portal/syllabus",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
+      "path": "/portal/homework",
       "role": "parent",
       "archetype": "list"
     },

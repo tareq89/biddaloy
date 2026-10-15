@@ -1,7 +1,6 @@
 import { expect, loggedIn, test } from '../fixtures/test';
 import type { Page } from '@playwright/test';
 import { t } from '../i18n';
-import { resolvePath } from './routes';
 
 /**
  * Phone shell below `md` for the three shells (D12 one 56 px row, D13
@@ -155,22 +154,24 @@ test.describe('staff bottom nav', () => {
 test.describe('TEACHER bottom nav', () => {
   test.use({ ...loggedIn('teacher'), viewport: { width: 390, height: 844 } });
 
-  test('my class, attendance, routine, homework + More', async ({ page }) => {
-    await page.goto('/attendance');
-    await expectCells(page, ['myClass', 'attendance', 'routine', 'homework']);
+  test('dashboard, attendance, routine, homework + More', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expectCells(page, ['dashboard', 'attendance', 'routine', 'homework']);
   });
 
-  test('my class cell is current on the teacher own section', async ({ page, request }) => {
-    const path = await resolvePath(request, {
-      path: '/my-class/$sectionId',
-      role: 'teacher',
-      archetype: 'detail',
-    });
-    await page.goto(path);
-    await expect(staffBar(page).getByRole('link', { name: cellLabel('myClass') })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+  test('dashboard cell is current on /dashboard', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(
+      staffBar(page).getByRole('link', { name: cellLabel('dashboard') }),
+    ).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('my class is still reachable from the More drawer', async ({ page }) => {
+    await page.goto('/dashboard');
+    await staffBar(page)
+      .getByRole('button', { name: t('nav.items.more') })
+      .click();
+    await expect(page.getByRole('dialog').locator('a[href="/my-class"]')).toBeVisible();
   });
 });
 
