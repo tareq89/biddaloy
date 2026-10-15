@@ -5,7 +5,10 @@ import { PerformanceService } from './performance.service';
 import { teacherAssignments } from '../classes/teacher-scope.service';
 
 // The current-year scope query has its own integration spec; here it is just the rows.
-vi.mock('../classes/teacher-scope.service', () => ({ teacherAssignments: vi.fn() }));
+vi.mock('../classes/teacher-scope.service', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../classes/teacher-scope.service')>()),
+  teacherAssignments: vi.fn(),
+}));
 
 const T = 'tenant-1';
 const YEAR = { id: 'y1', start_date: '2026-01-01', end_date: '2026-12-31' };
