@@ -3,6 +3,7 @@
  * A crash shows ErrorState with Retry that remounts only this card.
  */
 import type { WidgetSize } from '@biddaloy/shared';
+import { isTenantSuspendedError } from '@biddaloy/ui/api';
 import { ErrorState, Skeleton } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -11,15 +12,18 @@ const SKELETON_HEIGHT: Record<WidgetSize, string> = { S: 'h-40', M: 'h-48', L: '
 
 class Boundary extends React.Component<
   { fallback: (reset: () => void) => React.ReactNode; children: React.ReactNode },
-  { failed: boolean }
+  { failed: boolean; error?: unknown }
 > {
-  override state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
+  override state: { failed: boolean; error?: unknown } = { failed: false };
+  static getDerivedStateFromError(error: unknown) {
+    return { failed: true, error };
   }
   override render() {
+    // A suspended/trial-ended school is page-level, not card-level: let the
+    // route boundary render the trial-ended screen.
+    if (this.state.failed && isTenantSuspendedError(this.state.error)) throw this.state.error;
     return this.state.failed
-      ? this.props.fallback(() => this.setState({ failed: false }))
+      ? this.props.fallback(() => this.setState({ failed: false, error: undefined }))
       : this.props.children;
   }
 }
