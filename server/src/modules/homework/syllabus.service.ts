@@ -18,6 +18,8 @@ import {
 } from '@biddaloy/shared';
 import { SyllabusTopic } from './entities/syllabus-topic.entity';
 import { Class } from '../academics/entities/class.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import type { SyllabusProgressWidgetDto } from './dto/homework-dashboard.dto';
 import { Subject } from '../academics/entities/subject.entity';
 import {
   CreateSyllabusTopicDto,
@@ -43,6 +45,65 @@ export class SyllabusService {
     private readonly planRepo: Repository<StudyPlan>,
     private readonly planSchedule: PlanScheduleService,
   ) {}
+
+  /**
+   * [8.10.7.2.05] Done / in-progress / total topics per class of the current
+   * academic year, one query. Classes with no topics are left out. Class order
+   * is the class picker's (`name ASC`).
+   */
+  async progressByClass(tenantId: string): Promise<SyllabusProgressWidgetDto> {
+    const rows = await this.repo
+      .createQueryBuilder('st')
+      .innerJoin(
+        Class,
+        'c',
+        'c.id = st.class_id AND c.tenant_id = :tenantId AND c.deleted_at IS NULL',
+      )
+      .innerJoin(
+        AcademicYear,
+        'ay',
+        'ay.id = c.academic_year_id AND ay.tenant_id = :tenantId AND ay.is_current = true',
+      )
+      .select('c.id', 'class_id')
+      .addSelect('c.name', 'class_name')
+      .addSelect(`COUNT(*) FILTER (WHERE st.status = :done)`, 'done')
+      .addSelect(`COUNT(*) FILTER (WHERE st.status = :inProgress)`, 'in_progress')
+      .addSelect('COUNT(*)', 'total')
+      .where('st.tenant_id = :tenantId')
+      .groupBy('c.id')
+      .addGroupBy('c.name')
+      .orderBy('c.name', 'ASC')
+      .addOrderBy('c.id', 'ASC')
+      .setParameters({
+        tenantId,
+        done: SyllabusTopicStatus.DONE,
+        inProgress: SyllabusTopicStatus.IN_PROGRESS,
+      })
+      .getRawMany<{
+        class_id: string;
+        class_name: string;
+        done: string;
+        in_progress: string;
+        total: string;
+      }>();
+
+    const pct = (done: number, total: number) => (total ? Math.round((done / total) * 100) : 0);
+    const classes = rows.map((r) => {
+      const done = Number(r.done);
+      const total = Number(r.total);
+      return {
+        class_id: r.class_id,
+        class_name: r.class_name,
+        done,
+        in_progress: Number(r.in_progress),
+        total,
+        percentage: pct(done, total),
+      };
+    });
+    const done = classes.reduce((n, c) => n + c.done, 0);
+    const total = classes.reduce((n, c) => n + c.total, 0);
+    return { classes, overall: { done, total, percentage: pct(done, total) } };
+  }
 
   /**
    * [66.2.07/D31] Per topic of one class x subject: in how many sections a live

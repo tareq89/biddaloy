@@ -42,6 +42,8 @@ import { HomeworkBulkUploadService } from './homework-bulk-upload.service';
 import { HomeworkBulkUploadController } from './homework-bulk-upload.controller';
 import { SyllabusService } from './syllabus.service';
 import { SyllabusController } from './syllabus.controller';
+import { HomeworkDashboardController } from './homework-dashboard.controller';
+import { DashboardModule } from '../dashboard/dashboard.module';
 import { HomeworkAnalyticsService } from './homework-analytics.service';
 
 /**
@@ -85,6 +87,7 @@ import { HomeworkAnalyticsService } from './homework-analytics.service';
     // 66.2.07/D31: `SyllabusService.coverageFor` reads plan schedules. StudyPlansModule
     // imports nothing from homework, so there is no cycle.
     StudyPlansModule,
+    DashboardModule,
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: COMMUNICATIONS_QUEUE_JOB_OPTIONS,
@@ -96,6 +99,7 @@ import { HomeworkAnalyticsService } from './homework-analytics.service';
     HomeworkSubmissionController,
     HomeworkBulkUploadController,
     SyllabusController,
+    HomeworkDashboardController,
   ],
   providers: [
     HomeworkService,

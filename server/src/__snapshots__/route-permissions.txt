@@ -130,6 +130,7 @@ GET /communications/sms-credits | CreditsController | perm: COMMUNICATION_CREDIT
 GET /communications/student/:studentId | CommunicationsController | perm: COMMUNICATION_LOG_READ
 GET /dashboard/widgets/attendance-today | AttendanceDashboardController | perm: ATTENDANCE_READ,DASHBOARD_VIEW
 GET /dashboard/widgets/staff-today | StaffAttendanceDashboardController | perm: DASHBOARD_VIEW,STAFF_ATTENDANCE_READ
+GET /dashboard/widgets/syllabus-progress | HomeworkDashboardController | perm: DASHBOARD_VIEW,SYLLABUS_READ
 GET /demo/roles | DemoController | allowlist: none
 GET /designations | DesignationController | perm: STAFF_HR_READ
 GET /designations/:id | DesignationController | perm: STAFF_HR_READ
