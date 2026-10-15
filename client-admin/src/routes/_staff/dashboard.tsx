@@ -1,54 +1,35 @@
-import { EmptyState, RoutePending } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
+import { z } from 'zod';
 
-import { AttendancePendingCard } from '../../components/attendance-pending-card';
-import { UpcomingCalendarCard } from '../../components/upcoming-calendar-card';
-import { ConnectHintCard } from '../../features/onboarding/connect-hint-card';
-import { SetupChecklistCard } from '../../features/onboarding/setup-checklist-card';
+import { DashboardPage, DashboardSkeleton } from '../../dashboard/layout/dashboard-page';
 import { loadRouteNamespaces } from '../../route-loaders';
 
+/** `?customize=1` opens customise mode (2-11). */
+const searchSchema = z.object({ customize: z.literal(1).optional().catch(undefined) });
+
 /**
- * `/` — a placeholder until a real dashboard module exists (not this
- * ticket's job). Exists mainly so the route tree has more than one leaf
- * to demonstrate [8.9.1]'s ACs against: it's lazy-loaded like every other
- * feature route, and its sidebar link is hover-preloadable like every
- * other.
+ * `/dashboard` — the role's widget grid ([169] Epic, wave 2). Widgets are
+ * files under `src/dashboard/widgets/` picked up by the registry.
  */
 export const Route = createFileRoute('/_staff/dashboard')({
-  // [8.14.5]: no query to preload — this route's only cost is its own
-  // `nav` strings (already warm from `_staff.tsx`'s own loader, but
-  // listed again here per the plan's per-route table so this route is
-  // self-sufficient if ever moved out from under that layout).
-  loader: () => loadRouteNamespaces('nav', 'calendar', 'setupChecklist', 'attendance'),
+  validateSearch: searchSchema,
+  loader: () => loadRouteNamespaces('dashboard', 'calendar', 'nav', 'attention', 'auth'),
   pendingComponent: DashboardPending,
-  component: DashboardPage,
+  component: DashboardRoute,
 });
 
-function DashboardPage() {
-  const { t } = useTranslation('nav');
-  const navigate = useNavigate();
-
-  return (
-    <div className="flex flex-col gap-3">
-      {/* [13.5.1]: each hides itself (ADMIN only / dismissed / nothing to show). */}
-      <SetupChecklistCard />
-      <ConnectHintCard />
-      {/* [41.4.2]: hides itself without ATTENDANCE_READ. */}
-      <AttendancePendingCard />
-      {/* [17.5.4]: hides itself without CALENDAR_READ. */}
-      <UpcomingCalendarCard calendarPath="/calendar" requirePermission />
-      <EmptyState
-        headingLevel={1}
-        title={t('dashboard.title')}
-        explanation={t('dashboard.explanation')}
-        action={{ label: t('dashboard.action'), onClick: () => void navigate({ to: '/settings' }) }}
-      />
-    </div>
-  );
+function DashboardRoute() {
+  const { customize } = Route.useSearch();
+  return <DashboardPage customize={customize === 1} />;
 }
 
 function DashboardPending() {
   const { t } = useTranslation('nav');
-  return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
+  return (
+    <>
+      <span className="sr-only">{t('routePending.label')}</span>
+      <DashboardSkeleton />
+    </>
+  );
 }
