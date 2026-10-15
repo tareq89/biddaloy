@@ -1525,6 +1525,7 @@ describe('workbook round trip (integration)', () => {
         kind: ExamKind.TERM,
         status: ExamStatus.PROCESSED,
         published_at: null,
+        mark_entry_deadline: '2026-10-11',
       }),
     );
 

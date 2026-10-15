@@ -134,6 +134,7 @@ export class ExamsService {
           academic_year_id: dto.academic_year_id,
           class_id: dto.class_id,
           academic_term_id: dto.academic_term_id ?? null,
+          mark_entry_deadline: dto.mark_entry_deadline ?? null,
           tenant_id: tenantId,
         });
         const saved = await repo.save(entity);
