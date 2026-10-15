@@ -96,7 +96,7 @@ describe('my-syllabus-progress widget', () => {
     });
     renderWidget('full');
     // mean of 70 and 47 = 59 (rounded)
-    expect(await screen.findByText('Expected by today: 59%')).toBeTruthy();
+    expect(await screen.findByText('Average expected by today: 59%')).toBeTruthy();
     expect(screen.getByText('17% behind')).toBeTruthy();
     expect(screen.getByText('1 subject is behind the plan.')).toBeTruthy();
     expect(screen.queryByText('Comparison with the plan comes with study plans.')).toBeNull();

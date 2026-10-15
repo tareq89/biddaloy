@@ -66,7 +66,7 @@ describe('syllabus-vs-plan widget', () => {
     // Digits may be localised by the tenant region, so match the unit text only.
     expect(screen.getAllByText(/% behind$/)).toHaveLength(2);
     const bar = screen.getByRole('progressbar', { name: '8' });
-    expect(bar.getAttribute('aria-valuetext')).toContain('Expected by today');
+    expect(bar.getAttribute('aria-valuetext')).toContain('Average expected by today');
     // Class 6 is ahead of the plan: no gap note.
     expect(screen.queryAllByText(/% behind$/)).toHaveLength(2);
   });

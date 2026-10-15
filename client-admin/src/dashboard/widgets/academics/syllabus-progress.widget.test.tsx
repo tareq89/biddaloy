@@ -76,7 +76,7 @@ describe('syllabus-progress widget', () => {
     expect(screen.getAllByTestId('bar-target').length).toBeGreaterThan(0);
     expect(screen.getByText('19% behind')).toBeTruthy();
     expect(screen.getByRole('progressbar', { name: '8' }).getAttribute('aria-valuetext')).toContain(
-      'Expected by today: 60%',
+      'Average expected by today: 60%',
     );
     expect(
       screen.queryByText('Comparison with the expected pace comes with study plans.'),
