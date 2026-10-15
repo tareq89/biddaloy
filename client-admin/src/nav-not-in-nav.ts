@@ -48,6 +48,7 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/portal/surveys': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/results': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/syllabus': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/homework': 'guardian portal page, has its own portal nav, not the staff sidebar',
 
   // Platform admin — its own nav, out of scope for the staff sidebar.
   '/_platform/holiday-sets/': 'platform admin page, has its own nav, not the staff sidebar',
@@ -80,6 +81,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/promotions/$runId': 'detail route reached from the promotions list',
   '/_staff/print-templates/$templateId/edit':
     '[32.4.1] full-screen editor, reached from the print templates library',
+  '/_staff/print/committee-report':
+    '[8.10.7.5.07] chromeless print page, opened from the committee dashboard header and the palette',
   '/_staff/print/preview': "[32.4.1] full-screen print preview, reached from a list's Print action",
   '/_staff/print/document':
     "[48.3.08] chromeless print page, reached from the exam Print tab and a student's Documents tab",

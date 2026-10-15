@@ -34,6 +34,7 @@ import { Route as PortalAttendanceRouteImport } from './routes/portal/attendance
 import { Route as PortalCalendarRouteImport } from './routes/portal/calendar'
 import { Route as PortalExamScheduleRouteImport } from './routes/portal/exam-schedule'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
+import { Route as PortalHomeworkRouteImport } from './routes/portal/homework'
 import { Route as PortalNotificationsRouteImport } from './routes/portal/notifications'
 import { Route as PortalProgramsRouteImport } from './routes/portal/programs'
 import { Route as PortalResultsRouteImport } from './routes/portal/results'
@@ -269,6 +270,11 @@ const PortalExamScheduleRoute = PortalExamScheduleRouteImport.update({
 const PortalFeesRoute = PortalFeesRouteImport.update({
   id: '/fees',
   path: '/fees',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalHomeworkRoute = PortalHomeworkRouteImport.update({
+  id: '/homework',
+  path: '/homework',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalNotificationsRoute = PortalNotificationsRouteImport.update({
@@ -900,6 +906,7 @@ export interface FileRoutesByFullPath {
   '/portal/calendar': typeof PortalCalendarRoute
   '/portal/exam-schedule': typeof PortalExamScheduleRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/homework': typeof PortalHomeworkRoute
   '/portal/notifications': typeof PortalNotificationsRoute
   '/portal/programs': typeof PortalProgramsRoute
   '/portal/results': typeof PortalResultsRoute
@@ -1036,6 +1043,7 @@ export interface FileRoutesByTo {
   '/portal/calendar': typeof PortalCalendarRoute
   '/portal/exam-schedule': typeof PortalExamScheduleRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/homework': typeof PortalHomeworkRoute
   '/portal/notifications': typeof PortalNotificationsRoute
   '/portal/programs': typeof PortalProgramsRoute
   '/portal/results': typeof PortalResultsRoute
@@ -1177,6 +1185,7 @@ export interface FileRoutesById {
   '/portal/calendar': typeof PortalCalendarRoute
   '/portal/exam-schedule': typeof PortalExamScheduleRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/homework': typeof PortalHomeworkRoute
   '/portal/notifications': typeof PortalNotificationsRoute
   '/portal/programs': typeof PortalProgramsRoute
   '/portal/results': typeof PortalResultsRoute
@@ -1317,6 +1326,7 @@ export interface FileRouteTypes {
     | '/portal/calendar'
     | '/portal/exam-schedule'
     | '/portal/fees'
+    | '/portal/homework'
     | '/portal/notifications'
     | '/portal/programs'
     | '/portal/results'
@@ -1453,6 +1463,7 @@ export interface FileRouteTypes {
     | '/portal/calendar'
     | '/portal/exam-schedule'
     | '/portal/fees'
+    | '/portal/homework'
     | '/portal/notifications'
     | '/portal/programs'
     | '/portal/results'
@@ -1593,6 +1604,7 @@ export interface FileRouteTypes {
     | '/portal/calendar'
     | '/portal/exam-schedule'
     | '/portal/fees'
+    | '/portal/homework'
     | '/portal/notifications'
     | '/portal/programs'
     | '/portal/results'
@@ -1903,6 +1915,13 @@ declare module '@tanstack/react-router' {
       path: '/fees'
       fullPath: '/portal/fees'
       preLoaderRoute: typeof PortalFeesRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/homework': {
+      id: '/portal/homework'
+      path: '/homework'
+      fullPath: '/portal/homework'
+      preLoaderRoute: typeof PortalHomeworkRouteImport
       parentRoute: typeof PortalRoute
     }
     '/portal/notifications': {
@@ -2952,6 +2971,7 @@ interface PortalRouteChildren {
   PortalCalendarRoute: typeof PortalCalendarRoute
   PortalExamScheduleRoute: typeof PortalExamScheduleRoute
   PortalFeesRoute: typeof PortalFeesRoute
+  PortalHomeworkRoute: typeof PortalHomeworkRoute
   PortalNotificationsRoute: typeof PortalNotificationsRoute
   PortalProgramsRoute: typeof PortalProgramsRoute
   PortalResultsRoute: typeof PortalResultsRoute
@@ -2970,6 +2990,7 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalCalendarRoute: PortalCalendarRoute,
   PortalExamScheduleRoute: PortalExamScheduleRoute,
   PortalFeesRoute: PortalFeesRoute,
+  PortalHomeworkRoute: PortalHomeworkRoute,
   PortalNotificationsRoute: PortalNotificationsRoute,
   PortalProgramsRoute: PortalProgramsRoute,
   PortalResultsRoute: PortalResultsRoute,

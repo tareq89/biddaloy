@@ -146,6 +146,7 @@ export const PORTAL_NAV_ICONS: Record<string, LucideIcon> = {
   '/portal/programs': MilestoneIcon,
   '/portal/exam-schedule': FileClockIcon,
   '/portal/syllabus': BookOpenIcon,
+  '/portal/homework': NotebookPenIcon,
   '/portal/surveys': ClipboardPenLineIcon,
   '/portal/applications': InboxIcon,
   '/portal/account': UserRoundIcon,

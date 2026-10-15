@@ -31,6 +31,8 @@ interface PageActionBase {
   /** Secondary only: stays an inline outline button on phone instead of moving into More.
    * At most one per header, and it must sit among the first two secondaries. */
   keepOnPhone?: boolean;
+  /** `to` actions only: the link's search params. */
+  search?: Record<string, string> | undefined;
 }
 
 /** An in-page action (`onClick`), or a navigation (`to`) rendered as a real
@@ -115,7 +117,7 @@ export function PageHeaderActions({
   const button = (a: PageAction, className = '') =>
     isLink(a) ? (
       <Button key={a.id} asChild variant={variantOf(a)} data-action-id={a.id} className={className}>
-        <Link to={a.to}>
+        <Link to={a.to} search={a.search}>
           {a.icon}
           {a.label}
         </Link>
@@ -144,7 +146,7 @@ export function PageHeaderActions({
         variant={a.priority === 'destructive' ? 'destructive' : 'default'}
         className={className}
       >
-        <Link to={a.to}>
+        <Link to={a.to} search={a.search}>
           {a.icon}
           {a.label}
         </Link>

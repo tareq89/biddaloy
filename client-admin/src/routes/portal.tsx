@@ -184,6 +184,12 @@ function PortalLayout() {
       permission: Permission.SYLLABUS_READ,
     },
     {
+      to: '/portal/homework',
+      label: t('items.portalHomework'),
+      // [8.10.7.5.10] PARENT and STUDENT hold HOMEWORK_READ (shared/src/enums/permissions.ts:512,530).
+      permission: Permission.HOMEWORK_READ,
+    },
+    {
       to: '/portal/surveys',
       label: t('items.portalSurveys'),
       // No `permission`: `SurveyRespondController` is `@Roles(PARENT, STUDENT)`,

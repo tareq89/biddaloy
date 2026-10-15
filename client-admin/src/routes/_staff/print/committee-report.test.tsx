@@ -3,20 +3,18 @@
  * helpers' output, the shared summary sentence, window.print, a safe back link, and aggregates
  * only (a name and a phone planted in unused response fields never reach the page).
  */
-import { Permission } from '@biddaloy/shared';
 import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { TFunction } from 'i18next';
 import { http, HttpResponse } from 'msw';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { committeeAttendanceTable } from '../../../dashboard/widgets/committee/committee-attendance.widget';
 import { committeeEnrollmentTable } from '../../../dashboard/widgets/committee/committee-enrollment.widget';
 import { committeeFinanceTable } from '../../../dashboard/widgets/committee/committee-finance.widget';
 import { committeePassRateTable } from '../../../dashboard/widgets/committee/committee-pass-rate.widget';
-import { STAFF_ROUTE_PERMISSIONS } from '../../../route-permissions';
 import { routeTree } from '../../../routeTree.gen';
 
 // Echoes the key, so a table's cells can be compared without translation.
@@ -106,15 +104,6 @@ function render(search = '') {
 }
 
 describe('/print/committee-report', () => {
-  // Ticket 8.10.7.5.10 owns the real registry entry; until it lands the route is default-deny,
-  // so this file registers the same one for its own run and puts the map back afterwards.
-  const KEY = '/_staff/print/committee-report';
-  beforeAll(() => {
-    STAFF_ROUTE_PERMISSIONS[KEY] = Permission.COMMITTEE_REPORT_READ;
-  });
-  afterAll(() => {
-    delete STAFF_ROUTE_PERMISSIONS[KEY];
-  });
   afterEach(async () => {
     vi.restoreAllMocks();
     await cleanupTestState();
