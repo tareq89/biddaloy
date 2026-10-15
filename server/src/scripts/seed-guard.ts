@@ -5,7 +5,7 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 /** Throws unless the target DB is on this machine and NODE_ENV is not production. */
 export function assertLocalSeedTarget(
   env: NodeJS.ProcessEnv,
-  script: 'seed' | 'db:reset' | 'db:clear',
+  script: 'seed' | 'db:reset' | 'db:clear' | 'load:seed',
 ): void {
   if (env.NODE_ENV === 'production') {
     throw new Error(
