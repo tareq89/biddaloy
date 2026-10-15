@@ -12174,7 +12174,7 @@ export interface components {
              * @example 2026-09-07
              */
             as_of: string;
-            /** @description Cash basis: net SUCCESS payments (reversals subtracted) dated day 1 to as_of, for any bill. Equals GET /reports/collections totals.net for the same range. */
+            /** @description Amount applied to bills: net SUCCESS payments (reversals subtracted) dated day 1 to as_of, for any bill (not physical cash: wallet spend counts). Equals GET /reports/collections totals.net for the same range. */
             received: number;
             /** @description Accrual basis: total minus discount of non-deleted bills whose period_start is in the whole month, paid or not. */
             billed_for_month: number;
@@ -12187,7 +12187,7 @@ export interface components {
              * @example 2026-09-07
              */
             as_of: string;
-            /** @description Cash basis: net SUCCESS payments (reversals subtracted) dated day 1 to as_of, for any bill. Equals GET /reports/collections totals.net for the same range. */
+            /** @description Amount applied to bills: net SUCCESS payments (reversals subtracted) dated day 1 to as_of, for any bill (not physical cash: wallet spend counts). Equals GET /reports/collections totals.net for the same range. */
             received: number;
             /** @description Accrual basis: total minus discount of non-deleted bills whose period_start is in the whole month, paid or not. */
             billed_for_month: number;

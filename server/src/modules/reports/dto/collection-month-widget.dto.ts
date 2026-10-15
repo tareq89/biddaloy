@@ -7,7 +7,7 @@ export class CollectionMonthFigures {
 
   @ApiProperty({
     description:
-      'Cash basis: net SUCCESS payments (reversals subtracted) dated day 1 to as_of, for any bill. Equals GET /reports/collections totals.net for the same range.',
+      'Amount applied to bills: net SUCCESS payments (reversals subtracted) dated day 1 to as_of, for any bill (not physical cash: wallet spend counts). Equals GET /reports/collections totals.net for the same range.',
   })
   received: number;
 
