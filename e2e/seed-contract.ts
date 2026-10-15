@@ -104,6 +104,15 @@ export const SEED_ASSISTANT_TEACHER_EMAIL = 'assistant-teacher@biddaloy.test';
  * `seed.dashboard.integration.spec.ts` asserts the two match. */
 export const SEED_DASHBOARD_EXAM_NAME = 'Half-yearly';
 
+/** [8.10.7.4.99] The names `ensureDashboardSeed` gives its Group C rows: the upcoming exam whose
+ * seat plan covers 2 of 3 sittings, and the homework `student@` / `parent@`'s children are
+ * assigned (due tomorrow). Duplicated from `DASHBOARD_GROUP_C` in `seed.dashboard.ts`;
+ * `seed.dashboard.integration.spec.ts` asserts the two match. */
+export const SEED_DASHBOARD_GROUP_C = {
+  upcomingExam: 'Dashboard demo: upcoming',
+  familyHomework: 'Dashboard demo: family homework',
+} as const;
+
 /** [13.1.4] A school mid-trial (23 days left, 4 of 10 seats used) that has not
  * finished onboarding, with its ADMIN and a TEACHER who was invited but never
  * set a password (no `password_hash`; log in via the invite token). Duplicated
