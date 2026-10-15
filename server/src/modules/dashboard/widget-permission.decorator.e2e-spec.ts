@@ -44,6 +44,8 @@ const ROLES = Object.values(UserRole);
 describe('@DashboardWidgetRoute (probe controller, real guard stack)', () => {
   let app: INestApplication;
   let token: string;
+  let dataSource: DataSource;
+  const inserted: UserRole[] = [];
   const base = '/api/v1/widget-probe/dashboard/widgets';
 
   const call = (path: string, role: UserRole) =>
@@ -62,14 +64,17 @@ describe('@DashboardWidgetRoute (probe controller, real guard stack)', () => {
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
 
-    // One login, one membership per role, switched with X-Role.
-    const dataSource = app.get(DataSource);
+    // One login, one membership per role, switched with X-Role. Remember what we insert so teardown
+    // removes only those rows (the seed admin keeps its own memberships for other specs).
+    dataSource = app.get(DataSource);
     for (const role of ROLES) {
-      await dataSource.query(
+      const rows: unknown[] = await dataSource.query(
         `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-         VALUES ('${SEED_ADMIN_USER_ID}', '${SEED_TENANT_ID}', '${role}', NOW(), NOW())
-         ON CONFLICT DO NOTHING`,
+         VALUES ($1, $2, $3, NOW(), NOW())
+         ON CONFLICT DO NOTHING RETURNING role`,
+        [SEED_ADMIN_USER_ID, SEED_TENANT_ID, role],
       );
+      if (rows.length) inserted.push(role);
     }
     const login = await supertest(app.getHttpServer())
       .post('/api/v1/auth/login')
@@ -79,6 +84,12 @@ describe('@DashboardWidgetRoute (probe controller, real guard stack)', () => {
   }, 60000);
 
   afterAll(async () => {
+    if (inserted.length) {
+      await dataSource.query(
+        `DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2 AND role = ANY($3)`,
+        [SEED_ADMIN_USER_ID, SEED_TENANT_ID, inserted],
+      );
+    }
     await app.close();
   });
 

@@ -143,7 +143,7 @@ export function LineChart({
         tabIndex={0}
         width={width}
         height={height}
-        className="block rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="block w-full rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         onKeyDown={onKey}
         onPointerMove={onPointer}
         onPointerDown={onPointer}
