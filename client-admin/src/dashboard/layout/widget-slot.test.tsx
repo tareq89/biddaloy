@@ -7,9 +7,11 @@ import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { retryableLazy } from '../widgets/registry';
+
 import { WidgetSlot } from './widget-slot';
 
 const OK = 'widget ok';
+const ROUTE_BOUNDARY = 'route boundary';
 let shouldThrow = true;
 function Bomb() {
   if (shouldThrow) throw new Error('boom');
@@ -64,5 +66,34 @@ describe('WidgetSlot', () => {
     );
     expect(await screen.findByText(OK)).toBeTruthy();
     expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it('passes TENANT_SUSPENDED up to the route boundary instead of showing a card error', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    function Suspended(): React.ReactNode {
+      throw Object.assign(new Error('This school has been suspended'), {
+        statusCode: 403,
+        details: { code: 'TENANT_SUSPENDED', reason: 'TRIAL_EXPIRED' },
+      });
+    }
+    class Outer extends React.Component<{ children: React.ReactNode }, { caught: boolean }> {
+      override state = { caught: false };
+      static getDerivedStateFromError() {
+        return { caught: true };
+      }
+      override render() {
+        return this.state.caught ? <p>{ROUTE_BOUNDARY}</p> : this.props.children;
+      }
+    }
+    renderWithProviders(
+      <Outer>
+        <WidgetSlot size="M">
+          <Suspended />
+        </WidgetSlot>
+      </Outer>,
+      { locale: 'en' },
+    );
+    expect(screen.getByText(ROUTE_BOUNDARY)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
   });
 });
