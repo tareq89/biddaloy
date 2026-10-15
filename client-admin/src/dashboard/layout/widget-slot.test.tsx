@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { retryableLazy } from '../widgets/registry';
 import { WidgetSlot } from './widget-slot';
 
 const OK = 'widget ok';
@@ -45,5 +46,23 @@ describe('WidgetSlot', () => {
       { locale: 'en' },
     );
     expect(container.querySelector('[data-slot="widget-skeleton"]')?.className).toContain('h-64');
+  });
+
+  // React.lazy caches a rejected import; a plain lazy would rethrow forever.
+  it('re-imports a widget whose chunk failed to load instead of rethrowing the cached error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const load = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('chunk 404'))
+      .mockResolvedValue({ default: () => <p>{OK}</p> });
+    const Widget = retryableLazy(load);
+    renderWithProviders(
+      <WidgetSlot size="M">
+        <Widget variant="full" size="M" />
+      </WidgetSlot>,
+      { locale: 'en' },
+    );
+    expect(await screen.findByText(OK)).toBeTruthy();
+    expect(load).toHaveBeenCalledTimes(2);
   });
 });
