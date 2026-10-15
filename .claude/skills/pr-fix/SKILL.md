@@ -215,6 +215,13 @@ Ask it for two things:
    failing — this change is likely to affect (e.g. shared helpers,
    callers of a changed function, fixtures touching the same table).
 
+Alongside it, run the `coderabbit-review` skill (CodeRabbit CLI, `--agent
+--base origin/<base>`) on the worktree and treat its findings the same way. If
+it can't review (rate-limited, no included reviews left, over the file limit,
+or `review_skipped`), note "CodeRabbit CLI: skipped (<reason>)" for the step 10
+summary and carry on. Don't wait, retry, narrow the scope to fit, or pass
+`--use-credits`.
+
 For anything it flags as an easy fix, fix it now, in this same pass. For
 anything non-trivial or uncertain, don't guess — list it for the
 pause-before-push summary (step 9) instead of silently editing.
