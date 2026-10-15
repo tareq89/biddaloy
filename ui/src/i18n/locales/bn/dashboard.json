@@ -105,8 +105,8 @@
     "at-risk-students": {
       "title": "ঝুঁকিপূর্ণ শিক্ষার্থী",
       "description": "যাদের ২টা বা বেশি সতর্ক সংকেত মিলেছে",
-      "value_one": "{{count}} জন",
-      "value_other": "{{count}} জন",
+      "value_one": "{{value}} জন",
+      "value_other": "{{value}} জন",
       "moreThanLastWeek": "গত সপ্তাহের চেয়ে {{diff}} জন বেশি। সবচেয়ে বেশি সংকেত যাদের, তারা উপরে।",
       "fewerThanLastWeek": "গত সপ্তাহের চেয়ে {{diff}} জন কম।",
       "colStudent": "শিক্ষার্থী",
@@ -160,17 +160,17 @@
     "sms-balance": {
       "title": "SMS ব্যালান্স",
       "description": "আর কতগুলো SMS পাঠানো যাবে",
-      "value_one": "{{count}}টা SMS বাকি",
-      "value_other": "{{count}}টা SMS বাকি",
-      "reserved": "পাঠানোর অপেক্ষায় {{count}}টা আটকে আছে",
+      "value_one": "{{value}}টা SMS বাকি",
+      "value_other": "{{value}}টা SMS বাকি",
+      "reserved": "পাঠানোর অপেক্ষায় {{value}}টা আটকে আছে",
       "notMetered": "এই স্কুলে SMS গোনা হয় না।",
       "link": "পাঠানো বার্তা দেখুন"
     },
     "failed-messages": {
       "title": "যে বার্তা যায়নি",
       "description": "গত ৭ দিনে যে SMS যায়নি",
-      "value_one": "{{count}}টা যায়নি",
-      "value_other": "{{count}}টা যায়নি",
+      "value_one": "{{value}}টা যায়নি",
+      "value_other": "{{value}}টা যায়নি",
       "sentence": "গত ৭ দিনে যে SMS পাঠানো যায়নি।",
       "none": "গত ৭ দিনে সব SMS গেছে।",
       "link": "কোনগুলো দেখুন"
