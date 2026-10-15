@@ -49,6 +49,7 @@ import { NotificationPrefsDto, UpdateNotificationPrefsDto } from './dto/notifica
 import { JoinRequestDto, JoinRequestResponseDto } from './dto/join-request.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { DashboardLayoutDto } from './dto/dashboard-layout.dto';
+import { DigestPreferenceDto } from './dto/digest-preference.dto';
 import {
   InviteBatchStatusResponseDto,
   InviteDispatchResponseDto,
@@ -390,6 +391,22 @@ export class UserController {
     @CurrentUser() jwt: JwtPayload,
   ) {
     return this.userService.updateDashboardLayout(jwt.sub, tenant.role as UserRole, dto);
+  }
+
+  /**
+   * [8.10.7.5.11] Turns the caller's own morning summary push on or off.
+   * Id from the JWT, never the path or body. `users` is global, so it applies
+   * in every school. PARENT/STUDENT lack DASHBOARD_VIEW, so no digest.
+   */
+  @Patch('users/me/preferences/digest')
+  @Throttle({ default: SETTINGS_RATE_LIMIT })
+  @RequirePermissions(Permission.DASHBOARD_VIEW)
+  @ApiOperation({
+    summary: "Turn the caller's morning summary push on or off (D31). Applies in every school.",
+  })
+  @ApiOkResponse({ type: DigestPreferenceDto })
+  updateDigestPreference(@Body() dto: DigestPreferenceDto, @CurrentUser() jwt: JwtPayload) {
+    return this.userService.updateDigestPreference(jwt.sub, dto.enabled);
   }
 
   /**

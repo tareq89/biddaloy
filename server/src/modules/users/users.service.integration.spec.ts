@@ -1,3 +1,4 @@
+import { digestEnabled } from './dto/digest-preference.dto';
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import {
   NotFoundException,
@@ -1927,6 +1928,79 @@ describe('UserService (integration)', () => {
         service.updateDashboardLayout(user.id, UserRole.ADMIN, { widgets }),
       ).rejects.toThrow(/too large/i);
       expect(await readPrefs(user.id)).toEqual({ theme: 'dark' });
+    });
+  });
+
+  // ────────────────────────
+  //  updateDigestPreference() [8.10.7.5.11]
+  // ────────────────────────
+  describe('updateDigestPreference', () => {
+    const setPrefs = (id: string, prefs: unknown) =>
+      dataSource.query(`UPDATE users SET preferences = $2::jsonb WHERE id = $1`, [
+        id,
+        prefs === null ? null : JSON.stringify(prefs),
+      ]);
+    const readPrefs = async (id: string) =>
+      (await dataSource.query(`SELECT preferences FROM users WHERE id = $1`, [id]))[0].preferences;
+    const mkUser = async (name: string) =>
+      (await service.create({ full_name: name, role: UserRole.TEACHER }, TENANT_ID)).user;
+
+    it('saves into NULL preferences', async () => {
+      const user = await mkUser('Digest One');
+      await setPrefs(user.id, null);
+
+      expect(await service.updateDigestPreference(user.id, false)).toEqual({ enabled: false });
+      expect(await readPrefs(user.id)).toEqual({ digest: { enabled: false } });
+    });
+
+    it('keeps other keys untouched', async () => {
+      const user = await mkUser('Digest Two');
+      const before = {
+        dashboard: { TEACHER: { widgets: [{ key: 'my-routine-today' }] } },
+        theme: 'dark',
+      };
+      await setPrefs(user.id, before);
+
+      await service.updateDigestPreference(user.id, false);
+
+      expect(await readPrefs(user.id)).toEqual({ ...before, digest: { enabled: false } });
+    });
+
+    it('a second save flips it back to true', async () => {
+      const user = await mkUser('Digest Three');
+      await service.updateDigestPreference(user.id, false);
+      await service.updateDigestPreference(user.id, true);
+
+      expect((await readPrefs(user.id)).digest).toEqual({ enabled: true });
+    });
+
+    it('repairs a non-object preferences value instead of failing', async () => {
+      const user = await mkUser('Digest Four');
+      await setPrefs(user.id, ['stale']);
+
+      await service.updateDigestPreference(user.id, false);
+
+      expect(await readPrefs(user.id)).toEqual({ digest: { enabled: false } });
+    });
+
+    it('only touches the given user', async () => {
+      const a = await mkUser('Digest Five A');
+      const b = await mkUser('Digest Five B');
+      await setPrefs(b.id, { theme: 'dark' });
+
+      await service.updateDigestPreference(a.id, false);
+
+      expect(await readPrefs(b.id)).toEqual({ theme: 'dark' });
+    });
+  });
+
+  describe('digestEnabled', () => {
+    it('is on unless switched off', () => {
+      expect(digestEnabled(null)).toBe(true);
+      expect(digestEnabled({})).toBe(true);
+      expect(digestEnabled({ digest: {} })).toBe(true);
+      expect(digestEnabled({ digest: { enabled: true } })).toBe(true);
+      expect(digestEnabled({ digest: { enabled: false } })).toBe(false);
     });
   });
 });
