@@ -246,6 +246,53 @@ export class FeeGenerationsService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
+  /**
+   * [8.10.7.3.08] Dashboard "were this month's fees generated?" for the
+   * school month containing `today` (`YYYY-MM-DD`, the tenant's day). Reads
+   * the batches through `findAll` so it cannot disagree with
+   * `GET /fees/generations`; `findAll` exposes no per-batch bill count, so
+   * the count is taken over exactly those (tenant-checked) batch ids.
+   */
+  async currentPeriodStatus(tenantId: string, today: string) {
+    const period = today.slice(0, 7);
+    const [y, m] = period.split('-').map(Number);
+    const period_from = `${period}-01`;
+    const period_to = `${period}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;
+
+    // ponytail: pages of 100 batches; a school never has that many in a month, the loop is for exactness.
+    const batches: FeeGenerationListItemDto[] = [];
+    for (let page = 1; ; page++) {
+      const r = await this.findAll({ period_from, period_to, page, limit: 100 }, tenantId);
+      batches.push(...r.data);
+      if (page >= r.totalPages) break;
+    }
+
+    let bill_count = 0;
+    if (batches.length > 0) {
+      const row = await this.repo.manager
+        .createQueryBuilder()
+        .select('COUNT(*)', 'n')
+        .from('student_fees', 'sf')
+        .where('sf.fee_generation_id IN (:...ids)', { ids: batches.map((b) => b.id) })
+        .andWhere('sf.deleted_at IS NULL')
+        .getRawOne<{ n: string }>();
+      bill_count = Number(row?.n ?? 0);
+    }
+
+    const oldest = batches.reduce<Date | null>((min, b) => {
+      const at = new Date(b.created_at);
+      return min === null || at < min ? at : min;
+    }, null);
+
+    return {
+      period,
+      generated: batches.length > 0,
+      first_generated_at: oldest ? oldest.toISOString() : null,
+      bill_count,
+      batch_count: batches.length,
+    };
+  }
+
   async findOne(id: string, tenantId: string): Promise<FeeGeneration> {
     const batch = await this.repo.findOne({
       where: { id, tenant_id: tenantId },
