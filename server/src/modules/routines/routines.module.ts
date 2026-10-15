@@ -38,6 +38,9 @@ import { Subject } from '../academics/entities/subject.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { StudentModule } from '../students/students.module';
 import { Enrollment } from '../students/entities/enrollment.entity';
+import { DashboardModule } from '../dashboard/dashboard.module';
+import { RoutinesDashboardService } from './routines-dashboard.service';
+import { RoutinesDashboardController } from './routines-dashboard.controller';
 
 /**
  * [21.2.1] registers the eight class-routine/timetable tables with
@@ -86,6 +89,8 @@ import { Enrollment } from '../students/entities/enrollment.entity';
     // [8.10.7.0-s2] `ResolveRoutineController` linkage-checks PARENT/STUDENT callers with
     // `FamilyAccessService`. StudentModule imports only entities + AuditModule, so no cycle.
     StudentModule,
+    // [8.10.7.3.01] `DashboardCacheService` for the My-routine-today widget.
+    DashboardModule,
   ],
   providers: [
     ShiftsService,
@@ -101,6 +106,7 @@ import { Enrollment } from '../students/entities/enrollment.entity';
     CopyRoutineService,
     WorkloadService,
     TeacherBusyService,
+    RoutinesDashboardService,
   ],
   controllers: [
     ShiftsController,
@@ -113,6 +119,7 @@ import { Enrollment } from '../students/entities/enrollment.entity';
     // `:id/change-requests`) — otherwise `:id` matches those literals
     // first and `ParseUUIDPipe` rejects them with a 400.
     ResolveRoutineController,
+    RoutinesDashboardController,
     SubstitutionsController,
     ChangeRequestsController,
     RoutineSlotsController,
