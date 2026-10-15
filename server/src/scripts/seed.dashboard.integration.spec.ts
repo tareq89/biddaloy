@@ -4,11 +4,21 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { localToday } from '../modules/attendance/attendance-policy.util';
-import { DASHBOARD_OVERDUE_FEE_NAME, ensureDashboardSeed } from './seed.dashboard';
+import { SEED_DASHBOARD_EXAM_NAME } from '../../../e2e/seed-contract';
+import {
+  DASHBOARD_DUES_FEE_NAME,
+  DASHBOARD_EXAM_NAME,
+  DASHBOARD_OVERDUE_FEE_NAME,
+  ensureDashboardSeed,
+} from './seed.dashboard';
 
 describe('ensureDashboardSeed (integration)', () => {
   let ds: DataSource;
   let tenantId: string;
+  let teacherEmail: string;
+  let teacherUserId: string;
+  let teacherId: string;
+  let sectionBId: string;
   const q = (sql: string, params: unknown[] = []) => ds.query(sql, params);
 
   beforeAll(async () => {
@@ -67,7 +77,54 @@ describe('ensureDashboardSeed (integration)', () => {
         [userId, tenantId, `SP-${n}`],
       );
     }
+
+    // The wave-3 teacher: class teacher of A, maths teacher of B, with a published routine to join.
+    teacherEmail = `dash-teacher-${tenantId.slice(0, 8)}@example.test`;
+    [{ id: teacherUserId }] = await q(
+      `INSERT INTO users (email, password_hash, full_name, status) VALUES ($1, 'x', 'Dash Teacher', 'ACTIVE') RETURNING id`,
+      [teacherEmail],
+    );
+    const [{ id: teacherProfileId }] = await q(
+      `INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW()) RETURNING id`,
+      [teacherUserId, tenantId, `SP-T-${tenantId.slice(0, 8)}`],
+    );
+    [{ id: teacherId }] = await q(
+      `INSERT INTO teachers (user_id, staff_profile_id, employee_id, designations, tenant_id)
+       VALUES ($1, $2, $3, '{}', $4) RETURNING id`,
+      [teacherUserId, teacherProfileId, `T-${tenantId.slice(0, 8)}`, tenantId],
+    );
+    const [a, b] = await q(
+      `SELECT id FROM class_sections WHERE tenant_id = $1 ORDER BY section_name LIMIT 2`,
+      [tenantId],
+    );
+    sectionBId = b.id;
+    await q(
+      `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id, subject_id, assignment_type)
+       VALUES ($1, $2, $4, NULL, 'CLASS_TEACHER'), ($1, $3, $4, $5, 'SUBJECT_TEACHER')`,
+      [teacherId, a.id, b.id, tenantId, subjectId],
+    );
+    const [{ id: shiftId }] = await q(
+      `INSERT INTO shifts (tenant_id, name, day_starts_at, day_ends_at, sequence)
+       VALUES ($1, 'Morning', '08:00', '13:00', 1) RETURNING id`,
+      [tenantId],
+    );
+    await q(`UPDATE classes SET shift_id = $1 WHERE tenant_id = $2`, [shiftId, tenantId]);
+    for (let n = 1; n <= 3; n += 1) {
+      await q(
+        `INSERT INTO period_slots (tenant_id, shift_id, sequence, kind, starts_at, ends_at)
+         VALUES ($1, $2, $3, 'CLASS', $4, $5)`,
+        [tenantId, shiftId, n, `0${7 + n}:00`, `0${7 + n}:45`],
+      );
+    }
+    await q(
+      `INSERT INTO routines (tenant_id, academic_year_id, name, state, published_at)
+       VALUES ($1, $2, 'Main routine', 'PUBLISHED', NOW())`,
+      [tenantId, yearId],
+    );
   });
+
+  const seed = (today?: string) => ensureDashboardSeed(ds, tenantId, teacherEmail, today);
 
   const count = async (table: string, extra = '') =>
     (
@@ -82,6 +139,17 @@ describe('ensureDashboardSeed (integration)', () => {
     grids: await count('mark_grids'),
     topics: await count('syllabus_topics'),
     payments: await count('payments'),
+    marks: await count('marks'),
+    slots: await count('routine_slots'),
+    slotTeachers: await count('routine_slot_teachers'),
+    homework: await count('homework'),
+    assignments: await count('homework_assignments'),
+    submissions: await count('homework_submissions'),
+    generations: await count('fee_generations'),
+    schedules: await count('recurring_schedules'),
+    audit: await count('audit_logs'),
+    policies: await count('leave_policies'),
+    rooms: await count('rooms'),
     failed: await count('communication_logs', `AND status = 'FAILED'`),
     fees: (
       await q(
@@ -91,43 +159,48 @@ describe('ensureDashboardSeed (integration)', () => {
     )[0].n as number,
   });
 
+  it('keeps the e2e seed contract in step with the exam name', () => {
+    expect(SEED_DASHBOARD_EXAM_NAME).toBe(DASHBOARD_EXAM_NAME);
+  });
+
   it('is idempotent: a second run adds no rows', async () => {
-    await ensureDashboardSeed(ds, tenantId);
+    await seed();
     const first = await snapshot();
-    await ensureDashboardSeed(ds, tenantId);
+    await seed();
     expect(await snapshot()).toEqual(first);
   });
 
-  it('a rerun in a later month moves the overdue bills instead of adding more', async () => {
+  it('a rerun in a later month moves the overdue and dues bills instead of adding more', async () => {
     const overdue = async () =>
       (
         await q(
           `SELECT count(*)::int AS n FROM student_fees sf
              JOIN fee_structures fs ON fs.id = sf.fee_structure_id
-            WHERE fs.tenant_id = $1 AND fs.name = $2`,
-          [tenantId, DASHBOARD_OVERDUE_FEE_NAME],
+            WHERE fs.tenant_id = $1 AND fs.name = ANY($2)`,
+          [tenantId, [DASHBOARD_OVERDUE_FEE_NAME, DASHBOARD_DUES_FEE_NAME]],
         )
       )[0].n as number;
     const today = localToday('Asia/Dhaka');
-    await ensureDashboardSeed(ds, tenantId, today);
+    await seed(today);
     const before = await overdue();
     expect(before).toBeGreaterThan(0);
     const later = new Date(`${today}T00:00:00Z`);
     later.setUTCDate(later.getUTCDate() + 40);
-    await ensureDashboardSeed(ds, tenantId, later.toISOString().slice(0, 10));
+    await seed(later.toISOString().slice(0, 10));
     expect(await overdue()).toBe(before);
   });
 
   it('feeds every widget: 2 pending registers today, one absent staff, 3 recent failures', async () => {
     const today = localToday('Asia/Dhaka');
-    await ensureDashboardSeed(ds, tenantId, today);
+    await seed(today);
 
     // 3 sections, 2 left open today (the third stays finalised).
     expect(await count('attendance_sessions', `AND date = '${today}'`)).toBe(
       weekdayIsOff(today) ? 0 : 1,
     );
     expect(await count('staff_attendance_records', `AND status = 'ABSENT'`)).toBe(1);
-    expect(await count('leave_records', `AND status = 'APPROVED'`)).toBe(1);
+    // The day-off demo (staff 2) and the teacher's own approved day.
+    expect(await count('leave_records', `AND status = 'APPROVED'`)).toBe(2);
     expect(await count('leave_records', `AND status = 'PENDING'`)).toBe(1);
     expect(
       await count(
@@ -158,6 +231,90 @@ describe('ensureDashboardSeed (integration)', () => {
       [tenantId],
     );
     expect(absentRuns.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('feeds the teacher widgets: routine, homework to check, a half-entered DRAFT grid, leave', async () => {
+    await seed();
+    const today = localToday('Asia/Dhaka');
+
+    // Class slots on today's weekday (none on the Friday off day, which carries no slots).
+    const [{ n: slotsToday }] = await q(
+      `SELECT count(*)::int AS n FROM routine_slots rs
+         JOIN routine_slot_teachers rst ON rst.routine_slot_id = rs.id AND rst.teacher_id = $1
+        WHERE rs.weekday = EXTRACT(DOW FROM $2::date)`,
+      [teacherId, today],
+    );
+    if (weekdayIsOff(today)) expect(slotsToday).toBe(0);
+    else expect(slotsToday).toBeGreaterThanOrEqual(1);
+
+    // Homework: submissions waiting in the teacher's own sections.
+    const [{ n: submitted }] = await q(
+      `SELECT count(*)::int AS n FROM homework_submissions WHERE tenant_id = $1 AND status = 'SUBMITTED'`,
+      [tenantId],
+    );
+    expect(submitted).toBeGreaterThanOrEqual(1);
+
+    // Marks: the teacher's grid is still DRAFT and fewer students are marked than on the roster.
+    const [grid] = await q(
+      `SELECT state FROM mark_grids WHERE tenant_id = $1 AND section_id = $2`,
+      [tenantId, sectionBId],
+    );
+    expect(grid.state).toBe('DRAFT');
+    const [{ marked }] = await q(
+      `SELECT count(DISTINCT student_id)::int AS marked FROM marks WHERE tenant_id = $1`,
+      [tenantId],
+    );
+    expect(marked).toBeGreaterThanOrEqual(1);
+    expect(marked).toBeLessThan(3);
+
+    // Leave: policies exist and the teacher has one approved day this year.
+    expect(await count('leave_policies')).toBe(5);
+    const [leave] = await q(
+      `SELECT lr.start_date::text AS d FROM leave_records lr
+         JOIN staff_profiles sp ON sp.id = lr.staff_profile_id
+        WHERE sp.user_id = $1 AND lr.status = 'APPROVED'`,
+      [teacherUserId],
+    );
+    expect(leave.d.slice(0, 4)).toBe(today.slice(0, 4));
+  });
+
+  it('feeds the accountant widgets: three method groups today, a reversal, bills in all ageing buckets', async () => {
+    await seed();
+    const today = localToday('Asia/Dhaka');
+
+    const methods = await q(
+      `SELECT DISTINCT payment_method::text AS m FROM payments
+        WHERE tenant_id = $1 AND idempotency_key LIKE 'seed:dashboard:w3:%'
+          AND payment_date <= NOW() AND payment_date >= NOW() - interval '1 day'
+          AND reversal_of_payment_id IS NULL`,
+      [tenantId],
+    );
+    expect(methods.map((r: { m: string }) => r.m).sort()).toEqual(['BKASH', 'CARD', 'CASH']);
+    expect(await count('payments', `AND reversal_of_payment_id IS NOT NULL`)).toBe(1);
+
+    // Open bills 10 / 45 / 90 days past due: one in each of 0-30, 31-60 and 60+.
+    const buckets = await q(
+      `SELECT (CASE WHEN age <= 30 THEN '0_30' WHEN age <= 60 THEN '31_60' ELSE '60_PLUS' END) AS bucket
+         FROM (SELECT ($2::date - sf.due_date) AS age FROM student_fees sf
+                 JOIN students s ON s.id = sf.student_id
+                 JOIN fee_structures fs ON fs.id = sf.fee_structure_id
+                WHERE s.tenant_id = $1 AND fs.name = $3 AND sf.status = 'PENDING') x`,
+      [tenantId, today, DASHBOARD_DUES_FEE_NAME],
+    );
+    expect(buckets.map((r: { bucket: string }) => r.bucket).sort()).toEqual([
+      '0_30',
+      '31_60',
+      '60_PLUS',
+    ]);
+    // The two older ones are flagged for a reminder.
+    const [{ n: flagged }] = await q(
+      `SELECT count(*)::int AS n FROM student_fees sf JOIN students s ON s.id = sf.student_id
+        WHERE s.tenant_id = $1 AND sf.reminder_threshold_date < $2::date`,
+      [tenantId, today],
+    );
+    expect(flagged).toBe(2);
+    expect(await count('fee_generations')).toBe(1);
+    expect(await count('recurring_schedules', `AND is_active`)).toBe(1);
   });
 });
 
