@@ -32,6 +32,7 @@ import {
 } from './communications.constants';
 import { FeeNotifyProcessor } from './fee-notify.processor';
 import { CreditsModule } from './credits/credits.module';
+import { CreditsController } from './credits/credits.controller';
 import { FeeNotificationsListener } from './fee-notifications.listener';
 import { InvoiceNotificationsListener } from './invoice-notifications.listener';
 import { InvoicesModule } from '../invoices/invoices.module';
@@ -105,7 +106,12 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     FeeNotifyProcessor,
     CommunicationsDashboardService,
   ],
+  // `CreditsController` ('communications/sms-credits') is declared HERE, first: Nest
+  // matches routes in registration order and `CommunicationsController` has
+  // `@Get(':id')`, which swallows the literal path (400 'uuid is expected') if it is
+  // registered from another module. `SmsCreditService` comes from `CreditsModule`.
   controllers: [
+    CreditsController,
     CommunicationsController,
     ProviderConnectionTestController,
     CommunicationsDashboardController,
