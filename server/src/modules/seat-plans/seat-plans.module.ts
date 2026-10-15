@@ -11,6 +11,10 @@ import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { RoutinesModule } from '../routines/routines.module';
 import { SeatPlansService } from './seat-plans.service';
 import { SeatPlansController } from './seat-plans.controller';
+import { SeatPlansDashboardController } from './seat-plans-dashboard.controller';
+import { SeatPlansDashboardService } from './seat-plans-dashboard.service';
+import { DashboardModule } from '../dashboard/dashboard.module';
+import { SchoolsModule } from '../schools/schools.module';
 
 /**
  * [25.4] Generate/list/edit/reshuffle/invigilator/publish surface for seat
@@ -20,6 +24,8 @@ import { SeatPlansController } from './seat-plans.controller';
   imports: [
     // TEN-07: `TeacherBusyService` for the invigilator clash check.
     RoutinesModule,
+    DashboardModule,
+    SchoolsModule,
     TypeOrmModule.forFeature([
       SeatPlan,
       SeatPlanSchedule,
@@ -31,7 +37,7 @@ import { SeatPlansController } from './seat-plans.controller';
       UserTenant,
     ]),
   ],
-  controllers: [SeatPlansController],
-  providers: [SeatPlansService],
+  controllers: [SeatPlansController, SeatPlansDashboardController],
+  providers: [SeatPlansService, SeatPlansDashboardService],
 })
 export class SeatPlansModule {}
