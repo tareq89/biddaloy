@@ -107,7 +107,13 @@ export function DashboardSection({ schoolId, dashboard }: DashboardSectionProps)
         <FormItem>
           <FormLabel htmlFor={`dashboard-${name}`}>{label}</FormLabel>
           <FormControl>
-            <Input id={`dashboard-${name}`} inputMode="numeric" {...field} />
+            <Input
+              id={`dashboard-${name}`}
+              inputMode="numeric"
+              {...field}
+              // A pending save resets the form to what it sent; no edits meanwhile.
+              disabled={updateSettings.isPending}
+            />
           </FormControl>
           {hint && <FormDescription>{hint}</FormDescription>}
           {form.formState.errors[name] && (
@@ -167,6 +173,7 @@ export function DashboardSection({ schoolId, dashboard }: DashboardSectionProps)
                     aria-label={t('dashboard.digestTime')}
                     value={field.value}
                     onValueChange={field.onChange}
+                    disabled={updateSettings.isPending}
                   />
                   <FormDescription>{t('dashboard.digestHint')}</FormDescription>
                   <FormMessage />
