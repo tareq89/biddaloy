@@ -21,6 +21,7 @@ const USERS = Number(process.env.LOAD_USERS ?? 50);
 const DURATION_S = Number(process.env.LOAD_DURATION_S ?? 60);
 const COLD_REPEATS = Number(process.env.LOAD_COLD_REPEATS ?? 30);
 const PHASES = (process.env.LOAD_PHASES ?? 'cold,load').split(',');
+const CLEAR_NIGHTLY = process.env.LOAD_CLEAR_NIGHTLY === 'yes';
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
 
 /** Share of the 50 users per role (D21 mix). Scaled to LOAD_USERS, at least 1 per role. */
@@ -98,7 +99,11 @@ async function endpointsFor(s: Session): Promise<string[]> {
 async function clearDashCache(redis: Redis, tenantId: string): Promise<void> {
   // SCAN + DEL of this tenant's dashboard keys only. Never FLUSHALL: Redis may be shared.
   const stream = redis.scanStream({ match: `tenant:${tenantId}:dash:*`, count: 200 });
-  for await (const keys of stream as AsyncIterable<string[]>) {
+  for await (const batch of stream as AsyncIterable<string[]>) {
+    // The nightly job (attendance-series.scheduler) writes the `:series:` and `:daily:` keys; in
+    // production a request finds them already there. Keep them so the cold phase measures that
+    // path. LOAD_CLEAR_NIGHTLY=yes drops them too (the first request after a missed night).
+    const keys = CLEAR_NIGHTLY ? batch : batch.filter((k) => !/:(series|daily):/.test(k));
     if (keys.length) await redis.del(...keys);
   }
 }
