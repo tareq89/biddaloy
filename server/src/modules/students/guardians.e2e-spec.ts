@@ -202,6 +202,56 @@ describe('Guardians E2E', () => {
       expect(guardian.students).toHaveLength(1);
       expect(guardian.students[0].id).toBe(studentRes.body.id);
     });
+
+    // [8.10.7.4.13] `?incomplete=` is the list behind the "guardians incomplete" card.
+    describe('?incomplete filter', () => {
+      const TOKEN = 'IncFilterZq';
+      const list = (qs: string) =>
+        supertest(app.getHttpServer())
+          .get(`/api/v1/guardians?search=${TOKEN}${qs}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .expect(200);
+
+      // Rows are wiped between tests, so seed per test.
+      beforeEach(async () => {
+        const rows: Array<[string, string, string | null, string | null, Date | null]> = [
+          [`${TOKEN} Complete`, 'Father', '01711000001', null, null],
+          [`${TOKEN} NoPhones`, 'Mother', null, null, null],
+          [`${TOKEN} BlankRelation`, ' ', '01711000002', null, null],
+          [`${TOKEN} DeletedIncomplete`, ' ', null, null, new Date()],
+        ];
+        for (const [name, rel, phone, alt, deleted] of rows) {
+          await dataSource.query(
+            `INSERT INTO guardians (full_name, relationship, phone, alternate_phone, tenant_id, deleted_at)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [name, rel, phone, alt, TENANT_ID, deleted],
+          );
+        }
+      });
+
+      it('?incomplete=true returns only incomplete rows (soft-deleted excluded), total matches', async () => {
+        const res = await list('&incomplete=true');
+        const names = res.body.data.map((g: any) => g.full_name).sort();
+        expect(names).toEqual([`${TOKEN} BlankRelation`, `${TOKEN} NoPhones`]);
+        expect(res.body.total).toBe(2);
+      });
+
+      it('?incomplete=false and no param return every live guardian', async () => {
+        for (const qs of ['&incomplete=false', '']) {
+          const res = await list(qs);
+          expect(res.body.total).toBe(3);
+        }
+      });
+
+      it('rejects a non-boolean value', async () => {
+        await supertest(app.getHttpServer())
+          .get('/api/v1/guardians?incomplete=maybe')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .expect(400);
+      });
+    });
   });
 
   describe('GET /guardians/:id', () => {
@@ -764,6 +814,19 @@ describe('Guardians E2E', () => {
       expect(ids).toEqual(expect.arrayContaining([mine, both]));
       expect(ids).not.toContain(other);
       expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    // [8.10.7.4.13] The incomplete filter narrows; it must never widen the teacher's scope.
+    it('TEACHER GET /guardians?incomplete=true stays inside own sections', async () => {
+      const mineStudent = await insertStudent('Scope Mine', SEED_SECTION_1_ID);
+      const otherStudent = await insertStudent('Scope Other', SEED_SECTION_2_ID);
+      // insertGuardian leaves both phones NULL, so both are incomplete.
+      const mine = await insertGuardian('Scope Inc Mine', [mineStudent]);
+      const other = await insertGuardian('Scope Inc Other', [otherStudent]);
+      const res = await asTeacher(get('/guardians?limit=100&incomplete=true')).expect(200);
+      const ids = res.body.data.map((g: { id: string }) => g.id);
+      expect(ids).toContain(mine);
+      expect(ids).not.toContain(other);
     });
 
     it('TEACHER GET /guardians/:id of an other-section-only guardian -> 404', async () => {

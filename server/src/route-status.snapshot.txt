@@ -201,6 +201,7 @@ GET    /api/v1/dashboard/widgets/dues-ageing                                    
 GET    /api/v1/dashboard/widgets/dues-by-class                                   401 403 403 PASS PASS 403 403 403 PASS 403 403 403
 GET    /api/v1/dashboard/widgets/failed-messages                                 401 403 403 PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/fee-generation-status                           401 403 403 PASS PASS 403 403 403 403 403 403 403
+GET    /api/v1/dashboard/widgets/guardians-incomplete                            401 403 403 PASS 403 403 403 403 403 PASS 403 403
 GET    /api/v1/dashboard/widgets/homework-submission-rate                        401 403 403 PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/homework-to-check                               401 403 403 403 403 PASS 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/mark-entry-progress                             401 403 403 PASS 403 403 403 403 PASS 403 PASS 403
@@ -214,6 +215,7 @@ GET    /api/v1/dashboard/widgets/recent-payments                                
 GET    /api/v1/dashboard/widgets/reminders-pending                               401 403 403 PASS PASS 403 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/sms-balance                                     401 403 403 PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/dashboard/widgets/staff-today                                     401 403 403 PASS 403 403 403 403 PASS PASS 403 403
+GET    /api/v1/dashboard/widgets/students-added-today                            401 403 403 PASS 403 403 403 403 403 PASS 403 403
 GET    /api/v1/dashboard/widgets/syllabus-progress                               401 403 403 PASS 403 403 403 403 PASS 403 403 403
 GET    /api/v1/demo/roles                                                        PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 GET    /api/v1/designations                                                      401 PASS PASS PASS 403 403 403 403 403 403 403 403

@@ -814,6 +814,15 @@ function assertContactNotOwnedByLogin(
   }
 }
 
+/**
+ * [8.10.7.4.13] D33: a guardian is incomplete when the name or relationship is blank, or both
+ * phones are. One predicate for the dashboard card and `GET /guardians?incomplete=true`, so the
+ * card's number always equals the list total. Alias must be `guardian`.
+ */
+export const INCOMPLETE_GUARDIAN_SQL = `(btrim(coalesce(guardian.full_name, '')) = ''
+ OR btrim(coalesce(guardian.relationship, '')) = ''
+ OR (btrim(coalesce(guardian.phone, '')) = '' AND btrim(coalesce(guardian.alternate_phone, '')) = ''))`;
+
 @Injectable()
 export class GuardianService {
   constructor(
@@ -960,6 +969,7 @@ export class GuardianService {
           isPrimaryContact: query.is_primary_contact,
         });
       }
+      if (query.incomplete === true) qb.andWhere(INCOMPLETE_GUARDIAN_SQL);
 
       return qb;
     };
