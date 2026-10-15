@@ -62,15 +62,19 @@ export function DashboardGrid({ visible, components = WIDGET_COMPONENTS }: Dashb
           <section aria-label={t('page.keyNumbers')} className="grid grid-cols-2 gap-3">
             {tiles.map((item) =>
               tileOnly(item) ? (
-                <button
-                  key={item.key}
-                  type="button"
-                  aria-expanded={openKey === item.key}
-                  onClick={() => setOpenKey(openKey === item.key ? null : item.key)}
-                  className="min-h-11 rounded-lg text-left focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {render(item, 'tile')}
-                </button>
+                <div key={item.key} className="group relative min-h-11">
+                  <div id={`tile-${item.key}`}>{render(item, 'tile')}</div>
+                  {/* Sibling, not wrapper: a tile that falls back to an interactive
+                      card (loading/empty/error) must not sit inside a button. */}
+                  <button
+                    type="button"
+                    data-tile-toggle
+                    aria-expanded={openKey === item.key}
+                    aria-labelledby={`tile-${item.key}`}
+                    onClick={() => setOpenKey(openKey === item.key ? null : item.key)}
+                    className="absolute inset-0 rounded-lg focus-visible:ring-2 focus-visible:ring-ring group-has-[a,button:not([data-tile-toggle])]:hidden"
+                  />
+                </div>
               ) : (
                 <div key={item.key}>{render(item, 'tile')}</div>
               ),
