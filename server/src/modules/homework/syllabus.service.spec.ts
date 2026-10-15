@@ -5,6 +5,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { SyllabusService } from './syllabus.service';
 import { StudyPlan } from '../study-plans/entities/study-plan.entity';
 import { PlanScheduleService } from '../study-plans/plan-schedule.service';
+import { StudyPlanDashboardService } from '../study-plans/study-plan-dashboard.service';
+import { SchoolsService } from '../schools/schools.service';
 import { SyllabusTopic } from './entities/syllabus-topic.entity';
 import { Class } from '../academics/entities/class.entity';
 import { Subject } from '../academics/entities/subject.entity';
@@ -80,6 +82,11 @@ async function buildService(existing: SyllabusTopic[] = []) {
       { provide: getRepositoryToken(Subject), useValue: subjectRepo },
       { provide: getRepositoryToken(StudyPlan), useValue: {} },
       { provide: PlanScheduleService, useValue: {} },
+      { provide: StudyPlanDashboardService, useValue: { expectedByClass: async () => new Map() } },
+      {
+        provide: SchoolsService,
+        useValue: { getResolvedSettings: async () => ({ region: { timezone: 'UTC' } }) },
+      },
       { provide: AuditService, useValue: auditService },
       { provide: TeacherScopeService, useValue: { teachesSubjectInClass: vi.fn() } },
     ],

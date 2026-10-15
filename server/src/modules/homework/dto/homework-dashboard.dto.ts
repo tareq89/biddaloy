@@ -7,6 +7,13 @@ export class SyllabusClassProgressDto {
   @ApiProperty({ description: 'Topics with status IN_PROGRESS' }) in_progress!: number;
   @ApiProperty({ description: 'All topics of the class' }) total!: number;
   @ApiProperty({ description: 'round(done / total * 100)', example: 41 }) percentage!: number;
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Share of lessons the study plan expects taught by today; null without a plan',
+    example: 60,
+  })
+  expected_percentage!: number | null;
 }
 
 export class SyllabusOverallProgressDto {
@@ -18,6 +25,26 @@ export class SyllabusOverallProgressDto {
 export class SyllabusProgressWidgetDto {
   @ApiProperty({ type: [SyllabusClassProgressDto] }) classes!: SyllabusClassProgressDto[];
   @ApiProperty({ type: SyllabusOverallProgressDto }) overall!: SyllabusOverallProgressDto;
+  @ApiProperty({ description: 'Classes whose taught share is under the plan expectation' })
+  behind_count!: number;
+}
+
+export class SyllabusVsPlanClassDto {
+  @ApiProperty({ format: 'uuid' }) class_id!: string;
+  @ApiProperty({ example: '8' }) class_name!: string;
+  @ApiProperty({ example: 41 }) done_percentage!: number;
+  @ApiProperty({ example: 60 }) expected_percentage!: number;
+  @ApiProperty({ description: 'expected - done when positive, else 0', example: 19 })
+  behind_by!: number;
+  @ApiProperty({ description: 'Past routine periods with no lesson report' })
+  not_updated!: number;
+}
+
+export class SyllabusVsPlanDto {
+  @ApiProperty({ example: '2026-10-07', description: 'School-local date' }) as_of!: string;
+  @ApiProperty() behind_count!: number;
+  @ApiProperty() not_updated_count!: number;
+  @ApiProperty({ type: [SyllabusVsPlanClassDto] }) classes!: SyllabusVsPlanClassDto[];
 }
 
 /** [8.10.7.3.04] One assignment with submissions waiting for the teacher. */

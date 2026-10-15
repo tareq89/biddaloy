@@ -17,9 +17,10 @@ import {
   HomeworkToCheckDto,
   MySyllabusProgressDto,
   SyllabusProgressWidgetDto,
+  SyllabusVsPlanDto,
 } from './dto/homework-dashboard.dto';
 
-/** [8.10.7.2.05] "Syllabus progress" widget. Done % only; the expected-by-today marker waits for #1828. */
+/** [8.10.7.2.05] "Syllabus progress" widget. Done % plus the study plan's expected-by-today (null without a plan). */
 @ApiTags('dashboard')
 @ApiTenantAuth()
 @Controller()
@@ -37,6 +38,15 @@ export class HomeworkDashboardController {
   getSyllabusProgress(@CurrentTenant() tenant: { id: string }): Promise<SyllabusProgressWidgetDto> {
     return this.cache.getOrLoad(tenant.id, DashboardWidgetKey.SYLLABUS_PROGRESS, 'school', () =>
       this.syllabus.progressByClass(tenant.id),
+    );
+  }
+
+  /** [8.10.7.7.04] ADMIN card: taught vs the study plan, per class. */
+  @DashboardWidgetRoute(DashboardWidgetKey.SYLLABUS_VS_PLAN)
+  @ApiOkResponse({ type: SyllabusVsPlanDto })
+  getSyllabusVsPlan(@CurrentTenant() tenant: { id: string }): Promise<SyllabusVsPlanDto> {
+    return this.cache.getOrLoad(tenant.id, DashboardWidgetKey.SYLLABUS_VS_PLAN, 'school', () =>
+      this.syllabus.syllabusVsPlan(tenant.id),
     );
   }
 
