@@ -8,14 +8,18 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AuditModule } from '../audit/audit.module';
 import { EnrollmentService } from './enrollments.service';
 import { EnrollmentController } from './enrollments.controller';
+import { EnrollmentsDashboardController } from './enrollments-dashboard.controller';
+import { EnrollmentsDashboardService } from './enrollments-dashboard.service';
+import { DashboardModule } from '../dashboard/dashboard.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Enrollment, Student, Class, ClassSection, AcademicYear]),
     AuditModule,
+    DashboardModule,
   ],
-  providers: [EnrollmentService],
-  controllers: [EnrollmentController],
+  providers: [EnrollmentService, EnrollmentsDashboardService],
+  controllers: [EnrollmentController, EnrollmentsDashboardController],
   exports: [EnrollmentService],
 })
 export class EnrollmentModule {}
