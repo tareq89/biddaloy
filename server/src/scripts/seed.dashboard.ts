@@ -1595,12 +1595,14 @@ async function seedFamilyFacts(
       WHERE table_name = 'attendance_records' AND column_name = 'status'`,
   );
   // Writes the child's mark, adding the day's whole-day register first if the base seed has none
-  // (never for a section left pending on purpose today).
+  // (never for a section left pending on purpose today, never on the weekly off: a Friday
+  // register would also pull the rest of the section into it on the next run).
   const mark = async (
     kid: { id: string; class_section_id: string },
     date: string,
     status: string,
   ) => {
+    if (weekday(date) === WEEKLY_OFF) return;
     if (date === today && pending.includes(kid.class_section_id)) return;
     await q(
       `INSERT INTO attendance_sessions (tenant_id, section_id, date, period_no, state, source, marked_at, finalized_at)
