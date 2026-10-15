@@ -104,6 +104,27 @@ describe('/security', () => {
     await waitFor(() => expect(screen.queryByText('Unknown device')).toBeNull());
   });
 
+  it('shows the morning summary card to a TEACHER but not an ACCOUNTANT', async () => {
+    const teacher = renderWithRouter(routeTree, {
+      initialEntries: ['/security'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+    expect(await screen.findByRole('heading', { level: 2, name: 'Morning summary' })).toBeTruthy();
+    teacher.unmount();
+    await cleanupTestState();
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/security'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { level: 1, name: 'Security' });
+    expect(screen.queryByRole('heading', { name: 'Morning summary' })).toBeNull();
+  });
+
   it('renders an error state when the list fails to load', async () => {
     server.use(http.get('/api/v1/auth/sessions', () => HttpResponse.json({}, { status: 500 })));
 
