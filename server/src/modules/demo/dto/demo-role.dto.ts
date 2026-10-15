@@ -11,6 +11,11 @@ export class DemoRoleDto {
 }
 
 export class DemoRolesResponseDto {
+  @ApiProperty({
+    description: 'False outside the demo; `cards` is then empty and `password` blank.',
+  })
+  enabled!: boolean;
+
   @ApiProperty({ description: 'Shared password of every demo login.' })
   password!: string;
 

@@ -1,0 +1,39 @@
+{
+  "ribbonLabel": "Demo site, data resets daily at 2 am",
+  "title": "Enter the demo school",
+  "subtitle": "Pick a role to look around. No sign-up needed.",
+  "ownAccount": "Sign in with your own account",
+  "footer": "A fictional institution. Everything here is made up and resets every day at 2 am.",
+  "tryPrefix": "Try:",
+  "switchRole": "View as another role",
+  "role": {
+    "admin": "Admin (all three branches)",
+    "principal": "Principal",
+    "accountant": "Accountant",
+    "class-teacher-8a": "Class teacher, Class 8-A",
+    "exam-controller": "Exam controller",
+    "office-staff": "Office staff",
+    "committee": "Governing committee member",
+    "guardian": "Guardian (two children, one in Primary)",
+    "student-9b": "Student, Class 9-B"
+  },
+  "branch": {
+    "bmsc-primary": "Primary branch",
+    "bmsc-high": "High school branch",
+    "bmsc-college": "College branch"
+  },
+  "try": {
+    "dashboard": "the dashboard",
+    "overview": "the school overview",
+    "fees": "fee collection",
+    "attendance": "taking attendance",
+    "exams": "exams and results",
+    "students": "the student list",
+    "children": "your children's progress",
+    "homework": "today's homework"
+  },
+  "errors": {
+    "DEMO_DISABLED": "This is turned off in the demo school.",
+    "DEMO_UPLOAD_LIMIT": "The demo school allows only small uploads."
+  }
+}

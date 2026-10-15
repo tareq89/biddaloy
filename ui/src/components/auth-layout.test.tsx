@@ -56,6 +56,18 @@ describe('AuthLayout', () => {
     expect(container.querySelector('section')?.className).toContain('print:border-0');
   });
 
+  it('pads the language row away from the demo ribbon only when reserveCorner is set', async () => {
+    const a = renderWithProviders(<AuthLayout>x</AuthLayout>, { locale: 'en' });
+    const plainRow = (await screen.findByRole('button', { name: /English/ })).parentElement;
+    expect(plainRow?.className).not.toContain('pr-16');
+    a.unmount();
+
+    renderWithProviders(<AuthLayout reserveCorner>x</AuthLayout>, { locale: 'en' });
+    const row = (await screen.findByRole('button', { name: /English/ })).parentElement;
+    expect(row?.className).toContain('pr-16');
+    expect(row?.className).toContain('md:pr-24');
+  });
+
   it('is axe clean with SignInForm inside', async () => {
     const { baseElement } = renderWithProviders(
       <AuthLayout>

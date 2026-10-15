@@ -17,6 +17,8 @@ export interface AuthLayoutProps {
   children: React.ReactNode;
   /** `'wide'` = `max-w-2xl` card, only for the long public admission form (admission_slug). */
   size?: 'default' | 'wide';
+  /** Pad the language-switcher row so a `DemoRibbon` in the corner covers nothing. */
+  reserveCorner?: boolean;
 }
 
 const AuthLayoutContext = React.createContext(false);
@@ -26,7 +28,7 @@ export function useInsideAuthLayout(): boolean {
   return React.useContext(AuthLayoutContext);
 }
 
-export function AuthLayout({ children, size = 'default' }: AuthLayoutProps) {
+export function AuthLayout({ children, size = 'default', reserveCorner }: AuthLayoutProps) {
   // Comfortable density: nobody is identified yet, so the accessible 44 px target is the safe
   // default. Set on `document.documentElement` so the portalled LocaleSwitcher inherits it.
   useDensity('comfortable');
@@ -37,7 +39,14 @@ export function AuthLayout({ children, size = 'default' }: AuthLayoutProps) {
     <RegionConfigProvider>
       <AuthLayoutContext.Provider value>
         <div className="flex min-h-dvh flex-col bg-background">
-          <div className="flex justify-end p-4 print:hidden">
+          <div
+            className={cn(
+              'flex justify-end p-4 print:hidden',
+              // physical on purpose: the DemoRibbon is pinned top-right in RTL too
+              // eslint-disable-next-line logical-properties/no-physical-direction-classes
+              reserveCorner && 'pr-16 md:pr-24',
+            )}
+          >
             <LocaleSwitcher trigger="labelled" />
           </div>
           {/* No `id`: guest pages have no AppShell, and route focus falls back to the form's <h1>. */}

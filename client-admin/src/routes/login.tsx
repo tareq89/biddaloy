@@ -32,9 +32,13 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
+import { ChevronRightIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { DemoCornerFrame } from '../features/demo/demo-corner-frame';
+import { DemoRoleCards } from '../features/demo/demo-role-cards';
+import { useDemoMode, type DemoRoleCard } from '../features/demo/use-demo-mode';
 import { FirstPasswordStep } from '../features/first-password/first-password-step';
 import { isSameAppRedirect } from '../same-app-redirect';
 
@@ -122,6 +126,10 @@ function buildOtpError(error: unknown, t: TFunction<'auth'>): SignInFormError | 
 
 function LoginPage() {
   const { t } = useTranslation('auth');
+  const demo = useDemoMode();
+  // Demo only: the "own account" form starts folded under the role cards. A failed card opens it
+  // (the form shows the error), and so does focus inside it; nothing closes it but the user.
+  const [ownOpen, setOwnOpen] = React.useState(false);
   const search = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -141,6 +149,7 @@ function LoginPage() {
   const mutation = useMutation({
     mutationFn: (credentials: SignInCredentials) => login(queryClient, credentials),
     onSuccess: handleSuccess,
+    onError: () => setOwnOpen(true),
   });
 
   const otpRequestMutation = useMutation({
@@ -214,8 +223,8 @@ function LoginPage() {
     );
   }
 
-  return (
-    <AuthLayout>
+  const form = (
+    <>
       {search.social === 'not_linked' && (
         <NoticeBar tone="info" className="mb-5 rounded-md py-2">
           {t('login.socialNotLinked')}
@@ -238,6 +247,7 @@ function LoginPage() {
         </TabsList>
         <TabsContent value="password">
           <SignInForm
+            headingLevel={demo.enabled ? 'h2' : 'h1'}
             onSubmit={(credentials) => mutation.mutate(credentials)}
             loading={mutation.isPending}
             error={buildLoginError(mutation.error, t)}
@@ -261,6 +271,7 @@ function LoginPage() {
         </TabsContent>
         <TabsContent value="otp">
           <OtpSignInForm
+            headingLevel={demo.enabled ? 'h2' : 'h1'}
             onRequest={(phone) => otpRequestMutation.mutateAsync(phone).then(() => undefined)}
             onVerify={(credentials) => otpVerifyMutation.mutate(credentials)}
             loading={otpVerifyMutation.isPending}
@@ -268,6 +279,77 @@ function LoginPage() {
           />
         </TabsContent>
       </Tabs>
-    </AuthLayout>
+    </>
   );
+
+  // One tree, demo or not: `GET /demo/roles` answers after the first paint, and a different tree
+  // would remount the form (typed input, focus and the open tab lost). Only siblings toggle.
+  return (
+    <DemoCornerFrame>
+      <AuthLayout size={demo.enabled ? 'wide' : 'default'} reserveCorner={demo.enabled}>
+        {demo.enabled && (
+          <DemoLoginIntro
+            cards={demo.cards}
+            disabled={mutation.isPending}
+            onPick={(card) => mutation.mutate({ email: card.email, password: demo.password })}
+            ownOpen={ownOpen}
+            onToggleOwn={() => setOwnOpen((open) => !open)}
+          />
+        )}
+        {/* Focus here before a cold `/demo/roles` answer means the visitor is typing: keep the
+            form open and the cards from stealing focus (Enter would sign in as Admin). */}
+        <div
+          id={OWN_ACCOUNT_ID}
+          onFocus={() => setOwnOpen(true)}
+          hidden={demo.enabled && !ownOpen}
+          className={demo.enabled ? 'mt-4' : undefined}
+        >
+          {form}
+        </div>
+        {demo.enabled && <DemoLoginFooter />}
+      </AuthLayout>
+    </DemoCornerFrame>
+  );
+}
+
+const OWN_ACCOUNT_ID = 'demo-own-account';
+
+/** Demo-only header: title, role cards and the "own account" toggle. Mounted only in the demo, so
+ * a normal school never loads the `demo` translations (`useDemoMode` loads them first). */
+function DemoLoginIntro({
+  cards,
+  disabled,
+  onPick,
+  ownOpen,
+  onToggleOwn,
+}: {
+  cards: DemoRoleCard[];
+  disabled: boolean;
+  onPick: (card: DemoRoleCard) => void;
+  ownOpen: boolean;
+  onToggleOwn: () => void;
+}) {
+  const { t: tDemo } = useTranslation('demo'); // aliased: check-i18n reads bare t() as 'auth'
+  return (
+    <>
+      <h1 className="text-h2">{tDemo('title')}</h1>
+      <p className="mt-1 mb-4 text-text-secondary">{tDemo('subtitle')}</p>
+      <DemoRoleCards cards={cards} disabled={disabled} onPick={onPick} focusFirst={!ownOpen} />
+      <button
+        type="button"
+        aria-expanded={ownOpen}
+        aria-controls={OWN_ACCOUNT_ID}
+        onClick={onToggleOwn}
+        className="mt-5 flex items-center gap-1 text-body-lg font-medium text-primary"
+      >
+        <ChevronRightIcon aria-hidden="true" className={ownOpen ? 'size-4 rotate-90' : 'size-4'} />
+        {tDemo('ownAccount')}
+      </button>
+    </>
+  );
+}
+
+function DemoLoginFooter() {
+  const { t: tDemo } = useTranslation('demo'); // aliased: check-i18n reads bare t() as 'auth'
+  return <p className="mt-5 text-caption text-text-secondary">{tDemo('footer')}</p>;
 }

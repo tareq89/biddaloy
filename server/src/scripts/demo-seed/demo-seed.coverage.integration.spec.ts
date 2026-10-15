@@ -15,7 +15,8 @@ import { validate } from './validator';
  */
 const BUDGET_MS = 90_000; // D39
 const MAIN = { scale: 0.05, years: 2, anchor: '2026-10-10' };
-const SMALL = { scale: 0.02, years: 1, anchor: '2026-10-10' };
+// years: 2 so the pair also runs the PromotionsService.commit path (years 1 never reaches it).
+const SMALL = { scale: 0.02, years: 2, anchor: '2026-10-10' };
 const TENANTS = `SELECT id FROM schools WHERE slug LIKE 'bmsc-%'`;
 
 const entityNames = ALL_ENTITIES.map((e) => (e as { name: string }).name);
@@ -91,9 +92,18 @@ async function fingerprint(ds: DataSource, tables: Table[]): Promise<Record<stri
   const out: Record<string, string> = {};
   for (const t of tables) {
     const cols = t.cols.filter(
-      (c) => !/^(id|created_at|updated_at|deleted_at)$|_id$|hash|token|secret|salt/.test(c),
+      (c) =>
+        !/^(id|created_at|updated_at|deleted_at|published_at)$|_id$|hash|token|secret|salt/.test(c),
     );
-    const row = cols.map((c) => `"${c}"::text`).join(', ') || `''`;
+    // Strip uuids (tenant ids sit inside storage keys and `_by` columns) and clock times (the preset
+    // apply stamps `appliedAt` with the real clock); everything else must match byte for byte.
+    const row =
+      cols
+        .map(
+          (c) =>
+            `regexp_replace(regexp_replace("${c}"::text, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 'U', 'g'), 'T[0-9]{2}:[0-9]{2}:[0-9]{2}[0-9.]*(Z|[+-][0-9:]+)?', 'T', 'g')`,
+        )
+        .join(', ') || `''`;
     const [{ h, n }] = await ds.query(
       `SELECT count(*)::int AS n,
               md5(COALESCE(string_agg(r, E'\\n' ORDER BY r), '')) AS h

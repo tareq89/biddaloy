@@ -150,6 +150,53 @@ describe('CommandPaletteLauncher', () => {
     await waitFor(() => expect(screen.queryByRole('option', { name: 'Add student' })).toBeNull());
   });
 
+  it('Action tab lists "Switch demo role" only in the demo, and it signs out to /login', async () => {
+    let signedOut = false;
+    server.use(
+      http.post('/api/v1/auth/logout', () => {
+        signedOut = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.get('/api/v1/demo/roles', () =>
+        HttpResponse.json({ enabled: true, password: 'x', cards: [] }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    // The demo namespace loads once the call answers, which re-renders the shell; wait for it.
+    await screen.findByRole('note', { name: /Demo site/ });
+    const user = userEvent.setup();
+    await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+    await user.type(screen.getByRole('combobox', { name: 'Search' }), '>Switch demo');
+    await user.click(await screen.findByRole('option', { name: 'Switch demo role' }));
+
+    // The sign-out call is what proves the action ran; where `/login` lands is the root guard's call.
+    await waitFor(() => expect(signedOut).toBe(true));
+  });
+
+  it('Action tab has no "Switch demo role" outside the demo', async () => {
+    server.use(http.get('/api/v1/demo/roles', () => new HttpResponse(null, { status: 404 })));
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+    await user.type(screen.getByRole('combobox', { name: 'Search' }), '>Switch demo');
+
+    await waitFor(() =>
+      expect(screen.queryByRole('option', { name: 'Switch demo role' })).toBeNull(),
+    );
+  });
+
   it('Action tab offers a context-free action (`context: []`) from any page', async () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/students'],

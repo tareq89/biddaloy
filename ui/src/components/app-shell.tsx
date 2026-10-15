@@ -134,6 +134,8 @@ export interface AppShellProps {
    * with no active tenant yet (`/select-school` itself) can render
    * `AppShell`-free chrome instead of leaving this slot empty. */
   topBar?: ReactNode;
+  /** Leaves the top-right corner free for the demo ribbon (`DemoRibbon`) on the mobile header row. */
+  reserveCorner?: boolean;
   /** Accessible name for the mobile menu-open button. */
   openMenuLabel?: string;
   /** Accessible name for the mobile drawer's close button. */
@@ -502,6 +504,7 @@ export function AppShell({
   navGroups = [],
   brand,
   topBar,
+  reserveCorner,
   openMenuLabel = 'Open menu',
   closeMenuLabel = 'Close menu',
   navLabel = 'Main',
@@ -619,7 +622,12 @@ export function AppShell({
               // second `<header>` would be a duplicate banner landmark.
               <div
                 data-app-mobile-header
-                className="flex h-14 items-center gap-1 border-b border-border-subtle bg-surface px-1 md:hidden"
+                className={cn(
+                  'flex h-14 items-center gap-1 border-b border-border-subtle bg-surface px-1 md:hidden',
+                  // Physical padding on purpose: the ribbon is always top-right (D19).
+                  // eslint-disable-next-line logical-properties/no-physical-direction-classes
+                  reserveCorner && 'pr-16',
+                )}
               >
                 <NavDrawer
                   open={drawerOpen}

@@ -35,7 +35,22 @@ function handleMutationError(
     toast.error(i18n.t('errors.schoolRestoring', { ns: COMMON_NAMESPACE }));
     return;
   }
-  if (mutation.meta?.handlesForbidden === true) return;
+  // [58.2.07] The demo school refuses some writes with a plain-words code. A mutation that
+  // explains its own 403s (`handlesForbidden`) keeps doing so for DEMO_DISABLED; the 413 upload
+  // cap is not a 403, so it always gets the toast.
+  const code = error instanceof ApiError ? error.details?.code : undefined;
+  const forbiddenHandled = mutation.meta?.handlesForbidden === true;
+  if (code === 'DEMO_UPLOAD_LIMIT' || (code === 'DEMO_DISABLED' && !forbiddenHandled)) {
+    void i18n.loadNamespaces('demo').then(() => {
+      toast.error(
+        code === 'DEMO_DISABLED'
+          ? i18n.t('errors.DEMO_DISABLED', { ns: 'demo' })
+          : i18n.t('errors.DEMO_UPLOAD_LIMIT', { ns: 'demo' }),
+      );
+    });
+    return;
+  }
+  if (forbiddenHandled) return;
   if (error instanceof ApiError && error.statusCode === 403 && !isTenantSuspendedError(error)) {
     toast.error(i18n.t('errors.permissionDenied', { ns: COMMON_NAMESPACE }));
   }

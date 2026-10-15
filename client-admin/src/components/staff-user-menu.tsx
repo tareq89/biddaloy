@@ -31,18 +31,15 @@ import {
   SchoolInvitesCard,
   UserMenu,
 } from '@biddaloy/ui/components';
-import {
-  logout,
-  useActiveRole,
-  useCurrentUser,
-  useSchoolInvitesCardProps,
-} from '@biddaloy/ui/hooks';
+import { useActiveRole, useCurrentUser, useSchoolInvitesCardProps } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { IosInstallSheet, useInstallPrompt } from '@biddaloy/ui/pwa';
-import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { DownloadIcon } from 'lucide-react';
+import { DownloadIcon, DramaIcon } from 'lucide-react';
 import * as React from 'react';
+
+import { useDemoMode } from '../features/demo/use-demo-mode';
+import { useSignOutToLogin } from '../features/demo/use-sign-out-to-login';
 
 export function StaffUserMenu({
   securityTo = '/security',
@@ -62,7 +59,6 @@ export function StaffUserMenu({
   const { t: tAuth } = useTranslation('auth');
   const { data, isError } = useCurrentUser();
   const role = useActiveRole();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [signingOut, setSigningOut] = React.useState(false);
   // Not destructured as `{ install }` — `@typescript-eslint/unbound-method`
@@ -75,18 +71,12 @@ export function StaffUserMenu({
   const [invitesOpen, setInvitesOpen] = React.useState(false);
   const ownInvites = useSchoolInvitesCardProps();
   const invites = sharedInvites ?? ownInvites;
+  const demo = useDemoMode();
+  const signOutToLogin = useSignOutToLogin();
 
   async function handleSignOut(): Promise<void> {
     setSigningOut(true);
-    try {
-      await logout(queryClient);
-    } finally {
-      // `logout()` already clears local auth state/cache in its own
-      // `finally` (see `ui/src/hooks/auth.ts`'s comment) even if the
-      // network call itself failed — this always navigates away, same
-      // as `select-school.tsx`'s own zero-memberships branch.
-      void navigate({ to: '/login' });
-    }
+    await signOutToLogin();
   }
 
   // `undefined`, not `''` — an empty string would still render the muted
@@ -130,6 +120,8 @@ export function StaffUserMenu({
             <MenuItem onSelect={() => void navigate({ to: securityTo })}>
               {t('userMenu.security')}
             </MenuItem>
+            {/* "View as another role" is a sign-out: the demo login page lists every role. */}
+            {demo.enabled && <DemoSwitchRoleItem onSelect={() => void handleSignOut()} />}
           </>
         }
       />
@@ -143,5 +135,16 @@ export function StaffUserMenu({
         <IosInstallSheet open={iosSheetOpen} onOpenChange={setIosSheetOpen} />
       )}
     </>
+  );
+}
+
+/** Rendered only in the demo, so a normal school never loads the `demo` translations. */
+function DemoSwitchRoleItem({ onSelect }: { onSelect: () => void }) {
+  const { t: tDemo } = useTranslation('demo'); // aliased: check-i18n reads bare t() as 'nav'
+  return (
+    <MenuItem onSelect={onSelect}>
+      <DramaIcon aria-hidden="true" />
+      {tDemo('switchRole')}
+    </MenuItem>
   );
 }

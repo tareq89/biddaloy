@@ -32,6 +32,25 @@ async function signIn(): Promise<void> {
 const socialProviders = (providers: string[]) =>
   http.get('/api/v1/auth/social/providers', () => HttpResponse.json({ providers }));
 
+const demoBody = {
+  enabled: true,
+  password: 'demo-pass',
+  cards: [
+    {
+      key: 'admin',
+      role: 'ADMIN',
+      email: 'admin@bmsc.example',
+      branchSlug: 'bmsc-high',
+      nameEn: 'Admin',
+      nameBn: 'অ্যাডমিন',
+      tryKey: 'dashboard',
+    },
+  ],
+};
+const demoRoles = http.get('/api/v1/demo/roles', () => HttpResponse.json(demoBody));
+const ownAccountToggle = () =>
+  screen.getByRole('button', { name: 'Sign in with your own account' });
+
 describe('/login', () => {
   beforeEach(() => {
     server.use(socialProviders([]));
@@ -444,6 +463,101 @@ describe('/login', () => {
           'That account is not connected yet. Sign in with a code, then connect it from your account page.',
         ),
       ).toBeTruthy();
+    });
+  });
+
+  describe('demo school', () => {
+    it('shows the title, role cards, a collapsed own-account form and the footer', async () => {
+      server.use(authHandlers.refreshFailure, demoRoles);
+      renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
+
+      expect(await screen.findByRole('heading', { name: 'Enter the demo school' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /Admin \(all three branches\)/ })).toBeTruthy();
+      expect(ownAccountToggle().getAttribute('aria-expanded')).toBe('false');
+      expect(screen.queryByRole('textbox', { name: 'Email or phone number' })).toBeNull();
+      expect(screen.getByText(/A fictional institution/)).toBeTruthy();
+      expect(screen.getByRole('note', { name: /Demo site/ })).toBeTruthy();
+    });
+
+    it('a card click signs in with that card and the shared password', async () => {
+      let body: unknown;
+      server.use(
+        authHandlers.refreshFailure,
+        demoRoles,
+        http.post('/api/v1/auth/login', async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json(loginResponseFactory());
+        }),
+      );
+      const { router } = renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: /Admin/ }));
+
+      await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
+      expect(body).toMatchObject({ email: 'admin@bmsc.example', password: 'demo-pass' });
+    });
+
+    it('a failed card opens the own-account form, which shows the error', async () => {
+      server.use(authHandlers.refreshFailure, demoRoles, authHandlers.loginInvalidCredentials);
+      renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole('button', { name: /Admin/ }));
+
+      await waitFor(() => expect(ownAccountToggle().getAttribute('aria-expanded')).toBe('true'));
+      expect((await screen.findByRole('alert')).textContent).toContain('incorrect');
+      // The open form must not add a second page title.
+      expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+
+      // A second try clears the error while it is pending; the form must stay open meanwhile.
+      await user.click(screen.getByRole('button', { name: /Admin/ }));
+      expect(ownAccountToggle().getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('text typed before the demo answer survives the switch to the demo layout', async () => {
+      let answer: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => (answer = resolve));
+      let logins = 0;
+      server.use(
+        authHandlers.refreshFailure,
+        http.post('/api/v1/auth/login', () => {
+          logins += 1;
+          return HttpResponse.json(loginResponseFactory());
+        }),
+        http.get('/api/v1/demo/roles', async () => {
+          await gate;
+          return HttpResponse.json(demoBody);
+        }),
+      );
+      const { router } = renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
+      const email = await screen.findByRole('textbox', { name: 'Email or phone number' });
+      const user = userEvent.setup();
+      await user.type(email, 'rahim@greenview.edu.bd');
+
+      answer();
+      await screen.findByRole('heading', { name: 'Enter the demo school' });
+
+      // Same input node, same text, still visible and focused: a visitor mid-typing keeps the
+      // form, and the Admin card does not steal focus.
+      expect(email.isConnected).toBe(true);
+      expect((email as HTMLInputElement).value).toBe('rahim@greenview.edu.bd');
+      expect(document.getElementById('demo-own-account')?.hidden).toBe(false);
+      expect(document.activeElement).toBe(email);
+      expect(ownAccountToggle().getAttribute('aria-expanded')).toBe('true');
+
+      // Enter submits the visitor's own (half-filled) form, never a role card.
+      await user.keyboard('{Enter}');
+      expect(logins).toBe(0);
+      expect(router.state.location.pathname).toBe('/login');
+    });
+
+    it('outside the demo (enabled: false) the page is exactly as before: no cards, no ribbon', async () => {
+      server.use(authHandlers.refreshFailure);
+      renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });
+
+      await screen.findByRole('heading', { name: 'Sign in' });
+      expect(screen.queryByRole('button', { name: 'Sign in with your own account' })).toBeNull();
+      expect(screen.queryByRole('note')).toBeNull();
     });
   });
 });

@@ -893,3 +893,18 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/reports/printables?tab=to-print' }),
   },
 ];
+
+/**
+ * [58.2.07] Offered by the palette launcher only in the demo school (`GET /demo/roles` says
+ * `enabled`); kept out of `ACTIONS` so a normal school's palette is untouched. DASHBOARD_VIEW =
+ * any staff role. A signed-in visitor is bounced off `/login`, so the launcher intercepts this id
+ * and signs out first (`useSignOutToLogin`); `run` is only the fallback.
+ */
+export const DEMO_SWITCH_ROLE_ACTION: PaletteAction = {
+  id: 'demo.switchRole',
+  label: { en: 'Switch demo role', bn: 'ডেমো ভূমিকা বদলান' },
+  permission: Permission.DASHBOARD_VIEW,
+  kind: 'navigate',
+  group: 'top',
+  run: (ctx) => ctx.navigate({ to: '/login' }),
+};
