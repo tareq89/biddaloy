@@ -129,7 +129,13 @@ describe('GET /dashboard/widgets/collection-month', () => {
     },
     {
       key: DashboardWidgetKey.COLLECTION_BY_MONTH,
-      keys: ['month_to_date_net', 'months', 'previous_month_same_days_net', 'year', 'year_to_date_net'],
+      keys: [
+        'month_to_date_net',
+        'months',
+        'previous_month_same_days_net',
+        'year',
+        'year_to_date_net',
+      ],
     },
   ])('$key (#1866)', ({ key, keys }) => {
     const url = `${API}/dashboard/widgets/${key}`;

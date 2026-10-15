@@ -8,7 +8,10 @@ export class CollectionMethodFigure {
   @ApiProperty({ enum: PaymentMethod, enumName: 'PaymentMethod' })
   payment_method: PaymentMethod;
 
-  @ApiProperty({ description: 'Net received: SUCCESS payments minus reversals.' })
+  @ApiProperty({
+    description:
+      'Amount applied to bills (net of reversals), not physical cash; group nets sum to GET /reports/collections totals.net.',
+  })
   net: number;
 
   @ApiProperty({ description: 'Payments received; reversal rows are not payments.' })
@@ -19,7 +22,10 @@ export class CollectionGroupFigure {
   @ApiProperty({ enum: COLLECTION_METHOD_GROUPS, enumName: 'CollectionMethodGroup' })
   group: CollectionMethodGroup;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'Amount applied to bills (net of reversals), not physical cash; group nets sum to GET /reports/collections totals.net.',
+  })
   net: number;
 
   @ApiProperty()
@@ -38,7 +44,7 @@ export class CollectionTodayWidgetDto {
 
   @ApiProperty({
     description:
-      'Net received from the start of the school-local day until now (reversals subtracted). Same filter as GET /reports/collections.',
+      'Amount applied to bills from the start of the school-local day until now (net of reversals), not physical cash; equals the sum of the group nets and uses the same filter as GET /reports/collections.',
   })
   net: number;
 
