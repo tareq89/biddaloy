@@ -60,7 +60,7 @@ describe('GET /dashboard/widgets/committee-enrollment', () => {
     return tenantId === null ? req : req.set('X-Tenant-ID', tenantId);
   };
   const clear = () =>
-    redis.del(`tenant:${SEED_TENANT_ID}:dash:${DashboardWidgetKey.COMMITTEE_ENROLLMENT}:school`);
+    redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${DashboardWidgetKey.COMMITTEE_ENROLLMENT}:school`);
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({

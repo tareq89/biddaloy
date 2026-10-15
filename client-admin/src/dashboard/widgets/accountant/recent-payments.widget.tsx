@@ -74,7 +74,7 @@ export function RecentPaymentsView({
   const th = 'px-2 py-1 text-left font-semibold';
   const body =
     data && full && !empty ? (
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" role="region" aria-label={title} tabIndex={0}>
         <table className="w-full text-body">
           <caption className="sr-only">{title}</caption>
           <thead>

@@ -71,7 +71,7 @@ describe('GET /dashboard/widgets/committee-finance', () => {
   };
 
   const clearCache = () =>
-    redis.del(`tenant:${SEED_TENANT_ID}:dash:${DashboardWidgetKey.COMMITTEE_FINANCE}:school`);
+    redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${DashboardWidgetKey.COMMITTEE_FINANCE}:school`);
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
