@@ -35,7 +35,10 @@ import {
  *
  * The widgets are cached for 60 s (D24); the seed does not change during the run, so a
  * cached value is still the right one. Not covered here (no widget on this branch, or no
- * source endpoint): see the `fixme` and the comments on `committee-attendance`.
+ * source endpoint): see the comments on `committee-attendance`.
+ * [8.10.7.7.07] adds approvals-pending (vs `GET /applications?view=inbox`), print-queue
+ * (vs `GET /print-history/queue`), syllabus-vs-plan (vs syllabus-progress) and
+ * my-lessons-to-mark (vs the teacher's plan schedules).
  */
 
 const TODAY = dhakaDay();
@@ -62,6 +65,12 @@ const addMonthsIso = (isoDay: string, months: number): string => {
 
 const lastDayOf = (year: number, month: number): number =>
   new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+const addDaysIso = (isoDay: string, days: number): string => {
+  const d = new Date(`${isoDay}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
 
 const sortedIds = (ids: string[]): string[] => [...ids].sort();
 
@@ -1155,9 +1164,166 @@ test.describe('dashboard reconciliation: office staff', () => {
     );
   });
 
-  // The approvals-pending widget (compared with the applications inbox) is not on this branch:
-  // GET /dashboard/widgets/approvals-pending is a 404, so there is nothing to reconcile yet.
-  test.fixme('approvals-pending = the applications inbox pending total (widget not shipped on this branch)', () => {});
+  test('approvals-pending = the applications inbox (view=inbox) as ADMIN', async ({ request }) => {
+    const w = await widget<{
+      total: number;
+      by_type: { type: string; count: number }[];
+      oldest_pending_at: string | null;
+    }>(request, 'admin', 'approvals-pending');
+    const sourceUrl = '/applications?view=inbox';
+    const rows = await allPages<{ type: string; created_at: string }>(request, 'admin', sourceUrl);
+    const url = '/dashboard/widgets/approvals-pending';
+    expectSame('total', w.total, url, rows.length, sourceUrl);
+    expectSame(
+      'total vs the list envelope',
+      w.total,
+      url,
+      totalOf(await getJson(request, 'admin', `${sourceUrl}&page=1&limit=1`)),
+      `${sourceUrl}&page=1&limit=1`,
+    );
+    const byType = new Map<string, number>();
+    for (const r of rows) byType.set(r.type, (byType.get(r.type) ?? 0) + 1);
+    const pairs = (p: [string, number][]) => p.sort((a, b) => a[0].localeCompare(b[0]));
+    expectSame(
+      'by_type',
+      pairs(w.by_type.map((b) => [b.type, b.count])),
+      url,
+      pairs([...byType]),
+      sourceUrl,
+    );
+    // RULE: the seed adds 5 pending staff leaves and 2 pending fee waivers, but the inbox hides
+    // the admin's OWN leave (applyInbox), so the seed contributes at least 4 + 2.
+    expect(w.total, 'the seed adds pending applications').toBeGreaterThanOrEqual(6);
+    // RULE: oldest_pending_at = MIN(created_at) over the pending inbox rows.
+    expectSame(
+      'oldest_pending_at',
+      w.oldest_pending_at && new Date(w.oldest_pending_at).getTime(),
+      url,
+      Math.min(...rows.map((r) => new Date(r.created_at).getTime())),
+      sourceUrl,
+    );
+  });
+
+  test('print-queue = GET /print-history/queue as ADMIN', async ({ request }) => {
+    const w = await widget<{ total: number; by_kind: { kind: string; count: number }[] }>(
+      request,
+      'admin',
+      'print-queue',
+    );
+    const sourceUrl = '/print-history/queue';
+    const q = await getJson<{ total: number; by_kind: { kind: string; count: number }[] }>(
+      request,
+      'admin',
+      sourceUrl,
+    );
+    const url = '/dashboard/widgets/print-queue';
+    expectSame('total', w.total, url, q.total, sourceUrl);
+    expectSame('by_kind', w.by_kind, url, q.by_kind, sourceUrl);
+    expectSame(
+      'total = sum of by_kind',
+      w.total,
+      url,
+      w.by_kind.reduce((n, k) => n + k.count, 0),
+      'by_kind of the widget',
+    );
+  });
+
+  test('syllabus-vs-plan = syllabus-progress for the classes that have a plan', async ({
+    request,
+  }) => {
+    const vs = await widget<{
+      behind_count: number;
+      classes: {
+        class_id: string;
+        done_percentage: number;
+        expected_percentage: number | null;
+        behind_by: number;
+      }[];
+    }>(request, 'admin', 'syllabus-vs-plan');
+    const sp = await widget<{
+      classes: { class_id: string; percentage: number; expected_percentage: number | null }[];
+    }>(request, 'admin', 'syllabus-progress');
+    const url = '/dashboard/widgets/syllabus-vs-plan';
+    const sourceUrl = '/dashboard/widgets/syllabus-progress';
+    // RULE: syllabus-vs-plan lists only classes with a live plan, i.e. where
+    // syllabus-progress has a non-null expected_percentage.
+    const withPlan = sp.classes.filter((c) => c.expected_percentage !== null);
+    expectSame(
+      'class ids',
+      sortedIds(vs.classes.map((c) => c.class_id)),
+      url,
+      sortedIds(withPlan.map((c) => c.class_id)),
+      sourceUrl,
+    );
+    expectSame(
+      'done/expected per class',
+      vs.classes.map((c) => [c.class_id, c.done_percentage, c.expected_percentage]).sort(),
+      url,
+      withPlan.map((c) => [c.class_id, c.percentage, c.expected_percentage]).sort(),
+      sourceUrl,
+    );
+    // RULE: behind_by = max(0, expected - done); behind_count counts classes with behind_by > 0.
+    for (const c of vs.classes) {
+      expect(c.behind_by, `behind_by of ${c.class_id}`).toBe(
+        Math.max(0, (c.expected_percentage ?? 0) - c.done_percentage),
+      );
+    }
+    expect(vs.behind_count).toBe(vs.classes.filter((c) => c.behind_by > 0).length);
+  });
+
+  // RULE (server lessonsToMark): count UNREPORTED periods of kind ROUTINE in the teacher's plan
+  // schedules whose slot is theirs (or that they cover); a substituted period belongs to the
+  // substitute only.
+  test('my-lessons-to-mark = unreported ROUTINE periods in the teacher plan schedules', async ({
+    request,
+  }) => {
+    const w = await widget<{
+      to_mark: number;
+      oldest_planned_on: string | null;
+      items: unknown[];
+    }>(request, 'teacher', 'my-lessons-to-mark');
+    const teachers = await allPages<{ id: string; user: { email: string } }>(
+      request,
+      'admin',
+      '/teachers',
+    );
+    const me = teachers.find((x) => x.user.email === 'teacher@biddaloy.test');
+    expect(me, 'the seeded teacher has a teacher row').toBeDefined();
+    const slots = await getJson<{ routine_slot_id: string }[]>(
+      request,
+      'teacher',
+      `/routines/resolve?teacher_id=${me!.id}&from=${addDaysIso(TODAY, -28)}&to=${addDaysIso(TODAY, 7)}`,
+    );
+    const mySlots = new Set(slots.map((s) => s.routine_slot_id));
+    const plans = await allPages<{ id: string }>(request, 'teacher', '/study-plans');
+    let expected = 0;
+    for (const p of plans) {
+      const sch = await getJson<{
+        periods: {
+          status: string;
+          kind: string;
+          routine_slot_id?: string;
+          substitute_teacher_id?: string;
+        }[];
+      }>(request, 'teacher', `/study-plans/${p.id}/schedule`);
+      for (const per of sch.periods) {
+        if (per.status !== 'UNREPORTED' || per.kind !== 'ROUTINE') continue;
+        const mine = per.substitute_teacher_id
+          ? per.substitute_teacher_id === me!.id
+          : !!per.routine_slot_id && mySlots.has(per.routine_slot_id);
+        if (mine) expected += 1;
+      }
+    }
+    expectSame(
+      'to_mark',
+      w.to_mark,
+      '/dashboard/widgets/my-lessons-to-mark',
+      expected,
+      `/study-plans/:id/schedule over ${plans.length} plans`,
+    );
+    expect(w.items.length).toBeLessThanOrEqual(5);
+    expect(w.oldest_planned_on === null).toBe(w.to_mark === 0);
+  });
 });
 
 // ---------------------------------------------------------------------------------------
