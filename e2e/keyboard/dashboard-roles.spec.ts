@@ -282,7 +282,10 @@ test.describe('keyboard journey: teacher on a phone', () => {
 
     const tile = page.getByTestId('grid-phone').getByRole('button', {
       name: new RegExp(
-        t('dashboard.widgets.my-pending-sections.compactTitle').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        t('dashboard.widgets.my-pending-sections.compactTitle').replace(
+          /[.*+?^${}()|[\]\\]/g,
+          '\\$&',
+        ),
       ),
     });
     if ((await tile.count()) === 0) {

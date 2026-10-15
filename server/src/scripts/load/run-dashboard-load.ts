@@ -190,7 +190,8 @@ async function main(): Promise<void> {
   }
 
   console.log(formatTable(rows));
-  if (skipped.length) console.log(`\nMissing routes (404, counted as failures): ${skipped.join(', ')}`);
+  if (skipped.length)
+    console.log(`\nMissing routes (404, counted as failures): ${skipped.join(', ')}`);
   const failed = rows.filter((r) => !passes(r)).length + skipped.length;
   console.log(
     `\n${failed} of ${rows.length + skipped.length} checks FAILED (p95 >= 300 ms, errors or a 404).`,
@@ -207,7 +208,9 @@ async function main(): Promise<void> {
       '',
       formatMarkdownTable(rows),
       '',
-      skipped.length ? `Missing routes (404, failures): ${skipped.join(', ')}` : 'Missing routes: none',
+      skipped.length
+        ? `Missing routes (404, failures): ${skipped.join(', ')}`
+        : 'Missing routes: none',
       '',
       `${failed} of ${rows.length + skipped.length} checks FAILED.`,
     ].join('\n'),
