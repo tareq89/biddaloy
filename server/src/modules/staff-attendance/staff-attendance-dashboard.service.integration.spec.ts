@@ -52,7 +52,7 @@ describe('StaffAttendanceDashboardService (integration)', () => {
   const widget = () => service.getToday(TENANT_ID);
 
   async function clearCaches() {
-    const keys = await redis.keys(`tenant:*:dash:${DashboardWidgetKey.STAFF_TODAY}:*`);
+    const keys = await redis.keys(`tenant:*:dash:v1:${DashboardWidgetKey.STAFF_TODAY}:*`);
     if (keys.length) await redis.del(...keys);
   }
 
@@ -200,6 +200,19 @@ describe('StaffAttendanceDashboardService (integration)', () => {
     expect(res.leave).toBe(1);
   });
 
+  it('buckets add up to staff_total: leave mark, unmarked on leave, overlapping leaves', async () => {
+    const marked = await makeStaff('Marked Leave'); // LEAVE mark, no leave record
+    const onLeave = await makeStaff('On Leave'); // approved leave, no mark, two overlapping records
+    await makeStaff('Nobody');
+    await leave(onLeave.id, addDays(-1), addDays(1));
+    await leave(onLeave.id, TODAY(), TODAY());
+    await markDay(TODAY(), [[marked.id, AttendanceStatus.LEAVE]]);
+    const res = await widget();
+    expect(res).toMatchObject({ staff_total: 3, leave: 2, unmarked: 1 });
+    expect(res.present + res.late + res.absent + res.leave + res.unmarked).toBe(res.staff_total);
+    expect(res.on_leave.map((l) => l.staff_profile_id)).toEqual([onLeave.id]);
+  });
+
   it('orders on_leave by name', async () => {
     const z = await makeStaff('Zara');
     const m = await makeStaff('Mina');
@@ -259,11 +272,11 @@ describe('StaffAttendanceDashboardService (integration)', () => {
     expect(res.on_leave).toEqual([]);
   });
 
-  it('is cached under tenant:<id>:dash:staff-today:school', async () => {
+  it('is cached under tenant:<id>:dash:v1:staff-today:school', async () => {
     await makeStaff('Cached');
     await widget();
     expect(
-      await redis.get(`tenant:${TENANT_ID}:dash:${DashboardWidgetKey.STAFF_TODAY}:school`),
+      await redis.get(`tenant:${TENANT_ID}:dash:v1:${DashboardWidgetKey.STAFF_TODAY}:school`),
     ).not.toBeNull();
   });
 });

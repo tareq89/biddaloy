@@ -5,7 +5,8 @@
 import { DashboardWidgetKey } from '@biddaloy/shared';
 import { apiClient, type components } from '@biddaloy/ui/api';
 import { WidgetCard } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
@@ -43,7 +44,10 @@ export function SmsBalanceView({
   onRetry,
 }: SmsBalanceViewProps) {
   const { t } = useTranslation('dashboard');
+  const region = useTenantRegionConfig();
   const tw = (key: string, opts: Record<string, unknown> = {}) => t(`widgets.${K}.${key}`, opts);
+  // `count` picks the plural; `value` is the grouped display (১,২৪০).
+  const n = (v: number) => formatNumber(v, region);
   const title = tw('title');
   const metered = !!data && data.metering !== 'OFF';
 
@@ -51,10 +55,12 @@ export function SmsBalanceView({
     <WidgetCard
       title={title}
       variant={variant === 'full' ? 'full' : 'compact'}
-      {...(metered ? { value: tw('value', { count: data.available }) } : {})}
+      {...(metered
+        ? { value: tw('value', { count: data.available, value: n(data.available) }) }
+        : {})}
       {...(data && !metered ? { summary: tw('notMetered') } : {})}
       {...(metered && data.reserved > 0
-        ? { summary: tw('reserved', { count: data.reserved }) }
+        ? { summary: tw('reserved', { value: n(data.reserved) }) }
         : {})}
       loading={loading}
       loadingLabel={t('states.loading', { title })}

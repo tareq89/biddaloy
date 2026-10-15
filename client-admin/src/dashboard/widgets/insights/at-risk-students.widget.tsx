@@ -73,7 +73,8 @@ export function AtRiskView({
       ? undefined
       : tw(diff > 0 ? 'moreThanLastWeek' : 'fewerThanLastWeek', { diff: n(Math.abs(diff)) });
   const summary = data && !ready ? tw('computing') : trend;
-  const value = data && ready ? tw('value', { count: data.total }) : undefined;
+  const value =
+    data && ready ? tw('value', { count: data.total, value: n(data.total) }) : undefined;
 
   if (variant === 'tile' && data && ready && !empty) {
     return (

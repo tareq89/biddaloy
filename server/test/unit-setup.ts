@@ -12,8 +12,13 @@
  * into the next test/file unless something resets it — this file is that
  * reset, run after every single test regardless of which file it's in.
  */
+import { env as realEnv } from 'node:process';
 
 afterEach(() => {
+  // A spec that swaps `process.env` for a copy makes vi.unstubAllEnvs() delete a stubbed
+  // variable from the real object, not the copy, so the stub leaks into later files
+  // (PR #2515: DEMO_MODE from push-config.spec reached trial.scheduler.spec). Put the real one back first.
+  process.env = realEnv;
   vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllGlobals();

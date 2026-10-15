@@ -33,6 +33,15 @@ describe('buildSittingValues', () => {
     expect(v['exam.sitting.4.subject']).toBeUndefined();
   });
 
+  it('orders two sittings at the same date and time the same way, whatever order they arrive in (#2574)', () => {
+    // Group electives share a slot; the query returns them in no fixed order.
+    const math = sit('m', '2026-03-01');
+    const bio = sit('b', '2026-03-01');
+    const one = buildSittingValues([math, bio], []);
+    expect(buildSittingValues([bio, math], [])).toEqual(one);
+    expect(one['exam.sitting.1.subject']).toBe('Sub b');
+  });
+
   it('fills the header when room and seat are the same everywhere', () => {
     const v = buildSittingValues(
       [sit('a', '2026-03-01'), sit('b', '2026-03-02')],

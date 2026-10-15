@@ -8,6 +8,7 @@ import { SEED_DASHBOARD_EXAM_NAME, SEED_DASHBOARD_GROUP_C } from '../../../e2e/s
 import {
   DASHBOARD_DUES_FEE_NAME,
   DASHBOARD_EXAM_NAME,
+  DASHBOARD_OVERDUE_FEE_NAME,
   DASHBOARD_GROUP_C,
   ensureDashboardSeed,
 } from './seed.dashboard';
@@ -159,7 +160,7 @@ describe('ensureDashboardSeed (integration)', () => {
     );
   });
 
-  const seed = () => ensureDashboardSeed(ds, tenantId, teacherEmail);
+  const seed = (today?: string) => ensureDashboardSeed(ds, tenantId, teacherEmail, today);
 
   const count = async (table: string, extra = '') =>
     (
@@ -233,9 +234,29 @@ describe('ensureDashboardSeed (integration)', () => {
     ]);
   });
 
-  it('feeds every widget: 2 pending registers today, one absent staff, 3 recent failures', async () => {
-    await seed();
+  it('a rerun in a later month moves the overdue and dues bills instead of adding more', async () => {
+    const overdue = async () =>
+      (
+        await q(
+          `SELECT count(*)::int AS n FROM student_fees sf
+             JOIN fee_structures fs ON fs.id = sf.fee_structure_id
+            WHERE fs.tenant_id = $1 AND fs.name = ANY($2)`,
+          [tenantId, [DASHBOARD_OVERDUE_FEE_NAME, DASHBOARD_DUES_FEE_NAME]],
+        )
+      )[0].n as number;
     const today = localToday('Asia/Dhaka');
+    await seed(today);
+    const before = await overdue();
+    expect(before).toBeGreaterThan(0);
+    const later = new Date(`${today}T00:00:00Z`);
+    later.setUTCDate(later.getUTCDate() + 40);
+    await seed(later.toISOString().slice(0, 10));
+    expect(await overdue()).toBe(before);
+  });
+
+  it('feeds every widget: 2 pending registers today, one absent staff, 3 recent failures', async () => {
+    const today = localToday('Asia/Dhaka');
+    await seed(today);
 
     // 3 sections, 2 left open today (the third stays finalised).
     expect(await count('attendance_sessions', `AND date = '${today}'`)).toBe(

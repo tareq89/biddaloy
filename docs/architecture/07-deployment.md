@@ -248,7 +248,7 @@ VITE_TURNSTILE_SITE_KEY=0x4AAAAAAA...
 DEMO_SKIP_SWEEP=true                      # until a Playwright runner service exists
 ```
 
-Never set `SMS_*`, `SMTP_*` or `VAPID_*`. The reset refuses to run if they are set.
+Never set `SMS_*`, `SMTP_*` or `VAPID_*`. The reset refuses to run if any variable with one of those prefixes is set.
 
 **Compose.** The first start has an order, because `app` refuses to boot until a reset has written the platform id:
 

@@ -96,6 +96,11 @@ describe('[8.10.7.2.05] GET /dashboard/widgets/syllabus-progress', () => {
     const res = await get(UserRole.ADMIN, '00000000-0000-4000-8000-0000000000aa');
     expect([401, 403]).toContain(res.status);
   });
+
+  // server/CLAUDE.md: always test a missing X-Tenant-ID.
+  it('missing X-Tenant-ID returns 401', async () => {
+    await http().get(URL).set('Authorization', `Bearer ${tokens[UserRole.ADMIN]}`).expect(401);
+  });
 });
 
 /** [8.10.7.7.04] D46 matrix for `GET /dashboard/widgets/syllabus-vs-plan`. */

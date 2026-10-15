@@ -25,6 +25,9 @@ import { useNavigate } from '@tanstack/react-router';
 import { PrinterIcon, ShieldCheckIcon, SlidersHorizontalIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { AttendancePendingCard } from '../../components/attendance-pending-card';
+import { ConnectHintCard } from '../../features/onboarding/connect-hint-card';
+
 import { BriefingSlot } from './briefing-slot';
 import { CommitteeSummary } from './committee-summary';
 import { CustomiseMode } from './customise/customise-mode';
@@ -138,6 +141,14 @@ export function DashboardPage({ customize = false }: { customize?: boolean }) {
         ) : (
           <>
             {isCommittee ? <CommitteeSummary /> : <BriefingSlot />}
+            {!brandNew && (
+              <>
+                {/* Stopgap until a widget replaces them; each hides itself
+                    (dismissed / no ATTENDANCE_READ / nothing to show). */}
+                <ConnectHintCard />
+                <AttendancePendingCard />
+              </>
+            )}
             {brandNew ? (
               <DashboardGrid visible={[{ key: DashboardWidgetKey.SETUP_CHECKLIST, size: 'L' }]} />
             ) : visible.length === 0 ? (

@@ -21,6 +21,8 @@ export const Route = createFileRoute('/_staff/dashboard')({
       'nav',
       'attention',
       'auth',
+      'setupChecklist',
+      'attendance',
       'applications',
       'printHistory',
       'setupChecklist',

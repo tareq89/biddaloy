@@ -112,8 +112,8 @@
     "at-risk-students": {
       "title": "At-risk students",
       "description": "Students with 2 or more warning signs",
-      "value_one": "{{count}} student",
-      "value_other": "{{count}} students",
+      "value_one": "{{value}} student",
+      "value_other": "{{value}} students",
       "moreThanLastWeek": "{{diff}} more than last week. Most signals first.",
       "fewerThanLastWeek": "{{diff}} fewer than last week.",
       "colStudent": "Student",
@@ -180,17 +180,17 @@
     "sms-balance": {
       "title": "SMS balance",
       "description": "How many more SMS can be sent",
-      "value_one": "{{count}} SMS left",
-      "value_other": "{{count}} SMS left",
-      "reserved": "{{count}} held for messages being sent",
+      "value_one": "{{value}} SMS left",
+      "value_other": "{{value}} SMS left",
+      "reserved": "{{value}} held for messages being sent",
       "notMetered": "SMS is not metered for this school.",
       "link": "View sent messages"
     },
     "failed-messages": {
       "title": "Failed messages",
       "description": "SMS that failed in the last 7 days",
-      "value_one": "{{count}} failed",
-      "value_other": "{{count}} failed",
+      "value_one": "{{value}} failed",
+      "value_other": "{{value}} failed",
       "sentence": "SMS that could not be sent in the last 7 days.",
       "none": "Nothing failed in the last 7 days.",
       "link": "See which ones"

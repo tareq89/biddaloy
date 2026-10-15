@@ -35,7 +35,14 @@ export function buildSittingValues(
     allocBySitting.size ? schedules.filter((s) => allocBySitting.has(s.id)) : schedules
   )
     .slice()
-    .sort((a, b) => a.date.localeCompare(b.date) || a.starts_at.localeCompare(b.starts_at));
+    // Electives share a slot: subject then id keep their order fixed (#2574).
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) ||
+        a.starts_at.localeCompare(b.starts_at) ||
+        a.subject.localeCompare(b.subject) ||
+        a.id.localeCompare(b.id),
+    );
   if (listed.length > ADMIT_CARD_SITTING_SLOTS) {
     throw new ConflictException({
       message: 'This exam has more sittings than an admit card can show',

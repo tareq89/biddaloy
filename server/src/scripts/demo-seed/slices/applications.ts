@@ -160,7 +160,11 @@ export const slice: DemoSlice = {
     leaves.sort((a, b) => order.get(a.tenant_id)! - order.get(b.tenant_id)!);
     for (const l of leaves) {
       const t = tenantById.get(l.tenant_id)!;
-      const submitted = addDays(l.start_date, -3);
+      // Asked for 3 days ahead, but never after the anchor: leave approved for next week was asked
+      // for in the past, so no history row is submitted or decided "in the future".
+      const asked = addDays(l.start_date, -3);
+      const latest = addDays(ctx.anchor, -4);
+      const submitted = asked < latest ? asked : latest;
       const d = decide(
         l.status === LeaveStatus.APPROVED
           ? ApplicationEventKind.APPROVED
@@ -213,18 +217,31 @@ export const slice: DemoSlice = {
     for (const s of st.students)
       (kids.get(s.tenantId) ?? kids.set(s.tenantId, []).get(s.tenantId)!).push(s);
     const guardianUser = new Map(st.guardians.map((g) => [g.id, g.userId]));
+    // The branch's newest published exam: a recheck is asked for soon after results come out.
     const exams = await q<{ id: string; tenant_id: string; subject_id: string }>(
       `SELECT DISTINCT ON (e.tenant_id) e.id, e.tenant_id, ec.subject_id
          FROM exams e JOIN exam_components ec ON ec.exam_id = e.id AND ec.deleted_at IS NULL
-        WHERE e.tenant_id = ANY($1) AND e.deleted_at IS NULL ORDER BY e.tenant_id, e.id, ec.subject_id`,
+        WHERE e.tenant_id = ANY($1) AND e.deleted_at IS NULL AND e.status = 'PUBLISHED'
+        ORDER BY e.tenant_id, e.published_at DESC, e.id, ec.subject_id`,
       [org.tenants.map((t) => t.id)],
     );
     const examOf = new Map(exams.map((e) => [e.tenant_id, e]));
+    // Bulk history has no side effects (no TC issued, no section moved, no discount rule), so a type
+    // whose approval changes the student is only ever rejected or withdrawn here. Today's requests
+    // further down go through the real service.
+    const HAS_EFFECT: ApplicationType[] = [
+      ApplicationType.TRANSFER_CERTIFICATE,
+      ApplicationType.SECTION_CHANGE,
+      ApplicationType.READMISSION,
+      ApplicationType.FEE_WAIVER,
+    ];
     for (const t of org.tenants) {
       const mine = kids.get(t.id) ?? [];
       if (!mine.length) continue;
-      const cur = t.years[t.years.length - 1];
-      const sections = cur.classes.flatMap((c) => c.sections.map((s) => ({ ...s, classId: c.id })));
+      // Students enrolled in a year, so a request is filed by someone who was at the school then.
+      const enrolled = new Map(
+        t.years.map((y) => [y.id, mine.filter((s) => s.stays.some((x) => x.yearId === y.id))]),
+      );
       const per = Math.max(
         2,
         ctx.count(t.id === high.id ? HISTORY_PER_TYPE * 2 : HISTORY_PER_TYPE),
@@ -237,19 +254,27 @@ export const slice: DemoSlice = {
       for (const type of types) {
         const def = APPLICATION_TYPES[type];
         for (let i = 0; i < per; i++) {
-          const student = mine[Math.floor(rnd() * mine.length)];
           const submitted = addDays(ctx.anchor, -(5 + Math.floor(rnd() * HISTORY_WINDOW_DAYS)));
+          const year = t.years.find((y) => y.start <= submitted && submitted <= y.end);
+          const pool = (year && enrolled.get(year.id)) || [];
+          if (!pool.length) continue;
+          const student = pool[Math.floor(rnd() * pool.length)];
           const guardianId = student.guardianIds.find((g) => guardianUser.get(g));
           const applicant = guardianId ? (guardianUser.get(guardianId) ?? null) : null;
           const r = rnd();
-          const kind =
-            r < 0.6
+          const kind = HAS_EFFECT.includes(type)
+            ? r < 0.7
+              ? ApplicationEventKind.REJECTED
+              : ApplicationEventKind.WITHDRAWN
+            : r < 0.6
               ? ApplicationEventKind.APPROVED
               : r < 0.85
                 ? ApplicationEventKind.REJECTED
                 : ApplicationEventKind.WITHDRAWN;
           const d = decide(kind, type, submitted, applicant);
-          const stay = student.stays[student.stays.length - 1];
+          const stay = student.stays.find((x) => x.yearId === year!.id)!;
+          // Sections of that same year: sections belong to one academic year.
+          const sections = year!.classes.flatMap((c) => c.sections);
           const section = sections[Math.floor(rnd() * sections.length)];
           const range = { start_date: addDays(submitted, 1), end_date: addDays(submitted, 2) };
           const payload: Record<string, unknown> = {
@@ -292,7 +317,7 @@ export const slice: DemoSlice = {
               status: d.status,
               // No login for this family: the office entered the paper form for them.
               source: applicant ? ApplicationSource.APP : ApplicationSource.PAPER,
-              academic_year_id: yearOf(t, submitted) ?? stay.yearId,
+              academic_year_id: stay.yearId,
               applicant_user_id: applicant,
               applicant_name: applicant ? null : 'অভিভাবক',
               entered_by_user_id: applicant ? null : adminId,
@@ -416,7 +441,7 @@ export const slice: DemoSlice = {
       dto: Record<string, unknown>,
     ) => apps.submit(tenantId, { userId, role }, dto as never, {} as never);
     const soon = (n: number) => addDays(ctx.anchor, n);
-    const office = cards.get('office-staff')!;
+    const office = cards.get('office-staff')!; // High's office desk (the login card)
 
     // The principal's inbox: four leave requests from High teachers, one tagging the office.
     const covered = (ctx.ids.get('routineToday') as { coveredUserId?: string } | undefined)
@@ -472,6 +497,13 @@ export const slice: DemoSlice = {
       { tenant: high.id, student: st.cards.studentId, to: ApplicationAddressee.HEADMASTER },
       { tenant: primary.id, student: st.cards.primaryChildId, to: ApplicationAddressee.OFFICE },
     ];
+    // Primary's own office desk decides Primary's letter: the card user above belongs to High only.
+    const [primaryOffice] = await q<{ user_id: string }>(
+      `SELECT user_id FROM user_tenants
+        WHERE tenant_id = $1 AND role = 'OFFICE_STAFF' AND deleted_at IS NULL ORDER BY user_id LIMIT 1`,
+      [primary.id],
+    );
+    if (!primaryOffice) throw new Error('demo-seed applications: Primary has no OFFICE_STAFF user');
     const made: { id: string; tenant: string; to: ApplicationAddressee }[] = [];
     for (const l of letters) {
       const a = await submit(l.tenant, parent, UserRole.PARENT, {
@@ -493,7 +525,7 @@ export const slice: DemoSlice = {
     );
     await decisions.reject(
       primary.id,
-      { userId: office.userId, role: UserRole.OFFICE_STAFF },
+      { userId: primaryOffice.user_id, role: UserRole.OFFICE_STAFF },
       made[1].id,
       { reason: 'বিস্তারিত জানানো হয়নি, অনুগ্রহ করে আবার আবেদন করুন।' } as never,
       fakeRequest,

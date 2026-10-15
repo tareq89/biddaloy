@@ -190,6 +190,7 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
     'DEMO',
     'DEMO',
     'DEMO',
+    'DEMO',
   ],
   // dev seed: demoSchools slug list, not request input
   'scripts/seed.ts': ['demoSchools', 'demoSchools'],
