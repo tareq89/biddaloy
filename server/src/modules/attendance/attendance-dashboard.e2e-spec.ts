@@ -86,4 +86,54 @@ describe('[8.10.7.2.01] GET /dashboard/widgets/attendance-today', () => {
     const res = await get(UserRole.ADMIN, '00000000-0000-4000-8000-0000000000aa');
     expect([401, 403]).toContain(res.status);
   });
+
+  // [8.10.7.3.02] Teacher widgets: only TEACHER gets 200, every other role is 403.
+  describe.each([
+    ['my-pending-sections', ['date', 'is_working_day', 'pending_count', 'sections']],
+    ['class-teacher-streaks', ['section', 'as_of_date', 'total', 'items']],
+  ])('GET /dashboard/widgets/%s', (widget, keys) => {
+    const widgetUrl = `/api/v1/dashboard/widgets/${widget}`;
+    const call = (role: UserRole, tenantId = SEED_TENANT_ID) =>
+      http()
+        .get(widgetUrl)
+        .set('Authorization', `Bearer ${tokens[role]}`)
+        .set('X-Tenant-ID', tenantId);
+
+    it('catalogue roles are exactly TEACHER', () => {
+      expect([...WIDGET_CATALOGUE[widget as keyof typeof WIDGET_CATALOGUE].roles]).toEqual([
+        UserRole.TEACHER,
+      ]);
+    });
+
+    it('TEACHER gets 200 with exactly the DTO keys', async () => {
+      const res = await call(UserRole.TEACHER);
+      expect(res.status).toBe(200);
+      expect(Object.keys(res.body).sort()).toEqual([...keys].sort());
+    });
+
+    it.each([
+      UserRole.ADMIN,
+      UserRole.EXECUTIVE,
+      UserRole.ACCOUNTANT,
+      UserRole.OFFICE_STAFF,
+      UserRole.EXAM_CONTROLLER,
+      UserRole.COMMITTEE,
+      UserRole.PARENT,
+      UserRole.STUDENT,
+    ])('%s gets 403', async (role) => {
+      expect((await call(role)).status).toBe(403);
+    });
+
+    it('a missing X-Tenant-ID is refused', async () => {
+      const res = await http()
+        .get(widgetUrl)
+        .set('Authorization', `Bearer ${tokens[UserRole.TEACHER]}`);
+      expect([400, 401, 403]).toContain(res.status);
+    });
+
+    it("a school A caller with school B's header never sees B's data", async () => {
+      const res = await call(UserRole.TEACHER, '00000000-0000-4000-8000-0000000000aa');
+      expect([401, 403]).toContain(res.status);
+    });
+  });
 });
