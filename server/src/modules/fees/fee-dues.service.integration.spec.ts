@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
-import { localDate } from '../../common/time';
+import { localDate, localToday } from '../../common/time';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { FeeDuesService } from './fee-dues.service';
@@ -1088,6 +1088,234 @@ describe('FeeDuesService (integration)', () => {
           }),
         ),
       ).resolves.toBeDefined();
+    });
+  });
+
+  /**
+   * [8.10.7.3.07] Accountant dashboard widgets. Every figure must agree with
+   * the list behind the matching page (`getDues` / `getFlaggedDues`).
+   */
+  describe('dashboard widgets (8.10.7.3.07)', () => {
+    const TZ = 'Asia/Dhaka';
+    const dayStr = (offset: number) => localDate(new Date(Date.now() + offset * 86400000), TZ);
+
+    // `agedDays` = how many days ago the fee was due (negative = not yet due).
+    async function feeDue(
+      agedDays: number | null,
+      overrides: Partial<StudentFee> = {},
+      studentOverrides: Partial<Student> = {},
+    ) {
+      const s = await studentRepo.save(makeStudent(studentOverrides));
+      await studentFeeRepo.save(
+        makeFee(s.id, {
+          due_date: agedDays === null ? null : (day(-agedDays) as Date),
+          ...overrides,
+        }),
+      );
+      return s;
+    }
+
+    async function sumAllDues(filter: { class_id?: string } = {}) {
+      let total = 0;
+      for (let page = 1; ; page++) {
+        const r = await service.getDues({ ...filter, page, limit: 100 }, TENANT_ID);
+        total += r.data.reduce((a, d) => a + d.total_due, 0);
+        if (page >= r.totalPages) return total;
+      }
+    }
+
+    async function log(
+      studentId: string,
+      status: string,
+      trigger: string,
+      createdAt: string,
+      tenantId = TENANT_ID,
+    ) {
+      await dataSource.query(
+        `INSERT INTO communication_logs (tenant_id, medium, recipient_address, recipient_name, message_body, status, trigger, student_id, created_at, updated_at)
+         VALUES ($1, 'SMS', '+8801700000000', 'G', 'x', $2, $3, $4, $5, $5)`,
+        [tenantId, status, trigger, studentId, createdAt],
+      );
+    }
+
+    beforeEach(async () => {
+      await dataSource.query('DELETE FROM communication_logs');
+    });
+
+    describe('getAgeing', () => {
+      it('buckets on exact day edges; part-paid counts balance; PAID ignored; not-yet-due and no due date go to 0_30', async () => {
+        await feeDue(0); // 1000, age 0
+        await feeDue(30); // 1000, age 30 -> 0_30
+        await feeDue(31); // 1000, age 31 -> 31_60
+        await feeDue(60, {
+          paid_amount: 400,
+          discount_amount: 100,
+          standing_discount_amount: 100,
+          status: FeeStatus.PARTIALLY_PAID,
+        }); // balance 500, age 60 -> 31_60
+        await feeDue(61); // 1000, age 61 -> 60_PLUS
+        await feeDue(-5); // 1000, not yet due -> 0_30
+        await feeDue(null); // 1000, no due date -> 0_30
+        await feeDue(90, { paid_amount: 1000, status: FeeStatus.PAID });
+
+        const r = await service.getAgeing(TENANT_ID, localToday(TZ));
+
+        expect(r.as_of).toBe(localToday(TZ));
+        expect(r.buckets.map((b) => b.bucket)).toEqual(['0_30', '31_60', '60_PLUS']);
+        expect(r.buckets.map((b) => b.amount)).toEqual([4000, 1500, 1000]);
+        expect(r.total_due).toBe(6500);
+        expect(r.buckets.map((b) => b.share_pct)).toEqual([62, 23, 15]);
+      });
+
+      it('empty tenant: three zero buckets, share_pct 0, not NaN', async () => {
+        const r = await service.getAgeing(TENANT_ID, localToday(TZ));
+        expect(r.total_due).toBe(0);
+        expect(r.buckets).toEqual([
+          { bucket: '0_30', amount: 0, share_pct: 0 },
+          { bucket: '31_60', amount: 0, share_pct: 0 },
+          { bucket: '60_PLUS', amount: 0, share_pct: 0 },
+        ]);
+      });
+
+      it('Dhaka midnight: 18:30Z on the 7th is the 8th, so the 30/31 day edge moves with it', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-10-07T18:30:00Z'));
+        try {
+          const today = localToday(TZ);
+          expect(today).toBe('2026-10-08');
+          const s1 = await studentRepo.save(makeStudent());
+          await studentFeeRepo.save(makeFee(s1.id, { due_date: new Date(2026, 8, 8) })); // 8 Sep: age 30
+          const s2 = await studentRepo.save(makeStudent());
+          await studentFeeRepo.save(makeFee(s2.id, { due_date: new Date(2026, 8, 7) })); // 7 Sep: age 31
+          const r = await service.getAgeing(TENANT_ID, today);
+          expect(r.buckets.map((b) => b.amount)).toEqual([1000, 1000, 0]);
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it('excludes a soft-deleted student and another tenant', async () => {
+        const gone = await feeDue(10);
+        await studentRepo.softDelete({ id: gone.id });
+        await feeDue(10, {}, { tenant_id: OTHER_TENANT_ID });
+        const r = await service.getAgeing(TENANT_ID, localToday(TZ));
+        expect(r.total_due).toBe(0);
+      });
+
+      it('reconciles with getDues: total_due equals the sum over every page', async () => {
+        for (let i = 0; i < 12; i++) {
+          await feeDue(i * 7, {
+            paid_amount: i % 3 === 0 ? 250 : 0,
+            status: i % 3 === 0 ? FeeStatus.PARTIALLY_PAID : FeeStatus.PENDING,
+          });
+        }
+        await feeDue(5, { paid_amount: 1000, status: FeeStatus.PAID });
+        const r = await service.getAgeing(TENANT_ID, localToday(TZ));
+        expect(r.total_due).toBeGreaterThan(0);
+        expect(r.total_due).toBe(await sumAllDues());
+      });
+    });
+
+    describe('getDuesByClass', () => {
+      it('groups by class, amount desc, distinct students; reconciles with getDues per class', async () => {
+        const a = await feeDue(10, {}, { class_section_id: SEED_SECTION_1_ID });
+        await studentFeeRepo.save(makeFee(a.id, { month: 2, due_date: day(0) as Date })); // 2nd open fee, same student
+        await feeDue(10, {}, { class_section_id: SEED_SECTION_2_ID }); // same class, other section
+        await feeDue(10, { total_amount: 5000 }, { class_section_id: SEED_CLASS_2_SECTION_ID });
+        await feeDue(10, { paid_amount: 1000, status: FeeStatus.PAID });
+
+        const r = await service.getDuesByClass(TENANT_ID);
+
+        expect(r.classes.map((c) => [c.class_id, c.class_name, c.amount, c.student_count])).toEqual(
+          [
+            [SEED_CLASS_2_ID, 'Class Two', 5000, 1],
+            [SEED_CLASS_1_ID, 'Class One', 3000, 2],
+          ],
+        );
+        expect(r.total_due).toBe(8000);
+        expect(r.total_due).toBe(await sumAllDues());
+        for (const c of r.classes) {
+          expect(c.amount).toBe(await sumAllDues({ class_id: c.class_id }));
+        }
+      });
+
+      it('excludes soft-deleted students and other tenants; empty is []', async () => {
+        const gone = await feeDue(10);
+        await studentRepo.softDelete({ id: gone.id });
+        await feeDue(10, {}, { tenant_id: OTHER_TENANT_ID });
+        expect(await service.getDuesByClass(TENANT_ID)).toEqual({ total_due: 0, classes: [] });
+      });
+    });
+
+    describe('countRemindersPending', () => {
+      const past = (n: number) => day(-n) as Date;
+
+      it('counts flagged students with no non-FAILED reminder since threshold; guardians counted once', async () => {
+        const notReminded = await feeDue(20, { reminder_threshold_date: past(10) });
+        const remindedAfter = await feeDue(20, { reminder_threshold_date: past(10) });
+        const remindedBefore = await feeDue(20, { reminder_threshold_date: past(10) });
+        const failedOnly = await feeDue(20, { reminder_threshold_date: past(10) });
+        await feeDue(20, { reminder_threshold_date: day(3) as Date }); // not flagged yet
+        const nowIso = new Date().toISOString();
+        await log(remindedAfter.id, 'SENT', 'BULK_REMINDER', nowIso);
+        await log(
+          remindedBefore.id,
+          'SENT',
+          'SINGLE_REMINDER',
+          new Date(Date.now() - 20 * 86400000).toISOString(),
+        );
+        await log(failedOnly.id, 'FAILED', 'BULK_REMINDER', nowIso);
+        await log(notReminded.id, 'SENT', 'MANUAL', nowIso); // not a reminder trigger
+        await log(notReminded.id, 'SENT', 'BULK_REMINDER', nowIso, OTHER_TENANT_ID); // other tenant's log never counts
+
+        const g = await guardianRepo.save(
+          guardianRepo.create({
+            full_name: 'Shared',
+            relationship: 'Mother',
+            phone: '+8801711111111',
+            email: null,
+            preferred_communication: CommunicationMedium.SMS,
+            is_primary_contact: true,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        for (const s of [notReminded, remindedBefore]) {
+          await dataSource.query(
+            'INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)',
+            [s.id, g.id],
+          );
+        }
+
+        const r = await service.countRemindersPending(TENANT_ID, localToday(TZ), TZ);
+
+        expect(r).toEqual({
+          student_count: 3,
+          guardian_count: 1,
+          oldest_threshold_date: dayStr(-10),
+        });
+      });
+
+      it('reconciles with getFlaggedDues when no reminder logs exist', async () => {
+        for (let i = 0; i < 4; i++) await feeDue(20, { reminder_threshold_date: past(i + 1) });
+        await feeDue(20, { reminder_threshold_date: day(2) as Date });
+        await feeDue(20, { reminder_threshold_date: null });
+        const r = await service.countRemindersPending(TENANT_ID, localToday(TZ), TZ);
+        const flagged = await service.getFlaggedDues({ page: 1, limit: 100 }, TENANT_ID);
+        expect(r.student_count).toBe(flagged.total);
+        expect(r.student_count).toBe(4);
+        expect(r.oldest_threshold_date).toBe(dayStr(-4));
+      });
+
+      it('none flagged: zeros and null date; excludes soft-deleted and other-tenant', async () => {
+        const gone = await feeDue(20, { reminder_threshold_date: past(3) });
+        await studentRepo.softDelete({ id: gone.id });
+        await feeDue(20, { reminder_threshold_date: past(3) }, { tenant_id: OTHER_TENANT_ID });
+        expect(await service.countRemindersPending(TENANT_ID, localToday(TZ), TZ)).toEqual({
+          student_count: 0,
+          guardian_count: 0,
+          oldest_threshold_date: null,
+        });
+      });
     });
   });
 });

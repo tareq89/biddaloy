@@ -777,4 +777,69 @@ describe('RecurringSchedulesService (integration)', () => {
       await expect(service.findOne(schedule.id, OTHER_TENANT_ID)).rejects.toThrow();
     });
   });
+
+  // [8.10.7.3.08] "Fee generation status" widget: when does the next schedule fire?
+  describe('nextScheduledRun', () => {
+    async function insertSchedule(o: {
+      tenant?: string;
+      day?: number;
+      endsOn?: string;
+      startsOn?: string;
+      active?: boolean;
+      deleted?: boolean;
+      lastRunPeriod?: string | null;
+    }) {
+      await dataSource.query(
+        `INSERT INTO recurring_schedules (id, tenant_id, academic_year_id, name, audience, rule, period_type, due_days_after_period_start, starts_on, ends_on, notify_families, is_active, last_run_period, deleted_at, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, 'next-run', '{"enrollment_status":"ACTIVE"}', $3, 'MONTH', 9, $4, $5, true, $6, $7, $8, NOW(), NOW())`,
+        [
+          o.tenant ?? SEED_TENANT_ID,
+          SEED_ACADEMIC_YEAR_ID,
+          JSON.stringify({ kind: 'MONTHLY', day_of_month: o.day ?? 1 }),
+          o.startsOn ?? '2026-01-01',
+          o.endsOn ?? '2027-12-31',
+          o.active ?? true,
+          o.lastRunPeriod ?? null,
+          o.deleted ? new Date() : null,
+        ],
+      );
+    }
+    const clear = () => dataSource.query('DELETE FROM recurring_schedules');
+    const TODAY = '2026-10-20';
+
+    it('returns the earliest next run of active, non-deleted schedules', async () => {
+      await clear();
+      await insertSchedule({ day: 1 }); // 1 Nov
+      await insertSchedule({ day: 15 }); // 15 Nov
+      await insertSchedule({ day: 25, active: false }); // inactive: 25 Oct would win
+      await insertSchedule({ day: 22, deleted: true }); // deleted: 22 Oct would win
+      expect(await service.nextScheduledRun(SEED_TENANT_ID, TODAY)).toBe('2026-11-01');
+      await clear();
+    });
+
+    it('skips a period that already ran, and a run that falls after ends_on', async () => {
+      await clear();
+      // day 25: would fire 25 Oct, but October already ran -> 25 Nov
+      await insertSchedule({ day: 25, lastRunPeriod: '2026-10-01' });
+      // day 1 ends 31 Oct: next run 1 Nov is after the window
+      await insertSchedule({ day: 1, endsOn: '2026-10-31' });
+      expect(await service.nextScheduledRun(SEED_TENANT_ID, TODAY)).toBe('2026-11-25');
+      await clear();
+    });
+
+    it('a schedule that has not started yet fires no earlier than starts_on', async () => {
+      await clear();
+      await insertSchedule({ day: 1, startsOn: '2026-12-10' });
+      expect(await service.nextScheduledRun(SEED_TENANT_ID, TODAY)).toBe('2027-01-01');
+      await clear();
+    });
+
+    it('is null with no schedules, and ignores another tenant', async () => {
+      await clear();
+      expect(await service.nextScheduledRun(SEED_TENANT_ID, TODAY)).toBeNull();
+      await insertSchedule({ tenant: OTHER_TENANT_ID, day: 21 });
+      expect(await service.nextScheduledRun(SEED_TENANT_ID, TODAY)).toBeNull();
+      await clear();
+    });
+  });
 });

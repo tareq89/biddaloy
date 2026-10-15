@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, MoreThanOrEqual, Repository } from 'typeorm';
 import { AuditAction, EnrollmentStatus, PeriodType } from '@biddaloy/shared';
 import { RecurringSchedule, RecurringScheduleRule } from './entities/recurring-schedule.entity';
 import { RecurringScheduleStructure } from './entities/recurring-schedule-structure.entity';
@@ -381,6 +381,33 @@ export class RecurringSchedulesService {
     });
 
     return this.findOne(saved.id, tenantId);
+  }
+
+  /**
+   * [8.10.7.3.08] The earliest date any active schedule of the tenant will
+   * next fire, on or after `today` (the tenant's day) and never before the
+   * schedule's `starts_on`; null if none. A period the scheduler already ran
+   * (`last_run_period`) is skipped, and a run after `ends_on` is dropped, the
+   * same clamp the family view applies. One query; the rule maths is in memory.
+   */
+  async nextScheduledRun(tenantId: string, today: string): Promise<string | null> {
+    const schedules = await this.repo.find({
+      where: { tenant_id: tenantId, is_active: true, ends_on: MoreThanOrEqual(today) },
+    });
+
+    let earliest: string | null = null;
+    for (const schedule of schedules) {
+      const from = schedule.starts_on > today ? schedule.starts_on : today;
+      const lastRun = schedule.last_run_period ? String(schedule.last_run_period) : null;
+      // `nextRunDates` scans at most a year ahead, which is enough to get past a ran period.
+      const next = nextRunDates(schedule.rule, from, 24).find(
+        (d) => !lastRun || periodFor(d, schedule.rule) > lastRun,
+      );
+      if (next && next <= schedule.ends_on && (earliest === null || next < earliest)) {
+        earliest = next;
+      }
+    }
+    return earliest;
   }
 
   async findAll(

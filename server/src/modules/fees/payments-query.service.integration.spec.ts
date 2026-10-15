@@ -502,4 +502,80 @@ describe('PaymentsQueryService (integration)', () => {
       expect(detail.student).toBeNull();
     });
   });
+
+  // [8.10.7.3.08] "Recent payments" widget: the last 5 payments with class and section.
+  describe('findRecentWithClass', () => {
+    const at = (n: number) => new Date(Date.UTC(2026, 9, 7, 4, n));
+
+    it('returns the 5 newest non-reversal rows, newest first, with class and section; reversed and reversal rows never show; FAILED is listed but not summed', async () => {
+      const student = await makeStudent();
+      const p1 = await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 100,
+        payment_date: at(1),
+      });
+      await makePayment(student.id, SEED_TENANT_ID, { total_amount: 200, payment_date: at(2) });
+      await makePayment(student.id, SEED_TENANT_ID, { total_amount: 300, payment_date: at(3) });
+      await makePayment(student.id, SEED_TENANT_ID, { total_amount: 400, payment_date: at(4) });
+      await makePayment(student.id, SEED_TENANT_ID, { total_amount: 500, payment_date: at(5) });
+      await makePayment(student.id, SEED_TENANT_ID, { total_amount: 600, payment_date: at(6) });
+      const failed = await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 9999,
+        payment_status: PaymentStatus.FAILED,
+        payment_date: at(7),
+      });
+      // p1 is reversed: the original and its reversal row both stay out of the widget.
+      const reversal = await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 100, // reversal rows carry a positive amount (CHK_pay_total_amount)
+        payment_date: at(8),
+        reversal_of_payment_id: p1.id,
+      });
+      await paymentRepo.update({ id: p1.id }, { reversed_by_payment_id: reversal.id });
+
+      const r = await service.findRecentWithClass(SEED_TENANT_ID);
+
+      expect(r.items).toHaveLength(5);
+      expect(r.items.map((i) => i.amount)).toEqual([9999, 600, 500, 400, 300]);
+      expect(r.items[0]).toMatchObject({
+        payment_id: failed.id,
+        payment_status: 'FAILED',
+        payment_method: 'CASH',
+        student_name: student.full_name,
+        class_name: 'Class 1',
+        section_name: 'Section A',
+        payment_date: at(7).toISOString(),
+      });
+      // FAILED moves no money, so it is not in the total (9999 would show otherwise).
+      expect(r.total_of_shown).toBe(600 + 500 + 400 + 300);
+
+      // Reconciles with the list behind GET /payments.
+      const list = await service.findAll({ page: 1, limit: 5, is_reversal: false }, SEED_TENANT_ID);
+      expect(r.items.map((i) => i.payment_id)).toEqual(list.data.map((p) => p.id));
+    });
+
+    it('soft-deleted student: row kept, names null', async () => {
+      const student = await makeStudent();
+      await makePayment(student.id, SEED_TENANT_ID, { total_amount: 250, payment_date: at(1) });
+      await studentRepo.softDelete({ id: student.id });
+
+      const r = await service.findRecentWithClass(SEED_TENANT_ID);
+
+      expect(r.items).toHaveLength(1);
+      expect(r.items[0]).toMatchObject({
+        amount: 250,
+        student_name: null,
+        class_name: null,
+        section_name: null,
+      });
+      expect(r.total_of_shown).toBe(250);
+    });
+
+    it("never shows another tenant's payments; empty is zero", async () => {
+      const other = await makeStudent(OTHER_TENANT_ID);
+      await makePayment(other.id, OTHER_TENANT_ID, { total_amount: 777 });
+      expect(await service.findRecentWithClass(SEED_TENANT_ID)).toEqual({
+        total_of_shown: 0,
+        items: [],
+      });
+    });
+  });
 });

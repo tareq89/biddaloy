@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { PaymentStatus } from '@biddaloy/shared';
 import { Payment } from './entities/payment.entity';
+import { Student } from '../students/entities/student.entity';
 import { QueryPaymentDto, PaymentDetailDto } from './dto/fees.dto';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { startOfLocalDay, endOfLocalDay } from '../../common/time';
@@ -116,6 +118,56 @@ export class PaymentsQueryService {
     const data = rows.map((p) => ({ ...p, total_amount: Number(p.total_amount) }));
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  /**
+   * [8.10.7.3.08] The 5 newest payments for the dashboard, with the student's
+   * class and section. The rows come from `findAll`, so the widget and
+   * `GET /payments` cannot disagree. A FAILED payment is listed (with its
+   * status) but moves no money, so it is left out of `total_of_shown`.
+   * A soft-deleted student comes back from `findAll` as `student: null`:
+   * the row stays, the names are null.
+   */
+  async findRecentWithClass(tenantId: string) {
+    const page = await this.findAll({ page: 1, limit: 5, is_reversal: false }, tenantId);
+
+    const studentIds = [...new Set(page.data.flatMap((p) => (p.student ? [p.student.id] : [])))];
+    const classByStudent = new Map<string, { class_name: string; section_name: string }>();
+    if (studentIds.length > 0) {
+      const students = await this.repo.manager.getRepository(Student).find({
+        where: { id: In(studentIds), tenant_id: tenantId },
+        relations: { class_section: { class: true } },
+      });
+      for (const s of students) {
+        if (s.class_section) {
+          classByStudent.set(s.id, {
+            class_name: s.class_section.class.name,
+            section_name: s.class_section.section_name,
+          });
+        }
+      }
+    }
+
+    const items = page.data.map((p) => {
+      const cls = p.student ? classByStudent.get(p.student.id) : undefined;
+      return {
+        payment_id: p.id,
+        student_name: p.student?.full_name ?? null,
+        class_name: cls?.class_name ?? null,
+        section_name: cls?.section_name ?? null,
+        amount: Number(p.total_amount),
+        payment_method: p.payment_method,
+        payment_status: p.payment_status,
+        payment_date: new Date(p.payment_date).toISOString(),
+      };
+    });
+
+    return {
+      total_of_shown: items
+        .filter((i) => i.payment_status === PaymentStatus.SUCCESS)
+        .reduce((sum, i) => sum + i.amount, 0),
+      items,
+    };
   }
 
   async findOne(id: string, tenantId: string): Promise<PaymentDetailDto> {
