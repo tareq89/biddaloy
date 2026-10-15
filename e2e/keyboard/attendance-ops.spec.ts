@@ -1,4 +1,11 @@
-import { adminApiSession, createStudentsInSection, get, isFridayAnywhere, put } from '../api';
+import {
+  adminApiSession,
+  createStudentsInSection,
+  currentAcademicYear,
+  get,
+  isFridayAnywhere,
+  put,
+} from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { tabUntilFocused } from './keyboard-utils';
@@ -89,7 +96,14 @@ test("palette: today's pending attendance, down to a section register", async ({
   test.skip(isFridayAnywhere(), 'the school is closed on Friday');
 
   const admin = await adminApiSession(request);
-  const chain = await createStudentsInSection(request, admin, 'Ops Kbd Pending Student', 2);
+  const chain = await createStudentsInSection(
+    request,
+    admin,
+    'Ops Kbd Pending Student',
+    2,
+    // The pending list only shows the current academic year's sections.
+    await currentAcademicYear(request, admin),
+  );
 
   await page.goto('/dashboard');
   await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
