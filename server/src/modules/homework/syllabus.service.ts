@@ -8,6 +8,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { StudyPlan } from '../study-plans/entities/study-plan.entity';
 import { PlanScheduleService } from '../study-plans/plan-schedule.service';
+import { StudyPlanDashboardService } from '../study-plans/study-plan-dashboard.service';
+import { localToday } from '../attendance/attendance-policy.util';
+import { SchoolsService } from '../schools/schools.service';
 import {
   AuditAction,
   Permission,
@@ -19,7 +22,7 @@ import {
 import { SyllabusTopic } from './entities/syllabus-topic.entity';
 import { Class } from '../academics/entities/class.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
-import type { SyllabusProgressWidgetDto } from './dto/homework-dashboard.dto';
+import type { SyllabusProgressWidgetDto, SyllabusVsPlanDto } from './dto/homework-dashboard.dto';
 import { Subject } from '../academics/entities/subject.entity';
 import {
   CreateSyllabusTopicDto,
@@ -44,6 +47,8 @@ export class SyllabusService {
     @InjectRepository(StudyPlan)
     private readonly planRepo: Repository<StudyPlan>,
     private readonly planSchedule: PlanScheduleService,
+    private readonly planDashboard: StudyPlanDashboardService,
+    private readonly schools: SchoolsService,
   ) {}
 
   /**
@@ -51,7 +56,11 @@ export class SyllabusService {
    * academic year, one query. Classes with no topics are left out. Class order
    * is the class picker's (`name ASC`).
    */
-  async progressByClass(tenantId: string): Promise<SyllabusProgressWidgetDto> {
+  async progressByClass(
+    tenantId: string,
+    /** Passed in by `syllabusVsPlan`, which needs the same map, so it is computed once. */
+    expectedByClass?: ReturnType<StudyPlanDashboardService['expectedByClass']>,
+  ): Promise<SyllabusProgressWidgetDto> {
     const rows = await this.repo
       .createQueryBuilder('st')
       .innerJoin(
@@ -88,6 +97,7 @@ export class SyllabusService {
       }>();
 
     const pct = (done: number, total: number) => (total ? Math.round((done / total) * 100) : 0);
+    const expected = await (expectedByClass ?? this.planDashboard.expectedByClass(tenantId));
     const classes = rows.map((r) => {
       const done = Number(r.done);
       const total = Number(r.total);
@@ -98,11 +108,48 @@ export class SyllabusService {
         in_progress: Number(r.in_progress),
         total,
         percentage: pct(done, total),
+        expected_percentage: expected.get(r.class_id)?.expected_percentage ?? null,
       };
     });
     const done = classes.reduce((n, c) => n + c.done, 0);
     const total = classes.reduce((n, c) => n + c.total, 0);
-    return { classes, overall: { done, total, percentage: pct(done, total) } };
+    const behind_count = classes.filter(
+      (c) => c.expected_percentage !== null && c.expected_percentage > c.percentage,
+    ).length;
+    return { classes, overall: { done, total, percentage: pct(done, total) }, behind_count };
+  }
+
+  /**
+   * [8.10.7.7.04] Taught vs the study plan's expectation per class. Only classes
+   * with a current plan. Joined in JS with `progressByClass` so both cards agree.
+   */
+  async syllabusVsPlan(tenantId: string): Promise<SyllabusVsPlanDto> {
+    const expectedByClass = this.planDashboard.expectedByClass(tenantId);
+    const [progress, expected, settings] = await Promise.all([
+      this.progressByClass(tenantId, expectedByClass),
+      expectedByClass,
+      this.schools.getResolvedSettings(tenantId),
+    ]);
+    const classes = progress.classes.flatMap((c) => {
+      const e = expected.get(c.class_id);
+      if (!e) return [];
+      return [
+        {
+          class_id: c.class_id,
+          class_name: c.class_name,
+          done_percentage: c.percentage,
+          expected_percentage: e.expected_percentage,
+          behind_by: Math.max(0, e.expected_percentage - c.percentage),
+          not_updated: e.not_updated,
+        },
+      ];
+    });
+    return {
+      as_of: localToday(settings.region?.timezone ?? 'UTC'),
+      behind_count: classes.filter((c) => c.behind_by > 0).length,
+      not_updated_count: classes.reduce((n, c) => n + c.not_updated, 0),
+      classes,
+    };
   }
 
   /**

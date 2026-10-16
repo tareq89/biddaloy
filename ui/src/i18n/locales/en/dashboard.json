@@ -101,7 +101,13 @@
     },
     "approvals-pending": {
       "title": "Waiting for your approval",
-      "description": "Leave, admission and fee waiver requests"
+      "description": "Leave, admission and fee waiver requests",
+      "tileLabel": "Waiting for your approval",
+      "value_one": "{{count}} waiting",
+      "value_other": "{{count}} waiting",
+      "oldest": "Oldest sent {{ago}}",
+      "none": "Nothing is waiting for your approval.",
+      "link": "Open the inbox"
     },
     "at-risk-students": {
       "title": "At-risk students",
@@ -144,8 +150,15 @@
       "description": "Which classes are behind in teaching",
       "average": "{{percent}} covered on average",
       "leastCovered": "Class {{class}} has covered the least ({{percent}}).",
+      "expectedMarker": "Average expected by today: {{percent}}",
+      "behindClasses_one": "{{count}} class is behind the plan.",
+      "behindClasses_other": "{{count}} classes are behind the plan.",
+      "onPace": "No class is behind the plan.",
+      "gap": "{{percent}} behind",
       "noPace": "Comparison with the expected pace comes with study plans.",
       "colCovered": "Covered",
+      "colExpected": "Expected",
+      "colGap": "Behind by",
       "link": "View syllabus",
       "emptyReason": "No syllabus topics yet.",
       "emptyAction": "Add syllabus"
@@ -287,8 +300,15 @@
       "value": "covered on average in your subjects",
       "leastCovered": "{{label}} has covered the least ({{percent}}).",
       "noPace": "Comparison with the plan comes with study plans.",
+      "expectedMarker": "Average expected by today: {{percent}}",
+      "gap": "{{percent}} behind",
+      "behindSubjects_one": "{{count}} subject is behind the plan.",
+      "behindSubjects_other": "{{count}} subjects are behind the plan.",
+      "onPace": "No subject is behind the plan.",
       "colSubject": "Section and subject",
       "colCovered": "Covered",
+      "colExpected": "Expected",
+      "colGap": "Behind by",
       "emptyReason": "No syllabus topics in your subjects yet.",
       "link": "Open syllabus",
       "compactTitle": "My syllabus"
@@ -532,7 +552,11 @@
     },
     "print-queue": {
       "title": "Print queue",
-      "description": "Documents waiting to be printed"
+      "description": "Documents waiting to be printed",
+      "value_one": "{{count}} waiting to print",
+      "value_other": "{{count}} waiting to print",
+      "none": "Nothing to print.",
+      "link": "Open the print queue"
     },
     "setup-checklist": {
       "title": "Setup checklist",
@@ -540,11 +564,31 @@
     },
     "syllabus-vs-plan": {
       "title": "Syllabus against plan",
-      "description": "Taught so far against the study plan"
+      "description": "Taught so far against the study plan",
+      "sentence_one": "{{count}} class is behind the study plan.",
+      "sentence_other": "{{count}} classes are behind the study plan.",
+      "sentenceNone": "No class is behind the study plan.",
+      "notUpdated_one": "{{count}} lesson not updated.",
+      "notUpdated_other": "{{count}} lessons not updated.",
+      "expectedMarker": "Average expected by today: {{percent}}",
+      "gap": "{{percent}} behind",
+      "colTaught": "Taught",
+      "colExpected": "Expected",
+      "colGap": "Behind by",
+      "colNotUpdated": "Not updated",
+      "emptyReason": "No class has a study plan yet.",
+      "emptyAction": "Create a study plan",
+      "link": "See behind plans"
     },
     "my-lessons-to-mark": {
       "title": "Lessons to mark done",
-      "description": "Lessons you taught but have not marked done"
+      "description": "Lessons you taught but have not marked done",
+      "compactTitle": "Lessons to mark",
+      "value_one": "lesson not updated",
+      "value_other": "lessons not updated",
+      "since": "Since {{date}}",
+      "allMarked": "All your lessons are marked.",
+      "action": "Mark lessons"
     },
     "common": {
       "showTable": "Show table",

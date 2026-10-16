@@ -11,6 +11,8 @@ import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { ApprovalModalPage } from '../pages';
 
+import { selectByTypeahead } from './keyboard-utils';
+
 /**
  * [26.8.1] Promotion, KEYBOARD ONLY: palette → new-run form → grid
  * override → commit. No `page.mouse` and no `.click(` reaches the new-run
@@ -161,20 +163,13 @@ test('keyboard-only: palette to new run, fill the form, R-override a row, commit
       page.getByRole('heading', { level: 1, name: t('promotions.newRunForm.title') }),
     ).toBeVisible();
 
-    // `selectByTypeahead`'s flow, but the option may carry a " (<year>)"
-    // suffix: the form adds it only when that year is on the first page of
-    // `GET /academic-years`, which other specs' new years can push it off.
+    // The option may carry a " (<year>)" suffix: the form adds it only when that year is on the
+    // first page of `GET /academic-years`, which other specs' new years can push it off.
     async function pick(label: string, value: string) {
       const picker = page.getByRole('combobox', { name: label });
       await expect(picker).toBeEnabled();
       await picker.focus();
-      await page.keyboard.press('Enter');
-      await page.keyboard.type(value);
-      const option = page.getByRole('option', { name: new RegExp(`^${value}( \\(.*\\))?$`) });
-      await expect(option).toBeVisible();
-      await option.focus();
-      await page.keyboard.press('Enter');
-      await expect(page.getByRole('listbox')).toBeHidden();
+      await selectByTypeahead(page, value, new RegExp(`^${value}( \\(.*\\))?$`));
     }
     await pick(t('promotions.newRunForm.sourceClassLabel'), source.className);
     await pick(t('promotions.newRunForm.targetYearLabel'), targetYearName);

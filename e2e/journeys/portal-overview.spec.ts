@@ -31,6 +31,14 @@ test('desktop: strip, heatmap with the absent day, homework, result trend, next 
   page,
 }) => {
   await openPortal(page);
+  // Other specs link their own new students to parent@ while this one runs, and the first chip
+  // is selected by default. Pick roll 1 (`seed.util.ts` DEMO_STUDENT_NAMES[0]), whose two
+  // published results `seedFamilyFacts` wrote.
+  await page
+    .getByRole('group', { name: t('portal.heatmap.childPicker') })
+    .getByRole('button', { name: 'Nusrat Jahan' })
+    .first()
+    .click();
 
   // Today strip: the seed marks the child PRESENT today unless the school is off (Friday) or the
   // base seed left that register pending on purpose.

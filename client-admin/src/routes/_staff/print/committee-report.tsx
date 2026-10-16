@@ -8,7 +8,13 @@
 import { Button, ErrorState, Skeleton } from '@biddaloy/ui/components';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer } from '@biddaloy/ui/shells';
-import { formatDate, formatMonth, formatNumber, formatServerAmount, tenantTodayIso } from '@biddaloy/ui/utils';
+import {
+  formatDate,
+  formatMonth,
+  formatNumber,
+  formatServerAmount,
+  tenantTodayIso,
+} from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { PrinterIcon } from 'lucide-react';
 import { z } from 'zod';
@@ -110,6 +116,9 @@ function CommitteeReportPage() {
   const today = tenantTodayIso(region);
   // `from` is an in-app path checked by the schema, not a typed route.
   const back = (search.from ?? '/dashboard') as '/dashboard';
+  // Kept at the same place (first child of a <header>) in every state, so React reuses the
+  // node: route focus lands on it while loading, and a new <h1> would drop that focus.
+  const heading = <h1 className="text-h2 font-semibold">{tr('title')}</h1>;
 
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
@@ -130,7 +139,7 @@ function CommitteeReportPage() {
   if (queries.some((q) => q.isError)) {
     return (
       <ReportShell>
-        <h1 className="text-h2 font-semibold">{tr('title')}</h1>
+        <header className="flex flex-col gap-1">{heading}</header>
         {toolbar}
         <ErrorState
           message={tr('loadError')}
@@ -144,7 +153,7 @@ function CommitteeReportPage() {
   if (queries.some((q) => q.isPending)) {
     return (
       <ReportShell busy>
-        <h1 className="text-h2 font-semibold">{tr('title')}</h1>
+        <header className="flex flex-col gap-1">{heading}</header>
         {toolbar}
         <Skeleton className="h-6 w-2/3" />
         <Skeleton className="h-24 w-full" />
@@ -224,8 +233,10 @@ function CommitteeReportPage() {
   return (
     <ReportShell>
       <header className="flex flex-col gap-1">
-        <h1 className="text-h2 font-semibold">{tr('title')}</h1>
-        <p className="text-body-lg">{tr('subtitle', { school, month: formatMonth(today, region) })}</p>
+        {heading}
+        <p className="text-body-lg">
+          {tr('subtitle', { school, month: formatMonth(today, region) })}
+        </p>
         <p className="text-caption text-text-secondary">
           {tr('asOf', { date: formatDate(today, region) })}
         </p>

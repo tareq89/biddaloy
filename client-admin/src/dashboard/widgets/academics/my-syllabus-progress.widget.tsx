@@ -1,6 +1,7 @@
 /**
  * [169.4-1896] `my-syllabus-progress` widget: full + compact, no phone tile.
- * No expected-pace marker until study plans ship (#1828): only the `noPace` line.
+ * [8.10.7.7.05] Once a subject has a study plan the bar gets a marker at the
+ * expected % and a "N% behind" note; without one only the `noPace` line shows.
  */
 import { DashboardWidgetKey } from '@biddaloy/shared';
 import { apiClient, type components } from '@biddaloy/ui/api';
@@ -61,7 +62,16 @@ export function MySyllabusProgressView({
         (locale === 'bn' && i.subject_name_bn) || i.subject_name_en
       }`,
       percentage: i.percentage,
+      expected: i.expected_percentage ?? null,
     }));
+  // BarWidget draws one marker for every bar, so it shows the mean expected % of planned subjects.
+  const planned = rows.filter((r) => r.expected !== null);
+  const expectedMean = planned.length
+    ? Math.round(planned.reduce((n, r) => n + (r.expected ?? 0), 0) / planned.length)
+    : undefined;
+  const behindBy = (r: (typeof rows)[number]) =>
+    r.expected !== null && r.expected > r.percentage ? r.expected - r.percentage : 0;
+  const behindCount = data?.behind_count ?? 0;
   const totalTopics = items.reduce((sum, i) => sum + i.total, 0);
   const average =
     totalTopics === 0
@@ -79,9 +89,14 @@ export function MySyllabusProgressView({
           summary={leastText ?? title}
           table={{
             caption: title,
-            columns: [tw('colSubject'), tw('colCovered')],
-            rows: rows.map((r) => [r.label, pct(r.percentage)]),
-            numeric: [false, true],
+            columns: [tw('colSubject'), tw('colCovered'), tw('colExpected'), tw('colGap')],
+            rows: rows.map((r) => [
+              r.label,
+              pct(r.percentage),
+              r.expected === null ? '–' : pct(r.expected),
+              behindBy(r) > 0 ? pct(behindBy(r)) : '–',
+            ]),
+            numeric: [false, true, true, true],
           }}
           showTableLabel={t('widgets.common.showTable')}
           showChartLabel={t('widgets.common.showChart')}
@@ -90,15 +105,30 @@ export function MySyllabusProgressView({
             bare
             emphasis="highlighted"
             emptyLabel={tw('emptyReason')}
+            {...(expectedMean !== undefined
+              ? {
+                  target: {
+                    value: expectedMean,
+                    label: tw('expectedMarker', { percent: pct(expectedMean) }),
+                  },
+                }
+              : {})}
             bars={rows.map((r, idx) => ({
               label: r.label,
               value: r.percentage,
               valueLabel: pct(r.percentage),
-              highlight: idx === 0,
+              highlight: idx === 0 || behindBy(r) > 0,
+              ...(behindBy(r) > 0 ? { note: tw('gap', { percent: pct(behindBy(r)) }) } : {}),
             }))}
           />
         </ChartTableToggle>
-        <p className="text-caption text-text-secondary">{tw('noPace')}</p>
+        <p className="text-caption text-text-secondary">
+          {expectedMean === undefined
+            ? tw('noPace')
+            : behindCount > 0
+              ? tw('behindSubjects', { count: behindCount })
+              : tw('onPace')}
+        </p>
       </div>
     ) : null;
 

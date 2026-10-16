@@ -9,6 +9,8 @@ import { SyllabusService } from './syllabus.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { AuditService } from '../audit/audit.service';
 import { PlanScheduleService } from '../study-plans/plan-schedule.service';
+import { StudyPlanDashboardService } from '../study-plans/study-plan-dashboard.service';
+import { SchoolsService } from '../schools/schools.service';
 import { StudyPlan } from '../study-plans/entities/study-plan.entity';
 import { SyllabusTopic } from './entities/syllabus-topic.entity';
 import { School } from '../schools/entities/school.entity';
@@ -60,6 +62,11 @@ describe('SyllabusService.coverageFor (integration)', () => {
     const module = await createTestModule(ALL_ENTITIES, [
       SyllabusService,
       { provide: PlanScheduleService, useValue: scheduleStub },
+      { provide: StudyPlanDashboardService, useValue: { expectedByClass: async () => new Map() } },
+      {
+        provide: SchoolsService,
+        useValue: { getResolvedSettings: async () => ({ region: { timezone: 'UTC' } }) },
+      },
       TeacherScopeService,
       AuditService,
     ]);

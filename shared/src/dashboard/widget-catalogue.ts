@@ -252,7 +252,9 @@ export const WIDGET_CATALOGUE: Record<DashboardWidgetKey, WidgetCatalogueEntry> 
     phoneTile: true,
   },
   'approvals-pending': {
-    permissions: [P.LEAVE_APPROVE],
+    // Who may decide comes from the application type catalogue (D22); the widget counts
+    // the caller's own inbox, so the gate is the submit/inbox permission, not LEAVE_APPROVE.
+    permissions: [P.APPLICATION_SUBMIT],
     roles: [R.ADMIN, R.EXECUTIVE],
     sizes: ['S'],
     phoneTile: true,

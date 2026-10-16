@@ -7,6 +7,8 @@ import { SEED_TENANT_ID } from '@test/constants';
 import { SyllabusTopicStatus } from '@biddaloy/shared';
 import { SyllabusService } from './syllabus.service';
 import { PlanScheduleService } from '../study-plans/plan-schedule.service';
+import { StudyPlanDashboardService } from '../study-plans/study-plan-dashboard.service';
+import { SchoolsService } from '../schools/schools.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { AuditService } from '../audit/audit.service';
 import { School } from '../schools/entities/school.entity';
@@ -16,7 +18,11 @@ import { Subject } from '../academics/entities/subject.entity';
 import { SyllabusTopic } from './entities/syllabus-topic.entity';
 
 /** [8.10.7.2.05] `SyllabusService.progressByClass`: done / in-progress / total per class. */
+const expectedStub = new Map<string, { expected_percentage: number; not_updated: number }>();
+
 describe('SyllabusService.progressByClass (integration)', () => {
+  beforeEach(() => expectedStub.clear());
+
   let service: SyllabusService;
   let dataSource: DataSource;
 
@@ -33,6 +39,14 @@ describe('SyllabusService.progressByClass (integration)', () => {
     const module = await createTestModule(ALL_ENTITIES, [
       SyllabusService,
       { provide: PlanScheduleService, useValue: {} },
+      {
+        provide: StudyPlanDashboardService,
+        useValue: { expectedByClass: async () => expectedStub },
+      },
+      {
+        provide: SchoolsService,
+        useValue: { getResolvedSettings: async () => ({ region: { timezone: 'UTC' } }) },
+      },
       TeacherScopeService,
       AuditService,
     ]);
@@ -118,6 +132,7 @@ describe('SyllabusService.progressByClass (integration)', () => {
       in_progress: 1,
       total: 4,
       percentage: 50,
+      expected_percentage: null,
     });
   });
 
@@ -148,6 +163,42 @@ describe('SyllabusService.progressByClass (integration)', () => {
     const total = a.classes.reduce((n, c) => n + c.total, 0);
     expect(a.overall).toEqual({ done, total, percentage: Math.round((done / total) * 100) });
     const none = await service.progressByClass('00000000-0000-4000-8000-0000000000ee');
-    expect(none).toEqual({ classes: [], overall: { done: 0, total: 0, percentage: 0 } });
+    expect(none).toEqual({
+      classes: [],
+      overall: { done: 0, total: 0, percentage: 0 },
+      behind_count: 0,
+    });
+  });
+
+  it('merges the plan expectation: 50 done vs 60 expected is behind by 10', async () => {
+    expectedStub.set(classA, { expected_percentage: 60, not_updated: 3 });
+    const res = await service.progressByClass(TENANT);
+    expect(res.classes.find((c) => c.class_id === classA)?.expected_percentage).toBe(60);
+    expect(res.behind_count).toBe(1);
+    const vs = await service.syllabusVsPlan(TENANT);
+    expect(vs.classes).toEqual([
+      {
+        class_id: classA,
+        class_name: 'Prog A',
+        done_percentage: 50,
+        expected_percentage: 60,
+        behind_by: 10,
+        not_updated: 3,
+      },
+    ]);
+    expect(vs).toMatchObject({ behind_count: 1, not_updated_count: 3 });
+    // Reconciliation: same done % as the syllabus-progress card.
+    expect(vs.classes[0]?.done_percentage).toBe(
+      res.classes.find((c) => c.class_id === classA)?.percentage,
+    );
+  });
+
+  it('a class ahead of its plan is not behind; a class without a plan is not listed', async () => {
+    expectedStub.set(classA, { expected_percentage: 40, not_updated: 0 });
+    const vs = await service.syllabusVsPlan(TENANT);
+    expect(vs.classes[0]?.behind_by).toBe(0);
+    expect(vs.behind_count).toBe(0);
+    expectedStub.clear();
+    expect((await service.syllabusVsPlan(TENANT)).classes).toEqual([]);
   });
 });

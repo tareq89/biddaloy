@@ -22,7 +22,9 @@ describe('HomeworkAnalyticsService', () => {
     assignmentRepo = makeRepo([]);
     submissionRepo = makeRepo([]);
     syllabusRepo = makeRepo([]);
-    service = new HomeworkAnalyticsService(assignmentRepo, submissionRepo, syllabusRepo);
+    service = new HomeworkAnalyticsService(assignmentRepo, submissionRepo, syllabusRepo, {
+      expectedForTeacher: async () => new Map(),
+    } as any);
   });
 
   describe('getStudentRollup', () => {

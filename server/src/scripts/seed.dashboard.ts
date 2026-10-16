@@ -44,6 +44,9 @@ const addMonths = (iso: string, n: number): string => {
   return d.toISOString().slice(0, 10);
 };
 const weekday = (iso: string): number => new Date(`${iso}T00:00:00Z`).getUTCDay();
+/** The register the journeys mark: today, or Thursday on the Friday off (`e2e/api.ts` markableDateIso). */
+const openDay = (today: string): string =>
+  weekday(today) === WEEKLY_OFF ? addDays(today, -1) : today;
 
 type Row = Record<string, any>;
 
@@ -171,17 +174,23 @@ export async function ensureDashboardSeed(
   const pool = billed.length > 0 ? billed : students;
   await seedAccountant(q, tenantId, year.id, today, timezone, pool);
   await seedAudit(q, tenantId, pool);
+  // Wave 7: the "waiting for your approval" card (ADMIN / EXECUTIVE).
+  await seedPendingApplications(q, tenantId, year.id, today, pool);
   if (!teacher) return;
   await seedStreak(q, tenantId, today, teacher, students);
   await seedMarks(q, tenantId, teacher);
   await seedHomework(q, tenantId, today, sections, teacher);
   await seedRoutine(q, tenantId, year, teacher);
+  await seedLessonsToMark(q, tenantId, year, today, teacher);
   await seedTeacherLeave(q, tenantId, today, teacher.staffProfileId);
 }
 
 type Q = <R = Row>(sql: string, params?: unknown[]) => Promise<R[]>;
 
-/** 30 days of finalised whole-day registers; today's too, except `pending` sections. Returns the working days. */
+/**
+ * 30 days of finalised whole-day registers, except the `pending` sections' register on the
+ * open day (today, or Thursday on the Friday off). Returns the working days.
+ */
 async function seedAttendance(
   q: Q,
   tenantId: string,
@@ -192,8 +201,9 @@ async function seedAttendance(
   const days = Array.from({ length: SERIES_DAYS }, (_, i) =>
     addDays(today, i - (SERIES_DAYS - 1)),
   ).filter((d) => weekday(d) !== WEEKLY_OFF);
+  const open = openDay(today);
   const pairs = sectionIds.flatMap((s) =>
-    days.filter((d) => d !== today || !pending.includes(s)).map((d) => [s, d] as const),
+    days.filter((d) => d !== open || !pending.includes(s)).map((d) => [s, d] as const),
   );
   await q(
     `INSERT INTO attendance_sessions (tenant_id, section_id, date, period_no, state, source, marked_at, finalized_at)
@@ -810,6 +820,79 @@ async function seedAudit(q: Q, tenantId: string, pool: Stu[]) {
   }
 }
 
+/**
+ * 5 pending staff leaves (step 0, LEAVE_APPROVE) + 2 pending fee waivers parked at the
+ * admin's own step (step 1), so the seed ADMIN and EXECUTIVE both see 7 in the inbox.
+ * Found by `letter_text` (a stable marker); only the age moves with today's run.
+ */
+async function seedPendingApplications(
+  q: Q,
+  tenantId: string,
+  yearId: string,
+  today: string,
+  pool: Stu[],
+) {
+  const staff = await q<{ id: string; user_id: string }>(
+    `SELECT sp.id, sp.user_id FROM staff_profiles sp WHERE sp.tenant_id = $1 ORDER BY sp.id`,
+    [tenantId],
+  );
+  if (staff.length === 0) return;
+  const applicant = staff[0].user_id; // a staff member files all of them: no PII, no extra users
+  const serialYear = Number(today.slice(0, 4));
+  const rows = [
+    ...[0, 1, 2, 3, 4].map((i) => ({
+      type: 'STAFF_LEAVE',
+      step: 0,
+      staff: staff[i % staff.length].id,
+      student: null as string | null,
+      ageDays: 5 - i,
+      payload: { leave_type: 'CASUAL', reason: 'Dashboard demo' },
+    })),
+    ...(pool.length === 0
+      ? []
+      : [0, 1].map((i) => ({
+          type: 'FEE_WAIVER',
+          step: 1,
+          staff: null as string | null,
+          student: pool[i % pool.length].id,
+          ageDays: 2 - i,
+          payload: { reason: 'Dashboard demo' },
+        }))),
+  ];
+  for (const [i, r] of rows.entries()) {
+    const marker = `Dashboard demo: pending application ${i + 1}`;
+    const [hit] = await q(`SELECT 1 FROM applications WHERE tenant_id = $1 AND letter_text = $2`, [
+      tenantId,
+      marker,
+    ]);
+    if (hit) continue;
+    await q(
+      `INSERT INTO applications
+         (tenant_id, type, status, source, serial_year, serial_no, academic_year_id, applicant_user_id,
+          subject_student_id, subject_staff_profile_id, payload, start_date, end_date,
+          current_step, letter_text, letter_locale, created_at, updated_at)
+       SELECT $1, $2::applications_type_enum, 'PENDING', 'APP', $3, coalesce(max(serial_no), 0) + 1, $4, $5,
+              $6, $7, $8::jsonb, $9::date, $9::date, $10, $11, 'en',
+              NOW() - make_interval(days => $12), NOW()
+         FROM applications WHERE tenant_id = $1 AND serial_year = $3`,
+      [
+        tenantId,
+        r.type,
+        serialYear,
+        yearId,
+        applicant,
+        r.student,
+        r.staff,
+        JSON.stringify(r.payload),
+        today,
+        r.step,
+        marker,
+        r.ageDays,
+      ],
+    );
+  }
+}
+
 /** The teacher's homeroom: one student absent on the section's last 4 registers ("4 school days in a row"). */
 async function seedStreak(
   q: Q,
@@ -1084,6 +1167,62 @@ async function seedRoutine(
       made += 1;
     }
   }
+}
+
+/**
+ * [8.10.7.7.05] "Lessons to mark": the demo teacher's first demo-room period gets a study
+ * plan (kept if one exists) whose creation day is the 3rd most recent teaching day, and any
+ * delivery since then is cleared, so the last 3 teaching days show up as not marked.
+ */
+async function seedLessonsToMark(
+  q: Q,
+  tenantId: string,
+  year: { id: string },
+  today: string,
+  teacher: TeacherCtx,
+) {
+  const [slot] = await q<{ section_id: string; subject_id: string }>(
+    `SELECT rs.section_id, rs.subject_id
+       FROM routine_slots rs
+       JOIN routine_slot_teachers rst ON rst.routine_slot_id = rs.id AND rst.teacher_id = $2
+       JOIN rooms r ON r.id = rs.room_id AND r.building = $3 AND r.room_no = $4
+      WHERE rs.tenant_id = $1
+      ORDER BY rs.weekday, rs.period_slot_id LIMIT 1`,
+    [tenantId, teacher.teacherId, DEMO_ROOM.building, DEMO_ROOM.room_no],
+  );
+  if (!slot) return;
+  let since = today;
+  for (let teachingDays = 0; teachingDays < 3;) {
+    since = addDays(since, -1);
+    if (weekday(since) !== WEEKLY_OFF) teachingDays += 1;
+  }
+  const [plan] = await q<{ id: string }>(
+    `SELECT id FROM study_plans
+      WHERE tenant_id = $1 AND section_id = $2 AND subject_id = $3 AND deleted_at IS NULL
+      ORDER BY created_at LIMIT 1`,
+    [tenantId, slot.section_id, slot.subject_id],
+  );
+  const lessons = JSON.stringify([
+    { id: 'dashboard-demo-l1', title: 'Chapter 1', periods: 6 },
+    { id: 'dashboard-demo-l2', title: 'Chapter 2', periods: 6 },
+  ]);
+  if (plan) {
+    await q(`UPDATE study_plans SET created_at = $2 WHERE id = $1`, [
+      plan.id,
+      `${since}T12:00:00Z`,
+    ]);
+  } else {
+    await q(
+      `INSERT INTO study_plans (tenant_id, academic_year_id, section_id, subject_id, lessons, exam_markers, created_at)
+       VALUES ($1, $2, $3, $4, $5::jsonb, '[]'::jsonb, $6)`,
+      [tenantId, year.id, slot.section_id, slot.subject_id, lessons, `${since}T12:00:00Z`],
+    );
+  }
+  await q(
+    `DELETE FROM lesson_deliveries
+      WHERE tenant_id = $1 AND section_id = $2 AND subject_id = $3 AND date >= $4 AND date < $5`,
+    [tenantId, slot.section_id, slot.subject_id, since, today],
+  );
 }
 
 /** One approved casual-leave day this year (a recent working day), so the balance card shows usage. */
@@ -1463,13 +1602,15 @@ async function seedFamilyFacts(
       WHERE table_name = 'attendance_records' AND column_name = 'status'`,
   );
   // Writes the child's mark, adding the day's whole-day register first if the base seed has none
-  // (never for a section left pending on purpose today).
+  // (never for a section left pending on purpose on the open day, never on the weekly off: a
+  // Friday register would also pull the rest of the section into it on the next run).
   const mark = async (
     kid: { id: string; class_section_id: string },
     date: string,
     status: string,
   ) => {
-    if (date === today && pending.includes(kid.class_section_id)) return;
+    if (weekday(date) === WEEKLY_OFF) return;
+    if (date === openDay(today) && pending.includes(kid.class_section_id)) return;
     await q(
       `INSERT INTO attendance_sessions (tenant_id, section_id, date, period_no, state, source, marked_at, finalized_at)
        SELECT $1, $2, $3, NULL, 'FINALIZED', 'SYSTEM', NOW(), NOW()

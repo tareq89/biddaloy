@@ -5745,6 +5745,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/syllabus-vs-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: syllabus-vs-plan */
+        get: operations["HomeworkDashboardController_getSyllabusVsPlan_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/widgets/homework-to-check": {
         parameters: {
             query?: never;
@@ -5788,6 +5805,23 @@ export interface paths {
         };
         /** Dashboard widget: my-syllabus-progress */
         get: operations["HomeworkDashboardController_getMySyllabusProgress_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/my-lessons-to-mark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: my-lessons-to-mark */
+        get: operations["HomeworkDashboardController_getMyLessonsToMark_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7306,6 +7340,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/widgets/print-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: print-queue */
+        get: operations["PrintDashboardController_queue_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/verify/{token}": {
         parameters: {
             query?: never;
@@ -8141,6 +8192,23 @@ export interface paths {
         };
         /** Counts, timings, stale list, who is on leave today, staff leave days */
         get: operations["ApplicationReportsController_reports_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/widgets/approvals-pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard widget: approvals-pending */
+        get: operations["ApplicationsDashboardController_getApprovalsPending_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -13919,6 +13987,11 @@ export interface components {
              * @example 41
              */
             percentage: number;
+            /**
+             * @description Share of lessons the study plan expects taught by today; null without a plan
+             * @example 60
+             */
+            expected_percentage: number | null;
         };
         SyllabusOverallProgressDto: {
             done: number;
@@ -13929,6 +14002,35 @@ export interface components {
         SyllabusProgressWidgetDto: {
             classes: components["schemas"]["SyllabusClassProgressDto"][];
             overall: components["schemas"]["SyllabusOverallProgressDto"];
+            /** @description Classes whose taught share is under the plan expectation */
+            behind_count: number;
+        };
+        SyllabusVsPlanClassDto: {
+            /** Format: uuid */
+            class_id: string;
+            /** @example 8 */
+            class_name: string;
+            /** @example 41 */
+            done_percentage: number;
+            /** @example 60 */
+            expected_percentage: number;
+            /**
+             * @description expected - done when positive, else 0
+             * @example 19
+             */
+            behind_by: number;
+            /** @description Past routine periods with no lesson report */
+            not_updated: number;
+        };
+        SyllabusVsPlanDto: {
+            /**
+             * @description School-local date
+             * @example 2026-10-07
+             */
+            as_of: string;
+            behind_count: number;
+            not_updated_count: number;
+            classes: components["schemas"]["SyllabusVsPlanClassDto"][];
         };
         HomeworkToCheckItemDto: {
             /** Format: uuid */
@@ -14004,9 +14106,33 @@ export interface components {
             total: number;
             /** @example 37 */
             percentage: number;
+            /** @description Study-plan pace by today across the sections; null without a plan. */
+            expected_percentage: number | null;
         };
         MySyllabusProgressDto: {
             items: components["schemas"]["MySyllabusProgressItemDto"][];
+            /** @description Subjects whose done % is below the expected %. */
+            behind_count: number;
+        };
+        LessonToMarkDto: {
+            /** @example 7 */
+            class_name: string;
+            /** @example B */
+            section_name: string;
+            /** @example Mathematics */
+            subject_name_en: string;
+            subject_name_bn: string | null;
+            /** @example 2026-10-05 */
+            planned_on: string;
+            lesson_title: string | null;
+        };
+        LessonsToMarkDto: {
+            /** @example 3 */
+            to_mark: number;
+            /** @example 2026-10-05 */
+            oldest_planned_on: string | null;
+            /** @description Newest 5. */
+            items: components["schemas"]["LessonToMarkDto"][];
         };
         PlanListSectionDto: {
             id: string;
@@ -14911,6 +15037,10 @@ export interface components {
         };
         RevokePrintItemDto: {
             reason: string;
+        };
+        PrintQueueWidgetDto: {
+            total: number;
+            by_kind: components["schemas"]["QueueKindCountDto"][];
         };
         AdmitCardStudentDto: {
             student_id: string;
@@ -30990,6 +31120,44 @@ export interface operations {
             };
         };
     };
+    HomeworkDashboardController_getSyllabusVsPlan_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyllabusVsPlanDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     HomeworkDashboardController_getHomeworkToCheck_v1: {
         parameters: {
             query?: never;
@@ -31086,6 +31254,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MySyllabusProgressDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HomeworkDashboardController_getMyLessonsToMark_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonsToMarkDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -34575,6 +34781,44 @@ export interface operations {
             };
         };
     };
+    PrintDashboardController_queue_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrintQueueWidgetDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     PublicVerifyController_verify_v1: {
         parameters: {
             query?: never;
@@ -36904,6 +37148,44 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApplicationsDashboardController_getApprovalsPending_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingCountDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

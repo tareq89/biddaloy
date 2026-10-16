@@ -3,9 +3,20 @@
  * Role default + saved layout -> `resolveLayout`; a failed prefs read just
  * shows the role default. `customize` (from `?customize=1`) swaps the grid for customise mode (2-11).
  */
-import { Permission, ROLE_DEFAULT_LAYOUTS, UserRole, WIDGET_CATALOGUE } from '@biddaloy/shared';
+import {
+  DashboardWidgetKey,
+  Permission,
+  ROLE_DEFAULT_LAYOUTS,
+  UserRole,
+  WIDGET_CATALOGUE,
+} from '@biddaloy/shared';
 import { EmptyState, Skeleton } from '@biddaloy/ui/components';
-import { academicYearsQueryOptions, hasPermission, useHasPermission } from '@biddaloy/ui/hooks';
+import {
+  academicYearsQueryOptions,
+  hasPermission,
+  onboardingStatusQueryOptions,
+  useHasPermission,
+} from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
 import { formatDate, formatMonth, formatWeekday } from '@biddaloy/ui/utils';
@@ -16,7 +27,6 @@ import * as React from 'react';
 
 import { AttendancePendingCard } from '../../components/attendance-pending-card';
 import { ConnectHintCard } from '../../features/onboarding/connect-hint-card';
-import { SetupChecklistCard } from '../../features/onboarding/setup-checklist-card';
 
 import { BriefingSlot } from './briefing-slot';
 import { CommitteeSummary } from './committee-summary';
@@ -67,6 +77,19 @@ export function DashboardPage({ customize = false }: { customize?: boolean }) {
         : { visible: [], hidden: [] },
     [role, pref],
   );
+  // [8.10.7.7.03] D15: a brand-new school (nothing set up, not hidden) sees the
+  // checklist alone instead of an empty grid. Same query the card uses (shared cache).
+  const onboarding = useQuery({
+    ...onboardingStatusQueryOptions(),
+    enabled: role === UserRole.ADMIN,
+  });
+  const ob = onboarding.data;
+  const brandNew =
+    !!ob && !ob.dismissed_at && ob.items.length > 0 && ob.items.every((i) => !i.done);
+  // A hidden checklist (resolveLayout dropped it from `visible`) stays hidden even for a new school.
+  const checklistOnly = brandNew
+    ? visible.find((v) => v.key === DashboardWidgetKey.SETUP_CHECKLIST)
+    : undefined;
   const openCustomise = () => void navigate({ to: '/dashboard', search: { customize: 1 } });
   const closeCustomise = () => void navigate({ to: '/dashboard', search: {} });
 
@@ -122,12 +145,17 @@ export function DashboardPage({ customize = false }: { customize?: boolean }) {
         ) : (
           <>
             {isCommittee ? <CommitteeSummary /> : <BriefingSlot />}
-            {/* Stopgap until the wave-3 widgets replace them; each hides itself
-                (ADMIN only / dismissed / no ATTENDANCE_READ / nothing to show). */}
-            <SetupChecklistCard />
-            <ConnectHintCard />
-            <AttendancePendingCard />
-            {visible.length === 0 ? (
+            {!checklistOnly && (
+              <>
+                {/* Stopgap until a widget replaces them; each hides itself
+                    (dismissed / no ATTENDANCE_READ / nothing to show). */}
+                <ConnectHintCard />
+                <AttendancePendingCard />
+              </>
+            )}
+            {checklistOnly ? (
+              <DashboardGrid visible={[checklistOnly]} />
+            ) : visible.length === 0 ? (
               <EmptyState
                 title={t('states.allHidden.title')}
                 explanation={t('states.allHidden.explanation')}

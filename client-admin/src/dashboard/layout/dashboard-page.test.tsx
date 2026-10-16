@@ -3,7 +3,7 @@ import '@biddaloy/ui/test';
 import { ROLE_DEFAULT_LAYOUTS } from '@biddaloy/shared';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { createRootRoute, createRoute, useSearch } from '@tanstack/react-router';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -27,8 +27,33 @@ function tree() {
   return root.addChildren([dash]);
 }
 
-function mockApi(opts: { preferences?: unknown; userStatus?: number } = {}) {
+/** `none` = brand-new school, `some` = partly done, default = finished. */
+function onboardingBody(state: 'none' | 'some' | 'done' | 'hidden') {
+  const done = [state !== 'none', state === 'done' || state === 'hidden'];
+  return {
+    finished_at: null,
+    dismissed_at: state === 'hidden' ? '2026-10-01T00:00:00Z' : null,
+    seen: true,
+    setup_path: null,
+    items: [
+      { id: 'profile', done: done[0] },
+      { id: 'structure', done: done[1] },
+    ].map((i) => (state === 'hidden' ? { ...i, done: false } : i)),
+    counts: { classes: 0, sections: 0, students: 0, staff: 1 },
+  };
+}
+
+function mockApi(
+  opts: {
+    preferences?: unknown;
+    userStatus?: number;
+    onboarding?: 'none' | 'some' | 'done' | 'hidden';
+  } = {},
+) {
   server.use(
+    http.get('/api/v1/onboarding/status', () =>
+      HttpResponse.json(onboardingBody(opts.onboarding ?? 'done')),
+    ),
     http.get('/api/v1/users/me', () =>
       opts.userStatus
         ? HttpResponse.json({ message: 'boom' }, { status: opts.userStatus })
@@ -127,6 +152,50 @@ describe('DashboardPage', () => {
     render();
     expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeTruthy();
     expect(await screen.findByText('Nothing needs you right now.')).toBeTruthy();
+  });
+
+  describe('setup checklist (D15)', () => {
+    const card = () => screen.queryAllByRole('heading', { name: 'Finish setting up your school' });
+
+    it('ADMIN, brand-new school: checklist alone, no grid', async () => {
+      mockApi({ onboarding: 'none' });
+      render();
+      await waitFor(() => expect(card().length).toBeGreaterThan(0));
+      expect(screen.queryAllByRole('heading', { name: 'Upcoming' })).toHaveLength(0);
+    });
+
+    it('ADMIN, partly done: grid, checklist is the last widget', async () => {
+      mockApi({ onboarding: 'some' });
+      render();
+      await waitFor(() => expect(card().length).toBeGreaterThan(0));
+      expect((await screen.findAllByRole('heading', { name: 'Upcoming' })).length).toBeGreaterThan(
+        0,
+      );
+      const all = screen.getAllByRole('heading', { level: 2 });
+      expect(all[all.length - 1]!.textContent).toBe('Finish setting up your school');
+    });
+
+    it('ADMIN, finished: no checklist', async () => {
+      mockApi({ onboarding: 'done' });
+      render();
+      await screen.findAllByRole('heading', { name: 'Upcoming' });
+      expect(card()).toHaveLength(0);
+    });
+
+    it('ADMIN, hidden by the admin: no checklist', async () => {
+      mockApi({ onboarding: 'hidden' });
+      render();
+      await screen.findAllByRole('heading', { name: 'Upcoming' });
+      expect(card()).toHaveLength(0);
+    });
+
+    it('TEACHER never sees it, even for a brand-new school', async () => {
+      mockApi({ onboarding: 'none' });
+      render('/dashboard', 'TEACHER');
+      await screen.findByRole('heading', { level: 1, name: 'Dashboard' });
+      await new Promise((r) => setTimeout(r, 50));
+      expect(card()).toHaveLength(0);
+    });
   });
 
   it('Customise goes to ?customize=1', async () => {

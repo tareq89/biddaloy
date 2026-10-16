@@ -10,6 +10,7 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ChevronRightIcon, CircleCheckIcon, CircleIcon } from 'lucide-react';
+import { useId } from 'react';
 
 const TARGETS: Record<OnboardingItemId, { to: string; search?: Record<string, string | number> }> =
   {
@@ -33,6 +34,7 @@ export function SetupChecklistCard() {
   const { t } = useTranslation('setupChecklist');
   const role = useActiveRole();
   const update = useUpdateOnboarding();
+  const headingId = useId(); // the grid renders desktop + phone copies; ids must not collide
   const { data } = useQuery({
     ...onboardingStatusQueryOptions(),
     enabled: role === UserRole.ADMIN,
@@ -41,10 +43,10 @@ export function SetupChecklistCard() {
   const done = data.items.filter((i) => i.done).length;
   return (
     <Card padded asChild>
-      <section aria-labelledby="setup-checklist-heading" className="flex flex-col gap-3">
+      <section aria-labelledby={headingId} className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <h2 id="setup-checklist-heading" className="text-h3">
+            <h2 id={headingId} className="text-h3">
               {t('title')}
             </h2>
             <p className="text-text-secondary">

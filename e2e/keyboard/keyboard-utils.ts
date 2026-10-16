@@ -63,10 +63,19 @@ export async function tabUntilFocused(
  * pickers this is used on list every row in the shared e2e database, so a
  * positional pick can land on a stale row from another run instead of the
  * data this test just created. */
-export async function selectByTypeahead(page: Page, value: string): Promise<void> {
+export async function selectByTypeahead(
+  page: Page,
+  value: string,
+  name: string | RegExp = value,
+): Promise<void> {
   await page.keyboard.press('Enter');
+  // Radix moves focus into the listbox once it is positioned; keys sent before that reach the
+  // trigger, and the space in a name like "E2E 123" then picks the highlighted row.
+  await expect
+    .poll(() => page.evaluate(() => !!document.activeElement?.closest('[role="listbox"]')))
+    .toBe(true);
   await page.keyboard.type(value);
-  const option = page.getByRole('option', { name: value, exact: true });
+  const option = page.getByRole('option', { name, exact: true });
   await expect(option).toBeVisible();
   await option.focus();
   await page.keyboard.press('Enter');

@@ -7,13 +7,23 @@
  *
  * Desktop: one card per child. Phone: one card, one row per child. Both are
  * mounted and switched by CSS; they share the per-child query.
+ *
+ * [8.10.7.7.06] A child who is absent, or not marked yet on a school day, gets an
+ * outline "Tell the school" link into the family's student-leave application
+ * (`/portal/applications/new`, 52.6.1), shown only to roles that may submit one.
  */
-import { AttendanceStatus } from '@biddaloy/shared';
-import { Card, Skeleton, StatusBadge } from '@biddaloy/ui/components';
+import { ApplicationType, AttendanceStatus } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
+import { Button, Card, Skeleton, StatusBadge } from '@biddaloy/ui/components';
 import type { StatusTone } from '@biddaloy/ui/components';
-import { useStudentAttendanceDays, type StudentAttendanceDay } from '@biddaloy/ui/hooks';
+import {
+  useHasPermission,
+  useStudentAttendanceDays,
+  type StudentAttendanceDay,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatTime } from '@biddaloy/ui/utils';
+import { Link } from '@tanstack/react-router';
 import { Ban, Calendar, Check, Clock, Minus, X, type LucideIcon } from 'lucide-react';
 
 export interface TodayStripChild {
@@ -56,6 +66,7 @@ function useTodayChild(child: TodayStripChild, today: string, month: string) {
   const { t } = useTranslation('portal');
   const config = useRegionConfig();
   const query = useStudentAttendanceDays(child.id, month);
+  const canApply = useHasPermission(Permission.APPLICATION_SUBMIT);
   const day = query.data?.find((d) => d.date === today);
   const state = stateOf(day);
   const long: Record<TodayState, string> = {
@@ -83,6 +94,8 @@ function useTodayChild(child: TodayStripChild, today: string, month: string) {
         : t('today.notTakenYet');
   return {
     pending: query.isPending,
+    // Absent, or unmarked on a school day (`day` is only a non-working day when state is 'closed').
+    canTellSchool: canApply && (state === 'absent' || (state === 'notMarked' && !!day)),
     state,
     longLabel: long[state],
     shortLabel: short[state],
@@ -99,6 +112,21 @@ function initials(fullName: string): string {
     .join('');
 }
 
+/** 44 px outline link to the student-leave form for this child. */
+function TellSchoolLink({ childId, className }: { childId: string; className?: string }) {
+  const { t } = useTranslation('portal');
+  return (
+    <Button asChild variant="outline" className={`min-h-11 ${className ?? ''}`}>
+      <Link
+        to="/portal/applications/new"
+        search={{ type: ApplicationType.STUDENT_LEAVE, student: childId }}
+      >
+        {t('today.tellSchool')}
+      </Link>
+    </Button>
+  );
+}
+
 function ChildCard({
   child,
   today,
@@ -108,7 +136,11 @@ function ChildCard({
   today: string;
   month: string;
 }) {
-  const { pending, state, longLabel, takenLine } = useTodayChild(child, today, month);
+  const { pending, state, longLabel, takenLine, canTellSchool } = useTodayChild(
+    child,
+    today,
+    month,
+  );
   const look = STATE_LOOK[state];
   const Icon = look.icon;
   return (
@@ -134,6 +166,7 @@ function ChildCard({
             {longLabel}
           </p>
           {takenLine ? <p className="text-caption text-text-secondary">{takenLine}</p> : null}
+          {canTellSchool ? <TellSchoolLink childId={child.id} className="w-full" /> : null}
         </>
       )}
     </Card>
@@ -149,9 +182,13 @@ function ChildRow({
   today: string;
   month: string;
 }) {
-  const { pending, state, shortLabel, takenLine } = useTodayChild(child, today, month);
+  const { pending, state, shortLabel, takenLine, canTellSchool } = useTodayChild(
+    child,
+    today,
+    month,
+  );
   return (
-    <li className="flex min-h-11 items-center justify-between gap-3 py-2.5">
+    <li className="flex min-h-11 flex-wrap items-center justify-between gap-3 py-2.5">
       <div className="min-w-0">
         <p className="truncate font-semibold">{child.fullName}</p>
         {takenLine && !pending ? (
@@ -163,6 +200,7 @@ function ChildRow({
       ) : (
         <StatusBadge tone={STATE_LOOK[state].tone} label={shortLabel} />
       )}
+      {canTellSchool && !pending ? <TellSchoolLink childId={child.id} className="w-full" /> : null}
     </li>
   );
 }

@@ -1,7 +1,8 @@
 import '@biddaloy/ui/test';
 
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { toIsoDate } from '@biddaloy/ui/utils';
+import { tenantTodayIso } from '@biddaloy/ui/utils';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,10 +13,12 @@ import Widget from './mark-entry-progress.widget';
 
 const URL = '/api/v1/dashboard/widgets/mark-entry-progress';
 
+// Counted from the school's today (Asia/Dhaka), as the widget does: the
+// browser's date is a day behind it between 18:00 and 24:00 UTC.
 const inDays = (n: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return toIsoDate(d);
+  const d = new Date(`${tenantTodayIso(REGION_BD_EN)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 };
 
 const cls = (id: string, name: string, submitted: number, percentage: number) => ({

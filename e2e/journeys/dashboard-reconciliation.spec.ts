@@ -33,13 +33,26 @@ import {
  *  - Dashboards count FINALIZED registers only. A DRAFT register is on the register
  *    screen but not in a dashboard number.
  *
- * The widgets are cached for 60 s (D24); the seed does not change during the run, so a
- * cached value is still the right one. Not covered here (no widget on this branch, or no
- * source endpoint): see the `fixme` and the comments on `committee-attendance`.
+ * The widgets are cached for 60 s (D24). A widget whose source other specs write to during the
+ * run goes through `whileOthersWrite`. Not covered here (no widget on this branch, or no
+ * source endpoint): see the comments on `committee-attendance`.
+ * [8.10.7.7.07] adds approvals-pending (vs `GET /applications?view=inbox`), print-queue
+ * (vs `GET /print-history/queue`), syllabus-vs-plan (vs syllabus-progress) and
+ * my-lessons-to-mark (vs the teacher's plan schedules).
  */
 
 const TODAY = dhakaDay();
 const MONTH_START = `${TODAY.slice(0, 8)}01`;
+
+/**
+ * RULE: other workers add payments, students, applicants, applications and print jobs while
+ * this file runs, and a widget is cached for 60 s, so a widget read can lag its source. The
+ * comparison stays exact; it is only repeated until a fresh cache entry and the source agree.
+ */
+async function whileOthersWrite(compare: () => Promise<void>): Promise<void> {
+  test.setTimeout(120_000);
+  await expect(compare).toPass({ intervals: [5_000], timeout: 90_000 });
+}
 
 interface Counts {
   present: number;
@@ -62,6 +75,12 @@ const addMonthsIso = (isoDay: string, months: number): string => {
 
 const lastDayOf = (year: number, month: number): number =>
   new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+const addDaysIso = (isoDay: string, days: number): string => {
+  const d = new Date(`${isoDay}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
 
 const sortedIds = (ids: string[]): string[] => [...ids].sort();
 
@@ -207,32 +226,34 @@ test.describe('dashboard reconciliation: admin', () => {
   test('collection-month received = reports totals.net for the month so far', async ({
     request,
   }) => {
-    const w = await widget<{
-      received: number;
-      last_month_same_point: { received: number };
-      last_year_same_point: { as_of: string; received: number } | null;
-    }>(request, 'admin', 'collection-month');
-    const sourceUrl = reportUrl(MONTH_START, TODAY);
-    const report = await getJson<CollectionsReport>(request, 'admin', sourceUrl);
-    const url = '/dashboard/widgets/collection-month';
-    expectSame('received (applied to bills)', w.received, url, report.totals.net, sourceUrl);
-    expectMethodsSumToNet(report, 'month');
+    await whileOthersWrite(async () => {
+      const w = await widget<{
+        received: number;
+        last_month_same_point: { received: number };
+        last_year_same_point: { as_of: string; received: number } | null;
+      }>(request, 'admin', 'collection-month');
+      const sourceUrl = reportUrl(MONTH_START, TODAY);
+      const report = await getJson<CollectionsReport>(request, 'admin', sourceUrl);
+      const url = '/dashboard/widgets/collection-month';
+      expectSame('received (applied to bills)', w.received, url, report.totals.net, sourceUrl);
+      expectMethodsSumToNet(report, 'month');
 
-    // The comparison points use the same report over the shifted range.
-    const [py, pm, pd] = addMonthsIso(MONTH_START, -1).split('-').map(Number);
-    const prevTo = `${py}-${String(pm).padStart(2, '0')}-${String(Math.min(Number(TODAY.slice(8)), lastDayOf(py, pm))).padStart(2, '0')}`;
-    const prev = await getJson<CollectionsReport>(
-      request,
-      'admin',
-      reportUrl(`${py}-${String(pm).padStart(2, '0')}-${String(pd).padStart(2, '0')}`, prevTo),
-    );
-    expectSame(
-      'last month same point',
-      w.last_month_same_point.received,
-      url,
-      prev.totals.net,
-      reportUrl(`${py}-${pm}-01`, prevTo),
-    );
+      // The comparison points use the same report over the shifted range.
+      const [py, pm, pd] = addMonthsIso(MONTH_START, -1).split('-').map(Number);
+      const prevTo = `${py}-${String(pm).padStart(2, '0')}-${String(Math.min(Number(TODAY.slice(8)), lastDayOf(py, pm))).padStart(2, '0')}`;
+      const prev = await getJson<CollectionsReport>(
+        request,
+        'admin',
+        reportUrl(`${py}-${String(pm).padStart(2, '0')}-${String(pd).padStart(2, '0')}`, prevTo),
+      );
+      expectSame(
+        'last month same point',
+        w.last_month_same_point.received,
+        url,
+        prev.totals.net,
+        reportUrl(`${py}-${pm}-01`, prevTo),
+      );
+    });
   });
 
   test('mark-entry-progress = GET /exams/:id/marks/progress per class', async ({ request }) => {
@@ -375,7 +396,9 @@ test.describe('dashboard reconciliation: admin', () => {
       await roleSession(request, role);
     }
     const w = await widget<{ items: { id: string }[] }>(request, 'admin', 'recent-activity');
-    const sourceUrl = '/audit-logs?page=1&limit=8';
+    // 100, not 8: other workers write audit rows all the time, and in 60 s more than 8 can land
+    // above the cached widget.
+    const sourceUrl = '/audit-logs?page=1&limit=100';
     const source = await getJson<{ data: { id: string }[] }>(request, 'admin', sourceUrl);
     const widgetIds = w.items.map((i) => i.id);
     const sourceIds = source.data.map((i) => i.id);
@@ -443,190 +466,212 @@ test.describe('dashboard reconciliation: accountant', () => {
   test('collection-today = reports totals.net for today; groups and methods add up', async ({
     request,
   }) => {
-    const w = await widget<{
-      net: number;
-      groups: { group: string; net: number; methods: { payment_method: string; net: number }[] }[];
-    }>(request, 'accountant', 'collection-today');
-    const sourceUrl = reportUrl(TODAY, TODAY);
-    const report = await getJson<CollectionsReport>(request, 'accountant', sourceUrl);
-    const url = '/dashboard/widgets/collection-today';
-    // RULE: the widget stops at "now", the report at the end of the day; a payment dated later
-    // today would be in the report only. The seed has none, so the two are equal.
-    expectSame('net', w.net, url, report.totals.net, sourceUrl);
-    expectSame(
-      'Σ group nets = net',
-      round2(w.groups.reduce((n, g) => n + g.net, 0)),
-      url,
-      w.net,
-      url,
-    );
-    expectMethodsSumToNet(report, 'today');
+    await whileOthersWrite(async () => {
+      const w = await widget<{
+        net: number;
+        groups: {
+          group: string;
+          net: number;
+          methods: { payment_method: string; net: number }[];
+        }[];
+      }>(request, 'accountant', 'collection-today');
+      const sourceUrl = reportUrl(TODAY, TODAY);
+      const report = await getJson<CollectionsReport>(request, 'accountant', sourceUrl);
+      const url = '/dashboard/widgets/collection-today';
+      // RULE: the widget stops at "now", the report at the end of the day; a payment dated later
+      // today would be in the report only. The seed has none, so the two are equal.
+      expectSame('net', w.net, url, report.totals.net, sourceUrl);
+      expectSame(
+        'Σ group nets = net',
+        round2(w.groups.reduce((n, g) => n + g.net, 0)),
+        url,
+        w.net,
+        url,
+      );
+      expectMethodsSumToNet(report, 'today');
+    });
   });
 
   test('collection-by-month = reports totals.net for each month', async ({ request }) => {
-    const w = await widget<{
-      year: number;
-      year_to_date_net: number;
-      month_to_date_net: number;
-      previous_month_same_days_net: number;
-      months: { month: number; net: number | null; is_current: boolean }[];
-    }>(request, 'accountant', 'collection-by-month');
-    const url = '/dashboard/widgets/collection-by-month';
-    const currentMonth = Number(TODAY.slice(5, 7));
-    let ytd = 0;
-    for (const m of w.months) {
-      if (m.month > currentMonth) {
-        expectSame(
-          `month ${m.month} is in the future`,
-          m.net,
-          url,
-          null,
-          'future months are null by rule',
-        );
-        continue;
+    await whileOthersWrite(async () => {
+      const w = await widget<{
+        year: number;
+        year_to_date_net: number;
+        month_to_date_net: number;
+        previous_month_same_days_net: number;
+        months: { month: number; net: number | null; is_current: boolean }[];
+      }>(request, 'accountant', 'collection-by-month');
+      const url = '/dashboard/widgets/collection-by-month';
+      const currentMonth = Number(TODAY.slice(5, 7));
+      let ytd = 0;
+      for (const m of w.months) {
+        if (m.month > currentMonth) {
+          expectSame(
+            `month ${m.month} is in the future`,
+            m.net,
+            url,
+            null,
+            'future months are null by rule',
+          );
+          continue;
+        }
+        const from = `${w.year}-${String(m.month).padStart(2, '0')}-01`;
+        const to = m.is_current
+          ? TODAY
+          : `${w.year}-${String(m.month).padStart(2, '0')}-${lastDayOf(w.year, m.month)}`;
+        const report = await getJson<CollectionsReport>(request, 'accountant', reportUrl(from, to));
+        expectSame(`month ${m.month}`, m.net, url, report.totals.net, reportUrl(from, to));
+        ytd += round2(report.totals.net); // the server sums rounded months
       }
-      const from = `${w.year}-${String(m.month).padStart(2, '0')}-01`;
-      const to = m.is_current
-        ? TODAY
-        : `${w.year}-${String(m.month).padStart(2, '0')}-${lastDayOf(w.year, m.month)}`;
-      const report = await getJson<CollectionsReport>(request, 'accountant', reportUrl(from, to));
-      expectSame(`month ${m.month}`, m.net, url, report.totals.net, reportUrl(from, to));
-      ytd += round2(report.totals.net); // the server sums rounded months
-    }
-    expectSame(
-      'year_to_date_net',
-      w.year_to_date_net,
-      url,
-      round2(ytd),
-      '/reports/collections (Σ months)',
-    );
-    expectSame('month_to_date_net', w.month_to_date_net, url, w.months[currentMonth - 1].net, url);
+      expectSame(
+        'year_to_date_net',
+        w.year_to_date_net,
+        url,
+        round2(ytd),
+        '/reports/collections (Σ months)',
+      );
+      expectSame(
+        'month_to_date_net',
+        w.month_to_date_net,
+        url,
+        w.months[currentMonth - 1].net,
+        url,
+      );
 
-    const [py, pm] = addMonthsIso(MONTH_START, -1).split('-').map(Number);
-    const prevTo = `${py}-${String(pm).padStart(2, '0')}-${String(Math.min(Number(TODAY.slice(8)), lastDayOf(py, pm))).padStart(2, '0')}`;
-    const prev = await getJson<CollectionsReport>(
-      request,
-      'accountant',
-      reportUrl(`${py}-${String(pm).padStart(2, '0')}-01`, prevTo),
-    );
-    expectSame(
-      'previous_month_same_days_net',
-      w.previous_month_same_days_net,
-      url,
-      prev.totals.net,
-      reportUrl(`${py}-${pm}-01`, prevTo),
-    );
+      const [py, pm] = addMonthsIso(MONTH_START, -1).split('-').map(Number);
+      const prevTo = `${py}-${String(pm).padStart(2, '0')}-${String(Math.min(Number(TODAY.slice(8)), lastDayOf(py, pm))).padStart(2, '0')}`;
+      const prev = await getJson<CollectionsReport>(
+        request,
+        'accountant',
+        reportUrl(`${py}-${String(pm).padStart(2, '0')}-01`, prevTo),
+      );
+      expectSame(
+        'previous_month_same_days_net',
+        w.previous_month_same_days_net,
+        url,
+        prev.totals.net,
+        reportUrl(`${py}-${pm}-01`, prevTo),
+      );
+    });
   });
 
   test('dues-ageing and dues-by-class = Σ total_due over every page of GET /fees/dues', async ({
     request,
   }) => {
-    const ageing = await widget<{ total_due: number; buckets: { amount: number }[] }>(
-      request,
-      'accountant',
-      'dues-ageing',
-    );
-    const byClass = await widget<{
-      total_due: number;
-      classes: { class_id: string; class_name: string; amount: number; student_count: number }[];
-    }>(request, 'accountant', 'dues-by-class');
-    const sourceUrl = '/fees/dues';
-    const total = await sumAllPages(request, 'accountant', sourceUrl, 'total_due');
-    expectSame(
-      'dues-ageing total_due',
-      ageing.total_due,
-      '/dashboard/widgets/dues-ageing',
-      total,
-      sourceUrl,
-    );
-    expectSame(
-      'Σ ageing buckets',
-      round2(ageing.buckets.reduce((n, b) => n + b.amount, 0)),
-      '/dashboard/widgets/dues-ageing',
-      total,
-      sourceUrl,
-    );
-    expectSame(
-      'dues-by-class total_due',
-      byClass.total_due,
-      '/dashboard/widgets/dues-by-class',
-      total,
-      sourceUrl,
-    );
-    for (const c of byClass.classes) {
-      const classUrl = `/fees/dues?class_id=${c.class_id}`;
-      const amount = await sumAllPages(request, 'accountant', classUrl, 'total_due');
-      const students = totalOf(await getJson(request, 'accountant', `${classUrl}&page=1&limit=1`));
-      expectSame(
-        `${c.class_name} amount/student_count`,
-        [c.amount, c.student_count],
-        '/dashboard/widgets/dues-by-class',
-        [amount, students],
-        classUrl,
+    await whileOthersWrite(async () => {
+      const ageing = await widget<{ total_due: number; buckets: { amount: number }[] }>(
+        request,
+        'accountant',
+        'dues-ageing',
       );
-    }
+      const byClass = await widget<{
+        total_due: number;
+        classes: { class_id: string; class_name: string; amount: number; student_count: number }[];
+      }>(request, 'accountant', 'dues-by-class');
+      const sourceUrl = '/fees/dues';
+      const total = await sumAllPages(request, 'accountant', sourceUrl, 'total_due');
+      expectSame(
+        'dues-ageing total_due',
+        ageing.total_due,
+        '/dashboard/widgets/dues-ageing',
+        total,
+        sourceUrl,
+      );
+      expectSame(
+        'Σ ageing buckets',
+        round2(ageing.buckets.reduce((n, b) => n + b.amount, 0)),
+        '/dashboard/widgets/dues-ageing',
+        total,
+        sourceUrl,
+      );
+      expectSame(
+        'dues-by-class total_due',
+        byClass.total_due,
+        '/dashboard/widgets/dues-by-class',
+        total,
+        sourceUrl,
+      );
+      for (const c of byClass.classes) {
+        const classUrl = `/fees/dues?class_id=${c.class_id}`;
+        const amount = await sumAllPages(request, 'accountant', classUrl, 'total_due');
+        const students = totalOf(
+          await getJson(request, 'accountant', `${classUrl}&page=1&limit=1`),
+        );
+        expectSame(
+          `${c.class_name} amount/student_count`,
+          [c.amount, c.student_count],
+          '/dashboard/widgets/dues-by-class',
+          [amount, students],
+          classUrl,
+        );
+      }
+    });
   });
 
   test('reminders-pending = the flagged-dues total (no reminder logs in the seed)', async ({
     request,
   }) => {
-    const w = await widget<{ student_count: number }>(request, 'accountant', 'reminders-pending');
-    const sourceUrl = '/fees/dues/flagged';
-    const flagged = totalOf(await getJson(request, 'accountant', `${sourceUrl}?page=1&limit=1`));
-    // RULE: the widget is the flagged list minus students who already got a non-FAILED
-    // reminder since their threshold date. The seed holds none for flagged students, so the
-    // two are equal; if the seed ever gains one, this becomes `widget = flagged - reminded`.
-    expectSame(
-      'student_count',
-      w.student_count,
-      '/dashboard/widgets/reminders-pending',
-      flagged,
-      sourceUrl,
-    );
+    await whileOthersWrite(async () => {
+      const w = await widget<{ student_count: number }>(request, 'accountant', 'reminders-pending');
+      const sourceUrl = '/fees/dues/flagged';
+      const flagged = totalOf(await getJson(request, 'accountant', `${sourceUrl}?page=1&limit=1`));
+      // RULE: the widget is the flagged list minus students who already got a non-FAILED
+      // reminder since their threshold date. The seed holds none for flagged students, so the
+      // two are equal; if the seed ever gains one, this becomes `widget = flagged - reminded`.
+      expectSame(
+        'student_count',
+        w.student_count,
+        '/dashboard/widgets/reminders-pending',
+        flagged,
+        sourceUrl,
+      );
+    });
   });
 
   test('recent-payments = GET /payments newest five (non-reversal); total counts SUCCESS only', async ({
     request,
   }) => {
-    const w = await widget<{
-      total_of_shown: number;
-      items: { payment_id: string; amount: number; payment_status: string }[];
-    }>(request, 'accountant', 'recent-payments');
-    const sourceUrl = '/payments?page=1&limit=5&is_reversal=false';
-    const source = rowsOf(
-      await getJson<{ data: { id: string; total_amount: number; payment_status: string }[] }>(
-        request,
-        'accountant',
+    await whileOthersWrite(async () => {
+      const w = await widget<{
+        total_of_shown: number;
+        items: { payment_id: string; amount: number; payment_status: string }[];
+      }>(request, 'accountant', 'recent-payments');
+      const sourceUrl = '/payments?page=1&limit=5&is_reversal=false';
+      const source = rowsOf(
+        await getJson<{ data: { id: string; total_amount: number; payment_status: string }[] }>(
+          request,
+          'accountant',
+          sourceUrl,
+        ),
+      );
+      const url = '/dashboard/widgets/recent-payments';
+      expectSame(
+        'payment ids',
+        w.items.map((i) => i.payment_id),
+        url,
+        source.map((p) => p.id),
         sourceUrl,
-      ),
-    );
-    const url = '/dashboard/widgets/recent-payments';
-    expectSame(
-      'payment ids',
-      w.items.map((i) => i.payment_id),
-      url,
-      source.map((p) => p.id),
-      sourceUrl,
-    );
-    expectSame(
-      'amounts',
-      w.items.map((i) => i.amount),
-      url,
-      source.map((p) => Number(p.total_amount)),
-      sourceUrl,
-    );
-    // RULE: total_of_shown counts SUCCESS rows only (a PENDING/FAILED row is listed, not summed).
-    expectSame(
-      'total_of_shown',
-      w.total_of_shown,
-      url,
-      round2(
-        source
-          .filter((p) => p.payment_status === 'SUCCESS')
-          .reduce((n, p) => n + Number(p.total_amount), 0),
-      ),
-      sourceUrl,
-    );
+      );
+      expectSame(
+        'amounts',
+        w.items.map((i) => i.amount),
+        url,
+        source.map((p) => Number(p.total_amount)),
+        sourceUrl,
+      );
+      // RULE: total_of_shown counts SUCCESS rows only (a PENDING/FAILED row is listed, not summed).
+      expectSame(
+        'total_of_shown',
+        w.total_of_shown,
+        url,
+        round2(
+          source
+            .filter((p) => p.payment_status === 'SUCCESS')
+            .reduce((n, p) => n + Number(p.total_amount), 0),
+        ),
+        sourceUrl,
+      );
+    });
   });
 });
 
@@ -802,79 +847,83 @@ test.describe('dashboard reconciliation: committee', () => {
   test('committee-enrollment current_count = academic-year stats students_count', async ({
     request,
   }) => {
-    const w = await widget<{ current_count: number; years: { student_count: number }[] }>(
-      request,
-      'admin',
-      'committee-enrollment',
-    );
-    const years = await getJson<{ data: { id: string; is_current: boolean }[] }>(
-      request,
-      'admin',
-      '/academic-years',
-    );
-    const current = years.data.find((y) => y.is_current);
-    expect(current, 'a current academic year').toBeDefined();
-    const sourceUrl = `/academic-years/${current!.id}/stats`;
-    const stats = await getJson<{ students_count: number }>(request, 'admin', sourceUrl);
-    // RULE: the widget counts ACTIVE and GRADUATED enrolments of the year; the stats endpoint
-    // counts ACTIVE only. So widget = stats + students graduated in this year.
-    const graduated = totalOf(
-      await getJson(request, 'admin', '/students?enrollment_status=GRADUATED&page=1&limit=1'),
-    );
-    expectSame(
-      'current_count',
-      w.current_count,
-      '/dashboard/widgets/committee-enrollment',
-      stats.students_count + graduated,
-      `${sourceUrl} + /students?enrollment_status=GRADUATED (${stats.students_count} + ${graduated})`,
-    );
-    expectSame(
-      'last year entry is current_count',
-      w.years.at(-1)?.student_count,
-      '/dashboard/widgets/committee-enrollment',
-      w.current_count,
-      'same body',
-    );
+    await whileOthersWrite(async () => {
+      const w = await widget<{ current_count: number; years: { student_count: number }[] }>(
+        request,
+        'admin',
+        'committee-enrollment',
+      );
+      const years = await getJson<{ data: { id: string; is_current: boolean }[] }>(
+        request,
+        'admin',
+        '/academic-years',
+      );
+      const current = years.data.find((y) => y.is_current);
+      expect(current, 'a current academic year').toBeDefined();
+      const sourceUrl = `/academic-years/${current!.id}/stats`;
+      const stats = await getJson<{ students_count: number }>(request, 'admin', sourceUrl);
+      // RULE: the widget counts ACTIVE and GRADUATED enrolments of the year; the stats endpoint
+      // counts ACTIVE only. So widget = stats + students graduated in this year.
+      const graduated = totalOf(
+        await getJson(request, 'admin', '/students?enrollment_status=GRADUATED&page=1&limit=1'),
+      );
+      expectSame(
+        'current_count',
+        w.current_count,
+        '/dashboard/widgets/committee-enrollment',
+        stats.students_count + graduated,
+        `${sourceUrl} + /students?enrollment_status=GRADUATED (${stats.students_count} + ${graduated})`,
+      );
+      expectSame(
+        'last year entry is current_count',
+        w.years.at(-1)?.student_count,
+        '/dashboard/widgets/committee-enrollment',
+        w.current_count,
+        'same body',
+      );
+    });
   });
 
   test('committee-finance current_month = collection-month = reports; year outstanding = open dues', async ({
     request,
   }) => {
-    const w = await widget<{ current_month: unknown; year_outstanding: number }>(
-      request,
-      'admin',
-      'committee-finance',
-    );
-    const month = await widget<{ received: number }>(request, 'admin', 'collection-month');
-    expectSame(
-      'current_month',
-      w.current_month,
-      '/dashboard/widgets/committee-finance',
-      month,
-      '/dashboard/widgets/collection-month',
-    );
-    const report = await getJson<CollectionsReport>(
-      request,
-      'admin',
-      reportUrl(MONTH_START, TODAY),
-    );
-    expectSame(
-      'current_month.received',
-      month.received,
-      '/dashboard/widgets/collection-month',
-      report.totals.net,
-      reportUrl(MONTH_START, TODAY),
-    );
-    const dues = await sumAllPages(request, 'admin', '/fees/dues', 'total_due');
-    // RULE: year_outstanding is billed minus paid for the current academic year's months up to
-    // today, so it equals the open dues only while no open bill falls outside that window.
-    expectSame(
-      'year_outstanding',
-      w.year_outstanding,
-      '/dashboard/widgets/committee-finance',
-      dues,
-      '/fees/dues (Σ total_due)',
-    );
+    await whileOthersWrite(async () => {
+      const w = await widget<{ current_month: unknown; year_outstanding: number }>(
+        request,
+        'admin',
+        'committee-finance',
+      );
+      const month = await widget<{ received: number }>(request, 'admin', 'collection-month');
+      expectSame(
+        'current_month',
+        w.current_month,
+        '/dashboard/widgets/committee-finance',
+        month,
+        '/dashboard/widgets/collection-month',
+      );
+      const report = await getJson<CollectionsReport>(
+        request,
+        'admin',
+        reportUrl(MONTH_START, TODAY),
+      );
+      expectSame(
+        'current_month.received',
+        month.received,
+        '/dashboard/widgets/collection-month',
+        report.totals.net,
+        reportUrl(MONTH_START, TODAY),
+      );
+      const dues = await sumAllPages(request, 'admin', '/fees/dues', 'total_due');
+      // RULE: year_outstanding is billed minus paid for the current academic year's months up to
+      // today, so it equals the open dues only while no open bill falls outside that window.
+      expectSame(
+        'year_outstanding',
+        w.year_outstanding,
+        '/dashboard/widgets/committee-finance',
+        dues,
+        '/fees/dues (Σ total_due)',
+      );
+    });
   });
 
   test('committee-pass-rate = GET /exams/:id/analysis/pass-fail per class', async ({ request }) => {
@@ -890,20 +939,33 @@ test.describe('dashboard reconciliation: committee', () => {
       status: string;
       class: { name: string };
     }>(request, 'admin', '/exams');
-    const round1 = (n: number) => Math.round(n * 10) / 10;
     for (const c of w.classes) {
-      const exam = exams.find(
+      // RULE: one bar per class name. The seed has two "Class 8" classes (Day, and Morning
+      // English), so a bar sums every same-named class's exam of the round.
+      const sources = exams.filter(
         (e) => e.name === w.exam_name && e.status === 'PUBLISHED' && e.class.name === c.class_name,
       );
-      expect(exam, `published exam "${w.exam_name}" for ${c.class_name}`).toBeDefined();
-      const sourceUrl = `/exams/${exam!.id}/analysis/pass-fail`;
-      const pf = await getJson<{ overall: { pass_pct: number } }>(request, 'admin', sourceUrl);
+      expect(sources.length, `published exam "${w.exam_name}" for ${c.class_name}`).toBeGreaterThan(
+        0,
+      );
+      let appeared = 0;
+      let passed = 0;
+      for (const exam of sources) {
+        const pf = await getJson<{ overall: { appeared: number; passed: number } }>(
+          request,
+          'admin',
+          `/exams/${exam.id}/analysis/pass-fail`,
+        );
+        appeared += pf.overall.appeared;
+        passed += pf.overall.passed;
+      }
       expectSame(
         `${c.class_name} pass %`,
         c.pass_percentage,
         '/dashboard/widgets/committee-pass-rate',
-        round1(pf.overall.pass_pct),
-        sourceUrl,
+        // Same rounding as the service (pct1).
+        appeared > 0 ? Math.round((passed / appeared) * 1000) / 10 : 0,
+        `/exams/:id/analysis/pass-fail (Σ over ${sources.length} "${c.class_name}" exam(s))`,
       );
     }
   });
@@ -988,58 +1050,62 @@ test.describe('dashboard reconciliation: exam controller', () => {
   test('results-state = GET /exams statuses of the current year, per round', async ({
     request,
   }) => {
-    const w = await widget<{
-      draft: number;
-      processed: number;
-      published: number;
-      rounds: {
-        exam_name: string;
-        class_count: number;
+    await whileOthersWrite(async () => {
+      const w = await widget<{
         draft: number;
         processed: number;
         published: number;
-      }[];
-    }>(request, 'exam_controller', 'results-state');
-    const years = await getJson<{ data: { id: string; is_current: boolean }[] }>(
-      request,
-      'admin',
-      '/academic-years',
-    );
-    const current = years.data.find((y) => y.is_current)!;
-    const sourceUrl = `/exams?academic_year_id=${current.id}`;
-    const exams = await allPages<{ name: string; status: string; class_id: string }>(
-      request,
-      'exam_controller',
-      sourceUrl,
-    );
-    const url = '/dashboard/widgets/results-state';
-    for (const round of w.rounds) {
-      const mine = exams.filter((e) => e.name === round.exam_name);
-      expectSame(
-        `${round.exam_name} class/draft/processed/published`,
-        [round.class_count, round.draft, round.processed, round.published],
-        url,
-        [
-          new Set(mine.map((e) => e.class_id)).size,
-          mine.filter((e) => e.status === 'DRAFT').length,
-          mine.filter((e) => e.status === 'PROCESSED').length,
-          mine.filter((e) => e.status === 'PUBLISHED').length,
-        ],
+        rounds: {
+          exam_name: string;
+          class_count: number;
+          draft: number;
+          processed: number;
+          published: number;
+        }[];
+      }>(request, 'exam_controller', 'results-state');
+      const years = await getJson<{ data: { id: string; is_current: boolean }[] }>(
+        request,
+        'admin',
+        '/academic-years',
+      );
+      const current = years.data.find((y) => y.is_current)!;
+      const sourceUrl = `/exams?academic_year_id=${current.id}`;
+      const exams = await allPages<{ name: string; status: string; class_id: string }>(
+        request,
+        'exam_controller',
         sourceUrl,
       );
-    }
-    // RULE: the card lists at most 10 rounds and totals only those, so the totals equal the
-    // exam list while the year has <= 10 rounds.
-    const rounds = new Set(exams.map((e) => e.name));
-    if (rounds.size <= 10) {
-      expectSame(
-        'totals',
-        [w.draft, w.processed, w.published],
-        url,
-        ['DRAFT', 'PROCESSED', 'PUBLISHED'].map((s) => exams.filter((e) => e.status === s).length),
-        sourceUrl,
-      );
-    }
+      const url = '/dashboard/widgets/results-state';
+      for (const round of w.rounds) {
+        const mine = exams.filter((e) => e.name === round.exam_name);
+        expectSame(
+          `${round.exam_name} class/draft/processed/published`,
+          [round.class_count, round.draft, round.processed, round.published],
+          url,
+          [
+            new Set(mine.map((e) => e.class_id)).size,
+            mine.filter((e) => e.status === 'DRAFT').length,
+            mine.filter((e) => e.status === 'PROCESSED').length,
+            mine.filter((e) => e.status === 'PUBLISHED').length,
+          ],
+          sourceUrl,
+        );
+      }
+      // RULE: the card lists at most 10 rounds and totals only those, so the totals equal the
+      // exam list while the year has <= 10 rounds.
+      const rounds = new Set(exams.map((e) => e.name));
+      if (rounds.size <= 10) {
+        expectSame(
+          'totals',
+          [w.draft, w.processed, w.published],
+          url,
+          ['DRAFT', 'PROCESSED', 'PUBLISHED'].map(
+            (s) => exams.filter((e) => e.status === s).length,
+          ),
+          sourceUrl,
+        );
+      }
+    });
   });
 
   test('seat-plan-status = GET /seat-plans per exam', async ({ request }) => {
@@ -1079,85 +1145,258 @@ test.describe('dashboard reconciliation: exam controller', () => {
 
 test.describe('dashboard reconciliation: office staff', () => {
   test('admissions-today = GET /admission/applicants', async ({ request }) => {
-    const w = await widget<{
-      new_today: number;
-      pending_total: number;
-      latest: { id: string }[];
-    }>(request, 'office_staff', 'admissions-today');
-    const sourceUrl = '/admission/applicants';
-    const all = await getJson<{ id: string; status: string; created_at: string }[]>(
-      request,
-      'office_staff',
-      sourceUrl,
-    );
-    const pending = await getJson<{ id: string }[]>(
-      request,
-      'office_staff',
-      `${sourceUrl}?status=PENDING`,
-    );
-    const url = '/dashboard/widgets/admissions-today';
-    expectSame(
-      'pending_total',
-      w.pending_total,
-      url,
-      pending.length,
-      `${sourceUrl}?status=PENDING`,
-    );
-    expectSame(
-      'new_today',
-      w.new_today,
-      url,
-      all.filter((a) => dhakaDay(new Date(a.created_at)) === TODAY).length,
-      sourceUrl,
-    );
-    const newest = [...all].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 5);
-    expectSame(
-      'latest ids',
-      sortedIds(w.latest.map((l) => l.id)),
-      url,
-      sortedIds(newest.map((a) => a.id)),
-      sourceUrl,
-    );
+    await whileOthersWrite(async () => {
+      const w = await widget<{
+        new_today: number;
+        pending_total: number;
+        latest: { id: string }[];
+      }>(request, 'office_staff', 'admissions-today');
+      const sourceUrl = '/admission/applicants';
+      const all = await getJson<{ id: string; status: string; created_at: string }[]>(
+        request,
+        'office_staff',
+        sourceUrl,
+      );
+      const pending = await getJson<{ id: string }[]>(
+        request,
+        'office_staff',
+        `${sourceUrl}?status=PENDING`,
+      );
+      const url = '/dashboard/widgets/admissions-today';
+      expectSame(
+        'pending_total',
+        w.pending_total,
+        url,
+        pending.length,
+        `${sourceUrl}?status=PENDING`,
+      );
+      expectSame(
+        'new_today',
+        w.new_today,
+        url,
+        all.filter((a) => dhakaDay(new Date(a.created_at)) === TODAY).length,
+        sourceUrl,
+      );
+      const newest = [...all].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 5);
+      expectSame(
+        'latest ids',
+        sortedIds(w.latest.map((l) => l.id)),
+        url,
+        sortedIds(newest.map((a) => a.id)),
+        sourceUrl,
+      );
+    });
   });
 
   test('guardians-incomplete = GET /guardians totals', async ({ request }) => {
-    const w = await widget<{ incomplete_count: number; total_count: number }>(
-      request,
-      'office_staff',
-      'guardians-incomplete',
-    );
-    const incompleteUrl = '/guardians?incomplete=true&page=1&limit=1';
-    const incomplete = totalOf(await getJson(request, 'office_staff', incompleteUrl));
-    const all = totalOf(await getJson(request, 'office_staff', '/guardians?page=1&limit=1'));
-    expectSame(
-      'incomplete/total',
-      [w.incomplete_count, w.total_count],
-      '/dashboard/widgets/guardians-incomplete',
-      [incomplete, all],
-      `${incompleteUrl} and /guardians`,
-    );
+    await whileOthersWrite(async () => {
+      const w = await widget<{ incomplete_count: number; total_count: number }>(
+        request,
+        'office_staff',
+        'guardians-incomplete',
+      );
+      const incompleteUrl = '/guardians?incomplete=true&page=1&limit=1';
+      const incomplete = totalOf(await getJson(request, 'office_staff', incompleteUrl));
+      const all = totalOf(await getJson(request, 'office_staff', '/guardians?page=1&limit=1'));
+      expectSame(
+        'incomplete/total',
+        [w.incomplete_count, w.total_count],
+        '/dashboard/widgets/guardians-incomplete',
+        [incomplete, all],
+        `${incompleteUrl} and /guardians`,
+      );
+    });
   });
 
   test('students-added-today = GET /students created today', async ({ request }) => {
-    const w = await widget<{ added_today: number; as_of: string }>(
-      request,
-      'office_staff',
-      'students-added-today',
-    );
-    const sourceUrl = '/students?sort=created_at&order=desc';
-    const students = await allPages<{ created_at: string }>(request, 'office_staff', sourceUrl);
-    expectSame(
-      'added_today',
-      w.added_today,
-      '/dashboard/widgets/students-added-today',
-      students.filter((s) => dhakaDay(new Date(s.created_at)) === TODAY).length,
-      sourceUrl,
-    );
+    await whileOthersWrite(async () => {
+      const w = await widget<{ added_today: number; as_of: string }>(
+        request,
+        'office_staff',
+        'students-added-today',
+      );
+      const sourceUrl = '/students?sort=created_at&order=desc';
+      const students = await allPages<{ created_at: string }>(request, 'office_staff', sourceUrl);
+      expectSame(
+        'added_today',
+        w.added_today,
+        '/dashboard/widgets/students-added-today',
+        students.filter((s) => dhakaDay(new Date(s.created_at)) === TODAY).length,
+        sourceUrl,
+      );
+    });
   });
 
-  // The approvals-pending widget (compared with the applications inbox) is not on this branch:
-  // GET /dashboard/widgets/approvals-pending is a 404, so there is nothing to reconcile yet.
-  test.fixme('approvals-pending = the applications inbox pending total (widget not shipped on this branch)', () => {});
+  test('approvals-pending = the applications inbox (view=inbox) as ADMIN', async ({ request }) => {
+    await whileOthersWrite(async () => {
+      const w = await widget<{
+        total: number;
+        by_type: { type: string; count: number }[];
+        oldest_pending_at: string | null;
+      }>(request, 'admin', 'approvals-pending');
+      const sourceUrl = '/applications?view=inbox';
+      const rows = await allPages<{ type: string; created_at: string }>(
+        request,
+        'admin',
+        sourceUrl,
+      );
+      const url = '/dashboard/widgets/approvals-pending';
+      expectSame('total', w.total, url, rows.length, sourceUrl);
+      expectSame(
+        'total vs the list envelope',
+        w.total,
+        url,
+        totalOf(await getJson(request, 'admin', `${sourceUrl}&page=1&limit=1`)),
+        `${sourceUrl}&page=1&limit=1`,
+      );
+      const byType = new Map<string, number>();
+      for (const r of rows) byType.set(r.type, (byType.get(r.type) ?? 0) + 1);
+      const pairs = (p: [string, number][]) => p.sort((a, b) => a[0].localeCompare(b[0]));
+      expectSame(
+        'by_type',
+        pairs(w.by_type.map((b) => [b.type, b.count])),
+        url,
+        pairs([...byType]),
+        sourceUrl,
+      );
+      // RULE: the seed adds 5 pending staff leaves and 2 pending fee waivers, but the inbox hides
+      // the admin's OWN leave (applyInbox), so the seed contributes at least 4 + 2.
+      expect(w.total, 'the seed adds pending applications').toBeGreaterThanOrEqual(6);
+      // RULE: oldest_pending_at = MIN(created_at) over the pending inbox rows.
+      expectSame(
+        'oldest_pending_at',
+        w.oldest_pending_at && new Date(w.oldest_pending_at).getTime(),
+        url,
+        Math.min(...rows.map((r) => new Date(r.created_at).getTime())),
+        sourceUrl,
+      );
+    });
+  });
+
+  test('print-queue = GET /print-history/queue as ADMIN', async ({ request }) => {
+    await whileOthersWrite(async () => {
+      const w = await widget<{ total: number; by_kind: { kind: string; count: number }[] }>(
+        request,
+        'admin',
+        'print-queue',
+      );
+      const sourceUrl = '/print-history/queue';
+      const q = await getJson<{ total: number; by_kind: { kind: string; count: number }[] }>(
+        request,
+        'admin',
+        sourceUrl,
+      );
+      const url = '/dashboard/widgets/print-queue';
+      expectSame('total', w.total, url, q.total, sourceUrl);
+      expectSame('by_kind', w.by_kind, url, q.by_kind, sourceUrl);
+      expectSame(
+        'total = sum of by_kind',
+        w.total,
+        url,
+        w.by_kind.reduce((n, k) => n + k.count, 0),
+        'by_kind of the widget',
+      );
+    });
+  });
+
+  test('syllabus-vs-plan = syllabus-progress for the classes that have a plan', async ({
+    request,
+  }) => {
+    await whileOthersWrite(async () => {
+      const vs = await widget<{
+        behind_count: number;
+        classes: {
+          class_id: string;
+          done_percentage: number;
+          expected_percentage: number | null;
+          behind_by: number;
+        }[];
+      }>(request, 'admin', 'syllabus-vs-plan');
+      const sp = await widget<{
+        classes: { class_id: string; percentage: number; expected_percentage: number | null }[];
+      }>(request, 'admin', 'syllabus-progress');
+      const url = '/dashboard/widgets/syllabus-vs-plan';
+      const sourceUrl = '/dashboard/widgets/syllabus-progress';
+      // RULE: syllabus-vs-plan lists only classes with a live plan, i.e. where
+      // syllabus-progress has a non-null expected_percentage.
+      const withPlan = sp.classes.filter((c) => c.expected_percentage !== null);
+      expectSame(
+        'class ids',
+        sortedIds(vs.classes.map((c) => c.class_id)),
+        url,
+        sortedIds(withPlan.map((c) => c.class_id)),
+        sourceUrl,
+      );
+      expectSame(
+        'done/expected per class',
+        vs.classes.map((c) => [c.class_id, c.done_percentage, c.expected_percentage]).sort(),
+        url,
+        withPlan.map((c) => [c.class_id, c.percentage, c.expected_percentage]).sort(),
+        sourceUrl,
+      );
+      // RULE: behind_by = max(0, expected - done); behind_count counts classes with behind_by > 0.
+      for (const c of vs.classes) {
+        expect(c.behind_by, `behind_by of ${c.class_id}`).toBe(
+          Math.max(0, (c.expected_percentage ?? 0) - c.done_percentage),
+        );
+      }
+      expect(vs.behind_count).toBe(vs.classes.filter((c) => c.behind_by > 0).length);
+    });
+  });
+
+  // RULE (server lessonsToMark): count UNREPORTED periods of kind ROUTINE in the teacher's plan
+  // schedules whose slot is theirs (or that they cover); a substituted period belongs to the
+  // substitute only.
+  test('my-lessons-to-mark = unreported ROUTINE periods in the teacher plan schedules', async ({
+    request,
+  }) => {
+    const w = await widget<{
+      to_mark: number;
+      oldest_planned_on: string | null;
+      items: unknown[];
+    }>(request, 'teacher', 'my-lessons-to-mark');
+    const teachers = await allPages<{ id: string; user: { email: string } }>(
+      request,
+      'admin',
+      '/teachers',
+    );
+    const me = teachers.find((x) => x.user.email === 'teacher@biddaloy.test');
+    expect(me, 'the seeded teacher has a teacher row').toBeDefined();
+    const slots = await getJson<{ routine_slot_id: string }[]>(
+      request,
+      'teacher',
+      `/routines/resolve?teacher_id=${me!.id}&from=${addDaysIso(TODAY, -28)}&to=${addDaysIso(TODAY, 7)}`,
+    );
+    const mySlots = new Set(slots.map((s) => s.routine_slot_id));
+    const plans = await allPages<{ id: string }>(request, 'teacher', '/study-plans');
+    let expected = 0;
+    for (const p of plans) {
+      const sch = await getJson<{
+        periods: {
+          status: string;
+          kind: string;
+          routine_slot_id?: string;
+          substitute_teacher_id?: string;
+        }[];
+      }>(request, 'teacher', `/study-plans/${p.id}/schedule`);
+      for (const per of sch.periods) {
+        if (per.status !== 'UNREPORTED' || per.kind !== 'ROUTINE') continue;
+        const mine = per.substitute_teacher_id
+          ? per.substitute_teacher_id === me!.id
+          : !!per.routine_slot_id && mySlots.has(per.routine_slot_id);
+        if (mine) expected += 1;
+      }
+    }
+    expectSame(
+      'to_mark',
+      w.to_mark,
+      '/dashboard/widgets/my-lessons-to-mark',
+      expected,
+      `/study-plans/:id/schedule over ${plans.length} plans`,
+    );
+    expect(w.items.length).toBeLessThanOrEqual(5);
+    expect(w.oldest_planned_on === null).toBe(w.to_mark === 0);
+  });
 });
 
 // ---------------------------------------------------------------------------------------

@@ -27,6 +27,8 @@ function watchConsole(page: Page): string[] {
 test.describe('phone dashboard: no nested buttons', () => {
   test.use(loggedIn('office_staff'));
   test.use({ viewport: { width: 390, height: 844 } });
+  // page.route below never sees /api when the built app's service worker answers it.
+  test.use({ serviceWorkers: 'block' });
 
   test('tiles, including one whose card failed to load, nest no button and log no DOM error', async ({
     page,
