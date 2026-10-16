@@ -57,7 +57,7 @@ export function MyLessonsToMarkView({
   const subject = (i: MyLessonsToMarkDto['items'][number]) =>
     (locale === 'bn' && i.subject_name_bn) || i.subject_name_en;
 
-  if (variant === 'tile' && data && !done) {
+  if (variant === 'tile' && data && !done && !failed) {
     return (
       <StatTile
         label={tw('compactTitle')}

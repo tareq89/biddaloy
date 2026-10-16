@@ -61,7 +61,7 @@ export function ApprovalsPendingView({
       })
     : '';
 
-  if (variant === 'tile' && data) {
+  if (variant === 'tile' && data && !failed) {
     return (
       <StatTile
         label={tw('tileLabel')}

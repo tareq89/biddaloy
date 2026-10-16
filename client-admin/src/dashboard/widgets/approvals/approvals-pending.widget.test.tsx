@@ -7,7 +7,11 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import Widget, { widgetKey } from './approvals-pending.widget';
+import Widget, {
+  ApprovalsPendingView,
+  type PendingCountDto,
+  widgetKey,
+} from './approvals-pending.widget';
 
 const URL = '/api/v1/dashboard/widgets/approvals-pending';
 
@@ -92,6 +96,26 @@ describe('approvals-pending widget', () => {
     renderWidget('full');
     await userEvent.click(await screen.findByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(calls).toBeGreaterThanOrEqual(2));
+  });
+
+  it('tile: a failed refetch shows the error, not the stale count', async () => {
+    const root = createRootRoute();
+    const index = createRoute({
+      getParentRoute: () => root,
+      path: '/',
+      component: () => (
+        <ApprovalsPendingView
+          data={BASE as PendingCountDto}
+          variant="tile"
+          failed
+          onRetry={() => undefined}
+        />
+      ),
+    });
+    renderWithRouter(root.addChildren([index]), { locale: 'en', role: 'ADMIN', tenantId: 't-1' });
+    // The collapsed card shows the error in its header; Retry is one tap away in the body.
+    expect(await screen.findByText('This widget could not load.')).toBeTruthy();
+    expect(screen.queryByText(/^(8|৮)$/)).toBeNull();
   });
 
   it('is axe clean on full', async () => {
