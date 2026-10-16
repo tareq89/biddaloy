@@ -1050,58 +1050,62 @@ test.describe('dashboard reconciliation: exam controller', () => {
   test('results-state = GET /exams statuses of the current year, per round', async ({
     request,
   }) => {
-    const w = await widget<{
-      draft: number;
-      processed: number;
-      published: number;
-      rounds: {
-        exam_name: string;
-        class_count: number;
+    await whileOthersWrite(async () => {
+      const w = await widget<{
         draft: number;
         processed: number;
         published: number;
-      }[];
-    }>(request, 'exam_controller', 'results-state');
-    const years = await getJson<{ data: { id: string; is_current: boolean }[] }>(
-      request,
-      'admin',
-      '/academic-years',
-    );
-    const current = years.data.find((y) => y.is_current)!;
-    const sourceUrl = `/exams?academic_year_id=${current.id}`;
-    const exams = await allPages<{ name: string; status: string; class_id: string }>(
-      request,
-      'exam_controller',
-      sourceUrl,
-    );
-    const url = '/dashboard/widgets/results-state';
-    for (const round of w.rounds) {
-      const mine = exams.filter((e) => e.name === round.exam_name);
-      expectSame(
-        `${round.exam_name} class/draft/processed/published`,
-        [round.class_count, round.draft, round.processed, round.published],
-        url,
-        [
-          new Set(mine.map((e) => e.class_id)).size,
-          mine.filter((e) => e.status === 'DRAFT').length,
-          mine.filter((e) => e.status === 'PROCESSED').length,
-          mine.filter((e) => e.status === 'PUBLISHED').length,
-        ],
+        rounds: {
+          exam_name: string;
+          class_count: number;
+          draft: number;
+          processed: number;
+          published: number;
+        }[];
+      }>(request, 'exam_controller', 'results-state');
+      const years = await getJson<{ data: { id: string; is_current: boolean }[] }>(
+        request,
+        'admin',
+        '/academic-years',
+      );
+      const current = years.data.find((y) => y.is_current)!;
+      const sourceUrl = `/exams?academic_year_id=${current.id}`;
+      const exams = await allPages<{ name: string; status: string; class_id: string }>(
+        request,
+        'exam_controller',
         sourceUrl,
       );
-    }
-    // RULE: the card lists at most 10 rounds and totals only those, so the totals equal the
-    // exam list while the year has <= 10 rounds.
-    const rounds = new Set(exams.map((e) => e.name));
-    if (rounds.size <= 10) {
-      expectSame(
-        'totals',
-        [w.draft, w.processed, w.published],
-        url,
-        ['DRAFT', 'PROCESSED', 'PUBLISHED'].map((s) => exams.filter((e) => e.status === s).length),
-        sourceUrl,
-      );
-    }
+      const url = '/dashboard/widgets/results-state';
+      for (const round of w.rounds) {
+        const mine = exams.filter((e) => e.name === round.exam_name);
+        expectSame(
+          `${round.exam_name} class/draft/processed/published`,
+          [round.class_count, round.draft, round.processed, round.published],
+          url,
+          [
+            new Set(mine.map((e) => e.class_id)).size,
+            mine.filter((e) => e.status === 'DRAFT').length,
+            mine.filter((e) => e.status === 'PROCESSED').length,
+            mine.filter((e) => e.status === 'PUBLISHED').length,
+          ],
+          sourceUrl,
+        );
+      }
+      // RULE: the card lists at most 10 rounds and totals only those, so the totals equal the
+      // exam list while the year has <= 10 rounds.
+      const rounds = new Set(exams.map((e) => e.name));
+      if (rounds.size <= 10) {
+        expectSame(
+          'totals',
+          [w.draft, w.processed, w.published],
+          url,
+          ['DRAFT', 'PROCESSED', 'PUBLISHED'].map(
+            (s) => exams.filter((e) => e.status === s).length,
+          ),
+          sourceUrl,
+        );
+      }
+    });
   });
 
   test('seat-plan-status = GET /seat-plans per exam', async ({ request }) => {
