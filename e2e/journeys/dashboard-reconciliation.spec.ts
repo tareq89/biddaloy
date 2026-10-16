@@ -1298,44 +1298,46 @@ test.describe('dashboard reconciliation: office staff', () => {
   test('syllabus-vs-plan = syllabus-progress for the classes that have a plan', async ({
     request,
   }) => {
-    const vs = await widget<{
-      behind_count: number;
-      classes: {
-        class_id: string;
-        done_percentage: number;
-        expected_percentage: number | null;
-        behind_by: number;
-      }[];
-    }>(request, 'admin', 'syllabus-vs-plan');
-    const sp = await widget<{
-      classes: { class_id: string; percentage: number; expected_percentage: number | null }[];
-    }>(request, 'admin', 'syllabus-progress');
-    const url = '/dashboard/widgets/syllabus-vs-plan';
-    const sourceUrl = '/dashboard/widgets/syllabus-progress';
-    // RULE: syllabus-vs-plan lists only classes with a live plan, i.e. where
-    // syllabus-progress has a non-null expected_percentage.
-    const withPlan = sp.classes.filter((c) => c.expected_percentage !== null);
-    expectSame(
-      'class ids',
-      sortedIds(vs.classes.map((c) => c.class_id)),
-      url,
-      sortedIds(withPlan.map((c) => c.class_id)),
-      sourceUrl,
-    );
-    expectSame(
-      'done/expected per class',
-      vs.classes.map((c) => [c.class_id, c.done_percentage, c.expected_percentage]).sort(),
-      url,
-      withPlan.map((c) => [c.class_id, c.percentage, c.expected_percentage]).sort(),
-      sourceUrl,
-    );
-    // RULE: behind_by = max(0, expected - done); behind_count counts classes with behind_by > 0.
-    for (const c of vs.classes) {
-      expect(c.behind_by, `behind_by of ${c.class_id}`).toBe(
-        Math.max(0, (c.expected_percentage ?? 0) - c.done_percentage),
+    await whileOthersWrite(async () => {
+      const vs = await widget<{
+        behind_count: number;
+        classes: {
+          class_id: string;
+          done_percentage: number;
+          expected_percentage: number | null;
+          behind_by: number;
+        }[];
+      }>(request, 'admin', 'syllabus-vs-plan');
+      const sp = await widget<{
+        classes: { class_id: string; percentage: number; expected_percentage: number | null }[];
+      }>(request, 'admin', 'syllabus-progress');
+      const url = '/dashboard/widgets/syllabus-vs-plan';
+      const sourceUrl = '/dashboard/widgets/syllabus-progress';
+      // RULE: syllabus-vs-plan lists only classes with a live plan, i.e. where
+      // syllabus-progress has a non-null expected_percentage.
+      const withPlan = sp.classes.filter((c) => c.expected_percentage !== null);
+      expectSame(
+        'class ids',
+        sortedIds(vs.classes.map((c) => c.class_id)),
+        url,
+        sortedIds(withPlan.map((c) => c.class_id)),
+        sourceUrl,
       );
-    }
-    expect(vs.behind_count).toBe(vs.classes.filter((c) => c.behind_by > 0).length);
+      expectSame(
+        'done/expected per class',
+        vs.classes.map((c) => [c.class_id, c.done_percentage, c.expected_percentage]).sort(),
+        url,
+        withPlan.map((c) => [c.class_id, c.percentage, c.expected_percentage]).sort(),
+        sourceUrl,
+      );
+      // RULE: behind_by = max(0, expected - done); behind_count counts classes with behind_by > 0.
+      for (const c of vs.classes) {
+        expect(c.behind_by, `behind_by of ${c.class_id}`).toBe(
+          Math.max(0, (c.expected_percentage ?? 0) - c.done_percentage),
+        );
+      }
+      expect(vs.behind_count).toBe(vs.classes.filter((c) => c.behind_by > 0).length);
+    });
   });
 
   // RULE (server lessonsToMark): count UNREPORTED periods of kind ROUTINE in the teacher's plan
