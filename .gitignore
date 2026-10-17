@@ -258,6 +258,10 @@ e2e/.auth/
 .plan-epic-*
 .epic-*-state.md
 audit-evidence/
+
+# Local QA audit output (screenshots, crawl results, scripts, notes). Contains
+# test credentials and local DB names - never commit (repo is public).
+qa-audit/
 server/graphify-out/
 
 load-results-*
