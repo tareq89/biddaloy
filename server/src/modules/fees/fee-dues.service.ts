@@ -7,8 +7,13 @@ import { FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
 import { QueryFeeDuesDto, QueryFlaggedDuesDto } from './dto/fees.dto';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { localToday } from '../../common/time';
+import { OPEN_FEE_STATUSES } from './fees.constants';
 
-const OPEN_STATUSES = [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID];
+const OPEN_STATUSES = OPEN_FEE_STATUSES;
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 export interface DueEntry {
   student_fee_id: string;
@@ -562,7 +567,7 @@ export class FeeDuesService {
         discount_amount: discountAmount,
         standing_discount_amount: Number(fee.standing_discount_amount),
         one_off_discount_amount: Number(fee.one_off_discount_amount),
-        balance: totalAmount - paidAmount - discountAmount,
+        balance: round2(Math.max(0, totalAmount - paidAmount - discountAmount)),
         status: fee.status,
         due_date: fee.due_date,
         reminder_threshold_date: fee.reminder_threshold_date,

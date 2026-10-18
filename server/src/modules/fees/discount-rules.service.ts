@@ -272,6 +272,11 @@ export class DiscountRulesService implements DiscountResolver {
         // to whoever most recently spent a valid token for this row.
         approved_by_user_id: approverUserId,
       });
+      // [F-154] Merged entity again: `{ value: 150 }` alone, or `{ kind: 'PERCENT' }`
+      // on a FLAT rule worth 500. Fixed text, never echoes the value (Rule 23).
+      if (rule.kind === DiscountKind.PERCENT && Number(rule.value) > 100) {
+        throw new BadRequestException('A percent discount cannot be more than 100');
+      }
       // Checked against the *merged* entity, not just the patched fields —
       // a PATCH that only sends `ends_on` can still reverse an existing
       // valid window against an unrelated `starts_on` already on the row.
