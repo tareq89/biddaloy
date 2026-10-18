@@ -56,6 +56,10 @@ Two `CalendarEventClass` rows link it to Class 9 and Class 10. `EXAM` still
 `counts_as_working_day: true` — an exam day is on the calendar, but it isn't
 a holiday, so it doesn't shrink the attendance denominator.
 
+When `counts_as_working_day` is left out, the type decides: `HOLIDAY` is not a
+working day, every other type is, and `MAKEUP_DAY` always is. The Add event
+form and the API use the same rule.
+
 ## 2. Visibility — who sees what
 
 Resolved once per request by `CalendarEventsService.resolveViewer`, then
@@ -125,11 +129,11 @@ silently stops counting.
 
 Two more rules guard the same promise (#2253):
 
-| Change                                                        | Rule                                                                              | Example                                                         |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Add a closure whose **first** day has passed                  | Needs a reason (3+ characters), is published at once, sends no SMS or push        | Hartal from yesterday to tomorrow: reason "Hartal, school shut" |
-| Delete, move or retype a `MAKEUP_DAY`                         | Refused with `CALENDAR_DAY_HAS_ATTENDANCE` if its old dates have marked registers | A make-up Friday already marked cannot be deleted               |
-| Retype a `MAKEUP_DAY` without sending `counts_as_working_day` | Falls back to "not a working day", like a new event                               | Make-up day changed to Holiday removes the day                  |
+| Change                                                        | Rule                                                                                   | Example                                                         |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Add a closure whose **first** day has passed                  | Needs a reason (3+ characters), is published at once, sends no SMS or push             | Hartal from yesterday to tomorrow: reason "Hartal, school shut" |
+| Delete, move or retype a `MAKEUP_DAY`                         | Refused with `CALENDAR_DAY_HAS_ATTENDANCE` if its old dates have marked registers      | A make-up Friday already marked cannot be deleted               |
+| Retype a `MAKEUP_DAY` without sending `counts_as_working_day` | Falls back to the new type's default (Holiday: not a working day, others: working day) | Make-up day changed to Holiday removes the day                  |
 
 The form decides "past" on the school's clock (`tenantTodayIso`), the same
 day the server uses, not the browser's.
