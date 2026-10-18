@@ -1014,3 +1014,14 @@ describe('[Epic 68 JOBS-03] teacher messaging', () => {
     expect(ROLE_PERMISSIONS[UserRole.TEACHER]).not.toContain(Permission.COMMUNICATION_SEND);
   });
 });
+
+describe('STEP_UP_REQUEST [2639]', () => {
+  it('is held by ADMIN, ACCOUNTANT, EXAM_CONTROLLER and SUPER_ADMIN only', () => {
+    const holders = Object.values(UserRole).filter((role) =>
+      ROLE_PERMISSIONS[role].includes(Permission.STEP_UP_REQUEST),
+    );
+    expect(holders.sort()).toEqual(
+      [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXAM_CONTROLLER, UserRole.SUPER_ADMIN].sort(),
+    );
+  });
+});
