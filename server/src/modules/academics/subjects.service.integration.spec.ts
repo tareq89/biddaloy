@@ -7,6 +7,12 @@ import { SchoolSettingsReader } from '../schools/settings/school-settings-reader
 import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from './entities/academic-year.entity';
 import { Class } from './entities/class.entity';
+import { ClassSection } from './entities/class-section.entity';
+import { Student } from '../students/entities/student.entity';
+import { Exam } from '../exams/entities/exam.entity';
+import { ExamComponent } from '../exams/entities/exam-component.entity';
+import { Mark } from '../exams/entities/mark.entity';
+import { ExamKind, ExamComponentKind, MarkStatus } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
@@ -68,6 +74,10 @@ describe('SubjectService (integration)', () => {
   });
 
   beforeEach(async () => {
+    await dataSource.query('DELETE FROM marks');
+    await dataSource.query('DELETE FROM exam_components');
+    await dataSource.query('DELETE FROM exams');
+    await dataSource.query('DELETE FROM students');
     await dataSource.query('DELETE FROM class_subjects');
     await dataSource.query('DELETE FROM subjects');
     await dataSource.query('DELETE FROM classes');
@@ -176,6 +186,77 @@ describe('SubjectService (integration)', () => {
       const created = await service.create({ name_en: 'Mathematics', code: 'MATH' }, OTHER_TENANT);
 
       await expect(service.remove(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    // [2627] Exam data pointing at a subject blocks its delete (blank subject on result cards).
+    async function examWithComponent(subjectId: string) {
+      const exam = await dataSource.getRepository(Exam).save({
+        tenant_id: TENANT_ID,
+        academic_year_id: academicYearId,
+        class_id: classId,
+        name: 'Guard exam',
+        kind: ExamKind.TERM,
+      });
+      const component = await dataSource.getRepository(ExamComponent).save({
+        tenant_id: TENANT_ID,
+        exam_id: exam.id,
+        subject_id: subjectId,
+        name: 'Written',
+        kind: ExamComponentKind.WRITTEN,
+        full_marks: '100',
+        sequence: 1,
+      });
+      return { exam, component };
+    }
+
+    it('refuses to delete a subject with an exam component (409 SUBJECT_IN_USE)', async () => {
+      const subject = await service.create({ name_en: 'Mathematics', code: 'MATH' }, TENANT_ID);
+      await examWithComponent(subject.id);
+
+      await expect(service.remove(subject.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'SUBJECT_IN_USE', exam_components_count: 1 } },
+      });
+      await expect(service.findOne(subject.id, TENANT_ID)).resolves.toBeDefined();
+    });
+
+    it('refuses to delete a subject that has a mark (409 SUBJECT_IN_USE)', async () => {
+      const subject = await service.create({ name_en: 'Mathematics', code: 'MATH' }, TENANT_ID);
+      const { exam, component } = await examWithComponent(subject.id);
+      const section = await dataSource
+        .getRepository(ClassSection)
+        .save({ class_id: classId, section_name: 'A', tenant_id: TENANT_ID });
+      const student = await dataSource.getRepository(Student).save({
+        full_name: 'Mark Student',
+        registration_number: 'REG-2627-1',
+        roll_number: 1,
+        class_section_id: section.id,
+        tenant_id: TENANT_ID,
+      });
+      await dataSource.getRepository(Mark).save({
+        tenant_id: TENANT_ID,
+        exam_id: exam.id,
+        student_id: student.id,
+        subject_id: subject.id,
+        component_id: component.id,
+        value: '80',
+        status: MarkStatus.PRESENT,
+      });
+      // Even with the component soft-deleted, the mark still blocks the delete.
+      await dataSource.getRepository(ExamComponent).softDelete({ id: component.id });
+
+      await expect(service.remove(subject.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'SUBJECT_IN_USE', marks_count: 1 } },
+      });
+    });
+
+    it('deletes a subject whose only exam component is soft-deleted', async () => {
+      const subject = await service.create({ name_en: 'Mathematics', code: 'MATH' }, TENANT_ID);
+      const { component } = await examWithComponent(subject.id);
+      await dataSource.getRepository(ExamComponent).softDelete({ id: component.id });
+
+      await service.remove(subject.id, TENANT_ID);
+
+      await expect(service.findOne(subject.id, TENANT_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('also soft-deletes ClassSubject rows attached to the removed subject', async () => {
