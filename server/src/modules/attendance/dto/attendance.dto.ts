@@ -10,7 +10,6 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  Matches,
   Max,
   MaxLength,
   Min,
@@ -20,10 +19,10 @@ import {
 } from 'class-validator';
 import { AttendanceSessionState, AttendanceSource, AttendanceStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
 import { AuditLogListResponseDto } from '../../audit/dto/audit-log-response.dto';
 import { SMALLINT_MAX } from '../../routines/dto/setup.dto';
 
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 // ---------------------------------------------------------------------------
 // Requests
@@ -34,14 +33,14 @@ const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 export class QueryMySectionsDto {
   @IsOptional()
   @IsString()
-  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  @IsRealDate()
   date?: string;
 }
 
 /** Query params for `GET /attendance/sections/:sectionId/register`. */
 export class QueryRegisterDto {
   @IsString()
-  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  @IsRealDate()
   date: string;
 
   @IsOptional()
@@ -55,7 +54,7 @@ export class QueryRegisterDto {
 /** Query params for `GET /attendance/sections/:sectionId/periods`. */
 export class QueryPeriodsDto {
   @IsString()
-  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  @IsRealDate()
   date: string;
 }
 
@@ -86,7 +85,7 @@ export class RegisterEntryDto {
  * conflict-aware call. */
 export class PutRegisterDto {
   @IsString()
-  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  @IsRealDate()
   date: string;
 
   @IsOptional()
@@ -143,7 +142,7 @@ export class MatrixEntryDto {
 
 export class MatrixDayDto {
   @IsString()
-  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  @IsRealDate()
   date: string;
 
   /** The `session.version` the client saw for this day; `null` = "I saw no
@@ -204,7 +203,7 @@ export class PutRegisterMatrixDto {
  * finalize a register it never itself marked. */
 export class FinalizeRegisterDto {
   @IsString()
-  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  @IsRealDate()
   date: string;
 
   @IsOptional()

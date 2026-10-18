@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
@@ -137,6 +138,28 @@ describe('DTO bounds (75.14)', () => {
   // nothing created here needs cleaning up.
   afterAll(async () => {
     await app.close();
+  });
+
+  describe('real dates', () => {
+    // Path ids are random: validation runs before any lookup.
+    const id = randomUUID();
+    it.each([
+      [`/attendance/students/${id}/days?month=2026-13`, /^month /],
+      [`/attendance/students/${id}/summary?month=2026-13`, /^month /],
+      [`/attendance/sections/${id}/summary?from=2026-02-30&to=2026-03-01`, /^from /],
+      [`/attendance/sections/${id}/register?date=2026-02-30`, /^date /],
+      [`/attendance/sections/${id}/register-matrix?month=2026-13`, /^month /],
+      ['/invoices?from_date=2026-02-30', /^from_date /],
+      ['/attendance/flags/low?from=2026-02-30&to=2026-03-01', /^from /],
+    ])('GET %s is 400 naming the field', async (path, field) => {
+      expectFieldError(await as('get', path, adminToken), field);
+    });
+
+    it('a valid leap day is accepted', async () => {
+      await as('get', '/attendance/flags/low?from=2028-02-29&to=2028-03-01', adminToken).expect(
+        200,
+      );
+    });
   });
 
   describe('list limit', () => {
