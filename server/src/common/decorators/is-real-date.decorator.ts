@@ -9,15 +9,17 @@ export function isRealDate(value: unknown): boolean {
   const m = DATE_RE.exec(value);
   if (!m) return false;
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  // Postgres has no year 0 (a 22008 500), and every 4-digit year from 0001 is in its range.
+  if (y < 1) return false;
   const dt = new Date(Date.UTC(y, mo - 1, d));
   // Date.UTC maps years 0-99 to 1900+; setUTCFullYear keeps the literal year.
   dt.setUTCFullYear(y);
   return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
 }
 
-/** True for exactly `YYYY-MM` with month 01-12. */
+/** True for exactly `YYYY-MM` with month 01-12 and a year from 0001 (Postgres has no year 0). */
 export function isRealMonth(value: unknown): boolean {
-  return typeof value === 'string' && MONTH_RE.test(value);
+  return typeof value === 'string' && MONTH_RE.test(value) && !value.startsWith('0000');
 }
 
 function make(
