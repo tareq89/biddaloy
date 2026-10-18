@@ -116,6 +116,52 @@ describe('studentFeesTab', () => {
     expect(parsed.fine_rule_id).toBeNull();
   });
 
+  describe('[2636] money CHECK rows are rejected one by one, not as a 500', () => {
+    const ctx = fakeImportCtx({
+      students: { 'REG-001': 'student-1' },
+      academic_years: { '2026-2027': 'year-1' },
+      fee_structures: { Tuition: 'fs-1' },
+    });
+
+    it('rejects an over-collected row on paid_amount, naming the column, not the amounts', () => {
+      const row: StudentFeeRow = {
+        ...BASE_ROW,
+        id: '00000000-0000-4000-8000-000000000010',
+        paid_amount: '1400.00',
+        discount_amount: '100.01',
+        one_off_discount_amount: '100.01',
+        status: FeeStatus.PAID,
+      };
+      const result = studentFeesTab.fromRow(cellsFor(row), 7, ctx);
+      expect('errors' in result).toBe(true);
+      const [error] = (result as { errors: { column: string; row: number; message: string }[] })
+        .errors;
+      expect(error).toMatchObject({ row: 7, column: 'paid_amount' });
+      expect(error.message).not.toMatch(/1400|100\.01|1500/);
+    });
+
+    it('rejects a WAIVED row that is not fully settled on status', () => {
+      const row: StudentFeeRow = {
+        ...BASE_ROW,
+        id: '00000000-0000-4000-8000-000000000011',
+        status: FeeStatus.WAIVED,
+      };
+      const result = studentFeesTab.fromRow(cellsFor(row), 3, ctx);
+      expect((result as { errors: { column: string }[] }).errors[0].column).toBe('status');
+    });
+
+    it('accepts a WAIVED row whose discount settles it exactly', () => {
+      const row: StudentFeeRow = {
+        ...BASE_ROW,
+        id: '00000000-0000-4000-8000-000000000012',
+        discount_amount: '1500.00',
+        one_off_discount_amount: '1500.00',
+        status: FeeStatus.WAIVED,
+      };
+      expect('row' in studentFeesTab.fromRow(cellsFor(row), 4, ctx)).toBe(true);
+    });
+  });
+
   it('gives two same-period bills differing only by occurrence distinct natural keys', () => {
     const base: StudentFee = Object.assign(new StudentFee(), {
       student: { registration_number: 'REG-001' },

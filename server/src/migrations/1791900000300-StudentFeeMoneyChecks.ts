@@ -18,6 +18,15 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *      AND (paid_amount + discount_amount > total_amount
  *           OR (status = 'WAIVED' AND paid_amount + discount_amount <> total_amount));
  *
+ * NOT VALID does not cover a restore: restored rows are INSERTs, so they are checked.
+ * - School workbook restore: the `student_fees` tab rejects a bad row by row and column before
+ *   any write, so the restore is refused with a list, not a 500.
+ * - Platform restore (`restore.sh`): `pg_dump` adds a NOT VALID CHECK after the data, so old rows
+ *   load. Run the audit above on the restored database before any VALIDATE.
+ * - A later UPDATE of an old bad row (a reversal, a regeneration) fails the CHECK; the known-errors
+ *   filter maps that 23514 to a fixed 409.
+ * See docs/architecture/13-backup-restore.md "Old fee rows and the money CHECKs".
+ *
  * (`CHK_sf_paid_amount`, paid >= 0, already exists from the InitialSchema migration.)
  */
 export class StudentFeeMoneyChecks1791900000300 implements MigrationInterface {
