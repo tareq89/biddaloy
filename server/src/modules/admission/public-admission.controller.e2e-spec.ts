@@ -345,6 +345,39 @@ describe('Public Admission Submission E2E', () => {
       },
     );
 
+    // [2619] A non-phone guardian_phone or a huge home_address is a 400 naming the field, and nothing is stored.
+    it.each([
+      ['guardian_phone', { guardian_phone: 'call-me-maybe' }],
+      ['guardian_phone', { guardian_phone: 'abc' }],
+      ['home_address', { home_address: 'x'.repeat(20000) }],
+    ])('400s a bad %s and writes no applicant', async (field, override) => {
+      const intakeId = await createIntake();
+
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(applicantPayload(intakeId, override))
+        .expect(400);
+
+      expect(res.body.message).toEqual(
+        expect.arrayContaining([expect.stringMatching(`^${field} `)]),
+      );
+      expect(await countRows(intakeId)).toBe(0);
+    });
+
+    it('accepts a 500-character home_address and a valid BD mobile', async () => {
+      const intakeId = await createIntake();
+
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(
+          applicantPayload(intakeId, {
+            guardian_phone: '01700000123',
+            home_address: 'x'.repeat(500),
+          }),
+        )
+        .expect(201);
+    });
+
     it('two children, same guardian phone, different name/DOB -> two reference numbers', async () => {
       const intakeId = await createIntake();
       const post = (o: Record<string, string>) =>
