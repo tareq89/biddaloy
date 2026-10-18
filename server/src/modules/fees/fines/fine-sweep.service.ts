@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
@@ -371,6 +371,14 @@ export class FineSweepService {
     request: RequestLike = { headers: {} },
     today: string = localToday(),
   ): Promise<FineSweepGenerateResultDto> {
+    // [F-150] Absences are still being marked in an open month; bill only closed months.
+    // Fixed text: never echoes the submitted month (Rule 23).
+    if (month >= today.slice(0, 7)) {
+      throw new BadRequestException({
+        code: 'FINE_SWEEP_MONTH_NOT_CLOSED',
+        message: 'Fines can only be generated for a month that has ended',
+      });
+    }
     const settings = await this.loadSettings(tenantId);
     const rows = await this.compute(tenantId, month, scope, settings);
     const result: FineSweepGenerateResultDto = {

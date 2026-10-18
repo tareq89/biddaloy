@@ -328,6 +328,37 @@ describe('FineSweepService (integration)', () => {
     expect(await feeRepo.find({ where: { student_id: studentId } })).toHaveLength(1);
   });
 
+  it('generate rejects the current and a future month, accepts the previous one (F-150)', async () => {
+    const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
+    const structureId = await makeStructure(tenantId, yearId, 20);
+    await makeRule({ tenantId, yearId, structureId });
+    const studentId = await makeStudent(tenantId, sectionId, 'OpenMonth');
+    await markAbsences(tenantId, sectionId, studentId, ['2026-06-02']);
+    const run = (month: string) =>
+      service.generate(
+        tenantId,
+        null,
+        month,
+        {},
+        DuplicateStrategy.SKIP,
+        false,
+        { headers: {} },
+        '2026-07-15',
+      );
+
+    for (const month of ['2026-07', '2026-08']) {
+      await expect(run(month)).rejects.toMatchObject({
+        response: { code: 'FINE_SWEEP_MONTH_NOT_CLOSED' },
+      });
+    }
+    expect(
+      await dataSource.getRepository(StudentFee).find({ where: { student_id: studentId } }),
+    ).toHaveLength(0);
+
+    const ok = await run('2026-06');
+    expect(ok.generated_count).toBe(1);
+  });
+
   it('runDue does nothing before the correction window closes, bills the previous month after', async () => {
     const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
     const structureId = await makeStructure(tenantId, yearId, 20);
