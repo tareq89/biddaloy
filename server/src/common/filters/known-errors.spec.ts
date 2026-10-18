@@ -32,10 +32,18 @@ describe('mapKnownError — body-parser errors', () => {
     ).toBe(415);
   });
 
-  it('maps a bad gzip error (status 400, no type) to 400', () => {
-    const mapped = mapKnownError(httpError('incorrect header check', 400));
+  it('maps a bad gzip error (status 400, zlib code, no type) to 400', () => {
+    const mapped = mapKnownError(
+      Object.assign(httpError('incorrect header check', 400), { code: 'Z_DATA_ERROR' }),
+    );
     expect(mapped?.getStatus()).toBe(400);
     expect(mapped?.message).toBe('Invalid request body');
+  });
+
+  it('returns null for a 4xx Error that is not from body-parser (an SDK, other middleware)', () => {
+    // It must stay a 500 so the server-side fault reaches Sentry.
+    expect(mapKnownError(httpError('upstream said no', 404))).toBeNull();
+    expect(mapKnownError(httpError('x', 400, 'some.other.type'))).toBeNull();
   });
 
   it('maps malformed JSON (entity.parse.failed) to 400', () => {

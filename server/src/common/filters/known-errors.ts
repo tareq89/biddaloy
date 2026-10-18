@@ -52,11 +52,30 @@ function mapStudentFeeCheckViolation(exception: unknown): HttpException | null {
   });
 }
 
+// The `type` values body-parser / raw-body set. Any other Error carrying a 4xx
+// `status` (an SDK, other middleware) is not a request-body problem and stays a 500.
+const BODY_PARSER_TYPES = new Set([
+  'entity.parse.failed',
+  'entity.too.large',
+  'entity.verify.failed',
+  'request.aborted',
+  'request.size.invalid',
+  'charset.unsupported',
+  'encoding.unsupported',
+]);
+
 function mapBodyParserError(exception: unknown): HttpException | null {
   // HttpException also carries a numeric `status`; it already has its own body.
   if (!(exception instanceof Error) || exception instanceof HttpException) return null;
-  const { status, type } = exception as Error & { status?: unknown; type?: unknown };
+  const { status, type, code } = exception as Error & {
+    status?: unknown;
+    type?: unknown;
+    code?: unknown;
+  };
   if (typeof status !== 'number' || status < 400 || status > 499) return null;
+  // A bad gzip/deflate body: body-parser rethrows the zlib error (code Z_*) with no `type`.
+  const isZlib = typeof code === 'string' && code.startsWith('Z_');
+  if (!isZlib && !(typeof type === 'string' && BODY_PARSER_TYPES.has(type))) return null;
   if (type === 'entity.too.large') return new PayloadTooLargeException('Request body too large');
   if (type === 'charset.unsupported' || type === 'encoding.unsupported') {
     return new HttpException('Unsupported content type or encoding', 415);
