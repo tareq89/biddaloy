@@ -379,13 +379,14 @@ A narrowing can retire later: give the route its own permission, grant it to
 the roles in `@Roles`, delete the `@Roles` line and the `ROLE_NARROWINGS`
 entry. When the list is empty, delete `RolesGuard`.
 
-### Step-up approval (16.2) — a second person's OK for a risky action
+### Step-up approval (16.2) — re-entering an approver's code for a risky action
 
 Some actions (reversing a payment, discounting a bill past a threshold,
-creating a duplicate fee, voiding an invoice) need a second, in-the-moment
-"yes" from an admin — not just the acting user's own login. `@RequireApproval`
-marks a route as gated; walking the modal through to a token is the same
-flow everywhere, regardless of which route triggered it.
+creating a duplicate fee, voiding an invoice) need a fresh, in-the-moment
+re-authentication of an admin — not just the acting user's own login. The
+approver can be the person acting. `@RequireApproval` marks a route as
+gated; walking the modal through to a token is the same flow everywhere,
+regardless of which route triggered it.
 
 ```mermaid
 sequenceDiagram
@@ -412,9 +413,28 @@ sequenceDiagram
     Guard-->>Staff: request proceeds
 ```
 
+What the server checks when the acting user types an approver identifier:
+
+```mermaid
+flowchart TD
+    A["Acting user types an approver identifier"] --> B{"Active member of this school<br/>who holds FEE_APPROVE?"}
+    B -- no --> X["Uniform 401, audited"]
+    B -- yes --> C["Check their OTP or password"]
+    C --> D["Token: sub = approver, act = acting user"]
+    D --> E["Both ids written to the audit row"]
+```
+
+Example: in a school with one admin, Rahim is the admin. Rahim reverses a
+payment and types his own code as the approver. That is allowed. The audit row
+shows `approver_id = actor_id = Rahim`.
+
 A few things worth being explicit about, because they're easy to get wrong
 building a new gated route:
 
+- **The approver can be the acting user.** This is deliberate and pinned by
+  `step-up.controller.e2e-spec.ts` ("the actor may verify themselves as the
+  approver"); a school that wants a different person is a later setting, not
+  a code rule.
 - **The 403 body is nested.** `ApprovalRequiredException`
   (`server/src/common/errors/approval-required.exception.ts`) must put
   `code`/`scope` under a `details` key — the global exception filter only
