@@ -541,9 +541,11 @@ export class BulkUploadRowDto {
   @Matches(/^\d+$/, { message: 'roll must be a positive whole number' })
   roll?: string;
 
-  // Accepted for a uniform column schema, but always ignored — registration
-  // numbers are system-generated (see StudentService.create).
+  // Blank means auto-numbered (REG-<year>-NNNN); a value is stored as given (varchar(50)).
+  // Not on CreateStudentDto: the public API never takes a client-chosen number.
   @IsOptional()
+  @IsString()
+  @MaxLength(50)
   registration_number?: string;
 
   @IsNotEmpty({ message: 'Missing required field: guardian1_name' })
