@@ -6,6 +6,7 @@ import {
   IsEnum,
   IsNotEmpty,
   ArrayMinSize,
+  MaxLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
@@ -18,10 +19,12 @@ export class SendCommunicationDto {
   medium: CommunicationMedium;
 
   @IsString()
+  @MaxLength(255)
   @IsNotEmpty()
   recipient_address: string;
 
   @IsString()
+  @MaxLength(100)
   @IsNotEmpty()
   @SanitizeText()
   recipient_name: string;
@@ -37,6 +40,7 @@ export class SendCommunicationDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   @SanitizeText()
   subject?: string;
 
@@ -86,6 +90,7 @@ export class SendGuardianMessageDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   @SanitizeText()
   subject?: string;
 
