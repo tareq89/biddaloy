@@ -78,6 +78,7 @@ interface ValidatedBulkUploadRow {
   class: string;
   section: string;
   roll?: string;
+  registration_number?: string;
   guardian1_name: string;
   guardian1_phone: string;
   guardian1_email?: string;
@@ -249,6 +250,46 @@ export class StudentBulkUploadService {
           column: 'roll',
           severity: 'error',
           message: 'This roll number is already used in this section.',
+        });
+      });
+      staged = staged.filter((_, i) => !dropped.has(i));
+      preview = preview.filter((_, i) => !dropped.has(i));
+    }
+
+    // [F-023] A supplied registration number must be unique in the file and in the school (the
+    // unique index is not partial, so a soft-deleted student still holds its number).
+    if (staged.some((r) => r.registration_number)) {
+      const held = new Set(
+        (
+          await this.classRepo.manager.find(Student, {
+            select: { registration_number: true },
+            where: {
+              tenant_id: tenantId,
+              registration_number: In(staged.flatMap((r) => r.registration_number ?? [])),
+            },
+            withDeleted: true,
+          })
+        ).map((s) => s.registration_number),
+      );
+      const seen = new Set<string>();
+      const dropped = new Set<number>();
+      staged.forEach((row, i) => {
+        const reg = row.registration_number;
+        if (!reg) return;
+        const message = seen.has(reg)
+          ? 'This registration number appears more than once in this file.'
+          : held.has(reg)
+            ? 'This registration number is already used by another student.'
+            : undefined;
+        seen.add(reg);
+        if (!message) return;
+        dropped.add(i);
+        errors.push({
+          row: row.rowNumber,
+          tab: undefined,
+          column: 'registration_number',
+          severity: 'error',
+          message,
         });
       });
       staged = staged.filter((_, i) => !dropped.has(i));
@@ -507,6 +548,7 @@ export class StudentBulkUploadService {
       class: dto.class,
       section: dto.section,
       roll: dto.roll,
+      registration_number: dto.registration_number?.trim() || undefined,
       guardian1_name: dto.guardian1_name,
       guardian1_phone: dto.guardian1_phone,
       guardian1_email: dto.guardian1_email,
@@ -580,6 +622,8 @@ export class StudentBulkUploadService {
           tenantId,
           manager,
           userId ? { userId } : undefined,
+          // A supplied number may look like REG-2026-0005: harmless, nextTenantSerial reads the numeric max.
+          { registrationNumber: row.registration_number },
         );
         return student.id;
       });
