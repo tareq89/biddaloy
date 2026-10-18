@@ -192,6 +192,15 @@ export class PaymentReversalService {
         tenantId,
         actorUserId,
       );
+      // F-152: undoing a debit lowered paid_amount on a bill this payment may
+      // also have allocated; the allocation loop must start from that value.
+      for (const d of undone.undone_generation_debits) {
+        const bill = d.student_fee_id ? billsById.get(d.student_fee_id) : undefined;
+        if (bill && d.paid_amount_after != null) {
+          bill.paid_amount = d.paid_amount_after;
+          if (d.status_after) bill.status = d.status_after;
+        }
+      }
 
       const billAudit: {
         student_fee_id: string;
