@@ -302,6 +302,26 @@ describe('AllExceptionsFilter', () => {
     expect(mockSetTag).toHaveBeenCalledWith('http_status', HttpStatus.INTERNAL_SERVER_ERROR);
   });
 
+  it('maps a body-parser 413 to a fixed message, logs the original and skips Sentry', () => {
+    const filter = new AllExceptionsFilter('production');
+    const err = Object.assign(new Error('request entity too large'), {
+      status: 413,
+      type: 'entity.too.large',
+    });
+
+    filter.catch(err, mockHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(413);
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 413, message: 'Request body too large' }),
+    );
+    expect(Logger.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('request entity too large'),
+      expect.anything(),
+    );
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
   it('does not capture a 4xx to Sentry', () => {
     const filter = new AllExceptionsFilter('production');
 

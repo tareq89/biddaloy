@@ -24,6 +24,13 @@ describe('resolveStatus', () => {
     expect(resolveStatus('a string')).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
     expect(resolveStatus(null)).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
   });
+
+  it('honours a numeric 4xx status on a plain Error, but keeps 5xx and junk at 500', () => {
+    expect(resolveStatus(Object.assign(new Error('x'), { status: 413 }))).toBe(413);
+    expect(resolveStatus(Object.assign(new Error('x'), { statusCode: 415 }))).toBe(415);
+    expect(resolveStatus(Object.assign(new Error('x'), { status: 503 }))).toBe(500);
+    expect(resolveStatus(Object.assign(new Error('x'), { status: '413' }))).toBe(500);
+  });
 });
 
 describe('resolveDetailMessage', () => {
