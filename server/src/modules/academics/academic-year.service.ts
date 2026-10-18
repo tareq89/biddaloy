@@ -5,6 +5,8 @@ import { AcademicYear } from './entities/academic-year.entity';
 import { Class } from './entities/class.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { FeeStructure } from '../fees/entities/fee-structure.entity';
+import { StudentFee } from '../fees/entities/student-fee.entity';
+import { Exam } from '../exams/entities/exam.entity';
 import { CreateAcademicYearDto } from './dto/create-academic-year.dto';
 import { UpdateAcademicYearDto } from './dto/update-academic-year.dto';
 import { QueryAcademicYearDto } from './dto/query-academic-year.dto';
@@ -255,19 +257,49 @@ export class AcademicYearService {
           details: { code: 'ACADEMIC_YEAR_CURRENT' },
         });
       }
-      const [classes_count, fee_structures_count] = await Promise.all([
+      const [
+        classes_count,
+        fee_structures_count,
+        enrollments_count,
+        exams_count,
+        student_fees_count,
+      ] = await Promise.all([
         manager
           .getRepository(Class)
           .count({ where: { academic_year_id: id, tenant_id: tenantId } }),
         manager
           .getRepository(FeeStructure)
           .count({ where: { academic_year_id: id, tenant_id: tenantId } }),
+        manager
+          .getRepository(Enrollment)
+          .count({ where: { academic_year_id: id, tenant_id: tenantId } }),
+        manager.getRepository(Exam).count({ where: { academic_year_id: id, tenant_id: tenantId } }),
+        manager
+          .getRepository(StudentFee)
+          // StudentFee has no tenant_id of its own; it is scoped through its student.
+          .count({ where: { academic_year_id: id, student: { tenant_id: tenantId } } }),
       ]);
-      // Exams and enrollments always hang off a class, so the class count covers them.
-      if (classes_count + fee_structures_count > 0) {
+      // Enrollments, exams and bills reference the year directly; their class
+      // can belong to another year, so the class count does not cover them.
+      if (
+        classes_count +
+          fee_structures_count +
+          enrollments_count +
+          exams_count +
+          student_fees_count >
+        0
+      ) {
         throw new ConflictException({
-          message: 'This year still has classes or fee structures. Remove them first.',
-          details: { code: 'ACADEMIC_YEAR_IN_USE', classes_count, fee_structures_count },
+          message:
+            'This year still has classes, fee structures, enrollments, exams or bills. Remove them first.',
+          details: {
+            code: 'ACADEMIC_YEAR_IN_USE',
+            classes_count,
+            fee_structures_count,
+            enrollments_count,
+            exams_count,
+            student_fees_count,
+          },
         });
       }
 

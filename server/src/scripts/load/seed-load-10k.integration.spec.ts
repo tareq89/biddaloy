@@ -99,6 +99,29 @@ describe('seedLoadSchool (integration, 100 students)', () => {
           [tenantId],
         ),
       ).toBe(0);
+      // [2613] An enrollment points at a class of its own year, and a section of its own class.
+      expect(
+        await count(
+          `SELECT count(*)::int c FROM enrollments e JOIN classes c ON c.id = e.class_id
+          WHERE e.tenant_id = $1 AND c.academic_year_id <> e.academic_year_id`,
+          [tenantId],
+        ),
+      ).toBe(0);
+      expect(
+        await count(
+          `SELECT count(*)::int c FROM enrollments e JOIN class_sections cs ON cs.id = e.section_id
+          WHERE e.tenant_id = $1 AND cs.class_id <> e.class_id`,
+          [tenantId],
+        ),
+      ).toBe(0);
+      // Each past year still holds ~90% of the 100 students.
+      const perPast = await count(
+        `SELECT min(c)::int c FROM (SELECT count(*) c FROM enrollments
+          WHERE tenant_id = $1 AND enrollment_status = 'GRADUATED' GROUP BY academic_year_id) t`,
+        [tenantId],
+      );
+      expect(perPast).toBeGreaterThanOrEqual(75);
+      expect(perPast).toBeLessThanOrEqual(100);
     }
 
     // --- seeds what the other widgets read (small-run row counts for 100 students)
