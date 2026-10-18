@@ -603,7 +603,7 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
       .get<Redis>(STEP_UP_REDIS)
       .del(
         `step-up-attempts:actor:${SEED_ADMIN_USER_ID}`,
-        `step-up-attempts:approver:${SEED_TENANT_ID}:${identifier}`,
+        `step-up-attempts:pair:${SEED_TENANT_ID}:${SEED_ADMIN_USER_ID}:${identifier}`,
       );
     // The approval token `ApprovalGuard` issues is bound to the actor who
     // requested/verified it (the caller here) — it must be `adminToken`,

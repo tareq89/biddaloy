@@ -38,7 +38,7 @@ process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
 // tenant user, so a bare unseeded string 400s).
 //
 // This only covers StepUpService's approver-keyed limiter
-// (`step-up-attempts:approver:<tenant>:<identifier>`) — it also keeps a
+// (`step-up-attempts:pair:<tenant>:<actor>:<identifier>`) — it also keeps a
 // separate one keyed only by the acting seeded admin
 // (`step-up-attempts:actor:<userId>`), which no per-file identifier choice
 // can diversify around, since every e2e file authenticates as the same
