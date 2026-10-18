@@ -42,6 +42,7 @@ export class CreateFeeStructureDto {
   fee_type: FeeType;
 
   @IsString()
+  @MaxLength(100)
   name: string;
 
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -71,6 +72,7 @@ export class UpdateFeeStructureDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   name?: string;
 
   @IsOptional()
@@ -175,6 +177,7 @@ export class CreatePaymentDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   transaction_reference?: string;
 
   @IsOptional()

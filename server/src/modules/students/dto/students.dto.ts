@@ -59,6 +59,7 @@ const BirthRegNo = () =>
 
 export class CreateStudentDto {
   @IsString()
+  @MaxLength(100)
   @IsNotEmpty()
   @SanitizeText()
   full_name: string;
@@ -96,6 +97,7 @@ export class CreateStudentDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(10)
   @SanitizeText()
   gender?: string;
 
@@ -132,6 +134,7 @@ export class CreateStudentDto {
 export class UpdateStudentDto {
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   @SanitizeText()
   full_name?: string;
 
@@ -169,6 +172,7 @@ export class UpdateStudentDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(10)
   @SanitizeText()
   gender?: string | null;
 
@@ -354,17 +358,20 @@ export class StudentIdsResultDto {
 
 export class CreateGuardianDto {
   @IsString()
+  @MaxLength(100)
   @IsNotEmpty()
   @SanitizeText()
   full_name: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   @SanitizeText()
   relationship?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   phone?: string;
 
   @IsOptional()
@@ -373,6 +380,7 @@ export class CreateGuardianDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   alternate_phone?: string;
 
   @IsOptional()
@@ -382,6 +390,7 @@ export class CreateGuardianDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   @SanitizeText()
   occupation?: string;
 
@@ -398,16 +407,19 @@ export class CreateGuardianDto {
 export class UpdateGuardianDto {
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   @SanitizeText()
   full_name?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   @SanitizeText()
   relationship?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   phone?: string;
 
   // [8.11.4]'s edit-guardian dialog sends `''` (not an omitted key) to
@@ -422,6 +434,7 @@ export class UpdateGuardianDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   alternate_phone?: string;
 
   @IsOptional()
@@ -431,6 +444,7 @@ export class UpdateGuardianDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   @SanitizeText()
   occupation?: string;
 
