@@ -138,6 +138,7 @@ export class StudentService {
     tenantId: string,
     manager?: EntityManager,
     actor?: { userId: string; context?: RequestContext },
+    options?: { registrationNumber?: string },
   ): Promise<Student> {
     const sectionRepo = manager ? manager.getRepository(ClassSection) : this.sectionRepo;
     const guardianRepo = manager ? manager.getRepository(Guardian) : this.guardianRepo;
@@ -174,13 +175,17 @@ export class StudentService {
 
       // Numeric max + 1 per (tenant, year) under an advisory lock, so the very first student of a
       // year is serialized too. Never a text sort: it breaks past REG-YYYY-9999.
-      const nextSeq = await nextTenantSerial(txManager, {
-        table: 'students',
-        column: 'registration_number',
-        tenantId,
-        prefix: `REG-${currentYear}-`,
-      });
-      const regNumber = `REG-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
+      // A bulk import may supply its own number (validated unique before commit).
+      let regNumber = options?.registrationNumber;
+      if (!regNumber) {
+        const nextSeq = await nextTenantSerial(txManager, {
+          table: 'students',
+          column: 'registration_number',
+          tenantId,
+          prefix: `REG-${currentYear}-`,
+        });
+        regNumber = `REG-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
+      }
 
       // Same reasoning for roll numbers, scoped per class_section — see
       // roll-number.util.ts's own comment.

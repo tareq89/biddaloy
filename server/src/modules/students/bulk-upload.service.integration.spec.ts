@@ -650,16 +650,95 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(result.errors[0]).toMatchObject({ field: 'section', value: 'Section A' });
   });
 
-  it('ignores the registration_number column and always system-generates it', async () => {
-    const file = await buildXlsxFile([
-      rowValues(headers, { registration_number: 'HAND-TYPED-001' }),
-    ]);
+  describe('[2607] registration_number column', () => {
+    it('stores a supplied number as given and auto-numbers a blank cell', async () => {
+      const file = await buildXlsxFile([
+        rowValues(headers, {
+          student_name: 'Reg One',
+          registration_number: 'QA-IMP-001',
+          guardian1_phone: '+8801700000301',
+        }),
+        rowValues(headers, {
+          student_name: 'Reg Two',
+          registration_number: 'QA-IMP-002',
+          guardian1_phone: '+8801700000302',
+        }),
+        rowValues(headers, { student_name: 'Reg Auto', guardian1_phone: '+8801700000303' }),
+      ]);
+      const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
+      const students = await studentRepo.find({ where: { id: In(result.created_student_ids) } });
+      const byName = new Map(students.map((s) => [s.full_name, s.registration_number]));
+      expect(byName.get('Reg One')).toBe('QA-IMP-001');
+      expect(byName.get('Reg Two')).toBe('QA-IMP-002');
+      expect(byName.get('Reg Auto')).toMatch(/^REG-\d{4}-\d{4}$/);
+    });
 
-    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    it('hard-errors a number repeated in the file or held by a live or soft-deleted student, without echoing it', async () => {
+      const first = await runUpload(
+        await buildXlsxFile([
+          rowValues(headers, {
+            student_name: 'Held',
+            registration_number: 'QA-IMP-HELD',
+            guardian1_phone: '+8801700000311',
+          }),
+          rowValues(headers, {
+            student_name: 'Held Gone',
+            registration_number: 'QA-IMP-GONE',
+            guardian1_phone: '+8801700000312',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await studentRepo.softDelete(first.created_student_ids[1]);
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, {
+            student_name: 'Rep A',
+            registration_number: 'QA-IMP-REP',
+            guardian1_phone: '+8801700000321',
+          }),
+          rowValues(headers, {
+            student_name: 'Rep B',
+            registration_number: 'QA-IMP-REP',
+            guardian1_phone: '+8801700000322',
+          }),
+          rowValues(headers, {
+            student_name: 'Live Clash',
+            registration_number: 'QA-IMP-HELD',
+            guardian1_phone: '+8801700000323',
+          }),
+          rowValues(headers, {
+            student_name: 'Gone Clash',
+            registration_number: 'QA-IMP-GONE',
+            guardian1_phone: '+8801700000324',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(3);
+      expect(v.rows_to_create).toBe(1);
+      for (const e of v.errors) {
+        expect(e.column).toBe('registration_number');
+        expect(e.message).not.toContain('QA-IMP');
+      }
+    });
 
-    const student = await studentRepo.findOne({ where: { id: result.created_student_ids[0] } });
-    expect(student?.registration_number).not.toBe('HAND-TYPED-001');
-    expect(student?.registration_number).toMatch(/^REG-\d{4}-\d{4}$/);
+    it('rejects a 51 character number', async () => {
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, {
+            registration_number: 'X'.repeat(51),
+            guardian1_phone: '+8801700000331',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(1);
+      expect(v.errors[0]).toMatchObject({ column: 'registration_number' });
+    });
   });
 
   it('creates a second guardian and links both when guardian2 is provided', async () => {
