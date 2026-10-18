@@ -21,6 +21,7 @@ import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { ROLL_NUMBER_MAX } from '../roll-number.util';
 import type { BulkImportErrorDto } from '../../bulk-import/dto/bulk-import.dto';
 
 /** [32.2.5] Allowed blood groups on a student (D43). */
@@ -85,6 +86,7 @@ export class CreateStudentDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(ROLL_NUMBER_MAX)
   roll_number?: number;
 
   @IsOptional()
@@ -149,6 +151,7 @@ export class UpdateStudentDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(ROLL_NUMBER_MAX)
   roll_number?: number;
 
   // `| null` (not just optional) — `@IsOptional()` already skips the

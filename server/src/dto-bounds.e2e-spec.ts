@@ -66,7 +66,7 @@ describe('DTO bounds (75.14)', () => {
     return res.body.access_token;
   }
 
-  const as = (method: 'get' | 'post', path: string, token: string) =>
+  const as = (method: 'get' | 'post' | 'patch', path: string, token: string) =>
     supertest(app.getHttpServer())
       [method](`${API}${path}`)
       .set('Authorization', `Bearer ${token}`)
@@ -159,6 +159,32 @@ describe('DTO bounds (75.14)', () => {
       await as('get', '/attendance/flags/low?from=2028-02-29&to=2028-03-01', adminToken).expect(
         200,
       );
+    });
+  });
+
+  describe('roll_number', () => {
+    const body = (roll_number: number) => ({
+      full_name: 'DTO Bounds Roll',
+      class_section_id: SEED_SECTION_1_ID,
+      date_of_birth: '2010-01-01',
+      roll_number,
+    });
+
+    it.each([100000, 2147483648])(
+      'POST /students with roll_number %i is 400 naming it',
+      async (n) => {
+        expectFieldError(await as('post', '/students', adminToken).send(body(n)), /^roll_number /);
+      },
+    );
+
+    it('POST 99999 is 201, then PATCH 100000 is 400 and PATCH 99999 is 200', async () => {
+      const created = await as('post', '/students', adminToken).send(body(99999)).expect(201);
+      const id = created.body.id;
+      expectFieldError(
+        await as('patch', `/students/${id}`, adminToken).send({ roll_number: 100000 }),
+        /^roll_number /,
+      );
+      await as('patch', `/students/${id}`, adminToken).send({ roll_number: 99999 }).expect(200);
     });
   });
 

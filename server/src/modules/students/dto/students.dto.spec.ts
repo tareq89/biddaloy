@@ -95,3 +95,28 @@ describe('Student blood_group / full_name_bn', () => {
     expect(errors.map((e) => e.property)).toContain('full_name_bn');
   });
 });
+
+/** [2595] roll_number is capped at ROLL_NUMBER_MAX so the int column never overflows. */
+describe('roll_number upper bound', () => {
+  const base = { full_name: 'A', class_section_id: '00000000-0000-4000-8000-000000000001' };
+
+  const rollErrors = async (Cls: typeof CreateStudentDto | typeof UpdateStudentDto, n: number) => {
+    const errors = await validate(plainToInstance(Cls, { ...base, roll_number: n }), {
+      whitelist: true,
+    });
+    return errors.map((e) => e.property);
+  };
+
+  it.each([CreateStudentDto, UpdateStudentDto])('%o: 99999 passes', async (Cls) => {
+    expect(await rollErrors(Cls, 99999)).not.toContain('roll_number');
+  });
+
+  it.each([CreateStudentDto, UpdateStudentDto])(
+    '%o: 100000, 2147483648 and 0 fail',
+    async (Cls) => {
+      for (const bad of [100000, 2147483648, 0]) {
+        expect(await rollErrors(Cls, bad)).toContain('roll_number');
+      }
+    },
+  );
+});
