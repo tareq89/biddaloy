@@ -327,6 +327,24 @@ describe('Public Admission Submission E2E', () => {
       expect(rows[0].guardian_phone).toBe('8801700000001');
     });
 
+    // [2618] An impossible, future or pre-1900 birth date is a 400 naming the field, never a 500 or a stored row.
+    it.each(['2018-02-30', '2031-01-01', '1850-01-01'])(
+      '400s date_of_birth %s naming the field and writes no applicant',
+      async (date_of_birth) => {
+        const intakeId = await createIntake();
+
+        const res = await supertest(app.getHttpServer())
+          .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+          .field(applicantPayload(intakeId, { date_of_birth }))
+          .expect(400);
+
+        expect(res.body.message).toEqual(
+          expect.arrayContaining([expect.stringMatching(/^date_of_birth /)]),
+        );
+        expect(await countRows(intakeId)).toBe(0);
+      },
+    );
+
     it('two children, same guardian phone, different name/DOB -> two reference numbers', async () => {
       const intakeId = await createIntake();
       const post = (o: Record<string, string>) =>

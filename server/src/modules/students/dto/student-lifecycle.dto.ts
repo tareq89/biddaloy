@@ -7,27 +7,11 @@ import {
   IsUUID,
   Matches,
   MaxLength,
-  ValidateBy,
-  ValidationOptions,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { StudentLifecycleEventType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
-import { todayInSchoolTz } from '../../../common/time';
-
-/** `YYYY-MM-DD` strings compare correctly as plain strings. */
-function IsNotFutureDate(options?: ValidationOptions): PropertyDecorator {
-  return ValidateBy(
-    {
-      name: 'isNotFutureDate',
-      validator: {
-        validate: (v: unknown) => typeof v === 'string' && v <= todayInSchoolTz(),
-        defaultMessage: () => 'occurred_on cannot be in the future',
-      },
-    },
-    options,
-  );
-}
+import { IsNotFutureDate } from '../../../common/decorators/is-real-date.decorator';
 
 export type LeaveEventType = Exclude<StudentLifecycleEventType, 'READMITTED'>;
 

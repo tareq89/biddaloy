@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsPlausibleBirthDate } from '../../../common/decorators/is-real-date.decorator';
 import {
-  IsDateString,
   IsEmail,
   IsIn,
   IsNotEmpty,
@@ -27,7 +27,7 @@ export class SubmitApplicantDto {
   @Length(1, 200)
   applicant_name: string;
 
-  @IsDateString()
+  @IsPlausibleBirthDate()
   date_of_birth: string;
 
   @IsString()
