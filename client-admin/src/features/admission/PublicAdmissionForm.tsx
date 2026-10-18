@@ -67,6 +67,12 @@ function isCaptchaFailed(error: unknown): boolean {
   return error instanceof ApiError && error.details?.code === 'CAPTCHA_FAILED';
 }
 
+/** Digits only, with the leading 0 the server's BD_PHONE_REGEX expects ("1712-345678" -> "01712345678"). */
+function toLocalPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '').replace(/^880/, '');
+  return digits.startsWith('0') ? digits : `0${digits}`;
+}
+
 export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormProps) {
   const { t } = useTranslation('admission-public');
   const regionConfig = useRegionConfig();
@@ -150,7 +156,7 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
       date_of_birth: dateOfBirth,
       gender,
       guardian_name: guardianName.trim(),
-      guardian_phone: guardianPhone,
+      guardian_phone: toLocalPhone(guardianPhone),
       captcha_token: captcha ?? NO_CAPTCHA_TOKEN,
       middle_name_confirm: honeypot,
       documents,

@@ -45,10 +45,13 @@ async function setup(
   }));
   const { PublicAdmissionForm } = await import('./PublicAdmissionForm');
   const posted: string[] = [];
+  const phones: string[] = [];
   server.use(
     http.get('/api/v1/public/admission/:slug', () => HttpResponse.json([intake])),
     http.post('/api/v1/public/admission/:slug/applicants', async ({ request }) => {
-      posted.push((await request.formData()).get('captcha_token') as string);
+      const fd = await request.formData();
+      posted.push(fd.get('captcha_token') as string);
+      phones.push(fd.get('guardian_phone') as string);
       if (status === 503)
         return HttpResponse.json(
           {
@@ -82,7 +85,7 @@ async function setup(
   await view.localeReady;
   const user = userEvent.setup();
   await waitFor(() => expect(screen.getByLabelText(/Student's full name/)).toBeTruthy());
-  return { user, posted };
+  return { user, posted, phones };
 }
 
 async function fillValid(user: ReturnType<typeof userEvent.setup>) {
@@ -104,6 +107,13 @@ async function fillValid(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('PublicAdmissionForm captcha', () => {
+  it('sends the guardian phone as digits with a leading 0 (server BD_PHONE_REGEX)', async () => {
+    const { user, phones } = await setup('');
+    await fillValid(user);
+    await user.click(screen.getByRole('button', { name: 'Submit application' }));
+    await waitFor(() => expect(phones).toEqual(['01712345678']));
+  });
+
   it('blocks a submit with no token and shows the captcha message', async () => {
     const { user, posted } = await setup('test-key');
     await fillValid(user);

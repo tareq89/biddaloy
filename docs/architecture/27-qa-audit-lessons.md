@@ -51,6 +51,12 @@ Learnings log, 2026-10-19 (format: surprise, cost, fix, rule candidate -> rule o
 
 ### Wave 2
 
+Learnings log, 2026-10-19 (same format as Wave 1).
+
+- **Client and server phone rules drifted.** The public admission form sent the raw phone (placeholder `01712-345678` has a dash) and the BD region pattern `/^1\d{9}$/` allowed operator prefixes 10-12, but server `BD_PHONE_REGEX` wants `1[3-9]` and no dash. Found by lane w2-g1 (#2619). Cost: a valid-looking form value 400s. Fix: the form sends digits with a leading 0 and the region pattern is `/^1[3-9]\d{8}$/`. Rule candidate: when a server regex is tightened, grep the client region/validation pattern for the same field -> checklist item, no security rule.
+- **The OpenAPI document needs a database.** `generate-openapi.js` boots the full Nest app, so it fails without env. Fix: run it under `yarn test-env run -- node server/dist/scripts/generate-openapi.js`, after `yarn workspace @biddaloy/shared build` (a stale shared build hides new enums such as `STEP_UP_REQUEST`). -> no rule.
+- **Wave-2 API changes were small in the schema.** `wallet_paid_out` / `paid_out` and `maxLength` hints produced a 6-line `schema.d.ts` diff; one regeneration at wave close was enough. -> no rule.
+
 ### Wave 3
 
 ### Wave 4

@@ -13130,6 +13130,8 @@ export interface components {
             wallet_used: number;
             wallet_added: number;
             change_returned: number;
+            /** @description Cash given back from wallets (payouts); not subtracted from net. */
+            wallet_paid_out: number;
         };
         CollectionsByMethod: {
             /** @enum {string} */
@@ -13148,6 +13150,8 @@ export interface components {
             collected: number;
             reversed: number;
             net: number;
+            /** @description Cash given back from wallets by this actor; not subtracted from net. */
+            paid_out: number;
         };
         CollectionsByFeeType: {
             fee_type: string;
@@ -13635,7 +13639,7 @@ export interface components {
             component_id: string;
             value?: string | null;
             /** @enum {string} */
-            status: "ABSENT" | "PRESENT" | "EXEMPT";
+            status: "PRESENT" | "ABSENT" | "EXEMPT";
         };
         BatchMarksDto: {
             /** Format: uuid */
