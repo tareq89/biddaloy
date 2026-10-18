@@ -395,7 +395,7 @@ describe('Fee Generations E2E', () => {
 
       await supertest(app.getHttpServer())
         .patch(`/api/v1/fees/generations/${batchId}`)
-        .send({ period_start: '2027-01-01', due_date: '2027-01-10' })
+        .send({ period_start: '2026-12-01', due_date: '2026-12-10' })
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -407,8 +407,19 @@ describe('Fee Generations E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
         .expect(200);
-      expect(res.body.period_start).toBe('2027-01-01');
-      expect(res.body.due_date).toBe('2027-01-10');
+      expect(res.body.period_start).toBe('2026-12-01');
+      expect(res.body.due_date).toBe('2026-12-10');
+    });
+
+    it('400s on a period_start that is not the 1st of the month (F-142)', async () => {
+      const batchId = await createBatch();
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/fees/generations/${batchId}`)
+        .send({ period_start: '2026-12-15' })
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(400);
     });
 
     it('409s with the colliding students on a period_start collision', async () => {
@@ -421,13 +432,13 @@ describe('Fee Generations E2E', () => {
       // must catch.
       await dataSource.query(
         `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, occurrence, total_amount, paid_amount, discount_amount, status, fee_generation_id, created_at, updated_at)
-         VALUES (DEFAULT, $1, $2, $3, DATE '2027-02-01', 1, 1000, 0, 0, 'PENDING', NULL, NOW(), NOW())`,
+         VALUES (DEFAULT, $1, $2, $3, DATE '2026-11-01', 1, 1000, 0, 0, 'PENDING', NULL, NOW(), NOW())`,
         [studentId, SEED_ACADEMIC_YEAR_ID, await ensureFeeStructure(dataSource)],
       );
 
       const res = await supertest(app.getHttpServer())
         .patch(`/api/v1/fees/generations/${batchId}`)
-        .send({ period_start: '2027-02-01' })
+        .send({ period_start: '2026-11-01' })
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)

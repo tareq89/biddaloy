@@ -1,4 +1,5 @@
 import { PaymentAllocation } from './entities/payment-allocation.entity';
+import { autoApply } from './wallet-auto-apply.util';
 import { returnMoneyOfRemovedBills } from './removed-bill-money';
 import {
   Injectable,
@@ -318,6 +319,8 @@ export class FeeGenerationService {
             dto.fee_structure_ids,
             context.periodStart,
             manager,
+            source === FeeGenerationSource.FINE_RULE &&
+              duplicateStrategy === DuplicateStrategy.SKIP,
           );
       // Group by student/structure pair — a pair can already have more than
       // one stacked bill from a prior CREATE_ANYWAY run, so we need every
@@ -687,8 +690,11 @@ export class FeeGenerationService {
         if (balance <= 0) continue;
         for (const bill of bills) {
           if (balance <= 0) break;
-          const remaining = Number(bill.total_amount) - Number(bill.discount_amount);
-          const toApply = Math.min(balance, remaining);
+          const { toApply, status: newStatus } = autoApply(
+            balance,
+            Number(bill.total_amount),
+            Number(bill.discount_amount),
+          );
           if (toApply <= 0) continue;
           await this.walletService.debit(
             {
@@ -701,13 +707,8 @@ export class FeeGenerationService {
             },
             manager,
           );
-          const newPaid = toApply;
-          const newStatus =
-            newPaid + Number(bill.discount_amount) >= Number(bill.total_amount)
-              ? FeeStatus.PAID
-              : FeeStatus.PARTIALLY_PAID;
-          await studentFeeRepo.update({ id: bill.id }, { paid_amount: newPaid, status: newStatus });
-          balance -= toApply;
+          await studentFeeRepo.update({ id: bill.id }, { paid_amount: toApply, status: newStatus });
+          balance = Math.round((balance - toApply) * 100) / 100;
         }
       }
 
@@ -947,16 +948,32 @@ export class FeeGenerationService {
     feeStructureIds: string[],
     periodStart: Date,
     manager: EntityManager,
+    includeRemovedFineBills = false,
   ): Promise<(DuplicateBillDto & { occurrence: number })[]> {
     if (studentIds.length === 0 || feeStructureIds.length === 0) return [];
-    const existing = await manager.getRepository(StudentFee).find({
+    const live = await manager.getRepository(StudentFee).find({
       where: {
         student_id: In(studentIds),
         fee_structure_id: In(feeStructureIds),
         period_start: periodStart,
       },
     });
-    return existing.map((bill) => ({
+    // [F-148] The daily fine sweep must not re-create a rule-fine bill the
+    // school deleted: soft-deleted bills of FINE_RULE batches count as duplicates.
+    const removed = includeRemovedFineBills
+      ? await manager
+          .getRepository(StudentFee)
+          .createQueryBuilder('sf')
+          .withDeleted()
+          .innerJoin(FeeGeneration, 'fg', 'fg.id = sf.fee_generation_id')
+          .where('sf.deleted_at IS NOT NULL')
+          .andWhere('sf.student_id IN (:...studentIds)', { studentIds })
+          .andWhere('sf.fee_structure_id IN (:...feeStructureIds)', { feeStructureIds })
+          .andWhere('sf.period_start = :periodStart', { periodStart })
+          .andWhere('fg.source = :src', { src: FeeGenerationSource.FINE_RULE })
+          .getMany()
+      : [];
+    return [...live, ...removed].map((bill) => ({
       student_id: bill.student_id,
       fee_structure_id: bill.fee_structure_id,
       existing_bill_id: bill.id,
@@ -975,42 +992,50 @@ export class FeeGenerationService {
     dto: GenerateFeesPreviewDto,
     academicYear: AcademicYear,
   ): { periodStart: Date; periodEnd: Date } {
-    const periodStart = new Date(`${dto.period_start}T00:00:00.000Z`);
-    if (Number.isNaN(periodStart.getTime())) {
-      throw new BadRequestException(`Invalid period_start "${dto.period_start}"`);
-    }
+    return assertPeriodWithinAcademicYear(dto.period_start, dto.period_type, academicYear);
+  }
+}
 
-    if (dto.period_type === PeriodType.MONTH) {
-      if (periodStart.getUTCDate() !== 1) {
-        throw new BadRequestException(
-          `period_start "${dto.period_start}" must be the 1st of a month for period_type MONTH`,
-        );
-      }
-    } else {
-      // getUTCDay(): 0=Sunday..6=Saturday, Monday === 1.
-      if (periodStart.getUTCDay() !== 1) {
-        throw new BadRequestException(
-          `period_start "${dto.period_start}" must be a Monday for period_type WEEK`,
-        );
-      }
-    }
+export function assertPeriodWithinAcademicYear(
+  periodStartIso: string,
+  periodType: PeriodType,
+  academicYear: AcademicYear,
+): { periodStart: Date; periodEnd: Date } {
+  const periodStart = new Date(`${periodStartIso}T00:00:00.000Z`);
+  if (Number.isNaN(periodStart.getTime())) {
+    throw new BadRequestException(`Invalid period_start "${periodStartIso}"`);
+  }
 
-    const periodEnd =
-      dto.period_type === PeriodType.MONTH
-        ? new Date(Date.UTC(periodStart.getUTCFullYear(), periodStart.getUTCMonth() + 1, 0))
-        : addDays(periodStart, 6);
-
-    const start = new Date(academicYear.start_date);
-    const end = new Date(academicYear.end_date);
-    if (periodStart < start || periodStart > end) {
+  if (periodType === PeriodType.MONTH) {
+    if (periodStart.getUTCDate() !== 1) {
       throw new BadRequestException(
-        `period_start "${dto.period_start}" is outside academic year "${academicYear.name}" ` +
-          `(${academicYear.start_date} to ${academicYear.end_date})`,
+        `period_start "${periodStartIso}" must be the 1st of a month for period_type MONTH`,
       );
     }
-
-    return { periodStart, periodEnd };
+  } else {
+    // getUTCDay(): 0=Sunday..6=Saturday, Monday === 1.
+    if (periodStart.getUTCDay() !== 1) {
+      throw new BadRequestException(
+        `period_start "${periodStartIso}" must be a Monday for period_type WEEK`,
+      );
+    }
   }
+
+  const periodEnd =
+    periodType === PeriodType.MONTH
+      ? new Date(Date.UTC(periodStart.getUTCFullYear(), periodStart.getUTCMonth() + 1, 0))
+      : addDays(periodStart, 6);
+
+  const start = new Date(academicYear.start_date);
+  const end = new Date(academicYear.end_date);
+  if (periodStart < start || periodStart > end) {
+    throw new BadRequestException(
+      `period_start "${periodStartIso}" is outside academic year "${academicYear.name}" ` +
+        `(${academicYear.start_date} to ${academicYear.end_date})`,
+    );
+  }
+
+  return { periodStart, periodEnd };
 }
 
 function addDays(date: Date, days: number): Date {
