@@ -340,10 +340,13 @@ export class InvoicesService {
 
   async findOne(id: string, tenantId: string): Promise<Invoice & { issuer: IssuerSnapshot }> {
     const invoice = await this.repo.findOne({
-      where: { id, deleted_at: IsNull() },
+      // [2638] Scope by the invoice's own tenant_id; `withDeleted` loads a
+      // soft-deleted student, `deleted_at: IsNull()` still hides deleted invoices.
+      where: { id, tenant_id: tenantId, deleted_at: IsNull() },
       relations: ['student', 'issued_by'],
+      withDeleted: true,
     });
-    if (!invoice || invoice.student.tenant_id !== tenantId) {
+    if (!invoice) {
       throw new NotFoundException(`Invoice with ID "${id}" not found`);
     }
     // [15.5.5] `resolveIssuer` falls back to the live school profile for
@@ -370,7 +373,8 @@ export class InvoicesService {
     const qb = this.repo
       .createQueryBuilder('invoice')
       .leftJoinAndSelect('invoice.student', 'student')
-      .where('student.tenant_id = :tenantId', { tenantId })
+      .withDeleted()
+      .where('invoice.tenant_id = :tenantId', { tenantId })
       .andWhere('invoice.deleted_at IS NULL');
 
     const search = normalizeSearchTerm(query.search);
@@ -441,22 +445,17 @@ export class InvoicesService {
     linkedStudentIds?: string[],
   ): Promise<string> {
     const invoice = await this.repo.findOne({
-      where: { id, deleted_at: IsNull() },
-      relations: [
-        'student',
-        'student.tenant',
-        'student.class_section',
-        'student.class_section.class',
-      ],
+      where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+      relations: ['student'],
+      withDeleted: true,
     });
-    if (!invoice || invoice.student.tenant_id !== tenantId) {
+    if (!invoice) {
       throw new NotFoundException(`Invoice with ID "${id}" not found`);
     }
 
-    // [15.5.7] `student.tenant` is already loaded above (the template
-    // needed the live school name regardless) — reused here as
-    // `resolveIssuer`'s live-profile fallback rather than a second query.
-    const issuer = resolveIssuer(invoice, invoice.student.tenant);
+    // [15.5.7] live school profile is `resolveIssuer`'s fallback.
+    const school = await this.schoolRepo.findOneOrFail({ where: { id: tenantId } });
+    const issuer = resolveIssuer(invoice, school);
     // The logo is inlined as a `data:` URL: the client opens this HTML as a
     // `blob:` document, where a relative `<img src>` neither resolves nor
     // carries the bearer token `GET /schools/:id/logo` needs.
