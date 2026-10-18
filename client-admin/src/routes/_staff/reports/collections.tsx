@@ -331,6 +331,13 @@ function CollectionsReportPage() {
       card: 'hidden',
     },
     {
+      id: 'paid_out',
+      header: t('tables.paidOut'),
+      accessorFn: (row) => money(row.paid_out),
+      align: 'end',
+      card: 'hidden',
+    },
+    {
       id: 'net',
       header: t('tables.net'),
       accessorFn: (row) => money(row.net),
@@ -485,7 +492,7 @@ function CollectionsReportPage() {
 
           <Card padded>
             <h2 className="text-h3">{t('totals.otherTitle')}</h2>
-            <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-5">
+            <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-6">
               {(
                 [
                   ['standing_discount', t('totals.standingDiscount')],
@@ -493,6 +500,7 @@ function CollectionsReportPage() {
                   ['wallet_used', t('totals.walletUsed')],
                   ['wallet_added', t('totals.walletAdded')],
                   ['change_returned', t('totals.changeReturned')],
+                  ['wallet_paid_out', t('totals.walletPaidOut')],
                 ] as const
               ).map(([key, label]) => (
                 <div key={key}>

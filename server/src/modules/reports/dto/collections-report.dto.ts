@@ -68,6 +68,11 @@ export class CollectionsReportTotals {
 
   @ApiProperty()
   change_returned: number;
+
+  @ApiProperty({
+    description: 'Cash given back from wallets (payouts); not subtracted from net.',
+  })
+  wallet_paid_out: number;
 }
 
 export class CollectionsByMethod {
@@ -111,6 +116,11 @@ export class CollectionsByCollector {
 
   @ApiProperty()
   net: number;
+
+  @ApiProperty({
+    description: 'Cash given back from wallets by this actor; not subtracted from net.',
+  })
+  paid_out: number;
 }
 
 export class CollectionsByFeeType {
