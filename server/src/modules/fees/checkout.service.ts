@@ -3,7 +3,13 @@ import { Queue } from 'bullmq';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { attentionEvents } from '../attention/attention.constants';
 import { enqueueFeeNotify, FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -30,6 +36,11 @@ import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-def
 import { localDate, localToday } from '../attendance/attendance-policy.util';
 
 const AMOUNT_EPSILON = 0.01;
+const PAYABLE_STATUSES: FeeStatus[] = [
+  FeeStatus.PENDING,
+  FeeStatus.PARTIALLY_PAID,
+  FeeStatus.OVERDUE,
+];
 
 function dateKey(value: Date | string | null): string | null {
   if (value === null) return null;
@@ -148,9 +159,6 @@ export class CheckoutService {
           .createQueryBuilder('sf')
           .where('sf.id IN (:...ids)', { ids: lineFeeIds })
           .andWhere('sf.deleted_at IS NULL')
-          .andWhere('sf.status IN (:...statuses)', {
-            statuses: [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID, FeeStatus.OVERDUE],
-          })
           .orderBy('sf.id', 'ASC')
           .setLock('pessimistic_write')
           .getMany();
@@ -202,6 +210,14 @@ export class CheckoutService {
           const balance = round2(
             Number(bill.total_amount) - Number(bill.discount_amount) - Number(bill.paid_amount),
           );
+          // A settled bill (PAID / WAIVED / nothing left) is a conflict, not a missing row (#2592).
+          // The text carries no bill id (Rule 23).
+          if (!PAYABLE_STATUSES.includes(bill.status) || balance <= 0) {
+            throw new ConflictException({
+              message: 'This fee has no outstanding balance',
+              details: { code: 'CHECKOUT_FEE_SETTLED' },
+            });
+          }
           const requested = round2(Number(line.amount) + Number(line.one_off_discount ?? 0));
           if (requested > balance + AMOUNT_EPSILON) {
             throw new BadRequestException(

@@ -389,6 +389,27 @@ describe('POST /payments/checkout (16.4.2)', () => {
     expect(res.body.payment.total_amount).toBe('750.00');
   });
 
+  it('paying an already-paid bill with a new key is a 409 CHECKOUT_FEE_SETTLED without the bill id (#2592)', async () => {
+    const student = await createStudent();
+    const bill = await createFee(student, 400);
+    const pay = () =>
+      supertest(app.getHttpServer())
+        .post(`${API}/payments/checkout`)
+        .send({
+          idempotency_key: randomUUID(),
+          lines: [{ student_fee_id: bill, amount: 400, one_off_discount: 0 }],
+          payment_method: PaymentMethod.CASH,
+        })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .set('X-Role', UserRole.ADMIN);
+    await pay().expect(201);
+
+    const res = await pay().expect(409);
+    expect(res.body.details.code).toBe('CHECKOUT_FEE_SETTLED');
+    expect(JSON.stringify(res.body)).not.toContain(bill);
+  });
+
   // PermissionsGuard rejects PARENT here: only ADMIN/ACCOUNTANT hold
   // PAYMENT_RECORD, and the route has no `@Roles`.
   it('denies a PARENT (not ADMIN/ACCOUNTANT) from recording a checkout (403)', async () => {

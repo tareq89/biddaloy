@@ -3,7 +3,7 @@ import { attentionEvents } from '../attention/attention.constants';
 import { ATTENTION_RECHECK, AttentionRecheckPayload } from '../attention/engine/attention-events';
 import { getQueueToken } from '@nestjs/bullmq';
 import { FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -752,7 +752,7 @@ describe('CheckoutService (integration)', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('rejects a WAIVED bill even when its computed balance is non-zero (404, no write)', async () => {
+  it('rejects a WAIVED bill even when its computed balance is non-zero (409, no write)', async () => {
     const student = await studentRepo.save(makeStudent());
     const bill = await studentFeeRepo.save(
       makeBill(student.id, {
@@ -774,11 +774,46 @@ describe('CheckoutService (integration)', () => {
         ACTOR_USER_ID,
         requestWithToken(),
       ),
-    ).rejects.toThrow(NotFoundException);
+    ).rejects.toThrow(ConflictException);
 
     const unchanged = await studentFeeRepo.findOneByOrFail({ id: bill.id });
     expect(unchanged.status).toBe(FeeStatus.WAIVED);
     expect(Number(unchanged.paid_amount)).toBe(0);
+  });
+
+  const payFull = (billId: string, key: string, amount: number) =>
+    service.checkout(
+      {
+        idempotency_key: key,
+        lines: [{ student_fee_id: billId, amount, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      },
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+
+  it('paying an already-paid bill with a new key is a 409, not a 404, and writes nothing (#2592)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 300 }));
+    await payFull(bill.id, '2592a001-0000-4000-8000-000000000001', 300);
+
+    await expect(payFull(bill.id, '2592a001-0000-4000-8000-000000000002', 300)).rejects.toThrow(
+      ConflictException,
+    );
+    const payments = await paymentRepo.count({
+      where: { tenant_id: TENANT_ID, student_id: student.id },
+    });
+    expect(payments).toBe(1);
+    const after = await studentFeeRepo.findOneByOrFail({ id: bill.id });
+    expect(after.status).toBe(FeeStatus.PAID);
+    expect(Number(after.paid_amount)).toBe(300);
+  });
+
+  it('a bill id that matches no row is still a 404 (#2592)', async () => {
+    await expect(
+      payFull('2592a002-0000-4000-8000-0000000000ff', '2592a002-0000-4000-8000-000000000001', 100),
+    ).rejects.toThrow(NotFoundException);
   });
 
   describe('concurrency', () => {
@@ -822,6 +857,24 @@ describe('CheckoutService (integration)', () => {
       const updated = await studentFeeRepo.findOneByOrFail({ id: bill.id });
       expect(Number(updated.paid_amount)).toBeLessThanOrEqual(700);
       expect(Number(updated.paid_amount)).toBe(500);
+    });
+
+    it('two concurrent full-balance checkouts with different keys: one pays, one gets a 409 (#2592)', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 400 }));
+
+      const results = await Promise.allSettled([
+        payFull(bill.id, '2592a003-0000-4000-8000-000000000001', 400),
+        payFull(bill.id, '2592a003-0000-4000-8000-000000000002', 400),
+      ]);
+
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const rejected = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+      expect(rejected).toHaveLength(1);
+      expect(rejected[0].reason).toBeInstanceOf(ConflictException);
+      expect(
+        await paymentRepo.count({ where: { tenant_id: TENANT_ID, student_id: student.id } }),
+      ).toBe(1);
     });
 
     it('two concurrent checkouts with the SAME idempotency key create exactly one payment and one invoice', async () => {
