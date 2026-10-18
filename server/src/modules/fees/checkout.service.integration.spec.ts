@@ -696,43 +696,91 @@ describe('CheckoutService (integration)', () => {
     }
   });
 
-  it('rejects a student_fee_id from another tenant (404)', async () => {
-    const otherStudent = studentRepo.create({
-      full_name: 'Other Tenant Student',
-      registration_number: 'REG-CHKS-OTHER-0001',
-      roll_number: 999,
-      class_section_id: SEED_SECTION_1_ID,
-      tenant_id: OTHER_TENANT_ID,
-      date_of_birth: new Date('2010-01-01'),
-      preferred_communication: 'SMS' as any,
-    });
-    const saved = await studentRepo.save(otherStudent);
+  let foreignSeq = 0;
+  /** A bill that belongs to a student of OTHER_TENANT_ID (unique per call, D18). */
+  async function makeForeignBill() {
+    foreignSeq += 1;
+    const saved = await studentRepo.save(
+      studentRepo.create({
+        full_name: `Other Tenant Student ${foreignSeq}`,
+        registration_number: `REG-CHKS-OTHER-${String(foreignSeq).padStart(4, '0')}`,
+        roll_number: 900 + foreignSeq,
+        class_section_id: SEED_SECTION_1_ID,
+        tenant_id: OTHER_TENANT_ID,
+        date_of_birth: new Date('2010-01-01'),
+        preferred_communication: 'SMS' as any,
+      }),
+    );
     const otherStructure = await feeStructureRepo.save(
       feeStructureRepo.create({
         fee_type: FeeType.MONTHLY_TUITION,
-        name: 'Other Tuition',
+        name: `Other Tuition ${foreignSeq}`,
         amount: 1000,
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
         tenant_id: OTHER_TENANT_ID,
       }),
     );
-    const bill = await studentFeeRepo.save(
+    return studentFeeRepo.save(
       makeBill(saved.id, { fee_structure_id: otherStructure.id, total_amount: 1000 }),
     );
+  }
 
-    await expect(
-      service.checkout(
-        {
-          idempotency_key: '88888888-8888-4888-8888-888888888888',
-          lines: [{ student_fee_id: bill.id, amount: 1000, one_off_discount: 0 }],
-          payment_method: PaymentMethod.CASH,
-        },
-        TENANT_ID,
-        ACTOR_USER_ID,
-        requestWithToken(),
-      ),
-    ).rejects.toThrow(NotFoundException);
+  const checkoutBill = (billId: string, key: string) =>
+    service.checkout(
+      {
+        idempotency_key: key,
+        lines: [{ student_fee_id: billId, amount: 1000, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      },
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+
+  it('rejects a student_fee_id from another tenant (404, same text as a missing id)', async () => {
+    const bill = await makeForeignBill();
+
+    await expect(checkoutBill(bill.id, '88888888-8888-4888-8888-888888888888')).rejects.toThrow(
+      new NotFoundException('Student fee not found'),
+    );
+    // Nothing was written to the foreign bill.
+    const after = await studentFeeRepo.findOneByOrFail({ id: bill.id });
+    expect(Number(after.paid_amount)).toBe(0);
   });
+
+  it('a random id and a soft-deleted student give the SAME 404 text, with no id in it (#2640)', async () => {
+    const randomId = '2640a001-0000-4000-8000-0000000000ff';
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
+    await studentRepo.softDelete(student.id);
+
+    for (const [id, key] of [
+      [randomId, '2640a001-0000-4000-8000-000000000001'],
+      [bill.id, '2640a001-0000-4000-8000-000000000002'],
+    ]) {
+      const err = await checkoutBill(id, key).catch((e) => e);
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect(err.message).toBe('Student fee not found');
+      expect(err.message).not.toContain(id);
+    }
+  });
+
+  it("does not lock or wait on another tenant's bill (#2640)", async () => {
+    const bill = await makeForeignBill();
+    const qr = dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      // Another transaction holds the foreign row. A tenant-blind lock would block here forever.
+      await qr.query('SELECT id FROM student_fees WHERE id = $1 FOR UPDATE', [bill.id]);
+      await expect(checkoutBill(bill.id, '2640a002-0000-4000-8000-000000000001')).rejects.toThrow(
+        NotFoundException,
+      );
+    } finally {
+      await qr.rollbackTransaction();
+      await qr.release();
+    }
+  }, 5000);
 
   it('rejects a line amount that exceeds the bill balance', async () => {
     const student = await studentRepo.save(makeStudent());

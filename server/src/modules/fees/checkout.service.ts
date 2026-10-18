@@ -36,6 +36,8 @@ import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-def
 import { localDate, localToday } from '../attendance/attendance-policy.util';
 
 const AMOUNT_EPSILON = 0.01;
+// One text for foreign, deleted and unknown ids, with no id in it (Rule 23, #2640).
+const STUDENT_FEE_NOT_FOUND = 'Student fee not found';
 const PAYABLE_STATUSES: FeeStatus[] = [
   FeeStatus.PENDING,
   FeeStatus.PARTIALLY_PAID,
@@ -159,6 +161,15 @@ export class CheckoutService {
           .createQueryBuilder('sf')
           .where('sf.id IN (:...ids)', { ids: lineFeeIds })
           .andWhere('sf.deleted_at IS NULL')
+          // Tenant scope inside the lock: `student_fees` has no tenant_id, so go through the student
+          // with a subquery (a join would also lock the students rows). A foreign id is never locked
+          // and falls through to the same 404 as a missing one.
+          .andWhere(
+            'sf.student_id IN (SELECT st.id FROM students st WHERE st.tenant_id = :tenantId)',
+            {
+              tenantId,
+            },
+          )
           .orderBy('sf.id', 'ASC')
           .setLock('pessimistic_write')
           .getMany();
@@ -188,9 +199,7 @@ export class CheckoutService {
         for (const line of dto.lines) {
           const bill = billsById.get(line.student_fee_id);
           if (!bill) {
-            throw new NotFoundException(
-              `Student fee "${line.student_fee_id}" not found or already deleted`,
-            );
+            throw new NotFoundException(STUDENT_FEE_NOT_FOUND);
           }
           // `bill.student` can be null when the student relation was
           // soft-deleted — TypeORM's relation join auto-filters
@@ -198,14 +207,10 @@ export class CheckoutService {
           // doesn't. Guard before dereferencing rather than letting a
           // TypeError bubble up as an unhandled 500.
           if (!bill.student) {
-            throw new NotFoundException(
-              `Student fee "${line.student_fee_id}" not found for this tenant`,
-            );
+            throw new NotFoundException(STUDENT_FEE_NOT_FOUND);
           }
           if (bill.student.tenant_id !== tenantId || bill.student.deleted_at) {
-            throw new NotFoundException(
-              `Student fee "${line.student_fee_id}" not found for this tenant`,
-            );
+            throw new NotFoundException(STUDENT_FEE_NOT_FOUND);
           }
           const balance = round2(
             Number(bill.total_amount) - Number(bill.discount_amount) - Number(bill.paid_amount),
@@ -221,7 +226,7 @@ export class CheckoutService {
           const requested = round2(Number(line.amount) + Number(line.one_off_discount ?? 0));
           if (requested > balance + AMOUNT_EPSILON) {
             throw new BadRequestException(
-              `amount + one_off_discount (${requested}) exceeds the outstanding balance (${balance}) for student fee "${bill.id}"`,
+              `amount + one_off_discount (${requested}) exceeds the outstanding balance (${balance})`,
             );
           }
         }

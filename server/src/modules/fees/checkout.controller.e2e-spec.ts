@@ -410,6 +410,48 @@ describe('POST /payments/checkout (16.4.2)', () => {
     expect(JSON.stringify(res.body)).not.toContain(bill);
   });
 
+  it('a foreign-tenant bill id and a random id give the identical 404 text, without the id (#2640)', async () => {
+    const FOREIGN_TENANT = '00000000-0000-4000-8000-0000002640aa';
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Checkout Foreign School', 'checkout-foreign-2640', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [FOREIGN_TENANT],
+    );
+    const foreignStudent = (
+      await dataSource.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
+         VALUES (DEFAULT, 'Checkout Foreign Student', $1, 1, $2, $3, '2010-01-01', 'SMS', 'ACTIVE', NOW(), NOW())
+         RETURNING id`,
+        [`REG-CHK-FOREIGN-${randomUUID().slice(0, 8)}`, SEED_SECTION_1_ID, FOREIGN_TENANT],
+      )
+    )[0].id;
+    const foreignBill = await createFee(foreignStudent, 500);
+    const randomBill = randomUUID();
+
+    const post = async (id: string) =>
+      (
+        await supertest(app.getHttpServer())
+          .post(`${API}/payments/checkout`)
+          .send({
+            idempotency_key: randomUUID(),
+            lines: [{ student_fee_id: id, amount: 500, one_off_discount: 0 }],
+            payment_method: PaymentMethod.CASH,
+          })
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .set('X-Role', UserRole.ADMIN)
+          .expect(404)
+      ).body;
+
+    const foreign = await post(foreignBill);
+    const random = await post(randomBill);
+    expect(foreign.message).toBe(random.message);
+    expect(foreign.message).toBe('Student fee not found');
+    expect(JSON.stringify(foreign)).not.toContain(foreignBill);
+    expect(JSON.stringify(random)).not.toContain(randomBill);
+  });
+
   // PermissionsGuard rejects PARENT here: only ADMIN/ACCOUNTANT hold
   // PAYMENT_RECORD, and the route has no `@Roles`.
   it('denies a PARENT (not ADMIN/ACCOUNTANT) from recording a checkout (403)', async () => {
