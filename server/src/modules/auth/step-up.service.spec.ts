@@ -303,6 +303,25 @@ describe('StepUpService', () => {
       expect(otherActorError.status).not.toBe(HttpStatus.TOO_MANY_REQUESTS);
     });
 
+    // [2639] F-130/F-131: the counter is per caller+approver, so one caller's
+    // wrong guesses never spend another caller's budget for the same approver.
+    it('scopes the rate-limit counter by caller — a second caller in the same tenant keeps its budget', async () => {
+      const { service, redis } = buildService();
+
+      for (let i = 0; i < 6; i++) {
+        await service.verify(otpDto(), ACTOR_USER_ID, TENANT_ID, CONTEXT).catch(() => undefined);
+      }
+      const incrKeys = redis.incr.mock.calls.map((call: unknown[]) => call[0] as string);
+      expect(incrKeys.some((key) => key.includes(`pair:${TENANT_ID}:${ACTOR_USER_ID}:`))).toBe(
+        true,
+      );
+
+      const otherCaller = await service
+        .verify(otpDto(), 'a-second-caller', TENANT_ID, CONTEXT)
+        .catch((e) => e);
+      expect(otherCaller.status).not.toBe(HttpStatus.TOO_MANY_REQUESTS);
+    });
+
     // Security-review fix: bcrypt/OTP verification must run at the same
     // cost whether or not the identifier resolves to a real approver —
     // otherwise response latency leaks which identifiers are real.
@@ -380,18 +399,23 @@ describe('StepUpService', () => {
     it('always resolves without throwing, even for an unknown identifier', async () => {
       const { service } = buildService();
 
-      await expect(service.requestOtp('unknown@example.com', TENANT_ID)).resolves.toEqual({});
+      await expect(
+        service.requestOtp('unknown@example.com', TENANT_ID, ACTOR_USER_ID),
+      ).resolves.toEqual({});
     });
 
     it('calls OtpService.request only for an eligible approver', async () => {
       const { service, otpService } = buildService();
 
-      await service.requestOtp('admin@example.com', TENANT_ID);
+      await service.requestOtp('admin@example.com', TENANT_ID, ACTOR_USER_ID);
 
-      expect(otpService.request).toHaveBeenCalledWith('STEP_UP', `${TENANT_ID}:admin@example.com`);
+      expect(otpService.request).toHaveBeenCalledWith(
+        'STEP_UP',
+        `${TENANT_ID}:${ACTOR_USER_ID}:admin@example.com`,
+      );
 
       otpService.request.mockClear();
-      await service.requestOtp('unknown@example.com', TENANT_ID);
+      await service.requestOtp('unknown@example.com', TENANT_ID, ACTOR_USER_ID);
       expect(otpService.request).not.toHaveBeenCalled();
     });
   });

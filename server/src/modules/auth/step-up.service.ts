@@ -41,13 +41,15 @@ export const STEP_UP_REDIS = 'STEP_UP_REDIS';
 const STEP_UP_OTP_PURPOSE: OtpPurpose = 'STEP_UP';
 
 /**
- * The OtpService identifier for a step-up code: tenant first. OtpService
- * counts wrong guesses (and locks) per identifier with no tenant, so an
- * unscoped id let a user in any school lock another school's approver out
- * of step-up. Same scope as the `step-up-attempts:approver:` rate limit.
+ * The OtpService identifier for a step-up code: tenant, then the calling
+ * user, then the approver. OtpService counts wrong guesses (and locks) per
+ * identifier with no tenant or caller, so an unscoped id let any user lock
+ * another school's approver (or another caller's code) out of step-up. Same
+ * scope as the `step-up-attempts:pair:` rate limit. Request and verify must
+ * pass the same actor.
  */
-function stepUpOtpId(tenantId: string, normalizedIdentifier: string): string {
-  return `${tenantId}:${normalizedIdentifier}`;
+function stepUpOtpId(tenantId: string, actorUserId: string, normalizedIdentifier: string): string {
+  return `${tenantId}:${actorUserId}:${normalizedIdentifier}`;
 }
 
 const FEE_APPROVE_PERMISSION = Permission.FEE_APPROVE;
@@ -114,14 +116,18 @@ export class StepUpService {
    * the generated code back via the same `ACCOUNT_ACCESS_ECHO_SECRETS`
    * flag `OtpLoginService.request` uses, never enabled in production.
    */
-  async requestOtp(identifier: string, actorTenantId: string): Promise<StepUpOtpRequestResult> {
+  async requestOtp(
+    identifier: string,
+    actorTenantId: string,
+    actorUserId: string,
+  ): Promise<StepUpOtpRequestResult> {
     const approver = await this.findEligibleApprover(identifier, actorTenantId);
     if (!approver) return {};
 
     try {
       const { code } = await this.otpService.request(
         STEP_UP_OTP_PURPOSE,
-        stepUpOtpId(actorTenantId, normalizeLoginIdentifier(identifier)),
+        stepUpOtpId(actorTenantId, actorUserId, normalizeLoginIdentifier(identifier)),
       );
       return isSecretEchoEnabled(this.config) ? { debug: { otp: code } } : {};
     } catch {
@@ -139,17 +145,17 @@ export class StepUpService {
   ): Promise<StepUpApprovalResponse> {
     const identifier = normalizeLoginIdentifier(dto.identifier);
 
-    // Scoped by tenant: an identifier is only ever resolved within
-    // actorTenantId (findEligibleApprover below), so the rate-limit key
-    // must match that scope. An unscoped key let any authenticated caller
-    // in ANY tenant lock a real admin's identifier for 15 minutes by
-    // guessing it and failing verification a few times — this key never
-    // needs eligibility to be checked first, only tenant + identifier.
-    const [approverAllowed, actorAllowed] = await Promise.all([
-      this.checkAndIncrementRateLimit(`step-up-attempts:approver:${actorTenantId}:${identifier}`),
+    // Scoped by tenant AND caller: one caller.s wrong guesses at an approver
+    // must not lock that approver out for everyone else (F-130/F-131), and
+    // an unscoped key let a caller in ANY tenant do the same. The key never
+    // needs eligibility to be checked first.
+    const [pairAllowed, actorAllowed] = await Promise.all([
+      this.checkAndIncrementRateLimit(
+        `step-up-attempts:pair:${actorTenantId}:${actorUserId}:${identifier}`,
+      ),
       this.checkAndIncrementRateLimit(`step-up-attempts:actor:${actorUserId}`),
     ]);
-    if (!approverAllowed || !actorAllowed) {
+    if (!pairAllowed || !actorAllowed) {
       throw new HttpException(
         { statusCode: HttpStatus.TOO_MANY_REQUESTS, message: 'Too many attempts' },
         HttpStatus.TOO_MANY_REQUESTS,
@@ -173,7 +179,7 @@ export class StepUpService {
     const verified = await this.verifyCredential(
       dto,
       approver,
-      stepUpOtpId(actorTenantId, identifier),
+      stepUpOtpId(actorTenantId, actorUserId, identifier),
     );
 
     if (!approver || !verified) {
