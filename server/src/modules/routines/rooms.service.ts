@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Room } from './entities/room.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
+import { SeatAllocation } from '../seat-plans/entities/seat-allocation.entity';
 import { CreateRoomDto, UpdateRoomDto, QueryRoomDto } from './dto/setup.dto';
 
 /** [21.3.1] Room CRUD, tenant-scoped — same pattern as `ShiftsService`. */
@@ -78,6 +79,20 @@ export class RoomsService {
       throw new ConflictException(
         `Cannot delete room "${id}": ${referencedCount} routine slot(s) still reference it. Reassign or remove them first.`,
       );
+    }
+
+    // [2627] A seat plan (draft or published) that still seats students in this
+    // room would render a null room. Soft-deleted plans do not count.
+    const allocationCount = await this.repo.manager
+      .createQueryBuilder(SeatAllocation, 'a')
+      .innerJoin('a.seat_plan', 'p', 'p.deleted_at IS NULL')
+      .where('a.room_id = :id AND a.tenant_id = :tenantId', { id, tenantId })
+      .getCount();
+    if (allocationCount > 0) {
+      throw new ConflictException({
+        message: `This room is used in ${allocationCount} seat plan allocation(s). Move them first.`,
+        details: { code: 'ROOM_IN_USE', seat_allocations_count: allocationCount },
+      });
     }
 
     await this.repo.softDelete({ id, tenant_id: tenantId });

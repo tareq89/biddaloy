@@ -12,10 +12,19 @@ function buildService() {
     findAndCount: vi.fn(async () => [[], 0]),
     update: vi.fn(async () => undefined),
     softDelete: vi.fn(async () => undefined),
+    manager: { createQueryBuilder: vi.fn() },
   };
+  // [2627] seat-allocation count chain; tests override the resolved count.
+  const seatCount = { value: 0 };
+  const qb: any = {
+    innerJoin: vi.fn(() => qb),
+    where: vi.fn(() => qb),
+    getCount: vi.fn(async () => seatCount.value),
+  };
+  repo.manager.createQueryBuilder = vi.fn(() => qb);
   const routineSlotRepo: any = { count: vi.fn(async () => 0) };
   const service = new RoomsService(repo, routineSlotRepo);
-  return { service, repo, routineSlotRepo };
+  return { service, repo, routineSlotRepo, seatCount };
 }
 
 describe('RoomsService [21.3.1]', () => {
@@ -57,5 +66,12 @@ describe('RoomsService [21.3.1]', () => {
     ctx.routineSlotRepo.count = vi.fn(async () => 0);
     await ctx.service.remove('room-1', TENANT_ID);
     expect(ctx.repo.softDelete).toHaveBeenCalledWith({ id: 'room-1', tenant_id: TENANT_ID });
+  });
+
+  it('[2627] refuses to delete a room used by a seat plan allocation', async () => {
+    ctx.repo.findOne = vi.fn(async () => ({ id: 'room-1', tenant_id: TENANT_ID }));
+    ctx.seatCount.value = 3;
+    await expect(ctx.service.remove('room-1', TENANT_ID)).rejects.toThrow(ConflictException);
+    expect(ctx.repo.softDelete).not.toHaveBeenCalled();
   });
 });
