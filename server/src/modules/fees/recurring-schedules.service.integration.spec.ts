@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { DataSource } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
 import { RecurringSchedulesService } from './recurring-schedules.service';
@@ -779,6 +779,72 @@ describe('RecurringSchedulesService (integration)', () => {
   });
 
   // [8.10.7.3.08] "Fee generation status" widget: when does the next schedule fire?
+  describe('[F-145] cadence change', () => {
+    afterEach(() => vi.useRealTimers());
+
+    async function monthlySchedule(lastRunPeriod: string | null) {
+      const structureId = await createFeeStructure({
+        name: `Tuition ${Date.now()}-${Math.random()}`,
+      });
+      const created = await service.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: 'Cadence change',
+          audience: { enrollment_status: 'ACTIVE' },
+          rule: { kind: 'MONTHLY', day_of_month: 1 },
+          fee_structure_ids: [structureId],
+          starts_on: '2026-01-01',
+        } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await dataSource.query(`UPDATE recurring_schedules SET last_run_period = $1 WHERE id = $2`, [
+        lastRunPeriod,
+        created.id,
+      ]);
+      return created.id;
+    }
+    const lastRun = async (id: string) =>
+      (
+        await dataSource.query(
+          `SELECT last_run_period::text AS p FROM recurring_schedules WHERE id = $1`,
+          [id],
+        )
+      )[0].p;
+
+    it('marks the new cadence current period covered when the old period was already billed', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-03-04T06:00:00Z')); // a Wednesday
+      const id = await monthlySchedule('2026-03-01');
+
+      await service.update(
+        id,
+        { rule: { kind: 'WEEKLY', weekdays: [1] } } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      // Monday of the week of 2026-03-04. Moved "backwards" from 03-01? No: 03-02 > 03-01,
+      // and the next weekly period (03-09) bills normally.
+      expect(await lastRun(id)).toBe('2026-03-02');
+    });
+
+    it('leaves last_run_period alone when the current old period was not billed', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-03-04T06:00:00Z'));
+      const id = await monthlySchedule('2026-02-01');
+
+      await service.update(
+        id,
+        { rule: { kind: 'WEEKLY', weekdays: [1] } } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      expect(await lastRun(id)).toBe('2026-02-01');
+    });
+  });
+
   describe('nextScheduledRun', () => {
     async function insertSchedule(o: {
       tenant?: string;

@@ -511,9 +511,29 @@ export class RecurringSchedulesService {
       const scheduleRepo = manager.getRepository(RecurringSchedule);
       const structureRepo = manager.getRepository(RecurringScheduleStructure);
 
+      // [F-145] A cadence change must not bill the current period twice: if the current old
+      // period was already billed, mark the new cadence's current period covered. Plain
+      // assignment on purpose (weekly -> monthly moves the date backwards).
+      let coveredPeriod: Record<string, string> = {};
+      if (rule && rule.kind !== schedule.rule.kind) {
+        const locked = await scheduleRepo
+          .createQueryBuilder('rs')
+          .setLock('pessimistic_write')
+          .where('rs.id = :id', { id: schedule.id })
+          .getOneOrFail();
+        const today = localToday();
+        if (
+          locked.last_run_period &&
+          String(locked.last_run_period) === periodFor(today, locked.rule)
+        ) {
+          coveredPeriod = { last_run_period: periodFor(today, rule) };
+        }
+      }
+
       await scheduleRepo.update(
         { id: schedule.id },
         {
+          ...coveredPeriod,
           ...(dto.name !== undefined ? { name: dto.name } : {}),
           ...(dto.audience !== undefined ? { audience: dto.audience } : {}),
           ...(rule !== undefined ? { rule, period_type: this.periodTypeFor(rule) } : {}),
