@@ -140,17 +140,6 @@ async function seedInTransaction(
        FROM students s JOIN class_sections cs ON cs.id = s.class_section_id WHERE s.tenant_id = $1`,
     [tenantId, yearId],
   );
-  // Each past year keeps ~90% of the roll (graduated), so enrolment history has a shape.
-  for (const pastId of pastYearIds) {
-    await q(
-      `INSERT INTO enrollments (tenant_id, student_id, class_id, section_id, academic_year_id, enrollment_status, enrolled_at, created_at, updated_at)
-       SELECT s.tenant_id, s.id, cs.class_id, cs.id, $2::uuid, 'GRADUATED', NOW(), NOW(), NOW()
-         FROM students s JOIN class_sections cs ON cs.id = s.class_section_id
-        WHERE s.tenant_id = $1 AND abs(hashtext(s.id::text || $2::uuid::text)) % 10 < 9`,
-      [tenantId, pastId],
-    );
-  }
-
   // One guardian per student; 2% incomplete (no phone, empty relationship). Phones are not dialable.
   await q(
     `INSERT INTO guardians (tenant_id, full_name, relationship, phone, is_primary_contact, created_at, updated_at)
@@ -287,6 +276,35 @@ async function seedInTransaction(
   }
 
   await seedExtras(extras);
+
+  // Each past year keeps ~90% of the roll (graduated), pointing at that year's own class and
+  // section. Runs after seedExtras so the extra past-year classes are not multiplied into
+  // exams, homework or routines (those seed from every class of the tenant).
+  for (const pastId of pastYearIds) {
+    await q(
+      `INSERT INTO classes (tenant_id, academic_year_id, name, numeric_grade, created_at, updated_at)
+       SELECT $1, $2::uuid, 'Class ' || g, g, NOW(), NOW() FROM generate_series(1, ${CLASSES}) AS g`,
+      [tenantId, pastId],
+    );
+    await q(
+      `INSERT INTO class_sections (tenant_id, class_id, section_name, created_at, updated_at)
+       SELECT $1, c.id, chr(64 + s), NOW(), NOW()
+         FROM classes c, generate_series(1, ${SECTIONS_PER_CLASS}) AS s
+        WHERE c.tenant_id = $1 AND c.academic_year_id = $2::uuid`,
+      [tenantId, pastId],
+    );
+    await q(
+      `INSERT INTO enrollments (tenant_id, student_id, class_id, section_id, academic_year_id, enrollment_status, enrolled_at, created_at, updated_at)
+       SELECT s.tenant_id, s.id, pc.id, ps.id, $2::uuid, 'GRADUATED', NOW(), NOW(), NOW()
+         FROM students s
+         JOIN class_sections cs ON cs.id = s.class_section_id
+         JOIN classes c ON c.id = cs.class_id
+         JOIN classes pc ON pc.tenant_id = s.tenant_id AND pc.academic_year_id = $2::uuid AND pc.numeric_grade = c.numeric_grade
+         JOIN class_sections ps ON ps.class_id = pc.id AND ps.section_name = cs.section_name
+        WHERE s.tenant_id = $1 AND abs(hashtext(s.id::text || $2::uuid::text)) % 10 < 9`,
+      [tenantId, pastId],
+    );
+  }
 
   const tables = [
     ...EXTRA_COUNT_TABLES,
