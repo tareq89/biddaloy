@@ -10,12 +10,14 @@ import { ClassSection } from './entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { FeeStructure } from '../fees/entities/fee-structure.entity';
+import { StudentFee } from '../fees/entities/student-fee.entity';
+import { Exam } from '../exams/entities/exam.entity';
 import { School } from '../schools/entities/school.entity';
 import { User } from '../users/entities/user.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
-import { EnrollmentStatus, FeeType, AuditAction } from '@biddaloy/shared';
+import { EnrollmentStatus, FeeType, AuditAction, ExamKind } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 
@@ -65,6 +67,8 @@ describe('AcademicYearService (integration)', () => {
   // Reset: clear all data before each test (FK-safe order)
   beforeEach(async () => {
     if (dataSource) {
+      await dataSource.query('DELETE FROM exams');
+      await dataSource.query('DELETE FROM enrollments');
       await dataSource.query('DELETE FROM payment_allocations');
       await dataSource.query('DELETE FROM student_fees');
       await dataSource.query('DELETE FROM fee_structures');
@@ -298,6 +302,91 @@ describe('AcademicYearService (integration)', () => {
       await expect(service.remove(created.id, TENANT_ID)).rejects.toMatchObject({
         response: { details: { code: 'ACADEMIC_YEAR_IN_USE', classes_count: 1 } },
       });
+    });
+
+    // [2613] Enrollments, exams and bills reference the year directly. Their class
+    // lives in ANOTHER year here, so the class/fee-structure counts of the year under
+    // test stay 0 and only the new counts can refuse the delete.
+    async function yearWithForeignClass() {
+      const year = await service.create(
+        { name: '2022-2023', start_date: '2022-01-01', end_date: '2022-12-31' },
+        TENANT_ID,
+      );
+      const other = await service.create(
+        { name: '2023-2024', start_date: '2023-01-01', end_date: '2023-12-31' },
+        TENANT_ID,
+      );
+      const klass = await dataSource
+        .getRepository(Class)
+        .save({ name: 'Class 4', academic_year_id: other.id, tenant_id: TENANT_ID });
+      const section = await dataSource
+        .getRepository(ClassSection)
+        .save({ class_id: klass.id, section_name: 'A', tenant_id: TENANT_ID });
+      const student = await dataSource.getRepository(Student).save({
+        full_name: 'Guard Student',
+        registration_number: 'REG-GUARD-1',
+        roll_number: 1,
+        class_section_id: section.id,
+        tenant_id: TENANT_ID,
+      });
+      return { year, other, klass, section, student };
+    }
+
+    it('cannot delete a year that only enrollments reference (409 ACADEMIC_YEAR_IN_USE)', async () => {
+      const { year, klass, section, student } = await yearWithForeignClass();
+      await dataSource.getRepository(Enrollment).save({
+        student_id: student.id,
+        class_id: klass.id,
+        section_id: section.id,
+        academic_year_id: year.id,
+        tenant_id: TENANT_ID,
+        enrollment_status: EnrollmentStatus.GRADUATED,
+      });
+
+      await expect(service.remove(year.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_IN_USE', enrollments_count: 1 } },
+      });
+      await expect(service.findOne(year.id, TENANT_ID)).resolves.toBeDefined();
+    });
+
+    it('cannot delete a year that only an exam references (409 ACADEMIC_YEAR_IN_USE)', async () => {
+      const { year, klass } = await yearWithForeignClass();
+      await dataSource.getRepository(Exam).save({
+        tenant_id: TENANT_ID,
+        academic_year_id: year.id,
+        class_id: klass.id,
+        name: 'Guard exam',
+        kind: ExamKind.TERM,
+      });
+
+      await expect(service.remove(year.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_IN_USE', exams_count: 1 } },
+      });
+      await expect(service.findOne(year.id, TENANT_ID)).resolves.toBeDefined();
+    });
+
+    it('cannot delete a year that only a bill references (409 ACADEMIC_YEAR_IN_USE)', async () => {
+      const { year, other, klass, student } = await yearWithForeignClass();
+      const fs = await dataSource.getRepository(FeeStructure).save({
+        fee_type: FeeType.MONTHLY_TUITION,
+        name: 'Tuition',
+        amount: 500,
+        class_id: klass.id,
+        academic_year_id: other.id,
+        tenant_id: TENANT_ID,
+      });
+      await dataSource.getRepository(StudentFee).save({
+        student_id: student.id,
+        academic_year_id: year.id,
+        fee_structure_id: fs.id,
+        period_start: new Date('2022-02-01'),
+        total_amount: 500,
+      });
+
+      await expect(service.remove(year.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_IN_USE', student_fees_count: 1 } },
+      });
+      await expect(service.findOne(year.id, TENANT_ID)).resolves.toBeDefined();
     });
 
     it('can delete an empty, non-current year', async () => {
