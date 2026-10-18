@@ -854,6 +854,29 @@ describe('InvoicesService (integration)', () => {
       await expect(service.findOne(created.id, OTHER_TENANT_ID)).rejects.toThrow(NotFoundException);
     });
 
+    it('still returns, lists and prints the invoice after its student is soft-deleted [2638]', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const created = await createInvoice(payment.id);
+      await studentRepo.softDelete(student.id);
+
+      const found = await service.findOne(created.id, TENANT_ID);
+      expect(found.id).toBe(created.id);
+      const list = await service.findAll({ student_id: student.id } as any, TENANT_ID);
+      expect(list.data.map((i) => i.id)).toContain(created.id);
+      const html = await service.getPrintableHtml(created.id, TENANT_ID);
+      expect(html).toContain(created.invoice_number);
+
+      // Tenant isolation holds for all three.
+      await expect(service.findOne(created.id, OTHER_TENANT_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.getPrintableHtml(created.id, OTHER_TENANT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+      const other = await service.findAll({ student_id: student.id } as any, OTHER_TENANT_ID);
+      expect(other.data).toHaveLength(0);
+    });
+
     it('excludes a soft-deleted invoice', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
