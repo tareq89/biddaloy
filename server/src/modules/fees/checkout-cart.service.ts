@@ -2,15 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { localToday } from '../../common/time';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
+import { FeeType, PeriodType } from '@biddaloy/shared';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
 import { WalletService } from './wallet.service';
+import { OPEN_FEE_STATUSES } from './fees.constants';
 
-/** Mirrors `fee-dues.service.ts`'s private `OPEN_STATUSES` — duplicated
- * rather than imported/exported because `fee-dues.service.ts` is outside
- * this ticket's file territory. Keep in sync if that list ever changes. */
-const OPEN_STATUSES = [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID];
+const OPEN_STATUSES = OPEN_FEE_STATUSES;
 
 /** Multi-student cart calls are capped here — the Record Payment modal never
  * opens with more than a handful of siblings selected, and this keeps the

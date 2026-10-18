@@ -254,6 +254,17 @@ describe('CheckoutCartService (integration)', () => {
     expect(billBResult.suggested_allocation).toBe(0);
   });
 
+  it('[F-156] includes an OVERDUE bill, same as the dues list', async () => {
+    const student = await makeStudent();
+    const overdue = await studentFeeRepo.save(
+      studentFeeRepo.create(makeFee(student.id, { status: FeeStatus.OVERDUE })),
+    );
+
+    const result = await service.getCart([student.id], SEED_TENANT_ID);
+
+    expect(result.students[0].bills.map((b) => b.student_fee_id)).toContain(overdue.id);
+  });
+
   it('excludes soft-deleted and PAID bills', async () => {
     const student = await makeStudent();
     const paid = await studentFeeRepo.save(
