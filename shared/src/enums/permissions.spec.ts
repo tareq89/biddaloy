@@ -912,6 +912,7 @@ describe('new role grants [#1358]', () => {
       Permission.STAFF_ATTENDANCE_MARK,
     ],
     [UserRole.EXAM_CONTROLLER]: [
+      Permission.STEP_UP_REQUEST, // [2639] approver role
       Permission.APPLICATION_SUBMIT, // [52.1.1] D22
       Permission.EXAM_MANAGE,
       Permission.SEAT_PLAN_MANAGE,
