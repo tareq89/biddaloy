@@ -225,9 +225,11 @@ export class CheckoutService {
           }
           const requestedPaisa = toPaisa(line.amount) + toPaisa(line.one_off_discount ?? 0);
           if (requestedPaisa > balancePaisa) {
-            throw new BadRequestException(
-              `amount + one_off_discount (${requestedPaisa / 100}) exceeds the outstanding balance (${balancePaisa / 100})`,
-            );
+            // Fixed text: no submitted amount, no balance (Rule 23). The UI has the balance from the dues read.
+            throw new BadRequestException({
+              message: 'The amount is more than the outstanding balance',
+              details: { code: 'CHECKOUT_AMOUNT_EXCEEDS_BALANCE' },
+            });
           }
         }
 

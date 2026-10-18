@@ -33,7 +33,7 @@ function fakeFetch(overrides = {}) {
     if (key === 'POST /api/v1/payments/checkout') {
       const amount = JSON.parse(init.body).lines[0].amount;
       return amount > 1000
-        ? json(400, { message: 'exceeds the outstanding balance (10)' })
+        ? json(400, { message: 'The amount is more than the outstanding balance' })
         : json(409, { details: { code: 'CHECKOUT_FEE_SETTLED' } });
     }
     if (key === 'POST /api/v1/auth/step-up/otp/request') return json(403, {});

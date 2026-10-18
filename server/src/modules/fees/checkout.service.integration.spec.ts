@@ -906,8 +906,8 @@ describe('CheckoutService (integration)', () => {
     const student = await studentRepo.save(makeStudent());
     const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
 
-    await expect(
-      service.checkout(
+    const error = await service
+      .checkout(
         {
           idempotency_key: '99999999-9999-4999-8999-999999999999',
           lines: [{ student_fee_id: bill.id, amount: 600, one_off_discount: 0 }],
@@ -916,8 +916,16 @@ describe('CheckoutService (integration)', () => {
         TENANT_ID,
         ACTOR_USER_ID,
         requestWithToken(),
-      ),
-    ).rejects.toThrow(BadRequestException);
+      )
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+    // Rule 23: fixed text plus a code; neither the submitted 600 nor the 500 balance is echoed.
+    const body = (error as BadRequestException).getResponse();
+    expect(body).toMatchObject({
+      message: 'The amount is more than the outstanding balance',
+      details: { code: 'CHECKOUT_AMOUNT_EXCEEDS_BALANCE' },
+    });
+    expect(JSON.stringify(body)).not.toMatch(/600|500/);
   });
 
   it('rejects a WAIVED bill (409, no write)', async () => {
