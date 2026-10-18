@@ -62,10 +62,11 @@ describe('mapKnownError — body-parser errors', () => {
 });
 
 /** A QueryFailedError shaped like the one the pg driver produces. */
-function pgError(code: string, table: string) {
+function pgError(code: string, table: string, constraint?: string) {
   const driverError = Object.assign(new Error('duplicate key'), {
     code,
     table,
+    constraint,
     detail: 'Key (name)=(Secret Name) already exists.',
   });
   return new QueryFailedError('INSERT ...', [], driverError);
@@ -75,13 +76,24 @@ describe('mapKnownError — unique violations', () => {
   it.each([
     ['classes', 'A class with this name already exists in this year'],
     ['class_sections', 'A section with this name already exists in this class'],
-    ['academic_years', 'An academic year with this name already exists'],
     ['somewhere_else', 'A record with these details already exists'],
   ])('maps 23505 on %s to a fixed 409', (table, text) => {
     const mapped = mapKnownError(pgError('23505', table));
     expect(mapped?.getStatus()).toBe(409);
     expect(mapped?.message).toBe(text);
     expect(mapped?.message).not.toContain('Secret Name');
+  });
+
+  it('gives the academic-year name text only for the name index', () => {
+    const mapped = mapKnownError(pgError('23505', 'academic_years', 'IDX_ay_name_tenant'));
+    expect(mapped?.message).toBe('An academic year with this name already exists');
+  });
+
+  it('does not call a set-current race on academic_years a name clash', () => {
+    // (is_current, tenant_id) is the second unique index on the table.
+    const mapped = mapKnownError(pgError('23505', 'academic_years', 'IDX_ay_is_current_tenant'));
+    expect(mapped?.getStatus()).toBe(409);
+    expect(mapped?.message).toBe('A record with these details already exists');
   });
 
   it('leaves other Postgres error codes alone', () => {

@@ -29,13 +29,23 @@ const DUPLICATE_MESSAGE_BY_TABLE: Record<string, string> = {
   academic_years: 'An academic year with this name already exists',
 };
 
+// `academic_years` has a second unique index, (is_current, tenant_id): a set-current
+// race there is not a name clash, so the name text is only for the name index.
+const ACADEMIC_YEAR_NAME_INDEX = 'IDX_ay_name_tenant';
+const GENERIC_DUPLICATE = 'A record with these details already exists';
+
 function mapUniqueViolation(exception: unknown): HttpException | null {
   if (!(exception instanceof QueryFailedError)) return null;
-  const { code, table } = exception.driverError as { code?: string; table?: string };
+  const { code, table, constraint } = exception.driverError as {
+    code?: string;
+    table?: string;
+    constraint?: string;
+  };
   if (code !== '23505') return null;
-  return new ConflictException(
-    DUPLICATE_MESSAGE_BY_TABLE[table ?? ''] ?? 'A record with these details already exists',
-  );
+  if (table === 'academic_years' && constraint !== ACADEMIC_YEAR_NAME_INDEX) {
+    return new ConflictException(GENERIC_DUPLICATE);
+  }
+  return new ConflictException(DUPLICATE_MESSAGE_BY_TABLE[table ?? ''] ?? GENERIC_DUPLICATE);
 }
 
 // The money CHECKs on `student_fees` (migration 1791900000300). Services check the balance
