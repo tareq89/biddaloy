@@ -470,6 +470,24 @@ building a new gated route:
   `e2e/journeys/step-up.spec.ts` (16.2.5) proves the whole loop end to end:
   no token → 403, full OTP round trip → token → route succeeds once →
   same token replayed → 403 again.
+- **A refused reversal still spends the code.** `ApprovalGuard` burns the
+  token before the handler runs, so if the handler then answers 409 the admin
+  needs a new OTP. Accepted on purpose (F-153): a token is a one-shot "yes",
+  not a reservation. Example: reversing payment #1 while payment #2 exists
+  answers `REVERSE_LATER_PAYMENTS_FIRST` (`payment-reversal.service.ts`; the
+  route is `@RequireApproval(PAYMENTS_REVERSE)` in `checkout.controller.ts`);
+  the OTP is gone, so the retry after reversing #2 asks for a fresh one. The
+  same holds for `REVERSE_RETRY`. Checkout is the exception: it checks the
+  wallet balance before it spends the token.
+
+```mermaid
+sequenceDiagram
+  Admin->>ApprovalGuard: reverse payment #1 + OTP token
+  ApprovalGuard->>ApprovalGuard: spend token (single-use)
+  ApprovalGuard->>PaymentReversalService: reverse #1
+  PaymentReversalService-->>Admin: 409 REVERSE_LATER_PAYMENTS_FIRST
+  Note over Admin: needs a new OTP to retry
+```
 - **`ApprovalGuard` runs after `RolesGuard`/`PermissionsGuard`.** A caller
   who isn't allowed on the route at all still gets a plain 401/403 from the
   earlier guards, not `APPROVAL_REQUIRED` — the step-up prompt only appears

@@ -1015,6 +1015,111 @@ describe('CheckoutService (integration)', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
+  describe('wallet lock before approval token (#2647)', () => {
+    const credit = (studentId: string, amount: number) =>
+      dataSource.transaction((manager) =>
+        walletService.credit(
+          { studentId, tenantId: TENANT_ID, amount, kind: 'CREDIT_OVERPAYMENT' as any },
+          manager,
+        ),
+      );
+
+    it('a concurrent wallet spend fails the checkout on the balance and the approval token survives', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
+      await credit(student.id, 500);
+      const jti = 'jti-2647-wallet-lock';
+      const token = await issueApprovalToken(jti);
+      const body = (key: string, wallet: boolean) => ({
+        idempotency_key: key,
+        lines: [{ student_fee_id: bill.id, amount: 900, one_off_discount: 100 }],
+        payment_method: PaymentMethod.CASH,
+        ...(wallet ? { wallet_use: 500, tendered_amount: 400 } : {}),
+      });
+
+      // Second connection holds the wallet row and spends it all.
+      const qr = dataSource.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      await walletService.debit(
+        {
+          studentId: student.id,
+          tenantId: TENANT_ID,
+          amount: 500,
+          kind: 'DEBIT_CHECKOUT' as any,
+        } as any,
+        qr.manager,
+      );
+
+      const pending = service
+        .checkout(
+          body('2647a001-0000-4000-8000-000000000001', true),
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(token),
+        )
+        .then(
+          () => null,
+          (e) => e,
+        );
+      await expect
+        .poll(async () => {
+          const rows = await dataSource.query(
+            `SELECT count(*)::int AS n FROM pg_stat_activity
+             WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+          );
+          return rows[0].n;
+        })
+        .toBeGreaterThan(0);
+      await qr.commitTransaction();
+      await qr.release();
+
+      expect(await pending).toBeInstanceOf(BadRequestException);
+      expect(await redis.exists(`approval:${jti}`)).toBe(1);
+
+      // Same token still pays the discounted checkout without wallet_use.
+      const ok = await service.checkout(
+        body('2647a001-0000-4000-8000-000000000002', false),
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(token),
+      );
+      expect(ok.payment.approved_by_user_id).toBe(ACTOR_USER_ID);
+      expect(await redis.exists(`approval:${jti}`)).toBe(0);
+    });
+
+    it('TO_WALLET change across siblings is a 400 and writes nothing', async () => {
+      const a = await studentRepo.save(makeStudent());
+      const b = await studentRepo.save(makeStudent());
+      const billA = await studentFeeRepo.save(makeBill(a.id, { total_amount: 500 }));
+      const billB = await studentFeeRepo.save(makeBill(b.id, { total_amount: 500 }));
+
+      await expect(
+        service.checkout(
+          {
+            idempotency_key: '2647a002-0000-4000-8000-000000000001',
+            lines: [
+              { student_fee_id: billA.id, amount: 500, one_off_discount: 0 },
+              { student_fee_id: billB.id, amount: 500, one_off_discount: 0 },
+            ],
+            payment_method: PaymentMethod.CASH,
+            tendered_amount: 1200,
+            change_handling: 'TO_WALLET',
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID, student_id: a.id } })).toBe(
+        0,
+      );
+      expect(
+        await dataSource.getRepository(StudentWallet).count({ where: { student_id: a.id } }),
+      ).toBe(0);
+    });
+  });
+
   describe('concurrency', () => {
     it('two concurrent checkouts against the same bill never overshoot its balance — one succeeds, the other gets a clean validation error', async () => {
       // 700 balance, two concurrent requests for 500 each (1000 total) —

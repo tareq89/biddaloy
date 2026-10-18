@@ -450,6 +450,30 @@ describe('POST /payments/checkout (16.4.2)', () => {
     expect(JSON.stringify(res.body)).not.toContain(key);
   });
 
+  it('TO_WALLET change across siblings is a 400 (#2647)', async () => {
+    const a = await createStudent();
+    const b = await createStudent();
+    const billA = await createFee(a, 100);
+    const billB = await createFee(b, 100);
+
+    await supertest(app.getHttpServer())
+      .post(`${API}/payments/checkout`)
+      .send({
+        idempotency_key: randomUUID(),
+        lines: [
+          { student_fee_id: billA, amount: 100, one_off_discount: 0 },
+          { student_fee_id: billB, amount: 100, one_off_discount: 0 },
+        ],
+        payment_method: PaymentMethod.CASH,
+        tendered_amount: 250,
+        change_handling: 'TO_WALLET',
+      })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .expect(400);
+  });
+
   it('a foreign-tenant bill id and a random id give the identical 404 text, without the id (#2640)', async () => {
     const FOREIGN_TENANT = '00000000-0000-4000-8000-0000002640aa';
     await dataSource.query(
