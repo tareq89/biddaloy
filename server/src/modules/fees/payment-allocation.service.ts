@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { todayInSchoolTz } from '../../common/time';
+import { toPaisa } from '../../common/constants/money';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
@@ -245,10 +246,10 @@ export class PaymentAllocationService {
           }
 
           const allocAmount = Number(alloc.allocated_amount);
-          if (allocAmount > remaining + AMOUNT_EPSILON) {
-            throw new BadRequestException(
-              `Allocated amount ${allocAmount} exceeds remaining balance ${remaining} for fee ${fee.month}/${fee.year}`,
-            );
+          // Whole paisa, no tolerance: 0.01 over would break CHK_sf_paid_plus_discount (#2636).
+          // Fixed text, no submitted amount in it (Rule 23).
+          if (toPaisa(allocAmount) > toPaisa(remaining)) {
+            throw new BadRequestException('Allocated amount exceeds the remaining balance');
           }
 
           const newPaid = Number(fee.paid_amount) + allocAmount;

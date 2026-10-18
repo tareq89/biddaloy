@@ -14,7 +14,10 @@ import { QueryFailedError } from 'typeorm';
  */
 export function mapKnownError(exception: unknown): HttpException | null {
   return (
-    mapBodyParserError(exception) ?? mapUniqueViolation(exception) ?? mapMulterError(exception)
+    mapBodyParserError(exception) ??
+    mapUniqueViolation(exception) ??
+    mapStudentFeeCheckViolation(exception) ??
+    mapMulterError(exception)
   );
 }
 
@@ -33,6 +36,20 @@ function mapUniqueViolation(exception: unknown): HttpException | null {
   return new ConflictException(
     DUPLICATE_MESSAGE_BY_TABLE[table ?? ''] ?? 'A record with these details already exists',
   );
+}
+
+// The money CHECKs on `student_fees` (migration 1791900000300). Services check the balance
+// first; this is the backstop so a path that missed it is a 409, not a 500. Fixed text.
+const STUDENT_FEE_MONEY_CHECKS = new Set(['CHK_sf_paid_plus_discount', 'CHK_sf_waived_settled']);
+
+function mapStudentFeeCheckViolation(exception: unknown): HttpException | null {
+  if (!(exception instanceof QueryFailedError)) return null;
+  const { code, constraint } = exception.driverError as { code?: string; constraint?: string };
+  if (code !== '23514' || !STUDENT_FEE_MONEY_CHECKS.has(constraint ?? '')) return null;
+  return new ConflictException({
+    message: 'This would take more than the fee total',
+    details: { code: 'STUDENT_FEE_OVER_TOTAL' },
+  });
 }
 
 function mapBodyParserError(exception: unknown): HttpException | null {

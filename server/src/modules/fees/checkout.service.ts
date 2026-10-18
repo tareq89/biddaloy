@@ -35,6 +35,7 @@ import { buildIssuerSnapshot, lockSchoolForSnapshot } from '../schools/profile/i
 import { SchoolsService } from '../schools/schools.service';
 import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { localDate, localToday } from '../attendance/attendance-policy.util';
+import { toPaisa } from '../../common/constants/money';
 
 // One text for foreign, deleted and unknown ids, with no id in it (Rule 23, #2640).
 const STUDENT_FEE_NOT_FOUND = 'Student fee not found';
@@ -52,9 +53,6 @@ function dateKey(value: Date | string | null): string | null {
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
-
-/** Money compares in whole paisa, never with a tolerance (#2636). */
-const toPaisa = (n: number): number => Math.round(Number(n) * 100);
 
 /** Payload of the `payments.recorded` receipt job on `FEE_NOTIFY_QUEUE` [68.4.10]. */
 export interface PaymentsRecordedEvent {

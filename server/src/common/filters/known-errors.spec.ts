@@ -81,6 +81,34 @@ describe('mapKnownError — unique violations', () => {
   });
 });
 
+/** A 23514 CHECK violation as pg reports it: the constraint name, and a detail row holding values. */
+function checkViolation(constraint: string) {
+  const driverError = Object.assign(new Error('violates check constraint'), {
+    code: '23514',
+    table: 'student_fees',
+    constraint,
+    detail: 'Failing row contains (777.77, ...).',
+  });
+  return new QueryFailedError('UPDATE ...', [], driverError);
+}
+
+describe('mapKnownError — student_fees money CHECKs (#2636)', () => {
+  it('maps CHK_sf_paid_plus_discount to a fixed 409 that echoes no value', () => {
+    const mapped = mapKnownError(checkViolation('CHK_sf_paid_plus_discount'));
+    expect(mapped?.getStatus()).toBe(409);
+    expect(mapped?.message).toBe('This would take more than the fee total');
+    expect(JSON.stringify(mapped?.getResponse())).not.toContain('777.77');
+  });
+
+  it('maps CHK_sf_waived_settled to the same 409', () => {
+    expect(mapKnownError(checkViolation('CHK_sf_waived_settled'))?.getStatus()).toBe(409);
+  });
+
+  it('leaves any other CHECK violation alone (stays a 500)', () => {
+    expect(mapKnownError(checkViolation('CHK_sf_paid_amount'))).toBeNull();
+  });
+});
+
 describe('mapKnownError — multer errors', () => {
   it('maps LIMIT_UNEXPECTED_FILE to 400 without echoing the field name', () => {
     const mapped = mapKnownError(new MulterError('LIMIT_UNEXPECTED_FILE', 'secretfield'));

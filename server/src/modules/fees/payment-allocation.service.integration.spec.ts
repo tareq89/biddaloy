@@ -769,6 +769,34 @@ describe('PaymentAllocationService (integration)', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('[2636] rejects 0.01 over the remaining balance with a fixed text that echoes no amount', async () => {
+      // Before: a 0.01 tolerance let 500.01 through, and CHK_sf_paid_plus_discount then 500'd.
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, 0, { total_amount: 500 }));
+
+      const attempt = service.recordWithAllocation(
+        {
+          student_id: student.id,
+          total_amount: 500.01,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: fee.id,
+              allocated_amount: 500.01,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await expect(attempt).rejects.toThrow(BadRequestException);
+      await expect(attempt).rejects.toThrow('Allocated amount exceeds the remaining balance');
+      const reloaded = await studentFeeRepo.findOneByOrFail({ id: fee.id });
+      expect(Number(reloaded.paid_amount)).toBe(0);
+    });
+
     it('rejects an allocation against a fee that is already fully covered by discount', async () => {
       const student = await studentRepo.save(makeStudent());
       // total_amount === discount_amount, so remaining is 0 even though status
