@@ -257,6 +257,28 @@ describe('Promotions E2E (#788)', () => {
     expect(res.body.status).toBe(PromotionRunStatus.COMMITTED);
   });
 
+  it('[2614] POST create with the source year as target returns 422 TARGET_YEAR_NOT_LATER', async () => {
+    const { runId } = await seedRun({ tenantId: SEED_TENANT_ID, withOverride: false });
+    const [run] = await dataSource.query(
+      `SELECT source_class_id, source_academic_year_id FROM promotion_runs WHERE id = $1`,
+      [runId],
+    );
+
+    const res = await supertest(app.getHttpServer())
+      .post(`${API}/promotions`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .send({
+        source_class_id: run.source_class_id,
+        target_academic_year_id: run.source_academic_year_id,
+        exam_ids: ['00000000-0000-4000-8000-0000000000ee'],
+        algorithm: PlacementAlgorithm.BLOCK,
+      })
+      .expect(422);
+
+    expect(res.body.details?.code).toBe('TARGET_YEAR_NOT_LATER');
+  });
+
   it('EXECUTIVE cannot commit a run (403 — lacks PROMOTION_MANAGE)', async () => {
     const { runId } = await seedRun({ tenantId: SEED_TENANT_ID, withOverride: false });
 
