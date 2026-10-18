@@ -1,4 +1,10 @@
-import { BadRequestException, HttpException, PayloadTooLargeException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  PayloadTooLargeException,
+} from '@nestjs/common';
+import { QueryFailedError } from 'typeorm';
 
 /**
  * Maps errors that are not HttpExceptions but are the client's fault to a
@@ -7,7 +13,24 @@ import { BadRequestException, HttpException, PayloadTooLargeException } from '@n
  * The filter still logs the ORIGINAL exception.
  */
 export function mapKnownError(exception: unknown): HttpException | null {
-  return mapBodyParserError(exception);
+  return mapBodyParserError(exception) ?? mapUniqueViolation(exception);
+}
+
+// Keyed on the table, never the index name (brittle) and never `detail`
+// (it contains the submitted value — Rule 23).
+const DUPLICATE_MESSAGE_BY_TABLE: Record<string, string> = {
+  classes: 'A class with this name already exists in this year',
+  class_sections: 'A section with this name already exists in this class',
+  academic_years: 'An academic year with this name already exists',
+};
+
+function mapUniqueViolation(exception: unknown): HttpException | null {
+  if (!(exception instanceof QueryFailedError)) return null;
+  const { code, table } = exception.driverError as { code?: string; table?: string };
+  if (code !== '23505') return null;
+  return new ConflictException(
+    DUPLICATE_MESSAGE_BY_TABLE[table ?? ''] ?? 'A record with these details already exists',
+  );
 }
 
 function mapBodyParserError(exception: unknown): HttpException | null {

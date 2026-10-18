@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
+import { QueryFailedError } from 'typeorm';
 import { AllExceptionsFilter } from './http-exception.filter';
 
 const { mockSetTag } = vi.hoisted(() => ({ mockSetTag: vi.fn() }));
@@ -317,6 +318,26 @@ describe('AllExceptionsFilter', () => {
     );
     expect(Logger.prototype.error).toHaveBeenCalledWith(
       expect.stringContaining('request entity too large'),
+      expect.anything(),
+    );
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it('maps a Postgres 23505 to 409, logs the original and skips Sentry', () => {
+    const filter = new AllExceptionsFilter('production');
+    const driverError = Object.assign(new Error('duplicate key value violates "IDX_x"'), {
+      code: '23505',
+      table: 'classes',
+    });
+
+    filter.catch(new QueryFailedError('INSERT', [], driverError), mockHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(409);
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'A class with this name already exists in this year' }),
+    );
+    expect(Logger.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('IDX_x'),
       expect.anything(),
     );
     expect(Sentry.captureException).not.toHaveBeenCalled();

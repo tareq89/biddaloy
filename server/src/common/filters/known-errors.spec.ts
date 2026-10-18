@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { QueryFailedError } from 'typeorm';
 import { mapKnownError } from './known-errors';
 
 /** Builds what body-parser / http-errors throw: a plain Error with status + type. */
@@ -48,5 +49,33 @@ describe('mapKnownError — body-parser errors', () => {
     expect(mapKnownError(new Error('boom'))).toBeNull();
     expect(mapKnownError(httpError('x', 503))).toBeNull();
     expect(mapKnownError('string')).toBeNull();
+  });
+});
+
+/** A QueryFailedError shaped like the one the pg driver produces. */
+function pgError(code: string, table: string) {
+  const driverError = Object.assign(new Error('duplicate key'), {
+    code,
+    table,
+    detail: 'Key (name)=(Secret Name) already exists.',
+  });
+  return new QueryFailedError('INSERT ...', [], driverError);
+}
+
+describe('mapKnownError — unique violations', () => {
+  it.each([
+    ['classes', 'A class with this name already exists in this year'],
+    ['class_sections', 'A section with this name already exists in this class'],
+    ['academic_years', 'An academic year with this name already exists'],
+    ['somewhere_else', 'A record with these details already exists'],
+  ])('maps 23505 on %s to a fixed 409', (table, text) => {
+    const mapped = mapKnownError(pgError('23505', table));
+    expect(mapped?.getStatus()).toBe(409);
+    expect(mapped?.message).toBe(text);
+    expect(mapped?.message).not.toContain('Secret Name');
+  });
+
+  it('leaves other Postgres error codes alone', () => {
+    expect(mapKnownError(pgError('23503', 'classes'))).toBeNull();
   });
 });
