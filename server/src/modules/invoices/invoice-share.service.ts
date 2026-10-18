@@ -92,10 +92,9 @@ export class InvoiceShareService {
 
   private async assertInvoiceInTenant(invoiceId: string, tenantId: string): Promise<void> {
     const invoice = await this.invoiceRepo.findOne({
-      where: { id: invoiceId, deleted_at: IsNull() },
-      relations: ['student'],
+      where: { id: invoiceId, tenant_id: tenantId, deleted_at: IsNull() },
     });
-    if (!invoice || !invoice.student || invoice.student.tenant_id !== tenantId) {
+    if (!invoice) {
       throw new NotFoundException(`Invoice with ID "${invoiceId}" not found`);
     }
   }
