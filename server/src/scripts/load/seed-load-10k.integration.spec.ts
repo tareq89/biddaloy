@@ -62,6 +62,15 @@ describe('seedLoadSchool (integration, 100 students)', () => {
       ).toBe(6000);
     }
 
+    // --- every WAIVED bill is settled: paid + discount = total (this year and last year)
+    expect(
+      await count(
+        `SELECT count(*)::int c FROM student_fees sf JOIN students s ON s.id = sf.student_id
+        WHERE s.tenant_id = $1 AND sf.status = 'WAIVED' AND sf.paid_amount + sf.discount_amount <> sf.total_amount`,
+        [tenantId],
+      ),
+    ).toBe(0);
+
     // --- has PAID and PENDING bills, and a payment for every paid bill
     {
       const byStatus = (s: string) =>

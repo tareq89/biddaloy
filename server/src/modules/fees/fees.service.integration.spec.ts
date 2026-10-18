@@ -1419,6 +1419,35 @@ describe('PaymentService (integration)', () => {
       expect(result.payments).toHaveLength(1);
     });
 
+    it('a WAIVED bill (discount = total, paid 0) contributes 0 to the balance', async () => {
+      const student = await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Waived Student',
+          registration_number: 'REG-2026-0003',
+          roll_number: 3,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+          preferred_communication: 'SMS',
+        }),
+      );
+      await studentFeeRepo.save(
+        studentFeeRepo.create({
+          student_id: student.id,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          fee_structure_id: paymentFeeStructureId,
+          period_start: new Date(Date.UTC(2026, 0, 1)),
+          total_amount: 1000,
+          paid_amount: 0,
+          discount_amount: 1000,
+          one_off_discount_amount: 1000,
+          status: 'WAIVED' as any,
+        }),
+      );
+      const result = await service.getInvoiceSummary(student.id, TENANT_ID);
+      expect(result.summary.balance).toBe(0);
+    });
+
     it('should handle zero fees (no StudentFee records)', async () => {
       const student = await studentRepo.save(
         studentRepo.create({
