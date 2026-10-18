@@ -323,6 +323,36 @@ describe('Invoices E2E', () => {
       expect(printRes.text).toContain(createRes.body.invoice_number);
     });
 
+    it('[2638] stays readable, listed and printable after the student is deleted', async () => {
+      const studentId = await createStudent();
+      const feeId = await createFee(studentId, 900);
+      const paymentId = await createPayment(studentId, feeId, 900); // paid in full: nothing owed
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/invoices')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ACCOUNTANT)
+        .send({ payment_id: paymentId })
+        .expect(201);
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/students/${studentId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+
+      const get = (path: string) =>
+        supertest(app.getHttpServer())
+          .get(path)
+          .set('Authorization', `Bearer ${token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', UserRole.ADMIN);
+      await get(`/api/v1/invoices/${createRes.body.id}`).expect(200);
+      await get(`/api/v1/invoices/${createRes.body.id}/print`).expect(200);
+      const list = await get('/api/v1/invoices').query({ search: createRes.body.invoice_number }).expect(200);
+      expect(list.body.data.map((i: { id: string }) => i.id)).toContain(createRes.body.id);
+    });
+
     it('[16.5.2] renders pos58/pos80 when asked, and 400s on an unknown format', async () => {
       const studentId = await createStudent();
       const feeId = await createFee(studentId, 500);

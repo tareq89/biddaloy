@@ -169,6 +169,13 @@ describe('InvoiceShareService (integration)', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
+  it('mints a share token after the invoice student was soft-deleted [2638]', async () => {
+    const inv = await invoiceRepo.findOneOrFail({ where: { id: invoiceId } });
+    await studentRepo.softDelete(inv.student_id);
+    const { tokenId } = await service.createToken(invoiceId, SEED_TENANT_ID, SEED_ADMIN_USER_ID);
+    expect(tokenId).toBeTruthy();
+  });
+
   it('rejects an unknown token id/tenant on revoke', async () => {
     await expect(
       service.revokeToken(
