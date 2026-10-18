@@ -323,6 +323,27 @@ export class PromotionsService {
   //  Create (step 3)
   // ────────────────────────
 
+  /**
+   * [2614] A run can only move students into a year that starts later than the
+   * source class's year; the UI already offers only those. Dates are `date`
+   * columns, so comparing their timestamps is a plain calendar comparison.
+   */
+  private async assertTargetYearLater(
+    sourceYearId: string,
+    targetYearId: string,
+    tenantId: string,
+    repo: Repository<AcademicYear> = this.academicYearRepo,
+  ): Promise<void> {
+    const [source, target] = await Promise.all([
+      repo.findOne({ where: { id: sourceYearId, tenant_id: tenantId } }),
+      repo.findOne({ where: { id: targetYearId, tenant_id: tenantId } }),
+    ]);
+    if (!target || !source) throw new NotFoundException('Academic year not found');
+    if (new Date(target.start_date).getTime() <= new Date(source.start_date).getTime()) {
+      throw new UnprocessableEntityException({ details: { code: 'TARGET_YEAR_NOT_LATER' } });
+    }
+  }
+
   async create(
     dto: CreatePromotionRunDto,
     tenantId: string,
@@ -334,6 +355,12 @@ export class PromotionsService {
     if (!sourceClass) {
       throw new NotFoundException(`Class with ID "${dto.source_class_id}" not found`);
     }
+
+    await this.assertTargetYearLater(
+      sourceClass.academic_year_id,
+      dto.target_academic_year_id,
+      tenantId,
+    );
 
     const suggestion = await this.resolveTarget(
       sourceClass,
@@ -823,6 +850,19 @@ export class PromotionsService {
       if (run.status === PromotionRunStatus.COMMITTED) {
         throw new ConflictException({ details: { code: 'ALREADY_COMMITTED' } });
       }
+
+      // Defence in depth: a year edited after the run was created can no longer be a valid target.
+      const runSourceClass = await classRepo.findOne({
+        where: { id: run.source_class_id, tenant_id: tenantId },
+        withDeleted: true,
+      });
+      if (!runSourceClass) throw new NotFoundException('Class not found');
+      await this.assertTargetYearLater(
+        runSourceClass.academic_year_id,
+        run.target_academic_year_id,
+        tenantId,
+        manager.getRepository(AcademicYear),
+      );
 
       const entries = await entryRepo.find({ where: { run_id: run.id, tenant_id: tenantId } });
       if (entries.some((e) => movesUp(e.final_outcome) && e.placement_error)) {
