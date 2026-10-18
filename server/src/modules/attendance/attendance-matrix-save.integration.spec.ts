@@ -348,6 +348,19 @@ describe('AttendanceService.putRegisterMatrix (integration)', () => {
     expect(await sessionOf(D2)).toBeNull();
   });
 
+  it('a month outside the academic year is 422 and nothing is saved', async () => {
+    await expect(
+      matrix([
+        { date: '2025-12-30', base_version: null },
+        { date: '2025-12-31', base_version: null },
+      ]),
+    ).rejects.toMatchObject({
+      status: 422,
+      response: { details: { code: 'ATTENDANCE_OUTSIDE_ACADEMIC_YEAR' } },
+    });
+    expect(await sessionOf('2025-12-30')).toBeNull();
+  });
+
   it('a future date is a locked date', async () => {
     const future = new Date(`${today()}T00:00:00Z`);
     future.setUTCDate(future.getUTCDate() + 1);

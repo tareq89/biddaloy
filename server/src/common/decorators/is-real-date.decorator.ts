@@ -12,11 +12,7 @@ export function isRealDate(value: unknown): boolean {
   const dt = new Date(Date.UTC(y, mo - 1, d));
   // Date.UTC maps years 0-99 to 1900+; setUTCFullYear keeps the literal year.
   dt.setUTCFullYear(y);
-  return (
-    dt.getUTCFullYear() === y &&
-    dt.getUTCMonth() === mo - 1 &&
-    dt.getUTCDate() === d
-  );
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
 }
 
 /** True for exactly `YYYY-MM` with month 01-12. */
