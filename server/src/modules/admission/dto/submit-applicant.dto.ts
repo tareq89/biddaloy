@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsPlausibleBirthDate } from '../../../common/decorators/is-real-date.decorator';
+import { BD_PHONE_REGEX } from '../../students/dto/students.dto';
 import {
   IsEmail,
   IsIn,
@@ -8,6 +9,7 @@ import {
   IsString,
   IsUUID,
   Length,
+  Matches,
   MaxLength,
 } from 'class-validator';
 
@@ -39,7 +41,8 @@ export class SubmitApplicantDto {
   guardian_name: string;
 
   @IsString()
-  @Length(6, 20)
+  @MaxLength(20)
+  @Matches(BD_PHONE_REGEX, { message: 'guardian_phone must be a valid phone number' })
   guardian_phone: string;
 
   @IsOptional()
@@ -49,6 +52,7 @@ export class SubmitApplicantDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   home_address?: string;
 
   @ApiProperty({ description: 'Cloudflare Turnstile token.' })
