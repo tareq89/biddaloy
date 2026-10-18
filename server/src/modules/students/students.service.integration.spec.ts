@@ -1678,7 +1678,9 @@ describe('StudentService (integration)', () => {
             period_type: PeriodType.MONTH,
             total_amount: 1000,
             paid_amount: paid,
-            discount_amount: 0,
+            // A WAIVED bill is settled by its discount (CHK_sf_waived_settled).
+            discount_amount: status === FeeStatus.WAIVED ? 1000 : 0,
+            one_off_discount_amount: status === FeeStatus.WAIVED ? 1000 : 0,
             status,
           }),
         );

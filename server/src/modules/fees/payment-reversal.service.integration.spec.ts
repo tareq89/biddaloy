@@ -354,6 +354,30 @@ describe('PaymentReversalService (integration)', () => {
     ).rejects.toThrow(ConflictException);
   });
 
+  it('replaying the key of a reversed payment is a 409 CHECKOUT_PAYMENT_REVERSED (#2637)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+    const body = {
+      idempotency_key: '2637a001-0000-4000-8000-000000000001',
+      lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+    } as any;
+
+    const { payment } = await checkoutService.checkout(
+      body,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'wrong bill');
+
+    const err = await checkoutService
+      .checkout(body, TENANT_ID, ACTOR_USER_ID, requestWithToken())
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse()).toMatchObject({ details: { code: 'CHECKOUT_PAYMENT_REVERSED' } });
+  });
+
   it('tenant isolation: refuses to reverse a payment belonging to a different tenant (404)', async () => {
     const student = await studentRepo.save(makeStudent());
     const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
