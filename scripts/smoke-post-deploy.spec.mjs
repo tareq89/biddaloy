@@ -24,9 +24,21 @@ function fakeFetch(overrides = {}) {
   const fn = async (url, init) => {
     const key = `${init.method} ${url.replace('https://x.test', '')}`;
     calls.push(key);
-    if (key in overrides) return overrides[key];
     if (key === 'POST /api/v1/auth/login') {
-      const role = ROLE_BY_EMAIL[JSON.parse(init.body).email];
+      // The always-on body-parser rows: oversize body 413, bogus charset 415.
+      if (init.body.length > 1_000_000) return json(413, {});
+      if (init.headers['Content-Type'].includes('bogus')) return json(415, {});
+    }
+    if (key in overrides) return overrides[key];
+    if (key === 'POST /api/v1/payments/checkout') {
+      const amount = JSON.parse(init.body).lines[0].amount;
+      return amount > 1000
+        ? json(400, { message: 'exceeds the outstanding balance (10)' })
+        : json(409, { details: { code: 'CHECKOUT_FEE_SETTLED' } });
+    }
+    if (key === 'POST /api/v1/auth/step-up/otp/request') return json(403, {});
+    if (key === 'POST /api/v1/auth/login') {
+      const role = ROLE_BY_EMAIL[JSON.parse(init.body).email] ?? 'PARENT';
       return json(200, { access_token: TOKEN, memberships: [{ role, tenantId: 't1' }] });
     }
     if (key === 'GET /api/health/ready') return json(200, { status: 'ok' });
@@ -39,11 +51,11 @@ function fakeFetch(overrides = {}) {
 const run = (fetch, env = ENV, baseUrl = 'https://x.test') => runSmoke({ baseUrl, env, fetch });
 
 describe('smoke-post-deploy', () => {
-  it('passes all 7 checks', async () => {
+  it('passes all 9 checks', async () => {
     const r = await run(fakeFetch());
-    expect(r.passed).toBe(7);
+    expect(r.passed).toBe(9);
     expect(r.failed).toBe(0);
-    expect(r.lines.at(-1)).toBe('smoke: 7/7 passed');
+    expect(r.lines.at(-1)).toBe('smoke: 9/9 passed');
   });
 
   it('stops at a failed admin login', async () => {
@@ -105,7 +117,46 @@ describe('smoke-post-deploy', () => {
     const b = fakeFetch();
     const r = await run(b, { ...ENV, SMOKE_HEALTH_TOKEN: 'h' });
     expect(b.calls).toContain('GET /api/health/ready');
-    expect(r.passed).toBe(8);
+    expect(r.passed).toBe(10);
+  });
+
+  const OPT = {
+    paid: { SMOKE_PAID_STUDENT_FEE_ID: 'f1' },
+    open: { SMOKE_OPEN_STUDENT_FEE_ID: 'f2' },
+    parent: { SMOKE_PARENT_EMAIL: 'par@x.test', SMOKE_PARENT_PASSWORD: 'pw-parent-secret' },
+  };
+  const CHECKOUT = 'POST /api/v1/payments/checkout';
+  const STEP_UP = 'POST /api/v1/auth/step-up/otp/request';
+
+  it('the optional rows are not called when their variables are unset', async () => {
+    const f = fakeFetch();
+    await run(f);
+    expect(f.calls).not.toContain(CHECKOUT);
+    expect(f.calls).not.toContain(STEP_UP);
+  });
+
+  it.each([
+    ['paid', '#2592', CHECKOUT, json(200, {}), 1],
+    ['open', '#2636', CHECKOUT, json(409, {}), 1],
+    ['parent', '#2639', STEP_UP, json(200, {}), 2],
+  ])(
+    'optional row %s passes on the expected status and fails otherwise',
+    async (k, tag, key, wrong, extra) => {
+      const env = { ...ENV, ...OPT[k] };
+      const ok = await run(fakeFetch(), env);
+      expect(ok.failed).toBe(0);
+      expect(ok.passed).toBe(9 + extra);
+      expect(ok.lines.join('\n')).toContain(tag);
+      const bad = await run(fakeFetch({ [key]: wrong }), env);
+      expect(bad.failed).toBe(1);
+      expect(bad.lines.find((l) => l.startsWith('FAIL'))).toContain(tag);
+    },
+  );
+
+  it('never prints parent credentials', async () => {
+    const r = await run(fakeFetch(), { ...ENV, ...OPT.parent });
+    const out = r.lines.join('\n');
+    for (const v of Object.values(OPT.parent)) expect(out).not.toContain(v);
   });
 
   it('falls back to SMOKE_BASE_URL', () => {
