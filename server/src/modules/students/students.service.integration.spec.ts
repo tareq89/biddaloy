@@ -4,6 +4,7 @@ import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { StudentService, GuardianService, redactHealthNotes } from './students.service';
 import { QueryStudentIdsDto } from './dto/students.dto';
+import { ROLL_NUMBER_MAX } from './roll-number.util';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
 import { Enrollment } from './entities/enrollment.entity';
@@ -445,6 +446,32 @@ describe('StudentService (integration)', () => {
         TENANT_ID,
       );
       expect(student2.roll_number).toBe(2);
+    });
+
+    // [2597] A section whose top roll is at the cap must answer a clear 409, not overflow the int column.
+    it('[2597] auto-roll answers 409 ROLL_NUMBER_EXHAUSTED when the top roll is at the cap, other sections unaffected', async () => {
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Roll Cap Holder',
+          registration_number: `REG-2597-${Date.now()}`,
+          roll_number: ROLL_NUMBER_MAX,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+      const before = await studentRepo.count({ where: { tenant_id: TENANT_ID } });
+
+      await expect(
+        service.create({ full_name: 'No Room', class_section_id: SEED_SECTION_1_ID }, TENANT_ID),
+      ).rejects.toMatchObject({ response: { details: { code: 'ROLL_NUMBER_EXHAUSTED' } } });
+      expect(await studentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(before);
+
+      const other = await service.create(
+        { full_name: 'Other Section', class_section_id: SEED_SECTION_2_ID },
+        TENANT_ID,
+      );
+      expect(other.roll_number).toBe(1);
     });
 
     describe('registration year follows the school (Asia/Dhaka) calendar', () => {

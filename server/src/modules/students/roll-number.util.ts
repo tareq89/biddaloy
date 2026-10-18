@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Student } from './entities/student.entity';
 
@@ -47,5 +48,14 @@ export async function nextRollNumber(
     order: { roll_number: 'DESC' },
   });
 
-  return lastRoll ? lastRoll.roll_number + 1 : 1;
+  if (!lastRoll) return 1;
+  // `>=`: rows already above the cap (saved before ROLL_NUMBER_MAX existed) also stop here.
+  if (lastRoll.roll_number >= ROLL_NUMBER_MAX) {
+    throw new ConflictException({
+      message:
+        "The highest roll number in this section is at the maximum. Edit that student's roll number first.",
+      details: { code: 'ROLL_NUMBER_EXHAUSTED' },
+    });
+  }
+  return lastRoll.roll_number + 1;
 }
