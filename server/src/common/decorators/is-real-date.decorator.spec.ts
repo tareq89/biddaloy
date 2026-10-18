@@ -1,9 +1,11 @@
 import { validateSync } from 'class-validator';
+import { todayInSchoolTz } from '../time';
 import {
   IsRealDate,
   IsRealMonth,
   isRealDate,
   isRealMonth,
+  IsPlausibleBirthDate,
 } from './is-real-date.decorator';
 
 class Dto {
@@ -42,5 +44,32 @@ describe('messages', () => {
     const msgs = errs.flatMap((e) => Object.values(e.constraints ?? {}));
     expect(msgs).toContain('d must be a real date (YYYY-MM-DD)');
     expect(msgs).toContain('m must be a real month (YYYY-MM)');
+  });
+});
+
+describe('IsPlausibleBirthDate', () => {
+  class Birth {
+    @IsPlausibleBirthDate() dob!: unknown;
+  }
+  const errorsFor = (dob: unknown) => validateSync(Object.assign(new Birth(), { dob }));
+  const addDays = (ymd: string, n: number) => {
+    const d = new Date(`${ymd}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  it.each(['2018-05-01', '1900-01-01', '2018-05-01T00:00:00.000Z'])('accepts %p', (v) =>
+    expect(errorsFor(v)).toHaveLength(0),
+  );
+  it('accepts today', () => expect(errorsFor(todayInSchoolTz())).toHaveLength(0));
+
+  it.each(['2018-02-30', '2025-02-29', '1899-12-31', 'abc', 20180501])('rejects %p', (v) =>
+    expect(errorsFor(v)).toHaveLength(1),
+  );
+  it('rejects tomorrow', () => expect(errorsFor(addDays(todayInSchoolTz(), 1))).toHaveLength(1));
+
+  it('message starts with the property name', () => {
+    const msgs = errorsFor('2018-02-30').flatMap((e) => Object.values(e.constraints ?? {}));
+    expect(msgs).toContain('dob must be a real date between 1900-01-01 and today');
   });
 });
