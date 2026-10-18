@@ -102,6 +102,7 @@ export class LateFeeService {
             AND fs.fee_type = $1
             AND fs.tenant_id = $2
             AND sf.status IN ('PENDING', 'PARTIALLY_PAID')
+            AND ROUND(sf.total_amount - sf.discount_amount - sf.paid_amount, 2) > 0
             AND sf.due_date IS NOT NULL
             AND (sf.due_date + ($3 || ' days')::interval) <= $4::date
             AND NOT EXISTS (
@@ -126,6 +127,8 @@ export class LateFeeService {
       for (const bill of candidates) {
         const outstanding =
           Number(bill.total_amount) - Number(bill.discount_amount) - Number(bill.paid_amount);
+        // [F-149] Nothing outstanding (e.g. a fully discounted PENDING bill): no late fee.
+        if (round2(outstanding) <= 0) continue;
         // [Opus review, non-blocking] round2 on both branches — FLAT was
         // previously inserted unrounded (an operator-entered value like
         // 99.999 would otherwise reach the DB as-is).

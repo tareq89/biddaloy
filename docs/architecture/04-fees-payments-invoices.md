@@ -407,6 +407,19 @@ flowchart LR
   broken window, a lost ID card, a discipline case). ADMIN/ACCOUNTANT
   only, `FEE_GENERATE` permission, no approval needed to _add_ a fine.
 
+**`cap_per_period` is per rule, not per bill.** Each rule is capped on
+its own. When two rules point at the same fee structure, their fines are
+added into one bill, so that bill can be bigger than one cap
+(`fine-sweep.service.ts`: the cap is applied per rule in `compute`; the
+merge happens in `generate`, where rows for one student and structure are
+added together).
+
+```mermaid
+flowchart LR
+  A["Rule ABSENT, cap 100 -> 100"] --> C["same fee structure -> one bill of 200"]
+  B["Rule LATE, cap 100 -> 100"] --> C
+```
+
 Both paths write through the same `FeeGenerationService.generate()` used
 by every other bill, extended with `billOverrides` — a per-(student, fee
 structure) map of `{ amount, note, fine_rule_id }` that lets one
