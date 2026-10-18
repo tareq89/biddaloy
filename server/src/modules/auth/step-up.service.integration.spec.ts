@@ -48,7 +48,7 @@ describe('StepUpService (integration)', () => {
         useValue: {
           getResolvedSettings: async () => ({
             version: 1,
-            fees: { approval_mode: approvalMode },
+            fees: { approvalMode: approvalMode },
           }),
         },
       },

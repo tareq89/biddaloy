@@ -310,7 +310,7 @@ describe('StepUpService', () => {
       const schoolsService = {
         getResolvedSettings: vi
           .fn()
-          .mockResolvedValue({ version: 1, fees: { approval_mode: ApprovalMode.OTP_OR_PASSWORD } }),
+          .mockResolvedValue({ version: 1, fees: { approvalMode: ApprovalMode.OTP_OR_PASSWORD } }),
       };
       const { service } = buildService({ schoolsService });
       (bcrypt.compare as any).mockResolvedValue(false);
@@ -365,7 +365,7 @@ describe('StepUpService', () => {
       const schoolsService = {
         getResolvedSettings: vi
           .fn()
-          .mockResolvedValue({ version: 1, fees: { approval_mode: ApprovalMode.OTP_OR_PASSWORD } }),
+          .mockResolvedValue({ version: 1, fees: { approvalMode: ApprovalMode.OTP_OR_PASSWORD } }),
       };
       const { service } = buildService({ schoolsService });
       (bcrypt.compare as any).mockResolvedValue(true);

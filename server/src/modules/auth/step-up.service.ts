@@ -17,6 +17,7 @@ import {
   ApprovalScope,
   AuditAction,
   Permission,
+  type TenantSettings,
   UserRole,
   UserStatus,
   roleHasPermission,
@@ -278,14 +279,13 @@ export class StepUpService {
     return approver !== null && !!approver.password_hash && isPasswordValid;
   }
 
-  /** Reads `settings.fees.approval_mode` defensively — the `fees` key isn't
-   * on `TenantSettings` yet in this worktree (#645, running in parallel,
-   * adds it); `shared/src/types/tenant-settings.types.ts` is outside this
-   * ticket's territory. Defaults to `OTP` (the stricter mode) when unset,
-   * matching "a school opts in to the weaker path, not out of it". */
-  private resolveApprovalMode(settings: unknown): ApprovalMode {
-    const raw = (settings as { fees?: { approval_mode?: string } } | null)?.fees?.approval_mode;
-    return raw === ApprovalMode.OTP_OR_PASSWORD ? ApprovalMode.OTP_OR_PASSWORD : ApprovalMode.OTP;
+  /** Reads `settings.fees.approvalMode`. Anything but the exact opt-in value
+   * (missing `fees`, garbage) is `OTP`: a school opts in to the weaker path,
+   * never out of it. */
+  private resolveApprovalMode(settings: TenantSettings): ApprovalMode {
+    return settings.fees?.approvalMode === ApprovalMode.OTP_OR_PASSWORD
+      ? ApprovalMode.OTP_OR_PASSWORD
+      : ApprovalMode.OTP;
   }
 
   /** `STEP_UP_RATE_LIMIT_MAX_ATTEMPTS` when it is a positive integer, else the
