@@ -107,6 +107,7 @@ describe('FeesDailyScheduler', () => {
         createQueryBuilder: vi.fn(() => {
           const qb: any = {
             innerJoin: vi.fn(() => qb),
+            leftJoin: vi.fn(() => qb),
             where: vi.fn(() => qb),
             andWhere: vi.fn(() => qb),
             getMany: vi.fn(async () => [{ id: 'student-1' }, { id: 'student-2' }]),
@@ -321,11 +322,12 @@ describe('FeesDailyScheduler', () => {
     expect(feeGenerationService.generate).toHaveBeenCalledTimes(2);
   });
 
-  it('marks a schedule as run without calling generate() when the audience resolves empty', async () => {
+  it('[F-144] leaves the period open without calling generate() when the audience resolves empty', async () => {
     manager.getRepository = vi.fn(() => ({
       createQueryBuilder: vi.fn(() => {
         const qb: any = {
           innerJoin: vi.fn(() => qb),
+          leftJoin: vi.fn(() => qb),
           where: vi.fn(() => qb),
           andWhere: vi.fn(() => qb),
           getMany: vi.fn(async () => []),
@@ -337,7 +339,7 @@ describe('FeesDailyScheduler', () => {
     await scheduler.process();
 
     expect(feeGenerationService.generate).not.toHaveBeenCalled();
-    expect(manager.query).toHaveBeenCalledWith(
+    expect(manager.query).not.toHaveBeenCalledWith(
       expect.stringContaining('UPDATE recurring_schedules SET last_run_period'),
       expect.any(Array),
     );
