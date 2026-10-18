@@ -185,6 +185,7 @@ describe('StudentBulkUploadService (integration)', () => {
   let guardianRepo: Repository<Guardian>;
   let auditLogRepo: Repository<AuditLog>;
   let dataSource: DataSource;
+  let module_: Awaited<ReturnType<typeof createTestModule>>;
 
   const TENANT_ID = SEED_TENANT_ID;
   const headers = [...REQUIRED_HEADERS];
@@ -244,6 +245,7 @@ describe('StudentBulkUploadService (integration)', () => {
       { synchronize: true, dropSchema: true },
     );
 
+    module_ = module;
     service = module.get<StudentBulkUploadService>(StudentBulkUploadService);
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
     guardianRepo = module.get<Repository<Guardian>>(getRepositoryToken(Guardian));
@@ -494,8 +496,90 @@ describe('StudentBulkUploadService (integration)', () => {
 
     expect(result.success_count).toBe(0);
     expect(result.error_count).toBe(1);
-    expect(result.errors[0]).toMatchObject({ field: 'roll', value: '9' });
-    expect(result.errors[0].reason).toContain('Duplicate roll number 9');
+    // [2606] caught at validate now; the message names the column, never the value (Rule 23).
+    expect(result.errors[0]).toMatchObject({ field: 'roll' });
+    expect(result.errors[0].reason).toBe('This roll number is already used in this section.');
+  });
+
+  describe('[2606] commit never 500s after a partial write', () => {
+    it('reports a failing row, still creates the others and writes one audit row', async () => {
+      const file = await buildXlsxFile(
+        ['A', 'B', 'C', 'D'].map((n, i) =>
+          rowValues(headers, {
+            student_name: `Partial ${n}`,
+            guardian1_phone: `+88017000000${i}1`,
+          }),
+        ),
+      );
+      const validated = await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+      expect(validated.rows_to_create).toBe(4);
+      const studentService = module_.get(StudentService);
+      const real = studentService.create.bind(studentService);
+      const spy = vi.spyOn(studentService, 'create').mockImplementation((dto, ...rest) => {
+        if (dto.full_name === 'Partial C') throw new Error('boom: secret db text');
+        return real(dto, ...rest);
+      });
+      try {
+        const result = await service.commit(validated.staging_id, TENANT_ID, SEED_ADMIN_USER_ID);
+        expect(result.success_count).toBe(3);
+        expect(result.error_count).toBe(1);
+        expect(result.errors[0]).toMatchObject({ row: 4, reason: 'Could not be created' });
+        expect(JSON.stringify(result)).not.toContain('boom');
+      } finally {
+        spy.mockRestore();
+      }
+      const audits = await auditLogRepo.find({ where: { action: AuditAction.BULK_UPLOAD } });
+      expect(audits).toHaveLength(1);
+      expect(audits[0].new_values).toMatchObject({ success_count: 3, error_count: 1 });
+    });
+
+    it('makes a roll above the cap a validate error and excludes it from rows_to_create', async () => {
+      const file = await buildXlsxFile([
+        rowValues(headers, {
+          student_name: 'Cap Ok',
+          roll: '99999',
+          guardian1_phone: '+8801700000101',
+        }),
+        rowValues(headers, {
+          student_name: 'Cap Bad',
+          roll: '2147483648',
+          guardian1_phone: '+8801700000102',
+        }),
+      ]);
+      const v = await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+      expect(v.hard_error_count).toBe(1);
+      expect(v.rows_to_create).toBe(1);
+      expect(v.errors[0]).toMatchObject({ row: 3, column: 'roll' });
+      expect(v.errors[0].message).not.toContain('2147483648');
+    });
+
+    it('flags a roll held by a soft-deleted student at validate', async () => {
+      const gone = await runUpload(
+        await buildXlsxFile([
+          rowValues(headers, {
+            student_name: 'Gone',
+            roll: '77',
+            guardian1_phone: '+8801700000201',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await studentRepo.softDelete(gone.created_student_ids[0]);
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, {
+            student_name: 'Late',
+            roll: '77',
+            guardian1_phone: '+8801700000202',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.rows_to_create).toBe(0);
+      expect(v.errors[0]).toMatchObject({ column: 'roll', severity: 'error' });
+    });
   });
 
   it('does not leave an orphaned guardian behind when the student create fails', async () => {
