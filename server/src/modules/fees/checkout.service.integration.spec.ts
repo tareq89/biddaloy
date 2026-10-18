@@ -49,6 +49,7 @@ import {
   PaymentMethod,
   ApprovalScope,
   PaymentAllocationType,
+  PaymentStatus,
 } from '@biddaloy/shared';
 
 /**
@@ -721,6 +722,27 @@ describe('CheckoutService (integration)', () => {
     expect(second.payment.id).toBe(first.payment.id);
     const payments = await paymentRepo.find({ where: { idempotency_key: key } });
     expect(payments).toHaveLength(1);
+  });
+
+  it('a replay of a PENDING payment is a 409 "not complete", never "reversed" (#2637)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+    const dto = {
+      idempotency_key: '2637a003-0000-4000-8000-000000000001',
+      lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+    };
+    const first = await service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+    // Checkout only writes SUCCESS; a future gateway payment could sit at PENDING.
+    await paymentRepo.update(first.payment.id, { payment_status: PaymentStatus.PENDING });
+
+    const err = await service
+      .checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken())
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect((err as ConflictException).getResponse()).toMatchObject({
+      details: { code: 'CHECKOUT_PAYMENT_NOT_COMPLETE' },
+    });
   });
 
   it('a replay with a flipped change_handling or another payment_date is a 400 and writes nothing (#2637)', async () => {

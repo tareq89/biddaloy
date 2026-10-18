@@ -571,10 +571,18 @@ export class CheckoutService {
    */
   private assertIdempotentReplayMatches(existing: Payment, dto: CheckoutDto): void {
     // Cheap first (#2637): a reversed payment is never handed back as if it were live.
-    if (existing.payment_status !== PaymentStatus.SUCCESS || existing.reversed_by_payment_id) {
+    if (existing.reversed_by_payment_id || existing.payment_status === PaymentStatus.REFUNDED) {
       throw new ConflictException({
         message: 'This payment was reversed. Start a new checkout',
         details: { code: 'CHECKOUT_PAYMENT_REVERSED' },
+      });
+    }
+    // PENDING / FAILED: checkout only writes SUCCESS today, but a future gateway payment must
+    // not be called "reversed".
+    if (existing.payment_status !== PaymentStatus.SUCCESS) {
+      throw new ConflictException({
+        message: 'This payment is not complete. Start a new checkout',
+        details: { code: 'CHECKOUT_PAYMENT_NOT_COMPLETE' },
       });
     }
     const existingLines = (existing.allocations ?? [])
