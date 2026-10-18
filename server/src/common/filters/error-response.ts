@@ -21,15 +21,13 @@ export interface ErrorResponseBody {
 }
 
 export function resolveStatus(exception: unknown): number {
-  if (exception instanceof HttpException) return exception.getStatus();
-  // Libraries (body-parser, http-errors) throw plain Errors carrying their own
-  // 4xx status; an unmapped one must not become a 500. 5xx stays 500.
-  if (exception instanceof Error) {
-    const e = exception as Error & { status?: unknown; statusCode?: unknown };
-    const s = typeof e.status === 'number' ? e.status : e.statusCode;
-    if (typeof s === 'number' && Number.isInteger(s) && s >= 400 && s <= 499) return s;
-  }
-  return HttpStatus.INTERNAL_SERVER_ERROR;
+  // Only an HttpException picks its status. A plain Error with a 4xx `status` /
+  // `statusCode` (an SDK, WebPushError) stays a 500: a 4xx would send its raw
+  // message to the client and skip Sentry. Body-parser errors are turned into
+  // HttpExceptions with fixed text by `mapKnownError` before this runs.
+  return exception instanceof HttpException
+    ? exception.getStatus()
+    : HttpStatus.INTERNAL_SERVER_ERROR;
 }
 
 /**
