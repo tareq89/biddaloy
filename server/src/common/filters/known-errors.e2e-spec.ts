@@ -154,4 +154,26 @@ describe('known-errors (e2e)', () => {
       expect(ren.status).toBe(409);
     });
   });
+
+  describe('multer errors', () => {
+    const upload = (field: string) =>
+      supertest(app.getHttpServer())
+        .post(`${API}/students/bulk-upload/validate`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .attach(field, Buffer.from('x'), 'a.xlsx');
+
+    it('answers 400 for a wrong field name and does not echo it', async () => {
+      const res = await upload('wrong_field');
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Unexpected upload field');
+      expect(JSON.stringify(res.body)).not.toContain('wrong_field');
+    });
+
+    it('leaves the correct field alone: the route reports its own error', async () => {
+      const res = await upload('file');
+      expect(res.status).toBe(400);
+      expect(res.body.message).not.toBe('Unexpected upload field');
+    });
+  });
 });

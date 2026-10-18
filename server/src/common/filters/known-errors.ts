@@ -13,7 +13,9 @@ import { QueryFailedError } from 'typeorm';
  * The filter still logs the ORIGINAL exception.
  */
 export function mapKnownError(exception: unknown): HttpException | null {
-  return mapBodyParserError(exception) ?? mapUniqueViolation(exception);
+  return (
+    mapBodyParserError(exception) ?? mapUniqueViolation(exception) ?? mapMulterError(exception)
+  );
 }
 
 // Keyed on the table, never the index name (brittle) and never `detail`
@@ -43,4 +45,14 @@ function mapBodyParserError(exception: unknown): HttpException | null {
     return new HttpException('Unsupported content type or encoding', 415);
   }
   return new BadRequestException('Invalid request body');
+}
+
+// Decided by `code`, never by message: multer 2.4 reworded "Unexpected field",
+// which silently broke Nest's own message-based mapping. The message is fixed
+// so the client's field name is not echoed (Rule 23).
+function mapMulterError(exception: unknown): HttpException | null {
+  if (!(exception instanceof Error) || exception.name !== 'MulterError') return null;
+  return (exception as Error & { code?: string }).code === 'LIMIT_FILE_SIZE'
+    ? new PayloadTooLargeException('File too large')
+    : new BadRequestException('Unexpected upload field');
 }

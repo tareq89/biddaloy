@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { MulterError } from 'multer';
 import { QueryFailedError } from 'typeorm';
 import { mapKnownError } from './known-errors';
 
@@ -77,5 +78,36 @@ describe('mapKnownError — unique violations', () => {
 
   it('leaves other Postgres error codes alone', () => {
     expect(mapKnownError(pgError('23503', 'classes'))).toBeNull();
+  });
+});
+
+describe('mapKnownError — multer errors', () => {
+  it('maps LIMIT_UNEXPECTED_FILE to 400 without echoing the field name', () => {
+    const mapped = mapKnownError(new MulterError('LIMIT_UNEXPECTED_FILE', 'secretfield'));
+    expect(mapped?.getStatus()).toBe(400);
+    expect(mapped?.message).toBe('Unexpected upload field');
+    expect(mapped?.message).not.toContain('secretfield');
+  });
+
+  it('keeps LIMIT_FILE_SIZE at 413 "File too large"', () => {
+    const mapped = mapKnownError(new MulterError('LIMIT_FILE_SIZE', 'file'));
+    expect(mapped?.getStatus()).toBe(413);
+    expect(mapped?.message).toBe('File too large');
+  });
+
+  it.each([
+    'LIMIT_FILE_COUNT',
+    'LIMIT_PART_COUNT',
+    'LIMIT_FIELD_KEY',
+    'LIMIT_FIELD_VALUE',
+    'LIMIT_FIELD_COUNT',
+  ] as const)('maps %s to 400', (code) => {
+    expect(mapKnownError(new MulterError(code))?.getStatus()).toBe(400);
+  });
+
+  it('ignores an Error that is not a MulterError', () => {
+    expect(
+      mapKnownError(Object.assign(new Error('x'), { code: 'LIMIT_UNEXPECTED_FILE' })),
+    ).toBeNull();
   });
 });
