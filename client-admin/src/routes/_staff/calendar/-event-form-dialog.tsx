@@ -100,6 +100,9 @@ function CheckRow({
   );
 }
 
+/** Same rule as the server ([2620]): only a Holiday is not a working day by default. */
+const defaultWorking = (t: CalendarEventType) => t !== CalendarEventType.HOLIDAY;
+
 export function EventFormPage({
   mode,
   initialValues,
@@ -114,13 +117,14 @@ export function EventFormPage({
 
   const initialStart = initialValues?.start_date;
   const initialEnd = initialValues?.end_date;
+  const initialType = initialValues?.type ?? CalendarEventType.EVENT;
   const initial = {
-    type: initialValues?.type ?? CalendarEventType.EVENT,
+    type: initialType,
     name: initialValues?.name ?? '',
     description: initialValues?.description ?? '',
     start: initialStart ?? '',
     end: initialEnd ?? '',
-    working: initialValues?.counts_as_working_day ?? true,
+    working: initialValues?.counts_as_working_day ?? defaultWorking(initialType),
   };
 
   const [type, setType] = React.useState<CalendarEventType>(initial.type);
@@ -129,6 +133,11 @@ export function EventFormPage({
   const [startDate, setStartDate] = React.useState<Date | undefined>(parseDateOnly(initialStart));
   const [endDate, setEndDate] = React.useState<Date | undefined>(parseDateOnly(initialEnd));
   const [countsAsWorkingDay, setCountsAsWorkingDay] = React.useState(initial.working);
+  // Once the user ticks or unticks the box by hand (or it holds a saved value), a type change
+  // leaves their choice alone.
+  const [workingTouched, setWorkingTouched] = React.useState(
+    mode === 'edit' || initialValues?.counts_as_working_day !== undefined,
+  );
   const [publish, setPublish] = React.useState(true);
   const [notify, setNotify] = React.useState(false);
   const [notifySms, setNotifySms] = React.useState(false);
@@ -236,9 +245,9 @@ export function EventFormPage({
                 value={type}
                 onValueChange={(value) => {
                   const next = value as CalendarEventType;
-                  // Leaving MAKEUP_DAY: its forced "counts" must not stick.
-                  if (isMakeup && next !== CalendarEventType.MAKEUP_DAY) {
-                    setCountsAsWorkingDay(false);
+                  // Leaving MAKEUP_DAY, or an untouched box: follow the new type's default.
+                  if ((isMakeup && next !== CalendarEventType.MAKEUP_DAY) || !workingTouched) {
+                    setCountsAsWorkingDay(defaultWorking(next));
                   }
                   setType(next);
                 }}
@@ -328,7 +337,10 @@ export function EventFormPage({
               label={t('eventForm.countsAsWorkingDay')}
               checked={working}
               disabled={isMakeup}
-              onChange={setCountsAsWorkingDay}
+              onChange={(value) => {
+                setWorkingTouched(true);
+                setCountsAsWorkingDay(value);
+              }}
             />
             {/* The update DTO has no `publish`: publishing an existing draft is its own action. */}
             {mode === 'create' && (
