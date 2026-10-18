@@ -240,6 +240,10 @@ export class CheckoutService {
         const walletUse = walletPaisa / 100;
         const changeHandling = dto.change_handling ?? 'RETURN';
 
+        const distinctStudentIds = new Set(
+          dto.lines.map((l) => billsById.get(l.student_fee_id)!.student_id),
+        );
+
         if (walletUse > 0) {
           // Wallets are strictly per-student (see
           // `checkout-cart.service.ts`'s documented invariant around line
@@ -248,9 +252,6 @@ export class CheckoutService {
           // one student rather than silently applying one student's money
           // to another's bill. Multi-student wallet allocation is out of
           // scope for this ticket.
-          const distinctStudentIds = new Set(
-            dto.lines.map((l) => billsById.get(l.student_fee_id)!.student_id),
-          );
           if (distinctStudentIds.size > 1) {
             throw new BadRequestException(
               'wallet_use cannot be combined with a checkout that spans more than one student',
@@ -261,8 +262,11 @@ export class CheckoutService {
             throw new BadRequestException('wallet_use cannot exceed the sum of the checkout lines');
           }
 
-          const walletBalance = await this.walletService.balance(primaryStudentId, tenantId);
-          if (walletPaisa > toPaisa(walletBalance)) {
+          // Row lock (bills are already locked, so the order is bills -> wallet,
+          // same as debit and reversal): a concurrent spend now fails here,
+          // before any approval token below is burned (F-153).
+          const wallet = await this.walletService.getOrCreate(primaryStudentId, tenantId, manager);
+          if (walletPaisa > toPaisa(wallet.balance)) {
             throw new BadRequestException('wallet_use exceeds the student wallet balance');
           }
         }
@@ -280,6 +284,13 @@ export class CheckoutService {
         if (changePaisa < 0) {
           throw new BadRequestException(
             'wallet_use + tendered_amount must cover the sum of the checkout lines',
+          );
+        }
+        // Change goes to one wallet; with siblings it would land on the first
+        // line's student only (F-155).
+        if (changeHandling === 'TO_WALLET' && changePaisa > 0 && distinctStudentIds.size > 1) {
+          throw new BadRequestException(
+            'change_handling TO_WALLET cannot be combined with a checkout that spans more than one student',
           );
         }
 
