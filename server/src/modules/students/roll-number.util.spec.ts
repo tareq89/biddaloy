@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { EntityManager } from 'typeorm';
-import { nextRollNumber, ROLL_NUMBER_LOCK_NAMESPACE } from './roll-number.util';
+import { ConflictException } from '@nestjs/common';
+import { nextRollNumber, ROLL_NUMBER_LOCK_NAMESPACE, ROLL_NUMBER_MAX } from './roll-number.util';
 
 /**
  * Unit tests for the shared roll-number util — [8.11.3] extracted this out
@@ -49,6 +50,27 @@ describe('nextRollNumber', () => {
 
     expect(result).toBe(8);
   });
+
+  it('returns the cap when the last roll is one below it', async () => {
+    const { manager } = buildManager({ roll_number: ROLL_NUMBER_MAX - 1 });
+
+    expect(await nextRollNumber(manager, 'section-1', 'tenant-1')).toBe(ROLL_NUMBER_MAX);
+  });
+
+  it.each([ROLL_NUMBER_MAX, 2147483647])(
+    'rejects with ROLL_NUMBER_EXHAUSTED when the last roll is %i',
+    async (roll_number) => {
+      const { manager } = buildManager({ roll_number });
+
+      const err = await nextRollNumber(manager, 'section-1', 'tenant-1').catch((e) => e);
+
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('ROLL_NUMBER_EXHAUSTED');
+      // Rule 23: the message must not echo the roll or the section id.
+      expect(err.message).not.toContain(String(roll_number));
+      expect(err.message).not.toContain('section-1');
+    },
+  );
 
   it('passes withDeleted: true so a soft-deleted top roll is skipped', async () => {
     const { manager, findOne } = buildManager({ roll_number: 7 });
