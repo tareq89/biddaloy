@@ -314,6 +314,7 @@ field included, but not while one of these dialogs is open. The palette reaches 
 | Editing a register **outside** the window                                 | A caller holding `ATTENDANCE_CORRECT`                          | A reason (≥ 3 characters)             |
 | Editing a **finalized** register                                          | A caller holding `ATTENDANCE_CORRECT`                          | A reason                              |
 | Marking a **future** date                                                 | A caller with section access, only if `allowFutureDates` is on | Status must be `LEAVE` — nothing else |
+| Marking a date **outside the section's academic year**                      | Nobody                                                         | 422 `ATTENDANCE_OUTSIDE_ACADEMIC_YEAR` |
 | Marking a non-working day (holiday/weekly-off)                            | A caller holding `ATTENDANCE_CORRECT`                          | `force_non_working_day: true`         |
 | Saving several days from the monthly grid                                 | Same rules, per day                                            | One reason for the whole save         |
 
