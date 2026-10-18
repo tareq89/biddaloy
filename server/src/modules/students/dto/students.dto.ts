@@ -21,6 +21,7 @@ import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { IsPlausibleBirthDate } from '../../../common/decorators/is-real-date.decorator';
 import { ROLL_NUMBER_MAX } from '../roll-number.util';
 import type { BulkImportErrorDto } from '../../bulk-import/dto/bulk-import.dto';
 
@@ -90,7 +91,7 @@ export class CreateStudentDto {
   roll_number?: number;
 
   @IsOptional()
-  @IsDateString()
+  @IsPlausibleBirthDate()
   date_of_birth?: string;
 
   @IsOptional()
@@ -163,7 +164,7 @@ export class UpdateStudentDto {
   // "leave unchanged" in a PATCH, so the client's only option was to omit
   // the field entirely, which never clears it.
   @IsOptional()
-  @IsDateString()
+  @IsPlausibleBirthDate()
   date_of_birth?: string | null;
 
   @IsOptional()
