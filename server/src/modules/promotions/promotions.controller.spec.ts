@@ -37,7 +37,10 @@ describe('PromotionsController (unit)', () => {
   });
 
   it('suggestTarget forwards the query and tenant', async () => {
-    await controller.suggestTarget({ source_class_id: 'c1', target_academic_year_id: 'y2' }, tenant);
+    await controller.suggestTarget(
+      { source_class_id: 'c1', target_academic_year_id: 'y2' },
+      tenant,
+    );
     expect(service.suggestTarget).toHaveBeenCalledWith('c1', 'y2', tenant.id);
   });
 
@@ -75,17 +78,29 @@ describe('PromotionsController (unit)', () => {
 
   it('findStudentOverrides checks family access then forwards student id and tenant', async () => {
     await controller.findStudentOverrides('student-1', tenant, user);
-    expect(familyAccess.assertLinked).toHaveBeenCalledWith(tenant.role, user.sub, 'student-1', tenant.id);
+    expect(familyAccess.assertLinked).toHaveBeenCalledWith(
+      tenant.role,
+      user.sub,
+      'student-1',
+      tenant.id,
+    );
     expect(service.findStudentOverrides).toHaveBeenCalledWith('student-1', tenant.id);
   });
 
   it('commit calls service.commit then re-fetches the run via findOne', async () => {
     const request = { headers: {} } as any;
     await controller.commit('run-1', tenant, user, request);
-    expect(service.commit).toHaveBeenCalledWith('run-1', tenant.id, user.sub, tenant.role, request, {
-      ip: null,
-      userAgent: null,
-    });
+    expect(service.commit).toHaveBeenCalledWith(
+      'run-1',
+      tenant.id,
+      user.sub,
+      tenant.role,
+      request,
+      {
+        ip: null,
+        userAgent: null,
+      },
+    );
     expect(service.findOne).toHaveBeenCalledWith('run-1', tenant.id);
   });
 });

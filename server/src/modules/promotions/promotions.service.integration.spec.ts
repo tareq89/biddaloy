@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
-import { ConflictException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { PromotionsService } from './promotions.service';
@@ -317,6 +317,68 @@ describe('PromotionsService (integration)', () => {
       expect(passingEntry?.suggested_outcome).toBe(PromotionOutcome.PROMOTE);
       expect(missingEntry?.suggested_outcome).toBe(PromotionOutcome.RETAIN);
       expect(missingEntry?.passed_all).toBe(false);
+    });
+  });
+
+  describe('target year must start later [2614]', () => {
+    const dto = (target_academic_year_id: string) => ({
+      source_class_id: SOURCE_CLASS_ID,
+      target_academic_year_id,
+      exam_ids: [examId],
+      algorithm: PlacementAlgorithm.BLOCK,
+    });
+
+    it('refuses the source year as the target (422 TARGET_YEAR_NOT_LATER) and creates no run', async () => {
+      await expect(
+        service.create(dto(SOURCE_YEAR_ID), TENANT_ID, ADMIN_USER_ID),
+      ).rejects.toMatchObject({ response: { details: { code: 'TARGET_YEAR_NOT_LATER' } } });
+      expect(await runRepo.count()).toBe(0);
+    });
+
+    it('refuses a year that starts before the source year', async () => {
+      const earlier = await dataSource.getRepository(AcademicYear).save({
+        name: '2025',
+        start_date: new Date('2025-01-01'),
+        end_date: new Date('2025-12-31'),
+        tenant_id: TENANT_ID,
+      });
+      await expect(service.create(dto(earlier.id), TENANT_ID, ADMIN_USER_ID)).rejects.toMatchObject(
+        { response: { details: { code: 'TARGET_YEAR_NOT_LATER' } } },
+      );
+    });
+
+    it('answers 404 for a target year that does not exist', async () => {
+      await expect(
+        service.create(dto('00000000-0000-4000-8000-0000000000ff'), TENANT_ID, ADMIN_USER_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('accepts the later year', async () => {
+      const run = await service.create(dto(TARGET_YEAR_ID), TENANT_ID, ADMIN_USER_ID);
+      expect(run.status).toBe(PromotionRunStatus.DRAFT);
+    });
+
+    it('commit re-checks: a target year edited to start earlier promotes nobody', async () => {
+      const student = await buildStudent();
+      await enrollActive(student.id);
+      await addResult(student.id, { isFail: false, gpa: 4.0, total: 400 });
+      const run = await service.create(dto(TARGET_YEAR_ID), TENANT_ID, ADMIN_USER_ID);
+
+      await dataSource.query(`UPDATE academic_years SET start_date = '2025-06-01' WHERE id = $1`, [
+        TARGET_YEAR_ID,
+      ]);
+      try {
+        await expect(
+          service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
+        ).rejects.toMatchObject({ response: { details: { code: 'TARGET_YEAR_NOT_LATER' } } });
+      } finally {
+        await dataSource.query(
+          `UPDATE academic_years SET start_date = '2027-01-01' WHERE id = $1`,
+          [TARGET_YEAR_ID],
+        );
+      }
+      expect(await enrollmentRepo.count({ where: { academic_year_id: TARGET_YEAR_ID } })).toBe(0);
+      expect((await runRepo.findOneByOrFail({ id: run.id })).status).toBe(PromotionRunStatus.DRAFT);
     });
   });
 
