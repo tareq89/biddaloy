@@ -203,6 +203,43 @@ describe('StepUpController (e2e)', () => {
     expect(res.body.message).toBe('PASSWORD_NOT_ALLOWED');
   });
 
+  it('PASSWORD is accepted once the school saves fees.approvalMode = OTP_OR_PASSWORD (F-013)', async () => {
+    const adminLogin = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    const patchMode = (approvalMode: string) =>
+      supertest(app.getHttpServer())
+        .patch(`/api/v1/schools/${SEED_TENANT_ID}/settings`)
+        .set('Authorization', `Bearer ${adminLogin.body.access_token}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({
+          version: 1,
+          fees: {
+            approvalMode,
+            notifyOnManualGenerationDefault: false,
+            notifyOnScheduleDefault: true,
+            fineDueDays: 7,
+          },
+        });
+
+    try {
+      const patched = await patchMode('OTP_OR_PASSWORD');
+      expect(patched.status, JSON.stringify(patched.body)).toBe(200);
+      const res = await authed(supertest(app.getHttpServer()).post('/api/v1/auth/step-up')).send({
+        identifier: SEED_ADMIN_EMAIL,
+        method: 'PASSWORD',
+        password: SEED_ADMIN_PASSWORD,
+        scope: 'discount_rules.manage',
+      });
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(res.body.approval_token).toEqual(expect.any(String));
+    } finally {
+      const reset = await patchMode('OTP');
+      expect(reset.status, JSON.stringify(reset.body)).toBe(200);
+    }
+  });
+
   it('rejects a missing/invalid X-Tenant-ID with 401', async () => {
     const res = await supertest(app.getHttpServer())
       .post('/api/v1/auth/step-up/otp/request')
