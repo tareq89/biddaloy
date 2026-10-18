@@ -525,6 +525,40 @@ describe('Students E2E', () => {
       expect(res.body.home_address).toBeNull();
     });
 
+    // [2618] Staff update refuses impossible, future and pre-1900 birth dates and keeps the stored date.
+    it.each(['2018-02-30', '2031-01-01', '1850-01-01'])(
+      'PATCH date_of_birth %s is 400 naming the field and leaves the date unchanged',
+      async (date_of_birth) => {
+        const createRes = await supertest(app.getHttpServer())
+          .post('/api/v1/students')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .send({
+            full_name: 'Birth Date Bound',
+            class_section_id: SEED_SECTION_1_ID,
+            date_of_birth: '2010-05-15',
+          })
+          .expect(201);
+
+        const res = await supertest(app.getHttpServer())
+          .patch(`/api/v1/students/${createRes.body.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .send({ date_of_birth })
+          .expect(400);
+        expect(res.body.message).toEqual(
+          expect.arrayContaining([expect.stringMatching(/^date_of_birth /)]),
+        );
+
+        const after = await supertest(app.getHttpServer())
+          .get(`/api/v1/students/${createRes.body.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .expect(200);
+        expect(String(after.body.date_of_birth)).toContain('2010-05-15');
+      },
+    );
+
     it('neutralises a script payload on update, same as create (issue #33)', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/students')

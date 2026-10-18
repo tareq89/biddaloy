@@ -1,4 +1,5 @@
-import { registerDecorator, ValidationOptions } from 'class-validator';
+import { isISO8601, registerDecorator, ValidateBy, ValidationOptions } from 'class-validator';
+import { todayInSchoolTz } from '../time';
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -44,3 +45,42 @@ export const IsRealDate = (o?: ValidationOptions) =>
 
 export const IsRealMonth = (o?: ValidationOptions) =>
   make('isRealMonth', isRealMonth, 'month (YYYY-MM)', o);
+
+/** `YYYY-MM-DD` strings compare correctly as plain strings. */
+export function IsNotFutureDate(options?: ValidationOptions): PropertyDecorator {
+  return ValidateBy(
+    {
+      name: 'isNotFutureDate',
+      validator: {
+        validate: (v: unknown) => typeof v === 'string' && v <= todayInSchoolTz(),
+        defaultMessage: (args) => `${args?.property} must not be in the future`,
+      },
+    },
+    options,
+  );
+}
+
+const BIRTH_DATE_FLOOR = '1900-01-01';
+
+/**
+ * A real calendar date (no roll-over), from 1900-01-01 to today in the school
+ * timezone. A full ISO timestamp is accepted on purpose (the public admission
+ * form posts one); only its first 10 characters are range-checked.
+ */
+export function IsPlausibleBirthDate(options?: ValidationOptions): PropertyDecorator {
+  return ValidateBy(
+    {
+      name: 'isPlausibleBirthDate',
+      validator: {
+        validate: (v: unknown) => {
+          if (typeof v !== 'string' || !isISO8601(v, { strict: true })) return false;
+          const day = v.slice(0, 10);
+          return day >= BIRTH_DATE_FLOOR && day <= todayInSchoolTz();
+        },
+        defaultMessage: (args) =>
+          `${args?.property} must be a real date between 1900-01-01 and today`,
+      },
+    },
+    options,
+  );
+}
