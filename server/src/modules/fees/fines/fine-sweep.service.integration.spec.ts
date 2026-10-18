@@ -306,6 +306,28 @@ describe('FineSweepService (integration)', () => {
     expect(second.generated_count).toBe(0);
   });
 
+  it('runDue never re-creates a rule-fine bill the school deleted; CREATE_ANYWAY still can (F-148)', async () => {
+    const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
+    const structureId = await makeStructure(tenantId, yearId, 20);
+    await makeRule({ tenantId, yearId, structureId });
+    const studentId = await makeStudent(tenantId, sectionId, 'Deleted');
+    await markAbsences(tenantId, sectionId, studentId, ['2026-08-05']);
+    const feeRepo = dataSource.getRepository(StudentFee);
+
+    await service.runDue(tenantId, '2026-09-03');
+    const first = await feeRepo.find({ where: { student_id: studentId } });
+    expect(first).toHaveLength(1);
+
+    // The school deletes the generated bill; the next daily sweep must not bring it back.
+    await feeRepo.softDelete({ id: first[0].id });
+    await service.runDue(tenantId, '2026-09-04');
+    expect(await feeRepo.find({ where: { student_id: studentId } })).toHaveLength(0);
+
+    // A deliberate manual CREATE_ANYWAY may re-create it.
+    await service.generate(tenantId, null, '2026-08', {}, DuplicateStrategy.CREATE_ANYWAY, false);
+    expect(await feeRepo.find({ where: { student_id: studentId } })).toHaveLength(1);
+  });
+
   it('runDue does nothing before the correction window closes, bills the previous month after', async () => {
     const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
     const structureId = await makeStructure(tenantId, yearId, 20);
