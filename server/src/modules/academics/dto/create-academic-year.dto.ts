@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsBoolean, IsDateString, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsDateString,
+  IsNotEmpty,
+  MaxLength,
+} from 'class-validator';
 import {
   Validate,
   ValidationArguments,
@@ -22,6 +29,7 @@ export class IsBeforeConstraint implements ValidatorConstraintInterface {
 
 export class CreateAcademicYearDto {
   @IsString()
+  @MaxLength(50)
   @IsNotEmpty()
   @SanitizeText()
   name: string;

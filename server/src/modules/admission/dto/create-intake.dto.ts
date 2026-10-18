@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsUUID, IsInt, Min, IsDateString, IsArray, IsEnum } from 'class-validator';
+import { IsString, IsNotEmpty, IsUUID, IsInt, Min, IsDateString, IsArray, IsEnum, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AdmissionDocumentType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
@@ -7,6 +7,7 @@ import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator
 export class CreateIntakeDto {
   @ApiProperty()
   @IsString()
+  @MaxLength(200)
   @IsNotEmpty()
   @SanitizeText()
   title: string;
