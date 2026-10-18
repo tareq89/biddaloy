@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -27,6 +29,7 @@ import {
 } from './dto/students.dto';
 import { AuditAction, CommunicationMedium } from '@biddaloy/shared';
 import { assertSeatsAvailable, getSeatUsage } from '../schools/trial/seat-limit.service';
+import { ROLL_NUMBER_MAX } from './roll-number.util';
 import { normalizeBdPhoneNumber } from '../communications/providers/shared/phone-number.util';
 
 function isSeatLimitError(err: ConflictException): boolean {
@@ -112,6 +115,8 @@ interface StagedBulkUpload {
 
 @Injectable()
 export class StudentBulkUploadService {
+  private readonly logger = new Logger(StudentBulkUploadService.name);
+
   constructor(
     @InjectRepository(Class)
     private readonly classRepo: Repository<Class>,
@@ -210,6 +215,40 @@ export class StudentBulkUploadService {
           message: match
             ? `Already imported: ${match.full_name} (${match.registration_number}) is in this section with the same guardian phone. Remove this row to import the rest.`
             : `Duplicate: this student is also in row ${firstRow} of this file, in the same section with the same guardian phone. Remove one of the two rows.`,
+        });
+      });
+      staged = staged.filter((_, i) => !dropped.has(i));
+      preview = preview.filter((_, i) => !dropped.has(i));
+    }
+
+    // [F-025] A roll already held in the section (a soft-deleted student keeps its roll: the unique
+    // index is not partial) is a validate-time error, so `rows_to_create` matches what commit creates.
+    if (staged.some((r) => r.rollNumber !== undefined)) {
+      const withRoll = staged.filter((r) => r.rollNumber !== undefined);
+      const held = await this.classRepo.manager.find(Student, {
+        select: { class_section_id: true, roll_number: true },
+        where: {
+          tenant_id: tenantId,
+          class_section_id: In([...new Set(withRoll.map((r) => r.classSectionId))]),
+          roll_number: In([...new Set(withRoll.map((r) => r.rollNumber as number))]),
+        },
+        withDeleted: true,
+      });
+      const heldKeys = new Set(held.map((s) => `${s.class_section_id}::${s.roll_number}`));
+      const dropped = new Set<number>();
+      staged.forEach((row, i) => {
+        if (
+          row.rollNumber === undefined ||
+          !heldKeys.has(`${row.classSectionId}::${row.rollNumber}`)
+        )
+          return;
+        dropped.add(i);
+        errors.push({
+          row: row.rowNumber,
+          tab: undefined,
+          column: 'roll',
+          severity: 'error',
+          message: 'This roll number is already used in this section.',
         });
       });
       staged = staged.filter((_, i) => !dropped.has(i));
@@ -349,8 +388,13 @@ export class StudentBulkUploadService {
             ...(err instanceof BulkRowError && err.value !== undefined ? { value: err.value } : {}),
             reason: this.describeError(err),
           });
+        } else if (err instanceof HttpException) {
+          // e.g. ROLL_NUMBER_EXHAUSTED: a deliberate, user-safe message.
+          errors.push({ row: row.rowNumber, reason: this.describeError(err) });
         } else {
-          throw err;
+          // Never echo database text; the original goes to the log only.
+          this.logger.error(`Bulk upload row ${row.rowNumber} failed`, (err as Error)?.stack);
+          errors.push({ row: row.rowNumber, reason: 'Could not be created' });
         }
       }
     }
@@ -441,6 +485,10 @@ export class StudentBulkUploadService {
     let rollNumber: number | undefined;
     if (dto.roll) {
       rollNumber = parseInt(dto.roll, 10);
+      // Rule 23: no submitted value in the message.
+      if (rollNumber > ROLL_NUMBER_MAX) {
+        throw new BulkRowError(`Roll number must be at most ${ROLL_NUMBER_MAX}`, 'roll');
+      }
       const seen = rollsSeenThisRequest.get(classSectionId) ?? new Set<number>();
       if (seen.has(rollNumber)) {
         throw new BulkRowError(
