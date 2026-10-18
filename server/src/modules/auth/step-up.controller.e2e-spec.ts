@@ -297,10 +297,15 @@ describe('StepUpController (e2e)', () => {
   it("a different caller is unaffected by another caller's wrong OTPs for the same approver", async () => {
     const identifier = 'step-up-cross-caller@testschool.com';
     const redis = app.get<Redis>(STEP_UP_REDIS);
-    await redis.del(
+    // Every key a guess here counts against, so a rerun on the same Redis starts clean (not 429).
+    const keys = [
       `step-up-attempts:actor:${ACTOR_ID}`,
       `step-up-attempts:actor:${SEED_ADMIN_USER_ID}`,
-    );
+      `step-up-attempts:pair:${SEED_TENANT_ID}:${ACTOR_ID}:${identifier}`,
+      `step-up-attempts:pair:${SEED_TENANT_ID}:${SEED_ADMIN_USER_ID}:${identifier}`,
+      `step-up-attempts:approver:${SEED_TENANT_ID}:${identifier}`,
+    ];
+    await redis.del(...keys);
 
     for (let i = 0; i < 5; i++) {
       const res = await authed(supertest(app.getHttpServer()).post('/api/v1/auth/step-up')).send({
@@ -322,10 +327,7 @@ describe('StepUpController (e2e)', () => {
       .send({ identifier, method: 'OTP', otp: '000000', scope: 'fees.discount' });
     expect(other.status).toBe(401);
 
-    await redis.del(
-      `step-up-attempts:actor:${ACTOR_ID}`,
-      `step-up-attempts:actor:${SEED_ADMIN_USER_ID}`,
-    );
+    await redis.del(...keys);
   });
 
   it('5 wrong OTPs from another school do not lock the same approver out of step-up in their own school', async () => {
