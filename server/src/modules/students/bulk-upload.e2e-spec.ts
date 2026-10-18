@@ -252,6 +252,16 @@ describe('Bulk Student Upload E2E', () => {
       void countAfter;
     });
 
+    it('[2606] a roll above the cap is a hard error on roll and commit is refused', async () => {
+      const buffer = await buildXlsxBuffer([
+        rowValues(REQUIRED_HEADERS, { roll: '2147483648', guardian1_phone: '+8801711110061' }),
+      ]);
+      const res = await validate(buffer).expect(201);
+      expect(res.body.hard_error_count).toBe(1);
+      expect(res.body.errors[0]).toMatchObject({ row: 2, column: 'roll' });
+      await commit(res.body.staging_id).expect(409);
+    });
+
     it('returns 400 with a specific message when required columns are missing', async () => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Students');
