@@ -376,7 +376,7 @@ export class PaymentAllocationService {
       // that plainly rather than falling through to `findOneOrFail` with a
       // null id, which would throw a confusing "payment not found".
       throw new BadRequestException(
-        `idempotency_key "${duplicateKey}" conflicted with an existing payment that could not be re-read`,
+        'This idempotency key conflicted with an existing payment that could not be re-read',
       );
     }
 
@@ -446,7 +446,7 @@ export class PaymentAllocationService {
 
     if (mismatch) {
       throw new BadRequestException(
-        `idempotency_key "${dto.idempotency_key}" was already used for a different payment request`,
+        'This idempotency key was already used for a different payment request',
       );
     }
   }
