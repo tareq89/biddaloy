@@ -410,6 +410,46 @@ describe('POST /payments/checkout (16.4.2)', () => {
     expect(JSON.stringify(res.body)).not.toContain(bill);
   });
 
+  it('a line of balance + 0.01 is a 400 (#2636)', async () => {
+    const student = await createStudent();
+    const bill = await createFee(student, 300);
+
+    await supertest(app.getHttpServer())
+      .post(`${API}/payments/checkout`)
+      .send({
+        idempotency_key: randomUUID(),
+        lines: [{ student_fee_id: bill, amount: 300.01, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .expect(400);
+  });
+
+  it('replaying a key with a flipped change_handling is a 400 and the body does not echo the key (#2637)', async () => {
+    const student = await createStudent();
+    const bill = await createFee(student, 100);
+    const key = randomUUID();
+    const post = (extra: Record<string, unknown>) =>
+      supertest(app.getHttpServer())
+        .post(`${API}/payments/checkout`)
+        .send({
+          idempotency_key: key,
+          lines: [{ student_fee_id: bill, amount: 100, one_off_discount: 0 }],
+          payment_method: PaymentMethod.CASH,
+          tendered_amount: 150,
+          ...extra,
+        })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .set('X-Role', UserRole.ADMIN);
+    await post({ change_handling: 'RETURN' }).expect(201);
+
+    const res = await post({ change_handling: 'TO_WALLET' }).expect(400);
+    expect(JSON.stringify(res.body)).not.toContain(key);
+  });
+
   it('a foreign-tenant bill id and a random id give the identical 404 text, without the id (#2640)', async () => {
     const FOREIGN_TENANT = '00000000-0000-4000-8000-0000002640aa';
     await dataSource.query(

@@ -151,6 +151,7 @@ describe('FeeGenerationBatchService (integration)', () => {
     overrides: Partial<{
       period_start: string;
       paid_amount: number;
+      total_amount: number;
       status: FeeStatus;
       occurrence: number;
     }> = {},
@@ -163,7 +164,7 @@ describe('FeeGenerationBatchService (integration)', () => {
       period_start: new Date(overrides.period_start ?? '2026-07-01'),
       period_type: PeriodType.MONTH,
       occurrence: overrides.occurrence ?? 1,
-      total_amount: 1000,
+      total_amount: overrides.total_amount ?? 1000,
       paid_amount: overrides.paid_amount ?? 0,
       discount_amount: 0,
       status: overrides.status ?? FeeStatus.PENDING,
@@ -498,6 +499,7 @@ describe('FeeGenerationBatchService (integration)', () => {
       const batch = await createBatch();
       const student = await studentRepo.save(makeStudent());
       const bill = await addBill(batch.id, student.id, {
+        total_amount: 1500, // paid must not exceed total (CHK_sf_paid_plus_discount)
         paid_amount: 1500,
         status: FeeStatus.PAID,
       });

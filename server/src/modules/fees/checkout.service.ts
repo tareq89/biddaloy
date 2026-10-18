@@ -17,6 +17,7 @@ import {
   ApprovalScope,
   FeeStatus,
   PaymentAllocationType,
+  PaymentMethod,
   PaymentStatus,
   WalletTransactionKind,
 } from '@biddaloy/shared';
@@ -35,7 +36,6 @@ import { SchoolsService } from '../schools/schools.service';
 import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { localDate, localToday } from '../attendance/attendance-policy.util';
 
-const AMOUNT_EPSILON = 0.01;
 // One text for foreign, deleted and unknown ids, with no id in it (Rule 23, #2640).
 const STUDENT_FEE_NOT_FOUND = 'Student fee not found';
 const PAYABLE_STATUSES: FeeStatus[] = [
@@ -52,6 +52,9 @@ function dateKey(value: Date | string | null): string | null {
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
+
+/** Money compares in whole paisa, never with a tolerance (#2636). */
+const toPaisa = (n: number): number => Math.round(Number(n) * 100);
 
 /** Payload of the `payments.recorded` receipt job on `FEE_NOTIFY_QUEUE` [68.4.10]. */
 export interface PaymentsRecordedEvent {
@@ -212,28 +215,29 @@ export class CheckoutService {
           if (bill.student.tenant_id !== tenantId || bill.student.deleted_at) {
             throw new NotFoundException(STUDENT_FEE_NOT_FOUND);
           }
-          const balance = round2(
-            Number(bill.total_amount) - Number(bill.discount_amount) - Number(bill.paid_amount),
-          );
+          const balancePaisa =
+            toPaisa(bill.total_amount) - toPaisa(bill.discount_amount) - toPaisa(bill.paid_amount);
           // A settled bill (PAID / WAIVED / nothing left) is a conflict, not a missing row (#2592).
           // The text carries no bill id (Rule 23).
-          if (!PAYABLE_STATUSES.includes(bill.status) || balance <= 0) {
+          if (!PAYABLE_STATUSES.includes(bill.status) || balancePaisa <= 0) {
             throw new ConflictException({
               message: 'This fee has no outstanding balance',
               details: { code: 'CHECKOUT_FEE_SETTLED' },
             });
           }
-          const requested = round2(Number(line.amount) + Number(line.one_off_discount ?? 0));
-          if (requested > balance + AMOUNT_EPSILON) {
+          const requestedPaisa = toPaisa(line.amount) + toPaisa(line.one_off_discount ?? 0);
+          if (requestedPaisa > balancePaisa) {
             throw new BadRequestException(
-              `amount + one_off_discount (${requested}) exceeds the outstanding balance (${balance})`,
+              `amount + one_off_discount (${requestedPaisa / 100}) exceeds the outstanding balance (${balancePaisa / 100})`,
             );
           }
         }
 
         const primaryStudentId = billsById.get(dto.lines[0].student_fee_id)!.student_id;
-        const totalAmount = round2(dto.lines.reduce((sum, l) => sum + Number(l.amount), 0));
-        const walletUse = round2(dto.wallet_use ?? 0);
+        const totalPaisa = dto.lines.reduce((sum, l) => sum + toPaisa(l.amount), 0);
+        const walletPaisa = toPaisa(dto.wallet_use ?? 0);
+        const totalAmount = totalPaisa / 100;
+        const walletUse = walletPaisa / 100;
         const changeHandling = dto.change_handling ?? 'RETURN';
 
         if (walletUse > 0) {
@@ -253,19 +257,27 @@ export class CheckoutService {
             );
           }
 
-          if (walletUse > totalAmount + AMOUNT_EPSILON) {
+          if (walletPaisa > totalPaisa) {
             throw new BadRequestException('wallet_use cannot exceed the sum of the checkout lines');
           }
 
-          const balance = await this.walletService.balance(primaryStudentId, tenantId);
-          if (walletUse > balance + AMOUNT_EPSILON) {
+          const walletBalance = await this.walletService.balance(primaryStudentId, tenantId);
+          if (walletPaisa > toPaisa(walletBalance)) {
             throw new BadRequestException('wallet_use exceeds the student wallet balance');
           }
         }
 
-        const tenderedAmount = dto.tendered_amount ?? round2(Math.max(0, totalAmount - walletUse));
-        const change = round2(walletUse + tenderedAmount - totalAmount);
-        if (change < -AMOUNT_EPSILON) {
+        const tenderedPaisa =
+          dto.tendered_amount != null
+            ? toPaisa(dto.tendered_amount)
+            : Math.max(0, totalPaisa - walletPaisa);
+        const changePaisa = walletPaisa + tenderedPaisa - totalPaisa;
+        const change = changePaisa / 100;
+        // Only cash makes change: a card / bKash tender above the amount due is a client error.
+        if (dto.payment_method !== PaymentMethod.CASH && tenderedPaisa > totalPaisa - walletPaisa) {
+          throw new BadRequestException('Only a cash payment can be more than the amount due');
+        }
+        if (changePaisa < 0) {
           throw new BadRequestException(
             'wallet_use + tendered_amount must cover the sum of the checkout lines',
           );
@@ -418,7 +430,7 @@ export class CheckoutService {
             manager,
           );
         }
-        if (changeHandling === 'TO_WALLET' && change > AMOUNT_EPSILON) {
+        if (changeHandling === 'TO_WALLET' && changePaisa > 0) {
           await this.walletService.credit(
             {
               studentId: primaryStudentId,
@@ -490,9 +502,12 @@ export class CheckoutService {
       const winner = await this.findByIdempotencyKey(tenantId, duplicateKey);
       if (!winner) {
         throw new BadRequestException(
-          `idempotency_key "${duplicateKey}" conflicted with an existing payment that could not be re-read`,
+          'This idempotency key conflicted with an existing payment that could not be re-read',
         );
       }
+      // Two simultaneous requests with one key and different bodies: the loser must not get the
+      // winner's payment as if it were its own (#2637, F-125).
+      this.assertIdempotentReplayMatches(winner, dto);
       const repaired = await this.ensureInvoiceLinked(winner.id);
       await this.afterCommit(repaired, tenantId, userId);
       return this.toResult(repaired, tenantId);
@@ -555,6 +570,13 @@ export class CheckoutService {
    * clean.
    */
   private assertIdempotentReplayMatches(existing: Payment, dto: CheckoutDto): void {
+    // Cheap first (#2637): a reversed payment is never handed back as if it were live.
+    if (existing.payment_status !== PaymentStatus.SUCCESS || existing.reversed_by_payment_id) {
+      throw new ConflictException({
+        message: 'This payment was reversed. Start a new checkout',
+        details: { code: 'CHECKOUT_PAYMENT_REVERSED' },
+      });
+    }
     const existingLines = (existing.allocations ?? [])
       .map((a) => ({
         student_fee_id: a.student_fee_id,
@@ -574,23 +596,32 @@ export class CheckoutService {
       existingLines.every(
         (l, i) =>
           l.student_fee_id === dtoLines[i].student_fee_id &&
-          Math.abs(l.amount - dtoLines[i].amount) <= AMOUNT_EPSILON &&
-          Math.abs(l.one_off_discount - dtoLines[i].one_off_discount) <= AMOUNT_EPSILON,
+          toPaisa(l.amount) === toPaisa(dtoLines[i].amount) &&
+          toPaisa(l.one_off_discount) === toPaisa(dtoLines[i].one_off_discount),
       );
+
+    // `change_handling` is not stored: infer it. With no change at all the two are the same thing.
+    const toWallet = (dto.change_handling ?? 'RETURN') === 'TO_WALLET';
+    const changeHandlingDiffers = toWallet
+      ? toPaisa(existing.change_amount ?? 0) > 0
+      : toPaisa(existing.wallet_credit_added ?? 0) > 0;
+    // ponytail: a replay that omits payment_date while the first was back-dated is not caught; add a created_at comparison if cashiers ever hit it.
+    const paymentDateDiffers =
+      !!dto.payment_date && dateKey(existing.payment_date) !== dateKey(new Date(dto.payment_date));
 
     const mismatch =
       existing.payment_method !== dto.payment_method ||
       (existing.transaction_reference ?? null) !== (dto.transaction_reference ?? null) ||
       (existing.remarks ?? null) !== (dto.remarks ?? null) ||
-      Math.abs(Number(existing.wallet_credit_used ?? 0) - round2(dto.wallet_use ?? 0)) >
-        AMOUNT_EPSILON ||
-      Math.abs(Number(existing.tendered_amount ?? 0) - round2(dto.tendered_amount ?? 0)) >
-        AMOUNT_EPSILON ||
+      toPaisa(existing.wallet_credit_used ?? 0) !== toPaisa(dto.wallet_use ?? 0) ||
+      toPaisa(existing.tendered_amount ?? 0) !== toPaisa(dto.tendered_amount ?? 0) ||
+      changeHandlingDiffers ||
+      paymentDateDiffers ||
       !linesMatch;
 
     if (mismatch) {
       throw new BadRequestException(
-        `idempotency_key "${dto.idempotency_key}" was already used for a different checkout request`,
+        'This idempotency key was already used for a different checkout request',
       );
     }
   }
