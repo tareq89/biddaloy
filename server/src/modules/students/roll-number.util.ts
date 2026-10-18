@@ -12,6 +12,9 @@ import { Student } from './entities/student.entity';
  */
 export const ROLL_NUMBER_LOCK_NAMESPACE = 741852;
 
+/** No section has this many students; keeps auto-roll (max + 1) far from the int limit (D6). */
+export const ROLL_NUMBER_MAX = 99_999;
+
 /**
  * Returns the next available roll number in a class section, serialized
  * against concurrent callers via a transaction-scoped advisory lock (see
