@@ -322,6 +322,25 @@ describe('StepUpService', () => {
       expect(otherCaller.status).not.toBe(HttpStatus.TOO_MANY_REQUESTS);
     });
 
+    // [2639] Per-pair keys alone gave N callers N full quotas against one approver.
+    // A per-approver ceiling (4x the pair limit = 20) caps the sum across callers.
+    it('caps guesses at one approver across all callers at 4x the pair limit', async () => {
+      const { service } = buildService();
+
+      // Four callers, five guesses each: every one inside its own pair budget.
+      for (const caller of ['c1', 'c2', 'c3', 'c4']) {
+        for (let i = 0; i < 5; i++) {
+          const err = await service.verify(otpDto(), caller, TENANT_ID, CONTEXT).catch((e) => e);
+          expect(err.status).not.toBe(HttpStatus.TOO_MANY_REQUESTS);
+        }
+      }
+
+      // A fifth caller, with a fresh pair budget, is refused: the approver ceiling is spent.
+      await expect(service.verify(otpDto(), 'c5', TENANT_ID, CONTEXT)).rejects.toMatchObject({
+        status: HttpStatus.TOO_MANY_REQUESTS,
+      });
+    });
+
     // Security-review fix: bcrypt/OTP verification must run at the same
     // cost whether or not the identifier resolves to a real approver —
     // otherwise response latency leaks which identifiers are real.
@@ -417,6 +436,22 @@ describe('StepUpService', () => {
       otpService.request.mockClear();
       await service.requestOtp('unknown@example.com', TENANT_ID, ACTOR_USER_ID);
       expect(otpService.request).not.toHaveBeenCalled();
+    });
+
+    // [2639] Each caller has its own OTP cooldown, so without a ceiling N callers send
+    // N texts to one approver. Past 4x the pair limit no new code is sent; still 202 ({}).
+    it('stops sending codes to one approver after 20 requests across callers', async () => {
+      const { service, otpService } = buildService();
+
+      for (let i = 0; i < 20; i++) {
+        await service.requestOtp('admin@example.com', TENANT_ID, `caller-${i}`);
+      }
+      expect(otpService.request).toHaveBeenCalledTimes(20);
+
+      await expect(
+        service.requestOtp('admin@example.com', TENANT_ID, 'caller-21'),
+      ).resolves.toEqual({});
+      expect(otpService.request).toHaveBeenCalledTimes(20);
     });
   });
 });

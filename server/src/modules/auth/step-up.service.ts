@@ -57,6 +57,10 @@ const FEE_APPROVE_PERMISSION = Permission.FEE_APPROVE;
 const APPROVAL_TOKEN_TTL_SECONDS = 300;
 const DEFAULT_RATE_LIMIT_MAX_ATTEMPTS = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60_000;
+/** The per-approver ceiling is this many times the per-pair limit: N callers must not get N
+ * full password-guess quotas (or N OTP texts) against one approver. Higher than the pair limit,
+ * so one caller's wrong guesses still cannot lock the approver out for everyone (F-130/F-131). */
+const APPROVER_CAP_MULTIPLIER = 4;
 
 export interface StepUpOtpRequestResult {
   debug?: { otp?: string };
@@ -123,6 +127,13 @@ export class StepUpService {
   ): Promise<StepUpOtpRequestResult> {
     const approver = await this.findEligibleApprover(identifier, actorTenantId);
     if (!approver) return {};
+    // Each caller has its own OTP and cooldown, so cap the texts one approver can be sent.
+    // Over the cap: the same uniform 202, no new code.
+    const underApproverCap = await this.checkAndIncrementRateLimit(
+      `step-up-otp-requests:approver:${actorTenantId}:${normalizeLoginIdentifier(identifier)}`,
+      this.rateLimitMaxAttempts() * APPROVER_CAP_MULTIPLIER,
+    );
+    if (!underApproverCap) return {};
 
     try {
       const { code } = await this.otpService.request(
@@ -145,17 +156,22 @@ export class StepUpService {
   ): Promise<StepUpApprovalResponse> {
     const identifier = normalizeLoginIdentifier(dto.identifier);
 
-    // Scoped by tenant AND caller: one caller.s wrong guesses at an approver
+    // Scoped by tenant AND caller: one caller's wrong guesses at an approver
     // must not lock that approver out for everyone else (F-130/F-131), and
     // an unscoped key let a caller in ANY tenant do the same. The key never
-    // needs eligibility to be checked first.
-    const [pairAllowed, actorAllowed] = await Promise.all([
+    // needs eligibility to be checked first. The per-approver key is a higher
+    // ceiling across all callers, so N accounts cannot multiply the guess rate.
+    const [pairAllowed, actorAllowed, approverAllowed] = await Promise.all([
       this.checkAndIncrementRateLimit(
         `step-up-attempts:pair:${actorTenantId}:${actorUserId}:${identifier}`,
       ),
       this.checkAndIncrementRateLimit(`step-up-attempts:actor:${actorUserId}`),
+      this.checkAndIncrementRateLimit(
+        `step-up-attempts:approver:${actorTenantId}:${identifier}`,
+        this.rateLimitMaxAttempts() * APPROVER_CAP_MULTIPLIER,
+      ),
     ]);
-    if (!pairAllowed || !actorAllowed) {
+    if (!pairAllowed || !actorAllowed || !approverAllowed) {
       throw new HttpException(
         { statusCode: HttpStatus.TOO_MANY_REQUESTS, message: 'Too many attempts' },
         HttpStatus.TOO_MANY_REQUESTS,
@@ -305,13 +321,16 @@ export class StepUpService {
    * of admin-approval issuance, so an outage must not silently disable it
    * (same call OtpService itself makes, unlike LoginAttemptService's
    * fail-open, which only protects ordinary login). */
-  private async checkAndIncrementRateLimit(key: string): Promise<boolean> {
+  private async checkAndIncrementRateLimit(
+    key: string,
+    max: number = this.rateLimitMaxAttempts(),
+  ): Promise<boolean> {
     try {
       const count = await this.redis.incr(key);
       if (count === 1) {
         await this.redis.pexpire(key, RATE_LIMIT_WINDOW_MS);
       }
-      return count <= this.rateLimitMaxAttempts();
+      return count <= max;
     } catch (error) {
       this.logger.error(
         `Step-up rate-limit check failed for key, failing closed: ${error instanceof Error ? error.message : String(error)}`,
