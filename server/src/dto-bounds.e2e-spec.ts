@@ -188,6 +188,28 @@ describe('DTO bounds (75.14)', () => {
     });
   });
 
+  describe('string length', () => {
+    // [2608] Validation runs before the lookup, so a random id needs no fixture.
+    const id = randomUUID();
+    it.each([
+      ['/students', 'full_name', 100],
+      ['/guardians', 'full_name', 100],
+      ['/guardians', 'relationship', 50],
+      ['/guardians', 'occupation', 100],
+      ['/fee-structures', 'name', 100],
+      ['/academic-years', 'name', 50],
+      ['/admission-intakes', 'title', 200],
+    ])('PATCH %s/:id %s over %i characters is 400 naming the field', async (route, field, max) => {
+      const res = await as('patch', `${route}/${id}`, adminToken).send({
+        [field]: 'ক'.repeat(max + 1),
+      });
+      expectFieldError(
+        res,
+        new RegExp(`^${field} must be shorter than or equal to ${max} characters`),
+      );
+    });
+  });
+
   describe('list limit', () => {
     // The repro for the ticket: this used to return 200 with every row.
     it('GET /students?limit=100000 is 400', async () => {
