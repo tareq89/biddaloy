@@ -39,7 +39,11 @@ export class StudentNotesService {
     const student = await this.students.findOne({
       where: { id: studentId, tenant_id: caller.tenantId, deleted_at: IsNull() },
     });
-    if (!student) throw new NotFoundException(`Student with ID "${studentId}" not found`);
+    if (!student)
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
 
     if (
       caller.role === UserRole.TEACHER &&
@@ -49,7 +53,10 @@ export class StudentNotesService {
         studentId,
       }))
     ) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
     return student;
   }
