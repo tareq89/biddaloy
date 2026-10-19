@@ -17,6 +17,7 @@ import { renderWithProviders } from '../../test/render-with-providers';
 import { APP_SHELL_MAIN_ID } from '../app-shell';
 
 import { AlertItemCard } from './alert-item-card';
+import { RowActionsLayoutContext } from '../row-actions';
 import { AlertSnoozeMenu } from './alert-snooze-menu';
 import { AttentionBar } from './attention-bar';
 import { AttentionModal } from './attention-modal';
@@ -162,6 +163,32 @@ describe('AlertSnoozeMenu', () => {
     await user.click(await screen.findByRole('button', { name: 'Remind me later' }));
     await user.click(await screen.findByRole('menuitem', { name: text }));
     expect(onSelect).toHaveBeenCalledWith(choice);
+  });
+
+  it('labelled layout shows the short text and keeps the full label as the name', async () => {
+    await setup(
+      <RowActionsLayoutContext.Provider value="labelled">
+        <AlertSnoozeMenu
+          triggerVariant="icon"
+          label="Remind me later: Monthly test"
+          onSelect={vi.fn()}
+        />
+      </RowActionsLayoutContext.Provider>,
+    );
+    const button = await screen.findByRole('button', { name: 'Remind me later: Monthly test' });
+    expect(button.textContent).toBe('Remind me later');
+  });
+
+  it('icon layout renders no visible text', async () => {
+    await setup(
+      <AlertSnoozeMenu
+        triggerVariant="icon"
+        label="Remind me later: Monthly test"
+        onSelect={vi.fn()}
+      />,
+    );
+    const button = await screen.findByRole('button', { name: 'Remind me later: Monthly test' });
+    expect(button.textContent).toBe('');
   });
 
   it('DATE opens a date dialog and saving returns YYYY-MM-DD', async () => {
