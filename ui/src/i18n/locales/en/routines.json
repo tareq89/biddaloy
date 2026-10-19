@@ -34,7 +34,10 @@
     "deleteConfirm": "Delete",
     "inUseError": "This shift still has period times, so it can't be deleted. Remove its rows under Period times first.",
     "deleteError": "Couldn't delete the shift. Try again.",
-    "saveError": "Couldn't add the shift. Try again."
+    "saveError": "Couldn't add the shift. Try again.",
+    "nameRequired": "Enter a shift name.",
+    "nameTooLong": "The name can be at most {{max}} characters.",
+    "nameInvalid": "This name isn't valid. Check it and try again."
   },
   "roomsPanel": {
     "legend": "Rooms",
