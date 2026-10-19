@@ -1,4 +1,4 @@
-import { adminApiSession, createClassSection, createStudent } from '../api';
+import { adminApiSession, createClassSection, createStudent, get } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { DetailShellPage } from '../pages/detail-shell';
@@ -112,5 +112,45 @@ test.describe('a lost reply is not retried [2596]', () => {
     // Past the old 1s + 2s backoff: a retry would have shown up by now.
     await page.waitForTimeout(3500);
     expect(posts).toBe(1);
+  });
+});
+
+test.describe('double-click on Add student [2594]', () => {
+  test.use({ serviceWorkers: 'block' });
+
+  test('a double-click sends one POST and creates one student', async ({ page, request }) => {
+    const session = await adminApiSession(request);
+    await createClassSection(request, session);
+    const form = new FormShellPage(page);
+    const name = `Dbl ${Date.now()}`;
+    let posts = 0;
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/api/v1/students', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      posts += 1;
+      await gate; // the gate, not a sleep, orders the requests
+      return route.fallback();
+    });
+
+    await page.goto('/students/new');
+    await form.fillField('students.form.fields.fullName', name);
+    await page.getByLabel(t('students.form.fields.class')).click();
+    await page.getByRole('option').first().click();
+    await page.getByLabel(t('students.form.fields.section')).click();
+    await page.getByRole('option').first().click();
+    await page.getByRole('button', { name: t('students.new.submitAction') }).dblclick();
+    release();
+
+    await new DetailShellPage(page).expectLoaded(name);
+    expect(posts).toBe(1);
+    const list = await get<{ data: unknown[] }>(
+      request,
+      session,
+      `/students?search=${encodeURIComponent(name)}`,
+    );
+    expect(list.data).toHaveLength(1);
   });
 });
