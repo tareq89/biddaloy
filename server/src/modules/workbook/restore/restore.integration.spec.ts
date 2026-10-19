@@ -495,9 +495,17 @@ describe('RestoreProcessor (integration)', () => {
 
     await processor.process(fakeJob(job.id));
 
-    expect(validateSpy).toHaveBeenCalledWith(expect.any(Buffer), TENANT_A, dataSource.manager);
+    // The worker waits its turn behind an in-flight upload check rather than failing (waitIfBusy).
+    expect(validateSpy).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      TENANT_A,
+      dataSource.manager,
+      undefined,
+      { waitIfBusy: true },
+    );
     const [passedBuffer] = validateSpy.mock.calls[0];
     expect((passedBuffer as Buffer).equals(buffer)).toBe(true);
+    validateSpy.mockRestore();
 
     const finished = await dataSource
       .getRepository(WorkbookJob)
@@ -930,7 +938,9 @@ describe('RestoreProcessor (integration)', () => {
       const { job, errors } = await restoreWithErrors(d.tenantId, buffer);
       expect(job.status).toBe(WorkbookJobStatus.FAILED);
       // Failed because the band's grade changed, not for some other reason.
-      expect(errors).toEqual([expect.stringMatching(/"grading_bands" changes grade of an existing/)]);
+      expect(errors).toEqual([
+        expect.stringMatching(/"grading_bands" changes grade of an existing/),
+      ]);
       expect((await em().findOneByOrFail(GradingBand, { id: d.band.id })).grade).toBe('A+');
     });
 
@@ -961,8 +971,13 @@ describe('RestoreProcessor (integration)', () => {
       const { job, errors } = await restoreWithErrors(d.tenantId, buffer);
       expect(job.status).toBe(WorkbookJobStatus.FAILED);
       // The money refusal, naming only the non-zero amount, formatted as money.
-      expect(errors).toContainEqual(expect.stringMatching(/still have open dues of ৳[\d,]+\.\d\d\./));
-      const student = await em().findOne(Student, { where: { id: d.student.id }, withDeleted: true });
+      expect(errors).toContainEqual(
+        expect.stringMatching(/still have open dues of ৳[\d,]+\.\d\d\./),
+      );
+      const student = await em().findOne(Student, {
+        where: { id: d.student.id },
+        withDeleted: true,
+      });
       expect(student?.deleted_at).toBeNull();
     });
 
