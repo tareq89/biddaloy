@@ -143,11 +143,17 @@ function AnalysisPage() {
   }
 
   // The merit tab is paged; show every row while the print dialog is open.
-  function handlePrint() {
-    flushSync(() => setPrinting(true));
-    window.addEventListener('afterprint', () => setPrinting(false), { once: true });
-    window.print();
-  }
+  // [2697] Driven by the browser events so Ctrl/Cmd+P and the browser menu print every row too.
+  React.useEffect(() => {
+    const before = () => flushSync(() => setPrinting(true));
+    const after = () => setPrinting(false);
+    window.addEventListener('beforeprint', before);
+    window.addEventListener('afterprint', after);
+    return () => {
+      window.removeEventListener('beforeprint', before);
+      window.removeEventListener('afterprint', after);
+    };
+  }, []);
 
   function setByComponent(next: boolean) {
     void navigate({ search: (prev) => ({ ...prev, byComponent: next ? true : undefined }) });
@@ -164,7 +170,7 @@ function AnalysisPage() {
               id: 'print',
               label: tg('analysisPage.print'),
               icon: <PrinterIcon />,
-              onClick: handlePrint,
+              onClick: () => window.print(),
               allowed: ready,
             },
             {
