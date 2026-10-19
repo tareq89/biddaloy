@@ -175,3 +175,23 @@ flowchart LR
 | `fees/generate`          | Unique `(student_id, fee_structure_id, period_start, occurrence)` where `deleted_at IS NULL`. `CREATE_ANYWAY` needs an approval token. |
 | `fees/fines/generate`    | Same index: fines go through `FeeGenerationService.generate`.                                                                          |
 | `fees/schedules/run-now` | Same index for the bills, plus unique `late_fee_for_student_fee_id` for late fees, plus `last_run_period` on schedules.                |
+
+## W6 follow-ups
+
+| Issue                     | Outcome | Why                                                                      |
+| ------------------------- | ------- | ------------------------------------------------------------------------ |
+| #2684 (Rule 23 messages)  | Fixed   | fees/invoices now say `Student not found` (no id echo), like enrollments |
+| #2657                     | Skipped | The migration is too big for this wave                                   |
+| #2660                     | Skipped | The requester is already bound                                           |
+| #2668, #2690              | Skipped | Product call needed                                                      |
+| #2686, #2687              | Skipped | Too large for this wave                                                  |
+| #2661                     | Skipped | Needs a settings schema and UI                                           |
+| #2693, #2694              | Skipped | Need Playwright / the SMS-credit UI                                      |
+| #2689 (item 1)            | Skipped | Item 1 left out of this wave                                             |
+| #2699                     | Skipped | Needs a server delta contract                                            |
+
+```mermaid
+flowchart LR
+  W6[W6 lanes g1 g2 g3] --> Fixed[Fixed: #2684 and the lane tickets]
+  W6 --> Skipped[Skipped: see table]
+```
