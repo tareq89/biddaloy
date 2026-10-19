@@ -35,6 +35,13 @@ describe('migrate script (integration)', () => {
     await admin.destroy();
   });
 
+  it('exits 1 when no migrations are found', async () => {
+    const empty = { migrations: [] } as unknown as DataSource; // e.g. a wrong migrations glob
+    expect(await runMigrate(empty, 'run', log)).toBe(1);
+    expect(await runMigrate(empty, 'pending', log)).toBe(1);
+    lines.length = 0;
+  });
+
   it('pending on a fresh DB exits 2 and lists every migration', async () => {
     expect(await runMigrate(ds, 'pending', log)).toBe(2);
     expect(lines[0]).toMatch(new RegExp(`^${ds.migrations.length} pending:`));

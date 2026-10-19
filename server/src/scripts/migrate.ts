@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { MigrationExecutor, type DataSource } from 'typeorm';
+import { redactPii } from '../common/redact-log.util';
 
 /**
  * `node server/dist/scripts/migrate.js [run|pending|revert]` — runs TypeORM
@@ -7,7 +8,7 @@ import { MigrationExecutor, type DataSource } from 'typeorm';
  *   run      (default) apply every pending migration, one transaction each
  *   pending  list pending migrations; exit 2 if any (deploy backs up first), else 0
  *   revert   undo the last applied migration
- * Exit codes: 0 ok, 2 pending, 1 error. Output names migrations only, never
+ * Exit codes: 0 ok, 2 pending, 1 error (incl. no migrations found). Output names migrations only, never
  * DATABASE_URL.
  */
 export type MigrateMode = 'run' | 'pending' | 'revert';
@@ -24,6 +25,11 @@ export async function runMigrate(
   mode: MigrateMode,
   log: (line: string) => void = console.log,
 ): Promise<number> {
+  // A wrong glob or missing dist/migrations must not look like "nothing to do".
+  if (!ds.migrations.length) {
+    log('no migrations found (check the migrations path in data-source)');
+    return 1;
+  }
   if (mode === 'pending') {
     const names = (await new MigrationExecutor(ds).getPendingMigrations()).map((m) => m.name);
     log(names.length ? `${names.length} pending:\n${names.join('\n')}` : 'no pending migrations');
@@ -49,17 +55,21 @@ if (require.main === module) {
       console.error(`unknown mode "${mode}" (use run | pending | revert)`);
       process.exit(1);
     }
-    // Lazy: importing data-source loads .env and builds the connection options.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const ds: DataSource = require('../data-source').default;
+    let ds: DataSource | undefined;
     let code = 1;
     try {
+      // Lazy, inside try: importing data-source loads .env and builds the connection options.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      ds = require('../data-source').default as DataSource;
       await ds.initialize();
       code = await runMigrate(ds, mode);
     } catch (err) {
-      console.error(`migrate ${mode} failed:`, err instanceof Error ? err.message : String(err));
+      console.error(
+        `migrate ${mode} failed:`,
+        redactPii(err instanceof Error ? err.message : String(err)),
+      );
     } finally {
-      if (ds.isInitialized) await ds.destroy();
+      if (ds?.isInitialized) await ds.destroy();
     }
     process.exit(code);
   })();
