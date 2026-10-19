@@ -463,6 +463,23 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(created).toHaveLength(0);
   });
 
+  it('reports a roll above ROLL_NUMBER_MAX as a row error, not a 500 (2595)', async () => {
+    const result = await runUpload(
+      await buildXlsxFile([
+        rowValues(headers, { student_name: 'Too Big', roll: '250000' }),
+        rowValues(headers, { student_name: 'Past Int4', roll: '99999999999' }),
+      ]),
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+    );
+
+    expect(result.success_count).toBe(0);
+    expect(result.errors).toEqual([
+      expect.objectContaining({ row: 2, field: 'roll', reason: 'roll must not be greater than 99999' }),
+      expect.objectContaining({ row: 3, field: 'roll', reason: 'roll must not be greater than 99999' }),
+    ]);
+  });
+
   it('reports a specific error for a roll number that already exists in the database', async () => {
     await runUpload(
       await buildXlsxFile([rowValues(headers, { student_name: 'Existing', roll: '9' })]),

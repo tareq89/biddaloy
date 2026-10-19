@@ -15,6 +15,7 @@ import {
   Matches,
   MaxLength,
   ValidateIf,
+  ValidateBy,
 } from 'class-validator';
 import { applyDecorators } from '@nestjs/common';
 import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
@@ -539,6 +540,15 @@ export class BulkUploadRowDto {
 
   @IsOptional()
   @Matches(/^\d+$/, { message: 'roll must be a positive whole number' })
+  // [2595] Same cap as CreateStudentDto.roll_number: past it, auto-roll in the section 409s.
+  @ValidateBy({
+    name: 'rollNotAboveMax',
+    validator: {
+      validate: (v: unknown) =>
+        typeof v !== 'string' || !/^\d+$/.test(v) || Number(v) <= ROLL_NUMBER_MAX,
+      defaultMessage: () => `roll must not be greater than ${ROLL_NUMBER_MAX}`,
+    },
+  })
   roll?: string;
 
   // Accepted for a uniform column schema, but always ignored — registration
