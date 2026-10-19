@@ -23,7 +23,7 @@ filled in by that wave's close ticket.
 | Step-up access (W1) | TBD | TBD | TBD | TBD |
 | Input length and number range (W2) | TBD | TBD | TBD | TBD |
 | Referential deletes (W2) | TBD | TBD | TBD | TBD |
-| Delete-guard registry (W3) | A parent delete left child rows with no check; 45 gaps remain | Every parent-child pair is guarded or listed in `KNOWN_GAPS` with an issue (#2655; issues #2675-#2680) | `server/test/delete-guard-registry.ts` | each parent remove() |
+| Delete-guard registry (W3) | A parent delete left child rows with no check; 45 gaps remain | Every parent-child pair is guarded or listed in `KNOWN_GAPS` with an issue (#2655; issues #2675-#2680) | `server/test/delete-guard-registry.integration.spec.ts` | each parent remove() |
 | Report reads (W2) | TBD | TBD | TBD | TBD |
 | Fee rows (W2) | TBD | TBD | TBD | TBD |
 | Import (W3) | Import wrote partly then returned 500; the template's registration_number column was ignored; roll cap and held rolls were checked too late | Validate before write; honour the template columns (#2606, #2607) | student import specs | student import service |
