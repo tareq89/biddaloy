@@ -528,7 +528,11 @@ late fee on top of it isn't a case anyone asked for.
 
 ### Learnings (Epic #2642, Wave 3, 2026-10-19)
 
-- **Checkout lock order (#2647).** The wallet lock is taken before the approval token, TO_WALLET siblings are refused, and reversal handles a stale bill. Cost: a race between two checkouts on one wallet. Rule candidate: lock the wallet first in any money path -> Rule 24-27 candidate.
+- **Checkout lock order (#2647).** Two separate orders, both in `checkout.service.ts`:
+  - **Rows: bills, then wallet.** Checkout locks every bill (`pessimistic_write`), then the wallet row. Wallet debit and reversal use the same order. A path that took the wallet first while another held a bill would deadlock.
+  - **Wallet lock before the approval token.** The wallet balance is checked under its lock *before* `approvalService.consume()` burns the one-time token, so a concurrent spend fails without wasting the approval.
+
+  TO_WALLET siblings are refused, and reversal handles a stale bill. Cost: a race between two checkouts on one wallet. Rule candidate: in any money path, lock bills then wallet, and burn approval tokens last -> Rule 24-27 candidate.
 
 ## Family-facing access
 

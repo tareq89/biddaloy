@@ -1129,6 +1129,7 @@ describe('CheckoutService (integration)', () => {
       // Second connection holds the wallet row and spends it all.
       const qr = dataSource.createQueryRunner();
       await qr.connect();
+      const [{ pid: holderPid }] = await qr.query('SELECT pg_backend_pid() AS pid');
       await qr.startTransaction();
       await walletService.debit(
         {
@@ -1151,11 +1152,13 @@ describe('CheckoutService (integration)', () => {
           () => null,
           (e) => e,
         );
+      // Wait for a session blocked by *this* wallet transaction, not any lock wait in the DB.
       await expect
         .poll(async () => {
           const rows = await dataSource.query(
             `SELECT count(*)::int AS n FROM pg_stat_activity
-             WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+             WHERE $1 = ANY(pg_blocking_pids(pid))`,
+            [holderPid],
           );
           return rows[0].n;
         })

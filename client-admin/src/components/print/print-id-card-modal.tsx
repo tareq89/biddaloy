@@ -146,8 +146,9 @@ export function PrintIdCardModal({ initialType, onClose, onConfirm }: PrintIdCar
       secondary={{ label: t('picker.cancel'), onClick: cancel }}
       primary={primary}
     >
-      <Card padded className="space-y-4">
-        <Tabs value={type} onValueChange={switchType}>
+      {/* gap-6 = the shell body's space-y-6, so the two cards keep their spacing. */}
+      <Tabs value={type} onValueChange={switchType} className="gap-6">
+        <Card padded className="space-y-4">
           <TabsList variant="line" aria-label={t('picker.who')}>
             <TabsTrigger value="STUDENT" className="h-11 md:h-auto">
               <GraduationCapIcon aria-hidden />
@@ -160,182 +161,185 @@ export function PrintIdCardModal({ initialType, onClose, onConfirm }: PrintIdCar
               </TabsTrigger>
             ) : null}
           </TabsList>
-          {/* The page body sits outside the tab row; this empty panel is what the tab's aria-controls points at. */}
-          <TabsContent value={type} className="hidden" />
-        </Tabs>
 
-        {type === 'STUDENT' ? (
-          <div>
-            <p className="text-label" id="print-picker-mode">
-              {t('picker.modeLabel')}
-            </p>
-            <RadioGroup
-              aria-labelledby="print-picker-mode"
-              value={mode}
-              onValueChange={(v) => setMode(v as Mode)}
-              className="mt-1.5 grid gap-2 md:grid-cols-2"
-            >
-              {(['names', 'section'] as const).map((value) => (
-                <label
-                  key={value}
-                  htmlFor={`print-picker-mode-${value}`}
-                  className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-md border p-3 ${
-                    mode === value
-                      ? 'border-primary bg-secondary'
-                      : 'border-border-subtle bg-surface hover:bg-muted'
-                  }`}
-                >
-                  <RadioGroupItem
-                    id={`print-picker-mode-${value}`}
-                    value={value}
-                    className="mt-0.5"
+          {type === 'STUDENT' ? (
+            <div>
+              <p className="text-label" id="print-picker-mode">
+                {t('picker.modeLabel')}
+              </p>
+              <RadioGroup
+                aria-labelledby="print-picker-mode"
+                value={mode}
+                onValueChange={(v) => setMode(v as Mode)}
+                className="mt-1.5 grid gap-2 md:grid-cols-2"
+              >
+                {(['names', 'section'] as const).map((value) => (
+                  <label
+                    key={value}
+                    htmlFor={`print-picker-mode-${value}`}
+                    className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-md border p-3 ${
+                      mode === value
+                        ? 'border-primary bg-secondary'
+                        : 'border-border-subtle bg-surface hover:bg-muted'
+                    }`}
+                  >
+                    <RadioGroupItem
+                      id={`print-picker-mode-${value}`}
+                      value={value}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="block font-medium">
+                        {value === 'names' ? t('picker.modeNames') : t('picker.modeSection')}
+                      </span>
+                      <span className="block text-caption text-text-secondary">
+                        {value === 'names'
+                          ? t('picker.modeNamesHelp')
+                          : t('picker.modeSectionHelp')}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </RadioGroup>
+            </div>
+          ) : null}
+        </Card>
+
+        {/* The picker below is the selected tab's panel (aria-controls points here). */}
+        <TabsContent value={type}>
+          {activeMode === 'names' ? (
+            <Card padded>
+              <h2 className="text-h2">{t('picker.namesTitle')}</h2>
+              <p className="mt-1 text-text-secondary">{t('picker.namesHelp')}</p>
+
+              <div className="mt-4 flex flex-col gap-1.5">
+                <label htmlFor="print-picker-search" className="text-label">
+                  {t('picker.search')}
+                </label>
+                <div className="relative">
+                  <SearchIcon
+                    aria-hidden
+                    className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-text-secondary"
                   />
-                  <span>
-                    <span className="block font-medium">
-                      {value === 'names' ? t('picker.modeNames') : t('picker.modeSection')}
-                    </span>
-                    <span className="block text-caption text-text-secondary">
-                      {value === 'names' ? t('picker.modeNamesHelp') : t('picker.modeSectionHelp')}
-                    </span>
+                  <Input
+                    id="print-picker-search"
+                    className="ps-10"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {picked.size > 0 ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-label">
+                    {t('picker.pickedLabel', {
+                      count: picked.size,
+                      n: formatNumber(picked.size, region),
+                    })}
                   </span>
-                </label>
-              ))}
-            </RadioGroup>
-          </div>
-        ) : null}
-      </Card>
-
-      {activeMode === 'names' ? (
-        <Card padded>
-          <h2 className="text-h2">{t('picker.namesTitle')}</h2>
-          <p className="mt-1 text-text-secondary">{t('picker.namesHelp')}</p>
-
-          <div className="mt-4 flex flex-col gap-1.5">
-            <label htmlFor="print-picker-search" className="text-label">
-              {t('picker.search')}
-            </label>
-            <div className="relative">
-              <SearchIcon
-                aria-hidden
-                className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-text-secondary"
-              />
-              <Input
-                id="print-picker-search"
-                className="ps-10"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {picked.size > 0 ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-label">
-                {t('picker.pickedLabel', {
-                  count: picked.size,
-                  n: formatNumber(picked.size, region),
-                })}
-              </span>
-              {[...picked.entries()].map(([id, name]) => (
-                <button
-                  key={id}
-                  type="button"
-                  aria-label={t('picker.removePicked', { name })}
-                  onClick={() => toggle(id, name)}
-                  className="inline-flex h-11 items-center gap-1 rounded-full bg-secondary px-3 text-label text-secondary-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:h-8"
-                >
-                  {name}
-                  <XIcon className="size-3.5" aria-hidden />
-                </button>
-              ))}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-11 md:h-8"
-                onClick={() => setPicked(new Map())}
-              >
-                {t('picker.clearPicked')}
-              </Button>
-            </div>
-          ) : null}
-
-          <ul
-            className="mt-3 divide-y divide-border-subtle rounded-md border border-border-subtle"
-            aria-label={t('picker.results')}
-          >
-            {rows.map((row) => (
-              <li key={row.id}>
-                <label
-                  htmlFor={`pick-${row.id}`}
-                  className="flex min-h-11 cursor-pointer items-center gap-3 px-3 hover:bg-muted md:min-h-10"
-                >
-                  <Checkbox
-                    id={`pick-${row.id}`}
-                    checked={picked.has(row.id)}
-                    onCheckedChange={() => toggle(row.id, row.name)}
-                  />
-                  <span className="font-medium">{row.name}</span>
-                  {row.caption ? (
-                    <span className="text-caption text-text-secondary">{row.caption}</span>
-                  ) : null}
-                </label>
-              </li>
-            ))}
-          </ul>
-          {rows.length === PICK_LIMIT ? (
-            <p className="mt-2 text-caption text-text-secondary">
-              {t('picker.limitHelp', { limit: formatNumber(PICK_LIMIT, region) })}
-            </p>
-          ) : null}
-        </Card>
-      ) : (
-        <Card padded>
-          <h2 className="text-h2">{t('picker.sectionTitle')}</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-label" id="print-picker-class">
-                {t('picker.class')}
-              </span>
-              <Select
-                value={classId}
-                onValueChange={(v) => {
-                  setClassId(v);
-                  setSectionId('');
-                }}
-              >
-                <SelectTrigger aria-labelledby="print-picker-class" className="w-full">
-                  <SelectValue placeholder={t('picker.classPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(classes.data?.data ?? []).map((k) => (
-                    <SelectItem key={k.id} value={k.id}>
-                      {k.name}
-                    </SelectItem>
+                  {[...picked.entries()].map(([id, name]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-label={t('picker.removePicked', { name })}
+                      onClick={() => toggle(id, name)}
+                      className="inline-flex h-11 items-center gap-1 rounded-full bg-secondary px-3 text-label text-secondary-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:h-8"
+                    >
+                      {name}
+                      <XIcon className="size-3.5" aria-hidden />
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-label" id="print-picker-section">
-                {t('picker.section')}
-              </span>
-              <Select value={sectionId} onValueChange={setSectionId} disabled={classId === ''}>
-                <SelectTrigger aria-labelledby="print-picker-section" className="w-full">
-                  <SelectValue placeholder={t('picker.sectionPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(sections.data ?? []).map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.section_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </Card>
-      )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-11 md:h-8"
+                    onClick={() => setPicked(new Map())}
+                  >
+                    {t('picker.clearPicked')}
+                  </Button>
+                </div>
+              ) : null}
+
+              <ul
+                className="mt-3 divide-y divide-border-subtle rounded-md border border-border-subtle"
+                aria-label={t('picker.results')}
+              >
+                {rows.map((row) => (
+                  <li key={row.id}>
+                    <label
+                      htmlFor={`pick-${row.id}`}
+                      className="flex min-h-11 cursor-pointer items-center gap-3 px-3 hover:bg-muted md:min-h-10"
+                    >
+                      <Checkbox
+                        id={`pick-${row.id}`}
+                        checked={picked.has(row.id)}
+                        onCheckedChange={() => toggle(row.id, row.name)}
+                      />
+                      <span className="font-medium">{row.name}</span>
+                      {row.caption ? (
+                        <span className="text-caption text-text-secondary">{row.caption}</span>
+                      ) : null}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              {rows.length === PICK_LIMIT ? (
+                <p className="mt-2 text-caption text-text-secondary">
+                  {t('picker.limitHelp', { limit: formatNumber(PICK_LIMIT, region) })}
+                </p>
+              ) : null}
+            </Card>
+          ) : (
+            <Card padded>
+              <h2 className="text-h2">{t('picker.sectionTitle')}</h2>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-label" id="print-picker-class">
+                    {t('picker.class')}
+                  </span>
+                  <Select
+                    value={classId}
+                    onValueChange={(v) => {
+                      setClassId(v);
+                      setSectionId('');
+                    }}
+                  >
+                    <SelectTrigger aria-labelledby="print-picker-class" className="w-full">
+                      <SelectValue placeholder={t('picker.classPlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(classes.data?.data ?? []).map((k) => (
+                        <SelectItem key={k.id} value={k.id}>
+                          {k.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-label" id="print-picker-section">
+                    {t('picker.section')}
+                  </span>
+                  <Select value={sectionId} onValueChange={setSectionId} disabled={classId === ''}>
+                    <SelectTrigger aria-labelledby="print-picker-section" className="w-full">
+                      <SelectValue placeholder={t('picker.sectionPlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(sections.data ?? []).map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.section_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <ConfirmDialog
         open={discarding}
