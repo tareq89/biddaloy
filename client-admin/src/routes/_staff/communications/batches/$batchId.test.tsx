@@ -11,7 +11,7 @@
  *    on the new batch.
  */
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
-import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -176,18 +176,16 @@ describe('/communications/batches/$batchId', () => {
   it('shows a retryable error state when the round cannot load', async () => {
     server.use(
       http.get('/api/v1/communications/reminder/bulk/:id', () =>
-        HttpResponse.json(
-          { statusCode: 404, message: 'x', timestamp: '', path: '' },
-          { status: 404 },
-        ),
+        HttpResponse.json(apiErrorBody(404, 'x', '/api/v1/communications/reminder/bulk/b'), {
+          status: 404,
+        }),
       ),
     );
     render();
 
-    // The query retries once before it gives up, so give it time.
-    expect(
-      await screen.findByText('Could not load this round.', undefined, { timeout: 8000 }),
-    ).toBeTruthy();
+    // [2673] A body without the full ApiErrorBody shape stays a raw AxiosError, which
+    // shouldRetryQuery retries with backoff (the old 8s wait). A real 404 shows at once.
+    expect(await screen.findByText('Could not load this round.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
