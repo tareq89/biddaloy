@@ -147,6 +147,10 @@ export interface SubmitRegisterResult {
 export function useSubmitRegister(sectionId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    networkMode: 'always',
+    // [2632] This mutation queues itself when offline, so it must RUN offline: the
+    // default `'online'` pauses it and `enqueueMutation` is never reached. Scoped to
+    // this one hook on purpose (see `queries.networkMode` in api/query-client.ts).
     mutationFn: async (input: PutRegisterInput): Promise<SubmitRegisterResult> => {
       const path = `/attendance/sections/${sectionId}/register`;
       const send = async () => (await apiClient.put<Register>(path, input)).data;
