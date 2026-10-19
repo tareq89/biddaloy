@@ -239,6 +239,27 @@ describe('useCreateStudent invalidates the students list (create -> refetch -> n
   });
 });
 
+describe('[2594] useCreateStudent sends an Idempotency-Key', () => {
+  it('sends the header, and a second create after success sends a different one', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/students', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json(studentFactory(), { status: 201 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useCreateStudent(), { tenantId: 'tenant-1' });
+    const input = { full_name: 'Same Body', class_section_id: 'section-1' };
+
+    await act(() => result.current.mutateAsync(input));
+    await act(() => result.current.mutateAsync(input));
+
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(keys[1]).not.toBe(keys[0]);
+  });
+});
+
 describe('[8.14.6] useStudents keeps previous rows on screen while a filter change refetches', () => {
   it('holds filter A rows (marked as a placeholder) until filter B resolves, then swaps to B', async () => {
     // Each `search` value gets its own distinct fixture row and its own
