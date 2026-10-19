@@ -865,6 +865,12 @@ describe('InvoicesService (integration)', () => {
       expect(found.id).toBe(created.id);
       const list = await service.findAll({ student_id: student.id } as any, TENANT_ID);
       expect(list.data.map((i) => i.id)).toContain(created.id);
+      // The deleted student is still joined, and searchable by name.
+      expect(list.data.find((i) => i.id === created.id)?.student?.full_name).toBe(
+        student.full_name,
+      );
+      const byName = await service.findAll({ search: student.full_name } as any, TENANT_ID);
+      expect(byName.data.map((i) => i.id)).toContain(created.id);
       const html = await service.getPrintableHtml(created.id, TENANT_ID);
       expect(html).toContain(created.invoice_number);
 

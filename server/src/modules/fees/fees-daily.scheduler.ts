@@ -395,21 +395,15 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       const students = await qb.getMany();
       const studentIds = students.map((s) => s.id).filter((id) => !excluded.has(id));
 
-      // [F-144] An empty audience leaves the period open so a student who joins later in the
-      // window is still billed (`ends_on` stops it looping forever). With no live structures
-      // there is nothing to bill, so advance.
-      // ponytail: the no-structures path writes no fee_generations row, so the stale-catch-up
-      // check above cannot see it; GREATEST still stops the rewind.
+      // [F-144] An empty audience, or no live structures, leaves the period open so a student
+      // who joins (or a structure restored/linked) later in the window is still billed
+      // (`ends_on` stops it looping forever).
       const advance = () =>
         manager.query(
           `UPDATE recurring_schedules SET last_run_period = GREATEST(last_run_period, $1::date) WHERE id = $2`,
           [freshPeriod, fresh.id],
         );
-      if (feeStructureIds.length === 0) {
-        await advance();
-        return;
-      }
-      if (studentIds.length === 0) return;
+      if (feeStructureIds.length === 0 || studentIds.length === 0) return;
 
       // [F-146] A period before the year starts would make generate() throw on every daily run.
       const [year] = (await manager.query(

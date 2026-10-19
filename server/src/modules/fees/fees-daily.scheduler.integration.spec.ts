@@ -825,6 +825,26 @@ describe('FeesDailyScheduler (integration)', () => {
       expect(bills[0].fee_structure_id).toBe(a.id);
     });
 
+    it('[F-146] every structure soft-deleted on the fire day leaves the period open; a restore later that period bills', async () => {
+      await studentRepo.save(makeStudent());
+      const schedule = await scheduleWith({ kind: 'MONTHLY', day_of_month: 1 });
+      const [{ fee_structure_id }] = await dataSource.query(
+        `SELECT fee_structure_id FROM recurring_schedule_structures WHERE schedule_id = $1`,
+        [schedule.id],
+      );
+      await structureRepo.softDelete({ id: fee_structure_id });
+
+      await runOn('2026-03-01');
+      expect(await studentFeeRepo.find()).toHaveLength(0);
+      expect(await lastRun(schedule.id)).toBeNull();
+
+      await structureRepo.restore({ id: fee_structure_id });
+      await runOn('2026-03-02');
+
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+      expect(await lastRun(schedule.id)).toBe('2026-03-01');
+    });
+
     it('[F-146] a period before the academic year starts does not throw and advances', async () => {
       await studentRepo.save(makeStudent());
       // 2026-01-01 is a Thursday; its week starts Monday 2025-12-29, before the seed year.

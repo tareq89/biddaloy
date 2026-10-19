@@ -380,6 +380,44 @@ describe('PromotionsService (integration)', () => {
       expect(await enrollmentRepo.count({ where: { academic_year_id: TARGET_YEAR_ID } })).toBe(0);
       expect((await runRepo.findOneByOrFail({ id: run.id })).status).toBe(PromotionRunStatus.DRAFT);
     });
+
+    it("commit checks against the run's recorded source year, not the class's current year", async () => {
+      const student = await buildStudent();
+      await enrollActive(student.id);
+      await addResult(student.id, { isFail: false, gpa: 4.0, total: 400 });
+      const run = await service.create(dto(TARGET_YEAR_ID), TENANT_ID, ADMIN_USER_ID);
+      const earlier = await dataSource.getRepository(AcademicYear).save({
+        name: '2024',
+        start_date: new Date('2024-01-01'),
+        end_date: new Date('2024-12-31'),
+        tenant_id: TENANT_ID,
+      });
+
+      // Class moved to an older year (e.g. a workbook restore) and target edited to start
+      // between that year and the recorded source year (2026-01-01).
+      await dataSource.query(`UPDATE classes SET academic_year_id = $1 WHERE id = $2`, [
+        earlier.id,
+        SOURCE_CLASS_ID,
+      ]);
+      await dataSource.query(`UPDATE academic_years SET start_date = '2025-06-01' WHERE id = $1`, [
+        TARGET_YEAR_ID,
+      ]);
+      try {
+        await expect(
+          service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
+        ).rejects.toMatchObject({ response: { details: { code: 'TARGET_YEAR_NOT_LATER' } } });
+      } finally {
+        await dataSource.query(`UPDATE classes SET academic_year_id = $1 WHERE id = $2`, [
+          SOURCE_YEAR_ID,
+          SOURCE_CLASS_ID,
+        ]);
+        await dataSource.query(
+          `UPDATE academic_years SET start_date = '2027-01-01' WHERE id = $1`,
+          [TARGET_YEAR_ID],
+        );
+      }
+      expect(await enrollmentRepo.count({ where: { academic_year_id: TARGET_YEAR_ID } })).toBe(0);
+    });
   });
 
   describe('patchEntries', () => {

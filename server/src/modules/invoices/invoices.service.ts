@@ -375,8 +375,9 @@ export class InvoicesService {
 
     const qb = this.repo
       .createQueryBuilder('invoice')
-      .leftJoinAndSelect('invoice.student', 'student')
+      // withDeleted() before the join: TypeORM adds `student.deleted_at IS NULL` at join time.
       .withDeleted()
+      .leftJoinAndSelect('invoice.student', 'student')
       .where('invoice.tenant_id = :tenantId', { tenantId })
       .andWhere('invoice.deleted_at IS NULL');
 
