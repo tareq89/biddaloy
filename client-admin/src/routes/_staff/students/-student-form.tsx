@@ -75,12 +75,8 @@ export interface StudentFormProps<TInput> {
   submitLabel: string;
   title: string;
   onClose: () => void;
-  // `TError` is `unknown`, not `Error` — every mutation hook here passes
-  // `shouldRetryQuery` (`(failureCount, error: unknown) => boolean`) as
-  // its `retry` option, which widens the inferred `TError` generic to
-  // `unknown` (see that function's own call sites' comments in
-  // `students.ts`). `error instanceof ApiError` below still narrows fine
-  // regardless of the declared type.
+  // `TError` is `unknown`: `error instanceof ApiError` below narrows it. Mutations no longer
+  // carry `retry: shouldRetryQuery` (#2596), so this is just the loosest type callers can pass.
   mutation: UseMutationResult<Student, unknown, TInput>;
   buildPayload: (values: StudentFormValues) => TInput;
   onSuccess: (student: Student) => void;
