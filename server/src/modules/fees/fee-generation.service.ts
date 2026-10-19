@@ -282,6 +282,10 @@ export class FeeGenerationService {
       // (student, structure, period) — no approval required, unlike
       // CREATE_ANYWAY.
       alwaysNewOccurrence?: boolean;
+      // [F-148] The unattended daily fine sweep only: a rule-fine bill the school deleted
+      // counts as a duplicate, so the sweep never brings it back. A manual run (and its
+      // preview) ignores deleted bills, so preview and generate agree.
+      skipRemovedFineBills?: boolean;
     },
   ): Promise<GenerateFeesResultDto> {
     const source = options?.source ?? FeeGenerationSource.MANUAL;
@@ -320,7 +324,8 @@ export class FeeGenerationService {
             context.periodStart,
             manager,
             source === FeeGenerationSource.FINE_RULE &&
-              duplicateStrategy === DuplicateStrategy.SKIP,
+              duplicateStrategy === DuplicateStrategy.SKIP &&
+              options?.skipRemovedFineBills === true,
           );
       // Group by student/structure pair — a pair can already have more than
       // one stacked bill from a prior CREATE_ANYWAY run, so we need every
@@ -958,7 +963,7 @@ export class FeeGenerationService {
         period_start: periodStart,
       },
     });
-    // [F-148] The daily fine sweep must not re-create a rule-fine bill the
+    // [F-148] The daily fine sweep (only) must not re-create a rule-fine bill the
     // school deleted: soft-deleted bills of FINE_RULE batches count as duplicates.
     const removed = includeRemovedFineBills
       ? await manager
@@ -1003,21 +1008,17 @@ export function assertPeriodWithinAcademicYear(
 ): { periodStart: Date; periodEnd: Date } {
   const periodStart = new Date(`${periodStartIso}T00:00:00.000Z`);
   if (Number.isNaN(periodStart.getTime())) {
-    throw new BadRequestException(`Invalid period_start "${periodStartIso}"`);
+    throw new BadRequestException('Period start must be a real date');
   }
 
   if (periodType === PeriodType.MONTH) {
     if (periodStart.getUTCDate() !== 1) {
-      throw new BadRequestException(
-        `period_start "${periodStartIso}" must be the 1st of a month for period_type MONTH`,
-      );
+      throw new BadRequestException('Period start must be the 1st of a month for a monthly period');
     }
   } else {
     // getUTCDay(): 0=Sunday..6=Saturday, Monday === 1.
     if (periodStart.getUTCDay() !== 1) {
-      throw new BadRequestException(
-        `period_start "${periodStartIso}" must be a Monday for period_type WEEK`,
-      );
+      throw new BadRequestException('Period start must be a Monday for a weekly period');
     }
   }
 
@@ -1029,10 +1030,8 @@ export function assertPeriodWithinAcademicYear(
   const start = new Date(academicYear.start_date);
   const end = new Date(academicYear.end_date);
   if (periodStart < start || periodStart > end) {
-    throw new BadRequestException(
-      `period_start "${periodStartIso}" is outside academic year "${academicYear.name}" ` +
-        `(${academicYear.start_date} to ${academicYear.end_date})`,
-    );
+    // Fixed texts in this function: never echo the submitted value (Rule 23).
+    throw new BadRequestException('Period start is outside the academic year');
   }
 
   return { periodStart, periodEnd };

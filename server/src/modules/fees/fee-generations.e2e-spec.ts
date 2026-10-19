@@ -422,6 +422,20 @@ describe('Fee Generations E2E', () => {
         .expect(400);
     });
 
+    it('400s on a period_start with a time or offset, which could shift the day (F-142)', async () => {
+      const batchId = await createBatch();
+      const res = await supertest(app.getHttpServer())
+        .patch(`/api/v1/fees/generations/${batchId}`)
+        .send({ period_start: '2026-12-01T00:00:00+06:00' })
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(400);
+      expect(res.body.message).toEqual(
+        expect.arrayContaining([expect.stringMatching(/^period_start /)]),
+      );
+    });
+
     it('409s with the colliding students on a period_start collision', async () => {
       const batchId = await createBatch();
       const studentId = await createStudent();

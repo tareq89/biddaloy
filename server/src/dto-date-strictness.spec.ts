@@ -26,7 +26,7 @@ const LEGACY_BARE_DATE_STRINGS = new Map<string, { count: number; reason: string
   ],
   ['modules/fees/dto/checkout.dto.ts', { count: 1, reason: 'legacy, not swept' }],
   ['modules/fees/dto/discount-rules.dto.ts', { count: 4, reason: 'legacy, not swept' }],
-  ['modules/fees/dto/fee-generations.dto.ts', { count: 4, reason: 'legacy, not swept' }],
+  ['modules/fees/dto/fee-generations.dto.ts', { count: 3, reason: 'legacy, not swept' }],
   ['modules/fees/dto/fees.dto.ts', { count: 5, reason: 'legacy, not swept' }],
   ['modules/fees/dto/recurring-schedules.dto.ts', { count: 4, reason: 'legacy, not swept' }],
   ['modules/fees/fines/dto/fines.dto.ts', { count: 1, reason: 'legacy, not swept' }],
