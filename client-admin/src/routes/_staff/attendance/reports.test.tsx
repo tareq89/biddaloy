@@ -143,7 +143,12 @@ describe('/attendance/reports', () => {
       locale: 'en',
     });
     const tab = await screen.findByRole('tab', { name: 'Month summary' });
-    expect(document.getElementById(tab.getAttribute('aria-controls') ?? '')).not.toBeNull();
+    // [2670] The panel is the report itself, not an empty hidden stand-in.
+    const panel = screen.getByRole('tabpanel', { name: 'Month summary' });
+    expect(panel.id).toBe(tab.getAttribute('aria-controls'));
+    await waitFor(() =>
+      expect(within(panel).getByText('Pick a section to see its attendance report.')).toBeTruthy(),
+    );
   });
 
   it('shows a prompt instead of a spinner when no section is picked in the summary view', async () => {

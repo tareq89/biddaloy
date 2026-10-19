@@ -97,7 +97,10 @@ describe('PrintIdCardModal', () => {
     setup();
     await screen.findByRole('checkbox', { name: /Rahim Uddin/ });
     const tab = screen.getByRole('tab', { name: 'Students' });
-    expect(document.getElementById(tab.getAttribute('aria-controls') ?? '')).not.toBeNull();
+    // [2670] The panel holds the picker, not an empty hidden stand-in.
+    const panel = screen.getByRole('tabpanel', { name: 'Students' });
+    expect(panel.id).toBe(tab.getAttribute('aria-controls'));
+    expect(within(panel).getByRole('checkbox', { name: /Rahim Uddin/ })).toBeTruthy();
   });
 
   it('removing a chip unticks the row', async () => {

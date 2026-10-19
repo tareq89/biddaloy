@@ -411,65 +411,68 @@ function ReportsPageContent() {
           <TabsTrigger value="flags">{t('reports.viewFlags')}</TabsTrigger>
           {periodEnabled && <TabsTrigger value="subjects">{t('reports.viewSubjects')}</TabsTrigger>}
         </TabsList>
-        {/* The page body sits outside the tab row; this empty panel is what the tab's aria-controls points at. */}
-        <TabsContent value={view} className="hidden" />
+        {/* The selected view's report is its tab's panel. mt-4 + the Tabs gap-2 = the page's space-y-6. */}
+        <TabsContent value={view} className="mt-4 space-y-6">
+          <FilterBar
+            fields={filterFields}
+            values={state.filters}
+            onChange={handleFilterChange}
+            {...(view === 'subjects' ? {} : { resultCount: totalCount })}
+          />
+          {view === 'subjects' ? (
+            <SubjectSummaryTab
+              sectionId={filters.section_id}
+              month={month}
+              lowThreshold={lowThreshold}
+            />
+          ) : (
+            <DataTable
+              tableId="attendance-reports"
+              caption={t('reports.caption')}
+              // Two distinct row shapes (`RegisterMatrixRow` vs `LowAttendanceFlag`)
+              // share one `<DataTable>` instance, switched on `view` — TS has no
+              // way to correlate `columns`/`data`/`getRowId`'s three separate
+              // union types back into one matched generic, so these two casts
+              // (not `unknown`, `never` — a type no real value satisfies,
+              // matching this file's other "trust the runtime `view` check"
+              // casts) tell it what every other branch here already guarantees
+              // at runtime. `tsc --noEmit`'s whole-program inference needs both;
+              // type-aware ESLint's per-file inference only ever flags one of
+              // the two as redundant (which one flips depending on unrelated
+              // edits elsewhere in the file) — a real discrepancy between the
+              // two checkers' inference order on this generic component, not a
+              // mistake in either direction.
+              // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+              columns={
+                (view === 'summary' ? summaryColumns : flagsColumns) as DataTableColumn<never>[]
+              }
+              data={rows as never[]}
+              getRowId={(row: { student_id: string }) => row.student_id}
+              rowActions={rowActions}
+              // Neither view is server-sortable — no `sort_by` column on either
+              // `register-matrix` or `flags/low`.
+              sorting={null}
+              onSortingChange={() => undefined}
+              // Summary is one whole section (total shown as "Total N"); only the
+              // flags view pages through the server.
+              paginated={view === 'flags'}
+              page={state.page}
+              pageSize={state.limit}
+              totalCount={totalCount}
+              onPageChange={actions.setPage}
+              onPageSizeChange={actions.setLimit}
+              pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
+              loading={loading}
+              isFetching={isFetching}
+              emptyState={emptyState}
+              {...(isError ? { error: t('reports.errorMessage') } : {})}
+              announceResults={(count, total) =>
+                t('reports.announceResults', { visible: count, total })
+              }
+            />
+          )}
+        </TabsContent>
       </Tabs>
-      <FilterBar
-        fields={filterFields}
-        values={state.filters}
-        onChange={handleFilterChange}
-        {...(view === 'subjects' ? {} : { resultCount: totalCount })}
-      />
-      {view === 'subjects' ? (
-        <SubjectSummaryTab
-          sectionId={filters.section_id}
-          month={month}
-          lowThreshold={lowThreshold}
-        />
-      ) : (
-        <DataTable
-          tableId="attendance-reports"
-          caption={t('reports.caption')}
-          // Two distinct row shapes (`RegisterMatrixRow` vs `LowAttendanceFlag`)
-          // share one `<DataTable>` instance, switched on `view` — TS has no
-          // way to correlate `columns`/`data`/`getRowId`'s three separate
-          // union types back into one matched generic, so these two casts
-          // (not `unknown`, `never` — a type no real value satisfies,
-          // matching this file's other "trust the runtime `view` check"
-          // casts) tell it what every other branch here already guarantees
-          // at runtime. `tsc --noEmit`'s whole-program inference needs both;
-          // type-aware ESLint's per-file inference only ever flags one of
-          // the two as redundant (which one flips depending on unrelated
-          // edits elsewhere in the file) — a real discrepancy between the
-          // two checkers' inference order on this generic component, not a
-          // mistake in either direction.
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-          columns={(view === 'summary' ? summaryColumns : flagsColumns) as DataTableColumn<never>[]}
-          data={rows as never[]}
-          getRowId={(row: { student_id: string }) => row.student_id}
-          rowActions={rowActions}
-          // Neither view is server-sortable — no `sort_by` column on either
-          // `register-matrix` or `flags/low`.
-          sorting={null}
-          onSortingChange={() => undefined}
-          // Summary is one whole section (total shown as "Total N"); only the
-          // flags view pages through the server.
-          paginated={view === 'flags'}
-          page={state.page}
-          pageSize={state.limit}
-          totalCount={totalCount}
-          onPageChange={actions.setPage}
-          onPageSizeChange={actions.setLimit}
-          pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
-          loading={loading}
-          isFetching={isFetching}
-          emptyState={emptyState}
-          {...(isError ? { error: t('reports.errorMessage') } : {})}
-          announceResults={(count, total) =>
-            t('reports.announceResults', { visible: count, total })
-          }
-        />
-      )}
       <SendReminderDialog
         open={reminderStudentId !== null}
         onOpenChange={(open) => !open && setReminderStudentId(null)}
