@@ -389,6 +389,30 @@ describe('AcademicYearService (integration)', () => {
       await expect(service.findOne(year.id, TENANT_ID)).resolves.toBeDefined();
     });
 
+    it('still counts the bill of a removed student (2613)', async () => {
+      const { year, other, klass, student } = await yearWithForeignClass();
+      const fs = await dataSource.getRepository(FeeStructure).save({
+        fee_type: FeeType.MONTHLY_TUITION,
+        name: 'Tuition',
+        amount: 500,
+        class_id: klass.id,
+        academic_year_id: other.id,
+        tenant_id: TENANT_ID,
+      });
+      await dataSource.getRepository(StudentFee).save({
+        student_id: student.id,
+        academic_year_id: year.id,
+        fee_structure_id: fs.id,
+        period_start: new Date('2022-02-01'),
+        total_amount: 500,
+      });
+      await dataSource.getRepository(Student).softDelete({ id: student.id });
+
+      await expect(service.remove(year.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_IN_USE', student_fees_count: 1 } },
+      });
+    });
+
     it('can delete an empty, non-current year', async () => {
       const created = await service.create(
         { name: '2030-2031', start_date: '2030-01-01', end_date: '2030-12-31' },
