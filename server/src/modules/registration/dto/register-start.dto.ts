@@ -1,10 +1,11 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   Equals,
   IsEmail,
   IsISO31661Alpha2,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -53,11 +54,12 @@ export class RegisterStartDto {
   @Matches(INTERNATIONAL_PHONE_REGEX, { message: 'Invalid phone format' })
   phone: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Stored unverified; verify it later from the profile.' })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
+  @IsOptional()
   @IsEmail()
   @MaxLength(100)
-  email: string;
+  email?: string;
 
   @ApiProperty({ description: 'Must be true.' })
   @Equals(true, { message: 'The terms must be accepted' })

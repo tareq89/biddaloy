@@ -11,11 +11,12 @@ export interface StagedRegistration {
   country_code: string;
   address: string;
   phone: string;
-  email: string;
+  /** Typed at signup, optional; stored unverified. */
+  email: string | null;
   terms_accepted_at: string;
   /** What the code was sent to, and how. Fixed at start so verify cannot be pointed elsewhere. */
   identifier: string;
-  channel: 'sms' | 'email';
+  channel: 'sms';
   /** Extra codes already sent for this stage. */
   resends?: number;
 }

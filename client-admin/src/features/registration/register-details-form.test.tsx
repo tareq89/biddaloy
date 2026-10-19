@@ -25,7 +25,8 @@ describe('RegisterDetailsForm', () => {
     await user.click(await screen.findByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(screen.getAllByText('This field is required.').length).toBe(3));
     expect(screen.getByText('Enter a valid mobile number.')).toBeTruthy();
-    expect(screen.getByText('Enter a valid email address.')).toBeTruthy();
+    // Email is optional (D6): an empty one is not an error.
+    expect(screen.queryByText('Enter a valid email address.')).toBeNull();
     expect(screen.getByText('Please accept to continue.')).toBeTruthy();
     expect(onSubmit).not.toHaveBeenCalled();
   });
@@ -95,6 +96,36 @@ describe('RegisterDetailsForm', () => {
     await user.click(await screen.findByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0]?.[1]).toBe('+919876543210');
+  });
+
+  it('submits with no email', async () => {
+    const { onSubmit, user } = setup({
+      initialValues: {
+        adminName: 'A',
+        schoolName: 'S',
+        address: 'Addr',
+        phone: '01712345678',
+        terms: true,
+      },
+    });
+    await user.click(await screen.findByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+  });
+
+  it('still rejects an email that is typed but malformed', async () => {
+    const { onSubmit, user } = setup({
+      initialValues: {
+        adminName: 'A',
+        schoolName: 'S',
+        address: 'Addr',
+        email: 'nope',
+        phone: '01712345678',
+        terms: true,
+      },
+    });
+    await user.click(await screen.findByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('Enter a valid email address.')).toBeTruthy();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });
 

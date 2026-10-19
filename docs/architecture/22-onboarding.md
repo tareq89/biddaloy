@@ -7,7 +7,7 @@ trial honest. Epic 13.0 (#416). Decisions D1–D42 live on the epic.
 
 ```mermaid
 flowchart LR
-    R["/register<br/>7 fields + captcha"] --> C["Code<br/>SMS or email"]
+    R["/register<br/>7 fields + captcha<br/>phone required, email optional"] --> C["Code<br/>SMS only"]
     C --> P["First password<br/>(skippable for some)"]
     P --> T["School in TRIAL<br/>30 days, 10 students"]
     T --> W["/welcome wizard<br/>3 setup doors"]
@@ -38,7 +38,7 @@ sequenceDiagram
     API->>API: Turnstile siteverify
     API->>R: stage the details (30 min)
     API-->>U: 202 { registration_id, channel, resend_in: 60 }
-    Note over U,API: code goes by SMS, or by email outside the SMS prefixes
+    Note over U,API: the code always goes by SMS (D6); a phone outside the SMS prefixes gets 400
     U->>API: POST /auth/register/verify { registration_id, otp }
     API->>R: check code, then read-and-delete the stage
     API->>DB: one transaction: school in TRIAL, ADMIN user, audit row
@@ -62,7 +62,8 @@ Example `start` body (`RegisterStartDto`):
 
 | Rule                         | What happens                                                                                                                                                 | Where                             |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
-| Code channel (D31)           | A phone with an allowed prefix gets an SMS. Any other phone gets the code by email. Env `OTP_SMS_ALLOWED_PREFIXES`, default `+880`.                          | `registration.service.ts` `start` |
+| Code channel (D6)            | Always SMS. A phone outside `OTP_SMS_ALLOWED_PREFIXES` (default `+880`) gets `400 Invalid phone format`, so foreign schools wait until the list is widened.  | `registration.service.ts` `start` |
+| Email (D6)                   | Optional. Stored unverified (`email_verified_at` NULL) and verified later from the profile. If another user row already holds it, it is silently left out.   | `createSchool`                    |
 | Resend                       | 60 s cooldown, at most 3 extra codes per stage.                                                                                                              | `MAX_RESENDS`                     |
 | Existing account (D30)       | After the code, the new school is attached to that user. The old one-open-trial refusal (`TRIAL_ALREADY_OPEN`) no longer fires: no school has an open trial. | `createSchool`                    |
 | Contact held by someone else | `409 CONTACT_IN_USE`. If any school of the user turned code sign-in off: `409 SIGN_IN_REQUIRED`.                                                             | `createSchool`                    |
@@ -459,12 +460,13 @@ File each finding as its own issue and link it on #1648.
 
 ## Where the plan and the code differ
 
-| Plan said                             | What was built                                                                                               | Why                                                         |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| Ended trial is stored as `deleted_at` | `SUSPENDED` + `TRIAL_EXPIRED` (D39)                                                                          | suspension is already enforced everywhere and is reversible |
-| Country from an IP lookup             | `?country=`, else browser time zone (D35)                                                                    | no IP service to depend on                                  |
-| Three guarded seat paths              | four: readmit checks too                                                                                     | a readmit takes a seat                                      |
-| Google and Facebook at sign-up        | Both are built (Facebook in #1647). Neither is required: a provider with no credentials is simply not listed | Meta app review must not block launch (D9)                  |
+| Plan said                                     | What was built                                                                                               | Why                                                              |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Ended trial is stored as `deleted_at`         | `SUSPENDED` + `TRIAL_EXPIRED` (D39)                                                                          | suspension is already enforced everywhere and is reversible      |
+| Country from an IP lookup                     | `?country=`, else browser time zone (D35)                                                                    | no IP service to depend on                                       |
+| Three guarded seat paths                      | four: readmit checks too                                                                                     | a readmit takes a seat                                           |
+| Code by SMS, or by email outside `+880` (D31) | SMS only; email optional and stored unverified (D6, #2718)                                                   | every school admin has a verified phone; email proof comes later |
+| Google and Facebook at sign-up                | Both are built (Facebook in #1647). Neither is required: a provider with no credentials is simply not listed | Meta app review must not block launch (D9)                       |
 
 ## Open follow-ups
 

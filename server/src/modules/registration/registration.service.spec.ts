@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, GoneException, ServiceUnavailableException } from '@nestjs/common';
 import { TenantStatusService } from '../schools/tenant-status.service';
 import { RegistrationService } from './registration.service';
 
 /** Only the pieces `start` touches; everything else is never reached. */
 function build(env: Record<string, string>, deliver: ReturnType<typeof vi.fn>) {
   const config = { get: (k: string) => env[k] };
-  const turnstile = { verify: vi.fn() };
-  const staging = { stage: vi.fn().mockResolvedValue('id-1') };
+  const turnstile = { verify: vi.fn(), assertAvailable: vi.fn() };
+  const staging = { stage: vi.fn().mockResolvedValue('id-1'), peek: vi.fn() };
   const otp = { request: vi.fn().mockResolvedValue({ code: '123456' }) };
   return new RegistrationService(
     turnstile as never,
@@ -75,19 +75,20 @@ describe('RegistrationService.start delivery', () => {
   });
 });
 
-/** [68.1.2221] createSchool stores only the contact the code went to. */
+/** D6 + [68.1.2221] createSchool stores the proven phone and, when free, the typed email (unverified). */
 describe('RegistrationService.createSchool contacts', () => {
-  const staged = (channel: 'sms' | 'email') => ({
-    channel,
+  const staged = (over: Record<string, unknown> = {}) => ({
+    channel: 'sms',
     school_name: 'S',
     admin_name: 'A',
     country_code: 'BD',
     address: 'x',
     phone: '01711000000',
     email: 'a@example.com',
+    ...over,
   });
 
-  function run(channel: 'sms' | 'email', findOne: ReturnType<typeof vi.fn>) {
+  function run(stage: Record<string, unknown>, findOne: ReturnType<typeof vi.fn>) {
     const provision = vi.fn().mockRejectedValue(new Error('stop'));
     const s = new RegistrationService(
       {} as never,
@@ -108,32 +109,68 @@ describe('RegistrationService.createSchool contacts', () => {
     );
     const call = (
       s as never as { createSchool: (...a: unknown[]) => Promise<unknown> }
-    ).createSchool('reg-1', staged(channel), ctx, undefined);
+    ).createSchool('reg-1', stage, ctx, undefined);
     return { provision, call };
   }
 
-  it('an SMS registration passes only phone to provisioning', async () => {
-    const { provision, call } = run('sms', vi.fn().mockResolvedValue(null));
+  it('passes phone and the typed email to provisioning when nobody holds the email', async () => {
+    // First lookup: phone owner (none). Second: email holder, soft-deleted included (none).
+    const findOne = vi.fn().mockResolvedValue(null);
+    const { provision, call } = run(staged(), findOne);
+    await expect(call).rejects.toThrow('stop');
+    expect(provision.mock.calls[0][0].admin).toEqual({
+      name: 'A',
+      phone: '01711000000',
+      email: 'a@example.com',
+    });
+    expect(findOne.mock.calls[1][0]).toMatchObject({ withDeleted: true });
+  });
+
+  it('silently omits an email another user row holds (no error, no echo)', async () => {
+    const findOne = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'victim' });
+    const { provision, call } = run(staged(), findOne);
     await expect(call).rejects.toThrow('stop');
     const admin = provision.mock.calls[0][0].admin;
     expect(admin).toEqual({ name: 'A', phone: '01711000000' });
     expect('email' in admin).toBe(false);
   });
 
-  it('an email registration passes only email', async () => {
-    const { provision, call } = run('email', vi.fn().mockResolvedValue(null));
+  it('passes only phone when no email was typed', async () => {
+    const { provision, call } = run(staged({ email: null }), vi.fn().mockResolvedValue(null));
     await expect(call).rejects.toThrow('stop');
-    const admin = provision.mock.calls[0][0].admin;
-    expect(admin).toEqual({ name: 'A', email: 'a@example.com' });
-    expect('phone' in admin).toBe(false);
+    expect(provision.mock.calls[0][0].admin).toEqual({ name: 'A', phone: '01711000000' });
   });
 
-  it('an email held by another user no longer blocks an SMS registration', async () => {
-    // Only the phone is looked up; a holder of the (unproven) email is never consulted.
-    const findOne = vi.fn().mockResolvedValue(null);
-    const { provision, call } = run('sms', findOne);
-    await expect(call).rejects.toThrow('stop');
-    expect(findOne).toHaveBeenCalledTimes(1);
-    expect(provision).toHaveBeenCalled();
+  it('answers 410 for a stage written before D6 that proved an email', async () => {
+    const s = build({}, vi.fn());
+    (s as never as { staging: { peek: unknown } }).staging.peek = vi
+      .fn()
+      .mockResolvedValue(staged({ channel: 'email' }));
+    await expect(s.verify({ registration_id: 'r', otp: '123456' } as never, ctx)).rejects.toThrow(
+      GoneException,
+    );
+  });
+});
+
+describe('RegistrationService.start channel', () => {
+  it('always uses SMS, even when an email was given', async () => {
+    const deliver = vi.fn().mockResolvedValue({ logId: 'l', status: 'SENT' });
+    const s = build({ NODE_ENV: 'test', PLATFORM_TENANT_ID: 'p' }, deliver);
+    await expect(s.start(dto, ctx)).resolves.toMatchObject({ channel: 'sms' });
+    expect(deliver).toHaveBeenCalledWith(
+      expect.objectContaining({ medium: 'SMS', to: '01711000000' }),
+    );
+  });
+
+  it('answers 400 for a number outside the allowed prefixes, without echoing it', async () => {
+    const s = build({ NODE_ENV: 'test' }, vi.fn());
+    const err = await s
+      .start({ ...(dto as object), phone: '+14155550123' } as never, ctx)
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect(err.getResponse()).toMatchObject({
+      message: ['Invalid phone format'],
+      details: { code: 'PHONE_NOT_SUPPORTED' },
+    });
   });
 });

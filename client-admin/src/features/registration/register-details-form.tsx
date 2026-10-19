@@ -1,9 +1,10 @@
-/** Step 1 of the register card: the seven fields (D35 order) + captcha. Presentational: no network. */
+/** Step 1 of the register card: the seven fields (phone first, email optional) + captcha. Presentational: no network. */
 import {
   Button,
   Checkbox,
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -79,7 +80,11 @@ export function RegisterDetailsForm({
               /^\+\d{8,15}$/.test(toLatinDigits(v).replace(/[\s().-]/g, '')),
             t('validation.phone'),
           ),
-        email: z.string().trim().email(t('validation.email')),
+        // Optional (D6): stored unverified, verified later from the profile.
+        email: z
+          .string()
+          .trim()
+          .pipe(z.union([z.literal(''), z.string().email(t('validation.email'))])),
         terms: z.boolean().refine((v) => v, t('validation.terms')),
       }),
     [regionConfig, t],
@@ -140,6 +145,47 @@ export function RegisterDetailsForm({
         className="flex flex-col gap-4"
       >
         {text('adminName', t('fields.adminName'), { autoComplete: 'name' })}
+        <FormField
+          control={form.control}
+          name="phone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="register-phone">{t('fields.phone')}</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  id="register-phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder={regionConfig.phone.example}
+                  disabled={loading}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="register-email">{t('fields.email')}</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  id="register-email"
+                  type="email"
+                  autoComplete="email"
+                  disabled={loading}
+                />
+              </FormControl>
+              <FormDescription>{t('fields.emailHint')}</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         {text('schoolName', t('fields.schoolName'), { autoComplete: 'organization' })}
         <FormField
           control={form.control}
@@ -166,28 +212,6 @@ export function RegisterDetailsForm({
           )}
         />
         {text('address', t('fields.address'), { autoComplete: 'street-address' })}
-        <FormField
-          control={form.control}
-          name="phone"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel htmlFor="register-phone">{t('fields.phone')}</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  id="register-phone"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder={regionConfig.phone.example}
-                  disabled={loading}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {text('email', t('fields.email'), { type: 'email', autoComplete: 'email' })}
         <FormField
           control={form.control}
           name="terms"

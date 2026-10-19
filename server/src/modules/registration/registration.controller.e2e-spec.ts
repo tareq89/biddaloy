@@ -84,9 +84,24 @@ describe('RegistrationController (e2e)', () => {
       expect(b.body).toMatchObject({ channel: 'sms', resend_in: 60 });
     });
 
-    it('sends the code by email when the phone prefix is not on the SMS list', async () => {
-      const res = await start(details({ phone: '+14155550123' })).expect(202);
-      expect(res.body.channel).toBe('email');
+    it('answers 400 when the phone prefix is not on the SMS list (SMS-only, D6)', async () => {
+      const res = await start(details({ phone: '+14155550123' })).expect(400);
+      expect(res.body.message).toEqual(['Invalid phone format']);
+      expect(res.body.details).toMatchObject({ code: 'PHONE_NOT_SUPPORTED' });
+      // Rule 23: the message never echoes the number.
+      expect(JSON.stringify(res.body)).not.toContain('4155550123');
+    });
+
+    it('answers 400 when the phone is missing', async () => {
+      const d: Record<string, unknown> = details();
+      delete d.phone;
+      await start(d).expect(400);
+    });
+
+    it('accepts a sign-up with no email', async () => {
+      const d: Record<string, unknown> = details();
+      delete d.email;
+      await start(d).expect(202);
     });
 
     it('rejects when the terms are not accepted', async () => {
@@ -139,11 +154,11 @@ describe('RegistrationController (e2e)', () => {
         [school.id],
       );
       expect(audit[0].new_values).toMatchObject({ country_code: 'BD' });
-      // [68.1.2221] PUB-01: the unproven email is never stored on the new account.
+      // D6: the typed email is stored, but unverified (email_verified_at asserted NULL above).
       const [stored] = await ds.query(`SELECT email, phone FROM users WHERE id = $1`, [
         admins[0].id,
       ]);
-      expect(stored.email).toBeNull();
+      expect(stored.email).toBe(d.email);
       expect(stored.phone).toBe(d.phone);
       // ...and the session returned still works.
       await supertest(app.getHttpServer())
@@ -227,8 +242,8 @@ describe('RegistrationController (e2e)', () => {
     });
 
     it("never touches someone else's account through the unproven contact", async () => {
-      // The attacker proves a fresh phone but types the victim's email. The email is no longer
-      // stored at all, so the victim's user is neither reused nor blocking the sign-up.
+      // The attacker proves a fresh phone but types the victim's email. The email is silently
+      // omitted (an existing holder), so the victim's user is neither reused nor blocking sign-up.
       const victimEmail = `victim-${Date.now()}@example.com`;
       const [{ id: victimId }] = await ds.query(
         `INSERT INTO users (email, full_name, status) VALUES ($1, 'Victim', 'ACTIVE') RETURNING id`,
@@ -244,6 +259,11 @@ describe('RegistrationController (e2e)', () => {
       );
       expect(admins).toHaveLength(1);
       expect(admins[0].user_id).not.toBe(victimId);
+      // The victim's email was left out, so the new admin has none.
+      const [created] = await ds.query(`SELECT email FROM users WHERE id = $1`, [
+        admins[0].user_id,
+      ]);
+      expect(created.email).toBeNull();
       expect(
         await ds.query(`SELECT 1 FROM user_tenants WHERE user_id = $1`, [victimId]),
       ).toHaveLength(0);

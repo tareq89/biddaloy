@@ -19,7 +19,8 @@
     "country": "Country",
     "address": "School address",
     "phone": "Mobile number",
-    "email": "Email"
+    "email": "Email",
+    "emailHint": "Optional. You can verify it later."
   },
   "terms": "I agree to the terms and privacy policy",
   "continue": "Continue",
@@ -27,7 +28,6 @@
   "otp": {
     "title": "Enter the code we sent",
     "sentToPhone": "We sent a 6-digit code to {{phone}}",
-    "sentToEmail": "We sent a 6-digit code to {{email}}",
     "resendIn": "Send again in {{seconds}} s",
     "resend": "Send the code again",
     "changeNumber": "Change number",
@@ -49,6 +49,7 @@
     "trialAlreadyOpen": "A trial school already exists for this number or email. Sign in instead.",
     "unavailable": "Sign-up is not available right now. Please try again later.",
     "generic": "Something went wrong. Please try again.",
+    "phoneNotSupported": "This number is not supported yet. Use a Bangladesh mobile number.",
     "contactInUse": "This number or email is already used for another school. Sign in instead.",
     "signInRequired": "You already have an account. Sign in to continue.",
     "resendLimit": "You have asked for too many codes. Please go back and start again.",

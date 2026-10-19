@@ -225,6 +225,7 @@ describe('RegisterFlow', () => {
     ['start', 503, { code: 'REGISTRATION_UNAVAILABLE' }, /not available right now/],
     ['start', 409, { code: 'CONTACT_IN_USE' }, /already used for another school/],
     ['start', 409, { code: 'SIGN_IN_REQUIRED' }, /already have an account/],
+    ['start', 400, { code: 'PHONE_NOT_SUPPORTED' }, /number is not supported/],
     ['start', 400, undefined, /complete the check/],
     ['verify', 400, undefined, /code is not right/],
     ['verify', 410, undefined, /code has expired/],

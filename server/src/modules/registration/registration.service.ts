@@ -47,7 +47,7 @@ const OTP_PURPOSE = 'REGISTER';
 const RESEND_IN_SECONDS = 60;
 /** One captcha buys a stage; this caps how many extra codes (SMS cost) it can send. */
 const MAX_RESENDS = 3;
-/** D31: SMS codes only go to numbers with an allowed prefix (default Bangladesh); others get the code by email. */
+/** D6: the signup code always goes by SMS, only to numbers with an allowed prefix (default Bangladesh). */
 const DEFAULT_SMS_PREFIXES = '+880';
 
 export interface RegisterStartResult {
@@ -107,20 +107,29 @@ export class RegistrationService {
   async start(dto: RegisterStartDto, context: RequestContext): Promise<RegisterStartResult> {
     await this.turnstile.verify(dto.captcha_token, context.ip);
 
-    const byEmail = !isSmsAllowed(
-      dto.phone,
-      this.config.get<string>('OTP_SMS_ALLOWED_PREFIXES') || DEFAULT_SMS_PREFIXES,
-    );
+    // SMS-only (D6): a number outside the allowed prefixes cannot register. Same text as the DTO
+    // phone check; the number is never echoed (Rule 23).
+    if (
+      !isSmsAllowed(
+        dto.phone,
+        this.config.get<string>('OTP_SMS_ALLOWED_PREFIXES') || DEFAULT_SMS_PREFIXES,
+      )
+    ) {
+      throw new BadRequestException({
+        message: ['Invalid phone format'],
+        details: { code: 'PHONE_NOT_SUPPORTED' },
+      });
+    }
     const staged: StagedRegistration = {
       admin_name: dto.admin_name,
       school_name: dto.school_name,
       country_code: dto.country_code,
       address: dto.address,
       phone: dto.phone,
-      email: dto.email,
+      email: dto.email ?? null,
       terms_accepted_at: new Date().toISOString(),
-      identifier: byEmail ? dto.email : dto.phone,
-      channel: byEmail ? 'email' : 'sms',
+      identifier: dto.phone,
+      channel: 'sms',
     };
     const registrationId = await this.staging.stage(staged);
     return this.sendCode(registrationId, staged);
@@ -130,6 +139,7 @@ export class RegistrationService {
     this.turnstile.assertAvailable();
     const staged = await this.staging.peek(dto.registration_id);
     if (!staged) throw new GoneException('This registration has expired — start again');
+    this.assertNotLegacyEmailStage(staged);
     if ((staged.resends ?? 0) >= MAX_RESENDS) {
       throw new HttpException(
         {
@@ -155,6 +165,7 @@ export class RegistrationService {
     this.turnstile.assertAvailable();
     const peeked = await this.staging.peek(dto.registration_id);
     if (!peeked) throw new GoneException('This registration has expired — start again');
+    this.assertNotLegacyEmailStage(peeked);
 
     // The code is checked against what the stage says it was sent to — the caller cannot pick it.
     // Bound to this registration: a code sent for another stage on the same contact fails here.
@@ -177,8 +188,19 @@ export class RegistrationService {
     // Read-and-delete: of two concurrent verifies with the right code, only one gets the stage.
     const staged = await this.staging.consume(dto.registration_id);
     if (!staged) throw new GoneException('This registration has already been completed');
+    this.assertNotLegacyEmailStage(staged);
 
     return this.createSchool(dto.registration_id, staged, context, socialTicketId);
+  }
+
+  /**
+   * A stage written before D6 may have proven only an email. createSchool now always stamps the
+   * phone, so such a stage must start again (30 min TTL covers the deploy window).
+   */
+  private assertNotLegacyEmailStage(staged: { channel: string }): void {
+    if (staged.channel !== 'sms') {
+      throw new GoneException('This registration has expired — start again');
+    }
   }
 
   /** Request a code for a staged registration and deliver it. The reply never depends on whether the contact is known. */
@@ -211,7 +233,7 @@ export class RegistrationService {
       try {
         const res = await this.delivery.deliver({
           tenantId,
-          medium: staged.channel === 'email' ? CommunicationMedium.EMAIL : CommunicationMedium.SMS,
+          medium: CommunicationMedium.SMS,
           to: staged.identifier,
           recipientName: staged.admin_name,
           kind: 'OTP',
@@ -236,11 +258,9 @@ export class RegistrationService {
     context: RequestContext,
     socialTicketId: string | undefined,
   ): Promise<RegisterVerifyOutcome> {
-    const verifiedField = staged.channel === 'sms' ? 'phone' : 'email';
-
-    // Whoever holds the contact the code went to owns this registration.
+    // Whoever holds the phone the code went to owns this registration.
     const owner = await this.users.findOne({
-      where: { [verifiedField]: staged[verifiedField], deleted_at: IsNull() },
+      where: { phone: staged.phone, deleted_at: IsNull() },
     });
     if (owner) {
       if (owner.status !== UserStatus.ACTIVE) {
@@ -280,9 +300,21 @@ export class RegistrationService {
       }
     }
 
-    // Only the contact the code went to is stored; the other one is added later through
-    // the verified contact-change flow.
-    const adminContacts = { [verifiedField]: staged[verifiedField] };
+    // The phone is proven. The typed email is stored UNVERIFIED (verified later through the
+    // contact-change flow), but only when no user row holds it, soft-deleted included (UNIQUE
+    // covers them). Otherwise it is silently dropped: provisioning would reuse that user (the
+    // contact counts as proven here) and a clash would leak that the email exists (Rule 18/23).
+    // An existing owner's email is never overwritten. A race past this check hits 23505 below.
+    let email: string | undefined;
+    if (staged.email && !owner) {
+      const holder = await this.users.findOne({
+        where: { email: staged.email },
+        withDeleted: true,
+        select: { id: true },
+      });
+      if (!holder) email = staged.email;
+    }
+    const adminContacts = { phone: staged.phone, ...(email ? { email } : {}) };
 
     const provisionOnce = () =>
       this.provisioning.provision(
@@ -310,14 +342,12 @@ export class RegistrationService {
             const ticket = socialTicketId ? await this.socialTickets.consume(socialTicketId) : null;
             await this.trial.startAccount(result.school.id, manager);
             const userId = result.admin.user_id;
-            // Compare-and-set on the contact the code went to, same as OTP login: the stamp
+            // Compare-and-set on the phone the code went to, same as OTP login: the stamp
             // can never land on a replacement value this caller did not prove.
             await manager.update(
               User,
-              { id: userId, [verifiedField]: staged[verifiedField] },
-              verifiedField === 'phone'
-                ? { phone_verified_at: () => 'COALESCE(phone_verified_at, now())' }
-                : { email_verified_at: () => 'COALESCE(email_verified_at, now())' },
+              { id: userId, phone: staged.phone },
+              { phone_verified_at: () => 'COALESCE(phone_verified_at, now())' },
             );
             if (ticket) {
               await this.socialIdentity.link(userId, ticket, manager, context, result.school.id);
