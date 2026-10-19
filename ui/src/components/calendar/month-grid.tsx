@@ -228,6 +228,9 @@ export function MonthGrid({
         aria-label={formatMonth(month, config)}
         className="grid grid-cols-7 gap-px border-t border-border-subtle bg-border-subtle"
       >
+        {/* [2689] `contents` rows: some older Safari/VoiceOver drop display:contents elements from
+            the accessibility tree, which would bring back the required-parent violation there.
+            Accepted: axe passes in Chromium; the fix is a subgrid row if a real report comes in. */}
         <div role="row" className="contents">
           {orderedWeekdayLabels.map((label, i) => (
             <div
