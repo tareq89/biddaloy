@@ -137,13 +137,17 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
   });
 
   // Optional write-rejection rows: each is refused before any write happens.
+  // Hard guard: every line carries a 0.01 one-off discount and no approval token is sent.
+  // A discount needs a `fees.discount` step-up token, which checkout burns as its last
+  // check before writing, so even if the bill became payable again (payment reversed,
+  // bill regenerated) the request ends in a 403 and never records a payment.
   const checkout = (label, studentFeeId, amount, expect, ok) =>
     check('POST', '/api/v1/payments/checkout', label, {
       headers: sessions.admin,
       body: {
         idempotency_key: randomUUID(),
         payment_method: 'CASH',
-        lines: [{ student_fee_id: studentFeeId, amount }],
+        lines: [{ student_fee_id: studentFeeId, amount, one_off_discount: 0.01 }],
       },
       expect,
       ok,

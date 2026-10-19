@@ -430,7 +430,12 @@ smoke: 9/9 passed
 ```
 
 **Optional write-rejection checks.** Each runs only when its variables are set.
-Every one is refused before any write, so none changes data:
+Every one is refused before any write, so none changes data. The two checkout
+rows also carry a hard guard: each line has a `0.01` one-off discount and no
+`X-Approval-Token` is sent. Checkout burns the `fees.discount` token as its last
+check before writing, so if the "paid" fee ever becomes payable again (its
+payment reversed, the bill regenerated) the row fails with a 403. It never
+records a real payment.
 
 | Row     | Runs when                                      | Expects                                                     |
 | ------- | ---------------------------------------------- | ----------------------------------------------------------- |

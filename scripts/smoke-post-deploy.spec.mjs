@@ -153,6 +153,23 @@ describe('smoke-post-deploy', () => {
     },
   );
 
+  it('#2592/#2636 checkout rows can never write: a discount line and no approval token', async () => {
+    const bodies = [];
+    const f = fakeFetch();
+    const spy = async (url, init) => {
+      if (url.endsWith('/api/v1/payments/checkout')) bodies.push(init);
+      return f(url, init);
+    };
+    await run(spy, { ...ENV, ...OPT.paid, ...OPT.open });
+    expect(bodies).toHaveLength(2);
+    for (const init of bodies) {
+      expect(JSON.parse(init.body).lines.every((l) => l.one_off_discount > 0)).toBe(true);
+      expect(Object.keys(init.headers).map((h) => h.toLowerCase())).not.toContain(
+        'x-approval-token',
+      );
+    }
+  });
+
   it('never prints parent credentials', async () => {
     const r = await run(fakeFetch(), { ...ENV, ...OPT.parent });
     const out = r.lines.join('\n');
