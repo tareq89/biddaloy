@@ -146,7 +146,6 @@ export function useDeleteSubject() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/subjects/${id}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: (_data, id) => {
       void queryClient.invalidateQueries({ queryKey: subjectKeys.lists() });
       queryClient.removeQueries({ queryKey: subjectKeys.detail(id) });

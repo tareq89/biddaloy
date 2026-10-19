@@ -86,7 +86,6 @@ export function useUpdateShift(id: string) {
       const res = await apiClient.patch<Shift>(`/routines/shifts/${id}`, input);
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: shiftKeys.lists() });
     },
@@ -134,7 +133,6 @@ export function useReplacePeriodSlots(shiftId: string) {
       });
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: (slots) => {
       queryClient.setQueryData([...shiftKeys.detail(shiftId), 'period-slots'] as const, slots);
     },
@@ -184,7 +182,6 @@ export function useUpdateRoom(id: string) {
       const res = await apiClient.patch<Room>(`/routines/rooms/${id}`, input);
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: roomKeys.lists() });
     },

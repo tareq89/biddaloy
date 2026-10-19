@@ -5,6 +5,7 @@ import { shouldRetryQuery } from '../hooks/retry';
 import { i18n, COMMON_NAMESPACE } from '../i18n';
 
 import { ApiError, isTenantRestoringError, isTenantSuspendedError } from './errors';
+import { isNoResponseNetworkError } from './offline-cache';
 
 /**
  * Shows a permission-denied toast for any mutation that fails with a 403,
@@ -53,6 +54,11 @@ function handleMutationError(
   if (forbiddenHandled) return;
   if (error instanceof ApiError && error.statusCode === 403 && !isTenantSuspendedError(error)) {
     toast.error(i18n.t('errors.permissionDenied', { ns: COMMON_NAMESPACE }));
+    return;
+  }
+  // [2596] A 5xx or a lost reply: the write may have been saved. Say so, since we do not retry.
+  if ((error instanceof ApiError && error.statusCode >= 500) || isNoResponseNetworkError(error)) {
+    toast.error(i18n.t('outcomeUnknown', { ns: COMMON_NAMESPACE }));
   }
 }
 
@@ -104,7 +110,10 @@ export function createAppQueryClient(): QueryClient {
         throwOnError: isTenantSuspendedError,
       },
       mutations: {
-        retry: shouldRetryQuery,
+        // [2596] Never re-send a write on its own: if the server committed but the reply was
+        // lost (a 502/504, a dropped connection), a retry creates the record again. Only a
+        // request that carries an Idempotency-Key may opt back in with its own `retry`.
+        retry: false,
       },
     },
     queryCache: new QueryCache(),
