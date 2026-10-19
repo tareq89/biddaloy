@@ -102,7 +102,6 @@ export function useCreateAcademicYear() {
       const res = await apiClient.post<AcademicYear>('/academic-years', input);
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: academicYearKeys.lists() });
     },
@@ -116,7 +115,6 @@ export function useUpdateAcademicYear(id: string) {
       const res = await apiClient.patch<AcademicYear>(`/academic-years/${id}`, input);
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: academicYearKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: academicYearKeys.lists() });
@@ -130,7 +128,6 @@ export function useDeleteAcademicYear() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/academic-years/${id}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: (_data, id) => {
       void queryClient.invalidateQueries({ queryKey: academicYearKeys.lists() });
       queryClient.removeQueries({ queryKey: academicYearKeys.detail(id) });
@@ -149,7 +146,6 @@ export function useSetCurrentAcademicYear() {
       const res = await apiClient.post<AcademicYear>(`/academic-years/${id}/set-current`);
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: academicYearKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: academicYearKeys.details() });
