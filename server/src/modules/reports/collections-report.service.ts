@@ -532,12 +532,12 @@ export class CollectionsReportService {
     // beside net, never subtracted from it. A payout is cash, so a non-CASH
     // method filter has nothing to show. `amount` is stored negative.
     const payoutRange = this.buildRange(query);
-    const payoutParams: unknown[] = [tenantId, payoutRange.from, payoutRange.to];
-    let payoutWhere = `wt.tenant_id = $1 AND wt.kind = 'DEBIT_PAYOUT' AND wt.created_at BETWEEN $2 AND $3`;
-    if (query.received_by_user_id) {
-      payoutParams.push(query.received_by_user_id);
-      payoutWhere += ` AND wt.created_by_user_id = $${payoutParams.length}`;
-    }
+    const payoutParams: unknown[] = [
+      tenantId,
+      payoutRange.from,
+      payoutRange.to,
+      query.received_by_user_id ?? null,
+    ];
     const payoutsP: Promise<Array<{ user_id: string | null; full_name: string | null; paid_out: string }>> =
       query.payment_method && query.payment_method !== PaymentMethod.CASH
         ? Promise.resolve([])
@@ -546,7 +546,8 @@ export class CollectionsReportService {
                     COALESCE(SUM(-wt.amount), 0) AS paid_out
              FROM wallet_transactions wt
              LEFT JOIN users u ON u.id = wt.created_by_user_id
-             WHERE ${payoutWhere}
+             WHERE wt.tenant_id = $1 AND wt.kind = 'DEBIT_PAYOUT' AND wt.created_at BETWEEN $2 AND $3
+               AND ($4::uuid IS NULL OR wt.created_by_user_id = $4)
              GROUP BY wt.created_by_user_id, u.full_name`,
             payoutParams,
           );
@@ -604,7 +605,7 @@ export class CollectionsReportService {
         wallet_used: Number(totalsRow[0]?.wallet_used ?? 0),
         wallet_added: Number(totalsRow[0]?.wallet_added ?? 0),
         change_returned: Number(totalsRow[0]?.change_returned ?? 0),
-        wallet_paid_out: payouts.reduce((sum, r) => sum + Number(r.paid_out), 0),
+        wallet_paid_out: round2(payouts.reduce((sum, r) => sum + Number(r.paid_out), 0)),
       },
       by_method: byMethod.map((r): CollectionsByMethod => ({
         payment_method: r.payment_method,
