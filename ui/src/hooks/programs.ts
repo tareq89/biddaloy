@@ -180,6 +180,7 @@ export function useCreateProgram() {
       const res = await apiClient.post<Program>('/programs', input);
       return res.data;
     },
+    meta: { handlesUnknownOutcome: true },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: programKeys.all });
     },

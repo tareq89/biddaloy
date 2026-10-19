@@ -318,6 +318,21 @@ describe('createAppQueryClient', () => {
       expect(toastError).toHaveBeenCalledTimes(1);
     });
 
+    it('shows no unknown-outcome toast when the mutation sets handlesUnknownOutcome [2698]', async () => {
+      const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '');
+      const client = createAppQueryClient();
+      await expect(
+        client
+          .getMutationCache()
+          .build(client, {
+            mutationFn: () => Promise.reject(apiError(500)),
+            meta: { handlesUnknownOutcome: true },
+          })
+          .execute(undefined),
+      ).rejects.toThrow('boom');
+      expect(toastError).not.toHaveBeenCalled();
+    });
+
     it('shows the toast for a reply-less network error', async () => {
       const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '');
       const client = createAppQueryClient();

@@ -32,6 +32,8 @@ export function useSendBulkReminder() {
       return res.data;
     },
     onSuccess: rotate,
+    // The send dialog says "could not confirm" itself.
+    meta: { handlesUnknownOutcome: true },
     // Not `shouldRetryQuery` like every other mutation here: this endpoint
     // isn't idempotent — a retry after a dropped response (not just a
     // dropped request) creates a second ReminderBatch, a second set of
