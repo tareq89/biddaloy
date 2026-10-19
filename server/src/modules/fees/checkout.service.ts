@@ -615,9 +615,12 @@ export class CheckoutService {
     const changeHandlingDiffers = toWallet
       ? toPaisa(existing.change_amount ?? 0) > 0
       : toPaisa(existing.wallet_credit_added ?? 0) > 0;
-    // ponytail: a replay that omits payment_date while the first was back-dated is not caught; add a created_at comparison if cashiers ever hit it.
-    const paymentDateDiffers =
-      !!dto.payment_date && dateKey(existing.payment_date) !== dateKey(new Date(dto.payment_date));
+    // #2663: an omitted payment_date means "now", so replaying it against a back-dated first
+    // request is a different request (400). Back-dated = stored date's day is not the day created.
+    // ponytail: UTC day compare; a back-date inside the same UTC day is not seen.
+    const paymentDateDiffers = dto.payment_date
+      ? dateKey(existing.payment_date) !== dateKey(new Date(dto.payment_date))
+      : dateKey(existing.payment_date) !== dateKey(existing.created_at);
 
     const mismatch =
       existing.payment_method !== dto.payment_method ||
