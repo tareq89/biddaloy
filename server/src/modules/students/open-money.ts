@@ -1,8 +1,9 @@
 import { FeeStatus } from '@biddaloy/shared';
 import type { EntityManager } from 'typeorm';
+import { OPEN_FEE_STATUSES } from '../fees/fees.constants';
 
 /** Bills a student can still pay: the set checkout and payment allocation accept. */
-export const PAYABLE_FEE_STATUSES: readonly string[] = [
+export const OPEN_FEE_STATUSES: readonly string[] = [
   FeeStatus.PENDING,
   FeeStatus.PARTIALLY_PAID,
   FeeStatus.OVERDUE,
@@ -42,7 +43,7 @@ export async function studentsWithOpenMoney(
       WHERE st.tenant_id = $1 AND st.id = ANY($2)
         AND (COALESCE(d.open_dues, 0) > 0 OR COALESCE(w.balance, 0) <> 0)
       ORDER BY st.registration_number`,
-    [tenantId, studentIds, PAYABLE_FEE_STATUSES],
+    [tenantId, studentIds, OPEN_FEE_STATUSES],
   )) as Array<Omit<StudentOpenMoney, 'open_dues' | 'wallet_balance'> & Record<string, string>>;
   return rows.map((r) => ({
     id: r.id,

@@ -35,7 +35,7 @@ import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { localToday } from '../../common/time';
 import { assertSeatsAvailable } from '../schools/trial/seat-limit.service';
-import { PAYABLE_FEE_STATUSES } from './open-money';
+import { OPEN_FEE_STATUSES } from '../fees/fees.constants';
 import { bdPhoneTail } from '../communications/providers/shared/phone-number.util';
 
 // [16.3.3] Caps the audience picker's "select all matching" id list — bounds
@@ -730,7 +730,7 @@ export class StudentService {
             AND sf.status::text = ANY($3)
           ORDER BY sf.id
           FOR UPDATE OF sf`,
-        [id, tenantId, PAYABLE_FEE_STATUSES],
+        [id, tenantId, OPEN_FEE_STATUSES],
       )) as { total_amount: string; paid_amount: string; discount_amount: string }[];
       // Integer cents so decimal strings never drift (0.1 + 0.2).
       const cents = (v: string) => Math.round(Number(v) * 100);

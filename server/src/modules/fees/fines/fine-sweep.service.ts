@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { round2 } from '../../../common/constants/money';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
@@ -29,10 +30,6 @@ import {
   FineSweepPreviewResultDto,
   FineSweepRowDto,
 } from './dto/fine-sweep.dto';
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
 /** All calendar dates in `[from, to]` (inclusive), `'YYYY-MM-DD'`. Matches
  * `SchoolCalendarService`'s own "never use local-timezone `Date` math"

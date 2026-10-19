@@ -1,5 +1,5 @@
 import { FeeStatus } from '@biddaloy/shared';
-import { toPaisa } from '../../common/constants/money';
+import { round2, toPaisa } from '../../common/constants/money';
 
 /** Bill columns the shared allocation primitive below reads. A subset of
  * `StudentFee`, so a caller that only has those columns (not a full
@@ -46,8 +46,4 @@ export function applyAllocationToBill(
     discount_amount: newDiscount,
     status: newStatus,
   };
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
 }

@@ -1,4 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
+import { OPEN_FEE_STATUSES } from './fees.constants';
 import { Queue } from 'bullmq';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { attentionEvents } from '../attention/attention.constants';
@@ -35,23 +36,14 @@ import { buildIssuerSnapshot, lockSchoolForSnapshot } from '../schools/profile/i
 import { SchoolsService } from '../schools/schools.service';
 import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { localDate, localToday } from '../attendance/attendance-policy.util';
-import { toPaisa } from '../../common/constants/money';
+import { round2, toPaisa } from '../../common/constants/money';
 
 // One text for foreign, deleted and unknown ids, with no id in it (Rule 23, #2640).
 const STUDENT_FEE_NOT_FOUND = 'Student fee not found';
-const PAYABLE_STATUSES: FeeStatus[] = [
-  FeeStatus.PENDING,
-  FeeStatus.PARTIALLY_PAID,
-  FeeStatus.OVERDUE,
-];
 
 function dateKey(value: Date | string | null): string | null {
   if (value === null) return null;
   return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 /** Payload of the `payments.recorded` receipt job on `FEE_NOTIFY_QUEUE` [68.4.10]. */
@@ -213,7 +205,7 @@ export class CheckoutService {
             toPaisa(bill.total_amount) - toPaisa(bill.discount_amount) - toPaisa(bill.paid_amount);
           // A settled bill (PAID / WAIVED / nothing left) is a conflict, not a missing row (#2592).
           // The text carries no bill id (Rule 23).
-          if (!PAYABLE_STATUSES.includes(bill.status) || balancePaisa <= 0) {
+          if (!OPEN_FEE_STATUSES.includes(bill.status) || balancePaisa <= 0) {
             throw new ConflictException({
               message: 'This fee has no outstanding balance',
               details: { code: 'CHECKOUT_FEE_SETTLED' },
