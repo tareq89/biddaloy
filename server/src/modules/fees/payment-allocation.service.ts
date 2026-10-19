@@ -1,6 +1,5 @@
 import { FeeStatus } from '@biddaloy/shared';
-
-const AMOUNT_EPSILON = 0.01;
+import { toPaisa } from '../../common/constants/money';
 
 /** Bill columns the shared allocation primitive below reads. A subset of
  * `StudentFee`, so a caller that only has those columns (not a full
@@ -38,7 +37,7 @@ export function applyAllocationToBill(
   const newOneOffDiscount = round2(Number(bill.one_off_discount_amount) + oneOffDiscount);
   const newDiscount = round2(Number(bill.standing_discount_amount) + newOneOffDiscount);
   const newStatus =
-    newPaid + newDiscount >= Number(bill.total_amount) - AMOUNT_EPSILON
+    toPaisa(newPaid) + toPaisa(newDiscount) >= toPaisa(bill.total_amount)
       ? FeeStatus.PAID
       : FeeStatus.PARTIALLY_PAID;
   return {
