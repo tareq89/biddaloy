@@ -93,6 +93,13 @@ describe('PrintIdCardModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('points the selected tab at a panel that exists', async () => {
+    setup();
+    await screen.findByRole('checkbox', { name: /Rahim Uddin/ });
+    const tab = screen.getByRole('tab', { name: 'Students' });
+    expect(document.getElementById(tab.getAttribute('aria-controls') ?? '')).not.toBeNull();
+  });
+
   it('removing a chip unticks the row', async () => {
     const { user } = setup();
     const row = await screen.findByRole('checkbox', { name: /Rahim Uddin/ });
