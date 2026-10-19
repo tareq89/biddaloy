@@ -68,6 +68,8 @@
     "sending": "Sending…",
     "successMessage_one": "Reminder sent to {{count}} guardian.",
     "successMessage_other": "Reminder sent to {{count}} guardians.",
+    "limitNotice": "{{count}} students are selected, but one reminder can go to at most {{max}}. Pick fewer, or use the bulk reminder page.",
+    "limitLink": "Open bulk reminders",
     "errorMessage": "Couldn't send the reminder. Nothing was sent — try again."
   },
   "detail": {
