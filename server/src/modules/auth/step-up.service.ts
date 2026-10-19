@@ -161,17 +161,22 @@ export class StepUpService {
     // an unscoped key let a caller in ANY tenant do the same. The key never
     // needs eligibility to be checked first. The per-approver key is a higher
     // ceiling across all callers, so N accounts cannot multiply the guess rate.
-    const [pairAllowed, actorAllowed, approverAllowed] = await Promise.all([
+    // It is counted only once the caller's own keys allow the attempt: then one
+    // caller adds at most `max` to it per window and cannot fill it alone.
+    const [pairAllowed, actorAllowed] = await Promise.all([
       this.checkAndIncrementRateLimit(
         `step-up-attempts:pair:${actorTenantId}:${actorUserId}:${identifier}`,
       ),
       this.checkAndIncrementRateLimit(`step-up-attempts:actor:${actorUserId}`),
-      this.checkAndIncrementRateLimit(
+    ]);
+    const allowed =
+      pairAllowed &&
+      actorAllowed &&
+      (await this.checkAndIncrementRateLimit(
         `step-up-attempts:approver:${actorTenantId}:${identifier}`,
         this.rateLimitMaxAttempts() * APPROVER_CAP_MULTIPLIER,
-      ),
-    ]);
-    if (!pairAllowed || !actorAllowed || !approverAllowed) {
+      ));
+    if (!allowed) {
       throw new HttpException(
         { statusCode: HttpStatus.TOO_MANY_REQUESTS, message: 'Too many attempts' },
         HttpStatus.TOO_MANY_REQUESTS,

@@ -341,6 +341,21 @@ describe('StepUpService', () => {
       });
     });
 
+    // [2639] Round 2: attempts the caller's own pair/actor limit already refused must not
+    // spend the approver ceiling, or one caller locks the approver out for everyone.
+    it('one caller hammering an approver does not lock that approver out for another caller', async () => {
+      const { service } = buildService();
+
+      for (let i = 0; i < 25; i++) {
+        await service.verify(otpDto(), 'caller-a', TENANT_ID, CONTEXT).catch(() => undefined);
+      }
+
+      const callerB = await service
+        .verify(otpDto(), 'caller-b', TENANT_ID, CONTEXT)
+        .catch((e) => e);
+      expect(callerB.status).not.toBe(HttpStatus.TOO_MANY_REQUESTS);
+    });
+
     // Security-review fix: bcrypt/OTP verification must run at the same
     // cost whether or not the identifier resolves to a real approver —
     // otherwise response latency leaks which identifiers are real.
