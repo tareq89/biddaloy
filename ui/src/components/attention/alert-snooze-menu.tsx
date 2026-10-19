@@ -76,9 +76,14 @@ export function AlertSnoozeMenu({
               <AlarmClockIcon aria-hidden />
             </Button>
           ) : (
-            <Button variant="ghost" disabled={disabled} className="min-h-11 md:min-h-0">
+            <Button
+              variant="ghost"
+              aria-label={name}
+              disabled={disabled}
+              className="min-h-11 md:min-h-0"
+            >
               <AlarmClockIcon aria-hidden />
-              {name}
+              {t('item.snooze')}
             </Button>
           )}
         </MenuTrigger>
