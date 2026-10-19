@@ -13,6 +13,7 @@ import {
   PaymentStatus,
   WalletTransactionKind,
 } from '@biddaloy/shared';
+import { toPaisa } from '../../common/constants/money';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
@@ -24,7 +25,6 @@ import { InvoicesService } from '../invoices/invoices.service';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { attentionEvents } from '../attention/attention.constants';
 
-const AMOUNT_EPSILON = 0.01;
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -239,9 +239,9 @@ export class PaymentReversalService {
         if (!bill.deleted_at) {
           const remaining = round2(Number(bill.total_amount) - newPaid - newDiscount);
           statusAfter =
-            remaining <= AMOUNT_EPSILON
+            toPaisa(remaining) <= 0
               ? FeeStatus.PAID
-              : newPaid > AMOUNT_EPSILON
+              : toPaisa(newPaid) > 0
                 ? FeeStatus.PARTIALLY_PAID
                 : FeeStatus.PENDING;
         }
@@ -510,7 +510,7 @@ export class PaymentReversalService {
       currentBalance ?? (await this.walletService.balance(studentId, payment.tenant_id));
     creditAdded = round2(creditAdded);
     const balanceAfterRemoval = round2(balance - creditAdded);
-    if (balanceAfterRemoval >= -AMOUNT_EPSILON) return 0;
+    if (toPaisa(balanceAfterRemoval) >= 0) return 0;
 
     const shortfall = round2(-balanceAfterRemoval);
     const paymentRepo = manager ? manager.getRepository(Payment) : this.paymentRepo;
@@ -549,7 +549,7 @@ export class PaymentReversalService {
       if (used <= 0) continue;
       blockingIds.push(later.id);
       covered = round2(covered + used);
-      if (covered >= shortfall - AMOUNT_EPSILON) break;
+      if (toPaisa(covered) >= toPaisa(shortfall)) break;
     }
 
     // MON-14: no later *payment* spent it — only fee generation's auto-apply
@@ -644,11 +644,11 @@ export class PaymentReversalService {
       let covered = 0;
       const picked: WalletTransaction[] = [];
       for (const d of debits) {
-        if (covered >= shortfall - AMOUNT_EPSILON) break;
+        if (toPaisa(covered) >= toPaisa(shortfall)) break;
         picked.push(d);
         covered = round2(covered + Math.abs(Number(d.amount)));
       }
-      if (covered < shortfall - AMOUNT_EPSILON) {
+      if (toPaisa(covered) < toPaisa(shortfall)) {
         throw new ConflictException({
           code: 'REVERSE_BLOCKED_BY_NON_PAYMENT_WALLET_SPEND',
           message: `Reversing this payment would take the wallet balance negative, and the wallet debits made by fee generation cannot cover the shortfall — reversal must be handled manually.`,
@@ -701,9 +701,9 @@ export class PaymentReversalService {
           );
           const status = bill.deleted_at
             ? bill.status
-            : remaining <= AMOUNT_EPSILON
+            : toPaisa(remaining) <= 0
               ? FeeStatus.PAID
-              : newPaid > AMOUNT_EPSILON
+              : toPaisa(newPaid) > 0
                 ? FeeStatus.PARTIALLY_PAID
                 : FeeStatus.PENDING;
           await feeRepo.update(bill.id, { paid_amount: newPaid, status });
