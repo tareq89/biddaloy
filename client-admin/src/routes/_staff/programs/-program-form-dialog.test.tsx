@@ -134,4 +134,81 @@ describe('ProgramFormDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByText('A program with this name already exists');
   });
+
+  describe('name checks [2615]', () => {
+    function countPosts() {
+      const state = { posts: 0 };
+      server.use(
+        http.post('/api/v1/programs', () => {
+          state.posts += 1;
+          return HttpResponse.json(PROGRAM);
+        }),
+      );
+      return state;
+    }
+
+    it('a 201-character name shows the inline error and sends nothing', async () => {
+      const state = countPosts();
+      const user = userEvent.setup();
+      await renderDialog();
+      const input = await screen.findByLabelText(/^Name/);
+      fireEvent.change(input, { target: { value: 'a'.repeat(201) } });
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect((await screen.findByRole('alert')).textContent).toBe(
+        'The name can be at most 200 characters.',
+      );
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expect(state.posts).toBe(0);
+    });
+
+    it('a blank (spaces only) name shows the required error and sends nothing', async () => {
+      const state = countPosts();
+      const user = userEvent.setup();
+      await renderDialog();
+      fireEvent.change(await screen.findByLabelText(/^Name/), { target: { value: '   ' } });
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect((await screen.findByRole('alert')).textContent).toBe('Enter a name for the program.');
+      expect(state.posts).toBe(0);
+    });
+
+    it('a 200-character name submits', async () => {
+      const state = countPosts();
+      const user = userEvent.setup();
+      const { onSaved } = await renderDialog();
+      fireEvent.change(await screen.findByLabelText(/^Name/), {
+        target: { value: 'a'.repeat(200) },
+      });
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      expect(state.posts).toBe(1);
+    });
+
+    it('a server 400 that names `name` shows the field message, not the generic one', async () => {
+      server.use(
+        http.post('/api/v1/programs', () =>
+          HttpResponse.json(
+            apiErrorBody(
+              400,
+              ['name must be shorter than or equal to 200 characters'],
+              '/programs',
+            ),
+            { status: 400 },
+          ),
+        ),
+      );
+      const user = userEvent.setup();
+      await renderDialog();
+      await user.type(await screen.findByLabelText(/^Name/), 'Reading Club');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(
+        await screen.findByText("This name isn't valid. Check it and try again."),
+      ).toBeTruthy();
+      expect(screen.queryByText("Couldn't save this program")).toBeNull();
+      expect(screen.queryByText(/shorter than or equal/)).toBeNull();
+    });
+  });
 });
