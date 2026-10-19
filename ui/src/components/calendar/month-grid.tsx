@@ -143,13 +143,20 @@ export function MonthGrid({
     return rotated;
   }, [weekdayLabels, firstDayOfWeek]);
 
+  const gridRef = React.useRef<HTMLDivElement>(null);
+
   function moveFocus(offsetDays: number) {
     const idx = days.indexOf(focusedDay);
     const next = days[Math.min(Math.max(idx + offsetDays, 0), days.length - 1)];
-    if (next) setFocusedDay(next);
+    if (!next) return;
+    setFocusedDay(next);
+    // Move real DOM focus too, so Enter acts on the day the focus ring is on.
+    gridRef.current?.querySelector<HTMLElement>(`[data-testid="day-cell-${next}"]`)?.focus();
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>, day: string) {
+    // Keys on an event chip inside the cell belong to the chip (Enter opens the event).
+    if (event.target !== event.currentTarget) return;
     setFocusedDay(day);
     switch (event.key) {
       case 'ArrowRight':
@@ -216,6 +223,7 @@ export function MonthGrid({
         </div>
       )}
       <div
+        ref={gridRef}
         role="grid"
         aria-label={formatMonth(month, config)}
         className="grid grid-cols-7 gap-px border-t border-border-subtle bg-border-subtle"
