@@ -16,6 +16,7 @@ import {
   Input,
   Textarea,
 } from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
 import { useCreateProgram, useUpdateProgram, type Program } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -55,23 +56,30 @@ export function ProgramFormDialog({
     setShowOnReportCard(program?.show_on_report_card ?? false);
   }, [open, program]);
 
+  // [2622] A sync double-click can fire before `isPending` re-renders; this closes the gap.
+  const inFlight = React.useRef(false);
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!name.trim()) return;
+    if (inFlight.current || !name.trim()) return;
+    inFlight.current = true;
+    const settle = { onSettled: () => (inFlight.current = false), onSuccess: onSaved };
     const values = {
       name: name.trim(),
       description: description.trim() ? description.trim() : null,
       show_on_report_card: showOnReportCard,
     };
     if (mode === 'edit' && program) {
-      updateProgram.mutate(values, { onSuccess: onSaved });
+      updateProgram.mutate(values, settle);
     } else {
-      createProgram.mutate(values, { onSuccess: onSaved });
+      createProgram.mutate(values, settle);
     }
   }
 
   const isPending = createProgram.isPending || updateProgram.isPending;
   const isError = createProgram.isError || updateProgram.isError;
+  const error = createProgram.error ?? updateProgram.error;
+  const isDuplicate = error instanceof ApiError && error.statusCode === 409;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !isPending && onOpenChange(o)}>
@@ -111,7 +119,7 @@ export function ProgramFormDialog({
 
           {isError && (
             <p role="alert" className="text-sm text-destructive">
-              {t('formDialog.errorMessage')}
+              {isDuplicate ? t('formDialog.duplicateMessage') : t('formDialog.errorMessage')}
             </p>
           )}
 

@@ -10,6 +10,7 @@
  * scope.
  */
 import { ExamKind } from '@biddaloy/shared';
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   DatePicker,
@@ -133,8 +134,12 @@ export function ExamFormDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
 
+  // [2622] A sync double-click can fire before `isPending` re-renders; this closes the gap.
+  const inFlight = React.useRef(false);
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (inFlight.current) return;
 
     if (!name.trim()) {
       setValidationError(t('examForm.errorNameRequired'));
@@ -145,6 +150,10 @@ export function ExamFormDialog({
       return;
     }
     setValidationError(null);
+    inFlight.current = true;
+    const settled = () => {
+      inFlight.current = false;
+    };
 
     if (mode === 'create') {
       const fromTemplate = templateId !== NO_TEMPLATE;
@@ -158,6 +167,7 @@ export function ExamFormDialog({
           ...(fromTemplate ? { template_id: templateId } : {}),
         },
         {
+          onSettled: settled,
           onSuccess: (exam) => {
             if (fromTemplate) {
               // `POST /exams` returns the Exam plus `components_created`.
@@ -173,7 +183,7 @@ export function ExamFormDialog({
     } else {
       updateExam.mutate(
         { name: name.trim(), kind, mark_entry_deadline: deadline ? toIsoDate(deadline) : null },
-        { onSuccess: onSaved },
+        { onSuccess: onSaved, onSettled: settled },
       );
     }
   }
@@ -323,7 +333,9 @@ export function ExamFormDialog({
           )}
           {mutation.isError && (
             <p role="alert" className="text-sm text-destructive">
-              {t('examForm.errorMessage')}
+              {mutation.error instanceof ApiError && mutation.error.statusCode === 409
+                ? t('examForm.duplicateMessage')
+                : t('examForm.errorMessage')}
             </p>
           )}
 
