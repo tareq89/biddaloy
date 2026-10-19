@@ -43,6 +43,9 @@ function isSeatLimitError(err: ConflictException): boolean {
  * Extends BadRequestException so the row-scoped-vs-whole-request catch in
  * `validate`/`commit` keeps working unchanged.
  */
+/** The shape `StudentService.create` auto-numbers (`REG-<year>-NNNN`). */
+const AUTO_REGISTRATION_NUMBER = /^REG-\d{4}-\d+$/;
+
 class BulkRowError extends BadRequestException {
   constructor(
     message: string,
@@ -523,6 +526,17 @@ export class StudentBulkUploadService {
       );
     }
 
+    const registrationNumber = dto.registration_number?.trim() || undefined;
+    // REG-<year>-<digits> is the auto series nextTenantSerial counts: a supplied number there
+    // could collide with the next auto number or push it past 15 digits (then every later
+    // auto-numbered create in the school fails). Rule 23: no value in the message.
+    if (registrationNumber && AUTO_REGISTRATION_NUMBER.test(registrationNumber)) {
+      throw new BulkRowError(
+        'Numbers like REG-<year>-<number> are kept for automatic numbering. Leave the cell blank to get one, or use another format.',
+        'registration_number',
+      );
+    }
+
     let rollNumber: number | undefined;
     if (dto.roll) {
       rollNumber = parseInt(dto.roll, 10);
@@ -548,7 +562,7 @@ export class StudentBulkUploadService {
       class: dto.class,
       section: dto.section,
       roll: dto.roll,
-      registration_number: dto.registration_number?.trim() || undefined,
+      registration_number: registrationNumber,
       guardian1_name: dto.guardian1_name,
       guardian1_phone: dto.guardian1_phone,
       guardian1_email: dto.guardian1_email,
@@ -622,7 +636,7 @@ export class StudentBulkUploadService {
           tenantId,
           manager,
           userId ? { userId } : undefined,
-          // A supplied number may look like REG-2026-0005: harmless, nextTenantSerial reads the numeric max.
+          // Never in the auto series: validateRow refuses REG-<year>-<digits>.
           { registrationNumber: row.registration_number },
         );
         return student.id;

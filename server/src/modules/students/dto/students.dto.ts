@@ -551,7 +551,8 @@ export class BulkUploadRowDto {
   })
   roll?: string;
 
-  // Blank means auto-numbered (REG-<year>-NNNN); a value is stored as given (varchar(50)).
+  // Blank means auto-numbered (REG-<year>-NNNN); a value is stored as given (varchar(50)),
+  // except the auto series itself, which bulk-upload.service.ts refuses.
   // Not on CreateStudentDto: the public API never takes a client-chosen number.
   @IsOptional()
   @IsString()

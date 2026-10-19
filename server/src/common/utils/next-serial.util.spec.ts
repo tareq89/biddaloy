@@ -41,4 +41,21 @@ describe('nextTenantSerial', () => {
     expect(re.test('AxB_1')).toBe(false);
     expect(like).toBe('A.B\\_%');
   });
+
+  it('refuses a next value past 15 digits instead of handing out a number it cannot read back', async () => {
+    // A 16-digit next value would not match its own regex, so the max would stay put and
+    // every later caller would get the same number again (a unique violation per create).
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ n: '1000000000000000' }]);
+    await expect(
+      nextTenantSerial({ query } as unknown as EntityManager, {
+        table: 'students',
+        column: 'registration_number',
+        tenantId: 't1',
+        prefix: 'REG-2026-',
+      }),
+    ).rejects.toThrow('series is full');
+  });
 });
