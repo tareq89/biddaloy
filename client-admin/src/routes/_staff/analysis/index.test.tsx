@@ -144,6 +144,16 @@ describe('/analysis', () => {
     });
   });
 
+  it('tab list uses the scrolling line variant and stays out of print', async () => {
+    const exam = mockExam();
+    render(`/analysis?examId=${exam.id}&tab=merit`);
+
+    const tablist = await screen.findByRole('tablist');
+    expect(tablist.getAttribute('data-variant')).toBe('line');
+    expect(tablist.className).toContain('print:hidden');
+    expect(within(tablist).getAllByRole('tab')).toHaveLength(3);
+  });
+
   it('labels both pickers and names the class in the exam option', async () => {
     const exam = mockExam();
     render(`/analysis?examId=${exam.id}&tab=merit`);
