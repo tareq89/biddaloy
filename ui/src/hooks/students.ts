@@ -10,6 +10,7 @@ import { apiClient } from '../api/client';
 import { offlineCachedQueryFn } from '../api/offline-cache';
 import type { components } from '../api/schema';
 
+import { useIdempotencyKey } from './idempotency-key';
 import { createEntityKeys, fetchAllPages } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -206,12 +207,16 @@ export function useStudent(id: string | undefined) {
  */
 export function useCreateStudent() {
   const queryClient = useQueryClient();
+  const { keyFor, rotate } = useIdempotencyKey();
   return useMutation({
     mutationFn: async (input: CreateStudentInput) => {
-      const res = await apiClient.post<Student>('/students', input);
+      const res = await apiClient.post<Student>('/students', input, {
+        headers: { 'Idempotency-Key': keyFor(input) },
+      });
       return res.data;
     },
     onSuccess: () => {
+      rotate();
       void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
     },
   });

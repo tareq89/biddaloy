@@ -9,7 +9,8 @@ import {
   studentFactory,
   userEvent,
 } from '@biddaloy/ui/test';
-import { screen, waitFor, within } from '@testing-library/react';
+import { createAppQueryClient } from '@biddaloy/ui/api';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -247,6 +248,58 @@ describe('/students/new', () => {
     await user.click(screen.getByRole('button', { name: 'Add student' }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/students/student-new'));
+  });
+
+  it('two rapid submits send one POST, and it carries an Idempotency-Key [2594]', async () => {
+    const klass = classFactory({ id: 'class-1', name: 'Class 5' });
+    const section = classSectionFactory({
+      id: 'section-1',
+      section_name: 'A',
+      class_id: 'class-1',
+    });
+    const created = studentFactory({ id: 'student-new', full_name: 'Rahim Uddin' });
+    const keys: (string | null)[] = [];
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([section])),
+      http.post('/api/v1/students', async ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        await gate;
+        return HttpResponse.json(created, { status: 201 });
+      }),
+      http.get('/api/v1/students/:id', () => HttpResponse.json(created)),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/students/new'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+      queryClient: createAppQueryClient(),
+    });
+
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole('textbox', { name: /^Full name/ }), 'Rahim Uddin');
+    await user.click(screen.getByRole('combobox', { name: 'Class' }));
+    await user.click(await screen.findByRole('option', { name: 'Class 5' }));
+    await user.click(screen.getByRole('combobox', { name: 'Section' }));
+    await user.click(await screen.findByRole('option', { name: 'A' }));
+    const submit = screen.getByRole('button', { name: 'Add student' });
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+    // Let react-hook-form's async validation of both clicks run before the reply.
+    await new Promise((r) => setTimeout(r, 100));
+    release();
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/students/student-new'));
+    expect(keys).toHaveLength(1);
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('is axe clean', async () => {

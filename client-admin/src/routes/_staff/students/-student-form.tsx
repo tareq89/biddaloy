@@ -154,8 +154,17 @@ export function StudentForm<TInput>({
   });
   const [draftBannerVisible, setDraftBannerVisible] = React.useState(autosave.draftAvailable);
 
+  // [2594] react-hook-form validates asynchronously before calling this, so a fast second click
+  // can arrive before `mutation.isPending` is true. This ref closes that gap.
+  const inFlight = React.useRef(false);
+
   function handleSubmit(values: StudentFormValues) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     mutation.mutate(buildPayload(values), {
+      onSettled: () => {
+        inFlight.current = false;
+      },
       onSuccess: (student) => {
         submittedSuccessfullyRef.current = true;
         autosave.clearDraft();
