@@ -140,7 +140,10 @@ export class PaymentAllocationService {
 
     // Whole paisa, no tolerance: a payment's total must equal its lines exactly.
     // Fixed text, no submitted amount in it (Rule 23).
-    const allocationPaisa = dto.allocations.reduce((sum, a) => sum + toPaisa(a.allocated_amount), 0);
+    const allocationPaisa = dto.allocations.reduce(
+      (sum, a) => sum + toPaisa(a.allocated_amount),
+      0,
+    );
     if (allocationPaisa !== toPaisa(dto.total_amount)) {
       throw new BadRequestException({
         message: 'Allocation amounts must sum to total_amount',
@@ -264,7 +267,8 @@ export class PaymentAllocationService {
           }
 
           const newPaid = Number(fee.paid_amount) + allocAmount;
-          const newStatus = allocPaisa === remainingPaisa ? FeeStatus.PAID : FeeStatus.PARTIALLY_PAID;
+          const newStatus =
+            allocPaisa === remainingPaisa ? FeeStatus.PAID : FeeStatus.PARTIALLY_PAID;
 
           feeUpdates.push({ fee, newPaid, newStatus, allocatedAmount: allocAmount });
 
