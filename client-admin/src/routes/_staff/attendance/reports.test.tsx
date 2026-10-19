@@ -135,6 +135,17 @@ describe('/attendance/reports', () => {
     expect(screen.queryByText(/Page \d+ of/)).toBeNull();
   });
 
+  it('points the selected tab at a panel that exists', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/reports'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    const tab = await screen.findByRole('tab', { name: 'Month summary' });
+    expect(document.getElementById(tab.getAttribute('aria-controls') ?? '')).not.toBeNull();
+  });
+
   it('shows a prompt instead of a spinner when no section is picked in the summary view', async () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/attendance/reports'],
