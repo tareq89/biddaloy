@@ -844,10 +844,9 @@ describe('/staff', () => {
 
     await waitFor(() => expect(restored).toBe(true));
     await waitFor(() => expect(screen.queryByText('Gone Person')).toBeNull());
-    // [2591] The Former view is an active filter, so ListShell shows "no matches" with a
-    // Clear action; the page's own "No former staff" words are no longer reached.
-    expect(await screen.findByRole('button', { name: /clear/i })).toBeTruthy();
-    expect(screen.queryByText('Add someone and they will show up here.')).toBeNull();
+    // [2672] The page's own `kind: 'no-results'` keeps the Former words over the generic state.
+    expect(await screen.findByText('No former staff')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /clear/i })).toBeNull();
   });
 
   it('default list sends no membership param', async () => {
