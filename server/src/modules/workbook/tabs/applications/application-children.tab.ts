@@ -147,6 +147,9 @@ const tagColumns: readonly ColumnSpec[] = [
     key: 'user',
     type: 'ref',
     ref: 'users',
+    // Blank user AND blank role is how the export writes a tag whose user has
+    // left: fine on a tag the school already has, an error on a new one.
+    requiredOnNewRow: (cells) => !(cells.role ?? '').trim(),
     label: { en: 'Tagged user', bn: 'ট্যাগ করা ব্যবহারকারী' },
   },
   { key: 'role', type: 'string', label: { en: 'Tagged role', bn: 'ট্যাগ করা ভূমিকা' } },
@@ -221,8 +224,9 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
         ),
       );
     }
-    // Same rule as the DB CHECK: exactly one of user / role.
-    if (!!role === !!userKey) {
+    // Same rule as the DB CHECK: never both. Neither is a departed user's tag
+    // (see the `user` column); upsert keeps its stored user.
+    if (role && userKey) {
       errors.push(error(TAGS, rowNo, null, 'Exactly one of "user" and "role" must be filled.'));
     }
     const applicationId = resolve(
@@ -254,11 +258,15 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
   },
 
   keyOf(x: Rec | ApplicationTag): string {
+    // A tag with neither user nor role (its user left) is keyed by its id, so two
+    // such tags on one application stay two rows.
+    const tagKey = (app: unknown, user: unknown, role: unknown, id: unknown) =>
+      `${String(app ?? '')}|${String(user || (role ? '' : `#${String(id ?? '')}`))}|${String(role ?? '')}`;
     if (x instanceof ApplicationTag) {
       const k = (x as unknown as Rec)[STAMP] as Rec | undefined;
-      return `${k?.application ?? ''}|${k?.user ?? ''}|${x.role ?? ''}`;
+      return tagKey(k?.application, k?.user, x.role, x.id);
     }
-    return `${x.application_key}|${x.user_key}|${x.role ?? ''}`;
+    return tagKey(x.application_key, x.user_key, x.role, x.id);
   },
 
   diffFields(row: Rec, existing: ApplicationTag): string[] {
@@ -289,8 +297,10 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
     const tag = existing ?? new ApplicationTag();
     tag.tenant_id = tenantId;
     tag.application_id = row.application_id as string;
-    tag.user_id = row.user_id as string | null;
-    tag.role = row.role as string | null;
+    // Neither user nor role: a departed user's tag from the export; keep what is stored.
+    const keepStored = existing !== null && !row.user_id && !row.role;
+    tag.user_id = keepStored ? existing.user_id : (row.user_id as string | null);
+    tag.role = keepStored ? existing.role : (row.role as string | null);
     tag.created_by_user_id = (row.created_by_user_id ?? existing?.created_by_user_id) as string;
     return m.save(ApplicationTag, tag);
   },
