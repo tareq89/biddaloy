@@ -1,3 +1,5 @@
+import type { APIRequestContext, Browser } from '@playwright/test';
+
 import {
   adminApiSession,
   createStudentsInSection,
@@ -32,62 +34,71 @@ import {
  * section, the real replay engine, a real server, a real verification
  * that the register landed correctly.
  */
+type Fixtures = { browser: Browser; request: APIRequestContext };
+
+/** A real teacher with a 3-student section, signed in on a fresh browser context. */
+async function teacherWithSection({ browser, request }: Fixtures) {
+  const admin = await adminApiSession(request);
+  // [75.6-b, D16] Teacher scope counts current-year sections only.
+  const chain = await createStudentsInSection(
+    request,
+    admin,
+    'Offline Student',
+    3,
+    await currentAcademicYear(request, admin),
+  );
+  const studentsResponse = await request.get('/api/v1/students', {
+    headers: { Authorization: `Bearer ${admin.token}`, 'X-Tenant-ID': admin.tenantId },
+    params: { section_id: chain.sectionId },
+  });
+  if (!studentsResponse.ok()) {
+    throw new Error(`GET students failed: ${studentsResponse.status()}`);
+  }
+  const studentsBody = (await studentsResponse.json()) as { data: { id: string }[] };
+  const studentIds = studentsBody.data.map((s) => s.id);
+  expect(studentIds).toHaveLength(3);
+
+  const teacher = await createTeacherForSection(request, admin, 'Offline Teacher', chain);
+
+  const loginResponse = await request.post('/api/v1/auth/login', {
+    data: { email: teacher.email, password: teacher.password },
+  });
+  if (!loginResponse.ok()) {
+    throw new Error(`teacher login failed: ${loginResponse.status()}`);
+  }
+  const loginBody = (await loginResponse.json()) as {
+    memberships: { tenantId: string; role: string }[];
+  };
+  const membership = loginBody.memberships[0];
+  if (!membership) throw new Error('no membership for freshly-created teacher');
+  const state = await request.storageState();
+
+  const teacherContext = await browser.newContext({
+    baseURL: shells.app.baseURL,
+    storageState: {
+      cookies: state.cookies,
+      origins: [
+        {
+          origin: shells.app.baseURL.replace(/\/$/, ''),
+          localStorage: [
+            {
+              name: 'biddaloy:activeTenant',
+              value: JSON.stringify({ tenantId: membership.tenantId, role: membership.role }),
+            },
+          ],
+        },
+      ],
+    },
+  });
+  const page = await teacherContext.newPage();
+  const markDate = markableDateIso();
+  return { admin, chain, studentIds, teacher, membership, teacherContext, page, markDate };
+}
+
 test.describe('attendance offline marking', () => {
   test('a register queued while offline replays on reconnect', async ({ browser, request }) => {
-    const admin = await adminApiSession(request);
-    // [75.6-b, D16] Teacher scope counts current-year sections only.
-    const chain = await createStudentsInSection(
-      request,
-      admin,
-      'Offline Student',
-      3,
-      await currentAcademicYear(request, admin),
-    );
-    const studentsResponse = await request.get('/api/v1/students', {
-      headers: { Authorization: `Bearer ${admin.token}`, 'X-Tenant-ID': admin.tenantId },
-      params: { section_id: chain.sectionId },
-    });
-    if (!studentsResponse.ok()) {
-      throw new Error(`GET students failed: ${studentsResponse.status()}`);
-    }
-    const studentsBody = (await studentsResponse.json()) as { data: { id: string }[] };
-    const studentIds = studentsBody.data.map((s) => s.id);
-    expect(studentIds).toHaveLength(3);
-
-    const teacher = await createTeacherForSection(request, admin, 'Offline Teacher', chain);
-
-    const loginResponse = await request.post('/api/v1/auth/login', {
-      data: { email: teacher.email, password: teacher.password },
-    });
-    if (!loginResponse.ok()) {
-      throw new Error(`teacher login failed: ${loginResponse.status()}`);
-    }
-    const loginBody = (await loginResponse.json()) as {
-      memberships: { tenantId: string; role: string }[];
-    };
-    const membership = loginBody.memberships[0];
-    if (!membership) throw new Error('no membership for freshly-created teacher');
-    const state = await request.storageState();
-
-    const teacherContext = await browser.newContext({
-      baseURL: shells.app.baseURL,
-      storageState: {
-        cookies: state.cookies,
-        origins: [
-          {
-            origin: shells.app.baseURL.replace(/\/$/, ''),
-            localStorage: [
-              {
-                name: 'biddaloy:activeTenant',
-                value: JSON.stringify({ tenantId: membership.tenantId, role: membership.role }),
-              },
-            ],
-          },
-        ],
-      },
-    });
-    const page = await teacherContext.newPage();
-    const markDate = markableDateIso();
+    const { chain, studentIds, teacher, membership, teacherContext, page, markDate } =
+      await teacherWithSection({ browser, request });
 
     await test.step('the app is up and the offline machinery is ready', async () => {
       await page.goto('/dashboard');
@@ -159,5 +170,49 @@ test.describe('attendance offline marking', () => {
         await expect(page.getByRole('button', { name: label })).toHaveCount(0);
       }
     });
+  });
+
+  test('[2632] Save on device while offline writes a queue row and the marks replay on reconnect', async ({
+    browser,
+    request,
+  }) => {
+    const { chain, teacher, membership, teacherContext, page, markDate } = await teacherWithSection(
+      { browser, request },
+    );
+
+    await page.goto(`/attendance/${chain.sectionId}?date=${markDate}`);
+    const allPresent = page.getByRole('button', { name: t('attendance.mark.allPresent') });
+    await expect(allPresent).toBeVisible();
+    await waitForSwControl(page);
+    await waitForOfflineDb(page);
+
+    // No request is made while offline: the mutation must run and enqueue.
+    await teacherContext.setOffline(true);
+    await allPresent.click();
+    await page.getByRole('button', { name: t('attendance.mark.submitOffline') }).click();
+    await expect(page.getByText(t('attendance.mark.queuedToast'))).toBeVisible();
+    await expect
+      .poll(() => readQueueRows(page).then((rows) => rows.map((r) => [r.entity, r.status])))
+      .toEqual([['attendance', 'pending']]);
+
+    await teacherContext.setOffline(false);
+    await expect
+      .poll(() => readQueueRows(page).then((rows) => rows.length), { timeout: 30_000 })
+      .toBe(0);
+
+    const relogin = await request.post('/api/v1/auth/login', {
+      data: { email: teacher.email, password: teacher.password },
+    });
+    const relogged = (await relogin.json()) as { access_token: string };
+    const verified = await request.get(`/api/v1/attendance/sections/${chain.sectionId}/register`, {
+      headers: {
+        Authorization: `Bearer ${relogged.access_token}`,
+        'X-Tenant-ID': membership.tenantId,
+      },
+      params: { date: markDate },
+    });
+    const register = (await verified.json()) as { students: { status: string | null }[] };
+    expect(register.students).toHaveLength(3);
+    expect(register.students.every((s) => s.status === 'PRESENT')).toBe(true);
   });
 });
