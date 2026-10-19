@@ -877,28 +877,38 @@ describe('FeesDailyScheduler (integration)', () => {
       expect(notifyAdds).toHaveLength(0);
     });
 
-    it('[F-145] a monthly schedule already billed this month, switched to weekly, bills nothing until the next week', async () => {
+    const switchTo = (id: string, rule: any) =>
+      recurringSchedulesService.update(id, { rule } as any, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    it('[F-145] monthly billed for March, switched to weekly: no week starting in March is billed again', async () => {
       await studentRepo.save(makeStudent());
       const schedule = await scheduleWith({ kind: 'MONTHLY', day_of_month: 1 });
       await runOn('2026-03-01');
       expect(await studentFeeRepo.find()).toHaveLength(1);
 
-      vi.useFakeTimers({ toFake: ['Date'] });
-      vi.setSystemTime(new Date('2026-03-04T06:00:00Z'));
-      try {
-        await recurringSchedulesService.update(
-          schedule.id,
-          { rule: { kind: 'WEEKLY', weekdays: [1] } } as any,
-          TENANT_ID,
-          SEED_ADMIN_USER_ID,
-        );
-      } finally {
-        vi.useRealTimers();
-      }
+      await switchTo(schedule.id, { kind: 'WEEKLY', weekdays: [1] });
 
-      await runOn('2026-03-04');
+      for (const day of ['2026-03-04', '2026-03-09', '2026-03-16', '2026-03-23', '2026-03-30']) {
+        await runOn(day);
+      }
       expect(await studentFeeRepo.find()).toHaveLength(1);
+      await runOn('2026-04-06');
+      expect(await studentFeeRepo.find()).toHaveLength(2);
+    });
+
+    it('[F-145] weekly billed this month, switched to monthly before this week ran: the month is not billed on top', async () => {
+      await studentRepo.save(makeStudent());
+      const schedule = await scheduleWith({ kind: 'WEEKLY', weekdays: [1] });
+      await runOn('2026-03-02');
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+
+      // Monday 03-09, before that day's sweep: last_run_period is still 03-02.
+      await switchTo(schedule.id, { kind: 'MONTHLY', day_of_month: 1 });
+
       await runOn('2026-03-09');
+      await runOn('2026-03-31');
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+      await runOn('2026-04-01');
       expect(await studentFeeRepo.find()).toHaveLength(2);
     });
 

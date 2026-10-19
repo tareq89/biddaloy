@@ -812,36 +812,45 @@ describe('RecurringSchedulesService (integration)', () => {
         )
       )[0].p;
 
-    it('marks the new cadence current period covered when the old period was already billed', async () => {
-      vi.useFakeTimers({ toFake: ['Date'] });
-      vi.setSystemTime(new Date('2026-03-04T06:00:00Z')); // a Wednesday
-      const id = await monthlySchedule('2026-03-01');
-
+    const lastRunAfterSwitch = async (from: 'MONTHLY' | 'WEEKLY', lastRunPeriod: string) => {
+      const id = await monthlySchedule(lastRunPeriod);
+      if (from === 'WEEKLY') {
+        await dataSource.query(`UPDATE recurring_schedules SET rule = $1 WHERE id = $2`, [
+          JSON.stringify({ kind: 'WEEKLY', weekdays: [1] }),
+          id,
+        ]);
+      }
       await service.update(
         id,
-        { rule: { kind: 'WEEKLY', weekdays: [1] } } as any,
+        {
+          rule: from === 'MONTHLY' ? { kind: 'WEEKLY', weekdays: [1] } : { kind: 'MONTHLY', day_of_month: 1 },
+        } as any,
         SEED_TENANT_ID,
         SEED_ADMIN_USER_ID,
       );
+      return lastRun(id);
+    };
 
-      // Monday of the week of 2026-03-04. Moved "backwards" from 03-01? No: 03-02 > 03-01,
-      // and the next weekly period (03-09) bills normally.
-      expect(await lastRun(id)).toBe('2026-03-02');
+    it('monthly -> weekly: covers every week that starts in the last billed month', async () => {
+      // March 2026 ends on a Tuesday; its last Monday is 03-30.
+      expect(await lastRunAfterSwitch('MONTHLY', '2026-03-01')).toBe('2026-03-30');
     });
 
-    it('leaves last_run_period alone when the current old period was not billed', async () => {
-      vi.useFakeTimers({ toFake: ['Date'] });
-      vi.setSystemTime(new Date('2026-03-04T06:00:00Z'));
-      const id = await monthlySchedule('2026-02-01');
+    it('weekly -> monthly: covers the month the last billed week starts in', async () => {
+      expect(await lastRunAfterSwitch('WEEKLY', '2026-03-02')).toBe('2026-03-01');
+      // The week of 03-30 starts in March, so April still bills.
+      expect(await lastRunAfterSwitch('WEEKLY', '2026-03-30')).toBe('2026-03-01');
+    });
 
+    it('leaves a never-run schedule alone', async () => {
+      const id = await monthlySchedule(null);
       await service.update(
         id,
         { rule: { kind: 'WEEKLY', weekdays: [1] } } as any,
         SEED_TENANT_ID,
         SEED_ADMIN_USER_ID,
       );
-
-      expect(await lastRun(id)).toBe('2026-02-01');
+      expect(await lastRun(id)).toBeNull();
     });
   });
 
