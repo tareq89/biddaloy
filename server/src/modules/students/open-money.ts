@@ -1,13 +1,5 @@
-import { FeeStatus } from '@biddaloy/shared';
 import type { EntityManager } from 'typeorm';
 import { OPEN_FEE_STATUSES } from '../fees/fees.constants';
-
-/** Bills a student can still pay: the set checkout and payment allocation accept. */
-export const OPEN_FEE_STATUSES: readonly string[] = [
-  FeeStatus.PENDING,
-  FeeStatus.PARTIALLY_PAID,
-  FeeStatus.OVERDUE,
-];
 
 export interface StudentOpenMoney {
   id: string;
