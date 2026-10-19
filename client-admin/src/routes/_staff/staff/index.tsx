@@ -40,6 +40,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { useLandingFlag } from '../-use-landing-flag';
+import { previewIdsNav } from '../../../components/print/preview-ids';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { AddUserDialog } from './-add-user-dialog';
@@ -409,10 +410,11 @@ function StaffListPage() {
                     onClick={() =>
                       void navigate({
                         to: '/print/preview',
+                        state: previewIdsNav(Array.from(state.selectedIds)).state,
                         search: {
                           kind: 'STAFF_ID_CARD',
                           subject_type: 'STAFF',
-                          ids: Array.from(state.selectedIds).join(','),
+                          ...previewIdsNav(Array.from(state.selectedIds)).search,
                           from: '/staff',
                         },
                       })
