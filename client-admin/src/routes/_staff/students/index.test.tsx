@@ -1,3 +1,4 @@
+import { listSelectionKey, setListSelection } from '@biddaloy/ui/api';
 import {
   cleanupTestState,
   classFactory,
@@ -254,11 +255,15 @@ describe('/students', () => {
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     try {
+      // Selection lives in memory per tenant + path — seeding it directly
+      // simulates "selected on an earlier page, now viewing a different
+      // one" without needing a real multi-page click-through.
+      setListSelection(
+        listSelectionKey('/students', 'tenant-1'),
+        new Set(['student-1', 'student-2']),
+      );
       renderWithRouter(routeTree, {
-        // Selection lives in the `selected` URL bag — seeding it directly
-        // simulates "selected on an earlier page, now viewing a different
-        // one" without needing a real multi-page click-through.
-        initialEntries: ['/students?selected=student-1,student-2'],
+        initialEntries: ['/students'],
         tenantId: 'tenant-1',
         role: 'ACCOUNTANT',
         locale: 'en',
