@@ -1,23 +1,29 @@
 /**
  * Wires `useListUrlState` ([8.4.x]) into exactly what `ListShell`/
  * `DataTable` need: a `DataTableSort` (not a bare `sort` string) and a
- * selection set — both round-tripped through the URL, same as
- * page/limit/filters, so "all list state lives in the URL" holds for
- * selection too, not just filters. Selection reuses the generic
- * `filters` bag under a reserved `selected` key (comma-joined IDs)
- * rather than extending `useListUrlState` itself — that hook has no
- * concept of "selection", and every other consumer of it (a future detail
- * page's tabs, say) shouldn't have to carry that shape.
+ * selection set. Page, limit, sort and filters round-trip through the URL;
+ * the selection does NOT — [2602] it is unbounded (hundreds of ids across
+ * pages) and a long `?selected=` made a refresh fail with 431/414. It is
+ * held in memory per tenant + path (`list-selection-memory.ts`): in-app Back
+ * keeps it, a refresh drops it. A legacy `?selected=` link is ignored and
+ * stripped.
  *
  * Filter changes reset to page 1 automatically — the issue's own
  * acceptance criterion — by always patching `page: 1` alongside a
  * `setFilters` call; nothing computed here, just an explicit, always-on
  * default a caller has no chance to forget.
  */
+import { useLocation } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
+
+import { getActiveTenant } from '../api/auth-state';
+import { getSelection, listSelectionKey, setSelection } from '../api/list-selection-memory';
 import type { DataTableSort } from '../components/data-table';
+import { useSearchNavigate } from '../routes/navigate-search';
 import { useListUrlState } from '../routes/use-list-url-state';
 
-const SELECTED_KEY = 'selected';
+/** Retired URL key; old bookmarks still carry it. */
+const LEGACY_SELECTED_KEY = 'selected';
 
 export interface ListShellState {
   page: number;
@@ -43,11 +49,27 @@ export function useListShellState(
 ): [ListShellState, ListShellActions] {
   const [urlState, updateUrl] = useListUrlState(defaults);
 
-  const selectedRaw = urlState.filters[SELECTED_KEY];
-  const selectedIds = new Set(selectedRaw ? selectedRaw.split(',').filter(Boolean) : []);
+  const navigateSearch = useSearchNavigate();
+  const pathname = useLocation({ select: (l) => l.pathname });
+  const key = listSelectionKey(pathname, getActiveTenant());
+  const [held, setHeld] = useState(() => ({ key, ids: getSelection(key) }));
+  // A different path or tenant starts from what is stored for it.
+  const selectedIds = held.key === key ? held.ids : getSelection(key);
+
+  const hasLegacy = urlState.filters[LEGACY_SELECTED_KEY] !== undefined;
+  useEffect(() => {
+    if (!hasLegacy) return;
+    navigateSearch(
+      (prev) => {
+        const { [LEGACY_SELECTED_KEY]: _dropped, ...rest } = prev;
+        return rest;
+      },
+      { replace: true },
+    );
+  }, [hasLegacy]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filters = { ...urlState.filters };
-  delete filters[SELECTED_KEY];
+  delete filters[LEGACY_SELECTED_KEY];
 
   const sorting: DataTableSort | null = urlState.sort
     ? { id: urlState.sort, desc: urlState.order === 'desc' }
@@ -66,16 +88,11 @@ export function useListShellState(
         }
       },
       setFilters: (nextFilters) => {
-        // selectedIds lives in the same bag under SELECTED_KEY — carry the
-        // current selection forward rather than clearing it, since a
-        // filter change and a selection change are independent actions.
-        updateUrl({
-          filters: { ...nextFilters, ...(selectedRaw ? { [SELECTED_KEY]: selectedRaw } : {}) },
-          page: 1,
-        });
+        updateUrl({ filters: nextFilters, page: 1 });
       },
       setSelectedIds: (ids) => {
-        updateUrl({ filters: { ...filters, [SELECTED_KEY]: Array.from(ids).join(',') } });
+        setSelection(key, ids);
+        setHeld({ key, ids });
       },
     },
   ];
