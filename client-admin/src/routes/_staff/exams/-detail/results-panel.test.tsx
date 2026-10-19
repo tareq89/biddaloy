@@ -5,6 +5,8 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -82,6 +84,61 @@ describe('exams/$examId Results tab', () => {
 
     await waitFor(() => expect(screen.queryByRole('link', { name: /Amina Khatun/ })).toBeNull());
     expect(screen.getByRole('link', { name: /Karim Rahman/ })).toBeTruthy();
+  });
+
+  describe('[2605] paging', () => {
+    // 60 students, stored positions 1..60 (position 1 is the FIRST row).
+    const MANY = Array.from({ length: 60 }, (_, i) => ({
+      student_id: `stu-${i + 1}`,
+      roll_number: i + 1,
+      full_name: `Student ${String(i + 1).padStart(2, '0')}`,
+      total_marks: 600 - i,
+      gpa: 4,
+      grade: 'A',
+      position: i + 1,
+      is_fail: i >= 55,
+    }));
+    const n = (v: number) => formatNumber(v, REGION_BD_BN);
+    const open = () => {
+      server.use(
+        http.get('/api/v1/exams/:id', () => HttpResponse.json(mockExam())),
+        http.get('/api/v1/exams/:examId/results', () => HttpResponse.json(MANY)),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/exams/exam-1?tab=results'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+    };
+    const studentLinks = () => screen.findAllByRole('link', { name: /Student \d\d/ });
+
+    it('shows 25 rows with a count, then rows 26-50 keep their stored ranks', async () => {
+      open();
+      expect(await studentLinks()).toHaveLength(25);
+      expect(screen.getByText(`Showing ${n(1)}–${n(25)} of ${n(60)}`)).toBeTruthy();
+
+      await userEvent.setup().click(screen.getByRole('button', { name: /next/i }));
+      await waitFor(() =>
+        expect(screen.getByText(`Showing ${n(26)}–${n(50)} of ${n(60)}`)).toBeTruthy(),
+      );
+      const links = await studentLinks();
+      expect(links).toHaveLength(25);
+      const firstRow = links[0]!.closest('tr')!;
+      expect(within(firstRow).getAllByRole('cell')[0]!.textContent).toBe(n(26));
+    });
+
+    it('fail-only resets to page 1 and shows the filtered total', async () => {
+      open();
+      const user = userEvent.setup();
+      await studentLinks();
+      await user.click(screen.getByRole('button', { name: /next/i }));
+      await user.click(screen.getByLabelText('Fails only'));
+      await waitFor(() =>
+        expect(screen.getByText(`Showing ${n(1)}–${n(5)} of ${n(5)}`)).toBeTruthy(),
+      );
+      expect(await studentLinks()).toHaveLength(5);
+    });
   });
 
   it('re-sorts by a column when its header is clicked', async () => {
@@ -272,9 +329,9 @@ describe('exams/$examId Results tab', () => {
     expect(
       screen.getByRole('button', { name: 'Result analysis' }).getAttribute('data-variant'),
     ).toBe('outline');
-    expect(
-      screen.getByRole('button', { name: 'Process again' }).getAttribute('data-variant'),
-    ).toBe('outline');
+    expect(screen.getByRole('button', { name: 'Process again' }).getAttribute('data-variant')).toBe(
+      'outline',
+    );
     expect(screen.getByRole('button', { name: 'Publish' }).getAttribute('data-variant')).toBe(
       'default',
     );
@@ -288,7 +345,9 @@ describe('exams/$examId Results tab', () => {
     ).toBe('default');
     expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
     expect(
-      screen.queryAllByRole('button').filter((b) => b.getAttribute('data-variant') === 'destructive'),
+      screen
+        .queryAllByRole('button')
+        .filter((b) => b.getAttribute('data-variant') === 'destructive'),
     ).toHaveLength(0);
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'More actions' }));
