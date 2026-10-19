@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../../app.module';
+import { BACKUP_MAX_UPLOAD_BYTES } from '../export/export.constants';
 import { StorageService } from '../../storage/storage.service';
 import { ImportStagingService } from '../../bulk-import/import-staging.service';
 import type { StagedValidation } from './import.controller';
@@ -104,6 +105,18 @@ describe('POST /backup/validate E2E', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  it('uses the shared 64 MB upload cap: a 21 MB file (over the old 20 MB cap) reaches validation, not multer', async () => {
+    expect(BACKUP_MAX_UPLOAD_BYTES).toBe(64 * 1024 * 1024);
+    const res = await supertest(app.getHttpServer())
+      .post('/api/v1/backup/validate')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .attach('file', Buffer.alloc(21 * 1024 * 1024), 'big.xlsx');
+    expect(res.status).not.toBe(413);
+    expect(res.status).toBe(400); // not a real workbook
   });
 
   it('accepts a valid workbook, stages it, and returns a preview with zero errors', async () => {

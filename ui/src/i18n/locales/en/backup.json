@@ -28,6 +28,7 @@
   "downloading": "Downloading…",
   "downloadFailed": "Couldn't download this backup. Try again.",
   "downloadExpired": "Download expired",
+  "restoreLimitWarning": "This backup is bigger than this app can restore. You can still download it.",
   "schoolProfileLoadFailed": "Couldn't load your school's name. It's needed to confirm this restore.",
   "restoreProgressLoadFailed": "Couldn't load this restore's progress.",
   "deepLinkExpired": "This backup has expired — request a new one.",
