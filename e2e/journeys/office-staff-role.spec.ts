@@ -71,7 +71,7 @@ test('reviews an admission applicant', async ({ page, playwright, baseURL }) => 
         date_of_birth: '2018-06-01',
         gender: 'MALE',
         guardian_name: `Guardian of ${applicantName}`,
-        guardian_phone: `1${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`,
+        guardian_phone: `01${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`,
         captcha_token: 'no-captcha',
       },
     });
