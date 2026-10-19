@@ -10,6 +10,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import { programEnrollmentsTab } from './program-enrollments.tab';
 import { programMilestonesTab } from './program-milestones.tab';
 
@@ -111,7 +112,7 @@ export const milestoneAchievementsTab: TabSpec<MilestoneAchievement, MilestoneAc
       enrollment: ctx.keyOf('program_enrollments', entity.enrollment_id),
       milestone: ctx.keyOf('program_milestones', entity.milestone_id),
       achieved_on: entity.achieved_on,
-      recorded_by: entity.recorded_by ? ctx.keyOf('users', entity.recorded_by) : null,
+      recorded_by: entity.recorded_by ? optionalKeyOf(ctx, 'users', entity.recorded_by) : null,
       score: entity.score,
       grade: entity.grade,
       remark: entity.remark,
@@ -222,7 +223,8 @@ export const milestoneAchievementsTab: TabSpec<MilestoneAchievement, MilestoneAc
   diffFields(row: MilestoneAchievementRow, existing: MilestoneAchievement): string[] {
     const changed: string[] = [];
     if (row.achieved_on !== existing.achieved_on) changed.push('achieved_on');
-    if (row.recorded_by !== existing.recorded_by) changed.push('recorded_by');
+    if (row.recorded_by !== null && row.recorded_by !== existing.recorded_by)
+      changed.push('recorded_by');
     if (row.score !== existing.score) changed.push('score');
     if (row.grade !== existing.grade) changed.push('grade');
     if (row.remark !== existing.remark) changed.push('remark');
@@ -267,7 +269,7 @@ export const milestoneAchievementsTab: TabSpec<MilestoneAchievement, MilestoneAc
     }
     achievement.program_id = milestone.program_id;
     achievement.achieved_on = row.achieved_on;
-    achievement.recorded_by = row.recorded_by;
+    achievement.recorded_by = row.recorded_by ?? existing?.recorded_by ?? null;
     achievement.score = row.score;
     achievement.grade = row.grade;
     achievement.remark = row.remark;

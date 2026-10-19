@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { readdirSync, readFileSync, statSync } from 'fs';
+import { join, relative } from 'path';
 import type { Job } from 'bullmq';
 import { ExportProcessor } from './export.processor';
 import { WorkbookJobKind, WorkbookJobSource, WorkbookJobStatus } from '../jobs/workbook-job.entity';
@@ -58,13 +60,14 @@ const OTHER_TENANT = '00000000-0000-4000-8000-000000000098';
 const JOB_ID = '9b1d4c62-4e3a-4f7b-8a21-6c5e0f3d7a10';
 
 /**
- * Defaults to the FINAL attempt (`attemptsMade === attempts`), because that
- * is when the processor is allowed to write a terminal status and notify.
- * Pass `attemptsMade` explicitly to exercise a mid-retry attempt.
+ * Defaults to the FINAL attempt. BullMQ counts `attemptsMade` before the
+ * current attempt finishes, so with `attempts: 2` the last attempt reports 1
+ * (the first reports 0). Only the final attempt may write a terminal status
+ * and notify. Pass `attemptsMade: 0` to exercise a mid-retry attempt.
  */
 function fakeJob(
   overrides: Partial<WorkbookExportJobData> = {},
-  attemptsMade = 2,
+  attemptsMade = 1,
 ): Job<WorkbookExportJobData> {
   return {
     data: { jobId: JOB_ID, tenantId: TENANT, ...overrides },
@@ -234,12 +237,12 @@ describe('ExportProcessor', () => {
   });
 
   it('does not write FAILED or notify on a non-final attempt — BullMQ will retry', async () => {
-    // attempts: 2, so attemptsMade 1 is not terminal. Writing FAILED and
+    // attempts: 2, so attemptsMade 0 (the first attempt) is not terminal. Writing FAILED and
     // emailing here produced "your backup failed" immediately followed by
     // "your backup is ready" once the retry succeeded.
     fakeTabA.load.mockRejectedValue(new Error('transient db blip'));
 
-    await expect(processor.process(fakeJob({}, 1))).rejects.toThrow('transient db blip');
+    await expect(processor.process(fakeJob({}, 0))).rejects.toThrow('transient db blip');
 
     const calls = jobsRepo.update.mock.calls;
     expect(calls.some((c: any[]) => c[1].status === WorkbookJobStatus.FAILED)).toBe(false);
@@ -306,5 +309,63 @@ describe('ExportProcessor', () => {
 
     expect(jobsRepo.update).not.toHaveBeenCalled();
     expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  it('final attempt (attemptsMade 1 of 2): tab throws -> FAILED with a sanitised error and the notifier fires', async () => {
+    fakeTabA.load.mockRejectedValue(new Error('SELECT secret FROM x'));
+
+    await expect(processor.process(fakeJob({}, 1))).rejects.toThrow();
+
+    const failed = jobsRepo.update.mock.calls.find(
+      (c: any[]) => c[1].status === WorkbookJobStatus.FAILED,
+    );
+    expect(failed).toBeTruthy();
+    expect(failed[1].error).not.toContain('SELECT');
+    expect(events.emitFinished).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Registry: a strict `ctx.keyOf('users', ...)` throws when the user is not in
+ * the `users` tab (a departed member or a SUPER_ADMIN), which fails the whole
+ * export. Actor columns use `optionalKeyOf`. These are the only reviewed
+ * strict sites: each links a profile row to its own login. They still fail if
+ * that login's membership ends while the profile row stays (product call,
+ * tracked in #2668). The number is how many strict calls the file has.
+ */
+const STRICT_USER_KEYOF = new Map<string, number>([
+  ['people/guardians.tab.ts', 1], // guardian profile -> its login
+  ['people/staff-child-tab.factory.ts', 1], // staff child rows -> the staff member
+  ['people/staff-designation-history.tab.ts', 1], // staff child row
+  ['people/staff-document.tab.ts', 1], // staff child row
+  ['people/staff-profile.tab.ts', 1], // staff profile -> its login
+  ['people/students.tab.ts', 1], // student profile -> its login
+  ['people/teachers.tab.ts', 1], // teacher profile -> its login
+]);
+
+function strictUserKeyOfCounts(dir: string, root = dir, out = new Map<string, number>()) {
+  for (const name of readdirSync(dir)) {
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) {
+      strictUserKeyOfCounts(full, root, out);
+    } else if (/\.tab\.ts$|tab\.factory\.ts$/.test(name)) {
+      const n = readFileSync(full, 'utf8').split("ctx.keyOf('users'").length - 1;
+      if (n > 0) out.set(relative(root, full), n);
+    }
+  }
+  return out;
+}
+
+describe('strict users keyOf registry', () => {
+  const found = strictUserKeyOfCounts(join(__dirname, '..', 'tabs'));
+
+  it('no tab uses strict keyOf for users outside the reviewed list', () => {
+    const offenders = [...found].filter(([f, n]) => n > (STRICT_USER_KEYOF.get(f) ?? 0));
+    expect(offenders, 'use optionalKeyOf(ctx, "users", id) for actor columns').toEqual([]);
+  });
+
+  it('every reviewed entry still exists with its exact count', () => {
+    const stale = [...STRICT_USER_KEYOF].filter(([f, n]) => (found.get(f) ?? 0) !== n);
+    expect(stale).toEqual([]);
   });
 });
