@@ -1,3 +1,4 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   apiErrorBody,
   cleanupTestState,
@@ -5,7 +6,6 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
-import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

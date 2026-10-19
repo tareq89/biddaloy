@@ -442,8 +442,8 @@ function ReportsPageContent() {
               // edits elsewhere in the file) — a real discrepancy between the
               // two checkers' inference order on this generic component, not a
               // mistake in either direction.
-              // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
               columns={
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
                 (view === 'summary' ? summaryColumns : flagsColumns) as DataTableColumn<never>[]
               }
               data={rows as never[]}

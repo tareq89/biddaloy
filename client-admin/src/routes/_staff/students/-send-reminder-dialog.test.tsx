@@ -10,13 +10,16 @@ import { SendReminderDialog } from './-send-reminder-dialog';
 
 /** [2621] The server rejects more than 500 students; the dialog says so before a request. */
 
+/** Test-host labels, not product copy. */
+const TEXT = { reopen: 'reopen', wizard: 'wizard' } as const;
+
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `s${i}`);
 
 function Host({ studentIds }: { studentIds: readonly string[] }) {
   const [open, setOpen] = React.useState(true);
   return (
     <>
-      <button onClick={() => setOpen(true)}>reopen</button>
+      <button onClick={() => setOpen(true)}>{TEXT.reopen}</button>
       <SendReminderDialog
         open={open}
         onOpenChange={setOpen}
@@ -37,7 +40,7 @@ function mount(studentIds: readonly string[]) {
   const wizard = createRoute({
     getParentRoute: () => root,
     path: '/communications/reminders',
-    component: () => <p>wizard</p>,
+    component: () => <p>{TEXT.wizard}</p>,
   });
   return renderWithRouter(root.addChildren([home, wizard]), {
     initialEntries: ['/'],
