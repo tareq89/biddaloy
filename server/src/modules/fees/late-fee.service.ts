@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { round2 } from '../../common/constants/money';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { AuditAction, DiscountKind, FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
@@ -11,10 +12,6 @@ interface LateFeeRule {
   grace_days: number;
   kind: DiscountKind;
   value: number;
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 function addDays(dateIso: string, days: number): string {

@@ -13,7 +13,7 @@ import {
   PaymentStatus,
   WalletTransactionKind,
 } from '@biddaloy/shared';
-import { toPaisa } from '../../common/constants/money';
+import { round2, toPaisa } from '../../common/constants/money';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
@@ -24,11 +24,6 @@ import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { attentionEvents } from '../attention/attention.constants';
-
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
 interface UndoneDebitAudit {
   debit_id: string;
