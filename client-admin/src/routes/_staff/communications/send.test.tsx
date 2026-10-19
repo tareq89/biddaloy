@@ -18,7 +18,7 @@ import {
   studentFactory,
 } from '@biddaloy/ui/test';
 import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -400,5 +400,56 @@ describe('/communications/send', () => {
     await screen.findByRole('dialog');
 
     await expect(container).toHaveNoViolations();
+  });
+
+  describe('[#2604] result panel', () => {
+    async function sendAndGetResult(log: Parameters<typeof communicationFactory>[0]) {
+      server.use(
+        studentSearchHandler(),
+        http.post('/api/v1/communications/send', () =>
+          HttpResponse.json(
+            communicationFactory({ id: 'log-1', status: 'QUEUED', recipient_name: 'Rahima Begum' }),
+            { status: 201 },
+          ),
+        ),
+        http.get('/api/v1/communications/:id', () =>
+          HttpResponse.json(communicationFactory({ id: 'log-1', ...log })),
+        ),
+      );
+      const user = userEvent.setup();
+      render();
+      await screen.findByRole('heading', { name: 'Send Message' });
+      await fillBasicSmsMessage(user);
+      await user.click(screen.getByRole('button', { name: 'Review and send' }));
+      const dialog = await screen.findByRole('dialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Send message' }));
+    }
+
+    it('keeps the "on its way" wording while QUEUED', async () => {
+      await sendAndGetResult({ status: 'QUEUED' });
+      expect(await screen.findByRole('heading', { name: 'Message on its way' })).toBeDefined();
+      expect(screen.queryByRole('link', { name: /Settings/ })).toBeNull();
+    });
+
+    it('FAILED with the not-configured reason: failure heading, mapped reason, settings link', async () => {
+      await sendAndGetResult({
+        status: 'FAILED',
+        error: 'SMS (Greenweb) is not configured for this tenant. Add a gateway in Settings.',
+      });
+      expect(await screen.findByRole('heading', { name: 'Message not sent' })).toBeDefined();
+      expect(screen.queryByText('Message on its way')).toBeNull();
+      expect(screen.getByText(/not set up for this school/)).toBeDefined();
+      expect(screen.queryByText(/Greenweb/)).toBeNull();
+      const link = screen.getByRole('link', { name: 'Open Settings › Communication' });
+      expect(link.getAttribute('href')).toContain('/settings');
+    });
+
+    it('FAILED with another reason: generic text, no raw server text, no link', async () => {
+      await sendAndGetResult({ status: 'FAILED', error: 'Provider exploded: code 77' });
+      expect(await screen.findByRole('heading', { name: 'Message not sent' })).toBeDefined();
+      expect(screen.getByText('Could not be sent.')).toBeDefined();
+      expect(screen.queryByText(/code 77/)).toBeNull();
+      expect(screen.queryByRole('link', { name: /Settings/ })).toBeNull();
+    });
   });
 });
