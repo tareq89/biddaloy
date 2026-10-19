@@ -61,7 +61,8 @@ export function useListShellState(
     if (!hasLegacy) return;
     navigateSearch(
       (prev) => {
-        const { [LEGACY_SELECTED_KEY]: _dropped, ...rest } = prev;
+        const rest = { ...prev };
+        delete rest[LEGACY_SELECTED_KEY];
         return rest;
       },
       { replace: true },

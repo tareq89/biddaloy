@@ -15,9 +15,9 @@ import {
 } from '../../test/factories/attention.factory';
 import { renderWithProviders } from '../../test/render-with-providers';
 import { APP_SHELL_MAIN_ID } from '../app-shell';
+import { RowActionsLayoutContext } from '../row-actions';
 
 import { AlertItemCard } from './alert-item-card';
-import { RowActionsLayoutContext } from '../row-actions';
 import { AlertSnoozeMenu } from './alert-snooze-menu';
 import { AttentionBar } from './attention-bar';
 import { AttentionModal } from './attention-modal';

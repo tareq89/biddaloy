@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { clearListSelectionMemory } from '../api/list-selection-memory';
-
 import { renderWithRouter } from '../test/render-with-router';
 
 import { useListShellState } from './use-list-shell-state';
