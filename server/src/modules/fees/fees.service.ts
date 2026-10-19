@@ -218,7 +218,7 @@ export class FeeStructureService {
       relations: ['class', 'academic_year', 'section'],
     });
     if (!entity) {
-      throw new NotFoundException(`Fee structure with ID "${id}" not found`);
+      throw new NotFoundException('Fee structure not found');
     }
     return entity;
   }
@@ -255,7 +255,7 @@ export class FeeStructureService {
         .setLock('pessimistic_write')
         .getOne();
       if (!existing) {
-        throw new NotFoundException(`Fee structure with ID "${id}" not found`);
+        throw new NotFoundException('Fee structure not found');
       }
 
       // `class_id`/`section_id` are now writable on update (they weren't
@@ -355,12 +355,14 @@ export class FeeStructureService {
     await this.findOne(id, tenantId);
     // [2680] Fine rules and recurring schedules that use the price tag block the delete;
     // billed history (StudentFee) is allowed to point at it.
-    await assertNoLiveDependents(this.repo.manager, FeeStructure, id, {
-      code: 'FEE_STRUCTURE_IN_USE',
-      message: 'This fee structure is still used by fine rules or schedules. Remove them first.',
-      exclude: ['StudentFee.fee_structure'],
+    await this.repo.manager.transaction(async (manager) => {
+      await assertNoLiveDependents(manager, FeeStructure, id, {
+        code: 'FEE_STRUCTURE_IN_USE',
+        message: 'This fee structure is still used by fine rules or schedules. Remove them first.',
+        exclude: ['StudentFee.fee_structure'],
+      });
+      await manager.softDelete(FeeStructure, { id, tenant_id: tenantId });
     });
-    await this.repo.softDelete({ id, tenant_id: tenantId });
   }
 }
 

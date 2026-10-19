@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { Repository, IsNull, In, Not } from 'typeorm';
 import { EnrollmentStatus, TeacherAssignmentType, AuditAction } from '@biddaloy/shared';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -26,6 +26,7 @@ import {
 import { assertNoLiveDependents } from '../../common/utils/live-dependents';
 import { dropClassSubjects } from '../academics/drop-class-subjects';
 import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
+import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
@@ -72,6 +73,10 @@ function countLiveEnrollments(
     .andWhere('e.tenant_id = :tenantId', { tenantId })
     .getCount();
 }
+
+// One text for every reason a class delete is refused, no id in it (Rule 23); counts go in details.
+const CLASS_IN_USE_MESSAGE =
+  'This class is still used by other records. Remove or reassign them first.';
 
 @Injectable()
 export class ClassService {
@@ -334,8 +339,13 @@ export class ClassService {
     const inUse = studentCount + enrollmentCount;
     if (inUse > 0) {
       throw new ConflictException({
-        message: `Cannot delete class "${id}": ${studentCount} student(s) and ${enrollmentCount} enrollment record(s) are still enrolled in it, including students who left. It cannot be deleted.`,
-        details: { code: 'CLASS_IN_USE', count: inUse },
+        message: CLASS_IN_USE_MESSAGE,
+        details: {
+          code: 'CLASS_IN_USE',
+          count: inUse,
+          students_count: studentCount,
+          enrollments_count: enrollmentCount,
+        },
       });
     }
 
@@ -344,9 +354,10 @@ export class ClassService {
       where: { class_id: id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (childSectionCount > 0) {
-      throw new ConflictException(
-        `Cannot delete class "${id}": ${childSectionCount} section(s) still exist. Remove all sections first.`,
-      );
+      throw new ConflictException({
+        message: CLASS_IN_USE_MESSAGE,
+        details: { code: 'CLASS_IN_USE', sections_count: childSectionCount },
+      });
     }
 
     await this.repo.manager.transaction(async (manager) => {
@@ -355,7 +366,7 @@ export class ClassService {
       // Subject offerings and calendar class links are config: hidden with it.
       await assertNoLiveDependents(manager, Class, id, {
         code: 'CLASS_IN_USE',
-        message: 'This class is still used by other records. Remove or reassign them first.',
+        message: CLASS_IN_USE_MESSAGE,
         exclude: [
           'ClassSection.class',
           'Enrollment.class',
@@ -364,6 +375,22 @@ export class ClassService {
         ],
       });
       await dropClassSubjects(manager, tenantId, { class_id: id });
+      // [2703 M1] An event with no class links is school-wide, so an event linked
+      // only to this class is soft-deleted with it; shared events just lose this link.
+      const linked = await manager.find(CalendarEventClass, {
+        where: { class_id: id, tenant_id: tenantId },
+      });
+      const eventIds = linked.map((l) => l.event_id);
+      if (eventIds.length > 0) {
+        const shared = await manager.find(CalendarEventClass, {
+          where: { event_id: In(eventIds), class_id: Not(id), tenant_id: tenantId },
+        });
+        const keep = new Set(shared.map((l) => l.event_id));
+        const onlyThisClass = eventIds.filter((e) => !keep.has(e));
+        if (onlyThisClass.length > 0) {
+          await manager.softDelete(CalendarEvent, { id: In(onlyThisClass), tenant_id: tenantId });
+        }
+      }
       await manager.delete(CalendarEventClass, { class_id: id, tenant_id: tenantId });
       await repo.softDelete({ id, tenant_id: tenantId });
 

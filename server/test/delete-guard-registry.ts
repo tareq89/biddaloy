@@ -611,7 +611,7 @@ export const ALLOWED: Allowed[] = [
   {
     key: 'CalendarEventClass.class -> Class',
     reason:
-      'Calendar class links are join rows: ClassService.remove deletes them in the same transaction.',
+      'Calendar class links are join rows: ClassService.remove deletes them in the same transaction, and soft-deletes an event left with no class (else it turns school-wide).',
   },
   {
     key: 'CalendarEvent.academic_year -> AcademicYear',
@@ -686,7 +686,8 @@ async function autoCreate(ctx: Ctx, entityName: string, depth: number): Promise<
   return (saved as unknown as { id: string }).id;
 }
 
-function auto(key: string, parent: ParentKind): Guarded {
+/** `releaseVia`: free the parent by soft-deleting the child's other parent (that relation) instead. */
+function auto(key: string, parent: ParentKind, releaseVia?: string): Guarded {
   const [child, rest] = key.split('.');
   const prop = rest.split(' -> ')[0];
   return {
@@ -702,12 +703,28 @@ function auto(key: string, parent: ParentKind): Guarded {
           (saved as unknown as Record<string, unknown>)[c.propertyName],
         ]),
       );
+      if (releaseVia) {
+        const other = meta.findRelationWithPropertyPath(releaseVia)!.inverseEntityMetadata;
+        const otherId = (row[releaseVia] as { id: string }).id;
+        return { release: softDelete(ctx, other.target as new () => object, otherId) };
+      }
       return {
         release: async () => void (await ctx.ds.getRepository(meta.target).delete(pk as never)),
       };
     },
   };
 }
+
+/**
+ * [2703 M4] A child whose own other parent is soft-deleted is gone with it, so it
+ * no longer blocks the protected parent (e.g. the structures of a deleted
+ * schedule, the sittings of a deleted exam).
+ */
+export const ORPHANED: Guarded[] = [
+  auto('RecurringScheduleStructure.fee_structure -> FeeStructure', 'FeeStructure', 'schedule'),
+  auto('ExamSchedule.room -> Room', 'Room', 'exam'),
+  auto('ExamSchedule.subject -> Subject', 'Subject', 'exam'),
+];
 
 // ---- KNOWN_GAPS (each becomes a GitHub issue at wave close, D22) -------------
 
@@ -733,16 +750,16 @@ export const BARE_REFS: { key: string; reason: string }[] = [
   {
     key: 'AcrAssessment.academic_year_id',
     reason:
-      'Real FK to academic_years with no relation decorator; AcademicYearService.remove does not count it yet (follow-up).',
+      'Real FK to academic_years with no relation decorator; AcademicYearService.remove does not count it yet (#2702).',
   },
   {
     key: 'SurveyTarget.subject_id',
     reason:
-      'Real FK to subjects with no relation decorator; SubjectService.remove does not count it yet (follow-up).',
+      'Real FK to subjects with no relation decorator; SubjectService.remove does not count it yet (#2702).',
   },
   {
     key: 'SurveyResponse.subject_id',
     reason:
-      'Real FK to subjects with no relation decorator; SubjectService.remove does not count it yet (follow-up).',
+      'Real FK to subjects with no relation decorator; SubjectService.remove does not count it yet (#2702).',
   },
 ];

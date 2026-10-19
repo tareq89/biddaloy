@@ -14,7 +14,15 @@ import { FeeStructureService } from '../src/modules/fees/fees.service';
 import { GradingService } from '../src/modules/grading/grading.service';
 import { SchoolSettingsReader } from '../src/modules/schools/settings/school-settings-reader.service';
 import { SchoolsService } from '../src/modules/schools/schools.service';
-import { ALLOWED, BARE_REFS, Ctx, GUARDED, KNOWN_GAPS, PARENTS } from './delete-guard-registry';
+import {
+  ALLOWED,
+  BARE_REFS,
+  Ctx,
+  GUARDED,
+  KNOWN_GAPS,
+  ORPHANED,
+  PARENTS,
+} from './delete-guard-registry';
 
 const PARENT_NAMES = [
   'AcademicYear',
@@ -169,7 +177,10 @@ describe('delete-guard registry (integration)', () => {
   });
 
   describe('GUARDED: parent remove() is a 409 while a live child exists', () => {
-    it.each(GUARDED.map((g) => [g.key, g] as const))('%s', async (_key, g) => {
+    it.each([
+      ...GUARDED.map((g) => [g.key, g] as const),
+      ...ORPHANED.map((g) => [`${g.key} (released by deleting its other parent)`, g] as const),
+    ])('%s', async (_key, g) => {
       const parent = PARENTS[g.parent];
       const parentId = await parent.make(ctx);
       const child = await g.makeChild(ctx, parentId);

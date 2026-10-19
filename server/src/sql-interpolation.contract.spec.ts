@@ -50,6 +50,14 @@ const JOIN_COND = new RegExp(
 const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
   // table/column are code constants (JSDoc: constants only; callers pass literals)
   'common/utils/next-serial.util.ts': ['column', 'column', 'column', 'table'],
+  // column/relation names and join aliases read from TypeORM entity metadata (#2703 M4)
+  'common/utils/live-dependents.ts': [
+    'fk',
+    'i',
+    'other.propertyName',
+    'pk',
+    'rel.joinColumns[0].databaseName',
+  ],
   // SCHOOL_TZ / STALE_DAYS constants
   'modules/applications/application-reports.service.ts': ['SCHOOL_TZ', 'SCHOOL_TZ', 'STALE_DAYS'],
   // SCHOOL_TZ-based fragment, serialClause with :params, constant IN (:...linked) toggle

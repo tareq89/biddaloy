@@ -33,7 +33,8 @@ import { isNoResponseNetworkError } from './offline-cache';
  * `meta: { handlesForbidden: true }`, so the user does not get both.
  * [2698] A mutation whose form explains its own 5xx / lost reply, or that writes nothing
  * (a connection test), opts out of the "could not confirm" toast with
- * `meta: { handlesUnknownOutcome: true }`.
+ * `meta: { handlesUnknownOutcome: true }`. A form whose error only says "Couldn't save.
+ * Try again." does not qualify: on a write that may have committed, that invites a duplicate.
  */
 function handleMutationError(
   error: unknown,

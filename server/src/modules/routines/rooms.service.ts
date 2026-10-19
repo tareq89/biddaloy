@@ -97,12 +97,13 @@ export class RoomsService {
     }
 
     // [2679] Exam schedules that use the room block the delete too.
-    await assertNoLiveDependents(this.repo.manager, Room, id, {
-      code: 'ROOM_IN_USE',
-      message: 'This room is still used by other records. Remove or reassign them first.',
-      exclude: ['RoutineSlot.room', 'SeatAllocation.room'],
+    await this.repo.manager.transaction(async (manager) => {
+      await assertNoLiveDependents(manager, Room, id, {
+        code: 'ROOM_IN_USE',
+        message: 'This room is still used by other records. Remove or reassign them first.',
+        exclude: ['RoutineSlot.room', 'SeatAllocation.room'],
+      });
+      await manager.softDelete(Room, { id, tenant_id: tenantId });
     });
-
-    await this.repo.softDelete({ id, tenant_id: tenantId });
   }
 }

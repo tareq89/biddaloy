@@ -789,6 +789,51 @@ describe('CheckoutService (integration)', () => {
     expect(again.payment.id).toBe(first.payment.id);
   });
 
+  // [2703 M2] Back-dated = payment_date far from created_at, not "another UTC day".
+  it('a back-date entered 00:00-06:00 Dhaka (same UTC day as created_at) still 400s a replay without payment_date (#2663)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 5 }));
+    const body = {
+      idempotency_key: '2663a002-0000-4000-8000-000000000001',
+      lines: [{ student_fee_id: bill.id, amount: 5, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+      tendered_amount: 5,
+      payment_date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(
+        new Date(Date.now() - 86_400_000),
+      ),
+    };
+    const token = await issueApprovalToken('jti-2663-b', ApprovalScope.PAYMENTS_BACKDATE);
+    const first = await service.checkout(body, TENANT_ID, ACTOR_USER_ID, requestWithToken(token));
+    // Entered at 01:00 Dhaka the next day = 19:00Z on the back-dated UTC day.
+    await dataSource.query(
+      `UPDATE payments SET created_at = payment_date + interval '19 hours' WHERE id = $1`,
+      [first.payment.id],
+    );
+    const { payment_date: _omit, ...noDate } = body;
+    await expect(
+      service.checkout(noDate, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('a real retry without payment_date whose first write crossed UTC midnight still replays (#2663)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 5 }));
+    const body = {
+      idempotency_key: '2663a003-0000-4000-8000-000000000001',
+      lines: [{ student_fee_id: bill.id, amount: 5, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+      tendered_amount: 5,
+    };
+    const first = await service.checkout(body, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+    // DB now() at 23:59:59Z, app clock at 00:00:01Z: two UTC days, two seconds apart.
+    await dataSource.query(
+      `UPDATE payments SET created_at = '2026-10-18T23:59:59Z', payment_date = '2026-10-19T00:00:01Z' WHERE id = $1`,
+      [first.payment.id],
+    );
+    const again = await service.checkout(body, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+    expect(again.payment.id).toBe(first.payment.id);
+  });
+
   it('a replay with a flipped change_handling or another payment_date is a 400 and writes nothing (#2637)', async () => {
     const student = await studentRepo.save(makeStudent());
     const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 5 }));

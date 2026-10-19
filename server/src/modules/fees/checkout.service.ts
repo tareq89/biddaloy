@@ -41,6 +41,9 @@ import { round2, toPaisa } from '../../common/constants/money';
 // One text for foreign, deleted and unknown ids, with no id in it (Rule 23, #2640).
 const STUDENT_FEE_NOT_FOUND = 'Student fee not found';
 
+/** #2663: most an undated payment's app-clock payment_date can sit from its DB created_at. */
+const UNDATED_PAYMENT_SKEW_MS = 5 * 60_000;
+
 function dateKey(value: Date | string | null): string | null {
   if (value === null) return null;
   return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
@@ -616,11 +619,14 @@ export class CheckoutService {
       ? toPaisa(existing.change_amount ?? 0) > 0
       : toPaisa(existing.wallet_credit_added ?? 0) > 0;
     // #2663: an omitted payment_date means "now", so replaying it against a back-dated first
-    // request is a different request (400). Back-dated = stored date's day is not the day created.
-    // ponytail: UTC day compare; a back-date inside the same UTC day is not seen.
+    // request is a different request (400). With no date the stored value is the app clock at
+    // write time, within moments of created_at (DB clock); a dated one is a midnight hours away.
+    // Elapsed time, not UTC days: a Dhaka 00:00-06:00 back-date shares created_at's UTC day,
+    // and a real retry can cross UTC midnight.
     const paymentDateDiffers = dto.payment_date
       ? dateKey(existing.payment_date) !== dateKey(new Date(dto.payment_date))
-      : dateKey(existing.payment_date) !== dateKey(existing.created_at);
+      : Math.abs(+new Date(existing.payment_date) - +new Date(existing.created_at)) >
+        UNDATED_PAYMENT_SKEW_MS;
 
     const mismatch =
       existing.payment_method !== dto.payment_method ||

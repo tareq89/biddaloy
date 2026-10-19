@@ -1254,6 +1254,7 @@ export class GuardianService {
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<void> {
     const existing = await this.findOne(id, tenantId);
+    let cutUserId: string | null = null;
 
     await this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(Guardian);
@@ -1269,18 +1270,14 @@ export class GuardianService {
       await repo.softDelete({ id, tenant_id: tenantId });
 
       // [2665] A guardian's portal login ends with the guardian: drop the PARENT
-      // membership in this school and cut the user's sessions (Rule 8). Other
-      // roles and other schools stay. App clock, same as SessionCutoffService.
+      // membership in this school. Memberships in other roles and schools stay.
       if (withStudents.user_id) {
+        cutUserId = withStudents.user_id;
         await manager.softDelete(UserTenant, {
           user_id: withStudents.user_id,
           tenant_id: tenantId,
           role: UserRole.PARENT,
         });
-        await manager.query(`UPDATE "users" SET "tokens_valid_after" = $2 WHERE "id" = $1`, [
-          withStudents.user_id,
-          new Date(),
-        ]);
       }
 
       await this.auditService.record(
@@ -1298,5 +1295,16 @@ export class GuardianService {
         manager,
       );
     });
+
+    // [2665] Cut every session of the user after commit (Rule 8), so a refresh
+    // racing the transaction cannot mint a token past the cutoff. App clock, same
+    // SQL as SessionCutoffService.cutOff (not injected: GuardianService is built
+    // by hand in many specs and AuthModule is not a students dependency).
+    if (cutUserId) {
+      await this.repo.manager.query(
+        `UPDATE "users" SET "tokens_valid_after" = $2 WHERE "id" = $1`,
+        [cutUserId, new Date()],
+      );
+    }
   }
 }
