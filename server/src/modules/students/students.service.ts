@@ -506,7 +506,10 @@ export class StudentService {
       relations: ['class_section', 'class_section.class', 'guardians'],
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${id}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
     return student;
   }

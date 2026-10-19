@@ -1208,7 +1208,10 @@ export class PromotionsService {
       where: { id: studentId, tenant_id: tenantId },
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
 
     const entries = await this.entryRepo.find({
