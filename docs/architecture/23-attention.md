@@ -496,16 +496,45 @@ conclusion (FAST over budget, summary well under) held in both.
 These keys are reserved in the catalogue so the bar and settings already know
 them. The owning epic writes the rule file.
 
-| Key                              | Epic  | What it will say                                |
-| -------------------------------- | ----- | ----------------------------------------------- |
-| `study_plan.unreported`          | #1828 | A teacher has not reported on a study plan day. |
-| `study_plan.behind`              | #1828 | A student is behind their study plan.           |
-| `admin.mfa_missing`              | #1752 | An admin has no second sign-in step.            |
-| `approvals.pending`              | #1726 | Applications are waiting for a decision.        |
-| `print.queue_pending`            | #1373 | Documents are waiting to be printed.            |
-| `billing.renewal_due`            | #1649 | The subscription is due for renewal.            |
-| `students.at_risk`               | #169  | Students flagged by the performance briefing.   |
-| `committee.monthly_report_ready` | #169  | The monthly committee report is ready.          |
+| Key                              | Epic  | What it will say                                 |
+| -------------------------------- | ----- | ------------------------------------------------ |
+| `study_plan.unreported`          | #1828 | A teacher has not reported on a study plan day.  |
+| `study_plan.behind`              | #1828 | A student is behind their study plan.            |
+| `admin.mfa_missing`              | #1752 | An admin has no second sign-in step.             |
+| `approvals.pending`              | #1726 | Applications are waiting for a decision.         |
+| `print.queue_pending`            | #1373 | Documents are waiting to be printed.             |
+| `billing.renewal_due`            | #1649 | Superseded by `seats.expiring` (see Seat rules). |
+| `students.at_risk`               | #169  | Students flagged by the performance briefing.    |
+| `committee.monthly_report_ready` | #169  | The monthly committee report is ready.           |
+
+## Seat rules (Epic 49, billing)
+
+The free trial is gone, so `trial.ending` and `platform.trials_ending` have no
+rule any more (their catalogue ids stay until the Epic 49 close-out confirms
+nothing reads them). Seats are paid per month; these rules warn before they run out.
+
+```mermaid
+flowchart LR
+  O[PAID seat_orders] -->|max period_end| R{seat rules}
+  L[schools.seat_limit<br/>NULL = free period] --> R
+  S[ACTIVE students] --> R
+  R -->|30 d or 90 % used| W[yellow bar]
+  R -->|7 d or expired| C[red bar]
+  R -->|used >= entitled| X[red bar: all seats used]
+```
+
+| Key                       | Fires when                                                                    | Severity               | Recipients           | Action                      |
+| ------------------------- | ----------------------------------------------------------------------------- | ---------------------- | -------------------- | --------------------------- |
+| `seats.expiring`          | last paid day is within 30 days (or past), or 90 % or more of seats used      | WARNING, CRITICAL at 7 | ACTIVE admins        | `/settings?section=billing` |
+| `seats.exhausted`         | at least one student and `used >= seat_limit`                                 | CRITICAL               | ACTIVE admins        | `/settings?section=billing` |
+| `platform.seats.expiring` | any school's last paid day is within 14 days (or past), or its seats are full | REMINDER               | platform SUPER_ADMIN | `/subscriptions`            |
+
+- Silent while `schools.seat_limit` is NULL (before `BILLING_FREE_UNTIL`).
+- `seats.expiring` stays quiet for a full school; `seats.exhausted` owns that case.
+- Dedupe key is `seats:<period_end>`, so a renewal opens a fresh alert.
+- Separately, `SeatNoticesService` (daily, after the entitlement recompute) sends SMS + email at
+  30 / 7 / 0 days (`seats_d30`, `seats_d7`, `seats_expired`), once per key per `period_end`. The
+  stamps live in `schools.onboarding.seat_warnings`.
 
 ## Shipped choices worth knowing (and why)
 

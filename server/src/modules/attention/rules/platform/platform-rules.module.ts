@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PlatformBackupFailingRule } from './platform-backup-failing.rule';
 import { PlatformProviderFailuresRule } from './platform-provider-failures.rule';
 import { PlatformTenantResolver } from './platform-tenant';
-import { PlatformTrialsEndingRule } from './platform-trials-ending.rule';
+import { PlatformSeatsExpiringRule } from './platform-seats-expiring.rule';
 
 /** Rules of category PLATFORM (TenantStatusModule is @Global). */
 @Module({
@@ -11,7 +11,7 @@ import { PlatformTrialsEndingRule } from './platform-trials-ending.rule';
   providers: [
     PlatformTenantResolver,
     PlatformBackupFailingRule,
-    PlatformTrialsEndingRule,
+    PlatformSeatsExpiringRule,
     PlatformProviderFailuresRule,
   ],
 })

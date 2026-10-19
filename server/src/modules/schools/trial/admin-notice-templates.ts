@@ -1,9 +1,19 @@
-export type AdminNoticeKey = 'welcome' | 'idle_d20' | 'idle_d27' | 'idle_suspended';
+export type AdminNoticeKey =
+  | 'welcome'
+  | 'idle_d20'
+  | 'idle_d27'
+  | 'idle_suspended'
+  | 'seats_d30'
+  | 'seats_d7'
+  | 'seats_expired';
 export type NoticeLocale = 'en' | 'bn';
 
 export interface NoticeVars {
   school: string;
   link?: string;
+  /** First day without paid seats (YYYY-MM-DD), for the seat notices. */
+  date?: string;
+  seats?: number;
 }
 
 interface Template {
@@ -56,6 +66,42 @@ const TEMPLATES: Record<AdminNoticeKey, Record<NoticeLocale, Template>> = {
       subject: (v) => `${v.school} সাময়িক বন্ধ করা হয়েছে`,
       body: (v) =>
         `কোনো শিক্ষার্থী যোগ না হওয়ায় ${v.school} সাময়িক বন্ধ করা হয়েছে। আপনার তথ্য নিরাপদ আছে। আবার চালু করতে আমাদের সঙ্গে যোগাযোগ করুন।`,
+    },
+  },
+  seats_d30: {
+    en: {
+      subject: (v) => `${v.school}: seats run out in 30 days`,
+      body: (v) =>
+        `The ${v.seats ?? ''} paid seats of ${v.school} run out on ${v.date ?? ''}. Buy seats for the next period in Settings, Seats & billing to keep adding students.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: ৩০ দিনের মধ্যে সিট শেষ হবে`,
+      body: (v) =>
+        `${v.school}-এর ${v.seats ?? ''}টি পরিশোধিত সিট ${v.date ?? ''} তারিখে শেষ হবে। শিক্ষার্থী যোগ করা চালু রাখতে সেটিংস, সিট ও বিলিং থেকে পরবর্তী সময়ের জন্য সিট কিনুন।`,
+    },
+  },
+  seats_d7: {
+    en: {
+      subject: (v) => `${v.school}: seats run out in 7 days`,
+      body: (v) =>
+        `Only 7 days left. The paid seats of ${v.school} run out on ${v.date ?? ''}, then the school becomes read-only. Buy seats in Settings, Seats & billing.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: ৭ দিনের মধ্যে সিট শেষ হবে`,
+      body: (v) =>
+        `আর মাত্র ৭ দিন বাকি। ${v.school}-এর পরিশোধিত সিট ${v.date ?? ''} তারিখে শেষ হবে, তারপর স্কুল শুধু দেখা যাবে। সেটিংস, সিট ও বিলিং থেকে সিট কিনুন।`,
+    },
+  },
+  seats_expired: {
+    en: {
+      subject: (v) => `${v.school}: seats have expired`,
+      body: (v) =>
+        `The paid seats of ${v.school} ended on ${v.date ?? ''}. The school is read-only for 7 days, then paused. Your data is safe. Buy seats in Settings, Seats & billing to continue.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: সিটের মেয়াদ শেষ`,
+      body: (v) =>
+        `${v.school}-এর পরিশোধিত সিটের মেয়াদ ${v.date ?? ''} তারিখে শেষ হয়েছে। ৭ দিন স্কুল শুধু দেখা যাবে, তারপর সাময়িক বন্ধ হবে। আপনার তথ্য নিরাপদ আছে। চালু রাখতে সেটিংস, সিট ও বিলিং থেকে সিট কিনুন।`,
     },
   },
 };

@@ -89,8 +89,8 @@ export class EntitlementService {
   /** Call after the transaction that ran `recompute` committed. */
   async afterCommit(schoolId: string): Promise<void> {
     await this.tenantStatus.invalidate(schoolId);
-    // ponytail: no seats.* attention rule exists yet (decision: seats.expiring replaces
-    // billing.renewal_due); the engine drops a recheck for a rule it does not know.
+    // seats.expiring replaces billing.renewal_due (Epic 49); seats.exhausted follows the limit too.
     emitRecheck(attentionEvents, { tenantId: schoolId, ruleKey: 'seats.expiring' });
+    emitRecheck(attentionEvents, { tenantId: schoolId, ruleKey: 'seats.exhausted' });
   }
 }
