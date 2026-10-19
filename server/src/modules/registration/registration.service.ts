@@ -308,7 +308,7 @@ export class RegistrationService {
             // slug clash leaves the Google link usable. A missing/expired ticket just means no
             // link: the code already proved the registrant.
             const ticket = socialTicketId ? await this.socialTickets.consume(socialTicketId) : null;
-            await this.trial.startTrial(result.school.id, manager);
+            await this.trial.startAccount(result.school.id, manager);
             const userId = result.admin.user_id;
             // Compare-and-set on the contact the code went to, same as OTP login: the stamp
             // can never land on a replacement value this caller did not prove.

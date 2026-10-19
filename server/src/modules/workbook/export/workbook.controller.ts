@@ -28,7 +28,7 @@ import { STRICT_RATE_LIMIT } from '../../../rate-limit';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
-import { AllowWhenTrialExpired } from '../../auth/decorators/allow-when-trial-expired.decorator';
+import { AllowWhenSuspendedForBilling } from '../../auth/decorators/allow-when-suspended-for-billing.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
@@ -71,7 +71,7 @@ export class WorkbookController {
   ) {}
 
   @Post('export')
-  @AllowWhenTrialExpired() // D16: an ended trial may still export
+  @AllowWhenSuspendedForBilling() // D16: an ended trial may still export
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @RequirePermissions(Permission.BACKUP_MANAGE)
@@ -172,7 +172,7 @@ export class WorkbookController {
 
   // Declared before `jobs/:id` so route matching stays unambiguous.
   @Get('jobs/:id/download')
-  @AllowWhenTrialExpired() // D16: an ended trial may still export
+  @AllowWhenSuspendedForBilling() // D16: an ended trial may still export
   @RequirePermissions(Permission.BACKUP_MANAGE)
   @Header('Cache-Control', 'no-store')
   @ApiOperation({
@@ -214,7 +214,7 @@ export class WorkbookController {
   }
 
   @Get('jobs/:id')
-  @AllowWhenTrialExpired() // D16: an ended trial may still export
+  @AllowWhenSuspendedForBilling() // D16: an ended trial may still export
   @RequirePermissions(Permission.BACKUP_MANAGE)
   async get(
     @Param('id', ParseUUIDPipe) id: string,

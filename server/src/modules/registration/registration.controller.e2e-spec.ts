@@ -103,7 +103,7 @@ describe('RegistrationController (e2e)', () => {
   });
 
   describe('POST /auth/register/verify', () => {
-    it('creates a school in trial with the registrant as its only ADMIN and signs them in', async () => {
+    it('creates a school (no trial, Epic 49) with the registrant as its only ADMIN and signs them in', async () => {
       const d = details();
       const s = await start(d).expect(202);
       const res = await verify({
@@ -120,8 +120,9 @@ describe('RegistrationController (e2e)', () => {
         `SELECT id, trial_ends_at, seat_limit, onboarding, country_code, address FROM schools WHERE name = $1`,
         [d.school_name],
       );
-      expect(school.trial_ends_at).not.toBeNull();
-      expect(school.seat_limit).toBe(10);
+      // Epic 49: no trial; seats are unlimited (NULL) until BILLING_FREE_UNTIL.
+      expect(school.trial_ends_at).toBeNull();
+      expect(school.seat_limit).toBeNull();
       expect(school.onboarding).toBeNull();
       expect(school.country_code).toBe('BD');
       const admins = await ds.query(
@@ -222,15 +223,7 @@ describe('RegistrationController (e2e)', () => {
         [userId],
       );
       expect(mem).toHaveLength(1);
-
-      // A second school while the first trial is open is refused (D30).
-      const again = { ...d, school_name: `${d.school_name} Two` };
-      const s2 = await start(again).expect(202);
-      const res = await verify({
-        registration_id: s2.body.registration_id,
-        otp: s2.body.debug.otp,
-      }).expect(409);
-      expect(res.body.details.code).toBe('TRIAL_ALREADY_OPEN');
+      // The D30 one-open-trial refusal (TRIAL_ALREADY_OPEN) is inert since Epic 49: no trial_ends_at.
     });
 
     it("never touches someone else's account through the unproven contact", async () => {

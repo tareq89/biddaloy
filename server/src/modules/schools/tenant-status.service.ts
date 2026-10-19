@@ -1,12 +1,25 @@
 import { Injectable, Inject, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { In, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
 import * as Sentry from '@sentry/node';
-import { SchoolStatus, TRIAL_EXPIRED_REASON } from '@biddaloy/shared';
+import {
+  IDLE_REASON,
+  SchoolStatus,
+  SEATS_EXPIRED_REASON,
+  TRIAL_EXPIRED_REASON,
+} from '@biddaloy/shared';
+
 import { School } from './entities/school.entity';
 import { isLocked } from '../workbook/restore/restore-lock';
+
+/** status_reason values a billing suspension carries; the three backup routes stay open for them (D16). */
+export const BILLING_SUSPENSION_REASONS: readonly string[] = [
+  TRIAL_EXPIRED_REASON,
+  SEATS_EXPIRED_REASON,
+  IDLE_REASON,
+];
 
 const POSTGRES_INVALID_TEXT_REPRESENTATION = '22P02';
 
@@ -206,17 +219,17 @@ export class TenantStatusService {
   }
 
   /**
-   * D16 allow decision for `@AllowWhenTrialExpired` routes. Reads the DB, never the cache:
+   * D16 allow decision for `@AllowWhenSuspendedForBilling` routes. Reads the DB, never the cache:
    * status and reason sit in two cache keys, and a stale cached TRIAL_EXPIRED must not keep the
    * export open after a platform admin re-suspends the school (#2399). Only suspended schools
    * calling the three backup routes reach this, so the uncached read is cheap.
    */
-  async isTrialExpired(tenantId: string): Promise<boolean> {
+  async isSuspendedForBilling(tenantId: string): Promise<boolean> {
     return this.schoolRepo.exists({
       where: {
         id: tenantId,
         status: SchoolStatus.SUSPENDED,
-        status_reason: TRIAL_EXPIRED_REASON,
+        status_reason: In([...BILLING_SUSPENSION_REASONS]),
       },
     });
   }

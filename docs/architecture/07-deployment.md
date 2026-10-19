@@ -197,7 +197,6 @@ bundle when it is built, so they are Docker build args, not runtime env.
 | `VITE_TURNSTILE_SITE_KEY`                              | client, build arg in the `Dockerfile`                           | no captcha widget is drawn                                               |
 | `SUPPORT_CONTACT_URL`                                  | server, at runtime                                              | no support link from the API                                             |
 | `VITE_SUPPORT_URL`                                     | client, build arg (Compose fills it from `SUPPORT_CONTACT_URL`) | no "Contact us" on the trial-ended screen                                |
-| `TRIAL_DAYS`, `TRIAL_SEAT_LIMIT`                       | server                                                          | 30 days, 10 students                                                     |
 | `OTP_SMS_ALLOWED_PREFIXES`                             | server                                                          | `+880`                                                                   |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | server                                                          | Google is not offered                                                    |
 

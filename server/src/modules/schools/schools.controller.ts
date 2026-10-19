@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -93,7 +94,7 @@ export class SchoolsController {
   @UseGuards(PlatformSuperAdminGuard)
   @ApiOperation({
     summary:
-      'Extend a school trial by N days and optionally raise its seat limit (#1625). Platform SUPER_ADMIN only. An expired trial reactivates the school. Audited with the reason.',
+      'Grant a school `seat_limit` seats for `days` (rounded up to months) as a paid-for-free order (Epic 49; was the trial extension). Platform SUPER_ADMIN only. Audited with the reason.',
   })
   async extendTrial(
     @Param('id', ParseUUIDPipe) id: string,
@@ -103,7 +104,18 @@ export class SchoolsController {
     // Looked up lazily: TrialModule -> CommunicationsModule -> SchoolsModule is a file-level import
     // cycle, so SchoolsModule can't import TrialModule. TrialModule is registered in AppModule.
     const trial = this.moduleRef.get(TrialService, { strict: false });
-    return trial.extend(id, dto, { userId: user.sub });
+    // The trial is retired (Epic 49): `seat_limit` seats are granted for `days` rounded up to whole months.
+    if (!dto.seat_limit) {
+      throw new BadRequestException({
+        message: 'seat_limit is required to grant seats',
+        details: { code: 'SEATS_REQUIRED' },
+      });
+    }
+    return trial.grantSeats(
+      id,
+      { seats: dto.seat_limit, months: Math.min(24, Math.ceil(dto.days / 30)), reason: dto.reason },
+      { userId: user.sub },
+    );
   }
 
   @Get(':id/settings')

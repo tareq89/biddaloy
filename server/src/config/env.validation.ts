@@ -237,15 +237,6 @@ class EnvironmentVariables {
   })
   PUBLIC_HOLIDAY_FETCH_TIMEOUT_MS?: string;
 
-  // Onboarding / trial [13.1.2]. All optional; defaults live where they are read.
-  @IsOptional()
-  @Matches(POSITIVE_INTEGER, { message: 'TRIAL_DAYS must be a positive integer' })
-  TRIAL_DAYS?: string;
-
-  @IsOptional()
-  @Matches(POSITIVE_INTEGER, { message: 'TRIAL_SEAT_LIMIT must be a positive integer' })
-  TRIAL_SEAT_LIMIT?: string;
-
   // Billing [49.4]. Seats are free until this instant; checked in
   // assertProductionConfig and parsed by billingFreeUntil().
   @IsOptional()
