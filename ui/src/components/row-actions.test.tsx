@@ -95,6 +95,20 @@ describe('RowActions', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
+  it('shortLabel is the visible text in labelled mode, label stays the accessible name', async () => {
+    await renderActions(
+      [{ intent: 'dismiss', label: 'Close: Monthly test', shortLabel: 'Close', onClick: vi.fn() }],
+      'labelled',
+    );
+    const button = screen.getByRole('button', { name: 'Close: Monthly test' });
+    expect(button.textContent).toBe('Close');
+  });
+
+  it('without shortLabel the labelled button is unchanged (no aria-label)', async () => {
+    await renderActions([{ intent: 'edit', label: 'Edit' }], 'labelled');
+    expect(screen.getByRole('button', { name: 'Edit' }).hasAttribute('aria-label')).toBe(false);
+  });
+
   it('shows the label as a tooltip on keyboard focus', async () => {
     const user = userEvent.setup();
     await renderActions([{ intent: 'edit', label: 'Edit' }]);
