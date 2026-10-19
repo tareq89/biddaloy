@@ -1,7 +1,8 @@
 import '@biddaloy/ui/test';
 
+import { createAppQueryClient } from '@biddaloy/ui/api';
 import { apiErrorBody, cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -35,9 +36,12 @@ describe('TemplateFormDialog', () => {
   it('a 409 shows the translated duplicate line, not the server text', async () => {
     server.use(
       http.post('/api/v1/exam-templates', () =>
-        HttpResponse.json(apiErrorBody(409, 'Template "X" already exists', '/api/v1/exam-templates'), {
-          status: 409,
-        }),
+        HttpResponse.json(
+          apiErrorBody(409, 'Template "X" already exists', '/api/v1/exam-templates'),
+          {
+            status: 409,
+          },
+        ),
       ),
     );
     const user = await renderDialog();
@@ -71,5 +75,45 @@ describe('TemplateFormDialog', () => {
 
     await waitFor(() => expect(body).toEqual({ name: 'Renamed', kind: 'TERM' }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
+  });
+
+  describe('TemplateFormDialog double submit [2622]', () => {
+    afterEach(async () => {
+      onSaved.mockReset();
+      await cleanupTestState();
+    });
+
+    it('two rapid submits send one POST', async () => {
+      let posts = 0;
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      server.use(
+        http.post('/api/v1/exam-templates', async () => {
+          posts += 1;
+          await gate;
+          return HttpResponse.json(
+            { id: 't1', name: 'X', kind: 'TERM', rows: [] },
+            { status: 201 },
+          );
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<TemplateFormDialog open onOpenChange={() => {}} onSaved={onSaved} />, {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: 'tenant-1',
+        queryClient: createAppQueryClient(),
+      });
+      await user.type(await screen.findByLabelText('Name'), 'Half-yearly');
+      const create = screen.getByRole('button', { name: 'Create' });
+      fireEvent.click(create);
+      fireEvent.click(create);
+      await new Promise((r) => setTimeout(r, 50));
+      release();
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      expect(posts).toBe(1);
+    });
   });
 });

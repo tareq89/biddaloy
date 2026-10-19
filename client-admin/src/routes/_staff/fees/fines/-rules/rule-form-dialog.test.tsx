@@ -3,6 +3,7 @@
  * ATTENDANCE_LATE shows the min-minutes field and ATTENDANCE_ABSENT hides
  * it, a 409 duplicate is shown inline, and the submit payload shape.
  */
+import { createAppQueryClient } from '@biddaloy/ui/api';
 import {
   academicYearFactory,
   classFactory,
@@ -11,7 +12,7 @@ import {
   renderWithProviders,
   server,
 } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -259,5 +260,42 @@ describe('fees/fines/-rules/rule-form-dialog', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(submittedBody?.class_id).toBeNull();
     expect(submittedBody?.cap_per_period).toBeNull();
+  });
+
+  it('two rapid submits send one POST [2622]', async () => {
+    let posts = 0;
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      ...referenceHandlers(),
+      http.post('/api/v1/fees/fine-rules', async () => {
+        posts += 1;
+        await gate;
+        return HttpResponse.json({ id: 'r1' }, { status: 201 });
+      }),
+    );
+    const onSaved = vi.fn();
+    renderWithProviders(
+      <RuleFormDialog
+        open
+        onOpenChange={vi.fn()}
+        mode="create"
+        academicYearId={YEAR.id}
+        onSaved={onSaved}
+      />,
+      { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1', queryClient: createAppQueryClient() },
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('combobox', { name: 'Fine type' }));
+    await user.click(await screen.findByRole('option', { name: 'Fine Fee' }));
+    const save = screen.getByRole('button', { name: 'Save' });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    await new Promise((r) => setTimeout(r, 50));
+    release();
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(posts).toBe(1);
   });
 });

@@ -1,8 +1,10 @@
 import '@biddaloy/ui/test';
 
 import { ExamKind } from '@biddaloy/shared';
+import { createAppQueryClient } from '@biddaloy/ui/api';
 import {
   academicYearFactory,
+  apiErrorBody,
   classFactory,
   cleanupTestState,
   examFactory,
@@ -10,7 +12,7 @@ import {
   server,
 } from '@biddaloy/ui/test';
 import { toIsoDate } from '@biddaloy/ui/utils';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -267,5 +269,51 @@ describe('ExamFormDialog mark entry deadline', () => {
     await screen.findByLabelText('Name');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(patches[0]).toMatchObject({ mark_entry_deadline: '2026-10-10' }));
+  });
+
+  describe('ExamFormDialog double submit [2622]', () => {
+    afterEach(async () => {
+      await cleanupTestState();
+    });
+
+    it('two rapid submits send one POST', async () => {
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const api = mockApi({
+        post: () => gate.then(() => HttpResponse.json(examFactory(), { status: 201 })),
+      });
+      const onSaved = vi.fn();
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ExamFormDialog open onOpenChange={() => {}} mode="create" onSaved={onSaved} />,
+        { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1', queryClient: createAppQueryClient() },
+      );
+      await user.type(await screen.findByLabelText('Name'), 'Half Yearly');
+      await user.click(screen.getByRole('combobox', { name: 'Academic year' }));
+      await user.click(await screen.findByRole('option', { name: '2026' }));
+      await user.click(screen.getByRole('combobox', { name: 'Class' }));
+      await user.click(await screen.findByRole('option', { name: 'Class 6' }));
+      const save = screen.getByRole('button', { name: 'Save' });
+      fireEvent.click(save);
+      fireEvent.click(save);
+      await new Promise((r) => setTimeout(r, 50));
+      release();
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      expect(api.bodies).toHaveLength(1);
+    });
+
+    it('a 409 says it already exists, a 500 says it could not be saved', async () => {
+      mockApi({
+        post: () => HttpResponse.json(apiErrorBody(409, 'dup', '/api/v1/exams'), { status: 409 }),
+      });
+      const user = userEvent.setup();
+      renderDialog();
+      await fillAndSubmit(user);
+      expect((await screen.findByRole('alert')).textContent).toBe(
+        'An exam with this name already exists.',
+      );
+    });
   });
 });
