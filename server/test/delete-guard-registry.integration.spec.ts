@@ -10,6 +10,7 @@ import { AcademicYearService } from '../src/modules/academics/academic-year.serv
 import { ClassService, SectionService } from '../src/modules/classes/classes.service';
 import { SubjectService } from '../src/modules/academics/subjects.service';
 import { RoomsService } from '../src/modules/routines/rooms.service';
+import { FeeStructureService } from '../src/modules/fees/fees.service';
 import { GradingService } from '../src/modules/grading/grading.service';
 import { SchoolSettingsReader } from '../src/modules/schools/settings/school-settings-reader.service';
 import { SchoolsService } from '../src/modules/schools/schools.service';
@@ -43,6 +44,7 @@ describe('delete-guard registry (integration)', () => {
       SubjectService,
       RoomsService,
       GradingService,
+      FeeStructureService,
       AuditService,
       SchoolSettingsReader,
       { provide: SchoolsService, useValue: {} },
@@ -65,6 +67,7 @@ describe('delete-guard registry (integration)', () => {
         subjects: module.get(SubjectService),
         rooms: module.get(RoomsService),
         grading: module.get(GradingService),
+        feeStructures: module.get(FeeStructureService),
       },
     };
   }, 60000);

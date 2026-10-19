@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import {
   EnrollmentStatus,
@@ -34,6 +35,7 @@ import { SeatAllocation } from '../src/modules/seat-plans/entities/seat-allocati
 import type { AcademicYearService } from '../src/modules/academics/academic-year.service';
 import type { ClassService, SectionService } from '../src/modules/classes/classes.service';
 import type { SubjectService } from '../src/modules/academics/subjects.service';
+import type { FeeStructureService } from '../src/modules/fees/fees.service';
 import type { RoomsService } from '../src/modules/routines/rooms.service';
 import type { GradingService } from '../src/modules/grading/grading.service';
 
@@ -62,6 +64,7 @@ export interface Ctx {
     sections: SectionService;
     subjects: SubjectService;
     rooms: RoomsService;
+    feeStructures: FeeStructureService;
     grading: GradingService;
   };
   /** Unique number per call, so names/codes never collide inside one school. */
@@ -69,7 +72,7 @@ export interface Ctx {
 }
 
 export type ParentKind =
-  'AcademicYear' | 'Class' | 'ClassSection' | 'Subject' | 'Room' | 'GradingScale';
+  'AcademicYear' | 'Class' | 'ClassSection' | 'Subject' | 'Room' | 'GradingScale' | 'FeeStructure';
 
 /** Saves one live child row; `release` soft-deletes it (or deletes it when the table has no soft delete). */
 export interface MadeChild {
@@ -206,6 +209,23 @@ export const PARENTS: Record<
     remove: (ctx, id) => ctx.svc.rooms.remove(id, ctx.tenantId),
     isGone: async (ctx, id) => goneIn(ctx, Room, id),
   },
+  FeeStructure: {
+    make: async (ctx) => {
+      const h = await host(ctx);
+      return (
+        await ctx.ds.getRepository(FeeStructure).save({
+          fee_type: FeeType.MONTHLY_TUITION,
+          name: `Tuition ${ctx.n()}`,
+          amount: 500,
+          class_id: h.klass.id,
+          academic_year_id: h.year.id,
+          tenant_id: ctx.tenantId,
+        })
+      ).id;
+    },
+    remove: (ctx, id) => ctx.svc.feeStructures.remove(id, ctx.tenantId),
+    isGone: async (ctx, id) => goneIn(ctx, FeeStructure, id),
+  },
   GradingScale: {
     make: async (ctx) =>
       (
@@ -304,7 +324,8 @@ export const GUARDED: Guarded[] = [
         period_start: new Date('2022-02-01'),
         total_amount: 500,
       });
-      return { release: softDelete(ctx, StudentFee, bill.id) };
+      // The year guard counts bills withDeleted (payment history), so release hard-deletes.
+      return { release: hardDelete(ctx, StudentFee, bill.id) };
     },
   },
   {
@@ -506,6 +527,43 @@ export const GUARDED: Guarded[] = [
       return { release: softDelete(ctx, Result, r.id) };
     },
   },
+  auto('AdmissionIntake.class_section -> ClassSection', 'ClassSection'),
+  auto('Application.academic_year -> AcademicYear', 'AcademicYear'),
+  auto('AttendanceDevice.section -> ClassSection', 'ClassSection'),
+  auto('AttendanceSession.section -> ClassSection', 'ClassSection'),
+  auto('AttendanceSession.subject -> Subject', 'Subject'),
+  auto('ExamSchedule.subject -> Subject', 'Subject'),
+  auto('ExamSchedule.room -> Room', 'Room'),
+  auto('Exam.class -> Class', 'Class'),
+  auto('MarkGrid.section -> ClassSection', 'ClassSection'),
+  auto('MarkGrid.subject -> Subject', 'Subject'),
+  auto('ResultSubject.subject -> Subject', 'Subject'),
+  auto('Result.section -> ClassSection', 'ClassSection'),
+  auto('FeeGeneration.academic_year -> AcademicYear', 'AcademicYear'),
+  auto('FeeStructure.class -> Class', 'Class'),
+  auto('FeeStructure.section -> ClassSection', 'ClassSection'),
+  auto('FineRule.academic_year -> AcademicYear', 'AcademicYear'),
+  auto('FineRule.fee_structure -> FeeStructure', 'FeeStructure'),
+  auto('FineRule.class -> Class', 'Class'),
+  auto('RecurringScheduleStructure.fee_structure -> FeeStructure', 'FeeStructure'),
+  auto('RecurringSchedule.academic_year -> AcademicYear', 'AcademicYear'),
+  auto('GradingScale.academic_year -> AcademicYear', 'AcademicYear'),
+  auto('GradingScale.class -> Class', 'Class'),
+  auto('HomeworkAssignment.section -> ClassSection', 'ClassSection'),
+  auto('Homework.subject -> Subject', 'Subject'),
+  auto('Homework.klass -> Class', 'Class'),
+  auto('SyllabusTopic.klass -> Class', 'Class'),
+  auto('SyllabusTopic.subject -> Subject', 'Subject'),
+  auto('PromotionRun.source_class -> Class', 'Class'),
+  auto('RoutineSlot.section -> ClassSection', 'ClassSection'),
+  auto('RoutineSlot.subject -> Subject', 'Subject'),
+  auto('Routine.academic_year -> AcademicYear', 'AcademicYear'),
+  auto('StudentLifecycleEvent.academic_year -> AcademicYear', 'AcademicYear'),
+  auto('LessonDelivery.section -> ClassSection', 'ClassSection'),
+  auto('LessonDelivery.subject -> Subject', 'Subject'),
+  auto('StudyPlan.academic_year -> AcademicYear', 'AcademicYear'),
+  auto('StudyPlan.section -> ClassSection', 'ClassSection'),
+  auto('StudyPlan.subject -> Subject', 'Subject'),
 ];
 
 // ---- ALLOWED ----------------------------------------------------------------
@@ -526,279 +584,114 @@ export const ALLOWED: Allowed[] = [
     reason:
       "SubjectService.remove soft-deletes the subject's ClassSubject rows in the same transaction (subjects.service.ts).",
   },
-];
-
-// ---- KNOWN_GAPS (each becomes a GitHub issue at wave close, D22) -------------
-
-export const KNOWN_GAPS: KnownGap[] = [
   {
     key: 'ClassSubject.class -> Class',
     reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2676,
+      "ClassSubject rows are offering config: ClassService.remove deletes the students' choices and soft-deletes them in the same transaction (drop-class-subjects.ts).",
   },
   {
     key: 'ClassSubject.academic_year -> AcademicYear',
     reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2675,
+      'ClassSubject rows are offering config: AcademicYearService.remove hides them (and the choices) in the same transaction (drop-class-subjects.ts).',
   },
   {
     key: 'TeacherClassSection.section -> ClassSection',
     reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2677,
+      'Teacher assignments are config: SectionService.remove deletes them in the same transaction (classes.service.ts).',
   },
   {
     key: 'TeacherClassSection.subject -> Subject',
     reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2678,
-  },
-  {
-    key: 'AdmissionIntake.class_section -> ClassSection',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2677,
-  },
-  {
-    key: 'Application.academic_year -> AcademicYear',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2675,
-  },
-  {
-    key: 'AttendanceDevice.section -> ClassSection',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2677,
-  },
-  {
-    key: 'AttendanceSession.section -> ClassSection',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2677,
-  },
-  {
-    key: 'AttendanceSession.subject -> Subject',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2678,
+      'Teacher assignments are config: SubjectService.remove deletes them in the same transaction (subjects.service.ts).',
   },
   {
     key: 'AcademicTerm.academic_year -> AcademicYear',
     reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2675,
+      'Terms are year config: AcademicYearService.remove soft-deletes them in the same transaction.',
   },
   {
     key: 'CalendarEventClass.class -> Class',
     reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2676,
+      'Calendar class links are join rows: ClassService.remove deletes them in the same transaction.',
   },
   {
     key: 'CalendarEvent.academic_year -> AcademicYear',
     reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2675,
-  },
-  {
-    key: 'ExamSchedule.subject -> Subject',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2678,
-  },
-  {
-    key: 'ExamSchedule.room -> Room',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2679,
-  },
-  {
-    key: 'Exam.class -> Class',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2676,
-  },
-  {
-    key: 'MarkGrid.section -> ClassSection',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2677,
-  },
-  {
-    key: 'MarkGrid.subject -> Subject',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2678,
-  },
-  {
-    key: 'ResultSubject.subject -> Subject',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2678,
-  },
-  {
-    key: 'Result.section -> ClassSection',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2677,
-  },
-  {
-    key: 'FeeGeneration.academic_year -> AcademicYear',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2675,
-  },
-  {
-    key: 'FeeStructure.class -> Class',
-    reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2676,
-  },
-  {
-    key: 'FeeStructure.section -> ClassSection',
-    reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2677,
-  },
-  {
-    key: 'FineRule.academic_year -> AcademicYear',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2675,
-  },
-  {
-    key: 'FineRule.fee_structure -> FeeStructure',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2680,
-  },
-  {
-    key: 'FineRule.class -> Class',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2676,
-  },
-  {
-    key: 'RecurringScheduleStructure.fee_structure -> FeeStructure',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2680,
-  },
-  {
-    key: 'RecurringSchedule.academic_year -> AcademicYear',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2675,
-  },
-  {
-    key: 'GradingScale.academic_year -> AcademicYear',
-    reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2675,
-  },
-  {
-    key: 'GradingScale.class -> Class',
-    reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2676,
-  },
-  {
-    key: 'HomeworkAssignment.section -> ClassSection',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2677,
-  },
-  {
-    key: 'Homework.subject -> Subject',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2678,
-  },
-  {
-    key: 'Homework.klass -> Class',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2676,
-  },
-  {
-    key: 'SyllabusTopic.klass -> Class',
-    reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2676,
-  },
-  {
-    key: 'SyllabusTopic.subject -> Subject',
-    reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2678,
-  },
-  {
-    key: 'PromotionRun.source_class -> Class',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2676,
-  },
-  {
-    key: 'RoutineSlot.section -> ClassSection',
-    reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2677,
-  },
-  {
-    key: 'RoutineSlot.subject -> Subject',
-    reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2678,
-  },
-  {
-    key: 'Routine.academic_year -> AcademicYear',
-    reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2675,
-  },
-  {
-    key: 'StudentLifecycleEvent.academic_year -> AcademicYear',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2675,
+      'Calendar events are year config: AcademicYearService.remove soft-deletes them in the same transaction.',
   },
   {
     key: 'StudentSubjectChoice.academic_year -> AcademicYear',
     reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2675,
-  },
-  {
-    key: 'LessonDelivery.section -> ClassSection',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2677,
-  },
-  {
-    key: 'LessonDelivery.subject -> Subject',
-    reason:
-      'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: 2678,
-  },
-  {
-    key: 'StudyPlan.academic_year -> AcademicYear',
-    reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2675,
-  },
-  {
-    key: 'StudyPlan.section -> ClassSection',
-    reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2677,
-  },
-  {
-    key: 'StudyPlan.subject -> Subject',
-    reason:
-      'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: 2678,
+      'Choices belong to the year offerings: AcademicYearService.remove deletes them with the offerings (drop-class-subjects.ts).',
   },
 ];
+
+// ---- generated-fixture guards (#2675-#2680) ----------------------------------
+
+const SCALARS: Record<string, unknown> = { boolean: false, jsonb: {}, json: {}, time: '09:00:00' };
+
+/** Fills every required column from the TypeORM metadata so a child row needs no hand-made fixture. */
+async function autoRow(ctx: Ctx, entityName: string, relProp: string | null, parentId: string | null, depth = 0) {
+  const meta = ctx.ds.entityMetadatas.find((m) => m.name === entityName)!;
+  if (depth > 6) throw new Error(`autoRow too deep at ${entityName}`);
+  const row: Record<string, unknown> = {};
+  for (const col of meta.columns) {
+    const rel = col.relationMetadata;
+    const isTarget = !!rel && rel.propertyName === relProp;
+    if (!isTarget && (col.isGenerated || col.isCreateDate || col.isUpdateDate || col.isDeleteDate))
+      continue;
+    if (!isTarget && (col.isNullable || col.default !== undefined)) continue;
+    if (rel) {
+      const id = isTarget ? parentId : await autoCreate(ctx, rel.inverseEntityMetadata.name, depth + 1);
+      row[rel.propertyName] = { id };
+      continue;
+    }
+    if (col.isArray) row[col.propertyName] = [];
+    else if (col.propertyName === 'tenant_id') row.tenant_id = ctx.tenantId;
+    else if (col.enum?.length) row[col.propertyName] = col.enum[0];
+    else if (String(col.type) in SCALARS)
+      row[col.propertyName] = /end/.test(col.propertyName) ? '10:00:00' : SCALARS[col.type as string];
+    else if (col.type === 'uuid') row[col.propertyName] = randomUUID();
+    else if (['date'].includes(col.type as string)) row[col.propertyName] = '2020-01-01';
+    else if (String(col.type).startsWith('timestamp')) row[col.propertyName] = new Date();
+    else if (col.type === String || ['varchar', 'text', 'character varying'].includes(col.type as string))
+      row[col.propertyName] = `g${ctx.n()}`;
+    else row[col.propertyName] = 1;
+  }
+  // CHK_applications_applicant: a paper application needs a name instead of a user.
+  if (entityName === 'Application')
+    Object.assign(row, {
+      source: 'PAPER',
+      applicant_name: `g${ctx.n()}`,
+      subject_student: { id: (await host(ctx)).student.id },
+    });
+  return { meta, row };
+}
+
+async function autoCreate(ctx: Ctx, entityName: string, depth: number): Promise<string> {
+  const { meta, row } = await autoRow(ctx, entityName, null, null, depth);
+  const saved = await ctx.ds.getRepository(meta.target).save(row as never);
+  return (saved as unknown as { id: string }).id;
+}
+
+function auto(key: string, parent: ParentKind): Guarded {
+  const [child, rest] = key.split('.');
+  const prop = rest.split(' -> ')[0];
+  return {
+    key,
+    parent,
+    softDeletable: true,
+    async makeChild(ctx, parentId) {
+      const { meta, row } = await autoRow(ctx, child, prop, parentId);
+      const saved = await ctx.ds.getRepository(meta.target).save(row as never);
+      const pk = Object.fromEntries(
+        meta.primaryColumns.map((c) => [c.propertyName, (saved as unknown as Record<string, unknown>)[c.propertyName]]),
+      );
+      return { release: async () => void (await ctx.ds.getRepository(meta.target).delete(pk as never)) };
+    },
+  };
+}
+
+// ---- KNOWN_GAPS (each becomes a GitHub issue at wave close, D22) -------------
+
+export const KNOWN_GAPS: KnownGap[] = [];

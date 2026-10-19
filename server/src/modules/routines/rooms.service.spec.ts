@@ -12,7 +12,7 @@ function buildService() {
     findAndCount: vi.fn(async () => [[], 0]),
     update: vi.fn(async () => undefined),
     softDelete: vi.fn(async () => undefined),
-    manager: { createQueryBuilder: vi.fn() },
+    manager: { createQueryBuilder: vi.fn(), connection: { entityMetadatas: [] } },
   };
   // [2627] seat-allocation count chain; tests override the resolved count.
   const seatCount = { value: 0 };

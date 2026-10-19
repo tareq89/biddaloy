@@ -1,3 +1,4 @@
+import { assertNoLiveDependents } from '../../common/utils/live-dependents';
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
@@ -94,6 +95,13 @@ export class RoomsService {
         details: { code: 'ROOM_IN_USE', seat_allocations_count: allocationCount },
       });
     }
+
+    // [2679] Exam schedules that use the room block the delete too.
+    await assertNoLiveDependents(this.repo.manager, Room, id, {
+      code: 'ROOM_IN_USE',
+      message: 'This room is still used by other records. Remove or reassign them first.',
+      exclude: ['RoutineSlot.room', 'SeatAllocation.room'],
+    });
 
     await this.repo.softDelete({ id, tenant_id: tenantId });
   }
