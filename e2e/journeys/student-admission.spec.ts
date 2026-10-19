@@ -85,7 +85,8 @@ test('edit changes a field and the detail shows it; delete removes from the list
     });
     await list.expectLoaded();
     await list.search(renamed);
-    await list.expectEmptyState('students.list.emptyMessage');
+    // A search is a filter: the shell shows the shared "no matches" state, not the page's own.
+    await list.expectEmptyState('common.noMatches.title');
   });
 });
 
