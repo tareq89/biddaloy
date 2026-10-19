@@ -230,7 +230,17 @@ describe('Fines E2E (38.2.5)', () => {
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ month: todayInSchoolTz().slice(0, 7) })
         .expect(400);
-      expect(res.body.code).toBe('FINE_SWEEP_MONTH_NOT_CLOSED');
+      expect(res.body.details).toEqual({ code: 'FINE_SWEEP_MONTH_NOT_CLOSED' });
+    });
+
+    it('preview 400s FINE_SWEEP_MONTH_NOT_CLOSED for the current Dhaka month (F-150)', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post(`${API}/fees/fines/generate/preview`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({ month: todayInSchoolTz().slice(0, 7) })
+        .expect(400);
+      expect(res.body.details).toEqual({ code: 'FINE_SWEEP_MONTH_NOT_CLOSED' });
     });
 
     it('preview then generate for a month with no due fines returns/creates nothing (no error)', async () => {

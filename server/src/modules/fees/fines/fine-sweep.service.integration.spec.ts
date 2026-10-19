@@ -346,10 +346,17 @@ describe('FineSweepService (integration)', () => {
         '2026-07-15',
       );
 
+    const notClosed = {
+      response: {
+        message: 'Fines can only be generated for a month that has ended',
+        details: { code: 'FINE_SWEEP_MONTH_NOT_CLOSED' },
+      },
+    };
     for (const month of ['2026-07', '2026-08']) {
-      await expect(run(month)).rejects.toMatchObject({
-        response: { code: 'FINE_SWEEP_MONTH_NOT_CLOSED' },
-      });
+      await expect(run(month)).rejects.toMatchObject(notClosed);
+      await expect(service.preview(tenantId, month, {}, '2026-07-15')).rejects.toMatchObject(
+        notClosed,
+      );
     }
     expect(
       await dataSource.getRepository(StudentFee).find({ where: { student_id: studentId } }),
