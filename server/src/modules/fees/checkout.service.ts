@@ -72,6 +72,8 @@ interface RequestLike {
  * value (no `@Res()` needed on the happy path). */
 export interface CheckoutMeta {
   replayed: boolean;
+  /** `false` for seed scripts: no receipt job, no attention recheck (#2701). */
+  notify?: boolean;
 }
 
 /**
@@ -116,7 +118,7 @@ export class CheckoutService {
       const repaired = await this.ensureInvoiceLinked(existing.id);
       // The usual retry path: the first request may have died after commit but
       // before its after-commit work. The jobId makes a repeat harmless.
-      await this.afterCommit(repaired, tenantId, userId);
+      await this.afterCommit(repaired, tenantId, userId, meta);
       return this.toResult(repaired, tenantId);
     }
 
@@ -490,7 +492,7 @@ export class CheckoutService {
       const repaired = await this.ensureInvoiceLinked(winnerId);
       // The winner may have died before its own after-commit work; the jobId and the
       // reference_key make repeating it harmless.
-      await this.afterCommit(repaired, tenantId, userId);
+      await this.afterCommit(repaired, tenantId, userId, meta);
       return this.toResult(repaired, tenantId);
     }
 
@@ -507,7 +509,7 @@ export class CheckoutService {
       // winner's payment as if it were its own (#2637, F-125).
       this.assertIdempotentReplayMatches(winner, dto);
       const repaired = await this.ensureInvoiceLinked(winner.id);
-      await this.afterCommit(repaired, tenantId, userId);
+      await this.afterCommit(repaired, tenantId, userId, meta);
       return this.toResult(repaired, tenantId);
     }
 
@@ -529,7 +531,7 @@ export class CheckoutService {
 
     const walletBalanceAfter = await this.walletService.balance(payment.student_id, tenantId);
 
-    await this.afterCommit(payment, tenantId, userId);
+    await this.afterCommit(payment, tenantId, userId, meta);
 
     return {
       payment,
@@ -541,7 +543,13 @@ export class CheckoutService {
   }
 
   /** Receipt notice job + fee-alert rechecks, after the payment is committed. Safe to repeat. */
-  private async afterCommit(payment: Payment, tenantId: string, userId: string): Promise<void> {
+  private async afterCommit(
+    payment: Payment,
+    tenantId: string,
+    userId: string,
+    meta?: CheckoutMeta,
+  ): Promise<void> {
+    if (meta?.notify === false) return;
     await enqueueFeeNotify(this.feeNotifyQueue, this.logger, 'payments.recorded', payment.id, {
       payment_id: payment.id,
       tenant_id: tenantId,
