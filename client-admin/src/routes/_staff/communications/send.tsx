@@ -37,12 +37,13 @@ import {
 } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
 import { formatPhone } from '@biddaloy/ui/utils';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { CircleAlertIcon, SendIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
+import { deliveryErrorKey } from './-shared/delivery-error';
 import { SelectedStudentRow } from './-shared/selected-student-row';
 import { SmsSegmentCounter } from './-shared/sms-segment-counter';
 import { StudentSearch } from './-shared/student-search';
@@ -201,16 +202,35 @@ function SendMessageBody() {
 
   if (sendMessage.isSuccess) {
     const status = sentLog.data?.status ?? sendMessage.data.status;
+    const failed = status === 'FAILED';
+    const failureKey = deliveryErrorKey(sentLog.data?.error ?? null);
     return (
       <PageContainer size="narrow">
         <PageHeader title={t('send.title')} subtitle={t('send.description')} />
         <Card padded aria-labelledby="send-result-title">
           <h2 id="send-result-title" className="text-h2">
-            {t('send.resultTitle')}
+            {failed ? t('send.failedTitle') : t('send.resultTitle')}
           </h2>
-          <p className="mt-1 text-text-secondary">
-            {t('send.resultDescription', { name: sendMessage.data.recipient_name })}
-          </p>
+          {failed ? (
+            <div className="mt-1 flex flex-col gap-2 text-status-overdue-fg">
+              <p>
+                {t(failureKey ?? 'deliveryErrors.generic', { medium: t(`mediums.${medium}`) })}
+              </p>
+              {failureKey === 'deliveryErrors.notConfigured' ? (
+                <Link
+                  to="/settings"
+                  search={{ section: 'communication' }}
+                  className="text-link underline"
+                >
+                  {t('send.settingsLink')}
+                </Link>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-1 text-text-secondary">
+              {t('send.resultDescription', { name: sendMessage.data.recipient_name })}
+            </p>
+          )}
           <dl className="mt-4 flex items-center gap-2">
             <dt className="text-text-secondary">{t('send.resultStatusLabel')}</dt>
             <dd>

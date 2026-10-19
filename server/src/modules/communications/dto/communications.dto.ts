@@ -121,6 +121,9 @@ export class CommunicationResponseDto {
   recipient_name: string;
   status: CommunicationStatus;
   provider_message_id: string | null;
+  // The worker's own fixed failure sentence (never user input); null when none.
+  @ApiProperty({ type: String, nullable: true })
+  error: string | null;
   created_at: Date;
 }
 
