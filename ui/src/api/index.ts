@@ -23,6 +23,7 @@ export {
   ApiError,
   NoActiveTenantError,
   NoMembershipsError,
+  isNotFoundError,
   isTenantRestoringError,
   isTenantSuspendedError,
   RateLimitedError,

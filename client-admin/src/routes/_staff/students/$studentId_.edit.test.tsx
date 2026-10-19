@@ -1,4 +1,5 @@
 import {
+  apiErrorBody,
   cleanupTestState,
   guardianFactory,
   renderWithRouter,
@@ -92,7 +93,7 @@ describe('/students/$studentId/edit', () => {
     });
 
     const fullName = await screen.findByDisplayValue('Rahim Uddin');
-    const save = screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement;
+    const save = screen.getByRole('button', { name: 'Save changes' });
     expect(save.disabled).toBe(true);
     const user = userEvent.setup();
     await user.type(fullName, 'x');
@@ -101,7 +102,11 @@ describe('/students/$studentId/edit', () => {
   });
 
   it('renders the error state inside the full-page frame', async () => {
-    server.use(http.get('/api/v1/students/:id', () => new HttpResponse(null, { status: 404 })));
+    server.use(
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json(apiErrorBody(404, 'x', '/api/v1/x'), { status: 404 }),
+      ),
+    );
 
     renderWithRouter(routeTree, {
       initialEntries: ['/students/student-1/edit'],
@@ -112,6 +117,14 @@ describe('/students/$studentId/edit', () => {
 
     expect(await screen.findByRole('heading', { name: 'Edit student' })).toBeTruthy();
     expect(await screen.findByRole('button', { name: 'Close' })).toBeTruthy();
+    // [2598] A 404 says "not found" with no retry, and Save stays disabled.
+    expect(
+      await screen.findByText('This record was not found. It may have been removed.'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /retry|try again/i })).toBeNull();
+    expect(
+      (screen.getByRole('button', { name: 'Save changes' })).disabled,
+    ).toBe(true);
   });
 
   it('is axe clean', async () => {

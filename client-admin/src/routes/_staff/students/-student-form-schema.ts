@@ -226,5 +226,5 @@ export function buildUpdatePayload(
     Object.keys(next)
       .filter((k) => !same(k))
       .map((k) => [k, next[k]]),
-  ) as UpdateStudentInput;
+  );
 }

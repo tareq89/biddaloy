@@ -1,4 +1,5 @@
 import {
+  apiErrorBody,
   cleanupTestState,
   guardianFactory,
   invoiceFactory,
@@ -611,5 +612,27 @@ describe('/invoices/$invoiceId', () => {
       expect((input as HTMLInputElement).value).toBe('https://example.test/i/new');
       expect(regenerated).toBe(true);
     });
+  });
+
+  it('shows a not-found state with a way back, and no retry, when the API answers 404 [2598]', async () => {
+    server.use(
+      http.get('/api/v1/invoices/:id', () =>
+        HttpResponse.json(apiErrorBody(404, 'x', '/api/v1/x'), { status: 404 }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/invoices/invoice-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    expect(
+      await screen.findByText('This record was not found. It may have been removed.'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Back to the list' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/invoices'));
   });
 });
