@@ -13,6 +13,7 @@ import { useMeritList, type MeritRow } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
 import { ListXIcon } from 'lucide-react';
+import * as React from 'react';
 
 export interface AnalysisTabProps {
   examId: string;
@@ -20,6 +21,8 @@ export interface AnalysisTabProps {
   sectionId: string | undefined;
   sectionName: string | undefined;
   className: string;
+  /** Print is on: render every row, no pager (a paged table would print one page). */
+  showAll?: boolean;
 }
 
 export function MeritTab({
@@ -28,12 +31,18 @@ export function MeritTab({
   sectionId,
   sectionName,
   className,
+  showAll = false,
 }: AnalysisTabProps) {
   const { t } = useTranslation('exams');
   const { t: tg } = useTranslation('grading');
   const config = useRegionConfig();
   const meritQuery = useMeritList(examId, sectionId);
   const rows = meritQuery.data?.rows ?? [];
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(25);
+  // A different exam or section is a different list: back to its first page.
+  React.useEffect(() => setPage(1), [examId, sectionId]);
+  const pageRows = showAll ? rows : rows.slice((page - 1) * pageSize, page * pageSize);
 
   if (meritQuery.isError)
     return (
@@ -113,12 +122,19 @@ export function MeritTab({
         tableId="analysis-merit"
         caption={tg('analysisPage.tabs.merit')}
         columns={columns}
-        data={rows}
+        data={pageRows}
         getRowId={(row) => row.student_id}
         sorting={null}
         onSortingChange={() => undefined}
         totalCount={rows.length}
-        paginated={false}
+        paginated={!showAll}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
         loading={meritQuery.isLoading}
         emptyState={{
           icon: <ListXIcon />,
