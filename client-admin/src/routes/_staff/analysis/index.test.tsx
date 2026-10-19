@@ -116,6 +116,15 @@ function mockExam(overrides: Parameters<typeof examFactory>[0] = {}) {
   return exam;
 }
 
+const MANY_MERIT = Array.from({ length: 60 }, (_, i) => ({
+  ...MERIT_ROW,
+  student_id: `stu-${i + 1}`,
+  roll_number: i + 1,
+  full_name: `Student ${String(i + 1).padStart(2, '0')}`,
+  position: i + 1,
+  section_position: i + 1,
+}));
+
 const render = (url: string, role = 'ADMIN') =>
   renderWithRouter(routeTree, {
     initialEntries: [url],
@@ -154,6 +163,33 @@ describe('/analysis', () => {
     expect(within(tablist).getAllByRole('tab')).toHaveLength(3);
   });
 
+  it('merit pages 25 rows at a time and prints every row', async () => {
+    const exam = mockExam();
+    server.use(
+      http.get(`/api/v1/exams/${exam.id}/analysis/merit`, () =>
+        HttpResponse.json({ status: exam.status, rows: MANY_MERIT }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(`/analysis?examId=${exam.id}&tab=merit`);
+
+    await screen.findByText('Student 01');
+    const area = within(document.getElementById('analysis-print-area')!);
+    expect(area.getAllByText(/^Student \d\d$/)).toHaveLength(25);
+    expect(screen.getByRole('button', { name: /next/i })).toBeTruthy();
+
+    let rowsAtPrint = 0;
+    window.print = () => {
+      rowsAtPrint = area.getAllByText(/^Student \d\d$/).length;
+    };
+    await user.click(screen.getByRole('button', { name: 'Print' }));
+    expect(rowsAtPrint).toBe(60);
+
+    // afterprint brings the pager back.
+    window.dispatchEvent(new Event('afterprint'));
+    await waitFor(() => expect(area.getAllByText(/^Student \d\d$/)).toHaveLength(25));
+  });
+
   it('labels both pickers and names the class in the exam option', async () => {
     const exam = mockExam();
     render(`/analysis?examId=${exam.id}&tab=merit`);
@@ -183,7 +219,8 @@ describe('/analysis', () => {
     expect(area.getByText('Pass')).toBeTruthy();
     expect(area.getByText(formatNumber(4.5, REGION_BD_BN, { decimals: 2 }))).toBeTruthy();
     expect(area.getByText(formatNumber(450, REGION_BD_BN))).toBeTruthy();
-    expect(screen.getByText(`Total ${formatNumber(1, REGION_BD_BN)}`)).toBeTruthy();
+    const one = formatNumber(1, REGION_BD_BN);
+    expect(screen.getByText(`Showing ${one}–${one} of ${one}`)).toBeTruthy();
   });
 
   it('merit shows section position when a section is chosen', async () => {
