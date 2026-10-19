@@ -39,6 +39,7 @@ import {
   RoutePending,
   StatusBadge,
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
   type DataTableColumn,
@@ -410,6 +411,8 @@ function ReportsPageContent() {
           <TabsTrigger value="flags">{t('reports.viewFlags')}</TabsTrigger>
           {periodEnabled && <TabsTrigger value="subjects">{t('reports.viewSubjects')}</TabsTrigger>}
         </TabsList>
+        {/* The page body sits outside the tab row; this empty panel is what the tab's aria-controls points at. */}
+        <TabsContent value={view} className="hidden" />
       </Tabs>
       <FilterBar
         fields={filterFields}
