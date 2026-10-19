@@ -335,7 +335,7 @@ function CollectionsReportPage() {
       header: t('tables.paidOut'),
       accessorFn: (row) => money(row.paid_out),
       align: 'end',
-      card: 'hidden',
+      card: 'field',
     },
     {
       id: 'net',

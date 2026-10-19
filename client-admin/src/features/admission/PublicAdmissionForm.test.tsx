@@ -88,7 +88,7 @@ async function setup(
   return { user, posted, phones };
 }
 
-async function fillValid(user: ReturnType<typeof userEvent.setup>) {
+async function fillValid(user: ReturnType<typeof userEvent.setup>, phone = '1712345678') {
   await user.type(screen.getByLabelText(/Student's full name/), 'Rahim Ahmed');
   await user.click(screen.getByRole('button', { name: "Student's date of birth" }));
   const now = new Date();
@@ -103,13 +103,20 @@ async function fillValid(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('combobox', { name: /Student's gender/ }));
   await user.click(await screen.findByRole('option', { name: 'Boy' }));
   await user.type(screen.getByLabelText(/Parent\/guardian's name/), 'Karim Ahmed');
-  await user.type(screen.getByLabelText(/Parent\/guardian's phone number/), '1712345678');
+  await user.type(screen.getByLabelText(/Parent\/guardian's phone number/), phone);
 }
 
 describe('PublicAdmissionForm captcha', () => {
   it('sends the guardian phone as digits with a leading 0 (server BD_PHONE_REGEX)', async () => {
     const { user, phones } = await setup('');
     await fillValid(user);
+    await user.click(screen.getByRole('button', { name: 'Submit application' }));
+    await waitFor(() => expect(phones).toEqual(['01712345678']));
+  });
+
+  it('sends a phone typed in Bengali digits as Latin digits', async () => {
+    const { user, phones } = await setup('');
+    await fillValid(user, '১৭১২৩৪৫৬৭৮');
     await user.click(screen.getByRole('button', { name: 'Submit application' }));
     await waitFor(() => expect(phones).toEqual(['01712345678']));
   });

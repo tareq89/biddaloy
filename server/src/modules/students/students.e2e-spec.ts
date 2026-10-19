@@ -547,7 +547,7 @@ describe('Students E2E', () => {
     });
 
     // [2618] Staff update refuses impossible, future and pre-1900 birth dates and keeps the stored date.
-    it.each(['2018-02-30', '2031-01-01', '1850-01-01'])(
+    it.each(['2018-02-30', `${new Date().getUTCFullYear() + 2}-01-01`, '1850-01-01'])(
       'PATCH date_of_birth %s is 400 naming the field and leaves the date unchanged',
       async (date_of_birth) => {
         const createRes = await supertest(app.getHttpServer())

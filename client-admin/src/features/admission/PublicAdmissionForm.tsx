@@ -27,7 +27,13 @@ import {
   SelectValue,
 } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate, formatNumber, parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
+import {
+  formatDate,
+  formatNumber,
+  parseServerDate,
+  toIsoDate,
+  toLatinDigits,
+} from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
 import { CircleAlertIcon, FileImageIcon, FileTextIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
@@ -69,7 +75,7 @@ function isCaptchaFailed(error: unknown): boolean {
 
 /** Digits only, with the leading 0 the server's BD_PHONE_REGEX expects ("1712-345678" -> "01712345678"). */
 function toLocalPhone(raw: string): string {
-  const digits = raw.replace(/\D/g, '').replace(/^880/, '');
+  const digits = toLatinDigits(raw).replace(/\D/g, '').replace(/^880/, '');
   return digits.startsWith('0') ? digits : `0${digits}`;
 }
 

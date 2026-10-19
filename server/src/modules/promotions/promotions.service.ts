@@ -333,10 +333,12 @@ export class PromotionsService {
     targetYearId: string,
     tenantId: string,
     repo: Repository<AcademicYear> = this.academicYearRepo,
+    lock = false,
   ): Promise<void> {
+    const opts = lock ? { lock: { mode: 'pessimistic_read' as const } } : {};
     const [source, target] = await Promise.all([
-      repo.findOne({ where: { id: sourceYearId, tenant_id: tenantId } }),
-      repo.findOne({ where: { id: targetYearId, tenant_id: tenantId } }),
+      repo.findOne({ where: { id: sourceYearId, tenant_id: tenantId }, ...opts }),
+      repo.findOne({ where: { id: targetYearId, tenant_id: tenantId }, ...opts }),
     ]);
     if (!target || !source) throw new NotFoundException('Academic year not found');
     if (new Date(target.start_date).getTime() <= new Date(source.start_date).getTime()) {
@@ -855,16 +857,14 @@ export class PromotionsService {
       }
 
       // Defence in depth: a year edited after the run was created can no longer be a valid target.
-      const runSourceClass = await classRepo.findOne({
-        where: { id: run.source_class_id, tenant_id: tenantId },
-        withDeleted: true,
-      });
-      if (!runSourceClass) throw new NotFoundException('Class not found');
+      // Checked against the year the run recorded (its enrollments are what move), with both
+      // year rows share-locked so a concurrent year edit waits for this commit.
       await this.assertTargetYearLater(
-        runSourceClass.academic_year_id,
+        run.source_academic_year_id,
         run.target_academic_year_id,
         tenantId,
         manager.getRepository(AcademicYear),
+        true,
       );
 
       const entries = await entryRepo.find({ where: { run_id: run.id, tenant_id: tenantId } });
