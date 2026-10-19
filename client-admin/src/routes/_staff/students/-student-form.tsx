@@ -84,6 +84,8 @@ export interface StudentFormProps<TInput> {
   mutation: UseMutationResult<Student, unknown, TInput>;
   buildPayload: (values: StudentFormValues) => TInput;
   onSuccess: (student: Student) => void;
+  /** [2603] Edit mode: an unchanged form would send an empty PATCH, so Save stays disabled. */
+  disableSubmitWhenClean?: boolean;
 }
 
 function fieldId(field: string): string {
@@ -99,6 +101,7 @@ export function StudentForm<TInput>({
   onClose,
   mutation,
   buildPayload,
+  disableSubmitWhenClean,
   onSuccess,
 }: StudentFormProps<TInput>) {
   const { t } = useTranslation('students');
@@ -195,6 +198,7 @@ export function StudentForm<TInput>({
           label: submitLabel,
           onClick: () => void form.handleSubmit(handleSubmit)(),
           busy: mutation.isPending,
+          disabled: !!disableSubmitWhenClean && !form.formState.isDirty,
         }}
         secondary={{ label: t('form.cancelAction'), onClick: onClose }}
       >
