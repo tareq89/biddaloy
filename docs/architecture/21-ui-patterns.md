@@ -430,6 +430,11 @@ palette action navigates to.
 - **Grid rows (#2628).** The calendar month grid used bare cells; real ARIA rows and readable out-of-month dates fixed it. -> no rule.
 - **Opt-in scroll region (#2630).** A scrollable table must be keyboard-focusable, and a filter checkbox needs a 24px target. -> no rule.
 
+### List learnings (Epic #2642, Wave 4, 2026-10-19)
+
+- **ListShell shows a no-match state on its own (#2591).** When a rendered filter has a value and there are no rows, `ListShell` swaps in "No matches" with a Clear button. A page keeps its own words by passing `kind: 'no-results'`; without it the page's text is replaced. -> no rule.
+- **Selection is in memory (#2602).** Row selection never goes into the URL; the URL holds filters only. -> no rule.
+
 ### UX lint stragglers
 
 `ui/eslint-rules/ux-guards.mjs` holds four rules (`no-native-picker`,
