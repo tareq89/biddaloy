@@ -47,6 +47,7 @@
     "descriptionLabel": "Description",
     "showOnReportCard": "Show on report card",
     "errorMessage": "Couldn't save this program",
+    "duplicateMessage": "A program with this name already exists",
     "saving": "Saving…",
     "save": "Save",
     "archive": "Archive",
