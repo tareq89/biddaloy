@@ -244,6 +244,47 @@ flowchart LR
 - **Example.** `POST /users` with a taken email or phone → `409 This person already has an account. Send them a join request instead.` (`details.code: ACCOUNT_EXISTS`), the same text on the pre-check and the unique-index race; `409 That employee ID is already in use`.
 - **Test.** `users.e2e-spec.ts` (create), `users.service.integration.spec.ts` and `staff-profiles.service.spec.ts` (employee ID).
 
+### Rule 24: Errors are mapped in one place and never echo input
+
+- **Rule.** Known database and parser failures (`23505`, `22001`, `22003`, oversized body, multer codes) become fixed 4xx sentences in `server/src/common/filters/known-errors.ts`. A service does not catch them one by one, and no sentence holds the submitted value or a constraint name. Removing an echo in one service means grepping its sibling services for the same message shape.
+- **Why.** A raw 500 paged Sentry and showed the constraint name (#2634, #2612, #2616). A sibling service kept echoing an id after checkout stopped (Wave 1 log).
+- **Example.** `POST /classes` with a taken name returns `409` with a fixed sentence, not `duplicate key value violates unique constraint "UQ_..."`.
+
+```mermaid
+flowchart LR
+  E["DB or parser error<br/>23505, 22001, 22003, 413, multer"] --> K["known-errors.ts"] --> R["fixed 4xx sentence<br/>no value, no constraint name"]
+```
+
+- **Test.** `server/src/common/filters/known-errors.spec.ts`, `known-errors.e2e-spec.ts` (the cases of #2634, #2612, #2616).
+
+### Rule 25: Writes never auto-retry, and sending and billing routes carry an Idempotency-Key
+
+- **Rule.** UI mutations default to `retry: false`. A route that sends a message or creates a record a double click could duplicate sits behind `IdempotencyInterceptor` (`server/src/common/idempotency/idempotency.interceptor.ts`). The same key replays the first reply. Redis down fails open with a log (Rule 15). A new send or create route joins the interceptor, or its ticket names the unique DB constraint that makes a duplicate impossible (#2691).
+- **Why.** A lost reply plus an automatic retry created two records and sent one SMS twice (#2596, #2631).
+- **Example.** `POST /communications/send` with `Idempotency-Key: 7f3c…` twice returns the same body; one SMS leaves.
+
+```mermaid
+flowchart LR
+  C[Click] --> G["UI guard: ref blocks 2nd click"] --> N["retry: false"] --> K["Idempotency-Key header"] --> S["server stores reply"] --> P["same key = replay"]
+```
+
+- **Test.** `ui/src/hooks/mutation-retry.guard.spec.ts`, `server/src/common/idempotency/idempotency.interceptor.spec.ts`, `e2e/journeys/double-submit.spec.ts` (registry: `double-submit.registry.ts`).
+
+### Rule 26: Money is compared in whole paisa, with DB CHECKs behind it
+
+- **Rule.** Money is compared after `toPaisa()` (`server/src/common/constants/money.ts`), never with a tolerance such as 0.01. `student_fees` also carries CHECKs, so a bug cannot store a bad row: `CHK_sf_paid_plus_discount` (paid + discount <= total) and `CHK_sf_waived_settled` (WAIVED means paid + discount = total). The demo seed must pass both.
+- **Why.** Checkout took 0.01 over the balance and a bill 0.01 short closed as PAID (#2636, #2644). The load seed had WAIVED bills with no discount (#2617).
+- **Example.** Balance 1400.00, pay 1400.01 returns 400. Balance 1400.00, pay 1399.99 leaves `PARTIALLY_PAID`.
+- **Known gap.** Checkout `applyAllocationToBill` and reversal still use a 0.01 tolerance (#2685). There is no paisa property test yet; the CHECKs are the net.
+- **Test.** `server/test/student-fee-money-checks-migration.integration.spec.ts`, `server/src/scripts/demo-seed/validator.spec.ts`, `fee-generation-batch.service.integration.spec.ts`.
+
+### Rule 27: A parent row cannot be deleted while a child row references it
+
+- **Rule.** Each `remove()` refuses (409) while a child row exists. Every parent-child pair is in `server/test/delete-guard-registry.ts`: guarded, or listed in `KNOWN_GAPS` with an issue. A new FK to a parent joins the registry or the test fails.
+- **Why.** Deleting an academic year orphaned its bills (#2613, #2655). Open gaps: #2675-#2680, and #2688 for bare uuid columns.
+- **Example.** Delete a room still used by a routine: `409`, the room stays.
+- **Test.** `server/test/delete-guard-registry.integration.spec.ts`.
+
 ## Login brute-force protection
 
 `POST /auth/login` layers three controls, defined in
@@ -1390,3 +1431,36 @@ flowchart LR
 - **SHA pins and the timings push.** Turning off `persist-credentials` on every checkout broke nothing except the one job that pushes CI timings, which now gets a step-scoped token — fix: 9c133ba58 (#2334) — rule candidate: before removing a default credential, grep the workflows for `git push` and give only those steps a token. Checked here: no `uses:` without a 40-character SHA, every `actions/checkout` sets `persist-credentials: false`, and `actionlint` is clean. Whether the GitHub Actions run on `main` stays green with the pins is only provable after the merge. → Rule 21
 - **Owner actions left open.** Rebuilding the compose stack from the pinned images (`docker compose build --no-cache && docker compose up -d`), the healthy-status check, `docker compose exec backup id -u` and the GitHub settings in "Repository and GitHub settings" above all need Docker or repo admin rights, which this run did not use. Statically: the backup Dockerfile ends in `USER backup` (uid 10001), and every `FROM` and pulled `image:` carries `@sha256:` (the two locally built images, `biddaloy-app` and `biddaloy-backup`, have no registry digest by design). → no rule (verification record)
 - **`ci:local --full` reused one database across sections.** The integration section's vitest global-setup drops the run's database and re-creates it with test fixtures only, and the e2e section then ran `seed` on top of it. With no `default-school` row, the dev platform tenant could not be resolved, so every platform SUPER_ADMIN call got 403 and `/admission/default-school` said "school not found": 16 red Playwright specs that all pass alone, and pass in CI, where each job has its own database — one full run to triage — fix: `fresh_stack` in `scripts/ci-local.sh` gives the e2e and lighthouse sections a fresh test-env slice — rule candidate: a local runner that mirrors several CI jobs gives each job the same fresh state CI does; a spec that fails only in the full local run is first checked for state left by an earlier section. → no rule (test infrastructure, fixed in `scripts/ci-local.sh`)
+
+## Learnings log (Epic 2642)
+
+Raw notes from the QA audit, same format as the
+[Epic 75 log](#learnings-log-epic-75): surprise — cost — fix — rule candidate
+→ rule N or `→ no rule`. Full class table: [27-qa-audit-lessons.md](27-qa-audit-lessons.md).
+
+### Wave 1 — 2026-10-19
+
+- A sibling service (`payment-allocation.service.ts`) still echoed `idempotency_key` after checkout stopped — a Rule 23 gap at wave close — fix: id-free wording (#2650) — rule candidate: removing an echo means grepping siblings for the same shape. → Rule 24
+- A `NOT VALID` CHECK still checks new and changed rows, so restoring an old backup can hit `CHK_sf_paid_plus_discount` — found in review — fix: deploy step with data audit (#2662) — rule candidate: money CHECKs ship with a restore note. → Rule 26
+- A new permission (`STEP_UP_REQUEST`) broke an unrelated exact-list pin in `shared/src/enums/permissions.spec.ts` — one red at close — fix: pin updated — rule candidate: grep exact-list specs when granting a permission. → no rule (checklist)
+
+### Wave 2 — 2026-10-19
+
+- Client and server phone rules drifted (`1[3-9]`, no dash) — a valid-looking form value 400d — fix: #2619 — rule candidate: tightening a server regex greps the client pattern. → no rule
+- Money compared with a tolerance in three places (wallet auto-apply, collections report, fee rows) — fix: whole-paisa compare (#2644, #2626) — rule candidate: no tolerance in money. → Rule 26
+
+### Wave 3 — 2026-10-19
+
+- The delete-guard registry found 45 unguarded parent-child pairs — filed as #2675-#2680 — rule candidate: a registry test beats a review checklist. → Rule 27
+- Backup validate parsed the workbook more than once per process; 10k students took 74 s and about 1.8 GB — fix: one parse per process, one set of limits (#2624); streaming read is #2686. → no rule (limits live in 14-school-workbook.md)
+
+### Wave 4 — 2026-10-19
+
+- Writes auto-retried on 5xx, so a lost reply made two records — fix: `retry: false` plus an unknown-outcome toast (#2596) — rule candidate: no auto-retry of a write without a key. → Rule 25
+- A shared-shell default overrode a page's own empty state (#2591, #2653) — rule candidate: shared-shell changes grep pages setting the same prop. → no rule (#2681 tracks the rest)
+
+### Wave 5 — 2026-10-19
+
+- A double click sent one SMS twice — fix: server replay by Idempotency-Key (#2631), registry of dialogs (#2656) — the interceptor entry in [Rule 15](#rule-15-redis-down-has-a-written-answer-per-route) was written then. → Rule 25
+- Some bulk routes (`fees/generate`, `fees/schedules/run-now`, `fees/fines/generate`) stay outside the interceptor until a unique constraint is verified (#2691). → follow-up
+- The wave-close full runs (ci-local, e2e, pwa, axe, 10x flake gate) were not run in Waves 3-5: no Docker, shared ports 3000/5174. → run on a free machine
