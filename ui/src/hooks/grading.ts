@@ -140,7 +140,6 @@ export function useDeleteGradingScale() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/grading/scales/${id}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: (_data, id) => {
       void queryClient.invalidateQueries({ queryKey: gradingScaleKeys.lists() });
       queryClient.removeQueries({ queryKey: gradingScaleKeys.detail(id) });

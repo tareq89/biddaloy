@@ -28,16 +28,7 @@ import { switchActiveTenant } from './tenant';
 
 describe('useUpdateStudentPreferredCommunication is a legitimate optimistic mutation (low-stakes -> safe to roll back)', () => {
   it('shows the optimistic value before the server responds, then rolls back and surfaces an error on failure', async () => {
-    // `createTestQueryClient()`'s default `mutations.retry: false` gets
-    // overridden by this hook's own `retry: shouldRetryQuery` (same
-    // client-default-vs-per-query-option interaction as the retry tests
-    // below) — a 500 is retryable, so without `retryDelay: 0` this would
-    // wait out real exponential backoff before reaching `isError`.
     const queryClient = createTestQueryClient();
-    queryClient.setDefaultOptions({
-      ...queryClient.getDefaultOptions(),
-      mutations: { retryDelay: 0 },
-    });
     const student = studentFactory({ id: 'student-1', preferred_communication: 'SMS' });
     queryClient.setQueryData(studentKeys.detail('student-1'), student);
 

@@ -211,7 +211,6 @@ export function useCreateStudent() {
       const res = await apiClient.post<Student>('/students', input);
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
     },
@@ -232,7 +231,6 @@ export function useUpdateStudent(id: string) {
       const res = await apiClient.patch<Student>(`/students/${id}`, input);
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: studentKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
@@ -284,7 +282,6 @@ export function useUpdateStudentPreferredCommunication(id: string) {
       const res = await apiClient.patch<Student>(`/students/${id}`, { preferred_communication });
       return res.data;
     },
-    retry: shouldRetryQuery,
     onMutate: async (preferred_communication) => {
       await queryClient.cancelQueries({ queryKey: studentKeys.detail(id) });
       const previousStudent = queryClient.getQueryData<Student>(studentKeys.detail(id));
@@ -409,7 +406,6 @@ export function useDeleteStudent() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/students/${id}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: (_data, id) => {
       void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
       queryClient.removeQueries({ queryKey: studentKeys.detail(id) });

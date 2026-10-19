@@ -128,7 +128,6 @@ export function useDeleteFeeStructure() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/fee-structures/${id}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: (_data, id) => {
       void queryClient.invalidateQueries({ queryKey: feeStructureKeys.lists() });
       queryClient.removeQueries({ queryKey: feeStructureKeys.detail(id) });
