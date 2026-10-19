@@ -169,14 +169,17 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
   if (env.SMOKE_PARENT_EMAIL && env.SMOKE_PARENT_PASSWORD) {
     const p = await check('POST', login, 'parent', {
       body: { email: env.SMOKE_PARENT_EMAIL, password: env.SMOKE_PARENT_PASSWORD },
-      ok: (b) => typeof b.access_token === 'string' && b.memberships?.length > 0,
+      // A PARENT membership is required: memberships[0] could be a staff role.
+      ok: (b) =>
+        typeof b.access_token === 'string' && b.memberships?.some((m) => m.role === 'PARENT'),
     });
     if (p) {
+      const m = p.memberships.find((x) => x.role === 'PARENT');
       await check('POST', '/api/v1/auth/step-up/otp/request', '#2639', {
         headers: {
           Authorization: `Bearer ${p.access_token}`,
-          'X-Tenant-ID': p.memberships[0].tenantId,
-          'X-Role': p.memberships[0].role,
+          'X-Tenant-ID': m.tenantId,
+          'X-Role': 'PARENT',
         },
         body: { identifier: 'smoke@invalid.test' },
         expect: 403,

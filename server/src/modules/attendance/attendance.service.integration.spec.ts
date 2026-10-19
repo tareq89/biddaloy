@@ -876,6 +876,25 @@ describe('AttendanceService (integration)', () => {
       ).rejects.toMatchObject(OUTSIDE);
     });
 
+    it('[2664] 404s when the class points at another tenant’s year, and stores nothing', async () => {
+      // No composite FK ties classes.academic_year_id to the same tenant, so a bad row
+      // must not skip the range check by making the tenant-filtered year lookup empty.
+      const otherYear = await dataSource
+        .getRepository(AcademicYear)
+        .findOneByOrFail({ tenant_id: OTHER_TENANT, name: 'Other Tenant Year' });
+      await dataSource
+        .getRepository(Class)
+        .update({ id: classId }, { academic_year_id: otherYear.id });
+      try {
+        await expect(
+          service.putRegister(putParams({ dto: basePutDto({ date: '2025-12-31' }) })),
+        ).rejects.toBeInstanceOf(NotFoundException);
+        expect(await dataSource.getRepository(AttendanceSession).count()).toBe(0);
+      } finally {
+        await dataSource.getRepository(Class).update({ id: classId }, { academic_year_id: yearId });
+      }
+    });
+
     it('accepts the first and the last day of the year', async () => {
       await allowFuture();
       await service.putRegister(putParams({ dto: leaveOnly('2026-01-01') }));

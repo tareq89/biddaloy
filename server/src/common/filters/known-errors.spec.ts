@@ -30,6 +30,12 @@ describe('mapKnownError — body-parser errors', () => {
     expect(mapped?.message).toBe('Request body too large');
   });
 
+  it('[2664] keeps body-parser’s own non-400 status (entity.verify.failed 403) with fixed text', () => {
+    const mapped = mapKnownError(httpError('secret verify detail', 403, 'entity.verify.failed'));
+    expect(mapped?.getStatus()).toBe(403);
+    expect(mapped?.message).toBe('Request could not be processed');
+  });
+
   it('maps encoding.unsupported to 415', () => {
     expect(
       mapKnownError(
