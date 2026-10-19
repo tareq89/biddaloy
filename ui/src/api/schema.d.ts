@@ -9398,6 +9398,8 @@ export interface components {
         ReminderBatchLogDto: {
             /** @enum {string} */
             medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER" | "PUSH";
+            /** @enum {string|null} */
+            error: "NOT_CONFIGURED" | "NO_PROVIDER" | "FAILED" | null;
             id: string;
             recipient_address: string;
             recipient_name: string;
@@ -9406,7 +9408,6 @@ export interface components {
             student_id: string | null;
             guardian_id: string | null;
             provider_message_id: string | null;
-            error: string | null;
             /** Format: date-time */
             created_at: string;
         };
@@ -9433,7 +9434,8 @@ export interface components {
         CommunicationResponseDto: {
             /** @enum {string} */
             medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER" | "PUSH";
-            error: string | null;
+            /** @enum {string|null} */
+            error: "NOT_CONFIGURED" | "NO_PROVIDER" | "FAILED" | null;
             id: string;
             recipient_address: string;
             recipient_name: string;

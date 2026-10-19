@@ -70,8 +70,10 @@ export class IdempotencyInterceptor implements NestInterceptor {
       );
     }
 
-    const route = `${request.method} ${request.route?.path ?? request.path}`;
-    const key = `idem:${request.currentTenant?.id ?? '-'}:${request.user?.sub ?? '-'}:${route}:${header}`;
+    // The real URL, not the route pattern: one key on `/invoices/A/send` must never replay
+    // into `/invoices/B/send` [2683].
+    const target = `${request.method} ${request.originalUrl ?? request.url}`;
+    const key = `idem:${request.currentTenant?.id ?? '-'}:${request.user?.sub ?? '-'}:${target}:${header}`;
 
     let stored: string | null;
     try {
@@ -87,7 +89,16 @@ export class IdempotencyInterceptor implements NestInterceptor {
     if (stored === IN_FLIGHT) {
       throw new ConflictException('This request is already being processed.');
     }
-    if (stored !== null) return of((JSON.parse(stored) as { body: unknown }).body);
+    if (stored !== null) {
+      try {
+        return of((JSON.parse(stored) as { body: unknown }).body);
+      } catch {
+        // Corrupt stored answer: treat as a miss, drop it and run again [2683].
+        this.logger.error('Idempotency replay value was unreadable; key dropped.');
+        await this.release(key);
+        return this.intercept(context, next);
+      }
+    }
 
     return next.handle().pipe(
       mergeMap(async (body) => {

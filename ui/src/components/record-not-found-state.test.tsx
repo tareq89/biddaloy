@@ -18,9 +18,9 @@ describe('RecordNotFoundState', () => {
   it('shows the message and a back button, and no retry', async () => {
     const onBack = vi.fn();
     render(<RecordNotFoundState onBack={onBack} />);
-    expect(screen.getByRole('status').textContent).toContain('not found');
+    expect(screen.getByRole('status').textContent).toContain('could not find this record');
     expect(screen.queryByRole('button', { name: /try again|retry/i })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Back to the list' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Go back' }));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

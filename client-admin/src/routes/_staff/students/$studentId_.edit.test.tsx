@@ -93,12 +93,61 @@ describe('/students/$studentId/edit', () => {
     });
 
     const fullName = await screen.findByDisplayValue('Rahim Uddin');
-    const save = screen.getByRole('button', { name: 'Save changes' });
+    const save = screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' });
     expect(save.disabled).toBe(true);
     const user = userEvent.setup();
     await user.type(fullName, 'x');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(patchBody).toEqual({ full_name: 'Rahim Uddinx' }));
+  });
+
+  it('[2683] enables Save after "Restore draft" and sends the restored change', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin', guardians: [] });
+    let patchBody: Record<string, unknown> = {};
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.patch('/api/v1/students/:id', async ({ request }) => {
+        patchBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(student);
+      }),
+    );
+    window.localStorage.setItem(
+      'form-shell-draft:tenant-1:student-1',
+      JSON.stringify({ full_name: 'Rahim Draft' }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1/edit'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Restore draft' }));
+    expect(await screen.findByDisplayValue('Rahim Draft')).toBeTruthy();
+    const save = screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' });
+    expect(save.disabled).toBe(false);
+    await user.click(save);
+    await waitFor(() => expect(patchBody).toEqual({ full_name: 'Rahim Draft' }));
+  });
+
+  it('[2683] keeps Save disabled for a whitespace-only edit', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin', guardians: [] });
+    server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1/edit'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const fullName = await screen.findByDisplayValue('Rahim Uddin');
+    await userEvent.setup().type(fullName, '   ');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' }).disabled).toBe(
+      true,
+    );
   });
 
   it('renders the error state inside the full-page frame', async () => {
@@ -119,12 +168,12 @@ describe('/students/$studentId/edit', () => {
     expect(await screen.findByRole('button', { name: 'Close' })).toBeTruthy();
     // [2598] A 404 says "not found" with no retry, and Save stays disabled.
     expect(
-      await screen.findByText('This record was not found. It may have been removed.'),
+      await screen.findByText('It may have been deleted, or the link may be wrong.'),
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: /retry|try again/i })).toBeNull();
-    expect(
-      (screen.getByRole('button', { name: 'Save changes' })).disabled,
-    ).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' }).disabled).toBe(
+      true,
+    );
   });
 
   it('is axe clean', async () => {

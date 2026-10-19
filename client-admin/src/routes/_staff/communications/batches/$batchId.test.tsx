@@ -85,15 +85,14 @@ describe('/communications/batches/$batchId', () => {
               recipient_name: 'Guardian Two',
               status: 'FAILED',
               student_id: STUDENT_B,
-              error: 'Provider rejected the number',
+              error: 'FAILED',
             }),
             logRow({
               id: 'log-3',
               recipient_name: 'Guardian Three',
               status: 'FAILED',
               student_id: STUDENT_C,
-              error:
-                'SMS (Greenweb) is not configured for this tenant, and no platform-wide fallback is set. Set GREENWEB_API_KEY as a platform-wide fallback.',
+              error: 'NOT_CONFIGURED',
             }),
           ],
           total: 3,
@@ -123,8 +122,7 @@ describe('/communications/batches/$batchId', () => {
         'Sending by SMS is not set up for this school. Turn it on in Settings › Communication.',
       ),
     ).toBeTruthy();
-    expect(screen.queryByText(/GREENWEB_API_KEY/)).toBeNull();
-    expect(screen.queryByText('Provider rejected the number')).toBeNull();
+    expect(screen.queryByText('NOT_CONFIGURED')).toBeNull();
     // Phones read in the grouped local format.
     const oneRow = screen.getByText('Guardian One').closest('tr');
     expect(oneRow).toBeTruthy();
@@ -436,7 +434,7 @@ describe('/communications/batches/$batchId', () => {
             logRow({
               id: 'log-1',
               status: batchCalls <= 1 ? 'QUEUED' : 'FAILED',
-              error: batchCalls <= 1 ? null : 'Gateway rejected the number',
+              error: batchCalls <= 1 ? null : 'FAILED',
               student_id: STUDENT_A,
             }),
           ],

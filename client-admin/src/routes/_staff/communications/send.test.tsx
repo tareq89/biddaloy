@@ -434,21 +434,21 @@ describe('/communications/send', () => {
     it('FAILED with the not-configured reason: failure heading, mapped reason, settings link', async () => {
       await sendAndGetResult({
         status: 'FAILED',
-        error: 'SMS (Greenweb) is not configured for this tenant. Add a gateway in Settings.',
+        error: 'NOT_CONFIGURED',
       });
       expect(await screen.findByRole('heading', { name: 'Message not sent' })).toBeDefined();
       expect(screen.queryByText('Message on its way')).toBeNull();
       expect(screen.getByText(/not set up for this school/)).toBeDefined();
-      expect(screen.queryByText(/Greenweb/)).toBeNull();
+      expect(screen.queryByText('NOT_CONFIGURED')).toBeNull();
       const link = screen.getByRole('link', { name: 'Open Settings › Communication' });
       expect(link.getAttribute('href')).toContain('/settings');
     });
 
     it('FAILED with another reason: generic text, no raw server text, no link', async () => {
-      await sendAndGetResult({ status: 'FAILED', error: 'Provider exploded: code 77' });
+      await sendAndGetResult({ status: 'FAILED', error: 'FAILED' });
       expect(await screen.findByRole('heading', { name: 'Message not sent' })).toBeDefined();
       expect(screen.getByText('Could not be sent.')).toBeDefined();
-      expect(screen.queryByText(/code 77/)).toBeNull();
+      expect(screen.queryByText('FAILED')).toBeNull();
       expect(screen.queryByRole('link', { name: /Settings/ })).toBeNull();
     });
   });

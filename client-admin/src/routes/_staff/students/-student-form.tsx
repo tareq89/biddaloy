@@ -148,7 +148,13 @@ export function StudentForm<TInput>({
     withResolver: true,
   });
 
-  const autosave = useFormAutosave(autosaveKey, form.watch(), {
+  const values = form.watch();
+  // [2683] Edit mode compares the real payload, not `isDirty`: a whitespace-only edit is dirty
+  // but trims to nothing, and would otherwise send an empty PATCH.
+  const nothingToSave =
+    !!disableSubmitWhenClean && Object.keys(buildPayload(values) as object).length === 0;
+
+  const autosave = useFormAutosave(autosaveKey, values, {
     enabled: !form.formState.isSubmitSuccessful,
   });
   const [draftBannerVisible, setDraftBannerVisible] = React.useState(autosave.draftAvailable);
@@ -159,6 +165,8 @@ export function StudentForm<TInput>({
 
   function handleSubmit(values: StudentFormValues) {
     if (inFlight.current) return;
+    // Enter in a field submits without the (disabled) button.
+    if (disableSubmitWhenClean && Object.keys(buildPayload(values) as object).length === 0) return;
     inFlight.current = true;
     mutation.mutate(buildPayload(values), {
       onSettled: () => {
@@ -194,7 +202,7 @@ export function StudentForm<TInput>({
           label: submitLabel,
           onClick: () => void form.handleSubmit(handleSubmit)(),
           busy: mutation.isPending,
-          disabled: !!disableSubmitWhenClean && !form.formState.isDirty,
+          disabled: nothingToSave,
         }}
         secondary={{ label: t('form.cancelAction'), onClick: onClose }}
       >
@@ -222,7 +230,10 @@ export function StudentForm<TInput>({
                 onClick={() => {
                   const draft = autosave.restoreDraft();
                   // Drafts saved before a field existed omit it; fill from the defaults.
-                  if (draft) form.reset({ ...initialValues, ...draft });
+                  // `keepDefaultValues`: the server values stay the baseline, so the restored
+                  // edits count as unsaved and Save is enabled [2683].
+                  if (draft)
+                    form.reset({ ...initialValues, ...draft }, { keepDefaultValues: true });
                   setDraftBannerVisible(false);
                 }}
               >

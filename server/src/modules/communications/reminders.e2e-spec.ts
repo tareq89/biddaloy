@@ -448,7 +448,7 @@ describe('Bulk Reminder Read/Preview E2E', () => {
       expect(res.body.data).toHaveLength(1);
       expect(res.body.data[0]).toMatchObject({
         status: 'FAILED',
-        error: 'No provider registered for medium "SMS"',
+        error: 'NO_PROVIDER',
       });
       // Row list is a status table, not a message dump.
       expect(res.body.data[0]).not.toHaveProperty('message_body');

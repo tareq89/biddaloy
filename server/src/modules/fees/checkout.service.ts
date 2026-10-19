@@ -62,9 +62,7 @@ export interface PaymentsRecordedEvent {
 }
 
 /** True when `err` is specifically a unique-violation on the
- * `(tenant_id, idempotency_key)` partial index on `payments` — see
- * `payment-allocation.service.ts`'s identical check. Duplicated rather
- * than imported since that file doesn't export it. */
+ * `(tenant_id, idempotency_key)` partial index on `payments`. */
 function isIdempotencyKeyViolation(err: unknown): boolean {
   if (typeof err !== 'object' || err === null) return false;
   const e = err as { code?: unknown; constraint?: unknown };
@@ -148,9 +146,8 @@ export class CheckoutService {
         const paymentRepo = manager.getRepository(Payment);
         const allocationRepo = manager.getRepository(PaymentAllocation);
 
-        // Lock every bill this checkout touches — mirrors
-        // `PaymentAllocationService`'s `.setLock('pessimistic_write')`
-        // pattern so two concurrent checkouts against the same bill
+        // Lock every bill this checkout touches (`.setLock('pessimistic_write')`)
+        // so two concurrent checkouts against the same bill
         // serialize instead of both reading the same starting balance.
         // Deterministic `ORDER BY` so two overlapping checkouts always
         // acquire row locks in the same order, avoiding a Postgres 40P01
@@ -573,10 +570,6 @@ export class CheckoutService {
    * A genuine retry replays the exact same request. A key reused with a
    * materially different body is a client bug, not a network retry —
    * surface it instead of silently handing back an unrelated payment.
-   * Same reasoning as `PaymentAllocationService`'s private method of the
-   * same name; duplicated rather than shared because the two DTOs (line
-   * shape, wallet fields) don't overlap enough to make one signature
-   * clean.
    */
   private assertIdempotentReplayMatches(existing: Payment, dto: CheckoutDto): void {
     // Cheap first (#2637): a reversed payment is never handed back as if it were live.

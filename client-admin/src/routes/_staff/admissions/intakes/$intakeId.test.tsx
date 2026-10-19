@@ -29,10 +29,10 @@ describe('/admissions/intakes/$intakeId', () => {
     const { router } = render();
 
     expect(
-      await screen.findByText('This record was not found. It may have been removed.'),
+      await screen.findByText('It may have been deleted, or the link may be wrong.'),
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: /retry|try again/i })).toBeNull();
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Back to the list' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Go back' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admissions/intakes'));
   });
 
@@ -45,6 +45,6 @@ describe('/admissions/intakes/$intakeId', () => {
     render();
 
     expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy();
-    expect(screen.queryByText('This record was not found. It may have been removed.')).toBeNull();
+    expect(screen.queryByText('It may have been deleted, or the link may be wrong.')).toBeNull();
   });
 });

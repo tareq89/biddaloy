@@ -1,8 +1,7 @@
 /**
  * [2598] A detail page whose API answered 404: the record was removed or the link is wrong.
  * Same card as `ErrorState` but with no retry (retrying a 404 never succeeds) and a way back.
- * Default copy comes from the `common` keys `recordNotFound.*`; the English `defaultValue`s keep
- * it readable until those keys are in the locale files.
+ * Default copy comes from the `common` keys `recordNotFound.*`.
  */
 import { FileSearchIcon } from 'lucide-react';
 
@@ -33,18 +32,11 @@ export function RecordNotFoundState({
       <div className="flex size-12 items-center justify-center rounded-full bg-secondary text-text-secondary [&_svg]:size-6">
         <FileSearchIcon aria-hidden="true" />
       </div>
-      <h2 className="text-h3">
-        {title ?? t('recordNotFound.title', { defaultValue: 'Not found' })}
-      </h2>
-      <p className="max-w-prose text-text-secondary">
-        {message ??
-          t('recordNotFound.message', {
-            defaultValue: 'This record was not found. It may have been removed.',
-          })}
-      </p>
+      <h2 className="text-h3">{title ?? t('recordNotFound.title')}</h2>
+      <p className="max-w-prose text-text-secondary">{message ?? t('recordNotFound.message')}</p>
       <div className="mt-2">
         <Button type="button" variant="outline" onClick={onBack}>
-          {backLabel ?? t('recordNotFound.back', { defaultValue: 'Back to the list' })}
+          {backLabel ?? t('recordNotFound.back')}
         </Button>
       </div>
     </div>

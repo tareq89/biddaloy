@@ -21,11 +21,15 @@ class FakeRedis {
   }
 }
 
-function ctx(opts: { key?: unknown; tenant?: string; user?: string } = {}) {
+function ctx(
+  opts: { key?: unknown; tenant?: string; user?: string; url?: string; route?: string } = {},
+) {
+  const url = opts.url ?? '/api/communications/send';
   const request = {
     method: 'POST',
-    path: '/communications/send',
-    route: { path: '/communications/send' },
+    originalUrl: url,
+    path: url,
+    route: { path: opts.route ?? '/communications/send' },
     headers: opts.key === undefined ? {} : { 'idempotency-key': opts.key },
     currentTenant: { id: opts.tenant ?? 't1' },
     user: { sub: opts.user ?? 'u1' },
@@ -110,6 +114,25 @@ describe('IdempotencyInterceptor [#2631]', () => {
     await run(interceptor, ctx({ key: 'k4', tenant: 't2' }), handler);
     await run(interceptor, ctx({ key: 'k4', user: 'u2' }), handler);
     expect(handler).toHaveBeenCalledTimes(3);
+  });
+
+  it('[2683] scopes the key by the actual URL, not the route pattern', async () => {
+    const handler = vi.fn(() => of({ sent: true }));
+    const route = '/invoices/:id/send';
+    await run(interceptor, ctx({ key: 'k6', url: '/api/invoices/aaa/send', route }), handler);
+    await run(interceptor, ctx({ key: 'k6', url: '/api/invoices/bbb/send', route }), handler);
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it('[2683] treats a corrupt stored answer as a miss, deletes it and runs the handler', async () => {
+    const first = vi.fn(() => of({ id: 1 }));
+    await run(interceptor, ctx({ key: 'k7' }), first);
+    const [storedKey] = [...redis.store.keys()];
+    redis.store.set(storedKey, '{"body":');
+    const handler = vi.fn(() => of({ id: 2 }));
+    expect(await run(interceptor, ctx({ key: 'k7' }), handler)).toEqual({ id: 2 });
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(redis.store.get(storedKey)!)).toEqual({ body: { id: 2 } });
   });
 
   it('runs the handler once and logs when Redis rejects every call', async () => {

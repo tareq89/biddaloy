@@ -89,7 +89,7 @@ describe('SendReminderDialog 500-student cap', () => {
     expect(notice.textContent).toContain('500');
     expect(screen.getByRole('link').getAttribute('href')).toBe('/communications/reminders');
     await user.type(screen.getByRole('textbox', { name: 'Message' }), 'Pay dues');
-    const send = screen.getByRole('button', { name: 'Send' });
+    const send = screen.getByRole<HTMLButtonElement>('button', { name: 'Send' });
     expect(send.disabled).toBe(true);
     await user.click(send);
     expect(posted).toHaveLength(0);

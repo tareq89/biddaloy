@@ -111,7 +111,7 @@ export class Payment {
    * network, a doubled tap) never records the payment twice. Unique per
    * `(tenant_id, idempotency_key)` — enforced by a partial index that
    * ignores NULL, since most payments recorded before the 16.4.2 checkout
-   * endpoint lands never set one. `PaymentAllocationService` returns the
+   * endpoint lands never set one. `CheckoutService` returns the
    * existing payment unchanged when this key is reused. Never exposed to
    * families (`FamilyPaymentDto` is an allow-list that omits it). */
   @Column({ type: 'varchar', length: 64, nullable: true })

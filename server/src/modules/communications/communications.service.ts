@@ -19,6 +19,7 @@ import {
   CommunicationResponseDto,
 } from './dto/communications.dto';
 import { addressForMedium } from './reminder-recipients.util';
+import { deliveryErrorCode } from './delivery-error-code';
 import {
   CommunicationMedium,
   CommunicationStatus,
@@ -37,7 +38,7 @@ function toResponseDto(log: CommunicationLog): CommunicationResponseDto {
     recipient_name: log.recipient_name,
     status: log.status,
     provider_message_id: log.provider_message_id,
-    error: typeof log.metadata?.error === 'string' ? log.metadata.error : null,
+    error: deliveryErrorCode(log.metadata),
     created_at: log.created_at,
   };
 }

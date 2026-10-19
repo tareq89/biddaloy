@@ -53,8 +53,7 @@ export class ReverseLaterPaymentsFirstException extends ConflictException {
  * full: unwinds the wallet movements it made, restores the bills it paid
  * toward, cancels the invoice it produced (via a credit note), and marks
  * the original payment as reversed. Mirrors the shape `CheckoutService`
- * and `PaymentAllocationService` established for the forward flow, just
- * run backwards.
+ * established for the forward flow, just run backwards.
  *
  * Approval (`ApprovalScope.PAYMENTS_REVERSE`, D9) is consumed by
  * `ApprovalGuard` at the controller boundary — this service receives the

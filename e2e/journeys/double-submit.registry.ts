@@ -2,7 +2,6 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
 import {
-  createClassSection,
   createFineStructure,
   createGuardian,
   currentAcademicYear,
@@ -254,8 +253,15 @@ export const REGISTRY: DialogEntry[] = [
   {
     name: 'student',
     route: '/students/new',
-    prepare: async (request, session) => {
-      await createClassSection(request, session);
+    // [2683] Its own class and section, picked by name: the first option may be another
+    // entry's class with no sections, or another worker's data.
+    prepare: async (request, session, suffix) => {
+      const year = await currentAcademicYear(request, session);
+      const klass = await post<{ id: string }>(request, session, '/classes', {
+        name: `Dbl student class ${suffix}`,
+        academic_year_id: year.id,
+      });
+      await post(request, session, `/classes/${klass.id}/sections`, { section_name: 'A' });
     },
     open: async () => undefined,
     fill: async (page, suffix) => {
@@ -263,9 +269,9 @@ export const REGISTRY: DialogEntry[] = [
         .getByLabel(new RegExp(`^${t('students.form.fields.fullName')}`))
         .fill(`Dbl student ${suffix}`);
       await page.getByLabel(t('students.form.fields.class')).click();
-      await page.getByRole('option').first().click();
+      await page.getByRole('option', { name: `Dbl student class ${suffix}` }).click();
       await page.getByLabel(t('students.form.fields.section')).click();
-      await page.getByRole('option').first().click();
+      await page.getByRole('option', { name: 'A', exact: true }).click();
     },
     submitKey: 'students.new.submitAction',
     postUrl: /\/api\/v1\/students$/,
