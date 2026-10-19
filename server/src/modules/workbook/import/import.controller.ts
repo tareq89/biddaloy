@@ -32,6 +32,7 @@ import { STRICT_RATE_LIMIT } from '../../../rate-limit';
 import { ImportStagingService } from '../../bulk-import/import-staging.service';
 import type { BulkImportErrorDto } from '../../bulk-import/dto/bulk-import.dto';
 import { StorageService } from '../../storage/storage.service';
+import { BACKUP_MAX_UPLOAD_BYTES } from '../export/export.constants';
 import { tenantObjectKeyNamed } from '../../storage/storage-key';
 import { WorkbookFormatError } from '../codec/workbook-codec';
 import type { RowError } from '../codec/tab-spec';
@@ -39,8 +40,6 @@ import type { WorkbookMeta } from '../codec/meta';
 import { ValidationService } from './validation.service';
 import { DiffService } from './diff.service';
 import type { ValidateResponseDto } from './dto/validate-response.dto';
-
-export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB
 
 /** Category for the original upload, kept only long enough for a restore
  * to consume it — separate from `export`'s `'backups'` category so the two
@@ -117,7 +116,7 @@ export class ImportController {
   @Post('validate')
   @RequirePermissions(Permission.BACKUP_MANAGE)
   @Throttle({ default: STRICT_RATE_LIMIT })
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES } }))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: BACKUP_MAX_UPLOAD_BYTES } }))
   @ApiConsumes('multipart/form-data')
   // Without an explicit body schema the generated client types this endpoint
   // as `requestBody?: never`, which is wrong and unusable from `ui`.

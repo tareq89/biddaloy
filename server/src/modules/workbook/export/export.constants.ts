@@ -11,6 +11,15 @@ export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsh
 export const BACKUP_STORAGE_CATEGORY = 'backups';
 export const EXPORT_RETENTION_DAYS = 30;
 
+/** Largest backup file `POST /backup/validate` accepts (multer); nginx allows 70M on that route. */
+export const BACKUP_MAX_UPLOAD_BYTES = 64 * 1024 * 1024;
+/** Largest total size the restore reader lets a backup inflate to. */
+export const BACKUP_MAX_INFLATED_BYTES = 512 * 1024 * 1024;
+/** Most zip entries the restore reader accepts. */
+export const BACKUP_MAX_ENTRIES = 5_000;
+/** Stored in `workbook_jobs.error` of a DONE export that restore would refuse. */
+export const BACKUP_LIMIT_WARNING = 'RESTORE_LIMIT_EXCEEDED';
+
 /** Node `events` name (not `@nestjs/event-emitter`, which isn't installed —
  * see the plan's correction C1). [14.7.3] (#601) subscribes to this via
  * `WorkbookJobEventsService.onFinished`. */

@@ -282,6 +282,42 @@ redis-cli DEL workbook:restore-lock:00000000-0000-4000-8000-000000000001
 started just before the lock was taken can still commit while the snapshot
 runs. The window is small and not closed yet.
 
+## Size limits
+
+A backup has to get through four gates to be restorable. The numbers live in
+one place, `server/src/modules/workbook/export/export.constants.ts`.
+
+```mermaid
+flowchart LR
+  B[Browser] -->|"file up to 64 MB"| N["nginx: 70M on /api/v1/backup/validate only (55M elsewhere)"]
+  N --> M["multer: BACKUP_MAX_UPLOAD_BYTES = 64 MB"]
+  M --> G["unzip guard: 512 MB inflated, 5,000 entries"]
+  G --> E["exceljs load, all in memory"]
+```
+
+| Limit                      | Value  | Constant                    |
+| -------------------------- | ------ | --------------------------- |
+| Upload size (zipped file)  | 64 MB  | `BACKUP_MAX_UPLOAD_BYTES`   |
+| Inflated size (all sheets) | 512 MB | `BACKUP_MAX_INFLATED_BYTES` |
+| Zip entries                | 5,000  | `BACKUP_MAX_ENTRIES`        |
+
+If an export is already over these limits, its job is still `DONE` (you can
+download it) but `workbook_jobs.error` holds `RESTORE_LIMIT_EXCEEDED` and the
+Backup screen says it is too big to restore.
+
+**Worked example, the 10,000-student load school** (`yarn workspace @biddaloy/server load:seed`):
+39.8 MB zipped, 281.9 MB unzipped, 104 entries. That fits under all three
+limits with room to spare. The read is not streamed: exceljs builds the whole
+workbook in memory, so memory use is several times the unzipped size.
+
+**Measured validate run (D5 merge gate)**
+
+| Date       | File                     | Validate time | Peak memory                                                                                    | Container limit                                                                                                        | Result                                                   |
+| ---------- | ------------------------ | ------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| 2026-10-19 | 10k school, 38 MB zipped | 74 s          | 1.8 GB RSS during validate (0.95 GB before it); 2.0 GB for the whole export + validate process | none: run in a plain Node 24 process on a laptop, not a container (no Docker). The deployment guide suggests 4 GB RAM. | Not refused, no out-of-memory, under Cloudflare's 100 s. |
+
+Validation of that file reported 216 errors, all in `guardians` and `students` (blank `relationship`, guardians that share a phone number, open dues). They come from the load seed's data, not from size.
+
 ## Retention, scheduling, and env vars
 
 From `server/src/modules/workbook/schedule/retention.service.ts`, run once
