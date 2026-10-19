@@ -91,10 +91,9 @@ export interface Allowed {
 export interface KnownGap {
   key: string;
   reason: string;
-  followUp: number | 'pending D22 issue';
+  followUp: number;
 }
 
-const PENDING = 'pending D22 issue' as const;
 
 // ---- fixtures ---------------------------------------------------------------
 
@@ -536,270 +535,270 @@ export const KNOWN_GAPS: KnownGap[] = [
     key: 'ClassSubject.class -> Class',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2676,
   },
   {
     key: 'ClassSubject.academic_year -> AcademicYear',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2675,
   },
   {
     key: 'TeacherClassSection.section -> ClassSection',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2677,
   },
   {
     key: 'TeacherClassSection.subject -> Subject',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2678,
   },
   {
     key: 'AdmissionIntake.class_section -> ClassSection',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2677,
   },
   {
     key: 'Application.academic_year -> AcademicYear',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2675,
   },
   {
     key: 'AttendanceDevice.section -> ClassSection',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2677,
   },
   {
     key: 'AttendanceSession.section -> ClassSection',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2677,
   },
   {
     key: 'AttendanceSession.subject -> Subject',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2678,
   },
   {
     key: 'AcademicTerm.academic_year -> AcademicYear',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2675,
   },
   {
     key: 'CalendarEventClass.class -> Class',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2676,
   },
   {
     key: 'CalendarEvent.academic_year -> AcademicYear',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2675,
   },
   {
     key: 'ExamSchedule.subject -> Subject',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2678,
   },
   {
     key: 'ExamSchedule.room -> Room',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2679,
   },
   {
     key: 'Exam.class -> Class',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2676,
   },
   {
     key: 'MarkGrid.section -> ClassSection',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2677,
   },
   {
     key: 'MarkGrid.subject -> Subject',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2678,
   },
   {
     key: 'ResultSubject.subject -> Subject',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2678,
   },
   {
     key: 'Result.section -> ClassSection',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2677,
   },
   {
     key: 'FeeGeneration.academic_year -> AcademicYear',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2675,
   },
   {
     key: 'FeeStructure.class -> Class',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2676,
   },
   {
     key: 'FeeStructure.section -> ClassSection',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2677,
   },
   {
     key: 'FineRule.academic_year -> AcademicYear',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2675,
   },
   {
     key: 'FineRule.fee_structure -> FeeStructure',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2680,
   },
   {
     key: 'FineRule.class -> Class',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2676,
   },
   {
     key: 'RecurringScheduleStructure.fee_structure -> FeeStructure',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2680,
   },
   {
     key: 'RecurringSchedule.academic_year -> AcademicYear',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2675,
   },
   {
     key: 'GradingScale.academic_year -> AcademicYear',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2675,
   },
   {
     key: 'GradingScale.class -> Class',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2676,
   },
   {
     key: 'HomeworkAssignment.section -> ClassSection',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2677,
   },
   {
     key: 'Homework.subject -> Subject',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2678,
   },
   {
     key: 'Homework.klass -> Class',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2676,
   },
   {
     key: 'SyllabusTopic.klass -> Class',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2676,
   },
   {
     key: 'SyllabusTopic.subject -> Subject',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2678,
   },
   {
     key: 'PromotionRun.source_class -> Class',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2676,
   },
   {
     key: 'RoutineSlot.section -> ClassSection',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2677,
   },
   {
     key: 'RoutineSlot.subject -> Subject',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2678,
   },
   {
     key: 'Routine.academic_year -> AcademicYear',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2675,
   },
   {
     key: 'StudentLifecycleEvent.academic_year -> AcademicYear',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2675,
   },
   {
     key: 'StudentSubjectChoice.academic_year -> AcademicYear',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2675,
   },
   {
     key: 'LessonDelivery.section -> ClassSection',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2677,
   },
   {
     key: 'LessonDelivery.subject -> Subject',
     reason:
       'Child is history or live data (money, marks, results, attendance, student records, applications) and the parent remove() does not check it.',
-    followUp: PENDING,
+    followUp: 2678,
   },
   {
     key: 'StudyPlan.academic_year -> AcademicYear',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2675,
   },
   {
     key: 'StudyPlan.section -> ClassSection',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2677,
   },
   {
     key: 'StudyPlan.subject -> Subject',
     reason:
       'Child is plain config that no remove() hides or checks; a deleted parent leaves a dangling row.',
-    followUp: PENDING,
+    followUp: 2678,
   },
 ];

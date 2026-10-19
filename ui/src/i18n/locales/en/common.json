@@ -373,5 +373,16 @@
       "aunt": "Aunt",
       "other": "Other"
     }
-  }
+  },
+  "noMatches": {
+    "title": "No matches",
+    "explanation": "Nothing fits the filters you chose. Change or clear them to see more.",
+    "clear": "Clear filters"
+  },
+  "recordNotFound": {
+    "title": "We could not find this record",
+    "message": "It may have been deleted, or the link may be wrong.",
+    "back": "Go back"
+  },
+  "outcomeUnknown": "We could not confirm whether this was saved. Check the list before trying again."
 }
