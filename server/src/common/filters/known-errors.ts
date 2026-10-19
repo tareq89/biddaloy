@@ -105,7 +105,9 @@ function mapBodyParserError(exception: unknown): HttpException | null {
   if (type === 'charset.unsupported' || type === 'encoding.unsupported') {
     return new HttpException('Unsupported content type or encoding', 415);
   }
-  return new BadRequestException('Invalid request body');
+  if (status === 400) return new BadRequestException('Invalid request body');
+  // Keep the library's own 4xx (entity.verify.failed is 403); never echo its message.
+  return new HttpException('Request could not be processed', status);
 }
 
 // Decided by `code`, never by message: multer 2.4 reworded "Unexpected field",

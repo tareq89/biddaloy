@@ -170,6 +170,40 @@ describe('smoke-post-deploy', () => {
     }
   });
 
+  it('[2664] #2639 step-up probe uses the PARENT membership, not memberships[0]', async () => {
+    const headers = [];
+    const f = fakeFetch();
+    const spy = async (url, init) => {
+      if (url.endsWith('/api/v1/auth/step-up/otp/request')) headers.push(init.headers);
+      if (init.method === 'POST' && init.body?.includes?.('par@x.test')) {
+        return json(200, {
+          access_token: TOKEN,
+          memberships: [
+            { role: 'ADMIN', tenantId: 't-staff' },
+            { role: 'PARENT', tenantId: 't-parent' },
+          ],
+        });
+      }
+      return f(url, init);
+    };
+    const r = await run(spy, { ...ENV, ...OPT.parent });
+    expect(r.failed).toBe(0);
+    expect(headers).toEqual([
+      expect.objectContaining({ 'X-Tenant-ID': 't-parent', 'X-Role': 'PARENT' }),
+    ]);
+  });
+
+  it('[2664] #2639 parent login with no PARENT membership is a FAIL, not a staff probe', async () => {
+    const f = fakeFetch();
+    const spy = async (url, init) =>
+      init.method === 'POST' && init.body?.includes?.('par@x.test')
+        ? json(200, { access_token: TOKEN, memberships: [{ role: 'ADMIN', tenantId: 't1' }] })
+        : f(url, init);
+    const r = await run(spy, { ...ENV, ...OPT.parent });
+    expect(r.failed).toBe(1);
+    expect(r.lines.find((l) => l.startsWith('FAIL'))).toContain('(parent)');
+  });
+
   it('never prints parent credentials', async () => {
     const r = await run(fakeFetch(), { ...ENV, ...OPT.parent });
     const out = r.lines.join('\n');

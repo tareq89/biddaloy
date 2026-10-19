@@ -704,7 +704,12 @@ export class AttendanceService {
         "to_char(y.end_date, 'YYYY-MM-DD') AS end_date",
       ])
       .getRawOne<{ start_date: string; end_date: string }>();
-    if (year && (dto.date < year.start_date || dto.date > year.end_date)) {
+    // `academic_year_id` is NOT NULL, so no row means the year is another tenant's.
+    // Same text as the section miss above: one operation, one not-found answer.
+    if (!year) {
+      throw new NotFoundException('Class section not found');
+    }
+    if (dto.date < year.start_date || dto.date > year.end_date) {
       throw new UnprocessableEntityException({
         message: 'The date is outside the academic year',
         details: { code: 'ATTENDANCE_OUTSIDE_ACADEMIC_YEAR' },
