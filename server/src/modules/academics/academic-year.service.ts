@@ -277,7 +277,12 @@ export class AcademicYearService {
         manager
           .getRepository(StudentFee)
           // StudentFee has no tenant_id of its own; it is scoped through its student.
-          .count({ where: { academic_year_id: id, student: { tenant_id: tenantId } } }),
+          // withDeleted: a removed student's (or removed) bill still carries payment and
+          // wallet history that points at this year.
+          .count({
+            where: { academic_year_id: id, student: { tenant_id: tenantId } },
+            withDeleted: true,
+          }),
       ]);
       // Enrollments, exams and bills reference the year directly; their class
       // can belong to another year, so the class count does not cover them.
