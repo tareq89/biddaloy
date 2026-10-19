@@ -69,7 +69,7 @@ describe('buildStudentFormSchema: Bangla name and blood group (Epic 32)', () => 
     const create = buildCreatePayload(empty);
     expect('full_name_bn' in create).toBe(false);
     expect('blood_group' in create).toBe(false);
-    const update = buildUpdatePayload(empty);
+    const update = buildUpdatePayload(empty, { ...valid, full_name_bn: 'রহিম', blood_group: 'O+' });
     expect(update.full_name_bn).toBeNull();
     expect(update.blood_group).toBeNull();
   });
@@ -80,7 +80,7 @@ describe('buildStudentFormSchema: Bangla name and blood group (Epic 32)', () => 
       full_name_bn: 'রহিম উদ্দিন',
       blood_group: 'O+',
     });
-    expect(buildUpdatePayload(set)).toMatchObject({
+    expect(buildUpdatePayload(set, valid)).toMatchObject({
       full_name_bn: 'রহিম উদ্দিন',
       blood_group: 'O+',
     });
@@ -133,11 +133,53 @@ describe('buildCreatePayload vs buildUpdatePayload: clearing an optional field',
     expect('date_of_birth' in payload).toBe(false);
   });
 
+  const populated = {
+    ...clearedValues,
+    gender: 'Male',
+    home_address: 'Old street',
+    date_of_birth: new Date(2024, 0, 15),
+  };
+
   it('update sends an explicit null — an absent key in a PATCH means "leave unchanged", not "clear"', () => {
-    const payload = buildUpdatePayload(clearedValues);
+    const payload = buildUpdatePayload(clearedValues, populated);
 
     expect(payload.gender).toBeNull();
     expect(payload.home_address).toBeNull();
     expect(payload.date_of_birth).toBeNull();
+  });
+});
+
+describe('buildUpdatePayload: only changed keys [2603]', () => {
+  const base = {
+    ...defaultStudentFormValues(),
+    full_name: 'Rahim Uddin',
+    class_section_id: 'section-1',
+    guardian_ids: ['g1', 'g2'],
+  };
+
+  it('returns {} for identical values', () => {
+    expect(buildUpdatePayload(base, base)).toEqual({});
+  });
+
+  it('returns only the changed key and omits unchanged guardian_ids', () => {
+    expect(buildUpdatePayload({ ...base, full_name: 'Karim' }, base)).toEqual({
+      full_name: 'Karim',
+    });
+  });
+
+  it('sends nothing when guardians are only reordered', () => {
+    expect(buildUpdatePayload({ ...base, guardian_ids: ['g2', 'g1'] }, base)).toEqual({});
+  });
+
+  it('sends guardian_ids when one is added', () => {
+    expect(buildUpdatePayload({ ...base, guardian_ids: ['g1', 'g2', 'g3'] }, base)).toEqual({
+      guardian_ids: ['g1', 'g2', 'g3'],
+    });
+  });
+
+  it('sends null for a field cleared on purpose', () => {
+    expect(
+      buildUpdatePayload({ ...base, home_address: '' }, { ...base, home_address: 'Old street' }),
+    ).toEqual({ home_address: null });
   });
 });

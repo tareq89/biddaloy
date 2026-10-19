@@ -4,6 +4,7 @@ import { studentQueryOptions, useStudent, useUpdateStudent } from '@biddaloy/ui/
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
@@ -42,6 +43,12 @@ function EditStudentPage() {
   const config = useTenantRegionConfig();
   const studentQuery = useStudent(studentId);
   const mutation = useUpdateStudent(studentId);
+  // Built once per loaded student so a background refetch does not move the diff baseline.
+  const initialValues = React.useMemo(
+    () => (studentQuery.data ? studentToFormValues(studentQuery.data) : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [studentQuery.data?.id],
+  );
   const toDetail = () => void navigate({ to: '/students/$studentId', params: { studentId } });
 
   return (
@@ -71,19 +78,20 @@ function EditStudentPage() {
             </div>
           )}
         </FullPageShell>
-      ) : (
+      ) : initialValues ? (
         <StudentForm
           title={t('edit.title')}
           onClose={toDetail}
-          initialValues={studentToFormValues(studentQuery.data)}
+          initialValues={initialValues}
           initialGuardians={studentQuery.data.guardians}
           autosaveKey={studentId}
           submitLabel={t('edit.submitAction')}
           mutation={mutation}
-          buildPayload={buildUpdatePayload}
+          buildPayload={(values) => buildUpdatePayload(values, initialValues)}
+          disableSubmitWhenClean
           onSuccess={toDetail}
         />
-      )}
+      ) : null}
     </RegionConfigProvider>
   );
 }

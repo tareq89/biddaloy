@@ -1,4 +1,11 @@
-import { adminApiSession, createClassSection, createStudent, get } from '../api';
+import {
+  adminApiSession,
+  createClassSection,
+  createGuardian,
+  createStudent,
+  get,
+  patch,
+} from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { DetailShellPage } from '../pages/detail-shell';
@@ -80,6 +87,41 @@ test('edit changes a field and the detail shows it; delete removes from the list
     await list.search(renamed);
     await list.expectEmptyState('students.list.emptyMessage');
   });
+});
+
+test("a stale edit form keeps another editor's address and guardian [2603]", async ({
+  page,
+  request,
+}) => {
+  const session = await adminApiSession(request);
+  const stamp = Date.now();
+  const student = await createStudent(request, session, `Stale ${stamp}`);
+  const g1 = await createGuardian(request, session, `Stale G1 ${stamp}`, '01711000001');
+  const g2 = await createGuardian(request, session, `Stale G2 ${stamp}`, '01711000002');
+  await patch(request, session, `/students/${student.id}`, { guardian_ids: [g1.id] });
+
+  const form = new FormShellPage(page);
+  const renamed = `Stale ${stamp} Renamed`;
+  await page.goto(`/students/${student.id}/edit`);
+  await form.fillField('students.form.fields.fullName', renamed);
+
+  // Editor B saves after A loaded the form.
+  await patch(request, session, `/students/${student.id}`, {
+    home_address: `B address ${stamp}`,
+    guardian_ids: [g1.id, g2.id],
+  });
+
+  await form.submit('students.edit.submitAction');
+  await expect(page).toHaveURL(new RegExp(`/students/${student.id}$`));
+
+  const saved = await get<{
+    full_name: string;
+    home_address: string | null;
+    guardians: { id: string }[];
+  }>(request, session, `/students/${student.id}`);
+  expect(saved.full_name).toBe(renamed);
+  expect(saved.home_address).toBe(`B address ${stamp}`);
+  expect(saved.guardians.map((g) => g.id).sort()).toEqual([g1.id, g2.id].sort());
 });
 
 test.describe('a lost reply is not retried [2596]', () => {
