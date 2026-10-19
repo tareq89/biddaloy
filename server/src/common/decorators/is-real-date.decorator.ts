@@ -67,7 +67,9 @@ const BIRTH_DATE_FLOOR = '1900-01-01';
 /**
  * A real calendar date (no roll-over), from 1900-01-01 to today in the school
  * timezone. A full ISO timestamp is accepted on purpose (the public admission
- * form posts one); only its first 10 characters are range-checked.
+ * form posts one), but it must start with a full `YYYY-MM-DD`: `2010`,
+ * `2010-05`, `2010-W05-3` or `20100501` would pass `isISO8601` and then fail
+ * Postgres's date cast (a 500).
  */
 export function IsPlausibleBirthDate(options?: ValidationOptions): PropertyDecorator {
   return ValidateBy(
@@ -75,8 +77,10 @@ export function IsPlausibleBirthDate(options?: ValidationOptions): PropertyDecor
       name: 'isPlausibleBirthDate',
       validator: {
         validate: (v: unknown) => {
-          if (typeof v !== 'string' || !isISO8601(v, { strict: true })) return false;
+          if (typeof v !== 'string') return false;
           const day = v.slice(0, 10);
+          if (!isRealDate(day)) return false;
+          if (v.length > 10 && (v[10] !== 'T' || !isISO8601(v, { strict: true }))) return false;
           return day >= BIRTH_DATE_FLOOR && day <= todayInSchoolTz();
         },
         defaultMessage: (args) =>
