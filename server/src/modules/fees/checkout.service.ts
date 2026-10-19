@@ -91,8 +91,7 @@ export interface CheckoutMeta {
  * wallet credit, one-off discounts (behind step-up approval), and cash
  * tendered/change.
  *
- * Unlike `PaymentAllocationService.recordWithAllocation` (single student,
- * FIFO-only), a checkout line names its own bill and amount directly — the
+ * Unlike the removed single-student, FIFO-only payment path (#2649), a checkout line names its own bill and amount directly — the
  * cart (16.4.1) is what suggests those amounts, this endpoint just applies
  * whatever the caller confirms.
  */
@@ -182,7 +181,7 @@ export class CheckoutService {
 
         // Re-check idempotency now that the bill locks are held — a truly
         // simultaneous duplicate request blocks here until the winner
-        // commits, same reasoning as `recordWithAllocation`.
+        // commits.
         const winner = await manager.getRepository(Payment).findOne({
           where: { tenant_id: tenantId, idempotency_key: dto.idempotency_key },
           relations: ['allocations', 'invoice'],
@@ -346,7 +345,6 @@ export class CheckoutService {
         const now = dto.payment_date ? new Date(dto.payment_date) : new Date();
 
         // [15.5.5] Frozen at the moment of record — same reasoning as
-        // `PaymentAllocationService.recordWithAllocation` and
         // `InvoicesService.create`: share-locked inside this transaction
         // so a profile edit that commits before this payment is what gets
         // snapshotted.

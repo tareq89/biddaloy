@@ -33,7 +33,7 @@ filled in by that wave's close ticket.
 | URL-held state (W4) | List selection lived in the URL, so hundreds of ids made the URL too long and a refresh failed | Selection is in memory, the URL holds only filters (#2602) | students list specs, `e2e/journeys/url-state.spec.ts` | students list route |
 | Empty vs no-match state (W4) | A search with no rows showed the first-time empty state | `ListShell` shows a no-match state with Clear whenever a rendered filter is set; a page's own `kind: 'no-results'` keeps its words (#2591) | `ui/src/shells/list-shell` specs, `client-admin/src/routes/_staff/exams/index.test.tsx` | `ui/src/shells/list-shell.tsx` |
 | Phone layout (W4) | Tab strips and snooze/close buttons overflowed at 390px | Scroll inside the strip; short visible word, full text stays the accessible name (#2593, #2600) | `e2e/responsive/analysis-phone.spec.ts`, `e2e/responsive/notifications-phone.spec.ts` | analysis tabs, alerts |
-| Student form and send (W5) | TBD | TBD | TBD | TBD |
+| Student form and send (W5) | Edit sent the whole form, so a stale form overwrote other edits; a double click sent one SMS twice; a failed SMS said "sending started"; a missing record offered Retry (#2603, #2604, #2598) | Edit sends only changed fields; sending and billing routes carry an Idempotency-Key and replay the stored reply (#2631); every create/send dialog is in the double-submit registry (#2656); `recordWithAllocation` removed so checkout is the only payment path (#2649) | `server/src/common/idempotency/idempotency.interceptor.spec.ts`, `e2e/journeys/double-submit.spec.ts` | student edit form, `idempotency.interceptor.ts`, `double-submit.registry.ts`, `checkout.service.ts` |
 
 ## Learnings log
 
@@ -78,6 +78,14 @@ Learnings log, 2026-10-19 (same format as Wave 1). Details sit in 06 and 21.
 - **Wave-close full run not done by this ticket.** `ci-local --integration --e2e`, `e2e:pwa`, axe, responsive, the 10x flake gate and `flake-report` were not run (no Docker, shared ports). Only the affected vitest specs and `tsc -p ui` were. -> run on a free machine; same gap as Wave 3.
 
 ### Wave 5
+
+Learnings log, 2026-10-19 (same format as Wave 1). Details sit in 21 and 09.
+
+- **A removed class left its name in comments.** #2649 deleted `recordWithAllocation`, but `checkout.service.ts` and `payment.entity.ts` still named it. Cost: misleading comments found at wave close. Fix: reworded in #2654. Rule candidate: removing a class greps its name in comments, not only code -> checklist item, no rule.
+- **`schema.d.ts` was stale after an API field change.** #2604 added `error: string | null` to `CommunicationResponseDto` without regenerating. Cost: `check-api-types` would fail in CI. Fix: regenerated in #2654 (one line). Rule candidate: a DTO change in a ticket regenerates in the wave-close ticket, as W2 did -> no rule.
+- **A fresh worktree cannot build the OpenAPI document.** `docs:generate` failed with a bare TS2307 until `@biddaloy/shared` was built, then needed `yarn test-env run`. Filed as #2695. -> no rule.
+- **Some write routes stay outside the Idempotency-Key interceptor.** `fees/generate`, `fees/schedules/run-now`, `fees/fines/generate` need a verified DB unique constraint (#2691). Also open: e2e for invoice send (#2692), double-submit leftovers (#2693), pre-send "no SMS gateway" warning (#2694). -> follow-ups, no rule yet.
+- **Wave-close full run not done by this ticket.** `ci-local --integration --e2e`, `e2e:pwa`, axe, responsive and the 10x flake gate were not run (no Docker, shared ports). Same gap as Waves 3 and 4. Rules 24-27 and their pointers in `08-security.md` and `CLAUDE.md` are also still to write. -> run on a free machine.
 
 ## Appendix: Baseline on 901764f4a
 
