@@ -111,7 +111,10 @@ export class InvoicesService {
       const fee = allocation.student_fee;
       const student = studentById.get(fee.student_id);
       if (!student) {
-        throw new NotFoundException(`Student with ID "${fee.student_id}" not found`);
+        throw new NotFoundException({
+          message: 'Student not found',
+          details: { code: 'STUDENT_NOT_FOUND' },
+        });
       }
       let entry = byStudent.get(student.id);
       if (!entry) {

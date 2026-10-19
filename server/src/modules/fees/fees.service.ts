@@ -381,10 +381,16 @@ export class PaymentService {
       relations: ['class_section', 'class_section.class'],
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${dto.student_id}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
     if (student.class_section?.class?.tenant_id !== tenantId) {
-      throw new NotFoundException(`Student with ID "${dto.student_id}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
 
     const entity = this.repo.create({
@@ -437,10 +443,16 @@ export class PaymentService {
       relations: ['class_section', 'class_section.class'],
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
     if (student.class_section?.class?.tenant_id !== tenantId) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
 
     return this.repo.find({
@@ -488,10 +500,16 @@ export class PaymentService {
       relations: ['class_section', 'class_section.class'],
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
     if (student.class_section?.class?.tenant_id !== tenantId) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
 
     // Get fee summaries from StudentFee table
