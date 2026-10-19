@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Readable } from 'node:stream';
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { DataSource } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -152,6 +152,10 @@ describe('RestoreProcessor (integration)', () => {
   const TENANT_A = randomUUID();
   const TENANT_B = randomUUID();
   const USER_ID = randomUUID();
+
+  // A failed assertion must not leave a `validate` spy behind for the next test's
+  // own spy to read (vi.spyOn stacks; `restoreWithErrors` reads results[0]).
+  afterEach(() => vi.restoreAllMocks());
 
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, []);
