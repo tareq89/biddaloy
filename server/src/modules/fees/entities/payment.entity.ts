@@ -140,7 +140,7 @@ export class Payment {
 
   /** [16.1.6] Set on the reversal payment, pointing back at the payment it
    * reverses. Self-referencing FK; populated by the reversal flow (later
-   * ticket), not by `recordWithAllocation`. */
+   * ticket), not by checkout. */
   @ManyToOne(() => Payment, { nullable: true })
   @JoinColumn({ name: 'reversal_of_payment_id' })
   reversal_of_payment: Payment | null;
