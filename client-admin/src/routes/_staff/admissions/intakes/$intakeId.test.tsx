@@ -25,6 +25,10 @@ describe('/admissions/intakes/$intakeId', () => {
       http.get('/api/v1/admission-intakes/:id', () =>
         HttpResponse.json(apiErrorBody(404, 'x', '/api/v1/x'), { status: 404 }),
       ),
+      // "Go back" lands on the intakes list, whose loader fetches this. Unhandled, MSW
+      // turns it into a network error the router warns about with the whole Axios
+      // error object, and inspecting it after the test tears jsdom down crashes vitest.
+      http.get('/api/v1/admission-intakes', () => HttpResponse.json([])),
     );
     const { router } = render();
 
