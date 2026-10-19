@@ -20,4 +20,22 @@ describe('autoApply (F-143)', () => {
       });
     }
   }
+
+  // One paisa short is never PAID: `toApply + 0.01 > due` used to round up past `due`.
+  it.each([
+    [0.05, 0.06],
+    [0.14, 0.15],
+    [0.17, 0.18],
+  ])('balance %d against due %d is PARTIALLY_PAID', (balance, due) => {
+    expect(autoApply(balance, due, 0)).toEqual({
+      toApply: balance,
+      status: FeeStatus.PARTIALLY_PAID,
+    });
+  });
+
+  it('every one-paisa-short amount up to 100.00 is PARTIALLY_PAID', () => {
+    for (let paisa = 2; paisa <= 10_000; paisa++) {
+      expect(autoApply((paisa - 1) / 100, paisa / 100, 0).status).toBe(FeeStatus.PARTIALLY_PAID);
+    }
+  });
 });
