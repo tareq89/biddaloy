@@ -1355,4 +1355,13 @@ describe('FeeGenerationService (integration)', () => {
       }
     });
   });
+
+  // #2691: fees/generate, fees/schedules/run-now and fees/fines/generate carry no
+  // Idempotency-Key; a repeated call is a no-op because of these DB constraints.
+  it('has the unique index that makes repeated generate runs no-ops (#2691)', async () => {
+    const rows: { indexdef: string }[] = await dataSource.query(
+      `SELECT indexdef FROM pg_indexes WHERE tablename = 'student_fees' AND indexdef LIKE 'CREATE UNIQUE INDEX%' AND indexdef LIKE '%(student_id, fee_structure_id, period_start, occurrence)%' AND indexdef LIKE '%deleted_at IS NULL%'`,
+    );
+    expect(rows).toHaveLength(1);
+  });
 });

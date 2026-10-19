@@ -154,3 +154,24 @@ Frontend flake pass (`yarn vitest run --reporter=json`, 3 passes, then
 ```text
 All green across 3 passes. No flakes, no failures.
 ```
+
+## Routes without an Idempotency-Key (#2691)
+
+Three routes skip `IdempotencyInterceptor` (#2631). A repeated call is still a no-op, because the
+database refuses the duplicate row. `fee-generation.service.integration.spec.ts` checks the generate index exists. The late-fee index is made by a migration only (TypeORM `@Index` has no `WHERE`), and `late-fee.service.integration.spec.ts` covers its `ON CONFLICT`.
+
+```mermaid
+flowchart LR
+  A[POST fees/generate] --> G[FeeGenerationService.generate]
+  B[POST fees/fines/generate] --> G
+  C[POST fees/schedules/run-now] --> D[fees-daily sweep]
+  G -->|ON CONFLICT DO NOTHING| U1[(IDX_student_fees_active_student_structure_period_occurrence)]
+  D -->|recurring schedules| G
+  D -->|late fees, ON CONFLICT| U2[(IDX_student_fees_late_fee_for_student_fee_id)]
+```
+
+| Route                    | Repeat is a no-op because of                                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `fees/generate`          | Unique `(student_id, fee_structure_id, period_start, occurrence)` where `deleted_at IS NULL`. `CREATE_ANYWAY` needs an approval token. |
+| `fees/fines/generate`    | Same index: fines go through `FeeGenerationService.generate`.                                                                          |
+| `fees/schedules/run-now` | Same index for the bills, plus unique `late_fee_for_student_fee_id` for late fees, plus `last_run_period` on schedules.                |
