@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsBoolean, IsDateString, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, MaxLength } from 'class-validator';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
 
 export class UpdateAcademicYearDto {
   @IsOptional()
@@ -9,11 +10,11 @@ export class UpdateAcademicYearDto {
   name?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   start_date?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   end_date?: string;
 
   @IsOptional()

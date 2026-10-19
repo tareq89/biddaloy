@@ -12,13 +12,8 @@ import { join, relative } from 'path';
  * one. The numbers only go down: when a file is fixed, lower or delete its entry.
  */
 const LEGACY_BARE_DATE_STRINGS = new Map<string, { count: number; reason: string }>([
-  ['modules/academics/dto/create-academic-year.dto.ts', { count: 2, reason: 'legacy, not swept' }],
-  ['modules/academics/dto/update-academic-year.dto.ts', { count: 2, reason: 'legacy, not swept' }],
-  ['modules/admission/dto/create-intake.dto.ts', { count: 2, reason: 'legacy, not swept' }],
   ['modules/attendance/dto/device.dto.ts', { count: 1, reason: 'legacy, not swept' }],
   ['modules/audit/dto/audit-log.dto.ts', { count: 2, reason: 'query filter' }],
-  ['modules/calendar/dto/academic-terms.dto.ts', { count: 4, reason: 'legacy, not swept' }],
-  ['modules/calendar/dto/calendar-events.dto.ts', { count: 4, reason: 'legacy, not swept' }],
   ['modules/calendar/dto/public-holidays.dto.ts', { count: 2, reason: 'legacy, not swept' }],
   [
     'modules/communications/dto/reminders.dto.ts',
