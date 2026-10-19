@@ -6,6 +6,7 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
+import { randomUUID } from 'node:crypto';
 import { UserRole } from '@biddaloy/shared';
 import { todayInSchoolTz } from '../../common/time';
 import {
@@ -349,7 +350,9 @@ describe('Invoices E2E', () => {
           .set('X-Role', UserRole.ADMIN);
       await get(`/api/v1/invoices/${createRes.body.id}`).expect(200);
       await get(`/api/v1/invoices/${createRes.body.id}/print`).expect(200);
-      const list = await get('/api/v1/invoices').query({ search: createRes.body.invoice_number }).expect(200);
+      const list = await get('/api/v1/invoices')
+        .query({ search: createRes.body.invoice_number })
+        .expect(200);
       expect(list.body.data.map((i: { id: string }) => i.id)).toContain(createRes.body.id);
     });
 
@@ -516,6 +519,52 @@ describe('Invoices E2E', () => {
       expect(list.body.data.map((i: { invoice_number: string }) => i.invoice_number)).not.toContain(
         foreignNumber,
       );
+    });
+  });
+
+  describe('POST /invoices/:id/send with Idempotency-Key [#2692]', () => {
+    it('the same key twice gives the same reply and sends ONE message', async () => {
+      const studentId = await createStudent();
+      const guardianRes = await dataSource.query(
+        `INSERT INTO guardians (id, full_name, relationship, phone, preferred_communication, is_primary_contact, tenant_id, created_at, updated_at)
+         VALUES (DEFAULT, 'Idem Invoice Parent', 'FATHER', '01712345678', 'SMS', true, $1, NOW(), NOW())
+         RETURNING id`,
+        [TENANT_ID],
+      );
+      const guardianId = guardianRes[0].id;
+      await dataSource.query(
+        `INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)`,
+        [studentId, guardianId],
+      );
+      const feeId = await createFee(studentId, 900);
+      const paymentId = await createPayment(studentId, feeId, 900);
+      const created = await supertest(app.getHttpServer())
+        .post('/api/v1/invoices')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ACCOUNTANT)
+        .send({ payment_id: paymentId })
+        .expect(201);
+
+      const key = `inv-send-${randomUUID()}`;
+      const send = () =>
+        supertest(app.getHttpServer())
+          .post(`/api/v1/invoices/${created.body.id}/send`)
+          .set('Authorization', `Bearer ${token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', UserRole.ACCOUNTANT)
+          .set('Idempotency-Key', key)
+          .send({ medium: 'SMS', guardian_id: guardianId });
+
+      const first = await send().expect(201);
+      const second = await send().expect(201);
+
+      expect(second.body).toEqual(first.body);
+      const rows = await dataSource.query(
+        `SELECT count(*)::int AS n FROM communication_logs WHERE tenant_id = $1 AND guardian_id = $2`,
+        [TENANT_ID, guardianId],
+      );
+      expect(rows[0].n).toBe(1);
     });
   });
 });
