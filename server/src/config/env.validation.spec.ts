@@ -20,6 +20,26 @@ const prodConfig = {
   S3_SECRET_ACCESS_KEY: 'sk9Jd3Kc7Vb1Nx5Mz8Qw2Er4Ty6Ui0Op',
 };
 
+describe('BILLING_FREE_UNTIL (49.4)', () => {
+  it('accepts a valid ISO date with an offset, in production too', () => {
+    expect(() =>
+      validate({ ...prodConfig, BILLING_FREE_UNTIL: '2027-01-01T00:00:00+06:00' }),
+    ).not.toThrow();
+  });
+
+  it('rejects an invalid value in every env', () => {
+    expect(() => validate({ ...prodConfig, NODE_ENV: 'test', BILLING_FREE_UNTIL: 'soon' })).toThrow(
+      /BILLING_FREE_UNTIL/,
+    );
+  });
+
+  it('production refuses a date with no offset', () => {
+    expect(() => validate({ ...prodConfig, BILLING_FREE_UNTIL: '2027-01-01' })).toThrow(
+      /explicit offset/,
+    );
+  });
+});
+
 describe('assertProductionConfig (via validate)', () => {
   it('accepts a fully valid production env', () => {
     expect(() => validate(prodConfig)).not.toThrow();
