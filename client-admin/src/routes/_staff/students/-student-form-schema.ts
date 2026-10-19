@@ -208,7 +208,9 @@ function buildFullUpdatePayload(values: StudentFormValues): UpdateStudentInput {
 }
 
 /** [2603] Only the keys that differ from `initialValues` are sent, so a stale form cannot
- * overwrite another editor's address or unlink a newly added guardian. A cleared field still
+ * overwrite another editor's address, or unlink a guardian it never touched. Once the guardian
+ * list itself is edited the whole set goes out (the server has no add/remove delta yet, #2699),
+ * so a concurrent guardian add can still be dropped. A cleared field still
  * differs from its initial string, so it goes out as an explicit `null`. `guardian_ids` is
  * compared as a set: reordering alone sends nothing. */
 export function buildUpdatePayload(
