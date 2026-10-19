@@ -213,9 +213,7 @@ function SendMessageBody() {
           </h2>
           {failed ? (
             <div className="mt-1 flex flex-col gap-2 text-status-overdue-fg">
-              <p>
-                {t(failureKey ?? 'deliveryErrors.generic', { medium: t(`mediums.${medium}`) })}
-              </p>
+              <p>{t(failureKey ?? 'deliveryErrors.generic', { medium: t(`mediums.${medium}`) })}</p>
               {failureKey === 'deliveryErrors.notConfigured' ? (
                 <Link
                   to="/settings"

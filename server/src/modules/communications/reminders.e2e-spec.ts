@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -18,6 +18,7 @@ import {
 } from '@test/constants';
 import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
 import { UserRole } from '@biddaloy/shared';
+import { TENANT_STATUS_REDIS } from '../schools/tenant-status.service';
 
 /**
  * E2E tests for the bulk-reminder read/preview endpoints added for the
@@ -699,6 +700,111 @@ describe('Bulk Reminder Read/Preview E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .send({ medium: 'SMS', guardian_id: guardianId, message_body: 'Hello' })
         .expect(201);
+    });
+  });
+
+  describe('Idempotency-Key on sends [#2631]', () => {
+    const idemPost = (path: string, key: string, body: object) =>
+      supertest(app.getHttpServer())
+        .post(`/api/v1/communications/${path}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('Idempotency-Key', key)
+        .send(body);
+
+    const count = async (sql: string, params: unknown[]) =>
+      (await dataSource.query(sql, params))[0].n as number;
+
+    it('send: the same key twice gives the same 201 body and ONE communication_logs row', async () => {
+      const guardianId = await createGuardian(await createStudent(), { name: 'Idem Parent' });
+      const key = `send-${randomUUID()}`;
+      const body = { medium: 'SMS', guardian_id: guardianId, message_body: 'Hello' };
+
+      const first = await idemPost('send', key, body).expect(201);
+      const second = await idemPost('send', key, body).expect(201);
+
+      expect(second.body).toEqual(first.body);
+      expect(
+        await count(
+          `SELECT count(*)::int AS n FROM communication_logs WHERE tenant_id = $1 AND guardian_id = $2`,
+          [TENANT_ID, guardianId],
+        ),
+      ).toBe(1);
+    });
+
+    it('send: a different key sends again', async () => {
+      const guardianId = await createGuardian(await createStudent());
+      const body = { medium: 'SMS', guardian_id: guardianId, message_body: 'Hello' };
+      await idemPost('send', `a-${randomUUID()}`, body).expect(201);
+      await idemPost('send', `b-${randomUUID()}`, body).expect(201);
+      expect(
+        await count(`SELECT count(*)::int AS n FROM communication_logs WHERE guardian_id = $1`, [
+          guardianId,
+        ]),
+      ).toBe(2);
+    });
+
+    it('send: a malformed key is a 400 that does not echo it', async () => {
+      const res = await idemPost('send', 'bad key!', {}).expect(400);
+      expect(JSON.stringify(res.body)).not.toContain('bad key!');
+    });
+
+    it('reminder/bulk: the same key twice gives ONE reminder_batches row', async () => {
+      const studentId = await createStudent();
+      await createGuardian(studentId);
+      await createFee(studentId);
+      const key = `bulk-${randomUUID()}`;
+      const body = {
+        student_ids: [studentId],
+        message_template: 'Dear {{guardian_name}}, {{student_name}} owes {{due_amount}}.',
+      };
+
+      const first = await idemPost('reminder/bulk', key, body).expect(201);
+      const second = await idemPost('reminder/bulk', key, body).expect(201);
+
+      expect(second.body).toEqual(first.body);
+      expect(await count(`SELECT count(*)::int AS n FROM reminder_batches`, [])).toBe(1);
+    });
+
+    it('reminder/single: the same key twice sends once', async () => {
+      const studentId = await createStudent();
+      await createGuardian(studentId);
+      await createFee(studentId);
+      const key = `single-${randomUUID()}`;
+      const body = { message_template: 'Dear {{guardian_name}}, reminder' };
+
+      const first = await idemPost(`reminder/single/${studentId}`, key, body).expect(201);
+      const second = await idemPost(`reminder/single/${studentId}`, key, body).expect(201);
+
+      expect(second.body).toEqual(first.body);
+      expect(
+        await count(
+          `SELECT count(*)::int AS n FROM communication_logs WHERE tenant_id = $1 AND student_id = $2`,
+          [TENANT_ID, studentId],
+        ),
+      ).toBe(1);
+    });
+
+    it('Redis rejecting the idempotency calls still sends (fail open)', async () => {
+      const redis = app.get<{ set: (...a: unknown[]) => Promise<unknown> }>(TENANT_STATUS_REDIS);
+      const realSet = redis.set.bind(redis);
+      const spy = vi
+        .spyOn(redis, 'set')
+        .mockImplementation((...args: unknown[]) =>
+          String(args[0]).startsWith('idem:')
+            ? Promise.reject(new Error('redis down'))
+            : realSet(...args),
+        );
+      try {
+        const guardianId = await createGuardian(await createStudent());
+        await idemPost('send', `down-${randomUUID()}`, {
+          medium: 'SMS',
+          guardian_id: guardianId,
+          message_body: 'Hello',
+        }).expect(201);
+      } finally {
+        spy.mockRestore();
+      }
     });
   });
 });

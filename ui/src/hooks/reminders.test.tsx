@@ -214,3 +214,93 @@ describe('useReminderBatches requests every QueryReminderBatchesDto field', () =
     expect(requested.get('order')).toBe('asc');
   });
 });
+
+describe('useSendBulkReminder sends an Idempotency-Key [#2631]', () => {
+  it('reuses the key for an identical body, and rotates it after success', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/communications/reminder/bulk', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json({ id: 'b-1', status: 'PROCESSING' }, { status: 201 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useSendBulkReminder(), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current.mutateAsync({ student_ids: ['s-1'], message_template: 'Hi' });
+    await result.current.mutateAsync({ student_ids: ['s-1'], message_template: 'Hi' });
+
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    // Success rotates the key: the next identical-looking submit is a new attempt.
+    expect(keys[1]).not.toBe(keys[0]);
+  });
+
+  it('keeps the same key when an attempt fails and is re-sent unchanged', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/communications/reminder/bulk', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json({ message: 'boom' }, { status: 500 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useSendBulkReminder(), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current
+      .mutateAsync({ student_ids: ['s-1'], message_template: 'Hi' })
+      .catch(() => undefined);
+    await result.current
+      .mutateAsync({ student_ids: ['s-1'], message_template: 'Hi' })
+      .catch(() => undefined);
+
+    expect(keys).toHaveLength(2);
+    expect(keys[1]).toBe(keys[0]);
+  });
+});
+
+describe('useSendSingleReminder sends an Idempotency-Key [#2631]', () => {
+  it('reuses the key for an identical body, and rotates it after success', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/communications/reminder/single/s-1', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json({ sent: [], skipped: [], failed: [] }, { status: 201 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useSendSingleReminder(), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current.mutateAsync({ studentId: 's-1', input: { message_template: 'Hi' } });
+    await result.current.mutateAsync({ studentId: 's-1', input: { message_template: 'Hi' } });
+
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    // Success rotates the key: the next identical-looking submit is a new attempt.
+    expect(keys[1]).not.toBe(keys[0]);
+  });
+
+  it('keeps the same key when an attempt fails and is re-sent unchanged', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/communications/reminder/single/s-1', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json({ message: 'boom' }, { status: 500 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useSendSingleReminder(), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current
+      .mutateAsync({ studentId: 's-1', input: { message_template: 'Hi' } })
+      .catch(() => undefined);
+    await result.current
+      .mutateAsync({ studentId: 's-1', input: { message_template: 'Hi' } })
+      .catch(() => undefined);
+
+    expect(keys).toHaveLength(2);
+    expect(keys[1]).toBe(keys[0]);
+  });
+});

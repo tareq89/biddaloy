@@ -51,6 +51,7 @@ export function buildCorsOptions(corsOriginsEnv: string | undefined, nodeEnv: st
       'X-Role',
       'sentry-trace',
       'baggage',
+      'Idempotency-Key',
     ],
   };
 }

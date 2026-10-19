@@ -298,7 +298,10 @@ describe('CommunicationsService', () => {
     });
 
     it.each([
-      [{ error: 'SMS (Greenweb) is not configured for this tenant' }, 'SMS (Greenweb) is not configured for this tenant'],
+      [
+        { error: 'SMS (Greenweb) is not configured for this tenant' },
+        'SMS (Greenweb) is not configured for this tenant',
+      ],
       [null, null],
       [{}, null],
       [{ error: 42 }, null],

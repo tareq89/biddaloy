@@ -4,6 +4,7 @@ import { keepPreviousData, queryOptions, useMutation, useQuery } from '@tanstack
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
+import { useIdempotencyKey } from './idempotency-key';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -20,14 +21,17 @@ export type ReminderBatchResponse = components['schemas']['ReminderBatchResponse
  * caller owns the presentation" split every other mutation hook here uses.
  */
 export function useSendBulkReminder() {
+  const { keyFor, rotate } = useIdempotencyKey();
   return useMutation({
     mutationFn: async (input: SendBulkReminderInput) => {
       const res = await apiClient.post<ReminderBatchResponse>(
         '/communications/reminder/bulk',
         input,
+        { headers: { 'Idempotency-Key': keyFor(input) } },
       );
       return res.data;
     },
+    onSuccess: rotate,
     // Not `shouldRetryQuery` like every other mutation here: this endpoint
     // isn't idempotent — a retry after a dropped response (not just a
     // dropped request) creates a second ReminderBatch, a second set of
@@ -75,14 +79,17 @@ export function useSingleReminderPreview() {
  * queue a second, identical reminder to the same guardians.
  */
 export function useSendSingleReminder() {
+  const { keyFor, rotate } = useIdempotencyKey();
   return useMutation({
     mutationFn: async ({ studentId, input }: SingleReminderVariables) => {
       const res = await apiClient.post<SingleReminderResult>(
         `/communications/reminder/single/${studentId}`,
         input,
+        { headers: { 'Idempotency-Key': keyFor({ studentId, input }) } },
       );
       return res.data;
     },
+    onSuccess: rotate,
     retry: false,
   });
 }

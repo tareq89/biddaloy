@@ -176,6 +176,16 @@ The layers diagram above shows where most of these rules sit on a request's way 
 - **Example.** `POST /auth/login` with Redis down → `503`; `POST /auth/refresh` → served.
 - **Test.** `app-throttler.guard.spec.ts`, `app-throttler.guard.e2e-spec.ts`, `route-guard-coverage.e2e-spec.ts`, `platform-alerts.service.spec.ts`.
 
+**The one route family that fails open on purpose: `Idempotency-Key`.** A double-click or a retry of a send or create must not send twice. `IdempotencyInterceptor` keeps the first answer in Redis for 24 hours and replays it. If Redis is down the request runs unprotected and an error is logged, because a closed route would stop a school from messaging anyone at all. Routes: `communications/send`, `reminder/bulk`, `reminder/single/:studentId`, `invoices/:id/send`, `promotions` (create), `students` (create). Test: `idempotency.interceptor.spec.ts`, `reminders.e2e-spec.ts`.
+
+```mermaid
+flowchart LR
+  A[Request with Idempotency-Key] --> B{Redis answers?}
+  B -- key is new --> C[Run once, store the answer]
+  B -- key seen --> D[Replay the stored answer]
+  B -- Redis down --> E[Run anyway, log an error]
+```
+
 ### Rule 16: Public share links expire
 
 - **Rule.** A public invoice share link works for 30 days. Staff can regenerate it, which kills every older link of that invoice. An expired, revoked or unknown token is the same 404.
