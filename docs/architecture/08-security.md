@@ -275,8 +275,8 @@ flowchart LR
 - **Rule.** Money is compared after `toPaisa()` (`server/src/common/constants/money.ts`), never with a tolerance such as 0.01. `student_fees` also carries CHECKs, so a bug cannot store a bad row: `CHK_sf_paid_plus_discount` (paid + discount <= total) and `CHK_sf_waived_settled` (WAIVED means paid + discount = total). The demo seed must pass both.
 - **Why.** Checkout took 0.01 over the balance and a bill 0.01 short closed as PAID (#2636, #2644). The load seed had WAIVED bills with no discount (#2617).
 - **Example.** Balance 1400.00, pay 1400.01 returns 400. Balance 1400.00, pay 1399.99 leaves `PARTIALLY_PAID`.
-- **Known gap.** Checkout `applyAllocationToBill` and reversal still use a 0.01 tolerance (#2685). There is no paisa property test yet; the CHECKs are the net.
-- **Test.** `server/test/student-fee-money-checks-migration.integration.spec.ts`, `server/src/scripts/demo-seed/validator.spec.ts`, `fee-generation-batch.service.integration.spec.ts`.
+- **Deploy step.** The CHECKs are `NOT VALID`; audit and `VALIDATE CONSTRAINT` once per environment ([12-operations §3.8](12-operations.md)).
+- **Test.** The paisa table test in `server/src/modules/fees/payment-allocation.service.spec.ts` (PAID flips at exactly the paisa the bill is covered, 5000 random amounts), `server/test/student-fee-money-checks-migration.integration.spec.ts`, `server/src/scripts/demo-seed/validator.spec.ts`, `fee-generation-batch.service.integration.spec.ts`.
 
 ### Rule 27: A parent row cannot be deleted while a child row references it
 
