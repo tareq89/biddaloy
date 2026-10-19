@@ -606,10 +606,11 @@ export function AppShell({
     if (!navigatedFromDrawer.current) return;
     navigatedFromDrawer.current = false;
     event.preventDefault();
-    const heading = document.getElementById(APP_SHELL_MAIN_ID)?.querySelector('h1');
-    if (heading instanceof HTMLElement) {
-      heading.setAttribute('tabindex', '-1');
-      heading.focus();
+    const main = document.getElementById(APP_SHELL_MAIN_ID);
+    const target = main?.querySelector('h1') ?? main;
+    if (target instanceof HTMLElement) {
+      target.setAttribute('tabindex', '-1');
+      target.focus();
     }
   };
 

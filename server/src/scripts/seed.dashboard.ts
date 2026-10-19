@@ -837,11 +837,12 @@ async function seedPendingApplications(
   // applicant and the leave subjects are non-admin staff. Random uuid order used to pick
   // the admin as applicant about 1 run in 5, emptying the demo for the role it is for.
   const everyone = await q<{ id: string; user_id: string; is_admin: boolean }>(
-    `SELECT sp.id, sp.user_id, COALESCE(ut.role = 'ADMIN', FALSE) AS is_admin
+    `SELECT sp.id, sp.user_id, COALESCE(bool_or(ut.role = 'ADMIN'), FALSE) AS is_admin
        FROM staff_profiles sp
        LEFT JOIN user_tenants ut ON ut.user_id = sp.user_id AND ut.tenant_id = sp.tenant_id
         AND ut.deleted_at IS NULL
       WHERE sp.tenant_id = $1
+      GROUP BY sp.id, sp.user_id, sp.created_at
       ORDER BY sp.created_at, sp.id`,
     [tenantId],
   );
