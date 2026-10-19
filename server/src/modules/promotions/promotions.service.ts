@@ -340,7 +340,10 @@ export class PromotionsService {
     ]);
     if (!target || !source) throw new NotFoundException('Academic year not found');
     if (new Date(target.start_date).getTime() <= new Date(source.start_date).getTime()) {
-      throw new UnprocessableEntityException({ details: { code: 'TARGET_YEAR_NOT_LATER' } });
+      throw new UnprocessableEntityException({
+        message: "The target year must start after the source class's year",
+        details: { code: 'TARGET_YEAR_NOT_LATER' },
+      });
     }
   }
 
