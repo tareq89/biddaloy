@@ -192,6 +192,20 @@ describe('print routes [32.4.1]', () => {
     expect(screen.queryByTestId('picker-type')).toBeNull();
   });
 
+  it('under 768 px with ids in history state, offers no Copy link (the URL would lose them) [2703]', async () => {
+    setWidth(false);
+    const { router } = render('/reports/printables');
+    await screen.findByTestId('history-search');
+    await router.navigate({
+      to: '/print/preview',
+      search: { kind: 'STUDENT_ID_CARD', subject_type: 'STUDENT' },
+      state: { printIds: Array.from({ length: 41 }, (_, i) => `s${i}`) },
+    });
+    expect(await screen.findByText(/too long for a link/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
+  });
+
   it('a class_section_id is resolved to every student id in that section', async () => {
     server.use(
       http.get('/api/v1/students/ids', ({ request }) => {

@@ -91,23 +91,26 @@ export function ListShell<TData extends RowData>({
   // A filter on a real control with zero rows is "nothing matched", not "no
   // records yet". Only keys a field renders count: URL flags such as `view`
   // share the `values` bag but are not filters. A page's own
-  // `kind: 'no-results'` keeps its words.
+  // `kind: 'no-results'` keeps its words, and gets the Clear action unless it brings its own.
   const allKeys = (filters?.fields ?? []).flatMap(keysOf);
   const filtered = allKeys.some((k) => (filters?.values[k] ?? '') !== '');
-  const emptyState =
-    filtered && dataTableProps.emptyState?.kind !== 'no-results'
-      ? {
+  const clearAction = {
+    label: t('noMatches.clear', { defaultValue: 'Clear search and filters' }),
+    onClick: () => filters?.onChange(Object.fromEntries(allKeys.map((k) => [k, null]))),
+  };
+  const own = dataTableProps.emptyState;
+  const emptyState = !filtered
+    ? own
+    : own?.kind === 'no-results'
+      ? { ...own, action: own.action ?? clearAction }
+      : {
           kind: 'no-results' as const,
           title: t('noMatches.title', { defaultValue: 'No matches' }),
           explanation: t('noMatches.explanation', {
             defaultValue: 'Nothing fits the current search or filters.',
           }),
-          action: {
-            label: t('noMatches.clear', { defaultValue: 'Clear search and filters' }),
-            onClick: () => filters?.onChange(Object.fromEntries(allKeys.map((k) => [k, null]))),
-          },
-        }
-      : dataTableProps.emptyState;
+          action: clearAction,
+        };
 
   // The phone filter sheet's "Show N results"; a page's own `resultCount` wins,
   // and while loading it stays unknown so the sheet never shows a stale number.

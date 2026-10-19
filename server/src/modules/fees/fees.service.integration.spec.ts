@@ -1154,7 +1154,7 @@ describe('PaymentService (integration)', () => {
           },
           TENANT_ID,
         ),
-      ).rejects.toMatchObject({ message: 'Student not found' });
+      ).rejects.toMatchObject({ message: 'Student not found', status: 404 });
     });
 
     it('should throw NotFoundException when student belongs to a different tenant', async () => {
@@ -1216,7 +1216,7 @@ describe('PaymentService (integration)', () => {
     it('should throw NotFoundException when student does not exist', async () => {
       await expect(
         service.findByStudent('00000000-0000-4000-8000-000000000000', TENANT_ID),
-      ).rejects.toMatchObject({ message: 'Student not found' });
+      ).rejects.toMatchObject({ message: 'Student not found', status: 404 });
     });
 
     it('should throw NotFoundException when student belongs to a different tenant', async () => {
