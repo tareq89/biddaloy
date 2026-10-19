@@ -10,9 +10,14 @@ import {
   Textarea,
   toast,
 } from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
 import { useSendBulkReminder } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { parseValidationFieldErrors } from '@biddaloy/ui/utils';
+import { Link } from '@tanstack/react-router';
 import * as React from 'react';
+
+import { MAX_BULK_REMINDER_STUDENTS } from '../communications/-shared/reminder-limits';
 
 export interface SendReminderDialogProps {
   open: boolean;
@@ -40,6 +45,16 @@ export function SendReminderDialog({
   const { t } = useTranslation('students');
   const [message, setMessage] = React.useState('');
   const sendReminder = useSendBulkReminder();
+  // The server caps one batch (several billed batches with partial failures is worse than a block).
+  const over = studentIds.length > MAX_BULK_REMINDER_STUDENTS;
+  const limitText = t('sendReminderDialog.limitNotice', {
+    count: studentIds.length,
+    max: MAX_BULK_REMINDER_STUDENTS,
+  });
+  const serverSaidTooMany =
+    sendReminder.error instanceof ApiError &&
+    sendReminder.error.statusCode === 400 &&
+    'student_ids' in parseValidationFieldErrors(sendReminder.error.messages, ['student_ids']);
 
   // A closed-then-reopened dialog (a different selection, say) starts
   // from a blank message rather than the previous attempt's text or
@@ -55,6 +70,7 @@ export function SendReminderDialog({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (over) return;
     sendReminder.mutate(
       { student_ids: [...studentIds], message_template: message },
       {
@@ -77,6 +93,14 @@ export function SendReminderDialog({
               {t('sendReminderDialog.description', { count: studentIds.length })}
             </DialogDescription>
           </DialogHeader>
+          {over && (
+            <p role="status" className="mb-2 text-sm text-destructive">
+              {limitText}{' '}
+              <Link to="/communications/reminders" className="underline">
+                {t('sendReminderDialog.limitLink')}
+              </Link>
+            </p>
+          )}
           <Textarea
             aria-label={t('sendReminderDialog.messageLabel')}
             placeholder={t('sendReminderDialog.messagePlaceholder')}
@@ -87,7 +111,7 @@ export function SendReminderDialog({
           />
           {sendReminder.isError && (
             <p role="alert" className="mt-2 text-sm text-destructive">
-              {t('sendReminderDialog.errorMessage')}
+              {serverSaidTooMany ? limitText : t('sendReminderDialog.errorMessage')}
             </p>
           )}
           <DialogFooter>
@@ -96,7 +120,7 @@ export function SendReminderDialog({
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
             </DialogClose>
-            <Button type="submit" loading={sendReminder.isPending}>
+            <Button type="submit" disabled={over} loading={sendReminder.isPending}>
               {sendReminder.isPending
                 ? t('sendReminderDialog.sending')
                 : t('sendReminderDialog.send')}
