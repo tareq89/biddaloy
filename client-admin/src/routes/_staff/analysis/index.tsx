@@ -47,6 +47,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { DownloadIcon, FileClockIcon, FilePenLineIcon, PrinterIcon } from 'lucide-react';
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
@@ -110,6 +111,7 @@ function AnalysisPage() {
 
   // One toolbar for the page; it acts on the selected tab.
   const [csvBusy, setCsvBusy] = React.useState(false);
+  const [printing, setPrinting] = React.useState(false);
   async function handleDownloadCsv() {
     if (!selectedExam) return;
     setCsvBusy(true);
@@ -140,6 +142,13 @@ function AnalysisPage() {
     void navigate({ search: (prev) => ({ ...prev, tab: nextTab as AnalysisTab }) });
   }
 
+  // The merit tab is paged; show every row while the print dialog is open.
+  function handlePrint() {
+    flushSync(() => setPrinting(true));
+    window.addEventListener('afterprint', () => setPrinting(false), { once: true });
+    window.print();
+  }
+
   function setByComponent(next: boolean) {
     void navigate({ search: (prev) => ({ ...prev, byComponent: next ? true : undefined }) });
   }
@@ -155,7 +164,7 @@ function AnalysisPage() {
               id: 'print',
               label: tg('analysisPage.print'),
               icon: <PrinterIcon />,
-              onClick: () => window.print(),
+              onClick: handlePrint,
               allowed: ready,
             },
             {
@@ -271,6 +280,7 @@ function AnalysisPage() {
                   sectionId={sectionId}
                   sectionName={selectedSection?.section_name}
                   className={selectedExam.class.name}
+                  showAll={printing}
                 />
               </TabsContent>
               <TabsContent value="defaulted">
