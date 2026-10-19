@@ -291,7 +291,12 @@ export class ValidationService {
             existingIndexes.get(tab.name)?.get(key) !== undefined;
           const blank = isExistingRow
             ? undefined
-            : newRowActorCols.find((c) => (cells[c.key] ?? '').trim() === '');
+            : newRowActorCols.find(
+                (c) =>
+                  (cells[c.key] ?? '').trim() === '' &&
+                  (c.requiredOnNewRow === true ||
+                    (typeof c.requiredOnNewRow === 'function' && c.requiredOnNewRow(cells))),
+              );
           if (blank) {
             recordError(tabErrors, {
               tab: tab.name,

@@ -2603,13 +2603,41 @@ describe('workbook round trip (integration)', () => {
           recorded_by_user_id: platformAdmin.id,
         }),
       );
+      // Two user tags on one application, both naming people who are not
+      // members any more: both export with a blank user and a blank role.
+      const application = await dataSource.getRepository(Application).save(
+        dataSource.getRepository(Application).create({
+          tenant_id: T,
+          type: ApplicationType.ID_CARD_REPRINT,
+          status: ApplicationStatus.PENDING,
+          source: ApplicationSource.APP,
+          serial_year: 2026,
+          serial_no: 1,
+          subject_student_id: student.id,
+          applicant_user_id: admin.id,
+          payload: {},
+          letter_text: 'Rt2625 letter',
+          letter_locale: 'en',
+        }),
+      );
+      await dataSource.getRepository(ApplicationTag).save(
+        [departed, platformAdmin].map((u) =>
+          dataSource.getRepository(ApplicationTag).create({
+            tenant_id: T,
+            application_id: application.id,
+            user_id: u.id,
+            role: null,
+            created_by_user_id: admin.id,
+          }),
+        ),
+      );
 
       const buffer = await exportA();
 
       // Restore into the SAME school: nothing to create, delete or rewrite
-      // for the three tabs, and no validation error.
+      // for these tabs, and no validation error.
       const same = await validationService.validate(buffer, T, dataSource.manager);
-      const touched = ['payments', 'student_notes', 'student_lifecycle_events'];
+      const touched = ['payments', 'student_notes', 'student_lifecycle_events', 'application_tags'];
       expect(same.errors.filter((e) => e.severity === 'error' && touched.includes(e.tab))).toEqual(
         [],
       );
@@ -2629,6 +2657,12 @@ describe('workbook round trip (integration)', () => {
       expect(noteErrors[0].message).toBe(
         'Choose a current staff member for this row; a new row needs one.',
       );
+      // A new tag with neither user nor role cannot be created either.
+      const tagErrors = empty.errors.filter(
+        (e) => e.severity === 'error' && e.tab === 'application_tags',
+      );
+      expect(tagErrors.length).toBeGreaterThan(0);
+      expect(tagErrors.some((e) => e.column === 'user')).toBe(true);
     }, 90_000);
   });
 
