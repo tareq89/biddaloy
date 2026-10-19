@@ -666,6 +666,7 @@ export const slice: DemoSlice = {
         list[0].tenant_id,
         adminId,
         { headers: {} },
+        { replayed: false, notify: false },
       );
       // The payment, its allocations and the invoice checkout always issues.
       rows += 3 + lines.length;

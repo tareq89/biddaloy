@@ -766,6 +766,7 @@ async function ensureFineActivitySeed(
     school.id,
     adminUser.id,
     { headers: {} },
+    { replayed: false, notify: false },
   );
   console.log(`Fully paid fine bill ${second.id}.`);
 
@@ -779,6 +780,7 @@ async function ensureFineActivitySeed(
     school.id,
     adminUser.id,
     { headers: {} },
+    { replayed: false, notify: false },
   );
   console.log(`Recorded a partial payment of ৳${partialAmount} on fine bill ${third.id}.`);
 }

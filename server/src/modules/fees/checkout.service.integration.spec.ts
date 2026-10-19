@@ -309,6 +309,27 @@ describe('CheckoutService (integration)', () => {
     );
   });
 
+  it('notify:false (seed scripts) queues no receipt job and no recheck (#2701)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 5 }));
+    feeNotifyAdd.mockClear();
+    const rechecks = await captureRechecks(async () => {
+      await service.checkout(
+        {
+          idempotency_key: '2701a001-0000-4000-8000-000000000001',
+          lines: [{ student_fee_id: bill.id, amount: 5 }],
+          payment_method: PaymentMethod.CASH,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+        { replayed: false, notify: false },
+      );
+    });
+    expect(feeNotifyAdd).not.toHaveBeenCalled();
+    expect(rechecks).toHaveLength(0);
+  });
+
   it('records one payment across two students, three lines, one invoice with grouped lines', async () => {
     const studentA = await studentRepo.save(makeStudent());
     const studentB = await studentRepo.save(makeStudent());
