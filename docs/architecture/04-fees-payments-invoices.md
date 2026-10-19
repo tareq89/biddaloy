@@ -526,6 +526,10 @@ re-running it never double-bills.
 (`late-fee.service.ts`, D10) — a fine is already a penalty; charging a
 late fee on top of it isn't a case anyone asked for.
 
+### Learnings (Epic #2642, Wave 3, 2026-10-19)
+
+- **Checkout lock order (#2647).** The wallet lock is taken before the approval token, TO_WALLET siblings are refused, and reversal handles a stale bill. Cost: a race between two checkouts on one wallet. Rule candidate: lock the wallet first in any money path -> Rule 24-27 candidate.
+
 ## Family-facing access
 
 Parents/students see a deliberately narrower view of all of the above —

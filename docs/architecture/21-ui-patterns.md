@@ -422,6 +422,12 @@ Every page uses the shared hook `useLandingFlag(key, allowed)` in
 copy. `action-registry.test.ts` checks that the page declares each flag a
 palette action navigates to.
 
+### Accessibility learnings (Epic #2642, Wave 3, 2026-10-19)
+
+- **Tab panel focus (#2601, #2629).** A tab panel needs a visible focus ring on keyboard focus, and `aria-controls` must point at a panel that exists. Rule candidate: the axe suite covers it -> no rule.
+- **Grid rows (#2628).** The calendar month grid used bare cells; real ARIA rows and readable out-of-month dates fixed it. -> no rule.
+- **Opt-in scroll region (#2630).** A scrollable table must be keyboard-focusable, and a filter checkbox needs a 24px target. -> no rule.
+
 ### UX lint stragglers
 
 `ui/eslint-rules/ux-guards.mjs` holds four rules (`no-native-picker`,
