@@ -191,12 +191,14 @@ function ScaleEditorPage() {
     bands !== undefined &&
     scaleQuery.data !== undefined &&
     JSON.stringify(bands) !== JSON.stringify(scaleQuery.data.bands.map(toBandInput));
+  // A deleted scale has nothing to save, and its 404 page has no leave dialog: don't block.
+  const gone = isNotFoundError(scaleQuery.error);
   const blocker = useBlocker({
-    shouldBlockFn: () => canManage && dirty && !savedRef.current,
+    shouldBlockFn: () => canManage && dirty && !savedRef.current && !gone,
     withResolver: true,
   });
 
-  if (isNotFoundError(scaleQuery.error)) {
+  if (gone) {
     return <RecordNotFoundState onBack={() => void navigate({ to: '/grading-scales' })} />;
   }
 

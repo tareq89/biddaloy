@@ -91,17 +91,20 @@ function PrintPreviewPage() {
     }));
 
   // Printing needs a big screen and a printer: on a phone the frame says so, with the same Close.
+  // [2703] Ids held in history state are not in the URL, so a copied link would lose them: no Copy.
   if (!wide) {
     return (
       <FullPageShell
         title={picking ? t('picker.title') : t('title')}
         onClose={close}
-        primary={{ label: tT('gate.copy'), onClick: () => void copyPageLink(tT) }}
+        {...(stateIds === undefined
+          ? { primary: { label: tT('gate.copy'), onClick: () => void copyPageLink(tT) } }
+          : {})}
       >
         <EmptyState
           icon={<MonitorIcon aria-hidden />}
           title={tT('gate.title')}
-          explanation={tT('gate.body')}
+          explanation={stateIds === undefined ? tT('gate.body') : tT('gate.bodyNoLink')}
         />
       </FullPageShell>
     );

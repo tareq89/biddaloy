@@ -2335,6 +2335,11 @@ describe('GuardianService (integration)', () => {
         [OWNER_USER_ID, TENANT_ID],
       );
       const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+      const before = new Date('2020-01-01T00:00:00Z');
+      await dataSource.query(`UPDATE users SET tokens_valid_after = $2 WHERE id = $1`, [
+        OWNER_USER_ID,
+        before,
+      ]);
 
       await service.remove(guardian.id, TENANT_ID);
 
@@ -2346,7 +2351,7 @@ describe('GuardianService (integration)', () => {
       const [u] = await dataSource.query(`SELECT tokens_valid_after FROM users WHERE id = $1`, [
         OWNER_USER_ID,
       ]);
-      expect(u.tokens_valid_after).not.toBeNull();
+      expect(new Date(u.tokens_valid_after).getTime()).toBeGreaterThan(before.getTime());
     });
 
     it('findOwn returns the row linked to that user in that tenant', async () => {

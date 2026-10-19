@@ -158,7 +158,10 @@ All green across 3 passes. No flakes, no failures.
 ## Routes without an Idempotency-Key (#2691)
 
 Three routes skip `IdempotencyInterceptor` (#2631). A repeated call is still a no-op, because the
-database refuses the duplicate row. `fee-generation.service.integration.spec.ts` checks the generate index exists. The late-fee index is made by a migration only (TypeORM `@Index` has no `WHERE`), and `late-fee.service.integration.spec.ts` covers its `ON CONFLICT`.
+database refuses the duplicate row. One exception: `CREATE_ANYWAY` stacks the next `occurrence`
+on purpose. Its approval token is used up on the first call, so a plain retry is refused, but a
+retry with a fresh approval creates one more bill. That is a second, approved decision, not a
+replay. `fee-generation.service.integration.spec.ts` checks the generate index exists. The late-fee index is made by a migration only (TypeORM `@Index` has no `WHERE`), and `late-fee.service.integration.spec.ts` covers its `ON CONFLICT`.
 
 ```mermaid
 flowchart LR
@@ -178,17 +181,17 @@ flowchart LR
 
 ## W6 follow-ups
 
-| Issue                     | Outcome | Why                                                                      |
-| ------------------------- | ------- | ------------------------------------------------------------------------ |
-| #2684 (Rule 23 messages)  | Fixed   | fees/invoices now say `Student not found` (no id echo), like enrollments |
-| #2657                     | Skipped | The migration is too big for this wave                                   |
-| #2660                     | Skipped | The requester is already bound                                           |
-| #2668, #2690              | Skipped | Product call needed                                                      |
-| #2686, #2687              | Skipped | Too large for this wave                                                  |
-| #2661                     | Skipped | Needs a settings schema and UI                                           |
-| #2693, #2694              | Skipped | Need Playwright / the SMS-credit UI                                      |
-| #2689 (item 1)            | Skipped | Item 1 left out of this wave                                             |
-| #2699                     | Skipped | Needs a server delta contract                                            |
+| Issue                    | Outcome | Why                                                                      |
+| ------------------------ | ------- | ------------------------------------------------------------------------ |
+| #2684 (Rule 23 messages) | Fixed   | fees/invoices now say `Student not found` (no id echo), like enrollments |
+| #2657                    | Skipped | The migration is too big for this wave                                   |
+| #2660                    | Skipped | The requester is already bound                                           |
+| #2668, #2690             | Skipped | Product call needed                                                      |
+| #2686, #2687             | Skipped | Too large for this wave                                                  |
+| #2661                    | Skipped | Needs a settings schema and UI                                           |
+| #2693, #2694             | Skipped | Need Playwright / the SMS-credit UI                                      |
+| #2689 (item 1)           | Skipped | Item 1 left out of this wave                                             |
+| #2699                    | Skipped | Needs a server delta contract                                            |
 
 ```mermaid
 flowchart LR

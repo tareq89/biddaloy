@@ -347,12 +347,15 @@ describe('ListShell no-matches state', () => {
     expect(screen.getByText('No students yet')).toBeTruthy();
   });
 
-  it('a page-supplied kind no-results wins', async () => {
+  it('a page-supplied kind no-results wins, and still gets Clear [2703]', async () => {
+    const onChange = vi.fn();
     await renderEmpty(
       { q: 'zzz' },
-      { emptyState: { title: 'Own words', explanation: 'x', kind: 'no-results' } },
+      { onChange, emptyState: { title: 'Own words', explanation: 'x', kind: 'no-results' } },
     );
     expect(screen.getByText('Own words')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: /clear/i }));
+    expect(onChange).toHaveBeenCalledWith({ q: null });
   });
 
   it('a value under a non-field key (view) is not "filtered"', async () => {
