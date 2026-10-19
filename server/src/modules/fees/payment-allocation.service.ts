@@ -132,14 +132,20 @@ export class PaymentAllocationService {
       where: { id: dto.student_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${dto.student_id}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
 
-    const allocationSum = dto.allocations.reduce((sum, a) => sum + Number(a.allocated_amount), 0);
-    if (Math.abs(allocationSum - Number(dto.total_amount)) > AMOUNT_EPSILON) {
-      throw new BadRequestException(
-        `Allocation amounts (${allocationSum.toFixed(2)}) must sum to total_amount (${Number(dto.total_amount).toFixed(2)})`,
-      );
+    // Whole paisa, no tolerance: a payment's total must equal its lines exactly.
+    // Fixed text, no submitted amount in it (Rule 23).
+    const allocationPaisa = dto.allocations.reduce((sum, a) => sum + toPaisa(a.allocated_amount), 0);
+    if (allocationPaisa !== toPaisa(dto.total_amount)) {
+      throw new BadRequestException({
+        message: 'Allocation amounts must sum to total_amount',
+        details: { code: 'ALLOCATION_SUM_MISMATCH' },
+      });
     }
 
     const feeIds = dto.allocations.map((a) => a.student_fee_id);
@@ -196,9 +202,11 @@ export class PaymentAllocationService {
         const outstandingById = new Map(outstandingFees.map((f) => [f.id, f]));
         for (const feeId of feeIds) {
           if (!outstandingById.has(feeId)) {
-            throw new NotFoundException(
-              `Student fee "${feeId}" not found, already paid, or does not belong to this student`,
-            );
+            // One fixed text, no fee id (Rule 23), same as checkout's STUDENT_FEE_NOT_FOUND.
+            throw new NotFoundException({
+              message: 'Student fee not found',
+              details: { code: 'STUDENT_FEE_NOT_FOUND' },
+            });
           }
         }
         const allocationsByFeeId = new Map(dto.allocations.map((a) => [a.student_fee_id, a]));
@@ -216,9 +224,10 @@ export class PaymentAllocationService {
         }[] = [];
 
         for (const fee of outstandingFees) {
-          const remaining =
-            Number(fee.total_amount) - Number(fee.paid_amount) - Number(fee.discount_amount);
-          if (remaining <= AMOUNT_EPSILON) {
+          // Whole paisa, same as checkout: a bill with exactly 0.01 left is still payable.
+          const remainingPaisa =
+            toPaisa(fee.total_amount) - toPaisa(fee.paid_amount) - toPaisa(fee.discount_amount);
+          if (remainingPaisa <= 0) {
             if (allocationsByFeeId.has(fee.id)) {
               throw new BadRequestException(
                 `Fee for ${fee.month}/${fee.year} has no outstanding balance and cannot be allocated against`,
@@ -240,27 +249,26 @@ export class PaymentAllocationService {
 
           const expectedType = this.classifyPeriod(fee.year, fee.month, currentYear, currentMonth);
           if (alloc.allocation_type !== expectedType) {
-            throw new BadRequestException(
-              `Fee for ${fee.month}/${fee.year} must use allocation_type "${expectedType}", got "${alloc.allocation_type}"`,
-            );
+            throw new BadRequestException({
+              message: `Fee for ${fee.month}/${fee.year} must use allocation_type "${expectedType}"`,
+              details: { code: 'ALLOCATION_TYPE_MISMATCH' },
+            });
           }
 
           const allocAmount = Number(alloc.allocated_amount);
           // Whole paisa, no tolerance: 0.01 over would break CHK_sf_paid_plus_discount (#2636).
           // Fixed text, no submitted amount in it (Rule 23).
-          if (toPaisa(allocAmount) > toPaisa(remaining)) {
+          const allocPaisa = toPaisa(allocAmount);
+          if (allocPaisa > remainingPaisa) {
             throw new BadRequestException('Allocated amount exceeds the remaining balance');
           }
 
           const newPaid = Number(fee.paid_amount) + allocAmount;
-          const newStatus =
-            newPaid + Number(fee.discount_amount) >= Number(fee.total_amount) - AMOUNT_EPSILON
-              ? FeeStatus.PAID
-              : FeeStatus.PARTIALLY_PAID;
+          const newStatus = allocPaisa === remainingPaisa ? FeeStatus.PAID : FeeStatus.PARTIALLY_PAID;
 
           feeUpdates.push({ fee, newPaid, newStatus, allocatedAmount: allocAmount });
 
-          if (allocAmount < remaining - AMOUNT_EPSILON) {
+          if (allocPaisa < remainingPaisa) {
             // Ran out of money on this fee — nothing further may be allocated.
             blocked = true;
           }
@@ -429,7 +437,7 @@ export class PaymentAllocationService {
   ): void {
     const mismatch =
       existing.student_id !== dto.student_id ||
-      Math.abs(Number(existing.total_amount) - Number(dto.total_amount)) > AMOUNT_EPSILON ||
+      toPaisa(existing.total_amount) !== toPaisa(dto.total_amount) ||
       existing.payment_method !== dto.payment_method ||
       (existing.transaction_reference ?? null) !== (dto.transaction_reference ?? null) ||
       (existing.remarks ?? null) !== (dto.remarks ?? null) ||

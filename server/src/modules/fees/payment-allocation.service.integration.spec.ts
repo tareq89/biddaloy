@@ -797,6 +797,133 @@ describe('PaymentAllocationService (integration)', () => {
       expect(Number(reloaded.paid_amount)).toBe(0);
     });
 
+    it('[2636] rejects a total_amount 0.01 off the allocation sum, with a fixed text', async () => {
+      // Before: a 0.01 tolerance wrote a payment whose total did not match its lines,
+      // and the message echoed both submitted amounts (Rule 23).
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, 0));
+
+      const err = await service
+        .recordWithAllocation(
+          {
+            student_id: student.id,
+            total_amount: 500.01,
+            payment_method: PaymentMethod.CASH,
+            allocations: [
+              {
+                student_fee_id: fee.id,
+                allocated_amount: 500,
+                allocation_type: PaymentAllocationType.CURRENT,
+              },
+            ],
+          } as any,
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        )
+        .catch((e) => e);
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.getResponse()).toMatchObject({ details: { code: 'ALLOCATION_SUM_MISMATCH' } });
+      expect(JSON.stringify(err.getResponse())).not.toMatch(/500\.0|500\.01/);
+      expect(await paymentRepo.count({ where: { student_id: student.id } })).toBe(0);
+    });
+
+    it('[2636] a bill with exactly 0.01 outstanding is payable, like checkout', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(
+        makeFee(student.id, 0, {
+          total_amount: 500,
+          paid_amount: 499.99,
+          status: FeeStatus.PARTIALLY_PAID,
+        }),
+      );
+
+      await service.recordWithAllocation(
+        {
+          student_id: student.id,
+          total_amount: 0.01,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: fee.id,
+              allocated_amount: 0.01,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const reloaded = await studentFeeRepo.findOneByOrFail({ id: fee.id });
+      expect(Number(reloaded.paid_amount)).toBe(500);
+      expect(reloaded.status).toBe(FeeStatus.PAID);
+    });
+
+    it('[2636] a payment 0.01 short of the bill leaves it PARTIALLY_PAID, not PAID', async () => {
+      // The old PAID threshold (total - 0.01) closed a bill with 0.01 still owed.
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, 0, { total_amount: 500 }));
+
+      await service.recordWithAllocation(
+        {
+          student_id: student.id,
+          total_amount: 499.99,
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: fee.id,
+              allocated_amount: 499.99,
+              allocation_type: PaymentAllocationType.CURRENT,
+            },
+          ],
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const reloaded = await studentFeeRepo.findOneByOrFail({ id: fee.id });
+      expect(reloaded.status).toBe(FeeStatus.PARTIALLY_PAID);
+    });
+
+    it('[2636] not-found and type-mismatch errors echo no submitted id or type (Rule 23)', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const otherStudent = await studentRepo.save(makeStudent());
+      const foreignFee = await studentFeeRepo.save(makeFee(otherStudent.id, 0));
+      const due = await studentFeeRepo.save(makeFee(student.id, -1, { total_amount: 500 }));
+      const missingStudentId = '00000000-0000-4000-8000-0000000000aa';
+      const one = (studentId: string, feeId: string, type: PaymentAllocationType) =>
+        service
+          .recordWithAllocation(
+            {
+              student_id: studentId,
+              total_amount: 500,
+              payment_method: PaymentMethod.CASH,
+              allocations: [
+                { student_fee_id: feeId, allocated_amount: 500, allocation_type: type },
+              ],
+            } as any,
+            TENANT_ID,
+            SEED_ADMIN_USER_ID,
+          )
+          .catch((e) => e);
+
+      const noStudent = await one(missingStudentId, due.id, PaymentAllocationType.DUE);
+      expect(noStudent).toBeInstanceOf(NotFoundException);
+      expect(JSON.stringify(noStudent.getResponse())).not.toContain(missingStudentId);
+
+      const noFee = await one(student.id, foreignFee.id, PaymentAllocationType.CURRENT);
+      expect(noFee).toBeInstanceOf(NotFoundException);
+      expect(JSON.stringify(noFee.getResponse())).not.toContain(foreignFee.id);
+
+      const wrongType = await one(student.id, due.id, PaymentAllocationType.CURRENT);
+      expect(wrongType).toBeInstanceOf(BadRequestException);
+      expect(wrongType.getResponse()).toMatchObject({
+        details: { code: 'ALLOCATION_TYPE_MISMATCH' },
+      });
+      expect(JSON.stringify(wrongType.getResponse())).not.toContain(PaymentAllocationType.CURRENT);
+    });
+
     it('rejects an allocation against a fee that is already fully covered by discount', async () => {
       const student = await studentRepo.save(makeStudent());
       // total_amount === discount_amount, so remaining is 0 even though status
