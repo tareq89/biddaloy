@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Header,
+  HttpException,
+  HttpStatus,
   Inject,
   NotFoundException,
   Param,
@@ -37,7 +39,7 @@ import { tenantObjectKeyNamed } from '../../storage/storage-key';
 import { WorkbookFormatError } from '../codec/workbook-codec';
 import type { RowError } from '../codec/tab-spec';
 import type { WorkbookMeta } from '../codec/meta';
-import { ValidationService } from './validation.service';
+import { ValidationBusyError, ValidationService } from './validation.service';
 import { DiffService } from './diff.service';
 import type { ValidateResponseDto } from './dto/validate-response.dto';
 
@@ -153,6 +155,13 @@ export class ImportController {
     } catch (error) {
       if (error instanceof WorkbookFormatError) {
         throw new BadRequestException({ code: error.code, message: error.message });
+      }
+      // Fail closed: one workbook in memory per process (see ValidationService).
+      if (error instanceof ValidationBusyError) {
+        throw new HttpException(
+          { code: 'VALIDATE_BUSY', message: `${error.message} Try again in a minute.` },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
       }
       throw error;
     }
