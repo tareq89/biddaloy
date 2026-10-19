@@ -78,7 +78,7 @@ export class RoomsService {
     });
     if (referencedCount > 0) {
       throw new ConflictException(
-        `Cannot delete room "${id}": ${referencedCount} routine slot(s) still reference it. Reassign or remove them first.`,
+        `Cannot delete this room: ${referencedCount} routine slot(s) still reference it. Reassign or remove them first.`,
       );
     }
 
