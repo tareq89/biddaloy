@@ -151,6 +151,35 @@ Signed-out pages (login, reset, public receipt, public admission form) use
 - Field gap 16 px, label-to-control 6 px. Help text under the control; the error
   replaces it.
 
+- **A create or send dialog sends one request per double-click.** The submit
+  button gets `loading={mutation.isPending}`, plus an `inFlight` ref guard
+  (see `-program-form-dialog.tsx`) because a fast double-click can fire before
+  React re-renders. Sends and creates also carry an `Idempotency-Key`
+  (`useIdempotencyKey()`), so the server is the second line. **A new
+  create/send dialog joins the registry** in
+  `e2e/journeys/double-submit.registry.ts`; `double-submit.spec.ts` then
+  proves it.
+
+```mermaid
+flowchart LR
+  A[double-click Save] --> B[button busy, ref guard set]
+  B --> C[exactly one request]
+```
+
+A registry entry (the program dialog):
+
+```ts
+{
+  name: 'program',
+  route: '/programs',
+  open: (page) => addButton(page, 'programs.actions.add'),
+  fill: (page, suffix) => page.getByLabel(/name/i).fill(`Dbl program ${suffix}`),
+  submitKey: 'programs.formDialog.save',
+  postUrl: /\/api\/v1\/programs$/,
+  done: dialogClosed,
+}
+```
+
 ## 7. Formats — one function each (`ui/src/utils`)
 
 Every formatter takes the tenant's `RegionConfig` (`useRegionConfig()`), so the
