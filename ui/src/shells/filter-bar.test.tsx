@@ -154,6 +154,11 @@ describe('FilterBar', () => {
     expect(trigger.textContent).toContain('archived');
   });
 
+  it('renders the checkbox at least 24px (size-6) for the touch-target rule', async () => {
+    await renderInEnglish(<FilterBarDemo />);
+    expect(screen.getByRole('checkbox', { name: 'Flagged' }).className).toContain('size-6');
+  });
+
   it('checking the checkbox commits "true"; unchecking commits null', async () => {
     const user = userEvent.setup();
     const onChangeSpy = vi.fn();

@@ -356,6 +356,7 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
           <div className="flex min-h-11 items-center gap-3 md:min-h-8">
             <Checkbox
               id={id(f.key)}
+              className="size-6"
               checked={values[f.key] === 'true'}
               onCheckedChange={(checked) => setValue(f.key, checked === true ? 'true' : null)}
             />
