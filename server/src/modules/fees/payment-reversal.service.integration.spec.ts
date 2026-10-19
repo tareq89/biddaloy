@@ -55,6 +55,7 @@ import {
   InvoiceKind,
   PaymentStatus,
   WalletTransactionKind,
+  AuditAction,
 } from '@biddaloy/shared';
 
 /**
@@ -899,6 +900,17 @@ describe('PaymentReversalService (integration)', () => {
     expect(Number(after.paid_amount)).toBe(0);
     expect(after.status).toBe(FeeStatus.PENDING);
     expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
+    // The audit's "before" is the bill as it stood before the reversal (700 PAID),
+    // not the value the generation-debit undo wrote a moment earlier (500 PARTIALLY_PAID).
+    const logs = await auditLogRepo.find({
+      where: { entity_type: 'Payment', entity_id: payment.id, tenant_id: TENANT_ID },
+    });
+    const old = logs.find((l) => l.action === AuditAction.UPDATE)?.old_values as any;
+    expect(old.bills[0]).toMatchObject({
+      student_fee_id: bill.id,
+      paid_amount: 700,
+      status: FeeStatus.PAID,
+    });
   });
 
   /** Overpays `change` into the wallet on a fresh 500 bill; returns the payment. */

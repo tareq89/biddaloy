@@ -192,6 +192,11 @@ export class PaymentReversalService {
         tenantId,
         actorUserId,
       );
+      // The audit's "before" is the bill as it stood before this reversal,
+      // captured before the F-152 patch below rewrites paid_amount/status.
+      const billBefore = new Map(
+        lockedBills.map((b) => [b.id, { paid: Number(b.paid_amount), status: b.status }]),
+      );
       // F-152: undoing a debit lowered paid_amount on a bill this payment may
       // also have allocated; the allocation loop must start from that value.
       for (const d of undone.undone_generation_debits) {
@@ -229,7 +234,8 @@ export class PaymentReversalService {
         // unwound and the fact it happened against a deleted bill is
         // flagged in the audit trail rather than silently recomputing a
         // status nobody will act on.
-        const statusBefore = bill.status;
+        const before = billBefore.get(bill.id)!;
+        const statusBefore = before.status;
         let statusAfter = bill.status;
         if (!bill.deleted_at) {
           const remaining = round2(Number(bill.total_amount) - newPaid - newDiscount);
@@ -250,7 +256,7 @@ export class PaymentReversalService {
 
         billAudit.push({
           student_fee_id: bill.id,
-          paid_amount_before: Number(bill.paid_amount),
+          paid_amount_before: before.paid,
           paid_amount_after: newPaid,
           status_before: statusBefore,
           status_after: statusAfter,
