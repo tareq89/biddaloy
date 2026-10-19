@@ -63,7 +63,21 @@ describe('IsPlausibleBirthDate', () => {
   );
   it('accepts today', () => expect(errorsFor(todayInSchoolTz())).toHaveLength(0));
 
-  it.each(['2018-02-30', '2025-02-29', '1899-12-31', 'abc', 20180501])('rejects %p', (v) =>
+  it.each([
+    '2018-02-30',
+    '2025-02-29',
+    '1899-12-31',
+    'abc',
+    20180501,
+    // [2618] Valid ISO 8601 but not a calendar day: Postgres's date cast would 500.
+    '2010',
+    '2010-05',
+    '2010-W05-3',
+    '2010-123',
+    '20100501',
+    '2010-05-01 garbage',
+    '2010-05-01T25:00:00Z',
+  ])('rejects %p', (v) =>
     expect(errorsFor(v)).toHaveLength(1),
   );
   it('rejects tomorrow', () => expect(errorsFor(addDays(todayInSchoolTz(), 1))).toHaveLength(1));
