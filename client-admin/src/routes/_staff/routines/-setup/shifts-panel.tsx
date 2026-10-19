@@ -26,9 +26,12 @@ import {
 } from '@biddaloy/ui/components';
 import { useCreateShift, useDeleteShift, useShifts, type Shift } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatTime } from '@biddaloy/ui/utils';
+import { formatTime, parseValidationFieldErrors } from '@biddaloy/ui/utils';
 import { PlusIcon } from 'lucide-react';
 import * as React from 'react';
+
+/** Mirrors `server/src/modules/routines/dto/setup.dto.ts`. */
+const SHIFT_NAME_MAX = 100;
 
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
@@ -48,6 +51,7 @@ export function ShiftsPanel() {
   const [dayStartsAt, setDayStartsAt] = React.useState('08:00');
   const [dayEndsAt, setDayEndsAt] = React.useState('16:00');
   const [saveFailed, setSaveFailed] = React.useState(false);
+  const [nameError, setNameError] = React.useState<string | null>(null);
 
   const shifts = shiftsQuery.data?.data ?? [];
   const endBeforeStart = timeToMinutes(dayEndsAt) <= timeToMinutes(dayStartsAt);
@@ -58,15 +62,45 @@ export function ShiftsPanel() {
     setDayStartsAt('08:00');
     setDayEndsAt('16:00');
     setSaveFailed(false);
+    setNameError(null);
   }
 
   function handleAdd(event: React.FormEvent) {
     event.preventDefault();
     if (endBeforeStart) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setNameError(t('shiftsPanel.nameRequired'));
+      return;
+    }
+    if (trimmed.length > SHIFT_NAME_MAX) {
+      setNameError(t('shiftsPanel.nameTooLong', { max: SHIFT_NAME_MAX }));
+      return;
+    }
+    setNameError(null);
     setSaveFailed(false);
     createShift.mutate(
-      { name, day_starts_at: dayStartsAt, day_ends_at: dayEndsAt, sequence: shifts.length },
-      { onSuccess: closeAdd, onError: () => setSaveFailed(true) },
+      {
+        name: trimmed,
+        day_starts_at: dayStartsAt,
+        day_ends_at: dayEndsAt,
+        sequence: shifts.length,
+      },
+      {
+        onSuccess: closeAdd,
+        onError: (error) => {
+          // A 400 that names `name`: our own sentence under the field, never the server's text.
+          if (
+            error instanceof ApiError &&
+            error.statusCode === 400 &&
+            'name' in parseValidationFieldErrors(error.messages, ['name'])
+          ) {
+            setNameError(t('shiftsPanel.nameInvalid'));
+          } else {
+            setSaveFailed(true);
+          }
+        },
+      },
     );
   }
 
@@ -163,8 +197,14 @@ export function ShiftsPanel() {
                 id="shift-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                required
+                aria-invalid={nameError !== null}
+                aria-describedby={nameError ? 'shift-name-error' : undefined}
               />
+              {nameError && (
+                <p id="shift-name-error" role="alert" className="text-caption text-destructive">
+                  {nameError}
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="shift-day-starts-at">{t('shiftsPanel.dayStartsAt')}</Label>
