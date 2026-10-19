@@ -258,7 +258,7 @@ function AnalysisPage() {
             />
           ) : (
             <Tabs value={tab} onValueChange={setTab}>
-              <TabsList className="print:hidden">
+              <TabsList variant="line" className="print:hidden">
                 <TabsTrigger value="merit">{tg('analysisPage.tabs.merit')}</TabsTrigger>
                 <TabsTrigger value="defaulted">{tg('analysisPage.tabs.defaulted')}</TabsTrigger>
                 <TabsTrigger value="pass-fail">{tg('analysisPage.tabs.passFail')}</TabsTrigger>
