@@ -438,7 +438,11 @@ function StaffListPage() {
         {...(usersQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyState={
           isFormer
-            ? { title: t('former.emptyMessage'), explanation: t('former.emptyExplanation') }
+            ? {
+                kind: 'no-results' as const,
+                title: t('former.emptyMessage'),
+                explanation: t('former.emptyExplanation'),
+              }
             : {
                 title: t('list.emptyMessage'),
                 explanation: t('list.emptyExplanation'),
