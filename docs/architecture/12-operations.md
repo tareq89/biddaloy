@@ -243,6 +243,31 @@ rewrites the id file, flushes Redis and starts again.
 it: leave `PLATFORM_SMS_API_KEY` and `PLATFORM_ALERT_PHONES` unset on the demo host. The boot guard runs after the BullMQ
 workers start, so a non-demo school row stops the process a moment after it begins.
 
+### 3.8 Validate the student_fees money CHECKs (#2662)
+
+`CHK_sf_paid_plus_discount` and `CHK_sf_waived_settled` were added `NOT VALID`. New and changed rows are
+already checked. Old rows are not, until someone validates. Do it once per environment, after the audit.
+
+```mermaid
+flowchart LR
+  A[1. Audit: count bad rows] -->|0 rows| B[2. VALIDATE CONSTRAINT]
+  A -->|rows found| C[Fix the rows by hand, ask the school] --> A
+  B --> D[Done: CHECK now covers old rows too]
+```
+
+```sql
+-- 1. Audit. Both must return 0.
+SELECT count(*) FROM student_fees WHERE paid_amount + discount_amount > total_amount;
+SELECT count(*) FROM student_fees
+ WHERE status = 'WAIVED' AND paid_amount + discount_amount <> total_amount;
+
+-- 2. Validate. Takes only a SHARE UPDATE EXCLUSIVE lock: reads and writes continue.
+ALTER TABLE student_fees VALIDATE CONSTRAINT "CHK_sf_paid_plus_discount";
+ALTER TABLE student_fees VALIDATE CONSTRAINT "CHK_sf_waived_settled";
+```
+
+A restored old backup can hit these CHECKs on insert. Audit the backup the same way before restoring.
+
 ## 4. Env var reference
 
 | Variable                    | Required in prod?      | What it does                                                                       |
