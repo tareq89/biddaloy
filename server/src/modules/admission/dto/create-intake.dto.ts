@@ -1,7 +1,17 @@
-import { IsString, IsNotEmpty, IsUUID, IsInt, Min, IsDateString, IsArray, IsEnum, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsUUID,
+  IsInt,
+  Min,
+  IsArray,
+  IsEnum,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AdmissionDocumentType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
 
 /** [27.3] Payload to open a new admission intake window for a class section. */
 export class CreateIntakeDto {
@@ -22,11 +32,11 @@ export class CreateIntakeDto {
   seat_count: number;
 
   @ApiProperty()
-  @IsDateString()
+  @IsRealDate()
   open_date: string;
 
   @ApiProperty()
-  @IsDateString()
+  @IsRealDate()
   close_date: string;
 
   @ApiProperty({ enum: Object.values(AdmissionDocumentType), isArray: true })
