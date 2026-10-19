@@ -36,7 +36,8 @@ describe('nginx client_max_body_size', () => {
   });
 
   it('gives only the backup validate route a larger cap, covering BACKUP_MAX_UPLOAD_BYTES', () => {
-    const block = /location = \/api\/v1\/backup\/validate \{([^}]*)\}/.exec(template);
+    // Up to the block's own closing brace (4-space indent), not the first `}` (the `if` inside).
+    const block = /location = \/api\/v1\/backup\/validate \{([\s\S]*?)\n {4}\}/.exec(template);
     expect(block).not.toBeNull();
     const cap = /client_max_body_size\s+(\d+)M;/.exec(block![1]);
     expect(cap).not.toBeNull();

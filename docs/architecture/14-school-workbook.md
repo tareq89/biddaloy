@@ -316,6 +316,29 @@ workbook in memory, so memory use is several times the unzipped size.
 | ---------- | ------------------------ | ------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
 | 2026-10-19 | 10k school, 38 MB zipped | 74 s          | 1.8 GB RSS during validate (0.95 GB before it); 2.0 GB for the whole export + validate process | none: run in a plain Node 24 process on a laptop, not a container (no Docker). The deployment guide suggests 4 GB RAM. | Not refused, no out-of-memory, under Cloudflare's 100 s. |
 
+**One validate at a time per process.** Memory is the real limit, not the
+file size: a file near the 512 MB inflate cap needs about 1.5 GB just to parse.
+So `ValidationService` lets only one workbook be parsed per API process:
+
+```mermaid
+sequenceDiagram
+  participant A as School A upload
+  participant B as School B upload
+  participant R as Restore worker
+  participant V as ValidationService (one slot per process)
+  A->>V: POST /backup/validate
+  B->>V: POST /backup/validate (A still parsing)
+  V-->>B: 429 VALIDATE_BUSY "Another backup is being checked right now. Try again in a minute."
+  R->>V: validate (waitIfBusy)
+  V-->>A: result
+  V-->>R: runs after A, then result
+```
+
+An upload is refused straight away (fail closed, no queue of 64 MB buffers).
+The restore worker waits instead, because a restore the admin already
+confirmed must not fail for this. The cost: one large validate makes every other
+school wait. The real fix is a streaming read, tracked in #2686.
+
 Validation of that file reported 216 errors, all in `guardians` and `students` (blank `relationship`, guardians that share a phone number, open dues). They come from the load seed's data, not from size.
 
 ### Learnings (Epic #2642, Wave 3, 2026-10-19)

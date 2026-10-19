@@ -28,8 +28,27 @@ const MAX_STORED_WARNINGS = 1000;
  * side-effect-free "is this workbook well-formed" check that can run inside a
  * request without risking partial writes.
  */
+/** Another workbook is being validated in this process right now. */
+export class ValidationBusyError extends Error {
+  constructor() {
+    super('Another backup is being checked right now.');
+  }
+}
+
+// ponytail: one workbook parse per process. exceljs holds the whole workbook in
+// memory (about 3x the unzipped size, see 14-school-workbook.md "Size limits"),
+// so two large ones at once could exhaust the heap and take every school down.
+// Module-level, not per instance: memory is per process. A streaming read lifts
+// this; see the follow-up issue linked from that doc section.
+let inFlight: Promise<unknown> | null = null;
+
 @Injectable()
 export class ValidationService {
+  /**
+   * Validates one workbook. Only one runs per process at a time: a second call
+   * throws `ValidationBusyError`, or waits its turn with `waitIfBusy` (the
+   * restore worker, which must not fail just because an upload is being checked).
+   */
   async validate(
     buffer: Buffer,
     tenantId: string,
@@ -38,6 +57,26 @@ export class ValidationService {
     // registry instead of the real 18-tab one; production callers never pass
     // this.
     tabSpecs: readonly TabSpec<any, any>[] = ALL_TABS,
+    opts: { waitIfBusy?: boolean } = {},
+  ): Promise<ValidatedWorkbook> {
+    while (inFlight) {
+      if (!opts.waitIfBusy) throw new ValidationBusyError();
+      await inFlight.catch(() => undefined);
+    }
+    const run = this.validateNow(buffer, tenantId, manager, tabSpecs);
+    inFlight = run;
+    try {
+      return await run;
+    } finally {
+      if (inFlight === run) inFlight = null;
+    }
+  }
+
+  private async validateNow(
+    buffer: Buffer,
+    tenantId: string,
+    manager: EntityManager,
+    tabSpecs: readonly TabSpec<any, any>[],
   ): Promise<ValidatedWorkbook> {
     const { meta, sheets, warnings: readWarnings } = await readWorkbook(buffer);
 
