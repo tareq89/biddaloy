@@ -29,8 +29,10 @@ filled in by that wave's close ticket.
 | Import (W3) | Import wrote partly then returned 500; the template's registration_number column was ignored; roll cap and held rolls were checked too late | Validate before write; honour the template columns (#2606, #2607) | student import specs | student import service |
 | Backup and restore (W3) | Departed recorders broke export; three sets of size limits; final retry left no terminal state | Strict `keyOf('users')` registry (#2625); one set of limits (#2624) | backup export and limits specs | backup module |
 | Accessibility and responsive (W3) | Tab panels without focus ring or real target; bare grid cells; unfocusable scroll region | Tab, grid and scroll-region patterns in 21-ui-patterns (#2601, #2628-#2630) | axe suite `e2e/a11y` | ui Tabs, calendar grid, invoice table |
-| Mutation retries and double submit (W4) | TBD | TBD | TBD | TBD |
-| Truthful lists and phone input (W4) | TBD | TBD | TBD | TBD |
+| Mutation retries and double submit (W4) | Writes auto-retried on 5xx, so a lost reply created the record twice; submit buttons stayed live during the first request | Mutations never retry unless they carry an Idempotency-Key (#2596); create dialogs and forms guard double submit with a ref (#2594, #2622); the sweep of other forms is #2656 | `ui/src/hooks/mutation-retry.guard.spec.ts`, `ui/src/api/query-client.test.ts` | `ui/src/api/query-client.ts`, create dialogs |
+| URL-held state (W4) | List selection lived in the URL, so hundreds of ids made the URL too long and a refresh failed | Selection is in memory, the URL holds only filters (#2602) | students list specs, `e2e/journeys/url-state.spec.ts` | students list route |
+| Empty vs no-match state (W4) | A search with no rows showed the first-time empty state | `ListShell` shows a no-match state with Clear whenever a rendered filter is set; a page's own `kind: 'no-results'` keeps its words (#2591) | `ui/src/shells/list-shell` specs, `client-admin/src/routes/_staff/exams/index.test.tsx` | `ui/src/shells/list-shell.tsx` |
+| Phone layout (W4) | Tab strips and snooze/close buttons overflowed at 390px | Scroll inside the strip; short visible word, full text stays the accessible name (#2593, #2600) | `e2e/responsive/analysis-phone.spec.ts`, `e2e/responsive/notifications-phone.spec.ts` | analysis tabs, alerts |
 | Student form and send (W5) | TBD | TBD | TBD | TBD |
 
 ## Learnings log
@@ -67,6 +69,13 @@ Learnings log, 2026-10-19 (same format as Wave 1). Details sit in 04, 14 and 21.
 - **Wave-close full run not done by this ticket.** The ci-local, e2e, axe and flake-report runs of #2652 step 4 were not run here (no Docker, shared ports). -> run on a free machine.
 
 ### Wave 4
+
+Learnings log, 2026-10-19 (same format as Wave 1). Details sit in 06 and 21.
+
+- **A new ListShell default silently overrode a page's own empty state.** #2591 swaps in a generic no-match state whenever a filter is set, unless the page passes `kind: 'no-results'`. `exams/index.tsx` passed no kind, so its own words were lost and `exams/index.test.tsx` "shows the empty state, and a no-match variant when filtered" went red. Cost: found at wave close. Fix: the page sets `kind: 'no-results'` (#2653). Rule candidate: a shared-shell change that overrides page props greps every page that sets the same prop -> checklist item, no rule. Other pages that set a filtered `emptyState` without `kind` may have the same gap (see follow-ups).
+- **A stale comment outlived its cause.** `-student-form.tsx` still said `TError` is `unknown` because of `shouldRetryQuery`; #2596 removed that retry. Fixed in #2653. -> no rule.
+- **Shared i18n keys were consumed as planned.** `noMatches.*` through `ListShell` (namespace `common`), `outcomeUnknown` through `query-client.ts` and the e2e `t('common.outcomeUnknown')`. -> no rule.
+- **Wave-close full run not done by this ticket.** `ci-local --integration --e2e`, `e2e:pwa`, axe, responsive, the 10x flake gate and `flake-report` were not run (no Docker, shared ports). Only the affected vitest specs and `tsc -p ui` were. -> run on a free machine; same gap as Wave 3.
 
 ### Wave 5
 

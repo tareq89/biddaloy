@@ -131,7 +131,7 @@ describe('MonthGrid', () => {
     const grid = screen.getByRole('grid');
     expect(Array.from(grid.children).every((c) => c.getAttribute('role') === 'row')).toBe(true);
     const rows = within(grid).getAllByRole('row');
-    expect(within(rows[0]).getAllByRole('columnheader')).toHaveLength(7);
+    expect(within(rows[0] as HTMLElement).getAllByRole('columnheader')).toHaveLength(7);
     for (const row of rows.slice(1)) expect(within(row).getAllByRole('gridcell')).toHaveLength(7);
     expect(grid.querySelector('.opacity-60')).toBeNull();
   });
