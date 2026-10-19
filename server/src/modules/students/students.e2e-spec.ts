@@ -109,6 +109,27 @@ describe('Students E2E', () => {
       expect(res.body.tenant_id).toBe(TENANT_ID);
     });
 
+    it('[2631] the same Idempotency-Key twice creates ONE student', async () => {
+      const key = `student-${Date.now()}`;
+      const send = () =>
+        supertest(app.getHttpServer())
+          .post('/api/v1/students')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('Idempotency-Key', key)
+          .send({ ...createStudentPayload, full_name: `Idem Student ${key}` });
+
+      const first = await send().expect(201);
+      const second = await send().expect(201);
+
+      expect(second.body.id).toBe(first.body.id);
+      const rows = await dataSource.query(
+        `SELECT count(*)::int AS n FROM students WHERE full_name = $1`,
+        [`Idem Student ${key}`],
+      );
+      expect(rows[0].n).toBe(1);
+    });
+
     it('LIFE-11: the create is visible in the audit log with the acting admin', async () => {
       const created = await supertest(app.getHttpServer())
         .post('/api/v1/students')
