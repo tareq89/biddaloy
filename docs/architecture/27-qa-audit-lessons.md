@@ -13,19 +13,19 @@ flowchart LR
 ## Defect classes
 
 One row per class. The wave that fixes it is in the first cell. `TBD` is
-filled in by that wave's close ticket.
+filled in by that wave's close ticket. Wave 1-3 rows were filled from PRs #2664, #2669, #2670.
 
 | Defect class | Root cause | Rule | Enforcing test | Code |
 | --- | --- | --- | --- | --- |
-| Error mapping (W1) | TBD | TBD | TBD | TBD |
-| Real dates and ranges (W1) | TBD | TBD | TBD | TBD |
-| Checkout money and replay (W1) | TBD | TBD | TBD | TBD |
-| Step-up access (W1) | TBD | TBD | TBD | TBD |
-| Input length and number range (W2) | TBD | TBD | TBD | TBD |
-| Referential deletes (W2) | TBD | TBD | TBD | TBD |
+| Error mapping (W1) | Oversized body, bad charset, duplicate names and wrong upload field names escaped as 500 with raw constraint text | Known errors map to fixed 4xx sentences in one place (Rule 24; #2634, #2612, #2616) | `server/src/common/filters/known-errors.spec.ts`, `known-errors.e2e-spec.ts` | `server/src/common/filters/known-errors.ts` |
+| Real dates and ranges (W1) | Impossible dates (2026-02-30) rolled over or 500d; registers could be marked years before the academic year | Strict date check and academic-year range (#2610, #2611; bare `@IsDateString()` sweep is #2659) | attendance and invoice date specs, DTO ratchet | date validators, attendance service |
+| Checkout money and replay (W1) | Checkout took 0.01 over the balance and change on a card; a replay ignored changed change handling or a reversal; another school saw different errors | Whole paisa and DB CHECKs (Rule 26; #2636, #2637, #2640, #2617) | `server/test/student-fee-money-checks-migration.integration.spec.ts`, demo-seed `validator.spec.ts` | `checkout.service.ts`, migration `1791900000300-StudentFeeMoneyChecks` |
+| Step-up access (W1) | The "allow password" setting was ignored (`approval_mode` vs `approvalMode`); any account, even a parent, could lock approvers out | `STEP_UP_REQUEST` permission on the step-up routes (#2599, #2639); second-approver is docs-only (#2623, follow-up #2661, #2660) | `step-up.controller.e2e-spec.ts`, `step-up.service.spec.ts` | `server/src/modules/auth/step-up.*` |
+| Input length and number range (W2) | A varchar-backed string had no `@MaxLength`; roll numbers had no cap; phone rules drifted between client and server | `@MaxLength` plus a CI guard, `ROLL_NUMBER_MAX`, one BD phone pattern (#2608, #2595, #2619) | `server/src/dto-string-length.spec.ts` | DTOs, public admission form |
+| Referential deletes (W2) | Deleting an academic year, subject or room left bills and rows pointing at it | In-use guards (#2613, #2614); the registry that finds the rest is W3 below (Rule 27) | academic-year and subject service specs | each parent `remove()` |
 | Delete-guard registry (W3) | A parent delete left child rows with no check; 45 gaps remain | Every parent-child pair is guarded or listed in `KNOWN_GAPS` with an issue (#2655; issues #2675-#2680) | `server/test/delete-guard-registry.integration.spec.ts` | each parent remove() |
-| Report reads (W2) | TBD | TBD | TBD | TBD |
-| Fee rows (W2) | TBD | TBD | TBD | TBD |
+| Report reads (W2) | The collections report built a query with interpolation and left wallet payouts out of totals; invoices vanished after a student was deleted | No interpolation, `wallet_paid_out` shown, invoices scoped by their own `tenant_id` (#2626, #2638) | collections report and invoice read specs | reports service, invoices service |
+| Fee rows (W2) | Wallet auto-apply, the scheduler (cadence change), the late-fee sweep and discount PATCH compared money or periods loosely | Whole-paisa compare, date-range cover, closed-month check, discount bound (#2644-#2648; leftover #2685) | fee generation, scheduler and fines integration specs | `server/src/modules/fees/*` |
 | Import (W3) | Import wrote partly then returned 500; the template's registration_number column was ignored; roll cap and held rolls were checked too late | Validate before write; honour the template columns (#2606, #2607) | student import specs | student import service |
 | Backup and restore (W3) | Departed recorders broke export; three sets of size limits; final retry left no terminal state | Strict `keyOf('users')` registry (#2625); one set of limits (#2624) | backup export and limits specs | backup module |
 | Accessibility and responsive (W3) | Tab panels without focus ring or real target; bare grid cells; unfocusable scroll region | Tab, grid and scroll-region patterns in 21-ui-patterns (#2601, #2628-#2630) | axe suite `e2e/a11y` | ui Tabs, calendar grid, invoice table |
@@ -86,6 +86,24 @@ Learnings log, 2026-10-19 (same format as Wave 1). Details sit in 21 and 09.
 - **A fresh worktree cannot build the OpenAPI document.** `docs:generate` failed with a bare TS2307 until `@biddaloy/shared` was built, then needed `yarn test-env run`. Filed as #2695. -> no rule.
 - **Some write routes stay outside the Idempotency-Key interceptor.** `fees/generate`, `fees/schedules/run-now`, `fees/fines/generate` need a verified DB unique constraint (#2691). Also open: e2e for invoice send (#2692), double-submit leftovers (#2693), pre-send "no SMS gateway" warning (#2694). -> follow-ups, no rule yet.
 - **Wave-close full run not done by this ticket.** `ci-local --integration --e2e`, `e2e:pwa`, axe, responsive and the 10x flake gate were not run (no Docker, shared ports). Same gap as Waves 3 and 4. Rules 24-27 and their pointers in `08-security.md` and `CLAUDE.md` are also still to write. -> run on a free machine.
+
+## One click, one effect
+
+```mermaid
+flowchart LR
+  C[Click Send] --> G["UI guard<br/>2nd click ignored"] --> N["no auto-retry"] --> K["Idempotency-Key<br/>7f3c-..."] --> S["server runs once,<br/>stores reply"] --> P["same key again<br/>= stored reply"]
+```
+
+Example: an admin double-clicks "Send reminder". Both requests carry
+`Idempotency-Key: 7f3c9a10`. The first sends one SMS and stores the reply.
+The second gets that same reply back. One SMS leaves.
+
+## Follow-up issues filed by the epic
+
+Waves 1-2 (PR #2664, #2669): #2657, #2658, #2659, #2660, #2661, #2662,
+#2663, #2665, #2666, #2667, #2671. Wave 3 (PR #2670): #2668, #2675-#2680,
+#2686-#2690. Wave 4 (PR #2674): #2672, #2673, #2681. Wave 5 (PR #2683):
+#2682, #2684, #2685, #2691-#2695.
 
 ## Appendix: Baseline on 901764f4a
 

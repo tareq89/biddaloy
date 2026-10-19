@@ -819,3 +819,12 @@ rather than duplicate this section.
 | `yarn workspace @biddaloy/ui check:contrast` | Verify every documented colour pair against WCAG 2.2 |
 | `yarn workspace @biddaloy/ui check:api-types` | Verify `schema.d.ts` matches a fresh generation |
 | `yarn workspace @biddaloy/ui api:types` | Regenerate `schema.d.ts` from `server/openapi.json` |
+
+## Test flake standards (Epic 2642, D18)
+
+- Web-first assertions (`await expect(locator).toBeVisible()`), no `waitForTimeout`.
+- Own data with a unique suffix; dates via `todayInSchoolTz` or fixed.
+- Double-click tests hold the response, click twice, then count requests (one).
+- A new or changed Playwright spec passes `--repeat-each=10 --workers=4`.
+- Use `serviceWorkers: 'block'` when a spec uses `page.route`, or the service worker bypasses it.
+- Find buttons by i18n key or test id, never copied text.
