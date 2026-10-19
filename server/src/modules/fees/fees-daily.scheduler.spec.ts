@@ -218,10 +218,11 @@ describe('FeesDailyScheduler', () => {
   });
 
   it('[68.3.10] skips when a fee_generations batch already exists for that schedule + period', async () => {
+    // last_run_period behind the period (a restored older row): only the batch row says "billed".
     const row = scheduleRow({
       rule: { kind: 'MONTHLY', day_of_month: 1 },
       period_type: 'MONTH',
-      last_run_period: '2026-04-01',
+      last_run_period: '2026-02-01',
     });
     dataSource.query = vi.fn(async () => [row]);
     manager.query = vi.fn(async (sql: string) => {

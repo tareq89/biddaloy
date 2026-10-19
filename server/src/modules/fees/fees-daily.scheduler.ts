@@ -297,7 +297,9 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
 
   private async runSchedule(schedule: RecurringScheduleRow, today: string): Promise<void> {
     const period = periodFor(today, schedule.rule);
-    if (schedule.last_run_period === period) return; // already ran this period
+    // `<=`, not `===`: a cadence change can leave last_run_period ahead of the current
+    // period to mark it covered (F-145, coveredPeriodAfterCadenceChange).
+    if (schedule.last_run_period && period <= schedule.last_run_period) return;
 
     // [CodeRabbit review, PR #801] Set only if `generate()` actually ran
     // inside this transaction — emitted *after* the transaction below
@@ -332,7 +334,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       if (firstFireInPeriod(fresh.rule, today, fresh.starts_on) === null) return;
 
       const freshPeriod = periodFor(today, fresh.rule);
-      if (fresh.last_run_period === freshPeriod) return;
+      if (fresh.last_run_period && freshPeriod <= fresh.last_run_period) return;
 
       // A stale restore catch-up (past `today`) can reach a period already billed after
       // `last_run_period` moved on; the batch row is the per-period key.
