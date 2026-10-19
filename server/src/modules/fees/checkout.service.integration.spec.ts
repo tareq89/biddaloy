@@ -50,6 +50,7 @@ import {
   ApprovalScope,
   PaymentAllocationType,
   PaymentStatus,
+  AuditAction,
 } from '@biddaloy/shared';
 
 /**
@@ -1338,6 +1339,115 @@ describe('CheckoutService (integration)', () => {
         where: { student_id: student.id },
       });
       expect(invoices).toHaveLength(1);
+    });
+  });
+
+  // [2649] Ported from the deleted `payment-allocation.service.integration.spec.ts`
+  // (`recordWithAllocation`): the cases checkout had no twin for.
+  describe('[2649] ported from recordWithAllocation', () => {
+    const KEY = (n: number) => `00000000-0000-4000-8000-0000000026${String(n).padStart(2, '0')}`;
+    const pay = (billId: string, amount: number, key: string, tenantId = TENANT_ID) =>
+      service.checkout(
+        {
+          idempotency_key: key,
+          lines: [{ student_fee_id: billId, amount }],
+          payment_method: PaymentMethod.CASH,
+        },
+        tenantId,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+
+    it('freezes the school profile onto the payment and its invoice at record time', async () => {
+      const schoolRepo = dataSource.getRepository(School);
+      await schoolRepo.update(TENANT_ID, { name: 'Payment-Time Name' });
+      try {
+        const student = await studentRepo.save(makeStudent());
+        const bill = await studentFeeRepo.save(makeBill(student.id));
+
+        const { payment, invoice_id } = await pay(bill.id, 1000, KEY(1));
+
+        expect(payment.issuer_snapshot?.name).toBe('Payment-Time Name');
+        const invoice = await dataSource.getRepository(Invoice).findOneByOrFail({ id: invoice_id });
+        expect(invoice.issuer_snapshot?.name).toBe('Payment-Time Name');
+      } finally {
+        await schoolRepo.update(TENANT_ID, { name: 'Test School' });
+      }
+    });
+
+    it('serializes with an in-flight profile update: a name committed before the insert is what gets frozen', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id));
+
+      const runner = dataSource.createQueryRunner();
+      await runner.connect();
+      await runner.startTransaction();
+      try {
+        await runner.manager
+          .createQueryBuilder(School, 'school')
+          .setLock('pessimistic_write')
+          .where('school.id = :id', { id: TENANT_ID })
+          .getOne();
+        await runner.manager.update(School, TENANT_ID, { name: 'Committed Before Insert' });
+
+        const pending = pay(bill.id, 1000, KEY(2));
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await runner.commitTransaction();
+
+        const { payment, invoice_id } = await pending;
+        expect(payment.issuer_snapshot?.name).toBe('Committed Before Insert');
+        const invoice = await dataSource.getRepository(Invoice).findOneByOrFail({ id: invoice_id });
+        expect(invoice.issuer_snapshot?.name).toBe('Committed Before Insert');
+      } finally {
+        if (runner.isTransactionActive) await runner.rollbackTransaction();
+        await runner.release();
+        await dataSource.getRepository(School).update(TENANT_ID, { name: 'Test School' });
+      }
+    });
+
+    it('assigns sequential invoice numbers across separate payments', async () => {
+      const s1 = await studentRepo.save(makeStudent());
+      const s2 = await studentRepo.save(makeStudent());
+      const b1 = await studentFeeRepo.save(makeBill(s1.id));
+      const b2 = await studentFeeRepo.save(makeBill(s2.id));
+
+      const r1 = await pay(b1.id, 1000, KEY(3));
+      const r2 = await pay(b2.id, 1000, KEY(4));
+
+      const seq = (n: string) => parseInt(n.split('-')[2], 10);
+      expect(seq(r2.invoice_number)).toBe(seq(r1.invoice_number) + 1);
+    });
+
+    it('writes one tenant-stamped PAYMENT_RECEIVED audit row', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id));
+
+      const { payment, invoice_id } = await pay(bill.id, 400, KEY(5));
+
+      const received = await auditLogRepo.find({
+        where: { entity_id: payment.id, action: AuditAction.PAYMENT_RECEIVED },
+      });
+      expect(received).toHaveLength(1);
+      expect(received[0].performed_by_user_id).toBe(ACTOR_USER_ID);
+      expect(received[0].entity_type).toBe('Payment');
+      expect(received[0].tenant_id).toBe(TENANT_ID);
+      // Checkout writes no INVOICE_GENERATED row (only the deleted recordWithAllocation did).
+      expect(invoice_id).toBeTruthy();
+    });
+
+    it('allows the same idempotency key in two different tenants (two payments)', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+      const other = makeStudent();
+      other.tenant_id = OTHER_TENANT_ID;
+      const otherStudent = await studentRepo.save(other);
+      const otherBill = await studentFeeRepo.save(makeBill(otherStudent.id, { total_amount: 500 }));
+
+      const first = await pay(bill.id, 500, KEY(6));
+      const second = await pay(otherBill.id, 500, KEY(6), OTHER_TENANT_ID);
+
+      expect(second.payment.id).not.toBe(first.payment.id);
+      expect(second.payment.tenant_id).toBe(OTHER_TENANT_ID);
     });
   });
 });

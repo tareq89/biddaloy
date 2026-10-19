@@ -34,12 +34,11 @@ import { InvoiceShareToken } from '../../../modules/invoices/entities/invoice-sh
 import { StudentWallet } from '../../../modules/fees/entities/student-wallet.entity';
 import { WalletTransaction } from '../../../modules/fees/entities/wallet-transaction.entity';
 import { FeeGenerationService } from '../../../modules/fees/fee-generation.service';
-import { PaymentAllocationService } from '../../../modules/fees/payment-allocation.service';
+import { CheckoutService } from '../../../modules/fees/checkout.service';
 import { WalletService } from '../../../modules/fees/wallet.service';
 import { FineSweepService } from '../../../modules/fees/fines/fine-sweep.service';
 import { FinesService } from '../../../modules/fees/fines/fines.service';
 import { LateFeeService } from '../../../modules/fees/late-fee.service';
-import { InvoicesService } from '../../../modules/invoices/invoices.service';
 import { InvoiceShareService } from '../../../modules/invoices/invoice-share.service';
 import { MONTH_NAMES } from '../../../modules/invoices/invoice-period.util';
 import { APPROVAL_REDIS } from '../../../modules/auth/guards/approval.guard';
@@ -620,8 +619,7 @@ export const slice: DemoSlice = {
     }
 
     // --- last month and this month: real payments through the real services ------------------
-    const pay = ctx.app.get(PaymentAllocationService);
-    const invoices = ctx.app.get(InvoicesService);
+    const checkout = ctx.app.get(CheckoutService);
     const live = await q<BillRow & { status: string }>(
       `SELECT sf.id, sf.student_id, sf.period_start::text AS period_start,
               sf.total_amount::float AS total, sf.discount_amount::float AS discount,
@@ -634,61 +632,43 @@ export const slice: DemoSlice = {
     const open = new Map<string, typeof live>();
     for (const b of live)
       (open.get(b.student_id) ?? open.set(b.student_id, []).get(b.student_id)!).push(b);
-    // The service types a payment by the real clock's month (`new Date()` in recordWithAllocation), so
-    // this reads the same clock on purpose: a deliberate exception to "no Date.now in a slice", since the
-    // allocation types must match the service's or it refuses the payment. parseArgs already refuses an
-    // --anchor in a later month than this clock.
-    const today = new Date();
-    const clock = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
-    const typeOf = (m: string) =>
-      m < clock ? PaymentAllocationType.DUE : PaymentAllocationType.CURRENT;
+    // Checkout dates a payment by the real clock, so parseArgs refuses an --anchor in a later month.
     for (const [studentId, list] of [...open].sort(byReg)) {
       const older = list.some((b) => b.period_start.slice(0, 7) < prevMonth);
       const prev = list.filter((b) => b.period_start.slice(0, 7) === prevMonth);
       const now = list.filter((b) => b.period_start.slice(0, 7) === anchorMonth);
       // FIFO: anyone with an older bill still open (or an unpaid last month) pays nothing now.
       if (older || (!prev.length && !now.length)) continue;
-      const lines: { id: string; amount: number; month: string }[] = [];
+      const lines: { id: string; amount: number }[] = [];
       if (prev.length) {
         if (rnd() >= PREV_PAID) continue;
-        for (const b of prev)
-          lines.push({ id: b.id, amount: round2(b.total - b.discount), month: prevMonth });
+        for (const b of prev) lines.push({ id: b.id, amount: round2(b.total - b.discount) });
       }
       const r = rnd();
       if (now.length && r < NOW_FULL) {
-        for (const b of now)
-          lines.push({ id: b.id, amount: round2(b.total - b.discount), month: anchorMonth });
+        for (const b of now) lines.push({ id: b.id, amount: round2(b.total - b.discount) });
       } else if (now.length === 1 && r < NOW_FULL + NOW_PARTIAL) {
         const due = round2(now[0].total - now[0].discount);
         lines.push({
           id: now[0].id,
           amount: Math.round((due * (0.4 + rnd() * 0.3)) / 10) * 10,
-          month: anchorMonth,
         });
       }
       if (!lines.length) continue;
       const pm = method();
-      const result = await pay.recordWithAllocation(
+      await checkout.checkout(
         {
-          student_id: studentId,
-          total_amount: round2(lines.reduce((n, l) => n + l.amount, 0)),
+          idempotency_key: ctx.rng.string.uuid(),
+          lines: lines.map((l) => ({ student_fee_id: l.id, amount: l.amount })),
           payment_method: pm,
-          allocations: lines.map((l) => ({
-            student_fee_id: l.id,
-            allocated_amount: l.amount,
-            allocation_type: typeOf(l.month),
-          })),
           transaction_reference: pm === PaymentMethod.CASH ? undefined : reference(),
         },
         list[0].tenant_id,
         adminId,
+        { headers: {} },
       );
-      rows += 2 + lines.length;
-      // A part payment gets no invoice from the service; staff issue one by hand, so do the same.
-      if (!result.invoice) {
-        await invoices.createFromPayment(result.id, list[0].tenant_id);
-        rows += 1;
-      }
+      // The payment, its allocations and the invoice checkout always issues.
+      rows += 3 + lines.length;
     }
 
     // --- fines (last month's absences and lateness), late fees, three waivers ------------------

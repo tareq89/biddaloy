@@ -1,4 +1,5 @@
 import type { INestApplicationContext } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { resolve } from 'path';
 import { config } from 'dotenv';
 import { Between, DataSource, In, type Repository } from 'typeorm';
@@ -116,13 +117,12 @@ import { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.e
 import { StudentFee } from '../modules/fees/entities/student-fee.entity';
 import { FinesService } from '../modules/fees/fines/fines.service';
 import { FineSweepService } from '../modules/fees/fines/fine-sweep.service';
-import { PaymentAllocationService } from '../modules/fees/payment-allocation.service';
+import { CheckoutService } from '../modules/fees/checkout.service';
 import {
   AttendanceSessionState,
   AttendanceStatus,
   DuplicateStrategy,
   FeeStatus,
-  PaymentAllocationType,
   PaymentMethod,
 } from '@biddaloy/shared';
 
@@ -521,7 +521,7 @@ async function ensureAdmissionSeed(dataSource: DataSource, school: School) {
  * attendance-fine sweep for last month through the real `FineSweepService`
  * (seeding a handful of ABSENT marks first if none exist), then a waive on
  * one bill and a partial payment on another through the real
- * `PaymentAllocationService` — so `PENDING`/`PARTIALLY_PAID`/`PAID`/
+ * `CheckoutService` — so `PENDING`/`PARTIALLY_PAID`/`PAID`/
  * `WAIVED` all show up on the fines list. Reuses the real services rather
  * than hand-rolling bill math, same as every other `ensure*` helper reuses
  * whatever service already owns that logic. Idempotent — everything here
@@ -575,7 +575,7 @@ async function ensureFineActivitySeed(
 
   const finesService = app.get(FinesService);
   const fineSweepService = app.get(FineSweepService);
-  const paymentAllocationService = app.get(PaymentAllocationService);
+  const checkoutService = app.get(CheckoutService);
   // A fixed anchor inside `DEMO_ACADEMIC_YEAR` (2026-01-01..2026-12-31),
   // not the real "today" — `FinesService.logFine`/`FineSweepService.generate`
   // both reject an incident/target month outside the academic year, so
@@ -592,10 +592,9 @@ async function ensureFineActivitySeed(
 
   // --- 1. Three manual fines, logged through the real FinesService, each
   // in a different past month — one bill each, no two ever fall in the
-  // same month (see step 3: `PaymentAllocationService` enforces FIFO by
-  // (year, month), and two same-month bills sort in an unspecified order
-  // against each other, making "settle exactly this one, not that one"
-  // undependable — a distinct month per bill sidesteps that entirely).
+  // same month (see step 3: `CheckoutService` pays exactly the bill each
+  // line names; a distinct month per bill keeps the oldest-first order below
+  // dependable).
   const monthsAgo = (n: number): string => {
     const d = new Date(`${today}T00:00:00.000Z`);
     d.setUTCMonth(d.getUTCMonth() - n, 5); // the 5th, safe on every month length
@@ -715,11 +714,10 @@ async function ensureFineActivitySeed(
 
   // --- 3. Waive the oldest bill fully, pay the next one fully, then the
   // next one partially, leaving the last untouched — every `FeeStatus`
-  // shows up. `PaymentAllocationService.recordWithAllocation` enforces
-  // FIFO across a student's outstanding fees (oldest period first), so
-  // this settles them oldest-first too, rather than by fee-structure name
+  // shows up. `CheckoutService.checkout` pays the bill each
+  // line names, so this picks them oldest-first (not by fee-structure name)
   // — the August attendance-fine sweep bill is older than the three manual
-  // fines above and would otherwise block payment against them.
+  // fines above.
   // Waiving bypasses the HTTP approval-token gate (`FinesService.waiveFine`
   // needs a real `X-Approval-Token`, a live OTP round trip this offline
   // script has no use for) and applies the same math `waiveFine` does
@@ -748,14 +746,6 @@ async function ensureFineActivitySeed(
     return;
   }
   const [oldest, second, third] = outstandingBills;
-  // Every bill here is derived from the `today` anchor above (April 2026)
-  // or earlier, so by the time this ever runs (today's real date is well
-  // past that) they're always a past period — `DUE`, never `CURRENT`.
-  // `PaymentAllocationService.classifyPeriod` compares against the real
-  // server clock (local time), so computing this dynamically would just
-  // reintroduce a UTC-vs-local-timezone race for no benefit.
-  const allocationTypeFor = (): PaymentAllocationType => PaymentAllocationType.DUE;
-
   const oldestFullAmount = Number(oldest.total_amount);
   await studentFeeRepo.update(
     { id: oldest.id },
@@ -767,40 +757,28 @@ async function ensureFineActivitySeed(
   );
   console.log(`Waived fine bill ${oldest.id}.`);
 
-  await paymentAllocationService.recordWithAllocation(
+  await checkoutService.checkout(
     {
-      student_id: studentOne.id,
-      total_amount: Number(second.total_amount),
+      idempotency_key: randomUUID(),
+      lines: [{ student_fee_id: second.id, amount: Number(second.total_amount) }],
       payment_method: PaymentMethod.CASH,
-      allocations: [
-        {
-          student_fee_id: second.id,
-          allocated_amount: Number(second.total_amount),
-          allocation_type: allocationTypeFor(),
-        },
-      ],
     },
     school.id,
     adminUser.id,
+    { headers: {} },
   );
   console.log(`Fully paid fine bill ${second.id}.`);
 
   const partialAmount = Math.round((Number(third.total_amount) / 2) * 100) / 100;
-  await paymentAllocationService.recordWithAllocation(
+  await checkoutService.checkout(
     {
-      student_id: studentOne.id,
-      total_amount: partialAmount,
+      idempotency_key: randomUUID(),
+      lines: [{ student_fee_id: third.id, amount: partialAmount }],
       payment_method: PaymentMethod.CASH,
-      allocations: [
-        {
-          student_fee_id: third.id,
-          allocated_amount: partialAmount,
-          allocation_type: allocationTypeFor(),
-        },
-      ],
     },
     school.id,
     adminUser.id,
+    { headers: {} },
   );
   console.log(`Recorded a partial payment of ৳${partialAmount} on fine bill ${third.id}.`);
 }
