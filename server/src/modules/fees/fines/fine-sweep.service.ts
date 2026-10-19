@@ -376,6 +376,8 @@ export class FineSweepService {
     notify?: boolean,
     request: RequestLike = { headers: {} },
     today: string = localToday(),
+    // [F-148] true only from runDue (the unattended sweep); see generate()'s option.
+    skipRemovedFineBills = false,
   ): Promise<FineSweepGenerateResultDto> {
     assertMonthClosed(month, today);
     const settings = await this.loadSettings(tenantId);
@@ -451,6 +453,7 @@ export class FineSweepService {
         {
           source: FeeGenerationSource.FINE_RULE,
           billOverrides,
+          skipRemovedFineBills,
         },
       );
       result.fee_generation_ids.push(generated.fee_generation_id);
@@ -492,6 +495,7 @@ export class FineSweepService {
         true,
         { headers: {} },
         today,
+        true,
       );
     } catch (err) {
       // No academic year covering last month shouldn't break the daily

@@ -64,13 +64,15 @@ export class FeeGenerationBatchService {
 
     const newPeriodStart = dto.period_start ? new Date(dto.period_start) : batch.period_start;
     const newPeriodType = dto.period_type ?? batch.period_type;
-    // [F-142] Same period rules as generate.
+    // [F-142] Same period rules as generate. `period_start` is a plain YYYY-MM-DD
+    // (@IsRealDate), so the day checked is the day stored.
     if (dto.period_start || dto.period_type) {
       const academicYear = await this.studentFeeRepo.manager
         .getRepository(AcademicYear)
-        .findOneOrFail({ where: { id: batch.academic_year_id } });
+        .findOne({ where: { id: batch.academic_year_id, tenant_id: tenantId } });
+      if (!academicYear) throw new NotFoundException('Academic year not found');
       assertPeriodWithinAcademicYear(
-        new Date(newPeriodStart).toISOString().slice(0, 10),
+        dto.period_start ?? new Date(batch.period_start).toISOString().slice(0, 10),
         newPeriodType,
         academicYear,
       );
