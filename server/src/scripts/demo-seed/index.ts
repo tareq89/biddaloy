@@ -14,7 +14,7 @@ export interface DemoSeedArgs {
   anchor: string;
 }
 
-/** The real clock's `YYYY-MM`, read the way `PaymentAllocationService` reads it (`new Date()`, local). */
+/** The real clock's `YYYY-MM`, read the way `CheckoutService` dates a payment (`new Date()`, local). */
 const realClockMonth = (): string => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
