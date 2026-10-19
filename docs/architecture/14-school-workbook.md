@@ -318,6 +318,11 @@ workbook in memory, so memory use is several times the unzipped size.
 
 Validation of that file reported 216 errors, all in `guardians` and `students` (blank `relationship`, guardians that share a phone number, open dues). They come from the load seed's data, not from size.
 
+### Learnings (Epic #2642, Wave 3, 2026-10-19)
+
+- **Final-attempt export bug (#2625).** An export that failed on its last retry stayed in a running state, and recorders who had left the school broke the user lookup. Cost: a stuck job. Fix: the strict `keyOf('users')` registry resolves departed recorders and a failed export is marked FAILED. Rule candidate: a retrying job sets its terminal state on the final attempt -> no rule.
+- **Two sets of size limits (#2624).** Export, validate and restore each had their own caps. Fix: one set of limits, a 64 MB validate upload, and a warning when a restore is near its limit; the 10k-row run was measured. Rule candidate: a new limit reads the shared constant -> no rule.
+
 ## Retention, scheduling, and env vars
 
 From `server/src/modules/workbook/schedule/retention.service.ts`, run once

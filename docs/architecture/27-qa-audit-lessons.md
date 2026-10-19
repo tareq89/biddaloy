@@ -23,11 +23,12 @@ filled in by that wave's close ticket.
 | Step-up access (W1) | TBD | TBD | TBD | TBD |
 | Input length and number range (W2) | TBD | TBD | TBD | TBD |
 | Referential deletes (W2) | TBD | TBD | TBD | TBD |
+| Delete-guard registry (W3) | A parent delete left child rows with no check; 45 gaps remain | Every parent-child pair is guarded or listed in `KNOWN_GAPS` with an issue (#2655; issues #2675-#2680) | `server/test/delete-guard-registry.ts` | each parent remove() |
 | Report reads (W2) | TBD | TBD | TBD | TBD |
 | Fee rows (W2) | TBD | TBD | TBD | TBD |
-| Import (W3) | TBD | TBD | TBD | TBD |
-| Backup and restore (W3) | TBD | TBD | TBD | TBD |
-| Accessibility and responsive (W3) | TBD | TBD | TBD | TBD |
+| Import (W3) | Import wrote partly then returned 500; the template's registration_number column was ignored; roll cap and held rolls were checked too late | Validate before write; honour the template columns (#2606, #2607) | student import specs | student import service |
+| Backup and restore (W3) | Departed recorders broke export; three sets of size limits; final retry left no terminal state | Strict `keyOf('users')` registry (#2625); one set of limits (#2624) | backup export and limits specs | backup module |
+| Accessibility and responsive (W3) | Tab panels without focus ring or real target; bare grid cells; unfocusable scroll region | Tab, grid and scroll-region patterns in 21-ui-patterns (#2601, #2628-#2630) | axe suite `e2e/a11y` | ui Tabs, calendar grid, invoice table |
 | Mutation retries and double submit (W4) | TBD | TBD | TBD | TBD |
 | Truthful lists and phone input (W4) | TBD | TBD | TBD | TBD |
 | Student form and send (W5) | TBD | TBD | TBD | TBD |
@@ -58,6 +59,12 @@ Learnings log, 2026-10-19 (same format as Wave 1).
 - **Wave-2 API changes were small in the schema.** `wallet_paid_out` / `paid_out` and `maxLength` hints produced a 6-line `schema.d.ts` diff; one regeneration at wave close was enough. -> no rule.
 
 ### Wave 3
+
+Learnings log, 2026-10-19 (same format as Wave 1). Details sit in 04, 14 and 21.
+
+- **45 delete-guard gaps found.** The registry (#2655) listed 45 child-parent pairs where remove() checks nothing. Cost: filed as six issues, one per parent (#2675 AcademicYear, #2676 Class, #2677 ClassSection, #2678 Subject, #2679 Room, #2680 FeeStructure). Rule candidate: a new FK to a parent joins the registry or fails the test -> already enforced.
+- **Shared i18n keys land in the close ticket.** `noMatches`, `recordNotFound` and `outcomeUnknown` were added to `common.json` once, so W4 and W5 tickets do not collide. -> no rule.
+- **Wave-close full run not done by this ticket.** The ci-local, e2e, axe and flake-report runs of #2652 step 4 were not run here (no Docker, shared ports). -> run on a free machine.
 
 ### Wave 4
 
