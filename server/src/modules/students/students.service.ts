@@ -27,7 +27,8 @@ import {
   UpdateOwnGuardianDto,
   QueryGuardianDto,
 } from './dto/students.dto';
-import { CommunicationMedium, AuditAction, EnrollmentStatus } from '@biddaloy/shared';
+import { CommunicationMedium, AuditAction, EnrollmentStatus, UserRole } from '@biddaloy/shared';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { nextRollNumber } from './roll-number.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
@@ -1266,6 +1267,21 @@ export class GuardianService {
         withStudents.students.map((s) => s.id),
       );
       await repo.softDelete({ id, tenant_id: tenantId });
+
+      // [2665] A guardian's portal login ends with the guardian: drop the PARENT
+      // membership in this school and cut the user's sessions (Rule 8). Other
+      // roles and other schools stay. App clock, same as SessionCutoffService.
+      if (withStudents.user_id) {
+        await manager.softDelete(UserTenant, {
+          user_id: withStudents.user_id,
+          tenant_id: tenantId,
+          role: UserRole.PARENT,
+        });
+        await manager.query(`UPDATE "users" SET "tokens_valid_after" = $2 WHERE "id" = $1`, [
+          withStudents.user_id,
+          new Date(),
+        ]);
+      }
 
       await this.auditService.record(
         {

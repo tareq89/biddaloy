@@ -2328,6 +2328,27 @@ describe('GuardianService (integration)', () => {
         }),
       );
 
+    it('[2665] removing a guardian with a login drops the PARENT membership and cuts the session', async () => {
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'PARENT')
+         ON CONFLICT DO NOTHING`,
+        [OWNER_USER_ID, TENANT_ID],
+      );
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+
+      await service.remove(guardian.id, TENANT_ID);
+
+      const live = await dataSource.query(
+        `SELECT 1 FROM user_tenants WHERE user_id = $1 AND tenant_id = $2 AND role = 'PARENT' AND deleted_at IS NULL`,
+        [OWNER_USER_ID, TENANT_ID],
+      );
+      expect(live).toHaveLength(0);
+      const [u] = await dataSource.query(`SELECT tokens_valid_after FROM users WHERE id = $1`, [
+        OWNER_USER_ID,
+      ]);
+      expect(u.tokens_valid_after).not.toBeNull();
+    });
+
     it('findOwn returns the row linked to that user in that tenant', async () => {
       const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
 
