@@ -70,6 +70,7 @@ export function useCreateShift() {
       const res = await apiClient.post<Shift>('/routines/shifts', input);
       return res.data;
     },
+    meta: { handlesUnknownOutcome: true },
     // [21.8.1] No retry on create — if the server already committed the
     // POST before the response reached the client (network blip, timeout),
     // a retry resends a non-idempotent create and risks a duplicate.
@@ -86,6 +87,7 @@ export function useUpdateShift(id: string) {
       const res = await apiClient.patch<Shift>(`/routines/shifts/${id}`, input);
       return res.data;
     },
+    meta: { handlesUnknownOutcome: true },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: shiftKeys.lists() });
     },

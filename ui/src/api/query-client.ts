@@ -31,6 +31,9 @@ import { isNoResponseNetworkError } from './offline-cache';
  * A mutation whose own `onError` explains its 403s (the attendance month
  * save's "only someone who can correct attendance" dialog) opts out with
  * `meta: { handlesForbidden: true }`, so the user does not get both.
+ * [2698] A mutation whose form explains its own 5xx / lost reply, or that writes nothing
+ * (a connection test), opts out of the "could not confirm" toast with
+ * `meta: { handlesUnknownOutcome: true }`.
  */
 function handleMutationError(
   error: unknown,
@@ -71,6 +74,7 @@ function handleMutationError(
       : axios.isAxiosError(error)
         ? (error.response?.status ?? 0)
         : 0;
+  if (mutation.meta?.handlesUnknownOutcome === true) return;
   if (status >= 500 || isNoResponseNetworkError(error)) {
     toast.error(i18n.t('outcomeUnknown', { ns: COMMON_NAMESPACE }));
   }
