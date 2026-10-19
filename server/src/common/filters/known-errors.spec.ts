@@ -24,6 +24,12 @@ describe('mapKnownError — body-parser errors', () => {
     expect(mapped?.message).not.toMatch(/bogus/i);
   });
 
+  it('[2634] maps parameters.too.many (urlencoded body with too many fields) to 413', () => {
+    const mapped = mapKnownError(httpError('too many parameters', 413, 'parameters.too.many'));
+    expect(mapped?.getStatus()).toBe(413);
+    expect(mapped?.message).toBe('Request body too large');
+  });
+
   it('maps encoding.unsupported to 415', () => {
     expect(
       mapKnownError(

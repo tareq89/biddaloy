@@ -79,6 +79,7 @@ function mapBodyParserError(exception: unknown): HttpException | null {
   if (!(exception instanceof Error) || exception instanceof HttpException) return null;
   const { status, type, code } = exception as Error & {
     status?: unknown;
+  'parameters.too.many',
     type?: unknown;
     code?: unknown;
   };
@@ -86,7 +87,9 @@ function mapBodyParserError(exception: unknown): HttpException | null {
   // A bad gzip/deflate body: body-parser rethrows the zlib error (code Z_*) with no `type`.
   const isZlib = typeof code === 'string' && code.startsWith('Z_');
   if (!isZlib && !(typeof type === 'string' && BODY_PARSER_TYPES.has(type))) return null;
-  if (type === 'entity.too.large') return new PayloadTooLargeException('Request body too large');
+  if (type === 'entity.too.large' || type === 'parameters.too.many') {
+    return new PayloadTooLargeException('Request body too large');
+  }
   if (type === 'charset.unsupported' || type === 'encoding.unsupported') {
     return new HttpException('Unsupported content type or encoding', 415);
   }
