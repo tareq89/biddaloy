@@ -477,8 +477,16 @@ describe('StudentBulkUploadService (integration)', () => {
 
     expect(result.success_count).toBe(0);
     expect(result.errors).toEqual([
-      expect.objectContaining({ row: 2, field: 'roll', reason: 'roll must not be greater than 99999' }),
-      expect.objectContaining({ row: 3, field: 'roll', reason: 'roll must not be greater than 99999' }),
+      expect.objectContaining({
+        row: 2,
+        field: 'roll',
+        reason: 'roll must not be greater than 99999',
+      }),
+      expect.objectContaining({
+        row: 3,
+        field: 'roll',
+        reason: 'roll must not be greater than 99999',
+      }),
     ]);
   });
 
@@ -740,6 +748,50 @@ describe('StudentBulkUploadService (integration)', () => {
         expect(e.column).toBe('registration_number');
         expect(e.message).not.toContain('QA-IMP');
       }
+    });
+
+    it('refuses a number in the auto series REG-<year>-<digits>, so auto numbering keeps working', async () => {
+      // REG-2026-999999999999999 would push the next auto number to 16 digits, past what
+      // nextTenantSerial reads, and every later auto-numbered create would collide.
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, {
+            student_name: 'Reg Wide',
+            registration_number: 'REG-2026-999999999999999',
+            guardian1_phone: '+8801700000341',
+          }),
+          rowValues(headers, {
+            student_name: 'Reg Auto Shape',
+            registration_number: 'REG-2026-0005',
+            guardian1_phone: '+8801700000342',
+          }),
+          rowValues(headers, {
+            student_name: 'Reg Own Shape',
+            registration_number: 'REG-OLD-17',
+            guardian1_phone: '+8801700000343',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(2);
+      expect(v.rows_to_create).toBe(1);
+      for (const e of v.errors.filter((x) => x.severity === 'error')) {
+        expect(e.column).toBe('registration_number');
+        expect(e.message).not.toContain('2026');
+      }
+
+      // Auto numbering after the refused file: two creates, two different numbers.
+      const result = await runUpload(
+        await buildXlsxFile([
+          rowValues(headers, { student_name: 'Auto A', guardian1_phone: '+8801700000344' }),
+          rowValues(headers, { student_name: 'Auto B', guardian1_phone: '+8801700000345' }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      const created = await studentRepo.find({ where: { id: In(result.created_student_ids) } });
+      expect(new Set(created.map((s) => s.registration_number)).size).toBe(2);
     });
 
     it('rejects a 51 character number', async () => {
