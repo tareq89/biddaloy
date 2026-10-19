@@ -34,10 +34,11 @@
  */
 import type { RowData } from '@tanstack/react-table';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { DataTable, type DataTableProps } from '../components/data-table';
 
-import { FilterBar, type FilterBarProps } from './filter-bar';
+import { FilterBar, keysOf, type FilterBarProps } from './filter-bar';
 import { PageContainer } from './page-container';
 import { PageHeader, type PageAction } from './page-header';
 
@@ -85,6 +86,29 @@ export function ListShell<TData extends RowData>({
     console.warn('[ListShell] `primaryAction` (deprecated) wins; `actions` are not rendered.');
   }
 
+  const { t } = useTranslation('common');
+
+  // A filter on a real control with zero rows is "nothing matched", not "no
+  // records yet". Only keys a field renders count: URL flags such as `view`
+  // share the `values` bag but are not filters. A page's own
+  // `kind: 'no-results'` keeps its words.
+  const allKeys = (filters?.fields ?? []).flatMap(keysOf);
+  const filtered = allKeys.some((k) => (filters?.values[k] ?? '') !== '');
+  const emptyState =
+    filtered && dataTableProps.emptyState?.kind !== 'no-results'
+      ? {
+          kind: 'no-results' as const,
+          title: t('noMatches.title', { defaultValue: 'No matches' }),
+          explanation: t('noMatches.explanation', {
+            defaultValue: 'Nothing fits the current search or filters.',
+          }),
+          action: {
+            label: t('noMatches.clear', { defaultValue: 'Clear search and filters' }),
+            onClick: () => filters?.onChange(Object.fromEntries(allKeys.map((k) => [k, null]))),
+          },
+        }
+      : dataTableProps.emptyState;
+
   // The phone filter sheet's "Show N results"; a page's own `resultCount` wins,
   // and while loading it stays unknown so the sheet never shows a stale number.
   const resultCount =
@@ -110,7 +134,7 @@ export function ListShell<TData extends RowData>({
         <FilterBar {...filters} {...(resultCount !== undefined ? { resultCount } : {})} />
       )}
       {filterBar && <div className="flex flex-wrap items-center gap-2">{filterBar}</div>}
-      <DataTable {...dataTableProps} />
+      <DataTable {...dataTableProps} {...(emptyState ? { emptyState } : {})} />
     </PageContainer>
   );
 }

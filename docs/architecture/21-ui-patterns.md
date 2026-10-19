@@ -130,6 +130,8 @@ Signed-out pages (login, reset, public receipt, public admission form) use
   `row-actions-column` lint rule). Pass `data-focus-anchor` on the "view" action
   so Back returns focus to the row.
 - **Empty table** → `EmptyState` and no pager. **Failed load** → `ErrorState` with Retry.
+  ListShell switches to the no-matches state by itself when a filter is active; a page only
+  sets `kind: 'no-results'` to use its own words.
 - **Numbers are right-aligned.** **Status is always a `StatusBadge`** with a tone
   and an icon (success / warning / danger / info / neutral) — never plain text.
 - **Phone:** `DataTable` card mode. A short unpaginated table becomes compact two-line rows.
