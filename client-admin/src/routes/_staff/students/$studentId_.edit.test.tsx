@@ -68,7 +68,7 @@ describe('/students/$studentId/edit', () => {
     expect(patchBody).toMatchObject({ full_name: 'Rahim Uddin Khan' });
   });
 
-  it('keeps an old free-text gender selected so saving does not lose it', async () => {
+  it('keeps Save disabled until something changes, and sends only the changed key', async () => {
     const student = studentFactory({
       id: 'student-1',
       full_name: 'Rahim Uddin',
@@ -91,11 +91,13 @@ describe('/students/$studentId/edit', () => {
       locale: 'en',
     });
 
-    const gender = await screen.findByRole('combobox', { name: 'Gender' });
-    expect(gender.textContent).toContain('Male (legacy)');
+    const fullName = await screen.findByDisplayValue('Rahim Uddin');
+    const save = screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
     const user = userEvent.setup();
+    await user.type(fullName, 'x');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
-    await waitFor(() => expect(patchBody).toMatchObject({ gender: 'Male (legacy)' }));
+    await waitFor(() => expect(patchBody).toEqual({ full_name: 'Rahim Uddinx' }));
   });
 
   it('renders the error state inside the full-page frame', async () => {
