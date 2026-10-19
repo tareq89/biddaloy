@@ -123,6 +123,10 @@ test.describe('staff bottom nav', () => {
       await page.goto(path);
       await expect(bar).toBeVisible();
       expect(await bar.evaluate((el) => getComputedStyle(el).position)).toBe('fixed');
+      // Widgets and list rows keep arriving after first paint; measure the settled page, or a
+      // late row can extend below the bar after the scroll-to-bottom was taken.
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0);
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       const viewportHeight = page.viewportSize()!.height;
       const barBox = (await bar.boundingBox())!;
