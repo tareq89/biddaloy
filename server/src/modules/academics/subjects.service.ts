@@ -10,6 +10,8 @@ import { StudentSubjectChoice } from '../students/entities/student-subject-choic
 import { Subject } from './entities/subject.entity';
 import { ExamComponent } from '../exams/entities/exam-component.entity';
 import { Mark } from '../exams/entities/mark.entity';
+import { assertNoLiveDependents } from '../../common/utils/live-dependents';
+import { TeacherClassSection } from './entities/teacher-class-section.entity';
 import { ClassSubject } from './entities/class-subject.entity';
 import { Class } from './entities/class.entity';
 import { AcademicYear } from './entities/academic-year.entity';
@@ -154,6 +156,19 @@ export class SubjectService {
           details: { code: 'SUBJECT_IN_USE', exam_components_count, marks_count },
         });
       }
+      // [2678] Attendance, schedules, homework etc. that point at the subject block the delete.
+      // Teacher assignments are config: removed with it.
+      await assertNoLiveDependents(manager, Subject, id, {
+        code: 'SUBJECT_IN_USE',
+        message: 'This subject is still used by other records. Remove or reassign them first.',
+        exclude: [
+          'ExamComponent.subject',
+          'Mark.subject',
+          'ClassSubject.subject',
+          'TeacherClassSection.subject',
+        ],
+      });
+      await manager.delete(TeacherClassSection, { subject_id: id, tenant_id: tenantId });
       const offerings = await manager.find(ClassSubject, {
         where: { subject_id: id, tenant_id: tenantId },
         select: { id: true },

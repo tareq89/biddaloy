@@ -1,3 +1,4 @@
+import { assertNoLiveDependents } from '../../common/utils/live-dependents';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
@@ -352,6 +353,13 @@ export class FeeStructureService {
     // them, rather than blocking removal or dragging billed data down with
     // it.
     await this.findOne(id, tenantId);
+    // [2680] Fine rules and recurring schedules that use the price tag block the delete;
+    // billed history (StudentFee) is allowed to point at it.
+    await assertNoLiveDependents(this.repo.manager, FeeStructure, id, {
+      code: 'FEE_STRUCTURE_IN_USE',
+      message: 'This fee structure is still used by fine rules or schedules. Remove them first.',
+      exclude: ['StudentFee.fee_structure'],
+    });
     await this.repo.softDelete({ id, tenant_id: tenantId });
   }
 }
