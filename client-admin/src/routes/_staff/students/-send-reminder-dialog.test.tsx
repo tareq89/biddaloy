@@ -117,7 +117,29 @@ describe('SendReminderDialog 500-student cap', () => {
     expect(alert.textContent).not.toContain('try again');
   });
 
-  it('a server 500 keeps the generic error text', async () => {
+  it('a 400 for a bad id is not the cap: generic error, no limit text', async () => {
+    mockPost(() =>
+      HttpResponse.json(
+        {
+          statusCode: 400,
+          message: ['each value in student_ids must be a UUID'],
+          requestId: 'r3',
+          path: '/x',
+          timestamp: 't',
+        },
+        { status: 400 },
+      ),
+    );
+    mount(ids(3));
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole('textbox', { name: 'Message' }), 'x');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Nothing was sent');
+    expect(alert.textContent).not.toContain('500');
+  });
+
+  it('a server 500 says the outcome is unknown, never "Nothing was sent"', async () => {
     mockPost(() =>
       HttpResponse.json(
         { statusCode: 500, message: 'boom', requestId: 'r2', path: '/x', timestamp: 't' },
@@ -128,6 +150,8 @@ describe('SendReminderDialog 500-student cap', () => {
     const user = userEvent.setup();
     await user.type(await screen.findByRole('textbox', { name: 'Message' }), 'x');
     await user.click(screen.getByRole('button', { name: 'Send' }));
-    expect((await screen.findByRole('alert')).textContent).toContain('try again');
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain("couldn't confirm");
+    expect(alert.textContent).not.toContain('Nothing was sent');
   });
 });

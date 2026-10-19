@@ -118,6 +118,10 @@ export function ExamFormDialog({
     { enabled: !!academicYearId },
   );
 
+  // [2622] A sync double-click can fire before `isPending` re-renders; this closes the gap.
+  // Reopening calls `mutation.reset()`, which drops the pending `onSettled`, so it clears this too.
+  const inFlight = React.useRef(false);
+
   React.useEffect(() => {
     if (!open) return;
     const values = initialValues ?? EMPTY_VALUES;
@@ -131,11 +135,9 @@ export function ExamFormDialog({
     setTemplateId(defaultTemplateId ?? NO_TEMPLATE);
     setValidationError(null);
     mutation.reset();
+    inFlight.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
-
-  // [2622] A sync double-click can fire before `isPending` re-renders; this closes the gap.
-  const inFlight = React.useRef(false);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();

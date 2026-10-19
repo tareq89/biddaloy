@@ -298,4 +298,47 @@ describe('fees/fines/-rules/rule-form-dialog', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(posts).toBe(1);
   });
+
+  it('closing mid-save and reopening still lets Save send a request [2622]', async () => {
+    let posts = 0;
+    server.use(
+      ...referenceHandlers(),
+      http.post('/api/v1/fees/fine-rules', async () => {
+        posts += 1;
+        // The first save never answers; reopening resets the mutation, which drops its callbacks.
+        if (posts === 1) await new Promise(() => undefined);
+        return HttpResponse.json({ id: 'r1' }, { status: 201 });
+      }),
+    );
+    const onSaved = vi.fn();
+    const ui = (open: boolean) => (
+      <RuleFormDialog
+        open={open}
+        onOpenChange={vi.fn()}
+        mode="create"
+        academicYearId={YEAR.id}
+        onSaved={onSaved}
+      />
+    );
+    const { rerender } = renderWithProviders(ui(true), {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+      queryClient: createAppQueryClient(),
+    });
+    const user = userEvent.setup();
+    const pickFee = async () => {
+      await user.click(await screen.findByRole('combobox', { name: 'Fine type' }));
+      await user.click(await screen.findByRole('option', { name: 'Fine Fee' }));
+    };
+    await pickFee();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(posts).toBe(1));
+    rerender(ui(false));
+    rerender(ui(true));
+    await pickFee();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(posts).toBe(2);
+  });
 });

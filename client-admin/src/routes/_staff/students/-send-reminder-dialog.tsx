@@ -1,3 +1,4 @@
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Dialog,
@@ -10,10 +11,8 @@ import {
   Textarea,
   toast,
 } from '@biddaloy/ui/components';
-import { ApiError } from '@biddaloy/ui/api';
 import { useSendBulkReminder } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { parseValidationFieldErrors } from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
 import * as React from 'react';
 
@@ -51,10 +50,18 @@ export function SendReminderDialog({
     count: studentIds.length,
     max: MAX_BULK_REMINDER_STUDENTS,
   });
+  const error = sendReminder.error;
+  // Only the `@ArrayMaxSize` failure is the cap; a bad id also names `student_ids`.
   const serverSaidTooMany =
-    sendReminder.error instanceof ApiError &&
-    sendReminder.error.statusCode === 400 &&
-    'student_ids' in parseValidationFieldErrors(sendReminder.error.messages, ['student_ids']);
+    error instanceof ApiError &&
+    error.statusCode === 400 &&
+    error.messages.some((m) => m.startsWith('student_ids must contain no more than'));
+  // [2596] Only a 4xx proves nothing went out. A 5xx or a lost reply may follow a queued batch.
+  const errorText = serverSaidTooMany
+    ? limitText
+    : error instanceof ApiError && error.statusCode < 500
+      ? t('sendReminderDialog.errorMessage')
+      : t('sendReminderDialog.outcomeUnknown');
 
   // A closed-then-reopened dialog (a different selection, say) starts
   // from a blank message rather than the previous attempt's text or
@@ -111,7 +118,7 @@ export function SendReminderDialog({
           />
           {sendReminder.isError && (
             <p role="alert" className="mt-2 text-sm text-destructive">
-              {serverSaidTooMany ? limitText : t('sendReminderDialog.errorMessage')}
+              {errorText}
             </p>
           )}
           <DialogFooter>

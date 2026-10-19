@@ -5,6 +5,7 @@ import {
   QueryCache,
   QueryClient,
 } from '@tanstack/react-query';
+import axios from 'axios';
 
 import { toast } from '../components/toast';
 import { shouldRetryQuery } from '../hooks/retry';
@@ -63,7 +64,14 @@ function handleMutationError(
     return;
   }
   // [2596] A 5xx or a lost reply: the write may have been saved. Say so, since we do not retry.
-  if ((error instanceof ApiError && error.statusCode >= 500) || isNoResponseNetworkError(error)) {
+  // A gateway 502/504 from nginx or Cloudflare has an HTML body, so it stays a raw AxiosError.
+  const status =
+    error instanceof ApiError
+      ? error.statusCode
+      : axios.isAxiosError(error)
+        ? (error.response?.status ?? 0)
+        : 0;
+  if (status >= 500 || isNoResponseNetworkError(error)) {
     toast.error(i18n.t('outcomeUnknown', { ns: COMMON_NAMESPACE }));
   }
 }
@@ -120,8 +128,8 @@ export function createAppQueryClient(): QueryClient {
       },
       mutations: {
         // [2596] Never re-send a write on its own: if the server committed but the reply was
-        // lost (a 502/504, a dropped connection), a retry creates the record again. Only a
-        // request that carries an Idempotency-Key may opt back in with its own `retry`.
+        // lost (a 502/504, a dropped connection), a retry creates the record again.
+        // `mutation-retry.guard.spec.ts` fails on any mutation `retry` other than `false`.
         retry: false,
       },
     },

@@ -204,6 +204,9 @@ export function useStudent(id: string | undefined) {
  * class or section too (one whose filter the new student now matches),
  * so scoping this to a single `studentKeys.list(currentFilters)` would
  * leave those other cached variants stale.
+ *
+ * [2594] The Idempotency-Key is honoured once #2631 lands; until then the
+ * server ignores it, and a resend after a lost reply still duplicates.
  */
 export function useCreateStudent() {
   const queryClient = useQueryClient();

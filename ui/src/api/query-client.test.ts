@@ -332,6 +332,25 @@ describe('createAppQueryClient', () => {
       expect(toastError).toHaveBeenCalledTimes(1);
     });
 
+    it.each([502, 504])(
+      'shows the toast for a gateway %i whose HTML body never became an ApiError',
+      async (status) => {
+        const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '');
+        const client = createAppQueryClient();
+        const gateway = new AxiosError('Bad Gateway', 'ERR_BAD_RESPONSE', undefined, undefined, {
+          status,
+          data: '<html>Bad Gateway</html>',
+        } as never);
+        await expect(
+          client
+            .getMutationCache()
+            .build(client, { mutationFn: () => Promise.reject(gateway) })
+            .execute(undefined),
+        ).rejects.toThrow();
+        expect(toastError).toHaveBeenCalledWith(i18n.t('outcomeUnknown', { ns: 'common' }));
+      },
+    );
+
     it.each([400, 403, 409])('does not show the unknown-outcome toast for a %i', async (status) => {
       const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '');
       const client = createAppQueryClient();
