@@ -1,5 +1,5 @@
-import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
+import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
+import { ErrorState, RecordNotFoundState, RoutePending, Skeleton } from '@biddaloy/ui/components';
 import { studentQueryOptions, useStudent, useUpdateStudent } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
@@ -67,14 +67,18 @@ function EditStudentPage() {
             </div>
           ) : (
             <div className="mx-auto w-full max-w-3xl p-4">
-              <ErrorState
-                message={
-                  studentQuery.error instanceof ApiError && studentQuery.error.statusCode === 403
-                    ? t('detail.forbidden')
-                    : t('detail.loadError')
-                }
-                onRetry={() => void studentQuery.refetch()}
-              />
+              {isNotFoundError(studentQuery.error) ? (
+                <RecordNotFoundState onBack={() => void navigate({ to: '/students' })} />
+              ) : (
+                <ErrorState
+                  message={
+                    studentQuery.error instanceof ApiError && studentQuery.error.statusCode === 403
+                      ? t('detail.forbidden')
+                      : t('detail.loadError')
+                  }
+                  onRetry={() => void studentQuery.refetch()}
+                />
+              )}
             </div>
           )}
         </FullPageShell>

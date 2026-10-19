@@ -1,5 +1,5 @@
 import { InvoiceStatus, Permission } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
+import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
 import {
   Button,
   ConfirmDialog,
@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   ErrorState,
+  RecordNotFoundState,
   Input,
   Label,
   RadioGroup,
@@ -48,7 +49,7 @@ import {
   persistPrintFormat,
   type InvoicePrintFormat,
 } from '@biddaloy/ui/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { Link2, MessageCircle, MessageSquare, Printer } from 'lucide-react';
 import * as React from 'react';
 
@@ -88,6 +89,7 @@ const LINK_CLASS =
 function InvoiceDetailPage() {
   const { invoiceId } = Route.useParams();
   const { t } = useTranslation('fees');
+  const navigate = useNavigate();
   const regionConfig = useRegionConfig();
   const invoiceQuery = useInvoice(invoiceId);
   const canPrint = useHasPermission(Permission.INVOICE_PRINT);
@@ -187,6 +189,14 @@ function InvoiceDetailPage() {
           <Skeleton className="h-40 w-full" />
           <Skeleton className="h-40 w-full" />
         </div>
+      </PageContainer>
+    );
+  }
+
+  if (isNotFoundError(invoiceQuery.error)) {
+    return (
+      <PageContainer size="wide">
+        <RecordNotFoundState onBack={() => void navigate({ to: '/invoices' })} />
       </PageContainer>
     );
   }

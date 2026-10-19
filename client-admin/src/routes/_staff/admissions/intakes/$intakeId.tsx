@@ -2,10 +2,12 @@
  * Intake edit page — [27.9]. Same field set as create
  * (`IntakeForm`), pre-filled from the loaded intake.
  */
+import { isNotFoundError } from '@biddaloy/ui/api';
 import {
   Button,
   Card,
   ErrorState,
+  RecordNotFoundState,
   RoutePending,
   StatusBadge,
   toast,
@@ -69,6 +71,10 @@ function IntakeDetailPage() {
       });
     }
   }, [intakeQuery.data, form]);
+
+  if (isNotFoundError(intakeQuery.error)) {
+    return <RecordNotFoundState onBack={() => void navigate({ to: '/admissions/intakes' })} />;
+  }
 
   if (intakeQuery.isError) {
     return (

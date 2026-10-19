@@ -220,6 +220,7 @@ export { Breadcrumbs, type BreadcrumbItem, type BreadcrumbsProps } from './bread
 export { EmptyState, type EmptyStateKind, type EmptyStateProps } from './empty-state';
 export { StudentPicker, type StudentPickerProps, type StudentPickerItem } from './student-picker';
 export { ErrorState, type ErrorStateProps } from './error-state';
+export { RecordNotFoundState, type RecordNotFoundStateProps } from './record-not-found-state';
 export { RouteStatusState, type RouteStatusStateProps } from './route-status-state';
 export { AccessDeniedState, type AccessDeniedStateProps } from './access-denied-state';
 export {
