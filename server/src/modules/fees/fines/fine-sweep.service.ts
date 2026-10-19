@@ -307,7 +307,13 @@ export class FineSweepService {
 
   /** Read-only: `compute()` plus which of those (student, fee structure)
    * pairs already have a bill for this period. */
-  async preview(tenantId: string, month: string, scope: Scope): Promise<FineSweepPreviewResultDto> {
+  async preview(
+    tenantId: string,
+    month: string,
+    scope: Scope,
+    today: string = localToday(),
+  ): Promise<FineSweepPreviewResultDto> {
+    assertMonthClosed(month, today);
     const rows = await this.compute(tenantId, month, scope);
     if (rows.length === 0) {
       return { students: [], total_amount: 0, would_create: 0, duplicates: [] };
@@ -371,14 +377,7 @@ export class FineSweepService {
     request: RequestLike = { headers: {} },
     today: string = localToday(),
   ): Promise<FineSweepGenerateResultDto> {
-    // [F-150] Absences are still being marked in an open month; bill only closed months.
-    // Fixed text: never echoes the submitted month (Rule 23).
-    if (month >= today.slice(0, 7)) {
-      throw new BadRequestException({
-        code: 'FINE_SWEEP_MONTH_NOT_CLOSED',
-        message: 'Fines can only be generated for a month that has ended',
-      });
-    }
+    assertMonthClosed(month, today);
     const settings = await this.loadSettings(tenantId);
     const rows = await this.compute(tenantId, month, scope, settings);
     const result: FineSweepGenerateResultDto = {
@@ -500,6 +499,17 @@ export class FineSweepService {
       if (err instanceof NotFoundException) return;
       throw err;
     }
+  }
+}
+
+/** [F-150] Absences are still being marked in an open month; preview and bill only closed
+ * months. Fixed text, never the submitted month (Rule 23); the code goes in `details`. */
+function assertMonthClosed(month: string, today: string): void {
+  if (month >= today.slice(0, 7)) {
+    throw new BadRequestException({
+      message: 'Fines can only be generated for a month that has ended',
+      details: { code: 'FINE_SWEEP_MONTH_NOT_CLOSED' },
+    });
   }
 }
 
