@@ -166,6 +166,58 @@ Example: the admin clicks **Download your data**. The page calls
 `GET /api/v1/backup/jobs/<id>` until it is `DONE`, then downloads
 `GET /api/v1/backup/jobs/<id>/download`. `GET /api/v1/students` still returns 403.
 
+### Idle account (D5)
+
+A school that never adds a student is warned, paused, then soft-deleted. The check
+counts ACTIVE students on every run, so adding one student stops the whole thing. There
+is no flag to clear.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Active: signup
+  Active --> Warned20: day 20, no student / idle_d20
+  Warned20 --> Warned27: day 27 / idle_d27
+  Active --> Warned27: first run already past day 27 (rollout)
+  Warned27 --> Suspended: day 30 and idle_d27 at least 3 days old / SUSPENDED IDLE, sessions cut
+  Warned20 --> Active: a student is added
+  Warned27 --> Active: a student is added
+  Suspended --> SoftDeleted: 30 days suspended / deleted_at set
+  Suspended --> Active: POST /schools/:id/revive (or grant / PATCH status)
+  SoftDeleted --> Active: POST /schools/:id/revive within 90 days
+  SoftDeleted --> [*]: hard delete (#1790, platform action)
+```
+
+- **The clock** is `max(created_at, status_changed_at)`. Any reactivation (revive, a
+  manual reactivate, a seat grant) restarts it, so a revived school is not suspended
+  again the next night.
+- **Warnings** are stored as ISO times in `schools.onboarding.idle_warnings`, for
+  example `{ "idle_d20": "2026-11-20T19:00:00.000Z" }`. A stamp older than the clock does
+  not count as sent. The stamp is written first and the message sent after it commits,
+  so a crash can lose a notice but never send it twice.
+- **Rollout:** a school already past day 27 gets only `idle_d27` on the first run. It is
+  suspended at least 3 days later, never on the same run.
+- **When it runs:** daily at 01:00 Asia/Dhaka (`IdleAccountScheduler`). It is skipped in
+  demo mode, and it skips the platform tenant.
+- **Suspend** sets `status = SUSPENDED`, `status_reason = IDLE`, cuts every member's
+  sessions (Rule 8) and drops the tenant status cache. The school keeps the backup
+  export (D16).
+- **Soft delete** sets `deleted_at` 30 days after the suspension. From then on the
+  school answers `401 "does not exist"`, and its members can still sign in to their other
+  schools.
+- **Dashboard:** the `account.idle` alert is WARNING from day 20 and CRITICAL from day 27.
+
+Revive is a platform SUPER_ADMIN action, up to 90 days after `deleted_at`:
+
+```http
+POST /api/v1/schools/<id>/revive
+{ "reason": "School called, starting next week" }
+
+200 { "id": "<id>", "status": "ACTIVE", "status_reason": null, "status_changed_at": "2026-12-01T06:00:00.000Z" }
+```
+
+It answers `409 REVIVE_WINDOW_PASSED` after 90 days, and `409 NOT_IDLE` for a school that
+was suspended for any other reason (use `PATCH /schools/:id/status` for those).
+
 ### The support link
 
 Everything else is refused, so the ended screen cannot ask the server for the

@@ -84,6 +84,7 @@ import { Alert } from './modules/attention/entities/alert.entity';
 import { SeatOrder } from './modules/billing/entities/seat-order.entity';
 import { PlatformPayment } from './modules/billing/entities/platform-payment.entity';
 import { BillingModule } from './modules/billing/billing.module';
+import { IdleAccountModule } from './modules/billing/idle-account.module';
 import { PlatformAlert } from './modules/health/platform-alerts/platform-alert.entity';
 import { AlertRecipient } from './modules/attention/entities/alert-recipient.entity';
 import { Survey } from './modules/surveys/entities/survey.entity';
@@ -452,6 +453,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     InvoicesModule,
     CommunicationsModule,
     BillingModule,
+    IdleAccountModule,
     SchoolsModule,
     AttendanceModule,
     RoutinesModule,

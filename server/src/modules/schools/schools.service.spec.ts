@@ -5,12 +5,15 @@ import { plainToInstance } from 'class-transformer';
 import { randomBytes } from 'crypto';
 import { AuditAction } from '@biddaloy/shared';
 import { SchoolsService } from './schools.service';
+import { emitRecheck } from '../attention/engine/attention-events';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { DEFAULT_REGION_SETTINGS } from './settings/tenant-settings-defaults';
 import { EncryptionService } from './settings/encryption.service';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+
+vi.mock('../attention/engine/attention-events', () => ({ emitRecheck: vi.fn() }));
 
 const REQUEST_CONTEXT = { ip: '10.0.0.1', userAgent: 'vitest' };
 
@@ -1432,6 +1435,129 @@ describe('SchoolsService', () => {
       expect(deps.redis.get).not.toHaveBeenCalled();
       expect(deps.studentRepo.count).not.toHaveBeenCalled();
       expect(deps.redis.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('revive [49.15]', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const dto = { reason: 'School called, starting next week' };
+
+    /** `row` is what the raw SELECT returns (null = no such school). */
+    function buildService(row: Record<string, unknown> | null) {
+      const query = vi.fn(async (sql: string) =>
+        sql.trimStart().startsWith('SELECT') ? (row ? [row] : []) : [],
+      );
+      const repo = {
+        manager: { transaction: vi.fn(async (cb: any) => cb({ query })) },
+      };
+      const service = new SchoolsService(
+        repo as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+      return { service, query };
+    }
+    const updateCalls = (query: ReturnType<typeof vi.fn>) =>
+      query.mock.calls.filter(([sql]) => String(sql).includes('UPDATE schools'));
+
+    it('is a 404 for an unknown school', async () => {
+      const { service } = buildService(null);
+      await expect(service.revive('s1', dto, 'u1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('is a no-op for an ACTIVE, not-deleted school: no write, no audit', async () => {
+      const { service, query } = buildService({
+        status: 'ACTIVE',
+        status_reason: null,
+        status_changed_at: null,
+        deleted_at: null,
+      });
+      const res = await service.revive('s1', dto, 'u1');
+      expect(res.status).toBe('ACTIVE');
+      expect(updateCalls(query)).toHaveLength(0);
+      expect(auditService.record).not.toHaveBeenCalled();
+      expect(tenantStatus.invalidate).not.toHaveBeenCalled();
+    });
+
+    it('is a 409 REVIVE_WINDOW_PASSED when deleted more than 90 days ago', async () => {
+      const { service } = buildService({
+        status: 'SUSPENDED',
+        status_reason: 'IDLE',
+        status_changed_at: null,
+        deleted_at: new Date(Date.now() - 91 * DAY),
+      });
+      await expect(service.revive('s1', dto, 'u1')).rejects.toMatchObject({
+        response: { details: { code: 'REVIVE_WINDOW_PASSED' } },
+      });
+    });
+
+    it('is a 409 NOT_IDLE for a suspension that was not an idle one', async () => {
+      const { service, query } = buildService({
+        status: 'SUSPENDED',
+        status_reason: 'Fees dispute with the school',
+        status_changed_at: null,
+        deleted_at: null,
+      });
+      await expect(service.revive('s1', dto, 'u1')).rejects.toMatchObject({
+        response: { details: { code: 'NOT_IDLE' } },
+      });
+      expect(updateCalls(query)).toHaveLength(0);
+    });
+
+    it('revives an IDLE school: ACTIVE, REACTIVATE audit, cache invalidated', async () => {
+      const { service, query } = buildService({
+        status: 'SUSPENDED',
+        status_reason: 'IDLE',
+        status_changed_at: new Date(Date.now() - 5 * DAY),
+        deleted_at: null,
+      });
+      const res = await service.revive('s1', dto, 'u1', REQUEST_CONTEXT);
+      expect(res).toMatchObject({ id: 's1', status: 'ACTIVE', status_reason: null });
+      expect(updateCalls(query)).toHaveLength(1);
+      expect(auditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.REACTIVATE,
+          performed_by_user_id: 'u1',
+          new_values: expect.objectContaining({ event: 'IDLE_REVIVED' }),
+        }),
+        expect.anything(),
+      );
+      expect(tenantStatus.invalidate).toHaveBeenCalledWith('s1');
+      expect(emitRecheck).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ tenantId: 's1', ruleKey: 'account.idle' }),
+      );
+    });
+
+    it('is a 409 NOT_IDLE for a soft-deleted school whose reason was not IDLE', async () => {
+      const { service } = buildService({
+        status: 'SUSPENDED',
+        status_reason: 'Fees dispute with the school',
+        status_changed_at: null,
+        deleted_at: new Date(Date.now() - 10 * DAY),
+      });
+      await expect(service.revive('s1', dto, 'u1')).rejects.toMatchObject({
+        response: { details: { code: 'NOT_IDLE' } },
+      });
+    });
+
+    it('revives a school soft-deleted 10 days ago and clears deleted_at', async () => {
+      const { service, query } = buildService({
+        status: 'SUSPENDED',
+        status_reason: 'IDLE',
+        status_changed_at: new Date(Date.now() - 40 * DAY),
+        deleted_at: new Date(Date.now() - 10 * DAY),
+      });
+      const res = await service.revive('s1', dto, 'u1');
+      expect(res.status).toBe('ACTIVE');
+      expect(String(updateCalls(query)[0][0])).toContain('deleted_at = NULL');
     });
   });
 

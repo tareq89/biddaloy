@@ -286,4 +286,140 @@ describe('Platform trials E2E (13.3.4)', () => {
     await patchTrial('super', id, { days: 5, reason: REASON, seat_limit: -1 }).expect(400);
     await patchTrial('super', id, { days: 5, reason: REASON, extra: 1 }).expect(400);
   });
+
+  describe('POST /schools/:id/revive [49.15]', () => {
+    const reviveBody = { reason: 'School called, starting next week' };
+
+    /** An ordinary school the idle job paused; `deletedDaysAgo` also soft-deletes it. */
+    const idleSchool = async (deletedDaysAgo: number | null = null, reason = 'IDLE') => {
+      const id = await newSchool({ trialEnds: null });
+      await ds.query(
+        `UPDATE schools SET status = 'SUSPENDED', status_reason = $2, status_changed_at = NOW(),
+                deleted_at = CASE WHEN $3::int IS NULL THEN NULL ELSE NOW() - ($3::int * interval '1 day') END
+          WHERE id = $1`,
+        [id, reason, deletedDaysAgo],
+      );
+      return id;
+    };
+    const revive = (
+      who: 'admin' | 'super' | 'localSuper',
+      id: string,
+      body: object = reviveBody,
+    ) => {
+      const [token, role, tenant] =
+        who === 'admin'
+          ? [adminToken, UserRole.ADMIN, id]
+          : who === 'super'
+            ? [superToken, UserRole.SUPER_ADMIN, platformId]
+            : [localSuperToken, UserRole.SUPER_ADMIN, id];
+      return supertest(app.getHttpServer())
+        .post(`${API}/schools/${id}/revive`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', tenant)
+        .set('X-Role', role)
+        .send(body);
+    };
+    const row = async (id: string) =>
+      (
+        await ds.query(`SELECT status, status_reason, deleted_at FROM schools WHERE id = $1`, [id])
+      )[0];
+
+    it('refuses a school ADMIN (also on its own school) and a tenant-local SUPER_ADMIN with 403', async () => {
+      const id = await idleSchool();
+      await revive('admin', id).expect(403);
+      await revive('localSuper', id).expect(403);
+      // Still paused: neither caller changed anything.
+      expect((await row(id)).status).toBe('SUSPENDED');
+    });
+
+    it('refuses a request with no X-Tenant-ID', async () => {
+      const id = await idleSchool();
+      const res = await supertest(app.getHttpServer())
+        .post(`${API}/schools/${id}/revive`)
+        .set('Authorization', `Bearer ${superToken}`)
+        .send(reviveBody);
+      expect([400, 401, 403]).toContain(res.status);
+      expect((await row(id)).status).toBe('SUSPENDED');
+    });
+
+    it('validates the id and the body, and answers 404 for an unknown school', async () => {
+      const id = await idleSchool();
+      await revive('super', 'not-a-uuid').expect(400);
+      await revive('super', id, {}).expect(400);
+      await revive('super', id, { reason: 'abc' }).expect(400);
+      await revive('super', id, { reason: 'x'.repeat(501) }).expect(400);
+      await revive('super', id, { ...reviveBody, extra: 1 }).expect(400);
+      const res = await revive('super', randomUUID()).expect(404);
+      // Rule 23: the unknown id is not echoed back.
+      expect(JSON.stringify(res.body)).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/);
+    });
+
+    it('revives a paused IDLE school as the platform SUPER_ADMIN', async () => {
+      const id = await idleSchool();
+      const res = await revive('super', id).expect(200);
+      expect(res.body).toMatchObject({ id, status: 'ACTIVE', status_reason: null });
+      expect(await row(id)).toMatchObject({ status: 'ACTIVE', status_reason: null });
+      const audit = await ds.query(
+        `SELECT action FROM audit_logs WHERE entity_id = $1 AND new_values->>'event' = 'IDLE_REVIVED'`,
+        [id],
+      );
+      expect(audit.map((a: { action: string }) => a.action)).toEqual(['REACTIVATE']);
+    });
+
+    it('revives a school soft-deleted 10 days ago, and refuses one deleted 100 days ago', async () => {
+      const recent = await idleSchool(10);
+      await revive('super', recent).expect(200);
+      expect((await row(recent)).deleted_at).toBeNull();
+
+      const old = await idleSchool(100);
+      const res = await revive('super', old).expect(409);
+      expect(res.body.details?.code ?? res.body.message?.details?.code).toBe(
+        'REVIVE_WINDOW_PASSED',
+      );
+      expect((await row(old)).deleted_at).not.toBeNull();
+      // A member of a soft-deleted school can still log in (it used to be a 500).
+      await login(SEED_ADMIN_EMAIL);
+    });
+
+    it('does not reopen a suspension that was not an idle one', async () => {
+      const id = await idleSchool(null, 'Fees dispute with the school');
+      await revive('super', id).expect(409);
+      expect((await row(id)).status).toBe('SUSPENDED');
+    });
+
+    it('cuts old access tokens off (401) and shows the IDLE reason to a fresh one (403)', async () => {
+      const id = await idleSchool();
+      const oldToken = adminToken; // minted before the cut-off below
+      try {
+        await ds.query(`UPDATE users SET tokens_valid_after = $2 WHERE id = $1`, [
+          SEED_ADMIN_USER_ID,
+          new Date(), // app clock, the same source as the token's iat
+        ]);
+        const http = supertest(app.getHttpServer());
+        await http
+          .get(`${API}/students`)
+          .set('Authorization', `Bearer ${oldToken}`)
+          .set('X-Tenant-ID', id)
+          .set('X-Role', UserRole.ADMIN)
+          .expect(401);
+
+        // A fresh login after the cut-off still gets in, then ContextGuard names the reason.
+        await new Promise((r) => setTimeout(r, 20));
+        const fresh = await login(SEED_ADMIN_EMAIL);
+        const res = await http
+          .get(`${API}/students`)
+          .set('Authorization', `Bearer ${fresh}`)
+          .set('X-Tenant-ID', id)
+          .set('X-Role', UserRole.ADMIN)
+          .expect(403);
+        const details = res.body.details ?? res.body.message?.details;
+        expect(details).toMatchObject({ code: 'TENANT_SUSPENDED', reason: 'IDLE' });
+      } finally {
+        // The seed admin is shared with other specs.
+        await ds.query(`UPDATE users SET tokens_valid_after = NULL WHERE id = $1`, [
+          SEED_ADMIN_USER_ID,
+        ]);
+      }
+    });
+  });
 });

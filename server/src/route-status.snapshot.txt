@@ -505,6 +505,7 @@ POST   /api/v1/schools/:id/admins                                               
 DELETE /api/v1/schools/:id/admins/:userId/invitation                             401 PASS PASS 403 403 403 403 403 403 403 403 403
 POST   /api/v1/schools/:id/admins/:userId/resend-invitation                      401 PASS PASS 403 403 403 403 403 403 403 403 403
 GET    /api/v1/schools/:id/logo                                                  401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
+POST   /api/v1/schools/:id/revive                                                401 PASS 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/schools/:id/settings                                              401 PASS PASS PASS 403 403 403 403 403 403 403 403
 PATCH  /api/v1/schools/:id/settings                                              401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/schools/:id/settings/test                                         401 PASS PASS PASS 403 403 403 403 403 403 403 403

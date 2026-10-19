@@ -3,9 +3,11 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -34,6 +36,7 @@ import { ExtendTrialDto } from './dto/extend-trial.dto';
 import { ListSchoolsQueryDto, SchoolListItemDto } from './dto/school-list-item.dto';
 import { TenantSettingsResponseDto } from './dto/school-settings-response.dto';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
+import { ReviveSchoolDto } from './dto/revive-school.dto';
 import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 @ApiTags('schools')
@@ -86,6 +89,24 @@ export class SchoolsController {
     @Req() request: Request,
   ) {
     return this.schools.updateStatus(id, dto, user.sub, requestContext(request));
+  }
+
+  @AuthenticatedOnly()
+  @Post(':id/revive')
+  @HttpCode(200)
+  @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(PlatformSuperAdminGuard)
+  @ApiOperation({
+    summary:
+      'Revive a school paused or soft-deleted for having no students (Epic 49 D5). Platform SUPER_ADMIN only; within 90 days of the soft delete; audited REACTIVATE.',
+  })
+  async revive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReviveSchoolDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.schools.revive(id, dto, user.sub, requestContext(request));
   }
 
   @AuthenticatedOnly()

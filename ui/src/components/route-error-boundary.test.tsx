@@ -76,6 +76,14 @@ function TrialEndedPage(): React.ReactNode {
   });
 }
 
+/** [49.15]: the same 403, with the reason the server adds when a school is paused for having no students. */
+function IdleSuspendedPage(): React.ReactNode {
+  throw Object.assign(new Error('This school has been suspended'), {
+    statusCode: 403,
+    details: { code: 'TENANT_SUSPENDED', reason: 'IDLE' },
+  });
+}
+
 /** `decodeAccessTokenMemberships` never checks a signature. */
 function fakeJwtWithSchools(count: number): string {
   const memberships = Array.from({ length: count }, (_, i) => ({
@@ -242,6 +250,34 @@ describe('RouteErrorFallback', () => {
     );
     expect(screen.queryByRole('button', { name: 'Choose another school' })).toBeNull();
     expect(captureRouteError).not.toHaveBeenCalled();
+  });
+
+  it('renders the paused-school copy, not the trial or plain suspended one, for IDLE', async () => {
+    renderWithRouter(
+      buildRouteTree(IdleSuspendedPage, (props) => (
+        <RouteErrorFallback {...props} supportUrl="https://example.com/help" />
+      )),
+      { initialEntries: ['/broken'] },
+    );
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Your school is paused' }),
+    ).toBeTruthy();
+    expect(screen.queryByText(/this school has been suspended/i)).toBeNull();
+    expect(screen.queryByText('Your trial has ended')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Contact us' }).getAttribute('href')).toBe(
+      'https://example.com/help',
+    );
+  });
+
+  it('offers "Download your data" on the IDLE state to a role with BACKUP_MANAGE', async () => {
+    renderWithRouter(buildRouteTree(IdleSuspendedPage), {
+      initialEntries: ['/broken'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+
+    expect(await screen.findByRole('button', { name: 'Download your data' })).toBeTruthy();
   });
 
   it('offers "Download your data" on the trial-ended state to a role with BACKUP_MANAGE, and starts the export', async () => {
