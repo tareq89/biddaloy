@@ -573,8 +573,19 @@ describe('/students', () => {
 
     it('keeps the old explanation for a TEACHER who is searching', async () => {
       renderEmpty('TEACHER', '/students?search=zzz');
-      await screen.findByText('No students found');
+      await screen.findByRole('button', { name: /clear/i });
       expect(screen.queryByText(teacherText)).toBeNull();
+    });
+
+    // [2591] a search with zero hits is "no matches", not the first-time state.
+    it('a search with no matches shows a Clear action, not "Add student"; Clear drops the query', async () => {
+      renderEmpty('ADMIN', '/students?search=zzzqqq');
+      const clear = await screen.findByRole('button', { name: /clear/i });
+      expect(screen.queryByText('No students found')).toBeNull();
+      expect(screen.queryByText(adminText)).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Add student' })).toBeNull();
+      await userEvent.click(clear);
+      expect(await screen.findByText('No students found')).toBeTruthy();
     });
   });
 
