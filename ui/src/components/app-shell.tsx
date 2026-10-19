@@ -459,6 +459,7 @@ function NavContent({
 function NavDrawer({
   open,
   onOpenChange,
+  onCloseAutoFocus,
   trigger,
   brand,
   closeMenuLabel,
@@ -466,6 +467,7 @@ function NavDrawer({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCloseAutoFocus?: ((event: Event) => void) | undefined;
   trigger: ReactNode;
   brand: ReactNode;
   closeMenuLabel: string;
@@ -476,6 +478,7 @@ function NavDrawer({
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent
         showCloseButton={false}
+        onCloseAutoFocus={onCloseAutoFocus}
         className="inset-0 h-dvh max-h-none w-full max-w-xs translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none p-0 data-[state=closed]:slide-out-to-start data-[state=closed]:zoom-out-100 data-[state=open]:slide-in-from-start data-[state=open]:zoom-in-100 sm:max-w-xs"
       >
         <div className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border-subtle bg-surface ps-4 pe-1">
@@ -594,6 +597,22 @@ export function AppShell({
     };
   }, [hasStickyHeader]);
 
+  // A nav link closes the drawer AND changes route. Radix would then hand focus back to
+  // the menu button, racing `useRouteFocus` (which may already have put it on the new
+  // page's <h1> while the drawer still trapped focus). After a navigation, focus goes
+  // to that heading, never back to the trigger.
+  const navigatedFromDrawer = React.useRef(false);
+  const onDrawerCloseAutoFocus = (event: Event) => {
+    if (!navigatedFromDrawer.current) return;
+    navigatedFromDrawer.current = false;
+    event.preventDefault();
+    const heading = document.getElementById(APP_SHELL_MAIN_ID)?.querySelector('h1');
+    if (heading instanceof HTMLElement) {
+      heading.setAttribute('tabindex', '-1');
+      heading.focus();
+    }
+  };
+
   const drawerNav = (
     <NavContent
       navItems={navItems}
@@ -602,7 +621,10 @@ export function AppShell({
       navLabel={navLabel}
       activeItem={activeItem}
       size="drawer"
-      onNavigate={() => setDrawerOpen(false)}
+      onNavigate={() => {
+        navigatedFromDrawer.current = true;
+        setDrawerOpen(false);
+      }}
     />
   );
 
@@ -632,6 +654,7 @@ export function AppShell({
                 <NavDrawer
                   open={drawerOpen}
                   onOpenChange={setDrawerOpen}
+                  onCloseAutoFocus={onDrawerCloseAutoFocus}
                   trigger={
                     <Button
                       type="button"
@@ -661,6 +684,7 @@ export function AppShell({
               <NavDrawer
                 open={drawerOpen}
                 onOpenChange={setDrawerOpen}
+                onCloseAutoFocus={onDrawerCloseAutoFocus}
                 trigger={
                   <Button type="button" variant="ghost" size="icon-sm">
                     <MenuIcon />
