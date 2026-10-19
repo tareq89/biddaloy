@@ -444,6 +444,23 @@ describe('/communications/send', () => {
       expect(link.getAttribute('href')).toContain('/settings');
     });
 
+    it('[2683] keeps checking a QUEUED message and shows the failure when it lands', async () => {
+      let reads = 0;
+      await sendAndGetResult({ status: 'QUEUED' });
+      server.use(
+        http.get('/api/v1/communications/:id', () => {
+          reads += 1;
+          return HttpResponse.json(
+            communicationFactory({ id: 'log-1', status: 'FAILED', error: 'FAILED' }),
+          );
+        }),
+      );
+      expect(
+        await screen.findByRole('heading', { name: 'Message not sent' }, { timeout: 5000 }),
+      ).toBeDefined();
+      expect(reads).toBeGreaterThan(0);
+    });
+
     it('FAILED with another reason: generic text, no raw server text, no link', async () => {
       await sendAndGetResult({ status: 'FAILED', error: 'FAILED' });
       expect(await screen.findByRole('heading', { name: 'Message not sent' })).toBeDefined();
