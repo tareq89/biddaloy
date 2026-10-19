@@ -47,6 +47,8 @@ export type RowActionIntent =
 export interface RowAction {
   intent: RowActionIntent;
   label: string;
+  /** Visible text in labelled (phone card) and `display: 'text'` modes when `label` is too long; `label` stays the accessible name. */
+  shortLabel?: string;
   onClick?: () => void;
   to?: string;
   allowed?: boolean;
@@ -110,28 +112,25 @@ function ActionControl({ action, labelled }: { action: RowAction; labelled: bool
     tone,
     action.busy && 'cursor-wait opacity-50',
   );
+  const visible = action.shortLabel ?? action.label;
+  // The visible text is the whole label unless a short one replaces it.
+  const ariaLabel =
+    labelled || text ? (visible === action.label ? undefined : action.label) : action.label;
   const content = (
     <>
       {glyph}
-      {(labelled || text) && (
-        <span className={labelled ? 'truncate' : undefined}>{action.label}</span>
-      )}
+      {(labelled || text) && <span className={labelled ? 'truncate' : undefined}>{visible}</span>}
     </>
   );
   const control = action.to ? (
-    <Link
-      to={action.to}
-      className={className}
-      aria-label={labelled || text ? undefined : action.label}
-      data-focus-anchor={anchor}
-    >
+    <Link to={action.to} className={className} aria-label={ariaLabel} data-focus-anchor={anchor}>
       {content}
     </Link>
   ) : (
     <button
       type="button"
       className={className}
-      aria-label={labelled || text ? undefined : action.label}
+      aria-label={ariaLabel}
       aria-disabled={action.busy || undefined}
       aria-busy={action.busy || undefined}
       onClick={action.busy ? undefined : action.onClick}
