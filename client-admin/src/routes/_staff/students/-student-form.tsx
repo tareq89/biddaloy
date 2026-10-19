@@ -232,8 +232,21 @@ export function StudentForm<TInput>({
                   // Drafts saved before a field existed omit it; fill from the defaults.
                   // `keepDefaultValues`: the server values stay the baseline, so the restored
                   // edits count as unsaved and Save is enabled [2683].
+                  // The draft is JSON, so `date_of_birth` comes back as a string; rebuild the Date.
+                  // `guardian_ids` stays the current set: a stale drafted set would unlink a
+                  // guardian linked since, and its ids may have no name to show [2683].
                   if (draft)
-                    form.reset({ ...initialValues, ...draft }, { keepDefaultValues: true });
+                    form.reset(
+                      {
+                        ...initialValues,
+                        ...draft,
+                        date_of_birth: draft.date_of_birth
+                          ? new Date(draft.date_of_birth)
+                          : initialValues.date_of_birth,
+                        guardian_ids: initialValues.guardian_ids,
+                      },
+                      { keepDefaultValues: true },
+                    );
                   setDraftBannerVisible(false);
                 }}
               >

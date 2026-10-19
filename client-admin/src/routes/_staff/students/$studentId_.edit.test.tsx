@@ -132,6 +132,77 @@ describe('/students/$studentId/edit', () => {
     await waitFor(() => expect(patchBody).toEqual({ full_name: 'Rahim Draft' }));
   });
 
+  it('[2683] restores a drafted date of birth as a date and sends it', async () => {
+    const student = studentFactory({
+      id: 'student-1',
+      full_name: 'Rahim Uddin',
+      date_of_birth: '2010-01-01',
+      guardians: [],
+    });
+    let patchBody: Record<string, unknown> = {};
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.patch('/api/v1/students/:id', async ({ request }) => {
+        patchBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(student);
+      }),
+    );
+    // The autosave writes JSON, so a drafted Date comes back as an ISO string.
+    window.localStorage.setItem(
+      'form-shell-draft:tenant-1:student-1',
+      JSON.stringify({ date_of_birth: new Date(2015, 4, 20) }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1/edit'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Restore draft' }));
+    const save = await screen.findByRole<HTMLButtonElement>('button', { name: 'Save changes' });
+    await waitFor(() => expect(save.disabled).toBe(false));
+    await user.click(save);
+    await waitFor(() => expect(patchBody).toEqual({ date_of_birth: '2015-05-20' }));
+  });
+
+  it('[2683] a restored draft keeps the current guardians, not the drafted set', async () => {
+    const guardian = guardianFactory({ id: 'guardian-1', full_name: 'Karim Rahman' });
+    const student = studentFactory({
+      id: 'student-1',
+      full_name: 'Rahim Uddin',
+      guardians: [guardian],
+    });
+    let patchBody: Record<string, unknown> = {};
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.patch('/api/v1/students/:id', async ({ request }) => {
+        patchBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(student);
+      }),
+    );
+    // Stale draft: typed before guardian-1 was linked elsewhere.
+    window.localStorage.setItem(
+      'form-shell-draft:tenant-1:student-1',
+      JSON.stringify({ full_name: 'Rahim Draft', guardian_ids: [] }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1/edit'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Restore draft' }));
+    expect(await screen.findByDisplayValue('Rahim Draft')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(patchBody).toEqual({ full_name: 'Rahim Draft' }));
+  });
+
   it('[2683] keeps Save disabled for a whitespace-only edit', async () => {
     const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin', guardians: [] });
     server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
