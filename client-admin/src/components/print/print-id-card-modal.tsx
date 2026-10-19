@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
 } from '@biddaloy/ui/components';
@@ -159,6 +160,8 @@ export function PrintIdCardModal({ initialType, onClose, onConfirm }: PrintIdCar
               </TabsTrigger>
             ) : null}
           </TabsList>
+          {/* The page body sits outside the tab row; this empty panel is what the tab's aria-controls points at. */}
+          <TabsContent value={type} className="hidden" />
         </Tabs>
 
         {type === 'STUDENT' ? (
