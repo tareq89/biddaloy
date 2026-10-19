@@ -161,12 +161,18 @@ export function RuleFormDialog({
     };
   }
 
+  // [2622] A sync double-click can fire before `isPending` re-renders; this closes the gap.
+  const inFlight = React.useRef(false);
+  const settle = { onSuccess: onSaved, onSettled: () => (inFlight.current = false) };
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (inFlight.current) return;
     const input = buildInput();
     if (!input) return;
+    inFlight.current = true;
     if (mode === 'create') {
-      createRule.mutate(input, { onSuccess: onSaved });
+      createRule.mutate(input, settle);
       return;
     }
     updateRule.mutate(
@@ -179,7 +185,7 @@ export function RuleFormDialog({
         cap_per_period: input.cap_per_period ?? null,
         conditions: buildConditions(trigger, minMinutesLate),
       },
-      { onSuccess: onSaved },
+      settle,
     );
   }
 

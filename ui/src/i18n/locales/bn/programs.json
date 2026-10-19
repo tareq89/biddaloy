@@ -47,6 +47,7 @@
     "descriptionLabel": "বিবরণ",
     "showOnReportCard": "ফলাফলপত্রে দেখান",
     "errorMessage": "প্রোগ্রাম সংরক্ষণ করা যায়নি",
+    "duplicateMessage": "এই নামে আগেই একটি প্রোগ্রাম আছে",
     "saving": "সংরক্ষণ হচ্ছে…",
     "save": "সংরক্ষণ করুন",
     "archive": "আর্কাইভ করুন",
