@@ -249,7 +249,7 @@ export class ExportProcessor extends WorkerHost {
       // the admin the backup failed and then — seconds later, once the retry
       // succeeded — that it is ready. Same guard as `onFailed` below. The
       // row stays RUNNING between attempts, which is what it actually is.
-      const isFinalAttempt = job.attemptsMade >= (job.opts.attempts ?? 1);
+      const isFinalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
 
       if (!isFinalAttempt) {
         this.logger.warn(
