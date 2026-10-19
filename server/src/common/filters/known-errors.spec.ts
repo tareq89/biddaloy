@@ -135,6 +135,18 @@ describe('mapKnownError — student_fees money CHECKs (#2636)', () => {
   });
 });
 
+describe('mapKnownError — impossible dates (#2610)', () => {
+  it.each(['22007', '22008'])('maps Postgres %s to a fixed 400 that echoes no value', (code) => {
+    const driverError = Object.assign(new Error('date/time field value out of range: "2026-02-30"'), {
+      code,
+    });
+    const mapped = mapKnownError(new QueryFailedError('INSERT ...', [], driverError));
+    expect(mapped?.getStatus()).toBe(400);
+    expect(mapped?.message).toBe('Invalid date');
+    expect(JSON.stringify(mapped?.getResponse())).not.toContain('2026-02-30');
+  });
+});
+
 describe('mapKnownError — multer errors', () => {
   it('maps LIMIT_UNEXPECTED_FILE to 400 without echoing the field name', () => {
     const mapped = mapKnownError(new MulterError('LIMIT_UNEXPECTED_FILE', 'secretfield'));

@@ -17,6 +17,7 @@ export function mapKnownError(exception: unknown): HttpException | null {
     mapBodyParserError(exception) ??
     mapUniqueViolation(exception) ??
     mapStudentFeeCheckViolation(exception) ??
+    mapInvalidDate(exception) ??
     mapMulterError(exception)
   );
 }
@@ -62,11 +63,23 @@ function mapStudentFeeCheckViolation(exception: unknown): HttpException | null {
   });
 }
 
+// 22007 invalid_datetime_format, 22008 datetime_field_overflow: an impossible date
+// (2026-02-30) that a shape-only DTO check let through to Postgres. The message
+// would echo the value, so the text is fixed. `@IsRealDate` still gives a per-field one.
+const INVALID_DATE_CODES = new Set(['22007', '22008']);
+
+function mapInvalidDate(exception: unknown): HttpException | null {
+  if (!(exception instanceof QueryFailedError)) return null;
+  const { code } = exception.driverError as { code?: string };
+  return INVALID_DATE_CODES.has(code ?? '') ? new BadRequestException('Invalid date') : null;
+}
+
 // The `type` values body-parser / raw-body set. Any other Error carrying a 4xx
 // `status` (an SDK, other middleware) is not a request-body problem and stays a 500.
 const BODY_PARSER_TYPES = new Set([
   'entity.parse.failed',
   'entity.too.large',
+  'parameters.too.many',
   'entity.verify.failed',
   'request.aborted',
   'request.size.invalid',
@@ -79,7 +92,6 @@ function mapBodyParserError(exception: unknown): HttpException | null {
   if (!(exception instanceof Error) || exception instanceof HttpException) return null;
   const { status, type, code } = exception as Error & {
     status?: unknown;
-  'parameters.too.many',
     type?: unknown;
     code?: unknown;
   };
