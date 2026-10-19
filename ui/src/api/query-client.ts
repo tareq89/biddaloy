@@ -1,4 +1,10 @@
-import { type Mutation, MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
+import {
+  type Mutation,
+  MutationCache,
+  notifyManager,
+  QueryCache,
+  QueryClient,
+} from '@tanstack/react-query';
 
 import { toast } from '../components/toast';
 import { shouldRetryQuery } from '../hooks/retry';
@@ -71,6 +77,9 @@ function handleMutationError(
  * render-with-providers.tsx`), the deliberately different client tests use.
  */
 export function createAppQueryClient(): QueryClient {
+  // [2594] `isPending` otherwise reaches React through `setTimeout(0)`, after a fast second
+  // click has already fired; a microtask lands before the next click event (D4).
+  notifyManager.setScheduler(queueMicrotask);
   return new QueryClient({
     defaultOptions: {
       queries: {
