@@ -504,6 +504,9 @@ export function RecordPaymentModal({
     // for the current selection, or a stale selection's `student_fee_id`s
     // get posted against the new one.
     cartIsFresh &&
+    // The Pay lines belong to the last debounced amount; one typed since has no cart yet
+    // (e.g. "Record another": the previous amount's cart is still fresh for 300 ms).
+    amountReceivedMinorUnits === debouncedAmountReceivedMinorUnits &&
     !checkout.isPending &&
     (paymentMethod !== PaymentMethod.CASH ||
       tenderedMinorUnits === undefined ||
