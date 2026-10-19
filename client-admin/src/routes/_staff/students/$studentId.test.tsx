@@ -1,5 +1,6 @@
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
+  apiErrorBody,
   cleanupTestState,
   classFactory,
   classSectionFactory,
@@ -853,5 +854,27 @@ describe('/students/$studentId', () => {
       expect(await screen.findByRole('tab', { name: 'Overview' })).toBeTruthy();
       expect(screen.queryByRole('region', { name: 'Alerts about this student' })).toBeNull();
     });
+  });
+
+  it('shows a not-found state with a way back, and no retry, when the API answers 404 [2598]', async () => {
+    server.use(
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json(apiErrorBody(404, 'x', '/api/v1/x'), { status: 404 }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(
+      await screen.findByText('This record was not found. It may have been removed.'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /retry|try again/i })).toBeNull();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Back to the list' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
   });
 });
