@@ -150,7 +150,7 @@ function safeParseDate(raw: string | undefined): Date | undefined {
  * neither should count toward "Filters (n)" — that count is a promise
  * about what opening the panel reveals, not the total active-filter
  * count (the chip row already shows that in full, uncollapsed). */
-function keysOf(field: FilterFieldDescriptor): string[] {
+export function keysOf(field: FilterFieldDescriptor): string[] {
   switch (field.kind) {
     case 'text':
     case 'select':
