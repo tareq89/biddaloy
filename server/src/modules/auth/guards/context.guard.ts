@@ -214,6 +214,25 @@ export class ContextGuard implements CanActivate {
       }
     }
 
+    // Seat grace (Epic 49 D9): an ACTIVE school over its seats can read but not write until the
+    // daily job suspends it. Platform tenant exempt. Handlers marked @AllowWhenSuspendedForBilling
+    // stay open; the billing routes must carry that mark (billing lane) for a school to pay.
+    // One message for every write (Rule 23); `until` is the school's own date, not an echo of input.
+    if (!isOwnPlatformTenant && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+      const allowedForBilling =
+        this.reflector.get<boolean>(ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY, context.getHandler()) ===
+        true;
+      if (!allowedForBilling) {
+        const until = await this.tenantStatus.getReadOnlyUntil(tenantId);
+        if (until) {
+          throw new ForbiddenException({
+            message: 'This school is read-only',
+            details: { code: 'TENANT_READ_ONLY', until: until.toISOString() },
+          });
+        }
+      }
+    }
+
     // A restore is replacing this school's data: refuse writes (not reads) so nothing saved
     // mid-restore is wiped by it or missed by its snapshot (#2210). Outside the platform-tenant
     // exemption above: a platform SUPER_ADMIN holds BACKUP_MANAGE and can start a restore of

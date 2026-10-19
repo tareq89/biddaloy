@@ -239,6 +239,61 @@ describe('TenantStatusService', () => {
     });
   });
 
+  describe('getReadOnlyUntil (seat grace, D9)', () => {
+    const until = '2027-01-08T00:00:00.000Z';
+
+    beforeEach(() => {
+      (schoolRepo as any).query = vi.fn();
+    });
+
+    it('returns the cached date without touching the DB', async () => {
+      redis.get.mockResolvedValue(until);
+      expect(await service.getReadOnlyUntil('t1')).toEqual(new Date(until));
+      expect(redis.get).toHaveBeenCalledWith('tenant:t1:read_only_until');
+      expect((schoolRepo as any).query).not.toHaveBeenCalled();
+    });
+
+    it("treats a cached '' as not read-only, without a DB call", async () => {
+      redis.get.mockResolvedValue('');
+      expect(await service.getReadOnlyUntil('t1')).toBeNull();
+      expect((schoolRepo as any).query).not.toHaveBeenCalled();
+    });
+
+    it('on a miss reads the DB and caches the answer for the status TTL', async () => {
+      redis.get.mockResolvedValue(null);
+      // Over its seats, last paid period ended 2027-01-01 (school-local) -> until 2027-01-08 00:00 +06.
+      (schoolRepo as any).query.mockResolvedValue([{ over: true, anchor: '2027-01-01' }]);
+      const res = await service.getReadOnlyUntil('t1');
+      expect(res).toEqual(new Date('2027-01-07T18:00:00.000Z'));
+      expect(redis.set).toHaveBeenCalledWith(
+        'tenant:t1:read_only_until',
+        '2027-01-07T18:00:00.000Z',
+        'EX',
+        300,
+      );
+    });
+
+    it('caches an empty string when the school is not over its seats', async () => {
+      redis.get.mockResolvedValue(null);
+      (schoolRepo as any).query.mockResolvedValue([{ over: false, anchor: null }]);
+      expect(await service.getReadOnlyUntil('t1')).toBeNull();
+      expect(redis.set).toHaveBeenCalledWith('tenant:t1:read_only_until', '', 'EX', 300);
+    });
+
+    it('fails open when Redis and the DB both fail (a write is not blocked by an outage)', async () => {
+      redis.get.mockRejectedValue(new Error('redis down'));
+      (schoolRepo as any).query.mockRejectedValue(new Error('db down'));
+      expect(await service.getReadOnlyUntil('t1')).toBeNull();
+    });
+
+    it('still answers from the DB when only Redis is down', async () => {
+      redis.get.mockRejectedValue(new Error('redis down'));
+      redis.set.mockRejectedValue(new Error('redis down'));
+      (schoolRepo as any).query.mockResolvedValue([{ over: true, anchor: '2027-01-01' }]);
+      expect(await service.getReadOnlyUntil('t1')).toEqual(new Date('2027-01-07T18:00:00.000Z'));
+    });
+  });
+
   describe('invalidate', () => {
     it('deletes the cache key so the next isActive call reloads from the DB', async () => {
       await service.invalidate('tenant-1');
@@ -246,6 +301,7 @@ describe('TenantStatusService', () => {
       expect(redis.del).toHaveBeenCalledWith(
         'tenant:tenant-1:status',
         'tenant:tenant-1:status_reason',
+        'tenant:tenant-1:read_only_until',
       );
 
       redis.get.mockResolvedValue(null);

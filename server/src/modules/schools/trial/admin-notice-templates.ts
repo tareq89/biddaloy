@@ -5,7 +5,8 @@ export type AdminNoticeKey =
   | 'idle_suspended'
   | 'seats_d30'
   | 'seats_d7'
-  | 'seats_expired';
+  | 'seats_expired'
+  | 'seats_suspended';
 export type NoticeLocale = 'en' | 'bn';
 
 export interface NoticeVars {
@@ -102,6 +103,18 @@ const TEMPLATES: Record<AdminNoticeKey, Record<NoticeLocale, Template>> = {
       subject: (v) => `${v.school}: সিটের মেয়াদ শেষ`,
       body: (v) =>
         `${v.school}-এর পরিশোধিত সিটের মেয়াদ ${v.date ?? ''} তারিখে শেষ হয়েছে। ৭ দিন স্কুল শুধু দেখা যাবে, তারপর সাময়িক বন্ধ হবে। আপনার তথ্য নিরাপদ আছে। চালু রাখতে সেটিংস, সিট ও বিলিং থেকে সিট কিনুন।`,
+    },
+  },
+  seats_suspended: {
+    en: {
+      subject: (v) => `${v.school}: school paused, seats ended`,
+      body: (v) =>
+        `${v.school} is paused because its paid seats ended. Your data is safe. Buy seats in Settings, Seats & billing and the school reopens immediately.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: সিট শেষ, স্কুল সাময়িক বন্ধ`,
+      body: (v) =>
+        `সিটের মেয়াদ শেষ হওয়ায় ${v.school} সাময়িক বন্ধ আছে। আপনার তথ্য নিরাপদ আছে। সেটিংস, সিট ও বিলিং থেকে সিট কিনলে স্কুল সঙ্গে সঙ্গে আবার চালু হবে।`,
     },
   },
 };

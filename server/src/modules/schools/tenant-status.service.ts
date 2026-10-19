@@ -13,6 +13,7 @@ import {
 
 import { School } from './entities/school.entity';
 import { isLocked } from '../workbook/restore/restore-lock';
+import { readOnlyUntilFor } from '../billing/seat-grace';
 
 /** status_reason values a billing suspension carries; the three backup routes stay open for them (D16). */
 export const BILLING_SUSPENSION_REASONS: readonly string[] = [
@@ -113,6 +114,10 @@ export class TenantStatusService {
 
   private key(tenantId: string): string {
     return `tenant:${tenantId}:status`;
+  }
+
+  private readOnlyKey(tenantId: string): string {
+    return `tenant:${tenantId}:read_only_until`;
   }
 
   async isActive(tenantId: string): Promise<boolean> {
@@ -219,6 +224,45 @@ export class TenantStatusService {
   }
 
   /**
+   * End of an ACTIVE school's seat-grace read-only window, or `null` when it is not over its
+   * seats (Epic 49 D9). Cached like the status (same TTL, cleared by `invalidate`; `''` = none).
+   * Fail-open: a cache or DB error means "not read-only", never a 5xx on every write.
+   */
+  async getReadOnlyUntil(tenantId: string): Promise<Date | null> {
+    const key = this.readOnlyKey(tenantId);
+    try {
+      const cached = await this.redis.get(key);
+      if (cached !== null) return cached ? new Date(cached) : null;
+    } catch (error) {
+      this.logger.error(
+        `Read-only cache read failed for ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    let until: Date | null;
+    try {
+      until = await readOnlyUntilFor(this.schoolRepo, tenantId);
+    } catch (error) {
+      this.logger.error(
+        `Read-only lookup failed for ${tenantId}, treating as not read-only: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+    try {
+      await this.redis.set(
+        key,
+        until ? until.toISOString() : '',
+        'EX',
+        TENANT_STATUS_CACHE_TTL_SECONDS,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Read-only cache write failed for ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    return until;
+  }
+
+  /**
    * D16 allow decision for `@AllowWhenSuspendedForBilling` routes. Reads the DB, never the cache:
    * status and reason sit in two cache keys, and a stale cached TRIAL_EXPIRED must not keep the
    * export open after a platform admin re-suspends the school (#2399). Only suspended schools
@@ -262,7 +306,11 @@ export class TenantStatusService {
 
   async invalidate(tenantId: string): Promise<void> {
     try {
-      await this.redis.del(this.key(tenantId), `${this.key(tenantId)}_reason`);
+      await this.redis.del(
+        this.key(tenantId),
+        `${this.key(tenantId)}_reason`,
+        this.readOnlyKey(tenantId),
+      );
     } catch (error) {
       this.logger.error(
         `Tenant status cache invalidation failed for ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,

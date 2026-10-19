@@ -6,6 +6,8 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ADMIN_USER_ID } from '@test/constants';
 import { AuditService } from '../../audit/audit.service';
+import { SessionCutoffService } from '../../auth/session-cutoff.service';
+import { AdminNoticeService } from './admin-notice.service';
 import { EntitlementService } from '../../billing/entitlement.service';
 import { OrdersService } from '../../billing/orders.service';
 import { School } from '../entities/school.entity';
@@ -25,6 +27,8 @@ describe('TrialService (integration): account start and seat grants', () => {
       OrdersService,
       AuditService,
       { provide: TenantStatusService, useValue: tenantStatus },
+      { provide: SessionCutoffService, useValue: { cutOff: vi.fn() } },
+      { provide: AdminNoticeService, useValue: { notifyAdmins: vi.fn() } },
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
     trial = module.get(TrialService);

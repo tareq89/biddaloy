@@ -13,7 +13,13 @@ describe('EntitlementService', () => {
   const build = () => {
     const audit = { record: vi.fn() };
     const tenantStatus = { invalidate: vi.fn() };
-    const service = new EntitlementService({} as never, audit as never, tenantStatus as never);
+    const service = new EntitlementService(
+      {} as never,
+      audit as never,
+      tenantStatus as never,
+      {} as never,
+      {} as never,
+    );
     return { service, audit, tenantStatus };
   };
 

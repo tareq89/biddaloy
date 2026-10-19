@@ -10,6 +10,8 @@ import { AuditService } from '../audit/audit.service';
 import { School } from '../schools/entities/school.entity';
 import { TenantStatusService } from '../schools/tenant-status.service';
 import { StudentService, GuardianService } from '../students/students.service';
+import { SessionCutoffService } from '../auth/session-cutoff.service';
+import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { EntitlementService } from './entitlement.service';
 import { OrdersService } from './orders.service';
 
@@ -30,6 +32,8 @@ describe('EntitlementService + OrdersService (integration)', () => {
       GuardianService,
       AuditService,
       { provide: TenantStatusService, useValue: tenantStatus },
+      { provide: SessionCutoffService, useValue: { cutOff: vi.fn() } },
+      { provide: AdminNoticeService, useValue: { notifyAdmins: vi.fn() } },
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
     entitlement = module.get(EntitlementService);

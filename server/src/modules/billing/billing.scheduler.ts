@@ -45,10 +45,13 @@ export class BillingScheduler extends WorkerHost implements OnModuleInit {
   async process(): Promise<void> {
     const now = new Date();
     let changed = 0;
+    let suspended = 0;
     let failed = 0;
     for (const { id } of await this.schools.findAllActive()) {
       try {
         if (await this.entitlement.recomputeAndNotify(id, now)) changed++;
+        // Still over its seats once the 7-day read-only window ended: suspend (D9).
+        if (await this.entitlement.suspendIfGraceOver(id, now)) suspended++;
       } catch (err) {
         // One school's failure must not stop the rest; tomorrow's run retries it.
         failed++;
@@ -57,7 +60,9 @@ export class BillingScheduler extends WorkerHost implements OnModuleInit {
         );
       }
     }
-    this.logger.log(`Seat recompute done: ${changed} changed, ${failed} failed`);
+    this.logger.log(
+      `Seat recompute done: ${changed} changed, ${suspended} suspended, ${failed} failed`,
+    );
     // After the recompute, so a school that just renewed is not warned. Its own errors never fail the job.
     try {
       await this.seatNotices.runDaily(now);
