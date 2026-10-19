@@ -278,7 +278,6 @@ export function useUnassignTeacher(classId: string, sectionId: string) {
     mutationFn: async (assignmentId: string) => {
       await apiClient.delete(`/classes/${classId}/sections/${sectionId}/teachers/${assignmentId}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
       void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
@@ -331,7 +330,6 @@ export function useUnassignTeacherAssignment() {
         `/classes/${input.classId}/sections/${input.sectionId}/teachers/${input.assignmentId}`,
       );
     },
-    retry: shouldRetryQuery,
     onSuccess: (_data, { classId, sectionId }) => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
       // No teacher_id on unassign's input — invalidate broadly by matching
@@ -375,7 +373,6 @@ export function useDeleteClass() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/classes/${id}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: (_data, id) => {
       void queryClient.invalidateQueries({ queryKey: classKeys.lists() });
       queryClient.removeQueries({ queryKey: classKeys.detail(id) });
@@ -424,7 +421,6 @@ export function useDeleteSection(classId: string) {
     mutationFn: async (sectionId: string) => {
       await apiClient.delete(`/classes/${classId}/sections/${sectionId}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: classSectionsKey(classId) });
       void queryClient.invalidateQueries({ queryKey: classKeys.lists() });

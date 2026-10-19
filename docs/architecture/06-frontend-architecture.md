@@ -168,6 +168,22 @@ to check for it in review.
 don't add optimistic updates to its mutation. Show a pending state and wait
 for the server response.
 
+## Writes are never retried automatically
+
+A write that fails with a 5xx or no reply may still have been saved. Retrying it would
+create the record twice, so the app client sets `mutations.retry: false` and tells the user.
+Only a request that carries an `Idempotency-Key` may add its own `retry` (D4).
+
+```mermaid
+flowchart LR
+  A["Write fails<br/>(5xx or no reply)"] --> B["No automatic retry"]
+  B --> C["Toast: may have been saved,<br/>check the list"]
+```
+
+Reads still retry twice on a 5xx (`shouldRetryQuery`). A guard spec
+(`ui/src/hooks/mutation-retry.guard.spec.ts`) fails on `retry: shouldRetryQuery` inside a
+`useMutation`.
+
 ## The client app
 
 - **`client-admin`** — the whole SPA, both audiences. Staff routes manage

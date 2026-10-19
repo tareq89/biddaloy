@@ -1,5 +1,5 @@
 import { adminApiSession, createClassSection, createStudent } from '../api';
-import { loggedIn, test } from '../fixtures/test';
+import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { DetailShellPage } from '../pages/detail-shell';
 import { FormShellPage } from '../pages/form-shell';
@@ -79,5 +79,38 @@ test('edit changes a field and the detail shows it; delete removes from the list
     await list.expectLoaded();
     await list.search(renamed);
     await list.expectEmptyState('students.list.emptyMessage');
+  });
+});
+
+test.describe('a lost reply is not retried [2596]', () => {
+  // A service worker hides requests from `page.route`.
+  test.use({ serviceWorkers: 'block' });
+
+  test('a 502 after the server saved sends one POST and shows the unknown-outcome toast', async ({
+    page,
+    request,
+  }) => {
+    await createClassSection(request, await adminApiSession(request));
+    const form = new FormShellPage(page);
+    let posts = 0;
+    await page.route('**/api/v1/students', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      posts += 1;
+      await route.fetch(); // the server really saves it
+      return route.fulfill({ status: 502, contentType: 'text/html', body: '<h1>Bad Gateway</h1>' });
+    });
+
+    await page.goto('/students/new');
+    await form.fillField('students.form.fields.fullName', `Retry ${Date.now()}`);
+    await page.getByLabel(t('students.form.fields.class')).click();
+    await page.getByRole('option').first().click();
+    await page.getByLabel(t('students.form.fields.section')).click();
+    await page.getByRole('option').first().click();
+    await form.submit('students.new.submitAction');
+
+    await expect(page.getByText(t('common.outcomeUnknown'))).toBeVisible();
+    // Past the old 1s + 2s backoff: a retry would have shown up by now.
+    await page.waitForTimeout(3500);
+    expect(posts).toBe(1);
   });
 });
