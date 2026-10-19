@@ -17,7 +17,6 @@ const NO_FIXTURE = 'resolvePath cannot build this route fixture (marks/results n
 const KNOWN: Record<Kind, Record<string, string>> = {
   axe: {
     '/fees/schedules': 'axe violation, see sweep output',
-    '/invoices/$invoiceId': 'scrollable-region-focusable on div.relative.w-full table wrapper',
     '/marks/$examId/$sectionId/$subjectId': NO_FIXTURE,
     '/results/$examId/$studentId': NO_FIXTURE,
     '/portal/account': 'dark-only color-contrast on text-destructive',

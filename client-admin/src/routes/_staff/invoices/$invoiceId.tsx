@@ -339,7 +339,12 @@ function InvoiceDetailPage() {
                     : student.registration_number}
                 </p>
               </div>
-              <Table>
+              <Table
+                scrollLabel={t('invoiceDetail.lines.caption', {
+                  name: student.full_name,
+                  ns: 'payments',
+                })}
+              >
                 <caption className="sr-only">
                   {t('invoiceDetail.lines.caption', { name: student.full_name, ns: 'payments' })}
                 </caption>
