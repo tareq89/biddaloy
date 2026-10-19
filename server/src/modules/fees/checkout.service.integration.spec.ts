@@ -1457,6 +1457,54 @@ describe('CheckoutService (integration)', () => {
       expect(invoice_id).toBeTruthy();
     });
 
+    // #2700: the three cases from the deleted recordWithAllocation spec that had no checkout twin.
+    it('rejects a duplicate student_fee_id in lines (400, nothing written)', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id));
+      await expect(
+        service.checkout(
+          {
+            idempotency_key: KEY(7),
+            lines: [
+              { student_fee_id: bill.id, amount: 100 },
+              { student_fee_id: bill.id, amount: 100 },
+            ],
+            payment_method: PaymentMethod.CASH,
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+    });
+
+    it('refuses to pay a bill already fully covered by discount (nothing written)', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(
+        makeBill(student.id, {
+          total_amount: 1000,
+          discount_amount: 1000,
+          standing_discount_amount: 1000,
+        }),
+      );
+      await expect(pay(bill.id, 100, KEY(8))).rejects.toThrow();
+      expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+      expect(Number((await studentFeeRepo.findOneByOrFail({ id: bill.id })).paid_amount)).toBe(0);
+    });
+
+    it('two concurrent payments by different students get distinct invoice numbers', async () => {
+      const s1 = await studentRepo.save(makeStudent());
+      const s2 = await studentRepo.save(makeStudent());
+      const b1 = await studentFeeRepo.save(makeBill(s1.id));
+      const b2 = await studentFeeRepo.save(makeBill(s2.id));
+
+      const [r1, r2] = await Promise.all([pay(b1.id, 1000, KEY(9)), pay(b2.id, 1000, KEY(10))]);
+
+      expect(r1.invoice_number).toBeTruthy();
+      expect(r2.invoice_number).not.toBe(r1.invoice_number);
+    });
+
     it('allows the same idempotency key in two different tenants (two payments)', async () => {
       const student = await studentRepo.save(makeStudent());
       const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
