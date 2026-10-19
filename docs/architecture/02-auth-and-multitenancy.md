@@ -435,18 +435,23 @@ building a new gated route:
   `step-up.controller.e2e-spec.ts` ("the actor may verify themselves as the
   approver"); a school that wants a different person is a later setting, not
   a code rule.
-- **Wrong guesses are counted three ways** (Redis, 15-minute window, limit
-  `STEP_UP_RATE_LIMIT_MAX_ATTEMPTS`, default 5). Any one over its limit is a 429.
+- **Attempts are counted three ways** (Redis, 15-minute window, limit
+  `STEP_UP_RATE_LIMIT_MAX_ATTEMPTS`, default 5). Every attempt counts, right
+  or wrong, before the credential is checked. Any one over its limit is a 429.
+  The approver key is counted only after the caller's own two keys allow the
+  attempt, so one caller adds at most 5 to it.
 
   | Key | Limit | Why |
   | --- | --- | --- |
-  | `step-up-attempts:pair:<tenant>:<caller>:<approver>` | 5 | One caller's guesses never lock the approver out for others. |
+  | `step-up-attempts:pair:<tenant>:<caller>:<approver>` | 5 | One caller's attempts never lock the approver out for others. |
   | `step-up-attempts:actor:<caller>` | 5 | One caller cannot spread guesses over many approvers. |
   | `step-up-attempts:approver:<tenant>:<approver>` | 20 (4x) | Many callers together cannot multiply the guesses at one approver. |
 
   Code requests have the same 20 ceiling per approver
   (`step-up-otp-requests:approver:…`): past it, the 202 still comes back but no
-  new code is sent, so ten staff cannot text one approver ten times.
+  new code is sent, so ten staff cannot text one approver ten times. Only codes
+  actually sent count: a request inside the caller's own 60 s cooldown sends
+  nothing and gives its slot back.
 - **The 403 body is nested.** `ApprovalRequiredException`
   (`server/src/common/errors/approval-required.exception.ts`) must put
   `code`/`scope` under a `details` key — the global exception filter only

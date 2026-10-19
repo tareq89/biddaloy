@@ -128,9 +128,12 @@ export class StepUpService {
     const approver = await this.findEligibleApprover(identifier, actorTenantId);
     if (!approver) return {};
     // Each caller has its own OTP and cooldown, so cap the texts one approver can be sent.
-    // Over the cap: the same uniform 202, no new code.
+    // Over the cap: the same uniform 202, no new code. The slot is taken before the send
+    // (so concurrent requests cannot overshoot) and handed back when no code goes out,
+    // so a caller inside its own cooldown cannot use up the cap for everyone.
+    const capKey = `step-up-otp-requests:approver:${actorTenantId}:${normalizeLoginIdentifier(identifier)}`;
     const underApproverCap = await this.checkAndIncrementRateLimit(
-      `step-up-otp-requests:approver:${actorTenantId}:${normalizeLoginIdentifier(identifier)}`,
+      capKey,
       this.rateLimitMaxAttempts() * APPROVER_CAP_MULTIPLIER,
     );
     if (!underApproverCap) return {};
@@ -144,6 +147,8 @@ export class StepUpService {
     } catch {
       // Same reasoning as OtpLoginService.request: a cooldown 429 from
       // OtpService must not leak beyond this endpoint's uniform 202.
+      // Nothing was sent: give the slot back. A failed decr only errs toward the cap.
+      await this.redis.decr(capKey).catch(() => undefined);
       return {};
     }
   }

@@ -37,6 +37,11 @@ function fakeRedis() {
       store.set(key, String(next));
       return next;
     }),
+    decr: vi.fn(async (key: string) => {
+      const next = (Number(store.get(key)) || 0) - 1;
+      store.set(key, String(next));
+      return next;
+    }),
     pexpire: vi.fn().mockResolvedValue(1),
     set: vi.fn().mockResolvedValue('OK'),
   };
@@ -467,6 +472,32 @@ describe('StepUpService', () => {
         service.requestOtp('admin@example.com', TENANT_ID, 'caller-21'),
       ).resolves.toEqual({});
       expect(otpService.request).toHaveBeenCalledTimes(20);
+    });
+
+    // [2639] Round 2: only codes actually issued count toward the approver cap. A caller
+    // inside its own 60 s cooldown gets nothing sent, so it must not spend the cap.
+    it('one caller spamming requests inside its cooldown does not stop codes to another caller', async () => {
+      const issuedTo = new Set<string>();
+      const otpService = {
+        request: vi.fn(async (_purpose: string, id: string) => {
+          if (issuedTo.has(id)) throw new HttpException('cooldown', HttpStatus.TOO_MANY_REQUESTS);
+          issuedTo.add(id);
+          return { code: '123456' };
+        }),
+        verify: vi.fn(),
+      };
+      const { service } = buildService({ otpService });
+
+      for (let i = 0; i < 25; i++) {
+        await service.requestOtp('admin@example.com', TENANT_ID, 'caller-a');
+      }
+      otpService.request.mockClear();
+
+      await service.requestOtp('admin@example.com', TENANT_ID, 'caller-b');
+      expect(otpService.request).toHaveBeenCalledWith(
+        'STEP_UP',
+        `${TENANT_ID}:caller-b:admin@example.com`,
+      );
     });
   });
 });
