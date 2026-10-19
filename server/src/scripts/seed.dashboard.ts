@@ -822,7 +822,8 @@ async function seedAudit(q: Q, tenantId: string, pool: Stu[]) {
 
 /**
  * 5 pending staff leaves (step 0, LEAVE_APPROVE) + 2 pending fee waivers parked at the
- * admin's own step (step 1), so the seed ADMIN and EXECUTIVE both see 7 in the inbox.
+ * admin's own step (step 1). Filed by, and about, non-admin staff, so the seed ADMIN sees
+ * all 7 in the inbox (it hides the admin's own applications and the admin's own leave).
  * Found by `letter_text` (a stable marker); only the age moves with today's run.
  */
 async function seedPendingApplications(
@@ -832,17 +833,20 @@ async function seedPendingApplications(
   today: string,
   pool: Stu[],
 ) {
-  // ADMIN sorts last: the applicant below is staff[0], and the admin inbox hides the
-  // admin's own applications. Random uuid order used to pick the admin about 1 run in 5,
-  // emptying the dashboard's approvals-pending demo for the very role it is for.
-  const staff = await q<{ id: string; user_id: string }>(
-    `SELECT sp.id, sp.user_id FROM staff_profiles sp
+  // The admin inbox hides the admin's own applications and the admin's own leave, so the
+  // applicant and the leave subjects are non-admin staff. Random uuid order used to pick
+  // the admin as applicant about 1 run in 5, emptying the demo for the role it is for.
+  const everyone = await q<{ id: string; user_id: string; is_admin: boolean }>(
+    `SELECT sp.id, sp.user_id, COALESCE(ut.role = 'ADMIN', FALSE) AS is_admin
+       FROM staff_profiles sp
        LEFT JOIN user_tenants ut ON ut.user_id = sp.user_id AND ut.tenant_id = sp.tenant_id
         AND ut.deleted_at IS NULL
       WHERE sp.tenant_id = $1
-      ORDER BY COALESCE(ut.role = 'ADMIN', FALSE), sp.created_at, sp.id`,
+      ORDER BY sp.created_at, sp.id`,
     [tenantId],
   );
+  const nonAdmin = everyone.filter((s) => !s.is_admin);
+  const staff = nonAdmin.length > 0 ? nonAdmin : everyone;
   if (staff.length === 0) return;
   const applicant = staff[0].user_id; // a staff member files all of them: no PII, no extra users
   const serialYear = Number(today.slice(0, 4));
