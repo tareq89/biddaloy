@@ -73,9 +73,11 @@ function PrintPreviewPage() {
     ),
     enabled: search.class_section_id !== undefined,
   });
-  const explicit = search.ids ? search.ids.split(',').filter(Boolean) : [];
+  const stateIds = router.state.location.state.printIds;
+  const explicit = stateIds ?? (search.ids ? search.ids.split(',').filter(Boolean) : []);
   const ids = search.class_section_id !== undefined ? (bySection.data?.ids ?? []) : explicit;
-  const picking = search.ids === undefined && search.class_section_id === undefined;
+  const picking =
+    search.ids === undefined && stateIds === undefined && search.class_section_id === undefined;
   const contextExam = search.context_type === 'EXAM' ? search.context_id : undefined;
   const admitExam = search.kind === DocumentKind.EXAM_ADMIT_CARD ? contextExam : undefined;
   // D9: a student who owes fees is flagged in the pre-flight; staff can still print.
@@ -172,6 +174,7 @@ function PrintPreviewPage() {
             onBack: () =>
               void navigate({
                 replace: true,
+                state: {},
                 search: (prev) => {
                   const next = { ...prev };
                   delete next.ids;
