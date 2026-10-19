@@ -14,7 +14,6 @@ import { FeeGenerationsService } from './fee-generations.service';
 import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { ApprovalService } from '../auth/guards/approval.guard';
-import { PaymentAllocationService } from './payment-allocation.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { StorageModule } from '../storage/storage.module';
 import { RecurringSchedulesService } from './recurring-schedules.service';
@@ -189,7 +188,6 @@ describe('FeesDailyScheduler (integration)', () => {
         AuditService,
         NoopDiscountResolver,
         ApprovalService,
-        PaymentAllocationService,
         InvoicesService,
         RecurringSchedulesService,
         JwtService,
