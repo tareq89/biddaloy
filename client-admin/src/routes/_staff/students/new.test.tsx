@@ -1,3 +1,4 @@
+import { createAppQueryClient } from '@biddaloy/ui/api';
 import {
   apiErrorBody,
   classFactory,
@@ -9,7 +10,6 @@ import {
   studentFactory,
   userEvent,
 } from '@biddaloy/ui/test';
-import { createAppQueryClient } from '@biddaloy/ui/api';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
