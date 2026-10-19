@@ -97,7 +97,6 @@ export interface KnownGap {
   followUp: number;
 }
 
-
 // ---- fixtures ---------------------------------------------------------------
 
 const day = (n: number) => `${2000 + (n % 90)}-01-01`;
@@ -631,7 +630,13 @@ export const ALLOWED: Allowed[] = [
 const SCALARS: Record<string, unknown> = { boolean: false, jsonb: {}, json: {}, time: '09:00:00' };
 
 /** Fills every required column from the TypeORM metadata so a child row needs no hand-made fixture. */
-async function autoRow(ctx: Ctx, entityName: string, relProp: string | null, parentId: string | null, depth = 0) {
+async function autoRow(
+  ctx: Ctx,
+  entityName: string,
+  relProp: string | null,
+  parentId: string | null,
+  depth = 0,
+) {
   const meta = ctx.ds.entityMetadatas.find((m) => m.name === entityName)!;
   if (depth > 6) throw new Error(`autoRow too deep at ${entityName}`);
   const row: Record<string, unknown> = {};
@@ -642,7 +647,9 @@ async function autoRow(ctx: Ctx, entityName: string, relProp: string | null, par
       continue;
     if (!isTarget && (col.isNullable || col.default !== undefined)) continue;
     if (rel) {
-      const id = isTarget ? parentId : await autoCreate(ctx, rel.inverseEntityMetadata.name, depth + 1);
+      const id = isTarget
+        ? parentId
+        : await autoCreate(ctx, rel.inverseEntityMetadata.name, depth + 1);
       row[rel.propertyName] = { id };
       continue;
     }
@@ -650,11 +657,16 @@ async function autoRow(ctx: Ctx, entityName: string, relProp: string | null, par
     else if (col.propertyName === 'tenant_id') row.tenant_id = ctx.tenantId;
     else if (col.enum?.length) row[col.propertyName] = col.enum[0];
     else if (String(col.type) in SCALARS)
-      row[col.propertyName] = /end/.test(col.propertyName) ? '10:00:00' : SCALARS[col.type as string];
+      row[col.propertyName] = /end/.test(col.propertyName)
+        ? '10:00:00'
+        : SCALARS[col.type as string];
     else if (col.type === 'uuid') row[col.propertyName] = randomUUID();
     else if (['date'].includes(col.type as string)) row[col.propertyName] = '2020-01-01';
     else if (String(col.type).startsWith('timestamp')) row[col.propertyName] = new Date();
-    else if (col.type === String || ['varchar', 'text', 'character varying'].includes(col.type as string))
+    else if (
+      col.type === String ||
+      ['varchar', 'text', 'character varying'].includes(col.type as string)
+    )
       row[col.propertyName] = `g${ctx.n()}`;
     else row[col.propertyName] = 1;
   }
@@ -685,9 +697,14 @@ function auto(key: string, parent: ParentKind): Guarded {
       const { meta, row } = await autoRow(ctx, child, prop, parentId);
       const saved = await ctx.ds.getRepository(meta.target).save(row as never);
       const pk = Object.fromEntries(
-        meta.primaryColumns.map((c) => [c.propertyName, (saved as unknown as Record<string, unknown>)[c.propertyName]]),
+        meta.primaryColumns.map((c) => [
+          c.propertyName,
+          (saved as unknown as Record<string, unknown>)[c.propertyName],
+        ]),
       );
-      return { release: async () => void (await ctx.ds.getRepository(meta.target).delete(pk as never)) };
+      return {
+        release: async () => void (await ctx.ds.getRepository(meta.target).delete(pk as never)),
+      };
     },
   };
 }
@@ -695,3 +712,37 @@ function auto(key: string, parent: ParentKind): Guarded {
 // ---- KNOWN_GAPS (each becomes a GitHub issue at wave close, D22) -------------
 
 export const KNOWN_GAPS: KnownGap[] = [];
+
+/**
+ * [2688] References the metadata scan cannot prove: plain uuid columns with no
+ * relation or FK constraint, and ids inside JSON. A delete of the parent does
+ * not see them. Each needs a reason; add a guard in the parent's remove() when
+ * the child is live data.
+ */
+export const BARE_REFS: { key: string; reason: string }[] = [
+  {
+    key: 'PrintJobItem.subject_id',
+    reason:
+      "Polymorphic 'subject' (a person or record of any kind), not the Subject entity; no FK to protect.",
+  },
+  {
+    key: 'Alert.subject_id',
+    reason:
+      "Polymorphic 'subject' (a person or record of any kind), not the Subject entity; no FK to protect.",
+  },
+  {
+    key: 'AcrAssessment.academic_year_id',
+    reason:
+      'Real FK to academic_years with no relation decorator; AcademicYearService.remove does not count it yet (follow-up).',
+  },
+  {
+    key: 'SurveyTarget.subject_id',
+    reason:
+      'Real FK to subjects with no relation decorator; SubjectService.remove does not count it yet (follow-up).',
+  },
+  {
+    key: 'SurveyResponse.subject_id',
+    reason:
+      'Real FK to subjects with no relation decorator; SubjectService.remove does not count it yet (follow-up).',
+  },
+];
