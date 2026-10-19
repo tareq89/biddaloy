@@ -506,3 +506,28 @@ export const usersTab: TabSpec<User, UserRow> = {
     return m.softDelete(UserTenant, { id: In(ids) }).then(() => undefined);
   },
 };
+
+/**
+ * id -> natural key (as `usersTab.keyOf`) for the given users who are still
+ * non-SUPER_ADMIN members of the tenant, i.e. exactly the users the `users`
+ * tab exports. A departed member or SUPER_ADMIN is absent, so a tab that keys
+ * rows by an actor gets '' for them, which is what `optionalKeyOf` writes to
+ * the cell. Without this the entity key (email) would not match the row key
+ * (blank) and a same-school restore would treat the row as new.
+ */
+export async function memberKeysById(
+  tenantId: string,
+  userIds: readonly string[],
+  m: EntityManager,
+): Promise<Map<string, string>> {
+  if (userIds.length === 0) return new Map();
+  const users = await m
+    .createQueryBuilder(User, 'user')
+    .innerJoin('user.user_tenants', 'ut', 'ut.tenant_id = :tenantId AND ut.role != :superAdmin', {
+      tenantId,
+      superAdmin: UserRole.SUPER_ADMIN,
+    })
+    .where('user.id IN (:...userIds)', { userIds: [...new Set(userIds)] })
+    .getMany();
+  return new Map(users.map((u) => [u.id, usersTab.keyOf(u)]));
+}

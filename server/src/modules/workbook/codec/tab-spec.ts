@@ -30,6 +30,12 @@ export interface ColumnSpec {
   key: string;
   type: ColumnType;
   required?: boolean;
+  /**
+   * Actor columns (author, creator) that may be blank because the export
+   * blanks a departed user. Blank on an existing row keeps the stored actor;
+   * blank on a row that does not exist yet is a validation error.
+   */
+  requiredOnNewRow?: boolean;
   enumValues?: readonly string[];
   ref?: string;
   label: { en: string; bn: string };

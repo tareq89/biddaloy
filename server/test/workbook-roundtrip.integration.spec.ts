@@ -36,6 +36,7 @@ import {
   ApplicationEventKind,
   LeaveStatus,
   TeacherAssignmentType,
+  StudentLifecycleEventType,
 } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -50,6 +51,8 @@ import { ClassSection } from '../src/modules/academics/entities/class-section.en
 import { Student } from '../src/modules/students/entities/student.entity';
 import { Guardian } from '../src/modules/students/entities/guardian.entity';
 import { Enrollment } from '../src/modules/students/entities/enrollment.entity';
+import { StudentNote } from '../src/modules/students/entities/student-note.entity';
+import { StudentLifecycleEvent } from '../src/modules/students/entities/student-lifecycle-event.entity';
 import { User } from '../src/modules/users/entities/user.entity';
 import { UserTenant } from '../src/modules/auth/entities/user-tenant.entity';
 import { FeeStructure } from '../src/modules/fees/entities/fee-structure.entity';
@@ -2457,6 +2460,177 @@ describe('workbook round trip (integration)', () => {
   it.todo(
     "#2344: restoring into B while A's users still exist completes: verified users get join requests, rows that reference them are skipped (not failed), and B keeps its own admin",
   );
+
+  // ---- [2625] departed recorders -----------------------------------------
+  //
+  // A payment received by a member who has left, a lifecycle event recorded
+  // by someone who was never a member (SUPER_ADMIN), and a note by a departed
+  // author. None of them is in the `users` tab, so the strict lookup used to
+  // fail the whole export. D10: blank cell on export; restore into the same
+  // school keeps the stored actor; a NOT NULL actor left blank on a new row
+  // is a validation error.
+  describe('departed recorders (#2625)', () => {
+    const T = randomUUID();
+
+    async function exportA(): Promise<Buffer> {
+      const job = await dataSource.getRepository(WorkbookJob).save(
+        dataSource.getRepository(WorkbookJob).create({
+          tenant_id: T,
+          kind: WorkbookJobKind.EXPORT,
+          source: WorkbookJobSource.MANUAL,
+          status: WorkbookJobStatus.QUEUED,
+          requested_by_user_id: null,
+        }),
+      );
+      await exportProcessor.process(fakeExportJob(job.id, T));
+      const done = await dataSource
+        .getRepository(WorkbookJob)
+        .findOneOrFail({ where: { id: job.id } });
+      // The bug: the job failed (and used to stay RUNNING) instead of reaching DONE.
+      expect(done.status).toBe(WorkbookJobStatus.DONE);
+      return storage.objects.get(done.storage_key as string) as Buffer;
+    }
+
+    it('exports with blank actor cells, restore keeps the stored actors, and a new note row needs an author', async () => {
+      // A small school of its own (the big fixture can only be seeded once per file).
+      const tag = T.slice(0, 8);
+      await dataSource
+        .getRepository(School)
+        .save(
+          dataSource
+            .getRepository(School)
+            .create({ id: T, name: `Departed Recorders ${tag}`, slug: `departed-${tag}` }),
+        );
+      const year = await dataSource.getRepository(AcademicYear).save(
+        dataSource.getRepository(AcademicYear).create({
+          name: `2026-${tag}`,
+          start_date: new Date('2026-01-01'),
+          end_date: new Date('2026-12-31'),
+          is_current: true,
+          tenant_id: T,
+        }),
+      );
+      const klass = await dataSource.getRepository(Class).save(
+        dataSource.getRepository(Class).create({
+          name: `Six-${tag}`,
+          numeric_grade: 6,
+          academic_year_id: year.id,
+          tenant_id: T,
+        }),
+      );
+      const section = await dataSource.getRepository(ClassSection).save(
+        dataSource.getRepository(ClassSection).create({
+          class_id: klass.id,
+          section_name: 'A',
+          capacity: null,
+          tenant_id: T,
+        }),
+      );
+      // The one current member, so the `users` tab is not empty.
+      const admin = await dataSource.getRepository(User).save(
+        dataSource.getRepository(User).create({
+          email: `rt2625-admin-${tag}@test.com`,
+          full_name: 'Rt2625 admin',
+          password_hash: 'not-the-asserted-hash',
+        }),
+      );
+      await dataSource
+        .getRepository(UserTenant)
+        .save(
+          dataSource
+            .getRepository(UserTenant)
+            .create({ user_id: admin.id, tenant_id: T, role: UserRole.ADMIN }),
+        );
+      const student = await dataSource.getRepository(Student).save(
+        dataSource.getRepository(Student).create({
+          full_name: 'Rt2625 Student',
+          registration_number: `REG-${tag}`,
+          roll_number: 1,
+          class_section_id: section.id,
+          tenant_id: T,
+        }),
+      );
+      const enrollment = await dataSource.getRepository(Enrollment).save(
+        dataSource.getRepository(Enrollment).create({
+          student_id: student.id,
+          class_id: klass.id,
+          section_id: section.id,
+          academic_year_id: year.id,
+          tenant_id: T,
+        }),
+      );
+      await dataSource.getRepository(Payment).save(
+        dataSource.getRepository(Payment).create({
+          student_id: student.id,
+          total_amount: 100,
+          payment_method: PaymentMethod.CASH,
+          payment_status: PaymentStatus.SUCCESS,
+          payment_date: new Date('2026-01-05T00:00:00.000Z'),
+          tenant_id: T,
+        }),
+      );
+      // Users with no membership in this school: one "left", one SUPER_ADMIN-like.
+      const [departed, platformAdmin] = await dataSource.getRepository(User).save(
+        ['departed', 'platform'].map((n) =>
+          dataSource.getRepository(User).create({
+            email: `rt2625-${n}-${tag}@test.com`,
+            full_name: `Rt2625 ${n}`,
+            password_hash: 'not-the-asserted-hash',
+          }),
+        ),
+      );
+      await dataSource
+        .getRepository(Payment)
+        .update({ tenant_id: T }, { received_by_user_id: departed.id });
+      const note = await dataSource.getRepository(StudentNote).save(
+        dataSource.getRepository(StudentNote).create({
+          tenant_id: T,
+          student_id: student.id,
+          author_user_id: departed.id,
+          body: 'Left-author note',
+          rating: null,
+        }),
+      );
+      const event = await dataSource.getRepository(StudentLifecycleEvent).save(
+        dataSource.getRepository(StudentLifecycleEvent).create({
+          tenant_id: T,
+          student_id: student.id,
+          enrollment_id: enrollment.id,
+          academic_year_id: enrollment.academic_year_id,
+          event_type: StudentLifecycleEventType.WITHDRAWN,
+          occurred_on: '2026-02-01',
+          reason: 'Rt2625',
+          recorded_by_user_id: platformAdmin.id,
+        }),
+      );
+
+      const buffer = await exportA();
+
+      // Restore into the SAME school: nothing to create, delete or rewrite
+      // for the three tabs, and no validation error.
+      const same = await validationService.validate(buffer, T, dataSource.manager);
+      const touched = ['payments', 'student_notes', 'student_lifecycle_events'];
+      expect(same.errors.filter((e) => e.severity === 'error' && touched.includes(e.tab))).toEqual(
+        [],
+      );
+      const staged = await dataSource.getRepository(StudentNote).findOneByOrFail({ id: note.id });
+      expect(staged.author_user_id).toBe(departed.id);
+      expect(
+        (await dataSource.getRepository(StudentLifecycleEvent).findOneByOrFail({ id: event.id }))
+          .recorded_by_user_id,
+      ).toBe(platformAdmin.id);
+
+      // Into an empty school: the NOT NULL author is blank on a new row.
+      const empty = await validationService.validate(buffer, TENANT_B, dataSource.manager);
+      const noteErrors = empty.errors.filter(
+        (e) => e.severity === 'error' && e.tab === 'student_notes' && e.column === 'author',
+      );
+      expect(noteErrors.length).toBeGreaterThan(0);
+      expect(noteErrors[0].message).toBe(
+        'Choose a current staff member for this row; a new row needs one.',
+      );
+    }, 90_000);
+  });
 
   // ---- [47.x] teacher_assignments Role column: restore semantics ----------
   //

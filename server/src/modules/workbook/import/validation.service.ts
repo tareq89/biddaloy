@@ -228,6 +228,11 @@ export class ValidationService {
         }
       }
 
+      const newRowActorCols = tab.columns.filter((c) => c.requiredOnNewRow);
+      const existingEntityIds = new Set<unknown>(
+        newRowActorCols.length > 0 ? existingEntities.map((e) => (e as { id?: unknown }).id) : [],
+      );
+
       for (const { rowNo, cells } of sheet.rows) {
         const parentKey =
           tab.name === 'survey_responses'
@@ -275,6 +280,30 @@ export class ValidationService {
         }
 
         const key = tab.keyOf(result.row);
+
+        // Actor columns the export blanks for a departed user: blank is fine
+        // on a row the school already has (it keeps its stored actor), an
+        // error on a new row. Fixed text, never echoes the cell.
+        if (newRowActorCols.length > 0) {
+          const rowId = (result.row as Record<string, unknown>).id;
+          const isExistingRow =
+            (typeof rowId === 'string' && existingEntityIds.has(rowId)) ||
+            existingIndexes.get(tab.name)?.get(key) !== undefined;
+          const blank = isExistingRow
+            ? undefined
+            : newRowActorCols.find((c) => (cells[c.key] ?? '').trim() === '');
+          if (blank) {
+            recordError(tabErrors, {
+              tab: tab.name,
+              row: rowNo,
+              column: blank.key,
+              severity: 'error',
+              message: 'Choose a current staff member for this row; a new row needs one.',
+            });
+            continue;
+          }
+        }
+
         const first = firstByKey.get(key);
         if (first) {
           // A row is "safe" to keep alongside another one sharing its key
