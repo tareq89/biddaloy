@@ -9433,6 +9433,7 @@ export interface components {
         CommunicationResponseDto: {
             /** @enum {string} */
             medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER" | "PUSH";
+            error: string | null;
             id: string;
             recipient_address: string;
             recipient_name: string;
