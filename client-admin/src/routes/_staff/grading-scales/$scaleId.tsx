@@ -10,11 +10,12 @@
  * sentences, a leave guard for unsaved rows and a detail-shaped skeleton.
  */
 import { Permission } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
+import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
 import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  RecordNotFoundState,
   RoutePending,
   Skeleton,
 } from '@biddaloy/ui/components';
@@ -30,7 +31,7 @@ import {
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, PageContainer } from '@biddaloy/ui/shells';
 import { formatNumber } from '@biddaloy/ui/utils';
-import { createFileRoute, useBlocker } from '@tanstack/react-router';
+import { createFileRoute, useBlocker, useNavigate } from '@tanstack/react-router';
 import { CircleAlertIcon, CopyIcon, ListPlusIcon, SaveIcon, TriangleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
@@ -148,6 +149,7 @@ function toBandInput(band: {
 }
 
 function ScaleEditorPage() {
+  const navigate = useNavigate();
   const { scaleId } = Route.useParams();
   const { t } = useTranslation('grading');
   const config = useRegionConfig();
@@ -193,6 +195,10 @@ function ScaleEditorPage() {
     shouldBlockFn: () => canManage && dirty && !savedRef.current,
     withResolver: true,
   });
+
+  if (isNotFoundError(scaleQuery.error)) {
+    return <RecordNotFoundState onBack={() => void navigate({ to: '/grading-scales' })} />;
+  }
 
   if (scaleQuery.isError) {
     const forbidden = scaleQuery.error instanceof ApiError && scaleQuery.error.statusCode === 403;

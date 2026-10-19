@@ -17,11 +17,12 @@
  * several keystrokes; batching those avoids one PATCH per character).
  */
 import { Permission, type PromotionOutcome } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
+import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
 import {
   Button,
   ConfirmDialog,
   ErrorState,
+  RecordNotFoundState,
   Input,
   RoutePending,
   Select,
@@ -190,6 +191,10 @@ function PromotionRunPage() {
   }, [canCommit, deleteOpen]);
 
   if (runQuery.isPending) return <Skeleton className="h-64 w-full" />;
+  if (isNotFoundError(runQuery.error)) {
+    return <RecordNotFoundState onBack={() => void navigate({ to: '/promotions' })} />;
+  }
+
   if (runQuery.isError || !run) {
     return (
       <ErrorState
