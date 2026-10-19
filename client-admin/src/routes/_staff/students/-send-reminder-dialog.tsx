@@ -1,3 +1,4 @@
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Dialog,
@@ -10,7 +11,6 @@ import {
   Textarea,
   toast,
 } from '@biddaloy/ui/components';
-import { ApiError } from '@biddaloy/ui/api';
 import { useSendBulkReminder } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { parseValidationFieldErrors } from '@biddaloy/ui/utils';
