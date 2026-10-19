@@ -273,6 +273,35 @@ describe('BackupSection', () => {
     expect(screen.queryByRole('button', { name: 'Download' })).toBeNull();
   });
 
+  it.each([
+    ['DONE', 'RESTORE_LIMIT_EXCEEDED', true],
+    ['DONE', null, false],
+    ['FAILED', 'RESTORE_LIMIT_EXCEEDED free text', false],
+  ] as const)('restore-limit sentence for %s / %s: shown=%s', async (status, error, shown) => {
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({
+          data: [jobFixture({ id: 'job-limit', status, error })],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
+      ),
+    );
+
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    await screen.findByText(status === 'DONE' ? 'Done' : 'Failed');
+    expect(!!screen.queryByText(/bigger than this app can restore/)).toBe(shown);
+    expect(screen.queryByText(/free text/)).toBeNull();
+  });
+
   it('shows the empty state when there are no jobs yet', async () => {
     server.use(
       http.get('/api/v1/backup/jobs', () =>
