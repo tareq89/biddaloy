@@ -180,12 +180,30 @@ describe('/analysis', () => {
 
     let rowsAtPrint = 0;
     window.print = () => {
+      window.dispatchEvent(new Event('beforeprint')); // a real browser fires it
       rowsAtPrint = area.getAllByText(/^Student \d\d$/).length;
     };
     await user.click(screen.getByRole('button', { name: 'Print' }));
     expect(rowsAtPrint).toBe(60);
 
     // afterprint brings the pager back.
+    window.dispatchEvent(new Event('afterprint'));
+    await waitFor(() => expect(area.getAllByText(/^Student \d\d$/)).toHaveLength(25));
+  });
+
+  it('Ctrl/Cmd+P (beforeprint) also renders every row, afterprint pages again [2697]', async () => {
+    const exam = mockExam();
+    server.use(
+      http.get(`/api/v1/exams/${exam.id}/analysis/merit`, () =>
+        HttpResponse.json({ status: exam.status, rows: MANY_MERIT }),
+      ),
+    );
+    render(`/analysis?examId=${exam.id}&tab=merit`);
+
+    await screen.findByText('Student 01');
+    const area = within(document.getElementById('analysis-print-area')!);
+    window.dispatchEvent(new Event('beforeprint'));
+    expect(area.getAllByText(/^Student \d\d$/)).toHaveLength(60);
     window.dispatchEvent(new Event('afterprint'));
     await waitFor(() => expect(area.getAllByText(/^Student \d\d$/)).toHaveLength(25));
   });
