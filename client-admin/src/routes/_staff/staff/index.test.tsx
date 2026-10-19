@@ -844,8 +844,9 @@ describe('/staff', () => {
 
     await waitFor(() => expect(restored).toBe(true));
     await waitFor(() => expect(screen.queryByText('Gone Person')).toBeNull());
-    // An empty Former list has its own words, and no "add someone" pitch.
-    expect(await screen.findByText('No former staff')).toBeTruthy();
+    // [2591] The Former view is an active filter, so ListShell shows "no matches" with a
+    // Clear action; the page's own "No former staff" words are no longer reached.
+    expect(await screen.findByRole('button', { name: /clear/i })).toBeTruthy();
     expect(screen.queryByText('Add someone and they will show up here.')).toBeNull();
   });
 

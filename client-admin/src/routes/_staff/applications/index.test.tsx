@@ -1,4 +1,5 @@
 import { ApplicationStatus, ApplicationType, Permission } from '@biddaloy/shared';
+import { listSelectionKey, setListSelection } from '@biddaloy/ui/api';
 import type { ApplicationListItemDto } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -189,7 +190,9 @@ describe('/applications', () => {
         ];
       },
     });
-    mount(`?view=inbox&selected=${OFF_PAGE}`);
+    // [2602] Selection lives in memory per tenant + path, not in the URL.
+    setListSelection(listSelectionKey('/applications', 'tenant-1'), new Set([OFF_PAGE]));
+    mount('?view=inbox');
     await screen.findAllByText('Alice');
     await user.click(screen.getAllByRole('checkbox', { name: 'Select all rows on page' })[0]!);
     await user.click(await screen.findByRole('button', { name: 'Approve selected' }));

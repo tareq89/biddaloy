@@ -88,6 +88,11 @@ export {
 } from './freshness';
 export { clearAllFormDrafts, formDraftKey, FORM_DRAFT_KEY_PREFIX } from './form-draft-storage';
 export {
+  clearListSelectionMemory,
+  listSelectionKey,
+  setSelection as setListSelection,
+} from './list-selection-memory';
+export {
   decodeAccessTokenMemberships,
   ensureSessionLoaded,
   resetSessionBootstrap,
