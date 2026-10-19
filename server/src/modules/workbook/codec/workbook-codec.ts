@@ -6,6 +6,7 @@ import {
   XlsxTooLargeError,
 } from '../../../common/utils/xlsx-guard.util';
 import ExcelJS from 'exceljs';
+import { BACKUP_MAX_ENTRIES, BACKUP_MAX_INFLATED_BYTES } from '../export/export.constants';
 import { cellText, normalizeCell, toCell } from './cell-format';
 import { META_FIELDS, META_SHEET, SCHEMA_VERSION, type WorkbookMeta } from './meta';
 import { ALL_TABS, EXPECTED_TABS } from './registry';
@@ -318,11 +319,11 @@ export async function readWorkbook(buffer: Buffer): Promise<ReadWorkbookResult> 
   const workbook = new ExcelJS.Workbook();
 
   try {
-    // Whole-school backup: the 20 MB compressed upload cap is what binds in
-    // practice; 256 MB inflated is generous headroom over a real backup.
+    // Whole-school backup: limits are shared with the upload cap and the
+    // export-time warning (export.constants.ts).
     await assertXlsxWithinLimits(buffer, {
-      maxUncompressedBytes: 256 * 1024 * 1024,
-      maxEntries: 5_000,
+      maxUncompressedBytes: BACKUP_MAX_INFLATED_BYTES,
+      maxEntries: BACKUP_MAX_ENTRIES,
     });
     await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
   } catch (cause) {

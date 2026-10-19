@@ -4,7 +4,13 @@ import { join, relative } from 'path';
 import type { Job } from 'bullmq';
 import { ExportProcessor } from './export.processor';
 import { WorkbookJobKind, WorkbookJobSource, WorkbookJobStatus } from '../jobs/workbook-job.entity';
-import type { WorkbookExportJobData } from './export.constants';
+import {
+  BACKUP_LIMIT_WARNING,
+  BACKUP_MAX_UPLOAD_BYTES,
+  type WorkbookExportJobData,
+} from './export.constants';
+import { writeWorkbook } from '../codec/workbook-codec';
+import { XlsxTooLargeError } from '../../../common/utils/xlsx-guard.util';
 
 vi.mock('@sentry/node', () => ({
   withScope: (fn: (scope: any) => void) => fn({ setTags: vi.fn() }),
@@ -34,6 +40,13 @@ const { fakeTabA, fakeTabB } = vi.hoisted(() => {
     fakeTabB: { ...base, name: 'fake_tab_b', load: vi.fn() },
   };
 });
+
+// The fake buffers are not zips; the real guard has its own specs.
+const guardMock = vi.hoisted(() => vi.fn());
+vi.mock('../../../common/utils/xlsx-guard.util', async (orig) => ({
+  ...(await orig<object>()),
+  assertXlsxWithinLimits: guardMock,
+}));
 
 vi.mock('../codec/registry', () => ({
   ALL_TABS: [fakeTabA, fakeTabB],
@@ -309,6 +322,29 @@ describe('ExportProcessor', () => {
 
     expect(jobsRepo.update).not.toHaveBeenCalled();
     expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  describe('restore-limit warning (#2624)', () => {
+    const writeWorkbookMock = writeWorkbook as unknown as ReturnType<typeof vi.fn>;
+    const doneUpdate = () =>
+      jobsRepo.update.mock.calls.find((c: any[]) => c[1].status === WorkbookJobStatus.DONE)![1];
+
+    it('a buffer over the upload cap leaves the job DONE with the warning code', async () => {
+      writeWorkbookMock.mockResolvedValueOnce(Buffer.alloc(BACKUP_MAX_UPLOAD_BYTES + 1));
+      await processor.process(fakeJob());
+      expect(doneUpdate().error).toBe(BACKUP_LIMIT_WARNING);
+    });
+
+    it('a small buffer leaves error null', async () => {
+      await processor.process(fakeJob());
+      expect(doneUpdate().error).toBeNull();
+    });
+
+    it('a guard XlsxTooLargeError sets the warning', async () => {
+      guardMock.mockRejectedValueOnce(new XlsxTooLargeError('too many'));
+      await processor.process(fakeJob());
+      expect(doneUpdate().error).toBe(BACKUP_LIMIT_WARNING);
+    });
   });
 
   it('final attempt (attemptsMade 1 of 2): tab throws -> FAILED with a sanitised error and the notifier fires', async () => {
