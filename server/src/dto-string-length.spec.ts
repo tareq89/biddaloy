@@ -22,10 +22,6 @@ import { getMetadataStorage } from 'class-validator';
 /** `<module>/<ClassName>.<field>` -> reason it is not a varchar-backed write field. */
 const ALLOWLIST = new Map<string, string>([
   ['students/CreateStudentDto.phone', 'no such column on the student entity'],
-  [
-    'schools/UpdateSchoolProfileDto.phone',
-    'real gap (schools.phone is varchar(20)), outside lane w2-g1; follow-up issue',
-  ],
   ['admission/SubmitApplicantDto.gender', 'bounded by @IsIn([MALE, FEMALE, OTHER])'],
   [
     'calendar/FetchHolidaySetDto.country',
