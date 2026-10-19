@@ -178,14 +178,16 @@ export function MonthGrid({
     }
   }
 
+  const weeks = Array.from({ length: Math.ceil(days.length / 7) }, (_, i) =>
+    days.slice(i * 7, i * 7 + 7),
+  );
+
   const termForDay = (day: string) =>
     terms.find((term) => term.startDate <= day && term.endDate >= day);
 
   return (
     <div
       data-testid="month-grid"
-      role="grid"
-      aria-label={formatMonth(month, config)}
       className="w-full overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1"
     >
       {onMonthChange && (
@@ -213,116 +215,125 @@ export function MonthGrid({
           ))}
         </div>
       )}
-      <div className="grid grid-cols-7 border-t border-border-subtle bg-muted text-center text-label text-text-secondary">
-        {orderedWeekdayLabels.map((label, i) => (
-          <div
-            key={label}
-            className="flex h-8 items-center justify-center"
-            data-weekly-off={weeklyOffDays.includes((firstDayOfWeek + i) % 7) || undefined}
-          >
-            {label}
+      <div
+        role="grid"
+        aria-label={formatMonth(month, config)}
+        className="grid grid-cols-7 gap-px border-t border-border-subtle bg-border-subtle"
+      >
+        <div role="row" className="contents">
+          {orderedWeekdayLabels.map((label, i) => (
+            <div
+              key={label}
+              role="columnheader"
+              className="flex h-8 items-center justify-center bg-muted text-center text-label text-text-secondary"
+              data-weekly-off={weeklyOffDays.includes((firstDayOfWeek + i) % 7) || undefined}
+            >
+              {label}
+            </div>
+          ))}
+        </div>
+        {weeks.map((week) => (
+          <div key={week[0]} role="row" className="contents">
+            {week.map((day) => {
+              const dayOfWeek = toDateOnly(day).getUTCDay();
+              const isWeekend = weeklyOffDays.includes(dayOfWeek);
+              const isCurrentMonth = day.slice(0, 7) === month;
+              const isToday = day === today;
+              const isSelected = day === selected;
+              const dayEvents = events.filter((e) => eventCoversDay(e, day));
+              const visibleEvents = dayEvents.slice(0, maxEventsPerCell);
+              const overflowCount = dayEvents.length - visibleEvents.length;
+              const term = termForDay(day);
+
+              // A `<div role="gridcell">`, not a `<button>`: it hosts one real
+              // `<button>` per event chip below, and a button can't nest
+              // another interactive button (invalid HTML — the browser would
+              // silently close the outer one early). Day-cell activation
+              // (click/Enter/Space/arrows) is still fully keyboard-reachable
+              // via `tabIndex`/`onKeyDown` on this element itself.
+              return (
+                <div
+                  key={day}
+                  role="gridcell"
+                  tabIndex={day === focusedDay ? 0 : -1}
+                  data-testid={`day-cell-${day}`}
+                  aria-current={isToday ? 'date' : undefined}
+                  aria-selected={isSelected || undefined}
+                  aria-label={
+                    term ? `${formatDate(day, config)} (${term.name})` : formatDate(day, config)
+                  }
+                  onFocus={() => setFocusedDay(day)}
+                  onKeyDown={(event) => handleKeyDown(event, day)}
+                  onClick={() => {
+                    setFocusedDay(day);
+                    onDayClick?.(day);
+                  }}
+                  className={cn(
+                    'flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-start md:min-h-24 md:items-stretch md:p-1.5',
+                    isSelected
+                      ? 'bg-secondary'
+                      : isWeekend
+                        ? 'bg-muted'
+                        : isCurrentMonth
+                          ? 'bg-surface'
+                          : 'bg-bg',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'flex size-7 items-center justify-center self-center rounded-full text-label md:self-start',
+                      isToday && 'font-semibold text-primary ring-2 ring-primary ring-inset',
+                      isSelected && 'bg-primary font-semibold text-primary-foreground ring-0',
+                      !isCurrentMonth && !isSelected && 'text-text-secondary',
+                    )}
+                  >
+                    {renderDigits(String(Number(day.slice(8, 10))), config.numerals)}
+                  </span>
+                  {/* Phones get dots instead of chips only when a day tap leads to the
+                  day's events; otherwise the chips stay, the only way to open one. */}
+                  <div
+                    className={cn(
+                      'mt-1 min-w-0 flex-col gap-0.5',
+                      onDayClick ? 'hidden md:flex' : 'flex w-full',
+                    )}
+                  >
+                    {visibleEvents.map((event) => (
+                      <button
+                        type="button"
+                        key={event.id}
+                        onClick={(clickEvent) => {
+                          clickEvent.stopPropagation();
+                          onEventClick?.(event.id);
+                        }}
+                      >
+                        <EventTypeBadge
+                          type={event.type}
+                          label={event.name}
+                          className="w-full truncate rounded-sm px-1.5 py-0.5 text-caption"
+                        />
+                      </button>
+                    ))}
+                    {overflowCount > 0 && (
+                      <span className="text-caption text-text-secondary">
+                        {moreLabel(overflowCount)}
+                      </span>
+                    )}
+                  </div>
+                  {onDayClick && (
+                    <div aria-hidden="true" className="flex gap-0.5 md:hidden">
+                      {dayEvents.slice(0, 3).map((event) => (
+                        <span
+                          key={event.id}
+                          className={cn('size-1.5 rounded-full', EVENT_DOT_CLASSES[event.type])}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ))}
-      </div>
-      <div className="grid grid-cols-7 gap-px border-t border-border-subtle bg-border-subtle">
-        {days.map((day) => {
-          const dayOfWeek = toDateOnly(day).getUTCDay();
-          const isWeekend = weeklyOffDays.includes(dayOfWeek);
-          const isCurrentMonth = day.slice(0, 7) === month;
-          const isToday = day === today;
-          const isSelected = day === selected;
-          const dayEvents = events.filter((e) => eventCoversDay(e, day));
-          const visibleEvents = dayEvents.slice(0, maxEventsPerCell);
-          const overflowCount = dayEvents.length - visibleEvents.length;
-          const term = termForDay(day);
-
-          // A `<div role="gridcell">`, not a `<button>`: it hosts one real
-          // `<button>` per event chip below, and a button can't nest
-          // another interactive button (invalid HTML — the browser would
-          // silently close the outer one early). Day-cell activation
-          // (click/Enter/Space/arrows) is still fully keyboard-reachable
-          // via `tabIndex`/`onKeyDown` on this element itself.
-          return (
-            <div
-              key={day}
-              role="gridcell"
-              tabIndex={day === focusedDay ? 0 : -1}
-              data-testid={`day-cell-${day}`}
-              aria-current={isToday ? 'date' : undefined}
-              aria-selected={isSelected || undefined}
-              aria-label={
-                term ? `${formatDate(day, config)} (${term.name})` : formatDate(day, config)
-              }
-              onFocus={() => setFocusedDay(day)}
-              onKeyDown={(event) => handleKeyDown(event, day)}
-              onClick={() => {
-                setFocusedDay(day);
-                onDayClick?.(day);
-              }}
-              className={cn(
-                'flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-start md:min-h-24 md:items-stretch md:p-1.5',
-                isSelected
-                  ? 'bg-secondary'
-                  : isWeekend
-                    ? 'bg-muted'
-                    : isCurrentMonth
-                      ? 'bg-surface'
-                      : 'bg-bg',
-              )}
-            >
-              <span
-                className={cn(
-                  'flex size-7 items-center justify-center self-center rounded-full text-label md:self-start',
-                  isToday && 'font-semibold text-primary ring-2 ring-primary ring-inset',
-                  isSelected && 'bg-primary font-semibold text-primary-foreground ring-0',
-                  !isCurrentMonth && 'text-text-secondary opacity-60',
-                )}
-              >
-                {renderDigits(String(Number(day.slice(8, 10))), config.numerals)}
-              </span>
-              {/* Phones get dots instead of chips only when a day tap leads to the
-                  day's events; otherwise the chips stay, the only way to open one. */}
-              <div
-                className={cn(
-                  'mt-1 min-w-0 flex-col gap-0.5',
-                  onDayClick ? 'hidden md:flex' : 'flex w-full',
-                )}
-              >
-                {visibleEvents.map((event) => (
-                  <button
-                    type="button"
-                    key={event.id}
-                    onClick={(clickEvent) => {
-                      clickEvent.stopPropagation();
-                      onEventClick?.(event.id);
-                    }}
-                  >
-                    <EventTypeBadge
-                      type={event.type}
-                      label={event.name}
-                      className="w-full truncate rounded-sm px-1.5 py-0.5 text-caption"
-                    />
-                  </button>
-                ))}
-                {overflowCount > 0 && (
-                  <span className="text-caption text-text-secondary">
-                    {moreLabel(overflowCount)}
-                  </span>
-                )}
-              </div>
-              {onDayClick && (
-                <div aria-hidden="true" className="flex gap-0.5 md:hidden">
-                  {dayEvents.slice(0, 3).map((event) => (
-                    <span
-                      key={event.id}
-                      className={cn('size-1.5 rounded-full', EVENT_DOT_CLASSES[event.type])}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
       </div>
     </div>
   );
