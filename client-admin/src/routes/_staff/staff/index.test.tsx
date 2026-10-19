@@ -844,9 +844,10 @@ describe('/staff', () => {
 
     await waitFor(() => expect(restored).toBe(true));
     await waitFor(() => expect(screen.queryByText('Gone Person')).toBeNull());
-    // [2672] The page's own `kind: 'no-results'` keeps the Former words over the generic state.
+    // [2672] The page's own `kind: 'no-results'` keeps the Former words over the generic state;
+    // [2703] the shell still offers Clear, since `membership` is a real filter field.
     expect(await screen.findByText('No former staff')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /clear/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /clear/i })).toBeTruthy();
   });
 
   it('default list sends no membership param', async () => {
