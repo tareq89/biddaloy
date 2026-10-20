@@ -15,7 +15,7 @@ describe('shots manifest', () => {
   });
   it('every <Shot name="..."> used in pages exists in the manifest', () => {
     const names = new Set(shots.map(shotName));
-    for (const f of walk('src').filter((p) => p.endsWith('.astro'))) {
+    for (const f of walk(__dirname).filter((p) => p.endsWith('.astro'))) {
       for (const m of readFileSync(f, 'utf8').matchAll(/<Shot[^>]*\sname="([^"]+)"/g)) {
         expect(names.has(m[1]!), `${f}: ${m[1]}`).toBe(true);
       }
