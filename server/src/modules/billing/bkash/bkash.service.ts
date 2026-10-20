@@ -209,10 +209,15 @@ export class BkashService {
     if (order.status !== SeatOrderStatus.PENDING) return { orderId, outcome };
     if (outcome === 'success') {
       const tx = await this.settle(paymentID, known);
-      if (tx?.transactionStatus === 'Completed') await this.applyCompleted(tx);
-    } else if (state) {
-      // That checkout page is dead: the next Pay must create a new payment, not hand it back.
-      // The paymentID stays, so the reconciler can still settle it if bKash completes it after all.
+      if (tx?.transactionStatus === 'Completed') {
+        await this.applyCompleted(tx);
+        return { orderId, outcome };
+      }
+    }
+    if (state) {
+      // Cancelled, failed, or "success" that did not complete: that checkout page is dead, so the
+      // next Pay must create a new payment, not hand it back. The paymentID stays, so the
+      // reconciler can still settle it if bKash completes it after all.
       const { bkash_url: _dead, ...kept } = state;
       await this.redis
         .set(PAYMENT_KEY(orderId), JSON.stringify(kept), 'KEEPTTL')

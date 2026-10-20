@@ -118,13 +118,32 @@ payment row and the same seats.
 Creating an order is idempotent per `(school, idempotency_key)`: the same body returns the first
 order; a different `seats`/`months` body on a used key is `409 IDEMPOTENCY_KEY_REUSED`.
 
-A paid purchase's period starts on the later of today and the school's last PAID `period_end`, so
-paying early extends the seats instead of counting them twice. A platform `GRANT` starts today and
-adds seats (see [22-onboarding.md](22-onboarding.md#free-period-and-seats)).
+### Where a paid order's period starts
+
+`OrdersService.startDate` decides, under the school-row lock, at payment time (the `PENDING`
+preview uses the same rule). "Cover" = the school's largest own `PAID` order that has not ended.
+`GRANT` orders (unit price 0) never count as cover, so a long grant cannot push a renewal out.
+
+| Order                                | Starts          | Effect                |
+| ------------------------------------ | --------------- | --------------------- |
+| platform `GRANT`                     | today           | adds seats (a top-up) |
+| purchase, no cover                   | today           | first or after expiry |
+| purchase, seats >= the cover's seats | the cover's end | renewal: adds months  |
+| purchase, seats < the cover's seats  | today           | top-up: adds seats    |
+
+Example: 100 seats Jan 1 to Jul 1. On Mar 1 the school buys 20 x 1 month: Mar 1 to Apr 1 (120
+seats in March). On Jun 1 it renews 100 x 6: Jul 1 to Jan 1, so July still has 100 seats. A
+12-month grant on top changes none of these dates.
+
+`paid_until`, the 30 / 7 / 0 day notices and `seats.expiring` also read the school's own orders;
+the grant's end is used only for a school that has nothing but grants. The grace anchor
+(`readOnlyUntilFor`) still counts grants: read-only starts when the last cover of any kind ran out.
+See also [22-onboarding.md](22-onboarding.md#free-period-and-seats).
 
 ## Orders that stay PENDING
 
-- **Cancelled or failed return**: the order stays `PENDING`. It is never set `FAILED` from the
+- **Cancelled or failed return** (or a `success` return whose execute and re-query do not come
+  back `Completed`): the order stays `PENDING`. It is never set `FAILED` from the
   callback, because a late payment could still arrive and the order must be able to take it.
   The dead checkout URL is dropped from `bkash:pay:<orderId>` (the paymentID stays, for the
   reconciler), so the next Pay creates a new bKash payment instead of handing back the dead page.

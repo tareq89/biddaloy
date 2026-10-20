@@ -9,6 +9,7 @@ import { SchoolsService } from '../schools/schools.service';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { renderNotice } from '../schools/trial/admin-notice-templates';
 import { SeatNoticesService, seatNoticeFor } from './seat-notices.service';
+import { seatCover } from './seat-grace';
 
 describe('seatNoticeFor', () => {
   it('maps days left to the notice due', () => {
@@ -124,6 +125,34 @@ describe('SeatNoticesService (integration)', () => {
     expect(notifyAdmins).toHaveBeenCalledTimes(3);
     await service.runDaily(new Date('2027-01-02T06:00:00Z'));
     expect(notifyAdmins).toHaveBeenCalledTimes(3);
+  });
+
+  /** A platform GRANT (unit price 0) ending on `end`. */
+  const granted = (schoolId: string, end: string, seats = 50) =>
+    ds.query(
+      `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key, paid_at)
+       VALUES ($1, $2, 12, 0, 0, DATE '2026-11-01', $3::date, 'PAID', gen_random_uuid()::text, NOW())`,
+      [schoolId, seats, end],
+    );
+
+  it('a longer GRANT does not hide the end of what the school paid for', async () => {
+    const id = await newSchool(70);
+    await paid(id, 30); // own cover ends 2026-12-31
+    await granted(id, '2027-11-01'); // a 12-month grant
+    // seats.expiring and the notices both read seatCover: they count down to the own end.
+    expect(await seatCover(ds, id)).toMatchObject({ periodEnd: '2026-12-31', seats: 20 });
+    await service.runDaily(now);
+    expect(notifyAdmins).toHaveBeenLastCalledWith(id, 'seats_d30', vars('2026-12-31', 20));
+    await service.runDaily(new Date('2026-12-24T06:00:00Z'));
+    expect(notifyAdmins).toHaveBeenLastCalledWith(id, 'seats_d7', vars('2026-12-31', 20));
+    await service.runDaily(new Date('2026-12-31T06:00:00Z'));
+    expect(notifyAdmins).toHaveBeenLastCalledWith(id, 'seats_expired', vars('2026-12-31', 20));
+  });
+
+  it('a school with only a GRANT counts down to the grant end', async () => {
+    const id = await newSchool(50);
+    await granted(id, '2026-12-31');
+    expect(await seatCover(ds, id)).toMatchObject({ periodEnd: '2026-12-31', seats: 50 });
   });
 
   it('a renewal resets the stamps: the new period_end warns again', async () => {

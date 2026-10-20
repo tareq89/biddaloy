@@ -34,7 +34,8 @@ export class PlatformSeatsExpiringRule implements AttentionRuleShape {
     const pid = await this.platform.resolve();
     if (!pid || ctx.tenantId !== pid) return [];
     // Billing started (seat_limit not NULL) and either the last paid day is within 14 days
-    // (or past) or every seat is taken.
+    // (or past) or every seat is taken. The last paid day is the school's own orders' (a GRANT,
+    // unit price 0, only for a school with no own order), as in seatCover.
     const rows: { name: string }[] = await this.dataSource.query(
       `SELECT s.name FROM schools s
         CROSS JOIN LATERAL (SELECT count(*) AS n FROM students st
@@ -43,7 +44,8 @@ export class PlatformSeatsExpiringRule implements AttentionRuleShape {
         WHERE s.status = 'ACTIVE' AND s.deleted_at IS NULL AND s.id <> $1
           AND s.seat_limit IS NOT NULL
           AND (
-            (SELECT max(o.period_end) FROM seat_orders o
+            (SELECT COALESCE(max(o.period_end) FILTER (WHERE o.unit_price_paisa > 0), max(o.period_end))
+               FROM seat_orders o
               WHERE o.school_id = s.id AND o.status = 'PAID') <= $2::date + $3::int
             OR (u.n > 0 AND u.n >= s.seat_limit)
           )

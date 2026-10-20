@@ -22,13 +22,18 @@ export interface SeatCover {
   short: boolean;
 }
 
-/** What covers a school's seats last, for the 30 / 7 / 0 day warnings (notices and attention). */
+/**
+ * What covers a school's seats last, for the 30 / 7 / 0 day warnings (notices and attention).
+ * The school's own orders count; a GRANT (unit price 0) only when it has no own order, so a long
+ * grant cannot hide the end of what the school paid for.
+ */
 export async function seatCover(db: Queryable, schoolId: string): Promise<SeatCover> {
   const [last]: { period_end: string; seats: number; days: number }[] = await db.query(
     `SELECT period_end::text AS period_end, SUM(seats)::int AS seats,
             MAX(period_end - period_start)::int AS days
        FROM seat_orders WHERE school_id = $1 AND status = $2
-      GROUP BY period_end ORDER BY period_end DESC LIMIT 1`,
+      GROUP BY unit_price_paisa > 0, period_end
+      ORDER BY unit_price_paisa > 0 DESC, period_end DESC LIMIT 1`,
     [schoolId, SeatOrderStatus.PAID],
   );
   const freeEnd = localDate(billingFreeUntil(), SCHOOL_TZ);
