@@ -37,6 +37,9 @@ export interface SeatsBillingSectionViewProps {
   pollTimedOut?: boolean;
   onBuy: () => void;
   onRetry: () => void;
+  /** Opens the receipt of a paid order. */
+  onReceipt?: (orderId: string) => void;
+  receiptError?: boolean;
 }
 
 export function SeatsBillingSectionView({
@@ -49,6 +52,8 @@ export function SeatsBillingSectionView({
   pollTimedOut,
   onBuy,
   onRetry,
+  onReceipt,
+  receiptError,
 }: SeatsBillingSectionViewProps) {
   const { t } = useTranslation('billing');
   const config = useRegionConfig();
@@ -88,6 +93,22 @@ export function SeatsBillingSectionView({
         <StatusBadge tone={STATUS_TONE[o.status]} label={t(`orders.statusValue.${o.status}`)} />
       ),
       card: 'badge',
+    },
+    {
+      id: 'receipt',
+      header: t('orders.receipt'),
+      accessorFn: (o) =>
+        o.receipt_number && onReceipt ? (
+          <Button
+            variant="link"
+            size="sm"
+            aria-label={t('orders.downloadReceipt', { number: o.receipt_number })}
+            onClick={() => onReceipt(o.id)}
+          >
+            {o.receipt_number}
+          </Button>
+        ) : null,
+      card: 'field',
     },
   ];
 
@@ -184,6 +205,11 @@ export function SeatsBillingSectionView({
           </div>
 
           <h3 className="mt-6 text-h3">{t('orders.title')}</h3>
+          {receiptError && (
+            <p role="alert" className="mt-2 text-destructive">
+              {t('orders.receiptFailed')}
+            </p>
+          )}
           <div className="mt-2">
             <DataTable
               tableId="billing-orders"

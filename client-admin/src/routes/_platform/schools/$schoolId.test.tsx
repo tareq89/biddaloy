@@ -386,6 +386,7 @@ describe('/schools/$schoolId', () => {
       period_end: '2027-01-20',
       status: 'PENDING',
       method: null,
+      receipt_number: null,
       paid_at: null,
       created_at: '2026-10-20T04:00:00.000Z',
     };

@@ -52,6 +52,9 @@
     "months": "Months",
     "amount": "Amount",
     "status": "Status",
+    "receipt": "Receipt",
+    "downloadReceipt": "Download receipt {{number}}",
+    "receiptFailed": "The receipt could not be opened. Try again.",
     "statusValue": {
       "PENDING": "Waiting for payment",
       "PAID": "Paid",

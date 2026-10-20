@@ -1,4 +1,4 @@
-import { useBillingSummary } from '@biddaloy/ui/hooks';
+import { openBillingReceipt, useBillingSummary } from '@biddaloy/ui/hooks';
 import { useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 
@@ -30,6 +30,7 @@ export function SeatsBillingSection({
   }, [returnOrderId]);
   const polling = !timedOut && (payment === undefined || payment === 'success');
   const query = useBillingSummary(polling ? returnOrderId : undefined);
+  const [receiptError, setReceiptError] = React.useState(false);
   const navigate = useNavigate();
   const [open, setOpen] = React.useState(openBuy);
   // The palette's "Buy seats" lands here with `?buy=1` after this section may already be mounted.
@@ -48,6 +49,11 @@ export function SeatsBillingSection({
         pollTimedOut={timedOut}
         onBuy={() => setOpen(true)}
         onRetry={() => void query.refetch()}
+        receiptError={receiptError}
+        onReceipt={(id) => {
+          setReceiptError(false);
+          openBillingReceipt(id).catch(() => setReceiptError(true));
+        }}
       />
       <BuySeatsFlow
         open={open}

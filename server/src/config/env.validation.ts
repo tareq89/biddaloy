@@ -247,6 +247,11 @@ class EnvironmentVariables {
   @IsString()
   BKASH_BASE_URL?: string;
 
+  // VAT registration number printed on seat receipts; unset = no VAT line (Epic 62 #1779).
+  @IsOptional()
+  @IsString()
+  BILLING_VAT_REGISTRATION?: string;
+
   @IsOptional()
   @IsString()
   BKASH_APP_KEY?: string;

@@ -34,6 +34,7 @@ export class AdminNoticeService {
     schoolId: string,
     key: AdminNoticeKey,
     vars: Omit<NoticeVars, 'school'> = {},
+    opts: { emailOnly?: boolean } = {},
   ): Promise<void> {
     const school = await this.schools.findOne({ where: { id: schoolId } });
     if (!school) return;
@@ -51,7 +52,8 @@ export class AdminNoticeService {
       if (admin.user?.status !== UserStatus.ACTIVE) continue;
       const targets: { medium: CommunicationMedium; to: string | null | undefined }[] = [
         { medium: CommunicationMedium.EMAIL, to: admin.user?.email },
-        { medium: CommunicationMedium.SMS, to: admin.user?.phone },
+        // A receipt is not worth a metered SMS on the platform keys.
+        { medium: CommunicationMedium.SMS, to: opts.emailOnly ? null : admin.user?.phone },
       ];
       for (const { medium, to } of targets) {
         if (to) await this.send(schoolId, medium, to, admin.user.full_name, key, subject, body);

@@ -17,6 +17,7 @@ import { BillingController } from './billing.controller';
 import { BillingScheduler, BILLING_QUEUE } from './billing.scheduler';
 import { EntitlementService } from './entitlement.service';
 import { OrdersService } from './orders.service';
+import { ReceiptService } from './receipt.service';
 import { PlatformBillingController } from './platform-billing.controller';
 import { PlatformBillingService } from './platform-billing.service';
 import { SeatNoticesService } from './seat-notices.service';
@@ -37,6 +38,7 @@ import { SeatNoticesService } from './seat-notices.service';
   providers: [
     EntitlementService,
     OrdersService,
+    ReceiptService,
     PlatformBillingService,
     BillingScheduler,
     SeatNoticesService,

@@ -6,7 +6,8 @@ export type AdminNoticeKey =
   | 'seats_d30'
   | 'seats_d7'
   | 'seats_expired'
-  | 'seats_suspended';
+  | 'seats_suspended'
+  | 'receipt';
 export type NoticeLocale = 'en' | 'bn';
 
 export interface NoticeVars {
@@ -15,6 +16,8 @@ export interface NoticeVars {
   /** First day without paid seats (YYYY-MM-DD), for the seat notices. */
   date?: string;
   seats?: number;
+  /** Receipt number (SMR-YYYY-NNNNNN), for the `receipt` notice. */
+  receipt?: string;
   /** The seats that end are the free period (the school never paid for later seats). */
   free?: boolean;
   /** The school has more ACTIVE students than seats once they end: it goes read-only, then paused. */
@@ -111,6 +114,18 @@ const TEMPLATES: Record<AdminNoticeKey, Record<NoticeLocale, Template>> = {
       subject: (v) => `${v.school}: সিটের মেয়াদ শেষ`,
       body: (v) =>
         `${v.free ? `${v.school}-এর বিনা খরচে ব্যবহারের` : `${v.school}-এর পরিশোধিত সিটের`} মেয়াদ ${v.date ?? ''} তারিখে শেষ হয়েছে। ${v.over ? '৭ দিন স্কুল শুধু দেখা যাবে, তারপর সাময়িক বন্ধ হবে। আপনার তথ্য নিরাপদ আছে।' : 'সিট না কেনা পর্যন্ত নতুন শিক্ষার্থী যোগ করা যাবে না।'} চালু রাখতে সেটিংস, সিট ও বিলিং থেকে সিট কিনুন।`,
+    },
+  },
+  receipt: {
+    en: {
+      subject: (v) => `${v.school}: payment receipt ${v.receipt ?? ''}`,
+      body: (v) =>
+        `Thank you. We received the payment for the seats of ${v.school}. Receipt ${v.receipt ?? ''}: download it in Settings, Seats & billing. ${v.link ?? ''}`.trim(),
+    },
+    bn: {
+      subject: (v) => `${v.school}: পেমেন্ট রসিদ ${v.receipt ?? ''}`,
+      body: (v) =>
+        `ধন্যবাদ। ${v.school}-এর সিটের পেমেন্ট পেয়েছি। রসিদ ${v.receipt ?? ''}: সেটিংস, সিট ও বিলিং থেকে ডাউনলোড করুন। ${v.link ?? ''}`.trim(),
     },
   },
   seats_suspended: {

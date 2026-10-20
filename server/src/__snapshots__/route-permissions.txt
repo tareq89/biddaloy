@@ -102,6 +102,7 @@ GET /backup/template | TemplateController | perm: BACKUP_MANAGE
 GET /backup/validate/:stagingId/errors.csv | ImportController | perm: BACKUP_MANAGE
 GET /billing/bkash/callback | BkashCallbackController | allowlist: none
 GET /billing/orders | BillingController | perm: SETTINGS_MANAGE
+GET /billing/orders/:id/receipt | BillingController | perm: SETTINGS_MANAGE
 GET /billing/summary | BillingController | perm: SETTINGS_MANAGE
 GET /calendar-import/template | CalendarImportController | perm: CALENDAR_MANAGE
 GET /calendar-settings | CalendarSettingsController | perm: CALENDAR_READ
