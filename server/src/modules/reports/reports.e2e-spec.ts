@@ -134,6 +134,36 @@ describe('GET /reports/collections (16.6.2)', () => {
     expect(res.body).toHaveProperty('by_day');
   });
 
+  it('[2626] reports wallet payouts in totals.wallet_paid_out and by_collector[].paid_out', async () => {
+    const [{ id: studentId }] = await dataSource.query(
+      `INSERT INTO students (full_name, registration_number, roll_number, class_section_id, date_of_birth, preferred_communication, enrollment_status, tenant_id, created_at, updated_at)
+       VALUES ('Payout E2E Student', 'CR-E2E-PAYOUT', 2, $1, '2010-01-01', 'SMS', 'ACTIVE', $2, NOW(), NOW()) RETURNING id`,
+      [SEED_SECTION_1_ID, SEED_TENANT_ID],
+    );
+    const [{ id: walletId }] = await dataSource.query(
+      `INSERT INTO student_wallets (tenant_id, student_id, balance) VALUES ($1, $2, 0) RETURNING id`,
+      [SEED_TENANT_ID, studentId],
+    );
+    await dataSource.query(
+      `INSERT INTO wallet_transactions (tenant_id, wallet_id, amount, kind, created_at)
+       VALUES ($1, $2, -250, 'DEBIT_PAYOUT', '2001-05-10T05:00:00Z')`,
+      [SEED_TENANT_ID, walletId],
+    );
+    try {
+      const res = await supertest(app.getHttpServer())
+        .get(`${API}/reports/collections?from=2001-05-10&to=2001-05-10`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .expect(200);
+      expect(res.body.totals.wallet_paid_out).toBe(250);
+      expect(res.body.totals.net).toBe(0);
+      expect(res.body.by_collector[0]).toHaveProperty('paid_out', 250);
+    } finally {
+      // wallet_transactions is append-only: the ledger row (and its wallet and
+      // student) stay; the 2001 date keeps them out of every other test's range.
+    }
+  });
+
   it('a reversed payment nets to 0 over its two days (rows seeded as the reversal service writes them)', async () => {
     // The real approval-token reversal flow is covered in checkout.controller.e2e-spec.ts;
     // here we only need the two rows it leaves behind (original REFUNDED + reversal row).

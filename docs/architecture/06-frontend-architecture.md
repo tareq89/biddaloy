@@ -168,6 +168,22 @@ to check for it in review.
 don't add optimistic updates to its mutation. Show a pending state and wait
 for the server response.
 
+## Writes are never retried automatically
+
+A write that fails with a 5xx or no reply may still have been saved. Retrying it would
+create the record twice, so the app client sets `mutations.retry: false` and tells the user.
+Only a request that carries an `Idempotency-Key` may add its own `retry` (D4).
+
+```mermaid
+flowchart LR
+  A["Write fails<br/>(5xx or no reply)"] --> B["No automatic retry"]
+  B --> C["Toast: may have been saved,<br/>check the list"]
+```
+
+Reads still retry twice on a 5xx (`shouldRetryQuery`). A guard spec
+(`ui/src/hooks/mutation-retry.guard.spec.ts`) fails on `retry: shouldRetryQuery` inside a
+`useMutation`.
+
 ## The client app
 
 - **`client-admin`** — the whole SPA, both audiences. Staff routes manage
@@ -480,6 +496,13 @@ this user may not see. Only a _no-response_ network failure falls back.
 
 Reads are only half of it. A write made with no connection is persisted
 and replayed later, and the user is told where it stands.
+
+### Mutation learnings (Epic #2642, Wave 4, 2026-10-19)
+
+- **Mutations never retry (#2596).** Retrying a write after a lost reply created the record twice. Only a request with an Idempotency-Key may opt in. Rule candidate: enforced by `ui/src/hooks/mutation-retry.guard.spec.ts` -> no rule. An unknown outcome shows the `outcomeUnknown` toast.
+- **`notifyManager` scheduler (#2594, #2622).** `query-client.ts` sets `notifyManager.setScheduler(queueMicrotask)` so a double click does not slip between the click and the pending flag. -> no rule.
+- **`networkMode: 'always'` only for the queueing mutation (#2632).** Queries default to `offlineFirst`; the attendance save sets `always` so offline it writes the queue row instead of pausing. -> no rule.
+- **A unit test using `navigator.onLine` hid #2632.** The test faked the flag the code never read. Fix: the Playwright PWA spec goes offline for real. -> no rule.
 
 ### Why not Background Sync (D1, closes #406)
 

@@ -15,7 +15,7 @@ import { ProgramEnrollment } from '../programs/entities/program-enrollment.entit
 import { applyProgramAudience } from './program-audience';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../../common/time';
-import { nextRunDates, periodFor } from './recurrence.util';
+import { coveredPeriodAfterCadenceChange, nextRunDates, periodFor } from './recurrence.util';
 import {
   AddExclusionDto,
   CloneScheduleDto,
@@ -511,9 +511,27 @@ export class RecurringSchedulesService {
       const scheduleRepo = manager.getRepository(RecurringSchedule);
       const structureRepo = manager.getRepository(RecurringScheduleStructure);
 
+      // [F-145] A cadence change must not bill the old cadence's periods again: carry
+      // `last_run_period` over as the last new-cadence period they cover. Plain assignment
+      // on purpose (weekly -> monthly moves the date backwards).
+      let coveredPeriod: Record<string, string> = {};
+      if (rule && rule.kind !== schedule.rule.kind) {
+        const locked = await scheduleRepo
+          .createQueryBuilder('rs')
+          .setLock('pessimistic_write')
+          .where('rs.id = :id', { id: schedule.id })
+          .getOneOrFail();
+        if (locked.last_run_period) {
+          coveredPeriod = {
+            last_run_period: coveredPeriodAfterCadenceChange(String(locked.last_run_period), rule),
+          };
+        }
+      }
+
       await scheduleRepo.update(
         { id: schedule.id },
         {
+          ...coveredPeriod,
           ...(dto.name !== undefined ? { name: dto.name } : {}),
           ...(dto.audience !== undefined ? { audience: dto.audience } : {}),
           ...(rule !== undefined ? { rule, period_type: this.periodTypeFor(rule) } : {}),

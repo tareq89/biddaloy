@@ -8,6 +8,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import { PaymentMethod, PaymentStatus } from '@biddaloy/shared';
 
 /**
@@ -153,7 +154,7 @@ export const paymentsTab: TabSpec<Payment, PaymentRow> = {
       transaction_reference: entity.transaction_reference,
       remarks: entity.remarks,
       received_by: entity.received_by_user_id
-        ? ctx.keyOf('users', entity.received_by_user_id)
+        ? optionalKeyOf(ctx, 'users', entity.received_by_user_id)
         : null,
       invoice: entity.invoice_id ? ctx.keyOf('invoices', entity.invoice_id) : null,
       payment_date: entity.payment_date,
@@ -304,7 +305,8 @@ export const paymentsTab: TabSpec<Payment, PaymentRow> = {
       changed.push('transaction_reference');
     }
     if (row.remarks !== existing.remarks) changed.push('remarks');
-    if (row.received_by_id !== existing.received_by_user_id) changed.push('received_by');
+    if (row.received_by_id !== null && row.received_by_id !== existing.received_by_user_id)
+      changed.push('received_by');
     if (row.invoice_id !== existing.invoice_id) changed.push('invoice');
     if (row.payment_date !== formatDateTime(existing.payment_date)) changed.push('payment_date');
     return changed;
@@ -324,7 +326,7 @@ export const paymentsTab: TabSpec<Payment, PaymentRow> = {
     payment.payment_status = row.payment_status;
     payment.transaction_reference = row.transaction_reference;
     payment.remarks = row.remarks;
-    payment.received_by_user_id = row.received_by_id;
+    payment.received_by_user_id = row.received_by_id ?? existing?.received_by_user_id ?? null;
     payment.invoice_id = row.invoice_id;
     payment.payment_date = row.payment_date as unknown as Date;
     // Never carried forward from the source tenant's snapshot; see

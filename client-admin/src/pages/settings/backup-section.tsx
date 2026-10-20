@@ -334,12 +334,18 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
     {
       id: 'status',
       header: t('columnStatus'),
-      // D9: only the badge. `row.error` is a server string and is never shown.
+      // D9: the badge. `row.error` is a server string and is never shown, except
+      // the one fixed code RESTORE_LIMIT_EXCEEDED, which maps to our own sentence.
       accessorFn: (row) =>
         row.status === 'DONE' && row.expired ? (
           <StatusBadge tone="neutral" label={t('downloadExpired')} />
         ) : (
-          <StatusBadge tone={STATUS_TONE[row.status]} label={t(`status.${row.status}`)} />
+          <>
+            <StatusBadge tone={STATUS_TONE[row.status]} label={t(`status.${row.status}`)} />
+            {row.status === 'DONE' && row.error === 'RESTORE_LIMIT_EXCEEDED' && (
+              <p className="mt-1 text-caption text-text-secondary">{t('restoreLimitWarning')}</p>
+            )}
+          </>
         ),
       card: 'badge',
     },

@@ -1553,7 +1553,7 @@ describe('BulkReminderService', () => {
         student_id: 's-1',
         guardian_id: 'g-1',
         provider_message_id: null,
-        error: 'No provider registered for medium "SMS"',
+        error: 'NO_PROVIDER',
         created_at: logRow.created_at,
       });
     });

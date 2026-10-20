@@ -432,7 +432,7 @@ export function useCreateStudent() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateStudentInput) => apiClient.post<Student>('/students', input),
-    retry: shouldRetryQuery,
+    // no `retry`: mutations never retry on their own (see "The app's query client")
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
     },
@@ -441,7 +441,7 @@ export function useCreateStudent() {
 ```
 
 New entities' hooks should mirror `students.ts`'s shape — `createEntityKeys()`
-for the key factory, `shouldRetryQuery` (below) for retry, invalidate
+for the key factory, `shouldRetryQuery` (below) for *queries* only (mutations never retry), invalidate
 `lists()` (not a single `list(filters)`) from any mutation that can affect
 list membership.
 
@@ -459,7 +459,8 @@ fast, isolated failures in a test:
 |---|---|---|---|
 | `staleTime` | `30_000` (30s) | `Infinity` | The app wants a revisited page to show cached data instantly, then quietly refetch if it's actually stale. A test wants "seeded data never triggers a surprise refetch" instead. |
 | `gcTime` | `300_000` (5 min) | `Infinity` | The app can afford to garbage-collect unused cache entries. A test's seeded/fetched data shouldn't vanish mid-test on a slow machine. |
-| `retry` | `shouldRetryQuery` | `false` | The app retries a transient failure (5xx, network) up to twice and never retries a 4xx. A test wants a failing query to surface immediately — see "Retry" below for how a per-query `retry: shouldRetryQuery` still gets exercised against the test client. |
+| `retry` (queries) | `shouldRetryQuery` | `false` | The app retries a transient failed read (5xx, network) up to twice and never retries a 4xx. A test wants a failing query to surface immediately — see "Retry" below for how a per-query `retry: shouldRetryQuery` still gets exercised against the test client. |
+| `retry` (mutations) | `false` | `false` | A write is never re-sent on its own: if the server saved it but the reply was lost, a retry creates the record twice. Add a per-mutation `retry` only when the request carries an `Idempotency-Key` (D4). A 5xx or lost reply shows the "may have been saved" toast instead. |
 | `networkMode` | `offlineFirst` | TanStack's default (`online`) | The app must be able to answer a query *from its own caches* while the browser says it is offline. Under `online`, a query with no data is **paused** while `navigator.onLine` is false — its query function never runs and its promise never settles, so a route `loader` awaiting it hangs on the previous screen with no data, no error and no offline state, and neither the service worker's `api-cache` nor `offlineCachedQueryFn`'s Dexie fallback (both of which live *inside* the query function) can ever answer. `offlineFirst` lets the attempt run once; `shouldRetryQuery` already declines to retry while offline, so a genuine failure surfaces immediately as the route's offline state. A test has no service worker and no Dexie, so the default is fine there. |
 | `refetchOnWindowFocus` / `refetchOnReconnect` | TanStack's default (`true`) | `false` | This *is* the app's background-revalidation behaviour — tabbing back in can silently refresh stale data. A test has no tab to refocus and no flaky connection; leaving these on would only add nondeterminism. |
 
@@ -496,7 +497,11 @@ the first shape — applied in both `ui` and every client app's ESLint config,
 same as the optimistic-mutation guard below.
 
 **Retry**: `src/hooks/retry.ts`'s `shouldRetryQuery` is the one retry
-predicate every query/mutation in this package should pass. A 4xx means the
+predicate every *query* in this package should pass. **Mutations never retry**
+(`createAppQueryClient()` sets `mutations.retry: false`, and a guard spec fails
+the build on `retry: shouldRetryQuery` inside a `useMutation`): a retry after a
+lost reply creates the record twice. Add a mutation `retry` only when the
+request carries an `Idempotency-Key`. A 4xx means the
 request was rejected for a reason retrying can't fix (bad input, a role the
 caller doesn't hold, a duplicate) — retrying just repeats the same rejection.
 Anything else gets up to two retries:
@@ -814,3 +819,12 @@ rather than duplicate this section.
 | `yarn workspace @biddaloy/ui check:contrast` | Verify every documented colour pair against WCAG 2.2 |
 | `yarn workspace @biddaloy/ui check:api-types` | Verify `schema.d.ts` matches a fresh generation |
 | `yarn workspace @biddaloy/ui api:types` | Regenerate `schema.d.ts` from `server/openapi.json` |
+
+## Test flake standards (Epic 2642, D18)
+
+- Web-first assertions (`await expect(locator).toBeVisible()`), no `waitForTimeout`.
+- Own data with a unique suffix; dates via `todayInSchoolTz` or fixed.
+- Double-click tests hold the response, click twice, then count requests (one).
+- A new or changed Playwright spec passes `--repeat-each=10 --workers=4`.
+- Use `serviceWorkers: 'block'` when a spec uses `page.route`, or the service worker bypasses it.
+- Find buttons by i18n key or test id, never copied text.

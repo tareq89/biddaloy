@@ -5,7 +5,7 @@
  * pattern as `classes/$classId.test.tsx`.
  */
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
-import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -276,6 +276,29 @@ describe('/grading-scales/$scaleId', () => {
     await screen.findByRole('heading', { name: 'Leave without saving?' });
     await user.click(screen.getByRole('button', { name: 'Stay' }));
     expect(screen.queryByRole('heading', { name: 'Leave without saving?' })).toBeNull();
+  });
+
+  it('a scale deleted under unsaved rows: the 404 page Go back leaves without a stuck prompt [2703]', async () => {
+    const user = userEvent.setup();
+    mockLookups();
+    let gone = false;
+    server.use(
+      http.get('/api/v1/grading/scales/:id', () =>
+        gone
+          ? HttpResponse.json(apiErrorBody(404, 'Not found', '/api/v1/grading/scales/scale-1'), {
+              status: 404,
+            })
+          : HttpResponse.json(SCALE),
+      ),
+    );
+    const { queryClient, router } = renderScale();
+
+    await makeEdit(user);
+    gone = true;
+    await queryClient.invalidateQueries();
+    await user.click(await screen.findByRole('button', { name: 'Go back' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/grading-scales'));
   });
 
   describe('preset warning banner [35.5.2]', () => {

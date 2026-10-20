@@ -253,6 +253,27 @@ describe('RecordPaymentModal', () => {
     ]);
   });
 
+  // The Pay lines on screen belong to the last debounced amount until the new one's cart lands;
+  // Record must not post them for an amount typed since (e2e checkout "Record another" race).
+  it('disables Record while a newly typed amount is still debouncing', async () => {
+    server.use(
+      http.get('/api/v1/payments/cart', ({ request }) =>
+        HttpResponse.json(cartFor(request, ['student-1'])),
+      ),
+    );
+
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — 1');
+    const amountInput = screen.getByLabelText('Amount received');
+    fireEvent.change(amountInput, { target: { value: '1000' } });
+    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: /^Record/ });
+    await waitFor(() => expect(submitButton.disabled).toBe(false));
+
+    fireEvent.change(amountInput, { target: { value: '800' } });
+    expect(submitButton.disabled).toBe(true);
+    await waitFor(() => expect(submitButton.disabled).toBe(false));
+  });
+
   it('caps the reseeded Pay so it never pushes past the balance with a preserved discount', async () => {
     // Balance 1,000: the server's suggestion (amount ÷ 1 student = 1,000)
     // would otherwise land Pay at 1,000 on top of the 500 discount already

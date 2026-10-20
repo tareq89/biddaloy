@@ -40,7 +40,10 @@ export class SubjectChoicesService {
       where: { id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
     return student;
   }

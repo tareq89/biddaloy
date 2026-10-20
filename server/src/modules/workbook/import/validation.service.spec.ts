@@ -18,7 +18,7 @@ vi.mock('../codec/workbook-codec', async () => {
 });
 
 // Imported after the mock so the service picks up the mocked `readWorkbook`.
-import { ValidationService } from './validation.service';
+import { ValidationBusyError, ValidationService } from './validation.service';
 
 /** A trivial in-memory row: just an id and a natural key. */
 interface FakeRow {
@@ -140,6 +140,31 @@ function fakeReadResult(
 
 describe('ValidationService', () => {
   const manager = {} as EntityManager;
+
+  it('#2624: parses one workbook at a time per process; a second caller is refused or waits', async () => {
+    let finish!: (r: ReadWorkbookResult) => void;
+    readWorkbook.mockReturnValueOnce(new Promise<ReadWorkbookResult>((r) => (finish = r)));
+    const tab = makeTab('a');
+    const service = new ValidationService();
+    const first = service.validate(Buffer.from(''), 't1', manager, [tab]);
+    // Another school's upload while the first is still in memory: refused, fail-closed.
+    await expect(service.validate(Buffer.from(''), 't2', manager, [tab])).rejects.toBeInstanceOf(
+      ValidationBusyError,
+    );
+    // A different instance shares the slot: the limit is per process, not per service object.
+    await expect(
+      new ValidationService().validate(Buffer.from(''), 't2', manager, [tab]),
+    ).rejects.toBeInstanceOf(ValidationBusyError);
+    // The restore worker waits for its turn instead.
+    readWorkbook.mockResolvedValueOnce(fakeReadResult(new Map()));
+    const queued = service.validate(Buffer.from(''), 't3', manager, [tab], { waitIfBusy: true });
+    finish(fakeReadResult(new Map()));
+    await expect(first).resolves.toMatchObject({ hardErrorCount: 0 });
+    await expect(queued).resolves.toMatchObject({ hardErrorCount: 0 });
+    // Free again once both are done.
+    readWorkbook.mockResolvedValueOnce(fakeReadResult(new Map()));
+    await expect(service.validate(Buffer.from(''), 't4', manager, [tab])).resolves.toBeDefined();
+  });
 
   it('reports a dangling cross-tab reference by row, column, and key', async () => {
     const tabA = makeTab('a');

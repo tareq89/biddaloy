@@ -129,6 +129,24 @@ async function idbOp<T>(
   page: Page,
   args: { store: string; action: 'getAll' | 'getAllKeys' | 'add'; value?: unknown },
 ): Promise<T> {
+  // Reconnecting lets the registered service worker finish its update and
+  // reload the tab (pwa/register.ts `onNeedReload`), which destroys the page
+  // context an `evaluate` may be running in. The database survives the
+  // reload, so the read is simply repeated on the new context.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await idbOpOnce<T>(page, args);
+    } catch (error) {
+      if (attempt >= 3 || !/Execution context was destroyed/.test(String(error))) throw error;
+      await page.waitForLoadState('load');
+    }
+  }
+}
+
+async function idbOpOnce<T>(
+  page: Page,
+  args: { store: string; action: 'getAll' | 'getAllKeys' | 'add'; value?: unknown },
+): Promise<T> {
   return page.evaluate(async ({ store, action, value }) => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open('biddaloy-offline');

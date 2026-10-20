@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { DataSource } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
 import { RecurringSchedulesService } from './recurring-schedules.service';
@@ -779,6 +779,81 @@ describe('RecurringSchedulesService (integration)', () => {
   });
 
   // [8.10.7.3.08] "Fee generation status" widget: when does the next schedule fire?
+  describe('[F-145] cadence change', () => {
+    afterEach(() => vi.useRealTimers());
+
+    async function monthlySchedule(lastRunPeriod: string | null) {
+      const structureId = await createFeeStructure({
+        name: `Tuition ${Date.now()}-${Math.random()}`,
+      });
+      const created = await service.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: 'Cadence change',
+          audience: { enrollment_status: 'ACTIVE' },
+          rule: { kind: 'MONTHLY', day_of_month: 1 },
+          fee_structure_ids: [structureId],
+          starts_on: '2026-01-01',
+        } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await dataSource.query(`UPDATE recurring_schedules SET last_run_period = $1 WHERE id = $2`, [
+        lastRunPeriod,
+        created.id,
+      ]);
+      return created.id;
+    }
+    const lastRun = async (id: string) =>
+      (
+        await dataSource.query(
+          `SELECT last_run_period::text AS p FROM recurring_schedules WHERE id = $1`,
+          [id],
+        )
+      )[0].p;
+
+    const lastRunAfterSwitch = async (from: 'MONTHLY' | 'WEEKLY', lastRunPeriod: string) => {
+      const id = await monthlySchedule(lastRunPeriod);
+      if (from === 'WEEKLY') {
+        await dataSource.query(`UPDATE recurring_schedules SET rule = $1 WHERE id = $2`, [
+          JSON.stringify({ kind: 'WEEKLY', weekdays: [1] }),
+          id,
+        ]);
+      }
+      await service.update(
+        id,
+        {
+          rule: from === 'MONTHLY' ? { kind: 'WEEKLY', weekdays: [1] } : { kind: 'MONTHLY', day_of_month: 1 },
+        } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      return lastRun(id);
+    };
+
+    it('monthly -> weekly: covers every week that starts in the last billed month', async () => {
+      // March 2026 ends on a Tuesday; its last Monday is 03-30.
+      expect(await lastRunAfterSwitch('MONTHLY', '2026-03-01')).toBe('2026-03-30');
+    });
+
+    it('weekly -> monthly: covers the month the last billed week starts in', async () => {
+      expect(await lastRunAfterSwitch('WEEKLY', '2026-03-02')).toBe('2026-03-01');
+      // The week of 03-30 starts in March, so April still bills.
+      expect(await lastRunAfterSwitch('WEEKLY', '2026-03-30')).toBe('2026-03-01');
+    });
+
+    it('leaves a never-run schedule alone', async () => {
+      const id = await monthlySchedule(null);
+      await service.update(
+        id,
+        { rule: { kind: 'WEEKLY', weekdays: [1] } } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(await lastRun(id)).toBeNull();
+    });
+  });
+
   describe('nextScheduledRun', () => {
     async function insertSchedule(o: {
       tenant?: string;

@@ -202,6 +202,22 @@ describe('GuardianProvisioningService', () => {
       ]);
     });
 
+    // Only one new account can take a contact: the second guardian's job would hit 23505, send
+    // nothing and leave the batch's `queued` above 0 forever.
+    it('skips a second new-account guardian with the same phone in one batch (contact_in_use)', async () => {
+      const first = makeGuardian();
+      const second = makeGuardian({ id: 'g2', full_name: 'Guardian Two' });
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: [first, second] }));
+      userRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ one: null }));
+
+      const result = await service.preview(TENANT, { all: true });
+
+      expect(result.to_invite.map((e) => e.guardian_id)).toEqual(['g1']);
+      expect(result.skipped).toEqual([
+        { guardian_id: 'g2', full_name: 'Guardian Two', reason: 'contact_in_use' },
+      ]);
+    });
+
     // M2: guardians.user_id is globally UNIQUE, so an account linked to another
     // guardian (any school, even soft-deleted) can never be linked to this one.
     it('skips with contact_in_use when the matched account is linked to another guardian', async () => {

@@ -26,4 +26,15 @@ describe('normalizeBdPhoneNumber', () => {
     const once = normalizeBdPhoneNumber('1300012345');
     expect(normalizeBdPhoneNumber(once)).toBe(once);
   });
+
+  it('returns an empty string when the input has no digits, not "88"', () => {
+    expect(normalizeBdPhoneNumber('call-me-maybe')).toBe('');
+    expect(normalizeBdPhoneNumber('')).toBe('');
+  });
+
+  it('still normalizes every valid BD shape to the same canonical number', () => {
+    for (const input of ['01712345678', '+8801712345678', '008801712345678', '8801712345678']) {
+      expect(normalizeBdPhoneNumber(input)).toBe('8801712345678');
+    }
+  });
 });

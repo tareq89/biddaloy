@@ -261,6 +261,49 @@ describe('Subjects E2E', () => {
         .expect(404);
     });
 
+    it('[2627] returns 409 SUBJECT_IN_USE when an exam component uses the subject', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/subjects')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name_en: 'Civics 2627', code: 'CIV2627' })
+        .expect(201);
+      const [year] = await dataSource.query(
+        `INSERT INTO academic_years (tenant_id, name, start_date, end_date, created_at, updated_at)
+         VALUES ($1, 'Subj guard 2627', '2018-01-01', '2018-12-31', NOW(), NOW()) RETURNING id`,
+        [TENANT_ID],
+      );
+      const [klass] = await dataSource.query(
+        `INSERT INTO classes (tenant_id, academic_year_id, name, created_at, updated_at)
+         VALUES ($1, $2, 'Subj guard class', NOW(), NOW()) RETURNING id`,
+        [TENANT_ID, year.id],
+      );
+      const [exam] = await dataSource.query(
+        `INSERT INTO exams (tenant_id, academic_year_id, class_id, name, kind, created_at, updated_at)
+         VALUES ($1, $2, $3, 'Subj guard exam', 'TERM', NOW(), NOW()) RETURNING id`,
+        [TENANT_ID, year.id, klass.id],
+      );
+      await dataSource.query(
+        `INSERT INTO exam_components (tenant_id, exam_id, subject_id, name, kind, full_marks, sequence, created_at, updated_at)
+         VALUES ($1, $2, $3, 'Written', 'WRITTEN', 100, 1, NOW(), NOW())`,
+        [TENANT_ID, exam.id, createRes.body.id],
+      );
+
+      const res = await supertest(app.getHttpServer())
+        .delete(`/api/v1/subjects/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(409);
+
+      expect(res.body.details?.code).toBe('SUBJECT_IN_USE');
+      expect(res.body.details?.exam_components_count).toBe(1);
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/subjects/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+    });
+
     it('returns 403 for STUDENT role', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/subjects')

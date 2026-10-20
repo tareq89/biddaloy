@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsDateString, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsNotEmpty, MaxLength } from 'class-validator';
 import {
   Validate,
   ValidationArguments,
@@ -6,6 +6,7 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
 
 @ValidatorConstraint({ name: 'isBefore', async: false })
 export class IsBeforeConstraint implements ValidatorConstraintInterface {
@@ -22,15 +23,16 @@ export class IsBeforeConstraint implements ValidatorConstraintInterface {
 
 export class CreateAcademicYearDto {
   @IsString()
+  @MaxLength(50)
   @IsNotEmpty()
   @SanitizeText()
   name: string;
 
-  @IsDateString()
+  @IsRealDate()
   @Validate(IsBeforeConstraint, ['end_date'])
   start_date: string;
 
-  @IsDateString()
+  @IsRealDate()
   end_date: string;
 
   @IsOptional()

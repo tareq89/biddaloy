@@ -5,10 +5,11 @@
  * dialog directly on this page too.
  */
 import { Permission } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
+import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
 import {
   ConfirmDialog,
   ErrorState,
+  RecordNotFoundState,
   RoutePending,
   Skeleton,
   StatusBadge,
@@ -97,6 +98,10 @@ function ProgramDetailPage() {
         <Skeleton className="h-40 w-full" />
       </div>
     );
+  }
+
+  if (isNotFoundError(programQuery.error)) {
+    return <RecordNotFoundState onBack={() => void navigate({ to: '/programs' })} />;
   }
 
   if (programQuery.isError) {

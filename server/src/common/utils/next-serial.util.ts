@@ -1,6 +1,9 @@
 import type { EntityManager } from 'typeorm';
 import { escapeLikePattern } from './escape-like.util';
 
+/** Largest suffix the `[0-9]{1,15}` match below can read back. */
+const MAX_SERIAL = 999_999_999_999_999;
+
 /**
  * Next number in a school's prefixed text series (e.g. `INV-2026-` -> 1, 2, ...).
  *
@@ -29,5 +32,10 @@ export async function nextTenantSerial(
       `${escapeLikePattern(prefix)}%`,
     ],
   );
+  // A 16-digit next value would not match the regex above, so the max would never move
+  // again and every later caller would get this same number. Refuse it instead.
+  if (Number(n) > MAX_SERIAL) {
+    throw new Error(`Serial series is full for prefix ${prefix}`);
+  }
   return Number(n);
 }

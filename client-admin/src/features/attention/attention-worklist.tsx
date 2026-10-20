@@ -177,6 +177,7 @@ export function AttentionWorklist({ scope, tab, onTabChange }: AttentionWorklist
       rowActions.push({
         intent: 'dismiss',
         label: t('item.closeNamed', { title: item.title }),
+        shortLabel: t('item.close'),
         busy: busyId === item.recipientId,
         onClick: () => hide.mutate(item.recipientId),
       });
@@ -228,7 +229,7 @@ export function AttentionWorklist({ scope, tab, onTabChange }: AttentionWorklist
       id: 'actions',
       header: t('worklist.colActions'),
       accessorFn: (item) => (
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-1">
           <RowActions actions={actionsFor(item)} />
           {canSnooze(item) && (
             <AlertSnoozeMenu

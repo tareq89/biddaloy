@@ -37,6 +37,7 @@ export class UpdateSchoolProfileDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   @Matches(INTERNATIONAL_PHONE_REGEX, { message: 'Invalid phone format' })
   phone?: string | null;
 

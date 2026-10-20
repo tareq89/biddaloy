@@ -8,6 +8,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import { InvoiceKind, InvoiceStatus, PaymentMethod } from '@biddaloy/shared';
 
 /** [outside-diff fix] The `json` column type only checks JSON *syntax*
@@ -207,7 +208,9 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
       issued_date: entity.issued_date,
       due_date: entity.due_date,
       snapshot: entity.snapshot,
-      issued_by: entity.issued_by_user_id ? ctx.keyOf('users', entity.issued_by_user_id) : null,
+      issued_by: entity.issued_by_user_id
+        ? optionalKeyOf(ctx, 'users', entity.issued_by_user_id)
+        : null,
       notes: entity.notes,
     };
   },
@@ -321,7 +324,8 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
     if (JSON.stringify(row.snapshot) !== JSON.stringify(existing.snapshot)) {
       changed.push('snapshot');
     }
-    if (row.issued_by_id !== existing.issued_by_user_id) changed.push('issued_by');
+    if (row.issued_by_id !== null && row.issued_by_id !== existing.issued_by_user_id)
+      changed.push('issued_by');
     if (row.notes !== existing.notes) changed.push('notes');
     return changed;
   },
@@ -361,7 +365,7 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
     invoice.issued_date = row.issued_date as unknown as Date;
     invoice.due_date = row.due_date as unknown as Date;
     invoice.snapshot = row.snapshot as Invoice['snapshot'];
-    invoice.issued_by_user_id = row.issued_by_id;
+    invoice.issued_by_user_id = row.issued_by_id ?? existing?.issued_by_user_id ?? null;
     invoice.notes = row.notes;
     // Never carried forward from the source tenant's snapshot; null
     // snapshot falls back to the live school profile on read (D9 of #508).

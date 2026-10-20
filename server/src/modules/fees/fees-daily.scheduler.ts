@@ -297,7 +297,9 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
 
   private async runSchedule(schedule: RecurringScheduleRow, today: string): Promise<void> {
     const period = periodFor(today, schedule.rule);
-    if (schedule.last_run_period === period) return; // already ran this period
+    // `<=`, not `===`: a cadence change can leave last_run_period ahead of the current
+    // period to mark it covered (F-145, coveredPeriodAfterCadenceChange).
+    if (schedule.last_run_period && period <= schedule.last_run_period) return;
 
     // [CodeRabbit review, PR #801] Set only if `generate()` actually ran
     // inside this transaction — emitted *after* the transaction below
@@ -332,7 +334,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       if (firstFireInPeriod(fresh.rule, today, fresh.starts_on) === null) return;
 
       const freshPeriod = periodFor(today, fresh.rule);
-      if (fresh.last_run_period === freshPeriod) return;
+      if (fresh.last_run_period && freshPeriod <= fresh.last_run_period) return;
 
       // A stale restore catch-up (past `today`) can reach a period already billed after
       // `last_run_period` moved on; the batch row is the per-period key.
@@ -343,7 +345,10 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       if (billed) return;
 
       const feeStructureRows = (await manager.query(
-        `SELECT fee_structure_id FROM recurring_schedule_structures WHERE schedule_id = $1`,
+        `SELECT rss.fee_structure_id
+           FROM recurring_schedule_structures rss
+           JOIN fee_structures fs ON fs.id = rss.fee_structure_id AND fs.deleted_at IS NULL
+          WHERE rss.schedule_id = $1`,
         [fresh.id],
       )) as { fee_structure_id: string }[];
       const feeStructureIds = feeStructureRows.map((r) => r.fee_structure_id);
@@ -354,16 +359,30 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       )) as { student_id: string }[];
       const excluded = new Set(excludedRows.map((r) => r.student_id));
 
+      // [F-141] Promotion leaves the old-year enrollment ACTIVE and only moves
+      // students.class_section_id, so match the audience on the student's enrollment in the
+      // schedule's own year; students with no enrollment row there fall back to today's columns.
       const qb = manager
         .getRepository(Student)
         .createQueryBuilder('s')
         .innerJoin('s.class_section', 'cs')
+        .leftJoin(
+          'enrollments',
+          'e',
+          'e.student_id = s.id AND e.tenant_id = s.tenant_id AND e.academic_year_id = :yearId AND e.enrollment_status = :enrolStatus',
+          { yearId: fresh.academic_year_id, enrolStatus: 'ACTIVE' },
+        )
         .where('s.tenant_id = :tenantId', { tenantId: fresh.tenant_id })
         .andWhere('s.deleted_at IS NULL');
       if (fresh.audience.section_id) {
-        qb.andWhere('s.class_section_id = :sectionId', { sectionId: fresh.audience.section_id });
+        qb.andWhere(
+          'CASE WHEN e.id IS NOT NULL THEN e.section_id ELSE s.class_section_id END = :sectionId',
+          { sectionId: fresh.audience.section_id },
+        );
       } else if (fresh.audience.class_id) {
-        qb.andWhere('cs.class_id = :classId', { classId: fresh.audience.class_id });
+        qb.andWhere('CASE WHEN e.id IS NOT NULL THEN e.class_id ELSE cs.class_id END = :classId', {
+          classId: fresh.audience.class_id,
+        });
       }
       if (fresh.audience.program_id) {
         applyProgramAudience(qb, fresh.audience.program_id, fresh.tenant_id);
@@ -376,13 +395,24 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       const students = await qb.getMany();
       const studentIds = students.map((s) => s.id).filter((id) => !excluded.has(id));
 
-      // ponytail: this path writes no fee_generations row, so the stale-catch-up check above
-      // cannot see it; GREATEST still stops the rewind. Rare; record a marker row if it bites.
-      if (studentIds.length === 0 || feeStructureIds.length === 0) {
-        await manager.query(
+      // [F-144] An empty audience, or no live structures, leaves the period open so a student
+      // who joins (or a structure restored/linked) later in the window is still billed
+      // (`ends_on` stops it looping forever).
+      const advance = () =>
+        manager.query(
           `UPDATE recurring_schedules SET last_run_period = GREATEST(last_run_period, $1::date) WHERE id = $2`,
           [freshPeriod, fresh.id],
         );
+      if (feeStructureIds.length === 0 || studentIds.length === 0) return;
+
+      // [F-146] A period before the year starts would make generate() throw on every daily run.
+      const [year] = (await manager.query(
+        `SELECT start_date::text AS start_date, end_date::text AS end_date FROM academic_years WHERE id = $1`,
+        [fresh.academic_year_id],
+      )) as { start_date: string; end_date: string }[];
+      if (year && (freshPeriod < year.start_date || freshPeriod > year.end_date)) {
+        this.logger.warn('fees-daily: schedule period is outside its academic year, skipping');
+        await advance();
         return;
       }
 
@@ -428,9 +458,12 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
         [freshPeriod, fresh.id],
       );
 
-      generatedTenantId = fresh.tenant_id;
-      if (fresh.notify_families) {
-        notifyPayload = { tenantId: fresh.tenant_id, feeGenerationId: result.fee_generation_id };
+      // [F-147] Nothing generated (all already billed) means nothing to notify or recheck.
+      if (result.generated_count > 0) {
+        generatedTenantId = fresh.tenant_id;
+        if (fresh.notify_families) {
+          notifyPayload = { tenantId: fresh.tenant_id, feeGenerationId: result.fee_generation_id };
+        }
       }
     });
 

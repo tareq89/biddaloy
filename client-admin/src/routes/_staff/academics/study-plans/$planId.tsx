@@ -5,11 +5,12 @@
  * Header actions (extra class, CSV, More menu and their dialogs) are 3-07.
  */
 import { Permission, UserRole } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
+import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
 import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  RecordNotFoundState,
   ProgressBar,
   RoutePending,
   Skeleton,
@@ -106,6 +107,14 @@ function StudyPlanDetailPage() {
         <Skeleton className="h-8 w-1/3" />
         <Skeleton className="h-40 w-full" />
       </div>
+    );
+  }
+
+  if (isNotFoundError(planQuery.error)) {
+    return (
+      <RecordNotFoundState
+        onBack={() => void navigate({ href: '/academics/syllabus?tab=plans' })}
+      />
     );
   }
 

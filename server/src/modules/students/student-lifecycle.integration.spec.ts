@@ -579,7 +579,7 @@ describe('StudentLifecycleService (integration)', () => {
     it('does not list PAID or WAIVED bills', async () => {
       const { studentId } = await seedStudent();
       await seedBill(studentId, day(-5), { status: 'PAID', paid: 1000 });
-      await seedBill(studentId, day(-4), { status: 'WAIVED' });
+      await seedBill(studentId, day(-4), { status: 'WAIVED', discount: 1000 });
       expect(await service.billsDueAfter(studentId, day(-31), SEED_TENANT_ID)).toEqual([]);
     });
 

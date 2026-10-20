@@ -8,6 +8,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import { seatPlansTab } from './seat-plans.tab';
 import { examSchedulesTab } from './exam-schedules.tab';
 import { studentsTab } from '../people/students.tab';
@@ -131,7 +132,7 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
       room: ctx.keyOf('rooms', entity.room_id),
       seat_number: entity.seat_number,
       invigilator: entity.invigilator_user_id
-        ? ctx.keyOf('users', entity.invigilator_user_id)
+        ? optionalKeyOf(ctx, 'users', entity.invigilator_user_id)
         : null,
     };
   },
@@ -275,7 +276,10 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
     if (row.student_id !== existing.student_id) changed.push('student');
     if (row.room_id !== existing.room_id) changed.push('room');
     if (row.seat_number !== existing.seat_number) changed.push('seat_number');
-    if ((row.invigilator_user_id ?? null) !== (existing.invigilator_user_id ?? null)) {
+    if (
+      row.invigilator_user_id != null &&
+      row.invigilator_user_id !== (existing.invigilator_user_id ?? null)
+    ) {
       changed.push('invigilator');
     }
     return changed;
@@ -294,7 +298,8 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
     allocation.student_id = row.student_id;
     allocation.room_id = row.room_id;
     allocation.seat_number = row.seat_number;
-    allocation.invigilator_user_id = row.invigilator_user_id;
+    allocation.invigilator_user_id =
+      row.invigilator_user_id ?? existing?.invigilator_user_id ?? null;
 
     return m.save(SeatAllocation, allocation);
   },

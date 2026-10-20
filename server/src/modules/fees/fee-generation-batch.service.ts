@@ -5,6 +5,8 @@ import { AuditAction, ApprovalScope } from '@biddaloy/shared';
 import { FeeGeneration } from './entities/fee-generation.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { assertPeriodWithinAcademicYear } from './fee-generation.service';
 import { Student } from '../students/entities/student.entity';
 import { AuditService } from '../audit/audit.service';
 import { WalletService } from './wallet.service';
@@ -62,6 +64,19 @@ export class FeeGenerationBatchService {
 
     const newPeriodStart = dto.period_start ? new Date(dto.period_start) : batch.period_start;
     const newPeriodType = dto.period_type ?? batch.period_type;
+    // [F-142] Same period rules as generate. `period_start` is a plain YYYY-MM-DD
+    // (@IsRealDate), so the day checked is the day stored.
+    if (dto.period_start || dto.period_type) {
+      const academicYear = await this.studentFeeRepo.manager
+        .getRepository(AcademicYear)
+        .findOne({ where: { id: batch.academic_year_id, tenant_id: tenantId } });
+      if (!academicYear) throw new NotFoundException('Academic year not found');
+      assertPeriodWithinAcademicYear(
+        dto.period_start ?? new Date(batch.period_start).toISOString().slice(0, 10),
+        newPeriodType,
+        academicYear,
+      );
+    }
     const newDueDate = dto.due_date ? new Date(dto.due_date) : batch.due_date;
 
     await this.studentFeeRepo.manager.transaction(async (manager) => {
@@ -312,9 +327,10 @@ export class FeeGenerationBatchService {
     let removedCount = 0;
 
     await this.studentFeeRepo.manager.transaction(async (manager) => {
-      const candidates = await manager
-        .getRepository(StudentFee)
-        .find({ where: { fee_generation_id: batch.id, paid_amount: 0 } });
+      // [F-140] Lock first (same order as checkout) so a committing checkout is
+      // waited for and its paid_amount is visible to the filter below.
+      const locked = await this.lockBills(manager, { fee_generation_id: batch.id });
+      const candidates = locked.filter((b) => Number(b.paid_amount) === 0);
       if (candidates.length === 0) return;
 
       const candidateIds = candidates.map((b) => b.id);

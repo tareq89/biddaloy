@@ -196,7 +196,7 @@ export function buildCreatePayload(values: StudentFormValues): CreateStudentInpu
  * for "nothing to clear yet") would silently leave the old value in place
  * instead of clearing it, which is what "Save" with a blanked-out field
  * has to mean. */
-export function buildUpdatePayload(values: StudentFormValues): UpdateStudentInput {
+function buildFullUpdatePayload(values: StudentFormValues): UpdateStudentInput {
   return {
     ...toBasePayload(values),
     full_name_bn: toOptional(values.full_name_bn) ?? null,
@@ -205,4 +205,28 @@ export function buildUpdatePayload(values: StudentFormValues): UpdateStudentInpu
     gender: toOptional(values.gender) ?? null,
     home_address: toOptional(values.home_address) ?? null,
   };
+}
+
+/** [2603] Only the keys that differ from `initialValues` are sent, so a stale form cannot
+ * overwrite another editor's address, or unlink a guardian it never touched. Once the guardian
+ * list itself is edited the whole set goes out (the server has no add/remove delta yet, #2699),
+ * so a concurrent guardian add can still be dropped. A cleared field still
+ * differs from its initial string, so it goes out as an explicit `null`. `guardian_ids` is
+ * compared as a set: reordering alone sends nothing. */
+export function buildUpdatePayload(
+  values: StudentFormValues,
+  initialValues: StudentFormValues,
+): UpdateStudentInput {
+  const next = buildFullUpdatePayload(values) as Record<string, unknown>;
+  const prev = buildFullUpdatePayload(initialValues) as Record<string, unknown>;
+  const same = (key: string) =>
+    key === 'guardian_ids'
+      ? JSON.stringify([...(next[key] as string[])].sort()) ===
+        JSON.stringify([...(prev[key] as string[])].sort())
+      : next[key] === prev[key];
+  return Object.fromEntries(
+    Object.keys(next)
+      .filter((k) => !same(k))
+      .map((k) => [k, next[k]]),
+  );
 }

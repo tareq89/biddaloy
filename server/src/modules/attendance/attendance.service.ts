@@ -29,6 +29,8 @@ import {
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { Class } from '../academics/entities/class.entity';
 import { Student } from '../students/entities/student.entity';
 import { sectionRosterIdsBySection, sectionRosterStudentIds } from '../enrollments/section-roster';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
@@ -687,6 +689,31 @@ export class AttendanceService {
       .findOne({ where: { id: sectionId, tenant_id: tenantId } });
     if (!sectionRow) {
       throw new NotFoundException('Class section not found');
+    }
+
+    // 5a. The date must fall inside the section's academic year. Formatted in SQL: the pg
+    // driver would hand back a timezone-shifted JS Date for a raw `date` column.
+    const year = await manager
+      .getRepository(AcademicYear)
+      .createQueryBuilder('y')
+      .innerJoin(Class, 'c', 'c.academic_year_id = y.id')
+      .where('c.id = :classId', { classId: sectionRow.class_id })
+      .andWhere('y.tenant_id = :tenantId', { tenantId })
+      .select([
+        "to_char(y.start_date, 'YYYY-MM-DD') AS start_date",
+        "to_char(y.end_date, 'YYYY-MM-DD') AS end_date",
+      ])
+      .getRawOne<{ start_date: string; end_date: string }>();
+    // `academic_year_id` is NOT NULL, so no row means the year is another tenant's.
+    // Same text as the section miss above: one operation, one not-found answer.
+    if (!year) {
+      throw new NotFoundException('Class section not found');
+    }
+    if (dto.date < year.start_date || dto.date > year.end_date) {
+      throw new UnprocessableEntityException({
+        message: 'The date is outside the academic year',
+        details: { code: 'ATTENDANCE_OUTSIDE_ACADEMIC_YEAR' },
+      });
     }
     const nonWorkingDay = await this.schoolCalendarService.isNonWorkingDay({
       tenantId,

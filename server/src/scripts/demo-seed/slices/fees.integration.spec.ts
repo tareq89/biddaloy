@@ -37,7 +37,7 @@ import {
 import { FeeGenerationsService } from '../../../modules/fees/fee-generations.service';
 import { WalletService } from '../../../modules/fees/wallet.service';
 import { DiscountRulesService } from '../../../modules/fees/discount-rules.service';
-import { PaymentAllocationService } from '../../../modules/fees/payment-allocation.service';
+import { CheckoutService } from '../../../modules/fees/checkout.service';
 import { FineSweepService } from '../../../modules/fees/fines/fine-sweep.service';
 import { FinesService } from '../../../modules/fees/fines/fines.service';
 import { LateFeeService } from '../../../modules/fees/late-fee.service';
@@ -113,7 +113,7 @@ describe('fees slice (integration, 2 years, scale 0.1)', () => {
         WalletService,
         DiscountRulesService,
         { provide: NoopDiscountResolver, useExisting: DiscountRulesService },
-        PaymentAllocationService,
+        CheckoutService,
         InvoicesService,
         InvoiceShareService,
         FineSweepService,

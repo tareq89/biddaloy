@@ -90,7 +90,8 @@
       "changeReturn": "Return change",
       "changeToWallet": "Keep the change as credit",
       "tenderTooLow": "Tendered amount plus credit balance doesn't cover the amount due.",
-      "hint": "Only to work out the change; you can leave it empty."
+      "hint": "Only to work out the change; you can leave it empty.",
+      "toWalletOneStudent": "Change can go to credit only when the payment is for one student."
     },
     "notifications": {
       "recorded": "{{amount}} recorded.",

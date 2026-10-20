@@ -185,3 +185,33 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
     });
   });
 });
+
+test.describe('double-click on Add program [2622]', () => {
+  test.use(loggedIn('admin'));
+  // A service worker hides requests from `page.route`.
+  test.use({ serviceWorkers: 'block' });
+
+  test('a double-click sends one POST and lists the program once', async ({ page }) => {
+    const name = `Dbl ${Date.now()}`;
+    let posts = 0;
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/api/v1/programs', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      posts += 1;
+      await gate; // the gate, not a sleep, orders the requests
+      return route.fallback();
+    });
+
+    await page.goto('/programs');
+    await page.getByRole('button', { name: t('programs.actions.add') }).click();
+    await page.getByLabel(t('programs.formDialog.nameLabel')).fill(name);
+    await page.getByRole('button', { name: t('programs.formDialog.save') }).dblclick();
+    release();
+
+    await expect(page.getByText(name)).toHaveCount(1);
+    expect(posts).toBe(1);
+  });
+});
