@@ -191,3 +191,22 @@ CI is the only builder: the `landing` job uploads `landing-dist-<sha>.tar.gz`. H
 ## Events (D22)
 
 `demo_click{role}`, `register_click`, `whatsapp_click`, `pricing_slider`, `chat_open`, `lang_switch{slug=target lang}`, `theme_toggle`. Elements carry `data-ev="<name>"`; `landing/src/scripts/events.ts` forwards them to Umami.
+
+## Collateral
+
+Two offline files are built from the same content files as the home page, so the sales message cannot drift from the site (D44).
+
+```mermaid
+flowchart LR
+  V["content/value.ts<br/>(five before/after rows, 3 setup steps)"] --> S
+  P["content/pricing.ts<br/>(price, FREE_UNTIL)"] --> S
+  L["content/legal.ts<br/>(phone) or PUBLIC_WA_NUMBER"] --> S
+  S["scripts/build-collateral.mjs<br/>fills src/collateral/*.html, renders with Playwright"] --> A["dist/sm-ek-pata.pdf<br/>one A4 page, Bangla"]
+  S --> B["dist/sm-whatsapp.png<br/>1080 x 1080"]
+```
+
+- **Where the numbers come from:** headline date from `FREE_UNTIL`, `৳১০` from `PRICE_PER_SEAT_PAISA`, `৳৫,০০০` from `total(500, 1)`. Change those files, not the templates.
+- **Regenerate:** `yarn workspace @biddaloy/landing build` (runs after `astro build`), or only the collateral: `node landing/scripts/build-collateral.mjs`. Needs Node 24 and a Playwright Chromium (`npx playwright install chromium`).
+- **The build fails** if the PDF is not exactly one page or is over 300 KB. `landing/src/collateral/collateral.test.ts` runs the script and checks the same, plus the PNG is 1080 x 1080.
+- **Links:** `/sm-ek-pata.pdf` from the home page final call-to-action and the footer ("কমিটির জন্য ১ পাতা"), both `data-ev="pdf_download"`.
+- The QR code points to `https://schoolmanagerp.com`; the phone number is a placeholder until D7 (set `PUBLIC_WA_NUMBER` to override).

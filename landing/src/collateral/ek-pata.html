@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="bn"><head><meta charset="utf-8"><title>SchoolManager ERP</title>
+<style>
+{{FONTS}}
+@page{size:A4;margin:10mm 12mm}
+*{box-sizing:border-box}
+html,body{margin:0;background:#fff;color:#000;font:400 15pt/1.35'Hind Siliguri',sans-serif}
+.wm{font-weight:700;font-size:16pt;border-bottom:2px solid #000;padding-bottom:2mm}
+h1{font-size:30pt;line-height:1.15;margin:3mm 0 1mm;font-weight:700}
+.price{font-size:17pt;font-weight:600;margin:0 0 3mm}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #000;padding:2mm 2.5mm;vertical-align:top;text-align:left}
+th{background:#eee;font-weight:700}
+td.n{font-weight:700;white-space:nowrap}
+h2{font-size:14pt;margin:3mm 0 1mm;font-weight:700}
+ol{margin:0;padding-left:7mm;list-style:bengali}
+li{margin:0 0 .8mm}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:6mm;margin-top:3mm;border-top:2px solid #000;padding-top:2mm;font-weight:600}
+.foot svg{width:24mm;height:24mm;flex:none}
+</style></head><body>
+<div class="wm">{{WORDMARK}}</div>
+<h1>{{HEADLINE}}</h1>
+<p class="price">{{PRICE}}</p>
+<table><tr><th></th><th>{{BEFORE_H}}</th><th>{{AFTER_H}}</th></tr>{{ROWS}}</table>
+<h2>{{SETUP_TITLE}}</h2>
+<ol>{{STEPS}}</ol>
+<div class="foot"><div>WhatsApp: {{PHONE}}<br>{{SITE}}</div>{{QR}}</div>
+</body></html>

@@ -10,7 +10,7 @@ const { lang } = Astro.props as { lang: Lang };
     <a class="btn secondary lg" href={DEMO_URL} target="_blank" rel="noopener" data-ev="demo_click">{finalCta.demo[lang]}</a>
     <a class="btn primary lg" href={`${APP_URL}/register`} target="_blank" rel="noopener" data-ev="register_click">{finalCta.register[lang]}</a>
   </div>
-  <a class="pdfcard" href="/sm-ek-pata.pdf" target="_blank" rel="noopener" data-ev="docs_card" data-ev-slug="sm-ek-pata-pdf"><div class="doc"></div><div><b>{finalCta.pdfB[lang]}</b><span>{finalCta.pdf[lang]}</span></div></a>
+  <a class="pdfcard" href="/sm-ek-pata.pdf" target="_blank" rel="noopener" data-ev="pdf_download"><div class="doc"></div><div><b>{finalCta.pdfB[lang]}</b><span>{finalCta.pdf[lang]}</span></div></a>
 </div></section>
 <style>
   .final{text-align:center}
