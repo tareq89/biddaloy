@@ -8,8 +8,17 @@ export const staffEducationTab = createStaffChildTab<StaffEducation>({
   naturalKeyFields: ['degree', 'institution'],
   fields: [
     { key: 'degree', type: 'string', required: true, label: { en: 'Degree', bn: 'ডিগ্রি' } },
-    { key: 'institution', type: 'string', required: true, label: { en: 'Institution', bn: 'প্রতিষ্ঠান' } },
-    { key: 'board_university', type: 'string', label: { en: 'Board/university', bn: 'বোর্ড/বিশ্ববিদ্যালয়' } },
+    {
+      key: 'institution',
+      type: 'string',
+      required: true,
+      label: { en: 'Institution', bn: 'প্রতিষ্ঠান' },
+    },
+    {
+      key: 'board_university',
+      type: 'string',
+      label: { en: 'Board/university', bn: 'বোর্ড/বিশ্ববিদ্যালয়' },
+    },
     { key: 'result', type: 'string', label: { en: 'Result', bn: 'ফলাফল' } },
     { key: 'passing_year', type: 'string', label: { en: 'Passing year', bn: 'পাসের বছর' } },
   ],

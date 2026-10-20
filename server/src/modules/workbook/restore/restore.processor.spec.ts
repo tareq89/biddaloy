@@ -400,26 +400,29 @@ describe('RestoreProcessor', () => {
 
     // 23001: Postgres 18+ uses restrict_violation for a DELETE blocked by an
     // ON DELETE RESTRICT key.
-    it.each(['23503', '23001'])('maps a %s foreign-key violation to a readable message', async (sqlState) => {
-      vi.spyOn(ALL_TABS[0], 'load').mockResolvedValue([]);
-      vi.spyOn(ALL_TABS[0], 'keyOf').mockReturnValue('key');
-      vi.spyOn(ALL_TABS[0], 'deleteByAbsence', 'get').mockReturnValue(false);
-      const pgError = new QueryFailedError('insert', [], new Error('fk violation') as any);
-      (pgError as any).code = sqlState;
-      vi.spyOn(ALL_TABS[0], 'upsert').mockRejectedValue(pgError);
+    it.each(['23503', '23001'])(
+      'maps a %s foreign-key violation to a readable message',
+      async (sqlState) => {
+        vi.spyOn(ALL_TABS[0], 'load').mockResolvedValue([]);
+        vi.spyOn(ALL_TABS[0], 'keyOf').mockReturnValue('key');
+        vi.spyOn(ALL_TABS[0], 'deleteByAbsence', 'get').mockReturnValue(false);
+        const pgError = new QueryFailedError('insert', [], new Error('fk violation') as any);
+        (pgError as any).code = sqlState;
+        vi.spyOn(ALL_TABS[0], 'upsert').mockRejectedValue(pgError);
 
-      validationService.validate.mockResolvedValue(makeValidatedWorkbook({ [SCHOOL]: [{}] }));
+        validationService.validate.mockResolvedValue(makeValidatedWorkbook({ [SCHOOL]: [{}] }));
 
-      await run();
+        await run();
 
-      expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
-      // Direction-neutral: 23503 fires for both a missing parent and a
-      // still-referenced row, so the message no longer assumes the latter.
-      expect(jobRow.error).toBe(
-        'related record missing or still referenced: foreign key constraint',
-      );
-      expect(jobRow.failed_tab).toBe(SCHOOL);
-    });
+        expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
+        // Direction-neutral: 23503 fires for both a missing parent and a
+        // still-referenced row, so the message no longer assumes the latter.
+        expect(jobRow.error).toBe(
+          'related record missing or still referenced: foreign key constraint',
+        );
+        expect(jobRow.failed_tab).toBe(SCHOOL);
+      },
+    );
 
     it('does not double-wrap an error a tab already pre-mapped itself (e.g. fees tabs on 23503)', async () => {
       vi.spyOn(ALL_TABS[0], 'load').mockResolvedValue([]);
