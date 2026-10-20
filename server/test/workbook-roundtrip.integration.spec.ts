@@ -144,6 +144,9 @@ import { RoutineSlot } from '../src/modules/routines/entities/routine-slot.entit
 import { RoutineSlotTeacher } from '../src/modules/routines/entities/routine-slot-teacher.entity';
 import { RoutineSubstitution } from '../src/modules/routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from '../src/modules/routines/entities/routine-change-request.entity';
+import { AdmissionIntake } from '../src/modules/admission/entities/admission-intake.entity';
+import { AdmissionApplicant } from '../src/modules/admission/entities/admission-applicant.entity';
+import { AdmissionEvaluation } from '../src/modules/admission/entities/admission-evaluation.entity';
 import {
   PeriodSlotKind,
   SlotRecurrence,
@@ -2472,17 +2475,17 @@ describe('workbook round trip (integration)', () => {
   describe('departed recorders (#2625)', () => {
     const T = randomUUID();
 
-    async function exportA(): Promise<Buffer> {
+    async function exportA(tenant: string = T): Promise<Buffer> {
       const job = await dataSource.getRepository(WorkbookJob).save(
         dataSource.getRepository(WorkbookJob).create({
-          tenant_id: T,
+          tenant_id: tenant,
           kind: WorkbookJobKind.EXPORT,
           source: WorkbookJobSource.MANUAL,
           status: WorkbookJobStatus.QUEUED,
           requested_by_user_id: null,
         }),
       );
-      await exportProcessor.process(fakeExportJob(job.id, T));
+      await exportProcessor.process(fakeExportJob(job.id, tenant));
       const done = await dataSource
         .getRepository(WorkbookJob)
         .findOneOrFail({ where: { id: job.id } });
@@ -2491,7 +2494,9 @@ describe('workbook round trip (integration)', () => {
       return storage.objects.get(done.storage_key as string) as Buffer;
     }
 
-    it('exports with blank actor cells, restore keeps the stored actors, and a new note row needs an author', async () => {
+    /** Seeds school `T` with one admin, a student and the departed-actor rows. A global
+     * `beforeEach` wipes the database, so every test seeds its own. */
+    async function seedT(T: string) {
       // A small school of its own (the big fixture can only be seeded once per file).
       const tag = T.slice(0, 8);
       await dataSource
@@ -2632,6 +2637,12 @@ describe('workbook round trip (integration)', () => {
         ),
       );
 
+      return { year, klass, section, admin, student, departed, platformAdmin, note, event };
+    }
+
+    it('exports with blank actor cells, restore keeps the stored actors, and a new note row needs an author', async () => {
+      const { note, event, departed, platformAdmin } = await seedT(T);
+
       const buffer = await exportA();
 
       // Restore into the SAME school: nothing to create, delete or rewrite
@@ -2648,15 +2659,21 @@ describe('workbook round trip (integration)', () => {
           .recorded_by_user_id,
       ).toBe(platformAdmin.id);
 
-      // Into an empty school: the NOT NULL author is blank on a new row.
+      // Into an empty school: the NOT NULL author is blank on a new row. The
+      // restore records the restoring user instead (#2687), so it is a
+      // warning with fixed text, not an error.
       const empty = await validationService.validate(buffer, TENANT_B, dataSource.manager);
-      const noteErrors = empty.errors.filter(
-        (e) => e.severity === 'error' && e.tab === 'student_notes' && e.column === 'author',
+      expect(
+        empty.errors.filter(
+          (e) => e.severity === 'error' && e.tab === 'student_notes' && e.column === 'author',
+        ),
+      ).toEqual([]);
+      const noteWarnings = empty.warnings.filter(
+        (w) => w.tab === 'student_notes' && w.column === 'author',
       );
-      expect(noteErrors.length).toBeGreaterThan(0);
-      expect(noteErrors[0].message).toBe(
-        'Choose a current staff member for this row; a new row needs one.',
-      );
+      expect(noteWarnings.map((w) => w.message)).toEqual([
+        "This row's staff member has left the school; the restore will record you instead.",
+      ]);
       // A new tag with neither user nor role cannot be created either.
       const tagErrors = empty.errors.filter(
         (e) => e.severity === 'error' && e.tab === 'application_tags',
@@ -2664,6 +2681,337 @@ describe('workbook round trip (integration)', () => {
       expect(tagErrors.length).toBeGreaterThan(0);
       expect(tagErrors.some((e) => e.column === 'user')).toBe(true);
     }, 90_000);
+
+    // ---- #2687. Each test below seeds a school of its own with `seedT(tenant)`
+    // (the global `beforeEach` wipes the transactional tables).
+
+    async function editWorkbook(
+      buffer: Buffer,
+      fn: (wb: ExcelJS.Workbook) => void,
+    ): Promise<Buffer> {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer as any);
+      fn(wb);
+      return Buffer.from(await wb.xlsx.writeBuffer());
+    }
+
+    function colOf(sheet: ExcelJS.Worksheet, key: string): number {
+      const c = (sheet.getRow(1).values as unknown[]).map((v) => String(v ?? '')).indexOf(key);
+      expect(c, `column ${key}`).toBeGreaterThan(0);
+      return c;
+    }
+
+    /** Row number of the first data row whose `key` cell equals `value`. */
+    function rowWhere(sheet: ExcelJS.Worksheet, key: string, value: string): number {
+      const c = colOf(sheet, key);
+      for (let r = 2; r <= sheet.rowCount; r++) {
+        if (String(sheet.getRow(r).getCell(c).value ?? '') === value) return r;
+      }
+      throw new Error(`no row with ${key}=${value}`);
+    }
+
+    /** Tags with neither user nor role stay an error in a new school (#2668); drop them. */
+    function withoutTags(buffer: Buffer): Promise<Buffer> {
+      return editWorkbook(buffer, (wb) => {
+        const tags = wb.getWorksheet('application_tags')!;
+        for (let r = tags.rowCount; r >= 2; r--) tags.spliceRows(r, 1);
+      });
+    }
+
+    /** A new school whose only member is the restoring admin (a fresh school always has one). */
+    async function newEmptySchool(admin: User): Promise<string> {
+      const id = randomUUID();
+      await dataSource
+        .getRepository(School)
+        .save(
+          dataSource
+            .getRepository(School)
+            .create({ id, name: `Fresh ${id.slice(0, 8)}`, slug: `fresh-${id.slice(0, 8)}` }),
+        );
+      await dataSource
+        .getRepository(UserTenant)
+        .save(
+          dataSource
+            .getRepository(UserTenant)
+            .create({ user_id: admin.id, tenant_id: id, role: UserRole.ADMIN }),
+        );
+      return id;
+    }
+
+    async function restoreInto(
+      tenantId: string,
+      buffer: Buffer,
+      actorId: string = OPERATOR_ID,
+    ): Promise<WorkbookJob> {
+      const stagingKey = `staging/${randomUUID()}.xlsx`;
+      await storage.put(stagingKey, buffer);
+      const { stagingId } = await staging.stage(tenantId, actorId, {
+        workbook_storage_key: stagingKey,
+        meta: {},
+        tabs: [],
+        totals: { creates: 0, updates: 0, unchanged: 0, deletes: 0 },
+        hardErrorCount: 0,
+        isEmptyTenant: false,
+        errors: [],
+        warnings: [],
+      });
+      const snapshot = await dataSource.getRepository(WorkbookJob).save(
+        dataSource.getRepository(WorkbookJob).create({
+          tenant_id: tenantId,
+          kind: WorkbookJobKind.SNAPSHOT,
+          source: WorkbookJobSource.SNAPSHOT,
+          status: WorkbookJobStatus.DONE,
+          requested_by_user_id: actorId,
+        }),
+      );
+      const job = await dataSource.getRepository(WorkbookJob).save(
+        dataSource.getRepository(WorkbookJob).create({
+          tenant_id: tenantId,
+          kind: WorkbookJobKind.RESTORE,
+          source: WorkbookJobSource.MANUAL,
+          status: WorkbookJobStatus.QUEUED,
+          requested_by_user_id: actorId,
+          staging_id: stagingId,
+          snapshot_job_id: snapshot.id,
+        }),
+      );
+      await restoreProcessor.process(fakeRestoreJob(job.id));
+      return dataSource.getRepository(WorkbookJob).findOneOrFail({ where: { id: job.id } });
+    }
+
+    /** One routine slot in the school (shift, period, subject and routine included). */
+    async function slotIn(tenant: string, yearId: string, sectionId: string): Promise<string> {
+      const tag = tenant.slice(0, 8);
+      const shift = await dataSource.getRepository(Shift).save(
+        dataSource.getRepository(Shift).create({
+          name: `Morning-${tag}`,
+          day_starts_at: '08:00:00',
+          day_ends_at: '13:30:00',
+          sequence: 1,
+          tenant_id: tenant,
+        }),
+      );
+      const period = await dataSource.getRepository(PeriodSlot).save(
+        dataSource.getRepository(PeriodSlot).create({
+          sequence: 1,
+          kind: PeriodSlotKind.CLASS,
+          name: null,
+          starts_at: '08:00:00',
+          ends_at: '08:40:00',
+          shift_id: shift.id,
+          tenant_id: tenant,
+        }),
+      );
+      const subject = await dataSource
+        .getRepository(Subject)
+        .save(
+          dataSource
+            .getRepository(Subject)
+            .create({ name_en: `Maths-${tag}`, code: `M${tag}`, tenant_id: tenant }),
+        );
+      const routine = await dataSource.getRepository(Routine).save(
+        dataSource.getRepository(Routine).create({
+          academic_year_id: yearId,
+          name: `Routine-${tag}`,
+          state: RoutineState.PUBLISHED,
+          published_at: new Date('2026-01-01T00:00:00.000Z'),
+          tenant_id: tenant,
+        }),
+      );
+      const slot = await dataSource.getRepository(RoutineSlot).save(
+        dataSource.getRepository(RoutineSlot).create({
+          routine_id: routine.id,
+          section_id: sectionId,
+          period_slot_id: period.id,
+          weekday: 1,
+          subject_id: subject.id,
+          room_id: null,
+          recurrence: SlotRecurrence.WEEKLY,
+          recurrence_offset: 0,
+          valid_from: '2026-01-01',
+          valid_to: null,
+          tenant_id: tenant,
+        }),
+      );
+      return slot.id;
+    }
+
+    /** A user with no membership in the school: the export cannot name them. */
+    function ghostUser(label: string): Promise<User> {
+      return dataSource.getRepository(User).save(
+        dataSource.getRepository(User).create({
+          email: `rt2687-${label}-${randomUUID().slice(0, 8)}@test.com`,
+          full_name: `Rt2687 ${label}`,
+          password_hash: 'not-the-asserted-hash',
+        }),
+      );
+    }
+
+    // Item 1: blank clears a CURRENT actor, keeps a DEPARTED one.
+    it('a blank resolver cell clears a current member and keeps a departed one (#2687)', async () => {
+      const t = randomUUID();
+      const { admin, year, section } = await seedT(t);
+      const slot = await slotIn(t, year.id, section.id);
+      const departed = await ghostUser('resolver');
+      const repo = dataSource.getRepository(RoutineChangeRequest);
+      const make = (note: string, resolvedBy: string) =>
+        repo.save(
+          repo.create({
+            tenant_id: t,
+            routine_slot_id: slot,
+            requested_by: admin.id,
+            note,
+            state: ChangeRequestState.ACCEPTED,
+            resolved_by: resolvedBy,
+            resolved_at: new Date('2026-02-01T00:00:00.000Z'),
+            resolution_note: 'ok',
+          }),
+        );
+      const current = await make('clear-me', admin.id);
+      const gone = await make('keep-me', departed.id);
+
+      const buffer = await editWorkbook(await exportA(t), (wb) => {
+        const sheet = wb.getWorksheet('routine_change_requests')!;
+        const cell = (note: string) =>
+          sheet.getRow(rowWhere(sheet, 'note', note)).getCell(colOf(sheet, 'resolved_by'));
+        // The departed resolver already exports blank; blank the current one too.
+        expect(String(cell('keep-me').value ?? '')).toBe('');
+        cell('clear-me').value = null;
+      });
+
+      const validated = await validationService.validate(buffer, t, dataSource.manager);
+      expect(validated.errors.filter((e) => e.severity === 'error')).toEqual([]);
+      const report = await diffService.diff(validated, t, dataSource.manager);
+      const tab = report.tabs.find((x) => x.name === 'routine_change_requests')!;
+      // Only the current member's row is an update; the departed one is unchanged.
+      expect(tab.changedFields).toEqual({ resolved_by: 1 });
+
+      const job = await restoreInto(t, buffer);
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      expect((await repo.findOneByOrFail({ id: current.id })).resolved_by).toBeNull();
+      expect((await repo.findOneByOrFail({ id: gone.id })).resolved_by).toBe(departed.id);
+    }, 120_000);
+
+    // Item 2: a school with no staff yet restores the departed author's rows as the restorer.
+    it('restores a departed author into an empty school as the restoring admin (#2687)', async () => {
+      const t = randomUUID();
+      const { admin } = await seedT(t);
+      const fresh = await newEmptySchool(admin);
+      const buffer = await withoutTags(await exportA(t));
+
+      const validated = await validationService.validate(buffer, fresh, dataSource.manager);
+      expect(validated.errors.filter((e) => e.severity === 'error')).toEqual([]);
+      expect(
+        validated.warnings.filter((w) => w.tab === 'student_notes').map((w) => w.message),
+      ).toEqual([
+        "This row's staff member has left the school; the restore will record you instead.",
+      ]);
+
+      const job = await restoreInto(fresh, buffer);
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      const notes = await dataSource
+        .getRepository(StudentNote)
+        .find({ where: { tenant_id: fresh } });
+      expect(notes.map((n) => [n.body, n.author_user_id])).toEqual([
+        ['Left-author note', OPERATOR_ID],
+      ]);
+    }, 120_000);
+
+    // Item 3: two departed actors must not share a natural key.
+    it('keeps two otherwise identical departed-actor rows as two rows (#2687)', async () => {
+      const t = randomUUID();
+      const { admin, year, section } = await seedT(t);
+      const slot = await slotIn(t, year.id, section.id);
+      const requests = dataSource.getRepository(RoutineChangeRequest);
+      for (const u of [await ghostUser('req1'), await ghostUser('req2')]) {
+        await requests.save(
+          requests.create({
+            tenant_id: t,
+            routine_slot_id: slot,
+            requested_by: u.id,
+            note: 'twin request',
+            state: ChangeRequestState.OPEN,
+            resolved_by: null,
+            resolved_at: null,
+            resolution_note: null,
+          }),
+        );
+      }
+      const intake = await dataSource.getRepository(AdmissionIntake).save(
+        dataSource.getRepository(AdmissionIntake).create({
+          tenant_id: t,
+          class_section_id: section.id,
+          title: 'Rt2687 intake',
+          seat_count: 10,
+          open_date: '2026-01-01',
+          close_date: '2026-12-31',
+          required_document_types: [],
+        }),
+      );
+      const applicant = await dataSource.getRepository(AdmissionApplicant).save(
+        dataSource.getRepository(AdmissionApplicant).create({
+          tenant_id: t,
+          intake_id: intake.id,
+          reference_number: 'RT2687-1',
+          applicant_name: 'Rt2687 Applicant',
+          date_of_birth: '2015-01-01',
+          gender: 'MALE',
+          guardian_name: 'Rt2687 Guardian',
+          guardian_phone: '01700000000',
+        }),
+      );
+      // The reviewer is a plain uuid with no FK, so a random one is a "departed" reviewer.
+      const evals = dataSource.getRepository(AdmissionEvaluation);
+      for (const reviewer of [randomUUID(), randomUUID()]) {
+        await evals.save(
+          evals.create({
+            tenant_id: t,
+            applicant_id: applicant.id,
+            reviewer_user_id: reviewer,
+            notes: 'twin evaluation',
+            decision: null,
+          }),
+        );
+      }
+
+      const buffer = await exportA(t);
+      const countTwins = async (tenant: string) => ({
+        requests: await requests.countBy({ tenant_id: tenant, note: 'twin request' }),
+        evals: await evals.countBy({ tenant_id: tenant, notes: 'twin evaluation' }),
+      });
+
+      // Same school: no duplicate-key error, and a restore keeps both of each.
+      const same = await validationService.validate(buffer, t, dataSource.manager);
+      expect(same.errors.filter((e) => e.severity === 'error')).toEqual([]);
+      expect((await restoreInto(t, buffer)).status).toBe(WorkbookJobStatus.DONE);
+      expect(await countTwins(t)).toEqual({ requests: 2, evals: 2 });
+
+      // Empty school, restored by a member admin: both of each are created, and
+      // the new school's own export (twins now keyed by the admin) validates clean.
+      // Ids are global, so the source school lets go of its rows first, as a real
+      // restore into a new school after the old one is gone would see it.
+      for (const e of [StudentNote, AdmissionEvaluation, RoutineChangeRequest]) {
+        await dataSource.getRepository(e).delete({ tenant_id: t });
+      }
+      const fresh = await newEmptySchool(admin);
+      const file = await withoutTags(buffer);
+      expect((await restoreInto(fresh, file, admin.id)).status).toBe(WorkbookJobStatus.DONE);
+      expect(await countTwins(fresh)).toEqual({ requests: 2, evals: 2 });
+      const reExport = await exportA(fresh);
+      const again = await validationService.validate(reExport, fresh, dataSource.manager);
+      expect(again.errors.filter((e) => e.severity === 'error')).toEqual([]);
+
+      // Restoring the same file a second time recreates nothing in these tabs.
+      const second = await diffService.diff(
+        await validationService.validate(file, fresh, dataSource.manager),
+        fresh,
+        dataSource.manager,
+      );
+      for (const name of ['student_notes', 'admission_evaluations', 'routine_change_requests']) {
+        const tab = second.tabs.find((x) => x.name === name);
+        expect([name, tab?.creates, tab?.deletes]).toEqual([name, 0, 0]);
+      }
+    }, 180_000);
   });
 
   // ---- [47.x] teacher_assignments Role column: restore semantics ----------

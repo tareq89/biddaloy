@@ -12,6 +12,7 @@ import { optionalKeyOf } from '../../codec/tab-spec';
 import { seatPlansTab } from './seat-plans.tab';
 import { examSchedulesTab } from './exam-schedules.tab';
 import { studentsTab } from '../people/students.tab';
+import { nullableActor, stampActorKeys } from '../actor-keys';
 
 /**
  * The `seat_allocations` tab: one student's seat for one subject sitting
@@ -106,8 +107,8 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
   naturalKey: ['seat_plan', 'exam_schedule', 'student'],
   deleteByAbsence: true,
 
-  load(tenantId: string, m: EntityManager): Promise<SeatAllocation[]> {
-    return m.find(SeatAllocation, {
+  async load(tenantId: string, m: EntityManager): Promise<SeatAllocation[]> {
+    const rows = await m.find(SeatAllocation, {
       where: { tenant_id: tenantId },
       relations: [
         'seat_plan',
@@ -121,6 +122,7 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
         'room',
       ],
     });
+    return stampActorKeys(tenantId, rows, 'invigilator_user_id', 'invigilator_key', m);
   },
 
   toRow(entity: SeatAllocation, ctx: ExportContext): Record<string, unknown> {
@@ -276,9 +278,10 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
     if (row.student_id !== existing.student_id) changed.push('student');
     if (row.room_id !== existing.room_id) changed.push('room');
     if (row.seat_number !== existing.seat_number) changed.push('seat_number');
+    // A blank cell clears a current invigilator; a departed one is kept (#2687).
     if (
-      row.invigilator_user_id != null &&
-      row.invigilator_user_id !== (existing.invigilator_user_id ?? null)
+      nullableActor(row.invigilator_user_id, existing, 'invigilator_user_id', 'invigilator_key') !==
+      (existing.invigilator_user_id ?? null)
     ) {
       changed.push('invigilator');
     }
@@ -298,8 +301,17 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
     allocation.student_id = row.student_id;
     allocation.room_id = row.room_id;
     allocation.seat_number = row.seat_number;
-    allocation.invigilator_user_id =
-      row.invigilator_user_id ?? existing?.invigilator_user_id ?? null;
+    allocation.invigilator_user_id = nullableActor(
+      row.invigilator_user_id,
+      existing,
+      'invigilator_user_id',
+      'invigilator_key',
+    );
+    // `load()` joined these; a loaded relation beats its FK column on save.
+    allocation.seat_plan = undefined as never;
+    allocation.exam_schedule = undefined as never;
+    allocation.student = undefined as never;
+    allocation.room = undefined as never;
 
     return m.save(SeatAllocation, allocation);
   },

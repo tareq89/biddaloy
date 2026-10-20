@@ -10,6 +10,7 @@ import type {
 } from '../../codec/tab-spec';
 import { optionalKeyOf } from '../../codec/tab-spec';
 import { memberKeysById } from './users.tab';
+import { actorOrRestorer, keepFileId } from '../actor-keys';
 
 /**
  * The `student_notes` tab: staff notes on a student ([39.1.3], D29).
@@ -47,7 +48,7 @@ const columns: readonly ColumnSpec[] = [
     key: 'author',
     type: 'ref',
     ref: 'users',
-    requiredOnNewRow: true,
+    restorerOnNewRow: true,
     label: { en: 'Author', bn: 'লেখক' },
   },
   { key: 'body', type: 'string', required: true, label: { en: 'Note', bn: 'নোট' } },
@@ -191,11 +192,18 @@ export const studentNotesTab: TabSpec<StudentNote, StudentNoteRow> = {
     existing: StudentNote | null,
     tenantId: string,
     m: EntityManager,
+    actorUserId?: string | null,
   ): Promise<StudentNote> {
     const note = existing ?? new StudentNote();
+    if (!existing) await keepFileId(StudentNote, note, row.id, m);
     note.tenant_id = tenantId;
     note.student_id = row.student_id;
-    note.author_user_id = (row.author_user_id ?? existing?.author_user_id) as string;
+    note.author_user_id = actorOrRestorer(
+      'Student note author',
+      row.author_user_id,
+      existing?.author_user_id,
+      actorUserId,
+    );
     note.body = row.body;
     note.rating = row.rating;
     note.created_at = new Date(row.created_at);

@@ -9,6 +9,7 @@ import type {
   TabSpec,
 } from '../../codec/tab-spec';
 import { optionalKeyOf } from '../../codec/tab-spec';
+import { actorOrRestorer } from '../actor-keys';
 import { routineSlotsTab } from './routine-slots.tab';
 
 /**
@@ -56,7 +57,7 @@ const columns: readonly ColumnSpec[] = [
     key: 'created_by',
     type: 'ref',
     ref: 'users',
-    requiredOnNewRow: true,
+    restorerOnNewRow: true,
     label: { en: 'Created by', bn: 'তৈরি করেছেন' },
   },
 ];
@@ -234,6 +235,7 @@ export const routineSubstitutionsTab: TabSpec<RoutineSubstitution, RoutineSubsti
     existing: RoutineSubstitution | null,
     tenantId: string,
     m: EntityManager,
+    actorUserId?: string | null,
   ): Promise<RoutineSubstitution> {
     const sub = existing ?? new RoutineSubstitution();
     sub.tenant_id = tenantId;
@@ -242,7 +244,17 @@ export const routineSubstitutionsTab: TabSpec<RoutineSubstitution, RoutineSubsti
     sub.substitute_teacher_id = row.substitute_teacher_id;
     sub.is_cancelled = row.is_cancelled;
     sub.reason = row.reason;
-    sub.created_by = (row.created_by ?? existing?.created_by) as string;
+    sub.created_by = actorOrRestorer(
+      'Substitution creator',
+      row.created_by,
+      existing?.created_by,
+      actorUserId,
+    );
+
+    // `load()` joined these; a loaded relation beats its FK column on save.
+    sub.routine_slot = undefined as never;
+    sub.substitute_teacher = undefined as never;
+    sub.created_by_user = undefined as never;
 
     return m.save(RoutineSubstitution, sub);
   },

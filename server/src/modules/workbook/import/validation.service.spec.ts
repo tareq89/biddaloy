@@ -637,4 +637,73 @@ describe('ValidationService', () => {
       expect(r.hardErrorCount).toBe(0);
     });
   });
+
+  describe('blank actor on a new row (#2687)', () => {
+    const WARNING =
+      "This row's staff member has left the school; the restore will record you instead.";
+    const ERROR = 'Choose a current staff member for this row; a new row needs one.';
+    type Flag = 'restorerOnNewRow' | 'requiredOnNewRow';
+    const run = (flag: Flag, existing: FakeRow[]) => {
+      const base = makeTab('notes', { existing });
+      const actor: ColumnSpec = {
+        key: 'actor',
+        type: 'string',
+        [flag]: true,
+        label: { en: 'Actor', bn: 'Actor' },
+      };
+      const tab = { ...base, columns: [...base.columns, actor] };
+      const rows = [{ rowNo: 2, cells: { id: 'n1', key: 'k', actor: '' } }];
+      readWorkbook.mockResolvedValue(
+        fakeReadResult(new Map([['notes', sheet(['id', 'key', 'actor'], rows)]])),
+      );
+      return new ValidationService().validate(Buffer.from(''), 't', manager, [tab]);
+    };
+    const mine = (r: { warnings: RowError[] }) =>
+      r.warnings.filter((w) => !/does not contain/.test(w.message));
+
+    // A departed author is blank in the export; a fresh school attributes the row to the restorer.
+    it('restorerOnNewRow: blank on a new row is a fixed-text warning, row accepted', async () => {
+      const r = await run('restorerOnNewRow', []);
+      expect(r.hardErrorCount).toBe(0);
+      expect(mine(r).map((w) => w.message)).toEqual([WARNING]);
+      expect(r.tabs.notes.rows).toHaveLength(1);
+    });
+
+    it('restorerOnNewRow: blank on an existing row gives no warning', async () => {
+      const r = await run('restorerOnNewRow', [{ id: 'n1', key: 'k' }]);
+      expect(r.hardErrorCount).toBe(0);
+      expect(mine(r)).toHaveLength(0);
+    });
+
+    it('restorerOnNewRow: blank on a TEMPLATE row stays the error', async () => {
+      const tpl = fakeReadResult(
+        new Map([
+          [
+            'notes',
+            sheet(['id', 'key', 'actor'], [{ rowNo: 2, cells: { id: 'n1', key: 'k', actor: '' } }]),
+          ],
+        ]),
+      );
+      tpl.meta.kind = 'TEMPLATE';
+      readWorkbook.mockResolvedValue(tpl);
+      const base = makeTab('notes', { existing: [] });
+      const actor: ColumnSpec = {
+        key: 'actor',
+        type: 'string',
+        restorerOnNewRow: true,
+        label: { en: 'Actor', bn: 'Actor' },
+      };
+      const r = await new ValidationService().validate(Buffer.from(''), 't', manager, [
+        { ...base, columns: [...base.columns, actor] },
+      ]);
+      expect(r.hardErrorCount).toBe(1);
+      expect(r.errors[0].message).toBe(ERROR);
+    });
+
+    it('requiredOnNewRow: blank on a new row is still the error', async () => {
+      const r = await run('requiredOnNewRow', []);
+      expect(r.hardErrorCount).toBe(1);
+      expect(r.errors[0].message).toBe(ERROR);
+    });
+  });
 });

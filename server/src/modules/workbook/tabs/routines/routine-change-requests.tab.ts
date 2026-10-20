@@ -11,6 +11,7 @@ import type {
 } from '../../codec/tab-spec';
 import { optionalKeyOf } from '../../codec/tab-spec';
 import { memberKeysById } from '../people/users.tab';
+import { actorOrRestorer, keepFileId, nullableActor } from '../actor-keys';
 import { routineSlotsTab } from './routine-slots.tab';
 
 /**
@@ -53,7 +54,7 @@ const columns: readonly ColumnSpec[] = [
     key: 'requested_by',
     type: 'ref',
     ref: 'users',
-    requiredOnNewRow: true,
+    restorerOnNewRow: true,
     label: { en: 'Requested by', bn: 'অনুরোধকারী' },
   },
   { key: 'note', type: 'string', required: true, label: { en: 'Note', bn: 'নোট' } },
@@ -90,6 +91,8 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
   excluded,
   dependsOn: ['routine_slots', 'users'],
   columns,
+  // Two departed-requester twins restored by one admin share a key (#2687).
+  allowDuplicateKeys: true,
   naturalKey: ['routine_slot', 'requested_by', 'note'],
   deleteByAbsence: true,
 
@@ -109,14 +112,18 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
         'resolved_by_user',
       ],
     });
-    // A requester who has left exports as a blank cell, so key them as blank too.
+    // One lookup for both actors. A requester who has left exports as a blank
+    // cell, so key them as blank too; `resolved_by_key` '' marks a departed resolver.
     const members = await memberKeysById(
       tenantId,
-      rows.map((r) => r.requested_by),
+      rows.flatMap((r) => (r.resolved_by ? [r.requested_by, r.resolved_by] : [r.requested_by])),
       m,
     );
-    for (const r of rows)
+    for (const r of rows) {
       if (!members.has(r.requested_by)) r.requested_by_user = undefined as never;
+      (r as RoutineChangeRequest & { resolved_by_key?: string }).resolved_by_key =
+        (r.resolved_by && members.get(r.resolved_by)) || '';
+    }
     return rows;
   },
 
@@ -231,11 +238,13 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
   keyOf(x: RoutineChangeRequestRow | RoutineChangeRequest): string {
     if (x instanceof RoutineChangeRequest) {
       const slotKey = x.routine_slot ? routineSlotsTab.keyOf(x.routine_slot) : '';
+      // A departed requester is blank: key by `#<id>` so two such requests
+      // for one slot and note stay two rows (#2687).
       const requestedByKey =
-        x.requested_by_user?.email?.trim() || x.requested_by_user?.phone?.trim() || '';
+        x.requested_by_user?.email?.trim() || x.requested_by_user?.phone?.trim() || `#${x.id}`;
       return `${slotKey}|${requestedByKey}|${x.note}`;
     }
-    return `${x.routine_slot_key}|${x.requested_by_key}|${x.note}`;
+    return `${x.routine_slot_key}|${x.requested_by_key || `#${x.id}`}|${x.note}`;
   },
 
   diffFields(row: RoutineChangeRequestRow, existing: RoutineChangeRequest): string[] {
@@ -245,7 +254,11 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
       changed.push('requested_by');
     if (row.note !== existing.note) changed.push('note');
     if (row.state !== existing.state) changed.push('state');
-    if (row.resolved_by !== null && row.resolved_by !== existing.resolved_by)
+    // A blank cell clears a current resolver; a departed one is kept (#2687).
+    if (
+      nullableActor(row.resolved_by, existing, 'resolved_by', 'resolved_by_key') !==
+      (existing.resolved_by ?? null)
+    )
       changed.push('resolved_by');
     const existingResolvedAt = existing.resolved_at ? formatDateTime(existing.resolved_at) : null;
     if (row.resolved_at !== existingResolvedAt) changed.push('resolved_at');
@@ -258,16 +271,32 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
     existing: RoutineChangeRequest | null,
     tenantId: string,
     m: EntityManager,
+    actorUserId?: string | null,
   ): Promise<RoutineChangeRequest> {
     const request = existing ?? new RoutineChangeRequest();
+    if (!existing) await keepFileId(RoutineChangeRequest, request, row.id, m);
     request.tenant_id = tenantId;
     request.routine_slot_id = row.routine_slot_id;
-    request.requested_by = (row.requested_by ?? existing?.requested_by) as string;
+    request.requested_by = actorOrRestorer(
+      'Change request requester',
+      row.requested_by,
+      existing?.requested_by,
+      actorUserId,
+    );
     request.note = row.note;
     request.state = row.state;
-    request.resolved_by = row.resolved_by ?? existing?.resolved_by ?? null;
+    request.resolved_by = nullableActor(
+      row.resolved_by,
+      existing,
+      'resolved_by',
+      'resolved_by_key',
+    );
     request.resolved_at = row.resolved_at ? new Date(row.resolved_at) : null;
     request.resolution_note = row.resolution_note;
+    // `load()` joined these; a loaded relation beats its FK column on save.
+    request.routine_slot = undefined as never;
+    request.requested_by_user = undefined as never;
+    request.resolved_by_user = undefined as never;
 
     return m.save(RoutineChangeRequest, request);
   },
