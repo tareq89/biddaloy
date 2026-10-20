@@ -1,0 +1,47 @@
+---
+import { APP_URL, type Lang } from '../../i18n';
+import { hero, phrases } from '../../content/hero';
+const { lang } = Astro.props as { lang: Lang };
+---
+<section class="hero center"><div class="wrap">
+  <h1>{hero.before[lang]} <span class="keep"><span class="rot" id="rot">{phrases.map((p, i) => <span class:list={[`c-${p.hue}`, { on: i === 0 }]}>{p.text[lang]}</span>)}</span></span> {hero.after[lang]}</h1>
+  <p class="sub">{hero.sub[lang]} <b>{hero.subStrong[lang]}</b></p>
+  <div class="ctas">
+    <a class="btn primary lg" href={`${APP_URL}/register`} target="_blank" rel="noopener" data-ev="register_click">{hero.register[lang]}</a>
+    <a class="btn secondary lg" href="#car" data-ev="demo_click" data-ev-role="carousel">{hero.demo[lang]}</a>
+    <span class="tiny">{hero.tiny[lang]}</span>
+  </div>
+  <a class="video-btn" href="#car"><i>▶</i>{hero.video[lang]}</a>
+  <div class="trust">{hero.trust.map((c) => <span><i>{c.icon}</i>{c.text[lang]}</span>)}</div>
+  <slot />
+</div></section>
+<script is:inline>
+  (function () {
+    var ws = document.querySelectorAll('#rot span'), wi = 0, t;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    function next() { ws[wi].classList.remove('on'); wi = (wi + 1) % ws.length; ws[wi].classList.add('on'); }
+    function start() { t = setInterval(next, 3000); }
+    var rot = document.getElementById('rot');
+    rot.addEventListener('mouseenter', function () { clearInterval(t); });
+    rot.addEventListener('mouseleave', start);
+    start();
+  })();
+</script>
+<style>
+  .hero{padding-block:4.5rem 2rem}
+  .hero h1{font-size:clamp(2.1rem,5.2vw,3.9rem);max-width:22ch;margin:0 auto 1rem;letter-spacing:-.02em}
+  .keep{white-space:nowrap}
+  .rot{display:inline-grid;text-align:left;vertical-align:bottom;position:relative}
+  .rot span{grid-area:1/1;opacity:0;transform:translateY(.4em);transition:opacity .45s,transform .45s;white-space:nowrap;color:var(--hue)}
+  @media (prefers-reduced-motion:reduce){.rot span{transition:none}}
+  .rot span.on{opacity:1;transform:none}
+  .hero .sub{font-size:clamp(1.02rem,1.5vw,1.2rem);color:var(--muted);max-width:60ch;margin:0 auto 1.6rem}
+  .hero .sub b{color:var(--fg);font-weight:600}
+  .ctas{display:flex;gap:.7rem;flex-wrap:wrap;justify-content:center;align-items:center}
+  .ctas .tiny{font-size:.85rem;color:var(--muted);width:100%;text-align:center}
+  .video-btn{display:inline-flex;align-items:center;gap:.5rem;color:var(--fg);text-decoration:none;font-weight:600;font-size:.95rem;margin-top:.9rem}
+  .video-btn i{width:32px;height:32px;border-radius:50%;background:var(--coral-t);color:var(--coral);display:grid;place-items:center;font-style:normal;font-size:.8rem}
+  .trust{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-top:1.4rem}
+  .trust span{display:inline-flex;align-items:center;gap:.4rem;border:1px solid var(--line);border-radius:999px;padding:.35rem .8rem;font-size:.88rem;background:var(--bg)}
+  .trust i{font-style:normal}
+</style>

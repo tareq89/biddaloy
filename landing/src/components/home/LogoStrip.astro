@@ -1,0 +1,18 @@
+---
+import type { Lang } from '../../i18n';
+import { schools, schoolsCopy } from '../../content/schools';
+const { lang } = Astro.props as { lang: Lang };
+---
+{schools.length >= 3 && (
+  <section class="center"><div class="wrap">
+    <p class="eyebrow">{schoolsCopy.eyebrow[lang]}</p>
+    <div class="logos">{schools.map((s) => <div class="logo"><img src={s.logo} alt={s.name[lang]} loading="lazy" /></div>)}</div>
+    <p class="shotcap"><span>{schoolsCopy.note[lang]}</span></p>
+  </div></section>
+)}
+<style>
+  .logos{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:.8rem;margin-top:1.5rem}
+  .logo{height:64px;border:1px dashed var(--line);border-radius:8px;display:grid;place-items:center;color:var(--muted);font-size:.85rem;text-align:center;padding:.3rem}
+  .logo img{max-height:100%;max-width:100%;filter:grayscale(1);opacity:.8}
+  .shotcap{font-size:.9rem;margin-top:.5rem}.shotcap span{color:var(--muted);font-size:.85rem}
+</style>

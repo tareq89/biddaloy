@@ -1,7 +1,34 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { LANGS, type Lang } from '../../i18n';
+import Hero from '../../components/home/Hero.astro';
+import RoleCarousel from '../../components/home/RoleCarousel.astro';
+import ValueTable from '../../components/home/ValueTable.astro';
+import SetupSteps from '../../components/home/SetupSteps.astro';
+import LogoStrip from '../../components/home/LogoStrip.astro';
+import Capabilities from '../../components/home/Capabilities.astro';
+import Faq from '../../components/home/Faq.astro';
+import FinalCta from '../../components/home/FinalCta.astro';
 export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang } }));
 const lang = Astro.params.lang as Lang;
 ---
-<Base lang={lang} />
+<Base lang={lang}>
+  <Hero lang={lang}><RoleCarousel lang={lang} /></Hero>
+  <ValueTable lang={lang} />
+  <SetupSteps lang={lang} />
+  <LogoStrip lang={lang} />
+  <Capabilities lang={lang} />
+  <Faq lang={lang} />
+  <FinalCta lang={lang} />
+</Base>
+<script>
+  import '../../scripts/events';
+</script>
+<style is:global>
+  /* Section primitives shared by the home components (mockup v5). */
+  section{padding-block:4rem}section.soft{background:var(--surface)}
+  .center{text-align:center}
+  .eyebrow{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:.6rem}
+  .h2{font-size:clamp(1.6rem,3.2vw,2.4rem);margin-bottom:.6rem}
+  .lead{color:var(--muted);max-width:62ch;font-size:1.05rem}.center .lead,.lead.center{margin-inline:auto}
+</style>

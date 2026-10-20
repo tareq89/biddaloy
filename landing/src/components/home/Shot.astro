@@ -1,0 +1,17 @@
+---
+// Dashed placeholder box (mockup `.shot`). W3 (#2727) swaps `src` for real screenshots/videos.
+import placeholder from '../../assets/shots/placeholder.svg';
+interface Props { label: string; sub?: string; src?: string; fill?: boolean }
+const { label, sub, src = placeholder.src, fill = false } = Astro.props;
+---
+<div class:list={['shot', { fill }]}>
+  <img src={src} alt="" loading="lazy" decoding="async" />
+  <span><b>{label}</b>{sub}</span>
+</div>
+<style>
+  .shot{position:relative;background:var(--shot);border:1px dashed var(--shot-ink);border-radius:10px;color:var(--shot-ink);display:grid;place-items:center;text-align:center;font-size:.85rem;padding:1rem;aspect-ratio:16/9;max-width:100%;overflow:hidden}
+  .shot.fill{aspect-ratio:auto;height:100%;border:0;border-radius:0}
+  .shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .shot span{position:relative}
+  .shot b{display:block;font-size:.95rem;color:var(--fg)}
+</style>
