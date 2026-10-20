@@ -32,6 +32,12 @@ import { Shift } from '../src/modules/routines/entities/shift.entity';
 import { PeriodSlot } from '../src/modules/routines/entities/period-slot.entity';
 import { SeatPlan } from '../src/modules/seat-plans/entities/seat-plan.entity';
 import { SeatAllocation } from '../src/modules/seat-plans/entities/seat-allocation.entity';
+import { AcrAssessment } from '../src/modules/acr/entities/acr-assessment.entity';
+import { AcrFormVersion } from '../src/modules/acr/entities/acr-form-version.entity';
+import { Survey } from '../src/modules/surveys/entities/survey.entity';
+import { SurveyTarget } from '../src/modules/surveys/entities/survey-target.entity';
+import { SurveyResponse } from '../src/modules/surveys/entities/survey-response.entity';
+import { SEED_ADMIN_USER_ID } from './constants';
 import type { AcademicYearService } from '../src/modules/academics/academic-year.service';
 import type { ClassService, SectionService } from '../src/modules/classes/classes.service';
 import type { SubjectService } from '../src/modules/academics/subjects.service';
@@ -726,6 +732,84 @@ export const ORPHANED: Guarded[] = [
   auto('ExamSchedule.subject -> Subject', 'Subject', 'exam'),
 ];
 
+/**
+ * [2702] Bare FKs (real constraint, no relation decorator) that the parent's remove()
+ * counts by hand. None of the three tables has deleted_at, so release is a hard delete.
+ * Every uuid on these rows is a bare FK, so the fixtures build real referenced rows.
+ */
+async function teacher(ctx: Ctx) {
+  // Raw insert bypasses TeacherStaffProfileSubscriber, hence the staff_profiles CTE.
+  const [row] = await ctx.ds.query(
+    `WITH sp AS (
+       INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1::uuid, $2::uuid, 'EMP-GUARD', NOW(), NOW())
+       ON CONFLICT (tenant_id, user_id) DO UPDATE SET updated_at = NOW()
+       RETURNING id
+     )
+     INSERT INTO teachers (id, user_id, employee_id, designations, tenant_id, staff_profile_id, created_at, updated_at)
+     SELECT gen_random_uuid(), $1::uuid, 'GUARD-TEACHER', '{}', $2::uuid, sp.id, NOW(), NOW() FROM sp
+     RETURNING id`,
+    [SEED_ADMIN_USER_ID, ctx.tenantId],
+  );
+  return row.id as string;
+}
+const survey = (ctx: Ctx) =>
+  ctx.ds
+    .getRepository(Survey)
+    .save({ tenant_id: ctx.tenantId, title: `Survey ${ctx.n()}`, respondent: 'STUDENTS' });
+
+export const BARE_GUARDED: Guarded[] = [
+  {
+    key: 'AcrAssessment.academic_year_id',
+    parent: 'AcademicYear',
+    softDeletable: false,
+    makeChild: async (ctx, yearId) => {
+      const form = await ctx.ds.getRepository(AcrFormVersion).save({
+        tenant_id: ctx.tenantId,
+        version: ctx.n(),
+        created_by: SEED_ADMIN_USER_ID,
+      });
+      const a = await ctx.ds.getRepository(AcrAssessment).save({
+        tenant_id: ctx.tenantId,
+        user_id: SEED_ADMIN_USER_ID,
+        academic_year_id: yearId,
+        form_version_id: form.id,
+        assessed_by: SEED_ADMIN_USER_ID,
+      });
+      return { release: hardDelete(ctx, AcrAssessment, a.id) };
+    },
+  },
+  {
+    key: 'SurveyTarget.subject_id',
+    parent: 'Subject',
+    softDeletable: false,
+    makeChild: async (ctx, subjectId) => {
+      const t = await ctx.ds.getRepository(SurveyTarget).save({
+        tenant_id: ctx.tenantId,
+        survey_id: (await survey(ctx)).id,
+        teacher_id: await teacher(ctx),
+        subject_id: subjectId,
+      });
+      return { release: hardDelete(ctx, SurveyTarget, t.id) };
+    },
+  },
+  {
+    key: 'SurveyResponse.subject_id',
+    parent: 'Subject',
+    softDeletable: false,
+    makeChild: async (ctx, subjectId) => {
+      const r = await ctx.ds.getRepository(SurveyResponse).save({
+        tenant_id: ctx.tenantId,
+        survey_id: (await survey(ctx)).id,
+        respondent_user_id: SEED_ADMIN_USER_ID,
+        teacher_id: await teacher(ctx),
+        subject_id: subjectId,
+      });
+      return { release: hardDelete(ctx, SurveyResponse, r.id) };
+    },
+  },
+];
+
 // ---- KNOWN_GAPS (each becomes a GitHub issue at wave close, D22) -------------
 
 export const KNOWN_GAPS: KnownGap[] = [];
@@ -750,16 +834,16 @@ export const BARE_REFS: { key: string; reason: string }[] = [
   {
     key: 'AcrAssessment.academic_year_id',
     reason:
-      'Real FK to academic_years with no relation decorator; AcademicYearService.remove does not count it yet (#2702).',
+      'Real FK to academic_years with no relation decorator; AcademicYearService.remove counts it (#2702).',
   },
   {
     key: 'SurveyTarget.subject_id',
     reason:
-      'Real FK to subjects with no relation decorator; SubjectService.remove does not count it yet (#2702).',
+      'Real FK to subjects with no relation decorator; SubjectService.remove counts it (#2702).',
   },
   {
     key: 'SurveyResponse.subject_id',
     reason:
-      'Real FK to subjects with no relation decorator; SubjectService.remove does not count it yet (#2702).',
+      'Real FK to subjects with no relation decorator; SubjectService.remove counts it (#2702).',
   },
 ];

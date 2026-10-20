@@ -17,6 +17,7 @@ import { SchoolsService } from '../src/modules/schools/schools.service';
 import {
   ALLOWED,
   BARE_REFS,
+  BARE_GUARDED,
   Ctx,
   GUARDED,
   KNOWN_GAPS,
@@ -169,6 +170,30 @@ describe('delete-guard registry (integration)', () => {
       expect(stale, 'stale BARE_REFS entries').toEqual([]);
     });
 
+    // [2702] A bare FK to a protected parent is only safe when a guard proves it.
+    it('guards every bare reference that has a real FK to a protected table', async () => {
+      const tables = PARENT_NAMES.map((n) => ds.getMetadata(n).tableName);
+      const rows: { child: string; col: string }[] = await ds.query(
+        `SELECT c.conrelid::regclass::text AS child, a.attname AS col
+           FROM pg_constraint c
+           JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+          WHERE c.contype = 'f' AND c.confrelid::regclass::text = ANY ($1)`,
+        [tables],
+      );
+      const fks = new Set(rows.map((r) => `${r.child.replace(/"/g, '')}.${r.col}`));
+      const unguarded = BARE_REFS.filter((b) => {
+        const [entity, col] = b.key.split('.');
+        return (
+          fks.has(`${ds.getMetadata(entity).tableName}.${col}`) &&
+          !BARE_GUARDED.some((g) => g.key === b.key)
+        );
+      }).map((b) => b.key);
+      expect(
+        unguarded,
+        'bare FK to a protected parent with no guard: add it to BARE_GUARDED',
+      ).toEqual([]);
+    });
+
     it('gives every ALLOWED and KNOWN_GAPS entry a reason and every gap a follow-up', () => {
       for (const e of [...ALLOWED, ...KNOWN_GAPS])
         expect(e.reason.length, e.key).toBeGreaterThan(10);
@@ -179,6 +204,7 @@ describe('delete-guard registry (integration)', () => {
   describe('GUARDED: parent remove() is a 409 while a live child exists', () => {
     it.each([
       ...GUARDED.map((g) => [g.key, g] as const),
+      ...BARE_GUARDED.map((g) => [`${g.key} (bare FK)`, g] as const),
       ...ORPHANED.map((g) => [`${g.key} (released by deleting its other parent)`, g] as const),
     ])('%s', async (_key, g) => {
       const parent = PARENTS[g.parent];

@@ -9,6 +9,8 @@ import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { Subject } from './entities/subject.entity';
 import { ExamComponent } from '../exams/entities/exam-component.entity';
+import { SurveyTarget } from '../surveys/entities/survey-target.entity';
+import { SurveyResponse } from '../surveys/entities/survey-response.entity';
 import { Mark } from '../exams/entities/mark.entity';
 import { assertNoLiveDependents } from '../../common/utils/live-dependents';
 import { TeacherClassSection } from './entities/teacher-class-section.entity';
@@ -168,6 +170,18 @@ export class SubjectService {
           'TeacherClassSection.subject',
         ],
       });
+      // [2702] survey_targets / survey_responses carry a real FK to subjects with no
+      // relation decorator, so assertNoLiveDependents cannot see them (no deleted_at).
+      const [survey_targets_count, survey_responses_count] = await Promise.all([
+        manager.count(SurveyTarget, { where: { subject_id: id, tenant_id: tenantId } }),
+        manager.count(SurveyResponse, { where: { subject_id: id, tenant_id: tenantId } }),
+      ]);
+      if (survey_targets_count + survey_responses_count > 0) {
+        throw new ConflictException({
+          message: 'This subject is used by teacher surveys. Remove them first.',
+          details: { code: 'SUBJECT_IN_USE', survey_targets_count, survey_responses_count },
+        });
+      }
       await manager.delete(TeacherClassSection, { subject_id: id, tenant_id: tenantId });
       const offerings = await manager.find(ClassSubject, {
         where: { subject_id: id, tenant_id: tenantId },

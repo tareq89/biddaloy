@@ -1,3 +1,4 @@
+import { AcrAssessment } from '../acr/entities/acr-assessment.entity';
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
@@ -309,6 +310,18 @@ export class AcademicYearService {
             exams_count,
             student_fees_count,
           },
+        });
+      }
+
+      // [2702] acr_assessments.academic_year_id is a real FK with no relation
+      // decorator, so assertNoLiveDependents cannot see it. The table has no deleted_at.
+      const acr_assessments_count = await manager.count(AcrAssessment, {
+        where: { academic_year_id: id, tenant_id: tenantId },
+      });
+      if (acr_assessments_count > 0) {
+        throw new ConflictException({
+          message: 'This year still has staff evaluations (ACR). Remove them first.',
+          details: { code: 'ACADEMIC_YEAR_IN_USE', acr_assessments_count },
         });
       }
 
