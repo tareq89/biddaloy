@@ -52,9 +52,9 @@ if you add or change a monitor in the UI, change this table in the same PR.
 | `app-public`         | HTTP           | `https://<app domain>/api/health`, retries 3                                                                                                                               | 60 s                   | Telegram + SMS |
 | `login-page`         | HTTP + keyword | `https://<app domain>/login`                                                                                                                                               | 60 s                   | Telegram       |
 | `demo-public`        | HTTP           | `https://<demo domain>/api/health`                                                                                                                                         | 60 s                   | Telegram       |
-| `backup-hourly`      | Push           | URL goes in `BACKUP_PUSH_URL` (prod `.env`)                                                                                                                                | 3600 s, grace 900 s    | Telegram + SMS |
-| `drill-weekly`       | Push           | URL goes in `DRILL_PUSH_URL` (prod `.env`)                                                                                                                                 | 604800 s, grace 7200 s | Telegram + SMS |
-| `demo-reset-nightly` | Push           | URL goes in `DEMO_RESET_PUSH_URL` (demo `.env`)                                                                                                                            | 86400 s, grace 3600 s  | Telegram       |
+| `backup-hourly`      | Push           | `BACKUP_PUSH_URL=http://uptime-kuma:3001/api/push/<token>` (prod `.env`, step 5)                                                                                           | 3600 s, grace 900 s    | Telegram + SMS |
+| `drill-weekly`       | Push           | `DRILL_PUSH_URL=http://uptime-kuma:3001/api/push/<token>` (prod `.env`, step 5)                                                                                            | 604800 s, grace 7200 s | Telegram + SMS |
+| `demo-reset-nightly` | Push           | `DEMO_RESET_PUSH_URL=https://ops.<domain>/kuma/api/push/<token>` + Access service token (demo `.env`, step 5)                                                              | 86400 s, grace 3600 s  | Telegram       |
 
 TLS expiry is built into every HTTPS monitor above (warn at 14 days, Telegram).
 `app-public` retrying 3 times at 60 s means the SMS arrives about 3 minutes
@@ -105,10 +105,22 @@ flowchart LR
 4. **Expose Dozzle.** Put `OPS_DOMAIN=ops.<domain>` in `prod.enc.env` and deploy
    prod. Check `https://ops.<domain>/dozzle/` asks for the Access login first.
 5. **Uptime Kuma monitors.** Add the monitors from the table above. Create the
-   push monitors first and paste each push URL into the matching `.env`
-   variable (`BACKUP_PUSH_URL`, `DRILL_PUSH_URL` in prod; `DEMO_RESET_PUSH_URL`
-   in demo, pushed by `scripts/demo/reset.sh`: up on a good reset, down on a
-   failed one).
+   push monitors first. Kuma shows each push URL as `http://localhost:3001/...`
+   (the tunnel); do **not** paste that, it points at the pushing container itself.
+   Keep only the token and use the URL each pusher can reach:
+
+   | Variable              | `.env` | URL to paste                                 | How it reaches Kuma                                                                                                                                                  |
+   | --------------------- | ------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `BACKUP_PUSH_URL`     | prod   | `http://uptime-kuma:3001/api/push/<token>`   | the `backup` container sits on `biddaloy-ops-edge` (`tasks/attach-edge.yml`)                                                                                         |
+   | `DRILL_PUSH_URL`      | prod   | `http://uptime-kuma:3001/api/push/<token>`   | same container                                                                                                                                                       |
+   | `DEMO_RESET_PUSH_URL` | demo   | `https://ops.<domain>/kuma/api/push/<token>` | other host: through Cloudflare Access with a service token, `DEMO_RESET_PUSH_ACCESS_CLIENT_ID` / `_SECRET` ([25-cloudflare.md, Ops](25-cloudflare.md#ops-opsdomain)) |
+
+   `scripts/demo/reset.sh` pushes up on a good reset and down on a failed one.
+   Every pusher logs `Kuma push got HTTP <code>, not 2xx` when a push does not
+   land (a `302` is Access's login page, `000` is no connection). Check the log
+   once after setup:
+   `docker compose -p biddaloy-prod logs backup | grep 'Kuma push'` prints nothing.
+
 6. **Notifications.** Telegram notifier (bot + private group), default-on for
    every monitor. SMS notifier: Kuma "Webhook" with a custom body, pointed at the
    SMS gateway's HTTP API (URL shape:
@@ -261,7 +273,9 @@ Cloudflare publishes new ranges now and then. To refresh:
    (example list in `.env.example`).
 3. Check: `docker compose run --rm nginx nginx -t`. A bad entry fails with
    `trusted-proxies.sh: invalid entry '<x>'`.
-4. Apply: `docker compose up -d nginx`.
+4. Apply: `docker compose up -d nginx`. That recreates nginx, which drops its
+   edge networks (staging and ops answer 502), so then run, from `infra/ansible`
+   on your laptop, `ansible-playbook deploy.yml -e env=prod -e version=<running sha> --tags edge`.
 
 Check the lists again whenever the quarterly checklist ([75.31]) says so.
 
@@ -271,8 +285,10 @@ Docker's userland proxy, which hides the source IP: do not enable the origin
 lock-down on that host. Loopback is the only always-allowed range; private
 ranges are not exempt.
 
-Rollback: set `TRUSTED_PROXY_CIDRS=` (empty) and `docker compose up -d nginx`.
-Empty means no CDN trust at all, which is how the stack behaved before.
+Rollback: set `TRUSTED_PROXY_CIDRS=` (empty) and `docker compose up -d nginx`,
+then the same `--tags edge` run. Empty means no CDN trust at all, which is how
+the stack behaved before. Empty `OPS_DOMAIN` and `STAGING_DOMAIN` with it: a
+prod deploy refuses them without the list ([25-cloudflare.md, Access policies](25-cloudflare.md#access-policies)).
 
 ### 3.6 Platform alert: Redis down
 

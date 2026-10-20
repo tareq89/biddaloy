@@ -68,7 +68,7 @@ exit 0
 EOS
 cat >"$SHIM/bin/curl" <<'EOS'
 #!/usr/bin/env bash
-echo "curl $*" >>"$SHIM/log"; exit 0
+echo "curl $*" >>"$SHIM/log"; [[ "$*" != *http_code* ]] || printf '%s' "${CURL_CODE:-200}"; exit 0
 EOS
 # shellcheck disable=SC2016
 printf '#!/usr/bin/env bash\n[[ "${PG_FAIL:-}" == 1 ]] && exit 1\necho dump\n' >"$SHIM/bin/pg_dump"
@@ -158,6 +158,14 @@ run_shim BACKUP_PUSH_URL='https://kuma.example/api/push/tok?status=up&msg=OK&pin
 has "tok?status=up&msg=ok"
 hasnt "msg=OK"
 echo "PASS: push URL query stripped"
+
+# 2c2. a push answered with a redirect (Access login) or no 2xx is logged, token not printed.
+run_shim CURL_CODE=302 || shim_fail "302-push run failed"
+grep -q "Kuma push got HTTP 302, not 2xx" "$SHIM/out" || shim_fail "a 302 push was not logged"
+if grep -q tok "$SHIM/out"; then shim_fail "push token leaked into output"; fi
+run_shim
+if grep -q "Kuma push got" "$SHIM/out"; then shim_fail "a 200 push must not be logged"; fi
+echo "PASS: non-2xx push is logged, 2xx is quiet"
 
 # 2d. config error pushes down&msg=config.
 if run_shim BACKUP_HOURLY_KEEP=abc; then shim_fail "bad config must fail"; fi

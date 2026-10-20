@@ -1,7 +1,10 @@
 # Ops UIs (docker-compose.ops.yml) at https://${OPS_DOMAIN}/{beszel,kuma,dozzle}/.
 # Cloudflare Access gates the hostname; $origin_allowed (conf.d/00-trusted-proxies.conf)
 # keeps the origin Cloudflare-only (Security rule 12). A request with no Access token
-# header never came through Access and is dropped (presence only, signature not checked).
+# header is dropped: a tripwire against a mis-set Access app (DNS before Access, wrong
+# path, grey cloud), NOT authentication. Presence only, the signature is not checked, so
+# any client nginx trusts can send it. deploy.yml refuses OPS_DOMAIN with
+# TRUSTED_PROXY_CIDRS empty, where "trusted" would mean everyone.
 # Same redacted log format as the app. Needs OPS_DOMAIN in the nginx container env (nginx
 # only substitutes variables it has); unset, it is ops.invalid and this block matches nothing.
 # Known limit: Uptime Kuma 1.x and Beszel have no sub-path support, so /kuma/ and /beszel/

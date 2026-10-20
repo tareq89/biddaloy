@@ -129,6 +129,56 @@ describe('runStagingConfigCheck', () => {
     });
   });
 
+  // What really keeps a provider key out of the staging app is that base compose passes an
+  // explicit list. A new key added there must be classified on purpose: either listed here as
+  // not a provider, or refused by the staging check when set.
+  it('every key base compose passes to app is a known non-provider or refused on staging', () => {
+    const compose = readFileSync(join(repoRoot, 'docker-compose.yml'), 'utf8');
+    const app = compose.slice(compose.indexOf('\n  app:'), compose.indexOf('\n  redis:'));
+    const keys = [...app.matchAll(/^ {6}([A-Z][A-Z0-9_]*):/gm)].map((m) => m[1]);
+    const notProvider = new Set([
+      'NODE_ENV',
+      'DATABASE_URL',
+      'REDIS_URL',
+      'JWT_SECRET',
+      'JWT_SECRET_PREVIOUS',
+      'CORS_ORIGINS',
+      'S3_ENDPOINT',
+      'S3_ALLOW_INSECURE_HTTP',
+      'S3_REGION',
+      'S3_BUCKET',
+      'S3_ACCESS_KEY_ID',
+      'S3_SECRET_ACCESS_KEY',
+      'S3_FORCE_PATH_STYLE',
+      'APP_BASE_URL',
+      'PUBLIC_APP_URL',
+      'HEALTH_TOKEN',
+      'SETTINGS_ENCRYPTION_KEY',
+      'DB_SSL',
+      'DB_SSL_REJECT_UNAUTHORIZED',
+      'SETTINGS_ENCRYPTION_KEY_PREVIOUS',
+      'PLATFORM_TENANT_ID',
+      'TURNSTILE_SECRET_KEY',
+      'GOOGLE_OAUTH_CLIENT_ID',
+      'GOOGLE_OAUTH_CLIENT_SECRET',
+      'FACEBOOK_OAUTH_CLIENT_ID',
+      'FACEBOOK_OAUTH_CLIENT_SECRET',
+      'SUPPORT_CONTACT_URL',
+      'OTP_SMS_ALLOWED_PREFIXES',
+      'TRIAL_DAYS',
+      'TRIAL_SEAT_LIMIT',
+    ]);
+    expect(keys.length).toBeGreaterThan(20);
+    const unclassified = keys.filter(
+      (k) =>
+        !notProvider.has(k) &&
+        !runStagingConfigCheck({ ...staging, [k]: 'live-value-123' }).output.includes(
+          `${k} must be empty on staging`,
+        ),
+    );
+    expect(unclassified).toEqual([]);
+  });
+
   it('passes a staging env with no provider', () => {
     expect(runStagingConfigCheck(staging)).toEqual({ ok: true, output: 'config ok' });
   });

@@ -4,8 +4,9 @@
 # alias `staging-app`. It is attached only while staging runs, so this must not need it
 # at nginx start: the upstream is looked up per request through Docker's DNS.
 # Only Cloudflare reaches here (`$origin_allowed`, rule 12). Cloudflare Access then lets
-# only the owner through (25-cloudflare.md); a request with no Access token header never
-# came through Access, so it is dropped too (presence only, the signature is not checked).
+# only the owner through (25-cloudflare.md). A request with no Access token header is
+# dropped too: a tripwire against a mis-set Access app, NOT authentication (presence only,
+# the signature is not checked; deploy.yml refuses STAGING_DOMAIN with TRUSTED_PROXY_CIDRS empty).
 
 server {
     listen 443 ssl;

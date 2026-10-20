@@ -72,9 +72,12 @@ echo "\$*" >> "$LOG/aws.log"
 if [[ -n "\${AWS_FAIL_ON:-}" && "\$*" =~ \$AWS_FAIL_ON ]]; then exit 1; fi
 [[ -z "\${AWS_FAIL:-}" ]]
 EOF
+# curl: headers sent on stdin (-H @-) go to curl-stdin.log; -w gets CURL_CODE (default 200).
 cat > "$WORK/bin/curl" <<EOF
 #!/usr/bin/env bash
 echo "\$*" >> "$LOG/curl.log"
+[[ "\$*" != *"-H @-"* ]] || cat >> "$LOG/curl-stdin.log"
+[[ "\$*" != *http_code* ]] || printf '%s' "\${CURL_CODE:-200}"
 EOF
 # macOS has no flock(1) or timeout(1); the image has both. Stand-ins for the forms reset.sh uses.
 if ! command -v flock >/dev/null; then
@@ -154,6 +157,7 @@ run_reset() {
 make_live old
 rm -f "$WORK/restarted"
 run_reset RUN_MARK=night1 DEMO_SKIP_SWEEP= DEMO_SWEEP_CMD='test "$DEMO_SWEEP_URL" = http://127.0.0.1:3999' \
+  DEMO_RESET_PUSH_ACCESS_CLIENT_ID=cid DEMO_RESET_PUSH_ACCESS_CLIENT_SECRET=csecret \
   DEMO_APP_CMD='exec sleep 300' || { cat "$WORK/out" "$WORK/err" >&2; fail "good run exited non-zero"; }
 expect "$(marker "$LIVE")" night1 "live holds the new database after the swap"
 expect "$(marker "${LIVE}_prev")" old "yesterday's database is kept as _prev"
@@ -167,6 +171,9 @@ expect "$(cat "$WORK/state/platform-tenant-id")" "$(pg "SELECT id FROM schools W
 [[ -e "$WORK/restarted" ]] || fail "app was not restarted"
 grep -q "status=in_progress" "$LOG/curl.log" && grep -q "status=ok" "$LOG/curl.log" || fail "Sentry check-ins in_progress/ok missing"
 grep -qF "http://kuma.invalid/api/push/TOKEN?status=up&msg=ok" "$LOG/curl.log" || fail "Kuma push up missing"
+grep -qF "CF-Access-Client-Secret: csecret" "$LOG/curl-stdin.log" || fail "Access service token headers not sent"
+grep -q csecret "$LOG/curl.log" && fail "the Access secret must not be on curl's command line"
+grep -q "Kuma push got HTTP" "$WORK/out" && fail "a 200 push must not be logged as a failure"
 grep -q "downtime" "$WORK/out" || fail "swap downtime was not logged"
 pass "a good run swaps, keeps _prev and its objects, seeds on its own Redis db, flushes Redis, restarts, checks in"
 
@@ -181,14 +188,15 @@ pass "only one previous database is kept; its objects go when it is dropped"
 
 # ---- 3. a failing validator leaves the live database in place ---------------------------------
 : > "$LOG/aws.log"; : > "$LOG/curl.log"
-if run_reset RUN_MARK=bad DEMO_VALIDATE_CMD=false; then fail "failing validator should exit 1"; fi
+if run_reset RUN_MARK=bad DEMO_VALIDATE_CMD=false CURL_CODE=302; then fail "failing validator should exit 1"; fi
 expect "$(marker "$LIVE")" night2 "live database untouched after a validator failure"
 expect "$(marker "${LIVE}_prev")" night1 "_prev untouched after a validator failure"
 db_exists "${LIVE}_next" && fail "_next should be dropped after a failure"
 grep -q "status=error" "$LOG/curl.log" || fail "error check-in missing"
 grep -qF "http://kuma.invalid/api/push/TOKEN?status=down&msg=error" "$LOG/curl.log" || fail "Kuma push down missing"
+grep -q "Kuma push got HTTP 302, not 2xx" "$WORK/out" || fail "a redirected Kuma push was not logged"
 grep -q "/tenants/" "$LOG/aws.log" || fail "the failed run's uploaded objects were not cleaned"
-pass "validator failure: live untouched, _next dropped, error check-in, objects cleaned"
+pass "validator failure: live untouched, _next dropped, error check-in, objects cleaned, 302 push logged"
 
 # ---- 4. the swap never runs when the seed exits 1 --------------------------------------------
 if run_reset RUN_MARK=bad DEMO_SEED_CMD='exit 1'; then fail "failing seed should exit 1"; fi

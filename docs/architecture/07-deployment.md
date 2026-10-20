@@ -434,8 +434,11 @@ Why a separate network: Docker's DNS answers a name from **every** network a con
 the staging app also sat on `biddaloy-prod_default`, its `redis` lookup could return **prod's** Redis (reproduced on
 Docker 24: 5 of 5 lookups went to prod). A `DEMO_MODE` worker on prod's Redis would take real queued SMS and mark
 them SENT through the demo log. On `biddaloy-edge` the staging app sees only nginx, and nginx sees only
-`staging-app`. After attaching, `deploy.yml` checks it: `db`, `redis` and `seaweedfs` must resolve to addresses on
-`biddaloy-staging_default`, or it stops the staging app and fails.
+`staging-app`. After attaching, a staging deploy checks membership, not just today's DNS answer: the staging app
+must be on exactly `biddaloy-edge` and `biddaloy-staging_default`, `biddaloy-edge` must hold only prod nginx and the
+staging app, and `db`, `redis` and `seaweedfs` must resolve to addresses on `biddaloy-staging_default`. Anything else
+stops the staging app and fails the deploy. A network attached by hand later is caught only at the next staging
+deploy.
 
 | Thing             | Staging value                                                                           |
 | ----------------- | --------------------------------------------------------------------------------------- |
@@ -450,6 +453,10 @@ them SENT through the demo log. On `biddaloy-edge` the staging app sees only ngi
 env check sees. `DEMO_MODE` sends every medium to the log before any provider is read, so it is the only switch that holds
 whatever the data says. The price: the demo's deny-list and 2 MB upload cap apply, so staging is not byte-for-byte prod
 for those routes. Staging also needs `DEMO_PASSWORD` in its env.
+
+**Never create a school on staging** (platform provisioning, `POST /schools`). `DEMO_MODE` refuses to boot on a
+database that holds a non-demo school, soft-deleted ones included, so the next deploy or restart crash-loops and the
+rollback fails the same way. The only way back is `docker compose -p biddaloy-staging down -v` and a fresh seed.
 
 **Host `.env`** (`infra/secrets/staging.enc.env`, keys in `staging.example.env`): `POSTGRES_DB=biddaloy_staging`,
 `DEMO_PASSWORD=...`, `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`, `TLS_CERT_DIR=/opt/biddaloy/certs`
@@ -486,8 +493,11 @@ docker network connect --alias staging-app biddaloy-edge biddaloy-staging-app   
 
 It is done by hand, not in compose, because the base compose file is shared by every env, and a manual attach adds
 only the alias given (never the compose service names `app`, `db`, `redis`). A recreated container loses its attach,
-which is why every deploy redoes it; if you recreate prod nginx by hand, run the second line again. The template looks
-the upstream up per request, so prod's nginx boots fine while staging is off. Prod's nginx reads templates from
+which is why every deploy redoes it. If you recreate a container by hand (`docker compose up -d nginx`, an `up -d`
+that recreates the app), redo all of its attaches, not just one line: from `infra/ansible`, run
+`ansible-playbook deploy.yml -e env=prod -e version=<running sha> --tags edge` (prod nginx on both edge networks,
+the prod app as `prod-app`, the backup container on `biddaloy-ops-edge`), or `-e env=staging` for the staging app.
+The template looks the upstream up per request, so prod's nginx boots fine while staging is off. Prod's nginx reads templates from
 `/opt/biddaloy/prod/nginx`, so a template change reaches it through a **prod** deploy (which checks it with `nginx -t`
 and recreates nginx).
 
@@ -529,9 +539,10 @@ The id stays the same until the next reseed.
 docker compose -p biddaloy-staging down        # add -v to also delete the data
 ```
 
-Check no message left: register a user with a real phone number, then `docker compose -p biddaloy-staging logs app`
-shows the demo-log line and no SMS arrives. The smoke test is skipped for staging (Access would answer it with a login
-redirect).
+Check no message left. Do not use sign-up, OTP or forgot-password: `DEMO_MODE` refuses those with `403 DEMO_DISABLED`,
+which proves nothing. Instead, as the seeded school admin, set one guardian's phone to a number you hold and send that
+guardian an SMS notice. `docker compose -p biddaloy-staging logs app` must show the demo-log line, and no SMS may
+arrive. The smoke test is skipped for staging (Access would answer it with a login redirect).
 
 ## How a request is served
 

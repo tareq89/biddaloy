@@ -52,7 +52,9 @@
           - env in ['prod', 'demo', 'staging']
           # CI tags images with the full commit SHA (publish-image.yml); a short one never exists.
           - version is match('^[0-9a-f]{40}$')
-        fail_msg: 'Usage: -e env=prod|demo|staging -e version=<full 40-hex git sha>'
+          # Skipping pull/migrate/up would still log `<version> ok`: the next rollback target.
+          - "'mutating' not in ansible_skip_tags"
+        fail_msg: 'Usage: -e env=prod|demo|staging -e version=<full 40-hex git sha> (no --skip-tags mutating; plan with --check)'
         quiet: true
       tags: [always]
 
@@ -130,21 +132,32 @@
     # Cloudflare Access gate (12-operations.md section 1, step 0). OPS_DOMAIN / STAGING_DOMAIN
     # in the prod .env are what make prod nginx answer ops.<domain> / staging.<domain>. Until
     # the owner has set up Access for both and set access_confirmed: true in the inventory,
-    # a prod deploy refuses to write them.
-    - name: Do the prod secrets name the ops or staging hostname?
+    # a prod deploy refuses to write them. It also refuses them with TRUSTED_PROXY_CIDRS
+    # empty: then every peer is "Cloudflare", and nginx's Cf-Access-Jwt-Assertion check is a
+    # tripwire (presence only), not authentication, so anyone could reach Dozzle.
+    # The regexes read the file the way compose does (`export `, spaces, quotes).
+    - name: Do the prod secrets name the ops or staging hostname, and lock the origin?
       ansible.builtin.set_fact:
-        names_access_hosts: "{{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/prod.enc.env', rstrip=false) is search('(?m)^(OPS|STAGING)_DOMAIN=\\S') }}"
+        names_access_hosts: '{{ prod_env is search(domain_re) }}'
+        has_proxy_cidrs: '{{ prod_env is search(cidrs_re) }}'
+      vars:
+        prod_env: "{{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/prod.enc.env', rstrip=false) }}"
+        domain_re: '(?m)^[ \t]*(export[ \t]+)?(OPS|STAGING)_DOMAIN[ \t]*=[ \t]*[''"]?[^\s''"]'
+        cidrs_re: '(?m)^[ \t]*(export[ \t]+)?TRUSTED_PROXY_CIDRS[ \t]*=[ \t]*[''"]?[^\s''"]'
       no_log: true
       when: env == 'prod'
       tags: [always]
 
-    - name: Refuse to expose ops / staging before Cloudflare Access is confirmed
+    - name: Refuse to expose ops / staging before Cloudflare Access and the origin lock
       ansible.builtin.assert:
-        that: not (names_access_hosts | default(false) | bool) or (access_confirmed | default(false) | bool)
+        that: >-
+          not (names_access_hosts | default(false) | bool) or
+          ((access_confirmed | default(false) | bool) and (has_proxy_cidrs | default(false) | bool))
         fail_msg: >-
-          prod.enc.env sets OPS_DOMAIN or STAGING_DOMAIN, but access_confirmed is not true.
-          Set up Cloudflare Access for both hostnames first (12-operations.md section 1, step 0),
-          then set access_confirmed: true in inventory/prod.yml.
+          prod.enc.env sets OPS_DOMAIN or STAGING_DOMAIN, but access_confirmed is not true or
+          TRUSTED_PROXY_CIDRS is empty. Set up Cloudflare Access for both hostnames first
+          (12-operations.md section 1, step 0), set TRUSTED_PROXY_CIDRS (section 3.5), then set
+          access_confirmed: true in inventory/prod.yml.
         quiet: true
       when: env == 'prod'
       tags: [always]
@@ -264,8 +277,12 @@
           tags: [env]
 
         # Same image, entrypoint, env and mounts as the real nginx, so the templates render the
-        # way a restart would render them. On failure the previous files go back, and the deploy
-        # stops before anything was pulled or restarted. `nginx -t` resolves the fixed upstream
+        # way a restart would render them. Runs on every prod / demo deploy, not only when nginx/
+        # changed: a new .env value nginx reads (TRUSTED_PROXY_CIDRS, *_DOMAIN) can break it too,
+        # and compose-up would recreate nginx with it. On failure the previous files go back and
+        # the rescue redeploys the previous version; it reuses the new .env, so a bad env value
+        # still has to be fixed by hand (07-deployment "When rollback also fails").
+        # `nginx -t` resolves the fixed upstream
         # `app` and fails when no app container runs (first deploy), so the throwaway container
         # gets an /etc/hosts entry for it; only the config is tested, nothing is proxied.
         - name: Check the new nginx config (nginx -t)
@@ -279,7 +296,7 @@
           args:
             chdir: '{{ project_dir }}'
           changed_when: false
-          when: env in ['prod', 'demo'] and nginx_files is changed and not ansible_check_mode
+          when: env in ['prod', 'demo'] and not ansible_check_mode
           tags: [mutating]
 
         - name: Pull the images
@@ -314,12 +331,17 @@
           ansible.builtin.include_tasks: tasks/compose-up.yml
 
         - name: Load the new nginx config (templates render only at container start)
-          ansible.builtin.command: '{{ dc }} up -d --no-deps --force-recreate nginx'
+          ansible.builtin.command: '{{ dc }} up -d --wait --no-deps --force-recreate nginx'
           when: env in ['prod', 'demo'] and nginx_files is changed and not ansible_check_mode
           tags: [mutating]
 
+        # `--tags edge` redoes only this, after a recreate by hand (a recreate drops the attaches).
         - name: Attach prod nginx, staging and ops to their edge networks
-          ansible.builtin.include_tasks: tasks/attach-edge.yml
+          ansible.builtin.include_tasks:
+            file: tasks/attach-edge.yml
+            apply:
+              tags: [edge]
+          tags: [edge]
 
         - name: Wait until the app reports ready
           ansible.builtin.command: >-

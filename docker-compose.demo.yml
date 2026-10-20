@@ -80,7 +80,11 @@ services:
       DOCKER_HOST: tcp://demo-docker-proxy:2375
       SENTRY_CRONS_URL: ${SENTRY_CRONS_URL:-}
       # Uptime Kuma push URL of the demo-reset-nightly monitor; it embeds a token.
+      # https://ops.<domain>/kuma/api/push/<token>, plus the Cloudflare Access service token
+      # that lets it past Access (12-operations.md section 1, step 5).
       DEMO_RESET_PUSH_URL: ${DEMO_RESET_PUSH_URL:-}
+      DEMO_RESET_PUSH_ACCESS_CLIENT_ID: ${DEMO_RESET_PUSH_ACCESS_CLIENT_ID:-}
+      DEMO_RESET_PUSH_ACCESS_CLIENT_SECRET: ${DEMO_RESET_PUSH_ACCESS_CLIENT_SECRET:-}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
       DB_SSL: ${DB_SSL:-}

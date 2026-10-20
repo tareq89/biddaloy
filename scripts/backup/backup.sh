@@ -46,10 +46,12 @@ cron_checkin() {
 kuma_push() {
   # $1: up | down, $2: a step name (never a secret). BACKUP_PUSH_URL is the
   # bare push URL (token in the path); any query on it is dropped. It is never
-  # echoed and curl's stderr is discarded. No-op when unset.
+  # echoed and curl's stderr is discarded. No-op when unset. Anything but a 2xx (a
+  # redirect to a login page, a refused connection = 000) is logged, never a silent success.
   if [[ -n "${BACKUP_PUSH_URL:-}" ]]; then
-    local base="${BACKUP_PUSH_URL%%\?*}"
-    curl -fsS --connect-timeout 5 --max-time 10 "${base}?status=${1}&msg=${2}" >/dev/null 2>&1 || true
+    local base="${BACKUP_PUSH_URL%%\?*}" code
+    code="$(curl -sS --connect-timeout 5 --max-time 10 -o /dev/null -w '%{http_code}' "${base}?status=${1}&msg=${2}" 2>/dev/null)" || true
+    [[ "$code" == 2* ]] || echo "backup.sh: Kuma push got HTTP ${code:-000}, not 2xx" >&2
   fi
 }
 

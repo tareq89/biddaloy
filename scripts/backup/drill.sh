@@ -27,8 +27,10 @@ TABLES=0
 kuma_push() {
   # $1 up|down, $2 message (a step name or a count, never a secret).
   if [[ -n "${DRILL_PUSH_URL:-}" ]]; then
-    local base="${DRILL_PUSH_URL%%\?*}"
-    curl -fsS --connect-timeout 5 --max-time 10 "${base}?status=${1}&msg=${2}" >/dev/null 2>&1 || true
+    local base="${DRILL_PUSH_URL%%\?*}" code
+    # Same as backup.sh: anything but a 2xx is logged (the URL is not).
+    code="$(curl -sS --connect-timeout 5 --max-time 10 -o /dev/null -w '%{http_code}' "${base}?status=${1}&msg=${2}" 2>/dev/null)" || true
+    [[ "$code" == 2* ]] || echo "drill.sh: Kuma push got HTTP ${code:-000}, not 2xx" >&2
   fi
 }
 
