@@ -1,6 +1,6 @@
 # landing
 
-Static marketing site (Astro 5, no framework JS). Languages: `/bn/` (default) and `/en/`.
+Static marketing site (Astro 7, no framework JS). Languages: `/bn/` (default) and `/en/`.
 
 ```bash
 yarn workspace @biddaloy/landing dev     # http://localhost:4321/bn/

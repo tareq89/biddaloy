@@ -37,7 +37,11 @@ const t = useTranslations(lang);
     });
     // Footer "cookie settings" reopens the bar (D36).
     var again = $('cookieAgain');
-    if (again) again.addEventListener('click', function () { c.hidden = false; opts.classList.add('open'); });
+    function sync(v) { $('oStat').checked = !!v.stat; $('oAds').checked = !!v.ads; $('oChat').checked = !!v.chat; }
+    if (again) again.addEventListener('click', function () {
+      try { sync(JSON.parse(localStorage.getItem('sm:consent') || '{}')); } catch (e) {}
+      c.hidden = false; opts.classList.add('open');
+    });
     try { if (!localStorage.getItem('sm:consent')) c.hidden = false; } catch (e) { c.hidden = false; }
   })();
 </script>

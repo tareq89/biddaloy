@@ -379,7 +379,8 @@ export const areas: Area[] = [
       bullets: [
         'প্রতিটা স্কুলের তথ্য আলাদা, সিস্টেমের ভেতরেই দেয়াল (tenant isolation)।',
         '২৩টা লিখিত নিরাপত্তা নিয়ম, প্রতিটার পরীক্ষা কোডে।',
-        'এনক্রিপ্টেড ব্যাকআপ (◌ প্রতি ঘণ্টায় দেশের বাইরের কপি)।',
+        'এনক্রিপ্টেড ব্যাকআপ।',
+        '◌ প্রতি ঘণ্টায় দেশের বাইরের কপি।',
         'সাসপেন্ড/রিসেট করলে সব সেশন তৎক্ষণাৎ বন্ধ।',
         'পাবলিক ফর্মে বট-সুরক্ষা, rate limit, আপলোডের signature check।',
       ],
@@ -390,7 +391,8 @@ export const areas: Area[] = [
       bullets: [
         'Every school’s data is separate, a wall inside the system itself (tenant isolation).',
         '23 written security rules, each with a test in code.',
-        'Encrypted backups (◌ hourly off-site copy).',
+        'Encrypted backups.',
+        '◌ Hourly off-site copy.',
         'Suspend/reset and every session closes immediately.',
         'Bot protection on public forms, rate limits, upload signature checks.',
       ],

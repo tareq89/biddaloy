@@ -5,12 +5,12 @@ import { LANGS, type Lang } from '../../i18n';
 export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang } }));
 const lang = Astro.params.lang as Lang;
 const bn = lang === 'bn';
-const title = 'Privacy';
+const title = bn ? 'গোপনীয়তা' : 'Privacy';
 const description = bn ? 'আপনার তথ্য, আমাদের দায়িত্ব: পাঁচটা অঙ্গীকার।' : 'Your data, our responsibility: five commitments.';
 // D37: five plain-language commitments. bn verbatim from the locked mockup; hourly backups carry শীঘ্রই until Epic 61 #1745 ships (D34).
 const soon = bn ? 'শীঘ্রই' : 'Coming soon';
 const items = bn ? [
-  { hue: 'teal', ic: '🌐', h: 'এই ওয়েবসাইট আপনার ব্যক্তিগত তথ্য নেয় না', p: 'পাতাটা কতবার দেখা হলো, শুধু সেটুকু গোনা হয়, কুকি ছাড়া, নিজের সার্ভারে (Umami)। আপনি "সব মেনে নিন" না দিলে কোনো তৃতীয় পক্ষের ট্র্যাকার চলে না। চ্যাটে যা লেখেন তা চ্যাট-সেবাদাতার সার্ভারে প্রক্রিয়া হয়, চ্যাট খুললেই শুধু।' },
+  { hue: 'teal', ic: '🌐', h: 'এই ওয়েবসাইট আপনার ব্যক্তিগত তথ্য নেয় না', p: 'পাতাটা কতবার দেখা হলো, শুধু সেটুকু গোনা হয়, কুকি ছাড়া, নিজের সার্ভারে (Umami)। আপনি "সব মেনে নিন" না দিলে কোনো তৃতীয় পক্ষের ট্র্যাকার চলে না। চ্যাটে যা লেখেন তা চ্যাট-সেবাদাতার সার্ভারে, বাংলাদেশের বাইরে, প্রক্রিয়া হয়, চ্যাট খুললেই শুধু।' },
   { hue: 'indigo', ic: '🇧🇩', h: 'অ্যাপে আপনার তথ্য দেশের ভেতরে থাকে', p: 'স্কুলের সব তথ্য বাংলাদেশে অবস্থিত সার্ভারে রাখা হয়। প্রতিটা স্কুলের তথ্য আলাদা (tenant isolation): এক স্কুল আরেক স্কুলের কিছু দেখে না, এই দেয়াল সিস্টেমের ভেতরেই, প্রতিটা অনুরোধে যাচাই হয়।' },
   { hue: 'amber', ic: '⏱', h: 'প্রতি ঘণ্টায় ব্যাকআপ', soon: true, p: 'ডেটাবেস ও আপলোড করা ফাইলের এনক্রিপ্টেড (age) কপি প্রতি ঘণ্টায় নেওয়া হয়, আলাদা, নিরাপদ স্টোরেজে; প্রতি সপ্তাহে রিস্টোর পরীক্ষা করে দেখা হয় কপিটা সত্যিই কাজ করে কি না।' },
   { hue: 'coral', ic: '🚫', h: 'আমরা আপনার তথ্য বিক্রি করি না', p: 'ছাত্র, অভিভাবক বা শিক্ষকের কোনো তথ্য কখনো বিজ্ঞাপনদাতা বা অন্য কাউকে দেওয়া হয় না। SMS পাঠাতে যে গেটওয়ে ব্যবহার হয়, সে শুধু নম্বর আর বার্তাটুকু পায়। আপনার স্কুলের পুরো তথ্য যেকোনো সময় Excel-এ নামিয়ে নিতে পারেন; lock-in নেই।' },
@@ -32,8 +32,8 @@ const items = bn ? [
       <p>{it.p}</p>
     </>)}
     <div class="commit"><p><b>{bn ? 'আমাদের অঙ্গীকার:' : 'Our commitment:'}</b> {bn
-      ? 'আপনার স্কুলের তথ্য আপনার। আমরা তা দেশের ভেতরে রাখি, প্রতি ঘণ্টায় সুরক্ষিত কপি রাখি, কারো কাছে বিক্রি করি না, আর কেউ চুরি করতে না পারে সেজন্য প্রযুক্তিগত ব্যবস্থা প্রতিনিয়ত শক্ত করি। প্রশ্ন থাকলে: '
-      : 'Your school’s data is yours. We keep it inside the country, keep a protected copy every hour, never sell it to anyone, and keep hardening the technical measures so nobody can steal it. Questions: '}<a href={`mailto:${company.privacyEmail}`}>{company.privacyEmail}</a></p></div>
+      ? 'আপনার স্কুলের তথ্য আপনার। আমরা তা দেশের ভেতরে রাখি, এনক্রিপ্টেড ব্যাকআপ রাখি, কারো কাছে বিক্রি করি না, আর কেউ চুরি করতে না পারে সেজন্য প্রযুক্তিগত ব্যবস্থা প্রতিনিয়ত শক্ত করি। প্রশ্ন থাকলে: '
+      : 'Your school’s data is yours. We keep it inside the country, keep encrypted backups, never sell it to anyone, and keep hardening the technical measures so nobody can steal it. Questions: '}<a href={`mailto:${company.privacyEmail}`}>{company.privacyEmail}</a></p></div>
   </div></section>
 </Base>
 <style>

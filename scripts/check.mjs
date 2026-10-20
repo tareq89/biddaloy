@@ -93,7 +93,7 @@ export async function runTasks(tasks, opts = {}) {
 // exactly the files someone is mid-edit on, which is the normal state
 // while `.husky/pre-push` runs this.
 export function changedFiles(base) {
-  const pathspec = ['--', '*.ts', '*.tsx', '*.mjs'];
+  const pathspec = ['--', '*.ts', '*.tsx', '*.mjs', '*.astro'];
   const committed = execFileSync('git', ['diff', '--name-only', base, ...pathspec], {
     cwd: repoRoot,
     encoding: 'utf8',
