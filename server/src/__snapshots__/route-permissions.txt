@@ -482,6 +482,7 @@ POST /auth/verify-email | AccountAccessController | allowlist: none
 POST /backup/export | WorkbookController | perm: BACKUP_MANAGE
 POST /backup/restore | RestoreController | perm: BACKUP_MANAGE
 POST /backup/validate | ImportController | perm: BACKUP_MANAGE
+POST /billing/orders | BillingController | perm: SETTINGS_MANAGE
 POST /calendar-import/commit | CalendarImportController | perm: CALENDAR_MANAGE
 POST /calendar-import/validate | CalendarImportController | perm: CALENDAR_MANAGE
 POST /calendar/clone | CalendarExportController | perm: CALENDAR_MANAGE

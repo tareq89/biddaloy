@@ -1,0 +1,58 @@
+{
+  "title": "Seats & billing",
+  "description": "Buy seats for your students. One seat is one student for one month.",
+  "loadError": "Couldn't load your seats and billing. Try again.",
+  "breadcrumb": "Seats & billing",
+  "tiles": {
+    "bought": "Seats bought",
+    "used": "Students using a seat",
+    "validity": "Paid until",
+    "freeUntil": "Free until",
+    "notPaid": "Nothing paid yet"
+  },
+  "freeNotice": "Billing starts on {{date}}. Until then every student is free. You can buy seats ahead.",
+  "expiringSoon": "Your seats end on {{date}}.",
+  "expired": "Your paid seats have ended.",
+  "buy": {
+    "action": "Buy seats",
+    "title": "Buy seats",
+    "description": "Pick how many students and for how many months.",
+    "seats": "Seats (students)",
+    "months": "Months",
+    "price": "{{price}} per seat per month",
+    "total": "Total",
+    "totalLine": "{{seats}} seats × {{months}} months",
+    "limitIntro": "Your school has reached its student limit. Buy seats to add more students.",
+    "submit": "Create order",
+    "cancel": "Cancel",
+    "close": "Close",
+    "retry": "Try again",
+    "seatsError": "Enter a whole number from 1 to {{max}}.",
+    "monthsError": "Enter a whole number from 1 to {{max}}.",
+    "createdTitle": "Order created",
+    "createdBody": "Order for {{seats}} seats, {{months}} months, {{total}}. Online payment is coming soon. Your seats start after payment.",
+    "createFailed": "We could not create the order. Try again."
+  },
+  "orders": {
+    "title": "Orders",
+    "caption": "Seat orders",
+    "empty": "No orders yet",
+    "emptyExplanation": "When you buy seats, the order shows here.",
+    "date": "Date",
+    "seats": "Seats",
+    "months": "Months",
+    "amount": "Amount",
+    "status": "Status",
+    "statusValue": {
+      "PENDING": "Waiting for payment",
+      "PAID": "Paid",
+      "FAILED": "Failed",
+      "CANCELLED": "Cancelled",
+      "REFUNDED": "Refunded"
+    }
+  },
+  "actions": {
+    "settings": "Seats and billing settings",
+    "buy": "Buy seats"
+  }
+}

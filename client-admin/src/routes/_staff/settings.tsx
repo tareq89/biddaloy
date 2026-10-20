@@ -15,6 +15,8 @@ const settingsSearchSchema = z.object({
   backup: z.string().optional().catch(undefined),
   /** D30: the selected settings category. */
   section: z.enum(SETTINGS_CATEGORY_IDS).optional().catch(undefined),
+  /** 49.10: `?section=billing&buy=1` opens the Buy seats dialog (palette action). */
+  buy: z.literal(1).optional().catch(undefined),
 });
 
 /**
@@ -48,6 +50,7 @@ export const Route = createFileRoute('/_staff/settings')({
       'feeStructures',
       'curriculumPreset',
       'attention',
+      'billing',
     ),
   pendingComponent: SettingsPending,
   component: SettingsRoute,

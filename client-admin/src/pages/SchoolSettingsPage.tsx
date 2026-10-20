@@ -26,6 +26,8 @@ import { Link, useLocation, useSearch } from '@tanstack/react-router';
 import { ChevronLeftIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { SeatsBillingSection } from '../features/billing/SeatsBillingSection';
+
 import { AcrCriteriaSection } from './settings/AcrCriteriaSection';
 import { AlertsSection } from './settings/AlertsSection';
 import { ApplicationsSection } from './settings/ApplicationsSection';
@@ -115,10 +117,13 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
   const canManagePrinting = useHasPermission(Permission.PRINT_TEMPLATE_MANAGE);
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
 
-  const { section } = useSearch({ from: '/_staff/settings' });
+  const { section, buy } = useSearch({ from: '/_staff/settings' });
   const hash = useLocation().hash;
   const categories = SETTINGS_CATEGORIES.filter(
-    (c) => (c.id !== 'printing' || canManagePrinting) && (c.id !== 'backup' || canManageBackup),
+    (c) =>
+      (c.id !== 'printing' || canManagePrinting) &&
+      (c.id !== 'backup' || canManageBackup) &&
+      (c.id !== 'billing' || !isSuperAdmin),
   );
   const allowed = new Set<SettingsCategoryId>(categories.map((c) => c.id));
   const active = resolveSettingsCategory({ section, backup: backupJobId, hash }, allowed);
@@ -208,6 +213,9 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
             <FeesSection key={loaded.schoolId} schoolId={loaded.schoolId} fees={loaded.data.fees} />
           )
         );
+      case 'billing':
+        // Billing is the active school's (X-Tenant-ID), so no SUPER_ADMIN picked-school view.
+        return isSuperAdmin ? null : <SeatsBillingSection openBuy={buy === 1} />;
       case 'communication':
         return (
           loaded && (

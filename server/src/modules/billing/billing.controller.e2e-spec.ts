@@ -109,4 +109,27 @@ describe('billing E2E', () => {
     await get('orders?limit=100', tokens.admin).expect(200);
     await get('orders?limit=101', tokens.admin).expect(400);
   });
+
+  it('POST /billing/orders: ADMIN creates a PENDING order, retry is idempotent, bad input 400, TEACHER 403', async () => {
+    const post = (token: string, body: object) =>
+      supertest(app.getHttpServer())
+        .post('/api/v1/billing/orders')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send(body);
+    const key = '3f2b8c1e-5d4a-4b6e-9c7d-1a2b3c4d5e6f';
+    const a = await post(tokens.admin, { seats: 100, months: 3, idempotency_key: key }).expect(201);
+    expect(a.body).toMatchObject({
+      status: 'PENDING',
+      seats: 100,
+      months: 3,
+      amount_paisa: 300000,
+    });
+    const b = await post(tokens.admin, { seats: 5, months: 1, idempotency_key: key }).expect(201);
+    expect(b.body.id).toBe(a.body.id);
+    await post(tokens.admin, { seats: 0, months: 3, idempotency_key: key }).expect(400);
+    await post(tokens.admin, { seats: 1, months: 25, idempotency_key: key }).expect(400);
+    await post(tokens.admin, { seats: 1, months: 1, idempotency_key: 'nope' }).expect(400);
+    await post(tokens.teacher, { seats: 1, months: 1, idempotency_key: key }).expect(403);
+  });
 });
