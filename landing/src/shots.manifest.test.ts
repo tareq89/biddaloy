@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { shotName, shots } from './shots.manifest';
+import { shotName, shots } from '../scripts/shots.manifest.ts';
 
 const walk = (d: string): string[] =>
   readdirSync(d).flatMap((f) =>
