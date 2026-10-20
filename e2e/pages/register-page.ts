@@ -7,7 +7,8 @@ export interface RegisterDetails {
   schoolName: string;
   address: string;
   phone: string;
-  email: string;
+  /** Optional since D6: omit to register with the phone alone. */
+  email?: string;
 }
 
 /** `/register` (`client-admin/src/features/registration`): details, code, password. */
@@ -23,10 +24,10 @@ export class RegisterPage {
   async submitDetails(d: RegisterDetails): Promise<string> {
     const { page } = this;
     await page.getByLabel(t('register.fields.adminName')).fill(d.adminName);
+    await page.getByLabel(t('register.fields.phone')).fill(d.phone);
+    if (d.email) await page.getByLabel(t('register.fields.email')).fill(d.email);
     await page.getByLabel(t('register.fields.schoolName')).fill(d.schoolName);
     await page.getByLabel(t('register.fields.address')).fill(d.address);
-    await page.getByLabel(t('register.fields.phone')).fill(d.phone);
-    await page.getByLabel(t('register.fields.email')).fill(d.email);
     await page.getByRole('checkbox', { name: t('register.terms') }).check();
     const [response] = await Promise.all([
       page.waitForResponse((res) => res.url().includes('/auth/register/start')),

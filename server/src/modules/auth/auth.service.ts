@@ -10,7 +10,7 @@ import {
 import { PushSubscriptionsService } from '../push/push-subscriptions.service';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, FindOptionsOrder, Repository } from 'typeorm';
+import { EntityManager, FindOptionsOrder, IsNull, Repository } from 'typeorm';
 import { assertPasswordAllowedForUser } from './password-policy';
 import { randomUUID } from 'crypto';
 import { User } from '../users/entities/user.entity';
@@ -544,7 +544,11 @@ export class AuthService {
       relations: ['tenant'],
       order: EARLIEST_MEMBERSHIP_ORDER,
     });
-    return memberships.map((m) => ({ tenantId: m.tenant_id, role: m.role, name: m.tenant.name }));
+    // A soft-deleted school (the idle job, Epic 49) joins as `null`; it must not break login for
+    // the user's other schools.
+    return memberships
+      .filter((m) => m.tenant)
+      .map((m) => ({ tenantId: m.tenant_id, role: m.role, name: m.tenant.name }));
   }
 
   /**
@@ -563,8 +567,11 @@ export class AuthService {
       // Count SCHOOLS, not rows: the unique key is (user, tenant, role), so a
       // teacher who is also a guardian in the same school has two rows but
       // one school. find() already skips soft-deleted memberships.
+      // A soft-deleted school (idle job, Epic 49) is not a school the user belongs to; the
+      // explicit `deleted_at` filter is needed because a joined relation's soft delete is not
+      // filtered on every TypeORM 0.3.x.
       const rows = await this.userTenantRepository.find({
-        where: { user_id: userId },
+        where: { user_id: userId, tenant: { deleted_at: IsNull() } },
         select: { tenant_id: true },
       });
       const schools = new Set(rows.map((r) => r.tenant_id));
@@ -579,7 +586,9 @@ export class AuthService {
 
   /** True when the user has at least one live school membership. */
   async hasLiveMembership(userId: string): Promise<boolean> {
-    return this.userTenantRepository.exists({ where: { user_id: userId } });
+    return this.userTenantRepository.exists({
+      where: { user_id: userId, tenant: { deleted_at: IsNull() } },
+    });
   }
 
   /**

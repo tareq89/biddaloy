@@ -27,12 +27,12 @@ function fakeService() {
 
 describe('SchoolsController', () => {
   let service: ReturnType<typeof fakeService>;
-  let trial: { extend: ReturnType<typeof vi.fn> };
+  let trial: { grantSeats: ReturnType<typeof vi.fn> };
   let controller: SchoolsController;
 
   beforeEach(() => {
     service = fakeService();
-    trial = { extend: vi.fn() };
+    trial = { grantSeats: vi.fn() };
     controller = new SchoolsController(
       service as unknown as SchoolsService,
       { get: () => trial } as unknown as ModuleRef,
@@ -192,12 +192,22 @@ describe('SchoolsController', () => {
   });
 
   describe('extendTrial', () => {
-    it('extends as the calling user (the checks run inside TrialService.extend)', async () => {
-      trial.extend.mockResolvedValue({ id: SCHOOL_A });
-      const dto = { days: 7, seat_limit: 20, reason: 'Customer asked for a week' };
+    it('grants seat_limit seats for days rounded up to months, as the calling user', async () => {
+      trial.grantSeats.mockResolvedValue({ id: SCHOOL_A });
+      const dto = { days: 31, seat_limit: 20, reason: 'Customer asked for a month' };
 
       await expect(controller.extendTrial(SCHOOL_A, dto, USER)).resolves.toEqual({ id: SCHOOL_A });
-      expect(trial.extend).toHaveBeenCalledWith(SCHOOL_A, dto, { userId: 'user-1' });
+      expect(trial.grantSeats).toHaveBeenCalledWith(
+        SCHOOL_A,
+        { seats: 20, months: 2, reason: dto.reason },
+        { userId: 'user-1' },
+      );
+    });
+
+    it('400s when seat_limit is missing', async () => {
+      await expect(
+        controller.extendTrial(SCHOOL_A, { days: 7, reason: 'Customer asked for a week' }, USER),
+      ).rejects.toMatchObject({ response: { details: { code: 'SEATS_REQUIRED' } } });
     });
 
     it.each(['findAll', 'getStats', 'updateStatus', 'extendTrial'] as const)(

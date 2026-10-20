@@ -2165,6 +2165,23 @@ export interface paths {
         patch: operations["SchoolsController_updateStatus_v1"];
         trace?: never;
     };
+    "/api/v1/schools/{id}/revive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revive a school paused or soft-deleted for having no students (Epic 49 D5). Platform SUPER_ADMIN only; within 90 days of the soft delete; audited REACTIVATE. */
+        post: operations["SchoolsController_revive_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/schools/{id}/trial": {
         parameters: {
             query?: never;
@@ -2178,7 +2195,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Extend a school trial by N days and optionally raise its seat limit (#1625). Platform SUPER_ADMIN only. An expired trial reactivates the school. Audited with the reason. */
+        /** Grant a school `seat_limit` seats for `days` (rounded up to months) as a paid-for-free order (Epic 49; was the trial extension). Platform SUPER_ADMIN only. Audited with the reason. */
         patch: operations["SchoolsController_extendTrial_v1"];
         trace?: never;
     };
@@ -3397,6 +3414,40 @@ export interface paths {
         put?: never;
         /** Commit a validated staff import: creates or restores members, optionally invites. */
         post: operations["StaffBulkUploadController_commit_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The school's seat balance: seats bought, in use, paid-until. */
+        get: operations["BillingController_summary_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The school's seat orders, newest first. */
+        get: operations["BillingController_list_v1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -11214,6 +11265,9 @@ export interface components {
             status: "ACTIVE" | "SUSPENDED";
             reason: string;
         };
+        ReviveSchoolDto: {
+            reason: string;
+        };
         ExtendTrialDto: {
             days: number;
             seat_limit?: number;
@@ -16303,8 +16357,11 @@ export interface components {
             country_code: string;
             address: string;
             phone: string;
-            /** Format: email */
-            email: string;
+            /**
+             * Format: email
+             * @description Stored unverified; verify it later from the profile.
+             */
+            email?: string;
             /** @description Must be true. */
             terms_accepted: boolean;
             /** @description Cloudflare Turnstile token. */
@@ -21692,6 +21749,43 @@ export interface operations {
             };
         };
     };
+    SchoolsController_revive_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviveSchoolDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     SchoolsController_extendTrial_v1: {
         parameters: {
             query?: never;
@@ -25164,6 +25258,69 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StaffImportResultDto"];
                 };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BillingController_summary_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description BillingSummary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BillingController_list_v1: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SeatOrderDto[] */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

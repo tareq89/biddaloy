@@ -4,9 +4,8 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
 export interface RegisterCodeStepProps {
-  /** Where the code went — the phone or the email, by the server's `channel`. */
+  /** The phone the code went to — signup codes are SMS-only. */
   sentTo: string;
-  channel: 'sms' | 'email';
   /** Seconds until a resend is allowed; a new value restarts the countdown. */
   resendIn: number;
   resendNonce: number;
@@ -20,7 +19,6 @@ export interface RegisterCodeStepProps {
 
 export function RegisterCodeStep({
   sentTo,
-  channel,
   resendIn,
   resendNonce,
   onVerify,
@@ -53,9 +51,7 @@ export function RegisterCodeStep({
       }}
     >
       <p id="register-otp-sent-to" className="text-text-secondary">
-        {channel === 'sms'
-          ? t('otp.sentToPhone', { phone: sentTo })
-          : t('otp.sentToEmail', { email: sentTo })}
+        {t('otp.sentToPhone', { phone: sentTo })}
       </p>
       <OtpInput
         id="register-otp"

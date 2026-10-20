@@ -10,6 +10,10 @@
     "students": "{{used}} of {{limit}} students used.",
     "studentsNoLimit": "{{used}} students added."
   },
+  "idle": {
+    "title": "Your school is paused",
+    "body": "Your account was paused because no student was added. Your data is safe. Contact us to reopen it."
+  },
   "ended": {
     "title": "Your trial has ended",
     "body": "Your data is safe. You can download a copy, or contact us to continue.",

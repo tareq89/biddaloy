@@ -1,9 +1,9 @@
 import { SetMetadata } from '@nestjs/common';
 
-export const ALLOW_WHEN_TRIAL_EXPIRED_KEY = 'allowWhenTrialExpired';
+export const ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY = 'allowWhenSuspendedForBilling';
 
 /**
- * D16: a school whose trial ended (SUSPENDED + TRIAL_EXPIRED) may still take a
+ * D16: a school suspended for billing (SUSPENDED + TRIAL_EXPIRED | SEATS_EXPIRED | IDLE) may still take a
  * copy of its data. ContextGuard lets a marked route through for that
  * suspension only; any other suspension reason stays fully blocked.
  *
@@ -14,4 +14,5 @@ export const ALLOW_WHEN_TRIAL_EXPIRED_KEY = 'allowWhenTrialExpired';
  * read-only status) lands, its allowlist should reuse this marker rather than
  * add a second list.
  */
-export const AllowWhenTrialExpired = () => SetMetadata(ALLOW_WHEN_TRIAL_EXPIRED_KEY, true);
+export const AllowWhenSuspendedForBilling = () =>
+  SetMetadata(ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY, true);

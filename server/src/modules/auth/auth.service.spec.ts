@@ -652,7 +652,10 @@ describe('AuthService', () => {
       mockUserTenantRepo.find.mockResolvedValue([{ tenant_id: 'tenant-1' }]);
       await expect(service.primaryTenantId('user-1')).resolves.toBe('tenant-1');
       expect(mockUserTenantRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { user_id: 'user-1' } }),
+        // A soft-deleted school (idle job) must not count as the user's school.
+        expect.objectContaining({
+          where: { user_id: 'user-1', tenant: { deleted_at: expect.anything() } },
+        }),
       );
     });
 
@@ -691,6 +694,10 @@ describe('AuthService', () => {
       await expect(service.hasLiveMembership('user-1')).resolves.toBe(true);
       mockUserTenantRepo.exists.mockResolvedValueOnce(false);
       await expect(service.hasLiveMembership('user-1')).resolves.toBe(false);
+      // Only memberships of schools that are not soft-deleted count.
+      expect(mockUserTenantRepo.exists).toHaveBeenLastCalledWith({
+        where: { user_id: 'user-1', tenant: { deleted_at: expect.anything() } },
+      });
     });
   });
 

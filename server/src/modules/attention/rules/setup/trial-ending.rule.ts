@@ -3,12 +3,13 @@ import { IsNull, Repository } from 'typeorm';
 import { alertRuleMeta, AlertSeverity, SchoolStatus, UserRole, UserStatus } from '@biddaloy/shared';
 import { School } from '../../../schools/entities/school.entity';
 import { UserTenant } from '../../../auth/entities/user-tenant.entity';
-import { DAY_MS, TRIAL_WARNINGS } from '../../../schools/trial/trial.constants';
+import { DAY_MS } from '../../../schools/trial/trial.constants';
 import { AttentionRule } from '../attention-rule.decorator';
 import type { AttentionRule as AttentionRuleShape, RuleContext, RuleFinding } from '../rule.types';
 
-const WARN_FROM = Math.max(...TRIAL_WARNINGS.map((w) => w.days));
-const URGENT_FROM = Math.min(...TRIAL_WARNINGS.map((w) => w.days));
+// Inert since Epic 49 (#2716): new schools have no trial_ends_at, so this never fires.
+const WARN_FROM = 7;
+const URGENT_FROM = 2;
 
 /** One alert per trial: WARNING from 7 days out, CRITICAL from 2 days out (same dedupe key). */
 @AttentionRule()
@@ -41,7 +42,7 @@ export class TrialEndingRule implements AttentionRuleShape {
     });
     if (!school?.trial_ends_at) return [];
 
-    // Same formula as TrialService.warn.
+    // Days left, rounded up.
     const daysLeft = Math.ceil((school.trial_ends_at.getTime() - ctx.now.getTime()) / DAY_MS);
     if (daysLeft > WARN_FROM) return [];
 

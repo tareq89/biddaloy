@@ -22,7 +22,10 @@ async function extend(page: Page, days: number, reason: string): Promise<void> {
   await expect(page.getByText(t('platform.trial.dialog.success'))).toBeVisible();
 }
 
-test('the list shows a trial; extending it, even an ended one, works', async ({
+// Retired by Epic 49 (#2716): the trial is gone and the Extend dialog sends no seat_limit, so
+// PATCH /schools/:id/trial answers 400 SEATS_REQUIRED. Re-write against the seat-grant dialog
+// in the Epic 49 client ticket.
+test.skip('the list shows a trial; extending it, even an ended one, works', async ({
   page,
   playwright,
 }) => {

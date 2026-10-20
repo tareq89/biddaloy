@@ -75,6 +75,7 @@ function errorKey(error: unknown, where: Where): string {
     error.statusCode === 503
   )
     return 'unavailable';
+  if (code === 'PHONE_NOT_SUPPORTED') return 'phoneNotSupported';
   if (where === 'start' && error.statusCode === 400) return 'captcha';
   if (where === 'verify') {
     if (error.statusCode === 400) return 'otpInvalid';
@@ -240,7 +241,7 @@ export function RegisterFlow({
                 country_code: values.country,
                 address: values.address,
                 phone,
-                email: values.email,
+                ...(values.email ? { email: values.email } : {}),
                 terms_accepted: values.terms,
                 captcha_token: captchaToken,
               });
@@ -251,8 +252,7 @@ export function RegisterFlow({
 
       {step === 'code' && started && (
         <RegisterCodeStep
-          sentTo={started.channel === 'sms' ? sentTo : (details?.email ?? '')}
-          channel={started.channel}
+          sentTo={sentTo}
           resendIn={started.resend_in}
           resendNonce={resendNonce}
           loading={verify.isPending}
