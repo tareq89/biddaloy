@@ -37,7 +37,7 @@ export async function lastSittingDate(
 
 /**
  * The sitting date every late-joiner rule uses: the last schedule/term date,
- * else — when the exam has neither — the day of the first mark write. Marks
+ * else — when the exam has neither — the school-local day of the first mark write. Marks
  * are only ever written after the sitting, so that day is a safe stand-in
  * (created_at, not updated_at: a grid re-save must not move it). No marks at
  * all: nobody can be told apart, so null and nobody is late.
@@ -55,7 +55,10 @@ export async function effectiveSittingDate(
     .select('MIN(m.created_at)', 'first_mark_at')
     .where('m.exam_id = :examId AND m.tenant_id = :tenantId', { examId: exam.id, tenantId })
     .getRawOne<{ first_mark_at: Date | null }>();
-  return row?.first_mark_at ? new Date(row.first_mark_at).toISOString().slice(0, 10) : null;
+  // Same school-local day `joinedAfterExam` compares against: a UTC day here
+  // would call a student enrolled at 00:30 Dhaka late for marks written ten
+  // minutes earlier (#2705 boundary).
+  return row?.first_mark_at ? localDate(new Date(row.first_mark_at)) : null;
 }
 
 /** True when the enrollment started on a school-local day after the last sitting. */

@@ -865,6 +865,26 @@ describe('ResultsService (integration, D17 — Enrollment-driven cohort)', () =>
     expect(ids).toContain(lateWithMarks.id);
   });
 
+  it('m7: the fallback sitting day is the school-local day, so a late-evening UTC mark write and a join after Dhaka midnight are the same day', async () => {
+    // 18:22 UTC is 00:22 Dhaka the next day: UTC-day arithmetic would call
+    // the join a day after the marks (#2705 boundary, the CI clock).
+    const { exam, enroll } = await processedExamWithAB();
+    await dataSource.query(
+      `UPDATE marks SET created_at = '2025-03-01T18:22:00Z' WHERE exam_id = $1`,
+      [exam.id],
+    );
+    const sameDay = await buildStudent({ roll_number: 5 });
+    await enroll(sameDay.id);
+    await enrollmentRepo.update(
+      { student_id: sameDay.id },
+      { enrolled_at: new Date('2025-03-01T18:32:00Z') },
+    );
+
+    await resultsService.process(exam.id, TENANT_ID, 'user-1', true);
+
+    expect((await liveResults(exam.id)).map((r) => r.student_id)).toContain(sameDay.id);
+  });
+
   it('F2: re-saving marks does not move the fallback sitting date later', async () => {
     const { exam, enroll } = await processedExamWithAB();
     // First entered 30 days ago, then re-saved today (a grid re-save bumps updated_at only).
