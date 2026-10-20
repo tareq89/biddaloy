@@ -1,6 +1,8 @@
 import { NoticeBar } from '@biddaloy/ui';
+import { billingSummaryQueryOptions } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate } from '@biddaloy/ui/utils';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
 /**
@@ -21,4 +23,16 @@ export function ReadOnlyNotice({ until }: { until: Date | string }) {
       </NoticeBar>
     </div>
   );
+}
+
+/**
+ * Mounted by the staff layout for a school ADMIN only (SETTINGS_MANAGE): reads
+ * `read_only_until` from the billing summary and renders the notice while the school is over its
+ * seats. A failed or slow request shows nothing; the server still blocks writes either way.
+ */
+export function ReadOnlyNoticeGate() {
+  // Never thrown to the route boundary: a suspended school answers 403 TENANT_SUSPENDED here,
+  // and throwing from the layout would take down the whole shell (school switcher included).
+  const { data } = useQuery({ ...billingSummaryQueryOptions(), throwOnError: false });
+  return data?.read_only_until ? <ReadOnlyNotice until={data.read_only_until} /> : null;
 }

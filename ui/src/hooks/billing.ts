@@ -70,3 +70,25 @@ export function useCreateSeatOrder() {
     },
   });
 }
+
+/**
+ * `GET /billing/orders/:id/receipt` — opens the receipt (A4 HTML, "Save as PDF" from the
+ * browser's print) in a new tab. The tab opens first so the click still counts as a user gesture;
+ * the request is authenticated, so a plain link would not work.
+ */
+export async function openBillingReceipt(orderId: string): Promise<void> {
+  const tab = window.open('', '_blank');
+  if (!tab) throw new Error('Pop-up blocked');
+  tab.opener = null;
+  try {
+    const res = await apiClient.get<Blob>(`/billing/orders/${orderId}/receipt`, {
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(new Blob([res.data], { type: 'text/html' }));
+    tab.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (error) {
+    tab.close();
+    throw error;
+  }
+}

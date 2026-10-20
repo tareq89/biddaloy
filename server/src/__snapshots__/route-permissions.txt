@@ -102,6 +102,7 @@ GET /backup/template | TemplateController | perm: BACKUP_MANAGE
 GET /backup/validate/:stagingId/errors.csv | ImportController | perm: BACKUP_MANAGE
 GET /billing/bkash/callback | BkashCallbackController | allowlist: none
 GET /billing/orders | BillingController | perm: SETTINGS_MANAGE
+GET /billing/orders/:id/receipt | BillingController | perm: SETTINGS_MANAGE
 GET /billing/summary | BillingController | perm: SETTINGS_MANAGE
 GET /calendar-import/template | CalendarImportController | perm: CALENDAR_MANAGE
 GET /calendar-settings | CalendarSettingsController | perm: CALENDAR_READ
@@ -244,6 +245,8 @@ GET /performance/students/:studentId | PerformanceController | perm: MARK_VIEW
 GET /platform/alerts | PlatformAlertsController | identity | roles: SUPER_ADMIN
 GET /platform/attention/health | PlatformAttentionHealthController | identity | roles: SUPER_ADMIN
 GET /platform/backups/health | PlatformBackupHealthController | identity | roles: SUPER_ADMIN
+GET /platform/billing/schools | PlatformBillingController | identity | roles: SUPER_ADMIN
+GET /platform/billing/schools/:id | PlatformBillingController | identity | roles: SUPER_ADMIN
 GET /platform/holiday-sets | PublicHolidaysController | identity | roles: SUPER_ADMIN
 GET /platform/holiday-sets/:id | PublicHolidaysController | identity | roles: SUPER_ADMIN
 GET /presets | PresetsController | perm: CURRICULUM_PRESET_APPLY
@@ -405,7 +408,6 @@ PATCH /routines/shifts/:id | ShiftsController | perm: ROUTINE_MANAGE
 PATCH /routines/slots/:slotId | RoutineSlotsController | perm: ROUTINE_MANAGE
 PATCH /schools/:id/settings | SchoolsController | perm: SETTINGS_MANAGE
 PATCH /schools/:id/status | SchoolsController | identity | roles: SUPER_ADMIN
-PATCH /schools/:id/trial | SchoolsController | identity | roles: SUPER_ADMIN
 PATCH /schools/me/profile | SchoolProfileController | identity | roles: ADMIN,SUPER_ADMIN
 PATCH /seat-plans/:id/allocations/:allocationId | SeatPlansController | perm: SEAT_PLAN_MANAGE
 PATCH /seat-plans/:id/rooms/:roomId/invigilator | SeatPlansController | perm: SEAT_PLAN_MANAGE
@@ -557,6 +559,8 @@ POST /lesson-deliveries/today-all-taught | LessonDeliveriesController | perm: SY
 POST /me/push/subscriptions | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 POST /payments/:id/reverse | CheckoutController | perm: PAYMENT_REVERSE | approval: payments.reverse
 POST /payments/checkout | CheckoutController | perm: PAYMENT_RECORD
+POST /platform/billing/orders/:id/offline-payment | PlatformBillingController | identity | roles: SUPER_ADMIN
+POST /platform/billing/schools/:id/grant | PlatformBillingController | identity | roles: SUPER_ADMIN
 POST /platform/holiday-sets/:id/publish | PublicHolidaysController | identity | roles: SUPER_ADMIN
 POST /platform/holiday-sets/:id/unpublish | PublicHolidaysController | identity | roles: SUPER_ADMIN
 POST /platform/holiday-sets/fetch | PublicHolidaysController | identity | roles: SUPER_ADMIN

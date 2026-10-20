@@ -1215,19 +1215,6 @@ export async function starterWorkbook(
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-/** Ends a trial the only way there is: the daily job is not reachable, so the
- * row is set the way that job leaves it (suspended, reason TRIAL_EXPIRED).
- * ponytail: raw SQL via the server's `pg`; swap for an endpoint if one appears.
- * Limit: skips TrialService.expire (audit row, tenant-status cache invalidation). */
-export async function endTrial(schoolId: string): Promise<void> {
-  await runSqlOnOneRow(
-    `UPDATE schools SET trial_ends_at = now() - interval '1 day', status = 'SUSPENDED',
-       status_reason = 'TRIAL_EXPIRED' WHERE id = $1`,
-    [schoolId],
-    `endTrial: school ${schoolId}`,
-  );
-}
-
 /** New schools have no seat limit during the free period (Epic 49), so a limit test sets one.
  * ponytail: raw SQL via the server's `pg`; swap for a platform grant once the e2e has one. */
 export async function setSeatLimit(schoolId: string, limit: number): Promise<void> {
@@ -1640,9 +1627,9 @@ export async function detachOfferedSubjects(
   }
 }
 
-/** `PATCH /schools/:id/trial` as the platform super admin: since Epic 49 a free GRANT order of
- * `seats` for `months`. It asks for a `seats.expiring` / `seats.exhausted` recheck about 5 s
- * later. `request` must be its own context: the super-admin login would replace the cookie
+/** `POST /platform/billing/schools/:id/grant` as the platform super admin: a free GRANT order for
+ * `months` (idempotent per key). It asks for a `seats.expiring` / `seats.exhausted` recheck about
+ * 5 s later. `request` must be its own context: the super-admin login would replace the cookie
  * jar of a context that holds a school admin's session. */
 export async function grantSeats(
   request: APIRequestContext,
@@ -1650,10 +1637,12 @@ export async function grantSeats(
   seats: number,
   months: number,
 ): Promise<void> {
-  await patch(request, await superAdminApiSession(request), `/schools/${schoolId}/trial`, {
-    days: months * 30,
-    seat_limit: seats,
+  const session = await superAdminApiSession(request);
+  await post(request, session, `/platform/billing/schools/${schoolId}/grant`, {
+    seats,
+    months,
     reason: 'e2e seat grant',
+    idempotency_key: `e2e-${crypto.randomUUID()}`,
   });
 }
 

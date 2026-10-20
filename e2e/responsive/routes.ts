@@ -197,8 +197,8 @@ export async function resolvePath(
   if (route.path.includes('$schoolId')) {
     // SUPER_ADMIN platform console (#535) — `GET /schools` is SUPER_ADMIN
     // only, so this can't ride the shared ADMIN session. Resolves the
-    // seeded trial school (`SEED_TRIAL_SCHOOL`, [13.7.1]: the one page that
-    // carries the trial card and its "Extend trial" dialog) rather than
+    // seeded school (`SEED_TRIAL_SCHOOL`; its page carries the Seats card
+    // and its "Grant seats" dialog) rather than
     // provisioning a fresh one per viewport/theme run. Read-only here.
     const superAdmin = await superAdminApiSession(request);
     const schoolId = await findSchoolIdBySlug(request, superAdmin, SEED_TRIAL_SCHOOL.slug);

@@ -55,7 +55,9 @@ test.describe('offline navigation', () => {
 
     await test.step('warm the caches with a real online visit', async () => {
       await shell.navigateTo('nav.items.students');
-      await expect(page.getByRole('heading', { name: t('students.list.title') })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 1, name: t('students.list.title') }),
+      ).toBeVisible();
       // The SW cached the list response under this tenant's key —
       // `apiCacheKeyFor`'s `__tenant` param (`pwa/cache-policy.ts`).
       await expect
@@ -92,7 +94,9 @@ test.describe('offline navigation', () => {
       // timeout (`sw.ts`), so the *first* offline read deliberately waits
       // out that timeout before falling back to `api-cache`. Anything
       // under ~6s here is a test that fails on the app being correct.
-      await expect(second.getByRole('heading', { name: t('students.list.title') })).toBeVisible({
+      await expect(
+        second.getByRole('heading', { level: 1, name: t('students.list.title') }),
+      ).toBeVisible({
         timeout: 20_000,
       });
       // Labelled, not silently stale: the epic's rule is that cached data
@@ -141,7 +145,9 @@ test.describe('offline navigation', () => {
       // it as expected behaviour is not something a test should do.
       await secondShell.navigateTo('nav.items.dashboard');
       await secondShell.navigateTo('nav.items.students');
-      await expect(second.getByRole('heading', { name: t('students.list.title') })).toBeVisible({
+      await expect(
+        second.getByRole('heading', { level: 1, name: t('students.list.title') }),
+      ).toBeVisible({
         timeout: 20_000,
       });
       await expect(second.getByRole('heading', { name: /you're offline/i })).toHaveCount(0);

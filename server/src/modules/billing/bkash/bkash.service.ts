@@ -80,6 +80,18 @@ export class BkashService {
     return raw ? (JSON.parse(raw) as PaymentState) : undefined;
   }
 
+  /**
+   * True while a bKash payment for this order is being created, or was started under 24 h ago
+   * (the reconciler's window): bKash may still complete it. Redis errors propagate.
+   */
+  async paymentMayBeLive(orderId: string): Promise<boolean> {
+    if ((await this.redis.exists(CREATING_KEY(orderId))) > 0) return true;
+    const state = await this.readState(orderId);
+    return (
+      !!state?.paymentID && Date.now() - Date.parse(state.pay_started_at) <= RECONCILE_WINDOW_MS
+    );
+  }
+
   /** Creates the bKash payment for one of the school's PENDING orders; returns the URL to send the admin to. */
   async startPayment(schoolId: string, orderId: string): Promise<{ bkash_url: string }> {
     if (!this.client.isConfigured()) {

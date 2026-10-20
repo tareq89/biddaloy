@@ -13,6 +13,7 @@ const order = (over: Partial<SeatOrderDto> = {}): SeatOrderDto => ({
   period_end: '2027-04-02',
   status: SeatOrderStatus.PENDING,
   method: null,
+  receipt_number: null,
   paid_at: null,
   created_at: '2026-10-15T06:00:00.000Z',
   ...over,
@@ -23,6 +24,7 @@ export const summaryEmpty: BillingSummary = {
   seats_bought: 0,
   seats_used: 240,
   paid_until: null,
+  read_only_until: null,
   orders: [],
 };
 
@@ -33,5 +35,12 @@ export const summaryExpiring: BillingSummary = {
   seats_bought: 300,
   seats_used: 280,
   paid_until: '2027-03-20',
-  orders: [order({ status: SeatOrderStatus.PAID, method: PlatformPaymentMethod.BKASH })],
+  read_only_until: null,
+  orders: [
+    order({
+      status: SeatOrderStatus.PAID,
+      method: PlatformPaymentMethod.BKASH,
+      receipt_number: 'SMR-2026-000012',
+    }),
+  ],
 };

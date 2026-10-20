@@ -7,6 +7,7 @@ import { attentionDefaultHandlers } from './handlers/attention';
 import { auditLogDefaultHandlers } from './handlers/audit-logs';
 import { authDefaultHandlers } from './handlers/auth';
 import { backupDefaultHandlers } from './handlers/backup';
+import { billingDefaultHandlers } from './handlers/billing';
 import { classDefaultHandlers } from './handlers/classes';
 import { communicationDefaultHandlers } from './handlers/communications';
 import { enrollmentDefaultHandlers } from './handlers/enrollments';
@@ -58,6 +59,7 @@ import { userDefaultHandlers } from './handlers/users';
 export const handlers: readonly HttpHandler[] = [
   ...authDefaultHandlers,
   ...backupDefaultHandlers,
+  ...billingDefaultHandlers,
   ...academicYearDefaultHandlers,
   ...classDefaultHandlers,
   ...enrollmentDefaultHandlers,

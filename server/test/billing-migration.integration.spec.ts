@@ -3,6 +3,7 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { School } from '../src/modules/schools/entities/school.entity';
 import { Billing1791900000350 } from '../src/migrations/1791900000350-Billing';
+import { SeatOrderReceiptNumber1791900000400 } from '../src/migrations/1791900000400-SeatOrderReceiptNumber';
 import { assertProductionConfig, billingFreeUntil } from '../src/config/env.validation';
 
 /**
@@ -64,6 +65,9 @@ describe('Billing1791900000350 (integration)', () => {
     expect(await tableNames()).toEqual([]);
     await migration.up(queryRunner);
     expect(await tableNames()).toEqual(['platform_payments', 'seat_orders']);
+    // down() dropped what later migrations added to these tables; put it back so later spec
+    // files on this worker still see receipt_number (#1822).
+    await new SeatOrderReceiptNumber1791900000400().up(queryRunner);
   });
 
   it('rejects seats < 1, months outside 1-24 and amounts over MONEY_MAX (in paisa)', async () => {

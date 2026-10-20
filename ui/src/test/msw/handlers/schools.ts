@@ -272,6 +272,22 @@ const getStats = http.get('/api/v1/schools/:id/stats', () =>
   }),
 );
 
+// Epic 49 W4: the Seats card on the platform school detail page.
+const getPlatformBilling = http.get('/api/v1/platform/billing/schools/:id', ({ params }) =>
+  HttpResponse.json({
+    id: params['id'],
+    name: 'School',
+    status: 'ACTIVE',
+    status_reason: null,
+    deleted: false,
+    seats_entitled: 0,
+    seats_used: 30,
+    paid_until: null,
+    pending_orders: 0,
+    orders: [],
+  }),
+);
+
 const listAdmins = http.get('/api/v1/schools/:id/admins', () =>
   HttpResponse.json(SCHOOL_ADMIN_FIXTURES),
 );
@@ -358,6 +374,7 @@ export const schoolsHandlers = {
   removeLogo,
   getLogo,
   getStats,
+  getPlatformBilling,
   listAdmins,
   addAdmin,
   resendAdminInvitation,
@@ -377,6 +394,7 @@ export const schoolsDefaultHandlers = [
   removeLogo,
   getLogo,
   getStats,
+  getPlatformBilling,
   listAdmins,
   addAdmin,
   resendAdminInvitation,
