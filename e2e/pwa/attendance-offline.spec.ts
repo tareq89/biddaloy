@@ -196,9 +196,14 @@ test.describe('attendance offline marking', () => {
       .toEqual([['attendance', 'pending']]);
 
     await teacherContext.setOffline(false);
+    // Polled on status + lastError, not length: a row parked as conflict/dead would
+    // otherwise fail as a bare "1 !== 0" with the reason hidden in IndexedDB.
     await expect
-      .poll(() => readQueueRows(page).then((rows) => rows.length), { timeout: 30_000 })
-      .toBe(0);
+      .poll(
+        () => readQueueRows(page).then((rows) => rows.map((r) => [r.status, r.lastError ?? null])),
+        { timeout: 30_000 },
+      )
+      .toEqual([]);
 
     const relogin = await request.post('/api/v1/auth/login', {
       data: { email: teacher.email, password: teacher.password },
