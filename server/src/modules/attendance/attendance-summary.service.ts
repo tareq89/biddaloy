@@ -21,7 +21,8 @@ import { sectionRosterStudentIds } from '../enrollments/section-roster';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { SchoolsService } from '../schools/schools.service';
-import { localToday, resolveAttendancePolicy } from './attendance-policy.util';
+import { localDate, localToday, resolveAttendancePolicy } from './attendance-policy.util';
+import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 
 /** Same UTC-epoch-day arithmetic as `school-calendar.service.ts` —
  * duplicated rather than imported for the same reason that file's own
@@ -194,7 +195,9 @@ export class AttendanceSummaryService {
     workingDays: string[];
     workingDaysCount: number;
   }> {
-    const policy = await this.getPolicy(tenantId);
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    const policy = resolveAttendancePolicy(settings);
+    const timezone = settings.region?.timezone ?? DEFAULT_REGION_SETTINGS.timezone;
     const summaries = new Map<string, AttendanceSummary>();
 
     // D25: working days depend on the student's class. One lookup, then one
@@ -238,7 +241,7 @@ export class AttendanceSummaryService {
         classId: groupClassId,
       });
       first ??= workingDays;
-      await this.summariseGroup(summaries, policy, tenantId, ids, from, to, workingDays);
+      await this.summariseGroup(summaries, policy, timezone, tenantId, ids, from, to, workingDays);
     }
     return { summaries, workingDays: first!.dates, workingDaysCount: first!.count };
   }
@@ -246,6 +249,7 @@ export class AttendanceSummaryService {
   private async summariseGroup(
     summaries: Map<string, AttendanceSummary>,
     policy: AttendancePolicySettings,
+    timezone: string,
     tenantId: string,
     studentIds: string[],
     from: string,
@@ -302,17 +306,18 @@ export class AttendanceSummaryService {
     // [2658] Days before the student's first enrolment are not theirs to miss.
     // The start is the earlier of the enrolment date and their first record, so
     // history marked before an import-time enrolled_at still counts.
-    // ponytail: enrolment date is the UTC day; per-school timezone if it matters.
-    const enrolRows: Array<{ student_id: string; first_enrolled: string }> =
+    const enrolRows: Array<{ student_id: string; first_enrolled_at: Date }> =
       await this.studentRepo.manager
         .createQueryBuilder(Enrollment, 'e')
         .select('e.student_id', 'student_id')
-        .addSelect(`to_char(MIN(e.enrolled_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD')`, 'first_enrolled')
+        .addSelect('MIN(e.enrolled_at)', 'first_enrolled_at')
         .where('e.tenant_id = :tenantId', { tenantId })
         .andWhere('e.student_id IN (:...studentIds)', { studentIds })
         .groupBy('e.student_id')
         .getRawMany();
-    const enrolledOn = new Map(enrolRows.map((r) => [r.student_id, r.first_enrolled]));
+    const enrolledOn = new Map(
+      enrolRows.map((r) => [r.student_id, localDate(new Date(r.first_enrolled_at), timezone)]),
+    );
     const firstMarked = new Map(markedRows.map((r) => [r.student_id, r.first_marked]));
 
     const countsByStudent = new Map<string, StatusCounts>();

@@ -52,11 +52,11 @@ const dispatchInvitations = http.post('/api/v1/users/invitations/batch', () =>
 );
 
 const getBatchStatusProgressing = http.get('/api/v1/users/invitations/batch/:id', ({ params }) =>
-  HttpResponse.json({ batch_id: params.id, total: 2, sent: 1, failed: 0, queued: 1 }),
+  HttpResponse.json({ batch_id: params.id, total: 2, sent: 1, failed: 0, queued: 1, skipped: 0 }),
 );
 
 const getBatchStatusDone = http.get('/api/v1/users/invitations/batch/:id', ({ params }) =>
-  HttpResponse.json({ batch_id: params.id, total: 2, sent: 2, failed: 0, queued: 0 }),
+  HttpResponse.json({ batch_id: params.id, total: 2, sent: 2, failed: 0, queued: 0, skipped: 0 }),
 );
 
 export const invitationHandlers = {

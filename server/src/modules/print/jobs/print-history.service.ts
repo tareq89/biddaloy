@@ -148,7 +148,7 @@ export class PrintHistoryService {
            JOIN classes c ON c.id = cs.class_id AND c.tenant_id = $1
           CROSS JOIN LATERAL (
                 SELECT coalesce(
-                  (SELECT to_char(min(e0.enrolled_at), 'YYYY-MM-DD') FROM enrollments e0
+                  (SELECT to_char(min(e0.enrolled_at AT TIME ZONE 'Asia/Dhaka'), 'YYYY-MM-DD') FROM enrollments e0
                     WHERE e0.student_id = s.id AND e0.tenant_id = s.tenant_id),
                   to_char(s.created_at AT TIME ZONE 'Asia/Dhaka', 'YYYY-MM-DD')) AS admitted_on) a
           WHERE ${ID_CARD_WAITING}

@@ -228,6 +228,15 @@ describe('print history (integration)', () => {
     expect((await history.list(admin(), { to: '2026-10-07T12:00:00Z' } as any)).total).toBe(1);
   });
 
+  it('ID-card waiting list admitted_on is the Dhaka day of enrolled_at', async () => {
+    await ds.query(`UPDATE enrollments SET enrolled_at = $1 WHERE student_id = $2`, [
+      new Date('2026-09-02T18:30:00Z'),
+      studentA,
+    ]);
+    const { data } = await history.idCardQueue(tenantId, {});
+    expect(data.find((r: any) => r.student_id === studentA)?.admitted_on).toBe('2026-09-03');
+  });
+
   it('a subject history is limited to that subject', async () => {
     await create();
     const rows = await history.subjectHistory(admin(), 'STUDENT', studentA);

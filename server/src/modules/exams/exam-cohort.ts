@@ -4,13 +4,12 @@ import { Exam } from './entities/exam.entity';
 import { ExamSchedule } from './entities/exam-schedule.entity';
 import { Mark } from './entities/mark.entity';
 import { Result } from './entities/result.entity';
+import { localDate } from '../../common/time';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { AcademicTerm } from '../calendar/entities/academic-term.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Latest sitting date (YYYY-MM-DD) of the exam: its newest live schedule
  * row, else the linked term's end date, else null. */
@@ -59,13 +58,9 @@ export async function effectiveSittingDate(
   return row?.first_mark_at ? new Date(row.first_mark_at).toISOString().slice(0, 10) : null;
 }
 
-/** True when the enrollment started after the last sitting. Whole-day
- * comparison in UTC; a few hours of time-zone slop only ever keeps a
- * student in, never drops one. */
+/** True when the enrollment started on a school-local day after the last sitting. */
 export function joinedAfterExam(enrolledAt: Date, lastSitting: string | null): boolean {
-  if (!lastSitting) return false;
-  const nextDay = new Date(`${lastSitting}T00:00:00Z`).getTime() + DAY_MS;
-  return enrolledAt.getTime() >= nextDay;
+  return lastSitting !== null && localDate(enrolledAt) > lastSitting;
 }
 
 /** One student of the exam's cohort and the section they sat it in. */

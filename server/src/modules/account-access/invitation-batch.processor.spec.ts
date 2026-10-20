@@ -35,6 +35,7 @@ describe('InvitationBatchProcessor', () => {
   let authTokens: any;
   let invitationService: any;
   let tenantStatus: any;
+  let audit: any;
   let processor: InvitationBatchProcessor;
 
   const TENANT = 'tenant-1';
@@ -67,6 +68,7 @@ describe('InvitationBatchProcessor', () => {
       isActive: vi.fn().mockResolvedValue(true),
     };
 
+    audit = { record: vi.fn().mockResolvedValue(undefined) };
     processor = new InvitationBatchProcessor(
       guardianRepo,
       userRepo,
@@ -75,7 +77,28 @@ describe('InvitationBatchProcessor', () => {
       authTokens,
       invitationService,
       tenantStatus,
+      audit,
     );
+  });
+
+  describe('onFailed', () => {
+    const failedJob = (attemptsMade: number) =>
+      ({ ...job(), attemptsMade, opts: { attempts: 3 } }) as unknown as Job<InvitationBatchJobData>;
+
+    it('records an error skip on the final attempt', async () => {
+      await processor.onFailed(failedJob(3), new Error('boom'));
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entity_type: 'InvitationBatch',
+          new_values: { batch_id: BATCH, guardian_id: 'g1', skipped: 'error' },
+        }),
+      );
+    });
+
+    it('records nothing on a non-final attempt', async () => {
+      await processor.onFailed(failedJob(2), new Error('boom'));
+      expect(audit.record).not.toHaveBeenCalled();
+    });
   });
 
   // [68.1.fix] A restore rewrites users/guardians/user_tenants: writing now would be lost.

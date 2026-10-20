@@ -35,6 +35,8 @@ export interface InvitationBatchJobData {
   guardianId: string;
   actorUserId: string;
   batchId: string;
+  /** False for join-request entries: left out of the batch total, so never counted as skips. */
+  counted?: boolean;
 }
 
 /**
@@ -252,6 +254,7 @@ export class GuardianProvisioningService {
           guardianId: entry.guardian_id,
           actorUserId: input.actorUserId,
           batchId,
+          counted: !entry.join_request,
         },
         {
           attempts: 3,
@@ -282,10 +285,21 @@ export class GuardianProvisioningService {
       .createQueryBuilder('a')
       .where('a.tenant_id = :tenantId', { tenantId })
       .andWhere('a.entity_type = :entityType', { entityType: 'InvitationBatch' })
+      .andWhere('a.action = :sent', { sent: AuditAction.INVITATION_SENT })
       .andWhere("a.new_values->>'batch_id' = :batchId", { batchId })
       .getOne();
 
     const total = (auditRow?.new_values?.queued as number | undefined) ?? 0;
+
+    const skipRow = await this.auditLogRepo
+      .createQueryBuilder('a')
+      .select("COUNT(DISTINCT a.new_values->>'guardian_id')", 'count')
+      .where('a.tenant_id = :tenantId', { tenantId })
+      .andWhere('a.entity_type = :entityType', { entityType: 'InvitationBatch' })
+      .andWhere('a.action = :update', { update: AuditAction.UPDATE })
+      .andWhere("a.new_values->>'batch_id' = :batchId", { batchId })
+      .getRawOne<{ count: string }>();
+    const skipped = Number(skipRow?.count ?? 0);
 
     const rows = await this.logRepo
       .createQueryBuilder('log')
@@ -299,8 +313,8 @@ export class GuardianProvisioningService {
     const byStatus = new Map(rows.map((r) => [r.status, Number(r.count)]));
     const sent = byStatus.get(CommunicationStatus.SENT) ?? 0;
     const failed = byStatus.get(CommunicationStatus.FAILED) ?? 0;
-    const queued = Math.max(total - sent - failed, 0);
+    const queued = Math.max(total - sent - failed - skipped, 0);
 
-    return { batch_id: batchId, total, sent, failed, queued };
+    return { batch_id: batchId, total, sent, failed, queued, skipped };
   }
 }

@@ -62,6 +62,7 @@ export interface InviteBatchStatus {
   sent: number;
   failed: number;
   queued: number;
+  skipped: number;
 }
 
 const invitationBatchKeys = createEntityKeys<never, string>('invitation-batches');
