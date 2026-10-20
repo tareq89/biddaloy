@@ -1,0 +1,32 @@
+---
+import Base from '../../layouts/Base.astro';
+import TestimonialGrid from '../../components/TestimonialGrid.astro';
+import { testimonialsNoindex } from '../../content/testimonials';
+import { LANGS, type Lang } from '../../i18n';
+export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang } }));
+const lang = Astro.params.lang as Lang;
+const bn = lang === 'bn';
+const noindex = testimonialsNoindex();
+const title = 'Testimonials';
+const description = bn ? 'যারা SchoolManager ব্যবহার করছেন, তাদের কথা।' : 'What the schools using SchoolManager say.';
+---
+<Base lang={lang} title={title} description={description}>
+  {noindex && <script is:inline data-noindex>
+    /* ponytail: Base.astro has no head slot; follow-up adds a `noindex` prop there and drops this. */
+    var m = document.createElement('meta'); m.name = 'robots'; m.content = 'noindex'; document.head.appendChild(m);
+  </script>}
+  <section><div class="wrap">
+    <p class="eyebrow">{title}</p>
+    <h1 class="h2">{bn ? 'যারা SchoolManager ব্যবহার করছেন' : 'Schools already using SchoolManager'}</h1>
+    <p class="lead">{bn ? 'প্রতিটা উক্তি আসল মানুষের, নাম ও স্কুল সহ।' : 'Every quote is from a real person, with name and school.'}</p>
+    <TestimonialGrid lang={lang} />
+    {noindex && <span class="flagnote">{bn ? '৩টা আসল testimonial না আসা পর্যন্ত পাতা unlinked + noindex।' : 'Unlinked and noindex until three real testimonials exist.'}</span>}
+  </div></section>
+</Base>
+<style>
+  section{padding-block:4rem}
+  .eyebrow{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:.6rem}
+  .h2{font-size:clamp(1.6rem,3.2vw,2.4rem);margin-bottom:.6rem}
+  .lead{color:var(--muted);max-width:62ch;font-size:1.05rem}
+  .flagnote{font-size:.8rem;color:var(--muted);border:1px dashed var(--line);border-radius:6px;padding:.5rem .7rem;display:inline-block;margin-top:.8rem}
+</style>

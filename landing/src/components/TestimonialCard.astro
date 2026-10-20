@@ -1,0 +1,14 @@
+---
+import type { Testimonial } from '../content/testimonials';
+import type { Lang } from '../i18n';
+const { t, lang } = Astro.props as { t: Testimonial; lang: Lang };
+---
+<div class="card">
+  <p class="quote">“{t.quote[lang]}”</p>
+  <p class="who">{t.name[lang]} · {t.role[lang]} · {t.school[lang]} · {t.district[lang]}</p>
+</div>
+<style>
+  .card{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:1.2rem;min-width:0}
+  .quote{font-size:1.05rem;margin-bottom:.8rem}
+  .who{font-size:.85rem;color:var(--muted)}
+</style>
