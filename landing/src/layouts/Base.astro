@@ -7,6 +7,7 @@ import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import ConsentBar from '../components/ConsentBar.astro';
 import Analytics from '../components/Analytics.astro';
+import ChatFacade from '../components/ChatFacade.astro';
 
 interface Props { lang: Lang; title?: string; description?: string; noindex?: boolean }
 const { lang, title, description, noindex } = Astro.props;
@@ -49,5 +50,7 @@ const desc = description ?? t('site.description');
     <main id="main"><slot /></main>
     <Footer lang={lang} />
     <ConsentBar lang={lang} />
+    <ChatFacade lang={lang} />
+    <script>import '../scripts/events';</script>
   </body>
 </html>
