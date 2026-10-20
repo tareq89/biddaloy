@@ -1,0 +1,42 @@
+---
+import type { Lang } from '../../i18n';
+import type { Segment } from '../../content/segments';
+interface Props { lang: Lang; seg: Segment }
+const { lang, seg } = Astro.props;
+const bn = lang === 'bn';
+---
+<section class="soft">
+  <div class="wrap">
+    <p class="eyebrow">{bn ? 'যা পাবেন' : 'What you get'}</p>
+    <h2 class="h2">{bn ? 'প্রথম দিন থেকে কাজে লাগে' : 'Useful from day one'}</h2>
+    <div class="grid g3">
+      {seg.features.map((f) => (
+        <div class="card"><h3>{f.title[lang]}</h3><p>{f.body[lang]}</p></div>
+      ))}
+    </div>
+  </div>
+</section>
+<section>
+  <div class="wrap">
+    <h2 class="h2">{bn ? 'দেখতে কেমন' : 'What it looks like'}</h2>
+    <div class="grid g2">
+      {seg.shots.map((id) => (
+        <div class="shot" data-shot={id} role="img" aria-label={bn ? 'স্ক্রিনশট শিগগিরই' : 'Screenshot coming soon'}><span>{bn ? 'স্ক্রিনশট শিগগিরই' : 'Screenshot coming soon'}</span></div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  /* from docs/architecture/assets/landing-mockup/landing-mockup-v5.html */
+  section{padding-block:4rem}section.soft{background:var(--surface)}
+  .eyebrow{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:.6rem}
+  .h2{font-size:clamp(1.6rem,3.2vw,2.4rem);margin-bottom:.6rem}
+  .grid{display:grid;gap:1rem;margin-top:1.2rem}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr))}
+  .card{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:1.2rem;min-width:0}
+  .card h3{font-size:1.05rem;margin-bottom:.35rem}.card p{color:var(--muted);font-size:.95rem}
+  .shot{background:var(--shot);border:1px dashed var(--shot-ink);border-radius:10px;color:var(--shot-ink);display:grid;place-items:center;text-align:center;font-size:.85rem;padding:1rem;aspect-ratio:16/9;max-width:100%}
+  .shot b{display:block;font-size:.95rem;color:var(--fg)}
+</style>
