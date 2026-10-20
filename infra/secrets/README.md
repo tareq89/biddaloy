@@ -14,6 +14,7 @@ flowchart LR
 | File                                         | What                                          |
 | -------------------------------------------- | --------------------------------------------- |
 | `prod.enc.env`, `demo.enc.env`, `staging.enc.env` | The env for each stack                   |
+| `ops.enc.env`                                | Ops stack: `OPS_DOMAIN`, `BESZEL_KEY` (`sops infra/secrets/ops.enc.env`) |
 | `origin-ca.enc.pem`, `origin-ca-key.enc.pem` | Cloudflare Origin CA cert and key (D21)       |
 | `*.example.env`                              | Plaintext key lists, empty values, committed  |
 
