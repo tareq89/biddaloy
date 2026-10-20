@@ -28,7 +28,7 @@ describe('BrandMark', () => {
     await screen.findByRole('img', { name: 'SchoolManager' });
     const path = container.querySelector('path');
     expect(path?.getAttribute('fill')).toBeNull();
-    expect(path?.getAttribute('class')).toContain('dark:fill-[#f5f5f4]');
+    expect(path?.getAttribute('class')).toContain('fill-[color:var(--brand-mark-ink)]');
   });
 
   it('monogram is named, and hidden from AT when decorative', async () => {

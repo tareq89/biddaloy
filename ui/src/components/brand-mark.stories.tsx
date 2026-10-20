@@ -17,7 +17,7 @@ export const WordmarkDark: Story = {
   args: { variant: 'dark' },
   decorators: [
     (Story) => (
-      <div className="bg-[#191919] p-4">
+      <div className="p-4" style={{ background: '#191919' }}>
         <Story />
       </div>
     ),
@@ -27,7 +27,7 @@ export const WordmarkMono: Story = { args: { variant: 'mono' } };
 export const MonogramLight: Story = { render: () => <Monogram /> };
 export const MonogramDark: Story = {
   render: () => (
-    <div className="bg-[#191919] p-4">
+    <div className="p-4" style={{ background: '#191919' }}>
       <Monogram variant="dark" />
     </div>
   ),

@@ -23,14 +23,14 @@ const COLOURS: Record<Exclude<BrandMarkVariant, 'auto'>, [string, string, string
   mono: ['currentColor', 'currentColor', 'currentColor'],
 };
 
-// Static class strings so Tailwind sees them. `dark:` is the app's data-theme variant.
+// Static class strings so Tailwind sees them. Colours come from --brand-mark-* (light/dark set in globals.css).
 const AUTO = {
-  text: 'fill-[#191919] dark:fill-[#f5f5f4]',
-  accent: 'fill-[#4a3fd4] dark:fill-[#9aa0f5]',
-  erp: 'fill-[#3a30b0] dark:fill-[#9aa0f5]',
-  erpStroke: 'stroke-[#3a30b0] dark:stroke-[#9aa0f5]',
-  tile: 'fill-[#4a3fd4] dark:fill-[#9aa0f5]',
-  glyph: 'fill-white dark:fill-[#191919]',
+  text: 'fill-[color:var(--brand-mark-ink)]',
+  accent: 'fill-[color:var(--brand-mark-accent)]',
+  erp: 'fill-[color:var(--brand-mark-erp)]',
+  erpStroke: 'stroke-[color:var(--brand-mark-erp)]',
+  tile: 'fill-[color:var(--brand-mark-accent)]',
+  glyph: 'fill-[color:var(--brand-mark-glyph)]',
 };
 
 interface BrandMarkProps extends Omit<SVGProps<SVGSVGElement>, 'viewBox' | 'role' | 'aria-label'> {

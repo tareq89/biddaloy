@@ -33,6 +33,8 @@ const { lang } = Astro.props as { lang: Lang };
   .keep{white-space:nowrap}
   .rot{display:inline-grid;text-align:left;vertical-align:bottom;position:relative}
   .rot span{grid-area:1/1;opacity:0;transform:translateY(.4em);transition:opacity .45s,transform .45s;white-space:nowrap;color:var(--hue-ink)}
+  /* Narrow screens: let a long phrase wrap instead of forcing the page wider (390 px + wide fallback font). */
+  @media (max-width:480px){.keep{white-space:normal}.rot{max-width:100%}.rot span{white-space:normal}}
   @media (prefers-reduced-motion:reduce){.rot span{transition:none}}
   .rot span.on{opacity:1;transform:none}
   .hero .sub{font-size:clamp(1.02rem,1.5vw,1.2rem);color:var(--muted);max-width:60ch;margin:0 auto 1.6rem}
