@@ -3,6 +3,7 @@ import { StaffDocumentType } from '@biddaloy/shared';
 import { StaffDocument } from '../../../staff-hr/entities/staff-document.entity';
 import { fromCell } from '../../codec/cell-format';
 import { ownStorageKey } from '../../codec/storage-key-scope';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import type {
   ColumnSpec,
   ExportContext,
@@ -10,7 +11,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
-import { usersTab } from './users.tab';
+import { memberKeysById, usersTab } from './users.tab';
 
 /**
  * The `staff_documents` tab (23.7): one uploaded HR document per staff
@@ -28,7 +29,8 @@ import { usersTab } from './users.tab';
  */
 export interface StaffDocumentRow {
   id: string;
-  staff_user_id: string;
+  /** Null when the cell is blank (the member left); the stored staff member is kept. */
+  staff_user_id: string | null;
   document_type: StaffDocumentType;
   storage_key: string;
   original_filename: string;
@@ -38,7 +40,13 @@ export interface StaffDocumentRow {
 
 const columns: readonly ColumnSpec[] = [
   { key: 'id', type: 'uuid', required: true, label: { en: 'ID', bn: 'আইডি' } },
-  { key: 'staff', type: 'ref', ref: 'users', required: true, label: { en: 'Staff', bn: 'কর্মী' } },
+  {
+    key: 'staff',
+    type: 'ref',
+    ref: 'users',
+    requiredOnNewRow: true,
+    label: { en: 'Staff', bn: 'কর্মী' },
+  },
   {
     key: 'document_type',
     type: 'enum',
@@ -80,17 +88,25 @@ export const staffDocumentTab: TabSpec<StaffDocument, StaffDocumentRow> = {
   naturalKey: ['staff', 'document_type'],
   deleteByAbsence: true,
 
-  load(tenantId: string, m: EntityManager): Promise<StaffDocument[]> {
-    return m.find(StaffDocument, {
+  async load(tenantId: string, m: EntityManager): Promise<StaffDocument[]> {
+    const rows = await m.find(StaffDocument, {
       where: { tenant_id: tenantId },
       relations: ['staff_user'],
     });
+    // A staff member who has left exports as a blank cell, so key them as blank too.
+    const members = await memberKeysById(
+      tenantId,
+      rows.map((r) => r.staff_user_id),
+      m,
+    );
+    for (const r of rows) if (!members.has(r.staff_user_id)) r.staff_user = undefined as never;
+    return rows;
   },
 
   toRow(entity: StaffDocument, ctx: ExportContext): Record<string, unknown> {
     return {
       id: entity.id,
-      staff: ctx.keyOf('users', entity.staff_user_id),
+      staff: optionalKeyOf(ctx, 'users', entity.staff_user_id),
       document_type: entity.document_type,
       storage_key: entity.storage_key,
       original_filename: entity.original_filename,
@@ -119,8 +135,8 @@ export const staffDocumentTab: TabSpec<StaffDocument, StaffDocumentRow> = {
     if (errors.length > 0) return { errors };
 
     const staffKey = values.staff as string;
-    const staffUserId = ctx.ref('users', staffKey);
-    if (!staffUserId) {
+    const staffUserId = staffKey ? ctx.ref('users', staffKey) : undefined;
+    if (staffKey && !staffUserId) {
       errors.push({
         tab: 'staff_documents',
         row: rowNo,
@@ -150,7 +166,7 @@ export const staffDocumentTab: TabSpec<StaffDocument, StaffDocumentRow> = {
     return {
       row: {
         id: values.id as string,
-        staff_user_id: staffUserId as string,
+        staff_user_id: staffUserId ?? null,
         document_type: values.document_type as StaffDocumentType,
         storage_key: owned.key,
         original_filename: values.original_filename as string,
@@ -163,7 +179,8 @@ export const staffDocumentTab: TabSpec<StaffDocument, StaffDocumentRow> = {
   keyOf(x: StaffDocumentRow | StaffDocument): string {
     const staffKey =
       x instanceof StaffDocument ? (x.staff_user ? usersTab.keyOf(x.staff_user) : '') : x.staff_key;
-    return `${staffKey}|${x.document_type}`;
+    // A departed staff member is blank; key by the row id so two of them stay two rows.
+    return `${staffKey || `#${x.id}`}|${x.document_type}`;
   },
 
   diffFields(row: StaffDocumentRow, existing: StaffDocument): string[] {
@@ -181,8 +198,11 @@ export const staffDocumentTab: TabSpec<StaffDocument, StaffDocumentRow> = {
     m: EntityManager,
   ): Promise<StaffDocument> {
     const doc = existing ?? new StaffDocument();
+    // NOT NULL: a blank cell (a departed member) never clears the stored staff member.
+    const staffUserId = row.staff_user_id ?? doc.staff_user_id;
+    if (!staffUserId) throw new Error('Staff document needs a staff member.');
     doc.tenant_id = tenantId;
-    doc.staff_user_id = row.staff_user_id;
+    doc.staff_user_id = staffUserId;
     doc.document_type = row.document_type;
     doc.storage_key = row.storage_key;
     doc.original_filename = row.original_filename;

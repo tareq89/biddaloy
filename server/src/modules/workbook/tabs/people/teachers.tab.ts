@@ -2,6 +2,7 @@ import type { EntityManager } from 'typeorm';
 import { TeacherDesignation } from '@biddaloy/shared';
 import { Teacher } from '../../../academics/entities/teacher.entity';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import type {
   ColumnSpec,
   ExportContext,
@@ -25,7 +26,8 @@ import type {
  */
 export interface TeacherRow {
   id: string;
-  user_id: string;
+  /** Null when the cell is blank (the member left); the stored login is kept. */
+  user_id: string | null;
   employee_id: string;
   designations: TeacherDesignation[];
   subject_specialization: string | null;
@@ -45,7 +47,7 @@ const columns: readonly ColumnSpec[] = [
     key: 'user',
     type: 'ref',
     ref: 'users',
-    required: true,
+    requiredOnNewRow: true,
     label: { en: 'User', bn: 'ব্যবহারকারী' },
   },
   {
@@ -114,7 +116,7 @@ export const teachersTab: TabSpec<Teacher, TeacherRow> = {
   toRow(entity: Teacher, ctx: ExportContext): Record<string, unknown> {
     return {
       id: entity.id,
-      user: ctx.keyOf('users', entity.user_id),
+      user: optionalKeyOf(ctx, 'users', entity.user_id),
       employee_id: entity.employee_id,
       // Joined explicitly rather than via `toCell('string', ...)`, which
       // would `String(array)` into a comma-joined `"A,B"` instead of `;`.
@@ -205,7 +207,7 @@ export const teachersTab: TabSpec<Teacher, TeacherRow> = {
     return {
       row: {
         id: values.id as string,
-        user_id: userId as string,
+        user_id: userId ?? null,
         employee_id: values.employee_id as string,
         designations,
         subject_specialization: (values.subject_specialization as string | null) ?? null,
@@ -223,7 +225,7 @@ export const teachersTab: TabSpec<Teacher, TeacherRow> = {
 
   diffFields(row: TeacherRow, existing: Teacher): string[] {
     const changed: string[] = [];
-    if (row.user_id !== existing.user_id) changed.push('user_id');
+    if (row.user_id && row.user_id !== existing.user_id) changed.push('user_id');
     if (row.employee_id !== existing.employee_id) changed.push('employee_id');
     if (row.subject_specialization !== existing.subject_specialization) {
       changed.push('subject_specialization');
@@ -261,18 +263,22 @@ export const teachersTab: TabSpec<Teacher, TeacherRow> = {
       (await m.findOne(Teacher, { where })) ??
       (await m.findOne(Teacher, { where, withDeleted: true }));
 
+    // The login is NOT NULL, so a blank cell (a departed member) never clears it.
+    const userId = row.user_id ?? teacher?.user_id;
+    if (!userId) throw new Error(`Teacher "${row.employee_id}" needs a login.`);
+
     // `teachers (tenant_id, user_id)` is unique among LIVE rows too
     // (`UQ_teachers_tenant_user`, D11). The row's user may already hold a
     // different live teacher row here (its employee id edited after export),
     // and a soft-deleted match may carry this user beside a live twin. Either
     // way `m.save` would hit 23505 and abort the restore, so name it instead.
     // With no match by employee id, the user's own row is taken over.
-    if (teacher?.user_id !== row.user_id || teacher.deleted_at !== null) {
-      const byUser = { user_id: row.user_id, tenant_id: tenantId };
+    if (teacher?.user_id !== userId || teacher.deleted_at !== null) {
+      const byUser = { user_id: userId, tenant_id: tenantId };
       const live = await m.findOne(Teacher, { where: byUser });
       if (live && teacher && live.id !== teacher.id) {
         throw new Error(
-          `Teacher with user "${row.user_key || row.user_id}" already belongs to a different ` +
+          `Teacher with user "${row.user_key || userId}" already belongs to a different ` +
             `teacher record and cannot be reassigned by a restore.`,
         );
       }
@@ -286,7 +292,7 @@ export const teachersTab: TabSpec<Teacher, TeacherRow> = {
     }
 
     teacher.tenant_id = tenantId;
-    teacher.user_id = row.user_id;
+    teacher.user_id = userId;
     teacher.employee_id = row.employee_id;
     teacher.designations = row.designations;
     teacher.subject_specialization = row.subject_specialization;

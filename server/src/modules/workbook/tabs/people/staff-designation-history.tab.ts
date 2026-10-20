@@ -2,6 +2,7 @@ import type { EntityManager } from 'typeorm';
 import { StaffEmploymentStatus } from '@biddaloy/shared';
 import { StaffDesignationHistory } from '../../../staff-hr/entities/staff-designation-history.entity';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import type {
   ColumnSpec,
   ExportContext,
@@ -9,7 +10,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
-import { usersTab } from './users.tab';
+import { memberKeysById, usersTab } from './users.tab';
 import { designationTab } from './designation.tab';
 
 /**
@@ -24,7 +25,8 @@ import { designationTab } from './designation.tab';
  */
 export interface StaffDesignationHistoryRow {
   id: string;
-  staff_user_id: string;
+  /** Null when the cell is blank (the member left); the stored staff member is kept. */
+  staff_user_id: string | null;
   designation_id: string;
   effective_date: string;
   end_date: string | null;
@@ -36,7 +38,13 @@ export interface StaffDesignationHistoryRow {
 
 const columns: readonly ColumnSpec[] = [
   { key: 'id', type: 'uuid', required: true, label: { en: 'ID', bn: 'আইডি' } },
-  { key: 'staff', type: 'ref', ref: 'users', required: true, label: { en: 'Staff', bn: 'কর্মী' } },
+  {
+    key: 'staff',
+    type: 'ref',
+    ref: 'users',
+    requiredOnNewRow: true,
+    label: { en: 'Staff', bn: 'কর্মী' },
+  },
   {
     key: 'designation',
     type: 'ref',
@@ -67,7 +75,10 @@ const excluded: readonly string[] = [
   'resigned_at', // entity-only (23.1): set internally on RESIGNED, never external input
 ];
 
-export const staffDesignationHistoryTab: TabSpec<StaffDesignationHistory, StaffDesignationHistoryRow> = {
+export const staffDesignationHistoryTab: TabSpec<
+  StaffDesignationHistory,
+  StaffDesignationHistoryRow
+> = {
   name: 'staff_designation_history',
   entity: StaffDesignationHistory,
   excluded,
@@ -76,17 +87,25 @@ export const staffDesignationHistoryTab: TabSpec<StaffDesignationHistory, StaffD
   naturalKey: ['staff', 'designation', 'effective_date'],
   deleteByAbsence: true,
 
-  load(tenantId: string, m: EntityManager): Promise<StaffDesignationHistory[]> {
-    return m.find(StaffDesignationHistory, {
+  async load(tenantId: string, m: EntityManager): Promise<StaffDesignationHistory[]> {
+    const rows = await m.find(StaffDesignationHistory, {
       where: { tenant_id: tenantId },
       relations: ['user', 'designation'],
     });
+    // A staff member who has left exports as a blank cell, so key them as blank too.
+    const members = await memberKeysById(
+      tenantId,
+      rows.map((r) => r.user_id),
+      m,
+    );
+    for (const r of rows) if (!members.has(r.user_id)) r.user = undefined as never;
+    return rows;
   },
 
   toRow(entity: StaffDesignationHistory, ctx: ExportContext): Record<string, unknown> {
     return {
       id: entity.id,
-      staff: ctx.keyOf('users', entity.user_id),
+      staff: optionalKeyOf(ctx, 'users', entity.user_id),
       designation: ctx.keyOf('designations', entity.designation_id),
       effective_date: entity.effective_date,
       end_date: entity.end_date,
@@ -116,8 +135,8 @@ export const staffDesignationHistoryTab: TabSpec<StaffDesignationHistory, StaffD
     if (errors.length > 0) return { errors };
 
     const staffKey = values.staff as string;
-    const staffUserId = ctx.ref('users', staffKey);
-    if (!staffUserId) {
+    const staffUserId = staffKey ? ctx.ref('users', staffKey) : undefined;
+    if (staffKey && !staffUserId) {
       errors.push({
         tab: 'staff_designation_history',
         row: rowNo,
@@ -146,7 +165,7 @@ export const staffDesignationHistoryTab: TabSpec<StaffDesignationHistory, StaffD
     return {
       row: {
         id: values.id as string,
-        staff_user_id: staffUserId as string,
+        staff_user_id: staffUserId ?? null,
         designation_id: designationId as string,
         effective_date: values.effective_date as string,
         end_date: (values.end_date as string | null) ?? null,
@@ -162,9 +181,10 @@ export const staffDesignationHistoryTab: TabSpec<StaffDesignationHistory, StaffD
     if (x instanceof StaffDesignationHistory) {
       const staffKey = x.user ? usersTab.keyOf(x.user) : '';
       const designationKey = x.designation ? designationTab.keyOf(x.designation) : '';
-      return `${staffKey}|${designationKey}|${formatDateOnly(x.effective_date)}`;
+      return `${staffKey || `#${x.id}`}|${designationKey}|${formatDateOnly(x.effective_date)}`;
     }
-    return `${x.staff_key}|${x.designation_key}|${x.effective_date}`;
+    // A departed staff member is blank; key by the row id so two of them stay two rows.
+    return `${x.staff_key || `#${x.id}`}|${x.designation_key}|${x.effective_date}`;
   },
 
   diffFields(row: StaffDesignationHistoryRow, existing: StaffDesignationHistory): string[] {
@@ -184,8 +204,11 @@ export const staffDesignationHistoryTab: TabSpec<StaffDesignationHistory, StaffD
     m: EntityManager,
   ): Promise<StaffDesignationHistory> {
     const history = existing ?? new StaffDesignationHistory();
+    // NOT NULL: a blank cell (a departed member) never clears the stored staff member.
+    const staffUserId = row.staff_user_id ?? history.user_id;
+    if (!staffUserId) throw new Error('Designation history needs a staff member.');
     history.tenant_id = tenantId;
-    history.user_id = row.staff_user_id;
+    history.user_id = staffUserId;
     history.designation_id = row.designation_id;
     history.effective_date = row.effective_date as unknown as Date;
     history.end_date = row.end_date as unknown as Date | null;

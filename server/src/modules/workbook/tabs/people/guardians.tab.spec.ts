@@ -300,4 +300,19 @@ describe('diffFields', () => {
       'occupation',
     ]);
   });
+
+  // #2668: the export writes a blank login cell when the login's owner has left.
+  it('a blank login cell on a departed login is not a change', () => {
+    const e: any = makeGuardian({ user_id: 'u-1' });
+    e.user_key = '';
+    const row = { ...fromRowOrThrow(toCells(e)), user_id: null };
+    expect(guardiansTab.diffFields(row, e)).toEqual([]);
+  });
+
+  it('a blank login cell on a current login is a change (blank means clear)', () => {
+    const e: any = makeGuardian({ user_id: 'u-1' });
+    e.user_key = 'a@x';
+    const row = { ...fromRowOrThrow(toCells(e)), user_id: null };
+    expect(guardiansTab.diffFields(row, e)).toEqual(['user_id']);
+  });
 });
