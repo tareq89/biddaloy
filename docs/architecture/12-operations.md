@@ -3,6 +3,9 @@
 > Written for whoever's on call at 2 a.m. Each section is short on purpose —
 > if you need more detail than this, follow the link out to the code.
 
+> Operator steps (day 0, first deploy, releases, alerts, restore) live in
+> [28-platform-runbook.md](28-platform-runbook.md). This page keeps the thresholds and runbooks.
+
 ## 1. What is monitored
 
 Four tools, each watching something different. The ops tools run as a second
@@ -149,18 +152,23 @@ Known limits:
 
 Where each alert is set up. Kuma monitors and intervals: the table in [§1](#uptime-kuma-monitors).
 
-| Signal                               | Threshold                                       | Where to configure                                   |
-| ------------------------------------ | ----------------------------------------------- | ---------------------------------------------------- |
-| App down                             | `app-public` fails 3 times in a row (~3 min)    | Uptime Kuma monitor, Telegram + SMS                  |
-| Readiness failing (Postgres down)    | `app-internal-ready` fails for > 2 min          | Uptime Kuma monitor                                  |
-| Engine stale reported by readiness   | Covered by the attention cron check-in below    | Sentry Cron Monitor (readiness stays 200 when stale) |
-| Backup / drill / demo reset missed   | No push inside interval + grace                 | Uptime Kuma push monitors                            |
-| TLS certificate close to expiry      | < 14 days                                       | Uptime Kuma, built into HTTPS monitors               |
-| CPU, RAM, disk, container restarts   | Beszel defaults; tune after a week of real data | Beszel hub, Telegram                                 |
-| 5xx rate                             | > 1% of requests over 5 min                     | Sentry alert rule on the server project              |
-| `communications job stalled` message | any occurrence                                  | Sentry alert rule (issue alert, not metric)          |
-| Attention cron check-in missed       | > 15 min                                        | Sentry Cron Monitor (5-min schedule, 15-min margin)  |
-| Other cron check-ins                 | `SENTRY_CRON_MONITOR_URL`, `SENTRY_CRONS_URL`   | Sentry Cron Monitors                                 |
+| Signal                               | Threshold                                                                                          | Where to configure                                     |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| App down                             | `app-public` fails 3 times in a row (~3 min)                                                       | Uptime Kuma monitor, Telegram + SMS                    |
+| Readiness failing (Postgres down)    | `app-internal-ready` fails for > 2 min                                                             | Uptime Kuma monitor                                    |
+| Engine stale reported by readiness   | Covered by the attention cron check-in below                                                       | Sentry Cron Monitor (readiness stays 200 when stale)   |
+| Backup / drill / demo reset missed   | No push inside interval + grace                                                                    | Uptime Kuma push monitors                              |
+| TLS certificate close to expiry      | < 14 days                                                                                          | Uptime Kuma, built into HTTPS monitors                 |
+| CPU                                  | > 90% for 15 min                                                                                   | Beszel hub, system `biddaloy-prod`, Telegram           |
+| Memory                               | > 90% for 10 min                                                                                   | Beszel hub, Telegram                                   |
+| Disk                                 | > 80%, immediate                                                                                   | Beszel hub, Telegram                                   |
+| Host down                            | Immediate (Beszel "Status")                                                                        | Beszel hub, Telegram                                   |
+| Container down                       | Immediate, for `app`, `db`, `redis`, `seaweedfs`, `nginx`, `backup` (prod) and `biddaloy-demo-app` | Beszel hub, per container, Telegram                    |
+| Postgres connections                 | More than 80% of `max_connections=300`, i.e. count > 240                                           | Uptime Kuma Postgres monitor, read-only `monitor` role |
+| 5xx rate                             | > 1% of requests over 5 min                                                                        | Sentry alert rule on the server project                |
+| `communications job stalled` message | any occurrence                                                                                     | Sentry alert rule (issue alert, not metric)            |
+| Attention cron check-in missed       | > 15 min                                                                                           | Sentry Cron Monitor (5-min schedule, 15-min margin)    |
+| Other cron check-ins                 | `SENTRY_CRON_MONITOR_URL`, `SENTRY_CRONS_URL`                                                      | Sentry Cron Monitors                                   |
 
 ## 3. Runbooks
 

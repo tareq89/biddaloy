@@ -4,6 +4,9 @@ How SchoolManager's database gets backed up, how to restore it, and what to do
 about the parts a database restore doesn't cover (the object store,
 in-flight background jobs).
 
+> Operator steps (day 0, first deploy, releases, alerts, restore) live in
+> [28-platform-runbook.md](28-platform-runbook.md). This page keeps how backups work.
+
 ## The numbers
 
 |                                      |                                                                                                                                                          |

@@ -4,6 +4,9 @@
 > [`README.md`](../../README.md#docker-deployment) — this doc is just the
 > shape of it, for orientation.
 
+> Operator steps (day 0, first deploy, releases, alerts, restore) live in
+> [28-platform-runbook.md](28-platform-runbook.md). This page keeps the design.
+
 ## Docker Compose topology
 
 ```mermaid
