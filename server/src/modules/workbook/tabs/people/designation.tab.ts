@@ -23,7 +23,12 @@ export interface DesignationRow {
 
 const columns: readonly ColumnSpec[] = [
   { key: 'id', type: 'uuid', required: true, label: { en: 'ID', bn: 'আইডি' } },
-  { key: 'title_en', type: 'string', required: true, label: { en: 'Title (EN)', bn: 'পদবি (ইংরেজি)' } },
+  {
+    key: 'title_en',
+    type: 'string',
+    required: true,
+    label: { en: 'Title (EN)', bn: 'পদবি (ইংরেজি)' },
+  },
   { key: 'title_bn', type: 'string', label: { en: 'Title (BN)', bn: 'পদবি (বাংলা)' } },
   { key: 'is_teaching', type: 'bool', label: { en: 'Is teaching', bn: 'শিক্ষণ পদ' } },
 ];
