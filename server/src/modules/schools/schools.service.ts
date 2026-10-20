@@ -14,6 +14,7 @@ import type { TenantSettings, OrganisationSettings } from '@biddaloy/shared';
 import {
   AuditAction,
   CommunicationStatus,
+  IDLE_REASON,
   TRIAL_EXPIRED_REASON,
   UserStatus,
 } from '@biddaloy/shared';
@@ -33,7 +34,11 @@ import {
   VOCABULARY_LIST_NAMES,
   VocabularyListName,
 } from './settings/organisation-vocabulary.util';
-import { TENANT_STATUS_REDIS, TenantStatusService } from './tenant-status.service';
+import {
+  BILLING_SUSPENSION_REASONS,
+  TENANT_STATUS_REDIS,
+  TenantStatusService,
+} from './tenant-status.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -43,6 +48,9 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
 import { attentionEvents } from '../attention/attention.constants';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
+import { ReviveSchoolDto } from './dto/revive-school.dto';
+import { IDLE_REVIVE_WINDOW_DAYS } from '../billing/idle-account.constants';
+import { DAY_MS } from './trial/trial.constants';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
@@ -711,11 +719,11 @@ export class SchoolsService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<SchoolStatusResponse> {
-    // TRIAL_EXPIRED is a system code that opens the backup export (D16). Only the trial job may
+    // TRIAL_EXPIRED, SEATS_EXPIRED and IDLE are system codes that open the backup export (D16). Only the billing jobs may
     // write it, so typing it in here can never open that door (#2399).
-    if (dto.reason.trim().toUpperCase() === TRIAL_EXPIRED_REASON) {
+    if (BILLING_SUSPENSION_REASONS.includes(dto.reason.trim().toUpperCase())) {
       throw new BadRequestException({
-        message: `"${TRIAL_EXPIRED_REASON}" is reserved for the trial job; write the reason in words`,
+        message: 'That reason is a reserved billing code; write the reason in words',
         details: { code: 'RESERVED_STATUS_REASON' },
       });
     }
@@ -744,23 +752,6 @@ export class SchoolsService {
             status_changed_at: school.status_changed_at,
           },
         };
-      }
-
-      // A manual reactivate of a school whose trial already ended would be undone by the next
-      // daily trial job, so the trial must be extended first. Extend lifts only the trial's own
-      // suspension; a school suspended for another reason still needs this call afterwards.
-      if (
-        dto.status === 'ACTIVE' &&
-        school.trial_ends_at &&
-        school.trial_ends_at.getTime() <= now.getTime()
-      ) {
-        throw new ConflictException({
-          message:
-            school.status_reason === TRIAL_EXPIRED_REASON
-              ? "This school's trial has ended — extend the trial (PATCH /schools/:id/trial) to reactivate it"
-              : "This school's trial has ended — extend the trial (PATCH /schools/:id/trial) first, then reactivate it",
-          details: { code: 'TRIAL_EXPIRED' },
-        });
       }
 
       await schoolRepo.update(schoolId, {
@@ -799,6 +790,107 @@ export class SchoolsService {
       await this.tenantStatus.invalidate(schoolId);
     }
 
+    return response;
+  }
+
+  /**
+   * Platform SUPER_ADMIN revives a school the idle job paused or soft-deleted (Epic 49 D5), up to
+   * 90 days after the soft delete. Raw SQL because `repo.findOne` cannot see a soft-deleted row.
+   * Only an IDLE suspension is revived here; any other suspension goes through `updateStatus`.
+   * Setting `status_changed_at` restarts the idle clock, so the school is not re-suspended tonight.
+   */
+  async revive(
+    schoolId: string,
+    dto: ReviveSchoolDto,
+    userId: string,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<SchoolStatusResponse> {
+    const now = new Date();
+
+    const { response, changed } = await this.repo.manager.transaction(async (manager) => {
+      const [row]: {
+        status: 'ACTIVE' | 'SUSPENDED';
+        status_reason: string | null;
+        status_changed_at: Date | null;
+        deleted_at: Date | null;
+      }[] = await manager.query(
+        `SELECT status, status_reason, status_changed_at, deleted_at
+           FROM schools WHERE id = $1 FOR NO KEY UPDATE`,
+        [schoolId],
+      );
+      // Rule 23: the id is not echoed back.
+      if (!row) throw new NotFoundException('School not found');
+
+      if (row.status === 'ACTIVE' && !row.deleted_at) {
+        return {
+          changed: false,
+          response: {
+            id: schoolId,
+            status: row.status,
+            status_reason: row.status_reason,
+            status_changed_at: row.status_changed_at,
+          },
+        };
+      }
+      if (
+        row.deleted_at &&
+        new Date(row.deleted_at).getTime() < now.getTime() - IDLE_REVIVE_WINDOW_DAYS * DAY_MS
+      ) {
+        throw new ConflictException({
+          message: 'This school can no longer be revived',
+          details: { code: 'REVIVE_WINDOW_PASSED' },
+        });
+      }
+      if (row.status_reason !== IDLE_REASON) {
+        throw new ConflictException({
+          message: 'Only a school paused for having no students can be revived',
+          details: { code: 'NOT_IDLE' },
+        });
+      }
+
+      await manager.query(
+        `UPDATE schools
+            SET status = 'ACTIVE', status_reason = NULL, status_changed_at = $2, deleted_at = NULL
+          WHERE id = $1`,
+        [schoolId, now],
+      );
+      await this.auditService.record(
+        {
+          action: AuditAction.REACTIVATE,
+          entity_type: 'School',
+          entity_id: schoolId,
+          tenant_id: schoolId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: {
+            status: row.status,
+            reason: row.status_reason,
+            deleted_at: row.deleted_at,
+          },
+          new_values: { status: 'ACTIVE', reason: dto.reason, event: 'IDLE_REVIVED' },
+        },
+        manager,
+      );
+      return {
+        changed: true,
+        response: {
+          id: schoolId,
+          status: 'ACTIVE' as const,
+          status_reason: null,
+          status_changed_at: now,
+        },
+      };
+    });
+
+    if (changed) {
+      await this.tenantStatus.invalidate(schoolId);
+      emitRecheck(attentionEvents, {
+        tenantId: schoolId,
+        ruleKey: 'account.idle',
+        actorUserId: userId,
+      });
+    }
     return response;
   }
 }

@@ -1228,6 +1228,16 @@ export async function endTrial(schoolId: string): Promise<void> {
   );
 }
 
+/** New schools have no seat limit during the free period (Epic 49), so a limit test sets one.
+ * ponytail: raw SQL via the server's `pg`; swap for a platform grant once the e2e has one. */
+export async function setSeatLimit(schoolId: string, limit: number): Promise<void> {
+  await runSqlOnOneRow(
+    `UPDATE schools SET seat_limit = $2 WHERE id = $1`,
+    [schoolId, limit],
+    `setSeatLimit: school ${schoolId}`,
+  );
+}
+
 /** Runs one raw SQL statement on the e2e database and returns its row count.
  * ponytail: raw SQL via the server's `pg`; swap for an endpoint if one appears. */
 async function runSql(sql: string, params: unknown[] = []): Promise<number | null> {
@@ -1639,8 +1649,9 @@ export async function setTrialEndsInDays(schoolId: string, days: number): Promis
   );
 }
 
-/** `PATCH /schools/:id/trial` as the platform super admin. It also triggers the
- * `trial.ending` recheck (about 5 s later), so a spec can raise or resolve that alert.
+/** `PATCH /schools/:id/trial` as the platform super admin. Since Epic 49 this grants seats
+ * (`seat_limit` is required) and still asks for a `trial.ending` recheck (about 5 s later),
+ * so a spec can raise or resolve that alert after setting `trial_ends_at` directly.
  * `request` must be its own context: the super-admin login would replace the cookie
  * jar of a context that holds a school admin's session. */
 export async function extendTrial(
@@ -1651,6 +1662,7 @@ export async function extendTrial(
 ): Promise<void> {
   await patch(request, await superAdminApiSession(request), `/schools/${schoolId}/trial`, {
     days,
+    seat_limit: 25,
     reason,
   });
 }

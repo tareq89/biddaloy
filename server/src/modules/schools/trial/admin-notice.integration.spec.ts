@@ -69,7 +69,7 @@ describe('AdminNoticeService (integration)', () => {
     await member(a, UserRole.TEACHER, UserStatus.ACTIVE, 'teacher');
     await member(b, UserRole.ADMIN, UserStatus.ACTIVE, 'other-tenant-admin');
 
-    await svc.notifyAdmins(a, 'trial_ended');
+    await svc.notifyAdmins(a, 'welcome');
 
     expect(send).toHaveBeenCalledTimes(1);
     const [params, tenantId] = send.mock.calls[0];
@@ -78,7 +78,7 @@ describe('AdminNoticeService (integration)', () => {
     // The notice is the platform talking to the school's admins, so it may use the platform SMS
     // keys even when the school has no gateway of its own (#2233 would otherwise refuse it).
     expect(params.allowPlatformSms).toBe(true);
-    expect(params.body).toContain('ট্রায়াল'); // bn template
+    expect(params.body).toContain('স্বাগতম'); // bn template
     const logs = await ds.query(
       `SELECT recipient_address, status, tenant_id FROM communication_logs WHERE tenant_id = $1`,
       [a],

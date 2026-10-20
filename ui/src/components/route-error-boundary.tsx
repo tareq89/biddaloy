@@ -138,10 +138,10 @@ function classifyRouteError(error: unknown): RouteErrorKind {
   }
 
   if (isTenantSuspendedError(error)) {
-    // The 403 carries `details.reason` only when the trial ran out.
-    return (error as { details?: { reason?: unknown } }).details?.reason === 'TRIAL_EXPIRED'
-      ? 'trial-ended'
-      : 'suspended';
+    // The 403 carries `details.reason` for billing suspensions. TRIAL_EXPIRED and IDLE get the
+    // data-export page; SEATS_EXPIRED is handled by #1824.
+    const reason = (error as { details?: { reason?: unknown } }).details?.reason;
+    return reason === 'TRIAL_EXPIRED' || reason === 'IDLE' ? 'trial-ended' : 'suspended';
   }
 
   const message = error instanceof Error ? error.message : '';
@@ -255,6 +255,7 @@ export function RouteErrorFallback({
   if (kind === 'trial-ended') {
     return (
       <TrialEndedState
+        idle={(error as { details?: { reason?: unknown } }).details?.reason === 'IDLE'}
         onRetry={reset}
         retryLabel={retryLabel}
         onHome={onHome}
@@ -348,12 +349,15 @@ function TrialExportAction() {
  * alone, and never wait on two more chunks when the network is the problem.
  */
 function TrialEndedState({
+  idle,
   onRetry,
   retryLabel,
   onHome,
   homeLabel,
   supportUrl,
 }: {
+  /** True when the school was paused for having no students (reason IDLE). */
+  idle: boolean;
   onRetry: () => void;
   retryLabel: string;
   onHome: () => void;
@@ -383,8 +387,8 @@ function TrialEndedState({
   return (
     <div className="flex flex-col items-center gap-2">
       <RouteStatusState
-        title={tTrial('ended.title')}
-        explanation={tTrial('ended.body')}
+        title={tTrial(idle ? 'idle.title' : 'ended.title')}
+        explanation={tTrial(idle ? 'idle.body' : 'ended.body')}
         onRetry={onRetry}
         retryLabel={retryLabel}
         onHome={onHome}

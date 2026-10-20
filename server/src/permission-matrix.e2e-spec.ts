@@ -166,6 +166,13 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
       '[13.3.4] platform route (SUPER_ADMIN extends a trial, PlatformSuperAdminGuard), same rationale as GET /schools.',
   },
   {
+    controller: 'SchoolsController',
+    method: 'POST',
+    path: '/schools/:id/revive',
+    reason:
+      '[49.15] platform route (SUPER_ADMIN revives an idle school, PlatformSuperAdminGuard), same rationale as GET /schools.',
+  },
+  {
     controller: 'OnboardingController',
     method: 'GET',
     path: '/onboarding/status',

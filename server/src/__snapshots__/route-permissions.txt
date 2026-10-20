@@ -100,6 +100,8 @@ GET /backup/jobs/:id | WorkbookController | perm: BACKUP_MANAGE
 GET /backup/jobs/:id/download | WorkbookController | perm: BACKUP_MANAGE
 GET /backup/template | TemplateController | perm: BACKUP_MANAGE
 GET /backup/validate/:stagingId/errors.csv | ImportController | perm: BACKUP_MANAGE
+GET /billing/orders | BillingController | perm: SETTINGS_MANAGE
+GET /billing/summary | BillingController | perm: SETTINGS_MANAGE
 GET /calendar-import/template | CalendarImportController | perm: CALENDAR_MANAGE
 GET /calendar-settings | CalendarSettingsController | perm: CALENDAR_READ
 GET /calendar/events | CalendarEventsController | perm: CALENDAR_READ
@@ -591,6 +593,7 @@ POST /routines/substitutions | SubstitutionsController | perm: ROUTINE_MANAGE
 POST /schools | ProvisioningController | identity | roles: SUPER_ADMIN
 POST /schools/:id/admins | SchoolAdminsController | identity | roles: SUPER_ADMIN
 POST /schools/:id/admins/:userId/resend-invitation | SchoolAdminsController | identity | roles: SUPER_ADMIN
+POST /schools/:id/revive | SchoolsController | identity | roles: SUPER_ADMIN
 POST /schools/:id/settings/test | ProviderConnectionTestController | perm: SETTINGS_MANAGE
 POST /schools/:id/sms-credits | SchoolSmsCreditsController | identity | roles: SUPER_ADMIN
 POST /schools/me/logo | SchoolLogoController | identity | roles: ADMIN,SUPER_ADMIN

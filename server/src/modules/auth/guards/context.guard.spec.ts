@@ -5,7 +5,7 @@ import { QueryFailedError } from 'typeorm';
 import { ContextGuard, RolesGuard } from './context.guard';
 import { UserRole, SchoolStatus } from '@biddaloy/shared';
 import { TenantStatusService } from '../../schools/tenant-status.service';
-import { ALLOW_WHEN_TRIAL_EXPIRED_KEY } from '../decorators/allow-when-trial-expired.decorator';
+import { ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY } from '../decorators/allow-when-suspended-for-billing.decorator';
 
 const PLATFORM_TENANT_ID = 'platform-tenant';
 
@@ -19,7 +19,7 @@ describe('ContextGuard', () => {
     isActive: ReturnType<typeof vi.fn>;
     getStatus: ReturnType<typeof vi.fn>;
     getStatusReason: ReturnType<typeof vi.fn>;
-    isTrialExpired: ReturnType<typeof vi.fn>;
+    isSuspendedForBilling: ReturnType<typeof vi.fn>;
     isRestoring: ReturnType<typeof vi.fn>;
     platformTenantId: ReturnType<typeof vi.fn>;
   };
@@ -32,7 +32,7 @@ describe('ContextGuard', () => {
       isActive: vi.fn().mockResolvedValue(true),
       getStatus: vi.fn().mockResolvedValue(SchoolStatus.ACTIVE),
       getStatusReason: vi.fn().mockResolvedValue(null),
-      isTrialExpired: vi.fn().mockResolvedValue(false),
+      isSuspendedForBilling: vi.fn().mockResolvedValue(false),
       isRestoring: vi.fn().mockResolvedValue(false),
       // Platform designation lives in TenantStatusService (its own spec covers env/prod/slug rules).
       platformTenantId: vi.fn().mockResolvedValue(PLATFORM_TENANT_ID),
@@ -331,14 +331,14 @@ describe('ContextGuard', () => {
     });
     const marked = () => {
       const h = () => {};
-      Reflect.defineMetadata(ALLOW_WHEN_TRIAL_EXPIRED_KEY, true, h);
+      Reflect.defineMetadata(ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY, true, h);
       return h;
     };
     const suspend = (reason: string | null) => {
       tenantStatus.getStatus.mockResolvedValue(SchoolStatus.SUSPENDED);
       tenantStatus.getStatusReason.mockResolvedValue(reason);
       // The fresh (uncached) DB read agrees with the cache unless a test says otherwise.
-      tenantStatus.isTrialExpired.mockResolvedValue(reason === 'TRIAL_EXPIRED');
+      tenantStatus.isSuspendedForBilling.mockResolvedValue(reason === 'TRIAL_EXPIRED');
     };
 
     it('lets a marked handler through for SUSPENDED + TRIAL_EXPIRED and sets currentTenant', async () => {
@@ -377,7 +377,7 @@ describe('ContextGuard', () => {
     it('ignores a mark on the class: only the handler can open the route', async () => {
       suspend('TRIAL_EXPIRED');
       class Marked {}
-      Reflect.defineMetadata(ALLOW_WHEN_TRIAL_EXPIRED_KEY, true, Marked);
+      Reflect.defineMetadata(ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY, true, Marked);
       const ctx = { ...createMockContext(req()), getClass: () => Marked };
       await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
     });
@@ -405,11 +405,11 @@ describe('ContextGuard', () => {
     // with a fresh SUSPENDED after a manual re-suspension. The allow decision reads the DB.
     it('refuses a marked handler when the cache still says TRIAL_EXPIRED but the DB no longer does', async () => {
       suspend('TRIAL_EXPIRED');
-      tenantStatus.isTrialExpired.mockResolvedValue(false);
+      tenantStatus.isSuspendedForBilling.mockResolvedValue(false);
       await expect(guard.canActivate(createMockContext(req(), marked()))).rejects.toThrow(
         ForbiddenException,
       );
-      expect(tenantStatus.isTrialExpired).toHaveBeenCalledWith('tenant-1');
+      expect(tenantStatus.isSuspendedForBilling).toHaveBeenCalledWith('tenant-1');
     });
 
     it('does not open a marked handler when the status is not SUSPENDED, even with reason TRIAL_EXPIRED', async () => {

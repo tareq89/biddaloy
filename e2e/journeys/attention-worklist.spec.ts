@@ -1,4 +1,10 @@
-import { extendTrial, onlyAttentionRule, patch, raiseTrialEnding } from '../api';
+import {
+  extendTrial,
+  onlyAttentionRule,
+  patch,
+  raiseTrialEnding,
+  setTrialEndsInDays,
+} from '../api';
 import { shells } from '../config';
 import { newSchool } from '../fixtures/new-school';
 import { expect, guest, test } from '../fixtures/test';
@@ -68,6 +74,8 @@ test('trial ending: raised, closed for now, then fixed and moved to History', as
     await test.step('60 more days resolve it: History says Fixed, To-do is empty', async () => {
       const superAdmin = await playwright.request.newContext({ baseURL: shells.app.baseURL });
       try {
+        // The grant no longer moves the end date: set it, then ask for the recheck.
+        await setTrialEndsInDays(school.session.tenantId, 66);
         await extendTrial(superAdmin, school.session.tenantId, 60, 'e2e trial resolved');
       } finally {
         await superAdmin.dispose();

@@ -14,6 +14,7 @@ export class ExtendTrialDto {
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(100000)
   seat_limit?: number;
 
   @ApiProperty({ minLength: 10, maxLength: 500 })

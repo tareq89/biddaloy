@@ -69,14 +69,14 @@ describe('Onboarding journey (server)', () => {
     [{ id: tenantId }] = await ds.query(`SELECT id FROM schools WHERE name = $1`, [school_name]);
   });
 
-  it('starts with an almost empty checklist and a 30 day, 10 seat trial', async () => {
+  it('starts with an almost empty checklist and no trial (Epic 49 D3)', async () => {
     const s = await status();
     expect(s.finished_at).toBeNull();
     // Only the admin exists: staff needs 2; nothing else has been created.
     expect(Object.values(done(s)).filter(Boolean)).toEqual([]);
     expect(s.counts).toMatchObject({ classes: 0, sections: 0, students: 0, staff: 1 });
-    expect(s.trial.days_left).toBe(30);
-    expect(s.trial.seats).toEqual({ used: 0, limit: 10 });
+    // The trial is retired: a new school has no trial_ends_at, so the status carries no trial.
+    expect(s.trial).toBeNull();
   });
 
   it('applying a curriculum preset flips structure', async () => {
@@ -109,7 +109,9 @@ describe('Onboarding journey (server)', () => {
     expect(s.counts.staff).toBe(3);
   });
 
-  it('fills the trial seats, then refuses the next student with SEAT_LIMIT_REACHED', async () => {
+  it('fills a 10 seat school, then refuses the next student with SEAT_LIMIT_REACHED', async () => {
+    // The free period leaves seat_limit NULL; stand in for a school that bought 10 seats.
+    await ds.query(`UPDATE schools SET seat_limit = 10 WHERE id = $1`, [tenantId]);
     const [cls] = await ds.query(`SELECT id FROM classes WHERE tenant_id = $1 LIMIT 1`, [tenantId]);
     const sec = await as(http().post(`/api/v1/classes/${cls.id}/sections`))
       .send({ section_name: 'A' })
@@ -125,7 +127,7 @@ describe('Onboarding journey (server)', () => {
 
     const s = await status();
     expect(done(s).students).toBe(true);
-    expect(s.trial.seats).toEqual({ used: 10, limit: 10 });
+    expect(s.counts.students).toBe(10);
 
     const refused = await add(11).expect(409);
     expect(refused.body.details ?? refused.body.message?.details).toMatchObject({
@@ -133,7 +135,7 @@ describe('Onboarding journey (server)', () => {
       used: 10,
       limit: 10,
     });
-    expect((await status()).trial.seats.used).toBe(10);
+    expect((await status()).counts.students).toBe(10);
   });
 
   it('marks onboarding finished', async () => {

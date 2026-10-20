@@ -154,7 +154,7 @@ describe('Trial-expired school (e2e)', () => {
       expect(JSON.stringify(dl.body)).not.toContain('TENANT_SUSPENDED');
     });
 
-    // Each of these stays refused while the trial is expired (not marked @AllowWhenTrialExpired).
+    // Each of these stays refused while the trial is expired (not marked @AllowWhenSuspendedForBilling).
     it('still refuses GET /students with TENANT_SUSPENDED', async () => {
       await setSchool(SEED_TENANT_ID, 'SUSPENDED', 'TRIAL_EXPIRED');
       const res = await call('get', '/students', adminToken, SEED_TENANT_ID, 'ADMIN').expect(403);
