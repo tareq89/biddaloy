@@ -12,6 +12,7 @@ import {
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
+import { AllowWhenSuspendedForBilling } from '../auth/decorators/allow-when-suspended-for-billing.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -35,6 +36,7 @@ export class BillingController {
 
   @Get('summary')
   @RequirePermissions(Permission.SETTINGS_MANAGE)
+  @AllowWhenSuspendedForBilling()
   @ApiOperation({ summary: "The school's seat balance: seats bought, in use, paid-until." })
   @ApiOkResponse({ description: 'BillingSummary' })
   async summary(@CurrentTenant() tenant: { id: string }): Promise<BillingSummary> {
@@ -60,6 +62,7 @@ export class BillingController {
 
   @Get('orders')
   @RequirePermissions(Permission.SETTINGS_MANAGE)
+  @AllowWhenSuspendedForBilling()
   @ApiOperation({ summary: "The school's seat orders, newest first." })
   @ApiOkResponse({ description: 'SeatOrderDto[]' })
   list(
@@ -72,6 +75,7 @@ export class BillingController {
   /** Creates a PENDING order only; paying it is Epic 49 W4. Price is server-computed, integer paisa. */
   @Post('orders')
   @RequirePermissions(Permission.SETTINGS_MANAGE)
+  @AllowWhenSuspendedForBilling()
   @ApiOperation({ summary: 'Start a seat purchase: a PENDING order, idempotent per key.' })
   @ApiCreatedResponse({ description: 'SeatOrderDto' })
   create(

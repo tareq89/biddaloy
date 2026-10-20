@@ -47,8 +47,7 @@ export function ReadOnlyNotice({ until }: { until: Date | string }) {
     <div className="sticky top-[var(--app-header-h,0px)] z-20">
       <NoticeBar tone="danger">
         {t('readOnly.notice', { date: formatDate(until, config) })}{' '}
-        {/* ponytail: `as never` until the billing lane adds `billing` to the /settings section enum; drop the cast then. */}
-        <Link to="/settings" search={{ section: 'billing' } as never} className="underline">
+        <Link to="/settings" search={{ section: 'billing' }} className="underline">
           {t('readOnly.buy')}
         </Link>
       </NoticeBar>
