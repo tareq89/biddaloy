@@ -36,9 +36,13 @@ on_exit() {
   local code=$?
   # Always remove the scratch database, pass or fail (only once it is set and
   # has passed the name guard below).
+  # A drop that fails after a passing run is still a red drill: a full copy of
+  # prod would sit in the cluster until next week.
   if [[ -n "$DRILL_DB" ]]; then
-    psql "$DRILL_ADMIN_URL" -qAtc "DROP DATABASE IF EXISTS \"${DRILL_DB}\" WITH (FORCE)" >/dev/null 2>&1 \
-      || echo "drill.sh: WARNING could not drop scratch database ${DRILL_DB}" >&2
+    if ! psql "$DRILL_ADMIN_URL" -qAtc "DROP DATABASE IF EXISTS \"${DRILL_DB}\" WITH (FORCE)" >/dev/null 2>&1; then
+      echo "drill.sh: could not drop scratch database ${DRILL_DB}" >&2
+      if [[ $code -eq 0 ]]; then CURRENT_STEP="drop-db"; code=1; fi
+    fi
   fi
   if [[ $code -eq 0 ]]; then
     kuma_push up "ok-${TABLES}-tables"
@@ -49,6 +53,15 @@ on_exit() {
   if [[ -n "$TMP" ]]; then rm -rf "$TMP"; fi
   exit "$code"
 }
+
+# One drill at a time: a manual run during the cron run would drop the other
+# run's scratch database mid-restore. Taken before the trap, so a refused second
+# run pushes nothing.
+exec 9>"${TMPDIR:-/tmp}/drill.lock"
+if ! flock -n 9; then
+  echo "drill.sh: another drill is already running" >&2
+  exit 1
+fi
 trap on_exit EXIT
 
 : "${DATABASE_URL:?DATABASE_URL is required}"
@@ -113,6 +126,19 @@ if [[ -z "$key" || "$key" == "None" ]]; then
   exit 1
 fi
 echo "drill.sh: newest dump is ${key}"
+
+CURRENT_STEP="disk"
+# The scratch database, the decrypted dump (restore.sh, in $TMPDIR) and the live
+# database share one disk on a single VM. A drill that fills it would take live
+# Postgres down, so ask for ~2.5x the live size free first.
+# ponytail: one df on $TMPDIR stands in for the Postgres volume too (same disk
+# on one VM); check the volume separately if the data root ever moves.
+live_bytes="$(psql "$DATABASE_URL" -qAtc 'SELECT pg_database_size(current_database())')"
+free_kb="$(df -Pk "${TMPDIR:-/tmp}" | awk 'NR==2 {print $4}')"
+if (( free_kb * 1024 < live_bytes * 5 / 2 )); then
+  echo "drill.sh: not enough free disk (${free_kb} KiB free, live database ${live_bytes} bytes)" >&2
+  exit 1
+fi
 
 CURRENT_STEP="create-db"
 DRILL_DB="$name"

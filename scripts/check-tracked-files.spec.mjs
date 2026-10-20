@@ -1,7 +1,7 @@
 // [75.28] Pure-function cases plus one check against the real tracked tree.
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { findBadContent, findForbidden } from './check-tracked-files.mjs';
+import { findBadContent, findForbidden, readText } from './check-tracked-files.mjs';
 
 describe('findForbidden', () => {
   it.each([['.env'], ['server/.env'], ['.env.production']])('flags %s', (p) => {
@@ -60,6 +60,20 @@ describe('findForbidden', () => {
     expect(findForbidden([p])).toEqual([p]);
   });
 
+  it.each([
+    ['prod.env'],
+    ['infra/ansible/prod.env'],
+    ['server/decrypted.env'],
+    ['infra/ansible/.vault_pass'],
+    ['infra/ansible/.vault-password.txt'],
+  ])('flags a stray env or vault file %s', (p) => {
+    expect(findForbidden([p])).toEqual([p]);
+  });
+
+  it('allows example env files anywhere', () => {
+    expect(findForbidden(['docs/sample.example.env'])).toEqual([]);
+  });
+
   it('ignores ordinary paths', () => {
     const p = [
       'server/src/main.ts',
@@ -77,6 +91,7 @@ describe('findForbidden', () => {
       .split('\0')
       .filter(Boolean);
     expect(findForbidden(tracked)).toEqual([]);
+    expect(findBadContent(tracked, readText)).toEqual([]);
   });
 });
 
@@ -85,16 +100,41 @@ describe('findBadContent', () => {
   const AGE = 'AGE-SECRET-' + 'KEY-1' + 'Q'.repeat(30);
   const PEM = '-----BEGIN ' + 'PRIVATE KEY-----';
 
+  const SOPS_ENV =
+    '#ENC[AES256_GCM,data:abc,iv:x,tag:y,type:comment]\n' +
+    'JWT_SECRET=ENC[AES256_GCM,data:abc,iv:x,tag:y,type:str]\n\n' +
+    'sops_mac=ENC[AES256_GCM,data:m,iv:x,tag:y,type:str]\nsops_version=3.9.0\n';
+
   it('fails a plaintext .enc.env, passes real sops output', () => {
     expect(run('infra/secrets/prod.enc.env', 'JWT_SECRET=x\n')).toHaveLength(1);
-    expect(run('infra/secrets/prod.enc.env', 'A=ENC[x]\nsops_version=3.9.0\n')).toEqual([]);
+    expect(run('infra/secrets/prod.enc.env', SOPS_ENV)).toEqual([]);
+  });
+
+  it('fails a sops .enc.env with a line added outside sops', () => {
+    expect(run('infra/secrets/prod.enc.env', SOPS_ENV + 'NEW_KEY=plaintext\n')).toHaveLength(1);
+    expect(run('infra/secrets/prod.enc.env', SOPS_ENV + 'NEW_KEY=ENC[x]\n')).toHaveLength(1);
   });
 
   it('fails a plaintext .enc.pem, passes sops output', () => {
     expect(run('infra/secrets/origin-ca.enc.pem', PEM + '\nabc')).toHaveLength(1);
-    expect(run('infra/secrets/origin-ca.enc.pem', '{"data":"ENC[x]","sops":{"age":[]}}')).toEqual(
-      [],
-    );
+    const ok = '{"data":"ENC[AES256_GCM,data:x]","sops":{"age":[]}}';
+    expect(run('infra/secrets/origin-ca.enc.pem', ok)).toEqual([]);
+  });
+
+  it('fails a .enc.pem that only mentions "sops": or holds plaintext data', () => {
+    expect(run('infra/secrets/origin-ca.enc.pem', 'abc\n"sops": {}')).toHaveLength(1);
+    const plain = '{"data":"-----BEGIN CERTIFICATE","sops":{"age":[]}}';
+    expect(run('infra/secrets/origin-ca.enc.pem', plain)).toHaveLength(1);
+  });
+
+  it('fails a filled-in example env; allows empty values and the staging Turnstile test key', () => {
+    const TEST_KEY = 'TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA\n';
+    expect(
+      run('infra/secrets/prod.example.env', '# c\nA=\nPOSTGRES_PASSWORD=hunter2\n'),
+    ).toHaveLength(1);
+    expect(run('infra/secrets/prod.example.env', '# Never put a value here.\nA=\n')).toEqual([]);
+    expect(run('infra/secrets/staging.example.env', TEST_KEY)).toEqual([]);
+    expect(run('infra/secrets/prod.example.env', TEST_KEY)).toHaveLength(1);
   });
 
   it('fails an age private key or PEM private key anywhere', () => {

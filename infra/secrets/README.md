@@ -7,7 +7,7 @@ Plaintext never gets committed (CI guard: `scripts/check-tracked-files.mjs`).
 flowchart LR
   A[operator laptop<br/>age private key] -->|sops edit| B[infra/secrets/*.enc.env<br/>in git, encrypted]
   B -->|ansible lookup, on the laptop| C[write-env.yml]
-  C -->|copy, 0600 root| D["/opt/biddaloy/<env>/.env on the VPS"]
+  C -->|copy, 0640 root:deploy| D["/opt/biddaloy/<env>/.env on the VPS"]
   R[recovery key<br/>offline, Epic 65] -.can also decrypt.-> B
 ```
 
@@ -17,7 +17,8 @@ flowchart LR
 | `origin-ca.enc.pem`, `origin-ca-key.enc.pem` | Cloudflare Origin CA cert and key (D21)       |
 | `*.example.env`                              | Plaintext key lists, empty values, committed  |
 
-Staging has no provider keys on purpose (D25).
+Staging has no OAuth or SMS keys on purpose (D25); its Turnstile key is
+Cloudflare's public always-pass test key.
 
 ## One-time setup
 
@@ -38,6 +39,11 @@ Install `sops` (3.9 or newer, for `--filename-override`) and `age` (`brew instal
    ```bash
    sops infra/secrets/prod.enc.env     # opens $EDITOR on a new file; paste the keys from prod.example.env and fill values
    ```
+   Make each random value with `openssl rand -hex 32`. Hex only: compose
+   expands `$` in unquoted `.env` values, and `POSTGRES_PASSWORD` goes into
+   `DATABASE_URL` without URL-encoding, so `@`, `/`, `:` and `$` break it.
+   Never fill the values into `prod.example.env` itself: the CI guard fails on
+   any value there.
    Repeat for `demo` and `staging`. The certs are whole files, so they need a
    short-lived temp file (`umask 077`, then delete it; on a laptop disk
    deletion is best effort, not a guarantee):
@@ -55,9 +61,16 @@ Install `sops` (3.9 or newer, for `--filename-override`) and `age` (`brew instal
    HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=/Volumes/usb/recovery.txt sops -d infra/secrets/prod.enc.env >/dev/null && echo recovery ok
    ```
 
-CI guard: `scripts/check-tracked-files.mjs` checks content, not just names. A
-`*.enc.env` must contain `sops_version=`, a `*.enc.pem` must contain `"sops":`,
-and no tracked file may hold an age private key or a PEM private key.
+CI guard: `scripts/check-tracked-files.mjs` checks content, not just names.
+
+| Tracked file | Must be |
+| --- | --- |
+| `infra/secrets/*.enc.env` | sops output: every value line is `KEY=ENC[AES256_GCM,...`, plus `sops_*` lines. One plaintext line added in a normal editor fails it. |
+| `infra/secrets/*.enc.pem` | sops JSON: `data` starts with `ENC[`, and a `sops` block. |
+| `infra/secrets/*.example.env` | every `KEY=` empty. Only staging's Turnstile test key is allowed. |
+| any other `*.env` | not tracked at all (a decrypted `sops -d ... > prod.env` copy). `*.example.env` is fine. |
+| `infra/ansible/.vault*` | not tracked at all. |
+| anything | no age private key, no PEM private key. |
 
 ## Everyday
 

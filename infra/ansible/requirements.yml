@@ -1,13 +1,19 @@
 ---
 # Pinned (security rule 21). Bump deliberately, re-run provision twice.
+# Roles run as root on prod and Galaxy role versions are movable git tags, so
+# they are pinned by commit SHA (the tag is in the comment).
+# Collections stay on Galaxy versions: a published collection version cannot be
+# re-uploaded, so the version is already immutable.
 roles:
   - name: geerlingguy.security
-    version: 2.4.0
+    src: https://github.com/geerlingguy/ansible-role-security.git
+    scm: git
+    version: 6897a3555da5bc55e11f682ab696a8551bd63d67 # 2.4.0
   - name: geerlingguy.docker
-    version: 7.9.0
+    src: https://github.com/geerlingguy/ansible-role-docker.git
+    scm: git
+    version: 30ba30832134ac03714bb1813ded1560b8478563 # 7.9.0
 collections:
-  - name: community.docker
-    version: 3.13.0
   - name: community.general
     version: 9.5.0
   - name: community.sops

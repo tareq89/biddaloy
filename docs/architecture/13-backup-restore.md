@@ -148,12 +148,22 @@ other env var — it's not a secret. The matching private key
 (`BACKUP_AGE_PRIVATE_KEY_FILE`, used by `restore.sh`) is the one thing that
 actually matters:
 
-- **Where it lives:** outside the host entirely — a password manager or
-  secrets vault the backup owner controls, never committed, never in
-  `.env`. Nothing that runs `backup.sh` needs it; only a human running
-  `restore.sh` does.
+- **Where it lives:** in two places.
+  1. The master copy is outside the host, in a password manager or vault the
+     backup owner controls. Never committed, never in `.env`.
+  2. Since the weekly drill (D18), a copy also sits **on the VM** at
+     `/opt/biddaloy/<env>/age-key.txt` (owner 10001, mode 0400), mounted only
+     into the `backup` container. `backup.sh` still needs only the public key.
+- **What that costs.** The VM now holds both the private key and the R2
+  credentials. Someone who takes over the host can read every retained dump
+  (72 hourly + 30 daily, so about 30 days of history), including rows already
+  deleted from the live database. Before D18 a host compromise exposed only the
+  live data. We accept this so the drill runs on the VM and the key never
+  reaches a CI runner.
 - **Rotation:** generate a new keypair (`age-keygen`), point
-  `BACKUP_AGE_PUBLIC_KEY` at the new public half, deploy. New backups from
+  `BACKUP_AGE_PUBLIC_KEY` at the new public half and replace the host's
+  `age-key.txt` with the new private half in the same deploy (otherwise the
+  next drill cannot decrypt). New backups from
   that point encrypt to the new key. **No re-encryption of old archives is
   needed** — keep the old private key until no archive it encrypted is
   left. Do not count days: R2 keeps the last 30 daily dumps by count, so a
@@ -236,12 +246,17 @@ sequenceDiagram
 **Safety.** The scratch database name must contain `drill`, and
 `DRILL_DATABASE_URL` must differ from `DATABASE_URL`, or the script refuses to
 start. The live database is only read (`verify.sql` counts). No URL, key or
-password is printed.
+password is printed. Before it creates the scratch database it checks that the
+disk has about 2.5x the live database size free (the scratch copy, the
+decrypted dump and live Postgres share one disk). Only one drill runs at a
+time (`flock`): a manual run during the cron run exits without touching the
+other run's database.
 
 **Reading Kuma.** One green beat per week with message `ok-8-tables`. A red
-beat carries the failed step: `find-dump`, `create-db`, `restore`, `counts`,
-`file-roundtrip` (or `config` for a missing setting). Telegram and SMS fire
-from the push monitor (D14).
+beat carries the failed step: `find-dump`, `disk`, `create-db`, `restore`,
+`counts`, `file-roundtrip`, `drop-db` (the run passed but the scratch database
+could not be dropped, so a full copy of prod is still in the cluster), or
+`config` for a missing setting. Telegram and SMS fire from the push monitor (D14).
 
 **Run by hand** (on the VM):
 
@@ -249,12 +264,20 @@ from the push monitor (D14).
 docker compose exec backup /app/drill.sh
 ```
 
-**Setup.** `DRILL_SCHEDULE` (cron, default `30 3 * * 0`), `DRILL_PUSH_URL` and
-the age private key mounted read-only at `/run/age/key.txt` (host path
-`BACKUP_AGE_KEY_FILE`, default `/opt/biddaloy/prod/age-key.txt`, written by
-Ansible from sops). Only the `backup` container mounts it. Optional
-`DRILL_DATABASE_URL` / `DRILL_ADMIN_URL` default to the live server with
-database `biddaloy_drill` / `postgres`.
+**Setup.**
+
+- `DRILL_SCHEDULE` (cron, default `30 3 * * 0`) and `DRILL_PUSH_URL` (in sops).
+- The age private key, mounted read-only at `/run/age/key.txt`. Host path:
+  `BACKUP_AGE_KEY_FILE`, set per env (for example
+  `/opt/biddaloy/prod/age-key.txt`), with **no default**, so prod's key can
+  never reach staging. The file must be owner `10001` (the backup user), mode
+  `0400`. Nothing provisions it yet: until it exists, the `backup` container
+  will not start (the mount uses `create_host_path: false`, so Docker never
+  turns a missing file into a directory). Only the `backup` container mounts it.
+- In Uptime Kuma, the `drill-weekly` monitor: type **Push**, heartbeat interval
+  **8 days**, retries **0**. The default 60 s interval would page all week.
+- Optional `DRILL_DATABASE_URL` / `DRILL_ADMIN_URL` default to the live server
+  with database `biddaloy_drill` / `postgres`.
 
 **CI.** `.github/workflows/restore-drill.yml` runs a synthetic drill (seed,
 backup, restore, diff) on pull requests that touch `scripts/backup/**` or the
@@ -369,7 +392,8 @@ disaster recovery":
 | `DRILL_SCHEDULE`               | #1774  | Cron for the weekly restore drill (default `30 3 * * 0`)                                                                    |
 | `DRILL_PUSH_URL`               | #1774  | Uptime Kuma push URL for the drill. Unset = no push                                                                         |
 | `DRILL_DATABASE_URL`           | #1774  | Scratch database (name must contain `drill`; default `<live server>/biddaloy_drill`)                                        |
-| `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Decrypts for `restore.sh` — never in `.env`, see "Key handling"                                                             |
+| `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Key path inside the container (`/run/age/key.txt`). The key itself is never in `.env`; see "Key handling"                   |
+| `BACKUP_AGE_KEY_FILE`          | #1774  | Host path of that key, mounted into `backup` only: `/opt/biddaloy/<env>/age-key.txt`, 10001, 0400. No default               |
 
 ## Learnings (#1745)
 

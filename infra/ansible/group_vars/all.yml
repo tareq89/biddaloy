@@ -7,6 +7,8 @@ host_timezone: Asia/Dhaka
 biddaloy_root: /opt/biddaloy
 biddaloy_envs: [prod, demo, staging, ops]
 allowed_public_tcp_ports: [22, 80, 443]
+# DHCP clients (v4, v6) bind the public interface; ufw still filters them.
+allowed_public_udp_ports: [68, 546]
 
 # geerlingguy.security
 security_ssh_permit_root_login: "no"

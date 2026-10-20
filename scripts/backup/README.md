@@ -87,7 +87,8 @@ scripts/backup/restore.sh backups/db/20260907T020000Z.dump.age \
 ```bash
 age-keygen -o key.txt
 # Public key:  age1... — goes in BACKUP_AGE_PUBLIC_KEY
-# Private key: AGE-SECRET-KEY-1... — stored outside the host, see the doc
+# Private key: AGE-SECRET-KEY-1... — master copy off the host; the drill's copy is
+#   /opt/biddaloy/<env>/age-key.txt (10001, 0400). See the doc's "Key handling"
 ```
 
 ## Secrets discipline

@@ -16,9 +16,12 @@
 #     postgres://postgres:postgres@localhost:5432/biddaloy_restore_test
 #
 # Required env: BACKUP_AGE_PRIVATE_KEY_FILE (path to the age identity file
-# — see README's "Generating an age keypair"), S3_BUCKET, S3_ENDPOINT,
-# S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY (only needed when the
-# first argument is an s3 key rather than a local file).
+# — see README's "Generating an age keypair"). Then, by first argument:
+#   db/... key        BACKUP_S3_ENDPOINT, BACKUP_S3_BUCKET,
+#                     BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY
+#   other key, s3://  S3_BUCKET, S3_ENDPOINT, S3_REGION, S3_ACCESS_KEY_ID,
+#                     S3_SECRET_ACCESS_KEY
+#   local file        nothing else
 # Optional env: S3_ALLOW_INSECURE_HTTP (opt into a plaintext http://
 # S3_ENDPOINT — only for an approved local/dev endpoint; rejected otherwise).
 #

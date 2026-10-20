@@ -92,8 +92,13 @@ echo "psql $*" >>"$SHIM/log"
 if [[ "$*" == *" -f "* ]]; then
   if [[ "$1" == *drill* ]]; then cat "$SHIM/drill.csv"; else cat "$SHIM/live.csv"; fi
 fi
+[[ "$*" == *pg_database_size* ]] && echo "${DB_BYTES:-1000}"
+# DROP_FAIL=1: only the cleanup drop fails (the one after CREATE DATABASE).
+if [[ "${DROP_FAIL:-}" == 1 && "$*" == *"DROP DATABASE"* ]] && grep -q "CREATE DATABASE" "$SHIM/log"; then exit 1; fi
 exit 0
 EOS
+# macOS has no flock; the lock itself is not under test here.
+printf '#!/bin/sh\nexit 0\n' >"$SHIM/bin/flock"
 chmod +x "$SHIM"/bin/*
 
 # run_shim [VAR=value ...]: runs backup.sh in R2 mode with the given overrides.
@@ -357,6 +362,16 @@ echo "PASS: count comparison (drill > live, drill 0 vs live > 0)"
 if run_drill RCLONE_BAD=1; then shim_fail "file mismatch must fail"; fi
 has "status=down&msg=file-roundtrip"
 echo "PASS: file round-trip mismatch fails"
+
+# D8. not enough free disk fails at `disk` before any scratch database exists.
+if run_drill DB_BYTES=999999999999999; then shim_fail "low disk must fail"; fi
+has "status=down&msg=disk"; hasnt "CREATE DATABASE"
+echo "PASS: low disk fails before create-db"
+
+# D9. a passing run whose scratch drop fails is red at drop-db.
+if run_drill DROP_FAIL=1; then shim_fail "failed drop must fail the drill"; fi
+has "status=down&msg=drop-db"; hasnt "status=up"
+echo "PASS: failed scratch drop pushes down drop-db"
 
 # D6. no dump in R2 fails at find-dump.
 rm -f "$SHIM/lists/db_hourly_"
