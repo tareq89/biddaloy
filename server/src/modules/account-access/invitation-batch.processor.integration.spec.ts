@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import type { Job } from 'bullmq';
 import { DataSource } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
-import { AuthTokenPurpose, UserRole, UserStatus } from '@biddaloy/shared';
+import { AuditAction, AuthTokenPurpose, UserRole, UserStatus } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { SEED_TENANT_ID } from '@test/constants';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -12,20 +12,39 @@ import { AuthToken } from './entities/auth-token.entity';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Guardian } from '../students/entities/guardian.entity';
+import { AuditLog } from '../audit/entities/audit-log.entity';
+import { AuditService } from '../audit/audit.service';
+import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { GuardianProvisioningService } from './guardian-provisioning.service';
 import { School } from '../schools/entities/school.entity';
 
+const BATCH = '00000000-0000-4000-8000-0000000000b1';
 const OTHER_TENANT = '00000000-0000-4000-8000-000000000098';
 
 describe('InvitationBatchProcessor (integration)', () => {
   let module: TestingModule;
   let ds: DataSource;
   let processor: InvitationBatchProcessor;
+  let audit: AuditService;
+  let status: GuardianProvisioningService;
+  let isActive: ReturnType<typeof vi.fn>;
   let issueAndSend: ReturnType<typeof vi.fn>;
 
   beforeAll(async () => {
     module = await createTestModule(ALL_ENTITIES, []);
     ds = module.get(DataSource);
+    isActive = vi.fn().mockResolvedValue(true);
     issueAndSend = vi.fn().mockResolvedValue(undefined);
+    audit = new AuditService(ds.getRepository(AuditLog));
+    status = new GuardianProvisioningService(
+      ds.getRepository(Guardian),
+      ds.getRepository(User),
+      ds.getRepository(CommunicationLog),
+      ds.getRepository(AuditLog),
+      {} as any,
+      audit,
+      { add: vi.fn() } as any,
+    );
     processor = new InvitationBatchProcessor(
       ds.getRepository(Guardian),
       ds.getRepository(User),
@@ -36,8 +55,9 @@ describe('InvitationBatchProcessor (integration)', () => {
       // The restore and suspended-school guards are not what these tests are about.
       {
         isRestoring: vi.fn().mockResolvedValue(false),
-        isActive: vi.fn().mockResolvedValue(true),
+        isActive,
       } as any,
+      audit,
     );
   });
 
@@ -47,6 +67,7 @@ describe('InvitationBatchProcessor (integration)', () => {
 
   beforeEach(async () => {
     issueAndSend.mockClear();
+    isActive.mockResolvedValue(true);
     await ds.query('DELETE FROM audit_logs');
     await ds.query('DELETE FROM auth_tokens');
     await ds.query('DELETE FROM guardians');
@@ -62,13 +83,14 @@ describe('InvitationBatchProcessor (integration)', () => {
     }
   });
 
-  const run = (guardianId: string) =>
+  const run = (guardianId: string, counted = true) =>
     processor.process({
       data: {
         tenantId: SEED_TENANT_ID,
         guardianId,
         actorUserId: null,
-        batchId: 'batch-1',
+        batchId: BATCH,
+        counted,
       } as unknown as InvitationBatchJobData,
     } as Job<InvitationBatchJobData>);
 
@@ -232,5 +254,122 @@ describe('InvitationBatchProcessor (integration)', () => {
     expect(after.user_id).not.toBeNull();
     expect(await membership(after.user_id as string)).toHaveLength(1);
     expect(issueAndSend).toHaveBeenCalledTimes(1);
+  });
+
+  describe('batch drains to queued 0 on every skip path', () => {
+    const seedDispatch = () =>
+      audit.record({
+        action: AuditAction.INVITATION_SENT,
+        entity_type: 'InvitationBatch',
+        entity_id: BATCH,
+        tenant_id: SEED_TENANT_ID,
+        new_values: { batch_id: BATCH, queued: 1 },
+      });
+    const skipRows = () =>
+      ds.getRepository(AuditLog).find({ where: { action: AuditAction.UPDATE } });
+    const expectSkipped = async (reason: string) => {
+      expect(await status.batchStatus(SEED_TENANT_ID, BATCH)).toMatchObject({
+        queued: 0,
+        skipped: 1,
+        sent: 0,
+      });
+      const rows = await skipRows();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].new_values).toMatchObject({ skipped: reason });
+    };
+
+    it('guardian deleted -> guardian_missing', async () => {
+      await seedDispatch();
+      const g = await makeGuardian({ email: 'gone@example.com' });
+      await ds.getRepository(Guardian).softDelete({ id: g.id });
+      await run(g.id);
+      await expectSkipped('guardian_missing');
+    });
+
+    it('opted out since preview -> opted_out', async () => {
+      await seedDispatch();
+      const g = await makeGuardian({ email: 'out@example.com', notifications_enabled: false });
+      await run(g.id);
+      await expectSkipped('opted_out');
+    });
+
+    it('verified account with no row here -> join_request', async () => {
+      await seedDispatch();
+      const owner = await makeUser({ email: 'o2@example.com', email_verified_at: new Date() });
+      await ds
+        .getRepository(UserTenant)
+        .save({ user_id: owner.id, tenant_id: OTHER_TENANT, role: UserRole.PARENT });
+      const g = await makeGuardian({ email: 'o2@example.com' });
+      await run(g.id);
+      await expectSkipped('join_request');
+    });
+
+    it('unverified holder of the phone -> contact_in_use', async () => {
+      await seedDispatch();
+      await makeUser({ phone: '+8801700000009', phone_verified_at: null });
+      const g = await makeGuardian({ phone: '+8801700000009' });
+      await run(g.id);
+      await expectSkipped('contact_in_use');
+    });
+
+    it('account linked to another guardian here -> linked_elsewhere', async () => {
+      await seedDispatch();
+      const owner = await makeUser({ email: 'le@example.com', email_verified_at: new Date() });
+      await ds
+        .getRepository(UserTenant)
+        .save({ user_id: owner.id, tenant_id: SEED_TENANT_ID, role: UserRole.PARENT });
+      await makeGuardian({ user_id: owner.id });
+      const g = await makeGuardian({ email: 'le@example.com' });
+      await run(g.id);
+      await expectSkipped('linked_elsewhere');
+    });
+
+    it('suspended tenant -> tenant_suspended', async () => {
+      await seedDispatch();
+      isActive.mockResolvedValue(false);
+      const g = await makeGuardian({ email: 'susp@example.com' });
+      await run(g.id);
+      await expectSkipped('tenant_suspended');
+    });
+
+    it('activated since preview -> already_active', async () => {
+      await seedDispatch();
+      const u = await makeUser({ email: 'act@example.com', password_hash: 'hash' });
+      await ds
+        .getRepository(UserTenant)
+        .save({ user_id: u.id, tenant_id: SEED_TENANT_ID, role: UserRole.PARENT });
+      const g = await makeGuardian({ email: 'act@example.com', user_id: u.id });
+      await run(g.id);
+      await expectSkipped('already_active');
+    });
+
+    it('a counted:false job writes no skip row and a retry counts once', async () => {
+      await seedDispatch();
+      const owner = await makeUser({ email: 'o3@example.com', email_verified_at: new Date() });
+      await ds
+        .getRepository(UserTenant)
+        .save({ user_id: owner.id, tenant_id: OTHER_TENANT, role: UserRole.PARENT });
+      const g = await makeGuardian({ email: 'o3@example.com' });
+      await run(g.id, false);
+      expect(await skipRows()).toHaveLength(0);
+      expect(await status.batchStatus(SEED_TENANT_ID, BATCH)).toMatchObject({
+        queued: 1,
+        skipped: 0,
+      });
+
+      const gone = await makeGuardian({ email: 'gone2@example.com' });
+      await ds.getRepository(Guardian).softDelete({ id: gone.id });
+      await run(gone.id);
+      await run(gone.id);
+      expect(await status.batchStatus(SEED_TENANT_ID, BATCH)).toMatchObject({ skipped: 1 });
+    });
+
+    it('happy path sends and skips nothing', async () => {
+      await seedDispatch();
+      const g = await makeGuardian({ email: 'ok@example.com' });
+      await run(g.id);
+      expect(await skipRows()).toHaveLength(0);
+      expect(await status.batchStatus(SEED_TENANT_ID, BATCH)).toMatchObject({ skipped: 0 });
+    });
   });
 });

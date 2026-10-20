@@ -1,13 +1,18 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
-import { CommunicationStatus } from '@biddaloy/shared';
+import { AuditAction, CommunicationStatus } from '@biddaloy/shared';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Guardian } from '../students/entities/guardian.entity';
 import { GuardianProvisioningService } from './guardian-provisioning.service';
 
 /** A minimal fluent stub matching the subset of TypeORM's QueryBuilder this
  * service chains — every method returns `this` except the terminal ones. */
-function fakeQueryBuilder(result: { many?: unknown[]; one?: unknown | null; raw?: unknown[] }) {
+function fakeQueryBuilder(result: {
+  many?: unknown[];
+  one?: unknown | null;
+  raw?: unknown[];
+  rawOne?: unknown;
+}) {
   const qb: any = {
     where: vi.fn().mockReturnThis(),
     andWhere: vi.fn().mockReturnThis(),
@@ -23,6 +28,7 @@ function fakeQueryBuilder(result: { many?: unknown[]; one?: unknown | null; raw?
     getMany: vi.fn().mockResolvedValue(result.many ?? (result.one ? [result.one] : [])),
     getOne: vi.fn().mockResolvedValue(result.one ?? null),
     getRawMany: vi.fn().mockResolvedValue(result.raw ?? []),
+    getRawOne: vi.fn().mockResolvedValue(result.rawOne ?? { count: '0' }),
   };
   return qb;
 }
@@ -467,6 +473,12 @@ describe('GuardianProvisioningService', () => {
       });
 
       expect(queue.add).toHaveBeenCalledTimes(1);
+      // The join-request entry is not counted, so the processor must not record a skip for it.
+      expect(queue.add).toHaveBeenCalledWith(
+        'invite-guardian',
+        expect.objectContaining({ counted: false }),
+        expect.anything(),
+      );
       expect(result.queued).toBe(0);
       expect(audit.record).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -492,7 +504,34 @@ describe('GuardianProvisioningService', () => {
 
       const result = await service.batchStatus(TENANT, 'b1');
 
-      expect(result).toEqual({ batch_id: 'b1', total: 5, sent: 3, failed: 1, queued: 1 });
+      expect(result).toEqual({
+        batch_id: 'b1',
+        total: 5,
+        sent: 3,
+        failed: 1,
+        queued: 1,
+        skipped: 0,
+      });
+    });
+
+    it('subtracts skip rows from queued, clamps at 0, and filters by action and tenant', async () => {
+      const totalQb = fakeQueryBuilder({ one: { new_values: { batch_id: 'b1', queued: 2 } } });
+      const skipQb = fakeQueryBuilder({ rawOne: { count: '3' } });
+      auditLogRepo.createQueryBuilder.mockReturnValueOnce(totalQb).mockReturnValueOnce(skipQb);
+      logRepo.createQueryBuilder.mockReturnValue(
+        fakeQueryBuilder({ raw: [{ status: CommunicationStatus.SENT, count: '1' }] }),
+      );
+
+      const result = await service.batchStatus(TENANT, 'b1');
+
+      expect(result).toMatchObject({ total: 2, sent: 1, queued: 0, skipped: 3 });
+      expect(totalQb.andWhere).toHaveBeenCalledWith('a.action = :sent', {
+        sent: AuditAction.INVITATION_SENT,
+      });
+      expect(skipQb.andWhere).toHaveBeenCalledWith('a.action = :update', {
+        update: AuditAction.UPDATE,
+      });
+      expect(skipQb.where).toHaveBeenCalledWith('a.tenant_id = :tenantId', { tenantId: TENANT });
     });
 
     it('returns zeroes for an unknown or cross-tenant batch id (no matching audit row)', async () => {
@@ -501,7 +540,14 @@ describe('GuardianProvisioningService', () => {
 
       const result = await service.batchStatus(TENANT, 'unknown');
 
-      expect(result).toEqual({ batch_id: 'unknown', total: 0, sent: 0, failed: 0, queued: 0 });
+      expect(result).toEqual({
+        batch_id: 'unknown',
+        total: 0,
+        sent: 0,
+        failed: 0,
+        queued: 0,
+        skipped: 0,
+      });
     });
   });
 });

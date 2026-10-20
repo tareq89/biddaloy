@@ -1,19 +1,30 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DelayedError, type Job } from 'bullmq';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
-import { AuthTokenPurpose, UserRole } from '@biddaloy/shared';
+import { AuditAction, AuthTokenPurpose, UserRole } from '@biddaloy/shared';
 import { Guardian } from '../students/entities/guardian.entity';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { findVerifiedAccount, reviveMembership } from '../users/users.service';
+import { AuditService } from '../audit/audit.service';
 import { TenantStatusService } from '../schools/tenant-status.service';
 import { AuthTokenService } from './auth-token.service';
 import { guardianLinkedElsewhere, insertJoinRequest } from './school-invite.service';
 import { InvitationService } from './invitation.service';
 import { INVITATION_BATCH_QUEUE } from './invitation-batch.constants';
 import type { InvitationBatchJobData } from './guardian-provisioning.service';
+
+export type InviteSkipReason =
+  | 'tenant_suspended'
+  | 'guardian_missing'
+  | 'opted_out'
+  | 'linked_elsewhere'
+  | 'join_request'
+  | 'contact_in_use'
+  | 'already_active'
+  | 'error';
 
 /** How long a guardian's invite waits before re-checking a running restore. */
 export const INVITATION_RESTORE_RETRY_MS = 60_000;
@@ -39,6 +50,7 @@ export class InvitationBatchProcessor extends WorkerHost {
     private readonly authTokens: AuthTokenService,
     private readonly invitationService: InvitationService,
     private readonly tenantStatus: TenantStatusService,
+    private readonly audit: AuditService,
   ) {
     super();
   }
@@ -51,6 +63,7 @@ export class InvitationBatchProcessor extends WorkerHost {
       this.logger.log(
         `Tenant ${tenantId} is suspended, dropping invitation job for batch ${batchId}`,
       );
+      await this.recordSkip(job, 'tenant_suspended');
       return;
     }
 
@@ -67,6 +80,7 @@ export class InvitationBatchProcessor extends WorkerHost {
     });
     if (!guardian) {
       this.logger.warn(`Guardian ${guardianId} not found for batch ${batchId}, skipping`);
+      await this.recordSkip(job, 'guardian_missing');
       return;
     }
 
@@ -74,16 +88,21 @@ export class InvitationBatchProcessor extends WorkerHost {
     // the guardian may have opted out between preview and processing.
     if (guardian.notifications_enabled === false) {
       this.logger.log(`Guardian ${guardianId} opted out since preview, skipping batch ${batchId}`);
+      await this.recordSkip(job, 'opted_out');
       return;
     }
 
     const user = await this.ensureUser(guardian, tenantId, actorUserId);
     // A join request was filed (the owner of an existing account decides) or
     // the contact belongs to an unverified holder: nothing to send.
-    if (!user) return;
+    if ('skip' in user) {
+      await this.recordSkip(job, user.skip);
+      return;
+    }
 
     if (user.password_hash) {
       // Activated between preview and processing — nothing to send.
+      await this.recordSkip(job, 'already_active');
       return;
     }
 
@@ -108,10 +127,39 @@ export class InvitationBatchProcessor extends WorkerHost {
     });
   }
 
+  /** Final retry exhausted: no send, no log row, so the batch would never drain. */
+  @OnWorkerEvent('failed')
+  async onFailed(job: Job<InvitationBatchJobData> | undefined, err: Error): Promise<void> {
+    if (!job || job.attemptsMade < (job.opts.attempts ?? 1)) return;
+    this.logger.warn(`Invitation job for batch ${job.data.batchId} failed: ${err.message}`);
+    try {
+      await this.recordSkip(job, 'error');
+    } catch (recordErr) {
+      this.logger.error(
+        `Could not record skip for batch ${job.data.batchId}: ${recordErr instanceof Error ? recordErr.message : String(recordErr)}`,
+      );
+    }
+  }
+
+  /** One skip row per job that sends nothing, so `batchStatus` can drain `queued`. No PII. */
+  private async recordSkip(job: Job<InvitationBatchJobData>, reason: InviteSkipReason) {
+    // Join requests were left out of the batch total at dispatch, so they must not count here.
+    if (job.data.counted === false) return;
+    const { tenantId, guardianId, actorUserId, batchId } = job.data;
+    await this.audit.record({
+      action: AuditAction.UPDATE,
+      entity_type: 'InvitationBatch',
+      entity_id: batchId,
+      tenant_id: tenantId,
+      performed_by_user_id: actorUserId,
+      new_values: { batch_id: batchId, guardian_id: guardianId, skipped: reason },
+    });
+  }
+
   /**
    * Loads the guardian's linked user, or finds one by a VERIFIED email/phone,
    * or creates a new passwordless PARENT user + tenant membership — all
-   * inside one transaction. Returns `null` when nothing should be sent:
+   * inside one transaction. Returns `{ skip }` when nothing should be sent:
    *  - an account that never had a row here only gets a join request (the
    *    owner accepts it; we never attach an account on their behalf). That
    *    includes a `guardian.user_id` this school never vetted, e.g. one a
@@ -125,7 +173,7 @@ export class InvitationBatchProcessor extends WorkerHost {
     guardian: Guardian,
     tenantId: string,
     actorUserId: string | null,
-  ): Promise<User | null> {
+  ): Promise<User | { skip: InviteSkipReason }> {
     return this.dataSource.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);
       const userTenantRepo = manager.getRepository(UserTenant);
@@ -144,7 +192,7 @@ export class InvitationBatchProcessor extends WorkerHost {
           this.logger.warn(
             `Guardian ${guardian.id}: the matched account is linked to another guardian, not linked`,
           );
-          return null;
+          return { skip: 'linked_elsewhere' };
         }
         const anyRow = await userTenantRepo.findOne({
           where: { user_id: user.id, tenant_id: tenantId },
@@ -166,7 +214,7 @@ export class InvitationBatchProcessor extends WorkerHost {
             guardianId: guardian.id,
             createdByUserId: actorUserId,
           });
-          return null;
+          return { skip: 'join_request' };
         }
       }
 
@@ -194,7 +242,7 @@ export class InvitationBatchProcessor extends WorkerHost {
             this.logger.warn(
               `Guardian ${guardian.id}: email/phone already held by another account (unverified, or email and phone on different accounts), not linked`,
             );
-            return null;
+            return { skip: 'contact_in_use' };
           }
           throw err;
         }

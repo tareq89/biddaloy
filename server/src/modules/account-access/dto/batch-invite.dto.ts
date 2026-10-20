@@ -74,4 +74,5 @@ export class InviteBatchStatusResponseDto {
   @ApiProperty() sent: number;
   @ApiProperty() failed: number;
   @ApiProperty() queued: number;
+  @ApiProperty() skipped: number;
 }
