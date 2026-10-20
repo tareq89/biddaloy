@@ -69,9 +69,10 @@ const SECRET_SPA_PATH_PATTERN = /(?<=^|[\s"=]|\/\/[^\s/"]{1,255})(\/[iv]\/)[^/?\
 // A connection string's password: `postgres://app:pw@db:5432/x`, or with no
 // username, `redis://:pw@redis:6379`. The host `db` has no TLD, so
 // EMAIL_PATTERN misses it. Runs first, so a host with a TLD is not turned
-// into one email. The password part is greedy up to the last `@` before a `/`
-// or space, since safeDecode turns `%40` back into `@`.
-const URL_USERINFO_PATTERN = /(\/\/[^\s/:@]*:)[^\s/]+@/g;
+// into one email. The password part is greedy up to the last `@` before a `/`,
+// `?`, `#` or space, since safeDecode turns `%40` back into `@`. A raw `?`/`#`
+// cannot be in a URL password, so `x.test:8080?next=a@b.com` is not userinfo.
+const URL_USERINFO_PATTERN = /(\/\/[^\s/:@?#]*:)[^\s/?#]+@/g;
 
 function applyRedaction(text: string): string {
   return text

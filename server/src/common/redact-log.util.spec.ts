@@ -129,4 +129,12 @@ describe('redactPii', () => {
       'postgres://app:[REDACTED]@db:5432/x',
     );
   });
+
+  // An `@` in the query or fragment is not userinfo: the port and host stay.
+  it('does not read an @ in the query or fragment as userinfo', () => {
+    expect(redactPii('https://x.test:8080?next=a@b.com')).toBe(
+      'https://x.test:8080?next=[REDACTED_EMAIL]',
+    );
+    expect(redactPii('https://x.test:8080#a@b.com')).toBe('https://x.test:8080#[REDACTED_EMAIL]');
+  });
 });

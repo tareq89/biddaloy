@@ -67,8 +67,11 @@ The default schedule depends on the mode (`entrypoint.sh` picks it when
 
 **Upgrading an existing deploy:** a production `.env` that sets
 `BACKUP_SCHEDULE='0 2 * * *'` must drop that line (or set `0 * * * *`), or
-the R2 backup stays daily. After the switch, delete the old `backups/db/`
-objects in SeaweedFS once (a one-time cleanup); the files sync skips `backups/`.
+the R2 backup stays daily. After the switch, keep the old `backups/db/`
+objects in SeaweedFS: the files sync skips `backups/`, so they are your only
+history from before R2. Delete them once (a one-time cleanup) only after R2
+holds 30 daily dumps in `db/daily/` and a test restore from R2 has worked
+(see "Restore runbook" below).
 
 **Safety checks before files are touched:**
 
@@ -152,10 +155,14 @@ actually matters:
 - **Rotation:** generate a new keypair (`age-keygen`), point
   `BACKUP_AGE_PUBLIC_KEY` at the new public half, deploy. New backups from
   that point encrypt to the new key. **No re-encryption of old archives is
-  needed** — keep the old private key around until every archive it
-  encrypted has aged out (30 days of daily dumps in R2 mode, so keep it 30
-  days after the switch; `BACKUP_RETENTION_DAYS` in legacy mode), then
-  discard it.
+  needed** — keep the old private key until no archive it encrypted is
+  left. Do not count days: R2 keeps the last 30 daily dumps by count, so a
+  missed run can keep an old-key dump past day 30. Before you discard it,
+  list what is left and check that no key is older than the rotation date:
+  `aws s3 ls s3://<BACKUP_S3_BUCKET>/db/ --recursive --endpoint-url https://<acct>.r2.cloudflarestorage.com`
+  (keys carry their date, e.g. `db/daily/2026-10-20.dump.age`). Check any
+  legacy `backups/db/` archives you still keep the same way (legacy prunes
+  by age, `BACKUP_RETENTION_DAYS`).
 - **Lost key = archives unrecoverable.** Stated plainly because it's true:
   age has no recovery mechanism and no backdoor. If the private key is
   gone, every archive it encrypted is permanently unreadable, full stop.
@@ -249,7 +256,7 @@ rclone copy r2crypt:files-trash/2026-10-20/tenants/<tenant-id> ./out-trash
 # the newest copy from that date. Delete the copies you don't want, then
 # strip the suffix (bash 4+):
 shopt -s globstar
-for f in ./out-trash/**/*-[0-9][0-9][0-9][0-9][0-9][0-9]; do mv "$f" "${f%-??????}"; done
+for f in ./out-trash/**/*-[0-9][0-9][0-9][0-9][0-9][0-9]; do mv -n "$f" "${f%-??????}"; done
 ```
 
 In the R2 console the top-level folder names (`files`, `files-trash`, the

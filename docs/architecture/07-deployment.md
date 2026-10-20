@@ -8,7 +8,7 @@
 
 ```mermaid
 flowchart LR
-    Internet -->|HTTPS| cloudflare["Cloudflare\n(optional CDN)"]
+    Internet -->|HTTPS| cloudflare["Cloudflare\n(required: browsers trust only\nits edge cert, not the Origin CA)"]
     cloudflare -->|HTTPS| nginx
     nginx -->|reverse proxy| app["app\n(NestJS: API + the built SPA at /)"]
     app --> db[("db\nPostgreSQL")]
@@ -17,7 +17,7 @@ flowchart LR
     cert["Origin CA cert\n(copied by hand → /opt/biddaloy/certs;\nsops from Epic 61 W3)"] -.->|"mounted read-only\norigin.pem + origin.key"| nginx
 ```
 
-Example: `export APP_VERSION=<full commit SHA>; docker compose pull && docker compose up -d` runs
+Example: `export APP_VERSION=<full commit SHA> TLS_CERT_DIR=/opt/biddaloy/certs; docker compose pull && docker compose up -d` runs
 `ghcr.io/tareq89/biddaloy-app:<full commit SHA>` (the publish workflow tags the full 40-character SHA). `APP_VERSION` has no default, so a
 forgotten tag fails loudly. Local dev builds instead:
 `APP_VERSION=local TLS_CERT_DIR=./.certs docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`

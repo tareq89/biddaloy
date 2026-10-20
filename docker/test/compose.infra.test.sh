@@ -23,8 +23,9 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml config -q \
   && pass "build overlay config is valid" || fail "build overlay config is invalid"
 
 # Every third-party image in compose is pinned by digest. First-party GHCR
-# images are pinned by commit-SHA tag (APP_VERSION) instead (Rule 21).
-unpinned="$(docker compose config --images | grep -v -E '^ghcr\.io/tareq89/biddaloy-' | grep -v -E '@sha256:[0-9a-f]{64}$' || true)"
+# images must carry exactly the APP_VERSION tag (the commit SHA in prod), so a
+# mutable `:main` / `:latest` fails here too (Rule 21).
+unpinned="$(docker compose config --images | grep -v -E "^ghcr\.io/tareq89/biddaloy-[a-z-]+:${APP_VERSION}\$" | grep -v -E '@sha256:[0-9a-f]{64}$' || true)"
 [ -z "$unpinned" ] || fail "compose images not digest-pinned: $unpinned"
 pass "compose images are digest-pinned"
 
