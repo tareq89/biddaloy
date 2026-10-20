@@ -3,7 +3,7 @@ import { useTranslations, type Lang } from '../i18n';
 const { lang } = Astro.props as { lang: Lang };
 const t = useTranslations(lang);
 ---
-<button class="pill" id="themeBtn" type="button" aria-label={t('theme.toggle')}>☾</button>
+<button class="pill" id="themeBtn" data-ev="theme_toggle" type="button" aria-label={t('theme.toggle')}>☾</button>
 <script is:inline>
   (function () {
     var b = document.getElementById('themeBtn'), r = document.documentElement;

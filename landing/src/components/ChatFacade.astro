@@ -1,0 +1,58 @@
+---
+import WhatsAppLink from './WhatsAppLink.astro';
+import { company } from '../content/legal';
+import type { Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const bn = lang === 'bn';
+const site = import.meta.env.PUBLIC_AIPRAKTOR_SITE ?? '';
+const num = import.meta.env.PUBLIC_WA_NUMBER;
+const wa = num ? `https://wa.me/${num}` : company.whatsapp;
+---
+<!-- Facade: plain button, zero third-party JS until click (or 20 s idle after chat consent). D15, D27. -->
+<button class="chatfab" id="chatFab" type="button" data-chat-open data-site={site} data-lang={lang} data-wa={wa} aria-label={bn ? 'চ্যাট' : 'Chat'}>💬 <span>{bn ? 'চ্যাট' : 'Chat'}</span></button>
+<noscript><div class="chatfab"><WhatsAppLink lang={lang} class="" label="WhatsApp" /></div></noscript>
+<script>
+  import { track, parseConsent, withChat } from '../scripts/events';
+  const EMBED = 'https://www.aipraktor.com/embed.js';
+  const fab = document.getElementById('chatFab') as HTMLButtonElement;
+  const wa = () => window.open(fab.dataset.wa, '_blank', 'noopener');
+  let state: 'idle' | 'loading' | 'ready' = 'idle';
+
+  function load(openAfter: boolean) {
+    const { site, lang } = fab.dataset;
+    if (!site) { if (openAfter) wa(); return; } // chat not configured = WhatsApp
+    if (state === 'ready') { if (openAfter) window.dispatchEvent(new CustomEvent('aipraktor:open')); return; }
+    if (state === 'loading') return;
+    state = 'loading';
+    const s = document.createElement('script');
+    s.src = EMBED; s.async = true; s.dataset.site = site; s.dataset.lang = lang;
+    // D27: chat offline or slow (5 s) -> WhatsApp, never a dead button.
+    const t = setTimeout(() => { if (state === 'loading') { state = 'idle'; s.remove(); if (openAfter) wa(); } }, 5000);
+    s.onerror = () => { clearTimeout(t); state = 'idle'; if (openAfter) wa(); };
+    window.addEventListener('aipraktor:ready', () => {
+      clearTimeout(t); state = 'ready'; fab.hidden = true; // the widget draws its own bubble
+      if (openAfter) window.dispatchEvent(new CustomEvent('aipraktor:open'));
+    }, { once: true });
+    document.head.appendChild(s);
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!(e.target as Element).closest('[data-chat-open]')) return;
+    track('chat_open');
+    try { localStorage.setItem('sm:consent', JSON.stringify(withChat(localStorage.getItem('sm:consent')))); } catch { /* storage blocked */ }
+    load(true);
+  });
+
+  // Idle preload only once the visitor allowed chat.
+  function arm() {
+    let c = null; try { c = parseConsent(localStorage.getItem('sm:consent')); } catch { /* blocked */ }
+    if (c?.chat) setTimeout(() => ('requestIdleCallback' in window ? requestIdleCallback(() => load(false)) : load(false)), 20000);
+  }
+  arm();
+  window.addEventListener('sm:consent', arm, { once: true });
+</script>
+<style>
+  .chatfab{position:fixed;right:1rem;bottom:1rem;z-index:40;display:inline-flex;gap:.4rem;align-items:center;border:0;cursor:pointer;border-radius:999px;padding:.7rem 1rem;font-weight:600;background:var(--ink);color:var(--ink-fg);box-shadow:0 4px 14px rgb(0 0 0/.25)}
+  .chatfab[hidden]{display:none}
+  .chatfab :global(a){color:inherit;text-decoration:none}
+</style>

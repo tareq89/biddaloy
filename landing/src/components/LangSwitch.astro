@@ -5,4 +5,4 @@ const t = useTranslations(lang);
 // Same path in the other language: /bn/pricing/ -> /en/pricing/
 const href = Astro.url.pathname.replace(/^\/(bn|en)(?=\/|$)/, '/' + otherLang(lang));
 ---
-<a class="pill" href={href} hreflang={otherLang(lang)} lang={otherLang(lang)} aria-label={t('lang.switchLabel')}>{t('lang.other')}</a>
+<a class="pill" data-ev="lang_switch" data-ev-slug={otherLang(lang)} href={href} hreflang={otherLang(lang)} lang={otherLang(lang)} aria-label={t('lang.switchLabel')}>{t('lang.other')}</a>
