@@ -50,6 +50,13 @@ the order `PAID`, writes no second `platform_payments` row, and does not recompu
 `(method, gateway_ref)` key is the second guard. Example: opening the callback link twice gives one
 payment row and the same seats.
 
+Creating an order is idempotent per `(school, idempotency_key)`: the same body returns the first
+order; a different `seats`/`months` body on a used key is `409 IDEMPOTENCY_KEY_REUSED`.
+
+A paid purchase's period starts on the later of today and the school's last PAID `period_end`, so
+paying early extends the seats instead of counting them twice. A platform `GRANT` starts today and
+adds seats (see [22-onboarding.md](22-onboarding.md#free-period-and-seats)).
+
 ## Orders that stay PENDING
 
 - **Cancelled or failed return**: the order stays `PENDING`. It is never set `FAILED` from the

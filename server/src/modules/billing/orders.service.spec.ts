@@ -21,6 +21,7 @@ describe('OrdersService', () => {
   it('markPaid applies once: payment inserted, recompute and post-commit hooks run', async () => {
     const q = vi
       .fn()
+      .mockResolvedValueOnce([]) // school lock
       .mockResolvedValueOnce([[{ id: 'o1', school_id: 's1', amount_paisa: '5000' }], 1]) // UPDATE
       .mockResolvedValueOnce(undefined); // INSERT payment
     const { service, entitlement } = build(q);
@@ -34,6 +35,7 @@ describe('OrdersService', () => {
   it('markPaid on an already-paid order does nothing (no payment, no recompute)', async () => {
     const q = vi
       .fn()
+      .mockResolvedValueOnce([]) // school lock
       .mockResolvedValueOnce([[], 0]) // conditional UPDATE matched nothing
       .mockResolvedValueOnce([{ '?column?': 1 }]); // the order exists
     const { service, entitlement } = build(q);
@@ -45,7 +47,11 @@ describe('OrdersService', () => {
   });
 
   it('markPaid on an unknown order is a 404', async () => {
-    const q = vi.fn().mockResolvedValueOnce([[], 0]).mockResolvedValueOnce([]);
+    const q = vi
+      .fn()
+      .mockResolvedValueOnce([]) // school lock
+      .mockResolvedValueOnce([[], 0])
+      .mockResolvedValueOnce([]);
     const { service } = build(q);
     await expect(
       service.markPaid('missing', { method: PlatformPaymentMethod.GRANT }),

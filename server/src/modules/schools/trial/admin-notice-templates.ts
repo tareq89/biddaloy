@@ -15,6 +15,10 @@ export interface NoticeVars {
   /** First day without paid seats (YYYY-MM-DD), for the seat notices. */
   date?: string;
   seats?: number;
+  /** The seats that end are the free period (the school never paid for later seats). */
+  free?: boolean;
+  /** The school has more ACTIVE students than seats once they end: it goes read-only, then paused. */
+  over?: boolean;
 }
 
 interface Template {
@@ -73,36 +77,40 @@ const TEMPLATES: Record<AdminNoticeKey, Record<NoticeLocale, Template>> = {
     en: {
       subject: (v) => `${v.school}: seats run out in 30 days`,
       body: (v) =>
-        `The ${v.seats ?? ''} paid seats of ${v.school} run out on ${v.date ?? ''}. Buy seats for the next period in Settings, Seats & billing to keep adding students.`,
+        v.free
+          ? `Free use of ${v.school} ends on ${v.date ?? ''}. Buy seats in Settings, Seats & billing to keep adding students.`
+          : `The ${v.seats ?? ''} paid seats of ${v.school} run out on ${v.date ?? ''}. Buy seats for the next period in Settings, Seats & billing to keep adding students.`,
     },
     bn: {
       subject: (v) => `${v.school}: ৩০ দিনের মধ্যে সিট শেষ হবে`,
       body: (v) =>
-        `${v.school}-এর ${v.seats ?? ''}টি পরিশোধিত সিট ${v.date ?? ''} তারিখে শেষ হবে। শিক্ষার্থী যোগ করা চালু রাখতে সেটিংস, সিট ও বিলিং থেকে পরবর্তী সময়ের জন্য সিট কিনুন।`,
+        v.free
+          ? `${v.school}-এর বিনা খরচে ব্যবহার ${v.date ?? ''} তারিখে শেষ হবে। শিক্ষার্থী যোগ করা চালু রাখতে সেটিংস, সিট ও বিলিং থেকে সিট কিনুন।`
+          : `${v.school}-এর ${v.seats ?? ''}টি পরিশোধিত সিট ${v.date ?? ''} তারিখে শেষ হবে। শিক্ষার্থী যোগ করা চালু রাখতে সেটিংস, সিট ও বিলিং থেকে পরবর্তী সময়ের জন্য সিট কিনুন।`,
     },
   },
   seats_d7: {
     en: {
       subject: (v) => `${v.school}: seats run out in 7 days`,
       body: (v) =>
-        `Only 7 days left. The paid seats of ${v.school} run out on ${v.date ?? ''}, then the school becomes read-only. Buy seats in Settings, Seats & billing.`,
+        `Only 7 days left. ${v.free ? `Free use of ${v.school} ends` : `The paid seats of ${v.school} run out`} on ${v.date ?? ''}${v.over ? ', then the school becomes read-only' : ''}. Buy seats in Settings, Seats & billing.`,
     },
     bn: {
       subject: (v) => `${v.school}: ৭ দিনের মধ্যে সিট শেষ হবে`,
       body: (v) =>
-        `আর মাত্র ৭ দিন বাকি। ${v.school}-এর পরিশোধিত সিট ${v.date ?? ''} তারিখে শেষ হবে, তারপর স্কুল শুধু দেখা যাবে। সেটিংস, সিট ও বিলিং থেকে সিট কিনুন।`,
+        `আর মাত্র ৭ দিন বাকি। ${v.free ? `${v.school}-এর বিনা খরচে ব্যবহার` : `${v.school}-এর পরিশোধিত সিট`} ${v.date ?? ''} তারিখে শেষ হবে${v.over ? ', তারপর স্কুল শুধু দেখা যাবে' : ''}। সেটিংস, সিট ও বিলিং থেকে সিট কিনুন।`,
     },
   },
   seats_expired: {
     en: {
       subject: (v) => `${v.school}: seats have expired`,
       body: (v) =>
-        `The paid seats of ${v.school} ended on ${v.date ?? ''}. The school is read-only for 7 days, then paused. Your data is safe. Buy seats in Settings, Seats & billing to continue.`,
+        `${v.free ? `Free use of ${v.school}` : `The paid seats of ${v.school}`} ended on ${v.date ?? ''}. ${v.over ? 'The school is read-only for 7 days, then paused. Your data is safe.' : 'You cannot add students until you buy seats.'} Buy seats in Settings, Seats & billing to continue.`,
     },
     bn: {
       subject: (v) => `${v.school}: সিটের মেয়াদ শেষ`,
       body: (v) =>
-        `${v.school}-এর পরিশোধিত সিটের মেয়াদ ${v.date ?? ''} তারিখে শেষ হয়েছে। ৭ দিন স্কুল শুধু দেখা যাবে, তারপর সাময়িক বন্ধ হবে। আপনার তথ্য নিরাপদ আছে। চালু রাখতে সেটিংস, সিট ও বিলিং থেকে সিট কিনুন।`,
+        `${v.free ? `${v.school}-এর বিনা খরচে ব্যবহারের` : `${v.school}-এর পরিশোধিত সিটের`} মেয়াদ ${v.date ?? ''} তারিখে শেষ হয়েছে। ${v.over ? '৭ দিন স্কুল শুধু দেখা যাবে, তারপর সাময়িক বন্ধ হবে। আপনার তথ্য নিরাপদ আছে।' : 'সিট না কেনা পর্যন্ত নতুন শিক্ষার্থী যোগ করা যাবে না।'} চালু রাখতে সেটিংস, সিট ও বিলিং থেকে সিট কিনুন।`,
     },
   },
   seats_suspended: {

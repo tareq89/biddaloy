@@ -294,7 +294,18 @@ describe('Seat grace (integration)', () => {
     expect(await statusOf(id)).toEqual({ status: 'SUSPENDED', status_reason: 'SEATS_EXPIRED' });
   });
 
-  it('never reactivates a suspension that is not SEATS_EXPIRED', async () => {
+  it('never reactivates a suspension that is not SEATS_EXPIRED or IDLE (e.g. a platform one)', async () => {
+    const id = await newSchool(5, 1);
+    await ds.query(
+      `UPDATE schools SET status = 'SUSPENDED', status_reason = 'PLATFORM' WHERE id = $1`,
+      [id],
+    );
+    await addOrder(id, 5, '2026-12-01', '2027-01-01');
+    await ds.transaction((m) => entitlement.recompute(id, m, afterGrace));
+    expect(await statusOf(id)).toEqual({ status: 'SUSPENDED', status_reason: 'PLATFORM' });
+  });
+
+  it('lifts an IDLE suspension once a PAID order exists', async () => {
     const id = await newSchool(5, 1);
     await ds.query(
       `UPDATE schools SET status = 'SUSPENDED', status_reason = 'IDLE' WHERE id = $1`,
@@ -302,6 +313,6 @@ describe('Seat grace (integration)', () => {
     );
     await addOrder(id, 5, '2026-12-01', '2027-01-01');
     await ds.transaction((m) => entitlement.recompute(id, m, afterGrace));
-    expect(await statusOf(id)).toEqual({ status: 'SUSPENDED', status_reason: 'IDLE' });
+    expect(await statusOf(id)).toEqual({ status: 'ACTIVE', status_reason: null });
   });
 });

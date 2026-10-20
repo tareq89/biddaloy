@@ -1,47 +1,53 @@
 import type { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
+import { seatCover } from '../../../billing/seat-grace';
 
 const DAY_MS = 86_400_000;
 
 export interface SeatSnapshot {
-  /** `schools.seat_limit`; the entitlement job keeps it equal to the paid seats. */
+  /** `schools.seat_limit` (0 in the free period); the entitlement job keeps it equal to the paid seats. */
   entitled: number;
+  /** `seat_limit` is NULL: the free period, every student is free (D2). */
+  free: boolean;
   /** ACTIVE, non-deleted students (same count as the seat limit check). */
   used: number;
-  /** First day with no paid cover (`period_end` of the last PAID order), YYYY-MM-DD, or null. */
-  periodEnd: string | null;
+  /** First day with no cover, YYYY-MM-DD: the last PAID `period_end`, or the
+   * `BILLING_FREE_UNTIL` day for a school that never paid for later seats (`seatCover`). */
+  periodEnd: string;
   /** Whole days from `localDate` to `periodEnd`; 0 or negative once the seats have run out. */
-  daysLeft: number | null;
+  daysLeft: number;
+  /** The last paid order is 31 days or shorter (no 30-day warning for it). */
+  shortPeriod: boolean;
 }
 
 /**
- * Seat state of one ACTIVE school, or null when it should raise nothing: gone, not ACTIVE,
- * or `seat_limit` is NULL (free period, D2). `localDate` is YYYY-MM-DD in school time.
+ * Seat state of one ACTIVE school, or null when it should raise nothing: gone or not ACTIVE.
+ * `localDate` is YYYY-MM-DD in school time.
  */
 export async function seatSnapshot(
   dataSource: DataSource,
   tenantId: string,
   localDate: string,
 ): Promise<SeatSnapshot | null> {
-  const [row]: { entitled: number; used: number; period_end: string | null }[] =
-    await dataSource.query(
-      `SELECT s.seat_limit AS entitled,
-              (SELECT count(*)::int FROM students st
-                WHERE st.tenant_id = s.id AND st.deleted_at IS NULL
-                  AND st.enrollment_status = 'ACTIVE') AS used,
-              (SELECT max(o.period_end)::text FROM seat_orders o
-                WHERE o.school_id = s.id AND o.status = 'PAID') AS period_end
-         FROM schools s
-        WHERE s.id = $1 AND s.status = 'ACTIVE' AND s.deleted_at IS NULL
-          AND s.seat_limit IS NOT NULL`,
-      [tenantId],
-    );
+  const [row]: { seat_limit: number | null; used: number }[] = await dataSource.query(
+    `SELECT s.seat_limit,
+            (SELECT count(*)::int FROM students st
+              WHERE st.tenant_id = s.id AND st.deleted_at IS NULL
+                AND st.enrollment_status = 'ACTIVE') AS used
+       FROM schools s
+      WHERE s.id = $1 AND s.status = 'ACTIVE' AND s.deleted_at IS NULL`,
+    [tenantId],
+  );
   if (!row) return null;
-  const periodEnd = row.period_end;
-  const daysLeft = periodEnd
-    ? Math.round((Date.parse(periodEnd) - Date.parse(localDate)) / DAY_MS)
-    : null;
-  return { entitled: row.entitled, used: row.used, periodEnd, daysLeft };
+  const cover = await seatCover(dataSource, tenantId);
+  return {
+    entitled: row.seat_limit ?? 0,
+    free: row.seat_limit === null,
+    used: row.used,
+    periodEnd: cover.periodEnd,
+    daysLeft: Math.round((Date.parse(cover.periodEnd) - Date.parse(localDate)) / DAY_MS),
+    shortPeriod: cover.short,
+  };
 }
 
 /** ACTIVE ADMIN members of the school. */

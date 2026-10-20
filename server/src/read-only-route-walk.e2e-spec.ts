@@ -31,12 +31,27 @@ import { SEED_SECTION_1_ID } from '@test/constants';
 import { ContextGuard } from './modules/auth/guards/context.guard';
 import { TenantStatusService } from './modules/schools/tenant-status.service';
 import { ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY } from './modules/auth/decorators/allow-when-suspended-for-billing.decorator';
+import { ALLOW_WHEN_READ_ONLY_KEY } from './modules/auth/decorators/allow-when-read-only.decorator';
 
 const WALK_EMAIL = 'read-only-walk@biddaloy.test';
 const WALK_USER_ID = '00000000-0000-4000-8000-0000000e7549';
 const SENTINEL = 299;
 const BATCH = 20;
 const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
+/** A user's own writes, marked @AllowWhenReadOnly: they must PASS while the school is read-only. */
+const USER_LEVEL_WRITES = [
+  'DELETE /api/v1/me/push/subscriptions',
+  'DELETE /api/v1/me/push/subscriptions/:id',
+  'PATCH /api/v1/users/me/preferences/dashboard',
+  'PATCH /api/v1/users/me/preferences/digest',
+  'PATCH /api/v1/users/me/preferences/notifications',
+  'POST /api/v1/attention/items/:recipientId/hide',
+  'POST /api/v1/attention/items/:recipientId/snooze',
+  'POST /api/v1/attention/items/seen',
+  'POST /api/v1/auth/step-up',
+  'POST /api/v1/auth/step-up/otp/request',
+  'POST /api/v1/me/push/subscriptions',
+];
 
 /** Guards-only interceptor, as in `route-status-snapshot.e2e-spec.ts`: no handler ever runs. */
 let guardsOnly = false;
@@ -185,7 +200,13 @@ describe('Read-only route walk (e2e)', () => {
 
     const discovery = app.get(DiscoveryService);
     const scanner = app.get(MetadataScanner);
-    const routes: { method: string; path: string; label: string; allowed: boolean }[] = [];
+    const routes: {
+      method: string;
+      path: string;
+      label: string;
+      allowed: boolean;
+      userLevel: boolean;
+    }[] = [];
     for (const { metatype } of discovery.getControllers()) {
       if (!metatype) continue;
       const prefix: string = Reflect.getMetadata(PATH_METADATA, metatype) ?? '';
@@ -208,14 +229,25 @@ describe('Read-only route walk (e2e)', () => {
           ...(Reflect.getMetadata(GUARDS_METADATA, handler) ?? []),
         ];
         if (!guards.includes(ContextGuard)) continue;
+        const userLevel = Reflect.getMetadata(ALLOW_WHEN_READ_ONLY_KEY, handler) === true;
         routes.push({
           method,
           path: base + template.replace(/:[A-Za-z0-9_]+/g, SEED_TENANT_ID),
           label: `${method} ${base + template}`,
-          allowed: Reflect.getMetadata(ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY, handler) === true,
+          allowed:
+            userLevel ||
+            Reflect.getMetadata(ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY, handler) === true,
+          userLevel,
         });
       }
     }
+    // The user-level writes are walked (they run ContextGuard) and are exactly the expected set.
+    expect(
+      routes
+        .filter((r) => r.userLevel)
+        .map((r) => r.label)
+        .sort(),
+    ).toEqual(USER_LEVEL_WRITES);
     // Guard against a vacuous pass: the snapshot has hundreds of ADMIN-reachable writes.
     expect(routes.length).toBeGreaterThan(100);
 
