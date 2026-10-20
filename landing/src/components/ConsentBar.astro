@@ -1,0 +1,43 @@
+---
+import { useTranslations, type Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const t = useTranslations(lang);
+---
+<div class="consent" id="consent" hidden>
+  <div class="wrap">
+    <div class="rowc">
+      <span>{t('consent.text')}</span><span class="spacer"></span>
+      <button class="btn primary small" id="cAll" type="button">{t('consent.all')}</button>
+      <button class="btn secondary small" id="cSel" type="button">{t('consent.choose')}</button>
+      <button class="pill" id="cNo" type="button">{t('consent.no')}</button>
+    </div>
+    <div class="opts" id="opts">
+      <label><input type="checkbox" checked disabled /> {t('consent.essential')}</label>
+      <label><input type="checkbox" id="oStat" /> {t('consent.stats')}</label>
+      <label><input type="checkbox" id="oAds" /> {t('consent.ads')}</label>
+      <label><input type="checkbox" id="oChat" /> {t('consent.chat')}</label>
+      <button class="btn primary small" id="cSave" type="button">{t('consent.save')}</button>
+    </div>
+  </div>
+</div>
+<script is:inline>
+  (function () {
+    var c = document.getElementById('consent'), opts = document.getElementById('opts');
+    var $ = function (id) { return document.getElementById(id); };
+    function save(v) {
+      try { localStorage.setItem('sm:consent', JSON.stringify(v)); } catch (e) {}
+      c.hidden = true;
+      window.dispatchEvent(new CustomEvent('sm:consent', { detail: v }));
+    }
+    $('cAll').addEventListener('click', function () { save({ stat: 1, ads: 1, chat: 1 }); });
+    $('cNo').addEventListener('click', function () { save({ stat: 0, ads: 0, chat: 0 }); });
+    $('cSel').addEventListener('click', function () { opts.classList.toggle('open'); });
+    $('cSave').addEventListener('click', function () {
+      save({ stat: +$('oStat').checked, ads: +$('oAds').checked, chat: +$('oChat').checked });
+    });
+    // Footer "cookie settings" reopens the bar (D36).
+    var again = $('cookieAgain');
+    if (again) again.addEventListener('click', function () { c.hidden = false; opts.classList.add('open'); });
+    try { if (!localStorage.getItem('sm:consent')) c.hidden = false; } catch (e) { c.hidden = false; }
+  })();
+</script>
