@@ -64,6 +64,58 @@ docker compose run --rm app node server/dist/scripts/migrate.js run
 The one-release backward-compatibility rule (old code must work on the new
 schema) is in [`CONTRIBUTING.md`](../../CONTRIBUTING.md#database-migrations).
 
+### Deploying a new version
+
+One command, from your laptop (needs your age key for the secrets):
+
+```bash
+cd infra/ansible
+export BIDDALOY_PROD_HOST=203.0.113.10
+ansible-playbook deploy.yml -e env=prod -e version=3f9c2ab        # deploy
+ansible-playbook deploy.yml -e env=prod -e version=3f9c2ab --check # plan only
+```
+
+`version` is the image tag (the git SHA CI pushed). `env` is `prod`, `demo` or `staging`.
+
+```mermaid
+sequenceDiagram
+    actor Op as Operator
+    participant A as ansible
+    participant H as Host (/opt/biddaloy/prod)
+    Op->>A: deploy.yml -e version=3f9c2ab
+    A->>H: pre-flight: tags exist? compose files here? (stop, nothing changed)
+    A->>H: copy compose + nginx, write .env, APP_VERSION=3f9c2ab
+    A->>H: pull images
+    A->>H: backup (prod only)
+    A->>H: migrate.js pending, then run if exit 2
+    A->>H: compose up, wait healthy
+    A->>H: poll /api/health/ready (2 min)
+    A->>Op: smoke-post-deploy.mjs on the public URL
+    A->>H: deploys.log: "2026-10-20T09:00:00Z prod 3f9c2ab ok"
+    Note over A,H: Any failure after pre-flight (rescue): set APP_VERSION back to the last "ok" line, compose up, log "rolled-back", fail the play
+```
+
+Before you run it:
+
+- **Check out `version` first** (`git checkout 3f9c2ab`). Compose files and nginx templates are copied from your checkout; the play fails early if `HEAD` does not start with `version`.
+- **Smoke logins:** export `SMOKE_ADMIN_EMAIL`, `SMOKE_ADMIN_PASSWORD`, `SMOKE_TEACHER_EMAIL`, `SMOKE_TEACHER_PASSWORD`, `SMOKE_SUPER_ADMIN_EMAIL`, `SMOKE_SUPER_ADMIN_PASSWORD`. Missing ones fail pre-flight.
+
+Things to know:
+
+- **Unknown tag:** pre-flight checks the app image and the env's other image (backup, or demo-reset for demo) and fails before any container changes.
+- **Rollback redeploys the old image only.** The new compose and nginx files stay on the host. Migrations are not reverted (D11), so every migration must keep the old code working (see above).
+- **Prod backs up before migrating.** If the backup fails, migrations never run. Demo and staging take no backup. The very first prod deploy (no `ok` line in `deploys.log`) skips it too: there is no data worth saving yet.
+- **One env per host.** prod, demo and staging all bind the host's ports 80/443, so run one per host until #1768 separates them.
+- **`--check`** runs only the pre-flight and the file/env diffs. Pull, backup, migrate, restart, readiness and smoke are skipped.
+- **Skip the backup** (rare, e.g. a second deploy minutes later): `-e skip_backup=true`.
+- **`HEALTH_TOKEN` must be in the env's secrets file.** Without it `/api/health/ready` answers 404 and the deploy never turns ready.
+- The demo deploy skips the smoke test until `demo_domain` is added to `inventory/prod.yml`.
+- `deploys.log` (in the project dir) lists every deploy: `<time> <env> <version> <ok|rolled-back|failed>`.
+
+#### When rollback also fails
+
+The play ends red and the app may be down. Check `docker compose ps` and `docker compose logs app` on the host. If the database is damaged, restore the last backup with the restore runbook ([13-backup-restore](13-backup-restore.md)), then redeploy a known-good `version`.
+
 ### Deploying behind an external load balancer instead
 
 If TLS terminates upstream of this stack (a cloud LB, or Cloudflare straight

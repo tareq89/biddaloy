@@ -1,0 +1,5 @@
+---
+# Notified by tasks/write-env.yml (env_notify: restart compose) when .env or a cert changes.
+# deploy.yml imports this file; the name must match env_notify exactly.
+- name: restart compose
+  ansible.builtin.include_tasks: tasks/compose-up.yml
