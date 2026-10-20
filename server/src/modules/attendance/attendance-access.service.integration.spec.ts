@@ -78,11 +78,14 @@ describe('AttendanceAccessService (integration)', () => {
       // `SEED_ACADEMIC_YEAR_ID` ('2026-2027') — both exist for `TENANT_A`,
       // and `(name, tenant_id)` is unique.
       // Only one current year per tenant (D2: teacher scope is current-year only).
+      // Its dates must not overlap the baseline year: the routine resolver
+      // picks *a* year covering the period tests' DATE (2026) with no
+      // ordering, and the fixture routine lives under the baseline year.
       await yearRepo.update({ tenant_id: tenantId }, { is_current: false });
       const year = await yearRepo.save({
         name: 'Attendance Access Test Year',
-        start_date: '2026-01-01',
-        end_date: '2026-12-31',
+        start_date: '2027-01-01',
+        end_date: '2027-12-31',
         is_current: true,
         tenant_id: tenantId,
       });
@@ -395,8 +398,9 @@ describe('AttendanceAccessService (integration)', () => {
       subTeacherId = teacher.id;
       const routine = await seedPeriodRoutine(dataSource, {
         tenantId: TENANT_A,
-        // The seeded year is the only one covering DATE; a second overlapping year
-        // would make the resolver's year lookup ambiguous.
+        // The baseline year is the only one covering DATE (the test year above
+        // is 2027); a second overlapping year would make the resolver's year
+        // lookup ambiguous.
         academicYearId: SEED_ACADEMIC_YEAR_ID,
         sectionId: sectionA1Id,
         date: DATE,
