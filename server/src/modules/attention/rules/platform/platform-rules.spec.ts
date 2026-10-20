@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { alertRuleMeta, UserRole } from '@biddaloy/shared';
 import type { RuleContext } from '../rule.types';
 import { PlatformBackupFailingRule } from './platform-backup-failing.rule';
+import { PlatformBkashRefundDueRule } from './platform-bkash-refund-due.rule';
 import { PlatformProviderFailuresRule } from './platform-provider-failures.rule';
 import { PlatformTenantResolver } from './platform-tenant';
 import { TenantStatusService } from '../../../schools/tenant-status.service';
@@ -42,6 +43,7 @@ describe('platform rules: shared contract', () => {
       'platform.provider_failures',
       new PlatformProviderFailuresRule(ds([]) as never, resolver(PID)),
     ],
+    ['platform.bkash.refund_due', new PlatformBkashRefundDueRule(ds([]) as never, resolver(PID))],
   ] as const;
 
   for (const [key, rule] of rules) {
@@ -58,6 +60,7 @@ describe('platform rules: shared contract', () => {
     ['backup_failing', (d: never, r: never) => new PlatformBackupFailingRule(d, r)],
     ['seats.expiring', (d: never, r: never) => new PlatformSeatsExpiringRule(d, r)],
     ['provider_failures', (d: never, r: never) => new PlatformProviderFailuresRule(d, r)],
+    ['bkash.refund_due', (d: never, r: never) => new PlatformBkashRefundDueRule(d, r)],
   ] as const) {
     it(`${key}: other tenants and an unresolved platform tenant get nothing, with no query`, async () => {
       const d = ds([{ n: 99, schools: 3, name: 'X' }]);
@@ -172,5 +175,24 @@ describe('PlatformProviderFailuresRule', () => {
     expect(await run(19)).toEqual([]);
     const [f] = await run(20);
     expect(f.params).toEqual({ count: 20, schools: 2 });
+  });
+});
+
+describe('PlatformBkashRefundDueRule', () => {
+  it('lists unrefunded orphan bKash payments: count, first three trxIDs, school names', async () => {
+    const rows = ['T1', 'T2', 'T3', 'T4'].map((ref) => ({ ref, name: 'A' }));
+    const d = ds(rows);
+    const [f] = await new PlatformBkashRefundDueRule(d as never, resolver(PID)).evaluate(ctx());
+    // Only orphans not yet stamped refunded are money still owed back.
+    expect(d.query.mock.calls[0][0]).toContain(`raw->>'orphan' = 'true'`);
+    expect(d.query.mock.calls[0][0]).toContain(`raw->>'refunded_at' IS NULL`);
+    expect(f.params).toEqual({ count: 4, refs: 'T1, T2, T3 …', schools: 'A' });
+    expect(f.dedupeKey).toBe('platform:bkash-refund');
+    expect(f.recipients).toEqual([{ userId: 'sa1', role: UserRole.SUPER_ADMIN }]);
+  });
+
+  it('is silent when nothing is owed back', async () => {
+    const rule = new PlatformBkashRefundDueRule(ds([]) as never, resolver(PID));
+    expect(await rule.evaluate(ctx())).toEqual([]);
   });
 });

@@ -64,6 +64,7 @@ export const ALERT_RULE_KEYS = [
   'seats.exhausted',
   'account.idle',
   'platform.seats.expiring',
+  'platform.bkash.refund_due',
 ] as const;
 
 export type AlertRuleKey = (typeof ALERT_RULE_KEYS)[number];
@@ -165,6 +166,8 @@ const ROWS: Row[] = [
   ['seats.exhausted', C.BILLING, S.WARNING, [K.DAILY, K.ON_CHANGE], [R.ADMIN], true, false, false, '#1649'],
   ['account.idle', C.BILLING, S.REMINDER, [K.DAILY], [R.ADMIN], false, true, false, '#1649'],
   ['platform.seats.expiring', C.PLATFORM, S.REMINDER, [K.DAILY], [R.SUPER_ADMIN], false, true, false, '#1649'],
+  // Money bKash took that paid no order: critical until refunded, so it cannot be turned off.
+  ['platform.bkash.refund_due', C.PLATFORM, S.CRITICAL, [K.HOURLY], [R.SUPER_ADMIN], true, false, false, '#1649'],
 ];
 
 export const ALERT_RULES: readonly AlertRuleMeta[] = ROWS.map(

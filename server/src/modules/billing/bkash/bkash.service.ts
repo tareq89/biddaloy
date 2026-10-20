@@ -19,10 +19,17 @@ import { OrdersService } from '../orders.service';
 import { BkashClient, bdtToPaisa, type BkashPayment } from './bkash.client';
 
 /** order id -> the one bKash payment started for it, so a callback can be matched and reconciled. */
-const PAYMENT_KEY = (orderId: string) => `bkash:pay:${orderId}`;
+export const PAYMENT_KEY = (orderId: string) => `bkash:pay:${orderId}`;
+/** paymentID -> order id, so a callback for a paymentID we never made costs no bKash call. */
+const PID_KEY = (paymentID: string) => `bkash:pid:${paymentID}`;
 const PAYMENT_TTL_SEC = 25 * 60 * 60;
-/** Held only while bKash `create` is in flight; also the SET NX lock against a double start. */
+/** Held only while bKash `create` is in flight: the SET NX lock against a double start. */
+const CREATING_KEY = (orderId: string) => `bkash:creating:${orderId}`;
 const CREATING_TTL_SEC = 60;
+/** bKash paymentIDs are short alphanumeric tokens (e.g. TR0011ON1565154754797). */
+const PAYMENT_ID_SHAPE = /^[A-Za-z0-9]{1,64}$/;
+/** CHK_platform_payments_amount upper bound. */
+const MAX_AMOUNT_PAISA = 9_999_999_999n;
 const RECONCILE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const RETRY_QUERY_DELAY_MS = 1000;
 
@@ -33,6 +40,14 @@ interface PaymentState {
 }
 
 export type CallbackOutcome = 'success' | 'cancel' | 'failure';
+
+/** `details.code` of the pay route's two 409s: the client retries one and starts over on the other. */
+export const PAY_CONFLICT = {
+  /** The order is PAID / FAILED / ...: make a new order (new idempotency key). */
+  ORDER_NOT_PENDING: 'ORDER_NOT_PENDING',
+  /** Another request is creating this order's payment right now: press Pay again, same order. */
+  PAYMENT_STARTING: 'PAYMENT_STARTING',
+} as const;
 
 @Injectable()
 export class BkashService {
@@ -74,23 +89,42 @@ export class BkashService {
     // Another school's order is a 404, never a hint that it exists.
     if (!order || order.school_id !== schoolId) throw new NotFoundException('Order not found');
     if (order.status !== SeatOrderStatus.PENDING) {
-      throw new ConflictException('This order is not waiting for payment.');
+      throw new ConflictException({
+        message: 'This order is not waiting for payment.',
+        details: { code: PAY_CONFLICT.ORDER_NOT_PENDING },
+      });
     }
-    const started: PaymentState = { pay_started_at: new Date().toISOString() };
+    // A payment is already live for this order: hand back its page, never make a second one.
+    const live = await this.readState(orderId);
+    if (live?.bkash_url) return { bkash_url: live.bkash_url };
     // A Redis error here fails the start (no payment without somewhere to remember it).
-    const won = await this.redis.set(
-      PAYMENT_KEY(orderId),
-      JSON.stringify(started),
-      'EX',
-      CREATING_TTL_SEC,
-      'NX',
-    );
+    const won = await this.redis.set(CREATING_KEY(orderId), '1', 'EX', CREATING_TTL_SEC, 'NX');
     if (won !== 'OK') {
-      // A payment is already live for this order: hand back its page, never make a second one.
-      const live = await this.readState(orderId);
-      if (live?.bkash_url) return { bkash_url: live.bkash_url };
-      throw new ConflictException('A payment is already starting for this order.');
+      throw new ConflictException({
+        message: 'A payment is already starting for this order.',
+        details: { code: PAY_CONFLICT.PAYMENT_STARTING },
+      });
     }
+    try {
+      // Another start may have finished between the read above and the lock.
+      const now = await this.readState(orderId);
+      if (now?.bkash_url) return { bkash_url: now.bkash_url };
+      return await this.createPayment(schoolId, order, now);
+    } finally {
+      await this.redis.del(CREATING_KEY(orderId)).catch(() => undefined);
+    }
+  }
+
+  /**
+   * `previous` is a payment that came back cancelled or failed (its checkout URL was dropped).
+   * Its paymentID stays in the state, for the reconciler, until the new one replaces it.
+   */
+  private async createPayment(
+    schoolId: string,
+    order: { id: string; amount_paisa: string },
+    previous: PaymentState | undefined,
+  ): Promise<{ bkash_url: string }> {
+    const orderId = order.id;
     let created: BkashPayment;
     try {
       created = await this.client.create({
@@ -100,32 +134,32 @@ export class BkashService {
         payerReference: schoolId,
       });
     } catch (err) {
-      await this.redis.del(PAYMENT_KEY(orderId)).catch(() => undefined);
       this.logger.error(`bKash create failed for order ${orderId}: ${errMessage(err)}`);
       throw new ServiceUnavailableException('Online payment is not available right now.');
     }
     if (created.statusCode !== '0000' || !created.paymentID || !created.bkashURL) {
-      // We won the NX lock, so no paymentID was ever stored for this order: closing it is safe.
+      // No paymentID was ever stored for this order: closing it is safe.
       // (A stored paymentID means a payment may exist, and then the order must stay PENDING.)
-      await this.redis.del(PAYMENT_KEY(orderId)).catch(() => undefined);
-      await this.orders.markFailed(orderId);
+      if (!previous?.paymentID) await this.orders.markFailed(orderId);
       this.logger.error(`bKash create refused for order ${orderId}: code ${created.statusCode}`);
       throw new ServiceUnavailableException('Online payment is not available right now.');
     }
-    await this.redis.set(
-      PAYMENT_KEY(orderId),
-      JSON.stringify({ ...started, paymentID: created.paymentID, bkash_url: created.bkashURL }),
-      'EX',
-      PAYMENT_TTL_SEC,
-    );
+    const state: PaymentState = {
+      pay_started_at: new Date().toISOString(),
+      paymentID: created.paymentID,
+      bkash_url: created.bkashURL,
+    };
+    await this.redis.set(PID_KEY(created.paymentID), orderId, 'EX', PAYMENT_TTL_SEC);
+    await this.redis.set(PAYMENT_KEY(orderId), JSON.stringify(state), 'EX', PAYMENT_TTL_SEC);
     return { bkash_url: created.bkashURL };
   }
 
   /**
    * The browser came back from bKash. Nothing in the URL is trusted; it only names a payment.
-   * Order of checks: ask bKash about the paymentID (query), find our order from bKash's own
-   * invoice number, require that order to be PENDING and this paymentID to be the one we started,
-   * and only then execute. Anything off throws a generic 400 (Rule 23) and changes nothing.
+   * Order of checks: the paymentID has bKash's shape and is one we created (Redis; no outbound
+   * call otherwise), bKash's query names that same order as its invoice number, the order is
+   * PENDING and this paymentID is the one we started, and only then execute.
+   * Anything off throws a generic 400 (Rule 23) and changes nothing.
    */
   async handleCallback(
     paymentID: string,
@@ -133,6 +167,12 @@ export class BkashService {
   ): Promise<{ orderId: string; outcome: CallbackOutcome }> {
     const outcome: CallbackOutcome =
       status === 'success' ? 'success' : status === 'cancel' ? 'cancel' : 'failure';
+    if (!PAYMENT_ID_SHAPE.test(paymentID)) throw new BadRequestException('Payment not found');
+    const ourOrderId = await this.redis.get(PID_KEY(paymentID)).catch((err) => {
+      this.logger.error(`bKash callback could not read payment state: ${errMessage(err)}`);
+      return null;
+    });
+    if (!ourOrderId) throw new BadRequestException('Payment not found');
     let known: BkashPayment;
     try {
       known = await this.client.query(paymentID);
@@ -141,7 +181,7 @@ export class BkashService {
       throw new BadRequestException('Payment not found');
     }
     const orderId = known.merchantInvoiceNumber;
-    if (known.statusCode !== '0000' || !orderId || !isUUID(orderId)) {
+    if (known.statusCode !== '0000' || !orderId || !isUUID(orderId) || orderId !== ourOrderId) {
       throw new BadRequestException('Payment not found');
     }
     const order = await this.orders.findForPayment(orderId);
@@ -158,6 +198,15 @@ export class BkashService {
     if (outcome === 'success') {
       const tx = await this.settle(paymentID, known);
       if (tx?.transactionStatus === 'Completed') await this.applyCompleted(tx);
+    } else if (state) {
+      // That checkout page is dead: the next Pay must create a new payment, not hand it back.
+      // The paymentID stays, so the reconciler can still settle it if bKash completes it after all.
+      const { bkash_url: _dead, ...kept } = state;
+      await this.redis
+        .set(PAYMENT_KEY(orderId), JSON.stringify(kept), 'KEEPTTL')
+        .catch((err) =>
+          this.logger.warn(`bKash could not drop a dead checkout URL: ${errMessage(err)}`),
+        );
     }
     return { orderId, outcome };
   }
@@ -182,14 +231,20 @@ export class BkashService {
     }
   }
 
-  /** Marks the order paid only when the completed transaction matches this order exactly. */
+  /**
+   * Marks the order paid only when the completed transaction matches this order exactly.
+   * bKash holds the money by now, so the two paths that pay nothing (a mismatch, or an order no
+   * longer PENDING) still record it: an orphan `platform_payments` row (`raw.orphan`), which the
+   * `platform.bkash.refund_due` alert shows the platform SUPER_ADMIN until it is refunded.
+   */
   private async applyCompleted(tx: BkashPayment): Promise<void> {
     const order = await this.orders.findForPayment(tx.merchantInvoiceNumber as string);
     const paid = bdtToPaisa(tx.amount);
     if (!order || !tx.trxID || tx.currency !== 'BDT' || paid !== BigInt(order.amount_paisa)) {
       this.logger.error(
-        `bKash completed payment does not match order (order ${tx.merchantInvoiceNumber ?? '-'}, trx ${tx.trxID ?? '-'})`,
+        `bKash completed payment does not match order (order ${tx.merchantInvoiceNumber ?? '-'}, trx ${tx.trxID ?? '-'}): refund needed`,
       );
+      if (order) await this.recordOrphan(order.id, tx, 'MISMATCH');
       throw new BadRequestException('Payment not found');
     }
     // Idempotent: a replay finds the order PAID, records no second payment.
@@ -197,19 +252,42 @@ export class BkashService {
       method: PlatformPaymentMethod.BKASH,
       gateway_ref: tx.trxID,
       amount_paisa: order.amount_paisa,
-      raw: {
-        paymentID: tx.paymentID ?? null,
-        trxID: tx.trxID,
-        amount: tx.amount,
-        currency: tx.currency,
-        transactionStatus: tx.transactionStatus,
-        merchantInvoiceNumber: tx.merchantInvoiceNumber,
-      },
+      raw: rawOf(tx),
     });
     if (!applied) {
-      // Callback and reconciler raced, or a payment completed for an order already settled.
+      // Callback and reconciler raced (same trxID: the orphan insert is a no-op), or a payment
+      // completed for an order already settled another way (a double payment to refund).
       this.logger.error(
         `bKash payment completed but order ${order.id} was not PENDING (trx ${tx.trxID}): check for a double payment`,
+      );
+      await this.recordOrphan(order.id, tx, 'ORDER_NOT_PENDING');
+    }
+  }
+
+  /** Keyed on (BKASH, trxID): a replay, or the payment that did pay the order, inserts nothing. */
+  private async recordOrphan(
+    orderId: string,
+    tx: BkashPayment,
+    reason: 'MISMATCH' | 'ORDER_NOT_PENDING',
+  ): Promise<void> {
+    const ref = tx.trxID ?? (tx.paymentID ? `paymentID:${tx.paymentID}` : undefined);
+    if (!ref) return;
+    const paisa = bdtToPaisa(tx.amount);
+    try {
+      await this.dataSource.query(
+        `INSERT INTO platform_payments (seat_order_id, method, gateway_ref, amount_paisa, raw)
+         VALUES ($1, $2, $3, $4, $5) ON CONFLICT (method, gateway_ref) DO NOTHING`,
+        [
+          orderId,
+          PlatformPaymentMethod.BKASH,
+          ref,
+          paisa !== undefined && paisa <= MAX_AMOUNT_PAISA ? paisa.toString() : '0',
+          JSON.stringify({ ...rawOf(tx), orphan: true, orphan_reason: reason }),
+        ],
+      );
+    } catch (err) {
+      this.logger.error(
+        `bKash orphan payment NOT recorded (order ${orderId}, trx ${ref}): ${errMessage(err)}`,
       );
     }
   }
@@ -237,6 +315,18 @@ export class BkashService {
     }
     return paid;
   }
+}
+
+/** What we keep of a bKash transaction (no payer details). */
+function rawOf(tx: BkashPayment): Record<string, unknown> {
+  return {
+    paymentID: tx.paymentID ?? null,
+    trxID: tx.trxID ?? null,
+    amount: tx.amount,
+    currency: tx.currency,
+    transactionStatus: tx.transactionStatus,
+    merchantInvoiceNumber: tx.merchantInvoiceNumber,
+  };
 }
 
 function errMessage(err: unknown): string {

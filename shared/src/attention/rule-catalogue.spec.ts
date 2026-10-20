@@ -13,9 +13,9 @@ import {
 const meta = (k: string) => ALERT_RULES.find((r) => r.key === k)!;
 
 describe('alert rule catalogue', () => {
-  it('has 62 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
-    expect(ALERT_RULES).toHaveLength(62);
-    expect(new Set(ALERT_RULE_KEYS).size).toBe(62);
+  it('has 63 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
+    expect(ALERT_RULES).toHaveLength(63);
+    expect(new Set(ALERT_RULE_KEYS).size).toBe(63);
     expect(ALERT_RULES.map((r) => r.key)).toEqual([...ALERT_RULE_KEYS]);
     for (const k of ALERT_RULE_KEYS) expect(k).toMatch(/^[a-z_]+(\.[a-z_]+)+$/);
   });
@@ -75,7 +75,7 @@ describe('alert rule catalogue', () => {
     expect(meta('attendance.not_taken').cadence).toContain(AlertCadence.FAST);
   });
 
-  it('ownerEpic is set on exactly the 12 later-epic rows', () => {
+  it('ownerEpic is set on exactly the 13 later-epic rows', () => {
     expect(
       ALERT_RULES.filter((r) => r.ownerEpic)
         .map((r) => r.key)
@@ -94,6 +94,7 @@ describe('alert rule catalogue', () => {
         'seats.exhausted',
         'account.idle',
         'platform.seats.expiring',
+        'platform.bkash.refund_due',
       ].sort(),
     );
   });
