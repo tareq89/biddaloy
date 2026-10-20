@@ -35,6 +35,7 @@ export const EXPIRING_WITHIN_DAYS = 14;
  * $1 PAID, $2 today, $3 ACTIVE student, $4 PENDING, $5 name pattern, $6 filter, $7 IDLE reason,
  * $8 expiring-until date, $9 school id, $10 limit, $11 offset.
  * "Exhausted" = every seat used, by the limit (a blocked limit of 0 counts) or by the paid seats.
+ * paid_until is the school's own orders' end; a GRANT's (unit price 0) only with no own order.
  */
 const SCHOOLS_SQL = `
 SELECT t.*, count(*) OVER()::int AS total FROM (
@@ -43,8 +44,8 @@ SELECT t.*, count(*) OVER()::int AS total FROM (
                AND o.period_start <= $2::date AND o.period_end > $2::date), 0)::int AS seats_entitled,
     (SELECT count(*) FROM students st WHERE st.tenant_id = s.id AND st.deleted_at IS NULL
        AND st.enrollment_status = $3)::int AS seats_used,
-    (SELECT (max(o.period_end) - 1)::text FROM seat_orders o
-      WHERE o.school_id = s.id AND o.status = $1) AS paid_until,
+    (SELECT (COALESCE(max(o.period_end) FILTER (WHERE o.unit_price_paisa > 0), max(o.period_end)) - 1)::text
+       FROM seat_orders o WHERE o.school_id = s.id AND o.status = $1) AS paid_until,
     (SELECT count(*) FROM seat_orders o WHERE o.school_id = s.id AND o.status = $4)::int AS pending_orders
   FROM schools s
 ) t
