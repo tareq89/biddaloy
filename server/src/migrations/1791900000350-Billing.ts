@@ -6,8 +6,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * MONEY_MAX (99,999,999.99) in paisa. Demo seed: the `billing` slice (owedBy #2184) covers both tables; #2184 fills it.
  * Money records survive school deletion, so both FKs are ON DELETE RESTRICT.
  */
-export class Billing1791900000300 implements MigrationInterface {
-  name = 'Billing1791900000300';
+export class Billing1791900000350 implements MigrationInterface {
+  name = 'Billing1791900000350';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
