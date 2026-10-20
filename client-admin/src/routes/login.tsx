@@ -1,5 +1,6 @@
 import {
   ApiError,
+  getAccessToken,
   getFirstPasswordGate,
   NoMembershipsError,
   RateLimitedError,
@@ -156,15 +157,24 @@ function LoginPage() {
   });
 
   // 50.8: fire once per page load; `role` leaves the URL so a reload does not sign in again.
+  // `mutate` is stable across renders (the `mutation` object is not), so keep it in a ref.
   const roleFired = React.useRef(false);
+  const signInRef = React.useRef(mutation.mutate);
+  signInRef.current = mutation.mutate;
   React.useEffect(() => {
     if (!demo.enabled || !search.role || roleFired.current) return;
     const card = demo.cards.find((c) => c.key === search.role);
     if (!card) return;
     roleFired.current = true;
-    void navigate({ to: '/login', search: (prev) => ({ ...prev, role: undefined }), replace: true });
-    mutation.mutate({ email: card.email, password: demo.password });
-  }, [demo.enabled, demo.cards, demo.password, search.role, navigate, mutation]);
+    void navigate({
+      to: '/login',
+      search: (prev) => ({ ...prev, role: undefined }),
+      replace: true,
+    });
+    // Already signed in (the root guard has finished its silent refresh by now): never swap the session.
+    if (getAccessToken()) return;
+    signInRef.current({ email: card.email, password: demo.password });
+  }, [demo.enabled, demo.cards, demo.password, search.role, navigate]);
 
   const otpRequestMutation = useMutation({
     mutationFn: (identifier: string) => requestOtp(identifier),

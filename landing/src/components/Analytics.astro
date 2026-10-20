@@ -26,6 +26,15 @@ const ids = { clarity: import.meta.env.PUBLIC_CLARITY_ID ?? '', meta: import.met
       }
     }
     try { run(JSON.parse(localStorage.getItem('sm:consent'))); } catch (e) {}
-    window.addEventListener('sm:consent', function (e) { run(e.detail); });
+    // Withdrawing a choice that was already used: stop Clarity, then reload so Meta's script is gone too.
+    window.addEventListener('sm:consent', function (e) {
+      var c = e.detail || {};
+      if ((done.c && !c.stat) || (done.m && !c.ads)) {
+        try { if (done.c && window.clarity) window.clarity('stop'); if (done.m && window.fbq) window.fbq('consent', 'revoke'); } catch (x) {}
+        location.reload();
+        return;
+      }
+      run(c);
+    });
   })();
 </script>}

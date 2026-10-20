@@ -62,6 +62,12 @@ jobs:
             # change what Storybook builds without touching `ui/**` itself.
             landing:
               - 'landing/**'
+              - 'lighthouserc.landing.cjs'
+              - 'playwright.landing.config.ts'
+              - 'e2e/landing/**'
+              - 'nginx/templates/landing.conf.template'
+              - 'nginx/test/landing.infra.test.sh'
+              - 'infra/ansible/landing.yml'
               - 'ui/src/styles/globals.css'
               - 'yarn.lock'
               - 'package.json'
@@ -1123,6 +1129,10 @@ jobs:
 
       - uses: ./.github/actions/setup
 
+      # Before the build: build-collateral.mjs renders the PDFs with Chromium.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Build landing
         run: yarn workspace @biddaloy/landing build
 
@@ -1131,18 +1141,16 @@ jobs:
 
       # [50.13] Budget gate (D21): serve the built site and run Lighthouse + the
       # landing smoke project against it. Either one failing fails the job.
-      # `serve` is pinned (security Rule 21); it also backs playwright.landing.config.ts.
+      # `serve` and `wait-on` are locked landing devDependencies (security Rule 21);
+      # serve also backs playwright.landing.config.ts.
       - name: Serve landing dist
-        run: npx --yes serve@14.2.4 landing/dist -l 4321 --no-clipboard &
+        run: yarn workspace @biddaloy/landing serve &
 
       - name: Wait for the landing server
-        run: npx --yes wait-on@9.0.4 http://localhost:4321/bn/ --timeout 60000
+        run: yarn workspace @biddaloy/landing exec wait-on http://localhost:4321/bn/ --timeout 60000
 
       - name: Lighthouse budget (landing)
         run: npx lhci autorun --config lighthouserc.landing.cjs
-
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
 
       - name: Landing smoke (Playwright)
         run: npx playwright test -c playwright.landing.config.ts --project landing

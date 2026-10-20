@@ -28,9 +28,9 @@ Example: `landing/src/content/faq.ts` holds one FAQ list. The home page shows it
 
 Page copy lives in `landing/src/content/*.ts` with `bn` / `en` fields (never in `i18n/*.json`, which holds shell strings only). Some of it is switched or filled in later:
 
-| Flag / value                                                       | File                                  | Default                        | Flip when                                                                                                                                                                           |
-| ------------------------------------------------------------------ | ------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SHOW_TESTIMONIALS`                                                | `landing/src/content/testimonials.ts` | `false`                        | three real testimonials are in `testimonials[]` (D13). While off, `/bn/testimonials/` still builds but carries `<meta name="robots" content="noindex">` and is linked from nowhere. |
+| Flag / value                                         | File                                  | Default                        | Flip when                                                                                                                                                                           |
+| ---------------------------------------------------- | ------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SHOW_TESTIMONIALS`                                  | `landing/src/content/testimonials.ts` | `false`                        | three real testimonials are in `testimonials[]` (D13). While off, `/bn/testimonials/` still builds but carries `<meta name="robots" content="noindex">` and is linked from nowhere. |
 | `company.*` (address, phone, email, maps URL, hours) | `landing/src/content/legal.ts`        | bracketed placeholders / empty | Epic 62 (#1783) supplies the registered company details. Used by the contact office card (D35), privacy and terms.                                                                  |
 
 Example: with `SHOW_TESTIMONIALS = false`, `testimonialsNoindex()` returns `true` and the testimonials page emits the `noindex` meta in its static `<head>` (via the `noindex` prop on `Base.astro`). `flags.test.ts` only tests `testimonialsNoindex()` and the quote lengths, not the rendered HTML.
@@ -48,13 +48,13 @@ flowchart LR
   C -- ads --> M[Meta Pixel]
 ```
 
-| Host                                 | What it gets                       | When it loads                                  | Consent                              |
-| ------------------------------------ | ---------------------------------- | ---------------------------------------------- | ------------------------------------ |
-| `stats.schoolmanagerp.com`           | page views and D22 events, no cookie | every page                                   | none needed (cookieless, first-party) |
-| `www.aipraktor.com`                  | the chat text, IP                  | chat click, or 20 s idle after chat consent    | opening the chat counts (D15)        |
-| `www.clarity.ms` (+ `*.clarity.ms`)  | session recording, IP              | after "statistics" is allowed                  | statistics                           |
-| `connect.facebook.net`, `www.facebook.com` | ad pixel events, IP          | after "ads" is allowed                         | ads                                  |
-| `wa.me`                              | nothing until the link is clicked  | link click only                                | none (user navigates)                |
+| Host                                       | What it gets                         | When it loads                               | Consent                               |
+| ------------------------------------------ | ------------------------------------ | ------------------------------------------- | ------------------------------------- |
+| `stats.schoolmanagerp.com`                 | page views and D22 events, no cookie | every page                                  | none needed (cookieless, first-party) |
+| `www.aipraktor.com`                        | the chat text, IP                    | chat click, or 20 s idle after chat consent | opening the chat counts (D15)         |
+| `www.clarity.ms` (+ `*.clarity.ms`)        | session recording, IP                | after "statistics" is allowed               | statistics                            |
+| `connect.facebook.net`, `www.facebook.com` | ad pixel events, IP                  | after "ads" is allowed                      | ads                                   |
+| `wa.me`                                    | nothing until the link is clicked    | link click only                             | none (user navigates)                 |
 
 If chat does not become ready within 5 s, or the script fails, the chat button opens WhatsApp instead (D27).
 
@@ -62,10 +62,17 @@ If chat does not become ready within 5 s, or the script fails, the chat button o
 
 CSP comes from nginx, not a `<meta>` tag.
 
-- `script-src`: `'self'` `https://stats.schoolmanagerp.com` `https://www.aipraktor.com` `https://www.clarity.ms` `https://connect.facebook.net` (plus `'unsafe-inline'` or hashes for the inline theme/consent/analytics snippets)
+- `script-src`: `'self'` `https://stats.schoolmanagerp.com` `https://www.aipraktor.com` `https://*.clarity.ms` `https://connect.facebook.net` (plus `'unsafe-inline'` or hashes for the inline theme/consent/analytics snippets)
 - `connect-src`: `'self'` `https://stats.schoolmanagerp.com` `https://www.aipraktor.com` `https://*.clarity.ms` `https://www.facebook.com`
 - `img-src`: `'self'` `data:` `https://www.facebook.com` `https://*.clarity.ms`
 - `frame-src`: `https://www.aipraktor.com`
+
+Accepted trade-offs (review of #2778):
+
+- `script-src 'unsafe-inline'` is a known gap; hash the inline snippets at build time later.
+- HSTS `includeSubDomains` needs every `*.schoolmanagerp.com` subdomain to be HTTPS-only before it ships.
+- Collateral files (PDFs, `llms.txt`, the WhatsApp image, fonts) are cached for `max-age=3600`, so a redeploy can serve a stale copy for up to an hour.
+- Demo auto-login (`/login?role=`) is login CSRF by design: it is accepted on the demo host, which holds synthetic data and a public password (D8). A visitor who is already signed in is never switched.
 
 Build ids are `PUBLIC_*` variables, see `landing/.env.example`.
 
@@ -80,13 +87,13 @@ flowchart TD
   H[Home page head] --> J["JSON-LD graph:<br/>Organization, SoftwareApplication, FAQPage"]
 ```
 
-| File | Made by | What is in it |
-| --- | --- | --- |
-| `public/robots.txt` | hand-written | `Allow: /` and `Sitemap: https://schoolmanagerp.com/sitemap-index.xml` |
-| `sitemap-index.xml`, `sitemap-0.xml` | `@astrojs/sitemap` (config in `astro.config.mjs`) | one `<loc>` per page, both languages |
-| `llms.txt` | `landing/scripts/llms.mjs`, run after `astro build` | `- [Title](url): description` for each indexable English page |
-| JSON-LD | `src/components/JsonLd.astro`, used by the home page | `Organization`; `SoftwareApplication` with `offers` price `10` `BDT`; `FAQPage` |
-| `<link rel="alternate" hreflang>` | `Base.astro` | `bn`, `en` and `x-default` (= bn) on every page |
+| File                                 | Made by                                              | What is in it                                                                   |
+| ------------------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `public/robots.txt`                  | hand-written                                         | `Allow: /` and `Sitemap: https://schoolmanagerp.com/sitemap-index.xml`          |
+| `sitemap-index.xml`, `sitemap-0.xml` | `@astrojs/sitemap` (config in `astro.config.mjs`)    | one `<loc>` per page, both languages                                            |
+| `llms.txt`                           | `landing/scripts/llms.mjs`, run after `astro build`  | `- [Title](url): description` for each indexable English page                   |
+| JSON-LD                              | `src/components/JsonLd.astro`, used by the home page | `Organization`; `SoftwareApplication` with `offers` price `10` `BDT`; `FAQPage` |
+| `<link rel="alternate" hreflang>`    | `Base.astro`                                         | `bn`, `en` and `x-default` (= bn) on every page                                 |
 
 ### Unlisted pages stay out of every file
 
@@ -103,13 +110,13 @@ Check JSON-LD by hand after a schema change: paste the page URL into <https://va
 
 `lighthouserc.landing.cjs` runs Lighthouse 3 times on four URLs (`/bn/`, `/bn/pricing/`, `/en/`, `/bn/for/madrasa/`) with the same phone-on-3G profile as the app's `lighthouserc.cjs`.
 
-| Check | Limit | Status |
-| --- | --- | --- |
-| Accessibility score | 1 | enforced |
-| Layout shift (CLS) | 0.05 | enforced |
-| JavaScript downloaded | 51 200 bytes (50 KB) | enforced |
-| Performance score | target 0.95, **enforced 0.8** | see below |
-| Largest paint (LCP) | target 1500 ms, **enforced 4500 ms** | see below |
+| Check                 | Limit                                | Status    |
+| --------------------- | ------------------------------------ | --------- |
+| Accessibility score   | 1                                    | enforced  |
+| Layout shift (CLS)    | 0.05                                 | enforced  |
+| JavaScript downloaded | 51 200 bytes (50 KB)                 | enforced  |
+| Performance score     | target 0.95, **enforced 0.8**        | see below |
+| Largest paint (LCP)   | target 1500 ms, **enforced 4500 ms** | see below |
 
 Measured on 2026-10-21 (built site, 3G profile): performance 0.83 to 0.93, LCP 2.8 to 3.6 s, JavaScript about 3 KB, CLS 0, accessibility 1.
 
@@ -135,11 +142,11 @@ flowchart LR
   OK -- no --> FAIL[job fails, reports uploaded]
 ```
 
-| Layer | Where | Covers |
-| --- | --- | --- |
-| Unit | `landing/src/**/*.test.ts` (`yarn workspace @biddaloy/landing test`) | i18n parity, flags, pricing copy, events, shots manifest |
-| Smoke | `e2e/landing/*.spec.ts` (Playwright project `landing`) | `/` goes to `/bn/`; language switch keeps the path; theme persists; consent bar; hreflang pairs; axe 0 violations; no sideways scroll at 390 px; every internal link answers 200; sitemap, robots, `llms.txt`, JSON-LD; no payment-provider words |
-| Budget | `lighthouserc.landing.cjs` | the table above |
+| Layer  | Where                                                                | Covers                                                                                                                                                                                                                                            |
+| ------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit   | `landing/src/**/*.test.ts` (`yarn workspace @biddaloy/landing test`) | i18n parity, flags, pricing copy, events, shots manifest                                                                                                                                                                                          |
+| Smoke  | `e2e/landing/*.spec.ts` (Playwright project `landing`)               | `/` goes to `/bn/`; language switch keeps the path; theme persists; consent bar; hreflang pairs; axe 0 violations; no sideways scroll at 390 px; every internal link answers 200; sitemap, robots, `llms.txt`, JSON-LD; no payment-provider words |
+| Budget | `lighthouserc.landing.cjs`                                           | the table above                                                                                                                                                                                                                                   |
 
 Run locally (no database, no API, no login):
 
@@ -180,13 +187,13 @@ CI is the only builder: the `landing` job uploads `landing-dist-<sha>.tar.gz`. H
 
 ## Lessons from building it
 
-| Surprise | Cost | Fix | Rule to keep |
-| --- | --- | --- | --- |
-| Accent colours (teal, amber, coral) used as text failed contrast (2.3 to 3.4, need 4.5) | axe found about 50 violations | `--teal-ink`, `--amber-ink`, `--coral-ink` tokens; dark theme reuses the accent | Use `--*-ink` for text, `--*` for fills and borders |
-| The chat button sat on top of the consent bar's "No" button | consent could not be clicked on desktop | consent bar `z-index: 50`, above the chat button | A bar the visitor must answer goes above floating buttons |
-| Web fonts delayed first paint and LCP (5 s on 3G) | Lighthouse performance 0.65 | `font-display: optional`, fonts added after first paint | Nothing render-critical depends on a font download |
-| The 3G profile cannot reach LCP 1.5 s | the written target was not testable as given | gate at the measured floor, target kept in the config comment | Check a budget is reachable before writing it into CI |
-| Home page linked to `/sm-ek-pata.pdf`, which did not exist yet | link check returned 404 | `.pdf` skipped in the link test until Collateral lands | Remove the skip when the PDF ships |
+| Surprise                                                                                | Cost                                         | Fix                                                                             | Rule to keep                                              |
+| --------------------------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Accent colours (teal, amber, coral) used as text failed contrast (2.3 to 3.4, need 4.5) | axe found about 50 violations                | `--teal-ink`, `--amber-ink`, `--coral-ink` tokens; dark theme reuses the accent | Use `--*-ink` for text, `--*` for fills and borders       |
+| The chat button sat on top of the consent bar's "No" button                             | consent could not be clicked on desktop      | consent bar `z-index: 50`, above the chat button                                | A bar the visitor must answer goes above floating buttons |
+| Web fonts delayed first paint and LCP (5 s on 3G)                                       | Lighthouse performance 0.65                  | `font-display: optional`, fonts added after first paint                         | Nothing render-critical depends on a font download        |
+| The 3G profile cannot reach LCP 1.5 s                                                   | the written target was not testable as given | gate at the measured floor, target kept in the config comment                   | Check a budget is reachable before writing it into CI     |
+| Home page linked to `/sm-ek-pata.pdf`, which did not exist yet                          | link check returned 404                      | `.pdf` skipped in the link test until Collateral lands                          | Remove the skip when the PDF ships                        |
 
 ## Events (D22)
 

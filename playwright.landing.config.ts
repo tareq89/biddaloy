@@ -13,8 +13,8 @@ export default defineConfig({
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: { baseURL: 'http://localhost:4321' },
   webServer: {
-    // Pinned (security Rule 21). `serve` resolves /bn/pricing/ to its index.html like the real nginx does.
-    command: 'npx --yes serve@14.2.4 landing/dist -l 4321 --no-clipboard',
+    // `serve` is a locked landing devDependency (Rule 21). It resolves /bn/pricing/ to its index.html like the real nginx does.
+    command: 'yarn workspace @biddaloy/landing serve',
     url: 'http://localhost:4321/bn/',
     reuseExistingServer: true, // CI starts the same server first (shared with Lighthouse)
     timeout: 60_000,

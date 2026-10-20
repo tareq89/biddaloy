@@ -15,24 +15,33 @@ const wa = num ? `https://wa.me/${num}` : company.whatsapp;
   import { track, parseConsent, withChat } from '../scripts/events';
   const EMBED = 'https://www.aipraktor.com/embed.js';
   const fab = document.getElementById('chatFab') as HTMLButtonElement;
-  const wa = () => window.open(fab.dataset.wa, '_blank', 'noopener');
+  // Navigate (not window.open): a timer or onerror callback is not a user gesture, so popups get blocked.
+  const wa = () => { location.href = fab.dataset.wa as string; };
   let state: 'idle' | 'loading' | 'ready' = 'idle';
+  let script: HTMLScriptElement | null = null; // one tag, ever
+  let openAfterReady = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  window.addEventListener('aipraktor:ready', () => {
+    clearTimeout(timer); state = 'ready'; fab.hidden = true; // the widget draws its own bubble
+    if (openAfterReady) window.dispatchEvent(new CustomEvent('aipraktor:open'));
+  });
 
   function load(openAfter: boolean) {
     const { site, lang } = fab.dataset;
     if (!site) { if (openAfter) wa(); return; } // chat not configured = WhatsApp
     if (state === 'ready') { if (openAfter) window.dispatchEvent(new CustomEvent('aipraktor:open')); return; }
+    if (openAfter) openAfterReady = true;
     if (state === 'loading') return;
     state = 'loading';
+    // D27: chat offline or slow (5 s) -> WhatsApp, never a dead button. The script may still arrive
+    // later; it is kept (not re-added), so a later click reuses it.
+    timer = setTimeout(() => { if (state === 'loading') { state = 'idle'; if (openAfterReady) { openAfterReady = false; wa(); } } }, 5000);
+    if (script) return;
     const s = document.createElement('script');
+    script = s;
     s.src = EMBED; s.async = true; s.dataset.site = site; s.dataset.lang = lang;
-    // D27: chat offline or slow (5 s) -> WhatsApp, never a dead button.
-    const t = setTimeout(() => { if (state === 'loading') { state = 'idle'; s.remove(); if (openAfter) wa(); } }, 5000);
-    s.onerror = () => { clearTimeout(t); state = 'idle'; if (openAfter) wa(); };
-    window.addEventListener('aipraktor:ready', () => {
-      clearTimeout(t); state = 'ready'; fab.hidden = true; // the widget draws its own bubble
-      if (openAfter) window.dispatchEvent(new CustomEvent('aipraktor:open'));
-    }, { once: true });
+    s.onerror = () => { clearTimeout(timer); state = 'idle'; script = null; s.remove(); if (openAfterReady) { openAfterReady = false; wa(); } };
     document.head.appendChild(s);
   }
 

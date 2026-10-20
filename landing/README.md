@@ -2,6 +2,8 @@
 
 Static marketing site (Astro 7, no framework JS). Languages: `/bn/` (default) and `/en/`.
 
+Needs Node 24 (the build runs `.ts` scripts with native type stripping) and Playwright Chromium (`npx playwright install chromium`) for the collateral PDFs.
+
 ```bash
 yarn workspace @biddaloy/landing dev     # http://localhost:4321/bn/
 yarn workspace @biddaloy/landing build   # -> landing/dist

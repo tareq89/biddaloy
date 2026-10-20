@@ -1,7 +1,7 @@
 // [50.13] Budget gate for the landing site (D21). Same device profile as lighthouserc.cjs
 // (mid-range Android on 3G), but static pages: no login, much tighter numbers.
 // Raising a number here is a deliberate decision, never a CI fix.
-// Serve first: `npx --yes serve@14.2.4 landing/dist -l 4321`. Trailing slashes on purpose (trailingSlash: 'always').
+// Serve first: `yarn workspace @biddaloy/landing serve`. Trailing slashes on purpose (trailingSlash: 'always').
 module.exports = {
   ci: {
     collect: {
@@ -19,6 +19,8 @@ module.exports = {
       },
     },
     assert: {
+      // Every run must pass, not just the best of 3 (the lhci default is `optimistic`).
+      aggregationMethod: 'pessimistic',
       assertions: {
         // Hard gates, as specified by Epic 50 (D21).
         'categories:accessibility': ['error', { minScore: 1 }],

@@ -13,7 +13,11 @@ const pages = (dir) =>
     const p = join(dir, n);
     return statSync(p).isDirectory() ? pages(p) : n === 'index.html' ? [p] : [];
   });
-const pick = (html, re) => (html.match(re)?.[1] ?? '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+const pick = (html, re) =>
+  (html.match(re)?.[1] ?? '')
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"');
 
 const lines = pages(join(dist, 'en'))
   .sort()
@@ -21,7 +25,8 @@ const lines = pages(join(dist, 'en'))
   .filter(([, html]) => !html.includes('name="robots" content="noindex"')) // keep unlisted pages (testimonials) out
   .map(([file, html]) => {
     const url = `${site}/${relative(dist, dirname(file))}/`;
-    const title = pick(html, /<title>([^<]*)<\/title>/);
+    const esc = (x) => x.replace(/([[\]])/g, '\\$1');
+    const title = esc(pick(html, /<title>([^<]*)<\/title>/));
     const desc = pick(html, /<meta name="description" content="([^"]*)"/);
     return `- [${title}](${url}): ${desc}`;
   });
