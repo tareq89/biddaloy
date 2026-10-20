@@ -90,14 +90,12 @@ export class OrdersService {
     }
     const unit = input.unit_price_paisa ?? SEAT_UNIT_PRICE_PAISA;
     const amount = input.seats * input.months * unit;
-    // The period shown on a PENDING order is a preview (as a purchase); payInTx sets the real one.
+    // The period shown on a PENDING order is a preview, by the same rule; payInTx sets the real one.
+    const start = await this.startDate(m, input.schoolId, input.seats, unit > 0);
     await m.query(
       `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa,
                                 period_start, period_end, status, idempotency_key, created_by_user_id)
-       SELECT $1, $2, $3, $4, $5, s.start, s.start + ($3::int * interval '1 month'), $6, $7, $8
-         FROM (SELECT GREATEST((now() AT TIME ZONE 'Asia/Dhaka')::date,
-                 (SELECT MAX(p.period_end) FROM seat_orders p
-                   WHERE p.school_id = $1 AND p.status = $9)) AS start) s
+       VALUES ($1, $2, $3, $4, $5, $9::date, $9::date + ($3::int * interval '1 month'), $6, $7, $8)
        ON CONFLICT (school_id, idempotency_key) DO NOTHING`,
       [
         input.schoolId,
@@ -108,7 +106,7 @@ export class OrdersService {
         SeatOrderStatus.PENDING,
         input.idempotency_key,
         input.userId,
-        SeatOrderStatus.PAID,
+        start,
       ],
     );
     const [row]: OrderRow[] = await m.query(
@@ -144,9 +142,7 @@ export class OrdersService {
   /**
    * PENDING -> PAID, once. The conditional UPDATE is the idempotency guard: a replay matches no
    * row, records no second payment and does not recompute. The period is set at payment time so an
-   * order paid late still covers the months bought. A purchase starts on the later of today and
-   * the end of the school's last PAID period, so an early renewal extends and never overlaps.
-   * A platform GRANT starts today and adds to the seats in force (a top-up).
+   * order paid late still covers the months bought. See `startDate` for where the period starts.
    */
   async markPaid(orderId: string, payment: PaymentInput): Promise<{ applied: boolean }> {
     const result = await this.dataSource.transaction((m) => this.payInTx(m, orderId, payment));
@@ -160,36 +156,34 @@ export class OrdersService {
     payment: PaymentInput,
   ): Promise<{ applied: false } | { applied: true; schoolId: string }> {
     {
-      // Two payments for one school at once must not both read the same last period end.
+      // Two payments for one school at once must not both read the same cover.
       await m.query(
         'SELECT 1 FROM schools WHERE id = (SELECT school_id FROM seat_orders WHERE id = $1) FOR NO KEY UPDATE',
         [orderId],
+      );
+      const [order]: { school_id: string; seats: number }[] = await m.query(
+        'SELECT school_id, seats FROM seat_orders WHERE id = $1',
+        [orderId],
+      );
+      if (!order) throw new NotFoundException('Order not found');
+      const start = await this.startDate(
+        m,
+        order.school_id,
+        order.seats,
+        payment.method !== PlatformPaymentMethod.GRANT,
       );
       // TypeORM returns `[rows, affectedCount]` for UPDATE ... RETURNING.
       const [rows]: [{ id: string; school_id: string; amount_paisa: string }[], number] =
         await m.query(
           `UPDATE seat_orders o
-            SET status = $2, paid_at = now(), period_start = s.start,
-                period_end = s.start + (o.months * interval '1 month')
-           FROM (SELECT GREATEST((now() AT TIME ZONE 'Asia/Dhaka')::date,
-                   CASE WHEN $4::boolean THEN (SELECT MAX(p.period_end) FROM seat_orders p
-                     WHERE p.school_id = (SELECT school_id FROM seat_orders WHERE id = $1)
-                       AND p.status = $2) END) AS start) s
+            SET status = $2, paid_at = now(), period_start = $4::date,
+                period_end = $4::date + (o.months * interval '1 month')
           WHERE o.id = $1 AND o.status = $3
           RETURNING o.id, o.school_id, o.amount_paisa`,
-          [
-            orderId,
-            SeatOrderStatus.PAID,
-            SeatOrderStatus.PENDING,
-            payment.method !== PlatformPaymentMethod.GRANT, // GREATEST skips the NULL for a grant
-          ],
+          [orderId, SeatOrderStatus.PAID, SeatOrderStatus.PENDING, start],
         );
       const paid = rows[0];
-      if (!paid) {
-        const exists = await m.query('SELECT 1 FROM seat_orders WHERE id = $1', [orderId]);
-        if (!exists.length) throw new NotFoundException('Order not found');
-        return { applied: false as const };
-      }
+      if (!paid) return { applied: false as const };
       await m.query(
         `INSERT INTO platform_payments (seat_order_id, method, gateway_ref, amount_paisa, raw, recorded_by_user_id)
          VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -206,6 +200,33 @@ export class OrdersService {
       await payment.onApplied?.(m);
       return { applied: true as const, schoolId: paid.school_id };
     }
+  }
+
+  /**
+   * First day (YYYY-MM-DD, school time) of an order's period. A GRANT (`chains` false) starts
+   * today and adds seats. A purchase looks at the school's own cover: its largest PAID order that
+   * has not ended (GRANTs, unit price 0, never count, so a long grant cannot push a renewal out).
+   * Seats >= that order's seats: a renewal or upgrade, it starts where that order ends, so an early
+   * renewal never overlaps. Fewer seats: a top-up, it starts today and adds to the seats in force,
+   * so a small mid-period buy does not push the next renewal out. No cover: today.
+   */
+  private async startDate(
+    m: EntityManager,
+    schoolId: string,
+    seats: number,
+    chains: boolean,
+  ): Promise<string> {
+    const [row]: { start: string }[] = await m.query(
+      `SELECT (CASE WHEN $3::boolean AND c.seats <= $2 THEN c.period_end ELSE t.today END)::text AS start
+         FROM (SELECT (now() AT TIME ZONE 'Asia/Dhaka')::date AS today) t
+         LEFT JOIN LATERAL (
+           SELECT p.seats, p.period_end FROM seat_orders p
+            WHERE p.school_id = $1 AND p.status = $4 AND p.unit_price_paisa > 0
+              AND p.period_end > t.today
+            ORDER BY p.seats DESC, p.period_end DESC LIMIT 1) c ON true`,
+      [schoolId, seats, chains, SeatOrderStatus.PAID],
+    );
+    return row.start;
   }
 
   async list(schoolId: string, limit: number, offset = 0): Promise<SeatOrderDto[]> {
