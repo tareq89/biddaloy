@@ -68,4 +68,4 @@ Lint: `ansible-lint infra/ansible`.
 ansible-playbook deploy.yml -e env=prod -e version=<git-sha>   # add --check to see the plan
 ```
 
-Pulls, backs up (prod), migrates, restarts, waits for ready, smoke-tests, and logs to `/opt/biddaloy/<env>/deploys.log`. On failure it redeploys the last good version (migrations are not reverted). Before deploying: check out `<git-sha>` (files are copied from your checkout) and export `SMOKE_{ADMIN,TEACHER,SUPER_ADMIN}_{EMAIL,PASSWORD}` for the smoke test. Full flow and rollback: `docs/architecture/07-deployment.md`.
+Pulls, backs up (prod), migrates, restarts, waits for ready, smoke-tests, and logs to `/opt/biddaloy/<env>/deploys.log`. On failure it redeploys the last good version (migrations are not reverted). Before deploying: check out `<git-sha>` (files are copied from your checkout) and export `SMOKE_{ADMIN,TEACHER,SUPER_ADMIN}_{EMAIL,PASSWORD}` for the smoke test. Staging (`-e env=staging`) runs `config:check --env staging` first and skips the smoke test (Cloudflare Access). Full flow and rollback: `docs/architecture/07-deployment.md`.
