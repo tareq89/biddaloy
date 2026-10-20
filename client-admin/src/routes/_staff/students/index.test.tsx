@@ -1,3 +1,4 @@
+import { listSelectionKey, setListSelection } from '@biddaloy/ui/api';
 import {
   cleanupTestState,
   classFactory,
@@ -254,11 +255,15 @@ describe('/students', () => {
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     try {
+      // Selection lives in memory per tenant + path — seeding it directly
+      // simulates "selected on an earlier page, now viewing a different
+      // one" without needing a real multi-page click-through.
+      setListSelection(
+        listSelectionKey('/students', 'tenant-1'),
+        new Set(['student-1', 'student-2']),
+      );
       renderWithRouter(routeTree, {
-        // Selection lives in the `selected` URL bag — seeding it directly
-        // simulates "selected on an earlier page, now viewing a different
-        // one" without needing a real multi-page click-through.
-        initialEntries: ['/students?selected=student-1,student-2'],
+        initialEntries: ['/students'],
         tenantId: 'tenant-1',
         role: 'ACCOUNTANT',
         locale: 'en',
@@ -573,8 +578,19 @@ describe('/students', () => {
 
     it('keeps the old explanation for a TEACHER who is searching', async () => {
       renderEmpty('TEACHER', '/students?search=zzz');
-      await screen.findByText('No students found');
+      await screen.findByRole('button', { name: /clear/i });
       expect(screen.queryByText(teacherText)).toBeNull();
+    });
+
+    // [2591] a search with zero hits is "no matches", not the first-time state.
+    it('a search with no matches shows a Clear action, not "Add student"; Clear drops the query', async () => {
+      renderEmpty('ADMIN', '/students?search=zzzqqq');
+      const clear = await screen.findByRole('button', { name: /clear/i });
+      expect(screen.queryByText('No students found')).toBeNull();
+      expect(screen.queryByText(adminText)).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Add student' })).toBeNull();
+      await userEvent.click(clear);
+      expect(await screen.findByText('No students found')).toBeTruthy();
     });
   });
 

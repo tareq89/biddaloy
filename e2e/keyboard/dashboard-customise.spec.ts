@@ -15,6 +15,10 @@ import { tabUntilFocused } from './keyboard-utils';
  */
 
 test.use(loggedIn('admin'));
+// Both tests use the one admin's saved layout, and the first saves a hidden widget until its
+// cleanup runs. In parallel the Esc test could open (or re-open) customise inside that window
+// and read the other test's save as its own.
+test.describe.configure({ mode: 'serial' });
 
 const FIRST = () => t('dashboard.widgets.attendance-today.title');
 const SECOND = () => t('dashboard.widgets.staff-today.title');
@@ -84,12 +88,19 @@ test('Space hides, Alt+ArrowDown moves, Enter saves', async ({ page }) => {
 });
 
 test('Esc leaves customise mode and saves nothing', async ({ page }) => {
+  const saves: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() !== 'GET' && r.url().includes('/users/me/preferences/dashboard')) {
+      saves.push(`${r.method()} ${r.url()}`);
+    }
+  });
   await openCustomiseByKeyboard(page);
   await page.keyboard.press('Space');
   await expect(checkbox(page, FIRST())).not.toBeChecked();
 
   await page.keyboard.press('Escape');
   await expect(page).not.toHaveURL(/customize=1/);
+  expect(saves, 'Esc sent no layout save').toEqual([]);
 
   // Back in customise mode the widget is still shown: the hide was never saved.
   await page.goto('/dashboard?customize=1');

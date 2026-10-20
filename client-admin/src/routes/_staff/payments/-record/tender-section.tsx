@@ -28,6 +28,9 @@ export interface TenderSectionProps {
   subtotalMinorUnits: number;
   changeHandling: ChangeHandling;
   onChangeHandlingChange: (value: ChangeHandling) => void;
+  /** F-155: false when the cart spans more than one student; the server
+   * refuses TO_WALLET then (change would land in one sibling's wallet). */
+  allowToWallet?: boolean;
 }
 
 export function TenderSection({
@@ -38,6 +41,7 @@ export function TenderSection({
   subtotalMinorUnits,
   changeHandling,
   onChangeHandlingChange,
+  allowToWallet = true,
 }: TenderSectionProps) {
   const { t } = useTranslation('payments');
   const tenderedId = React.useId();
@@ -89,10 +93,15 @@ export function TenderSection({
               {t('record.tender.changeReturn')}
             </label>
             <label className={optionRowClass}>
-              <RadioGroupItem value="TO_WALLET" />
+              <RadioGroupItem value="TO_WALLET" disabled={!allowToWallet} />
               {t('record.tender.changeToWallet')}
             </label>
           </RadioGroup>
+          {!allowToWallet && (
+            <p className="text-label text-text-secondary">
+              {t('record.tender.toWalletOneStudent')}
+            </p>
+          )}
         </div>
       )}
     </div>

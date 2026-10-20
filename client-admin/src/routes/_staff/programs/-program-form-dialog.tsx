@@ -3,6 +3,7 @@
  * dialog-around-a-form shape. Archive / Delete live in the detail page's
  * header More menu (31.4.programs-2a), not here.
  */
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Checkbox,
@@ -18,9 +19,13 @@ import {
 } from '@biddaloy/ui/components';
 import { useCreateProgram, useUpdateProgram, type Program } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { parseValidationFieldErrors } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { LabelledField } from './-labelled-field';
+
+/** Mirrors `server/src/modules/programs/dto/programs.dto.ts`. */
+export const PROGRAM_NAME_MAX = 200;
 
 export interface ProgramFormDialogProps {
   open: boolean;
@@ -48,30 +53,56 @@ export function ProgramFormDialog({
     program?.show_on_report_card ?? false,
   );
 
+  const [nameError, setNameError] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     if (!open) return;
+    setNameError(null);
     setName(program?.name ?? '');
     setDescription(program?.description ?? '');
     setShowOnReportCard(program?.show_on_report_card ?? false);
   }, [open, program]);
 
+  // [2622] A sync double-click can fire before `isPending` re-renders; this closes the gap.
+  const inFlight = React.useRef(false);
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!name.trim()) return;
+    if (inFlight.current) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setNameError(t('formDialog.nameRequired'));
+      return;
+    }
+    if (trimmed.length > PROGRAM_NAME_MAX) {
+      setNameError(t('formDialog.nameTooLong', { max: PROGRAM_NAME_MAX }));
+      return;
+    }
+    setNameError(null);
+    inFlight.current = true;
+    const settle = { onSettled: () => (inFlight.current = false), onSuccess: onSaved };
     const values = {
-      name: name.trim(),
+      name: trimmed,
       description: description.trim() ? description.trim() : null,
       show_on_report_card: showOnReportCard,
     };
     if (mode === 'edit' && program) {
-      updateProgram.mutate(values, { onSuccess: onSaved });
+      updateProgram.mutate(values, settle);
     } else {
-      createProgram.mutate(values, { onSuccess: onSaved });
+      createProgram.mutate(values, settle);
     }
   }
 
   const isPending = createProgram.isPending || updateProgram.isPending;
   const isError = createProgram.isError || updateProgram.isError;
+  const error = createProgram.error ?? updateProgram.error;
+  const isDuplicate = error instanceof ApiError && error.statusCode === 409;
+  // A 400 that names `name`: show our own sentence under the field, never the server's English.
+  const serverNameInvalid =
+    error instanceof ApiError &&
+    error.statusCode === 400 &&
+    'name' in parseValidationFieldErrors(error.messages, ['name']);
+  const nameMessage = nameError ?? (serverNameInvalid ? t('formDialog.nameInvalid') : null);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !isPending && onOpenChange(o)}>
@@ -87,10 +118,16 @@ export function ProgramFormDialog({
           <LabelledField id="program-name" label={t('formDialog.nameLabel')} required>
             <Input
               id="program-name"
-              required
               value={name}
               onChange={(e) => setName(e.target.value)}
+              aria-invalid={nameMessage !== null}
+              aria-describedby={nameMessage ? 'program-name-error' : undefined}
             />
+            {nameMessage && (
+              <p id="program-name-error" role="alert" className="text-sm text-destructive">
+                {nameMessage}
+              </p>
+            )}
           </LabelledField>
 
           <LabelledField id="program-description" label={t('formDialog.descriptionLabel')}>
@@ -109,9 +146,9 @@ export function ProgramFormDialog({
             {t('formDialog.showOnReportCard')}
           </label>
 
-          {isError && (
+          {isError && !serverNameInvalid && (
             <p role="alert" className="text-sm text-destructive">
-              {t('formDialog.errorMessage')}
+              {isDuplicate ? t('formDialog.duplicateMessage') : t('formDialog.errorMessage')}
             </p>
           )}
 

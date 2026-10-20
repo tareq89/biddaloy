@@ -13,7 +13,11 @@ import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import { cleanupTestState, renderWithProviders } from '../test/render-with-providers';
 
-import { useCommitPromotionRun, type PromotionRunDetail } from './promotions';
+import {
+  useCommitPromotionRun,
+  useCreatePromotionRun,
+  type PromotionRunDetail,
+} from './promotions';
 
 afterEach(async () => {
   await cleanupTestState();
@@ -118,5 +122,70 @@ describe('useCommitPromotionRun — with overrides', () => {
 
     await screen.findByText('2', { selector: '[data-testid="result"]' });
     expect(attempt).toBe(2);
+  });
+});
+
+describe('useCreatePromotionRun sends an Idempotency-Key [#2631]', () => {
+  it('reuses the key for an identical body, and rotates it after success', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/promotions', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json({ id: 'run-1' }, { status: 201 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useCreatePromotionRun(), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current.mutateAsync({
+      source_class_id: 'c-1',
+      target_academic_year_id: 'y-2',
+      exam_ids: ['e-1'],
+      algorithm: 'BLOCK',
+    });
+    await result.current.mutateAsync({
+      source_class_id: 'c-1',
+      target_academic_year_id: 'y-2',
+      exam_ids: ['e-1'],
+      algorithm: 'BLOCK',
+    });
+
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    // Success rotates the key: the next identical-looking submit is a new attempt.
+    expect(keys[1]).not.toBe(keys[0]);
+  });
+
+  it('keeps the same key when an attempt fails and is re-sent unchanged', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/promotions', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json({ message: 'boom' }, { status: 500 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useCreatePromotionRun(), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current
+      .mutateAsync({
+        source_class_id: 'c-1',
+        target_academic_year_id: 'y-2',
+        exam_ids: ['e-1'],
+        algorithm: 'BLOCK',
+      })
+      .catch(() => undefined);
+    await result.current
+      .mutateAsync({
+        source_class_id: 'c-1',
+        target_academic_year_id: 'y-2',
+        exam_ids: ['e-1'],
+        algorithm: 'BLOCK',
+      })
+      .catch(() => undefined);
+
+    expect(keys).toHaveLength(2);
+    expect(keys[1]).toBe(keys[0]);
   });
 });

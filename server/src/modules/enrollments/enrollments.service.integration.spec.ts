@@ -276,6 +276,18 @@ describe('EnrollmentService (integration)', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('[2684] the 404 for a missing student does not echo the submitted id (Rule 23)', async () => {
+      const id = '00000000-0000-4000-8000-000000000000';
+      const err = await service
+        .create(
+          { student_id: id, class_id: SEED_CLASS_1_ID, academic_year_id: SEED_ACADEMIC_YEAR_ID },
+          TENANT_ID,
+        )
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect(JSON.stringify(err.getResponse())).not.toContain(id);
+    });
+
     it('should throw NotFoundException when student belongs to a different tenant', async () => {
       // Student whose class_section chain resolves to OTHER_TENANT
       const student = await studentRepo.save(

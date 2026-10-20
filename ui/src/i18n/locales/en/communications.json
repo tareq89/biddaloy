@@ -51,6 +51,8 @@
     "confirmSend": "Send message",
     "confirmSending": "Sending…",
     "resultTitle": "Message on its way",
+    "failedTitle": "Message not sent",
+    "settingsLink": "Open Settings › Communication",
     "resultDescription": "The message to {{name}} is being sent.",
     "resultStatusLabel": "Delivery status",
     "sendAnother": "Send another message",

@@ -150,7 +150,7 @@ function safeParseDate(raw: string | undefined): Date | undefined {
  * neither should count toward "Filters (n)" — that count is a promise
  * about what opening the panel reveals, not the total active-filter
  * count (the chip row already shows that in full, uncollapsed). */
-function keysOf(field: FilterFieldDescriptor): string[] {
+export function keysOf(field: FilterFieldDescriptor): string[] {
   switch (field.kind) {
     case 'text':
     case 'select':
@@ -356,6 +356,7 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
           <div className="flex min-h-11 items-center gap-3 md:min-h-8">
             <Checkbox
               id={id(f.key)}
+              className="size-6"
               checked={values[f.key] === 'true'}
               onCheckedChange={(checked) => setValue(f.key, checked === true ? 'true' : null)}
             />

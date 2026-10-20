@@ -1,8 +1,9 @@
 import { createRootRoute, createRoute } from '@tanstack/react-router';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
+import { clearListSelectionMemory } from '../api/list-selection-memory';
 import { renderWithRouter } from '../test/render-with-router';
 
 import { useListShellState } from './use-list-shell-state';
@@ -36,11 +37,11 @@ function Probe() {
   );
 }
 
-function buildRouteTree() {
+function buildRouteTree(path = '/students') {
   const rootRoute = createRootRoute();
   const studentsRoute = createRoute({
     getParentRoute: () => rootRoute,
-    path: '/students',
+    path,
     component: Probe,
   });
   return rootRoute.addChildren([studentsRoute]);
@@ -50,6 +51,8 @@ function buildRouteTree() {
 // `use-list-url-state.test.tsx`'s own comment for why every test here
 // awaits the first thing it looks for.
 describe('useListShellState', () => {
+  afterEach(() => clearListSelectionMemory());
+
   it('reads sort/order from the URL as a DataTableSort', async () => {
     renderWithRouter(buildRouteTree(), { initialEntries: ['/students?sort=due_date&order=desc'] });
     expect(await screen.findByText('sort: due_date:desc')).toBeTruthy();
@@ -91,19 +94,72 @@ describe('useListShellState', () => {
     expect(router.state.location.searchStr).toContain('page=1');
   });
 
-  it('reads selection from the URL and setSelectedIds writes it back', async () => {
+  it('selecting ids keeps them out of the URL (it was unbounded, a refresh answered 431)', async () => {
     const user = userEvent.setup();
-    renderWithRouter(buildRouteTree(), { initialEntries: ['/students'] });
+    const { router } = renderWithRouter(buildRouteTree(), { initialEntries: ['/students'] });
     expect(await screen.findByText('selected: none')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Select two students' }));
     await screen.findByText('selected: s1,s2');
+    expect(router.state.location.searchStr).not.toContain('selected');
+  });
+
+  it('remounting on the same path and tenant restores the set; another tenant or path starts empty', async () => {
+    const user = userEvent.setup();
+    const first = renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+    });
+    await user.click(await screen.findByRole('button', { name: 'Select two students' }));
+    await screen.findByText('selected: s1,s2');
+    first.unmount();
+
+    const again = renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+    });
+    expect(await screen.findByText('selected: s1,s2')).toBeTruthy();
+    again.unmount();
+
+    const other = renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-2',
+    });
+    expect(await screen.findByText('selected: none')).toBeTruthy();
+    other.unmount();
+
+    renderWithRouter(buildRouteTree('/guardians'), {
+      initialEntries: ['/guardians'],
+      tenantId: 'tenant-1',
+    });
+    expect(await screen.findByText('selected: none')).toBeTruthy();
+  });
+
+  it('a legacy ?selected= link renders none selected and the param is stripped', async () => {
+    const { router } = renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/students?selected=s1,s2&class_id=class-9'],
+    });
+    expect(await screen.findByText('selected: none')).toBeTruthy();
+    await waitFor(() => expect(router.state.location.searchStr).not.toContain('selected'));
+    expect(router.state.location.searchStr).toContain('class_id=class-9');
+  });
+
+  it('clearListSelectionMemory() empties the stored selection', async () => {
+    const user = userEvent.setup();
+    const first = renderWithRouter(buildRouteTree(), { initialEntries: ['/students'] });
+    await user.click(await screen.findByRole('button', { name: 'Select two students' }));
+    await screen.findByText('selected: s1,s2');
+    first.unmount();
+    clearListSelectionMemory();
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/students'] });
+    expect(await screen.findByText('selected: none')).toBeTruthy();
   });
 
   it('setSelectedIds(new Set()) clears the selection back to none', async () => {
     const user = userEvent.setup();
-    renderWithRouter(buildRouteTree(), { initialEntries: ['/students?selected=s1,s2'] });
-    expect(await screen.findByText('selected: s1,s2')).toBeTruthy();
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/students'] });
+    await user.click(await screen.findByRole('button', { name: 'Select two students' }));
+    await screen.findByText('selected: s1,s2');
 
     await user.click(screen.getByRole('button', { name: 'Clear selection' }));
 

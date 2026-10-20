@@ -11,6 +11,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { optionalKeyOf } from '../../codec/tab-spec';
 
 /**
  * The `leave_records` tab: one staff member's leave request/decision.
@@ -132,7 +133,7 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
       days: entity.days,
       status: entity.status,
       reason: entity.reason,
-      approved_by: entity.approved_by ? ctx.keyOf('users', entity.approved_by) : null,
+      approved_by: entity.approved_by ? optionalKeyOf(ctx, 'users', entity.approved_by) : null,
       application: entity.application_id ? ctx.keyOf('applications', entity.application_id) : null,
       decided_at: entity.decided_at,
     };
@@ -263,7 +264,8 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
     if (row.days !== existing.days) changed.push('days');
     if (row.status !== existing.status) changed.push('status');
     if (row.reason !== existing.reason) changed.push('reason');
-    if (row.approved_by !== existing.approved_by) changed.push('approved_by');
+    if (row.approved_by !== null && row.approved_by !== existing.approved_by)
+      changed.push('approved_by');
     if (row.application_id !== existing.application_id) changed.push('application');
     const rowDecidedAt = row.decided_at;
     const existingDecidedAt = existing.decided_at ? existing.decided_at.toISOString() : null;
@@ -319,7 +321,7 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
     record.days = row.days;
     record.status = row.status;
     record.reason = row.reason;
-    record.approved_by = row.approved_by;
+    record.approved_by = row.approved_by ?? existing?.approved_by ?? null;
     record.application_id = row.application_id;
     record.decided_at = row.decided_at ? new Date(row.decided_at) : null;
     // `load()` eager-loads these, and a loaded relation beats its FK column on save.

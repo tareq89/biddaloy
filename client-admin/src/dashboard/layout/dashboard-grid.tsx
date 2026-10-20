@@ -33,7 +33,7 @@ export function DashboardGrid({ visible, components = WIDGET_COMPONENTS }: Dashb
   const render = (item: LayoutItem, variant: WidgetProps['variant']) => {
     const Widget = components.get(item.key)!;
     return (
-      <WidgetSlot size={item.size}>
+      <WidgetSlot size={item.size} widgetKey={item.key}>
         <Widget variant={variant} size={item.size} />
       </WidgetSlot>
     );
@@ -72,7 +72,7 @@ export function DashboardGrid({ visible, components = WIDGET_COMPONENTS }: Dashb
                     aria-expanded={openKey === item.key}
                     aria-labelledby={`tile-${item.key}`}
                     onClick={() => setOpenKey(openKey === item.key ? null : item.key)}
-                    className="absolute inset-0 rounded-lg focus-visible:ring-2 focus-visible:ring-ring group-has-[a,button:not([data-tile-toggle])]:hidden"
+                    className="absolute inset-0 rounded-lg group-has-[a,button:not([data-tile-toggle])]:hidden focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
               ) : (

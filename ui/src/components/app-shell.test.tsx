@@ -77,6 +77,7 @@ function buildRouteTree() {
     path: '/',
     component: () => (
       <AppShell navItems={navItems} navGroups={navGroups} brand="SchoolManager">
+        <h1>Dashboard heading</h1>
         <p>Dashboard content</p>
       </AppShell>
     ),
@@ -309,15 +310,24 @@ describe('AppShell', () => {
       expect(document.activeElement).toBe(trigger);
     });
 
-    it('clicking a nav link inside the drawer closes it', async () => {
+    it('clicking a nav link inside the drawer closes it, and focus does not return to the trigger', async () => {
       const user = userEvent.setup();
       renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
 
-      await user.click(await screen.findByRole('button', { name: 'Open menu' }));
+      const trigger = await screen.findByRole('button', { name: 'Open menu' });
+      await user.click(trigger);
       const dialog = await screen.findByRole('dialog');
       await user.click(within(dialog).getByRole('link', { name: 'Dashboard' }));
 
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      // A navigation is not a "close": focus goes to the new page's heading (what
+      // useRouteFocus does on a route change), never back to the menu button.
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          screen.getByRole('heading', { level: 1, name: 'Dashboard heading' }),
+        ),
+      );
+      expect(document.activeElement).not.toBe(trigger);
     });
 
     it('is axe clean while open', async () => {

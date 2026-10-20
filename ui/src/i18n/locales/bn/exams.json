@@ -49,6 +49,7 @@
     "errorNameRequired": "নাম আবশ্যক।",
     "errorAcademicYearClassRequired": "শিক্ষাবর্ষ ও শ্রেণি আবশ্যক।",
     "errorMessage": "পরীক্ষা সংরক্ষণ করা যায়নি।",
+    "duplicateMessage": "এই নামে আগেই একটি পরীক্ষা আছে।",
     "saving": "সংরক্ষণ হচ্ছে…",
     "save": "সংরক্ষণ করুন",
     "classNeedsYear": "আগে শিক্ষাবর্ষ বাছুন",

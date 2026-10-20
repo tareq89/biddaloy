@@ -1,6 +1,12 @@
 import { Permission } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, RoutePending, Skeleton, StatusBadge } from '@biddaloy/ui/components';
+import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
+import {
+  ErrorState,
+  RecordNotFoundState,
+  RoutePending,
+  Skeleton,
+  StatusBadge,
+} from '@biddaloy/ui/components';
 import { guardianQueryOptions, useGuardian, useHasPermission } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useCloseFullPage, useDetailShellTab } from '@biddaloy/ui/shells';
@@ -82,6 +88,8 @@ function GuardianDetailPage() {
       <div className="flex flex-col gap-4">
         {guardianQuery.isPending ? (
           <Skeleton className="h-7 w-64" />
+        ) : isNotFoundError(guardianQuery.error) ? (
+          <RecordNotFoundState onBack={() => void navigate({ to: '/guardians' })} />
         ) : guardianQuery.isError ? (
           <ErrorState
             message={

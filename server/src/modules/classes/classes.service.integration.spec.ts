@@ -22,6 +22,8 @@ import {
   AuditAction,
 } from '@biddaloy/shared';
 import { Subject } from '../academics/entities/subject.entity';
+import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
+import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
@@ -326,6 +328,43 @@ describe('ClassService / SectionService (integration)', () => {
       await expect(classService.findOne(klass.id, TENANT_ID)).rejects.toThrow(NotFoundException);
     });
 
+    // [2703 M1] An event with no class links is school-wide, so dropping the
+    // last link would publish a class-only event to every class.
+    it('hides an event scoped only to the deleted class and keeps a shared event for the other class', async () => {
+      const year = await createYear();
+      const [a, b] = await classRepo.save([
+        { name: 'Class A', academic_year_id: year.id, tenant_id: TENANT_ID },
+        { name: 'Class B', academic_year_id: year.id, tenant_id: TENANT_ID },
+      ]);
+      const eventRepo = dataSource.getRepository(CalendarEvent);
+      const event = (name: string) =>
+        eventRepo.save({
+          tenant_id: TENANT_ID,
+          academic_year_id: year.id,
+          start_date: '2026-03-01',
+          end_date: '2026-03-01',
+          name,
+          published_at: new Date(),
+        });
+      const onlyA = await event('Class A picnic');
+      const shared = await event('A and B trip');
+      await dataSource.getRepository(CalendarEventClass).save([
+        { event_id: onlyA.id, class_id: a.id, tenant_id: TENANT_ID },
+        { event_id: shared.id, class_id: a.id, tenant_id: TENANT_ID },
+        { event_id: shared.id, class_id: b.id, tenant_id: TENANT_ID },
+      ]);
+
+      await classService.remove(a.id, TENANT_ID);
+
+      // Not school-wide: the class-only event is gone with its class.
+      expect(await eventRepo.findOne({ where: { id: onlyA.id } })).toBeNull();
+      const links = await dataSource
+        .getRepository(CalendarEventClass)
+        .find({ where: { event_id: shared.id } });
+      expect(links.map((l) => l.class_id)).toEqual([b.id]);
+      expect(await eventRepo.findOne({ where: { id: shared.id } })).not.toBeNull();
+    });
+
     it('refuses to delete a class with enrolled students, naming the count', async () => {
       const year = await createYear();
       const klass = await classRepo.save({
@@ -344,7 +383,13 @@ describe('ClassService / SectionService (integration)', () => {
       // The AC's own "explanation why" — the thrown message must name the
       // count so a caller (and the delete-blocked dialog) can show it.
       await expect(classService.remove(klass.id, TENANT_ID)).rejects.toThrow(ConflictException);
-      await expect(classService.remove(klass.id, TENANT_ID)).rejects.toThrow(/1 student/);
+      // [2703 m1] One fixed text (no id echo); the count is in details.
+      await expect(classService.remove(klass.id, TENANT_ID)).rejects.toMatchObject({
+        response: {
+          message: 'This class is still used by other records. Remove or reassign them first.',
+          details: { code: 'CLASS_IN_USE', count: 2 },
+        },
+      });
     });
 
     it('[68.2.12] cannot delete a class whose only students are GRADUATED', async () => {
@@ -400,9 +445,9 @@ describe('ClassService / SectionService (integration)', () => {
 
       // Enrollment guard is checked first (0 active enrollments here), so
       // this exercises the section guard specifically.
-      await expect(classService.remove(klass.id, TENANT_ID)).rejects.toThrow(
-        /section\(s\) still exist/,
-      );
+      await expect(classService.remove(klass.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'CLASS_IN_USE', sections_count: 1 } },
+      });
     });
 
     it("is tenant-isolated: cannot delete another tenant's class", async () => {

@@ -185,6 +185,7 @@ describe('StudentBulkUploadService (integration)', () => {
   let guardianRepo: Repository<Guardian>;
   let auditLogRepo: Repository<AuditLog>;
   let dataSource: DataSource;
+  let module_: Awaited<ReturnType<typeof createTestModule>>;
 
   const TENANT_ID = SEED_TENANT_ID;
   const headers = [...REQUIRED_HEADERS];
@@ -244,6 +245,7 @@ describe('StudentBulkUploadService (integration)', () => {
       { synchronize: true, dropSchema: true },
     );
 
+    module_ = module;
     service = module.get<StudentBulkUploadService>(StudentBulkUploadService);
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
     guardianRepo = module.get<Repository<Guardian>>(getRepositoryToken(Guardian));
@@ -463,6 +465,31 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(created).toHaveLength(0);
   });
 
+  it('reports a roll above ROLL_NUMBER_MAX as a row error, not a 500 (2595)', async () => {
+    const result = await runUpload(
+      await buildXlsxFile([
+        rowValues(headers, { student_name: 'Too Big', roll: '250000' }),
+        rowValues(headers, { student_name: 'Past Int4', roll: '99999999999' }),
+      ]),
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+    );
+
+    expect(result.success_count).toBe(0);
+    expect(result.errors).toEqual([
+      expect.objectContaining({
+        row: 2,
+        field: 'roll',
+        reason: 'roll must not be greater than 99999',
+      }),
+      expect.objectContaining({
+        row: 3,
+        field: 'roll',
+        reason: 'roll must not be greater than 99999',
+      }),
+    ]);
+  });
+
   it('reports a specific error for a roll number that already exists in the database', async () => {
     await runUpload(
       await buildXlsxFile([rowValues(headers, { student_name: 'Existing', roll: '9' })]),
@@ -477,8 +504,90 @@ describe('StudentBulkUploadService (integration)', () => {
 
     expect(result.success_count).toBe(0);
     expect(result.error_count).toBe(1);
-    expect(result.errors[0]).toMatchObject({ field: 'roll', value: '9' });
-    expect(result.errors[0].reason).toContain('Duplicate roll number 9');
+    // [2606] caught at validate now; the message names the column, never the value (Rule 23).
+    expect(result.errors[0]).toMatchObject({ field: 'roll' });
+    expect(result.errors[0].reason).toBe('This roll number is already used in this section.');
+  });
+
+  describe('[2606] commit never 500s after a partial write', () => {
+    it('reports a failing row, still creates the others and writes one audit row', async () => {
+      const file = await buildXlsxFile(
+        ['A', 'B', 'C', 'D'].map((n, i) =>
+          rowValues(headers, {
+            student_name: `Partial ${n}`,
+            guardian1_phone: `+88017000000${i}1`,
+          }),
+        ),
+      );
+      const validated = await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+      expect(validated.rows_to_create).toBe(4);
+      const studentService = module_.get(StudentService);
+      const real = studentService.create.bind(studentService);
+      const spy = vi.spyOn(studentService, 'create').mockImplementation((dto, ...rest) => {
+        if (dto.full_name === 'Partial C') throw new Error('boom: secret db text');
+        return real(dto, ...rest);
+      });
+      try {
+        const result = await service.commit(validated.staging_id, TENANT_ID, SEED_ADMIN_USER_ID);
+        expect(result.success_count).toBe(3);
+        expect(result.error_count).toBe(1);
+        expect(result.errors[0]).toMatchObject({ row: 4, reason: 'Could not be created' });
+        expect(JSON.stringify(result)).not.toContain('boom');
+      } finally {
+        spy.mockRestore();
+      }
+      const audits = await auditLogRepo.find({ where: { action: AuditAction.BULK_UPLOAD } });
+      expect(audits).toHaveLength(1);
+      expect(audits[0].new_values).toMatchObject({ success_count: 3, error_count: 1 });
+    });
+
+    it('makes a roll above the cap a validate error and excludes it from rows_to_create', async () => {
+      const file = await buildXlsxFile([
+        rowValues(headers, {
+          student_name: 'Cap Ok',
+          roll: '99999',
+          guardian1_phone: '+8801700000101',
+        }),
+        rowValues(headers, {
+          student_name: 'Cap Bad',
+          roll: '2147483648',
+          guardian1_phone: '+8801700000102',
+        }),
+      ]);
+      const v = await service.validate(file, TENANT_ID, SEED_ADMIN_USER_ID);
+      expect(v.hard_error_count).toBe(1);
+      expect(v.rows_to_create).toBe(1);
+      expect(v.errors[0]).toMatchObject({ row: 3, column: 'roll' });
+      expect(v.errors[0].message).not.toContain('2147483648');
+    });
+
+    it('flags a roll held by a soft-deleted student at validate', async () => {
+      const gone = await runUpload(
+        await buildXlsxFile([
+          rowValues(headers, {
+            student_name: 'Gone',
+            roll: '77',
+            guardian1_phone: '+8801700000201',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await studentRepo.softDelete(gone.created_student_ids[0]);
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, {
+            student_name: 'Late',
+            roll: '77',
+            guardian1_phone: '+8801700000202',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.rows_to_create).toBe(0);
+      expect(v.errors[0]).toMatchObject({ column: 'roll', severity: 'error' });
+    });
   });
 
   it('does not leave an orphaned guardian behind when the student create fails', async () => {
@@ -566,16 +675,139 @@ describe('StudentBulkUploadService (integration)', () => {
     expect(result.errors[0]).toMatchObject({ field: 'section', value: 'Section A' });
   });
 
-  it('ignores the registration_number column and always system-generates it', async () => {
-    const file = await buildXlsxFile([
-      rowValues(headers, { registration_number: 'HAND-TYPED-001' }),
-    ]);
+  describe('[2607] registration_number column', () => {
+    it('stores a supplied number as given and auto-numbers a blank cell', async () => {
+      const file = await buildXlsxFile([
+        rowValues(headers, {
+          student_name: 'Reg One',
+          registration_number: 'QA-IMP-001',
+          guardian1_phone: '+8801700000301',
+        }),
+        rowValues(headers, {
+          student_name: 'Reg Two',
+          registration_number: 'QA-IMP-002',
+          guardian1_phone: '+8801700000302',
+        }),
+        rowValues(headers, { student_name: 'Reg Auto', guardian1_phone: '+8801700000303' }),
+      ]);
+      const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
+      const students = await studentRepo.find({ where: { id: In(result.created_student_ids) } });
+      const byName = new Map(students.map((s) => [s.full_name, s.registration_number]));
+      expect(byName.get('Reg One')).toBe('QA-IMP-001');
+      expect(byName.get('Reg Two')).toBe('QA-IMP-002');
+      expect(byName.get('Reg Auto')).toMatch(/^REG-\d{4}-\d{4}$/);
+    });
 
-    const result = await runUpload(file, TENANT_ID, SEED_ADMIN_USER_ID);
+    it('hard-errors a number repeated in the file or held by a live or soft-deleted student, without echoing it', async () => {
+      const first = await runUpload(
+        await buildXlsxFile([
+          rowValues(headers, {
+            student_name: 'Held',
+            registration_number: 'QA-IMP-HELD',
+            guardian1_phone: '+8801700000311',
+          }),
+          rowValues(headers, {
+            student_name: 'Held Gone',
+            registration_number: 'QA-IMP-GONE',
+            guardian1_phone: '+8801700000312',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await studentRepo.softDelete(first.created_student_ids[1]);
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, {
+            student_name: 'Rep A',
+            registration_number: 'QA-IMP-REP',
+            guardian1_phone: '+8801700000321',
+          }),
+          rowValues(headers, {
+            student_name: 'Rep B',
+            registration_number: 'QA-IMP-REP',
+            guardian1_phone: '+8801700000322',
+          }),
+          rowValues(headers, {
+            student_name: 'Live Clash',
+            registration_number: 'QA-IMP-HELD',
+            guardian1_phone: '+8801700000323',
+          }),
+          rowValues(headers, {
+            student_name: 'Gone Clash',
+            registration_number: 'QA-IMP-GONE',
+            guardian1_phone: '+8801700000324',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(3);
+      expect(v.rows_to_create).toBe(1);
+      for (const e of v.errors) {
+        expect(e.column).toBe('registration_number');
+        expect(e.message).not.toContain('QA-IMP');
+      }
+    });
 
-    const student = await studentRepo.findOne({ where: { id: result.created_student_ids[0] } });
-    expect(student?.registration_number).not.toBe('HAND-TYPED-001');
-    expect(student?.registration_number).toMatch(/^REG-\d{4}-\d{4}$/);
+    it('refuses a number in the auto series REG-<year>-<digits>, so auto numbering keeps working', async () => {
+      // REG-2026-999999999999999 would push the next auto number to 16 digits, past what
+      // nextTenantSerial reads, and every later auto-numbered create would collide.
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, {
+            student_name: 'Reg Wide',
+            registration_number: 'REG-2026-999999999999999',
+            guardian1_phone: '+8801700000341',
+          }),
+          rowValues(headers, {
+            student_name: 'Reg Auto Shape',
+            registration_number: 'REG-2026-0005',
+            guardian1_phone: '+8801700000342',
+          }),
+          rowValues(headers, {
+            student_name: 'Reg Own Shape',
+            registration_number: 'REG-OLD-17',
+            guardian1_phone: '+8801700000343',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(2);
+      expect(v.rows_to_create).toBe(1);
+      for (const e of v.errors.filter((x) => x.severity === 'error')) {
+        expect(e.column).toBe('registration_number');
+        expect(e.message).not.toContain('2026');
+      }
+
+      // Auto numbering after the refused file: two creates, two different numbers.
+      const result = await runUpload(
+        await buildXlsxFile([
+          rowValues(headers, { student_name: 'Auto A', guardian1_phone: '+8801700000344' }),
+          rowValues(headers, { student_name: 'Auto B', guardian1_phone: '+8801700000345' }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      const created = await studentRepo.find({ where: { id: In(result.created_student_ids) } });
+      expect(new Set(created.map((s) => s.registration_number)).size).toBe(2);
+    });
+
+    it('rejects a 51 character number', async () => {
+      const v = await service.validate(
+        await buildXlsxFile([
+          rowValues(headers, {
+            registration_number: 'X'.repeat(51),
+            guardian1_phone: '+8801700000331',
+          }),
+        ]),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(v.hard_error_count).toBe(1);
+      expect(v.errors[0]).toMatchObject({ column: 'registration_number' });
+    });
   });
 
   it('creates a second guardian and links both when guardian2 is provided', async () => {

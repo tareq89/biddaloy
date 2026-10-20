@@ -385,10 +385,10 @@ describe('Classes & Sections E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .expect(409);
 
-      // The AC's own "explanation why" — the delete-blocked dialog reads
-      // this message verbatim rather than showing a generic failure toast.
-      expect(res.body.message).toContain('1 student');
-      expect(res.body.message).toContain('still enrolled');
+      // [2703 m1] One fixed text with no id; the dialog translates the code, counts are in details.
+      expect(res.body.details?.code).toBe('CLASS_IN_USE');
+      expect(res.body.details?.students_count).toBe(1);
+      expect(res.body.message).not.toContain(classRes.body.id);
 
       // Cleanup so it doesn't linger for later tests in this file.
       await enrollmentRepo.delete({ student_id: student.id });

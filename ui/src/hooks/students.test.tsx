@@ -28,16 +28,7 @@ import { switchActiveTenant } from './tenant';
 
 describe('useUpdateStudentPreferredCommunication is a legitimate optimistic mutation (low-stakes -> safe to roll back)', () => {
   it('shows the optimistic value before the server responds, then rolls back and surfaces an error on failure', async () => {
-    // `createTestQueryClient()`'s default `mutations.retry: false` gets
-    // overridden by this hook's own `retry: shouldRetryQuery` (same
-    // client-default-vs-per-query-option interaction as the retry tests
-    // below) — a 500 is retryable, so without `retryDelay: 0` this would
-    // wait out real exponential backoff before reaching `isError`.
     const queryClient = createTestQueryClient();
-    queryClient.setDefaultOptions({
-      ...queryClient.getDefaultOptions(),
-      mutations: { retryDelay: 0 },
-    });
     const student = studentFactory({ id: 'student-1', preferred_communication: 'SMS' });
     queryClient.setQueryData(studentKeys.detail('student-1'), student);
 
@@ -245,6 +236,27 @@ describe('useCreateStudent invalidates the students list (create -> refetch -> n
     // this at 1 even though `create.isSuccess` is true.
     await waitFor(() => expect(result.current.list.data?.data).toHaveLength(2));
     expect(result.current.list.data?.data.map((s) => s.full_name)).toContain('New Student');
+  });
+});
+
+describe('[2594] useCreateStudent sends an Idempotency-Key', () => {
+  it('sends the header, and a second create after success sends a different one', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/students', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json(studentFactory(), { status: 201 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useCreateStudent(), { tenantId: 'tenant-1' });
+    const input = { full_name: 'Same Body', class_section_id: 'section-1' };
+
+    await act(() => result.current.mutateAsync(input));
+    await act(() => result.current.mutateAsync(input));
+
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(keys[1]).not.toBe(keys[0]);
   });
 });
 

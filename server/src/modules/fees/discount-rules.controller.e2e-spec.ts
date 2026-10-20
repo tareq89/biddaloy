@@ -10,6 +10,7 @@ import { UserRole } from '@biddaloy/shared';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
+  SEED_ADMIN_USER_ID,
   SEED_ADMIN_PASSWORD,
   SEED_ADMIN_PASSWORD_HASH,
   SEED_SECTION_1_ID,
@@ -38,7 +39,7 @@ process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
 // tenant user, so a bare unseeded string 400s).
 //
 // This only covers StepUpService's approver-keyed limiter
-// (`step-up-attempts:approver:<tenant>:<identifier>`) — it also keeps a
+// (`step-up-attempts:pair:<tenant>:<actor>:<identifier>`) — it also keeps a
 // separate one keyed only by the acting seeded admin
 // (`step-up-attempts:actor:<userId>`), which no per-file identifier choice
 // can diversify around, since every e2e file authenticates as the same
@@ -48,6 +49,8 @@ const APPROVER_IDENTITIES: [string, string][] = [
   ['00000000-0000-4000-8000-0000006e0031', 'discount-rules-approver-1@e2e.example'],
   ['00000000-0000-4000-8000-0000006e0032', 'discount-rules-approver-2@e2e.example'],
   ['00000000-0000-4000-8000-0000006e0033', 'discount-rules-approver-3@e2e.example'],
+  ['00000000-0000-4000-8000-0000006e0034', 'discount-rules-approver-4@e2e.example'],
+  ['00000000-0000-4000-8000-0000006e0035', 'discount-rules-approver-5@e2e.example'],
 ];
 
 describe('Discount Rules E2E (16.7.3)', () => {
@@ -226,6 +229,47 @@ describe('Discount Rules E2E (16.7.3)', () => {
         .set('X-Approval-Token', approvalToken)
         .send({ student_id: studentId, kind: 'FLAT', value: -50, reason: 'Negative FLAT' })
         .expect(400);
+    });
+  });
+
+  describe('[F-154] PATCH keeps a PERCENT rule at or under 100', () => {
+    // Seeds a rule directly (no approval needed), then PATCHes it with a fresh token.
+    async function patchExpect400(
+      seed: { kind: string; value: number },
+      body: Record<string, unknown>,
+      approver: [string, string],
+    ) {
+      const studentId = await createStudent();
+      const [rule] = await dataSource.query(
+        `INSERT INTO discount_rules (id, tenant_id, student_id, kind, value, reason, created_by_user_id, approved_by_user_id, is_active, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, $3, $4, 'seed', $5, $5, true, NOW(), NOW()) RETURNING id`,
+        [SEED_TENANT_ID, studentId, seed.kind, seed.value, SEED_ADMIN_USER_ID],
+      );
+      const token = await issueApprovalToken('discount_rules.manage', approver[1]);
+      await supertest(app.getHttpServer())
+        .patch(`${API}/discount-rules/${rule.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .set('X-Approval-Token', token)
+        .send(body)
+        .expect(400);
+      const [after] = await dataSource.query(
+        `SELECT kind, value::float AS value FROM discount_rules WHERE id = $1`,
+        [rule.id],
+      );
+      expect(after).toEqual({ kind: seed.kind, value: seed.value });
+    }
+
+    it('400s when value alone is patched over 100', async () => {
+      await patchExpect400({ kind: 'PERCENT', value: 10 }, { value: 150 }, APPROVER_IDENTITIES[3]);
+    });
+
+    it('400s when a FLAT rule worth 500 is patched to PERCENT', async () => {
+      await patchExpect400(
+        { kind: 'FLAT', value: 500 },
+        { kind: 'PERCENT' },
+        APPROVER_IDENTITIES[4],
+      );
     });
   });
 

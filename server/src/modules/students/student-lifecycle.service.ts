@@ -418,7 +418,10 @@ export class StudentLifecycleService {
       .getRepository(Student)
       .findOne({ where: { id: studentId, tenant_id: tenantId, deleted_at: IsNull() } });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
     return this.eventRepo.find({
       where: { student_id: studentId, tenant_id: tenantId },
@@ -437,7 +440,10 @@ export class StudentLifecycleService {
       lock: { mode: 'pessimistic_write' },
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
     return student;
   }

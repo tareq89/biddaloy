@@ -315,6 +315,7 @@ function FeeStructuresListPage() {
         isFetching={structuresQuery.isFetching}
         {...(structuresQuery.isError ? { error: t('list.errorMessage') } : {})}
         emptyState={{
+          ...(filtered ? { kind: 'no-results' as const } : {}),
           // Filtered to nothing is not "no structures yet".
           title: filtered ? t('list.noMatchMessage') : t('list.emptyMessage'),
           explanation: filtered ? t('list.noMatchExplanation') : t('list.emptyExplanation'),

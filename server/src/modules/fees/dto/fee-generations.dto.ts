@@ -1,5 +1,6 @@
 import { IsOptional, IsUUID, IsEnum, IsInt, Min, Max, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
 import { FeeType, FeeGenerationSource, PeriodType } from '@biddaloy/shared';
 import { FeeGenerationStructureSnapshot } from '../entities/fee-generation.entity';
 
@@ -99,8 +100,9 @@ export class FeeGenerationListItemDto {
  * `PatchFeeGenerationInput`.
  */
 export class PatchFeeGenerationDto {
+  // [F-142] A plain date: an offset timestamp could shift the day that gets validated.
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   period_start?: string;
 
   @IsOptional()

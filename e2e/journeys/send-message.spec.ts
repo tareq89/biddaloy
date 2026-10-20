@@ -48,8 +48,13 @@ test.describe('office staff', () => {
     await page.getByRole('button', { name: t('communications.send.submit') }).click();
     await page.getByRole('button', { name: t('communications.send.confirmSend') }).click();
 
+    // [2604] The e2e school has no SMS gateway, so the send is recorded and then fails;
+    // the page says so and points at Settings instead of claiming "on its way".
     await expect(
-      page.getByRole('heading', { name: t('communications.send.resultTitle') }),
+      page.getByRole('heading', { name: t('communications.send.failedTitle') }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByRole('link', { name: t('communications.send.settingsLink') }),
     ).toBeVisible();
   });
 });

@@ -389,6 +389,133 @@ describe('POST /payments/checkout (16.4.2)', () => {
     expect(res.body.payment.total_amount).toBe('750.00');
   });
 
+  it('paying an already-paid bill with a new key is a 409 CHECKOUT_FEE_SETTLED without the bill id (#2592)', async () => {
+    const student = await createStudent();
+    const bill = await createFee(student, 400);
+    const pay = () =>
+      supertest(app.getHttpServer())
+        .post(`${API}/payments/checkout`)
+        .send({
+          idempotency_key: randomUUID(),
+          lines: [{ student_fee_id: bill, amount: 400, one_off_discount: 0 }],
+          payment_method: PaymentMethod.CASH,
+        })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .set('X-Role', UserRole.ADMIN);
+    await pay().expect(201);
+
+    const res = await pay().expect(409);
+    expect(res.body.details.code).toBe('CHECKOUT_FEE_SETTLED');
+    expect(JSON.stringify(res.body)).not.toContain(bill);
+  });
+
+  it('a line of balance + 0.01 is a 400 (#2636)', async () => {
+    const student = await createStudent();
+    const bill = await createFee(student, 300);
+
+    await supertest(app.getHttpServer())
+      .post(`${API}/payments/checkout`)
+      .send({
+        idempotency_key: randomUUID(),
+        lines: [{ student_fee_id: bill, amount: 300.01, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .expect(400);
+  });
+
+  it('replaying a key with a flipped change_handling is a 400 and the body does not echo the key (#2637)', async () => {
+    const student = await createStudent();
+    const bill = await createFee(student, 100);
+    const key = randomUUID();
+    const post = (extra: Record<string, unknown>) =>
+      supertest(app.getHttpServer())
+        .post(`${API}/payments/checkout`)
+        .send({
+          idempotency_key: key,
+          lines: [{ student_fee_id: bill, amount: 100, one_off_discount: 0 }],
+          payment_method: PaymentMethod.CASH,
+          tendered_amount: 150,
+          ...extra,
+        })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .set('X-Role', UserRole.ADMIN);
+    await post({ change_handling: 'RETURN' }).expect(201);
+
+    const res = await post({ change_handling: 'TO_WALLET' }).expect(400);
+    expect(JSON.stringify(res.body)).not.toContain(key);
+  });
+
+  it('TO_WALLET change across siblings is a 400 (#2647)', async () => {
+    const a = await createStudent();
+    const b = await createStudent();
+    const billA = await createFee(a, 100);
+    const billB = await createFee(b, 100);
+
+    await supertest(app.getHttpServer())
+      .post(`${API}/payments/checkout`)
+      .send({
+        idempotency_key: randomUUID(),
+        lines: [
+          { student_fee_id: billA, amount: 100, one_off_discount: 0 },
+          { student_fee_id: billB, amount: 100, one_off_discount: 0 },
+        ],
+        payment_method: PaymentMethod.CASH,
+        tendered_amount: 250,
+        change_handling: 'TO_WALLET',
+      })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .expect(400);
+  });
+
+  it('a foreign-tenant bill id and a random id give the identical 404 text, without the id (#2640)', async () => {
+    const FOREIGN_TENANT = '00000000-0000-4000-8000-0000002640aa';
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Checkout Foreign School', 'checkout-foreign-2640', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [FOREIGN_TENANT],
+    );
+    const foreignStudent = (
+      await dataSource.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
+         VALUES (DEFAULT, 'Checkout Foreign Student', $1, 1, $2, $3, '2010-01-01', 'SMS', 'ACTIVE', NOW(), NOW())
+         RETURNING id`,
+        [`REG-CHK-FOREIGN-${randomUUID().slice(0, 8)}`, SEED_SECTION_1_ID, FOREIGN_TENANT],
+      )
+    )[0].id;
+    const foreignBill = await createFee(foreignStudent, 500);
+    const randomBill = randomUUID();
+
+    const post = async (id: string) =>
+      (
+        await supertest(app.getHttpServer())
+          .post(`${API}/payments/checkout`)
+          .send({
+            idempotency_key: randomUUID(),
+            lines: [{ student_fee_id: id, amount: 500, one_off_discount: 0 }],
+            payment_method: PaymentMethod.CASH,
+          })
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID)
+          .set('X-Role', UserRole.ADMIN)
+          .expect(404)
+      ).body;
+
+    const foreign = await post(foreignBill);
+    const random = await post(randomBill);
+    expect(foreign.message).toBe(random.message);
+    expect(foreign.message).toBe('Student fee not found');
+    expect(JSON.stringify(foreign)).not.toContain(foreignBill);
+    expect(JSON.stringify(random)).not.toContain(randomBill);
+  });
+
   // PermissionsGuard rejects PARENT here: only ADMIN/ACCOUNTANT hold
   // PAYMENT_RECORD, and the route has no `@Roles`.
   it('denies a PARENT (not ADMIN/ACCOUNTANT) from recording a checkout (403)', async () => {
@@ -500,7 +627,7 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
       .get<Redis>(STEP_UP_REDIS)
       .del(
         `step-up-attempts:actor:${SEED_ADMIN_USER_ID}`,
-        `step-up-attempts:approver:${SEED_TENANT_ID}:${identifier}`,
+        `step-up-attempts:pair:${SEED_TENANT_ID}:${SEED_ADMIN_USER_ID}:${identifier}`,
       );
     // The approval token `ApprovalGuard` issues is bound to the actor who
     // requested/verified it (the caller here) — it must be `adminToken`,

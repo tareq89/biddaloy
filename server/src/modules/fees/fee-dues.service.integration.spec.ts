@@ -278,6 +278,29 @@ describe('FeeDuesService (integration)', () => {
       expect(result.data[0].student_id).toBe(pending.id);
     });
 
+    it('[F-156] balance is rounded to the paisa (exactly 0), and an OVERDUE bill is listed', async () => {
+      const student = await studentRepo.save(makeStudent());
+      // 100.10 - 100.00 - 0.10 is -5.7e-15 in floating point; the balance must be exactly 0.
+      await studentFeeRepo.save(
+        makeFee(student.id, {
+          month: 1,
+          total_amount: 100.1,
+          paid_amount: 100,
+          discount_amount: 0.1,
+          standing_discount_amount: 0.1,
+          status: FeeStatus.PARTIALLY_PAID,
+        }),
+      );
+      await studentFeeRepo.save(makeFee(student.id, { month: 2, status: FeeStatus.OVERDUE }));
+
+      const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+
+      const dues = result.data[0].dues;
+      expect(dues).toHaveLength(2);
+      expect(dues.find((d) => d.month === 1)!.balance).toBe(0);
+      expect(dues.find((d) => d.month === 2)!.status).toBe(FeeStatus.OVERDUE);
+    });
+
     it('computes total_due as the sum of balances across all open fees for a student', async () => {
       const student = await studentRepo.save(makeStudent());
       await studentFeeRepo.save(

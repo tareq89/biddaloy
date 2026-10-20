@@ -252,6 +252,39 @@ describe('Bulk Student Upload E2E', () => {
       void countAfter;
     });
 
+    it('[2606] a roll above the cap is a hard error on roll and commit is refused', async () => {
+      const buffer = await buildXlsxBuffer([
+        rowValues(REQUIRED_HEADERS, { roll: '2147483648', guardian1_phone: '+8801711110061' }),
+      ]);
+      const res = await validate(buffer).expect(201);
+      expect(res.body.hard_error_count).toBe(1);
+      expect(res.body.errors[0]).toMatchObject({ row: 2, column: 'roll' });
+      await commit(res.body.staging_id).expect(409);
+    });
+
+    it('[2607] stores a supplied registration number; a second upload of it is refused', async () => {
+      const reg = `QA-E2E-${Date.now()}`;
+      const rows = (phone: string) => [
+        rowValues(REQUIRED_HEADERS, {
+          student_name: `Reg E2E ${reg}`,
+          registration_number: reg,
+          guardian1_phone: phone,
+        }),
+      ];
+      const v1 = await validate(await buildXlsxBuffer(rows('+8801711110071'))).expect(201);
+      const c1 = await commit(v1.body.staging_id).expect(201);
+      const stored = await dataSource.query(
+        'SELECT registration_number FROM students WHERE id = $1',
+        [c1.body.created_student_ids[0]],
+      );
+      expect(stored[0].registration_number).toBe(reg);
+
+      const v2 = await validate(await buildXlsxBuffer(rows('+8801711110072'))).expect(201);
+      expect(v2.body.hard_error_count).toBe(1);
+      expect(v2.body.errors[0]).toMatchObject({ column: 'registration_number' });
+      await commit(v2.body.staging_id).expect(409);
+    });
+
     it('returns 400 with a specific message when required columns are missing', async () => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Students');

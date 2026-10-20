@@ -45,7 +45,8 @@ test.describe('ListShellPage drives two different list routes', () => {
     // Search for something that cannot exist — proves the empty state
     // helper without depending on whether earlier specs seeded guardians.
     await list.search(`no-such-guardian-${Date.now()}`);
-    await list.expectEmptyState('guardians.list.emptyMessage');
+    // A search is a filter: the shell shows the shared "no matches" state, not the page's own.
+    await list.expectEmptyState('common.noMatches.title');
   });
 });
 

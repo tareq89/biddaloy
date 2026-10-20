@@ -203,6 +203,43 @@ describe('StepUpController (e2e)', () => {
     expect(res.body.message).toBe('PASSWORD_NOT_ALLOWED');
   });
 
+  it('PASSWORD is accepted once the school saves fees.approvalMode = OTP_OR_PASSWORD (F-013)', async () => {
+    const adminLogin = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    const patchMode = (approvalMode: string) =>
+      supertest(app.getHttpServer())
+        .patch(`/api/v1/schools/${SEED_TENANT_ID}/settings`)
+        .set('Authorization', `Bearer ${adminLogin.body.access_token}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({
+          version: 1,
+          fees: {
+            approvalMode,
+            notifyOnManualGenerationDefault: false,
+            notifyOnScheduleDefault: true,
+            fineDueDays: 7,
+          },
+        });
+
+    try {
+      const patched = await patchMode('OTP_OR_PASSWORD');
+      expect(patched.status, JSON.stringify(patched.body)).toBe(200);
+      const res = await authed(supertest(app.getHttpServer()).post('/api/v1/auth/step-up')).send({
+        identifier: SEED_ADMIN_EMAIL,
+        method: 'PASSWORD',
+        password: SEED_ADMIN_PASSWORD,
+        scope: 'discount_rules.manage',
+      });
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(res.body.approval_token).toEqual(expect.any(String));
+    } finally {
+      const reset = await patchMode('OTP');
+      expect(reset.status, JSON.stringify(reset.body)).toBe(200);
+    }
+  });
+
   it('rejects a missing/invalid X-Tenant-ID with 401', async () => {
     const res = await supertest(app.getHttpServer())
       .post('/api/v1/auth/step-up/otp/request')
@@ -210,6 +247,87 @@ describe('StepUpController (e2e)', () => {
       .send({ identifier: SEED_ADMIN_EMAIL });
 
     expect(res.status).toBe(401);
+  });
+
+  it.each(['PARENT', 'STUDENT'])('%s gets 403 on both step-up routes', async (role) => {
+    const id =
+      role === 'PARENT'
+        ? '00000000-0000-4000-8000-0000000005d1'
+        : '00000000-0000-4000-8000-0000000005d2';
+    const email = `step-up-${role.toLowerCase()}@testschool.com`;
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status)
+       VALUES ($1, $2, $3, 'Step-up Denied', 'ACTIVE')
+       ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, status = 'ACTIVE'`,
+      [id, email, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, $3)
+       ON CONFLICT DO NOTHING`,
+      [id, SEED_TENANT_ID, role],
+    );
+    try {
+      const login = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      const as = (req: supertest.Test) =>
+        req
+          .set('Authorization', `Bearer ${login.body.access_token}`)
+          .set('X-Tenant-ID', SEED_TENANT_ID);
+
+      const otp = await as(
+        supertest(app.getHttpServer()).post('/api/v1/auth/step-up/otp/request'),
+      ).send({ identifier: SEED_ADMIN_EMAIL });
+      expect(otp.status).toBe(403);
+      const verify = await as(supertest(app.getHttpServer()).post('/api/v1/auth/step-up')).send({
+        identifier: SEED_ADMIN_EMAIL,
+        method: 'OTP',
+        otp: '000000',
+        scope: 'fees.discount',
+      });
+      expect(verify.status).toBe(403);
+    } finally {
+      await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [id]);
+      await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [id]);
+      await dataSource.query(`UPDATE users SET status = 'INACTIVE' WHERE id = $1`, [id]);
+    }
+  });
+
+  it("a different caller is unaffected by another caller's wrong OTPs for the same approver", async () => {
+    const identifier = 'step-up-cross-caller@testschool.com';
+    const redis = app.get<Redis>(STEP_UP_REDIS);
+    // Every key a guess here counts against, so a rerun on the same Redis starts clean (not 429).
+    const keys = [
+      `step-up-attempts:actor:${ACTOR_ID}`,
+      `step-up-attempts:actor:${SEED_ADMIN_USER_ID}`,
+      `step-up-attempts:pair:${SEED_TENANT_ID}:${ACTOR_ID}:${identifier}`,
+      `step-up-attempts:pair:${SEED_TENANT_ID}:${SEED_ADMIN_USER_ID}:${identifier}`,
+      `step-up-attempts:approver:${SEED_TENANT_ID}:${identifier}`,
+    ];
+    await redis.del(...keys);
+
+    for (let i = 0; i < 5; i++) {
+      const res = await authed(supertest(app.getHttpServer()).post('/api/v1/auth/step-up')).send({
+        identifier,
+        method: 'OTP',
+        otp: '000000',
+        scope: 'fees.discount',
+      });
+      expect(res.status).toBe(401);
+    }
+    const adminLogin = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    const other = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/step-up')
+      .set('Authorization', `Bearer ${adminLogin.body.access_token}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .send({ identifier, method: 'OTP', otp: '000000', scope: 'fees.discount' });
+    expect(other.status).toBe(401);
+
+    await redis.del(...keys);
   });
 
   it('5 wrong OTPs from another school do not lock the same approver out of step-up in their own school', async () => {
@@ -243,7 +361,7 @@ describe('StepUpController (e2e)', () => {
       .get<Redis>(STEP_UP_REDIS)
       .del(
         `step-up-attempts:actor:${ACTOR_ID}`,
-        `step-up-attempts:approver:${SEED_TENANT_ID}:${APPROVER_B_EMAIL}`,
+        `step-up-attempts:pair:${SEED_TENANT_ID}:${ACTOR_ID}:${APPROVER_B_EMAIL}`,
       );
 
     try {
