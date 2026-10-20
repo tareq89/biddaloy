@@ -9,6 +9,8 @@ for (const path of ['/bn/', '/en/', '/bn/pricing/', '/en/pricing/', '/en/feature
     expect(html).not.toMatch(/bkash|nagad|sslcommerz/);
     await page.goto(path);
     const text = (await page.locator('body').innerText()).toLowerCase();
-    expect(text).not.toMatch(/bkash|nagad|sslcommerz|(credit|debit|payment|visa) card|card (number|payment)/);
+    expect(text).not.toMatch(
+      /bkash|nagad|sslcommerz|(credit|debit|payment|visa) card|card (number|payment)/,
+    );
   });
 }

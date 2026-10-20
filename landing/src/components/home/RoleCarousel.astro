@@ -9,7 +9,7 @@ const { lang } = Astro.props as { lang: Lang };
   <div class="viewport"><div class="track" id="track">
     {roles.map((r) => (
       <article class={`slide c-${r.hue}`} data-role={r.key}>
-        <header><span class="tag">{r.tag[lang]}</span><h3>{r.title[lang]}</h3></header>
+        <header><span class="tag">{r.tag[lang]}</span><h2>{r.title[lang]}</h2></header>
         {r.frame === 'desktop' ? (
           <div class="body"><div class="win">
             <div class="winbar"><i></i><i></i><i></i><span class="url">{r.url}</span></div>
@@ -55,7 +55,7 @@ const { lang } = Astro.props as { lang: Lang };
   @media (prefers-reduced-motion:reduce){.track{transition:none}}
   .slide{flex:0 0 100%;min-width:0;padding:0 .25rem}
   .slide header{display:flex;justify-content:center;gap:.6rem;align-items:center;margin-bottom:.7rem;flex-wrap:wrap}
-  .slide header h3{font-size:1.05rem}
+  .slide header h2{font-size:1.05rem}
   .slide header .tag{font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;font-weight:600;color:var(--hue-ink);background:var(--tint);border-radius:999px;padding:.1rem .55rem}
   /* D45: frames fill the content column, 560 px slides on desktop */
   .win{border:1px solid var(--line);border-radius:12px;background:var(--bg);overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.08);width:100%}

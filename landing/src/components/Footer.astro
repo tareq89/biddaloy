@@ -16,7 +16,7 @@ const ext = { target: '_blank', rel: 'noopener' };
         <p style="color:var(--muted);font-size:.9rem;max-width:30ch">{t('footer.tagline')}</p>
       </div>
       <div>
-        <h4>{t('footer.product')}</h4>
+        <p class="fh">{t('footer.product')}</p>
         <a href={`/${lang}/features/`}>{t('nav.features')}</a>
         <a href={`/${lang}/pricing/`}>{t('nav.pricing')}</a>
         <a href={DEMO_URL} data-ev="demo_click" {...ext}>{t('btn.demo')}</a>
@@ -24,20 +24,20 @@ const ext = { target: '_blank', rel: 'noopener' };
         <a href={`${APP_URL}/register`} data-ev="register_click" {...ext}>{t('btn.signup')}</a>
       </div>
       <div>
-        <h4>{t('footer.audience')}</h4>
+        <p class="fh">{t('footer.audience')}</p>
         <a href={`/${lang}/for/school/`}>{t('footer.schools')}</a>
         <a href={`/${lang}/for/madrasa/`}>{t('footer.madrasa')}</a>
         <a href={`/${lang}/for/english-medium/`}>{t('footer.english')}</a>
         <a href={DOCS_URL} {...ext}>{t('footer.guardians')}</a>
       </div>
       <div>
-        <h4>{t('footer.resources')}</h4>
+        <p class="fh">{t('footer.resources')}</p>
         <a href={DOCS_URL} {...ext}>{t('nav.docs')}</a>
         <a href={`/${lang}/contact/`}>{t('nav.contact')}</a>
         <a href={WA} {...ext}>{t('footer.whatsapp')}</a>
       </div>
       <div>
-        <h4>{t('footer.company')}</h4>
+        <p class="fh">{t('footer.company')}</p>
         <a href={`/${lang}/contact/`}>{t('footer.about')}</a>
         <a href={`/${lang}/privacy/`}>{t('footer.privacy')}</a>
         <a href={`/${lang}/terms/`}>{t('footer.terms')}</a>

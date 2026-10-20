@@ -1129,6 +1129,36 @@ jobs:
       - name: Check landing tokens match the app
         run: node landing/scripts/check-tokens.mjs
 
+      # [50.13] Budget gate (D21): serve the built site and run Lighthouse + the
+      # landing smoke project against it. Either one failing fails the job.
+      # `serve` is pinned (security Rule 21); it also backs playwright.landing.config.ts.
+      - name: Serve landing dist
+        run: npx --yes serve@14.2.4 landing/dist -l 4321 --no-clipboard &
+
+      - name: Wait for the landing server
+        run: npx --yes wait-on@9.0.4 http://localhost:4321/bn/ --timeout 60000
+
+      - name: Lighthouse budget (landing)
+        run: npx lhci autorun --config lighthouserc.landing.cjs
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Landing smoke (Playwright)
+        run: npx playwright test -c playwright.landing.config.ts --project landing
+
+      - name: Upload landing reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: landing-reports
+          path: |
+            .lighthouseci-landing/
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Pack landing dist
         run: tar -czf "landing-dist-${{ github.sha }}.tar.gz" -C landing/dist .
 

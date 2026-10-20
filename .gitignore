@@ -196,6 +196,7 @@ build-output/
 /test-results/
 /test-results-pwa/
 /playwright-report/
+/.lighthouseci-landing/
 /playwright-report-pwa/
 /blob-report/
 /playwright/.cache/

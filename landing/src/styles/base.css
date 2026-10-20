@@ -51,7 +51,7 @@ p{margin:0}a{color:inherit}button{font:inherit;color:inherit}
 footer{border-top:1px solid var(--line);padding-block:3rem 2rem;font-size:.9rem}
 .fgrid{display:grid;gap:1.5rem;grid-template-columns:1.3fr repeat(4,1fr)}
 @media (max-width:860px){.fgrid{grid-template-columns:repeat(2,1fr)}}
-.fgrid h4{font-size:.85rem;margin:0 0 .6rem;line-height:28px}.fgrid a{display:block;color:var(--muted);text-decoration:none;margin-bottom:.4rem}.fgrid a:hover{color:var(--fg)}
+.fgrid .fh{font-weight:700;font-size:.85rem;margin:0 0 .6rem;line-height:28px}.fgrid a{display:block;color:var(--muted);text-decoration:none;margin-bottom:.4rem}.fgrid a:hover{color:var(--fg)}
 .fgrid .wordmark{display:inline-flex;margin-bottom:.8rem;color:var(--fg)}
 .fbottom{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;color:var(--muted);font-size:.85rem;margin-top:2rem;padding-top:1rem;border-top:1px solid var(--line)}
 .fbottom select{font:inherit;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:6px;padding:.2rem .4rem}

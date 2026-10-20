@@ -16,7 +16,7 @@ export default defineConfig({
     // Pinned (security Rule 21). `serve` resolves /bn/pricing/ to its index.html like the real nginx does.
     command: 'npx --yes serve@14.2.4 landing/dist -l 4321 --no-clipboard',
     url: 'http://localhost:4321/bn/',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true, // CI starts the same server first (shared with Lighthouse)
     timeout: 60_000,
   },
   projects: [{ name: 'landing', use: { ...devices['Desktop Chrome'] } }],

@@ -1,5 +1,4 @@
 ---
-import '../styles/fonts.css';
 import '../styles/tokens.css';
 import '../styles/base.css';
 import { useTranslations, LANGS, type Lang } from '../i18n';
@@ -41,7 +40,22 @@ const desc = description ?? t('site.description');
     {LANGS.map((l) => <link rel="alternate" hreflang={l} href={alt(l)} />)}
     <link rel="alternate" hreflang="x-default" href={alt('bn')} />
     <link rel="canonical" href={alt(lang)} />
-    {lang === 'bn' && <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/hind-siliguri-700-bengali.woff2" />}
+    <script is:inline>
+      // Web fonts (font-display: optional) are fetched only after the first paint, so they never delay it on a slow phone.
+      (function () {
+        function go() {
+          var l = document.createElement('link');
+          l.rel = 'stylesheet';
+          l.href = '/fonts/fonts.css';
+          document.head.appendChild(l);
+        }
+        try {
+          new PerformanceObserver(function (list, o) {
+            if (list.getEntriesByName('first-contentful-paint').length) { o.disconnect(); go(); }
+          }).observe({ type: 'paint', buffered: true });
+        } catch (e) { addEventListener('load', go); }
+      })();
+    </script>
     <Analytics />
   </head>
   <body>
