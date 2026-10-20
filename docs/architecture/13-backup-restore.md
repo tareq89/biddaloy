@@ -8,16 +8,14 @@ in-flight background jobs).
 
 |                                      |                                                                                                                                                          |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RPO** (how much data you can lose) | 24 hours — one backup a day                                                                                                                              |
+| **RPO** (how much data you can lose) | 1 hour — one backup an hour (R2 mode; 24 h in legacy/dev mode)                                                                                           |
 | **RTO** (how long a restore takes)   | 4 hours                                                                                                                                                  |
-| **Retention**                        | 30 days of daily backups                                                                                                                                 |
+| **Retention**                        | 72 hourly + 30 daily dumps, 30 days of deleted-file history (R2 mode)                                                                                    |
 | **Drill cadence**                    | Quarterly — run [`restore-drill.yml`](../../.github/workflows/restore-drill.yml) manually                                                                |
 | **Backup owner**                     | Whoever holds the `BACKUP_AGE_PUBLIC_KEY`/private-key pair for the environment (see "Key handling" below) — set this to a real name/role per environment |
 
-RPO of 24h means: if the database is lost right now, everything written
-since the last nightly backup (up to 24 hours ago) is gone. If that's not
-acceptable for your environment, shorten `BACKUP_SCHEDULE` (`.env.example`)
-— the tradeoff is more `pg_dump` load on `db` and more objects to retain.
+RPO of 1h means: if the database is lost right now, everything written
+since the last hourly backup (up to 1 hour ago) is gone.
 
 ## How a backup happens
 
@@ -29,10 +27,46 @@ flowchart LR
     logos[Live app writes<br/>e.g. school logos] -.->|StorageService.put| bucket
 ```
 
+### The hourly run to R2 (production)
+
+With the `BACKUP_S3_*` vars set, `backup.sh` runs every hour and writes to
+Cloudflare R2 instead. Example key: `db/hourly/20260920T200000Z.dump.age`.
+
+```mermaid
+flowchart TD
+    start([cron, every hour]) --> dump["pg_dump | age | aws s3 cp<br/>db/hourly/&lt;UTC ts&gt;.dump.age"]
+    dump --> h{"Dhaka hour >= 02<br/>and today's daily missing?"}
+    h -->|yes| daily["server-side copy to<br/>db/daily/&lt;date&gt;.dump.age"]
+    h -->|no| prune
+    daily --> prune["prune db: keep 72 hourly,<br/>30 daily"]
+    prune --> files["rclone sync SeaweedFS bucket<br/>(not backups/) to r2crypt:files<br/>changed or deleted files go to<br/>files-trash/&lt;date&gt;/"]
+    files --> trash["purge trash folders older than 30 days"]
+    trash --> push["Uptime Kuma push: up<br/>(any failed step: down + step name, exit non-zero)"]
+```
+
+| What                                                           | Where in R2           | Kept for     |
+| -------------------------------------------------------------- | --------------------- | ------------ |
+| Hourly database dumps                                          | `db/hourly/`          | 72 (3 days)  |
+| Daily database dumps                                           | `db/daily/`           | 30 (30 days) |
+| Files (contents + names encrypted; top-level folder names too) | `files/`              | current copy |
+| Deleted/changed files                                          | `files-trash/<date>/` | 30 days      |
+
+**RPO is now 1 hour** (was 24 h). Without `BACKUP_S3_*` (local dev, the
+restore drill) the old behaviour stays: one `backups/db/` key per run,
+pruned by age with `BACKUP_RETENTION_DAYS`, no files sync.
+
+**Upgrading an existing deploy:** a production `.env` that sets
+`BACKUP_SCHEDULE='0 2 * * *'` must be changed to `0 * * * *`, or the backup
+stays daily. After the switch, delete the old `backups/db/` objects in
+SeaweedFS once (a one-time cleanup); the files sync skips `backups/`.
+
+If the network is down at the start, the run probes and waits (up to
+`BACKUP_NET_WAIT_SECS`, default 900) instead of failing at once.
+
 Two independent things land in the same bucket, and that's the key fact
 this whole doc is built around:
 
-- **`backups/db/*.dump.age`** — a snapshot, written once a day by
+- **`backups/db/*.dump.age`** — a snapshot (legacy/dev layout; R2 uses `db/hourly/`), written every hour by
   [`scripts/backup/backup.sh`](../../scripts/backup/backup.sh). Consistent
   as of the moment `pg_dump` ran.
 - **Everything else** (e.g. `tenants/<id>/logos/*.png`, written by
@@ -41,7 +75,7 @@ this whole doc is built around:
   in Postgres to begin with. The bucket itself _is_ the durable copy.
 
 **Consistency rule:** after a restore, the database reflects yesterday's
-world and the bucket reflects today's. A row can reference an object key
+world and the bucket reflects today's (up to an hour old in R2 mode). A row can reference an object key
 that didn't exist yet at backup time (fine — it exists now) or, if an
 object was deleted between the backup and now, a row can reference a key
 that's gone. `scripts/backup/verify.sql` prints every `schools.logo_key`
@@ -54,7 +88,7 @@ place the plaintext exists.
 
 ## Two kinds of backup
 
-This doc is the **platform** backup: one nightly `pg_dump` of the whole
+This doc is the **platform** backup: an hourly `pg_dump` of the whole
 database, restorable only by someone with server/infra access. It's not
 what an individual school admin uses.
 
@@ -79,8 +113,9 @@ actually matters:
   `BACKUP_AGE_PUBLIC_KEY` at the new public half, deploy. New backups from
   that point encrypt to the new key. **No re-encryption of old archives is
   needed** — keep the old private key around until every archive it
-  encrypted has aged out of `BACKUP_RETENTION_DAYS` (30 days by default),
-  then discard it.
+  encrypted has aged out (30 days of daily dumps in R2 mode, so keep it 30
+  days after the switch; `BACKUP_RETENTION_DAYS` in legacy mode), then
+  discard it.
 - **Lost key = archives unrecoverable.** Stated plainly because it's true:
   age has no recovery mechanism and no backdoor. If the private key is
   gone, every archive it encrypted is permanently unreadable, full stop.
@@ -135,6 +170,15 @@ export S3_BUCKET=biddaloy S3_ENDPOINT=https://s3.example.com \
 scripts/backup/restore.sh \
   backups/db/20260907T020000Z.dump.age \
   postgres://postgres:postgres@localhost:5432/biddaloy_restored
+
+# R2 form (production dumps). restore.sh reads S3_*, so for this run put the
+# R2 credentials (BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY) in
+# S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY and use the R2 bucket name:
+export S3_BUCKET=<BACKUP_S3_BUCKET> S3_ENDPOINT=https://<acct>.r2.cloudflarestorage.com \
+       S3_REGION=auto S3_ACCESS_KEY_ID=... S3_SECRET_ACCESS_KEY=...
+scripts/backup/restore.sh \
+  db/hourly/20260920T200000Z.dump.age \
+  postgres://postgres:postgres@localhost:5432/biddaloy_restored
 ```
 
 What it does, in order: download (or read a local file) → `age --decrypt`
@@ -148,21 +192,84 @@ Then: reconcile `communication_logs` (above), and spot-check any
 `logo_key` the verify output printed against the bucket if you suspect
 objects were lost around the same incident.
 
+### Restore files from R2
+
+Files are encrypted in R2 (file contents and names), so read them through
+the `r2crypt` remote. It is rooted at the bucket, so `files/` and
+`files-trash/` both live under it. Build a throwaway rclone config the same
+way `backup.sh` does (remotes `r2` and `r2crypt`; the crypt password/salt go
+through `rclone obscure`), then:
+
+```bash
+# one tenant's files
+rclone copy r2crypt:files/tenants/<tenant-id> ./out
+# a file deleted by mistake (still in trash for BACKUP_TRASH_DAYS)
+rclone copy r2crypt:files-trash/2026-10-20/tenants/<tenant-id> ./out-trash
+```
+
+In the R2 console the top-level folder names (`files`, `files-trash`, the
+dates) are encrypted too; only `db/` is readable.
+
+Example: a teacher deleted `tenants/7/logos/a.png` on 2026-10-20. It moved
+to `files-trash/2026-10-20/` the next hour and stays restorable until the
+trash folder is purged 30 days later.
+
 ## Env vars ([15.3.x])
 
 All in `.env.example`, grouped under "Object storage" and "Backup and
 disaster recovery":
 
-| Var                           | Ticket | Purpose                                                                           |
-| ----------------------------- | ------ | --------------------------------------------------------------------------------- |
-| `S3_ENDPOINT`                 | 15.3.1 | Bucket endpoint (SeaweedFS in dev, your provider in prod)                         |
-| `S3_REGION`                   | 15.3.1 | Bucket region                                                                     |
-| `S3_BUCKET`                   | 15.3.1 | Bucket name                                                                       |
-| `S3_ACCESS_KEY_ID`            | 15.3.1 | Bucket credentials                                                                |
-| `S3_SECRET_ACCESS_KEY`        | 15.3.1 | Bucket credentials                                                                |
-| `S3_FORCE_PATH_STYLE`         | 15.3.1 | `true` for SeaweedFS/self-hosted, unset for AWS S3                                |
-| `BACKUP_AGE_PUBLIC_KEY`       | 15.3.2 | Encrypts new backups                                                              |
-| `BACKUP_SCHEDULE`             | 15.3.2 | Cron schedule the `backup` service runs on (default `0 2 * * *`, `TZ=Asia/Dhaka`) |
-| `BACKUP_RETENTION_DAYS`       | 15.3.2 | Backups older than this are deleted (default 30)                                  |
-| `SENTRY_CRON_MONITOR_URL`     | 15.3.2 | Optional cron check-in                                                            |
-| `BACKUP_AGE_PRIVATE_KEY_FILE` | 15.3.3 | Decrypts for `restore.sh` — never in `.env`, see "Key handling"                   |
+| Var                            | Ticket | Purpose                                                                                                                     |
+| ------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `S3_ENDPOINT`                  | 15.3.1 | Bucket endpoint (SeaweedFS in dev, your provider in prod)                                                                   |
+| `S3_REGION`                    | 15.3.1 | Bucket region                                                                                                               |
+| `S3_BUCKET`                    | 15.3.1 | Bucket name                                                                                                                 |
+| `S3_ACCESS_KEY_ID`             | 15.3.1 | Bucket credentials                                                                                                          |
+| `S3_SECRET_ACCESS_KEY`         | 15.3.1 | Bucket credentials                                                                                                          |
+| `S3_FORCE_PATH_STYLE`          | 15.3.1 | `true` for SeaweedFS/self-hosted, unset for AWS S3                                                                          |
+| `BACKUP_AGE_PUBLIC_KEY`        | 15.3.2 | Encrypts new backups                                                                                                        |
+| `BACKUP_SCHEDULE`              | 15.3.2 | Cron schedule the `backup` service runs on (default `0 * * * *`, hourly, `TZ=Asia/Dhaka`)                                   |
+| `BACKUP_RETENTION_DAYS`        | 15.3.2 | Legacy mode only (no `BACKUP_S3_*`): backups older than this are deleted (default 30)                                       |
+| `BACKUP_S3_ENDPOINT`           | #1745  | R2 endpoint `https://<acct>.r2.cloudflarestorage.com`. The six `BACKUP_S3_*` / `BACKUP_RCLONE_CRYPT_*` vars are all-or-none |
+| `BACKUP_S3_BUCKET`             | #1745  | R2 bucket for `db/` and `files/`                                                                                            |
+| `BACKUP_S3_ACCESS_KEY_ID`      | #1745  | R2 API token, scoped to the bucket                                                                                          |
+| `BACKUP_S3_SECRET_ACCESS_KEY`  | #1745  | R2 API token secret                                                                                                         |
+| `BACKUP_RCLONE_CRYPT_PASSWORD` | #1745  | Encrypts file contents and names. Store a copy outside the host                                                             |
+| `BACKUP_RCLONE_CRYPT_SALT`     | #1745  | Second crypt secret (salt). Store a copy outside the host                                                                   |
+| `BACKUP_PUSH_URL`              | #1745  | Uptime Kuma push URL (`?status=up/down&msg=<step>` appended). Unset = no push                                               |
+| `BACKUP_HOURLY_KEEP`           | #1745  | Hourly dumps kept (default 72)                                                                                              |
+| `BACKUP_DAILY_KEEP`            | #1745  | Daily dumps kept (default 30)                                                                                               |
+| `BACKUP_TRASH_DAYS`            | #1745  | Days a deleted file stays in `files-trash/` (default 30)                                                                    |
+| `SENTRY_CRON_MONITOR_URL`      | 15.3.2 | Optional cron check-in                                                                                                      |
+| `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Decrypts for `restore.sh` — never in `.env`, see "Key handling"                                                             |
+
+## Learnings (#1745)
+
+- Trash is pruned by the date in the `files-trash/<date>/` folder name, not
+  with `rclone delete --min-age`: files moved by `--backup-dir` keep their
+  original modification time, so `--min-age` would delete them straight away.
+- Prunes count keys, not object age: UTC timestamps in key names sort by time,
+  so "keep newest N" works the same for dev, drill and R2.
+- Asia/Dhaka is fixed UTC+6, so `backup.sh` does the "is it 02:00 there?"
+  check with epoch arithmetic. `BACKUP_NOW` (UTC ISO) fakes the clock in tests.
+- rclone passwords are passed to `rclone obscure -` on stdin, never as an
+  argument, and the config file is 0600 in a throwaway dir removed on exit.
+- `scripts/backup/backup.test.sh` has two parts: the docker-compose integration
+  case, and PATH-shim cases (fake `aws`/`rclone`/`curl`/`pg_dump`/`age`) run by
+  `backup.test.sh --shim` with no Docker.
+- `--backup-dir` must be on the same rclone remote as the destination (rclone
+  exits 7 otherwise), so the crypt remote is rooted at the bucket and `files/`
+  and `files-trash/` are both paths under it.
+- `rclone lsf` on a folder that does not exist yet exits 3; the trash prune
+  treats exactly that code as "empty" and fails on any other.
+- A source that lists empty while the backup is not is treated as a broken
+  source (step `files-sync` fails, nothing is synced) instead of being mirrored
+  as "all files deleted".
+- `BACKUP_NOW` only works with `BACKUP_TEST_CLOCK_OK=1`, so a stray value in
+  production cannot freeze the clock. The daily copy catches up: from 02:00
+  Dhaka it is made as soon as today's daily key is missing.
+- Deviation from the ticket order: db prunes run before the files sync, so a
+  failing files step never skips them. Order is dump, daily copy, db prunes,
+  files sync, trash purge, push.
+- The `[r2]` remote sets `no_check_bucket = true` so a bucket-scoped R2 token
+  (no CreateBucket right) works; the sync excludes `/backups/**` (legacy dumps).

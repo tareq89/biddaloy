@@ -154,7 +154,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # Daily encrypted pg_dump to the bucket — see scripts/backup/README.md.
+  # Hourly encrypted pg_dump (+ files to R2 when configured) — see scripts/backup/README.md.
   # Only needs `db` (to dump) and `seaweedfs` (to upload to in dev); it does
   # not sit on the app's request path, so it isn't in `app`'s depends_on.
   backup:
@@ -164,9 +164,21 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:?POSTGRES_DB must be set}
       BACKUP_AGE_PUBLIC_KEY: ${BACKUP_AGE_PUBLIC_KEY}
-      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 * * * *}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
       SENTRY_CRON_MONITOR_URL: ${SENTRY_CRON_MONITOR_URL:-}
+      # Cloudflare R2 offsite target (all six or none; none = legacy S3_* only).
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID:-}
+      BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY:-}
+      BACKUP_RCLONE_CRYPT_PASSWORD: ${BACKUP_RCLONE_CRYPT_PASSWORD:-}
+      BACKUP_RCLONE_CRYPT_SALT: ${BACKUP_RCLONE_CRYPT_SALT:-}
+      BACKUP_PUSH_URL: ${BACKUP_PUSH_URL:-}
+      BACKUP_HOURLY_KEEP: ${BACKUP_HOURLY_KEEP:-72}
+      BACKUP_DAILY_KEEP: ${BACKUP_DAILY_KEEP:-30}
+      BACKUP_TRASH_DAYS: ${BACKUP_TRASH_DAYS:-30}
+      BACKUP_NET_WAIT_SECS: ${BACKUP_NET_WAIT_SECS:-900}
       # See the matching comment on `app`'s S3_ALLOW_INSECURE_HTTP above.
       S3_ENDPOINT: http://seaweedfs:8333
       S3_ALLOW_INSECURE_HTTP: 'true'

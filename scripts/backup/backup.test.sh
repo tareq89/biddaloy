@@ -7,6 +7,9 @@
 #   3. the decrypted bytes are a valid pg_dump custom-format archive
 #      (pg_restore --list succeeds on it)
 #
+# `--shim` runs only the Docker-free PATH-shim cases (fake aws/rclone/curl/
+# pg_dump/age; BACKUP_NOW fakes the clock).
+#
 # Requires docker, docker compose, age, and either a local aws-cli or the
 # `amazon/aws-cli` image (used via docker run below to avoid a host
 # dependency). Not run by `yarn test` — it needs live docker compose
@@ -16,6 +19,202 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
+
+# ---------------------------------------------------------------------------
+# Shim cases: no Docker. Fake aws/rclone/curl/pg_dump/age on PATH log every
+# call to $SHIM/log; backup.sh runs for real against them with BACKUP_NOW
+# fixing the clock. Run only these with: backup.test.sh --shim
+# ---------------------------------------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SHIM="$(mktemp -d)"
+trap 'rm -rf "$SHIM" "${WORKDIR:-}"' EXIT
+mkdir -p "$SHIM/bin" "$SHIM/lists"
+cat >"$SHIM/bin/aws" <<'EOS'
+#!/usr/bin/env bash
+echo "aws $*" >>"$SHIM/log"
+if [[ "$1 $2" == "s3api list-objects-v2" ]]; then
+  prefix=""; while [[ $# -gt 0 ]]; do [[ "$1" == "--prefix" ]] && prefix="$2"; shift; done
+  f="$SHIM/lists/$(echo "$prefix" | tr '/' '_')"
+  if [[ -f "$f" ]]; then cat "$f"; else echo None; fi
+elif [[ "$1 $2" == "s3 rm" && "${AWS_FAIL_RM:-}" == 1 ]]; then exit 1
+elif [[ "$*" == *" - s3://"* ]]; then cat >/dev/null; fi
+exit 0
+EOS
+cat >"$SHIM/bin/rclone" <<'EOS'
+#!/usr/bin/env bash
+echo "rclone $*" >>"$SHIM/log"
+case "$1" in
+  obscure) cat >/dev/null; echo "obscured" ;;
+  sync)
+    echo "confperm $(ls -l "$RCLONE_CONFIG" | cut -c1-10)" >>"$SHIM/log"
+    echo "confnocheck $(grep -c 'no_check_bucket = true' "$RCLONE_CONFIG")" >>"$SHIM/log"
+    [[ "${RCLONE_FAIL:-}" == 1 ]] && exit 1 ;;
+  lsf)
+    case "$*" in
+      *files-trash*) [[ -f "$SHIM/trash3" ]] && exit 3; [[ -f "$SHIM/trash" ]] && cat "$SHIM/trash" ;;
+      *src:*) if [[ -f "$SHIM/srclist" ]]; then cat "$SHIM/srclist"; else echo "tenants/"; fi ;;
+      *) [[ -f "$SHIM/dstlist" ]] && cat "$SHIM/dstlist" ;;
+    esac ;;
+esac
+exit 0
+EOS
+cat >"$SHIM/bin/curl" <<'EOS'
+#!/usr/bin/env bash
+echo "curl $*" >>"$SHIM/log"; exit 0
+EOS
+# shellcheck disable=SC2016
+printf '#!/usr/bin/env bash\n[[ "${PG_FAIL:-}" == 1 ]] && exit 1\necho dump\n' >"$SHIM/bin/pg_dump"
+printf '#!/usr/bin/env bash\ncat\n' >"$SHIM/bin/age"
+chmod +x "$SHIM"/bin/*
+
+# run_shim [VAR=value ...]: runs backup.sh in R2 mode with the given overrides.
+run_shim() {
+  : >"$SHIM/log"
+  env -i PATH="$SHIM/bin:$PATH" SHIM="$SHIM" HOME="$SHIM" \
+    DATABASE_URL=postgres://u:p@h/d BACKUP_AGE_PUBLIC_KEY=age1x \
+    S3_BUCKET=src S3_ENDPOINT=http://seaweedfs:8333 S3_ALLOW_INSECURE_HTTP=true \
+    S3_REGION=us-east-1 S3_ACCESS_KEY_ID=ak S3_SECRET_ACCESS_KEY=sk \
+    BACKUP_S3_ENDPOINT=https://acct.r2.cloudflarestorage.com BACKUP_S3_BUCKET=r2b \
+    BACKUP_S3_ACCESS_KEY_ID=rk BACKUP_S3_SECRET_ACCESS_KEY=rs \
+    BACKUP_RCLONE_CRYPT_PASSWORD=cp BACKUP_RCLONE_CRYPT_SALT=cs \
+    BACKUP_PUSH_URL=https://kuma.example/api/push/tok BACKUP_NET_WAIT_SECS=0 \
+    BACKUP_TEST_CLOCK_OK=1 BACKUP_NOW=2026-10-20T10:00:00Z "$@" bash "$SCRIPT_DIR/backup.sh" >"$SHIM/out" 2>&1
+}
+shim_fail() { echo "FAIL: $1" >&2; echo "--- log"; cat "$SHIM/log"; echo "--- out"; cat "$SHIM/out"; exit 1; }
+has() { grep -q -- "$1" "$SHIM/log" || shim_fail "expected log to contain: $1"; }
+hasnt() { if grep -q -- "$1" "$SHIM/log"; then shim_fail "log must not contain: $1"; fi; }
+
+echo "backup.test.sh: shim cases"
+
+# 1. hourly key shape; today's daily already there -> no daily copy; sync uses
+#    --backup-dir on the same crypt remote; up push; token never printed.
+echo "db/daily/2026-10-20.dump.age" >"$SHIM/lists/db_daily_2026-10-20.dump.age"
+run_shim || shim_fail "plain run exited non-zero"
+has "s3://r2b/db/hourly/20261020T100000Z.dump.age"
+hasnt "s3 cp .*db/daily/"
+has "rclone sync src:src r2crypt:files --exclude /backups/\*\* --backup-dir r2crypt:files-trash/2026-10-20 --fast-list --transfers 8"
+has "confperm -rw-------"
+has "confnocheck 1"
+has "status=up&msg=ok"
+if grep -q tok "$SHIM/out"; then shim_fail "push token leaked into output"; fi
+echo "PASS: hourly key, sync --backup-dir, 0600 config, up push, no token in output"
+rm -f "$SHIM"/lists/*
+
+# 2. daily copy from 02:00 Dhaka (= 20:00Z of the previous UTC day), catch-up
+#    when missing, none before 02:00.
+run_shim BACKUP_NOW=2026-10-19T20:05:00Z || shim_fail "02:00 run failed"
+has "s3://r2b/db/hourly/20261019T200500Z.dump.age s3://r2b/db/daily/2026-10-20.dump.age"
+run_shim || shim_fail "catch-up run failed"
+has "s3://r2b/db/hourly/20261020T100000Z.dump.age s3://r2b/db/daily/2026-10-20.dump.age"
+run_shim BACKUP_NOW=2026-10-19T19:05:00Z || shim_fail "01:00 run failed"
+hasnt "s3 cp .*db/daily/"
+echo "PASS: daily copy at/after 02:00 Dhaka (catch-up), none before"
+
+# 2b. dump failure removes the partial hourly object and pushes down&msg=dump.
+if run_shim PG_FAIL=1; then shim_fail "dump failure must exit non-zero"; fi
+has "aws s3 rm .* s3://r2b/db/hourly/20261020T100000Z.dump.age"
+has "status=down&msg=dump"
+echo "PASS: failed dump cleans partial object"
+
+# 2c. a push URL that already has a query is reduced to the bare URL.
+run_shim BACKUP_PUSH_URL='https://kuma.example/api/push/tok?status=up&msg=OK&ping=' || shim_fail "push-url run failed"
+has "tok?status=up&msg=ok"
+hasnt "msg=OK"
+echo "PASS: push URL query stripped"
+
+# 2d. config error pushes down&msg=config.
+if run_shim BACKUP_HOURLY_KEEP=abc; then shim_fail "bad config must fail"; fi
+has "status=down&msg=config"
+echo "PASS: config error pushes down"
+
+# 3. prune keeps exactly N newest by key (hourly + daily).
+for i in 01 02 03 04 05; do echo "db/hourly/202610${i}T000000Z.dump.age"; done >"$SHIM/lists/db_hourly_"
+for i in 01 02 03; do echo "db/daily/2026-09-${i}.dump.age"; done >"$SHIM/lists/db_daily_"
+run_shim BACKUP_HOURLY_KEEP=2 BACKUP_DAILY_KEEP=1 || shim_fail "prune run failed"
+for k in db/hourly/20261001T000000Z db/hourly/20261002T000000Z db/hourly/20261003T000000Z db/daily/2026-09-01 db/daily/2026-09-02; do has "aws s3 rm .* s3://r2b/$k.dump.age"; done
+hasnt "rm .*20261004T000000Z"; hasnt "rm .*20261005T000000Z"; hasnt "rm .*2026-09-03"
+echo "PASS: prune keeps newest N by key"
+rm -f "$SHIM"/lists/*
+
+# 4. trash prune by folder date (cutoff 2026-09-20 for now=2026-10-20, 30 days).
+printf '2026-09-19/\n2026-09-20/\n2026-10-19/\nnot-a-date/\n' >"$SHIM/trash"
+run_shim || shim_fail "trash run failed"
+has "rclone purge r2crypt:files-trash/2026-09-19"
+hasnt "purge .*2026-09-20"; hasnt "purge .*2026-10-19"; hasnt "purge .*not-a-date"
+echo "PASS: trash purge by faked date"
+rm -f "$SHIM/trash"
+
+# 4b. missing files-trash (rclone exit 3) is empty, not a failure.
+: >"$SHIM/trash3"
+run_shim || shim_fail "missing trash dir must not fail the run"
+rm -f "$SHIM/trash3"
+echo "PASS: lsf exit 3 treated as empty"
+
+# 4c. a failed prune exits non-zero.
+echo "db/hourly/20260101T000000Z.dump.age" >"$SHIM/lists/db_hourly_"
+echo "db/hourly/20260102T000000Z.dump.age" >>"$SHIM/lists/db_hourly_"
+if run_shim BACKUP_HOURLY_KEEP=1 AWS_FAIL_RM=1; then shim_fail "failed prune must exit non-zero"; fi
+has "status=down&msg=prune-hourly"
+rm -f "$SHIM"/lists/*
+echo "PASS: failed prune exits non-zero"
+
+# 4d. empty source + non-empty backup: refuse to sync.
+: >"$SHIM/srclist"; echo "tenants/" >"$SHIM/dstlist"
+if run_shim; then shim_fail "empty-source guard must fail"; fi
+hasnt "rclone sync"
+has "status=down&msg=files-sync"
+rm -f "$SHIM/srclist" "$SHIM/dstlist"
+echo "PASS: empty-source guard"
+
+# 5. failing step -> down push naming the step, non-zero exit, no up push.
+if run_shim RCLONE_FAIL=1; then shim_fail "files failure must exit non-zero"; fi
+has "status=down&msg=files-sync"
+hasnt "status=up"
+echo "PASS: failing step pushes down and exits non-zero"
+
+# 5b. db prunes still run when the files sync fails (they come first).
+echo "db/hourly/20260101T000000Z.dump.age" >"$SHIM/lists/db_hourly_"
+echo "db/hourly/20260102T000000Z.dump.age" >>"$SHIM/lists/db_hourly_"
+if run_shim RCLONE_FAIL=1 BACKUP_HOURLY_KEEP=1; then shim_fail "files failure must exit non-zero"; fi
+has "aws s3 rm .* s3://r2b/db/hourly/20260101T000000Z.dump.age"
+rm -f "$SHIM"/lists/*
+echo "PASS: db prune runs before a failing files sync"
+
+# 6. BACKUP_S3_* unset -> legacy key, no rclone, no daily copy.
+run_shim BACKUP_S3_ENDPOINT= BACKUP_S3_BUCKET= BACKUP_S3_ACCESS_KEY_ID= BACKUP_S3_SECRET_ACCESS_KEY= \
+  BACKUP_RCLONE_CRYPT_PASSWORD= BACKUP_RCLONE_CRYPT_SALT= || shim_fail "legacy run failed"
+has "s3://src/backups/db/20261020T100000Z.dump.age"
+hasnt "rclone"; hasnt "s3 cp .*db/daily/"
+echo "PASS: unset BACKUP_S3_* falls back to legacy path"
+
+# 7. partial R2 config is rejected.
+if run_shim BACKUP_RCLONE_CRYPT_SALT=; then shim_fail "partial R2 env must fail"; fi
+echo "PASS: partial BACKUP_S3_* rejected"
+
+# 8. real rclone (local backend, no network): the exact sync shape backup.sh
+#    uses (crypt remote rooted at the bucket, --backup-dir on the same remote)
+#    must exit 0 and leave the date folder under files-trash.
+if command -v rclone >/dev/null 2>&1; then
+  RC="$SHIM/rc"; mkdir -p "$RC/src" "$RC/bucket"
+  export RCLONE_CONFIG="$RC/rclone.conf"
+  printf '[loc]\ntype = local\n\n[r2crypt]\ntype = crypt\nremote = loc:%s\nfilename_encryption = standard\npassword = %s\n' \
+    "$RC/bucket" "$(printf '%s' pw | rclone obscure -)" >"$RCLONE_CONFIG"
+  echo a >"$RC/src/a.txt"; echo b >"$RC/src/b.txt"
+  rclone sync "$RC/src" r2crypt:files --backup-dir r2crypt:files-trash/2026-10-20 --fast-list --transfers 8 || shim_fail "real rclone first sync failed"
+  rm "$RC/src/a.txt"
+  rclone sync "$RC/src" r2crypt:files --backup-dir r2crypt:files-trash/2026-10-20 --fast-list --transfers 8 || shim_fail "real rclone sync with deletion failed"
+  [[ "$(rclone lsf --dirs-only r2crypt:files-trash)" == "2026-10-20/" ]] || shim_fail "trash date dir missing"
+  [[ "$(rclone lsf r2crypt:files-trash/2026-10-20)" == "a.txt" ]] || shim_fail "deleted file not in trash"
+  unset RCLONE_CONFIG
+  echo "PASS: real rclone sync + --backup-dir"
+else
+  echo "SKIP: real-rclone case (rclone not installed)"
+fi
+
+if [[ "${1:-}" == "--shim" ]]; then
+  echo "backup.test.sh: shim cases passed"
+  exit 0
+fi
 
 # docker-compose.yml requires these (`${VAR:?...}`); same defaults as scripts/test-env.sh.
 export APP_VERSION="${APP_VERSION:-local}"
@@ -30,7 +229,7 @@ docker compose up -d --wait db seaweedfs
 docker compose exec -T db sh -c 'until pg_isready -U "$POSTGRES_USER"; do sleep 1; done' >/dev/null
 
 WORKDIR="$(mktemp -d)"
-trap 'rm -rf "$WORKDIR"' EXIT
+trap 'rm -rf "$SHIM" "$WORKDIR"' EXIT
 
 echo "backup.test.sh: generating a throwaway age keypair"
 age-keygen -o "$WORKDIR/key.txt" 2>"$WORKDIR/keygen.log"

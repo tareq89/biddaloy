@@ -5,7 +5,7 @@
 # backup, or in the restore-drill workflow).
 set -euo pipefail
 
-BACKUP_SCHEDULE="${BACKUP_SCHEDULE:-0 2 * * *}"
+BACKUP_SCHEDULE="${BACKUP_SCHEDULE:-0 * * * *}"
 
 # BACKUP_SCHEDULE is written verbatim into the crontab below. A stray
 # extra field, shell metacharacter, or embedded newline would let it inject
@@ -25,6 +25,16 @@ fi
 : "${S3_REGION:?S3_REGION is required}"
 : "${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}"
 : "${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}"
+
+# R2 settings are a set: all six or none (none = legacy S3_* mode, see backup.sh).
+r2_set=0
+for v in BACKUP_S3_ENDPOINT BACKUP_S3_BUCKET BACKUP_S3_ACCESS_KEY_ID BACKUP_S3_SECRET_ACCESS_KEY BACKUP_RCLONE_CRYPT_PASSWORD BACKUP_RCLONE_CRYPT_SALT; do
+  if [[ -n "${!v:-}" ]]; then r2_set=$((r2_set + 1)); fi
+done
+if [[ $r2_set -ne 0 && $r2_set -ne 6 ]]; then
+  echo "entrypoint.sh: BACKUP_S3_* and BACKUP_RCLONE_CRYPT_* must be set together (all six or none)" >&2
+  exit 1
+fi
 
 # supercronic gives every job its own (the container's) environment, so
 # the crontab holds the schedule only — no secret is ever written to a file.

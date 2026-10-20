@@ -12,6 +12,7 @@ RUN apk add --no-cache \
   postgresql18-client \
   age \
   aws-cli \
+  rclone \
   tzdata \
   curl \
   supercronic
