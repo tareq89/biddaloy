@@ -1,6 +1,6 @@
 # Demo deployment overlay (Epic 58.0). Use with the base file, on a host that serves only the demo:
 #
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+#   docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml up -d
 #
 # Host .env must set S3_BUCKET to a name containing "demo" (e.g. biddaloy-demo): the reset
 # deletes objects in that bucket and refuses any other. Also set DEMO_PASSWORD, and for the
@@ -16,10 +16,10 @@
 # First boot: `app` refuses to start until a reset has run once (it reads default-school's id,
 # which changes every night, from the demo-state volume). So build the images, run the first
 # reset by hand, then bring the rest up (the first reset logs "app not restarted: first run"):
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml pull
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d db redis seaweedfs
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+#   docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml pull
+#   docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml up -d db redis seaweedfs
+#   docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now
+#   docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml up -d
 
 x-logging: &logging
   driver: json-file
@@ -79,6 +79,12 @@ services:
       DEMO_SWEEP_TIMEOUT: ${DEMO_SWEEP_TIMEOUT:-1800}
       DOCKER_HOST: tcp://demo-docker-proxy:2375
       SENTRY_CRONS_URL: ${SENTRY_CRONS_URL:-}
+      # Uptime Kuma push URL of the demo-reset-nightly monitor; it embeds a token.
+      # https://ops.<domain>/kuma/api/push/<token>, plus the Cloudflare Access service token
+      # that lets it past Access (12-operations.md section 1, step 5).
+      DEMO_RESET_PUSH_URL: ${DEMO_RESET_PUSH_URL:-}
+      DEMO_RESET_PUSH_ACCESS_CLIENT_ID: ${DEMO_RESET_PUSH_ACCESS_CLIENT_ID:-}
+      DEMO_RESET_PUSH_ACCESS_CLIENT_SECRET: ${DEMO_RESET_PUSH_ACCESS_CLIENT_SECRET:-}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
       DB_SSL: ${DB_SSL:-}

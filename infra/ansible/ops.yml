@@ -1,0 +1,69 @@
+---
+# Ops stack (Beszel, Uptime Kuma, Dozzle) beside prod:
+#   ansible-playbook -i infra/ansible/inventory infra/ansible/ops.yml
+# Secrets: infra/secrets/ops.enc.env (BESZEL_KEY), decrypted on the controller.
+# Starting it exposes nothing: the UIs bind loopback only, and prod nginx serves
+# ops.<domain> only once OPS_DOMAIN is in the prod .env, which a prod deploy refuses to
+# write before Cloudflare Access is confirmed (12-operations.md section 1, step 0).
+#
+# The env file is written here, not through tasks/write-env.yml, because that file only
+# accepts prod|demo|staging. Same rules: root:deploy 0640, no_log, no diff (Security rule 13).
+- name: Ops stack
+  hosts: all
+  become: true
+  vars:
+    ops_dir: '{{ biddaloy_root }}/ops'
+    ops_env: "{{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/ops.enc.env', rstrip=false) }}"
+  tasks:
+    # Same owner model as provision.yml (12-operations.md section 8), so the two never flip it.
+    - name: Create the ops directory
+      ansible.builtin.file:
+        path: '{{ ops_dir }}'
+        state: directory
+        mode: '0750'
+        owner: root
+        group: '{{ deploy_user }}'
+      tags: [env]
+
+    - name: Write the ops .env
+      ansible.builtin.copy:
+        content: '{{ ops_env }}'
+        dest: '{{ ops_dir }}/.env'
+        mode: '0640'
+        owner: root
+        group: '{{ deploy_user }}'
+      diff: false
+      no_log: true
+      tags: [env]
+
+    - name: Copy docker-compose.ops.yml
+      ansible.builtin.copy:
+        src: '{{ playbook_dir }}/../../docker-compose.ops.yml'
+        dest: '{{ ops_dir }}/docker-compose.ops.yml'
+        mode: '0644'
+        owner: root
+        group: root
+
+    # Shared with prod nginx and the prod app (tasks/attach-edge.yml). Whichever of ops.yml
+    # and a prod deploy runs first creates it.
+    - name: The ops edge network exists
+      ansible.builtin.command: docker network create biddaloy-ops-edge
+      register: ops_net
+      changed_when: ops_net.rc == 0
+      failed_when: ops_net.rc != 0 and 'already exists' not in ops_net.stderr
+
+    - name: Ops stack up
+      community.docker.docker_compose_v2:
+        project_src: '{{ ops_dir }}'
+        files: [docker-compose.ops.yml]
+        env_files: ['{{ ops_dir }}/.env']
+        state: present
+        pull: missing
+
+    - name: Say what is left when BESZEL_KEY is still empty
+      ansible.builtin.debug:
+        msg: >-
+          BESZEL_KEY is empty: the beszel-agent container restarts until it is set. Copy the key
+          from the hub ("Add system"), `sops infra/secrets/ops.enc.env`, then rerun this playbook
+          (12-operations.md section 1, step 3).
+      when: ops_env is not search('(?m)^BESZEL_KEY=\S')

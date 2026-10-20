@@ -4,6 +4,9 @@ How SchoolManager's database gets backed up, how to restore it, and what to do
 about the parts a database restore doesn't cover (the object store,
 in-flight background jobs).
 
+> Operator steps (day 0, first deploy, releases, alerts, restore) live in
+> [28-platform-runbook.md](28-platform-runbook.md). This page keeps how backups work.
+
 ## The numbers
 
 |                                      |                                                                                                                                                          |
@@ -391,14 +394,14 @@ disaster recovery":
 | `BACKUP_S3_SECRET_ACCESS_KEY`  | #1745  | R2 API token secret                                                                                                         |
 | `BACKUP_RCLONE_CRYPT_PASSWORD` | #1745  | Encrypts file contents and names. Store a copy outside the host                                                             |
 | `BACKUP_RCLONE_CRYPT_SALT`     | #1745  | Second crypt secret (salt). Store a copy outside the host                                                                   |
-| `BACKUP_PUSH_URL`              | #1745  | Uptime Kuma push URL (`?status=up/down&msg=<step>` appended). Unset = no push                                               |
+| `BACKUP_PUSH_URL`              | #1745  | Uptime Kuma push URL (`?status=up/down&msg=<step>` appended), `http://uptime-kuma:3001/api/push/<token>` on prod. Unset = no push                                               |
 | `BACKUP_HOURLY_KEEP`           | #1745  | Hourly dumps kept (default 72)                                                                                              |
 | `BACKUP_DAILY_KEEP`            | #1745  | Daily dumps kept (default 30)                                                                                               |
 | `BACKUP_TRASH_DAYS`            | #1745  | Days a deleted file stays in `files-trash/` (default 30)                                                                    |
 | `BACKUP_FILES_MAX_DELETE`      | #1745  | Files sync refuses to sync (touches nothing) if it would delete more than this many files in one run (default 500)          |
 | `SENTRY_CRON_MONITOR_URL`      | 15.3.2 | Optional cron check-in                                                                                                      |
 | `DRILL_SCHEDULE`               | #1774  | Cron for the weekly restore drill (default `30 3 * * 0`)                                                                    |
-| `DRILL_PUSH_URL`               | #1774  | Uptime Kuma push URL for the drill. Unset = no push                                                                         |
+| `DRILL_PUSH_URL`               | #1774  | Uptime Kuma push URL for the drill, `http://uptime-kuma:3001/api/push/<token>` on prod. Unset = no push                                                                         |
 | `DRILL_DATABASE_URL`           | #1774  | Scratch database (name must contain `drill`; default `<live server>/biddaloy_drill`)                                        |
 | `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Key path inside the container (`/run/age/key.txt`). The key itself is never in `.env`; see "Key handling"                   |
 | `BACKUP_AGE_KEY_DIR`           | #1774  | Host dir of that key, mounted at `/run/age` in `backup` only: `/opt/biddaloy/<env>/drill` (10001, 0500). No default         |

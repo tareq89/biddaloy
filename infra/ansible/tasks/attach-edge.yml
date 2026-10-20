@@ -1,0 +1,67 @@
+---
+# Prod nginx reaches staging and the ops UIs only through two small networks (D25):
+#
+#   biddaloy-edge      prod nginx + staging app (alias staging-app)
+#   biddaloy-ops-edge  prod nginx + prod app (alias prod-app, for Kuma) + prod backup
+#                      (pushes to http://uptime-kuma:3001) + the ops UIs
+#
+# No db, redis or seaweedfs sits on either, so the staging app can never resolve `redis`
+# to prod's (Docker DNS walks every network a container is on). Done by hand, not in
+# compose: base docker-compose.yml is shared by every env, and a manual attach adds only
+# the alias given here, never the compose service name. A recreated container loses its
+# attach, so this runs after every compose up; 'already exists' on a repeat is fine.
+# After a recreate by hand: ansible-playbook deploy.yml -e env=<env> -e version=<running sha> --tags edge
+- name: Edge networks exist
+  ansible.builtin.command: docker network create {{ item }}
+  loop: [biddaloy-edge, biddaloy-ops-edge]
+  register: edge_net
+  changed_when: edge_net.rc == 0
+  failed_when: edge_net.rc != 0 and 'already exists' not in edge_net.stderr
+  when: env in ['prod', 'staging'] and not ansible_check_mode
+  tags: [mutating]
+
+- name: Attach containers to the edge networks
+  ansible.builtin.command: >-
+    docker network connect {{ ('--alias ' ~ item.alias) if item.alias is defined else '' }}
+    {{ item.net }} {{ item.ctr }}
+  loop: '{{ edge_attach[env] | default([]) }}'
+  vars:
+    edge_attach:
+      prod:
+        - { net: biddaloy-edge, ctr: biddaloy-prod-nginx-1 }
+        - { net: biddaloy-ops-edge, ctr: biddaloy-prod-nginx-1 }
+        - { net: biddaloy-ops-edge, ctr: biddaloy-prod-app-1, alias: prod-app }
+        # BACKUP_PUSH_URL / DRILL_PUSH_URL = http://uptime-kuma:3001/api/push/<token>
+        - { net: biddaloy-ops-edge, ctr: biddaloy-prod-backup-1 }
+      staging:
+        - { net: biddaloy-edge, ctr: biddaloy-staging-app, alias: staging-app }
+  register: attach
+  changed_when: attach.rc == 0
+  failed_when: attach.rc != 0 and 'already exists' not in attach.stderr
+  when: not ansible_check_mode
+  tags: [mutating]
+
+# Proof by membership: the staging app is on exactly its own network and biddaloy-edge, and
+# biddaloy-edge holds nothing but prod nginx and the staging app. A DNS lookup alone proves
+# only today's answer (a foreign network sorting after staging's would pass it). The lookup
+# stays as a second line. Any failure stops staging. A hand-made attach is caught at the
+# next staging deploy, not before.
+- name: Staging is on its own network and biddaloy-edge only
+  ansible.builtin.shell: |
+    stop() { echo "$1: stopping staging" >&2; docker stop biddaloy-staging-app >/dev/null; exit 1; }
+    nets=$(docker inspect -f '{% raw %}{{range $k, $_ := .NetworkSettings.Networks}}{{$k}} {{end}}{% endraw %}' biddaloy-staging-app)
+    [ "$nets" = "biddaloy-edge biddaloy-staging_default " ] || stop "staging app networks are '$nets'"
+    extra=$(docker network inspect biddaloy-edge -f '{% raw %}{{range .Containers}}{{.Name}} {{end}}{% endraw %}' |
+      tr ' ' '\n' | grep -vxE '(biddaloy-prod-nginx-1|biddaloy-staging-app)?' || true)
+    [ -z "$extra" ] || stop "biddaloy-edge also holds: $(echo $extra)"
+    ips=" $(docker network inspect biddaloy-staging_default -f '{% raw %}{{range .Containers}}{{.IPv4Address}} {{end}}{% endraw %}')"
+    for n in db redis seaweedfs; do
+      ip=$(docker exec biddaloy-staging-app node -e "require('dns').lookup('$n',(e,a)=>{if(e)process.exit(1);console.log(a)})") || ip=none
+      case "$ips" in
+        *" $ip/"*) ;;
+        *) stop "$n resolves to $ip, outside biddaloy-staging_default" ;;
+      esac
+    done
+  changed_when: false
+  when: env == 'staging' and not ansible_check_mode
+  tags: [mutating]

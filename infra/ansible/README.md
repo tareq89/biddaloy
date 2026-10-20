@@ -61,3 +61,11 @@ What the play sets up, and what it costs:
 Secrets are not here: see `infra/secrets`. Local `.vault*` files are ignored and
 the CI guard (`scripts/check-tracked-files.mjs`) fails if one is committed.
 Lint: `ansible-lint infra/ansible`.
+
+## Deploy a version
+
+```bash
+ansible-playbook deploy.yml -e env=prod -e version=$(git rev-parse HEAD)   # full 40-hex sha; add --check to see the plan
+```
+
+Pulls, backs up (prod), migrates, restarts, waits for ready, smoke-tests, and logs to `/opt/biddaloy/<env>/deploys.log`. On failure it redeploys the last good version (migrations are not reverted). Before deploying: check out that sha with no uncommitted changes to `docker-compose*.yml` or `nginx/` (files are copied from your checkout) and export `SMOKE_{ADMIN,TEACHER,SUPER_ADMIN}_{EMAIL,PASSWORD}` for the smoke test. Staging (`-e env=staging`) runs `config:check --env staging` first and skips the smoke test (Cloudflare Access). Full flow and rollback: `docs/architecture/07-deployment.md`.

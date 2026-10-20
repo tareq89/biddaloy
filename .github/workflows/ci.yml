@@ -1124,6 +1124,19 @@ jobs:
       - name: Forbidden tracked files
         run: node scripts/check-tracked-files.mjs
 
+      # [61.1] A typo in a playbook should fail here, not at 2 a.m. on the VM.
+      # Syntax only: nothing connects to a host. ansible-core is pinned (Rule 21).
+      - name: Ansible playbooks (syntax check)
+        working-directory: infra/ansible
+        run: |
+          python3 -m pip install --user 'ansible-core==2.18.6'
+          export PATH="$HOME/.local/bin:$PATH"
+          ansible-galaxy install -r requirements.yml
+          ansible-playbook -i inventory/prod.yml --syntax-check provision.yml
+          ansible-playbook -i inventory/prod.yml --syntax-check ops.yml
+          ansible-playbook -i inventory/prod.yml --syntax-check deploy.yml -e env=prod -e version=0000000000000000000000000000000000000000
+          ansible-playbook -i inventory/prod.yml --syntax-check deploy.yml -e env=staging -e version=0000000000000000000000000000000000000000
+
   # [15.1] "tests got slower" needs to be a graph, not a feeling — this
   # publishes wall/work/gap, a per-job budget verdict, and the top-10
   # slowest files as a job summary, on every run, so nobody has to open logs
