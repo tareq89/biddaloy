@@ -9,7 +9,7 @@ const cur = (p: string) => (Astro.url.pathname.startsWith(`/${lang}/${p}`) ? 'pa
 <div class="ribbon" id="ribbon" hidden>
   <div class="wrap">
     <span>{t('ribbon.text')}</span>
-    <a href={`${APP_URL}/register`} target="_blank" rel="noopener">{t('ribbon.cta')}</a>
+    <a href={`${APP_URL}/register`} data-ev="register_click" target="_blank" rel="noopener">{t('ribbon.cta')}</a>
     <button id="ribbonX" type="button" aria-label={t('ribbon.close')}>✕</button>
   </div>
 </div>
@@ -21,16 +21,16 @@ const cur = (p: string) => (Astro.url.pathname.startsWith(`/${lang}/${p}`) ? 'pa
       <a href={`/${lang}/pricing/`} aria-current={cur('pricing')}>{t('nav.pricing')}</a>
       <a href={DOCS_URL} target="_blank" rel="noopener">{t('nav.docs')}</a>
       <a href={`/${lang}/contact/`} aria-current={cur('contact')}>{t('nav.contact')}</a>
-      <a class="mobile-only" href={DEMO_URL} target="_blank" rel="noopener">{t('btn.demo')}</a>
-      <a class="mobile-only" href={`${APP_URL}/login`} target="_blank" rel="noopener">{t('btn.login')}</a>
+      <a class="mobile-only" href={DEMO_URL} data-ev="demo_click" target="_blank" rel="noopener">{t('btn.demo')}</a>
+      <a class="mobile-only" href={`${APP_URL}/login`} data-ev="login_click" target="_blank" rel="noopener">{t('btn.login')}</a>
     </nav>
     <div class="ctl">
       <button class="pill menuBtn" id="menuBtn" type="button" aria-label={t('nav.menu')} aria-expanded="false" aria-controls="nav">☰</button>
       <LangSwitch lang={lang} />
       <ThemeToggle lang={lang} />
-      <a class="linklike" href={`${APP_URL}/login`} target="_blank" rel="noopener">{t('btn.login')}</a>
-      <a class="btn secondary small" href={DEMO_URL} target="_blank" rel="noopener">{t('btn.demo')}</a>
-      <a class="btn primary small" href={`${APP_URL}/register`} target="_blank" rel="noopener"><span class="full">{t('btn.signup')}</span><span class="short">{t('btn.signupShort')}</span></a>
+      <a class="linklike" href={`${APP_URL}/login`} data-ev="login_click" target="_blank" rel="noopener">{t('btn.login')}</a>
+      <a class="btn secondary small" href={DEMO_URL} data-ev="demo_click" target="_blank" rel="noopener">{t('btn.demo')}</a>
+      <a class="btn primary small" href={`${APP_URL}/register`} data-ev="register_click" target="_blank" rel="noopener"><span class="full">{t('btn.signup')}</span><span class="short">{t('btn.signupShort')}</span></a>
     </div>
   </div>
 </header>

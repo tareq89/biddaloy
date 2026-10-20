@@ -19,9 +19,9 @@ const ext = { target: '_blank', rel: 'noopener' };
         <h4>{t('footer.product')}</h4>
         <a href={`/${lang}/features/`}>{t('nav.features')}</a>
         <a href={`/${lang}/pricing/`}>{t('nav.pricing')}</a>
-        <a href={DEMO_URL} {...ext}>{t('btn.demo')}</a>
-        <a href={`${APP_URL}/login`} {...ext}>{t('btn.login')}</a>
-        <a href={`${APP_URL}/register`} {...ext}>{t('btn.signup')}</a>
+        <a href={DEMO_URL} data-ev="demo_click" {...ext}>{t('btn.demo')}</a>
+        <a href={`${APP_URL}/login`} data-ev="login_click" {...ext}>{t('btn.login')}</a>
+        <a href={`${APP_URL}/register`} data-ev="register_click" {...ext}>{t('btn.signup')}</a>
       </div>
       <div>
         <h4>{t('footer.audience')}</h4>
