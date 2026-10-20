@@ -266,3 +266,10 @@ server/graphify-out/
 
 load-results-*
 .certs/
+
+# Secrets: only sops-encrypted files, examples and the README may be tracked (61.x)
+infra/secrets/*
+!infra/secrets/*.enc.env
+!infra/secrets/*.enc.pem
+!infra/secrets/*.example.env
+!infra/secrets/README.md
