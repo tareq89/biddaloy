@@ -4,8 +4,10 @@ import { randomUUID } from 'crypto';
 import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import type Redis from 'ioredis';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
+import { OTP_REDIS } from '../account-access/otp.service';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH } from '@test/constants';
@@ -188,7 +190,12 @@ describe('platform billing E2E', () => {
       [orderId],
     );
     expect(payments).toEqual([
-      { method: 'OFFLINE_BANK', gateway_ref: body.reference, recorded_by_user_id: SUPER.id },
+      {
+        method: 'OFFLINE_BANK',
+        // Stored normalised: upper-case, no dashes.
+        gateway_ref: `SLIP${orderId.slice(0, 8).toUpperCase()}`,
+        recorded_by_user_id: SUPER.id,
+      },
     ]);
     const audits = await ds.query(
       `SELECT 1 FROM audit_logs WHERE entity_id = $1 AND new_values->>'event' = 'OFFLINE_PAYMENT_RECORDED'
@@ -231,6 +238,55 @@ describe('platform billing E2E', () => {
     await as('super').post(`orders/${second}/offline-payment`, ok).expect(409);
     const [o] = await ds.query(`SELECT status FROM seat_orders WHERE id = $1`, [second]);
     expect(o.status).toBe('PENDING');
+  });
+
+  it('one slip is one slip however it is typed: ABC-123, abc-123 and ABC 123 pay one order only', async () => {
+    const tag = randomUUID().slice(0, 6).toUpperCase();
+    const pay = (orderId: string, reference: string) =>
+      as('super').post(`orders/${orderId}/offline-payment`, {
+        method: 'OFFLINE_BANK',
+        reference,
+        idempotency_key: `norm-${randomUUID()}`,
+      });
+    const first = await newPendingOrder();
+    await pay(first, `ABC-${tag}`).expect(200);
+    for (const variant of [`abc-${tag.toLowerCase()}`, `ABC ${tag}`, ` a b c ${tag} `]) {
+      const other = await newPendingOrder();
+      const res = await pay(other, variant).expect(409);
+      expect(res.body.details.code).toBe('REFERENCE_IN_USE');
+    }
+    const [row] = await ds.query(
+      `SELECT gateway_ref FROM platform_payments WHERE seat_order_id = $1`,
+      [first],
+    );
+    expect(row.gateway_ref).toBe(`ABC${tag}`);
+  });
+
+  it('offline payment while a bKash payment for the order may still complete is 409 BKASH_PAYMENT_LIVE', async () => {
+    const redis = app.get<Redis>(OTP_REDIS);
+    const orderId = await newPendingOrder();
+    const body = {
+      method: 'OFFLINE_CASH',
+      reference: `LIVE-${orderId.slice(0, 8)}`,
+      idempotency_key: `live-${randomUUID()}`,
+    };
+    const state = (startedAt: Date) =>
+      JSON.stringify({ paymentID: 'TR0011LIVE', pay_started_at: startedAt.toISOString() });
+    // Started an hour ago: bKash may still complete it, so paying offline too could charge twice.
+    await redis.set(`bkash:pay:${orderId}`, state(new Date(Date.now() - 3_600_000)));
+    try {
+      const res = await as('super').post(`orders/${orderId}/offline-payment`, body).expect(409);
+      expect(res.body.details.code).toBe('BKASH_PAYMENT_LIVE');
+      expect(JSON.stringify(res.body)).not.toContain('TR0011LIVE');
+      const [o] = await ds.query(`SELECT status FROM seat_orders WHERE id = $1`, [orderId]);
+      expect(o.status).toBe('PENDING');
+      // Past the reconciler's 24 h window it can no longer complete: offline payment goes through.
+      await redis.set(`bkash:pay:${orderId}`, state(new Date(Date.now() - 25 * 3_600_000)));
+      const ok = await as('super').post(`orders/${orderId}/offline-payment`, body).expect(200);
+      expect(ok.body.applied).toBe(true);
+    } finally {
+      await redis.del(`bkash:pay:${orderId}`);
+    }
   });
 
   it('grant: GRANT order at price 0, audited with the reason; the same key is the same result', async () => {

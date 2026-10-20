@@ -114,10 +114,10 @@ export function RecordPaymentDialog({
   }
 
   // Translated sentences, never the server's message.
-  const inUse =
-    pay.error instanceof ApiError &&
-    pay.error.statusCode === 409 &&
-    pay.error.details?.['code'] === 'REFERENCE_IN_USE';
+  const conflict =
+    pay.error instanceof ApiError && pay.error.statusCode === 409
+      ? pay.error.details?.['code']
+      : undefined;
 
   return (
     <Dialog
@@ -191,9 +191,11 @@ export function RecordPaymentDialog({
 
         {pay.isError && (
           <p role="alert" className="text-caption text-destructive">
-            {inUse
+            {conflict === 'REFERENCE_IN_USE'
               ? t('subscriptions.payment.errors.referenceInUse')
-              : t('subscriptions.payment.errors.generic')}
+              : conflict === 'BKASH_PAYMENT_LIVE'
+                ? t('subscriptions.payment.errors.bkashLive')
+                : t('subscriptions.payment.errors.generic')}
           </p>
         )}
 

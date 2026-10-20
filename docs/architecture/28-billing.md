@@ -86,6 +86,28 @@ The browser still gets the generic error redirect (Rule 23).
 
 Only a closed order gets a new idempotency key, so a double click never makes a second `PENDING` order.
 
+## Offline payment (platform console)
+
+The platform SUPER_ADMIN marks a `PENDING` order paid by bank slip or cash:
+`POST /platform/billing/orders/:id/offline-payment` with `{ method, reference, idempotency_key }`.
+
+- **One slip, one order.** `reference` is stored normalised (upper-case, spaces and dashes removed),
+  so `ABC-123`, `abc-123` and `ABC 123` are all `ABC123` and the `(method, gateway_ref)` key
+  refuses the second order.
+- **Not while bKash may still land.** If `bkash:pay:<orderId>` holds a paymentID started under 24 h
+  ago (the reconciler's window), or a bKash create is in flight, the answer is a 409: paying offline
+  too could charge the school twice. Redis down answers 503 (it cannot tell, so it refuses).
+
+| Answer | `details.code`       | Meaning                                     |
+| ------ | -------------------- | ------------------------------------------- |
+| 200    | -                    | `applied: true`, or `false` if already paid |
+| 404    | -                    | no such order                               |
+| 409    | `ORDER_NOT_PENDING`  | order is `FAILED`/`CANCELLED`/`REFUNDED`    |
+| 409    | `BKASH_PAYMENT_LIVE` | a bKash payment for it may still complete   |
+| 409    | `REFERENCE_IN_USE`   | that slip already paid another order        |
+
+The record-payment dialog shows its own sentence for each 409 code, never the server's text.
+
 ## Idempotency
 
 `OrdersService.markPaid` does `UPDATE ... WHERE status = 'PENDING'`. A replayed callback finds

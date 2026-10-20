@@ -4,6 +4,11 @@ import { IsIn, IsInt, IsOptional, IsString, Length, Max, MaxLength, Min } from '
 import { PlatformPaymentMethod, SCHOOL_BILLING_FILTERS } from '@biddaloy/shared';
 import { MAX_ORDER_SEATS } from '../orders.service';
 
+/** `ABC-123`, `abc-123`, `ABC 123` -> `ABC123` (whitespace and any dash removed). */
+export function normalizeReference(value: unknown): unknown {
+  return typeof value === 'string' ? value.toUpperCase().replace(/[\s\-‐-―−]+/g, '') : value;
+}
+
 /** Rule 5: `limit` is capped at 100. */
 export class ListPlatformSchoolsQueryDto {
   @ApiPropertyOptional({ maxLength: 100 })
@@ -39,10 +44,13 @@ export class OfflinePaymentDto {
   @IsIn([PlatformPaymentMethod.OFFLINE_BANK, PlatformPaymentMethod.OFFLINE_CASH])
   method: PlatformPaymentMethod.OFFLINE_BANK | PlatformPaymentMethod.OFFLINE_CASH;
 
-  /** Bank slip / receipt number; unique per method, so one slip cannot pay two orders. */
+  /**
+   * Bank slip / receipt number; unique per method, so one slip cannot pay two orders. Stored
+   * normalised (upper-case, no spaces or dashes): `abc-123`, `ABC 123` and `ABC123` are one slip.
+   */
   @ApiProperty({ minLength: 3, maxLength: 100 })
   @IsString()
-  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }: { value: unknown }) => normalizeReference(value))
   @Length(3, 100)
   reference: string;
 

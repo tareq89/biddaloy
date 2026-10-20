@@ -1,4 +1,10 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -17,6 +23,7 @@ import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.ut
 import { AuditService } from '../audit/audit.service';
 import { TrialService } from '../schools/trial/trial.service';
 import { OrdersService } from './orders.service';
+import { BkashService } from './bkash/bkash.service';
 import type { GrantSeatsDto, OfflinePaymentDto } from './dto/platform-billing.dto';
 
 /** "Expiring" window of the platform list. */
@@ -55,11 +62,14 @@ type SchoolRow = PlatformSchoolBilling & { seat_limit: number | null; total: num
 
 @Injectable()
 export class PlatformBillingService {
+  private readonly logger = new Logger(PlatformBillingService.name);
+
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly orders: OrdersService,
     private readonly audit: AuditService,
     private readonly moduleRef: ModuleRef,
+    private readonly bkash: BkashService,
   ) {}
 
   private async query(
@@ -121,6 +131,18 @@ export class PlatformBillingService {
       throw new ConflictException({
         message: 'This order cannot be paid',
         details: { code: 'ORDER_NOT_PENDING' },
+      });
+    }
+    // A bKash payment for this order may still complete: paying it offline too would charge twice.
+    // Redis down: we cannot tell, so refuse (fail closed) rather than risk it.
+    const live = await this.bkash.paymentMayBeLive(orderId).catch((err: unknown) => {
+      this.logger.error(`offline payment: bKash state unreadable: ${String(err)}`);
+      throw new ServiceUnavailableException('Try again in a few minutes.');
+    });
+    if (live) {
+      throw new ConflictException({
+        message: 'An online payment for this order may still complete',
+        details: { code: 'BKASH_PAYMENT_LIVE' },
       });
     }
     try {

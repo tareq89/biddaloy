@@ -47,6 +47,7 @@ function build() {
       return stored;
     }),
     del: vi.fn().mockResolvedValue(1),
+    exists: vi.fn().mockResolvedValue(0),
   };
   const dataSource = { query: vi.fn().mockResolvedValue([]) };
   const config = {
@@ -332,6 +333,30 @@ describe('BkashService.handleCallback', () => {
     t.client.query.mockResolvedValue(completed);
     await callback();
     expect(orphanInsert()).toBeUndefined();
+  });
+});
+
+describe('BkashService.paymentMayBeLive (guards an offline payment)', () => {
+  const at = (ms: number) =>
+    JSON.stringify({ paymentID: 'PAY1', pay_started_at: new Date(Date.now() - ms).toISOString() });
+
+  it('true while a payment is being created or was started under 24 h ago', async () => {
+    t.redis.exists.mockResolvedValueOnce(1);
+    expect(await t.svc.paymentMayBeLive(ORDER_ID)).toBe(true);
+    t.redis.get.mockResolvedValue(at(23 * 3_600_000));
+    expect(await t.svc.paymentMayBeLive(ORDER_ID)).toBe(true);
+  });
+
+  it('false with no payment, or one past the 24 h window', async () => {
+    t.redis.get.mockResolvedValue(null);
+    expect(await t.svc.paymentMayBeLive(ORDER_ID)).toBe(false);
+    t.redis.get.mockResolvedValue(at(25 * 3_600_000));
+    expect(await t.svc.paymentMayBeLive(ORDER_ID)).toBe(false);
+  });
+
+  it('a Redis error propagates (the caller fails closed)', async () => {
+    t.redis.exists.mockRejectedValue(new Error('down'));
+    await expect(t.svc.paymentMayBeLive(ORDER_ID)).rejects.toThrow('down');
   });
 });
 

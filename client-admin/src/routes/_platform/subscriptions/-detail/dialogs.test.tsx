@@ -90,6 +90,17 @@ describe('RecordPaymentDialog', () => {
       'This number is already used for another order.',
     );
   });
+
+  it('says a bKash payment may still complete when the server answers BKASH_PAYMENT_LIVE', async () => {
+    server.use(http.post(url, () => conflict('BKASH_PAYMENT_LIVE')));
+    const { user } = render();
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Bank slip or receipt number'), 'SLIP-2');
+    await user.click(within(dialog).getByRole('button', { name: 'Mark as paid' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toContain(
+      'started a bKash payment',
+    );
+  });
 });
 
 describe('GrantSeatsDialog', () => {
