@@ -184,6 +184,13 @@ flowchart LR
 - **VAT**: set `BILLING_VAT_REGISTRATION` and the receipt shows the number and a VAT line; unset,
   neither shows.
 - **Email**: the `receipt` admin notice (en/bn). A failed send is logged and never fails the payment.
+- **Orders paid before receipts shipped**: if #1820/#1821 deploy before #1822, the receipt
+  migration (`1791900000400`) numbers those `PAID` bKash/offline orders in `paid_at` order per
+  Dhaka year, after any number that year already has, with a snapshot of the school as it is at
+  migration time. GRANT-only, unpaid and orphan-only orders stay NULL, and a rerun changes nothing.
+  So the three PRs do not have to deploy as one unit. No receipt email is sent for these.
+- **Ceiling**: the next number is a `max()` over a regex (no index) under one platform-wide lock.
+  Move to a per-year counter row when order volume grows.
 
 ## Learning (Epic 49)
 

@@ -46,7 +46,8 @@ export class ReceiptService {
          FROM seat_orders o
          JOIN schools s ON s.id = o.school_id
          LEFT JOIN LATERAL (SELECT method, gateway_ref FROM platform_payments
-                             WHERE seat_order_id = o.id ORDER BY created_at DESC LIMIT 1) p ON true
+                             WHERE seat_order_id = o.id AND (raw->>'orphan') IS DISTINCT FROM 'true'
+                             ORDER BY created_at DESC LIMIT 1) p ON true
         WHERE o.id = $1 AND o.school_id = $2 AND o.status = 'PAID' AND o.receipt_number IS NOT NULL`,
       [orderId, schoolId],
     );

@@ -5,6 +5,10 @@ import { todayInSchoolTz } from '../../common/time';
  * Next `SMR-YYYY-NNNNNN` (one platform-wide series per Asia/Dhaka year). Call it inside the
  * transaction that sets the number: the advisory lock holds until commit, so two payments
  * cannot read the same max. Only numbers matching the exact shape count.
+ *
+ * ponytail: the regex max() cannot use an index, so every payment scans all receipt numbers while
+ * holding the platform-wide advisory lock (one series for every school). Fine at seat-order volume;
+ * when order volume grows, move to a per-year counter row (`UPDATE ... SET n = n + 1 RETURNING n`).
  */
 export async function nextReceiptNumber(manager: EntityManager): Promise<string> {
   const stem = `SMR-${todayInSchoolTz().slice(0, 4)}-`;
