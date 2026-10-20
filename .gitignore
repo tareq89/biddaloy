@@ -266,3 +266,6 @@ server/graphify-out/
 
 load-results-*
 .certs/
+
+# ansible vault files
+infra/ansible/.vault*

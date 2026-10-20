@@ -1,0 +1,16 @@
+---
+# Pinned (security rule 21). Bump deliberately, re-run provision twice.
+roles:
+  - name: geerlingguy.security
+    version: 2.4.0
+  - name: geerlingguy.docker
+    version: 7.9.0
+collections:
+  - name: community.docker
+    version: 3.13.0
+  - name: community.general
+    version: 9.5.0
+  - name: community.sops
+    version: 1.9.0
+  - name: ansible.posix
+    version: 1.6.2
