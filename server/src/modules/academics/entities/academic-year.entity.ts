@@ -25,6 +25,8 @@ import { School } from '../../schools/entities/school.entity';
  * - Referenced-by → StudentFee: generated fees are tied to a year
  */
 @Entity('academic_years')
+// The migrated DB index is lower(name) (1791900000400-CaseInsensitiveAcademicNames); this decorator is only the
+// exact-case shadow for synchronize-built test schemas.
 @Index(['name', 'tenant_id'], { unique: true, where: '"deleted_at" IS NULL' })
 @Index(['is_current', 'tenant_id'], {
   unique: true,

@@ -35,6 +35,8 @@ import { School } from '../../schools/entities/school.entity';
  * - Referenced-by → Teacher (via teacher_class_sections): teachers assigned to sections
  */
 @Entity('class_sections')
+// The migrated DB index is lower(section_name) (1791900000400-CaseInsensitiveAcademicNames); this decorator is only the
+// exact-case shadow for synchronize-built test schemas.
 @Index(['class_id', 'section_name'], { unique: true, where: '"deleted_at" IS NULL' })
 @Index(['class_id', 'tenant_id'])
 @Index(['tenant_id'])
