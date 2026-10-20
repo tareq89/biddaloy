@@ -86,6 +86,23 @@ describe('billing E2E', () => {
     expect(typeof summary.free_until).toBe('string');
   });
 
+  it('paid_until is the end of the school’s own orders, not a longer GRANT (unless it has only grants)', async () => {
+    const order = (seats: number, unit: number, end: string, key: string) =>
+      dataSource.query(
+        `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key, paid_at)
+         VALUES ($1, $2, 1, $3, $2::int * $3::int, DATE '2026-01-01', $4::date, 'PAID', $5, NOW())`,
+        [TENANT_ID, seats, unit, end, key],
+      );
+    try {
+      await order(10, 0, '2027-12-01', 'e2e-grant'); // a 12-month-ish platform GRANT
+      expect((await get('summary', tokens.admin).expect(200)).body.paid_until).toBe('2027-11-30');
+      await order(10, 1000, '2027-01-01', 'e2e-own');
+      expect((await get('summary', tokens.admin).expect(200)).body.paid_until).toBe('2026-12-31');
+    } finally {
+      await dataSource.query('DELETE FROM seat_orders WHERE school_id = $1', [TENANT_ID]);
+    }
+  });
+
   it('a missing or invalid X-Tenant-ID is refused, and another school is not readable', async () => {
     const refused = (r: { status: number }) => expect([400, 401, 403]).toContain(r.status);
     await supertest(app.getHttpServer())

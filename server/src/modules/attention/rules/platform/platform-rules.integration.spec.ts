@@ -181,6 +181,18 @@ describe('Platform rules (integration)', () => {
     expect(full.params).toEqual({ count: 1, schools: 'Alpha School' });
   });
 
+  it('seats.expiring: a longer GRANT does not hide own cover ending in 3 days', async () => {
+    await ds.query(`UPDATE schools SET seat_limit = 5 WHERE id = $1`, [B]);
+    await paidOrder(B, 3);
+    await ds.query(
+      `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key, paid_at)
+       VALUES ($1, 5, 12, 0, 0, DATE '2026-10-10', DATE '2027-10-10', 'PAID', gen_random_uuid()::text, NOW())`,
+      [B],
+    );
+    const [f] = await seatsRule.evaluate(ctx(P));
+    expect(f.params).toEqual({ count: 1, schools: 'Beta School' });
+  });
+
   it('provider_failures: 25 failed logs across two schools fire, 19 do not', async () => {
     await failedLogs(A, 10);
     await failedLogs(B, 9);
