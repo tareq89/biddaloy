@@ -131,6 +131,7 @@ GET    /api/v1/backup/template                                                  
 POST   /api/v1/backup/validate                                                   401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/backup/validate/:stagingId/errors.csv                             401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/billing/orders                                                    401 PASS PASS PASS 403 403 403 403 403 403 403 403
+POST   /api/v1/billing/orders                                                    401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/billing/summary                                                   401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/calendar-import/commit                                            401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/calendar-import/template                                          401 PASS PASS PASS 403 403 403 403 403 403 403 403
