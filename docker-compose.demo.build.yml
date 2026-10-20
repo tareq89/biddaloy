@@ -1,0 +1,12 @@
+# Local build of the demo-reset image. Use after docker-compose.build.yml:
+#   -f docker-compose.yml -f docker-compose.build.yml -f docker-compose.demo.yml -f docker-compose.demo.build.yml
+
+services:
+  demo-reset:
+    build:
+      context: ./scripts/demo
+      dockerfile: Dockerfile
+      # `FROM app` in the Dockerfile is the `app` service's image, built first and fresh. Needs a
+      # current Docker Compose: 2.20.2 does not know `service:` and reads it as a folder path.
+      additional_contexts:
+        app: service:app

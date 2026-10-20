@@ -1,0 +1,75 @@
+# Ops UIs (docker-compose.ops.yml) at https://${OPS_DOMAIN}/{beszel,kuma,dozzle}/.
+# Cloudflare Access gates the hostname; $origin_allowed (conf.d/00-trusted-proxies.conf)
+# keeps the origin Cloudflare-only (Security rule 12). A request with no Access token
+# header is dropped: a tripwire against a mis-set Access app (DNS before Access, wrong
+# path, grey cloud), NOT authentication. Presence only, the signature is not checked, so
+# any client nginx trusts can send it. deploy.yml refuses OPS_DOMAIN with
+# TRUSTED_PROXY_CIDRS empty, where "trusted" would mean everyone.
+# Same redacted log format as the app. Needs OPS_DOMAIN in the nginx container env (nginx
+# only substitutes variables it has); unset, it is ops.invalid and this block matches nothing.
+# Known limit: Uptime Kuma 1.x and Beszel have no sub-path support, so /kuma/ and /beszel/
+# do not work here (12-operations.md section 1). Dozzle does (DOZZLE_BASE).
+# nginx meets the UIs on the `biddaloy-ops-edge` network (infra/ansible/tasks/attach-edge.yml).
+#
+# Upstreams are variables behind Docker's resolver, so nginx still boots when the ops
+# stack is down (a fixed `proxy_pass host` fails at startup if the name does not resolve).
+map $http_upgrade $ops_connection {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 80;
+    access_log /var/log/nginx/access.log redacted;
+    server_name ${OPS_DOMAIN};
+
+    location / {
+        if ($origin_allowed = 0) { return 444; }
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    access_log /var/log/nginx/access.log redacted;
+    http2 on;
+    server_name ${OPS_DOMAIN};
+
+    ssl_certificate     /etc/nginx/certs/origin.pem;
+    ssl_certificate_key /etc/nginx/certs/origin.key;
+
+    resolver 127.0.0.11 valid=10s;
+
+    if ($origin_allowed = 0) { return 444; }
+    if ($http_cf_access_jwt_assertion = "") { return 444; }
+
+    # Shared by the three UIs: websocket upgrade (Kuma socket.io, Beszel realtime, Dozzle
+    # log stream) and long reads so a live tail is not cut at 60 s.
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $ops_connection;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600s;
+    proxy_buffering off;
+
+    location / { return 404; }
+
+    location /beszel/ {
+        set $up http://beszel:8090;
+        rewrite ^/beszel/(.*)$ /$1 break;
+        proxy_pass $up;
+    }
+
+    location /kuma/ {
+        set $up http://uptime-kuma:3001;
+        rewrite ^/kuma/(.*)$ /$1 break;
+        proxy_pass $up;
+    }
+
+    # Dozzle serves under its own prefix (DOZZLE_BASE=/dozzle): no rewrite.
+    location /dozzle/ {
+        set $up http://dozzle:8080;
+        proxy_pass $up;
+    }
+}

@@ -3,43 +3,172 @@
 > Written for whoever's on call at 2 a.m. Each section is short on purpose —
 > if you need more detail than this, follow the link out to the code.
 
+> Operator steps (day 0, first deploy, releases, alerts, restore) live in
+> [28-platform-runbook.md](28-platform-runbook.md). This page keeps the thresholds and runbooks.
+
 ## 1. What is monitored
+
+Four tools, each watching something different. The ops tools run as a second
+Compose stack (`docker-compose.ops.yml`, started by `infra/ansible/ops.yml`)
+and are reached behind Cloudflare Access: Dozzle at `https://ops.<domain>/dozzle/`,
+Kuma and Beszel over an SSH tunnel for now (see "Known limits" below).
 
 ```mermaid
 flowchart LR
-    client["Browser SPA"] -->|errors + Web Vitals| sentryClient["Sentry\n(client)"]
-    server["NestJS server"] -->|5xx errors| sentryServer["Sentry\n(server)"]
-    worker["Communications worker"] -->|failed/stalled jobs| sentryServer
-    monitor["Uptime monitor"] -->|poll| liveness["GET /health"]
-    monitor -->|poll, token| readiness["GET /health/ready"]
-    server --> liveness
-    server --> readiness
-    attn["Attention scheduler"] -->|FAST sweep check-in| sentryCron["Sentry cron monitor"]
-    readiness -->|attention: stale = degraded| attn
+    client["Browser SPA"] -->|errors + Web Vitals| sentry["Sentry"]
+    server["NestJS server + worker"] -->|5xx, failed jobs, cron check-ins| sentry
+    kuma["Uptime Kuma"] -->|HTTP, keyword, TLS expiry| app["app + public site"]
+    jobs["backup / drill / demo reset"] -->|push when done| kuma
+    beszel["Beszel agent"] -->|CPU, RAM, disk, per-container| hub["Beszel hub"]
+    dozzle["Dozzle"] -.->|read-only log tail| logs["container logs"]
+    kuma -->|Telegram always, SMS if critical| oncall["you"]
+    hub -->|Telegram| oncall
+    sentry -->|email + mobile app| oncall
 ```
 
-- **Sentry (client)** — render/route errors, LCP/CLS/INP. See
-  [`10-third-party-services.md`](10-third-party-services.md) and
-  `ui/src/api/sentry.ts`.
-- **Sentry (server)** — every 5xx response and every terminal
-  communications-job failure. See [§5](#5-what-gets-attached-and-what-gets-scrubbed) below.
-- **`GET /health`** — liveness. Cheap, no dependency checks. Never fails
+| Tool        | Watches                                             | Alerts to                                 |
+| ----------- | --------------------------------------------------- | ----------------------------------------- |
+| Sentry      | App errors, failed jobs, cron check-ins             | Email + Sentry mobile app                 |
+| Uptime Kuma | Is it up, is it fast enough, did the cron jobs run  | Telegram; SMS for the three critical ones |
+| Beszel      | The VM and each container: CPU, RAM, disk, restarts | Telegram                                  |
+| Dozzle      | Nothing on its own. Live log tail, view-only (D23)  | Nothing (no alerts configured)            |
+
+- **`GET /api/health`** — liveness. Cheap, no dependency checks. Never fails
   because Postgres or Redis is down.
-- **`GET /health/ready`** — readiness. Checks Postgres, Redis, the
+- **`GET /api/health/ready`** — readiness. Checks Postgres, Redis, the
   communications queue, and the attention engine heartbeat. Only Postgres
   down is `fail` (503); Redis, the queue or a stale engine is `degraded` (200),
-  so a Redis outage does not take the instance out of the load balancer. Token-protected, blocked at nginx from outside the
-  cluster — see [§3.2](#32-readiness-failing).
+  so a Redis outage does not take the instance out of the load balancer.
+  Token-protected (`X-Health-Token`) and blocked at nginx from outside, so only
+  Kuma, inside the Docker network, can call it — see [§3.2](#32-readiness-failing).
+- Sentry details: [`10-third-party-services.md`](10-third-party-services.md),
+  `ui/src/api/sentry.ts`, and [§6](#6-what-gets-attached-and-what-gets-scrubbed).
 
-## 2. Alert thresholds (configure these in Sentry / your uptime tool)
+### Uptime Kuma monitors
 
-| Signal                               | Threshold                                 | Where to configure                                           |
-| ------------------------------------ | ----------------------------------------- | ------------------------------------------------------------ |
-| 5xx rate                             | > 1% of requests over 5 min               | Sentry alert rule on the server project                      |
-| `communications job stalled` message | any occurrence                            | Sentry alert rule (issue alert, not metric)                  |
-| Readiness failing (Postgres down)    | `/health/ready` returns 503 for > 2 min   | Uptime monitor hitting `/health/ready` with `X-Health-Token` |
-| Attention cron check-in missed       | > 15 min                                  | Sentry Cron Monitor (5-min schedule, 15-min margin)          |
-| Engine stale reported by readiness   | `checks.attention = "stale"` for > 15 min | Uptime monitor body match on `/health/ready`                 |
+This table is the source of truth. Kuma keeps its config in its own database, so
+if you add or change a monitor in the UI, change this table in the same PR.
+
+| Name                 | Type           | Target                                                                                                                                                                     | Interval               | Notifies       |
+| -------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------- |
+| `app-internal-ready` | HTTP           | `http://prod-app:3000/api/health/ready` (alias on `biddaloy-ops-edge`), header `X-Health-Token`, accepted status 200-299 (no keyword: `degraded` is 200 and must not page) | 60 s                   | Telegram       |
+| `app-public`         | HTTP           | `https://<app domain>/api/health`, retries 3                                                                                                                               | 60 s                   | Telegram + SMS |
+| `login-page`         | HTTP + keyword | `https://<app domain>/login`                                                                                                                                               | 60 s                   | Telegram       |
+| `demo-public`        | HTTP           | `https://<demo domain>/api/health`                                                                                                                                         | 60 s                   | Telegram       |
+| `backup-hourly`      | Push           | `BACKUP_PUSH_URL=http://uptime-kuma:3001/api/push/<token>` (prod `.env`, step 5)                                                                                           | 3600 s, grace 900 s    | Telegram + SMS |
+| `drill-weekly`       | Push           | `DRILL_PUSH_URL=http://uptime-kuma:3001/api/push/<token>` (prod `.env`, step 5)                                                                                            | 604800 s, grace 7200 s | Telegram + SMS |
+| `demo-reset-nightly` | Push           | `DEMO_RESET_PUSH_URL=https://ops.<domain>/kuma/api/push/<token>` + Access service token (demo `.env`, step 5). Blocked: `/kuma/` does not load (limits below)              | 86400 s, grace 3600 s  | Telegram       |
+
+TLS expiry is built into every HTTPS monitor above (warn at 14 days, Telegram).
+`app-public` retrying 3 times at 60 s means the SMS arrives about 3 minutes
+after the app goes down.
+
+### Setting the tools up (by hand, once)
+
+The ops tools keep their settings in their own databases, so none of this is
+in the repo. Their one repo value is `BESZEL_KEY` (not a secret; key list in
+`infra/secrets/ops.example.env`). `OPS_DOMAIN` is not an ops value: prod nginx
+reads it from the **prod** `.env` (`infra/secrets/prod.example.env`).
+
+The order is the safety. Kuma and Beszel make the first visitor of their setup
+page the admin, and Dozzle has no login, so nothing may answer on `ops.<domain>`
+before Cloudflare Access does:
+
+```mermaid
+flowchart LR
+  S0["0. Access + DNS + cert<br/>access_confirmed: true"] --> S1["1. ops.yml<br/>(BESZEL_KEY empty is fine)"]
+  S1 --> S2["2. admins over SSH tunnel"] --> S3["3. BESZEL_KEY, ops.yml again"]
+  S3 --> S4["4. OPS_DOMAIN in prod .env,<br/>deploy prod"]
+```
+
+0. **Cloudflare Access first.** Follow [25-cloudflare.md, Ops](25-cloudflare.md#ops-opsdomain):
+   Access application, then the proxied DNS record, then the `302` check. The
+   Origin CA certificate must cover `ops.<domain>` (wildcard or an extra name),
+   or "Full (strict)" fails. Then set `access_confirmed: true` in
+   `infra/ansible/inventory/prod.yml`. Until it is `true`, a prod deploy refuses
+   a `prod.enc.env` that sets `OPS_DOMAIN` (or `STAGING_DOMAIN`).
+1. **Start the stack.** Nothing is exposed yet: the UIs bind loopback only, and
+   prod nginx answers `ops.invalid` until `OPS_DOMAIN` is set.
+   ```bash
+   sops infra/secrets/ops.enc.env           # BESZEL_KEY= stays empty for now
+   ansible-playbook -i infra/ansible/inventory infra/ansible/ops.yml
+   ```
+   The `beszel-agent` container restarts until step 3; the hub, Kuma and Dozzle run.
+2. **Admins, over an SSH tunnel** (no public exposure at all):
+   ```bash
+   ssh -L 8090:127.0.0.1:8090 -L 3001:127.0.0.1:3001 deploy@<host>
+   # Beszel: http://localhost:8090   Kuma: http://localhost:3001
+   ```
+   Create both admins now.
+3. **Beszel agent.** In Beszel, "Add system": host `beszel-agent`, port `45876`.
+   Copy the public key it shows into `BESZEL_KEY` (`sops infra/secrets/ops.enc.env`),
+   then run `ops.yml` again (the whole playbook: `--tags env` would only write
+   the file). Alerts: add a Shoutrrr Telegram URL in the hub settings;
+   thresholds are in [§2](#2-alert-thresholds).
+4. **Expose Dozzle.** Put `OPS_DOMAIN=ops.<domain>` in `prod.enc.env`, commit,
+   and deploy prod at that new commit (secrets come from the checkout). Check `https://ops.<domain>/dozzle/` asks for the Access login first.
+5. **Uptime Kuma monitors.** Add the monitors from the table above. Create the
+   push monitors first. Kuma shows each push URL as `http://localhost:3001/...`
+   (the tunnel); do **not** paste that, it points at the pushing container itself.
+   Keep only the token and use the URL each pusher can reach:
+
+   | Variable              | `.env` | URL to paste                                 | How it reaches Kuma                                                                                                                                                                                                                   |
+   | --------------------- | ------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `BACKUP_PUSH_URL`     | prod   | `http://uptime-kuma:3001/api/push/<token>`   | the `backup` container sits on `biddaloy-ops-edge` (`tasks/attach-edge.yml`)                                                                                                                                                          |
+   | `DRILL_PUSH_URL`      | prod   | `http://uptime-kuma:3001/api/push/<token>`   | same container                                                                                                                                                                                                                        |
+   | `DEMO_RESET_PUSH_URL` | demo   | `https://ops.<domain>/kuma/api/push/<token>` | other host: through Cloudflare Access with a service token, `DEMO_RESET_PUSH_ACCESS_CLIENT_ID` / `_SECRET` ([25-cloudflare.md, Ops](25-cloudflare.md#ops-opsdomain)). Blocked until Kuma has its own hostname: `/kuma/` does not load |
+
+   `scripts/demo/reset.sh` pushes up on a good reset and down on a failed one.
+   Every pusher logs `Kuma push got HTTP <code>, not 2xx` when a push does not
+   land (a `302` is Access's login page, `000` is no connection). Check the log
+   once after setup:
+   `docker compose -p biddaloy-prod logs backup | grep 'Kuma push'` prints nothing.
+
+6. **Notifications.** Telegram notifier (bot + private group), default-on for
+   every monitor. SMS notifier: Kuma "Webhook" with a custom body, pointed at the
+   SMS gateway's HTTP API (URL shape:
+   `server/src/modules/communications/providers/sms/*.gateway.ts`), attached only
+   to `app-public`, `backup-hourly` and `drill-weekly`.
+7. **Dozzle** needs nothing else: view-only, no alerts.
+8. **Sentry rules** are listed in [§2](#2-alert-thresholds).
+
+Known limits:
+
+- **`/kuma/` and `/beszel/` will not work.** Uptime Kuma 1.x has no base-path
+  support (upstream issue louislam/uptime-kuma#147): its page asks for
+  `/assets/*` and `/socket.io/` from the root, which this origin answers with 404. Beszel is not built for a sub-path either. The two `location` blocks in
+  `nginx/templates/ops.conf.template` stay only until the owner decides the
+  layout. The documented path is one hostname each (`kuma.<domain>`,
+  `beszel.<domain>`, each with its own Access application and server block);
+  until that change lands, use the SSH tunnel from step 2.
+- Dozzle and the Beszel agent mount `docker.sock` read-only. That limits the
+  mount, not the Docker API: treat access to them as root on the VM (hence
+  Cloudflare Access).
+- The ops UIs share a network only with prod nginx and the prod app
+  (`biddaloy-ops-edge`, drawn in [07-deployment.md, Staging](07-deployment.md#staging)),
+  never prod's own network, so they cannot reach prod's Postgres or Redis.
+
+## 2. Alert thresholds
+
+Where each alert is set up. Kuma monitors and intervals: the table in [§1](#uptime-kuma-monitors).
+
+| Signal                               | Threshold                                                                                                                                                                        | Where to configure                                     |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| App down                             | `app-public` fails 3 times in a row (~3 min)                                                                                                                                     | Uptime Kuma monitor, Telegram + SMS                    |
+| Readiness failing (Postgres down)    | `app-internal-ready` fails for > 2 min                                                                                                                                           | Uptime Kuma monitor                                    |
+| Engine stale reported by readiness   | Covered by the attention cron check-in below                                                                                                                                     | Sentry Cron Monitor (readiness stays 200 when stale)   |
+| Backup / drill / demo reset missed   | No push inside interval + grace                                                                                                                                                  | Uptime Kuma push monitors                              |
+| TLS certificate close to expiry      | < 14 days                                                                                                                                                                        | Uptime Kuma, built into HTTPS monitors                 |
+| CPU                                  | > 90% for 15 min                                                                                                                                                                 | Beszel hub, system `biddaloy-prod`, Telegram           |
+| Memory                               | > 90% for 10 min                                                                                                                                                                 | Beszel hub, Telegram                                   |
+| Disk                                 | > 80%, immediate                                                                                                                                                                 | Beszel hub, Telegram                                   |
+| Host down (agent unreachable)        | Immediate (Beszel "Status"). Fires when the agent stops, not when the whole VM dies: that only misses Sentry cron check-ins                                                      | Beszel hub, Telegram                                   |
+| Container down                       | Immediate, for `app`, `db`, `redis`, `seaweedfs`, `nginx`, `backup` (prod). UNVERIFIED, [28 Known gaps](28-platform-runbook.md#known-gaps) #7; the demo needs its own agent (#6) | Beszel hub, per container, Telegram                    |
+| Postgres connections                 | More than 80% of `max_connections=300`, i.e. count > 240. Does not work as built, [28 Known gaps](28-platform-runbook.md#known-gaps) #5                                          | Uptime Kuma Postgres monitor, read-only `monitor` role |
+| 5xx rate                             | > 1% of requests over 5 min                                                                                                                                                      | Sentry alert rule on the server project                |
+| `communications job stalled` message | any occurrence                                                                                                                                                                   | Sentry alert rule (issue alert, not metric)            |
+| Attention cron check-in missed       | > 15 min                                                                                                                                                                         | Sentry Cron Monitor (5-min schedule, 15-min margin)    |
+| Other cron check-ins                 | `SENTRY_CRON_MONITOR_URL`, `SENTRY_CRONS_URL`                                                                                                                                    | Sentry Cron Monitors                                   |
 
 ## 3. Runbooks
 
@@ -152,7 +281,9 @@ Cloudflare publishes new ranges now and then. To refresh:
    (example list in `.env.example`).
 3. Check: `docker compose run --rm nginx nginx -t`. A bad entry fails with
    `trusted-proxies.sh: invalid entry '<x>'`.
-4. Apply: `docker compose up -d nginx`.
+4. Apply: `docker compose up -d nginx`. That recreates nginx, which drops its
+   edge networks (staging and ops answer 502), so then run, from `infra/ansible`
+   on your laptop, `ansible-playbook deploy.yml -e env=prod -e version=<running sha> --tags edge`.
 
 Check the lists again whenever the quarterly checklist ([75.31]) says so.
 
@@ -162,8 +293,10 @@ Docker's userland proxy, which hides the source IP: do not enable the origin
 lock-down on that host. Loopback is the only always-allowed range; private
 ranges are not exempt.
 
-Rollback: set `TRUSTED_PROXY_CIDRS=` (empty) and `docker compose up -d nginx`.
-Empty means no CDN trust at all, which is how the stack behaved before.
+Rollback: set `TRUSTED_PROXY_CIDRS=` (empty) and `docker compose up -d nginx`,
+then the same `--tags edge` run. Empty means no CDN trust at all, which is how
+the stack behaved before. Empty `OPS_DOMAIN` and `STAGING_DOMAIN` with it: a
+prod deploy refuses them without the list ([25-cloudflare.md, Access policies](25-cloudflare.md#access-policies)).
 
 ### 3.6 Platform alert: Redis down
 
@@ -497,3 +630,74 @@ SMOKE_SUPER_ADMIN_EMAIL=superadmin@biddaloy.test SMOKE_SUPER_ADMIN_PASSWORD=$SEE
 | Any line ending `timeout`                   | The API is hung or unreachable in time: [§3.1](#31-5xx-spike)                 |
 | Any line ending `network error`             | Nothing answered at the base URL: check DNS, nginx and that the app is up     |
 | A read (`students`, `fees/dues`, `schools`) | [§3.1](#31-5xx-spike) for 5xx; a 401/403 means a smoke account lost its role  |
+
+## 8. Secrets and rotation
+
+Secrets live encrypted in `infra/secrets/*.enc.env` (sops + age, two recipients).
+How to set up and edit them: [`infra/secrets/README.md`](../../infra/secrets/README.md).
+Ansible decrypts on the operator's laptop and writes `/opt/biddaloy/<env>/.env`
+with `infra/ansible/tasks/write-env.yml`. Task output never shows a value (`no_log`).
+
+| Path                                 | Owner         | Mode        | Why                                                                     |
+| ------------------------------------ | ------------- | ----------- | ----------------------------------------------------------------------- |
+| `/opt/biddaloy/<env>/`               | `root:deploy` | 0750        | root writes; `deploy` runs `docker compose` here                        |
+| `/opt/biddaloy/<env>/.env`           | `root:deploy` | 0640        | `docker compose` reads `.env` on the client side, even for `exec`       |
+| `/opt/biddaloy/<env>/drill/`         | `10001`       | 0500        | mounted into `backup` only; holds the drill key (D18)                   |
+| `/opt/biddaloy/<env>/drill/key.txt`  | `10001`       | 0400        | read only by the `backup` container's user, for the restore drill (D18) |
+| `/opt/biddaloy/certs/` and its files | `root:root`   | 0700 / 0600 | only nginx (started by the root Docker daemon) needs them               |
+
+`infra/ansible/provision.yml` creates the directories (`ops.yml` sets the same
+owner and mode on `ops/`); `write-env.yml` only writes files, and keeps
+`root:deploy 0640` on every deploy. This differs from D19's "mode 0600 root" for
+`.env`: with that, `deploy` could not run any compose command without `sudo`.
+
+**The age key (`drill/key.txt`) is put on the host by hand, once per env that runs backups**
+(prod). Its master copy lives in the password manager and is never committed
+([13-backup-restore.md, Key handling](13-backup-restore.md#key-handling)), so
+no playbook writes it. From the laptop, without a temp file on the host:
+
+```bash
+ssh deploy@<host> "sudo sh -c 'umask 0377; cat > /opt/biddaloy/prod/drill/key.txt && chown 10001:10001 /opt/biddaloy/prod/drill/key.txt'" < ~/age-key.txt
+ssh deploy@<host> sudo stat -c '%u %a' /opt/biddaloy/prod/drill/key.txt   # must print: 10001 400
+```
+
+A prod deploy checks it in pre-flight and stops if it is missing or has the
+wrong owner or mode.
+
+**A rotation is a full deploy of the commit that holds the new value.** The
+deploy decrypts `infra/secrets/*` from your checkout and needs `HEAD` equal to
+`version`, so an older SHA would write the old value back and still log `ok`.
+The full deploy writes the new `.env`, takes the backup, and restarts what
+changed, with the readiness check, the smoke test and a `deploys.log` line.
+`--tags env` alone only rewrites `.env` and restarts nothing (and refuses any
+version but the running one).
+
+```mermaid
+flowchart LR
+  E["sops infra/secrets/prod.enc.env<br/>(change the value)"] --> C["commit + push to main"]
+  C --> V["wait for 'Publish image'<br/>on that new sha"]
+  V --> D["ansible-playbook deploy.yml<br/>-e env=prod -e version=&lt;new sha&gt;"]
+```
+
+Commands and a value-free check: [28-platform-runbook.md, Rotate a secret](28-platform-runbook.md#rotate-a-secret).
+
+Every rotation is those same steps plus the extra step in the table.
+
+| Secret                                      | Extra step                                                                                                                                                                                                                                                                                                                                                                                                  | What breaks                                                                                                       | How often                  |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `JWT_SECRET`, scheduled                     | Old value to `JWT_SECRET_PREVIOUS` (verify-only, Rule 10), set the new one, deploy. Wait out the access-token lifetime (15 min), empty `JWT_SECRET_PREVIOUS`, deploy again.                                                                                                                                                                                                                                 | Nothing.                                                                                                          | Yearly                     |
+| `JWT_SECRET`, leaked                        | Set the new value and leave `JWT_SECRET_PREVIOUS` **empty**, deploy. Never keep a leaked value as `_PREVIOUS`: anyone holding it could still forge tokens.                                                                                                                                                                                                                                                  | Open access tokens get one 401; clients re-mint through their refresh token (a DB row), so nobody signs in again. | On leak                    |
+| `SETTINGS_ENCRYPTION_KEY`                   | Old value to `SETTINGS_ENCRYPTION_KEY_PREVIOUS`, deploy, run `yarn settings:reencrypt` (a ts-node script in `server/`; the prod image has no ts-node and no `src/`, so run it from a server checkout on the VM with `DATABASE_URL` at `127.0.0.1:5432` and both keys set), then empty `_PREVIOUS` and deploy. On a leak, do all of it at once: `_PREVIOUS` is needed to re-encrypt, so drop it right after. | Stored provider settings unreadable if the re-encrypt step is skipped.                                            | Yearly, or on leak         |
+| `POSTGRES_PASSWORD`                         | `ALTER ROLE ... PASSWORD` in the running db first, then change the value and redeploy.                                                                                                                                                                                                                                                                                                                      | App cannot connect between the two steps.                                                                         | Yearly                     |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | Change the value and redeploy. SeaweedFS reads the same two env vars, so the deploy recreates `seaweedfs`, `app` and `backup` together.                                                                                                                                                                                                                                                                     | Uploads fail only for the seconds between container restarts.                                                     | Yearly                     |
+| `BACKUP_AGE_PUBLIC_KEY`                     | Make a new age keypair. In the **same deploy**, replace `/opt/biddaloy/<env>/drill/key.txt` with the new private key (owner 10001, mode 0400). Keep the **old private key** offline until the dumps made with it are aged out.                                                                                                                                                                              | Old dumps still need the old key; losing it loses them. Without the host swap the next drill fails at `restore`.  | On leak of the private key |
+| `BACKUP_S3_*`                               | Make a new bucket key in the storage console, change the value, redeploy.                                                                                                                                                                                                                                                                                                                                   | Backups fail to upload until updated.                                                                             | Yearly                     |
+| `BACKUP_RCLONE_CRYPT_PASSWORD` / `_SALT`    | Re-sync the remote with the new values (old files are unreadable under new ones).                                                                                                                                                                                                                                                                                                                           | Existing backup copies unreadable until re-synced.                                                                | Only on leak               |
+| `TURNSTILE_SECRET_KEY`                      | Rotate in the Cloudflare dashboard, change the value, redeploy.                                                                                                                                                                                                                                                                                                                                             | Public forms fail closed in production (Rule 22) until updated.                                                   | On leak                    |
+| `GOOGLE_OAUTH_*`, `FACEBOOK_OAUTH_*`        | Reset the client secret in the provider console, change the value, redeploy.                                                                                                                                                                                                                                                                                                                                | Social sign-in fails until updated; password sign-in works.                                                       | On leak                    |
+| `PLATFORM_SMS_API_KEY`                      | New key at the SMS provider, change the value, redeploy.                                                                                                                                                                                                                                                                                                                                                    | Platform alert SMS is only logged, not sent.                                                                      | On leak                    |
+| `HEALTH_TOKEN`                              | Change the value, redeploy, update the uptime monitor's header.                                                                                                                                                                                                                                                                                                                                             | The monitor sees 401 until its header matches.                                                                    | Yearly                     |
+| Origin CA cert + key                        | Cloudflare dashboard: re-issue, `sops` the two `origin-ca*.enc.pem` files, run with `write_certs`.                                                                                                                                                                                                                                                                                                          | Cloudflare returns 526 if the cert on the host expires.                                                           | Before expiry (15y)        |
+
+Log of practised rotations (fill in when done): `JWT_SECRET` on staging (61.2):
+_not yet practised_.

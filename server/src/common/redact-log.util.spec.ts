@@ -106,4 +106,35 @@ describe('redactPii', () => {
       '{"phoneNumberId":"123","pageId":"456"}',
     );
   });
+
+  // Rule 13: a connection string echoed in a migration/driver error.
+  it('redacts the password in a scheme://user:pass@host URL', () => {
+    expect(redactPii('connect failed: postgres://app:pw@db:5432/x')).toBe(
+      'connect failed: postgres://app:[REDACTED]@db:5432/x',
+    );
+    // `%40` decodes to `@`; the whole password still goes.
+    expect(redactPii('redis://u:p%40ss@cache.example.com:6379')).toBe(
+      'redis://u:[REDACTED]@cache.example.com:6379',
+    );
+    expect(redactPii('https://x.test:8080/i/tok')).toBe('https://x.test:8080/i/[REDACTED]');
+  });
+
+  it('redacts a password-only URL (empty username)', () => {
+    expect(redactPii('redis://:s3cret@redis:6379')).toBe('redis://:[REDACTED]@redis:6379');
+  });
+
+  // Decoding first would turn `%2F` into `/` and end the match mid-password.
+  it('redacts a password that contains an encoded slash', () => {
+    expect(redactPii('postgres://app:ab%2Fcd@db:5432/x')).toBe(
+      'postgres://app:[REDACTED]@db:5432/x',
+    );
+  });
+
+  // An `@` in the query or fragment is not userinfo: the port and host stay.
+  it('does not read an @ in the query or fragment as userinfo', () => {
+    expect(redactPii('https://x.test:8080?next=a@b.com')).toBe(
+      'https://x.test:8080?next=[REDACTED_EMAIL]',
+    );
+    expect(redactPii('https://x.test:8080#a@b.com')).toBe('https://x.test:8080#[REDACTED_EMAIL]');
+  });
 });

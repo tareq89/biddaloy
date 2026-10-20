@@ -39,17 +39,11 @@ server {
     ssl_reject_handshake on;   # nginx >= 1.19.4; no certificate needed
 }
 
-# HTTP: serve ACME challenges for cert issuance/renewal, redirect everything
-# else to HTTPS. Never redirect the challenge path — that's how certbot proves
-# domain ownership over plain HTTP before a certificate exists.
+# HTTP: redirect everything to HTTPS.
 server {
     listen 80;
     access_log /var/log/nginx/access.log redacted;
     server_name ${APP_DOMAIN};
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
 
     location / {
         if ($origin_allowed = 0) { return 444; }
@@ -63,8 +57,9 @@ server {
     http2 on;
     server_name ${APP_DOMAIN};
 
-    ssl_certificate     /etc/letsencrypt/live/${APP_DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${APP_DOMAIN}/privkey.pem;
+    # Cloudflare Origin CA pair, mounted from the host (docker-compose.yml).
+    ssl_certificate     /etc/nginx/certs/origin.pem;
+    ssl_certificate_key /etc/nginx/certs/origin.key;
 
     # Must cover the largest legal upload: homework submission, 10 files x 5 MB.
     # server/src/nginx-body-limit.spec.ts fails if this falls below a route's

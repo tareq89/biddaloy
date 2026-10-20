@@ -265,3 +265,26 @@ qa-audit/
 server/graphify-out/
 
 load-results-*
+.certs/
+
+# ansible vault files
+infra/ansible/.vault*
+
+# Decrypted env copies anywhere (`sops -d ... > prod.env`). The CI guard
+# (scripts/check-tracked-files.mjs) catches a force-add.
+*.env
+*.env.bak
+*.env.old
+*.env.orig
+*.env.txt
+*.env~
+*.dotenv
+.envrc
+!*.example.env
+
+# Secrets: only sops-encrypted files, examples and the README may be tracked (61.x)
+infra/secrets/*
+!infra/secrets/*.enc.env
+!infra/secrets/*.enc.pem
+!infra/secrets/*.example.env
+!infra/secrets/README.md

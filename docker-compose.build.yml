@@ -1,0 +1,48 @@
+# Local build overlay: builds the images instead of pulling them from GHCR and
+# makes a dummy TLS cert so nginx can boot.
+#
+#   APP_VERSION=local TLS_CERT_DIR=./.certs docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
+#
+# Demo host: add -f docker-compose.demo.yml -f docker-compose.demo.build.yml.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Inlined into the client bundle at build time (see .env.example).
+      args:
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
+        VITE_SUPPORT_URL: ${SUPPORT_CONTACT_URL:-}
+
+  backup:
+    build:
+      context: ./scripts/backup
+      dockerfile: Dockerfile
+
+  # Writes a self-signed origin.pem / origin.key into ./.certs (ignored by version control).
+  cert-bootstrap:
+    logging: *logging
+    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
+    entrypoint: ['sh', '/scripts/generate-dummy-cert.sh']
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+    volumes:
+      - ./.certs:/certs
+      - ./nginx/generate-dummy-cert.sh:/scripts/generate-dummy-cert.sh:ro
+    restart: 'no'
+
+  # Same target as the base mount, so compose replaces it with the local dummy pair.
+  nginx:
+    logging: *logging
+    volumes:
+      - ./.certs:/etc/nginx/certs:ro
+    depends_on:
+      cert-bootstrap:
+        condition: service_completed_successfully
