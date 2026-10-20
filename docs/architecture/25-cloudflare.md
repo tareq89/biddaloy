@@ -5,6 +5,9 @@ certain dashboard settings. If one is wrong, users get blocked, caches leak
 private data, or the origin IP stays exposed. This page lists every setting,
 why it matters and how to check it.
 
+> Operator steps (day 0, first deploy, releases, alerts, restore) live in
+> [28-platform-runbook.md](28-platform-runbook.md). This page keeps the dashboard settings.
+
 ## Request path
 
 ```mermaid
@@ -149,6 +152,11 @@ secret go in the demo `.env` as `DEMO_RESET_PUSH_ACCESS_CLIENT_ID` / `_SECRET`; 
 as `CF-Access-Client-Id` / `CF-Access-Client-Secret`. Service auth adds `Cf-Access-Jwt-Assertion` like a login does,
 so nginx lets it through. A **Bypass** policy would not work: Bypass adds no token, and nginx drops the push. Do this **before** creating the Kuma and Beszel admins through `ops.<domain>`
 ([12-operations.md §1](12-operations.md#setting-the-tools-up-by-hand-once)).
+
+| Application | Hostname           | Policy                                               | Check                                                                                     |
+| ----------- | ------------------ | ---------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `Staging`   | `staging.<domain>` | `Owner only`, 24 h, One-time PIN                     | `curl -sI` gives 302 to `cloudflareaccess.com`                                            |
+| `Ops`       | `ops.<domain>`     | `Owner only`, same, + Service Auth `demo-reset-push` | same; `/dozzle/` loads after login (`/kuma/`, `/beszel/`: see 12-operations known limits) |
 
 ## Re-check
 
