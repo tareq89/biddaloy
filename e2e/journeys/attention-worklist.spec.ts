@@ -5,9 +5,9 @@ import { expect, guest, test } from '../fixtures/test';
 import { makeT } from '../i18n';
 
 /**
- * [67.2.10] The attention worklist against the real engine: paid seats that run out in
- * 20 days raise a `seats.expiring` WARNING, hiding it keeps it in To-do ("Closed for
- * now", bar gone, D19), and buying more seats resolves it into History.
+ * [67.2.10] The attention worklist against the real engine: 9 of 10 seats in use
+ * raise a `seats.expiring` WARNING, hiding it keeps it in To-do ("Closed for
+ * now", bar gone, D19), and a longer grant resolves it into History.
  * English UI, so the bar counts read "1 warning".
  */
 const t = makeT('en');
@@ -30,8 +30,8 @@ test('seats expiring: raised, closed for now, then fixed and moved to History', 
       .getByRole('status')
       .filter({ hasText: t('attention.bar.warning_one', { n: 1 }) });
 
-    await test.step('20 days of seats left raises a warning in the bar', async () => {
-      await raiseSeatsExpiring(playwright, school.session.tenantId, shells.app.baseURL);
+    await test.step('9 of 10 seats in use raises a warning in the bar', async () => {
+      await raiseSeatsExpiring(playwright, school, shells.app.baseURL);
       // The recheck runs about 5 s after the seat grant.
       await expect
         .poll(

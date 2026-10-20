@@ -9,7 +9,7 @@ import { makeT } from '../i18n';
 
 /**
  * [67.2.10] The attention bar and its modal, KEYBOARD ONLY (D16), on staff
- * (real engine, a school whose seats run out in 20 days), the palette, the portal
+ * (real engine, a school with 9 of 10 seats in use), the palette, the portal
  * (alerts stubbed: W2 has no portal rule) and a phone width. English UI.
  */
 const t = makeT('en');
@@ -56,7 +56,7 @@ test.describe('staff', () => {
     // The first card must be the seats alert: no scheduled tick may add another alert mid-test.
     await onlyAttentionRule(school.api, school.session, 'seats.expiring');
     await setEnglish(school.page);
-    await raiseSeatsExpiring(playwright, school.session.tenantId, shells.app.baseURL);
+    await raiseSeatsExpiring(playwright, school, shells.app.baseURL);
     // The recheck runs about 5 s after the seat grant.
     await expect
       .poll(
