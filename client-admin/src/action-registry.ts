@@ -854,6 +854,22 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/settings?section=finance' }),
   },
   {
+    id: 'settings.billing',
+    label: { en: 'Seats and billing', bn: 'সিট ও বিল' },
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'navigate',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/settings?section=billing' }),
+  },
+  {
+    id: 'billing.buy-seats',
+    label: { en: 'Buy seats', bn: 'সিট কিনুন' },
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'modal',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/settings?section=billing&buy=1' }),
+  },
+  {
     id: 'settings.backup',
     label: { en: 'Backup and restore', bn: 'ব্যাকআপ ও রিস্টোর' },
     permission: Permission.SETTINGS_MANAGE,

@@ -1,18 +1,25 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DataSource } from 'typeorm';
-import { Permission, type BillingSummary, type SeatOrderDto } from '@biddaloy/shared';
+import {
+  Permission,
+  type BillingSummary,
+  type JwtPayload,
+  type SeatOrderDto,
+} from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { billingFreeUntil } from '../../config/env.validation';
 import { getSeatUsage } from '../schools/trial/seat-limit.service';
 import { EntitlementService } from './entitlement.service';
 import { OrdersService } from './orders.service';
+import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 
 @ApiTags('billing')
@@ -60,5 +67,24 @@ export class BillingController {
     @Query() query: ListOrdersQueryDto,
   ): Promise<SeatOrderDto[]> {
     return this.orders.list(tenant.id, query.limit ?? 20, query.offset ?? 0);
+  }
+
+  /** Creates a PENDING order only; paying it is Epic 49 W4. Price is server-computed, integer paisa. */
+  @Post('orders')
+  @RequirePermissions(Permission.SETTINGS_MANAGE)
+  @ApiOperation({ summary: 'Start a seat purchase: a PENDING order, idempotent per key.' })
+  @ApiCreatedResponse({ description: 'SeatOrderDto' })
+  create(
+    @CurrentTenant() tenant: { id: string },
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateOrderDto,
+  ): Promise<SeatOrderDto> {
+    return this.orders.createPending({
+      schoolId: tenant.id,
+      seats: dto.seats,
+      months: dto.months,
+      idempotency_key: dto.idempotency_key,
+      userId: user.sub,
+    });
   }
 }
