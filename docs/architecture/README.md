@@ -45,6 +45,7 @@ at hand instead of loading the whole set.
 | [23-attention.md](23-attention.md) | Working on the attention bar/modal, alert rules, the to-do/history page, manual alerts, the alerts report, push mute/quiet hours, or the guardian SMS fallback |
 | [27-qa-audit-lessons.md](27-qa-audit-lessons.md) | You are fixing a bug found by QA, or closing a wave of Epic #2642 |
 | [28-platform-runbook.md](28-platform-runbook.md) | Running the servers: day-0 checklist, provisioning, first deploy, releases and rollback, alert thresholds and the verification log, backups and restore, secret rotation, growing or moving the VM |
+| [29-epic61-go-live.md](29-epic61-go-live.md) | Epic 61 is merged but unproven on a real host: the ordered owner steps, the checks that must pass before the closed issues count, and the follow-up gaps |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the _why_ behind the
