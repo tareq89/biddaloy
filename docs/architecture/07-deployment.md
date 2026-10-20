@@ -139,6 +139,22 @@ fails if `VITE_USE_MOCKS=true`.
 Docker too — see the README's "Production Build" / "Deploy to VPS"
 sections for that path.
 
+**Images (GHCR).** `.github/workflows/publish-image.yml` runs on every merge
+to `main` and pushes three images, each tagged `<commit-sha>` and `main`.
+Production pulls, never builds.
+
+| Image                                 | Built from                  | Notes                                                                      |
+| ------------------------------------- | --------------------------- | -------------------------------------------------------------------------- |
+| `ghcr.io/tareq89/biddaloy-app`        | `Dockerfile`                | build args `VITE_TURNSTILE_SITE_KEY`, `VITE_SUPPORT_URL` (repo variables)  |
+| `ghcr.io/tareq89/biddaloy-backup`     | `scripts/backup/Dockerfile` |                                                                            |
+| `ghcr.io/tareq89/biddaloy-demo-reset` | `scripts/demo/Dockerfile`   | `FROM app`: built after the app image, using that SHA as the `app` context |
+
+Only `GITHUB_TOKEN` is used; the two `VITE_*` values are repo **variables**
+(Settings > Secrets and variables > Actions > Variables), not secrets, because
+they are public in the bundle. One-time step: after the first run, set each
+GHCR package to **public** (package settings) so `docker pull` works
+anonymously.
+
 ## Error tracking and Web Vitals (Sentry)
 
 The SPA reports errors and real-user performance (LCP/CLS/INP) to Sentry.
