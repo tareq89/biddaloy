@@ -152,7 +152,7 @@ actually matters:
   1. The master copy is outside the host, in a password manager or vault the
      backup owner controls. Never committed, never in `.env`.
   2. Since the weekly drill (D18), a copy also sits **on the VM** at
-     `/opt/biddaloy/<env>/age-key.txt` (owner 10001, mode 0400), mounted only
+     `/opt/biddaloy/<env>/drill/key.txt` (owner 10001, mode 0400), mounted only
      into the `backup` container. `backup.sh` still needs only the public key.
 - **What that costs.** The VM now holds both the private key and the R2
   credentials. Someone who takes over the host can read every retained dump
@@ -162,7 +162,7 @@ actually matters:
   reaches a CI runner.
 - **Rotation:** generate a new keypair (`age-keygen`), point
   `BACKUP_AGE_PUBLIC_KEY` at the new public half and replace the host's
-  `age-key.txt` with the new private half in the same deploy (otherwise the
+  `drill/key.txt` with the new private half in the same deploy (otherwise the
   next drill cannot decrypt). New backups from
   that point encrypt to the new key. **No re-encryption of old archives is
   needed** — keep the old private key until no archive it encrypted is
@@ -267,13 +267,21 @@ docker compose exec backup /app/drill.sh
 **Setup.**
 
 - `DRILL_SCHEDULE` (cron, default `30 3 * * 0`) and `DRILL_PUSH_URL` (in sops).
-- The age private key, mounted read-only at `/run/age/key.txt`. Host path:
-  `BACKUP_AGE_KEY_FILE`, set per env (for example
-  `/opt/biddaloy/prod/age-key.txt`), with **no default**, so prod's key can
-  never reach staging. The file must be owner `10001` (the backup user), mode
-  `0400`. Nothing provisions it yet: until it exists, the `backup` container
-  will not start (the mount uses `create_host_path: false`, so Docker never
-  turns a missing file into a directory). Only the `backup` container mounts it.
+- The age private key, as `key.txt` in a host directory mounted read-only at
+  `/run/age`. Host directory: `BACKUP_AGE_KEY_DIR`, set per env (for example
+  `/opt/biddaloy/prod/drill`), with **no default**, so prod's key can never
+  reach staging. `provision.yml` creates the directory (owner `10001`, the
+  backup user, mode `0500`). Nothing writes the key yet: the operator copies it
+  in by hand (owner `10001`, mode `0400`):
+
+  ```bash
+  sudo install -o 10001 -g 10001 -m 0400 key.txt /opt/biddaloy/prod/drill/key.txt
+  ```
+
+  Until it is there, only the drill fails, at step `config` (Kuma gets
+  `down config`). `docker compose up` and the hourly dumps, which need only the
+  public key, are not affected. Only the `backup` container mounts it.
+
 - In Uptime Kuma, the `drill-weekly` monitor: type **Push**, heartbeat interval
   **8 days**, retries **0**. The default 60 s interval would page all week.
 - Optional `DRILL_DATABASE_URL` / `DRILL_ADMIN_URL` default to the live server
@@ -393,7 +401,7 @@ disaster recovery":
 | `DRILL_PUSH_URL`               | #1774  | Uptime Kuma push URL for the drill. Unset = no push                                                                         |
 | `DRILL_DATABASE_URL`           | #1774  | Scratch database (name must contain `drill`; default `<live server>/biddaloy_drill`)                                        |
 | `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Key path inside the container (`/run/age/key.txt`). The key itself is never in `.env`; see "Key handling"                   |
-| `BACKUP_AGE_KEY_FILE`          | #1774  | Host path of that key, mounted into `backup` only: `/opt/biddaloy/<env>/age-key.txt`, 10001, 0400. No default               |
+| `BACKUP_AGE_KEY_DIR`           | #1774  | Host dir of that key, mounted at `/run/age` in `backup` only: `/opt/biddaloy/<env>/drill` (10001, 0500). No default         |
 
 ## Learnings (#1745)
 

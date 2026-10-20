@@ -65,12 +65,12 @@ CI guard: `scripts/check-tracked-files.mjs` checks content, not just names.
 
 | Tracked file | Must be |
 | --- | --- |
-| `infra/secrets/*.enc.env` | sops output: every value line is `KEY=ENC[AES256_GCM,...`, plus `sops_*` lines. One plaintext line added in a normal editor fails it. |
+| `infra/secrets/*.enc.env` | sops output: every value line is `KEY=ENC[AES256_GCM,...`, every comment is `#ENC[AES256_GCM,...`, and only the `sops_*` metadata keys sops writes (version, mac, lastmodified, unencrypted_suffix, age recipients). One plaintext line or comment added in a normal editor fails it. |
 | `infra/secrets/*.enc.pem` | sops JSON: `data` starts with `ENC[`, and a `sops` block. |
-| `infra/secrets/*.example.env` | every `KEY=` empty. Only staging's Turnstile test key is allowed. |
-| any other `*.env` | not tracked at all (a decrypted `sops -d ... > prod.env` copy). `*.example.env` is fine. |
+| any `*.example.env` | every `KEY=` empty, and no commented-out `# KEY=value`. Only staging's Turnstile test key is allowed. |
+| any other `*.env`, `*.env.bak` / `.txt` / `~`, `*.dotenv`, `.envrc` | not tracked at all (a decrypted `sops -d ... > prod.env` copy). `*.example.env` is fine. |
 | `infra/ansible/.vault*` | not tracked at all. |
-| anything | no age private key, no PEM private key. |
+| anything | no age private key, no PEM private key, and no line like `POSTGRES_PASSWORD=<12+ chars>` for the main secret keys unless it is `ENC[...]` or a test value. |
 
 ## Everyday
 

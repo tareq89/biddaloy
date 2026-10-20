@@ -205,14 +205,14 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY must be set}
     volumes:
       # Age private key for the restore drill only (D18); this container alone
-      # mounts it. Host file: /opt/biddaloy/<env>/age-key.txt, owner 10001 (the
-      # backup user), mode 0400. Each env sets its own BACKUP_AGE_KEY_FILE, so
-      # there is no default: prod's key must never reach staging. A missing file
-      # stops this container from starting (create_host_path: false) instead of
-      # Docker creating a root-owned directory at that path.
+      # mounts it. Host dir: /opt/biddaloy/<env>/drill/ (10001, 0500; provision.yml
+      # creates it), key inside: key.txt (10001, 0400). A directory, not the file,
+      # so a missing key fails only the drill (step `config`), never `up` or the
+      # hourly dumps. Each env sets its own BACKUP_AGE_KEY_DIR, so there is no
+      # default: prod's key must never reach staging.
       - type: bind
-        source: ${BACKUP_AGE_KEY_FILE:-./BACKUP_AGE_KEY_FILE-is-not-set}
-        target: /run/age/key.txt
+        source: ${BACKUP_AGE_KEY_DIR:-./BACKUP_AGE_KEY_DIR-is-not-set}
+        target: /run/age
         read_only: true
         bind:
           create_host_path: false

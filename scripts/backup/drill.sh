@@ -77,7 +77,7 @@ trap on_exit EXIT
 : "${BACKUP_RCLONE_CRYPT_PASSWORD:?BACKUP_RCLONE_CRYPT_PASSWORD is required}"
 : "${BACKUP_RCLONE_CRYPT_SALT:?BACKUP_RCLONE_CRYPT_SALT is required}"
 if [[ ! -f "$BACKUP_AGE_PRIVATE_KEY_FILE" || ! -r "$BACKUP_AGE_PRIVATE_KEY_FILE" ]]; then
-  echo "drill.sh: BACKUP_AGE_PRIVATE_KEY_FILE is not a readable file (host file must exist and be readable by uid 10001)" >&2
+  echo "drill.sh: BACKUP_AGE_PRIVATE_KEY_FILE is not a readable file (copy the key to <env>/drill/key.txt on the host, owner 10001, mode 0400)" >&2
   exit 1
 fi
 if [[ "$BACKUP_S3_ENDPOINT" != https://* ]]; then

@@ -66,6 +66,11 @@ describe('findForbidden', () => {
     ['server/decrypted.env'],
     ['infra/ansible/.vault_pass'],
     ['infra/ansible/.vault-password.txt'],
+    ['infra/ansible/prod.env.bak'],
+    ['prod.env.txt'],
+    ['prod.env~'],
+    ['server/.envrc'],
+    ['decrypted/prod.dotenv'],
   ])('flags a stray env or vault file %s', (p) => {
     expect(findForbidden([p])).toEqual([p]);
   });
@@ -115,6 +120,27 @@ describe('findBadContent', () => {
     expect(run('infra/secrets/prod.enc.env', SOPS_ENV + 'NEW_KEY=ENC[x]\n')).toHaveLength(1);
   });
 
+  it('passes the age metadata sops writes', () => {
+    const meta =
+      'sops_age__list_0__map_enc=-----BEGIN AGE ENCRYPTED FILE-----\\nYWdl+/=\\n-----END AGE ENCRYPTED FILE-----\\n\n' +
+      'sops_age__list_0__map_recipient=age17x5j60tf4punpm35\n' +
+      'sops_lastmodified=2026-10-20T08:52:05Z\nsops_unencrypted_suffix=_unencrypted\n';
+    expect(run('infra/secrets/prod.enc.env', SOPS_ENV + meta)).toEqual([]);
+  });
+
+  it.each([
+    ['a plaintext comment', SOPS_ENV + '# JWT_SECRET_OLD=hunter2-real-secret\n'],
+    ['only comments and a version', '# POSTGRES_PASSWORD=hunter2\n# sops_version=3\n'],
+    ['an unknown sops_ key', SOPS_ENV + 'sops_backup_pw=hunter2\n'],
+    ['a plaintext sops_mac', SOPS_ENV.replace(/sops_mac=[^\n]*/, 'sops_mac=hunter2')],
+    [
+      'a line glued on by a lone \\r',
+      SOPS_ENV + 'A=ENC[AES256_GCM,x]\rPOSTGRES_PASSWORD=hunter2\n',
+    ],
+  ])('fails a .enc.env with %s', (_, text) => {
+    expect(run('infra/secrets/prod.enc.env', text)).toHaveLength(1);
+  });
+
   it('fails a plaintext .enc.pem, passes sops output', () => {
     expect(run('infra/secrets/origin-ca.enc.pem', PEM + '\nabc')).toHaveLength(1);
     const ok = '{"data":"ENC[AES256_GCM,data:x]","sops":{"age":[]}}';
@@ -135,6 +161,24 @@ describe('findBadContent', () => {
     expect(run('infra/secrets/prod.example.env', '# Never put a value here.\nA=\n')).toEqual([]);
     expect(run('infra/secrets/staging.example.env', TEST_KEY)).toEqual([]);
     expect(run('infra/secrets/prod.example.env', TEST_KEY)).toHaveLength(1);
+    expect(run('infra/secrets/prod.example.env', '#POSTGRES_PASSWORD=hunter2\n')).toHaveLength(1);
+    expect(run('infra/secrets/prod.example.env', '# KEY=value pairs, empty here.\n')).toHaveLength(
+      1,
+    );
+    expect(run('infra/secrets/prod.example.env', '# Format: one key per line.\nA=\n')).toEqual([]);
+  });
+
+  it('checks every *.example.env, not only infra/secrets', () => {
+    expect(run('server/prod.example.env', 'A=filled\n')).toHaveLength(1);
+    expect(run('server/prod.example.env', 'A=\n')).toEqual([]);
+  });
+
+  it('fails a decrypted secret line in any file; allows fixtures', () => {
+    expect(run('notes/x.md', 'JWT_SECRET=0123456789abcdef0123\n')).toHaveLength(1);
+    expect(run('a/b.txt', 'x\r\nPOSTGRES_PASSWORD=hunter2hunter2\r\n')).toHaveLength(1);
+    expect(run('a/b.sh', 'JWT_SECRET=x\nHEALTH_TOKEN=$(cat t)-padding\n')).toEqual([]);
+    expect(run('a/b.sh', 'JWT_SECRET=ci-jwt-do-not-use-in-production-1\n')).toEqual([]);
+    expect(run('a/b.sh', 'JWT_SECRET=ENC[AES256_GCM,data:abc,iv:x]\n')).toEqual([]);
   });
 
   it('fails an age private key or PEM private key anywhere', () => {

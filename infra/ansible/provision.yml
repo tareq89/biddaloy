@@ -7,33 +7,43 @@
   pre_tasks:
     - name: Deploy user
       ansible.builtin.user:
-        name: "{{ deploy_user }}"
+        name: '{{ deploy_user }}'
         shell: /bin/bash
         groups: sudo
         append: true
-    - name: Operator key on deploy user
+    # Add first (not exclusive), prove it, only then drop every other key. On a
+    # re-run as deploy, a wrong operator_ssh_pubkey then stops at the probe while
+    # the key this play logged in with still works.
+    - name: Operator key on deploy user (added alongside existing keys)
       ansible.posix.authorized_key:
-        user: "{{ deploy_user }}"
-        key: "{{ operator_ssh_pubkey }}"
-        exclusive: true
+        user: '{{ deploy_user }}'
+        key: '{{ operator_ssh_pubkey }}'
     - name: Passwordless sudo for deploy (key-only login)
       ansible.builtin.copy:
         dest: /etc/sudoers.d/90-deploy
         content: "{{ deploy_user }} ALL=(ALL) NOPASSWD:ALL\n"
-        mode: "0440"
+        mode: '0440'
         validate: visudo -cf %s
-    # The security role turns off root and password login next. Prove the deploy
-    # key works first, from the controller and without a shared SSH socket, so a
-    # wrong key fails here instead of locking you out (README: keep a root
-    # session open until the second run succeeds).
+    # The security role turns off root and password login next. Prove the NEW
+    # key works first, from the controller, with only that key (IdentitiesOnly)
+    # and without a shared SSH socket, so a wrong key fails here instead of
+    # locking you out (README: keep a root session open until the second run
+    # succeeds).
     - name: Prove deploy key login and sudo work before hardening
       ansible.builtin.command: >-
         ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ControlPath=none
-        -p {{ hostvars[inventory_hostname].ansible_port | default(22) }}
+        -o IdentitiesOnly=yes -i {{ operator_ssh_privkey }}
+        {{ hostvars[inventory_hostname].ansible_ssh_common_args | default('') }}
+        -p {{ ssh_port }}
         {{ deploy_user }}@{{ hostvars[inventory_hostname].ansible_host }} sudo -n true
       delegate_to: localhost
       become: false
       changed_when: false
+    - name: Only the operator key on deploy user
+      ansible.posix.authorized_key:
+        user: '{{ deploy_user }}'
+        key: '{{ operator_ssh_pubkey }}'
+        exclusive: true
   roles:
     - geerlingguy.security
     - geerlingguy.docker
@@ -51,7 +61,7 @@
           PermitRootLogin no
         owner: root
         group: root
-        mode: "0644"
+        mode: '0644'
         validate: sshd -t -f %s
       notify: restart ssh
     - name: Apply sshd changes now
@@ -60,13 +70,14 @@
       ansible.builtin.command: sshd -T
       register: sshd_effective
       changed_when: false
+      check_mode: false
     - name: Password and root login are really off
       ansible.builtin.assert:
         that:
           - "'passwordauthentication no' in sshd_effective.stdout_lines"
           - "'kbdinteractiveauthentication no' in sshd_effective.stdout_lines"
           - "'permitrootlogin no' in sshd_effective.stdout_lines"
-        fail_msg: "sshd still allows password or root login: check /etc/ssh/sshd_config.d/"
+        fail_msg: 'sshd still allows password or root login: check /etc/ssh/sshd_config.d/'
 
     # Docker publishes ports straight through iptables, past ufw. Compose binds
     # everything except nginx to 127.0.0.1 (docker-compose.yml); the check at the
@@ -78,12 +89,12 @@
     - name: ufw SSH (rate limited)
       community.general.ufw:
         rule: limit
-        port: "22"
+        port: '{{ ssh_port }}'
         proto: tcp
     - name: ufw HTTP/HTTPS
       community.general.ufw:
         rule: allow
-        port: "{{ item }}"
+        port: '{{ item }}'
         proto: tcp
       loop: [80, 443]
     - name: ufw on
@@ -103,29 +114,39 @@
         enabled: true
     - name: Timezone
       community.general.timezone:
-        name: "{{ host_timezone }}"
+        name: '{{ host_timezone }}'
 
     # The one owner model for /opt/biddaloy (tasks/write-env.yml writes into these
     # and creates no directories). root writes; deploy reads, because
     # `docker compose` reads <env>/.env on the client side, even for `exec`.
     #   <env>/       root:deploy 0750      <env>/.env  root:deploy 0640
     #   certs/       root:root   0700      certs/*     root:root   0600
-    #   <env>/age-key.txt  10001 0400 (the backup container's uid; restore drill)
+    #   <env>/drill/ 10001 0500  key.txt inside: 10001 0400, copied in by hand
+    #                (the backup container's uid; restore drill, mounted at /run/age)
     - name: App directories
       ansible.builtin.file:
-        path: "{{ biddaloy_root }}/{{ item }}"
+        path: '{{ biddaloy_root }}/{{ item }}'
         state: directory
         owner: root
-        group: "{{ deploy_user }}"
-        mode: "0750"
-      loop: "{{ biddaloy_envs }}"
+        group: '{{ deploy_user }}'
+        mode: '0750'
+      loop: '{{ biddaloy_envs }}'
+    # Always present, so a missing key fails only the drill, never `compose up`.
+    - name: Drill key directories (backup uid only)
+      ansible.builtin.file:
+        path: '{{ biddaloy_root }}/{{ item }}/drill'
+        state: directory
+        owner: '10001'
+        group: '10001'
+        mode: '0500'
+      loop: "{{ biddaloy_envs | difference(['ops']) }}"
     - name: Certs directory (root only)
       ansible.builtin.file:
-        path: "{{ biddaloy_root }}/certs"
+        path: '{{ biddaloy_root }}/certs'
         state: directory
         owner: root
         group: root
-        mode: "0700"
+        mode: '0700'
 
     # A plain `prune -af --filter until=168h` would also delete the previous
     # release, and a rollback (61.1) would then need GHCR. Our images carry
@@ -137,26 +158,27 @@
         dest: /usr/local/sbin/biddaloy-image-prune
         owner: root
         group: root
-        mode: "0755"
+        mode: '0755'
         content: |
           #!/bin/sh
           for r in $(docker image ls --filter 'reference=ghcr.io/tareq89/*' --format '{% raw %}{{.Repository}}{% endraw %}' | sort -u); do
             docker image ls "$r" --format '{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}' | tail -n +5 | xargs -r docker image rm >/dev/null 2>&1
           done
           docker image prune -af --filter until=168h --filter label!=org.opencontainers.image.revision
+          docker image prune -f
     - name: Weekly docker image prune
       ansible.builtin.cron:
         name: docker image prune
-        weekday: "0"
-        hour: "4"
-        minute: "0"
+        weekday: '0'
+        hour: '4'
+        minute: '0'
         job: /usr/local/sbin/biddaloy-image-prune
     - name: Weekly docker builder prune
       ansible.builtin.cron:
         name: docker builder prune
-        weekday: "0"
-        hour: "4"
-        minute: "5"
+        weekday: '0'
+        hour: '4'
+        minute: '5'
         job: docker builder prune -af
 
     # Meaningful once deploy.yml (61.1) has started the stacks; on a fresh VM
@@ -165,13 +187,14 @@
       ansible.builtin.command: ss -H -tuln
       register: listening
       changed_when: false
+      check_mode: false
     - name: Fail if anything but the allowed ports listens publicly
       ansible.builtin.assert:
         that:
           - >-
             item.split()[4] is match('^(127\.|\[::1\])')
             or (item.split()[4].rsplit(':', 1)[1] | int) in
-            (allowed_public_tcp_ports if item.split()[0] == 'tcp' else allowed_public_udp_ports)
-        fail_msg: "Unexpected public listener: {{ item.split()[0] }} {{ item.split()[4] }}"
+            ((allowed_public_tcp_ports if item.split()[0] == 'tcp' else allowed_public_udp_ports) | map('int') | list)
+        fail_msg: 'Unexpected public listener: {{ item.split()[0] }} {{ item.split()[4] }}'
         quiet: true
-      loop: "{{ listening.stdout_lines }}"
+      loop: '{{ listening.stdout_lines }}'
