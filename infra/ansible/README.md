@@ -26,3 +26,11 @@ Needs `~/.ssh/id_ed25519.pub` (or `-e operator_ssh_pubkey="ssh-ed25519 ..."`).
 Secrets are not here: see `infra/secrets`. Local `.vault*` files are ignored by version control.
 Docker bypasses ufw, so compose binds everything but nginx to `127.0.0.1`; the play fails if any other port listens publicly.
 Lint: `ansible-lint infra/ansible`.
+
+## Deploy a version
+
+```bash
+ansible-playbook deploy.yml -e env=prod -e version=<git-sha>   # add --check to see the plan
+```
+
+Pulls, backs up (prod), migrates, restarts, waits for ready, smoke-tests, and logs to `/opt/biddaloy/<env>/deploys.log`. On failure it redeploys the last good version (migrations are not reverted). Before deploying: check out `<git-sha>` (files are copied from your checkout) and export `SMOKE_{ADMIN,TEACHER,SUPER_ADMIN}_{EMAIL,PASSWORD}` for the smoke test. Full flow and rollback: `docs/architecture/07-deployment.md`.

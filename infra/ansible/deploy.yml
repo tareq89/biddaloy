@@ -1,0 +1,232 @@
+---
+# One command deploys a version:
+#   ansible-playbook deploy.yml -e env=prod -e version=<git-sha>
+# Plan only (nothing pulled, written or restarted): add  --check
+# Order: pre-flight -> env -> pull -> backup -> migrate -> up -> ready -> smoke -> log.
+# On failure after pre-flight: redeploy the previous version. Migrations are NOT reverted (D11).
+- name: Deploy biddaloy
+  hosts: all
+  become: true
+  vars:
+    env: ''
+    version: ''
+    skip_backup: false
+    repo_root: '{{ playbook_dir }}/../..'
+    project_dir: '/opt/biddaloy/{{ env }}'
+    project_name: 'biddaloy-{{ env }}'
+    overlay: { prod: [], demo: [docker-compose.demo.yml], staging: [docker-compose.staging.yml] }
+    compose_names: "{{ ['docker-compose.yml'] + (overlay[env] | default([])) }}"
+    compose_files: "{{ compose_names | map('regex_replace', '^', project_dir ~ '/') | list }}"
+    dc: >-
+      docker compose --project-directory {{ project_dir }} -p {{ project_name }}
+      {% for f in compose_files %}-f {{ f }} {% endfor %}
+    env_notify: restart compose
+    images_by_env: { prod: [biddaloy-app, biddaloy-backup], demo: [biddaloy-app, biddaloy-demo-reset], staging: [biddaloy-app, biddaloy-backup] }
+    images: "{{ images_by_env[env] | default([]) }}"
+    smoke_vars: [SMOKE_ADMIN_EMAIL, SMOKE_ADMIN_PASSWORD, SMOKE_TEACHER_EMAIL, SMOKE_TEACHER_PASSWORD, SMOKE_SUPER_ADMIN_EMAIL, SMOKE_SUPER_ADMIN_PASSWORD]
+    # demo_domain is not in the inventory yet: demo skips the smoke test until it is.
+    base_domain: "{{ {'prod': app_domain, 'staging': staging_domain, 'demo': demo_domain | default('')}[env] | default('') }}"
+  handlers:
+    - ansible.builtin.import_tasks: handlers/main.yml
+
+  pre_tasks:
+    # Everything here runs before any change, also under --check (D27).
+    - name: Check the inputs
+      ansible.builtin.assert:
+        that:
+          - env in ['prod', 'demo', 'staging']
+          - version | length > 0
+          - version is match('^[A-Za-z0-9._-]+$')
+        fail_msg: 'Usage: -e env=prod|demo|staging -e version=<image tag>'
+        quiet: true
+      tags: [always]
+
+    - name: Check the smoke credentials are set on this machine
+      ansible.builtin.assert:
+        that: lookup('ansible.builtin.env', item) | length > 0
+        fail_msg: 'export {{ item }} before deploying (smoke test logins)'
+        quiet: true
+      loop: '{{ smoke_vars }}'
+      when: base_domain | length > 0
+      no_log: true
+      tags: [always]
+
+    - name: Check the repo checkout is the version being deployed
+      ansible.builtin.assert:
+        that: lookup('ansible.builtin.pipe', 'git -C ' ~ repo_root ~ ' rev-parse HEAD').startswith(version)
+        fail_msg: 'Check out {{ version }} first: compose files and nginx are copied from this checkout.'
+        quiet: true
+      tags: [always]
+
+    - name: Check the compose files exist in the repo
+      ansible.builtin.stat:
+        path: '{{ repo_root }}/{{ item }}'
+      register: compose_src
+      delegate_to: localhost
+      become: false
+      loop: '{{ compose_names }}'
+      tags: [always]
+
+    - name: Stop early when a compose file is missing
+      ansible.builtin.fail:
+        msg: >-
+          {{ item.item }} is missing (the staging overlay is created by #1768).
+          Nothing was changed.
+      when: not item.stat.exists
+      loop: '{{ compose_src.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+      tags: [always]
+
+    - name: Check the image tag exists in the registry
+      ansible.builtin.command: docker manifest inspect ghcr.io/tareq89/{{ item }}:{{ version }}
+      changed_when: false
+      check_mode: false
+      loop: '{{ images }}'
+      tags: [always]
+
+    - name: Read the last good version from deploys.log
+      ansible.builtin.shell: |
+        f={{ project_dir }}/deploys.log
+        [ -f "$f" ] && awk '$2=="{{ env }}" && $4=="ok" {v=$3} END {print v}' "$f"
+        true
+      register: prev
+      changed_when: false
+      check_mode: false
+      tags: [always]
+
+    - name: Remember the previous version
+      ansible.builtin.set_fact:
+        previous_version: '{{ prev.stdout | trim }}'
+      tags: [always]
+
+  tasks:
+    - name: Deploy
+      block:
+        - name: Create the project directory
+          ansible.builtin.file:
+            path: '{{ project_dir }}'
+            state: directory
+            mode: '0750'
+          tags: [mutating]
+
+        - name: Copy the compose files
+          ansible.builtin.copy:
+            src: '{{ repo_root }}/{{ item }}'
+            dest: '{{ project_dir }}/{{ item }}'
+            mode: '0644'
+          loop: '{{ compose_names }}'
+          tags: [mutating]
+
+        - name: Copy the nginx templates
+          ansible.builtin.copy:
+            src: '{{ repo_root }}/nginx/'
+            dest: '{{ project_dir }}/nginx/'
+            mode: preserve
+          tags: [mutating]
+
+        - name: Write .env from the encrypted file
+          ansible.builtin.include_tasks:
+            file: tasks/write-env.yml
+            apply:
+              tags: [env]
+          tags: [env]
+
+        - name: Pin APP_VERSION in .env
+          ansible.builtin.lineinfile:
+            path: '{{ project_dir }}/.env'
+            regexp: '^APP_VERSION='
+            line: 'APP_VERSION={{ version }}'
+            mode: '0600'
+          diff: false
+          no_log: true
+          tags: [env, mutating]
+
+        - name: Pull the images
+          community.docker.docker_compose_v2_pull:
+            project_src: '{{ project_dir }}'
+            project_name: '{{ project_name }}'
+            files: '{{ compose_files }}'
+            policy: always
+          tags: [mutating]
+
+        # Prod only. A failed backup stops the deploy before migrations touch the DB.
+        # First prod deploy (no previous ok version): nothing to back up yet, so skipped.
+        - name: Fresh backup before migrating (prod)
+          ansible.builtin.command: '{{ dc }} run --rm --no-deps --entrypoint /app/backup.sh backup'
+          when: env == 'prod' and previous_version | length > 0 and not (skip_backup | bool) and not ansible_check_mode
+          tags: [mutating]
+
+        - name: Are migrations pending? (0 none, 2 pending, 1 error)
+          ansible.builtin.command: '{{ dc }} run --rm app node server/dist/scripts/migrate.js pending'
+          register: pending
+          changed_when: false
+          failed_when: pending.rc not in [0, 2]
+          when: not ansible_check_mode
+          tags: [mutating]
+
+        - name: Run migrations
+          ansible.builtin.command: '{{ dc }} run --rm app node server/dist/scripts/migrate.js run'
+          when: not ansible_check_mode and pending.rc == 2
+          tags: [mutating]
+
+        - name: Start the new version
+          ansible.builtin.include_tasks: tasks/compose-up.yml
+
+        - name: Wait until the app reports ready
+          ansible.builtin.command: >-
+            {{ dc }} exec -T app sh -c
+            'wget -qO- --header "X-Health-Token: $HEALTH_TOKEN" http://127.0.0.1:3000/api/health/ready'
+          register: ready
+          until: ready.rc == 0 and '"status":"fail"' not in (ready.stdout | replace(' ', ''))
+          retries: 24
+          delay: 5
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: Smoke test the public URL
+          ansible.builtin.command: node scripts/smoke-post-deploy.mjs --base-url https://{{ base_domain }}
+          args:
+            chdir: '{{ repo_root }}'
+          delegate_to: localhost
+          become: false
+          changed_when: false
+          when: base_domain | length > 0 and not ansible_check_mode
+
+        - name: Deploy ok
+          ansible.builtin.set_fact:
+            deploy_status: ok
+
+      rescue:
+        - name: Roll back to the previous version (migrations stay applied, D11)
+          when: previous_version | length > 0
+          block:
+            - name: Pin the previous APP_VERSION
+              ansible.builtin.lineinfile:
+                path: '{{ project_dir }}/.env'
+                regexp: '^APP_VERSION='
+                line: 'APP_VERSION={{ previous_version }}'
+              diff: false
+              no_log: true
+            - name: Start the previous version
+              ansible.builtin.include_tasks: tasks/compose-up.yml
+            - name: Note the rollback
+              ansible.builtin.set_fact:
+                deploy_status: rolled-back
+
+        - name: Fail so the operator sees it
+          ansible.builtin.fail:
+            msg: >-
+              {{ version }} failed.
+              {{ ('Rolled back to ' ~ previous_version ~ '. Migrations were NOT reverted.')
+                 if previous_version | length > 0 else 'No previous version to roll back to.' }}
+              If the app is still down: see 07-deployment "When rollback also fails".
+
+      always:
+        - name: Append to deploys.log
+          ansible.builtin.lineinfile:
+            path: '{{ project_dir }}/deploys.log'
+            line: "{{ lookup('pipe', 'date -u +%FT%TZ') }} {{ env }} {{ version }} {{ deploy_status | default('failed') }}"
+            create: true
+            mode: '0640'
+          when: not ansible_check_mode
