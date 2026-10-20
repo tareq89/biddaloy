@@ -1,0 +1,17 @@
+---
+import type { Lang } from '../../i18n';
+import { PRICE_PER_SEAT_PAISA, SLIDER, copy, formatMoney, formatNumber, total } from '../../content/pricing';
+import PriceTable from './PriceTable.astro';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const c = copy[lang];
+const { students: s, months: m } = SLIDER;
+const perMonth = c.perMonth.replace('{n}', formatMoney(lang, total(s.value, 1)));
+---
+<section class="soft"><div class="wrap narrow"><h2 class="h2">{c.calcH2}</h2>
+  <div class="calc-wrap" hidden data-calc data-price={PRICE_PER_SEAT_PAISA / 100} data-ev="pricing_slider">
+  <div class="calc" style="margin-top:1rem"><div><label for="students">{c.students} <strong id="sOut">{formatNumber(lang, s.value)}</strong></label><input id="students" type="range" min={s.min} max={s.max} step={s.step} value={s.value}></div><div><label for="months">{c.months} <strong id="mOut">{formatNumber(lang, m.value)}</strong></label><input id="months" type="range" min={m.min} max={m.max} step={m.step} value={m.value}></div></div>
+  <div class="total" style="margin-top:1rem"><span>{c.totalLabel}</span><output id="tOut" for="students months">{formatMoney(lang, total(s.value, m.value))}</output><span style="color:var(--muted);font-size:.9rem" id="pm" data-tpl={c.perMonth}>{perMonth}</span></div>
+  </div>
+  <PriceTable lang={lang} />
+</div></section>

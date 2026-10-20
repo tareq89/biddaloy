@@ -1,0 +1,45 @@
+---
+import Base from '../../layouts/Base.astro';
+import { LANGS, type Lang } from '../../i18n';
+import { copy } from '../../content/pricing';
+import PriceHero from '../../components/pricing/PriceHero.astro';
+import SeatCalculator from '../../components/pricing/SeatCalculator.astro';
+import HowToBuy from '../../components/pricing/HowToBuy.astro';
+import PricingFaq from '../../components/pricing/PricingFaq.astro';
+export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang } }));
+const lang = Astro.params.lang as Lang;
+const c = copy[lang];
+---
+<Base lang={lang} title={c.title}>
+  <div class="pricing">
+    <PriceHero lang={lang} />
+    <SeatCalculator lang={lang} />
+    <section><div class="wrap narrow">
+      <HowToBuy lang={lang} />
+      <PricingFaq lang={lang} />
+    </div></section>
+  </div>
+</Base>
+<script src="../../scripts/calculator.ts"></script>
+<style is:global>
+  /* Copied verbatim from landing-mockup-v5.html (shared lines 66–75, pricing lines 195–206),
+     scoped under .pricing because base.css is owned by another lane. */
+  .pricing section{padding-block:4rem}.pricing section.soft{background:var(--surface)}
+  .pricing .center{text-align:center}
+  .pricing .eyebrow{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:.6rem}
+  .pricing .h2{font-size:clamp(1.6rem,3.2vw,2.4rem);margin-bottom:.6rem}
+  .pricing .lead{color:var(--muted);max-width:62ch;font-size:1.05rem}.pricing .center .lead{margin-inline:auto}
+  .pricing .card{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:1.2rem;min-width:0;text-decoration:none;display:block}
+  .pricing .card h3{font-size:1.05rem;margin-bottom:.35rem}.pricing .card p{color:var(--muted);font-size:.95rem}
+  .pricing .badge{display:inline-block;font-size:.7rem;font-weight:600;letter-spacing:.03em;border-radius:999px;padding:.1rem .5rem;background:var(--amber-t);color:var(--amber);vertical-align:middle;margin-left:.3rem}
+  .pricing .price-big{font-size:clamp(2.4rem,6vw,4rem);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .pricing .calc{display:grid;gap:1rem;grid-template-columns:1fr 1fr;align-items:end}@media (max-width:700px){.pricing .calc{grid-template-columns:1fr}}
+  .pricing .calc label{display:block;font-size:.9rem;color:var(--muted);margin-bottom:.3rem}.pricing .calc input[type=range]{width:100%;accent-color:var(--ink)}
+  .pricing .total{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:1rem 1.2rem;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:.5rem}
+  .pricing .total output{font-size:1.8rem;font-weight:700;font-variant-numeric:tabular-nums}
+  .pricing table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.95rem}.pricing th,.pricing td{text-align:left;padding:.55rem .6rem;border-bottom:1px solid var(--line)}
+  .pricing th{color:var(--muted);font-weight:600;font-size:.8rem;letter-spacing:.04em;text-transform:uppercase}.pricing .tablewrap{overflow-x:auto}
+  .pricing .steps{counter-reset:s;display:grid;gap:1rem}.pricing .steps .card{position:relative;padding-left:3.2rem}
+  .pricing .steps .card::before{counter-increment:s;content:counter(s);position:absolute;left:1rem;top:1.2rem;width:1.6rem;height:1.6rem;border-radius:50%;background:var(--ink);color:var(--ink-fg);display:grid;place-items:center;font-weight:700;font-size:.9rem}
+  .pricing details{border-top:1px solid var(--line);padding:.8rem 0}.pricing summary{cursor:pointer;font-weight:600}.pricing details p{color:var(--muted);margin-top:.4rem;max-width:65ch}
+</style>
