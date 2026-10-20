@@ -1646,26 +1646,23 @@ export async function grantSeats(
   });
 }
 
-/** Gives a fresh school paid seats that run out in 20 days, which raises its WARNING
- * `seats.expiring` alert once the recheck runs (about 5 s on). The grant asks for that recheck;
- * the SQL then moves the order's period and sets the limit (a grant leaves it NULL in the free
- * period) inside the 5 s, so the delayed evaluation sees them. Uses its own super-admin context.
- * ponytail: raw SQL via the server's `pg`; swap for an endpoint if one appears. */
+/** Raises a fresh school's WARNING `seats.expiring` alert (about 5 s on) by its 90 %-used path:
+ * 9 ACTIVE students, then a grant (asks for the recheck) and a limit of 10 set inside those 5 s
+ * (a grant leaves the limit NULL in the free period). The 30-day path cannot fire here: inside
+ * `BILLING_FREE_UNTIL` a school is covered until the free period ends (`seatCover`).
+ * The students sit in a new, non-current year, so `attendance.not_taken` adds no alert.
+ * Uses its own super-admin context.
+ * ponytail: raw SQL via the server's `pg` for the limit; swap for an endpoint if one appears. */
 export async function raiseSeatsExpiring(
   playwright: import('@playwright/test').PlaywrightWorkerArgs['playwright'],
-  schoolId: string,
+  school: { api: APIRequestContext; session: ApiSession },
   baseURL: string,
 ): Promise<void> {
+  await createStudentsInSection(school.api, school.session, 'Seat', 9);
   const superAdmin = await playwright.request.newContext({ baseURL });
   try {
-    await grantSeats(superAdmin, schoolId, 25, 1);
-    await runSql(
-      `UPDATE seat_orders SET period_start = (now() AT TIME ZONE 'Asia/Dhaka')::date - 10,
-              period_end = (now() AT TIME ZONE 'Asia/Dhaka')::date + 20
-        WHERE school_id = $1 AND status = 'PAID'`,
-      [schoolId],
-    );
-    await setSeatLimit(schoolId, 25);
+    await grantSeats(superAdmin, school.session.tenantId, 25, 1);
+    await setSeatLimit(school.session.tenantId, 10);
   } finally {
     await superAdmin.dispose();
   }
