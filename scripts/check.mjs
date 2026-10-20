@@ -115,7 +115,7 @@ export function changedFiles(base) {
 
 // Packages with their own flat eslint.config.mjs — server's "lint" script
 // is `tsc -b` (stricter typecheck, not eslint), so it isn't part of this.
-const ESLINT_PACKAGES = ['ui', 'client-admin'];
+const ESLINT_PACKAGES = ['ui', 'client-admin', 'landing'];
 
 /**
  * Builds the shell command for the `lint` task.
