@@ -325,6 +325,7 @@
       "errors": {
         "reference": "Enter 3 to 100 characters.",
         "referenceInUse": "This number is already used for another order.",
+        "bkashLive": "The school started a bKash payment for this order in the last 24 hours. It may still go through, so wait and check before marking it paid.",
         "generic": "Could not record the payment. Try again."
       }
     },

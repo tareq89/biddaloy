@@ -44,6 +44,71 @@ _which_ payment to ask bKash about. The order is paid only when bKash itself ans
 Anything else redirects to the generic error page (`payment=error`) and changes nothing (Rule 23: the message never echoes
 the paymentID). Details go to the log, not the response.
 
+Before any of that, the callback costs **no bKash call** unless the paymentID is one we made:
+it must look like a bKash paymentID (`^[A-Za-z0-9]{1,64}$`) and `bkash:pid:<paymentID>` (set at
+create, 25 h) must name an order. bKash's own `merchantInvoiceNumber` must then be that same order.
+
+## Money bKash took for nothing
+
+Two paths have the money already captured but pay no order: the completed payment does not match
+the order (amount, currency or trxID), or the order is no longer `PENDING` (paid offline meanwhile).
+Both still write a `platform_payments` row, flagged as an **orphan**, so the money is never lost:
+
+```json
+{
+  "method": "BKASH",
+  "gateway_ref": "TRX1",
+  "amount_paisa": 300000,
+  "raw": { "trxID": "TRX1", "orphan": true, "orphan_reason": "ORDER_NOT_PENDING", "...": "..." }
+}
+```
+
+- It is keyed on `(method, gateway_ref)`, so a replay, or the same trxID that did pay the order,
+  inserts nothing (`ON CONFLICT DO NOTHING`).
+- Orphans never count as the order's payment method or receipt.
+- The **`platform.bkash.refund_due`** alert (critical, hourly) shows the platform SUPER_ADMIN the
+  count and trxIDs until each one is refunded. After refunding in the bKash merchant panel, stamp it:
+
+```sql
+UPDATE platform_payments SET raw = raw || jsonb_build_object('refunded_at', now())
+ WHERE method = 'BKASH' AND gateway_ref = 'TRX1';
+```
+
+The browser still gets the generic error redirect (Rule 23).
+
+## Pay route answers
+
+| Answer | `details.code`      | Meaning                                    | Buy dialog                |
+| ------ | ------------------- | ------------------------------------------ | ------------------------- |
+| 404    | -                   | not this school's order                    | back to the form, new key |
+| 409    | `ORDER_NOT_PENDING` | order is `PAID`/`FAILED`/...               | back to the form, new key |
+| 409    | `PAYMENT_STARTING`  | another click is creating the payment      | stays on Pay, same order  |
+| 503    | -                   | bKash not configured or refused the create | stays on Pay, same key    |
+
+Only a closed order gets a new idempotency key, so a double click never makes a second `PENDING` order.
+
+## Offline payment (platform console)
+
+The platform SUPER_ADMIN marks a `PENDING` order paid by bank slip or cash:
+`POST /platform/billing/orders/:id/offline-payment` with `{ method, reference, idempotency_key }`.
+
+- **One slip, one order.** `reference` is stored normalised (upper-case, spaces and dashes removed),
+  so `ABC-123`, `abc-123` and `ABC 123` are all `ABC123` and the `(method, gateway_ref)` key
+  refuses the second order.
+- **Not while bKash may still land.** If `bkash:pay:<orderId>` holds a paymentID started under 24 h
+  ago (the reconciler's window), or a bKash create is in flight, the answer is a 409: paying offline
+  too could charge the school twice. Redis down answers 503 (it cannot tell, so it refuses).
+
+| Answer | `details.code`       | Meaning                                     |
+| ------ | -------------------- | ------------------------------------------- |
+| 200    | -                    | `applied: true`, or `false` if already paid |
+| 404    | -                    | no such order                               |
+| 409    | `ORDER_NOT_PENDING`  | order is `FAILED`/`CANCELLED`/`REFUNDED`    |
+| 409    | `BKASH_PAYMENT_LIVE` | a bKash payment for it may still complete   |
+| 409    | `REFERENCE_IN_USE`   | that slip already paid another order        |
+
+The record-payment dialog shows its own sentence for each 409 code, never the server's text.
+
 ## Idempotency
 
 `OrdersService.markPaid` does `UPDATE ... WHERE status = 'PENDING'`. A replayed callback finds
@@ -62,6 +127,9 @@ adds seats (see [22-onboarding.md](22-onboarding.md#free-period-and-seats)).
 
 - **Cancelled or failed return**: the order stays `PENDING`. It is never set `FAILED` from the
   callback, because a late payment could still arrive and the order must be able to take it.
+  The dead checkout URL is dropped from `bkash:pay:<orderId>` (the paymentID stays, for the
+  reconciler), so the next Pay creates a new bKash payment instead of handing back the dead page.
+  A double start is locked by `bkash:creating:<orderId>` (`SET NX`, 60 s).
 - **Callback lost** (browser closed, execute timed out): `BkashReconciler` (BullMQ, every 10 min)
   asks bKash `query` about `PENDING` orders whose payment started under 24 h ago and settles the ones that are already `Completed` (e.g. `execute` worked but `markPaid` failed). A payment the customer approved but never executed is not completed by bKash and lapses unpaid, so no money moves and the admin pays again. After a callback fails, the callback re-queries once after 1 s (not 3 times).
   The order id to paymentID link lives in Redis (`bkash:pay:<orderId>`, 25 h), so no new table.

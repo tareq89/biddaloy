@@ -119,7 +119,7 @@ export class OrdersService {
       `SELECT o.id, o.school_id, o.seats, o.months, o.unit_price_paisa, o.amount_paisa,
   o.period_start::text AS period_start, o.period_end::text AS period_end, o.status,
   (SELECT p.method FROM platform_payments p WHERE p.seat_order_id = o.id
-    ORDER BY p.created_at DESC LIMIT 1) AS method,
+    AND (p.raw->>'orphan') IS DISTINCT FROM 'true' ORDER BY p.created_at DESC LIMIT 1) AS method,
   o.receipt_number, o.paid_at, o.created_at FROM seat_orders o WHERE o.school_id = $1 AND o.idempotency_key = $2`,
       [input.schoolId, input.idempotency_key],
     );
@@ -256,7 +256,7 @@ export class OrdersService {
       `SELECT o.id, o.school_id, o.seats, o.months, o.unit_price_paisa, o.amount_paisa,
   o.period_start::text AS period_start, o.period_end::text AS period_end, o.status,
   (SELECT p.method FROM platform_payments p WHERE p.seat_order_id = o.id
-    ORDER BY p.created_at DESC LIMIT 1) AS method,
+    AND (p.raw->>'orphan') IS DISTINCT FROM 'true' ORDER BY p.created_at DESC LIMIT 1) AS method,
   o.receipt_number, o.paid_at, o.created_at FROM seat_orders o WHERE o.school_id = $1
         ORDER BY o.created_at DESC LIMIT $2 OFFSET $3`,
       [schoolId, Math.min(Math.max(limit, 1), 100), Math.max(offset, 0)],

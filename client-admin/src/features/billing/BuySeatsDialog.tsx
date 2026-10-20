@@ -37,6 +37,8 @@ export interface BuySeatsDialogProps {
   onPay?: (orderId: string) => void;
   paying?: boolean;
   payFailed?: boolean;
+  /** The server closed the order (not PENDING / gone): the next submit must use a new key. */
+  payClosed?: boolean;
   /** `idempotency_key` is the same for every retry until the dialog is reopened. */
   onSubmit: (input: { seats: number; months: number; idempotency_key: string }) => void;
 }
@@ -52,6 +54,7 @@ export function BuySeatsDialog({
   onPay,
   paying,
   payFailed,
+  payClosed,
   onSubmit,
 }: BuySeatsDialogProps) {
   const { t } = useTranslation('billing');
@@ -63,10 +66,11 @@ export function BuySeatsDialog({
 
   // A fresh open: new prefill, new key, no stale errors. Keyed on `open` only, so a background
   // refetch changing `initialSeats` never overwrites what the admin is typing.
-  // A refused payment may have closed the order: the next submit must make a new one, not get it back.
+  // The server closed the order: the next submit must make a new one, not get it back. Any other
+  // pay failure keeps the key, so a retry can never create a second PENDING order.
   React.useEffect(() => {
-    if (payFailed) setKey(crypto.randomUUID());
-  }, [payFailed]);
+    if (payClosed) setKey(crypto.randomUUID());
+  }, [payClosed]);
 
   const initialRef = React.useRef(initialSeats);
   initialRef.current = initialSeats;
