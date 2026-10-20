@@ -26,7 +26,7 @@ test('record an offline payment, then grant seats: the seats-bought tile follows
     await post(registrar, school.session, '/billing/orders', {
       seats: 40,
       months: 3,
-      idempotency_key: `e2e-order-${crypto.randomUUID()}`,
+      idempotency_key: crypto.randomUUID(),
     });
   } finally {
     await registrar.dispose();
