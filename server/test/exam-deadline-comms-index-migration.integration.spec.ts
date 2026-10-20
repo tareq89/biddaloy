@@ -63,7 +63,18 @@ describe('ExamMarkEntryDeadlineAndCommsIndex1791900000100 (integration)', () => 
   it('the failed-message count query uses the new index', async () => {
     await queryRunner.startTransaction();
     try {
-      // Tiny table: forbid the seq scan so the planner shows which index it prefers.
+      // On a near-empty table every index costs the same and the planner may pick the
+      // plain tenant index (seen in CI). Rows where FAILED is rare make the composite
+      // index the only cheap plan; the seq-scan ban keeps a small table from short-cutting.
+      await queryRunner.query(
+        `INSERT INTO communication_logs
+           (tenant_id, medium, recipient_address, recipient_name, message_body, status, created_at, updated_at)
+         SELECT $1, 'SMS', '01700000000', 'n', 'm',
+                (CASE WHEN i % 100 = 0 THEN 'FAILED' ELSE 'SENT' END)::communication_logs_status_enum,
+                now() - (i || ' minutes')::interval, now()
+         FROM generate_series(1, 500) AS i`,
+        ['00000000-0000-4000-8000-000000000001'],
+      );
       await queryRunner.query(`SET LOCAL enable_seqscan = off`);
       await queryRunner.query(`ANALYZE communication_logs`);
       const plan: Array<{ 'QUERY PLAN': string }> = await queryRunner.query(
