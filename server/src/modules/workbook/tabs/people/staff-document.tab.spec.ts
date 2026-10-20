@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ImportContext, RowError } from '../../codec/tab-spec';
+import { StaffDocument } from '../../../staff-hr/entities/staff-document.entity';
 import { staffDocumentTab } from './staff-document.tab';
 
 const TENANT_ID = '11111111-1111-4111-8111-111111111111';
@@ -71,5 +72,40 @@ describe('staffDocumentTab storage_key (DATA-02)', () => {
     if ('errors' in result) throw new Error(JSON.stringify(result.errors));
     expect(result.row.storage_key).toBe(key);
     expect(c.warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('staffDocumentTab keyOf with a departed staff member (#2668)', () => {
+  const ID = '7f3e4b2a-1c5d-4e8f-9a6b-2d1c3e4f5a6b';
+
+  it('keys a blank staff cell by the row id, the same on the row and the entity branch', () => {
+    const result = staffDocumentTab.fromRow({ ...cells('tenants/x/y'), staff: '' }, 2, ctx());
+    const row = 'row' in result ? result.row : undefined;
+    // storage_key is rejected for the foreign tenant, so build the row by hand.
+    const built = row ?? {
+      id: ID,
+      staff_user_id: null,
+      document_type: 'NID',
+      storage_key: '',
+      original_filename: '',
+      content_type: '',
+      staff_key: '',
+    };
+    const entity = Object.assign(new StaffDocument(), { id: ID, document_type: 'NID' });
+    expect(staffDocumentTab.keyOf(built as any)).toBe(`#${ID}|NID`);
+    expect(staffDocumentTab.keyOf(entity)).toBe(`#${ID}|NID`);
+  });
+
+  it('two departed staff with the same document type get different keys', () => {
+    const a = Object.assign(new StaffDocument(), { id: 'id-a', document_type: 'NID' });
+    const b = Object.assign(new StaffDocument(), { id: 'id-b', document_type: 'NID' });
+    expect(staffDocumentTab.keyOf(a)).not.toBe(staffDocumentTab.keyOf(b));
+  });
+
+  it('a blank staff cell is accepted by fromRow (the column is required on a new row only)', () => {
+    const key = `tenants/${TENANT_ID}/staff-documents/a.pdf`;
+    const result = staffDocumentTab.fromRow({ ...cells(key), staff: '' }, 2, ctx());
+    if ('errors' in result) throw new Error(JSON.stringify(result.errors));
+    expect(result.row.staff_user_id).toBeNull();
   });
 });

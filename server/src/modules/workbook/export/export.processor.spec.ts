@@ -364,20 +364,11 @@ describe('ExportProcessor', () => {
 /**
  * Registry: a strict `ctx.keyOf('users', ...)` throws when the user is not in
  * the `users` tab (a departed member or a SUPER_ADMIN), which fails the whole
- * export. Actor columns use `optionalKeyOf`. These are the only reviewed
- * strict sites: each links a profile row to its own login. They still fail if
- * that login's membership ends while the profile row stays (product call,
- * tracked in #2668). The number is how many strict calls the file has.
+ * export. Every users column uses `optionalKeyOf`, which writes a blank cell
+ * (#2625 actors, #2668 profile logins). The map is empty on purpose: a new
+ * strict site fails CI until it is reviewed and listed here.
  */
-const STRICT_USER_KEYOF = new Map<string, number>([
-  ['people/guardians.tab.ts', 1], // guardian profile -> its login
-  ['people/staff-child-tab.factory.ts', 1], // staff child rows -> the staff member
-  ['people/staff-designation-history.tab.ts', 1], // staff child row
-  ['people/staff-document.tab.ts', 1], // staff child row
-  ['people/staff-profile.tab.ts', 1], // staff profile -> its login
-  ['people/students.tab.ts', 1], // student profile -> its login
-  ['people/teachers.tab.ts', 1], // teacher profile -> its login
-]);
+const STRICT_USER_KEYOF = new Map<string, number>();
 
 function strictUserKeyOfCounts(dir: string, root = dir, out = new Map<string, number>()) {
   for (const name of readdirSync(dir)) {

@@ -1,6 +1,7 @@
 import type { EntityManager, EntityTarget } from 'typeorm';
-import { usersTab } from './users.tab';
+import { memberKeysById, usersTab } from './users.tab';
 import { fromCell } from '../../codec/cell-format';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import type {
   ColumnSpec,
   ExportContext,
@@ -61,7 +62,7 @@ export function createStaffChildTab<E extends { id: string }>(
       key: 'staff',
       type: 'ref',
       ref: 'users',
-      required: true,
+      requiredOnNewRow: true,
       label: { en: 'Staff', bn: 'কর্মী' },
     },
     ...fields.map((f) => ({
@@ -88,18 +89,29 @@ export function createStaffChildTab<E extends { id: string }>(
     // TabSpec.allowDuplicateKeys.
     allowDuplicateKeys: true,
 
-    load(tenantId: string, m: EntityManager): Promise<E[]> {
-      return m.find(entityClass, {
+    async load(tenantId: string, m: EntityManager): Promise<E[]> {
+      const rows = await m.find(entityClass, {
         where: { tenant_id: tenantId } as never,
         relations: [staffFkKey],
       });
+      // A staff member who has left exports as a blank cell, so key them as blank too.
+      const members = await memberKeysById(
+        tenantId,
+        rows.map((r) => (r as unknown as Record<string, string>)[staffFkIdKey]),
+        m,
+      );
+      for (const r of rows) {
+        const rec = r as unknown as Record<string, unknown>;
+        if (!members.has(rec[staffFkIdKey] as string)) rec[staffFkKey] = undefined;
+      }
+      return rows;
     },
 
     toRow(row: E, ctx: ExportContext): Record<string, unknown> {
       const rowRec = row as unknown as Record<string, unknown>;
       const out: Record<string, unknown> = {
         id: rowRec.id,
-        staff: ctx.keyOf('users', rowRec[staffFkIdKey] as string),
+        staff: optionalKeyOf(ctx, 'users', rowRec[staffFkIdKey] as string),
       };
       for (const f of fields) {
         out[f.key] = (row as unknown as Record<string, unknown>)[f.key];
@@ -128,8 +140,8 @@ export function createStaffChildTab<E extends { id: string }>(
       if (errors.length > 0) return { errors };
 
       const staffKey = values.staff as string;
-      const staffUserId = ctx.ref('users', staffKey);
-      if (!staffUserId) {
+      const staffUserId = staffKey ? ctx.ref('users', staffKey) : undefined;
+      if (staffKey && !staffUserId) {
         errors.push({
           tab: name,
           row: rowNo,
@@ -144,7 +156,7 @@ export function createStaffChildTab<E extends { id: string }>(
 
       const out: Record<string, unknown> = {
         id: values.id,
-        [staffFkIdKey]: staffUserId,
+        [staffFkIdKey]: staffUserId ?? null,
         staff_key: staffKey,
       };
       for (const f of fields) {
@@ -161,13 +173,15 @@ export function createStaffChildTab<E extends { id: string }>(
           ? usersTab.keyOf(rec[staffFkKey] as never)
           : ''
         : ((rec.staff_key as string) ?? '');
+      // A departed staff member is blank; key by the row id so two of them stay two rows.
+      const staffPart = staffKey || `#${String(rec.id ?? '')}`;
       const rest = naturalKeyFields.map((key) => {
         const raw = isEntity
           ? (x as unknown as Record<string, unknown>)[key]
           : (x as Record<string, unknown>)[key];
         return raw == null ? '' : String(raw);
       });
-      return [staffKey, ...rest].join('|');
+      return [staffPart, ...rest].join('|');
     },
 
     diffFields(row: Record<string, unknown>, existing: E): string[] {
@@ -189,8 +203,11 @@ export function createStaffChildTab<E extends { id: string }>(
       m: EntityManager,
     ): Promise<E> {
       const entityInstance = (existing ?? new entityClass()) as unknown as Record<string, unknown>;
+      // NOT NULL: a blank cell (a departed member) never clears the stored staff member.
+      const staffUserId = row[staffFkIdKey] ?? entityInstance[staffFkIdKey];
+      if (!staffUserId) throw new Error(`${name} row needs a staff member.`);
       entityInstance.tenant_id = tenantId;
-      entityInstance[staffFkIdKey] = row[staffFkIdKey];
+      entityInstance[staffFkIdKey] = staffUserId;
       for (const f of fields) {
         entityInstance[f.key] = row[f.key] ?? null;
       }

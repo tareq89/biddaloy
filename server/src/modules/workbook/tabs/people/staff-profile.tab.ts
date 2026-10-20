@@ -1,6 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { StaffProfile } from '../../../staff-profiles/entities/staff-profile.entity';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import type {
   ColumnSpec,
   ExportContext,
@@ -30,7 +31,8 @@ import type {
  */
 export interface StaffProfileRow {
   id: string;
-  user_id: string;
+  /** Null when the cell is blank (the member left); the stored login is kept. */
+  user_id: string | null;
   employee_id: string;
   joining_date: string | null; // 'YYYY-MM-DD'
   // The `users` tab's own natural key, kept alongside the resolved `user_id`
@@ -44,7 +46,7 @@ const columns: readonly ColumnSpec[] = [
     key: 'user',
     type: 'ref',
     ref: 'users',
-    required: true,
+    requiredOnNewRow: true,
     label: { en: 'User', bn: 'ব্যবহারকারী' },
   },
   {
@@ -90,7 +92,7 @@ export const staffProfileTab: TabSpec<StaffProfile, StaffProfileRow> = {
   toRow(entity: StaffProfile, ctx: ExportContext): Record<string, unknown> {
     return {
       id: entity.id,
-      user: ctx.keyOf('users', entity.user_id),
+      user: optionalKeyOf(ctx, 'users', entity.user_id),
       employee_id: entity.employee_id,
       joining_date: entity.joining_date,
     };
@@ -131,8 +133,8 @@ export const staffProfileTab: TabSpec<StaffProfile, StaffProfileRow> = {
     if (errors.length > 0) return { errors };
 
     const userKey = values.user as string;
-    const userId = ctx.ref('users', userKey);
-    if (!userId) {
+    const userId = userKey ? ctx.ref('users', userKey) : undefined;
+    if (userKey && !userId) {
       errors.push({
         tab: 'staff_profiles',
         row: rowNo,
@@ -148,7 +150,7 @@ export const staffProfileTab: TabSpec<StaffProfile, StaffProfileRow> = {
     return {
       row: {
         id: values.id as string,
-        user_id: userId as string,
+        user_id: userId ?? null,
         employee_id: values.employee_id as string,
         joining_date: (values.joining_date as string | null) ?? null,
         user_key: userKey,
@@ -162,7 +164,7 @@ export const staffProfileTab: TabSpec<StaffProfile, StaffProfileRow> = {
 
   diffFields(row: StaffProfileRow, existing: StaffProfile): string[] {
     const changed: string[] = [];
-    if (row.user_id !== existing.user_id) changed.push('user_id');
+    if (row.user_id && row.user_id !== existing.user_id) changed.push('user_id');
     if (row.employee_id !== existing.employee_id) changed.push('employee_id');
     const rowJoiningDate = row.joining_date;
     const existingJoiningDate = existing.joining_date
@@ -192,13 +194,16 @@ export const staffProfileTab: TabSpec<StaffProfile, StaffProfileRow> = {
     // employee id edited after export): `m.save` would hit 23505 and abort
     // the restore, so name it instead — same as `teachers.tab.ts`. With no
     // match by employee id, the user's own profile is taken over.
-    if (staffProfile?.user_id !== row.user_id) {
+    // The login is NOT NULL, so a blank cell (a departed member) never clears it.
+    const userId = row.user_id ?? staffProfile?.user_id;
+    if (!userId) throw new Error(`Staff profile "${row.employee_id}" needs a login.`);
+    if (staffProfile?.user_id !== userId) {
       const byUser = await m.findOne(StaffProfile, {
-        where: { tenant_id: tenantId, user_id: row.user_id },
+        where: { tenant_id: tenantId, user_id: userId },
       });
       if (byUser && staffProfile && byUser.id !== staffProfile.id) {
         throw new Error(
-          `Staff profile with user "${row.user_key || row.user_id}" already belongs to a ` +
+          `Staff profile with user "${row.user_key || userId}" already belongs to a ` +
             `different staff profile and cannot be reassigned by a restore.`,
         );
       }
@@ -207,7 +212,7 @@ export const staffProfileTab: TabSpec<StaffProfile, StaffProfileRow> = {
     staffProfile ??= new StaffProfile();
 
     staffProfile.tenant_id = tenantId;
-    staffProfile.user_id = row.user_id;
+    staffProfile.user_id = userId;
     staffProfile.employee_id = row.employee_id;
     // `Date(row.joining_date)` would parse the ISO string as UTC midnight,
     // then TypeORM's Postgres driver formats a `Date` value via local
