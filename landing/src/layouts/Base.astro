@@ -8,8 +8,8 @@ import Footer from '../components/Footer.astro';
 import ConsentBar from '../components/ConsentBar.astro';
 import Analytics from '../components/Analytics.astro';
 
-interface Props { lang: Lang; title?: string; description?: string }
-const { lang, title, description } = Astro.props;
+interface Props { lang: Lang; title?: string; description?: string; noindex?: boolean }
+const { lang, title, description, noindex } = Astro.props;
 const t = useTranslations(lang);
 const rest = Astro.url.pathname.replace(/^\/(bn|en)(?=\/|$)/, '');
 const alt = (l: string) => new URL(`/${l}${rest}`, Astro.site).href;
@@ -23,6 +23,7 @@ const desc = description ?? t('site.description');
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{pageTitle}</title>
     <meta name="description" content={desc} />
+    {noindex && <meta name="robots" content="noindex" />}
     <meta name="theme-color" content="#ffffff" />
     <script is:inline>
       (function () {

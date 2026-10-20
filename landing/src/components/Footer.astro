@@ -25,9 +25,9 @@ const ext = { target: '_blank', rel: 'noopener' };
       </div>
       <div>
         <h4>{t('footer.audience')}</h4>
-        <a href={DOCS_URL} {...ext}>{t('footer.schools')}</a>
-        <a href={DOCS_URL} {...ext}>{t('footer.madrasa')}</a>
-        <a href={DOCS_URL} {...ext}>{t('footer.english')}</a>
+        <a href={`/${lang}/for/school/`}>{t('footer.schools')}</a>
+        <a href={`/${lang}/for/madrasa/`}>{t('footer.madrasa')}</a>
+        <a href={`/${lang}/for/english-medium/`}>{t('footer.english')}</a>
         <a href={DOCS_URL} {...ext}>{t('footer.guardians')}</a>
       </div>
       <div>

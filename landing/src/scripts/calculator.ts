@@ -23,8 +23,8 @@ if (wrap && s && m) {
   };
   const on = () => {
     calc();
-    if (!timer) timer = window.setTimeout(() => {
-      timer = 0;
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
       try { window.umami?.track?.(wrap.dataset.ev || 'pricing_slider', { students: +s.value, months: +m.value }); } catch { /* opt-out */ }
     }, 300);
   };
