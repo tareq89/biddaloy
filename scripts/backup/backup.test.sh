@@ -32,12 +32,18 @@ mkdir -p "$SHIM/bin" "$SHIM/lists"
 cat >"$SHIM/bin/aws" <<'EOS'
 #!/usr/bin/env bash
 echo "aws $*" >>"$SHIM/log"
+[[ "$1" == --endpoint-url ]] && shift 2
 if [[ "$1 $2" == "s3api list-objects-v2" ]]; then
-  prefix=""; while [[ $# -gt 0 ]]; do [[ "$1" == "--prefix" ]] && prefix="$2"; shift; done
+  prefix=""; newest=0; while [[ $# -gt 0 ]]; do [[ "$1" == "--prefix" ]] && prefix="$2"; [[ "$1" == *sort_by* ]] && newest=1; shift; done
   f="$SHIM/lists/$(echo "$prefix" | tr '/' '_')"
-  if [[ -f "$f" ]]; then cat "$f"; else echo None; fi
+  [[ -z "$prefix" ]] && f="$SHIM/lists/_live"
+  if [[ ! -f "$f" ]]; then echo None; elif [[ $newest == 1 ]]; then tail -n1 "$f"; else cat "$f"; fi
 elif [[ "$1 $2" == "s3 rm" && "${AWS_FAIL_RM:-}" == 1 ]]; then exit 1
-elif [[ "$*" == *" - s3://"* ]]; then cat >/dev/null; fi
+elif [[ "$*" == *" - s3://"* ]]; then cat >/dev/null
+elif [[ "$1 $2" == "s3 cp" ]]; then
+  last="${*: -1}"
+  if [[ "$last" == "-" ]]; then cat "$SHIM/livefile"; elif [[ "$last" != s3://* ]]; then echo bytes >"$last"; fi
+fi
 exit 0
 EOS
 cat >"$SHIM/bin/rclone" <<'EOS'
@@ -45,6 +51,7 @@ cat >"$SHIM/bin/rclone" <<'EOS'
 echo "rclone $*" >>"$SHIM/log"
 case "$1" in
   obscure) cat >/dev/null; echo "obscured" ;;
+  cat) if [[ "${RCLONE_BAD:-}" == 1 ]]; then echo different; else cat "$SHIM/livefile"; fi ;;
   sync)
     echo "confperm $(ls -l "$RCLONE_CONFIG" | cut -c1-10)" >>"$SHIM/log"
     echo "confnocheck $(grep -c 'no_check_bucket = true' "$RCLONE_CONFIG")" >>"$SHIM/log"
@@ -64,7 +71,28 @@ echo "curl $*" >>"$SHIM/log"; exit 0
 EOS
 # shellcheck disable=SC2016
 printf '#!/usr/bin/env bash\n[[ "${PG_FAIL:-}" == 1 ]] && exit 1\necho dump\n' >"$SHIM/bin/pg_dump"
-printf '#!/usr/bin/env bash\ncat\n' >"$SHIM/bin/age"
+cat >"$SHIM/bin/age" <<'EOS'
+#!/usr/bin/env bash
+if [[ "$1" == "--decrypt" ]]; then
+  while [[ $# -gt 0 ]]; do [[ "$1" == "-o" ]] && echo dump >"$2"; shift; done
+  exit 0
+fi
+cat
+EOS
+cat >"$SHIM/bin/pg_restore" <<'EOS'
+#!/usr/bin/env bash
+echo "pg_restore $*" >>"$SHIM/log"
+[[ "${RESTORE_FAIL:-}" == 1 ]] && exit 1
+exit 0
+EOS
+cat >"$SHIM/bin/psql" <<'EOS'
+#!/usr/bin/env bash
+echo "psql $*" >>"$SHIM/log"
+if [[ "$*" == *" -f "* ]]; then
+  if [[ "$1" == *drill* ]]; then cat "$SHIM/drill.csv"; else cat "$SHIM/live.csv"; fi
+fi
+exit 0
+EOS
 chmod +x "$SHIM"/bin/*
 
 # run_shim [VAR=value ...]: runs backup.sh in R2 mode with the given overrides.
@@ -210,6 +238,84 @@ if command -v rclone >/dev/null 2>&1; then
 else
   echo "SKIP: real-rclone case (rclone not installed)"
 fi
+
+# ---------------------------------------------------------------------------
+# Drill cases: drill.sh runs for real against the same shims; psql prints
+# $SHIM/drill.csv for the scratch URL (contains "drill") and live.csv otherwise.
+# ---------------------------------------------------------------------------
+echo "key" >"$SHIM/key"; echo "file-bytes" >"$SHIM/livefile"
+printf 'students,5,1\nusers,3,\n' >"$SHIM/live.csv"
+printf 'students,4,1\nusers,3,\n' >"$SHIM/drill.csv"
+printf 'db/hourly/20261020T090000Z.dump.age\ndb/hourly/20261020T100000Z.dump.age\n' >"$SHIM/lists/db_hourly_"
+printf 'tenants/a.png\n' >"$SHIM/lists/tenants_"
+
+run_drill() {
+  : >"$SHIM/log"
+  env -i PATH="$SHIM/bin:$PATH" SHIM="$SHIM" HOME="$SHIM" \
+    DATABASE_URL=postgres://u:p@h/d BACKUP_AGE_PRIVATE_KEY_FILE="$SHIM/key" \
+    S3_BUCKET=src S3_ENDPOINT=http://seaweedfs:8333 S3_ALLOW_INSECURE_HTTP=true \
+    S3_REGION=us-east-1 S3_ACCESS_KEY_ID=ak S3_SECRET_ACCESS_KEY=sk \
+    BACKUP_S3_ENDPOINT=https://acct.r2.cloudflarestorage.com BACKUP_S3_BUCKET=r2b \
+    BACKUP_S3_ACCESS_KEY_ID=rk BACKUP_S3_SECRET_ACCESS_KEY=rs \
+    BACKUP_RCLONE_CRYPT_PASSWORD=cp BACKUP_RCLONE_CRYPT_SALT=cs \
+    DRILL_PUSH_URL=https://kuma.example/api/push/tok "$@" bash "$SCRIPT_DIR/drill.sh" >"$SHIM/out" 2>&1
+}
+
+# D1. happy path: newest key restored with --no-migrate semantics, scratch DB
+#     created then dropped, live >= drill passes, file round-trips, up push.
+run_drill || shim_fail "drill happy path failed"
+has "s3://r2b/db/hourly/20261020T100000Z.dump.age"
+hasnt "20261020T090000Z"
+has "pg_restore .* -d postgres://u:p@h/biddaloy_drill"
+has "CREATE DATABASE \"biddaloy_drill\""
+has "DROP DATABASE IF EXISTS \"biddaloy_drill\""
+has "rclone cat r2crypt:files/tenants/a.png"
+has "status=up&msg=ok-2-tables"
+if grep -q tok "$SHIM/out"; then shim_fail "drill push token leaked into output"; fi
+echo "PASS: drill picks newest key, restores to scratch DB, drops it, pushes up"
+
+# D2. refuses the live URL and any non-scratch name; touches no database.
+if run_drill DRILL_DATABASE_URL=postgres://u:p@h/d; then shim_fail "same-URL drill must fail"; fi
+hasnt "CREATE DATABASE"; hasnt "DROP DATABASE"; has "status=down&msg=config"
+if run_drill DRILL_DATABASE_URL=postgres://u:p@h/prod; then shim_fail "non-scratch name must fail"; fi
+hasnt "CREATE DATABASE"; hasnt "DROP DATABASE"
+echo "PASS: drill refuses live URL and non-scratch names"
+
+# D3. a failing restore still drops the scratch DB and pushes the step name.
+if run_drill RESTORE_FAIL=1; then shim_fail "restore failure must fail the drill"; fi
+has "DROP DATABASE IF EXISTS"; has "status=down&msg=restore"; hasnt "status=up"
+echo "PASS: failed restore drops scratch DB and pushes down"
+
+# D4. drill above live fails; drill zero with live non-zero fails.
+printf 'students,6,1\nusers,3,\n' >"$SHIM/drill.csv"
+if run_drill; then shim_fail "drill > live must fail"; fi
+has "status=down&msg=counts"; has "DROP DATABASE IF EXISTS"
+printf 'students,0,0\nusers,3,\n' >"$SHIM/drill.csv"
+if run_drill; then shim_fail "drill 0 with live > 0 must fail"; fi
+has "status=down&msg=counts"
+printf 'students,4,1\nusers,3,\n' >"$SHIM/drill.csv"
+echo "PASS: count comparison (drill > live, drill 0 vs live > 0)"
+
+# D5. a file whose R2 copy differs fails the drill.
+if run_drill RCLONE_BAD=1; then shim_fail "file mismatch must fail"; fi
+has "status=down&msg=file-roundtrip"
+echo "PASS: file round-trip mismatch fails"
+
+# D6. no dump in R2 fails at find-dump.
+rm -f "$SHIM/lists/db_hourly_"
+if run_drill; then shim_fail "missing dump must fail"; fi
+has "status=down&msg=find-dump"; hasnt "CREATE DATABASE"
+rm -f "$SHIM"/lists/*
+echo "PASS: no dump found fails"
+
+# D7. entrypoint writes both crontab lines and rejects a bad DRILL_SCHEDULE.
+mkdir -p "$SHIM/app"
+sed "s#/app/crontab#$SHIM/app/crontab#g; s#exec supercronic.*#cat $SHIM/app/crontab#" "$SCRIPT_DIR/entrypoint.sh" >"$SHIM/entry.sh"
+EP=(env -i PATH="$PATH" BACKUP_S3_ENDPOINT=x BACKUP_S3_BUCKET=x BACKUP_S3_ACCESS_KEY_ID=x BACKUP_S3_SECRET_ACCESS_KEY=x BACKUP_RCLONE_CRYPT_PASSWORD=x BACKUP_RCLONE_CRYPT_SALT=x DATABASE_URL=x BACKUP_AGE_PUBLIC_KEY=x S3_BUCKET=x S3_ENDPOINT=x S3_REGION=x S3_ACCESS_KEY_ID=x S3_SECRET_ACCESS_KEY=x)
+"${EP[@]}" bash "$SHIM/entry.sh" | grep -q '^30 3 \* \* 0 /app/drill.sh$' || shim_fail "drill crontab line missing"
+if "${EP[@]}" DRILL_SCHEDULE='* * * * * ; rm -rf /' bash "$SHIM/entry.sh" >/dev/null 2>&1; then shim_fail "bad DRILL_SCHEDULE must fail"; fi
+if "${EP[@]}" BACKUP_S3_ENDPOINT= BACKUP_S3_BUCKET= BACKUP_S3_ACCESS_KEY_ID= BACKUP_S3_SECRET_ACCESS_KEY= BACKUP_RCLONE_CRYPT_PASSWORD= BACKUP_RCLONE_CRYPT_SALT= bash "$SHIM/entry.sh" | grep -q drill.sh; then shim_fail "legacy mode must not schedule the drill"; fi
+echo "PASS: crontab has drill line, bad DRILL_SCHEDULE rejected"
 
 if [[ "${1:-}" == "--shim" ]]; then
   echo "backup.test.sh: shim cases passed"

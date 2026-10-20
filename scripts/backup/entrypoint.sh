@@ -13,8 +13,15 @@ BACKUP_SCHEDULE="${BACKUP_SCHEDULE:-0 * * * *}"
 # backup credentials. Accept exactly one five-field cron expression (each
 # field: digits, `*`, `,`, `-`, `/`) and nothing else.
 cron_field='[0-9*/,-]+'
-if ! [[ "$BACKUP_SCHEDULE" =~ ^${cron_field}[[:space:]]+${cron_field}[[:space:]]+${cron_field}[[:space:]]+${cron_field}[[:space:]]+${cron_field}$ ]]; then
+cron_re="^${cron_field}[[:space:]]+${cron_field}[[:space:]]+${cron_field}[[:space:]]+${cron_field}[[:space:]]+${cron_field}$"
+if ! [[ "$BACKUP_SCHEDULE" =~ $cron_re ]]; then
   echo "entrypoint.sh: BACKUP_SCHEDULE must be a single five-field cron expression, got '${BACKUP_SCHEDULE}'" >&2
+  exit 1
+fi
+# Weekly restore drill (Sunday 03:30), same validation.
+DRILL_SCHEDULE="${DRILL_SCHEDULE:-30 3 * * 0}"
+if ! [[ "$DRILL_SCHEDULE" =~ $cron_re ]]; then
+  echo "entrypoint.sh: DRILL_SCHEDULE must be a single five-field cron expression, got '${DRILL_SCHEDULE}'" >&2
   exit 1
 fi
 
@@ -40,6 +47,8 @@ fi
 # the crontab holds the schedule only — no secret is ever written to a file.
 # Job output goes to the container log (`docker compose logs backup`).
 printf '%s /app/backup.sh\n' "$BACKUP_SCHEDULE" > /app/crontab
+# The drill reads R2, so it is scheduled only in R2 mode.
+if [[ $r2_set -eq 6 ]]; then printf '%s /app/drill.sh\n' "$DRILL_SCHEDULE" >> /app/crontab; fi
 
-echo "entrypoint.sh: starting supercronic with schedule '${BACKUP_SCHEDULE}' (TZ=${TZ:-unset})"
+echo "entrypoint.sh: starting supercronic with schedule '${BACKUP_SCHEDULE}' and drill '${DRILL_SCHEDULE}' (TZ=${TZ:-unset})"
 exec supercronic /app/crontab
