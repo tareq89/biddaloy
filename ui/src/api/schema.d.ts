@@ -3447,7 +3447,8 @@ export interface paths {
         /** The school's seat orders, newest first. */
         get: operations["BillingController_list_v1"];
         put?: never;
-        post?: never;
+        /** Start a seat purchase: a PENDING order, idempotent per key. */
+        post: operations["BillingController_create_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12149,6 +12150,15 @@ export interface components {
                 row: number;
                 reason: string;
             }[];
+        };
+        CreateOrderDto: {
+            seats: number;
+            months: number;
+            /**
+             * Format: uuid
+             * @description Client-made; a retry with the same key returns the first order.
+             */
+            idempotency_key: string;
         };
         MySectionTodayDto: {
             /** @enum {string} */
@@ -25310,6 +25320,40 @@ export interface operations {
         responses: {
             /** @description SeatOrderDto[] */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BillingController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrderDto"];
+            };
+        };
+        responses: {
+            /** @description SeatOrderDto */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
