@@ -120,7 +120,7 @@ Things to know:
 - **One nginx per host.** prod and demo bind the host's ports 80/443, so they cannot share a host. Staging binds no ports: prod's nginx serves it (see [Staging](#staging)).
 - **`--check`** runs only the pre-flight and the file/env diffs. Pull, backup, migrate, restart, readiness and smoke are skipped.
 - **Skip the backup** (rare, e.g. a second deploy minutes later): `-e skip_backup=true`.
-- **`--tags env`** only rewrites `.env` and restarts nothing, and only for the running version. To apply a rotated secret, run a full deploy of the running version ([12-operations.md §8](12-operations.md#8-secrets-and-rotation)).
+- **`--tags env`** only rewrites `.env` and restarts nothing, and only for the running version. To apply a rotated secret, commit it and run a full deploy of that new commit: secrets are read from the checkout ([12-operations.md §8](12-operations.md#8-secrets-and-rotation)).
 - **`HEALTH_TOKEN` must be in the env's secrets file.** Without it `/api/health/ready` answers 404 and the deploy never turns ready.
 - The demo deploy skips the smoke test until `demo_domain` is added to `inventory/prod.yml`.
 - `deploys.log` (in the project dir) lists every deploy: `<time> <env> <version> <ok|rolled-back|failed>`.

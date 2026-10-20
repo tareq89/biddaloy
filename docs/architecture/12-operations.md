@@ -57,7 +57,7 @@ if you add or change a monitor in the UI, change this table in the same PR.
 | `demo-public`        | HTTP           | `https://<demo domain>/api/health`                                                                                                                                         | 60 s                   | Telegram       |
 | `backup-hourly`      | Push           | `BACKUP_PUSH_URL=http://uptime-kuma:3001/api/push/<token>` (prod `.env`, step 5)                                                                                           | 3600 s, grace 900 s    | Telegram + SMS |
 | `drill-weekly`       | Push           | `DRILL_PUSH_URL=http://uptime-kuma:3001/api/push/<token>` (prod `.env`, step 5)                                                                                            | 604800 s, grace 7200 s | Telegram + SMS |
-| `demo-reset-nightly` | Push           | `DEMO_RESET_PUSH_URL=https://ops.<domain>/kuma/api/push/<token>` + Access service token (demo `.env`, step 5)                                                              | 86400 s, grace 3600 s  | Telegram       |
+| `demo-reset-nightly` | Push           | `DEMO_RESET_PUSH_URL=https://ops.<domain>/kuma/api/push/<token>` + Access service token (demo `.env`, step 5). Blocked: `/kuma/` does not load (limits below)              | 86400 s, grace 3600 s  | Telegram       |
 
 TLS expiry is built into every HTTPS monitor above (warn at 14 days, Telegram).
 `app-public` retrying 3 times at 60 s means the SMS arrives about 3 minutes
@@ -105,18 +105,18 @@ flowchart LR
    then run `ops.yml` again (the whole playbook: `--tags env` would only write
    the file). Alerts: add a Shoutrrr Telegram URL in the hub settings;
    thresholds are in [§2](#2-alert-thresholds).
-4. **Expose Dozzle.** Put `OPS_DOMAIN=ops.<domain>` in `prod.enc.env` and deploy
-   prod. Check `https://ops.<domain>/dozzle/` asks for the Access login first.
+4. **Expose Dozzle.** Put `OPS_DOMAIN=ops.<domain>` in `prod.enc.env`, commit,
+   and deploy prod at that new commit (secrets come from the checkout). Check `https://ops.<domain>/dozzle/` asks for the Access login first.
 5. **Uptime Kuma monitors.** Add the monitors from the table above. Create the
    push monitors first. Kuma shows each push URL as `http://localhost:3001/...`
    (the tunnel); do **not** paste that, it points at the pushing container itself.
    Keep only the token and use the URL each pusher can reach:
 
-   | Variable              | `.env` | URL to paste                                 | How it reaches Kuma                                                                                                                                                  |
-   | --------------------- | ------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | `BACKUP_PUSH_URL`     | prod   | `http://uptime-kuma:3001/api/push/<token>`   | the `backup` container sits on `biddaloy-ops-edge` (`tasks/attach-edge.yml`)                                                                                         |
-   | `DRILL_PUSH_URL`      | prod   | `http://uptime-kuma:3001/api/push/<token>`   | same container                                                                                                                                                       |
-   | `DEMO_RESET_PUSH_URL` | demo   | `https://ops.<domain>/kuma/api/push/<token>` | other host: through Cloudflare Access with a service token, `DEMO_RESET_PUSH_ACCESS_CLIENT_ID` / `_SECRET` ([25-cloudflare.md, Ops](25-cloudflare.md#ops-opsdomain)) |
+   | Variable              | `.env` | URL to paste                                 | How it reaches Kuma                                                                                                                                                                                                                   |
+   | --------------------- | ------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `BACKUP_PUSH_URL`     | prod   | `http://uptime-kuma:3001/api/push/<token>`   | the `backup` container sits on `biddaloy-ops-edge` (`tasks/attach-edge.yml`)                                                                                                                                                          |
+   | `DRILL_PUSH_URL`      | prod   | `http://uptime-kuma:3001/api/push/<token>`   | same container                                                                                                                                                                                                                        |
+   | `DEMO_RESET_PUSH_URL` | demo   | `https://ops.<domain>/kuma/api/push/<token>` | other host: through Cloudflare Access with a service token, `DEMO_RESET_PUSH_ACCESS_CLIENT_ID` / `_SECRET` ([25-cloudflare.md, Ops](25-cloudflare.md#ops-opsdomain)). Blocked until Kuma has its own hostname: `/kuma/` does not load |
 
    `scripts/demo/reset.sh` pushes up on a good reset and down on a failed one.
    Every pusher logs `Kuma push got HTTP <code>, not 2xx` when a push does not
@@ -152,23 +152,23 @@ Known limits:
 
 Where each alert is set up. Kuma monitors and intervals: the table in [§1](#uptime-kuma-monitors).
 
-| Signal                               | Threshold                                                                                          | Where to configure                                     |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| App down                             | `app-public` fails 3 times in a row (~3 min)                                                       | Uptime Kuma monitor, Telegram + SMS                    |
-| Readiness failing (Postgres down)    | `app-internal-ready` fails for > 2 min                                                             | Uptime Kuma monitor                                    |
-| Engine stale reported by readiness   | Covered by the attention cron check-in below                                                       | Sentry Cron Monitor (readiness stays 200 when stale)   |
-| Backup / drill / demo reset missed   | No push inside interval + grace                                                                    | Uptime Kuma push monitors                              |
-| TLS certificate close to expiry      | < 14 days                                                                                          | Uptime Kuma, built into HTTPS monitors                 |
-| CPU                                  | > 90% for 15 min                                                                                   | Beszel hub, system `biddaloy-prod`, Telegram           |
-| Memory                               | > 90% for 10 min                                                                                   | Beszel hub, Telegram                                   |
-| Disk                                 | > 80%, immediate                                                                                   | Beszel hub, Telegram                                   |
-| Host down                            | Immediate (Beszel "Status")                                                                        | Beszel hub, Telegram                                   |
-| Container down                       | Immediate, for `app`, `db`, `redis`, `seaweedfs`, `nginx`, `backup` (prod) and `biddaloy-demo-app` | Beszel hub, per container, Telegram                    |
-| Postgres connections                 | More than 80% of `max_connections=300`, i.e. count > 240                                           | Uptime Kuma Postgres monitor, read-only `monitor` role |
-| 5xx rate                             | > 1% of requests over 5 min                                                                        | Sentry alert rule on the server project                |
-| `communications job stalled` message | any occurrence                                                                                     | Sentry alert rule (issue alert, not metric)            |
-| Attention cron check-in missed       | > 15 min                                                                                           | Sentry Cron Monitor (5-min schedule, 15-min margin)    |
-| Other cron check-ins                 | `SENTRY_CRON_MONITOR_URL`, `SENTRY_CRONS_URL`                                                      | Sentry Cron Monitors                                   |
+| Signal                               | Threshold                                                                                                                                                                        | Where to configure                                     |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| App down                             | `app-public` fails 3 times in a row (~3 min)                                                                                                                                     | Uptime Kuma monitor, Telegram + SMS                    |
+| Readiness failing (Postgres down)    | `app-internal-ready` fails for > 2 min                                                                                                                                           | Uptime Kuma monitor                                    |
+| Engine stale reported by readiness   | Covered by the attention cron check-in below                                                                                                                                     | Sentry Cron Monitor (readiness stays 200 when stale)   |
+| Backup / drill / demo reset missed   | No push inside interval + grace                                                                                                                                                  | Uptime Kuma push monitors                              |
+| TLS certificate close to expiry      | < 14 days                                                                                                                                                                        | Uptime Kuma, built into HTTPS monitors                 |
+| CPU                                  | > 90% for 15 min                                                                                                                                                                 | Beszel hub, system `biddaloy-prod`, Telegram           |
+| Memory                               | > 90% for 10 min                                                                                                                                                                 | Beszel hub, Telegram                                   |
+| Disk                                 | > 80%, immediate                                                                                                                                                                 | Beszel hub, Telegram                                   |
+| Host down (agent unreachable)        | Immediate (Beszel "Status"). Fires when the agent stops, not when the whole VM dies: that only misses Sentry cron check-ins                                                      | Beszel hub, Telegram                                   |
+| Container down                       | Immediate, for `app`, `db`, `redis`, `seaweedfs`, `nginx`, `backup` (prod). UNVERIFIED, [28 Known gaps](28-platform-runbook.md#known-gaps) #7; the demo needs its own agent (#6) | Beszel hub, per container, Telegram                    |
+| Postgres connections                 | More than 80% of `max_connections=300`, i.e. count > 240. Does not work as built, [28 Known gaps](28-platform-runbook.md#known-gaps) #5                                          | Uptime Kuma Postgres monitor, read-only `monitor` role |
+| 5xx rate                             | > 1% of requests over 5 min                                                                                                                                                      | Sentry alert rule on the server project                |
+| `communications job stalled` message | any occurrence                                                                                                                                                                   | Sentry alert rule (issue alert, not metric)            |
+| Attention cron check-in missed       | > 15 min                                                                                                                                                                         | Sentry Cron Monitor (5-min schedule, 15-min margin)    |
+| Other cron check-ins                 | `SENTRY_CRON_MONITOR_URL`, `SENTRY_CRONS_URL`                                                                                                                                    | Sentry Cron Monitors                                   |
 
 ## 3. Runbooks
 
@@ -664,17 +664,22 @@ ssh deploy@<host> sudo stat -c '%u %a' /opt/biddaloy/prod/drill/key.txt   # must
 A prod deploy checks it in pre-flight and stops if it is missing or has the
 wrong owner or mode.
 
-**A rotation is a full deploy of the version that is already running.** That
-writes the new `.env`, takes the backup, and restarts what changed, with the
-readiness check, the smoke test and a `deploys.log` line. `--tags env` alone
-only rewrites `.env` and restarts nothing (and refuses any other version).
+**A rotation is a full deploy of the commit that holds the new value.** The
+deploy decrypts `infra/secrets/*` from your checkout and needs `HEAD` equal to
+`version`, so an older SHA would write the old value back and still log `ok`.
+The full deploy writes the new `.env`, takes the backup, and restarts what
+changed, with the readiness check, the smoke test and a `deploys.log` line.
+`--tags env` alone only rewrites `.env` and restarts nothing (and refuses any
+version but the running one).
 
 ```mermaid
 flowchart LR
-  E["sops infra/secrets/prod.enc.env<br/>(change the value)"] --> C[commit]
-  C --> V["running version: last ok line of<br/>/opt/biddaloy/prod/deploys.log;<br/>git checkout that sha"]
-  V --> D["ansible-playbook deploy.yml<br/>-e env=prod -e version=&lt;that sha&gt;"]
+  E["sops infra/secrets/prod.enc.env<br/>(change the value)"] --> C["commit + push to main"]
+  C --> V["wait for 'Publish image'<br/>on that new sha"]
+  V --> D["ansible-playbook deploy.yml<br/>-e env=prod -e version=&lt;new sha&gt;"]
 ```
+
+Commands and a value-free check: [28-platform-runbook.md, Rotate a secret](28-platform-runbook.md#rotate-a-secret).
 
 Every rotation is those same steps plus the extra step in the table.
 

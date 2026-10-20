@@ -153,10 +153,10 @@ as `CF-Access-Client-Id` / `CF-Access-Client-Secret`. Service auth adds `Cf-Acce
 so nginx lets it through. A **Bypass** policy would not work: Bypass adds no token, and nginx drops the push. Do this **before** creating the Kuma and Beszel admins through `ops.<domain>`
 ([12-operations.md §1](12-operations.md#setting-the-tools-up-by-hand-once)).
 
-| Application | Hostname           | Policy                           | Check                                                                                     |
-| ----------- | ------------------ | -------------------------------- | ----------------------------------------------------------------------------------------- |
-| `Staging`   | `staging.<domain>` | `Owner only`, 24 h, One-time PIN | `curl -sI` gives 302 to `cloudflareaccess.com`                                            |
-| `Ops`       | `ops.<domain>`     | `Owner only`, same               | same; `/dozzle/` loads after login (`/kuma/`, `/beszel/`: see 12-operations known limits) |
+| Application | Hostname           | Policy                                               | Check                                                                                     |
+| ----------- | ------------------ | ---------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `Staging`   | `staging.<domain>` | `Owner only`, 24 h, One-time PIN                     | `curl -sI` gives 302 to `cloudflareaccess.com`                                            |
+| `Ops`       | `ops.<domain>`     | `Owner only`, same, + Service Auth `demo-reset-push` | same; `/dozzle/` loads after login (`/kuma/`, `/beszel/`: see 12-operations known limits) |
 
 ## Re-check
 
