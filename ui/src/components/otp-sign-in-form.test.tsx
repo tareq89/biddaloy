@@ -19,7 +19,7 @@ describe('OtpSignInForm framing', () => {
     });
     await screen.findByRole('heading', { level: 1 });
     expect(outside.container.querySelector('form')?.className).toContain('p-8');
-    expect(screen.getAllByText('SchoolManager')).toHaveLength(1);
+    expect(screen.getAllByRole('img', { name: 'SchoolManager' })).toHaveLength(1);
     outside.unmount();
 
     const { container } = renderWithProviders(
@@ -30,7 +30,7 @@ describe('OtpSignInForm framing', () => {
     );
     await screen.findByRole('heading', { level: 1 });
     expect(container.querySelector('form')?.className).not.toContain('p-8');
-    expect(screen.getAllByText('SchoolManager')).toHaveLength(1);
+    expect(screen.getAllByRole('img', { name: 'SchoolManager' })).toHaveLength(1);
   });
 });
 

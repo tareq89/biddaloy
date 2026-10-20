@@ -1696,6 +1696,20 @@ Example, the wordmark on a light page (`School` ink, `Manager` indigo `#4a3fd4`,
 | `public/icons/pwa-{192,512,maskable-512}.png`          | Web app manifest                                             |
 | `src/assets/og/og-{bn,en}.png`                         | Social preview (1200x630), one per language                  |
 
+### In the app (client-admin and ui)
+
+The app uses the same marks. `ui/src/components/brand-mark.tsx` inlines the 50.3 paths as `<Wordmark/>` and `<Monogram/>`
+(`variant` light, dark or mono; `size` sm or md; the label is `t('brand')`).
+
+| Where                                                                 | Mark                                     |
+| --------------------------------------------------------------------- | ---------------------------------------- |
+| `AuthLayout` header, `SignInForm` / `OtpSignInForm` (standalone)      | `<Wordmark/>`                            |
+| `AppShell` drawer title, mobile header, sidebar label                 | `<Wordmark size="sm" decorative/>` + sr-only text |
+| `client-admin/public/favicon.svg`, `icons/{pwa-192,pwa-512,maskable-512}.png` | Copies of the landing exports     |
+| `client-admin/public/og.png` (`og:image` in `index.html`)             | Copy of `og-en.png`                      |
+
+Do not use the old "ব" tile or a lucide `SchoolIcon` as a brand mark.
+
 The PNGs are generated and committed: `node landing/scripts/brand-export.mjs` from the repo root.
 The OG text uses a system fallback font until the site fonts are wired in. Re-run the script then.
 
