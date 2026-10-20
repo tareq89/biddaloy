@@ -497,3 +497,38 @@ SMOKE_SUPER_ADMIN_EMAIL=superadmin@biddaloy.test SMOKE_SUPER_ADMIN_PASSWORD=$SEE
 | Any line ending `timeout`                   | The API is hung or unreachable in time: [§3.1](#31-5xx-spike)                 |
 | Any line ending `network error`             | Nothing answered at the base URL: check DNS, nginx and that the app is up     |
 | A read (`students`, `fees/dues`, `schools`) | [§3.1](#31-5xx-spike) for 5xx; a 401/403 means a smoke account lost its role  |
+
+## 8. Secrets and rotation
+
+Secrets live encrypted in `infra/secrets/*.enc.env` (sops + age, two recipients).
+How to set up and edit them: [`infra/secrets/README.md`](../../infra/secrets/README.md).
+Ansible decrypts on the operator's laptop and writes `/opt/biddaloy/<env>/.env`
+(mode 0600, root) with `infra/ansible/tasks/write-env.yml`. Task output never
+shows a value (`no_log`).
+
+```mermaid
+flowchart LR
+  E["sops infra/secrets/prod.enc.env<br/>(change the value)"] --> C[commit]
+  C --> A["ansible-playbook ... --tags env<br/>(writes the .env)"]
+  A --> D[deploy / restart compose]
+```
+
+Every rotation is those same four steps plus the extra step in the table.
+
+| Secret                                      | Extra step                                                                                                     | What breaks                                                            | How often                  |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------- |
+| `JWT_SECRET`                                | Put the old value in `JWT_SECRET_PREVIOUS` (verify-only, Rule 10), set the new one, deploy.                    | Without `_PREVIOUS`: everyone is signed out. With it: nothing.         | Yearly, or on leak         |
+| `SETTINGS_ENCRYPTION_KEY`                   | Old value to `SETTINGS_ENCRYPTION_KEY_PREVIOUS`, run `server/src/scripts/reencrypt-settings.ts`, then drop it. | Stored provider settings unreadable if the re-encrypt step is skipped. | Yearly, or on leak         |
+| `POSTGRES_PASSWORD`                         | `ALTER ROLE ... PASSWORD` in the running db first, then change the value and redeploy.                         | App cannot connect between the two steps.                              | Yearly                     |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | Update the SeaweedFS identity file, then change the value and redeploy.                                        | Uploads and downloads fail until both sides match.                     | Yearly                     |
+| `BACKUP_AGE_PUBLIC_KEY`                     | Make a new age keypair. Keep the **old private key** until the dumps made with it are aged out.                | Old dumps still need the old key; losing it loses them.                | On leak of the private key |
+| `BACKUP_S3_*`                               | Make a new bucket key in the storage console, change the value, redeploy.                                      | Backups fail to upload until updated.                                  | Yearly                     |
+| `BACKUP_RCLONE_CRYPT_PASSWORD` / `_SALT`    | Re-sync the remote with the new values (old files are unreadable under new ones).                              | Existing backup copies unreadable until re-synced.                     | Only on leak               |
+| `TURNSTILE_SECRET_KEY`                      | Rotate in the Cloudflare dashboard, change the value, redeploy.                                                | Public forms fail closed in production (Rule 22) until updated.        | On leak                    |
+| `GOOGLE_OAUTH_*`, `FACEBOOK_OAUTH_*`        | Reset the client secret in the provider console, change the value, redeploy.                                   | Social sign-in fails until updated; password sign-in works.            | On leak                    |
+| `PLATFORM_SMS_API_KEY`                      | New key at the SMS provider, change the value, redeploy.                                                       | Platform alert SMS is only logged, not sent.                           | On leak                    |
+| `HEALTH_TOKEN`                              | Change the value, redeploy, update the uptime monitor's header.                                                | The monitor sees 401 until its header matches.                         | Yearly                     |
+| Origin CA cert + key                        | Cloudflare dashboard: re-issue, `sops` the two `origin-ca*.enc.pem` files, run with `write_certs`.             | Cloudflare returns 526 if the cert on the host expires.                | Before expiry (15y)        |
+
+Log of practised rotations (fill in when done): `JWT_SECRET` on staging (61.2):
+_not yet practised_.

@@ -1,0 +1,65 @@
+---
+# Writes the decrypted env file (and optionally the Origin CA pair) onto the host.
+# Include with: vars: { env: prod }   (prod | demo | staging)
+#   write_certs: true    also writes /opt/biddaloy/certs/origin.{pem,key}  (D21)
+#   env_notify: <name>   handler to notify on change; deploy.yml owns it (61.1)
+#   secrets_dir: <path>  where the *.enc.* files are (default: <playbook_dir>/../secrets/)
+#
+# Decryption happens on the CONTROLLER (lookup plugins run locally) with the
+# operator's age key (SOPS_AGE_KEY_FILE). The host never holds a key.
+# Every task that touches a value has no_log: true; --diff is also off, because
+# diff output would print the contents (Security rule 13).
+- name: Check the env name
+  ansible.builtin.assert:
+    that: env in ['prod', 'demo', 'staging']
+    quiet: true
+  tags: [env, always]
+
+- name: Create the env directory
+  ansible.builtin.file:
+    path: '/opt/biddaloy/{{ env }}'
+    state: directory
+    mode: '0750'
+    owner: root
+    group: root
+  tags: [env]
+
+- name: Write /opt/biddaloy/{{ env }}/.env
+  ansible.builtin.copy:
+    content: "{{ lookup('community.sops.sops', (secrets_dir | default(playbook_dir ~ '/../secrets/')) ~ env ~ '.enc.env', rstrip=false) }}"
+    dest: '/opt/biddaloy/{{ env }}/.env'
+    mode: '0600'
+    owner: root
+    group: root
+  diff: false
+  no_log: true
+  notify: '{{ env_notify | default([]) }}'
+  tags: [env]
+
+- name: Create the certs directory
+  ansible.builtin.file:
+    path: /opt/biddaloy/certs
+    state: directory
+    mode: '0750'
+    owner: root
+    group: root
+  when: write_certs | default(false) | bool
+  tags: [env]
+
+- name: Write the Origin CA certificate and key
+  ansible.builtin.copy:
+    content: "{{ lookup('community.sops.sops', (secrets_dir | default(playbook_dir ~ '/../secrets/')) ~ item.src, rstrip=false) }}"
+    dest: '/opt/biddaloy/certs/{{ item.dest }}'
+    mode: '0600'
+    owner: root
+    group: root
+  loop:
+    - { src: origin-ca.enc.pem, dest: origin.pem }
+    - { src: origin-ca-key.enc.pem, dest: origin.key }
+  loop_control:
+    label: '{{ item.dest }}'
+  diff: false
+  no_log: true
+  notify: '{{ env_notify | default([]) }}'
+  when: write_certs | default(false) | bool
+  tags: [env]
