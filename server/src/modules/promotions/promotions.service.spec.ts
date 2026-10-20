@@ -105,6 +105,11 @@ describe('PromotionsService (unit)', () => {
         version: null,
         academic_year_id: 'year-1',
       });
+      // year-2 starts after year-1 ([2614]), so the target-year rule passes.
+      academicYearRepo.findOne.mockImplementation(async ({ where }: any) => ({
+        id: where.id,
+        start_date: where.id === 'year-1' ? '2026-01-01' : '2027-01-01',
+      }));
 
       await expect(
         service.create(
@@ -118,6 +123,24 @@ describe('PromotionsService (unit)', () => {
           'user-1',
         ),
       ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('[2614] throws 422 TARGET_YEAR_NOT_LATER when the target year starts on or before the source', async () => {
+      classRepo.findOne.mockResolvedValue({ id: 'class-1', academic_year_id: 'year-1' });
+      academicYearRepo.findOne.mockResolvedValue({ start_date: '2026-01-01' });
+
+      await expect(
+        service.create(
+          {
+            source_class_id: 'class-1',
+            target_academic_year_id: 'year-1',
+            exam_ids: ['exam-1'],
+            algorithm: PlacementAlgorithm.BLOCK,
+          },
+          TENANT_ID,
+          'user-1',
+        ),
+      ).rejects.toMatchObject({ response: { details: { code: 'TARGET_YEAR_NOT_LATER' } } });
     });
   });
 

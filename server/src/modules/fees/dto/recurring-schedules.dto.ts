@@ -9,6 +9,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -66,6 +67,7 @@ export class CreateRecurringScheduleDto {
   academic_year_id: string;
 
   @IsString()
+  @MaxLength(100)
   @IsNotEmpty()
   name: string;
 
@@ -107,6 +109,7 @@ export class CreateRecurringScheduleDto {
 export class UpdateRecurringScheduleDto {
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   @IsNotEmpty()
   name?: string;
 
@@ -172,6 +175,7 @@ export class AddExclusionDto {
   student_id: string;
 
   @IsString()
+  @MaxLength(200)
   @IsNotEmpty()
   reason: string;
 }

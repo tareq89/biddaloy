@@ -14,8 +14,14 @@
  * and again by the server's own 400.
  */
 import { Permission } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, RoutePending, Skeleton, StatusBadge } from '@biddaloy/ui/components';
+import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
+import {
+  ErrorState,
+  RecordNotFoundState,
+  RoutePending,
+  Skeleton,
+  StatusBadge,
+} from '@biddaloy/ui/components';
 import {
   useCurrentUserId,
   useHasPermission,
@@ -246,6 +252,10 @@ function StaffDetailPage() {
       {userQuery.isPending ? (
         <PageContainer size="wide">
           <Skeleton className="h-7 w-64" />
+        </PageContainer>
+      ) : isNotFoundError(userQuery.error) ? (
+        <PageContainer size="wide">
+          <RecordNotFoundState onBack={() => void navigate({ to: '/staff' })} />
         </PageContainer>
       ) : userQuery.isError || user === undefined ? (
         <PageContainer size="wide">

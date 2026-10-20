@@ -9,6 +9,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import { sectionsTab } from './sections.tab';
 import { periodSlotsTab } from '../routines/period-slots.tab';
 
@@ -124,7 +125,7 @@ export const lessonDeliveriesTab: TabSpec<LessonDelivery, LessonDeliveryRow> = {
       is_extra: entity.is_extra,
       auto: entity.auto,
       recorded_by: entity.recorded_by_user_id
-        ? ctx.keyOf('users', entity.recorded_by_user_id)
+        ? optionalKeyOf(ctx, 'users', entity.recorded_by_user_id)
         : null,
     };
   },
@@ -224,7 +225,11 @@ export const lessonDeliveriesTab: TabSpec<LessonDelivery, LessonDeliveryRow> = {
     if (row.note !== existing.note) changed.push('note');
     if (row.is_extra !== existing.is_extra) changed.push('is_extra');
     if (row.auto !== existing.auto) changed.push('auto');
-    if (row.recorded_by_user_id !== existing.recorded_by_user_id) changed.push('recorded_by');
+    if (
+      row.recorded_by_user_id !== null &&
+      row.recorded_by_user_id !== existing.recorded_by_user_id
+    )
+      changed.push('recorded_by');
     return changed;
   },
 
@@ -245,7 +250,7 @@ export const lessonDeliveriesTab: TabSpec<LessonDelivery, LessonDeliveryRow> = {
     delivery.note = row.note;
     delivery.is_extra = row.is_extra;
     delivery.auto = row.auto;
-    delivery.recorded_by_user_id = row.recorded_by_user_id;
+    delivery.recorded_by_user_id = row.recorded_by_user_id ?? existing?.recorded_by_user_id ?? null;
     // Loaded relations would override the FK columns set above on save.
     delivery.section = undefined as never;
     delivery.subject = undefined as never;

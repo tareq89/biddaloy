@@ -8,6 +8,9 @@
 export function normalizeBdPhoneNumber(phone: string): string {
   let digits = phone.replace(/[^\d]/g, '');
 
+  // No digits at all (e.g. letters): do not invent a valid-looking "88".
+  if (digits === '') return '';
+
   if (digits.startsWith('00')) {
     digits = digits.slice(2);
   }

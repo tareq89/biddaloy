@@ -48,7 +48,7 @@ describe('StepUpService (integration)', () => {
         useValue: {
           getResolvedSettings: async () => ({
             version: 1,
-            fees: { approval_mode: approvalMode },
+            fees: { approvalMode: approvalMode },
           }),
         },
       },
@@ -147,7 +147,7 @@ describe('StepUpService (integration)', () => {
     const otpService = module.get(OtpService);
     const { code } = await otpService.request(
       'STEP_UP' as any,
-      `${SEED_TENANT_ID}:approver@example.com`,
+      `${SEED_TENANT_ID}:${ACTOR_ID}:approver@example.com`,
     );
 
     const result = await service.verify(
@@ -174,7 +174,7 @@ describe('StepUpService (integration)', () => {
     const otpService = module.get(OtpService);
     const { code } = await otpService.request(
       'STEP_UP' as any,
-      `${SEED_TENANT_ID}:approver@example.com`,
+      `${SEED_TENANT_ID}:${ACTOR_ID}:approver@example.com`,
     );
 
     await service.verify(verifyDto({ otp: code }), ACTOR_ID, SEED_TENANT_ID, context);
@@ -188,6 +188,43 @@ describe('StepUpService (integration)', () => {
       approver_id: approver.id,
       actor_id: ACTOR_ID,
     });
+  });
+
+  // [2639] F-130/F-131: the limiter and the OTP wrong-guess lock are keyed by
+  // caller, so caller A's wrong guesses at an approver never lock caller B out.
+  it('5 wrong verifies by actor A leave actor B budget for the same approver untouched', async () => {
+    await createApprover();
+    const userRepo = dataSource.getRepository(User);
+    const membershipRepo = dataSource.getRepository(UserTenant);
+    const actorB = await userRepo.save(
+      userRepo.create({
+        full_name: 'Second Accountant',
+        email: 'actor-b@example.com',
+        status: UserStatus.ACTIVE,
+        password_hash: null,
+      }),
+    );
+    await membershipRepo.save(
+      membershipRepo.create({
+        user_id: actorB.id,
+        tenant_id: SEED_TENANT_ID,
+        role: UserRole.ACCOUNTANT,
+      }),
+    );
+
+    for (let i = 0; i < 5; i++) {
+      await expect(
+        service.verify(verifyDto(), ACTOR_ID, SEED_TENANT_ID, context),
+      ).rejects.toMatchObject({ status: 401 });
+    }
+    await expect(
+      service.verify(verifyDto(), ACTOR_ID, SEED_TENANT_ID, context),
+    ).rejects.toMatchObject({ status: 429 });
+
+    // Actor B: still 401 (wrong code), not 429.
+    await expect(
+      service.verify(verifyDto(), actorB.id, SEED_TENANT_ID, context),
+    ).rejects.toMatchObject({ status: 401 });
   });
 
   it('rejects an approver who belongs only to a different tenant', async () => {

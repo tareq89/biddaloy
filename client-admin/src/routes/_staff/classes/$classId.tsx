@@ -1,6 +1,6 @@
 import { Permission } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
+import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
+import { ErrorState, RecordNotFoundState, RoutePending, Skeleton } from '@biddaloy/ui/components';
 import { classQueryOptions, useClass, useHasPermission } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
@@ -72,6 +72,10 @@ function ClassDetailPage() {
         <Skeleton className="h-40 w-full" />
       </div>
     );
+  }
+
+  if (isNotFoundError(classQuery.error)) {
+    return <RecordNotFoundState onBack={() => void navigate({ to: '/classes' })} />;
   }
 
   if (classQuery.isError) {

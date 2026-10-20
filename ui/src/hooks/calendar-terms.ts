@@ -73,7 +73,6 @@ export function useDeleteTerm(academicYearId: string) {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/calendar/terms/${id}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: termKeys.list(academicYearId) });
     },

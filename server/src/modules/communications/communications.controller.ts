@@ -12,7 +12,9 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  UseInterceptors,
 } from '@nestjs/common';
+import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -76,6 +78,7 @@ export class CommunicationsController {
   }
 
   @Post('reminder/single/:studentId')
+  @UseInterceptors(IdempotencyInterceptor)
   // [68.1.fix] No @Roles — see the preview route above.
   @RequirePermissions(Permission.COMMUNICATION_SEND)
   @ApiOperation({ summary: 'Send a fee reminder to one student/guardian.' })
@@ -126,6 +129,7 @@ export class CommunicationsController {
   // 'reminder' would otherwise be swallowed by the UUID param route and
   // rejected by its ParseUUIDPipe.
   @Post('reminder/bulk')
+  @UseInterceptors(IdempotencyInterceptor)
   // [10.4] G1 — E tightened off.
   @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -184,6 +188,7 @@ export class CommunicationsController {
   }
 
   @Post('send')
+  @UseInterceptors(IdempotencyInterceptor)
   @RequirePermissions(Permission.COMMUNICATION_SEND)
   @ApiOperation({ summary: 'Send a freeform (non-reminder) message.' })
   send(

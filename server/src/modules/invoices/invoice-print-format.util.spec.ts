@@ -71,6 +71,12 @@ describe('formatAmount', () => {
     expect(formatAmount(-900)).toBe('-৯০০.০০');
   });
 
+  it('prints a zero without a minus sign (-0 and -0.001) [2609]', () => {
+    expect(formatAmount(-0)).toBe('০.০০');
+    expect(formatAmount(-0.001)).toBe('০.০০');
+    expect(formatAmount(-900)).toBe('-৯০০.০০');
+  });
+
   it('accepts a numeric string', () => {
     expect(formatAmount('750')).toBe('৭৫০.০০');
   });

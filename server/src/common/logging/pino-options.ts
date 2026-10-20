@@ -21,7 +21,10 @@ interface RequestWithTenant extends Request {
  * are still free-form (the URL's own path/query and the error message),
  * reusing `redactPii` rather than a second redaction list.
  */
-export function buildPinoOptions(nodeEnv: string | undefined): Params['pinoHttp'] {
+/** nestjs-pino also accepts a stream or [options, stream]; this module only ever builds options. */
+type PinoHttpOptions = Extract<NonNullable<Params['pinoHttp']>, { serializers?: unknown }>;
+
+export function buildPinoOptions(nodeEnv: string | undefined): PinoHttpOptions {
   const isProduction = nodeEnv === 'production';
 
   return {

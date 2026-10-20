@@ -1,15 +1,11 @@
 /**
- * Worker error text → `communications` i18n key, so a failed delivery never
- * shows the server's English sentence (D9). The texts come from
- * `server/src/modules/communications/config/provider-not-configured.error.ts`
- * and `worker/communications.processor.ts`.
- *
- * ponytail: string matching on English server text; switch to an `error_code`
- * lookup when the server sends one (shared request filed).
+ * Server delivery error code → `communications` i18n key, so a failed delivery
+ * never shows server text (D9). The server sends a fixed code, never the raw
+ * worker/provider text (Rule 23; `server/src/modules/communications/delivery-error-code.ts`).
  */
-export function deliveryErrorKey(error: string | null): string | null {
-  if (error === null || error === '') return null;
-  if (/is not configured for this tenant/i.test(error)) return 'deliveryErrors.notConfigured';
-  if (/^No provider registered/i.test(error)) return 'deliveryErrors.noProvider';
+export function deliveryErrorKey(error: string | null | undefined): string | null {
+  if (!error) return null;
+  if (error === 'NOT_CONFIGURED') return 'deliveryErrors.notConfigured';
+  if (error === 'NO_PROVIDER') return 'deliveryErrors.noProvider';
   return 'deliveryErrors.generic';
 }

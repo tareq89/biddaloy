@@ -25,7 +25,7 @@ test('public submit → staff shortlist/admit → student created → public sta
   const admin = await adminApiSession(request);
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const applicantName = `Admission E2E ${suffix}`;
-  const guardianPhone = `1${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`;
+  const guardianPhone = `01${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`;
 
   let referenceNumber = '';
 
@@ -184,10 +184,10 @@ test('admit modal shows the matched guardian and requires a choice', async ({ pa
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const applicantName = `Match E2E ${suffix}`;
   const existingGuardianName = `Existing Family ${suffix}`;
-  const guardianPhone = `1${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`;
+  const guardianPhone = `01${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`;
 
   await test.step('seed a guardian and an open intake over the API', async () => {
-    await createGuardian(request, admin, existingGuardianName, `0${guardianPhone}`);
+    await createGuardian(request, admin, existingGuardianName, guardianPhone);
     const section = await createClassSection(request, admin);
     await post(request, admin, '/admission-intakes', {
       title: `Match Intake ${suffix}`,
@@ -279,7 +279,7 @@ test('[#2281] staff opens an uploaded document; after Reject the documents can b
   const admin = await adminApiSession(request);
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const applicantName = `Docs E2E ${suffix}`;
-  const guardianPhone = `1${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`;
+  const guardianPhone = `01${3 + (Date.now() % 7)}${Date.now().toString().slice(-8)}`;
 
   await test.step('seed an open intake and submit a public application with a photo', async () => {
     const section = await createClassSection(request, admin);

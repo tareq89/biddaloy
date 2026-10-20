@@ -327,6 +327,57 @@ describe('Public Admission Submission E2E', () => {
       expect(rows[0].guardian_phone).toBe('8801700000001');
     });
 
+    // [2618] An impossible, future or pre-1900 birth date is a 400 naming the field, never a 500 or a stored row.
+    it.each(['2018-02-30', '2031-01-01', '1850-01-01'])(
+      '400s date_of_birth %s naming the field and writes no applicant',
+      async (date_of_birth) => {
+        const intakeId = await createIntake();
+
+        const res = await supertest(app.getHttpServer())
+          .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+          .field(applicantPayload(intakeId, { date_of_birth }))
+          .expect(400);
+
+        expect(res.body.message).toEqual(
+          expect.arrayContaining([expect.stringMatching(/^date_of_birth /)]),
+        );
+        expect(await countRows(intakeId)).toBe(0);
+      },
+    );
+
+    // [2619] A non-phone guardian_phone or a huge home_address is a 400 naming the field, and nothing is stored.
+    it.each([
+      ['guardian_phone', { guardian_phone: 'call-me-maybe' }],
+      ['guardian_phone', { guardian_phone: 'abc' }],
+      ['home_address', { home_address: 'x'.repeat(20000) }],
+    ])('400s a bad %s and writes no applicant', async (field, override) => {
+      const intakeId = await createIntake();
+
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(applicantPayload(intakeId, override))
+        .expect(400);
+
+      expect(res.body.message).toEqual(
+        expect.arrayContaining([expect.stringMatching(`^${field} `)]),
+      );
+      expect(await countRows(intakeId)).toBe(0);
+    });
+
+    it('accepts a 500-character home_address and a valid BD mobile', async () => {
+      const intakeId = await createIntake();
+
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(
+          applicantPayload(intakeId, {
+            guardian_phone: '01700000123',
+            home_address: 'x'.repeat(500),
+          }),
+        )
+        .expect(201);
+    });
+
     it('two children, same guardian phone, different name/DOB -> two reference numbers', async () => {
       const intakeId = await createIntake();
       const post = (o: Record<string, string>) =>

@@ -10,6 +10,7 @@ import { apiClient } from '../api/client';
 import { offlineCachedQueryFn } from '../api/offline-cache';
 import type { components } from '../api/schema';
 
+import { useIdempotencyKey } from './idempotency-key';
 import { createEntityKeys, fetchAllPages } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -203,16 +204,22 @@ export function useStudent(id: string | undefined) {
  * class or section too (one whose filter the new student now matches),
  * so scoping this to a single `studentKeys.list(currentFilters)` would
  * leave those other cached variants stale.
+ *
+ * [2594] The Idempotency-Key is honoured once #2631 lands; until then the
+ * server ignores it, and a resend after a lost reply still duplicates.
  */
 export function useCreateStudent() {
   const queryClient = useQueryClient();
+  const { keyFor, rotate } = useIdempotencyKey();
   return useMutation({
     mutationFn: async (input: CreateStudentInput) => {
-      const res = await apiClient.post<Student>('/students', input);
+      const res = await apiClient.post<Student>('/students', input, {
+        headers: { 'Idempotency-Key': keyFor(input) },
+      });
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
+      rotate();
       void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
     },
   });
@@ -232,7 +239,6 @@ export function useUpdateStudent(id: string) {
       const res = await apiClient.patch<Student>(`/students/${id}`, input);
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: studentKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
@@ -284,7 +290,6 @@ export function useUpdateStudentPreferredCommunication(id: string) {
       const res = await apiClient.patch<Student>(`/students/${id}`, { preferred_communication });
       return res.data;
     },
-    retry: shouldRetryQuery,
     onMutate: async (preferred_communication) => {
       await queryClient.cancelQueries({ queryKey: studentKeys.detail(id) });
       const previousStudent = queryClient.getQueryData<Student>(studentKeys.detail(id));
@@ -409,7 +414,6 @@ export function useDeleteStudent() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/students/${id}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: (_data, id) => {
       void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
       queryClient.removeQueries({ queryKey: studentKeys.detail(id) });

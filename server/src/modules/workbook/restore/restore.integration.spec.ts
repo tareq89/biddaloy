@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Readable } from 'node:stream';
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { DataSource } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -152,6 +152,10 @@ describe('RestoreProcessor (integration)', () => {
   const TENANT_A = randomUUID();
   const TENANT_B = randomUUID();
   const USER_ID = randomUUID();
+
+  // A failed assertion must not leave a `validate` spy behind for the next test's
+  // own spy to read (vi.spyOn stacks; `restoreWithErrors` reads results[0]).
+  afterEach(() => vi.restoreAllMocks());
 
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, []);
@@ -495,9 +499,17 @@ describe('RestoreProcessor (integration)', () => {
 
     await processor.process(fakeJob(job.id));
 
-    expect(validateSpy).toHaveBeenCalledWith(expect.any(Buffer), TENANT_A, dataSource.manager);
+    // The worker waits its turn behind an in-flight upload check rather than failing (waitIfBusy).
+    expect(validateSpy).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      TENANT_A,
+      dataSource.manager,
+      undefined,
+      { waitIfBusy: true },
+    );
     const [passedBuffer] = validateSpy.mock.calls[0];
     expect((passedBuffer as Buffer).equals(buffer)).toBe(true);
+    validateSpy.mockRestore();
 
     const finished = await dataSource
       .getRepository(WorkbookJob)
@@ -930,7 +942,9 @@ describe('RestoreProcessor (integration)', () => {
       const { job, errors } = await restoreWithErrors(d.tenantId, buffer);
       expect(job.status).toBe(WorkbookJobStatus.FAILED);
       // Failed because the band's grade changed, not for some other reason.
-      expect(errors).toEqual([expect.stringMatching(/"grading_bands" changes grade of an existing/)]);
+      expect(errors).toEqual([
+        expect.stringMatching(/"grading_bands" changes grade of an existing/),
+      ]);
       expect((await em().findOneByOrFail(GradingBand, { id: d.band.id })).grade).toBe('A+');
     });
 
@@ -961,8 +975,13 @@ describe('RestoreProcessor (integration)', () => {
       const { job, errors } = await restoreWithErrors(d.tenantId, buffer);
       expect(job.status).toBe(WorkbookJobStatus.FAILED);
       // The money refusal, naming only the non-zero amount, formatted as money.
-      expect(errors).toContainEqual(expect.stringMatching(/still have open dues of ৳[\d,]+\.\d\d\./));
-      const student = await em().findOne(Student, { where: { id: d.student.id }, withDeleted: true });
+      expect(errors).toContainEqual(
+        expect.stringMatching(/still have open dues of ৳[\d,]+\.\d\d\./),
+      );
+      const student = await em().findOne(Student, {
+        where: { id: d.student.id },
+        withDeleted: true,
+      });
       expect(student?.deleted_at).toBeNull();
     });
 

@@ -21,6 +21,10 @@ export interface ErrorResponseBody {
 }
 
 export function resolveStatus(exception: unknown): number {
+  // Only an HttpException picks its status. A plain Error with a 4xx `status` /
+  // `statusCode` (an SDK, WebPushError) stays a 500: a 4xx would send its raw
+  // message to the client and skip Sentry. Body-parser errors are turned into
+  // HttpExceptions with fixed text by `mapKnownError` before this runs.
   return exception instanceof HttpException
     ? exception.getStatus()
     : HttpStatus.INTERNAL_SERVER_ERROR;

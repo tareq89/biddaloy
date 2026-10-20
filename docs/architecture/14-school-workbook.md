@@ -282,6 +282,70 @@ redis-cli DEL workbook:restore-lock:00000000-0000-4000-8000-000000000001
 started just before the lock was taken can still commit while the snapshot
 runs. The window is small and not closed yet.
 
+## Size limits
+
+A backup has to get through four gates to be restorable. The numbers live in
+one place, `server/src/modules/workbook/export/export.constants.ts`.
+
+```mermaid
+flowchart LR
+  B[Browser] -->|"file up to 64 MB"| N["nginx: 70M on /api/v1/backup/validate only (55M elsewhere)"]
+  N --> M["multer: BACKUP_MAX_UPLOAD_BYTES = 64 MB"]
+  M --> G["unzip guard: 512 MB inflated, 5,000 entries"]
+  G --> E["exceljs load, all in memory"]
+```
+
+| Limit                      | Value  | Constant                    |
+| -------------------------- | ------ | --------------------------- |
+| Upload size (zipped file)  | 64 MB  | `BACKUP_MAX_UPLOAD_BYTES`   |
+| Inflated size (all sheets) | 512 MB | `BACKUP_MAX_INFLATED_BYTES` |
+| Zip entries                | 5,000  | `BACKUP_MAX_ENTRIES`        |
+
+If an export is already over these limits, its job is still `DONE` (you can
+download it) but `workbook_jobs.error` holds `RESTORE_LIMIT_EXCEEDED` and the
+Backup screen says it is too big to restore.
+
+**Worked example, the 10,000-student load school** (`yarn workspace @biddaloy/server load:seed`):
+39.8 MB zipped, 281.9 MB unzipped, 104 entries. That fits under all three
+limits with room to spare. The read is not streamed: exceljs builds the whole
+workbook in memory, so memory use is several times the unzipped size.
+
+**Measured validate run (D5 merge gate)**
+
+| Date       | File                     | Validate time | Peak memory                                                                                    | Container limit                                                                                                        | Result                                                   |
+| ---------- | ------------------------ | ------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| 2026-10-19 | 10k school, 38 MB zipped | 74 s          | 1.8 GB RSS during validate (0.95 GB before it); 2.0 GB for the whole export + validate process | none: run in a plain Node 24 process on a laptop, not a container (no Docker). The deployment guide suggests 4 GB RAM. | Not refused, no out-of-memory, under Cloudflare's 100 s. |
+
+**One validate at a time per process.** Memory is the real limit, not the
+file size: a file near the 512 MB inflate cap needs about 1.5 GB just to parse.
+So `ValidationService` lets only one workbook be parsed per API process:
+
+```mermaid
+sequenceDiagram
+  participant A as School A upload
+  participant B as School B upload
+  participant R as Restore worker
+  participant V as ValidationService (one slot per process)
+  A->>V: POST /backup/validate
+  B->>V: POST /backup/validate (A still parsing)
+  V-->>B: 429 VALIDATE_BUSY "Another backup is being checked right now. Try again in a minute."
+  R->>V: validate (waitIfBusy)
+  V-->>A: result
+  V-->>R: runs after A, then result
+```
+
+An upload is refused straight away (fail closed, no queue of 64 MB buffers).
+The restore worker waits instead, because a restore the admin already
+confirmed must not fail for this. The cost: one large validate makes every other
+school wait. The real fix is a streaming read, tracked in #2686.
+
+Validation of that file reported 216 errors, all in `guardians` and `students` (blank `relationship`, guardians that share a phone number, open dues). They come from the load seed's data, not from size.
+
+### Learnings (Epic #2642, Wave 3, 2026-10-19)
+
+- **Final-attempt export bug (#2625).** An export that failed on its last retry stayed in a running state, and recorders who had left the school broke the user lookup. Cost: a stuck job. Fix: the strict `keyOf('users')` registry resolves departed recorders and a failed export is marked FAILED. Rule candidate: a retrying job sets its terminal state on the final attempt -> no rule.
+- **Two sets of size limits (#2624).** Export, validate and restore each had their own caps. Fix: one set of limits, a 64 MB validate upload, and a warning when a restore is near its limit; the 10k-row run was measured. Rule candidate: a new limit reads the shared constant -> no rule.
+
 ## Retention, scheduling, and env vars
 
 From `server/src/modules/workbook/schedule/retention.service.ts`, run once

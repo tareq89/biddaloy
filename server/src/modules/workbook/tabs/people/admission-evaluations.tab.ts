@@ -9,6 +9,8 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { optionalKeyOf } from '../../codec/tab-spec';
+import { memberKeysById } from './users.tab';
 import { admissionApplicantsTab } from './admission-applicants.tab';
 
 /**
@@ -37,11 +39,13 @@ export interface AdmissionEvaluationRow {
   id: string;
   applicant_id: string;
   applicant_key: string;
-  reviewer_user_id: string;
+  reviewer_user_id: string | null;
   reviewer_key: string;
   notes: string;
   decision: AdmissionEvaluationDecision | null;
 }
+
+type LoadedEvaluation = AdmissionEvaluation & { reviewer_key?: string };
 
 const columns: readonly ColumnSpec[] = [
   { key: 'id', type: 'uuid', required: true, label: { en: 'ID', bn: 'আইডি' } },
@@ -56,7 +60,7 @@ const columns: readonly ColumnSpec[] = [
     key: 'reviewer',
     type: 'ref',
     ref: 'users',
-    required: true,
+    requiredOnNewRow: true,
     label: { en: 'Reviewer', bn: 'পর্যালোচক' },
   },
   { key: 'notes', type: 'string', required: true, label: { en: 'Notes', bn: 'মন্তব্য' } },
@@ -82,18 +86,26 @@ export const admissionEvaluationsTab: TabSpec<AdmissionEvaluation, AdmissionEval
   naturalKey: ['applicant', 'reviewer', 'decision', 'notes'],
   deleteByAbsence: true,
 
-  load(tenantId: string, m: EntityManager): Promise<AdmissionEvaluation[]> {
-    return m.find(AdmissionEvaluation, {
+  async load(tenantId: string, m: EntityManager): Promise<AdmissionEvaluation[]> {
+    const rows = (await m.find(AdmissionEvaluation, {
       where: { tenant_id: tenantId },
       relations: ['applicant'],
-    });
+    })) as LoadedEvaluation[];
+    // Key only current members: the export writes a blank cell for anyone else.
+    const keyById = await memberKeysById(
+      tenantId,
+      rows.map((r) => r.reviewer_user_id),
+      m,
+    );
+    for (const r of rows) r.reviewer_key = keyById.get(r.reviewer_user_id) ?? '';
+    return rows;
   },
 
   toRow(entity: AdmissionEvaluation, ctx: ExportContext): Record<string, unknown> {
     return {
       id: entity.id,
       applicant: ctx.keyOf('admission_applicants', entity.applicant_id),
-      reviewer: ctx.keyOf('users', entity.reviewer_user_id),
+      reviewer: optionalKeyOf(ctx, 'users', entity.reviewer_user_id),
       notes: entity.notes,
       decision: entity.decision,
     };
@@ -132,9 +144,9 @@ export const admissionEvaluationsTab: TabSpec<AdmissionEvaluation, AdmissionEval
       });
     }
 
-    const reviewerKey = values.reviewer as string;
-    const reviewerId = ctx.ref('users', reviewerKey);
-    if (!reviewerId) {
+    const reviewerKey = (values.reviewer as string | null) ?? '';
+    const reviewerId = reviewerKey ? (ctx.ref('users', reviewerKey) ?? null) : null;
+    if (reviewerKey && !reviewerId) {
       errors.push({
         tab: 'admission_evaluations',
         row: rowNo,
@@ -152,7 +164,7 @@ export const admissionEvaluationsTab: TabSpec<AdmissionEvaluation, AdmissionEval
         id: values.id as string,
         applicant_id: applicantId as string,
         applicant_key: applicantKey,
-        reviewer_user_id: reviewerId as string,
+        reviewer_user_id: reviewerId,
         reviewer_key: reviewerKey,
         notes: values.notes as string,
         decision: (values.decision as AdmissionEvaluationDecision | null) ?? null,
@@ -172,7 +184,10 @@ export const admissionEvaluationsTab: TabSpec<AdmissionEvaluation, AdmissionEval
           ? admissionApplicantsTab.keyOf(x.applicant)
           : x.applicant_id
         : x.applicant_key;
-    const reviewerKey = x instanceof AdmissionEvaluation ? x.reviewer_user_id : x.reviewer_key;
+    const reviewerKey =
+      x instanceof AdmissionEvaluation
+        ? ((x as LoadedEvaluation).reviewer_key ?? '')
+        : x.reviewer_key;
     return `${applicantKey}|${reviewerKey}|${x.decision ?? ''}|${x.notes}`;
   },
 
@@ -182,7 +197,8 @@ export const admissionEvaluationsTab: TabSpec<AdmissionEvaluation, AdmissionEval
     // applicant, reviewer, decision, and notes.
     const changed: string[] = [];
     if (row.applicant_id !== existing.applicant_id) changed.push('applicant');
-    if (row.reviewer_user_id !== existing.reviewer_user_id) changed.push('reviewer');
+    if (row.reviewer_user_id !== null && row.reviewer_user_id !== existing.reviewer_user_id)
+      changed.push('reviewer');
     if (row.notes !== existing.notes) changed.push('notes');
     if (row.decision !== existing.decision) changed.push('decision');
     return changed;
@@ -197,7 +213,7 @@ export const admissionEvaluationsTab: TabSpec<AdmissionEvaluation, AdmissionEval
     const evaluation = existing ?? new AdmissionEvaluation();
     evaluation.tenant_id = tenantId;
     evaluation.applicant_id = row.applicant_id;
-    evaluation.reviewer_user_id = row.reviewer_user_id;
+    evaluation.reviewer_user_id = (row.reviewer_user_id ?? existing?.reviewer_user_id) as string;
     evaluation.notes = row.notes;
     evaluation.decision = row.decision;
 

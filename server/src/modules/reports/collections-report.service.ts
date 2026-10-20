@@ -528,16 +528,71 @@ export class CollectionsReportService {
       params,
     );
 
-    // Six independent aggregates over the same WHERE clause — run
-    // concurrently rather than six round trips in series.
-    const [totalsRow, discountRow, byMethod, byCollector, byFeeType, byDay] = await Promise.all([
-      totalsRowP,
-      discountRowP,
-      byMethodP,
-      byCollectorP,
-      byFeeTypeP,
-      byDayP,
-    ]);
+    // [2626, D8] Wallet payouts (cash handed back to families) are reported
+    // beside net, never subtracted from it. A payout is cash, so a non-CASH
+    // method filter has nothing to show. `amount` is stored negative.
+    const payoutRange = this.buildRange(query);
+    const payoutParams: unknown[] = [
+      tenantId,
+      payoutRange.from,
+      payoutRange.to,
+      query.received_by_user_id ?? null,
+    ];
+    const payoutsP: Promise<Array<{ user_id: string | null; full_name: string | null; paid_out: string }>> =
+      query.payment_method && query.payment_method !== PaymentMethod.CASH
+        ? Promise.resolve([])
+        : this.paymentRepo.manager.query(
+            `SELECT wt.created_by_user_id AS user_id, u.full_name AS full_name,
+                    COALESCE(SUM(-wt.amount), 0) AS paid_out
+             FROM wallet_transactions wt
+             LEFT JOIN users u ON u.id = wt.created_by_user_id
+             WHERE wt.tenant_id = $1 AND wt.kind = 'DEBIT_PAYOUT' AND wt.created_at BETWEEN $2 AND $3
+               AND ($4::uuid IS NULL OR wt.created_by_user_id = $4)
+             GROUP BY wt.created_by_user_id, u.full_name`,
+            payoutParams,
+          );
+
+    // Independent aggregates — run concurrently rather than in series.
+    const [totalsRow, discountRow, byMethod, byCollector, byFeeType, byDay, payouts] =
+      await Promise.all([
+        totalsRowP,
+        discountRowP,
+        byMethodP,
+        byCollectorP,
+        byFeeTypeP,
+        byDayP,
+        payoutsP,
+      ]);
+
+    const paidOutBy = new Map(payouts.map((r) => [r.user_id, Number(r.paid_out)]));
+    const collectors: CollectionsByCollector[] = byCollector.map((r) => ({
+      user_id: r.user_id,
+      full_name: r.full_name,
+      count: Number(r.count),
+      collected: Number(r.collected),
+      reversed: Number(r.reversed),
+      net: Number(r.net),
+      paid_out: paidOutBy.get(r.user_id) ?? 0,
+    }));
+    // An actor who only paid out (no payments in range) still gets a row.
+    const seen = new Set(byCollector.map((r) => r.user_id));
+    for (const r of payouts) {
+      if (!seen.has(r.user_id)) {
+        collectors.push({
+          user_id: r.user_id,
+          full_name: r.full_name,
+          count: 0,
+          collected: 0,
+          reversed: 0,
+          net: 0,
+          paid_out: Number(r.paid_out),
+        });
+      }
+    }
+    // Same order as the SQL: full_name, nulls last.
+    collectors.sort((a, b) =>
+      a.full_name === b.full_name ? 0 : a.full_name === null ? 1 : b.full_name === null ? -1 : a.full_name < b.full_name ? -1 : 1,
+    );
 
     return {
       range: { from: query.from, to: query.to },
@@ -550,6 +605,7 @@ export class CollectionsReportService {
         wallet_used: Number(totalsRow[0]?.wallet_used ?? 0),
         wallet_added: Number(totalsRow[0]?.wallet_added ?? 0),
         change_returned: Number(totalsRow[0]?.change_returned ?? 0),
+        wallet_paid_out: round2(payouts.reduce((sum, r) => sum + Number(r.paid_out), 0)),
       },
       by_method: byMethod.map((r): CollectionsByMethod => ({
         payment_method: r.payment_method,
@@ -558,14 +614,7 @@ export class CollectionsReportService {
         reversed: Number(r.reversed),
         net: Number(r.net),
       })),
-      by_collector: byCollector.map((r): CollectionsByCollector => ({
-        user_id: r.user_id,
-        full_name: r.full_name,
-        count: Number(r.count),
-        collected: Number(r.collected),
-        reversed: Number(r.reversed),
-        net: Number(r.net),
-      })),
+      by_collector: collectors,
       by_fee_type: byFeeType.map((r): CollectionsByFeeType => ({
         fee_type: r.fee_type,
         collected: Number(r.collected),

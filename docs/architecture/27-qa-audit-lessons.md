@@ -1,0 +1,200 @@
+# QA audit lessons (Epic #2642)
+
+Epic #2642 fixes what a pre-launch QA audit found. Each fix should leave
+behind a rule and a test, so the same bug class cannot come back. This doc is
+where that trail is kept: first the map, then the learnings from each wave,
+then the baseline every wave-close ticket compares against.
+
+```mermaid
+flowchart LR
+  F[QA finding] --> R[root cause] --> U[rule] --> T[enforcing test] --> C[code]
+```
+
+## Defect classes
+
+One row per class. The wave that fixes it is in the first cell. `TBD` is
+filled in by that wave's close ticket. Wave 1-3 rows were filled from PRs #2664, #2669, #2670.
+
+| Defect class                            | Root cause                                                                                                                                                                                    | Rule                                                                                                                                                                                                                                                                                                                                                                                | Enforcing test                                                                                        | Code                                                                                                |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Error mapping (W1)                      | Oversized body, bad charset, duplicate names and wrong upload field names escaped as 500 with raw constraint text                                                                             | Known errors map to fixed 4xx sentences in one place (Rule 24; #2634, #2612, #2616)                                                                                                                                                                                                                                                                                                 | `server/src/common/filters/known-errors.spec.ts`, `known-errors.e2e-spec.ts`                          | `server/src/common/filters/known-errors.ts`                                                         |
+| Real dates and ranges (W1)              | Impossible dates (2026-02-30) rolled over or 500d; registers could be marked years before the academic year                                                                                   | Strict date check and academic-year range (#2610, #2611; bare `@IsDateString()` sweep is #2659)                                                                                                                                                                                                                                                                                     | attendance and invoice date specs, DTO ratchet                                                        | date validators, attendance service                                                                 |
+| Checkout money and replay (W1)          | Checkout took 0.01 over the balance and change on a card; a replay ignored changed change handling or a reversal; another school saw different errors                                         | Whole paisa and DB CHECKs (Rule 26; #2636, #2637, #2640, #2617)                                                                                                                                                                                                                                                                                                                     | `server/test/student-fee-money-checks-migration.integration.spec.ts`, demo-seed `validator.spec.ts`   | `checkout.service.ts`, migration `1791900000300-StudentFeeMoneyChecks`                              |
+| Step-up access (W1)                     | The "allow password" setting was ignored (`approval_mode` vs `approvalMode`); any account, even a parent, could lock approvers out                                                            | `STEP_UP_REQUEST` permission on the step-up routes (#2599, #2639); second-approver is docs-only (#2623, follow-up #2661, #2660)                                                                                                                                                                                                                                                     | `step-up.controller.e2e-spec.ts`, `step-up.service.spec.ts`                                           | `server/src/modules/auth/step-up.*`                                                                 |
+| Input length and number range (W2)      | A varchar-backed string had no `@MaxLength`; roll numbers had no cap; phone rules drifted between client and server                                                                           | `@MaxLength` plus a CI guard, `ROLL_NUMBER_MAX`, one BD phone pattern (#2608, #2595, #2619)                                                                                                                                                                                                                                                                                         | `server/src/dto-string-length.spec.ts`                                                                | DTOs, public admission form                                                                         |
+| Referential deletes (W2)                | Deleting an academic year, subject or room left bills and rows pointing at it                                                                                                                 | In-use guards (#2613, #2614); the registry that finds the rest is W3 below (Rule 27)                                                                                                                                                                                                                                                                                                | academic-year and subject service specs                                                               | each parent `remove()`                                                                              |
+| Delete-guard registry (W3)              | A parent delete left child rows with no check; 45 gaps remain                                                                                                                                 | Every parent-child pair is guarded or listed in `KNOWN_GAPS` with an issue (#2655; issues #2675-#2680)                                                                                                                                                                                                                                                                              | `server/test/delete-guard-registry.integration.spec.ts`                                               | each parent remove()                                                                                |
+| Report reads (W2)                       | The collections report built a query with interpolation and left wallet payouts out of totals; invoices vanished after a student was deleted                                                  | No interpolation, `wallet_paid_out` shown, invoices scoped by their own `tenant_id` (#2626, #2638)                                                                                                                                                                                                                                                                                  | collections report and invoice read specs                                                             | reports service, invoices service                                                                   |
+| Fee rows (W2)                           | Wallet auto-apply, the scheduler (cadence change), the late-fee sweep and discount PATCH compared money or periods loosely                                                                    | Whole-paisa compare, date-range cover, closed-month check, discount bound (#2644-#2648; leftover #2685)                                                                                                                                                                                                                                                                             | fee generation, scheduler and fines integration specs                                                 | `server/src/modules/fees/*`                                                                         |
+| Import (W3)                             | Import wrote partly then returned 500; the template's registration_number column was ignored; roll cap and held rolls were checked too late                                                   | Validate before write; honour the template columns (#2606, #2607)                                                                                                                                                                                                                                                                                                                   | student import specs                                                                                  | student import service                                                                              |
+| Backup and restore (W3)                 | Departed recorders broke export; three sets of size limits; final retry left no terminal state                                                                                                | Strict `keyOf('users')` registry (#2625); one set of limits (#2624)                                                                                                                                                                                                                                                                                                                 | backup export and limits specs                                                                        | backup module                                                                                       |
+| Accessibility and responsive (W3)       | Tab panels without focus ring or real target; bare grid cells; unfocusable scroll region                                                                                                      | Tab, grid and scroll-region patterns in 21-ui-patterns (#2601, #2628-#2630)                                                                                                                                                                                                                                                                                                         | axe suite `e2e/a11y`                                                                                  | ui Tabs, calendar grid, invoice table                                                               |
+| Mutation retries and double submit (W4) | Writes auto-retried on 5xx, so a lost reply created the record twice; submit buttons stayed live during the first request                                                                     | Mutations never retry: `retry` is `false` or absent, and the guard fails on anything else (#2596). `POST /students` sends an Idempotency-Key, and since #2631 (W5) the server replays the first reply, so a resend after a lost reply no longer creates a second student; create dialogs and forms guard double submit with a ref (#2594, #2622); the sweep of other forms is #2656 | `ui/src/hooks/mutation-retry.guard.spec.ts`, `ui/src/api/query-client.test.ts`                        | `ui/src/api/query-client.ts`, create dialogs                                                        |
+| URL-held state (W4)                     | List selection lived in the URL, so hundreds of ids made the URL too long and a refresh failed                                                                                                | Selection is in memory, the URL holds only filters (#2602)                                                                                                                                                                                                                                                                                                                          | students list specs, `e2e/journeys/url-state.spec.ts`                                                 | students list route                                                                                 |
+| Empty vs no-match state (W4)            | A search with no rows showed the first-time empty state                                                                                                                                       | `ListShell` shows a no-match state with Clear whenever a rendered filter is set; a page's own `kind: 'no-results'` keeps its words (#2591)                                                                                                                                                                                                                                          | `ui/src/shells/list-shell` specs, `client-admin/src/routes/_staff/exams/index.test.tsx`               | `ui/src/shells/list-shell.tsx`                                                                      |
+| Phone layout (W4)                       | Tab strips and snooze/close buttons overflowed at 390px                                                                                                                                       | Scroll inside the strip; short visible word, full text stays the accessible name (#2593, #2600)                                                                                                                                                                                                                                                                                     | `e2e/responsive/analysis-phone.spec.ts`, `e2e/responsive/notifications-phone.spec.ts`                 | analysis tabs, alerts                                                                               |
+| Student form and send (W5)              | Edit sent the whole form, so a stale form overwrote other edits; a double click sent one SMS twice; a failed SMS said "sending started"; a missing record offered Retry (#2603, #2604, #2598) | Edit sends only changed fields; sending and billing routes carry an Idempotency-Key and replay the stored reply (#2631); every create/send dialog is in the double-submit registry (#2656); `recordWithAllocation` removed so checkout is the only payment path (#2649)                                                                                                             | `server/src/common/idempotency/idempotency.interceptor.spec.ts`, `e2e/journeys/double-submit.spec.ts` | student edit form, `idempotency.interceptor.ts`, `double-submit.registry.ts`, `checkout.service.ts` |
+
+## Learnings log
+
+Raw notes from each wave close, same format as the
+[Learnings log in 08-security.md](08-security.md#learnings-log-epic-75): what
+surprised us, what it cost, the fix, a rule candidate, then an arrow to the
+rule it became (`→ Rule N`) or `→ no rule` with the reason.
+
+### Wave 1
+
+Learnings log, 2026-10-19 (format: surprise, cost, fix, rule candidate -> rule or no rule).
+
+- **A new Permission broke an unrelated "exact list" pin.** Granting `STEP_UP_REQUEST` to EXAM_CONTROLLER failed the D16 pin in `shared/src/enums/permissions.spec.ts`; only the full suite showed it. Cost: one red at wave close. Fix: pin updated. Rule candidate: a ticket that adds a permission or role grant greps the `*.spec.ts` exact-list pins and runs the shared permissions spec first -> checklist item, no security rule.
+- **A sibling service kept the bug the first one lost.** `payment-allocation.service.ts` still echoed `idempotency_key` after checkout stopped. Cost: Rule 23 gap found at wave close. Fix: id-free wording. Rule candidate: when removing an echo in one service, grep sibling services for the same message shape -> Rule 23 (add a "grep siblings" note when rules 24-27 are written).
+- **Load timeouts look like red tests.** About 12 integration tests timed out on a shared machine and all passed alone. Cost: about 20 minutes of triage. Fix: rerun failures alone under `yarn test-env run` before judging. -> no rule (D18 wording).
+- **Browser suites cannot run while dev servers hold ports 3000 and 5174.** `playwright.config.ts` hard-codes both. Cost: e2e, pwa and axe were not run at the baseline or the wave-1 close. Fix: none yet; run them on a machine with free ports. -> no rule.
+- **NOT VALID CHECKs still check new and changed rows.** A restore of an old backup can hit `CHK_sf_paid_plus_discount`. Found by the PR 1 review. Fix: per-row restore validation and a deploy step (#2662). -> Rule candidate for rules 24-27 (money CHECKs and restore).
+
+### Wave 2
+
+Learnings log, 2026-10-19 (same format as Wave 1).
+
+- **Client and server phone rules drifted.** The public admission form sent the raw phone (placeholder `01712-345678` has a dash) and the BD region pattern `/^1\d{9}$/` allowed operator prefixes 10-12, but server `BD_PHONE_REGEX` wants `1[3-9]` and no dash. Found by lane w2-g1 (#2619). Cost: a valid-looking form value 400s. Fix: the form sends digits with a leading 0 and the region pattern is `/^1[3-9]\d{8}$/`. Rule candidate: when a server regex is tightened, grep the client region/validation pattern for the same field -> checklist item, no security rule.
+- **The OpenAPI document needs a database.** `generate-openapi.js` boots the full Nest app, so it fails without env. Fix: run it under `yarn test-env run -- node server/dist/scripts/generate-openapi.js`, after `yarn workspace @biddaloy/shared build` (a stale shared build hides new enums such as `STEP_UP_REQUEST`). -> no rule.
+- **Wave-2 API changes were small in the schema.** `wallet_paid_out` / `paid_out` and `maxLength` hints produced a 6-line `schema.d.ts` diff; one regeneration at wave close was enough. -> no rule.
+
+### Wave 3
+
+Learnings log, 2026-10-19 (same format as Wave 1). Details sit in 04, 14 and 21.
+
+- **45 delete-guard gaps found.** The registry (#2655) listed 45 child-parent pairs where remove() checks nothing. Cost: filed as six issues, one per parent (#2675 AcademicYear, #2676 Class, #2677 ClassSection, #2678 Subject, #2679 Room, #2680 FeeStructure). Rule candidate: a new FK to a parent joins the registry or fails the test -> already enforced.
+- **Shared i18n keys land in the close ticket.** `noMatches`, `recordNotFound` and `outcomeUnknown` were added to `common.json` once, so W4 and W5 tickets do not collide. -> no rule.
+- **Wave-close full run not done by this ticket.** The ci-local, e2e, axe and flake-report runs of #2652 step 4 were not run here (no Docker, shared ports). -> run on a free machine.
+
+### Wave 4
+
+Learnings log, 2026-10-19 (same format as Wave 1). Details sit in 06 and 21.
+
+- **A new ListShell default silently overrode a page's own empty state.** #2591 swaps in a generic no-match state whenever a filter is set, unless the page passes `kind: 'no-results'`. `exams/index.tsx` passed no kind, so its own words were lost and `exams/index.test.tsx` "shows the empty state, and a no-match variant when filtered" went red. Cost: found at wave close. Fix: the page sets `kind: 'no-results'` (#2653). Rule candidate: a shared-shell change that overrides page props greps every page that sets the same prop -> checklist item, no rule. Other pages that set a filtered `emptyState` without `kind` may have the same gap (see follow-ups).
+- **A stale comment outlived its cause.** `-student-form.tsx` still said `TError` is `unknown` because of `shouldRetryQuery`; #2596 removed that retry. Fixed in #2653. -> no rule.
+- **Shared i18n keys were consumed as planned.** `noMatches.*` through `ListShell` (namespace `common`), `outcomeUnknown` through `query-client.ts` and the e2e `t('common.outcomeUnknown')`. -> no rule.
+- **Wave-close full run not done by this ticket.** `ci-local --integration --e2e`, `e2e:pwa`, axe, responsive, the 10x flake gate and `flake-report` were not run (no Docker, shared ports). Only the affected vitest specs and `tsc -p ui` were. -> run on a free machine; same gap as Wave 3.
+
+### Wave 5
+
+Learnings log, 2026-10-19 (same format as Wave 1). Details sit in 21 and 09.
+
+- **A removed class left its name in comments.** #2649 deleted `recordWithAllocation`, but `checkout.service.ts` and `payment.entity.ts` still named it. Cost: misleading comments found at wave close. Fix: reworded in #2654 and the rest in #2683 (`checkout.service.ts`, `payment.entity.ts`, `payment-reversal.service.ts`, `03-backend-modules.md`, the MSW handler). Rule candidate: removing a class greps its name in comments, not only code -> checklist item, no rule.
+- **`schema.d.ts` was stale after an API field change.** #2604 added `error: string | null` to `CommunicationResponseDto` without regenerating. Cost: `check-api-types` would fail in CI. Fix: regenerated in #2654 (one line). Rule candidate: a DTO change in a ticket regenerates in the wave-close ticket, as W2 did -> no rule.
+- **A fresh worktree cannot build the OpenAPI document.** `docs:generate` failed with a bare TS2307 until `@biddaloy/shared` was built, then needed `yarn test-env run`. Filed as #2695. -> no rule.
+- **Some write routes stay outside the Idempotency-Key interceptor.** `fees/generate`, `fees/schedules/run-now`, `fees/fines/generate` need a verified DB unique constraint (#2691). Also open: e2e for invoice send (#2692), double-submit leftovers (#2693), pre-send "no SMS gateway" warning (#2694). -> follow-ups, no rule yet.
+- **Wave-close full run not done by this ticket.** `ci-local --integration --e2e`, `e2e:pwa`, axe, responsive and the 10x flake gate were not run (no Docker, shared ports). Same gap as Waves 3 and 4. Rules 24-27 and their pointers in `08-security.md` and `CLAUDE.md` were written in #2683. -> run on a free machine.
+
+## One click, one effect
+
+```mermaid
+flowchart LR
+  C[Click Send] --> G["UI guard<br/>2nd click ignored"] --> N["no auto-retry"] --> K["Idempotency-Key<br/>7f3c-..."] --> S["server runs once,<br/>stores reply"] --> P["same key again<br/>= stored reply"]
+```
+
+Example: an admin double-clicks "Send reminder". Both requests carry
+`Idempotency-Key: 7f3c9a10`. The first sends one SMS and stores the reply.
+The second gets that same reply back. One SMS leaves.
+
+## Follow-up issues filed by the epic
+
+Waves 1-2 (PR #2664, #2669): #2657, #2658, #2659, #2660, #2661, #2662,
+#2663, #2665, #2666, #2667, #2671. Wave 3 (PR #2670): #2668, #2675-#2680,
+#2686-#2690. Wave 4 (PR #2674): #2672, #2673, #2681. Wave 5 (PR #2683):
+#2682, #2684, #2685, #2691-#2695.
+
+## Appendix: Baseline on 901764f4a
+
+Measured on clean `origin/main` `901764f4a`, 2026-10-19, Node v24.20.0, in a
+fresh worktree. "Red" = failed alone and in the full run. "Flaky" = failed in
+the full run, passed on re-run with no code change (D18). Wave-close tickets
+treat the red list as "known red".
+
+| Suite                         | Command                                                                                         | Result                                                                                                      | Red tests | Flaky tests    |
+| ----------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------- | -------------- |
+| Typecheck                     | `yarn typecheck`                                                                                | pass (717 s)                                                                                                | none      | none           |
+| Verify (lint, format, guards) | `bash scripts/ci-local.sh --integration --e2e` (verify section)                                 | pass                                                                                                        | none      | none           |
+| Frontend                      | same run (frontend section)                                                                     | pass: 787 files, 8868 tests                                                                                 | none      | none           |
+| Audit                         | `bash scripts/ci-local.sh --only audit`                                                         | pass (allowlisted advisories only)                                                                          | none      | none           |
+| Server integration            | same run (integration section)                                                                  | 16 failed, 3298 passed, 13 skipped (270 files); all 16 pass when the 13 files are re-run alone (282 passed) | none      | see list below |
+| Server e2e (API)              | `ci-local.sh` stops at the first red section, so not reached; `--only e2e` also could not start | not run                                                                                                     | unknown   | unknown        |
+| Playwright e2e                | `yarn e2e`                                                                                      | not run: ports 3000 and 5174 held by a foreign long-lived dev stack                                         | unknown   | unknown        |
+| PWA                           | `yarn e2e:pwa`                                                                                  | not run: same port 3000 clash                                                                               | unknown   | unknown        |
+| Axe                           | `yarn e2e e2e/a11y`                                                                             | not run: same port clash                                                                                    | unknown   | unknown        |
+
+Why the browser suites did not run: `playwright.config.ts` hard-codes
+`localhost:3000` and `:5174`. On the baseline machine a dev API (`dist/main`,
+started Oct 17) and a vite server (started Oct 16) from another checkout were
+already listening. They were not mine to kill, and reusing them would not
+measure clean `main`. A wave-close ticket on a machine with free ports should
+run these three and fill the rows.
+
+Flaky server integration tests (all failed with a 5 s test or 10 s hook
+timeout while other lanes loaded the machine, passed alone):
+
+- `src/modules/seat-plans/seat-plans.integration.spec.ts` (suite hook)
+- `test/subject-choice-groups-migration.integration.spec.ts`
+- `src/modules/attendance/absence-notice.service.integration.spec.ts`
+- `src/modules/attendance/attendance-summary.service.integration.spec.ts`
+- `src/modules/audit/audit-dashboard.integration.spec.ts`
+- `src/modules/calendar/calendar-import.service.integration.spec.ts`
+- `src/modules/invoices/invoice-send.sms-credit.integration.spec.ts`
+- `src/modules/presets/preset-apply.integration.spec.ts`
+- `src/modules/promotions/promotions.service.integration.spec.ts`
+- `src/modules/users/users.service.integration.spec.ts`
+- `src/modules/workbook/export/export.integration.spec.ts`
+- `src/modules/workbook/restore/restore.integration.spec.ts` (5 tests)
+- `src/modules/workbook/tabs/academics/study-plans.tabs.integration.spec.ts`
+
+Frontend flake pass (`yarn vitest run --reporter=json`, 3 passes, then
+`node scripts/flake-report.mjs`):
+
+```text
+All green across 3 passes. No flakes, no failures.
+```
+
+## Routes without an Idempotency-Key (#2691)
+
+Three routes skip `IdempotencyInterceptor` (#2631). A repeated call is still a no-op, because the
+database refuses the duplicate row. One exception: `CREATE_ANYWAY` stacks the next `occurrence`
+on purpose. Its approval token is used up on the first call, so a plain retry is refused, but a
+retry with a fresh approval creates one more bill. That is a second, approved decision, not a
+replay. `fee-generation.service.integration.spec.ts` checks the generate index exists. The late-fee index is made by a migration only (TypeORM `@Index` has no `WHERE`), and `late-fee.service.integration.spec.ts` covers its `ON CONFLICT`.
+
+```mermaid
+flowchart LR
+  A[POST fees/generate] --> G[FeeGenerationService.generate]
+  B[POST fees/fines/generate] --> G
+  C[POST fees/schedules/run-now] --> D[fees-daily sweep]
+  G -->|ON CONFLICT DO NOTHING| U1[(IDX_student_fees_active_student_structure_period_occurrence)]
+  D -->|recurring schedules| G
+  D -->|late fees, ON CONFLICT| U2[(IDX_student_fees_late_fee_for_student_fee_id)]
+```
+
+| Route                    | Repeat is a no-op because of                                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `fees/generate`          | Unique `(student_id, fee_structure_id, period_start, occurrence)` where `deleted_at IS NULL`. `CREATE_ANYWAY` needs an approval token. |
+| `fees/fines/generate`    | Same index: fines go through `FeeGenerationService.generate`.                                                                          |
+| `fees/schedules/run-now` | Same index for the bills, plus unique `late_fee_for_student_fee_id` for late fees, plus `last_run_period` on schedules.                |
+
+## W6 follow-ups
+
+| Issue                    | Outcome | Why                                                                      |
+| ------------------------ | ------- | ------------------------------------------------------------------------ |
+| #2684 (Rule 23 messages) | Fixed   | fees/invoices now say `Student not found` (no id echo), like enrollments |
+| #2657                    | Skipped | The migration is too big for this wave                                   |
+| #2660                    | Skipped | The requester is already bound                                           |
+| #2668, #2690             | Skipped | Product call needed                                                      |
+| #2686, #2687             | Skipped | Too large for this wave                                                  |
+| #2661                    | Skipped | Needs a settings schema and UI                                           |
+| #2693, #2694             | Skipped | Need Playwright / the SMS-credit UI                                      |
+| #2689 (item 1)           | Skipped | Item 1 left out of this wave                                             |
+| #2699                    | Skipped | Needs a server delta contract                                            |
+
+```mermaid
+flowchart LR
+  W6[W6 lanes g1 g2 g3] --> Fixed[Fixed: #2684 and the lane tickets]
+  W6 --> Skipped[Skipped: see table]
+```

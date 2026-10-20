@@ -44,6 +44,7 @@ at hand instead of loading the whole set.
 | [26-dashboard-load-test.md](26-dashboard-load-test.md) | Running or changing the manual 10,000-student dashboard load test (`load:seed`, `run-dashboard-load.ts`), or reading its p95-per-widget table |
 | [28-billing.md](28-billing.md) | Working on seat orders, the bKash pay step and its callback, the reconciler, or `platform_payments` |
 | [23-attention.md](23-attention.md) | Working on the attention bar/modal, alert rules, the to-do/history page, manual alerts, the alerts report, push mute/quiet hours, or the guardian SMS fallback |
+| [27-qa-audit-lessons.md](27-qa-audit-lessons.md) | You are fixing a bug found by QA, or closing a wave of Epic #2642 |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the _why_ behind the

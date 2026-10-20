@@ -124,4 +124,48 @@ describe('MonthGrid', () => {
       .filter((cell) => cell.getAttribute('tabindex') === '0');
     expect(tabbable).toHaveLength(1);
   });
+
+  it('is a real grid: only rows inside, 7 cells per row, no dimmed day numbers', async () => {
+    const { localeReady } = setup();
+    await localeReady;
+    const grid = screen.getByRole('grid');
+    expect(Array.from(grid.children).every((c) => c.getAttribute('role') === 'row')).toBe(true);
+    const rows = within(grid).getAllByRole('row');
+    expect(within(rows[0] as HTMLElement).getAllByRole('columnheader')).toHaveLength(7);
+    for (const row of rows.slice(1)) expect(within(row).getAllByRole('gridcell')).toHaveLength(7);
+    expect(grid.querySelector('.opacity-60')).toBeNull();
+  });
+
+  it('moves the roving tabindex with ArrowRight', async () => {
+    const { user, localeReady } = setup({ selectedDate: '2026-10-08' });
+    await localeReady;
+    screen.getByTestId('day-cell-2026-10-08').focus();
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByTestId('day-cell-2026-10-09').getAttribute('tabindex')).toBe('0');
+    expect(screen.getByTestId('day-cell-2026-10-08').getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('moves DOM focus with the arrows, so Enter opens the day the focus is on', async () => {
+    const onDayClick = vi.fn();
+    const { user, localeReady } = setup({ selectedDate: '2026-10-08', onDayClick });
+    await localeReady;
+    screen.getByTestId('day-cell-2026-10-08').focus();
+    await user.keyboard('{ArrowRight}{ArrowDown}');
+    expect(document.activeElement).toBe(screen.getByTestId('day-cell-2026-10-16'));
+    await user.keyboard('{Enter}');
+    expect(onDayClick).toHaveBeenCalledWith('2026-10-16');
+  });
+
+  it('Enter on an event chip opens the event, not the day', async () => {
+    const onDayClick = vi.fn();
+    const onEventClick = vi.fn();
+    const { user, localeReady } = setup({ events: [ev('1')], onDayClick, onEventClick });
+    await localeReady;
+    within(screen.getByTestId('day-cell-2026-10-08'))
+      .getByRole('button', { name: 'Event 1', hidden: true })
+      .focus();
+    await user.keyboard('{Enter}');
+    expect(onEventClick).toHaveBeenCalledWith('1');
+    expect(onDayClick).not.toHaveBeenCalled();
+  });
 });

@@ -4,11 +4,11 @@
  * "has enrolments" conflict message. Same hand-rolled provider stack as
  * `-record-dialog.test.tsx`.
  */
-import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
+import { createAppQueryClient, setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
 import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
-import { cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, server } from '@biddaloy/ui/test';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -33,7 +33,7 @@ async function renderDialog(props: Partial<ProgramFormDialogProps> = {}) {
   setActiveTenant('tenant-1');
   setActiveRole('ADMIN');
 
-  const queryClient = createTestQueryClient();
+  const queryClient = createAppQueryClient();
   const onOpenChange = vi.fn();
   const onSaved = vi.fn();
 
@@ -93,5 +93,122 @@ describe('ProgramFormDialog', () => {
     expect(screen.getByLabelText('Description')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+  });
+
+  it('two rapid submits send one create request [2622]', async () => {
+    const user = userEvent.setup();
+    let posts = 0;
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post('/api/v1/programs', async () => {
+        posts += 1;
+        await gate;
+        return HttpResponse.json(PROGRAM);
+      }),
+    );
+
+    const { onSaved } = await renderDialog();
+    await user.type(await screen.findByLabelText(/^Name/), 'Reading Club');
+    const save = screen.getByRole('button', { name: 'Save' });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    await new Promise((r) => setTimeout(r, 50));
+    release();
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(posts).toBe(1);
+  });
+
+  it('a 409 says it already exists [2622]', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post('/api/v1/programs', () =>
+        HttpResponse.json(apiErrorBody(409, 'Program exists', '/programs'), { status: 409 }),
+      ),
+    );
+    await renderDialog();
+    await user.type(await screen.findByLabelText(/^Name/), 'Reading Club');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText('A program with this name already exists');
+  });
+
+  describe('name checks [2615]', () => {
+    function countPosts() {
+      const state = { posts: 0 };
+      server.use(
+        http.post('/api/v1/programs', () => {
+          state.posts += 1;
+          return HttpResponse.json(PROGRAM);
+        }),
+      );
+      return state;
+    }
+
+    it('a 201-character name shows the inline error and sends nothing', async () => {
+      const state = countPosts();
+      const user = userEvent.setup();
+      await renderDialog();
+      const input = await screen.findByLabelText(/^Name/);
+      fireEvent.change(input, { target: { value: 'a'.repeat(201) } });
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect((await screen.findByRole('alert')).textContent).toBe(
+        'The name can be at most 200 characters.',
+      );
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expect(state.posts).toBe(0);
+    });
+
+    it('a blank (spaces only) name shows the required error and sends nothing', async () => {
+      const state = countPosts();
+      const user = userEvent.setup();
+      await renderDialog();
+      fireEvent.change(await screen.findByLabelText(/^Name/), { target: { value: '   ' } });
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect((await screen.findByRole('alert')).textContent).toBe('Enter a name for the program.');
+      expect(state.posts).toBe(0);
+    });
+
+    it('a 200-character name submits', async () => {
+      const state = countPosts();
+      const user = userEvent.setup();
+      const { onSaved } = await renderDialog();
+      fireEvent.change(await screen.findByLabelText(/^Name/), {
+        target: { value: 'a'.repeat(200) },
+      });
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      expect(state.posts).toBe(1);
+    });
+
+    it('a server 400 that names `name` shows the field message, not the generic one', async () => {
+      server.use(
+        http.post('/api/v1/programs', () =>
+          HttpResponse.json(
+            apiErrorBody(
+              400,
+              ['name must be shorter than or equal to 200 characters'],
+              '/programs',
+            ),
+            { status: 400 },
+          ),
+        ),
+      );
+      const user = userEvent.setup();
+      await renderDialog();
+      await user.type(await screen.findByLabelText(/^Name/), 'Reading Club');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(
+        await screen.findByText("This name isn't valid. Check it and try again."),
+      ).toBeTruthy();
+      expect(screen.queryByText("Couldn't save this program")).toBeNull();
+      expect(screen.queryByText(/shorter than or equal/)).toBeNull();
+    });
   });
 });

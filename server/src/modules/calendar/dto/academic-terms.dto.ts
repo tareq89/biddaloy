@@ -1,14 +1,7 @@
-import {
-  ArrayMaxSize,
-  IsArray,
-  IsDateString,
-  IsOptional,
-  IsUUID,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { ArrayMaxSize, IsArray, IsOptional, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { AcademicTerm } from '../entities/academic-term.entity';
+import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
 
 export class CreateTermDto {
   @IsUUID()
@@ -19,10 +12,10 @@ export class CreateTermDto {
   @MaxLength(80)
   name: string;
 
-  @IsDateString()
+  @IsRealDate()
   start_date: string;
 
-  @IsDateString()
+  @IsRealDate()
   end_date: string;
 }
 
@@ -34,11 +27,11 @@ export class UpdateTermDto {
   name?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   start_date?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   end_date?: string;
 }
 

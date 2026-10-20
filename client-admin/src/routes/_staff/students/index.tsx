@@ -37,6 +37,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { useLandingFlag } from '../-use-landing-flag';
+import { previewIdsNav } from '../../../components/print/preview-ids';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { BulkPhotoDialog } from './-bulk-photo-dialog';
@@ -252,14 +253,16 @@ function StudentsListPage() {
         }
       : undefined;
 
-  function printPreview(search: { ids: string } | { class_section_id: string }) {
+  function printPreview(target: { ids: string[] } | { class_section_id: string }) {
+    const nav = 'ids' in target ? previewIdsNav(target.ids) : { search: target, state: {} };
     void navigate({
       to: '/print/preview',
+      state: nav.state,
       search: {
         kind: 'STUDENT_ID_CARD',
         subject_type: 'STUDENT',
         from: '/students',
-        ...search,
+        ...nav.search,
       },
     });
   }
@@ -581,7 +584,7 @@ function StudentsListPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => printPreview({ ids: Array.from(state.selectedIds).join(',') })}
+                onClick={() => printPreview({ ids: Array.from(state.selectedIds) })}
               >
                 <IdCardIcon className="size-4" aria-hidden />
                 {t('list.printIdCards', { count: state.selectedIds.size })}

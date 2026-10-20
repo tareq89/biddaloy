@@ -7,7 +7,7 @@ import { DataSource } from 'typeorm';
 import { AttendanceStatus, DashboardRiskThresholds } from '@biddaloy/shared';
 import { AttendanceSummaryService } from '../../attendance/attendance-summary.service';
 import { sectionRosterIdsBySection } from '../../enrollments/section-roster';
-import { PAYABLE_FEE_STATUSES } from '../../students/open-money';
+import { OPEN_FEE_STATUSES } from '../../fees/fees.constants';
 import { SchoolsService } from '../../schools/schools.service';
 import { TENANT_STATUS_REDIS } from '../../schools/tenant-status.service';
 import { DEFAULT_DASHBOARD_SETTINGS } from '../../schools/settings/tenant-settings-defaults';
@@ -271,7 +271,7 @@ export class AtRiskService {
           AND sf.due_date IS NOT NULL AND sf.due_date < $2::date AND sf.student_id = ANY($4)
         GROUP BY sf.student_id
        HAVING ($2::date - MIN(sf.due_date)::date) >= $5`,
-      [tenantId, today, PAYABLE_FEE_STATUSES, ids, t.overdueDays],
+      [tenantId, today, OPEN_FEE_STATUSES, ids, t.overdueDays],
     )) as { student_id: string; days: number | string }[];
     for (const row of overdue) add(row.student_id, { kind: 'OVERDUE', value: Number(row.days) });
 

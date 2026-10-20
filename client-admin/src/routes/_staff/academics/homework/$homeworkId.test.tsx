@@ -69,7 +69,7 @@ describe('/academics/homework/$homeworkId', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByText('Homework not found.')).toBeTruthy();
+    expect(await screen.findByText('We could not find this record')).toBeTruthy();
   });
 
   it('assign dialog submits and shows a confirmation', async () => {

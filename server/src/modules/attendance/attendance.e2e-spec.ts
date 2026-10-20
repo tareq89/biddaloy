@@ -463,6 +463,22 @@ describe('Attendance E2E', () => {
       expect(res.body.session.version).toBe(1);
     });
 
+    it('refuses a date outside the academic year (422)', async () => {
+      const res = await supertest(app.getHttpServer())
+        .put(`/api/v1/attendance/sections/${MAPPED_SECTION_ID}/register`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .send({
+          date: '2019-05-05',
+          base_version: 0,
+          client_request_id: randomUUID(),
+          entries: [{ student_id: studentId, status: 'ABSENT' }],
+        })
+        .expect(422);
+      expect(res.body.details.code).toBe('ATTENDANCE_OUTSIDE_ACADEMIC_YEAR');
+    });
+
     // LIFE-08: the roster is the section's enrollments, so a student promoted
     // out of it (placement moved) can still be marked on its register.
     it('accepts a student promoted out of the section; refuses a student with no enrollment there (422)', async () => {
