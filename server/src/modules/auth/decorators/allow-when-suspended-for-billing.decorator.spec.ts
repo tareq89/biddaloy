@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'fs';
 import { join, relative } from 'path';
 import { ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY } from './allow-when-suspended-for-billing.decorator';
+import { BillingController } from '../../billing/billing.controller';
 import { WorkbookController } from '../../workbook/export/workbook.controller';
 
 /**
@@ -20,7 +21,7 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe('@AllowWhenSuspendedForBilling allowlist', () => {
-  it('only the decorator, ContextGuard and WorkbookController use the marker', () => {
+  it('only the decorator, ContextGuard, BillingController and WorkbookController use the marker', () => {
     const users = sourceFiles(SRC)
       .filter((f) =>
         /@AllowWhenSuspendedForBilling\(|ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY|'allowWhenSuspendedForBilling'/.test(
@@ -33,6 +34,7 @@ describe('@AllowWhenSuspendedForBilling allowlist', () => {
     expect(users).toEqual([
       'modules/auth/decorators/allow-when-suspended-for-billing.decorator.ts',
       'modules/auth/guards/context.guard.ts',
+      'modules/billing/billing.controller.ts',
       'modules/workbook/export/workbook.controller.ts',
     ]);
   });
@@ -47,5 +49,16 @@ describe('@AllowWhenSuspendedForBilling allowlist', () => {
       .sort();
 
     expect(marked).toEqual(['download', 'get', 'requestExport']);
+  });
+});
+
+describe('BillingController marker', () => {
+  it('marks exactly orders (get, create) and summary so a suspended school can still pay', () => {
+    const proto = BillingController.prototype as unknown as Record<string, unknown>;
+    const marked = Object.getOwnPropertyNames(proto)
+      .filter((k) => k !== 'constructor' && typeof proto[k] === 'function')
+      .filter((k) => Reflect.getMetadata(ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY, proto[k] as object))
+      .sort();
+    expect(marked).toEqual(Object.getOwnPropertyNames(proto).filter((k) => k !== 'constructor').sort());
   });
 });
