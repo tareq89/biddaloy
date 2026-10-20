@@ -254,42 +254,116 @@
     "emptyTitle": "No holiday lists yet",
     "tableCaption": "Table of holiday lists"
   },
-  "trial": {
-    "column": "Trial",
-    "daysLeft_one": "{{days}} day left",
-    "daysLeft_other": "{{days}} days left",
-    "ended": "Ended",
-    "filterLabel": "Trial",
-    "filterAll": "Any",
-    "filterActive": "In trial",
-    "filterEnded": "Ended",
-    "card": {
-      "title": "Trial",
-      "endsOn": "Trial ends",
-      "endedOn": "Trial ended",
-      "students": "Students used / limit",
-      "unlimited": "no limit",
-      "extendAction": "Extend trial"
+  "subscriptions": {
+    "title": "Subscriptions",
+    "caption": "Seats, orders and payments for every school.",
+    "tableCaption": "Table of every school's seats and payments",
+    "searchLabel": "Search schools",
+    "searchPlaceholder": "School name",
+    "filterLabel": "Show",
+    "filterAll": "All schools",
+    "filterExpiring": "Expiring in 14 days",
+    "filterExhausted": "All seats used",
+    "filterIdle": "Idle (no students)",
+    "columnName": "School",
+    "columnStatus": "Status",
+    "columnSeats": "Seats used / bought",
+    "columnPaidUntil": "Paid until",
+    "columnPending": "Pending orders",
+    "neverPaid": "Never paid",
+    "viewAction": "Open {{name}}",
+    "errorMessage": "Could not load the subscriptions. Try again.",
+    "emptyMessage": "No schools match.",
+    "emptyExplanation": "Change the search or the filter.",
+    "announceResults": "{{count}} of {{total}} schools",
+    "status": {
+      "ACTIVE": "Active",
+      "SUSPENDED": "Suspended",
+      "DELETED": "Deleted"
     },
-    "dialog": {
-      "title": "Extend trial",
-      "description": "Add days to the trial of {{name}}. An ended trial becomes active again.",
-      "daysLabel": "Days to add",
-      "daysHelp": "A whole number from 1 to 365.",
-      "seatLimitLabel": "Student limit (optional)",
-      "seatLimitHelp": "Leave empty to keep the current limit.",
-      "reasonLabel": "Reason",
-      "submit": "Extend trial",
-      "success": "Trial extended.",
+    "orderStatus": {
+      "PENDING": "Pending",
+      "PAID": "Paid",
+      "FAILED": "Failed",
+      "CANCELLED": "Cancelled",
+      "REFUNDED": "Refunded"
+    },
+    "methods": {
+      "BKASH": "bKash",
+      "OFFLINE_BANK": "Bank",
+      "OFFLINE_CASH": "Cash",
+      "GRANT": "Grant"
+    },
+    "panel": {
+      "title": "Seats and orders",
+      "bought": "Seats bought",
+      "used": "Seats used",
+      "paidUntil": "Paid until",
+      "ordersHeading": "Orders",
+      "noOrders": "No orders yet.",
+      "orderLine": "{{seats}} seats for {{months}} months",
+      "orderAmount": "Amount",
+      "columnDate": "Date",
+      "columnOrder": "Order",
+      "columnStatus": "Status",
+      "columnMethod": "Method",
+      "recordPayment": "Record payment",
+      "grantSeats": "Grant seats",
+      "revive": "Revive school",
+      "loadError": "Could not load this school's seats. Try again.",
+      "retry": "Retry"
+    },
+    "payment": {
+      "title": "Record offline payment",
+      "description": "{{seats}} seats for {{months}} months for {{name}}. The order amount is paid in full.",
+      "methodLabel": "Paid by",
+      "referenceLabel": "Bank slip or receipt number",
+      "referenceHelp": "Each number can be used for one order only.",
+      "submit": "Mark as paid",
+      "success": "Payment recorded.",
+      "alreadyPaid": "This order was already paid. Nothing changed.",
       "errors": {
-        "days": "Enter a whole number from 1 to 365.",
-        "seatLimit": "Enter a whole number, 0 or more.",
+        "reference": "Enter 3 to 100 characters.",
+        "referenceInUse": "This number is already used for another order.",
+        "generic": "Could not record the payment. Try again."
+      }
+    },
+    "grant": {
+      "title": "Grant seats",
+      "description": "Give {{name}} free seats. They count like bought seats.",
+      "seatsLabel": "Seats",
+      "seatsHelp": "A whole number from 1 to 100000.",
+      "monthsLabel": "Months",
+      "monthsHelp": "A whole number from 1 to 24.",
+      "reasonLabel": "Reason",
+      "submit": "Grant seats",
+      "success": "Seats granted.",
+      "errors": {
+        "seats": "Enter a whole number from 1 to 100000.",
+        "months": "Enter a whole number from 1 to 24.",
         "reasonLength": "Write at least 10 characters.",
         "reasonTooLong": "Keep the reason under 500 characters.",
-        "notInTrial": "This school never had a trial.",
-        "seatBelowUsage": "The limit cannot be below the {{used}} students already enrolled.",
-        "generic": "Could not extend the trial. Try again."
+        "generic": "Could not grant the seats. Try again."
       }
+    },
+    "revive": {
+      "title": "Revive school",
+      "description": "Bring {{name}} back. It was paused for having no students.",
+      "reasonLabel": "Reason",
+      "submit": "Revive",
+      "success": "School revived.",
+      "errors": {
+        "reasonLength": "Write 5 to 500 characters.",
+        "notIdle": "Only a school paused for having no students can be revived.",
+        "windowPassed": "This school was deleted more than 90 days ago and cannot be revived.",
+        "generic": "Could not revive the school. Try again."
+      }
+    }
+  },
+  "seats": {
+    "card": {
+      "title": "Seats",
+      "caption": "Seats bought, in use, and the payments behind them."
     }
   }
 }

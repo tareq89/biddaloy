@@ -1,4 +1,5 @@
 import { NoticeBar } from '@biddaloy/ui';
+import { useBillingSummary } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate } from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
@@ -21,4 +22,14 @@ export function ReadOnlyNotice({ until }: { until: Date | string }) {
       </NoticeBar>
     </div>
   );
+}
+
+/**
+ * Mounted by the staff layout for a school ADMIN only (SETTINGS_MANAGE): reads
+ * `read_only_until` from the billing summary and renders the notice while the school is over its
+ * seats. A failed or slow request shows nothing; the server still blocks writes either way.
+ */
+export function ReadOnlyNoticeGate() {
+  const { data } = useBillingSummary();
+  return data?.read_only_until ? <ReadOnlyNotice until={data.read_only_until} /> : null;
 }

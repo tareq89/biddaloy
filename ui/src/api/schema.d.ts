@@ -2182,23 +2182,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/schools/{id}/trial": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Grant a school `seat_limit` seats for `days` (rounded up to months) as a paid-for-free order (Epic 49; was the trial extension). Platform SUPER_ADMIN only. Audited with the reason. */
-        patch: operations["SchoolsController_extendTrial_v1"];
-        trace?: never;
-    };
     "/api/v1/schools/{id}/settings": {
         parameters: {
             query?: never;
@@ -3483,6 +3466,74 @@ export interface paths {
         get: operations["BkashCallbackController_callback_v1"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/billing/schools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every school with seats entitled / used, paid-until and pending orders. */
+        get: operations["PlatformBillingController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/billing/schools/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One school's entitlement and its orders with the payment method. */
+        get: operations["PlatformBillingController_detail_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/billing/orders/{id}/offline-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a PENDING order paid offline (bank / cash). Audited; a replay changes nothing. */
+        post: operations["PlatformBillingController_offlinePayment_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/billing/schools/{id}/grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Grant seats for free (a GRANT order, unit price 0). Audited with the reason; idempotent per key. */
+        post: operations["PlatformBillingController_grant_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11300,11 +11351,6 @@ export interface components {
         ReviveSchoolDto: {
             reason: string;
         };
-        ExtendTrialDto: {
-            days: number;
-            seat_limit?: number;
-            reason: string;
-        };
         RegionCurrencyDto: {
             code: string;
             symbol: string;
@@ -12196,6 +12242,54 @@ export interface components {
              * Format: uuid
              * @description Client-made; a retry with the same key returns the first order.
              */
+            idempotency_key: string;
+        };
+        PlatformSchoolBillingDto: {
+            id: string;
+            name: string;
+            status: string;
+            status_reason: string | null;
+            deleted: boolean;
+            seats_entitled: number;
+            seats_used: number;
+            /** @description Last covered day, ISO date. */
+            paid_until: string | null;
+            pending_orders: number;
+        };
+        PlatformSchoolBillingPageDto: {
+            items: components["schemas"]["PlatformSchoolBillingDto"][];
+            /** @description Rows matching the search and filter, before paging. */
+            total: number;
+        };
+        PlatformSchoolBillingDetailDto: {
+            id: string;
+            name: string;
+            status: string;
+            status_reason: string | null;
+            deleted: boolean;
+            seats_entitled: number;
+            seats_used: number;
+            /** @description Last covered day, ISO date. */
+            paid_until: string | null;
+            pending_orders: number;
+            /** @description SeatOrderDto[] */
+            orders: Record<string, never>[];
+        };
+        OfflinePaymentDto: {
+            /** @enum {string} */
+            method: "OFFLINE_BANK" | "OFFLINE_CASH";
+            reference: string;
+            idempotency_key: string;
+        };
+        OfflinePaymentResultDto: {
+            /** @description false when the order was already paid. */
+            applied: boolean;
+            school_id: string;
+        };
+        GrantSeatsDto: {
+            seats: number;
+            months: number;
+            reason: string;
             idempotency_key: string;
         };
         MySectionTodayDto: {
@@ -21827,43 +21921,6 @@ export interface operations {
             };
         };
     };
-    SchoolsController_extendTrial_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExtendTrialDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["School"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     SchoolsController_getSettings_v1: {
         parameters: {
             query?: never;
@@ -25449,6 +25506,149 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformBillingController_list_v1: {
+        parameters: {
+            query?: {
+                search?: string;
+                filter?: "expiring" | "exhausted" | "idle";
+                limit?: number;
+                offset?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSchoolBillingPageDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformBillingController_detail_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSchoolBillingDetailDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformBillingController_offlinePayment_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfflinePaymentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfflinePaymentResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformBillingController_grant_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantSeatsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSchoolBillingDetailDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

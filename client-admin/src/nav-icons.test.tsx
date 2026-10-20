@@ -10,9 +10,11 @@ describe('nav icons [31.3.1]', () => {
     }
   });
 
-  it('staff icons plus the two platform extras are all different', () => {
+  it('staff icons plus the platform extras are all different', () => {
     const all = [...Object.values(STAFF_NAV_ICONS), ...Object.values(PLATFORM_NAV_ICONS)];
-    expect(all).toHaveLength(Object.keys(STAFF_NAV_ITEMS).length + 2);
+    expect(all).toHaveLength(
+      Object.keys(STAFF_NAV_ITEMS).length + Object.keys(PLATFORM_NAV_ICONS).length,
+    );
     expect(new Set(all).size).toBe(all.length);
   });
 

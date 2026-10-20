@@ -130,10 +130,11 @@ flowchart TD
   ended yesterday stops counting.
 - `GET /billing/summary` and `GET /billing/orders` (`SETTINGS_MANAGE`, own
   school only; `limit` at most 100).
-- Platform grant: `PATCH /schools/:id/trial` still exists with the same body
-  (`{ days, seat_limit, reason }`) but now grants `seat_limit` seats for `days`
-  rounded up to whole months, as a PAID order with method `GRANT`. It is no
-  longer able to "extend a trial".
+- Platform billing (SUPER_ADMIN, `PlatformSuperAdminGuard`, `/platform/billing/*`):
+  list and read every school's seats and orders, record an offline (bank / cash)
+  payment on a PENDING order, and grant seats
+  (`POST /platform/billing/schools/:id/grant { seats, months, reason, idempotency_key }`,
+  a PAID order with method `GRANT`). `PATCH /schools/:id/trial` is gone.
 - One-off per environment: `yarn workspace @biddaloy/server backfill-trials`
   (dry run; add `--apply --confirm-db=<name>`). It clears every
   `trial_ends_at` and reactivates schools suspended with `TRIAL_EXPIRED`.

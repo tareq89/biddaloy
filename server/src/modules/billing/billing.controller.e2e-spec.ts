@@ -82,7 +82,13 @@ describe('billing E2E', () => {
   it('gives an ADMIN the summary with no orders yet', async () => {
     const { body } = await get('summary', tokens.admin).expect(200);
     const summary = body as BillingSummary;
-    expect(summary).toMatchObject({ seats_bought: 0, seats_used: 0, paid_until: null, orders: [] });
+    expect(summary).toMatchObject({
+      seats_bought: 0,
+      seats_used: 0,
+      paid_until: null,
+      read_only_until: null, // not over its seats: no grace window
+      orders: [],
+    });
     expect(typeof summary.free_until).toBe('string');
   });
 

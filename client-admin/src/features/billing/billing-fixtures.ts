@@ -23,6 +23,7 @@ export const summaryEmpty: BillingSummary = {
   seats_bought: 0,
   seats_used: 240,
   paid_until: null,
+  read_only_until: null,
   orders: [],
 };
 
@@ -33,5 +34,6 @@ export const summaryExpiring: BillingSummary = {
   seats_bought: 300,
   seats_used: 280,
   paid_until: '2027-03-20',
+  read_only_until: null,
   orders: [order({ status: SeatOrderStatus.PAID, method: PlatformPaymentMethod.BKASH })],
 };

@@ -1142,8 +1142,6 @@ export {
   schoolSettingsKeys,
   schoolSettingsQueryOptions,
   useSchools,
-  useExtendTrial,
-  type ExtendTrialInput,
   useSchoolSettings,
   useUpdateSchoolSettings,
   useTestSchoolConnection,
@@ -1558,6 +1556,21 @@ export {
   useSchoolInvitesCardProps,
   type SchoolInvite,
 } from './school-invites';
+export {
+  platformBillingKeys,
+  useGrantSeats,
+  usePlatformSchoolBilling,
+  usePlatformSchoolBillingDetail,
+  useRecordOfflinePayment,
+  useReviveSchool,
+  type GrantSeatsInput,
+  type OfflinePaymentInput,
+  type PlatformSchoolBilling,
+  type PlatformSchoolBillingDetail,
+  type PlatformSchoolBillingPage,
+  PLATFORM_BILLING_PAGE_SIZE,
+  type SchoolBillingFilter,
+} from './platform-billing';
 export {
   billingKeys,
   billingSummaryQueryOptions,

@@ -80,7 +80,12 @@ describe('TrialService (integration): account start and seat grants', () => {
 
     const school = await trial.grantSeats(
       id,
-      { seats: 15, months: 2, reason: 'Pilot school, agreed with the owner' },
+      {
+        seats: 15,
+        months: 2,
+        reason: 'Pilot school, agreed with the owner',
+        idempotency_key: 'grant-key-0001',
+      },
       { userId: SEED_ADMIN_USER_ID },
     );
 

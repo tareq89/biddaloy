@@ -373,45 +373,62 @@ describe('/schools/$schoolId', () => {
     expect(await screen.findByText('Could not load this school.')).toBeTruthy();
   });
 
-  it('shows the Trial card for a school with a trial, and extends it from the dialog', async () => {
+  it('shows the Seats card: entitlement tiles, orders, and records an offline payment', async () => {
     let body: unknown = null;
+    const order = {
+      id: '00000000-0000-4000-8000-0000000000a1',
+      school_id: ACTIVE_SCHOOL_ID,
+      seats: 40,
+      months: 3,
+      unit_price_paisa: 1000,
+      amount_paisa: 120000,
+      period_start: '2026-10-20',
+      period_end: '2027-01-20',
+      status: 'PENDING',
+      method: null,
+      paid_at: null,
+      created_at: '2026-10-20T04:00:00.000Z',
+    };
     server.use(
-      http.get('/api/v1/schools', () =>
-        HttpResponse.json([
-          {
-            id: ACTIVE_SCHOOL_ID,
-            name: 'Ananta School',
-            slug: 'ananta-school',
-            status: 'ACTIVE',
-            created_at: '2026-01-15T00:00:00.000Z',
-            country_code: 'BD',
-            trial_ends_at: '2026-01-10T00:00:00.000Z',
-            seat_limit: 50,
-            status_reason: null,
-          },
-        ]),
+      http.get(`/api/v1/platform/billing/schools/${ACTIVE_SCHOOL_ID}`, () =>
+        HttpResponse.json({
+          id: ACTIVE_SCHOOL_ID,
+          name: 'Ananta School',
+          status: 'ACTIVE',
+          status_reason: null,
+          deleted: false,
+          seats_entitled: 0,
+          seats_used: 30,
+          paid_until: null,
+          pending_orders: 1,
+          orders: [order],
+        }),
       ),
-      http.patch(`/api/v1/schools/${ACTIVE_SCHOOL_ID}/trial`, async ({ request }) => {
-        body = await request.json();
-        return HttpResponse.json({ id: ACTIVE_SCHOOL_ID });
-      }),
+      http.post(
+        `/api/v1/platform/billing/orders/${order.id}/offline-payment`,
+        async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json({ applied: true, school_id: ACTIVE_SCHOOL_ID });
+        },
+      ),
     );
     const user = userEvent.setup();
     renderDetail();
 
-    await screen.findByRole('heading', { name: 'Trial', level: 2 });
-    expect(screen.getByText('Trial ended')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Extend trial' }));
+    await screen.findByRole('heading', { name: 'Seats', level: 2 });
+    expect(await screen.findByText('Seats bought')).toBeTruthy();
+    await user.click(await screen.findByRole('button', { name: 'Record payment' }));
     const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Days to add'), '14');
-    await user.type(within(dialog).getByLabelText('Reason'), 'Asked for more time');
-    await user.click(within(dialog).getByRole('button', { name: 'Extend trial' }));
+    await user.type(within(dialog).getByLabelText('Bank slip or receipt number'), 'SLIP-1001');
+    await user.click(within(dialog).getByRole('button', { name: 'Mark as paid' }));
 
-    await waitFor(() => expect(body).toEqual({ days: 14, reason: 'Asked for more time' }));
+    await waitFor(() =>
+      expect(body).toMatchObject({ method: 'OFFLINE_BANK', reference: 'SLIP-1001' }),
+    );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('hides the Trial card for a school that never had a trial', async () => {
+  it('has no Trial card any more', async () => {
     renderDetail();
     await screen.findByRole('heading', { name: 'Ananta School', level: 1 });
     await screen.findByRole('heading', { name: 'Stats' });

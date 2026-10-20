@@ -1,12 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { randomUUID } from 'crypto';
 import { EntityManager, Repository } from 'typeorm';
 import { AuditAction, PlatformPaymentMethod, SchoolStatus } from '@biddaloy/shared';
 import { School } from '../entities/school.entity';
 import { BILLING_SUSPENSION_REASONS, TenantStatusService } from '../tenant-status.service';
-import { attentionEvents } from '../../attention/attention.constants';
-import { emitRecheck } from '../../attention/engine/attention-events';
 import { AuditService } from '../../audit/audit.service';
 import { EntitlementService } from '../../billing/entitlement.service';
 import { OrdersService } from '../../billing/orders.service';
@@ -15,6 +12,8 @@ export interface GrantSeatsInput {
   seats: number;
   months: number;
   reason: string;
+  /** A replay with the same key changes nothing (D10). */
+  idempotency_key: string;
 }
 
 /** `userId: null` is the system actor. */
@@ -61,7 +60,7 @@ export class TrialService {
         schoolId,
         seats: input.seats,
         months: input.months,
-        idempotency_key: `grant:${randomUUID()}`,
+        idempotency_key: `grant:${input.idempotency_key}`,
         userId: actor.userId,
         unit_price_paisa: 0,
       },
@@ -104,12 +103,6 @@ export class TrialService {
       },
     );
     await this.tenantStatus.invalidate(schoolId); // a reactivation changes the cached status
-    // The legacy rule re-reads trial_ends_at; kept so a school with an old trial date still resolves.
-    emitRecheck(attentionEvents, {
-      tenantId: schoolId,
-      ruleKey: 'trial.ending',
-      actorUserId: actor.userId ?? undefined,
-    });
     return this.schools.findOneOrFail({ where: { id: schoolId } });
   }
 }

@@ -1215,19 +1215,6 @@ export async function starterWorkbook(
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-/** Ends a trial the only way there is: the daily job is not reachable, so the
- * row is set the way that job leaves it (suspended, reason TRIAL_EXPIRED).
- * ponytail: raw SQL via the server's `pg`; swap for an endpoint if one appears.
- * Limit: skips TrialService.expire (audit row, tenant-status cache invalidation). */
-export async function endTrial(schoolId: string): Promise<void> {
-  await runSqlOnOneRow(
-    `UPDATE schools SET trial_ends_at = now() - interval '1 day', status = 'SUSPENDED',
-       status_reason = 'TRIAL_EXPIRED' WHERE id = $1`,
-    [schoolId],
-    `endTrial: school ${schoolId}`,
-  );
-}
-
 /** New schools have no seat limit during the free period (Epic 49), so a limit test sets one.
  * ponytail: raw SQL via the server's `pg`; swap for a platform grant once the e2e has one. */
 export async function setSeatLimit(schoolId: string, limit: number): Promise<void> {
@@ -1640,44 +1627,45 @@ export async function detachOfferedSubjects(
   }
 }
 
-/** Moves a school's trial end to `days` from now. Same raw-SQL shortcut as `endTrial`. */
-export async function setTrialEndsInDays(schoolId: string, days: number): Promise<void> {
-  await runSqlOnOneRow(
-    `UPDATE schools SET trial_ends_at = now() + ($2 || ' days')::interval WHERE id = $1`,
-    [schoolId, String(days)],
-    `setTrialEndsInDays: school ${schoolId}`,
-  );
-}
-
-/** `PATCH /schools/:id/trial` as the platform super admin. Since Epic 49 this grants seats
- * (`seat_limit` is required) and still asks for a `trial.ending` recheck (about 5 s later),
- * so a spec can raise or resolve that alert after setting `trial_ends_at` directly.
- * `request` must be its own context: the super-admin login would replace the cookie
+/** `POST /platform/billing/schools/:id/grant` as the platform super admin: a free GRANT order for
+ * `months` (idempotent per key). It asks for a `seats.expiring` / `seats.exhausted` recheck about
+ * 5 s later. `request` must be its own context: the super-admin login would replace the cookie
  * jar of a context that holds a school admin's session. */
-export async function extendTrial(
+export async function grantSeats(
   request: APIRequestContext,
   schoolId: string,
-  days: number,
-  reason: string,
+  seats: number,
+  months: number,
 ): Promise<void> {
-  await patch(request, await superAdminApiSession(request), `/schools/${schoolId}/trial`, {
-    days,
-    seat_limit: 25,
-    reason,
+  const session = await superAdminApiSession(request);
+  await post(request, session, `/platform/billing/schools/${schoolId}/grant`, {
+    seats,
+    months,
+    reason: 'e2e seat grant',
+    idempotency_key: `e2e-${crypto.randomUUID()}`,
   });
 }
 
-/** Gives a fresh school 6 trial days left, which raises its WARNING `trial.ending`
- * alert once the recheck runs (about 5 s on). Uses its own super-admin context. */
-export async function raiseTrialEnding(
+/** Gives a fresh school paid seats that run out in 20 days, which raises its WARNING
+ * `seats.expiring` alert once the recheck runs (about 5 s on). The grant asks for that recheck;
+ * the SQL then moves the order's period and sets the limit (a grant leaves it NULL in the free
+ * period) inside the 5 s, so the delayed evaluation sees them. Uses its own super-admin context.
+ * ponytail: raw SQL via the server's `pg`; swap for an endpoint if one appears. */
+export async function raiseSeatsExpiring(
   playwright: import('@playwright/test').PlaywrightWorkerArgs['playwright'],
   schoolId: string,
   baseURL: string,
 ): Promise<void> {
   const superAdmin = await playwright.request.newContext({ baseURL });
   try {
-    await setTrialEndsInDays(schoolId, 5);
-    await extendTrial(superAdmin, schoolId, 1, 'e2e trial ending');
+    await grantSeats(superAdmin, schoolId, 25, 1);
+    await runSql(
+      `UPDATE seat_orders SET period_start = (now() AT TIME ZONE 'Asia/Dhaka')::date - 10,
+              period_end = (now() AT TIME ZONE 'Asia/Dhaka')::date + 20
+        WHERE school_id = $1 AND status = 'PAID'`,
+      [schoolId],
+    );
+    await setSeatLimit(schoolId, 25);
   } finally {
     await superAdmin.dispose();
   }

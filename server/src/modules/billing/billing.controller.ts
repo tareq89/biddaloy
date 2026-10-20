@@ -33,6 +33,7 @@ import { EntitlementService } from './entitlement.service';
 import { BkashPayResponseDto } from './bkash/bkash.controller';
 import { BkashService } from './bkash/bkash.service';
 import { OrdersService } from './orders.service';
+import { readOnlyUntilFor } from './seat-grace';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 
@@ -55,7 +56,7 @@ export class BillingController {
   @ApiOkResponse({ description: 'BillingSummary' })
   async summary(@CurrentTenant() tenant: { id: string }): Promise<BillingSummary> {
     const m = this.dataSource.manager;
-    const [seats_bought, usage, [until], orders] = await Promise.all([
+    const [seats_bought, usage, [until], orders, readOnlyUntil] = await Promise.all([
       this.entitlement.paidSeats(m, tenant.id),
       getSeatUsage(m, tenant.id),
       m.query(
@@ -64,12 +65,14 @@ export class BillingController {
         [tenant.id],
       ) as Promise<{ paid_until: string | null }[]>,
       this.orders.list(tenant.id, 20),
+      readOnlyUntilFor(m, tenant.id),
     ]);
     return {
       free_until: billingFreeUntil().toISOString(),
       seats_bought,
       seats_used: usage.used,
       paid_until: until?.paid_until ?? null,
+      read_only_until: readOnlyUntil?.toISOString() ?? null,
       orders,
     };
   }

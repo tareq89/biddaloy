@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import { onlyAttentionRule, patch, raiseTrialEnding } from '../api';
+import { onlyAttentionRule, patch, raiseSeatsExpiring } from '../api';
 import { expectNoAxeViolations } from '../a11y/assert';
 import { shells } from '../config';
 import { newSchool, type NewSchool } from '../fixtures/new-school';
@@ -9,7 +9,7 @@ import { makeT } from '../i18n';
 
 /**
  * [67.2.10] The attention bar and its modal, KEYBOARD ONLY (D16), on staff
- * (real engine, a trial school with 6 days left), the palette, the portal
+ * (real engine, a school whose seats run out in 20 days), the palette, the portal
  * (alerts stubbed: W2 has no portal rule) and a phone width. English UI.
  */
 const t = makeT('en');
@@ -53,11 +53,11 @@ test.describe('staff', () => {
     school = await newSchool(browser, playwright);
     // Finished, not skipped: an unfinished wizard raises setup.incomplete (W3), which sorts first.
     await patch(school.api, school.session, '/onboarding', { seen: true, finished: true });
-    // The first card must be the trial: no scheduled tick may add another alert mid-test.
-    await onlyAttentionRule(school.api, school.session, 'trial.ending');
+    // The first card must be the seats alert: no scheduled tick may add another alert mid-test.
+    await onlyAttentionRule(school.api, school.session, 'seats.expiring');
     await setEnglish(school.page);
-    await raiseTrialEnding(playwright, school.session.tenantId, shells.app.baseURL);
-    // The recheck runs about 5 s after the trial change.
+    await raiseSeatsExpiring(playwright, school.session.tenantId, shells.app.baseURL);
+    // The recheck runs about 5 s after the seat grant.
     await expect
       .poll(
         async () => {
@@ -80,7 +80,7 @@ test.describe('staff', () => {
     await school.api.dispose();
   });
 
-  test('bar, modal, arrows, Esc returns focus, Enter on a card opens the trial details', async () => {
+  test('bar, modal, arrows, Esc returns focus, Enter on a card opens Seats & billing', async () => {
     const { page } = school;
     await tabToBar(page);
     await page.keyboard.press('Enter');
@@ -114,8 +114,8 @@ test.describe('staff', () => {
     await page.keyboard.press('Enter');
     await expect(cards.first()).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/dashboard\?trial=1/);
-    await expect(page.getByRole('dialog', { name: t('trial.details.title') })).toBeVisible();
+    await expect(page).toHaveURL(/\/settings\?section=billing/);
+    await expect(page.locator('#seats-billing-section')).toBeVisible();
   });
 
   test('palette: "Show alerts" opens the modal, Esc drops the flag', async () => {

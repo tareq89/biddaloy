@@ -17,6 +17,8 @@ import { BillingController } from './billing.controller';
 import { BillingScheduler, BILLING_QUEUE } from './billing.scheduler';
 import { EntitlementService } from './entitlement.service';
 import { OrdersService } from './orders.service';
+import { PlatformBillingController } from './platform-billing.controller';
+import { PlatformBillingService } from './platform-billing.service';
 import { SeatNoticesService } from './seat-notices.service';
 
 /** Billing (Epic 49): seat orders, the entitlement that sets `schools.seat_limit`, the daily recompute. */
@@ -29,12 +31,13 @@ import { SeatNoticesService } from './seat-notices.service';
     TypeOrmModule.forFeature([School, UserTenant, CommunicationLog]),
     BullModule.registerQueue({ name: BILLING_QUEUE }, { name: BKASH_RECONCILE_QUEUE }),
   ],
-  controllers: [BillingController, BkashCallbackController],
+  controllers: [BillingController, BkashCallbackController, PlatformBillingController],
   // AdminNoticeService is provided here as well as in TrialModule: TrialModule imports this module,
   // so importing it back would be a cycle. The service is stateless.
   providers: [
     EntitlementService,
     OrdersService,
+    PlatformBillingService,
     BillingScheduler,
     SeatNoticesService,
     AdminNoticeService,
