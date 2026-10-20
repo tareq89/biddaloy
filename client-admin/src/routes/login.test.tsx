@@ -497,6 +497,47 @@ describe('/login', () => {
       expect(body).toMatchObject({ email: 'admin@bmsc.example', password: 'demo-pass' });
     });
 
+    describe('?role= deep link (50.8)', () => {
+      const loginSpy = (calls: unknown[]) =>
+        http.post('/api/v1/auth/login', async ({ request }) => {
+          calls.push(await request.json());
+          return HttpResponse.json(loginResponseFactory());
+        });
+
+      it('a known key signs in once as that card and leaves the URL', async () => {
+        const calls: unknown[] = [];
+        server.use(authHandlers.refreshFailure, demoRoles, loginSpy(calls));
+        const { router } = renderWithRouter(routeTree, {
+          initialEntries: ['/login?role=admin'],
+          locale: 'en',
+        });
+        await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
+        expect(calls).toHaveLength(1);
+        expect(calls[0]).toMatchObject({ email: 'admin@bmsc.example', password: 'demo-pass' });
+        expect(router.state.location.search).not.toHaveProperty('role');
+      });
+
+      it('an unknown key does nothing and the cards stay', async () => {
+        const calls: unknown[] = [];
+        server.use(authHandlers.refreshFailure, demoRoles, loginSpy(calls));
+        renderWithRouter(routeTree, { initialEntries: ['/login?role=nope'], locale: 'en' });
+        await screen.findByRole('button', { name: /Admin/ });
+        expect(calls).toHaveLength(0);
+      });
+
+      it('outside the demo the param is ignored', async () => {
+        const calls: unknown[] = [];
+        server.use(
+          authHandlers.refreshFailure,
+          http.get('/api/v1/demo/roles', () => HttpResponse.json({ enabled: false })),
+          loginSpy(calls),
+        );
+        renderWithRouter(routeTree, { initialEntries: ['/login?role=admin'], locale: 'en' });
+        await screen.findByRole('heading', { level: 1 });
+        expect(calls).toHaveLength(0);
+      });
+    });
+
     it('a failed card opens the own-account form, which shows the error', async () => {
       server.use(authHandlers.refreshFailure, demoRoles, authHandlers.loginInvalidCredentials);
       renderWithRouter(routeTree, { initialEntries: ['/login'], locale: 'en' });

@@ -89,3 +89,10 @@ test('the guardian can switch branch and see the other child', async ({ page }) 
   // The Primary branch shows the Class 3 child.
   await expect(page.getByText(/Class 3/).first()).toBeVisible({ timeout: 15_000 });
 });
+
+test('/login?role=guardian signs in as the guardian and drops the param', async ({ page }) => {
+  await page.goto('/login?role=guardian');
+  await continueFromPicker(page);
+  await expect(page).toHaveURL(/\/portal/);
+  expect(page.url()).not.toContain('role=');
+});
