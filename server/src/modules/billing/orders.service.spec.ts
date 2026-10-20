@@ -36,7 +36,7 @@ describe('OrdersService', () => {
       applied: true,
     });
     // The 7th receipt of the year is numbered SMR-<year>-000007 and its email is queued.
-    expect(q.mock.calls[5][1]).toEqual(['o1', expect.stringMatching(/^SMR-\d{4}-000007$/), null]);
+    expect(q.mock.calls[7][1]).toEqual(['o1', expect.stringMatching(/^SMR-\d{4}-000007$/), null]);
     expect(receipts.emailReceipt).toHaveBeenCalledWith('o1');
     expect(entitlement.recompute).toHaveBeenCalledWith('s1', expect.anything());
     expect(entitlement.afterCommit).toHaveBeenCalledWith('s1');
