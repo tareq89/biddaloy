@@ -30,8 +30,17 @@
     "seatsError": "Enter a whole number from 1 to {{max}}.",
     "monthsError": "Enter a whole number from 1 to {{max}}.",
     "createdTitle": "Order created",
-    "createdBody": "Order for {{seats}} seats, {{months}} months, {{total}}. Online payment is coming soon. Your seats start after payment.",
+    "createdBody": "Order for {{seats}} seats, {{months}} months, {{total}}. Your seats start after payment.",
+    "payBkash": "Pay with bKash",
+    "payFailed": "We could not start the payment. Try again in a few minutes.",
     "createFailed": "We could not create the order. Try again."
+  },
+  "return": {
+    "paid": "Payment received. Your seats are active.",
+    "pending": "We are confirming your payment with bKash. This page updates by itself.",
+    "failed": "This order was not paid. Buy seats again to start a new payment.",
+    "slow": "We are still waiting for bKash. Check the Orders list again in a few minutes.",
+    "error": "We could not confirm the payment. If money was taken, the order shows as paid here shortly."
   },
   "orders": {
     "title": "Orders",

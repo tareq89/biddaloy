@@ -32,6 +32,36 @@ describe('SeatsBillingSectionView', () => {
     expect(screen.getByRole('button', { name: 'Buy seats' })).toBeTruthy();
   });
 
+  it('on the bKash return page, says the order is still being confirmed', async () => {
+    renderWithProviders(
+      <SeatsBillingSectionView
+        summary={summaryFree}
+        loading={false}
+        returnOrderId={summaryFree.orders[0]!.id}
+        onBuy={noop}
+        onRetry={noop}
+      />,
+      opts,
+    );
+    expect(await screen.findByText(/confirming your payment with bKash/)).toBeTruthy();
+  });
+
+  it('after a cancelled bKash return, says the order was not paid and stops saying "confirming"', async () => {
+    renderWithProviders(
+      <SeatsBillingSectionView
+        summary={summaryFree}
+        loading={false}
+        returnOrderId={summaryFree.orders[0]!.id}
+        payment="cancel"
+        onBuy={noop}
+        onRetry={noop}
+      />,
+      opts,
+    );
+    expect(await screen.findByText(/was not paid/)).toBeTruthy();
+    expect(screen.queryByText(/confirming your payment/)).toBeNull();
+  });
+
   it('warns when paid seats end soon', async () => {
     renderWithProviders(
       <SeatsBillingSectionView

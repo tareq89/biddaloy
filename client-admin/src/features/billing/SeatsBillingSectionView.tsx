@@ -1,3 +1,4 @@
+import { SeatOrderStatus } from '@biddaloy/shared';
 import {
   Button,
   DataTable,
@@ -29,6 +30,11 @@ export interface SeatsBillingSectionViewProps {
   error?: boolean;
   /** Injected for stories and tests. */
   now?: Date;
+  /** The order bKash returned for; shows whether it is paid, still being confirmed, or not paid. */
+  returnOrderId?: string | undefined;
+  payment?: 'success' | 'cancel' | 'failure' | 'error' | undefined;
+  /** Polling stopped (2 minutes) with the order still PENDING. */
+  pollTimedOut?: boolean;
   onBuy: () => void;
   onRetry: () => void;
 }
@@ -38,6 +44,9 @@ export function SeatsBillingSectionView({
   loading,
   error,
   now = new Date(),
+  returnOrderId,
+  payment,
+  pollTimedOut,
   onBuy,
   onRetry,
 }: SeatsBillingSectionViewProps) {
@@ -82,6 +91,22 @@ export function SeatsBillingSectionView({
     },
   ];
 
+  const returnOrder = returnOrderId
+    ? summary?.orders.find((o) => o.id === returnOrderId)
+    : undefined;
+  const returnNotice = ((): { key: string; tone: 'paid' | 'bad' | 'info' } | undefined => {
+    if (returnOrder?.status === SeatOrderStatus.PAID) return { key: 'paid', tone: 'paid' };
+    if (payment === 'error' && !returnOrder) return { key: 'error', tone: 'bad' };
+    if (!returnOrder) return undefined;
+    if (
+      returnOrder.status !== SeatOrderStatus.PENDING ||
+      payment === 'cancel' ||
+      payment === 'failure'
+    ) {
+      return { key: 'failed', tone: 'bad' };
+    }
+    return pollTimedOut ? { key: 'slow', tone: 'info' } : { key: 'pending', tone: 'info' };
+  })();
   const inFreePeriod = summary ? now < new Date(summary.free_until) : false;
   const left = summary?.paid_until ? daysUntil(summary.paid_until, now) : null;
   const expired = !inFreePeriod && left !== null && left < 0;
@@ -128,6 +153,14 @@ export function SeatsBillingSectionView({
             </div>
           </dl>
 
+          {returnNotice && (
+            <p
+              role="status"
+              className={`mt-3 ${returnNotice.tone === 'paid' ? 'text-status-paid-fg' : returnNotice.tone === 'bad' ? 'text-destructive' : 'text-text-secondary'}`}
+            >
+              {t(`return.${returnNotice.key}`)}
+            </p>
+          )}
           {inFreePeriod && (
             <p className="mt-3 text-text-secondary">
               {t('freeNotice', { date: formatDate(summary.free_until, config) })}

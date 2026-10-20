@@ -132,4 +132,36 @@ describe('billing E2E', () => {
     await post(tokens.admin, { seats: 1, months: 1, idempotency_key: 'nope' }).expect(400);
     await post(tokens.teacher, { seats: 1, months: 1, idempotency_key: key }).expect(403);
   });
+
+  it('POST /billing/orders/:id/pay/bkash: TEACHER 403, non-UUID 400, unconfigured gateway 503', async () => {
+    const pay = (token: string, id: string) =>
+      supertest(app.getHttpServer())
+        .post(`/api/v1/billing/orders/${id}/pay/bkash`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID);
+    const id = '3f2b8c1e-5d4a-4b6e-9c7d-1a2b3c4d5e6f';
+    await pay(tokens.teacher, id).expect(403);
+    await pay(tokens.admin, 'not-a-uuid').expect(400);
+    // No BKASH_* env in the test run: the route answers a generic 503, never a gateway detail.
+    await pay(tokens.admin, id).expect(503);
+  });
+
+  it('GET /billing/bkash/callback (public): bad or unknown input redirects to a generic error and changes nothing', async () => {
+    const cb = (qs: string) =>
+      supertest(app.getHttpServer()).get(`/api/v1/billing/bkash/callback${qs}`);
+    const errorTarget = (r: supertest.Response) => {
+      expect(r.status).toBe(302);
+      expect(r.headers.location).toMatch(/\/settings\?section=billing&payment=error$/);
+      // Rule 23: the redirect never carries what was sent.
+      expect(r.headers.location).not.toContain('TR0011NOPE');
+    };
+    errorTarget(await cb(''));
+    errorTarget(await cb('?paymentID=TR0011NOPE&status=success'));
+    // bKash may append params we do not know (e.g. signature): still handled, not a 400.
+    errorTarget(await cb('?paymentID=TR0011NOPE&status=success&signature=abc&extra=1'));
+    const [{ n }] = await dataSource.query(
+      `SELECT count(*)::int AS n FROM platform_payments WHERE method = 'BKASH'`,
+    );
+    expect(n).toBe(0);
+  });
 });

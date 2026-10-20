@@ -5,6 +5,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { summaryFree } from './billing-fixtures';
 import { BuySeatsDialog } from './BuySeatsDialog';
 
 function setup(props: Partial<React.ComponentProps<typeof BuySeatsDialog>> = {}) {
@@ -59,5 +60,17 @@ describe('BuySeatsDialog', () => {
     expect(a).toMatchObject({ seats: 300, months: 1 });
     expect(a.idempotency_key).toBe(b.idempotency_key);
     expect(a.idempotency_key).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('after the order is created, Pay with bKash hands the order id to onPay', async () => {
+    const onPay = vi.fn();
+    setup({ created: summaryFree.orders[0]!, onPay });
+    await userEvent.click(await screen.findByRole('button', { name: 'Pay with bKash' }));
+    expect(onPay).toHaveBeenCalledWith(summaryFree.orders[0]!.id);
+  });
+
+  it('shows a plain error when the payment could not start', async () => {
+    setup({ created: summaryFree.orders[0]!, onPay: vi.fn(), payFailed: true });
+    expect(await screen.findByText(/could not start the payment/)).toBeTruthy();
   });
 });

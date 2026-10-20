@@ -1,4 +1,4 @@
-import type { BillingSummary, SeatOrderDto } from '@biddaloy/shared';
+import { SeatOrderStatus, type BillingSummary, type SeatOrderDto } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
@@ -29,11 +29,33 @@ export function billingSummaryQueryOptions() {
   });
 }
 
-export function useBillingSummary() {
-  return useQuery(billingSummaryQueryOptions());
+/** `pollWhilePending`: refetch every 3 s until that order is no longer PENDING (the bKash return page). */
+export function useBillingSummary(pollWhilePending?: string) {
+  return useQuery({
+    ...billingSummaryQueryOptions(),
+    refetchInterval: (q) =>
+      pollWhilePending &&
+      q.state.data?.orders.find((o) => o.id === pollWhilePending)?.status ===
+        SeatOrderStatus.PENDING
+        ? 3000
+        : false,
+  });
 }
 
-/** `POST /billing/orders` — a PENDING order; paying it is a later step. */
+/** `POST /billing/orders/:id/pay/bkash` — the bKash checkout URL for a PENDING order. */
+export function usePayWithBkash() {
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      const res = await apiClient.post<{ bkash_url: string }>(
+        `/billing/orders/${orderId}/pay/bkash`,
+      );
+      return res.data;
+    },
+    retry: false,
+  });
+}
+
+/** `POST /billing/orders` — a PENDING order; pay it with `usePayWithBkash`. */
 export function useCreateSeatOrder() {
   const queryClient = useQueryClient();
   return useMutation({

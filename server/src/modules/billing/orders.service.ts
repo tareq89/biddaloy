@@ -173,6 +173,27 @@ export class OrdersService {
     }
   }
 
+  /** Just what a payment gateway needs to check an order; undefined for an unknown id. */
+  async findForPayment(
+    orderId: string,
+  ): Promise<
+    { id: string; school_id: string; amount_paisa: string; status: SeatOrderStatus } | undefined
+  > {
+    const [row] = await this.dataSource.query(
+      'SELECT id, school_id, amount_paisa, status FROM seat_orders WHERE id = $1',
+      [orderId],
+    );
+    return row;
+  }
+
+  /** PENDING -> FAILED, only while nothing was charged (a gateway create that never started). */
+  async markFailed(orderId: string): Promise<void> {
+    await this.dataSource.query(
+      'UPDATE seat_orders SET status = $2 WHERE id = $1 AND status = $3',
+      [orderId, SeatOrderStatus.FAILED, SeatOrderStatus.PENDING],
+    );
+  }
+
   async list(schoolId: string, limit: number, offset = 0): Promise<SeatOrderDto[]> {
     const rows: OrderRow[] = await this.dataSource.query(
       `SELECT o.id, o.school_id, o.seats, o.months, o.unit_price_paisa, o.amount_paisa,

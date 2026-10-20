@@ -1563,6 +1563,7 @@ export {
   billingSummaryQueryOptions,
   useBillingSummary,
   useCreateSeatOrder,
+  usePayWithBkash,
   type BillingSummary,
   type CreateSeatOrderInput,
   type SeatOrderDto,

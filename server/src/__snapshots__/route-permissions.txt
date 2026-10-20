@@ -100,6 +100,7 @@ GET /backup/jobs/:id | WorkbookController | perm: BACKUP_MANAGE
 GET /backup/jobs/:id/download | WorkbookController | perm: BACKUP_MANAGE
 GET /backup/template | TemplateController | perm: BACKUP_MANAGE
 GET /backup/validate/:stagingId/errors.csv | ImportController | perm: BACKUP_MANAGE
+GET /billing/bkash/callback | BkashCallbackController | allowlist: none
 GET /billing/orders | BillingController | perm: SETTINGS_MANAGE
 GET /billing/summary | BillingController | perm: SETTINGS_MANAGE
 GET /calendar-import/template | CalendarImportController | perm: CALENDAR_MANAGE
@@ -483,6 +484,7 @@ POST /backup/export | WorkbookController | perm: BACKUP_MANAGE
 POST /backup/restore | RestoreController | perm: BACKUP_MANAGE
 POST /backup/validate | ImportController | perm: BACKUP_MANAGE
 POST /billing/orders | BillingController | perm: SETTINGS_MANAGE
+POST /billing/orders/:id/pay/bkash | BillingController | perm: SETTINGS_MANAGE
 POST /calendar-import/commit | CalendarImportController | perm: CALENDAR_MANAGE
 POST /calendar-import/validate | CalendarImportController | perm: CALENDAR_MANAGE
 POST /calendar/clone | CalendarExportController | perm: CALENDAR_MANAGE

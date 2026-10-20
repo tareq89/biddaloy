@@ -33,6 +33,10 @@ export interface BuySeatsDialogProps {
   failed?: boolean;
   /** The order the server made, once it did. */
   created?: SeatOrderDto | undefined;
+  /** Pay the created order with bKash (the caller redirects to bKash). */
+  onPay?: (orderId: string) => void;
+  paying?: boolean;
+  payFailed?: boolean;
   /** `idempotency_key` is the same for every retry until the dialog is reopened. */
   onSubmit: (input: { seats: number; months: number; idempotency_key: string }) => void;
 }
@@ -45,6 +49,9 @@ export function BuySeatsDialog({
   pending,
   failed,
   created,
+  onPay,
+  paying,
+  payFailed,
   onSubmit,
 }: BuySeatsDialogProps) {
   const { t } = useTranslation('billing');
@@ -56,6 +63,11 @@ export function BuySeatsDialog({
 
   // A fresh open: new prefill, new key, no stale errors. Keyed on `open` only, so a background
   // refetch changing `initialSeats` never overwrites what the admin is typing.
+  // A refused payment may have closed the order: the next submit must make a new one, not get it back.
+  React.useEffect(() => {
+    if (payFailed) setKey(crypto.randomUUID());
+  }, [payFailed]);
+
   const initialRef = React.useRef(initialSeats);
   initialRef.current = initialSeats;
   React.useEffect(() => {
@@ -92,8 +104,20 @@ export function BuySeatsDialog({
                 })}
               </DialogDescription>
             </DialogHeader>
+            {payFailed && (
+              <p role="alert" className="text-sm text-destructive">
+                {t('buy.payFailed')}
+              </p>
+            )}
             <DialogFooter>
-              <Button onClick={() => onOpenChange(false)}>{t('buy.close')}</Button>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                {t('buy.close')}
+              </Button>
+              {onPay && (
+                <Button loading={paying ?? false} onClick={() => onPay(created.id)}>
+                  {t('buy.payBkash')}
+                </Button>
+              )}
             </DialogFooter>
           </>
         ) : (
@@ -162,6 +186,11 @@ export function BuySeatsDialog({
             {failed && (
               <p role="alert" className="text-sm text-destructive">
                 {t('buy.createFailed')}
+              </p>
+            )}
+            {payFailed && (
+              <p role="alert" className="text-sm text-destructive">
+                {t('buy.payFailed')}
               </p>
             )}
             <DialogFooter>

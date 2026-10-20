@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -16,9 +26,12 @@ import { AllowWhenSuspendedForBilling } from '../auth/decorators/allow-when-susp
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
+import { FailClosedWithoutRedis } from '../../common/rate-limit/app-throttler.guard';
 import { billingFreeUntil } from '../../config/env.validation';
 import { getSeatUsage } from '../schools/trial/seat-limit.service';
 import { EntitlementService } from './entitlement.service';
+import { BkashPayResponseDto } from './bkash/bkash.controller';
+import { BkashService } from './bkash/bkash.service';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
@@ -32,6 +45,7 @@ export class BillingController {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly entitlement: EntitlementService,
     private readonly orders: OrdersService,
+    private readonly bkash: BkashService,
   ) {}
 
   @Get('summary')
@@ -72,7 +86,22 @@ export class BillingController {
     return this.orders.list(tenant.id, query.limit ?? 20, query.offset ?? 0);
   }
 
-  /** Creates a PENDING order only; paying it is Epic 49 W4. Price is server-computed, integer paisa. */
+  /** Starts a bKash payment for a PENDING order of this school; the client redirects to `bkash_url`. */
+  @Post('orders/:id/pay/bkash')
+  @HttpCode(200)
+  @RequirePermissions(Permission.SETTINGS_MANAGE)
+  @AllowWhenSuspendedForBilling()
+  @FailClosedWithoutRedis()
+  @ApiOperation({ summary: 'Pay a seat order with bKash: returns the bKash checkout URL.' })
+  @ApiOkResponse({ type: BkashPayResponseDto })
+  payWithBkash(
+    @CurrentTenant() tenant: { id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<BkashPayResponseDto> {
+    return this.bkash.startPayment(tenant.id, id);
+  }
+
+  /** Creates a PENDING order only; pay it with `orders/:id/pay/bkash`. Price is server-computed, integer paisa. */
   @Post('orders')
   @RequirePermissions(Permission.SETTINGS_MANAGE)
   @AllowWhenSuspendedForBilling()

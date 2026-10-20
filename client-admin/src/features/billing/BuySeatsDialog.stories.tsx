@@ -16,3 +16,12 @@ export const SeatLimitReached: Story = { args: { limitReached: true } };
 export const Submitting: Story = { args: { pending: true } };
 export const Failed: Story = { args: { failed: true } };
 export const Created: Story = { args: { created: summaryFree.orders[0] } };
+export const CreatedWithPay: Story = {
+  args: { created: summaryFree.orders[0], onPay: () => undefined },
+};
+export const PayStarting: Story = {
+  args: { created: summaryFree.orders[0], onPay: () => undefined, paying: true },
+};
+export const PayFailed: Story = {
+  args: { created: summaryFree.orders[0], onPay: () => undefined, payFailed: true },
+};

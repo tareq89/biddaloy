@@ -163,9 +163,11 @@ Playwright, Storybook.
 Worth stating explicitly so nobody assumes one of these is wired up
 somewhere:
 
-- **No payment gateway.** No bKash, Nagad, SSLCommerz, or Stripe. Payments
-  are recorded manually as `Payment` rows — see
-  [`04-fees-payments-invoices.md`](04-fees-payments-invoices.md).
+- **No payment gateway for school fees.** No Nagad, SSLCommerz, or Stripe. Fee
+  payments are recorded manually as `Payment` rows — see
+  [`04-fees-payments-invoices.md`](04-fees-payments-invoices.md). The one
+  exception is the platform's own seat billing, which takes **bKash** (Epic 49):
+  [`28-billing.md`](28-billing.md).
 - **Object storage is now wired up** (Epic 15.0/#521) — an S3-compatible
   bucket (SeaweedFS in dev) via `server/src/modules/storage/`, see
   [`13-backup-restore.md`](13-backup-restore.md). It backs uploaded assets
