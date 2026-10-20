@@ -32,6 +32,7 @@ fi
 db_url="${DATABASE_URL#*://}"
 creds="${db_url%@*}"
 db_name="${db_url##*/}"
+export APP_VERSION="${APP_VERSION:-local}"
 export POSTGRES_USER="${creds%%:*}"
 export POSTGRES_PASSWORD="${creds#*:}"
 export POSTGRES_DB="${db_name%%\?*}"

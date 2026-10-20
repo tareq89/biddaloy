@@ -34,7 +34,7 @@ flowchart LR
     app --> seaweedfs[(SeaweedFS / S3)]
     redis --> bullmq[BullMQ queue]
     nginx[nginx] --> app
-    certbot[certbot] -.renews certs for.-> nginx
+    origin[Origin CA cert] -.mounted into.-> nginx
 ```
 
 | Service    | Image                 | Role                                                    |
@@ -43,7 +43,7 @@ flowchart LR
 | Redis      | `redis:8-alpine`      | BullMQ queue backend + distributed rate-limit storage   |
 | SeaweedFS  | `chrislusf/seaweedfs` | S3-compatible object storage — tenant uploads + backups |
 | nginx      | `nginx:1.31-alpine`   | TLS termination, reverse proxy                          |
-| certbot    | `certbot/certbot`     | Let's Encrypt certificate issuance/renewal              |
+| Origin CA  | Cloudflare (no image) | TLS cert pair mounted into nginx from `TLS_CERT_DIR`    |
 
 Server libraries that talk to these (see
 [`server/package.json`](../../server/package.json)):

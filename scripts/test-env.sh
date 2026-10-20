@@ -68,6 +68,7 @@ ensure_stack() {
     db_url="${db_url#*://}"
     creds="${db_url%@*}"
     db_name="${db_url##*/}"
+    export APP_VERSION="${APP_VERSION:-local}"
     export POSTGRES_USER="${POSTGRES_USER:-${creds%%:*}}"
     export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-${creds#*:}}"
     export POSTGRES_DB="${POSTGRES_DB:-${db_name%%\?*}}"

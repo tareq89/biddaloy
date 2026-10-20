@@ -18,6 +18,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 # docker-compose.yml requires these (`${VAR:?...}`); same defaults as scripts/test-env.sh.
+export APP_VERSION="${APP_VERSION:-local}"
 export POSTGRES_USER="${POSTGRES_USER:-postgres}"
 export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
 export POSTGRES_DB="${POSTGRES_DB:-biddaloy}"

@@ -1093,8 +1093,9 @@ cp .env.example .env   # Edit with real credentials
 
 `docker compose up -d` runs the full stack: `db` (Postgres), `redis`, `app`
 (this Nest API + the built SPAs, served statically — see `server/src/main.ts`),
-and `nginx` terminating TLS in front of it. A `cert-bootstrap` one-shot service
-and a `certbot` renewal-loop service handle certificates.
+and `nginx` terminating TLS in front of it. Images are pulled from GHCR
+(`ghcr.io/tareq89/biddaloy-*`, tagged with the commit SHA); nginx serves a
+Cloudflare Origin CA certificate. There is no certificate renewal service.
 
 **Required, not optional, for any real deployment:** the `db` volume must sit
 on encrypted storage (a LUKS-encrypted disk, or the cloud provider's
@@ -1110,70 +1111,49 @@ TLS. See
 [`docs/architecture/08-security.md`](docs/architecture/08-security.md#data-protection-transit-at-rest-and-logs)'s
 "Data protection" section for the full posture and reasoning.
 
-### DNS prerequisite
+### TLS: Cloudflare Origin CA
 
-Point an A/AAAA record for your domain at the VPS's public IP before starting.
-Let's Encrypt's HTTP-01 challenge (what `certbot` uses here) needs to reach
-`http://<your-domain>/.well-known/acme-challenge/` from the public internet —
-this doesn't work behind NAT without port 80 actually reachable at that domain.
+```mermaid
+flowchart LR
+    CF["Cloudflare dashboard\n(SSL/TLS > Origin Server)"] -->|"create cert, 15 years"| files["origin.pem + origin.key"]
+    files -->|"sops-encrypted in the repo,\ndecrypted onto the VM"| dir["/opt/biddaloy/certs\n(TLS_CERT_DIR)"]
+    dir -->|"mounted read-only"| nginx
+```
+
+Cloudflare (SSL mode Full strict) trusts its own Origin CA, so nothing
+renews every 90 days. Browsers do not trust it, so always go through
+Cloudflare. Example: `TLS_CERT_DIR=/opt/biddaloy/certs` holds `origin.pem`
+and `origin.key`. nginx reloads itself every 6h (`nginx/reload-loop.sh`), so a
+replaced pair is picked up without a restart.
 
 ### First-time setup
 
 ```bash
 cp .env.example .env
 # Edit .env: set POSTGRES_USER/PASSWORD/DB, JWT_SECRET, APP_DOMAIN,
-# LETSENCRYPT_EMAIL, and CORS_ORIGINS=https://<your-domain>
+# and CORS_ORIGINS=https://<your-domain>
 
 yarn config:check   # fails and lists any placeholder/weak value still in .env
 
+export APP_VERSION=<full commit SHA>   # no default, a forgotten tag fails loudly
+docker compose pull
 docker compose up -d
 ```
 
-On first boot, `cert-bootstrap` generates a short-lived self-signed
-certificate (see `nginx/generate-dummy-cert.sh`) so nginx has something to
-load — there's no real certificate yet. Confirm the stack is up:
+Confirm the stack is up (through Cloudflare, not the origin IP):
 
 ```bash
-curl -k https://<your-domain>/api/health
+curl https://<your-domain>/api/health
 ```
 
-Then request the real certificate — a **one-off manual command**, since it
-needs a human choosing `--staging` vs. the production endpoint and agreeing to
-the ToS. `--entrypoint certbot` is required here: the `certbot` service's own
-entrypoint is the renewal loop, not the `certbot` binary directly, so without
-it these commands would append `certonly ...` to that loop's shell command
-instead of actually running certbot.
+Local development builds instead of pulling:
+`APP_VERSION=local docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`
+(the overlay also writes a dummy self-signed cert into `./.certs`).
 
-```bash
-# Certbot won't issue into a `live` directory it doesn't recognize as one of
-# its own managed lineages, and cert-bootstrap's dummy cert occupies exactly
-# that path — clear it first (see certbot/certbot#9760 for why).
-docker compose run --rm --entrypoint sh certbot -c \
-  "rm -rf /etc/letsencrypt/live/$APP_DOMAIN /etc/letsencrypt/archive/$APP_DOMAIN /etc/letsencrypt/renewal/$APP_DOMAIN.conf"
+### Certificate rotation
 
-# Staging first — the production endpoint rate-limits hard on repeated
-# failures, and iterating against it burns your quota fast.
-docker compose run --rm --entrypoint certbot certbot certonly --webroot -w /var/www/certbot \
-  -d "$APP_DOMAIN" --email "$LETSENCRYPT_EMAIL" --agree-tos --no-eff-email --staging
-
-# Once that succeeds end-to-end, drop --staging for the real certificate —
-# but first delete the staging cert the same way as above, since it's also
-# not the lineage the production endpoint will issue.
-docker compose run --rm --entrypoint sh certbot -c \
-  "rm -rf /etc/letsencrypt/live/$APP_DOMAIN /etc/letsencrypt/archive/$APP_DOMAIN /etc/letsencrypt/renewal/$APP_DOMAIN.conf"
-docker compose run --rm --entrypoint certbot certbot certonly --webroot -w /var/www/certbot \
-  -d "$APP_DOMAIN" --email "$LETSENCRYPT_EMAIL" --agree-tos --no-eff-email
-
-# nginx won't pick up the new cert until it reloads (it self-reloads every
-# 6h — see nginx/reload-loop.sh — but you don't want to wait for that now):
-docker compose exec nginx nginx -s reload
-```
-
-### Renewal
-
-The `certbot` service runs `certbot renew` on a loop (every 12h) and
-`nginx` reloads itself every 6h, so a renewed certificate is picked up
-automatically without a restart. Nothing else to do.
+Replace `origin.pem` and `origin.key` in `TLS_CERT_DIR`; nginx picks them up
+within 6h, or run `docker compose exec nginx nginx -s reload` now.
 
 ### Deploying behind an external load balancer instead
 

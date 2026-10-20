@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../.."
 fail() { echo "FAIL: $1" >&2; exit 1; }
 pass() { echo "ok: $1"; }
 
-export POSTGRES_USER=x POSTGRES_PASSWORD=x POSTGRES_DB=x JWT_SECRET=x \
+export APP_VERSION=test POSTGRES_USER=x POSTGRES_PASSWORD=x POSTGRES_DB=x JWT_SECRET=x \
   S3_ACCESS_KEY_ID=x S3_SECRET_ACCESS_KEY=x \
   BACKUP_AGE_PUBLIC_KEY=age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 
@@ -18,9 +18,13 @@ DEMO_PASSWORD=x S3_BUCKET=biddaloy-demo \
   docker compose -f docker-compose.yml -f docker-compose.demo.yml config -q \
   && pass "demo overlay config is valid" || fail "demo overlay config is invalid"
 
-# Every third-party image in compose is pinned by digest. biddaloy-app and
-# biddaloy-backup are built locally from the Dockerfiles checked below.
-unpinned="$(docker compose config --images | grep -v '^biddaloy-' | grep -v -E '@sha256:[0-9a-f]{64}$' || true)"
+# prod + local-build overlay must merge too.
+docker compose -f docker-compose.yml -f docker-compose.build.yml config -q \
+  && pass "build overlay config is valid" || fail "build overlay config is invalid"
+
+# Every third-party image in compose is pinned by digest. First-party GHCR
+# images are pinned by commit-SHA tag (APP_VERSION) instead (Rule 21).
+unpinned="$(docker compose config --images | grep -v -E '^ghcr\.io/tareq89/biddaloy-' | grep -v -E '@sha256:[0-9a-f]{64}$' || true)"
 [ -z "$unpinned" ] || fail "compose images not digest-pinned: $unpinned"
 pass "compose images are digest-pinned"
 

@@ -160,6 +160,10 @@ CI_PATHS_INFRA=(
   'docker-compose.yml'
   'Dockerfile'
   'scripts/backup/**'
+  'scripts/demo/**'
+  'docker-compose.demo.yml'
+  'docker-compose.build.yml'
+  'docker-compose.demo.build.yml'
   '**/*.infra.test.sh'
   '.github/workflows/ci.yml'
 )

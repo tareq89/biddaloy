@@ -17,8 +17,8 @@ flowchart LR
     cert["Origin CA cert\n(sops → /opt/biddaloy/certs)"] -.->|"mounted read-only\norigin.pem + origin.key"| nginx
 ```
 
-Example: `export APP_VERSION=3f9c2ab; docker compose pull && docker compose up -d` runs
-`ghcr.io/tareq89/biddaloy-app:3f9c2ab`. `APP_VERSION` has no default, so a
+Example: `export APP_VERSION=<full commit SHA>; docker compose pull && docker compose up -d` runs
+`ghcr.io/tareq89/biddaloy-app:<full commit SHA>` (the publish workflow tags the full 40-character SHA). `APP_VERSION` has no default, so a
 forgotten tag fails loudly. Local dev builds instead:
 `APP_VERSION=local docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`
 (the overlay adds `build:` blocks and a `cert-bootstrap` service that writes a
@@ -37,6 +37,29 @@ Services (`docker-compose.yml`): `app`, `db` (Postgres), `redis`, `seaweedfs`,
 - [Rule 12](08-security.md#rule-12-the-origin-accepts-only-cloudflare): the origin accepts only Cloudflare (next section).
 - Cloudflare dashboard settings: the checklist in [25-cloudflare.md](25-cloudflare.md) (75.31).
 - After every deploy: `yarn smoke:post-deploy` ([12-operations.md §7](12-operations.md#7-post-deploy-smoke-check)).
+
+### Running migrations
+
+The image has no ts-node, so migrations run from compiled JS. Run them after
+`docker compose pull`, before `up -d`, back up first if any are pending.
+
+```mermaid
+flowchart LR
+    pull["docker compose pull"] --> pending{"migrate.js pending"}
+    pending -- "exit 0: none" --> up["docker compose up -d"]
+    pending -- "exit 2: pending" --> backup["back up the database"] --> run["migrate.js run"] --> up
+    pending -- "exit 1: error" --> stop["stop, read the error"]
+```
+
+Example (from the `app` image, so it sees the same code you are deploying):
+
+```bash
+docker compose run --rm app node server/dist/scripts/migrate.js pending
+docker compose run --rm app node server/dist/scripts/migrate.js run
+```
+
+The one-release backward-compatibility rule (old code must work on the new
+schema) is in [`CONTRIBUTING.md`](../../CONTRIBUTING.md#database-migrations).
 
 ### Deploying behind an external load balancer instead
 
@@ -429,3 +452,10 @@ See the root README's "Local loop" and "CI" sections for the full command
 reference (`yarn test:server`, `yarn ci:local --only <job>`, and the
 `CI_PATHS_*` path-filter lists `ci-local.sh` and `ci.yml`'s `changes` job
 must be kept in sync by hand).
+
+## Learnings (Epic 61, wave 1)
+
+- 2026-10-20: **Compose files got an `APP_VERSION` requirement and every script that starts the stack broke.** Cost: test-env, backup test, setup and the infra test all failed on `${APP_VERSION:?...}`. Fix: each exports `APP_VERSION="${APP_VERSION:-local}"` first. Rule candidate: when a compose file gains a required variable, grep every `docker compose` caller in `scripts/` and CI in the same PR.
+- 2026-10-20: **The digest-pin check flagged our own GHCR images.** Cost: a false FAIL in the infra job. Fix: the check skips `ghcr.io/tareq89/biddaloy-`; those are pinned by commit-SHA tag instead (Rule 21). Rule candidate: an exemption list names the exact prefix, never a loose pattern.
+- 2026-10-20: **Build overlays were outside the CI infra path filter.** Cost: an edit to `docker-compose.build.yml` ran no infra test. Fix: both overlays join the filter in `ci.yml` and `ci-local.sh`. Rule candidate: a new compose file joins the path filter in the same PR.
+- 2026-10-20: **Certbot text outlived certbot.** Cost: the README and three architecture docs still told operators to renew Let's Encrypt certs, and one Cloudflare check ran a command for a service that no longer exists. Fix: all now describe the Origin CA pair. Rule candidate: removing a service greps `docs/` and `README.md` for its name.
