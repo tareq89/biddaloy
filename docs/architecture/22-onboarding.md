@@ -181,9 +181,29 @@ flowchart LR
 - `EntitlementService.recompute` (run when an order is marked paid) reactivates a
   `SUSPENDED` + `SEATS_EXPIRED` school once it is no longer over, inside the same transaction,
   even when the limit number itself did not change. It audits `REACTIVATE` / `SEATS_REACTIVATED`.
+  It also lifts a `SUSPENDED` + `IDLE` school once it has a PAID order (`IDLE_REACTIVATED`).
+- **Warnings (30 / 7 / 0 days):** `SeatNoticesService` and the `seats.expiring` rule count down to
+  `seatCover` (`billing/seat-grace.ts`): the last PAID `period_end`, or the `BILLING_FREE_UNTIL` day
+  when that is later. So a school that never paid is warned before the free period ends. An order
+  of 31 days or less gets no 30-day warning. The notices say "read-only, then paused" only when
+  the school has students (no order covers the day after, so any student puts it over).
 - **Writes that stay open on purpose** (they never run `ContextGuard`, and are not "this school"
   requests by a signed-in member): device ingest, the public admission submit, public invoice
   payment, and invite accept. An over-seat school can still receive these.
+- **A user's own writes stay open too** (they run `ContextGuard` but carry
+  `@AllowWhenReadOnly()`, so the read-only check skips them; a suspension still blocks them).
+  They change the signed-in user's own state, not the school's data:
+
+  | Route                                                                | Why it stays open                  |
+  | -------------------------------------------------------------------- | ---------------------------------- |
+  | `POST /attention/items/seen`, `.../:recipientId/hide`, `.../snooze`  | the user's own alert list          |
+  | `POST /auth/step-up`, `POST /auth/step-up/otp/request`               | proving who you are writes no data |
+  | `POST /me/push/subscriptions`, `DELETE /me/push/subscriptions[/:id]` | the user's own devices             |
+  | `PATCH /users/me/preferences/notifications`, `/dashboard`, `/digest` | the user's own settings            |
+
+  The list is pinned by `allow-when-suspended-for-billing.decorator.spec.ts` (`@AllowWhenReadOnly
+allowlist`) and by `USER_LEVEL_WRITES` in `read-only-route-walk.e2e-spec.ts`.
+
 - **Manual reactivate while still over:** if a platform admin reactivates a school that is still
   over its seats, the school is read-only again at once (the window is already past), and the next
   daily run pauses it again. Buy seats or remove students to really reopen it.

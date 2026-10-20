@@ -34,6 +34,7 @@ import {
   SummaryQueryDto,
 } from './dto/attention-query.dto';
 import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.decorator';
+import { AllowWhenReadOnly } from '../../auth/decorators/allow-when-read-only.decorator';
 
 type Tenant = { id: string; role: string };
 
@@ -70,6 +71,7 @@ export class AttentionController {
   }
 
   @AuthenticatedOnly()
+  @AllowWhenReadOnly()
   @Post('items/seen')
   @HttpCode(200)
   @ApiOperation({ summary: "Mark the caller's own items as seen." })
@@ -79,6 +81,7 @@ export class AttentionController {
   }
 
   @AuthenticatedOnly()
+  @AllowWhenReadOnly()
   @Post('items/:recipientId/hide')
   @HttpCode(200)
   @ApiOperation({ summary: "Close (hide) one of the caller's non-critical items." })
@@ -93,6 +96,7 @@ export class AttentionController {
   }
 
   @AuthenticatedOnly()
+  @AllowWhenReadOnly()
   @Post('items/:recipientId/snooze')
   @HttpCode(200)
   @ApiOperation({ summary: "Snooze one of the caller's non-critical items." })

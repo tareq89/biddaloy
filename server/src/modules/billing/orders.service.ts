@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { PlatformPaymentMethod, SeatOrderStatus, type SeatOrderDto } from '@biddaloy/shared';
@@ -63,7 +68,10 @@ export class OrdersService {
     private readonly entitlement: EntitlementService,
   ) {}
 
-  /** Same (school, idempotency_key) returns the first order untouched. */
+  /**
+   * Same (school, idempotency_key) and body returns the first order untouched; a different
+   * seats/months body is 409 IDEMPOTENCY_KEY_REUSED.
+   */
   async createPending(input: CreatePendingInput): Promise<SeatOrderDto> {
     return this.insertPending(this.dataSource.manager, input);
   }
@@ -114,6 +122,14 @@ export class OrdersService {
   o.paid_at, o.created_at FROM seat_orders o WHERE o.school_id = $1 AND o.idempotency_key = $2`,
       [input.schoolId, input.idempotency_key],
     );
+    // A replay must be the same order; a different body on a used key is a client bug.
+    // Fixed text, no echo of what was sent (Rule 23).
+    if (row.seats !== input.seats || row.months !== input.months) {
+      throw new ConflictException({
+        message: 'This idempotency key was already used for a different order',
+        details: { code: 'IDEMPOTENCY_KEY_REUSED' },
+      });
+    }
     return toDto(row);
   }
 

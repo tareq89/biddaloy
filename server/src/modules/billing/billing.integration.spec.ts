@@ -236,10 +236,26 @@ describe('EntitlementService + OrdersService (integration)', () => {
     const id = await newSchool();
     const input = { schoolId: id, seats: 4, months: 3, idempotency_key: 'k1', userId: null };
     const a = await orders.createPending(input);
-    const b = await orders.createPending({ ...input, seats: 99 });
+    const b = await orders.createPending({ ...input });
     expect(b.id).toBe(a.id);
     expect(a.amount_paisa).toBe(12000);
     expect(a.status).toBe('PENDING');
+  });
+
+  it('a used key with a different seats or months body is 409 IDEMPOTENCY_KEY_REUSED, fixed text', async () => {
+    const id = await newSchool();
+    const input = { schoolId: id, seats: 4, months: 3, idempotency_key: 'k-reuse', userId: null };
+    await orders.createPending(input);
+    for (const changed of [{ seats: 99 }, { months: 1 }]) {
+      const err = await orders.createPending({ ...input, ...changed }).catch((e) => e);
+      expect(err.status).toBe(409);
+      expect(err.response).toEqual({
+        message: 'This idempotency key was already used for a different order',
+        details: { code: 'IDEMPOTENCY_KEY_REUSED' },
+      });
+    }
+    // The first order is untouched.
+    expect((await orders.list(id, 10)).map((o) => o.seats)).toEqual([4]);
   });
 
   it('markPaid twice records one payment and one recompute', async () => {
