@@ -91,10 +91,33 @@ describe('applications tab fromRow', () => {
 
 describe('application_tags tab fromRow', () => {
   const tag = { id: UUID, application: '2026|1', created_by: 'a@x.test' };
-  it('rejects both user and role, and neither', () => {
+  it('rejects both user and role', () => {
     const both = applicationTagsTab.fromRow({ ...tag, user: 'b@x.test', role: 'ADMIN' }, 2, ctx());
+    expect('errors' in both).toBe(true);
+  });
+  it('accepts neither user nor role: the export blanks a departed user (#2625)', () => {
+    // Whether that is allowed (existing row only) is the validation pass's call,
+    // through the `user` column's requiredOnNewRow.
     const neither = applicationTagsTab.fromRow(tag, 2, ctx());
-    expect('errors' in both && 'errors' in neither).toBe(true);
+    expect('row' in neither).toBe(true);
+    const userCol = applicationTagsTab.columns.find((c) => c.key === 'user');
+    const required = userCol?.requiredOnNewRow;
+    expect(typeof required).toBe('function');
+    expect((required as (c: Record<string, string>) => boolean)({ role: '' })).toBe(true);
+    expect((required as (c: Record<string, string>) => boolean)({ role: 'ADMIN' })).toBe(false);
+  });
+  it('gives each blank-user tag its own key, so two departed users on one application do not collide', () => {
+    const a = applicationTagsTab.fromRow(tag, 2, ctx());
+    const b = applicationTagsTab.fromRow(
+      { ...tag, id: '4f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b' },
+      3,
+      ctx(),
+    );
+    if (!('row' in a) || !('row' in b)) throw new Error('expected rows');
+    expect(applicationTagsTab.keyOf(a.row)).not.toBe(applicationTagsTab.keyOf(b.row));
+    const stored = Object.assign(new ApplicationTag(), { id: UUID, user_id: 'gone', role: null });
+    (stored as unknown as Record<string, unknown>).__keys = { application: '2026|1', user: '' };
+    expect(applicationTagsTab.keyOf(stored)).toBe(applicationTagsTab.keyOf(a.row));
   });
   it('accepts a role-only tag', () => {
     expect('row' in applicationTagsTab.fromRow({ ...tag, role: 'ADMIN' }, 2, ctx())).toBe(true);
@@ -140,6 +163,19 @@ describe('application_tags tab upsert', () => {
       user_id: 'guardian-1',
       tenant_id: TENANT,
     });
+  });
+
+  it('keeps the stored user of an existing tag when the row has neither user nor role (#2625)', async () => {
+    const m = { exists: vi.fn(), save: vi.fn((_e, x) => x) };
+    const existing = Object.assign(new ApplicationTag(), { user_id: 'departed-1', role: null });
+    const saved = await applicationTagsTab.upsert(
+      { ...row, user_id: null, user_key: '', role: null },
+      existing,
+      TENANT,
+      m as unknown as EntityManager,
+    );
+    expect(m.exists).not.toHaveBeenCalled();
+    expect(saved).toMatchObject({ user_id: 'departed-1', role: null });
   });
 
   it('saves a user tag naming a staff member', async () => {
@@ -207,7 +243,7 @@ describe('application children export and restore', () => {
     expect(applicationTagsTab.deleteByAbsence).toBe(true);
   });
 
-  it('fails the export when a tag author is not an exportable user', async () => {
+  it('loads a tag whose author left (#2625): export blanks the cell instead of failing', async () => {
     vi.spyOn(applicationsTab, 'load').mockResolvedValue([{ id: 'app-1' }] as never);
     vi.spyOn(applicationsTab, 'keyOf').mockReturnValue('2026|1');
     vi.spyOn(usersTab, 'load').mockResolvedValue([{ id: 'staff-1' }] as never);
@@ -219,21 +255,15 @@ describe('application children export and restore', () => {
       created_by_user_id: 'super-admin',
     });
     const m = { find: vi.fn().mockResolvedValue([tag]) };
-    await expect(applicationTagsTab.load(TENANT, m as unknown as EntityManager)).rejects.toThrow(
-      'not exportable',
-    );
+    await expect(
+      applicationTagsTab.load(TENANT, m as unknown as EntityManager),
+    ).resolves.toHaveLength(1);
   });
 
-  it('fails the export when an attachment uploader is not an exportable user', async () => {
-    vi.spyOn(usersTab, 'load').mockResolvedValue([{ id: 'staff-1' }] as never);
-    vi.spyOn(usersTab, 'keyOf').mockReturnValue('s@x.test');
+  it('loads an attachment whose uploader left (#2625): export blanks the cell instead of failing', async () => {
     const m = {
       find: vi.fn().mockResolvedValue([{ id: UUID, uploaded_by_user_id: 'super-admin' }]),
     };
-    await expect(
-      applicationAttachmentsTab.load(TENANT, m as unknown as EntityManager),
-    ).rejects.toThrow('uploader that is not exportable');
-    m.find.mockResolvedValue([{ id: UUID, uploaded_by_user_id: 'staff-1' }]);
     await expect(
       applicationAttachmentsTab.load(TENANT, m as unknown as EntityManager),
     ).resolves.toHaveLength(1);

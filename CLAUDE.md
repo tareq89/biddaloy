@@ -54,6 +54,10 @@ text, the reason and the enforcing test live in
 - **Pin CI and images.** Actions by SHA, images by `@sha256:`, audit allowlist with `recheckBy` (75.25, 75.26). → [08-security §Rules 21](docs/architecture/08-security.md#rule-21-ci-actions-and-images-are-pinned)
 - **Public write forms carry Turnstile.** `TurnstileService` before any write; fails closed in production (75.16). → [08-security §Rules 22](docs/architecture/08-security.md#rule-22-public-write-forms-carry-turnstile)
 - **Errors never echo input.** Within one operation, every failure path uses the same text, and no message echoes the submitted value (75.19). → [08-security §Rules 23](docs/architecture/08-security.md#rule-23-errors-never-echo-what-was-sent)
+- **Known errors map in one place.** DB and parser failures become fixed 4xx sentences in `known-errors.ts`, never the raw text (2642). → [08-security §Rules 24](docs/architecture/08-security.md#rule-24-errors-are-mapped-in-one-place-and-never-echo-input)
+- **Writes never auto-retry.** UI mutations are `retry: false`; send and create routes carry an `Idempotency-Key` (2642). → [08-security §Rules 25](docs/architecture/08-security.md#rule-25-writes-never-auto-retry-and-sending-and-billing-routes-carry-an-idempotency-key)
+- **Money compares in whole paisa.** `toPaisa()`, no tolerance, DB CHECKs behind it (2642). → [08-security §Rules 26](docs/architecture/08-security.md#rule-26-money-is-compared-in-whole-paisa-with-db-checks-behind-it)
+- **Guard parent deletes.** No `remove()` while a child row exists; new FKs join the delete-guard registry (2642). → [08-security §Rules 27](docs/architecture/08-security.md#rule-27-a-parent-row-cannot-be-deleted-while-a-child-row-references-it)
 
 ## Documentation style (always, for any doc in this repo)
 

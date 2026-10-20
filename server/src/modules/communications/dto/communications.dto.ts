@@ -6,22 +6,26 @@ import {
   IsEnum,
   IsNotEmpty,
   ArrayMinSize,
+  MaxLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { CommunicationLogMedium, PUSH_MEDIUM } from '../entities/communication-log.entity';
+import { DELIVERY_ERROR_CODES, DeliveryErrorCode } from '../delivery-error-code';
 
 export class SendCommunicationDto {
   @IsEnum(CommunicationMedium)
   medium: CommunicationMedium;
 
   @IsString()
+  @MaxLength(255)
   @IsNotEmpty()
   recipient_address: string;
 
   @IsString()
+  @MaxLength(100)
   @IsNotEmpty()
   @SanitizeText()
   recipient_name: string;
@@ -37,6 +41,7 @@ export class SendCommunicationDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   @SanitizeText()
   subject?: string;
 
@@ -86,6 +91,7 @@ export class SendGuardianMessageDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   @SanitizeText()
   subject?: string;
 
@@ -116,6 +122,9 @@ export class CommunicationResponseDto {
   recipient_name: string;
   status: CommunicationStatus;
   provider_message_id: string | null;
+  // A fixed code, never the worker's or provider's raw text (Rule 23); null when none.
+  @ApiProperty({ enum: DELIVERY_ERROR_CODES, nullable: true })
+  error: DeliveryErrorCode | null;
   created_at: Date;
 }
 

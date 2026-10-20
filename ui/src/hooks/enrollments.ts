@@ -76,7 +76,6 @@ export function useCreateEnrollment() {
       const res = await apiClient.post<Enrollment>('/enrollments', input);
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: (enrollment) => {
       void queryClient.invalidateQueries({
         queryKey: enrollmentKeys.list({ studentId: enrollment.student_id }),
@@ -103,7 +102,6 @@ export function useUpdateEnrollment(id: string) {
       const res = await apiClient.patch<Enrollment>(`/enrollments/${id}`, input);
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: (enrollment) => {
       void queryClient.invalidateQueries({
         queryKey: enrollmentKeys.list({ studentId: enrollment.student_id }),

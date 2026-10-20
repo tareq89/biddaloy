@@ -9,8 +9,8 @@ import {
   IsNumber,
   Min,
   Max,
-  IsDateString,
 } from 'class-validator';
+import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
 import { Type } from 'class-transformer';
 import { InvoiceStatus, InvoiceKind, CommunicationMedium } from '@biddaloy/shared';
 import { Invoice, InvoiceSnapshot } from '../entities/invoice.entity';
@@ -67,11 +67,11 @@ export class QueryInvoiceDto {
   status?: InvoiceStatus;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   from_date?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   to_date?: string;
 
   @IsOptional()

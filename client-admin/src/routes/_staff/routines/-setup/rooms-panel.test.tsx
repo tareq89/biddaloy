@@ -59,7 +59,7 @@ describe('RoomsPanel', () => {
           {
             statusCode: 409,
             message:
-              'Cannot delete room "room-1": 1 routine slot(s) still reference it. Reassign or remove them first.',
+              'Cannot delete this room: 1 routine slot(s) still reference it. Reassign or remove them first.',
             timestamp: new Date().toISOString(),
             path: '/routines/rooms/room-1',
             requestId: 'req-1',

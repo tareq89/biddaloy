@@ -4,7 +4,6 @@ import {
   ArrayUnique,
   IsArray,
   IsBoolean,
-  IsDateString,
   IsEnum,
   IsInt,
   IsISO8601,
@@ -20,6 +19,7 @@ import {
 } from 'class-validator';
 import { CalendarAudience, CalendarEventType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
 
 const TIME_ONLY = /^\d{2}:\d{2}(:\d{2})?$/;
 
@@ -44,10 +44,10 @@ export class CreateCalendarEventDto {
   @SanitizeText()
   description?: string;
 
-  @IsDateString()
+  @IsRealDate()
   start_date: string;
 
-  @IsDateString()
+  @IsRealDate()
   end_date: string;
 
   @IsOptional()
@@ -120,11 +120,11 @@ export class UpdateCalendarEventDto {
   description?: string | null;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   start_date?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   end_date?: string;
 
   @IsOptional()

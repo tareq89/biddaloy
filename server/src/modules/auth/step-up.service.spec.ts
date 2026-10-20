@@ -37,6 +37,11 @@ function fakeRedis() {
       store.set(key, String(next));
       return next;
     }),
+    decr: vi.fn(async (key: string) => {
+      const next = (Number(store.get(key)) || 0) - 1;
+      store.set(key, String(next));
+      return next;
+    }),
     pexpire: vi.fn().mockResolvedValue(1),
     set: vi.fn().mockResolvedValue('OK'),
   };
@@ -303,6 +308,59 @@ describe('StepUpService', () => {
       expect(otherActorError.status).not.toBe(HttpStatus.TOO_MANY_REQUESTS);
     });
 
+    // [2639] F-130/F-131: the counter is per caller+approver, so one caller's
+    // wrong guesses never spend another caller's budget for the same approver.
+    it('scopes the rate-limit counter by caller — a second caller in the same tenant keeps its budget', async () => {
+      const { service, redis } = buildService();
+
+      for (let i = 0; i < 6; i++) {
+        await service.verify(otpDto(), ACTOR_USER_ID, TENANT_ID, CONTEXT).catch(() => undefined);
+      }
+      const incrKeys = redis.incr.mock.calls.map((call: unknown[]) => call[0] as string);
+      expect(incrKeys.some((key) => key.includes(`pair:${TENANT_ID}:${ACTOR_USER_ID}:`))).toBe(
+        true,
+      );
+
+      const otherCaller = await service
+        .verify(otpDto(), 'a-second-caller', TENANT_ID, CONTEXT)
+        .catch((e) => e);
+      expect(otherCaller.status).not.toBe(HttpStatus.TOO_MANY_REQUESTS);
+    });
+
+    // [2639] Per-pair keys alone gave N callers N full quotas against one approver.
+    // A per-approver ceiling (4x the pair limit = 20) caps the sum across callers.
+    it('caps guesses at one approver across all callers at 4x the pair limit', async () => {
+      const { service } = buildService();
+
+      // Four callers, five guesses each: every one inside its own pair budget.
+      for (const caller of ['c1', 'c2', 'c3', 'c4']) {
+        for (let i = 0; i < 5; i++) {
+          const err = await service.verify(otpDto(), caller, TENANT_ID, CONTEXT).catch((e) => e);
+          expect(err.status).not.toBe(HttpStatus.TOO_MANY_REQUESTS);
+        }
+      }
+
+      // A fifth caller, with a fresh pair budget, is refused: the approver ceiling is spent.
+      await expect(service.verify(otpDto(), 'c5', TENANT_ID, CONTEXT)).rejects.toMatchObject({
+        status: HttpStatus.TOO_MANY_REQUESTS,
+      });
+    });
+
+    // [2639] Round 2: attempts the caller's own pair/actor limit already refused must not
+    // spend the approver ceiling, or one caller locks the approver out for everyone.
+    it('one caller hammering an approver does not lock that approver out for another caller', async () => {
+      const { service } = buildService();
+
+      for (let i = 0; i < 25; i++) {
+        await service.verify(otpDto(), 'caller-a', TENANT_ID, CONTEXT).catch(() => undefined);
+      }
+
+      const callerB = await service
+        .verify(otpDto(), 'caller-b', TENANT_ID, CONTEXT)
+        .catch((e) => e);
+      expect(callerB.status).not.toBe(HttpStatus.TOO_MANY_REQUESTS);
+    });
+
     // Security-review fix: bcrypt/OTP verification must run at the same
     // cost whether or not the identifier resolves to a real approver —
     // otherwise response latency leaks which identifiers are real.
@@ -310,7 +368,7 @@ describe('StepUpService', () => {
       const schoolsService = {
         getResolvedSettings: vi
           .fn()
-          .mockResolvedValue({ version: 1, fees: { approval_mode: ApprovalMode.OTP_OR_PASSWORD } }),
+          .mockResolvedValue({ version: 1, fees: { approvalMode: ApprovalMode.OTP_OR_PASSWORD } }),
       };
       const { service } = buildService({ schoolsService });
       (bcrypt.compare as any).mockResolvedValue(false);
@@ -365,7 +423,7 @@ describe('StepUpService', () => {
       const schoolsService = {
         getResolvedSettings: vi
           .fn()
-          .mockResolvedValue({ version: 1, fees: { approval_mode: ApprovalMode.OTP_OR_PASSWORD } }),
+          .mockResolvedValue({ version: 1, fees: { approvalMode: ApprovalMode.OTP_OR_PASSWORD } }),
       };
       const { service } = buildService({ schoolsService });
       (bcrypt.compare as any).mockResolvedValue(true);
@@ -380,19 +438,66 @@ describe('StepUpService', () => {
     it('always resolves without throwing, even for an unknown identifier', async () => {
       const { service } = buildService();
 
-      await expect(service.requestOtp('unknown@example.com', TENANT_ID)).resolves.toEqual({});
+      await expect(
+        service.requestOtp('unknown@example.com', TENANT_ID, ACTOR_USER_ID),
+      ).resolves.toEqual({});
     });
 
     it('calls OtpService.request only for an eligible approver', async () => {
       const { service, otpService } = buildService();
 
-      await service.requestOtp('admin@example.com', TENANT_ID);
+      await service.requestOtp('admin@example.com', TENANT_ID, ACTOR_USER_ID);
 
-      expect(otpService.request).toHaveBeenCalledWith('STEP_UP', `${TENANT_ID}:admin@example.com`);
+      expect(otpService.request).toHaveBeenCalledWith(
+        'STEP_UP',
+        `${TENANT_ID}:${ACTOR_USER_ID}:admin@example.com`,
+      );
 
       otpService.request.mockClear();
-      await service.requestOtp('unknown@example.com', TENANT_ID);
+      await service.requestOtp('unknown@example.com', TENANT_ID, ACTOR_USER_ID);
       expect(otpService.request).not.toHaveBeenCalled();
+    });
+
+    // [2639] Each caller has its own OTP cooldown, so without a ceiling N callers send
+    // N texts to one approver. Past 4x the pair limit no new code is sent; still 202 ({}).
+    it('stops sending codes to one approver after 20 requests across callers', async () => {
+      const { service, otpService } = buildService();
+
+      for (let i = 0; i < 20; i++) {
+        await service.requestOtp('admin@example.com', TENANT_ID, `caller-${i}`);
+      }
+      expect(otpService.request).toHaveBeenCalledTimes(20);
+
+      await expect(
+        service.requestOtp('admin@example.com', TENANT_ID, 'caller-21'),
+      ).resolves.toEqual({});
+      expect(otpService.request).toHaveBeenCalledTimes(20);
+    });
+
+    // [2639] Round 2: only codes actually issued count toward the approver cap. A caller
+    // inside its own 60 s cooldown gets nothing sent, so it must not spend the cap.
+    it('one caller spamming requests inside its cooldown does not stop codes to another caller', async () => {
+      const issuedTo = new Set<string>();
+      const otpService = {
+        request: vi.fn(async (_purpose: string, id: string) => {
+          if (issuedTo.has(id)) throw new HttpException('cooldown', HttpStatus.TOO_MANY_REQUESTS);
+          issuedTo.add(id);
+          return { code: '123456' };
+        }),
+        verify: vi.fn(),
+      };
+      const { service } = buildService({ otpService });
+
+      for (let i = 0; i < 25; i++) {
+        await service.requestOtp('admin@example.com', TENANT_ID, 'caller-a');
+      }
+      otpService.request.mockClear();
+
+      await service.requestOtp('admin@example.com', TENANT_ID, 'caller-b');
+      expect(otpService.request).toHaveBeenCalledWith(
+        'STEP_UP',
+        `${TENANT_ID}:caller-b:admin@example.com`,
+      );
     });
   });
 });

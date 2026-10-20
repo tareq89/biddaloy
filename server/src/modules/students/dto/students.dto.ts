@@ -15,12 +15,15 @@ import {
   Matches,
   MaxLength,
   ValidateIf,
+  ValidateBy,
 } from 'class-validator';
 import { applyDecorators } from '@nestjs/common';
 import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { IsPlausibleBirthDate } from '../../../common/decorators/is-real-date.decorator';
+import { ROLL_NUMBER_MAX } from '../roll-number.util';
 import type { BulkImportErrorDto } from '../../bulk-import/dto/bulk-import.dto';
 
 /** [32.2.5] Allowed blood groups on a student (D43). */
@@ -57,6 +60,7 @@ const BirthRegNo = () =>
 
 export class CreateStudentDto {
   @IsString()
+  @MaxLength(100)
   @IsNotEmpty()
   @SanitizeText()
   full_name: string;
@@ -85,14 +89,16 @@ export class CreateStudentDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(ROLL_NUMBER_MAX)
   roll_number?: number;
 
   @IsOptional()
-  @IsDateString()
+  @IsPlausibleBirthDate()
   date_of_birth?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(10)
   @SanitizeText()
   gender?: string;
 
@@ -129,6 +135,7 @@ export class CreateStudentDto {
 export class UpdateStudentDto {
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   @SanitizeText()
   full_name?: string;
 
@@ -149,6 +156,7 @@ export class UpdateStudentDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(ROLL_NUMBER_MAX)
   roll_number?: number;
 
   // `| null` (not just optional) — `@IsOptional()` already skips the
@@ -160,11 +168,12 @@ export class UpdateStudentDto {
   // "leave unchanged" in a PATCH, so the client's only option was to omit
   // the field entirely, which never clears it.
   @IsOptional()
-  @IsDateString()
+  @IsPlausibleBirthDate()
   date_of_birth?: string | null;
 
   @IsOptional()
   @IsString()
+  @MaxLength(10)
   @SanitizeText()
   gender?: string | null;
 
@@ -350,17 +359,20 @@ export class StudentIdsResultDto {
 
 export class CreateGuardianDto {
   @IsString()
+  @MaxLength(100)
   @IsNotEmpty()
   @SanitizeText()
   full_name: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   @SanitizeText()
   relationship?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   phone?: string;
 
   @IsOptional()
@@ -369,6 +381,7 @@ export class CreateGuardianDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   alternate_phone?: string;
 
   @IsOptional()
@@ -378,6 +391,7 @@ export class CreateGuardianDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   @SanitizeText()
   occupation?: string;
 
@@ -394,16 +408,19 @@ export class CreateGuardianDto {
 export class UpdateGuardianDto {
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   @SanitizeText()
   full_name?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   @SanitizeText()
   relationship?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   phone?: string;
 
   // [8.11.4]'s edit-guardian dialog sends `''` (not an omitted key) to
@@ -418,6 +435,7 @@ export class UpdateGuardianDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   alternate_phone?: string;
 
   @IsOptional()
@@ -427,6 +445,7 @@ export class UpdateGuardianDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   @SanitizeText()
   occupation?: string;
 
@@ -521,11 +540,23 @@ export class BulkUploadRowDto {
 
   @IsOptional()
   @Matches(/^\d+$/, { message: 'roll must be a positive whole number' })
+  // [2595] Same cap as CreateStudentDto.roll_number: past it, auto-roll in the section 409s.
+  @ValidateBy({
+    name: 'rollNotAboveMax',
+    validator: {
+      validate: (v: unknown) =>
+        typeof v !== 'string' || !/^\d+$/.test(v) || Number(v) <= ROLL_NUMBER_MAX,
+      defaultMessage: () => `roll must not be greater than ${ROLL_NUMBER_MAX}`,
+    },
+  })
   roll?: string;
 
-  // Accepted for a uniform column schema, but always ignored — registration
-  // numbers are system-generated (see StudentService.create).
+  // Blank means auto-numbered (REG-<year>-NNNN); a value is stored as given (varchar(50)),
+  // except the auto series itself, which bulk-upload.service.ts refuses.
+  // Not on CreateStudentDto: the public API never takes a client-chosen number.
   @IsOptional()
+  @IsString()
+  @MaxLength(50)
   registration_number?: string;
 
   @IsNotEmpty({ message: 'Missing required field: guardian1_name' })

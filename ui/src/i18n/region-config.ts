@@ -81,7 +81,7 @@ export const REGION_BD_BN: RegionConfig = {
   date: { format: 'YYYY-MM-DD', firstDayOfWeek: 0, calendar: 'gregory' },
   phone: {
     country: '880',
-    pattern: /^1\d{9}$/,
+    pattern: /^1[3-9]\d{8}$/,
     example: '01712-345678',
     displayFormat: '0XXXX-XXXXXX',
   },

@@ -88,7 +88,11 @@ export class StudentPhotoService {
     const student = await this.repo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
-    if (!student) throw new NotFoundException(`Student with ID "${id}" not found`);
+    if (!student)
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     return student;
   }
 
@@ -123,7 +127,11 @@ export class StudentPhotoService {
         .where('student.id = :id AND student.tenant_id = :tenantId', { id: studentId, tenantId })
         .setLock('pessimistic_write')
         .getOne();
-      if (!student) throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      if (!student)
+        throw new NotFoundException({
+          message: 'Student not found',
+          details: { code: 'STUDENT_NOT_FOUND' },
+        });
 
       // D48: previous object is intentionally left in storage.
       student.photo_key = newKey;

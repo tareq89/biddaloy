@@ -16,12 +16,7 @@ const NO_FIXTURE = 'resolvePath cannot build this route fixture (marks/results n
 
 const KNOWN: Record<Kind, Record<string, string>> = {
   axe: {
-    '/attendance/reports': 'tab trigger aria-valid-attr-value',
-    '/calendar': 'calendar grid aria-required-children/parent',
-    '/portal/calendar': 'calendar grid aria-required-children/parent',
-    '/print/preview': 'tab trigger aria-valid-attr-value',
     '/fees/schedules': 'axe violation, see sweep output',
-    '/invoices/$invoiceId': 'scrollable-region-focusable on div.relative.w-full table wrapper',
     '/marks/$examId/$sectionId/$subjectId': NO_FIXTURE,
     '/results/$examId/$studentId': NO_FIXTURE,
     '/portal/account': 'dark-only color-contrast on text-destructive',

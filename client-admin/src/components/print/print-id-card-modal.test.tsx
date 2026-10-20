@@ -93,6 +93,16 @@ describe('PrintIdCardModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('points the selected tab at a panel that exists', async () => {
+    setup();
+    await screen.findByRole('checkbox', { name: /Rahim Uddin/ });
+    const tab = screen.getByRole('tab', { name: 'Students' });
+    // [2670] The panel holds the picker, not an empty hidden stand-in.
+    const panel = screen.getByRole('tabpanel', { name: 'Students' });
+    expect(panel.id).toBe(tab.getAttribute('aria-controls'));
+    expect(within(panel).getByRole('checkbox', { name: /Rahim Uddin/ })).toBeTruthy();
+  });
+
   it('removing a chip unticks the row', async () => {
     const { user } = setup();
     const row = await screen.findByRole('checkbox', { name: /Rahim Uddin/ });

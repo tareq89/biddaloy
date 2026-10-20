@@ -13,6 +13,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import { createRefChildTab } from '../people/ref-child-tab.factory';
 import { usersTab } from '../people/users.tab';
 import { applicationsTab } from './applications.tab';
@@ -146,6 +147,9 @@ const tagColumns: readonly ColumnSpec[] = [
     key: 'user',
     type: 'ref',
     ref: 'users',
+    // Blank user AND blank role is how the export writes a tag whose user has
+    // left: fine on a tag the school already has, an error on a new one.
+    requiredOnNewRow: (cells) => !(cells.role ?? '').trim(),
     label: { en: 'Tagged user', bn: 'ট্যাগ করা ব্যবহারকারী' },
   },
   { key: 'role', type: 'string', label: { en: 'Tagged role', bn: 'ট্যাগ করা ভূমিকা' } },
@@ -153,7 +157,7 @@ const tagColumns: readonly ColumnSpec[] = [
     key: 'created_by',
     type: 'ref',
     ref: 'users',
-    required: true,
+    requiredOnNewRow: true,
     label: { en: 'Created by', bn: 'তৈরি করেছেন' },
   },
 ];
@@ -180,9 +184,9 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
     const users = await keysById(usersTab, tenantId, m);
     for (const r of rows) {
       const app = apps.get(r.application_id);
-      const user = r.user_id ? users.get(r.user_id) : '';
-      // `created_by` is exported as a user ref too; a SUPER_ADMIN author has none.
-      if (app === undefined || user === undefined || !users.has(r.created_by_user_id)) {
+      // A departed or SUPER_ADMIN user (tagged user or author) exports as a blank cell.
+      const user = r.user_id ? (users.get(r.user_id) ?? '') : '';
+      if (app === undefined) {
         throw new Error(
           `Workbook export: tab "${TAGS}" row ${r.id} has a parent that is not exportable.`,
         );
@@ -196,9 +200,9 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
     return {
       id: entity.id,
       application: ctx.keyOf('applications', entity.application_id),
-      user: entity.user_id ? ctx.keyOf('users', entity.user_id) : null,
+      user: entity.user_id ? optionalKeyOf(ctx, 'users', entity.user_id) : null,
       role: entity.role,
-      created_by: ctx.keyOf('users', entity.created_by_user_id),
+      created_by: optionalKeyOf(ctx, 'users', entity.created_by_user_id),
     };
   },
 
@@ -220,8 +224,9 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
         ),
       );
     }
-    // Same rule as the DB CHECK: exactly one of user / role.
-    if (!!role === !!userKey) {
+    // Same rule as the DB CHECK: never both. Neither is a departed user's tag
+    // (see the `user` column); upsert keeps its stored user.
+    if (role && userKey) {
       errors.push(error(TAGS, rowNo, null, 'Exactly one of "user" and "role" must be filled.'));
     }
     const applicationId = resolve(
@@ -234,15 +239,10 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
       v.application as string,
     );
     const userId = userKey ? resolve(ctx, errors, TAGS, rowNo, 'user', 'users', userKey) : null;
-    const createdBy = resolve(
-      ctx,
-      errors,
-      TAGS,
-      rowNo,
-      'created_by',
-      'users',
-      v.created_by as string,
-    );
+    const createdByKey = (v.created_by as string | null) ?? '';
+    const createdBy = createdByKey
+      ? resolve(ctx, errors, TAGS, rowNo, 'created_by', 'users', createdByKey)
+      : null;
     if (errors.length > 0) return { errors };
     return {
       row: {
@@ -258,15 +258,21 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
   },
 
   keyOf(x: Rec | ApplicationTag): string {
+    // A tag with neither user nor role (its user left) is keyed by its id, so two
+    // such tags on one application stay two rows.
+    const tagKey = (app: unknown, user: unknown, role: unknown, id: unknown) =>
+      `${String(app ?? '')}|${String(user || (role ? '' : `#${String(id ?? '')}`))}|${String(role ?? '')}`;
     if (x instanceof ApplicationTag) {
       const k = (x as unknown as Rec)[STAMP] as Rec | undefined;
-      return `${k?.application ?? ''}|${k?.user ?? ''}|${x.role ?? ''}`;
+      return tagKey(k?.application, k?.user, x.role, x.id);
     }
-    return `${x.application_key}|${x.user_key}|${x.role ?? ''}`;
+    return tagKey(x.application_key, x.user_key, x.role, x.id);
   },
 
   diffFields(row: Rec, existing: ApplicationTag): string[] {
-    return row.created_by_user_id === existing.created_by_user_id ? [] : ['created_by'];
+    return row.created_by_user_id === null || row.created_by_user_id === existing.created_by_user_id
+      ? []
+      : ['created_by'];
   },
 
   async upsert(row: Rec, existing: ApplicationTag | null, tenantId: string, m: EntityManager) {
@@ -291,9 +297,11 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
     const tag = existing ?? new ApplicationTag();
     tag.tenant_id = tenantId;
     tag.application_id = row.application_id as string;
-    tag.user_id = row.user_id as string | null;
-    tag.role = row.role as string | null;
-    tag.created_by_user_id = row.created_by_user_id as string;
+    // Neither user nor role: a departed user's tag from the export; keep what is stored.
+    const keepStored = existing !== null && !row.user_id && !row.role;
+    tag.user_id = keepStored ? existing.user_id : (row.user_id as string | null);
+    tag.role = keepStored ? existing.role : (row.role as string | null);
+    tag.created_by_user_id = (row.created_by_user_id ?? existing?.created_by_user_id) as string;
     return m.save(ApplicationTag, tag);
   },
 
@@ -341,7 +349,7 @@ const attachmentColumns: readonly ColumnSpec[] = [
     key: 'uploaded_by',
     type: 'ref',
     ref: 'users',
-    required: true,
+    requiredOnNewRow: true,
     label: { en: 'Uploaded by', bn: 'আপলোডকারী' },
   },
 ];
@@ -363,15 +371,6 @@ export const applicationAttachmentsTab: TabSpec<ApplicationAttachment, Rec> = {
 
   async load(tenantId: string, m: EntityManager): Promise<ApplicationAttachment[]> {
     const rows = await m.find(ApplicationAttachment, { where: { tenant_id: tenantId } });
-    const users = await keysById(usersTab, tenantId, m);
-    for (const r of rows) {
-      // `uploaded_by` is exported as a user ref; a SUPER_ADMIN uploader has none.
-      if (!users.has(r.uploaded_by_user_id)) {
-        throw new Error(
-          `Workbook export: tab "${ATT}" row ${r.id} has an uploader that is not exportable.`,
-        );
-      }
-    }
     return rows;
   },
 
@@ -383,7 +382,7 @@ export const applicationAttachmentsTab: TabSpec<ApplicationAttachment, Rec> = {
       file_name: entity.file_name,
       mime_type: entity.mime_type,
       size_bytes: entity.size_bytes,
-      uploaded_by: ctx.keyOf('users', entity.uploaded_by_user_id),
+      uploaded_by: optionalKeyOf(ctx, 'users', entity.uploaded_by_user_id),
     };
   },
 
@@ -461,15 +460,10 @@ export const applicationAttachmentsTab: TabSpec<ApplicationAttachment, Rec> = {
       'applications',
       v.application as string,
     );
-    const uploadedBy = resolve(
-      ctx,
-      errors,
-      ATT,
-      rowNo,
-      'uploaded_by',
-      'users',
-      v.uploaded_by as string,
-    );
+    const uploadedByKey = (v.uploaded_by as string | null) ?? '';
+    const uploadedBy = uploadedByKey
+      ? resolve(ctx, errors, ATT, rowNo, 'uploaded_by', 'users', uploadedByKey)
+      : null;
     if (errors.length > 0 || !rehomed) return { errors };
     return {
       row: {
@@ -497,7 +491,12 @@ export const applicationAttachmentsTab: TabSpec<ApplicationAttachment, Rec> = {
       ['size_bytes', 'size_bytes'],
       ['uploaded_by', 'uploaded_by_user_id'],
     ];
-    return pairs.filter(([, prop]) => row[prop] !== e[prop]).map(([col]) => col);
+    return pairs
+      .filter(
+        ([, prop]) =>
+          !(prop === 'uploaded_by_user_id' && row[prop] === null) && row[prop] !== e[prop],
+      )
+      .map(([col]) => col);
   },
 
   async upsert(
@@ -513,7 +512,7 @@ export const applicationAttachmentsTab: TabSpec<ApplicationAttachment, Rec> = {
     a.file_name = row.file_name as string;
     a.mime_type = row.mime_type as string;
     a.size_bytes = row.size_bytes as number;
-    a.uploaded_by_user_id = row.uploaded_by_user_id as string;
+    a.uploaded_by_user_id = (row.uploaded_by_user_id ?? existing?.uploaded_by_user_id) as string;
     return m.save(ApplicationAttachment, a);
   },
 

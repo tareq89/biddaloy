@@ -32,6 +32,10 @@ import {
  * server build a huge result set. */
 const MAX_RANGE_DAYS = 400;
 
+/** [2620] "Counts as a working day" default by type: only a Holiday closes the school. */
+const defaultCountsAsWorkingDay = (type: CalendarEventType): boolean =>
+  type !== CalendarEventType.HOLIDAY;
+
 export interface CalendarEventWithClassIds extends CalendarEvent {
   class_ids: string[];
   /** `true` once the event's `end_date` is strictly before the tenant's
@@ -267,7 +271,11 @@ export class CalendarEventsService {
     // A closure is "past" once any of its days has passed (its start), so a
     // range from yesterday to tomorrow also needs the reason and is silent.
     const today = await this.getToday(tenantId);
-    const isClosure = !isMakeup && dto.counts_as_working_day === false;
+    // A make-up day always counts; otherwise the flag, or the type's default when omitted.
+    const countsAsWorkingDay = isMakeup
+      ? true
+      : (dto.counts_as_working_day ?? defaultCountsAsWorkingDay(dto.type));
+    const isClosure = !isMakeup && !countsAsWorkingDay;
     if (dto.end_date < today && !isClosure) {
       throw this.lockedError();
     }
@@ -288,8 +296,7 @@ export class CalendarEventsService {
     const classIds = await this.assertClassesInTenant(tenantId, dto.class_ids, academicYear.id);
 
     // A make-up day adds a school day, it never removes one, so no register
-    // can contradict it.
-    const countsAsWorkingDay = isMakeup ? true : (dto.counts_as_working_day ?? false);
+    // can contradict it (countsAsWorkingDay is resolved above).
     if (!countsAsWorkingDay) {
       await this.assertNoAttendanceInRange(tenantId, dto.start_date, dto.end_date, classIds);
     }
@@ -382,11 +389,13 @@ export class CalendarEventsService {
       this.assertMakeupCounts(dto.counts_as_working_day);
     }
     // A make-up day turned into another type falls back to that type's
-    // default (not a working day), like create; its forced `true` must not stick.
+    // default (Holiday: not a working day, others: working day), like create;
+    // its forced `true` must not stick to a Holiday.
     const nextCountsAsWorkingDay =
       nextType === CalendarEventType.MAKEUP_DAY
         ? true
-        : (dto.counts_as_working_day ?? (wasMakeup ? false : event.counts_as_working_day));
+        : (dto.counts_as_working_day ??
+          (wasMakeup ? defaultCountsAsWorkingDay(nextType) : event.counts_as_working_day));
     if (
       wasMakeup &&
       (nextType !== CalendarEventType.MAKEUP_DAY ||

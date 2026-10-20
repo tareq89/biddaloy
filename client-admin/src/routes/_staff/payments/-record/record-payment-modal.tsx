@@ -384,6 +384,14 @@ export function RecordPaymentModal({
         ),
     [allBills, lines],
   );
+  // F-155: same count the server uses (students with a line in this checkout);
+  // TO_WALLET is refused for more than one, so it is offered only for one.
+  const touchedBillIds = new Set(touchedLines.map(({ bill }) => bill.student_fee_id));
+  const allowToWallet =
+    (cart.data?.students ?? []).filter((s) =>
+      s.bills.some((b) => touchedBillIds.has(b.student_fee_id)),
+    ).length <= 1;
+  const effectiveChangeHandling: ChangeHandling = allowToWallet ? changeHandling : 'RETURN';
 
   /** Everything `resetAndClose()` used to do, minus closing the dialog —
    * [16.5.5] needs this split so "Record another" (from the success view)
@@ -443,7 +451,7 @@ export function RecordPaymentModal({
         ...(cappedWalletUseMinorUnits > 0
           ? { wallet_use: Number(minorUnitsToDecimalString(cappedWalletUseMinorUnits, config)) }
           : {}),
-        change_handling: changeHandling,
+        change_handling: effectiveChangeHandling,
       },
       {
         onSuccess: (result) => {
@@ -496,6 +504,9 @@ export function RecordPaymentModal({
     // for the current selection, or a stale selection's `student_fee_id`s
     // get posted against the new one.
     cartIsFresh &&
+    // The Pay lines belong to the last debounced amount; one typed since has no cart yet
+    // (e.g. "Record another": the previous amount's cart is still fresh for 300 ms).
+    amountReceivedMinorUnits === debouncedAmountReceivedMinorUnits &&
     !checkout.isPending &&
     (paymentMethod !== PaymentMethod.CASH ||
       tenderedMinorUnits === undefined ||
@@ -767,8 +778,9 @@ export function RecordPaymentModal({
               onTenderedChange={setTenderedMinorUnits}
               walletUseMinorUnits={cappedWalletUseMinorUnits}
               subtotalMinorUnits={subtotalMinorUnits}
-              changeHandling={changeHandling}
+              changeHandling={effectiveChangeHandling}
               onChangeHandlingChange={setChangeHandling}
+              allowToWallet={allowToWallet}
             />
           )}
 

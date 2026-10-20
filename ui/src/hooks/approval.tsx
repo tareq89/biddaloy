@@ -304,6 +304,8 @@ export function useApprovedMutation<TVariables, TResult>(
 
   return useMutation<TResult, unknown, TVariables>({
     ...mutationOptions,
+    // [2596] A write is never re-sent on its own; the one re-send below is the approval retry.
+    retry: false,
     mutationFn: async (variables: TVariables) => {
       try {
         return await mutationFn(variables, {});

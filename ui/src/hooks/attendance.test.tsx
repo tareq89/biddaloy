@@ -6,6 +6,7 @@
  * standing up a real Dexie/tenant for a unit test.
  */
 import { AttendanceStatus } from '@biddaloy/shared';
+import { onlineManager } from '@tanstack/react-query';
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -52,6 +53,8 @@ const originalOnLine = Object.getOwnPropertyDescriptor(window.navigator, 'onLine
 
 function setOnline(value: boolean): void {
   Object.defineProperty(window.navigator, 'onLine', { configurable: true, value });
+  // TanStack reads its own onlineManager, not navigator.onLine; set both.
+  onlineManager.setOnline(value);
 }
 
 beforeEach(() => {
@@ -61,6 +64,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  onlineManager.setOnline(true);
   if (originalOnLine) Object.defineProperty(window.navigator, 'onLine', originalOnLine);
 });
 

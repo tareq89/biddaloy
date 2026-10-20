@@ -1,16 +1,13 @@
 import { Injectable } from '@nestjs/common';
+import { round2 } from '../../common/constants/money';
 import { localToday } from '../../common/time';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
+import { FeeType, PeriodType } from '@biddaloy/shared';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
 import { WalletService } from './wallet.service';
-
-/** Mirrors `fee-dues.service.ts`'s private `OPEN_STATUSES` — duplicated
- * rather than imported/exported because `fee-dues.service.ts` is outside
- * this ticket's file territory. Keep in sync if that list ever changes. */
-const OPEN_STATUSES = [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID];
+import { OPEN_FEE_STATUSES } from './fees.constants';
 
 /** Multi-student cart calls are capped here — the Record Payment modal never
  * opens with more than a handful of siblings selected, and this keeps the
@@ -124,7 +121,7 @@ export class CheckoutCartService {
 
     const [fees, wallets] = await Promise.all([
       this.studentFeeRepo.find({
-        where: { student_id: In(studentIds), status: In(OPEN_STATUSES) },
+        where: { student_id: In(studentIds), status: In(OPEN_FEE_STATUSES) },
         relations: ['fee_structure'],
         order: { due_date: 'ASC', period_start: 'ASC' },
       }),
@@ -317,8 +314,4 @@ function compareBillsOldestFirst(a: FlatBill, b: FlatBill): number {
     return a.is_late_fee ? 1 : -1;
   }
   return a.student_fee_id.localeCompare(b.student_fee_id);
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
 }

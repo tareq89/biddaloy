@@ -1,11 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import { ApiExtraModels, ApiProperty, getSchemaPath } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, IsUUID, Matches, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { IsRealDate, IsRealMonth } from '../../../common/decorators/is-real-date.decorator';
 import { AttendanceStatus } from '@biddaloy/shared';
 
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
-const MONTH_ONLY = /^\d{4}-\d{2}$/;
 
 // ---------------------------------------------------------------------------
 // Shared month/range resolution
@@ -51,17 +50,17 @@ export function resolveDateRange(query: { month?: string; from?: string; to?: st
 export class QueryStudentSummaryDto {
   @IsOptional()
   @IsString()
-  @Matches(MONTH_ONLY, { message: 'month must be YYYY-MM' })
+  @IsRealMonth()
   month?: string;
 
   @IsOptional()
   @IsString()
-  @Matches(DATE_ONLY, { message: 'from must be YYYY-MM-DD' })
+  @IsRealDate()
   from?: string;
 
   @IsOptional()
   @IsString()
-  @Matches(DATE_ONLY, { message: 'to must be YYYY-MM-DD' })
+  @IsRealDate()
   to?: string;
 }
 
@@ -69,7 +68,7 @@ export class QueryStudentSummaryDto {
  * portal's month grid. */
 export class QueryStudentDaysDto {
   @IsString()
-  @Matches(MONTH_ONLY, { message: 'month must be YYYY-MM' })
+  @IsRealMonth()
   month: string;
 }
 
@@ -77,11 +76,11 @@ export class QueryStudentDaysDto {
  * whole-month view (that's the register matrix below). */
 export class QuerySectionSummaryDto {
   @IsString()
-  @Matches(DATE_ONLY, { message: 'from must be YYYY-MM-DD' })
+  @IsRealDate()
   from: string;
 
   @IsString()
-  @Matches(DATE_ONLY, { message: 'to must be YYYY-MM-DD' })
+  @IsRealDate()
   to: string;
 }
 
@@ -89,7 +88,7 @@ export class QuerySectionSummaryDto {
  * printable paper-register replacement is inherently a monthly layout. */
 export class QueryRegisterMatrixDto {
   @IsString()
-  @Matches(MONTH_ONLY, { message: 'month must be YYYY-MM' })
+  @IsRealMonth()
   month: string;
 }
 
@@ -97,11 +96,11 @@ export class QueryRegisterMatrixDto {
  * `policy.lowAttendanceThresholdPercent` when omitted. */
 export class QueryLowAttendanceDto {
   @IsString()
-  @Matches(DATE_ONLY, { message: 'from must be YYYY-MM-DD' })
+  @IsRealDate()
   from: string;
 
   @IsString()
-  @Matches(DATE_ONLY, { message: 'to must be YYYY-MM-DD' })
+  @IsRealDate()
   to: string;
 
   @IsOptional()
