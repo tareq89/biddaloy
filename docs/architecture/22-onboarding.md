@@ -124,10 +124,11 @@ flowchart TD
   audit row with `event: SEAT_LIMIT_RECOMPUTED`.
 - `OrdersService.createPending` prices an order at seats x months x 1000 paisa
   (BDT 10 per seat per month). `markPaid` flips `PENDING` to `PAID` once; a
-  replay changes nothing. The period is set on payment: a purchase starts on
-  the later of today and the day the school's last PAID period ends. So a
-  renewal bought early extends the seats; it never counts them twice. A
-  platform `GRANT` starts today and adds to the seats in force (a top-up).
+  replay changes nothing. The period is set on payment: a purchase of at
+  least as many seats as the school's own cover starts where that cover ends
+  (a renewal never counts seats twice); a smaller one, and a platform `GRANT`,
+  start today and add seats (a top-up). Grants never count as cover. Full
+  rule: [28-billing.md](28-billing.md#where-a-paid-orders-period-starts).
   Example: 100 seats for Jan 1 to Jul 1, renewed for 6 months on Jun 1, run
   Jul 1 to Jan 1. June still has 100 seats, not 200.
 - Paying also lifts an `IDLE` suspension at once, and the idle job never
@@ -182,8 +183,8 @@ flowchart LR
   even when the limit number itself did not change. It audits `REACTIVATE` / `SEATS_REACTIVATED`.
   It also lifts a `SUSPENDED` + `IDLE` school once it has a PAID order (`IDLE_REACTIVATED`).
 - **Warnings (30 / 7 / 0 days):** `SeatNoticesService` and the `seats.expiring` rule count down to
-  `seatCover` (`billing/seat-grace.ts`): the last PAID `period_end`, or the `BILLING_FREE_UNTIL` day
-  when that is later. So a school that never paid is warned before the free period ends. An order
+  `seatCover` (`billing/seat-grace.ts`): the last PAID `period_end` of the school's own orders
+  (a `GRANT`'s only when it has no own order), or the `BILLING_FREE_UNTIL` day when that is later. So a school that never paid is warned before the free period ends. An order
   of 31 days or less gets no 30-day warning. The notices say "read-only, then paused" only when
   the school has students (no order covers the day after, so any student puts it over).
 - **Writes that stay open on purpose** (they never run `ContextGuard`, and are not "this school"

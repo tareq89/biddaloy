@@ -304,7 +304,18 @@ describe('BkashService.handleCallback', () => {
     expect(pay[2]).toBe('KEEPTTL');
   });
 
-  it('a failed return drops the checkout URL too; a success return does not', async () => {
+  it('a "success" return whose execute fails and re-query is not Completed drops the checkout URL', async () => {
+    t.client.query.mockResolvedValue(initiated);
+    t.client.execute.mockRejectedValue(new Error('timeout'));
+    await callback('success');
+    expect(t.orders.markPaid).not.toHaveBeenCalled();
+    // Same as cancel: the page is dead, paymentID and TTL kept for the reconciler.
+    const pay = t.redis.set.mock.calls.find((c) => c[0] === `bkash:pay:${ORDER_ID}`)!;
+    expect(JSON.parse(pay[1])).toEqual({ paymentID: 'PAY1', pay_started_at: expect.any(String) });
+    expect(pay[2]).toBe('KEEPTTL');
+  });
+
+  it('a failed return drops the checkout URL too; a completed success return does not', async () => {
     t.client.query.mockResolvedValue(initiated);
     await callback('failure');
     expect(t.redis.set).toHaveBeenCalledTimes(1);
