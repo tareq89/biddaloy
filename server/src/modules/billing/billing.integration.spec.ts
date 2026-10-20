@@ -110,7 +110,13 @@ describe('EntitlementService + OrdersService (integration)', () => {
     afterCutoff();
     const id = await newSchool();
     await pay(id, 10);
-    await pay(id, 5, 3); // overlaps the first one
+    // An overlapping PAID order (OrdersService never makes one now, but old rows may exist).
+    await ds.query(
+      `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key)
+       VALUES ($1, 5, 3, 1000, 15000, (now() AT TIME ZONE 'Asia/Dhaka')::date,
+               (now() AT TIME ZONE 'Asia/Dhaka')::date + interval '3 months', 'PAID', 'overlap')`,
+      [id],
+    );
     await orders.createPending({
       schoolId: id,
       seats: 100,
@@ -124,7 +130,89 @@ describe('EntitlementService + OrdersService (integration)', () => {
       [id],
     );
     expect(await entitlement.limitFor(ds.manager, id)).toBe(15);
+    await entitlement.recomputeAndNotify(id); // the raw INSERT above did not recompute
     expect(await limitOf(id)).toBe(15);
+  });
+
+  const today = async (): Promise<string> =>
+    (await ds.query(`SELECT (now() AT TIME ZONE 'Asia/Dhaka')::date::text AS d`))[0].d;
+  const periodOf = async (orderId: string) =>
+    (
+      await ds.query(
+        'SELECT period_start::text AS start, period_end::text AS "end" FROM seat_orders WHERE id = $1',
+        [orderId],
+      )
+    )[0] as { start: string; end: string };
+
+  it('a first purchase starts today', async () => {
+    afterCutoff();
+    const id = await newSchool();
+    const o = await pay(id, 100, 6);
+    expect((await periodOf(o.id)).start).toBe(await today());
+    expect(await limitOf(id)).toBe(100);
+  });
+
+  it('an early renewal starts where the paid period ends, so seats are not counted twice', async () => {
+    afterCutoff();
+    const id = await newSchool();
+    // 100 seats, bought 5 months ago for 6 months: one month is left.
+    await ds.query(
+      `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key)
+       VALUES ($1, 100, 6, 1000, 600000, (now() AT TIME ZONE 'Asia/Dhaka')::date - interval '5 months',
+               (now() AT TIME ZONE 'Asia/Dhaka')::date + interval '1 month', 'PAID', 'current')`,
+      [id],
+    );
+    const [{ end }] = await ds.query(
+      `SELECT period_end::text AS "end" FROM seat_orders WHERE school_id = $1 AND idempotency_key = 'current'`,
+      [id],
+    );
+    const renewal = await pay(id, 100, 6);
+    // The renewal covers the 6 months after the current period, not today to today+6.
+    expect((await periodOf(renewal.id)).start).toBe(end);
+    expect(await limitOf(id)).toBe(100);
+    const [{ later }] = await ds.query(
+      `SELECT (period_start + interval '6 months')::date::text AS later FROM seat_orders WHERE id = $1`,
+      [renewal.id],
+    );
+    expect((await periodOf(renewal.id)).end).toBe(later);
+  });
+
+  it('a purchase after the last paid period has ended starts today', async () => {
+    afterCutoff();
+    const id = await newSchool();
+    await ds.query(
+      `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key)
+       VALUES ($1, 50, 1, 1000, 50000, '2020-01-01', '2020-02-01', 'PAID', 'old')`,
+      [id],
+    );
+    const o = await pay(id, 20);
+    expect((await periodOf(o.id)).start).toBe(await today());
+    expect(await limitOf(id)).toBe(20);
+  });
+
+  it('paying lifts an IDLE suspension; another suspension reason stays', async () => {
+    afterCutoff();
+    const idle = await newSchool();
+    const other = await newSchool();
+    await ds.query(
+      `UPDATE schools SET status = 'SUSPENDED', status_reason = 'IDLE' WHERE id = $1`,
+      [idle],
+    );
+    await ds.query(
+      `UPDATE schools SET status = 'SUSPENDED', status_reason = 'PLATFORM' WHERE id = $1`,
+      [other],
+    );
+    await pay(idle, 3);
+    await pay(other, 3);
+    const statusOf = async (id: string) =>
+      (await ds.query('SELECT status, status_reason FROM schools WHERE id = $1', [id]))[0];
+    expect(await statusOf(idle)).toEqual({ status: 'ACTIVE', status_reason: null });
+    expect(await statusOf(other)).toEqual({ status: 'SUSPENDED', status_reason: 'PLATFORM' });
+    const [{ n }] = await ds.query(
+      `SELECT count(*)::int AS n FROM audit_logs WHERE entity_id = $1 AND new_values->>'event' = 'IDLE_REACTIVATED'`,
+      [idle],
+    );
+    expect(n).toBe(1);
   });
 
   it('recompute writes seat_limit and audits only when it changed', async () => {

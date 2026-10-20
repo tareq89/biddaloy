@@ -293,6 +293,23 @@ describe('IdleAccountService (integration)', () => {
     expect(invalidate).toHaveBeenCalledWith(due);
   });
 
+  it('never soft-deletes an IDLE school that has a PAID seat order', async () => {
+    const paid = await newSchool(90, {
+      status: 'SUSPENDED',
+      reason: 'IDLE',
+      statusChangedDaysAgo: 31,
+    });
+    await ds.query(
+      `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key)
+       VALUES ($1, 5, 1, 1000, 5000, '2020-01-01', '2020-02-01', 'PAID', $2)`,
+      [paid, randomUUID()],
+    );
+    const result = await service.runDaily(now);
+    // A paying customer's data is never deleted by the idle job.
+    expect(result.deleted).toBe(0);
+    expect((await row(paid)).deleted_at).toBeNull();
+  });
+
   it('skips the platform tenant even when it is idle', async () => {
     const platform = await newSchool(60, { warnings: { idle_d27: 10 } });
     platformTenantId.mockResolvedValue(platform);
