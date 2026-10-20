@@ -53,9 +53,9 @@ payment row and the same seats.
 Creating an order is idempotent per `(school, idempotency_key)`: the same body returns the first
 order; a different `seats`/`months` body on a used key is `409 IDEMPOTENCY_KEY_REUSED`.
 
-A paid order's period starts on the latest of today, the `BILLING_FREE_UNTIL` day and the school's
-last PAID `period_end`, so paying early extends the seats instead of counting them twice (see
-[22-onboarding.md](22-onboarding.md#free-period-and-seats)).
+A paid purchase's period starts on the later of today and the school's last PAID `period_end`, so
+paying early extends the seats instead of counting them twice. A platform `GRANT` starts today and
+adds seats (see [22-onboarding.md](22-onboarding.md#free-period-and-seats)).
 
 ## Orders that stay PENDING
 
