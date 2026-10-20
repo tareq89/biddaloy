@@ -10,6 +10,35 @@ export interface Queryable {
   query(sql: string, params?: unknown[]): Promise<any>;
 }
 
+export interface SeatCover {
+  /** First day with no cover (YYYY-MM-DD): the last PAID `period_end`, or the
+   * `BILLING_FREE_UNTIL` day when that is later (e.g. a school that never paid). */
+  periodEnd: string;
+  /** Seats of the PAID orders ending on `periodEnd`; 0 when the free period is the cover. */
+  seats: number;
+  /** The cover that ends is the free period, not a paid order. */
+  free: boolean;
+  /** The paid order(s) ending on `periodEnd` are 31 days or shorter: too short for a 30-day warning. */
+  short: boolean;
+}
+
+/** What covers a school's seats last, for the 30 / 7 / 0 day warnings (notices and attention). */
+export async function seatCover(db: Queryable, schoolId: string): Promise<SeatCover> {
+  const [last]: { period_end: string; seats: number; days: number }[] = await db.query(
+    `SELECT period_end::text AS period_end, SUM(seats)::int AS seats,
+            MAX(period_end - period_start)::int AS days
+       FROM seat_orders WHERE school_id = $1 AND status = $2
+      GROUP BY period_end ORDER BY period_end DESC LIMIT 1`,
+    [schoolId, SeatOrderStatus.PAID],
+  );
+  const freeEnd = localDate(billingFreeUntil(), SCHOOL_TZ);
+  // ISO dates compare correctly as strings.
+  if (!last || last.period_end < freeEnd) {
+    return { periodEnd: freeEnd, seats: 0, free: true, short: false };
+  }
+  return { periodEnd: last.period_end, seats: last.seats, free: false, short: last.days <= 31 };
+}
+
 /**
  * Seat grace (Epic 49 D9). A school is "over" when it is ACTIVE, has a seat limit and more ACTIVE
  * students than that limit (same count as `seat-limit.service`). Its read-only window ends 7 days

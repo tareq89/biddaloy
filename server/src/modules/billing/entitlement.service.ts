@@ -4,6 +4,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import {
   AuditAction,
   EnrollmentStatus,
+  IDLE_REASON,
   SchoolStatus,
   SEATS_EXPIRED_REASON,
   SeatOrderStatus,
@@ -63,7 +64,8 @@ export class EntitlementService {
   /**
    * Writes `schools.seat_limit` on the caller's transaction (audited only when it changed), and
    * reactivates a SUSPENDED / SEATS_EXPIRED school once it is no longer over its seats (D9) —
-   * also when the limit value itself did not change.
+   * also when the limit value itself did not change — and lifts an IDLE suspension once the
+   * school has a PAID order (a school that pays is not idle).
    * The caller calls `afterCommit` once its transaction has committed.
    */
   async recompute(
@@ -96,12 +98,13 @@ export class EntitlementService {
       );
       changed = true;
     }
-    // Paying lifts a seats suspension at once (D9).
-    if (
+    // Paying lifts a seats suspension (D9) or an idle one (like a platform grant) at once.
+    const lift =
       school.status === SchoolStatus.SUSPENDED &&
-      school.status_reason === SEATS_EXPIRED_REASON &&
-      (await this.isWithinLimit(manager, schoolId, limit))
-    ) {
+      ((school.status_reason === SEATS_EXPIRED_REASON &&
+        (await this.isWithinLimit(manager, schoolId, limit))) ||
+        (school.status_reason === IDLE_REASON && (await this.hasPaidOrder(manager, schoolId))));
+    if (lift) {
       await manager.query(
         'UPDATE schools SET status = $3, status_reason = NULL, status_changed_at = $2 WHERE id = $1',
         [schoolId, at, SchoolStatus.ACTIVE],
@@ -113,8 +116,11 @@ export class EntitlementService {
           entity_id: schoolId,
           tenant_id: schoolId,
           performed_by_user_id: null,
-          old_values: { status: SchoolStatus.SUSPENDED, reason: SEATS_EXPIRED_REASON },
-          new_values: { status: SchoolStatus.ACTIVE, event: 'SEATS_REACTIVATED' },
+          old_values: { status: SchoolStatus.SUSPENDED, reason: school.status_reason },
+          new_values: {
+            status: SchoolStatus.ACTIVE,
+            event: school.status_reason === IDLE_REASON ? 'IDLE_REACTIVATED' : 'SEATS_REACTIVATED',
+          },
         },
         manager,
       );
@@ -205,6 +211,14 @@ export class EntitlementService {
     emitRecheck(attentionEvents, { tenantId: schoolId, ruleKey: 'seats.expiring' });
     emitRecheck(attentionEvents, { tenantId: schoolId, ruleKey: 'seats.exhausted' });
     return true;
+  }
+
+  private async hasPaidOrder(manager: EntityManager, schoolId: string): Promise<boolean> {
+    const rows: unknown[] = await manager.query(
+      'SELECT 1 FROM seat_orders WHERE school_id = $1 AND status = $2 LIMIT 1',
+      [schoolId, SeatOrderStatus.PAID],
+    );
+    return rows.length > 0;
   }
 
   /** Own transaction + post-commit side effects; used by the daily job. Returns whether it changed. */

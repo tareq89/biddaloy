@@ -32,9 +32,9 @@ export class SeatsExhaustedRule implements AttentionRuleShape {
   async evaluate(ctx: RuleContext): Promise<RuleFinding[]> {
     const snap = await seatSnapshot(this.dataSource, ctx.tenantId, ctx.localDate);
     // used > 0: a school with no students and no seats has nothing to buy yet (the idle rule's job).
-    if (!snap || snap.used === 0 || snap.used < snap.entitled) return [];
+    if (!snap || snap.free || snap.used === 0 || snap.used < snap.entitled) return [];
     // Once the paid period is over, seats.expiring (CRITICAL, 0 days left) owns the story.
-    if (snap.daysLeft !== null && snap.daysLeft <= 0) return [];
+    if (snap.daysLeft <= 0) return [];
 
     const recipients = await adminRecipients(this.dataSource, ctx.tenantId);
     if (!recipients.length) return [];

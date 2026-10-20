@@ -10,6 +10,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtPayload, JwtMembership, UserRole, SchoolStatus } from '@biddaloy/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY } from '../decorators/allow-when-suspended-for-billing.decorator';
+import { ALLOW_WHEN_READ_ONLY_KEY } from '../decorators/allow-when-read-only.decorator';
 import {
   BILLING_SUSPENSION_REASONS,
   TenantStatusService,
@@ -219,10 +220,12 @@ export class ContextGuard implements CanActivate {
     // stay open; the billing routes must carry that mark (billing lane) for a school to pay.
     // One message for every write (Rule 23); `until` is the school's own date, not an echo of input.
     if (!isOwnPlatformTenant && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
-      const allowedForBilling =
+      // @AllowWhenReadOnly: a user's own writes (alerts seen, step-up, push, preferences).
+      const allowed =
         this.reflector.get<boolean>(ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY, context.getHandler()) ===
-        true;
-      if (!allowedForBilling) {
+          true ||
+        this.reflector.get<boolean>(ALLOW_WHEN_READ_ONLY_KEY, context.getHandler()) === true;
+      if (!allowed) {
         const until = await this.tenantStatus.getReadOnlyUntil(tenantId);
         if (until) {
           throw new ForbiddenException({

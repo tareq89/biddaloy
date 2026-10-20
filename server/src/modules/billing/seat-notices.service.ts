@@ -4,7 +4,8 @@ import { DataSource } from 'typeorm';
 import { SCHOOL_TZ, localDate } from '../../common/time';
 import { SchoolsService } from '../schools/schools.service';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
-import type { AdminNoticeKey } from '../schools/trial/admin-notice-templates';
+import type { AdminNoticeKey, NoticeVars } from '../schools/trial/admin-notice-templates';
+import { seatCover } from './seat-grace';
 
 const DAY_MS = 86_400_000;
 
@@ -19,7 +20,8 @@ export function seatNoticeFor(daysLeft: number): SeatNoticeKey | null {
 }
 
 /**
- * Daily SMS + email to a school's admins at 30 / 7 / 0 days before its paid seats end (Epic 49 D9).
+ * Daily SMS + email to a school's admins at 30 / 7 / 0 days before its seats end (Epic 49 D9):
+ * the last paid period, or the free period for a school that never paid.
  * Each key goes out once per `period_end`: the stamp lives in `schools.onboarding.seat_warnings`
  * next to the `period_end` it was sent for, so a renewal (a later `period_end`) starts afresh.
  */
@@ -53,48 +55,56 @@ export class SeatNoticesService {
   }
 
   private async checkSchool(id: string, today: string, now: Date): Promise<boolean> {
-    let due: { key: SeatNoticeKey; date: string; seats: number } | null = null;
+    let due: { key: SeatNoticeKey; vars: Omit<NoticeVars, 'school'> } | null = null;
 
     await this.dataSource.transaction(async (m) => {
-      const [school]: { seat_limit: number | null; onboarding: Record<string, any> | null }[] =
-        await m.query(
-          `SELECT seat_limit, onboarding FROM schools
-            WHERE id = $1 AND status = 'ACTIVE' AND deleted_at IS NULL
-              FOR NO KEY UPDATE`,
-          [id],
-        );
-      // NULL limit = free period: nothing to warn about.
-      if (!school || school.seat_limit === null) return;
-      const [last]: { period_end: string; seats: number }[] = await m.query(
-        `SELECT period_end::text AS period_end, SUM(seats)::int AS seats FROM seat_orders
-          WHERE school_id = $1 AND status = 'PAID'
-          GROUP BY period_end ORDER BY period_end DESC LIMIT 1`,
+      const [school]: { used: number; onboarding: Record<string, any> | null }[] = await m.query(
+        `SELECT onboarding,
+                (SELECT count(*)::int FROM students st
+                  WHERE st.tenant_id = s.id AND st.deleted_at IS NULL
+                    AND st.enrollment_status = 'ACTIVE') AS used
+           FROM schools s
+          WHERE id = $1 AND status = 'ACTIVE' AND deleted_at IS NULL
+            FOR NO KEY UPDATE`,
         [id],
       );
-      if (!last) return;
+      if (!school) return;
+      // A school that never paid is covered by the free period, so it is warned too.
+      const cover = await seatCover(m, id);
 
-      const daysLeft = Math.round((Date.parse(last.period_end) - Date.parse(today)) / DAY_MS);
+      const daysLeft = Math.round((Date.parse(cover.periodEnd) - Date.parse(today)) / DAY_MS);
       const key = seatNoticeFor(daysLeft);
       if (!key) return;
+      // A one-month order would get the 30-day warning on the day it was paid.
+      if (key === 'seats_d30' && cover.short) return;
 
       const stamp = school.onboarding?.seat_warnings;
       const already: Record<string, string> =
-        stamp?.period_end === last.period_end ? stamp.sent : {};
+        stamp?.period_end === cover.periodEnd ? stamp.sent : {};
       if (already?.[key]) return;
-      const next = { period_end: last.period_end, sent: { ...already, [key]: now.toISOString() } };
+      const next = { period_end: cover.periodEnd, sent: { ...already, [key]: now.toISOString() } };
       await m.query(
         `UPDATE schools
             SET onboarding = jsonb_set(COALESCE(onboarding, '{}'::jsonb), '{seat_warnings}', $2::jsonb)
           WHERE id = $1`,
         [id, JSON.stringify(next)],
       );
-      due = { key, date: last.period_end, seats: last.seats };
+      // No order covers the day after `periodEnd`, so any ACTIVE student puts the school over.
+      due = {
+        key,
+        vars: {
+          date: cover.periodEnd,
+          seats: cover.seats,
+          free: cover.free,
+          over: school.used > 0,
+        },
+      };
     });
 
     if (!due) return false;
-    const { key, date, seats } = due as { key: SeatNoticeKey; date: string; seats: number };
+    const { key, vars } = due as { key: SeatNoticeKey; vars: Omit<NoticeVars, 'school'> };
     // Stamped first: a crash after commit loses one notice rather than sending it twice.
-    await this.notices.notifyAdmins(id, key, { date, seats });
+    await this.notices.notifyAdmins(id, key, vars);
     return true;
   }
 }
