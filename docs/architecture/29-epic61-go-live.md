@@ -31,7 +31,7 @@ Do them in this order. Each one points at the runbook section with the exact com
 | 2   | Cloudflare: zone, `app` and `demo` records (proxied), SSL/TLS = Full (strict), Origin CA certificate that covers `app.`, `demo.`, `ops.` and `staging.<domain>`.                    | runbook §2                                                                |
 | 3   | Cloudflare Access apps for `ops.` and `staging.` **before** those names go live, plus the Service Auth policy for the demo-reset token.                                             | runbook §2, [25-cloudflare.md](25-cloudflare.md#access-policies)          |
 | 4   | R2 bucket and an API token limited to that bucket.                                                                                                                                  | runbook §2                                                                |
-| 5   | Telegram bot and group, SMS gateway key, Sentry projects.                                                                                                                           | runbook §2                                                                |
+| 5   | Telegram bot and group, SMS gateway key, Sentry projects and their cron monitor URLs (`SENTRY_CRON_MONITOR_URL` in `prod.enc.env`).                                                 | runbook §2                                                                |
 | 6   | GitHub repo variables `VITE_TURNSTILE_SITE_KEY` and `VITE_SUPPORT_URL` (Settings > Secrets and variables > Actions > Variables).                                                    | runbook §2                                                                |
 | 7   | After the first "Publish image" run, make the three GHCR packages public: `biddaloy-app`, `biddaloy-backup`, `biddaloy-demo-reset`.                                                 | runbook §2                                                                |
 | 8   | Create the encrypted files `prod.enc.env`, `demo.enc.env`, `staging.enc.env`, `ops.enc.env` and the two `origin-ca*.enc.pem` files with your own age keys. They are **not in git**. | [runbook §4](28-platform-runbook.md#4-secrets), `infra/secrets/README.md` |
@@ -77,13 +77,13 @@ If any of these fails, **re-open the issue** and say which line failed.
 
 ## Step 4. What stays open on purpose
 
-| Issue        | Why it is still open                                                                                           |
-| ------------ | -------------------------------------------------------------------------------------------------------------- |
-| #1756        | Needs your encrypted files and age keys (Step 1, item 8).                                                      |
-| #1769        | Needs `ops.enc.env`, the Cloudflare Access app, the alert drills and the Sentry rules.                         |
-| #1771        | The alerts live in Beszel's and Kuma's own databases, so the repo cannot hold them. Fill the verification log. |
-| #2712        | Skipped on purpose.                                                                                            |
-| #1766 (epic) | Closes when the four above are done.                                                                           |
+| Issue        | Why it is still open                                                                                                                          |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| #1756        | Needs your encrypted files and age keys (Step 1, item 8).                                                                                     |
+| #1769        | Needs `ops.enc.env`, the Cloudflare Access app, the alert drills and the Sentry rules.                                                        |
+| #1771        | The alerts live in Beszel's and Kuma's own databases, so the repo cannot hold them. Fill the verification log.                                |
+| #2712        | This is the rehearsal itself (Step 2): a second blank VM, zero to running, by the runbook only. It needs a real VM, which an agent cannot do. |
+| #1766 (epic) | Closes when #1756, #1769, #1771 and #2712 are all done.                                                                                       |
 
 ## Step 5. Known holes (follow-up issues)
 
