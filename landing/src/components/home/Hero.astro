@@ -32,7 +32,7 @@ const { lang } = Astro.props as { lang: Lang };
   .hero h1{font-size:clamp(2.1rem,5.2vw,3.9rem);max-width:22ch;margin:0 auto 1rem;letter-spacing:-.02em}
   .keep{white-space:nowrap}
   .rot{display:inline-grid;text-align:left;vertical-align:bottom;position:relative}
-  .rot span{grid-area:1/1;opacity:0;transform:translateY(.4em);transition:opacity .45s,transform .45s;white-space:nowrap;color:var(--hue)}
+  .rot span{grid-area:1/1;opacity:0;transform:translateY(.4em);transition:opacity .45s,transform .45s;white-space:nowrap;color:var(--hue-ink)}
   @media (prefers-reduced-motion:reduce){.rot span{transition:none}}
   .rot span.on{opacity:1;transform:none}
   .hero .sub{font-size:clamp(1.02rem,1.5vw,1.2rem);color:var(--muted);max-width:60ch;margin:0 auto 1.6rem}
@@ -40,7 +40,7 @@ const { lang } = Astro.props as { lang: Lang };
   .ctas{display:flex;gap:.7rem;flex-wrap:wrap;justify-content:center;align-items:center}
   .ctas .tiny{font-size:.85rem;color:var(--muted);width:100%;text-align:center}
   .video-btn{display:inline-flex;align-items:center;gap:.5rem;color:var(--fg);text-decoration:none;font-weight:600;font-size:.95rem;margin-top:.9rem}
-  .video-btn i{width:32px;height:32px;border-radius:50%;background:var(--coral-t);color:var(--coral);display:grid;place-items:center;font-style:normal;font-size:.8rem}
+  .video-btn i{width:32px;height:32px;border-radius:50%;background:var(--coral-t);color:var(--coral-ink);display:grid;place-items:center;font-style:normal;font-size:.8rem}
   .trust{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-top:1.4rem}
   .trust span{display:inline-flex;align-items:center;gap:.4rem;border:1px solid var(--line);border-radius:999px;padding:.35rem .8rem;font-size:.88rem;background:var(--bg)}
   .trust i{font-style:normal}

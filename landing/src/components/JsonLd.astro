@@ -1,0 +1,29 @@
+---
+// Structured data for the home page (D21): who we are, what we sell at what price, and the FAQ.
+import { LANGS, type Lang, t, APP_URL } from '../i18n';
+import { faq } from '../content/faq';
+import { PRICE_PER_SEAT_PAISA } from '../content/pricing';
+const { lang } = Astro.props as { lang: Lang };
+const site = Astro.site!.origin;
+const strip = (s: string) => s.replace(/<[^>]+>/g, '').replace('{privacy}', '');
+const graph = [
+  { '@type': 'Organization', '@id': `${site}/#org`, name: t(lang, 'site.title'), url: site, logo: `${site}/apple-touch-icon.png` },
+  {
+    '@type': 'SoftwareApplication',
+    name: t(lang, 'site.title'),
+    description: t(lang, 'site.description'),
+    applicationCategory: 'EducationalApplication',
+    operatingSystem: 'Web',
+    url: APP_URL,
+    inLanguage: [...LANGS],
+    publisher: { '@id': `${site}/#org` },
+    offers: { '@type': 'Offer', price: String(PRICE_PER_SEAT_PAISA / 100), priceCurrency: 'BDT', description: 'Per student per month' },
+  },
+  {
+    '@type': 'FAQPage',
+    mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q[lang], acceptedAnswer: { '@type': 'Answer', text: strip(f.a[lang]) } })),
+  },
+];
+const json = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/</g, '\\u003c');
+---
+<script type="application/ld+json" set:html={json} />

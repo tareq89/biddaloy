@@ -82,7 +82,8 @@ export default defineConfig({
   // runs every one of them against a stack that cannot satisfy them.
   // [58.2.08] `e2e/demo/` needs a DEMO_MODE server on a seed:demo database; it has its own
   // opt-in project below and never runs in the default or sweeps projects.
-  testIgnore: ['**/pwa/**', '**/demo/**'],
+  // [50.13] `e2e/landing/` is static-site smoke, run by `playwright.landing.config.ts`.
+  testIgnore: ['**/pwa/**', '**/demo/**', '**/landing/**'],
   fullyParallel: true,
   forbidOnly: CI,
   // A suite needing more than one CI retry is hiding flake — see

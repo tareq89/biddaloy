@@ -9,10 +9,12 @@ import LogoStrip from '../../components/home/LogoStrip.astro';
 import Capabilities from '../../components/home/Capabilities.astro';
 import Faq from '../../components/home/Faq.astro';
 import FinalCta from '../../components/home/FinalCta.astro';
+import JsonLd from '../../components/JsonLd.astro';
 export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang } }));
 const lang = Astro.params.lang as Lang;
 ---
 <Base lang={lang}>
+  <JsonLd lang={lang} />
   <Hero lang={lang}><RoleCarousel lang={lang} /></Hero>
   <ValueTable lang={lang} />
   <SetupSteps lang={lang} />
