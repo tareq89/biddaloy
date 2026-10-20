@@ -13,3 +13,17 @@ yarn workspace @biddaloy/landing test    # i18n parity
 - Tokens: `src/styles/tokens.css`. Source of truth is `ui/src/styles/globals.css`; re-copy when it changes.
 - Fonts: Hind Siliguri, self-hosted in `public/fonts` (OFL.txt alongside).
 - Umami: set `PUBLIC_UMAMI_ID` (and optionally `PUBLIC_UMAMI_SRC`) at build time.
+
+## Regenerating screenshots
+
+Needs a running demo (`DEMO_MODE` on, seeded) and the shared demo password from `GET /api/v1/demo/roles`.
+
+```bash
+SHOOT_BASE_URL=http://localhost:3000 \
+SHOOT_PASSWORD=<password from /api/v1/demo/roles> \
+yarn workspace @biddaloy/landing shoot
+```
+
+The script signs in as each role through `/login?role=<key>`, then writes `src/assets/shots/<role>/<page>.<lang>.<theme>.png`
+and `shots.placeholders.json` (16-px blur). Edit `scripts/shots.manifest.ts` to add a shot; use it in a page as
+`<Shot name="admin/dashboard" lang={lang} label="..." />`. Until a PNG exists the dashed placeholder shows. Demo names are synthetic, so no masking.

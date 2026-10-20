@@ -66,6 +66,9 @@ const loginSearchSchema = z.object({
   social: z.enum(['not_linked']).optional().catch(undefined),
   // 13.5.3: `_staff` sends a session that still owes a first password here.
   step: z.enum(['password']).optional().catch(undefined),
+  // 50.8: the landing's `/login?role=<key>` signs in as that demo card. Only ever matched against
+  // the demo cards (never echoed); anything else, or a non-demo host, ignores it (D8).
+  role: z.string().max(40).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/login')({
@@ -151,6 +154,17 @@ function LoginPage() {
     onSuccess: handleSuccess,
     onError: () => setOwnOpen(true),
   });
+
+  // 50.8: fire once per page load; `role` leaves the URL so a reload does not sign in again.
+  const roleFired = React.useRef(false);
+  React.useEffect(() => {
+    if (!demo.enabled || !search.role || roleFired.current) return;
+    const card = demo.cards.find((c) => c.key === search.role);
+    if (!card) return;
+    roleFired.current = true;
+    void navigate({ to: '/login', search: (prev) => ({ ...prev, role: undefined }), replace: true });
+    mutation.mutate({ email: card.email, password: demo.password });
+  }, [demo.enabled, demo.cards, demo.password, search.role, navigate, mutation]);
 
   const otpRequestMutation = useMutation({
     mutationFn: (identifier: string) => requestOtp(identifier),
