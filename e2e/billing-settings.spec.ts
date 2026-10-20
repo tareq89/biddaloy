@@ -27,6 +27,6 @@ test('admin buys seats and sees the pending order', async ({ page }) => {
   // The footer button, not the dialog's corner X (it has the same accessible name).
   await dialog.locator('[data-slot="button"]').filter({ hasText: bn.buy.close }).click();
 
-  const orders = page.getByRole('table', { name: bn.orders.caption });
-  await expect(orders.getByText(bn.orders.statusValue.PENDING).first()).toBeVisible();
+  // The settings panel is narrow, so the orders list may render as cards (no table role).
+  await expect(page.getByText(bn.orders.statusValue.PENDING).first()).toBeVisible();
 });
