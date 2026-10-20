@@ -76,20 +76,6 @@ describe('Platform trials E2E (13.3.4)', () => {
     return id;
   };
 
-  const patchTrial = (who: 'admin' | 'super' | 'localSuper', id: string, body: object) => {
-    const [token, role, tenant] =
-      who === 'admin'
-        ? [adminToken, UserRole.ADMIN, id]
-        : who === 'super'
-          ? [superToken, UserRole.SUPER_ADMIN, platformId]
-          : [localSuperToken, UserRole.SUPER_ADMIN, id];
-    return supertest(app.getHttpServer())
-      .patch(`${API}/schools/${id}/trial`)
-      .set('Authorization', `Bearer ${token}`)
-      .set('X-Tenant-ID', tenant)
-      .set('X-Role', role)
-      .send(body);
-  };
   const list = (qs = '') =>
     supertest(app.getHttpServer())
       .get(`${API}/schools${qs}`)
@@ -166,54 +152,6 @@ describe('Platform trials E2E (13.3.4)', () => {
     await list('?trial=bogus').expect(400);
   });
 
-  it('grants seats: a PAID GRANT order, seat_limit set after the free period, audited with the reason', async () => {
-    const id = await newSchool({ trialEnds: null });
-    const res = await patchTrial('super', id, { days: 40, seat_limit: 25, reason: REASON }).expect(
-      200,
-    );
-    // Free period (default BILLING_FREE_UNTIL is in the future) keeps the school unlimited.
-    expect(res.body.seat_limit === null || res.body.seat_limit === 25).toBe(true);
-    const orders = await ds.query(
-      `SELECT o.seats, o.months, o.status, p.method, p.amount_paisa
-         FROM seat_orders o JOIN platform_payments p ON p.seat_order_id = o.id
-        WHERE o.school_id = $1`,
-      [id],
-    );
-    expect(orders).toEqual([
-      { seats: 25, months: 2, status: 'PAID', method: 'GRANT', amount_paisa: '0' },
-    ]);
-    const rows = await ds.query(
-      `SELECT new_values FROM audit_logs
-        WHERE entity_type = 'School' AND entity_id = $1 AND new_values->>'event' = 'SEATS_GRANTED'`,
-      [id],
-    );
-    expect(rows).toHaveLength(1);
-    expect(rows[0].new_values.reason).toBe(REASON);
-    await patchTrial('super', id, { days: 7, reason: REASON }).expect(400); // seat_limit missing
-  });
-
-  it('a grant reactivates a billing-suspended school and the admin is let in again', async () => {
-    const id = await newSchool({ trialEnds: null, expired: true });
-    const students = () =>
-      supertest(app.getHttpServer())
-        .get(`${API}/students`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .set('X-Tenant-ID', id)
-        .set('X-Role', UserRole.ADMIN);
-    await students().expect(403);
-
-    await patchTrial('super', id, { days: 7, seat_limit: 10, reason: REASON }).expect(200);
-    await students().expect(200);
-  });
-
-  it('a grant to an unknown school is a 404 and an absurd seat count a 400', async () => {
-    const id = await newSchool({ trialEnds: null });
-    await patchTrial('super', randomUUID(), { days: 7, seat_limit: 10, reason: REASON }).expect(
-      404,
-    );
-    await patchTrial('super', id, { days: 7, seat_limit: 100001, reason: REASON }).expect(400);
-  });
-
   it('manual reactivate is no longer blocked by a trial that ended', async () => {
     const id = await newSchool({ trialEnds: new Date(Date.now() - DAY), expired: true });
     await supertest(app.getHttpServer())
@@ -253,12 +191,6 @@ describe('Platform trials E2E (13.3.4)', () => {
     expect(school.status_reason).toBe('Fraud / legal hold');
   });
 
-  it('refuses ADMIN and tenant-local SUPER_ADMIN with 403', async () => {
-    const id = await newSchool({ trialEnds: new Date(Date.now() + DAY) });
-    await patchTrial('admin', id, { days: 7, reason: REASON }).expect(403);
-    await patchTrial('localSuper', id, { days: 7, reason: REASON }).expect(403);
-  });
-
   it('the other platform school routes refuse a tenant-local SUPER_ADMIN with 403', async () => {
     const id = await newSchool({ trialEnds: new Date(Date.now() + DAY) });
     const asLocalSuper = (req: supertest.Test) =>
@@ -276,15 +208,6 @@ describe('Platform trials E2E (13.3.4)', () => {
     expect((await ds.query(`SELECT status FROM schools WHERE id = $1`, [id]))[0].status).toBe(
       'ACTIVE',
     );
-  });
-
-  it('validates the body', async () => {
-    const id = await newSchool({ trialEnds: new Date(Date.now() + DAY) });
-    await patchTrial('super', id, { days: 0, reason: REASON }).expect(400);
-    await patchTrial('super', id, { days: 366, reason: REASON }).expect(400);
-    await patchTrial('super', id, { days: 5, reason: 'short' }).expect(400);
-    await patchTrial('super', id, { days: 5, reason: REASON, seat_limit: -1 }).expect(400);
-    await patchTrial('super', id, { days: 5, reason: REASON, extra: 1 }).expect(400);
   });
 
   describe('POST /schools/:id/revive [49.15]', () => {

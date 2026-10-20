@@ -126,11 +126,10 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
       page.getByRole('heading', { name: makeT(locale)('dashboard.customise.panelTitle') }),
     ).toBeVisible();
   },
-  // `$schoolId` resolves to the seeded trial school (`responsive/routes.ts`),
-  // the only seeded school whose page has a trial card.
-  '/schools/$schoolId::extend-trial': async (page, locale) => {
+  // `$schoolId` resolves to a seeded school (`responsive/routes.ts`); its Seats card holds "Grant seats".
+  '/schools/$schoolId::grant-seats': async (page, locale) => {
     await page
-      .getByRole('button', { name: makeT(locale)('platform.trial.card.extendAction') })
+      .getByRole('button', { name: makeT(locale)('platform.subscriptions.panel.grantSeats') })
       .click();
     await expectDialogOpen(page);
   },

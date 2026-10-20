@@ -47,6 +47,7 @@ import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform
 import { Route as PlatformSchoolsIndexRouteImport } from './routes/_platform/schools/index'
 import { Route as PlatformSchoolsSchoolIdRouteImport } from './routes/_platform/schools/$schoolId'
 import { Route as PlatformSchoolsNewRouteImport } from './routes/_platform/schools/new'
+import { Route as PlatformSubscriptionsIndexRouteImport } from './routes/_platform/subscriptions/index'
 import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/academic-years/index'
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
 import { Route as StaffAnalysisIndexRouteImport } from './routes/_staff/analysis/index'
@@ -339,6 +340,12 @@ const PlatformSchoolsNewRoute = PlatformSchoolsNewRouteImport.update({
   path: '/schools/new',
   getParentRoute: () => PlatformRouteRoute,
 } as any)
+const PlatformSubscriptionsIndexRoute =
+  PlatformSubscriptionsIndexRouteImport.update({
+    id: '/subscriptions/',
+    path: '/subscriptions/',
+    getParentRoute: () => PlatformRouteRoute,
+  } as any)
 const StaffAcademicYearsIndexRoute = StaffAcademicYearsIndexRouteImport.update({
   id: '/academic-years/',
   path: '/academic-years/',
@@ -966,6 +973,7 @@ export interface FileRoutesByFullPath {
   '/portal/applications/new': typeof PortalApplicationsNewRoute
   '/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
   '/schools/': typeof PlatformSchoolsIndexRoute
+  '/subscriptions/': typeof PlatformSubscriptionsIndexRoute
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/analysis/': typeof StaffAnalysisIndexRoute
   '/applications/': typeof StaffApplicationsIndexRoute
@@ -1103,6 +1111,7 @@ export interface FileRoutesByTo {
   '/portal/applications/new': typeof PortalApplicationsNewRoute
   '/holiday-sets': typeof PlatformHolidaySetsIndexRoute
   '/schools': typeof PlatformSchoolsIndexRoute
+  '/subscriptions': typeof PlatformSubscriptionsIndexRoute
   '/academic-years': typeof StaffAcademicYearsIndexRoute
   '/analysis': typeof StaffAnalysisIndexRoute
   '/applications': typeof StaffApplicationsIndexRoute
@@ -1245,6 +1254,7 @@ export interface FileRoutesById {
   '/portal/applications/new': typeof PortalApplicationsNewRoute
   '/_platform/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
   '/_platform/schools/': typeof PlatformSchoolsIndexRoute
+  '/_platform/subscriptions/': typeof PlatformSubscriptionsIndexRoute
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/_staff/analysis/': typeof StaffAnalysisIndexRoute
   '/_staff/applications/': typeof StaffApplicationsIndexRoute
@@ -1386,6 +1396,7 @@ export interface FileRouteTypes {
     | '/portal/applications/new'
     | '/holiday-sets/'
     | '/schools/'
+    | '/subscriptions/'
     | '/academic-years/'
     | '/analysis/'
     | '/applications/'
@@ -1523,6 +1534,7 @@ export interface FileRouteTypes {
     | '/portal/applications/new'
     | '/holiday-sets'
     | '/schools'
+    | '/subscriptions'
     | '/academic-years'
     | '/analysis'
     | '/applications'
@@ -1664,6 +1676,7 @@ export interface FileRouteTypes {
     | '/portal/applications/new'
     | '/_platform/holiday-sets/'
     | '/_platform/schools/'
+    | '/_platform/subscriptions/'
     | '/_staff/academic-years/'
     | '/_staff/analysis/'
     | '/_staff/applications/'
@@ -2006,6 +2019,13 @@ declare module '@tanstack/react-router' {
       path: '/schools/new'
       fullPath: '/schools/new'
       preLoaderRoute: typeof PlatformSchoolsNewRouteImport
+      parentRoute: typeof PlatformRouteRoute
+    }
+    '/_platform/subscriptions/': {
+      id: '/_platform/subscriptions/'
+      path: '/subscriptions'
+      fullPath: '/subscriptions/'
+      preLoaderRoute: typeof PlatformSubscriptionsIndexRouteImport
       parentRoute: typeof PlatformRouteRoute
     }
     '/_staff/academic-years/': {
@@ -2724,6 +2744,7 @@ interface PlatformRouteRouteChildren {
   PlatformSchoolsNewRoute: typeof PlatformSchoolsNewRoute
   PlatformHolidaySetsIndexRoute: typeof PlatformHolidaySetsIndexRoute
   PlatformSchoolsIndexRoute: typeof PlatformSchoolsIndexRoute
+  PlatformSubscriptionsIndexRoute: typeof PlatformSubscriptionsIndexRoute
 }
 
 const PlatformRouteRouteChildren: PlatformRouteRouteChildren = {
@@ -2732,6 +2753,7 @@ const PlatformRouteRouteChildren: PlatformRouteRouteChildren = {
   PlatformSchoolsNewRoute: PlatformSchoolsNewRoute,
   PlatformHolidaySetsIndexRoute: PlatformHolidaySetsIndexRoute,
   PlatformSchoolsIndexRoute: PlatformSchoolsIndexRoute,
+  PlatformSubscriptionsIndexRoute: PlatformSubscriptionsIndexRoute,
 }
 
 const PlatformRouteRouteWithChildren = PlatformRouteRoute._addFileChildren(

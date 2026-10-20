@@ -17,6 +17,10 @@ const settingsSearchSchema = z.object({
   section: z.enum(SETTINGS_CATEGORY_IDS).optional().catch(undefined),
   /** 49.10: `?section=billing&buy=1` opens the Buy seats dialog (palette action). */
   buy: z.literal(1).optional().catch(undefined),
+  /** 49 W4: bKash sends the admin back with `?section=billing&order=<id>`; the section shows its status. */
+  order: z.string().uuid().optional().catch(undefined),
+  /** How the bKash return went; `error` = the server could not confirm it (generic). */
+  payment: z.enum(['success', 'cancel', 'failure', 'error']).optional().catch(undefined),
 });
 
 /**

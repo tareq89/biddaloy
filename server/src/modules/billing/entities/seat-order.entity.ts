@@ -24,6 +24,10 @@ import { User } from '../../users/entities/user.entity';
  */
 @Entity('seat_orders')
 @Index('IDX_seat_orders_school_status_period', ['school_id', 'status', 'period_end'])
+@Index('UQ_seat_orders_receipt_number', ['receipt_number'], {
+  unique: true,
+  where: '"receipt_number" IS NOT NULL',
+})
 @Unique('UQ_seat_orders_school_idempotency', ['school_id', 'idempotency_key'])
 @Check('CHK_seat_orders_seats', '"seats" >= 1')
 @Check('CHK_seat_orders_months', '"months" BETWEEN 1 AND 24')
@@ -72,6 +76,14 @@ export class SeatOrder {
 
   @Column({ type: 'uuid', nullable: true })
   created_by_user_id: string | null;
+
+  /** `SMR-YYYY-NNNNNN`, set at payment; NULL while unpaid and for GRANTs. */
+  @Column({ type: 'text', nullable: true })
+  receipt_number: string | null;
+
+  /** What the receipt shows, frozen at payment: `{ name, address, vat }`. */
+  @Column({ type: 'jsonb', nullable: true })
+  receipt_snapshot: { name: string; address: string | null; vat: string | null } | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   paid_at: Date | null;

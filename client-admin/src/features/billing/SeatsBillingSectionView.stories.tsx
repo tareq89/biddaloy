@@ -10,6 +10,7 @@ const meta: Meta<typeof SeatsBillingSectionView> = {
     now: new Date('2026-10-20T00:00:00Z'),
     onBuy: () => undefined,
     onRetry: () => undefined,
+    onReceipt: () => undefined,
   },
 };
 export default meta;
@@ -25,4 +26,26 @@ export const Expiring: Story = {
 };
 export const Expired: Story = {
   args: { summary: summaryExpiring, now: new Date('2027-05-01T00:00:00Z') },
+};
+
+const pendingId = summaryFree.orders[0]!.id;
+export const ReturnPaid: Story = {
+  args: {
+    summary: summaryExpiring,
+    returnOrderId: summaryExpiring.orders[0]!.id,
+    payment: 'success',
+  },
+};
+export const ReturnConfirming: Story = {
+  args: { summary: summaryFree, returnOrderId: pendingId, payment: 'success' },
+};
+export const ReturnStillWaiting: Story = {
+  args: { summary: summaryFree, returnOrderId: pendingId, payment: 'success', pollTimedOut: true },
+};
+export const ReturnCancelled: Story = {
+  args: { summary: summaryFree, returnOrderId: pendingId, payment: 'cancel' },
+};
+export const ReturnError: Story = { args: { summary: summaryFree, payment: 'error' } };
+export const ReceiptOpenFailed: Story = {
+  args: { summary: summaryExpiring, now: new Date('2027-03-01T00:00:00Z'), receiptError: true },
 };

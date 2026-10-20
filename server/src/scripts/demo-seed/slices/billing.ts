@@ -33,7 +33,13 @@ export const slice: DemoSlice = {
       [ctx.anchor],
     );
 
-    for (const t of tenants) {
+    // Receipt numbers follow the real series (`SMR-<year of payment>-NNNNNN`).
+    const year = start.slice(0, 4);
+    for (const [i, t] of tenants.entries()) {
+      const [school]: { name: string; address: string | null }[] = await ctx.ds.query(
+        'SELECT name, address FROM schools WHERE id = $1',
+        [t.id],
+      );
       const order = await ctx.ds.getRepository(SeatOrder).save({
         school_id: t.id,
         seats,
@@ -43,6 +49,8 @@ export const slice: DemoSlice = {
         period_start: start,
         period_end: end,
         status: SeatOrderStatus.PAID,
+        receipt_number: `SMR-${year}-${String(i + 1).padStart(6, '0')}`,
+        receipt_snapshot: { name: school.name, address: school.address, vat: null },
         idempotency_key: `demo-${t.slug}-1`,
         created_by_user_id: adminUserId,
         paid_at: new Date(`${start}T00:00:00+06:00`),

@@ -30,8 +30,17 @@
     "seatsError": "Enter a whole number from 1 to {{max}}.",
     "monthsError": "Enter a whole number from 1 to {{max}}.",
     "createdTitle": "Order created",
-    "createdBody": "Order for {{seats}} seats, {{months}} months, {{total}}. Online payment is coming soon. With at least as many seats as you have now, it is a renewal: it starts when your current paid seats end and adds months. With fewer, it starts when you pay and adds seats.",
+    "createdBody": "Order for {{seats}} seats, {{months}} months, {{total}}. With at least as many seats as you have now, it is a renewal: it starts when your current paid seats end and adds months. With fewer, it starts when you pay and adds seats.",
+    "payBkash": "Pay with bKash",
+    "payFailed": "We could not start the payment. Try again in a few minutes.",
     "createFailed": "We could not create the order. Try again."
+  },
+  "return": {
+    "paid": "Payment received. Your seats are active.",
+    "pending": "We are confirming your payment with bKash. This page updates by itself.",
+    "failed": "This order was not paid. Buy seats again to start a new payment.",
+    "slow": "We are still waiting for bKash. Check the Orders list again in a few minutes.",
+    "error": "We could not confirm the payment. If money was taken, the order shows as paid here shortly."
   },
   "orders": {
     "title": "Orders",
@@ -43,6 +52,9 @@
     "months": "Months",
     "amount": "Amount",
     "status": "Status",
+    "receipt": "Receipt",
+    "downloadReceipt": "Download receipt {{number}}",
+    "receiptFailed": "The receipt could not be opened. Try again.",
     "statusValue": {
       "PENDING": "Waiting for payment",
       "PAID": "Paid",

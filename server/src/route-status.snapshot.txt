@@ -130,8 +130,11 @@ POST   /api/v1/backup/restore                                                   
 GET    /api/v1/backup/template                                                   401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/backup/validate                                                   401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/backup/validate/:stagingId/errors.csv                             401 PASS PASS PASS 403 403 403 403 403 403 403 403
+GET    /api/v1/billing/bkash/callback                                            PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 GET    /api/v1/billing/orders                                                    401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/billing/orders                                                    401 PASS PASS PASS 403 403 403 403 403 403 403 403
+POST   /api/v1/billing/orders/:id/pay/bkash                                      401 PASS PASS PASS 403 403 403 403 403 403 403 403
+GET    /api/v1/billing/orders/:id/receipt                                        401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/billing/summary                                                   401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/calendar-import/commit                                            401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/calendar-import/template                                          401 PASS PASS PASS 403 403 403 403 403 403 403 403
@@ -394,6 +397,10 @@ GET    /api/v1/performance/students/:studentId                                  
 GET    /api/v1/platform/alerts                                                   401 PASS 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/attention/health                                         401 PASS 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/backups/health                                           401 PASS PASS 403 403 403 403 403 403 403 403 403
+POST   /api/v1/platform/billing/orders/:id/offline-payment                       401 PASS 403 403 403 403 403 403 403 403 403 403
+GET    /api/v1/platform/billing/schools                                          401 PASS 403 403 403 403 403 403 403 403 403 403
+GET    /api/v1/platform/billing/schools/:id                                      401 PASS 403 403 403 403 403 403 403 403 403 403
+POST   /api/v1/platform/billing/schools/:id/grant                                401 PASS 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/holiday-sets                                             401 PASS PASS 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/holiday-sets/:id                                         401 PASS PASS 403 403 403 403 403 403 403 403 403
 PUT    /api/v1/platform/holiday-sets/:id/entries                                 401 PASS PASS 403 403 403 403 403 403 403 403 403
@@ -514,7 +521,6 @@ GET    /api/v1/schools/:id/sms-credits                                          
 POST   /api/v1/schools/:id/sms-credits                                           401 PASS PASS 403 403 403 403 403 403 403 403 403
 GET    /api/v1/schools/:id/stats                                                 401 PASS 403 403 403 403 403 403 403 403 403 403
 PATCH  /api/v1/schools/:id/status                                                401 PASS 403 403 403 403 403 403 403 403 403 403
-PATCH  /api/v1/schools/:id/trial                                                 401 PASS 403 403 403 403 403 403 403 403 403 403
 DELETE /api/v1/schools/me/logo                                                   401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/schools/me/logo                                                   401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/schools/me/profile                                                401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS

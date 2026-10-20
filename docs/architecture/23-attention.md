@@ -523,11 +523,12 @@ flowchart LR
   R -->|used >= entitled| X[red bar: all seats used]
 ```
 
-| Key                       | Fires when                                                                    | Severity               | Recipients           | Action                      |
-| ------------------------- | ----------------------------------------------------------------------------- | ---------------------- | -------------------- | --------------------------- |
-| `seats.expiring`          | last paid day is within 30 days (or past), or 90 % or more of seats used      | WARNING, CRITICAL at 7 | ACTIVE admins        | `/settings?section=billing` |
-| `seats.exhausted`         | at least one student and `used >= seat_limit`                                 | CRITICAL               | ACTIVE admins        | `/settings?section=billing` |
-| `platform.seats.expiring` | any school's last paid day is within 14 days (or past), or its seats are full | REMINDER               | platform SUPER_ADMIN | `/subscriptions`            |
+| Key                         | Fires when                                                                                                                                     | Severity               | Recipients           | Action                      |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------- | --------------------------- |
+| `seats.expiring`            | last paid day is within 30 days (or past), or 90 % or more of seats used                                                                       | WARNING, CRITICAL at 7 | ACTIVE admins        | `/settings?section=billing` |
+| `seats.exhausted`           | at least one student and `used >= seat_limit`                                                                                                  | CRITICAL               | ACTIVE admins        | `/settings?section=billing` |
+| `platform.seats.expiring`   | any school's last paid day is within 14 days (or past), or its seats are full                                                                  | REMINDER               | platform SUPER_ADMIN | `/subscriptions`            |
+| `platform.bkash.refund_due` | an orphan bKash payment (money taken, no order paid) is not yet stamped refunded ([28-billing.md](28-billing.md#money-bkash-took-for-nothing)) | CRITICAL, hourly       | platform SUPER_ADMIN | `/subscriptions`            |
 
 - Silent while `schools.seat_limit` is NULL (before `BILLING_FREE_UNTIL`).
 - `seats.expiring` stays quiet for a full school; `seats.exhausted` owns that case.

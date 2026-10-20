@@ -28,13 +28,12 @@ import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { AddAdminDialog } from './-detail/add-admin-form';
 import { AdminsCard } from './-detail/admins-card';
-import { ExtendTrialDialog } from './-detail/extend-trial-dialog';
 import { ResetPresetCard } from './-detail/preset-reset-card';
 import { RestoreWorkbookDialog } from './-detail/restore-workbook-dialog';
+import { SeatsCard } from './-detail/seats-card';
 import { SmsCreditsCard } from './-detail/sms-credits-card';
 import { StatsCard } from './-detail/stats-card';
 import { StatusActionDialog } from './-detail/status-action-dialog';
-import { TrialCard } from './-detail/trial-card';
 
 export const Route = createFileRoute('/_platform/schools/$schoolId')({
   loader: () => loadRouteNamespaces('platform', 'backup', 'bulkImport', 'presetReset'),
@@ -55,7 +54,6 @@ function SchoolDetailPage() {
   const [statusDialogOpen, setStatusDialogOpen] = React.useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = React.useState(false);
   const [addAdminOpen, setAddAdminOpen] = React.useState(false);
-  const [extendTrialOpen, setExtendTrialOpen] = React.useState(false);
 
   if (schoolsQuery.isLoading) {
     return (
@@ -137,11 +135,7 @@ function SchoolDetailPage() {
           {...(statsQuery.isError ? { error: t('schoolDetail.stats.loadError') } : {})}
           onRetry={() => void statsQuery.refetch()}
         />
-        <TrialCard
-          school={school}
-          {...(statsQuery.data !== undefined ? { studentsUsed: statsQuery.data.students } : {})}
-          onExtend={() => setExtendTrialOpen(true)}
-        />
+        <SeatsCard schoolId={schoolId} schoolName={school.name} />
         <AdminsCard
           schoolId={schoolId}
           {...(adminsQuery.data !== undefined ? { admins: adminsQuery.data } : {})}
@@ -157,13 +151,6 @@ function SchoolDetailPage() {
       </DetailShell>
 
       <AddAdminDialog schoolId={schoolId} open={addAdminOpen} onOpenChange={setAddAdminOpen} />
-
-      <ExtendTrialDialog
-        open={extendTrialOpen}
-        onOpenChange={setExtendTrialOpen}
-        schoolId={schoolId}
-        schoolName={school.name}
-      />
 
       <StatusActionDialog
         open={statusDialogOpen}

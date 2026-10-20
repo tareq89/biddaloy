@@ -396,6 +396,12 @@
           "name": "School seats expiring",
           "help": "Lists schools whose paid seats are about to run out."
         }
+      },
+      "bkash": {
+        "refund_due": {
+          "name": "bKash payments to refund",
+          "help": "Urgent until refunded: bKash took money that paid no order."
+        }
       }
     },
     "manual": {

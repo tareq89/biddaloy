@@ -53,8 +53,6 @@ export interface SchoolSummary {
   status_reason: string | null;
 }
 
-export type ExtendTrialInput = components['schemas']['ExtendTrialDto'];
-
 /** Mirrors `server/src/modules/schools/settings/settings-mask.util.ts`'s
  * `MaskedSecret` — not generated into `schema.d.ts` (the settings GET/PATCH
  * responses aren't typed server-side, see `PaginatedStudents`'s own comment
@@ -246,20 +244,6 @@ export function useSchools(options: { enabled?: boolean; trial?: 'active' | 'exp
       ).data,
     enabled: options.enabled ?? true,
     retry: shouldRetryQuery,
-  });
-}
-
-/** [13.3.4] `PATCH /schools/:id/trial` — platform super admin only. */
-export function useExtendTrial(schoolId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: ExtendTrialInput) =>
-      (await apiClient.patch<components['schemas']['School']>(`/schools/${schoolId}/trial`, input))
-        .data,
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: schoolsKeys.lists() });
-      void queryClient.invalidateQueries({ queryKey: schoolsKeys.detail(schoolId) });
-    },
   });
 }
 

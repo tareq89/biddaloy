@@ -117,7 +117,7 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
   const canManagePrinting = useHasPermission(Permission.PRINT_TEMPLATE_MANAGE);
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
 
-  const { section, buy } = useSearch({ from: '/_staff/settings' });
+  const { section, buy, order, payment } = useSearch({ from: '/_staff/settings' });
   const hash = useLocation().hash;
   const categories = SETTINGS_CATEGORIES.filter(
     (c) =>
@@ -215,7 +215,9 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
         );
       case 'billing':
         // Billing is the active school's (X-Tenant-ID), so no SUPER_ADMIN picked-school view.
-        return isSuperAdmin ? null : <SeatsBillingSection openBuy={buy === 1} />;
+        return isSuperAdmin ? null : (
+          <SeatsBillingSection openBuy={buy === 1} returnOrderId={order} payment={payment} />
+        );
       case 'communication':
         return (
           loaded && (

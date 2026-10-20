@@ -42,6 +42,7 @@ at hand instead of loading the whole set.
 | [25-domain-invariants.md](25-domain-invariants.md) | Planning or reviewing any change to money, enrolment, results, attendance, tenancy or permissions — the rules that must always hold, and the code that enforces each one |
 | [26-dashboard.md](26-dashboard.md) | Working on `/dashboard`: role dashboards, widgets and the widget catalogue, adding a widget, the layout and digest preferences, the morning summary push, or committee aggregates |
 | [26-dashboard-load-test.md](26-dashboard-load-test.md) | Running or changing the manual 10,000-student dashboard load test (`load:seed`, `run-dashboard-load.ts`), or reading its p95-per-widget table |
+| [28-billing.md](28-billing.md) | Working on seat orders, the bKash pay step and its callback, the reconciler, the numbered receipt, or `platform_payments` |
 | [23-attention.md](23-attention.md) | Working on the attention bar/modal, alert rules, the to-do/history page, manual alerts, the alerts report, push mute/quiet hours, or the guardian SMS fallback |
 | [27-qa-audit-lessons.md](27-qa-audit-lessons.md) | You are fixing a bug found by QA, or closing a wave of Epic #2642 |
 

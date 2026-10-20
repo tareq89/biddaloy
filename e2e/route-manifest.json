@@ -75,7 +75,7 @@
       },
       "role": "super_admin",
       "archetype": "detail",
-      "overlays": ["extend-trial"]
+      "overlays": ["grant-seats"]
     },
     {
       "path": "/schools/new",
@@ -84,6 +84,11 @@
     },
     {
       "path": "/holiday-sets",
+      "role": "super_admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/subscriptions",
       "role": "super_admin",
       "archetype": "list"
     },
