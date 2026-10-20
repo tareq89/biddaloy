@@ -4,6 +4,7 @@ import { Repository, DataSource, IsNull } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { InvoicesService } from './invoices.service';
 import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { Invoice } from './entities/invoice.entity';
 import { StudentFee } from '../fees/entities/student-fee.entity';
 import { FeeStructure } from '../fees/entities/fee-structure.entity';
@@ -208,11 +209,14 @@ describe('InvoicesService (integration)', () => {
     return dataSource.manager.transaction((manager) => service.create(paymentId, manager));
   }
 
-  function auditRows(invoiceId?: string): Promise<Array<Record<string, any>>> {
-    return dataSource.query(
-      `SELECT * FROM audit_logs WHERE action = $1 ${invoiceId ? 'AND entity_id = $2' : ''}`,
-      invoiceId ? [AuditAction.INVOICE_GENERATED, invoiceId] : [AuditAction.INVOICE_GENERATED],
-    );
+  function auditRows(invoiceId?: string): Promise<AuditLog[]> {
+    return dataSource.getRepository(AuditLog).find({
+      where: {
+        action: AuditAction.INVOICE_GENERATED,
+        ...(invoiceId ? { entity_id: invoiceId } : {}),
+      },
+      order: { created_at: 'ASC' },
+    });
   }
 
   beforeAll(async () => {
@@ -628,6 +632,20 @@ describe('InvoicesService (integration)', () => {
         invoice_id: invoice.id,
         payment_id: payment.id,
       });
+    });
+
+    it('a payment with no receiving user still gets its invoice and a null-actor row', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const payment = await makePayment(student.id, [[fee, 1000]], {
+        received_by_user_id: null,
+      });
+      const invoice = await createInvoice(payment.id);
+
+      const rows = await auditRows(invoice.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].performed_by_user_id).toBeNull();
+      expect(rows[0].new_values).toMatchObject({ invoice_id: invoice.id, payment_id: payment.id });
     });
 
     it('createFromPayment twice, and twice concurrently, leaves one row', async () => {

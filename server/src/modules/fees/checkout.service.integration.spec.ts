@@ -1380,7 +1380,7 @@ describe('CheckoutService (integration)', () => {
       expect(retryMeta.replayed).toBe(true);
       expect(retried.payment.id).toBe(orphaned.id);
       expect(retried.invoice_id).toBeTruthy();
-      // [#2690] The failed first attempt rolled back; the repair writes the one row.
+      // [#2690] The mocked first attempt wrote nothing; the repair writes the one row.
       const generatedRows = await auditLogRepo.find({
         where: { action: AuditAction.INVOICE_GENERATED },
       });
@@ -1621,6 +1621,10 @@ describe('CheckoutService (integration)', () => {
 
       expect(second.payment.id).not.toBe(first.payment.id);
       expect(second.payment.tenant_id).toBe(OTHER_TENANT_ID);
+      const firstRow = await auditLogRepo.findOneByOrFail({ entity_id: first.invoice_id! });
+      const secondRow = await auditLogRepo.findOneByOrFail({ entity_id: second.invoice_id! });
+      expect(firstRow.tenant_id).toBe(TENANT_ID);
+      expect(secondRow.tenant_id).toBe(OTHER_TENANT_ID);
     });
   });
 });
