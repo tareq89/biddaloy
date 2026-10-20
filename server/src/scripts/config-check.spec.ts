@@ -1,14 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, writeFileSync } from 'fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { parse } from 'dotenv';
 import {
   loadEnvFile,
   runConfigCheck,
   runProductionConfigCheck,
   runStagingConfigCheck,
+  stagingAppEnv,
   TURNSTILE_TEST_SECRET,
 } from './config-check';
+
+const repoRoot = join(__dirname, '..', '..', '..');
 
 const valid = {
   NODE_ENV: 'production',
@@ -78,14 +82,52 @@ describe('runConfigCheck', () => {
 });
 
 describe('runStagingConfigCheck', () => {
-  const staging = {
-    ...valid,
-    DEMO_MODE: 'true',
-    DEMO_PASSWORD: 'Demo-Public-2026',
+  // The staging .env exactly as an operator writes it: infra/secrets/staging.example.env with
+  // its keys filled in, nothing else. Not `...valid`: that already holds DATABASE_URL and
+  // DEMO_MODE, which compose (not the .env) provides, and hid that gap once.
+  const fill: Record<string, string> = {
+    APP_VERSION: '0'.repeat(40),
+    APP_DOMAIN: 'staging.school.org',
+    APP_BASE_URL: 'https://staging.school.org',
+    CORS_ORIGINS: 'https://staging.school.org',
+    PUBLIC_APP_URL: 'https://staging.school.org',
+    POSTGRES_USER: 'app',
     POSTGRES_DB: 'biddaloy_staging',
-    S3_BUCKET: 'biddaloy-staging',
-    TURNSTILE_SECRET_KEY: TURNSTILE_TEST_SECRET,
+    POSTGRES_PASSWORD: 'Zq8vR2mXw4Lp',
+    JWT_SECRET: valid.JWT_SECRET,
+    SETTINGS_ENCRYPTION_KEY: valid.SETTINGS_ENCRYPTION_KEY,
+    DB_SSL: 'true',
+    HEALTH_TOKEN: 'h7Kp2Vx9Qm4Lr8Tz',
+    S3_ACCESS_KEY_ID: 'k9Zr2Qv7',
+    S3_SECRET_ACCESS_KEY: 'Lm4Xw8Tb3Nc6Hy1Pd5Sf',
+    DEMO_PASSWORD: 'Demo-Public-2026',
+    TLS_CERT_DIR: '/opt/biddaloy/certs',
   };
+  const example = parse(readFileSync(join(repoRoot, 'infra/secrets/staging.example.env')));
+  const staging: Record<string, string> = Object.fromEntries(
+    Object.entries(example).map(([k, v]) => [k, v === '' ? (fill[k] ?? '') : v]),
+  );
+
+  it('stagingAppEnv is what docker-compose.staging.yml sets for app', () => {
+    const overlay = readFileSync(join(repoRoot, 'docker-compose.staging.yml'), 'utf8');
+    const app = overlay.slice(overlay.indexOf('\n  app:'), overlay.indexOf('\n  seaweedfs:'));
+    const lines: Record<string, RegExp> = {
+      DEMO_MODE: /^ {6}DEMO_MODE: 'true'$/m,
+      DATABASE_URL:
+        /^ {6}DATABASE_URL: postgres:\/\/\$\{POSTGRES_USER[^}]*\}:\$\{POSTGRES_PASSWORD[^}]*\}@db:5432\/biddaloy_staging$/m,
+      S3_BUCKET: /^ {6}S3_BUCKET: biddaloy-staging$/m,
+      PLATFORM_SMS_API_KEY: /^ {6}PLATFORM_SMS_API_KEY: ''$/m,
+      PLATFORM_ALERT_PHONES: /^ {6}PLATFORM_ALERT_PHONES: ''$/m,
+    };
+    const env = stagingAppEnv({ POSTGRES_USER: 'u', POSTGRES_PASSWORD: 'p' });
+    expect(Object.keys(env).sort()).toEqual(Object.keys(lines).sort());
+    for (const [key, line] of Object.entries(lines)) expect(app, key).toMatch(line);
+    expect(env).toMatchObject({
+      DEMO_MODE: 'true',
+      DATABASE_URL: 'postgres://u:p@db:5432/biddaloy_staging',
+      S3_BUCKET: 'biddaloy-staging',
+    });
+  });
 
   it('passes a staging env with no provider', () => {
     expect(runStagingConfigCheck(staging)).toEqual({ ok: true, output: 'config ok' });
@@ -111,19 +153,29 @@ describe('runStagingConfigCheck', () => {
     expect(runStagingConfigCheck({ ...staging, SMTP_HOST: '' }).ok).toBe(true);
   });
 
-  it('fails on a prod database, prod bucket, real Turnstile secret or DEMO_MODE off', () => {
+  it('fails on a prod database or a real Turnstile secret', () => {
     const result = runStagingConfigCheck({
       ...staging,
-      DEMO_MODE: undefined,
       POSTGRES_DB: 'biddaloy',
-      S3_BUCKET: 'biddaloy',
       TURNSTILE_SECRET_KEY: '0x4AAAAAAAreal',
     });
     expect(result.ok).toBe(false);
-    for (const name of ['DEMO_MODE', 'POSTGRES_DB', 'S3_BUCKET', 'TURNSTILE_SECRET_KEY']) {
+    for (const name of ['POSTGRES_DB', 'TURNSTILE_SECRET_KEY']) {
       expect(result.output).toContain(name);
     }
     expect(result.output).not.toContain('0x4AAAAAAAreal');
+  });
+
+  it('judges the container env: the overlay forces DEMO_MODE and the staging bucket', () => {
+    expect(
+      runStagingConfigCheck({ ...staging, DEMO_MODE: 'false', S3_BUCKET: 'biddaloy' }).ok,
+    ).toBe(true);
+  });
+
+  it('fails without DEMO_PASSWORD (the demo guards need it)', () => {
+    const result = runStagingConfigCheck({ ...staging, DEMO_PASSWORD: '' });
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain('DEMO_PASSWORD');
   });
 
   it('--file reads only the file, never the calling shell env', () => {

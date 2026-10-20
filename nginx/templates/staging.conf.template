@@ -1,9 +1,11 @@
 # staging.<domain> (Epic 59 #1768). Rendered by PROD's nginx, which owns 443; STAGING_DOMAIN
-# comes from the prod host .env. The staging app joins prod's network only while it runs
-# (deploy.yml: `docker network connect`), so this must not need it at nginx start:
-# the upstream is looked up per request through Docker's DNS, not once at boot.
-# Only Cloudflare reaches here (`$origin_allowed`, rule 12); Cloudflare Access then
-# lets only the owner through (25-cloudflare.md).
+# comes from the prod host .env. Prod nginx and the staging app meet only on the
+# `biddaloy-edge` network (infra/ansible/tasks/attach-edge.yml), where the app has the
+# alias `staging-app`. It is attached only while staging runs, so this must not need it
+# at nginx start: the upstream is looked up per request through Docker's DNS.
+# Only Cloudflare reaches here (`$origin_allowed`, rule 12). Cloudflare Access then lets
+# only the owner through (25-cloudflare.md); a request with no Access token header never
+# came through Access, so it is dropped too (presence only, the signature is not checked).
 
 server {
     listen 443 ssl;
@@ -18,6 +20,9 @@ server {
 
     resolver 127.0.0.11 valid=10s;
 
+    if ($origin_allowed = 0) { return 444; }
+    if ($http_cf_access_jwt_assertion = "") { return 444; }
+
     # The app already sends noindex in DEMO_MODE; hide it so the header appears once.
     proxy_hide_header X-Robots-Tag;
     add_header X-Robots-Tag "noindex, nofollow" always;
@@ -28,8 +33,7 @@ server {
     }
 
     location / {
-        if ($origin_allowed = 0) { return 444; }
-        set $staging_app biddaloy-staging-app:3000;
+        set $staging_app staging-app:3000;
         proxy_pass http://$staging_app;
         proxy_http_version 1.1;
 

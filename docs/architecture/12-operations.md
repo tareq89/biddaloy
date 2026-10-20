@@ -7,8 +7,8 @@
 
 Four tools, each watching something different. The ops tools run as a second
 Compose stack (`docker-compose.ops.yml`, started by `infra/ansible/ops.yml`)
-and are reached at `https://ops.<domain>/{beszel,kuma,dozzle}/` behind
-Cloudflare Access.
+and are reached behind Cloudflare Access: Dozzle at `https://ops.<domain>/dozzle/`,
+Kuma and Beszel over an SSH tunnel for now (see "Known limits" below).
 
 ```mermaid
 flowchart LR
@@ -23,12 +23,12 @@ flowchart LR
     sentry -->|email + mobile app| oncall
 ```
 
-| Tool        | Watches                                              | Alerts to                                  |
-| ----------- | ---------------------------------------------------- | ------------------------------------------ |
-| Sentry      | App errors, failed jobs, cron check-ins              | Email + Sentry mobile app                  |
-| Uptime Kuma | Is it up, is it fast enough, did the cron jobs run   | Telegram; SMS for the three critical ones  |
-| Beszel      | The VM and each container: CPU, RAM, disk, restarts  | Telegram                                   |
-| Dozzle      | Nothing on its own. Live log tail, view-only (D23)   | Nothing (no alerts configured)             |
+| Tool        | Watches                                             | Alerts to                                 |
+| ----------- | --------------------------------------------------- | ----------------------------------------- |
+| Sentry      | App errors, failed jobs, cron check-ins             | Email + Sentry mobile app                 |
+| Uptime Kuma | Is it up, is it fast enough, did the cron jobs run  | Telegram; SMS for the three critical ones |
+| Beszel      | The VM and each container: CPU, RAM, disk, restarts | Telegram                                  |
+| Dozzle      | Nothing on its own. Live log tail, view-only (D23)  | Nothing (no alerts configured)            |
 
 - **`GET /api/health`** — liveness. Cheap, no dependency checks. Never fails
   because Postgres or Redis is down.
@@ -46,15 +46,15 @@ flowchart LR
 This table is the source of truth. Kuma keeps its config in its own database, so
 if you add or change a monitor in the UI, change this table in the same PR.
 
-| Name                 | Type           | Target                                                                                          | Interval              | Notifies       |
-| -------------------- | -------------- | ----------------------------------------------------------------------------------------------- | --------------------- | -------------- |
-| `app-internal-ready` | HTTP + keyword | `http://biddaloy-prod-app-1:3000/api/health/ready`, header `X-Health-Token`, accepted status 200-299 (no keyword: `degraded` is 200 and must not page) | 60 s | Telegram |
-| `app-public`         | HTTP           | `https://<app domain>/api/health`, retries 3                                                    | 60 s                  | Telegram + SMS |
-| `login-page`         | HTTP + keyword | `https://<app domain>/login`                                                                    | 60 s                  | Telegram       |
-| `demo-public`        | HTTP           | `https://<demo domain>/api/health`                                                              | 60 s                  | Telegram       |
-| `backup-hourly`      | Push           | URL goes in `BACKUP_PUSH_URL` (prod `.env`)                                                     | 3600 s, grace 900 s   | Telegram + SMS |
-| `drill-weekly`       | Push           | URL goes in `DRILL_PUSH_URL` (prod `.env`)                                                      | 604800 s, grace 7200 s | Telegram + SMS |
-| `demo-reset-nightly` | Push           | URL goes in `DEMO_RESET_PUSH_URL` (demo `.env`)                                                 | 86400 s, grace 3600 s | Telegram       |
+| Name                 | Type           | Target                                                                                                                                                                     | Interval               | Notifies       |
+| -------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------- |
+| `app-internal-ready` | HTTP           | `http://prod-app:3000/api/health/ready` (alias on `biddaloy-ops-edge`), header `X-Health-Token`, accepted status 200-299 (no keyword: `degraded` is 200 and must not page) | 60 s                   | Telegram       |
+| `app-public`         | HTTP           | `https://<app domain>/api/health`, retries 3                                                                                                                               | 60 s                   | Telegram + SMS |
+| `login-page`         | HTTP + keyword | `https://<app domain>/login`                                                                                                                                               | 60 s                   | Telegram       |
+| `demo-public`        | HTTP           | `https://<demo domain>/api/health`                                                                                                                                         | 60 s                   | Telegram       |
+| `backup-hourly`      | Push           | URL goes in `BACKUP_PUSH_URL` (prod `.env`)                                                                                                                                | 3600 s, grace 900 s    | Telegram + SMS |
+| `drill-weekly`       | Push           | URL goes in `DRILL_PUSH_URL` (prod `.env`)                                                                                                                                 | 604800 s, grace 7200 s | Telegram + SMS |
+| `demo-reset-nightly` | Push           | URL goes in `DEMO_RESET_PUSH_URL` (demo `.env`)                                                                                                                            | 86400 s, grace 3600 s  | Telegram       |
 
 TLS expiry is built into every HTTPS monitor above (warn at 14 days, Telegram).
 `app-public` retrying 3 times at 60 s means the SMS arrives about 3 minutes
@@ -63,59 +63,92 @@ after the app goes down.
 ### Setting the tools up (by hand, once)
 
 The ops tools keep their settings in their own databases, so none of this is
-in the repo. The only secrets in the repo are `OPS_DOMAIN` and `BESZEL_KEY`
-(keys listed in `infra/secrets/ops.example.env`).
+in the repo. Their one repo value is `BESZEL_KEY` (not a secret; key list in
+`infra/secrets/ops.example.env`). `OPS_DOMAIN` is not an ops value: prod nginx
+reads it from the **prod** `.env` (`infra/secrets/prod.example.env`).
 
-```bash
-sops infra/secrets/ops.enc.env                  # set OPS_DOMAIN; BESZEL_KEY comes in step 2
-ansible-playbook -i infra/ansible/inventory infra/ansible/ops.yml
+The order is the safety. Kuma and Beszel make the first visitor of their setup
+page the admin, and Dozzle has no login, so nothing may answer on `ops.<domain>`
+before Cloudflare Access does:
+
+```mermaid
+flowchart LR
+  S0["0. Access + DNS + cert<br/>access_confirmed: true"] --> S1["1. ops.yml<br/>(BESZEL_KEY empty is fine)"]
+  S1 --> S2["2. admins over SSH tunnel"] --> S3["3. BESZEL_KEY, ops.yml again"]
+  S3 --> S4["4. OPS_DOMAIN in prod .env,<br/>deploy prod"]
 ```
 
-0. **Origin cert.** The Cloudflare Origin CA certificate must cover `ops.<domain>`
-   (wildcard or an extra name), or "Full (strict)" fails. The prod nginx also needs
-   `OPS_DOMAIN` in its environment (`docker-compose.yml`), or the ops template does not render.
-1. **Cloudflare Access.** Add `ops.<domain>` as an Access application with the
-   same policy as staging. Without it the three UIs have only their own login.
-2. **Beszel.** Open `/beszel/`, create the admin, click "Add system", host
-   `beszel-agent`, port `45876`. Copy the public key it shows into `BESZEL_KEY`
-   (`sops`), then rerun the playbook with `--tags env`. Alerts: add a Shoutrrr
-   Telegram URL in the hub settings; thresholds are in [§2](#2-alert-thresholds).
-3. **Uptime Kuma.** Open `/kuma/`, create the admin, add the monitors from the
-   table above. Create the push monitors first and paste each push URL into the
-   matching `.env` variable.
-4. **Notifications.** Telegram notifier (bot + private group), default-on for
+0. **Cloudflare Access first.** Follow [25-cloudflare.md, Ops](25-cloudflare.md#ops-opsdomain):
+   Access application, then the proxied DNS record, then the `302` check. The
+   Origin CA certificate must cover `ops.<domain>` (wildcard or an extra name),
+   or "Full (strict)" fails. Then set `access_confirmed: true` in
+   `infra/ansible/inventory/prod.yml`. Until it is `true`, a prod deploy refuses
+   a `prod.enc.env` that sets `OPS_DOMAIN` (or `STAGING_DOMAIN`).
+1. **Start the stack.** Nothing is exposed yet: the UIs bind loopback only, and
+   prod nginx answers `ops.invalid` until `OPS_DOMAIN` is set.
+   ```bash
+   sops infra/secrets/ops.enc.env           # BESZEL_KEY= stays empty for now
+   ansible-playbook -i infra/ansible/inventory infra/ansible/ops.yml
+   ```
+   The `beszel-agent` container restarts until step 3; the hub, Kuma and Dozzle run.
+2. **Admins, over an SSH tunnel** (no public exposure at all):
+   ```bash
+   ssh -L 8090:127.0.0.1:8090 -L 3001:127.0.0.1:3001 deploy@<host>
+   # Beszel: http://localhost:8090   Kuma: http://localhost:3001
+   ```
+   Create both admins now.
+3. **Beszel agent.** In Beszel, "Add system": host `beszel-agent`, port `45876`.
+   Copy the public key it shows into `BESZEL_KEY` (`sops infra/secrets/ops.enc.env`),
+   then run `ops.yml` again (the whole playbook: `--tags env` would only write
+   the file). Alerts: add a Shoutrrr Telegram URL in the hub settings;
+   thresholds are in [§2](#2-alert-thresholds).
+4. **Expose Dozzle.** Put `OPS_DOMAIN=ops.<domain>` in `prod.enc.env` and deploy
+   prod. Check `https://ops.<domain>/dozzle/` asks for the Access login first.
+5. **Uptime Kuma monitors.** Add the monitors from the table above. Create the
+   push monitors first and paste each push URL into the matching `.env`
+   variable (`BACKUP_PUSH_URL`, `DRILL_PUSH_URL` in prod; `DEMO_RESET_PUSH_URL`
+   in demo, pushed by `scripts/demo/reset.sh`: up on a good reset, down on a
+   failed one).
+6. **Notifications.** Telegram notifier (bot + private group), default-on for
    every monitor. SMS notifier: Kuma "Webhook" with a custom body, pointed at the
    SMS gateway's HTTP API (URL shape:
    `server/src/modules/communications/providers/sms/*.gateway.ts`), attached only
    to `app-public`, `backup-hourly` and `drill-weekly`.
-5. **Dozzle** needs nothing: view-only, no alerts.
-6. **Sentry rules** are listed in [§2](#2-alert-thresholds).
+7. **Dozzle** needs nothing else: view-only, no alerts.
+8. **Sentry rules** are listed in [§2](#2-alert-thresholds).
 
 Known limits:
 
-- Beszel and Uptime Kuma are not built to live under a sub-path. If a UI loads
-  blank or its websocket fails at `/beszel/` or `/kuma/`, give it its own
-  hostname instead (`beszel.<domain>`, `kuma.<domain>`).
+- **`/kuma/` and `/beszel/` will not work.** Uptime Kuma 1.x has no base-path
+  support (upstream issue louislam/uptime-kuma#147): its page asks for
+  `/assets/*` and `/socket.io/` from the root, which this origin answers with 404. Beszel is not built for a sub-path either. The two `location` blocks in
+  `nginx/templates/ops.conf.template` stay only until the owner decides the
+  layout. The documented path is one hostname each (`kuma.<domain>`,
+  `beszel.<domain>`, each with its own Access application and server block);
+  until that change lands, use the SSH tunnel from step 2.
 - Dozzle and the Beszel agent mount `docker.sock` read-only. That limits the
   mount, not the Docker API: treat access to them as root on the VM (hence
   Cloudflare Access).
+- The ops UIs share a network only with prod nginx and the prod app
+  (`biddaloy-ops-edge`, drawn in [07-deployment.md, Staging](07-deployment.md#staging)),
+  never prod's own network, so they cannot reach prod's Postgres or Redis.
 
 ## 2. Alert thresholds
 
 Where each alert is set up. Kuma monitors and intervals: the table in [§1](#uptime-kuma-monitors).
 
-| Signal                               | Threshold                                      | Where to configure                                  |
-| ------------------------------------ | ---------------------------------------------- | --------------------------------------------------- |
-| App down                             | `app-public` fails 3 times in a row (~3 min)   | Uptime Kuma monitor, Telegram + SMS                 |
-| Readiness failing (Postgres down)    | `app-internal-ready` fails for > 2 min         | Uptime Kuma monitor                                 |
-| Engine stale reported by readiness   | Covered by the attention cron check-in below   | Sentry Cron Monitor (readiness stays 200 when stale) |
-| Backup / drill / demo reset missed   | No push inside interval + grace                | Uptime Kuma push monitors                           |
-| TLS certificate close to expiry      | < 14 days                                      | Uptime Kuma, built into HTTPS monitors              |
-| CPU, RAM, disk, container restarts   | Beszel defaults; tune after a week of real data | Beszel hub, Telegram                               |
-| 5xx rate                             | > 1% of requests over 5 min                    | Sentry alert rule on the server project             |
-| `communications job stalled` message | any occurrence                                 | Sentry alert rule (issue alert, not metric)         |
-| Attention cron check-in missed       | > 15 min                                       | Sentry Cron Monitor (5-min schedule, 15-min margin) |
-| Other cron check-ins                 | `SENTRY_CRON_MONITOR_URL`, `SENTRY_CRONS_URL`  | Sentry Cron Monitors                                |
+| Signal                               | Threshold                                       | Where to configure                                   |
+| ------------------------------------ | ----------------------------------------------- | ---------------------------------------------------- |
+| App down                             | `app-public` fails 3 times in a row (~3 min)    | Uptime Kuma monitor, Telegram + SMS                  |
+| Readiness failing (Postgres down)    | `app-internal-ready` fails for > 2 min          | Uptime Kuma monitor                                  |
+| Engine stale reported by readiness   | Covered by the attention cron check-in below    | Sentry Cron Monitor (readiness stays 200 when stale) |
+| Backup / drill / demo reset missed   | No push inside interval + grace                 | Uptime Kuma push monitors                            |
+| TLS certificate close to expiry      | < 14 days                                       | Uptime Kuma, built into HTTPS monitors               |
+| CPU, RAM, disk, container restarts   | Beszel defaults; tune after a week of real data | Beszel hub, Telegram                                 |
+| 5xx rate                             | > 1% of requests over 5 min                     | Sentry alert rule on the server project              |
+| `communications job stalled` message | any occurrence                                  | Sentry alert rule (issue alert, not metric)          |
+| Attention cron check-in missed       | > 15 min                                        | Sentry Cron Monitor (5-min schedule, 15-min margin)  |
+| Other cron check-ins                 | `SENTRY_CRON_MONITOR_URL`, `SENTRY_CRONS_URL`   | Sentry Cron Monitors                                 |
 
 ## 3. Runbooks
 
@@ -589,18 +622,37 @@ with `infra/ansible/tasks/write-env.yml`. Task output never shows a value (`no_l
 | `/opt/biddaloy/<env>/drill/key.txt`  | `10001`       | 0400        | read only by the `backup` container's user, for the restore drill (D18) |
 | `/opt/biddaloy/certs/` and its files | `root:root`   | 0700 / 0600 | only nginx (started by the root Docker daemon) needs them               |
 
-`infra/ansible/provision.yml` creates the directories; `write-env.yml` only
-writes files. This differs from D19's "mode 0600 root" for `.env`: with that,
-`deploy` could not run any compose command without `sudo`.
+`infra/ansible/provision.yml` creates the directories (`ops.yml` sets the same
+owner and mode on `ops/`); `write-env.yml` only writes files, and keeps
+`root:deploy 0640` on every deploy. This differs from D19's "mode 0600 root" for
+`.env`: with that, `deploy` could not run any compose command without `sudo`.
+
+**`age-key.txt` is put on the host by hand, once per env that runs backups**
+(prod). Its master copy lives in the password manager and is never committed
+([13-backup-restore.md, Key handling](13-backup-restore.md#key-handling)), so
+no playbook writes it. From the laptop, without a temp file on the host:
+
+```bash
+ssh deploy@<host> "sudo sh -c 'umask 0377; cat > /opt/biddaloy/prod/age-key.txt && chown 10001:10001 /opt/biddaloy/prod/age-key.txt'" < ~/age-key.txt
+ssh deploy@<host> sudo stat -c '%u %a' /opt/biddaloy/prod/age-key.txt   # must print: 10001 400
+```
+
+A prod deploy checks it in pre-flight and stops if it is missing or has the
+wrong owner or mode.
+
+**A rotation is a full deploy of the version that is already running.** That
+writes the new `.env`, takes the backup, and restarts what changed, with the
+readiness check, the smoke test and a `deploys.log` line. `--tags env` alone
+only rewrites `.env` and restarts nothing (and refuses any other version).
 
 ```mermaid
 flowchart LR
   E["sops infra/secrets/prod.enc.env<br/>(change the value)"] --> C[commit]
-  C --> A["ansible-playbook ... --tags env<br/>(writes the .env)"]
-  A --> D[deploy / restart compose]
+  C --> V["running version: last ok line of<br/>/opt/biddaloy/prod/deploys.log;<br/>git checkout that sha"]
+  V --> D["ansible-playbook deploy.yml<br/>-e env=prod -e version=&lt;that sha&gt;"]
 ```
 
-Every rotation is those same four steps plus the extra step in the table.
+Every rotation is those same steps plus the extra step in the table.
 
 | Secret                                      | Extra step                                                                                                                                                                                                                                                                                                                                                                                                  | What breaks                                                                                                       | How often                  |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------- |

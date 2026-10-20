@@ -143,6 +143,7 @@ run_reset() {
     DEMO_MODE=true DEMO_PASSWORD=pw DATABASE_URL="$BASE_URL/$LIVE" REDIS_URL=redis://redis.invalid:6379 \
     DEMO_STATE_DIR="$WORK/state" S3_BUCKET=biddaloy-demo-test S3_ENDPOINT=http://s3.invalid S3_ALLOW_INSECURE_HTTP=true \
     S3_REGION=us-east-1 S3_ACCESS_KEY_ID=k S3_SECRET_ACCESS_KEY=s SENTRY_CRONS_URL=http://sentry.invalid/cron \
+    DEMO_RESET_PUSH_URL='http://kuma.invalid/api/push/TOKEN?status=up&msg=OK' \
     DEMO_PSQL="$WORK/bin/psql" DEMO_REDIS_CLI="$WORK/bin/redis-cli" DEMO_SKIP_SWEEP=true \
     DEMO_MIGRATE_CMD=true DEMO_SEED_CMD="$FAKE_SEED" DEMO_VALIDATE_CMD=true \
     DEMO_RESTART_CMD="touch $WORK/restarted" RUN_MARK=new "$@" \
@@ -165,6 +166,7 @@ grep -q "redis.invalid:6379/1 FLUSHDB" "$LOG/redis.log" || fail "the sweep's Red
 expect "$(cat "$WORK/state/platform-tenant-id")" "$(pg "SELECT id FROM schools WHERE slug = 'default-school'" "$LIVE")" "state file holds default-school's id"
 [[ -e "$WORK/restarted" ]] || fail "app was not restarted"
 grep -q "status=in_progress" "$LOG/curl.log" && grep -q "status=ok" "$LOG/curl.log" || fail "Sentry check-ins in_progress/ok missing"
+grep -qF "http://kuma.invalid/api/push/TOKEN?status=up&msg=ok" "$LOG/curl.log" || fail "Kuma push up missing"
 grep -q "downtime" "$WORK/out" || fail "swap downtime was not logged"
 pass "a good run swaps, keeps _prev and its objects, seeds on its own Redis db, flushes Redis, restarts, checks in"
 
@@ -184,6 +186,7 @@ expect "$(marker "$LIVE")" night2 "live database untouched after a validator fai
 expect "$(marker "${LIVE}_prev")" night1 "_prev untouched after a validator failure"
 db_exists "${LIVE}_next" && fail "_next should be dropped after a failure"
 grep -q "status=error" "$LOG/curl.log" || fail "error check-in missing"
+grep -qF "http://kuma.invalid/api/push/TOKEN?status=down&msg=error" "$LOG/curl.log" || fail "Kuma push down missing"
 grep -q "/tenants/" "$LOG/aws.log" || fail "the failed run's uploaded objects were not cleaned"
 pass "validator failure: live untouched, _next dropped, error check-in, objects cleaned"
 

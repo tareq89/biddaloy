@@ -54,11 +54,14 @@ flowchart LR
     pending -- "exit 1: error" --> stop["stop, read the error"]
 ```
 
-Example (from the `app` image, so it sees the same code you are deploying):
+Example (from the `app` image, so it sees the same code you are deploying). On the host,
+always name the project: in `/opt/biddaloy/prod` a bare `docker compose` would use the
+directory name (`prod`), not `biddaloy-prod`, and see an empty stack:
 
 ```bash
-docker compose run --rm app node server/dist/scripts/migrate.js pending
-docker compose run --rm app node server/dist/scripts/migrate.js run
+cd /opt/biddaloy/prod
+docker compose -p biddaloy-prod run --rm app node server/dist/scripts/migrate.js pending
+docker compose -p biddaloy-prod run --rm app node server/dist/scripts/migrate.js run
 ```
 
 The one-release backward-compatibility rule (old code must work on the new
@@ -71,50 +74,68 @@ One command, from your laptop (needs your age key for the secrets):
 ```bash
 cd infra/ansible
 export BIDDALOY_PROD_HOST=203.0.113.10
-ansible-playbook deploy.yml -e env=prod -e version=3f9c2ab        # deploy
-ansible-playbook deploy.yml -e env=prod -e version=3f9c2ab --check # plan only
+ansible-playbook deploy.yml -e env=prod -e version=3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b         # deploy
+ansible-playbook deploy.yml -e env=prod -e version=3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b --check # plan only
 ```
 
-`version` is the image tag (the git SHA CI pushed). `env` is `prod`, `demo` or `staging`.
+`version` is the image tag: the **full 40-character** git SHA CI pushed (`git rev-parse HEAD`).
+A short SHA fails pre-flight. `env` is `prod`, `demo` or `staging`.
 
 ```mermaid
 sequenceDiagram
     actor Op as Operator
     participant A as ansible
     participant H as Host (/opt/biddaloy/prod)
-    Op->>A: deploy.yml -e version=3f9c2ab
-    A->>H: pre-flight: tags exist? compose files here? (stop, nothing changed)
-    A->>H: copy compose + nginx, write .env, APP_VERSION=3f9c2ab
+    Op->>A: deploy.yml -e version=3f9c2ab…
+    A->>H: pre-flight: clean checkout? tags exist? age key? Access gate? (stop, nothing changed)
+    A->>H: copy compose + nginx, write .env with APP_VERSION=3f9c2ab…
+    A->>H: nginx -t on the new templates (fail: old files put back)
     A->>H: pull images
-    A->>H: backup (prod only)
+    A->>H: backup (prod, whenever the pgdata volume exists)
     A->>H: migrate.js pending, then run if exit 2
-    A->>H: compose up, wait healthy
+    A->>H: compose up, wait healthy; recreate nginx if its files changed
+    A->>H: attach the edge networks (staging, ops)
     A->>H: poll /api/health/ready (2 min)
     A->>Op: smoke-post-deploy.mjs on the public URL
-    A->>H: deploys.log: "2026-10-20T09:00:00Z prod 3f9c2ab ok"
-    Note over A,H: Any failure after pre-flight (rescue): set APP_VERSION back to the last "ok" line, compose up, log "rolled-back", fail the play
+    A->>H: deploys.log: "2026-10-20T09:00:00Z prod 3f9c2ab… ok"
+    Note over A,H: Any failure after pre-flight (rescue): set APP_VERSION back to the previous version, compose up, log "rolled-back", fail the play
 ```
 
 Before you run it:
 
-- **Check out `version` first** (`git checkout 3f9c2ab`). Compose files and nginx templates are copied from your checkout; the play fails early if `HEAD` does not start with `version`.
+- **Check out `version` first** (`git checkout 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b`). Compose files and nginx templates are copied from your checkout; the play fails early if `HEAD` is not `version`, or if `docker-compose*.yml` or `nginx/` has uncommitted changes.
+- **Prod needs the backup age key on the host** (`/opt/biddaloy/prod/age-key.txt`, owner 10001, mode 0400). Pre-flight stops without it; how to put it there: [12-operations.md §8](12-operations.md#8-secrets-and-rotation).
 - **Smoke logins:** export `SMOKE_ADMIN_EMAIL`, `SMOKE_ADMIN_PASSWORD`, `SMOKE_TEACHER_EMAIL`, `SMOKE_TEACHER_PASSWORD`, `SMOKE_SUPER_ADMIN_EMAIL`, `SMOKE_SUPER_ADMIN_PASSWORD`. Missing ones fail pre-flight.
 
 Things to know:
 
 - **Unknown tag:** pre-flight checks the app image and the env's other image (backup, or demo-reset for demo) and fails before any container changes.
-- **Rollback redeploys the old image only.** The new compose and nginx files stay on the host. Migrations are not reverted (D11), so every migration must keep the old code working (see above).
-- **Prod backs up before migrating.** If the backup fails, migrations never run. Demo and staging take no backup. The very first prod deploy (no `ok` line in `deploys.log`) skips it too: there is no data worth saving yet.
+- **Rollback redeploys the old image only.** The new compose and nginx files stay on the host (the nginx ones passed `nginx -t`). Migrations are not reverted (D11), so every migration must keep the old code working (see above).
+- **Rollback target:** the last `ok` line in `deploys.log`. With none (log deleted, stack started by hand, first deploy after a restore), the image tag of the `app` container running now. With neither, there is no rollback.
+- **Prod backs up before migrating.** If the backup fails, migrations never run. Demo and staging take no backup. The rule keys off the data, not the log: the backup runs whenever the volume `biddaloy-prod_pgdata` exists, and is skipped only on a host that has never had a prod database.
+- **nginx templates are checked and loaded.** nginx renders templates only when its container starts. When the deploy changes a file under `nginx/`, it runs `nginx -t` in a throwaway copy of the nginx service first (a failure puts the old files back and stops the deploy), then recreates nginx after `compose up` (a few seconds of 502).
 - **One nginx per host.** prod and demo bind the host's ports 80/443, so they cannot share a host. Staging binds no ports: prod's nginx serves it (see [Staging](#staging)).
 - **`--check`** runs only the pre-flight and the file/env diffs. Pull, backup, migrate, restart, readiness and smoke are skipped.
 - **Skip the backup** (rare, e.g. a second deploy minutes later): `-e skip_backup=true`.
+- **`--tags env`** only rewrites `.env` and restarts nothing, and only for the running version. To apply a rotated secret, run a full deploy of the running version ([12-operations.md §8](12-operations.md#8-secrets-and-rotation)).
 - **`HEALTH_TOKEN` must be in the env's secrets file.** Without it `/api/health/ready` answers 404 and the deploy never turns ready.
 - The demo deploy skips the smoke test until `demo_domain` is added to `inventory/prod.yml`.
 - `deploys.log` (in the project dir) lists every deploy: `<time> <env> <version> <ok|rolled-back|failed>`.
 
 #### When rollback also fails
 
-The play ends red and the app may be down. Check `docker compose ps` and `docker compose logs app` on the host. If the database is damaged, restore the last backup with the restore runbook ([13-backup-restore](13-backup-restore.md)), then redeploy a known-good `version`.
+The play ends red and the app may be down. On the host, name the project (a bare `docker compose` in that directory looks at a project called `prod` and shows nothing):
+
+```bash
+cd /opt/biddaloy/prod
+docker compose -p biddaloy-prod ps
+docker compose -p biddaloy-prod logs --tail 200 app
+# staging also needs its overlay:
+cd /opt/biddaloy/staging
+docker compose -p biddaloy-staging -f docker-compose.yml -f docker-compose.staging.yml ps
+```
+
+If the database is damaged, restore the last backup with the restore runbook ([13-backup-restore](13-backup-restore.md)), then redeploy a known-good `version`.
 
 ### Deploying behind an external load balancer instead
 
@@ -381,11 +402,40 @@ person (D25).
 flowchart LR
   O[owner] -->|Cloudflare Access login| CF[Cloudflare]
   CF --> N["prod nginx<br/>staging.conf.template<br/>noindex header"]
-  N -->|"biddaloy-staging-app:3000<br/>(looked up per request)"| SA[staging app]
+  N -->|"staging-app:3000<br/>(looked up per request)"| SA[staging app]
   SA --> SD[(biddaloy_staging)]
   SA --> SB[(bucket biddaloy-staging)]
   P[prod app] --> PD[(biddaloy)]
 ```
+
+**Networks.** Each box is a Docker network; a container listed in two boxes is attached to both. Prod nginx is
+the only thing that touches staging, and it does so on `biddaloy-edge`, where there is no `db`, `redis` or
+`seaweedfs` at all:
+
+```mermaid
+flowchart TB
+  subgraph PN["biddaloy-prod_default"]
+    pn[prod nginx] --- pa[prod app] --- pdb[(prod db, redis, seaweedfs)]
+  end
+  subgraph EDGE["biddaloy-edge"]
+    pn2[prod nginx] --- sa2["staging app<br/>alias staging-app"]
+  end
+  subgraph SN["biddaloy-staging_default"]
+    sa[staging app] --- sdb[(staging db, redis, seaweedfs)]
+  end
+  subgraph OPS["biddaloy-ops-edge"]
+    pn3[prod nginx] --- pa3["prod app<br/>alias prod-app"] --- ui["beszel, uptime-kuma, dozzle"]
+  end
+  pn -. same container .- pn2 -. same container .- pn3
+  sa -. same container .- sa2
+```
+
+Why a separate network: Docker's DNS answers a name from **every** network a container is on, in a fixed order. If
+the staging app also sat on `biddaloy-prod_default`, its `redis` lookup could return **prod's** Redis (reproduced on
+Docker 24: 5 of 5 lookups went to prod). A `DEMO_MODE` worker on prod's Redis would take real queued SMS and mark
+them SENT through the demo log. On `biddaloy-edge` the staging app sees only nginx, and nginx sees only
+`staging-app`. After attaching, `deploy.yml` checks it: `db`, `redis` and `seaweedfs` must resolve to addresses on
+`biddaloy-staging_default`, or it stops the staging app and fails.
 
 | Thing             | Staging value                                                                           |
 | ----------------- | --------------------------------------------------------------------------------------- |
@@ -401,40 +451,53 @@ env check sees. `DEMO_MODE` sends every medium to the log before any provider is
 whatever the data says. The price: the demo's deny-list and 2 MB upload cap apply, so staging is not byte-for-byte prod
 for those routes. Staging also needs `DEMO_PASSWORD` in its env.
 
-**Host `.env`** (`infra/secrets/staging.enc.env`): `POSTGRES_DB=biddaloy_staging`, `S3_BUCKET=biddaloy-staging`,
-`DEMO_PASSWORD=...`, `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`, and no `SMS_*`, `SMTP_*`, `WHATSAPP_*`,
-`VAPID_*`, `PLATFORM_SMS_*` or `PLATFORM_ALERT_PHONES`. The prod `.env` must set `STAGING_DOMAIN=staging.<domain>`
+**Host `.env`** (`infra/secrets/staging.enc.env`, keys in `staging.example.env`): `POSTGRES_DB=biddaloy_staging`,
+`DEMO_PASSWORD=...`, `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`, `TLS_CERT_DIR=/opt/biddaloy/certs`
+(compose needs it to parse the base file, though staging runs no nginx), and no `SMS_*`, `SMTP_*`, `WHATSAPP_*`,
+`VAPID_*`, `PLATFORM_SMS_*` or `PLATFORM_ALERT_PHONES`. `DEMO_MODE=true`, `DATABASE_URL` and `S3_BUCKET=biddaloy-staging`
+are **not** in the `.env`: `docker-compose.staging.yml` sets them for `app`. The prod `.env` must set `STAGING_DOMAIN=staging.<domain>`
 (prod's nginx renders the staging server block from it). Prod's nginx service must also pass it to the container
 (`STAGING_DOMAIN: ${STAGING_DOMAIN:-staging.invalid}` in `docker-compose.yml`): the image's envsubst only fills variables
 that exist in the container, so a template cannot carry its own default, and an unset one leaves a literal
 `${STAGING_DOMAIN}` in `server_name`.
 
-**Taking prod down while staging runs.** Staging's container is attached to prod's network, so
-`docker compose -p biddaloy-prod down` cannot remove that network ("network has active endpoints"). Stop staging first
-(`docker compose -p biddaloy-staging down`), or run `docker network disconnect biddaloy-prod_default biddaloy-staging-app`.
+**Taking prod down while staging runs** works as normal: `biddaloy-edge` belongs to no compose project, so
+`docker compose -p biddaloy-prod down` does not try to remove it. Staging returns 502 until prod is back and a deploy
+re-attaches nginx.
 
-**`config:check --env staging`** runs inside `deploy.yml -e env=staging`, before anything changes. A provider variable,
-a prod database or bucket, a real Turnstile secret or `DEMO_MODE` off stops the deploy:
+**`config:check --env staging`** runs inside `deploy.yml -e env=staging`, before anything changes. It judges the env
+the container gets: the host `.env` plus what `docker-compose.staging.yml` sets for `app` (a copy in
+`config-check.ts` that its spec keeps equal to the overlay). A provider variable, a prod database, a real Turnstile
+secret or a missing `DEMO_PASSWORD` stops the deploy:
 
 ```text
 $ yarn config:check --env staging        # with SMTP_HOST=smtp.example.com in the env
 SMTP_HOST must be empty on staging (no real SMS / WhatsApp / email / push provider)
 ```
 
-**How prod's nginx reaches staging.** Staging has no nginx. After each staging `up`, `deploy.yml` runs
-`docker network connect biddaloy-prod_default biddaloy-staging-app`. It is done by hand, not in compose, so staging's
-`app`, `db` and `redis` names never appear on prod's network (prod's own `app` lookup would otherwise sometimes land on
-staging). The template looks the upstream up per request, so prod's nginx boots fine while staging is off. Prod's nginx
-reads templates from `/opt/biddaloy/prod/nginx`: **after the first staging template lands, deploy prod once** so it
-renders `staging.conf.template`.
+**How prod's nginx reaches staging.** Staging has no nginx. After each `up`, `deploy.yml`
+(`tasks/attach-edge.yml`) runs:
+
+```bash
+docker network create biddaloy-edge                                   # once; "already exists" is fine
+docker network connect biddaloy-edge biddaloy-prod-nginx-1            # on every prod deploy
+docker network connect --alias staging-app biddaloy-edge biddaloy-staging-app   # on every staging deploy
+```
+
+It is done by hand, not in compose, because the base compose file is shared by every env, and a manual attach adds
+only the alias given (never the compose service names `app`, `db`, `redis`). A recreated container loses its attach,
+which is why every deploy redoes it; if you recreate prod nginx by hand, run the second line again. The template looks
+the upstream up per request, so prod's nginx boots fine while staging is off. Prod's nginx reads templates from
+`/opt/biddaloy/prod/nginx`, so a template change reaches it through a **prod** deploy (which checks it with `nginx -t`
+and recreates nginx).
 
 **Release order: staging, check, prod.**
 
 ```bash
 cd infra/ansible
-ansible-playbook deploy.yml -e env=staging -e version=3f9c2ab   # deploy and config check
+ansible-playbook deploy.yml -e env=staging -e version=3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b   # deploy and config check
 # open https://staging.<domain>, click through the change
-ansible-playbook deploy.yml -e env=prod -e version=3f9c2ab      # same tag, now prod
+ansible-playbook deploy.yml -e env=prod -e version=3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b      # same tag, now prod
 ```
 
 **Seed it** (first deploy only, and whenever you want fresh data). `seed:demo` refuses a database that is not empty of
@@ -447,6 +510,18 @@ docker compose -p biddaloy-staging -f docker-compose.yml -f docker-compose.stagi
 ```
 
 (Same entry the demo reset runs, `scripts/demo/reset.sh`. There is no demo-state file on staging.)
+
+**Then give staging its platform school.** Staging runs `NODE_ENV=production`, where the app never guesses the platform
+school, so super-admin and platform pages do nothing until `PLATFORM_TENANT_ID` is set. After each seed:
+
+```bash
+echo "SELECT id FROM schools WHERE slug = 'default-school';" |
+  docker compose -p biddaloy-staging -f docker-compose.yml -f docker-compose.staging.yml \
+  exec -T db sh -c 'psql -U "$POSTGRES_USER" -d biddaloy_staging -tA'
+# put that id in PLATFORM_TENANT_ID (sops infra/secrets/staging.enc.env), then deploy staging again
+```
+
+The id stays the same until the next reseed.
 
 **Turn it off when idle** (frees the RAM; data stays in the volumes):
 

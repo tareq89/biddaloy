@@ -1,8 +1,9 @@
 ---
 # One command deploys a version:
-#   ansible-playbook deploy.yml -e env=prod -e version=<git-sha>
+#   ansible-playbook deploy.yml -e env=prod -e version=<full 40-hex git sha>
 # Plan only (nothing pulled, written or restarted): add  --check
-# Order: pre-flight -> env -> pull -> backup -> migrate -> up -> ready -> smoke -> log.
+# Order: pre-flight -> env -> nginx -t -> pull -> backup -> migrate -> up -> nginx -> edge networks
+#        -> ready -> smoke -> log.
 # On failure after pre-flight: redeploy the previous version. Migrations are NOT reverted (D11).
 - name: Deploy biddaloy
   hosts: all
@@ -12,7 +13,7 @@
     version: ''
     skip_backup: false
     repo_root: '{{ playbook_dir }}/../..'
-    project_dir: '/opt/biddaloy/{{ env }}'
+    project_dir: '{{ biddaloy_root }}/{{ env }}'
     project_name: 'biddaloy-{{ env }}'
     overlay: { prod: [], demo: [docker-compose.demo.yml], staging: [docker-compose.staging.yml] }
     compose_names: "{{ ['docker-compose.yml'] + (overlay[env] | default([])) }}"
@@ -20,7 +21,9 @@
     dc: >-
       docker compose --project-directory {{ project_dir }} -p {{ project_name }}
       {% for f in compose_files %}-f {{ f }} {% endfor %}
-    env_notify: restart compose
+    # write-env.yml pins APP_VERSION inside the file it writes: one write per run, mode and
+    # owner stay root:deploy 0640, and no handler restarts anything behind the play's back.
+    app_version: '{{ version }}'
     images_by_env:
       {
         prod: [biddaloy-app, biddaloy-backup],
@@ -40,8 +43,6 @@
     # demo_domain is not in the inventory yet: demo skips the smoke test until it is.
     # Staging also skips it: Cloudflare Access answers the smoke script with a login redirect.
     base_domain: "{{ {'prod': app_domain, 'staging': '', 'demo': demo_domain | default('')}[env] | default('') }}"
-  handlers:
-    - ansible.builtin.import_tasks: handlers/main.yml
 
   pre_tasks:
     # Everything here runs before any change, also under --check (D27).
@@ -49,9 +50,9 @@
       ansible.builtin.assert:
         that:
           - env in ['prod', 'demo', 'staging']
-          - version | length > 0
-          - version is match('^[A-Za-z0-9._-]+$')
-        fail_msg: 'Usage: -e env=prod|demo|staging -e version=<image tag>'
+          # CI tags images with the full commit SHA (publish-image.yml); a short one never exists.
+          - version is match('^[0-9a-f]{40}$')
+        fail_msg: 'Usage: -e env=prod|demo|staging -e version=<full 40-hex git sha>'
         quiet: true
       tags: [always]
 
@@ -67,8 +68,16 @@
 
     - name: Check the repo checkout is the version being deployed
       ansible.builtin.assert:
-        that: lookup('ansible.builtin.pipe', 'git -C ' ~ repo_root ~ ' rev-parse HEAD').startswith(version)
+        that: lookup('ansible.builtin.pipe', 'git -C ' ~ repo_root ~ ' rev-parse HEAD') == version
         fail_msg: 'Check out {{ version }} first: compose files and nginx are copied from this checkout.'
+        quiet: true
+      tags: [always]
+
+    # The copied files must be exactly what `version` holds, or deploys.log lies.
+    - name: Check the compose files and nginx/ have no uncommitted changes
+      ansible.builtin.assert:
+        that: lookup('ansible.builtin.pipe', 'git -C ' ~ repo_root ~ " status --porcelain -- 'docker-compose*.yml' nginx") | length == 0
+        fail_msg: 'Commit or discard your changes to docker-compose*.yml and nginx/ first: they would be deployed as {{ version }}.'
         quiet: true
       tags: [always]
 
@@ -94,6 +103,8 @@
     # Staging only (D25): refuse a provider key, a prod DB/bucket or a real Turnstile secret.
     # Runs here, before any change. The decrypted env goes in on stdin; it is never written
     # to the controller. Values are not printed (config-check names variables only).
+    # `--env staging` also applies what docker-compose.staging.yml sets for `app`
+    # (DEMO_MODE, DATABASE_URL, S3_BUCKET), so it judges the env the container really gets.
     - name: Staging config check (no real SMS / WhatsApp / email provider)
       ansible.builtin.command: yarn workspace @biddaloy/server config:check --env staging --file /dev/stdin
       args:
@@ -116,6 +127,28 @@
       when: env == 'staging' and staging_check.rc | default(0) != 0
       tags: [always]
 
+    # Cloudflare Access gate (12-operations.md section 1, step 0). OPS_DOMAIN / STAGING_DOMAIN
+    # in the prod .env are what make prod nginx answer ops.<domain> / staging.<domain>. Until
+    # the owner has set up Access for both and set access_confirmed: true in the inventory,
+    # a prod deploy refuses to write them.
+    - name: Do the prod secrets name the ops or staging hostname?
+      ansible.builtin.set_fact:
+        names_access_hosts: "{{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/prod.enc.env', rstrip=false) is search('(?m)^(OPS|STAGING)_DOMAIN=\\S') }}"
+      no_log: true
+      when: env == 'prod'
+      tags: [always]
+
+    - name: Refuse to expose ops / staging before Cloudflare Access is confirmed
+      ansible.builtin.assert:
+        that: not (names_access_hosts | default(false) | bool) or (access_confirmed | default(false) | bool)
+        fail_msg: >-
+          prod.enc.env sets OPS_DOMAIN or STAGING_DOMAIN, but access_confirmed is not true.
+          Set up Cloudflare Access for both hostnames first (12-operations.md section 1, step 0),
+          then set access_confirmed: true in inventory/prod.yml.
+        quiet: true
+      when: env == 'prod'
+      tags: [always]
+
     - name: Check the image tag exists in the registry
       ansible.builtin.command: docker manifest inspect ghcr.io/tareq89/{{ item }}:{{ version }}
       changed_when: false
@@ -123,19 +156,66 @@
       loop: '{{ images }}'
       tags: [always]
 
-    - name: Read the last good version from deploys.log
+    # The restore drill mounts this file into `backup`; without it the backup container (and so
+    # the pre-migrate backup) cannot start. 12-operations.md section 8 says how it gets here.
+    - name: Check the backup age key is on the host (prod)
+      ansible.builtin.stat:
+        path: '{{ project_dir }}/age-key.txt'
+      register: age_key
+      when: env == 'prod'
+      tags: [always]
+
+    - name: Stop when the backup age key is missing or has the wrong owner or mode
+      ansible.builtin.assert:
+        that:
+          - age_key.stat.exists
+          - age_key.stat.uid == 10001
+          - age_key.stat.mode == '0400'
+        fail_msg: '{{ project_dir }}/age-key.txt must exist, owner 10001, mode 0400 (12-operations.md section 8).'
+        quiet: true
+      when: env == 'prod'
+      tags: [always]
+
+    # Rollback target: the last `ok` line in deploys.log. When there is none (log deleted,
+    # stack started by hand, first deploy after a restore), the tag of the app container that
+    # is running now. Only a full commit SHA counts.
+    - name: Find the previous version
       ansible.builtin.shell: |
         f={{ project_dir }}/deploys.log
-        [ -f "$f" ] && awk '$2=="{{ env }}" && $4=="ok" {v=$3} END {print v}' "$f"
-        true
+        v=$([ -f "$f" ] && awk '$2=="{{ env }}" && $4=="ok" {v=$3} END {print v}' "$f")
+        [ -n "$v" ] || v=$(docker ps --filter label=com.docker.compose.project={{ project_name }} \
+          --filter label=com.docker.compose.service=app --format '{% raw %}{{.Image}}{% endraw %}' | head -n1 | sed 's/.*://')
+        echo "$v" | grep -E '^[0-9a-f]{40}$' || true
       register: prev
       changed_when: false
       check_mode: false
       tags: [always]
 
-    - name: Remember the previous version
+    # The pre-migrate backup keys off the data, not the log: if the database volume exists,
+    # there may be data, so the backup must run (and must succeed).
+    - name: Does the prod database volume exist?
+      ansible.builtin.command: docker volume inspect {{ project_name }}_pgdata
+      register: pgdata
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: env == 'prod'
+      tags: [always]
+
+    - name: Remember the previous version and whether prod has a database volume
       ansible.builtin.set_fact:
         previous_version: '{{ prev.stdout | trim }}'
+        db_volume_exists: "{{ env == 'prod' and pgdata.rc | default(1) == 0 }}"
+      tags: [always]
+
+    # `--tags env` only rewrites .env (APP_VERSION included) and restarts nothing. Pinning a
+    # version that was never deployed would start it, unmigrated, at the next restart.
+    # Rotation is a full deploy of the running version (12-operations.md section 8).
+    - name: Refuse --tags env with a version other than the running one
+      ansible.builtin.assert:
+        that: "'env' not in ansible_run_tags or version == previous_version"
+        fail_msg: '--tags env only re-pins the running version ({{ previous_version }}). Rotate with a full deploy of it.'
+        quiet: true
       tags: [always]
 
   tasks:
@@ -145,6 +225,8 @@
           ansible.builtin.file:
             path: '{{ project_dir }}'
             state: directory
+            owner: root
+            group: '{{ deploy_user }}'
             mode: '0750'
           tags: [mutating]
 
@@ -156,11 +238,22 @@
           loop: '{{ compose_names }}'
           tags: [mutating]
 
+        # nginx renders templates only when its container starts. Keep the current set, so a
+        # template that fails `nginx -t` is put back before anything can load it.
+        - name: Keep the current nginx files
+          ansible.builtin.shell: rm -rf nginx.prev && { [ ! -d nginx ] || cp -a nginx nginx.prev; }
+          args:
+            chdir: '{{ project_dir }}'
+          changed_when: false
+          when: env in ['prod', 'demo'] and not ansible_check_mode
+          tags: [mutating]
+
         - name: Copy the nginx templates
           ansible.builtin.copy:
             src: '{{ repo_root }}/nginx/'
             dest: '{{ project_dir }}/nginx/'
             mode: preserve
+          register: nginx_files
           tags: [mutating]
 
         - name: Write .env from the encrypted file
@@ -170,15 +263,24 @@
               tags: [env]
           tags: [env]
 
-        - name: Pin APP_VERSION in .env
-          ansible.builtin.lineinfile:
-            path: '{{ project_dir }}/.env'
-            regexp: '^APP_VERSION='
-            line: 'APP_VERSION={{ version }}'
-            mode: '0600'
-          diff: false
-          no_log: true
-          tags: [env, mutating]
+        # Same image, entrypoint, env and mounts as the real nginx, so the templates render the
+        # way a restart would render them. On failure the previous files go back, and the deploy
+        # stops before anything was pulled or restarted. `nginx -t` resolves the fixed upstream
+        # `app` and fails when no app container runs (first deploy), so the throwaway container
+        # gets an /etc/hosts entry for it; only the config is tested, nothing is proxied.
+        - name: Check the new nginx config (nginx -t)
+          ansible.builtin.shell: |
+            {{ dc }} run --rm --no-deps -T --entrypoint sh nginx -c \
+              'grep -q "[[:space:]]app$" /etc/hosts || echo "127.0.0.1 app" >> /etc/hosts; exec /docker-entrypoint.sh nginx -t' || {
+              rm -rf nginx && { [ ! -d nginx.prev ] || mv nginx.prev nginx; }
+              echo 'nginx -t failed: the previous nginx files were put back' >&2
+              exit 1
+            }
+          args:
+            chdir: '{{ project_dir }}'
+          changed_when: false
+          when: env in ['prod', 'demo'] and nginx_files is changed and not ansible_check_mode
+          tags: [mutating]
 
         - name: Pull the images
           community.docker.docker_compose_v2_pull:
@@ -189,10 +291,10 @@
           tags: [mutating]
 
         # Prod only. A failed backup stops the deploy before migrations touch the DB.
-        # First prod deploy (no previous ok version): nothing to back up yet, so skipped.
+        # Skipped only when there is no database volume at all (a truly fresh host).
         - name: Fresh backup before migrating (prod)
           ansible.builtin.command: '{{ dc }} run --rm --no-deps --entrypoint /app/backup.sh backup'
-          when: env == 'prod' and previous_version | length > 0 and not (skip_backup | bool) and not ansible_check_mode
+          when: db_volume_exists | bool and not (skip_backup | bool) and not ansible_check_mode
           tags: [mutating]
 
         - name: Are migrations pending? (0 none, 2 pending, 1 error)
@@ -211,8 +313,13 @@
         - name: Start the new version
           ansible.builtin.include_tasks: tasks/compose-up.yml
 
-        - name: Attach staging to prod's network (staging only)
-          ansible.builtin.include_tasks: tasks/attach-staging.yml
+        - name: Load the new nginx config (templates render only at container start)
+          ansible.builtin.command: '{{ dc }} up -d --no-deps --force-recreate nginx'
+          when: env in ['prod', 'demo'] and nginx_files is changed and not ansible_check_mode
+          tags: [mutating]
+
+        - name: Attach prod nginx, staging and ops to their edge networks
+          ansible.builtin.include_tasks: tasks/attach-edge.yml
 
         - name: Wait until the app reports ready
           ansible.builtin.command: >-
@@ -251,8 +358,8 @@
               no_log: true
             - name: Start the previous version
               ansible.builtin.include_tasks: tasks/compose-up.yml
-            - name: Attach staging to prod's network (staging only)
-              ansible.builtin.include_tasks: tasks/attach-staging.yml
+            - name: Attach prod nginx, staging and ops to their edge networks
+              ansible.builtin.include_tasks: tasks/attach-edge.yml
             - name: Note the rollback
               ansible.builtin.set_fact:
                 deploy_status: rolled-back

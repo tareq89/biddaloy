@@ -69,24 +69,40 @@ export const TURNSTILE_TEST_SECRET = '1x0000000000000000000000000000000AA';
 const PROVIDER_VAR = /^(SMS_|MIMSMS_|GREENWEB_|WHATSAPP_|SMTP_|VAPID_|PLATFORM_SMS_)/;
 
 /**
- * `--env staging` (D25): the production checks, plus staging must not be able to message anyone.
- * Names variables only, never values.
+ * What docker-compose.staging.yml sets for `app`, whatever the host `.env` says. The host
+ * `.env` is a compose-side file: these never come from it. config-check.spec.ts keeps this
+ * equal to the overlay, so the check judges the env the container really gets.
+ */
+export function stagingAppEnv(env: Record<string, unknown>): Record<string, string> {
+  return {
+    DEMO_MODE: 'true',
+    DATABASE_URL: `postgres://${String(env.POSTGRES_USER ?? '')}:${String(env.POSTGRES_PASSWORD ?? '')}@db:5432/biddaloy_staging`,
+    S3_BUCKET: 'biddaloy-staging',
+    PLATFORM_SMS_API_KEY: '',
+    PLATFORM_ALERT_PHONES: '',
+  };
+}
+
+/**
+ * `--env staging` (D25): the production checks on the env the staging container gets (the
+ * host file plus the overlay's own values, so DEMO_MODE=true and the staging bucket are a
+ * given), plus staging must not be able to message anyone.
+ * Provider variables are judged on the host file itself: a key there is refused even where
+ * the overlay would blank it. Names variables only, never values.
  */
 export function runStagingConfigCheck(env: Record<string, unknown>): {
   ok: boolean;
   output: string;
 } {
-  const prod = runProductionConfigCheck(env);
+  const container: Record<string, unknown> = { ...env, ...stagingAppEnv(env) };
+  const prod = runProductionConfigCheck(container);
   const set = (k: string) => typeof env[k] === 'string' && env[k] !== '';
   const errors = [
     ...Object.keys(env)
       .filter((k) => (PROVIDER_VAR.test(k) || k === 'PLATFORM_ALERT_PHONES') && set(k))
       .map((k) => `${k} must be empty on staging (no real SMS / WhatsApp / email / push provider)`),
-    ...(env.DEMO_MODE === 'true'
-      ? []
-      : ['DEMO_MODE must be "true" on staging (messages go to the log only)']),
+    // The db container creates POSTGRES_DB; the app connects to biddaloy_staging.
     ...(env.POSTGRES_DB === 'biddaloy_staging' ? [] : ['POSTGRES_DB must be biddaloy_staging']),
-    ...(env.S3_BUCKET === 'biddaloy-staging' ? [] : ['S3_BUCKET must be biddaloy-staging']),
     ...(env.TURNSTILE_SECRET_KEY === TURNSTILE_TEST_SECRET
       ? []
       : ["TURNSTILE_SECRET_KEY must be Cloudflare's always-pass test secret on staging"]),

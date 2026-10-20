@@ -1,7 +1,12 @@
 # Ops UIs (docker-compose.ops.yml) at https://${OPS_DOMAIN}/{beszel,kuma,dozzle}/.
 # Cloudflare Access gates the hostname; $origin_allowed (conf.d/00-trusted-proxies.conf)
-# keeps the origin Cloudflare-only (Security rule 12). Same redacted log format as the app.
-# Needs OPS_DOMAIN in the nginx container env (nginx only substitutes variables it has).
+# keeps the origin Cloudflare-only (Security rule 12). A request with no Access token
+# header never came through Access and is dropped (presence only, signature not checked).
+# Same redacted log format as the app. Needs OPS_DOMAIN in the nginx container env (nginx
+# only substitutes variables it has); unset, it is ops.invalid and this block matches nothing.
+# Known limit: Uptime Kuma 1.x and Beszel have no sub-path support, so /kuma/ and /beszel/
+# do not work here (12-operations.md section 1). Dozzle does (DOZZLE_BASE).
+# nginx meets the UIs on the `biddaloy-ops-edge` network (infra/ansible/tasks/attach-edge.yml).
 #
 # Upstreams are variables behind Docker's resolver, so nginx still boots when the ops
 # stack is down (a fixed `proxy_pass host` fails at startup if the name does not resolve).
@@ -32,6 +37,9 @@ server {
 
     resolver 127.0.0.11 valid=10s;
 
+    if ($origin_allowed = 0) { return 444; }
+    if ($http_cf_access_jwt_assertion = "") { return 444; }
+
     # Shared by the three UIs: websocket upgrade (Kuma socket.io, Beszel realtime, Dozzle
     # log stream) and long reads so a live tail is not cut at 60 s.
     proxy_http_version 1.1;
@@ -42,17 +50,15 @@ server {
     proxy_read_timeout 3600s;
     proxy_buffering off;
 
-    location = / { return 404; }
+    location / { return 404; }
 
     location /beszel/ {
-        if ($origin_allowed = 0) { return 444; }
         set $up http://beszel:8090;
         rewrite ^/beszel/(.*)$ /$1 break;
         proxy_pass $up;
     }
 
     location /kuma/ {
-        if ($origin_allowed = 0) { return 444; }
         set $up http://uptime-kuma:3001;
         rewrite ^/kuma/(.*)$ /$1 break;
         proxy_pass $up;
@@ -60,7 +66,6 @@ server {
 
     # Dozzle serves under its own prefix (DOZZLE_BASE=/dozzle): no rewrite.
     location /dozzle/ {
-        if ($origin_allowed = 0) { return 444; }
         set $up http://dozzle:8080;
         proxy_pass $up;
     }

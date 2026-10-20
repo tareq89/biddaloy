@@ -82,30 +82,51 @@ public verify page (`/v/:token`), sign-up with Turnstile, cert renewal.
 
 ## Access policies
 
-Cloudflare Access puts a login in front of a hostname **at the edge**. nginx does not check it: it trusts it because only
-Cloudflare can reach the origin (`$origin_allowed`, D17). So the DNS record must stay proxied, or Access is bypassed.
+Cloudflare Access puts a login in front of a hostname **at the edge**. nginx trusts it because only Cloudflare can
+reach the origin (`$origin_allowed`, D17), and it also drops any request with no `Cf-Access-Jwt-Assertion` header
+(the token Access adds). nginx checks only that the header is there, not its signature. So the DNS record must stay
+proxied, or Access is bypassed.
 
 ```mermaid
 flowchart LR
   U[visitor] --> CF["Cloudflare edge<br/>Access: email = owner?"]
   CF -->|no| L[login page, 302]
-  CF -->|yes| N[origin nginx] --> A[staging app]
+  CF -->|yes, adds Cf-Access-Jwt-Assertion| N[origin nginx] --> A[staging app / ops UIs]
 ```
+
+**Order matters: Access first, DNS second, hostname on the origin last.** Kuma and Beszel give admin to the first
+visitor of their setup page, and Dozzle has no login at all, so there must never be a moment where the name resolves
+and Access is not yet in front of it.
+
+```mermaid
+flowchart LR
+  A1["1. Access application<br/>(hostname, Owner only)"] --> A2["2. DNS record, proxied"] --> A3["3. verify: 302 to login"]
+  A3 --> A4["4. access_confirmed: true<br/>in inventory/prod.yml"] --> A5["5. OPS_DOMAIN / STAGING_DOMAIN<br/>in prod.enc.env, deploy prod"]
+```
+
+A prod deploy refuses a `prod.enc.env` that sets `OPS_DOMAIN` or `STAGING_DOMAIN` while `access_confirmed` is not
+`true` (`infra/ansible/deploy.yml`). Until those are set, prod nginx serves neither hostname (`*.invalid`).
 
 ### Staging (`staging.<domain>`)
 
-1. Cloudflare dashboard > DNS: add `staging` (A record to the origin IP, or CNAME to `app`), **Proxied** (orange cloud).
-2. Zero Trust > Access > Applications > **Add an application** > **Self-hosted**.
-3. Name `Staging`. Session duration **24 hours**. Add public hostname `staging.<domain>` (path empty).
-4. Add policy: name `Owner only`, action **Allow**, include **Emails** = the owner's email. No other rule.
-5. Identity provider: **One-time PIN** is enough. Save.
+1. Zero Trust > Access > Applications > **Add an application** > **Self-hosted**.
+2. Name `Staging`. Session duration **24 hours**. Add public hostname `staging.<domain>` (path empty).
+3. Add policy: name `Owner only`, action **Allow**, include **Emails** = the owner's email. No other rule.
+4. Identity provider: **One-time PIN** is enough. Save.
+5. Only now, Cloudflare dashboard > DNS: add `staging` (A record to the origin IP, or CNAME to `app`), **Proxied** (orange cloud).
 6. Verify: `curl -sI https://staging.<domain>/` with no cookie gives `302` to `<team>.cloudflareaccess.com`. In a private
-   window the same URL asks for a login, and after it the app loads.
-7. Also check `curl -sI https://staging.<domain>/ | grep -i x-robots-tag` after login (browser dev tools): `noindex, nofollow`.
+   window the same URL asks for a login.
+7. Set `access_confirmed: true` in `infra/ansible/inventory/prod.yml`, put `STAGING_DOMAIN=staging.<domain>` in
+   `prod.enc.env`, and deploy prod. After that the app loads behind the login.
+8. Origin check (from your laptop, which is not a Cloudflare IP): `curl -k --resolve staging.<domain>:443:<origin-ip>
+https://staging.<domain>/` gets an empty reply (`curl: (52)` or `(56)`), never a page.
+9. Also check `curl -sI https://staging.<domain>/ | grep -i x-robots-tag` after login (browser dev tools): `noindex, nofollow`.
 
 ### Ops (`ops.<domain>`)
 
-Same steps with name `Ops` and hostname `ops.<domain>` (the ops stack is #1769). Policy `Owner only` again.
+Same steps with name `Ops` and hostname `ops.<domain>` (the ops stack is #1769), and `OPS_DOMAIN` in step 7. Policy
+`Owner only` again. Do this **before** creating the Kuma and Beszel admins through `ops.<domain>`
+([12-operations.md §1](12-operations.md#setting-the-tools-up-by-hand-once)).
 
 ## Re-check
 

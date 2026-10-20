@@ -7,15 +7,21 @@
 #
 # Same images as prod, own db / redis / seaweedfs volumes (project name = volume prefix).
 # Prod's nginx fronts staging.<domain> (nginx/templates/staging.conf.template), so this
-# project runs NO nginx and binds NO host ports.
+# project runs NO nginx and binds NO host ports. Prod nginx reaches the app only over the
+# `biddaloy-edge` network (alias staging-app), attached by infra/ansible/tasks/attach-edge.yml.
+# Never put this app on biddaloy-prod_default: Docker DNS would then answer its `redis` and
+# `db` lookups with PROD's containers.
 #
 # Staging must never message real people (D25), so the app runs DEMO_MODE=true: every
 # SMS / WhatsApp / email / messenger goes to the log, whatever a school's own settings say.
 # `yarn config:check --env staging` also refuses provider keys in the host .env.
 #
 # Host .env (infra/secrets/staging.enc.env) must set, and config:check --env staging enforces:
-#   POSTGRES_DB=biddaloy_staging  S3_BUCKET=biddaloy-staging  DEMO_PASSWORD=...
+#   POSTGRES_DB=biddaloy_staging  DEMO_PASSWORD=...
 #   TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA   (Cloudflare's always-pass test secret)
+# DEMO_MODE, DATABASE_URL and S3_BUCKET come from this file, not the .env; config:check
+# --env staging applies the same values (STAGING_APP_ENV in server/src/scripts/config-check.ts,
+# kept equal to this file by its spec).
 
 services:
   app:
@@ -28,6 +34,9 @@ services:
       # Staging has no platform alert channel: the base default would pick greenweb.
       PLATFORM_SMS_API_KEY: ''
       PLATFORM_ALERT_PHONES: ''
+      # NODE_ENV=production has no default platform school. After the first seed, set it to
+      # the seeded default-school id (07-deployment.md "Seed it"); empty = no platform authority.
+      PLATFORM_TENANT_ID: ${PLATFORM_TENANT_ID:-}
 
   seaweedfs:
     environment:

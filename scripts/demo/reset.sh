@@ -20,7 +20,7 @@
 # be able to CREATE/DROP/ALTER databases), REDIS_URL, DEMO_PASSWORD, DEMO_STATE_DIR, S3_BUCKET
 # (a plain bucket name containing "demo"), S3_ENDPOINT, S3_REGION, S3_ACCESS_KEY_ID,
 # S3_SECRET_ACCESS_KEY.
-# Optional: DEMO_SCALE (1), DEMO_YEARS (10), DEMO_SWAP_AT (02:00), SENTRY_CRONS_URL,
+# Optional: DEMO_SCALE (1), DEMO_YEARS (10), DEMO_SWAP_AT (02:00), SENTRY_CRONS_URL, DEMO_RESET_PUSH_URL,
 # DEMO_SWEEP_CMD (run with DEMO_SWEEP_URL, default http://127.0.0.1:3999 = the temporary app;
 # non-zero = fail; killed after DEMO_SWEEP_TIMEOUT seconds, default 1800) or DEMO_SKIP_SWEEP=true,
 # DEMO_RESTART_CMD (default: docker restart $DEMO_APP_CONTAINER), and the DEMO_*_CMD overrides
@@ -61,6 +61,14 @@ cron_checkin() {
   # $1: in_progress | ok | error. No-op when SENTRY_CRONS_URL is unset.
   if [[ -n "${SENTRY_CRONS_URL:-}" ]]; then
     curl -fsS --connect-timeout 5 --max-time 10 -X POST "${SENTRY_CRONS_URL}?status=$1" >/dev/null || true
+  fi
+  # Uptime Kuma push monitor `demo-reset-nightly` (12-operations.md section 1): up on ok, down
+  # on error. Same shape as backup.sh's kuma_push: the token is in the path, any query is
+  # dropped, the URL is never echoed and curl's stderr is discarded. No-op when unset.
+  if [[ -n "${DEMO_RESET_PUSH_URL:-}" && "$1" != in_progress ]]; then
+    local status=up
+    [[ "$1" == ok ]] || status=down
+    curl -fsS --connect-timeout 5 --max-time 10 "${DEMO_RESET_PUSH_URL%%\?*}?status=${status}&msg=$1" >/dev/null 2>&1 || true
   fi
 }
 

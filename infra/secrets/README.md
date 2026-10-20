@@ -14,7 +14,7 @@ flowchart LR
 | File                                         | What                                          |
 | -------------------------------------------- | --------------------------------------------- |
 | `prod.enc.env`, `demo.enc.env`, `staging.enc.env` | The env for each stack                   |
-| `ops.enc.env`                                | Ops stack: `OPS_DOMAIN`, `BESZEL_KEY` (`sops infra/secrets/ops.enc.env`) |
+| `ops.enc.env`                                | Ops stack: `BESZEL_KEY` (`sops infra/secrets/ops.enc.env`). `OPS_DOMAIN` and `STAGING_DOMAIN` go in `prod.enc.env`: prod nginx reads them |
 | `origin-ca.enc.pem`, `origin-ca-key.enc.pem` | Cloudflare Origin CA cert and key (D21)       |
 | `*.example.env`                              | Plaintext key lists, empty values, committed  |
 
@@ -80,7 +80,7 @@ CI guard: `scripts/check-tracked-files.mjs` checks content, not just names.
 | Edit                  | `sops infra/secrets/prod.enc.env`                      |
 | View                  | `sops -d infra/secrets/prod.enc.env`                   |
 | Change recipients     | edit `.sops.yaml`, then `sops updatekeys infra/secrets/<file>` for each file |
-| Push to the server    | `ansible-playbook ... --tags env` (rotation steps: `docs/architecture/12-operations.md` section 8) |
+| Push to the server    | a full `deploy.yml` of the running version (rotation steps: `docs/architecture/12-operations.md` section 8). `--tags env` only rewrites `.env` and restarts nothing |
 
 Add a new key: add it to the matching `*.example.env` too, so the examples stay
 the full list.

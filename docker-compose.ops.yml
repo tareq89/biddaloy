@@ -3,11 +3,12 @@
 #
 #   docker compose -f docker-compose.ops.yml --env-file /opt/biddaloy/ops/.env up -d
 #
-# (infra/ansible/ops.yml does this.) It joins the prod stack's network so Kuma can reach
-# app:3000 and prod nginx can reach the three UIs, which are served at
-# https://ops.<domain>/{beszel,kuma,dozzle}/ behind Cloudflare Access. Nothing here is
-# published on a public port (loopback binds only). First-run steps done by hand in the
-# UIs: docs/architecture/12-operations.md section 1.
+# (infra/ansible/ops.yml does this.) The three UIs also join `biddaloy-ops-edge`, a small
+# network shared only with prod nginx and the prod app (alias prod-app, for Kuma). They
+# never sit on prod's own network, so prod's db and redis are out of their reach.
+# Served at https://ops.<domain>/ behind Cloudflare Access. Nothing here is published on
+# a public port (loopback binds only). First-run steps done by hand in the UIs:
+# docs/architecture/12-operations.md section 1.
 name: biddaloy-ops
 
 x-logging: &logging
@@ -25,6 +26,7 @@ services:
       - '127.0.0.1:8090:8090'
     volumes:
       - beszel_data:/beszel_data
+    networks: [default, edge]
 
   beszel-agent:
     logging: *logging
@@ -32,9 +34,10 @@ services:
     restart: unless-stopped
     environment:
       LISTEN: '45876'
-      # Public key shown by the hub's "Add system" dialog. Not secret, but the agent will not
-      # start without it.
-      KEY: ${BESZEL_KEY:?BESZEL_KEY must be set (copy it from the Beszel hub, "Add system")}
+      # Public key shown by the hub's "Add system" dialog. Not secret. Empty on the first run
+      # (the hub that hands it out is not up yet): only this agent restarts until it is set,
+      # then rerun ops.yml (12-operations.md section 1).
+      KEY: ${BESZEL_KEY:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
@@ -46,6 +49,7 @@ services:
       - '127.0.0.1:3001:3001'
     volumes:
       - kuma_data:/app/data
+    networks: [default, edge]
 
   dozzle:
     logging: *logging
@@ -56,13 +60,14 @@ services:
       DOZZLE_NO_ANALYTICS: 'true'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [default, edge]
 
 volumes:
   beszel_data:
   kuma_data:
 
-# The prod stack's default network (project biddaloy-prod). It must exist: start prod first.
+# Created by infra/ansible/ops.yml (or a prod deploy, whichever runs first).
 networks:
-  default:
-    name: biddaloy-prod_default
+  edge:
+    name: biddaloy-ops-edge
     external: true

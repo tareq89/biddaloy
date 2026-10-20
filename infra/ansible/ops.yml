@@ -1,54 +1,69 @@
 ---
-# Ops stack (Beszel, Uptime Kuma, Dozzle) beside prod. Run after the prod stack is up (it
-# owns the biddaloy-prod_default network):
+# Ops stack (Beszel, Uptime Kuma, Dozzle) beside prod:
 #   ansible-playbook -i infra/ansible/inventory infra/ansible/ops.yml
-# Secrets: infra/secrets/ops.enc.env (OPS_DOMAIN, BESZEL_KEY), decrypted on the controller.
+# Secrets: infra/secrets/ops.enc.env (BESZEL_KEY), decrypted on the controller.
+# Starting it exposes nothing: the UIs bind loopback only, and prod nginx serves
+# ops.<domain> only once OPS_DOMAIN is in the prod .env, which a prod deploy refuses to
+# write before Cloudflare Access is confirmed (12-operations.md section 1, step 0).
 #
 # The env file is written here, not through tasks/write-env.yml, because that file only
-# accepts prod|demo|staging. Same rules: 0600 root, no_log, no diff (Security rule 13).
+# accepts prod|demo|staging. Same rules: root:deploy 0640, no_log, no diff (Security rule 13).
 - name: Ops stack
   hosts: all
   become: true
+  vars:
+    ops_dir: '{{ biddaloy_root }}/ops'
+    ops_env: "{{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/ops.enc.env', rstrip=false) }}"
   tasks:
-    - name: Create /opt/biddaloy/ops
+    # Same owner model as provision.yml (12-operations.md section 8), so the two never flip it.
+    - name: Create the ops directory
       ansible.builtin.file:
-        path: /opt/biddaloy/ops
+        path: '{{ ops_dir }}'
         state: directory
         mode: '0750'
         owner: root
-        group: root
+        group: '{{ deploy_user }}'
       tags: [env]
 
-    - name: Write /opt/biddaloy/ops/.env
+    - name: Write the ops .env
       ansible.builtin.copy:
-        content: "{{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/ops.enc.env', rstrip=false) }}"
-        dest: /opt/biddaloy/ops/.env
-        mode: '0600'
+        content: '{{ ops_env }}'
+        dest: '{{ ops_dir }}/.env'
+        mode: '0640'
         owner: root
-        group: root
+        group: '{{ deploy_user }}'
       diff: false
       no_log: true
       tags: [env]
 
     - name: Copy docker-compose.ops.yml
       ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../../docker-compose.ops.yml"
-        dest: /opt/biddaloy/ops/docker-compose.ops.yml
+        src: '{{ playbook_dir }}/../../docker-compose.ops.yml'
+        dest: '{{ ops_dir }}/docker-compose.ops.yml'
         mode: '0644'
         owner: root
         group: root
 
-    - name: Prod network exists
-      ansible.builtin.command: docker network inspect biddaloy-prod_default
-      changed_when: false
-      register: prod_net
-      failed_when: prod_net.rc != 0
-      # Fails here with a clear name instead of inside compose: start the prod stack first.
+    # Shared with prod nginx and the prod app (tasks/attach-edge.yml). Whichever of ops.yml
+    # and a prod deploy runs first creates it.
+    - name: The ops edge network exists
+      ansible.builtin.command: docker network create biddaloy-ops-edge
+      register: ops_net
+      changed_when: ops_net.rc == 0
+      failed_when: ops_net.rc != 0 and 'already exists' not in ops_net.stderr
 
     - name: Ops stack up
       community.docker.docker_compose_v2:
-        project_src: /opt/biddaloy/ops
+        project_src: '{{ ops_dir }}'
         files: [docker-compose.ops.yml]
-        env_files: [/opt/biddaloy/ops/.env]
+        env_files: ['{{ ops_dir }}/.env']
         state: present
         pull: missing
+
+    - name: Say what is left when BESZEL_KEY is still empty
+      ansible.builtin.debug:
+        msg: >-
+          BESZEL_KEY is empty: the beszel-agent container restarts until it is set. Copy the key
+          from the hub ("Add system"), `sops infra/secrets/ops.enc.env`, then rerun this playbook
+          (12-operations.md section 1, step 3).
+      when: ops_env is not search('(?m)^BESZEL_KEY=\S')
