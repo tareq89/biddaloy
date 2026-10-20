@@ -141,6 +141,10 @@ if [[ $R2_MODE -eq 1 ]]; then
   export AWS_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY_ID"
   export AWS_SECRET_ACCESS_KEY="$BACKUP_S3_SECRET_ACCESS_KEY"
   export AWS_DEFAULT_REGION="auto"
+  # aws-cli >= 2.23 sends CRC checksum trailers by default; R2 has rejected
+  # some of those shapes, which would fail every run at `dump`.
+  export AWS_REQUEST_CHECKSUM_CALCULATION=when_required
+  export AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
   DEST_ENDPOINT="$BACKUP_S3_ENDPOINT"
   DEST_BUCKET="$BACKUP_S3_BUCKET"
 else
@@ -279,13 +283,22 @@ if [[ $R2_MODE -eq 1 ]]; then
 
   # Deleted/overwritten files move to files-trash/<date>/ instead of vanishing.
   # --suffix adds the Dhaka run time (a.txt-140000), so a file changed twice on
-  # one date keeps both old copies. --max-delete fails the step (Kuma down)
-  # when a broken but non-empty source would move most files into the trash.
-  rclone sync "src:${S3_BUCKET}" r2crypt:files --exclude '/backups/**' \
-    --backup-dir "r2crypt:files-trash/${dhaka_date}" \
-    --suffix "-$(fmt_epoch "$dhaka_epoch" %H%M%S)" \
-    --max-delete "$BACKUP_FILES_MAX_DELETE" \
-    --fast-list --transfers 8
+  # one date keeps both old copies.
+  sync_args=("src:${S3_BUCKET}" r2crypt:files --exclude '/backups/**'
+    --backup-dir "r2crypt:files-trash/${dhaka_date}"
+    --suffix "-$(fmt_epoch "$dhaka_epoch" %H%M%S)"
+    --max-delete "$BACKUP_FILES_MAX_DELETE"
+    --fast-list --transfers 8)
+  # rclone checks --max-delete as it goes: a real sync moves the first N files
+  # to the trash and only then fails, so a broken but non-empty source would
+  # drain files/ N per hour until a run succeeds and the alert clears. A dry
+  # run with the same flags fails the same way but touches nothing; only when
+  # it passes does the real sync run.
+  if ! rclone sync "${sync_args[@]}" --dry-run -q; then
+    echo "backup.sh: files sync would delete more than BACKUP_FILES_MAX_DELETE files (or the dry run failed); refusing to sync" >&2
+    exit 1
+  fi
+  rclone sync "${sync_args[@]}"
   echo "backup.sh: files sync complete"
 
   # Trash is pruned by the date in the folder name, not file age: moved files

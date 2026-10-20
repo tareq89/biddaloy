@@ -62,9 +62,11 @@ pass "injected BACKUP_SCHEDULE is rejected"
 # A copied .env.example placeholder for the crypt password must stop the
 # container before supercronic starts (exit 1, not a hang).
 rc=0
-timeout -k 5 20 docker run --rm "${run_env[@]}" -e BACKUP_S3_ENDPOINT=https://r2.example \
+out="$(timeout -k 5 20 docker run --rm "${run_env[@]}" -e BACKUP_S3_ENDPOINT=https://r2.example \
   -e BACKUP_S3_BUCKET=b -e BACKUP_S3_ACCESS_KEY_ID=k -e BACKUP_S3_SECRET_ACCESS_KEY=0123456789abcdef0123 \
   -e BACKUP_RCLONE_CRYPT_PASSWORD=change-me -e BACKUP_RCLONE_CRYPT_SALT=0123456789abcdef0123 \
-  biddaloy-backup-test >/dev/null 2>&1 || rc=$?
+  biddaloy-backup-test 2>&1)" || rc=$?
 [ "$rc" -eq 1 ] || fail "placeholder crypt password was accepted (exit $rc)"
+grep -q 'BACKUP_RCLONE_CRYPT_PASSWORD is a placeholder' <<<"$out" \
+  || fail "exit 1 was not the placeholder check: $out"
 pass "placeholder crypt password is rejected"

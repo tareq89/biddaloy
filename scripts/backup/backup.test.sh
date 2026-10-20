@@ -48,6 +48,7 @@ case "$1" in
   sync)
     echo "confperm $(ls -l "$RCLONE_CONFIG" | cut -c1-10)" >>"$SHIM/log"
     echo "confnocheck $(grep -c 'no_check_bucket = true' "$RCLONE_CONFIG")" >>"$SHIM/log"
+    [[ "${RCLONE_DRY_FAIL:-}" == 1 && "$*" == *--dry-run* ]] && exit 7
     [[ "${RCLONE_FAIL:-}" == 1 ]] && exit 1 ;;
   lsf)
     case "$*" in
@@ -93,7 +94,9 @@ run_shim || shim_fail "plain run exited non-zero"
 has "s3://r2b/db/hourly/20261020T100000Z.dump.age"
 hasnt "s3 cp .*db/daily/"
 # 10:00Z = 16:00 Dhaka -> trash suffix -160000.
-has "rclone sync src:src r2crypt:files --exclude /backups/\*\* --backup-dir r2crypt:files-trash/2026-10-20 --suffix -160000 --max-delete 500 --fast-list --transfers 8"
+sync_line="rclone sync src:src r2crypt:files --exclude /backups/\*\* --backup-dir r2crypt:files-trash/2026-10-20 --suffix -160000 --max-delete 500 --fast-list --transfers 8"
+has "^$sync_line --dry-run -q$"
+has "^$sync_line$"
 has "confperm -rw-------"
 has "confnocheck 1"
 has "status=up&msg=ok"
@@ -194,6 +197,14 @@ has "status=down&msg=files-sync"
 hasnt "status=up"
 echo "PASS: failing step pushes down and exits non-zero"
 
+# 5a. the --max-delete dry run fails -> the real sync never runs, nothing moves.
+if run_shim RCLONE_DRY_FAIL=1; then shim_fail "failed dry run must exit non-zero"; fi
+has "--dry-run -q$"
+hasnt "--transfers 8$"
+has "status=down&msg=files-sync"
+grep -q "refusing to sync" "$SHIM/out" || shim_fail "no refusal message"
+echo "PASS: failed dry run skips the real sync"
+
 # 5b. db prunes still run when the files sync fails (they come first).
 echo "db/hourly/20260101T000000Z.dump.age" >"$SHIM/lists/db_hourly_"
 echo "db/hourly/20260102T000000Z.dump.age" >>"$SHIM/lists/db_hourly_"
@@ -216,14 +227,19 @@ echo "PASS: partial BACKUP_S3_* rejected"
 # 8. real rclone (local backend, no network): the exact sync shape backup.sh
 #    uses (crypt remote rooted at the bucket, --backup-dir on the same remote,
 #    --suffix) must exit 0; two deletes of one path on one date keep both
-#    trash copies; --max-delete stops a sync with too many deletes.
+#    trash copies; the dry-run-then-sync pair stops a broken source that
+#    deletes more than --max-delete files, on every run, touching nothing.
 if command -v rclone >/dev/null 2>&1; then
   RC="$SHIM/rc"; mkdir -p "$RC/src" "$RC/bucket"
   export RCLONE_CONFIG="$RC/rclone.conf"
   printf '[loc]\ntype = local\n\n[r2crypt]\ntype = crypt\nremote = loc:%s\nfilename_encryption = standard\npassword = %s\n' \
     "$RC/bucket" "$(printf '%s' pw | rclone obscure -)" >"$RCLONE_CONFIG"
   echo a >"$RC/src/a.txt"; echo b >"$RC/src/b.txt"
-  rsync_() { rclone sync "$RC/src" r2crypt:files --backup-dir r2crypt:files-trash/2026-10-20 --suffix "$1" --max-delete "$2" --fast-list --transfers 8; }
+  # Same pair as backup.sh: a dry run with the same flags, then the real sync.
+  rsync_() {
+    local a=("$RC/src" r2crypt:files --backup-dir r2crypt:files-trash/2026-10-20 --suffix "$1" --max-delete "$2" --fast-list --transfers 8)
+    rclone sync "${a[@]}" --dry-run -q 2>/dev/null && rclone sync "${a[@]}"
+  }
   rsync_ -100000 500 || shim_fail "real rclone first sync failed"
   rm "$RC/src/a.txt"
   rsync_ -110000 500 || shim_fail "real rclone sync with deletion failed"
@@ -236,6 +252,16 @@ if command -v rclone >/dev/null 2>&1; then
   rm "$RC/src/b.txt"
   if rsync_ -140000 0; then shim_fail "--max-delete 0 must stop a sync that deletes"; fi
   [[ -n "$(rclone lsf r2crypt:files)" ]] || shim_fail "--max-delete still deleted the file"
+  # A plain sync would move 3 files per run (exit 7) and go green on run 3;
+  # the dry run must keep all 10 in place across runs.
+  rm -f "$RC"/src/*; for i in 0 1 2 3 4 5 6 7 8 9; do echo "$i" >"$RC/src/f$i"; done
+  rsync_ -150000 500 || shim_fail "real rclone 10-file sync failed"
+  rm "$RC"/src/f[0-7]
+  for r in 1 2; do
+    if rsync_ "-16000$r" 3; then shim_fail "run $r: 8 deletes passed --max-delete 3"; fi
+    [[ "$(rclone lsf r2crypt:files | grep -c '^f')" == 10 ]] || shim_fail "run $r: files/ lost files"
+  done
+  if rclone lsf r2crypt:files-trash/2026-10-20 | grep -q '^f'; then shim_fail "dry run moved files to trash"; fi
   unset RCLONE_CONFIG
   echo "PASS: real rclone sync + --backup-dir + --suffix + --max-delete"
 else

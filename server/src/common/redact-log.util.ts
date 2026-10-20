@@ -36,7 +36,9 @@ const SENSITIVE_JSON_VALUE_PATTERN =
  * pressure.
  */
 export function redactPii(text: string): string {
-  return applyRedaction(safeDecode(text));
+  // Userinfo also runs on the raw text: decoding turns a password's `%2F`
+  // into `/`, which ends the match and would leave the rest of it in the log.
+  return applyRedaction(safeDecode(text.replace(URL_USERINFO_PATTERN, '$1[REDACTED]@')));
 }
 
 // A raw request URL/query string is commonly percent-encoded by the client
@@ -64,11 +66,12 @@ const SECRET_PATH_PATTERN = /(\/(?:public\/invoices|public\/verify|calendar\/fee
 // part is length-capped so the lookbehind stays linear.
 const SECRET_SPA_PATH_PATTERN = /(?<=^|[\s"=]|\/\/[^\s/"]{1,255})(\/[iv]\/)[^/?\s"]+/g;
 
-// A connection string's password: `postgres://app:pw@db:5432/x`. The host
-// `db` has no TLD, so EMAIL_PATTERN misses it. Runs first, so a host with a
-// TLD is not turned into one email. The password part is greedy up to the
-// last `@` before a `/` or space, since safeDecode turns `%40` back into `@`.
-const URL_USERINFO_PATTERN = /(\/\/[^\s/:@]+:)[^\s/]+@/g;
+// A connection string's password: `postgres://app:pw@db:5432/x`, or with no
+// username, `redis://:pw@redis:6379`. The host `db` has no TLD, so
+// EMAIL_PATTERN misses it. Runs first, so a host with a TLD is not turned
+// into one email. The password part is greedy up to the last `@` before a `/`
+// or space, since safeDecode turns `%40` back into `@`.
+const URL_USERINFO_PATTERN = /(\/\/[^\s/:@]*:)[^\s/]+@/g;
 
 function applyRedaction(text: string): string {
   return text

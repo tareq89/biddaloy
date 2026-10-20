@@ -118,4 +118,15 @@ describe('redactPii', () => {
     );
     expect(redactPii('https://x.test:8080/i/tok')).toBe('https://x.test:8080/i/[REDACTED]');
   });
+
+  it('redacts a password-only URL (empty username)', () => {
+    expect(redactPii('redis://:s3cret@redis:6379')).toBe('redis://:[REDACTED]@redis:6379');
+  });
+
+  // Decoding first would turn `%2F` into `/` and end the match mid-password.
+  it('redacts a password that contains an encoded slash', () => {
+    expect(redactPii('postgres://app:ab%2Fcd@db:5432/x')).toBe(
+      'postgres://app:[REDACTED]@db:5432/x',
+    );
+  });
 });

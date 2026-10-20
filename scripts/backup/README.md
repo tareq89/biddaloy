@@ -42,7 +42,8 @@ dump -> db/hourly/<UTC ts>.dump.age
      -> from 02:00 Dhaka, if today's daily is missing: copy to db/daily/<date>.dump.age
      -> prune db: BACKUP_HOURLY_KEEP=72, BACKUP_DAILY_KEEP=30
      -> rclone sync SeaweedFS -> r2crypt (changed/deleted files to
-        files-trash/<date>/<path>-<HHMMSS>; fails above BACKUP_FILES_MAX_DELETE=500)
+        files-trash/<date>/<path>-<HHMMSS>; a dry run first refuses
+        the sync, touching nothing, above BACKUP_FILES_MAX_DELETE=500)
      -> purge trash date folders older than BACKUP_TRASH_DAYS=30
      -> Uptime Kuma push (BACKUP_PUSH_URL): up, or down&msg=<failed step>
 ```

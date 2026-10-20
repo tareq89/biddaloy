@@ -78,17 +78,27 @@ objects in SeaweedFS once (a one-time cleanup); the files sync skips `backups/`.
   characters. Example: uncommenting `BACKUP_RCLONE_CRYPT_PASSWORD=change-me`
   from `.env.example` stops the container with
   `BACKUP_RCLONE_CRYPT_PASSWORD is a placeholder or shorter than 16 characters`.
-- The files sync stops after `BACKUP_FILES_MAX_DELETE` (default 500) deletes
-  in one run. The step fails, Kuma goes down, and a human checks the source.
-  This catches a wrong or half-empty source bucket that the empty-source
-  guard cannot see. After a real mass delete, raise the value for one run.
+- The files sync refuses to sync (touches nothing) when it would delete more
+  than `BACKUP_FILES_MAX_DELETE` (default 500) files in one run. A
+  `rclone sync --dry-run` with the same flags runs first; only when it passes
+  does the real sync run. The step fails, Kuma goes down, and it stays down
+  every hour until a human checks the source. This catches a wrong or
+  half-empty source bucket that the empty-source guard cannot see. After a
+  real mass delete, raise the value for one run.
+  Why the dry run: rclone checks `--max-delete` as it goes, so a plain sync
+  moves the first 500 files to the trash and only then fails. The next run
+  moves 500 more, and the run that moves the last batch goes green.
 - Each trash copy gets the Dhaka run time as a suffix
   (`files-trash/2026-10-20/tenants/7/logos/a.png-140000`), so a file changed
   twice on one date keeps both old copies.
 - Recommended (a Cloudflare setting, not code): add R2 **Bucket Lock** rules
-  (for example `db/daily/` 30 days, `db/hourly/` 3 days) so a compromised host
-  with the delete-capable token cannot wipe the offsite dumps. Keep each lock
-  no longer than its keep window, or the hourly prune fails every run.
+  so a compromised host with the delete-capable token cannot wipe the
+  offsite dumps. Keep each lock clearly **shorter** than its keep window, for
+  example `db/hourly/` 48 hours (keep 72) and `db/daily/` 25 days (keep 30).
+  A lock equal to the window breaks: one extra or manual run, or a dump that
+  finishes a few seconds faster, makes the prune try to delete a key that is
+  still locked. The prune then fails, and because the db prunes run first,
+  that run also skips the files sync and the daily prune.
 
 If the network is down at the start, the run probes and waits (up to
 `BACKUP_NET_WAIT_SECS`, default 900) instead of failing at once.
@@ -235,7 +245,11 @@ through `rclone obscure`), then:
 rclone copy r2crypt:files/tenants/<tenant-id> ./out
 # a file deleted by mistake (still in trash for BACKUP_TRASH_DAYS)
 rclone copy r2crypt:files-trash/2026-10-20/tenants/<tenant-id> ./out-trash
-# trash copies end in the run time (-HHMMSS, Dhaka); strip it when restoring
+# trash copies end in the run time (-HHMMSS, Dhaka). The biggest suffix is
+# the newest copy from that date. Delete the copies you don't want, then
+# strip the suffix (bash 4+):
+shopt -s globstar
+for f in ./out-trash/**/*-[0-9][0-9][0-9][0-9][0-9][0-9]; do mv "$f" "${f%-??????}"; done
 ```
 
 In the R2 console the top-level folder names (`files`, `files-trash`, the
@@ -286,7 +300,7 @@ disaster recovery":
 | `BACKUP_HOURLY_KEEP`           | #1745  | Hourly dumps kept (default 72)                                                                                              |
 | `BACKUP_DAILY_KEEP`            | #1745  | Daily dumps kept (default 30)                                                                                               |
 | `BACKUP_TRASH_DAYS`            | #1745  | Days a deleted file stays in `files-trash/` (default 30)                                                                    |
-| `BACKUP_FILES_MAX_DELETE`      | #1745  | Files sync fails instead of deleting more than this many files in one run (default 500)                                     |
+| `BACKUP_FILES_MAX_DELETE`      | #1745  | Files sync refuses to sync (touches nothing) if it would delete more than this many files in one run (default 500)          |
 | `SENTRY_CRON_MONITOR_URL`      | 15.3.2 | Optional cron check-in                                                                                                      |
 | `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Decrypts for `restore.sh` — never in `.env`, see "Key handling"                                                             |
 
