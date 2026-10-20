@@ -13,6 +13,7 @@ import {
   useInvoice,
   useInvoiceSendCandidates,
   useInvoices,
+  useSendInvoice,
 } from './invoices';
 
 describe('invoiceQueryOptions', () => {
@@ -166,5 +167,46 @@ describe('useInvoiceSendCandidates', () => {
 
     expect(result.current.isPending).toBe(false);
     expect(result.current.sendCandidates).toEqual([]);
+  });
+});
+
+describe('useSendInvoice sends an Idempotency-Key [#2631]', () => {
+  it('reuses the key for an identical body, and rotates it after success', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/invoices/inv-1/send', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useSendInvoice('inv-1'), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current.mutateAsync({ medium: 'SMS' });
+    await result.current.mutateAsync({ medium: 'SMS' });
+
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    // Success rotates the key: the next identical-looking submit is a new attempt.
+    expect(keys[1]).not.toBe(keys[0]);
+  });
+
+  it('keeps the same key when an attempt fails and is re-sent unchanged', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/invoices/inv-1/send', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json({ message: 'boom' }, { status: 500 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useSendInvoice('inv-1'), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current.mutateAsync({ medium: 'SMS' }).catch(() => undefined);
+    await result.current.mutateAsync({ medium: 'SMS' }).catch(() => undefined);
+
+    expect(keys).toHaveLength(2);
+    expect(keys[1]).toBe(keys[0]);
   });
 });

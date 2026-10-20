@@ -48,6 +48,26 @@ describe('calendar-import-file.util (17.3.1)', () => {
     expect(rows[1].start_time).toBe('09:00');
   });
 
+  it('[2635] reads back exactly what the CSV writer wrote, including formula-looking text', async () => {
+    const descriptions = [
+      '=cmd|calc',
+      '+1',
+      '-2',
+      '@SUM(A1)',
+      "'hello", // a plain leading apostrophe is not a guard
+      "it's fine",
+      'plain',
+    ];
+    const csv = toCsvContent([
+      [...CALENDAR_IMPORT_COLUMNS],
+      ...descriptions.map((d) =>
+        CALENDAR_IMPORT_COLUMNS.map((c) => (c === 'description' ? d : '')),
+      ),
+    ]);
+    const rows = await parseCalendarImportFile(Buffer.from(csv, 'utf8'), 'x.csv');
+    expect(rows.map((r) => r.description)).toEqual(descriptions);
+  });
+
   it('matches columns by header name, not position', async () => {
     const reordered = [
       [...CALENDAR_IMPORT_COLUMNS].reverse(),

@@ -75,6 +75,12 @@ describe('demo seed validator', () => {
     expect(await checksOf({ 'money-invoice': [{ id: 'p' }] })).toContain('money');
   });
 
+  it('money: a WAIVED bill must be settled (paid + discount = total)', async () => {
+    const waived = { id: 'f', total: 100, paid: 0, discount: 100, status: 'WAIVED' };
+    expect(await checksOf({ 'money-fees': [waived] })).not.toContain('money');
+    expect(await checksOf({ 'money-fees': [{ ...waived, discount: 0 }] })).toContain('money');
+  });
+
   // A reversal sets the original payment REFUNDED (its allocations stay) and adds a REFUNDED
   // mirror payment with positive allocations, while paid_amount and discount drop back.
   it('money: a reversed payment is healthy', async () => {

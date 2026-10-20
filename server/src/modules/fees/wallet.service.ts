@@ -5,6 +5,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { round2 } from '../../common/constants/money';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { ApprovalScope, AuditAction, WalletTransactionKind } from '@biddaloy/shared';
@@ -316,9 +317,4 @@ export class WalletService {
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
-}
-
-/** Avoids float drift accumulating across many small credits/debits. */
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
 }

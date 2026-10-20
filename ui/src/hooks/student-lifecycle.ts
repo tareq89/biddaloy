@@ -95,7 +95,6 @@ export function useUpdateStudentRecords(studentId: string) {
   return useMutation({
     mutationFn: async (input: UpdateStudentRecordsInput) =>
       (await apiClient.patch<Student>(`/students/${studentId}/records`, input)).data,
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: studentKeys.detail(studentId) });
       void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });

@@ -297,6 +297,32 @@ describe('CommunicationsService', () => {
       expect(result.id).toBe('log-1');
     });
 
+    it.each([
+      [{ error: 'SMS (Greenweb) is not configured for this tenant' }, 'NOT_CONFIGURED'],
+      [{ error: 'No provider registered for medium "SMS"' }, 'NO_PROVIDER'],
+      // [2683] Raw provider text never reaches the response (Rule 23).
+      [{ error: 'Gateway https://gw.example/acct-9 rejected 01712345678' }, 'FAILED'],
+      [null, null],
+      [{}, null],
+      [{ error: 42 }, null],
+    ])('[#2604] maps metadata %j to error %j', async (metadata, expected) => {
+      repo.findOne.mockResolvedValue({
+        id: 'log-1',
+        tenant_id: TENANT_ID,
+        medium: CommunicationMedium.SMS,
+        recipient_address: '01712345678',
+        recipient_name: 'Guardian',
+        status: CommunicationStatus.FAILED,
+        provider_message_id: null,
+        metadata,
+        created_at: new Date(),
+      });
+
+      const result = await service.findOne('log-1', TENANT_ID);
+
+      expect(result.error).toBe(expected);
+    });
+
     it('throws NotFoundException when no row matches the id + tenant pair', async () => {
       // The mocked repo mirrors what a real tenant-scoped WHERE would
       // return for a missing row or one belonging to a different tenant —

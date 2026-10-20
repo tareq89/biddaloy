@@ -528,7 +528,8 @@
       "AUDIT_LOG_READ": "নিরীক্ষা লগ দেখা",
       "AUDIT_ENTITY_HISTORY_READ": "কার্যক্রমের ইতিহাস দেখা",
       "SETTINGS_MANAGE": "সেটিংস পরিচালনা",
-      "BACKUP_MANAGE": "ব্যাকআপ ও পুনরুদ্ধার"
+      "BACKUP_MANAGE": "ব্যাকআপ ও পুনরুদ্ধার",
+      "STEP_UP_REQUEST": "অনুমোদনকারীর নিশ্চিতকরণ চাওয়া"
     }
   },
   "filters": {

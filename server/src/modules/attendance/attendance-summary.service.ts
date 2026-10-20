@@ -15,6 +15,7 @@ import {
   STREAK_THRESHOLDS,
   StreakStatus,
 } from './attendance-streaks.util';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { Student } from '../students/entities/student.entity';
 import { sectionRosterStudentIds } from '../enrollments/section-roster';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -282,13 +283,14 @@ export class AttendanceSummaryService {
     // Query 2: marked_days — distinct dates with a record for the student,
     // counted only on working days (per the plan: a forced correction on a
     // non-working day must not inflate the denominator).
-    const markedRows: Array<{ student_id: string; marked_days: string }> =
+    const markedRows: Array<{ student_id: string; marked_days: string; first_marked: string }> =
       workingDays.dates.length === 0
         ? []
         : await this.recordRepo
             .createQueryBuilder('r')
             .select('r.student_id', 'student_id')
             .addSelect('COUNT(DISTINCT r.date)', 'marked_days')
+            .addSelect(`to_char(MIN(r.date), 'YYYY-MM-DD')`, 'first_marked')
             .innerJoin('r.session', 's')
             .where('r.tenant_id = :tenantId', { tenantId })
             .andWhere('s.period_no IS NULL')
@@ -296,6 +298,22 @@ export class AttendanceSummaryService {
             .andWhere('r.student_id IN (:...studentIds)', { studentIds })
             .groupBy('r.student_id')
             .getRawMany();
+
+    // [2658] Days before the student's first enrolment are not theirs to miss.
+    // The start is the earlier of the enrolment date and their first record, so
+    // history marked before an import-time enrolled_at still counts.
+    // ponytail: enrolment date is the UTC day; per-school timezone if it matters.
+    const enrolRows: Array<{ student_id: string; first_enrolled: string }> =
+      await this.studentRepo.manager
+        .createQueryBuilder(Enrollment, 'e')
+        .select('e.student_id', 'student_id')
+        .addSelect(`to_char(MIN(e.enrolled_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD')`, 'first_enrolled')
+        .where('e.tenant_id = :tenantId', { tenantId })
+        .andWhere('e.student_id IN (:...studentIds)', { studentIds })
+        .groupBy('e.student_id')
+        .getRawMany();
+    const enrolledOn = new Map(enrolRows.map((r) => [r.student_id, r.first_enrolled]));
+    const firstMarked = new Map(markedRows.map((r) => [r.student_id, r.first_marked]));
 
     const countsByStudent = new Map<string, StatusCounts>();
     for (const id of studentIds) {
@@ -328,9 +346,15 @@ export class AttendanceSummaryService {
     for (const studentId of studentIds) {
       const counts = countsByStudent.get(studentId)!;
       const markedDays = markedByStudent.get(studentId) ?? 0;
-      const unmarkedDays = Math.max(0, workingDays.count - markedDays);
+      const enrolled = enrolledOn.get(studentId);
+      const marked = firstMarked.get(studentId);
+      const start = enrolled && marked && marked < enrolled ? marked : enrolled;
+      const ownWorkingDays = start
+        ? workingDays.dates.filter((d) => d >= start).length
+        : workingDays.count;
+      const unmarkedDays = Math.max(0, ownWorkingDays - markedDays);
       const percentage = computeAttendancePercentage(
-        { ...counts, working_days: workingDays.count, marked_days: markedDays },
+        { ...counts, working_days: ownWorkingDays, marked_days: markedDays },
         policy,
       );
 
@@ -338,7 +362,7 @@ export class AttendanceSummaryService {
         student_id: studentId,
         from,
         to,
-        working_days: workingDays.count,
+        working_days: ownWorkingDays,
         marked_days: markedDays,
         present_days: counts.present_days,
         late_days: counts.late_days,

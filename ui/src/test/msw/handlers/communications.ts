@@ -356,7 +356,7 @@ const getBulkReminderLogs = http.get('/api/v1/communications/reminder/bulk/:id/l
         student_id: faker.string.uuid(),
         guardian_id: faker.string.uuid(),
         provider_message_id: null,
-        error: 'Provider rejected the number',
+        error: 'FAILED',
         created_at: new Date().toISOString(),
       },
     ],

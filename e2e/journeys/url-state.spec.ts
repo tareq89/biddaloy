@@ -1,5 +1,5 @@
 import { adminApiSession, createStudentsInSection } from '../api';
-import { loggedIn, test } from '../fixtures/test';
+import { expect, loggedIn, test } from '../fixtures/test';
 import { expectUrlParam } from '../pages/assertions';
 import { DetailShellPage } from '../pages/detail-shell';
 import { ListShellPage } from '../pages/list-shell';
@@ -76,4 +76,26 @@ test('search + page survive a reload; Back/Forward round-trip a detail tab', asy
     await page.goForward();
     await expectUrlParam(page, 'tab', 'fees');
   });
+});
+
+// [2602] The row selection is unbounded, so it is kept in memory, never in the
+// URL: a few hundred ids in `?selected=` made a refresh answer 431/414.
+test('selecting a row never writes the selection to the URL; a reload still renders', async ({
+  page,
+}) => {
+  const list = new ListShellPage(page, {
+    titleKey: 'students.list.title',
+    searchLabelKey: 'students.list.searchLabel',
+    openLabelKey: 'students.list.view',
+  });
+  await page.goto('/students');
+  await list.expectLoaded();
+  const box = list.dataRows().first().getByRole('checkbox');
+  await box.check();
+  await expect(box).toBeChecked();
+  expect(page.url()).not.toContain('selected=');
+
+  await page.reload();
+  await list.expectLoaded();
+  await expect(list.dataRows().first().getByRole('checkbox')).not.toBeChecked();
 });

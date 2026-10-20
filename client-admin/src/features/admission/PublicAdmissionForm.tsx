@@ -27,7 +27,13 @@ import {
   SelectValue,
 } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate, formatNumber, parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
+import {
+  formatDate,
+  formatNumber,
+  parseServerDate,
+  toIsoDate,
+  toLatinDigits,
+} from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
 import { CircleAlertIcon, FileImageIcon, FileTextIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
@@ -65,6 +71,12 @@ function isUnavailable(error: unknown): boolean {
 /** Cloudflare refused the token (stale, reused): the answers are fine, the check needs redoing. */
 function isCaptchaFailed(error: unknown): boolean {
   return error instanceof ApiError && error.details?.code === 'CAPTCHA_FAILED';
+}
+
+/** Digits only, with the leading 0 the server's BD_PHONE_REGEX expects ("1712-345678" -> "01712345678"). */
+function toLocalPhone(raw: string): string {
+  const digits = toLatinDigits(raw).replace(/\D/g, '').replace(/^880/, '');
+  return digits.startsWith('0') ? digits : `0${digits}`;
 }
 
 export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormProps) {
@@ -150,7 +162,7 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
       date_of_birth: dateOfBirth,
       gender,
       guardian_name: guardianName.trim(),
-      guardian_phone: guardianPhone,
+      guardian_phone: toLocalPhone(guardianPhone),
       captcha_token: captcha ?? NO_CAPTCHA_TOKEN,
       middle_name_confirm: honeypot,
       documents,

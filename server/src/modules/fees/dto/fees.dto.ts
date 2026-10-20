@@ -14,7 +14,6 @@ import {
   Matches,
   ArrayMinSize,
   ArrayMaxSize,
-  ValidateNested,
   MaxLength,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
@@ -42,6 +41,7 @@ export class CreateFeeStructureDto {
   fee_type: FeeType;
 
   @IsString()
+  @MaxLength(100)
   name: string;
 
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -71,6 +71,7 @@ export class UpdateFeeStructureDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   name?: string;
 
   @IsOptional()
@@ -175,6 +176,7 @@ export class CreatePaymentDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   transaction_reference?: string;
 
   @IsOptional()
@@ -185,61 +187,6 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsDateString()
   payment_date?: string;
-}
-
-export class PaymentAllocationInputDto {
-  @IsUUID()
-  student_fee_id: string;
-
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Max(MONEY_MAX)
-  @Min(0.01)
-  allocated_amount: number;
-
-  @IsEnum(PaymentAllocationType)
-  allocation_type: PaymentAllocationType;
-}
-
-export class RecordPaymentWithAllocationDto {
-  @IsUUID()
-  student_id: string;
-
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Max(MONEY_MAX)
-  @Min(0.01)
-  total_amount: number;
-
-  @IsEnum(PaymentMethod)
-  payment_method: PaymentMethod;
-
-  @IsArray()
-  @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => PaymentAllocationInputDto)
-  allocations: PaymentAllocationInputDto[];
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  transaction_reference?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(1000)
-  @SanitizeText()
-  remarks?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  generate_invoice?: boolean;
-
-  /** [16.1.6] Client-supplied idempotency key. A retried request with the
-   * same key (per tenant) returns the payment already created for it
-   * instead of recording a second one. */
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  idempotency_key?: string;
 }
 
 export class QueryPaymentDto {

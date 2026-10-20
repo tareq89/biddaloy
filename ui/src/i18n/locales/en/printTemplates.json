@@ -98,6 +98,7 @@
   "gate": {
     "title": "Open this on a computer",
     "body": "Designing and printing need a big screen. Copy the link and open it on a computer.",
+    "bodyNoLink": "This list is too long for a link. Open this page on a computer and choose the people again.",
     "copy": "Copy link",
     "copied": "Link copied",
     "copyFailed": "Could not copy the link",

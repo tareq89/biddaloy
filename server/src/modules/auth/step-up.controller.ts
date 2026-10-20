@@ -2,8 +2,10 @@ import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@n
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { JwtPayload } from '@biddaloy/shared';
-import { ContextGuard } from './guards/context.guard';
+import { JwtPayload, Permission } from '@biddaloy/shared';
+import { ContextGuard, RolesGuard } from './guards/context.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
+import { RequirePermissions } from './decorators/require-permissions.decorator';
 import { CurrentTenant } from './decorators/current-tenant.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -24,12 +26,13 @@ import { AllowWhenReadOnly } from './decorators/allow-when-read-only.decorator';
 @ApiTenantAuth()
 @FailClosedWithoutRedis()
 @Controller('auth/step-up')
-@UseGuards(AuthGuard('jwt'), ContextGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class StepUpController {
   constructor(private readonly stepUp: StepUpService) {}
 
   @AllowWhenReadOnly()
   @Post('otp/request')
+  @RequirePermissions(Permission.STEP_UP_REQUEST)
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({
     summary:
@@ -38,12 +41,14 @@ export class StepUpController {
   async requestOtp(
     @Body() dto: StepUpOtpRequestDto,
     @CurrentTenant() tenant: { id: string },
+    @CurrentUser() user: JwtPayload,
   ): Promise<StepUpOtpRequestResult> {
-    return this.stepUp.requestOtp(dto.identifier, tenant.id);
+    return this.stepUp.requestOtp(dto.identifier, tenant.id, user.sub);
   }
 
   @AllowWhenReadOnly()
   @Post()
+  @RequirePermissions(Permission.STEP_UP_REQUEST)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:

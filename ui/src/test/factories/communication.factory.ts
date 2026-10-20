@@ -22,6 +22,7 @@ export function communicationFactory(
     recipient_name: scriptedFullName(script),
     status: CommunicationStatus.SENT,
     provider_message_id: faker.string.alphanumeric(16),
+    error: null,
     created_at: faker.date.recent({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
     ...overrides,
   };

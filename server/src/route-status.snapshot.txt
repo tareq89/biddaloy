@@ -118,8 +118,8 @@ GET    /api/v1/auth/social/facebook/data-deletion/status                        
 GET    /api/v1/auth/social/identities                                            401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 DELETE /api/v1/auth/social/identities/:provider                                  401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 GET    /api/v1/auth/social/providers                                             PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
-POST   /api/v1/auth/step-up                                                      401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
-POST   /api/v1/auth/step-up/otp/request                                          401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
+POST   /api/v1/auth/step-up                                                      401 PASS PASS PASS PASS 403 403 403 403 403 PASS 403
+POST   /api/v1/auth/step-up/otp/request                                          401 PASS PASS PASS PASS 403 403 403 403 403 PASS 403
 POST   /api/v1/auth/verify-email                                                 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 POST   /api/v1/backup/export                                                     401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/backup/jobs                                                       401 PASS PASS PASS 403 403 403 403 403 403 403 403

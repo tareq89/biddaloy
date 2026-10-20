@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -27,6 +29,7 @@ import {
 } from './dto/students.dto';
 import { AuditAction, CommunicationMedium } from '@biddaloy/shared';
 import { assertSeatsAvailable, getSeatUsage } from '../schools/trial/seat-limit.service';
+import { ROLL_NUMBER_MAX } from './roll-number.util';
 import { normalizeBdPhoneNumber } from '../communications/providers/shared/phone-number.util';
 
 function isSeatLimitError(err: ConflictException): boolean {
@@ -40,6 +43,9 @@ function isSeatLimitError(err: ConflictException): boolean {
  * Extends BadRequestException so the row-scoped-vs-whole-request catch in
  * `validate`/`commit` keeps working unchanged.
  */
+/** The shape `StudentService.create` auto-numbers (`REG-<year>-NNNN`). */
+const AUTO_REGISTRATION_NUMBER = /^REG-\d{4}-\d+$/;
+
 class BulkRowError extends BadRequestException {
   constructor(
     message: string,
@@ -75,6 +81,7 @@ interface ValidatedBulkUploadRow {
   class: string;
   section: string;
   roll?: string;
+  registration_number?: string;
   guardian1_name: string;
   guardian1_phone: string;
   guardian1_email?: string;
@@ -112,6 +119,8 @@ interface StagedBulkUpload {
 
 @Injectable()
 export class StudentBulkUploadService {
+  private readonly logger = new Logger(StudentBulkUploadService.name);
+
   constructor(
     @InjectRepository(Class)
     private readonly classRepo: Repository<Class>,
@@ -210,6 +219,80 @@ export class StudentBulkUploadService {
           message: match
             ? `Already imported: ${match.full_name} (${match.registration_number}) is in this section with the same guardian phone. Remove this row to import the rest.`
             : `Duplicate: this student is also in row ${firstRow} of this file, in the same section with the same guardian phone. Remove one of the two rows.`,
+        });
+      });
+      staged = staged.filter((_, i) => !dropped.has(i));
+      preview = preview.filter((_, i) => !dropped.has(i));
+    }
+
+    // [F-025] A roll already held in the section (a soft-deleted student keeps its roll: the unique
+    // index is not partial) is a validate-time error, so `rows_to_create` matches what commit creates.
+    if (staged.some((r) => r.rollNumber !== undefined)) {
+      const withRoll = staged.filter((r) => r.rollNumber !== undefined);
+      const held = await this.classRepo.manager.find(Student, {
+        select: { class_section_id: true, roll_number: true },
+        where: {
+          tenant_id: tenantId,
+          class_section_id: In([...new Set(withRoll.map((r) => r.classSectionId))]),
+          roll_number: In([...new Set(withRoll.map((r) => r.rollNumber as number))]),
+        },
+        withDeleted: true,
+      });
+      const heldKeys = new Set(held.map((s) => `${s.class_section_id}::${s.roll_number}`));
+      const dropped = new Set<number>();
+      staged.forEach((row, i) => {
+        if (
+          row.rollNumber === undefined ||
+          !heldKeys.has(`${row.classSectionId}::${row.rollNumber}`)
+        )
+          return;
+        dropped.add(i);
+        errors.push({
+          row: row.rowNumber,
+          tab: undefined,
+          column: 'roll',
+          severity: 'error',
+          message: 'This roll number is already used in this section.',
+        });
+      });
+      staged = staged.filter((_, i) => !dropped.has(i));
+      preview = preview.filter((_, i) => !dropped.has(i));
+    }
+
+    // [F-023] A supplied registration number must be unique in the file and in the school (the
+    // unique index is not partial, so a soft-deleted student still holds its number).
+    if (staged.some((r) => r.registration_number)) {
+      const held = new Set(
+        (
+          await this.classRepo.manager.find(Student, {
+            select: { registration_number: true },
+            where: {
+              tenant_id: tenantId,
+              registration_number: In(staged.flatMap((r) => r.registration_number ?? [])),
+            },
+            withDeleted: true,
+          })
+        ).map((s) => s.registration_number),
+      );
+      const seen = new Set<string>();
+      const dropped = new Set<number>();
+      staged.forEach((row, i) => {
+        const reg = row.registration_number;
+        if (!reg) return;
+        const message = seen.has(reg)
+          ? 'This registration number appears more than once in this file.'
+          : held.has(reg)
+            ? 'This registration number is already used by another student.'
+            : undefined;
+        seen.add(reg);
+        if (!message) return;
+        dropped.add(i);
+        errors.push({
+          row: row.rowNumber,
+          tab: undefined,
+          column: 'registration_number',
+          severity: 'error',
+          message,
         });
       });
       staged = staged.filter((_, i) => !dropped.has(i));
@@ -349,8 +432,13 @@ export class StudentBulkUploadService {
             ...(err instanceof BulkRowError && err.value !== undefined ? { value: err.value } : {}),
             reason: this.describeError(err),
           });
+        } else if (err instanceof HttpException) {
+          // e.g. ROLL_NUMBER_EXHAUSTED: a deliberate, user-safe message.
+          errors.push({ row: row.rowNumber, reason: this.describeError(err) });
         } else {
-          throw err;
+          // Never echo database text; the original goes to the log only.
+          this.logger.error(`Bulk upload row ${row.rowNumber} failed`, (err as Error)?.stack);
+          errors.push({ row: row.rowNumber, reason: 'Could not be created' });
         }
       }
     }
@@ -438,9 +526,24 @@ export class StudentBulkUploadService {
       );
     }
 
+    const registrationNumber = dto.registration_number?.trim() || undefined;
+    // REG-<year>-<digits> is the auto series nextTenantSerial counts: a supplied number there
+    // could collide with the next auto number or push it past 15 digits (then every later
+    // auto-numbered create in the school fails). Rule 23: no value in the message.
+    if (registrationNumber && AUTO_REGISTRATION_NUMBER.test(registrationNumber)) {
+      throw new BulkRowError(
+        'Numbers like REG-<year>-<number> are kept for automatic numbering. Leave the cell blank to get one, or use another format.',
+        'registration_number',
+      );
+    }
+
     let rollNumber: number | undefined;
     if (dto.roll) {
       rollNumber = parseInt(dto.roll, 10);
+      // Rule 23: no submitted value in the message.
+      if (rollNumber > ROLL_NUMBER_MAX) {
+        throw new BulkRowError(`Roll number must be at most ${ROLL_NUMBER_MAX}`, 'roll');
+      }
       const seen = rollsSeenThisRequest.get(classSectionId) ?? new Set<number>();
       if (seen.has(rollNumber)) {
         throw new BulkRowError(
@@ -459,6 +562,7 @@ export class StudentBulkUploadService {
       class: dto.class,
       section: dto.section,
       roll: dto.roll,
+      registration_number: registrationNumber,
       guardian1_name: dto.guardian1_name,
       guardian1_phone: dto.guardian1_phone,
       guardian1_email: dto.guardian1_email,
@@ -532,6 +636,8 @@ export class StudentBulkUploadService {
           tenantId,
           manager,
           userId ? { userId } : undefined,
+          // Never in the auto series: validateRow refuses REG-<year>-<digits>.
+          { registrationNumber: row.registration_number },
         );
         return student.id;
       });

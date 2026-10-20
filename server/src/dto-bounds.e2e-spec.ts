@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
@@ -65,7 +66,7 @@ describe('DTO bounds (75.14)', () => {
     return res.body.access_token;
   }
 
-  const as = (method: 'get' | 'post', path: string, token: string) =>
+  const as = (method: 'get' | 'post' | 'patch', path: string, token: string) =>
     supertest(app.getHttpServer())
       [method](`${API}${path}`)
       .set('Authorization', `Bearer ${token}`)
@@ -137,6 +138,76 @@ describe('DTO bounds (75.14)', () => {
   // nothing created here needs cleaning up.
   afterAll(async () => {
     await app.close();
+  });
+
+  describe('real dates', () => {
+    // Path ids are random: validation runs before any lookup.
+    const id = randomUUID();
+    it.each([
+      [`/attendance/students/${id}/days?month=2026-13`, /^month /],
+      [`/attendance/students/${id}/summary?month=2026-13`, /^month /],
+      [`/attendance/sections/${id}/summary?from=2026-02-30&to=2026-03-01`, /^from /],
+      [`/attendance/sections/${id}/register?date=2026-02-30`, /^date /],
+      [`/attendance/sections/${id}/register-matrix?month=2026-13`, /^month /],
+      ['/invoices?from_date=2026-02-30', /^from_date /],
+      ['/attendance/flags/low?from=2026-02-30&to=2026-03-01', /^from /],
+    ])('GET %s is 400 naming the field', async (path, field) => {
+      expectFieldError(await as('get', path, adminToken), field);
+    });
+
+    it('a valid leap day is accepted', async () => {
+      await as('get', '/attendance/flags/low?from=2028-02-29&to=2028-03-01', adminToken).expect(
+        200,
+      );
+    });
+  });
+
+  describe('roll_number', () => {
+    const body = (roll_number: number) => ({
+      full_name: 'DTO Bounds Roll',
+      class_section_id: SEED_SECTION_1_ID,
+      date_of_birth: '2010-01-01',
+      roll_number,
+    });
+
+    it.each([100000, 2147483648])(
+      'POST /students with roll_number %i is 400 naming it',
+      async (n) => {
+        expectFieldError(await as('post', '/students', adminToken).send(body(n)), /^roll_number /);
+      },
+    );
+
+    it('POST 99999 is 201, then PATCH 100000 is 400 and PATCH 99999 is 200', async () => {
+      const created = await as('post', '/students', adminToken).send(body(99999)).expect(201);
+      const id = created.body.id;
+      expectFieldError(
+        await as('patch', `/students/${id}`, adminToken).send({ roll_number: 100000 }),
+        /^roll_number /,
+      );
+      await as('patch', `/students/${id}`, adminToken).send({ roll_number: 99999 }).expect(200);
+    });
+  });
+
+  describe('string length', () => {
+    // [2608] Validation runs before the lookup, so a random id needs no fixture.
+    const id = randomUUID();
+    it.each([
+      ['/students', 'full_name', 100],
+      ['/guardians', 'full_name', 100],
+      ['/guardians', 'relationship', 50],
+      ['/guardians', 'occupation', 100],
+      ['/fee-structures', 'name', 100],
+      ['/academic-years', 'name', 50],
+      ['/admission-intakes', 'title', 200],
+    ])('PATCH %s/:id %s over %i characters is 400 naming the field', async (route, field, max) => {
+      const res = await as('patch', `${route}/${id}`, adminToken).send({
+        [field]: 'ক'.repeat(max + 1),
+      });
+      expectFieldError(
+        res,
+        new RegExp(`^${field} must be shorter than or equal to ${max} characters`),
+      );
+    });
   });
 
   describe('list limit', () => {

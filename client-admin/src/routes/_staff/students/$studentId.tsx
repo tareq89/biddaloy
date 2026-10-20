@@ -1,6 +1,12 @@
 import { EnrollmentStatus, Permission, STUDENT_CERTIFICATE_KINDS } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, RoutePending, StatusBadge, StudentAlertStrip } from '@biddaloy/ui/components';
+import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
+import {
+  ErrorState,
+  RecordNotFoundState,
+  RoutePending,
+  StatusBadge,
+  StudentAlertStrip,
+} from '@biddaloy/ui/components';
 import {
   studentQueryOptions,
   useHasPermission,
@@ -272,6 +278,10 @@ function StudentDetailPage() {
     <RegionConfigProvider value={regionConfig}>
       {studentQuery.isPending ? (
         <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />
+      ) : isNotFoundError(studentQuery.error) ? (
+        <PageContainer>
+          <RecordNotFoundState onBack={() => void navigate({ to: '/students' })} />
+        </PageContainer>
       ) : studentQuery.isError ? (
         <PageContainer>
           <ErrorState

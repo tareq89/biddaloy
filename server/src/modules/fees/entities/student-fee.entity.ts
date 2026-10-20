@@ -51,6 +51,12 @@ import { FeeStatus, PeriodType } from '@biddaloy/shared';
 @Check('"year" > 0')
 @Check('total_amount > 0')
 @Check('discount_amount = standing_discount_amount + one_off_discount_amount')
+// Added NOT VALID by migration 1791900000300 (#2636): new rows are checked, old rows are audited by hand.
+@Check('CHK_sf_paid_plus_discount', '"paid_amount" + "discount_amount" <= "total_amount"')
+@Check(
+  'CHK_sf_waived_settled',
+  `"status" <> 'WAIVED' OR "paid_amount" + "discount_amount" = "total_amount"`,
+)
 @Index(['period_start'])
 // Covering index for the committee-finance billed / paid / outstanding sums.
 @Index(

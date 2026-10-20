@@ -8,6 +8,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { optionalKeyOf } from '../../codec/tab-spec';
 import { routineSlotsTab } from './routine-slots.tab';
 
 /**
@@ -29,7 +30,7 @@ export interface RoutineSubstitutionRow {
   substitute_teacher_key: string | null;
   is_cancelled: boolean;
   reason: string | null;
-  created_by: string;
+  created_by: string | null;
   created_by_key: string;
 }
 
@@ -55,7 +56,7 @@ const columns: readonly ColumnSpec[] = [
     key: 'created_by',
     type: 'ref',
     ref: 'users',
-    required: true,
+    requiredOnNewRow: true,
     label: { en: 'Created by', bn: 'তৈরি করেছেন' },
   },
 ];
@@ -109,7 +110,7 @@ export const routineSubstitutionsTab: TabSpec<RoutineSubstitution, RoutineSubsti
         : null,
       is_cancelled: entity.is_cancelled,
       reason: entity.reason,
-      created_by: ctx.keyOf('users', entity.created_by),
+      created_by: optionalKeyOf(ctx, 'users', entity.created_by),
     };
   },
 
@@ -176,9 +177,9 @@ export const routineSubstitutionsTab: TabSpec<RoutineSubstitution, RoutineSubsti
       }
     }
 
-    const createdByKey = values.created_by as string;
-    const createdById = ctx.ref('users', createdByKey);
-    if (!createdById) {
+    const createdByKey = (values.created_by as string | null) ?? '';
+    const createdById = createdByKey ? (ctx.ref('users', createdByKey) ?? null) : null;
+    if (createdByKey && !createdById) {
       errors.push({
         tab: 'routine_substitutions',
         row: rowNo,
@@ -201,7 +202,7 @@ export const routineSubstitutionsTab: TabSpec<RoutineSubstitution, RoutineSubsti
         substitute_teacher_key: substituteKey,
         is_cancelled: values.is_cancelled as boolean,
         reason: (values.reason as string | null) ?? null,
-        created_by: createdById as string,
+        created_by: createdById,
         created_by_key: createdByKey,
       },
     };
@@ -223,7 +224,8 @@ export const routineSubstitutionsTab: TabSpec<RoutineSubstitution, RoutineSubsti
       changed.push('substitute_teacher');
     if (row.is_cancelled !== existing.is_cancelled) changed.push('is_cancelled');
     if (row.reason !== existing.reason) changed.push('reason');
-    if (row.created_by !== existing.created_by) changed.push('created_by');
+    if (row.created_by !== null && row.created_by !== existing.created_by)
+      changed.push('created_by');
     return changed;
   },
 
@@ -240,7 +242,7 @@ export const routineSubstitutionsTab: TabSpec<RoutineSubstitution, RoutineSubsti
     sub.substitute_teacher_id = row.substitute_teacher_id;
     sub.is_cancelled = row.is_cancelled;
     sub.reason = row.reason;
-    sub.created_by = row.created_by;
+    sub.created_by = (row.created_by ?? existing?.created_by) as string;
 
     return m.save(RoutineSubstitution, sub);
   },

@@ -130,6 +130,8 @@ Signed-out pages (login, reset, public receipt, public admission form) use
   `row-actions-column` lint rule). Pass `data-focus-anchor` on the "view" action
   so Back returns focus to the row.
 - **Empty table** → `EmptyState` and no pager. **Failed load** → `ErrorState` with Retry.
+  ListShell switches to the no-matches state by itself when a filter is active; a page only
+  sets `kind: 'no-results'` to use its own words.
 - **Numbers are right-aligned.** **Status is always a `StatusBadge`** with a tone
   and an icon (success / warning / danger / info / neutral) — never plain text.
 - **Phone:** `DataTable` card mode. A short unpaginated table becomes compact two-line rows.
@@ -148,6 +150,35 @@ Signed-out pages (login, reset, public receipt, public admission form) use
   a bottom sheet. Active filters show as removable chips, with one "Clear all".
 - Field gap 16 px, label-to-control 6 px. Help text under the control; the error
   replaces it.
+
+- **A create or send dialog sends one request per double-click.** The submit
+  button gets `loading={mutation.isPending}`, plus an `inFlight` ref guard
+  (see `-program-form-dialog.tsx`) because a fast double-click can fire before
+  React re-renders. Sends and creates also carry an `Idempotency-Key`
+  (`useIdempotencyKey()`), so the server is the second line. **A new
+  create/send dialog joins the registry** in
+  `e2e/journeys/double-submit.registry.ts`; `double-submit.spec.ts` then
+  proves it.
+
+```mermaid
+flowchart LR
+  A[double-click Save] --> B[button busy, ref guard set]
+  B --> C[exactly one request]
+```
+
+A registry entry (the program dialog):
+
+```ts
+{
+  name: 'program',
+  route: '/programs',
+  open: (page) => addButton(page, 'programs.actions.add'),
+  fill: (page, suffix) => page.getByLabel(/name/i).fill(`Dbl program ${suffix}`),
+  submitKey: 'programs.formDialog.save',
+  postUrl: /\/api\/v1\/programs$/,
+  done: dialogClosed,
+}
+```
 
 ## 7. Formats — one function each (`ui/src/utils`)
 
@@ -421,6 +452,17 @@ Every page uses the shared hook `useLandingFlag(key, allowed)` in
 `client-admin/src/routes/_staff/-use-landing-flag.ts`. Do not write a second
 copy. `action-registry.test.ts` checks that the page declares each flag a
 palette action navigates to.
+
+### Accessibility learnings (Epic #2642, Wave 3, 2026-10-19)
+
+- **Tab panel focus (#2601, #2629).** A tab panel needs a visible focus ring on keyboard focus, and `aria-controls` must point at a panel that exists. Rule candidate: the axe suite covers it -> no rule.
+- **Grid rows (#2628).** The calendar month grid used bare cells; real ARIA rows and readable out-of-month dates fixed it. -> no rule.
+- **Opt-in scroll region (#2630).** A scrollable table must be keyboard-focusable, and a filter checkbox needs a 24px target. -> no rule.
+
+### List learnings (Epic #2642, Wave 4, 2026-10-19)
+
+- **ListShell shows a no-match state on its own (#2591).** When a rendered filter has a value and there are no rows, `ListShell` swaps in "No matches" with a Clear button. A page keeps its own words by passing `kind: 'no-results'`; without it the page's text is replaced. -> no rule.
+- **Selection is in memory (#2602).** Row selection never goes into the URL; the URL holds filters only. -> no rule.
 
 ### UX lint stragglers
 

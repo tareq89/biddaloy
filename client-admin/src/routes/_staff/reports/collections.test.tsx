@@ -30,6 +30,7 @@ describe('/reports/collections', () => {
         wallet_used: 30,
         wallet_added: 10,
         change_returned: 5,
+        wallet_paid_out: 75,
       },
       by_method: [{ payment_method: 'CASH', count: 12, collected: 3000, reversed: 0, net: 3000 }],
       by_collector: [
@@ -40,6 +41,7 @@ describe('/reports/collections', () => {
           collected: 3000,
           reversed: 0,
           net: 3000,
+          paid_out: 75,
         },
       ],
       by_fee_type: [{ fee_type: 'MONTHLY_TUITION', collected: 4000, discount: 166.67 }],
@@ -69,6 +71,10 @@ describe('/reports/collections', () => {
     expect(screen.getByText(formatServerAmount(4900, REGION_BD_BN))).toBeTruthy();
     expect(screen.getByText(formatDate('2026-09-15', REGION_BD_BN))).toBeTruthy();
     expect(screen.getAllByText(/^Total [0-9০-৯]+$/)).toHaveLength(4);
+    // [2626] wallet payouts: a tile in "Discounts and credit" and a collector column.
+    expect(screen.getByText('Cash paid out from wallets')).toBeTruthy();
+    expect(screen.getByText('Paid out')).toBeTruthy();
+    expect(screen.getAllByText(formatServerAmount(75, REGION_BD_BN))).toHaveLength(2);
   });
 
   it('shows the error state with a retry when the report fails to load', async () => {

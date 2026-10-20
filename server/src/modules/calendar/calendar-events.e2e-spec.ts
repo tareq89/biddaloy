@@ -333,6 +333,27 @@ describe('Calendar Events E2E', () => {
   });
 
   // [68.3.15.01] past closure, attendance guard, make-up day, legacy routes
+  it('[2620] POST without counts_as_working_day follows the type: EVENT true, HOLIDAY false', async () => {
+    const create = (type: CalendarEventType, date: string) =>
+      supertest(app.getHttpServer())
+        .post('/api/v1/calendar/events')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          type,
+          name: `Default flag ${type}`,
+          start_date: date,
+          end_date: date,
+          audience: CalendarAudience.ALL,
+        })
+        .expect(201);
+
+    const event = await create(CalendarEventType.EVENT, '2031-09-01');
+    expect(event.body.counts_as_working_day).toBe(true);
+    const holiday = await create(CalendarEventType.HOLIDAY, '2031-09-02');
+    expect(holiday.body.counts_as_working_day).toBe(false);
+  });
+
   describe('past closure and make-up days', () => {
     const post = (body: Record<string, unknown>) =>
       supertest(app.getHttpServer())

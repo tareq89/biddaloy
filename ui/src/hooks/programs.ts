@@ -205,7 +205,6 @@ export function useDeleteProgram() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/programs/${id}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: programKeys.all });
     },
@@ -255,7 +254,6 @@ export function useRemoveMilestone(programId: string) {
     mutationFn: async (milestoneId: string) => {
       await apiClient.delete(`/programs/${programId}/milestones/${milestoneId}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: programKeys.all });
     },
@@ -425,7 +423,6 @@ export function useRemoveAchievement() {
     mutationFn: async ({ achievementId }) => {
       await apiClient.delete(`/milestone-achievements/${achievementId}`);
     },
-    retry: shouldRetryQuery,
     onMutate: async ({ studentId, milestoneId }) => {
       if (!studentId || !milestoneId) return {};
       const key = studentProgramKeys(studentId);

@@ -51,9 +51,10 @@ export async function seedLastYearBills(c: ExtrasContext): Promise<void> {
   );
   await q(
     `INSERT INTO student_fees (student_id, academic_year_id, fee_structure_id, period_start, period_type,
-                               total_amount, paid_amount, status, due_date, created_at, updated_at)
+                               total_amount, paid_amount, discount_amount, one_off_discount_amount, status, due_date, created_at, updated_at)
      SELECT s.id, $2, fs.id, m.p, 'MONTH', fs.amount,
             CASE st WHEN 'PAID' THEN fs.amount WHEN 'PARTIALLY_PAID' THEN fs.amount / 2 ELSE 0 END,
+            CASE st WHEN 'WAIVED' THEN fs.amount ELSE 0 END, CASE st WHEN 'WAIVED' THEN fs.amount ELSE 0 END,
             st::student_fees_status_enum, m.p + 10, NOW(), NOW()
        FROM students s
        JOIN class_sections cs ON cs.id = s.class_section_id

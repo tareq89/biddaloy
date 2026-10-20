@@ -323,6 +323,32 @@ export class PromotionsService {
   //  Create (step 3)
   // ────────────────────────
 
+  /**
+   * [2614] A run can only move students into a year that starts later than the
+   * source class's year; the UI already offers only those. Dates are `date`
+   * columns, so comparing their timestamps is a plain calendar comparison.
+   */
+  private async assertTargetYearLater(
+    sourceYearId: string,
+    targetYearId: string,
+    tenantId: string,
+    repo: Repository<AcademicYear> = this.academicYearRepo,
+    lock = false,
+  ): Promise<void> {
+    const opts = lock ? { lock: { mode: 'pessimistic_read' as const } } : {};
+    const [source, target] = await Promise.all([
+      repo.findOne({ where: { id: sourceYearId, tenant_id: tenantId }, ...opts }),
+      repo.findOne({ where: { id: targetYearId, tenant_id: tenantId }, ...opts }),
+    ]);
+    if (!target || !source) throw new NotFoundException('Academic year not found');
+    if (new Date(target.start_date).getTime() <= new Date(source.start_date).getTime()) {
+      throw new UnprocessableEntityException({
+        message: "The target year must start after the source class's year",
+        details: { code: 'TARGET_YEAR_NOT_LATER' },
+      });
+    }
+  }
+
   async create(
     dto: CreatePromotionRunDto,
     tenantId: string,
@@ -334,6 +360,12 @@ export class PromotionsService {
     if (!sourceClass) {
       throw new NotFoundException(`Class with ID "${dto.source_class_id}" not found`);
     }
+
+    await this.assertTargetYearLater(
+      sourceClass.academic_year_id,
+      dto.target_academic_year_id,
+      tenantId,
+    );
 
     const suggestion = await this.resolveTarget(
       sourceClass,
@@ -824,6 +856,17 @@ export class PromotionsService {
         throw new ConflictException({ details: { code: 'ALREADY_COMMITTED' } });
       }
 
+      // Defence in depth: a year edited after the run was created can no longer be a valid target.
+      // Checked against the year the run recorded (its enrollments are what move), with both
+      // year rows share-locked so a concurrent year edit waits for this commit.
+      await this.assertTargetYearLater(
+        run.source_academic_year_id,
+        run.target_academic_year_id,
+        tenantId,
+        manager.getRepository(AcademicYear),
+        true,
+      );
+
       const entries = await entryRepo.find({ where: { run_id: run.id, tenant_id: tenantId } });
       if (entries.some((e) => movesUp(e.final_outcome) && e.placement_error)) {
         throw new UnprocessableEntityException(
@@ -1165,7 +1208,10 @@ export class PromotionsService {
       where: { id: studentId, tenant_id: tenantId },
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
 
     const entries = await this.entryRepo.find({

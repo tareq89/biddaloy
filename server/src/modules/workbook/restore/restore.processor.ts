@@ -220,6 +220,8 @@ export class RestoreProcessor extends WorkerHost {
         buffer,
         tenantId,
         this.dataSource.manager,
+        undefined,
+        { waitIfBusy: true },
       );
 
       if (validated.hardErrorCount > 0) {

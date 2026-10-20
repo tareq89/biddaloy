@@ -15,6 +15,7 @@ import {
   Req,
   NotFoundException,
 } from '@nestjs/common';
+import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -75,6 +76,7 @@ export class StudentController {
   // --- Student endpoints ---
 
   @Post('students')
+  @UseInterceptors(IdempotencyInterceptor)
   // [10.4] G3 grants AC STUDENT_CREATE (front-office intake); G1 tightens E
   // off (no write surface).
   @RequirePermissions(Permission.STUDENT_CREATE)

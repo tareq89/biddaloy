@@ -63,6 +63,12 @@ export function WidgetSlot({
         <React.Suspense
           fallback={
             <div data-slot="widget-skeleton" className={SKELETON_HEIGHT[size]}>
+              {/* The skeleton's only text: a phone tile's toggle is labelled by this slot. */}
+              {key && (
+                <span className="sr-only">
+                  {t('states.loading', { title: t(`widgets.${key}.title`) })}
+                </span>
+              )}
               <Skeleton className="size-full rounded-lg" />
             </div>
           }

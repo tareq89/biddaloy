@@ -5,6 +5,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from './validation-pipe';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { DataSource } from 'typeorm';
 import { UserRole, CommunicationMedium } from '@biddaloy/shared';
 import {
@@ -66,6 +67,9 @@ describe('Cross-tenant access (regression)', () => {
     app = moduleFixture.createNestApplication();
     configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
+    // The filter main.ts mounts: the asserted 404 envelope (statusCode, message, details) is
+    // its work; Nest's default handler returns an object-form NotFoundException verbatim.
+    app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
 
     dataSource = app.get(DataSource);

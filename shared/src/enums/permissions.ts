@@ -59,6 +59,10 @@ export enum Permission {
   // discount override, ...) gated by the tenant's `settings.fees.approval_mode`.
   // ADMIN only by default — see ROLE_PERMISSIONS comment below.
   FEE_APPROVE = 'FEE_APPROVE',
+  // [2639] Ask for a step-up approval token (the two /auth/step-up routes).
+  // Held by the staff roles that can trigger a gated action; not FEE_APPROVE,
+  // which is ADMIN-only and means "may be the approver".
+  STEP_UP_REQUEST = 'STEP_UP_REQUEST',
 
   // Invoice
   INVOICE_CREATE = 'INVOICE_CREATE',
@@ -271,6 +275,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   [UserRole.SUPER_ADMIN]: Object.values(Permission),
 
   [UserRole.ADMIN]: [
+    Permission.STEP_UP_REQUEST,
     // [52.1.1] Applications (D22/D45)
     Permission.APPLICATION_SUBMIT,
     Permission.APPLICATION_MANAGE,
@@ -405,6 +410,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.ACCOUNTANT]: [
+    Permission.STEP_UP_REQUEST,
     // [52.1.1] Applications (D22/D45)
     Permission.APPLICATION_SUBMIT,
     Permission.STUDENT_READ,
@@ -667,6 +673,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   // #1358 exam controller: runs exams, seat plans and results; reads marks
   // but never enters them; prints documents but never edits templates.
   [UserRole.EXAM_CONTROLLER]: [
+    Permission.STEP_UP_REQUEST,
     // [52.1.1] Applications (D22/D45)
     Permission.APPLICATION_SUBMIT,
     Permission.EXAM_MANAGE,

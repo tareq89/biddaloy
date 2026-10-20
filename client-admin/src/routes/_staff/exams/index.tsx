@@ -155,6 +155,7 @@ function ExamsListPage() {
   const hasFilters = !!academicYearId || !!classId;
   const emptyState: EmptyStateProps = hasFilters
     ? {
+        kind: 'no-results',
         title: t('list.noMatchTitle'),
         explanation: t('list.noMatchText'),
         action: {

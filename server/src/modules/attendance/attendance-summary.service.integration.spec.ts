@@ -128,6 +128,10 @@ describe('AttendanceSummaryService (integration)', () => {
       tenant_id: TENANT_ID,
     });
     await enrollStudent(dataSource, student);
+    // [2658] Fixture students were enrolled long before the 2026 test ranges.
+    await dataSource
+      .getRepository(Enrollment)
+      .update({ student_id: student.id }, { enrolled_at: new Date('2020-01-01T00:00:00Z') });
     return student.id;
   }
 
@@ -162,6 +166,26 @@ describe('AttendanceSummaryService (integration)', () => {
       // Default policy: lateCountsAsPresent = true, WORKING_DAYS denominator.
       // numerator = 2 present + 1 late = 3; denominator = 5 -> 60%.
       expect(summary.attendance_percentage).toBe(60);
+    });
+
+    it('[2658] counts working days only from the day the student was enrolled', async () => {
+      const studentId = await makeStudent(102);
+      await dataSource
+        .getRepository(Enrollment)
+        .update({ student_id: studentId }, { enrolled_at: new Date('2026-09-03T06:00:00Z') });
+      await markDay(studentId, '2026-09-03', AttendanceStatus.PRESENT);
+
+      const summary = await service.getStudentSummary({
+        tenantId: TENANT_ID,
+        studentId,
+        from: '2026-09-01',
+        to: '2026-09-05',
+      });
+
+      // 09-03, 09-04, 09-05 only; the two days before enrolment are not "unmarked".
+      expect(summary.working_days).toBe(3);
+      expect(summary.unmarked_days).toBe(2);
+      expect(summary.attendance_percentage).toBe(33.33);
     });
 
     it('returns null attendance_percentage, not 0, over a range with zero working days', async () => {

@@ -24,6 +24,12 @@ describe('resolveStatus', () => {
     expect(resolveStatus('a string')).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
     expect(resolveStatus(null)).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
   });
+
+  it('keeps a plain Error at 500 even when it carries a 4xx status or statusCode', () => {
+    // A 4xx would pass its raw message to the client and skip Sentry (e.g. WebPushError 410).
+    expect(resolveStatus(Object.assign(new Error('x'), { status: 413 }))).toBe(500);
+    expect(resolveStatus(Object.assign(new Error('x'), { statusCode: 410 }))).toBe(500);
+  });
 });
 
 describe('resolveDetailMessage', () => {

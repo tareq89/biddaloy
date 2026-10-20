@@ -243,6 +243,31 @@ rewrites the id file, flushes Redis and starts again.
 it: leave `PLATFORM_SMS_API_KEY` and `PLATFORM_ALERT_PHONES` unset on the demo host. The boot guard runs after the BullMQ
 workers start, so a non-demo school row stops the process a moment after it begins.
 
+### 3.8 Validate the student_fees money CHECKs (#2662)
+
+`CHK_sf_paid_plus_discount` and `CHK_sf_waived_settled` were added `NOT VALID`. New and changed rows are
+already checked. Old rows are not, until someone validates. Do it once per environment, after the audit.
+
+```mermaid
+flowchart LR
+  A[1. Audit: count bad rows] -->|0 rows| B[2. VALIDATE CONSTRAINT]
+  A -->|rows found| C[Fix the rows by hand, ask the school] --> A
+  B --> D[Done: CHECK now covers old rows too]
+```
+
+```sql
+-- 1. Audit. Both must return 0.
+SELECT count(*) FROM student_fees WHERE paid_amount + discount_amount > total_amount;
+SELECT count(*) FROM student_fees
+ WHERE status = 'WAIVED' AND paid_amount + discount_amount <> total_amount;
+
+-- 2. Validate. Takes only a SHARE UPDATE EXCLUSIVE lock: reads and writes continue.
+ALTER TABLE student_fees VALIDATE CONSTRAINT "CHK_sf_paid_plus_discount";
+ALTER TABLE student_fees VALIDATE CONSTRAINT "CHK_sf_waived_settled";
+```
+
+A restored old backup can hit these CHECKs on insert. Audit the backup the same way before restoring.
+
 ## 4. Env var reference
 
 | Variable                    | Required in prod?      | What it does                                                                       |
@@ -270,6 +295,9 @@ are **operator machine only, never in the app's env**:
 | `SMOKE_ADMIN_EMAIL` / `SMOKE_ADMIN_PASSWORD`     | Login for the ADMIN smoke account.                                                     |
 | `SMOKE_TEACHER_EMAIL` / `SMOKE_TEACHER_PASSWORD` | Login for the TEACHER smoke account.                                                   |
 | `SMOKE_SUPER_ADMIN_EMAIL` / `_PASSWORD`          | Login for the SUPER_ADMIN smoke account.                                               |
+| `SMOKE_PAID_STUDENT_FEE_ID`                      | Optional. An already-paid student fee id; adds the `#2592` checkout 409 row.           |
+| `SMOKE_OPEN_STUDENT_FEE_ID`                      | Optional. An outstanding student fee id; adds the `#2636` over-balance 400 row.        |
+| `SMOKE_PARENT_EMAIL` / `SMOKE_PARENT_PASSWORD`   | Optional. A PARENT smoke account; adds the `#2639` step-up 403 row.                    |
 | `SMOKE_HEALTH_TOKEN`                             | Optional. Adds a `/api/health/ready` check (internal URL only; nginx 404s it outside). |
 
 ## 5. Web push (VAPID keys)
@@ -387,7 +415,7 @@ changes.
 ## 7. Post-deploy smoke check
 
 `yarn smoke:post-deploy --base-url <url>` checks, in about 5 seconds, that a
-fresh deploy answers the seven things a real school needs. It stops at the first
+fresh deploy answers the nine things a real school needs. It stops at the first
 failure. Run it after every deploy and in every Epic 75 wave-close.
 
 ```mermaid
@@ -403,6 +431,10 @@ sequenceDiagram
   S->>A: GET /api/v1/students?limit=1 (teacher)
   S->>A: GET /api/v1/fees/dues?limit=1 (admin)
   S->>A: GET /api/v1/schools (super_admin)
+  S->>A: POST /api/v1/auth/login with a 1.2 MB body
+  A-->>S: 413
+  S->>A: POST /api/v1/auth/login with charset=bogus
+  A-->>S: 415
   Note over S: optional: GET /api/health/ready when SMOKE_HEALTH_TOKEN is set
 ```
 
@@ -417,8 +449,26 @@ PASS  POST /api/v1/auth/login (super_admin)  200  205ms
 PASS  GET  /api/v1/students?limit=1 (teacher)  200  63ms
 PASS  GET  /api/v1/fees/dues?limit=1 (admin)  200  88ms
 PASS  GET  /api/v1/schools (super_admin)  200  52ms
-smoke: 7/7 passed
+PASS  POST /api/v1/auth/login (#2634 413)  413  18ms
+PASS  POST /api/v1/auth/login (#2634 415)  415  9ms
+smoke: 9/9 passed
 ```
+
+**Optional write-rejection checks.** Each runs only when its variables are set.
+Every one is refused before any write, so none changes data. The two checkout
+rows also carry a hard guard: each line has a `0.01` one-off discount and no
+`X-Approval-Token` is sent. Checkout burns the `fees.discount` token as its last
+check before writing, so if the "paid" fee ever becomes payable again (its
+payment reversed, the bill regenerated) the row fails with a 403. It never
+records a real payment.
+
+| Row     | Runs when                                      | Expects                                                     |
+| ------- | ---------------------------------------------- | ----------------------------------------------------------- |
+| `#2592` | `SMOKE_PAID_STUDENT_FEE_ID`                    | checkout of an already-paid fee: 409 `CHECKOUT_FEE_SETTLED` |
+| `#2636` | `SMOKE_OPEN_STUDENT_FEE_ID`                    | checkout of `99999999.99`: 400 "outstanding balance"        |
+| `#2639` | `SMOKE_PARENT_EMAIL` + `SMOKE_PARENT_PASSWORD` | parent asks for a step-up OTP: 403                          |
+
+The `#2638` deleted-student invoice row is added by #2651 (Wave 2).
 
 Credentials come from the `SMOKE_*` env vars in §4, never from arguments. Exit
 code: 0 all passed, 1 a check failed, 2 bad usage (missing variable). Output
