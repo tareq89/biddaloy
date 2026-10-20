@@ -1,0 +1,19 @@
+---
+import Base from '../../../layouts/Base.astro';
+import SegmentHero from '../../../components/segment/SegmentHero.astro';
+import SegmentFeatures from '../../../components/segment/SegmentFeatures.astro';
+import SegmentCta from '../../../components/segment/SegmentCta.astro';
+import { LANGS, type Lang } from '../../../i18n';
+import { SEGMENTS, SEGMENT_IDS, type SegmentId } from '../../../content/segments';
+
+export const getStaticPaths = () =>
+  LANGS.flatMap((lang) => SEGMENT_IDS.map((segment) => ({ params: { lang, segment } })));
+
+const lang = Astro.params.lang as Lang;
+const seg = SEGMENTS[Astro.params.segment as SegmentId];
+---
+<Base lang={lang} title={seg.title[lang]} description={seg.description[lang]}>
+  <SegmentHero lang={lang} seg={seg} />
+  <SegmentFeatures lang={lang} seg={seg} />
+  <SegmentCta lang={lang} seg={seg} />
+</Base>
