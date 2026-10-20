@@ -1,0 +1,12 @@
+---
+# Staging has no nginx: prod's nginx serves staging.<domain> and reaches the app by
+# container name. Connecting by hand (not via compose) keeps staging's `app`/`db`
+# service names OFF prod's network, where they would answer prod's own lookups.
+# Needed after every recreate; the 'already exists' error on a repeat is fine.
+- name: Attach staging app to prod's network (prod nginx -> staging)
+  ansible.builtin.command: docker network connect biddaloy-prod_default biddaloy-staging-app
+  register: attach
+  changed_when: attach.rc == 0
+  failed_when: attach.rc != 0 and 'already exists' not in attach.stderr
+  when: env == 'staging' and not ansible_check_mode
+  tags: [mutating]

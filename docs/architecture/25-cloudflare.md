@@ -80,6 +80,33 @@ the evidence.
 Also confirm nothing broke for: the public invoice page (`/i/:token`), the
 public verify page (`/v/:token`), sign-up with Turnstile, cert renewal.
 
+## Access policies
+
+Cloudflare Access puts a login in front of a hostname **at the edge**. nginx does not check it: it trusts it because only
+Cloudflare can reach the origin (`$origin_allowed`, D17). So the DNS record must stay proxied, or Access is bypassed.
+
+```mermaid
+flowchart LR
+  U[visitor] --> CF["Cloudflare edge<br/>Access: email = owner?"]
+  CF -->|no| L[login page, 302]
+  CF -->|yes| N[origin nginx] --> A[staging app]
+```
+
+### Staging (`staging.<domain>`)
+
+1. Cloudflare dashboard > DNS: add `staging` (A record to the origin IP, or CNAME to `app`), **Proxied** (orange cloud).
+2. Zero Trust > Access > Applications > **Add an application** > **Self-hosted**.
+3. Name `Staging`. Session duration **24 hours**. Add public hostname `staging.<domain>` (path empty).
+4. Add policy: name `Owner only`, action **Allow**, include **Emails** = the owner's email. No other rule.
+5. Identity provider: **One-time PIN** is enough. Save.
+6. Verify: `curl -sI https://staging.<domain>/` with no cookie gives `302` to `<team>.cloudflareaccess.com`. In a private
+   window the same URL asks for a login, and after it the app loads.
+7. Also check `curl -sI https://staging.<domain>/ | grep -i x-robots-tag` after login (browser dev tools): `noindex, nofollow`.
+
+### Ops (`ops.<domain>`)
+
+Same steps with name `Ops` and hostname `ops.<domain>` (the ops stack is #1769). Policy `Owner only` again.
+
 ## Re-check
 
 Quarterly, and after any Cloudflare plan change. Items 7, 8, 9 and 11 are

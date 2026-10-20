@@ -102,7 +102,7 @@ Things to know:
 - **Unknown tag:** pre-flight checks the app image and the env's other image (backup, or demo-reset for demo) and fails before any container changes.
 - **Rollback redeploys the old image only.** The new compose and nginx files stay on the host. Migrations are not reverted (D11), so every migration must keep the old code working (see above).
 - **Prod backs up before migrating.** If the backup fails, migrations never run. Demo and staging take no backup. The very first prod deploy (no `ok` line in `deploys.log`) skips it too: there is no data worth saving yet.
-- **One env per host.** prod, demo and staging all bind the host's ports 80/443, so run one per host until #1768 separates them.
+- **One nginx per host.** prod and demo bind the host's ports 80/443, so they cannot share a host. Staging binds no ports: prod's nginx serves it (see [Staging](#staging)).
 - **`--check`** runs only the pre-flight and the file/env diffs. Pull, backup, migrate, restart, readiness and smoke are skipped.
 - **Skip the backup** (rare, e.g. a second deploy minutes later): `-e skip_backup=true`.
 - **`HEALTH_TOKEN` must be in the env's secrets file.** Without it `/api/health/ready` answers 404 and the deploy never turns ready.
@@ -192,7 +192,7 @@ the env schema and placeholder rules (`env.validation.ts`), the
 secret-echo guard, `DB_SSL`, the `SETTINGS_ENCRYPTION_KEY` shape (32 bytes
 of base64), the https rules for `APP_BASE_URL` and `PUBLIC_APP_URL`, and,
 when `ENABLE_API_DOCS=true`, that `API_DOCS_USER` and `API_DOCS_PASSWORD` are
-both set. It lists every failure, not just the first. It does not connect to Postgres,
+both set. It lists every failure, not just the first. `--env staging` adds the no-real-provider rules ([Staging](#staging)); `--file <path>` reads that env file instead of `.env`. It does not connect to Postgres,
 Redis or S3, so a wrong password or host still only shows up at boot. It
 always judges the env as production whatever `NODE_ENV` the file says. It
 reads the **host's** `.env` (not the container's environment) and needs node
@@ -365,7 +365,95 @@ $C up -d
 Compose must be new enough to read `additional_contexts: app: service:app` (2.20.2 is not).
 
 **Shared host.** The demo overlay assumes the host runs nothing else: the Docker proxy can stop any container on it.
-If the host is also used for staging (#1768), put the demo on its own host or accept that risk knowingly.
+The demo binds ports 80/443 like prod, so it cannot share a host with prod or staging anyway.
+
+## Staging
+
+`staging.<domain>` runs the **same images and compose files as prod**, in its own compose project
+(`biddaloy-staging`) with its own Postgres, Redis and SeaweedFS volumes on the **same host** as prod. Only the owner
+can open it (Cloudflare Access, see [25-cloudflare.md](25-cloudflare.md#access-policies)). It can never message a real
+person (D25).
+
+```mermaid
+flowchart LR
+  O[owner] -->|Cloudflare Access login| CF[Cloudflare]
+  CF --> N["prod nginx<br/>staging.conf.template<br/>noindex header"]
+  N -->|"biddaloy-staging-app:3000<br/>(looked up per request)"| SA[staging app]
+  SA --> SD[(biddaloy_staging)]
+  SA --> SB[(bucket biddaloy-staging)]
+  P[prod app] --> PD[(biddaloy)]
+```
+
+| Thing             | Staging value                                                                           |
+| ----------------- | --------------------------------------------------------------------------------------- |
+| Compose           | `docker-compose.yml` + `docker-compose.staging.yml`, project `biddaloy-staging`         |
+| Database / bucket | `biddaloy_staging` / `biddaloy-staging`                                                 |
+| Host ports        | none (db, redis, seaweedfs ports are reset; no nginx, no backup)                        |
+| Messages          | `DEMO_MODE=true`: SMS, WhatsApp, email all go to the log. No provider key is set at all |
+| Sign-up captcha   | Cloudflare's always-pass test secret `1x0000000000000000000000000000000AA`              |
+| Data              | the demo seed (below), not a copy of prod                                               |
+
+**Why `DEMO_MODE=true` and not off.** Provider keys can also live inside a school's own settings in the database, which no
+env check sees. `DEMO_MODE` sends every medium to the log before any provider is read, so it is the only switch that holds
+whatever the data says. The price: the demo's deny-list and 2 MB upload cap apply, so staging is not byte-for-byte prod
+for those routes. Staging also needs `DEMO_PASSWORD` in its env.
+
+**Host `.env`** (`infra/secrets/staging.enc.env`): `POSTGRES_DB=biddaloy_staging`, `S3_BUCKET=biddaloy-staging`,
+`DEMO_PASSWORD=...`, `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`, and no `SMS_*`, `SMTP_*`, `WHATSAPP_*`,
+`VAPID_*`, `PLATFORM_SMS_*` or `PLATFORM_ALERT_PHONES`. The prod `.env` must set `STAGING_DOMAIN=staging.<domain>`
+(prod's nginx renders the staging server block from it). Prod's nginx service must also pass it to the container
+(`STAGING_DOMAIN: ${STAGING_DOMAIN:-staging.invalid}` in `docker-compose.yml`): the image's envsubst only fills variables
+that exist in the container, so a template cannot carry its own default, and an unset one leaves a literal
+`${STAGING_DOMAIN}` in `server_name`.
+
+**Taking prod down while staging runs.** Staging's container is attached to prod's network, so
+`docker compose -p biddaloy-prod down` cannot remove that network ("network has active endpoints"). Stop staging first
+(`docker compose -p biddaloy-staging down`), or run `docker network disconnect biddaloy-prod_default biddaloy-staging-app`.
+
+**`config:check --env staging`** runs inside `deploy.yml -e env=staging`, before anything changes. A provider variable,
+a prod database or bucket, a real Turnstile secret or `DEMO_MODE` off stops the deploy:
+
+```text
+$ yarn config:check --env staging        # with SMTP_HOST=smtp.example.com in the env
+SMTP_HOST must be empty on staging (no real SMS / WhatsApp / email / push provider)
+```
+
+**How prod's nginx reaches staging.** Staging has no nginx. After each staging `up`, `deploy.yml` runs
+`docker network connect biddaloy-prod_default biddaloy-staging-app`. It is done by hand, not in compose, so staging's
+`app`, `db` and `redis` names never appear on prod's network (prod's own `app` lookup would otherwise sometimes land on
+staging). The template looks the upstream up per request, so prod's nginx boots fine while staging is off. Prod's nginx
+reads templates from `/opt/biddaloy/prod/nginx`: **after the first staging template lands, deploy prod once** so it
+renders `staging.conf.template`.
+
+**Release order: staging, check, prod.**
+
+```bash
+cd infra/ansible
+ansible-playbook deploy.yml -e env=staging -e version=3f9c2ab   # deploy and config check
+# open https://staging.<domain>, click through the change
+ansible-playbook deploy.yml -e env=prod -e version=3f9c2ab      # same tag, now prod
+```
+
+**Seed it** (first deploy only, and whenever you want fresh data). `seed:demo` refuses a database that is not empty of
+real schools, and needs `DEMO_MODE=true` and `DEMO_PASSWORD`, which the container already has:
+
+```bash
+cd /opt/biddaloy/staging
+docker compose -p biddaloy-staging -f docker-compose.yml -f docker-compose.staging.yml \
+  run --rm app node server/dist/scripts/demo-seed/index.js --scale 1 --years 1
+```
+
+(Same entry the demo reset runs, `scripts/demo/reset.sh`. There is no demo-state file on staging.)
+
+**Turn it off when idle** (frees the RAM; data stays in the volumes):
+
+```bash
+docker compose -p biddaloy-staging down        # add -v to also delete the data
+```
+
+Check no message left: register a user with a real phone number, then `docker compose -p biddaloy-staging logs app`
+shows the demo-log line and no SMS arrives. The smoke test is skipped for staging (Access would answer it with a login
+redirect).
 
 ## How a request is served
 

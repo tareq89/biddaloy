@@ -21,11 +21,25 @@
       docker compose --project-directory {{ project_dir }} -p {{ project_name }}
       {% for f in compose_files %}-f {{ f }} {% endfor %}
     env_notify: restart compose
-    images_by_env: { prod: [biddaloy-app, biddaloy-backup], demo: [biddaloy-app, biddaloy-demo-reset], staging: [biddaloy-app, biddaloy-backup] }
-    images: "{{ images_by_env[env] | default([]) }}"
-    smoke_vars: [SMOKE_ADMIN_EMAIL, SMOKE_ADMIN_PASSWORD, SMOKE_TEACHER_EMAIL, SMOKE_TEACHER_PASSWORD, SMOKE_SUPER_ADMIN_EMAIL, SMOKE_SUPER_ADMIN_PASSWORD]
+    images_by_env:
+      {
+        prod: [biddaloy-app, biddaloy-backup],
+        demo: [biddaloy-app, biddaloy-demo-reset],
+        staging: [biddaloy-app],
+      }
+    images: '{{ images_by_env[env] | default([]) }}'
+    smoke_vars:
+      [
+        SMOKE_ADMIN_EMAIL,
+        SMOKE_ADMIN_PASSWORD,
+        SMOKE_TEACHER_EMAIL,
+        SMOKE_TEACHER_PASSWORD,
+        SMOKE_SUPER_ADMIN_EMAIL,
+        SMOKE_SUPER_ADMIN_PASSWORD,
+      ]
     # demo_domain is not in the inventory yet: demo skips the smoke test until it is.
-    base_domain: "{{ {'prod': app_domain, 'staging': staging_domain, 'demo': demo_domain | default('')}[env] | default('') }}"
+    # Staging also skips it: Cloudflare Access answers the smoke script with a login redirect.
+    base_domain: "{{ {'prod': app_domain, 'staging': '', 'demo': demo_domain | default('')}[env] | default('') }}"
   handlers:
     - ansible.builtin.import_tasks: handlers/main.yml
 
@@ -70,12 +84,36 @@
     - name: Stop early when a compose file is missing
       ansible.builtin.fail:
         msg: >-
-          {{ item.item }} is missing (the staging overlay is created by #1768).
-          Nothing was changed.
+          {{ item.item }} is missing. Nothing was changed.
       when: not item.stat.exists
       loop: '{{ compose_src.results }}'
       loop_control:
         label: '{{ item.item }}'
+      tags: [always]
+
+    # Staging only (D25): refuse a provider key, a prod DB/bucket or a real Turnstile secret.
+    # Runs here, before any change. The decrypted env goes in on stdin; it is never written
+    # to the controller. Values are not printed (config-check names variables only).
+    - name: Staging config check (no real SMS / WhatsApp / email provider)
+      ansible.builtin.command: yarn workspace @biddaloy/server config:check --env staging --file /dev/stdin
+      args:
+        chdir: '{{ repo_root }}'
+        stdin: "{{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/staging.enc.env', rstrip=false) }}"
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      check_mode: false
+      register: staging_check
+      failed_when: false
+      no_log: true
+      when: env == 'staging'
+      tags: [always]
+
+    # The task above is no_log (its stdin is the secrets), so print its verdict here.
+    - name: Stop when the staging config check failed
+      ansible.builtin.fail:
+        msg: "{{ staging_check.stderr | default('') }}{{ staging_check.stdout | default('') }}"
+      when: env == 'staging' and staging_check.rc | default(0) != 0
       tags: [always]
 
     - name: Check the image tag exists in the registry
@@ -173,6 +211,9 @@
         - name: Start the new version
           ansible.builtin.include_tasks: tasks/compose-up.yml
 
+        - name: Attach staging to prod's network (staging only)
+          ansible.builtin.include_tasks: tasks/attach-staging.yml
+
         - name: Wait until the app reports ready
           ansible.builtin.command: >-
             {{ dc }} exec -T app sh -c
@@ -210,6 +251,8 @@
               no_log: true
             - name: Start the previous version
               ansible.builtin.include_tasks: tasks/compose-up.yml
+            - name: Attach staging to prod's network (staging only)
+              ansible.builtin.include_tasks: tasks/attach-staging.yml
             - name: Note the rollback
               ansible.builtin.set_fact:
                 deploy_status: rolled-back
