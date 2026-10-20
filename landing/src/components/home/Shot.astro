@@ -15,7 +15,9 @@ const pick = (theme: 'light' | 'dark') => {
   const img = files[`../../assets/shots/${key}.png`]?.default;
   return img ? { img, blur: blurs[key] } : undefined;
 };
-const variants = name ? ([['light', pick('light')], ['dark', pick('dark')]] as const).filter(([, v]) => v) : [];
+const pairs = name ? ([['light', pick('light')], ['dark', pick('dark')]] as const) : [];
+// Both themes or none: a lone theme would be hidden under the other one.
+const variants = pairs.every(([, v]) => v) ? pairs : [];
 ---
 <div class:list={['shot', { fill, real: variants.length > 0 }]}>
   {variants.length > 0 ? (
