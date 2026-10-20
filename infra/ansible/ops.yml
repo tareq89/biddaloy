@@ -1,0 +1,54 @@
+---
+# Ops stack (Beszel, Uptime Kuma, Dozzle) beside prod. Run after the prod stack is up (it
+# owns the biddaloy-prod_default network):
+#   ansible-playbook -i infra/ansible/inventory infra/ansible/ops.yml
+# Secrets: infra/secrets/ops.enc.env (OPS_DOMAIN, BESZEL_KEY), decrypted on the controller.
+#
+# The env file is written here, not through tasks/write-env.yml, because that file only
+# accepts prod|demo|staging. Same rules: 0600 root, no_log, no diff (Security rule 13).
+- name: Ops stack
+  hosts: all
+  become: true
+  tasks:
+    - name: Create /opt/biddaloy/ops
+      ansible.builtin.file:
+        path: /opt/biddaloy/ops
+        state: directory
+        mode: '0750'
+        owner: root
+        group: root
+      tags: [env]
+
+    - name: Write /opt/biddaloy/ops/.env
+      ansible.builtin.copy:
+        content: "{{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/ops.enc.env', rstrip=false) }}"
+        dest: /opt/biddaloy/ops/.env
+        mode: '0600'
+        owner: root
+        group: root
+      diff: false
+      no_log: true
+      tags: [env]
+
+    - name: Copy docker-compose.ops.yml
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../docker-compose.ops.yml"
+        dest: /opt/biddaloy/ops/docker-compose.ops.yml
+        mode: '0644'
+        owner: root
+        group: root
+
+    - name: Prod network exists
+      ansible.builtin.command: docker network inspect biddaloy-prod_default
+      changed_when: false
+      register: prod_net
+      failed_when: prod_net.rc != 0
+      # Fails here with a clear name instead of inside compose: start the prod stack first.
+
+    - name: Ops stack up
+      community.docker.docker_compose_v2:
+        project_src: /opt/biddaloy/ops
+        files: [docker-compose.ops.yml]
+        env_files: [/opt/biddaloy/ops/.env]
+        state: present
+        pull: missing

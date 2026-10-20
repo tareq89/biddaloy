@@ -1,0 +1,68 @@
+# Ops stack (Epic 61.0 / #1769): Beszel (host + container metrics), Uptime Kuma (uptime
+# monitors + alerts), Dozzle (live logs, view-only). Run beside the prod stack:
+#
+#   docker compose -f docker-compose.ops.yml --env-file /opt/biddaloy/ops/.env up -d
+#
+# (infra/ansible/ops.yml does this.) It joins the prod stack's network so Kuma can reach
+# app:3000 and prod nginx can reach the three UIs, which are served at
+# https://ops.<domain>/{beszel,kuma,dozzle}/ behind Cloudflare Access. Nothing here is
+# published on a public port (loopback binds only). First-run steps done by hand in the
+# UIs: docs/architecture/12-operations.md section 1.
+name: biddaloy-ops
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  beszel:
+    logging: *logging
+    image: henrygd/beszel:0.21.0@sha256:6b39a8b64f9b15d00a25e7683e31a93c46161182a54f62713525107064e10599
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8090:8090'
+    volumes:
+      - beszel_data:/beszel_data
+
+  beszel-agent:
+    logging: *logging
+    image: henrygd/beszel-agent:0.21.0@sha256:f27b1aa2c68404bc5b9e1a2ab36653bd9b4ee14f6299862f09cd5051a4134767
+    restart: unless-stopped
+    environment:
+      LISTEN: '45876'
+      # Public key shown by the hub's "Add system" dialog. Not secret, but the agent will not
+      # start without it.
+      KEY: ${BESZEL_KEY:?BESZEL_KEY must be set (copy it from the Beszel hub, "Add system")}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  uptime-kuma:
+    logging: *logging
+    image: louislam/uptime-kuma:1@sha256:70233f4acb5163fd2a59a49909cf01e44415cecff13dba69e3a86647a2919f83
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3001:3001'
+    volumes:
+      - kuma_data:/app/data
+
+  dozzle:
+    logging: *logging
+    image: amir20/dozzle:v11.3.3@sha256:6d9e194587c20660f73967ee8567ce8e2e9e2e17046b0c95586a37a970b1d5ed
+    restart: unless-stopped
+    environment:
+      DOZZLE_BASE: /dozzle
+      DOZZLE_NO_ANALYTICS: 'true'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+volumes:
+  beszel_data:
+  kuma_data:
+
+# The prod stack's default network (project biddaloy-prod). It must exist: start prod first.
+networks:
+  default:
+    name: biddaloy-prod_default
+    external: true

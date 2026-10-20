@@ -5,41 +5,117 @@
 
 ## 1. What is monitored
 
+Four tools, each watching something different. The ops tools run as a second
+Compose stack (`docker-compose.ops.yml`, started by `infra/ansible/ops.yml`)
+and are reached at `https://ops.<domain>/{beszel,kuma,dozzle}/` behind
+Cloudflare Access.
+
 ```mermaid
 flowchart LR
-    client["Browser SPA"] -->|errors + Web Vitals| sentryClient["Sentry\n(client)"]
-    server["NestJS server"] -->|5xx errors| sentryServer["Sentry\n(server)"]
-    worker["Communications worker"] -->|failed/stalled jobs| sentryServer
-    monitor["Uptime monitor"] -->|poll| liveness["GET /health"]
-    monitor -->|poll, token| readiness["GET /health/ready"]
-    server --> liveness
-    server --> readiness
-    attn["Attention scheduler"] -->|FAST sweep check-in| sentryCron["Sentry cron monitor"]
-    readiness -->|attention: stale = degraded| attn
+    client["Browser SPA"] -->|errors + Web Vitals| sentry["Sentry"]
+    server["NestJS server + worker"] -->|5xx, failed jobs, cron check-ins| sentry
+    kuma["Uptime Kuma"] -->|HTTP, keyword, TLS expiry| app["app + public site"]
+    jobs["backup / drill / demo reset"] -->|push when done| kuma
+    beszel["Beszel agent"] -->|CPU, RAM, disk, per-container| hub["Beszel hub"]
+    dozzle["Dozzle"] -.->|read-only log tail| logs["container logs"]
+    kuma -->|Telegram always, SMS if critical| oncall["you"]
+    hub -->|Telegram| oncall
+    sentry -->|email + mobile app| oncall
 ```
 
-- **Sentry (client)** — render/route errors, LCP/CLS/INP. See
-  [`10-third-party-services.md`](10-third-party-services.md) and
-  `ui/src/api/sentry.ts`.
-- **Sentry (server)** — every 5xx response and every terminal
-  communications-job failure. See [§5](#5-what-gets-attached-and-what-gets-scrubbed) below.
-- **`GET /health`** — liveness. Cheap, no dependency checks. Never fails
+| Tool        | Watches                                              | Alerts to                                  |
+| ----------- | ---------------------------------------------------- | ------------------------------------------ |
+| Sentry      | App errors, failed jobs, cron check-ins              | Email + Sentry mobile app                  |
+| Uptime Kuma | Is it up, is it fast enough, did the cron jobs run   | Telegram; SMS for the three critical ones  |
+| Beszel      | The VM and each container: CPU, RAM, disk, restarts  | Telegram                                   |
+| Dozzle      | Nothing on its own. Live log tail, view-only (D23)   | Nothing (no alerts configured)             |
+
+- **`GET /api/health`** — liveness. Cheap, no dependency checks. Never fails
   because Postgres or Redis is down.
-- **`GET /health/ready`** — readiness. Checks Postgres, Redis, the
+- **`GET /api/health/ready`** — readiness. Checks Postgres, Redis, the
   communications queue, and the attention engine heartbeat. Only Postgres
   down is `fail` (503); Redis, the queue or a stale engine is `degraded` (200),
-  so a Redis outage does not take the instance out of the load balancer. Token-protected, blocked at nginx from outside the
-  cluster — see [§3.2](#32-readiness-failing).
+  so a Redis outage does not take the instance out of the load balancer.
+  Token-protected (`X-Health-Token`) and blocked at nginx from outside, so only
+  Kuma, inside the Docker network, can call it — see [§3.2](#32-readiness-failing).
+- Sentry details: [`10-third-party-services.md`](10-third-party-services.md),
+  `ui/src/api/sentry.ts`, and [§6](#6-what-gets-attached-and-what-gets-scrubbed).
 
-## 2. Alert thresholds (configure these in Sentry / your uptime tool)
+### Uptime Kuma monitors
 
-| Signal                               | Threshold                                 | Where to configure                                           |
-| ------------------------------------ | ----------------------------------------- | ------------------------------------------------------------ |
-| 5xx rate                             | > 1% of requests over 5 min               | Sentry alert rule on the server project                      |
-| `communications job stalled` message | any occurrence                            | Sentry alert rule (issue alert, not metric)                  |
-| Readiness failing (Postgres down)    | `/health/ready` returns 503 for > 2 min   | Uptime monitor hitting `/health/ready` with `X-Health-Token` |
-| Attention cron check-in missed       | > 15 min                                  | Sentry Cron Monitor (5-min schedule, 15-min margin)          |
-| Engine stale reported by readiness   | `checks.attention = "stale"` for > 15 min | Uptime monitor body match on `/health/ready`                 |
+This table is the source of truth. Kuma keeps its config in its own database, so
+if you add or change a monitor in the UI, change this table in the same PR.
+
+| Name                 | Type           | Target                                                                                          | Interval              | Notifies       |
+| -------------------- | -------------- | ----------------------------------------------------------------------------------------------- | --------------------- | -------------- |
+| `app-internal-ready` | HTTP + keyword | `http://biddaloy-prod-app-1:3000/api/health/ready`, header `X-Health-Token`, accepted status 200-299 (no keyword: `degraded` is 200 and must not page) | 60 s | Telegram |
+| `app-public`         | HTTP           | `https://<app domain>/api/health`, retries 3                                                    | 60 s                  | Telegram + SMS |
+| `login-page`         | HTTP + keyword | `https://<app domain>/login`                                                                    | 60 s                  | Telegram       |
+| `demo-public`        | HTTP           | `https://<demo domain>/api/health`                                                              | 60 s                  | Telegram       |
+| `backup-hourly`      | Push           | URL goes in `BACKUP_PUSH_URL` (prod `.env`)                                                     | 3600 s, grace 900 s   | Telegram + SMS |
+| `drill-weekly`       | Push           | URL goes in `DRILL_PUSH_URL` (prod `.env`)                                                      | 604800 s, grace 7200 s | Telegram + SMS |
+| `demo-reset-nightly` | Push           | URL goes in `DEMO_RESET_PUSH_URL` (demo `.env`)                                                 | 86400 s, grace 3600 s | Telegram       |
+
+TLS expiry is built into every HTTPS monitor above (warn at 14 days, Telegram).
+`app-public` retrying 3 times at 60 s means the SMS arrives about 3 minutes
+after the app goes down.
+
+### Setting the tools up (by hand, once)
+
+The ops tools keep their settings in their own databases, so none of this is
+in the repo. The only secrets in the repo are `OPS_DOMAIN` and `BESZEL_KEY`
+(keys listed in `infra/secrets/ops.example.env`).
+
+```bash
+sops infra/secrets/ops.enc.env                  # set OPS_DOMAIN; BESZEL_KEY comes in step 2
+ansible-playbook -i infra/ansible/inventory infra/ansible/ops.yml
+```
+
+0. **Origin cert.** The Cloudflare Origin CA certificate must cover `ops.<domain>`
+   (wildcard or an extra name), or "Full (strict)" fails. The prod nginx also needs
+   `OPS_DOMAIN` in its environment (`docker-compose.yml`), or the ops template does not render.
+1. **Cloudflare Access.** Add `ops.<domain>` as an Access application with the
+   same policy as staging. Without it the three UIs have only their own login.
+2. **Beszel.** Open `/beszel/`, create the admin, click "Add system", host
+   `beszel-agent`, port `45876`. Copy the public key it shows into `BESZEL_KEY`
+   (`sops`), then rerun the playbook with `--tags env`. Alerts: add a Shoutrrr
+   Telegram URL in the hub settings; thresholds are in [§2](#2-alert-thresholds).
+3. **Uptime Kuma.** Open `/kuma/`, create the admin, add the monitors from the
+   table above. Create the push monitors first and paste each push URL into the
+   matching `.env` variable.
+4. **Notifications.** Telegram notifier (bot + private group), default-on for
+   every monitor. SMS notifier: Kuma "Webhook" with a custom body, pointed at the
+   SMS gateway's HTTP API (URL shape:
+   `server/src/modules/communications/providers/sms/*.gateway.ts`), attached only
+   to `app-public`, `backup-hourly` and `drill-weekly`.
+5. **Dozzle** needs nothing: view-only, no alerts.
+6. **Sentry rules** are listed in [§2](#2-alert-thresholds).
+
+Known limits:
+
+- Beszel and Uptime Kuma are not built to live under a sub-path. If a UI loads
+  blank or its websocket fails at `/beszel/` or `/kuma/`, give it its own
+  hostname instead (`beszel.<domain>`, `kuma.<domain>`).
+- Dozzle and the Beszel agent mount `docker.sock` read-only. That limits the
+  mount, not the Docker API: treat access to them as root on the VM (hence
+  Cloudflare Access).
+
+## 2. Alert thresholds
+
+Where each alert is set up. Kuma monitors and intervals: the table in [§1](#uptime-kuma-monitors).
+
+| Signal                               | Threshold                                      | Where to configure                                  |
+| ------------------------------------ | ---------------------------------------------- | --------------------------------------------------- |
+| App down                             | `app-public` fails 3 times in a row (~3 min)   | Uptime Kuma monitor, Telegram + SMS                 |
+| Readiness failing (Postgres down)    | `app-internal-ready` fails for > 2 min         | Uptime Kuma monitor                                 |
+| Engine stale reported by readiness   | Covered by the attention cron check-in below   | Sentry Cron Monitor (readiness stays 200 when stale) |
+| Backup / drill / demo reset missed   | No push inside interval + grace                | Uptime Kuma push monitors                           |
+| TLS certificate close to expiry      | < 14 days                                      | Uptime Kuma, built into HTTPS monitors              |
+| CPU, RAM, disk, container restarts   | Beszel defaults; tune after a week of real data | Beszel hub, Telegram                               |
+| 5xx rate                             | > 1% of requests over 5 min                    | Sentry alert rule on the server project             |
+| `communications job stalled` message | any occurrence                                 | Sentry alert rule (issue alert, not metric)         |
+| Attention cron check-in missed       | > 15 min                                       | Sentry Cron Monitor (5-min schedule, 15-min margin) |
+| Other cron check-ins                 | `SENTRY_CRON_MONITOR_URL`, `SENTRY_CRONS_URL`  | Sentry Cron Monitors                                |
 
 ## 3. Runbooks
 
