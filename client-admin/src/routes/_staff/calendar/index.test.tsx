@@ -726,6 +726,95 @@ describe('EventFormPage', () => {
     expect(working.getAttribute('aria-checked')).toBe('false');
   });
 
+  // [2620] The box follows the type until the user touches it: only Holiday is "not working".
+  describe('counts as working day follows the type [2620]', () => {
+    async function pickType(user: ReturnType<typeof renderWithProviders>['user'], name: string) {
+      await user.click(screen.getByRole('combobox', { name: 'Type' }));
+      await user.click(await screen.findByRole('option', { name }));
+    }
+    const renderCreate = (onSubmit: (v: unknown) => void = () => {}) =>
+      renderWithProviders(
+        <EventFormPage
+          mode="create"
+          isPending={false}
+          error={null}
+          onClose={() => {}}
+          onSubmit={onSubmit}
+        />,
+        { locale: 'en' },
+      );
+    const box = () =>
+      screen.findByRole<HTMLButtonElement>('checkbox', { name: 'Counts as a working day' });
+
+    it('Holiday is unchecked and editable; Exam is checked again', async () => {
+      const { user } = renderCreate();
+      const working = await box();
+      expect(working.getAttribute('aria-checked')).toBe('true');
+
+      await pickType(user, 'Holiday');
+      expect(working.disabled).toBe(false);
+      expect(working.getAttribute('aria-checked')).toBe('false');
+
+      await pickType(user, 'Exam');
+      expect(working.getAttribute('aria-checked')).toBe('true');
+    });
+
+    it('a hand choice survives a type change', async () => {
+      const { user } = renderCreate();
+      const working = await box();
+      await pickType(user, 'Holiday');
+      await user.click(working); // now checked by hand
+      expect(working.getAttribute('aria-checked')).toBe('true');
+
+      await pickType(user, 'Exam');
+      await pickType(user, 'Holiday');
+      expect(working.getAttribute('aria-checked')).toBe('true');
+    });
+
+    it('submitting a Holiday with defaults sends counts_as_working_day false', async () => {
+      const onSubmit = vi.fn();
+      // Prefilled dates only; the flag is left unset so the type default applies.
+      const prefilled = {
+        ...baseEvent({ name: 'Eid break', start_date: '2031-09-10', end_date: '2031-09-10' }),
+        counts_as_working_day: undefined,
+      } as unknown as CalendarEvent;
+      const { user } = renderWithProviders(
+        <EventFormPage
+          mode="create"
+          initialValues={prefilled}
+          isPending={false}
+          error={null}
+          onClose={() => {}}
+          onSubmit={onSubmit}
+        />,
+        { locale: 'en' },
+      );
+      await pickType(user, 'Holiday');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ type: CalendarEventType.HOLIDAY, counts_as_working_day: false }),
+      );
+    });
+
+    it('edit mode keeps the saved value when the type changes', async () => {
+      const { user } = renderWithProviders(
+        <EventFormPage
+          mode="edit"
+          initialValues={baseEvent({ counts_as_working_day: true })}
+          isPending={false}
+          error={null}
+          onClose={() => {}}
+          onSubmit={() => {}}
+        />,
+        { locale: 'en' },
+      );
+      const working = await box();
+      await pickType(user, 'Holiday');
+      expect(working.getAttribute('aria-checked')).toBe('true');
+    });
+  });
+
   it('choosing Make-up school day checks and disables "counts as working day"', async () => {
     const { user } = renderWithProviders(
       <EventFormPage

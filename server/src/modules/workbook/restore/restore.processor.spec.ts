@@ -202,10 +202,13 @@ describe('RestoreProcessor', () => {
 
       expect(staging.consume).toHaveBeenCalledWith(TENANT, USER, 'staging-1');
       expect(storage.get).toHaveBeenCalledWith('workbook-key-1');
+      // Waits for its turn behind an upload being validated, never refused (#2624).
       expect(validationService.validate).toHaveBeenCalledWith(
         Buffer.from('fake-xlsx-bytes'),
         TENANT,
         dataSource.manager,
+        undefined,
+        { waitIfBusy: true },
       );
     });
 
@@ -503,6 +506,8 @@ describe('RestoreProcessor', () => {
         expect.anything(),
         TENANT,
         expect.anything(),
+        undefined,
+        { waitIfBusy: true },
       );
     });
 

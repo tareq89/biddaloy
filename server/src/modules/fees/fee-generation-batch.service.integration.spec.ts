@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -151,6 +151,7 @@ describe('FeeGenerationBatchService (integration)', () => {
     overrides: Partial<{
       period_start: string;
       paid_amount: number;
+      total_amount: number;
       status: FeeStatus;
       occurrence: number;
     }> = {},
@@ -163,7 +164,7 @@ describe('FeeGenerationBatchService (integration)', () => {
       period_start: new Date(overrides.period_start ?? '2026-07-01'),
       period_type: PeriodType.MONTH,
       occurrence: overrides.occurrence ?? 1,
-      total_amount: 1000,
+      total_amount: overrides.total_amount ?? 1000,
       paid_amount: overrides.paid_amount ?? 0,
       discount_amount: 0,
       status: overrides.status ?? FeeStatus.PENDING,
@@ -290,6 +291,43 @@ describe('FeeGenerationBatchService (integration)', () => {
   });
 
   describe('removeUncollected', () => {
+    it('keeps a bill a checkout commits on while it runs (F-140)', async () => {
+      const batch = await createBatch();
+      const student = await studentRepo.save(makeStudent());
+      const bill = await addBill(batch.id, student.id);
+
+      // Another connection holds the bill, as a checkout would.
+      const other = dataSource.createQueryRunner();
+      await other.connect();
+      await other.startTransaction();
+      try {
+        await other.query('SELECT id FROM student_fees WHERE id = $1 FOR UPDATE', [bill.id]);
+        const removal = service.removeUncollected(batch.id, TENANT_ID, ACTOR_USER_ID);
+        removal.catch(() => undefined);
+        await expect
+          .poll(async () => {
+            const [{ n }] = await dataSource.query(
+              `SELECT count(*)::int AS n FROM pg_stat_activity
+                WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+            );
+            return n;
+          })
+          .toBeGreaterThan(0);
+        // The "checkout" pays the bill and commits.
+        await other.query(
+          `UPDATE student_fees SET paid_amount = 1000, status = 'PAID' WHERE id = $1`,
+          [bill.id],
+        );
+        await other.commitTransaction();
+        const result = await removal;
+        expect(result.removed_count).toBe(0);
+      } finally {
+        if (other.isTransactionActive) await other.rollbackTransaction();
+        await other.release();
+      }
+      expect(await studentFeeRepo.findOne({ where: { id: bill.id } })).not.toBeNull();
+    });
+
     it('soft-deletes only bills with paid_amount = 0, leaving the paid one', async () => {
       const batch = await createBatch();
       const s1 = await studentRepo.save(makeStudent());
@@ -498,6 +536,7 @@ describe('FeeGenerationBatchService (integration)', () => {
       const batch = await createBatch();
       const student = await studentRepo.save(makeStudent());
       const bill = await addBill(batch.id, student.id, {
+        total_amount: 1500, // paid must not exceed total (CHK_sf_paid_plus_discount)
         paid_amount: 1500,
         status: FeeStatus.PAID,
       });
@@ -621,6 +660,26 @@ describe('FeeGenerationBatchService (integration)', () => {
   });
 
   describe('patch', () => {
+    it('400s on a bad period_start and re-stamps nothing (F-142)', async () => {
+      const batch = await createBatch();
+      const student = await studentRepo.save(makeStudent());
+      const bill = await addBill(batch.id, student.id);
+      const bad: Array<Record<string, unknown>> = [
+        { period_start: '2026-08-15' }, // MONTH, not the 1st
+        { period_start: '2026-08-04', period_type: PeriodType.MONTH }, // not the 1st
+        { period_start: '2026-08-05', period_type: PeriodType.WEEK }, // WEEK, not Monday
+        { period_start: '2040-01-01' }, // outside the academic year
+        { period_type: PeriodType.WEEK }, // switch to WEEK with 2026-07-01 (a Wednesday)
+      ];
+      for (const dto of bad) {
+        await expect(
+          service.patch(batch.id, dto as any, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      }
+      const billAfter = await studentFeeRepo.findOneByOrFail({ id: bill.id });
+      expect(new Date(billAfter.period_start).toISOString().slice(0, 10)).toBe('2026-07-01');
+    });
+
     it('changes period_start/due_date on the batch and every one of its bills', async () => {
       const batch = await createBatch();
       const student = await studentRepo.save(makeStudent());

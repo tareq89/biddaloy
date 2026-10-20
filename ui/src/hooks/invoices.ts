@@ -14,6 +14,7 @@ import { useTranslation } from '../i18n';
 import type { InvoicePrintFormat } from '../utils/invoice-print-format';
 
 import type { Guardian } from './guardians';
+import { useIdempotencyKey } from './idempotency-key';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 import { studentQueryOptions } from './students';
@@ -335,10 +336,14 @@ export function useRevokeShare(invoiceId: string) {
  * in this codebase (there's no machine-readable error code field beyond
  * `message`, see `api/errors.ts`'s own header comment). */
 export function useSendInvoice(invoiceId: string) {
+  const { keyFor, rotate } = useIdempotencyKey();
   return useMutation({
     mutationFn: async (input: SendInvoiceInput) => {
-      await apiClient.post(`/invoices/${invoiceId}/send`, input);
+      await apiClient.post(`/invoices/${invoiceId}/send`, input, {
+        headers: { 'Idempotency-Key': keyFor(input) },
+      });
     },
+    onSuccess: rotate,
   });
 }
 

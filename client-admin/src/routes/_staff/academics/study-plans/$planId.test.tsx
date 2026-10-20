@@ -261,7 +261,7 @@ describe('/academics/study-plans/$planId', () => {
     );
     renderPage();
 
-    expect(await screen.findByText('Study plan not found.')).toBeTruthy();
+    expect(await screen.findByText('We could not find this record')).toBeTruthy();
   });
 
   it('the breadcrumb resolver returns the h1 string from the cached plan', () => {

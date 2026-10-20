@@ -10,6 +10,7 @@
 import { clearFirstPasswordGate } from './first-password-gate';
 import { clearAllFormDrafts } from './form-draft-storage';
 import { clearFreshness } from './freshness';
+import { clearListSelectionMemory } from './list-selection-memory';
 import { deleteOfflineDb, purgeTenantRefCache } from './offline-db';
 import { clearApiCache } from './sw-cache';
 import { clearPersistedTenant } from './tenant-storage';
@@ -138,6 +139,8 @@ export function clearAuthState(): void {
   void deleteOfflineDb();
   clearFreshness();
   clearAllFormDrafts();
+  // [2602]: a selected-rows set is one account's data too.
+  clearListSelectionMemory();
   notifyAuthStateChange();
 }
 

@@ -34,9 +34,17 @@
       "budgetSeconds": 535,
       "$comment": "[18.5.2] Re-baselined: p90 465s over 17 green push/merge_group runs. budgetSeconds = ceil(465 × 1.15)."
     },
-    "E2E smoke (chromium)": {
-      "budgetSeconds": 411,
-      "$comment": "[18.5.2] Re-baselined: p90 357s over 10 green push/merge_group runs (this job is newer — folded in PWA/offline in [18.2.3] — hence fewer green samples than the others). budgetSeconds = ceil(357 × 1.15)."
+    "E2E smoke (chromium 1/3)": {
+      "budgetSeconds": 690,
+      "$comment": "[2642] Provisional, n=0: the unsharded job measured 1,037s of Playwright wall (15.6 min of tests on 4 workers, run 39301055262) and timed out at 20 min, so the 3-way shard from #440 is back. Estimate per leg = ~210s fixed (setup, build, migrate, seed) + ~390s tests = 600s; budgetSeconds = ceil(600 × 1.15). Re-baseline on p90 once ~20 green push/merge_group runs exist."
+    },
+    "E2E smoke (chromium 2/3)": {
+      "budgetSeconds": 690,
+      "$comment": "[2642] Provisional, n=0: the unsharded job measured 1,037s of Playwright wall (15.6 min of tests on 4 workers, run 39301055262) and timed out at 20 min, so the 3-way shard from #440 is back. Estimate per leg = ~210s fixed (setup, build, migrate, seed) + ~390s tests = 600s; budgetSeconds = ceil(600 × 1.15). Re-baseline on p90 once ~20 green push/merge_group runs exist."
+    },
+    "E2E smoke (chromium 3/3)": {
+      "budgetSeconds": 690,
+      "$comment": "[2642] Provisional, n=0: the unsharded job measured 1,037s of Playwright wall (15.6 min of tests on 4 workers, run 39301055262) and timed out at 20 min, so the 3-way shard from #440 is back. Estimate per leg = ~210s fixed (setup, build, migrate, seed) + ~390s tests = 600s; budgetSeconds = ceil(600 × 1.15). Re-baseline on p90 once ~20 green push/merge_group runs exist."
     },
     "Bundle size delta": {
       "budgetSeconds": 83,

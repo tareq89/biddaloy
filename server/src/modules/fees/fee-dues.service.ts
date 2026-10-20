@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { round2 } from '../../common/constants/money';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, Brackets } from 'typeorm';
 import { StudentFee } from './entities/student-fee.entity';
@@ -7,8 +8,7 @@ import { FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
 import { QueryFeeDuesDto, QueryFlaggedDuesDto } from './dto/fees.dto';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { localToday } from '../../common/time';
-
-const OPEN_STATUSES = [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID];
+import { OPEN_FEE_STATUSES } from './fees.constants';
 
 export interface DueEntry {
   student_fee_id: string;
@@ -126,7 +126,7 @@ export class FeeDuesService {
     // `status` only narrows which students match (e.g. only those with a
     // PARTIALLY_PAID fee); the total_due/dues breakdown below always covers
     // every open (PENDING or PARTIALLY_PAID) fee for a matched student.
-    const matchStatuses = query.status ? [query.status] : OPEN_STATUSES;
+    const matchStatuses = query.status ? [query.status] : OPEN_FEE_STATUSES;
 
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -172,7 +172,7 @@ export class FeeDuesService {
     tenantId: string,
     restrictToStudentIds?: string[],
   ) {
-    const studentIds = await this.findMatchingStudentIds(tenantId, OPEN_STATUSES, {
+    const studentIds = await this.findMatchingStudentIds(tenantId, OPEN_FEE_STATUSES, {
       class_id: query.class_id,
       section_id: query.section_id,
       reminderThresholdBefore: localToday(),
@@ -238,7 +238,7 @@ export class FeeDuesService {
       .addSelect('SUM(sf.total_amount - sf.paid_amount - sf.discount_amount)', 'total_due')
       .addSelect('MIN(sf.year * 12 + sf.month - 1)', 'earliest_ordinal')
       .where('sf.student_id IN (:...studentIds)', { studentIds })
-      .andWhere('sf.status IN (:...statuses)', { statuses: OPEN_STATUSES })
+      .andWhere('sf.status IN (:...statuses)', { statuses: OPEN_FEE_STATUSES })
       .andWhere('student.tenant_id = :tenantId', { tenantId })
       .andWhere('student.deleted_at IS NULL')
       .groupBy('sf.student_id')
@@ -283,7 +283,7 @@ export class FeeDuesService {
   async getAgeing(tenantId: string, today: string) {
     const bal = '(sf.total_amount - sf.paid_amount - sf.discount_amount)';
     const age = '(CAST(:today AS date) - COALESCE(sf.due_date, CAST(:today AS date)))';
-    const row = await this.openFeesBase(tenantId, OPEN_STATUSES)
+    const row = await this.openFeesBase(tenantId, OPEN_FEE_STATUSES)
       .select(`COALESCE(SUM(${bal}) FILTER (WHERE ${age} <= 30), 0)`, 'b0_30')
       .addSelect(`COALESCE(SUM(${bal}) FILTER (WHERE ${age} BETWEEN 31 AND 60), 0)`, 'b31_60')
       .addSelect(`COALESCE(SUM(${bal}) FILTER (WHERE ${age} > 60), 0)`, 'b60_plus')
@@ -306,7 +306,7 @@ export class FeeDuesService {
 
   /** [8.10.7.3.07] Outstanding balance per class, largest first. */
   async getDuesByClass(tenantId: string) {
-    const rows = await this.openFeesBase(tenantId, OPEN_STATUSES)
+    const rows = await this.openFeesBase(tenantId, OPEN_FEE_STATUSES)
       .select('cls.id', 'class_id')
       .addSelect('cls.name', 'class_name')
       .addSelect('SUM(sf.total_amount - sf.paid_amount - sf.discount_amount)', 'amount')
@@ -338,7 +338,7 @@ export class FeeDuesService {
    * the instant its school day starts, for comparison with `created_at`.
    */
   async countRemindersPending(tenantId: string, today: string, timezone: string) {
-    const inner = this.openFeesBase(tenantId, OPEN_STATUSES)
+    const inner = this.openFeesBase(tenantId, OPEN_FEE_STATUSES)
       .select('sf.student_id', 'student_id')
       .addSelect('MIN(sf.reminder_threshold_date)', 'since')
       .andWhere('sf.reminder_threshold_date IS NOT NULL')
@@ -504,7 +504,7 @@ export class FeeDuesService {
       )
       .setParameter('today', localToday())
       .where('sf.student_id IN (:...studentIds)', { studentIds })
-      .andWhere('sf.status IN (:...statuses)', { statuses: OPEN_STATUSES })
+      .andWhere('sf.status IN (:...statuses)', { statuses: OPEN_FEE_STATUSES })
       .groupBy('sf.student_id')
       .addGroupBy('student.full_name')
       .addGroupBy('student.registration_number')
@@ -534,7 +534,7 @@ export class FeeDuesService {
     if (studentIds.length === 0) return byStudent;
 
     const fees = await this.studentFeeRepo.find({
-      where: { student_id: In(studentIds), status: In(OPEN_STATUSES) },
+      where: { student_id: In(studentIds), status: In(OPEN_FEE_STATUSES) },
       relations: ['fee_structure'],
       order: { year: 'ASC', month: 'ASC' },
     });
@@ -562,7 +562,7 @@ export class FeeDuesService {
         discount_amount: discountAmount,
         standing_discount_amount: Number(fee.standing_discount_amount),
         one_off_discount_amount: Number(fee.one_off_discount_amount),
-        balance: totalAmount - paidAmount - discountAmount,
+        balance: round2(Math.max(0, totalAmount - paidAmount - discountAmount)),
         status: fee.status,
         due_date: fee.due_date,
         reminder_threshold_date: fee.reminder_threshold_date,

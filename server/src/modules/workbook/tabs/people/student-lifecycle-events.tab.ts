@@ -9,6 +9,7 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { optionalKeyOf } from '../../codec/tab-spec';
 
 /**
  * The `student_lifecycle_events` tab: the append-only log of withdrawals,
@@ -143,7 +144,7 @@ export const studentLifecycleEventsTab: TabSpec<StudentLifecycleEvent, StudentLi
       destination: entity.destination,
       remark: entity.remark,
       recorded_by: entity.recorded_by_user_id
-        ? ctx.keyOf('users', entity.recorded_by_user_id)
+        ? optionalKeyOf(ctx, 'users', entity.recorded_by_user_id)
         : null,
       created_at: entity.created_at,
     };
@@ -221,7 +222,11 @@ export const studentLifecycleEventsTab: TabSpec<StudentLifecycleEvent, StudentLi
     if (row.reason !== existing.reason) changed.push('reason');
     if (row.destination !== existing.destination) changed.push('destination');
     if (row.remark !== existing.remark) changed.push('remark');
-    if (row.recorded_by_user_id !== existing.recorded_by_user_id) changed.push('recorded_by');
+    if (
+      row.recorded_by_user_id !== null &&
+      row.recorded_by_user_id !== existing.recorded_by_user_id
+    )
+      changed.push('recorded_by');
     if (row.created_at && row.created_at !== formatDateTime(existing.created_at)) {
       changed.push('created_at');
     }
@@ -244,7 +249,7 @@ export const studentLifecycleEventsTab: TabSpec<StudentLifecycleEvent, StudentLi
     event.reason = row.reason;
     event.destination = row.destination;
     event.remark = row.remark;
-    event.recorded_by_user_id = row.recorded_by_user_id;
+    event.recorded_by_user_id = row.recorded_by_user_id ?? existing?.recorded_by_user_id ?? null;
     if (row.created_at) event.created_at = new Date(row.created_at);
     // Rows only: no StudentLifecycleService / EnrollmentsService — restore never replays side effects.
     return m.save(StudentLifecycleEvent, event);

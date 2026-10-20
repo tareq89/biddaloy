@@ -73,9 +73,11 @@ function PrintPreviewPage() {
     ),
     enabled: search.class_section_id !== undefined,
   });
-  const explicit = search.ids ? search.ids.split(',').filter(Boolean) : [];
+  const stateIds = router.state.location.state.printIds;
+  const explicit = stateIds ?? (search.ids ? search.ids.split(',').filter(Boolean) : []);
   const ids = search.class_section_id !== undefined ? (bySection.data?.ids ?? []) : explicit;
-  const picking = search.ids === undefined && search.class_section_id === undefined;
+  const picking =
+    search.ids === undefined && stateIds === undefined && search.class_section_id === undefined;
   const contextExam = search.context_type === 'EXAM' ? search.context_id : undefined;
   const admitExam = search.kind === DocumentKind.EXAM_ADMIT_CARD ? contextExam : undefined;
   // D9: a student who owes fees is flagged in the pre-flight; staff can still print.
@@ -89,17 +91,20 @@ function PrintPreviewPage() {
     }));
 
   // Printing needs a big screen and a printer: on a phone the frame says so, with the same Close.
+  // [2703] Ids held in history state are not in the URL, so a copied link would lose them: no Copy.
   if (!wide) {
     return (
       <FullPageShell
         title={picking ? t('picker.title') : t('title')}
         onClose={close}
-        primary={{ label: tT('gate.copy'), onClick: () => void copyPageLink(tT) }}
+        {...(stateIds === undefined
+          ? { primary: { label: tT('gate.copy'), onClick: () => void copyPageLink(tT) } }
+          : {})}
       >
         <EmptyState
           icon={<MonitorIcon aria-hidden />}
           title={tT('gate.title')}
-          explanation={tT('gate.body')}
+          explanation={stateIds === undefined ? tT('gate.body') : tT('gate.bodyNoLink')}
         />
       </FullPageShell>
     );
@@ -172,6 +177,7 @@ function PrintPreviewPage() {
             onBack: () =>
               void navigate({
                 replace: true,
+                state: {},
                 search: (prev) => {
                   const next = { ...prev };
                   delete next.ids;

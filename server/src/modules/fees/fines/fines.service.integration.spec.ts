@@ -16,7 +16,6 @@ import { AuditService } from '../../audit/audit.service';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
 import { ApprovalService } from '../../auth/guards/approval.guard';
 import { ApprovalRequiredException } from '../../../common/errors/approval-required.exception';
-import { PaymentAllocationService } from '../payment-allocation.service';
 import { InvoicesService } from '../../invoices/invoices.service';
 import { StorageModule } from '../../storage/storage.module';
 import { FeeStructure } from '../entities/fee-structure.entity';
@@ -134,7 +133,6 @@ describe('FinesService (integration)', () => {
         AuditService,
         NoopDiscountResolver,
         ApprovalService,
-        PaymentAllocationService,
         InvoicesService,
         JwtService,
         { provide: 'APPROVAL_REDIS', useValue: redis },

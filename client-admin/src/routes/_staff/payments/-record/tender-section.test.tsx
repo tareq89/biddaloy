@@ -61,6 +61,20 @@ describe('TenderSection', () => {
     expect(onChangeHandlingChange).toHaveBeenCalledWith('TO_WALLET');
   });
 
+  it('F-155: with siblings in the cart, keeping the change as credit is disabled and says why', async () => {
+    await renderTender({
+      subtotalMinorUnits: 495000,
+      tenderedMinorUnits: 500000,
+      allowToWallet: false,
+    });
+
+    const toWallet = await screen.findByLabelText('Keep the change as credit');
+    expect(toWallet.hasAttribute('disabled')).toBe(true);
+    expect(
+      screen.getByText('Change can go to credit only when the payment is for one student.'),
+    ).toBeTruthy();
+  });
+
   it('hides the RETURN/TO_WALLET choice when there is no change', async () => {
     await renderTender({ subtotalMinorUnits: 500000, tenderedMinorUnits: 500000 });
 

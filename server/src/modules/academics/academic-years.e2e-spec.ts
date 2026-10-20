@@ -320,6 +320,57 @@ describe('Academic Years E2E', () => {
       expect(res.body.details?.code).toBe('ACADEMIC_YEAR_CURRENT');
     });
 
+    it('[2613] returns 409 ACADEMIC_YEAR_IN_USE when an enrollment references the year', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/academic-years')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Has History', start_date: '2019-01-01', end_date: '2019-12-31' })
+        .expect(201);
+      // A student enrolled into this year through a class of ANOTHER year.
+      const otherYear = await supertest(app.getHttpServer())
+        .post('/api/v1/academic-years')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'History Class Year', start_date: '2020-01-01', end_date: '2020-12-31' })
+        .expect(201);
+      const [klass] = await dataSource.query(
+        `INSERT INTO classes (tenant_id, academic_year_id, name, created_at, updated_at)
+         VALUES ($1, $2, 'History Class', NOW(), NOW()) RETURNING id`,
+        [TENANT_ID, otherYear.body.id],
+      );
+      const [section] = await dataSource.query(
+        `INSERT INTO class_sections (tenant_id, class_id, section_name, created_at, updated_at)
+         VALUES ($1, $2, 'A', NOW(), NOW()) RETURNING id`,
+        [TENANT_ID, klass.id],
+      );
+      const [student] = await dataSource.query(
+        `INSERT INTO students (tenant_id, full_name, registration_number, roll_number, class_section_id, enrollment_status, created_at, updated_at)
+         VALUES ($1, 'History Student', 'REG-2613-E2E', 1, $2, 'ACTIVE', NOW(), NOW()) RETURNING id`,
+        [TENANT_ID, section.id],
+      );
+      const seed = { student_id: student.id, class_id: klass.id, section_id: section.id };
+      await dataSource.query(
+        `INSERT INTO enrollments (tenant_id, student_id, class_id, section_id, academic_year_id, enrollment_status, enrolled_at, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'GRADUATED', NOW(), NOW(), NOW())`,
+        [TENANT_ID, seed.student_id, seed.class_id, seed.section_id, createRes.body.id],
+      );
+
+      const res = await supertest(app.getHttpServer())
+        .delete(`/api/v1/academic-years/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(409);
+
+      expect(res.body.details?.code).toBe('ACADEMIC_YEAR_IN_USE');
+      expect(res.body.details?.enrollments_count).toBe(1);
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/academic-years/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+    });
+
     it('should return 401 for STUDENT role on delete (token does not hold STUDENT)', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/academic-years')

@@ -231,6 +231,7 @@ export class CreateTeacherDto {
   user_id: string;
 
   @IsString()
+  @MaxLength(50)
   employee_id: string;
 
   @IsOptional()
@@ -240,6 +241,7 @@ export class CreateTeacherDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   @SanitizeText()
   subject_specialization?: string;
 
@@ -251,6 +253,7 @@ export class CreateTeacherDto {
 export class UpdateTeacherDto {
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   employee_id?: string;
 
   @IsOptional()
@@ -262,6 +265,7 @@ export class UpdateTeacherDto {
    * for both `null` and `undefined`. */
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   @SanitizeText()
   subject_specialization?: string | null;
 

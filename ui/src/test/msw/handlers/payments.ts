@@ -23,10 +23,6 @@ const record = http.post('/api/v1/payments', () =>
   HttpResponse.json(paymentFactory(), { status: 201 }),
 );
 
-const recordWithAllocation = http.post('/api/v1/payments/record-with-allocation', () =>
-  HttpResponse.json(paymentFactory(), { status: 201 }),
-);
-
 const listByStudent = http.get('/api/v1/payments/student/:studentId', ({ params }) =>
   HttpResponse.json(
     [paymentFactory(), paymentFactory()].map((payment): Payment => ({
@@ -131,7 +127,6 @@ export const paymentHandlers = {
   list,
   listEmpty,
   record,
-  recordWithAllocation,
   listByStudent,
   listByStudentEmpty,
   listByGuardian,
@@ -144,7 +139,6 @@ export const paymentHandlers = {
 export const paymentDefaultHandlers = [
   list,
   record,
-  recordWithAllocation,
   listByStudent,
   listByGuardian,
   listInvoicesByStudent,

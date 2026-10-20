@@ -2,6 +2,7 @@ import { ExceptionFilter, Catch, ArgumentsHost, Logger, HttpStatus } from '@nest
 import { Request, Response } from 'express';
 import * as Sentry from '@sentry/node';
 import { buildErrorResponseBody, resolveDetailMessage, resolveStatus } from './error-response';
+import { mapKnownError } from './known-errors';
 import { redactPii } from '../redact-log.util';
 import { resolveRequestId } from '../request-context.util';
 
@@ -22,8 +23,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const requestId = resolveRequestId(request);
 
-    const status = resolveStatus(exception);
-    const body = buildErrorResponseBody(exception, {
+    const mapped = mapKnownError(exception) ?? exception;
+    const status = resolveStatus(mapped);
+    const body = buildErrorResponseBody(mapped, {
       path: request.url,
       requestId,
       nodeEnv: this.nodeEnv,

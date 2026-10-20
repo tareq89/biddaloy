@@ -51,6 +51,8 @@
     "confirmSend": "বার্তা পাঠান",
     "confirmSending": "পাঠানো হচ্ছে…",
     "resultTitle": "বার্তা পাঠানো শুরু হয়েছে",
+    "failedTitle": "বার্তা পাঠানো যায়নি",
+    "settingsLink": "সেটিংস › যোগাযোগ খুলুন",
     "resultDescription": "{{name}}-এর কাছে বার্তাটি পাঠানো হচ্ছে।",
     "resultStatusLabel": "ডেলিভারির অবস্থা",
     "sendAnother": "আরেকটি বার্তা পাঠান",

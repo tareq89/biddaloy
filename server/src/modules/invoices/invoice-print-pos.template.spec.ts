@@ -85,11 +85,11 @@ function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
 }
 
 describe('renderInvoicePosHtml', () => {
-  it('58mm: sets the @page rule and 32-column width, renders both students and the payment method line', () => {
+  it('58mm: sets the @page rule and 30-column, 54 mm body width, renders both students and the payment method line', () => {
     const html = renderInvoicePosHtml(makeInvoice(), issuer, null, 'pos58');
 
     expect(html).toContain('@page { size: 58mm auto; margin: 2mm }');
-    expect(html).toContain('width: 58mm');
+    expect(html).toContain('width: 54mm');
     expect(html).toContain('Rahim Uddin');
     expect(html).toContain('Karim Uddin');
     expect(html).toContain('Paid via BKASH');
@@ -98,11 +98,34 @@ describe('renderInvoicePosHtml', () => {
     expect(html).toContain('page-break-inside: avoid');
   });
 
-  it('80mm: sets the @page rule and 48-column width', () => {
+  it('80mm: sets the @page rule and 39-column, 76 mm body width', () => {
     const html = renderInvoicePosHtml(makeInvoice(), issuer, null, 'pos80');
 
     expect(html).toContain('@page { size: 80mm auto; margin: 2mm }');
-    expect(html).toContain('width: 80mm');
+    expect(html).toContain('width: 76mm');
+  });
+
+  it('[2609] zero discount prints without a minus sign', () => {
+    for (const format of ['pos58', 'pos80'] as const) {
+      const html = renderInvoicePosHtml(makeInvoice(), issuer, null, format);
+      expect(html).not.toContain('-০');
+      expect(html).not.toContain('-0.00');
+      // The Discount row shows a bare zero.
+      expect(html).toMatch(/Discount[\s\S]{0,120}?০\.০০/);
+    }
+  });
+
+  it('[2609] the dashed rule fits the printable width (columns x font x 0.6 <= (mm - 4) x 3.7795)', () => {
+    const cases = [
+      { format: 'pos58', mm: 58, fontPx: 11, columns: 30 },
+      { format: 'pos80', mm: 80, fontPx: 12, columns: 39 },
+    ] as const;
+    for (const { format, mm, fontPx, columns } of cases) {
+      const html = renderInvoicePosHtml(makeInvoice(), issuer, null, format);
+      const rule = /<div class="rule">(-+)<\/div>/.exec(html)![1];
+      expect(rule.length).toBe(columns);
+      expect(rule.length * fontPx * 0.6).toBeLessThanOrEqual((mm - 4) * 3.7795);
+    }
   });
 
   it('renders no QR block when no public share link exists', () => {

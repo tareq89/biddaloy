@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { attentionEvents } from '../attention/attention.constants';
 import { ATTENTION_RECHECK, AttentionRecheckPayload } from '../attention/engine/attention-events';
@@ -16,7 +17,8 @@ import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { ApprovalService } from '../auth/guards/approval.guard';
 import { ApprovalRequiredException } from '../../common/errors/approval-required.exception';
-import { PaymentAllocationService } from './payment-allocation.service';
+import { CheckoutService } from './checkout.service';
+import { SchoolsService } from '../schools/schools.service';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { InvoicesService } from '../invoices/invoices.service';
 import { StorageModule } from '../storage/storage.module';
@@ -46,7 +48,6 @@ import {
   DuplicateStrategy,
   ApprovalScope,
   PaymentMethod,
-  PaymentAllocationType,
   ProgramEnrollmentStatus,
   FineTrigger,
   WalletTransactionKind,
@@ -86,7 +87,7 @@ describe('FeeGenerationService (integration)', () => {
   let walletRepo: Repository<StudentWallet>;
   let programRepo: Repository<Program>;
   let programEnrollmentRepo: Repository<ProgramEnrollment>;
-  let paymentAllocationService: PaymentAllocationService;
+  let checkoutService: CheckoutService;
   let fineRuleRepo: Repository<FineRule>;
   let discountResolver: NoopDiscountResolver;
   let dataSource: DataSource;
@@ -158,7 +159,11 @@ describe('FeeGenerationService (integration)', () => {
         AuditService,
         NoopDiscountResolver,
         ApprovalService,
-        PaymentAllocationService,
+        CheckoutService,
+        {
+          provide: SchoolsService,
+          useValue: { getResolvedSettings: async () => ({ region: { timezone: 'Asia/Dhaka' } }) },
+        },
         InvoicesService,
         JwtService,
         { provide: 'APPROVAL_REDIS', useValue: redis },
@@ -181,7 +186,7 @@ describe('FeeGenerationService (integration)', () => {
     programEnrollmentRepo = module.get<Repository<ProgramEnrollment>>(
       getRepositoryToken(ProgramEnrollment),
     );
-    paymentAllocationService = module.get<PaymentAllocationService>(PaymentAllocationService);
+    checkoutService = module.get<CheckoutService>(CheckoutService);
     fineRuleRepo = module.get<Repository<FineRule>>(getRepositoryToken(FineRule));
     discountResolver = module.get<NoopDiscountResolver>(NoopDiscountResolver);
     dataSource = module.get(DataSource);
@@ -692,21 +697,15 @@ describe('FeeGenerationService (integration)', () => {
       // Record a real payment against this bill via the same service
       // families/staff use, so the allocation row exists exactly as it
       // would in production.
-      const payment = await paymentAllocationService.recordWithAllocation(
+      const { payment } = await checkoutService.checkout(
         {
-          student_id: student.id,
-          total_amount: Number(bill.total_amount),
+          idempotency_key: randomUUID(),
+          lines: [{ student_fee_id: bill.id, amount: Number(bill.total_amount) }],
           payment_method: PaymentMethod.CASH,
-          allocations: [
-            {
-              student_fee_id: bill.id,
-              allocated_amount: Number(bill.total_amount),
-              allocation_type: PaymentAllocationType.DUE,
-            },
-          ],
         },
         TENANT_ID,
         ACTOR_USER_ID,
+        requestWithToken(),
       );
 
       const token = await issueApprovalToken('jti-remove-older-allocated');
@@ -1355,5 +1354,14 @@ describe('FeeGenerationService (integration)', () => {
         spy.mockRestore();
       }
     });
+  });
+
+  // #2691: fees/generate, fees/schedules/run-now and fees/fines/generate carry no
+  // Idempotency-Key; a repeated call is a no-op because of these DB constraints.
+  it('has the unique index that makes repeated generate runs no-ops (#2691)', async () => {
+    const rows: { indexdef: string }[] = await dataSource.query(
+      `SELECT indexdef FROM pg_indexes WHERE tablename = 'student_fees' AND indexdef LIKE 'CREATE UNIQUE INDEX%' AND indexdef LIKE '%(student_id, fee_structure_id, period_start, occurrence)%' AND indexdef LIKE '%deleted_at IS NULL%'`,
+    );
+    expect(rows).toHaveLength(1);
   });
 });

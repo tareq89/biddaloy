@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { DataSource } from 'typeorm';
+import { DataSource, IsNull, Not } from 'typeorm';
 import { LateFeeService } from './late-fee.service';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { StudentFee } from './entities/student-fee.entity';
@@ -159,6 +159,30 @@ describe('LateFeeService (integration)', () => {
     const lateFee = lateFeeBills.find((b) => b.fee_structure.fee_type === FeeType.LATE_FEE);
     expect(lateFee).toBeDefined();
     expect(Number(lateFee?.total_amount)).toBe(100);
+  });
+
+  // [F-149] A fully discounted bill is still PENDING but owes nothing: no flat late fee on it.
+  it('adds no late fee to a fully discounted PENDING bill, but does to one with money outstanding', async () => {
+    await setSettings({
+      MONTHLY_TUITION: { enabled: true, grace_days: 5, kind: DiscountKind.FLAT, value: 50 },
+    });
+    const discountedId = await seedBill('2026-03-01', {
+      discount_amount: 1000,
+      standing_discount_amount: 1000,
+    });
+    const owingId = await seedBill('2026-03-01', {
+      period_start: new Date('2026-01-01'),
+      paid_amount: 900,
+      status: FeeStatus.PARTIALLY_PAID,
+    });
+
+    await service.applyDue(SEED_TENANT_ID, TODAY);
+
+    const lateFees = await ds
+      .getRepository(StudentFee)
+      .find({ where: { student_id: STUDENT_ID, late_fee_for_student_fee_id: Not(IsNull()) } });
+    expect(lateFees.map((b) => b.late_fee_for_student_fee_id)).toEqual([owingId]);
+    expect(lateFees.some((b) => b.late_fee_for_student_fee_id === discountedId)).toBe(false);
   });
 
   // MON-12: a deleted student's overdue bill is not charged.

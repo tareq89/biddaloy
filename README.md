@@ -683,7 +683,7 @@ every green `ci:local`).
 checks/merge-queue settings). Direct pushes to `main` are rejected; every
 change lands through a pull request that passes four required checks
 (`Build, lint, unit tests`, `Frontend tests`, `Integration & e2e tests`,
-`E2E smoke (chromium)` — a check a PR's path filters skip counts as
+`E2E smoke (chromium N/3)` — a check a PR's path filters skip counts as
 passing, not missing) and then goes through GitHub's merge queue:
 
 ```mermaid
@@ -791,12 +791,11 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
   `client-admin` vitest suites with coverage. No infrastructure required.
 - **integration** — spins up its own Postgres 18 and Redis 8 service
   containers, then runs `yarn test:integration` and `yarn test:e2e`.
-- **e2e** — `E2E smoke (chromium)` job: Postgres/Redis service containers,
-  migrated and seeded, Playwright against a **production build**
+- **e2e** — `E2E smoke (chromium N/3)` jobs: Postgres/Redis service
+  containers, migrated and seeded, Playwright against a **production build**
   (`vite build` + `vite preview`, `node dist/main.js`) of both clients and
-  the server. **[18.2.3]** folded the PWA/offline suite into this job and
-  removed the 3-way shard — journeys, smoke and PWA all run in one chromium
-  job now. See "End-to-end Testing" above.
+  the server, split 3 ways with `--shard`. The PWA/offline suite runs once,
+  on shard 1 (the lightest measured leg). See "End-to-end Testing" above.
 - **storybook** — `yarn build:storybook`, PR-blocking build-only check
   (no visual regression yet).
 - **audit** — two gates in `scripts/ci-audit.js` (yarn classic's `--level`
@@ -814,18 +813,18 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
 
 ```mermaid
 flowchart LR
-    PR["PR / push to main\n(ci.yml e2e job)"] --> C["E2E smoke (chromium)\none job, no shards\njourneys + smoke + PWA"]
+    PR["PR / push to main\n(ci.yml e2e job)"] --> C["E2E smoke (chromium 1/3 … 3/3)\n3 shards\njourneys + smoke; PWA on shard 1"]
     N["Nightly, 21:00 UTC\n(nightly-e2e.yml)"] --> CH["chromium\n3 shards"]
     N --> FF["firefox\n3 shards (advisory)"]
     N --> WK["webkit\n3 shards (advisory)"]
 ```
 
-- **PRs and pushes to `main`** run chromium only, in one unsharded
-  `E2E smoke (chromium)` job (`ci.yml`'s `e2e` job). **[18.2.1]/[18.2.2]**
-  (path-based smoke split, production-mode `webServer`) brought this leg
-  back under the ~5 min threshold that originally motivated the 3-way
-  shard, so **[18.2.3]** removed the shard and folded the PWA/offline suite
-  in too — one job per browser now covers journeys, smoke and PWA.
+- **PRs and pushes to `main`** run chromium only, as three
+  `E2E smoke (chromium N/3)` jobs (`ci.yml`'s `e2e` matrix, `--shard=N/3`).
+  **[18.2.3]** had folded everything into one unsharded job when a leg ran
+  ~5 min; by Epic 2642 the ~500-spec suite took 15.6 min of tests on 4
+  workers and overran the job's 20-minute timeout, so the 3-way shard is
+  back. The PWA/offline suite still runs once, pinned to the lightest shard.
 - **Nightly** (`.github/workflows/nightly-e2e.yml`, `workflow_dispatch`-able)
   still runs all three engines — chromium, firefox, webkit — each split
   into 3 shards, on a schedule instead of blocking PRs; it runs the full,

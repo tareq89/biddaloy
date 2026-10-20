@@ -147,7 +147,6 @@ export function useDeleteRecurringSchedule() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/fees/schedules/${id}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: (_data, id) => {
       void queryClient.invalidateQueries({ queryKey: recurringScheduleKeys.lists() });
       queryClient.removeQueries({ queryKey: recurringScheduleKeys.detail(id) });
@@ -226,7 +225,6 @@ export function useRemoveScheduleExclusion(scheduleId: string) {
     mutationFn: async (studentId: string) => {
       await apiClient.delete(`/fees/schedules/${scheduleId}/exclusions/${studentId}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: (_data, studentId) => {
       void queryClient.invalidateQueries({ queryKey: recurringScheduleKeys.detail(scheduleId) });
       void queryClient.invalidateQueries({

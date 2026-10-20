@@ -11,6 +11,7 @@
  * Exit 0 = all passed, 1 = a check failed (stops at the first), 2 = bad usage.
  * Output never contains a token, password, email or response body.
  */
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const ACCOUNTS = [
@@ -57,7 +58,12 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
   }
 
   /** One check. Returns the parsed JSON body on success, or null after logging FAIL. */
-  const check = async (method, path, label, { headers = {}, body, ok = () => true } = {}) => {
+  const check = async (
+    method,
+    path,
+    label,
+    { headers = {}, body, rawBody, expect = 200, ok = () => true } = {},
+  ) => {
     const started = Date.now();
     let status = '';
     let json = null;
@@ -66,11 +72,11 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
       const res = await fetch(`${baseUrl}${path}`, {
         method,
         headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...headers },
-        body: body ? JSON.stringify(body) : undefined,
+        body: rawBody ?? (body ? JSON.stringify(body) : undefined),
         signal: AbortSignal.timeout(10_000),
       });
       status = String(res.status);
-      if (res.status === 200) {
+      if (res.status === expect) {
         json = await res.json().catch(() => undefined);
         good = json !== undefined && ok(json);
       }
@@ -115,6 +121,70 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
   ];
   for (const [path, who] of reads) {
     if ((await check('GET', path, who, { headers: sessions[who] })) === null) return done();
+  }
+
+  // [2650] Always-on rejection rows: the body parser answers before any login is counted.
+  const login = '/api/v1/auth/login';
+  await check('POST', login, '#2634 413', {
+    rawBody: JSON.stringify({ email: 'x@x.test', password: 'x'.repeat(1_200_000) }),
+    headers: { 'Content-Type': 'application/json' },
+    expect: 413,
+  });
+  await check('POST', login, '#2634 415', {
+    rawBody: '{}',
+    headers: { 'Content-Type': 'application/json; charset=bogus' },
+    expect: 415,
+  });
+
+  // Optional write-rejection rows: each is refused before any write happens.
+  // Hard guard: every line carries a 0.01 one-off discount and no approval token is sent.
+  // A discount needs a `fees.discount` step-up token, which checkout burns as its last
+  // check before writing, so even if the bill became payable again (payment reversed,
+  // bill regenerated) the request ends in a 403 and never records a payment.
+  const checkout = (label, studentFeeId, amount, expect, ok) =>
+    check('POST', '/api/v1/payments/checkout', label, {
+      headers: sessions.admin,
+      body: {
+        idempotency_key: randomUUID(),
+        payment_method: 'CASH',
+        lines: [{ student_fee_id: studentFeeId, amount, one_off_discount: 0.01 }],
+      },
+      expect,
+      ok,
+    });
+  if (env.SMOKE_PAID_STUDENT_FEE_ID) {
+    await checkout(
+      '#2592',
+      env.SMOKE_PAID_STUDENT_FEE_ID,
+      1,
+      409,
+      (b) => b.details?.code === 'CHECKOUT_FEE_SETTLED',
+    );
+  }
+  if (env.SMOKE_OPEN_STUDENT_FEE_ID) {
+    await checkout('#2636', env.SMOKE_OPEN_STUDENT_FEE_ID, 99999999.99, 400, (b) =>
+      String(b.message).includes('outstanding balance'),
+    );
+  }
+  if (env.SMOKE_PARENT_EMAIL && env.SMOKE_PARENT_PASSWORD) {
+    const p = await check('POST', login, 'parent', {
+      body: { email: env.SMOKE_PARENT_EMAIL, password: env.SMOKE_PARENT_PASSWORD },
+      // A PARENT membership is required: memberships[0] could be a staff role.
+      ok: (b) =>
+        typeof b.access_token === 'string' && b.memberships?.some((m) => m.role === 'PARENT'),
+    });
+    if (p) {
+      const m = p.memberships.find((x) => x.role === 'PARENT');
+      await check('POST', '/api/v1/auth/step-up/otp/request', '#2639', {
+        headers: {
+          Authorization: `Bearer ${p.access_token}`,
+          'X-Tenant-ID': m.tenantId,
+          'X-Role': 'PARENT',
+        },
+        body: { identifier: 'smoke@invalid.test' },
+        expect: 403,
+      });
+    }
   }
 
   if (env.SMOKE_HEALTH_TOKEN) {

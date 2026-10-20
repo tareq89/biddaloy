@@ -125,3 +125,26 @@ export function firstFireInPeriod(
   const [first] = nextRunDates(rule, from, 1);
   return first !== undefined && first <= date ? first : null;
 }
+
+/**
+ * [F-145] The `last_run_period` a schedule keeps when it switches cadence, so periods the
+ * old cadence already billed are not billed again. A week and a month overlap when the
+ * week starts inside the month:
+ * - monthly -> weekly: every week that starts in the last billed month is covered
+ *   (billed Oct -> 2026-10-26, the last Monday in October);
+ * - weekly -> monthly: the month the last billed week starts in is covered
+ *   (billed week of 2026-10-05 -> 2026-10-01).
+ *
+ * ponytail: one `last_run_period` date, so a flip back (weekly -> monthly -> weekly in one
+ * month) can skip a few unbilled weeks; it never bills twice. A "covered until" column fixes it.
+ */
+export function coveredPeriodAfterCadenceChange(
+  lastRunPeriod: string,
+  newRule: RecurringScheduleRule,
+): string {
+  if (newRule.kind === 'WEEKLY') {
+    const { year, month } = parseDateOnly(lastRunPeriod);
+    return periodFor(toDateOnly(year, month, daysInMonth(year, month)), newRule);
+  }
+  return periodFor(lastRunPeriod, newRule);
+}

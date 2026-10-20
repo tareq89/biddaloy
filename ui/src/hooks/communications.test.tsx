@@ -153,3 +153,50 @@ describe('useCommunicationLog fetches one log entry', () => {
     expect(idle.result.current.fetchStatus).toBe('idle');
   });
 });
+
+describe('useSendCommunication sends an Idempotency-Key [#2631]', () => {
+  it('reuses the key for an identical body, and rotates it after success', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/communications/send', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json(communicationFactory({ id: 'log-1', status: 'QUEUED' }), {
+          status: 201,
+        });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useSendCommunication(), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current.mutateAsync({ medium: 'SMS', guardian_id: 'g-1', message_body: 'Hi' });
+    await result.current.mutateAsync({ medium: 'SMS', guardian_id: 'g-1', message_body: 'Hi' });
+
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    // Success rotates the key: the next identical-looking submit is a new attempt.
+    expect(keys[1]).not.toBe(keys[0]);
+  });
+
+  it('keeps the same key when an attempt fails and is re-sent unchanged', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/communications/send', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json({ message: 'boom' }, { status: 500 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useSendCommunication(), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current
+      .mutateAsync({ medium: 'SMS', guardian_id: 'g-1', message_body: 'Hi' })
+      .catch(() => undefined);
+    await result.current
+      .mutateAsync({ medium: 'SMS', guardian_id: 'g-1', message_body: 'Hi' })
+      .catch(() => undefined);
+
+    expect(keys).toHaveLength(2);
+    expect(keys[1]).toBe(keys[0]);
+  });
+});

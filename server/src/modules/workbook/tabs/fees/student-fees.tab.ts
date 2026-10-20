@@ -11,6 +11,7 @@ import type {
   TabSpec,
 } from '../../codec/tab-spec';
 import { FeeStatus } from '@biddaloy/shared';
+import { toPaisa } from '../../../../common/constants/money';
 import { academicYearsTab } from '../academics/academic-years.tab';
 import { feeStructuresTab } from './fee-structures.tab';
 import { fineRulesTab } from './fine-rules.tab';
@@ -302,6 +303,32 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
         message: `Column "year": "${year}" is not a valid year. Use a 4-digit year between 1900 and 2100.`,
         severity: 'error',
         value: String(year),
+      });
+    }
+
+    // The two student_fees money CHECKs (migration 1791900000300) also check restored rows, NOT
+    // VALID or not. Reject a bad row here, by row and column, so one legacy row in an old backup
+    // does not abort the whole restore with a 500. The message names the column, not the amounts.
+    const totalPaisa = toPaisa(values.total_amount as string);
+    const settledPaisa =
+      toPaisa(values.paid_amount as string) + toPaisa(values.discount_amount as string);
+    if (settledPaisa > totalPaisa) {
+      errors.push({
+        tab: 'student_fees',
+        row: rowNo,
+        column: 'paid_amount',
+        message:
+          'Column "paid_amount": paid_amount plus discount_amount is more than total_amount. Fix this row before restoring.',
+        severity: 'error',
+      });
+    } else if (values.status === FeeStatus.WAIVED && settledPaisa !== totalPaisa) {
+      errors.push({
+        tab: 'student_fees',
+        row: rowNo,
+        column: 'status',
+        message:
+          'Column "status": a WAIVED fee needs paid_amount plus discount_amount equal to total_amount. Fix this row before restoring.',
+        severity: 'error',
       });
     }
 

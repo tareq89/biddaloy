@@ -4,6 +4,7 @@ import { DashboardWidgetKey as K, type DashboardWidgetKey } from '@biddaloy/shar
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { WidgetProps } from '../widgets/registry';
@@ -74,6 +75,22 @@ describe('DashboardGrid', () => {
     expect(within(screen.getByTestId('tile-expanded')).getByText('att:full')).toBeTruthy();
     await userEvent.click(tile);
     expect(screen.queryByTestId('tile-expanded')).toBeNull();
+  });
+
+  it('phone: a tile toggle has an accessible name while its widget chunk still loads', () => {
+    const Pending = React.lazy(() => new Promise<never>(() => {}));
+    renderWithProviders(
+      <DashboardGrid
+        visible={[{ key: K.COLLECTION_MONTH, size: 'S' as const }]}
+        components={new Map([[K.COLLECTION_MONTH, Pending]])}
+      />,
+      { locale: 'en' },
+    );
+    const phone = within(screen.getByTestId('grid-phone'));
+    // aria-labelledby points at the slot; the Suspense skeleton is its only content here.
+    expect(phone.getByRole('button', { name: /^Loading \S/ }).getAttribute('aria-labelledby')).toBe(
+      `tile-${K.COLLECTION_MONTH}`,
+    );
   });
 
   it('phone: a tile that falls back to an interactive card is not nested in a button', () => {

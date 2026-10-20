@@ -9398,6 +9398,8 @@ export interface components {
         ReminderBatchLogDto: {
             /** @enum {string} */
             medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER" | "PUSH";
+            /** @enum {string|null} */
+            error: "NOT_CONFIGURED" | "NO_PROVIDER" | "FAILED" | null;
             id: string;
             recipient_address: string;
             recipient_name: string;
@@ -9406,7 +9408,6 @@ export interface components {
             student_id: string | null;
             guardian_id: string | null;
             provider_message_id: string | null;
-            error: string | null;
             /** Format: date-time */
             created_at: string;
         };
@@ -9433,6 +9434,8 @@ export interface components {
         CommunicationResponseDto: {
             /** @enum {string} */
             medium: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER" | "PUSH";
+            /** @enum {string|null} */
+            error: "NOT_CONFIGURED" | "NO_PROVIDER" | "FAILED" | null;
             id: string;
             recipient_address: string;
             recipient_name: string;
@@ -13130,6 +13133,8 @@ export interface components {
             wallet_used: number;
             wallet_added: number;
             change_returned: number;
+            /** @description Cash given back from wallets (payouts); not subtracted from net. */
+            wallet_paid_out: number;
         };
         CollectionsByMethod: {
             /** @enum {string} */
@@ -13148,6 +13153,8 @@ export interface components {
             collected: number;
             reversed: number;
             net: number;
+            /** @description Cash given back from wallets by this actor; not subtracted from net. */
+            paid_out: number;
         };
         CollectionsByFeeType: {
             fee_type: string;
@@ -13635,7 +13642,7 @@ export interface components {
             component_id: string;
             value?: string | null;
             /** @enum {string} */
-            status: "ABSENT" | "PRESENT" | "EXEMPT";
+            status: "PRESENT" | "ABSENT" | "EXEMPT";
         };
         BatchMarksDto: {
             /** Format: uuid */

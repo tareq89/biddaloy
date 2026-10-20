@@ -909,4 +909,52 @@ describe('/attendance/$sectionId', () => {
       expect(screen.queryByText('Periods appear here once the routine is published.')).toBeNull();
     });
   });
+  it('[2632] a save queued offline stays on the register instead of leaving for the list', async () => {
+    // The list route's chunk is not precached, so an offline navigation there would fail
+    // into the error fallback and a hard reload; the queued toast must survive instead.
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    const toastSpy = vi.spyOn(toast, 'success').mockImplementation(() => '');
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(
+          registerBody({
+            students: [
+              {
+                student_id: 'student-1',
+                roll_number: 1,
+                full_name: 'Rafi Ahmed',
+                record_id: null,
+                status: null,
+                minutes_late: null,
+                remarks: null,
+                source: null,
+                correction_count: 0,
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+    try {
+      const { router } = renderWithRouter(routeTree, {
+        initialEntries: ['/attendance/section-1?date=2026-09-04'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+      await user.click(await screen.findByText('Rafi Ahmed'));
+      await user.click(screen.getByRole('button', { name: 'Save on device' }));
+
+      await waitFor(() =>
+        expect(toastSpy).toHaveBeenCalledWith(
+          "Saved on device — will sync when you're back online",
+        ),
+      );
+      expect(router.state.location.pathname).toBe('/attendance/section-1');
+    } finally {
+      onLine.mockRestore();
+      toastSpy.mockRestore();
+    }
+  });
 });

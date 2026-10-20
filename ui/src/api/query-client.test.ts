@@ -1,3 +1,4 @@
+import { AxiosError } from 'axios';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { toast } from '../components/toast';
@@ -33,13 +34,13 @@ afterEach(async () => {
 });
 
 describe('createAppQueryClient', () => {
-  it('tunes staleTime/gcTime for cached-first rendering and shares shouldRetryQuery as the default retry', () => {
+  it('tunes staleTime/gcTime for cached-first rendering and shares shouldRetryQuery as the query retry default and never retries mutations', () => {
     const { queries, mutations } = createAppQueryClient().getDefaultOptions();
 
     expect(queries?.staleTime).toBe(30_000);
     expect(queries?.gcTime).toBe(5 * 60_000);
     expect(queries?.retry).toBe(shouldRetryQuery);
-    expect(mutations?.retry).toBe(shouldRetryQuery);
+    expect(mutations?.retry).toBe(false);
   });
 
   it('runs queries offline-first, so a query with no data still calls its queryFn while offline', async () => {
@@ -294,6 +295,89 @@ describe('createAppQueryClient', () => {
       ).rejects.toThrow();
 
       expect(toastErrorSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('mutations are never re-sent automatically ([2596])', () => {
+    it('runs a mutation once after a 500 and shows the unknown-outcome toast', async () => {
+      const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '');
+      const client = createAppQueryClient();
+      let calls = 0;
+      await expect(
+        client
+          .getMutationCache()
+          .build(client, {
+            mutationFn: () => {
+              calls += 1;
+              return Promise.reject(apiError(500));
+            },
+          })
+          .execute(undefined),
+      ).rejects.toThrow('boom');
+      expect(calls).toBe(1);
+      expect(toastError).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows no unknown-outcome toast when the mutation sets handlesUnknownOutcome [2698]', async () => {
+      const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '');
+      const client = createAppQueryClient();
+      await expect(
+        client
+          .getMutationCache()
+          .build(client, {
+            mutationFn: () => Promise.reject(apiError(500)),
+            meta: { handlesUnknownOutcome: true },
+          })
+          .execute(undefined),
+      ).rejects.toThrow('boom');
+      expect(toastError).not.toHaveBeenCalled();
+    });
+
+    it('shows the toast for a reply-less network error', async () => {
+      const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '');
+      const client = createAppQueryClient();
+      await expect(
+        client
+          .getMutationCache()
+          .build(client, {
+            mutationFn: () => Promise.reject(new AxiosError('Network Error')),
+          })
+          .execute(undefined),
+      ).rejects.toThrow();
+      expect(toastError).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([502, 504])(
+      'shows the toast for a gateway %i whose HTML body never became an ApiError',
+      async (status) => {
+        const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '');
+        const client = createAppQueryClient();
+        const gateway = new AxiosError('Bad Gateway', 'ERR_BAD_RESPONSE', undefined, undefined, {
+          status,
+          data: '<html>Bad Gateway</html>',
+        } as never);
+        await expect(
+          client
+            .getMutationCache()
+            .build(client, { mutationFn: () => Promise.reject(gateway) })
+            .execute(undefined),
+        ).rejects.toThrow();
+        expect(toastError).toHaveBeenCalledWith(i18n.t('outcomeUnknown', { ns: 'common' }));
+      },
+    );
+
+    it.each([400, 403, 409])('does not show the unknown-outcome toast for a %i', async (status) => {
+      const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '');
+      const client = createAppQueryClient();
+      await expect(
+        client
+          .getMutationCache()
+          .build(client, { mutationFn: () => Promise.reject(apiError(status)) })
+          .execute(undefined),
+      ).rejects.toThrow();
+      const unknown = i18n.t('outcomeUnknown', { ns: 'common' });
+      expect(toastError).not.toHaveBeenCalledWith(unknown);
+      if (status !== 403) expect(toastError).not.toHaveBeenCalled();
     });
   });
 });

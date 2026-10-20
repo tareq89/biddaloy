@@ -302,3 +302,70 @@ describe('ListShell — phone filter sheet and empty state', () => {
     expect(screen.queryByRole('table')).toBeNull();
   });
 });
+
+describe('ListShell no-matches state', () => {
+  const FIRST_TIME = { title: 'No students yet', explanation: 'Add the first student.' };
+
+  function renderEmpty(
+    values: Record<string, string>,
+    opts: {
+      onChange?: (p: Record<string, string | null>) => void;
+      emptyState?: { title: string; explanation: string; kind?: 'no-results' };
+      data?: Student[];
+    } = {},
+  ) {
+    return renderInEnglish(
+      <ListShell
+        title="Students"
+        filters={{ fields: TYPED_FILTER_FIELDS, values, onChange: opts.onChange ?? vi.fn() }}
+        tableId="students-no-match"
+        caption="Students"
+        columns={COLUMNS}
+        data={opts.data ?? []}
+        getRowId={(row) => row.id}
+        sorting={null}
+        onSortingChange={vi.fn()}
+        page={1}
+        pageSize={20}
+        totalCount={opts.data?.length ?? 0}
+        onPageChange={vi.fn()}
+        emptyState={opts.emptyState ?? FIRST_TIME}
+      />,
+    );
+  }
+
+  it('zero rows with a search shows the generic no-match text and Clear nulls every field key', async () => {
+    const onChange = vi.fn();
+    await renderEmpty({ q: 'zzz' }, { onChange });
+    expect(screen.queryByText('No students yet')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /clear/i }));
+    expect(onChange).toHaveBeenCalledWith({ q: null });
+  });
+
+  it('zero rows and no filter keeps the first-time empty state', async () => {
+    await renderEmpty({});
+    expect(screen.getByText('No students yet')).toBeTruthy();
+  });
+
+  it('a page-supplied kind no-results wins, and still gets Clear [2703]', async () => {
+    const onChange = vi.fn();
+    await renderEmpty(
+      { q: 'zzz' },
+      { onChange, emptyState: { title: 'Own words', explanation: 'x', kind: 'no-results' } },
+    );
+    expect(screen.getByText('Own words')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: /clear/i }));
+    expect(onChange).toHaveBeenCalledWith({ q: null });
+  });
+
+  it('a value under a non-field key (view) is not "filtered"', async () => {
+    await renderEmpty({ view: 'cards' });
+    expect(screen.getByText('No students yet')).toBeTruthy();
+  });
+
+  it('rows present renders the table, no empty state', async () => {
+    await renderEmpty({ q: 'Rahim' }, { data: STUDENTS });
+    expect(screen.getByText('Rahim Uddin')).toBeTruthy();
+    expect(screen.queryByText('No students yet')).toBeNull();
+  });
+});

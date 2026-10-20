@@ -167,7 +167,7 @@ test.describe('dashboard reconciliation: admin', () => {
       absent: number;
       leave: number;
       unmarked: number;
-      on_leave: unknown[];
+      on_leave: { staff_profile_id: string }[];
     }>(request, 'admin', 'staff-today');
     const users = await allPages<{
       status: string;
@@ -184,7 +184,8 @@ test.describe('dashboard reconciliation: admin', () => {
       '/users?status=ACTIVE (staff_profile_id set)',
     );
 
-    const tally = { present: 0, late: 0, absent: 0, leave: 0, working: 0 };
+    const onLeaveIds = new Set(w.on_leave.map((l) => l.staff_profile_id));
+    const tally = { present: 0, late: 0, absent: 0, leave: 0, working: 0, unmarkedOnLeave: 0 };
     for (const member of staff) {
       const s = await getJson<{
         working_days: number;
@@ -202,6 +203,8 @@ test.describe('dashboard reconciliation: admin', () => {
       tally.absent += s.absent_days;
       tally.leave += s.leave_days;
       tally.working = Math.max(tally.working, s.working_days);
+      const marks = s.present_days + s.late_days + s.absent_days + s.leave_days;
+      if (marks === 0 && onLeaveIds.has(member.staff_profile_id!)) tally.unmarkedOnLeave += 1;
     }
     const sourceUrl = `/staff-attendance/summary?from=${TODAY}&to=${TODAY} (per staff member)`;
     // RULE: the summary endpoint counts working days only. On a weekly-off day it reads 0
@@ -210,17 +213,14 @@ test.describe('dashboard reconciliation: admin', () => {
     expectSame('present', w.present, url, tally.present, sourceUrl);
     expectSame('late', w.late, url, tally.late, sourceUrl);
     expectSame('absent', w.absent, url, tally.absent, sourceUrl);
-    // RULE: the widget's `leave` is APPROVED leave records covering today (`on_leave`), a
-    // different thing from staff marked LEAVE in the register. So `leave` is checked against
-    // its own list, and `unmarked` is staff with no register mark at all (LEAVE marks included).
-    expectSame('leave = on_leave list', w.leave, url, w.on_leave.length, url);
-    expectSame(
-      'unmarked',
-      w.unmarked,
-      url,
-      staff.length - (tally.present + tally.late + tally.absent + tally.leave),
-      sourceUrl,
-    );
+    // RULE: one bucket per person, so the buckets add up to staff_total. A register mark wins;
+    // a person with no mark but an APPROVED leave covering today (`on_leave`) counts as leave,
+    // not unmarked. The summary counts register marks only and reads 0 for that person, so
+    // they are added to `leave` and taken out of `unmarked` here.
+    const withLeave = `${sourceUrl} + unmarked staff in on_leave`;
+    expectSame('leave', w.leave, url, tally.leave + tally.unmarkedOnLeave, withLeave);
+    const placed = tally.present + tally.late + tally.absent + tally.leave + tally.unmarkedOnLeave;
+    expectSame('unmarked', w.unmarked, url, staff.length - placed, withLeave);
   });
 
   test('collection-month received = reports totals.net for the month so far', async ({

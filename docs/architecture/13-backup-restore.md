@@ -148,6 +148,21 @@ Then: reconcile `communication_logs` (above), and spot-check any
 `logo_key` the verify output printed against the bucket if you suspect
 objects were lost around the same incident.
 
+### Old fee rows and the money CHECKs
+
+Migration `1791900000300` adds two CHECKs on `student_fees`:
+`paid + discount <= total`, and a WAIVED bill has `paid + discount = total`.
+They are `NOT VALID`. That skips rows already in the table, but Postgres
+still checks every row that is inserted or updated later.
+
+| Restore path | Old bad row in the backup | What to do |
+| --- | --- | --- |
+| Platform (`restore.sh`) | Loads fine: `pg_dump` adds a `NOT VALID` CHECK after the data | Run the audit SQL in the migration's docblock on the restored database. Fix rows by hand. A later payment or reversal on a bad row is refused (409). |
+| School workbook | The `student_fees` tab rejects that row before anything is written, e.g. `row 7, column paid_amount: paid_amount plus discount_amount is more than total_amount` | Fix the row in the file (or fix the source school with the audit SQL and export again), then restore. |
+
+The restore is refused with a row-by-row list, never a 500. Only run
+`VALIDATE CONSTRAINT` once the audit SQL returns no rows.
+
 ## Env vars ([15.3.x])
 
 All in `.env.example`, grouped under "Object storage" and "Backup and
