@@ -1,0 +1,82 @@
+---
+import type { Lang } from '../../i18n';
+import { hero } from '../../content/hero';
+import { captions, roles } from '../../content/roles';
+import Shot from './Shot.astro';
+const { lang } = Astro.props as { lang: Lang };
+---
+<div class="carousel" id="car">
+  <div class="viewport"><div class="track" id="track">
+    {roles.map((r) => (
+      <article class={`slide c-${r.hue}`} data-role={r.key}>
+        <header><span class="tag">{r.tag[lang]}</span><h3>{r.title[lang]}</h3></header>
+        {r.frame === 'desktop' ? (
+          <div class="body"><div class="win">
+            <div class="winbar"><i></i><i></i><i></i><span class="url">{r.url}</span></div>
+            <div class="app"><Shot label={r.shot[lang]} fill /></div>
+          </div></div>
+        ) : (
+          <div class="phonewrap"><div class="phone">
+            <div class="status"><span>৮:০৪</span><span>▲ ●●●</span></div>
+            <div class="pbody"><Shot label={r.shot[lang]} fill /></div>
+          </div></div>
+        )}
+        <div class="ba"><div><b>{captions.before[lang]}</b>{r.before[lang]}</div><div><b>{captions.after[lang]}</b>{r.after[lang]}</div></div>
+      </article>
+    ))}
+  </div></div>
+  <div class="arrows">
+    <button id="prev" type="button" aria-label={hero.prev[lang]}>←</button>
+    <div class="dots" id="dots">{roles.map((r, i) => <i class:list={[`c-${r.hue}`, { on: i === 0 }]}></i>)}</div>
+    <button id="next" type="button" aria-label={hero.next[lang]} data-ev="carousel_next">→</button>
+  </div>
+</div>
+<script is:inline>
+  (function () {
+    var track = document.getElementById('track'), n = track.children.length, di = document.querySelectorAll('#dots i'), cur = 0, auto;
+    var still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function go(i) { cur = (i + n) % n; track.style.transform = 'translateX(-' + cur * 100 + '%)'; di.forEach(function (d, k) { d.classList.toggle('on', k === cur); }); }
+    function restart() { clearInterval(auto); if (!still) auto = setInterval(function () { go(cur + 1); }, 6000); }
+    document.getElementById('prev').addEventListener('click', function () { go(cur - 1); restart(); });
+    document.getElementById('next').addEventListener('click', function () { go(cur + 1); restart(); });
+    var car = document.getElementById('car');
+    car.addEventListener('mouseenter', function () { clearInterval(auto); });
+    car.addEventListener('mouseleave', restart);
+    var sx = 0;
+    track.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
+    track.addEventListener('touchend', function (e) { var dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) { go(dx < 0 ? cur + 1 : cur - 1); restart(); } });
+    restart();
+  })();
+</script>
+<style>
+  .carousel{margin-top:2.5rem;position:relative}
+  .viewport{overflow:hidden;border-radius:14px}
+  .track{display:flex;transition:transform .5s ease}
+  @media (prefers-reduced-motion:reduce){.track{transition:none}}
+  .slide{flex:0 0 100%;min-width:0;padding:0 .25rem}
+  .slide header{display:flex;justify-content:center;gap:.6rem;align-items:center;margin-bottom:.7rem;flex-wrap:wrap}
+  .slide header h3{font-size:1.05rem}
+  .slide header .tag{font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;font-weight:600;color:var(--hue);background:var(--tint);border-radius:999px;padding:.1rem .55rem}
+  /* D45: frames fill the content column, 560 px slides on desktop */
+  .win{border:1px solid var(--line);border-radius:12px;background:var(--bg);overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.08);width:100%}
+  .slide .body{min-height:560px;display:flex;flex-direction:column;justify-content:center}
+  .winbar{height:34px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 12px;font-size:.72rem;color:var(--muted)}
+  .winbar i{width:10px;height:10px;border-radius:50%;background:var(--line);display:inline-block}
+  .winbar .url{margin-left:.6rem;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:.1rem .5rem;font-family:ui-monospace,monospace}
+  .app{height:520px;position:relative;overflow:hidden}
+  .phonewrap{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.8rem;min-height:560px}
+  .phone{width:min(100%,330px);height:600px;border:8px solid var(--line);border-radius:30px;background:var(--bg);overflow:hidden;position:relative}
+  .phone .status{height:26px;font-size:.65rem;display:flex;justify-content:space-between;align-items:center;padding:0 14px;color:var(--muted)}
+  .phone .pbody{position:relative;height:calc(100% - 26px);overflow:hidden}
+  @media (max-width:640px){.app{height:440px}.slide .body,.phonewrap{min-height:480px}.phone{height:520px}}
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;max-width:760px;margin:.8rem auto 0;font-size:.9rem}
+  @media (max-width:640px){.ba{grid-template-columns:1fr}}
+  .ba div{border-radius:8px;padding:.55rem .8rem;border:1px solid var(--line)}
+  .ba div:first-child{color:var(--muted)}
+  .ba div:last-child{background:var(--tint);border-color:transparent}
+  .ba b{display:block;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.15rem}
+  .arrows{display:flex;gap:.5rem;justify-content:center;margin-top:.9rem;align-items:center}
+  .arrows button{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--bg);cursor:pointer;font-size:1rem}
+  .dots{display:flex;gap:.4rem}.dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}
+  .dots i.on{background:var(--hue,var(--fg))}
+</style>
