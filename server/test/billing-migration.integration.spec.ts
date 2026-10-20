@@ -2,18 +2,18 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from
 import { DataSource, QueryRunner } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { School } from '../src/modules/schools/entities/school.entity';
-import { Billing1791900000300 } from '../src/migrations/1791900000300-Billing';
+import { Billing1791900000350 } from '../src/migrations/1791900000350-Billing';
 import { assertProductionConfig, billingFreeUntil } from '../src/config/env.validation';
 
 /**
  * [49.4/#1818] Runs the billing migration's up/down against the migrated test
  * database. down() then up() in one test so later specs see the tables again.
  */
-describe('Billing1791900000300 (integration)', () => {
+describe('Billing1791900000350 (integration)', () => {
   let dataSource: DataSource;
   let queryRunner: QueryRunner;
   let schoolId: string;
-  const migration = new Billing1791900000300();
+  const migration = new Billing1791900000350();
 
   beforeAll(async () => {
     const module = await createTestModule([School], []);
