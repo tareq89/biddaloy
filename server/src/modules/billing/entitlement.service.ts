@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
-import { AuditAction, SeatOrderStatus } from '@biddaloy/shared';
+import { AuditAction, IDLE_REASON, SchoolStatus, SeatOrderStatus } from '@biddaloy/shared';
 import { billingFreeUntil } from '../../config/env.validation';
 import { SCHOOL_TZ, localDate } from '../../common/time';
 import { AuditService } from '../audit/audit.service';
@@ -47,7 +47,8 @@ export class EntitlementService {
   }
 
   /**
-   * Writes `schools.seat_limit` on the caller's transaction (audited only when it changed).
+   * Writes `schools.seat_limit` on the caller's transaction (audited only when it changed), and
+   * lifts an IDLE suspension once the school has a PAID order (a school that pays is not idle).
    * The caller calls `afterCommit` once its transaction has committed.
    */
   async recompute(
@@ -56,27 +57,63 @@ export class EntitlementService {
     at: Date = new Date(),
   ): Promise<{ changed: boolean; limit: number | null }> {
     // Same lock as every student add (FOR NO KEY UPDATE, see seat-limit.service).
-    const [school]: { seat_limit: number | null }[] = await manager.query(
-      'SELECT seat_limit FROM schools WHERE id = $1 FOR NO KEY UPDATE',
-      [schoolId],
-    );
+    const [school]: { seat_limit: number | null; status: string; status_reason: string | null }[] =
+      await manager.query(
+        'SELECT seat_limit, status, status_reason FROM schools WHERE id = $1 FOR NO KEY UPDATE',
+        [schoolId],
+      );
     if (!school) return { changed: false, limit: null };
     const limit = await this.limitFor(manager, schoolId, at);
-    if (school.seat_limit === limit) return { changed: false, limit };
-    await manager.query('UPDATE schools SET seat_limit = $2 WHERE id = $1', [schoolId, limit]);
-    await this.audit.record(
-      {
-        action: AuditAction.UPDATE,
-        entity_type: 'School',
-        entity_id: schoolId,
-        tenant_id: schoolId,
-        performed_by_user_id: null,
-        old_values: { seat_limit: school.seat_limit },
-        new_values: { event: 'SEAT_LIMIT_RECOMPUTED', seat_limit: limit },
-      },
-      manager,
+    let changed = false;
+    if (school.seat_limit !== limit) {
+      await manager.query('UPDATE schools SET seat_limit = $2 WHERE id = $1', [schoolId, limit]);
+      await this.audit.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'School',
+          entity_id: schoolId,
+          tenant_id: schoolId,
+          performed_by_user_id: null,
+          old_values: { seat_limit: school.seat_limit },
+          new_values: { event: 'SEAT_LIMIT_RECOMPUTED', seat_limit: limit },
+        },
+        manager,
+      );
+      changed = true;
+    }
+    // Paying lifts an idle suspension at once, the same as a platform grant does.
+    if (
+      school.status === SchoolStatus.SUSPENDED &&
+      school.status_reason === IDLE_REASON &&
+      (await this.hasPaidOrder(manager, schoolId))
+    ) {
+      await manager.query(
+        'UPDATE schools SET status = $3, status_reason = NULL, status_changed_at = $2 WHERE id = $1',
+        [schoolId, at, SchoolStatus.ACTIVE],
+      );
+      await this.audit.record(
+        {
+          action: AuditAction.REACTIVATE,
+          entity_type: 'School',
+          entity_id: schoolId,
+          tenant_id: schoolId,
+          performed_by_user_id: null,
+          old_values: { status: SchoolStatus.SUSPENDED, reason: IDLE_REASON },
+          new_values: { status: SchoolStatus.ACTIVE, event: 'IDLE_REACTIVATED' },
+        },
+        manager,
+      );
+      changed = true;
+    }
+    return { changed, limit };
+  }
+
+  private async hasPaidOrder(manager: EntityManager, schoolId: string): Promise<boolean> {
+    const rows: unknown[] = await manager.query(
+      'SELECT 1 FROM seat_orders WHERE school_id = $1 AND status = $2 LIMIT 1',
+      [schoolId, SeatOrderStatus.PAID],
     );
-    return { changed: true, limit };
+    return rows.length > 0;
   }
 
   /** Own transaction + post-commit side effects; used by the daily job. Returns whether it changed. */

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { AuditAction, IDLE_REASON } from '@biddaloy/shared';
+import { AuditAction, IDLE_REASON, SeatOrderStatus } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { attentionEvents } from '../attention/attention.constants';
@@ -212,9 +212,11 @@ export class IdleAccountService {
            UPDATE schools SET deleted_at = $1
             WHERE status = 'SUSPENDED' AND status_reason = $2 AND deleted_at IS NULL
               AND status_changed_at <= $3
+              AND NOT EXISTS (SELECT 1 FROM seat_orders o
+                               WHERE o.school_id = schools.id AND o.status = $4)
           RETURNING id)
          SELECT id FROM gone`,
-        [now, IDLE_REASON, cutoff],
+        [now, IDLE_REASON, cutoff, SeatOrderStatus.PAID],
       );
       for (const { id } of rows) {
         await this.audit.record(
