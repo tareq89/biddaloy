@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -33,6 +34,7 @@ import { EntitlementService } from './entitlement.service';
 import { BkashPayResponseDto } from './bkash/bkash.controller';
 import { BkashService } from './bkash/bkash.service';
 import { OrdersService } from './orders.service';
+import { ReceiptService } from './receipt.service';
 import { readOnlyUntilFor } from './seat-grace';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
@@ -47,6 +49,7 @@ export class BillingController {
     private readonly entitlement: EntitlementService,
     private readonly orders: OrdersService,
     private readonly bkash: BkashService,
+    private readonly receipts: ReceiptService,
   ) {}
 
   @Get('summary')
@@ -87,6 +90,20 @@ export class BillingController {
     @Query() query: ListOrdersQueryDto,
   ): Promise<SeatOrderDto[]> {
     return this.orders.list(tenant.id, query.limit ?? 20, query.offset ?? 0);
+  }
+
+  /** The numbered receipt of a PAID order of this school (A4 HTML; the browser saves it as PDF). */
+  @Get('orders/:id/receipt')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @RequirePermissions(Permission.SETTINGS_MANAGE)
+  @AllowWhenSuspendedForBilling()
+  @ApiOperation({ summary: 'Download the receipt of a paid seat order.' })
+  @ApiOkResponse({ description: 'Receipt HTML' })
+  receipt(
+    @CurrentTenant() tenant: { id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<string> {
+    return this.receipts.renderForSchool(tenant.id, id);
   }
 
   /** Starts a bKash payment for a PENDING order of this school; the client redirects to `bkash_url`. */

@@ -14,6 +14,7 @@ import { SessionCutoffService } from '../auth/session-cutoff.service';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { EntitlementService } from './entitlement.service';
 import { OrdersService } from './orders.service';
+import { ReceiptService } from './receipt.service';
 
 describe('EntitlementService + OrdersService (integration)', () => {
   let ds: DataSource;
@@ -34,6 +35,7 @@ describe('EntitlementService + OrdersService (integration)', () => {
       { provide: TenantStatusService, useValue: tenantStatus },
       { provide: SessionCutoffService, useValue: { cutOff: vi.fn() } },
       { provide: AdminNoticeService, useValue: { notifyAdmins: vi.fn() } },
+      { provide: ReceiptService, useValue: { emailReceipt: vi.fn() } },
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
     entitlement = module.get(EntitlementService);
@@ -174,6 +176,79 @@ describe('EntitlementService + OrdersService (integration)', () => {
     expect(await limitOf(id)).toBe(7);
     expect(await recomputeAuditCount(id)).toBe(1);
     expect((await orders.list(id, 10))[0]).toMatchObject({ status: 'PAID', method: 'BKASH' });
+  });
+
+  it('receipts: payments get consecutive SMR numbers, a replay keeps its number, a GRANT gets none, the snapshot is frozen', async () => {
+    afterCutoff();
+    const a = await newSchool();
+    const b = await newSchool();
+    const receiptOf = async (orderId: string) =>
+      (
+        await ds.query('SELECT receipt_number, receipt_snapshot FROM seat_orders WHERE id = $1', [
+          orderId,
+        ])
+      )[0] as { receipt_number: string | null; receipt_snapshot: { name: string } | null };
+    const serial = (n: string | null) => Number((n as string).split('-')[2]);
+
+    const first = await pay(a, 1);
+    const second = await pay(b, 1);
+    const r1 = await receiptOf(first.id);
+    const r2 = await receiptOf(second.id);
+    // Platform-wide series: the two schools' receipts follow each other.
+    expect(r1.receipt_number).toMatch(/^SMR-\d{4}-\d{6}$/);
+    expect(serial(r2.receipt_number)).toBe(serial(r1.receipt_number) + 1);
+
+    // A replayed payment applies nothing and keeps its one number.
+    await orders.markPaid(first.id, { method: PlatformPaymentMethod.OFFLINE_CASH });
+    expect((await receiptOf(first.id)).receipt_number).toBe(r1.receipt_number);
+
+    // The receipt shows the school as it was when paid, even after a rename.
+    const paidName = r1.receipt_snapshot?.name;
+    await ds.query(`UPDATE schools SET name = 'Renamed After Payment' WHERE id = $1`, [a]);
+    expect((await receiptOf(first.id)).receipt_snapshot?.name).toBe(paidName);
+
+    // A platform grant is not a sale: no receipt.
+    const grant = await orders.createPaid(
+      {
+        schoolId: a,
+        seats: 5,
+        months: 1,
+        idempotency_key: randomUUID(),
+        userId: null,
+        unit_price_paisa: 0,
+      },
+      { method: PlatformPaymentMethod.GRANT },
+    );
+    expect((await receiptOf(grant.id)).receipt_number).toBeNull();
+  });
+
+  it('two payments at the same moment get different receipt numbers', async () => {
+    afterCutoff();
+    const a = await newSchool();
+    const b = await newSchool();
+    const oa = await orders.createPending({
+      schoolId: a,
+      seats: 1,
+      months: 1,
+      idempotency_key: randomUUID(),
+      userId: null,
+    });
+    const ob = await orders.createPending({
+      schoolId: b,
+      seats: 1,
+      months: 1,
+      idempotency_key: randomUUID(),
+      userId: null,
+    });
+    await Promise.all([
+      orders.markPaid(oa.id, { method: PlatformPaymentMethod.OFFLINE_CASH }),
+      orders.markPaid(ob.id, { method: PlatformPaymentMethod.OFFLINE_CASH }),
+    ]);
+    const rows = await ds.query(
+      'SELECT receipt_number FROM seat_orders WHERE id = ANY($1::uuid[])',
+      [[oa.id, ob.id]],
+    );
+    expect(new Set(rows.map((r: { receipt_number: string }) => r.receipt_number)).size).toBe(2);
   });
 
   it('adding a student past the paid entitlement is a 409 SEAT_LIMIT_REACHED', async () => {

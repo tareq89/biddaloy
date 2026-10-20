@@ -52,6 +52,9 @@
     "months": "মাস",
     "amount": "টাকা",
     "status": "অবস্থা",
+    "receipt": "রসিদ",
+    "downloadReceipt": "রসিদ {{number}} ডাউনলোড করুন",
+    "receiptFailed": "রসিদ খোলা যায়নি। আবার চেষ্টা করুন।",
     "statusValue": {
       "PENDING": "টাকার অপেক্ষায়",
       "PAID": "পরিশোধ হয়েছে",

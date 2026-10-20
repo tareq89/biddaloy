@@ -111,6 +111,43 @@ describe('billing E2E', () => {
       .expect(refused);
   });
 
+  it('GET /billing/orders/:id/receipt: own paid order is 200 HTML; another school, unpaid, bad id, TEACHER are refused', async () => {
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Other Receipt School', 'other-receipt-school', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [OTHER_TENANT_ID],
+    );
+    const paidOrder = async (
+      schoolId: string,
+      key: string,
+      status: string,
+      receipt: string | null,
+    ) =>
+      (
+        await dataSource.query(
+          `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa,
+             period_start, period_end, status, idempotency_key, receipt_number, paid_at)
+           VALUES ($1, 10, 2, 1000, 20000, '2027-01-01', '2027-03-01', $3, $2, $4, NOW())
+           RETURNING id`,
+          [schoolId, key, status, receipt],
+        )
+      )[0].id as string;
+    const own = await paidOrder(TENANT_ID, 'receipt-own', 'PAID', 'SMR-2027-900001');
+    const foreign = await paidOrder(OTHER_TENANT_ID, 'receipt-foreign', 'PAID', 'SMR-2027-900002');
+    const unpaid = await paidOrder(TENANT_ID, 'receipt-unpaid', 'PENDING', null);
+
+    const res = await get(`orders/${own}/receipt`, tokens.admin).expect(200);
+    expect(res.headers['content-type']).toContain('text/html');
+    expect(res.text).toContain('SMR-2027-900001');
+    // Another school's order and an unpaid one look the same as a missing one.
+    await get(`orders/${foreign}/receipt`, tokens.admin).expect(404);
+    await get(`orders/${unpaid}/receipt`, tokens.admin).expect(404);
+    await get('orders/not-a-uuid/receipt', tokens.admin).expect(400);
+    await get(`orders/${own}/receipt`, tokens.teacher).expect(403);
+
+    await dataSource.query(`DELETE FROM seat_orders WHERE idempotency_key LIKE 'receipt-%'`);
+  });
+
   it('caps the orders limit at 100 and rejects a bad one with 400', async () => {
     await get('orders?limit=100', tokens.admin).expect(200);
     await get('orders?limit=101', tokens.admin).expect(400);

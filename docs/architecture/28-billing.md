@@ -2,7 +2,8 @@
 
 A school buys **seats** (BDT 10 per student per month). An order starts `PENDING`, becomes
 `PAID` once, and `EntitlementService` recomputes `schools.seat_limit` from paid orders.
-This doc covers the **bKash pay step** (Epic 49 W4, #1820). Code: `server/src/modules/billing/bkash/`.
+This doc covers the **bKash pay step** (Epic 49 W4, #1820) and the **receipt** (W5, #1822).
+Code: `server/src/modules/billing/` (`bkash/` for the gateway).
 
 ## The flow
 
@@ -85,6 +86,38 @@ All five are needed; if any is missing the pay route answers a generic 503.
 
 The callback URL bKash redirects to is `<APP_BASE_URL>/api/v1/billing/bkash/callback`.
 
+## Receipts
+
+Every order paid by bKash or an offline payment gets a numbered receipt. A platform `GRANT` is a
+zero-value gift and gets none.
+
+```mermaid
+flowchart LR
+    P["markPaid (once)"] --> N["receipt_number = SMR-2026-000012<br/>(same transaction)"]
+    N --> E["after commit: email the admins<br/>(link to Settings, Seats & billing)"]
+    A["Admin clicks the number in the orders table"] --> R["GET /billing/orders/:id/receipt"]
+    R --> H["A4 HTML, bn or en by school locale"]
+    H --> S["Browser: Save as PDF"]
+```
+
+- **Number**: `SMR-YYYY-NNNNNN`, one series for the whole platform per Asia/Dhaka year
+  (`receipt-number.util.ts`). It is taken inside the payment transaction under an advisory lock,
+  and `seat_orders.receipt_number` is unique, so a replay never makes a second number.
+- **Download**: `ParseUUIDPipe`, `SETTINGS_MANAGE`, `@AllowWhenSuspendedForBilling` (a school that
+  is read-only or paused must still reach its receipt). Another school's order, an unpaid order
+  and a grant all answer the same 404.
+- **VAT**: set `BILLING_VAT_REGISTRATION` and the receipt shows the number and a VAT line; unset,
+  neither shows.
+- **Email**: the `receipt` admin notice (en/bn). A failed send is logged and never fails the payment.
+
+## Learning (Epic 49)
+
+| Surprise                                                            | Cost                                                                                | Fix                                                                                           | Rule candidate                                                                                                 |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| The server has no PDF library, and print is browser-only (Epic 32). | A "PDF receipt" would need a new dependency and a Bangla font.                      | Ship print-ready A4 HTML; the browser saves it as PDF.                                        | Prefer the browser print path for documents; add a PDF engine only if a document must be attached to an email. |
+| The email could not attach a file.                                  | The ticket's "email with attachment" was not possible through `AdminNoticeService`. | The email carries a link; the download route is authenticated.                                | Send links to authenticated downloads, not files.                                                              |
+| Orders are paid from two places (bKash, offline).                   | A receipt hook in each caller would drift.                                          | The number and the email hook sit in `OrdersService.markPaid`, the one place both go through. | Hook money side effects in the service that writes the money, not its callers.                                 |
+
 ## Not done here
 
 - **IPN / webhook**: tokenized checkout settles through the callback plus the reconciler. If the
@@ -92,5 +125,7 @@ The callback URL bKash redirects to is `<APP_BASE_URL>/api/v1/billing/bkash/call
   `markPaid`.
 - **Manual sandbox run**: needs the merchant credentials from #1816. Run one payment on the
   sandbox, check the order turns `PAID` and the seats update, and add the screenshots here.
+- **Receipt as a PDF file**: not built. If a file must be attached to the email, add a PDF engine and render the same template.
+- **Receipt email as a queue job**: it runs right after commit in the same process, not in BullMQ. Move it to a queue if the notice provider gets slow.
 - **CI**: no real bKash call (no credentials); the client and service are covered by unit specs
   with a mocked bKash, and the API e2e covers the public callback's refusal paths.

@@ -10,6 +10,7 @@ import { SessionCutoffService } from '../../auth/session-cutoff.service';
 import { AdminNoticeService } from './admin-notice.service';
 import { EntitlementService } from '../../billing/entitlement.service';
 import { OrdersService } from '../../billing/orders.service';
+import { ReceiptService } from '../../billing/receipt.service';
 import { School } from '../entities/school.entity';
 import { TenantStatusService } from '../tenant-status.service';
 import { TrialService } from './trial.service';
@@ -29,6 +30,7 @@ describe('TrialService (integration): account start and seat grants', () => {
       { provide: TenantStatusService, useValue: tenantStatus },
       { provide: SessionCutoffService, useValue: { cutOff: vi.fn() } },
       { provide: AdminNoticeService, useValue: { notifyAdmins: vi.fn() } },
+      { provide: ReceiptService, useValue: { emailReceipt: vi.fn() } },
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
     trial = module.get(TrialService);

@@ -12,6 +12,8 @@ export interface SeatOrderDto {
   period_end: string;
   status: SeatOrderStatus;
   method: PlatformPaymentMethod | null;
+  /** `SMR-YYYY-NNNNNN` once paid; null for unpaid orders and grants. */
+  receipt_number: string | null;
   paid_at: string | null;
   created_at: string;
 }

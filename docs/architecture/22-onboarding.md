@@ -138,6 +138,7 @@ flowchart TD
 - One-off per environment: `yarn workspace @biddaloy/server backfill-trials`
   (dry run; add `--apply --confirm-db=<name>`). It clears every
   `trial_ends_at` and reactivates schools suspended with `TRIAL_EXPIRED`.
+- Receipts for paid orders: see [28-billing.md](28-billing.md#receipts).
 - Legacy: the old trial warning mails, the `trial.ending` rule (now inert) and
   the `TRIAL_DAYS` / `TRIAL_SEAT_LIMIT` env values are gone or dead.
 - The attention rule for expiring seats is `seats.expiring` (it replaces the
