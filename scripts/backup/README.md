@@ -4,6 +4,14 @@ Encrypted PostgreSQL backup and restore. See
 [`docs/architecture/13-backup-restore.md`](../../docs/architecture/13-backup-restore.md)
 for the full recovery story (RPO/RTO, retention, key rotation).
 
+## Weekly drill and `--no-migrate`
+
+`restore.sh <db/...key> <url> [--no-migrate]`: a `db/` key is read from R2 with
+`BACKUP_S3_*`; `--no-migrate` skips migrations. `drill.sh` (weekly, R2 mode
+only) restores the newest dump into a scratch `*drill*` database and compares
+counts; env: `DRILL_SCHEDULE`, `DRILL_PUSH_URL`, `DRILL_DATABASE_URL`,
+`DRILL_ADMIN_URL`. See docs/architecture/13-backup-restore.md "Drill".
+
 ## backup.sh
 
 Runs on a schedule inside the `backup` docker-compose service
