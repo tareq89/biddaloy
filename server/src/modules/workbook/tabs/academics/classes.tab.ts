@@ -78,10 +78,11 @@ export const classesTab: TabSpec<Class, ClassRow> = {
   excluded,
   dependsOn: ['academic_years'],
   columns,
-  // [33.2.1] `shift`/`version` included: same statement as the DB's own
-  // `IDX_cl_name_year_tenant_shift_version`, expressed a second time at
-  // this layer because the workbook's own key-collision/delete-by-absence
-  // logic never touches the database's unique index directly.
+  // [33.2.1] `shift`/`version` included, mirroring the DB's
+  // `IDX_cl_name_year_tenant_shift_version`. That index is now case-insensitive
+  // (`lower("name")`, migration 1791900000400-CaseInsensitiveAcademicNames) while this
+  // key compares names as written, so a case-variant duplicate is rejected by the
+  // DB, not by the workbook's own key-collision logic.
   naturalKey: ['name', 'academic_year', 'shift', 'version'],
   deleteByAbsence: true,
 

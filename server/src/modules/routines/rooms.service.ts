@@ -13,8 +13,6 @@ export class RoomsService {
   constructor(
     @InjectRepository(Room)
     private readonly repo: Repository<Room>,
-    @InjectRepository(RoutineSlot)
-    private readonly routineSlotRepo: Repository<RoutineSlot>,
   ) {}
 
   async create(dto: CreateRoomDto, tenantId: string): Promise<Room> {
@@ -67,37 +65,48 @@ export class RoomsService {
   }
 
   async remove(id: string, tenantId: string): Promise<void> {
-    await this.findOne(id, tenantId);
-
-    // `RoutineSlot.room_id` is `ON DELETE SET NULL` at the DB level, but
-    // silently un-assigning a room from every scheduled class it's booked
-    // into is not a safe default — refuse and name the count, same as
-    // `ShiftsService.remove`.
-    const referencedCount = await this.routineSlotRepo.count({
-      where: { room_id: id, tenant_id: tenantId },
-    });
-    if (referencedCount > 0) {
-      throw new ConflictException(
-        `Cannot delete this room: ${referencedCount} routine slot(s) still reference it. Reassign or remove them first.`,
-      );
-    }
-
-    // [2627] A seat plan (draft or published) that still seats students in this
-    // room would render a null room. Soft-deleted plans do not count.
-    const allocationCount = await this.repo.manager
-      .createQueryBuilder(SeatAllocation, 'a')
-      .innerJoin('a.seat_plan', 'p', 'p.deleted_at IS NULL')
-      .where('a.room_id = :id AND a.tenant_id = :tenantId', { id, tenantId })
-      .getCount();
-    if (allocationCount > 0) {
-      throw new ConflictException({
-        message: `This room is used in ${allocationCount} seat plan allocation(s). Move them first.`,
-        details: { code: 'ROOM_IN_USE', seat_allocations_count: allocationCount },
-      });
-    }
-
-    // [2679] Exam schedules that use the room block the delete too.
     await this.repo.manager.transaction(async (manager) => {
+      // Lock the parent first so a concurrent child insert (FOR KEY SHARE) must finish
+      // before the guard counts. ponytail: orders a delete after an in-flight child insert;
+      // a creator that reads the parent without a share lock can still insert after commit.
+      // Upgrade: share-lock the parent in the creator, as ClassService.create does.
+      const locked = await manager
+        .createQueryBuilder(Room, 'p')
+        .setLock('pessimistic_write')
+        .where('p.id = :id AND p.tenant_id = :tenantId AND p.deleted_at IS NULL', { id, tenantId })
+        .getOne();
+      if (!locked) {
+        throw new NotFoundException(`Room with ID "${id}" not found`);
+      }
+
+      // `RoutineSlot.room_id` is `ON DELETE SET NULL` at the DB level, but
+      // silently un-assigning a room from every scheduled class it's booked
+      // into is not a safe default — refuse and name the count, same as
+      // `ShiftsService.remove`.
+      const referencedCount = await manager.count(RoutineSlot, {
+        where: { room_id: id, tenant_id: tenantId },
+      });
+      if (referencedCount > 0) {
+        throw new ConflictException(
+          `Cannot delete this room: ${referencedCount} routine slot(s) still reference it. Reassign or remove them first.`,
+        );
+      }
+
+      // [2627] A seat plan (draft or published) that still seats students in this
+      // room would render a null room. Soft-deleted plans do not count.
+      const allocationCount = await manager
+        .createQueryBuilder(SeatAllocation, 'a')
+        .innerJoin('a.seat_plan', 'p', 'p.deleted_at IS NULL')
+        .where('a.room_id = :id AND a.tenant_id = :tenantId', { id, tenantId })
+        .getCount();
+      if (allocationCount > 0) {
+        throw new ConflictException({
+          message: `This room is used in ${allocationCount} seat plan allocation(s). Move them first.`,
+          details: { code: 'ROOM_IN_USE', seat_allocations_count: allocationCount },
+        });
+      }
+
+      // [2679] Exam schedules that use the room block the delete too.
       await assertNoLiveDependents(manager, Room, id, {
         code: 'ROOM_IN_USE',
         message: 'This room is still used by other records. Remove or reassign them first.',

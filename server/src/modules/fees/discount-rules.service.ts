@@ -23,6 +23,8 @@ import { AuditService } from '../audit/audit.service';
  * string-to-number parser rounds the decimal literal correctly to the
  * nearest double, so `Number('1.005e2')` is exactly `100.5`.
  */
+// Not the shared `round2`: percent products hit exact half-paisa values; the decimal-string
+// method returns NaN below 1e-6, so it cannot be the shared one.
 function round2(value: number): number {
   return Number(`${Math.round(Number(`${value}e2`))}e-2`);
 }

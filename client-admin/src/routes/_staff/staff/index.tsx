@@ -407,18 +407,19 @@ function StaffListPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() =>
+                    onClick={() => {
+                      const nav = previewIdsNav(Array.from(state.selectedIds));
                       void navigate({
                         to: '/print/preview',
-                        state: previewIdsNav(Array.from(state.selectedIds)).state,
+                        state: nav.state,
                         search: {
                           kind: 'STAFF_ID_CARD',
                           subject_type: 'STAFF',
-                          ...previewIdsNav(Array.from(state.selectedIds)).search,
+                          ...nav.search,
                           from: '/staff',
                         },
-                      })
-                    }
+                      });
+                    }}
                   >
                     <IdCardIcon aria-hidden="true" />
                     {t('list.printIdCards', { count: state.selectedIds.size })}

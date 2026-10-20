@@ -9,6 +9,9 @@ import type { EntityManager, ObjectLiteral } from 'typeorm';
  *
  * `exclude` holds "Child.relationProperty" keys that the caller counts or
  * cascades itself. The parent id is already tenant-checked by the caller.
+ * `details.dependents` is keyed by table name (`attendance_sessions`), a stable key.
+ * Only many-to-one is scanned; an owning one-to-one is not. None exists today, and the
+ * registry's FK test catches a new one.
  * Errors name counts only, never the submitted value (Rule 23).
  */
 export async function assertNoLiveDependents(
@@ -39,7 +42,7 @@ export async function assertNoLiveDependents(
         );
       });
       const n = await qb.getCount();
-      if (n > 0) dependents[meta.name] = (dependents[meta.name] ?? 0) + n;
+      if (n > 0) dependents[meta.tableName] = (dependents[meta.tableName] ?? 0) + n;
     }
   }
   if (Object.keys(dependents).length > 0) {
