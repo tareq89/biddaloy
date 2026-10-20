@@ -231,6 +231,11 @@ services:
       - '443:443'
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      # The ops and staging server blocks render server_name from these; an unset
+      # variable would stay literal in the template and stop nginx booting.
+      # `.invalid` never resolves, so an unconfigured block matches nothing.
+      OPS_DOMAIN: ${OPS_DOMAIN:-ops.invalid}
+      STAGING_DOMAIN: ${STAGING_DOMAIN:-staging.invalid}
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
     volumes:
       - ./nginx/templates:/etc/nginx/templates:ro
