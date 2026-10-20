@@ -188,6 +188,26 @@ describe('AttendanceSummaryService (integration)', () => {
       expect(summary.attendance_percentage).toBe(33.33);
     });
 
+    it.each(['2026-09-02T18:30:00Z', '2026-09-03T17:59:00Z'])(
+      'starts at the Dhaka enrolment day for enrolled_at %s',
+      async (at) => {
+        const studentId = await makeStudent(102);
+        await dataSource
+          .getRepository(Enrollment)
+          .update({ student_id: studentId }, { enrolled_at: new Date(at) });
+        await markDay(studentId, '2026-09-03', AttendanceStatus.PRESENT);
+        const summary = await service.getStudentSummary({
+          tenantId: TENANT_ID,
+          studentId,
+          from: '2026-09-01',
+          to: '2026-09-05',
+        });
+        expect(summary.working_days).toBe(3);
+        expect(summary.unmarked_days).toBe(2);
+        expect(summary.attendance_percentage).toBe(33.33);
+      },
+    );
+
     it('returns null attendance_percentage, not 0, over a range with zero working days', async () => {
       const studentId = await makeStudent(102);
       await setWeeklyOffDays([0, 1, 2, 3, 4, 5, 6]); // every day is off

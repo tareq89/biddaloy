@@ -87,6 +87,17 @@ describe('StudentCertificateResolver (integration)', () => {
     expect(v['leaving.class']).not.toBe('');
   });
 
+  it('admission date is the Dhaka day of enrolled_at', async () => {
+    const id = await seedStudent();
+    await ds.query(`UPDATE enrollments SET enrolled_at = $1 WHERE student_id = $2`, [
+      new Date('2026-09-02T18:30:00Z'),
+      id,
+    ]);
+    await leave(id);
+    const out = await tc.resolve(SEED_TENANT_ID, [id], ds.manager);
+    expect(out.get(id)!.values['student.admission_date']).toBe('2026-09-03');
+  });
+
   it('TC is refused after readmit (D4)', async () => {
     const id = await seedStudent();
     await leave(id);

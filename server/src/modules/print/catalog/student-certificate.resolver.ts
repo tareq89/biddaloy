@@ -65,7 +65,7 @@ export class StudentCertificateResolver implements FieldResolver {
               s.father_name, s.mother_name, s.birth_reg_no,
               to_char(s.date_of_birth, 'YYYY-MM-DD') AS dob, s.photo_key, s.enrollment_status,
               c.name AS class_name, cs.section_name,
-              (SELECT to_char(min(e0.enrolled_at), 'YYYY-MM-DD') FROM enrollments e0
+              (SELECT to_char(min(e0.enrolled_at AT TIME ZONE 'Asia/Dhaka'), 'YYYY-MM-DD') FROM enrollments e0
                 WHERE e0.student_id = s.id AND e0.tenant_id = s.tenant_id) AS admission_date,
               e.year_name AS academic_year
          FROM students s
