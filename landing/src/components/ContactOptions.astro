@@ -1,0 +1,44 @@
+---
+import { company } from '../content/legal';
+import type { Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const bn = lang === 'bn';
+// D35 office card + WhatsApp deep link with prefilled bn text + chat facade (W3 #2729 replaces the button) + phone/email. No form (D17).
+const waText = bn ? 'আমি ___ স্কুল থেকে, ডেমো দেখতে চাই' : 'I am from ___ school, I would like to see a demo';
+const wa = `${company.whatsapp}?text=${encodeURIComponent(waText)}`;
+const ext = { target: '_blank', rel: 'noopener' };
+---
+<div class="grid">
+  <div class="card">
+    <h3>{bn ? 'অফিস' : 'Office'}</h3>
+    <p class="addr">{company.address[lang].map((l, i) => <>{i > 0 && <br />}{l}</>)}</p>
+    <p class="hours">{company.hours[lang]} {bn ? 'আসার আগে একবার জানিয়ে আসুন।' : 'Please let us know before you visit.'}</p>
+    <a class="btn secondary small" href={company.mapsUrl} {...ext}>{bn ? 'Google Maps-এ দেখুন' : 'Open in Google Maps'}</a>
+  </div>
+  <div class="card">
+    <h3>WhatsApp</h3>
+    <p class="big">{company.phone}</p>
+    <p>{bn ? `ক্লিক করলে বাংলায় লেখা বার্তা তৈরি থাকবে: "${waText}"।` : `Opens with a ready message: "${waText}".`}</p>
+    <a class="btn primary small" href={wa} {...ext}>{bn ? 'WhatsApp খুলুন' : 'Open WhatsApp'}</a>
+  </div>
+  <div class="card">
+    <h3>{bn ? 'চ্যাট (AI, তারপর মানুষ)' : 'Chat (AI, then a person)'}</h3>
+    <p>{bn ? 'নিচের ডানদিকের বোতাম। বাংলা/English/banglish-এ প্রশ্ন করুন; AI না পারলে আমরা নিজে উত্তর দিই।' : 'The button at the bottom right. Ask in Bangla, English or Banglish; when the AI cannot answer, we do.'}</p>
+    <button class="btn secondary small" type="button" data-chat-open>{bn ? 'চ্যাট শুরু করুন' : 'Start chat'}</button>
+  </div>
+  <div class="card">
+    <h3>{bn ? 'ফোন ও ইমেইল' : 'Phone and email'}</h3>
+    <p class="big">{company.phone}</p>
+    <p><a href={`mailto:${company.email}`}>{company.email}</a></p>
+  </div>
+</div>
+<style>
+  .grid{display:grid;gap:1rem;margin-top:1.5rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}
+  .card{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:1.2rem;min-width:0}
+  .card h3{font-size:1.05rem;margin-bottom:.35rem}
+  .card p{color:var(--muted);font-size:.95rem}
+  .card .btn{margin-top:.8rem}
+  .addr{line-height:1.5;font-weight:600;color:var(--fg)!important}
+  .hours{margin-top:.5rem}
+  .big{font-size:1.15rem;font-weight:700;color:var(--fg)!important}
+</style>
