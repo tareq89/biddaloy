@@ -15,7 +15,7 @@ const cur = (p: string) => (Astro.url.pathname.startsWith(`/${lang}/${p}`) ? 'pa
 </div>
 <header class="site">
   <div class="wrap">
-    <a class="wordmark" href={`/${lang}/`} aria-label="SchoolManager ERP"><span class="mono">SM</span>School<span class="m">Manager</span><span class="erp">ERP</span></a>
+    <a class="wordmark" href={`/${lang}/`}><span class="mono">SM</span>School<span class="m">Manager</span><span class="erp">ERP</span></a>
     <nav class="nav" id="nav" aria-label={t('nav.label')}>
       <a href={`/${lang}/features/`} aria-current={cur('features')}>{t('nav.features')}</a>
       <a href={`/${lang}/pricing/`} aria-current={cur('pricing')}>{t('nav.pricing')}</a>

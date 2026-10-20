@@ -1,3 +1,4 @@
 User-agent: *
 Allow: /
-# placeholder: sitemap line and final rules land in 50.13
+
+Sitemap: https://schoolmanagerp.com/sitemap-index.xml
