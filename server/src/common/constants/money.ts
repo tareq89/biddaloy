@@ -6,3 +6,9 @@
  * `payments.total_amount` holds the sum of the checkout lines (#2484).
  * Change it together with the columns. */
 export const MONEY_MAX = 99_999_999.99;
+
+/** A money value in whole paisa. Money compares in paisa, never with a tolerance (#2636). */
+export const toPaisa = (n: number | string): number => Math.round(Number(n) * 100);
+
+/** Round to 2 decimals for storing/display. Compare money with `toPaisa`, not this. */
+export const round2 = (n: number): number => Math.round(n * 100) / 100;

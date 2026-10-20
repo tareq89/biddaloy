@@ -3,7 +3,7 @@ import { attentionEvents } from '../attention/attention.constants';
 import { ATTENTION_RECHECK, AttentionRecheckPayload } from '../attention/engine/attention-events';
 import { getQueueToken } from '@nestjs/bullmq';
 import { FEE_NOTIFY_QUEUE } from '../communications/communications.constants';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -49,6 +49,8 @@ import {
   PaymentMethod,
   ApprovalScope,
   PaymentAllocationType,
+  PaymentStatus,
+  AuditAction,
 } from '@biddaloy/shared';
 
 /**
@@ -305,6 +307,27 @@ describe('CheckoutService (integration)', () => {
     expect(rechecks).toEqual(
       [`${TENANT_ID}:fees.due_soon`, `${TENANT_ID}:fees.overdue_family`].sort(),
     );
+  });
+
+  it('notify:false (seed scripts) queues no receipt job and no recheck (#2701)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 5 }));
+    feeNotifyAdd.mockClear();
+    const rechecks = await captureRechecks(async () => {
+      await service.checkout(
+        {
+          idempotency_key: '2701a001-0000-4000-8000-000000000001',
+          lines: [{ student_fee_id: bill.id, amount: 5 }],
+          payment_method: PaymentMethod.CASH,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+        { replayed: false, notify: false },
+      );
+    });
+    expect(feeNotifyAdd).not.toHaveBeenCalled();
+    expect(rechecks).toHaveLength(0);
   });
 
   it('records one payment across two students, three lines, one invoice with grouped lines', async () => {
@@ -574,6 +597,88 @@ describe('CheckoutService (integration)', () => {
     expect(toWallet.wallet_balance_after).toBe(50);
   });
 
+  describe('whole-paisa money checks (#2636)', () => {
+    const run = (billId: string, key: string, over: Record<string, unknown>, amount = 1000) =>
+      service.checkout(
+        {
+          idempotency_key: key,
+          lines: [{ student_fee_id: billId, amount, one_off_discount: 0 }],
+          payment_method: PaymentMethod.CASH,
+          ...over,
+        } as any,
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+
+    it('a line of balance + 0.01 is a 400 and writes nothing; exactly the balance succeeds', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
+
+      await expect(
+        run(bill.id, '2636a001-0000-4000-8000-000000000001', {}, 1000.01),
+      ).rejects.toThrow(BadRequestException);
+      expect(
+        await paymentRepo.count({ where: { tenant_id: TENANT_ID, student_id: student.id } }),
+      ).toBe(0);
+
+      await run(bill.id, '2636a001-0000-4000-8000-000000000002', {}, 1000);
+      const after = await studentFeeRepo.findOneByOrFail({ id: bill.id });
+      expect(Number(after.paid_amount)).toBe(1000);
+    });
+
+    it('a card tender above the amount due is a 400; the same tender in cash gives change', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
+
+      await expect(
+        run(bill.id, '2636a002-0000-4000-8000-000000000001', {
+          payment_method: PaymentMethod.CARD,
+          tendered_amount: 1100,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(
+        await paymentRepo.count({ where: { tenant_id: TENANT_ID, student_id: student.id } }),
+      ).toBe(0);
+
+      const ok = await run(bill.id, '2636a002-0000-4000-8000-000000000002', {
+        tendered_amount: 1100,
+      });
+      expect(ok.change_amount).toBe(100);
+    });
+
+    it('cash change of 0.01 with TO_WALLET still writes the CREDIT_CHANGE row', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
+
+      const r = await run(bill.id, '2636a003-0000-4000-8000-000000000001', {
+        tendered_amount: 1000.01,
+        change_handling: 'TO_WALLET',
+      });
+      expect(r.wallet_balance_after).toBe(0.01);
+    });
+
+    it('wallet_use of total + 0.01 is a 400', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
+      await dataSource.transaction(async (manager) => {
+        await walletService.credit(
+          {
+            studentId: student.id,
+            tenantId: TENANT_ID,
+            amount: 2000,
+            kind: 'CREDIT_OVERPAYMENT' as any,
+          },
+          manager,
+        );
+      });
+
+      await expect(
+        run(bill.id, '2636a004-0000-4000-8000-000000000001', { wallet_use: 1000.01 }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   it('draws down the wallet for wallet_use, recording a DEBIT_CHECKOUT transaction', async () => {
     const student = await studentRepo.save(makeStudent());
     const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
@@ -641,6 +746,132 @@ describe('CheckoutService (integration)', () => {
     expect(payments).toHaveLength(1);
   });
 
+  it('a replay of a PENDING payment is a 409 "not complete", never "reversed" (#2637)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+    const dto = {
+      idempotency_key: '2637a003-0000-4000-8000-000000000001',
+      lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+    };
+    const first = await service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+    // Checkout only writes SUCCESS; a future gateway payment could sit at PENDING.
+    await paymentRepo.update(first.payment.id, { payment_status: PaymentStatus.PENDING });
+
+    const err = await service
+      .checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken())
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect((err as ConflictException).getResponse()).toMatchObject({
+      details: { code: 'CHECKOUT_PAYMENT_NOT_COMPLETE' },
+    });
+  });
+
+  it('a replay without payment_date after a back-dated first request is a 400; a plain replay still replays (#2663)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 5 }));
+    const body = {
+      idempotency_key: '2663a001-0000-4000-8000-000000000001',
+      lines: [{ student_fee_id: bill.id, amount: 5, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+      tendered_amount: 5,
+      payment_date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(
+        new Date(Date.now() - 2 * 86_400_000),
+      ),
+    };
+    const token = await issueApprovalToken('jti-2663', ApprovalScope.PAYMENTS_BACKDATE);
+    const first = await service.checkout(body, TENANT_ID, ACTOR_USER_ID, requestWithToken(token));
+    const { payment_date: _omit, ...noDate } = body;
+    await expect(
+      service.checkout(noDate, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
+    ).rejects.toThrow(BadRequestException);
+    const again = await service.checkout(body, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+    expect(again.payment.id).toBe(first.payment.id);
+  });
+
+  // [2703 M2] Back-dated = payment_date far from created_at, not "another UTC day".
+  it('a back-date entered 00:00-06:00 Dhaka (same UTC day as created_at) still 400s a replay without payment_date (#2663)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 5 }));
+    const body = {
+      idempotency_key: '2663a002-0000-4000-8000-000000000001',
+      lines: [{ student_fee_id: bill.id, amount: 5, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+      tendered_amount: 5,
+      payment_date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(
+        new Date(Date.now() - 86_400_000),
+      ),
+    };
+    const token = await issueApprovalToken('jti-2663-b', ApprovalScope.PAYMENTS_BACKDATE);
+    const first = await service.checkout(body, TENANT_ID, ACTOR_USER_ID, requestWithToken(token));
+    // Entered at 01:00 Dhaka the next day = 19:00Z on the back-dated UTC day.
+    await dataSource.query(
+      `UPDATE payments SET created_at = payment_date + interval '19 hours' WHERE id = $1`,
+      [first.payment.id],
+    );
+    const { payment_date: _omit, ...noDate } = body;
+    await expect(
+      service.checkout(noDate, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('a real retry without payment_date whose first write crossed UTC midnight still replays (#2663)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 5 }));
+    const body = {
+      idempotency_key: '2663a003-0000-4000-8000-000000000001',
+      lines: [{ student_fee_id: bill.id, amount: 5, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+      tendered_amount: 5,
+    };
+    const first = await service.checkout(body, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+    // DB now() at 23:59:59Z, app clock at 00:00:01Z: two UTC days, two seconds apart.
+    await dataSource.query(
+      `UPDATE payments SET created_at = '2026-10-18T23:59:59Z', payment_date = '2026-10-19T00:00:01Z' WHERE id = $1`,
+      [first.payment.id],
+    );
+    const again = await service.checkout(body, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+    expect(again.payment.id).toBe(first.payment.id);
+  });
+
+  it('a replay with a flipped change_handling or another payment_date is a 400 and writes nothing (#2637)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 5 }));
+    const key = '2637a002-0000-4000-8000-000000000001';
+    const body = {
+      idempotency_key: key,
+      lines: [{ student_fee_id: bill.id, amount: 5, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+      tendered_amount: 20,
+      change_handling: 'RETURN' as const,
+    };
+    const first = await service.checkout(body, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+
+    // Same key, change would now go to the wallet: a different request.
+    await expect(
+      service.checkout(
+        { ...body, change_handling: 'TO_WALLET' },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      ),
+    ).rejects.toThrow(BadRequestException);
+    // Same key, explicit payment_date the first one did not carry.
+    await expect(
+      service.checkout(
+        { ...body, payment_date: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10) },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(await paymentRepo.count({ where: { idempotency_key: key } })).toBe(1);
+    // An identical replay still returns the stored payment.
+    const again = await service.checkout(body, TENANT_ID, ACTOR_USER_ID, requestWithToken());
+    expect(again.payment.id).toBe(first.payment.id);
+  });
+
   // Business-critical: the replay is the client's recovery path. A bill removed
   // after the first request (MON-03) hides `student_fee` from the relation join;
   // the replay must still return the stored result and re-enqueue the receipt.
@@ -696,50 +927,98 @@ describe('CheckoutService (integration)', () => {
     }
   });
 
-  it('rejects a student_fee_id from another tenant (404)', async () => {
-    const otherStudent = studentRepo.create({
-      full_name: 'Other Tenant Student',
-      registration_number: 'REG-CHKS-OTHER-0001',
-      roll_number: 999,
-      class_section_id: SEED_SECTION_1_ID,
-      tenant_id: OTHER_TENANT_ID,
-      date_of_birth: new Date('2010-01-01'),
-      preferred_communication: 'SMS' as any,
-    });
-    const saved = await studentRepo.save(otherStudent);
+  let foreignSeq = 0;
+  /** A bill that belongs to a student of OTHER_TENANT_ID (unique per call, D18). */
+  async function makeForeignBill() {
+    foreignSeq += 1;
+    const saved = await studentRepo.save(
+      studentRepo.create({
+        full_name: `Other Tenant Student ${foreignSeq}`,
+        registration_number: `REG-CHKS-OTHER-${String(foreignSeq).padStart(4, '0')}`,
+        roll_number: 900 + foreignSeq,
+        class_section_id: SEED_SECTION_1_ID,
+        tenant_id: OTHER_TENANT_ID,
+        date_of_birth: new Date('2010-01-01'),
+        preferred_communication: 'SMS' as any,
+      }),
+    );
     const otherStructure = await feeStructureRepo.save(
       feeStructureRepo.create({
         fee_type: FeeType.MONTHLY_TUITION,
-        name: 'Other Tuition',
+        name: `Other Tuition ${foreignSeq}`,
         amount: 1000,
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
         tenant_id: OTHER_TENANT_ID,
       }),
     );
-    const bill = await studentFeeRepo.save(
+    return studentFeeRepo.save(
       makeBill(saved.id, { fee_structure_id: otherStructure.id, total_amount: 1000 }),
     );
+  }
 
-    await expect(
-      service.checkout(
-        {
-          idempotency_key: '88888888-8888-4888-8888-888888888888',
-          lines: [{ student_fee_id: bill.id, amount: 1000, one_off_discount: 0 }],
-          payment_method: PaymentMethod.CASH,
-        },
-        TENANT_ID,
-        ACTOR_USER_ID,
-        requestWithToken(),
-      ),
-    ).rejects.toThrow(NotFoundException);
+  const checkoutBill = (billId: string, key: string) =>
+    service.checkout(
+      {
+        idempotency_key: key,
+        lines: [{ student_fee_id: billId, amount: 1000, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      },
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+
+  it('rejects a student_fee_id from another tenant (404, same text as a missing id)', async () => {
+    const bill = await makeForeignBill();
+
+    await expect(checkoutBill(bill.id, '88888888-8888-4888-8888-888888888888')).rejects.toThrow(
+      new NotFoundException('Student fee not found'),
+    );
+    // Nothing was written to the foreign bill.
+    const after = await studentFeeRepo.findOneByOrFail({ id: bill.id });
+    expect(Number(after.paid_amount)).toBe(0);
   });
+
+  it('a random id and a soft-deleted student give the SAME 404 text, with no id in it (#2640)', async () => {
+    const randomId = '2640a001-0000-4000-8000-0000000000ff';
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
+    await studentRepo.softDelete(student.id);
+
+    for (const [id, key] of [
+      [randomId, '2640a001-0000-4000-8000-000000000001'],
+      [bill.id, '2640a001-0000-4000-8000-000000000002'],
+    ]) {
+      const err = await checkoutBill(id, key).catch((e) => e);
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect(err.message).toBe('Student fee not found');
+      expect(err.message).not.toContain(id);
+    }
+  });
+
+  it("does not lock or wait on another tenant's bill (#2640)", async () => {
+    const bill = await makeForeignBill();
+    const qr = dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      // Another transaction holds the foreign row. A tenant-blind lock would block here forever.
+      await qr.query('SELECT id FROM student_fees WHERE id = $1 FOR UPDATE', [bill.id]);
+      await expect(checkoutBill(bill.id, '2640a002-0000-4000-8000-000000000001')).rejects.toThrow(
+        NotFoundException,
+      );
+    } finally {
+      await qr.rollbackTransaction();
+      await qr.release();
+    }
+  }, 5000);
 
   it('rejects a line amount that exceeds the bill balance', async () => {
     const student = await studentRepo.save(makeStudent());
     const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
 
-    await expect(
-      service.checkout(
+    const error = await service
+      .checkout(
         {
           idempotency_key: '99999999-9999-4999-8999-999999999999',
           lines: [{ student_fee_id: bill.id, amount: 600, one_off_discount: 0 }],
@@ -748,17 +1027,26 @@ describe('CheckoutService (integration)', () => {
         TENANT_ID,
         ACTOR_USER_ID,
         requestWithToken(),
-      ),
-    ).rejects.toThrow(BadRequestException);
+      )
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+    // Rule 23: fixed text plus a code; neither the submitted 600 nor the 500 balance is echoed.
+    const body = (error as BadRequestException).getResponse();
+    expect(body).toMatchObject({
+      message: 'The amount is more than the outstanding balance',
+      details: { code: 'CHECKOUT_AMOUNT_EXCEEDS_BALANCE' },
+    });
+    expect(JSON.stringify(body)).not.toMatch(/600|500/);
   });
 
-  it('rejects a WAIVED bill even when its computed balance is non-zero (404, no write)', async () => {
+  it('rejects a WAIVED bill (409, no write)', async () => {
     const student = await studentRepo.save(makeStudent());
     const bill = await studentFeeRepo.save(
       makeBill(student.id, {
         total_amount: 1000,
         paid_amount: 0,
-        discount_amount: 0,
+        discount_amount: 1000,
+        one_off_discount_amount: 1000,
         status: FeeStatus.WAIVED,
       }),
     );
@@ -774,11 +1062,154 @@ describe('CheckoutService (integration)', () => {
         ACTOR_USER_ID,
         requestWithToken(),
       ),
-    ).rejects.toThrow(NotFoundException);
+    ).rejects.toThrow(ConflictException);
 
     const unchanged = await studentFeeRepo.findOneByOrFail({ id: bill.id });
     expect(unchanged.status).toBe(FeeStatus.WAIVED);
     expect(Number(unchanged.paid_amount)).toBe(0);
+  });
+
+  const payFull = (billId: string, key: string, amount: number) =>
+    service.checkout(
+      {
+        idempotency_key: key,
+        lines: [{ student_fee_id: billId, amount, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      },
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+
+  it('paying an already-paid bill with a new key is a 409, not a 404, and writes nothing (#2592)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 300 }));
+    await payFull(bill.id, '2592a001-0000-4000-8000-000000000001', 300);
+
+    await expect(payFull(bill.id, '2592a001-0000-4000-8000-000000000002', 300)).rejects.toThrow(
+      ConflictException,
+    );
+    const payments = await paymentRepo.count({
+      where: { tenant_id: TENANT_ID, student_id: student.id },
+    });
+    expect(payments).toBe(1);
+    const after = await studentFeeRepo.findOneByOrFail({ id: bill.id });
+    expect(after.status).toBe(FeeStatus.PAID);
+    expect(Number(after.paid_amount)).toBe(300);
+  });
+
+  it('a bill id that matches no row is still a 404 (#2592)', async () => {
+    await expect(
+      payFull('2592a002-0000-4000-8000-0000000000ff', '2592a002-0000-4000-8000-000000000001', 100),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  describe('wallet lock before approval token (#2647)', () => {
+    const credit = (studentId: string, amount: number) =>
+      dataSource.transaction((manager) =>
+        walletService.credit(
+          { studentId, tenantId: TENANT_ID, amount, kind: 'CREDIT_OVERPAYMENT' as any },
+          manager,
+        ),
+      );
+
+    it('a concurrent wallet spend fails the checkout on the balance and the approval token survives', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
+      await credit(student.id, 500);
+      const jti = 'jti-2647-wallet-lock';
+      const token = await issueApprovalToken(jti);
+      const body = (key: string, wallet: boolean) => ({
+        idempotency_key: key,
+        lines: [{ student_fee_id: bill.id, amount: 900, one_off_discount: 100 }],
+        payment_method: PaymentMethod.CASH,
+        ...(wallet ? { wallet_use: 500, tendered_amount: 400 } : {}),
+      });
+
+      // Second connection holds the wallet row and spends it all.
+      const qr = dataSource.createQueryRunner();
+      await qr.connect();
+      const [{ pid: holderPid }] = await qr.query('SELECT pg_backend_pid() AS pid');
+      await qr.startTransaction();
+      await walletService.debit(
+        {
+          studentId: student.id,
+          tenantId: TENANT_ID,
+          amount: 500,
+          kind: 'DEBIT_CHECKOUT' as any,
+        } as any,
+        qr.manager,
+      );
+
+      const pending = service
+        .checkout(
+          body('2647a001-0000-4000-8000-000000000001', true),
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(token),
+        )
+        .then(
+          () => null,
+          (e) => e,
+        );
+      // Wait for a session blocked by *this* wallet transaction, not any lock wait in the DB.
+      await expect
+        .poll(async () => {
+          const rows = await dataSource.query(
+            `SELECT count(*)::int AS n FROM pg_stat_activity
+             WHERE $1 = ANY(pg_blocking_pids(pid))`,
+            [holderPid],
+          );
+          return rows[0].n;
+        })
+        .toBeGreaterThan(0);
+      await qr.commitTransaction();
+      await qr.release();
+
+      expect(await pending).toBeInstanceOf(BadRequestException);
+      expect(await redis.exists(`approval:${jti}`)).toBe(1);
+
+      // Same token still pays the discounted checkout without wallet_use.
+      const ok = await service.checkout(
+        body('2647a001-0000-4000-8000-000000000002', false),
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(token),
+      );
+      expect(ok.payment.approved_by_user_id).toBe(ACTOR_USER_ID);
+      expect(await redis.exists(`approval:${jti}`)).toBe(0);
+    });
+
+    it('TO_WALLET change across siblings is a 400 and writes nothing', async () => {
+      const a = await studentRepo.save(makeStudent());
+      const b = await studentRepo.save(makeStudent());
+      const billA = await studentFeeRepo.save(makeBill(a.id, { total_amount: 500 }));
+      const billB = await studentFeeRepo.save(makeBill(b.id, { total_amount: 500 }));
+
+      await expect(
+        service.checkout(
+          {
+            idempotency_key: '2647a002-0000-4000-8000-000000000001',
+            lines: [
+              { student_fee_id: billA.id, amount: 500, one_off_discount: 0 },
+              { student_fee_id: billB.id, amount: 500, one_off_discount: 0 },
+            ],
+            payment_method: PaymentMethod.CASH,
+            tendered_amount: 1200,
+            change_handling: 'TO_WALLET',
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID, student_id: a.id } })).toBe(
+        0,
+      );
+      expect(
+        await dataSource.getRepository(StudentWallet).count({ where: { student_id: a.id } }),
+      ).toBe(0);
+    });
   });
 
   describe('concurrency', () => {
@@ -822,6 +1253,49 @@ describe('CheckoutService (integration)', () => {
       const updated = await studentFeeRepo.findOneByOrFail({ id: bill.id });
       expect(Number(updated.paid_amount)).toBeLessThanOrEqual(700);
       expect(Number(updated.paid_amount)).toBe(500);
+    });
+
+    it('two concurrent full-balance checkouts with different keys: one pays, one gets a 409 (#2592)', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 400 }));
+
+      const results = await Promise.allSettled([
+        payFull(bill.id, '2592a003-0000-4000-8000-000000000001', 400),
+        payFull(bill.id, '2592a003-0000-4000-8000-000000000002', 400),
+      ]);
+
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const rejected = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+      expect(rejected).toHaveLength(1);
+      expect(rejected[0].reason).toBeInstanceOf(ConflictException);
+      expect(
+        await paymentRepo.count({ where: { tenant_id: TENANT_ID, student_id: student.id } }),
+      ).toBe(1);
+    });
+
+    it('two simultaneous requests with one key and DIFFERENT bills: one pays, the other is a 400 (#2637)', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const billA = await studentFeeRepo.save(makeBill(student.id, { total_amount: 300 }));
+      const billB = await studentFeeRepo.save(
+        makeBill(student.id, { total_amount: 300, period_start: daysFromToday(-30) }),
+      );
+      const key = '2637a003-0000-4000-8000-000000000001';
+      const body = (billId: string) => ({
+        idempotency_key: key,
+        lines: [{ student_fee_id: billId, amount: 300, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      });
+
+      const results = await Promise.allSettled([
+        service.checkout(body(billA.id), TENANT_ID, ACTOR_USER_ID, requestWithToken()),
+        service.checkout(body(billB.id), TENANT_ID, ACTOR_USER_ID, requestWithToken()),
+      ]);
+
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const rejected = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+      expect(rejected).toHaveLength(1);
+      expect(rejected[0].reason).toBeInstanceOf(BadRequestException);
+      expect(await paymentRepo.count({ where: { idempotency_key: key } })).toBe(1);
     });
 
     it('two concurrent checkouts with the SAME idempotency key create exactly one payment and one invoice', async () => {
@@ -956,6 +1430,163 @@ describe('CheckoutService (integration)', () => {
         where: { student_id: student.id },
       });
       expect(invoices).toHaveLength(1);
+    });
+  });
+
+  // [2649] Ported from the deleted `payment-allocation.service.integration.spec.ts`
+  // (`recordWithAllocation`): the cases checkout had no twin for.
+  describe('[2649] ported from recordWithAllocation', () => {
+    const KEY = (n: number) => `00000000-0000-4000-8000-0000000026${String(n).padStart(2, '0')}`;
+    const pay = (billId: string, amount: number, key: string, tenantId = TENANT_ID) =>
+      service.checkout(
+        {
+          idempotency_key: key,
+          lines: [{ student_fee_id: billId, amount }],
+          payment_method: PaymentMethod.CASH,
+        },
+        tenantId,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+
+    it('freezes the school profile onto the payment and its invoice at record time', async () => {
+      const schoolRepo = dataSource.getRepository(School);
+      await schoolRepo.update(TENANT_ID, { name: 'Payment-Time Name' });
+      try {
+        const student = await studentRepo.save(makeStudent());
+        const bill = await studentFeeRepo.save(makeBill(student.id));
+
+        const { payment, invoice_id } = await pay(bill.id, 1000, KEY(1));
+
+        expect(payment.issuer_snapshot?.name).toBe('Payment-Time Name');
+        const invoice = await dataSource.getRepository(Invoice).findOneByOrFail({ id: invoice_id });
+        expect(invoice.issuer_snapshot?.name).toBe('Payment-Time Name');
+      } finally {
+        await schoolRepo.update(TENANT_ID, { name: 'Test School' });
+      }
+    });
+
+    it('serializes with an in-flight profile update: a name committed before the insert is what gets frozen', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id));
+
+      const runner = dataSource.createQueryRunner();
+      await runner.connect();
+      await runner.startTransaction();
+      try {
+        await runner.manager
+          .createQueryBuilder(School, 'school')
+          .setLock('pessimistic_write')
+          .where('school.id = :id', { id: TENANT_ID })
+          .getOne();
+        await runner.manager.update(School, TENANT_ID, { name: 'Committed Before Insert' });
+
+        const pending = pay(bill.id, 1000, KEY(2));
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await runner.commitTransaction();
+
+        const { payment, invoice_id } = await pending;
+        expect(payment.issuer_snapshot?.name).toBe('Committed Before Insert');
+        const invoice = await dataSource.getRepository(Invoice).findOneByOrFail({ id: invoice_id });
+        expect(invoice.issuer_snapshot?.name).toBe('Committed Before Insert');
+      } finally {
+        if (runner.isTransactionActive) await runner.rollbackTransaction();
+        await runner.release();
+        await dataSource.getRepository(School).update(TENANT_ID, { name: 'Test School' });
+      }
+    });
+
+    it('assigns sequential invoice numbers across separate payments', async () => {
+      const s1 = await studentRepo.save(makeStudent());
+      const s2 = await studentRepo.save(makeStudent());
+      const b1 = await studentFeeRepo.save(makeBill(s1.id));
+      const b2 = await studentFeeRepo.save(makeBill(s2.id));
+
+      const r1 = await pay(b1.id, 1000, KEY(3));
+      const r2 = await pay(b2.id, 1000, KEY(4));
+
+      const seq = (n: string) => parseInt(n.split('-')[2], 10);
+      expect(seq(r2.invoice_number)).toBe(seq(r1.invoice_number) + 1);
+    });
+
+    it('writes one tenant-stamped PAYMENT_RECEIVED audit row', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id));
+
+      const { payment, invoice_id } = await pay(bill.id, 400, KEY(5));
+
+      const received = await auditLogRepo.find({
+        where: { entity_id: payment.id, action: AuditAction.PAYMENT_RECEIVED },
+      });
+      expect(received).toHaveLength(1);
+      expect(received[0].performed_by_user_id).toBe(ACTOR_USER_ID);
+      expect(received[0].entity_type).toBe('Payment');
+      expect(received[0].tenant_id).toBe(TENANT_ID);
+      // Checkout writes no INVOICE_GENERATED row (only the deleted recordWithAllocation did).
+      expect(invoice_id).toBeTruthy();
+    });
+
+    // #2700: the three cases from the deleted recordWithAllocation spec that had no checkout twin.
+    it('rejects a duplicate student_fee_id in lines (400, nothing written)', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id));
+      await expect(
+        service.checkout(
+          {
+            idempotency_key: KEY(7),
+            lines: [
+              { student_fee_id: bill.id, amount: 100 },
+              { student_fee_id: bill.id, amount: 100 },
+            ],
+            payment_method: PaymentMethod.CASH,
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+    });
+
+    it('refuses to pay a bill already fully covered by discount (nothing written)', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(
+        makeBill(student.id, {
+          total_amount: 1000,
+          discount_amount: 1000,
+          standing_discount_amount: 1000,
+        }),
+      );
+      await expect(pay(bill.id, 100, KEY(8))).rejects.toThrow();
+      expect(await paymentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+      expect(Number((await studentFeeRepo.findOneByOrFail({ id: bill.id })).paid_amount)).toBe(0);
+    });
+
+    it('two concurrent payments by different students get distinct invoice numbers', async () => {
+      const s1 = await studentRepo.save(makeStudent());
+      const s2 = await studentRepo.save(makeStudent());
+      const b1 = await studentFeeRepo.save(makeBill(s1.id));
+      const b2 = await studentFeeRepo.save(makeBill(s2.id));
+
+      const [r1, r2] = await Promise.all([pay(b1.id, 1000, KEY(9)), pay(b2.id, 1000, KEY(10))]);
+
+      expect(r1.invoice_number).toBeTruthy();
+      expect(r2.invoice_number).not.toBe(r1.invoice_number);
+    });
+
+    it('allows the same idempotency key in two different tenants (two payments)', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+      const other = makeStudent();
+      other.tenant_id = OTHER_TENANT_ID;
+      const otherStudent = await studentRepo.save(other);
+      const otherBill = await studentFeeRepo.save(makeBill(otherStudent.id, { total_amount: 500 }));
+
+      const first = await pay(bill.id, 500, KEY(6));
+      const second = await pay(otherBill.id, 500, KEY(6), OTHER_TENANT_ID);
+
+      expect(second.payment.id).not.toBe(first.payment.id);
+      expect(second.payment.tenant_id).toBe(OTHER_TENANT_ID);
     });
   });
 });

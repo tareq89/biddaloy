@@ -9,6 +9,8 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { optionalKeyOf } from '../../codec/tab-spec';
+import { memberKeysById } from '../people/users.tab';
 import { routineSlotsTab } from './routine-slots.tab';
 
 /**
@@ -28,7 +30,7 @@ export interface RoutineChangeRequestRow {
   id: string;
   routine_slot_id: string;
   routine_slot_key: string;
-  requested_by: string;
+  requested_by: string | null;
   requested_by_key: string;
   note: string;
   state: ChangeRequestState;
@@ -51,7 +53,7 @@ const columns: readonly ColumnSpec[] = [
     key: 'requested_by',
     type: 'ref',
     ref: 'users',
-    required: true,
+    requiredOnNewRow: true,
     label: { en: 'Requested by', bn: 'অনুরোধকারী' },
   },
   { key: 'note', type: 'string', required: true, label: { en: 'Note', bn: 'নোট' } },
@@ -91,8 +93,8 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
   naturalKey: ['routine_slot', 'requested_by', 'note'],
   deleteByAbsence: true,
 
-  load(tenantId: string, m: EntityManager): Promise<RoutineChangeRequest[]> {
-    return m.find(RoutineChangeRequest, {
+  async load(tenantId: string, m: EntityManager): Promise<RoutineChangeRequest[]> {
+    const rows = await m.find(RoutineChangeRequest, {
       where: { tenant_id: tenantId },
       relations: [
         'routine_slot',
@@ -107,16 +109,25 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
         'resolved_by_user',
       ],
     });
+    // A requester who has left exports as a blank cell, so key them as blank too.
+    const members = await memberKeysById(
+      tenantId,
+      rows.map((r) => r.requested_by),
+      m,
+    );
+    for (const r of rows)
+      if (!members.has(r.requested_by)) r.requested_by_user = undefined as never;
+    return rows;
   },
 
   toRow(entity: RoutineChangeRequest, ctx: ExportContext): Record<string, unknown> {
     return {
       id: entity.id,
       routine_slot: ctx.keyOf('routine_slots', entity.routine_slot_id),
-      requested_by: ctx.keyOf('users', entity.requested_by),
+      requested_by: optionalKeyOf(ctx, 'users', entity.requested_by),
       note: entity.note,
       state: entity.state,
-      resolved_by: entity.resolved_by ? ctx.keyOf('users', entity.resolved_by) : null,
+      resolved_by: entity.resolved_by ? optionalKeyOf(ctx, 'users', entity.resolved_by) : null,
       resolved_at: entity.resolved_at,
       resolution_note: entity.resolution_note,
     };
@@ -169,9 +180,9 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
       });
     }
 
-    const requestedByKey = values.requested_by as string;
-    const requestedById = ctx.ref('users', requestedByKey);
-    if (!requestedById) {
+    const requestedByKey = (values.requested_by as string | null) ?? '';
+    const requestedById = requestedByKey ? (ctx.ref('users', requestedByKey) ?? null) : null;
+    if (requestedByKey && !requestedById) {
       errors.push({
         tab: 'routine_change_requests',
         row: rowNo,
@@ -205,7 +216,7 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
         id: values.id as string,
         routine_slot_id: routineSlotId as string,
         routine_slot_key: routineSlotKey,
-        requested_by: requestedById as string,
+        requested_by: requestedById,
         requested_by_key: requestedByKey,
         note: values.note as string,
         state: values.state as ChangeRequestState,
@@ -230,10 +241,12 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
   diffFields(row: RoutineChangeRequestRow, existing: RoutineChangeRequest): string[] {
     const changed: string[] = [];
     if (row.routine_slot_id !== existing.routine_slot_id) changed.push('routine_slot');
-    if (row.requested_by !== existing.requested_by) changed.push('requested_by');
+    if (row.requested_by !== null && row.requested_by !== existing.requested_by)
+      changed.push('requested_by');
     if (row.note !== existing.note) changed.push('note');
     if (row.state !== existing.state) changed.push('state');
-    if (row.resolved_by !== existing.resolved_by) changed.push('resolved_by');
+    if (row.resolved_by !== null && row.resolved_by !== existing.resolved_by)
+      changed.push('resolved_by');
     const existingResolvedAt = existing.resolved_at ? formatDateTime(existing.resolved_at) : null;
     if (row.resolved_at !== existingResolvedAt) changed.push('resolved_at');
     if (row.resolution_note !== existing.resolution_note) changed.push('resolution_note');
@@ -249,10 +262,10 @@ export const routineChangeRequestsTab: TabSpec<RoutineChangeRequest, RoutineChan
     const request = existing ?? new RoutineChangeRequest();
     request.tenant_id = tenantId;
     request.routine_slot_id = row.routine_slot_id;
-    request.requested_by = row.requested_by;
+    request.requested_by = (row.requested_by ?? existing?.requested_by) as string;
     request.note = row.note;
     request.state = row.state;
-    request.resolved_by = row.resolved_by;
+    request.resolved_by = row.resolved_by ?? existing?.resolved_by ?? null;
     request.resolved_at = row.resolved_at ? new Date(row.resolved_at) : null;
     request.resolution_note = row.resolution_note;
 

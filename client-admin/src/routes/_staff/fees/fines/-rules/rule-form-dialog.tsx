@@ -122,9 +122,14 @@ export function RuleFormDialog({
   const feesQuery = useFeeStructures({ academic_year_id: academicYearId, fee_type: FINE_FEE_TYPE });
   const classesQuery = useClasses({ academic_year_id: academicYearId });
 
+  // [2622] A sync double-click can fire before `isPending` re-renders; this closes the gap.
+  // Reopening calls `mutation.reset()`, which drops the pending `onSettled`, so it clears this too.
+  const inFlight = React.useRef(false);
+
   React.useEffect(() => {
     if (!open) return;
     mutation.reset();
+    inFlight.current = false;
     setTrigger((rule?.trigger as FineTrigger | undefined) ?? FineTrigger.ATTENDANCE_ABSENT);
     setFeeStructureId(rule?.fee_structure_id ?? '');
     setClassId(rule?.class_id ?? '');
@@ -161,12 +166,16 @@ export function RuleFormDialog({
     };
   }
 
+  const settle = { onSuccess: onSaved, onSettled: () => (inFlight.current = false) };
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (inFlight.current) return;
     const input = buildInput();
     if (!input) return;
+    inFlight.current = true;
     if (mode === 'create') {
-      createRule.mutate(input, { onSuccess: onSaved });
+      createRule.mutate(input, settle);
       return;
     }
     updateRule.mutate(
@@ -179,7 +188,7 @@ export function RuleFormDialog({
         cap_per_period: input.cap_per_period ?? null,
         conditions: buildConditions(trigger, minMinutesLate),
       },
-      { onSuccess: onSaved },
+      settle,
     );
   }
 

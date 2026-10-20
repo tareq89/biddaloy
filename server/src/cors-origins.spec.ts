@@ -70,6 +70,7 @@ describe('buildCorsOptions', () => {
         'X-Role',
         'sentry-trace',
         'baggage',
+        'Idempotency-Key',
       ],
     });
   });

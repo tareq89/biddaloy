@@ -29,7 +29,7 @@ import {
 } from '@biddaloy/ui/components';
 import { usePatchFeeGeneration, type PatchFeeGenerationConflict } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { parseServerDate } from '@biddaloy/ui/utils';
+import { parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 export interface EditBatchDialogGeneration {
@@ -93,9 +93,11 @@ export function EditBatchDialog({
 
     patchGeneration.mutate(
       {
-        period_start: periodStart.toISOString(),
+        // Plain YYYY-MM-DD from the picked local day: toISOString() would send the
+        // previous day in UTC+6 (F-142 checks the day sent).
+        period_start: toIsoDate(periodStart),
         period_type: periodType,
-        due_date: dueDate.toISOString(),
+        due_date: toIsoDate(dueDate),
       },
       { onSuccess: onSaved },
     );

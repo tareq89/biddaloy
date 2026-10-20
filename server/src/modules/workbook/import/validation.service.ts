@@ -28,8 +28,27 @@ const MAX_STORED_WARNINGS = 1000;
  * side-effect-free "is this workbook well-formed" check that can run inside a
  * request without risking partial writes.
  */
+/** Another workbook is being validated in this process right now. */
+export class ValidationBusyError extends Error {
+  constructor() {
+    super('Another backup is being checked right now.');
+  }
+}
+
+// ponytail: one workbook parse per process. exceljs holds the whole workbook in
+// memory (about 3x the unzipped size, see 14-school-workbook.md "Size limits"),
+// so two large ones at once could exhaust the heap and take every school down.
+// Module-level, not per instance: memory is per process. A streaming read lifts
+// this; see the follow-up issue linked from that doc section.
+let inFlight: Promise<unknown> | null = null;
+
 @Injectable()
 export class ValidationService {
+  /**
+   * Validates one workbook. Only one runs per process at a time: a second call
+   * throws `ValidationBusyError`, or waits its turn with `waitIfBusy` (the
+   * restore worker, which must not fail just because an upload is being checked).
+   */
   async validate(
     buffer: Buffer,
     tenantId: string,
@@ -38,6 +57,26 @@ export class ValidationService {
     // registry instead of the real 18-tab one; production callers never pass
     // this.
     tabSpecs: readonly TabSpec<any, any>[] = ALL_TABS,
+    opts: { waitIfBusy?: boolean } = {},
+  ): Promise<ValidatedWorkbook> {
+    while (inFlight) {
+      if (!opts.waitIfBusy) throw new ValidationBusyError();
+      await inFlight.catch(() => undefined);
+    }
+    const run = this.validateNow(buffer, tenantId, manager, tabSpecs);
+    inFlight = run;
+    try {
+      return await run;
+    } finally {
+      if (inFlight === run) inFlight = null;
+    }
+  }
+
+  private async validateNow(
+    buffer: Buffer,
+    tenantId: string,
+    manager: EntityManager,
+    tabSpecs: readonly TabSpec<any, any>[],
   ): Promise<ValidatedWorkbook> {
     const { meta, sheets, warnings: readWarnings } = await readWorkbook(buffer);
 
@@ -228,6 +267,11 @@ export class ValidationService {
         }
       }
 
+      const newRowActorCols = tab.columns.filter((c) => c.requiredOnNewRow);
+      const existingEntityIds = new Set<unknown>(
+        newRowActorCols.length > 0 ? existingEntities.map((e) => (e as { id?: unknown }).id) : [],
+      );
+
       for (const { rowNo, cells } of sheet.rows) {
         const parentKey =
           tab.name === 'survey_responses'
@@ -275,6 +319,35 @@ export class ValidationService {
         }
 
         const key = tab.keyOf(result.row);
+
+        // Actor columns the export blanks for a departed user: blank is fine
+        // on a row the school already has (it keeps its stored actor), an
+        // error on a new row. Fixed text, never echoes the cell.
+        if (newRowActorCols.length > 0) {
+          const rowId = (result.row as Record<string, unknown>).id;
+          const isExistingRow =
+            (typeof rowId === 'string' && existingEntityIds.has(rowId)) ||
+            existingIndexes.get(tab.name)?.get(key) !== undefined;
+          const blank = isExistingRow
+            ? undefined
+            : newRowActorCols.find(
+                (c) =>
+                  (cells[c.key] ?? '').trim() === '' &&
+                  (c.requiredOnNewRow === true ||
+                    (typeof c.requiredOnNewRow === 'function' && c.requiredOnNewRow(cells))),
+              );
+          if (blank) {
+            recordError(tabErrors, {
+              tab: tab.name,
+              row: rowNo,
+              column: blank.key,
+              severity: 'error',
+              message: 'Choose a current staff member for this row; a new row needs one.',
+            });
+            continue;
+          }
+        }
+
         const first = firstByKey.get(key);
         if (first) {
           // A row is "safe" to keep alongside another one sharing its key

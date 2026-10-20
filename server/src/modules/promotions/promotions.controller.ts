@@ -12,7 +12,9 @@ import {
   Inject,
   ParseArrayPipe,
   ParseUUIDPipe,
+  UseInterceptors,
 } from '@nestjs/common';
+import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import type { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
@@ -73,6 +75,7 @@ export class PromotionsController {
   }
 
   @Post('promotions')
+  @UseInterceptors(IdempotencyInterceptor)
   @RequirePermissions(Permission.PROMOTION_MANAGE)
   create(
     @Body() dto: CreatePromotionRunDto,

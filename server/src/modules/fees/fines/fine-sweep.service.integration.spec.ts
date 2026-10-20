@@ -306,6 +306,79 @@ describe('FineSweepService (integration)', () => {
     expect(second.generated_count).toBe(0);
   });
 
+  it('runDue never re-creates a rule-fine bill the school deleted; a manual run can, and its preview agrees (F-148)', async () => {
+    const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
+    const structureId = await makeStructure(tenantId, yearId, 20);
+    await makeRule({ tenantId, yearId, structureId });
+    const studentId = await makeStudent(tenantId, sectionId, 'Deleted');
+    await markAbsences(tenantId, sectionId, studentId, ['2026-08-05']);
+    const feeRepo = dataSource.getRepository(StudentFee);
+
+    await service.runDue(tenantId, '2026-09-03');
+    const first = await feeRepo.find({ where: { student_id: studentId } });
+    expect(first).toHaveLength(1);
+
+    // The school deletes the generated bill; the next daily sweep must not bring it back.
+    await feeRepo.softDelete({ id: first[0].id });
+    await service.runDue(tenantId, '2026-09-04');
+    expect(await feeRepo.find({ where: { student_id: studentId } })).toHaveLength(0);
+
+    // A manual run is the school's own call: the preview counts it and SKIP creates it.
+    const preview = await service.preview(tenantId, '2026-08', {}, '2026-09-04');
+    expect(preview.would_create).toBe(1);
+    expect(preview.duplicates).toEqual([]);
+    const manual = await service.generate(
+      tenantId,
+      null,
+      '2026-08',
+      {},
+      DuplicateStrategy.SKIP,
+      false,
+      { headers: {} },
+      '2026-09-04',
+    );
+    expect(manual).toMatchObject({ generated_count: 1, skipped_count: 0 });
+    expect(await feeRepo.find({ where: { student_id: studentId } })).toHaveLength(1);
+  });
+
+  it('generate rejects the current and a future month, accepts the previous one (F-150)', async () => {
+    const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
+    const structureId = await makeStructure(tenantId, yearId, 20);
+    await makeRule({ tenantId, yearId, structureId });
+    const studentId = await makeStudent(tenantId, sectionId, 'OpenMonth');
+    await markAbsences(tenantId, sectionId, studentId, ['2026-06-02']);
+    const run = (month: string) =>
+      service.generate(
+        tenantId,
+        null,
+        month,
+        {},
+        DuplicateStrategy.SKIP,
+        false,
+        { headers: {} },
+        '2026-07-15',
+      );
+
+    const notClosed = {
+      response: {
+        message: 'Fines can only be generated for a month that has ended',
+        details: { code: 'FINE_SWEEP_MONTH_NOT_CLOSED' },
+      },
+    };
+    for (const month of ['2026-07', '2026-08']) {
+      await expect(run(month)).rejects.toMatchObject(notClosed);
+      await expect(service.preview(tenantId, month, {}, '2026-07-15')).rejects.toMatchObject(
+        notClosed,
+      );
+    }
+    expect(
+      await dataSource.getRepository(StudentFee).find({ where: { student_id: studentId } }),
+    ).toHaveLength(0);
+
+    const ok = await run('2026-06');
+    expect(ok.generated_count).toBe(1);
+  });
+
   it('runDue does nothing before the correction window closes, bills the previous month after', async () => {
     const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
     const structureId = await makeStructure(tenantId, yearId, 20);

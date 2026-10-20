@@ -546,4 +546,26 @@ describe('/guardians/$guardianId', () => {
     await screen.findByRole('heading', { level: 1, name: 'Abdul Karim' });
     await expect(container).toHaveNoViolations();
   });
+
+  it('shows a not-found state with a way back, and no retry, when the API answers 404 [2598]', async () => {
+    server.use(
+      http.get('/api/v1/guardians/:id', () =>
+        HttpResponse.json(apiErrorBody(404, 'x', '/api/v1/x'), { status: 404 }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/guardians/guardian-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(
+      await screen.findByText('It may have been deleted, or the link may be wrong.'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /retry|try again/i })).toBeNull();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Go back' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/guardians'));
+  });
 });

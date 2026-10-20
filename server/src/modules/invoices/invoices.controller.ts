@@ -14,6 +14,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import { randomUUID } from 'node:crypto';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -345,6 +346,7 @@ export class InvoicesController {
   }
 
   @Post(':id/send')
+  @UseInterceptors(IdempotencyInterceptor)
   // [16.5.4] Ticket names `INVOICE_READ` explicitly (same rationale as
   // `createShareLink` above — no separate share/send-scoped permission
   // exists yet).

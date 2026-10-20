@@ -297,6 +297,54 @@ describe('CalendarEventsService (integration)', () => {
   });
 
   // [68.3.15.01] TIME-12 / TIME-06 / MAKEUP_DAY
+  describe('counts_as_working_day default by type [2620]', () => {
+    const dtoFor = (type: CalendarEventType, date: string) =>
+      ({
+        type,
+        name: `Default ${type} ${date}`,
+        start_date: date,
+        end_date: date,
+        audience: CalendarAudience.ALL,
+      }) as any;
+
+    it.each([
+      [CalendarEventType.HOLIDAY, false, '2030-10-21'],
+      [CalendarEventType.EVENT, true, '2030-10-22'],
+      [CalendarEventType.EXAM, true, '2030-10-23'],
+      [CalendarEventType.MEETING, true, '2030-10-24'],
+      [CalendarEventType.DEADLINE, true, '2030-10-25'],
+      [CalendarEventType.MAKEUP_DAY, true, '2030-10-26'],
+    ])('create %s without the flag stores %s', async (type, expected, date) => {
+      const created = await service.create(dtoFor(type, date), TENANT_ID, SEED_ADMIN_USER_ID);
+      expect(created.counts_as_working_day).toBe(expected);
+    });
+
+    it('an EVENT without the flag succeeds on a day that already has attendance', async () => {
+      await register(sectionId, '2030-10-28', AttendanceSessionState.FINALIZED, true);
+      const created = await service.create(
+        dtoFor(CalendarEventType.EVENT, '2030-10-28'),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(created.counts_as_working_day).toBe(true);
+    });
+
+    it('a MAKEUP_DAY retyped to EXAM keeps counting', async () => {
+      const created = await service.create(
+        dtoFor(CalendarEventType.MAKEUP_DAY, '2030-10-29'),
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      const updated = await service.update(
+        created.id,
+        { type: CalendarEventType.EXAM } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(updated.counts_as_working_day).toBe(true);
+    });
+  });
+
   describe('attendance guard, past closure and make-up days', () => {
     // Far-past dates inside `pastSpanningYear` (2020..2027): always "past".
     const holidayDto = (date: string, extra: Record<string, unknown> = {}) =>

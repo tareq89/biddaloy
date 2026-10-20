@@ -48,6 +48,9 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
   const [sortColumn, setSortColumn] = React.useState<SortColumn>('position');
   const [sortDesc, setSortDesc] = React.useState(false);
   const [failOnly, setFailOnly] = React.useState(false);
+  // [2605] Paged in the browser: `useResults` already returns the whole class in rank order.
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(25);
 
   const rows = resultsQuery.data ?? [];
   const filtered = failOnly ? rows.filter((r) => r.is_fail) : rows;
@@ -64,6 +67,8 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
         : av - bv;
     return sortDesc ? -cmp : cmp;
   });
+
+  const pageRows = sorted.slice((page - 1) * pageSize, page * pageSize);
 
   if (resultsQuery.isLoading) return <Skeleton className="h-32 w-full" />;
   if (resultsQuery.isError)
@@ -83,7 +88,13 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col-reverse gap-3 md:flex-row md:items-center md:justify-between">
         <label className="flex min-h-11 items-center gap-3 md:min-h-8">
-          <Checkbox checked={failOnly} onCheckedChange={(v) => setFailOnly(v === true)} />
+          <Checkbox
+            checked={failOnly}
+            onCheckedChange={(v) => {
+              setFailOnly(v === true);
+              setPage(1);
+            }}
+          />
           {t('resultsPanel.failFilter')}
         </label>
 
@@ -154,7 +165,6 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
       <DataTable
         tableId="exam-results"
         caption={t('resultsPanel.tableCaption')}
-        paginated={false}
         columns={[
           {
             id: 'position',
@@ -213,7 +223,7 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
             card: 'badge',
           },
         ]}
-        data={sorted}
+        data={pageRows}
         getRowId={(row) => row.student_id}
         sorting={{ id: sortColumn, desc: sortDesc }}
         onSortingChange={(next) => {
@@ -226,11 +236,16 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
             setSortColumn('position');
             setSortDesc(false);
           }
+          setPage(1);
         }}
-        page={1}
-        pageSize={Math.max(sorted.length, 1)}
+        page={page}
+        pageSize={pageSize}
         totalCount={sorted.length}
-        onPageChange={() => {}}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
         emptyState={{
           title: t('resultsPanel.emptyTitle'),
           explanation: t('resultsPanel.empty'),

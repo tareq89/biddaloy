@@ -869,6 +869,63 @@ describe('CollectionsReportService', () => {
       expect(result.totals.collected).toBe(500);
     });
 
+    describe('wallet payouts [2626, D8]', () => {
+      // Inserts a wallet + one DEBIT_PAYOUT ledger row (amount stored negative).
+      async function makePayout(tenantId: string, amount: number, at: string, by: string | null) {
+        const student = await makeStudent(tenantId);
+        const [{ id: walletId }] = await dataSource.query(
+          `INSERT INTO student_wallets (tenant_id, student_id, balance) VALUES ($1, $2, 0) RETURNING id`,
+          [tenantId, student.id],
+        );
+        await dataSource.query(
+          `INSERT INTO wallet_transactions (tenant_id, wallet_id, amount, kind, created_by_user_id, created_at)
+           VALUES ($1, $2, $3, 'DEBIT_PAYOUT', $4, $5)`,
+          [tenantId, walletId, -amount, by, at],
+        );
+      }
+      // The ledger is append-only (no deletes), so each test uses its own day.
+
+      it('reports a payout in totals and the actor row without touching net or by_method', async () => {
+        const range = { from: '2026-03-15', to: '2026-03-15' };
+        const student = await makeStudent();
+        await makePayment(student.id, SEED_TENANT_ID, { total_amount: 500 });
+        const before = await service.getReport(SEED_TENANT_ID, range);
+        await makePayout(SEED_TENANT_ID, 100, '2026-03-15T05:00:00Z', COLLECTOR_USER_ID);
+
+        const r = await service.getReport(SEED_TENANT_ID, range);
+        expect(r.totals.wallet_paid_out).toBe(100);
+        // A payout-only actor still gets a row (the payment has no received_by user).
+        expect(r.by_collector.find((c) => c.user_id === COLLECTOR_USER_ID)).toMatchObject({
+          count: 0,
+          net: 0,
+          paid_out: 100,
+        });
+        expect(r.totals.net).toBe(before.totals.net);
+        expect(r.by_method).toEqual(before.by_method);
+      });
+
+      it('excludes another day, another tenant, and honours method and collector filters', async () => {
+        const range = { from: '2026-04-15', to: '2026-04-15' };
+        await makePayout(SEED_TENANT_ID, 100, '2026-04-16T05:00:00Z', COLLECTOR_USER_ID); // other day
+        await makePayout(OTHER_TENANT_ID, 700, '2026-04-15T05:00:00Z', null); // other tenant
+        await makePayout(SEED_TENANT_ID, 40, '2026-04-15T05:00:00Z', COLLECTOR_USER_ID);
+        await makePayout(SEED_TENANT_ID, 60, '2026-04-15T05:00:00Z', null);
+
+        expect((await service.getReport(SEED_TENANT_ID, range)).totals.wallet_paid_out).toBe(100);
+        const mine = await service.getReport(SEED_TENANT_ID, {
+          ...range,
+          received_by_user_id: COLLECTOR_USER_ID,
+        });
+        expect(mine.totals.wallet_paid_out).toBe(40);
+        // A payout is cash: a non-cash method filter reports none.
+        const bkash = await service.getReport(SEED_TENANT_ID, {
+          ...range,
+          payment_method: PaymentMethod.BKASH,
+        });
+        expect(bkash.totals.wallet_paid_out).toBe(0);
+      });
+    });
+
     it('excludes PENDING/FAILED payments from collected — they are not money received', async () => {
       const student = await makeStudent();
       await makePayment(student.id, SEED_TENANT_ID, {

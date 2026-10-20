@@ -78,6 +78,12 @@ export function isTenantSuspendedError(error: unknown): boolean {
   );
 }
 
+/** [2598] The API answered 404: the record is gone or the link is wrong, so retrying cannot help.
+ * Duck-typed like `isTenantSuspendedError`. */
+export function isNotFoundError(error: unknown): boolean {
+  return (error as Partial<ApiError> | null | undefined)?.statusCode === 404;
+}
+
 /** [68.1.2219] A save refused while a backup restore runs: the server
  * answers `{ statusCode: 423, details: { code: 'TENANT_RESTORING' } }`.
  * Duck-typed like `isTenantSuspendedError`. */

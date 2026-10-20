@@ -27,7 +27,8 @@ import {
   UpdateOwnGuardianDto,
   QueryGuardianDto,
 } from './dto/students.dto';
-import { CommunicationMedium, AuditAction, EnrollmentStatus } from '@biddaloy/shared';
+import { CommunicationMedium, AuditAction, EnrollmentStatus, UserRole } from '@biddaloy/shared';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { nextRollNumber } from './roll-number.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
@@ -35,7 +36,7 @@ import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { localToday } from '../../common/time';
 import { assertSeatsAvailable } from '../schools/trial/seat-limit.service';
-import { PAYABLE_FEE_STATUSES } from './open-money';
+import { OPEN_FEE_STATUSES } from '../fees/fees.constants';
 import { bdPhoneTail } from '../communications/providers/shared/phone-number.util';
 
 // [16.3.3] Caps the audience picker's "select all matching" id list — bounds
@@ -138,6 +139,7 @@ export class StudentService {
     tenantId: string,
     manager?: EntityManager,
     actor?: { userId: string; context?: RequestContext },
+    options?: { registrationNumber?: string },
   ): Promise<Student> {
     const sectionRepo = manager ? manager.getRepository(ClassSection) : this.sectionRepo;
     const guardianRepo = manager ? manager.getRepository(Guardian) : this.guardianRepo;
@@ -174,13 +176,17 @@ export class StudentService {
 
       // Numeric max + 1 per (tenant, year) under an advisory lock, so the very first student of a
       // year is serialized too. Never a text sort: it breaks past REG-YYYY-9999.
-      const nextSeq = await nextTenantSerial(txManager, {
-        table: 'students',
-        column: 'registration_number',
-        tenantId,
-        prefix: `REG-${currentYear}-`,
-      });
-      const regNumber = `REG-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
+      // A bulk import may supply its own number (validated unique before commit).
+      let regNumber = options?.registrationNumber;
+      if (!regNumber) {
+        const nextSeq = await nextTenantSerial(txManager, {
+          table: 'students',
+          column: 'registration_number',
+          tenantId,
+          prefix: `REG-${currentYear}-`,
+        });
+        regNumber = `REG-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
+      }
 
       // Same reasoning for roll numbers, scoped per class_section — see
       // roll-number.util.ts's own comment.
@@ -501,7 +507,10 @@ export class StudentService {
       relations: ['class_section', 'class_section.class', 'guardians'],
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${id}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
     return student;
   }
@@ -725,7 +734,7 @@ export class StudentService {
             AND sf.status::text = ANY($3)
           ORDER BY sf.id
           FOR UPDATE OF sf`,
-        [id, tenantId, PAYABLE_FEE_STATUSES],
+        [id, tenantId, OPEN_FEE_STATUSES],
       )) as { total_amount: string; paid_amount: string; discount_amount: string }[];
       // Integer cents so decimal strings never drift (0.1 + 0.2).
       const cents = (v: string) => Math.round(Number(v) * 100);
@@ -1245,6 +1254,7 @@ export class GuardianService {
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<void> {
     const existing = await this.findOne(id, tenantId);
+    let cutUserId: string | null = null;
 
     await this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(Guardian);
@@ -1258,6 +1268,17 @@ export class GuardianService {
         withStudents.students.map((s) => s.id),
       );
       await repo.softDelete({ id, tenant_id: tenantId });
+
+      // [2665] A guardian's portal login ends with the guardian: drop the PARENT
+      // membership in this school. Memberships in other roles and schools stay.
+      if (withStudents.user_id) {
+        cutUserId = withStudents.user_id;
+        await manager.softDelete(UserTenant, {
+          user_id: withStudents.user_id,
+          tenant_id: tenantId,
+          role: UserRole.PARENT,
+        });
+      }
 
       await this.auditService.record(
         {
@@ -1274,5 +1295,16 @@ export class GuardianService {
         manager,
       );
     });
+
+    // [2665] Cut every session of the user after commit (Rule 8), so a refresh
+    // racing the transaction cannot mint a token past the cutoff. App clock, same
+    // SQL as SessionCutoffService.cutOff (not injected: GuardianService is built
+    // by hand in many specs and AuthModule is not a students dependency).
+    if (cutUserId) {
+      await this.repo.manager.query(
+        `UPDATE "users" SET "tokens_valid_after" = $2 WHERE "id" = $1`,
+        [cutUserId, new Date()],
+      );
+    }
   }
 }

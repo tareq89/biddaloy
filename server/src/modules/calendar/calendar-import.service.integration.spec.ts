@@ -275,6 +275,30 @@ describe('CalendarImportService (integration)', () => {
     expect(commitResult).toEqual({ created: 0, updated: 0, unchanged: 1, failed: [] });
   });
 
+  it('[2635] re-importing a description that starts with a formula character is UNCHANGED', async () => {
+    const row = {
+      type: 'HOLIDAY',
+      name: 'Formula Guard Holiday 2635',
+      start_date: '2031-08-01',
+      end_date: '2031-08-01',
+      counts_as_working_day: 'FALSE',
+      audience: 'ALL',
+      description: '=cmd|calc',
+    };
+    const first = await service.validate(TENANT_ID, SEED_ADMIN_USER_ID, csvFile([row]));
+    await service.commit(TENANT_ID, SEED_ADMIN_USER_ID, first.staging_id, true);
+
+    // csvFile() writes the cell with the same guard the real export adds.
+    const second = await service.validate(TENANT_ID, SEED_ADMIN_USER_ID, csvFile([row]));
+    expect(second.summary).toEqual({ new: 0, updated: 0, unchanged: 1, error: 0 });
+    await service.commit(TENANT_ID, SEED_ADMIN_USER_ID, second.staging_id, false);
+
+    const saved = await dataSource
+      .getRepository(CalendarEvent)
+      .findOneOrFail({ where: { name: row.name, tenant_id: TENANT_ID } });
+    expect(saved.description).toBe('=cmd|calc');
+  });
+
   it('re-importing a changed row reconciles as UPDATED and applies the change', async () => {
     const first = await service.validate(
       TENANT_ID,

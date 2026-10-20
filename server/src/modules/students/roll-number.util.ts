@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Student } from './entities/student.entity';
 
@@ -11,6 +12,9 @@ import { Student } from './entities/student.entity';
  * targeting the same section can never race to the same number.
  */
 export const ROLL_NUMBER_LOCK_NAMESPACE = 741852;
+
+/** No section has this many students; keeps auto-roll (max + 1) far from the int limit (D6). */
+export const ROLL_NUMBER_MAX = 99_999;
 
 /**
  * Returns the next available roll number in a class section, serialized
@@ -44,5 +48,14 @@ export async function nextRollNumber(
     order: { roll_number: 'DESC' },
   });
 
-  return lastRoll ? lastRoll.roll_number + 1 : 1;
+  if (!lastRoll) return 1;
+  // `>=`: rows already above the cap (saved before ROLL_NUMBER_MAX existed) also stop here.
+  if (lastRoll.roll_number >= ROLL_NUMBER_MAX) {
+    throw new ConflictException({
+      message:
+        "The highest roll number in this section is at the maximum. Edit that student's roll number first.",
+      details: { code: 'ROLL_NUMBER_EXHAUSTED' },
+    });
+  }
+  return lastRoll.roll_number + 1;
 }

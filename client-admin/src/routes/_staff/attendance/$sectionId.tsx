@@ -323,7 +323,10 @@ function SectionRegisterPage() {
           toast.success(t('mark.savedToast'));
         }
         clearDraft(storageKey);
-        void navigate({ to: '/attendance' });
+        // Queued = offline. The list route's chunk is not precached (only the shell
+        // is), so navigating there offline fails into the error fallback and a hard
+        // reload that drops the toast. Stay on the register until the sync lands.
+        if (!result.queued) void navigate({ to: '/attendance' });
       },
       onError: (error) => {
         if (error instanceof ApiError && error.statusCode === 409) {
@@ -356,7 +359,7 @@ function SectionRegisterPage() {
           toast.success(result.queued ? t('mark.queuedToast') : t('mark.savedToast'));
           clearDraft(storageKey);
           setConflict(null);
-          void navigate({ to: '/attendance' });
+          if (!result.queued) void navigate({ to: '/attendance' }); // see doSubmit
         },
         onError: (error) => {
           if (error instanceof ApiError && error.statusCode === 409) {

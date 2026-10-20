@@ -379,13 +379,14 @@ A narrowing can retire later: give the route its own permission, grant it to
 the roles in `@Roles`, delete the `@Roles` line and the `ROLE_NARROWINGS`
 entry. When the list is empty, delete `RolesGuard`.
 
-### Step-up approval (16.2) — a second person's OK for a risky action
+### Step-up approval (16.2) — re-entering an approver's code for a risky action
 
 Some actions (reversing a payment, discounting a bill past a threshold,
-creating a duplicate fee, voiding an invoice) need a second, in-the-moment
-"yes" from an admin — not just the acting user's own login. `@RequireApproval`
-marks a route as gated; walking the modal through to a token is the same
-flow everywhere, regardless of which route triggered it.
+creating a duplicate fee, voiding an invoice) need a fresh, in-the-moment
+re-authentication of an admin — not just the acting user's own login. The
+approver can be the person acting. `@RequireApproval` marks a route as
+gated; walking the modal through to a token is the same flow everywhere,
+regardless of which route triggered it.
 
 ```mermaid
 sequenceDiagram
@@ -412,9 +413,45 @@ sequenceDiagram
     Guard-->>Staff: request proceeds
 ```
 
+What the server checks when the acting user types an approver identifier:
+
+```mermaid
+flowchart TD
+    A["Acting user types an approver identifier"] --> B{"Active member of this school<br/>who holds FEE_APPROVE?"}
+    B -- no --> X["Uniform 401, audited"]
+    B -- yes --> C["Check their OTP or password"]
+    C --> D["Token: sub = approver, act = acting user"]
+    D --> E["Both ids written to the audit row"]
+```
+
+Example: in a school with one admin, Rahim is the admin. Rahim reverses a
+payment and types his own code as the approver. That is allowed. The audit row
+shows `approver_id = actor_id = Rahim`.
+
 A few things worth being explicit about, because they're easy to get wrong
 building a new gated route:
 
+- **The approver can be the acting user.** This is deliberate and pinned by
+  `step-up.controller.e2e-spec.ts` ("the actor may verify themselves as the
+  approver"); a school that wants a different person is a later setting, not
+  a code rule.
+- **Attempts are counted three ways** (Redis, 15-minute window, limit
+  `STEP_UP_RATE_LIMIT_MAX_ATTEMPTS`, default 5). Every attempt counts, right
+  or wrong, before the credential is checked. Any one over its limit is a 429.
+  The approver key is counted only after the caller's own two keys allow the
+  attempt, so one caller adds at most 5 to it.
+
+  | Key | Limit | Why |
+  | --- | --- | --- |
+  | `step-up-attempts:pair:<tenant>:<caller>:<approver>` | 5 | One caller's attempts never lock the approver out for others. |
+  | `step-up-attempts:actor:<caller>` | 5 | One caller cannot spread guesses over many approvers. |
+  | `step-up-attempts:approver:<tenant>:<approver>` | 20 (4x) | Many callers together cannot multiply the guesses at one approver. |
+
+  Code requests have the same 20 ceiling per approver
+  (`step-up-otp-requests:approver:…`): past it, the 202 still comes back but no
+  new code is sent, so ten staff cannot text one approver ten times. Only codes
+  actually sent count: a request inside the caller's own 60 s cooldown sends
+  nothing and gives its slot back.
 - **The 403 body is nested.** `ApprovalRequiredException`
   (`server/src/common/errors/approval-required.exception.ts`) must put
   `code`/`scope` under a `details` key — the global exception filter only
@@ -433,6 +470,24 @@ building a new gated route:
   `e2e/journeys/step-up.spec.ts` (16.2.5) proves the whole loop end to end:
   no token → 403, full OTP round trip → token → route succeeds once →
   same token replayed → 403 again.
+- **A refused reversal still spends the code.** `ApprovalGuard` burns the
+  token before the handler runs, so if the handler then answers 409 the admin
+  needs a new OTP. Accepted on purpose (F-153): a token is a one-shot "yes",
+  not a reservation. Example: reversing payment #1 while payment #2 exists
+  answers `REVERSE_LATER_PAYMENTS_FIRST` (`payment-reversal.service.ts`; the
+  route is `@RequireApproval(PAYMENTS_REVERSE)` in `checkout.controller.ts`);
+  the OTP is gone, so the retry after reversing #2 asks for a fresh one. The
+  same holds for `REVERSE_RETRY`. Checkout is the exception: it checks the
+  wallet balance before it spends the token.
+
+```mermaid
+sequenceDiagram
+  Admin->>ApprovalGuard: reverse payment #1 + OTP token
+  ApprovalGuard->>ApprovalGuard: spend token (single-use)
+  ApprovalGuard->>PaymentReversalService: reverse #1
+  PaymentReversalService-->>Admin: 409 REVERSE_LATER_PAYMENTS_FIRST
+  Note over Admin: needs a new OTP to retry
+```
 - **`ApprovalGuard` runs after `RolesGuard`/`PermissionsGuard`.** A caller
   who isn't allowed on the route at all still gets a plain 401/403 from the
   earlier guards, not `APPROVAL_REQUIRED` — the step-up prompt only appears

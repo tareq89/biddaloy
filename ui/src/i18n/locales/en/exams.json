@@ -49,6 +49,7 @@
     "errorNameRequired": "Name is required.",
     "errorAcademicYearClassRequired": "Academic year and class are required.",
     "errorMessage": "Couldn't save the exam.",
+    "duplicateMessage": "An exam with this name already exists.",
     "saving": "Saving…",
     "save": "Save",
     "classNeedsYear": "Pick an academic year first",

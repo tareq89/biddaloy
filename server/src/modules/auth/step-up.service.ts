@@ -17,6 +17,7 @@ import {
   ApprovalScope,
   AuditAction,
   Permission,
+  type TenantSettings,
   UserRole,
   UserStatus,
   roleHasPermission,
@@ -40,13 +41,15 @@ export const STEP_UP_REDIS = 'STEP_UP_REDIS';
 const STEP_UP_OTP_PURPOSE: OtpPurpose = 'STEP_UP';
 
 /**
- * The OtpService identifier for a step-up code: tenant first. OtpService
- * counts wrong guesses (and locks) per identifier with no tenant, so an
- * unscoped id let a user in any school lock another school's approver out
- * of step-up. Same scope as the `step-up-attempts:approver:` rate limit.
+ * The OtpService identifier for a step-up code: tenant, then the calling
+ * user, then the approver. OtpService counts wrong guesses (and locks) per
+ * identifier with no tenant or caller, so an unscoped id let any user lock
+ * another school's approver (or another caller's code) out of step-up. Same
+ * scope as the `step-up-attempts:pair:` rate limit. Request and verify must
+ * pass the same actor.
  */
-function stepUpOtpId(tenantId: string, normalizedIdentifier: string): string {
-  return `${tenantId}:${normalizedIdentifier}`;
+function stepUpOtpId(tenantId: string, actorUserId: string, normalizedIdentifier: string): string {
+  return `${tenantId}:${actorUserId}:${normalizedIdentifier}`;
 }
 
 const FEE_APPROVE_PERMISSION = Permission.FEE_APPROVE;
@@ -54,6 +57,10 @@ const FEE_APPROVE_PERMISSION = Permission.FEE_APPROVE;
 const APPROVAL_TOKEN_TTL_SECONDS = 300;
 const DEFAULT_RATE_LIMIT_MAX_ATTEMPTS = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60_000;
+/** The per-approver ceiling is this many times the per-pair limit: N callers must not get N
+ * full password-guess quotas (or N OTP texts) against one approver. Higher than the pair limit,
+ * so one caller's wrong guesses still cannot lock the approver out for everyone (F-130/F-131). */
+const APPROVER_CAP_MULTIPLIER = 4;
 
 export interface StepUpOtpRequestResult {
   debug?: { otp?: string };
@@ -113,19 +120,35 @@ export class StepUpService {
    * the generated code back via the same `ACCOUNT_ACCESS_ECHO_SECRETS`
    * flag `OtpLoginService.request` uses, never enabled in production.
    */
-  async requestOtp(identifier: string, actorTenantId: string): Promise<StepUpOtpRequestResult> {
+  async requestOtp(
+    identifier: string,
+    actorTenantId: string,
+    actorUserId: string,
+  ): Promise<StepUpOtpRequestResult> {
     const approver = await this.findEligibleApprover(identifier, actorTenantId);
     if (!approver) return {};
+    // Each caller has its own OTP and cooldown, so cap the texts one approver can be sent.
+    // Over the cap: the same uniform 202, no new code. The slot is taken before the send
+    // (so concurrent requests cannot overshoot) and handed back when no code goes out,
+    // so a caller inside its own cooldown cannot use up the cap for everyone.
+    const capKey = `step-up-otp-requests:approver:${actorTenantId}:${normalizeLoginIdentifier(identifier)}`;
+    const underApproverCap = await this.checkAndIncrementRateLimit(
+      capKey,
+      this.rateLimitMaxAttempts() * APPROVER_CAP_MULTIPLIER,
+    );
+    if (!underApproverCap) return {};
 
     try {
       const { code } = await this.otpService.request(
         STEP_UP_OTP_PURPOSE,
-        stepUpOtpId(actorTenantId, normalizeLoginIdentifier(identifier)),
+        stepUpOtpId(actorTenantId, actorUserId, normalizeLoginIdentifier(identifier)),
       );
       return isSecretEchoEnabled(this.config) ? { debug: { otp: code } } : {};
     } catch {
       // Same reasoning as OtpLoginService.request: a cooldown 429 from
       // OtpService must not leak beyond this endpoint's uniform 202.
+      // Nothing was sent: give the slot back. A failed decr only errs toward the cap.
+      await this.redis.decr(capKey).catch(() => undefined);
       return {};
     }
   }
@@ -138,17 +161,27 @@ export class StepUpService {
   ): Promise<StepUpApprovalResponse> {
     const identifier = normalizeLoginIdentifier(dto.identifier);
 
-    // Scoped by tenant: an identifier is only ever resolved within
-    // actorTenantId (findEligibleApprover below), so the rate-limit key
-    // must match that scope. An unscoped key let any authenticated caller
-    // in ANY tenant lock a real admin's identifier for 15 minutes by
-    // guessing it and failing verification a few times — this key never
-    // needs eligibility to be checked first, only tenant + identifier.
-    const [approverAllowed, actorAllowed] = await Promise.all([
-      this.checkAndIncrementRateLimit(`step-up-attempts:approver:${actorTenantId}:${identifier}`),
+    // Scoped by tenant AND caller: one caller's wrong guesses at an approver
+    // must not lock that approver out for everyone else (F-130/F-131), and
+    // an unscoped key let a caller in ANY tenant do the same. The key never
+    // needs eligibility to be checked first. The per-approver key is a higher
+    // ceiling across all callers, so N accounts cannot multiply the guess rate.
+    // It is counted only once the caller's own keys allow the attempt: then one
+    // caller adds at most `max` to it per window and cannot fill it alone.
+    const [pairAllowed, actorAllowed] = await Promise.all([
+      this.checkAndIncrementRateLimit(
+        `step-up-attempts:pair:${actorTenantId}:${actorUserId}:${identifier}`,
+      ),
       this.checkAndIncrementRateLimit(`step-up-attempts:actor:${actorUserId}`),
     ]);
-    if (!approverAllowed || !actorAllowed) {
+    const allowed =
+      pairAllowed &&
+      actorAllowed &&
+      (await this.checkAndIncrementRateLimit(
+        `step-up-attempts:approver:${actorTenantId}:${identifier}`,
+        this.rateLimitMaxAttempts() * APPROVER_CAP_MULTIPLIER,
+      ));
+    if (!allowed) {
       throw new HttpException(
         { statusCode: HttpStatus.TOO_MANY_REQUESTS, message: 'Too many attempts' },
         HttpStatus.TOO_MANY_REQUESTS,
@@ -172,7 +205,7 @@ export class StepUpService {
     const verified = await this.verifyCredential(
       dto,
       approver,
-      stepUpOtpId(actorTenantId, identifier),
+      stepUpOtpId(actorTenantId, actorUserId, identifier),
     );
 
     if (!approver || !verified) {
@@ -278,14 +311,13 @@ export class StepUpService {
     return approver !== null && !!approver.password_hash && isPasswordValid;
   }
 
-  /** Reads `settings.fees.approval_mode` defensively — the `fees` key isn't
-   * on `TenantSettings` yet in this worktree (#645, running in parallel,
-   * adds it); `shared/src/types/tenant-settings.types.ts` is outside this
-   * ticket's territory. Defaults to `OTP` (the stricter mode) when unset,
-   * matching "a school opts in to the weaker path, not out of it". */
-  private resolveApprovalMode(settings: unknown): ApprovalMode {
-    const raw = (settings as { fees?: { approval_mode?: string } } | null)?.fees?.approval_mode;
-    return raw === ApprovalMode.OTP_OR_PASSWORD ? ApprovalMode.OTP_OR_PASSWORD : ApprovalMode.OTP;
+  /** Reads `settings.fees.approvalMode`. Anything but the exact opt-in value
+   * (missing `fees`, garbage) is `OTP`: a school opts in to the weaker path,
+   * never out of it. */
+  private resolveApprovalMode(settings: TenantSettings): ApprovalMode {
+    return settings.fees?.approvalMode === ApprovalMode.OTP_OR_PASSWORD
+      ? ApprovalMode.OTP_OR_PASSWORD
+      : ApprovalMode.OTP;
   }
 
   /** `STEP_UP_RATE_LIMIT_MAX_ATTEMPTS` when it is a positive integer, else the
@@ -299,13 +331,16 @@ export class StepUpService {
    * of admin-approval issuance, so an outage must not silently disable it
    * (same call OtpService itself makes, unlike LoginAttemptService's
    * fail-open, which only protects ordinary login). */
-  private async checkAndIncrementRateLimit(key: string): Promise<boolean> {
+  private async checkAndIncrementRateLimit(
+    key: string,
+    max: number = this.rateLimitMaxAttempts(),
+  ): Promise<boolean> {
     try {
       const count = await this.redis.incr(key);
       if (count === 1) {
         await this.redis.pexpire(key, RATE_LIMIT_WINDOW_MS);
       }
-      return count <= this.rateLimitMaxAttempts();
+      return count <= max;
     } catch (error) {
       this.logger.error(
         `Step-up rate-limit check failed for key, failing closed: ${error instanceof Error ? error.message : String(error)}`,

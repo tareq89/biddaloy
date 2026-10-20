@@ -75,15 +75,13 @@ export interface StudentFormProps<TInput> {
   submitLabel: string;
   title: string;
   onClose: () => void;
-  // `TError` is `unknown`, not `Error` — every mutation hook here passes
-  // `shouldRetryQuery` (`(failureCount, error: unknown) => boolean`) as
-  // its `retry` option, which widens the inferred `TError` generic to
-  // `unknown` (see that function's own call sites' comments in
-  // `students.ts`). `error instanceof ApiError` below still narrows fine
-  // regardless of the declared type.
+  // `TError` is `unknown`: `error instanceof ApiError` below narrows it. Mutations no longer
+  // carry `retry: shouldRetryQuery` (#2596), so this is just the loosest type callers can pass.
   mutation: UseMutationResult<Student, unknown, TInput>;
   buildPayload: (values: StudentFormValues) => TInput;
   onSuccess: (student: Student) => void;
+  /** [2603] Edit mode: an unchanged form would send an empty PATCH, so Save stays disabled. */
+  disableSubmitWhenClean?: boolean;
 }
 
 function fieldId(field: string): string {
@@ -99,6 +97,7 @@ export function StudentForm<TInput>({
   onClose,
   mutation,
   buildPayload,
+  disableSubmitWhenClean,
   onSuccess,
 }: StudentFormProps<TInput>) {
   const { t } = useTranslation('students');
@@ -149,13 +148,30 @@ export function StudentForm<TInput>({
     withResolver: true,
   });
 
-  const autosave = useFormAutosave(autosaveKey, form.watch(), {
+  const values = form.watch();
+  // [2683] Edit mode compares the real payload, not `isDirty`: a whitespace-only edit is dirty
+  // but trims to nothing, and would otherwise send an empty PATCH.
+  const nothingToSave =
+    !!disableSubmitWhenClean && Object.keys(buildPayload(values) as object).length === 0;
+
+  const autosave = useFormAutosave(autosaveKey, values, {
     enabled: !form.formState.isSubmitSuccessful,
   });
   const [draftBannerVisible, setDraftBannerVisible] = React.useState(autosave.draftAvailable);
 
+  // [2594] react-hook-form validates asynchronously before calling this, so a fast second click
+  // can arrive before `mutation.isPending` is true. This ref closes that gap.
+  const inFlight = React.useRef(false);
+
   function handleSubmit(values: StudentFormValues) {
+    if (inFlight.current) return;
+    // Enter in a field submits without the (disabled) button.
+    if (disableSubmitWhenClean && Object.keys(buildPayload(values) as object).length === 0) return;
+    inFlight.current = true;
     mutation.mutate(buildPayload(values), {
+      onSettled: () => {
+        inFlight.current = false;
+      },
       onSuccess: (student) => {
         submittedSuccessfullyRef.current = true;
         autosave.clearDraft();
@@ -186,6 +202,7 @@ export function StudentForm<TInput>({
           label: submitLabel,
           onClick: () => void form.handleSubmit(handleSubmit)(),
           busy: mutation.isPending,
+          disabled: nothingToSave,
         }}
         secondary={{ label: t('form.cancelAction'), onClick: onClose }}
       >
@@ -213,7 +230,23 @@ export function StudentForm<TInput>({
                 onClick={() => {
                   const draft = autosave.restoreDraft();
                   // Drafts saved before a field existed omit it; fill from the defaults.
-                  if (draft) form.reset({ ...initialValues, ...draft });
+                  // `keepDefaultValues`: the server values stay the baseline, so the restored
+                  // edits count as unsaved and Save is enabled [2683].
+                  // The draft is JSON, so `date_of_birth` comes back as a string; rebuild the Date.
+                  // `guardian_ids` stays the current set: a stale drafted set would unlink a
+                  // guardian linked since, and its ids may have no name to show [2683].
+                  if (draft)
+                    form.reset(
+                      {
+                        ...initialValues,
+                        ...draft,
+                        date_of_birth: draft.date_of_birth
+                          ? new Date(draft.date_of_birth)
+                          : initialValues.date_of_birth,
+                        guardian_ids: initialValues.guardian_ids,
+                      },
+                      { keepDefaultValues: true },
+                    );
                   setDraftBannerVisible(false);
                 }}
               >

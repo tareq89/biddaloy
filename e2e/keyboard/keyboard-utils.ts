@@ -74,12 +74,19 @@ export async function selectByTypeahead(
   await expect
     .poll(() => page.evaluate(() => !!document.activeElement?.closest('[role="listbox"]')))
     .toBe(true);
-  await page.keyboard.type(value);
+  // Radix typeahead moves focus in a `setTimeout` and matches each key against the element
+  // focused *now*. Typed in one burst, every key sees the same stale option: the first key
+  // (one letter, so it skips the focused row) queues a jump to the next row starting with that
+  // letter, and that jump lands last — e.g. an older "E2E Kbd ACR …" from an earlier run, which
+  // Enter then picks. A short delay lets each jump land before the next key, as for a person.
+  await page.keyboard.type(value, { delay: 25 });
   const option = page.getByRole('option', { name, exact: true });
-  await expect(option).toBeVisible();
-  await option.focus();
+  await expect(option).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('listbox')).toBeHidden();
+  // Focus goes back to the trigger a moment after the listbox closes; a key sent before that
+  // (Ctrl+Enter to submit) lands on <body>, outside the form.
+  await expect(page.locator('[role="combobox"]:focus')).toContainText(value);
 }
 
 /** [31.5.2] Load the dashboard, Tab to the sidebar link named `label`, press

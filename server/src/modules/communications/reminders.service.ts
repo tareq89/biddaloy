@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { deliveryErrorCode } from './delivery-error-code';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -787,7 +788,7 @@ export class BulkReminderService {
       student_id: log.student_id,
       guardian_id: log.guardian_id,
       provider_message_id: log.provider_message_id,
-      error: typeof log.metadata?.error === 'string' ? log.metadata.error : null,
+      error: deliveryErrorCode(log.metadata),
       created_at: log.created_at,
     };
   }

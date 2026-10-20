@@ -11,12 +11,15 @@ import {
 } from './invoice-print-format.util';
 
 /** [16.5.2] The two thermal-receipt widths a POS printer driver reports —
- * 58 mm (32 monospace columns) and 80 mm (48 columns). `invoices.service.ts`
+ * 58 mm (30 monospace columns) and 80 mm (39 columns). `invoices.service.ts`
  * maps the `?format=pos58|pos80` query param onto this type. */
 export type PosPrintWidth = 'pos58' | 'pos80';
 
 const WIDTH_MM: Record<PosPrintWidth, number> = { pos58: 58, pos80: 80 };
-const WIDTH_COLUMNS: Record<PosPrintWidth, number> = { pos58: 32, pos80: 48 };
+// [2609] The page has a 2 mm margin on each side, so the printable width is
+// (N - 4) mm: 54 mm = 204 px (pos58), 76 mm = 287 px (pos80). Courier is
+// 0.6 em per character: pos80 39 x (12 px x 0.6) = 281 px; pos58 30 x (11 px x 0.6) = 198 px.
+const WIDTH_COLUMNS: Record<PosPrintWidth, number> = { pos58: 30, pos80: 39 };
 
 /** A single dashed rule the full column width — thermal printers render a
  * horizontal line as a row of dashes rather than a CSS border, since a
@@ -122,7 +125,7 @@ export function renderInvoicePosHtml(
     color: #000;
     margin: 0;
     padding: 0;
-    width: ${widthMm}mm;
+    width: ${widthMm - 4}mm;
     font-size: ${width === 'pos58' ? '11px' : '12px'};
   }
   .center { text-align: center; }

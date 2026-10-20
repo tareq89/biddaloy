@@ -912,6 +912,7 @@ describe('new role grants [#1358]', () => {
       Permission.STAFF_ATTENDANCE_MARK,
     ],
     [UserRole.EXAM_CONTROLLER]: [
+      Permission.STEP_UP_REQUEST, // [2639] approver role
       Permission.APPLICATION_SUBMIT, // [52.1.1] D22
       Permission.EXAM_MANAGE,
       Permission.SEAT_PLAN_MANAGE,
@@ -1012,5 +1013,16 @@ describe('[67.1.01] alert permissions', () => {
 describe('[Epic 68 JOBS-03] teacher messaging', () => {
   it('TEACHER no longer holds COMMUNICATION_SEND', () => {
     expect(ROLE_PERMISSIONS[UserRole.TEACHER]).not.toContain(Permission.COMMUNICATION_SEND);
+  });
+});
+
+describe('STEP_UP_REQUEST [2639]', () => {
+  it('is held by ADMIN, ACCOUNTANT, EXAM_CONTROLLER and SUPER_ADMIN only', () => {
+    const holders = Object.values(UserRole).filter((role) =>
+      ROLE_PERMISSIONS[role].includes(Permission.STEP_UP_REQUEST),
+    );
+    expect(holders.sort()).toEqual(
+      [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXAM_CONTROLLER, UserRole.SUPER_ADMIN].sort(),
+    );
   });
 });

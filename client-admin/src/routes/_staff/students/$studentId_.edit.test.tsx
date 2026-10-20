@@ -1,4 +1,5 @@
 import {
+  apiErrorBody,
   cleanupTestState,
   guardianFactory,
   renderWithRouter,
@@ -68,7 +69,7 @@ describe('/students/$studentId/edit', () => {
     expect(patchBody).toMatchObject({ full_name: 'Rahim Uddin Khan' });
   });
 
-  it('keeps an old free-text gender selected so saving does not lose it', async () => {
+  it('keeps Save disabled until something changes, and sends only the changed key', async () => {
     const student = studentFactory({
       id: 'student-1',
       full_name: 'Rahim Uddin',
@@ -91,15 +92,141 @@ describe('/students/$studentId/edit', () => {
       locale: 'en',
     });
 
-    const gender = await screen.findByRole('combobox', { name: 'Gender' });
-    expect(gender.textContent).toContain('Male (legacy)');
+    const fullName = await screen.findByDisplayValue('Rahim Uddin');
+    const save = screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' });
+    expect(save.disabled).toBe(true);
     const user = userEvent.setup();
+    await user.type(fullName, 'x');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
-    await waitFor(() => expect(patchBody).toMatchObject({ gender: 'Male (legacy)' }));
+    await waitFor(() => expect(patchBody).toEqual({ full_name: 'Rahim Uddinx' }));
+  });
+
+  it('[2683] enables Save after "Restore draft" and sends the restored change', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin', guardians: [] });
+    let patchBody: Record<string, unknown> = {};
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.patch('/api/v1/students/:id', async ({ request }) => {
+        patchBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(student);
+      }),
+    );
+    window.localStorage.setItem(
+      'form-shell-draft:tenant-1:student-1',
+      JSON.stringify({ full_name: 'Rahim Draft' }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1/edit'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Restore draft' }));
+    expect(await screen.findByDisplayValue('Rahim Draft')).toBeTruthy();
+    const save = screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' });
+    expect(save.disabled).toBe(false);
+    await user.click(save);
+    await waitFor(() => expect(patchBody).toEqual({ full_name: 'Rahim Draft' }));
+  });
+
+  it('[2683] restores a drafted date of birth as a date and sends it', async () => {
+    const student = studentFactory({
+      id: 'student-1',
+      full_name: 'Rahim Uddin',
+      date_of_birth: '2010-01-01',
+      guardians: [],
+    });
+    let patchBody: Record<string, unknown> = {};
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.patch('/api/v1/students/:id', async ({ request }) => {
+        patchBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(student);
+      }),
+    );
+    // The autosave writes JSON, so a drafted Date comes back as an ISO string.
+    window.localStorage.setItem(
+      'form-shell-draft:tenant-1:student-1',
+      JSON.stringify({ date_of_birth: new Date(2015, 4, 20) }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1/edit'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Restore draft' }));
+    const save = await screen.findByRole<HTMLButtonElement>('button', { name: 'Save changes' });
+    await waitFor(() => expect(save.disabled).toBe(false));
+    await user.click(save);
+    await waitFor(() => expect(patchBody).toEqual({ date_of_birth: '2015-05-20' }));
+  });
+
+  it('[2683] a restored draft keeps the current guardians, not the drafted set', async () => {
+    const guardian = guardianFactory({ id: 'guardian-1', full_name: 'Karim Rahman' });
+    const student = studentFactory({
+      id: 'student-1',
+      full_name: 'Rahim Uddin',
+      guardians: [guardian],
+    });
+    let patchBody: Record<string, unknown> = {};
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.patch('/api/v1/students/:id', async ({ request }) => {
+        patchBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(student);
+      }),
+    );
+    // Stale draft: typed before guardian-1 was linked elsewhere.
+    window.localStorage.setItem(
+      'form-shell-draft:tenant-1:student-1',
+      JSON.stringify({ full_name: 'Rahim Draft', guardian_ids: [] }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1/edit'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Restore draft' }));
+    expect(await screen.findByDisplayValue('Rahim Draft')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(patchBody).toEqual({ full_name: 'Rahim Draft' }));
+  });
+
+  it('[2683] keeps Save disabled for a whitespace-only edit', async () => {
+    const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin', guardians: [] });
+    server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1/edit'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const fullName = await screen.findByDisplayValue('Rahim Uddin');
+    await userEvent.setup().type(fullName, '   ');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' }).disabled).toBe(
+      true,
+    );
   });
 
   it('renders the error state inside the full-page frame', async () => {
-    server.use(http.get('/api/v1/students/:id', () => new HttpResponse(null, { status: 404 })));
+    server.use(
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json(apiErrorBody(404, 'x', '/api/v1/x'), { status: 404 }),
+      ),
+    );
 
     renderWithRouter(routeTree, {
       initialEntries: ['/students/student-1/edit'],
@@ -110,6 +237,14 @@ describe('/students/$studentId/edit', () => {
 
     expect(await screen.findByRole('heading', { name: 'Edit student' })).toBeTruthy();
     expect(await screen.findByRole('button', { name: 'Close' })).toBeTruthy();
+    // [2598] A 404 says "not found" with no retry, and Save stays disabled.
+    expect(
+      await screen.findByText('It may have been deleted, or the link may be wrong.'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /retry|try again/i })).toBeNull();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' }).disabled).toBe(
+      true,
+    );
   });
 
   it('is axe clean', async () => {

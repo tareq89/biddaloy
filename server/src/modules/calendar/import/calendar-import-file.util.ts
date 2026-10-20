@@ -126,6 +126,18 @@ function parseCsvLines(text: string): string[][] {
   return rows.filter((r) => !(r.length === 1 && r[0] === ''));
 }
 
+/**
+ * Undoes `csvCell` (`shared/src/sanitize/csv.ts`, `CSV_FORMULA_PREFIX`), which
+ * writes one apostrophe in front of a cell starting with `=`, `+`, `-`, `@`,
+ * tab or CR so a spreadsheet does not run it. Without this, exporting and
+ * re-importing the calendar would change every such description.
+ * Known ceiling: a description that really starts with `'=` (etc.) loses its
+ * apostrophe, because it cannot be told apart from the guard.
+ */
+function stripCsvFormulaGuard(cell: string): string {
+  return cell.replace(/^'(?=[=+\-@\t\r])/, '');
+}
+
 /** Builds the `.csv` template — header row plus two example rows. */
 export function buildCalendarImportCsvTemplate(): string {
   const rows = [[...CALENDAR_IMPORT_COLUMNS], ...EXAMPLE_ROWS.map(rowToCells)];
@@ -157,7 +169,7 @@ export async function parseCalendarImportFile(
 
   let rows: string[][];
   if (isCsv) {
-    rows = parseCsvLines(buffer.toString('utf8'));
+    rows = parseCsvLines(buffer.toString('utf8')).map((r) => r.map(stripCsvFormulaGuard));
   } else {
     const workbook = new ExcelJS.Workbook();
     try {

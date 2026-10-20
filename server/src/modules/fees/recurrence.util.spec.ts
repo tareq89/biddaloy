@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { firstFireInPeriod, isDue, nextRunDates, periodFor } from './recurrence.util';
+import {
+  coveredPeriodAfterCadenceChange,
+  firstFireInPeriod,
+  isDue,
+  nextRunDates,
+  periodFor,
+} from './recurrence.util';
 import type { RecurringScheduleRule } from './entities/recurring-schedule.entity';
 
 describe('recurrence.util [16.7.1]', () => {
@@ -129,6 +135,25 @@ describe('recurrence.util [16.7.1]', () => {
 
     it('a malformed WEEKLY rule (no weekdays) throws', () => {
       expect(() => firstFireInPeriod({ kind: 'WEEKLY' } as any, '2026-03-18')).toThrow();
+    });
+  });
+
+  describe('coveredPeriodAfterCadenceChange (F-145)', () => {
+    const weekly: RecurringScheduleRule = { kind: 'WEEKLY', weekdays: [1] };
+    const monthly: RecurringScheduleRule = { kind: 'MONTHLY', day_of_month: 1 };
+    it.each([
+      ['2026-10-01', '2026-10-26'], // Oct 31 is a Saturday
+      ['2026-03-01', '2026-03-30'], // Mar 31 is a Tuesday
+      ['2026-02-01', '2026-02-23'], // Feb 28 is a Saturday
+      ['2026-08-01', '2026-08-31'], // Aug 31 is a Monday
+    ])('monthly %s -> weekly covers through %s', (last, covered) => {
+      expect(coveredPeriodAfterCadenceChange(last, weekly)).toBe(covered);
+    });
+    it.each([
+      ['2026-10-05', '2026-10-01'],
+      ['2026-09-28', '2026-09-01'], // that week runs into October; October still bills
+    ])('weekly %s -> monthly covers %s', (last, covered) => {
+      expect(coveredPeriodAfterCadenceChange(last, monthly)).toBe(covered);
     });
   });
 });

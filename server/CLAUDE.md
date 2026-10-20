@@ -136,3 +136,14 @@ A new migration must pass `test/migration-schema.integration.spec.ts` (no drift 
 - Spec files that build their own TypeORM connection with `{ synchronize: true, dropSchema: true }` rebuild the schema from entity metadata, which silently destroys migration-only objects (the `refresh_tokens` table, the `audit_logs` append-only trigger, `typeorm_migrations`). `server/test/setup.ts`'s `repairSchemaIfDamaged()` detects this and re-migrates so the next file is unaffected. Prefer not to add new specs that use `dropSchema` — they make the suite slower and the isolation harder to reason about.
 
 Dashboard widgets (`*-dashboard.controller.ts`, `@DashboardWidgetRoute`): see [docs/architecture/26-dashboard.md](../docs/architecture/26-dashboard.md).
+
+## Test flake standards (Epic 2642, D18)
+
+- No sleeps. Wait for a condition, never a duration.
+- Create your own data with a unique suffix; never read a row another spec made.
+- Concurrency tests use a deterministic hold (a latch or a held promise), not timing.
+- Dates come from `todayInSchoolTz` or are fixed, never `new Date()` near midnight.
+- A spec that touches a global table runs serial.
+- A spec that calls attention rules by hand closes the attention worker first.
+- A new concurrency spec passes five runs in a row; evidence goes in the PR.
+- A spec that fails only under load is rerun alone (`yarn test-env run`) before it is judged.

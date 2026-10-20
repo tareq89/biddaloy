@@ -3,6 +3,7 @@ import { queryOptions, useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
+import { useIdempotencyKey } from './idempotency-key';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -87,11 +88,15 @@ export type SendCommunicationInput = components['schemas']['SendGuardianMessageD
  * would queue the same message twice.
  */
 export function useSendCommunication() {
+  const { keyFor, rotate } = useIdempotencyKey();
   return useMutation({
     mutationFn: async (input: SendCommunicationInput) => {
-      const res = await apiClient.post<CommunicationLog>('/communications/send', input);
+      const res = await apiClient.post<CommunicationLog>('/communications/send', input, {
+        headers: { 'Idempotency-Key': keyFor(input) },
+      });
       return res.data;
     },
+    onSuccess: rotate,
     retry: false,
   });
 }
@@ -100,6 +105,9 @@ export function useSendCommunication() {
  * `GET /communications/{id}` — one log entry, used by the Send Message
  * page's post-send panel to show the queued message's current delivery
  * status. `enabled` gates it until a send has actually produced an id.
+ * [2683] Re-reads every 2s while QUEUED, so a later FAILED (and its reason)
+ * shows up. ponytail: stops after 30 reads (~1 min) so a stuck row does not
+ * poll forever; the page still shows "on its way" then.
  */
 export function useCommunicationLog(id: string | undefined) {
   return useQuery(
@@ -110,6 +118,8 @@ export function useCommunicationLog(id: string | undefined) {
         return res.data;
       },
       enabled: id !== undefined,
+      refetchInterval: (query) =>
+        query.state.data?.status === 'QUEUED' && query.state.dataUpdateCount < 30 ? 2_000 : false,
       retry: shouldRetryQuery,
     }),
   );

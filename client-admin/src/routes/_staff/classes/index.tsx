@@ -276,6 +276,7 @@ function ClassesListPage() {
         {...(classesQuery.isError ? { error: t('list.errorMessage') } : {})}
         rowActions={rowActions}
         emptyState={{
+          ...(filtered ? { kind: 'no-results' as const } : {}),
           icon: <SchoolIcon aria-hidden="true" />,
           title: filtered ? t('list.noMatchMessage') : t('list.emptyMessage'),
           explanation: filtered

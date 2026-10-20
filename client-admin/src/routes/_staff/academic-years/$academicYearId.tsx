@@ -1,6 +1,12 @@
 import { Permission } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, RoutePending, Skeleton, StatusBadge } from '@biddaloy/ui/components';
+import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
+import {
+  ErrorState,
+  RecordNotFoundState,
+  RoutePending,
+  Skeleton,
+  StatusBadge,
+} from '@biddaloy/ui/components';
 import {
   academicYearQueryOptions,
   useAcademicYear,
@@ -80,6 +86,10 @@ function AcademicYearDetailPage() {
         <Skeleton className="h-40 w-full" />
       </div>
     );
+  }
+
+  if (isNotFoundError(yearQuery.error)) {
+    return <RecordNotFoundState onBack={() => void navigate({ to: '/academic-years' })} />;
   }
 
   if (yearQuery.isError) {

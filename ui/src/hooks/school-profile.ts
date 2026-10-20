@@ -53,7 +53,6 @@ export function useUpdateSchoolProfile() {
   return useMutation({
     mutationFn: async (input: UpdateSchoolProfileInput) =>
       (await apiClient.patch<SchoolProfile>('/schools/me/profile', input)).data,
-    retry: shouldRetryQuery,
     onSuccess: (profile) => {
       queryClient.setQueryData(schoolProfileKeys.detail('me'), profile);
     },
