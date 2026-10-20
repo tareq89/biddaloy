@@ -13,6 +13,7 @@ import { AcademicYear } from '../../academics/entities/academic-year.entity';
 import { School } from '../../schools/entities/school.entity';
 import { resolveTenantSettings } from '../../schools/settings/tenant-settings-resolver';
 import { todayInSchoolTz } from '../../../common/time';
+import { round2 } from '../../../common/constants/money';
 import { FeeGenerationService } from '../fee-generation.service';
 import { ApprovalService } from '../../auth/guards/approval.guard';
 import { AuditService } from '../../audit/audit.service';
@@ -35,10 +36,6 @@ interface RequestLike {
 }
 
 const EPSILON = 0.01;
-
-function round2(n: number): number {
-  return Math.round((n + Number.EPSILON) * 100) / 100;
-}
 
 @Injectable()
 export class FinesService {

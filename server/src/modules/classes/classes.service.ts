@@ -316,51 +316,62 @@ export class ClassService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<void> {
-    const existing = await this.findOne(id, tenantId);
-
-    // [68.2.12] Any student or enrollment row of any status blocks the delete:
-    // students who left or graduated still point at the class, and deleting it
-    // strands their history. Students (via their section) and enrollments are
-    // both counted because `POST /students` writes only a Student row while
-    // `POST /enrollments` writes an Enrollment row.
-    const studentCount = await this.studentRepo
-      .createQueryBuilder('student')
-      .innerJoin('student.class_section', 'class_section')
-      .where('class_section.class_id = :classId', { classId: id })
-      .andWhere('student.tenant_id = :tenantId', { tenantId })
-      .andWhere('student.deleted_at IS NULL')
-      .getCount();
-    const enrollmentCount = await countLiveEnrollments(
-      this.enrollmentRepo,
-      'class_id',
-      id,
-      tenantId,
-    );
-    const inUse = studentCount + enrollmentCount;
-    if (inUse > 0) {
-      throw new ConflictException({
-        message: CLASS_IN_USE_MESSAGE,
-        details: {
-          code: 'CLASS_IN_USE',
-          count: inUse,
-          students_count: studentCount,
-          enrollments_count: enrollmentCount,
-        },
-      });
-    }
-
-    // Check for child sections
-    const childSectionCount = await this.sectionRepo.count({
-      where: { class_id: id, tenant_id: tenantId, deleted_at: IsNull() },
-    });
-    if (childSectionCount > 0) {
-      throw new ConflictException({
-        message: CLASS_IN_USE_MESSAGE,
-        details: { code: 'CLASS_IN_USE', sections_count: childSectionCount },
-      });
-    }
-
     await this.repo.manager.transaction(async (manager) => {
+      // Lock the parent first so a concurrent child insert (FOR KEY SHARE) must finish
+      // before the guard counts. ponytail: orders a delete after an in-flight child insert;
+      // a creator that reads the parent without a share lock can still insert after commit.
+      // Upgrade: share-lock the parent in the creator, as ClassService.create does.
+      const existing = await manager
+        .createQueryBuilder(Class, 'p')
+        .setLock('pessimistic_write')
+        .where('p.id = :id AND p.tenant_id = :tenantId AND p.deleted_at IS NULL', { id, tenantId })
+        .getOne();
+      if (!existing) {
+        throw new NotFoundException(`Class with ID "${id}" not found`);
+      }
+
+      // [68.2.12] Any student or enrollment row of any status blocks the delete:
+      // students who left or graduated still point at the class, and deleting it
+      // strands their history. Students (via their section) and enrollments are
+      // both counted because `POST /students` writes only a Student row while
+      // `POST /enrollments` writes an Enrollment row.
+      const studentCount = await manager
+        .createQueryBuilder(Student, 'student')
+        .innerJoin('student.class_section', 'class_section')
+        .where('class_section.class_id = :classId', { classId: id })
+        .andWhere('student.tenant_id = :tenantId', { tenantId })
+        .andWhere('student.deleted_at IS NULL')
+        .getCount();
+      const enrollmentCount = await countLiveEnrollments(
+        manager.getRepository(Enrollment),
+        'class_id',
+        id,
+        tenantId,
+      );
+      const inUse = studentCount + enrollmentCount;
+      if (inUse > 0) {
+        throw new ConflictException({
+          message: CLASS_IN_USE_MESSAGE,
+          details: {
+            code: 'CLASS_IN_USE',
+            count: inUse,
+            students_count: studentCount,
+            enrollments_count: enrollmentCount,
+          },
+        });
+      }
+
+      // Check for child sections
+      const childSectionCount = await manager.count(ClassSection, {
+        where: { class_id: id, tenant_id: tenantId, deleted_at: IsNull() },
+      });
+      if (childSectionCount > 0) {
+        throw new ConflictException({
+          message: CLASS_IN_USE_MESSAGE,
+          details: { code: 'CLASS_IN_USE', sections_count: childSectionCount },
+        });
+      }
+
       const repo = manager.getRepository(Class);
       // [2676] Exams, fee structures, homework etc. that point at the class block the delete.
       // Subject offerings and calendar class links are config: hidden with it.
@@ -611,34 +622,45 @@ export class SectionService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<void> {
-    const section = await this.repo.findOne({
-      where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
-    });
-    if (!section) {
-      throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
-    }
-
-    // [68.2.12] Any status counts, not only ACTIVE: students who left still
-    // point at this section, and deleting it strands them.
-    const studentCount = await this.studentRepo.count({
-      where: { class_section_id: sectionId, tenant_id: tenantId, deleted_at: IsNull() },
-    });
-    const enrollmentCount = await countLiveEnrollments(
-      this.enrollmentRepo,
-      'section_id',
-      sectionId,
-      tenantId,
-    );
-    const inUse = studentCount + enrollmentCount;
-    if (inUse > 0) {
-      throw new ConflictException({
-        message:
-          'This section still has student records (including students who left). It cannot be deleted.',
-        details: { code: 'SECTION_IN_USE', count: inUse },
-      });
-    }
-
     await this.repo.manager.transaction(async (manager) => {
+      // Lock the parent first so a concurrent child insert (FOR KEY SHARE) must finish
+      // before the guard counts. ponytail: orders a delete after an in-flight child insert;
+      // a creator that reads the parent without a share lock can still insert after commit.
+      // Upgrade: share-lock the parent in the creator, as ClassService.create does.
+      const section = await manager
+        .createQueryBuilder(ClassSection, 'p')
+        .setLock('pessimistic_write')
+        .where(
+          'p.id = :sectionId AND p.class_id = :classId AND p.tenant_id = :tenantId AND p.deleted_at IS NULL',
+          { sectionId, classId, tenantId },
+        )
+        .getOne();
+      if (!section) {
+        throw new NotFoundException(
+          `Section with ID "${sectionId}" not found in class "${classId}"`,
+        );
+      }
+
+      // [68.2.12] Any status counts, not only ACTIVE: students who left still
+      // point at this section, and deleting it strands them.
+      const studentCount = await manager.count(Student, {
+        where: { class_section_id: sectionId, tenant_id: tenantId, deleted_at: IsNull() },
+      });
+      const enrollmentCount = await countLiveEnrollments(
+        manager.getRepository(Enrollment),
+        'section_id',
+        sectionId,
+        tenantId,
+      );
+      const inUse = studentCount + enrollmentCount;
+      if (inUse > 0) {
+        throw new ConflictException({
+          message:
+            'This section still has student records (including students who left). It cannot be deleted.',
+          details: { code: 'SECTION_IN_USE', count: inUse },
+        });
+      }
+
       const repo = manager.getRepository(ClassSection);
       // [2677] Attendance, marks, routines etc. that point at the section block the delete.
       // Teacher assignments are config: removed with it.
@@ -647,7 +669,10 @@ export class SectionService {
         message: 'This section is still used by other records. Remove or reassign them first.',
         exclude: ['Student.class_section', 'Enrollment.section', 'TeacherClassSection.section'],
       });
-      await manager.delete(TeacherClassSection, { section_id: sectionId, tenant_id: tenantId });
+      const removed = await manager.delete(TeacherClassSection, {
+        section_id: sectionId,
+        tenant_id: tenantId,
+      });
       await repo.softDelete({ id: sectionId, class_id: classId, tenant_id: tenantId });
 
       await this.auditService.record(
@@ -659,7 +684,11 @@ export class SectionService {
           performed_by_user_id: userId,
           ip_address: context.ip,
           user_agent: context.userAgent,
-          old_values: { section_name: section.section_name, class_id: section.class_id },
+          old_values: {
+            section_name: section.section_name,
+            class_id: section.class_id,
+            teacher_assignments_removed: removed.affected ?? 0,
+          },
           new_values: null,
         },
         manager,

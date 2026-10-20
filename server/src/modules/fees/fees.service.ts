@@ -352,10 +352,21 @@ export class FeeStructureService {
     // history keeps pointing at the (now-hidden) price tag that generated
     // them, rather than blocking removal or dragging billed data down with
     // it.
-    await this.findOne(id, tenantId);
     // [2680] Fine rules and recurring schedules that use the price tag block the delete;
     // billed history (StudentFee) is allowed to point at it.
     await this.repo.manager.transaction(async (manager) => {
+      // Lock the parent first so a concurrent child insert (FOR KEY SHARE) must finish
+      // before the guard counts. ponytail: orders a delete after an in-flight child insert;
+      // a creator that reads the parent without a share lock can still insert after commit.
+      // Upgrade: share-lock the parent in the creator, as ClassService.create does.
+      const locked = await manager
+        .createQueryBuilder(FeeStructure, 'p')
+        .setLock('pessimistic_write')
+        .where('p.id = :id AND p.tenant_id = :tenantId AND p.deleted_at IS NULL', { id, tenantId })
+        .getOne();
+      if (!locked) {
+        throw new NotFoundException('Fee structure not found');
+      }
       await assertNoLiveDependents(manager, FeeStructure, id, {
         code: 'FEE_STRUCTURE_IN_USE',
         message: 'This fee structure is still used by fine rules or schedules. Remove them first.',
