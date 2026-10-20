@@ -383,7 +383,7 @@ echo "PASS: no dump found fails"
 # D7. entrypoint writes both crontab lines and rejects a bad DRILL_SCHEDULE.
 mkdir -p "$SHIM/app"
 sed "s#/app/crontab#$SHIM/app/crontab#g; s#exec supercronic.*#cat $SHIM/app/crontab#" "$SCRIPT_DIR/entrypoint.sh" >"$SHIM/entry.sh"
-EP=(env -i PATH="$PATH" BACKUP_S3_ENDPOINT=x BACKUP_S3_BUCKET=x BACKUP_S3_ACCESS_KEY_ID=x BACKUP_S3_SECRET_ACCESS_KEY=x BACKUP_RCLONE_CRYPT_PASSWORD=x BACKUP_RCLONE_CRYPT_SALT=x DATABASE_URL=x BACKUP_AGE_PUBLIC_KEY=x S3_BUCKET=x S3_ENDPOINT=x S3_REGION=x S3_ACCESS_KEY_ID=x S3_SECRET_ACCESS_KEY=x)
+EP=(env -i PATH="$PATH" BACKUP_S3_ENDPOINT=x BACKUP_S3_BUCKET=x BACKUP_S3_ACCESS_KEY_ID=x BACKUP_S3_SECRET_ACCESS_KEY=r2-secret-0123456789 BACKUP_RCLONE_CRYPT_PASSWORD=crypt-pass-0123456789 BACKUP_RCLONE_CRYPT_SALT=crypt-salt-0123456789 DATABASE_URL=x BACKUP_AGE_PUBLIC_KEY=x S3_BUCKET=x S3_ENDPOINT=x S3_REGION=x S3_ACCESS_KEY_ID=x S3_SECRET_ACCESS_KEY=x)
 "${EP[@]}" bash "$SHIM/entry.sh" | grep -q '^30 3 \* \* 0 /app/drill.sh$' || shim_fail "drill crontab line missing"
 if "${EP[@]}" DRILL_SCHEDULE='* * * * * ; rm -rf /' bash "$SHIM/entry.sh" >/dev/null 2>&1; then shim_fail "bad DRILL_SCHEDULE must fail"; fi
 if "${EP[@]}" BACKUP_S3_ENDPOINT= BACKUP_S3_BUCKET= BACKUP_S3_ACCESS_KEY_ID= BACKUP_S3_SECRET_ACCESS_KEY= BACKUP_RCLONE_CRYPT_PASSWORD= BACKUP_RCLONE_CRYPT_SALT= bash "$SHIM/entry.sh" | grep -q drill.sh; then shim_fail "legacy mode must not schedule the drill"; fi
