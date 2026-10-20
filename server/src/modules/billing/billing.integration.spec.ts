@@ -192,6 +192,44 @@ describe('EntitlementService + OrdersService (integration)', () => {
     expect(await limitOf(id)).toBe(50);
   });
 
+  const grant = (schoolId: string, seats: number, months: number) =>
+    orders.createPaid(
+      { schoolId, seats, months, idempotency_key: randomUUID(), userId: null, unit_price_paisa: 0 },
+      { method: PlatformPaymentMethod.GRANT, amount_paisa: '0' },
+    );
+
+  it('a renewal starts after the purchase, not after a longer platform grant', async () => {
+    afterCutoff();
+    const id = await newSchool();
+    const bought = await pay(id, 100, 1);
+    await grant(id, 100, 12);
+    const renewal = await pay(id, 100, 6);
+    // The grant (12 months) must not push the school's own renewal out to next year.
+    expect((await periodOf(renewal.id)).start).toBe((await periodOf(bought.id)).end);
+    // The PENDING preview follows the same rule.
+    const preview = await orders.createPending({
+      schoolId: id,
+      seats: 100,
+      months: 1,
+      idempotency_key: randomUUID(),
+      userId: null,
+    });
+    expect(preview.period_start).toBe((await periodOf(renewal.id)).end);
+  });
+
+  it('a smaller buy mid-period starts today; the next full renewal still starts at the old end', async () => {
+    afterCutoff();
+    const id = await newSchool();
+    const bought = await pay(id, 100, 6);
+    const small = await pay(id, 20, 1);
+    // 20 < 100 seats in force: a top-up from today, not a month tacked onto the end.
+    expect((await periodOf(small.id)).start).toBe(await today());
+    expect(await limitOf(id)).toBe(120);
+    const renewal = await pay(id, 100, 6);
+    // So the renewal is not pushed a month out (which would leave that month with 20 seats).
+    expect((await periodOf(renewal.id)).start).toBe((await periodOf(bought.id)).end);
+  });
+
   it('a purchase after the last paid period has ended starts today', async () => {
     afterCutoff();
     const id = await newSchool();
