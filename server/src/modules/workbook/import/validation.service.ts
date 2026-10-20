@@ -267,7 +267,7 @@ export class ValidationService {
         }
       }
 
-      const newRowActorCols = tab.columns.filter((c) => c.requiredOnNewRow);
+      const newRowActorCols = tab.columns.filter((c) => c.requiredOnNewRow || c.restorerOnNewRow);
       const existingEntityIds = new Set<unknown>(
         newRowActorCols.length > 0 ? existingEntities.map((e) => (e as { id?: unknown }).id) : [],
       );
@@ -328,12 +328,31 @@ export class ValidationService {
           const isExistingRow =
             (typeof rowId === 'string' && existingEntityIds.has(rowId)) ||
             existingIndexes.get(tab.name)?.get(key) !== undefined;
+          const isBlank = (c: { key: string }): boolean => (cells[c.key] ?? '').trim() === '';
+          // A NOT NULL actor who left: the restore records the restoring user.
+          // Fixed text, never echoes the cell; the row is still accepted.
+          if (!isExistingRow) {
+            for (const c of newRowActorCols) {
+              if (c.restorerOnNewRow && meta.kind !== 'TEMPLATE' && isBlank(c)) {
+                recordWarning(tabWarnings, {
+                  tab: tab.name,
+                  row: rowNo,
+                  column: c.key,
+                  severity: 'warning',
+                  message:
+                    "This row's staff member has left the school; the restore will record you instead.",
+                });
+              }
+            }
+          }
           const blank = isExistingRow
             ? undefined
             : newRowActorCols.find(
                 (c) =>
-                  (cells[c.key] ?? '').trim() === '' &&
+                  isBlank(c) &&
                   (c.requiredOnNewRow === true ||
+                    // A starter workbook has no restorer to fall back on.
+                    (c.restorerOnNewRow && meta.kind === 'TEMPLATE') ||
                     (typeof c.requiredOnNewRow === 'function' && c.requiredOnNewRow(cells))),
               );
           if (blank) {

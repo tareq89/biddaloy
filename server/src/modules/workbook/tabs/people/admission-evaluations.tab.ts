@@ -11,6 +11,7 @@ import type {
 } from '../../codec/tab-spec';
 import { optionalKeyOf } from '../../codec/tab-spec';
 import { memberKeysById } from './users.tab';
+import { actorOrRestorer, keepFileId } from '../actor-keys';
 import { admissionApplicantsTab } from './admission-applicants.tab';
 
 /**
@@ -60,7 +61,7 @@ const columns: readonly ColumnSpec[] = [
     key: 'reviewer',
     type: 'ref',
     ref: 'users',
-    requiredOnNewRow: true,
+    restorerOnNewRow: true,
     label: { en: 'Reviewer', bn: 'পর্যালোচক' },
   },
   { key: 'notes', type: 'string', required: true, label: { en: 'Notes', bn: 'মন্তব্য' } },
@@ -83,6 +84,8 @@ export const admissionEvaluationsTab: TabSpec<AdmissionEvaluation, AdmissionEval
   excluded,
   dependsOn: ['admission_applicants', 'users'],
   columns,
+  // Two departed-reviewer twins restored by one admin share a key (#2687).
+  allowDuplicateKeys: true,
   naturalKey: ['applicant', 'reviewer', 'decision', 'notes'],
   deleteByAbsence: true,
 
@@ -184,10 +187,11 @@ export const admissionEvaluationsTab: TabSpec<AdmissionEvaluation, AdmissionEval
           ? admissionApplicantsTab.keyOf(x.applicant)
           : x.applicant_id
         : x.applicant_key;
+    // A departed reviewer is blank in the file; key by `#<id>` so two such
+    // rows (same applicant, decision, notes) stay two rows (#2687).
     const reviewerKey =
-      x instanceof AdmissionEvaluation
-        ? ((x as LoadedEvaluation).reviewer_key ?? '')
-        : x.reviewer_key;
+      (x instanceof AdmissionEvaluation ? (x as LoadedEvaluation).reviewer_key : x.reviewer_key) ||
+      `#${x.id}`;
     return `${applicantKey}|${reviewerKey}|${x.decision ?? ''}|${x.notes}`;
   },
 
@@ -209,11 +213,18 @@ export const admissionEvaluationsTab: TabSpec<AdmissionEvaluation, AdmissionEval
     existing: AdmissionEvaluation | null,
     tenantId: string,
     m: EntityManager,
+    actorUserId?: string | null,
   ): Promise<AdmissionEvaluation> {
     const evaluation = existing ?? new AdmissionEvaluation();
+    if (!existing) await keepFileId(AdmissionEvaluation, evaluation, row.id, m);
     evaluation.tenant_id = tenantId;
     evaluation.applicant_id = row.applicant_id;
-    evaluation.reviewer_user_id = (row.reviewer_user_id ?? existing?.reviewer_user_id) as string;
+    evaluation.reviewer_user_id = actorOrRestorer(
+      'Evaluation reviewer',
+      row.reviewer_user_id,
+      existing?.reviewer_user_id,
+      actorUserId,
+    );
     evaluation.notes = row.notes;
     evaluation.decision = row.decision;
 

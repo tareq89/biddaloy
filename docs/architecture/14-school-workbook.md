@@ -202,6 +202,49 @@ key into the cell, and restore resolves it back to a real id.
   file is uploaded again. Helper:
   `server/src/modules/workbook/codec/storage-key-scope.ts`.
 
+### A blank actor cell (who wrote, recorded or approved a row)
+
+The export writes a blank in an actor cell when that person is no longer a
+member of the school (they left, or they are a platform SUPER_ADMIN). So a
+blank can mean "the person left" or "someone cleared it". Restore tells them
+apart by looking at the row it already has:
+
+```mermaid
+flowchart TD
+  B[Actor cell is blank] --> E{Row already in this school?}
+  E -->|yes| S{Stored actor still a member?}
+  S -->|yes| C[Cleared: the blank is an edit]
+  S -->|no| K[Kept: the blank is the export's]
+  E -->|no| T{Which kind of column?}
+  T -->|NOT NULL actor| R[Restoring admin recorded, one warning per row]
+  T -->|profile login or tag user| X[Error: pick a current member]
+```
+
+| Blank actor cell                                                                            | Result                              |
+| ------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Existing row, departed actor                                                                | Kept                                |
+| Existing row, current actor, nullable                                                       | Cleared                             |
+| Existing row, current actor, NOT NULL (note author, reviewer, requester, creator, uploader) | Kept                                |
+| New row, NOT NULL actor                                                                     | The restoring admin, with a warning |
+| New row, profile login (#2668)                                                              | Error                               |
+| `invoices` and `payments` (insert-only)                                                     | Never changed (D13)                 |
+
+Example. A student note was written by a teacher who has since left. Its
+`author` cell is blank in the backup:
+
+- Restored into the same school, the note keeps its stored author.
+- Restored into a new school, the note is attributed to the admin running the
+  restore. The preview shows: `This row's staff member has left the school; the
+restore will record you instead.`
+
+Two rows from different departed actors (same slot and note, or same applicant
+and decision) stay two rows: the blank actor is keyed by the row id, not by an
+empty string.
+
+A profile login follows #2668: a departed login exports blank, the same school
+keeps it, and a new school refuses the teacher or staff row. Workaround:
+restore the membership in the source school and export again.
+
 ### What a backup does not contain
 
 Some school data is in no backup file yet (tracked in #856). The restore

@@ -12,6 +12,7 @@ import type {
   TabSpec,
 } from '../../codec/tab-spec';
 import { optionalKeyOf } from '../../codec/tab-spec';
+import { nullableActor, stampActorKeys } from '../actor-keys';
 
 /**
  * The `leave_records` tab: one staff member's leave request/decision.
@@ -113,14 +114,15 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
   naturalKey: ['staff_profile', 'start_date', 'end_date', 'application'],
   deleteByAbsence: true,
 
-  load(tenantId: string, m: EntityManager): Promise<LeaveRecord[]> {
+  async load(tenantId: string, m: EntityManager): Promise<LeaveRecord[]> {
     // `staff_profile` and `application` are needed eagerly: `keyOf` reads their
     // natural-key fields directly off the relations. `approver` is resolved via
     // `ctx.keyOf` from the stored id, so no eager relation is needed for it.
-    return m.find(LeaveRecord, {
+    const rows = await m.find(LeaveRecord, {
       where: { tenant_id: tenantId },
       relations: ['staff_profile', 'application'],
     });
+    return stampActorKeys(tenantId, rows, 'approved_by', 'approved_by_key', m);
   },
 
   toRow(entity: LeaveRecord, ctx: ExportContext): Record<string, unknown> {
@@ -264,7 +266,11 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
     if (row.days !== existing.days) changed.push('days');
     if (row.status !== existing.status) changed.push('status');
     if (row.reason !== existing.reason) changed.push('reason');
-    if (row.approved_by !== null && row.approved_by !== existing.approved_by)
+    // A blank cell clears a current approver; a departed one is kept (#2687).
+    if (
+      nullableActor(row.approved_by, existing, 'approved_by', 'approved_by_key') !==
+      (existing.approved_by ?? null)
+    )
       changed.push('approved_by');
     if (row.application_id !== existing.application_id) changed.push('application');
     const rowDecidedAt = row.decided_at;
@@ -321,7 +327,7 @@ export const leaveRecordTab: TabSpec<LeaveRecord, LeaveRecordRow> = {
     record.days = row.days;
     record.status = row.status;
     record.reason = row.reason;
-    record.approved_by = row.approved_by ?? existing?.approved_by ?? null;
+    record.approved_by = nullableActor(row.approved_by, existing, 'approved_by', 'approved_by_key');
     record.application_id = row.application_id;
     record.decided_at = row.decided_at ? new Date(row.decided_at) : null;
     // `load()` eager-loads these, and a loaded relation beats its FK column on save.

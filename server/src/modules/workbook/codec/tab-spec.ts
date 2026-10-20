@@ -38,6 +38,8 @@ export interface ColumnSpec {
    * only when its `role` is blank).
    */
   requiredOnNewRow?: boolean | ((cells: Record<string, string>) => boolean);
+  /** NOT NULL actor: blank on a new row is attributed to the restoring user, with a warning. */
+  restorerOnNewRow?: boolean;
   enumValues?: readonly string[];
   ref?: string;
   label: { en: string; bn: string };

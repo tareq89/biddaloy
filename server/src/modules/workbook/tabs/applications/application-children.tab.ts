@@ -14,6 +14,7 @@ import type {
   TabSpec,
 } from '../../codec/tab-spec';
 import { optionalKeyOf } from '../../codec/tab-spec';
+import { actorOrRestorer } from '../actor-keys';
 import { createRefChildTab } from '../people/ref-child-tab.factory';
 import { usersTab } from '../people/users.tab';
 import { applicationsTab } from './applications.tab';
@@ -157,7 +158,7 @@ const tagColumns: readonly ColumnSpec[] = [
     key: 'created_by',
     type: 'ref',
     ref: 'users',
-    requiredOnNewRow: true,
+    restorerOnNewRow: true,
     label: { en: 'Created by', bn: 'তৈরি করেছেন' },
   },
 ];
@@ -275,7 +276,13 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
       : ['created_by'];
   },
 
-  async upsert(row: Rec, existing: ApplicationTag | null, tenantId: string, m: EntityManager) {
+  async upsert(
+    row: Rec,
+    existing: ApplicationTag | null,
+    tenantId: string,
+    m: EntityManager,
+    actorUserId?: string | null,
+  ) {
     // D50: a user tag grants read access, so it must name this school's staff, never a
     // guardian or student login. Checked here because fromRow has no database access.
     // Only for a new tag or a changed user: an existing tag whose user has since left
@@ -301,7 +308,12 @@ export const applicationTagsTab: TabSpec<ApplicationTag, Rec> = {
     const keepStored = existing !== null && !row.user_id && !row.role;
     tag.user_id = keepStored ? existing.user_id : (row.user_id as string | null);
     tag.role = keepStored ? existing.role : (row.role as string | null);
-    tag.created_by_user_id = (row.created_by_user_id ?? existing?.created_by_user_id) as string;
+    tag.created_by_user_id = actorOrRestorer(
+      'Tag creator',
+      row.created_by_user_id as string | null,
+      existing?.created_by_user_id,
+      actorUserId,
+    );
     return m.save(ApplicationTag, tag);
   },
 
@@ -349,7 +361,7 @@ const attachmentColumns: readonly ColumnSpec[] = [
     key: 'uploaded_by',
     type: 'ref',
     ref: 'users',
-    requiredOnNewRow: true,
+    restorerOnNewRow: true,
     label: { en: 'Uploaded by', bn: 'আপলোডকারী' },
   },
 ];
@@ -504,6 +516,7 @@ export const applicationAttachmentsTab: TabSpec<ApplicationAttachment, Rec> = {
     existing: ApplicationAttachment | null,
     tenantId: string,
     m: EntityManager,
+    actorUserId?: string | null,
   ) {
     const a = existing ?? new ApplicationAttachment();
     a.tenant_id = tenantId;
@@ -512,7 +525,12 @@ export const applicationAttachmentsTab: TabSpec<ApplicationAttachment, Rec> = {
     a.file_name = row.file_name as string;
     a.mime_type = row.mime_type as string;
     a.size_bytes = row.size_bytes as number;
-    a.uploaded_by_user_id = (row.uploaded_by_user_id ?? existing?.uploaded_by_user_id) as string;
+    a.uploaded_by_user_id = actorOrRestorer(
+      'Attachment uploader',
+      row.uploaded_by_user_id as string | null,
+      existing?.uploaded_by_user_id,
+      actorUserId,
+    );
     return m.save(ApplicationAttachment, a);
   },
 
