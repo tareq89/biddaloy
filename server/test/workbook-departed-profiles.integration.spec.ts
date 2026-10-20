@@ -410,6 +410,13 @@ describe('departed profile logins (#2668)', () => {
       stUser.id,
     );
 
+    // Soft-deleted match (found by registration number, not by load()): blank still keeps a departed login.
+    await db.getRepository(Student).softDelete({ id: student.id });
+    expect((await restoreIntoT(buffer)).status).toBe(WorkbookJobStatus.DONE);
+    expect((await db.getRepository(Student).findOneByOrFail({ id: student.id })).user_id).toBe(
+      stUser.id,
+    );
+
     // Empty school: a new teacher row needs a login; a new student/guardian row does not.
     const empty = await validationService.validate(buffer, EMPTY, db.manager);
     const hard = empty.errors.filter((e) => e.severity === 'error');

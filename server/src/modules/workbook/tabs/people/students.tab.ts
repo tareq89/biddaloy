@@ -574,6 +574,11 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         where: { registration_number: row.registration_number, tenant_id: tenantId },
         withDeleted: true,
       });
+      // Not from `load()`, so name the login's owner here (else a departed login reads as current).
+      if (student?.user_id) {
+        const members = await memberKeysById(tenantId, [student.user_id], m);
+        (student as LoadedStudent).user_key = members.get(student.user_id) ?? '';
+      }
     }
 
     // A blank cell keeps a departed member's login and clears a current one (D12).
