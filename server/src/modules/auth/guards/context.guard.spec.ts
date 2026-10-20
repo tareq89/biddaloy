@@ -6,6 +6,7 @@ import { ContextGuard, RolesGuard } from './context.guard';
 import { UserRole, SchoolStatus } from '@biddaloy/shared';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 import { ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY } from '../decorators/allow-when-suspended-for-billing.decorator';
+import { ALLOW_WHEN_READ_ONLY_KEY } from '../decorators/allow-when-read-only.decorator';
 
 const PLATFORM_TENANT_ID = 'platform-tenant';
 
@@ -378,6 +379,12 @@ describe('ContextGuard', () => {
       const h = () => {};
       Reflect.defineMetadata(ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY, true, h);
       await expect(call('POST', h)).resolves.toBe(true);
+    });
+
+    it("lets an @AllowWhenReadOnly write through (a user's own state)", async () => {
+      const h = () => {};
+      Reflect.defineMetadata(ALLOW_WHEN_READ_ONLY_KEY, true, h);
+      await expect(call('PATCH', h)).resolves.toBe(true);
     });
 
     it('lets a write through when the school is not over its seats', async () => {

@@ -30,7 +30,7 @@
     "seatsError": "Enter a whole number from 1 to {{max}}.",
     "monthsError": "Enter a whole number from 1 to {{max}}.",
     "createdTitle": "Order created",
-    "createdBody": "Order for {{seats}} seats, {{months}} months, {{total}}. Your seats start after payment.",
+    "createdBody": "Order for {{seats}} seats, {{months}} months, {{total}}. Your seats start when you pay, or when your current seats or the free period end, so a renewal adds months, not seats.",
     "payBkash": "Pay with bKash",
     "payFailed": "We could not start the payment. Try again in a few minutes.",
     "createFailed": "We could not create the order. Try again."

@@ -30,6 +30,7 @@ import {
   PushSubscriptionResponseDto,
 } from './dto/push-subscription.dto';
 import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
+import { AllowWhenReadOnly } from '../auth/decorators/allow-when-read-only.decorator';
 
 const ALL_ROLES = [...STAFF_ROLES, ...GUARDIAN_ROLES];
 
@@ -79,6 +80,7 @@ export class PushSubscriptionsController {
   }
 
   @AuthenticatedOnly()
+  @AllowWhenReadOnly()
   @Post('subscriptions')
   @HttpCode(HttpStatus.CREATED)
   @Roles(...ALL_ROLES)
@@ -113,6 +115,7 @@ export class PushSubscriptionsController {
   }
 
   @AuthenticatedOnly()
+  @AllowWhenReadOnly()
   @Delete('subscriptions/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Roles(...ALL_ROLES)
@@ -128,6 +131,7 @@ export class PushSubscriptionsController {
   }
 
   @AuthenticatedOnly()
+  @AllowWhenReadOnly()
   @Delete('subscriptions')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Roles(...ALL_ROLES)

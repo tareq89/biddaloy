@@ -125,8 +125,13 @@ describe('billing E2E', () => {
       months: 3,
       amount_paisa: 300000,
     });
-    const b = await post(tokens.admin, { seats: 5, months: 1, idempotency_key: key }).expect(201);
+    const b = await post(tokens.admin, { seats: 100, months: 3, idempotency_key: key }).expect(201);
     expect(b.body.id).toBe(a.body.id);
+    // Same key, different body: a client bug, refused with fixed text.
+    const reused = await post(tokens.admin, { seats: 5, months: 1, idempotency_key: key }).expect(
+      409,
+    );
+    expect(reused.body.details).toEqual({ code: 'IDEMPOTENCY_KEY_REUSED' });
     await post(tokens.admin, { seats: 0, months: 3, idempotency_key: key }).expect(400);
     await post(tokens.admin, { seats: 1, months: 25, idempotency_key: key }).expect(400);
     await post(tokens.admin, { seats: 1, months: 1, idempotency_key: 'nope' }).expect(400);

@@ -1,7 +1,14 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { PlatformPaymentMethod, SeatOrderStatus, type SeatOrderDto } from '@biddaloy/shared';
+import { billingFreeUntil } from '../../config/env.validation';
+import { SCHOOL_TZ, localDate } from '../../common/time';
 import { EntitlementService } from './entitlement.service';
 
 /** D2: 1000 paisa (BDT 10) per seat per month. */
@@ -61,7 +68,10 @@ export class OrdersService {
     private readonly entitlement: EntitlementService,
   ) {}
 
-  /** Same (school, idempotency_key) returns the first order untouched. */
+  /**
+   * Same (school, idempotency_key) and body returns the first order untouched; a different
+   * seats/months body is 409 IDEMPOTENCY_KEY_REUSED.
+   */
   async createPending(input: CreatePendingInput): Promise<SeatOrderDto> {
     return this.insertPending(this.dataSource.manager, input);
   }
@@ -82,11 +92,14 @@ export class OrdersService {
     }
     const unit = input.unit_price_paisa ?? SEAT_UNIT_PRICE_PAISA;
     const amount = input.seats * input.months * unit;
+    // The period shown on a PENDING order is a preview; payInTx sets the real one.
     await m.query(
       `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa,
                                 period_start, period_end, status, idempotency_key, created_by_user_id)
-       VALUES ($1, $2, $3, $4, $5, (now() AT TIME ZONE 'Asia/Dhaka')::date,
-               (now() AT TIME ZONE 'Asia/Dhaka')::date + ($3::int * interval '1 month'), $6, $7, $8)
+       SELECT $1, $2, $3, $4, $5, s.start, s.start + ($3::int * interval '1 month'), $6, $7, $8
+         FROM (SELECT GREATEST((now() AT TIME ZONE 'Asia/Dhaka')::date, $10::date,
+                 (SELECT MAX(p.period_end) FROM seat_orders p
+                   WHERE p.school_id = $1 AND p.status = $9)) AS start) s
        ON CONFLICT (school_id, idempotency_key) DO NOTHING`,
       [
         input.schoolId,
@@ -97,6 +110,8 @@ export class OrdersService {
         SeatOrderStatus.PENDING,
         input.idempotency_key,
         input.userId,
+        SeatOrderStatus.PAID,
+        localDate(billingFreeUntil(), SCHOOL_TZ),
       ],
     );
     const [row]: OrderRow[] = await m.query(
@@ -107,6 +122,14 @@ export class OrdersService {
   o.paid_at, o.created_at FROM seat_orders o WHERE o.school_id = $1 AND o.idempotency_key = $2`,
       [input.schoolId, input.idempotency_key],
     );
+    // A replay must be the same order; a different body on a used key is a client bug.
+    // Fixed text, no echo of what was sent (Rule 23).
+    if (row.seats !== input.seats || row.months !== input.months) {
+      throw new ConflictException({
+        message: 'This idempotency key was already used for a different order',
+        details: { code: 'IDEMPOTENCY_KEY_REUSED' },
+      });
+    }
     return toDto(row);
   }
 
@@ -123,8 +146,10 @@ export class OrdersService {
 
   /**
    * PENDING -> PAID, once. The conditional UPDATE is the idempotency guard: a replay matches no
-   * row, records no second payment and does not recompute. The period restarts at payment time so
-   * an order paid late still covers the months bought.
+   * row, records no second payment and does not recompute. The period is set at payment time so an
+   * order paid late still covers the months bought. It starts on the latest of today, the
+   * `BILLING_FREE_UNTIL` day and the end of the school's last PAID period: an early renewal
+   * extends, it never overlaps, and seats bought ahead do not burn free months.
    */
   async markPaid(orderId: string, payment: PaymentInput): Promise<{ applied: boolean }> {
     const result = await this.dataSource.transaction((m) => this.payInTx(m, orderId, payment));
@@ -138,16 +163,29 @@ export class OrdersService {
     payment: PaymentInput,
   ): Promise<{ applied: false } | { applied: true; schoolId: string }> {
     {
+      // Two payments for one school at once must not both read the same last period end.
+      await m.query(
+        'SELECT 1 FROM schools WHERE id = (SELECT school_id FROM seat_orders WHERE id = $1) FOR NO KEY UPDATE',
+        [orderId],
+      );
       // TypeORM returns `[rows, affectedCount]` for UPDATE ... RETURNING.
       const [rows]: [{ id: string; school_id: string; amount_paisa: string }[], number] =
         await m.query(
-          `UPDATE seat_orders
-            SET status = $2, paid_at = now(),
-                period_start = (now() AT TIME ZONE 'Asia/Dhaka')::date,
-                period_end = (now() AT TIME ZONE 'Asia/Dhaka')::date + (months * interval '1 month')
-          WHERE id = $1 AND status = $3
-          RETURNING id, school_id, amount_paisa`,
-          [orderId, SeatOrderStatus.PAID, SeatOrderStatus.PENDING],
+          `UPDATE seat_orders o
+            SET status = $2, paid_at = now(), period_start = s.start,
+                period_end = s.start + (o.months * interval '1 month')
+           FROM (SELECT GREATEST((now() AT TIME ZONE 'Asia/Dhaka')::date, $4::date,
+                   (SELECT MAX(p.period_end) FROM seat_orders p
+                     WHERE p.school_id = (SELECT school_id FROM seat_orders WHERE id = $1)
+                       AND p.status = $2)) AS start) s
+          WHERE o.id = $1 AND o.status = $3
+          RETURNING o.id, o.school_id, o.amount_paisa`,
+          [
+            orderId,
+            SeatOrderStatus.PAID,
+            SeatOrderStatus.PENDING,
+            localDate(billingFreeUntil(), SCHOOL_TZ),
+          ],
         );
       const paid = rows[0];
       if (!paid) {
