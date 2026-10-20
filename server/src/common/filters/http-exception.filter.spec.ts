@@ -109,10 +109,12 @@ describe('AllExceptionsFilter', () => {
 
     const body = mockJson.mock.calls[0][0];
     expect(body.message).toBe('Internal server error');
+    // The real detail is logged, minus the URL password (redactPii, Rule 13).
     expect(Logger.prototype.error).toHaveBeenCalledWith(
-      expect.stringContaining('connection to postgres://user:pass@host failed'),
-      exception.stack,
+      expect.stringContaining('connection to postgres://user:[REDACTED]@host failed'),
+      expect.stringContaining('connection to postgres://user:[REDACTED]@host failed'),
     );
+    expect(JSON.stringify(vi.mocked(Logger.prototype.error).mock.calls)).not.toContain('pass@');
   });
 
   it('generates a requestId, returns it in the body and the X-Request-Id header', () => {

@@ -14,13 +14,13 @@ flowchart LR
     app --> db[("db\nPostgreSQL")]
     app --> redis[("redis")]
     ghcr[("GHCR images\nbiddaloy-app, -backup, -demo-reset")] -.->|"docker compose pull\n(APP_VERSION)"| app
-    cert["Origin CA cert\n(sops → /opt/biddaloy/certs)"] -.->|"mounted read-only\norigin.pem + origin.key"| nginx
+    cert["Origin CA cert\n(copied by hand → /opt/biddaloy/certs;\nsops from Epic 61 W3)"] -.->|"mounted read-only\norigin.pem + origin.key"| nginx
 ```
 
 Example: `export APP_VERSION=<full commit SHA>; docker compose pull && docker compose up -d` runs
 `ghcr.io/tareq89/biddaloy-app:<full commit SHA>` (the publish workflow tags the full 40-character SHA). `APP_VERSION` has no default, so a
 forgotten tag fails loudly. Local dev builds instead:
-`APP_VERSION=local docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`
+`APP_VERSION=local TLS_CERT_DIR=./.certs docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`
 (the overlay adds `build:` blocks and a `cert-bootstrap` service that writes a
 dummy self-signed pair).
 Uptime monitors that hit the origin directly over HTTPS will not trust an
@@ -29,7 +29,10 @@ Origin CA cert; point them at Cloudflare.
 Services (`docker-compose.yml`): `app`, `db` (Postgres), `redis`, `seaweedfs`,
 `backup`, `nginx`. nginx serves the Cloudflare Origin CA pair mounted from
 `TLS_CERT_DIR` and self-reloads every 6h to pick up a rotated pair (see
-`nginx/reload-loop.sh`). Every service rotates its logs (3 files x 10 MB).
+`nginx/reload-loop.sh`). `TLS_CERT_DIR` has no default, so a missing value
+stops `docker compose` instead of crash-looping nginx. The repo holds no
+encrypted cert yet (sops arrives with Epic 61 W3): copy `origin.pem` and
+`origin.key` into that directory and `chmod 600 origin.key`. Every service rotates its logs (3 files x 10 MB).
 
 **Security rules for this stack** (full text in [08-security.md](08-security.md#security-rules)):
 

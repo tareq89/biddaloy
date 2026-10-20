@@ -1115,7 +1115,7 @@ TLS. See
 ```mermaid
 flowchart LR
     CF["Cloudflare dashboard\n(SSL/TLS > Origin Server)"] -->|"create cert, 15 years"| files["origin.pem + origin.key"]
-    files -->|"sops-encrypted in the repo,\ndecrypted onto the VM"| dir["/opt/biddaloy/certs\n(TLS_CERT_DIR)"]
+    files -->|"copied onto the VM by hand\n(sops-encrypted copy: Epic 61 W3)"| dir["/opt/biddaloy/certs\n(TLS_CERT_DIR)"]
     dir -->|"mounted read-only"| nginx
 ```
 
@@ -1124,6 +1124,18 @@ renews every 90 days. Browsers do not trust it, so always go through
 Cloudflare. Example: `TLS_CERT_DIR=/opt/biddaloy/certs` holds `origin.pem`
 and `origin.key`. nginx reloads itself every 6h (`nginx/reload-loop.sh`), so a
 replaced pair is picked up without a restart.
+
+There is no encrypted copy in the repo yet; the sops-encrypted pair arrives
+with the secrets work (Epic 61 W3). Until then, copy the pair onto the VM:
+
+```bash
+mkdir -p /opt/biddaloy/certs
+cp origin.pem origin.key /opt/biddaloy/certs/
+chmod 600 /opt/biddaloy/certs/origin.key
+```
+
+`TLS_CERT_DIR` has no default: if it is unset, `docker compose` stops with
+`TLS_CERT_DIR must be set` instead of starting nginx without a cert.
 
 ### First-time setup
 
@@ -1146,7 +1158,7 @@ curl https://<your-domain>/api/health
 ```
 
 Local development builds instead of pulling:
-`APP_VERSION=local docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`
+`APP_VERSION=local TLS_CERT_DIR=./.certs docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`
 (the overlay also writes a dummy self-signed cert into `./.certs`).
 
 ### Certificate rotation

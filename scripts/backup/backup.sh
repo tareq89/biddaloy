@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Hourly encrypted PostgreSQL + files backup to Cloudflare R2 (S3-compatible).
 #
-# R2 mode (BACKUP_S3_* set): dump -> daily copy (02:00 Asia/Dhaka) -> rclone
-# crypt sync of the files bucket -> count/date prunes -> Uptime Kuma push.
+# R2 mode (BACKUP_S3_* set): dump -> daily copy (from 02:00 Asia/Dhaka) -> db
+# count prunes -> rclone crypt sync of the files bucket -> trash date purge ->
+# Uptime Kuma push.
 # Legacy mode (BACKUP_S3_* unset: local dev, restore drill): old backups/db/
 # key + LastModified prune with BACKUP_RETENTION_DAYS; no daily copy, no files.
 #
@@ -17,7 +18,8 @@
 # BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY,
 # BACKUP_RCLONE_CRYPT_PASSWORD, BACKUP_RCLONE_CRYPT_SALT.
 # Optional env: BACKUP_RETENTION_DAYS (legacy, default 30), BACKUP_HOURLY_KEEP
-# (72), BACKUP_DAILY_KEEP (30), BACKUP_TRASH_DAYS (30), BACKUP_PUSH_URL (Kuma),
+# (72), BACKUP_DAILY_KEEP (30), BACKUP_TRASH_DAYS (30), BACKUP_FILES_MAX_DELETE
+# (500, files sync fails above this many deletes), BACKUP_PUSH_URL (Kuma),
 # BACKUP_NET_WAIT_SECS (900), BACKUP_NOW + BACKUP_TEST_CLOCK_OK=1 (tests only),
 # SENTRY_CRON_MONITOR_URL, S3_ALLOW_INSECURE_HTTP (opt into a plaintext
 # http:// S3_ENDPOINT — only for an approved local/dev endpoint).
@@ -108,8 +110,9 @@ if [[ $r2_set -eq 0 ]]; then R2_MODE=0; else R2_MODE=1; fi
 BACKUP_HOURLY_KEEP="${BACKUP_HOURLY_KEEP:-72}"
 BACKUP_DAILY_KEEP="${BACKUP_DAILY_KEEP:-30}"
 BACKUP_TRASH_DAYS="${BACKUP_TRASH_DAYS:-30}"
+BACKUP_FILES_MAX_DELETE="${BACKUP_FILES_MAX_DELETE:-500}"
 BACKUP_NET_WAIT_SECS="${BACKUP_NET_WAIT_SECS:-900}"
-for v in BACKUP_HOURLY_KEEP BACKUP_DAILY_KEEP BACKUP_TRASH_DAYS; do
+for v in BACKUP_HOURLY_KEEP BACKUP_DAILY_KEEP BACKUP_TRASH_DAYS BACKUP_FILES_MAX_DELETE; do
   if ! [[ "${!v}" =~ ^[1-9][0-9]*$ ]]; then
     echo "backup.sh: ${v} must be a positive integer" >&2
     exit 1
@@ -125,6 +128,16 @@ if [[ $R2_MODE -eq 1 ]]; then
     echo "backup.sh: BACKUP_S3_ENDPOINT must be https://" >&2
     exit 1
   fi
+  # Same check as entrypoint.sh: a copied .env.example placeholder would
+  # encrypt every file with a public password. The value is never printed.
+  for v in BACKUP_S3_SECRET_ACCESS_KEY BACKUP_RCLONE_CRYPT_PASSWORD BACKUP_RCLONE_CRYPT_SALT; do
+    val="${!v}"
+    if [[ "$val" == *change-me* || ${#val} -lt 16 ]]; then
+      echo "backup.sh: ${v} is a placeholder or shorter than 16 characters" >&2
+      exit 1
+    fi
+  done
+  unset val
   export AWS_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY_ID"
   export AWS_SECRET_ACCESS_KEY="$BACKUP_S3_SECRET_ACCESS_KEY"
   export AWS_DEFAULT_REGION="auto"
@@ -265,8 +278,13 @@ if [[ $R2_MODE -eq 1 ]]; then
   fi
 
   # Deleted/overwritten files move to files-trash/<date>/ instead of vanishing.
+  # --suffix adds the Dhaka run time (a.txt-140000), so a file changed twice on
+  # one date keeps both old copies. --max-delete fails the step (Kuma down)
+  # when a broken but non-empty source would move most files into the trash.
   rclone sync "src:${S3_BUCKET}" r2crypt:files --exclude '/backups/**' \
     --backup-dir "r2crypt:files-trash/${dhaka_date}" \
+    --suffix "-$(fmt_epoch "$dhaka_epoch" %H%M%S)" \
+    --max-delete "$BACKUP_FILES_MAX_DELETE" \
     --fast-list --transfers 8
   echo "backup.sh: files sync complete"
 

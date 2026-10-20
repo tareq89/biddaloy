@@ -7,7 +7,8 @@ for the full recovery story (RPO/RTO, retention, key rotation).
 ## backup.sh
 
 Runs on a schedule inside the `backup` docker-compose service
-(`BACKUP_SCHEDULE`, default `0 * * * *` = hourly, `TZ=Asia/Dhaka`). The container runs
+(`BACKUP_SCHEDULE`, `TZ=Asia/Dhaka`; unset = hourly in R2 mode, `0 2 * * *` in
+legacy mode). The container runs
 as non-root (uid 10001) via supercronic, and logs go to
 `docker compose logs backup`. Pipeline:
 
@@ -38,16 +39,20 @@ Set all of `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`,
 
 ```
 dump -> db/hourly/<UTC ts>.dump.age
-     -> (02:00 Asia/Dhaka) copy to db/daily/<date>.dump.age
-     -> rclone sync SeaweedFS -> r2crypt (changed/deleted files to files-trash/<date>/)
-     -> prune: BACKUP_HOURLY_KEEP=72, BACKUP_DAILY_KEEP=30, trash BACKUP_TRASH_DAYS=30
+     -> from 02:00 Dhaka, if today's daily is missing: copy to db/daily/<date>.dump.age
+     -> prune db: BACKUP_HOURLY_KEEP=72, BACKUP_DAILY_KEEP=30
+     -> rclone sync SeaweedFS -> r2crypt (changed/deleted files to
+        files-trash/<date>/<path>-<HHMMSS>; fails above BACKUP_FILES_MAX_DELETE=500)
+     -> purge trash date folders older than BACKUP_TRASH_DAYS=30
      -> Uptime Kuma push (BACKUP_PUSH_URL): up, or down&msg=<failed step>
 ```
 
-With none set it keeps the old single-key `backups/db/` behaviour (dev and
-the restore drill). Tests: `scripts/backup/backup.test.sh --shim` runs the
-Docker-free shim cases; without the flag it also runs the compose integration
-case.
+A `change-me` or shorter-than-16-character R2 secret or crypt value stops the
+container at start. With none set it keeps the old single-key `backups/db/`
+behaviour (dev and the restore drill). Tests: `scripts/backup/backup.test.sh
+--shim` runs the Docker-free shim cases (CI runs them through
+`backup.shim.infra.test.sh`); without the flag it also runs the compose
+integration case.
 
 ## restore.sh
 

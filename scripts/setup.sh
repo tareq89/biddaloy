@@ -33,6 +33,9 @@ db_url="${DATABASE_URL#*://}"
 creds="${db_url%@*}"
 db_name="${db_url##*/}"
 export APP_VERSION="${APP_VERSION:-local}"
+# Required by the nginx mount; only db/redis/seaweedfs start here, so the
+# dev overlay's ./.certs is fine.
+export TLS_CERT_DIR="${TLS_CERT_DIR:-./.certs}"
 export POSTGRES_USER="${creds%%:*}"
 export POSTGRES_PASSWORD="${creds#*:}"
 export POSTGRES_DB="${db_name%%\?*}"

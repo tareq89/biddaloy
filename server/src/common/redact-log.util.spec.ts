@@ -106,4 +106,16 @@ describe('redactPii', () => {
       '{"phoneNumberId":"123","pageId":"456"}',
     );
   });
+
+  // Rule 13: a connection string echoed in a migration/driver error.
+  it('redacts the password in a scheme://user:pass@host URL', () => {
+    expect(redactPii('connect failed: postgres://app:pw@db:5432/x')).toBe(
+      'connect failed: postgres://app:[REDACTED]@db:5432/x',
+    );
+    // `%40` decodes to `@`; the whole password still goes.
+    expect(redactPii('redis://u:p%40ss@cache.example.com:6379')).toBe(
+      'redis://u:[REDACTED]@cache.example.com:6379',
+    );
+    expect(redactPii('https://x.test:8080/i/tok')).toBe('https://x.test:8080/i/[REDACTED]');
+  });
 });

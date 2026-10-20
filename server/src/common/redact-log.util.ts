@@ -64,8 +64,15 @@ const SECRET_PATH_PATTERN = /(\/(?:public\/invoices|public\/verify|calendar\/fee
 // part is length-capped so the lookbehind stays linear.
 const SECRET_SPA_PATH_PATTERN = /(?<=^|[\s"=]|\/\/[^\s/"]{1,255})(\/[iv]\/)[^/?\s"]+/g;
 
+// A connection string's password: `postgres://app:pw@db:5432/x`. The host
+// `db` has no TLD, so EMAIL_PATTERN misses it. Runs first, so a host with a
+// TLD is not turned into one email. The password part is greedy up to the
+// last `@` before a `/` or space, since safeDecode turns `%40` back into `@`.
+const URL_USERINFO_PATTERN = /(\/\/[^\s/:@]+:)[^\s/]+@/g;
+
 function applyRedaction(text: string): string {
   return text
+    .replace(URL_USERINFO_PATTERN, '$1[REDACTED]@')
     .replace(SECRET_PATH_PATTERN, '$1[REDACTED]')
     .replace(SECRET_SPA_PATH_PATTERN, '$1[REDACTED]')
     .replace(EMAIL_PATTERN, '[REDACTED_EMAIL]')

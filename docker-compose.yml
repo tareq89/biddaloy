@@ -164,7 +164,8 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:?POSTGRES_DB must be set}
       BACKUP_AGE_PUBLIC_KEY: ${BACKUP_AGE_PUBLIC_KEY}
-      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 * * * *}
+      # Empty = entrypoint.sh picks: hourly in R2 mode, 02:00 daily in legacy mode.
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
       SENTRY_CRON_MONITOR_URL: ${SENTRY_CRON_MONITOR_URL:-}
       # Cloudflare R2 offsite target (all six or none; none = legacy S3_* only).
@@ -178,6 +179,7 @@ services:
       BACKUP_HOURLY_KEEP: ${BACKUP_HOURLY_KEEP:-72}
       BACKUP_DAILY_KEEP: ${BACKUP_DAILY_KEEP:-30}
       BACKUP_TRASH_DAYS: ${BACKUP_TRASH_DAYS:-30}
+      BACKUP_FILES_MAX_DELETE: ${BACKUP_FILES_MAX_DELETE:-500}
       BACKUP_NET_WAIT_SECS: ${BACKUP_NET_WAIT_SECS:-900}
       # See the matching comment on `app`'s S3_ALLOW_INSECURE_HTTP above.
       S3_ENDPOINT: http://seaweedfs:8333
@@ -206,8 +208,10 @@ services:
       - ./nginx/templates:/etc/nginx/templates:ro
       - ./nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro
       - ./nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro
-      # Cloudflare Origin CA pair: origin.pem + origin.key (sops-decrypted on the host).
-      - ${TLS_CERT_DIR:-/opt/biddaloy/certs}:/etc/nginx/certs:ro
+      # Cloudflare Origin CA pair: origin.pem + origin.key, copied onto the host
+      # (origin.key chmod 600). No default: a missing dir fails here, not as an
+      # nginx crash loop.
+      - ${TLS_CERT_DIR:?TLS_CERT_DIR must be set}:/etc/nginx/certs:ro
     # /healthz answers loopback callers only (nginx/templates/default.conf.template).
     healthcheck:
       test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1/healthz || exit 1']

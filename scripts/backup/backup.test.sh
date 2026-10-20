@@ -75,8 +75,8 @@ run_shim() {
     S3_BUCKET=src S3_ENDPOINT=http://seaweedfs:8333 S3_ALLOW_INSECURE_HTTP=true \
     S3_REGION=us-east-1 S3_ACCESS_KEY_ID=ak S3_SECRET_ACCESS_KEY=sk \
     BACKUP_S3_ENDPOINT=https://acct.r2.cloudflarestorage.com BACKUP_S3_BUCKET=r2b \
-    BACKUP_S3_ACCESS_KEY_ID=rk BACKUP_S3_SECRET_ACCESS_KEY=rs \
-    BACKUP_RCLONE_CRYPT_PASSWORD=cp BACKUP_RCLONE_CRYPT_SALT=cs \
+    BACKUP_S3_ACCESS_KEY_ID=rk BACKUP_S3_SECRET_ACCESS_KEY=r2-secret-0123456789 \
+    BACKUP_RCLONE_CRYPT_PASSWORD=crypt-pass-0123456789 BACKUP_RCLONE_CRYPT_SALT=crypt-salt-0123456789 \
     BACKUP_PUSH_URL=https://kuma.example/api/push/tok BACKUP_NET_WAIT_SECS=0 \
     BACKUP_TEST_CLOCK_OK=1 BACKUP_NOW=2026-10-20T10:00:00Z "$@" bash "$SCRIPT_DIR/backup.sh" >"$SHIM/out" 2>&1
 }
@@ -92,12 +92,13 @@ echo "db/daily/2026-10-20.dump.age" >"$SHIM/lists/db_daily_2026-10-20.dump.age"
 run_shim || shim_fail "plain run exited non-zero"
 has "s3://r2b/db/hourly/20261020T100000Z.dump.age"
 hasnt "s3 cp .*db/daily/"
-has "rclone sync src:src r2crypt:files --exclude /backups/\*\* --backup-dir r2crypt:files-trash/2026-10-20 --fast-list --transfers 8"
+# 10:00Z = 16:00 Dhaka -> trash suffix -160000.
+has "rclone sync src:src r2crypt:files --exclude /backups/\*\* --backup-dir r2crypt:files-trash/2026-10-20 --suffix -160000 --max-delete 500 --fast-list --transfers 8"
 has "confperm -rw-------"
 has "confnocheck 1"
 has "status=up&msg=ok"
 if grep -q tok "$SHIM/out"; then shim_fail "push token leaked into output"; fi
-echo "PASS: hourly key, sync --backup-dir, 0600 config, up push, no token in output"
+echo "PASS: hourly key, sync --backup-dir --suffix --max-delete, 0600 config, up push, no token in output"
 rm -f "$SHIM"/lists/*
 
 # 2. daily copy from 02:00 Dhaka (= 20:00Z of the previous UTC day), catch-up
@@ -125,7 +126,28 @@ echo "PASS: push URL query stripped"
 # 2d. config error pushes down&msg=config.
 if run_shim BACKUP_HOURLY_KEEP=abc; then shim_fail "bad config must fail"; fi
 has "status=down&msg=config"
-echo "PASS: config error pushes down"
+if run_shim BACKUP_FILES_MAX_DELETE=0; then shim_fail "max-delete 0 must fail"; fi
+has "status=down&msg=config"
+run_shim BACKUP_FILES_MAX_DELETE=7 || shim_fail "custom max-delete run failed"
+has "--max-delete 7 "
+echo "PASS: config error pushes down; max-delete is configurable"
+
+# 2e. a copied change-me placeholder or a short crypt secret is refused, by
+#     backup.sh and by entrypoint.sh, before anything is synced; never echoed.
+for bad in BACKUP_RCLONE_CRYPT_PASSWORD=change-me BACKUP_RCLONE_CRYPT_SALT=short-salt \
+  BACKUP_S3_SECRET_ACCESS_KEY=change-me-0123456789; do
+  if run_shim "$bad"; then shim_fail "placeholder must fail: ${bad%%=*}"; fi
+  has "status=down&msg=config"; hasnt "rclone"
+  grep -q "${bad%%=*} is a placeholder" "$SHIM/out" || shim_fail "no placeholder error for ${bad%%=*}"
+  if grep -q -- "${bad#*=}" "$SHIM/out"; then shim_fail "placeholder value echoed"; fi
+done
+ep_out="$(env -i PATH="$PATH" DATABASE_URL=x BACKUP_AGE_PUBLIC_KEY=x S3_BUCKET=x S3_ENDPOINT=x \
+  S3_REGION=x S3_ACCESS_KEY_ID=x S3_SECRET_ACCESS_KEY=x BACKUP_S3_ENDPOINT=https://x \
+  BACKUP_S3_BUCKET=x BACKUP_S3_ACCESS_KEY_ID=x BACKUP_S3_SECRET_ACCESS_KEY=r2-secret-0123456789 \
+  BACKUP_RCLONE_CRYPT_PASSWORD=change-me BACKUP_RCLONE_CRYPT_SALT=crypt-salt-0123456789 \
+  bash "$SCRIPT_DIR/entrypoint.sh" 2>&1)" && shim_fail "entrypoint accepted a placeholder"
+grep -q "BACKUP_RCLONE_CRYPT_PASSWORD is a placeholder" <<<"$ep_out" || shim_fail "entrypoint: no placeholder error: $ep_out"
+echo "PASS: placeholder / short secrets rejected (backup.sh + entrypoint.sh)"
 
 # 3. prune keeps exactly N newest by key (hourly + daily).
 for i in 01 02 03 04 05; do echo "db/hourly/202610${i}T000000Z.dump.age"; done >"$SHIM/lists/db_hourly_"
@@ -192,21 +214,30 @@ if run_shim BACKUP_RCLONE_CRYPT_SALT=; then shim_fail "partial R2 env must fail"
 echo "PASS: partial BACKUP_S3_* rejected"
 
 # 8. real rclone (local backend, no network): the exact sync shape backup.sh
-#    uses (crypt remote rooted at the bucket, --backup-dir on the same remote)
-#    must exit 0 and leave the date folder under files-trash.
+#    uses (crypt remote rooted at the bucket, --backup-dir on the same remote,
+#    --suffix) must exit 0; two deletes of one path on one date keep both
+#    trash copies; --max-delete stops a sync with too many deletes.
 if command -v rclone >/dev/null 2>&1; then
   RC="$SHIM/rc"; mkdir -p "$RC/src" "$RC/bucket"
   export RCLONE_CONFIG="$RC/rclone.conf"
   printf '[loc]\ntype = local\n\n[r2crypt]\ntype = crypt\nremote = loc:%s\nfilename_encryption = standard\npassword = %s\n' \
     "$RC/bucket" "$(printf '%s' pw | rclone obscure -)" >"$RCLONE_CONFIG"
   echo a >"$RC/src/a.txt"; echo b >"$RC/src/b.txt"
-  rclone sync "$RC/src" r2crypt:files --backup-dir r2crypt:files-trash/2026-10-20 --fast-list --transfers 8 || shim_fail "real rclone first sync failed"
+  rsync_() { rclone sync "$RC/src" r2crypt:files --backup-dir r2crypt:files-trash/2026-10-20 --suffix "$1" --max-delete "$2" --fast-list --transfers 8; }
+  rsync_ -100000 500 || shim_fail "real rclone first sync failed"
   rm "$RC/src/a.txt"
-  rclone sync "$RC/src" r2crypt:files --backup-dir r2crypt:files-trash/2026-10-20 --fast-list --transfers 8 || shim_fail "real rclone sync with deletion failed"
+  rsync_ -110000 500 || shim_fail "real rclone sync with deletion failed"
+  echo a2 >"$RC/src/a.txt"; rsync_ -120000 500 || shim_fail "real rclone re-add failed"
+  rm "$RC/src/a.txt"
+  rsync_ -130000 500 || shim_fail "real rclone second deletion failed"
   [[ "$(rclone lsf --dirs-only r2crypt:files-trash)" == "2026-10-20/" ]] || shim_fail "trash date dir missing"
-  [[ "$(rclone lsf r2crypt:files-trash/2026-10-20)" == "a.txt" ]] || shim_fail "deleted file not in trash"
+  [[ "$(rclone lsf r2crypt:files-trash/2026-10-20 | sort | tr '\n' ' ')" == "a.txt-110000 a.txt-130000 " ]] \
+    || shim_fail "same-day trash copies collided: $(rclone lsf r2crypt:files-trash/2026-10-20)"
+  rm "$RC/src/b.txt"
+  if rsync_ -140000 0; then shim_fail "--max-delete 0 must stop a sync that deletes"; fi
+  [[ -n "$(rclone lsf r2crypt:files)" ]] || shim_fail "--max-delete still deleted the file"
   unset RCLONE_CONFIG
-  echo "PASS: real rclone sync + --backup-dir"
+  echo "PASS: real rclone sync + --backup-dir + --suffix + --max-delete"
 else
   echo "SKIP: real-rclone case (rclone not installed)"
 fi
@@ -218,6 +249,7 @@ fi
 
 # docker-compose.yml requires these (`${VAR:?...}`); same defaults as scripts/test-env.sh.
 export APP_VERSION="${APP_VERSION:-local}"
+export TLS_CERT_DIR="${TLS_CERT_DIR:-./.certs}"
 export POSTGRES_USER="${POSTGRES_USER:-postgres}"
 export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
 export POSTGRES_DB="${POSTGRES_DB:-biddaloy}"

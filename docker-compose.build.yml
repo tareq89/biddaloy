@@ -1,7 +1,7 @@
 # Local build overlay: builds the images instead of pulling them from GHCR and
 # makes a dummy TLS cert so nginx can boot.
 #
-#   APP_VERSION=local docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
+#   APP_VERSION=local TLS_CERT_DIR=./.certs docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
 #
 # Demo host: add -f docker-compose.demo.yml -f docker-compose.demo.build.yml.
 

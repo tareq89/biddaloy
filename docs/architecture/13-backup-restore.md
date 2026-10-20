@@ -8,7 +8,7 @@ in-flight background jobs).
 
 |                                      |                                                                                                                                                          |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RPO** (how much data you can lose) | 1 hour — one backup an hour (R2 mode; 24 h in legacy/dev mode)                                                                                           |
+| **RPO** (how much data you can lose) | 1 hour — one backup an hour (R2 mode; 24 h in legacy/dev mode, default 02:00)                                                                            |
 | **RTO** (how long a restore takes)   | 4 hours                                                                                                                                                  |
 | **Retention**                        | 72 hourly + 30 daily dumps, 30 days of deleted-file history (R2 mode)                                                                                    |
 | **Drill cadence**                    | Quarterly — run [`restore-drill.yml`](../../.github/workflows/restore-drill.yml) manually                                                                |
@@ -52,13 +52,43 @@ flowchart TD
 | Deleted/changed files                                          | `files-trash/<date>/` | 30 days      |
 
 **RPO is now 1 hour** (was 24 h). Without `BACKUP_S3_*` (local dev, the
-restore drill) the old behaviour stays: one `backups/db/` key per run,
-pruned by age with `BACKUP_RETENTION_DAYS`, no files sync.
+restore drill) the old behaviour stays: one `backups/db/` key per run, once
+a day at 02:00 by default, pruned by age with `BACKUP_RETENTION_DAYS`, no
+files sync. Legacy dumps sit on the same disk as the database, so legacy
+mode stays daily unless you set `BACKUP_SCHEDULE` yourself.
+
+The default schedule depends on the mode (`entrypoint.sh` picks it when
+`BACKUP_SCHEDULE` is unset):
+
+| Mode                     | Default `BACKUP_SCHEDULE` |
+| ------------------------ | ------------------------- |
+| R2 (all six vars set)    | `0 * * * *` (hourly)      |
+| Legacy (none of the six) | `0 2 * * *` (02:00 daily) |
 
 **Upgrading an existing deploy:** a production `.env` that sets
-`BACKUP_SCHEDULE='0 2 * * *'` must be changed to `0 * * * *`, or the backup
-stays daily. After the switch, delete the old `backups/db/` objects in
-SeaweedFS once (a one-time cleanup); the files sync skips `backups/`.
+`BACKUP_SCHEDULE='0 2 * * *'` must drop that line (or set `0 * * * *`), or
+the R2 backup stays daily. After the switch, delete the old `backups/db/`
+objects in SeaweedFS once (a one-time cleanup); the files sync skips `backups/`.
+
+**Safety checks before files are touched:**
+
+- The container refuses to start (and `backup.sh` refuses to run) while
+  `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_RCLONE_CRYPT_PASSWORD` or
+  `BACKUP_RCLONE_CRYPT_SALT` still says `change-me` or is shorter than 16
+  characters. Example: uncommenting `BACKUP_RCLONE_CRYPT_PASSWORD=change-me`
+  from `.env.example` stops the container with
+  `BACKUP_RCLONE_CRYPT_PASSWORD is a placeholder or shorter than 16 characters`.
+- The files sync stops after `BACKUP_FILES_MAX_DELETE` (default 500) deletes
+  in one run. The step fails, Kuma goes down, and a human checks the source.
+  This catches a wrong or half-empty source bucket that the empty-source
+  guard cannot see. After a real mass delete, raise the value for one run.
+- Each trash copy gets the Dhaka run time as a suffix
+  (`files-trash/2026-10-20/tenants/7/logos/a.png-140000`), so a file changed
+  twice on one date keeps both old copies.
+- Recommended (a Cloudflare setting, not code): add R2 **Bucket Lock** rules
+  (for example `db/daily/` 30 days, `db/hourly/` 3 days) so a compromised host
+  with the delete-capable token cannot wipe the offsite dumps. Keep each lock
+  no longer than its keep window, or the hourly prune fails every run.
 
 If the network is down at the start, the run probes and waits (up to
 `BACKUP_NET_WAIT_SECS`, default 900) instead of failing at once.
@@ -66,7 +96,7 @@ If the network is down at the start, the run probes and waits (up to
 Two independent things land in the same bucket, and that's the key fact
 this whole doc is built around:
 
-- **`backups/db/*.dump.age`** — a snapshot (legacy/dev layout; R2 uses `db/hourly/`), written every hour by
+- **`backups/db/*.dump.age`** — a snapshot (legacy/dev layout, daily by default; R2 uses `db/hourly/`), written by
   [`scripts/backup/backup.sh`](../../scripts/backup/backup.sh). Consistent
   as of the moment `pg_dump` ran.
 - **Everything else** (e.g. `tenants/<id>/logos/*.png`, written by
@@ -205,14 +235,15 @@ through `rclone obscure`), then:
 rclone copy r2crypt:files/tenants/<tenant-id> ./out
 # a file deleted by mistake (still in trash for BACKUP_TRASH_DAYS)
 rclone copy r2crypt:files-trash/2026-10-20/tenants/<tenant-id> ./out-trash
+# trash copies end in the run time (-HHMMSS, Dhaka); strip it when restoring
 ```
 
 In the R2 console the top-level folder names (`files`, `files-trash`, the
 dates) are encrypted too; only `db/` is readable.
 
-Example: a teacher deleted `tenants/7/logos/a.png` on 2026-10-20. It moved
-to `files-trash/2026-10-20/` the next hour and stays restorable until the
-trash folder is purged 30 days later.
+Example: a teacher deleted `tenants/7/logos/a.png` on 2026-10-20. The 14:00
+run moved it to `files-trash/2026-10-20/tenants/7/logos/a.png-140000`, and it
+stays restorable until that date folder is purged 30 days later.
 
 ### Old fee rows and the money CHECKs
 
@@ -243,7 +274,7 @@ disaster recovery":
 | `S3_SECRET_ACCESS_KEY`         | 15.3.1 | Bucket credentials                                                                                                          |
 | `S3_FORCE_PATH_STYLE`          | 15.3.1 | `true` for SeaweedFS/self-hosted, unset for AWS S3                                                                          |
 | `BACKUP_AGE_PUBLIC_KEY`        | 15.3.2 | Encrypts new backups                                                                                                        |
-| `BACKUP_SCHEDULE`              | 15.3.2 | Cron schedule the `backup` service runs on (default `0 * * * *`, hourly, `TZ=Asia/Dhaka`)                                   |
+| `BACKUP_SCHEDULE`              | 15.3.2 | Cron schedule, `TZ=Asia/Dhaka`. Unset: `0 * * * *` (hourly) in R2 mode, `0 2 * * *` (daily) in legacy mode                  |
 | `BACKUP_RETENTION_DAYS`        | 15.3.2 | Legacy mode only (no `BACKUP_S3_*`): backups older than this are deleted (default 30)                                       |
 | `BACKUP_S3_ENDPOINT`           | #1745  | R2 endpoint `https://<acct>.r2.cloudflarestorage.com`. The six `BACKUP_S3_*` / `BACKUP_RCLONE_CRYPT_*` vars are all-or-none |
 | `BACKUP_S3_BUCKET`             | #1745  | R2 bucket for `db/` and `files/`                                                                                            |
@@ -255,6 +286,7 @@ disaster recovery":
 | `BACKUP_HOURLY_KEEP`           | #1745  | Hourly dumps kept (default 72)                                                                                              |
 | `BACKUP_DAILY_KEEP`            | #1745  | Daily dumps kept (default 30)                                                                                               |
 | `BACKUP_TRASH_DAYS`            | #1745  | Days a deleted file stays in `files-trash/` (default 30)                                                                    |
+| `BACKUP_FILES_MAX_DELETE`      | #1745  | Files sync fails instead of deleting more than this many files in one run (default 500)                                     |
 | `SENTRY_CRON_MONITOR_URL`      | 15.3.2 | Optional cron check-in                                                                                                      |
 | `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Decrypts for `restore.sh` — never in `.env`, see "Key handling"                                                             |
 
@@ -263,8 +295,9 @@ disaster recovery":
 - Trash is pruned by the date in the `files-trash/<date>/` folder name, not
   with `rclone delete --min-age`: files moved by `--backup-dir` keep their
   original modification time, so `--min-age` would delete them straight away.
-- Prunes count keys, not object age: UTC timestamps in key names sort by time,
-  so "keep newest N" works the same for dev, drill and R2.
+- R2 prunes count keys, not object age: UTC timestamps in key names sort by
+  time, so "keep newest N" needs no date parsing. Legacy mode (dev, drill)
+  keeps the old `LastModified` age prune with `BACKUP_RETENTION_DAYS`.
 - Asia/Dhaka is fixed UTC+6, so `backup.sh` does the "is it 02:00 there?"
   check with epoch arithmetic. `BACKUP_NOW` (UTC ISO) fakes the clock in tests.
 - rclone passwords are passed to `rclone obscure -` on stdin, never as an
