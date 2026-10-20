@@ -124,11 +124,10 @@ flowchart TD
   audit row with `event: SEAT_LIMIT_RECOMPUTED`.
 - `OrdersService.createPending` prices an order at seats x months x 1000 paisa
   (BDT 10 per seat per month). `markPaid` flips `PENDING` to `PAID` once; a
-  replay changes nothing. The period is set on payment: it starts on the
-  latest of today, the `BILLING_FREE_UNTIL` day and the day the school's last
-  PAID period ends. So a renewal bought early extends the seats (it never
-  counts them twice), and seats bought ahead in the free period start when
-  billing starts.
+  replay changes nothing. The period is set on payment: a purchase starts on
+  the later of today and the day the school's last PAID period ends. So a
+  renewal bought early extends the seats; it never counts them twice. A
+  platform `GRANT` starts today and adds to the seats in force (a top-up).
   Example: 100 seats for Jan 1 to Jul 1, renewed for 6 months on Jun 1, run
   Jul 1 to Jan 1. June still has 100 seats, not 200.
 - Paying also lifts an `IDLE` suspension at once, and the idle job never
