@@ -42,8 +42,8 @@ docker run -d --name realip-upstream --network "$NET" --network-alias app \
   --entrypoint sh "$NGINX_IMG" \
   -c "echo '$UP_CONF' > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'" >/dev/null
 
-# Dummy cert, generated exactly like the compose `cert-bootstrap` service.
-docker run --rm -e APP_DOMAIN=example.test -v "$VOL:/etc/letsencrypt" \
+# Dummy cert, generated exactly like the build overlay's `cert-bootstrap` service.
+docker run --rm -e APP_DOMAIN=example.test -v "$VOL:/certs" \
   -v "$PWD/nginx/generate-dummy-cert.sh:/scripts/generate-dummy-cert.sh:ro" \
   --entrypoint sh certbot/certbot /scripts/generate-dummy-cert.sh >/dev/null
 
@@ -57,7 +57,7 @@ run_edge() {
     -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
     -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro" \
     -v "$PWD/nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro" \
-    -v "$VOL:/etc/letsencrypt:ro" "$NGINX_IMG" >/dev/null
+    -v "$VOL:/etc/nginx/certs:ro" "$NGINX_IMG" >/dev/null
   # readiness: wait (max ~20 s) for 443 to listen, or for the container to exit
   for _ in $(seq 20); do
     [ "$(docker inspect -f '{{.State.Running}}' "$name")" = true ] || break
@@ -78,7 +78,7 @@ nginx_t() { # <cidrs>
   docker run --rm --network "$NET" -e APP_DOMAIN=example.test -e "TRUSTED_PROXY_CIDRS=$1" \
     -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
     -v "$PWD/nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro" \
-    -v "$VOL:/etc/letsencrypt:ro" "$NGINX_IMG" sh -c \
+    -v "$VOL:/etc/nginx/certs:ro" "$NGINX_IMG" sh -c \
     '/docker-entrypoint.sh true >/dev/null 2>&1; nginx -t' 2>&1
 }
 

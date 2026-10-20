@@ -1,0 +1,62 @@
+---
+# Writes the decrypted env file (and optionally the Origin CA pair) onto the host.
+# Use import_tasks (static), so `--tags env` reaches these tasks:
+#   - ansible.builtin.import_tasks: tasks/write-env.yml
+#     vars: { env: prod }    (prod | demo | staging)
+# (include_tasks is dynamic: `--tags env` would skip the untagged include and
+# run nothing, still exiting 0. If you must, tag the include and add
+# `apply: { tags: [env] }`.)
+#   write_certs: true    also writes <biddaloy_root>/certs/origin.{pem,key}  (D21)
+#   app_version: <sha>   pins APP_VERSION= in the written file (deploy.yml sets it), so the
+#                        file is written once per run and keeps root:deploy 0640
+#   env_notify: <name>   handler to notify on change (deploy.yml uses none: its own
+#                        compose up applies the new .env)
+#   secrets_dir: <path>  where the *.enc.* files are (default: <playbook_dir>/../secrets/)
+#
+# Directories come from provision.yml (the one owner model is written there);
+# this file only writes files into them.
+#
+# Decryption happens on the CONTROLLER (lookup plugins run locally) with the
+# operator's age key (SOPS_AGE_KEY_FILE); the sops keys stay off the host. The
+# backup age private key is a separate file on the host for the restore drill
+# (D18, 13-backup-restore.md "Key handling"); this file does not write it.
+# Every task that touches a value has no_log: true; --diff is also off, because
+# diff output would print the contents (Security rule 13).
+- name: Check the env name
+  ansible.builtin.assert:
+    that: env in ['prod', 'demo', 'staging']
+    quiet: true
+  tags: [env, always]
+
+- name: Write {{ biddaloy_root }}/{{ env }}/.env
+  ansible.builtin.copy:
+    # With app_version: drop the file's APP_VERSION line and append the pinned one.
+    content: "{{ (env_text | regex_replace('(?m)^APP_VERSION=.*$', '')).rstrip() ~ '\nAPP_VERSION=' ~ app_version ~ '\n' if app_version | default('') | length > 0 else env_text }}"
+    dest: '{{ biddaloy_root }}/{{ env }}/.env'
+    mode: '0640'
+    owner: root
+    group: '{{ deploy_user }}'
+  vars:
+    env_text: "{{ lookup('community.sops.sops', (secrets_dir | default(playbook_dir ~ '/../secrets/')) ~ env ~ '.enc.env', rstrip=false) }}"
+  diff: false
+  no_log: true
+  notify: '{{ env_notify | default([]) }}'
+  tags: [env]
+
+- name: Write the Origin CA certificate and key
+  ansible.builtin.copy:
+    content: "{{ lookup('community.sops.sops', (secrets_dir | default(playbook_dir ~ '/../secrets/')) ~ item.src, rstrip=false) }}"
+    dest: '{{ biddaloy_root }}/certs/{{ item.dest }}'
+    mode: '0600'
+    owner: root
+    group: root
+  loop:
+    - { src: origin-ca.enc.pem, dest: origin.pem }
+    - { src: origin-ca-key.enc.pem, dest: origin.key }
+  loop_control:
+    label: '{{ item.dest }}'
+  diff: false
+  no_log: true
+  notify: '{{ env_notify | default([]) }}'
+  when: write_certs | default(false) | bool
+  tags: [env]

@@ -2,10 +2,14 @@ name: Restore drill
 
 # Proves the backup/restore path end-to-end on a disposable environment:
 # seed a database, back it up (encrypted), restore it into a second empty
-# database, and diff integrity counts between the two. Manual only — this
-# is a drill an operator runs on demand (see docs/architecture/
-# 13-backup-restore.md's "drill cadence: quarterly"), not a per-PR check.
+# database, and diff integrity counts between the two. Runs on pull requests
+# that touch the backup scripts, and on demand. The real weekly drill against
+# R2 runs in the backup container (docs/architecture/13-backup-restore.md).
 on:
+  pull_request:
+    paths:
+      - scripts/backup/**
+      - .github/workflows/restore-drill.yml
   workflow_dispatch:
 
 env:
@@ -20,7 +24,7 @@ jobs:
       contents: read
     services:
       postgres:
-        image: postgres:18-alpine
+        image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -34,7 +38,7 @@ jobs:
           --health-retries 10
       # The e2e seed boots AppModule, which refuses to start without Redis.
       redis:
-        image: redis:8-alpine
+        image: redis:8-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
         ports:
           - 6379:6379
         options: >-
@@ -43,7 +47,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       seaweedfs:
-        image: chrislusf/seaweedfs:4.48
+        image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
         env:
           AWS_ACCESS_KEY_ID: drill-access-key
           AWS_SECRET_ACCESS_KEY: drill-secret-key

@@ -1,19 +1,22 @@
+# Rotate container logs: 3 x 10 MB per service.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      # Inlined into the client bundle at build time (see .env.example).
-      args:
-        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
-        VITE_SUPPORT_URL: ${SUPPORT_CONTACT_URL:-}
-    image: biddaloy-app
+    logging: *logging
+    image: ghcr.io/tareq89/biddaloy-app:${APP_VERSION:?APP_VERSION must be set}
     restart: unless-stopped
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:?POSTGRES_DB must be set}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
+      # Rotation grace window (12-operations.md §8): verify-only, empty = off.
+      JWT_SECRET_PREVIOUS: ${JWT_SECRET_PREVIOUS:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       # SeaweedFS isn't TLS-terminated on this shared Compose network yet — see
       # "Known gap: SeaweedFS traffic is not TLS-terminated" in
@@ -37,6 +40,18 @@ services:
       SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
       DB_SSL: ${DB_SSL:-}
       DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
+      # Decrypt-only, set only during a rotation (12-operations.md section 8).
+      SETTINGS_ENCRYPTION_KEY_PREVIOUS: ${SETTINGS_ENCRYPTION_KEY_PREVIOUS:-}
+      # Platform alert SMS (health/platform-alerts). greenweb is the server's
+      # default too; it is spelled out here so the active provider is visible.
+      PLATFORM_SMS_PROVIDER: ${PLATFORM_SMS_PROVIDER:-greenweb}
+      PLATFORM_SMS_API_KEY: ${PLATFORM_SMS_API_KEY:-}
+      PLATFORM_SMS_SENDER_ID: ${PLATFORM_SMS_SENDER_ID:-}
+      PLATFORM_SMS_API_URL: ${PLATFORM_SMS_API_URL:-}
+      PLATFORM_ALERT_PHONES: ${PLATFORM_ALERT_PHONES:-}
+      # Required in production: the id of the platform school. Unset means no
+      # membership carries platform authority (env.validation.ts).
+      PLATFORM_TENANT_ID: ${PLATFORM_TENANT_ID:-}
       # Onboarding (Epic 13). Empty means "off": no captcha check, no social
       # sign-in button, no support link. The trial values repeat the server's
       # defaults here because an empty TRIAL_* fails env validation.
@@ -66,6 +81,7 @@ services:
       start_period: 60s
 
   redis:
+    logging: *logging
     image: redis:8-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
     # --databases 64: scripts/test-env.sh gives each parallel test run its
     # own block of 5 db slots (slot 0 stays the app's); 16 fits only 2 runs.
@@ -88,6 +104,7 @@ services:
       retries: 5
 
   db:
+    logging: *logging
     image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     restart: unless-stopped
     # The default 100 runs out locally: the dev server plus several parallel
@@ -117,6 +134,7 @@ services:
       retries: 5
 
   seaweedfs:
+    logging: *logging
     # SeaweedFS `mini` = master + volume + filer + S3 gateway in one
     # process. It creates S3_BUCKET on boot if missing (idempotent), which
     # replaces the old one-shot bucket-init service. Official image lives
@@ -148,21 +166,37 @@ services:
       timeout: 5s
       retries: 10
 
-  # Daily encrypted pg_dump to the bucket — see scripts/backup/README.md.
+  # Hourly encrypted pg_dump (+ files to R2 when configured) — see scripts/backup/README.md.
   # Only needs `db` (to dump) and `seaweedfs` (to upload to in dev); it does
   # not sit on the app's request path, so it isn't in `app`'s depends_on.
   backup:
-    build:
-      context: ./scripts/backup
-      dockerfile: Dockerfile
-    image: biddaloy-backup
+    logging: *logging
+    image: ghcr.io/tareq89/biddaloy-backup:${APP_VERSION:?APP_VERSION must be set}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:?POSTGRES_DB must be set}
       BACKUP_AGE_PUBLIC_KEY: ${BACKUP_AGE_PUBLIC_KEY}
-      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
+      # Empty = entrypoint.sh picks: hourly in R2 mode, 02:00 daily in legacy mode.
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
       SENTRY_CRON_MONITOR_URL: ${SENTRY_CRON_MONITOR_URL:-}
+      # Cloudflare R2 offsite target (all six or none; none = legacy S3_* only).
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID:-}
+      BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY:-}
+      BACKUP_RCLONE_CRYPT_PASSWORD: ${BACKUP_RCLONE_CRYPT_PASSWORD:-}
+      BACKUP_RCLONE_CRYPT_SALT: ${BACKUP_RCLONE_CRYPT_SALT:-}
+      BACKUP_PUSH_URL: ${BACKUP_PUSH_URL:-}
+      BACKUP_HOURLY_KEEP: ${BACKUP_HOURLY_KEEP:-72}
+      BACKUP_DAILY_KEEP: ${BACKUP_DAILY_KEEP:-30}
+      BACKUP_TRASH_DAYS: ${BACKUP_TRASH_DAYS:-30}
+      BACKUP_FILES_MAX_DELETE: ${BACKUP_FILES_MAX_DELETE:-500}
+      BACKUP_NET_WAIT_SECS: ${BACKUP_NET_WAIT_SECS:-900}
+      # Weekly restore drill (scripts/backup/drill.sh) into a scratch database.
+      DRILL_SCHEDULE: ${DRILL_SCHEDULE:-30 3 * * 0}
+      DRILL_PUSH_URL: ${DRILL_PUSH_URL:-}
+      BACKUP_AGE_PRIVATE_KEY_FILE: /run/age/key.txt
       # See the matching comment on `app`'s S3_ALLOW_INSECURE_HTTP above.
       S3_ENDPOINT: http://seaweedfs:8333
       S3_ALLOW_INSECURE_HTTP: 'true'
@@ -170,39 +204,27 @@ services:
       S3_BUCKET: ${S3_BUCKET:-biddaloy}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID must be set}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY must be set}
+    volumes:
+      # Age private key for the restore drill only (D18); this container alone
+      # mounts it. Host dir: /opt/biddaloy/<env>/drill/ (10001, 0500; provision.yml
+      # creates it), key inside: key.txt (10001, 0400). A directory, not the file,
+      # so a missing key fails only the drill (step `config`), never `up` or the
+      # hourly dumps. Each env sets its own BACKUP_AGE_KEY_DIR, so there is no
+      # default: prod's key must never reach staging.
+      - type: bind
+        source: ${BACKUP_AGE_KEY_DIR:-./BACKUP_AGE_KEY_DIR-is-not-set}
+        target: /run/age
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       db:
         condition: service_healthy
       seaweedfs:
         condition: service_healthy
 
-  # Generates a short-lived self-signed cert if none exists yet, so nginx has
-  # something to load on first boot before certbot has ever run. See
-  # nginx/generate-dummy-cert.sh and the README for the real first-issuance
-  # flow that replaces it.
-  cert-bootstrap:
-    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
-    entrypoint: ['sh', '/scripts/generate-dummy-cert.sh']
-    environment:
-      APP_DOMAIN: ${APP_DOMAIN:-localhost}
-    volumes:
-      - certs:/etc/letsencrypt
-      - ./nginx/generate-dummy-cert.sh:/scripts/generate-dummy-cert.sh:ro
-    restart: 'no'
-
-  # Renews certbot-issued certs on a loop. Does NOT perform first issuance —
-  # that's a one-off manual command (see README) since it needs --email and
-  # --staging/production endpoint choices a human should make deliberately.
-  certbot:
-    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
-    restart: unless-stopped
-    volumes:
-      - certs:/etc/letsencrypt
-      - certbot-webroot:/var/www/certbot
-    entrypoint: >
-      sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
-
   nginx:
+    logging: *logging
     image: nginx:1.31-alpine@sha256:df221db836e1754089190208cee7eeda94f233197056426eda74a43ab1abeac2
     restart: unless-stopped
     ports:
@@ -210,13 +232,20 @@ services:
       - '443:443'
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      # The ops and staging server blocks render server_name from these; an unset
+      # variable would stay literal in the template and stop nginx booting.
+      # `.invalid` never resolves, so an unconfigured block matches nothing.
+      OPS_DOMAIN: ${OPS_DOMAIN:-ops.invalid}
+      STAGING_DOMAIN: ${STAGING_DOMAIN:-staging.invalid}
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
     volumes:
       - ./nginx/templates:/etc/nginx/templates:ro
       - ./nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro
       - ./nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro
-      - certs:/etc/letsencrypt:ro
-      - certbot-webroot:/var/www/certbot:ro
+      # Cloudflare Origin CA pair: origin.pem + origin.key, copied onto the host
+      # (origin.key chmod 600). No default: a missing dir fails here, not as an
+      # nginx crash loop.
+      - ${TLS_CERT_DIR:?TLS_CERT_DIR must be set}:/etc/nginx/certs:ro
     # /healthz answers loopback callers only (nginx/templates/default.conf.template).
     healthcheck:
       test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1/healthz || exit 1']
@@ -227,12 +256,8 @@ services:
     depends_on:
       app:
         condition: service_healthy
-      cert-bootstrap:
-        condition: service_completed_successfully
 
 volumes:
   pgdata:
   redisdata:
   seaweedfsdata:
-  certs:
-  certbot-webroot:

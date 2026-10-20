@@ -224,7 +224,7 @@ flowchart LR
 
 ### Rule 21: CI actions and images are pinned
 
-- **Rule.** Every workflow `uses:` names a 40-character commit SHA (`# vX` comment), every `actions/checkout` sets `persist-credentials: false`, and every pulled image carries `@sha256:`. Every `yarn audit` allowlist entry has a `recheckBy` date.
+- **Rule.** Every workflow `uses:` names a 40-character commit SHA (`# vX` comment), every `actions/checkout` sets `persist-credentials: false`, and every pulled image carries `@sha256:`. Every `yarn audit` allowlist entry has a `recheckBy` date. First-party GHCR images (`ghcr.io/tareq89/biddaloy-*`) are pinned by commit-SHA tag via `APP_VERSION`, not by digest.
 - **Why.** A moved tag runs someone else's code with our secrets (75.25, 75.26, 75.29).
 - **Example.** `uses: actions/checkout@<sha> # v4`; `ALLOWLIST` in `scripts/ci-audit.js`.
 - **Test.** `docker/test/compose.infra.test.sh` (images), `scripts/ci-audit.spec.mjs` (expiry), `actionlint` in the CI audit job. Action SHAs have no automated check yet; the reviewer checks them.

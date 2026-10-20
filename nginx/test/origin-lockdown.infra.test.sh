@@ -42,7 +42,7 @@ docker run -d --name lockdown-upstream --network "$NET" --network-alias app \
   --entrypoint sh "$NGINX_IMG" \
   -c "echo '$UP_CONF' > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'" >/dev/null
 
-docker run --rm -e APP_DOMAIN=example.test -v "$VOL:/etc/letsencrypt" \
+docker run --rm -e APP_DOMAIN=example.test -v "$VOL:/certs" \
   -v "$PWD/nginx/generate-dummy-cert.sh:/scripts/generate-dummy-cert.sh:ro" \
   --entrypoint sh certbot/certbot /scripts/generate-dummy-cert.sh >/dev/null
 
@@ -53,7 +53,7 @@ run_edge() { # <cidrs>
     -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
     -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro" \
     -v "$PWD/nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro" \
-    -v "$VOL:/etc/letsencrypt:ro" "$NGINX_IMG" >/dev/null
+    -v "$VOL:/etc/nginx/certs:ro" "$NGINX_IMG" >/dev/null
   # readiness: wait (max ~20 s) for 443 to listen, or for the container to exit
   for _ in $(seq 20); do
     [ "$(docker inspect -f '{{.State.Running}}' lockdown-edge)" = true ] || break
@@ -82,7 +82,7 @@ nginx_t() { # <cidrs>
   docker run --rm --network "$NET" -e APP_DOMAIN=example.test -e "TRUSTED_PROXY_CIDRS=$1" \
     -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
     -v "$PWD/nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro" \
-    -v "$VOL:/etc/letsencrypt:ro" "$NGINX_IMG" sh -c \
+    -v "$VOL:/etc/nginx/certs:ro" "$NGINX_IMG" sh -c \
     '/docker-entrypoint.sh true >/dev/null 2>&1; nginx -t' >/dev/null 2>&1
 }
 nginx_t "$TRUSTED_IP/32" && pass "nginx -t with a CIDR list" || fail "nginx -t with a CIDR list" "non-zero"
@@ -104,7 +104,7 @@ done
 expect "untrusted peer /api/health -> 200" "200 0" "$(curl_as "$OTHER_IP" $(https /api/health))"
 # shellcheck disable=SC2046
 expect "untrusted peer /api/health/ready -> 404 (unchanged)" "404 0" "$(curl_as "$OTHER_IP" $(https /api/health/ready))"
-expect "untrusted peer ACME path on 80 -> 404 not 444" "404 0" \
+expect "untrusted peer ACME path on 80 -> 444 (no ACME location)" "000 52" \
   "$(curl_as "$OTHER_IP" -H 'Host: example.test' "http://$EDGE_IP/.well-known/acme-challenge/x")"
 expect "untrusted peer / on 80 -> 444" "000 52" "$(curl_as "$OTHER_IP" -H 'Host: example.test' "http://$EDGE_IP/")"
 [ "$(docker exec lockdown-edge wget -qO- http://127.0.0.1/healthz)" = "ok" ] \

@@ -65,7 +65,7 @@ server and every client so the wire contract can't drift.
 | Background jobs / caching | Redis + BullMQ                                                                                                                                     |
 | i18n                      | i18next, namespace-lazy-loaded                                                                                                                     |
 | Testing                   | Vitest everywhere (unit/integration/e2e on the server, unit/component on the frontend), Playwright for e2e UI, Storybook for component development |
-| Deployment                | Docker Compose (app + Postgres + Redis + nginx + Certbot)                                                                                          |
+| Deployment                | Docker Compose (app + Postgres + Redis + nginx, Origin CA cert)                                                                                    |
 | Monorepo                  | Yarn workspaces (`server`, `shared`, `ui`, `client-*`)                                                                                             |
 
 ## How this repo is organized

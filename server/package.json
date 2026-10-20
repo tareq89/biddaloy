@@ -20,6 +20,8 @@
     "test:file": "vitest run",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/data-source.ts",
+    "migrate:dist": "node dist/scripts/migrate.js",
+    "migrate:pending": "node dist/scripts/migrate.js pending",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/data-source.ts",
     "seed": "ts-node src/scripts/seed.ts",
     "seed:demo": "ts-node src/scripts/demo-seed/index.ts",

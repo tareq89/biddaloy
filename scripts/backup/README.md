@@ -4,10 +4,19 @@ Encrypted PostgreSQL backup and restore. See
 [`docs/architecture/13-backup-restore.md`](../../docs/architecture/13-backup-restore.md)
 for the full recovery story (RPO/RTO, retention, key rotation).
 
+## Weekly drill and `--no-migrate`
+
+`restore.sh <db/...key> <url> [--no-migrate]`: a `db/` key is read from R2 with
+`BACKUP_S3_*`; `--no-migrate` skips migrations. `drill.sh` (weekly, R2 mode
+only) restores the newest dump into a scratch `*drill*` database and compares
+counts; env: `DRILL_SCHEDULE`, `DRILL_PUSH_URL`, `DRILL_DATABASE_URL`,
+`DRILL_ADMIN_URL`. See docs/architecture/13-backup-restore.md "Drill".
+
 ## backup.sh
 
 Runs on a schedule inside the `backup` docker-compose service
-(`BACKUP_SCHEDULE`, default `0 2 * * *`, `TZ=Asia/Dhaka`). The container runs
+(`BACKUP_SCHEDULE`, `TZ=Asia/Dhaka`; unset = hourly in R2 mode, `0 2 * * *` in
+legacy mode). The container runs
 as non-root (uid 10001) via supercronic, and logs go to
 `docker compose logs backup`. Pipeline:
 
@@ -28,7 +37,31 @@ docker compose exec backup /app/backup.sh
 
 Required env: `DATABASE_URL`, `BACKUP_AGE_PUBLIC_KEY`, `S3_BUCKET`,
 `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`.
-Optional: `BACKUP_RETENTION_DAYS`, `SENTRY_CRON_MONITOR_URL`.
+Optional: `BACKUP_RETENTION_DAYS` (legacy mode), `SENTRY_CRON_MONITOR_URL`.
+
+### R2 mode (production)
+
+Set all of `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`,
+`BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_RCLONE_CRYPT_PASSWORD`,
+`BACKUP_RCLONE_CRYPT_SALT` (all or none) and each hourly run does:
+
+```
+dump -> db/hourly/<UTC ts>.dump.age
+     -> from 02:00 Dhaka, if today's daily is missing: copy to db/daily/<date>.dump.age
+     -> prune db: BACKUP_HOURLY_KEEP=72, BACKUP_DAILY_KEEP=30
+     -> rclone sync SeaweedFS -> r2crypt (changed/deleted files to
+        files-trash/<date>/<path>-<HHMMSS>; a dry run first refuses
+        the sync, touching nothing, above BACKUP_FILES_MAX_DELETE=500)
+     -> purge trash date folders older than BACKUP_TRASH_DAYS=30
+     -> Uptime Kuma push (BACKUP_PUSH_URL): up, or down&msg=<failed step>
+```
+
+A `change-me` or shorter-than-16-character R2 secret or crypt value stops the
+container at start. With none set it keeps the old single-key `backups/db/`
+behaviour (dev and the restore drill). Tests: `scripts/backup/backup.test.sh
+--shim` runs the Docker-free shim cases (CI runs them through
+`backup.shim.infra.test.sh`); without the flag it also runs the compose
+integration case.
 
 ## restore.sh
 
@@ -54,7 +87,8 @@ scripts/backup/restore.sh backups/db/20260907T020000Z.dump.age \
 ```bash
 age-keygen -o key.txt
 # Public key:  age1... — goes in BACKUP_AGE_PUBLIC_KEY
-# Private key: AGE-SECRET-KEY-1... — stored outside the host, see the doc
+# Private key: AGE-SECRET-KEY-1... — master copy off the host; the drill's copy is
+#   /opt/biddaloy/<env>/drill/key.txt (10001, 0400). See the doc's "Key handling"
 ```
 
 ## Secrets discipline
