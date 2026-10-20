@@ -30,7 +30,7 @@
     "seatsError": "Enter a whole number from 1 to {{max}}.",
     "monthsError": "Enter a whole number from 1 to {{max}}.",
     "createdTitle": "Order created",
-    "createdBody": "Order for {{seats}} seats, {{months}} months, {{total}}. Online payment is coming soon. Your seats start when you pay, or when your current seats or the free period end, so a renewal adds months, not seats.",
+    "createdBody": "Order for {{seats}} seats, {{months}} months, {{total}}. Online payment is coming soon. Your seats start when you pay, or when your current paid seats end, so a renewal adds months, not seats.",
     "createFailed": "We could not create the order. Try again."
   },
   "orders": {
