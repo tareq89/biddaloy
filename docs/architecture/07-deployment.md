@@ -398,6 +398,25 @@ Compose must be new enough to read `additional_contexts: app: service:app` (2.20
 **Shared host.** The demo overlay assumes the host runs nothing else: the Docker proxy can stop any container on it.
 The demo binds ports 80/443 like prod, so it cannot share a host with prod or staging anyway.
 
+## Landing site (Epic 50 #2730)
+
+The marketing site is static files, served by the same prod nginx as the app. No new box.
+
+```mermaid
+flowchart LR
+  CI["CI: artifact<br/>landing-dist-&lt;sha&gt;"] -->|"gh run download<br/>(laptop)"| L[Laptop]
+  L -->|"rsync, landing.yml"| H["host: /opt/biddaloy/landing/releases/&lt;sha&gt;"]
+  H -->|"symlink current"| N["prod nginx<br/>landing.conf.template"]
+  CF[Cloudflare] --> N
+```
+
+- Deploy: `ansible-playbook -i infra/ansible/inventory infra/ansible/landing.yml -e version=<sha>`. The laptop downloads, so no GitHub token lives on the VM (D20).
+- Roll back: run it with an older `sha` still on the host, or `ln -sfn releases/<sha> /opt/biddaloy/landing/current`. The last 3 releases are kept.
+- nginx mounts the **parent** dir `/opt/biddaloy/landing` (`LANDING_DIST_DIR`), not `current`: Docker resolves a symlink mount once at container start, so a swap would not show. Swapping the symlink needs no reload.
+- `LANDING_DOMAIN` goes in the prod `.env`. Unset, the block matches `landing.invalid` and serves nothing.
+- The Origin CA certificate must list the apex **and** `www.` (same pair as the app).
+- Headers and CSP hosts: `nginx/templates/landing.conf.template`, checked by `nginx/test/landing.infra.test.sh`.
+
 ## Staging
 
 `staging.<domain>` runs the **same images and compose files as prod**, in its own compose project

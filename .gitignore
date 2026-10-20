@@ -288,3 +288,6 @@ infra/secrets/*
 !infra/secrets/*.enc.pem
 !infra/secrets/*.example.env
 !infra/secrets/README.md
+
+# landing.yml downloads CI artifacts here (infra/ansible/landing.yml)
+.landing-dist/
