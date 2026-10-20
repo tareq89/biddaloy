@@ -108,6 +108,11 @@ describe('alert rule catalogue', () => {
       expect(meta(k).cadence).toContain(AlertCadence.ON_CHANGE);
   });
 
+  it('both seat rules run ON_CHANGE: billing asks for a recheck, the scheduler drops it otherwise (Epic 49)', () => {
+    for (const k of ['seats.expiring', 'seats.exhausted'] as const)
+      expect(meta(k).cadence).toContain(AlertCadence.ON_CHANGE);
+  });
+
   it('lookup returns the catalogue object; unknown key throws', () => {
     expect(alertRuleMeta('class.starting')).toBe(meta('class.starting'));
     expect(() => alertRuleMeta('nope' as AlertRuleKey)).toThrow();

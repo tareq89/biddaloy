@@ -1640,44 +1640,40 @@ export async function detachOfferedSubjects(
   }
 }
 
-/** Moves a school's trial end to `days` from now. Same raw-SQL shortcut as `endTrial`. */
-export async function setTrialEndsInDays(schoolId: string, days: number): Promise<void> {
-  await runSqlOnOneRow(
-    `UPDATE schools SET trial_ends_at = now() + ($2 || ' days')::interval WHERE id = $1`,
-    [schoolId, String(days)],
-    `setTrialEndsInDays: school ${schoolId}`,
-  );
-}
-
-/** `PATCH /schools/:id/trial` as the platform super admin. Since Epic 49 this grants seats
- * (`seat_limit` is required) and still asks for a `trial.ending` recheck (about 5 s later),
- * so a spec can raise or resolve that alert after setting `trial_ends_at` directly.
- * `request` must be its own context: the super-admin login would replace the cookie
+/** `PATCH /schools/:id/trial` as the platform super admin: since Epic 49 a free GRANT order of
+ * `seats` for `months`. It asks for a `seats.expiring` / `seats.exhausted` recheck about 5 s
+ * later. `request` must be its own context: the super-admin login would replace the cookie
  * jar of a context that holds a school admin's session. */
-export async function extendTrial(
+export async function grantSeats(
   request: APIRequestContext,
   schoolId: string,
-  days: number,
-  reason: string,
+  seats: number,
+  months: number,
 ): Promise<void> {
   await patch(request, await superAdminApiSession(request), `/schools/${schoolId}/trial`, {
-    days,
-    seat_limit: 25,
-    reason,
+    days: months * 30,
+    seat_limit: seats,
+    reason: 'e2e seat grant',
   });
 }
 
-/** Gives a fresh school 6 trial days left, which raises its WARNING `trial.ending`
- * alert once the recheck runs (about 5 s on). Uses its own super-admin context. */
-export async function raiseTrialEnding(
+/** Raises a fresh school's WARNING `seats.expiring` alert (about 5 s on) by its 90 %-used path:
+ * 9 ACTIVE students, then a grant (asks for the recheck) and a limit of 10 set inside those 5 s
+ * (a grant leaves the limit NULL in the free period). The 30-day path cannot fire here: inside
+ * `BILLING_FREE_UNTIL` a school is covered until the free period ends (`seatCover`).
+ * The students sit in a new, non-current year, so `attendance.not_taken` adds no alert.
+ * Uses its own super-admin context.
+ * ponytail: raw SQL via the server's `pg` for the limit; swap for an endpoint if one appears. */
+export async function raiseSeatsExpiring(
   playwright: import('@playwright/test').PlaywrightWorkerArgs['playwright'],
-  schoolId: string,
+  school: { api: APIRequestContext; session: ApiSession },
   baseURL: string,
 ): Promise<void> {
+  await createStudentsInSection(school.api, school.session, 'Seat', 9);
   const superAdmin = await playwright.request.newContext({ baseURL });
   try {
-    await setTrialEndsInDays(schoolId, 5);
-    await extendTrial(superAdmin, schoolId, 1, 'e2e trial ending');
+    await grantSeats(superAdmin, school.session.tenantId, 25, 1);
+    await setSeatLimit(school.session.tenantId, 10);
   } finally {
     await superAdmin.dispose();
   }
