@@ -204,6 +204,62 @@ UPDATE communication_logs SET status = 'FAILED' WHERE status = 'QUEUED';
 -- delivered. When in doubt, use Option A.
 ```
 
+## Drill
+
+Every Sunday 03:30 (Asia/Dhaka) the `backup` container proves the newest R2
+dump can really be restored. Script: `scripts/backup/drill.sh`.
+
+```mermaid
+sequenceDiagram
+    participant C as supercronic
+    participant D as drill.sh
+    participant R as R2
+    participant P as Postgres
+    participant K as Uptime Kuma
+    C->>D: Sunday 03:30
+    D->>R: newest key under db/hourly/
+    D->>P: create scratch DB biddaloy_drill
+    D->>R: restore.sh db/hourly/... --no-migrate
+    D->>P: verify.sql on scratch DB and on live DB
+    D->>R: one random live file via rclone crypt, sha256 vs live
+    D->>P: drop biddaloy_drill (always, even on failure)
+    D->>K: push up (ok-N-tables) or down (failed step)
+```
+
+**What "pass" means**
+
+- For each table in `verify.sql`, drill count is not above the live count
+  (data only moves forward after a dump) and is not 0 when live is above 0.
+- One random file from the live bucket has the same sha256 read back through
+  `r2crypt:files/<key>`. An empty bucket skips this check.
+
+**Safety.** The scratch database name must contain `drill`, and
+`DRILL_DATABASE_URL` must differ from `DATABASE_URL`, or the script refuses to
+start. The live database is only read (`verify.sql` counts). No URL, key or
+password is printed.
+
+**Reading Kuma.** One green beat per week with message `ok-8-tables`. A red
+beat carries the failed step: `find-dump`, `create-db`, `restore`, `counts`,
+`file-roundtrip` (or `config` for a missing setting). Telegram and SMS fire
+from the push monitor (D14).
+
+**Run by hand** (on the VM):
+
+```bash
+docker compose exec backup /app/drill.sh
+```
+
+**Setup.** `DRILL_SCHEDULE` (cron, default `30 3 * * 0`), `DRILL_PUSH_URL` and
+the age private key mounted read-only at `/run/age/key.txt` (host path
+`BACKUP_AGE_KEY_FILE`, default `/opt/biddaloy/prod/age-key.txt`, written by
+Ansible from sops). Only the `backup` container mounts it. Optional
+`DRILL_DATABASE_URL` / `DRILL_ADMIN_URL` default to the live server with
+database `biddaloy_drill` / `postgres`.
+
+**CI.** `.github/workflows/restore-drill.yml` runs a synthetic drill (seed,
+backup, restore, diff) on pull requests that touch `scripts/backup/**` or the
+workflow itself, and on manual dispatch.
+
 ## Restore runbook
 
 ```bash
@@ -218,11 +274,11 @@ scripts/backup/restore.sh \
   backups/db/20260907T020000Z.dump.age \
   postgres://postgres:postgres@localhost:5432/biddaloy_restored
 
-# R2 form (production dumps). restore.sh reads S3_*, so for this run put the
-# R2 credentials (BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY) in
-# S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY and use the R2 bucket name:
-export S3_BUCKET=<BACKUP_S3_BUCKET> S3_ENDPOINT=https://<acct>.r2.cloudflarestorage.com \
-       S3_REGION=auto S3_ACCESS_KEY_ID=... S3_SECRET_ACCESS_KEY=...
+# R2 form (production dumps). A bare key starting with db/ is read from the
+# R2 bucket using BACKUP_S3_ENDPOINT / BACKUP_S3_BUCKET / BACKUP_S3_ACCESS_KEY_ID /
+# BACKUP_S3_SECRET_ACCESS_KEY (the same vars the backup container has):
+export BACKUP_S3_ENDPOINT=https://<acct>.r2.cloudflarestorage.com \
+       BACKUP_S3_BUCKET=<bucket> BACKUP_S3_ACCESS_KEY_ID=... BACKUP_S3_SECRET_ACCESS_KEY=...
 scripts/backup/restore.sh \
   db/hourly/20260920T200000Z.dump.age \
   postgres://postgres:postgres@localhost:5432/biddaloy_restored
@@ -230,7 +286,8 @@ scripts/backup/restore.sh \
 
 What it does, in order: download (or read a local file) → `age --decrypt`
 → `pg_restore --clean --if-exists --no-owner` → run server migrations
-against the target → print `scripts/backup/verify.sql`'s row/tenant counts
+against the target (skipped with `--no-migrate`, which the weekly drill uses)
+→ print `scripts/backup/verify.sql`'s row/tenant counts
 and the `schools.logo_key` list. See
 [`scripts/backup/README.md`](../../scripts/backup/README.md) for every env
 var it reads.
@@ -273,10 +330,10 @@ Migration `1791900000300` adds two CHECKs on `student_fees`:
 They are `NOT VALID`. That skips rows already in the table, but Postgres
 still checks every row that is inserted or updated later.
 
-| Restore path | Old bad row in the backup | What to do |
-| --- | --- | --- |
-| Platform (`restore.sh`) | Loads fine: `pg_dump` adds a `NOT VALID` CHECK after the data | Run the audit SQL in the migration's docblock on the restored database. Fix rows by hand. A later payment or reversal on a bad row is refused (409). |
-| School workbook | The `student_fees` tab rejects that row before anything is written, e.g. `row 7, column paid_amount: paid_amount plus discount_amount is more than total_amount` | Fix the row in the file (or fix the source school with the audit SQL and export again), then restore. |
+| Restore path            | Old bad row in the backup                                                                                                                                        | What to do                                                                                                                                           |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform (`restore.sh`) | Loads fine: `pg_dump` adds a `NOT VALID` CHECK after the data                                                                                                    | Run the audit SQL in the migration's docblock on the restored database. Fix rows by hand. A later payment or reversal on a bad row is refused (409). |
+| School workbook         | The `student_fees` tab rejects that row before anything is written, e.g. `row 7, column paid_amount: paid_amount plus discount_amount is more than total_amount` | Fix the row in the file (or fix the source school with the audit SQL and export again), then restore.                                                |
 
 The restore is refused with a row-by-row list, never a 500. Only run
 `VALIDATE CONSTRAINT` once the audit SQL returns no rows.
@@ -309,6 +366,9 @@ disaster recovery":
 | `BACKUP_TRASH_DAYS`            | #1745  | Days a deleted file stays in `files-trash/` (default 30)                                                                    |
 | `BACKUP_FILES_MAX_DELETE`      | #1745  | Files sync refuses to sync (touches nothing) if it would delete more than this many files in one run (default 500)          |
 | `SENTRY_CRON_MONITOR_URL`      | 15.3.2 | Optional cron check-in                                                                                                      |
+| `DRILL_SCHEDULE`               | #1774  | Cron for the weekly restore drill (default `30 3 * * 0`)                                                                    |
+| `DRILL_PUSH_URL`               | #1774  | Uptime Kuma push URL for the drill. Unset = no push                                                                         |
+| `DRILL_DATABASE_URL`           | #1774  | Scratch database (name must contain `drill`; default `<live server>/biddaloy_drill`)                                        |
 | `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Decrypts for `restore.sh` — never in `.env`, see "Key handling"                                                             |
 
 ## Learnings (#1745)

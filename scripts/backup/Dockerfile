@@ -22,11 +22,12 @@ ENV TZ=Asia/Dhaka
 WORKDIR /app
 COPY backup.sh /app/backup.sh
 COPY restore.sh /app/restore.sh
+COPY drill.sh /app/drill.sh
 COPY verify.sql /app/verify.sql
 # Crontab (schedule only, no secrets) is generated at container start
 # (entrypoint.sh) from BACKUP_SCHEDULE.
 COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/backup.sh /app/restore.sh /app/entrypoint.sh \
+RUN chmod +x /app/backup.sh /app/restore.sh /app/drill.sh /app/entrypoint.sh \
   && addgroup -S -g 10001 backup \
   && adduser -S -D -u 10001 -G backup -h /home/backup backup \
   && chown -R backup:backup /app
