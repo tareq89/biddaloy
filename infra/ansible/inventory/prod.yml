@@ -1,0 +1,12 @@
+---
+all:
+  hosts:
+    biddaloy-prod:
+      # Public IP of the VM: export BIDDALOY_PROD_HOST=203.0.113.10
+      ansible_host: "{{ lookup('ansible.builtin.env', 'BIDDALOY_PROD_HOST') }}"
+      # First run on a fresh VM: -e ansible_user=root (or the cloud image user).
+      ansible_user: deploy
+  vars:
+    app_domain: app.schoolmanagerp.com
+    ops_domain: ops.schoolmanagerp.com
+    staging_domain: staging.schoolmanagerp.com

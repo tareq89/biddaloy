@@ -1,0 +1,109 @@
+---
+# Fresh Ubuntu LTS VM -> hardened Docker host. Safe to re-run (changed=0).
+- name: Provision biddaloy host
+  hosts: all
+  become: true
+  # deploy must exist before docker_users is applied by the docker role
+  pre_tasks:
+    - name: Deploy user
+      ansible.builtin.user:
+        name: "{{ deploy_user }}"
+        shell: /bin/bash
+        groups: sudo
+        append: true
+    - name: Operator key on deploy user
+      ansible.posix.authorized_key:
+        user: "{{ deploy_user }}"
+        key: "{{ operator_ssh_pubkey }}"
+        exclusive: true
+    - name: Passwordless sudo for deploy (key-only login)
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/90-deploy
+        content: "{{ deploy_user }} ALL=(ALL) NOPASSWD:ALL\n"
+        mode: "0440"
+        validate: visudo -cf %s
+  roles:
+    - geerlingguy.security
+    - geerlingguy.docker
+  tasks:
+    # Docker publishes ports straight through iptables, past ufw. Compose binds
+    # everything except nginx to 127.0.0.1 (docker-compose.yml); the check at the
+    # end of this play fails if anything else listens publicly.
+    - name: ufw default deny incoming
+      community.general.ufw:
+        default: deny
+        direction: incoming
+    - name: ufw SSH (rate limited)
+      community.general.ufw:
+        rule: limit
+        port: "22"
+        proto: tcp
+    - name: ufw HTTP/HTTPS
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop: [80, 443]
+    - name: ufw on
+      community.general.ufw:
+        state: enabled
+
+    - name: chrony installed
+      ansible.builtin.apt:
+        name: chrony
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+    - name: chrony running and enabled
+      ansible.builtin.service:
+        name: chrony
+        state: started
+        enabled: true
+    - name: Timezone
+      community.general.timezone:
+        name: "{{ host_timezone }}"
+
+    - name: App directories
+      ansible.builtin.file:
+        path: "{{ biddaloy_root }}/{{ item }}"
+        state: directory
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_user }}"
+        mode: "0750"
+      loop: "{{ biddaloy_envs }}"
+    - name: Certs directory (root only)
+      ansible.builtin.file:
+        path: "{{ biddaloy_root }}/certs"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Weekly docker image prune
+      ansible.builtin.cron:
+        name: docker image prune
+        weekday: "0"
+        hour: "4"
+        minute: "0"
+        job: docker image prune -af --filter until=168h
+    - name: Weekly docker builder prune
+      ansible.builtin.cron:
+        name: docker builder prune
+        weekday: "0"
+        hour: "4"
+        minute: "5"
+        job: docker builder prune -af
+
+    - name: Listening TCP sockets
+      ansible.builtin.command: ss -H -tln
+      register: listening
+      changed_when: false
+    - name: Fail if anything but 22/80/443 listens publicly
+      ansible.builtin.assert:
+        that:
+          - >-
+            item.split()[3] is match('^(127\.|\[::1\]|127\.0\.0\.53%lo)')
+            or (item.split()[3].rsplit(':', 1)[1] | int) in allowed_public_tcp_ports
+        fail_msg: "Unexpected public listener: {{ item.split()[3] }}"
+        quiet: true
+      loop: "{{ listening.stdout_lines }}"
