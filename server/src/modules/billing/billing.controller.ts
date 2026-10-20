@@ -44,9 +44,11 @@ export class BillingController {
     const [seats_bought, usage, [until], orders] = await Promise.all([
       this.entitlement.paidSeats(m, tenant.id),
       getSeatUsage(m, tenant.id),
+      // The school's own orders set paid-until; a GRANT (unit price 0) only when it has no own order.
       m.query(
-        `SELECT (max(period_end) - 1)::text AS paid_until FROM seat_orders
-          WHERE school_id = $1 AND status = 'PAID' AND unit_price_paisa > 0`, // GRANTs are not the school's cover
+        `SELECT (COALESCE(max(period_end) FILTER (WHERE unit_price_paisa > 0), max(period_end)) - 1)::text
+                AS paid_until
+           FROM seat_orders WHERE school_id = $1 AND status = 'PAID'`,
         [tenant.id],
       ) as Promise<{ paid_until: string | null }[]>,
       this.orders.list(tenant.id, 20),
