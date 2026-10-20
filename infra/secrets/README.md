@@ -80,7 +80,7 @@ CI guard: `scripts/check-tracked-files.mjs` checks content, not just names.
 | Edit                  | `sops infra/secrets/prod.enc.env`                      |
 | View                  | `sops -d infra/secrets/prod.enc.env`                   |
 | Change recipients     | edit `.sops.yaml`, then `sops updatekeys infra/secrets/<file>` for each file |
-| Push to the server    | a full `deploy.yml` of the running version (rotation steps: `docs/architecture/12-operations.md` section 8). `--tags env` only rewrites `.env` and restarts nothing |
+| Push to the server    | commit the changed file, push to main, then a full `deploy.yml` of that NEW commit (the playbooks read secrets from the checkout; rotation steps: `docs/architecture/12-operations.md` section 8). `--tags env` only rewrites `.env` and restarts nothing |
 
 Add a new key: add it to the matching `*.example.env` too, so the examples stay
 the full list.

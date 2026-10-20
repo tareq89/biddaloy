@@ -1,6 +1,6 @@
 # Demo deployment overlay (Epic 58.0). Use with the base file, on a host that serves only the demo:
 #
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+#   docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml up -d
 #
 # Host .env must set S3_BUCKET to a name containing "demo" (e.g. biddaloy-demo): the reset
 # deletes objects in that bucket and refuses any other. Also set DEMO_PASSWORD, and for the
@@ -16,10 +16,10 @@
 # First boot: `app` refuses to start until a reset has run once (it reads default-school's id,
 # which changes every night, from the demo-state volume). So build the images, run the first
 # reset by hand, then bring the rest up (the first reset logs "app not restarted: first run"):
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml pull
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d db redis seaweedfs
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+#   docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml pull
+#   docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml up -d db redis seaweedfs
+#   docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now
+#   docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml up -d
 
 x-logging: &logging
   driver: json-file
