@@ -104,7 +104,7 @@ sequenceDiagram
 Before you run it:
 
 - **Check out `version` first** (`git checkout 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b`). Compose files and nginx templates are copied from your checkout; the play fails early if `HEAD` is not `version`, or if `docker-compose*.yml` or `nginx/` has uncommitted changes.
-- **Prod needs the backup age key on the host** (`/opt/biddaloy/prod/age-key.txt`, owner 10001, mode 0400). Pre-flight stops without it; how to put it there: [12-operations.md §8](12-operations.md#8-secrets-and-rotation).
+- **Prod needs the backup age key on the host** (`/opt/biddaloy/prod/drill/key.txt`, owner 10001, mode 0400). Pre-flight stops without it; how to put it there: [12-operations.md §8](12-operations.md#8-secrets-and-rotation).
 - **Smoke logins:** export `SMOKE_ADMIN_EMAIL`, `SMOKE_ADMIN_PASSWORD`, `SMOKE_TEACHER_EMAIL`, `SMOKE_TEACHER_PASSWORD`, `SMOKE_SUPER_ADMIN_EMAIL`, `SMOKE_SUPER_ADMIN_PASSWORD`. Missing ones fail pre-flight.
 
 Things to know:

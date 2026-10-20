@@ -169,11 +169,11 @@
       loop: '{{ images }}'
       tags: [always]
 
-    # The restore drill mounts this file into `backup`; without it the backup container (and so
-    # the pre-migrate backup) cannot start. 12-operations.md section 8 says how it gets here.
+    # The restore drill reads this key from the `drill/` directory mounted into `backup`; without
+    # it the weekly drill fails at its config check. 12-operations.md section 8 says how it gets here.
     - name: Check the backup age key is on the host (prod)
       ansible.builtin.stat:
-        path: '{{ project_dir }}/age-key.txt'
+        path: '{{ project_dir }}/drill/key.txt'
       register: age_key
       when: env == 'prod'
       tags: [always]
@@ -184,7 +184,7 @@
           - age_key.stat.exists
           - age_key.stat.uid == 10001
           - age_key.stat.mode == '0400'
-        fail_msg: '{{ project_dir }}/age-key.txt must exist, owner 10001, mode 0400 (12-operations.md section 8).'
+        fail_msg: '{{ project_dir }}/drill/key.txt must exist, owner 10001, mode 0400 (12-operations.md section 8).'
         quiet: true
       when: env == 'prod'
       tags: [always]

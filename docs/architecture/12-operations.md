@@ -643,14 +643,14 @@ owner and mode on `ops/`); `write-env.yml` only writes files, and keeps
 `root:deploy 0640` on every deploy. This differs from D19's "mode 0600 root" for
 `.env`: with that, `deploy` could not run any compose command without `sudo`.
 
-**`age-key.txt` is put on the host by hand, once per env that runs backups**
+**The age key (`drill/key.txt`) is put on the host by hand, once per env that runs backups**
 (prod). Its master copy lives in the password manager and is never committed
 ([13-backup-restore.md, Key handling](13-backup-restore.md#key-handling)), so
 no playbook writes it. From the laptop, without a temp file on the host:
 
 ```bash
-ssh deploy@<host> "sudo sh -c 'umask 0377; cat > /opt/biddaloy/prod/age-key.txt && chown 10001:10001 /opt/biddaloy/prod/age-key.txt'" < ~/age-key.txt
-ssh deploy@<host> sudo stat -c '%u %a' /opt/biddaloy/prod/age-key.txt   # must print: 10001 400
+ssh deploy@<host> "sudo sh -c 'umask 0377; cat > /opt/biddaloy/prod/drill/key.txt && chown 10001:10001 /opt/biddaloy/prod/drill/key.txt'" < ~/age-key.txt
+ssh deploy@<host> sudo stat -c '%u %a' /opt/biddaloy/prod/drill/key.txt   # must print: 10001 400
 ```
 
 A prod deploy checks it in pre-flight and stops if it is missing or has the
