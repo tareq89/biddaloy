@@ -208,6 +208,25 @@ flowchart LR
   Dhaka year, after any number that year already has, with a snapshot of the school as it is at
   migration time. GRANT-only, unpaid and orphan-only orders stay NULL, and a rerun changes nothing.
   So the three PRs do not have to deploy as one unit. No receipt email is sent for these.
+- **Gap between the migration and the new app**: `migration:run` is its own deploy step. An order
+  paid while the **old** app still runs after it gets no number (old code never sets one):
+
+  | Step                          | Order paid now gets a number?  |
+  | ----------------------------- | ------------------------------ |
+  | old app, before the migration | yes, by the migration backfill |
+  | old app, after the migration  | **no**: rerun the backfill     |
+  | new app                       | yes, in `markPaid`             |
+
+  Rerun it (idempotent: only `PAID` rows with no number change) from `server/`, with the
+  production `DATABASE_URL` and `BILLING_VAT_REGISTRATION` set, as for `migration:run`:
+
+  ```bash
+  yarn ts-node -e "import ds from './src/data-source'; import { SeatOrderReceiptNumber1791900000400 as M } from './src/migrations/1791900000400-SeatOrderReceiptNumber'; ds.initialize().then(async () => { await M.backfill(ds.createQueryRunner()); await ds.destroy(); });"
+  ```
+
+  Example: an offline payment recorded at 10:02 between `migration:run` (10:00) and the new
+  container (10:05) has `receipt_number` NULL; after the rerun it is `SMR-2026-000013`.
+
 - **Ceiling**: the next number is a `max()` over a regex (no index) under one platform-wide lock.
   Move to a per-year counter row when order volume grows.
 
