@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { createTestModule } from '@test/helpers/module.helper';
+import { SEED_SECTION_1_ID } from '@test/constants';
 import { AuthModule } from '../../../auth/auth.module';
 import { TenantStatusModule } from '../../../schools/tenant-status.module';
 import { TenantStatusService } from '../../../schools/tenant-status.service';
@@ -14,18 +15,17 @@ import type { AttentionRule, RuleContext } from '../rule.types';
 import { PlatformBackupFailingRule } from './platform-backup-failing.rule';
 import { PlatformProviderFailuresRule } from './platform-provider-failures.rule';
 import { PlatformRulesModule } from './platform-rules.module';
-import { PlatformTrialsEndingRule } from './platform-trials-ending.rule';
+import { PlatformSeatsExpiringRule } from './platform-seats-expiring.rule';
 
 const NOW = new Date('2026-10-10T05:00:00Z');
 const HOUR = 3_600_000;
-const DAY = 24 * HOUR;
-const KEYS = ['platform.backup_failing', 'platform.trials_ending', 'platform.provider_failures'];
+const KEYS = ['platform.backup_failing', 'platform.seats.expiring', 'platform.provider_failures'];
 
 describe('Platform rules (integration)', () => {
   let ds: DataSource;
   let writer: AlertWriterService;
   let backup: PlatformBackupFailingRule;
-  let trials: PlatformTrialsEndingRule;
+  let seatsRule: PlatformSeatsExpiringRule;
   let providers: PlatformProviderFailuresRule;
   let P: string;
   let A: string;
@@ -65,6 +65,13 @@ describe('Platform rules (integration)', () => {
     );
     return id;
   };
+  /** A PAID order whose cover ends `daysFromNow` days after the test's local date (2026-10-10). */
+  const paidOrder = (schoolId: string, daysFromNow: number) =>
+    ds.query(
+      `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key, paid_at)
+       VALUES ($1, 5, 1, 1000, 5000, DATE '2026-10-10' - 30, DATE '2026-10-10' + $2::int, 'PAID', gen_random_uuid()::text, NOW())`,
+      [schoolId, daysFromNow],
+    );
   const exportJob = (tenantId: string, status: string, finishedAt: Date | null) =>
     ds.query(
       `INSERT INTO workbook_jobs (tenant_id, kind, status, finished_at) VALUES ($1, 'EXPORT', $2, $3)`,
@@ -101,7 +108,7 @@ describe('Platform rules (integration)', () => {
     ds = module.get(DataSource);
     writer = module.get(AlertWriterService);
     backup = module.get(PlatformBackupFailingRule);
-    trials = module.get(PlatformTrialsEndingRule);
+    seatsRule = module.get(PlatformSeatsExpiringRule);
     providers = module.get(PlatformProviderFailuresRule);
     P = await mkSchool('Platform HQ');
     A = await mkSchool('Alpha School', { backup: { schedule: 'DAILY' } });
@@ -117,7 +124,9 @@ describe('Platform rules (integration)', () => {
     await ds.query(`DELETE FROM alerts WHERE rule_key = ANY($1)`, [KEYS]);
     await ds.query(`DELETE FROM workbook_jobs WHERE tenant_id = ANY($1)`, [[A, B]]);
     await ds.query(`DELETE FROM communication_logs WHERE tenant_id = ANY($1)`, [[A, B]]);
-    await ds.query(`UPDATE schools SET trial_ends_at = NULL WHERE id = ANY($1)`, [[A, B]]);
+    await ds.query(`DELETE FROM seat_orders WHERE school_id = ANY($1)`, [[A, B]]);
+    await ds.query(`DELETE FROM students WHERE tenant_id = ANY($1)`, [[A, B]]);
+    await ds.query(`UPDATE schools SET seat_limit = NULL WHERE id = ANY($1)`, [[A, B]]);
   });
 
   afterAll(async () => {
@@ -150,19 +159,38 @@ describe('Platform rules (integration)', () => {
     ).toEqual([{ status: 'RESOLVED' }]);
   });
 
-  it('trials_ending: a trial ending in 3 days fires, in 10 days does not', async () => {
-    await ds.query(`UPDATE schools SET trial_ends_at = $2 WHERE id = $1`, [
-      B,
-      new Date(NOW.getTime() + 3 * DAY),
-    ]);
-    const [f] = await trials.evaluate(ctx(P));
+  it('seats.expiring: paid cover ending in 3 days fires, in 30 days does not; a full school fires', async () => {
+    await ds.query(`UPDATE schools SET seat_limit = 5 WHERE id = ANY($1)`, [[A, B]]);
+    await paidOrder(B, 3);
+    const [f] = await seatsRule.evaluate(ctx(P));
     expect(f.params).toEqual({ count: 1, schools: 'Beta School' });
 
-    await ds.query(`UPDATE schools SET trial_ends_at = $2 WHERE id = $1`, [
-      B,
-      new Date(NOW.getTime() + 10 * DAY),
-    ]);
-    expect(await trials.evaluate(ctx(P))).toEqual([]);
+    await ds.query(`DELETE FROM seat_orders WHERE school_id = $1`, [B]);
+    await paidOrder(B, 30);
+    expect(await seatsRule.evaluate(ctx(P))).toEqual([]);
+
+    // Alpha has 2 of 2 seats taken, with cover far away: still listed.
+    await ds.query(`UPDATE schools SET seat_limit = 2 WHERE id = $1`, [A]);
+    await ds.query(
+      `INSERT INTO students (tenant_id, full_name, registration_number, roll_number, class_section_id)
+       SELECT $1, 'Seat Holder', 'R-' || g || '-' || substr(gen_random_uuid()::text, 1, 6), g, $2
+         FROM generate_series(1, 2) g`,
+      [A, SEED_SECTION_1_ID],
+    );
+    const [full] = await seatsRule.evaluate(ctx(P));
+    expect(full.params).toEqual({ count: 1, schools: 'Alpha School' });
+  });
+
+  it('seats.expiring: a longer GRANT does not hide own cover ending in 3 days', async () => {
+    await ds.query(`UPDATE schools SET seat_limit = 5 WHERE id = $1`, [B]);
+    await paidOrder(B, 3);
+    await ds.query(
+      `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, period_start, period_end, status, idempotency_key, paid_at)
+       VALUES ($1, 5, 12, 0, 0, DATE '2026-10-10', DATE '2027-10-10', 'PAID', gen_random_uuid()::text, NOW())`,
+      [B],
+    );
+    const [f] = await seatsRule.evaluate(ctx(P));
+    expect(f.params).toEqual({ count: 1, schools: 'Beta School' });
   });
 
   it('provider_failures: 25 failed logs across two schools fire, 19 do not', async () => {
@@ -176,12 +204,10 @@ describe('Platform rules (integration)', () => {
 
   it('never produces findings for a normal school and writes no alerts there', async () => {
     await exportJob(A, 'FAILED', null);
-    await ds.query(`UPDATE schools SET trial_ends_at = $2 WHERE id = $1`, [
-      B,
-      new Date(NOW.getTime() + 3 * DAY),
-    ]);
+    await ds.query(`UPDATE schools SET seat_limit = 5 WHERE id = $1`, [B]);
+    await paidOrder(B, 3);
     await failedLogs(A, 25);
-    for (const rule of [backup, trials, providers]) {
+    for (const rule of [backup, seatsRule, providers]) {
       for (const tenant of [A, B]) {
         expect(await rule.evaluate(ctx(tenant))).toEqual([]);
         await sweep(rule, tenant);
@@ -191,7 +217,7 @@ describe('Platform rules (integration)', () => {
     expect(await alertCount(A)).toBe(0);
     expect(await alertCount(B)).toBe(0);
     expect(adminA).toBeTruthy();
-    for (const rule of [backup, trials, providers]) await sweep(rule, P);
+    for (const rule of [backup, seatsRule, providers]) await sweep(rule, P);
     expect(await alertCount(P)).toBe(3);
     const recips = await ds.query(
       `SELECT DISTINCT ar.user_id FROM alert_recipients ar JOIN alerts a ON a.id = ar.alert_id WHERE a.rule_key = ANY($1)`,

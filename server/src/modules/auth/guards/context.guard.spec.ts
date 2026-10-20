@@ -6,6 +6,7 @@ import { ContextGuard, RolesGuard } from './context.guard';
 import { UserRole, SchoolStatus } from '@biddaloy/shared';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 import { ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY } from '../decorators/allow-when-suspended-for-billing.decorator';
+import { ALLOW_WHEN_READ_ONLY_KEY } from '../decorators/allow-when-read-only.decorator';
 
 const PLATFORM_TENANT_ID = 'platform-tenant';
 
@@ -22,6 +23,7 @@ describe('ContextGuard', () => {
     isSuspendedForBilling: ReturnType<typeof vi.fn>;
     isRestoring: ReturnType<typeof vi.fn>;
     platformTenantId: ReturnType<typeof vi.fn>;
+    getReadOnlyUntil: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -36,6 +38,7 @@ describe('ContextGuard', () => {
       isRestoring: vi.fn().mockResolvedValue(false),
       // Platform designation lives in TenantStatusService (its own spec covers env/prod/slug rules).
       platformTenantId: vi.fn().mockResolvedValue(PLATFORM_TENANT_ID),
+      getReadOnlyUntil: vi.fn().mockResolvedValue(null),
     };
     guard = new ContextGuard(reflector, tenantStatus as unknown as TenantStatusService);
   });
@@ -316,6 +319,120 @@ describe('ContextGuard', () => {
       await expect(
         guard.canActivate(createMockContext(restoreReq('GET', memberships, PLATFORM_TENANT_ID))),
       ).resolves.toBe(true);
+    });
+  });
+
+  describe('Seat-grace read-only window (Epic 49 D9)', () => {
+    const UNTIL = new Date('2027-01-07T18:00:00.000Z');
+    const adminOf = [{ tenantId: 'tenant-1', role: UserRole.ADMIN }];
+    const call = (method: string, handler: () => void = () => {}, tenantId = 'tenant-1') =>
+      guard.canActivate(
+        createMockContext(
+          {
+            method,
+            user: { sub: 'user-1', email: 'a@b.c', phone: null, memberships: adminOf },
+            headers: { 'x-tenant-id': tenantId },
+          },
+          handler,
+        ),
+      );
+    beforeEach(() => tenantStatus.getReadOnlyUntil.mockResolvedValue(UNTIL));
+
+    it('lets a GET through during grace', async () => {
+      await expect(call('GET')).resolves.toBe(true);
+    });
+
+    it('lets a HEAD through during grace', async () => {
+      await expect(call('HEAD')).resolves.toBe(true);
+    });
+
+    it('lets an OPTIONS through during grace', async () => {
+      await expect(call('OPTIONS')).resolves.toBe(true);
+    });
+
+    // Same message and code for every write (Rule 23).
+    const readOnly403 = {
+      status: 403,
+      response: {
+        message: 'This school is read-only',
+        details: { code: 'TENANT_READ_ONLY', until: UNTIL.toISOString() },
+      },
+    };
+
+    it('refuses a POST with 403 TENANT_READ_ONLY and the until date', async () => {
+      await expect(call('POST')).rejects.toMatchObject(readOnly403);
+    });
+
+    it('refuses a PUT with 403 TENANT_READ_ONLY', async () => {
+      await expect(call('PUT')).rejects.toMatchObject(readOnly403);
+    });
+
+    it('refuses a PATCH with 403 TENANT_READ_ONLY', async () => {
+      await expect(call('PATCH')).rejects.toMatchObject(readOnly403);
+    });
+
+    it('refuses a DELETE with 403 TENANT_READ_ONLY', async () => {
+      await expect(call('DELETE')).rejects.toMatchObject(readOnly403);
+    });
+
+    it('lets an @AllowWhenSuspendedForBilling POST through so the school can pay', async () => {
+      const h = () => {};
+      Reflect.defineMetadata(ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY, true, h);
+      await expect(call('POST', h)).resolves.toBe(true);
+    });
+
+    it("lets an @AllowWhenReadOnly write through (a user's own state)", async () => {
+      const h = () => {};
+      Reflect.defineMetadata(ALLOW_WHEN_READ_ONLY_KEY, true, h);
+      await expect(call('PATCH', h)).resolves.toBe(true);
+    });
+
+    it('lets a write through when the school is not over its seats', async () => {
+      tenantStatus.getReadOnlyUntil.mockResolvedValue(null);
+      await expect(call('POST')).resolves.toBe(true);
+    });
+
+    it('never applies to the platform tenant', async () => {
+      const req = {
+        method: 'POST',
+        user: {
+          sub: 'user-1',
+          email: 'a@b.c',
+          phone: null,
+          memberships: [{ tenantId: PLATFORM_TENANT_ID, role: UserRole.SUPER_ADMIN }],
+        },
+        headers: { 'x-tenant-id': PLATFORM_TENANT_ID },
+      };
+      await expect(guard.canActivate(createMockContext(req))).resolves.toBe(true);
+      expect(tenantStatus.getReadOnlyUntil).not.toHaveBeenCalled();
+    });
+
+    it("tenant B's write is judged on tenant B's own window (isolation)", async () => {
+      tenantStatus.getReadOnlyUntil.mockImplementation(async (id: string) =>
+        id === 'tenant-1' ? UNTIL : null,
+      );
+      const both = [
+        { tenantId: 'tenant-1', role: UserRole.ADMIN },
+        { tenantId: 'tenant-2', role: UserRole.ADMIN },
+      ];
+      const req = (tenantId: string) => ({
+        method: 'POST',
+        user: { sub: 'user-1', email: 'a@b.c', phone: null, memberships: both },
+        headers: { 'x-tenant-id': tenantId },
+      });
+      await expect(guard.canActivate(createMockContext(req('tenant-1')))).rejects.toMatchObject({
+        status: 403,
+      });
+      await expect(guard.canActivate(createMockContext(req('tenant-2')))).resolves.toBe(true);
+    });
+
+    it('after the daily job suspends the school the answer is TENANT_SUSPENDED with the reason', async () => {
+      tenantStatus.getStatus.mockResolvedValue(SchoolStatus.SUSPENDED);
+      tenantStatus.getStatusReason.mockResolvedValue('SEATS_EXPIRED');
+      await expect(call('GET')).rejects.toMatchObject({
+        status: 403,
+        response: { details: { code: 'TENANT_SUSPENDED', reason: 'SEATS_EXPIRED' } },
+      });
     });
   });
 

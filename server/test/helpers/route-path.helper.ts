@@ -297,6 +297,13 @@ export const ALLOWLIST: AllowlistEntry[] = [
       "[68.1.10] Bearer-authenticated, tenant-agnostic: acts only on the caller's own JOIN_SCHOOL row (every id paired with user.sub). Throttled via STRICT_RATE_LIMIT.",
   },
   {
+    controller: 'BkashCallbackController',
+    method: 'GET',
+    path: '/billing/bkash/callback',
+    reason:
+      '[49 W4 #1820] Public bKash redirect target (a browser redirect carries no bearer token). The paymentID is only believed after bKash execute/query confirms it, the order is paid only on Completed + matching invoice and amount, and a replay is a no-op. Throttled via STRICT_RATE_LIMIT.',
+  },
+  {
     controller: 'SocialAuthController',
     method: 'GET',
     path: '/auth/social/providers',

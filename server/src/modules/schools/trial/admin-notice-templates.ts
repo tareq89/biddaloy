@@ -1,9 +1,27 @@
-export type AdminNoticeKey = 'welcome' | 'idle_d20' | 'idle_d27' | 'idle_suspended';
+export type AdminNoticeKey =
+  | 'welcome'
+  | 'idle_d20'
+  | 'idle_d27'
+  | 'idle_suspended'
+  | 'seats_d30'
+  | 'seats_d7'
+  | 'seats_expired'
+  | 'seats_suspended'
+  | 'receipt';
 export type NoticeLocale = 'en' | 'bn';
 
 export interface NoticeVars {
   school: string;
   link?: string;
+  /** First day without paid seats (YYYY-MM-DD), for the seat notices. */
+  date?: string;
+  seats?: number;
+  /** Receipt number (SMR-YYYY-NNNNNN), for the `receipt` notice. */
+  receipt?: string;
+  /** The seats that end are the free period (the school never paid for later seats). */
+  free?: boolean;
+  /** The school has more ACTIVE students than seats once they end: it goes read-only, then paused. */
+  over?: boolean;
 }
 
 interface Template {
@@ -56,6 +74,70 @@ const TEMPLATES: Record<AdminNoticeKey, Record<NoticeLocale, Template>> = {
       subject: (v) => `${v.school} সাময়িক বন্ধ করা হয়েছে`,
       body: (v) =>
         `কোনো শিক্ষার্থী যোগ না হওয়ায় ${v.school} সাময়িক বন্ধ করা হয়েছে। আপনার তথ্য নিরাপদ আছে। আবার চালু করতে আমাদের সঙ্গে যোগাযোগ করুন।`,
+    },
+  },
+  seats_d30: {
+    en: {
+      subject: (v) => `${v.school}: seats run out in 30 days`,
+      body: (v) =>
+        v.free
+          ? `Free use of ${v.school} ends on ${v.date ?? ''}. Buy seats in Settings, Seats & billing to keep adding students.`
+          : `The ${v.seats ?? ''} paid seats of ${v.school} run out on ${v.date ?? ''}. Buy seats for the next period in Settings, Seats & billing to keep adding students.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: ৩০ দিনের মধ্যে সিট শেষ হবে`,
+      body: (v) =>
+        v.free
+          ? `${v.school}-এর বিনা খরচে ব্যবহার ${v.date ?? ''} তারিখে শেষ হবে। শিক্ষার্থী যোগ করা চালু রাখতে সেটিংস, সিট ও বিলিং থেকে সিট কিনুন।`
+          : `${v.school}-এর ${v.seats ?? ''}টি পরিশোধিত সিট ${v.date ?? ''} তারিখে শেষ হবে। শিক্ষার্থী যোগ করা চালু রাখতে সেটিংস, সিট ও বিলিং থেকে পরবর্তী সময়ের জন্য সিট কিনুন।`,
+    },
+  },
+  seats_d7: {
+    en: {
+      subject: (v) => `${v.school}: seats run out in 7 days`,
+      body: (v) =>
+        `Only 7 days left. ${v.free ? `Free use of ${v.school} ends` : `The paid seats of ${v.school} run out`} on ${v.date ?? ''}${v.over ? ', then the school becomes read-only' : ''}. Buy seats in Settings, Seats & billing.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: ৭ দিনের মধ্যে সিট শেষ হবে`,
+      body: (v) =>
+        `আর মাত্র ৭ দিন বাকি। ${v.free ? `${v.school}-এর বিনা খরচে ব্যবহার` : `${v.school}-এর পরিশোধিত সিট`} ${v.date ?? ''} তারিখে শেষ হবে${v.over ? ', তারপর স্কুল শুধু দেখা যাবে' : ''}। সেটিংস, সিট ও বিলিং থেকে সিট কিনুন।`,
+    },
+  },
+  seats_expired: {
+    en: {
+      subject: (v) => `${v.school}: seats have expired`,
+      body: (v) =>
+        `${v.free ? `Free use of ${v.school}` : `The paid seats of ${v.school}`} ended on ${v.date ?? ''}. ${v.over ? 'The school is read-only for 7 days, then paused. Your data is safe.' : 'You cannot add students until you buy seats.'} Buy seats in Settings, Seats & billing to continue.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: সিটের মেয়াদ শেষ`,
+      body: (v) =>
+        `${v.free ? `${v.school}-এর বিনা খরচে ব্যবহারের` : `${v.school}-এর পরিশোধিত সিটের`} মেয়াদ ${v.date ?? ''} তারিখে শেষ হয়েছে। ${v.over ? '৭ দিন স্কুল শুধু দেখা যাবে, তারপর সাময়িক বন্ধ হবে। আপনার তথ্য নিরাপদ আছে।' : 'সিট না কেনা পর্যন্ত নতুন শিক্ষার্থী যোগ করা যাবে না।'} চালু রাখতে সেটিংস, সিট ও বিলিং থেকে সিট কিনুন।`,
+    },
+  },
+  receipt: {
+    en: {
+      subject: (v) => `${v.school}: payment receipt ${v.receipt ?? ''}`,
+      body: (v) =>
+        `Thank you. We received the payment for the seats of ${v.school}. Receipt ${v.receipt ?? ''}: download it in Settings, Seats & billing. ${v.link ?? ''}`.trim(),
+    },
+    bn: {
+      subject: (v) => `${v.school}: পেমেন্ট রসিদ ${v.receipt ?? ''}`,
+      body: (v) =>
+        `ধন্যবাদ। ${v.school}-এর সিটের পেমেন্ট পেয়েছি। রসিদ ${v.receipt ?? ''}: সেটিংস, সিট ও বিলিং থেকে ডাউনলোড করুন। ${v.link ?? ''}`.trim(),
+    },
+  },
+  seats_suspended: {
+    en: {
+      subject: (v) => `${v.school}: school paused, seats ended`,
+      body: (v) =>
+        `${v.school} is paused because its paid seats ended. Your data is safe. Buy seats in Settings, Seats & billing and the school reopens immediately.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: সিট শেষ, স্কুল সাময়িক বন্ধ`,
+      body: (v) =>
+        `সিটের মেয়াদ শেষ হওয়ায় ${v.school} সাময়িক বন্ধ আছে। আপনার তথ্য নিরাপদ আছে। সেটিংস, সিট ও বিলিং থেকে সিট কিনলে স্কুল সঙ্গে সঙ্গে আবার চালু হবে।`,
     },
   },
 };

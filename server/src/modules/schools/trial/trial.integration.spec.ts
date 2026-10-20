@@ -6,8 +6,11 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ADMIN_USER_ID } from '@test/constants';
 import { AuditService } from '../../audit/audit.service';
+import { SessionCutoffService } from '../../auth/session-cutoff.service';
+import { AdminNoticeService } from './admin-notice.service';
 import { EntitlementService } from '../../billing/entitlement.service';
 import { OrdersService } from '../../billing/orders.service';
+import { ReceiptService } from '../../billing/receipt.service';
 import { School } from '../entities/school.entity';
 import { TenantStatusService } from '../tenant-status.service';
 import { TrialService } from './trial.service';
@@ -25,6 +28,9 @@ describe('TrialService (integration): account start and seat grants', () => {
       OrdersService,
       AuditService,
       { provide: TenantStatusService, useValue: tenantStatus },
+      { provide: SessionCutoffService, useValue: { cutOff: vi.fn() } },
+      { provide: AdminNoticeService, useValue: { notifyAdmins: vi.fn() } },
+      { provide: ReceiptService, useValue: { emailReceipt: vi.fn() } },
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
     trial = module.get(TrialService);
@@ -76,7 +82,12 @@ describe('TrialService (integration): account start and seat grants', () => {
 
     const school = await trial.grantSeats(
       id,
-      { seats: 15, months: 2, reason: 'Pilot school, agreed with the owner' },
+      {
+        seats: 15,
+        months: 2,
+        reason: 'Pilot school, agreed with the owner',
+        idempotency_key: 'grant-key-0001',
+      },
       { userId: SEED_ADMIN_USER_ID },
     );
 

@@ -6,7 +6,6 @@ import {
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
-import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
@@ -28,12 +27,7 @@ import { SchoolsListView } from './-schools-list-view';
  * `-schools-list-view.tsx` carries the actual table markup so it can be
  * storied on its own; this file only wires the live query and navigation.
  */
-const searchSchema = z.object({
-  trial: z.enum(['active', 'expired']).optional().catch(undefined),
-});
-
 export const Route = createFileRoute('/_platform/schools/')({
-  validateSearch: searchSchema,
   // No `ensureQueryData` prefetch — `useSchools()`
   // (`ui/src/hooks/school-settings.ts`) has no `queryOptions` factory to
   // share with a loader (it's a plain `useQuery` call, same shape
@@ -50,8 +44,7 @@ export const Route = createFileRoute('/_platform/schools/')({
 function SchoolsListPage() {
   const { t } = useTranslation('platform');
   const navigate = useNavigate();
-  const { trial } = Route.useSearch();
-  const schoolsQuery = useSchools(trial ? { trial } : {});
+  const schoolsQuery = useSchools();
   const backupHealthQuery = usePlatformBackupHealth();
   const engineHealth = usePlatformAttentionHealth();
   const [search, setSearch] = React.useState('');
@@ -75,10 +68,6 @@ function SchoolsListPage() {
         {...(schoolsQuery.isError ? { error: t('schools.errorMessage') } : {})}
         search={search}
         onSearchChange={setSearch}
-        {...(trial ? { trial } : {})}
-        onTrialChange={(next) =>
-          void navigate({ to: '/schools', search: next ? { trial: next } : {}, replace: true })
-        }
         onNew={() => void navigate({ to: '/schools/new' })}
       />
 

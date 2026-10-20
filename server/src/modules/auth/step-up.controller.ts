@@ -13,6 +13,7 @@ import { requestContext } from '../../common/request-context.util';
 import { FailClosedWithoutRedis } from '../../common/rate-limit/app-throttler.guard';
 import { StepUpService, StepUpOtpRequestResult } from './step-up.service';
 import { StepUpOtpRequestDto, StepUpVerifyDto, StepUpApprovalResponse } from './dto/step-up.dto';
+import { AllowWhenReadOnly } from './decorators/allow-when-read-only.decorator';
 
 /**
  * `POST /auth/step-up/*` (16.2.2) — turns an admin's credentials, typed on
@@ -29,6 +30,7 @@ import { StepUpOtpRequestDto, StepUpVerifyDto, StepUpApprovalResponse } from './
 export class StepUpController {
   constructor(private readonly stepUp: StepUpService) {}
 
+  @AllowWhenReadOnly()
   @Post('otp/request')
   @RequirePermissions(Permission.STEP_UP_REQUEST)
   @HttpCode(HttpStatus.ACCEPTED)
@@ -44,6 +46,7 @@ export class StepUpController {
     return this.stepUp.requestOtp(dto.identifier, tenant.id, user.sub);
   }
 
+  @AllowWhenReadOnly()
   @Post()
   @RequirePermissions(Permission.STEP_UP_REQUEST)
   @HttpCode(HttpStatus.OK)

@@ -124,10 +124,11 @@ flowchart TD
   audit row with `event: SEAT_LIMIT_RECOMPUTED`.
 - `OrdersService.createPending` prices an order at seats x months x 1000 paisa
   (BDT 10 per seat per month). `markPaid` flips `PENDING` to `PAID` once; a
-  replay changes nothing. The period is set on payment: a purchase starts on
-  the later of today and the day the school's last PAID period ends. So a
-  renewal bought early extends the seats; it never counts them twice. A
-  platform `GRANT` starts today and adds to the seats in force (a top-up).
+  replay changes nothing. The period is set on payment: a purchase of at
+  least as many seats as the school's own cover starts where that cover ends
+  (a renewal never counts seats twice); a smaller one, and a platform `GRANT`,
+  start today and add seats (a top-up). Grants never count as cover. Full
+  rule: [28-billing.md](28-billing.md#where-a-paid-orders-period-starts).
   Example: 100 seats for Jan 1 to Jul 1, renewed for 6 months on Jun 1, run
   Jul 1 to Jan 1. June still has 100 seats, not 200.
 - Paying also lifts an `IDLE` suspension at once, and the idle job never
@@ -137,18 +138,81 @@ flowchart TD
   ended yesterday stops counting.
 - `GET /billing/summary` and `GET /billing/orders` (`SETTINGS_MANAGE`, own
   school only; `limit` at most 100).
-- Platform grant: `PATCH /schools/:id/trial` still exists with the same body
-  (`{ days, seat_limit, reason }`) but now grants `seat_limit` seats for `days`
-  rounded up to whole months, as a PAID order with method `GRANT`. It is no
-  longer able to "extend a trial".
+- Platform billing (SUPER_ADMIN, `PlatformSuperAdminGuard`, `/platform/billing/*`):
+  list and read every school's seats and orders, record an offline (bank / cash)
+  payment on a PENDING order, and grant seats
+  (`POST /platform/billing/schools/:id/grant { seats, months, reason, idempotency_key }`,
+  a PAID order with method `GRANT`). `PATCH /schools/:id/trial` is gone.
 - One-off per environment: `yarn workspace @biddaloy/server backfill-trials`
   (dry run; add `--apply --confirm-db=<name>`). It clears every
   `trial_ends_at` and reactivates schools suspended with `TRIAL_EXPIRED`.
+- Receipts for paid orders: see [28-billing.md](28-billing.md#receipts).
 - Legacy: the old trial warning mails, the `trial.ending` rule (now inert) and
   the `TRIAL_DAYS` / `TRIAL_SEAT_LIMIT` env values are gone or dead.
 - The attention rule for expiring seats is `seats.expiring` (it replaces the
   `billing.renewal_due` placeholder; the rule is built in a later Epic 49 ticket).
   `recompute` already asks the engine to recheck it.
+
+### Over the seats: 7 days read-only, then paused (D9)
+
+Nothing is stored for the grace window; it is worked out from the data each time. A school is
+**over** when it is `ACTIVE`, has a `seat_limit`, and has more `ACTIVE` students than that limit
+(same count as the seat limit above).
+
+```mermaid
+flowchart LR
+  A["Paid period ends<br/>(or BILLING_FREE_UNTIL, if never paid)"] --> B["Day 0 to 7: READ-ONLY<br/>GET works, every write is 403 TENANT_READ_ONLY"]
+  B --> C["Day 7, daily job 00:10<br/>SUSPENDED, reason SEATS_EXPIRED"]
+  C --> D["Every route 403 TENANT_SUSPENDED<br/>except billing + backup routes"]
+  B -- "paid order" --> E[ACTIVE, writes open at once]
+  D -- "paid order" --> E
+```
+
+- **Read-only until** = the end of the last `PAID` order's `period_end` that is on or before today
+  (school time), else the `BILLING_FREE_UNTIL` date, plus 7 days, at 00:00 Asia/Dhaka
+  (`billing/seat-grace.ts`). Example: paid period ends `2026-12-01`, so from 1 December the
+  school (if over its seats) is read-only, and the job pauses it once `2026-12-08 00:00 +06:00` has passed.
+- `ContextGuard` refuses `POST/PUT/PATCH/DELETE` for an over school with
+  `403 { "details": { "code": "TENANT_READ_ONLY", "until": "2026-12-07T18:00:00.000Z" } }`.
+  The text is the same for every write. Routes marked `@AllowWhenSuspendedForBilling`
+  (the pay-to-reopen routes) and the platform tenant are exempt. The answer is cached 5 minutes
+  and cleared by `invalidate` whenever `recompute` runs.
+- `EntitlementService.suspendIfGraceOver` (called by the daily `BillingScheduler` after the
+  recompute) pauses the school, bumps `users.tokens_valid_after` for every member (Rule 8) and
+  sends the `seats_suspended` notice to the admins.
+- `EntitlementService.recompute` (run when an order is marked paid) reactivates a
+  `SUSPENDED` + `SEATS_EXPIRED` school once it is no longer over, inside the same transaction,
+  even when the limit number itself did not change. It audits `REACTIVATE` / `SEATS_REACTIVATED`.
+  It also lifts a `SUSPENDED` + `IDLE` school once it has a PAID order (`IDLE_REACTIVATED`).
+- **Warnings (30 / 7 / 0 days):** `SeatNoticesService` and the `seats.expiring` rule count down to
+  `seatCover` (`billing/seat-grace.ts`): the last PAID `period_end` of the school's own orders
+  (a `GRANT`'s only when it has no own order), or the `BILLING_FREE_UNTIL` day when that is later. So a school that never paid is warned before the free period ends. An order
+  of 31 days or less gets no 30-day warning. The notices say "read-only, then paused" only when
+  the school has students (no order covers the day after, so any student puts it over).
+- **Writes that stay open on purpose** (they never run `ContextGuard`, and are not "this school"
+  requests by a signed-in member): device ingest, the public admission submit, public invoice
+  payment, and invite accept. An over-seat school can still receive these.
+- **A user's own writes stay open too** (they run `ContextGuard` but carry
+  `@AllowWhenReadOnly()`, so the read-only check skips them; a suspension still blocks them).
+  They change the signed-in user's own state, not the school's data:
+
+  | Route                                                                | Why it stays open                  |
+  | -------------------------------------------------------------------- | ---------------------------------- |
+  | `POST /attention/items/seen`, `.../:recipientId/hide`, `.../snooze`  | the user's own alert list          |
+  | `POST /auth/step-up`, `POST /auth/step-up/otp/request`               | proving who you are writes no data |
+  | `POST /me/push/subscriptions`, `DELETE /me/push/subscriptions[/:id]` | the user's own devices             |
+  | `PATCH /users/me/preferences/notifications`, `/dashboard`, `/digest` | the user's own settings            |
+
+  The list is pinned by `allow-when-suspended-for-billing.decorator.spec.ts` (`@AllowWhenReadOnly
+allowlist`) and by `USER_LEVEL_WRITES` in `read-only-route-walk.e2e-spec.ts`.
+
+- **Manual reactivate while still over:** if a platform admin reactivates a school that is still
+  over its seats, the school is read-only again at once (the window is already past), and the next
+  daily run pauses it again. Buy seats or remove students to really reopen it.
+- Known gap: the daily job only visits `ACTIVE` schools, so a paused school that later drops
+  below its limit by itself is not reopened automatically; paying, or a platform reactivate, is.
+- `read-only-route-walk.e2e-spec.ts` forces the seed school over its seats and proves every write
+  route behind `ContextGuard` answers `TENANT_READ_ONLY`.
 
 ### What a billing suspension can still do
 

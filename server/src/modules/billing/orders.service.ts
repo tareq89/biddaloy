@@ -1,8 +1,15 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { PlatformPaymentMethod, SeatOrderStatus, type SeatOrderDto } from '@biddaloy/shared';
 import { EntitlementService } from './entitlement.service';
+import { nextReceiptNumber } from './receipt-number.util';
+import { ReceiptService } from './receipt.service';
 
 /** D2: 1000 paisa (BDT 10) per seat per month. */
 export const SEAT_UNIT_PRICE_PAISA = 1000;
@@ -41,6 +48,7 @@ interface OrderRow {
   period_end: string;
   status: SeatOrderStatus;
   method: PlatformPaymentMethod | null;
+  receipt_number: string | null;
   paid_at: Date | null;
   created_at: Date;
 }
@@ -59,9 +67,13 @@ export class OrdersService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly entitlement: EntitlementService,
+    private readonly receipts: ReceiptService,
   ) {}
 
-  /** Same (school, idempotency_key) returns the first order untouched. */
+  /**
+   * Same (school, idempotency_key) and body returns the first order untouched; a different
+   * seats/months body is 409 IDEMPOTENCY_KEY_REUSED.
+   */
   async createPending(input: CreatePendingInput): Promise<SeatOrderDto> {
     return this.insertPending(this.dataSource.manager, input);
   }
@@ -105,10 +117,18 @@ export class OrdersService {
       `SELECT o.id, o.school_id, o.seats, o.months, o.unit_price_paisa, o.amount_paisa,
   o.period_start::text AS period_start, o.period_end::text AS period_end, o.status,
   (SELECT p.method FROM platform_payments p WHERE p.seat_order_id = o.id
-    ORDER BY p.created_at DESC LIMIT 1) AS method,
-  o.paid_at, o.created_at FROM seat_orders o WHERE o.school_id = $1 AND o.idempotency_key = $2`,
+    AND (p.raw->>'orphan') IS DISTINCT FROM 'true' ORDER BY p.created_at DESC LIMIT 1) AS method,
+  o.receipt_number, o.paid_at, o.created_at FROM seat_orders o WHERE o.school_id = $1 AND o.idempotency_key = $2`,
       [input.schoolId, input.idempotency_key],
     );
+    // A replay must be the same order; a different body on a used key is a client bug.
+    // Fixed text, no echo of what was sent (Rule 23).
+    if (row.seats !== input.seats || row.months !== input.months) {
+      throw new ConflictException({
+        message: 'This idempotency key was already used for a different order',
+        details: { code: 'IDEMPOTENCY_KEY_REUSED' },
+      });
+    }
     return toDto(row);
   }
 
@@ -130,7 +150,11 @@ export class OrdersService {
    */
   async markPaid(orderId: string, payment: PaymentInput): Promise<{ applied: boolean }> {
     const result = await this.dataSource.transaction((m) => this.payInTx(m, orderId, payment));
-    if (result.applied) await this.entitlement.afterCommit(result.schoolId);
+    if (result.applied) {
+      // Never fails the payment: the receipt stays downloadable even if the email does not go.
+      void this.receipts.emailReceipt(orderId);
+      await this.entitlement.afterCommit(result.schoolId);
+    }
     return { applied: result.applied };
   }
 
@@ -180,10 +204,45 @@ export class OrdersService {
           payment.recordedByUserId ?? null,
         ],
       );
+      // A GRANT is a zero-value platform gift, not a sale: no receipt.
+      if (payment.method !== PlatformPaymentMethod.GRANT) {
+        await m.query(
+          `UPDATE seat_orders SET receipt_number = $2,
+             receipt_snapshot = (SELECT jsonb_build_object('name', s.name, 'address', s.address, 'vat', $3::text)
+                                   FROM schools s WHERE s.id = seat_orders.school_id)
+           WHERE id = $1`,
+          [
+            orderId,
+            await nextReceiptNumber(m),
+            process.env.BILLING_VAT_REGISTRATION?.trim() || null,
+          ],
+        );
+      }
       await this.entitlement.recompute(paid.school_id, m);
       await payment.onApplied?.(m);
       return { applied: true as const, schoolId: paid.school_id };
     }
+  }
+
+  /** Just what a payment gateway needs to check an order; undefined for an unknown id. */
+  async findForPayment(
+    orderId: string,
+  ): Promise<
+    { id: string; school_id: string; amount_paisa: string; status: SeatOrderStatus } | undefined
+  > {
+    const [row] = await this.dataSource.query(
+      'SELECT id, school_id, amount_paisa, status FROM seat_orders WHERE id = $1',
+      [orderId],
+    );
+    return row;
+  }
+
+  /** PENDING -> FAILED, only while nothing was charged (a gateway create that never started). */
+  async markFailed(orderId: string): Promise<void> {
+    await this.dataSource.query(
+      'UPDATE seat_orders SET status = $2 WHERE id = $1 AND status = $3',
+      [orderId, SeatOrderStatus.FAILED, SeatOrderStatus.PENDING],
+    );
   }
 
   /**
@@ -218,8 +277,8 @@ export class OrdersService {
       `SELECT o.id, o.school_id, o.seats, o.months, o.unit_price_paisa, o.amount_paisa,
   o.period_start::text AS period_start, o.period_end::text AS period_end, o.status,
   (SELECT p.method FROM platform_payments p WHERE p.seat_order_id = o.id
-    ORDER BY p.created_at DESC LIMIT 1) AS method,
-  o.paid_at, o.created_at FROM seat_orders o WHERE o.school_id = $1
+    AND (p.raw->>'orphan') IS DISTINCT FROM 'true' ORDER BY p.created_at DESC LIMIT 1) AS method,
+  o.receipt_number, o.paid_at, o.created_at FROM seat_orders o WHERE o.school_id = $1
         ORDER BY o.created_at DESC LIMIT $2 OFFSET $3`,
       [schoolId, Math.min(Math.max(limit, 1), 100), Math.max(offset, 0)],
     );

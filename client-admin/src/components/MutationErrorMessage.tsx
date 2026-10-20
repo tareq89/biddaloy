@@ -1,4 +1,8 @@
+import { Permission } from '@biddaloy/shared';
+import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+
+import { SeatLimitReachedAction } from '../features/billing/SeatLimitReachedDialog';
 
 /**
  * `useMutation`'s `error` is typed `TError | null` where `TError` defaults
@@ -15,21 +19,29 @@ import { useTranslation } from '@biddaloy/ui/i18n';
  */
 export function MutationErrorMessage({ error }: { error: unknown }) {
   const { t } = useTranslation('trial');
+  const canBuy = useHasPermission(Permission.SETTINGS_MANAGE);
   const details = (error as { details?: Record<string, unknown> } | null)?.details;
   if (details?.code === 'SEAT_LIMIT_REACHED') {
     const { used, limit, requested } = details;
     return (
-      <p role="alert" className="text-sm text-destructive">
-        <strong>{t('seatLimit.title')}</strong>{' '}
-        {requested === undefined
-          ? t('seatLimit.bodyNoRequest', { used: Number(used), limit: Number(limit) })
-          : t('seatLimit.body', {
-              used: Number(used),
-              limit: Number(limit),
-              requested: Number(requested),
-            })}{' '}
-        {t('seatLimit.hint')}
-      </p>
+      <div role="alert" className="text-sm text-destructive">
+        <p>
+          <strong>{t('seatLimit.title')}</strong>{' '}
+          {requested === undefined
+            ? t('seatLimit.bodyNoRequest', { used: Number(used), limit: Number(limit) })
+            : t('seatLimit.body', {
+                used: Number(used),
+                limit: Number(limit),
+                requested: Number(requested),
+              })}{' '}
+          {!canBuy && t('seatLimit.hint')}
+        </p>
+        {canBuy && (
+          <SeatLimitReachedAction
+            shortfall={Number(used) + Number(requested ?? 1) - Number(limit)}
+          />
+        )}
+      </div>
     );
   }
   return (

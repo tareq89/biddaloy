@@ -84,6 +84,14 @@ function IdleSuspendedPage(): React.ReactNode {
   });
 }
 
+/** [49.9]: the same 403, with the reason the server adds when the daily job suspends a school over its seats. */
+function SeatsExpiredPage(): React.ReactNode {
+  throw Object.assign(new Error('This school has been suspended'), {
+    statusCode: 403,
+    details: { code: 'TENANT_SUSPENDED', reason: 'SEATS_EXPIRED' },
+  });
+}
+
 /** `decodeAccessTokenMemberships` never checks a signature. */
 function fakeJwtWithSchools(count: number): string {
   const memberships = Array.from({ length: count }, (_, i) => ({
@@ -268,6 +276,35 @@ describe('RouteErrorFallback', () => {
     expect(screen.getByRole('link', { name: 'Contact us' }).getAttribute('href')).toBe(
       'https://example.com/help',
     );
+  });
+
+  it('renders the seats-expired page with a Buy seats action, and reports nothing, for SEATS_EXPIRED', async () => {
+    renderWithRouter(buildRouteTree(SeatsExpiredPage), { initialEntries: ['/broken'] });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Your school is paused' }),
+    ).toBeTruthy();
+    expect(screen.getByText(/Your data is safe\. Buy seats in Settings/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Buy seats' })).toBeTruthy();
+    // Not the plain suspended copy and not the trial-ended page.
+    expect(screen.queryByText(/this school has been suspended/i)).toBeNull();
+    expect(screen.queryByText('Your trial has ended')).toBeNull();
+    expect(captureRouteError).not.toHaveBeenCalled();
+    expect(recordRouteChunkFallback).toHaveBeenCalledWith('suspended');
+  });
+
+  it('has the seats-expired and read-only keys in both English and Bangla', () => {
+    for (const lng of ['en', 'bn']) {
+      for (const key of [
+        'suspended.seatsTitle',
+        'suspended.seatsExplanation',
+        'suspended.buySeats',
+        'readOnly.notice',
+        'readOnly.buy',
+      ]) {
+        expect(i18n.exists(key, { ns: 'common', lng }), `${lng} ${key}`).toBe(true);
+      }
+    }
   });
 
   it('offers "Download your data" on the IDLE state to a role with BACKUP_MANAGE', async () => {

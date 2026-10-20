@@ -82,7 +82,13 @@ describe('billing E2E', () => {
   it('gives an ADMIN the summary with no orders yet', async () => {
     const { body } = await get('summary', tokens.admin).expect(200);
     const summary = body as BillingSummary;
-    expect(summary).toMatchObject({ seats_bought: 0, seats_used: 0, paid_until: null, orders: [] });
+    expect(summary).toMatchObject({
+      seats_bought: 0,
+      seats_used: 0,
+      paid_until: null,
+      read_only_until: null, // not over its seats: no grace window
+      orders: [],
+    });
     expect(typeof summary.free_until).toBe('string');
   });
 
@@ -122,8 +128,105 @@ describe('billing E2E', () => {
       .expect(refused);
   });
 
+  it('GET /billing/orders/:id/receipt: own paid order is 200 HTML; another school, unpaid, bad id, TEACHER are refused', async () => {
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Other Receipt School', 'other-receipt-school', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [OTHER_TENANT_ID],
+    );
+    const paidOrder = async (
+      schoolId: string,
+      key: string,
+      status: string,
+      receipt: string | null,
+    ) =>
+      (
+        await dataSource.query(
+          `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa,
+             period_start, period_end, status, idempotency_key, receipt_number, paid_at)
+           VALUES ($1, 10, 2, 1000, 20000, '2027-01-01', '2027-03-01', $3, $2, $4, NOW())
+           RETURNING id`,
+          [schoolId, key, status, receipt],
+        )
+      )[0].id as string;
+    const own = await paidOrder(TENANT_ID, 'receipt-own', 'PAID', 'SMR-2027-900001');
+    const foreign = await paidOrder(OTHER_TENANT_ID, 'receipt-foreign', 'PAID', 'SMR-2027-900002');
+    const unpaid = await paidOrder(TENANT_ID, 'receipt-unpaid', 'PENDING', null);
+
+    const res = await get(`orders/${own}/receipt`, tokens.admin).expect(200);
+    expect(res.headers['content-type']).toContain('text/html');
+    expect(res.text).toContain('SMR-2027-900001');
+    // Another school's order and an unpaid one look the same as a missing one.
+    await get(`orders/${foreign}/receipt`, tokens.admin).expect(404);
+    await get(`orders/${unpaid}/receipt`, tokens.admin).expect(404);
+    await get('orders/not-a-uuid/receipt', tokens.admin).expect(400);
+    await get(`orders/${own}/receipt`, tokens.teacher).expect(403);
+
+    await dataSource.query(`DELETE FROM seat_orders WHERE idempotency_key LIKE 'receipt-%'`);
+  });
+
   it('caps the orders limit at 100 and rejects a bad one with 400', async () => {
     await get('orders?limit=100', tokens.admin).expect(200);
     await get('orders?limit=101', tokens.admin).expect(400);
+  });
+
+  it('POST /billing/orders: ADMIN creates a PENDING order, retry is idempotent, bad input 400, TEACHER 403', async () => {
+    const post = (token: string, body: object) =>
+      supertest(app.getHttpServer())
+        .post('/api/v1/billing/orders')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send(body);
+    const key = '3f2b8c1e-5d4a-4b6e-9c7d-1a2b3c4d5e6f';
+    const a = await post(tokens.admin, { seats: 100, months: 3, idempotency_key: key }).expect(201);
+    expect(a.body).toMatchObject({
+      status: 'PENDING',
+      seats: 100,
+      months: 3,
+      amount_paisa: 300000,
+    });
+    const b = await post(tokens.admin, { seats: 100, months: 3, idempotency_key: key }).expect(201);
+    expect(b.body.id).toBe(a.body.id);
+    // Same key, different body: a client bug, refused with fixed text.
+    const reused = await post(tokens.admin, { seats: 5, months: 1, idempotency_key: key }).expect(
+      409,
+    );
+    expect(reused.body.details).toEqual({ code: 'IDEMPOTENCY_KEY_REUSED' });
+    await post(tokens.admin, { seats: 0, months: 3, idempotency_key: key }).expect(400);
+    await post(tokens.admin, { seats: 1, months: 25, idempotency_key: key }).expect(400);
+    await post(tokens.admin, { seats: 1, months: 1, idempotency_key: 'nope' }).expect(400);
+    await post(tokens.teacher, { seats: 1, months: 1, idempotency_key: key }).expect(403);
+  });
+
+  it('POST /billing/orders/:id/pay/bkash: TEACHER 403, non-UUID 400, unconfigured gateway 503', async () => {
+    const pay = (token: string, id: string) =>
+      supertest(app.getHttpServer())
+        .post(`/api/v1/billing/orders/${id}/pay/bkash`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID);
+    const id = '3f2b8c1e-5d4a-4b6e-9c7d-1a2b3c4d5e6f';
+    await pay(tokens.teacher, id).expect(403);
+    await pay(tokens.admin, 'not-a-uuid').expect(400);
+    // No BKASH_* env in the test run: the route answers a generic 503, never a gateway detail.
+    await pay(tokens.admin, id).expect(503);
+  });
+
+  it('GET /billing/bkash/callback (public): bad or unknown input redirects to a generic error and changes nothing', async () => {
+    const cb = (qs: string) =>
+      supertest(app.getHttpServer()).get(`/api/v1/billing/bkash/callback${qs}`);
+    const errorTarget = (r: supertest.Response) => {
+      expect(r.status).toBe(302);
+      expect(r.headers.location).toMatch(/\/settings\?section=billing&payment=error$/);
+      // Rule 23: the redirect never carries what was sent.
+      expect(r.headers.location).not.toContain('TR0011NOPE');
+    };
+    errorTarget(await cb(''));
+    errorTarget(await cb('?paymentID=TR0011NOPE&status=success'));
+    // bKash may append params we do not know (e.g. signature): still handled, not a 400.
+    errorTarget(await cb('?paymentID=TR0011NOPE&status=success&signature=abc&extra=1'));
+    const [{ n }] = await dataSource.query(
+      `SELECT count(*)::int AS n FROM platform_payments WHERE method = 'BKASH'`,
+    );
+    expect(n).toBe(0);
   });
 });

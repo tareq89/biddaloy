@@ -69,6 +69,7 @@ import { GuardianProvisioningService } from '../account-access/guardian-provisio
 import { BatchInviteDto } from '../account-access/dto/batch-invite.dto';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
+import { AllowWhenReadOnly } from '../auth/decorators/allow-when-read-only.decorator';
 
 /** The `users/me` routes act on the caller's own record (id from the JWT), so
  * every tenant role belongs on them. Derived, not hand-listed, so a new role
@@ -320,6 +321,7 @@ export class UserController {
   }
 
   @AuthenticatedOnly()
+  @AllowWhenReadOnly()
   @Patch('users/me/preferences/notifications')
   @Throttle({ default: SETTINGS_RATE_LIMIT })
   @Roles(...SELF_SERVICE_ROLES)
@@ -377,6 +379,7 @@ export class UserController {
    * acting as (id from the JWT, role from X-Role). Gated on permission only;
    * PARENT/STUDENT lack DASHBOARD_VIEW. Declared above `users/:id`.
    */
+  @AllowWhenReadOnly()
   @Patch('users/me/preferences/dashboard')
   @Throttle({ default: SETTINGS_RATE_LIMIT })
   @RequirePermissions(Permission.DASHBOARD_VIEW)
@@ -398,6 +401,7 @@ export class UserController {
    * Id from the JWT, never the path or body. `users` is global, so it applies
    * in every school. PARENT/STUDENT lack DASHBOARD_VIEW, so no digest.
    */
+  @AllowWhenReadOnly()
   @Patch('users/me/preferences/digest')
   @Throttle({ default: SETTINGS_RATE_LIMIT })
   @RequirePermissions(Permission.DASHBOARD_VIEW)
