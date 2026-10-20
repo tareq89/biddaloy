@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { PlatformAlertNotice, ReadOnlyNotice } from './platform-alert-banner';
+import { PlatformAlertNotice } from './platform-alert-banner';
+import { ReadOnlyNotice } from './read-only-notice';
 
 const meta: Meta<typeof PlatformAlertNotice> = {
   component: PlatformAlertNotice,

@@ -7,7 +7,8 @@ import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { PlatformAlertBanner, ReadOnlyNotice } from './platform-alert-banner';
+import { PlatformAlertBanner } from './platform-alert-banner';
+import { ReadOnlyNotice } from './read-only-notice';
 
 const OPEN = { alerts: [{ kind: 'REDIS_DOWN', opened_at: '2026-10-13T08:02:00.000Z' }] };
 
