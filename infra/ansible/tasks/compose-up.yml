@@ -1,0 +1,15 @@
+---
+# Start (or recreate what changed in) the stack. Images are already pulled.
+# Reads {{ project_dir }}/.env, so APP_VERSION there decides which images run.
+- name: Compose up and wait for healthy
+  community.docker.docker_compose_v2:
+    project_src: '{{ project_dir }}'
+    project_name: '{{ project_name }}'
+    files: '{{ compose_files }}'
+    state: present
+    pull: never
+    recreate: auto
+    remove_orphans: true
+    wait: true
+    wait_timeout: 180
+  tags: [mutating]

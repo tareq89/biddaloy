@@ -1,0 +1,33 @@
+---
+# Non-secret only. Secrets live in infra/secrets (SOPS).
+deploy_user: deploy
+# The operator's key pair on the controller. The play probes login with the
+# private half before it removes every other key from deploy.
+operator_ssh_privkey: ~/.ssh/id_ed25519
+# Public key(s), not a secret. Several operators: one key per line, all in this
+# one value (the deploy user keeps exactly these).
+operator_ssh_pubkey: "{{ lookup('ansible.builtin.file', operator_ssh_privkey ~ '.pub') }}"
+# ufw and the probe use the same port as Ansible, so a non-22 port cannot lock you out.
+ssh_port: '{{ hostvars[inventory_hostname].ansible_port | default(22) }}'
+host_timezone: Asia/Dhaka
+biddaloy_root: /opt/biddaloy
+biddaloy_envs: [prod, demo, staging, ops]
+allowed_public_tcp_ports: ['{{ ssh_port }}', 80, 443]
+# DHCP clients (v4, v6) bind the public interface; ufw still filters them.
+allowed_public_udp_ports: [68, 546]
+
+# geerlingguy.security
+security_ssh_permit_root_login: 'no'
+security_ssh_password_authentication: 'no'
+security_fail2ban_enabled: true
+security_autoupdate_enabled: true
+security_autoupdate_reboot: false
+
+# geerlingguy.docker
+docker_install_compose_plugin: true
+docker_users: ['{{ deploy_user }}']
+docker_daemon_options:
+  log-driver: json-file
+  log-opts:
+    max-size: 10m
+    max-file: '3'

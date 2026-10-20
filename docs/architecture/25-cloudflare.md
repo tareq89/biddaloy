@@ -5,6 +5,9 @@ certain dashboard settings. If one is wrong, users get blocked, caches leak
 private data, or the origin IP stays exposed. This page lists every setting,
 why it matters and how to check it.
 
+> Operator steps (day 0, first deploy, releases, alerts, restore) live in
+> [28-platform-runbook.md](28-platform-runbook.md). This page keeps the dashboard settings.
+
 ## Request path
 
 ```mermaid
@@ -80,6 +83,81 @@ the evidence.
 Also confirm nothing broke for: the public invoice page (`/i/:token`), the
 public verify page (`/v/:token`), sign-up with Turnstile, cert renewal.
 
+## Access policies
+
+Cloudflare Access puts a login in front of a hostname **at the edge**. nginx trusts it because only Cloudflare can
+reach the origin (`$origin_allowed`, D17). So the DNS record must stay proxied, or Access is bypassed.
+
+nginx also drops any request with no `Cf-Access-Jwt-Assertion` header (the token Access adds). That is a
+**tripwire, not authentication**. It catches a mis-set Access app: the DNS record added before the Access app, the
+app scoped to the wrong path, or a grey-clouded record. In each case no token arrives and nginx answers nothing. It
+does not stop a client that reaches the origin from an address nginx trusts: nginx checks only that the header is
+there, never its signature, so such a client just sends one.
+
+- With `TRUSTED_PROXY_CIDRS` empty, nginx trusts **every** address, so the header would be the whole gate. A prod
+  deploy therefore refuses `OPS_DOMAIN` / `STAGING_DOMAIN` while the list is empty (`infra/ansible/deploy.yml`).
+- With the list set, "trusted" still means any Cloudflare IP, which every Cloudflare customer shares. A real origin
+  check (Authenticated Origin Pulls with our own CA, a `cloudflared` tunnel, or JWT verification) is a follow-up.
+
+```mermaid
+flowchart LR
+  U[visitor] --> CF["Cloudflare edge<br/>Access: email = owner?"]
+  CF -->|no| L[login page, 302]
+  CF -->|yes, adds Cf-Access-Jwt-Assertion| N[origin nginx] --> A[staging app / ops UIs]
+```
+
+**Order matters: Access first, DNS second, hostname on the origin last.** Kuma and Beszel give admin to the first
+visitor of their setup page, and Dozzle has no login at all, so there must never be a moment where the name resolves
+and Access is not yet in front of it.
+
+```mermaid
+flowchart LR
+  A1["1. Access application<br/>(hostname, Owner only)"] --> A2["2. DNS record, proxied"] --> A3["3. verify: 302 to login"]
+  A3 --> A4["4. access_confirmed: true<br/>in inventory/prod.yml"] --> A5["5. OPS_DOMAIN / STAGING_DOMAIN<br/>in prod.enc.env, deploy prod"]
+```
+
+A prod deploy refuses a `prod.enc.env` that sets `OPS_DOMAIN` or `STAGING_DOMAIN` while `access_confirmed` is not
+`true` or `TRUSTED_PROXY_CIDRS` is empty (`infra/ansible/deploy.yml`). Until those are set, prod nginx serves neither hostname (`*.invalid`).
+
+### Staging (`staging.<domain>`)
+
+1. Zero Trust > Access > Applications > **Add an application** > **Self-hosted**.
+2. Name `Staging`. Session duration **24 hours**. Add public hostname `staging.<domain>` (path empty).
+3. Add policy: name `Owner only`, action **Allow**, include **Emails** = the owner's email. No other rule.
+4. Identity provider: **One-time PIN** is enough. Save.
+5. Only now, Cloudflare dashboard > DNS: add `staging` (A record to the origin IP, or CNAME to `app`), **Proxied** (orange cloud).
+6. Verify: `curl -sI https://staging.<domain>/` with no cookie gives `302` to `<team>.cloudflareaccess.com`. In a private
+   window the same URL asks for a login.
+7. Set `access_confirmed: true` in `infra/ansible/inventory/prod.yml`, put `STAGING_DOMAIN=staging.<domain>` in
+   `prod.enc.env`, and deploy prod. After that the app loads behind the login.
+8. Origin check (from your laptop, which is not a Cloudflare IP). Send a **forged** Access header, so the check tests
+   the Cloudflare-only lock and not the header tripwire:
+   ```bash
+   curl -k --resolve staging.<domain>:443:<origin-ip> -H 'Cf-Access-Jwt-Assertion: x' https://staging.<domain>/
+   ```
+   It must get an empty reply (`curl: (52)` or `(56)`), never a page. A page means `TRUSTED_PROXY_CIDRS` is not in
+   force: fix that before anything else.
+9. Also check `curl -sI https://staging.<domain>/ | grep -i x-robots-tag` after login (browser dev tools): `noindex, nofollow`.
+
+### Ops (`ops.<domain>`)
+
+Same steps with name `Ops` and hostname `ops.<domain>` (the ops stack is #1769), and `OPS_DOMAIN` in step 7. Policy
+`Owner only` again. Step 8 for it: `curl -k --resolve ops.<domain>:443:<origin-ip> -H 'Cf-Access-Jwt-Assertion: x'
+https://ops.<domain>/dozzle/` must get an empty reply too.
+
+The demo host pushes its nightly reset to Kuma through `ops.<domain>`, so the Ops application needs a second
+policy for it: Zero Trust > Access > Service credentials > **Create service token** `demo-reset-push`, then add a
+policy to `Ops` with action **Service Auth**, include **Service Token** = `demo-reset-push`. The token's id and
+secret go in the demo `.env` as `DEMO_RESET_PUSH_ACCESS_CLIENT_ID` / `_SECRET`; `scripts/demo/reset.sh` sends them
+as `CF-Access-Client-Id` / `CF-Access-Client-Secret`. Service auth adds `Cf-Access-Jwt-Assertion` like a login does,
+so nginx lets it through. A **Bypass** policy would not work: Bypass adds no token, and nginx drops the push. Do this **before** creating the Kuma and Beszel admins through `ops.<domain>`
+([12-operations.md §1](12-operations.md#setting-the-tools-up-by-hand-once)).
+
+| Application | Hostname           | Policy                                               | Check                                                                                     |
+| ----------- | ------------------ | ---------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `Staging`   | `staging.<domain>` | `Owner only`, 24 h, One-time PIN                     | `curl -sI` gives 302 to `cloudflareaccess.com`                                            |
+| `Ops`       | `ops.<domain>`     | `Owner only`, same, + Service Auth `demo-reset-push` | same; `/dozzle/` loads after login (`/kuma/`, `/beszel/`: see 12-operations known limits) |
+
 ## Re-check
 
 Quarterly, and after any Cloudflare plan change. Items 7, 8, 9 and 11 are
@@ -91,7 +169,11 @@ If users or devices get blocked, flip the item back in the dashboard first.
 It takes effect in seconds.
 
 If the origin lockdown is the cause, set `TRUSTED_PROXY_CIDRS=` (empty) and
-run `docker compose up -d nginx`. Empty means no CDN trust at all.
+run `docker compose up -d nginx`. Empty means no CDN trust at all. Also empty
+`OPS_DOMAIN` and `STAGING_DOMAIN`: with no lock, the header tripwire would be
+all that guards them (the next prod deploy refuses them anyway). The `up -d`
+recreates nginx, which drops its edge networks; then run, from `infra/ansible`,
+`ansible-playbook deploy.yml -e env=prod -e version=<running sha> --tags edge`.
 
 Never turn DNS proxying off while `TRUSTED_PROXY_CIDRS` is set. Proxied DNS
 must stay on whenever the list is set.

@@ -2,16 +2,26 @@
 # One command to restore a backup archive into a target database, run
 # migrations, and print integrity counts.
 #
-#   scripts/backup/restore.sh <s3-key-or-local-file> <TARGET_DATABASE_URL>
+#   scripts/backup/restore.sh <s3-key-or-local-file> <TARGET_DATABASE_URL> [--no-migrate]
+#
+# A bare key starting with "db/" (e.g. db/hourly/<ts>.dump.age) is fetched from
+# the R2 backup bucket with BACKUP_S3_ENDPOINT / BACKUP_S3_BUCKET /
+# BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY. Any other bare key or
+# an s3:// URL uses the legacy S3_* settings below.
+# --no-migrate skips the migration step (the weekly drill restores exactly
+# what was dumped; manual restores keep migrating by default).
 #
 # Example:
 #   scripts/backup/restore.sh backups/db/20260907T020000Z.dump.age \
 #     postgres://postgres:postgres@localhost:5432/biddaloy_restore_test
 #
 # Required env: BACKUP_AGE_PRIVATE_KEY_FILE (path to the age identity file
-# — see README's "Generating an age keypair"), S3_BUCKET, S3_ENDPOINT,
-# S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY (only needed when the
-# first argument is an s3 key rather than a local file).
+# — see README's "Generating an age keypair"). Then, by first argument:
+#   db/... key        BACKUP_S3_ENDPOINT, BACKUP_S3_BUCKET,
+#                     BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY
+#   other key, s3://  S3_BUCKET, S3_ENDPOINT, S3_REGION, S3_ACCESS_KEY_ID,
+#                     S3_SECRET_ACCESS_KEY
+#   local file        nothing else
 # Optional env: S3_ALLOW_INSECURE_HTTP (opt into a plaintext http://
 # S3_ENDPOINT — only for an approved local/dev endpoint; rejected otherwise).
 #
@@ -20,11 +30,17 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <s3-key-or-local-file> <TARGET_DATABASE_URL>" >&2
+  echo "Usage: $0 <s3-key-or-local-file> <TARGET_DATABASE_URL> [--no-migrate]" >&2
   exit 1
 }
 
-[[ $# -eq 2 ]] || usage
+MIGRATE=1
+args=()
+for a in "$@"; do
+  if [[ "$a" == "--no-migrate" ]]; then MIGRATE=0; else args+=("$a"); fi
+done
+[[ ${#args[@]} -eq 2 ]] || usage
+set -- "${args[@]}"
 
 ARCHIVE_SOURCE="$1"
 TARGET_DATABASE_URL="$2"
@@ -57,6 +73,21 @@ ENCRYPTED_PATH="$WORKDIR/restore.dump.age"
 if [[ -f "$ARCHIVE_SOURCE" ]]; then
   echo "restore.sh: using local archive ${ARCHIVE_SOURCE}"
   cp "$ARCHIVE_SOURCE" "$ENCRYPTED_PATH"
+elif [[ "$ARCHIVE_SOURCE" == db/* ]]; then
+  # R2 backup bucket (what backup.sh writes in R2 mode).
+  : "${BACKUP_S3_ENDPOINT:?BACKUP_S3_ENDPOINT is required to fetch a db/ key}"
+  : "${BACKUP_S3_BUCKET:?BACKUP_S3_BUCKET is required to fetch a db/ key}"
+  : "${BACKUP_S3_ACCESS_KEY_ID:?BACKUP_S3_ACCESS_KEY_ID is required to fetch a db/ key}"
+  : "${BACKUP_S3_SECRET_ACCESS_KEY:?BACKUP_S3_SECRET_ACCESS_KEY is required to fetch a db/ key}"
+  if [[ "$BACKUP_S3_ENDPOINT" != https://* ]]; then
+    echo "restore.sh: BACKUP_S3_ENDPOINT must be https://" >&2
+    exit 1
+  fi
+  export AWS_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY_ID"
+  export AWS_SECRET_ACCESS_KEY="$BACKUP_S3_SECRET_ACCESS_KEY"
+  export AWS_DEFAULT_REGION="auto"
+  echo "restore.sh: downloading s3://${BACKUP_S3_BUCKET}/${ARCHIVE_SOURCE}"
+  aws s3 cp --endpoint-url "$BACKUP_S3_ENDPOINT" "s3://${BACKUP_S3_BUCKET}/${ARCHIVE_SOURCE}" "$ENCRYPTED_PATH"
 else
   : "${S3_ENDPOINT:?S3_ENDPOINT is required to fetch an S3 archive}"
   : "${S3_REGION:?S3_REGION is required to fetch an S3 archive}"
@@ -99,11 +130,13 @@ age --decrypt -i "$BACKUP_AGE_PRIVATE_KEY_FILE" -o "$DUMP_PATH" "$ENCRYPTED_PATH
 echo "restore.sh: restoring into target database"
 pg_restore --clean --if-exists --no-owner -d "$TARGET_DATABASE_URL" "$DUMP_PATH"
 
-echo "restore.sh: running server migrations against the target"
-(
-  cd "$(dirname "$0")/../../server"
-  DATABASE_URL="$TARGET_DATABASE_URL" yarn migration:run
-)
+if [[ $MIGRATE -eq 1 ]]; then
+  echo "restore.sh: running server migrations against the target"
+  (
+    cd "$(dirname "$0")/../../server"
+    DATABASE_URL="$TARGET_DATABASE_URL" yarn migration:run
+  )
+fi
 
 echo "restore.sh: verifying integrity"
 psql "$TARGET_DATABASE_URL" -f "$(dirname "$0")/verify.sql"

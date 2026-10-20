@@ -1,0 +1,48 @@
+# staging.<domain> (Epic 59 #1768). Rendered by PROD's nginx, which owns 443; STAGING_DOMAIN
+# comes from the prod host .env. Prod nginx and the staging app meet only on the
+# `biddaloy-edge` network (infra/ansible/tasks/attach-edge.yml), where the app has the
+# alias `staging-app`. It is attached only while staging runs, so this must not need it
+# at nginx start: the upstream is looked up per request through Docker's DNS.
+# Only Cloudflare reaches here (`$origin_allowed`, rule 12). Cloudflare Access then lets
+# only the owner through (25-cloudflare.md). A request with no Access token header is
+# dropped too: a tripwire against a mis-set Access app, NOT authentication (presence only,
+# the signature is not checked; deploy.yml refuses STAGING_DOMAIN with TRUSTED_PROXY_CIDRS empty).
+
+server {
+    listen 443 ssl;
+    access_log /var/log/nginx/access.log redacted;
+    http2 on;
+    server_name ${STAGING_DOMAIN};
+
+    ssl_certificate     /etc/nginx/certs/origin.pem;
+    ssl_certificate_key /etc/nginx/certs/origin.key;
+
+    client_max_body_size 55M;
+
+    resolver 127.0.0.11 valid=10s;
+
+    if ($origin_allowed = 0) { return 444; }
+    if ($http_cf_access_jwt_assertion = "") { return 444; }
+
+    # The app already sends noindex in DEMO_MODE; hide it so the header appears once.
+    proxy_hide_header X-Robots-Tag;
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
+    # Readiness names the failing dependency: internal only, as on prod.
+    location ~ ^/api/health/ready/?$ {
+        return 404;
+    }
+
+    location / {
+        set $staging_app staging-app:3000;
+        proxy_pass http://$staging_app;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_read_timeout 60s;
+    }
+}

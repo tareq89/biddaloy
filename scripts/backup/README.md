@@ -4,6 +4,14 @@ Encrypted PostgreSQL backup and restore. See
 [`docs/architecture/13-backup-restore.md`](../../docs/architecture/13-backup-restore.md)
 for the full recovery story (RPO/RTO, retention, key rotation).
 
+## Weekly drill and `--no-migrate`
+
+`restore.sh <db/...key> <url> [--no-migrate]`: a `db/` key is read from R2 with
+`BACKUP_S3_*`; `--no-migrate` skips migrations. `drill.sh` (weekly, R2 mode
+only) restores the newest dump into a scratch `*drill*` database and compares
+counts; env: `DRILL_SCHEDULE`, `DRILL_PUSH_URL`, `DRILL_DATABASE_URL`,
+`DRILL_ADMIN_URL`. See docs/architecture/13-backup-restore.md "Drill".
+
 ## backup.sh
 
 Runs on a schedule inside the `backup` docker-compose service
@@ -79,7 +87,8 @@ scripts/backup/restore.sh backups/db/20260907T020000Z.dump.age \
 ```bash
 age-keygen -o key.txt
 # Public key:  age1... — goes in BACKUP_AGE_PUBLIC_KEY
-# Private key: AGE-SECRET-KEY-1... — stored outside the host, see the doc
+# Private key: AGE-SECRET-KEY-1... — master copy off the host; the drill's copy is
+#   /opt/biddaloy/<env>/drill/key.txt (10001, 0400). See the doc's "Key handling"
 ```
 
 ## Secrets discipline

@@ -15,6 +15,8 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:?POSTGRES_DB must be set}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
+      # Rotation grace window (12-operations.md §8): verify-only, empty = off.
+      JWT_SECRET_PREVIOUS: ${JWT_SECRET_PREVIOUS:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       # SeaweedFS isn't TLS-terminated on this shared Compose network yet — see
       # "Known gap: SeaweedFS traffic is not TLS-terminated" in
@@ -38,6 +40,18 @@ services:
       SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
       DB_SSL: ${DB_SSL:-}
       DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
+      # Decrypt-only, set only during a rotation (12-operations.md section 8).
+      SETTINGS_ENCRYPTION_KEY_PREVIOUS: ${SETTINGS_ENCRYPTION_KEY_PREVIOUS:-}
+      # Platform alert SMS (health/platform-alerts). greenweb is the server's
+      # default too; it is spelled out here so the active provider is visible.
+      PLATFORM_SMS_PROVIDER: ${PLATFORM_SMS_PROVIDER:-greenweb}
+      PLATFORM_SMS_API_KEY: ${PLATFORM_SMS_API_KEY:-}
+      PLATFORM_SMS_SENDER_ID: ${PLATFORM_SMS_SENDER_ID:-}
+      PLATFORM_SMS_API_URL: ${PLATFORM_SMS_API_URL:-}
+      PLATFORM_ALERT_PHONES: ${PLATFORM_ALERT_PHONES:-}
+      # Required in production: the id of the platform school. Unset means no
+      # membership carries platform authority (env.validation.ts).
+      PLATFORM_TENANT_ID: ${PLATFORM_TENANT_ID:-}
       # Onboarding (Epic 13). Empty means "off": no captcha check, no social
       # sign-in button, no support link. The trial values repeat the server's
       # defaults here because an empty TRIAL_* fails env validation.
@@ -181,6 +195,10 @@ services:
       BACKUP_TRASH_DAYS: ${BACKUP_TRASH_DAYS:-30}
       BACKUP_FILES_MAX_DELETE: ${BACKUP_FILES_MAX_DELETE:-500}
       BACKUP_NET_WAIT_SECS: ${BACKUP_NET_WAIT_SECS:-900}
+      # Weekly restore drill (scripts/backup/drill.sh) into a scratch database.
+      DRILL_SCHEDULE: ${DRILL_SCHEDULE:-30 3 * * 0}
+      DRILL_PUSH_URL: ${DRILL_PUSH_URL:-}
+      BACKUP_AGE_PRIVATE_KEY_FILE: /run/age/key.txt
       # See the matching comment on `app`'s S3_ALLOW_INSECURE_HTTP above.
       S3_ENDPOINT: http://seaweedfs:8333
       S3_ALLOW_INSECURE_HTTP: 'true'
@@ -188,6 +206,19 @@ services:
       S3_BUCKET: ${S3_BUCKET:-biddaloy}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID must be set}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY must be set}
+    volumes:
+      # Age private key for the restore drill only (D18); this container alone
+      # mounts it. Host dir: /opt/biddaloy/<env>/drill/ (10001, 0500; provision.yml
+      # creates it), key inside: key.txt (10001, 0400). A directory, not the file,
+      # so a missing key fails only the drill (step `config`), never `up` or the
+      # hourly dumps. Each env sets its own BACKUP_AGE_KEY_DIR, so there is no
+      # default: prod's key must never reach staging.
+      - type: bind
+        source: ${BACKUP_AGE_KEY_DIR:-./BACKUP_AGE_KEY_DIR-is-not-set}
+        target: /run/age
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       db:
         condition: service_healthy
@@ -203,6 +234,11 @@ services:
       - '443:443'
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      # The ops and staging server blocks render server_name from these; an unset
+      # variable would stay literal in the template and stop nginx booting.
+      # `.invalid` never resolves, so an unconfigured block matches nothing.
+      OPS_DOMAIN: ${OPS_DOMAIN:-ops.invalid}
+      STAGING_DOMAIN: ${STAGING_DOMAIN:-staging.invalid}
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
     volumes:
       - ./nginx/templates:/etc/nginx/templates:ro

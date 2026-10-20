@@ -4,6 +4,9 @@ How SchoolManager's database gets backed up, how to restore it, and what to do
 about the parts a database restore doesn't cover (the object store,
 in-flight background jobs).
 
+> Operator steps (day 0, first deploy, releases, alerts, restore) live in
+> [28-platform-runbook.md](28-platform-runbook.md). This page keeps how backups work.
+
 ## The numbers
 
 |                                      |                                                                                                                                                          |
@@ -148,12 +151,22 @@ other env var — it's not a secret. The matching private key
 (`BACKUP_AGE_PRIVATE_KEY_FILE`, used by `restore.sh`) is the one thing that
 actually matters:
 
-- **Where it lives:** outside the host entirely — a password manager or
-  secrets vault the backup owner controls, never committed, never in
-  `.env`. Nothing that runs `backup.sh` needs it; only a human running
-  `restore.sh` does.
+- **Where it lives:** in two places.
+  1. The master copy is outside the host, in a password manager or vault the
+     backup owner controls. Never committed, never in `.env`.
+  2. Since the weekly drill (D18), a copy also sits **on the VM** at
+     `/opt/biddaloy/<env>/drill/key.txt` (owner 10001, mode 0400), mounted only
+     into the `backup` container. `backup.sh` still needs only the public key.
+- **What that costs.** The VM now holds both the private key and the R2
+  credentials. Someone who takes over the host can read every retained dump
+  (72 hourly + 30 daily, so about 30 days of history), including rows already
+  deleted from the live database. Before D18 a host compromise exposed only the
+  live data. We accept this so the drill runs on the VM and the key never
+  reaches a CI runner.
 - **Rotation:** generate a new keypair (`age-keygen`), point
-  `BACKUP_AGE_PUBLIC_KEY` at the new public half, deploy. New backups from
+  `BACKUP_AGE_PUBLIC_KEY` at the new public half and replace the host's
+  `drill/key.txt` with the new private half in the same deploy (otherwise the
+  next drill cannot decrypt). New backups from
   that point encrypt to the new key. **No re-encryption of old archives is
   needed** — keep the old private key until no archive it encrypted is
   left. Do not count days: R2 keeps the last 30 daily dumps by count, so a
@@ -204,6 +217,83 @@ UPDATE communication_logs SET status = 'FAILED' WHERE status = 'QUEUED';
 -- delivered. When in doubt, use Option A.
 ```
 
+## Drill
+
+Every Sunday 03:30 (Asia/Dhaka) the `backup` container proves the newest R2
+dump can really be restored. Script: `scripts/backup/drill.sh`.
+
+```mermaid
+sequenceDiagram
+    participant C as supercronic
+    participant D as drill.sh
+    participant R as R2
+    participant P as Postgres
+    participant K as Uptime Kuma
+    C->>D: Sunday 03:30
+    D->>R: newest key under db/hourly/
+    D->>P: create scratch DB biddaloy_drill
+    D->>R: restore.sh db/hourly/... --no-migrate
+    D->>P: verify.sql on scratch DB and on live DB
+    D->>R: one random live file via rclone crypt, sha256 vs live
+    D->>P: drop biddaloy_drill (always, even on failure)
+    D->>K: push up (ok-N-tables) or down (failed step)
+```
+
+**What "pass" means**
+
+- For each table in `verify.sql`, drill count is not above the live count
+  (data only moves forward after a dump) and is not 0 when live is above 0.
+- One random file from the live bucket has the same sha256 read back through
+  `r2crypt:files/<key>`. An empty bucket skips this check.
+
+**Safety.** The scratch database name must contain `drill`, and
+`DRILL_DATABASE_URL` must differ from `DATABASE_URL`, or the script refuses to
+start. The live database is only read (`verify.sql` counts). No URL, key or
+password is printed. Before it creates the scratch database it checks that the
+disk has about 2.5x the live database size free (the scratch copy, the
+decrypted dump and live Postgres share one disk). Only one drill runs at a
+time (`flock`): a manual run during the cron run exits without touching the
+other run's database.
+
+**Reading Kuma.** One green beat per week with message `ok-8-tables`. A red
+beat carries the failed step: `find-dump`, `disk`, `create-db`, `restore`,
+`counts`, `file-roundtrip`, `drop-db` (the run passed but the scratch database
+could not be dropped, so a full copy of prod is still in the cluster), or
+`config` for a missing setting. Telegram and SMS fire from the push monitor (D14).
+
+**Run by hand** (on the VM):
+
+```bash
+docker compose exec backup /app/drill.sh
+```
+
+**Setup.**
+
+- `DRILL_SCHEDULE` (cron, default `30 3 * * 0`) and `DRILL_PUSH_URL` (in sops).
+- The age private key, as `key.txt` in a host directory mounted read-only at
+  `/run/age`. Host directory: `BACKUP_AGE_KEY_DIR`, set per env (for example
+  `/opt/biddaloy/prod/drill`), with **no default**, so prod's key can never
+  reach staging. `provision.yml` creates the directory (owner `10001`, the
+  backup user, mode `0500`). Nothing writes the key yet: the operator copies it
+  in by hand (owner `10001`, mode `0400`):
+
+  ```bash
+  sudo install -o 10001 -g 10001 -m 0400 key.txt /opt/biddaloy/prod/drill/key.txt
+  ```
+
+  Until it is there, only the drill fails, at step `config` (Kuma gets
+  `down config`). `docker compose up` and the hourly dumps, which need only the
+  public key, are not affected. Only the `backup` container mounts it.
+
+- In Uptime Kuma, the `drill-weekly` monitor: type **Push**, heartbeat interval
+  **8 days**, retries **0**. The default 60 s interval would page all week.
+- Optional `DRILL_DATABASE_URL` / `DRILL_ADMIN_URL` default to the live server
+  with database `biddaloy_drill` / `postgres`.
+
+**CI.** `.github/workflows/restore-drill.yml` runs a synthetic drill (seed,
+backup, restore, diff) on pull requests that touch `scripts/backup/**` or the
+workflow itself, and on manual dispatch.
+
 ## Restore runbook
 
 ```bash
@@ -218,11 +308,11 @@ scripts/backup/restore.sh \
   backups/db/20260907T020000Z.dump.age \
   postgres://postgres:postgres@localhost:5432/biddaloy_restored
 
-# R2 form (production dumps). restore.sh reads S3_*, so for this run put the
-# R2 credentials (BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY) in
-# S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY and use the R2 bucket name:
-export S3_BUCKET=<BACKUP_S3_BUCKET> S3_ENDPOINT=https://<acct>.r2.cloudflarestorage.com \
-       S3_REGION=auto S3_ACCESS_KEY_ID=... S3_SECRET_ACCESS_KEY=...
+# R2 form (production dumps). A bare key starting with db/ is read from the
+# R2 bucket using BACKUP_S3_ENDPOINT / BACKUP_S3_BUCKET / BACKUP_S3_ACCESS_KEY_ID /
+# BACKUP_S3_SECRET_ACCESS_KEY (the same vars the backup container has):
+export BACKUP_S3_ENDPOINT=https://<acct>.r2.cloudflarestorage.com \
+       BACKUP_S3_BUCKET=<bucket> BACKUP_S3_ACCESS_KEY_ID=... BACKUP_S3_SECRET_ACCESS_KEY=...
 scripts/backup/restore.sh \
   db/hourly/20260920T200000Z.dump.age \
   postgres://postgres:postgres@localhost:5432/biddaloy_restored
@@ -230,7 +320,8 @@ scripts/backup/restore.sh \
 
 What it does, in order: download (or read a local file) → `age --decrypt`
 → `pg_restore --clean --if-exists --no-owner` → run server migrations
-against the target → print `scripts/backup/verify.sql`'s row/tenant counts
+against the target (skipped with `--no-migrate`, which the weekly drill uses)
+→ print `scripts/backup/verify.sql`'s row/tenant counts
 and the `schools.logo_key` list. See
 [`scripts/backup/README.md`](../../scripts/backup/README.md) for every env
 var it reads.
@@ -273,10 +364,10 @@ Migration `1791900000300` adds two CHECKs on `student_fees`:
 They are `NOT VALID`. That skips rows already in the table, but Postgres
 still checks every row that is inserted or updated later.
 
-| Restore path | Old bad row in the backup | What to do |
-| --- | --- | --- |
-| Platform (`restore.sh`) | Loads fine: `pg_dump` adds a `NOT VALID` CHECK after the data | Run the audit SQL in the migration's docblock on the restored database. Fix rows by hand. A later payment or reversal on a bad row is refused (409). |
-| School workbook | The `student_fees` tab rejects that row before anything is written, e.g. `row 7, column paid_amount: paid_amount plus discount_amount is more than total_amount` | Fix the row in the file (or fix the source school with the audit SQL and export again), then restore. |
+| Restore path            | Old bad row in the backup                                                                                                                                        | What to do                                                                                                                                           |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform (`restore.sh`) | Loads fine: `pg_dump` adds a `NOT VALID` CHECK after the data                                                                                                    | Run the audit SQL in the migration's docblock on the restored database. Fix rows by hand. A later payment or reversal on a bad row is refused (409). |
+| School workbook         | The `student_fees` tab rejects that row before anything is written, e.g. `row 7, column paid_amount: paid_amount plus discount_amount is more than total_amount` | Fix the row in the file (or fix the source school with the audit SQL and export again), then restore.                                                |
 
 The restore is refused with a row-by-row list, never a 500. Only run
 `VALIDATE CONSTRAINT` once the audit SQL returns no rows.
@@ -303,13 +394,17 @@ disaster recovery":
 | `BACKUP_S3_SECRET_ACCESS_KEY`  | #1745  | R2 API token secret                                                                                                         |
 | `BACKUP_RCLONE_CRYPT_PASSWORD` | #1745  | Encrypts file contents and names. Store a copy outside the host                                                             |
 | `BACKUP_RCLONE_CRYPT_SALT`     | #1745  | Second crypt secret (salt). Store a copy outside the host                                                                   |
-| `BACKUP_PUSH_URL`              | #1745  | Uptime Kuma push URL (`?status=up/down&msg=<step>` appended). Unset = no push                                               |
+| `BACKUP_PUSH_URL`              | #1745  | Uptime Kuma push URL (`?status=up/down&msg=<step>` appended), `http://uptime-kuma:3001/api/push/<token>` on prod. Unset = no push                                               |
 | `BACKUP_HOURLY_KEEP`           | #1745  | Hourly dumps kept (default 72)                                                                                              |
 | `BACKUP_DAILY_KEEP`            | #1745  | Daily dumps kept (default 30)                                                                                               |
 | `BACKUP_TRASH_DAYS`            | #1745  | Days a deleted file stays in `files-trash/` (default 30)                                                                    |
 | `BACKUP_FILES_MAX_DELETE`      | #1745  | Files sync refuses to sync (touches nothing) if it would delete more than this many files in one run (default 500)          |
 | `SENTRY_CRON_MONITOR_URL`      | 15.3.2 | Optional cron check-in                                                                                                      |
-| `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Decrypts for `restore.sh` — never in `.env`, see "Key handling"                                                             |
+| `DRILL_SCHEDULE`               | #1774  | Cron for the weekly restore drill (default `30 3 * * 0`)                                                                    |
+| `DRILL_PUSH_URL`               | #1774  | Uptime Kuma push URL for the drill, `http://uptime-kuma:3001/api/push/<token>` on prod. Unset = no push                                                                         |
+| `DRILL_DATABASE_URL`           | #1774  | Scratch database (name must contain `drill`; default `<live server>/biddaloy_drill`)                                        |
+| `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Key path inside the container (`/run/age/key.txt`). The key itself is never in `.env`; see "Key handling"                   |
+| `BACKUP_AGE_KEY_DIR`           | #1774  | Host dir of that key, mounted at `/run/age` in `backup` only: `/opt/biddaloy/<env>/drill` (10001, 0500). No default         |
 
 ## Learnings (#1745)
 
