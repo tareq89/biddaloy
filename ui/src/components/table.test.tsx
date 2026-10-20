@@ -44,4 +44,23 @@ describe('Table', () => {
     );
     expect(screen.getByRole('table', { name: "A student's fee breakdown" })).toBeTruthy();
   });
+
+  it('scrollLabel makes the scroll container a focusable labelled region; absent, it is plain', () => {
+    const { rerender } = render(
+      <Table scrollLabel="Lines">
+        <TableBody />
+      </Table>,
+    );
+    const region = screen.getByRole('region', { name: 'Lines' });
+    expect(region.getAttribute('tabindex')).toBe('0');
+    rerender(
+      <Table>
+        <TableBody />
+      </Table>,
+    );
+    expect(screen.queryByRole('region')).toBeNull();
+    expect(document.querySelector('[data-slot="table-container"]')?.hasAttribute('tabindex')).toBe(
+      false,
+    );
+  });
 });

@@ -4,6 +4,7 @@ import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { StudentService, GuardianService, redactHealthNotes } from './students.service';
 import { QueryStudentIdsDto } from './dto/students.dto';
+import { ROLL_NUMBER_MAX } from './roll-number.util';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
 import { Enrollment } from './entities/enrollment.entity';
@@ -445,6 +446,32 @@ describe('StudentService (integration)', () => {
         TENANT_ID,
       );
       expect(student2.roll_number).toBe(2);
+    });
+
+    // [2597] A section whose top roll is at the cap must answer a clear 409, not overflow the int column.
+    it('[2597] auto-roll answers 409 ROLL_NUMBER_EXHAUSTED when the top roll is at the cap, other sections unaffected', async () => {
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Roll Cap Holder',
+          registration_number: `REG-2597-${Date.now()}`,
+          roll_number: ROLL_NUMBER_MAX,
+          class_section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+          date_of_birth: new Date('2010-01-01'),
+        }),
+      );
+      const before = await studentRepo.count({ where: { tenant_id: TENANT_ID } });
+
+      await expect(
+        service.create({ full_name: 'No Room', class_section_id: SEED_SECTION_1_ID }, TENANT_ID),
+      ).rejects.toMatchObject({ response: { details: { code: 'ROLL_NUMBER_EXHAUSTED' } } });
+      expect(await studentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(before);
+
+      const other = await service.create(
+        { full_name: 'Other Section', class_section_id: SEED_SECTION_2_ID },
+        TENANT_ID,
+      );
+      expect(other.roll_number).toBe(1);
     });
 
     describe('registration year follows the school (Asia/Dhaka) calendar', () => {
@@ -1678,7 +1705,9 @@ describe('StudentService (integration)', () => {
             period_type: PeriodType.MONTH,
             total_amount: 1000,
             paid_amount: paid,
-            discount_amount: 0,
+            // A WAIVED bill is settled by its discount (CHK_sf_waived_settled).
+            discount_amount: status === FeeStatus.WAIVED ? 1000 : 0,
+            one_off_discount_amount: status === FeeStatus.WAIVED ? 1000 : 0,
             status,
           }),
         );
@@ -2298,6 +2327,32 @@ describe('GuardianService (integration)', () => {
           user_id: userId,
         }),
       );
+
+    it('[2665] removing a guardian with a login drops the PARENT membership and cuts the session', async () => {
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'PARENT')
+         ON CONFLICT DO NOTHING`,
+        [OWNER_USER_ID, TENANT_ID],
+      );
+      const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);
+      const before = new Date('2020-01-01T00:00:00Z');
+      await dataSource.query(`UPDATE users SET tokens_valid_after = $2 WHERE id = $1`, [
+        OWNER_USER_ID,
+        before,
+      ]);
+
+      await service.remove(guardian.id, TENANT_ID);
+
+      const live = await dataSource.query(
+        `SELECT 1 FROM user_tenants WHERE user_id = $1 AND tenant_id = $2 AND role = 'PARENT' AND deleted_at IS NULL`,
+        [OWNER_USER_ID, TENANT_ID],
+      );
+      expect(live).toHaveLength(0);
+      const [u] = await dataSource.query(`SELECT tokens_valid_after FROM users WHERE id = $1`, [
+        OWNER_USER_ID,
+      ]);
+      expect(new Date(u.tokens_valid_after).getTime()).toBeGreaterThan(before.getTime());
+    });
 
     it('findOwn returns the row linked to that user in that tenant', async () => {
       const guardian = await makeGuardian(OWNER_USER_ID, TENANT_ID);

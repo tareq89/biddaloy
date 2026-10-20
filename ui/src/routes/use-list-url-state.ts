@@ -5,8 +5,9 @@ import { PAGE_SIZE_OPTIONS } from '../utils/page-size';
 import { useSearchNavigate } from './navigate-search';
 
 /**
- * "Page, filters, sort, selected row and active tab all live in the query
- * string" — [8.4.5]'s stated platform principle, made concrete: the one
+ * "Page, filters, sort and active tab live in the query string" (selection
+ * does not: it is unbounded, so it is kept in memory, see
+ * `list-selection-memory.ts`) — [8.4.5]'s stated platform principle, made concrete: the one
  * hook every list page reads/writes its `page`/`limit`/`sort`/filter state
  * through, so Back works, refresh survives, and a link is shareable
  * without the page component keeping any of that in local state.

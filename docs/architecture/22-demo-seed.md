@@ -51,7 +51,7 @@ Before a run, know these:
 
 - **`--anchor` must not be in a later month than the real clock.** The `fees`
   slice records last month's and this month's payments through the real
-  payment service, which dates and types them by the real clock. So
+  checkout service, which dates them by the real clock. So
   `--anchor 2026-11-01` run on 2026-10-14 is refused up front, and with an
   earlier anchor the "this month" payments are dated on the run day.
 

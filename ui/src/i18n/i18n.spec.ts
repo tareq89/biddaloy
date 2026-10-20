@@ -55,6 +55,23 @@ describe('createI18nInstance', () => {
     expect(instance.t('issue.titleNoKind', { ns: 'certificates' })).toBe('সনদ ইস্যু করুন');
   });
 
+  it('resolves the shared noMatches, recordNotFound and outcomeUnknown keys in both languages', async () => {
+    const instance = createI18nInstance();
+    await instance.changeLanguage('en');
+    expect(instance.t('noMatches.title', { ns: 'common' })).toBe('No matches');
+    expect(instance.t('recordNotFound.back', { ns: 'common' })).toBe('Go back');
+    expect(instance.t('outcomeUnknown', { ns: 'common' })).toBe(
+      'We could not confirm whether this was saved. Check the list before trying again.',
+    );
+
+    await instance.changeLanguage('bn');
+    expect(instance.t('noMatches.title', { ns: 'common' })).toBe('কোনো ফলাফল পাওয়া যায়নি');
+    expect(instance.t('recordNotFound.back', { ns: 'common' })).toBe('ফিরে যান');
+    expect(instance.t('outcomeUnknown', { ns: 'common' })).toBe(
+      'এটি সেভ হয়েছে কি না নিশ্চিত হওয়া যায়নি। আবার চেষ্টা করার আগে তালিকা দেখে নিন।',
+    );
+  });
+
   it('resolves the dashboard namespace in both languages', async () => {
     const instance = createI18nInstance();
     await instance.loadNamespaces(['dashboard']);

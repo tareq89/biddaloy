@@ -268,6 +268,7 @@ function FinesListPage() {
           emptyState={
             isFiltered
               ? {
+                  kind: 'no-results' as const,
                   icon: <SearchX />,
                   title: t('emptyFiltered.title'),
                   explanation: t('emptyFiltered.description'),

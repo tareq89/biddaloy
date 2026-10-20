@@ -2,9 +2,9 @@ import '@biddaloy/ui/test';
 
 import { toast } from '@biddaloy/ui/components';
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
-import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { formatTime } from '@biddaloy/ui/utils';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -118,5 +118,72 @@ describe('ShiftsPanel', () => {
       }),
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  describe('name checks [2615]', () => {
+    async function openDialog() {
+      mockShifts();
+      const posts: unknown[] = [];
+      server.use(
+        http.post('*/routines/shifts', async ({ request }) => {
+          posts.push(await request.json());
+          return HttpResponse.json({ ...SHIFT, id: 'shift-2', sequence: 1 });
+        }),
+      );
+      renderPanel();
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Add shift' }));
+      const input = await screen.findByLabelText('Name');
+      const add = () =>
+        user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add' }));
+      return { posts, input, add, user };
+    }
+
+    it('spaces only show the required error and send nothing', async () => {
+      const { posts, input, add } = await openDialog();
+      fireEvent.change(input, { target: { value: '   ' } });
+      await add();
+      expect(await screen.findByText('Enter a shift name.')).toBeTruthy();
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expect(posts).toHaveLength(0);
+    });
+
+    it('101 characters show the too-long error and send nothing', async () => {
+      const { posts, input, add } = await openDialog();
+      fireEvent.change(input, { target: { value: 'a'.repeat(101) } });
+      await add();
+      expect(await screen.findByText('The name can be at most 100 characters.')).toBeTruthy();
+      expect(posts).toHaveLength(0);
+    });
+
+    it('a valid name is sent trimmed', async () => {
+      const { posts, input, add } = await openDialog();
+      fireEvent.change(input, { target: { value: '  Evening  ' } });
+      await add();
+      await waitFor(() => expect(posts).toHaveLength(1));
+      expect(posts[0]).toMatchObject({ name: 'Evening' });
+    });
+
+    it('a server 400 that names `name` shows the field message, not "try again"', async () => {
+      mockShifts();
+      server.use(
+        http.post('*/routines/shifts', () =>
+          HttpResponse.json(
+            apiErrorBody(400, ['name must be shorter than or equal to 100 characters'], '/x'),
+            { status: 400 },
+          ),
+        ),
+      );
+      renderPanel();
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Add shift' }));
+      await user.type(await screen.findByLabelText('Name'), 'Evening');
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add' }));
+
+      expect(
+        await screen.findByText("This name isn't valid. Check it and try again."),
+      ).toBeTruthy();
+      expect(screen.queryByText("Couldn't add the shift. Try again.")).toBeNull();
+    });
   });
 });

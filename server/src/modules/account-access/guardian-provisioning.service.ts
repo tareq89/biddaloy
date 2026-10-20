@@ -199,9 +199,20 @@ export class GuardianProvisioningService {
 
     const to_invite: InvitePreviewResponseDto['to_invite'] = [];
     const skipped: InviteSkippedEntryDto[] = [];
+    // Contacts a new account in this batch will take. A second guardian with the same email or
+    // phone would hit the processor's 23505 and send nothing, so the batch would never drain.
+    const claimed = new Set<string>();
 
     for (const guardian of guardians) {
-      const result = await this.classify(guardian, tenantId);
+      let result = await this.classify(guardian, tenantId);
+      if (result.kind === 'invite' && result.user === null) {
+        const contacts = [guardian.email, guardian.phone].filter((c): c is string => !!c);
+        if (contacts.some((c) => claimed.has(c))) {
+          result = { kind: 'skip', reason: 'contact_in_use' };
+        } else {
+          contacts.forEach((c) => claimed.add(c));
+        }
+      }
       if (result.kind === 'skip') {
         skipped.push({
           guardian_id: guardian.id,

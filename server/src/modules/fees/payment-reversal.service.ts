@@ -13,6 +13,7 @@ import {
   PaymentStatus,
   WalletTransactionKind,
 } from '@biddaloy/shared';
+import { round2, toPaisa } from '../../common/constants/money';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
@@ -23,12 +24,6 @@ import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { attentionEvents } from '../attention/attention.constants';
-
-const AMOUNT_EPSILON = 0.01;
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
 interface UndoneDebitAudit {
   debit_id: string;
@@ -53,8 +48,7 @@ export class ReverseLaterPaymentsFirstException extends ConflictException {
  * full: unwinds the wallet movements it made, restores the bills it paid
  * toward, cancels the invoice it produced (via a credit note), and marks
  * the original payment as reversed. Mirrors the shape `CheckoutService`
- * and `PaymentAllocationService` established for the forward flow, just
- * run backwards.
+ * established for the forward flow, just run backwards.
  *
  * Approval (`ApprovalScope.PAYMENTS_REVERSE`, D9) is consumed by
  * `ApprovalGuard` at the controller boundary — this service receives the
@@ -192,6 +186,20 @@ export class PaymentReversalService {
         tenantId,
         actorUserId,
       );
+      // The audit's "before" is the bill as it stood before this reversal,
+      // captured before the F-152 patch below rewrites paid_amount/status.
+      const billBefore = new Map(
+        lockedBills.map((b) => [b.id, { paid: Number(b.paid_amount), status: b.status }]),
+      );
+      // F-152: undoing a debit lowered paid_amount on a bill this payment may
+      // also have allocated; the allocation loop must start from that value.
+      for (const d of undone.undone_generation_debits) {
+        const bill = d.student_fee_id ? billsById.get(d.student_fee_id) : undefined;
+        if (bill && d.paid_amount_after != null) {
+          bill.paid_amount = d.paid_amount_after;
+          if (d.status_after) bill.status = d.status_after;
+        }
+      }
 
       const billAudit: {
         student_fee_id: string;
@@ -220,14 +228,15 @@ export class PaymentReversalService {
         // unwound and the fact it happened against a deleted bill is
         // flagged in the audit trail rather than silently recomputing a
         // status nobody will act on.
-        const statusBefore = bill.status;
+        const before = billBefore.get(bill.id)!;
+        const statusBefore = before.status;
         let statusAfter = bill.status;
         if (!bill.deleted_at) {
           const remaining = round2(Number(bill.total_amount) - newPaid - newDiscount);
           statusAfter =
-            remaining <= AMOUNT_EPSILON
+            toPaisa(remaining) <= 0
               ? FeeStatus.PAID
-              : newPaid > AMOUNT_EPSILON
+              : toPaisa(newPaid) > 0
                 ? FeeStatus.PARTIALLY_PAID
                 : FeeStatus.PENDING;
         }
@@ -241,7 +250,7 @@ export class PaymentReversalService {
 
         billAudit.push({
           student_fee_id: bill.id,
-          paid_amount_before: Number(bill.paid_amount),
+          paid_amount_before: before.paid,
           paid_amount_after: newPaid,
           status_before: statusBefore,
           status_after: statusAfter,
@@ -496,7 +505,7 @@ export class PaymentReversalService {
       currentBalance ?? (await this.walletService.balance(studentId, payment.tenant_id));
     creditAdded = round2(creditAdded);
     const balanceAfterRemoval = round2(balance - creditAdded);
-    if (balanceAfterRemoval >= -AMOUNT_EPSILON) return 0;
+    if (toPaisa(balanceAfterRemoval) >= 0) return 0;
 
     const shortfall = round2(-balanceAfterRemoval);
     const paymentRepo = manager ? manager.getRepository(Payment) : this.paymentRepo;
@@ -535,7 +544,7 @@ export class PaymentReversalService {
       if (used <= 0) continue;
       blockingIds.push(later.id);
       covered = round2(covered + used);
-      if (covered >= shortfall - AMOUNT_EPSILON) break;
+      if (toPaisa(covered) >= toPaisa(shortfall)) break;
     }
 
     // MON-14: no later *payment* spent it — only fee generation's auto-apply
@@ -630,11 +639,11 @@ export class PaymentReversalService {
       let covered = 0;
       const picked: WalletTransaction[] = [];
       for (const d of debits) {
-        if (covered >= shortfall - AMOUNT_EPSILON) break;
+        if (toPaisa(covered) >= toPaisa(shortfall)) break;
         picked.push(d);
         covered = round2(covered + Math.abs(Number(d.amount)));
       }
-      if (covered < shortfall - AMOUNT_EPSILON) {
+      if (toPaisa(covered) < toPaisa(shortfall)) {
         throw new ConflictException({
           code: 'REVERSE_BLOCKED_BY_NON_PAYMENT_WALLET_SPEND',
           message: `Reversing this payment would take the wallet balance negative, and the wallet debits made by fee generation cannot cover the shortfall — reversal must be handled manually.`,
@@ -687,9 +696,9 @@ export class PaymentReversalService {
           );
           const status = bill.deleted_at
             ? bill.status
-            : remaining <= AMOUNT_EPSILON
+            : toPaisa(remaining) <= 0
               ? FeeStatus.PAID
-              : newPaid > AMOUNT_EPSILON
+              : toPaisa(newPaid) > 0
                 ? FeeStatus.PARTIALLY_PAID
                 : FeeStatus.PENDING;
           await feeRepo.update(bill.id, { paid_amount: newPaid, status });

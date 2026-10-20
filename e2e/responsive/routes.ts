@@ -408,7 +408,7 @@ export async function resolvePath(
         date_of_birth: '2018-06-01',
         gender: 'MALE',
         guardian_name: `Reflow Guardian ${stamp}`,
-        guardian_phone: `1${3 + (stamp % 7)}${stamp.toString().slice(-8)}`,
+        guardian_phone: `01${3 + (stamp % 7)}${stamp.toString().slice(-8)}`,
         captcha_token: 'no-captcha',
       },
     });

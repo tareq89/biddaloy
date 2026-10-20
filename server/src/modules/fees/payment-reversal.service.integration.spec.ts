@@ -55,6 +55,7 @@ import {
   InvoiceKind,
   PaymentStatus,
   WalletTransactionKind,
+  AuditAction,
 } from '@biddaloy/shared';
 
 /**
@@ -352,6 +353,30 @@ describe('PaymentReversalService (integration)', () => {
     await expect(
       service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'second attempt'),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('replaying the key of a reversed payment is a 409 CHECKOUT_PAYMENT_REVERSED (#2637)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+    const body = {
+      idempotency_key: '2637a001-0000-4000-8000-000000000001',
+      lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+      payment_method: PaymentMethod.CASH,
+    } as any;
+
+    const { payment } = await checkoutService.checkout(
+      body,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'wrong bill');
+
+    const err = await checkoutService
+      .checkout(body, TENANT_ID, ACTOR_USER_ID, requestWithToken())
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse()).toMatchObject({ details: { code: 'CHECKOUT_PAYMENT_REVERSED' } });
   });
 
   it('tenant isolation: refuses to reverse a payment belonging to a different tenant (404)', async () => {
@@ -830,6 +855,62 @@ describe('PaymentReversalService (integration)', () => {
     await expect(
       service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'again'),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('F-152 (#2647): a generation debit that points at a bill the payment allocated leaves paid_amount and the wallet consistent', async () => {
+    // Hand-built overlap: the payment allocates to bill B AND a later
+    // generation debit points at B (700 total = 500 by P + 200 by wallet).
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(
+      makeBill(student.id, { total_amount: 700, occurrence: 1 }),
+    );
+    const { payment } = await checkoutService.checkout(
+      {
+        idempotency_key: '2647f152-0000-4000-8000-000000000001',
+        lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+        tendered_amount: 700,
+        change_handling: 'TO_WALLET',
+      } as any,
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+    await dataSource.transaction(async (m) => {
+      await walletService.debit(
+        {
+          studentId: student.id,
+          tenantId: TENANT_ID,
+          amount: 200,
+          kind: WalletTransactionKind.DEBIT_GENERATION,
+          studentFeeId: bill.id,
+          createdByUserId: ACTOR_USER_ID,
+        },
+        m,
+      );
+      await m
+        .getRepository(StudentFee)
+        .update(bill.id, { paid_amount: 700, status: FeeStatus.PAID });
+    });
+
+    await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, APPROVER_USER_ID, 'f-152');
+
+    const after = await studentFeeRepo.findOneByOrFail({ id: bill.id });
+    // Both P's 500 and the 200 generation spend are undone: nothing left paid.
+    expect(Number(after.paid_amount)).toBe(0);
+    expect(after.status).toBe(FeeStatus.PENDING);
+    expect(await walletService.balance(student.id, TENANT_ID)).toBe(0);
+    // The audit's "before" is the bill as it stood before the reversal (700 PAID),
+    // not the value the generation-debit undo wrote a moment earlier (500 PARTIALLY_PAID).
+    const logs = await auditLogRepo.find({
+      where: { entity_type: 'Payment', entity_id: payment.id, tenant_id: TENANT_ID },
+    });
+    const old = logs.find((l) => l.action === AuditAction.UPDATE)?.old_values as any;
+    expect(old.bills[0]).toMatchObject({
+      student_fee_id: bill.id,
+      paid_amount: 700,
+      status: FeeStatus.PAID,
+    });
   });
 
   /** Overpays `change` into the wallet on a fresh 500 bill; returns the payment. */

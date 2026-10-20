@@ -14,7 +14,6 @@ import { FeeGenerationsService } from './fee-generations.service';
 import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { ApprovalService } from '../auth/guards/approval.guard';
-import { PaymentAllocationService } from './payment-allocation.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { StorageModule } from '../storage/storage.module';
 import { RecurringSchedulesService } from './recurring-schedules.service';
@@ -22,6 +21,7 @@ import { FeeStructure } from './entities/fee-structure.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { FeeGeneration } from './entities/fee-generation.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { School } from '../schools/entities/school.entity';
 import { Program } from '../programs/entities/program.entity';
 import { ProgramEnrollment } from '../programs/entities/program-enrollment.entity';
@@ -30,6 +30,7 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import {
   SEED_TENANT_ID,
   SEED_ACADEMIC_YEAR_ID,
+  SEED_CLASS_1_ID,
   SEED_SECTION_1_ID,
   SEED_SECTION_2_ID,
   SEED_ADMIN_USER_ID,
@@ -40,6 +41,8 @@ import {
   CommunicationMedium,
   EnrollmentStatus,
   FeeGenerationSource,
+  FeeStatus,
+  PeriodType,
   FeeType,
   FineTrigger,
   ProgramEnrollmentStatus,
@@ -185,7 +188,6 @@ describe('FeesDailyScheduler (integration)', () => {
         AuditService,
         NoopDiscountResolver,
         ApprovalService,
-        PaymentAllocationService,
         InvoicesService,
         RecurringSchedulesService,
         JwtService,
@@ -567,7 +569,7 @@ describe('FeesDailyScheduler (integration)', () => {
     expect(batches).toHaveLength(0);
   });
 
-  it('marks the schedule as run without creating a FeeGeneration when the audience resolves empty', async () => {
+  it('leaves the period open (last_run_period stays null) and creates no FeeGeneration when the audience resolves empty [F-144]', async () => {
     const structure = await structureRepo.save(makeStructure());
     // No students in SEED_SECTION_1_ID this test's own seeded set.
 
@@ -583,7 +585,7 @@ describe('FeesDailyScheduler (integration)', () => {
       `SELECT last_run_period FROM recurring_schedules WHERE id = $1`,
       [schedule.id],
     );
-    expect(row.last_run_period).not.toBeNull();
+    expect(row.last_run_period).toBeNull();
   });
 
   /** [68.3.10] Catch-up: due on any day of the period on/after the fire day, once per period. */
@@ -761,13 +763,181 @@ describe('FeesDailyScheduler (integration)', () => {
       expect(await studentFeeRepo.find()).toHaveLength(1);
     });
 
-    it('last_run_period never rewinds (empty-audience stale catch-up)', async () => {
-      // No students: the run takes the empty-audience path, which only writes last_run_period.
+    it('[F-141] still bills a student promoted out of the class after an earlier old-year run', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await dataSource.getRepository(Enrollment).save({
+        student_id: student.id,
+        class_id: SEED_CLASS_1_ID,
+        section_id: SEED_SECTION_1_ID,
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        tenant_id: TENANT_ID,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      });
+      await scheduleWith({ kind: 'MONTHLY', day_of_month: 1 });
+
+      await runOn('2026-03-01');
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+
+      // Promotion moves only students.class_section_id; the old-year enrollment stays ACTIVE.
+      await studentRepo.update({ id: student.id }, { class_section_id: SEED_SECTION_2_ID });
+      await runOn('2026-04-01');
+
+      expect(await studentFeeRepo.find()).toHaveLength(2);
+    });
+
+    it('[F-144] an empty audience on the fire day leaves the period open, a later joiner is billed', async () => {
+      const schedule = await scheduleWith({ kind: 'MONTHLY', day_of_month: 1 });
+
+      await runOn('2026-03-01');
+      expect(await lastRun(schedule.id)).toBeNull();
+      expect(await feeGenerationRepo.find()).toHaveLength(0);
+
+      await studentRepo.save(makeStudent());
+      await runOn('2026-03-02');
+
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+      expect(await lastRun(schedule.id)).toBe('2026-03-01');
+    });
+
+    it('[F-146] one soft-deleted structure does not fail the others', async () => {
+      await studentRepo.save(makeStudent());
+      const a = await structureRepo.save(makeStructure());
+      const b = await structureRepo.save(makeStructure());
+      await recurringSchedulesService.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Two structures ${Date.now()}`,
+          audience: { section_id: SEED_SECTION_1_ID, enrollment_status: 'ACTIVE' },
+          rule: { kind: 'MONTHLY', day_of_month: 1 },
+          fee_structure_ids: [a.id, b.id],
+          starts_on: '2026-01-01',
+          notify_families: false,
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await structureRepo.softDelete({ id: b.id });
+
+      await runOn('2026-03-01');
+
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+      expect(bills[0].fee_structure_id).toBe(a.id);
+    });
+
+    it('[F-146] every structure soft-deleted on the fire day leaves the period open; a restore later that period bills', async () => {
+      await studentRepo.save(makeStudent());
+      const schedule = await scheduleWith({ kind: 'MONTHLY', day_of_month: 1 });
+      const [{ fee_structure_id }] = await dataSource.query(
+        `SELECT fee_structure_id FROM recurring_schedule_structures WHERE schedule_id = $1`,
+        [schedule.id],
+      );
+      await structureRepo.softDelete({ id: fee_structure_id });
+
+      await runOn('2026-03-01');
+      expect(await studentFeeRepo.find()).toHaveLength(0);
+      expect(await lastRun(schedule.id)).toBeNull();
+
+      await structureRepo.restore({ id: fee_structure_id });
+      await runOn('2026-03-02');
+
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+      expect(await lastRun(schedule.id)).toBe('2026-03-01');
+    });
+
+    it('[F-146] a period before the academic year starts does not throw and advances', async () => {
+      await studentRepo.save(makeStudent());
+      // 2026-01-01 is a Thursday; its week starts Monday 2025-12-29, before the seed year.
+      const schedule = await scheduleWith({ kind: 'WEEKLY', weekdays: [4] }, '2026-01-01');
+
+      await expect(runOn('2026-01-01')).resolves.not.toThrow();
+
+      expect(await studentFeeRepo.find()).toHaveLength(0);
+      expect(await lastRun(schedule.id)).toBe('2025-12-29');
+    });
+
+    it('[F-147] queues no family notification when every bill already existed', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+      await recurringSchedulesService.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Notify ${Date.now()}`,
+          audience: { section_id: SEED_SECTION_1_ID, enrollment_status: 'ACTIVE' },
+          rule: { kind: 'MONTHLY', day_of_month: 1 },
+          fee_structure_ids: [structure.id],
+          starts_on: '2026-01-01',
+          notify_families: true,
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      // The bill for this period already exists (e.g. billed by hand).
+      await studentFeeRepo.save(
+        studentFeeRepo.create({
+          student_id: student.id,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          fee_structure_id: structure.id,
+          period_start: new Date('2026-03-01'),
+          period_type: PeriodType.MONTH,
+          occurrence: 1,
+          total_amount: 500,
+          paid_amount: 0,
+          discount_amount: 0,
+          status: FeeStatus.PENDING,
+          due_date: new Date('2026-03-10'),
+        }),
+      );
+      notifyAdds.length = 0;
+
+      await runOn('2026-03-01');
+
+      expect(notifyAdds).toHaveLength(0);
+    });
+
+    const switchTo = (id: string, rule: any) =>
+      recurringSchedulesService.update(id, { rule } as any, TENANT_ID, SEED_ADMIN_USER_ID);
+
+    it('[F-145] monthly billed for March, switched to weekly: no week starting in March is billed again', async () => {
+      await studentRepo.save(makeStudent());
+      const schedule = await scheduleWith({ kind: 'MONTHLY', day_of_month: 1 });
+      await runOn('2026-03-01');
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+
+      await switchTo(schedule.id, { kind: 'WEEKLY', weekdays: [1] });
+
+      for (const day of ['2026-03-04', '2026-03-09', '2026-03-16', '2026-03-23', '2026-03-30']) {
+        await runOn(day);
+      }
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+      await runOn('2026-04-06');
+      expect(await studentFeeRepo.find()).toHaveLength(2);
+    });
+
+    it('[F-145] weekly billed this month, switched to monthly before this week ran: the month is not billed on top', async () => {
+      await studentRepo.save(makeStudent());
+      const schedule = await scheduleWith({ kind: 'WEEKLY', weekdays: [1] });
+      await runOn('2026-03-02');
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+
+      // Monday 03-09, before that day's sweep: last_run_period is still 03-02.
+      await switchTo(schedule.id, { kind: 'MONTHLY', day_of_month: 1 });
+
+      await runOn('2026-03-09');
+      await runOn('2026-03-31');
+      expect(await studentFeeRepo.find()).toHaveLength(1);
+      await runOn('2026-04-01');
+      expect(await studentFeeRepo.find()).toHaveLength(2);
+    });
+
+    it('last_run_period never rewinds (no-live-structure stale catch-up)', async () => {
+      // The only structure is soft-deleted: that run only writes last_run_period.
       const schedule = await scheduleWith(
         { kind: 'MONTHLY', day_of_month: 1 },
         '2026-01-01',
         '2026-04-01',
       );
+      await structureRepo.softDelete({ tenant_id: TENANT_ID });
 
       await runOn('2026-03-31', 'restore-catch-up');
 

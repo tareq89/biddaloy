@@ -12,6 +12,7 @@ import { School } from '../../schools/entities/school.entity';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 import { ALL_TABS, assertRegistryValid, EXPECTED_TABS } from '../codec/registry';
 import { writeWorkbook } from '../codec/workbook-codec';
+import { assertXlsxWithinLimits, XlsxTooLargeError } from '../../../common/utils/xlsx-guard.util';
 import { SCHEMA_VERSION, WorkbookMeta } from '../codec/meta';
 import type { ExportContext, TabSpec } from '../codec/tab-spec';
 import {
@@ -23,6 +24,10 @@ import {
   WorkbookRowCounts,
 } from '../jobs/workbook-job.entity';
 import {
+  BACKUP_LIMIT_WARNING,
+  BACKUP_MAX_ENTRIES,
+  BACKUP_MAX_INFLATED_BYTES,
+  BACKUP_MAX_UPLOAD_BYTES,
   BACKUP_STORAGE_CATEGORY,
   EXPORT_RETENTION_DAYS,
   WORKBOOK_EXPORT_QUEUE,
@@ -193,7 +198,7 @@ export class ExportProcessor extends WorkerHost {
         row_counts: rowCounts,
         expires_at: expiresAt,
         finished_at: finishedAt,
-        error: null,
+        error: await this.restoreLimitWarning(buffer),
         failed_tab: null,
       });
 
@@ -249,7 +254,7 @@ export class ExportProcessor extends WorkerHost {
       // the admin the backup failed and then — seconds later, once the retry
       // succeeded — that it is ready. Same guard as `onFailed` below. The
       // row stays RUNNING between attempts, which is what it actually is.
-      const isFinalAttempt = job.attemptsMade >= (job.opts.attempts ?? 1);
+      const isFinalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
 
       if (!isFinalAttempt) {
         this.logger.warn(
@@ -329,6 +334,21 @@ export class ExportProcessor extends WorkerHost {
       // Rethrow so BullMQ burns the second attempt. On the retry, step 1
       // sees FAILED (not DONE) and runs again from RUNNING.
       throw err;
+    }
+  }
+
+  /** Warning code when restore would refuse this file; null otherwise. Reuses the unzip guard. */
+  private async restoreLimitWarning(buffer: Buffer): Promise<string | null> {
+    if (buffer.byteLength > BACKUP_MAX_UPLOAD_BYTES) return BACKUP_LIMIT_WARNING;
+    try {
+      await assertXlsxWithinLimits(buffer, {
+        maxUncompressedBytes: BACKUP_MAX_INFLATED_BYTES,
+        maxEntries: BACKUP_MAX_ENTRIES,
+      });
+      return null;
+    } catch (e) {
+      // Only "too large" is a warning; a guard failure on our own file is not worth failing the export.
+      return e instanceof XlsxTooLargeError ? BACKUP_LIMIT_WARNING : null;
     }
   }
 

@@ -165,7 +165,6 @@ export function useCreateGuardian() {
       const res = await apiClient.post<Guardian>('/guardians', input);
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: guardianKeys.lists() });
     },
@@ -186,7 +185,6 @@ export function useUpdateGuardian(id: string) {
       const res = await apiClient.patch<Guardian>(`/guardians/${id}`, input);
       return res.data;
     },
-    retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: guardianKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: guardianKeys.lists() });
@@ -202,7 +200,6 @@ export function useDeleteGuardian() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/guardians/${id}`);
     },
-    retry: shouldRetryQuery,
     onSuccess: (_data, id) => {
       void queryClient.invalidateQueries({ queryKey: guardianKeys.lists() });
       queryClient.removeQueries({ queryKey: guardianKeys.detail(id) });

@@ -1,3 +1,4 @@
+import { assertNoLiveDependents } from '../../common/utils/live-dependents';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
@@ -217,7 +218,7 @@ export class FeeStructureService {
       relations: ['class', 'academic_year', 'section'],
     });
     if (!entity) {
-      throw new NotFoundException(`Fee structure with ID "${id}" not found`);
+      throw new NotFoundException('Fee structure not found');
     }
     return entity;
   }
@@ -254,7 +255,7 @@ export class FeeStructureService {
         .setLock('pessimistic_write')
         .getOne();
       if (!existing) {
-        throw new NotFoundException(`Fee structure with ID "${id}" not found`);
+        throw new NotFoundException('Fee structure not found');
       }
 
       // `class_id`/`section_id` are now writable on update (they weren't
@@ -352,7 +353,16 @@ export class FeeStructureService {
     // them, rather than blocking removal or dragging billed data down with
     // it.
     await this.findOne(id, tenantId);
-    await this.repo.softDelete({ id, tenant_id: tenantId });
+    // [2680] Fine rules and recurring schedules that use the price tag block the delete;
+    // billed history (StudentFee) is allowed to point at it.
+    await this.repo.manager.transaction(async (manager) => {
+      await assertNoLiveDependents(manager, FeeStructure, id, {
+        code: 'FEE_STRUCTURE_IN_USE',
+        message: 'This fee structure is still used by fine rules or schedules. Remove them first.',
+        exclude: ['StudentFee.fee_structure'],
+      });
+      await manager.softDelete(FeeStructure, { id, tenant_id: tenantId });
+    });
   }
 }
 
@@ -373,10 +383,16 @@ export class PaymentService {
       relations: ['class_section', 'class_section.class'],
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${dto.student_id}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
     if (student.class_section?.class?.tenant_id !== tenantId) {
-      throw new NotFoundException(`Student with ID "${dto.student_id}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
 
     const entity = this.repo.create({
@@ -429,10 +445,16 @@ export class PaymentService {
       relations: ['class_section', 'class_section.class'],
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
     if (student.class_section?.class?.tenant_id !== tenantId) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
 
     return this.repo.find({
@@ -480,10 +502,16 @@ export class PaymentService {
       relations: ['class_section', 'class_section.class'],
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
     if (student.class_section?.class?.tenant_id !== tenantId) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
 
     // Get fee summaries from StudentFee table

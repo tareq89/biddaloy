@@ -6,7 +6,12 @@
  * assign it to another section or student via `POST /homework/:id/assign`.
  */
 import { Permission } from '@biddaloy/shared';
-import { ApiError, captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
+import {
+  ApiError,
+  captureNotificationTenant,
+  isNotFoundError,
+  notifyOutcome,
+} from '@biddaloy/ui/api';
 import {
   Card,
   Dialog,
@@ -15,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   ErrorState,
+  RecordNotFoundState,
   RoutePending,
   Skeleton,
 } from '@biddaloy/ui/components';
@@ -29,7 +35,7 @@ import {
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell } from '@biddaloy/ui/shells';
 import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Send } from 'lucide-react';
 import * as React from 'react';
 
@@ -51,6 +57,7 @@ export const Route = createFileRoute('/_staff/academics/homework/$homeworkId')({
 });
 
 function HomeworkDetailPage() {
+  const navigate = useNavigate();
   const { homeworkId } = Route.useParams();
   const { t, i18n } = useTranslation('homework');
   const { t: tCommon } = useTranslation('common');
@@ -73,6 +80,10 @@ function HomeworkDetailPage() {
         <Skeleton className="h-40 w-full" />
       </div>
     );
+  }
+
+  if (isNotFoundError(homeworkQuery.error)) {
+    return <RecordNotFoundState onBack={() => void navigate({ to: '/academics/homework' })} />;
   }
 
   if (homeworkQuery.isError || homework === undefined) {

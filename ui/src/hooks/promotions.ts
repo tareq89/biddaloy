@@ -17,6 +17,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { apiClient } from '../api/client';
 
 import { type ApprovedMutationResult, useApprovedMutation } from './approval';
+import { useIdempotencyKey } from './idempotency-key';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -74,7 +75,8 @@ export interface PromotionRunDetail extends PromotionRun {
   entries: PromotionEntry[];
 }
 
-export type BlockingReason = 'PICK_TARGET_CLASS' | 'TARGET_SECTIONS_MISSING' | 'RETAIN_CLASS_MISSING';
+export type BlockingReason =
+  'PICK_TARGET_CLASS' | 'TARGET_SECTIONS_MISSING' | 'RETAIN_CLASS_MISSING';
 
 export interface TargetSuggestion {
   target_class: { id: string; name: string } | null;
@@ -142,7 +144,10 @@ export function usePromotionRun(id: string | undefined) {
   return useQuery(promotionRunQueryOptions(id));
 }
 
-export function suggestPromotionTargetKey(sourceClassId: string | undefined, targetYearId: string | undefined) {
+export function suggestPromotionTargetKey(
+  sourceClassId: string | undefined,
+  targetYearId: string | undefined,
+) {
   return [...promotionKeys.all, 'suggest-target', sourceClassId, targetYearId] as const;
 }
 
@@ -173,10 +178,18 @@ export function useSuggestPromotionTarget(
 
 export function useCreatePromotionRun() {
   const queryClient = useQueryClient();
+  const { keyFor, rotate } = useIdempotencyKey();
   return useMutation({
     mutationFn: async (input: CreatePromotionRunInput) =>
-      (await apiClient.post<PromotionRunDetail>('/promotions', input)).data,
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: promotionKeys.lists() }),
+      (
+        await apiClient.post<PromotionRunDetail>('/promotions', input, {
+          headers: { 'Idempotency-Key': keyFor(input) },
+        })
+      ).data,
+    onSuccess: () => {
+      rotate();
+      void queryClient.invalidateQueries({ queryKey: promotionKeys.lists() });
+    },
   });
 }
 
@@ -220,7 +233,9 @@ export function useDeletePromotionRun() {
  * needed here — the server's own conditional `@RequireApproval` (D9's
  * pattern, same as `fee-generation-batch.service.ts`'s duplicate-override
  * consume) already makes the challenge conditional. */
-export function useCommitPromotionRun(runId: string): ApprovedMutationResult<void, PromotionRunDetail> {
+export function useCommitPromotionRun(
+  runId: string,
+): ApprovedMutationResult<void, PromotionRunDetail> {
   const queryClient = useQueryClient();
   return useApprovedMutation<void, PromotionRunDetail>(
     async (_variables, options) =>
@@ -245,9 +260,12 @@ export function studentPromotionOverridesQueryOptions(studentId: string | undefi
     queryKey: studentPromotionOverridesKey(studentId),
     queryFn: async ({ signal }) =>
       (
-        await apiClient.get<StudentPromotionOverride[]>(`/students/${studentId}/promotion-overrides`, {
-          signal,
-        })
+        await apiClient.get<StudentPromotionOverride[]>(
+          `/students/${studentId}/promotion-overrides`,
+          {
+            signal,
+          },
+        )
       ).data,
     enabled: studentId !== undefined,
     retry: shouldRetryQuery,

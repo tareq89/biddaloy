@@ -320,7 +320,7 @@ flowchart TB
         changes1 --> frontend1["frontend\n3-way shard"]
         frontend1 --> merge1["frontend-merge\ncoverage merge"]
         changes1 --> integration1["integration"]
-        changes1 --> e2e1["e2e\nE2E smoke (chromium)"]
+        changes1 --> e2e1["e2e\nE2E smoke (chromium)\n3-way shard"]
         changes1 --> storybook1["storybook"]
         changes1 --> audit1["audit"]
         changes1 --> bundledelta1["bundle-delta\nPR-comment only"]
@@ -350,7 +350,7 @@ label (`nightly-quality-red`, `nightly-e2e-red`, `flake-hunt`) and the
 shared `nightly-red` label; see the root README's "Nightly failure
 visibility" section for the full mechanism.
 
-Concretely, the `e2e` (`E2E smoke (chromium)`) job: starts Postgres/Redis
+Concretely, each `e2e` (`E2E smoke (chromium N/3)`) shard job: starts Postgres/Redis
 service containers → installs deps → builds `shared` → resolves and
 caches the Playwright browser → runs migrations → seeds the database →
 builds and starts the production client-admin + server → runs the

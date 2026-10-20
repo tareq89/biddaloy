@@ -105,7 +105,10 @@ export class EnrollmentService {
       where: { id: dto.student_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${dto.student_id}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
 
     // Verify class belongs to tenant
@@ -211,7 +214,10 @@ export class EnrollmentService {
       where: { id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
 
     return this.repo.find({
@@ -227,7 +233,10 @@ export class EnrollmentService {
       where: { id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+      throw new NotFoundException({
+        message: 'Student not found',
+        details: { code: 'STUDENT_NOT_FOUND' },
+      });
     }
 
     // a promoted student has one ACTIVE enrollment per year

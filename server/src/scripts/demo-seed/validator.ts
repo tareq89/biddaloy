@@ -103,13 +103,13 @@ async function academicYear(ds: Db): Promise<Violation[]> {
  * credit. A reversed payment turns REFUNDED and gets a REFUNDED mirror with positive allocations;
  * PENDING/FAILED payments carry allocations that never touched `paid_amount`. Neither counts.
  * Checkout wallet use (`DEBIT_CHECKOUT`) is already inside that payment's allocations.
- * Waivers are not a column in the model, so they are not checked.
+ * A WAIVED bill must be settled: paid + discount = total (waiving adds the outstanding to the discount).
  */
 async function money(ds: Db): Promise<Violation[]> {
   const [fees, allocations, wallet]: Row[][] = await Promise.all([
     ds.query(`/* check:money-fees */
       SELECT sf.id, sf.total_amount::float AS total, sf.paid_amount::float AS paid,
-             sf.discount_amount::float AS discount
+             sf.discount_amount::float AS discount, sf.status
         FROM student_fees sf JOIN students st ON st.id = sf.student_id
         JOIN schools s ON s.id = st.tenant_id
        WHERE sf.deleted_at IS NULL AND ${DEMO}`),
@@ -154,6 +154,12 @@ async function money(ds: Db): Promise<Violation[]> {
       out.push({
         check: 'money',
         message: `student_fee ${f.id}: allocation discounts ${discount} exceed fee discount ${f.discount}`,
+      });
+    }
+    if (f.status === 'WAIVED' && Math.abs(f.paid + f.discount - f.total) > 0.005) {
+      out.push({
+        check: 'money',
+        message: `student_fee ${f.id}: WAIVED but paid ${f.paid} + discount ${f.discount} <> total ${f.total}`,
       });
     }
     if (f.paid + f.discount > f.total + 0.005) {

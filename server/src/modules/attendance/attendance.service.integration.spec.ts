@@ -843,6 +843,81 @@ describe('AttendanceService (integration)', () => {
     });
   });
 
+  describe('putRegister: academic-year range (#2611)', () => {
+    // Fixture year is 2026-01-01..2026-12-31. Dates after today are "future",
+    // so those cases allow future dates and mark LEAVE only.
+    const leaveOnly = (date: string) =>
+      basePutDto({
+        date,
+        entries: [{ student_id: studentId1, status: AttendanceStatus.LEAVE }],
+      });
+    const allowFuture = () =>
+      setTenantSettings(TENANT_ID, {
+        weeklyOffDays: [],
+        correctionWindowDays: 2,
+        allowFutureDates: true,
+      });
+    const OUTSIDE = {
+      status: 422,
+      response: { details: { code: 'ATTENDANCE_OUTSIDE_ACADEMIC_YEAR' } },
+    };
+
+    it('refuses a date before the year start and stores nothing', async () => {
+      await expect(
+        service.putRegister(putParams({ dto: basePutDto({ date: '2025-12-31' }) })),
+      ).rejects.toMatchObject(OUTSIDE);
+      expect(await dataSource.getRepository(AttendanceSession).count()).toBe(0);
+    });
+
+    it('refuses a date after the year end', async () => {
+      await allowFuture();
+      await expect(
+        service.putRegister(putParams({ dto: leaveOnly('2027-01-01') })),
+      ).rejects.toMatchObject(OUTSIDE);
+    });
+
+    it('[2664] 404s when the class points at another tenant’s year, and stores nothing', async () => {
+      // No composite FK ties classes.academic_year_id to the same tenant, so a bad row
+      // must not skip the range check by making the tenant-filtered year lookup empty.
+      const otherYear = await dataSource
+        .getRepository(AcademicYear)
+        .findOneByOrFail({ tenant_id: OTHER_TENANT, name: 'Other Tenant Year' });
+      await dataSource
+        .getRepository(Class)
+        .update({ id: classId }, { academic_year_id: otherYear.id });
+      try {
+        await expect(
+          service.putRegister(putParams({ dto: basePutDto({ date: '2025-12-31' }) })),
+        ).rejects.toBeInstanceOf(NotFoundException);
+        expect(await dataSource.getRepository(AttendanceSession).count()).toBe(0);
+      } finally {
+        await dataSource.getRepository(Class).update({ id: classId }, { academic_year_id: yearId });
+      }
+    });
+
+    it('accepts the first and the last day of the year', async () => {
+      await allowFuture();
+      await service.putRegister(putParams({ dto: leaveOnly('2026-01-01') }));
+      await service.putRegister(putParams({ dto: leaveOnly('2026-12-31') }));
+      expect(await dataSource.getRepository(AttendanceSession).count()).toBe(2);
+    });
+
+    it('accepts a 2027 date for a section in the 2027 year', async () => {
+      await allowFuture();
+      const { p, section2 } = await seedPromotedStudent();
+      const result = await service.putRegister(
+        putParams({
+          sectionId: section2.id,
+          dto: basePutDto({
+            date: '2027-03-01',
+            entries: [{ student_id: p.id, status: AttendanceStatus.LEAVE }],
+          }),
+        }),
+      );
+      expect(result.session.id).not.toBeNull();
+    });
+  });
+
   describe('getRegister', () => {
     it('returns an empty (unmarked) register with version 0 when no session exists yet', async () => {
       const result = await service.getRegister({

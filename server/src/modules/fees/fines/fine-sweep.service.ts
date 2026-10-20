@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { round2 } from '../../../common/constants/money';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
@@ -29,10 +30,6 @@ import {
   FineSweepPreviewResultDto,
   FineSweepRowDto,
 } from './dto/fine-sweep.dto';
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
 /** All calendar dates in `[from, to]` (inclusive), `'YYYY-MM-DD'`. Matches
  * `SchoolCalendarService`'s own "never use local-timezone `Date` math"
@@ -307,7 +304,13 @@ export class FineSweepService {
 
   /** Read-only: `compute()` plus which of those (student, fee structure)
    * pairs already have a bill for this period. */
-  async preview(tenantId: string, month: string, scope: Scope): Promise<FineSweepPreviewResultDto> {
+  async preview(
+    tenantId: string,
+    month: string,
+    scope: Scope,
+    today: string = localToday(),
+  ): Promise<FineSweepPreviewResultDto> {
+    assertMonthClosed(month, today);
     const rows = await this.compute(tenantId, month, scope);
     if (rows.length === 0) {
       return { students: [], total_amount: 0, would_create: 0, duplicates: [] };
@@ -370,7 +373,10 @@ export class FineSweepService {
     notify?: boolean,
     request: RequestLike = { headers: {} },
     today: string = localToday(),
+    // [F-148] true only from runDue (the unattended sweep); see generate()'s option.
+    skipRemovedFineBills = false,
   ): Promise<FineSweepGenerateResultDto> {
+    assertMonthClosed(month, today);
     const settings = await this.loadSettings(tenantId);
     const rows = await this.compute(tenantId, month, scope, settings);
     const result: FineSweepGenerateResultDto = {
@@ -444,6 +450,7 @@ export class FineSweepService {
         {
           source: FeeGenerationSource.FINE_RULE,
           billOverrides,
+          skipRemovedFineBills,
         },
       );
       result.fee_generation_ids.push(generated.fee_generation_id);
@@ -485,6 +492,7 @@ export class FineSweepService {
         true,
         { headers: {} },
         today,
+        true,
       );
     } catch (err) {
       // No academic year covering last month shouldn't break the daily
@@ -492,6 +500,17 @@ export class FineSweepService {
       if (err instanceof NotFoundException) return;
       throw err;
     }
+  }
+}
+
+/** [F-150] Absences are still being marked in an open month; preview and bill only closed
+ * months. Fixed text, never the submitted month (Rule 23); the code goes in `details`. */
+function assertMonthClosed(month: string, today: string): void {
+  if (month >= today.slice(0, 7)) {
+    throw new BadRequestException({
+      message: 'Fines can only be generated for a month that has ended',
+      details: { code: 'FINE_SWEEP_MONTH_NOT_CLOSED' },
+    });
   }
 }
 

@@ -63,7 +63,8 @@ export function formatAmount(value: number | string): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  return toBengaliDigits(formatted);
+  // [2609] `-0` and `-0.001` format as "-0.00"; a zero has no sign.
+  return toBengaliDigits(formatted.replace(/^-(?=[0.,]+$)/, ''));
 }
 
 /** A credit note's `snapshot` is copied verbatim from the invoice it

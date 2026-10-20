@@ -29,7 +29,6 @@ import { SchoolsModule } from '../schools/schools.module';
 import { FeeStructureService, PaymentService } from './fees.service';
 import { PaymentsQueryService } from './payments-query.service';
 import { FeeGenerationService, NoopDiscountResolver } from './fee-generation.service';
-import { PaymentAllocationService } from './payment-allocation.service';
 import { FeeDuesService } from './fee-dues.service';
 import { FeeGenerationsService } from './fee-generations.service';
 import { FeeGenerationBatchService } from './fee-generation-batch.service';
@@ -109,7 +108,6 @@ import { FeesDashboardController } from './fees-dashboard.controller';
     PaymentService,
     PaymentsQueryService,
     FeeGenerationService,
-    PaymentAllocationService,
     FeeDuesService,
     FeeGenerationsService,
     FeeGenerationBatchService,
@@ -174,7 +172,6 @@ import { FeesDashboardController } from './fees-dashboard.controller';
     PaymentService,
     PaymentsQueryService,
     FeeGenerationService,
-    PaymentAllocationService,
     FeeDuesService,
     FeeGenerationsService,
     FeeGenerationBatchService,

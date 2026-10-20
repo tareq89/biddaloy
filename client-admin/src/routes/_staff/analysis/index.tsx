@@ -47,6 +47,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { DownloadIcon, FileClockIcon, FilePenLineIcon, PrinterIcon } from 'lucide-react';
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
@@ -110,6 +111,7 @@ function AnalysisPage() {
 
   // One toolbar for the page; it acts on the selected tab.
   const [csvBusy, setCsvBusy] = React.useState(false);
+  const [printing, setPrinting] = React.useState(false);
   async function handleDownloadCsv() {
     if (!selectedExam) return;
     setCsvBusy(true);
@@ -139,6 +141,19 @@ function AnalysisPage() {
   function setTab(nextTab: string) {
     void navigate({ search: (prev) => ({ ...prev, tab: nextTab as AnalysisTab }) });
   }
+
+  // The merit tab is paged; show every row while the print dialog is open.
+  // [2697] Driven by the browser events so Ctrl/Cmd+P and the browser menu print every row too.
+  React.useEffect(() => {
+    const before = () => flushSync(() => setPrinting(true));
+    const after = () => setPrinting(false);
+    window.addEventListener('beforeprint', before);
+    window.addEventListener('afterprint', after);
+    return () => {
+      window.removeEventListener('beforeprint', before);
+      window.removeEventListener('afterprint', after);
+    };
+  }, []);
 
   function setByComponent(next: boolean) {
     void navigate({ search: (prev) => ({ ...prev, byComponent: next ? true : undefined }) });
@@ -258,7 +273,7 @@ function AnalysisPage() {
             />
           ) : (
             <Tabs value={tab} onValueChange={setTab}>
-              <TabsList className="print:hidden">
+              <TabsList variant="line" className="print:hidden">
                 <TabsTrigger value="merit">{tg('analysisPage.tabs.merit')}</TabsTrigger>
                 <TabsTrigger value="defaulted">{tg('analysisPage.tabs.defaulted')}</TabsTrigger>
                 <TabsTrigger value="pass-fail">{tg('analysisPage.tabs.passFail')}</TabsTrigger>
@@ -271,6 +286,7 @@ function AnalysisPage() {
                   sectionId={sectionId}
                   sectionName={selectedSection?.section_name}
                   className={selectedExam.class.name}
+                  showAll={printing}
                 />
               </TabsContent>
               <TabsContent value="defaulted">

@@ -479,8 +479,8 @@ POST /auth/register/verify | RegistrationController | allowlist: none
 POST /auth/reset-password | AccountAccessController | allowlist: none
 POST /auth/social/:provider/link-start | SocialAuthController | allowlist: AuthGuard('jwt')
 POST /auth/social/facebook/data-deletion | SocialAuthController | allowlist: none
-POST /auth/step-up | StepUpController | allowlist: AuthGuard('jwt'), ContextGuard
-POST /auth/step-up/otp/request | StepUpController | allowlist: AuthGuard('jwt'), ContextGuard
+POST /auth/step-up | StepUpController | perm: STEP_UP_REQUEST
+POST /auth/step-up/otp/request | StepUpController | perm: STEP_UP_REQUEST
 POST /auth/verify-email | AccountAccessController | allowlist: none
 POST /backup/export | WorkbookController | perm: BACKUP_MANAGE
 POST /backup/restore | RestoreController | perm: BACKUP_MANAGE

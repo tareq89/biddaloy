@@ -7,6 +7,7 @@ import { AppModule } from '../../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
 import { UserRole, FineTrigger } from '@biddaloy/shared';
+import { todayInSchoolTz } from '../../../common/time';
 import {
   SEED_TENANT_ID,
   SEED_ACADEMIC_YEAR_ID,
@@ -222,6 +223,26 @@ describe('Fines E2E (38.2.5)', () => {
   });
 
   describe('attendance-fine sweep', () => {
+    it('400s FINE_SWEEP_MONTH_NOT_CLOSED for the current Dhaka month (F-150)', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post(`${API}/fees/fines/generate`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({ month: todayInSchoolTz().slice(0, 7) })
+        .expect(400);
+      expect(res.body.details).toEqual({ code: 'FINE_SWEEP_MONTH_NOT_CLOSED' });
+    });
+
+    it('preview 400s FINE_SWEEP_MONTH_NOT_CLOSED for the current Dhaka month (F-150)', async () => {
+      const res = await supertest(app.getHttpServer())
+        .post(`${API}/fees/fines/generate/preview`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .send({ month: todayInSchoolTz().slice(0, 7) })
+        .expect(400);
+      expect(res.body.details).toEqual({ code: 'FINE_SWEEP_MONTH_NOT_CLOSED' });
+    });
+
     it('preview then generate for a month with no due fines returns/creates nothing (no error)', async () => {
       const previewRes = await supertest(app.getHttpServer())
         .post(`${API}/fees/fines/generate/preview`)

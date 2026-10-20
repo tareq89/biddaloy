@@ -64,6 +64,7 @@ import * as React from 'react';
 
 import { PlaceholderButtons } from '../-shared/placeholder-buttons';
 import { RecipientList } from '../-shared/recipient-list';
+import { MAX_BULK_REMINDER_STUDENTS } from '../-shared/reminder-limits';
 import { skipReasonKey } from '../-shared/skip-reason';
 import { SmsSegmentCounter } from '../-shared/sms-segment-counter';
 import {
@@ -81,7 +82,7 @@ import { WizardSteps } from './wizard-steps';
 /** Mirror of the server's `MAX_BULK_REMINDER_STUDENTS` (`@ArrayMaxSize`
  * on `SendBulkReminderDto.student_ids`) — enforced here so the sender
  * learns about the cap while selecting, not from a 400. */
-const MAX_STUDENTS = 500;
+const MAX_STUDENTS = MAX_BULK_REMINDER_STUDENTS;
 
 const STEP_IDS = ['recipients', 'message', 'review'] as const;
 type StepId = (typeof STEP_IDS)[number];

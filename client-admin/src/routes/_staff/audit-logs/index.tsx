@@ -370,6 +370,7 @@ function AuditLogsList() {
       isFetching={auditLogsQuery.isFetching}
       {...(auditLogsQuery.isError ? { error: t('list.errorMessage') } : {})}
       emptyState={{
+        ...(hasActiveFilter ? { kind: 'no-results' as const } : {}),
         icon: <ScrollText />,
         title: t('list.emptyTitle'),
         explanation: hasActiveFilter ? t('list.emptyMessage') : t('list.emptyMessageUnfiltered'),

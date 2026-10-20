@@ -305,7 +305,6 @@ export function useUpdateSchoolSettings(schoolId: string) {
   return useMutation({
     mutationFn: async (input: TenantSettingsInput) =>
       (await apiClient.patch<MaskedTenantSettings>(`/schools/${schoolId}/settings`, input)).data,
-    retry: shouldRetryQuery,
     onSuccess: (settings) => {
       queryClient.setQueryData(schoolSettingsKeys.detail(schoolId), settings);
     },
@@ -319,7 +318,8 @@ export function useTestSchoolConnection(schoolId: string) {
     mutationFn: async (input: TestConnectionInput) =>
       (await apiClient.post<ConnectionTestResult>(`/schools/${schoolId}/settings/test`, input))
         .data,
-    retry: shouldRetryQuery,
+    // Writes nothing, so "could not confirm it was saved" would be wrong.
+    meta: { handlesUnknownOutcome: true },
   });
 }
 

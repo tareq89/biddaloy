@@ -1,10 +1,18 @@
-import { type Mutation, MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
+import {
+  type Mutation,
+  MutationCache,
+  notifyManager,
+  QueryCache,
+  QueryClient,
+} from '@tanstack/react-query';
+import axios from 'axios';
 
 import { toast } from '../components/toast';
 import { shouldRetryQuery } from '../hooks/retry';
 import { i18n, COMMON_NAMESPACE } from '../i18n';
 
 import { ApiError, isTenantRestoringError, isTenantSuspendedError } from './errors';
+import { isNoResponseNetworkError } from './offline-cache';
 
 /**
  * Shows a permission-denied toast for any mutation that fails with a 403,
@@ -23,6 +31,10 @@ import { ApiError, isTenantRestoringError, isTenantSuspendedError } from './erro
  * A mutation whose own `onError` explains its 403s (the attendance month
  * save's "only someone who can correct attendance" dialog) opts out with
  * `meta: { handlesForbidden: true }`, so the user does not get both.
+ * [2698] A mutation whose form explains its own 5xx / lost reply, or that writes nothing
+ * (a connection test), opts out of the "could not confirm" toast with
+ * `meta: { handlesUnknownOutcome: true }`. A form whose error only says "Couldn't save.
+ * Try again." does not qualify: on a write that may have committed, that invites a duplicate.
  */
 function handleMutationError(
   error: unknown,
@@ -53,6 +65,19 @@ function handleMutationError(
   if (forbiddenHandled) return;
   if (error instanceof ApiError && error.statusCode === 403 && !isTenantSuspendedError(error)) {
     toast.error(i18n.t('errors.permissionDenied', { ns: COMMON_NAMESPACE }));
+    return;
+  }
+  // [2596] A 5xx or a lost reply: the write may have been saved. Say so, since we do not retry.
+  // A gateway 502/504 from nginx or Cloudflare has an HTML body, so it stays a raw AxiosError.
+  const status =
+    error instanceof ApiError
+      ? error.statusCode
+      : axios.isAxiosError(error)
+        ? (error.response?.status ?? 0)
+        : 0;
+  if (mutation.meta?.handlesUnknownOutcome === true) return;
+  if (status >= 500 || isNoResponseNetworkError(error)) {
+    toast.error(i18n.t('outcomeUnknown', { ns: COMMON_NAMESPACE }));
   }
 }
 
@@ -65,6 +90,9 @@ function handleMutationError(
  * render-with-providers.tsx`), the deliberately different client tests use.
  */
 export function createAppQueryClient(): QueryClient {
+  // [2594] `isPending` otherwise reaches React through `setTimeout(0)`, after a fast second
+  // click has already fired; a microtask lands before the next click event (D4).
+  notifyManager.setScheduler(queueMicrotask);
   return new QueryClient({
     defaultOptions: {
       queries: {
@@ -104,7 +132,10 @@ export function createAppQueryClient(): QueryClient {
         throwOnError: isTenantSuspendedError,
       },
       mutations: {
-        retry: shouldRetryQuery,
+        // [2596] Never re-send a write on its own: if the server committed but the reply was
+        // lost (a 502/504, a dropped connection), a retry creates the record again.
+        // `mutation-retry.guard.spec.ts` fails on any mutation `retry` other than `false`.
+        retry: false,
       },
     },
     queryCache: new QueryCache(),

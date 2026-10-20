@@ -1,6 +1,5 @@
-import { In, type EntityManager } from 'typeorm';
+import type { EntityManager } from 'typeorm';
 import { StudentNote } from '../../../students/entities/student-note.entity';
-import { User } from '../../../users/entities/user.entity';
 import { formatDateTime, fromCell } from '../../codec/cell-format';
 import type {
   ColumnSpec,
@@ -9,6 +8,8 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
+import { optionalKeyOf } from '../../codec/tab-spec';
+import { memberKeysById } from './users.tab';
 
 /**
  * The `student_notes` tab: staff notes on a student ([39.1.3], D29).
@@ -23,7 +24,7 @@ import type {
 export interface StudentNoteRow {
   id: string;
   student_id: string;
-  author_user_id: string;
+  author_user_id: string | null;
   body: string;
   rating: number | null;
   created_at: string;
@@ -46,7 +47,7 @@ const columns: readonly ColumnSpec[] = [
     key: 'author',
     type: 'ref',
     ref: 'users',
-    required: true,
+    requiredOnNewRow: true,
     label: { en: 'Author', bn: 'লেখক' },
   },
   { key: 'body', type: 'string', required: true, label: { en: 'Note', bn: 'নোট' } },
@@ -90,9 +91,12 @@ export const studentNotesTab: TabSpec<StudentNote, StudentNoteRow> = {
       where: { tenant_id: tenantId },
       relations: ['student'],
     })) as LoadedNote[];
-    const authorIds = [...new Set(notes.map((n) => n.author_user_id))];
-    const users = authorIds.length ? await m.find(User, { where: { id: In(authorIds) } }) : [];
-    const keyById = new Map(users.map((u) => [u.id, u.email?.trim() || u.phone?.trim() || '']));
+    // Key only current members: the export writes a blank cell for anyone else.
+    const keyById = await memberKeysById(
+      tenantId,
+      notes.map((n) => n.author_user_id),
+      m,
+    );
     for (const n of notes) n.author_key = keyById.get(n.author_user_id) ?? '';
     return notes;
   },
@@ -101,7 +105,7 @@ export const studentNotesTab: TabSpec<StudentNote, StudentNoteRow> = {
     return {
       id: entity.id,
       student: ctx.keyOf('students', entity.student_id),
-      author: ctx.keyOf('users', entity.author_user_id),
+      author: optionalKeyOf(ctx, 'users', entity.author_user_id),
       body: entity.body,
       rating: entity.rating,
       created_at: entity.created_at,
@@ -143,9 +147,9 @@ export const studentNotesTab: TabSpec<StudentNote, StudentNoteRow> = {
     const studentId = ctx.ref('students', studentKey);
     if (!studentId) errors.push(unresolved(rowNo, 'student', studentKey, 'student'));
 
-    const authorKey = values.author as string;
-    const authorId = ctx.ref('users', authorKey);
-    if (!authorId) errors.push(unresolved(rowNo, 'author', authorKey, 'user'));
+    const authorKey = (values.author as string | null) ?? '';
+    const authorId = authorKey ? (ctx.ref('users', authorKey) ?? null) : null;
+    if (authorKey && !authorId) errors.push(unresolved(rowNo, 'author', authorKey, 'user'));
 
     if (errors.length > 0) return { errors };
 
@@ -153,7 +157,7 @@ export const studentNotesTab: TabSpec<StudentNote, StudentNoteRow> = {
       row: {
         id: values.id as string,
         student_id: studentId as string,
-        author_user_id: authorId as string,
+        author_user_id: authorId,
         body: values.body as string,
         rating,
         created_at: values.created_at as string,
@@ -174,7 +178,8 @@ export const studentNotesTab: TabSpec<StudentNote, StudentNoteRow> = {
   diffFields(row: StudentNoteRow, existing: StudentNote): string[] {
     const changed: string[] = [];
     if (row.student_id !== existing.student_id) changed.push('student');
-    if (row.author_user_id !== existing.author_user_id) changed.push('author');
+    if (row.author_user_id !== null && row.author_user_id !== existing.author_user_id)
+      changed.push('author');
     if (row.body !== existing.body) changed.push('body');
     if (row.rating !== (existing.rating ?? null)) changed.push('rating');
     if (row.created_at !== formatDateTime(existing.created_at)) changed.push('created_at');
@@ -190,7 +195,7 @@ export const studentNotesTab: TabSpec<StudentNote, StudentNoteRow> = {
     const note = existing ?? new StudentNote();
     note.tenant_id = tenantId;
     note.student_id = row.student_id;
-    note.author_user_id = row.author_user_id;
+    note.author_user_id = (row.author_user_id ?? existing?.author_user_id) as string;
     note.body = row.body;
     note.rating = row.rating;
     note.created_at = new Date(row.created_at);

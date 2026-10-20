@@ -18,6 +18,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { CommunicationMedium, CommunicationStatus, ReminderBatchStatus } from '@biddaloy/shared';
 import { ReminderPreviewRecipientDto } from './single-reminder.dto';
 import { CommunicationLogMedium, PUSH_MEDIUM } from '../entities/communication-log.entity';
+import { DELIVERY_ERROR_CODES, DeliveryErrorCode } from '../delivery-error-code';
 
 /**
  * Upper bound on one batch. The endpoint resolves recipients and enqueues
@@ -246,8 +247,8 @@ export class QueryReminderBatchLogsDto extends QueryReminderBatchesDto {
 /**
  * One recipient's delivery record within a batch — the batch detail
  * page's per-recipient status table. `student_id` is what a retry
- * composes its fresh `POST /reminder/bulk` from; `error` surfaces the
- * worker's failure reason (from CommunicationLog.metadata.error) so
+ * composes its fresh `POST /reminder/bulk` from; `error` is a fixed code
+ * for the worker's failure reason (CommunicationLog.metadata.error) so
  * "FAILED" is never unexplained. Message bodies are deliberately
  * excluded — `GET /communications/:id` serves the single-log drill-down.
  */
@@ -264,7 +265,9 @@ export class ReminderBatchLogDto {
   student_id: string | null;
   guardian_id: string | null;
   provider_message_id: string | null;
-  error: string | null;
+  // A fixed code, never the raw failure text (Rule 23, see delivery-error-code.ts).
+  @ApiProperty({ enum: DELIVERY_ERROR_CODES, nullable: true })
+  error: DeliveryErrorCode | null;
   created_at: Date;
 }
 
