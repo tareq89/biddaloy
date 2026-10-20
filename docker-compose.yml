@@ -49,6 +49,9 @@ services:
       PLATFORM_SMS_SENDER_ID: ${PLATFORM_SMS_SENDER_ID:-}
       PLATFORM_SMS_API_URL: ${PLATFORM_SMS_API_URL:-}
       PLATFORM_ALERT_PHONES: ${PLATFORM_ALERT_PHONES:-}
+      # Required in production: the id of the platform school. Unset means no
+      # membership carries platform authority (env.validation.ts).
+      PLATFORM_TENANT_ID: ${PLATFORM_TENANT_ID:-}
       # Onboarding (Epic 13). Empty means "off": no captcha check, no social
       # sign-in button, no support link. The trial values repeat the server's
       # defaults here because an empty TRIAL_* fails env validation.
