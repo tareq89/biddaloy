@@ -24,6 +24,8 @@ describe('OrdersService', () => {
     const q = vi
       .fn()
       .mockResolvedValueOnce([]) // school lock
+      .mockResolvedValueOnce([{ school_id: 's1', seats: 5 }]) // the order
+      .mockResolvedValueOnce([{ start: '2026-01-01' }]) // start date
       .mockResolvedValueOnce([[{ id: 'o1', school_id: 's1', amount_paisa: '5000' }], 1]) // UPDATE
       .mockResolvedValueOnce(undefined) // INSERT payment
       .mockResolvedValueOnce(undefined) // receipt advisory lock
@@ -44,8 +46,9 @@ describe('OrdersService', () => {
     const q = vi
       .fn()
       .mockResolvedValueOnce([]) // school lock
-      .mockResolvedValueOnce([[], 0]) // conditional UPDATE matched nothing
-      .mockResolvedValueOnce([{ '?column?': 1 }]); // the order exists
+      .mockResolvedValueOnce([{ school_id: 's1', seats: 5 }]) // the order exists
+      .mockResolvedValueOnce([{ start: '2026-01-01' }]) // start date
+      .mockResolvedValueOnce([[], 0]); // conditional UPDATE matched nothing (already PAID)
     const { service, entitlement, receipts } = build(q);
     expect(await service.markPaid('o1', { method: PlatformPaymentMethod.BKASH })).toEqual({
       applied: false,
@@ -60,8 +63,7 @@ describe('OrdersService', () => {
     const q = vi
       .fn()
       .mockResolvedValueOnce([]) // school lock
-      .mockResolvedValueOnce([[], 0])
-      .mockResolvedValueOnce([]);
+      .mockResolvedValueOnce([]); // no such order
     const { service } = build(q);
     await expect(
       service.markPaid('missing', { method: PlatformPaymentMethod.GRANT }),

@@ -314,6 +314,23 @@ describe('platform billing E2E', () => {
     expect(audits).toHaveLength(1); // the replay wrote no second audit row
   });
 
+  it('paid_until is the school’s own orders’ end, not a longer GRANT’s', async () => {
+    const id = randomUUID();
+    await ds.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Platform Billing Grant Cover', $2, NOW(), NOW())`,
+      [id, `platform-billing-grant-${id}`],
+    );
+    await ds.query(
+      `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa, period_start,
+                                period_end, status, idempotency_key, paid_at)
+       VALUES ($1, 10, 1, 1000, 10000, DATE '2026-01-01', DATE '2027-01-01', 'PAID', $2, NOW()),
+              ($1, 10, 12, 0, 0, DATE '2026-01-01', DATE '2027-12-01', 'PAID', $3, NOW())`,
+      [id, randomUUID(), `grant:${randomUUID()}`],
+    );
+    expect((await as('super').get(`schools/${id}`).expect(200)).body.paid_until).toBe('2026-12-31');
+  });
+
   it('grant validation: ranges, short reason, short key, unknown school, non-UUID', async () => {
     const ok = {
       seats: 5,
