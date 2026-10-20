@@ -795,7 +795,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
   containers, migrated and seeded, Playwright against a **production build**
   (`vite build` + `vite preview`, `node dist/main.js`) of both clients and
   the server, split 3 ways with `--shard`. The PWA/offline suite runs once,
-  on shard 3. See "End-to-end Testing" above.
+  on shard 1 (the lightest measured leg). See "End-to-end Testing" above.
 - **storybook** — `yarn build:storybook`, PR-blocking build-only check
   (no visual regression yet).
 - **audit** — two gates in `scripts/ci-audit.js` (yarn classic's `--level`
@@ -813,7 +813,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
 
 ```mermaid
 flowchart LR
-    PR["PR / push to main\n(ci.yml e2e job)"] --> C["E2E smoke (chromium 1/3 … 3/3)\n3 shards\njourneys + smoke; PWA on shard 3"]
+    PR["PR / push to main\n(ci.yml e2e job)"] --> C["E2E smoke (chromium 1/3 … 3/3)\n3 shards\njourneys + smoke; PWA on shard 1"]
     N["Nightly, 21:00 UTC\n(nightly-e2e.yml)"] --> CH["chromium\n3 shards"]
     N --> FF["firefox\n3 shards (advisory)"]
     N --> WK["webkit\n3 shards (advisory)"]
@@ -824,7 +824,7 @@ flowchart LR
   **[18.2.3]** had folded everything into one unsharded job when a leg ran
   ~5 min; by Epic 2642 the ~500-spec suite took 15.6 min of tests on 4
   workers and overran the job's 20-minute timeout, so the 3-way shard is
-  back. The PWA/offline suite still runs once, pinned to the last shard.
+  back. The PWA/offline suite still runs once, pinned to the lightest shard.
 - **Nightly** (`.github/workflows/nightly-e2e.yml`, `workflow_dispatch`-able)
   still runs all three engines — chromium, firefox, webkit — each split
   into 3 shards, on a schedule instead of blocking PRs; it runs the full,
