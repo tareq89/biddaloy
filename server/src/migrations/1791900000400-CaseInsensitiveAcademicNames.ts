@@ -50,7 +50,7 @@ const INDEXES = [
     name: 'IDX_cs_name_class',
     up: `CREATE UNIQUE INDEX "IDX_cs_name_class" ON "class_sections" ("class_id", lower("section_name")) WHERE "deleted_at" IS NULL`,
     down: `CREATE UNIQUE INDEX "IDX_cs_name_class" ON "class_sections" ("class_id", "section_name") WHERE "deleted_at" IS NULL`,
-    audit: `SELECT tenant_id FROM class_sections WHERE deleted_at IS NULL GROUP BY tenant_id, class_id, lower(section_name) HAVING count(*) > 1`,
+    audit: `SELECT (array_agg(tenant_id))[1] AS tenant_id FROM class_sections WHERE deleted_at IS NULL GROUP BY class_id, lower(section_name) HAVING count(*) > 1`,
   },
 ];
 

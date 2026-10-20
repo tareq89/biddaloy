@@ -10,7 +10,7 @@ import { CaseInsensitiveAcademicNames1791900000400 } from '../src/migrations/179
  * [2657] Year, class and section names that differ only by letter case clash inside one
  * school. Runs on the migrated test DB; round-trips the migration.
  */
-describe('CaseInsensitiveAcademicNames migration (integration)', () => {
+describe('CaseInsensitiveAcademicNames migration (integration)', { timeout: 15000 }, () => {
   let ds: DataSource;
   const migration = new CaseInsensitiveAcademicNames1791900000400();
   const schoolIds: string[] = [];
@@ -160,6 +160,23 @@ describe('CaseInsensitiveAcademicNames migration (integration)', () => {
     expect(message).toContain(table);
     expect(message).toContain(tenant);
     expect(message).not.toMatch(/Session Y|Grade Y|Red/i);
+  });
+
+  it('up ignores a soft-deleted case twin (deleted_at IS NULL predicate)', async () => {
+    const tenant = await mkSchool();
+    await withMigrationsReverted(ds, [migration], async () => {
+      await year(tenant, 'Session Z');
+      const id = await year(tenant, 'session z');
+      await ds.query(`UPDATE academic_years SET deleted_at = now() WHERE id = $1`, [id]);
+      const qr = ds.createQueryRunner();
+      try {
+        await expect(migration.up(qr)).resolves.toBeUndefined();
+        await migration.down(qr); // put the exact-case indexes back for the harness
+      } finally {
+        await qr.release();
+      }
+      await ds.query(`DELETE FROM academic_years WHERE tenant_id = $1`, [tenant]);
+    });
   });
 
   it('round-trips: down restores the exact-case indexes, up restores the case-insensitive ones', async () => {
