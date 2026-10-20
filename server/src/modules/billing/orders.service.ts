@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { PlatformPaymentMethod, SeatOrderStatus, type SeatOrderDto } from '@biddaloy/shared';
+import { billingFreeUntil } from '../../config/env.validation';
+import { SCHOOL_TZ, localDate } from '../../common/time';
 import { EntitlementService } from './entitlement.service';
 
 /** D2: 1000 paisa (BDT 10) per seat per month. */
@@ -87,7 +89,7 @@ export class OrdersService {
       `INSERT INTO seat_orders (school_id, seats, months, unit_price_paisa, amount_paisa,
                                 period_start, period_end, status, idempotency_key, created_by_user_id)
        SELECT $1, $2, $3, $4, $5, s.start, s.start + ($3::int * interval '1 month'), $6, $7, $8
-         FROM (SELECT GREATEST((now() AT TIME ZONE 'Asia/Dhaka')::date,
+         FROM (SELECT GREATEST((now() AT TIME ZONE 'Asia/Dhaka')::date, $10::date,
                  (SELECT MAX(p.period_end) FROM seat_orders p
                    WHERE p.school_id = $1 AND p.status = $9)) AS start) s
        ON CONFLICT (school_id, idempotency_key) DO NOTHING`,
@@ -101,6 +103,7 @@ export class OrdersService {
         input.idempotency_key,
         input.userId,
         SeatOrderStatus.PAID,
+        localDate(billingFreeUntil(), SCHOOL_TZ),
       ],
     );
     const [row]: OrderRow[] = await m.query(
@@ -128,8 +131,9 @@ export class OrdersService {
   /**
    * PENDING -> PAID, once. The conditional UPDATE is the idempotency guard: a replay matches no
    * row, records no second payment and does not recompute. The period is set at payment time so an
-   * order paid late still covers the months bought, and it starts where the school's last PAID
-   * period ends (or today if that is past): an early renewal extends, it never overlaps.
+   * order paid late still covers the months bought. It starts on the latest of today, the
+   * `BILLING_FREE_UNTIL` day and the end of the school's last PAID period: an early renewal
+   * extends, it never overlaps, and seats bought ahead do not burn free months.
    */
   async markPaid(orderId: string, payment: PaymentInput): Promise<{ applied: boolean }> {
     const result = await this.dataSource.transaction((m) => this.payInTx(m, orderId, payment));
@@ -154,13 +158,18 @@ export class OrdersService {
           `UPDATE seat_orders o
             SET status = $2, paid_at = now(), period_start = s.start,
                 period_end = s.start + (o.months * interval '1 month')
-           FROM (SELECT GREATEST((now() AT TIME ZONE 'Asia/Dhaka')::date,
+           FROM (SELECT GREATEST((now() AT TIME ZONE 'Asia/Dhaka')::date, $4::date,
                    (SELECT MAX(p.period_end) FROM seat_orders p
                      WHERE p.school_id = (SELECT school_id FROM seat_orders WHERE id = $1)
                        AND p.status = $2)) AS start) s
           WHERE o.id = $1 AND o.status = $3
           RETURNING o.id, o.school_id, o.amount_paisa`,
-          [orderId, SeatOrderStatus.PAID, SeatOrderStatus.PENDING],
+          [
+            orderId,
+            SeatOrderStatus.PAID,
+            SeatOrderStatus.PENDING,
+            localDate(billingFreeUntil(), SCHOOL_TZ),
+          ],
         );
       const paid = rows[0];
       if (!paid) {

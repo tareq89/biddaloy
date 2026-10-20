@@ -173,6 +173,14 @@ describe('EntitlementService + OrdersService (integration)', () => {
     expect((await periodOf(renewal.id)).end).toBe(later);
   });
 
+  it('seats bought in the free period start on the BILLING_FREE_UNTIL day', async () => {
+    beforeCutoff(); // 2999-01-01T00:00+06:00
+    const id = await newSchool();
+    const o = await pay(id, 10, 2);
+    // Buying ahead must not burn paid months inside the free period.
+    expect(await periodOf(o.id)).toEqual({ start: '2999-01-01', end: '2999-03-01' });
+  });
+
   it('a purchase after the last paid period has ended starts today', async () => {
     afterCutoff();
     const id = await newSchool();
