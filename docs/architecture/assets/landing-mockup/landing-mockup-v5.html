@@ -1,0 +1,612 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SchoolManager ERP Landing Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: Notion-like centered column on a white ground. Four brand hues (indigo = শিক্ষার মান, teal = গতি, amber = নজরদারি, coral = অভিভাবক) appear only in icons, tags, dots and the rotating hero word; buttons stay near-black. */
+:root{
+  --bg:#ffffff; --surface:#f7f7f5; --surface-2:#efefec; --fg:#191919; --muted:#6f6e69; --line:#e6e6e2;
+  --ink:#191919; --ink-fg:#ffffff;
+  --indigo:#4a3fd4; --indigo-t:#eceefe; --teal:#0f9d8a; --teal-t:#e3f5f1; --amber:#d99500; --amber-t:#fff3d6; --coral:#e4572e; --coral-t:#fde9e2;
+  --brand:var(--indigo); --shot:#f1f1ee; --shot-ink:#8a8984;
+  --font:"Hind Siliguri","Noto Sans Bengali",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#191919; --surface:#202020; --surface-2:#2a2a2a; --fg:#e6e6e3; --muted:#9b9a94; --line:#2f2f2f; --ink:#e6e6e3; --ink-fg:#191919;
+  --indigo:#9aa0f5; --indigo-t:#26284a; --teal:#4fd1bd; --teal-t:#143b35; --amber:#f2b63a; --amber-t:#3f3115; --coral:#f08a68; --coral-t:#44251b;
+  --shot:#232323; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#191919; --surface:#202020; --surface-2:#2a2a2a; --fg:#e6e6e3; --muted:#9b9a94; --line:#2f2f2f; --ink:#e6e6e3; --ink-fg:#191919;
+  --indigo:#9aa0f5; --indigo-t:#26284a; --teal:#4fd1bd; --teal-t:#143b35; --amber:#f2b63a; --amber-t:#3f3115; --coral:#f08a68; --coral-t:#44251b;
+  --shot:#232323; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.55;margin:0}
+h1,h2,h3,h4{margin:0;text-wrap:balance;line-height:1.15;font-weight:700;letter-spacing:-.01em}
+p{margin:0}a{color:inherit}button{font:inherit;color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.narrow{max-width:860px}
+:focus-visible{outline:2px solid var(--indigo);outline-offset:2px}
+.c-indigo{--hue:var(--indigo);--tint:var(--indigo-t)}.c-teal{--hue:var(--teal);--tint:var(--teal-t)}.c-amber{--hue:var(--amber);--tint:var(--amber-t)}.c-coral{--hue:var(--coral);--tint:var(--coral-t)}
+
+/* mock chrome */
+.mock{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--surface);border-bottom:1px solid var(--line)}
+.mock .wrap{display:flex;gap:.4rem;align-items:center;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-block:.45rem}
+.mock .wrap::-webkit-scrollbar{display:none}
+.mock .tab{flex:none}
+.mock .label{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-right:.25rem}
+.tab{border:1px solid var(--line);background:transparent;border-radius:6px;padding:.25rem .7rem;font-size:.85rem;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--ink-fg);border-color:var(--ink)}
+.spacer{flex:1}.mock .note{font-size:.75rem;color:var(--muted)}
+
+/* header */
+.site{background:var(--bg);border-bottom:1px solid var(--line)}
+.site .wrap{display:flex;align-items:center;gap:1.25rem;min-height:64px;flex-wrap:wrap;padding-block:.5rem}
+.wordmark{display:flex;align-items:center;gap:.5rem;font-weight:700;font-size:1.2rem;white-space:nowrap;text-decoration:none}
+.wordmark .mono{width:28px;height:28px;border-radius:6px;background:var(--ink);color:var(--ink-fg);display:grid;place-items:center;font-size:.75rem;font-weight:700}
+.wordmark .m{color:var(--indigo)}
+.wordmark .erp{font-size:.6em;border:1.5px solid currentColor;border-radius:4px;padding:0 .3em;margin-left:.3em;vertical-align:.2em;opacity:.8}
+.nav{display:flex;gap:1.1rem;font-size:.95rem;flex-wrap:wrap}
+.nav a{text-decoration:none;color:var(--fg);padding:.3rem .2rem;border-radius:4px}.nav a:hover{background:var(--surface)}.nav a[aria-current]{font-weight:600}
+.ctl{display:flex;gap:.5rem;align-items:center;margin-left:auto;flex-wrap:nowrap}
+.menuBtn{display:none}
+@media (max-width:900px){.site .wrap{gap:.6rem}.nav{display:none;width:100%;order:9;padding:.4rem 0 .2rem;border-top:1px solid var(--line);gap:.2rem .9rem}.nav.open{display:flex}.menuBtn{display:inline-flex}.ctl .linklike,.ctl .btn.secondary{display:none}.nav .mobile-only{display:inline}}
+.nav .mobile-only{display:none}
+.btn .short{display:none}
+@media (max-width:900px){.site .wrap{flex-wrap:wrap}.wordmark{flex:1}.ctl{margin-left:0}.btn .full{display:none}.btn .short{display:inline}}
+@media (max-width:420px){.wordmark{font-size:1.05rem}.wordmark .mono{width:24px;height:24px}}
+.pill{border:1px solid var(--line);background:transparent;border-radius:6px;padding:.3rem .6rem;font-size:.85rem;cursor:pointer}
+.linklike{text-decoration:none;font-size:.95rem;padding:.4rem .6rem;border-radius:6px}.linklike:hover{background:var(--surface)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border-radius:8px;padding:.7rem 1.1rem;font-weight:600;text-decoration:none;border:1px solid transparent;cursor:pointer;white-space:nowrap;font-size:.95rem}
+.btn.primary{background:var(--ink);color:var(--ink-fg)}.btn.secondary{background:var(--surface);border-color:var(--line)}
+.btn.small{padding:.45rem .8rem;font-size:.9rem}.btn.lg{padding:.9rem 1.4rem;font-size:1.05rem}
+
+/* sections */
+.page{display:none}.page.on{display:block}
+section{padding-block:4rem}section.soft{background:var(--surface)}
+.center{text-align:center}
+.eyebrow{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:.6rem}
+.h2{font-size:clamp(1.6rem,3.2vw,2.4rem);margin-bottom:.6rem}
+.lead{color:var(--muted);max-width:62ch;font-size:1.05rem}.center .lead{margin-inline:auto}
+.grid{display:grid;gap:1rem}.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr))}
+.card{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:1.2rem;min-width:0;text-decoration:none;display:block}
+.card h3{font-size:1.05rem;margin-bottom:.35rem}.card p{color:var(--muted);font-size:.95rem}
+a.card:hover{background:var(--surface)}
+.badge{display:inline-block;font-size:.7rem;font-weight:600;letter-spacing:.03em;border-radius:999px;padding:.1rem .5rem;background:var(--amber-t);color:var(--amber);vertical-align:middle;margin-left:.3rem}
+
+/* hero */
+.hero{padding-block:4.5rem 2rem}
+.hero h1{font-size:clamp(2.1rem,5.2vw,3.9rem);max-width:22ch;margin:0 auto 1rem;letter-spacing:-.02em}
+.keep{white-space:nowrap}
+.rot{display:inline-grid;text-align:left;vertical-align:bottom;position:relative}
+.rot span{grid-area:1/1;opacity:0;transform:translateY(.4em);transition:opacity .45s,transform .45s;white-space:nowrap;color:var(--hue)}
+.rot span.on{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.rot span{transition:none}}
+.hero .sub{font-size:clamp(1.02rem,1.5vw,1.2rem);color:var(--muted);max-width:60ch;margin:0 auto 1.6rem}
+.hero .sub b{color:var(--fg);font-weight:600}
+.ctas{display:flex;gap:.7rem;flex-wrap:wrap;justify-content:center;align-items:center}
+.ctas .tiny{font-size:.85rem;color:var(--muted);width:100%;text-align:center}
+
+/* carousel: one slide visible */
+.carousel{margin-top:2.5rem;position:relative}
+.viewport{overflow:hidden;border-radius:14px}
+.track{display:flex;transition:transform .5s ease}
+@media (prefers-reduced-motion:reduce){.track{transition:none}}
+.slide{flex:0 0 100%;min-width:0;padding:0 .25rem}
+.slide header{display:flex;justify-content:center;gap:.6rem;align-items:center;margin-bottom:.7rem;flex-wrap:wrap}
+.slide header h3{font-size:1.05rem}
+.slide header .tag{font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;font-weight:600;color:var(--hue);background:var(--tint);border-radius:999px;padding:.1rem .55rem}
+.win{border:1px solid var(--line);border-radius:12px;background:var(--bg);overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.08);max-width:900px;margin:0 auto}
+.slide .body{min-height:450px;display:flex;flex-direction:column;justify-content:center}
+.winbar{height:34px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 12px;font-size:.72rem;color:var(--muted)}
+.winbar i{width:10px;height:10px;border-radius:50%;background:var(--line);display:inline-block}
+.winbar .url{margin-left:.6rem;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:.1rem .5rem;font-family:ui-monospace,monospace}
+.app{display:grid;grid-template-columns:170px 1fr;height:380px;position:relative;overflow:hidden}
+@media (max-width:640px){.app{grid-template-columns:minmax(0,1fr);height:400px}.app .side{display:none}.slide .body,.phonewrap{min-height:430px}}
+.side{background:var(--surface);border-right:1px solid var(--line);padding:.8rem .6rem;font-size:.78rem;display:grid;gap:.25rem;align-content:start}
+.side b{font-size:.7rem;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin:.4rem .3rem .1rem}
+.side span{padding:.3rem .5rem;border-radius:5px}.side span.on{background:var(--surface-2);font-weight:600}
+.main{padding:1rem 1.1rem;overflow:hidden;position:relative;min-width:0}
+.main h4{font-size:1rem;margin-bottom:.3rem}.main .meta{font-size:.78rem;color:var(--muted);margin-bottom:.8rem}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem;margin-bottom:.8rem}
+.tiles div{border:1px solid var(--line);border-radius:8px;padding:.6rem .7rem;font-size:.75rem;color:var(--muted);background:var(--bg)}
+.tiles div b{display:block;font-size:1.2rem;color:var(--fg);font-variant-numeric:tabular-nums}
+.list{display:grid;grid-template-columns:minmax(0,1fr);gap:.4rem;font-size:.82rem}
+.row{display:flex;gap:.5rem;align-items:center;border:1px solid var(--line);border-radius:7px;padding:.45rem .6rem;background:var(--bg)}
+.row i{width:8px;height:8px;border-radius:50%;flex:none}.row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row small{color:var(--muted);flex:none}.row .act{border:1px solid var(--line);border-radius:5px;padding:.1rem .5rem;font-size:.72rem;background:var(--surface)}
+.d-crit{background:var(--coral)}.d-warn{background:var(--amber)}.d-ok{background:var(--teal)}
+.scroller{animation:scrollUp 9s ease-in-out infinite}
+.cursor{position:absolute;width:18px;height:18px;border-radius:50%;background:var(--ink);opacity:.9;left:60%;top:55%;box-shadow:0 0 0 4px rgba(0,0,0,.08);animation:cursorMove 9s ease-in-out infinite;pointer-events:none}
+.toast{position:absolute;right:14px;top:14px;background:var(--ink);color:var(--ink-fg);border-radius:8px;padding:.5rem .7rem;font-size:.78rem;max-width:230px;transform:translateY(-140%);animation:toastIn 9s ease-in-out infinite;box-shadow:0 8px 20px rgba(0,0,0,.2)}
+.toast b{display:block}
+.reg{display:grid;grid-template-columns:1.6fr repeat(5,1fr);gap:4px;font-size:.72rem}
+.reg span{padding:.35rem .3rem;border-radius:4px;background:var(--surface);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.reg .hd{background:transparent;color:var(--muted);font-weight:600}.reg .nm{text-align:left;background:transparent}
+.reg .p{background:var(--teal-t);color:var(--teal)}.reg .a{background:var(--coral-t);color:var(--coral)}.reg .l{background:var(--amber-t);color:var(--amber)}
+.reg .flip{animation:flip 9s steps(1) infinite}
+@keyframes scrollUp{0%,20%{transform:translateY(0)}45%,65%{transform:translateY(-70px)}90%,100%{transform:translateY(0)}}
+@keyframes cursorMove{0%{left:60%;top:55%}25%{left:78%;top:30%}30%{transform:scale(.8)}35%{transform:scale(1)}60%{left:30%;top:70%}100%{left:60%;top:55%}}
+@keyframes toastIn{0%,28%{transform:translateY(-140%)}33%,70%{transform:translateY(0)}76%,100%{transform:translateY(-140%)}}
+@keyframes flip{0%,55%{background:var(--coral-t);color:var(--coral)}56%,100%{background:var(--teal-t);color:var(--teal)}}
+@media (prefers-reduced-motion:reduce){.scroller,.cursor,.toast,.reg .flip{animation:none}.toast{transform:none}}
+/* phone slide (PWA) */
+.phonewrap{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.8rem;min-height:450px}
+.phone{width:min(100%,290px);border:8px solid var(--line);border-radius:30px;background:var(--bg);overflow:hidden;position:relative;height:420px}
+.phone .status{height:26px;font-size:.65rem;display:flex;justify-content:space-between;align-items:center;padding:0 14px;color:var(--muted)}
+.phone .pbody{padding:.6rem .8rem;position:relative;height:calc(100% - 26px);overflow:hidden}
+.phone .pbody h4{font-size:.95rem}.phone .tiles{grid-template-columns:1fr 1fr}
+.pwa{position:absolute;bottom:0;left:0;right:0;border-top:1px solid var(--line);background:var(--surface);display:flex;justify-content:space-around;font-size:.62rem;padding:.4rem 0;color:var(--muted)}
+.pwa span.on{color:var(--fg);font-weight:600}
+.phone .toast{right:10px;left:10px;top:10px;max-width:none}
+.pwanote{font-size:.8rem;color:var(--muted);text-align:center;max-width:36ch;margin:0}
+.arrows{display:flex;gap:.5rem;justify-content:center;margin-top:.9rem;align-items:center}
+.arrows button{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--bg);cursor:pointer;font-size:1rem}
+.dots{display:flex;gap:.4rem}.dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dots i.on{background:var(--hue,var(--fg))}
+
+/* logos */
+.logos{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:.8rem;margin-top:1.5rem}
+.logo{height:64px;border:1px dashed var(--line);border-radius:8px;display:grid;place-items:center;color:var(--muted);font-size:.85rem;text-align:center;padding:.3rem}
+.shotcap{font-size:.9rem;margin-top:.5rem}.shotcap span{color:var(--muted);font-size:.85rem}
+
+/* capability groups */
+.groups{display:grid;gap:1.4rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));margin-top:1.75rem}
+.group{min-width:0}
+.ghead{display:flex;gap:.7rem;align-items:center;margin-bottom:.6rem}
+.ic{width:40px;height:40px;border-radius:10px;background:var(--tint);color:var(--hue);display:grid;place-items:center;font-size:1.15rem;flex:none;font-weight:700}
+.ghead h3{font-size:1.1rem}
+.ops{display:grid;grid-template-columns:minmax(0,1fr);gap:.4rem}
+.op{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:.6rem;align-items:center;border:1px solid var(--line);border-radius:8px;padding:.55rem .75rem;text-decoration:none;font-size:.9rem;min-width:0}
+.op:hover{background:var(--surface)}
+.op b{font-weight:600;display:block;line-height:1.3}.op span{color:var(--muted);display:block;font-size:.82rem;line-height:1.35;grid-column:1}
+.op i{font-style:normal;color:var(--hue);font-size:.8rem;white-space:nowrap;grid-row:1/3;grid-column:2;align-self:center}
+.groups{align-items:start}
+
+/* start + footer */
+.start{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));margin-top:1.5rem}
+.start .card{padding:1.6rem;display:flex;flex-direction:column}.start .card .btn{margin-top:auto;align-self:flex-start}.start .card h3{font-size:1.3rem}.start ul{margin:.6rem 0 1rem;padding-left:1.1rem;color:var(--muted);font-size:.95rem}
+footer{border-top:1px solid var(--line);padding-block:3rem 2rem;font-size:.9rem}
+.fgrid{display:grid;gap:1.5rem;grid-template-columns:1.3fr repeat(4,1fr)}
+@media (max-width:860px){.fgrid{grid-template-columns:repeat(2,1fr)}}
+.fgrid h4{font-size:.85rem;margin:0 0 .6rem;line-height:28px}.fgrid a{display:block;color:var(--muted);text-decoration:none;margin-bottom:.4rem}.fgrid a:hover{color:var(--fg)}
+.fbottom{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;color:var(--muted);font-size:.85rem;margin-top:2rem;padding-top:1rem;border-top:1px solid var(--line)}
+.fbottom select{font:inherit;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:6px;padding:.2rem .4rem}
+.fbottom button{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0}
+
+/* features page */
+.feat{display:grid;grid-template-columns:240px 1fr;gap:2.5rem;align-items:start}
+@media (max-width:860px){.feat{grid-template-columns:1fr}}
+.index{position:sticky;top:calc(env(safe-area-inset-top,0px) + 120px);display:grid;gap:.15rem;font-size:.9rem;align-self:start}
+@media (max-width:860px){.index{position:static;display:flex;gap:.4rem;overflow-x:auto;padding:0 0 .6rem;margin-bottom:.5rem;scrollbar-width:none}.index a{white-space:nowrap;border:1px solid var(--line);border-radius:999px;flex:none}}
+.index a{text-decoration:none;color:var(--muted);padding:.35rem .6rem;border-radius:6px;display:flex;gap:.5rem;align-items:center}
+.index a:hover{background:var(--surface);color:var(--fg)}
+.index a i{width:8px;height:8px;border-radius:50%;background:var(--hue);flex:none}
+.area{padding:2.2rem 0;border-top:1px solid var(--line);scroll-margin-top:70px}
+.area:first-child{border-top:0;padding-top:0}
+.area .ghead{margin-bottom:.8rem}
+.area ul{margin:0 0 1.2rem;padding-left:1.2rem;color:var(--fg);display:grid;gap:.35rem;max-width:68ch}
+.area li{padding-left:.2rem}
+.shot{background:var(--shot);border:1px dashed var(--shot-ink);border-radius:10px;color:var(--shot-ink);display:grid;place-items:center;text-align:center;font-size:.85rem;padding:1rem;aspect-ratio:16/9;max-width:100%}
+.shot b{display:block;font-size:.95rem;color:var(--fg)}
+.area .shots{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}
+.area .docs{display:inline-block;margin-top:.8rem;color:var(--hue);font-weight:600;text-decoration:none;font-size:.9rem}
+
+/* pricing etc. */
+.price-big{font-size:clamp(2.4rem,6vw,4rem);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.calc{display:grid;gap:1rem;grid-template-columns:1fr 1fr;align-items:end}@media (max-width:700px){.calc{grid-template-columns:1fr}}
+.calc label{display:block;font-size:.9rem;color:var(--muted);margin-bottom:.3rem}.calc input[type=range]{width:100%;accent-color:var(--ink)}
+.total{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:1rem 1.2rem;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:.5rem}
+.total output{font-size:1.8rem;font-weight:700;font-variant-numeric:tabular-nums}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.95rem}th,td{text-align:left;padding:.55rem .6rem;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600;font-size:.8rem;letter-spacing:.04em;text-transform:uppercase}.tablewrap{overflow-x:auto}
+.steps{counter-reset:s;display:grid;gap:1rem}.steps .card{position:relative;padding-left:3.2rem}
+.steps .card::before{counter-increment:s;content:counter(s);position:absolute;left:1rem;top:1.2rem;width:1.6rem;height:1.6rem;border-radius:50%;background:var(--ink);color:var(--ink-fg);display:grid;place-items:center;font-weight:700;font-size:.9rem}
+details{border-top:1px solid var(--line);padding:.8rem 0}summary{cursor:pointer;font-weight:600}details p{color:var(--muted);margin-top:.4rem;max-width:65ch}
+.quote{font-size:1.05rem;margin-bottom:.8rem}.who{font-size:.85rem;color:var(--muted)}
+.flagnote{font-size:.8rem;color:var(--muted);border:1px dashed var(--line);border-radius:6px;padding:.5rem .7rem;display:inline-block;margin-top:.8rem}
+.big{font-size:1.15rem;font-weight:700}
+.addr{line-height:1.5}
+.legal{max-width:70ch}.legal h3{margin-top:1.6rem;margin-bottom:.4rem;display:flex;gap:.6rem;align-items:center}.legal p{color:var(--muted)}
+.legal .commit{border:1px solid var(--line);border-radius:12px;padding:1.2rem;margin-top:1.5rem;background:var(--surface)}
+.legal .commit p{color:var(--fg)}
+
+/* ribbon */
+.ribbon{background:var(--ink);color:var(--ink-fg);font-size:.9rem}
+.ribbon .wrap{display:flex;gap:.8rem;align-items:center;justify-content:center;padding-block:.5rem;flex-wrap:wrap}
+.ribbon a{color:inherit;font-weight:600}
+.ribbon button{background:none;border:0;color:inherit;opacity:.7;cursor:pointer;font-size:1rem;padding:0 .2rem;margin-left:auto}
+/* trust chips */
+.trust{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-top:1.4rem}
+.trust span{display:inline-flex;align-items:center;gap:.4rem;border:1px solid var(--line);border-radius:999px;padding:.35rem .8rem;font-size:.88rem;background:var(--bg)}
+.trust i{font-style:normal}
+/* before/after captions */
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;max-width:760px;margin:.8rem auto 0;font-size:.9rem}
+@media (max-width:640px){.ba{grid-template-columns:1fr}}
+.ba div{border-radius:8px;padding:.55rem .8rem;border:1px solid var(--line)}
+.ba div:first-child{color:var(--muted)}
+.ba div:last-child{background:var(--tint);border-color:transparent}
+.ba b{display:block;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.15rem}
+/* value table */
+.value{display:grid;gap:.75rem;margin-top:1.75rem}
+.vrow{display:grid;grid-template-columns:180px 1fr 1fr;gap:.75rem;align-items:stretch}
+@media (max-width:760px){.vrow{grid-template-columns:1fr}.vrow .vh{padding-bottom:0}}
+.vh{display:flex;gap:.6rem;align-items:center;font-weight:700;font-size:1.05rem;padding:.9rem .2rem}
+.vcell{border:1px solid var(--line);border-radius:10px;padding:.9rem 1rem;font-size:.95rem;min-width:0}
+.vcell b{display:block;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.vcell.now{background:var(--tint);border-color:transparent}.vcell.now b{color:var(--hue)}
+.vsum{margin-top:1.5rem;border:1px solid var(--line);border-radius:12px;padding:1.2rem 1.4rem;display:grid;grid-template-columns:auto 1fr;gap:1rem 1.4rem;align-items:center;background:var(--bg)}
+@media (max-width:640px){.vsum{grid-template-columns:1fr}}
+.vsum .n{font-size:2.2rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1;white-space:nowrap}
+.vsum .n small{display:block;font-size:.8rem;font-weight:500;color:var(--muted);margin-top:.3rem}
+.vsum p{color:var(--fg)}
+/* setup steps */
+.setup{display:grid;gap:1rem;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:1.75rem}
+@media (max-width:860px){.setup{grid-template-columns:1fr}}
+.step{border:1px solid var(--line);border-radius:12px;padding:1.2rem;background:var(--bg);display:flex;flex-direction:column;gap:.5rem;min-width:0}
+.step .num{width:2rem;height:2rem;border-radius:50%;background:var(--ink);color:var(--ink-fg);display:grid;place-items:center;font-weight:700}
+.step h3{font-size:1.05rem}.step p{color:var(--muted);font-size:.95rem}
+.step .promise{margin-top:auto;background:var(--teal-t);color:var(--fg);border-radius:8px;padding:.6rem .8rem;font-size:.9rem}
+.step .promise b{color:var(--teal)}
+.excel{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.4rem}
+.excel .doc{width:34px;height:42px;border-radius:4px;border:1px solid var(--line);background:var(--bg);position:relative}
+.excel .doc::after{content:"";position:absolute;inset:6px 6px auto 6px;height:3px;background:var(--line);box-shadow:0 7px 0 var(--line),0 14px 0 var(--line),0 21px 0 var(--line)}
+.excel .doc.x{background:var(--teal-t);border-color:var(--teal)}
+.excel .arr{color:var(--muted)}
+.excel .list{border:1px solid var(--line);border-radius:6px;padding:.3rem .5rem;font-size:.7rem;display:grid;gap:2px;min-width:90px}
+.excel .list span{height:5px;border-radius:3px;background:var(--line)}
+/* faq */
+.faq{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 2.5rem;margin-top:1rem}
+@media (max-width:760px){.faq{grid-template-columns:1fr}}
+/* final cta */
+.final{text-align:center}
+.final .ctas{margin-top:1.2rem}
+.pdfcard{display:inline-flex;gap:.9rem;align-items:center;border:1px solid var(--line);border-radius:12px;padding:.9rem 1.1rem;margin-top:1.6rem;text-decoration:none;text-align:left;background:var(--bg);max-width:100%}
+.pdfcard .doc{width:40px;height:52px;border-radius:4px;border:1px solid var(--line);flex:none;position:relative;background:var(--surface)}
+.pdfcard .doc::after{content:"PDF";position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:.6rem;font-weight:700;color:var(--coral)}
+.pdfcard b{display:block}.pdfcard span{color:var(--muted);font-size:.88rem}
+/* bigger carousel frames */
+.win{max-width:none;margin:0;width:100%}
+.app{height:520px}
+@media (max-width:640px){.app{height:440px}}
+.slide .body{min-height:560px}
+.phone{width:min(100%,330px);height:600px}
+.phonewrap{min-height:560px}
+@media (max-width:640px){.slide .body,.phonewrap{min-height:480px}.phone{height:520px}}
+.video-btn{display:inline-flex;align-items:center;gap:.5rem;color:var(--fg);text-decoration:none;font-weight:600;font-size:.95rem;margin-top:.9rem}
+.video-btn i{width:32px;height:32px;border-radius:50%;background:var(--coral-t);color:var(--coral);display:grid;place-items:center;font-style:normal;font-size:.8rem}
+/* consent + chat */
+.consent{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding-block:.8rem;padding-bottom:calc(.8rem + env(safe-area-inset-bottom,0px));z-index:8;box-shadow:0 -6px 20px rgba(0,0,0,.06)}
+.consent .wrap{display:grid;gap:.6rem}
+.consent .rowc{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;font-size:.9rem}
+.consent .opts{display:none;gap:1rem;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+.consent .opts.open{display:flex}
+.consent label{display:flex;gap:.35rem;align-items:center}
+.chatfab{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(96px + env(safe-area-inset-bottom,0px));width:50px;height:50px;border-radius:50%;background:var(--ink);color:var(--ink-fg);border:0;box-shadow:0 6px 18px rgba(0,0,0,.2);cursor:pointer;font-size:1.2rem;z-index:8}
+</style>
+
+<div class="mock"><div class="wrap">
+  <span class="label">Page</span>
+  <button class="tab" role="tab" aria-selected="true" data-page="home">Home</button>
+  <button class="tab" role="tab" data-page="features">ফিচার</button>
+  <button class="tab" role="tab" data-page="pricing">দাম</button>
+  <button class="tab" role="tab" data-page="testimonials">Testimonials</button>
+  <button class="tab" role="tab" data-page="contact">যোগাযোগ</button>
+  <button class="tab" role="tab" data-page="privacy">Privacy</button>
+  <span class="spacer"></span><span class="note" style="white-space:nowrap">Mockup v4 · dashed = screenshot</span>
+</div></div>
+
+<div class="ribbon" id="ribbon"><div class="wrap"><span>১ জানুয়ারি ২০২৭ পর্যন্ত সব ফ্রি। যত খুশি ছাত্র, কোনো কার্ড লাগে না।</span><a href="https://app.schoolmanagerp.com/register" target="_blank" rel="noopener">অ্যাকাউন্ট খুলুন →</a><button id="ribbonX" aria-label="বন্ধ করুন">✕</button></div></div>
+<header class="site"><div class="wrap">
+  <a class="wordmark" href="#home" data-page="home" aria-label="SchoolManager ERP"><span class="mono">SM</span>School<span class="m">Manager</span><span class="erp">ERP</span></a>
+  <nav class="nav" id="nav" aria-label="Main">
+    <a href="#features" data-page="features">ফিচার</a><a href="#pricing" data-page="pricing">দাম</a>
+    <a href="https://schoolmanagerp.gitbook.io/schoolmanagerp-docs" target="_blank" rel="noopener">ডকুমেন্টেশন</a>
+    <a href="#contact" data-page="contact">যোগাযোগ</a>
+    <a class="mobile-only" href="#home" data-demo>লাইভ ডেমো</a><a class="mobile-only" href="https://app.schoolmanagerp.com/login" target="_blank" rel="noopener">লগ ইন</a>
+  </nav>
+  <div class="ctl">
+    <button class="pill menuBtn" id="menuBtn" aria-label="মেনু" aria-expanded="false">☰</button>
+    <button class="pill" id="langBtn" aria-label="Switch language">EN</button>
+    <button class="pill" id="themeBtn" aria-label="Toggle theme">☾</button>
+    <a class="linklike" href="https://app.schoolmanagerp.com/login" target="_blank" rel="noopener">লগ ইন</a>
+    <a class="btn secondary small" href="#home" data-demo>লাইভ ডেমো</a>
+    <a class="btn primary small" href="https://app.schoolmanagerp.com/register" target="_blank" rel="noopener"><span class="full">ফ্রি অ্যাকাউন্ট খুলুন</span><span class="short">শুরু করুন</span></a>
+  </div>
+</div></header>
+
+<!-- ================= HOME ================= -->
+<main id="home" class="page on">
+<section class="hero center"><div class="wrap">
+  <h1>আপনার স্কুলে <span class="keep"><span class="rot" id="rot"><span class="c-indigo on">প্রশাসনিক কাজ কমান,</span><span class="c-teal">শিক্ষকদের সময় বাঁচান,</span><span class="c-indigo">শিক্ষার মান বাড়ান,</span><span class="c-amber">স্বচ্ছতা আনুন,</span><span class="c-coral">নজরদারি বাড়ান,</span></span></span> এক সফটওয়্যারে</h1>
+  <p class="sub">হাজিরা, রেজাল্ট, রুটিন, ফি আর অভিভাবকের SMS, সব এক জায়গায়, ফোনেই চলে। কোন কাজ বাকি, সিস্টেম নিজেই মনে করিয়ে দেয়। <b>আপনার পুরোনো Excel বা খাতা থেকে ছাত্রদের তথ্য আমরা তুলে দিই।</b></p>
+  <div class="ctas">
+    <a class="btn primary lg" href="https://app.schoolmanagerp.com/register" target="_blank" rel="noopener">ফ্রি অ্যাকাউন্ট খুলুন</a>
+    <a class="btn secondary lg" href="#home" data-demo>▶ ডেমো স্কুল ঘুরে দেখুন</a>
+    <span class="tiny">৩১ ডিসেম্বর ২০২৬ পর্যন্ত সব ছাত্র ফ্রি · কোনো কার্ড লাগে না</span>
+  </div>
+  <a class="video-btn" href="#home"><i>▶</i>৯০ সেকেন্ডে দেখুন (ভিডিও আসছে)</a>
+  <div class="trust"><span><i>🇧🇩</i>ডেটা দেশেই থাকে</span><span><i>📵</i>ইন্টারনেট গেলেও চলে</span><span><i>📤</i>যখন খুশি Excel-এ নিয়ে যান</span><span><i>☎</i>ফোন করলে মানুষ ধরে</span></div>
+
+  <div class="carousel" id="car">
+    <div class="viewport"><div class="track" id="track">
+      <article class="slide c-indigo"><header><span class="tag">অ্যাডমিন</span><h3>সকাল ৮টায় পুরো স্কুল এক পাতায়</h3></header>
+        <div class="body"><div class="win"><div class="winbar"><i></i><i></i><i></i><span class="url">app.schoolmanagerp.com/dashboard</span></div><div class="app">
+          <aside class="side"><b>Bangladesh Model School</b><span class="on">ড্যাশবোর্ড</span><span>ছাত্র</span><span>হাজিরা</span><span>রুটিন</span><span>পরীক্ষা</span><span>ফি</span><span>প্রিন্ট</span><b>সেটিংস</b><span>সিট ও বিলিং</span></aside>
+          <div class="main"><h4>আজ এই ৩টা কাজ আপনার</h4><div class="meta">সোমবার · উচ্চ মাধ্যমিক শাখা · ১,২০০ ছাত্র</div>
+            <div class="scroller"><div class="tiles"><div>হাজিরা<b>৯৪%</b></div><div>বকেয়া<b>৳২.৪ লাখ</b></div><div>নম্বর বাকি<b>৩ জন</b></div></div>
+            <div class="list"><div class="row"><i class="d-crit"></i><span class="t">৭ম শ্রেণি B: আজ হাজিরা নেওয়া হয়নি</span><span class="act">শিক্ষককে জানান</span></div><div class="row"><i class="d-warn"></i><span class="t">অর্ধবার্ষিক: ৩ জন শিক্ষকের নম্বর বাকি, ডেডলাইন কাল</span><span class="act">দেখুন</span></div><div class="row"><i class="d-warn"></i><span class="t">৪২টা পরিবারকে ফি রিমাইন্ডার পাঠানো হয়নি</span><span class="act">পাঠান</span></div><div class="row"><i class="d-ok"></i><span class="t">রুটিন প্রকাশিত: নতুন সপ্তাহ</span><small>✓</small></div><div class="row"><i class="d-ok"></i><span class="t">ব্যাকআপ সম্পন্ন: ০২:০০</span><small>✓</small></div></div></div>
+            <div class="toast"><b>পুশ পাঠানো হয়েছে</b>রহিম স্যার: ৭ম শ্রেণি B হাজিরা</div><div class="cursor"></div></div>
+        </div></div></div><div class="ba"><div><b>আগে</b>সকালে পাঁচজনকে ফোন করে জানতে হতো, কী হলো, কী হলো না।</div><div><b>এখন</b>সকাল ৮টায় ফোনে তিন লাইনে পুরো স্কুল: কী বাকি, কার কাছে।</div></div>
+      </article>
+
+      <article class="slide c-teal"><header><span class="tag">প্রিন্সিপাল</span><h3>ফলাফল বিশ্লেষণ আর অনুমোদন</h3></header>
+        <div class="body"><div class="win"><div class="winbar"><i></i><i></i><i></i><span class="url">app.schoolmanagerp.com/dashboard</span></div><div class="app">
+          <aside class="side"><b>প্রিন্সিপাল</b><span class="on">ড্যাশবোর্ড</span><span>অনুমোদন</span><span>পরীক্ষা</span><span>নম্বর বিশ্লেষণ</span><span>স্টাফ হাজিরা</span><span>এসিআর</span></aside>
+          <div class="main"><h4>অর্ধবার্ষিক পরীক্ষা · পাসের হার</h4><div class="meta">স্কুল ৮৭% · গত বছর ৮২%</div>
+            <div class="tiles"><div>৯ম শ্রেণি<b>৭৯%</b></div><div>১০ম শ্রেণি<b>৯১%</b></div><div>গণিত<b>৭১%</b></div></div>
+            <div class="list"><div class="row"><i class="d-warn"></i><span class="t">৯ম শ্রেণি গণিত: ১২ জন ৩৩-এর নিচে, সেকশন B-তে ৯ জন</span><span class="act">দেখুন</span></div><div class="row"><i class="d-ok"></i><span class="t">ছুটির আবেদন: করিম স্যার, ২ দিন</span><span class="act">অনুমোদন</span></div></div>
+            <div class="toast"><b>অনুমোদিত</b>বদলি শিক্ষক রুটিনে নিজে থেকেই বসেছে</div><div class="cursor"></div></div>
+        </div></div></div><div class="ba"><div><b>আগে</b>রেজাল্ট বেরোনোর পর কোন শ্রেণি পিছিয়ে, বুঝতে লাগত সপ্তাহ।</div><div><b>এখন</b>পাসের হার শ্রেণি ও বিষয় ধরে সাথে সাথে; ছুটির অনুমোদন এক ক্লিকে।</div></div>
+      </article>
+
+      <article class="slide c-amber"><header><span class="tag">শিক্ষক · ফোনে (PWA)</span><h3>হাজিরা, ৩০ সেকেন্ডে</h3></header>
+        <div class="phonewrap">
+          <div class="phone"><div class="status"><span>৮:০৪</span><span>▲ ●●●</span></div><div class="pbody">
+            <h4>৮ম শ্রেণি A · আজকের হাজিরা</h4><div class="meta">৪২ জন · ৩ জন অনুপস্থিত</div>
+            <div class="reg" style="grid-template-columns:1.6fr repeat(3,1fr)"><span class="hd nm">নাম</span><span class="hd">বুধ</span><span class="hd">বৃহ</span><span class="hd">আজ</span>
+              <span class="nm">তানভীর আহমেদ</span><span class="p">উ</span><span class="p">উ</span><span class="p flip">অ</span>
+              <span class="nm">সুমাইয়া আক্তার</span><span class="a">অ</span><span class="a">অ</span><span class="a">অ</span>
+              <span class="nm">রাকিব হাসান</span><span class="l">দে</span><span class="p">উ</span><span class="p">উ</span>
+              <span class="nm">প্রিয়া রানী দাস</span><span class="p">উ</span><span class="p">উ</span><span class="p">উ</span>
+              <span class="nm">মারুফ ইসলাম</span><span class="p">উ</span><span class="a">অ</span><span class="p">উ</span></div>
+            <div class="list" style="margin-top:.7rem"><div class="row"><i class="d-crit"></i><span class="t">সুমাইয়া: টানা ৪ দিন অনুপস্থিত</span><span class="act">কল</span></div></div>
+            <div class="toast"><b>SMS গেছে</b>৩ জন অভিভাবক: আজ অনুপস্থিত</div>
+            <div class="pwa"><span class="on">আমার ক্লাস</span><span>হাজিরা</span><span>নম্বর</span><span>হোমওয়ার্ক</span></div></div></div>
+        </div><div class="ba"><div><b>আগে</b>খাতায় হাজিরা, মাস শেষে যোগ, অভিভাবক কিছু জানতেন না।</div><div><b>এখন</b>৩০ সেকেন্ডে হাজিরা, অনুপস্থিতির SMS নিজে থেকেই সেদিনই।</div></div>
+      </article>
+
+      <article class="slide c-coral"><header><span class="tag">অভিভাবক · ফোনে (PWA)</span><h3>সন্তানের খবর, SMS-এর অপেক্ষা নেই</h3></header>
+        <div class="phonewrap">
+          <div class="phone"><div class="status"><span>৭:৫৩</span><span>▲ ●●●</span></div><div class="pbody">
+            <h4>তানভীর আহমেদ · ৮ম শ্রেণি A</h4><div class="meta">Bangladesh Model School</div>
+            <div class="tiles"><div>আজ<b>উপস্থিত</b></div><div>বকেয়া<b>৳১,২৫০</b></div></div>
+            <div class="list"><div class="row"><span class="t">অর্ধবার্ষিক ফলাফল প্রকাশিত: GPA ৪.৫০</span><span class="act">দেখুন</span></div><div class="row"><span class="t">আগামীকাল: গণিত হোমওয়ার্ক জমা</span><small>কাল</small></div><div class="row"><span class="t">অক্টোবরের ইনভয়েস</span><span class="act">PDF</span></div><div class="row"><span class="t">পরীক্ষার রুটিন: ১২ নভেম্বর থেকে</span><small>ক্যালেন্ডার</small></div></div>
+            <div class="toast"><b>নতুন নোটিফিকেশন</b>তানভীর আজ ৭:৫২-এ স্কুলে পৌঁছেছে <span class="badge">শীঘ্রই</span></div>
+            <div class="pwa"><span class="on">হোম</span><span>ফি</span><span>ফলাফল</span><span>রুটিন</span><span>হাজিরা</span></div></div></div>
+        </div><div class="ba"><div><b>আগে</b>ফি-র কাগজ হারাত, রেজাল্ট জানতে স্কুলে যেতে হতো।</div><div><b>এখন</b>বকেয়া, রেজাল্ট, রুটিন ফোনে; সন্তান অনুপস্থিত হলে সাথে সাথে খবর।</div></div>
+      </article>
+
+      <article class="slide c-teal"><header><span class="tag">হিসাবরক্ষক</span><h3>বকেয়া থেকে রিমাইন্ডার, এক ক্লিক</h3></header>
+        <div class="body"><div class="win"><div class="winbar"><i></i><i></i><i></i><span class="url">app.schoolmanagerp.com/fees/dues</span></div><div class="app">
+          <aside class="side"><b>ফি</b><span>ইনভয়েস</span><span class="on">বকেয়া</span><span>আদায়</span><span>জরিমানা</span><span>রিমাইন্ডার</span><span>রিপোর্ট</span></aside>
+          <div class="main"><h4>বকেয়া · অক্টোবর</h4><div class="meta">৩১২টা পরিবার · ৳২,৪১,৫০০ · ৭ দিনের বেশি: ৮৮</div>
+            <div class="scroller"><div class="list"><div class="row"><span class="t">৬ষ্ঠ শ্রেণি · ৪৫ পরিবার</span><small>৳৫৪,০০০</small><span class="act">রিমাইন্ডার</span></div><div class="row"><span class="t">৭ম শ্রেণি · ৫১ পরিবার</span><small>৳৬১,২০০</small><span class="act">রিমাইন্ডার</span></div><div class="row"><span class="t">৮ম শ্রেণি · ৩৮ পরিবার</span><small>৳৪৫,৬০০</small><span class="act">রিমাইন্ডার</span></div><div class="row"><span class="t">৯ম শ্রেণি · ৬২ পরিবার</span><small>৳৭৪,৪০০</small><span class="act">রিমাইন্ডার</span></div><div class="row"><span class="t">১০ম শ্রেণি · ১১৬ পরিবার</span><small>৳৬,৩০০</small><span class="act">রিমাইন্ডার</span></div></div></div>
+            <div class="toast"><b>৩১২টা SMS সারিতে</b>৳০.৩৫ × ৩১২ = ৳১০৯</div><div class="cursor"></div></div>
+        </div></div></div><div class="ba"><div><b>আগে</b>কে দিল, কে দিল না, খাতা খুঁজে বের করা।</div><div><b>এখন</b>বকেয়ার তালিকা শ্রেণি ধরে, রিমাইন্ডার এক ক্লিকে সবাইকে।</div></div>
+      </article>
+
+      <article class="slide c-indigo"><header><span class="tag">ছাত্র · ফোনে (PWA)</span><h3>আজকের রুটিন, হোমওয়ার্ক, সিলেবাস</h3></header>
+        <div class="phonewrap">
+          <div class="phone"><div class="status"><span>৬:৩০</span><span>▲ ●●●</span></div><div class="pbody">
+            <h4>আজ, মঙ্গলবার</h4><div class="meta">৯ম শ্রেণি B · বিজ্ঞান</div>
+            <div class="list"><div class="row"><span class="t">১ম · বাংলা · ২০১ কক্ষ</span><small>৮:০০</small></div><div class="row"><span class="t">২য় · গণিত · রহিম স্যার</span><small>৮:৪৫</small></div><div class="row"><span class="t">৩য় · ইংরেজি</span><small>৯:৩০</small></div><div class="row"><i class="d-warn"></i><span class="t">হোমওয়ার্ক: গণিত অনুশীলনী ৩.২, কাল জমা</span><span class="act">জমা</span></div><div class="row"><span class="t">সিলেবাস: অর্ধবার্ষিক, ৬০% শেষ</span><small>▮▮▮▯▯</small></div></div>
+            <div class="toast"><b>পরীক্ষার রুটিন</b>১২ নভেম্বর: বাংলা ১ম পত্র</div>
+            <div class="pwa"><span class="on">আজ</span><span>রুটিন</span><span>হোমওয়ার্ক</span><span>ফলাফল</span></div></div></div>
+        </div><div class="ba"><div><b>আগে</b>রুটিন বদলালে জানা যেত পরদিন ক্লাসে এসে।</div><div><b>এখন</b>আজকের রুটিন, হোমওয়ার্ক, পরীক্ষার সূচি ফোনে।</div></div>
+      </article>
+    </div></div>
+    <div class="arrows"><button id="prev" aria-label="আগের">←</button><div class="dots" id="dots"></div><button id="next" aria-label="পরের">→</button></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <p class="eyebrow center">মাসে ছাত্র প্রতি ১০ টাকায় কী পাচ্ছেন</p>
+  <h2 class="h2 center">যে পাঁচটা কাজে স্কুলের সবচেয়ে বেশি সময় যায়</h2>
+  <p class="lead center">৫০০ ছাত্রের একটা স্কুলে সাধারণত যা হয়। আপনার স্কুলের সংখ্যা ডেমোতে নিজে মিলিয়ে দেখুন।</p>
+  <div class="value">
+    <div class="vrow c-coral"><div class="vh"><div class="ic">✎</div>রেজাল্ট</div><div class="vcell"><b>আগে</b>তিন-চার জন শিক্ষক, তিন থেকে পাঁচ দিন। একটা নম্বর ভুল হলে পুরো শিট আবার।</div><div class="vcell now"><b>এখন</b>নম্বর তোলার সাথে সাথে ট্যাবুলেশন, গ্রেড আর মার্কশিট তৈরি। ভুল থাকলে তখনই ধরা পড়ে।</div></div>
+    <div class="vrow c-teal"><div class="vh"><div class="ic">✓</div>হাজিরা</div><div class="vcell"><b>আগে</b>খাতায় টিক, মাস শেষে যোগ। অভিভাবক জানতেন না সন্তান স্কুলে গেছে কি না।</div><div class="vcell now"><b>এখন</b>ফোনে ৩০ সেকেন্ড। অনুপস্থিত থাকলে অভিভাবকের ফোনে সেদিনই SMS।</div></div>
+    <div class="vrow c-amber"><div class="vh"><div class="ic">⎙</div>প্রিন্ট</div><div class="vcell"><b>আগে</b>ID কার্ড, প্রবেশপত্র, সনদ, সব দোকানে গিয়ে। প্রতিবার নতুন করে টাইপ।</div><div class="vcell now"><b>এখন</b>স্কুলের নিজের প্রিন্টারে, নিজের নকশায়, সিরিয়াল নম্বর আর QR সহ।</div></div>
+    <div class="vrow c-indigo"><div class="vh"><div class="ic">৳</div>ফি</div><div class="vcell"><b>আগে</b>কে দিল, কে দিল না, খাতা উল্টে খোঁজা। বকেয়া জমতে জমতে বছর শেষ।</div><div class="vcell now"><b>এখন</b>বকেয়ার তালিকা শ্রেণি ধরে, রিমাইন্ডার SMS এক ক্লিকে সবাইকে।</div></div>
+    <div class="vrow c-coral"><div class="vh"><div class="ic">◎</div>নজরদারি</div><div class="vcell"><b>আগে</b>কোন শিক্ষক হাজিরা নেননি, কার নম্বর বাকি, জানা যেত মাস শেষে।</div><div class="vcell now"><b>এখন</b>সিস্টেম সকালেই বলে দেয় কার কী বাকি। প্রথমে তাঁকে, দেরি হলে আপনাকে।</div></div>
+  </div>
+  <div class="vsum"><div class="n">৳৫,০০০<small>মাসে, ৫০০ ছাত্রে</small></div><p>একজন পিয়নের অর্ধেক বেতনে পুরো অফিসের হিসাব, রেজাল্ট আর অভিভাবক-যোগাযোগ। আর ১ জানুয়ারি ২০২৭ পর্যন্ত এটুকুও লাগছে না।</p></div>
+</div></section>
+
+<section class="soft"><div class="wrap">
+  <h2 class="h2 center">শুরু করতে তিনটা ধাপ, এক দুপুর</h2>
+  <p class="lead center">কম্পিউটার না জানলেও চলে। আটকে গেলে WhatsApp-এ আমরা আছি।</p>
+  <div class="setup">
+    <div class="step"><div class="num">১</div><h3>ফোন নম্বর দিয়ে অ্যাকাউন্ট</h3><p>নাম, স্কুলের নাম, ফোন নম্বর। SMS-এ একটা কোড আসে, ব্যস। দুই মিনিট।</p></div>
+    <div class="step"><div class="num">২</div><h3>স্কুলের ধরন বেছে নিন</h3><p>NCTB, আলিয়া, কওমি বা Cambridge। শ্রেণি, বিষয় আর গ্রেডিং নিজে থেকেই বসে যায়। পরে যা খুশি বদলানো যায়।</p></div>
+    <div class="step"><div class="num">৩</div><h3>ছাত্রদের তালিকা Excel-এ দিন</h3><p>আমাদের Excel ছকে নাম, শ্রেণি, অভিভাবকের ফোন। এক ফাইলে পুরো স্কুল উঠে যায়।</p>
+      <div class="excel"><div class="doc x"></div><span class="arr">→</span><div class="list"><span></span><span></span><span></span><span></span></div><a href="https://schoolmanagerp.gitbook.io/schoolmanagerp-docs" target="_blank" rel="noopener" style="font-size:.85rem;margin-left:auto">Excel ছক নামান →</a></div>
+      <div class="promise"><b>Excel নেই?</b> পুরোনো খাতা বা রেজিস্টারের ছবি WhatsApp করুন। ৫০০ ছাত্র পর্যন্ত আমরা নিজেরা তুলে দিই, বিনামূল্যে। এর বেশি হলে কথা বলে নেব।</div></div>
+  </div>
+  <div class="ctas" style="margin-top:1.5rem"><a class="btn primary lg" href="https://app.schoolmanagerp.com/register" target="_blank" rel="noopener">ফ্রি অ্যাকাউন্ট খুলুন</a><a class="btn secondary lg" href="https://wa.me/8801000000000" target="_blank" rel="noopener">WhatsApp-এ কথা বলুন</a></div>
+</div></section>
+
+<section class="center"><div class="wrap">
+  <p class="eyebrow">যারা SchoolManager-এ চলছে</p>
+  <div class="logos"><div class="logo">স্কুলের লোগো</div><div class="logo">স্কুলের লোগো</div><div class="logo">মাদ্রাসার লোগো</div><div class="logo">কলেজের লোগো</div><div class="logo">স্কুলের লোগো</div><div class="logo">স্কুলের লোগো</div></div>
+  <p class="shotcap"><span>আসল স্কুলের অনুমতি নিয়ে লোগো বসবে; ৩টার কম হলে সেকশন লুকানো থাকবে।</span></p>
+</div></section>
+
+<section class="soft"><div class="wrap">
+  <h2 class="h2">SchoolManager কী কী পারে, দেখে নিন</h2>
+  <p class="lead">প্রতিটা কাজ ডকুমেন্টেশনের সেই পাতায় নিয়ে যায়।</p>
+  <div class="groups" id="groups"></div>
+</div></section>
+
+<section><div class="wrap narrow">
+  <h2 class="h2">যে প্রশ্নগুলো সবাই করেন</h2>
+  <div class="faq">
+    <details open><summary>ইন্টারনেট না থাকলে?</summary><p>যে পাতাগুলো একবার খুলেছেন, ইন্টারনেট ছাড়াও খোলে। হাজিরা নিলে ফোনে জমা থাকে, ইন্টারনেট এলে নিজে থেকে পাঠিয়ে দেয়।</p></details>
+    <details><summary>আমাদের কম্পিউটার নেই, ফোনে চলবে?</summary><p>চলবে। শিক্ষক আর অভিভাবকের সব কাজ ফোনের জন্যই বানানো। অফিসের কাজের জন্য একটা কম্পিউটার থাকলে সুবিধা, না থাকলেও আটকায় না।</p></details>
+    <details><summary>শিক্ষকরা পারবেন তো?</summary><p>হাজিরা নেওয়া মানে নামের পাশে একটা বোতাম চাপা। নম্বর তোলা মানে Excel-এর মতো ঘরে সংখ্যা লেখা। প্রথম সপ্তাহে আমরা WhatsApp-এ সাথে থাকি।</p></details>
+    <details><summary>ডেটা চুরি হবে না তো?</summary><p>প্রতিটা স্কুলের তথ্য আলাদা করে রাখা, সার্ভার বাংলাদেশে, প্রতি ঘণ্টায় সুরক্ষিত কপি। কী কী ব্যবস্থা আছে, <a href="#privacy" data-page="privacy">এখানে</a> সব লেখা।</p></details>
+    <details><summary>আপনারা বন্ধ হয়ে গেলে আমাদের কী হবে?</summary><p>আপনার স্কুলের পুরো তথ্য যেকোনো দিন Excel ফাইলে নামিয়ে নিতে পারেন, আজই পারেন। কোনো চুক্তিতে আটকে থাকতে হয় না।</p></details>
+    <details><summary>২০২৭-এ দাম বাড়িয়ে দেবেন না তো?</summary><p>দাম লেখা আছে: ছাত্র প্রতি মাসে ১০ টাকা। কোনো প্যাকেজ নেই, লুকানো খরচ নেই। যতজন ছাত্র, ততটুকু।</p></details>
+    <details><summary>মাদ্রাসায় চলবে?</summary><p>আলিয়া আর কওমি, দুটোরই ছক তৈরি আছে। জামাত, কিতাব, বিষয়, সব বসানো। অ্যাকাউন্ট খোলার সময় বেছে নিলেই হয়।</p></details>
+    <details><summary>কে শেখাবে?</summary><p>প্রথম মাস WhatsApp আর ফোনে আমরা, বিনামূল্যে। ডকুমেন্টেশনে প্রতিটা কাজের ছবিসহ ধাপ লেখা আছে, বাংলায়।</p></details>
+  </div>
+</div></section>
+
+<section class="soft final"><div class="wrap">
+  <h2 class="h2">আগে নিজের চোখে দেখুন, তারপর সিদ্ধান্ত</h2>
+  <p class="lead" style="margin-inline:auto">ডেমো স্কুলে লগ ইন লাগে না। ১,২০০ ছাত্রের স্কুল, ১০ বছরের তথ্য, যা খুশি ঘেঁটে দেখুন।</p>
+  <div class="ctas"><a class="btn secondary lg" href="https://demo.schoolmanagerp.com/login" target="_blank" rel="noopener">▶ ডেমো স্কুলে ঢুকুন</a><a class="btn primary lg" href="https://app.schoolmanagerp.com/register" target="_blank" rel="noopener">ফ্রি অ্যাকাউন্ট খুলুন</a></div>
+  <a class="pdfcard" href="https://schoolmanagerp.gitbook.io/schoolmanagerp-docs" target="_blank" rel="noopener"><div class="doc"></div><div><b>কমিটির মিটিংয়ে দেখাতে চান?</b><span>এক পাতার PDF: কী পাবেন, কত খরচ, কীভাবে শুরু। বড় হরফে, বাংলায়।</span></div></a>
+</div></section>
+</main>
+
+<!-- ================= FEATURES ================= -->
+<main id="features" class="page">
+<section><div class="wrap">
+  <div class="center" style="margin-bottom:2.5rem"><p class="eyebrow">ফিচার</p><h2 class="h2">একটা সিস্টেম, স্কুলের সব কাজ</h2><p class="lead">১৫টা ক্ষেত্র। প্রতিটার পাশে আসল স্ক্রিনশট, বিস্তারিত ডকুমেন্টেশনে। <span class="badge">শীঘ্রই</span> = তৈরি হচ্ছে।</p></div>
+  <div class="feat"><nav class="index" id="findex" aria-label="ফিচার সূচি"></nav><div id="areas"></div></div>
+</div></section>
+</main>
+
+<!-- ================= PRICING ================= -->
+<main id="pricing" class="page">
+<section class="center"><div class="wrap narrow"><p class="eyebrow">দাম</p><h1 style="font-size:clamp(1.8rem,4vw,3rem)">প্রতি ছাত্র <span class="price-big">৳১০</span> / মাস</h1><p class="lead" style="margin-top:.8rem">সরল হিসাব, কোনো প্যাকেজ নেই। <strong>৩১ ডিসেম্বর ২০২৬ পর্যন্ত সব ছাত্র ফ্রি।</strong> জানুয়ারি ২০২৭ থেকে আগে থেকে (প্রিপেইড) সিট কিনে নেবেন।</p></div></section>
+<section class="soft"><div class="wrap narrow"><h2 class="h2">আপনার স্কুলে কত পড়বে?</h2>
+  <div class="calc" style="margin-top:1rem"><div><label for="students">ছাত্র সংখ্যা: <strong id="sOut">৫০০</strong></label><input id="students" type="range" min="50" max="5000" step="50" value="500"></div><div><label for="months">কত মাসের জন্য: <strong id="mOut">৬</strong></label><input id="months" type="range" min="1" max="12" value="6"></div></div>
+  <div class="total" style="margin-top:1rem"><span>মোট (প্রিপেইড)</span><output id="tOut">৳৩০,০০০</output><span style="color:var(--muted);font-size:.9rem" id="pm">মাসে ৳৫,০০০</span></div>
+  <div class="tablewrap" style="margin-top:1.5rem"><table><thead><tr><th>ছাত্র</th><th>১ মাস</th><th>৬ মাস</th><th>১২ মাস</th></tr></thead><tbody><tr><td>৩০০</td><td>৳৩,০০০</td><td>৳১৮,০০০</td><td>৳৩৬,০০০</td></tr><tr><td>৫০০</td><td>৳৫,০০০</td><td>৳৩০,০০০</td><td>৳৬০,০০০</td></tr><tr><td>১,০০০</td><td>৳১০,০০০</td><td>৳৬০,০০০</td><td>৳১,২০,০০০</td></tr><tr><td>২,০০০</td><td>৳২০,০০০</td><td>৳১,২০,০০০</td><td>৳২,৪০,০০০</td></tr></tbody></table></div>
+</div></section>
+<section><div class="wrap narrow"><h2 class="h2">কীভাবে কিনবেন</h2>
+  <div class="steps" style="margin-top:1rem"><div class="card"><h3>অ্যাকাউন্ট খুলুন</h3><p>ফোন নম্বর যাচাই করে, ২ মিনিটে। কোনো টাকা লাগে না।</p></div><div class="card"><h3>স্কুল সাজান</h3><p>প্রিসেট বেছে নিন (NCTB / আলিয়া / কওমি / Cambridge), শ্রেণি-সেকশন, শিক্ষক, ছাত্র।</p></div><div class="card"><h3>সিট কিনুন, ড্যাশবোর্ড থেকেই</h3><p>২০২৭ থেকে ছাত্র যোগ করার সময় সেটিংস › সিট ও বিলিং-এ কতজন × কত মাস, এটুকুই।</p></div></div>
+  <p class="lead" style="margin-top:1.25rem">কেনার আগে <a href="https://demo.schoolmanagerp.com/login" target="_blank" rel="noopener">ডেমো</a> ঘুরে দেখুন আর <a href="https://schoolmanagerp.gitbook.io/schoolmanagerp-docs" target="_blank" rel="noopener">ডকুমেন্টেশন</a> পড়ুন।</p>
+  <div style="margin-top:2rem"><details><summary>সিট মানে কী?</summary><p>একজন সক্রিয় ছাত্র, এক মাসের জন্য। ছাত্র চলে গেলে সিট খালি হয়, নতুন ছাত্র সেটায় বসে।</p></details><details><summary>সিট শেষ হলে?</summary><p>৭ দিন শুধু দেখা যাবে, তারপর বন্ধ; সিট কিনলেই সাথে সাথে চালু।</p></details><details><summary>ভ্যাট?</summary><p>প্রযোজ্য হলে রসিদে আলাদা লাইন থাকবে।</p></details></div>
+</div></section>
+</main>
+
+<!-- ================= TESTIMONIALS ================= -->
+<main id="testimonials" class="page"><section><div class="wrap"><p class="eyebrow">Testimonials</p><h2 class="h2">যারা SchoolManager ব্যবহার করছেন</h2><p class="lead">প্রতিটা উক্তি আসল মানুষের, নাম ও স্কুল সহ।</p>
+  <div class="grid g3" style="margin-top:1.5rem"><div class="card"><div class="shot" style="aspect-ratio:16/9;margin-bottom:.8rem"><span><b>ভিডিও (ঐচ্ছিক)</b></span></div><p class="quote">"[উক্তি, ≤ ৪০ শব্দ]"</p><p class="who">নাম · পদ · স্কুল · জেলা</p></div><div class="card"><p class="quote">"[উক্তি]"</p><p class="who">নাম · পদ · স্কুল · জেলা</p></div><div class="card"><p class="quote">"[উক্তি]"</p><p class="who">নাম · পদ · স্কুল · জেলা</p></div></div>
+  <span class="flagnote">৩টা আসল testimonial না আসা পর্যন্ত পাতা unlinked + noindex।</span></div></section></main>
+
+<!-- ================= CONTACT ================= -->
+<main id="contact" class="page"><section><div class="wrap"><p class="eyebrow">যোগাযোগ</p><h2 class="h2">কথা বলুন, যেভাবে সুবিধা</h2>
+  <div class="grid" style="margin-top:1.5rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))">
+    <div class="card"><h3>অফিস</h3><p class="addr" style="font-weight:600">[অফিসের ঠিকানা: বাড়ি/রোড]<br>[এলাকা], [শহর] [পোস্ট কোড]</p><p style="margin-top:.5rem">শনি–বৃহস্পতি, সকাল ১০টা – সন্ধ্যা ৬টা। আসার আগে একবার জানিয়ে আসুন।</p><a class="btn secondary small" href="https://maps.google.com/?q=Dhaka" target="_blank" rel="noopener" style="margin-top:.8rem">Google Maps-এ দেখুন</a></div>
+    <div class="card"><h3>WhatsApp</h3><p class="big">+880 1XXX-XXXXXX</p><p>ক্লিক করলে বাংলায় লেখা বার্তা তৈরি থাকবে: "আমি ___ স্কুল থেকে, ডেমো দেখতে চাই"।</p><a class="btn primary small" href="https://wa.me/8801000000000" target="_blank" rel="noopener" style="margin-top:.8rem">WhatsApp খুলুন</a></div>
+    <div class="card"><h3>চ্যাট (AI, তারপর মানুষ)</h3><p>নিচের ডানদিকের বোতাম। বাংলা/English/banglish-এ প্রশ্ন করুন; AI না পারলে আমরা নিজে উত্তর দিই।</p><button class="btn secondary small" style="margin-top:.8rem">চ্যাট শুরু করুন</button></div>
+    <div class="card"><h3>ফোন ও ইমেইল</h3><p class="big">+880 1XXX-XXXXXX</p><p>hello@schoolmanagerp.com</p></div>
+  </div></div></section></main>
+
+<!-- ================= PRIVACY ================= -->
+<main id="privacy" class="page"><section><div class="wrap legal"><p class="eyebrow">Privacy</p><h2 class="h2">আপনার তথ্য, আমাদের দায়িত্ব</h2>
+  <h3 class="c-teal"><span class="ic" style="width:32px;height:32px;font-size:.9rem">🌐</span>এই ওয়েবসাইট আপনার ব্যক্তিগত তথ্য নেয় না</h3>
+  <p>পাতাটা কতবার দেখা হলো, শুধু সেটুকু গোনা হয়, কুকি ছাড়া, নিজের সার্ভারে (Umami)। আপনি "সব মেনে নিন" না দিলে কোনো তৃতীয় পক্ষের ট্র্যাকার চলে না। চ্যাটে যা লেখেন তা চ্যাট-সেবাদাতার সার্ভারে প্রক্রিয়া হয়, চ্যাট খুললেই শুধু।</p>
+  <h3 class="c-indigo"><span class="ic" style="width:32px;height:32px;font-size:.9rem">🇧🇩</span>অ্যাপে আপনার তথ্য দেশের ভেতরে থাকে</h3>
+  <p>স্কুলের সব তথ্য বাংলাদেশে অবস্থিত সার্ভারে রাখা হয়। প্রতিটা স্কুলের তথ্য আলাদা (tenant isolation): এক স্কুল আরেক স্কুলের কিছু দেখে না, এই দেয়াল সিস্টেমের ভেতরেই, প্রতিটা অনুরোধে যাচাই হয়।</p>
+  <h3 class="c-amber"><span class="ic" style="width:32px;height:32px;font-size:.9rem">⏱</span>প্রতি ঘণ্টায় ব্যাকআপ <span class="badge">শীঘ্রই</span></h3>
+  <p>ডেটাবেস ও আপলোড করা ফাইলের এনক্রিপ্টেড (age) কপি প্রতি ঘণ্টায় নেওয়া হয়, আলাদা, নিরাপদ স্টোরেজে; প্রতি সপ্তাহে রিস্টোর পরীক্ষা করে দেখা হয় কপিটা সত্যিই কাজ করে কি না।</p>
+  <h3 class="c-coral"><span class="ic" style="width:32px;height:32px;font-size:.9rem">🚫</span>আমরা আপনার তথ্য বিক্রি করি না</h3>
+  <p>ছাত্র, অভিভাবক বা শিক্ষকের কোনো তথ্য কখনো বিজ্ঞাপনদাতা বা অন্য কাউকে দেওয়া হয় না। SMS পাঠাতে যে গেটওয়ে ব্যবহার হয়, সে শুধু নম্বর আর বার্তাটুকু পায়। আপনার স্কুলের পুরো তথ্য যেকোনো সময় Excel-এ নামিয়ে নিতে পারেন; lock-in নেই।</p>
+  <h3 class="c-indigo"><span class="ic" style="width:32px;height:32px;font-size:.9rem">🛡</span>হ্যাকারদের থেকে সুরক্ষা</h3>
+  <p>২৩টা লিখিত নিরাপত্তা নিয়ম, প্রতিটার জন্য কোডে স্বয়ংক্রিয় পরীক্ষা। সব যোগাযোগ TLS-এ (HTTPS); পাসওয়ার্ড bcrypt-এ হ্যাশ করা; সেশন টোকেন স্বল্পমেয়াদি, স্কুল সাসপেন্ড বা পাসওয়ার্ড রিসেট হলে সব সেশন তৎক্ষণাৎ বাতিল; পাবলিক ফর্মে বট-সুরক্ষা (Turnstile) ও rate limit; আপলোড করা ফাইল সিগনেচার দেখে যাচাই; সংবেদনশীল কাজে আবার OTP/পাসওয়ার্ড (step-up); প্রতিটা পরিবর্তনের audit log। সার্ভারে শুধু Cloudflare-এর মাধ্যমে ঢোকা যায়।</p>
+  <div class="commit"><p><b>আমাদের অঙ্গীকার:</b> আপনার স্কুলের তথ্য আপনার। আমরা তা দেশের ভেতরে রাখি, প্রতি ঘণ্টায় সুরক্ষিত কপি রাখি, কারো কাছে বিক্রি করি না, আর কেউ চুরি করতে না পারে সেজন্য প্রযুক্তিগত ব্যবস্থা প্রতিনিয়ত শক্ত করি। প্রশ্ন থাকলে: privacy@schoolmanagerp.com</p></div>
+</div></section></main>
+
+<footer><div class="wrap">
+  <div class="fgrid">
+    <div><a class="wordmark" href="#home" data-page="home" style="margin-bottom:.8rem;display:inline-flex"><span class="mono">SM</span>School<span class="m">Manager</span><span class="erp">ERP</span></a><p style="color:var(--muted);font-size:.9rem;max-width:30ch">বাংলাদেশের স্কুল, কলেজ ও মাদ্রাসার জন্য। Biddaloy-র তৈরি।</p></div>
+    <div><h4>পণ্য</h4><a href="#features" data-page="features">ফিচার</a><a href="#pricing" data-page="pricing">দাম</a><a href="https://demo.schoolmanagerp.com/login" target="_blank" rel="noopener">লাইভ ডেমো</a><a href="https://app.schoolmanagerp.com/login" target="_blank" rel="noopener">লগ ইন</a><a href="https://app.schoolmanagerp.com/register" target="_blank" rel="noopener">অ্যাকাউন্ট খুলুন</a></div>
+    <div><h4>কাদের জন্য</h4><a href="https://schoolmanagerp.gitbook.io/schoolmanagerp-docs" target="_blank" rel="noopener">স্কুল ও কলেজ</a><a href="https://schoolmanagerp.gitbook.io/schoolmanagerp-docs" target="_blank" rel="noopener">মাদ্রাসা (আলিয়া / কওমি)</a><a href="https://schoolmanagerp.gitbook.io/schoolmanagerp-docs" target="_blank" rel="noopener">English medium</a><a href="https://schoolmanagerp.gitbook.io/schoolmanagerp-docs" target="_blank" rel="noopener">অভিভাবক</a></div>
+    <div><h4>রিসোর্স</h4><a href="https://schoolmanagerp.gitbook.io/schoolmanagerp-docs" target="_blank" rel="noopener">ডকুমেন্টেশন</a><a href="#testimonials" data-page="testimonials">Testimonials</a><a href="#contact" data-page="contact">যোগাযোগ</a><a href="https://wa.me/8801000000000" target="_blank" rel="noopener">WhatsApp</a></div>
+    <div><h4>প্রতিষ্ঠান</h4><a href="#contact" data-page="contact">Biddaloy</a><a href="#privacy" data-page="privacy">Privacy</a><a href="https://schoolmanagerp.gitbook.io/schoolmanagerp-docs" target="_blank" rel="noopener">শর্তাবলি</a><a href="#privacy" data-page="privacy">তথ্য-নিরাপত্তা</a></div>
+  </div>
+  <div class="fbottom"><span>© ২০২৬ Biddaloy · SchoolManager ERP · <button id="cookieAgain">কুকি পছন্দ</button></span><span>ভাষা: <select aria-label="Language"><option>বাংলা</option><option>English</option></select></span></div>
+</div></footer>
+
+<button class="chatfab" aria-label="চ্যাট">💬</button>
+<div class="consent" id="consent"><div class="wrap">
+  <div class="rowc"><span>এই ওয়েবসাইট কুকি ব্যবহার করে। প্রয়োজনীয় কুকি সবসময় চালু; বাকিগুলো আপনার পছন্দে।</span><span class="spacer"></span><button class="btn primary small" id="cAll">সব মেনে নিন</button><button class="btn secondary small" id="cSel">বেছে নিন</button><button class="pill" id="cNo">না</button></div>
+  <div class="opts" id="opts"><label><input type="checkbox" checked disabled> প্রয়োজনীয়</label><label><input type="checkbox" id="oStat"> পরিসংখ্যান (Clarity)</label><label><input type="checkbox" id="oAds"> বিজ্ঞাপন (Meta)</label><label><input type="checkbox" id="oChat"> চ্যাট</label><button class="btn primary small" id="cSave">সংরক্ষণ</button></div>
+</div></div>
+
+<script>
+(function(){
+  var DOCS='https://schoolmanagerp.gitbook.io/schoolmanagerp-docs';
+  /* 15 areas: colour, icon, title, bullets (◌ = soon), ops (name, blurb, slug) */
+  var AREAS=[
+   {c:'indigo',i:'◎',t:'অ্যাটেনশন ইঞ্জিন, সিস্টেমের মাথা',b:['৪৯টা নিয়ম প্রতিদিন স্কুলটা দেখে: হাজিরা না নেওয়া, নম্বর বাকি, রুটিন প্রকাশ না হওয়া, সেকশনে ক্লাস টিচার না থাকা, রিমাইন্ডার পড়ে থাকা, সেটআপ অসম্পূর্ণ, পরের বছর তৈরি না হওয়া। মানুষকে মনে রাখতে হয় না।','ধাপে ধাপে দায়িত্ব: প্রথমে যার কাজ তাকে, দেরি হলে উপরে (পরীক্ষা নিয়ন্ত্রক, অ্যাডমিন, প্রিন্সিপাল)।','সকালের ডাইজেস্ট: অ্যাডমিন, প্রিন্সিপাল আর শিক্ষকের ফোনে কাজের দিনে পুশ, "আজ এই ৩টা কাজ আপনার", quiet hours মেনে।','অভিভাবক fallback: পুশ না পৌঁছালে SMS।','হাতে অ্যালার্ট + রিপোর্ট: অ্যাডমিন নিজেও অ্যালার্ট পাঠাতে পারেন; কোন অ্যালার্ট কতবার, কে সাড়া দিল, তার রিপোর্ট।'],s:[['অ্যালার্ট কেন্দ্র','৪৯ নিয়মের আজকের তালিকা','attention'],['সকালের ডাইজেস্ট','কাজের দিনে ফোনে পুশ','attention/digest'],['ধাপে ধাপে দায়িত্ব','দেরি হলে উপরে','attention/escalation'],['হাতে অ্যালার্ট','অ্যাডমিন নিজে পাঠান','attention/manual'],['অ্যালার্ট রিপোর্ট','কে সাড়া দিল','attention/report']],shot:['অ্যাটেনশন কেন্দ্র','সকালের ডাইজেস্ট পুশ']},
+   {c:'teal',i:'✓',t:'হাজিরা',b:['দিন ও পিরিয়ড, দুই রকম রেজিস্টার; মাসের ম্যাট্রিক্স এক পাতায় সংশোধন।','শিক্ষকের বাকি তালিকা: কোন সেকশনের হাজিরা আজ হয়নি, এক নজরে।','অনুপস্থিতির SMS রেজিস্টার ফাইনাল হলেই; ভুল সংশোধন করলে সংশোধনের SMS-ও যায়।','স্ক্যানার / ডিভাইস: কার্ড পাঞ্চ সরাসরি হাজিরা, প্রতিটা ডিভাইসের নিজস্ব key, স্কুলের নিজস্ব নীতি (কখন late)।','স্ট্রিক: টানা ৩ দিন অনুপস্থিত, ৩ দিন late, ১৫ দিন উপস্থিত, ক্লাস টিচারের পাতায় লাল/সবুজ।','স্টাফ হাজিরা ও ছুটি: ছুটির ব্যালান্স লাইভ হিসাব, আবেদন ও অনুমোদন।','◌ "সন্তান স্কুলে পৌঁছেছে" পুশ।'],s:[['দিন/পিরিয়ড রেজিস্টার','মাসের ম্যাট্রিক্স সহ','attendance'],['অনুপস্থিতির SMS','ফাইনাল হলেই','attendance/sms'],['স্ক্যানার ও ডিভাইস','কার্ড পাঞ্চ','attendance/devices'],['স্ট্রিক','টানা অনুপস্থিত/late','attendance/streaks'],['স্টাফ হাজিরা ও ছুটি','ব্যালান্স লাইভ','staff-attendance']],shot:['হাজিরা রেজিস্টার','ক্লাস টিচারের পাতা (স্ট্রিক)']},
+   {c:'amber',i:'▦',t:'রুটিন',b:['পিরিয়ড, কক্ষ, শিক্ষক ধরে গ্রিড; auto-fill প্রস্তাব দেয়, আপনি ঠিক করেন।','বদলি (substitution): শিক্ষক না এলে কে নেবে, সিস্টেম প্রস্তাব করে।','বদলের অনুরোধ: শিক্ষক চাইলে অনুরোধ, অ্যাডমিন অনুমোদন, রুটিনে নিজে থেকে বসে।','এক বছরের রুটিন পরের বছরে কপি।'],s:[['রুটিন গ্রিড ও auto-fill','প্রস্তাব, আপনি ঠিক করেন','routine'],['বদলি শিক্ষক','কে নেবে, প্রস্তাব','routine/substitution'],['বদলের অনুরোধ','অনুমোদনে রুটিনে বসে','routine/change-requests'],['রুটিন কপি','পরের বছরে','routine/copy']],shot:['রুটিন গ্রিড']},
+   {c:'coral',i:'✎',t:'পরীক্ষা ও ফলাফল',b:['পরীক্ষার টেমপ্লেট ও অংশ (লিখিত/ব্যবহারিক/MCQ), সময়সূচি, প্রকাশ।','আসন বিন্যাস: প্রতি বিষয়-সিটিং ধরে allocation engine, সম্পাদনা, প্রকাশ।','নম্বর গ্রিড: ডেডলাইন সহ, কে দিল কে দেয়নি দেখা যায়।','গ্রেডিং স্কেল বদলালে ফলাফল নিজে থেকে recompute।','ট্রান্সক্রিপ্ট, ফলাফলের SMS।','নম্বর বিশ্লেষণ: সেকশন ধরে পাস/ফেল, অংশ ভাঙা, কোন শ্রেণিতে নজর দরকার।','প্রমোশন পরের বছরে।'],s:[['পরীক্ষা ও সময়সূচি','টেমপ্লেট, অংশ, প্রকাশ','exams'],['আসন বিন্যাস','বিষয়-সিটিং ধরে','exams/seat-plan'],['নম্বর গ্রিড','ডেডলাইন সহ','exams/marks'],['গ্রেডিং স্কেল','বদলালে recompute','exams/grading'],['ফলাফল ও ট্রান্সক্রিপ্ট','SMS সহ','exams/results'],['নম্বর বিশ্লেষণ','কোথায় নজর দরকার','exams/analysis'],['প্রমোশন','পরের বছরে','exams/promotion']],shot:['নম্বর গ্রিড','আসন বিন্যাস']},
+   {c:'indigo',i:'৳',t:'ফি, জরিমানা, ইনভয়েস',b:['এক ক্লিকে পুরো স্কুলের ইনভয়েস (batch), বকেয়া তালিকা, ছাড়ের নিয়ম, checkout cart।','জরিমানার নিয়ম: অনুপস্থিত/late থেকে নিজে থেকেই জরিমানা, নিয়মিত sweep।','ইনভয়েস শেয়ার লিংক: অভিভাবক লগ ইন ছাড়াই দেখেন, লিংক মেয়াদ শেষে বন্ধ।','রিমাইন্ডার, বকেয়া রিপোর্ট।','◌ সিট/সাবস্ক্রিপশন কেনা ড্যাশবোর্ড থেকে।'],s:[['ব্যাচ ইনভয়েস','এক ক্লিকে পুরো স্কুল','fees'],['বকেয়া ও রিমাইন্ডার','তালিকা, SMS','fees/dues'],['জরিমানার নিয়ম','অনুপস্থিত/late থেকে','fees/fines'],['ছাড় ও আদায়','checkout cart','fees/collection'],['ইনভয়েস শেয়ার লিংক','লগ ইন ছাড়াই','fees/share-link']],shot:['বকেয়া তালিকা','ইনভয়েস']},
+   {c:'teal',i:'✉',t:'অভিভাবক-যোগাযোগ',b:['পুশ আগে, SMS পরে: খরচ কমে, বার্তা পৌঁছায়।','SMS গেটওয়ে (greenweb / mimsms), টেমপ্লেট, SMS ক্রেডিটের হিসাব প্রতিটা স্কুলে।','অনুপস্থিতি, বকেয়া, ফলাফল: সব বার্তা বাংলায়।'],s:[['পুশ ও SMS','পুশ আগে, SMS পরে','communications'],['SMS গেটওয়ে ও ক্রেডিট','greenweb / mimsms','communications/sms'],['বার্তার টেমপ্লেট','বাংলায়','communications/templates']],shot:['যোগাযোগ লগ']},
+   {c:'amber',i:'⎙',t:'প্রিন্ট',b:['টেমপ্লেট এডিটর, ভার্সন সহ; প্রিন্টার প্রোফাইল; প্রিন্ট জবের ইতিহাস।','ID কার্ড, সনদ সিরিয়াল নম্বর সহ, প্রবেশপত্র, আসন তালিকা, ট্যাবুলেশন শিট।','QR দিয়ে যাচাই: সনদ আসল কি না, পাবলিক পাতায়।'],s:[['টেমপ্লেট এডিটর','ভার্সন সহ','print'],['ID কার্ড ও সনদ','সিরিয়াল নম্বর','print/documents'],['প্রবেশপত্র ও আসন তালিকা','পরীক্ষার কাগজ','print/exam-documents'],['QR যাচাই','সনদ আসল কি না','print/verify']],shot:['টেমপ্লেট এডিটর','সনদ ও QR']},
+   {c:'coral',i:'◔',t:'স্টাডি প্ল্যান ও হোমওয়ার্ক',b:['লেসন প্ল্যান সেকশন-বিষয় ধরে, কী পড়ানো হলো mark করা, টেমপ্লেট ও CSV।','এসকেলেশন: সন্ধ্যা ৬টায় না দিলে পরদিন সকাল ৮টায় শিক্ষককে পুশ, ২ দিন পরে প্রিন্সিপাল/অ্যাডমিনকে; সপ্তাহে অভিভাবক ও কমিটিকে ডাইজেস্ট।','হোমওয়ার্ক: জমা, analytics।'],s:[['লেসন প্ল্যান','কী পড়ানো হলো','study-plans'],['এসকেলেশন','৬টা → পরদিন ৮টা → ২ দিন','study-plans/escalation'],['হোমওয়ার্ক','জমা ও analytics','homework']],shot:['স্টাডি প্ল্যান']},
+   {c:'indigo',i:'▣',t:'একাডেমিক ক্যালেন্ডার',b:['টার্ম, ইভেন্ট, ছুটি; import/export; ICS feed ফোনের ক্যালেন্ডারে; প্ল্যাটফর্মের holiday set।'],s:[['টার্ম ও ইভেন্ট','ছুটি সহ','calendar'],['ICS feed','ফোনের ক্যালেন্ডারে','calendar/ics'],['Holiday set','প্ল্যাটফর্ম থেকে','calendar/holidays']],shot:['ক্যালেন্ডার']},
+   {c:'teal',i:'☰',t:'ভর্তি ও আবেদন',b:['পাবলিক ভর্তি ফর্ম স্কুলের নিজের লিংকে, বট-সুরক্ষা (Turnstile) সহ; আবেদন রিভিউ, ড্যাশবোর্ড, রিপোর্ট, নোটিফিকেশন।','আবেদন: ছুটি, ফি মওকুফ, সনদ, চিঠি; ধাপে ধাপে অনুমোদন (ক্লাস টিচারের ধাপ সহ), সংযুক্তি, রিপোর্ট।'],s:[['পাবলিক ভর্তি ফর্ম','স্কুলের নিজের লিংকে','admission'],['আবেদন রিভিউ','ড্যাশবোর্ড ও রিপোর্ট','admission/review'],['ছুটি/মওকুফ/সনদ আবেদন','ধাপে ধাপে অনুমোদন','applications']],shot:['ভর্তি ফর্ম','আবেদন অনুমোদন']},
+   {c:'amber',i:'☺',t:'ছাত্র ও স্টাফ রেকর্ড',b:['ছাত্রের জীবনচক্র: ভর্তি, TC/leaving, graduate, পুনঃভর্তি, নোট, ছবি।','ক্লাস টিচারের "আমার ক্লাস": এক পাতায় পুরো সেকশন।','স্টাফ HR প্রোফাইল।','এসিআর: criteria, assessment, incident; শিক্ষক-মূল্যায়ন survey, ফল seal করা; performance tab।','প্রোগ্রাম ও মাইলস্টোন।'],s:[['ছাত্রের জীবনচক্র','ভর্তি থেকে graduate','students'],['আমার ক্লাস','ক্লাস টিচারের পাতা','my-class'],['স্টাফ HR','প্রোফাইল','staff'],['এসিআর ও মূল্যায়ন','survey, performance','acr'],['প্রোগ্রাম ও মাইলস্টোন','লক্ষ্য ধরে','programs']],shot:['ছাত্রের প্রোফাইল','আমার ক্লাস']},
+   {c:'coral',i:'⌂',t:'প্রতিষ্ঠানের কাঠামো',b:['মাল্টি-ব্রাঞ্চ: প্রতিটা শাখা আলাদা, একই লগ ইন।','শিফট/ভার্সন/গ্রুপ, স্কুলের নিজের শব্দে।','প্রিসেট: NCTB, আলিয়া, কওমি, Cambridge, Blank, শ্রেণি-বিষয়-গ্রেডিং কয়েক মিনিটে।','Bulk import Excel থেকে।','পুরো স্কুল export/import (workbook): নিজের তথ্য নিজের হাতে, lock-in নেই।'],s:[['মাল্টি-ব্রাঞ্চ','একই লগ ইন','organisation'],['প্রিসেট','NCTB/আলিয়া/কওমি/Cambridge','presets'],['Bulk import','Excel থেকে','import'],['ব্যাকআপ export/import','পুরো স্কুল workbook','backup']],shot:['প্রিসেট প্রয়োগ']},
+   {c:'indigo',i:'▤',t:'প্রতিটা ভূমিকার নিজের ড্যাশবোর্ড',b:['অ্যাডমিন (১১ উইজেট), প্রিন্সিপাল (৮), শিক্ষক (৭), হিসাবরক্ষক (৮), অফিস স্টাফ (৭), পরীক্ষা নিয়ন্ত্রক, কমিটি।','অভিভাবক/ছাত্র পোর্টাল: ফি, ফলাফল, রুটিন, হোমওয়ার্ক, হাজিরা, পরীক্ষার সময়সূচি, সিলেবাস, ক্যালেন্ডার, survey, প্রোগ্রাম।','১০টা built-in ভূমিকা, শিক্ষক শুধু নিজের সেকশন দেখেন, অভিভাবক শুধু নিজের পরিবার।'],s:[['স্টাফ ড্যাশবোর্ড','ভূমিকা ধরে উইজেট','dashboards'],['অভিভাবক/ছাত্র পোর্টাল','ফোনে সব','portal'],['ভূমিকা ও অনুমতি','১০টা built-in','roles']],shot:['অ্যাডমিন ড্যাশবোর্ড','অভিভাবক পোর্টাল']},
+   {c:'teal',i:'☼',t:'ব্যবহারের অভিজ্ঞতা',b:['বাংলা ও English, বাংলা অঙ্ক সহ; দিন ও রাতের theme।','ফোনে ইনস্টল, অফলাইনে খোলে (PWA)।','Ctrl+K: যেকোনো কাজ কিবোর্ডে।','Step-up approval (সংবেদনশীল কাজে আবার OTP/পাসওয়ার্ড), audit log।'],s:[['বাংলা/English, দিন/রাত','বাংলা অঙ্ক সহ','settings/language'],['ফোনে ইনস্টল (PWA)','অফলাইনেও','pwa'],['Ctrl+K প্যালেট','কিবোর্ডে সব','palette'],['Step-up ও audit log','সংবেদনশীল কাজে','security/step-up']],shot:['Ctrl+K প্যালেট']},
+   {c:'coral',i:'🛡',t:'নিরাপত্তা ও ভরসা',b:['প্রতিটা স্কুলের তথ্য আলাদা, সিস্টেমের ভেতরেই দেয়াল (tenant isolation)।','২৩টা লিখিত নিরাপত্তা নিয়ম, প্রতিটার পরীক্ষা কোডে।','এনক্রিপ্টেড ব্যাকআপ (◌ প্রতি ঘণ্টায় দেশের বাইরের কপি)।','সাসপেন্ড/রিসেট করলে সব সেশন তৎক্ষণাৎ বন্ধ।','পাবলিক ফর্মে বট-সুরক্ষা, rate limit, আপলোডের signature check।'],s:[['Tenant isolation','স্কুল আলাদা','security'],['২৩ নিরাপত্তা নিয়ম','প্রতিটার পরীক্ষা','security/rules'],['এনক্রিপ্টেড ব্যাকআপ','age, রিস্টোর ড্রিল','security/backup'],['সেশন নিয়ন্ত্রণ','তৎক্ষণাৎ বন্ধ','security/sessions']],shot:['নিরাপত্তা সেটিংস']}
+  ];
+  var slug=function(s){return s.replace(/[^a-z0-9/]+/gi,'-').toLowerCase()};
+  // capability groups (home)
+  var g=document.getElementById('groups'), fi=document.getElementById('findex'), ar=document.getElementById('areas');
+  AREAS.forEach(function(a,n){
+    var id='a'+n;
+    g.insertAdjacentHTML('beforeend','<div class="group c-'+a.c+'"><div class="ghead"><div class="ic">'+a.i+'</div><h3>'+a.t+'</h3></div><div class="ops">'+a.s.map(function(o){return '<a class="op" href="'+DOCS+'/'+o[2]+'" target="_blank" rel="noopener"><b>'+o[0]+'</b><span>'+o[1]+'</span><i>ডকস →</i></a>'}).join('')+'</div></div>');
+    fi.insertAdjacentHTML('beforeend','<a class="c-'+a.c+'" href="#'+id+'" data-area="'+id+'"><i></i>'+a.t+'</a>');
+    ar.insertAdjacentHTML('beforeend','<article class="area c-'+a.c+'" id="'+id+'"><div class="ghead"><div class="ic">'+a.i+'</div><h3>'+(n+1)+'. '+a.t+'</h3></div><ul>'+a.b.map(function(x){return x.indexOf('◌')===0?'<li>'+x.slice(1).trim()+' <span class="badge">শীঘ্রই</span></li>':'<li>'+x+'</li>'}).join('')+'</ul><div class="shots">'+a.shot.map(function(s){return '<div class="shot"><span><b>স্ক্রিনশট: '+s+'</b>ডেমো থেকে</span></div>'}).join('')+'</div><a class="docs" href="'+DOCS+'/'+a.s[0][2]+'" target="_blank" rel="noopener">ডকুমেন্টেশনে বিস্তারিত →</a></article>');
+  });
+  fi.addEventListener('click',function(e){var a=e.target.closest('a[data-area]');if(a){e.preventDefault();document.getElementById(a.dataset.area).scrollIntoView({behavior:'smooth',block:'start'});}});
+
+  // pages
+  var pages=document.querySelectorAll('.page'), tabs=document.querySelectorAll('.tab');
+  function show(id){pages.forEach(function(p){p.classList.toggle('on',p.id===id)});tabs.forEach(function(t){t.setAttribute('aria-selected',t.dataset.page===id)});document.querySelectorAll('.nav a[data-page]').forEach(function(a){if(a.dataset.page===id)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});window.scrollTo({top:0});}
+  tabs.forEach(function(t){t.addEventListener('click',function(){show(t.dataset.page)})});
+  document.addEventListener('click',function(e){var a=e.target.closest('[data-page]');if(a&&a.tagName==='A'){e.preventDefault();show(a.dataset.page);}var d=e.target.closest('[data-demo]');if(d){e.preventDefault();show('home');document.getElementById('car').scrollIntoView({block:'center'});}});
+  var h=location.hash.replace('#','');if(h&&document.getElementById(h)&&document.getElementById(h).classList.contains('page'))show(h);
+
+  // rotating word
+  var ws=document.querySelectorAll('#rot span'),wi=0,rotT;
+  function rotNext(){ws[wi].classList.remove('on');wi=(wi+1)%ws.length;ws[wi].classList.add('on');}
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches){rotT=setInterval(rotNext,3000);var rot=document.getElementById('rot');rot.addEventListener('mouseenter',function(){clearInterval(rotT)});rot.addEventListener('mouseleave',function(){rotT=setInterval(rotNext,3000)});}
+
+  // carousel: one at a time
+  var track=document.getElementById('track'),slides=track.querySelectorAll('.slide'),dots=document.getElementById('dots'),cur=0,autoT;
+  slides.forEach(function(s,k){dots.insertAdjacentHTML('beforeend','<i class="'+s.className.replace('slide','').trim()+(k===0?' on':'')+'"></i>')});
+  var di=dots.querySelectorAll('i');
+  function go(i){cur=(i+slides.length)%slides.length;track.style.transform='translateX(-'+cur*100+'%)';di.forEach(function(d,k){d.classList.toggle('on',k===cur)});}
+  document.getElementById('prev').addEventListener('click',function(){go(cur-1);restart()});document.getElementById('next').addEventListener('click',function(){go(cur+1);restart()});
+  function restart(){clearInterval(autoT);if(!matchMedia('(prefers-reduced-motion: reduce)').matches)autoT=setInterval(function(){go(cur+1)},6000);}restart();
+  var car=document.getElementById('car');car.addEventListener('mouseenter',function(){clearInterval(autoT)});car.addEventListener('mouseleave',restart);
+  var sx=0;track.addEventListener('touchstart',function(e){sx=e.touches[0].clientX},{passive:true});track.addEventListener('touchend',function(e){var dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>40){go(dx<0?cur+1:cur-1);restart();}});
+
+  // theme / lang
+  var root=document.documentElement,tb=document.getElementById('themeBtn');
+  tb.addEventListener('click',function(){var dark=root.getAttribute('data-theme')==='dark'||(!root.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);root.setAttribute('data-theme',dark?'light':'dark');tb.textContent=dark?'☾':'☀';});
+  document.getElementById('langBtn').addEventListener('click',function(){this.textContent=this.textContent==='EN'?'বাং':'EN';});
+  var mb=document.getElementById('menuBtn'),nv=document.getElementById('nav');mb.addEventListener('click',function(){var o=nv.classList.toggle('open');mb.setAttribute('aria-expanded',o);});nv.addEventListener('click',function(){nv.classList.remove('open');mb.setAttribute('aria-expanded','false');});
+
+  // pricing
+  var bn=['০','১','২','৩','৪','৫','৬','৭','৮','৯'];function fmt(n){return n.toLocaleString('en-IN').replace(/\d/g,function(d){return bn[+d]})}
+  var s=document.getElementById('students'),m=document.getElementById('months');
+  function calc(){var st=+s.value,mo=+m.value;document.getElementById('sOut').textContent=fmt(st);document.getElementById('mOut').textContent=fmt(mo);document.getElementById('tOut').textContent='৳'+fmt(st*mo*10);document.getElementById('pm').textContent='মাসে ৳'+fmt(st*10);}
+  s.addEventListener('input',calc);m.addEventListener('input',calc);calc();
+
+  // ribbon
+  var rb=document.getElementById('ribbon');try{if(localStorage.getItem('sm:ribbon'))rb.hidden=true;}catch(e){}
+  document.getElementById('ribbonX').addEventListener('click',function(){rb.hidden=true;try{localStorage.setItem('sm:ribbon','1')}catch(e){}});
+  // consent
+  var c=document.getElementById('consent'),opts=document.getElementById('opts');
+  function save(v){try{localStorage.setItem('sm:consent',JSON.stringify(v))}catch(e){}c.hidden=true;}
+  document.getElementById('cAll').addEventListener('click',function(){save({stat:1,ads:1,chat:1})});
+  document.getElementById('cNo').addEventListener('click',function(){save({stat:0,ads:0,chat:0})});
+  document.getElementById('cSel').addEventListener('click',function(){opts.classList.toggle('open')});
+  document.getElementById('cSave').addEventListener('click',function(){save({stat:+document.getElementById('oStat').checked,ads:+document.getElementById('oAds').checked,chat:+document.getElementById('oChat').checked})});
+  document.getElementById('cookieAgain').addEventListener('click',function(){c.hidden=false;opts.classList.add('open')});
+  try{if(localStorage.getItem('sm:consent'))c.hidden=true;}catch(e){}
+})();
+</script>
