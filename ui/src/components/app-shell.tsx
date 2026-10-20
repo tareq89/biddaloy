@@ -54,6 +54,7 @@ import { useActiveRole } from '../hooks/auth-state';
 import { hasPermission } from '../hooks/permissions';
 import { cn } from '../primitives/lib/utils';
 
+import { Wordmark } from './brand-mark';
 import { Button } from './button';
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from './dialog';
 import { SkipLink } from './skip-link';
@@ -483,7 +484,10 @@ function NavDrawer({
       >
         <div className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border-subtle bg-surface ps-4 pe-1">
           {brand !== undefined ? (
-            <DialogTitle className="text-h3">{brand}</DialogTitle>
+            <DialogTitle className="text-h3">
+              <Wordmark size="sm" decorative />
+              <span className="sr-only">{brand}</span>
+            </DialogTitle>
           ) : (
             <VisuallyHidden.Root asChild>
               <DialogTitle>Navigation</DialogTitle>
@@ -681,7 +685,12 @@ export function AppShell({
         <div className="flex flex-1 flex-col md:flex-row">
           {showMobileHeader && !useNewMobileBar && (
             <div className="flex items-center justify-between gap-2 border-b border-border-subtle p-2 md:hidden">
-              {brand !== undefined && <div className="truncate text-sm font-semibold">{brand}</div>}
+              {brand !== undefined && (
+                <div className="truncate">
+                  <Wordmark size="sm" decorative />
+                  <span className="sr-only">{brand}</span>
+                </div>
+              )}
               <NavDrawer
                 open={drawerOpen}
                 onOpenChange={setDrawerOpen}
@@ -711,7 +720,10 @@ export function AppShell({
           <div className="hidden w-60 shrink-0 border-r border-border-subtle bg-surface md:block">
             <aside className="flex flex-col gap-4 overflow-y-auto px-3 py-4 md:sticky md:top-[var(--app-header-h,0px)] md:max-h-[calc(100svh-var(--app-header-h,0px))]">
               {brand !== undefined && (
-                <div className="px-3 text-label text-text-secondary">{brand}</div>
+                <div className="px-3">
+                  <Wordmark size="sm" decorative />
+                  <span className="sr-only">{brand}</span>
+                </div>
               )}
               <NavContent
                 navItems={navItems}
