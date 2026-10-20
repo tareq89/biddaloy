@@ -265,3 +265,4 @@ qa-audit/
 server/graphify-out/
 
 load-results-*
+.certs/

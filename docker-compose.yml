@@ -1,13 +1,14 @@
+# Rotate container logs: 3 x 10 MB per service.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      # Inlined into the client bundle at build time (see .env.example).
-      args:
-        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
-        VITE_SUPPORT_URL: ${SUPPORT_CONTACT_URL:-}
-    image: biddaloy-app
+    logging: *logging
+    image: ghcr.io/tareq89/biddaloy-app:${APP_VERSION:?APP_VERSION must be set}
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -68,6 +69,7 @@ services:
       start_period: 60s
 
   redis:
+    logging: *logging
     image: redis:8-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
     # --databases 64: scripts/test-env.sh gives each parallel test run its
     # own block of 5 db slots (slot 0 stays the app's); 16 fits only 2 runs.
@@ -90,6 +92,7 @@ services:
       retries: 5
 
   db:
+    logging: *logging
     image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     restart: unless-stopped
     # The default 100 runs out locally: the dev server plus several parallel
@@ -119,6 +122,7 @@ services:
       retries: 5
 
   seaweedfs:
+    logging: *logging
     # SeaweedFS `mini` = master + volume + filer + S3 gateway in one
     # process. It creates S3_BUCKET on boot if missing (idempotent), which
     # replaces the old one-shot bucket-init service. Official image lives
@@ -154,10 +158,8 @@ services:
   # Only needs `db` (to dump) and `seaweedfs` (to upload to in dev); it does
   # not sit on the app's request path, so it isn't in `app`'s depends_on.
   backup:
-    build:
-      context: ./scripts/backup
-      dockerfile: Dockerfile
-    image: biddaloy-backup
+    logging: *logging
+    image: ghcr.io/tareq89/biddaloy-backup:${APP_VERSION:?APP_VERSION must be set}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:?POSTGRES_DB must be set}
@@ -178,33 +180,8 @@ services:
       seaweedfs:
         condition: service_healthy
 
-  # Generates a short-lived self-signed cert if none exists yet, so nginx has
-  # something to load on first boot before certbot has ever run. See
-  # nginx/generate-dummy-cert.sh and the README for the real first-issuance
-  # flow that replaces it.
-  cert-bootstrap:
-    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
-    entrypoint: ['sh', '/scripts/generate-dummy-cert.sh']
-    environment:
-      APP_DOMAIN: ${APP_DOMAIN:-localhost}
-    volumes:
-      - certs:/etc/letsencrypt
-      - ./nginx/generate-dummy-cert.sh:/scripts/generate-dummy-cert.sh:ro
-    restart: 'no'
-
-  # Renews certbot-issued certs on a loop. Does NOT perform first issuance —
-  # that's a one-off manual command (see README) since it needs --email and
-  # --staging/production endpoint choices a human should make deliberately.
-  certbot:
-    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
-    restart: unless-stopped
-    volumes:
-      - certs:/etc/letsencrypt
-      - certbot-webroot:/var/www/certbot
-    entrypoint: >
-      sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
-
   nginx:
+    logging: *logging
     image: nginx:1.31-alpine@sha256:df221db836e1754089190208cee7eeda94f233197056426eda74a43ab1abeac2
     restart: unless-stopped
     ports:
@@ -217,8 +194,8 @@ services:
       - ./nginx/templates:/etc/nginx/templates:ro
       - ./nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro
       - ./nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro
-      - certs:/etc/letsencrypt:ro
-      - certbot-webroot:/var/www/certbot:ro
+      # Cloudflare Origin CA pair: origin.pem + origin.key (sops-decrypted on the host).
+      - ${TLS_CERT_DIR:-/opt/biddaloy/certs}:/etc/nginx/certs:ro
     # /healthz answers loopback callers only (nginx/templates/default.conf.template).
     healthcheck:
       test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1/healthz || exit 1']
@@ -229,12 +206,8 @@ services:
     depends_on:
       app:
         condition: service_healthy
-      cert-bootstrap:
-        condition: service_completed_successfully
 
 volumes:
   pgdata:
   redisdata:
   seaweedfsdata:
-  certs:
-  certbot-webroot:

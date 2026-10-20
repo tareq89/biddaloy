@@ -16,10 +16,16 @@
 # First boot: `app` refuses to start until a reset has run once (it reads default-school's id,
 # which changes every night, from the demo-state volume). So build the images, run the first
 # reset by hand, then bring the rest up (the first reset logs "app not restarted: first run"):
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml build   # see note on demo-reset.build
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml pull
 #   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d db redis seaweedfs
 #   docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now
 #   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
 
 x-demo-env: &demo-env
   DEMO_MODE: 'true'
@@ -43,14 +49,8 @@ services:
       - '[ -s /demo-state/platform-tenant-id ] || { echo "demo: run the first reset before starting app (see docker-compose.demo.yml)" >&2; exit 1; }; PLATFORM_TENANT_ID="$$(cat /demo-state/platform-tenant-id)" exec node server/dist/main.js'
 
   demo-reset:
-    build:
-      context: ./scripts/demo
-      dockerfile: Dockerfile
-      # `FROM app` in the Dockerfile is the `app` service's image, built first and fresh. Needs a
-      # current Docker Compose: 2.20.2 does not know `service:` and reads it as a folder path.
-      additional_contexts:
-        app: service:app
-    image: biddaloy-demo-reset
+    logging: *logging
+    image: ghcr.io/tareq89/biddaloy-demo-reset:${APP_VERSION:?APP_VERSION must be set}
     restart: unless-stopped
     # Root only to write the demo-state volume. No docker socket: see demo-docker-proxy.
     user: root
@@ -113,6 +113,7 @@ services:
   # Acceptable only because this host runs nothing but the demo. It sits on an internal network
   # that only demo-reset joins.
   demo-docker-proxy:
+    logging: *logging
     image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
     restart: unless-stopped
     environment:

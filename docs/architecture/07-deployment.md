@@ -13,12 +13,23 @@ flowchart LR
     nginx -->|reverse proxy| app["app\n(NestJS: API + the built SPA at /)"]
     app --> db[("db\nPostgreSQL")]
     app --> redis[("redis")]
-    certbootstrap["cert-bootstrap"] -.->|"issues/renews\nLet's Encrypt cert"| nginx
+    ghcr[("GHCR images\nbiddaloy-app, -backup, -demo-reset")] -.->|"docker compose pull\n(APP_VERSION)"| app
+    cert["Origin CA cert\n(sops → /opt/biddaloy/certs)"] -.->|"mounted read-only\norigin.pem + origin.key"| nginx
 ```
 
-Services (`docker-compose.yml`): `app`, `db` (Postgres), `redis`, `nginx`,
-`cert-bootstrap` (automated Let's Encrypt issuance — nginx self-reloads
-every 6h to pick up renewed certs, see `nginx/reload-loop.sh`).
+Example: `export APP_VERSION=3f9c2ab; docker compose pull && docker compose up -d` runs
+`ghcr.io/tareq89/biddaloy-app:3f9c2ab`. `APP_VERSION` has no default, so a
+forgotten tag fails loudly. Local dev builds instead:
+`APP_VERSION=local docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`
+(the overlay adds `build:` blocks and a `cert-bootstrap` service that writes a
+dummy self-signed pair).
+Uptime monitors that hit the origin directly over HTTPS will not trust an
+Origin CA cert; point them at Cloudflare.
+
+Services (`docker-compose.yml`): `app`, `db` (Postgres), `redis`, `seaweedfs`,
+`backup`, `nginx`. nginx serves the Cloudflare Origin CA pair mounted from
+`TLS_CERT_DIR` and self-reloads every 6h to pick up a rotated pair (see
+`nginx/reload-loop.sh`). Every service rotates its logs (3 files x 10 MB).
 
 **Security rules for this stack** (full text in [08-security.md](08-security.md#security-rules)):
 
@@ -32,7 +43,8 @@ every 6h to pick up renewed certs, see `nginx/reload-loop.sh`).
 If TLS terminates upstream of this stack (a cloud LB, or Cloudflare straight
 to the app) instead of the bundled nginx:
 
-- Don't run the `nginx`, `cert-bootstrap` or `certbot` services. The
+- Don't run the `nginx` service. An Origin CA certificate is not trusted by
+  browsers, so use your load balancer's own certificate there. The
   Cloudflare-only origin lock ([Rule 12](08-security.md#rule-12-the-origin-accepts-only-cloudflare))
   lives in nginx, so the LB or a firewall must do that job instead.
 - Point the LB at the `app` service's port directly (change `expose` to
@@ -56,7 +68,7 @@ flowchart TD
   H -- no --> D["catch-all default_server<br/>443: TLS handshake rejected<br/>80: 444 (empty reply)"]
   H -- yes --> P{"peer is a Cloudflare range,<br/>loopback, or list is empty?"}
   P -- yes --> OK["served as usual"]
-  P -- no --> E{"/api/health or<br/>/.well-known/acme-challenge/?"}
+  P -- no --> E{"/api/health?"}
   E -- yes --> OK
   E -- no --> X["444"]
 ```
@@ -64,7 +76,6 @@ flowchart TD
 Always reachable, even by a non-Cloudflare public peer:
 
 - `/api/health` (uptime monitors may hit the origin directly; `/api/health/ready` stays a 404 at the edge)
-- `/.well-known/acme-challenge/` (Let's Encrypt renewal works whether DNS is proxied or not)
 - `/healthz` on port 80, loopback callers only. It is for a future container
   healthcheck ([75.29]); nothing uses it yet.
 - any loopback peer, which means callers inside the nginx container (a

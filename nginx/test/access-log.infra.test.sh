@@ -33,7 +33,7 @@ docker run -d --name accesslog-upstream --network "$NET" --network-alias app \
   --entrypoint sh "$NGINX_IMG" \
   -c "echo '$UP_CONF' > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'" >/dev/null
 
-docker run --rm -e APP_DOMAIN=example.test -v "$VOL:/etc/letsencrypt" \
+docker run --rm -e APP_DOMAIN=example.test -v "$VOL:/certs" \
   -v "$PWD/nginx/generate-dummy-cert.sh:/scripts/generate-dummy-cert.sh:ro" \
   --entrypoint sh certbot/certbot /scripts/generate-dummy-cert.sh >/dev/null
 
@@ -42,7 +42,7 @@ docker run -d --name accesslog-edge --network "$NET" --ip "$EDGE_IP" \
   -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
   -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro" \
   -v "$PWD/nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro" \
-  -v "$VOL:/etc/letsencrypt:ro" "$NGINX_IMG" >/dev/null
+  -v "$VOL:/etc/nginx/certs:ro" "$NGINX_IMG" >/dev/null
 for _ in $(seq 20); do
   docker exec accesslog-edge nc -z 127.0.0.1 443 >/dev/null 2>&1 && break
   sleep 1
