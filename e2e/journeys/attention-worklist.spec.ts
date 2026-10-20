@@ -1,25 +1,19 @@
-import {
-  extendTrial,
-  onlyAttentionRule,
-  patch,
-  raiseTrialEnding,
-  setTrialEndsInDays,
-} from '../api';
+import { grantSeats, onlyAttentionRule, patch, raiseSeatsExpiring } from '../api';
 import { shells } from '../config';
 import { newSchool } from '../fixtures/new-school';
 import { expect, guest, test } from '../fixtures/test';
 import { makeT } from '../i18n';
 
 /**
- * [67.2.10] The attention worklist against the real engine: a trial that is 6
- * days from its end raises a WARNING, hiding it keeps it in To-do ("Closed for
- * now", bar gone, D19), and extending the trial resolves it into History.
+ * [67.2.10] The attention worklist against the real engine: 9 of 10 seats in use
+ * raise a `seats.expiring` WARNING, hiding it keeps it in To-do ("Closed for
+ * now", bar gone, D19), and a longer grant resolves it into History.
  * English UI, so the bar counts read "1 warning".
  */
 const t = makeT('en');
 test.use(guest);
 
-test('trial ending: raised, closed for now, then fixed and moved to History', async ({
+test('seats expiring: raised, closed for now, then fixed and moved to History', async ({
   browser,
   playwright,
 }) => {
@@ -29,16 +23,16 @@ test('trial ending: raised, closed for now, then fixed and moved to History', as
   try {
     // Finished, not skipped: an unfinished wizard raises setup.incomplete (W3), a second item.
     await patch(school.api, school.session, '/onboarding', { seen: true, finished: true });
-    // The counts below assume the trial alert is the only one: no scheduled tick may add another.
-    await onlyAttentionRule(school.api, school.session, 'trial.ending');
+    // The counts below assume the seats alert is the only one: no scheduled tick may add another.
+    await onlyAttentionRule(school.api, school.session, 'seats.expiring');
     await page.addInitScript(() => localStorage.setItem('biddaloy:locale', 'en'));
     const bar = page
       .getByRole('status')
       .filter({ hasText: t('attention.bar.warning_one', { n: 1 }) });
 
-    await test.step('6 days left raises a warning in the bar', async () => {
-      await raiseTrialEnding(playwright, school.session.tenantId, shells.app.baseURL);
-      // The recheck runs about 5 s after the trial change.
+    await test.step('9 of 10 seats in use raises a warning in the bar', async () => {
+      await raiseSeatsExpiring(playwright, school, shells.app.baseURL);
+      // The recheck runs about 5 s after the seat grant.
       await expect
         .poll(
           async () => {
@@ -71,12 +65,11 @@ test('trial ending: raised, closed for now, then fixed and moved to History', as
       ).toBeVisible();
     });
 
-    await test.step('60 more days resolve it: History says Fixed, To-do is empty', async () => {
+    await test.step('a 3-month grant resolves it: History says Fixed, To-do is empty', async () => {
       const superAdmin = await playwright.request.newContext({ baseURL: shells.app.baseURL });
       try {
-        // The grant no longer moves the end date: set it, then ask for the recheck.
-        await setTrialEndsInDays(school.session.tenantId, 66);
-        await extendTrial(superAdmin, school.session.tenantId, 60, 'e2e trial resolved');
+        // The grant recomputes the limit (NULL in the free period) and asks for the recheck.
+        await grantSeats(superAdmin, school.session.tenantId, 25, 3);
       } finally {
         await superAdmin.dispose();
       }
