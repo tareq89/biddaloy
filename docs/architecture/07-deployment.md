@@ -1,222 +1,261 @@
 # Deployment
 
-> **Planned replacement:** the agreed target setup (one VM, all environments, tunnel, staging from prod) is in [30-deployment-target.md](30-deployment-target.md). This page describes what runs today until Epic 79.0 lands.
+> **What this page is.** The shape of the deployment: what runs, how the
+> parts talk, how a version reaches a server. The commands you type live in
+> [28-platform-runbook.md](28-platform-runbook.md). The reasons behind each
+> choice, and what we left for later, live in
+> [30-deployment-target.md](30-deployment-target.md).
 
-> Full step-by-step deploy/renewal instructions live in the root
-> [`README.md`](../../README.md#docker-deployment) — this doc is just the
-> shape of it, for orientation.
+One VM runs every environment. Prod, staging and demo are three copies of the
+same stack, each with its own database, Redis and file store. A shared edge
+(nginx) is the only thing that reaches all of them.
 
-> Operator steps (day 0, first deploy, releases, alerts, restore) live in
-> [28-platform-runbook.md](28-platform-runbook.md). This page keeps the design.
+## Topology
 
-## Docker Compose topology
+```mermaid
+flowchart TB
+  subgraph who ["Who deploys"]
+    L["Laptop: scripts/deploy.sh"]
+    G["GitHub: Deploy workflow"]
+  end
+  L & G -->|"ssh deploy@vm: biddaloy-deploy"| CLI
+  subgraph vm ["The VM: /opt/biddaloy"]
+    CLI["biddaloy-deploy"]
+    subgraph edge ["edge (project edge)"]
+      CFD["cloudflared (tunnel mode)"] --> NX["nginx"]
+      NX --> LD["landing"]
+      BA["beszel-agent"]
+    end
+    subgraph P ["prod (project prod)"]
+      PA["app, app2"] --- PD[("db, redis, seaweedfs")]
+      PB["backup"] --- PD
+    end
+    subgraph S ["staging (project staging)"]
+      SA["app"] --- SD[("db, redis, seaweedfs")]
+    end
+    subgraph D ["demo (project demo)"]
+      DA["app"] --- DD[("db, redis, seaweedfs")]
+    end
+    subgraph O ["ops (project ops)"]
+      OK["uptime-kuma"]
+      OB["beszel"]
+      OZ["dozzle"]
+    end
+    NX --> PA & SA & DA
+    NX --> OK & OB & OZ
+    T["systemd timers: biddaloy-nightly"]
+  end
+  PB -->|"hourly, encrypted"| R2[("Cloudflare R2")]
+```
+
+| Project   | Compose file(s) in `deploy/`                      | Services                                                                                                              |
+| --------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `prod`    | `stack.yml`                                       | `app`, `app2` (profile `replica`), `db`, `redis`, `seaweedfs`, `backup` (profile `backup`), `jobs` (profile `jobs`)   |
+| `staging` | `stack.yml`                                       | `app`, `db`, `redis`, `seaweedfs`, `jobs`                                                                             |
+| `demo`    | `stack.yml`                                       | `app`, `db`, `redis`, `seaweedfs`, `demo-reset` (profile `demo-jobs`, run once per night)                             |
+| `edge`    | `edge.yml`, plus `edge.direct.yml` in direct mode | `nginx`, `landing`, `beszel-agent`, `cloudflared` (profile `tunnel`); direct mode adds `cert-bootstrap` and `certbot` |
+| `ops`     | `ops.yml`                                         | `uptime-kuma`, `beszel`, `dozzle`                                                                                     |
+
+The same `stack.yml` runs three times, told apart by `-p <project>` and by
+its own `.env` at `/opt/biddaloy/<project>/.env`. There is no `container_name`
+and no published host port in `stack.yml`. Prod's `.env` sets
+`COMPOSE_PROFILES=replica,backup`, which is why every deploy step names its
+services instead of running a bare `up`.
+
+## Networks: who joins what
+
+Each box below is a Docker network. Only `app` and `app2` leave their own
+stack. They join `biddaloy-edge` under an alias such as `prod-app` or
+`staging-app`, and that is the only door nginx uses.
+
+```mermaid
+flowchart TB
+  subgraph PN["prod_default"]
+    pa[prod app] --- pdb[(prod db, redis, seaweedfs)]
+  end
+  subgraph SN["staging_default"]
+    sa[staging app] --- sdb[(staging db, redis, seaweedfs)]
+  end
+  subgraph DN["demo_default"]
+    da[demo app] --- ddb[(demo db, redis, seaweedfs)]
+  end
+  subgraph E["biddaloy-edge (subnet 172.30.0.0/24)"]
+    nx[nginx] --- pa2["prod-app, prod-app2"]
+    nx --- sa2["staging-app"]
+    nx --- da2["demo-app"]
+    cf[cloudflared] --- nx
+  end
+  subgraph OE["biddaloy-ops-edge"]
+    nx2[nginx] --- ui["uptime-kuma, beszel, dozzle"]
+  end
+  pa -. same container .- pa2
+  sa -. same container .- sa2
+  da -. same container .- da2
+```
+
+| Network             | Made by                                                              | Members                                      |
+| ------------------- | -------------------------------------------------------------------- | -------------------------------------------- |
+| `<project>_default` | compose, one per project                                             | that stack's own services                    |
+| `biddaloy-edge`     | the deploy playbook (`docker network create --subnet 172.30.0.0/24`) | nginx, cloudflared, and every `app` / `app2` |
+| `biddaloy-ops-edge` | the deploy playbook                                                  | nginx, and Kuma, Beszel, Dozzle              |
+
+Why not put everything on one network: Docker answers a name such as `redis`
+from every network a container sits on. If the staging app shared a network
+with prod, its `redis` lookup could return prod's Redis. Here the staging app
+sees its own `redis` on `staging_default`, and on `biddaloy-edge` it sees only
+nginx.
+
+The subnet is pinned because nginx trusts `CF-Connecting-IP` only from it
+(tunnel mode, `EDGE_TRUSTED_CIDR`). Provision creates no Docker network.
+
+## The two edge modes
+
+One nginx image, two ways to reach it. `nginx/edge-mode.sh` reads `EDGE_MODE`
+(from `infra/secrets/edge.enc.env`) when the container starts and writes the
+parts that differ. A bad value stops the container.
 
 ```mermaid
 flowchart LR
-    Internet -->|HTTPS| cloudflare["Cloudflare\n(required: browsers trust only\nits edge cert, not the Origin CA)"]
-    cloudflare -->|HTTPS| nginx
-    nginx -->|reverse proxy| app["app\n(NestJS: API + the built SPA at /)"]
-    app --> db[("db\nPostgreSQL")]
-    app --> redis[("redis")]
-    ghcr[("GHCR images\nbiddaloy-app, -backup, -demo-reset")] -.->|"docker compose pull\n(APP_VERSION)"| app
-    cert["Origin CA cert\n(copied by hand → /opt/biddaloy/certs;\nsops from Epic 61 W3)"] -.->|"mounted read-only\norigin.pem + origin.key"| nginx
+  subgraph T ["tunnel (now)"]
+    V1[visitor] --> CF["Cloudflare edge<br/>TLS, Access"] --> CD["cloudflared<br/>(dials out)"] -->|"plain HTTP :80"| N1[nginx]
+  end
+  subgraph Dm ["direct (BDIX later)"]
+    V2[visitor] -->|"80 / 443"| N2["nginx<br/>Let's Encrypt cert"]
+    CB["certbot loop"] -->|"touch .reload"| N2
+  end
 ```
 
-Example: `export APP_VERSION=<full commit SHA> TLS_CERT_DIR=/opt/biddaloy/certs; docker compose pull && docker compose up -d` runs
-`ghcr.io/tareq89/biddaloy-app:<full commit SHA>` (the publish workflow tags the full 40-character SHA). `APP_VERSION` has no default, so a
-forgotten tag fails loudly. Local dev builds instead:
-`APP_VERSION=local TLS_CERT_DIR=./.certs docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`
-(the overlay adds `build:` blocks and a `cert-bootstrap` service that writes a
-dummy self-signed pair).
-Uptime monitors that hit the origin directly over HTTPS will not trust an
-Origin CA cert; point them at Cloudflare.
+|                             | `EDGE_MODE=tunnel`                                                   | `EDGE_MODE=direct`                                                                                                                                          |
+| --------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public ports                | SSH only                                                             | SSH, 80, 443                                                                                                                                                |
+| Compose                     | `edge.yml`, profile `tunnel` starts `cloudflared`                    | `edge.yml` + `edge.direct.yml` (`cloudflared` moves to profile `disabled`)                                                                                  |
+| TLS                         | Cloudflare                                                           | Let's Encrypt, HTTP-01; `cert-bootstrap` makes a 30-day self-signed cert on the first start so nginx can answer the challenge; `certbot` renews twice a day |
+| Visitor IP                  | `CF-Connecting-IP`, trusted only from `EDGE_TRUSTED_CIDR`            | the TCP peer; no `real_ip` lines at all                                                                                                                     |
+| `X-Forwarded-Proto`         | forced to `https` (cloudflared talks plain HTTP)                     | the real scheme                                                                                                                                             |
+| Staging and ops outer login | Cloudflare Access, checked by `cloudflared` (`originRequest.access`) | nginx basic auth from `BASIC_AUTH_HTPASSWD`                                                                                                                 |
+| Kuma push monitors          | `cloudflared` routes `/api/push/` on the Kuma host without Access    | nginx skips basic auth for exactly that path                                                                                                                |
+| Config files                | `cloudflared/config.yml`, `credentials.json`                         | `letsencrypt/`, `acme-webroot/`, `htpasswd`                                                                                                                 |
+| Hosts that answer           | the five domains in `edge.enc.env`; anything else gets `444`         | same                                                                                                                                                        |
 
-Services (`docker-compose.yml`): `app`, `db` (Postgres), `redis`, `seaweedfs`,
-`backup`, `nginx`. nginx serves the Cloudflare Origin CA pair mounted from
-`TLS_CERT_DIR` and self-reloads every 6h to pick up a rotated pair (see
-`nginx/reload-loop.sh`). `TLS_CERT_DIR` has no default, so a missing value
-stops `docker compose` instead of crash-looping nginx. The repo holds no
-encrypted cert yet (sops arrives with Epic 61 W3): copy `origin.pem` and
-`origin.key` into that directory and `chmod 600 origin.key`. Every service rotates its logs (3 files x 10 MB).
+**First real certificate (direct mode).** Issuing it is one manual step, once.
+After the first `biddaloy-deploy edge <sha>` nginx serves the placeholder; delete
+it and ask Let's Encrypt for the real one (the command is in the comment above
+`cert-bootstrap` in `deploy/edge.direct.yml`):
 
-**Security rules for this stack** (full text in [08-security.md](08-security.md#security-rules)):
+```bash
+rm -r /opt/biddaloy/edge/letsencrypt/live/<APP_DOMAIN>
+docker compose -p edge exec certbot certbot certonly --webroot -w /var/www/acme \
+  --cert-name <APP_DOMAIN> -d <APP_DOMAIN> -d <STAGING_DOMAIN> -d <DEMO_DOMAIN> \
+  -d <LANDING_DOMAIN> -d <KUMA_DOMAIN> -d <BESZEL_DOMAIN> -d <LOGS_DOMAIN> --force-renewal
+```
 
-- [Rule 11](08-security.md#rule-11-client-ip-comes-only-from-reqip): the client IP is `req.ip`, set by nginx from `CF-Connecting-IP` for peers in `TRUSTED_PROXY_CIDRS`.
-- [Rule 12](08-security.md#rule-12-the-origin-is-reachable-only-through-the-edge): the origin is reachable only through the edge (next section).
-- Cloudflare dashboard settings: the checklist in [25-cloudflare.md](25-cloudflare.md) (75.31).
-- After every deploy: `yarn smoke:post-deploy` ([12-operations.md §7](12-operations.md#7-post-deploy-smoke-check)).
+(Not yet run on a real host. The command as written has no `--email` and nothing
+reads `LETSENCRYPT_EMAIL` from `edge.enc.env`; see the hand-off notes.) From then on the
+`certbot` loop renews it and touches `/var/www/acme/.reload`, which makes nginx reload.
 
-### Running migrations
+Switch by setting `EDGE_MODE` (and, in `infra/ansible/inventory/prod.yml`,
+`edge_mode`), running provision again, then `biddaloy-deploy edge <sha>`.
+See [25-cloudflare.md](25-cloudflare.md#direct-mode-what-replaces-cloudflare)
+for what Cloudflare does for you in tunnel mode and what replaces it.
 
-The image has no ts-node, so migrations run from compiled JS. Run them after
-`docker compose pull`, before `up -d`, back up first if any are pending.
+## Images and tags
+
+`.github/workflows/publish-image.yml` runs on every merge to `main`. Each
+image is tagged with the **full 40-character commit SHA** and `main`. The VM
+only pulls, never builds. The pull login is the `GHCR_PULL_USER` /
+`GHCR_PULL_TOKEN` pair in `edge.enc.env` (a token with only `read:packages`).
+
+| Image                                 | Built from                                                                                  | Used by                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `ghcr.io/tareq89/biddaloy-app`        | `Dockerfile`                                                                                | `app`, `app2`, and one-off `config-check`, `migrate`, smoke          |
+| `ghcr.io/tareq89/biddaloy-backup`     | `scripts/backup/Dockerfile`                                                                 | prod `backup`, and the `jobs` service (staging refresh, log archive) |
+| `ghcr.io/tareq89/biddaloy-demo-reset` | `scripts/demo/Dockerfile` (`FROM` the app image, plus `db-swap.sh` from the backup context) | `demo-reset`                                                         |
+| `ghcr.io/tareq89/biddaloy-landing`    | `landing/`                                                                                  | `landing`                                                            |
+
+Example: `APP_VERSION=3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b` in
+`/opt/biddaloy/prod/.env` runs `ghcr.io/tareq89/biddaloy-app:3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b`.
+The deploy writes `APP_VERSION` (`LANDING_VERSION` for edge); you never edit it.
+`ops` runs public images (Kuma, Beszel, Dozzle) pinned by digest, not by SHA.
+
+The app image carries no per-environment values. One image serves prod,
+staging and demo (next section). The build gets only `APP_VERSION`,
+`SENTRY_ORG`, `SENTRY_PROJECT` and the `sentry_auth_token` BuildKit secret
+(for source maps, which are deleted before the image is sealed).
+
+## Runtime config and secrets
+
+Everything that differs between environments is read at boot from the
+environment, so the same image runs three times.
 
 ```mermaid
 flowchart LR
-    pull["docker compose pull"] --> pending{"migrate.js pending"}
-    pending -- "exit 0: none" --> up["docker compose up -d"]
-    pending -- "exit 2: pending" --> backup["back up the database"] --> run["migrate.js run"] --> up
-    pending -- "exit 1: error" --> stop["stop, read the error"]
+  A["infra/secrets/prod.enc.env<br/>(sops + age, in git)"] -->|"deploy: decrypt with the VM's host key"| B["/opt/biddaloy/prod/.env<br/>root:deploy 0640"]
+  B -->|"compose --env-file"| C["app container env"]
+  C -->|"GET /runtime-config.js"| D["browser: window.__BIDDALOY_CONFIG__"]
 ```
 
-Example (from the `app` image, so it sees the same code you are deploying). On the host,
-always name the project: in `/opt/biddaloy/prod` a bare `docker compose` would use the
-directory name (`prod`), not `biddaloy-prod`, and see an empty stack:
+`GET /runtime-config.js` (`server/src/runtime-config.ts`) is served by the
+app, outside `/api`, with `no-store`. It carries only public values, and a
+spec pins the exact key list:
 
-```bash
-cd /opt/biddaloy/prod
-docker compose -p biddaloy-prod run --rm app node server/dist/scripts/migrate.js pending
-docker compose -p biddaloy-prod run --rm app node server/dist/scripts/migrate.js run
-```
+| Key in `window.__BIDDALOY_CONFIG__` | Read from env                         | Used for                                        |
+| ----------------------------------- | ------------------------------------- | ----------------------------------------------- |
+| `turnstileSiteKey`                  | `TURNSTILE_SITE_KEY`                  | the captcha widget on public forms              |
+| `supportUrl`                        | `SUPPORT_CONTACT_URL`                 | the "Contact us" link on the trial-ended screen |
+| `sentryDsn`                         | `SENTRY_DSN_WEB`                      | browser error reports; empty = nothing is sent  |
+| `sentryEnvironment`                 | `SENTRY_ENVIRONMENT`, else `NODE_ENV` | tags events `prod` / `staging` / `demo`         |
+| `sentryTracesSampleRate`            | `SENTRY_TRACES_SAMPLE_RATE`           | default `0.1`                                   |
+| `release`                           | `APP_VERSION`                         | ties a Sentry issue to the deploy               |
 
-The one-release backward-compatibility rule (old code must work on the new
-schema) is in [`CONTRIBUTING.md`](../../CONTRIBUTING.md#database-migrations).
+The secrets files, one per project:
 
-### Deploying a new version
+| File in `infra/secrets/` | Holds                                                                                                                                                                         | Written to                                                     |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `prod.enc.env`           | prod app, DB, R2 backup write token, SMS, OAuth, Turnstile, Sentry                                                                                                            | `/opt/biddaloy/prod/.env`                                      |
+| `staging.enc.env`        | staging app, `STAGING_PASSWORD`, `STAGING_PASSWORD_HASH_B64`, the R2 **read-only** token, `BACKUP_AGE_PRIVATE_KEY`                                                            | `/opt/biddaloy/staging/.env`, key to `staging/restore/key.txt` |
+| `demo.enc.env`           | demo app, `DEMO_PASSWORD`, `DEMO_RESET_PUSH_URL`                                                                                                                              | `/opt/biddaloy/demo/.env`                                      |
+| `edge.enc.env`           | `EDGE_MODE`, hostnames, tunnel credentials, GHCR pull token, basic-auth users (direct mode), Telegram bot (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`), log-archive R2 settings | `/opt/biddaloy/edge/.env`                                      |
+| `ops.enc.env`            | `BESZEL_KEY`, `DOZZLE_USERS_YML`                                                                                                                                              | `/opt/biddaloy/ops/.env`                                       |
 
-One command, from your laptop (needs your age key for the secrets):
+Each file is encrypted for three keys: the operator's, an offline recovery
+key, and the VM's own host key (`/opt/biddaloy/keys/host.age`). Because the VM
+decrypts for itself, no age key ever sits in GitHub. Setup and editing:
+[`infra/secrets/README.md`](../../infra/secrets/README.md). Rotation:
+[12-operations.md §8](12-operations.md#8-secrets-and-rotation).
 
-```bash
-cd infra/ansible
-export BIDDALOY_PROD_HOST=203.0.113.10
-ansible-playbook deploy.yml -e env=prod -e version=3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b         # deploy
-ansible-playbook deploy.yml -e env=prod -e version=3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b --check # plan only
-```
+`write-env.yml` single-quotes every value, because compose expands `$` in an
+unquoted `.env` value. The staging password hash is a bcrypt string full of
+`$`, so it is also carried as base64 in `STAGING_PASSWORD_HASH_B64`.
 
-`version` is the image tag: the **full 40-character** git SHA CI pushed (`git rev-parse HEAD`).
-A short SHA fails pre-flight. `env` is `prod`, `demo` or `staging`.
+Public values the sign-up form needs, in one place:
 
-```mermaid
-sequenceDiagram
-    actor Op as Operator
-    participant A as ansible
-    participant H as Host (/opt/biddaloy/prod)
-    Op->>A: deploy.yml -e version=3f9c2ab…
-    A->>H: pre-flight: clean checkout? tags exist? age key? Access gate? (stop, nothing changed)
-    A->>H: copy compose + nginx, write .env with APP_VERSION=3f9c2ab…
-    A->>H: nginx -t on the new templates (fail: old files put back)
-    A->>H: pull images
-    A->>H: backup (prod, whenever the pgdata volume exists)
-    A->>H: migrate.js pending, then run if exit 2
-    A->>H: compose up, wait healthy; recreate nginx if its files changed
-    A->>H: attach the edge networks (staging, ops)
-    A->>H: poll /api/health/ready (2 min)
-    A->>Op: smoke-post-deploy.mjs on the public URL
-    A->>H: deploys.log: "2026-10-20T09:00:00Z prod 3f9c2ab… ok"
-    Note over A,H: Any failure after pre-flight (rescue): set APP_VERSION back to the previous version, compose up, log "rolled-back", fail the play
-```
+| Variable                                               | Read by                                                   | Missing means                                                                |
+| ------------------------------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `TURNSTILE_SECRET_KEY`                                 | server                                                    | dev and test skip the captcha; **production refuses every sign-up with 503** |
+| `TURNSTILE_SITE_KEY`                                   | server, served to the browser through `runtime-config.js` | no captcha widget is drawn                                                   |
+| `SUPPORT_CONTACT_URL`                                  | server, same route                                        | no support link                                                              |
+| `OTP_SMS_ALLOWED_PREFIXES`                             | server                                                    | `+880`                                                                       |
+| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | server                                                    | Google is not offered                                                        |
 
-Before you run it:
-
-- **Check out `version` first** (`git checkout 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b`). Compose files and nginx templates are copied from your checkout; the play fails early if `HEAD` is not `version`, or if `docker-compose*.yml` or `nginx/` has uncommitted changes.
-- **Prod needs the backup age key on the host** (`/opt/biddaloy/prod/drill/key.txt`, owner 10001, mode 0400). Pre-flight stops without it; how to put it there: [12-operations.md §8](12-operations.md#8-secrets-and-rotation).
-- **Smoke logins:** export `SMOKE_ADMIN_EMAIL`, `SMOKE_ADMIN_PASSWORD`, `SMOKE_TEACHER_EMAIL`, `SMOKE_TEACHER_PASSWORD`, `SMOKE_SUPER_ADMIN_EMAIL`, `SMOKE_SUPER_ADMIN_PASSWORD`. Missing ones fail pre-flight.
-
-Things to know:
-
-- **Unknown tag:** pre-flight checks the app image and the env's other image (backup, or demo-reset for demo) and fails before any container changes.
-- **Rollback redeploys the old image only.** The new compose and nginx files stay on the host (the nginx ones passed `nginx -t`). Migrations are not reverted (D11), so every migration must keep the old code working (see above).
-- **Rollback target:** the last `ok` line in `deploys.log`. With none (log deleted, stack started by hand, first deploy after a restore), the image tag of the `app` container running now. With neither, there is no rollback.
-- **Prod backs up before migrating.** If the backup fails, migrations never run. Demo and staging take no backup. The rule keys off the data, not the log: the backup runs whenever the volume `biddaloy-prod_pgdata` exists, and is skipped only on a host that has never had a prod database.
-- **nginx templates are checked and loaded.** nginx renders templates only when its container starts. When the deploy changes a file under `nginx/`, it runs `nginx -t` in a throwaway copy of the nginx service first (a failure puts the old files back and stops the deploy), then recreates nginx after `compose up` (a few seconds of 502).
-- **One nginx per host.** prod and demo bind the host's ports 80/443, so they cannot share a host. Staging binds no ports: prod's nginx serves it (see [Staging](#staging)).
-- **`--check`** runs only the pre-flight and the file/env diffs. Pull, backup, migrate, restart, readiness and smoke are skipped.
-- **Skip the backup** (rare, e.g. a second deploy minutes later): `-e skip_backup=true`.
-- **`--tags env`** only rewrites `.env` and restarts nothing, and only for the running version. To apply a rotated secret, commit it and run a full deploy of that new commit: secrets are read from the checkout ([12-operations.md §8](12-operations.md#8-secrets-and-rotation)).
-- **`HEALTH_TOKEN` must be in the env's secrets file.** Without it `/api/health/ready` answers 404 and the deploy never turns ready.
-- The demo deploy skips the smoke test until `demo_domain` is added to `inventory/prod.yml`.
-- `deploys.log` (in the project dir) lists every deploy: `<time> <env> <version> <ok|rolled-back|failed>`.
-
-#### When rollback also fails
-
-The play ends red and the app may be down. On the host, name the project (a bare `docker compose` in that directory looks at a project called `prod` and shows nothing):
-
-```bash
-cd /opt/biddaloy/prod
-docker compose -p biddaloy-prod ps
-docker compose -p biddaloy-prod logs --tail 200 app
-# staging also needs its overlay:
-cd /opt/biddaloy/staging
-docker compose -p biddaloy-staging -f docker-compose.yml -f docker-compose.staging.yml ps
-```
-
-If the database is damaged, restore the last backup with the restore runbook ([13-backup-restore](13-backup-restore.md)), then redeploy a known-good `version`.
-
-### Deploying behind an external load balancer instead
-
-If TLS terminates upstream of this stack (a cloud LB, or Cloudflare straight
-to the app) instead of the bundled nginx:
-
-- Don't run the `nginx` service. An Origin CA certificate is not trusted by
-  browsers, so use your load balancer's own certificate there. The
-  Cloudflare-only origin lock ([Rule 12](08-security.md#rule-12-the-origin-is-reachable-only-through-the-edge))
-  lives in nginx, so the LB or a firewall must do that job instead.
-- Point the LB at the `app` service's port directly (change `expose` to
-  `ports` in `docker-compose.yml`, or route through your platform's service
-  discovery).
-- `app.set('trust proxy', 1)` in `main.ts` trusts exactly one hop. That is
-  right when the LB is the only proxy in front of the app. With two (LB →
-  nginx → app), change the `1` to the real hop count, or a client can spoof
-  its IP ([Rule 11](08-security.md#rule-11-client-ip-comes-only-from-reqip)).
-- Set `CORS_ORIGINS` to your real public origin(s) either way.
-
-### Who can reach the origin
-
-nginx answers only the real site name, and (when `TRUSTED_PROXY_CIDRS` lists
-the Cloudflare ranges, see [12-operations.md](12-operations.md) 3.5) only for
-traffic that comes through Cloudflare.
-
-```mermaid
-flowchart TD
-  R["request reaches nginx"] --> H{"Host / SNI = APP_DOMAIN?"}
-  H -- no --> D["catch-all default_server<br/>443: TLS handshake rejected<br/>80: 444 (empty reply)"]
-  H -- yes --> P{"peer is a Cloudflare range,<br/>loopback, or list is empty?"}
-  P -- yes --> OK["served as usual"]
-  P -- no --> E{"/api/health?"}
-  E -- yes --> OK
-  E -- no --> X["444"]
-```
-
-Always reachable, even by a non-Cloudflare public peer:
-
-- `/api/health` (uptime monitors may hit the origin directly; `/api/health/ready` stays a 404 at the edge)
-- `/healthz` on port 80, loopback callers only. It is for a future container
-  healthcheck ([75.29]); nothing uses it yet.
-- any loopback peer, which means callers inside the nginx container (a
-  container healthcheck, `docker exec`). A request from the host itself to the
-  published port arrives from the Docker bridge gateway (`172.x`), not
-  loopback, so run the smoke script through the public URL. Private ranges are
-  not exempt: if the app logs show a Docker bridge gateway (`172.x`) instead of
-  real client IPs, the host uses Docker's userland proxy and the lock-down must
-  not be enabled there (see 12-operations.md 3.5)
-
-Example: `curl https://<origin-ip>/` gets a rejected TLS handshake;
-`curl --resolve <domain>:443:<origin-ip> https://<domain>/` from a laptop
-gets an empty reply; the same URL through Cloudflare loads the app.
-
-Warning: if production ever serves a second hostname (for example `www.`),
-add it to `server_name` before deploying this, or that hostname gets 444.
-
-Rollback if real users or a monitor get 444: set `TRUSTED_PROXY_CIDRS=` and
-`docker compose up -d nginx`; the Cloudflare-only rule is off at once. If the
-catch-all itself is the problem (a hostname missing from `server_name`), revert
-the `default.conf.template` change and restart nginx. No data or app change is
-involved.
-
-This whole stack — including automated TLS — was **not** in the original
-plan, which treated Docker as a future migration. It shipped as the actual
-deployment mechanism.
+Set `TURNSTILE_SECRET_KEY` and `TURNSTILE_SITE_KEY` together or not at all: a
+secret with no site key rejects every sign-up. The content-security-policy
+(`server/src/security-headers.ts`) allows one outside origin,
+`https://challenges.cloudflare.com`, in `script-src` and `frame-src`. See
+[22-onboarding.md](22-onboarding.md).
 
 ## Before you deploy: `yarn config:check`
 
 ```mermaid
 flowchart LR
-    A[".env"] --> B["yarn config:check"]
-    B -->|"config ok, exit 0"| C["docker compose up -d"]
-    B -->|"problems listed, exit 1"| D["fix .env"]
+    A["decrypted secrets file"] --> B["config-check (app image)"]
+    B -->|"config ok, exit 0"| C["deploy goes on"]
+    B -->|"problems listed, exit 1"| D["FAILED at config-check: fix the file with sops"]
 ```
 
-It runs the server's boot-time config checks without starting anything:
+`yarn config:check` (in the image: `node server/dist/scripts/config-check.js --env <prod|staging|demo> --file <path>`)
+runs the server's boot-time config checks without starting anything. The deploy runs it for you; run it by hand
+on a laptop with `sops -d infra/secrets/staging.enc.env | yarn config:check --env staging --file /dev/stdin`.
+It checks:
 the env schema and placeholder rules (`env.validation.ts`), the
 secret-echo guard, `DB_SSL`, the `SETTINGS_ENCRYPTION_KEY` shape (32 bytes
 of base64), the https rules for `APP_BASE_URL` and `PUBLIC_APP_URL`, and,
@@ -224,9 +263,7 @@ when `ENABLE_API_DOCS=true`, that `API_DOCS_USER` and `API_DOCS_PASSWORD` are
 both set. It lists every failure, not just the first. `--env staging` adds the no-real-provider rules ([Staging](#staging)); `--file <path>` reads that env file instead of `.env`. It does not connect to Postgres,
 Redis or S3, so a wrong password or host still only shows up at boot. It
 always judges the env as production whatever `NODE_ENV` the file says. It
-reads the **host's** `.env` (not the container's environment) and needs node
-and `yarn install` on the deploy host. It names variables, never their
-values. Example, for an `.env` copied from `.env.example` where `JWT_SECRET`
+names variables, never their values. Example, for an `.env` copied from `.env.example` where `JWT_SECRET`
 was lengthened but the other placeholders were left in (a `JWT_SECRET` under
 32 characters fails earlier, with the plain schema error):
 
@@ -242,67 +279,262 @@ Refusing to start with unsafe production config:
 DB_SSL must be "true" in production — refusing to connect to Postgres over an unencrypted connection. Set DB_SSL=true (and use an sslmode=require-style DATABASE_URL) once the target Postgres serves TLS.
 ```
 
-`docker-compose.yml` also refuses to start when `POSTGRES_*` or `S3_*`
-credentials are unset (`${VAR:?...}`), and a `client-admin` production build
+`deploy/stack.yml` also refuses to start when `POSTGRES_*`, `S3_*`, `JWT_SECRET` or
+`APP_VERSION` are unset (`${VAR:?...}`), and a `client-admin` production build
 fails if `VITE_USE_MOCKS=true`.
+
+Every deploy of an app project runs the same check for you, from the app
+image, before touching anything (`node server/dist/scripts/config-check.js --env <project> --file /dev/stdin`,
+fed the decrypted file). On staging it also verifies that
+`STAGING_PASSWORD_HASH_B64` is the bcrypt hash of `STAGING_PASSWORD`.
+
+## Migrations
+
+The image has no ts-node, so migrations run from compiled JS, in the new app
+image, **before** any app container is restarted.
+
+```mermaid
+flowchart LR
+    pull["pull images"] --> backup{"prod?"}
+    backup -- yes --> b["backup.sh (fresh dump to R2)"] --> pending
+    backup -- no --> pending{"migrate.js pending"}
+    pending -- "exit 0: none" --> up["restart app"]
+    pending -- "exit 2: pending" --> run["migrate.js run"] --> up
+    pending -- "exit 1: error" --> stop["deploy stops: FAILED at migrate"]
+```
+
+Migrations are **forward-only**. A failed deploy rolls the containers back
+to the previous version but never reverts the schema (D11). So old code must
+keep working on the new schema for one release: the rule is in
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md#database-migrations). By hand, if
+you need to look (the project name is the stack name):
+
+```bash
+docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/stack.yml \
+  run --rm app node server/dist/scripts/migrate.js pending
+```
+
+## Rolling restart
+
+Prod runs two app containers (D25). The deploy restarts them one at a time:
+
+```mermaid
+sequenceDiagram
+  participant D as deploy
+  participant A as app (old)
+  participant B as app2 (old)
+  D->>A: up -d app (new image)
+  loop up to 24 x 5 s
+    D->>A: GET /api/health/ready (X-Health-Token)
+  end
+  Note over B: still serves the old version
+  D->>B: up -d app2 (new image)
+  D->>B: wait for ready
+```
+
+A bad version stops at the first container; the second keeps serving the
+old one. Staging and demo have one `app`. nginx finds `prod-app` and
+`prod-app2` by alias.
+`/api/health/ready` needs `HEALTH_TOKEN` in the project's secrets file; without
+it the route answers 404 and the deploy never turns ready.
+
+## How a deploy runs
+
+You pick a commit SHA. It goes to staging first, then the **same image** goes
+to prod. A laptop and GitHub run the same command on the VM.
+
+```mermaid
+sequenceDiagram
+  actor Op as You (laptop or GitHub)
+  participant V as VM: biddaloy-deploy
+  participant S as staging
+  participant P as prod
+  Op->>V: biddaloy-deploy staging 3f9c2ab…(40 hex)
+  V->>V: deploy.lock, git checkout sha, image in GHCR?, config check
+  V->>S: migrate, up, ready, smoke, deploys.log "ok"
+  V-->>Op: OK (and a Telegram message)
+  Op->>V: biddaloy-deploy prod 3f9c2ab…
+  V->>V: staging has "ok" for this sha? (else refuse, unless --hotfix)
+  V->>P: backup, migrate, app, ready, app2, ready, smoke
+  V-->>Op: OK, or FAILED at <step> with Why and Next
+```
+
+The command, on the VM (`deploy/bin/biddaloy-deploy`):
+
+```bash
+biddaloy-deploy <prod|staging|demo|edge|ops|all> <40-hex sha> [--hotfix "reason"] [--skip-backup]
+biddaloy-deploy --last-ok <staging|prod>      # prints the last ok sha of that stack
+```
+
+From a laptop, `scripts/deploy.sh` checks the SHA is on origin, then runs the
+same command over ssh as `deploy@$BIDDALOY_HOST`:
+
+```bash
+BIDDALOY_HOST=203.0.113.10 scripts/deploy.sh staging 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
+BIDDALOY_HOST=203.0.113.10 scripts/deploy.sh prod    3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
+BIDDALOY_HOST=203.0.113.10 scripts/deploy.sh prod    <sha> --hotfix "login broken for all schools"
+```
+
+From GitHub: Actions, **Deploy**, `workflow_dispatch` with `stack`, `sha`
+(empty = the last staging-ok sha for prod, the ref's head otherwise) and
+`hotfix_reason`. Its SSH key is a **forced command**: it can run only
+`biddaloy-deploy --from-github`, which accepts one of the shapes
+`<stack> <sha> [--hotfix "reason"]` or `--last-ok <staging|prod>`, and only for
+a commit that is an ancestor of `origin/main`. The secrets `DEPLOY_HOST`,
+`DEPLOY_SSH_KEY` and `DEPLOY_SSH_KNOWN_HOSTS` belong to the `production`
+Environment, restricted to `main`.
+
+What `biddaloy-deploy` does, in order:
+
+1. Check the input: `sha` matches `^[0-9a-f]{40}$`; the hotfix reason is 3 to
+   200 characters of `A-Z a-z 0-9 space . , : _ / -`; nothing with `{ } % #`.
+2. Take `/opt/biddaloy/deploy.lock` (exit 75 if another deploy holds it).
+3. `git fetch`, then check out the SHA in `/opt/biddaloy/repo`.
+4. Run `ansible-playbook -c local infra/ansible/deploy.yml` on the VM, detached
+   (own session), writing `/opt/biddaloy/logs/<stack>-last-deploy.log`. A
+   dropped SSH session cannot kill a deploy half way.
+5. `all` deploys `edge`, `ops` (only if this host is in the `ops` group),
+   `staging`, `prod`, `demo`, in that order.
+
+The playbook, per app project: preflight (inputs, host key decrypts the
+secrets, required keys set, **staging gate**, 10 GB free on `/var/lib/docker`,
+GHCR login, images exist, `config-check`), networks, `.env` and Postgres TLS,
+pull, backup (prod), migrate, data services, rolling restart, the rest of the
+stack, smoke. Edge adds `nginx -t` in a throwaway container before the
+recreate. Ops is preflight, networks, env, pull, `up`.
+
+**The staging gate (D10).** Prod refuses a SHA with no `staging <sha> ok` line
+in `/opt/biddaloy/staging/deploys.log`. `--hotfix "reason"` skips the gate,
+and the reason is written to the prod `deploys.log`. The reason travels in the
+environment variable `BIDDALOY_HOTFIX_REASON`, never as an Ansible `-e` value,
+because Ansible templates `-e` values and a reason holding `{{ }}` would run
+code as root.
+
+**Prod backs up before migrating.** If the backup fails, migrations never
+run. The rule keys off the data, not the log: the backup runs whenever the
+volume `prod_pgdata` exists. `--skip-backup` is for the rare second deploy a
+few minutes after a good one.
+
+**Smoke runs on the VM.** After the rollout, `scripts/smoke-post-deploy.mjs`
+runs from the app image on `biddaloy-edge` against `http://<stack>-app:3000`
+(staging and prod only), so no Cloudflare layer is in the way. Demo gets a
+health call only. Prod is also checked from outside: `https://<APP_DOMAIN>/api/health`
+must answer 200. What the smoke checks: [12-operations.md §7](12-operations.md#7-post-deploy-smoke-check).
+
+Every result is one line in `/opt/biddaloy/<project>/deploys.log`
+(`<UTC time> <project> <sha> <ok|rolled-back|failed> [hotfix: reason]`) and one
+Telegram message. A failure always prints the same three lines:
+
+```text
+FAILED at: migrate (prod, 3f9c2ab4e1d0)
+Why:       migration 1797… failed: relation "fee_items" does not exist
+Next:      docker compose -p prod run --rm app node server/dist/scripts/migrate.js pending; biddaloy-doctor prod
+```
+
+If anything fails after pre-flight, the playbook puts the previous `.env`
+back, pins the previous version (the last `ok` line in `deploys.log`), and
+restarts on it. Migrations stay applied.
+
+The deploy never runs `compose up` without naming services: a bare `up`
+would start the one-off job containers that `COMPOSE_PROFILES` switches on.
+
+### When rollback also fails
+
+The deploy ends red and the app may be down. On the VM, name the project: a
+bare `docker compose` in `/opt/biddaloy/prod` would look at a project named
+after the directory and show nothing.
+
+```bash
+biddaloy-doctor prod
+docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/stack.yml ps -a
+docker compose -p prod --project-directory /opt/biddaloy/prod -f /opt/biddaloy/repo/deploy/stack.yml logs --tail 100 app
+tail -n 5 /opt/biddaloy/prod/deploys.log
+```
+
+Then deploy the last good SHA by hand: `biddaloy-deploy prod $(biddaloy-deploy --last-ok prod)`.
+If the cause is a migration the old code cannot read, the fix is a new
+forward migration, not a rollback. The step-by-step version is in
+[28-platform-runbook.md](28-platform-runbook.md).
+
+## Staging
+
+Staging is the same stack as prod, in its own project (`staging`), on the
+same VM. It runs yesterday's prod data, scrubbed, so a change meets real
+shapes of data before prod does. It can never message a real person: the
+scrub removes contacts and provider keys, and `config-check --env staging`
+refuses a staging file that points at prod's database or bucket.
+
+```mermaid
+flowchart LR
+  O[owner] -->|"Access login (tunnel)<br/>or basic auth (direct)"| E[edge nginx]
+  E -->|"staging-app:3000"| SA[staging app]
+  SA --> SD[("biddaloy_staging")]
+  R2[("R2 daily backup")] -->|"02:20 nightly refresh, scrubbed"| SD
+```
+
+- Hostname: `staging.<domain>`, `X-Robots-Tag: noindex`, outer login as above.
+- Data: replaced every night from the 02:00 prod daily backup; see
+  [13-backup-restore.md](13-backup-restore.md#the-nightly-staging-refresh-is-the-restore-drill).
+- Logins: every user has the one `STAGING_PASSWORD`. Platform super admins and
+  the "Smoke Test School" users keep their email (D20), so the smoke test can
+  sign in.
+- Files: uploaded files are not copied. Missing images on staging are expected.
+- Providers: no SMS, email, OAuth or push keys; Turnstile uses Cloudflare's
+  public always-pass test pair.
+- Every prod SHA must pass here first (the staging gate above).
+
+## Demo
+
+The public demo is the `demo` project: its own database and bucket on the same
+VM, `DEMO_MODE=true`, rebuilt every night at 03:00 (Asia/Dhaka) by the
+`biddaloy-nightly@demo-rebuild` timer. How the rebuild works and how to run it
+by hand: [22-demo-seed.md](22-demo-seed.md#running-the-demo-site).
+
+```mermaid
+flowchart LR
+  V[visitor] --> N["edge nginx<br/>robots.txt: Disallow all"]
+  N --> A["demo app"]
+  A --> D[("biddaloy_demo")]
+  T["03:00 timer"] --> X["demo-reset<br/>build _next, swap"]
+  X --> D
+```
+
+## Landing site
+
+The marketing site is the `landing` container of the edge project, an image
+(`biddaloy-landing`) built in CI and pulled like the others. It serves the
+apex `schoolmanagerp.com` and redirects `www.` to it. Deploy it with
+`biddaloy-deploy edge <sha>`; roll back by deploying an older SHA. Headers and
+CSP hosts: `nginx/templates/landing.conf.template`, checked by
+`nginx/test/landing.infra.test.sh`.
 
 ## Build pipeline
 
-`yarn build:all` (`scripts/build-all.sh`) builds `shared` → `ui` →
-`client-admin` → `server`, and assembles a single deployable
-`build-output/` folder that can be zipped and shipped to a VPS without
-Docker too — see the README's "Production Build" / "Deploy to VPS"
-sections for that path.
+`yarn build:all` (`scripts/build-all.sh`) builds `shared`, `ui`, `client-admin`
+and `server` locally into `build-output/`. That folder is for local builds only
+and is **not** a deploy path any more: servers run only the GHCR images.
 
-`landing/` (the Astro marketing site) is built separately by CI's `landing`
-job: `yarn workspace @biddaloy/landing build`, then
-`node landing/scripts/check-tokens.mjs` (token drift vs the app), then
-`landing/dist` is uploaded as artifact `landing-dist-<sha>` (30 days).
-
-**Images (GHCR).** `.github/workflows/publish-image.yml` runs on every merge
-to `main` and pushes three images, each tagged `<commit-sha>` and `main`.
-Production pulls, never builds.
-
-| Image                                 | Built from                  | Notes                                                                      |
-| ------------------------------------- | --------------------------- | -------------------------------------------------------------------------- |
-| `ghcr.io/tareq89/biddaloy-app`        | `Dockerfile`                | build args `VITE_TURNSTILE_SITE_KEY`, `VITE_SUPPORT_URL` (repo variables)  |
-| `ghcr.io/tareq89/biddaloy-backup`     | `scripts/backup/Dockerfile` |                                                                            |
-| `ghcr.io/tareq89/biddaloy-demo-reset` | `scripts/demo/Dockerfile`   | `FROM app`: built after the app image, using that SHA as the `app` context |
-
-Only `GITHUB_TOKEN` is used; the two `VITE_*` values are repo **variables**
-(Settings > Secrets and variables > Actions > Variables), not secrets, because
-they are public in the bundle. One-time step: after the first run, set each
-GHCR package to **public** (package settings) so `docker pull` works
-anonymously.
+`landing/` (the Astro marketing site) is built by CI's `landing` job:
+`yarn workspace @biddaloy/landing build`, then
+`node landing/scripts/check-tokens.mjs` (token drift vs the app).
 
 ## Error tracking and Web Vitals (Sentry)
 
 The SPA reports errors and real-user performance (LCP/CLS/INP) to Sentry.
-Three build-time knobs, all optional — every one of them missing is a
-supported configuration, it just means less telemetry:
+The browser values are runtime config (table above), so each project reports
+under its own `sentryEnvironment`. Missing values are a supported setup, they
+just mean less telemetry:
 
-| Variable                                              | Read by                                      | Missing means                                                       |
-| ----------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------- |
-| `VITE_SENTRY_DSN`                                     | the browser, at runtime                      | `initSentry` no-ops; nothing is sent                                |
-| `VITE_SENTRY_TRACES_SAMPLE_RATE`                      | the browser, at runtime                      | 10% of transactions sampled (the default)                           |
-| `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` | `client-admin/vite.config.ts`, at build time | no source-map upload and no release tag; stack traces stay minified |
+| Variable                                              | Read by                                      | Missing means                                    |
+| ----------------------------------------------------- | -------------------------------------------- | ------------------------------------------------ |
+| `SENTRY_DSN_WEB`                                      | the server, handed to the browser at runtime | nothing is sent from the browser                 |
+| `SENTRY_TRACES_SAMPLE_RATE`                           | same                                         | 10% of transactions sampled                      |
+| `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` | the image build only (`publish-image.yml`)   | no source-map upload; stack traces stay minified |
 
-There is no separate deploy pipeline to hang the source-map upload on
-(the build _is_ `scripts/build-all.sh`), so the upload is a Vite plugin
-that only switches on when `SENTRY_AUTH_TOKEN` is present. With the
-token set, the build emits `sourcemap: 'hidden'` maps, uploads them, and
-deletes them from `dist/` — so users never download them.
-`scripts/build-all.sh` also deletes any stray `.map` left in `build-output/`.
-The Docker build has no such step; it is safe only because
-`SENTRY_AUTH_TOKEN` is not a build arg there, so no maps are emitted:
-
-```bash
-SENTRY_ORG=biddaloy SENTRY_PROJECT=client-admin SENTRY_AUTH_TOKEN=sntrys_... \
-  yarn build:all
-```
-
-The plugin also stamps the release (the git SHA by default), which is
-what ties an issue in Sentry to the deploy that introduced it.
+With the token set, the build uploads hidden source maps to Sentry and deletes
+them from `dist/`, and a CI step fails the image if any `.map` is left in the
+SPA. The plugin stamps the release with the commit SHA, which is what ties an
+issue in Sentry to the deploy that introduced it.
 
 **Sentry is scrubbed allow-list style, on every egress path.**
 `ui/src/api/sentry.ts` filters errors (`beforeSend`), breadcrumbs
@@ -321,256 +553,6 @@ only as good as the allow-list. **Adding a key to it is a decision about
 data protection**, and the tests in `ui/src/api/sentry.test.ts` assert
 the allow-list rather than trying to detect PII, because "no addresses"
 is not something a regex can check.
-
-## Sign-up values and the Turnstile CSP (Epic 13.0)
-
-The public `/register` form needs a few values. Two are baked into the client
-bundle when it is built, so they are Docker build args, not runtime env.
-
-| Variable                                               | Read by                                                         | Missing means                                                            |
-| ------------------------------------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `TURNSTILE_SECRET_KEY`                                 | server, at runtime                                              | dev/test skip the captcha; **production refuses every sign-up with 503** |
-| `VITE_TURNSTILE_SITE_KEY`                              | client, build arg in the `Dockerfile`                           | no captcha widget is drawn                                               |
-| `SUPPORT_CONTACT_URL`                                  | server, at runtime                                              | no support link from the API                                             |
-| `VITE_SUPPORT_URL`                                     | client, build arg (Compose fills it from `SUPPORT_CONTACT_URL`) | no "Contact us" on the trial-ended screen                                |
-| `OTP_SMS_ALLOWED_PREFIXES`                             | server                                                          | `+880`                                                                   |
-| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | server                                                          | Google is not offered                                                    |
-
-Set `TURNSTILE_SECRET_KEY` and `VITE_TURNSTILE_SITE_KEY` together or not at
-all: a secret with no site key rejects every sign-up. A plain `docker build`
-needs `--build-arg VITE_TURNSTILE_SITE_KEY=...` and `--build-arg VITE_SUPPORT_URL=...`.
-Examples are in [`.env.example`](../../.env.example).
-
-The content-security-policy (`server/src/security-headers.ts`) allows one
-outside origin, `https://challenges.cloudflare.com`, in `script-src` and
-`frame-src`. Turnstile loads a script and draws its challenge in an iframe.
-Everything else stays `'self'`. See [22-onboarding.md](22-onboarding.md).
-
-## Demo site
-
-The public demo is its own deployment: its own host, database and bucket. It runs the same images with `DEMO_MODE=true`
-and rebuilds itself every night. Full detail is in [22-demo-seed.md](22-demo-seed.md); this is what you need to stand it up.
-
-```mermaid
-flowchart LR
-  V[visitor] --> N["nginx<br/>robots.txt: Disallow all"]
-  N --> A["app<br/>(biddaloy-demo-app)"]
-  A --> D[(biddaloy_demo)]
-  A --> R[(Redis)]
-  A --> S[(S3 bucket<br/>biddaloy-demo)]
-  X["demo-reset<br/>cron 01:00, swap 02:00"] --> D
-  X --> S
-  X -->|"docker restart via<br/>demo-docker-proxy"| A
-```
-
-**Host needs.** The reset keeps three databases at once (live, `_next` while building, `_prev`), so plan for about
-**3x the database size**. At full scale one demo database is about 2.7 GB (measured: 2,686 MB at scale 1, 10 years),
-so keep at least 10 GB free for databases, plus the images. The full seed took 24 min on a busy laptop (the attendance
-slice is 74% of that), so give it a real CPU: start with 2 vCPU and 4 GB RAM and check the first night. These sizes are a
-starting point, not a measurement from a real host.
-
-**Bucket.** One bucket whose name contains `demo` (for example `biddaloy-demo`), used by nothing else. The reset deletes
-objects in it, and refuses any other name.
-
-**Env** (host `.env`; the full table is in [22-demo-seed.md](22-demo-seed.md#host-env-variables)):
-
-```bash
-DEMO_PASSWORD=Demo-Public-2026
-S3_BUCKET=biddaloy-demo
-SENTRY_CRONS_URL=https://o1.ingest.sentry.io/api/2/cron/demo/KEY/
-TURNSTILE_SECRET_KEY=0x4AAAAAAA...        # demo hostname's keys, from Cloudflare
-VITE_TURNSTILE_SITE_KEY=0x4AAAAAAA...
-DEMO_SKIP_SWEEP=true                      # until a Playwright runner service exists
-```
-
-Never set `SMS_*`, `SMTP_*` or `VAPID_*`. The reset refuses to run if any variable with one of those prefixes is set.
-
-**Compose.** The first start has an order, because `app` refuses to boot until a reset has written the platform id:
-
-```bash
-C="docker compose -f docker-compose.yml -f docker-compose.demo.yml"
-$C build
-$C up -d db redis seaweedfs
-$C run --rm demo-reset /app/reset.sh --now    # first run logs "app not restarted: first run"
-$C up -d
-```
-
-Compose must be new enough to read `additional_contexts: app: service:app` (2.20.2 is not).
-
-**Shared host.** The demo overlay assumes the host runs nothing else: the Docker proxy can stop any container on it.
-The demo binds ports 80/443 like prod, so it cannot share a host with prod or staging anyway.
-
-## Landing site (Epic 50 #2730)
-
-The marketing site is static files, served by the same prod nginx as the app. No new box.
-
-```mermaid
-flowchart LR
-  CI["CI: artifact<br/>landing-dist-&lt;sha&gt;"] -->|"gh run download<br/>(laptop)"| L[Laptop]
-  L -->|"rsync, landing.yml"| H["host: /opt/biddaloy/landing/releases/&lt;sha&gt;"]
-  H -->|"symlink current"| N["prod nginx<br/>landing.conf.template"]
-  CF[Cloudflare] --> N
-```
-
-- Deploy: `ansible-playbook -i infra/ansible/inventory infra/ansible/landing.yml -e version=<sha>`. The laptop downloads, so no GitHub token lives on the VM (D20).
-- Roll back: run it with an older `sha` still on the host, or `ln -sfn releases/<sha> /opt/biddaloy/landing/current`. The last 3 releases are kept.
-- nginx mounts the **parent** dir `/opt/biddaloy/landing` (`LANDING_DIST_DIR`), not `current`: Docker resolves a symlink mount once at container start, so a swap would not show. Swapping the symlink needs no reload.
-- `LANDING_DOMAIN` goes in the prod `.env`. Unset, the block matches `landing.invalid` and serves nothing.
-- The Origin CA certificate must list the apex **and** `www.` (same pair as the app).
-- Headers and CSP hosts: `nginx/templates/landing.conf.template`, checked by `nginx/test/landing.infra.test.sh`.
-
-## Staging
-
-`staging.<domain>` runs the **same images and compose files as prod**, in its own compose project
-(`biddaloy-staging`) with its own Postgres, Redis and SeaweedFS volumes on the **same host** as prod. Only the owner
-can open it (Cloudflare Access, see [25-cloudflare.md](25-cloudflare.md#access-policies)). It can never message a real
-person (D25).
-
-```mermaid
-flowchart LR
-  O[owner] -->|Cloudflare Access login| CF[Cloudflare]
-  CF --> N["prod nginx<br/>staging.conf.template<br/>noindex header"]
-  N -->|"staging-app:3000<br/>(looked up per request)"| SA[staging app]
-  SA --> SD[(biddaloy_staging)]
-  SA --> SB[(bucket biddaloy-staging)]
-  P[prod app] --> PD[(biddaloy)]
-```
-
-**Networks.** Each box is a Docker network; a container listed in two boxes is attached to both. Prod nginx is
-the only thing that touches staging, and it does so on `biddaloy-edge`, where there is no `db`, `redis` or
-`seaweedfs` at all:
-
-```mermaid
-flowchart TB
-  subgraph PN["biddaloy-prod_default"]
-    pn[prod nginx] --- pa[prod app] --- pdb[(prod db, redis, seaweedfs)]
-  end
-  subgraph EDGE["biddaloy-edge"]
-    pn2[prod nginx] --- sa2["staging app<br/>alias staging-app"]
-  end
-  subgraph SN["biddaloy-staging_default"]
-    sa[staging app] --- sdb[(staging db, redis, seaweedfs)]
-  end
-  subgraph OPS["biddaloy-ops-edge"]
-    pn3[prod nginx] --- pa3["prod app<br/>alias prod-app"] --- ui["beszel, uptime-kuma, dozzle"]
-  end
-  pn -. same container .- pn2 -. same container .- pn3
-  sa -. same container .- sa2
-```
-
-Why a separate network: Docker's DNS answers a name from **every** network a container is on, in a fixed order. If
-the staging app also sat on `biddaloy-prod_default`, its `redis` lookup could return **prod's** Redis (reproduced on
-Docker 24: 5 of 5 lookups went to prod). A `DEMO_MODE` worker on prod's Redis would take real queued SMS and mark
-them SENT through the demo log. On `biddaloy-edge` the staging app sees only nginx, and nginx sees only
-`staging-app`. After attaching, a staging deploy checks membership, not just today's DNS answer: the staging app
-must be on exactly `biddaloy-edge` and `biddaloy-staging_default`, `biddaloy-edge` must hold only prod nginx and the
-staging app, and `db`, `redis` and `seaweedfs` must resolve to addresses on `biddaloy-staging_default`. Anything else
-stops the staging app and fails the deploy. A network attached by hand later is caught only at the next staging
-deploy.
-
-| Thing             | Staging value                                                                           |
-| ----------------- | --------------------------------------------------------------------------------------- |
-| Compose           | `docker-compose.yml` + `docker-compose.staging.yml`, project `biddaloy-staging`         |
-| Database / bucket | `biddaloy_staging` / `biddaloy-staging`                                                 |
-| Host ports        | none (db, redis, seaweedfs ports are reset; no nginx, no backup)                        |
-| Messages          | `DEMO_MODE=true`: SMS, WhatsApp, email all go to the log. No provider key is set at all |
-| Sign-up captcha   | Cloudflare's always-pass test secret `1x0000000000000000000000000000000AA`              |
-| Data              | the demo seed (below), not a copy of prod                                               |
-
-**Why `DEMO_MODE=true` and not off.** Provider keys can also live inside a school's own settings in the database, which no
-env check sees. `DEMO_MODE` sends every medium to the log before any provider is read, so it is the only switch that holds
-whatever the data says. The price: the demo's deny-list and 2 MB upload cap apply, so staging is not byte-for-byte prod
-for those routes. Staging also needs `DEMO_PASSWORD` in its env.
-
-**Never create a school on staging** (platform provisioning, `POST /schools`). `DEMO_MODE` refuses to boot on a
-database that holds a non-demo school, soft-deleted ones included, so the next deploy or restart crash-loops and the
-rollback fails the same way. The only way back is `docker compose -p biddaloy-staging down -v` and a fresh seed.
-
-**Host `.env`** (`infra/secrets/staging.enc.env`, keys in `staging.example.env`): `POSTGRES_DB=biddaloy_staging`,
-`DEMO_PASSWORD=...`, `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`, `TLS_CERT_DIR=/opt/biddaloy/certs`
-(compose needs it to parse the base file, though staging runs no nginx), and no `SMS_*`, `SMTP_*`, `WHATSAPP_*`,
-`VAPID_*`, `PLATFORM_SMS_*` or `PLATFORM_ALERT_PHONES`. `DEMO_MODE=true`, `DATABASE_URL` and `S3_BUCKET=biddaloy-staging`
-are **not** in the `.env`: `docker-compose.staging.yml` sets them for `app`. The prod `.env` must set `STAGING_DOMAIN=staging.<domain>`
-(prod's nginx renders the staging server block from it). Prod's nginx service must also pass it to the container
-(`STAGING_DOMAIN: ${STAGING_DOMAIN:-staging.invalid}` in `docker-compose.yml`): the image's envsubst only fills variables
-that exist in the container, so a template cannot carry its own default, and an unset one leaves a literal
-`${STAGING_DOMAIN}` in `server_name`.
-
-**Taking prod down while staging runs** works as normal: `biddaloy-edge` belongs to no compose project, so
-`docker compose -p biddaloy-prod down` does not try to remove it. Staging returns 502 until prod is back and a deploy
-re-attaches nginx.
-
-**`config:check --env staging`** runs inside `deploy.yml -e env=staging`, before anything changes. It judges the env
-the container gets: the host `.env` plus what `docker-compose.staging.yml` sets for `app` (a copy in
-`config-check.ts` that its spec keeps equal to the overlay). A provider variable, a prod database, a real Turnstile
-secret or a missing `DEMO_PASSWORD` stops the deploy:
-
-```text
-$ yarn config:check --env staging        # with SMTP_HOST=smtp.example.com in the env
-SMTP_HOST must be empty on staging (no real SMS / WhatsApp / email / push provider)
-```
-
-**How prod's nginx reaches staging.** Staging has no nginx. After each `up`, `deploy.yml`
-(`tasks/attach-edge.yml`) runs:
-
-```bash
-docker network create biddaloy-edge                                   # once; "already exists" is fine
-docker network connect biddaloy-edge biddaloy-prod-nginx-1            # on every prod deploy
-docker network connect --alias staging-app biddaloy-edge biddaloy-staging-app   # on every staging deploy
-```
-
-It is done by hand, not in compose, because the base compose file is shared by every env, and a manual attach adds
-only the alias given (never the compose service names `app`, `db`, `redis`). A recreated container loses its attach,
-which is why every deploy redoes it. If you recreate a container by hand (`docker compose up -d nginx`, an `up -d`
-that recreates the app), redo all of its attaches, not just one line: from `infra/ansible`, run
-`ansible-playbook deploy.yml -e env=prod -e version=<running sha> --tags edge` (prod nginx on both edge networks,
-the prod app as `prod-app`, the backup container on `biddaloy-ops-edge`), or `-e env=staging` for the staging app.
-The template looks the upstream up per request, so prod's nginx boots fine while staging is off. Prod's nginx reads templates from
-`/opt/biddaloy/prod/nginx`, so a template change reaches it through a **prod** deploy (which checks it with `nginx -t`
-and recreates nginx).
-
-**Release order: staging, check, prod.**
-
-```bash
-cd infra/ansible
-ansible-playbook deploy.yml -e env=staging -e version=3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b   # deploy and config check
-# open https://staging.<domain>, click through the change
-ansible-playbook deploy.yml -e env=prod -e version=3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b      # same tag, now prod
-```
-
-**Seed it** (first deploy only, and whenever you want fresh data). `seed:demo` refuses a database that is not empty of
-real schools, and needs `DEMO_MODE=true` and `DEMO_PASSWORD`, which the container already has:
-
-```bash
-cd /opt/biddaloy/staging
-docker compose -p biddaloy-staging -f docker-compose.yml -f docker-compose.staging.yml \
-  run --rm app node server/dist/scripts/demo-seed/index.js --scale 1 --years 1
-```
-
-(Same entry the demo reset runs, `scripts/demo/reset.sh`. There is no demo-state file on staging.)
-
-**Then give staging its platform school.** Staging runs `NODE_ENV=production`, where the app never guesses the platform
-school, so super-admin and platform pages do nothing until `PLATFORM_TENANT_ID` is set. After each seed:
-
-```bash
-echo "SELECT id FROM schools WHERE slug = 'default-school';" |
-  docker compose -p biddaloy-staging -f docker-compose.yml -f docker-compose.staging.yml \
-  exec -T db sh -c 'psql -U "$POSTGRES_USER" -d biddaloy_staging -tA'
-# put that id in PLATFORM_TENANT_ID (sops infra/secrets/staging.enc.env), then deploy staging again
-```
-
-The id stays the same until the next reseed.
-
-**Turn it off when idle** (frees the RAM; data stays in the volumes):
-
-```bash
-docker compose -p biddaloy-staging down        # add -v to also delete the data
-```
-
-Check no message left. Do not use sign-up, OTP or forgot-password: `DEMO_MODE` refuses those with `403 DEMO_DISABLED`,
-which proves nothing. Instead, as the seeded school admin, set one guardian's phone to a number you hold and send that
-guardian an SMS notice. `docker compose -p biddaloy-staging logs app` must show the demo-log line, and no SMS may
-arrive. The smoke test is skipped for staging (Access would answer it with a login redirect).
 
 ## How a request is served
 
