@@ -110,17 +110,15 @@ const router = createRouter({
 //
 // The values come from `/runtime-config.js` (server env at boot), not the
 // build. `initSentry` still owns the rate's range check and default. It has
-// no `release` option, so the release is set as a tag.
+// owns the `release` default (none when empty).
 const sentryConfig = runtimeConfig();
 initSentry({
   dsn: sentryConfig.sentryDsn || undefined,
   environment: sentryConfig.sentryEnvironment || import.meta.env.MODE,
+  release: sentryConfig.release,
   router,
   tracesSampleRate: sentryConfig.sentryTracesSampleRate,
 });
-// ponytail: `release` is served but not yet sent to Sentry. `initSentry` has no
-// `release` option and client-admin has no `@sentry/react` dependency for a
-// setTag; add `release` to `ui/src/api/sentry.ts` `InitSentryOptions` and pass it here.
 
 // [8.9.8]: opaque tenant id only, kept current across a mid-session
 // switch — see `updateSentryTenantTag`'s own comment
