@@ -1,0 +1,19 @@
+---
+// The SchoolManagERP logo (house + wordmark), inlined from the brand file so its
+// colours follow the light/dark theme through the --logo-* tokens in tokens.css.
+// Each instance needs its own gradient id: the header and the footer are on the same page.
+import raw from '../assets/brand/wordmark.svg?raw';
+
+const { id } = Astro.props as { id: string };
+const gid = `logo-erp-${id}`;
+const svg = raw
+  .replace(/ role="img" aria-label="[^"]*"/, ' class="logo" aria-hidden="true" focusable="false"')
+  .replace('id="erp"', `id="${gid}"`)
+  .replace('url(#erp)', `url(#${gid})`)
+  .replaceAll('fill="#17305E"', 'style="fill:var(--logo-ink)"')
+  .replace('fill="#E8890C"', 'style="fill:var(--logo-roof)"')
+  .replaceAll('stop-color="#17305E"', 'style="stop-color:var(--logo-ink)"')
+  .replace('stop-color="#9D174D"', 'style="stop-color:var(--logo-erp-via)"')
+  .replace('stop-color="#EA580C"', 'style="stop-color:var(--logo-erp-to)"');
+---
+<Fragment set:html={svg} />

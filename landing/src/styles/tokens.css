@@ -22,6 +22,11 @@
   --amber-ink: #8a5a00;
   --coral-ink: #b8401a;
   --brand: var(--indigo);
+  /* SchoolManagERP logo (Logo.astro); match src/assets/brand/wordmark{,-dark}.svg */
+  --logo-ink: #17305e;
+  --logo-roof: #e8890c;
+  --logo-erp-via: #9d174d;
+  --logo-erp-to: #ea580c;
   --shot: #f1f1ee;
   --shot-ink: #6b6a65;
   --font: 'Hind Siliguri', 'Noto Sans Bengali', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -37,23 +42,77 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #191919; --surface: #202020; --surface-2: #2a2a2a; --fg: #e6e6e3; --muted: #9b9a94; --line: #2f2f2f;
-    --ink: #e6e6e3; --ink-fg: #191919;
-    --indigo: #9aa0f5; --indigo-t: #26284a; --teal: #4fd1bd; --teal-t: #143b35;
-    --amber: #f2b63a; --amber-t: #3f3115; --coral: #f08a68; --coral-t: #44251b;
-    --teal-ink: var(--teal); --amber-ink: var(--amber); --coral-ink: var(--coral);
-    --shot: #232323; color-scheme: dark;
+    --bg: #191919;
+    --surface: #202020;
+    --surface-2: #2a2a2a;
+    --fg: #e6e6e3;
+    --muted: #9b9a94;
+    --line: #2f2f2f;
+    --ink: #e6e6e3;
+    --ink-fg: #191919;
+    --indigo: #9aa0f5;
+    --indigo-t: #26284a;
+    --teal: #4fd1bd;
+    --teal-t: #143b35;
+    --amber: #f2b63a;
+    --amber-t: #3f3115;
+    --coral: #f08a68;
+    --coral-t: #44251b;
+    --teal-ink: var(--teal);
+    --amber-ink: var(--amber);
+    --coral-ink: var(--coral);
+    --shot: #232323;
+    color-scheme: dark;
+    --logo-ink: #ffffff;
+    --logo-roof: #f5a524;
+    --logo-erp-via: #fbbf24;
+    --logo-erp-to: #f97316;
   }
 }
 :root[data-theme='dark'] {
-  --bg: #191919; --surface: #202020; --surface-2: #2a2a2a; --fg: #e6e6e3; --muted: #9b9a94; --line: #2f2f2f;
-  --ink: #e6e6e3; --ink-fg: #191919;
-  --indigo: #9aa0f5; --indigo-t: #26284a; --teal: #4fd1bd; --teal-t: #143b35;
-  --amber: #f2b63a; --amber-t: #3f3115; --coral: #f08a68; --coral-t: #44251b;
-  --teal-ink: var(--teal); --amber-ink: var(--amber); --coral-ink: var(--coral);
-  --shot: #232323; color-scheme: dark;
+  --bg: #191919;
+  --surface: #202020;
+  --surface-2: #2a2a2a;
+  --fg: #e6e6e3;
+  --muted: #9b9a94;
+  --line: #2f2f2f;
+  --ink: #e6e6e3;
+  --ink-fg: #191919;
+  --indigo: #9aa0f5;
+  --indigo-t: #26284a;
+  --teal: #4fd1bd;
+  --teal-t: #143b35;
+  --amber: #f2b63a;
+  --amber-t: #3f3115;
+  --coral: #f08a68;
+  --coral-t: #44251b;
+  --teal-ink: var(--teal);
+  --amber-ink: var(--amber);
+  --coral-ink: var(--coral);
+  --shot: #232323;
+  color-scheme: dark;
+  --logo-ink: #ffffff;
+  --logo-roof: #f5a524;
+  --logo-erp-via: #fbbf24;
+  --logo-erp-to: #f97316;
 }
-.c-indigo { --hue: var(--indigo); --hue-ink: var(--indigo); --tint: var(--indigo-t); }
-.c-teal { --hue: var(--teal); --hue-ink: var(--teal-ink); --tint: var(--teal-t); }
-.c-amber { --hue: var(--amber); --hue-ink: var(--amber-ink); --tint: var(--amber-t); }
-.c-coral { --hue: var(--coral); --hue-ink: var(--coral-ink); --tint: var(--coral-t); }
+.c-indigo {
+  --hue: var(--indigo);
+  --hue-ink: var(--indigo);
+  --tint: var(--indigo-t);
+}
+.c-teal {
+  --hue: var(--teal);
+  --hue-ink: var(--teal-ink);
+  --tint: var(--teal-t);
+}
+.c-amber {
+  --hue: var(--amber);
+  --hue-ink: var(--amber-ink);
+  --tint: var(--amber-t);
+}
+.c-coral {
+  --hue: var(--coral);
+  --hue-ink: var(--coral-ink);
+  --tint: var(--coral-t);
+}

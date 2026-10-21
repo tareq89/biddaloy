@@ -909,6 +909,10 @@ if (compiledCss !== null) {
  *
  * The PNG icons are renders of favicon.svg and cannot be verified by reading
  * text; see #358.
+ *
+ * The favicon is no longer on this list: since the SchoolManagERP logo it is
+ * the logo's own navy house tile (landing/src/assets/brand/monogram*.svg),
+ * not the app's brand-600, so pinning it to brand-600 would be wrong.
  */
 const repoRoot = resolve(pkgRoot, '..');
 const outOfUiHexSites = [
@@ -919,7 +923,6 @@ const outOfUiHexSites = [
     'PWA manifest theme_color constant',
   ],
   ['client-admin/index.html', preset.brand[600], 'brand-600', '<meta name="theme-color">'],
-  ['client-admin/public/favicon.svg', preset.brand[600], 'brand-600', 'favicon artwork'],
   [
     'client-admin/src/pwa/manifest.ts',
     preset.neutral[50],

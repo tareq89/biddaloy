@@ -744,15 +744,19 @@
 }
 
 /**
- * Brand-mark colours (wordmark / monogram). Fixed brand values that follow
- * the theme, so `brand-mark.tsx` uses `fill-[color:var(--brand-mark-ink)]`
- * instead of a raw hex (check:raw-palette). Match wordmark{,-dark}.svg.
+ * Brand-mark colours (the SchoolManagERP logo). Fixed brand values that follow
+ * the theme, so `brand-mark.tsx` reads `var(--brand-mark-ink)` instead of a raw
+ * hex (check:raw-palette). Match wordmark{,-dark}.svg.
+ *
+ * - ink: "SchoolManag" + the house blocks
+ * - roof: the house roof
+ * - erp-via / erp-to: the R → P gradient at the end of "ERP"
  */
 :root {
-  --brand-mark-ink: #191919;
-  --brand-mark-accent: #4a3fd4;
-  --brand-mark-erp: #3a30b0;
-  --brand-mark-glyph: #ffffff;
+  --brand-mark-ink: #17305e;
+  --brand-mark-roof: #e8890c;
+  --brand-mark-erp-via: #9d174d;
+  --brand-mark-erp-to: #ea580c;
 }
 
 /**
@@ -778,10 +782,10 @@
   --color-border-functional: var(--color-neutral-500); /* same value; verified separately against the dark bg */
   --color-border-subtle: var(--color-neutral-700); /* decorative only — exempt from 3:1, see the light block */
   --color-brand: var(--color-brand-400);
-  --brand-mark-ink: #f5f5f4;
-  --brand-mark-accent: #9aa0f5;
-  --brand-mark-erp: #9aa0f5;
-  --brand-mark-glyph: #191919;
+  --brand-mark-ink: #ffffff;
+  --brand-mark-roof: #f5a524;
+  --brand-mark-erp-via: #fbbf24;
+  --brand-mark-erp-to: #f97316;
 
   /* Dark-scope shadcn aliases. These are the only ones that cannot follow
      their referenced token automatically:
