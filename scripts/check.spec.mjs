@@ -69,8 +69,9 @@ describe('runTasks', () => {
     );
     const elapsed = Date.now() - start;
 
-    // Sequential would take ~450ms; concurrent should finish close to 150ms.
-    expect(elapsed).toBeLessThan(350);
+    // Sequential can never beat the 450ms of sleeping alone; concurrent is ~150ms plus
+    // process start-up, which a loaded CI runner stretches past 350ms.
+    expect(elapsed).toBeLessThan(450);
   });
 
   // Concurrency, not spawn speed: every task has started before any of them finishes. A
